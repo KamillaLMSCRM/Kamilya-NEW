@@ -22,8 +22,14 @@ from .models import (
     SourceFact,
     StageTiming,
 )
-from .provider_models import ProviderBackedResult, RetrievalMeasurement
+from .provider_models import GroundedBlock, ProviderBackedResult, RetrievalMeasurement
 from .providers import QWEN_QUERY_PREFIX, ChatJsonProvider, EmbeddingProvider, ProviderCallError
+from .quality import (
+    contains_ocr_artifact,
+    evaluate_publishability,
+    is_acceptable_title,
+    is_generic_question,
+)
 
 
 def _normalize(vector: tuple[float, ...]) -> tuple[float, ...]:
@@ -60,6 +66,12 @@ def _numbers(value: str) -> set[str]:
         if pattern.search(value):
             numbers.add(normalized)
     return numbers
+
+
+def _clean_output_text(value: str) -> str:
+    cleaned = re.sub(r"\bтаюке\b", "также", value, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
 
 
 class ProviderBackedEvidenceEngine:
@@ -117,35 +129,47 @@ class ProviderBackedEvidenceEngine:
             questions_by_lesson[question.lesson_id].append(question)
 
         embedding_started = perf_counter()
-        document_batch = self._embeddings.embed([fact.value for fact in facts])
-        document_vectors = tuple(_normalize(vector) for vector in document_batch.vectors)
-        if len(document_vectors) != len(facts):
-            raise ProviderCallError("document embedding count does not match admitted facts")
-        query_texts = [
-            QWEN_QUERY_PREFIX
-            + " ".join(
-                [
-                    plan.title,
-                    plan.objective,
-                    *sorted({facts_by_id[fact_id].attribute for fact_id in plan.fact_ids}),
-                ]
+        embedding_model = ""
+        embedding_dimension = 0
+        embedding_degraded = False
+        embedding_error = ""
+        retrieval: list[RetrievalMeasurement] = []
+        try:
+            document_batch = self._embeddings.embed([fact.value for fact in facts])
+            document_vectors = tuple(_normalize(vector) for vector in document_batch.vectors)
+            if len(document_vectors) != len(facts):
+                raise ProviderCallError("document embedding count does not match admitted facts")
+            query_texts = [
+                QWEN_QUERY_PREFIX
+                + " ".join(
+                    [
+                        plan.title,
+                        plan.objective,
+                        *sorted({facts_by_id[fact_id].attribute for fact_id in plan.fact_ids}),
+                    ]
+                )
+                for plan in evidence_result.evidence_plan
+            ]
+            query_batch = self._embeddings.embed(query_texts)
+            query_vectors = tuple(_normalize(vector) for vector in query_batch.vectors)
+            if len(query_vectors) != len(evidence_result.evidence_plan):
+                raise ProviderCallError("query embedding count does not match lesson plan")
+            retrieval = self._measure_retrieval(
+                facts=facts,
+                document_vectors=document_vectors,
+                query_vectors=query_vectors,
+                plans=evidence_result.evidence_plan,
             )
-            for plan in evidence_result.evidence_plan
-        ]
-        query_batch = self._embeddings.embed(query_texts)
-        query_vectors = tuple(_normalize(vector) for vector in query_batch.vectors)
-        if len(query_vectors) != len(evidence_result.evidence_plan):
-            raise ProviderCallError("query embedding count does not match lesson plan")
-        retrieval = self._measure_retrieval(
-            facts=facts,
-            document_vectors=document_vectors,
-            query_vectors=query_vectors,
-            plans=evidence_result.evidence_plan,
-        )
+            embedding_model = document_batch.model
+            embedding_dimension = len(document_vectors[0]) if document_vectors else 0
+        except ProviderCallError as exc:
+            embedding_degraded = True
+            embedding_error = type(exc).__name__
         embedding_seconds = perf_counter() - embedding_started
 
         realized_lessons: list[LessonDraft] = []
         realized_questions: list[QuestionDraft] = []
+        grounded_blocks: list[GroundedBlock] = []
         validation_errors: list[str] = []
         fallback_count = 0
         prompt_tokens = 0
@@ -157,7 +181,7 @@ class ProviderBackedEvidenceEngine:
             base_lesson = lesson_by_id[plan.lesson_id]
             seeds = questions_by_lesson.get(plan.lesson_id, [])
             request = self._realizer_request(plan, facts_by_id, seeds, intent or CourseIntent())
-            accepted: tuple[LessonDraft, list[QuestionDraft]] | None = None
+            accepted: tuple[LessonDraft, list[QuestionDraft], list[GroundedBlock]] | None = None
             last_error = ""
             for _ in range(self._max_realizer_attempts):
                 try:
@@ -182,24 +206,47 @@ class ProviderBackedEvidenceEngine:
                 validation_errors.append(f"{plan.lesson_id}: {last_error or 'provider unavailable'}")
                 realized_lessons.append(base_lesson)
                 realized_questions.extend(seeds)
+                grounded_blocks.append(
+                    GroundedBlock(
+                        lesson_id=base_lesson.lesson_id,
+                        heading="Детерминированный черновик",
+                        text=base_lesson.content,
+                        fact_ids=base_lesson.fact_ids,
+                    )
+                )
             else:
-                lesson, questions = accepted
+                lesson, questions, lesson_blocks = accepted
                 realized_lessons.append(lesson)
                 realized_questions.extend(questions)
+                grounded_blocks.extend(lesson_blocks)
         realization_seconds = perf_counter() - realization_started
+
+        realized_course = CourseDraft(
+            title=evidence_result.course.title,
+            description=evidence_result.course.description,
+            lessons=tuple(realized_lessons),
+        )
+        realized_assessment = AssessmentDraft(questions=tuple(realized_questions))
+        publishability = evaluate_publishability(
+            course=realized_course,
+            assessment=realized_assessment,
+            blocks=tuple(grounded_blocks),
+            planned_fact_ids={fact.fact_id for fact in evidence_result.admitted_facts},
+            provider_fallback_count=fallback_count,
+        )
 
         return ProviderBackedResult(
             evidence_result=evidence_result,
-            realized_course=CourseDraft(
-                title=evidence_result.course.title,
-                description=evidence_result.course.description,
-                lessons=tuple(realized_lessons),
-            ),
-            realized_assessment=AssessmentDraft(questions=tuple(realized_questions)),
-            embedding_model=document_batch.model,
-            embedding_dimension=len(document_vectors[0]) if document_vectors else 0,
+            realized_course=realized_course,
+            realized_assessment=realized_assessment,
+            embedding_model=embedding_model,
+            embedding_dimension=embedding_dimension,
+            embedding_degraded=embedding_degraded,
+            embedding_error=embedding_error,
             chat_model=chat_model,
             retrieval=tuple(retrieval),
+            grounded_blocks=tuple(grounded_blocks),
+            publishability=publishability,
             provider_fallback_count=fallback_count,
             validation_errors=tuple(validation_errors),
             chat_attempt_count=chat_attempt_count,
@@ -285,22 +332,25 @@ class ProviderBackedEvidenceEngine:
         plan_fact_ids: set[str],
         facts_by_id: dict[str, SourceFact],
         seeds: list[QuestionDraft],
-    ) -> tuple[LessonDraft, list[QuestionDraft]]:
+    ) -> tuple[LessonDraft, list[QuestionDraft], list[GroundedBlock]]:
         blocks = payload.get("blocks")
         if not isinstance(blocks, list) or not blocks:
             raise ValueError("blocks must be a non-empty list")
         rendered: list[str] = []
+        grounded_blocks: list[GroundedBlock] = []
         covered: set[str] = set()
         for block in blocks:
             if not isinstance(block, dict):
                 raise ValueError("block must be an object")
-            heading = str(block.get("heading") or "").strip()
-            text = str(block.get("text") or "").strip()
+            heading = _clean_output_text(str(block.get("heading") or ""))
+            text = _clean_output_text(str(block.get("text") or ""))
             fact_ids = {str(value) for value in block.get("fact_ids") or []}
             if not heading or not text or not fact_ids:
                 raise ValueError("block heading, text and fact_ids are required")
             if not fact_ids <= plan_fact_ids:
                 raise ValueError("block cites a fact outside the lesson plan")
+            if contains_ocr_artifact(heading) or contains_ocr_artifact(text):
+                raise ValueError("block exposes unresolved OCR artifacts")
             allowed_numbers = set().union(
                 *(
                     _numbers(
@@ -324,32 +374,40 @@ class ProviderBackedEvidenceEngine:
                 )
             covered.update(fact_ids)
             rendered.extend([f"### {heading}", "", text, ""])
+            grounded_blocks.append(
+                GroundedBlock(
+                    lesson_id=base_lesson.lesson_id,
+                    heading=heading,
+                    text=text,
+                    fact_ids=tuple(sorted(fact_ids)),
+                )
+            )
         if covered != plan_fact_ids:
             raise ValueError("realizer did not cover every planned fact")
 
         seed_by_fact = {seed.fact_id: seed for seed in seeds}
         raw_questions = payload.get("questions")
-        if not isinstance(raw_questions, list) or len(raw_questions) != len(seeds):
-            raise ValueError("realizer must return exactly one rewrite per question seed")
-        questions: list[QuestionDraft] = []
+        if not isinstance(raw_questions, list):
+            raw_questions = []
+        rewritten_by_fact: dict[str, QuestionDraft] = {}
         seen_fact_ids: set[str] = set()
         for raw in raw_questions:
             if not isinstance(raw, dict):
-                raise ValueError("question must be an object")
+                continue
             cited = tuple(str(value) for value in raw.get("fact_ids") or [])
             if len(cited) != 1 or cited[0] not in seed_by_fact or cited[0] in seen_fact_ids:
-                raise ValueError("question fact_id does not match exactly one seed")
+                continue
             seed = seed_by_fact[cited[0]]
-            options = tuple(str(value) for value in raw.get("options") or [])
-            correct_answer = str(raw.get("correct_answer") or "")
-            if set(options) != set(seed.options) or len(options) != len(seed.options):
-                raise ValueError("question options changed")
-            if correct_answer != seed.correct_answer:
-                raise ValueError("question correct answer changed")
-            prompt = str(raw.get("prompt") or "").strip()
-            explanation = str(raw.get("explanation") or "").strip()
+            options = seed.options
+            correct_answer = seed.correct_answer
+            prompt = _clean_output_text(str(raw.get("prompt") or ""))
+            explanation = _clean_output_text(str(raw.get("explanation") or ""))
             if not prompt or not explanation:
-                raise ValueError("question prompt and explanation are required")
+                continue
+            if is_generic_question(prompt):
+                continue
+            if contains_ocr_artifact(prompt) or contains_ocr_artifact(explanation):
+                continue
             fact = facts_by_id[seed.fact_id]
             allowed_numbers = set().union(
                 *(
@@ -366,33 +424,34 @@ class ProviderBackedEvidenceEngine:
             )
             unexpected_numbers = (_numbers(prompt) | _numbers(explanation)) - allowed_numbers
             if unexpected_numbers:
-                raise ValueError(
-                    "question introduces a number absent from its evidence: "
-                    f"{sorted(unexpected_numbers)}"
-                )
-            questions.append(
-                QuestionDraft(
-                    question_id=seed.question_id,
-                    lesson_id=seed.lesson_id,
-                    kind=seed.kind,
-                    prompt=prompt,
-                    options=options,
-                    correct_answer=correct_answer,
-                    explanation=explanation,
-                    fact_id=seed.fact_id,
-                    distractor_fact_ids=seed.distractor_fact_ids,
-                )
+                continue
+            rewritten_by_fact[seed.fact_id] = QuestionDraft(
+                question_id=seed.question_id,
+                lesson_id=seed.lesson_id,
+                kind=seed.kind,
+                prompt=prompt,
+                options=options,
+                correct_answer=correct_answer,
+                explanation=explanation,
+                fact_id=seed.fact_id,
+                distractor_fact_ids=seed.distractor_fact_ids,
             )
             seen_fact_ids.add(seed.fact_id)
+        questions = [rewritten_by_fact.get(seed.fact_id, seed) for seed in seeds]
         word_count = len(re.findall(r"\w+", " ".join(rendered)))
+        if word_count > 650:
+            raise ValueError("lesson exceeds the 650-word publishability ceiling")
+        title = _clean_output_text(str(payload.get("title") or base_lesson.title)).lstrip("# ")
+        if not is_acceptable_title(title):
+            raise ValueError("lesson title is not a concise complete nominal phrase")
         lesson = LessonDraft(
             lesson_id=base_lesson.lesson_id,
             module_title=base_lesson.module_title,
-            title=str(payload.get("title") or base_lesson.title).strip(),
-            objective=str(payload.get("objective") or base_lesson.objective).strip(),
+            title=title,
+            objective=_clean_output_text(str(payload.get("objective") or base_lesson.objective)),
             content="\n".join(rendered).strip(),
             fact_ids=base_lesson.fact_ids,
             supporting_fact_ids=base_lesson.supporting_fact_ids,
             duration_minutes=max(2, math.ceil(word_count / 130)),
         )
-        return lesson, questions
+        return lesson, questions, grounded_blocks

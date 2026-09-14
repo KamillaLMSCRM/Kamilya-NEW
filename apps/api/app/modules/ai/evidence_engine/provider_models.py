@@ -33,14 +33,38 @@ class RetrievalMeasurement:
 
 
 @dataclass(frozen=True, slots=True)
+class GroundedBlock:
+    lesson_id: str
+    heading: str
+    text: str
+    fact_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PublishabilityReport:
+    publishable: bool
+    reasons: tuple[str, ...]
+    fact_coverage_ratio: float
+    generic_question_count: int
+    duplicate_question_count: int
+    ocr_artifact_count: int
+    invalid_title_count: int
+    overlong_lesson_count: int
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderBackedResult:
     evidence_result: EvidenceCourseResult
     realized_course: CourseDraft
     realized_assessment: AssessmentDraft
     embedding_model: str
     embedding_dimension: int
+    embedding_degraded: bool
+    embedding_error: str
     chat_model: str
     retrieval: tuple[RetrievalMeasurement, ...]
+    grounded_blocks: tuple[GroundedBlock, ...]
+    publishability: PublishabilityReport
     provider_fallback_count: int
     validation_errors: tuple[str, ...]
     chat_attempt_count: int

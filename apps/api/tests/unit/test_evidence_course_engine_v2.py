@@ -25,6 +25,14 @@ class _RecordingEmbeddings:
         return EmbeddingBatch(vectors=vectors, model="qwen-test", duration_seconds=0.01)
 
 
+class _UnavailableEmbeddings:
+    def embed(self, texts: list[str]) -> EmbeddingBatch:
+        del texts
+        from app.modules.ai.evidence_engine.providers import ProviderCallError
+
+        raise ProviderCallError("embedding endpoint unavailable")
+
+
 class _GroundedChat:
     def __init__(self, *, unsupported_fact: bool = False) -> None:
         self.requests: list[dict[str, Any]] = []
@@ -122,6 +130,77 @@ class _NormalizedOcrNumberChat:
             model="deepseek-test",
             duration_seconds=0.01,
         )
+
+
+class _AutonomousOcrRepairChat:
+    def __init__(self) -> None:
+        self.attempts = 0
+
+    def complete_json(self, request: dict[str, Any]) -> ChatCompletion:
+        self.attempts += 1
+        fact_ids = [fact["fact_id"] for fact in request["facts"]]
+        if self.attempts == 1:
+            title = "После получения заявления сотрудник ломбарда обязан"
+            text = "Порог ()()() МРП применяется при принятии решения."
+        else:
+            title = "Условия рассмотрения заявления"
+            text = (
+                "Сотрудник применяет только читаемые условия положения. "
+                "Нераспознанное пороговое значение не воспроизводится и не заменяется догадкой."
+            )
+        return ChatCompletion(
+            payload={
+                "title": title,
+                "objective": request["objective"],
+                "blocks": [
+                    {
+                        "heading": "Применение правила",
+                        "text": text,
+                        "fact_ids": fact_ids,
+                    }
+                ],
+                "questions": [],
+            },
+            model="deepseek-test",
+            duration_seconds=0.01,
+        )
+
+
+class _MetaQuestionChat(_GroundedChat):
+    def complete_json(self, request: dict[str, Any]) -> ChatCompletion:
+        completion = super().complete_json(request)
+        for question in completion.payload["questions"]:
+            question["prompt"] = "О чём этот урок?"
+        return completion
+
+
+class _MutatingAnswerChat(_GroundedChat):
+    def complete_json(self, request: dict[str, Any]) -> ChatCompletion:
+        completion = super().complete_json(request)
+        for question in completion.payload["questions"]:
+            question["options"] = ["Изменённый моделью вариант"]
+            question["correct_answer"] = "Изменённый моделью ответ"
+        return completion
+
+
+class _OmittingQuestionRewriteChat(_GroundedChat):
+    def complete_json(self, request: dict[str, Any]) -> ChatCompletion:
+        completion = super().complete_json(request)
+        completion.payload["questions"] = []
+        return completion
+
+
+class _ExtraQuestionRewriteChat(_GroundedChat):
+    def complete_json(self, request: dict[str, Any]) -> ChatCompletion:
+        completion = super().complete_json(request)
+        completion.payload["questions"].append(
+            {
+                "prompt": "Лишний вопрос модели",
+                "explanation": "Не относится к серверному плану.",
+                "fact_ids": ["unknown-fact"],
+            }
+        )
+        return completion
 
 
 def _narrative_source(*facts: str) -> SourceDocument:
@@ -404,6 +483,49 @@ def test_provider_v2_preserves_source_backed_answer_options() -> None:
     )
 
 
+def test_provider_v2_treats_answer_options_as_server_owned_data() -> None:
+    source = _narrative_source(
+        "Заявление рассматривается в течение 15 рабочих дней.",
+        "Ответ направляется в течение 30 календарных дней.",
+        "Короткое уведомление направляется в течение 3 рабочих дней.",
+    )
+
+    result = ProviderBackedEvidenceEngine(
+        embeddings=_RecordingEmbeddings(),
+        chat=_MutatingAnswerChat(),
+        max_realizer_attempts=1,
+    ).generate_from_document(source)
+
+    assert result.provider_fallback_count == 0
+    assert result.publishability.publishable is True
+    assert all(
+        realized.options == seed.options and realized.correct_answer == seed.correct_answer
+        for realized, seed in zip(
+            result.realized_assessment.questions,
+            result.evidence_result.assessment.questions,
+            strict=True,
+        )
+    )
+
+
+def test_provider_v2_keeps_safe_seed_when_model_omits_optional_question_rewrite() -> None:
+    source = _narrative_source(
+        "Заявление рассматривается в течение 15 рабочих дней.",
+        "Ответ направляется в течение 30 календарных дней.",
+        "Короткое уведомление направляется в течение 3 рабочих дней.",
+    )
+
+    result = ProviderBackedEvidenceEngine(
+        embeddings=_RecordingEmbeddings(),
+        chat=_OmittingQuestionRewriteChat(),
+        max_realizer_attempts=1,
+    ).generate_from_document(source)
+
+    assert result.provider_fallback_count == 0
+    assert result.publishability.publishable is True
+    assert result.realized_assessment.questions == result.evidence_result.assessment.questions
+
+
 def test_provider_v2_allows_numbers_present_in_fact_subject_or_attribute() -> None:
     source = SourceDocument(
         source_id="metadata-numbers",
@@ -506,3 +628,132 @@ def test_provider_v2_accepts_digit_normalization_of_russian_and_ocr_numbers() ->
     ).generate_from_document(source)
 
     assert result.provider_fallback_count == 0
+
+
+def test_provider_v2_returns_publishable_grounded_blocks_for_clean_result() -> None:
+    source = _narrative_source(
+        "Заявление рассматривается в течение 15 рабочих дней.",
+        "Ответ направляется в течение 30 календарных дней.",
+        "Короткое уведомление направляется в течение 3 рабочих дней.",
+    )
+
+    result = ProviderBackedEvidenceEngine(
+        embeddings=_RecordingEmbeddings(),
+        chat=_GroundedChat(),
+    ).generate_from_document(source)
+
+    assert result.publishability.publishable is True
+    assert result.publishability.reasons == ()
+    assert result.publishability.fact_coverage_ratio == 1.0
+    assert result.grounded_blocks
+    assert {fact_id for block in result.grounded_blocks for fact_id in block.fact_ids} == {
+        fact.fact_id for fact in result.evidence_result.admitted_facts
+    }
+
+
+def test_provider_v2_repairs_ocr_noise_without_methodologist_preflight() -> None:
+    source = _narrative_source(
+        "Микрокредит не предоставляется выше ()()() месячного расчётного показателя.",
+        "Заявление рассматривается сотрудником ломбарда.",
+    )
+    chat = _AutonomousOcrRepairChat()
+
+    result = ProviderBackedEvidenceEngine(
+        embeddings=_RecordingEmbeddings(),
+        chat=chat,
+        max_realizer_attempts=2,
+    ).generate_from_document(source)
+
+    assert chat.attempts == 2
+    assert result.provider_fallback_count == 0
+    assert result.publishability.publishable is True
+    assert result.publishability.ocr_artifact_count == 0
+    assert "()()()" not in result.realized_course.lessons[0].content
+    assert result.realized_course.lessons[0].title == "Условия рассмотрения заявления"
+
+
+def test_provider_v2_drops_meta_question_rewrite_and_keeps_safe_seed() -> None:
+    source = _narrative_source(
+        "Заявление рассматривается в течение 15 рабочих дней.",
+        "Ответ направляется в течение 30 календарных дней.",
+        "Короткое уведомление направляется в течение 3 рабочих дней.",
+    )
+
+    result = ProviderBackedEvidenceEngine(
+        embeddings=_RecordingEmbeddings(),
+        chat=_MetaQuestionChat(),
+        max_realizer_attempts=1,
+    ).generate_from_document(source)
+
+    assert result.provider_fallback_count == 0
+    assert result.publishability.publishable is True
+    assert all("О чём этот урок" not in question.prompt for question in result.realized_assessment.questions)
+
+
+def test_provider_v2_ignores_extra_model_questions_outside_server_plan() -> None:
+    source = _narrative_source(
+        "Заявление рассматривается в течение 15 рабочих дней.",
+        "Ответ направляется в течение 30 календарных дней.",
+        "Короткое уведомление направляется в течение 3 рабочих дней.",
+    )
+
+    result = ProviderBackedEvidenceEngine(
+        embeddings=_RecordingEmbeddings(),
+        chat=_ExtraQuestionRewriteChat(),
+        max_realizer_attempts=1,
+    ).generate_from_document(source)
+
+    assert result.provider_fallback_count == 0
+    assert result.publishability.publishable is True
+    assert len(result.realized_assessment.questions) == len(result.evidence_result.assessment.questions)
+    assert all(question.fact_id != "unknown-fact" for question in result.realized_assessment.questions)
+
+
+def test_provider_v2_uses_subject_specific_spreadsheet_questions() -> None:
+    source = SourceDocument(
+        source_id="collections",
+        title="Коллекции",
+        kind="spreadsheet",
+        sections=(
+            SourceSection(
+                section_id="primary",
+                title="Коллекции",
+                role="primary",
+                facts=(
+                    SourceFact("one", "Феникс", "Для каких комнат", "Спальня и гостиная", "row=1"),
+                    SourceFact("two", "Чикаго", "Для каких комнат", "Прихожая и спальня", "row=2"),
+                    SourceFact("three", "Нео", "Для каких комнат", "Гостиная и кабинет", "row=3"),
+                ),
+            ),
+        ),
+    )
+
+    result = ProviderBackedEvidenceEngine(
+        embeddings=_RecordingEmbeddings(),
+        chat=_GroundedChat(),
+    ).generate_from_document(source)
+
+    prompts = [question.prompt for question in result.realized_assessment.questions]
+    assert prompts
+    assert all("Что указано" not in prompt for prompt in prompts)
+    assert any("Для каких помещений подходит" in prompt for prompt in prompts)
+
+
+def test_provider_v2_continues_when_auxiliary_embedding_is_unavailable() -> None:
+    source = _narrative_source(
+        "Заявление рассматривается в течение 15 рабочих дней.",
+        "Ответ направляется в течение 30 календарных дней.",
+        "Короткое уведомление направляется в течение 3 рабочих дней.",
+    )
+
+    result = ProviderBackedEvidenceEngine(
+        embeddings=_UnavailableEmbeddings(),
+        chat=_GroundedChat(),
+    ).generate_from_document(source)
+
+    assert result.embedding_degraded is True
+    assert result.embedding_error == "ProviderCallError"
+    assert result.embedding_dimension == 0
+    assert result.retrieval == ()
+    assert result.provider_fallback_count == 0
+    assert result.publishability.publishable is True

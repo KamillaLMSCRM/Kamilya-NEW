@@ -36,10 +36,16 @@ def discover_models(
 ) -> tuple[str, ...]:
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     try:
+        timeout = httpx.Timeout(
+            connect=min(5.0, timeout_seconds),
+            read=timeout_seconds,
+            write=min(10.0, timeout_seconds),
+            pool=min(5.0, timeout_seconds),
+        )
         response = httpx.get(
             f"{base_url.rstrip('/')}/models",
             headers=headers,
-            timeout=timeout_seconds,
+            timeout=timeout,
         )
         response.raise_for_status()
         data = response.json().get("data", [])
@@ -75,7 +81,13 @@ class OpenAICompatibleEmbeddingProvider:
         vectors: list[tuple[float, ...]] = []
         started = perf_counter()
         try:
-            with httpx.Client(timeout=self._timeout_seconds) as client:
+            timeout = httpx.Timeout(
+                connect=min(5.0, self._timeout_seconds),
+                read=self._timeout_seconds,
+                write=min(20.0, self._timeout_seconds),
+                pool=min(5.0, self._timeout_seconds),
+            )
+            with httpx.Client(timeout=timeout) as client:
                 for offset in range(0, len(texts), self._batch_size):
                     batch = texts[offset : offset + self._batch_size]
                     response = client.post(
@@ -109,12 +121,20 @@ entities, promises, legal interpretations, or examples that are absent from the
 provided facts. Every teaching block must cite the exact fact_ids that support it.
 Use clear natural Russian. Explain how an employee should understand or apply the
 facts, but do not invent a business process. Rewrite question prompts into useful
-workplace checks while preserving the exact options, correct answer, and fact_id
-from each question seed. Do not create extra questions to reach a quota.
+workplace checks while preserving the exact fact_id from each question seed.
+Answer options and the correct answer are server-owned: do not return or rewrite
+them. Prefer direct attribute questions or a short workplace
+situation when the evidence supports it. Never ask what is stated in a lesson,
+course, heading, table, source, or material, and never ask what the lesson is about.
+Do not create extra questions to reach a quota. Correct obvious OCR spelling noise,
+but if a glyph sequence or value is unreadable, omit only that unreadable fragment
+and never infer its replacement. Use a concise complete nominal lesson title of
+3-8 words, not a sentence or a clause copied from the source. Keep the lesson under
+600 words.
 Output schema:
 {"title":str,"objective":str,"blocks":[{"heading":str,"text":str,
-"fact_ids":[str]}],"questions":[{"prompt":str,"options":[str],
-"correct_answer":str,"explanation":str,"fact_ids":[str]}]}"""
+"fact_ids":[str]}],"questions":[{"prompt":str,"explanation":str,
+"fact_ids":[str]}]}"""
 
     def __init__(
         self,
@@ -136,6 +156,12 @@ Output schema:
     def complete_json(self, request: dict[str, Any]) -> ChatCompletion:
         started = perf_counter()
         try:
+            timeout = httpx.Timeout(
+                connect=min(10.0, self._timeout_seconds),
+                read=self._timeout_seconds,
+                write=min(30.0, self._timeout_seconds),
+                pool=min(10.0, self._timeout_seconds),
+            )
             response = httpx.post(
                 f"{self._base_url}/chat/completions",
                 headers={
@@ -156,7 +182,7 @@ Output schema:
                     "response_format": {"type": "json_object"},
                     "thinking": {"type": "disabled"},
                 },
-                timeout=self._timeout_seconds,
+                timeout=timeout,
             )
             response.raise_for_status()
             body = response.json()

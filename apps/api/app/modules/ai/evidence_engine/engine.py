@@ -275,6 +275,32 @@ def _supporting_example_facts(
     return ()
 
 
+def _spreadsheet_question_prompt(fact: SourceFact) -> str:
+    attribute = _norm(fact.attribute)
+    subject = fact.subject.strip()
+    if "комнат" in attribute or "помещен" in attribute:
+        return f"Для каких помещений подходит «{subject}»?"
+    if "материал корпуса" in attribute:
+        return f"Из какого материала выполнен корпус «{subject}»?"
+    if "материал фасада" in attribute:
+        return f"Из какого материала выполнен фасад «{subject}»?"
+    if "цвет" in attribute or "отделк" in attribute:
+        return f"Какие цвета или варианты отделки доступны для «{subject}»?"
+    if "стиль" in attribute:
+        return f"Какой стиль характерен для «{subject}»?"
+    if "основн" in attribute and "иде" in attribute:
+        return f"Какова основная идея коллекции «{subject}»?"
+    if "что это" in attribute or "описан" in attribute:
+        return f"Какое описание точнее всего характеризует «{subject}»?"
+    if "что сказать" in attribute or "покупател" in attribute:
+        return f"Как лучше представить покупателю коллекцию «{subject}»?"
+    if "отлич" in attribute:
+        return f"Чем «{subject}» отличается от сопоставимых коллекций?"
+    if "особенност" in attribute or "преимуществ" in attribute:
+        return f"Какая особенность лучше всего характеризует «{subject}»?"
+    return f"Какая характеристика «{fact.attribute}» относится к «{subject}»?"
+
+
 class EvidenceCourseEngine:
     """Deep public seam for the local V2 experiment.
 
@@ -555,7 +581,7 @@ class EvidenceCourseEngine:
                             question_id=_stable_id("question", fact.fact_id),
                             lesson_id=lesson.lesson_id,
                             kind="single_choice",
-                            prompt=f"Что указано для «{fact.subject}» в поле «{fact.attribute}»?",
+                            prompt=_spreadsheet_question_prompt(fact),
                             options=tuple(value for value, _ in option_pairs),
                             correct_answer=fact.value,
                             explanation=f"Подтверждено источником: {fact.value}",

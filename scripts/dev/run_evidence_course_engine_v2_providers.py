@@ -27,6 +27,7 @@ from app.modules.ai.evidence_engine.provider_models import (  # noqa: E402
 from app.modules.ai.evidence_engine.providers import (  # noqa: E402
     DeepSeekJsonProvider,
     OpenAICompatibleEmbeddingProvider,
+    ProviderCallError,
     discover_models,
 )
 
@@ -113,6 +114,8 @@ def _metrics(result: ProviderBackedResult, wall_seconds: float, output_text: str
         "stage_seconds": {item.stage: item.seconds for item in result.timings},
         "embedding_model": result.embedding_model,
         "embedding_dimension": result.embedding_dimension,
+        "embedding_degraded": result.embedding_degraded,
+        "embedding_error": result.embedding_error,
         "chat_model": result.chat_model,
         "prompt_tokens": result.prompt_tokens,
         "completion_tokens": result.completion_tokens,
@@ -122,6 +125,14 @@ def _metrics(result: ProviderBackedResult, wall_seconds: float, output_text: str
         "provider_fallbacks": result.provider_fallback_count,
         "chat_attempts": result.chat_attempt_count,
         "validation_errors": list(result.validation_errors),
+        "publishable": result.publishability.publishable,
+        "publishability_reasons": list(result.publishability.reasons),
+        "fact_coverage_ratio": result.publishability.fact_coverage_ratio,
+        "generic_question_count": result.publishability.generic_question_count,
+        "duplicate_question_count": result.publishability.duplicate_question_count,
+        "ocr_artifact_count": result.publishability.ocr_artifact_count,
+        "invalid_title_count": result.publishability.invalid_title_count,
+        "overlong_lesson_count": result.publishability.overlong_lesson_count,
         "retrieval_recall_mean": sum(recall_values) / len(recall_values) if recall_values else 0.0,
         "retrieval_recall_min": min(recall_values, default=0.0),
         "semantic_fingerprint": result.evidence_result.semantic_fingerprint,
@@ -145,7 +156,7 @@ def _run_source(
     embedding = OpenAICompatibleEmbeddingProvider(
         base_url=embedding_url,
         model=embedding_model,
-        timeout_seconds=60,
+        timeout_seconds=30,
         batch_size=64,
     )
     chat = _ProgressChat(
@@ -153,8 +164,8 @@ def _run_source(
             base_url=deepseek_url,
             api_key=deepseek_key,
             model=deepseek_model,
-            timeout_seconds=90,
-            max_tokens=5000,
+            timeout_seconds=60,
+            max_tokens=2500,
         ),
         label=f"{label}/run-{run_number}",
         total=lesson_count * 2,
@@ -207,8 +218,8 @@ def _report(output: Path, summary: dict[str, Any]) -> None:
         "",
         "## Измерения",
         "",
-        "| Источник | Прогонов | Уроки | Вопросы | DeepSeek calls | Среднее время | Prompt tokens | Completion tokens | Fallback | Mean recall@k | Min recall@k |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Источник | Прогонов | Уроки | Вопросы | DeepSeek calls | Среднее время | Prompt tokens | Completion tokens | Fallback | Publishable | Mean recall@k | Min recall@k |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for label, runs in summary["results"].items():
         first = runs[0]
@@ -219,6 +230,7 @@ def _report(output: Path, summary: dict[str, Any]) -> None:
             f"{average_seconds:.2f} с | {sum(item['prompt_tokens'] for item in runs)} | "
             f"{sum(item['completion_tokens'] for item in runs)} | "
             f"{sum(item['provider_fallbacks'] for item in runs)} | "
+            f"{'да' if all(item['publishable'] for item in runs) else 'нет'} | "
             f"{sum(item['retrieval_recall_mean'] for item in runs) / len(runs):.1%} | "
             f"{min(item['retrieval_recall_min'] for item in runs):.1%} |"
         )
@@ -258,25 +270,29 @@ def main() -> int:
     parser.add_argument("--ocr-json", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--runs", type=int, default=3)
+    parser.add_argument("--source", choices=("both", "excel", "pdf"), default="both")
+    parser.add_argument("--deepseek-model", default="")
     args = parser.parse_args()
-    if args.runs < 2:
-        raise ValueError("At least two provider-backed runs are required")
+    if args.runs < 1:
+        raise ValueError("At least one provider-backed run is required")
     _load_env(args.env_file)
     deepseek_key = os.environ.get("DEEPSEEK_API_KEY", "")
     deepseek_url = _with_v1(os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com"))
     if not deepseek_key:
         raise RuntimeError("DEEPSEEK_API_KEY is missing")
     deepseek_models = discover_models(base_url=deepseek_url, api_key=deepseek_key)
-    preferred_chat = os.environ.get("DEEPSEEK_MODEL", "")
+    preferred_chat = args.deepseek_model or os.environ.get("DEEPSEEK_MODEL", "")
     deepseek_model = preferred_chat if preferred_chat in deepseek_models else "deepseek-flash"
     if deepseek_model not in deepseek_models:
         raise RuntimeError("No supported DeepSeek model discovered")
 
     embedding_url = _with_v1(os.environ["EMBEDDING_URL"])
-    embedding_models = discover_models(base_url=embedding_url)
-    if not embedding_models:
-        raise RuntimeError("No embedding model discovered")
-    embedding_model = embedding_models[0]
+    configured_embedding_model = os.environ.get("EMBEDDING_MODEL", "Qwen3-Embedding-8B")
+    try:
+        embedding_models = discover_models(base_url=embedding_url)
+        embedding_model = embedding_models[0] if embedding_models else configured_embedding_model
+    except ProviderCallError:
+        embedding_model = configured_embedding_model
 
     ocr = json.loads(args.ocr_json.read_text(encoding="utf-8"))
     narrative = narrative_document_from_pages(path=args.pdf, pages=ocr["pages"])
@@ -292,44 +308,50 @@ def main() -> int:
     pdf_lesson_count = len(base_engine.generate_from_document(narrative, intent=intent).course.lessons)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    results: dict[str, list[dict[str, Any]]] = {"Плюс Excel": [], "Ломбард PDF": []}
+    results: dict[str, list[dict[str, Any]]] = {}
+    if args.source in {"both", "excel"}:
+        results["Плюс Excel"] = []
+    if args.source in {"both", "pdf"}:
+        results["Ломбард PDF"] = []
     for run_number in range(1, args.runs + 1):
-        results["Плюс Excel"].append(
-            _run_source(
-                label="plus-excel",
-                run_number=run_number,
-                output_dir=args.output_dir,
-                embedding_url=embedding_url,
-                embedding_model=embedding_model,
-                deepseek_url=deepseek_url,
-                deepseek_key=deepseek_key,
-                deepseek_model=deepseek_model,
-                generate=lambda engine, seed: engine.generate(
-                    args.excel,
-                    intent=intent,
-                    simulation_seed=seed,
-                ),
-                lesson_count=excel_lesson_count,
+        if args.source in {"both", "excel"}:
+            results["Плюс Excel"].append(
+                _run_source(
+                    label="plus-excel",
+                    run_number=run_number,
+                    output_dir=args.output_dir,
+                    embedding_url=embedding_url,
+                    embedding_model=embedding_model,
+                    deepseek_url=deepseek_url,
+                    deepseek_key=deepseek_key,
+                    deepseek_model=deepseek_model,
+                    generate=lambda engine, seed: engine.generate(
+                        args.excel,
+                        intent=intent,
+                        simulation_seed=seed,
+                    ),
+                    lesson_count=excel_lesson_count,
+                )
             )
-        )
-        results["Ломбард PDF"].append(
-            _run_source(
-                label="lombard-pdf",
-                run_number=run_number,
-                output_dir=args.output_dir,
-                embedding_url=embedding_url,
-                embedding_model=embedding_model,
-                deepseek_url=deepseek_url,
-                deepseek_key=deepseek_key,
-                deepseek_model=deepseek_model,
-                generate=lambda engine, seed: engine.generate_from_document(
-                    narrative,
-                    intent=intent,
-                    simulation_seed=seed,
-                ),
-                lesson_count=pdf_lesson_count,
+        if args.source in {"both", "pdf"}:
+            results["Ломбард PDF"].append(
+                _run_source(
+                    label="lombard-pdf",
+                    run_number=run_number,
+                    output_dir=args.output_dir,
+                    embedding_url=embedding_url,
+                    embedding_model=embedding_model,
+                    deepseek_url=deepseek_url,
+                    deepseek_key=deepseek_key,
+                    deepseek_model=deepseek_model,
+                    generate=lambda engine, seed: engine.generate_from_document(
+                        narrative,
+                        intent=intent,
+                        simulation_seed=seed,
+                    ),
+                    lesson_count=pdf_lesson_count,
+                )
             )
-        )
     summary = {
         "providers": {
             "embedding_url": embedding_url,
