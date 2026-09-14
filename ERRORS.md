@@ -31,6 +31,46 @@ Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
 
+## AI-QUALITY-022 - A grounded question tested a neighboring lesson topic
+
+- Date: 2026-09-14. Confirmed in the production synthetic-tenant Lombard PDF
+  course and reproduced with a source containing both application and complaint
+  deadlines.
+- Symptom: lesson content correctly taught application review and the GKB check,
+  while its quiz could ask the independently grounded deadline for customer
+  complaints from another source section. Similar crossings appeared between
+  APR and reward-payment timing, and between client rights and lender duties.
+- Cause: evidence validation proved the question and answer against the complete
+  lesson retrieval window but did not bind a neighboring quote to the admitted
+  direct-source lesson topic.
+- Fix: only for lessons carrying the current direct-source quality policy, admit
+  a quote outside the authored lesson body when the tested fact shares at least
+  two distinctive title/objective anchors. Matrix entity cards retain their
+  stricter dedicated ownership gate. Rejected questions are not quota-padded.
+- Verification: the first title-only guard was rejected because five existing
+  tests exposed false positives. The bounded replacement passes seven new
+  positive/negative regressions, 357 related tests and the complete 1694-test API
+  unit suite.
+- Prevention: every source-window expansion must replay one same-document
+  neighboring topic with a shared generic verb, plus a grounded paraphrase
+  positive. A fact may be source-grounded and still be wrong for the lesson.
+
+## AI-ADMISSION-002 - Source-reuse confirmation was rate-limited by its own probe
+
+- Date: 2026-09-14. Confirmed in the production synthetic-tenant browser flow.
+- Symptom: the first generate request intentionally returned
+  `409 source_documents_already_used`; the immediate confirmed request then
+  returned `429`, leaving the methodologist in a reopen-and-wait loop.
+- Cause: both requests consumed the endpoint limiter, but the configured burst
+  allowed only one request although the supported reuse flow requires exactly
+  two adjacent POST requests.
+- Fix: retain the existing two-per-minute and ten-per-hour limits while allowing
+  a burst of two for `/api/v1/ai/generate-course`.
+- Verification: the regression failed against burst size one, then the focused
+  limiter suite passed 37 tests and the complete API unit suite passed 1694.
+- Prevention: every expected multi-request UI handshake must have one contract
+  test binding its maximum immediate request count to the limiter configuration.
+
 ## AI-QUALITY-021 - Similar matrix columns crossed lesson and question ownership
 
 - Date: 2026-09-14. Confirmed with the complete control workbook after the

@@ -20,6 +20,7 @@ from app.modules.ai.assessment_schema import (
     CourseAssessment,
     LessonAssessment,
 )
+from app.modules.ai.lesson_quality import LESSON_QUALITY_POLICY_VERSION
 from app.modules.ai.llm_client import LLMClient
 from app.modules.ai.writer_schema import LessonContent
 from app.modules.editor_assistant.question_validator import (
@@ -1546,6 +1547,77 @@ def _validate_lesson_entity_scope(
     return issues
 
 
+_LESSON_SCOPE_GENERIC_STEMS = frozenset(
+    {
+        "descr",
+        "expla",
+        "ident",
+        "lesson",
+        "order",
+        "rule",
+        "state",
+        "under",
+        "what",
+        "курс",
+        "матер",
+        "назыв",
+        "описа",
+        "опред",
+        "переч",
+        "поряд",
+        "прави",
+        "разъя",
+        "рассм",
+        "срок",
+        "услов",
+    }
+)
+
+
+def _validate_direct_lesson_topic_scope(
+    data: dict[str, Any], lesson: LessonContent | None,
+) -> list[str]:
+    """Reject a neighboring source fact that is not tied to this direct-source lesson.
+
+    The direct writer has already produced an admitted lesson body.  Its exact
+    source quote is always safe.  A quote from the wider retrieval window must
+    instead share at least two distinctive anchors with the title/objectives.
+    Comparison-matrix lessons retain their dedicated entity validator above.
+    """
+    if lesson is None or lesson.quality_policy_version != LESSON_QUALITY_POLICY_VERSION:
+        return []
+    if re.match(
+        r"^\s*(?:коллекци\w*|collections?|топтама\w*)\s*:",
+        lesson.title,
+        re.IGNORECASE,
+    ):
+        return []
+    topic_stems = _grounding_stems(" ".join((lesson.title, *lesson.objectives)))
+    topic_stems -= _LESSON_SCOPE_GENERIC_STEMS
+    if len(topic_stems) < 2:
+        return []
+    normalized_content = _normalize_evidence_text(lesson.content)
+    issues: list[str] = []
+    for index, question in enumerate(data.get("mcq", []), start=1):
+        if not isinstance(question, dict):
+            continue
+        source_quote = str(question.get("source_quote", ""))
+        normalized_quote = _normalize_evidence_text(source_quote)
+        if normalized_quote and normalized_quote in normalized_content:
+            continue
+        correct_answers = " ".join(
+            str(option.get("text", ""))
+            for option in question.get("options", [])
+            if isinstance(option, dict) and option.get("is_correct") is True
+        )
+        tested_stems = _grounding_stems(
+            " ".join((str(question.get("question", "")), source_quote, correct_answers))
+        )
+        if len(topic_stems & tested_stems) < 2:
+            issues.append(f"MCQ #{index}: source fact is outside the authored lesson topic")
+    return issues
+
+
 def _recover_valid_questions(
     data: dict[str, Any],
     *,
@@ -1556,6 +1628,7 @@ def _recover_valid_questions(
     maximum_questions: int | None = None,
     excluded_fact_keys: frozenset[tuple[str, str]] = frozenset(),
     initial_questions: list[dict[str, Any]] | None = None,
+    lesson_scope: LessonContent | None = None,
 ) -> list[dict[str, Any]]:
     """Keep valid MCQs in priority order and extend an already valid prefix."""
     valid_questions = copy.deepcopy(initial_questions or [])
@@ -1576,6 +1649,7 @@ def _recover_valid_questions(
             excluded_fact_keys,
         )
         issues.extend(_validate_lesson_entity_scope(candidate_data, bounded_source, lesson_title))
+        issues.extend(_validate_direct_lesson_topic_scope(candidate_data, lesson_scope))
         issues.extend(_validate_generated_question_set(candidate_data, language))
         try:
             candidate: LessonAssessment = LessonAssessment.from_dict(  # type: ignore[no-untyped-call]
@@ -1597,6 +1671,7 @@ def _recover_valid_questions(
                     excluded_fact_keys,
                 )
                 proposed_issues.extend(_validate_lesson_entity_scope(proposed, bounded_source, lesson_title))
+                proposed_issues.extend(_validate_direct_lesson_topic_scope(proposed, lesson_scope))
                 proposed_issues.extend(_validate_generated_question_set(proposed, language))
                 if proposed_issues:
                     continue
@@ -1618,6 +1693,7 @@ def _recover_valid_assessment(
     minimum_questions: int,
     maximum_questions: int | None = None,
     excluded_fact_keys: frozenset[tuple[str, str]] = frozenset(),
+    lesson_scope: LessonContent | None = None,
 ) -> LessonAssessment | None:
     """Keep only independently valid MCQs after provider retries are exhausted."""
     valid_questions = _recover_valid_questions(
@@ -1628,6 +1704,7 @@ def _recover_valid_assessment(
         language=language,
         maximum_questions=maximum_questions,
         excluded_fact_keys=excluded_fact_keys,
+        lesson_scope=lesson_scope,
     )
 
     if len(valid_questions) < minimum_questions:
@@ -2640,6 +2717,7 @@ Explain briefly from the evidence. Return only this JSON object shape (not a JSO
             issues.extend(
                 _validate_lesson_entity_scope(data, bounded_lesson_content, lesson_content.title)
             )
+            issues.extend(_validate_direct_lesson_topic_scope(data, lesson_content))
             issues.extend(_validate_generated_question_set(data, language))
             assessment = LessonAssessment.from_dict(
                 {
@@ -2664,6 +2742,7 @@ Explain briefly from the evidence. Return only this JSON object shape (not a JSO
                     minimum_questions=1,
                     maximum_questions=question_count,
                     excluded_fact_keys=excluded_fact_keys,
+                    lesson_scope=lesson_content,
                 )
                 actionable = [
                     issue
@@ -2724,6 +2803,7 @@ Explain briefly from the evidence. Return only this JSON object shape (not a JSO
                     minimum_questions=1,
                     maximum_questions=question_count,
                     excluded_fact_keys=excluded_fact_keys,
+                    lesson_scope=lesson_content,
                 )
                 if combined is not None:
                     return combined
@@ -2766,6 +2846,7 @@ Explain briefly from the evidence. Return only this JSON object shape (not a JSO
                     minimum_questions=minimum_questions,
                     maximum_questions=question_count,
                     excluded_fact_keys=excluded_fact_keys,
+                    lesson_scope=lesson_content,
                 )
                 if recovered is not None:
                     logger.warning(
@@ -2826,6 +2907,7 @@ def _restored_assessment_is_valid(
         excluded_fact_keys,
     )
     issues.extend(_validate_lesson_entity_scope(data, bounded_source, lesson_content.title))
+    issues.extend(_validate_direct_lesson_topic_scope(data, lesson_content))
     issues.extend(_validate_generated_question_set(data, language))
     restored = LessonAssessment.from_dict(data)  # type: ignore[no-untyped-call]
     issues.extend(_validate_assessment(restored))

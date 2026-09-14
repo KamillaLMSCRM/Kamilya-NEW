@@ -9,11 +9,31 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Release 0.5.45 — local candidate GO; CI/DEV/production pending, 2026-09-14
+## Release 0.5.46 — local candidate GO; CI/DEV/production pending, 2026-09-14
 
-- No migration, infrastructure, DNS or model-route change. Candidate includes
-  API, workers and native frontend. Exact commit, CI, DEV and production identity
-  are pending.
+- No migration, infrastructure, DNS, provider, billing or model-route change.
+  Candidate includes API, workers and the version-identical native frontend.
+- Complete API unit suite passed 1694 tests; the assessment/direct-source/rate
+  selection passed 357 tests; seven new topic-scope regressions passed,
+  including restored-checkpoint rejection.
+- Source reuse now permits the expected immediate `409` acknowledgement plus
+  one confirmed POST without weakening the existing minute/hour request limits.
+- Direct-source quiz admission rejects a grounded fact from a neighboring source
+  section unless it is tied to the admitted lesson topic. Invalid questions are
+  deleted without count replacement. A broader title-only guard was rejected
+  after five pre-existing tests exposed false positives.
+- **Gate:** local candidate GO. Exact remote SHA, CI, DEV, immutable deployment,
+  production readback and a synthetic reused-source browser smoke are pending.
+
+## Release 0.5.45 — deployed baseline; live PDF/Excel acceptance recorded, 2026-09-14
+
+- Exact deployed source `bfc30307a1fcc1713d4fd270aad34f8da525d361`;
+  annotated tag and GitHub Release `v0.5.45`. CI `34835895425`, protected
+  production workflow `34836605333` and native frontend workflow `34836633695`
+  passed for the exact source.
+- API and all three workers share immutable image digest
+  `sha256:5c36227c718999b4db139e659c8312665cc84ac47479e0f065ef29e27d2d994b`;
+  public API and native frontend health report version 0.5.45 and the exact SHA.
 - Complete API unit and contract selection `1714 passed`; local `AI-COURSE-01`
   selection `6 passed`; production frontend build, 589 frontend tests, lint and
   typecheck passed; Python quality baseline passed (`ruff=1065`, `mypy=2333`).
@@ -29,8 +49,19 @@ DB/storage gate и приёмкой клиента
   against public revision `0158`; PostgreSQL 17/pgvector, isolated lifecycle,
   FORCE RLS, tenant negatives, rollback and exact cleanup passed while shared
   public revision and metadata remained unchanged.
-- **Gate:** `LOCAL + DEV GO`; exact remote SHA/CI/artifacts, deployment,
-  synthetic live PDF/Excel smokes and cleanup remain required.
+- Production PDF job `c1f76b3b-c2e0-4ee8-a950-d88268e23ee4` completed in
+  838.527 seconds and saved course `f5f148a7-ebc8-48cd-9f6a-8cf37d1925ca`
+  with 23 lessons and 39 questions. Technical completion passed; content review
+  found neighboring-topic questions and seven omitted topics, so PDF content
+  acceptance remained NO_GO.
+- Production Excel job `6fb6b944-00ce-4082-9d5b-670e13007d4c` completed in
+  54.408 seconds and saved course `6bd160d9-abe5-4473-bfd6-8fd323222eb2`:
+  three named collection lessons, seven source-grounded questions, no duplicates
+  or off-entity questions. The preliminary 33-lesson estimate remained an upper
+  proxy; the worker passport correctly resolved the final source-card structure.
+- **Gate:** deployed technical baseline. Excel content GO for the no-intent
+  source-card path; large PDF content NO_GO pending the bounded 0.5.46 fix and a
+  new synthetic acceptance run.
 
 ## Release 0.5.44 — deployed baseline, 2026-09-14
 

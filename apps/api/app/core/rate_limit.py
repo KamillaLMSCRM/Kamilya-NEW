@@ -47,7 +47,7 @@ RATE_LIMITS: dict[str, RateLimitConfig] = {
     "/api/v1/assignment-access/": RateLimitConfig(requests_per_minute=10, requests_per_hour=60, burst_size=5),
     "/api/v1/candidate-assessment/": RateLimitConfig(requests_per_minute=20, requests_per_hour=120, burst_size=5),
     "/api/v1/public/leads": RateLimitConfig(requests_per_minute=5, requests_per_hour=20, burst_size=3),
-    "/api/v1/ai/generate-course": RateLimitConfig(requests_per_minute=2, requests_per_hour=10, burst_size=1),
+    "/api/v1/ai/generate-course": RateLimitConfig(requests_per_minute=2, requests_per_hour=10, burst_size=2),
     "/api/v1/ai/document-compatibility": RateLimitConfig(requests_per_minute=6, requests_per_hour=60, burst_size=3),
     "/api/v1/quizzes": RateLimitConfig(requests_per_minute=30, requests_per_hour=500, burst_size=10),
     "/api/v1/documents/upload": RateLimitConfig(requests_per_minute=10, requests_per_hour=100, burst_size=5),

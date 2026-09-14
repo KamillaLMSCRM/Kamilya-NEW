@@ -36,6 +36,14 @@ async def test_original_source_validation_has_a_low_dedicated_limit():
     assert config.burst_size == 3
 
 
+def test_ai_generation_allows_one_reuse_confirmation_burst():
+    config = RATE_LIMITS["/api/v1/ai/generate-course"]
+
+    # The first POST may intentionally return 409 with source-reuse choices;
+    # the immediately confirmed POST is the second request in the same flow.
+    assert config.burst_size == 2
+
+
 @pytest.mark.asyncio
 async def test_original_source_validation_fails_closed_without_limiter():
     middleware = RateLimitMiddleware(lambda scope, receive, send: None)

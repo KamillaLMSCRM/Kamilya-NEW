@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.46] - 2026-09-14
+
+### Fixed
+
+- Allow the normal source-reuse confirmation request immediately after the
+  preliminary `409` response without returning `429` from the same user action.
+- Keep direct-source quiz questions within the current authored lesson topic;
+  grounded facts from neighboring source sections are deleted without quota
+  replacement.
+
 ## [0.5.45] - 2026-09-14
 
 ### Changed
@@ -887,7 +897,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.46...HEAD
+[0.5.46]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.45...v0.5.46
 [0.4.3]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.4.0...v0.4.1
