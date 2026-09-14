@@ -2532,6 +2532,36 @@ contract or establish a blocker.
   preserved. Oversized JSON/topic payloads still fail closed. Protocol revision
   `v6` invalidates checkpoints from the prior normalization contract.
 
+## AI-QUALITY-020 - One unsupported fragment discarded an otherwise grounded lesson
+
+- Date: 2026-09-14. Observed in production `0.5.39` during the fresh
+  methodologist-path generation from the 21-page Lombard microcredit-rules PDF.
+- Symptom: source analysis planned nine lessons and all nine writer positions
+  completed, but five lessons were omitted with
+  `unsupported_relationship_claim`. Four substantial lessons survived, below
+  the existing useful-core threshold of five, so the job failed at 70% without
+  saving a weakly covered course.
+- Cause: deterministic admission correctly found at least one unsupported
+  recommendation or relationship in each rejected response, but its only
+  action after bounded model repair was to discard the whole lesson, including
+  independently grounded source prose around the offending fragment.
+- Fix: identify and remove only unsupported relationship fragments without
+  replacing or rewriting them, then rerun the complete lesson-quality gate over
+  the remainder. Accept it only when source anchors, substance, repetition and
+  all other existing checks pass; otherwise preserve the original rejection and
+  bounded repair behavior.
+- Verification: the RED legal-document regression reproduces a grounded
+  repayment rule followed by invented advice and previously loses the only
+  lesson. GREEN keeps the source-backed rule, removes the invented instruction
+  and uses one provider call. The existing all-unsupported repair regression,
+  all 72 relationship-quality tests and the combined 65-test direct-generation
+  suite remain green. A fresh PDF and DOC production journey remains the final
+  environment and content-quality gate.
+- Prevention: quality admission should reject the smallest independently
+  identifiable unsafe unit. Any deterministic filtering must be deletion-only,
+  must never synthesize a replacement and must rerun every quality invariant on
+  the retained result before persistence.
+
 ## DOCLING-001 - Scanned PDF failed before OCR in the production container
 
 - Date: 2026-09-13. Observed on production `0.5.26`; repaired for `0.5.27`.

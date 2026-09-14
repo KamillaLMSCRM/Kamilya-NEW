@@ -504,6 +504,94 @@ async def test_writer_retry_explains_how_to_repair_unsupported_relationships() -
 
 
 @pytest.mark.asyncio
+async def test_writer_removes_only_unsupported_legal_advice_from_grounded_lesson() -> None:
+    from app.modules.ai.architect_schema import (
+        CourseStructure,
+        LearningObjective,
+        Lesson,
+        Module,
+    )
+    from app.modules.ai.direct_source import (
+        DirectSourceChunk,
+        DirectSourceCorpus,
+        DirectSourceDocument,
+        write_direct_course,
+    )
+
+    source = (
+        "Заёмщик обязан вернуть сумму микрокредита и вознаграждение в срок, "
+        "установленный договором микрокредита. Ломбард вправе реализовать предмет "
+        "залога во внесудебном порядке в случаях, предусмотренных договором."
+    )
+    revision = "sha256:" + hashlib.sha256(source.encode()).hexdigest()
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(
+            DirectSourceDocument(
+                doc_id="doc-1",
+                filename="rules.pdf",
+                title="Правила микрокредитования",
+                category="general",
+                source_revision=revision,
+                chunks=(
+                    DirectSourceChunk(
+                        chunk_id="direct:doc-1:0",
+                        doc_id="doc-1",
+                        doc_name="rules.pdf",
+                        title="Обязанности заёмщика",
+                        headings=("Обязанности сторон",),
+                        text=source,
+                        source_revision=revision,
+                        chunk_index=0,
+                    ),
+                ),
+            ),
+        ),
+        total_chars=len(source),
+        total_chunks=1,
+    )
+    structure = CourseStructure(
+        title="Правила микрокредитования",
+        modules=[
+            Module(
+                title="Обязанности сторон",
+                lessons=[
+                    Lesson(
+                        title="Обязанности заёмщика",
+                        objectives=[LearningObjective("Назвать обязанность заёмщика")],
+                        source_doc_ids=["doc-1"],
+                        relevant_headings=["Обязанности сторон"],
+                    )
+                ],
+            )
+        ],
+    )
+
+    class LLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, messages):
+            self.calls += 1
+            return SimpleNamespace(
+                content=(
+                    "## Обязанности заёмщика\n\n"
+                    "Заёмщик обязан вернуть сумму микрокредита и вознаграждение в срок, "
+                    "установленный договором микрокредита. "
+                    "Поэтому сотруднику необходимо немедленно отказать клиенту в продлении."
+                )
+            )
+
+    llm = LLM()
+    result = await write_direct_course(llm, corpus, structure)
+
+    lesson = result.modules[0].lessons[0]
+    assert llm.calls == 1
+    assert "Заёмщик обязан вернуть сумму микрокредита" in lesson.content
+    assert "немедленно отказать" not in lesson.content
+
+
+@pytest.mark.asyncio
 async def test_writer_renders_high_confidence_primary_table_without_model_prose() -> None:
     from app.modules.ai.architect_schema import (
         CourseStructure,

@@ -38,6 +38,7 @@ from app.modules.ai.ingestion import (
 from app.modules.ai.lesson_quality import (
     LESSON_QUALITY_POLICY_VERSION,
     evaluate_lesson_quality,
+    remove_unsupported_relationship_fragments,
 )
 from app.modules.ai.llm_client import AllProvidersFailedError, ProviderFailedError
 from app.modules.ai.source_topic_map import (
@@ -1825,6 +1826,22 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                     lesson_identity=(module_index, lesson_index),
                 )
                 lesson_accepted = quality.accepted
+                if not lesson_accepted and "unsupported_relationship_claim" in quality.reason_codes:
+                    filtered_content = remove_unsupported_relationship_fragments(
+                        content=content,
+                        source_chunks=[tabular_lesson[1]],
+                    )
+                    if filtered_content != content:
+                        filtered_quality = evaluate_lesson_quality(
+                            title=lesson.title,
+                            content=filtered_content,
+                            source_chunks=[tabular_lesson[1]],
+                            prior_lesson_contents=accepted_lesson_contents,
+                            lesson_identity=(module_index, lesson_index),
+                        )
+                        if filtered_quality.accepted:
+                            content = filtered_content
+                            lesson_accepted = True
                 if not lesson_accepted:
                     quality_feedback = quality.reason_codes
             else:
@@ -1870,6 +1887,23 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                         if quality.accepted:
                             lesson_accepted = True
                             break
+                        if "unsupported_relationship_claim" in quality.reason_codes:
+                            filtered_content = remove_unsupported_relationship_fragments(
+                                content=content,
+                                source_chunks=bounded_texts,
+                            )
+                            if filtered_content != content:
+                                filtered_quality = evaluate_lesson_quality(
+                                    title=lesson.title,
+                                    content=filtered_content,
+                                    source_chunks=bounded_texts,
+                                    prior_lesson_contents=accepted_lesson_contents,
+                                    lesson_identity=(module_index, lesson_index),
+                                )
+                                if filtered_quality.accepted:
+                                    content = filtered_content
+                                    lesson_accepted = True
+                                    break
                         quality_feedback = quality.reason_codes
             if not lesson_accepted:
                 omission_reasons = quality_feedback or ("invalid_content",)

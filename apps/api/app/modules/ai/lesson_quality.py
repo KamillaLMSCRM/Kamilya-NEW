@@ -211,7 +211,7 @@ _RELATIONSHIP_SHORT_STOP_WORDS = frozenset(
         "if",
     }
 )
-LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v16"
+LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v17"
 
 
 def _normalize(value: str) -> str:
@@ -367,6 +367,56 @@ def _relationship_claim_supported(
     return bool(content_fragments)
 
 
+def _has_unsupported_relationship_claim(*, content: str, source: str) -> bool:
+    return any(
+        pattern.search(content)
+        and not _relationship_claim_supported(
+            pattern,
+            content=content,
+            source=source,
+        )
+        for pattern in _UNSUPPORTED_RELATIONSHIP_PATTERNS
+    )
+
+
+def remove_unsupported_relationship_fragments(
+    *,
+    content: str,
+    source_chunks: Sequence[str],
+) -> str:
+    """Drop only unsupported claim fragments while preserving grounded prose.
+
+    The deterministic gate used to reject an entire lesson when a single
+    sentence added an unsupported recommendation or relationship.  A removed
+    fragment is never replaced or rewritten.  The caller must run the complete
+    quality gate again and may accept the remainder only when it is independently
+    grounded and substantive.
+    """
+
+    normalized_source = "\n".join(
+        " ".join(line.casefold().replace("ё", "е").split())
+        for chunk in source_chunks
+        for line in chunk.splitlines()
+    )
+    parts = re.split(r"(\n+|(?<=[.!?])\s+)", content)
+    retained: list[str] = []
+    for part in parts:
+        if not part or part.isspace():
+            if retained and not retained[-1].isspace():
+                retained.append(part)
+            continue
+        normalized_part = " ".join(part.casefold().replace("ё", "е").split())
+        if normalized_part and _has_unsupported_relationship_claim(
+            content=normalized_part,
+            source=normalized_source,
+        ):
+            if retained and retained[-1].isspace():
+                retained.pop()
+            continue
+        retained.append(part)
+    return "".join(retained).strip()
+
+
 @dataclass(frozen=True, slots=True)
 class LessonQualityResult:
     accepted: bool
@@ -448,14 +498,9 @@ def evaluate_lesson_quality(
     normalized_content_text = "\n".join(
         " ".join(line.casefold().replace("ё", "е").split()) for line in body_content.splitlines()
     )
-    unsupported_relationship = any(
-        pattern.search(normalized_content_text)
-        and not _relationship_claim_supported(
-            pattern,
-            content=normalized_content_text,
-            source=normalized_source_text,
-        )
-        for pattern in _UNSUPPORTED_RELATIONSHIP_PATTERNS
+    unsupported_relationship = _has_unsupported_relationship_claim(
+        content=normalized_content_text,
+        source=normalized_source_text,
     )
 
     reasons: list[str] = []
@@ -505,4 +550,5 @@ __all__ = [
     "LessonQualityEvaluation",
     "capture_lesson_quality_evaluations",
     "evaluate_lesson_quality",
+    "remove_unsupported_relationship_fragments",
 ]

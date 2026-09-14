@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.40] - 2026-09-14
+
+### Fixed
+
+- Remove only a source-unsupported recommendation or relationship fragment
+  from an otherwise grounded lesson, then rerun the complete deterministic
+  lesson-quality gate before accepting the remainder.
+- Keep weak or empty remainders fail-closed and preserve existing bounded model
+  repair attempts, course usefulness threshold, source grounding and checkpoint
+  semantics.
+
 ## [0.5.39] - 2026-09-14
 
 ### Fixed
