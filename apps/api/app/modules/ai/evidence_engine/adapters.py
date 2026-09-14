@@ -6,7 +6,7 @@ import hashlib
 import re
 from pathlib import Path
 
-from openpyxl import load_workbook
+from openpyxl import load_workbook  # type: ignore[import-untyped]
 
 from .models import SourceDocument, SourceFact, SourceSection
 

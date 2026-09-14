@@ -1,12 +1,127 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from openpyxl import Workbook
 
 from app.modules.ai.evidence_engine import CourseIntent, EvidenceCourseEngine
 from app.modules.ai.evidence_engine.adapters import narrative_document_from_pages
 from app.modules.ai.evidence_engine.models import SourceDocument, SourceFact, SourceSection
+from app.modules.ai.evidence_engine.provider_engine import ProviderBackedEvidenceEngine
+from app.modules.ai.evidence_engine.provider_models import ChatCompletion, EmbeddingBatch
+
+
+class _RecordingEmbeddings:
+    def __init__(self) -> None:
+        self.calls: list[list[str]] = []
+
+    def embed(self, texts: list[str]) -> EmbeddingBatch:
+        self.calls.append(list(texts))
+        vectors = tuple(
+            tuple(1.0 if index == position % 3 else 0.0 for index in range(3))
+            for position, _ in enumerate(texts)
+        )
+        return EmbeddingBatch(vectors=vectors, model="qwen-test", duration_seconds=0.01)
+
+
+class _GroundedChat:
+    def __init__(self, *, unsupported_fact: bool = False) -> None:
+        self.requests: list[dict[str, Any]] = []
+        self.unsupported_fact = unsupported_fact
+
+    def complete_json(self, request: dict[str, Any]) -> ChatCompletion:
+        self.requests.append(request)
+        facts = request["facts"]
+        fact_ids = [fact["fact_id"] for fact in facts]
+        if self.unsupported_fact:
+            fact_ids = ["fact-outside-plan"]
+        questions = []
+        for seed in request["question_seeds"]:
+            questions.append(
+                {
+                    "prompt": f"Практическая проверка: {seed['prompt']}",
+                    "options": seed["options"],
+                    "correct_answer": seed["correct_answer"],
+                    "explanation": "Ответ следует из указанного положения.",
+                    "fact_ids": [seed["fact_id"]],
+                }
+            )
+        payload = {
+            "title": request["lesson_title"],
+            "objective": request["objective"],
+            "blocks": [
+                {
+                    "heading": "Основное правило",
+                    "text": " ".join(fact["value"] for fact in facts),
+                    "fact_ids": fact_ids,
+                }
+            ],
+            "questions": questions,
+        }
+        return ChatCompletion(
+            payload=payload,
+            model="deepseek-test",
+            duration_seconds=0.02,
+            prompt_tokens=100,
+            completion_tokens=80,
+        )
+
+
+class _MetadataNumberChat:
+    def __init__(self, *, hallucinate: bool = False) -> None:
+        self.hallucinate = hallucinate
+
+    def complete_json(self, request: dict[str, Any]) -> ChatCompletion:
+        fact_id = request["facts"][0]["fact_id"]
+        text = (
+            "В разделе 4 дайте покупателю ответ в 2–3 предложениях."
+            if not self.hallucinate
+            else "В разделе 4 ответ нужно предоставить через 99 дней."
+        )
+        return ChatCompletion(
+            payload={
+                "title": request["lesson_title"],
+                "objective": request["objective"],
+                "blocks": [
+                    {
+                        "heading": "Применение",
+                        "text": text,
+                        "fact_ids": [fact_id],
+                    }
+                ],
+                "questions": [],
+            },
+            model="deepseek-test",
+            duration_seconds=0.01,
+        )
+
+
+class _NormalizedOcrNumberChat:
+    def complete_json(self, request: dict[str, Any]) -> ChatCompletion:
+        fact_ids = [fact["fact_id"] for fact in request["facts"]]
+        source_text = " ".join(fact["value"] for fact in request["facts"])
+        normalized_parts = []
+        if "трех" in source_text:
+            normalized_parts.append("Уведомление направляется за 3 рабочих дня.")
+        if "три десятых" in source_text:
+            normalized_parts.append("Ставка составляет 0.3 процента.")
+        return ChatCompletion(
+            payload={
+                "title": request["lesson_title"],
+                "objective": request["objective"],
+                "blocks": [
+                    {
+                        "heading": "Срок и ставка",
+                        "text": " ".join(normalized_parts),
+                        "fact_ids": fact_ids,
+                    }
+                ],
+                "questions": [],
+            },
+            model="deepseek-test",
+            duration_seconds=0.01,
+        )
 
 
 def _narrative_source(*facts: str) -> SourceDocument:
@@ -219,3 +334,175 @@ def test_narrative_adapter_joins_wrapped_clauses_and_keeps_major_section_scope(
     assert "под залог имущества" in first_fact.value
     assert first_fact.source_locator.startswith("page=1")
     assert any(section.role == "supporting" for section in document.sections)
+
+
+def test_provider_v2_indexes_documents_as_is_and_prefixes_only_queries() -> None:
+    source = _narrative_source(
+        "Заявление рассматривается в течение 15 рабочих дней.",
+        "Ответ направляется в течение 30 календарных дней.",
+        "Короткое уведомление направляется в течение 3 рабочих дней.",
+    )
+    embeddings = _RecordingEmbeddings()
+    chat = _GroundedChat()
+
+    result = ProviderBackedEvidenceEngine(
+        embeddings=embeddings,
+        chat=chat,
+    ).generate_from_document(source)
+
+    assert embeddings.calls[0] == [fact.value for fact in source.sections[0].facts]
+    assert all(
+        text.startswith(
+            "Instruct: Given a user question, retrieve relevant passages that answer the question\nQuery: "
+        )
+        for text in embeddings.calls[1]
+    )
+    assert result.embedding_dimension == 3
+    assert result.provider_fallback_count == 0
+    assert len(result.realized_course.lessons) == 1
+
+
+def test_provider_v2_rejects_fact_ids_outside_lesson_and_keeps_draft_fallback() -> None:
+    source = _narrative_source(
+        "Заявление рассматривается в течение 15 рабочих дней.",
+        "Ответ направляется в течение 30 календарных дней.",
+        "Короткое уведомление направляется в течение 3 рабочих дней.",
+    )
+    embeddings = _RecordingEmbeddings()
+    chat = _GroundedChat(unsupported_fact=True)
+
+    result = ProviderBackedEvidenceEngine(
+        embeddings=embeddings,
+        chat=chat,
+        max_realizer_attempts=1,
+    ).generate_from_document(source)
+
+    assert result.provider_fallback_count == 1
+    assert result.realized_course.lessons == result.evidence_result.course.lessons
+    assert result.validation_errors[0].startswith("lesson-")
+
+
+def test_provider_v2_preserves_source_backed_answer_options() -> None:
+    source = _narrative_source(
+        "Заявление рассматривается в течение 15 рабочих дней.",
+        "Ответ направляется в течение 30 календарных дней.",
+        "Короткое уведомление направляется в течение 3 рабочих дней.",
+    )
+    result = ProviderBackedEvidenceEngine(
+        embeddings=_RecordingEmbeddings(),
+        chat=_GroundedChat(),
+    ).generate_from_document(source)
+
+    original = result.evidence_result.assessment.questions
+    realized = result.realized_assessment.questions
+    assert len(realized) == len(original)
+    assert all(
+        set(new.options) == set(seed.options)
+        and new.correct_answer == seed.correct_answer
+        and new.fact_id == seed.fact_id
+        for new, seed in zip(realized, original, strict=True)
+    )
+
+
+def test_provider_v2_allows_numbers_present_in_fact_subject_or_attribute() -> None:
+    source = SourceDocument(
+        source_id="metadata-numbers",
+        title="Ответ покупателю",
+        kind="narrative",
+        sections=(
+            SourceSection(
+                section_id="section-4",
+                title="Раздел 4",
+                role="primary",
+                facts=(
+                    SourceFact(
+                        fact_id="raw-fact",
+                        subject="Раздел 4",
+                        attribute="Ответ в 2–3 предложениях",
+                        value="Сообщите покупателю подтверждённые преимущества коллекции.",
+                        source_locator="page=4",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    result = ProviderBackedEvidenceEngine(
+        embeddings=_RecordingEmbeddings(),
+        chat=_MetadataNumberChat(),
+        max_realizer_attempts=1,
+    ).generate_from_document(source)
+
+    assert result.provider_fallback_count == 0
+
+
+def test_provider_v2_rejects_number_absent_from_all_cited_source_metadata() -> None:
+    source = SourceDocument(
+        source_id="hallucinated-number",
+        title="Ответ покупателю",
+        kind="narrative",
+        sections=(
+            SourceSection(
+                section_id="section-4",
+                title="Раздел 4",
+                role="primary",
+                facts=(
+                    SourceFact(
+                        fact_id="raw-fact",
+                        subject="Раздел 4",
+                        attribute="Ответ в 2–3 предложениях",
+                        value="Сообщите покупателю подтверждённые преимущества коллекции.",
+                        source_locator="page=4",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    result = ProviderBackedEvidenceEngine(
+        embeddings=_RecordingEmbeddings(),
+        chat=_MetadataNumberChat(hallucinate=True),
+        max_realizer_attempts=1,
+    ).generate_from_document(source)
+
+    assert result.provider_fallback_count == 1
+    assert "introduces a number" in result.validation_errors[0]
+
+
+def test_provider_v2_accepts_digit_normalization_of_russian_and_ocr_numbers() -> None:
+    source = SourceDocument(
+        source_id="ocr-number-normalization",
+        title="Срок и ставка",
+        kind="narrative",
+        sections=(
+            SourceSection(
+                section_id="section",
+                title="Условия",
+                role="primary",
+                facts=(
+                    SourceFact(
+                        fact_id="raw-one",
+                        subject="Уведомление",
+                        attribute="срок",
+                        value="Клиент извещается в течение З (трех) рабочих дней.",
+                        source_locator="page=1",
+                    ),
+                    SourceFact(
+                        fact_id="raw-two",
+                        subject="Ставка",
+                        attribute="финансовое условие",
+                        value="Ставка составляет (),З (ноль целых три десятых) процента.",
+                        source_locator="page=1",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    result = ProviderBackedEvidenceEngine(
+        embeddings=_RecordingEmbeddings(),
+        chat=_NormalizedOcrNumberChat(),
+        max_realizer_attempts=1,
+    ).generate_from_document(source)
+
+    assert result.provider_fallback_count == 0

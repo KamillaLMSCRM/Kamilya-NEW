@@ -128,6 +128,8 @@ class StageTiming:
 @dataclass(frozen=True, slots=True)
 class EvidenceCourseResult:
     document_plan: DocumentPlan
+    admitted_facts: tuple[SourceFact, ...]
+    supporting_facts: tuple[SourceFact, ...]
     evidence_plan: tuple[LessonEvidence, ...]
     course: CourseDraft
     assessment: AssessmentDraft

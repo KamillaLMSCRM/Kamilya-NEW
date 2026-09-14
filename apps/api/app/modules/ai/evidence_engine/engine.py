@@ -376,6 +376,8 @@ class EvidenceCourseEngine:
         fingerprint = self._fingerprint(evidence, assessment)
         return EvidenceCourseResult(
             document_plan=document_plan,
+            admitted_facts=tuple(admitted),
+            supporting_facts=tuple(supporting),
             evidence_plan=tuple(evidence),
             course=course,
             assessment=assessment,
