@@ -31,6 +31,22 @@ Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
 
+## UI-CONTENT-001 - Read-only lesson preview exposed Markdown editing syntax
+
+- Date: 2026-09-14. Confirmed during the post-release production browser
+  acceptance of an Excel-generated course.
+- Symptom: the wide inline editor was usable, but the read-only lesson card
+  still displayed `#`, `##`, Markdown table delimiters and a duplicate title.
+- Cause: `CoursePreviewTree` rendered `content_preview` as plain preformatted
+  text even though the field contains editable Markdown.
+- Fix: derive a display-only summary that removes heading/emphasis/code markers,
+  omits the repeated lesson title and flattens table cells. Preserve the original
+  Markdown unchanged for editing and saving.
+- Verification: three formatting regressions, TypeScript and targeted ESLint
+  pass.
+- Prevention: preview components for Markdown-backed fields must test rendered
+  display separately from editor round-trip preservation.
+
 ## AI-QUALITY-022 - A grounded question tested a neighboring lesson topic
 
 - Date: 2026-09-14. Confirmed in the production synthetic-tenant Lombard PDF

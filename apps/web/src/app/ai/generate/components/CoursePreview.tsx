@@ -30,6 +30,35 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
+export function formatLessonPreview(markdown: string, lessonTitle = ""): string {
+  const normalizedTitle = lessonTitle.trim().toLocaleLowerCase();
+
+  return markdown
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !/^\|?\s*:?-{3,}/.test(line))
+    .map((line) => {
+      const withoutHeading = line.replace(/^#{1,6}\s+/, "").trim();
+      if (withoutHeading.toLocaleLowerCase() === normalizedTitle) return "";
+
+      if (withoutHeading.startsWith("|") && withoutHeading.endsWith("|")) {
+        const cells = withoutHeading
+          .split("|")
+          .map((cell) => cell.trim())
+          .filter(Boolean);
+        return cells.join(" — ");
+      }
+
+      return withoutHeading
+        .replace(/^[-*+]\s+/, "• ")
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/__([^_]+)__/g, "$1")
+        .replace(/`([^`]+)`/g, "$1");
+    })
+    .filter(Boolean)
+    .join(" · ");
+}
+
 
 // ── ReviewBadge ───────────────────────────────────────────────────────────────
 
@@ -250,8 +279,8 @@ export function CoursePreviewTree({
                                   </button>
                                 </div>
                                 {l.content_preview && (
-                                  <p className="text-xs text-muted-foreground line-clamp-3 mt-1 whitespace-pre-line">
-                                    {l.content_preview}
+                                  <p className="text-xs text-muted-foreground line-clamp-3 mt-1 leading-relaxed">
+                                    {formatLessonPreview(l.content_preview, l.title)}
                                   </p>
                                 )}
                                 {l.source_references?.length > 0 && (
