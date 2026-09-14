@@ -41,7 +41,7 @@ export function formatLessonPreview(markdown: string, lessonTitle = ""): string 
       const withoutHeading = line.replace(/^#{1,6}\s+/, "").trim();
       if (withoutHeading.toLocaleLowerCase() === normalizedTitle) return "";
 
-      if (withoutHeading.startsWith("|") && withoutHeading.endsWith("|")) {
+      if (withoutHeading.startsWith("|")) {
         const cells = withoutHeading
           .split("|")
           .map((cell) => cell.trim())

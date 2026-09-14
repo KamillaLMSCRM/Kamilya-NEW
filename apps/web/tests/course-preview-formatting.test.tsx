@@ -21,6 +21,12 @@ describe("formatLessonPreview", () => {
     ).toBe("Характеристика — Значение · Материал — ЛДСП");
   });
 
+  it("formats a table row truncated by the API without a closing delimiter", () => {
+    expect(formatLessonPreview("| Феникс | Модульная коллекция…")).toBe(
+      "Феникс — Модульная коллекция…",
+    );
+  });
+
   it("keeps editing markup out of the read-only preview", () => {
     const preview = formatLessonPreview("### **Важно**\n- Используйте `каталог`.");
 

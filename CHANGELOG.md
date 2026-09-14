@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.48] - 2026-09-14
+
+### Fixed
+
+- Remove Markdown table delimiters from lesson previews even when the API
+  truncates a table row before its closing delimiter.
+
 ## [0.5.47] - 2026-09-14
 
 ### Fixed
@@ -905,7 +912,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.47...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.48...HEAD
+[0.5.48]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.47...v0.5.48
 [0.5.47]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.46...v0.5.47
 [0.5.46]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.45...v0.5.46
 [0.4.3]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.4.2...v0.4.3

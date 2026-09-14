@@ -42,7 +42,7 @@ open, also record status, safe interim path, and review condition.
 - Fix: derive a display-only summary that removes heading/emphasis/code markers,
   omits the repeated lesson title and flattens table cells. Preserve the original
   Markdown unchanged for editing and saving.
-- Verification: three formatting regressions, TypeScript and targeted ESLint
+- Verification: four formatting regressions, TypeScript and targeted ESLint
   pass.
 - Prevention: preview components for Markdown-backed fields must test rendered
   display separately from editor round-trip preservation.
