@@ -1531,12 +1531,31 @@ async def run_generation_pipeline(
             on_progress=on_assessment_audit_progress,
         )
         state.assessment = audited.assessment
+        flat_lessons = [lesson for module in content.modules for lesson in module.lessons]
         if audited.uncovered_objectives:
-            flat_lessons = [lesson for module in content.modules for lesson in module.lessons]
-            titles = list(dict.fromkeys(flat_lessons[li].title for li, _ in audited.uncovered_objectives))
+            objectives = list(dict.fromkeys(
+                f"{flat_lessons[li].title} — {flat_lessons[li].objectives[oi]}"
+                for li, oi in audited.uncovered_objectives
+            ))
             notice = (
-                "Проверьте охват учебных целей тестами в уроках: " + "; ".join(titles)
+                "Проверьте охват учебных целей тестами: " + "; ".join(objectives)
                 + ". При генерации были отмечены пробелы; дополнение вопросов не заменяет проверку методистом."
+            )
+            if notice not in content.source_warnings:
+                content.source_warnings.append(notice)
+            if notice not in content.description:
+                content.description = "\n\n".join(filter(None, (content.description, notice)))
+            if state.structure is not None and notice not in state.structure.description:
+                state.structure.description = "\n\n".join(filter(None, (state.structure.description, notice)))
+        uncovered_content_objectives = getattr(audited, "uncovered_content_objectives", [])
+        if uncovered_content_objectives:
+            objectives = list(dict.fromkeys(
+                f"{flat_lessons[li].title} — {flat_lessons[li].objectives[oi]}"
+                for li, oi in uncovered_content_objectives
+            ))
+            notice = (
+                "Проверьте непокрытые учебные цели в содержании курса: " + "; ".join(objectives)
+                + ". Цель не считается раскрытой только по заголовку; перед публикацией дополните материал или подтвердите охват."
             )
             if notice not in content.source_warnings:
                 content.source_warnings.append(notice)

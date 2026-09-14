@@ -2253,20 +2253,13 @@ async def generate_lesson_assessment(
         bounded_source=bounded_lesson_content,
     )
     question_plan = (
-        f"- Exactly {question_count} single choice questions "
-        "(4 options, ONE correct)\n"
+        f"- Up to {question_count} useful single choice questions (4 options, ONE correct).\n"
+        "- This is a ceiling, not a quota. Return fewer if evidence cannot support distinct questions.\n"
         "- Do not add true/false or matching questions"
     )
     output_schema: dict[str, Any] = copy.deepcopy(ASSESSMENT_JSON_SCHEMA)
-    output_schema["properties"]["mcq"]["minItems"] = question_count
+    output_schema["properties"]["mcq"]["minItems"] = 0
     output_schema["properties"]["mcq"]["maxItems"] = question_count
-    if large_scoped_source:
-        output_schema["properties"]["mcq"]["minItems"] = 0
-        question_plan = (
-            f"- Up to {question_count} useful single choice questions (4 options, ONE correct).\n"
-            "- This is a ceiling, not a quota. Return fewer if evidence cannot support distinct questions.\n"
-            "- Do not add true/false or matching questions"
-        )
     output_schema["properties"]["true_false"]["minItems"] = 0
     output_schema["properties"]["true_false"]["maxItems"] = 0
     output_schema["properties"]["matching"]["minItems"] = 0
@@ -2513,10 +2506,8 @@ Explain briefly from the evidence. Return only this JSON object shape (not a JSO
                 }
             )
             issues.extend(_validate_assessment(assessment))
-            if not large_scoped_source and len(assessment.mcq) != question_count:
-                issues.append(f"MCQ count is {len(assessment.mcq)} " f"(expected exactly {question_count})")
-            if large_scoped_source and (not assessment.mcq or len(assessment.mcq) > question_count):
-                issues.append("MCQ set is empty or exceeds its evidence-sized ceiling")
+            if len(assessment.mcq) > question_count:
+                issues.append("MCQ set exceeds its evidence-sized ceiling")
             if assessment.true_false:
                 issues.append("true_false questions are not allowed")
             if assessment.matching:
@@ -2594,6 +2585,12 @@ Explain briefly from the evidence. Return only this JSON object shape (not a JSO
                 )
                 if combined is not None:
                     return combined
+            if not assessment.mcq:
+                return LessonAssessment(
+                    lesson_title=lesson_content.title,
+                    quality_policy_version=ASSESSMENT_DROP_ONLY_POLICY_VERSION,
+                    omission_reason=ASSESSMENT_EMPTY_REVIEW_REASON,
+                )
             return assessment
         except (json.JSONDecodeError, ValueError) as e:
             logger.warning(
@@ -2617,7 +2614,7 @@ Explain briefly from the evidence. Return only this JSON object shape (not a JSO
                 )
                 continue
             if data is not None:
-                minimum_questions = max(2, question_count - 2)
+                minimum_questions = 1
                 recovered = _recover_valid_assessment(
                     {"mcq": recovery_pool},
                     evidence_bank=evidence_bank,
@@ -2629,51 +2626,12 @@ Explain briefly from the evidence. Return only this JSON object shape (not a JSO
                     excluded_fact_keys=excluded_fact_keys,
                 )
                 if recovered is not None:
-                    if compact and len(recovered.mcq) < question_count:
-                        # A usable partial set must not bypass repair of the
-                        # last requested question. Keep this extra work bounded.
-                        completed = await _recover_with_focused_questions(
-                            llm,
-                            system_prompt=system_prompt,
-                            evidence_bank=evidence_bank,
-                            bounded_source=bounded_lesson_content,
-                            lesson_title=lesson_content.title,
-                            language=language,
-                            language_name=lang_name,
-                            output_schema=output_schema,
-                            recovery_pool=recovery_pool,
-                            minimum_questions=question_count,
-                            check_cancelled=check_cancelled,
-                            max_requests=1,
-                            excluded_fact_keys=excluded_fact_keys,
-                            preferred_evidence_ids=preferred_evidence_ids,
-                        )
-                        if completed is not None:
-                            return completed
                     logger.warning(
                         "[ASSESSMENT_RECOVERED] kept=%d requested=%d",
                         len(recovered.mcq),
                         question_count,
                     )
                     return recovered
-                if any(question.get("source_quote_id") in evidence_bank for question in recovery_pool):
-                    focused_recovery = await _recover_with_focused_questions(
-                        llm,
-                        system_prompt=system_prompt,
-                        evidence_bank=evidence_bank,
-                        bounded_source=bounded_lesson_content,
-                        lesson_title=lesson_content.title,
-                        language=language,
-                        language_name=lang_name,
-                        output_schema=output_schema,
-                        recovery_pool=recovery_pool,
-                        minimum_questions=minimum_questions,
-                        check_cancelled=check_cancelled,
-                        excluded_fact_keys=excluded_fact_keys,
-                        preferred_evidence_ids=preferred_evidence_ids,
-                    )
-                    if focused_recovery is not None:
-                        return focused_recovery
             raise
 
 

@@ -9,7 +9,90 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Release 0.5.42 — current deployment; live generation acceptance failed, 2026-09-14
+## Release 0.5.44 — local candidate GO; CI/DEV/production pending, 2026-09-14
+
+- No migration, infrastructure, DNS, frontend or model-route change. Exact
+  commit, CI, DEV and production identity are pending.
+- Complete API unit suite `1672 passed`; database-free `AI-COURSE-01` selectors
+  `6 passed`; release workflow contracts `45 passed`; Python quality baseline
+  passed (`ruff=1065`, `mypy=2333`); release-contract gate passed with Alembic
+  head `0159` and 157 revisions.
+- The saved production Excel defect is rejected by the candidate as
+  `source_identity_conflict` plus `unsupported_numeric_fact`. Synthetic
+  regressions also reject another row's number and a relevant unresolved
+  same-item source conflict, including when generated text omits the item ID.
+- A fresh no-DB generation from the complete control workbook produced four
+  lessons. Writer `26.671s`, reviewer `9.651s`, initial assessment `37.670s`;
+  all four lessons passed deterministic source admission. Source-wide audit
+  `6.033s` retained 10/11 questions and removed one semantic duplicate without
+  quota replacement; no assessment or content objective gaps were reported.
+- Saved complete-source PDF audit finished in `14.654s`, removed two
+  cross-course duplicates and one question whose stem allowed all four
+  source-supported answers. This is audit replay, not a new end-to-end PDF run.
+- Graphify 0.9.23 refused to replace the existing graph because the new
+  extraction was smaller by 690 nodes. No `--force` override was used; decisive
+  dependencies were verified in current source and tests.
+- **Gate:** `LOCAL GO`; CI, immutable artifact, Supabase DEV application gate,
+  exact-SHA deployment, synthetic production smoke and cleanup remain required.
+
+## Release 0.5.43 — deployed; live technical PASS, content NO_GO, 2026-09-14
+
+- Exact deployed source `a09ebed1d9e856346e41d37ca8c324c91dd5119a`, version
+  `0.5.43`. CI `34810930623`, native build `34810954933` and protected production
+  workflow `34812611163` passed. Annotated tag `v0.5.43`, published GitHub Release
+  and independently read remote master resolve to the same source.
+- API and all three workers share immutable protected image
+  `ghcr.io/kamillalmscrm/kamilya-api@sha256:04dad3c66aff151b314b476ba2421d9d7494bb9b33ab5687f85d7cd1e9aee2d9`
+  in blue. Independent private/public API health and native frontend health
+  match the exact source. All four containers were running with zero restarts.
+  Native archive SHA256 is
+  `f7031b32e8ba018235bdccaf0ed17d25dd3ac53585bbc52cf494c1c5a878dfeb`.
+- No migration: CT125 remains `0159`; restricted runtime role and encrypted
+  backup integrity were verified. Existing signed restore proof covers `0158`,
+  not a new `0159` restoration. Docling remains healthy and unchanged from
+  `kamilya-docling:ad8eb2a4`. DNS, proxy, model routing and landing were unchanged.
+- Watchdog exact release/image expectations were updated with the previous
+  configuration preserved. Independent expectation readback and one-shot check
+  passed; watchdog and candidate-retention timers are active.
+- CT137 capacity was checked before deployment. Obsolete `30df7307` release and
+  matching staged archive were removed by the canonical hash-bound helper,
+  preserving verified off-host recovery, then-current `ad8eb2a4` and rollback
+  `ae81b12a`. Native installation returned `RELEASE_OK`; `ad8eb2a4` is retained
+  as the previous release. No console or application build on CT137 was needed.
+- Local acceptance: API/persistence suite 1674 passed, critical journey 6 passed,
+  focused final tests and CI passed. Isolated Supabase DEV gate returned READY,
+  cleanup passed with shared schema unchanged. Source-based local review retained
+  15 Excel questions and 42 PDF questions; coverage/OCR advisories remain. These
+  local stage probes do not substitute for complete live generation acceptance.
+- **Live PDF technical completion: PASS; complete-content acceptance: NO_GO.**
+  Job `ce19c590-7d7d-4d98-991b-b36a1e9d684f`, started through the synthetic
+  methodologist UI, saved course `892992b0-05c3-445f-9454-0a4aa1158193` after
+  942.36 s: 24 lessons, 20 quizzes, 52 questions. Eight planned lessons were
+  omitted, four retained lessons have no quiz. Independent review found one
+  ambiguous daily-versus-annual-limit MCQ and repeated facts across quizzes;
+  structural validity alone is not content acceptance.
+- Full Excel job `e6ef81cf-2575-417d-b021-3f93f7c3ce0e` saved course
+  `c42c0c48-800a-42f6-8ff2-3f6aa07c70fa` after 278.65 s: all six planned
+  lessons, five quizzes, 14 questions. Independent review found no incorrect
+  keys, ambiguous choices or semantic duplicates in these 14 questions. Root
+  nevertheless confirmed an entity/cardinality error in the hardware lesson
+  against the original workbook: a four-door product from one collection was
+  presented as a three-door product belonging to another. **Content NO_GO.**
+- The PDF source's APR rounding rule is absent from retained lessons. Missing
+  standalone lessons or quizzes are not by themselves proof of missing facts:
+  some objectives are covered elsewhere. Coverage must be evaluated course-wide.
+- Wide editor and rendered headings were visually checked. The editor is still
+  Markdown plus preview, not WYSIWYG. Long warning headings, duplicate lesson
+  titles, inaccurate initial structure forecasts and impersonation context loss
+  remain UX findings. Completed jobs expose null `completed_at`; stage timing
+  uses observed transition `updated_at` (approximately two-second observation).
+- Exactly one run per source was performed on this release. Existing exact-byte
+  source copies were reused; upload/indexing timings are excluded. Both drafts
+  remain unmodified/unpublished for owner review. No customer data was changed.
+  Further fixes require the owner's review of the next bounded local-first plan;
+  no additional production code release was performed during acceptance.
+
+## Release 0.5.42 — historical deployment; live generation acceptance failed, 2026-09-14
 
 - Exact deployed source `ad8eb2a46af22ee08d4373340ce822b59f89fda7`, version
   `0.5.42`. CI `34800624647`, native build `34800691094` and protected production

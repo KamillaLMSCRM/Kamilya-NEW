@@ -819,6 +819,8 @@ def test_writer_prompt_only_includes_unreadable_percentage_rule_when_source_has_
     assert "value requires checking" not in excel_prompt
     assert "Never narrate validation rules or source-handling policy" in excel_prompt
     assert "do not extend a relation\nstated for one entity to a grouped list of entities" in excel_prompt
+    assert "same stable identifier" in excel_prompt
+    assert "State the conflict" in excel_prompt
     assert "[UNREADABLE_PERCENTAGE_VALUE]" in scanned_pdf_prompt
     assert "value requires checking" in scanned_pdf_prompt
     assert "Never narrate validation rules or source-handling policy" in scanned_pdf_prompt

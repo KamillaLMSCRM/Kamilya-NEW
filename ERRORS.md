@@ -2078,6 +2078,14 @@ contract or establish a blocker.
   bare `pytest`/`pytest -q` as a workstation release gate because it also discovers
   DB integration suites; use the local critical-journey profile plus the isolated
   Supabase DEV application gate.
+- Recurrence (2026-09-14): a PowerShell command read the emitted selector list by a
+  root-relative path after changing its working directory to `apps/api`. File lookup
+  failed, but PowerShell continued and expanded an empty array into bare `pytest`.
+  The corrected invocation uses an absolute selector-list path, `$ErrorActionPreference
+  = 'Stop'`, asserts the expected non-empty selector count, and checks pytest's exit
+  code. The exact local journey then passed all six parametrized cases without a DB
+  selector. Every generated-selector invocation must fail before pytest when the
+  selector file is absent, empty or has an unexpected count.
 
 ## AI-EMBED-ROUTE-001 - A proven production gateway was replaced by an unreachable candidate
 
@@ -2755,3 +2763,26 @@ contract or establish a blocker.
   failed final review; only the final source-wide check needed fresh model calls.
   Current local content review accepted15Excel and42PDF questions, with named
   objective-review advisories and one PDF lesson without a quiz.
+- Recurrence (2026-09-14, row ownership and quota acceptance): a saved Excel
+  lesson bound one article to another collection's name and door count because
+  source anchors and numeric values were validated against the flattened lesson
+  corpus rather than the identified source row. The same source could also carry
+  conflicting guide values for one article without forcing an uncertainty note.
+  Lesson quality policy v19 now binds explicit article/SKU/code claims to their
+  reconstructed Markdown row, rejects another row's numeric value, and rejects a
+  relevant unresolved guide conflict even when the writer omits the identifier.
+  The writer must name both conflicting values and request source clarification.
+- Assessment counts are ceilings for every source size. Empty or partial valid
+  output is accepted with the drop-only policy; recovery cannot refill a quota.
+  Numeric questions receive a second source-wide scope check for period, unit,
+  calculation base and conditions. Disagreement that leaves two valid options is
+  terminal `ambiguous`, not a rewrite. Final duplicate and objective coverage is
+  course-wide, while missing lesson-content objectives are reported separately.
+- Verification: synthetic RED/GREEN cases cover wrong row collection, wrong row
+  number, same-row positive, hidden and explicit source conflicts, daily-versus-
+  annual ambiguity, course-wide coverage and zero-minimum schemas. The related
+  complete API unit suite passes 1672 tests. A private full-workbook
+  replay completed four lessons in 73.992 seconds; deterministic lesson admission
+  accepted all four, and the source-wide audit retained 10 of 11 questions after
+  deleting one semantic duplicate without padding. Exact CI, DEV and production
+  user-flow readback remain release gates.

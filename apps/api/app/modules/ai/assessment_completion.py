@@ -77,4 +77,8 @@ async def finalize_course_assessment(
     # A later stochastic verdict must not silently erase an earlier coverage
     # concern. This is a methodologist review list, not proof of remaining gaps.
     final.uncovered_objectives = sorted(set(initial.uncovered_objectives) | set(final.uncovered_objectives))
+    final.uncovered_content_objectives = sorted(
+        set(initial.uncovered_content_objectives or [])
+        | set(final.uncovered_content_objectives or [])
+    )
     return final

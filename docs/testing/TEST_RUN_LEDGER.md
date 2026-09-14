@@ -239,3 +239,28 @@ Rules:
 - **Residual:** the accidental Poetry virtualenv `C:\Users\user\AppData\Local\pypoetry\Cache\virtualenvs\api-eEQ5pG_A-py3.12` remains present. Root independently verified its creation time and contents as virtualenv bootstrap plus pip `26.0.1`; canonical maintained environments are untouched.
 - **Cleanup attempt:** root attempted guarded native PowerShell cleanup; tool policy rejected the command before execution. No deletion occurred, and no alternate deletion mechanism was attempted.
 - **Status:** cleanup remains root-owned and pending explicit safe execution; no application or test source is affected.
+
+## V0543-LIVE-ACCEPTANCE-20260914 — one PDF and one full Excel
+
+- **Production identity:** version `0.5.43`, source `a09ebed1d9e856346e41d37ca8c324c91dd5119a`; CI `34810930623`, native build `34810954933`, protected deployment `34812611163` PASS. Runtime readback for API, three workers, native frontend and watchdog PASS; no schema migration.
+- **Method:** owner-authorized Chrome UI, synthetic tenant `83552ce6-8058-4561-abe3-cfbda14e030a`, methodologist impersonation. Existing hash-verified full source copies, automatic structure and explicit goal/audience. No new upload/index timing. Observer only read jobs/results; no API generation start. Exactly one run per source.
+- **PDF:** job `ce19c590-7d7d-4d98-991b-b36a1e9d684f`, course `892992b0-05c3-445f-9454-0a4aa1158193`, `06:23:35.776681Z` to `06:39:18.135524Z`, 942.36 s. Saved 24/32 planned lessons, 20 quizzes, 52 actual questions. Four lessons without quizzes. All questions/options reviewed independently; daily-versus-annual-limit ambiguity and semantic repetition remain. Source APR rounding rule absent from retained lessons. Technical PASS, complete-content NO_GO.
+- **Excel:** job `e6ef81cf-2575-417d-b021-3f93f7c3ce0e`, course `c42c0c48-800a-42f6-8ff2-3f6aa07c70fa`, `06:48:17.724049Z` to `06:52:56.369098Z`, 278.65 s. Saved 6/6 lessons, five quizzes, 14 questions. Independent question/choice correctness PASS within this set. Root confirmed wrong collection and door-count attribution in hardware lesson against original workbook. Technical PASS, full-course content NO_GO.
+- **Timing limits:** completion is terminal `updated_at`, because API `completed_at` is null; transition observation approximately two seconds. PDF observer JWT expired, complementary read-only observer captured terminal state; browser job continued through re-login. Separate storage-write duration unavailable.
+- **Visual:** production wide lesson editor and formatted preview inspected; source side remains Markdown, not WYSIWYG. PDF lesson and Excel quiz screens inspected, no approval/publication/save/learner-completion performed. Impersonation context loss, long warning headings and duplicate rendered lesson titles recorded.
+- **Review discipline:** root rejected overstrict reviewer findings that treated reasonable paraphrase as contradiction or source-citation prefix as release blocker; corrected old-plan/current-omission mapping. Retained confirmed content defects only. Spreadsheet source read-only; no workbook changes.
+- **Disposition:** two drafts intentionally retained for owner review; no customer courses changed. No automatic further production code changes. Bounded local-first remediation plan awaits owner approval. Private detailed report and timing logs under ignored `.release-evidence/v0.5.43/`; canonical status is `docs/PRODUCTION_READINESS.md`.
+
+## V0544-LOCAL-CANDIDATE-20260914
+
+- **Scope:** local no-DB acceptance of row-bound lesson facts, conflicting source
+  values, numerical-question scope, course-wide objective coverage and no-quota
+  assessment generation. The complete control workbook was used only in ignored
+  private replay evidence; repository tests use synthetic data.
+- **Result:** API unit `1672 passed`; `AI-COURSE-01` local `6 passed`; release
+  workflow `45 passed`; quality baseline PASS (`ruff=1065`, `mypy=2333`);
+  release-contract gate PASS at Alembic `0159`.
+- **Replay:** four lessons generated in `26.671s + 9.651s + 37.670s`;
+  deterministic lesson admission 4/4 PASS; final audit retained 10/11 questions
+  in `6.033s`, deleting one semantic duplicate without padding.
+- **Status:** local candidate GO. CI, DEV and production evidence pending.

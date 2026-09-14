@@ -68,8 +68,8 @@ def _review() -> dict[str, object]:
         {"question_id": "L0Q0", "decision": "keep", "reason": "valid", "duplicate_of": None},
         {"question_id": "L1Q0", "decision": "drop", "reason": "duplicate", "duplicate_of": "L0Q0"},
     ], "coverage": [
-        {"lesson_index": 0, "uncovered_objective_indices": []},
-        {"lesson_index": 1, "uncovered_objective_indices": [0]},
+        {"lesson_index": 0, "uncovered_objective_indices": [], "uncovered_content_objective_indices": []},
+        {"lesson_index": 1, "uncovered_objective_indices": [0], "uncovered_content_objective_indices": []},
     ]}
 
 
@@ -109,6 +109,8 @@ async def test_first_prompt_contains_complete_deduplicated_sources_and_objective
     assert "Identify the approval requirement." in second_prompt
     assert "Recognize the escalation path." in second_prompt
     assert "Contradiction outside the selected quote" not in second_prompt
+    assert "ANY kept question across the entire course" in second_prompt
+    assert "ONLY questions you keep IN THAT LESSON" not in second_prompt
 
 
 @pytest.mark.asyncio
@@ -139,6 +141,55 @@ async def test_first_pass_derives_drop_reasons_and_skips_final_review_when_no_qu
 
 
 @pytest.mark.asyncio
+async def test_numeric_scope_review_drops_question_missed_by_batch_answer_solver() -> None:
+    content = CourseContent(
+        title="Limits",
+        modules=[ModuleContent(title="Module", lessons=[LessonContent(
+            title="Penalty limits",
+            objectives=["Distinguish the daily rate from the annual cap."],
+            content="The policy defines a daily rate and a separate annual cap.",
+            source_chunks=[
+                "After 90 days the daily penalty rate is 0.03% of the overdue payment. "
+                "The annual penalty cap is 10% of the issued amount."
+            ],
+        )])],
+    )
+    question = MCQQuestion(
+        question="What penalty limit applies after 90 days?",
+        options=[
+            MCQOption("0.03% of the overdue payment", True),
+            MCQOption("10% of the issued amount", False),
+        ],
+        explanation="Two different scopes exist in the policy.",
+        source_quote="After 90 days the daily penalty rate is 0.03% of the overdue payment.",
+        quality_score=4.0,
+    )
+    assessment = CourseAssessment([LessonAssessment("Penalty limits", mcq=[question])])
+    batch_answer = {"answers": [{
+        "id": "L0Q0",
+        "valid_option_indices": [0],
+        "quality": "valid",
+        "reason": "The first option matches one sentence.",
+    }]}
+    numeric_scope = {"answers": [{
+        "id": "L0Q0",
+        "valid_option_indices": [0, 1],
+        "quality": "valid",
+        "reason": "The stem omits whether it asks for the daily rate or annual cap.",
+    }]}
+    llm = FakeLLM(batch_answer, numeric_scope)
+
+    result = await audit_course_assessment(llm, content, assessment)
+
+    assert len(llm.calls) == 2
+    assert result.assessment.assessments[0].mcq == []
+    assert result.uncovered_objectives == [(0, 0)]
+    assert result.decisions == [
+        {"question_id": "L0Q0", "decision": "drop", "reason": "ambiguous", "duplicate_of": None}
+    ]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("answers", [
     _answers([{ "id": "L0Q0", "valid_option_indices": [0], "quality": "valid", "reason": "ok" }]),
     _answers([{"id": "L0Q0", "valid_option_indices": [0], "quality": "valid", "reason": "ok"},
@@ -164,7 +215,7 @@ async def test_audit_rejects_incomplete_duplicate_unknown_or_malformed_blind_ans
                    {"question_id": "L1Q0", "decision": "keep", "reason": "valid", "duplicate_of": None}], "coverage": _review()["coverage"]},
     {"decisions": [{"question_id": "L0Q0", "decision": "keep", "reason": "valid", "duplicate_of": "L1Q0"},
                    {"question_id": "L1Q0", "decision": "keep", "reason": "valid", "duplicate_of": None}], "coverage": _review()["coverage"]},
-    {"decisions": _review()["decisions"], "coverage": [{"lesson_index": 0, "uncovered_objective_indices": []}]},
+    {"decisions": _review()["decisions"], "coverage": [{"lesson_index": 0, "uncovered_objective_indices": [], "uncovered_content_objective_indices": []}]},
 ])
 async def test_audit_rejects_incomplete_or_invalid_final_review_without_silent_pass(review: dict[str, object]) -> None:
     with pytest.raises(ValueError):
@@ -181,8 +232,8 @@ async def test_audit_preserves_a_later_kept_duplicate_representative_in_its_orig
             {"question_id": "L1Q0", "decision": "keep", "reason": "valid", "duplicate_of": None},
         ],
         "coverage": [
-            {"lesson_index": 0, "uncovered_objective_indices": [0]},
-            {"lesson_index": 1, "uncovered_objective_indices": [0]},
+            {"lesson_index": 0, "uncovered_objective_indices": [0], "uncovered_content_objective_indices": []},
+            {"lesson_index": 1, "uncovered_objective_indices": [0], "uncovered_content_objective_indices": []},
         ],
     }
 
@@ -192,6 +243,28 @@ async def test_audit_preserves_a_later_kept_duplicate_representative_in_its_orig
     assert result.assessment.assessments[1].mcq == [later_representative]
     assert result.assessment.assessments[1].mcq[0] is later_representative
     assert result.decisions == review["decisions"]
+
+
+@pytest.mark.asyncio
+async def test_audit_reports_content_gap_separately_from_course_wide_assessment_gap() -> None:
+    review = _review()
+    review["coverage"] = [
+        {
+            "lesson_index": 0,
+            "uncovered_objective_indices": [],
+            "uncovered_content_objective_indices": [0],
+        },
+        {
+            "lesson_index": 1,
+            "uncovered_objective_indices": [0],
+            "uncovered_content_objective_indices": [],
+        },
+    ]
+
+    result = await audit_course_assessment(FakeLLM(_answers(), review), _course_content(), _assessment())
+
+    assert result.uncovered_objectives == [(1, 0)]
+    assert result.uncovered_content_objectives == [(0, 0)]
 
 
 @pytest.mark.asyncio
@@ -223,8 +296,8 @@ async def test_audit_rejects_self_references_duplicate_chains_cycles_and_dropped
         {"id": "L1Q0", "valid_option_indices": [0], "quality": "valid", "reason": "ok"},
     ])
     review = {"decisions": decisions, "coverage": [
-        {"lesson_index": 0, "uncovered_objective_indices": []},
-        {"lesson_index": 1, "uncovered_objective_indices": []},
+        {"lesson_index": 0, "uncovered_objective_indices": [], "uncovered_content_objective_indices": []},
+        {"lesson_index": 1, "uncovered_objective_indices": [], "uncovered_content_objective_indices": []},
     ]}
 
     with pytest.raises(ValueError):

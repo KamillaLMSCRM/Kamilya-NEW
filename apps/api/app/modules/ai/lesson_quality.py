@@ -29,8 +29,43 @@ _NUMERIC_VALUE_RE = re.compile(
     r"(?:[.,]\d+)?(?:[^\W\d_]+)?)"
 )
 _NUMERIC_SUBJECT_RE = re.compile(
-    r"\b(?:продукт|product|коллекция|collection|sku|кейс|case)\s+([^\s:;,.]+)",
+    r"\b(?:продукт|product|коллекция|collection|sku|кейс|case|артикул|article)\s+([^\s:;,.()]+)",
     re.IGNORECASE,
+)
+_SOURCE_IDENTIFIER_HEADER_RE = re.compile(
+    r"^(?:артикул|article(?:\s+(?:number|no\.?))?|sku|код|code|product\s+id|идентификатор)$",
+    re.IGNORECASE,
+)
+_SOURCE_IDENTIFIER_RE = re.compile(r"(?<!\w)(?:\d{5,}|(?=[\w.-]*\d)[A-ZА-ЯЁ0-9][\w.-]{3,})(?!\w)", re.IGNORECASE)
+_ENTITY_SCOPE_RE = re.compile(
+    r"\b(?:коллекци\w*|collection|систем\w*|system|модел\w*|model|сери\w*|series)\b",
+    re.IGNORECASE,
+)
+_COMPARISON_RE = re.compile(r"\b(?:в\s+отличие|по\s+сравнению|compared\s+with|unlike)\b", re.IGNORECASE)
+_SOURCE_CONFLICT_DISCLOSURE_RE = re.compile(
+    r"\b(?:расхожд\w*|противореч\w*|конфликт\w*|неоднознач\w*|"
+    r"уточн\w*|different|conflict\w*|contradict\w*|inconsisten\w*|clarif\w*)\b",
+    re.IGNORECASE,
+)
+_GUIDE_CONTEXT_RE = re.compile(r"\b(?:направляющ\w*|guides?)\b", re.IGNORECASE)
+_GUIDE_VALUE_PATTERNS = {
+    "roller": re.compile(r"\b(?:роликов\w*|roller)\b", re.IGNORECASE),
+    "ball_bearing": re.compile(r"\b(?:шариков\w*|ball[- ]bearing)\b", re.IGNORECASE),
+}
+_GUIDE_SCOPE_TOKENS = {
+    "guide", "guides", "drawer", "drawers", "type",
+    "направляющие", "направляющих", "направляющая", "тип",
+    "роликовые", "роликовых", "роликовыми",
+    "шариковые", "шариковых", "шариковыми",
+    "телескопические", "телескопических",
+    "ящики", "ящиков", "ящиках",
+}
+_ENTITY_GENERIC_TOKENS = frozenset(
+    {
+        "article", "артикул", "collection", "коллекция", "коллекции", "system", "система",
+        "model", "модель", "series", "серия", "product", "продукт", "cabinet", "шкаф",
+        "door", "doors", "дверь", "двери", "opening", "открывание", "uses", "with",
+    }
 )
 _INCOMPLETE_FORMULA_PRESENTATION_RE = re.compile(
     r"(?:по\s+следующ\w*\s+формул\w*|using\s+the\s+following\s+formula)"
@@ -228,7 +263,7 @@ _RELATIONSHIP_SHORT_STOP_WORDS = frozenset(
         "if",
     }
 )
-LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v18"
+LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v19"
 
 
 def _normalize(value: str) -> str:
@@ -323,6 +358,170 @@ def _numeric_subject_identifiers(value: str) -> set[str]:
     return {match.group(1).casefold() for match in _NUMERIC_SUBJECT_RE.finditer(value)}
 
 
+def _markdown_table_cells(line: str) -> list[str]:
+    stripped = line.strip()
+    if not (stripped.startswith("|") and stripped.endswith("|")):
+        return []
+    return [cell.strip() for cell in stripped.strip("|").split("|")]
+
+
+def _source_identity_records(source_chunks: Sequence[str]) -> dict[str, tuple[str, ...]]:
+    """Collect complete converter-owned rows under their explicit article/SKU.
+
+    A wide source row may be split across several Markdown tables.  Keeping every
+    exact row for the same identifier lets later checks compare claims locally
+    without pretending that tokens elsewhere in the document belong to it.
+    """
+
+    records: dict[str, list[str]] = {}
+    for source in source_chunks:
+        lines = source.splitlines()
+        index = 0
+        while index + 1 < len(lines):
+            headers = _markdown_table_cells(lines[index])
+            separator_index = index + 1
+            while separator_index < len(lines) and not lines[separator_index].strip():
+                separator_index += 1
+            separators = _markdown_table_cells(lines[separator_index]) if separator_index < len(lines) else []
+            if not (
+                len(headers) >= 2
+                and len(separators) == len(headers)
+                and all(re.fullmatch(r":?-{3,}:?", cell) for cell in separators)
+            ):
+                index += 1
+                continue
+            identity_columns = [
+                column for column, header in enumerate(headers) if _SOURCE_IDENTIFIER_HEADER_RE.fullmatch(header.strip())
+            ]
+            cursor = separator_index + 1
+            while cursor < len(lines):
+                if not lines[cursor].strip():
+                    cursor += 1
+                    continue
+                cells = _markdown_table_cells(lines[cursor])
+                if len(cells) != len(headers):
+                    break
+                for column in identity_columns:
+                    identifier = cells[column].strip().casefold()
+                    if identifier and _SOURCE_IDENTIFIER_RE.fullmatch(identifier):
+                        rendered = " | ".join(
+                            f"{header.strip()}: {cell.strip()}"
+                            for header, cell in zip(headers, cells, strict=True)
+                            if cell.strip()
+                        )
+                        if rendered and rendered not in records.setdefault(identifier, []):
+                            records[identifier].append(rendered)
+                cursor += 1
+            index = max(index + 1, cursor)
+    return {identifier: tuple(rows) for identifier, rows in records.items()}
+
+
+def _claimed_entity_tokens(fragment: str) -> set[str]:
+    if _COMPARISON_RE.search(fragment):
+        return set()
+    candidates: list[str] = []
+    colon = fragment.find(":")
+    identifier = _SOURCE_IDENTIFIER_RE.search(fragment)
+    if 0 < colon <= 100 and (identifier is None or colon < identifier.start()):
+        candidates.append(fragment[:colon])
+    for marker in _ENTITY_SCOPE_RE.finditer(fragment):
+        tail = fragment[marker.end() : marker.end() + 80]
+        candidates.append(re.split(r"[:;,().]", tail, maxsplit=1)[0])
+    return {
+        token
+        for candidate in candidates
+        for token in _relationship_tokens(candidate)
+        if len(token) >= 4
+        and token not in _ENTITY_GENERIC_TOKENS
+        and not any(character.isdigit() for character in token)
+    }
+
+
+def _has_source_identity_conflict(*, content: str, source_chunks: Sequence[str]) -> bool:
+    records = _source_identity_records(source_chunks)
+    if len(records) < 2:
+        return False
+    record_tokens = {
+        identifier: set(_relationship_tokens("\n".join(rows))) for identifier, rows in records.items()
+    }
+    for fragment in _NUMERIC_FRAGMENT_SPLIT_RE.split(content):
+        identifiers = {
+            match.group(0).casefold()
+            for match in _SOURCE_IDENTIFIER_RE.finditer(fragment)
+            if match.group(0).casefold() in records
+        }
+        if not identifiers:
+            continue
+        claimed_tokens = _claimed_entity_tokens(fragment)
+        for identifier in identifiers:
+            other_tokens = set().union(
+                *(tokens for other, tokens in record_tokens.items() if other != identifier)
+            )
+            if any(
+                token not in record_tokens[identifier] and token in other_tokens
+                for token in claimed_tokens
+            ):
+                return True
+    return False
+
+
+def _has_unresolved_source_attribute_conflict(*, content: str, source_chunks: Sequence[str]) -> bool:
+    records = _source_identity_records(source_chunks)
+    if not records:
+        return False
+    record_tokens = {
+        identifier: set(_relationship_tokens("\n".join(rows)))
+        for identifier, rows in records.items()
+    }
+    guide_conflicts = {
+        identifier: {
+            name
+            for name, pattern in _GUIDE_VALUE_PATTERNS.items()
+            if pattern.search("\n".join(rows))
+        }
+        for identifier, rows in records.items()
+    }
+    guide_conflicts = {
+        identifier: values
+        for identifier, values in guide_conflicts.items()
+        if len(values) >= 2
+    }
+    if not guide_conflicts:
+        return False
+    for fragment in _NUMERIC_FRAGMENT_SPLIT_RE.split(content):
+        if not _GUIDE_CONTEXT_RE.search(fragment):
+            continue
+        identifiers = {
+            match.group(0).casefold()
+            for match in _SOURCE_IDENTIFIER_RE.finditer(fragment)
+            if match.group(0).casefold() in guide_conflicts
+        }
+        if not identifiers:
+            claimed_tokens = _claimed_entity_tokens(fragment)
+            if not claimed_tokens:
+                claimed_tokens = {
+                    token
+                    for token in _relationship_tokens(fragment)
+                    if len(token) >= 4
+                    and token not in _ENTITY_GENERIC_TOKENS
+                    and token not in _GUIDE_SCOPE_TOKENS
+                    and not any(character.isdigit() for character in token)
+                }
+            identifiers = {
+                identifier
+                for identifier in guide_conflicts
+                if claimed_tokens & record_tokens[identifier]
+            }
+        for identifier in identifiers:
+            guide_values = guide_conflicts[identifier]
+            disclosed = _SOURCE_CONFLICT_DISCLOSURE_RE.search(content) and all(
+                _GUIDE_VALUE_PATTERNS[name].search(content) for name in guide_values
+            )
+            if not disclosed:
+                return True
+    return False
+
+
 def _has_unsupported_numeric_fact(*, content: str, source: str) -> bool:
     """Require a source-local numeric equivalent and its known context anchors.
 
@@ -332,7 +531,26 @@ def _has_unsupported_numeric_fact(*, content: str, source: str) -> bool:
     """
 
     source_facts = _numeric_facts(source)
+    identity_records = _source_identity_records([source])
+    record_fact_keys = {
+        identifier: {key for key, _fragment in _numeric_facts("\n".join(rows))}
+        for identifier, rows in identity_records.items()
+    }
     for content_key, content_fragment in _numeric_facts(content):
+        fragment_identifiers = {
+            match.group(0).casefold()
+            for match in _SOURCE_IDENTIFIER_RE.finditer(content_fragment)
+            if match.group(0).casefold() in identity_records
+        }
+        for identifier in fragment_identifiers:
+            identifier_keys = {key for key, _fragment in _numeric_facts(identifier)}
+            if content_key in identifier_keys:
+                continue
+            other_keys = set().union(
+                *(keys for other, keys in record_fact_keys.items() if other != identifier)
+            )
+            if content_key not in record_fact_keys[identifier] and content_key in other_keys:
+                return True
         candidates = [
             source_fragment
             for source_key, source_fragment in source_facts
@@ -621,6 +839,14 @@ def evaluate_lesson_quality(
         content=body_content,
         source="\n".join(source_chunks),
     )
+    source_identity_conflict = _has_source_identity_conflict(
+        content=body_content,
+        source_chunks=source_chunks,
+    )
+    source_attribute_conflict = _has_unresolved_source_attribute_conflict(
+        content=body_content,
+        source_chunks=source_chunks,
+    )
     incomplete_formula = _has_incomplete_formula_presentation(body_content)
 
     reasons: list[str] = []
@@ -642,6 +868,10 @@ def evaluate_lesson_quality(
         reasons.append("unsupported_relationship_claim")
     if unsupported_numeric:
         reasons.append("unsupported_numeric_fact")
+    if source_identity_conflict:
+        reasons.append("source_identity_conflict")
+    if source_attribute_conflict:
+        reasons.append("source_attribute_conflict")
     if incomplete_formula:
         reasons.append("incomplete_formula_presentation")
 

@@ -2482,11 +2482,12 @@ def test_contract_diagnostics_use_bounded_reason_codes():
 
 
 @pytest.mark.asyncio
-async def test_standard_assessment_requests_five_mcq_questions_only():
+async def test_standard_assessment_uses_five_as_a_ceiling_not_a_quota():
     class FakeLLM:
         async def ainvoke(self, messages, config=None, response_format=None):
             prompt = messages[-1]["content"]
-            assert "Exactly 5 single choice questions" in prompt
+            assert "Up to 5 useful single choice questions" in prompt
+            assert "This is a ceiling, not a quota" in prompt
             assert "Do not add true/false or matching questions" in prompt
             assert "ALLOWED_EVIDENCE_BANK" in prompt
             assert '"source_quote_id"' in prompt
@@ -2886,7 +2887,7 @@ async def test_standard_assessment_requests_provider_structured_output():
             assert response_format is not None
             assert response_format["type"] == "json_schema"
             schema = response_format["json_schema"]["schema"]
-            assert schema["properties"]["mcq"]["minItems"] == 5
+            assert schema["properties"]["mcq"]["minItems"] == 0
             assert schema["properties"]["mcq"]["maxItems"] == 5
             assert schema["properties"]["mcq"]["items"]["properties"]["source_quote_id"]["enum"] == [
                 "E01",

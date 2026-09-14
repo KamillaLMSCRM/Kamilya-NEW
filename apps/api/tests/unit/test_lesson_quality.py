@@ -602,3 +602,99 @@ def test_relationship_claim_preserves_dotted_identifier() -> None:
 
     assert result.accepted is False
     assert "unsupported_relationship_claim" in result.reason_codes
+
+
+def test_article_bound_claim_rejects_collection_owned_by_another_source_row() -> None:
+    source = """| Article | Product | Doors | Opening |
+| --- | --- | --- | --- |
+| 00070001 | System Alpha Cabinet | 4 | Handles |
+| 00070002 | System Beta Cabinet | 3 | Push-to-Open |"""
+
+    result = evaluate_lesson_quality(
+        title="Hardware",
+        content="Collection Beta: cabinet with 4 doors (article 00070001) uses handles.",
+        source_chunks=[source],
+    )
+
+    assert result.accepted is False
+    assert "source_identity_conflict" in result.reason_codes
+
+
+def test_article_bound_claim_rejects_other_rows_numeric_value() -> None:
+    source = """| Article | Product | Doors |
+| --- | --- | --- |
+| 00070001 | System Alpha Cabinet | 4 |
+| 00070002 | System Beta Cabinet | 3 |"""
+
+    result = evaluate_lesson_quality(
+        title="Cabinets",
+        content="Article 00070001 is a 3-door System Alpha cabinet.",
+        source_chunks=[source],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_numeric_fact" in result.reason_codes
+
+
+def test_article_bound_claim_accepts_values_from_its_own_source_row() -> None:
+    source = """| Article | Product | Doors | Opening |
+| --- | --- | --- | --- |
+| 00070001 | System Alpha Cabinet | 4 | Handles |
+| 00070002 | System Beta Cabinet | 3 | Push-to-Open |"""
+
+    result = evaluate_lesson_quality(
+        title="Hardware",
+        content="Article 00070001 is a 4-door System Alpha cabinet with handles.",
+        source_chunks=[source],
+    )
+
+    assert result.accepted is True
+
+
+def test_conflicting_article_attribute_requires_explicit_uncertainty() -> None:
+    source_chunks = [
+        """| Article | Description |
+| --- | --- |
+| 00070001 | The drawers use roller guides. |""",
+        """| Article | Characteristics |
+| --- | --- |
+| 00070001 | Guide type: ball-bearing. |""",
+    ]
+
+    asserted = evaluate_lesson_quality(
+        title="Guides",
+        content="Article 00070001 uses roller guides.",
+        source_chunks=source_chunks,
+    )
+    disclosed = evaluate_lesson_quality(
+        title="Guides",
+        content=(
+            "Source fields conflict for article 00070001: the description says roller guides, "
+            "while the characteristics say ball-bearing guides; clarification is required."
+        ),
+        source_chunks=source_chunks,
+    )
+
+    assert asserted.accepted is False
+    assert "source_attribute_conflict" in asserted.reason_codes
+    assert disclosed.accepted is True
+
+
+def test_conflicting_article_attribute_cannot_be_hidden_by_omitting_identifier() -> None:
+    source_chunks = [
+        """| Article | Collection | Description |
+| --- | --- | --- |
+| 00070001 | System Alpha | The drawers use roller guides. |""",
+        """| Article | Collection | Characteristics |
+| --- | --- | --- |
+| 00070001 | System Alpha | Guide type: ball-bearing. |""",
+    ]
+
+    result = evaluate_lesson_quality(
+        title="Guides",
+        content="System Alpha uses ball-bearing guides.",
+        source_chunks=source_chunks,
+    )
+
+    assert result.accepted is False
+    assert "source_attribute_conflict" in result.reason_codes

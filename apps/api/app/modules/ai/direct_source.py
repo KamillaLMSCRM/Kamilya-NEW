@@ -81,6 +81,16 @@ _LESSON_QUALITY_REPAIR_INSTRUCTIONS = {
         "act and do not connect columns with if/then, therefore, means, "
         "determines, helps, suits, recommend, offer, use, or similar wording."
     ),
+    "source_identity_conflict": (
+        "A stable article, SKU or product identifier was combined with an entity or collection "
+        "owned by another source row. Keep every identifier, collection and property bound to "
+        "one exact source row; never assemble a claim from values found in different rows."
+    ),
+    "source_attribute_conflict": (
+        "The supplied source gives conflicting values for an attribute of the same identified "
+        "item. Do not choose one value. Explicitly state that the source fields conflict, name "
+        "both values and say that clarification is required."
+    ),
     "repeated_across_lessons": (
         "Rewrite this lesson around only the attributes named by its title and "
         "objectives. Do not reproduce complete source rows or repeat facts that "
@@ -1738,7 +1748,11 @@ summary, reminder, or conclusion.
 Never narrate validation rules or source-handling policy as learner-facing lesson
 content. Preserve exactly which named entity and condition each compatibility,
 benefit, restriction, or causal explanation belongs to; do not extend a relation
-stated for one entity to a grouped list of entities.""" + unreadable_percentage_instruction + """
+stated for one entity to a grouped list of entities. When fields tied to the
+same stable identifier (article, SKU, code, product ID) give conflicting values
+for one attribute, never silently choose either value. State the conflict, name
+both source values, and say that the original must be clarified. Never transfer
+an attribute from another identifier merely because it appears nearby.""" + unreadable_percentage_instruction + """
 Return only the lesson Markdown and do not include hidden reasoning."""
 
 

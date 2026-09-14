@@ -62,5 +62,6 @@ async def test_compact_assessment_requests_only_three_mcq_questions():
     assert len(result.mcq) == 3
     assert result.true_false == []
     assert result.matching == []
-    assert "Exactly 3 single choice questions" in llm.messages[1]["content"]
+    assert "Up to 3 useful single choice questions" in llm.messages[1]["content"]
+    assert "This is a ceiling, not a quota" in llm.messages[1]["content"]
     assert '"maxItems": 0' in llm.messages[1]["content"]

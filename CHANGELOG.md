@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.44] - 2026-09-14
+
+### Fixed
+
+- Keep article, collection and numerical properties bound to the same source row
+  when generating lessons from structured catalogues.
+- Surface conflicting source values for the same identified item instead of
+  silently selecting one; the draft asks the methodologist to verify the original.
+- Independently compare numerical question options by period, unit, calculation
+  base and conditions, and remove ambiguous questions without generating quota
+  replacements.
+- Treat question counts as evidence-sized ceilings for every document size. A
+  lesson may retain fewer or no questions when the source cannot support distinct
+  useful checks.
+- Evaluate test coverage across the entire course and report exact missing learning
+  objectives separately for lesson content and assessments.
+
 ## [0.5.43] - 2026-09-14
 
 ### Fixed
