@@ -1,5 +1,9 @@
 from app.modules.ai import assessment as assessment_module
-from app.modules.ai.assessment import _lesson_assessment_evidence, _restored_assessment_is_valid
+from app.modules.ai.assessment import (
+    _lesson_assessment_evidence,
+    _restored_assessment_is_valid,
+    _validate_lesson_entity_scope,
+)
 from app.modules.ai.assessment_schema import LessonAssessment, MCQOption, MCQQuestion
 from app.modules.ai.writer_schema import LessonContent
 
@@ -17,6 +21,57 @@ def test_large_table_prioritizes_late_lesson_attributes_without_splitting_column
     assert list(bank.values())[0] == target
     assert "| Характеристика | Орион | Вега |" in bounded
     assert all(quote in bounded for quote in bank.values())
+
+
+def test_large_comparison_lesson_scopes_by_entity_header_and_keeps_peer_values():
+    selected_header = "| Характеристика | Чикаго Стрит |\n| --- | --- |\n"
+    selected = selected_header + "".join(
+        f"| Описание {index} | " + "Городская модульная система без ручек. " * 10 + "|\n"
+        for index in range(40)
+    )
+    full_header = "| Характеристика | Чикаго Нео | Чикаго Стрит |\n| --- | --- | --- |\n"
+    target = "| Направляющие | роликовые | телескопические |"
+    lesson = LessonContent(
+        title="Коллекция: Чикаго Стрит",
+        objectives=["Объяснить характеристики Чикаго Стрит"],
+        source_chunks=[selected, full_header + target],
+    )
+
+    bounded, bank = _lesson_assessment_evidence(lesson)
+
+    assert full_header.strip() in bounded
+    assert target in bounded
+    assert list(bank.values()) == [target]
+    assert "роликовые" in bounded
+
+
+def test_entity_card_rejects_question_about_a_different_comparison_column():
+    source = (
+        "| Характеристика | Чикаго Нео | Чикаго Стрит |\n"
+        "| --- | --- | --- |\n"
+        "| Кровати | кровать на ламелях | кроватей нет |"
+    )
+    wrong = {
+        "mcq": [{
+            "question": "Какая коллекция включает кровать на ламелях?",
+            "options": [
+                {"text": "Чикаго Нео", "is_correct": True},
+                {"text": "Чикаго Стрит", "is_correct": False},
+            ],
+        }]
+    }
+    valid = {
+        "mcq": [{
+            "question": "В какой коллекции из этого сравнения кроватей нет?",
+            "options": [
+                {"text": "Чикаго Стрит", "is_correct": True},
+                {"text": "Чикаго Нео", "is_correct": False},
+            ],
+        }]
+    }
+
+    assert _validate_lesson_entity_scope(wrong, source, "Коллекция: Чикаго Стрит")
+    assert not _validate_lesson_entity_scope(valid, source, "Коллекция: Чикаго Стрит")
 
 
 def test_small_prose_keeps_existing_evidence_contract():

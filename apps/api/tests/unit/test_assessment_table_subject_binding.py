@@ -54,3 +54,55 @@ def test_grounded_collection_choice_is_not_mistaken_for_unscoped_attribute():
     issues = _validate_question_evidence(data, {"E01": row}, source, "ru")
     assert not any("unscoped attribute" in issue or "omits its specific subject" in issue for issue in issues)
     assert not any("answer does not use its source" in issue for issue in issues)
+
+
+def test_header_answer_rejects_predicate_scope_shift_between_includes_and_compatible():
+    """A table header is not support when the stem moves an object to another relation."""
+    row = (
+        "| Особенности шкафов | Угловые модули и антресоли. | Есть угловой модуль. | "
+        "Глубокие полки. Совместима с антресолями и угловым шкафом коллекции Альфа. |"
+    )
+    source = "| Поле | Альфа | Бета | Гамма |\n| --- | --- | --- | --- |\n" + row
+    data = {
+        "mcq": [
+            {
+                "question": "Какая коллекция включает угловой шкаф и совместима с антресолями?",
+                "source_quote_id": "E01",
+                "options": [
+                    {"text": "Гамма", "is_correct": True},
+                    {"text": "Альфа", "is_correct": False},
+                    {"text": "Бета", "is_correct": False},
+                ],
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence({"mcq": [dict(data["mcq"][0])]}, {"E01": row}, source, "ru")
+
+    assert any("changes the source relationship scope" in issue for issue in issues)
+
+
+def test_header_answer_keeps_distinct_inclusion_and_compatibility_facts():
+    row = (
+        "| Особенности шкафов | Угловые модули и антресоли. | Есть угловой модуль. | "
+        "Глубокие полки и ящики. Совместима с антресолями. |"
+    )
+    source = "| Поле | Альфа | Бета | Гамма |\n| --- | --- | --- | --- |\n" + row
+    data = {
+        "mcq": [
+            {
+                "question": "Какая коллекция включает глубокие полки и совместима с антресолями?",
+                "source_quote_id": "E01",
+                "options": [
+                    {"text": "Гамма", "is_correct": True},
+                    {"text": "Альфа", "is_correct": False},
+                    {"text": "Бета", "is_correct": False},
+                ],
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(data, {"E01": row}, source, "ru")
+
+    assert not any("changes the source relationship scope" in issue for issue in issues)
+    assert not any("answer does not use its source" in issue for issue in issues)

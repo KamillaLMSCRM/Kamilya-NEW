@@ -90,6 +90,81 @@ def _structure(
 
 
 @pytest.mark.asyncio
+async def test_no_intent_comparison_matrix_uses_entity_lessons_not_attribute_ranges() -> None:
+    revision = "document:" + "d" * 64
+    primary = DirectSourceChunk(
+        chunk_id="direct:doc-1:0",
+        doc_id="doc-1",
+        doc_name="source.xlsx",
+        title="Source",
+        headings=("[Worksheet] Коллекции",),
+        text=(
+            "| Характеристика | Альфа | Бета | Гамма |\n"
+            "| --- | --- | --- | --- |\n"
+            "| Стиль | современный | скандинавский | лофт |\n"
+            "| Материал | ЛДСП | МДФ | металл |\n"
+            "| Хранение | модули | полки | секции |\n"
+            "| Особенности | скрытые ручки | светлые фасады | усиленная фурнитура |"
+        ),
+        source_revision=revision,
+        chunk_index=0,
+    )
+    supporting = DirectSourceChunk(
+        chunk_id="direct:doc-1:1",
+        doc_id="doc-1",
+        doc_name="source.xlsx",
+        title="Source",
+        headings=("[Worksheet] Альфа и Бета",),
+        text=(
+            "| Артикул | Наименование | Цена |\n"
+            "| --- | --- | --- |\n"
+            "| A-1 | Шкаф | 100 |\n"
+            "| B-1 | Комод | 200 |"
+        ),
+        source_revision=revision,
+        chunk_index=1,
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(DirectSourceDocument(
+            doc_id="doc-1",
+            title="Source",
+            filename="source.xlsx",
+            category="general",
+            source_revision=revision,
+            chunks=(primary, supporting),
+        ),),
+        total_chars=len(primary.text) + len(supporting.text),
+        total_chunks=2,
+    )
+
+    class LLM:
+        async def ainvoke(self, _messages):
+            raise AssertionError("a deterministic no-intent comparison matrix must not call an LLM architect")
+
+    assert {section.name: section.role.value for section in build_document_passport(corpus).sections} == {
+        "Коллекции": "primary",
+        "Альфа и Бета": "supporting",
+    }
+    result = await run_direct_architect(
+        LLM(), corpus, language="ru", num_modules=2, lessons_per_module=2, max_total_lessons=6
+    )
+
+    assert result.title == "Коллекции: Альфа, Бета и Гамма"
+    assert [module.title for module in result.modules] == [
+        "Коллекции: Альфа и Бета",
+        "Коллекции: Гамма",
+    ]
+    lessons = [lesson for module in result.modules for lesson in module.lessons]
+    assert [lesson.title for lesson in lessons] == [
+        "Коллекция: Альфа",
+        "Коллекция: Бета",
+        "Коллекция: Гамма",
+    ]
+    assert all("—" not in lesson.title for lesson in lessons)
+
+
+@pytest.mark.asyncio
 async def test_primary_reference_repair_receives_previous_plan_and_exact_allowed_headings() -> None:
     class LLM:
         def __init__(self) -> None:
@@ -522,6 +597,54 @@ def test_primary_tabular_renderer_does_not_read_same_named_supporting_sheet() ->
     assert "199000" not in content
     assert "199000" not in selected_source
     assert "199000" not in assessment_source
+
+
+def test_primary_tabular_renderer_does_not_merge_columns_with_shared_name_prefix() -> None:
+    revision = "document:" + "e" * 64
+    primary = DirectSourceChunk(
+        chunk_id="direct:doc-primary:0",
+        doc_id="doc-primary",
+        doc_name="primary.xlsx",
+        title="Primary",
+        headings=("[Worksheet] Коллекции",),
+        text=(
+            "| Поле | Чикаго Нео | Чикаго Стрит |\n"
+            "| --- | --- | --- |\n"
+            "| Стиль | матовые фасады | гладкие фасады |\n"
+            "| Ручки | торцевые ручки | без ручек |"
+        ),
+        source_revision=revision,
+        chunk_index=0,
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(DirectSourceDocument(
+            doc_id="doc-primary",
+            title="Primary",
+            filename="primary.xlsx",
+            category="general",
+            source_revision=revision,
+            chunks=(primary,),
+        ),),
+        total_chars=len(primary.text),
+        total_chunks=1,
+    )
+
+    rendered = _render_primary_tabular_lesson(
+        chunks=(primary,),
+        passport=build_document_passport(corpus),
+        title="Коллекция: Чикаго Стрит",
+        objectives=("Объяснить характеристики Чикаго Стрит",),
+        language="ru",
+    )
+
+    assert rendered is not None
+    content, selected_source, assessment_source = rendered
+    assert "гладкие фасады" in content
+    assert "без ручек" in content
+    assert "матовые фасады" not in content
+    assert "торцевые ручки" not in selected_source
+    assert "торцевые ручки" in assessment_source
 
 
 def test_primary_tabular_renderer_omits_note_only_source_rows() -> None:

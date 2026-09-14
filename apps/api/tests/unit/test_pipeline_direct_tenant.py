@@ -64,7 +64,10 @@ async def test_direct_pipeline_forwards_trusted_tenant_to_semantic_writer(monkey
     if audit_outcome == 'interrupted':
         checkpoints.clear.assert_not_awaited()
         assert state.status == 'interrupted'
-        assert state.errors == ['assessment_audit_interrupted']
+        assert state.errors == [
+            'assessment_audit_interrupted',
+            'assessment_audit_invalid_verdict',
+        ]
         save.assert_not_awaited()
         return
     checkpoints.clear.assert_awaited_once()
@@ -95,3 +98,24 @@ def test_checkpoint_factory_namespaces_settings_and_job(monkeypatch):
     assert first[2] != factory.call_args.args[2]
     assert pipeline._source_map_checkpoint_store(object(), tenant, job, {}) is None
     assert pipeline._source_map_checkpoint_store(llm, None, job, {}) is None
+
+
+def test_completed_progress_counts_only_persisted_lessons() -> None:
+    content = CourseContent(
+        title="Synthetic",
+        modules=[
+            ModuleContent(title="One", lessons=[
+                LessonContent(title="A", content="a", objectives=["a"]),
+                LessonContent(title="B", content="b", objectives=["b"]),
+            ]),
+            ModuleContent(title="Two", lessons=[
+                LessonContent(title="C", content="c", objectives=["c"]),
+            ]),
+        ],
+    )
+
+    assert pipeline._completed_progress_detail(content) == {
+        "current": 3,
+        "total": 3,
+        "estimated_remaining_seconds": 0,
+    }

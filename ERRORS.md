@@ -31,6 +31,36 @@ Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
 
+## AI-QUALITY-021 - Similar matrix columns crossed lesson and question ownership
+
+- Date: 2026-09-14. Confirmed with the complete control workbook after the
+  content-quality hardening candidate.
+- Symptom: a comparison worksheet could merge `Чикаго Нео` and `Чикаго Стрит`
+  because both names shared a broad lexical stem. A later assessment could then
+  ask a question about a peer collection inside the wrong lesson. A supporting
+  worksheet whose title contained several collection names could also be
+  mistaken for an unreferenced required source.
+- Cause: primary matrix column selection used stem intersection instead of exact
+  entity-token containment; assessment context fallback selected a leading text
+  slice rather than the complete row for the named entity; structure validation
+  treated every supporting worksheet name as an independent title obligation.
+- Fix: recognize characteristic-by-entity matrices explicitly, create one
+  source card per entity, select columns by complete entity-token containment,
+  rank the exact entity row for assessment evidence, and exempt a supporting
+  title only when its stems are fully explained by primary entity headers.
+  Validate that every retained question belongs to the lesson's named entity and
+  delete invalid questions without generating replacements.
+- Verification: complete API unit and contract selection passed 1714 tests;
+  Python quality baseline passed. A private replay of the complete workbook
+  produced three named collection lessons and retained five source-grounded
+  questions: two for `Феникс`, one for `Чикаго Нео`, and two for
+  `Чикаго Стрит`. No question assessed another lesson's entity, no lesson or
+  assessment objective remained uncovered, and no rejected question was padded.
+- Prevention: every comparison-matrix change must include two entity names with
+  a shared prefix, a supporting-sheet title composed from primary entities, an
+  off-entity question negative, a relation-scope negative, and a full-source
+  replay reviewed by meaning rather than question count.
+
 ## APPROVAL-001 - Unchecked control did not reflect the persisted approval policy
 
 - Date: 2026-09-09.

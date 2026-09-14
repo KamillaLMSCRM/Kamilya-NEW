@@ -126,7 +126,7 @@ async def audit_course_assessment(
     chunks = [chunk for chunk in chunks if not any(chunk != other and chunk in other for other in chunks)]
     sources = "\n\n".join(chunks) if chunks else "\n\n".join(lesson.content for lesson in lessons)
     if len(sources) > MAX_AUDIT_SOURCE_CHARS or len(original) > MAX_AUDIT_QUESTIONS:
-        raise ValueError("assessment audit complete-source budget exceeded")
+        raise AssessmentAuditError("assessment audit complete-source budget exceeded")
     questions = [{"id": qid, "question": q.question, "options": [o.text for o in q.options]} for qid, (_, _, q) in original.items()]
     blind = await _ask(llm, """Independently solve EVERY question using the COMPLETE original source.
 You are NOT given the author's answer key. Evaluate EACH option under the actual

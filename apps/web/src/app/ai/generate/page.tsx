@@ -1264,11 +1264,9 @@ export default function AIGeneratePage() {
             {compatibility?.recommended_structure && (
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm">
                 <div className="font-medium text-foreground">{t('ai.recommendedStructure')}</div>
-                {!compatibility.source_passport && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Предварительная оценка по объёму файла. После разбора основного материала структура может стать короче; справочные строки не задают число уроков.
-                  </p>
-                )}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Оценка, а не обещанный результат: после разбора основного материала число модулей и уроков может измениться; справочные строки не задают структуру курса.
+                </p>
                 <div className="mt-1 text-muted-foreground">
                   {t('ai.recommendedStructureValue', {
                     modules: compatibility.recommended_structure.module_count,
@@ -1355,6 +1353,7 @@ export default function AIGeneratePage() {
             queuePosition={t('ai.queuePosition', { position: currentJob.queue_position ?? 0 })}
             estimatedWait={t('ai.estimatedWait', { minutes: Math.max(1, Math.ceil((currentJob.estimated_wait_seconds ?? 0) / 60)) })}
             queueEstimateHint={t('ai.queueEstimateHint')}
+            completedUnitsLabel={t('ai.savedLessonsProgress')}
             onRetry={currentJob.status === 'interrupted' ? () => void resumeJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : resolveAsyncOperationState(currentJob) === 'stalled' ? () => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : retryGeneration}
             onCancel={() => void cancelJob().catch((error) => console.error('Cancel failed', error))}
           />

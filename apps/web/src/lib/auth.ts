@@ -156,7 +156,15 @@ function refreshAndStoreSessionInternal(force: boolean): Promise<boolean> {
   const startedAtEpoch = _authEpoch;
   _refreshAndStoreInflight = (async () => {
     const data = await refreshSession();
-    if (startedAtEpoch !== _authEpoch || !data) return false;
+    if (startedAtEpoch !== _authEpoch) return false;
+    if (!data) {
+      // A forced refresh follows a failed authenticated request. Drop the
+      // expired tenant-bound context so the layout can present its normal
+      // login/recovery route instead of leaving a stale session to fail as a
+      // generic page error.
+      if (force) clearAuth();
+      return false;
+    }
     _accessToken = data.access_token;
     _user = data.user as AuthUser;
     _emit();

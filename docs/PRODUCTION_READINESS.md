@@ -9,10 +9,34 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Release 0.5.44 — local candidate GO; CI/DEV/production pending, 2026-09-14
+## Release 0.5.45 — local candidate GO; CI/DEV/production pending, 2026-09-14
 
-- No migration, infrastructure, DNS, frontend or model-route change. Exact
-  commit, CI, DEV and production identity are pending.
+- No migration, infrastructure, DNS or model-route change. Candidate includes
+  API, workers and native frontend. Exact commit, CI, DEV and production identity
+  are pending.
+- Complete API unit and contract selection `1714 passed`; local `AI-COURSE-01`
+  selection `6 passed`; production frontend build, 589 frontend tests, lint and
+  typecheck passed; Python quality baseline passed (`ruff=1065`, `mypy=2333`).
+- The complete control workbook now yields three lessons bound to `Феникс`,
+  `Чикаго Нео` and `Чикаго Стрит`. The final assessment retained five useful,
+  source-grounded questions with no cross-entity question and no uncovered
+  lesson or assessment objective. Invalid questions were deleted without count
+  replacement.
+- Exact progress retains completed/total lesson counts through the saved result;
+  final-audit failures retain checkpoints as a typed resumable interruption.
+  A failed forced session refresh clears stale in-memory tenant access.
+- Supabase DEV application gate `HBR-DEV-APP-20260914T104535Z` returned READY
+  against public revision `0158`; PostgreSQL 17/pgvector, isolated lifecycle,
+  FORCE RLS, tenant negatives, rollback and exact cleanup passed while shared
+  public revision and metadata remained unchanged.
+- **Gate:** `LOCAL + DEV GO`; exact remote SHA/CI/artifacts, deployment,
+  synthetic live PDF/Excel smokes and cleanup remain required.
+
+## Release 0.5.44 — deployed baseline, 2026-09-14
+
+- Current public API readback reports product `0.5.44`, production release
+  `9ae9656ec031de01db40bb8651ec9bd7c0718883`, environment `kz-production` and
+  status `ok`. This is the rollback baseline for 0.5.45.
 - Complete API unit suite `1672 passed`; database-free `AI-COURSE-01` selectors
   `6 passed`; release workflow contracts `45 passed`; Python quality baseline
   passed (`ruff=1065`, `mypy=2333`); release-contract gate passed with Alembic
@@ -32,8 +56,8 @@ DB/storage gate и приёмкой клиента
 - Graphify 0.9.23 refused to replace the existing graph because the new
   extraction was smaller by 690 nodes. No `--force` override was used; decisive
   dependencies were verified in current source and tests.
-- **Gate:** `LOCAL GO`; CI, immutable artifact, Supabase DEV application gate,
-  exact-SHA deployment, synthetic production smoke and cleanup remain required.
+- **Gate:** deployed baseline; the content-quality evidence above remains the
+  historical candidate record and does not substitute for 0.5.45 acceptance.
 
 ## Release 0.5.43 — deployed; live technical PASS, content NO_GO, 2026-09-14
 

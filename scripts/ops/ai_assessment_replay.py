@@ -26,6 +26,8 @@ if str(API_ROOT) not in sys.path:
 
 from app.modules.ai import assessment as assessment_module
 from app.modules.ai.assessment import generate_course_assessment, generate_lesson_assessment
+from app.modules.ai.assessment_completion import finalize_course_assessment
+from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
 from app.modules.ai.llm_client import ResilientLLMClient, _deepseek_llm_provider
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 
@@ -132,6 +134,62 @@ def select_lessons(
     if not all_completed and len(selected) != 1:
         raise ReplayTraceError("lesson_selector_is_ambiguous")
     return selected
+
+
+def select_course_for_audit(exported: Mapping[str, Any]) -> tuple[CourseContent, CourseAssessment]:
+    """Rebuild the exact completed checkpoint set needed by the final audit.
+
+    Pending and intentionally omitted lessons are outside the audit. A lesson
+    whose content completed without a persisted assessment is not replayable and
+    fails closed instead of silently changing the course under test.
+    """
+    checkpoints = exported.get("checkpoints")
+    if not isinstance(checkpoints, list):
+        raise ReplayTraceError("invalid_export_checkpoints")
+    grouped: dict[int, list[tuple[int, LessonContent, LessonAssessment]]] = {}
+    coordinates: set[tuple[int, int]] = set()
+    for checkpoint in checkpoints:
+        if not isinstance(checkpoint, Mapping):
+            raise ReplayTraceError("invalid_export_checkpoint")
+        content_status = checkpoint.get("content_status", "completed")
+        if content_status in {"pending", "omitted"}:
+            continue
+        if content_status != "completed" or not isinstance(checkpoint.get("content_payload"), Mapping):
+            raise ReplayTraceError("invalid_completed_lesson_content")
+        if checkpoint.get("assessment_status") != "completed" or not isinstance(
+            checkpoint.get("assessment_payload"), Mapping
+        ):
+            raise ReplayTraceError("completed_lesson_missing_assessment")
+        module_order = checkpoint.get("module_order")
+        lesson_order = checkpoint.get("lesson_order")
+        if not isinstance(module_order, int) or not isinstance(lesson_order, int):
+            raise ReplayTraceError("completed_lesson_missing_stable_order")
+        coordinate = (module_order, lesson_order)
+        if coordinate in coordinates:
+            raise ReplayTraceError("duplicate_completed_lesson_coordinate")
+        coordinates.add(coordinate)
+        try:
+            lesson = LessonContent.from_dict(dict(checkpoint["content_payload"]))
+            assessment = LessonAssessment.from_dict(dict(checkpoint["assessment_payload"]))
+        except (TypeError, ValueError) as exc:
+            raise ReplayTraceError("invalid_audit_checkpoint_payload") from exc
+        if assessment.lesson_title != lesson.title:
+            raise ReplayTraceError("audit_checkpoint_lesson_title_mismatch")
+        grouped.setdefault(module_order, []).append((lesson_order, lesson, assessment))
+    if not grouped:
+        raise ReplayTraceError("no_completed_assessments_for_audit")
+    course_modules: list[ModuleContent] = []
+    assessments: list[LessonAssessment] = []
+    for module_order, items in sorted(grouped.items()):
+        ordered = sorted(items, key=lambda item: item[0])
+        course_modules.append(
+            ModuleContent(title=f"module-{module_order}", lessons=[lesson for _order, lesson, _item in ordered])
+        )
+        assessments.extend(item for _order, _lesson, item in ordered)
+    return (
+        CourseContent(title="Private final-audit replay", modules=course_modules),
+        CourseAssessment(assessments=assessments),
+    )
 
 
 class CapturingLLM:
@@ -274,6 +332,35 @@ async def run_course_assessments(
         assessment_module.asyncio = original_asyncio
 
 
+async def run_final_audit(
+    course: CourseContent,
+    assessment: CourseAssessment,
+    *,
+    llm: AssessmentLLM,
+    language: str,
+    compact: bool,
+    output: dict[str, Any],
+    flush: Callable[[], None],
+) -> None:
+    """Run only the production final-audit/supplement seam from checkpoints."""
+    result = await finalize_course_assessment(
+        llm,
+        course,
+        assessment,
+        language=language,
+        compact=compact,
+    )
+    output.update(
+        {
+            "assessment": result.assessment.to_dict(),
+            "decisions": _json_value(result.decisions),
+            "uncovered_objectives": _json_value(result.uncovered_objectives),
+            "uncovered_content_objectives": _json_value(result.uncovered_content_objectives),
+        }
+    )
+    flush()
+
+
 def _read_json(path: Path) -> Mapping[str, Any]:
     with path.open(encoding="utf-8") as source:
         value = json.load(source)
@@ -312,18 +399,34 @@ def _summary(mode: str, results: list[dict[str, Any]], calls: list[dict[str, Any
 
 async def _main_async(args: argparse.Namespace, trace: dict[str, Any], flush: Callable[[], None]) -> dict[str, Any]:
     exported = _read_json(args.input)
-    lessons = select_lessons(
-        exported, module_order=args.module_order, lesson_order=args.lesson_order, all_completed=args.all_completed
-    )
+    if args.stage == "final-audit":
+        course, assessment = select_course_for_audit(exported)
+        lessons: list[dict[str, Any]] = []
+        selected = [
+            {
+                "module_order": module_index,
+                "lesson_order": lesson_index,
+                "lesson_title": lesson.title,
+            }
+            for module_index, module in enumerate(course.modules)
+            for lesson_index, lesson in enumerate(module.lessons)
+        ]
+    else:
+        lessons = select_lessons(
+            exported, module_order=args.module_order, lesson_order=args.lesson_order, all_completed=args.all_completed
+        )
+        selected = [
+            {key: item[key] for key in ("module_order", "lesson_order", "module_key", "lesson_key")}
+            for item in lessons
+        ]
     started = time.perf_counter()
     trace.update(
         {
-            "selected": [
-                {key: item[key] for key in ("module_order", "lesson_order", "module_key", "lesson_key")}
-                for item in lessons
-            ],
+            "stage": args.stage,
+            "selected": selected,
             "calls": [],
             "results": [],
+            **({"audit": {}} if args.stage == "final-audit" else {}),
         }
     )
     flush()
@@ -337,17 +440,30 @@ async def _main_async(args: argparse.Namespace, trace: dict[str, Any], flush: Ca
         provider = _deepseek_llm_provider()
         if provider is None:
             raise ReplayTraceError("deepseek_provider_not_configured")
-        inner = ResilientLLMClient(providers=[provider], temperature=0.2, max_tokens=4096)
+        max_tokens = 8192 if args.stage == "final-audit" else 4096
+        inner = ResilientLLMClient(providers=[provider], temperature=0.2, max_tokens=max_tokens)
         trace["client"] = {
             "type": "ResilientLLMClient",
             "provider_names": inner.provider_names,
             "temperature": 0.2,
-            "max_tokens": 4096,
+            "max_tokens": max_tokens,
         }
         flush()
-        runner = run_course_assessments if args.all_completed else run_assessments
-        await runner(lessons, llm=CapturingLLM(inner, calls, flush), language=args.language,
-                     compact=args.compact, results=results, flush=flush)
+        llm: AssessmentLLM = CapturingLLM(inner, calls, flush)
+        if args.stage == "final-audit":
+            await run_final_audit(
+                course,
+                assessment,
+                llm=llm,
+                language=args.language,
+                compact=args.compact,
+                output=trace["audit"],
+                flush=flush,
+            )
+        else:
+            runner = run_course_assessments if args.all_completed else run_assessments
+            await runner(lessons, llm=llm, language=args.language,
+                         compact=args.compact, results=results, flush=flush)
     else:
         replay = _read_json(args.replay)
         raw_calls = replay.get("calls")
@@ -357,12 +473,26 @@ async def _main_async(args: argparse.Namespace, trace: dict[str, Any], flush: Ca
         llm = ReplayingLLM(calls)
         trace["client"] = {"type": "replay", "provider_names": ["replay"]}
         flush()
-        runner = run_course_assessments if args.all_completed else run_assessments
-        await runner(lessons, llm=llm, language=args.language, compact=args.compact, results=results, flush=flush,
-                     **({"skip_interlesson_pacing": True} if args.all_completed else {}))
+        if args.stage == "final-audit":
+            await run_final_audit(
+                course,
+                assessment,
+                llm=llm,
+                language=args.language,
+                compact=args.compact,
+                output=trace["audit"],
+                flush=flush,
+            )
+        else:
+            runner = run_course_assessments if args.all_completed else run_assessments
+            await runner(lessons, llm=llm, language=args.language, compact=args.compact, results=results, flush=flush,
+                         **({"skip_interlesson_pacing": True} if args.all_completed else {}))
         llm.assert_consumed()
     elapsed_ms = (time.perf_counter() - started) * 1000
     trace["summary"] = _summary(args.mode, results, calls, elapsed_ms)
+    trace["summary"]["stage"] = args.stage
+    if args.stage == "final-audit":
+        trace["summary"]["lesson_count"] = len(selected)
     flush()
     return trace
 
@@ -370,6 +500,7 @@ async def _main_async(args: argparse.Namespace, trace: dict[str, Any], flush: Ca
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("capture", "replay"))
+    parser.add_argument("--stage", choices=("assessment", "final-audit"), default="assessment")
     parser.add_argument("--input", required=True, type=Path, help="Private exported checkpoint JSON")
     parser.add_argument("--output", required=True, type=Path, help="Private capture/replay output JSON")
     parser.add_argument("--replay", type=Path, help="Private capture JSON; required for replay")
@@ -384,6 +515,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error("replay requires --replay PRIVATE_CAPTURE.json")
     if args.mode == "capture" and args.replay is not None:
         parser.error("capture does not accept --replay")
+    if args.stage == "final-audit" and not args.all_completed:
+        parser.error("final-audit requires --all-completed")
     if args.output.exists():
         parser.error("refusing to overwrite existing private output; choose a distinct --output path")
     return args
@@ -391,7 +524,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    trace: dict[str, Any] = {"trace_version": TRACE_VERSION, "mode": args.mode, "calls": [], "results": []}
+    trace: dict[str, Any] = {
+        "trace_version": TRACE_VERSION,
+        "mode": args.mode,
+        "stage": args.stage,
+        "calls": [],
+        "results": [],
+    }
     started = time.perf_counter()
 
     def flush() -> None:
@@ -404,6 +543,7 @@ def main(argv: list[str] | None = None) -> int:
         trace["summary"] = {
             "status_code": "failed",
             "mode": args.mode,
+            "stage": args.stage,
             "call_count": len(trace["calls"]),
             "lesson_count": len(trace["results"]),
             "error_types": [type(exc).__name__],

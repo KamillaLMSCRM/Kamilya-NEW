@@ -845,6 +845,7 @@
     "generate": "Generate Course",
     "cancel": "Cancel",
     "progress": "Generation Progress",
+    "savedLessonsProgress": "Saved lessons",
     "newCourse": "Create new course",
     "status": "Status",
     "stage": "Stage",

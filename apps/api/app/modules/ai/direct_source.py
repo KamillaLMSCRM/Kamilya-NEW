@@ -59,6 +59,11 @@ MAX_DIRECT_WRITER_SOURCE_CHARS = 24_000
 MAX_DIRECT_WRITER_PROMPT_CHARS = 32_000
 MAX_DIRECT_LESSON_OUTPUT_CHARS = 24_000
 MAX_DIRECT_LESSON_QUALITY_ATTEMPTS = 3
+_GENERIC_MATRIX_FIELD_HEADERS = {
+    "поле", "характеристика", "параметр", "свойство",
+    "field", "attribute", "characteristic", "property", "parameter",
+    "өріс", "сипаттама", "қасиет",
+}
 
 _LESSON_QUALITY_REPAIR_INSTRUCTIONS = {
     "unsupported_numeric_fact": (
@@ -210,6 +215,16 @@ def _tabular_scope_stems(value: str) -> set[str]:
     }
 
 
+def _tabular_entity_tokens(value: str) -> set[str]:
+    """Keep short entity qualifiers such as `Нео` when matching matrix columns."""
+    ignored = {"и", "and", "with", "collection", "collections", "коллекция", "коллекции"}
+    return {
+        token
+        for token in re.findall(r"[^\W\d_]{2,}", value.casefold(), re.UNICODE)
+        if token not in ignored
+    }
+
+
 def _description_is_subject_linked(description: str, subject: str) -> bool:
     """Require supporting detail prose to retain a lexical link to its subject."""
 
@@ -352,10 +367,19 @@ def _render_primary_tabular_lesson(
 
     scope_text = " ".join((title, *objectives)).casefold()
     scope_stems = _tabular_scope_stems(scope_text)
+    scope_entities = _tabular_entity_tokens(scope_text)
+    column_entity_matrix = headers[0].casefold().strip() in _GENERIC_MATRIX_FIELD_HEADERS
     selected_columns = [0]
-    selected_columns.extend(
-        index for index, header in enumerate(headers[1:], start=1) if _tabular_scope_stems(header) & scope_stems
-    )
+    for index, header in enumerate(headers[1:], start=1):
+        header_entities = _tabular_entity_tokens(header)
+        header_stems = _tabular_scope_stems(header)
+        matches_scope = (
+            bool(header_entities and header_entities <= scope_entities)
+            if column_entity_matrix
+            else bool(header_stems & scope_stems)
+        )
+        if matches_scope:
+            selected_columns.append(index)
     if selected_columns == [0]:
         selected_columns = list(range(len(headers)))
 
@@ -402,13 +426,15 @@ def _render_primary_tabular_lesson(
         "| " + " | ".join(escaped(cells[index]) for index in selected_columns) + " |" for cells in selected_rows
     )
     selected_source = "\n".join(selected_source_lines)
+    # Assessment distractors need the same attribute from peer entities, while
+    # the visible lesson remains scoped to its selected entity columns.
     assessment_source_lines = [
-        "| " + " | ".join(escaped(value) for value in selected_headers) + " |",
-        "| " + " | ".join("---" for _value in selected_headers) + " |",
+        "| " + " | ".join(escaped(value) for value in headers) + " |",
+        "| " + " | ".join("---" for _value in headers) + " |",
     ]
     assessment_source_lines.extend(
         "| "
-        + " | ".join(escaped(cells[index]) for index in selected_columns)
+        + " | ".join(escaped(cell) for cell in cells)
         + " |"
         for cells, _raw_row in rows
     )
@@ -454,7 +480,13 @@ def _build_primary_tabular_structure(
     instructional_rows = [
         (cells, raw_row) for cells, raw_row in rows if cells[0].strip() and any(cell.strip() for cell in cells[1:])
     ]
-    subjects = [cells[0].strip() for cells, _raw_row in instructional_rows]
+    first_header = headers[0].casefold().strip()
+    column_entity_matrix = first_header in _GENERIC_MATRIX_FIELD_HEADERS
+    subjects = (
+        [header.strip() for header in headers[1:] if header.strip()]
+        if column_entity_matrix
+        else [cells[0].strip() for cells, _raw_row in instructional_rows]
+    )
     if len(subjects) < 2 or len(set(subjects)) != len(subjects):
         return None
 
@@ -466,7 +498,10 @@ def _build_primary_tabular_structure(
         (lessons_per_module or len(subjects)) * module_count,
         max_total_lessons or len(subjects),
     )
-    lesson_count = min(lesson_limit, max(1, math.ceil(len(subjects) / 2)))
+    lesson_count = min(
+        lesson_limit,
+        len(subjects) if column_entity_matrix else max(1, math.ceil(len(subjects) / 2)),
+    )
     if lesson_count < 1:
         return None
     base_group_size, extra_groups = divmod(len(subjects), lesson_count)
@@ -490,14 +525,21 @@ def _build_primary_tabular_structure(
     for group in groups:
         names = joined_subjects(group)
         if language == "ru":
-            first_header = headers[0].casefold().strip()
-            entity_label = (
-                section_name if first_header in {"поле", "характеристика", "параметр", "свойство"} else headers[0]
-            )
-            if len(group) > 1 and first_header == "коллекция":
-                entity_label = "Коллекции"
-            lesson_title = f"{entity_label}: {names}"
-            objective = f"Изучить данные: {names}"
+            if column_entity_matrix:
+                lesson_title = f"Коллекция: {names}" if len(group) == 1 else f"Сравнение: {names}"
+                objective = (
+                    f"Объяснить ключевые характеристики коллекции «{names}» по данным источника"
+                    if len(group) == 1
+                    else f"Сопоставить характеристики коллекций: {names}"
+                )
+            else:
+                entity_label = section_name if first_header in {
+                    "поле", "характеристика", "параметр", "свойство"
+                } else headers[0]
+                if len(group) > 1 and first_header == "коллекция":
+                    entity_label = "Коллекции"
+                lesson_title = f"{entity_label}: {names}"
+                objective = f"Изучить данные: {names}"
         elif language == "kk":
             lesson_title = f"{headers[0]}: {names}"
             objective = f"Деректерді зерделеу: {names}"
@@ -514,10 +556,15 @@ def _build_primary_tabular_structure(
             )
         )
     if language == "ru":
-        course_title = (
-            "Коллекции" if len(subjects) > 1 and section_name.casefold().strip() == "коллекция" else section_name
-        )
-        description = f"Курс составлен по данным раздела «{section_name}»."
+        if column_entity_matrix:
+            course_subjects = joined_subjects(subjects)
+            course_title = f"{section_name}: {course_subjects}"
+            description = f"Курс помогает изучить и сопоставить данные раздела «{section_name}»."
+        else:
+            course_title = (
+                "Коллекции" if len(subjects) > 1 and section_name.casefold().strip() == "коллекция" else section_name
+            )
+            description = f"Курс составлен по данным раздела «{section_name}»."
     elif language == "kk":
         course_title = section_name
         description = f"Курс «{section_name}» бөлімінің деректері бойынша жасалған."
@@ -535,9 +582,14 @@ def _build_primary_tabular_structure(
         module_groups = groups[offset : offset + size]
         offset += size
         if module_count == 1:
-            module_title = course_title
+            module_title = "Характеристики коллекций" if language == "ru" and column_entity_matrix else course_title
         elif language == "ru":
-            module_title = f"{course_title}: {module_groups[0][0]} — {module_groups[-1][-1]}"
+            module_subjects = [subject for group in module_groups for subject in group]
+            module_title = (
+                f"Коллекции: {joined_subjects(module_subjects)}"
+                if column_entity_matrix
+                else f"{course_title}: {module_groups[0][0]} — {module_groups[-1][-1]}"
+            )
         elif language == "kk":
             module_title = f"{course_title}: {module_groups[0][0]} — {module_groups[-1][-1]}"
         else:
@@ -959,6 +1011,20 @@ def _validate_structure_sources(
         if section.role.value == "supporting"
         and (section.document_id, section.name.casefold().strip()) in worksheet_section_keys
     }
+    primary_entity_stems: dict[str, set[str]] = {}
+    for document_id, _normalized_heading, _heading, headers, _rows in _merged_worksheet_tables(
+        tuple(chunk for document in corpus.documents for chunk in document.chunks),
+        primary_section_keys,
+    ):
+        if headers and headers[0].casefold().strip() in _GENERIC_MATRIX_FIELD_HEADERS:
+            for entity_header in headers[1:]:
+                primary_entity_stems.setdefault(document_id, set()).update(
+                    _tabular_scope_stems(entity_header)
+                )
+
+    def supporting_name_shadows_primary_entities(document_id: str, name: str) -> bool:
+        name_stems = _tabular_scope_stems(name)
+        return len(name_stems) >= 2 and name_stems <= primary_entity_stems.get(document_id, set())
 
     def scoped_supporting_names(
         document_ids: set[str],
@@ -979,7 +1045,17 @@ def _validate_structure_sources(
             if section.document_id in document_ids
             and (section.document_id, section.name.casefold().strip()) in primary_section_keys
         }
-        return {name for name in supporting if name.casefold().strip() not in primary_names}
+        return {
+            name
+            for name in supporting
+            if name.casefold().strip() not in primary_names
+            and not any(
+                section.name == name
+                and section.document_id in document_ids
+                and supporting_name_shadows_primary_entities(section.document_id, name)
+                for section in passport.sections
+            )
+        }
 
     course_supporting_names = scoped_supporting_names(selected)
     if course_supporting_names and (

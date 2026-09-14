@@ -218,6 +218,11 @@ _VAGUE_STRUCTURED_SUBJECT_RE = re.compile(
     r"\b(?:элемент\w*|издели\w*|предмет\w*|объект\w*|данн\w*|" r"elements?|items?|objects?|data)\b",
     re.IGNORECASE,
 )
+_STRUCTURED_RELATION_RE = re.compile(
+    r"(?P<includes>\b(?:включ\w*|вход\w*|содерж\w*|име\w*|есть|includes?|contains?|has)\b)|"
+    r"(?P<compatible>\b(?:совместим\w*|сочета\w*|compatible(?:\s+with)?)\b)",
+    re.IGNORECASE,
+)
 _SOURCE_REFERENCE_QUESTION_RE = re.compile(
     r"\b(?:в|из|по)\s+(?:этом\s+|этой\s+)?(?:описан\w*|материал\w*|источник\w*|"
     r"документ\w*|таблиц\w*|строк\w*|раздел\w*)\b|"
@@ -613,15 +618,15 @@ def _named_table_subject_cell(question: str, quote: str, source: str) -> str | N
     return next(iter(matches)) if len(matches) == 1 else None
 
 
-def _header_answer_is_supported(question: str, answer: str, quote: str, source: str) -> bool:
-    """Accept an original header only when its own cell uniquely anchors the query.
+def _header_answer_supporting_cell(question: str, answer: str, quote: str, source: str) -> str | None:
+    """Return the unique answer-column cell only when it anchors the query.
 
     This handles comparison questions without pretending the header occurs in a
     body row. Two distinctive source terms are required; shared attributes do
     not establish an unambiguous correct collection.
     """
     anchors = _grounding_stems(question)
-    matched: list[bool] = []
+    matched: list[tuple[bool, str]] = []
     for headers, rows in _markdown_tables(source):
         indices = [
             i
@@ -634,8 +639,62 @@ def _header_answer_is_supported(question: str, answer: str, quote: str, source: 
             index = indices[0]
             peers = set().union(*(_grounding_stems(cell) for i, cell in enumerate(cells) if i != index))
             distinctive = anchors & (_grounding_stems(cells[index]) - peers)
-            matched.append(len(distinctive) >= 2)
-    return bool(matched) and all(matched)
+            matched.append((len(distinctive) >= 2, cells[index]))
+    supported_cells = {
+        _normalize_evidence_text(cell): cell for supported, cell in matched if supported
+    }
+    if matched and all(supported for supported, _cell in matched) and len(supported_cells) == 1:
+        return next(iter(supported_cells.values()))
+    return None
+
+
+def _header_answer_is_supported(question: str, answer: str, quote: str, source: str) -> bool:
+    """Accept an original header only when its own cell uniquely anchors the query."""
+    return _header_answer_supporting_cell(question, answer, quote, source) is not None
+
+
+def _structured_relation_scopes(text: str, *, implicit_prefix: bool) -> dict[str, set[str]]:
+    """Map bounded inclusion/compatibility clauses to their concrete lexical objects.
+
+    Spreadsheet cells often imply inclusion by listing features before an
+    explicit relationship clause.  Questions do not get that fallback: their
+    explicit verb owns the following objects until the next relationship verb.
+    """
+    plain = _plain_evidence_text(text)
+    matches = list(_STRUCTURED_RELATION_RE.finditer(plain))
+    scopes: dict[str, set[str]] = {}
+    if implicit_prefix:
+        prefix = plain[: matches[0].start()] if matches else plain
+        prefix_stems = _grounding_stems(prefix)
+        if prefix_stems:
+            scopes.setdefault("includes", set()).update(prefix_stems)
+    for position, match in enumerate(matches):
+        relation = "includes" if match.group("includes") else "compatible"
+        end = matches[position + 1].start() if position + 1 < len(matches) else len(plain)
+        objects = _grounding_stems(plain[match.end() : end])
+        if objects:
+            scopes.setdefault(relation, set()).update(objects)
+    return scopes
+
+
+def _question_changes_structured_relation_scope(question: str, source_cell: str) -> bool:
+    """Reject a header question that moves an object between table relationships."""
+    question_scopes = _structured_relation_scopes(question, implicit_prefix=False)
+    if not question_scopes:
+        return False
+    source_scopes = _structured_relation_scopes(source_cell, implicit_prefix=True)
+    ignored = {
+        "колле",
+        "линей",
+        "сери",
+        "which",
+        "what",
+    }
+    for relation, raw_objects in question_scopes.items():
+        objects = raw_objects - ignored
+        if objects and not objects <= source_scopes.get(relation, set()):
+            return True
+    return False
 
 
 def _unique_original_table_cell_containing_fragment(fragment: str, bounded_source: str) -> str | None:
@@ -955,9 +1014,14 @@ def _validate_question_evidence(
         source_cell_index = _structured_source_cell_index(correct_answer, source_cells)
         question_text = str(question.get("question", ""))
         named_subject_cell = _named_table_subject_cell(question_text, source_quote, bounded_source)
-        header_answer_supported = _header_answer_is_supported(
+        header_answer_cell = _header_answer_supporting_cell(
             question_text, correct_answer, source_quote, bounded_source
         )
+        header_answer_supported = header_answer_cell is not None
+        if header_answer_cell is not None and _question_changes_structured_relation_scope(
+            question_text, header_answer_cell
+        ):
+            issues.append(f"MCQ #{index}: changes the source relationship scope")
         if header_answer_supported:
             source_cell_index = None  # Header answer is not an adjacent value-cell mention.
         if (
@@ -1433,6 +1497,55 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
     return issues
 
 
+def _validate_lesson_entity_scope(
+    data: dict[str, Any],
+    bounded_source: str,
+    lesson_title: str,
+) -> list[str]:
+    """Keep an entity-card quiz on the entity named by that lesson.
+
+    Peer columns are supplied to create same-attribute distractors. They must
+    not silently turn a lesson about one entity into a quiz about another.
+    """
+    match = re.match(
+        r"^\s*(?:коллекци\w*|collections?|топтама\w*)\s*:\s*(.+?)\s*$",
+        lesson_title,
+        re.IGNORECASE,
+    )
+    if match is None:
+        return []
+    target = _normalize_evidence_text(match.group(1))
+    entity_headers = {
+        _normalize_evidence_text(header)
+        for headers, _rows in _markdown_tables(bounded_source)
+        for header in headers[1:]
+        if _normalize_evidence_text(header)
+    }
+    if target not in entity_headers:
+        return []
+    issues: list[str] = []
+    for index, question in enumerate(data.get("mcq", []), start=1):
+        if not isinstance(question, dict):
+            continue
+        correct_answers = [
+            _normalize_evidence_text(str(option.get("text", "")))
+            for option in question.get("options", [])
+            if isinstance(option, dict) and option.get("is_correct") is True
+        ]
+        if len(correct_answers) != 1:
+            continue
+        correct = correct_answers[0]
+        question_text = _normalize_evidence_text(str(question.get("question", "")))
+        if (correct in entity_headers and correct != target) or (
+            target not in question_text and correct != target
+        ):
+            issues.append(
+                f"MCQ #{index}: tests a comparison entity outside the lesson scope; "
+                f"keep the question on {match.group(1).strip()}"
+            )
+    return issues
+
+
 def _recover_valid_questions(
     data: dict[str, Any],
     *,
@@ -1462,6 +1575,7 @@ def _recover_valid_questions(
             language,
             excluded_fact_keys,
         )
+        issues.extend(_validate_lesson_entity_scope(candidate_data, bounded_source, lesson_title))
         issues.extend(_validate_generated_question_set(candidate_data, language))
         try:
             candidate: LessonAssessment = LessonAssessment.from_dict(  # type: ignore[no-untyped-call]
@@ -1482,6 +1596,7 @@ def _recover_valid_questions(
                     language,
                     excluded_fact_keys,
                 )
+                proposed_issues.extend(_validate_lesson_entity_scope(proposed, bounded_source, lesson_title))
                 proposed_issues.extend(_validate_generated_question_set(proposed, language))
                 if proposed_issues:
                     continue
@@ -1569,7 +1684,7 @@ def _tabular_question_text(
                 "Какой материал соответствует коллекции «{subject}»?",
             )
             return templates[variant % len(templates)].format(subject=subject)
-        return f"Какая характеристика «{target_header}» относится к «{subject}»?"
+        return f"Какое значение характеристики «{target_header}» указано для «{subject}»?"
     if language == "kk":
         if "сценар" in header:
             return f"«{subject}» топтамасының кеңес беру сценарийінде қандай әрекет көрсетілген?"
@@ -2182,6 +2297,15 @@ def _lesson_assessment_evidence(lesson: LessonContent) -> tuple[str, dict[str, s
     generic_terms = {"колл", "изде", "това", "прод", "coll", "prod"}
     title_terms = {stem[:4] for stem in _grounding_stems(lesson.title)} - generic_terms
     objective_terms = {stem[:4] for stem in _grounding_stems(" ".join(lesson.objectives))} - generic_terms
+    entity_scope = {
+        token
+        for token in re.findall(
+            r"[^\W\d_]{2,}",
+            f"{lesson.title} {' '.join(lesson.objectives)}".casefold(),
+            re.UNICODE,
+        )
+        if token not in {"и", "and", "collection", "collections", "коллекция", "коллекции"}
+    }
     # Common source/learning-objective wording for the same spatial attribute.
     if "поме" in title_terms | objective_terms:
         objective_terms.add("комн")
@@ -2190,13 +2314,28 @@ def _lesson_assessment_evidence(lesson: LessonContent) -> tuple[str, dict[str, s
     for headers, rows in tables:
         if len(headers) < 3:
             continue
+        entity_header_match = any(
+            (
+                header_tokens := {
+                    token
+                    for token in re.findall(r"[^\W\d_]{2,}", header.casefold(), re.UNICODE)
+                    if token not in {"и", "and", "collection", "collections", "коллекция", "коллекции"}
+                }
+            )
+            and header_tokens <= entity_scope
+            for header in headers[1:]
+        )
         for cells, raw_row in rows:
             identity = (tuple(headers), raw_row)
             if identity in seen:
                 continue
             seen.add(identity)
             attribute_terms = {stem[:4] for stem in _grounding_stems(cells[0])}
-            score = 4 * len(attribute_terms & title_terms) + len(attribute_terms & objective_terms)
+            score = (
+                (8 if entity_header_match else 0)
+                + 4 * len(attribute_terms & title_terms)
+                + len(attribute_terms & objective_terms)
+            )
             candidates.append((score, len(candidates), headers, raw_row))
     if not candidates or not any(score for score, _index, _headers, _row in candidates):
         return fallback, _build_evidence_bank(fallback)
@@ -2498,6 +2637,9 @@ Explain briefly from the evidence. Return only this JSON object shape (not a JSO
                 language,
                 excluded_fact_keys,
             )
+            issues.extend(
+                _validate_lesson_entity_scope(data, bounded_lesson_content, lesson_content.title)
+            )
             issues.extend(_validate_generated_question_set(data, language))
             assessment = LessonAssessment.from_dict(
                 {
@@ -2683,6 +2825,7 @@ def _restored_assessment_is_valid(
         language,
         excluded_fact_keys,
     )
+    issues.extend(_validate_lesson_entity_scope(data, bounded_source, lesson_content.title))
     issues.extend(_validate_generated_question_set(data, language))
     restored = LessonAssessment.from_dict(data)  # type: ignore[no-untyped-call]
     issues.extend(_validate_assessment(restored))

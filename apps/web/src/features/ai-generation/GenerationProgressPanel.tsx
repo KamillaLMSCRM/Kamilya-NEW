@@ -23,16 +23,25 @@ interface GenerationProgressPanelProps {
   queuePosition: string;
   estimatedWait: string;
   queueEstimateHint: string;
+  completedUnitsLabel: string;
   onRetry: () => void;
   onCancel: () => void;
 }
 
 export function GenerationProgressPanel({
   job, stages, title, labels, retryLabel, checkAgainLabel, cancelLabel, cancelQueuedLabel,
-  queueTitle, activeJobs, queuePosition, estimatedWait, queueEstimateHint, onRetry, onCancel,
+  queueTitle, activeJobs, queuePosition, estimatedWait, queueEstimateHint, completedUnitsLabel,
+  onRetry, onCancel,
 }: GenerationProgressPanelProps) {
   const state = resolveAsyncOperationState(job);
   const currentStageIndex = stages.findIndex((stage) => stage.key === job.stage);
+  const hasExactUnits = (
+    Number.isInteger(job.progress_current)
+    && Number.isInteger(job.progress_total)
+    && (job.progress_current ?? -1) >= 0
+    && (job.progress_total ?? 0) > 0
+    && (job.progress_current ?? 0) <= (job.progress_total ?? 0)
+  );
 
   return <div className="space-y-6">
     <AsyncOperationStatus
@@ -46,6 +55,12 @@ export function GenerationProgressPanel({
       onRetry={onRetry}
       onCancel={onCancel}
     />
+
+    {job.status === 'completed' && hasExactUnits && (
+      <p className="text-xs tabular-nums text-muted-foreground" role="status">
+        {completedUnitsLabel}: {job.progress_current} / {job.progress_total}
+      </p>
+    )}
 
     {state === 'queued' && <div className="rounded-lg border border-border bg-muted/20 p-4" aria-live="polite">
       <div className="flex flex-wrap items-baseline justify-between gap-2">

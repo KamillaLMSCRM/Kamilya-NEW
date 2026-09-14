@@ -6,7 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.modules.ai.assessment_audit import audit_course_assessment
+from app.modules.ai import assessment_audit
+from app.modules.ai.assessment_audit import AssessmentAuditError, audit_course_assessment
 from app.modules.ai.assessment_schema import (
     CourseAssessment,
     LessonAssessment,
@@ -29,6 +30,14 @@ class FakeLLM:
         if not self._payloads:
             raise AssertionError("Unexpected model call")
         return SimpleNamespace(content=json.dumps(self._payloads.pop(0), ensure_ascii=False))
+
+
+@pytest.mark.asyncio
+async def test_complete_source_budget_failure_is_a_resumable_audit_error(monkeypatch) -> None:
+    monkeypatch.setattr(assessment_audit, "MAX_AUDIT_SOURCE_CHARS", 1)
+
+    with pytest.raises(AssessmentAuditError, match="complete-source budget exceeded"):
+        await audit_course_assessment(FakeLLM(), _course_content(), _assessment())
 
 
 def _course_content() -> CourseContent:

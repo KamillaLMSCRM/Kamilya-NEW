@@ -15,6 +15,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.45] - 2026-09-14
+
+### Changed
+
+- Build one lesson per named collection when the primary worksheet is a
+  characteristic-by-collection comparison matrix, without forcing a larger
+  lesson count from a supporting catalogue.
+- Show exact completed and total lesson counts during generation and preserve
+  the final saved count after completion.
+
+### Fixed
+
+- Keep similarly named collection columns such as `Чикаго Нео` and
+  `Чикаго Стрит` separate throughout lesson generation and assessment.
+- Prevent a supporting worksheet title from invalidating a legitimate course
+  title assembled from primary collection names.
+- Reject questions that assess another collection's attribute or turn a
+  compatibility relation into an inclusion claim; invalid questions are
+  deleted without quota replacement.
+- Preserve enough complete peer-row evidence for useful distractors while
+  binding each question and correct answer to the lesson's named collection.
+- Make a failed final assessment audit a typed resumable interruption with
+  completed lesson checkpoints and a bounded diagnostic reason.
+- Clear an expired in-memory tenant context after a forced refresh fails, so the
+  interface returns to normal authentication instead of retaining stale access.
+
 ## [0.5.44] - 2026-09-14
 
 ### Fixed

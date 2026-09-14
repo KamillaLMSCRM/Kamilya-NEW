@@ -153,4 +153,18 @@ describe('auth refresh coordinator', () => {
     expect(auth.getAccessToken()).toBe('access-fresh');
     vi.doUnmock('@/lib/authRefreshCoordinator');
   });
+
+  it('clears an expired tenant-bound session after forced refresh fails', async () => {
+    vi.resetModules();
+    const refreshSession = vi.fn().mockResolvedValue(null);
+    vi.doMock('@/lib/authRefreshCoordinator', () => ({ refreshSession }));
+
+    const auth = await import('@/lib/auth');
+    auth.setAuth('access-expired', { ...user, impersonated_by: 'superadmin-1', impersonated_role: 'methodologist' });
+
+    await expect(auth.forceRefreshAndStoreSession()).resolves.toBe(false);
+    expect(auth.getAccessToken()).toBeNull();
+    expect(auth.getCurrentUser()).toBeNull();
+    vi.doUnmock('@/lib/authRefreshCoordinator');
+  });
 });

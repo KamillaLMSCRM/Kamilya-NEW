@@ -1676,35 +1676,32 @@ async def test_blank_intent_builds_multi_module_structure_from_split_primary_tab
 
     assert len(result.modules) == 2
     assert [module.title for module in result.modules] == [
-        "Коллекции: Стиль — Кровати",
-        "Коллекции: Комоды — Резюме",
+        "Коллекции: Феникс и Чикаго Нео",
+        "Коллекции: Чикаго Стрит",
     ]
     lessons = [lesson for module in result.modules for lesson in module.lessons]
-    assert len(lessons) == 7
-    assert [len(module.lessons) for module in result.modules] == [4, 3]
+    assert len(lessons) == 3
+    assert [len(module.lessons) for module in result.modules] == [2, 1]
     assert all(lesson.relevant_headings == ["[Worksheet] Коллекции"] for lesson in lessons)
     assert all("Список" not in lesson.title for lesson in lessons)
     assert all("Источник" not in lesson.title for lesson in lessons)
-    assert all(lesson.title.startswith("Коллекции: ") for lesson in lessons)
-    assert {
-        name
+    assert [lesson.title for lesson in lessons] == [
+        "Коллекция: Феникс",
+        "Коллекция: Чикаго Нео",
+        "Коллекция: Чикаго Стрит",
+    ]
+    assert all(
+        not any(attribute in lesson.title for attribute in ("Стиль", "Материалы", "Фасады", "Механизмы"))
         for lesson in lessons
-        for name in ("Стиль", "Материалы", "Цвета", "Фасады", "Механизмы", "Комплектация", "Отличия", "Аргументация")
-        if name in lesson.title
-    } == {
-        "Стиль",
-        "Материалы",
-        "Цвета",
-        "Фасады",
-        "Механизмы",
-        "Комплектация",
-        "Отличия",
-        "Аргументация",
-    }
+    )
 
     course = await write_direct_course(LLM(), corpus, result, language="ru")
     written_lessons = [lesson for module in course.modules for lesson in module.lessons]
-    assert all(len(lesson.source_chunks) == 2 for lesson in written_lessons)
+    assert all(1 <= len(lesson.source_chunks) <= 2 for lesson in written_lessons)
+    assert all(
+        lesson.title.removeprefix("Коллекция: ") in "\n".join(lesson.source_chunks)
+        for lesson in written_lessons
+    )
     assert all(
         "SKU-" not in source_chunk
         for lesson in written_lessons
@@ -1740,6 +1737,9 @@ async def test_blank_intent_builds_multi_module_structure_from_split_primary_tab
         for question in lesson_assessment.mcq
     ]
     assert all(count == 3 for _lesson, _question, count in option_counts), option_counts
+    assert all("Какое значение характеристики" in question or any(
+        marker in question for marker in ("стил", "материал", "преимуществ", "сценари")
+    ) for _lesson, question, _count in option_counts)
     assert all(
         option.text in "\n".join(primary_chunks)
         for lesson_assessment in assessment.assessments
@@ -1804,9 +1804,10 @@ async def test_blank_intent_reassembles_column_sliced_primary_table() -> None:
         max_total_lessons=2,
     )
 
-    assert result.title == "Коллекции"
+    assert result.title == "Коллекции: Феникс и Чикаго"
     assert [lesson.title for lesson in result.modules[0].lessons] == [
-        "Коллекции: Стиль и Материал",
+        "Коллекция: Феникс",
+        "Коллекция: Чикаго",
     ]
 
 

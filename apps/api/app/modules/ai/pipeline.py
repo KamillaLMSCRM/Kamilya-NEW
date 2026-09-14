@@ -316,6 +316,18 @@ class GenerationState:
     reuse_reason: str | None = None
 
 
+def _assessment_audit_reason_code(error: AssessmentAuditError) -> str:
+    """Return a bounded diagnostic without exposing audit/source payloads."""
+    message = str(error)
+    if "budget exceeded" in message:
+        return "assessment_audit_budget_exceeded"
+    if "cancel" in message:
+        return "assessment_audit_cancelled"
+    if "incomplete" in message or "missing" in message:
+        return "assessment_audit_incomplete_verdict"
+    return "assessment_audit_invalid_verdict"
+
+
 async def _update_job_db(
     job_id: str,
     tenant_id: UUID | str | None = None,
@@ -355,6 +367,14 @@ def _timed_progress_detail(completed: int, total: int, started_at: float) -> dic
             (total - completed) * elapsed / completed
         )
     return detail
+
+
+def _completed_progress_detail(content: CourseContent) -> dict[str, int] | None:
+    """Describe the exact number of lessons that reached the saved course."""
+    total = sum(len(module.lessons) for module in content.modules)
+    if total < 1:
+        return None
+    return {"current": total, "total": total, "estimated_remaining_seconds": 0}
 
 
 def _apply_assessment_omission_notices(state: GenerationState) -> None:
@@ -659,6 +679,17 @@ async def _save_generation_to_db(
             ("updated_at", completed_at),
         ):
             setattr(job, field_name, value)
+        params = dict(getattr(job, "params", None) or {})
+        completed_progress = (
+            _completed_progress_detail(state.content)
+            if state.content is not None
+            else None
+        )
+        if completed_progress is not None:
+            params["progress_detail"] = completed_progress
+        else:
+            params.pop("progress_detail", None)
+        job.params = params  # type: ignore[assignment]
         await session.commit()
         logger.info(f"Saved generation results to DB for course {state.course_id}")
 
@@ -1604,20 +1635,21 @@ async def run_generation_pipeline(
                 message=state.message,
                 course_id=UUID(state.course_id) if state.course_id else None,
                 completed_at=datetime.now(UTC),
+                progress_detail=_completed_progress_detail(state.content),
             )
 
         logger.info(f"Generation pipeline complete for job {job_id}")
 
-    except AssessmentAuditError:
+    except AssessmentAuditError as exc:
         state.status = "interrupted"
         state.stage = "interrupted"
         state.message = "Готовые уроки сохранены. Проверка тестов не завершена; продолжите генерацию."
-        state.errors = ["assessment_audit_interrupted"]
+        state.errors = ["assessment_audit_interrupted", _assessment_audit_reason_code(exc)]
         await _update_job_db(
             job_id, tenant_id=tenant_id, status="interrupted", stage="interrupted",
             message=state.message, errors=state.errors, completed_at=None,
         )
-        logger.warning("Assessment audit interrupted for job %s", job_id)
+        logger.warning("Assessment audit interrupted for job %s: %s", job_id, state.errors[-1])
     except AllProvidersFailedError:
         state.status = "interrupted"
         state.stage = "interrupted"

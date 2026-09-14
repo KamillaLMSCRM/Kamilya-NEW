@@ -889,6 +889,7 @@
     "generate": "Генерировать курс",
     "cancel": "Отмена",
     "progress": "Прогресс генерации",
+    "savedLessonsProgress": "Сохранено уроков",
     "newCourse": "Создать новый курс",
     "status": "Статус",
     "stage": "Этап",

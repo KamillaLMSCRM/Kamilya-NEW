@@ -327,7 +327,10 @@ async def update_ai_job(
         return job
     for k, v in kwargs.items():
         setattr(job, k, v)
-    job.updated_at = datetime.now(UTC)
+    now = datetime.now(UTC)
+    if kwargs.get("status") == "completed" and getattr(job, "completed_at", None) is None:
+        job.completed_at = now  # type: ignore[assignment]
+    job.updated_at = now
     await db.flush()
     return job
 

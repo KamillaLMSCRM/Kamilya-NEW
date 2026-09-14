@@ -15,6 +15,7 @@ describe('role route policy', () => {
     ['admin', '/courses', false],
     ['admin', '/assignments', false],
     ['methodologist', '/courses', true],
+    ['methodologist', '/courses/course-1/edit', true],
     ['methodologist', '/admin/staff', true],
     ['methodologist', '/invitations', true],
     ['methodologist', '/admin/invitations', true],
@@ -34,6 +35,7 @@ describe('role route policy', () => {
     ['superadmin', '/admin/super/tenants', true],
     ['superadmin', '/admin/providers', true],
     ['superadmin', '/dashboard', false],
+    ['superadmin', '/courses/course-1/edit', false],
     ['superadmin', '/admin/training-log', false],
   ] as const)('%s access to %s is %s', (role, route, expected) => {
     expect(canAccessRoute(role, route)).toBe(expected);
