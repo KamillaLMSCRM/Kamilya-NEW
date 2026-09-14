@@ -15,6 +15,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.42] - 2026-09-14
+
+### Fixed
+
+- Recalculate course size from the primary learning material after reading the
+  source, so a large supporting catalogue does not dictate extra lessons.
+- Repair unambiguous worksheet references without making unrelated catalogue
+  lessons appear grounded in a primary worksheet.
+- Remove repeated or explicitly contradictory assessment questions without
+  generating replacements solely to meet a question count.
+- Preserve complete evidence sentences and reject unsupported numerical claims
+  and visibly incomplete formula explanations in generated lessons.
+- Show omitted topics and source-reading warnings on the saved draft. Label exact
+  progress counts with their current stage rather than implying overall progress.
+- Cross-check percentages in scanned PDFs locally. Values not confirmed by the
+  page check remain explicitly uncertain and require review against the original;
+  digital documents and office-format text retain their normal conversion route.
+
 ## [0.5.41] - 2026-09-14
 
 ### Fixed

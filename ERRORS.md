@@ -2634,3 +2634,52 @@ contract or establish a blocker.
 - Prevention: no admission endpoint may perform OCR, office conversion or full
   source reconstruction. Potentially long source work belongs to a persisted job
   whose stage, progress and failure are visible to the methodologist.
+
+## AI-SCAN-001 - Layout OCR converted an empty percentage field into a numeric claim
+
+- Date: 2026-09-14.
+- Evidence: a saved source checkpoint already contained the invented percentage;
+  writer-only provenance checks could not detect this upstream error. A bounded
+  original-byte replay reproduced the layout-OCR claim before the candidate guard.
+- Fix: scanned PDFs cross-check percentage-bearing pages using bounded local
+  full-page OCR. A disagreement remains an uncertainty marker, never a guessed
+  replacement. Office/digital text conversion is not subject to this scan guard.
+- Integration: normalize Markdown-escaped markers after Docling serialization;
+  preserve source warnings in course content and the final draft description.
+  Lessons using uncertain source chunks are `needs_review`, not `verified`.
+- Verification: complete 21-page original conversion retained one uncertainty
+  marker and warning and removed the unsupported percentage. Synthetic tests
+  cover other formats, table provenance, budgets, serialization and persistence.
+- Limits: agreement between OCR passes is not proof of factual correctness.
+  Missing confirmation means uncertainty; review the original before publication.
+
+## AI-SIZING-001 - Lightweight admission estimate became an authoritative course size
+
+- Date: 2026-09-14.
+- Cause: bounded HTTP admission intentionally skipped source conversion, but its
+  all-chunk size estimate then entered the worker unchanged. Supporting catalogue
+  rows inflated the requested structure despite an available worker passport.
+- Fix: retain the requested format/manual override in job source analysis and
+  resolve new-job size after original conversion from primary teachable capacity.
+  Do not resize restored plans or legacy jobs without the new request metadata.
+- Verification: the complete workbook replay classified primary/supporting sheets
+  and recommended six lessons instead of the 33-lesson admission estimate.
+  Synthetic cases prove that adding supporting rows does not increase the plan.
+- Prevention: present admission as preliminary and keep expensive work in the
+  job. Validate business meaning, not only numerical progress or a terminal status.
+
+## AI-REPLAY-001 - Quality corrections need contextual regression cases
+
+- Date: 2026-09-14.
+- Fix: replay extractive-but-action-inverted questions, duplicate rate facts with
+  the same conditions, and positive cases with distinct subjects/conditions.
+  Discard only explicit invalid/duplicate classes without question-count padding.
+- Evidence must retain complete governing sentences. Oversized sentences are
+  skipped rather than split into misleading suffixes. Numeric lesson repair is
+  deletion-only and the complete quality gate rechecks the remaining content.
+- Omitted lessons now retain policy version and named-topic reporting. Stale
+  omission checkpoints fail the same compatibility contract as stale content.
+- Architect correction carries the prior plan and exact primary references;
+  oversized repairs report the prompt-budget error without an extra provider call.
+- Limits: these deterministic guards are not a universal semantic evaluator.
+  Content acceptance still requires reviewing the resulting lessons and quizzes.

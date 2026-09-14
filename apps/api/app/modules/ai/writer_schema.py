@@ -15,6 +15,9 @@ class LessonContent:
     source_references: list[dict] = field(default_factory=list)
     quality_policy_version: str = ""
 
+    def requires_source_review(self) -> bool:
+        return any("[UNREADABLE_PERCENTAGE_VALUE]" in value for value in (self.content, *self.source_chunks))
+
     def to_dict(self) -> dict:
         return asdict(self)
 
@@ -46,12 +49,16 @@ class CourseContent:
     title: str
     description: str = ""
     modules: list[ModuleContent] = field(default_factory=list)
+    omitted_lesson_titles: list[str] = field(default_factory=list)
+    source_warnings: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
             "title": self.title,
             "description": self.description,
             "modules": [m.to_dict() for m in self.modules],
+            "omitted_lesson_titles": self.omitted_lesson_titles,
+            "source_warnings": self.source_warnings,
         }
 
     def to_json(self) -> str:
@@ -63,6 +70,8 @@ class CourseContent:
             title=data["title"],
             description=data.get("description", ""),
             modules=[ModuleContent.from_dict(m) for m in data.get("modules", [])],
+            omitted_lesson_titles=list(data.get("omitted_lesson_titles", [])),
+            source_warnings=list(data.get("source_warnings", [])),
         )
 
     @classmethod

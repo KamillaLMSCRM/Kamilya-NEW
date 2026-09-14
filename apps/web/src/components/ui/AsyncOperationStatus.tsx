@@ -59,6 +59,7 @@ interface AsyncOperationStatusProps {
   operation: AsyncOperation;
   title: string;
   stageLabel?: string;
+  progressScopeLabel?: string;
   labels: Record<AsyncOperationState, string>;
   retryLabel?: string;
   cancelLabel?: string;
@@ -82,6 +83,7 @@ export function AsyncOperationStatus({
   operation,
   title,
   stageLabel,
+  progressScopeLabel,
   labels,
   retryLabel,
   cancelLabel,
@@ -171,7 +173,7 @@ export function AsyncOperationStatus({
               <p className="mt-1 text-right text-xs tabular-nums">{progress}%</p>
               {hasExactProgress && (
                 <p className="mt-1 text-right text-xs tabular-nums opacity-80">
-                  {operation.progress_current} / {operation.progress_total}
+                  {progressScopeLabel ? `${progressScopeLabel}: ` : ''}{operation.progress_current} / {operation.progress_total}
                   {formattedRemaining !== null ? ` · ≈ ${formattedRemaining}` : ''}
                 </p>
               )}

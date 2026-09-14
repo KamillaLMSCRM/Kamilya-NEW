@@ -14,6 +14,7 @@ from app.modules.ai.generation_checkpoint import (
     GenerationCheckpointSnapshot,
     GenerationPlan,
 )
+from app.modules.ai.lesson_quality import LESSON_QUALITY_POLICY_VERSION
 from app.modules.ai.llm_client import AllProvidersFailedError
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 
@@ -393,6 +394,8 @@ async def test_pipeline_keeps_original_checkpoint_identity_after_lessons_are_omi
     reviewed: list[str] = []
     assessed: list[str] = []
     saved: list[list[str]] = []
+    saved_descriptions: list[str] = []
+    omission_callbacks = 0
 
     async def load_corpus(*args, **kwargs):
         return DirectSourceCorpus(
@@ -413,6 +416,7 @@ async def test_pipeline_keeps_original_checkpoint_identity_after_lessons_are_omi
         on_progress=None,
         **kwargs,
     ):
+        nonlocal omission_callbacks
         modules: list[ModuleContent] = []
         lessons: list[LessonContent] = []
         omissions = completed_omissions or {}
@@ -422,6 +426,7 @@ async def test_pipeline_keeps_original_checkpoint_identity_after_lessons_are_omi
                 continue
             if lesson_index == 1:
                 await before_lesson_generate(*coordinate)
+                omission_callbacks += 1
                 await on_lesson_omitted(*coordinate, ("unsupported_relationship_claim",))
                 continue
             content = (completed_lessons or {}).get(coordinate)
@@ -434,7 +439,12 @@ async def test_pipeline_keeps_original_checkpoint_identity_after_lessons_are_omi
             if on_progress:
                 await on_progress(f"Writing lesson {lesson_index + 1}/4: {planned.title}")
         modules.append(ModuleContent(title="Module 1", lessons=lessons))
-        return CourseContent(title=structure.title, modules=modules)
+        return CourseContent(
+            title=structure.title,
+            modules=modules,
+            description="Неполный черновик: не подготовлена тема Lesson 2",
+            omitted_lesson_titles=["Lesson 2"],
+        )
 
     async def assessments(
         *,
@@ -472,6 +482,7 @@ async def test_pipeline_keeps_original_checkpoint_identity_after_lessons_are_omi
         return None
 
     async def save(compacted_state, tenant_id, user_id):
+        saved_descriptions.append(compacted_state.structure.description)
         saved.append(
             [
                 lesson.title
@@ -493,8 +504,9 @@ async def test_pipeline_keeps_original_checkpoint_identity_after_lessons_are_omi
     monkeypatch.setattr(pipeline, "_check_cancelled_async", noop)
     monkeypatch.setattr(pipeline, "_save_generation_to_db", save)
 
-    result = await pipeline.run_generation_pipeline(
-        job_id=str(uuid4()),
+    job_id = str(uuid4())
+    pipeline_kwargs = dict(
+        job_id=job_id,
         documents=[document_id],
         tenant_id=tenant_id,
         user_id=uuid4(),
@@ -504,8 +516,13 @@ async def test_pipeline_keeps_original_checkpoint_identity_after_lessons_are_omi
         max_total_lessons=4,
         generation_checkpoint_repository=checkpoints,
     )
+    result = await pipeline.run_generation_pipeline(**pipeline_kwargs)
 
     assert result.status == "completed"
+    assert saved_descriptions == ["Неполный черновик: не подготовлена тема Lesson 2"]
+    assert pipeline._generation_completion_message(result.content) == (
+        "Сохранён неполный черновик. Не подготовлены темы: Lesson 2"
+    )
     assert [lesson.title for lesson in result.content.modules[0].lessons] == [
         "Lesson 1", "Lesson 3", "Lesson 4",
     ]
@@ -517,6 +534,41 @@ async def test_pipeline_keeps_original_checkpoint_identity_after_lessons_are_omi
     assert saved == [["Lesson 1", "Lesson 3", "Lesson 4"]]
     omitted = checkpoints.snapshots[1]
     assert omitted.content_status == "omitted"
-    assert omitted.content_payload == {"reason_codes": ["unsupported_relationship_claim"]}
+    assert omitted.content_payload == {
+        "reason_codes": ["unsupported_relationship_claim"],
+        "quality_policy_version": LESSON_QUALITY_POLICY_VERSION,
+    }
     assert checkpoints.snapshots[2].review_payload is not None
     assert checkpoints.snapshots[2].assessment_payload is not None
+
+    resumed = await pipeline.run_generation_pipeline(**pipeline_kwargs)
+    assert resumed.status == "completed"
+    assert omission_callbacks == 1
+
+    checkpoints.snapshots[1] = replace(
+        checkpoints.snapshots[1],
+        content_payload={"reason_codes": ["unsupported_relationship_claim"]},
+    )
+    class NoopSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def commit(self):
+            return None
+
+        async def execute(self, *args, **kwargs):
+            return None
+
+        async def flush(self):
+            return None
+
+        async def get(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(pipeline, "async_session_factory", NoopSession)
+    legacy = await pipeline.run_generation_pipeline(**pipeline_kwargs)
+    assert legacy.status == "failed"
+    assert legacy.errors == ["direct_source_checkpoint_quality_policy_stale"]

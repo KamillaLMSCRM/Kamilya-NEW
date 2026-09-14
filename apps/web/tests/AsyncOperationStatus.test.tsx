@@ -17,6 +17,13 @@ const labels = {
 };
 
 describe('AsyncOperationStatus', () => {
+  it('names the stage counted by exact units without claiming a whole-course ETA', () => {
+    render(<AsyncOperationStatus
+      operation={{ status: 'running', progress: 50, progress_current: 3, progress_total: 7 }}
+      title="Course generation" labels={labels} progressScopeLabel="Writing lessons"
+    />);
+    expect(screen.getByText('Writing lessons: 3 / 7')).toBeInTheDocument();
+  });
   it('marks an active operation as stalled from its last backend update', () => {
     expect(resolveAsyncOperationState(
       {

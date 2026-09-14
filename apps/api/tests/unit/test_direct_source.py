@@ -418,6 +418,10 @@ async def test_direct_writer_omits_one_unrecoverable_lesson_when_course_remains_
     assert [lesson.title for lesson in result.modules[0].lessons] == ["Документы клиента"]
     assert len(progress) == 2
     assert "Omitted lesson 2/2" in progress[-1]
+    assert result.omitted_lesson_titles == ["Оформление договора"]
+    assert "Оформление договора" in result.description
+    assert "неполный" in result.description.casefold()
+    assert type(result).from_json(result.to_json()).omitted_lesson_titles == result.omitted_lesson_titles
 
 
 @pytest.mark.asyncio

@@ -133,6 +133,13 @@ _LIST_QUESTION_RE = re.compile(
     r"какие\s+(?:два|три|четыре)|list\s+the|name\s+(?:two|three|four))\b",
     re.IGNORECASE,
 )
+_AMBIGUOUS_LIST_MEMBERSHIP_QUESTION_RE = re.compile(
+    r"(?:какая\s+(?:категор\w*|задолженн\w*).*(?:покрыва\w*|включа\w*)|"
+    r"which\s+(?:category|debt).*(?:covered|included))",
+    re.IGNORECASE,
+)
+_REFUSAL_ACTION_RE = re.compile(r"\b(?:отказ\w*|refus\w*|declin\w*)", re.IGNORECASE)
+_REQUEST_ACTION_RE = re.compile(r"\b(?:запрос\w*|request\w*|apply\s+for)\b", re.IGNORECASE)
 _MARKDOWN_ARTIFACT_RE = re.compile(r"(?:^|\s)(?:\|[^\n]+\||`{1,3}|#{1,6}\s)")
 _MARKDOWN_TABLE_SEPARATOR_CELL_RE = re.compile(r"^:?-{3,}:?$")
 _ATTRIBUTE_QUESTION_RE = re.compile(
@@ -362,6 +369,60 @@ def _answers_share_distinctive_phrase(left: str, right: str) -> bool:
     return any(len(token) >= 5 and token not in _GROUNDING_STOPWORDS for token in longest)
 
 
+def _numeric_rate_values(text: str) -> tuple[str, ...]:
+    """Return the explicit numeric values in a short rate answer or condition."""
+    return tuple(re.findall(r"\d+(?:[.,]\d+)?", _plain_evidence_text(text)))
+
+
+def _rate_subject_tokens(source_quote: str) -> set[str]:
+    """Return the source subject named before a numeric rate, if present."""
+    prefix = re.split(r"\d", _plain_evidence_text(source_quote), maxsplit=1)[0]
+    return {
+        token
+        for token in _grounding_stems(prefix)
+        if token not in {
+            "daily", "rate", "penalty", "first", "пени", "пеня", "разме",
+            "состав", "соста", "день", "перв", "страх",
+        }
+    }
+
+
+def _prose_rate_fact_repeats(
+    answer: str,
+    source_quote: str,
+    previous_answer: str,
+    previous_source_quote: str,
+) -> bool:
+    """Detect the same rate fact without merging different subjects/conditions.
+
+    This lexical guard is not general semantic entailment. It compares explicit
+    numeric rate values and source conditions, so short forms such as ``0,5%``
+    and ``0,5% в день`` can refer to the same fact only when their named source
+    subject also agrees.
+    """
+    if _numeric_rate_values(answer) != _numeric_rate_values(previous_answer):
+        return False
+    numbers = _numeric_rate_values(source_quote)
+    previous_numbers = _numeric_rate_values(previous_source_quote)
+    if not numbers or numbers != previous_numbers:
+        return False
+    subject = _rate_subject_tokens(source_quote)
+    previous_subject = _rate_subject_tokens(previous_source_quote)
+    return bool(subject and previous_subject and subject & previous_subject)
+
+
+def _question_reverses_source_action(question_text: str, source_quote: str) -> bool:
+    """Reject a request question when its evidence states a refusal of that subject.
+
+    This is a bounded lexical contradiction check, not a semantic classifier:
+    it requires a refusal verb in the selected evidence, a request verb in the
+    question, and two shared concrete source anchors.
+    """
+    if not (_REFUSAL_ACTION_RE.search(source_quote) and _REQUEST_ACTION_RE.search(question_text)):
+        return False
+    return len(_grounding_stems(question_text) & _grounding_stems(source_quote)) >= 2
+
+
 def _plain_evidence_text(text: str) -> str:
     """Return the human-visible text represented by a Markdown excerpt."""
     value = text.strip()
@@ -395,18 +456,14 @@ def _split_evidence_chunk(text: str) -> list[str]:
     stripped = text.strip()
     if len(stripped) <= MAX_EVIDENCE_CHARS:
         return [stripped] if stripped else []
-    excerpts: list[str] = []
-    remaining = stripped
-    while remaining:
-        if len(remaining) <= MAX_EVIDENCE_CHARS:
-            excerpts.append(remaining)
-            break
-        boundary = remaining.rfind(" ", 0, MAX_EVIDENCE_CHARS + 1)
-        if boundary < 12:
-            boundary = MAX_EVIDENCE_CHARS
-        excerpts.append(remaining[:boundary].strip())
-        remaining = remaining[boundary:].strip()
-    return excerpts
+    # Evidence must retain its governing sentence. A word-boundary split can
+    # still detach a refusal/condition from the later answer span, so an
+    # oversized sentence is unusable rather than truncated beyond the cap.
+    return [
+        sentence.strip()
+        for sentence in _EVIDENCE_SPLIT_RE.split(stripped)
+        if sentence.strip() and len(sentence.strip()) <= MAX_EVIDENCE_CHARS
+    ]
 
 
 def _split_contextual_list(text: str) -> list[str]:
@@ -729,6 +786,7 @@ def _validate_question_evidence(
     seen_facts: dict[tuple[str, str], int] = {}
     seen_answers_by_quote: dict[str, list[tuple[str, int]]] = {}
     seen_answers: list[tuple[str, int]] = []
+    seen_prose_rates: list[tuple[str, str, int]] = []
     seen_atomic_structured_quotes: dict[str, int] = {}
     seen_structured_source_cells: dict[tuple[str, int], int] = {}
     normalized_source = _normalize_evidence_text(bounded_source)
@@ -808,6 +866,9 @@ def _validate_question_evidence(
             )
         source_cell_index = _structured_source_cell_index(correct_answer, source_cells)
         question_text = str(question.get("question", ""))
+        action_reversed = _question_reverses_source_action(question_text, source_quote)
+        if action_reversed:
+            issues.append(f"MCQ #{index}: question reverses the selected source action")
         supported_question_entities = _supported_named_entities(question_text, normalized_source)
         if (
             structured_source
@@ -854,6 +915,17 @@ def _validate_question_evidence(
             for option in options
         ):
             issues.append(f"MCQ #{index}: incorrect option is also supported by selected source evidence")
+        if (
+            not structured_source
+            and _LIST_ITEM_RE.search(source_quote)
+            and _AMBIGUOUS_LIST_MEMBERSHIP_QUESTION_RE.search(question_text)
+            and any(
+                option.get("is_correct") is not True
+                and _is_extractive_answer(str(option.get("text", "")), source_quote)
+                for option in options
+            )
+        ):
+            issues.append(f"MCQ #{index}: list evidence supports an incorrect option")
         if source_cell_index is not None and any(
             option.get("is_correct") is not True
             and _is_supported_by_source_cell(str(option.get("text", "")), source_cells[source_cell_index])
@@ -932,7 +1004,7 @@ def _validate_question_evidence(
         unsupported_meta = (generated_meta_stems & _UNSUPPORTED_META_STEMS) - source_meta_stems
         if unsupported_meta:
             issues.append(f"MCQ #{index}: unsupported meta terminology")
-        if _is_extractive_answer(correct_answer, source_quote):
+        if _is_extractive_answer(correct_answer, source_quote) and not action_reversed:
             # Compare resolved evidence and a source-grounded answer even when
             # another independent option-quality issue is present. Otherwise a
             # duplicate fact can hide behind a bad distractor and evade the
@@ -971,10 +1043,28 @@ def _validate_question_evidence(
                     f"MCQ #{overlap_index}; keep the first question and do not pad "
                     "the assessment"
                 )
+            elif not structured_source and (
+                overlap_index := next(
+                    (
+                        previous_index
+                        for previous_answer, previous_source_quote, previous_index in seen_prose_rates
+                        if _prose_rate_fact_repeats(
+                            fact_key[1], source_quote, previous_answer, previous_source_quote
+                        )
+                    ),
+                    None,
+                )
+            ):
+                issues.append(
+                    f"MCQ #{index}: repeats the same prose rate fact as MCQ #{overlap_index}; "
+                    "keep the first question and do not pad the assessment"
+                )
             else:
                 seen_facts[fact_key] = index
                 seen_answers_by_quote.setdefault(fact_key[0], []).append((fact_key[1], index))
                 seen_answers.append((fact_key[1], index))
+                if not structured_source:
+                    seen_prose_rates.append((fact_key[1], source_quote, index))
                 if atomic_structured_source:
                     if previous_index := seen_atomic_structured_quotes.get(fact_key[0]):
                         issues.append(
@@ -2186,7 +2276,19 @@ Output ONLY the JSON data instance:
                 # Excel rows can be represented either as Markdown tables or as
                 # flattened ``field — value`` evidence, so both forms follow this
                 # policy.
-                drop_without_padding = structured_source
+                semantic_prose_issue = bool(issues) and all(
+                    any(
+                        marker in issue
+                        for marker in (
+                            "answer does not use its source evidence",
+                            "question reverses the selected source action",
+                            "list evidence supports an incorrect option",
+                            "repeats the same prose rate fact",
+                        )
+                    )
+                    for issue in issues
+                )
+                drop_without_padding = structured_source or semantic_prose_issue
                 if drop_without_padding:
                     recovered = _recover_valid_assessment(
                         {"mcq": recovery_pool},
@@ -2206,6 +2308,8 @@ Output ONLY the JSON data instance:
                             question_count,
                         )
                         return recovered
+                    if not structured_source:
+                        raise ValueError("; ".join(issues))
                     logger.warning(
                         "[ASSESSMENT_FILTERED] kept=0 requested=%d; lesson retained "
                         "without a quiz instead of regenerating weak questions",

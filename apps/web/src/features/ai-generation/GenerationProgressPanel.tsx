@@ -39,6 +39,7 @@ export function GenerationProgressPanel({
       operation={job}
       title={title}
       stageLabel={stages.find((stage) => stage.key === job.stage)?.label}
+      progressScopeLabel={stages.find((stage) => stage.key === job.stage)?.label}
       labels={labels}
       retryLabel={state === 'stalled' ? checkAgainLabel : retryLabel}
       cancelLabel={job.status === 'pending' ? cancelQueuedLabel : cancelLabel}

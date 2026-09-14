@@ -6,13 +6,18 @@ import asyncio
 import logging
 import math
 import os
+import re
 import secrets
 import shutil
 import stat
 import struct
 import subprocess
 import tempfile
+import time
 import zipfile
+from contextlib import contextmanager
+from contextvars import ContextVar
+from decimal import Decimal, InvalidOperation
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Any
@@ -62,6 +67,13 @@ OOXML_MAX_ENTRIES = max(1, int(os.getenv("OOXML_MAX_ENTRIES", "5000")))
 OOXML_MAX_ENTRY_BYTES = max(1, int(os.getenv("OOXML_MAX_ENTRY_BYTES", str(64 * 1024 * 1024))))
 OOXML_MAX_TOTAL_BYTES = max(1, int(os.getenv("OOXML_MAX_TOTAL_BYTES", str(256 * 1024 * 1024))))
 OOXML_MAX_COMPRESSION_RATIO = max(1.0, float(os.getenv("OOXML_MAX_COMPRESSION_RATIO", "100")))
+PERCENTAGE_CROSSCHECK_MAX_PAGES = 12
+PERCENTAGE_CROSSCHECK_MAX_PIXELS = 8_000_000
+PERCENTAGE_CROSSCHECK_MAX_TOTAL_PIXELS = 32_000_000
+PERCENTAGE_CROSSCHECK_TIMEOUT_SECONDS = 12
+PERCENTAGE_CROSSCHECK_TOTAL_TIMEOUT_SECONDS = 60
+UNREADABLE_PERCENTAGE_VALUE = "[UNREADABLE_PERCENTAGE_VALUE]"
+_PERCENTAGE_RE = re.compile(r"(?<![\w-])-?\d+(?:[.,]\d+)?\s*%")
 
 
 def validate_runtime_config(environment: str = DOCLING_ENV, api_key: str = DOCLING_API_KEY) -> None:
@@ -77,6 +89,18 @@ _conversion_slots = asyncio.Semaphore(MAX_CONCURRENCY)
 
 _converter = None
 _markitdown_converter = None
+_SCANNED_PDF_PERCENTAGE_CROSSCHECK: ContextVar[bool] = ContextVar(
+    "scanned_pdf_percentage_crosscheck", default=False
+)
+
+
+@contextmanager
+def _scanned_pdf_percentage_crosscheck():
+    token = _SCANNED_PDF_PERCENTAGE_CROSSCHECK.set(True)
+    try:
+        yield
+    finally:
+        _SCANNED_PDF_PERCENTAGE_CROSSCHECK.reset(token)
 
 
 def get_converter():
@@ -217,10 +241,156 @@ def _markitdown_convert(path: str) -> str:
     return markdown
 
 
+def _normalized_percentages(value: str) -> set[str]:
+    normalized: set[str] = set()
+    for match in _PERCENTAGE_RE.finditer(value):
+        try:
+            number = Decimal(match.group(0).rstrip("%").strip().replace(",", "."))
+        except InvalidOperation:
+            continue
+        normalized.add(format(number.normalize(), "f"))
+    return normalized
+
+
+def _page_no(item: object) -> int | None:
+    for provenance in getattr(item, "prov", ()) or ():
+        page_no = getattr(provenance, "page_no", None)
+        if isinstance(page_no, int) and page_no > 0:
+            return page_no
+    return None
+
+
+def _page_nos(item: object) -> set[int]:
+    return {
+        page_no
+        for provenance in getattr(item, "prov", ()) or ()
+        if isinstance((page_no := getattr(provenance, "page_no", None)), int) and page_no > 0
+    }
+
+
+def _percentage_text_slots(document: object) -> list[tuple[object, int | None]]:
+    slots: list[tuple[object, int | None]] = []
+    for item in getattr(document, "texts", ()) or ():
+        if isinstance(getattr(item, "text", None), str) and _PERCENTAGE_RE.search(item.text):
+            slots.append((item, _page_no(item)))
+    for table in getattr(document, "tables", ()) or ():
+        for cell in getattr(getattr(table, "data", None), "table_cells", ()) or ():
+            if isinstance(getattr(cell, "text", None), str) and _PERCENTAGE_RE.search(cell.text):
+                cell_page_no = _page_no(cell)
+                table_page_nos = _page_nos(table)
+                slots.append(
+                    (cell, cell_page_no if cell_page_no is not None else next(iter(table_page_nos), None) if len(table_page_nos) == 1 else None)
+                )
+    return slots
+
+
+def _mask_unconfirmed_percentages(value: str, confirmed: set[str]) -> str:
+    def replace(match: re.Match[str]) -> str:
+        try:
+            number = Decimal(match.group(0).rstrip("%").strip().replace(",", "."))
+        except InvalidOperation:
+            return UNREADABLE_PERCENTAGE_VALUE
+        return match.group(0) if format(number.normalize(), "f") in confirmed else UNREADABLE_PERCENTAGE_VALUE
+
+    return _PERCENTAGE_RE.sub(replace, value)
+
+
+def _close_resource(resource: object | None) -> None:
+    close = getattr(resource, "close", None)
+    if callable(close):
+        close()
+
+
+def _independent_page_percentage_ocr(
+    path: str, page_no: int, budget: dict[str, float],
+) -> tuple[str, str] | None:
+    """Run two bounded full-page OCR passes; absence means uncertainty, not falsity."""
+    pdf = page = bitmap = image = None
+    image_path: str | None = None
+    try:
+        if time.monotonic() >= budget["deadline"]:
+            return None
+        from pypdfium2 import PdfDocument
+
+        pdf = PdfDocument(path)
+        page = pdf[page_no - 1]
+        width, height = page.get_size()
+        width = float(width)
+        height = float(height)
+        if not math.isfinite(width) or not math.isfinite(height) or width <= 0 or height <= 0:
+            return None
+        scale = 2
+        pixels = math.ceil(width * scale) * math.ceil(height * scale)
+        if (
+            pixels > PERCENTAGE_CROSSCHECK_MAX_PIXELS
+            or budget["pixels"] + pixels > PERCENTAGE_CROSSCHECK_MAX_TOTAL_PIXELS
+        ):
+            return None
+        budget["pixels"] += pixels
+        bitmap = page.render(scale=scale)
+        image = bitmap.to_pil()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png", dir=tempfile.gettempdir()) as temporary:
+            image_path = temporary.name
+        image.save(image_path)
+        outputs: list[str] = []
+        for psm in ("6", "11"):
+            remaining = budget["deadline"] - time.monotonic()
+            if remaining <= 0:
+                return None
+            completed = subprocess.run(
+                ["tesseract", image_path, "stdout", "-l", "rus", "--psm", psm],
+                capture_output=True,
+                text=True,
+                timeout=min(PERCENTAGE_CROSSCHECK_TIMEOUT_SECONDS, remaining),
+                check=False,
+            )
+            if completed.returncode != 0:
+                return None
+            outputs.append(completed.stdout or "")
+        return outputs[0], outputs[1]
+    except Exception as exc:  # noqa: BLE001 - an unavailable independent check is explicit uncertainty
+        logger.warning("Independent percentage OCR unavailable for page %s: %s", page_no, exc)
+        return None
+    finally:
+        if image_path:
+            Path(image_path).unlink(missing_ok=True)
+        _close_resource(image)
+        _close_resource(bitmap)
+        _close_resource(page)
+        _close_resource(pdf)
+
+
+def _crosscheck_docling_percentages(path: str, document: object) -> None:
+    slots_by_page: dict[int | None, list[object]] = {}
+    for item, page_no in _percentage_text_slots(document):
+        slots_by_page.setdefault(page_no, []).append(item)
+    budget = {"pixels": 0.0, "deadline": time.monotonic() + PERCENTAGE_CROSSCHECK_TOTAL_TIMEOUT_SECONDS}
+    for index, (page_no, items) in enumerate(slots_by_page.items()):
+        ocr = None
+        if page_no is not None and index < PERCENTAGE_CROSSCHECK_MAX_PAGES:
+            ocr = _independent_page_percentage_ocr(path, page_no, budget)
+        confirmed = set.intersection(*(_normalized_percentages(output) for output in ocr)) if ocr is not None else set()
+        for item in items:
+            item.text = _mask_unconfirmed_percentages(item.text, confirmed)
+
+
+def _percentage_crosscheck_warnings(markdown: str) -> list[str]:
+    if UNREADABLE_PERCENTAGE_VALUE not in markdown:
+        return []
+    return [
+        "Some percentage values are marked unreadable because independent page OCR did not confirm them."
+    ]
+
+
 def _docling_convert(path: str) -> tuple[str, int, int]:
     result = get_converter().convert(path)
     document = getattr(result, "document", None)
+    if document is not None and _SCANNED_PDF_PERCENTAGE_CROSSCHECK.get():
+        _crosscheck_docling_percentages(path, document)
     markdown = document.export_to_markdown() if document is not None else str(result)
+    # Docling's Markdown serializer escapes brackets/underscores in text items.
+    # Keep the machine-readable uncertainty token stable across that boundary.
+    markdown = re.sub(r"\\?\[UNREADABLE\\?_PERCENTAGE\\?_VALUE\\?\]", UNREADABLE_PERCENTAGE_VALUE, markdown)
     if not _usable_markdown(markdown):
         raise ValueError("Docling returned unusable output")
     tables = len(getattr(document, "tables", [])) if document is not None else 0
@@ -470,7 +640,11 @@ def _convert_sync(*, tmp_path: str, filename: str, suffix: str) -> dict:
                     ) from primary_error
 
         try:
-            markdown, pages, tables = _docling_convert(conversion_input)
+            if suffix == ".pdf" and not profile.get("is_digital", False):
+                with _scanned_pdf_percentage_crosscheck():
+                    markdown, pages, tables = _docling_convert(conversion_input)
+            else:
+                markdown, pages, tables = _docling_convert(conversion_input)
             return _payload(
                 filename=filename,
                 markdown=markdown,
@@ -478,7 +652,7 @@ def _convert_sync(*, tmp_path: str, filename: str, suffix: str) -> dict:
                 engine_version=_package_version("docling"),
                 pages=pages or profile.get("pages", 0),
                 tables=tables,
-                warnings=warnings,
+                warnings=warnings + _percentage_crosscheck_warnings(markdown),
                 profile=profile.get("profile"),
                 routing_reason="scanned-pdf-docling-ocr"
                 if suffix == ".pdf"

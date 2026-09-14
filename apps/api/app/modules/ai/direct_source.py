@@ -61,6 +61,17 @@ MAX_DIRECT_LESSON_OUTPUT_CHARS = 24_000
 MAX_DIRECT_LESSON_QUALITY_ATTEMPTS = 3
 
 _LESSON_QUALITY_REPAIR_INSTRUCTIONS = {
+    "unsupported_numeric_fact": (
+        "Remove statements containing numeric facts not explicitly supported by the supplied "
+        "source for the same subject and condition. Never calculate, round or fill a blank "
+        "source field. Do not substitute another figure."
+    ),
+    "incomplete_formula_presentation": (
+        "Do not say that a formula follows unless the source supplies the complete formula. "
+        "Preserve it exactly when available. Otherwise remove the formula introduction and "
+        "its dependent variable list; explicitly state that the formula is not available in "
+        "the supplied excerpt. Do not reconstruct mathematics from outside knowledge."
+    ),
     "unsupported_relationship_claim": (
         "Remove every sentence that adds causation, necessity, a customer "
         "preference, sales advice, a consultation step, a recommendation, or "
@@ -866,7 +877,7 @@ def _canonicalize_passport_section_labels(
     lessons = [lesson for module in structure.modules for lesson in module.lessons]
 
     def normalize_heading(value: str) -> str:
-        return value.casefold().removeprefix("[worksheet] ").strip()
+        return value.strip().casefold().removeprefix("[worksheet] ").strip().strip('«»“”"')
 
     canonical_headings = {
         (chunk.doc_id, normalize_heading(heading)): heading
@@ -885,7 +896,11 @@ def _canonicalize_passport_section_labels(
     for lesson in lessons:
         lesson_doc_ids = {str(value) for value in lesson.source_doc_ids}
         sections = [section for section in passport.sections if section.document_id in lesson_doc_ids]
-        section_by_name = {normalize_heading(section.name): section for section in sections}
+        section_by_name = {
+            normalize_heading(section.name): section
+            for section in sections
+            if sum(normalize_heading(peer.name) == normalize_heading(section.name) for peer in sections) == 1
+        }
         normalized: list[str] = []
         seen: set[str] = set()
         for heading in lesson.relevant_headings:
@@ -1230,6 +1245,7 @@ SELECTED SOURCES:
         "direct_source_structure_claim_unverified",
     }
     validation_error: DirectSourceError | None = None
+    previous_plan = ""
     for attempt in range(4):
         attempt_prompt = user_prompt
         if validation_error is not None:
@@ -1242,8 +1258,29 @@ SELECTED SOURCES:
                 "theme, title, objective, or standalone catalog/table lesson."
                 f"{_architect_validation_repair_instruction(validation_error.code)}\n"
             )
+            if validation_error.code in {
+                "direct_source_lesson_primary_section_missing",
+                "direct_source_primary_sections_omitted",
+            }:
+                primary_references = [
+                    {"document_id": section.document_id, "heading": f"[Worksheet] {section.name}"}
+                    for section in passport.sections
+                    if section.role.value == "primary"
+                ]
+                attempt_prompt += (
+                    "\nEXACT PRIMARY REFERENCES:\n"
+                    + json.dumps(primary_references, ensure_ascii=False)
+                    + "\nPREVIOUS PLAN TO REPAIR:\n"
+                    + previous_plan
+                    + "\nRepair the offending lesson source_doc_ids and relevant_headings "
+                    "using the exact document/heading pair above only when its subject and "
+                    "objectives are genuinely covered there. Preserve valid lessons. "
+                    "If a lesson is only about supporting material, merge its useful examples "
+                    "into a relevant primary lesson or remove it. Do not invent a primary reference "
+                    "to make an unrelated lesson pass. Return the complete corrected JSON.\n"
+                )
             if len(system_prompt) + len(attempt_prompt) > MAX_DIRECT_ARCHITECT_PROMPT_CHARS:
-                raise validation_error
+                raise DirectSourceError("direct_source_prompt_budget_exceeded")
 
         await _checkpoint(check_cancelled)
         response = await llm.ainvoke(
@@ -1253,8 +1290,9 @@ SELECTED SOURCES:
             ]
         )
         await _checkpoint(check_cancelled)
+        previous_plan = str(response.content or "")
         try:
-            structure = _parse_structure(str(response.content or ""))
+            structure = _parse_structure(previous_plan)
             _canonicalize_passport_section_labels(structure, corpus, passport)
             _validate_structure_sources(
                 structure,
@@ -1693,6 +1731,7 @@ async def write_direct_course(
 
     modules: list[ModuleContent] = []
     accepted_lesson_contents: list[str] = []
+    omitted_lesson_titles: list[str] = []
     total = sum(len(module.lessons) for module in structure.modules)
     completed = 0
     semantic_embeddings = EmbeddingsProvider(tenant_id=tenant_id) if tenant_id is not None else None
@@ -1707,6 +1746,7 @@ async def write_direct_course(
             await _checkpoint(check_cancelled)
             restored_omission = restored_omissions.get((module_index, lesson_index))
             if restored_omission is not None:
+                omitted_lesson_titles.append(lesson.title)
                 completed += 1
                 if on_progress:
                     result = on_progress(
@@ -1792,6 +1832,10 @@ is explicitly present in the supplied source. When the lesson title or objective
 name specific peer items, collections, products, or cases, cover only those named
 entities. Do not repeat rows about other peer entities merely as a comparison,
 summary, reminder, or conclusion.
+The marker [UNREADABLE_PERCENTAGE_VALUE] means the scanned percentage was not
+reliably recognized. Never infer or fill it from general knowledge. Omit that
+numeric claim and explain in the lesson language that the value requires checking
+against the original. Do not print the internal marker as normal lesson text.
 Return only the lesson Markdown and do not include hidden reasoning."""
             prompt_prefix = f"""Write one grounded educational lesson in {language}.
 Lesson: {lesson.title}
@@ -1826,7 +1870,7 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                     lesson_identity=(module_index, lesson_index),
                 )
                 lesson_accepted = quality.accepted
-                if not lesson_accepted and "unsupported_relationship_claim" in quality.reason_codes:
+                if not lesson_accepted and {"unsupported_relationship_claim", "unsupported_numeric_fact"}.intersection(quality.reason_codes):
                     filtered_content = remove_unsupported_relationship_fragments(
                         content=content,
                         source_chunks=[tabular_lesson[1]],
@@ -1887,7 +1931,7 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                         if quality.accepted:
                             lesson_accepted = True
                             break
-                        if "unsupported_relationship_claim" in quality.reason_codes:
+                        if {"unsupported_relationship_claim", "unsupported_numeric_fact"}.intersection(quality.reason_codes):
                             filtered_content = remove_unsupported_relationship_fragments(
                                 content=content,
                                 source_chunks=bounded_texts,
@@ -1906,6 +1950,7 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                                     break
                         quality_feedback = quality.reason_codes
             if not lesson_accepted:
+                omitted_lesson_titles.append(lesson.title)
                 omission_reasons = quality_feedback or ("invalid_content",)
                 if on_lesson_omitted:
                     result = on_lesson_omitted(
@@ -1955,8 +2000,25 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
     minimum_useful_lessons = max(1, min(5, math.ceil(total / 2)))
     if accepted_total < minimum_useful_lessons:
         raise DirectSourceError("direct_source_lesson_quality_failed")
+    description = structure.description
+    if omitted_lesson_titles:
+        warning = {
+            "ru": "Неполный черновик: не удалось подготовить следующие темы; проверьте полноту перед публикацией: ",
+            "kk": "Толық емес жоба: келесі тақырыптар дайындалмады; жариялау алдында толықтығын тексеріңіз: ",
+        }.get(language, "Incomplete draft: these topics were not prepared; check coverage before publishing: ")
+        description = (description + "\n\n" + warning + "; ".join(omitted_lesson_titles)).strip()
+    source_warnings = []
+    if any("[UNREADABLE_PERCENTAGE_VALUE]" in chunk.text for document in corpus.documents for chunk in document.chunks):
+        source_warnings.append({
+            "ru": "Некоторые процентные значения в скане не удалось надёжно распознать. Проверьте их в оригинале перед публикацией.",
+            "kk": "Скандағы кейбір пайыздық мәндер анық танылмады. Жариялау алдында түпнұсқамен тексеріңіз.",
+            "en": "Some percentage values in the scan could not be reliably recognized. Check the original before publication.",
+        }.get(language, "Some percentage values in the scan require checking against the original."))
+        description = (description + "\n\n" + "\n".join(source_warnings)).strip()
     return CourseContent(
         title=structure.title,
-        description=structure.description,
+        description=description,
         modules=modules,
+        omitted_lesson_titles=omitted_lesson_titles,
+        source_warnings=source_warnings,
     )

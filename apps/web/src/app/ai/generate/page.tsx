@@ -1264,6 +1264,11 @@ export default function AIGeneratePage() {
             {compatibility?.recommended_structure && (
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm">
                 <div className="font-medium text-foreground">{t('ai.recommendedStructure')}</div>
+                {!compatibility.source_passport && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Предварительная оценка по объёму файла. После разбора основного материала структура может стать короче; справочные строки не задают число уроков.
+                  </p>
+                )}
                 <div className="mt-1 text-muted-foreground">
                   {t('ai.recommendedStructureValue', {
                     modules: compatibility.recommended_structure.module_count,
@@ -1369,13 +1374,13 @@ export default function AIGeneratePage() {
       {/* STEP 3: Review */}
       {step === 'review' && currentJob?.course_id && (
         <div className="space-y-4">
-          {/* Success header */}
-          <div className="rounded-2xl border border-success/40 bg-success/10 p-6 text-center">
+          {/* Completion describes the saved draft, not a quality approval. */}
+          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 text-center">
             <div className="mb-3">
-              <CheckCircle2 className="w-12 h-12 mx-auto text-success" />
+              <CheckCircle2 className="w-12 h-12 mx-auto text-primary" />
             </div>
-            <h3 className="font-bold text-success font-display text-lg">Курс успешно сгенерирован!</h3>
-            <p className="text-sm text-success mt-1">
+            <h3 className="font-bold text-foreground font-display text-lg">{currentJob.message || 'Черновик курса сохранён'}</h3>
+            <p className="text-sm text-muted-foreground mt-1">
               Проверьте структуру ниже. Методолог должен одобрить курс перед публикацией.
             </p>
           </div>
@@ -1399,7 +1404,7 @@ export default function AIGeneratePage() {
                 </h4>
                 <ReviewBadge status={courseMeta.review_status} />
               </div>
-              <p className="text-sm text-muted-foreground line-clamp-2">{courseMeta.description}</p>
+              <p className="whitespace-pre-line text-sm text-muted-foreground">{courseMeta.description}</p>
               {preview?.source_documents?.length > 0 && (
                 <div className="rounded-lg border border-border bg-muted/30 p-3">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">

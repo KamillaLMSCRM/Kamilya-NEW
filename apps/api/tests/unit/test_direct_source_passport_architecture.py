@@ -90,6 +90,60 @@ def _structure(
 
 
 @pytest.mark.asyncio
+async def test_primary_reference_repair_receives_previous_plan_and_exact_allowed_headings() -> None:
+    class LLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, messages):
+            self.calls += 1
+            if self.calls == 1:
+                return SimpleNamespace(content=_structure("[Worksheet] SKU catalog"))
+            prompt = messages[-1]["content"]
+            assert "PREVIOUS PLAN TO REPAIR:" in prompt
+            assert "Collection facts" in prompt
+            assert "EXACT PRIMARY REFERENCES:" in prompt
+            assert "[Worksheet] Collections" in prompt
+            assert "Do not invent a primary reference" in prompt
+            return SimpleNamespace(content=_structure("[Worksheet] Collections"))
+
+    llm = LLM()
+    result = await run_direct_architect(llm, _corpus(), guidance="Teach collection facts")
+    assert llm.calls == 2
+    assert result.modules[0].lessons[0].relevant_headings == ["[Worksheet] Collections"]
+
+
+@pytest.mark.asyncio
+async def test_architect_retry_over_budget_reports_budget_without_a_second_provider_call() -> None:
+    oversized_invalid_plan = json.loads(_structure("[Worksheet] SKU catalog"))
+    oversized_invalid_plan["description"] = "x" * 31_000
+
+    class LLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, _messages):
+            self.calls += 1
+            return SimpleNamespace(content=json.dumps(oversized_invalid_plan))
+
+    llm = LLM()
+    with pytest.raises(DirectSourceError, match="direct_source_prompt_budget_exceeded"):
+        await run_direct_architect(llm, _corpus(), guidance="Teach collection facts")
+
+    assert llm.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_quoted_exact_primary_label_is_canonicalized_without_adding_a_reference() -> None:
+    class LLM:
+        async def ainvoke(self, _messages):
+            return SimpleNamespace(content=_structure('«Collections»'))
+
+    result = await run_direct_architect(LLM(), _corpus(), guidance="Teach collection facts")
+    assert result.modules[0].lessons[0].relevant_headings == ["[Worksheet] Collections"]
+
+
+@pytest.mark.asyncio
 async def test_architect_rejects_generic_supporting_catalog_objective() -> None:
     class LLM:
         def __init__(self) -> None:

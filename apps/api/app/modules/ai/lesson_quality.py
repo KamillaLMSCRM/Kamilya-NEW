@@ -14,12 +14,29 @@ from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 
 _TOKEN_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
 _RELATIONSHIP_TOKEN_RE = re.compile(r"[\w./-]+", re.UNICODE)
 _RELATIONSHIP_FRAGMENT_SPLIT_RE = re.compile(r"(?:[!?]+|\n+|\.(?!\w)|(?<!\w)\.)")
 _SENTENCE_RE = re.compile(r"(?:\n+|(?<=[.!?])\s+)")
 _MARKDOWN_HEADING_RE = re.compile(r"^\s*#{1,6}\s+(.+?)\s*#*\s*$")
+_NUMERIC_FRAGMENT_SPLIT_RE = re.compile(r"(?:\n+|(?<=[!?])\s+|(?<!\d)\.(?!\d)\s+)")
+_NUMERIC_VALUE_RE = re.compile(
+    r"(?P<date>\b(?:\d{4}[-./]\d{1,2}[-./]\d{1,2}|\d{1,2}[-./]\d{1,2}[-./]\d{4})\b)"
+    r"|(?P<percent>(?<![\w-])-?\d+(?:[.,]\d+)?\s*%)"
+    r"|(?P<number>(?<![\w-])-?(?:\d{1,3}(?:[ \u00a0]\d{3})+|\d+)"
+    r"(?:[.,]\d+)?(?:[^\W\d_]+)?)"
+)
+_NUMERIC_SUBJECT_RE = re.compile(
+    r"\b(?:продукт|product|коллекция|collection|sku|кейс|case)\s+([^\s:;,.]+)",
+    re.IGNORECASE,
+)
+_INCOMPLETE_FORMULA_PRESENTATION_RE = re.compile(
+    r"(?:по\s+следующ\w*\s+формул\w*|using\s+the\s+following\s+formula)"
+    r"\s*(?:[:,])\s*(?:\n\s*)*(?:где|where)\s*:",
+    re.IGNORECASE,
+)
 _STOP_WORDS = frozenset(
     {
         "для",
@@ -211,7 +228,7 @@ _RELATIONSHIP_SHORT_STOP_WORDS = frozenset(
         "if",
     }
 )
-LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v17"
+LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v18"
 
 
 def _normalize(value: str) -> str:
@@ -255,6 +272,92 @@ def _relationship_tokens(value: str) -> tuple[str, ...]:
 def _sentences(value: str) -> tuple[str, ...]:
     cleaned = re.sub(r"^#{1,6}\s+", "", value, flags=re.MULTILINE)
     return tuple(normalized for raw in _SENTENCE_RE.split(cleaned) for normalized in [_normalize(raw)] if normalized)
+
+
+def _numeric_fact_key(match: re.Match[str]) -> str:
+    """Normalize only equivalent renderings of one explicit numeric fact."""
+
+    value = match.group(0).strip()
+    if match.group("date"):
+        parts = re.split(r"[-./]", value)
+        if len(parts[0]) == 4:
+            year, month, day = parts
+        else:
+            day, month, year = parts
+        return f"date:{int(year):04d}-{int(month):02d}-{int(day):02d}"
+    kind = "percent" if match.group("percent") else "number"
+    numeric_match = re.fullmatch(
+        r"(?P<value>-?(?:\d{1,3}(?:[ \u00a0]\d{3})+|\d+)(?:[.,]\d+)?)"
+        r"(?P<unit>[^\W\d_]+)?",
+        value.rstrip("%").strip(),
+    )
+    if numeric_match is None:
+        return f"{kind}:{value.casefold()}"
+    numeric_value = numeric_match.group("value").replace(" ", "").replace("\u00a0", "").replace(",", ".")
+    unit = (numeric_match.group("unit") or "").casefold()
+    try:
+        normalized_value = format(Decimal(numeric_value).normalize(), "f")
+    except InvalidOperation:
+        return f"{kind}:{value.casefold()}"
+    return f"{kind}:{normalized_value}:{unit}"
+
+
+def _is_numbered_list_marker(value: str, start: int) -> bool:
+    line_prefix = value[value.rfind("\n", 0, start) + 1 : start]
+    return bool(re.fullmatch(r"\s*(?:[-*+]\s+)?", line_prefix)) and bool(
+        re.match(r"\d+[.)](?:\s|\ufff0|$)", value[start:])
+    )
+
+
+def _numeric_facts(value: str) -> tuple[tuple[str, str], ...]:
+    facts: list[tuple[str, str]] = []
+    for fragment in _NUMERIC_FRAGMENT_SPLIT_RE.split(value):
+        for match in _NUMERIC_VALUE_RE.finditer(fragment):
+            if match.group("number") and _is_numbered_list_marker(fragment, match.start()):
+                continue
+            facts.append((_numeric_fact_key(match), fragment))
+    return tuple(facts)
+
+
+def _numeric_subject_identifiers(value: str) -> set[str]:
+    return {match.group(1).casefold() for match in _NUMERIC_SUBJECT_RE.finditer(value)}
+
+
+def _has_unsupported_numeric_fact(*, content: str, source: str) -> bool:
+    """Require a source-local numeric equivalent and its known context anchors.
+
+    This operates on extracted text only. It can establish that a figure is (or
+    is not) present in that text, but cannot determine whether OCR transcribed a
+    scanned glyph correctly.
+    """
+
+    source_facts = _numeric_facts(source)
+    for content_key, content_fragment in _numeric_facts(content):
+        candidates = [
+            source_fragment
+            for source_key, source_fragment in source_facts
+            if source_key == content_key
+        ]
+        if not candidates:
+            return True
+        content_subjects = _numeric_subject_identifiers(content_fragment)
+        if content_subjects and not any(
+            content_subjects.issubset(_numeric_subject_identifiers(candidate))
+            for candidate in candidates
+        ):
+            if any(
+                content_subjects & _numeric_subject_identifiers(source_fragment)
+                for source_key, source_fragment in source_facts
+                if source_key != content_key
+            ):
+                return True
+    return False
+
+
+def _has_incomplete_formula_presentation(content: str) -> bool:
+    """Catch only an explicit formula introducer immediately followed by variables."""
+
+    return bool(_INCOMPLETE_FORMULA_PRESENTATION_RE.search(content))
 
 
 def _relationship_operator(value: str) -> str:
@@ -398,7 +501,13 @@ def remove_unsupported_relationship_fragments(
         for chunk in source_chunks
         for line in chunk.splitlines()
     )
-    parts = re.split(r"(\n+|(?<=[.!?])\s+)", content)
+    list_marker_space = "\ufff0"
+    protected_content = re.sub(
+        r"(?m)^(\s*(?:[-*+]\s+)?\d+[.)])\s+",
+        rf"\1{list_marker_space}",
+        content,
+    )
+    parts = re.split(r"(\n+|(?<!\d)(?<=[.!?])\s+)", protected_content)
     retained: list[str] = []
     for part in parts:
         if not part or part.isspace():
@@ -406,15 +515,21 @@ def remove_unsupported_relationship_fragments(
                 retained.append(part)
             continue
         normalized_part = " ".join(part.casefold().replace("ё", "е").split())
-        if normalized_part and _has_unsupported_relationship_claim(
-            content=normalized_part,
-            source=normalized_source,
+        if normalized_part and (
+            _has_unsupported_relationship_claim(
+                content=normalized_part,
+                source=normalized_source,
+            )
+            or _has_unsupported_numeric_fact(
+                content=normalized_part,
+                source=normalized_source,
+            )
         ):
             if retained and retained[-1].isspace():
                 retained.pop()
             continue
         retained.append(part)
-    return "".join(retained).strip()
+    return "".join(retained).replace(list_marker_space, " ").strip()
 
 
 @dataclass(frozen=True, slots=True)
@@ -502,6 +617,11 @@ def evaluate_lesson_quality(
         content=normalized_content_text,
         source=normalized_source_text,
     )
+    unsupported_numeric = _has_unsupported_numeric_fact(
+        content=body_content,
+        source="\n".join(source_chunks),
+    )
+    incomplete_formula = _has_incomplete_formula_presentation(body_content)
 
     reasons: list[str] = []
     if not body_content.strip() or anchor_matches < required_matches:
@@ -520,6 +640,10 @@ def evaluate_lesson_quality(
         reasons.append("lesson_too_thin_for_source")
     if unsupported_relationship:
         reasons.append("unsupported_relationship_claim")
+    if unsupported_numeric:
+        reasons.append("unsupported_numeric_fact")
+    if incomplete_formula:
+        reasons.append("incomplete_formula_presentation")
 
     result = LessonQualityResult(
         accepted=not reasons,

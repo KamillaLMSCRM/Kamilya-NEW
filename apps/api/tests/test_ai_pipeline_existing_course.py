@@ -143,7 +143,11 @@ async def test_new_course_persists_reuse_reason_in_source_provenance(monkeypatch
 
 
 @pytest.mark.asyncio
-async def test_generated_single_answer_questions_are_saved_as_mcq(monkeypatch):
+@pytest.mark.parametrize("source_text,expected_source_status", [
+    ("Source facts", "verified"),
+    ("Rate: [UNREADABLE_PERCENTAGE_VALUE]", "needs_review"),
+])
+async def test_generated_single_answer_questions_are_saved_as_mcq(monkeypatch, source_text, expected_source_status):
     from app.modules.ai import pipeline
 
     tenant_id = uuid4()
@@ -169,7 +173,7 @@ async def test_generated_single_answer_questions_are_saved_as_mcq(monkeypatch):
         ),
         content=CourseContent(
             title="Generated title",
-            modules=[ModuleContent(title="Module", lessons=[LessonContent(title=lesson_title, content="Body")])],
+            modules=[ModuleContent(title="Module", lessons=[LessonContent(title=lesson_title, content="Body", source_chunks=[source_text])])],
         ),
         assessment=CourseAssessment(
             assessments=[
@@ -201,6 +205,7 @@ async def test_generated_single_answer_questions_are_saved_as_mcq(monkeypatch):
     assert modules[0].tenant_id == tenant_id
     assert len(lessons) == 1
     assert lessons[0].tenant_id == tenant_id
+    assert lessons[0].source_validation_status == expected_source_status
     assert len(quizzes) == 1
     assert quizzes[0].tenant_id == tenant_id
     assert [question.type for question in questions] == ["MCQ"]

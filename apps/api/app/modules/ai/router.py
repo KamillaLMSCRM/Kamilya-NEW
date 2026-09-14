@@ -442,6 +442,10 @@ async def generate_course(
             },
         )
     analysis_payload = _compatibility_response(analysis).model_dump(mode="json")
+    analysis_payload["course_sizing_request"] = {
+        "course_format": req.course_format,
+        "manual_modules": req.num_modules,
+    }
     if analysis.requires_decision and req.source_strategy != "intentional_combination":
         raise HTTPException(
             status_code=409,

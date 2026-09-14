@@ -10,7 +10,7 @@ import re
 import time
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timezone
-from typing import TypedDict, cast
+from typing import TYPE_CHECKING, TypedDict, cast
 from uuid import UUID, uuid4
 
 from billiard.exceptions import SoftTimeLimitExceeded  # type: ignore[import-untyped]
@@ -37,6 +37,7 @@ from app.modules.ai.generation_checkpoint import (
     PlannedLesson,
 )
 from app.modules.ai.ingestion import EmbeddingsProvider, VectorStore
+from app.modules.ai.lesson_quality import LESSON_QUALITY_POLICY_VERSION
 from app.modules.ai.llm_client import AllProvidersFailedError, ResilientLLMClient
 from app.modules.ai.reviewer import ReviewerAgent
 from app.modules.ai.source_map_checkpoint import SourceMapCheckpointStore
@@ -44,6 +45,9 @@ from app.modules.ai.writer import UnsupportedLessonSourceError, write_course
 from app.modules.ai.writer_schema import CourseContent, LessonContent
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from app.modules.ai.source_analysis import CourseStructurePlan
 
 GENERATION_FAILURE_CODE = "generation_failed"
 GENERATION_FAILURE_MESSAGE = (
@@ -166,8 +170,41 @@ def _compact_structure_for_generated_content(
         )
     return CourseStructure(
         title=structure.title,
-        description=structure.description,
+        description=content.description if content.omitted_lesson_titles or content.source_warnings else structure.description,
         modules=modules,
+    )
+
+
+def _generation_completion_message(content: CourseContent | None) -> str:
+    if content is not None:
+        notices = list(content.source_warnings)
+        if content.omitted_lesson_titles:
+            notices.insert(0, "Сохранён неполный черновик. Не подготовлены темы: " + "; ".join(content.omitted_lesson_titles))
+        if notices:
+            return "\n".join(notices)
+    return "Курс успешно сгенерирован!"
+
+
+def _direct_source_structure_plan(
+    corpus: DirectSourceCorpus, source_analysis: dict[str, object] | None,
+) -> CourseStructurePlan | None:
+    """Resolve a lightweight admission estimate only after original conversion.
+
+    Old queued jobs retain their original options. Saved generation plans are
+    restored separately and must never be resized by this helper.
+    """
+    from app.modules.ai.document_passport import build_document_passport
+    from app.modules.ai.source_analysis import recommend_course_structure
+
+    sizing = (source_analysis or {}).get("course_sizing_request")
+    if not isinstance(sizing, dict):
+        return None
+    return recommend_course_structure(
+        total_chunks=corpus.total_chunks,
+        document_count=len(corpus.documents),
+        course_format=sizing["course_format"],
+        manual_modules=sizing.get("manual_modules"),
+        source_passport=build_document_passport(corpus),
     )
 
 
@@ -465,7 +502,7 @@ async def _save_generation_to_db(
                         ai_generated=True,
                         source_document_ids=actual_source_ids,
                         source_references=list(content_les.source_references),
-                        source_validation_status="verified",
+                        source_validation_status="needs_review" if content_les.requires_source_review() else "verified",
                     )
                     session.add(lesson)
                     await session.flush()
@@ -585,7 +622,7 @@ async def _save_generation_to_db(
         state.status = "completed"
         state.stage = "completed"
         state.progress = 100
-        state.message = "Курс успешно сгенерирован!"
+        state.message = _generation_completion_message(state.content)
         completed_at = datetime.now(timezone.utc)  # noqa: UP017 -- Python 3.10 runtime
         for field_name, value in (
             ("status", state.status),
@@ -793,6 +830,11 @@ async def run_generation_pipeline(
         elif direct_mode:
             if direct_corpus is None:
                 raise DirectSourceError("direct_source_unavailable")
+            source_plan = _direct_source_structure_plan(direct_corpus, source_analysis)
+            if source_plan is not None:
+                num_modules = source_plan.module_count
+                lessons_per_module = source_plan.lessons_per_module
+                max_total_lessons = source_plan.hard_max_total_lessons
             map_checkpoints = _source_map_checkpoint_store(llm, tenant_id, job_id, {
                 "goals": goals, "course_hours": course_hours, "num_modules": num_modules,
                 "lessons_per_module": lessons_per_module, "language": language,
@@ -906,6 +948,13 @@ async def run_generation_pipeline(
                         raise AIGenerationCheckpointError(
                             "generation_omission_checkpoint_invalid"
                         )
+                    if (
+                        snapshot.content_payload.get("quality_policy_version")
+                        != LESSON_QUALITY_POLICY_VERSION
+                    ):
+                        raise DirectSourceError(
+                            "direct_source_checkpoint_quality_policy_stale"
+                        )
                     completed_omissions[index] = tuple(reason_codes)
                     continue
                 if snapshot.content_payload is not None:
@@ -1006,7 +1055,10 @@ async def run_generation_pipeline(
                         generation_key=job_id,
                         module_key=module_key,
                         lesson_key=lesson_key,
-                        omission_payload={"reason_codes": list(normalized_reasons)},
+                        omission_payload={
+                            "reason_codes": list(normalized_reasons),
+                            "quality_policy_version": LESSON_QUALITY_POLICY_VERSION,
+                        },
                         lease_owner=lease_owner,
                     )
                     await session.commit()
@@ -1464,7 +1516,7 @@ async def run_generation_pipeline(
             state.status = "completed"
             state.stage = "completed"
             state.progress = 100
-            state.message = "Курс успешно сгенерирован!"
+            state.message = _generation_completion_message(state.content)
             await _update_job_db(
                 job_id,
                 tenant_id=tenant_id,
