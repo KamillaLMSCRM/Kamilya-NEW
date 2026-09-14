@@ -37,7 +37,7 @@ from app.modules.ai.generation_checkpoint import (
     PlannedLesson,
 )
 from app.modules.ai.ingestion import EmbeddingsProvider, VectorStore
-from app.modules.ai.llm_client import ResilientLLMClient
+from app.modules.ai.llm_client import AllProvidersFailedError, ResilientLLMClient
 from app.modules.ai.reviewer import ReviewerAgent
 from app.modules.ai.source_map_checkpoint import SourceMapCheckpointStore
 from app.modules.ai.writer import UnsupportedLessonSourceError, write_course
@@ -48,6 +48,11 @@ logger = logging.getLogger(__name__)
 GENERATION_FAILURE_CODE = "generation_failed"
 GENERATION_FAILURE_MESSAGE = (
     "Не удалось сгенерировать курс. Повторите попытку или обратитесь к администратору."
+)
+GENERATION_PROVIDER_INTERRUPTED_CODE = "generation_provider_interrupted"
+GENERATION_PROVIDER_INTERRUPTED_MESSAGE = (
+    "Сервисы ИИ временно недоступны. Готовые уроки сохранены — "
+    "продолжите генерацию с оставшихся."
 )
 
 
@@ -1473,6 +1478,24 @@ async def run_generation_pipeline(
 
         logger.info(f"Generation pipeline complete for job {job_id}")
 
+    except AllProvidersFailedError:
+        state.status = "interrupted"
+        state.stage = "interrupted"
+        state.message = GENERATION_PROVIDER_INTERRUPTED_MESSAGE
+        state.errors = [GENERATION_PROVIDER_INTERRUPTED_CODE]
+        await _update_job_db(
+            job_id,
+            tenant_id=tenant_id,
+            status="interrupted",
+            stage="interrupted",
+            message=state.message,
+            errors=state.errors,
+            completed_at=None,
+        )
+        logger.warning(
+            "Generation pipeline paused after provider exhaustion for job %s",
+            job_id,
+        )
     except SoftTimeLimitExceeded:
         state.status = "interrupted"
         state.stage = "interrupted"

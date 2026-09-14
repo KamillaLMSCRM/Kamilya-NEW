@@ -2497,6 +2497,30 @@ contract or establish a blocker.
   fault in one batch while the provider remains available to sibling batches.
   A single socket failure is not provider-outage evidence.
 
+## AI-PROVIDER-003 - Exhausted providers made completed lesson checkpoints inaccessible
+
+- Date: 2026-09-14. Observed in production `0.5.40` during the fresh
+  methodologist-path generation from the Lombard microcredit-rules PDF.
+- Symptom: eight of nine planned lessons were durably completed. The ninth
+  request then hit a DeepSeek read error, an unavailable Qwen endpoint and a
+  GLM connection timeout. The job became terminal `failed`, so the interface
+  offered only a new course even though eight valid checkpoints were present.
+- Cause: only a worker soft-time-limit was classified as resumable
+  `interrupted`; exhaustion of the bounded provider chain fell through the
+  generic terminal failure branch.
+- Fix: classify `AllProvidersFailedError` as a resumable provider interruption,
+  preserve the same logical job and its checkpoints, and show the existing
+  explicit continuation action. Completed lessons are restored and only the
+  first missing lesson is sent to a provider again.
+- Verification: the RED regression checkpoints two of three lessons and
+  exhausts every provider on lesson three. GREEN returns `interrupted`; after
+  provider recovery the same job completes while only lesson three is called
+  again. Existing timeout-resume and admission tests remain green.
+- Prevention: any failure caused solely by temporary exhaustion of the bounded
+  provider chain must preserve durable work and expose an explicit continuation
+  path. It must neither silently retry forever nor force the methodologist to
+  regenerate already accepted lessons.
+
 ## AI-MAP-001 - A valid detailed source map exceeded the arbitrary topic count
 
 - Date: 2026-09-14. Observed in production `0.5.32` during the fresh

@@ -14,6 +14,7 @@ from app.modules.ai.generation_checkpoint import (
     GenerationCheckpointSnapshot,
     GenerationPlan,
 )
+from app.modules.ai.llm_client import AllProvidersFailedError
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 
 
@@ -243,6 +244,130 @@ async def test_pipeline_resumes_15_of_25_without_repeating_completed_lessons(mon
     assert len(writer_provider_calls) == 25
     assert len(reviewer_provider_calls) == 25
     assert len(assessment_provider_calls) == 25
+
+
+@pytest.mark.asyncio
+async def test_pipeline_marks_provider_exhaustion_interrupted_and_resumes_from_checkpoint(monkeypatch):
+    from app.modules.ai import pipeline
+    from app.modules.ai.direct_source import DirectSourceCorpus
+
+    tenant_id = uuid4()
+    document_id = str(uuid4())
+    structure = CourseStructure(
+        title="Provider recovery",
+        modules=[
+            Module(
+                title="Module 1",
+                lessons=[
+                    Lesson(title=f"Lesson {index}", source_doc_ids=[document_id])
+                    for index in range(1, 4)
+                ],
+            )
+        ],
+    )
+    checkpoints = _MemoryCheckpoints()
+    writer_provider_calls: list[str] = []
+    provider_is_available = False
+
+    async def load_corpus(*args, **kwargs):
+        return DirectSourceCorpus(
+            tenant_id=str(tenant_id), documents=(), total_chars=1000, total_chunks=10,
+        )
+
+    async def architect(*args, **kwargs):
+        return structure
+
+    async def writer(
+        *args,
+        completed_lessons=None,
+        before_lesson_generate=None,
+        on_lesson_complete=None,
+        **kwargs,
+    ):
+        modules: list[ModuleContent] = []
+        lessons: list[LessonContent] = []
+        for lesson_index, planned in enumerate(structure.modules[0].lessons):
+            coordinate = (0, lesson_index)
+            content = (completed_lessons or {}).get(coordinate)
+            if content is None:
+                await before_lesson_generate(*coordinate)
+                writer_provider_calls.append(planned.title)
+                if planned.title == "Lesson 3" and not provider_is_available:
+                    raise AllProvidersFailedError("all providers unavailable")
+                content = LessonContent(title=planned.title, content=f"Content {planned.title}")
+                await on_lesson_complete(*coordinate, content)
+            lessons.append(content)
+        modules.append(ModuleContent(title="Module 1", lessons=lessons))
+        return CourseContent(title=structure.title, modules=modules)
+
+    async def assessments(
+        *,
+        course_content,
+        completed_assessments=None,
+        before_assessment_generate=None,
+        on_assessment_complete=None,
+        **kwargs,
+    ):
+        restored = completed_assessments or {}
+        result: list[LessonAssessment] = []
+        for module_index, module in enumerate(course_content.modules):
+            for lesson_index, lesson in enumerate(module.lessons):
+                coordinate = (module_index, lesson_index)
+                item = restored.get(coordinate)
+                if item is None:
+                    await before_assessment_generate(*coordinate)
+                    item = LessonAssessment(lesson_title=lesson.title)
+                    await on_assessment_complete(*coordinate, item)
+                result.append(item)
+        return CourseAssessment(assessments=result)
+
+    class LLMFactory:
+        @classmethod
+        async def from_settings_async(cls, **kwargs):
+            return object()
+
+    class Reviewer:
+        def __init__(self, llm_client):
+            pass
+
+        async def review_lesson(self, **kwargs):
+            return {"quality_score": 10.0, "issues": []}
+
+    async def noop(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(pipeline, "load_direct_source_corpus", load_corpus)
+    monkeypatch.setattr(pipeline, "run_direct_architect", architect)
+    monkeypatch.setattr(pipeline, "write_direct_course", writer)
+    monkeypatch.setattr(pipeline, "generate_course_assessment", assessments)
+    monkeypatch.setattr(pipeline, "ResilientLLMClient", LLMFactory)
+    monkeypatch.setattr(pipeline, "ReviewerAgent", Reviewer)
+    monkeypatch.setattr(pipeline, "_update_job_db", noop)
+    monkeypatch.setattr(pipeline, "_check_cancelled_async", noop)
+
+    kwargs = {
+        "job_id": str(uuid4()),
+        "documents": [document_id],
+        "tenant_id": tenant_id,
+        "source_analysis": {"analysis_mode": "direct_source"},
+        "num_modules": 1,
+        "lessons_per_module": 3,
+        "max_total_lessons": 3,
+        "generation_checkpoint_repository": checkpoints,
+    }
+    first = await pipeline.run_generation_pipeline(**kwargs)
+
+    assert first.status == "interrupted"
+    assert first.stage == "interrupted"
+    assert first.errors == ["generation_provider_interrupted"]
+    assert writer_provider_calls == ["Lesson 1", "Lesson 2", "Lesson 3"]
+    assert sum(item.content_payload is not None for item in checkpoints.snapshots) == 2
+
+    provider_is_available = True
+    second = await pipeline.run_generation_pipeline(**kwargs)
+
+    assert second.status == "completed"
+    assert writer_provider_calls == ["Lesson 1", "Lesson 2", "Lesson 3", "Lesson 3"]
 
 
 @pytest.mark.asyncio

@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.41] - 2026-09-14
+
+### Fixed
+
+- Pause a course-generation job when every configured generation provider is
+  temporarily unavailable instead of terminally discarding its recovery path.
+- Preserve completed lesson checkpoints and let the methodologist continue the
+  same logical job from the first missing lesson without another quota charge.
+- Keep the existing finite provider retry/failover budget; continuation remains
+  an explicit user action and never loops indefinitely.
+
 ## [0.5.40] - 2026-09-14
 
 ### Fixed
