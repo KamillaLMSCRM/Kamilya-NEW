@@ -141,6 +141,10 @@ apps/api/summaries/
 # rule prevents new one-off artifacts from accumulating in the worktree.
 /outputs/
 
+# Private model prompts, source checkpoints and operational release evidence.
+# Publish sanitized summaries under docs, never the raw captures.
+/.release-evidence/
+
 # Non-canonical scratch notes and per-machine operator configuration.
 /agent-notes/
 /opencode.jsonc

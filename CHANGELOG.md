@@ -15,6 +15,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.43] - 2026-09-14
+
+### Fixed
+
+- Independently solve generated questions against their original sources without
+  exposing the answer key; remove ambiguous answers and course-wide repeated facts.
+- Attempt uncovered learning objectives once without rebuilding lessons or padding
+  counts. Retain named coverage-review advisories and pause recoverably if final
+  assessment review cannot return a valid result.
+- Keep independently valid questions from prose sources without retrying solely
+  to fill a requested count. Preserve lessons with no surviving questions and
+  explicitly list them as requiring a test before publication.
+- Recognize equivalent Russian selection wording in the requested course goal
+  without weakening source, worksheet or factual-grounding checks.
+- Use the grounded lesson writer for an audience- or goal-specific course instead
+  of replacing composite lessons with incomplete reference cards from a table.
+- Include scanned-percentage handling instructions only when the selected source
+  actually contains the corresponding uncertainty marker.
+
 ## [0.5.42] - 2026-09-14
 
 ### Fixed

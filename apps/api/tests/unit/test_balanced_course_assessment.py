@@ -568,6 +568,54 @@ def test_generation_contract_blocks_invented_named_entity_in_distractor() -> Non
     assert any("unsupported named entity" in issue for issue in issues)
 
 
+def test_generation_contract_allows_competing_product_description_from_authoritative_source() -> None:
+    source = (
+        "Коллекция Nord — интерьерная платформа для квартиры. "
+        "Серия Classic предлагает классическое решение для спальни с бронзовой фурнитурой."
+    )
+    evidence = "Коллекция Nord — интерьерная платформа для квартиры."
+    data = {
+        "mcq": [
+            {
+                "question": "Что представляет собой коллекция Nord?",
+                "options": [
+                    {"text": "интерьерная платформа для квартиры", "is_correct": True},
+                    {"text": "классическая спальня с бронзовой фурнитурой", "is_correct": False},
+                ],
+                "explanation": evidence,
+                "source_quote_id": "E01",
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(data, {"E01": evidence}, source, "ru")
+    issues.extend(_validate_generated_question_set(data, "ru"))
+
+    assert not any("implausible_distractors" in issue for issue in issues)
+
+
+def test_generation_contract_rejects_off_topic_planet_distractor_despite_shared_short_word() -> None:
+    source = "Коллекция Nord — интерьерная платформа для квартиры с матовыми фасадами."
+    data = {
+        "mcq": [
+            {
+                "question": "Что представляет собой коллекция Nord?",
+                "options": [
+                    {"text": "интерьерная платформа для квартиры", "is_correct": True},
+                    {"text": "Планета Марс для космических экспедиций", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(data, {"E01": source}, source, "ru")
+    issues.extend(_validate_generated_question_set(data, "ru"))
+
+    assert any("implausible_distractors" in issue for issue in issues)
+
+
 def test_generation_contract_blocks_incorrect_option_supported_by_selected_evidence() -> None:
     source = "| Для каких комнат | Спальня (шкафы и хранение), прихожая, " "гостиная, гардеробная. |"
     data = {
@@ -2073,9 +2121,7 @@ async def test_structured_assessment_drops_any_invalid_question_without_provider
     )
 
     assert llm.calls == 1
-    assert [question.question for question in result.mcq] == [
-        "Какой материал корпуса у Чикаго Нео?"
-    ]
+    assert [question.question for question in result.mcq] == ["Какой материал корпуса у Чикаго Нео?"]
 
 
 @pytest.mark.asyncio
@@ -2640,32 +2686,13 @@ async def test_lesson_assessment_does_not_reuse_a_fact_from_an_earlier_lesson() 
 
 
 @pytest.mark.asyncio
-async def test_standard_assessment_retries_an_incomplete_result():
+async def test_standard_assessment_marks_explicit_empty_incomplete_result():
     class FakeLLM:
         calls = 0
 
         async def ainvoke(self, messages, config=None, response_format=None):
             self.calls += 1
-            if self.calls == 1:
-                return SimpleNamespace(content='{"mcq": [], "true_false": [], "matching": []}')
-            retry_prompt = messages[-1]["content"]
-            assert "Порядок рассмотрения заявления" in retry_prompt
-            assert "Рассмотрение заявления начинается с проверки документов" in retry_prompt
-            assert "base every question only on the authoritative source excerpts" in retry_prompt.lower()
-            assert "Here is your output" not in retry_prompt
-            assert '"source_quote_id"' in retry_prompt
-            questions = _questions(
-                "рассмотрение заявления",
-                "проверки документов",
-                "Рассмотрение заявления начинается с проверки документов.",
-            )
-            return SimpleNamespace(
-                content=(
-                    '{"mcq": '
-                    + __import__("json").dumps(questions, ensure_ascii=False)
-                    + ', "true_false": [], "matching": []}'
-                )
-            )
+            return SimpleNamespace(content='{"mcq": [], "true_false": [], "matching": []}')
 
     llm = FakeLLM()
     result = await generate_lesson_assessment(
@@ -2678,29 +2705,20 @@ async def test_standard_assessment_retries_an_incomplete_result():
         language="ru",
     )
 
-    assert llm.calls == 2
-    assert len(result.mcq) == 5
+    assert llm.calls == 1
+    assert result.mcq == []
+    assert result.omission_reason == "no_valid_questions"
 
 
 @pytest.mark.asyncio
-async def test_standard_assessment_repairs_structurally_valid_off_source_questions():
+async def test_standard_assessment_drops_structurally_valid_off_source_questions():
     class FakeLLM:
         calls = 0
 
         async def ainvoke(self, messages, config=None, response_format=None):
             self.calls += 1
-            questions = (
-                _questions(
-                    "REST API формата",
-                    "HTTP JSON",
-                    "Выдача микрокредита выполняется после проверки заявления.",
-                )
-                if self.calls == 1
-                else _questions(
-                    "выдачу микрокредита",
-                    "проверки заявления",
-                    "Выдача микрокредита выполняется после проверки заявления.",
-                )
+            questions = _questions(
+                "REST API формата", "HTTP JSON", "Выдача микрокредита выполняется после проверки заявления."
             )
             return SimpleNamespace(
                 content=(
@@ -2721,10 +2739,10 @@ async def test_standard_assessment_repairs_structurally_valid_off_source_questio
         language="ru",
     )
 
-    assert llm.calls == 2
-    assert "микрокредита" in result.mcq[0].question
-    assert "REST" not in result.mcq[0].question
-    assert "HTTP" not in result.mcq[0].explanation
+    assert llm.calls == 1
+    assert len(result.mcq) == 4
+    assert all("REST" not in question.question for question in result.mcq)
+    assert all("HTTP" not in question.explanation for question in result.mcq)
 
 
 @pytest.mark.asyncio
@@ -2812,22 +2830,23 @@ async def test_standard_assessment_validates_quotes_against_prompt_bounded_sourc
             )
 
     llm = FakeLLM()
-    with pytest.raises(ValueError, match="unknown source evidence id"):
-        await generate_lesson_assessment(
-            llm,
-            LessonContent(
-                title="Длинный регламент",
-                content=(
-                    "Основная процедура требует проверки заявления. "
-                    + ("Рабочий порядок обработки документов. " * 300)
-                    + "Секретный порядок определяется архивным приложением."
-                ),
-                source_references=[],
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Длинный регламент",
+            content=(
+                "Основная процедура требует проверки заявления. "
+                + ("Рабочий порядок обработки документов. " * 300)
+                + "Секретный порядок определяется архивным приложением."
             ),
-            language="ru",
-        )
+            source_references=[],
+        ),
+        language="ru",
+    )
 
-    assert llm.calls == 5
+    assert llm.calls == 1
+    assert result.mcq == []
+    assert result.omission_reason == "no_valid_questions"
 
 
 @pytest.mark.asyncio
@@ -2940,7 +2959,7 @@ async def test_standard_assessment_keeps_concise_answer_and_server_owned_quote()
 
 
 @pytest.mark.asyncio
-async def test_standard_assessment_repairs_unanchored_question_from_evidence():
+async def test_standard_assessment_drops_unanchored_question_from_evidence():
     source_quote = "Выдача микрокредита выполняется после проверки заявления."
 
     class FakeLLM:
@@ -2949,7 +2968,7 @@ async def test_standard_assessment_repairs_unanchored_question_from_evidence():
         async def ainvoke(self, messages, config=None, response_format=None):
             self.calls += 1
             questions = _questions(
-                "операцию" if self.calls == 1 else "выдачу микрокредита",
+                "операцию",
                 "После проверки заявления",
                 source_quote,
             )
@@ -2975,8 +2994,9 @@ async def test_standard_assessment_repairs_unanchored_question_from_evidence():
         language="ru",
     )
 
-    assert llm.calls == 2
-    assert all("микрокредит" in question.question.lower() for question in result.mcq)
+    assert llm.calls == 1
+    assert result.mcq == []
+    assert result.omission_reason == "no_valid_questions"
 
 
 def test_evidence_bank_excludes_incomplete_colon_introductions():
@@ -3072,7 +3092,7 @@ async def test_standard_assessment_strips_markdown_table_row_from_evidence():
 
 
 @pytest.mark.asyncio
-async def test_standard_assessment_retries_answer_length_tell():
+async def test_standard_assessment_drops_answer_length_tell():
     source_quote = (
         "Обращение критического приоритета необходимо зарегистрировать "
         "и передать ответственному специалисту не позднее пятнадцати минут."
@@ -3088,14 +3108,13 @@ async def test_standard_assessment_retries_answer_length_tell():
                 "пятнадцати минут",
                 source_quote,
             )
-            if self.calls == 1:
-                for question in questions:
-                    question["options"] = [
-                        {"text": source_quote, "is_correct": True},
-                        {"text": "Позже", "is_correct": False},
-                        {"text": "Завтра", "is_correct": False},
-                        {"text": "Никогда", "is_correct": False},
-                    ]
+            for question in questions:
+                question["options"] = [
+                    {"text": source_quote, "is_correct": True},
+                    {"text": "Позже", "is_correct": False},
+                    {"text": "Завтра", "is_correct": False},
+                    {"text": "Никогда", "is_correct": False},
+                ]
             return SimpleNamespace(
                 content=(
                     '{"mcq": '
@@ -3115,12 +3134,13 @@ async def test_standard_assessment_retries_answer_length_tell():
         language="ru",
     )
 
-    assert llm.calls == 2
-    assert all(max(len(option.text) for option in question.options) < len(source_quote) for question in result.mcq)
+    assert llm.calls == 1
+    assert result.mcq == []
+    assert result.omission_reason == "no_valid_questions"
 
 
 @pytest.mark.asyncio
-async def test_standard_assessment_keeps_valid_questions_after_retries_exhausted():
+async def test_standard_assessment_keeps_valid_questions_without_retry():
     source_quote = " ".join(q["explanation"] for q in _loan_questions())
 
     class FakeLLM:
@@ -3149,13 +3169,13 @@ async def test_standard_assessment_keeps_valid_questions_after_retries_exhausted
         language="en",
     )
 
-    assert llm.calls == 5
+    assert llm.calls == 1
     assert len(result.mcq) == 4
     assert all(option.text != "Yes" for question in result.mcq for option in question.options if option.is_correct)
 
 
 @pytest.mark.asyncio
-async def test_standard_assessment_accumulates_distinct_valid_questions_across_retries():
+async def test_standard_assessment_keeps_first_response_distinct_valid_questions():
     source_quote = " ".join(q["explanation"] for q in _loan_questions())
 
     class FakeLLM:
@@ -3186,46 +3206,23 @@ async def test_standard_assessment_accumulates_distinct_valid_questions_across_r
         language="en",
     )
 
-    assert llm.calls == 5
-    assert len(result.mcq) == 5
-    assert len({question.question for question in result.mcq}) == 5
+    assert llm.calls == 1
+    assert len(result.mcq) == 1
+    assert len({question.question for question in result.mcq}) == 1
 
 
 @pytest.mark.asyncio
-async def test_standard_assessment_recovers_with_individual_evidence_questions():
+async def test_standard_assessment_marks_empty_without_individual_evidence_retries():
     source = " ".join(q["explanation"] for q in _loan_questions())
-    evidence = {
-        "E01": ("approval", "application review", "application intake"),
-        "E02": ("payment", "contract signing", "contract review"),
-        "E03": ("closure", "final repayment", "partial repayment"),
-    }
 
     class FakeLLM:
         calls = 0
 
         async def ainvoke(self, messages, config=None, response_format=None):
             self.calls += 1
-            if self.calls <= 5:
-                questions = _loan_questions()
-                for question in questions:
-                    question["options"][0]["text"] = "Yes"
-            else:
-                schema = response_format["json_schema"]["schema"]
-                evidence_id = schema["properties"]["mcq"]["items"]["properties"]["source_quote_id"]["enum"][0]
-                subject, correct_suffix, alternative = evidence[evidence_id]
-                questions = [
-                    {
-                        "question": f"When does loan {subject} occur?",
-                        "options": [
-                            {"text": f"after {correct_suffix}", "is_correct": True},
-                            {"text": f"before {correct_suffix}", "is_correct": False},
-                            {"text": f"during {alternative}", "is_correct": False},
-                            {"text": f"without {correct_suffix}", "is_correct": False},
-                        ],
-                        "explanation": f"Loan {subject} occurs after {correct_suffix}.",
-                        "source_quote_id": evidence_id,
-                    }
-                ]
+            questions = _loan_questions()
+            for question in questions:
+                question["options"][0]["text"] = "Yes"
             return SimpleNamespace(
                 content=(
                     '{"mcq": '
@@ -3245,17 +3242,13 @@ async def test_standard_assessment_recovers_with_individual_evidence_questions()
         language="en",
     )
 
-    assert llm.calls == 8
-    assert len(result.mcq) == 3
-    assert {question.question for question in result.mcq} == {
-        "When does loan approval occur?",
-        "When does loan payment occur?",
-        "When does loan closure occur?",
-    }
+    assert llm.calls == 1
+    assert result.mcq == []
+    assert result.omission_reason == "no_valid_questions"
 
 
 @pytest.mark.asyncio
-async def test_focused_assessment_retries_rejected_evidence_candidate():
+async def test_focused_assessment_rejected_evidence_candidate_stays_in_its_own_seam():
     source = (
         "Loan approval occurs after application review. "
         "Loan payment occurs after contract signing. "
@@ -3336,9 +3329,10 @@ async def test_focused_assessment_retries_rejected_evidence_candidate():
         language="en",
     )
 
-    assert llm.calls == 11
-    assert len(result.mcq) == 3
-    assert llm.focused_calls == {"E01": 2, "E02": 2, "E03": 2}
+    assert llm.calls == 1
+    assert result.mcq == []
+    assert result.omission_reason == "no_valid_questions"
+    assert llm.focused_calls == {}
 
 
 @pytest.mark.asyncio

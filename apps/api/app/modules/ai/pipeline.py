@@ -21,6 +21,8 @@ from app.modules.ai.architect import create_architect_tools, run_architect
 from app.modules.ai.architect_schema import CourseStructure
 from app.modules.ai.architect_schema import Module as StructureModule
 from app.modules.ai.assessment import generate_course_assessment
+from app.modules.ai.assessment_audit import AssessmentAuditError
+from app.modules.ai.assessment_completion import finalize_course_assessment
 from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
 from app.modules.ai.direct_source import (
     DirectSourceCorpus,
@@ -355,6 +357,28 @@ def _timed_progress_detail(completed: int, total: int, started_at: float) -> dic
     return detail
 
 
+def _apply_assessment_omission_notices(state: GenerationState) -> None:
+    """Keep usable lessons while making absent generated quizzes visible."""
+    if state.assessment is None or state.content is None:
+        return
+    missing = [
+        item.lesson_title for item in state.assessment.assessments
+        if not item.mcq and not item.true_false and not item.matching
+    ]
+    if not missing:
+        return
+    notice = (
+        "Сохранены уроки без теста: " + "; ".join(missing)
+        + ". Вопросы не прошли проверку качества; перед публикацией добавьте или проверьте тесты."
+    )
+    if notice not in state.content.source_warnings:
+        state.content.source_warnings.append(notice)
+    if notice not in state.content.description:
+        state.content.description = "\n\n".join(filter(None, (state.content.description, notice)))
+    if state.structure is not None and notice not in state.structure.description:
+        state.structure.description = "\n\n".join(filter(None, (state.structure.description, notice)))
+
+
 async def _save_generation_to_db(
     state: GenerationState,
     tenant_id: UUID,
@@ -368,6 +392,7 @@ async def _save_generation_to_db(
     from app.modules.lessons.models import Lesson, Module
     from app.modules.quizzes.models import Question, Quiz, QuizChoice
 
+    _apply_assessment_omission_notices(state)
     async with async_session_factory() as session:
         await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
         job = await session.scalar(
@@ -1163,6 +1188,9 @@ async def run_generation_pipeline(
                     direct_corpus,
                     course_structure,
                     tenant_id=tenant_id,
+                    use_source_cards=not bool(" ".join((
+                        target_audience, effective_guidance or "", combination_goal, *(goals or [])
+                    )).strip()),
                     language=language,
                     on_progress=on_lesson_progress,
                     check_cancelled=lambda: _check_cancelled_async(
@@ -1431,11 +1459,11 @@ async def run_generation_pipeline(
         async def on_assessment_progress(msg: str) -> None:
             nonlocal assessments_done
             assessments_done += 1
-            pct = 75 + int(assessments_done / total_lessons * 20) if total_lessons > 0 else 95
+            pct = 75 + int(assessments_done / total_lessons * 17) if total_lessons > 0 else 92
             await _update_job_db(
                 job_id,
                 tenant_id=tenant_id,
-                progress=min(pct, 95),
+                progress=min(pct, 92),
                 message=msg,
                 progress_detail=_timed_progress_detail(
                     assessments_done,
@@ -1484,7 +1512,38 @@ async def run_generation_pipeline(
             on_assessment_complete=checkpoint_compact_assessment,
         )
 
-        state.assessment = assessment
+        async def on_assessment_audit_progress(message: str) -> None:
+            state.message = message
+            await _update_job_db(
+                job_id, tenant_id=tenant_id, progress=93, message=message,
+                progress_detail=None,
+            )
+
+        await on_assessment_audit_progress("Проверка ответов, повторов и покрытия тем...")
+        audit_llm = await ResilientLLMClient.from_settings_async(
+            temperature=0.2, max_tokens=8192, tenant_id=tenant_id,
+        )
+        # Run after restoration as well: raw checkpoints never bypass final QA.
+        audited = await finalize_course_assessment(
+            llm=audit_llm, course_content=content, assessment=assessment,
+            language=language, compact=document_profile["all_job_instructions"],
+            check_cancelled=lambda: _check_cancelled_async(job_id, tenant_id=tenant_id),
+            on_progress=on_assessment_audit_progress,
+        )
+        state.assessment = audited.assessment
+        if audited.uncovered_objectives:
+            flat_lessons = [lesson for module in content.modules for lesson in module.lessons]
+            titles = list(dict.fromkeys(flat_lessons[li].title for li, _ in audited.uncovered_objectives))
+            notice = (
+                "Проверьте охват учебных целей тестами в уроках: " + "; ".join(titles)
+                + ". При генерации были отмечены пробелы; дополнение вопросов не заменяет проверку методистом."
+            )
+            if notice not in content.source_warnings:
+                content.source_warnings.append(notice)
+            if notice not in content.description:
+                content.description = "\n\n".join(filter(None, (content.description, notice)))
+            if state.structure is not None and notice not in state.structure.description:
+                state.structure.description = "\n\n".join(filter(None, (state.structure.description, notice)))
         state.progress = 95
         state.message = "Тесты сгенерированы"
         await _update_job_db(job_id, tenant_id=tenant_id, progress=95, message=state.message)
@@ -1530,6 +1589,16 @@ async def run_generation_pipeline(
 
         logger.info(f"Generation pipeline complete for job {job_id}")
 
+    except AssessmentAuditError:
+        state.status = "interrupted"
+        state.stage = "interrupted"
+        state.message = "Готовые уроки сохранены. Проверка тестов не завершена; продолжите генерацию."
+        state.errors = ["assessment_audit_interrupted"]
+        await _update_job_db(
+            job_id, tenant_id=tenant_id, status="interrupted", stage="interrupted",
+            message=state.message, errors=state.errors, completed_at=None,
+        )
+        logger.warning("Assessment audit interrupted for job %s", job_id)
     except AllProvidersFailedError:
         state.status = "interrupted"
         state.stage = "interrupted"

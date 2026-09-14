@@ -11,7 +11,9 @@ from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleCon
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["success", "failed", "cancelled"])
-async def test_direct_pipeline_forwards_trusted_tenant_to_semantic_writer(monkeypatch, outcome):
+@pytest.mark.parametrize("audit_outcome", ["passed", "gaps", "interrupted"])
+@pytest.mark.parametrize("intent", [{}, {"guidance": "Compare the specified attributes"}, {"target_audience": "Sales staff"}, {"goals": ["Compare source facts"]}])
+async def test_direct_pipeline_forwards_trusted_tenant_to_semantic_writer(monkeypatch, outcome, audit_outcome, intent):
     tenant_id, user_id, doc_id = uuid4(), uuid4(), str(uuid4())
     monkeypatch.setattr(pipeline, '_update_job_db', AsyncMock())
     monkeypatch.setattr(pipeline, '_check_cancelled_async', AsyncMock())
@@ -25,11 +27,15 @@ async def test_direct_pipeline_forwards_trusted_tenant_to_semantic_writer(monkey
     monkeypatch.setattr(pipeline, 'run_direct_architect', AsyncMock(return_value=CourseStructure(
         title='Synthetic', modules=[Module(title='Module', lessons=[Lesson(title='Lesson', source_doc_ids=[doc_id])])])))
     writer = AsyncMock(return_value=CourseContent(title='Synthetic', modules=[ModuleContent(
-        title='Module', lessons=[LessonContent(title='Lesson', content='Synthetic source material.')])]))
+        title='Module', lessons=[LessonContent(title='Lesson', content='Synthetic source material.', objectives=['Identify the rule.'])])]))
     monkeypatch.setattr(pipeline, 'write_direct_course', writer)
     monkeypatch.setattr(pipeline, 'ReviewerAgent', lambda **kwargs: SimpleNamespace(
         review_lesson=AsyncMock(return_value={'quality_score': 9, 'issues': []})))
     monkeypatch.setattr(pipeline, 'generate_course_assessment', AsyncMock(return_value=object()))
+    monkeypatch.setattr(pipeline, 'finalize_course_assessment', AsyncMock(return_value=SimpleNamespace(
+        assessment=object(), uncovered_objectives=[(0, 0)] if audit_outcome == 'gaps' else [])))
+    if audit_outcome == 'interrupted':
+        pipeline.finalize_course_assessment.side_effect = pipeline.AssessmentAuditError('synthetic_invalid_verdict')
     save = AsyncMock()
     async def save_success(state, *_args):
         state.status = 'completed'
@@ -43,7 +49,7 @@ async def test_direct_pipeline_forwards_trusted_tenant_to_semantic_writer(monkey
     state = await pipeline.run_generation_pipeline(
         str(uuid4()), documents=[doc_id], tenant_id=tenant_id, user_id=user_id,
         course_id=str(uuid4()) if outcome == 'failed' else None,
-        source_analysis={'analysis_mode': 'direct_source'})
+        source_analysis={'analysis_mode': 'direct_source'}, **intent)
     checkpoints.aclose.assert_awaited_once()
     assert pipeline.run_direct_architect.call_args.kwargs['checkpoint_store'] is checkpoints
     assert checkpoint_factory.call_args.args[1] == tenant_id
@@ -51,14 +57,29 @@ async def test_direct_pipeline_forwards_trusted_tenant_to_semantic_writer(monkey
         checkpoints.clear.assert_not_awaited()
         assert state.status == 'failed'
         return
-    checkpoints.clear.assert_awaited_once()
     if outcome == 'cancelled':
+        checkpoints.clear.assert_awaited_once()
         assert state.status == 'cancelled'
         return
+    if audit_outcome == 'interrupted':
+        checkpoints.clear.assert_not_awaited()
+        assert state.status == 'interrupted'
+        assert state.errors == ['assessment_audit_interrupted']
+        save.assert_not_awaited()
+        return
+    checkpoints.clear.assert_awaited_once()
     assert state.errors == []
     assert writer.await_count == 1
     assert writer.call_args.kwargs['tenant_id'] == tenant_id
+    assert writer.call_args.kwargs['use_source_cards'] is (not bool(intent))
     save.assert_awaited_once_with(state, tenant_id, user_id)
+    if audit_outcome == 'gaps':
+        assert 'Проверьте охват' in state.content.description
+        assert 'Проверьте охват' in state.structure.description
+        assert any('Проверьте охват' in notice for notice in state.content.source_warnings)
+    audit_args = pipeline.finalize_course_assessment.call_args.kwargs
+    assert audit_args['course_content'] is state.content
+    assert audit_args['check_cancelled'] is not None
 
 
 def test_checkpoint_factory_namespaces_settings_and_job(monkeypatch):

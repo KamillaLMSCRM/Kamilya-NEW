@@ -61,6 +61,14 @@ def test_structure_action_support_accepts_only_same_concept_variants() -> None:
         "подбор коллекции",
         "Методист просит подобрать коллекцию под запрос.",
     )
+    assert _structure_action_is_supported(
+        "подобрать коллекцию",
+        "Методист просит подбирать коллекции под запрос.",
+    )
+    assert _structure_action_is_supported(
+        "подбирать коллекции",
+        "Методист просит провести подбор коллекции под запрос.",
+    )
     assert not _structure_action_is_supported(
         "рекомендация",
         "Методист просит подобрать коллекцию под запрос.",
@@ -688,6 +696,135 @@ async def test_writer_renders_high_confidence_primary_table_without_model_prose(
 
 
 @pytest.mark.asyncio
+async def test_writer_can_use_grounded_model_for_composite_primary_table_objective() -> None:
+    """Explicit guidance may require a composite explanation, not source cards."""
+    from app.modules.ai.architect_schema import (
+        CourseStructure,
+        LearningObjective,
+        Lesson,
+        Module,
+    )
+    from app.modules.ai.direct_source import (
+        DirectSourceChunk,
+        DirectSourceCorpus,
+        DirectSourceDocument,
+        write_direct_course,
+    )
+
+    source = (
+        "| Коллекция | Цвет | Материал | Ручки | Направляющие |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        "| Альфа | белый | МДФ | металлические | шариковые |"
+    )
+    revision = "document:" + "e" * 64
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(
+            DirectSourceDocument(
+                doc_id="doc-1",
+                filename="assortment.xlsx",
+                title="Ассортимент",
+                category="general",
+                source_revision=revision,
+                chunks=(
+                    DirectSourceChunk(
+                        chunk_id="direct:doc-1:0",
+                        doc_id="doc-1",
+                        doc_name="assortment.xlsx",
+                        title="Ассортимент",
+                        headings=("[Worksheet] Коллекция",),
+                        text=source,
+                        source_revision=revision,
+                        chunk_index=0,
+                    ),
+                ),
+            ),
+        ),
+        total_chars=len(source),
+        total_chunks=1,
+    )
+    structure = CourseStructure(
+        title="Ассортимент",
+        modules=[
+            Module(
+                title="Коллекции",
+                lessons=[
+                    Lesson(
+                        title="Цвета, материалы, ручки, направляющие",
+                        objectives=[
+                            LearningObjective(
+                                "Сопоставить цвет, материал, ручки и направляющие коллекции Альфа"
+                            )
+                        ],
+                        source_doc_ids=["doc-1"],
+                        relevant_headings=["[Worksheet] Коллекция"],
+                    )
+                ],
+            )
+        ],
+    )
+
+    class LLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, _messages):
+            self.calls += 1
+            return SimpleNamespace(
+                content=(
+                    "## Коллекция Альфа\n\n"
+                    "Для подбора коллекции используйте все указанные характеристики. "
+                    "Цвет — белый, материал — МДФ, ручки — металлические, "
+                    "направляющие — шариковые."
+                )
+            )
+
+    llm = LLM()
+    result = await write_direct_course(llm, corpus, structure, use_source_cards=False)
+
+    content = result.modules[0].lessons[0].content
+    assert llm.calls == 1
+    assert "Цвет — белый" in content
+    assert "материал — МДФ" in content
+    assert "ручки — металлические" in content
+    assert "направляющие — шариковые" in content
+
+
+def test_writer_prompt_only_includes_unreadable_percentage_rule_when_source_has_marker() -> None:
+    from app.modules.ai.direct_source import DirectSourceChunk, _writer_system_prompt
+
+    def chunk(*, doc_name: str, text: str) -> DirectSourceChunk:
+        return DirectSourceChunk(
+            chunk_id=f"direct:{doc_name}:0",
+            doc_id=doc_name,
+            doc_name=doc_name,
+            title=doc_name,
+            headings=("[Worksheet] Data",),
+            text=text,
+            source_revision="document:" + "f" * 64,
+            chunk_index=0,
+        )
+
+    excel_prompt = _writer_system_prompt((
+        chunk(doc_name="assortment.xlsx", text="| Цвет | Материал |\n| белый | МДФ |"),
+    ))
+    scanned_pdf_prompt = _writer_system_prompt((
+        chunk(
+            doc_name="scan.pdf",
+            text="Ставка: [UNREADABLE_PERCENTAGE_VALUE]",
+        ),
+    ))
+
+    assert "[UNREADABLE_PERCENTAGE_VALUE]" not in excel_prompt
+    assert "value requires checking" not in excel_prompt
+    assert "Never narrate validation rules or source-handling policy" in excel_prompt
+    assert "do not extend a relation\nstated for one entity to a grouped list of entities" in excel_prompt
+    assert "[UNREADABLE_PERCENTAGE_VALUE]" in scanned_pdf_prompt
+    assert "value requires checking" in scanned_pdf_prompt
+    assert "Never narrate validation rules or source-handling policy" in scanned_pdf_prompt
+
+
+@pytest.mark.asyncio
 async def test_direct_compatibility_is_truthfully_unverified_when_embeddings_failed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -866,7 +1003,7 @@ async def test_generation_pipeline_uses_direct_sources_without_embedding_request
     from app.modules.ai.architect_schema import CourseStructure
     from app.modules.ai.architect_schema import Lesson as StructureLesson
     from app.modules.ai.architect_schema import Module as StructureModule
-    from app.modules.ai.assessment_schema import CourseAssessment
+    from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
     from app.modules.ai.direct_source import DirectSourceCorpus
     from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 
@@ -958,8 +1095,12 @@ async def test_generation_pipeline_uses_direct_sources_without_embedding_request
             raise AssertionError("direct generation must not read pgvector")
 
     async def _assessment(**kwargs):
-        return CourseAssessment(assessments=[])
+        return CourseAssessment(assessments=[LessonAssessment("Lesson")])
 
+    def _forbidden_db(*args, **kwargs):
+        raise AssertionError("This unit test must not open a database connection, including failure/refund paths")
+
+    monkeypatch.setattr(pipeline, "async_session_factory", _forbidden_db)
     monkeypatch.setattr(pipeline, "load_direct_source_corpus", _load, raising=False)
     monkeypatch.setattr(pipeline, "run_direct_architect", _architect, raising=False)
     monkeypatch.setattr(pipeline, "write_direct_course", _writer, raising=False)
@@ -991,7 +1132,7 @@ async def test_generation_pipeline_uses_direct_sources_without_embedding_request
     assert calls["load"][0][1] == tenant_id
     assert calls["architect"][0][1] is corpus
     assert calls["writer"][0][1:3] == (corpus, structure)
-    assert [call["tenant_id"] for call in calls["factories"]] == [tenant_id, tenant_id]
+    assert [call["tenant_id"] for call in calls["factories"]] == [tenant_id, tenant_id, tenant_id]
 
 
 @pytest.mark.asyncio

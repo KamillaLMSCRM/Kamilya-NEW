@@ -63,4 +63,94 @@ No more than two concurrent leaf workers; no agent owns production access until 
   shared public metadata unchanged. No provider call in this DB gate.
 - Production readback before release: API/four service image parity at baseline
   SHA, blue slot, Docling `kamilya-docling:05d7defe`. No production service change
-  has been made in these diagnostics. Release and live acceptance remain pending.
+  had been made at that diagnostic point. Final status is recorded below.
+
+## Final execution status
+
+- Deployed exact `ad8eb2a46af22ee08d4373340ce822b59f89fda7`, version0.5.42.
+  Exact-SHA CI, protected release workflow, independent API/worker/Docling and
+  native frontend readbacks passed. `docs/PRODUCTION_READINESS.md` records the
+  current identity and backup limitation.
+- Exactly two owner-requested UI runs completed: Lombard493.439s failed at
+  assessment (ValueError; answer-quality/grounding), Plus80.386s failed at
+  architecture (`direct_source_structure_claim_unverified`). No course created.
+  PDF has21 completed content/review checkpoints plus3 omissions; Excel has no
+  accepted plan. Final course-quality acceptance is NO_GO, not inferred from CI.
+- Additional Luna/medium static review confirmed action-guard design risks, not
+  the exact unretained model response. Root rejects treating pedagogical user
+  intent as evidence for factual/product claims. Existing heuristics may change
+  when a replacement passes both valid-source and invalid-source examples.
+- No new production repair loop. The Russian private acceptance report includes
+  a seven-step local replay plan for owner review. Stage replay should reuse
+  actual saved inputs and separately identify fresh model samples versus exact
+  historical replay. All worker agents are closed.
+
+## Local replay candidate 0.5.43
+
+- Current owner window: approximately60–90minutes from08:40local2026-09-14.
+  Two Terra/medium leaves own independent replay/fix scopes; root owns integration,
+  evidence review and any final release. No production generation debug loop.
+- Exported the exact failed synthetic PDF job's24 checkpoints,21 completed,
+  privately with SHA256 `c0489139d754e7e7f2ca03918d6aab5a04dfcfad473e9c622d946e37129627b6`.
+  No customer artifacts become public fixtures.
+- Fresh primary-model assessment capture:21calls,201.543seconds,29retained
+  questions,3explicit no-quiz lessons. Strict offline replay:21matching requests
+  and responses, identical result,1.832seconds with only production pacing omitted.
+- Fresh Excel architecture reused the exact source-map context:2calls and a
+  four-lesson plan. Strict architecture-only replay passed; it is not a full
+  replay of the older map trace whose concurrent call ordering was ambiguous.
+- Local writer replay found partial source cards beneath compound lesson titles.
+  Disabling that shortcut for explicit user intent restored4/4lessons. Separate
+  quality review still found an invented scan-warning sentence; the candidate
+  source-conditioned prompt removes that unsupported instruction. Final content
+  acceptance is pending, not inferred from lesson count.
+- Root matrix297passed; isolated Supabase DEV application gate
+  `HBR-DEV-APP-20260914T041039Z` READY with disposable schema removed and public0158
+  unchanged. Python baseline and release-contract gate passed before final
+  prompt delta; rerun affected checks on the frozen candidate.
+- Production independently remains0.5.42/ad8eb2a4 with four service image parity,
+  zero restarts and healthy unchanged Docling.0.5.43 is not yet deployed.
+- Owner requested immediate quiz-coverage correction before release. Large-table
+  evidence now preserves topic-ranked original rows/column owners and shares its
+  selection with checkpoint restore. Exact-header answers require distinctive
+  own-cell anchors; explicit-subject value answers cannot borrow an adjacent cell.
+- False-positive distractor filtering now accepts source-vocabulary alternatives
+  without requiring a verbatim quote. Large-table generation uses a compact
+  explicit-instance prompt and at most one actionable quality correction, never
+  a duplicate-only or question-count retry.
+- Latest private assessment-only capture12: four unchanged lessons,11questions
+  (2/3/1/5),8real calls,37.364seconds including normal pacing. NO_GO: one question
+  has another source-backed correct alternative outside its chosen row; a fact
+  repeats in forward/reverse question forms across lessons. Missing objective
+  coverage is not a numeric minimum. No automatic production publication.
+- Next scope: source-wide alternative verification, course-wide fact identity
+  across reversed question forms, and objective-level coverage. First replay
+  saved responses, then one fresh stage sample. Private detailed review is
+  `.release-evidence/v0.5.43/ASSESSMENT_COVERAGE_REVIEW_RU.md`.
+- Frozen local checks:1612API unit tests passed in28.74seconds; existing Python
+  baseline passed (Ruff1065,mypy2333) without raising allowances; diff whitespace
+  check passed. These are local technical checks, not course-quality acceptance.
+
+### Continued local acceptance, 2026-09-14 10:45 KZ
+
+- Root added blind source-wide answer verification, separate course-wide semantic
+  deduplication and one objective-focused supplement per affected lesson. Good
+  lessons/questions are not recreated. Strict malformed verdicts remain fail-closed.
+- Excel:15questions in4lessons after30.622s/11calls of local completion on saved
+  content. Former ambiguous bed choice and inverse handle repetitions are removed;
+  furniture lesson now covers wardrobes, beds and dressers. Independent review GO
+  with coverage advisory, not a fixed minimum or a claim of full skills assessment.
+- PDF:42questions in21completed lessons; one lesson about effective-rate calculation
+  remains without a quiz. Supplemental capture used25calls/126.426model-seconds;
+  failed chronological duplicate-reference guard was reproduced offline exactly,
+  then the final review ran alone in12.851s. Semantic duplicate targets may be kept
+  earlier OR later, without moving questions or accepting cycles/dropped targets.
+- Both content reviews are bounded local acceptance, not a new browser E2E run.
+  Earlier coverage warnings survive a later optimistic verdict and remain visible
+  for human review. Private traces stay ignored and are not public fixtures.
+- Technical gates:1674unit/persistence tests PASS,6critical-journey local tests PASS,
+  Python quality baseline unchanged. Supabase DEV application gate
+  HBR-DEV-APP-20260914T054343Z READY; disposable schema removed/public0158unchanged.
+- Production baseline independently remains0.5.42/ad8eb2a4 on API/three workers and
+  CT137. Encrypted backup integrity/signed0158restore verified; production DB0159,
+  safe runtime role. Candidate changes no schema, Docling, provider route or DNS.

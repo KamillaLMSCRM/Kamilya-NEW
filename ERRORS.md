@@ -2321,6 +2321,20 @@ contract or establish a blocker.
   padding. Full generation is now a final environment acceptance gate, not the
   debugging loop for each validator change.
 
+- Recurrence (2026-09-14, 0.5.42 PDF acceptance): prose assessment still used
+  quota retries for quality classes outside a closed allowlist. A fresh local
+  capture reproduced five attempts; the exact historical responses were not
+  retained and are not claimed as replay fixtures. Apply drop-only filtering
+  after every structurally valid candidate set, regardless of source format.
+  Keep independently valid questions; mark an empty result with the current
+  policy and `no_valid_questions`, and persist a named no-quiz warning on the
+  draft. Missing/wrong-shaped `mcq`, invalid JSON and provider errors remain
+  failures, not successful omissions. Focused tests cover survivors, all-dropped
+  output, malformed responses, restart markers and draft persistence. The full
+  21-lesson local capture yielded29 questions and3 explicit omissions; strict
+  request/response replay reproduced it without network calls. This proves the
+  replay and filtering path, not perfect educational quality.
+
 ## AI-QUALITY-018 - Approved lesson title caused an unrecoverable false rejection
 
 - Date: 2026-09-14. Observed in production `0.5.29` during the synthetic
@@ -2694,3 +2708,50 @@ contract or establish a blocker.
   repair-budget tests passed in the final combined quality matrix.
 - Prevention: replay the complete question, all options and governing source
   sentence; run the release-contract gate before publishing a candidate tag.
+- Recurrence (2026-09-14): a fresh architecture capture rejected the title
+  `подбор` despite explicit user intent `подбирать`. The selection concept
+  omitted the imperfective Russian stem. Add only that morphology and retain
+  unrelated-action and primary-worksheet negatives. The captured plan still
+  failed a separate primary-section gate, so this local fix alone was not an
+  accepted-course result. A new cached-map architecture capture passed both
+  gates; do not relabel its fresh answers as historical production responses.
+- Replay tooling retains private prompts/responses, source hashes and request
+  identities. Reserve concurrent call IDs before awaiting responses. Replaying
+  only a completed map's architecture stage is explicitly different from full
+  replay. Offline course-assessment replay skips only inter-lesson pacing in its
+  isolated process; capture and production retain their existing timing policy.
+- Local writer replay exposed a separate content-loss shortcut: a model-authored
+  composite lesson could match one exact table-row label and be reduced to only
+  that row. Source cards now remain the neutral no-intent path; an explicit
+  audience/goal uses the grounded model writer, with the same source guards.
+  RED/GREEN tests exercise both paths and pipeline forwarding. In that live local
+  replay all four planned lessons were written instead of three partial cards.
+- Percentage-uncertainty instructions previously appeared even for a plain
+  spreadsheet; a captured writer echoed a nonexistent scan defect. Condition
+  that instruction on a real source marker and keep handling rules out of the
+  lesson narrative. Never treat an absent marker as evidence of OCR failure.
+- Recurrence (2026-09-14, local assessment coverage): the first8000characters
+  and24sentence fragments of a large comparison source lost later attributes
+  and column ownership. Rank complete original rows by lesson objectives and
+  preserve headers; restore must use the same selection. A correct column-header
+  answer needs exact ownership evidence, not a blanket extractive-row rejection.
+- Lexical absence from one quote is not proof that a distractor is implausible.
+  Source-wide vocabulary provides bounded topical evidence; unrelated alternatives
+  remain rejected. A compact large-table prompt must still include the explicit
+  JSON instance shape when the provider adapter downgrades schema enforcement.
+- Coverage capture12 increased retained questions but failed human acceptance:
+  a second correct alternative existed in another source row, and reverse-form
+  questions repeated the same fact. Do not equate larger counts or green unit
+  suites with quality. No fixed minimum per lesson and no production debug loop.
+- Blind answer solving found a second valid option that a key-aware reviewer
+  missed. Review keys against complete collected source windows before semantic
+  deduplication. Duplicate representatives may be later in the relevant lesson;
+  require a distinct retained target, not an arbitrary chronological ordering.
+- Preserve earlier coverage concerns as a methodologist review list: repeated
+  model judgments can disagree and must not silently certify full coverage.
+  Invalid verdicts get one bounded protocol retry, then interruption with existing
+  checkpoints, never unchecked acceptance or complete course regeneration.
+- Offline strict replay recovered all25calls of the PDF supplement before a
+  failed final review; only the final source-wide check needed fresh model calls.
+  Current local content review accepted15Excel and42PDF questions, with named
+  objective-review advisories and one PDF lesson without a quiz.

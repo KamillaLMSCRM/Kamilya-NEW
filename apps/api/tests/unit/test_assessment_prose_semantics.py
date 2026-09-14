@@ -6,11 +6,15 @@ from types import SimpleNamespace
 import pytest
 
 from app.modules.ai.assessment import (
+    ASSESSMENT_DROP_ONLY_POLICY_VERSION,
+    ASSESSMENT_EMPTY_REVIEW_REASON,
     _build_evidence_bank,
     _recover_valid_assessment,
+    _restored_assessment_is_valid,
     _validate_question_evidence,
     generate_lesson_assessment,
 )
+from app.modules.ai.assessment_schema import LessonAssessment
 from app.modules.ai.writer_schema import LessonContent
 
 
@@ -151,3 +155,111 @@ def test_prose_recovery_drops_russian_duplicate_rate_but_keeps_distinct_conditio
     assert [question.question for question in recovered.mcq] == [
         questions[0]["question"], questions[2]["question"], questions[3]["question"],
     ]
+
+
+@pytest.mark.asyncio
+async def test_parseable_prose_response_keeps_one_valid_question_without_quota_retry() -> None:
+    source = (
+        "Заемщик вправе отказаться от отсрочки по договору путем подачи письменного обращения "
+        "по юридическому адресу."
+    )
+    valid = _question(
+        "Как заемщик вправе отказаться от отсрочки по договору?",
+        "письменного обращения по юридическому адресу",
+        "E01",
+        [
+            "письменного обращения по юридическому адресу",
+            "отказаться от отсрочки по договору",
+            "Заемщик вправе отказаться от отсрочки",
+            "по юридическому адресу",
+        ],
+    )
+    invalid = {**valid, "source_quote_id": "E99"}
+
+    class OneResponseLLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            return SimpleNamespace(content=json.dumps({"mcq": [valid, invalid, invalid, invalid, invalid]}))
+
+    llm = OneResponseLLM()
+    assessment = await generate_lesson_assessment(
+        llm, LessonContent(title="Отказ от отсрочки", content=source), language="ru", compact=True
+    )
+
+    assert llm.calls == 1
+    assert [question.question for question in assessment.mcq] == [valid["question"]]
+
+
+@pytest.mark.asyncio
+async def test_parseable_all_invalid_prose_response_returns_marked_empty_assessment() -> None:
+    source = "Заемщик вправе отказаться от отсрочки по договору путем письменного обращения."
+    invalid = _question(
+        "Как заемщику оформить отсрочку?",
+        "письменного обращения",
+        "E99",
+        ["письменного обращения", "отказаться от отсрочки", "по договору", "Заемщик вправе"],
+    )
+
+    class OneResponseLLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            return SimpleNamespace(content=json.dumps({"mcq": [invalid] * 5}))
+
+    llm = OneResponseLLM()
+    assessment = await generate_lesson_assessment(
+        llm, LessonContent(title="Отказ от отсрочки", content=source), language="ru", compact=True
+    )
+
+    assert llm.calls == 1
+    assert assessment.mcq == []
+    assert assessment.quality_policy_version == ASSESSMENT_DROP_ONLY_POLICY_VERSION
+    assert assessment.omission_reason == ASSESSMENT_EMPTY_REVIEW_REASON
+
+
+def test_restored_empty_prose_assessment_requires_current_drop_only_marker() -> None:
+    lesson = LessonContent(
+        title="Отказ от отсрочки",
+        content="Заемщик вправе отказаться от отсрочки по договору путем письменного обращения.",
+    )
+    marked = LessonAssessment(
+        lesson_title=lesson.title,
+        quality_policy_version=ASSESSMENT_DROP_ONLY_POLICY_VERSION,
+        omission_reason=ASSESSMENT_EMPTY_REVIEW_REASON,
+    )
+
+    assert _restored_assessment_is_valid(marked, lesson, language="ru", compact=True, excluded_fact_keys=frozenset())
+    assert not _restored_assessment_is_valid(
+        LessonAssessment(lesson_title=lesson.title), lesson, language="ru", compact=True, excluded_fact_keys=frozenset()
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("invalid_response", [{}, {"error": "refused"}, {"mcq": "refused"}, {"mcq": ["refused"]}])
+async def test_malformed_candidate_shape_retries_instead_of_marked_empty(invalid_response: dict) -> None:
+    source = "Заемщик вправе отказаться от отсрочки по договору путем письменного обращения."
+    valid = _question(
+        "Как заемщик вправе отказаться от отсрочки по договору?",
+        "письменного обращения",
+        "E01",
+        ["письменного обращения", "отказаться от отсрочки", "по договору", "Заемщик вправе"],
+    )
+
+    class RetryingLLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            payload = invalid_response if self.calls == 1 else {"mcq": [valid, valid, valid]}
+            return SimpleNamespace(content=json.dumps(payload))
+
+    llm = RetryingLLM()
+    assessment = await generate_lesson_assessment(
+        llm, LessonContent(title="Отказ от отсрочки", content=source), language="ru", compact=True
+    )
+
+    assert llm.calls == 2
+    assert assessment.omission_reason == ""

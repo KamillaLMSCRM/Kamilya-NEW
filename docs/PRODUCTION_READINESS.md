@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-09-12 по исходникам и production-контурам
+**Проверено:** 2026-09-14 по исходникам и production-контурам
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,36 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Release 0.5.4 — current API deployment, 2026-09-12
+## Release 0.5.42 — current deployment; live generation acceptance failed, 2026-09-14
+
+- Exact deployed source `ad8eb2a46af22ee08d4373340ce822b59f89fda7`, version
+  `0.5.42`. CI `34800624647`, native build `34800691094` and protected production
+  workflow `34801129700` passed. GitHub Release `388122941` and annotated tag
+  resolve to this source. API and three workers share immutable image
+  `ghcr.io/kamillalmscrm/kamilya-api@sha256:0f836a751460a0de98905e82a4e5d9e229dc5dc143d772bb10f7fcebd3a0e247`
+  in green. Independent public/private health and native frontend readback match.
+- Docling `kamilya-docling:ad8eb2a4` is healthy, source SHA-256
+  `dd751597009a24d0085a8feb1e3e2cfcc08d83a00b887d0af3d31aa72797ca44` matches the
+  tested original-PDF converter. No migration: production remains `0159`, runtime
+  `lms_app` remains non-superuser/non-BYPASSRLS. Existing signed restore report is
+  for `0158`, not a newly performed `0159` restore. Encrypted backup integrity,
+  active timer and plaintext absence were independently checked.
+- Watchdog expectations now match this source/image; independent configuration
+  readback passed and timer is active. Previous configuration is retained.
+- **Content acceptance: NO_GO.** Exactly one full Lombard PDF and one full Plus
+  Excel run were started through the synthetic methodologist UI. PDF job
+  `103ac460-5d12-40d4-bfca-b1d04b567c3a` failed after 493.439 s at assessment;
+  21 lesson/review checkpoints exist, three planned lessons were omitted,
+  no course was created. Excel job `31433d70-23aa-46d0-b5d4-66b8fa5a5299` failed
+  after 80.386 s with `direct_source_structure_claim_unverified`; no saved plan
+  or course. Passing CI/deployment is not passing user-flow acceptance.
+- Root stopped further production repairs/runs. Proposed next gate: local replay
+  of saved PDF lessons/assessment and isolated Excel architecture, then review.
+  Full private evidence: `.release-evidence/v0.5.42/LIVE_ACCEPTANCE_RU.md` and
+  `root-release-record.json` in the release checkout. Customer source content is
+  not committed as public fixtures. Existing customer courses were not modified.
+
+## Release 0.5.4 — historical API deployment, 2026-09-12
 
 - Source SHA `b322fa9c212bdbb8912e0b60f2d77d26bccab4fe`, annotated tag
   `v0.5.4`, remote `master` at release time and GitHub Release all resolve to

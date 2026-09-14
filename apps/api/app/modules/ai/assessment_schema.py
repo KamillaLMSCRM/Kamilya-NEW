@@ -102,6 +102,8 @@ class LessonAssessment:
     mcq: list[MCQQuestion] = field(default_factory=list)
     true_false: list[TrueFalseQuestion] = field(default_factory=list)
     matching: list[MatchingQuestion] = field(default_factory=list)
+    quality_policy_version: str = ""
+    omission_reason: str = ""
 
     def to_dict(self):
         return {
@@ -109,6 +111,8 @@ class LessonAssessment:
             "mcq": [q.to_dict() for q in self.mcq],
             "true_false": [q.to_dict() for q in self.true_false],
             "matching": [q.to_dict() for q in self.matching],
+            "quality_policy_version": self.quality_policy_version,
+            "omission_reason": self.omission_reason,
         }
 
     @classmethod
@@ -121,6 +125,8 @@ class LessonAssessment:
             mcq=mcq,
             true_false=tf,
             matching=matching,
+            quality_policy_version=str(data.get("quality_policy_version", "")),
+            omission_reason=str(data.get("omission_reason", "")),
         )
 
 

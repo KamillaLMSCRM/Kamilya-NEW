@@ -134,6 +134,48 @@ async def test_architect_retry_over_budget_reports_budget_without_a_second_provi
 
 
 @pytest.mark.asyncio
+async def test_architect_accepts_selection_wording_explicitly_supported_by_user_intent() -> None:
+    response = json.loads(_structure("[Worksheet] Collections"))
+    response["title"] = "Подбор коллекций по характеристикам"
+
+    class LLM:
+        async def ainvoke(self, _messages):
+            return SimpleNamespace(content=json.dumps(response, ensure_ascii=False))
+
+    result = await run_direct_architect(
+        LLM(),
+        _corpus(),
+        guidance="Научить продавцов подбирать коллекции по характеристикам.",
+    )
+
+    assert result.title == "Подбор коллекций по характеристикам"
+
+
+@pytest.mark.asyncio
+async def test_architect_keeps_unsupported_recommendation_rejected_when_intent_allows_selection() -> None:
+    response = json.loads(_structure("[Worksheet] Collections"))
+    response["title"] = "Рекомендации по коллекциям"
+
+    class LLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, _messages):
+            self.calls += 1
+            return SimpleNamespace(content=json.dumps(response, ensure_ascii=False))
+
+    llm = LLM()
+    with pytest.raises(DirectSourceError, match="direct_source_structure_claim_unverified"):
+        await run_direct_architect(
+            llm,
+            _corpus(),
+            guidance="Научить продавцов подбирать коллекции по характеристикам.",
+        )
+
+    assert llm.calls == 4
+
+
+@pytest.mark.asyncio
 async def test_quoted_exact_primary_label_is_canonicalized_without_adding_a_reference() -> None:
     class LLM:
         async def ainvoke(self, _messages):

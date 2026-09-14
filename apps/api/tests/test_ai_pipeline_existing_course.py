@@ -65,6 +65,34 @@ class FakeSession:
 
 
 @pytest.mark.asyncio
+async def test_quality_filtered_empty_quiz_preserves_lesson_and_named_warning(monkeypatch):
+    from app.modules.ai import pipeline
+
+    tenant_id = uuid4()
+    course = Course(id=uuid4(), tenant_id=tenant_id, title="Draft", status="draft", created_by=uuid4())
+    session = FakeSession(course)
+    monkeypatch.setattr(pipeline, "async_session_factory", lambda: session)
+    title = "Synthetic safety procedure"
+    state = GenerationState(
+        job_id="synthetic-empty-quiz", course_id=str(course.id),
+        structure=CourseStructure(title="Course", modules=[StructureModule(
+            title="Module", lessons=[StructureLesson(title=title)])]),
+        content=CourseContent(title="Course", modules=[ModuleContent(
+            title="Module", lessons=[LessonContent(title=title, content="Verified lesson content.")])]),
+        assessment=CourseAssessment(assessments=[LessonAssessment(
+            lesson_title=title, quality_policy_version="assessment-drop-only-v1",
+            omission_reason="no_valid_questions")]),
+    )
+    await _save_generation_to_db(state, tenant_id, course.created_by)
+    assert session.committed
+    assert len([v for v in session.added if isinstance(v, Lesson)]) == 1
+    assert not any(isinstance(v, Quiz | Question | QuizChoice) for v in session.added)
+    assert title in course.description and "без теста" in course.description
+    assert title in session.job.message and "без теста" in session.job.message
+    assert course.status == "draft"
+
+
+@pytest.mark.asyncio
 async def test_generation_updates_existing_course_without_duplicate_insert(monkeypatch):
     from app.modules.ai import pipeline
 
