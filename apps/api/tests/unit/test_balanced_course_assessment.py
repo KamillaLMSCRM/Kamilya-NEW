@@ -639,6 +639,74 @@ def test_generation_contract_blocks_incorrect_option_supported_by_selected_evide
     assert any("incorrect option is also supported by selected source evidence" in issue for issue in issues)
 
 
+def test_generation_contract_blocks_distractor_with_same_attribute_answer_prefix() -> None:
+    source = (
+        "В коллекции Чикаго Стрит применяются роликовые направляющие, "
+        "которые обеспечивают плавный бесшумный ход ящиков."
+    )
+    data = {
+        "mcq": [
+            {
+                "question": "Какие направляющие установлены в ящиках коллекции Чикаго Стрит?",
+                "options": [
+                    {
+                        "text": "Роликовые направляющие: плавный бесшумный ход ящиков.",
+                        "is_correct": True,
+                    },
+                    {
+                        "text": (
+                            "Роликовые направляющие на комодах, прикроватных тумбах "
+                            "и ящиках шкафов: плавный ровный ход."
+                        ),
+                        "is_correct": False,
+                    },
+                    {
+                        "text": "Телескопические направляющие полного выдвижения.",
+                        "is_correct": False,
+                    },
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(data, {"E01": source}, source, "ru")
+
+    assert any("distractor repeats the correct attribute answer" in issue for issue in issues)
+
+
+def test_generation_contract_blocks_unprofessional_learner_language_in_options() -> None:
+    source = "Комоды имеют полноценные габариты и матовые чёрные ручки."
+    data = {
+        "mcq": [
+            {
+                "question": "Какая особенность характерна для комодов?",
+                "options": [
+                    {
+                        "text": "Полноценные габариты и матовые чёрные ручки.",
+                        "is_correct": True,
+                    },
+                    {
+                        "text": "Полноценные габариты, не с маркетплейса.",
+                        "is_correct": False,
+                    },
+                    {
+                        "text": "Компактные габариты и светлые ручки.",
+                        "is_correct": False,
+                    },
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(data, {"E01": source}, source, "ru")
+
+    assert any("unprofessional learner language" in issue for issue in issues)
+
+
 def test_generation_contract_blocks_question_that_contains_its_correct_answer() -> None:
     source = "Кому нужна гостиная + шкафы, а не кровать в том же артикуле."
     data = {

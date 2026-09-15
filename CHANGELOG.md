@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.50] - 2026-09-15
+
+### Fixed
+
+- Drop a generated question when an incorrect option repeats the same attribute
+  answer as the keyed option with different descriptive qualifiers.
+- Keep unprofessional sales phrasing such as mixed-language `look`,
+  “not toy-sized”, and “not from a marketplace” out of learner-visible lessons
+  and answer options.
+- Revalidate restored lesson and assessment checkpoints against the updated
+  quality policies before they can be reused.
+
 ## [0.5.49] - 2026-09-15
 
 ### Added

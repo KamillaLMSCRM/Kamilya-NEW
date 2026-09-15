@@ -52,6 +52,19 @@ _GUIDE_VALUE_PATTERNS = {
     "roller": re.compile(r"\b(?:роликов\w*|roller)\b", re.IGNORECASE),
     "ball_bearing": re.compile(r"\b(?:шариков\w*|ball[- ]bearing)\b", re.IGNORECASE),
 }
+_UNPROFESSIONAL_LEARNER_LANGUAGE_RE = re.compile(
+    r"(?:\bсовременн\w*\s+look\b|\bне\s+[«\"']?игрушечн\w*[»\"']?\b|"
+    r"\bне\s+с\s+маркетплейс\w*\b)",
+    re.IGNORECASE,
+)
+
+
+def has_unprofessional_learner_language(text: str) -> bool:
+    """Return whether learner-visible text contains a blocked sales-style phrase."""
+
+    return bool(_UNPROFESSIONAL_LEARNER_LANGUAGE_RE.search(text))
+
+
 _GUIDE_SCOPE_TOKENS = {
     "guide", "guides", "drawer", "drawers", "type",
     "направляющие", "направляющих", "направляющая", "тип",
@@ -263,7 +276,7 @@ _RELATIONSHIP_SHORT_STOP_WORDS = frozenset(
         "if",
     }
 )
-LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v19"
+LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v20"
 
 
 def _normalize(value: str) -> str:
@@ -848,6 +861,7 @@ def evaluate_lesson_quality(
         source_chunks=source_chunks,
     )
     incomplete_formula = _has_incomplete_formula_presentation(body_content)
+    unprofessional_learner_language = has_unprofessional_learner_language(body_content)
 
     reasons: list[str] = []
     if not body_content.strip() or anchor_matches < required_matches:
@@ -874,6 +888,8 @@ def evaluate_lesson_quality(
         reasons.append("source_attribute_conflict")
     if incomplete_formula:
         reasons.append("incomplete_formula_presentation")
+    if unprofessional_learner_language:
+        reasons.append("unprofessional_learner_language")
 
     result = LessonQualityResult(
         accepted=not reasons,
@@ -904,5 +920,6 @@ __all__ = [
     "LessonQualityEvaluation",
     "capture_lesson_quality_evaluations",
     "evaluate_lesson_quality",
+    "has_unprofessional_learner_language",
     "remove_unsupported_relationship_fragments",
 ]

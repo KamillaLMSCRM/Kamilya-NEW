@@ -20,7 +20,10 @@ from app.modules.ai.assessment_schema import (
     CourseAssessment,
     LessonAssessment,
 )
-from app.modules.ai.lesson_quality import LESSON_QUALITY_POLICY_VERSION
+from app.modules.ai.lesson_quality import (
+    LESSON_QUALITY_POLICY_VERSION,
+    has_unprofessional_learner_language,
+)
 from app.modules.ai.llm_client import LLMClient
 from app.modules.ai.writer_schema import LessonContent
 from app.modules.editor_assistant.question_validator import (
@@ -36,7 +39,7 @@ from app.modules.editor_assistant.taxonomy import EditorQualityIssueLabel
 
 logger = logging.getLogger(__name__)
 MAX_ASSESSMENT_RETRIES = 4
-ASSESSMENT_DROP_ONLY_POLICY_VERSION = "assessment-drop-only-v1"
+ASSESSMENT_DROP_ONLY_POLICY_VERSION = "assessment-drop-only-v2"
 ASSESSMENT_EMPTY_REVIEW_REASON = "no_valid_questions"
 MAX_FOCUSED_ATTEMPTS_PER_EVIDENCE = 2
 _ASSESSMENT_PATH_EVENTS: ContextVar[list[str] | None] = ContextVar("assessment_path_events", default=None)
@@ -337,6 +340,37 @@ def _answers_are_near_equivalent(left: str, right: str) -> bool:
     # can change the fact (for example, one collection versus two), so it must
     # not be treated as equivalent.
     return longer[-len(shorter) :] == shorter
+
+
+def _distractor_repeats_correct_attribute_answer(
+    question: str,
+    correct_answer: str,
+    distractor: str,
+) -> bool:
+    """Reject a distractor that starts with the same answer to an attribute question.
+
+    Model-authored qualifiers can make two options look different while both
+    still answer the learner's question identically.  For example, both
+    ``roller guides: quiet travel`` and ``roller guides on dressers: even
+    travel`` answer ``which guides are installed?`` with ``roller guides``.
+    Requiring a two-token shared prefix with at least one token not copied from
+    the question keeps this check narrow and deterministic.
+    """
+
+    question_tokens = set(_normalize_evidence_text(question).split())
+    correct_tokens = _normalize_evidence_text(correct_answer).split()
+    distractor_tokens = _normalize_evidence_text(distractor).split()
+    shared_prefix: list[str] = []
+    for correct_token, distractor_token in zip(correct_tokens, distractor_tokens, strict=False):
+        if correct_token != distractor_token:
+            break
+        shared_prefix.append(correct_token)
+    shared_tokens = set(shared_prefix)
+    return (
+        len(shared_prefix) >= 2
+        and bool(shared_tokens & question_tokens)
+        and bool(shared_tokens - question_tokens)
+    )
 
 
 def _answers_share_distinctive_phrase(left: str, right: str) -> bool:
@@ -984,6 +1018,16 @@ def _validate_question_evidence(
         quote_stems = _grounding_stems(source_quote)
         question_stems = _grounding_stems(str(question.get("question", "")))
         correct_answer = _plain_evidence_text(str(correct_options[0].get("text", "")))
+        if any(
+            option.get("is_correct") is not True
+            and _distractor_repeats_correct_attribute_answer(
+                str(question.get("question", "")),
+                correct_answer,
+                _plain_evidence_text(str(option.get("text", ""))),
+            )
+            for option in options
+        ):
+            issues.append(f"MCQ #{index}: distractor repeats the correct attribute answer")
         fact_key = (
             _normalize_evidence_text(answer_text),
             _normalize_evidence_text(correct_answer),
@@ -1076,6 +1120,15 @@ def _validate_question_evidence(
                 "the question"
             )
         explanation = _plain_evidence_text(str(question.get("explanation", "")))
+        if any(
+            has_unprofessional_learner_language(str(value))
+            for value in (
+                question.get("question", ""),
+                explanation,
+                *(option.get("text", "") for option in options),
+            )
+        ):
+            issues.append(f"MCQ #{index}: unprofessional learner language")
         explanation_stems = _grounding_stems(explanation)
         required_question_anchors = min(1, len(quote_stems))
         if len(quote_stems & question_stems) < required_question_anchors:

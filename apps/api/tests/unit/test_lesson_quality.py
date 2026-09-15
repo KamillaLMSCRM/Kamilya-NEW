@@ -698,3 +698,22 @@ def test_conflicting_article_attribute_cannot_be_hidden_by_omitting_identifier()
 
     assert result.accepted is False
     assert "source_attribute_conflict" in result.reason_codes
+
+
+@pytest.mark.parametrize(
+    "content",
+    (
+        "Комоды имеют нормальные, не «игрушечные» габариты.",
+        "Коллекция подойдёт покупателям, которым нужен современный look без ручек.",
+        "Комоды имеют полноценные габариты, не с маркетплейса.",
+    ),
+)
+def test_lesson_quality_rejects_unprofessional_sales_language(content: str) -> None:
+    result = evaluate_lesson_quality(
+        title="Работа с покупателем",
+        content=content,
+        source_chunks=[content],
+    )
+
+    assert result.accepted is False
+    assert "unprofessional_learner_language" in result.reason_codes
