@@ -367,7 +367,7 @@ async def release_generation_reservation_once(
     await release_ai_course_generation(db, tenant_id)
     await refund_llm_budget(db, tenant_value, "generate_course")
     params["generation_reservation_released"] = True
-    job.params = params  # type: ignore[assignment]
+    job.params = params
     await db.flush()
     return True
 
