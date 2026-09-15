@@ -326,6 +326,31 @@ def _merged_worksheet_tables(
     return merged
 
 
+def merged_direct_source_worksheet_tables(
+    corpus: DirectSourceCorpus,
+) -> list[tuple[str, str, str, list[str], list[tuple[list[str], str]]]]:
+    """Expose converter-owned worksheet reconstruction to bounded consumers.
+
+    This is the supported read-only seam for downstream generation engines. It
+    prevents each engine from reimplementing wide-row and fragmented-column
+    reconstruction, while retaining the original document and worksheet identity.
+    """
+
+    accepted_sections = {
+        (
+            document.doc_id,
+            heading.casefold().removeprefix("[worksheet] ").strip(),
+        )
+        for document in corpus.documents
+        for chunk in document.chunks
+        for heading in chunk.headings
+    }
+    return _merged_worksheet_tables(
+        [chunk for document in corpus.documents for chunk in document.chunks],
+        accepted_sections,
+    )
+
+
 def _render_primary_tabular_lesson(
     *,
     chunks: Sequence[DirectSourceChunk],

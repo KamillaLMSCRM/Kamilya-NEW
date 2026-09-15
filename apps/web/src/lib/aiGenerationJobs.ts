@@ -11,6 +11,7 @@ export interface AIGenerationJob {
   progress_total?: number | null;
   estimated_remaining_seconds?: number | null;
   progress_attempt?: number | null;
+  progress_provider?: string | null;
   stage: string;
   message: string;
   queue_position: number | null;

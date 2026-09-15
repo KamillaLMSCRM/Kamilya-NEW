@@ -13,7 +13,7 @@ Chain architecture (September 2026):
   The global enabled order is read when each asynchronous client is created.
   DeepSeek remains first. Endpoints and model IDs remain server-owned settings.
 
-  Embeddings chain: three private ASUS Qwen replicas → Voyage → Cohere.
+  Embeddings chain: Voyage V4 family → three private ASUS Qwen replicas → Cohere.
   Tenant BYOK overrides may instead select its explicitly configured provider
   and never use globals.
 
@@ -52,7 +52,8 @@ from app.modules.admin.model_routing.catalog import (
 from app.modules.admin.model_routing.runtime import resolve_runtime_generation_model_order
 from app.modules.ai.embedding_space import EmbeddingSpace
 
-EmbeddingProgressCallback = Callable[[int, int, str], Awaitable[None]]
+EmbeddingProviderProgressCallback = Callable[[int, int, str], Awaitable[None]]
+EmbeddingProgressCallback = Callable[[int, int, str, int], Awaitable[None]]
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +122,8 @@ def _validated_parser_failure_reason(exc: BaseException) -> ValidatedCallFailure
 
     try:
         value = getattr(exc, "validated_failure_reason", None)
+        if not isinstance(value, str):
+            return ValidatedCallFailureReason.CONTRACT_VIOLATION
         return ValidatedCallFailureReason(value)
     except (AttributeError, TypeError, ValueError):
         return ValidatedCallFailureReason.CONTRACT_VIOLATION
@@ -163,6 +166,7 @@ class LLMProviderConfig:
     # config, rather than chat-Qwen settings, so semantic spaces cannot drift.
     embedding_max_input_bytes: int | None = None
     embedding_batch_size: int | None = None
+    embedding_max_batch_bytes: int | None = None
     embedding_revision: str | None = None
     embedding_space_provider: str | None = None
     embedding_space_model: str | None = None
@@ -308,19 +312,54 @@ async def _resolve_db_key(provider: str, env_key: str) -> str:
         return ""
 
 
-def _voyage_embed_provider() -> LLMProviderConfig | None:
-    """Return Voyage provider only if API key is configured."""
+_VOYAGE_V4_MODELS = ("voyage-4-lite", "voyage-4", "voyage-4-large")
+
+
+def _voyage_model_order(configured_model: str) -> tuple[str, ...]:
+    """Return the compatible V4 family with the configured model first."""
+    if configured_model not in _VOYAGE_V4_MODELS:
+        return (configured_model,)
+    return (configured_model, *tuple(model for model in _VOYAGE_V4_MODELS if model != configured_model))
+
+
+def _voyage_provider_configs(api_key: str) -> list[LLMProviderConfig]:
+    """Build Voyage V4 routes sharing the vendor-declared compatible space."""
     s = get_settings()
-    if not s.VOYAGE_API_KEY:
-        return None
-    return LLMProviderConfig(
-        name="voyage",
-        base_url=s.VOYAGE_BASE_URL,
-        api_key=s.VOYAGE_API_KEY,
-        model=s.VOYAGE_MODEL,
-        timeout=30.0,
-        embedding_batch_size=128,
-    )
+    return [
+        LLMProviderConfig(
+            name=model,
+            base_url=s.VOYAGE_BASE_URL,
+            api_key=api_key,
+            model=model,
+            timeout=30.0,
+            # Voyage accepts up to 1,000 items. UTF-8 bytes are a conservative
+            # upper bound for tokens, so byte packing avoids tokenizer coupling
+            # while still using one request for many short source facts.
+            embedding_batch_size=1000,
+            embedding_max_batch_bytes={
+                "voyage-4-large": 120_000,
+                "voyage-4": 320_000,
+                "voyage-4-lite": 1_000_000,
+            }.get(model),
+            embedding_space_provider="voyage-v4",
+            embedding_space_model="voyage-4-series",
+            embedding_revision=f"compatible-v1:input-type-v1:storage{s.EMBEDDING_DIMENSIONS}",
+            embedding_l2_normalize=True,
+        )
+        for model in _voyage_model_order(s.VOYAGE_MODEL)
+    ]
+
+
+def _voyage_embed_providers() -> list[LLMProviderConfig]:
+    """Return the Voyage family only when the environment key is configured."""
+    s = get_settings()
+    return _voyage_provider_configs(s.VOYAGE_API_KEY) if s.VOYAGE_API_KEY else []
+
+
+def _voyage_embed_provider() -> LLMProviderConfig | None:
+    """Compatibility accessor for the first configured Voyage route."""
+    providers = _voyage_embed_providers()
+    return providers[0] if providers else None
 
 
 _QWEN_QUERY_PREFIX = (
@@ -401,6 +440,38 @@ def _cohere_embed_provider() -> LLMProviderConfig | None:
         endpoint="/embed",
         embedding_batch_size=96,
     )
+
+
+def _pack_embedding_batches(
+    texts: list[str],
+    *,
+    max_items: int,
+    max_bytes: int | None,
+) -> list[tuple[int, list[str]]]:
+    """Pack embeddings by item count and conservative aggregate UTF-8 size."""
+    if max_items < 1:
+        raise ValueError("invalid_embedding_batch_size")
+    batches: list[tuple[int, list[str]]] = []
+    current: list[str] = []
+    current_bytes = 0
+    offset = 0
+    for text in texts:
+        text_bytes = len(text.encode("utf-8"))
+        if max_bytes is not None and text_bytes > max_bytes:
+            raise ValueError("embedding_batch_input_too_large")
+        if current and (
+            len(current) >= max_items
+            or (max_bytes is not None and current_bytes + text_bytes > max_bytes)
+        ):
+            batches.append((offset, current))
+            offset += len(current)
+            current = []
+            current_bytes = 0
+        current.append(text)
+        current_bytes += text_bytes
+    if current:
+        batches.append((offset, current))
+    return batches
 
 
 # ---------------------------------------------------------------------------
@@ -584,6 +655,8 @@ class ValidatedLLMResult(Generic[T]):
     provider: str
     model_id: str
     value: T
+    attempt_count: int = 1
+    failure_reasons: tuple[ValidatedCallFailureReason, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -831,6 +904,8 @@ class ResilientLLMClient:
                     provider=client.name,
                     model_id=client.config.model,
                     value=value,
+                    attempt_count=index + 1,
+                    failure_reasons=tuple(failure_reasons),
                 )
             except ProviderFailedError as exc:
                 failure_reasons.append(_provider_validated_failure_reason(exc))
@@ -873,7 +948,8 @@ class EmbeddingsClient(_BaseProviderClient):
         # OpenAI-compatible providers use /embeddings. Cohere has a native
         # v2 /embed endpoint and a different request/response schema.
         endpoint = "/embed" if config.name == "cohere" else "/embeddings"
-        default_batch_size = 128 if config.name == "voyage" else 96 if config.name == "cohere" else 32
+        is_voyage = config.name == "voyage" or config.name.startswith("voyage-4")
+        default_batch_size = 1000 if is_voyage else 96 if config.name == "cohere" else 32
         config = replace(
             config,
             endpoint=endpoint,
@@ -969,7 +1045,7 @@ class EmbeddingsClient(_BaseProviderClient):
         texts: list[str],
         input_type: str,
         *,
-        on_progress: EmbeddingProgressCallback | None = None,
+        on_progress: EmbeddingProviderProgressCallback | None = None,
     ) -> EmbeddingBatchResult:
         if not texts:
             raise ProviderFailedError(self.config.name, ValueError("empty_embedding_batch"))
@@ -981,14 +1057,18 @@ class EmbeddingsClient(_BaseProviderClient):
             len(text.encode("utf-8")) > max_input_bytes for text in request_texts
         ):
             raise ProviderFailedError(self.config.name, ValueError("embedding_input_too_large"))
-        provider_batch_limit = 128 if self.config.name == "voyage" else 96 if self.config.name == "cohere" else 32
+        is_voyage = self.config.name == "voyage" or self.config.name.startswith("voyage-4")
+        provider_batch_limit = 1000 if is_voyage else 96 if self.config.name == "cohere" else 32
         batch_size = self.config.embedding_batch_size or provider_batch_limit
         if batch_size < 1 or batch_size > provider_batch_limit:
             raise ProviderFailedError(self.config.name, ValueError("invalid_embedding_batch_size"))
 
         embeddings: list[list[float]] = []
-        for offset in range(0, len(request_texts), batch_size):
-            batch = request_texts[offset : offset + batch_size]
+        for offset, batch in _pack_embedding_batches(
+            request_texts,
+            max_items=batch_size,
+            max_bytes=self.config.embedding_max_batch_bytes,
+        ):
             if self.config.name == "cohere":
                 cohere_payload: dict[str, Any] = {
                     "model": self.config.model,
@@ -1001,7 +1081,7 @@ class EmbeddingsClient(_BaseProviderClient):
                 embeddings.extend(data["embeddings"]["float"])
             else:
                 openai_payload: dict[str, Any] = {"model": self.config.model, "input": batch}
-                if self.config.name == "voyage":
+                if is_voyage:
                     openai_payload["input_type"] = input_type
                 elif self.config.name == "openrouter":
                     # Routing controls are server-owned; input/model stay resolved.
@@ -1052,7 +1132,7 @@ class EmbeddingsClient(_BaseProviderClient):
         self,
         texts: list[str],
         *,
-        on_progress: EmbeddingProgressCallback | None = None,
+        on_progress: EmbeddingProviderProgressCallback | None = None,
     ) -> EmbeddingBatchResult:
         return await self._embed(texts, input_type="document", on_progress=on_progress)
 
@@ -1060,13 +1140,22 @@ class EmbeddingsClient(_BaseProviderClient):
         self,
         texts: list[str],
         *,
-        on_progress: EmbeddingProgressCallback | None = None,
+        on_progress: EmbeddingProviderProgressCallback | None = None,
     ) -> list[list[float]]:
         result = await self.embed_documents_with_provenance(texts, on_progress=on_progress)
         return result.as_lists()
 
     async def embed_query_with_provenance(self, text: str) -> EmbeddingBatchResult:
         return await self._embed([text], input_type="query")
+
+    async def embed_queries_with_provenance(
+        self,
+        texts: list[str],
+        *,
+        on_progress: EmbeddingProviderProgressCallback | None = None,
+    ) -> EmbeddingBatchResult:
+        """Embed one bounded query batch in a single provider request."""
+        return await self._embed(texts, input_type="query", on_progress=on_progress)
 
     async def embed_query(self, text: str) -> list[float]:
         result = await self.embed_query_with_provenance(text)
@@ -1077,10 +1166,10 @@ class ResilientEmbeddingsClient:
     """Embeddings client with automatic failover across providers.
 
     Chain:
-      1. ASUS Qwen gx10-12 (private replica)
-      2. ASUS Qwen gx10-2 (private replica)
-      3. ASUS Qwen gx10-4 (private replica, unnamespaced API model ID)
-      4. Voyage (only if configured)
+      1. Voyage V4 compatible family (only if configured)
+      2. ASUS Qwen gx10-12 (private replica)
+      3. ASUS Qwen gx10-2 (private replica)
+      4. ASUS Qwen gx10-4 (private replica, unnamespaced API model ID)
       5. Cohere (only if configured)
     """
 
@@ -1107,10 +1196,8 @@ class ResilientEmbeddingsClient:
     def from_settings(cls, max_retries_per_provider: int = 2) -> ResilientEmbeddingsClient:
         """Build the embeddings chain from env-only settings (tests/legacy)."""
         providers: list[LLMProviderConfig] = []
+        providers.extend(_voyage_embed_providers())
         providers.extend(_asus_qwen_embed_providers())
-        voyage = _voyage_embed_provider()
-        if voyage is not None:
-            providers.append(voyage)
         cohere = _cohere_embed_provider()
         if cohere is not None:
             providers.append(cohere)
@@ -1148,23 +1235,11 @@ class ResilientEmbeddingsClient:
         s = get_settings()
         providers: list[LLMProviderConfig] = []
 
-        providers.extend(_asus_qwen_embed_providers())
-
         voyage_key = await _resolve_db_key("voyage", s.VOYAGE_API_KEY)
         if voyage_key:
-            cfg = _voyage_embed_provider()
-            if cfg is None:
-                cfg = LLMProviderConfig(
-                    name="voyage",
-                    base_url=s.VOYAGE_BASE_URL,
-                    api_key=voyage_key,
-                    model=s.VOYAGE_MODEL,
-                    timeout=60.0,
-                    embedding_batch_size=128,
-                )
-            else:
-                cfg = replace(cfg, api_key=voyage_key)
-            providers.append(cfg)
+            configs = _voyage_embed_providers() or _voyage_provider_configs(voyage_key)
+            providers.extend(replace(cfg, api_key=voyage_key) for cfg in configs)
+        providers.extend(_asus_qwen_embed_providers())
         cohere_key = await _resolve_db_key("cohere", s.COHERE_API_KEY)
         if cohere_key:
             cfg = _cohere_embed_provider()
@@ -1199,13 +1274,32 @@ class ResilientEmbeddingsClient:
         self, fn_name: str, *args: Any, **kwargs: Any
     ) -> EmbeddingBatchResult:
         last_exc: BaseException | None = None
+        progress_callback = kwargs.get("on_progress")
         for index, client in enumerate(self._clients):
             try:
-                progress_callback = kwargs.get("on_progress")
-                if fn_name == "embed_documents_with_provenance" and progress_callback is not None:
+                provider_kwargs = dict(kwargs)
+                if fn_name in {
+                    "embed_documents_with_provenance",
+                    "embed_queries_with_provenance",
+                } and progress_callback is not None:
                     texts = args[0] if args else []
-                    await progress_callback(0, len(texts), client.config.name)
-                return cast(EmbeddingBatchResult, await getattr(client, fn_name)(*args, **kwargs))
+                    attempt = index + 1
+
+                    async def provider_progress(
+                        completed: int,
+                        total: int,
+                        provider: str,
+                        *,
+                        _attempt: int = attempt,
+                    ) -> None:
+                        await progress_callback(completed, total, provider, _attempt)
+
+                    provider_kwargs["on_progress"] = provider_progress
+                    await progress_callback(0, len(texts), client.config.name, attempt)
+                return cast(
+                    EmbeddingBatchResult,
+                    await getattr(client, fn_name)(*args, **provider_kwargs),
+                )
             except ProviderFailedError as e:
                 logger.warning(
                     f"[EMBED_FAILOVER] {e.provider_name} failed "
@@ -1258,6 +1352,18 @@ class ResilientEmbeddingsClient:
 
     async def embed_query_with_provenance(self, text: str) -> EmbeddingBatchResult:
         return await self._call_with_failover_provenance("embed_query_with_provenance", text)
+
+    async def embed_queries_with_provenance(
+        self,
+        texts: list[str],
+        *,
+        on_progress: EmbeddingProgressCallback | None = None,
+    ) -> EmbeddingBatchResult:
+        return await self._call_with_failover_provenance(
+            "embed_queries_with_provenance",
+            texts,
+            on_progress=on_progress,
+        )
 
     async def embed_query(self, text: str) -> list[float]:
         return await self._call_with_failover("embed_query_with_provenance", text)

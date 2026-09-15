@@ -10,6 +10,176 @@ from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleCon
 
 
 @pytest.mark.asyncio
+async def test_new_evidence_v2_job_bypasses_legacy_agents_and_uses_single_save(monkeypatch):
+    from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
+    from app.modules.ai.direct_source import DirectSourceCorpus
+    from app.modules.ai.evidence_engine.application import GenerationArtifacts
+
+    tenant_id, user_id, doc_id = uuid4(), uuid4(), str(uuid4())
+    corpus = DirectSourceCorpus(
+        tenant_id=str(tenant_id),
+        documents=(),
+        total_chars=100,
+        total_chunks=1,
+    )
+    structure = CourseStructure(
+        title="Evidence V2",
+        modules=[Module(title="Module", lessons=[Lesson(title="Lesson", source_doc_ids=[doc_id])])],
+    )
+    content = CourseContent(
+        title="Evidence V2",
+        modules=[ModuleContent(title="Module", lessons=[LessonContent(title="Lesson", content="Grounded")])],
+    )
+    artifacts = GenerationArtifacts(
+        structure=structure,
+        content=content,
+        assessment=CourseAssessment(assessments=[LessonAssessment("Lesson")]),
+        diagnostics={"engine": "evidence_v2", "lesson_count": 1, "question_count": 0},
+    )
+    generated = SimpleNamespace(result=SimpleNamespace(), corpus=corpus)
+    generate = AsyncMock(return_value=generated)
+    from unittest.mock import Mock
+
+    convert = Mock(return_value=artifacts)
+    save = AsyncMock()
+
+    async def save_success(state, *_args):
+        state.status = "completed"
+
+    save.side_effect = save_success
+    monkeypatch.setattr(pipeline, "_update_job_db", AsyncMock())
+    monkeypatch.setattr(pipeline, "_check_cancelled_async", AsyncMock())
+    monkeypatch.setattr(pipeline, "load_direct_source_corpus", AsyncMock(return_value=corpus))
+    monkeypatch.setattr(pipeline, "generate_evidence_course", generate)
+    monkeypatch.setattr(pipeline, "to_generation_artifacts", convert)
+    monkeypatch.setattr(pipeline.ResilientLLMClient, "from_settings_async", AsyncMock(return_value=object()))
+    monkeypatch.setattr(pipeline.ResilientEmbeddingsClient, "from_settings_async", AsyncMock(return_value=object()))
+    monkeypatch.setattr(pipeline, "run_direct_architect", AsyncMock(side_effect=AssertionError("legacy architect called")))
+    monkeypatch.setattr(pipeline, "write_direct_course", AsyncMock(side_effect=AssertionError("legacy writer called")))
+    monkeypatch.setattr(pipeline, "_save_generation_to_db", save)
+
+    state = await pipeline.run_generation_pipeline(
+        str(uuid4()),
+        documents=[doc_id],
+        tenant_id=tenant_id,
+        user_id=user_id,
+        guidance="Train the employee",
+        source_analysis={
+            "analysis_mode": "direct_source",
+            "generation_engine": "evidence_v2",
+        },
+    )
+
+    assert state.status == "completed"
+    assert state.structure is structure
+    assert state.content is content
+    assert state.assessment is artifacts.assessment
+    assert state.source_analysis["evidence_v2"] == artifacts.diagnostics
+    generate.assert_awaited_once()
+    save.assert_awaited_once_with(state, tenant_id, user_id)
+    pipeline.run_direct_architect.assert_not_awaited()
+    pipeline.write_direct_course.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_new_evidence_v2_save_failure_refunds_reserved_generation(monkeypatch):
+    from app.modules.ai.assessment_schema import CourseAssessment
+    from app.modules.ai.direct_source import DirectSourceCorpus
+    from app.modules.ai.evidence_engine.application import GenerationArtifacts
+
+    tenant_id, user_id, doc_id = uuid4(), uuid4(), str(uuid4())
+    corpus = DirectSourceCorpus(
+        tenant_id=str(tenant_id), documents=(), total_chars=100, total_chunks=1
+    )
+    artifacts = GenerationArtifacts(
+        structure=CourseStructure(title="Candidate"),
+        content=CourseContent(title="Candidate"),
+        assessment=CourseAssessment(),
+        diagnostics={"engine": "evidence_v2"},
+    )
+
+    async def failed_save(state, *_args):
+        state.course_id = str(uuid4())
+        raise RuntimeError("synthetic post-flush failure")
+
+    release = AsyncMock(return_value=True)
+    monkeypatch.setattr(pipeline, "_update_job_db", AsyncMock())
+    monkeypatch.setattr(pipeline, "_check_cancelled_async", AsyncMock())
+    monkeypatch.setattr(pipeline, "load_direct_source_corpus", AsyncMock(return_value=corpus))
+    monkeypatch.setattr(
+        pipeline,
+        "generate_evidence_course",
+        AsyncMock(return_value=SimpleNamespace(result=SimpleNamespace(), corpus=corpus)),
+    )
+    monkeypatch.setattr(pipeline, "to_generation_artifacts", lambda _value: artifacts)
+    monkeypatch.setattr(
+        pipeline.ResilientLLMClient, "from_settings_async", AsyncMock(return_value=object())
+    )
+    monkeypatch.setattr(
+        pipeline.ResilientEmbeddingsClient,
+        "from_settings_async",
+        AsyncMock(return_value=object()),
+    )
+    monkeypatch.setattr(pipeline, "_save_generation_to_db", AsyncMock(side_effect=failed_save))
+    monkeypatch.setattr(pipeline, "_release_generation_reservation", release)
+
+    state = await pipeline.run_generation_pipeline(
+        str(uuid4()),
+        documents=[doc_id],
+        tenant_id=tenant_id,
+        user_id=user_id,
+        source_analysis={
+            "analysis_mode": "direct_source",
+            "generation_engine": "evidence_v2",
+        },
+    )
+
+    assert state.status == "failed"
+    release.assert_awaited_once_with(state.job_id, tenant_id)
+
+
+@pytest.mark.asyncio
+async def test_failure_status_write_cannot_skip_reserved_generation_cleanup(monkeypatch):
+    tenant_id = uuid4()
+    update = AsyncMock(side_effect=RuntimeError("synthetic status write failure"))
+    release = AsyncMock(return_value=True)
+    monkeypatch.setattr(pipeline, "_update_job_db", update)
+    monkeypatch.setattr(pipeline, "_release_generation_reservation", release)
+
+    state = await pipeline.run_generation_pipeline(
+        str(uuid4()), documents=[], tenant_id=tenant_id
+    )
+
+    assert state.status == "failed"
+    release.assert_awaited_once_with(state.job_id, tenant_id)
+
+
+@pytest.mark.asyncio
+async def test_new_course_cancellation_releases_reservation_once(monkeypatch):
+    import asyncio
+
+    tenant_id, doc_id = uuid4(), str(uuid4())
+    release = AsyncMock(return_value=True)
+    monkeypatch.setattr(pipeline, "_update_job_db", AsyncMock())
+    monkeypatch.setattr(
+        pipeline,
+        "load_direct_source_corpus",
+        AsyncMock(side_effect=asyncio.CancelledError()),
+    )
+    monkeypatch.setattr(pipeline, "_release_generation_reservation", release)
+
+    state = await pipeline.run_generation_pipeline(
+        str(uuid4()),
+        documents=[doc_id],
+        tenant_id=tenant_id,
+        source_analysis={"analysis_mode": "direct_source"},
+    )
+
+    assert state.status == "cancelled"
+    release.assert_awaited_once_with(state.job_id, tenant_id)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["success", "failed", "cancelled"])
 @pytest.mark.parametrize("audit_outcome", ["passed", "gaps", "interrupted"])
 @pytest.mark.parametrize("intent", [{}, {"guidance": "Compare the specified attributes"}, {"target_audience": "Sales staff"}, {"goals": ["Compare source facts"]}])
@@ -60,6 +230,11 @@ async def test_direct_pipeline_forwards_trusted_tenant_to_semantic_writer(monkey
     if outcome == 'cancelled':
         checkpoints.clear.assert_awaited_once()
         assert state.status == 'cancelled'
+        assert any(
+            call.kwargs.get('status') == 'cancelled'
+            and call.kwargs.get('stage') == 'cancelled'
+            for call in pipeline._update_job_db.await_args_list
+        )
         return
     if audit_outcome == 'interrupted':
         checkpoints.clear.assert_not_awaited()

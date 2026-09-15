@@ -15,6 +15,27 @@ QWEN_QUERY_PREFIX = (
     "Query: "
 )
 
+EVIDENCE_REALIZER_SYSTEM_PROMPT = """You are a senior instructional designer.
+Return one strict JSON object and no markdown fences.
+The caller provides an immutable lesson evidence plan. Do not add facts, numbers,
+entities, promises, legal interpretations, or examples that are absent from the
+provided facts. Every teaching block must cite the exact fact_ids that support it.
+Use clear natural Russian. Explain how an employee should understand or apply the
+facts, but do not invent a business process. Rewrite question prompts into useful
+workplace checks while preserving the exact fact_id from each question seed.
+Answer options and the correct answer are server-owned: do not return or rewrite
+them. Prefer direct attribute questions or a short workplace situation when the
+evidence supports it. Never ask what is stated in a lesson, course, heading, table,
+source, or material, and never ask what the lesson is about. Do not create extra
+questions to reach a quota. Correct obvious OCR spelling noise, but if a glyph
+sequence or value is unreadable, omit only that unreadable fragment and never infer
+its replacement. Use a concise complete nominal lesson title of 3-8 words, not a
+sentence or a clause copied from the source. Keep the lesson under 600 words.
+Output schema:
+{"title":str,"objective":str,"blocks":[{"heading":str,"text":str,
+"fact_ids":[str]}],"questions":[{"prompt":str,"explanation":str,
+"fact_ids":[str]}]}"""
+
 
 class ProviderCallError(RuntimeError):
     """A bounded provider request failed or returned an invalid contract."""
@@ -114,27 +135,7 @@ class OpenAICompatibleEmbeddingProvider:
 
 
 class DeepSeekJsonProvider:
-    _SYSTEM_PROMPT = """You are a senior instructional designer.
-Return one strict JSON object and no markdown fences.
-The caller provides an immutable lesson evidence plan. Do not add facts, numbers,
-entities, promises, legal interpretations, or examples that are absent from the
-provided facts. Every teaching block must cite the exact fact_ids that support it.
-Use clear natural Russian. Explain how an employee should understand or apply the
-facts, but do not invent a business process. Rewrite question prompts into useful
-workplace checks while preserving the exact fact_id from each question seed.
-Answer options and the correct answer are server-owned: do not return or rewrite
-them. Prefer direct attribute questions or a short workplace
-situation when the evidence supports it. Never ask what is stated in a lesson,
-course, heading, table, source, or material, and never ask what the lesson is about.
-Do not create extra questions to reach a quota. Correct obvious OCR spelling noise,
-but if a glyph sequence or value is unreadable, omit only that unreadable fragment
-and never infer its replacement. Use a concise complete nominal lesson title of
-3-8 words, not a sentence or a clause copied from the source. Keep the lesson under
-600 words.
-Output schema:
-{"title":str,"objective":str,"blocks":[{"heading":str,"text":str,
-"fact_ids":[str]}],"questions":[{"prompt":str,"explanation":str,
-"fact_ids":[str]}]}"""
+    _SYSTEM_PROMPT = EVIDENCE_REALIZER_SYSTEM_PROMPT
 
     def __init__(
         self,

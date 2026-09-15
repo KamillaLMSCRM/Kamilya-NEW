@@ -172,6 +172,7 @@ class ProviderBackedEvidenceEngine:
         grounded_blocks: list[GroundedBlock] = []
         validation_errors: list[str] = []
         fallback_count = 0
+        deterministic_fallback_lesson_ids: list[str] = []
         prompt_tokens = 0
         completion_tokens = 0
         chat_attempt_count = 0
@@ -203,6 +204,7 @@ class ProviderBackedEvidenceEngine:
                     request["validation_feedback"] = last_error
             if accepted is None:
                 fallback_count += 1
+                deterministic_fallback_lesson_ids.append(plan.lesson_id)
                 validation_errors.append(f"{plan.lesson_id}: {last_error or 'provider unavailable'}")
                 realized_lessons.append(base_lesson)
                 realized_questions.extend(seeds)
@@ -248,6 +250,8 @@ class ProviderBackedEvidenceEngine:
             grounded_blocks=tuple(grounded_blocks),
             publishability=publishability,
             provider_fallback_count=fallback_count,
+            deterministic_fallback_count=fallback_count,
+            deterministic_fallback_lesson_ids=tuple(deterministic_fallback_lesson_ids),
             validation_errors=tuple(validation_errors),
             chat_attempt_count=chat_attempt_count,
             prompt_tokens=prompt_tokens,

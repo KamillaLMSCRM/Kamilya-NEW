@@ -155,10 +155,12 @@ async def test_cancel_generation_persists_terminal_state_and_revokes_worker_task
     db = AsyncMock()
     job = SimpleNamespace(id="job-1", status="running")
     update_job = AsyncMock(return_value=job)
+    release = AsyncMock(return_value=True)
 
     with (
         patch.object(ai_router, "get_ai_job", AsyncMock(return_value=job)),
         patch.object(ai_router, "update_ai_job", update_job),
+        patch.object(ai_router, "release_generation_reservation_once", release),
         patch("app.core.celery_app.celery_app.control.revoke") as revoke,
     ):
         result = await ai_router.cancel_generation(job.id, db=db, user=user)
@@ -167,7 +169,8 @@ async def test_cancel_generation_persists_terminal_state_and_revokes_worker_task
     update_job.assert_awaited_once()
     assert update_job.await_args.kwargs["status"] == "cancelled"
     assert update_job.await_args.kwargs["stage"] == "cancelled"
-    db.commit.assert_awaited_once()
+    assert db.commit.await_count == 2
+    release.assert_awaited_once_with(db, job_id=job.id, tenant_id=str(tenant_id))
     revoke.assert_called_once_with(job.id, terminate=False)
 
 
@@ -180,18 +183,46 @@ async def test_cancel_generation_is_idempotent_for_cancelled_job():
     db = AsyncMock()
     job = SimpleNamespace(id="job-1", status="cancelled")
     update_job = AsyncMock()
+    release = AsyncMock(return_value=False)
 
     with (
         patch.object(ai_router, "get_ai_job", AsyncMock(return_value=job)),
         patch.object(ai_router, "update_ai_job", update_job),
+        patch.object(ai_router, "release_generation_reservation_once", release),
         patch("app.core.celery_app.celery_app.control.revoke") as revoke,
     ):
         result = await ai_router.cancel_generation(job.id, db=db, user=user)
 
     assert result == {"status": "cancelled"}
     update_job.assert_not_awaited()
-    db.commit.assert_not_awaited()
+    db.commit.assert_awaited_once()
+    release.assert_awaited_once_with(db, job_id=job.id, tenant_id=str(tenant_id))
     revoke.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_job_retries_failed_reservation_cleanup():
+    from app.modules.ai import router as ai_router
+
+    tenant_id = uuid4()
+    user = SimpleNamespace(tenant_id=tenant_id, role="methodologist")
+    db = AsyncMock()
+    job = SimpleNamespace(id="job-retry", status="cancelled")
+    release = AsyncMock(side_effect=[RuntimeError("temporary"), True])
+
+    with (
+        patch.object(ai_router, "get_ai_job", AsyncMock(return_value=job)),
+        patch.object(ai_router, "release_generation_reservation_once", release),
+    ):
+        with pytest.raises(HTTPException) as caught:
+            await ai_router.cancel_generation(job.id, db=db, user=user)
+        result = await ai_router.cancel_generation(job.id, db=db, user=user)
+
+    assert caught.value.status_code == 503
+    assert result == {"status": "cancelled"}
+    assert release.await_count == 2
+    db.rollback.assert_awaited_once()
+    db.commit.assert_awaited_once()
 
 
 class _SessionContext:

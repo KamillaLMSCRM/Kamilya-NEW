@@ -160,13 +160,10 @@ class Settings(BaseSettings):
     ASUS_EMBEDDINGS_CONNECT_TIMEOUT_SECONDS: float = Field(default=3.0, ge=1.0, le=15.0)
     ASUS_EMBEDDINGS_REQUEST_TIMEOUT_SECONDS: float = Field(default=30.0, ge=1.0, le=30.0)
 
-    # Voyage AI — managed embeddings fallback. Endpoint is OpenAI-compatible
+    # Voyage AI — managed primary embeddings family. Endpoint is OpenAI-compatible
     # (https://api.voyageai.com/v1). Free tier: 200M tokens per account for
-    # voyage-4-lite/voyage-4/voyage-context-3. Activated only when
-    # VOYAGE_API_KEY is set; ASUS Qwen embeddings are the first global route.
-    #   voyage-4-lite        $0.02/M  (free up to 200M)
-    #   voyage-4             $0.06/M  (free up to 200M)
-    #   voyage-multilingual-2 $0.12/M (free up to 50M)
+    # each of voyage-4-large/voyage-4/voyage-4-lite. The configured V4 model
+    # is first; the remaining compatible V4 models follow automatically.
     VOYAGE_API_KEY: str = ""
     VOYAGE_BASE_URL: str = "https://api.voyageai.com/v1"
     VOYAGE_MODEL: str = "voyage-4-lite"

@@ -64,6 +64,41 @@ def _forbidden_local_postgres(
     )
 
 
+def _requires_database_contour(path: str) -> bool:
+    """Classify integration suites before any direct engine/session use."""
+
+    normalized = path.replace("\\", "/").lstrip("./")
+    return normalized.startswith("tests/integration/") or "/tests/integration/" in normalized
+
+
+@pytest.fixture(scope="session")
+def require_database_test_contour() -> None:
+    """Fail before integration tests can bypass ``db_session`` and dial localhost."""
+
+    if _forbidden_local_postgres(
+        os.environ["DATABASE_URL"],
+        explicitly_allowed=os.getenv("KAMILYA_ALLOW_EPHEMERAL_CI_POSTGRES") == "1",
+        github_actions=os.getenv("GITHUB_ACTIONS") == "true",
+        platform=sys.platform,
+    ):
+        pytest.fail(
+            "local_postgresql_forbidden: use the isolated Supabase DEV gate; "
+            "only CI may set KAMILYA_ALLOW_EPHEMERAL_CI_POSTGRES=1",
+            pytrace=False,
+        )
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Apply the contour gate to all integration files, including direct sessions."""
+
+    for item in items:
+        if (
+            _requires_database_contour(str(item.path))
+            and "require_database_test_contour" not in item.fixturenames
+        ):
+            item.fixturenames.append("require_database_test_contour")
+
+
 @pytest_asyncio.fixture(scope="function")
 async def db_session() -> AsyncIterator[AsyncSession]:
     """Function-scoped async session, isolated by outer-transaction rollback.

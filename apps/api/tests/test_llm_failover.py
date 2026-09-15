@@ -19,8 +19,10 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.ai import llm_client
+from app.modules.ai.embedding_space import EmbeddingSpace
 from app.modules.ai.llm_client import (
     AllProvidersFailedError,
+    EmbeddingBatchResult,
     EmbeddingsClient,
     LLMClient,
     LLMProviderConfig,
@@ -418,26 +420,42 @@ async def test_async_settings_chain_omits_disabled_fallback(monkeypatch):
     assert chain.provider_names == ["deepseek", "glm53-flash-asus"]
 
 
-def test_embeddings_settings_chain_prefers_resilient_qwen_then_voyage(monkeypatch):
-    voyage = LLMProviderConfig(name="voyage", base_url="https://voyage.test", api_key="key", model="voyage")
-    monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: voyage)
+def test_embeddings_settings_chain_prefers_voyage_v4_family_then_resilient_qwen(monkeypatch):
+    voyage = [
+        LLMProviderConfig(
+            name=model,
+            base_url="https://voyage.test",
+            api_key="key",
+            model=model,
+            embedding_space_provider="voyage-v4",
+            embedding_space_model="voyage-4-series",
+            embedding_revision="compatible-v1",
+        )
+        for model in ("voyage-4-lite", "voyage-4", "voyage-4-large")
+    ]
+    monkeypatch.setattr(llm_client, "_voyage_embed_providers", lambda: voyage)
     monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: None)
 
     chain = ResilientEmbeddingsClient.from_settings()
 
     assert chain.provider_names == [
+        "voyage-4-lite",
+        "voyage-4",
+        "voyage-4-large",
         "asus-qwen-embedding-gx10-12",
         "asus-qwen-embedding-gx10-2",
         "asus-qwen-embedding-gx10-4",
-        "voyage",
     ]
-    assert [client.max_retries for client in chain._clients] == [2, 2, 2, 2]
-    assert [client.config.embedding_batch_size for client in chain._clients] == [16, 16, 16, 128]
+    assert [client.max_retries for client in chain._clients] == [2, 2, 2, 2, 2, 2]
+    assert [client.config.embedding_batch_size for client in chain._clients] == [1000, 1000, 1000, 16, 16, 16]
+    assert len({client.config.embedding_space_provider for client in chain._clients[:3]}) == 1
+    assert len({client.config.embedding_space_model for client in chain._clients[:3]}) == 1
+    assert len({client.config.embedding_revision for client in chain._clients[:3]}) == 1
 
 
 @pytest.mark.asyncio
 async def test_async_embeddings_chain_prefers_db_voyage_key(monkeypatch):
-    monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: None)
+    monkeypatch.setattr(llm_client, "_voyage_embed_providers", lambda: [])
 
     async def resolve_key(provider, env_key):
         return "db-voyage-key" if provider == "voyage" else ""
@@ -447,33 +465,40 @@ async def test_async_embeddings_chain_prefers_db_voyage_key(monkeypatch):
     chain = await ResilientEmbeddingsClient.from_settings_async()
 
     assert chain.provider_names == [
+        "voyage-4-lite",
+        "voyage-4",
+        "voyage-4-large",
         "asus-qwen-embedding-gx10-12",
         "asus-qwen-embedding-gx10-2",
         "asus-qwen-embedding-gx10-4",
-        "voyage",
     ]
 
 
 def test_embeddings_settings_chain_includes_only_configured_managed_providers(monkeypatch):
-    voyage = LLMProviderConfig(name="voyage", base_url="https://voyage.test", api_key="key", model="voyage")
+    voyage = [
+        LLMProviderConfig(name=model, base_url="https://voyage.test", api_key="key", model=model)
+        for model in ("voyage-4-lite", "voyage-4", "voyage-4-large")
+    ]
     cohere = LLMProviderConfig(name="cohere", base_url="https://cohere.test", api_key="key", model="embed-v4.0")
-    monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: voyage)
+    monkeypatch.setattr(llm_client, "_voyage_embed_providers", lambda: voyage)
     monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: cohere)
 
     chain = ResilientEmbeddingsClient.from_settings()
 
     assert chain.provider_names == [
+        "voyage-4-lite",
+        "voyage-4",
+        "voyage-4-large",
         "asus-qwen-embedding-gx10-12",
         "asus-qwen-embedding-gx10-2",
         "asus-qwen-embedding-gx10-4",
-        "voyage",
         "cohere",
     ]
 
 
 @pytest.mark.asyncio
 async def test_async_embeddings_chain_uses_db_cohere_key(monkeypatch):
-    monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: None)
+    monkeypatch.setattr(llm_client, "_voyage_embed_providers", lambda: [])
     monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: None)
 
     async def resolve_key(provider, env_key):
@@ -900,6 +925,8 @@ async def test_validated_invocation_returns_provider_model_and_parsed_value():
     assert result.provider == "primary"
     assert result.model_id == "model-a"
     assert result.value is True
+    assert result.attempt_count == 1
+    assert result.failure_reasons == ()
 
 
 @pytest.mark.asyncio
@@ -929,7 +956,40 @@ async def test_validated_invocation_rejection_falls_back_without_raw_content(cap
 
     assert result.provider == "fallback"
     assert result.value == "valid"
+    assert result.attempt_count == 2
+    assert result.failure_reasons == (ValidatedCallFailureReason.CONTRACT_VIOLATION,)
     assert secret not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_query_embedding_batch_reports_provider_and_exact_units():
+    chain = ResilientEmbeddingsClient(
+        [LLMProviderConfig(name="query-provider", base_url="x", api_key="y", model="m")]
+    )
+    events = []
+    expected = EmbeddingBatchResult(
+        space=EmbeddingSpace(
+            provider="query-provider", model="m", revision="m", dimensions=2
+        ),
+        native_dimensions=2,
+        storage_dimensions=2,
+        vectors=((1.0, 0.0), (0.0, 1.0)),
+    )
+
+    async def embed(texts, *, on_progress=None):
+        if on_progress is not None:
+            await on_progress(len(texts), len(texts), "query-provider")
+        return expected
+
+    chain._clients[0].embed_queries_with_provenance = embed  # type: ignore[assignment]
+
+    async def progress(current, total, provider, attempt):
+        events.append((current, total, provider, attempt))
+
+    result = await chain.embed_queries_with_provenance(["one", "two"], on_progress=progress)
+
+    assert result is expected
+    assert events == [(0, 2, "query-provider", 1), (2, 2, "query-provider", 1)]
 
 
 @pytest.mark.asyncio

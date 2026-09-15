@@ -335,6 +335,43 @@ async def update_ai_job(
     return job
 
 
+async def release_generation_reservation_once(
+    db: AsyncSession,
+    *,
+    job_id: str,
+    tenant_id: UUID | str | None,
+) -> bool:
+    """Release a new-course quota/budget reservation exactly once.
+
+    The durable marker prevents the HTTP cancellation path and an already
+    running worker from double-refunding the same logical job.
+    """
+
+    if tenant_id is None:
+        return False
+    tenant_value = str(tenant_id)
+    job = await get_ai_job(db, job_id, tenant_id=tenant_value, for_update=True)
+    if job is None or job.course_id is not None:
+        return False
+    params = dict(job.params or {})
+    legacy_new_course = "documents" in params and not params.get("action")
+    reservation_required = (
+        params.get("generation_reservation_required") is True or legacy_new_course
+    )
+    if not reservation_required or params.get("generation_reservation_released") is True:
+        return False
+
+    from app.core.trial_limits import release_ai_course_generation
+    from app.modules.ai.budget import refund_llm_budget
+
+    await release_ai_course_generation(db, tenant_id)
+    await refund_llm_budget(db, tenant_value, "generate_course")
+    params["generation_reservation_released"] = True
+    job.params = params  # type: ignore[assignment]
+    await db.flush()
+    return True
+
+
 async def claim_generation_execution(
     db: AsyncSession, job_id: str, tenant_id: str | None = None
 ) -> bool:
@@ -484,6 +521,10 @@ async def submit_ai_job(
     limits.  A failed dispatch is made visible on the durable job and reverses
     the generation charges made by this submission.
     """
+    params = dict(params)
+    if generation:
+        params["generation_reservation_required"] = bool(reserve_course_generation)
+        params["generation_reservation_released"] = False
     try:
         job = await create_admitted_ai_job(
             db,

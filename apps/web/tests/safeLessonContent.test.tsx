@@ -28,6 +28,14 @@ describe('SafeLessonContent', () => {
     expect(container.querySelectorAll('script, img, iframe, a')).toHaveLength(0);
   });
 
+  it('renders escaped source markup literally without creating source-controlled structure', () => {
+    const { container } = render(<SafeLessonContent text={'\\# Source heading\n\n\\- item with \\*emphasis\\* and \\| pipe \\[bad\\]\\(javascript:alert\\(1\\)\\)'} />);
+
+    expect(screen.getByText('# Source heading')).toBeInTheDocument();
+    expect(screen.getByText(/- item with \*emphasis\* and \| pipe/)).toBeInTheDocument();
+    expect(container.querySelectorAll('h1, h2, h3, h4, h5, h6, ul, ol, table, em, a')).toHaveLength(0);
+  });
+
   it('preserves malformed tables, CRLF headings, unclosed fences, and long content without dropping it', () => {
     const longTail = `tail-${'x'.repeat(20_000)}`;
     render(<SafeLessonContent text={`## CRLF heading\r\n\r\n| Name | Value |\n| --- | --- |\n| Alpha | 1 | trailing |\n\n| Escaped \\| pipe | Value |\n| --- | --- |\n| Alpha | 1 |\n\n\`\`\`\nunclosed fence\n\n${longTail}`} />);

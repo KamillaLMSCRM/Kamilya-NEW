@@ -69,8 +69,8 @@ def evaluate_publishability(
     reasons: list[str] = []
     if coverage < 1.0:
         reasons.append("incomplete_fact_coverage")
-    if provider_fallback_count:
-        reasons.append("provider_fallback")
+    # A fallback is an observability signal, not a content defect. Grounding,
+    # coverage and visible quality are evaluated independently below.
     if generic_count:
         reasons.append("generic_questions")
     if duplicate_count:

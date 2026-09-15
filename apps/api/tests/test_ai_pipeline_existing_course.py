@@ -171,11 +171,41 @@ async def test_new_course_persists_reuse_reason_in_source_provenance(monkeypatch
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("source_text,expected_source_status", [
-    ("Source facts", "verified"),
-    ("Rate: [UNREADABLE_PERCENTAGE_VALUE]", "needs_review"),
+async def test_new_course_id_is_not_exposed_before_transaction_commit(monkeypatch):
+    from app.modules.ai import pipeline
+
+    tenant_id = uuid4()
+    placeholder = Course(
+        id=uuid4(), tenant_id=tenant_id, title="Unused", status="draft", created_by=uuid4()
+    )
+    session = FakeSession(placeholder)
+
+    async def fail_commit():
+        raise RuntimeError("synthetic commit failure")
+
+    session.commit = fail_commit
+    monkeypatch.setattr(pipeline, "async_session_factory", lambda: session)
+    state = GenerationState(
+        job_id="commit-failure",
+        structure=CourseStructure(title="Candidate"),
+        content=CourseContent(title="Candidate"),
+    )
+
+    with pytest.raises(RuntimeError, match="synthetic commit failure"):
+        await _save_generation_to_db(state, tenant_id, placeholder.created_by)
+
+    assert state.course_id is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source_text,explicit_status,expected_source_status", [
+    ("Source facts", "verified", "verified"),
+    ("Rate: [UNREADABLE_PERCENTAGE_VALUE]", "verified", "needs_review"),
+    ("Deterministic source-only fallback", "needs_review", "needs_review"),
 ])
-async def test_generated_single_answer_questions_are_saved_as_mcq(monkeypatch, source_text, expected_source_status):
+async def test_generated_single_answer_questions_are_saved_as_mcq(
+    monkeypatch, source_text, explicit_status, expected_source_status
+):
     from app.modules.ai import pipeline
 
     tenant_id = uuid4()
@@ -201,7 +231,12 @@ async def test_generated_single_answer_questions_are_saved_as_mcq(monkeypatch, s
         ),
         content=CourseContent(
             title="Generated title",
-            modules=[ModuleContent(title="Module", lessons=[LessonContent(title=lesson_title, content="Body", source_chunks=[source_text])])],
+            modules=[ModuleContent(title="Module", lessons=[LessonContent(
+                title=lesson_title,
+                content="Body",
+                source_chunks=[source_text],
+                source_validation_status=explicit_status,
+            )])],
         ),
         assessment=CourseAssessment(
             assessments=[

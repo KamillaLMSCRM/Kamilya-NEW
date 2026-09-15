@@ -137,6 +137,12 @@ class AIJobResponse(BaseModel):
     progress_total: int | None = Field(default=None, ge=1)
     estimated_remaining_seconds: int | None = Field(default=None, ge=0)
     progress_attempt: int | None = Field(default=None, ge=1)
+    progress_provider: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9._:-]+$",
+    )
     tenant_active_jobs: int | None = Field(default=None, ge=0)
     tenant_active_limit: int | None = Field(default=None, ge=1)
     # Present only when the selected multi-document set spans several scripts;

@@ -81,6 +81,7 @@ def test_ai_job_response_exposes_valid_exact_progress_detail():
                     "total": 1076,
                     "estimated_remaining_seconds": 721,
                     "attempt": 2,
+                    "provider": "voyage-4-lite",
                 }
             }
         )
@@ -91,7 +92,24 @@ def test_ai_job_response_exposes_valid_exact_progress_detail():
         "progress_total": 1076,
         "estimated_remaining_seconds": 721,
         "progress_attempt": 2,
+        "progress_provider": "voyage-4-lite",
     }
+
+
+def test_ai_job_response_rejects_unbounded_progress_provider() -> None:
+    detail = _job_progress_detail(
+        SimpleNamespace(
+            params={
+                "progress_detail": {
+                    "current": 1,
+                    "total": 2,
+                    "provider": "<script>alert(1)</script>",
+                }
+            }
+        )
+    )
+
+    assert detail == {"progress_current": 1, "progress_total": 2}
 
 
 def test_ai_job_response_keeps_counts_when_optional_estimate_is_absent():

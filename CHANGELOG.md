@@ -15,6 +15,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.49] - 2026-09-15
+
+### Added
+
+- Generate a complete editable draft course and grounded tests from large or
+  structurally complex source documents through the evidence-first V2 engine.
+- Record exact lesson-stage progress while the course is being generated.
+- Show the active embedding provider and explicit failover attempt beside exact
+  indexing/generation progress.
+
+### Changed
+
+- Use the evidence available in the source to determine course scope instead of
+  padding the draft to a fixed lesson or question count.
+- Use the managed multilingual Voyage V4 embedding family first, with compatible
+  model and private Qwen fallbacks; course generation remains available when
+  semantic measurement is temporarily degraded.
+
+### Fixed
+
+- Batch lesson-search embeddings and keep document/query vectors in the same
+  verified semantic space, preventing provider rate-limit storms and invalid
+  cross-model similarity comparisons.
+- Reject incomplete, generic, duplicate or unsupported course results before the
+  existing transactional save instead of reporting a partially generated draft.
+- Retry idempotent quota and AI-budget cleanup for already-cancelled generation
+  jobs after transient failures.
+- Mark deterministic source-only fallback lessons as `needs_review` and render
+  source-controlled Markdown markers as inert text.
+
 ## [0.5.48] - 2026-09-14
 
 ### Fixed

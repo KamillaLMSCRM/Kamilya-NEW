@@ -180,27 +180,32 @@ def test_global_embedding_order_honors_provider_specific_retry_budget(monkeypatc
             "Qwen3-Embedding-8B",
         ),
     ]
-    voyage = LLMProviderConfig(name="voyage", base_url="https://voyage.test", api_key="key", model="voyage")
+    voyage = [
+        LLMProviderConfig(name=model, base_url="https://voyage.test", api_key="key", model=model)
+        for model in ("voyage-4-lite", "voyage-4", "voyage-4-large")
+    ]
     cohere = LLMProviderConfig(name="cohere", base_url="https://cohere.test", api_key="key", model="cohere")
     monkeypatch.setattr(llm_client, "_asus_qwen_embed_providers", lambda: asus)
-    monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: voyage)
+    monkeypatch.setattr(llm_client, "_voyage_embed_providers", lambda: voyage)
     monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: cohere)
 
     chain = ResilientEmbeddingsClient.from_settings()
 
     assert chain.provider_names == [
+        "voyage-4-lite",
+        "voyage-4",
+        "voyage-4-large",
         "asus-qwen-embedding-gx10-12",
         "asus-qwen-embedding-gx10-2",
         "asus-qwen-embedding-gx10-4",
-        "voyage",
         "cohere",
     ]
-    assert [client.max_retries for client in chain._clients] == [0, 0, 0, 2, 2]
-    assert [client.config.embedding_batch_size for client in chain._clients] == [32, 32, 32, 128, 96]
+    assert [client.max_retries for client in chain._clients] == [2, 2, 2, 0, 0, 0, 2]
+    assert [client.config.embedding_batch_size for client in chain._clients] == [1000, 1000, 1000, 32, 32, 32, 96]
 
 
 @pytest.mark.asyncio
-async def test_async_global_embedding_order_starts_asus_then_managed(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_async_global_embedding_order_starts_voyage_then_asus(monkeypatch: pytest.MonkeyPatch) -> None:
     asus = [
         _asus_config(),
         _asus_config("asus-qwen-embedding-gx10-2", "http://10.77.77.1:18001/v1"),
@@ -211,13 +216,13 @@ async def test_async_global_embedding_order_starts_asus_then_managed(monkeypatch
         ),
     ]
     monkeypatch.setattr(llm_client, "_asus_qwen_embed_providers", lambda: asus)
-    monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: None)
+    monkeypatch.setattr(llm_client, "_voyage_embed_providers", lambda: [])
     monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: None)
     monkeypatch.setattr(
         llm_client,
         "get_settings",
         lambda: SimpleNamespace(
-            VOYAGE_API_KEY="", VOYAGE_BASE_URL="https://voyage.test/v1", VOYAGE_MODEL="voyage",
+            VOYAGE_API_KEY="", VOYAGE_BASE_URL="https://voyage.test/v1", VOYAGE_MODEL="voyage-4-lite",
             COHERE_API_KEY="", COHERE_BASE_URL="https://cohere.test/v2", COHERE_EMBED_MODEL="cohere",
             EMBEDDING_DIMENSIONS=4096,
         ),
@@ -230,14 +235,16 @@ async def test_async_global_embedding_order_starts_asus_then_managed(monkeypatch
     chain = await ResilientEmbeddingsClient.from_settings_async()
 
     assert chain.provider_names == [
+        "voyage-4-lite",
+        "voyage-4",
+        "voyage-4-large",
         "asus-qwen-embedding-gx10-12",
         "asus-qwen-embedding-gx10-2",
         "asus-qwen-embedding-gx10-4",
-        "voyage",
         "cohere",
     ]
-    assert [client.max_retries for client in chain._clients] == [0, 0, 0, 2, 2]
-    assert [client.config.embedding_batch_size for client in chain._clients] == [32, 32, 32, 128, 96]
+    assert [client.max_retries for client in chain._clients] == [2, 2, 2, 0, 0, 0, 2]
+    assert [client.config.embedding_batch_size for client in chain._clients] == [1000, 1000, 1000, 32, 32, 32, 96]
 
 
 def test_asus_embedding_factory_is_distinct_from_chat_qwen(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -288,6 +295,46 @@ def test_asus_embedding_factory_is_distinct_from_chat_qwen(monkeypatch: pytest.M
     assert len({provider.embedding_revision for provider in providers}) == 1
     assert len({provider.embedding_space_provider for provider in providers}) == 1
     assert len({provider.embedding_space_model for provider in providers}) == 1
+
+
+def test_voyage_v4_family_prefers_quality_and_shares_one_semantic_space(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        llm_client,
+        "get_settings",
+        lambda: SimpleNamespace(
+            VOYAGE_BASE_URL="https://api.voyageai.com/v1",
+            VOYAGE_MODEL="voyage-4-lite",
+            EMBEDDING_DIMENSIONS=4096,
+        ),
+    )
+
+    providers = llm_client._voyage_provider_configs("synthetic-key")
+
+    assert [provider.name for provider in providers] == [
+        "voyage-4-lite",
+        "voyage-4",
+        "voyage-4-large",
+    ]
+    assert [provider.embedding_batch_size for provider in providers] == [1000, 1000, 1000]
+    assert [provider.embedding_max_batch_bytes for provider in providers] == [
+        1_000_000,
+        320_000,
+        120_000,
+    ]
+    assert len({provider.embedding_space_provider for provider in providers}) == 1
+    assert len({provider.embedding_space_model for provider in providers}) == 1
+    assert len({provider.embedding_revision for provider in providers}) == 1
+    assert all(provider.embedding_l2_normalize for provider in providers)
+
+
+def test_embedding_batch_packing_uses_item_and_aggregate_byte_bounds() -> None:
+    assert llm_client._pack_embedding_batches(
+        ["aa", "bbb", "c", "dddd"],
+        max_items=3,
+        max_bytes=6,
+    ) == [(0, ["aa", "bbb", "c"]), (3, ["dddd"])]
 
 
 def test_default_settings_use_private_kz_qwen_route() -> None:
@@ -406,10 +453,10 @@ async def test_qwen_batch_failure_restarts_whole_batch_on_one_managed_space(
     )
     qwen_sizes: list[int] = []
     voyage_sizes: list[int] = []
-    progress_events: list[tuple[int, int, str]] = []
+    progress_events: list[tuple[int, int, str, int]] = []
 
-    async def on_progress(completed: int, total: int, provider: str) -> None:
-        progress_events.append((completed, total, provider))
+    async def on_progress(completed: int, total: int, provider: str, attempt: int) -> None:
+        progress_events.append((completed, total, provider, attempt))
 
     async def qwen_request(payload: dict[str, object]) -> dict[str, object]:
         qwen_sizes.append(len(payload["input"]))
@@ -437,10 +484,10 @@ async def test_qwen_batch_failure_restarts_whole_batch_on_one_managed_space(
     assert result.revision == "voyage"
     assert all(vector[:2] == pytest.approx((0.25, 0.5)) for vector in result.vectors)
     assert progress_events == [
-        (0, 33, "asus-qwen-embedding-gx10-12"),
-        (32, 33, "asus-qwen-embedding-gx10-12"),
-        (0, 33, "voyage"),
-        (33, 33, "voyage"),
+        (0, 33, "asus-qwen-embedding-gx10-12", 1),
+        (32, 33, "asus-qwen-embedding-gx10-12", 1),
+        (0, 33, "voyage", 2),
+        (33, 33, "voyage", 2),
     ]
 
 

@@ -27,6 +27,7 @@ export interface AsyncOperation {
   progress_total?: number | null;
   estimated_remaining_seconds?: number | null;
   progress_attempt?: number | null;
+  progress_provider?: string | null;
   stage?: string | null;
   message?: string | null;
   updated_at?: string | null;
@@ -174,6 +175,8 @@ export function AsyncOperationStatus({
               {hasExactProgress && (
                 <p className="mt-1 text-right text-xs tabular-nums opacity-80">
                   {progressScopeLabel ? `${progressScopeLabel}: ` : ''}{operation.progress_current} / {operation.progress_total}
+                  {operation.progress_provider ? ` · ${operation.progress_provider}` : ''}
+                  {operation.progress_attempt ? ` · #${operation.progress_attempt}` : ''}
                   {formattedRemaining !== null ? ` · ≈ ${formattedRemaining}` : ''}
                 </p>
               )}

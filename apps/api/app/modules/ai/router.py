@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any, cast
 from uuid import UUID, uuid4
@@ -36,6 +37,7 @@ from app.modules.ai.job_service import (
     build_ai_job_queue_metadata,
     get_ai_job,
     is_resumable_generation_job,
+    release_generation_reservation_once,
     resolve_tenant_ai_active_limit,
     resume_interrupted_ai_job,
     submit_ai_job,
@@ -299,7 +301,10 @@ async def _in_flight_generation_for_documents(
     return UUID(str(row.id)) if row else None
 
 
-def _job_progress_detail(job: AIJob) -> dict[str, int]:
+_PROGRESS_PROVIDER_RE = re.compile(r"[A-Za-z0-9._:-]{1,64}")
+
+
+def _job_progress_detail(job: AIJob) -> dict[str, int | str]:
     raw_params = getattr(job, "params", None)
     params: dict[str, object] = raw_params if isinstance(raw_params, dict) else {}
     detail = params.get("progress_detail")
@@ -315,7 +320,7 @@ def _job_progress_detail(job: AIJob) -> dict[str, int]:
         or current > total
     ):
         return {}
-    result = {
+    result: dict[str, int | str] = {
         "progress_current": current,
         "progress_total": total,
     }
@@ -325,6 +330,9 @@ def _job_progress_detail(job: AIJob) -> dict[str, int]:
     attempt = detail.get("attempt")
     if type(attempt) is int and attempt >= 1:
         result["progress_attempt"] = attempt
+    provider = detail.get("provider")
+    if isinstance(provider, str) and _PROGRESS_PROVIDER_RE.fullmatch(provider):
+        result["progress_provider"] = provider
     return result
 
 
@@ -446,6 +454,10 @@ async def generate_course(
         "course_format": req.course_format,
         "manual_modules": req.num_modules,
     }
+    # Only newly admitted jobs opt into the evidence-first engine. Historical
+    # interrupted jobs retain their persisted source_analysis and resume through
+    # the legacy path, so a deploy cannot change an in-flight generation plan.
+    analysis_payload["generation_engine"] = "evidence_v2"
     if analysis.requires_decision and req.source_strategy != "intentional_combination":
         raise HTTPException(
             status_code=409,
@@ -675,6 +687,19 @@ async def cancel_generation(
         raise HTTPException(status_code=404, detail="Job not found")
 
     if job.status == "cancelled":
+        try:
+            await release_generation_reservation_once(
+                db,
+                job_id=job_id,
+                tenant_id=str(user.tenant_id) if user.tenant_id else None,
+            )
+            await db.commit()
+        except Exception as exc:
+            await db.rollback()
+            raise HTTPException(
+                status_code=503,
+                detail="Cancellation is recorded; quota cleanup is pending",
+            ) from exc
         return {"status": "cancelled"}
     if job.status in ("completed", "failed"):
         raise HTTPException(status_code=400, detail="Job already finished")
@@ -691,6 +716,23 @@ async def cancel_generation(
         completed_at=datetime.now(timezone.utc),
     )
     await db.commit()
+    try:
+        await release_generation_reservation_once(
+            db,
+            job_id=job_id,
+            tenant_id=str(user.tenant_id) if user.tenant_id else None,
+        )
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        logger.exception(
+            "Could not refund cancelled generation reservation for job %s; worker retry remains available",
+            job_id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Cancellation is recorded; quota cleanup is pending",
+        ) from exc
 
     try:
         from app.core.celery_app import celery_app

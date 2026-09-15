@@ -262,17 +262,18 @@ async def run_document_reindex(
 
         from app.modules.ai.ingestion import DocumentIngestion
 
-        provider_attempt = 0
-        active_provider = ""
         attempt_started_at = time.monotonic()
 
-        async def report_embedding_progress(completed: int, total: int, provider: str) -> None:
-            nonlocal active_provider, attempt_started_at, provider_attempt
+        async def report_embedding_progress(
+            completed: int,
+            total: int,
+            provider: str,
+            attempt: int,
+        ) -> None:
+            nonlocal attempt_started_at
             if total <= 0 or completed < 0 or completed > total:
                 raise ValueError("invalid_embedding_progress")
-            if provider != active_provider:
-                active_provider = provider
-                provider_attempt += 1
+            if completed == 0:
                 attempt_started_at = time.monotonic()
             elapsed = max(0.0, time.monotonic() - attempt_started_at)
             eta_seconds = (
@@ -293,7 +294,8 @@ async def run_document_reindex(
                             "current": completed,
                             "total": total,
                             "estimated_remaining_seconds": eta_seconds,
-                            "attempt": provider_attempt,
+                            "attempt": attempt,
+                            "provider": provider,
                         },
                     }
                     await progress_session.execute(

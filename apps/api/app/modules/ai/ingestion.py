@@ -1245,7 +1245,7 @@ class EmbeddingsProvider:
         return self._client
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        """Get embeddings with automatic failover from Qwen to Voyage."""
+        """Get embeddings through managed Voyage with private fallbacks."""
         from app.modules.ai.llm_client import AllProvidersFailedError
 
         try:
@@ -1382,7 +1382,7 @@ class DocumentIngestion:
                 "Document conversion produced no indexable text. " "Upload a document containing readable text."
             )
 
-        # Step 3: Embed (Qwen → Voyage → Cohere). A readable original is the
+        # Step 3: Embed (Voyage V4 → Qwen replicas → Cohere). A readable original is the
         # source of truth for course generation, so total provider exhaustion
         # degrades semantic search but must not make the source unusable.
         texts = [c["text"] for c in chunks]

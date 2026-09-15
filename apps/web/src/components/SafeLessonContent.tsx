@@ -7,9 +7,14 @@ type SafeLessonContentProps = {
 const headingPattern = /^(#{1,6})\s+(.+)$/;
 const unorderedListPattern = /^[-*+]\s+(.+)$/;
 const orderedListPattern = /^(\d+)[.)]\s+(.+)$/;
+const escapedMarkdownPattern = /\\([\\`*_[\]{}()#+\-.!|>~])/g;
+
+function literalInlineText(text: string): string {
+  return text.replace(escapedMarkdownPattern, '$1');
+}
 
 function inlineContent(text: string, keyPrefix: string): ReactNode[] {
-  return text.split(/(\*\*[^*\n]+\*\*|\*[^*\n]+\*)/g).map((segment, index) => {
+  return text.split(/((?<!\\)\*\*[^*\n]+(?<!\\)\*\*|(?<!\\)\*[^*\n]+(?<!\\)\*)/g).map((segment, index) => {
     const key = `${keyPrefix}:${index}`;
     if (segment.startsWith('**') && segment.endsWith('**')) {
       return <strong key={key}>{segment.slice(2, -2)}</strong>;
@@ -17,7 +22,7 @@ function inlineContent(text: string, keyPrefix: string): ReactNode[] {
     if (segment.startsWith('*') && segment.endsWith('*')) {
       return <em key={key}>{segment.slice(1, -1)}</em>;
     }
-    return <Fragment key={key}>{segment}</Fragment>;
+    return <Fragment key={key}>{literalInlineText(segment)}</Fragment>;
   });
 }
 

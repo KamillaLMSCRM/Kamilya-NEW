@@ -47,8 +47,8 @@ async def test_document_reindex_worker_completes_and_is_idempotent(
             on_embedding_progress,
         ):
             observed_source_revisions.append(source_revision)
-            await on_embedding_progress(0, 3, "synthetic-provider")
-            await on_embedding_progress(3, 3, "synthetic-provider")
+            await on_embedding_progress(0, 3, "synthetic-provider", 2)
+            await on_embedding_progress(3, 3, "synthetic-provider", 2)
             return {"chunks": 3, "embeddings_written": 3}
 
     monkeypatch.setattr(operations, "async_session_factory", lambda: SessionContext())
@@ -104,6 +104,8 @@ async def test_document_reindex_worker_completes_and_is_idempotent(
     assert stored.index_chunks_total == 3
     assert stored.index_chunks_indexed == 3
     assert stored_job.status == "completed"
+    assert stored_job.params["progress_detail"]["provider"] == "synthetic-provider"
+    assert stored_job.params["progress_detail"]["attempt"] == 2
     assert observed_source_revisions == [f"document:{source_sha256}"]
 
 

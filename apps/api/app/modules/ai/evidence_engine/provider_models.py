@@ -66,6 +66,8 @@ class ProviderBackedResult:
     grounded_blocks: tuple[GroundedBlock, ...]
     publishability: PublishabilityReport
     provider_fallback_count: int
+    deterministic_fallback_count: int
+    deterministic_fallback_lesson_ids: tuple[str, ...]
     validation_errors: tuple[str, ...]
     chat_attempt_count: int
     prompt_tokens: int

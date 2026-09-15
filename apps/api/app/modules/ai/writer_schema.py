@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
+from typing import Literal
 
 
 @dataclass
@@ -14,9 +15,13 @@ class LessonContent:
     source_chunks: list[str] = field(default_factory=list)
     source_references: list[dict] = field(default_factory=list)
     quality_policy_version: str = ""
+    source_validation_status: Literal["verified", "needs_review"] = "verified"
 
     def requires_source_review(self) -> bool:
-        return any("[UNREADABLE_PERCENTAGE_VALUE]" in value for value in (self.content, *self.source_chunks))
+        return self.source_validation_status == "needs_review" or any(
+            "[UNREADABLE_PERCENTAGE_VALUE]" in value
+            for value in (self.content, *self.source_chunks)
+        )
 
     def to_dict(self) -> dict:
         return asdict(self)

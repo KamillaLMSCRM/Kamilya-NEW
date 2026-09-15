@@ -31,6 +31,11 @@ from app.modules.ai.direct_source import (
     run_direct_architect,
     write_direct_course,
 )
+from app.modules.ai.evidence_engine.application import (
+    generate_evidence_course,
+    to_generation_artifacts,
+)
+from app.modules.ai.evidence_engine.models import CourseIntent
 from app.modules.ai.generation_checkpoint import (
     AIGenerationCheckpointError,
     AIGenerationCheckpointRepository,
@@ -40,7 +45,11 @@ from app.modules.ai.generation_checkpoint import (
 )
 from app.modules.ai.ingestion import EmbeddingsProvider, VectorStore
 from app.modules.ai.lesson_quality import LESSON_QUALITY_POLICY_VERSION
-from app.modules.ai.llm_client import AllProvidersFailedError, ResilientLLMClient
+from app.modules.ai.llm_client import (
+    AllProvidersFailedError,
+    ResilientEmbeddingsClient,
+    ResilientLLMClient,
+)
 from app.modules.ai.reviewer import ReviewerAgent
 from app.modules.ai.source_map_checkpoint import SourceMapCheckpointStore
 from app.modules.ai.writer import UnsupportedLessonSourceError, write_course
@@ -354,11 +363,37 @@ async def _update_job_db(
         await session.commit()
 
 
-def _timed_progress_detail(completed: int, total: int, started_at: float) -> dict[str, int]:
+async def _release_generation_reservation(
+    job_id: str,
+    tenant_id: UUID | str,
+) -> bool:
+    """Release a new-course reservation in an independent transaction."""
+
+    from sqlalchemy import text
+
+    from app.modules.ai.job_service import release_generation_reservation_once
+
+    tenant_value = str(tenant_id)
+    async with async_session_factory() as session:
+        await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_value})
+        released = await release_generation_reservation_once(
+            session,
+            job_id=job_id,
+            tenant_id=tenant_value,
+        )
+        await session.commit()
+        return released
+
+
+def _timed_progress_detail(
+    completed: int,
+    total: int,
+    started_at: float,
+) -> dict[str, int | str]:
     """Build count-based progress with an estimate derived only from completed units."""
     if total < 1 or completed < 0 or completed > total:
         raise ValueError("invalid_progress_detail")
-    detail = {"current": completed, "total": total}
+    detail: dict[str, int | str] = {"current": completed, "total": total}
     if completed == total:
         detail["estimated_remaining_seconds"] = 0
     elif completed > 0:
@@ -375,6 +410,87 @@ def _completed_progress_detail(content: CourseContent) -> dict[str, int] | None:
     if total < 1:
         return None
     return {"current": total, "total": total, "estimated_remaining_seconds": 0}
+
+
+async def _run_evidence_v2_generation(
+    state: GenerationState,
+    corpus: DirectSourceCorpus,
+    *,
+    tenant_id: UUID,
+    target_audience: str,
+    guidance: str | None,
+    goals: list[str] | None,
+) -> None:
+    """Populate the existing persistence state from one complete V2 result."""
+
+    generation_client = await ResilientLLMClient.from_settings_async(tenant_id=tenant_id)
+    embedding_client = await ResilientEmbeddingsClient.from_settings_async(
+        tenant_id=tenant_id
+    )
+    realization_started = time.monotonic()
+
+    embedding_started = time.monotonic()
+
+    async def report_progress(
+        stage: str,
+        current: int,
+        total: int,
+        provider: str | None,
+        attempt: int | None,
+    ) -> None:
+        if stage == "evidence_plan":
+            progress, message, detail = 15, "Построен доказательный план курса", None
+        elif stage == "embeddings":
+            progress = 15 + math.floor(10 * current / max(1, total))
+            message = f"Семантический анализ: {current} из {total}"
+            detail = _timed_progress_detail(current, total, embedding_started)
+            if provider:
+                detail["provider"] = provider
+            if attempt is not None:
+                detail["attempt"] = attempt
+        elif stage == "realization":
+            progress = 25 + math.floor(65 * current / max(1, total))
+            message = f"Создание уроков: {current} из {total}"
+            detail = _timed_progress_detail(current, total, realization_started)
+        elif stage == "quality":
+            progress, message, detail = 95, "Курс и тесты прошли внутреннюю проверку", None
+        else:
+            raise ValueError("unknown_evidence_v2_progress_stage")
+        state.stage = stage
+        state.progress = progress
+        state.message = message
+        await _update_job_db(
+            state.job_id,
+            tenant_id=tenant_id,
+            stage=stage,
+            progress=progress,
+            message=message,
+            progress_detail=detail,
+        )
+
+    generated = await generate_evidence_course(
+        corpus,
+        intent=CourseIntent(
+            purpose=(guidance or "").strip(),
+            audience=target_audience.strip(),
+            emphasis=tuple(value.strip() for value in (goals or []) if value.strip()),
+        ),
+        generation_client=generation_client,
+        embedding_client=embedding_client,
+        progress_callback=report_progress,
+        cancellation_callback=lambda: _check_cancelled_async(
+            state.job_id,
+            tenant_id=tenant_id,
+        ),
+    )
+    artifacts = to_generation_artifacts(generated)
+    state.structure = artifacts.structure
+    state.content = artifacts.content
+    state.assessment = artifacts.assessment
+    state.source_analysis = {
+        **state.source_analysis,
+        "evidence_v2": artifacts.diagnostics,
+    }
 
 
 def _apply_assessment_omission_notices(state: GenerationState) -> None:
@@ -446,7 +562,6 @@ async def _save_generation_to_db(
             )
             session.add(course)
             await session.flush()
-            state.course_id = str(course.id)
         else:
             course = await session.scalar(
                 select(Course).where(
@@ -691,6 +806,7 @@ async def _save_generation_to_db(
             params.pop("progress_detail", None)
         job.params = params  # type: ignore[assignment]
         await session.commit()
+        state.course_id = str(course.id)
         logger.info(f"Saved generation results to DB for course {state.course_id}")
 
 async def _check_cancelled_async(
@@ -749,6 +865,7 @@ async def run_generation_pipeline(
         source_analysis=dict(source_analysis or {}),
         reuse_reason=reuse_reason,
     )
+    reservation_required = course_id is None
     direct_mode = state.source_analysis.get("analysis_mode") == "direct_source"
     direct_corpus: DirectSourceCorpus | None = None
     map_checkpoints: SourceMapCheckpointStore | None = None
@@ -778,6 +895,48 @@ async def run_generation_pipeline(
                     tenant_id=tenant_id,
                 ),
             )
+            if state.source_analysis.get("generation_engine") == "evidence_v2":
+                await _run_evidence_v2_generation(
+                    state,
+                    direct_corpus,
+                    tenant_id=tenant_id,
+                    target_audience=target_audience,
+                    guidance=guidance,
+                    goals=goals,
+                )
+                await _check_cancelled_async(job_id, tenant_id=tenant_id)
+                state.stage = "saving"
+                state.progress = 98
+                state.message = "Сохранение результатов..."
+                await _update_job_db(
+                    job_id,
+                    tenant_id=tenant_id,
+                    stage="saving",
+                    progress=98,
+                    message=state.message,
+                    progress_detail=None,
+                )
+                if user_id:
+                    await _save_generation_to_db(state, tenant_id, user_id)
+                else:
+                    assert state.content is not None
+                    state.status = "completed"
+                    state.stage = "completed"
+                    state.progress = 100
+                    state.message = _generation_completion_message(state.content)
+                    await _update_job_db(
+                        job_id,
+                        tenant_id=tenant_id,
+                        status="completed",
+                        stage="completed",
+                        progress=100,
+                        message=state.message,
+                        course_id=UUID(state.course_id) if state.course_id else None,
+                        completed_at=datetime.now(UTC),
+                        progress_detail=_completed_progress_detail(state.content),
+                    )
+                logger.info("Evidence V2 generation complete for job %s", job_id)
+                return state
         # Semantic documents are ingested at upload time into pgvector. Keep
         # the legacy verification path unchanged for semantic generation.
         elif documents:
@@ -1689,36 +1848,47 @@ async def run_generation_pipeline(
         state.status = "cancelled"
         state.stage = "cancelled"
         state.message = "Cancelled by user"
+        try:
+            await _update_job_db(
+                job_id,
+                tenant_id=tenant_id,
+                status="cancelled",
+                stage="cancelled",
+                message=state.message,
+                completed_at=datetime.now(UTC),
+                progress_detail=None,
+            )
+        except Exception:
+            logger.exception("Could not persist cancelled generation job %s", job_id)
+        if tenant_id and reservation_required:
+            try:
+                await _release_generation_reservation(job_id, tenant_id)
+            except Exception:
+                logger.exception(
+                    "Could not refund cancelled generation reservation for job %s",
+                    job_id,
+                )
         logger.info("Generation pipeline cancelled for job %s", job_id)
     except Exception as e:
         state.status = "failed"
         state.message = GENERATION_FAILURE_MESSAGE
         failure_code = e.code if isinstance(e, DirectSourceError) else GENERATION_FAILURE_CODE
         state.errors.append(failure_code)
-        await _update_job_db(
-            job_id,
-            tenant_id=tenant_id,
-            status="failed",
-            stage="failed",
-            message=state.message,
-            errors=[failure_code],
-            completed_at=datetime.now(UTC),
-        )
-        if tenant_id and not state.course_id:
+        try:
+            await _update_job_db(
+                job_id,
+                tenant_id=tenant_id,
+                status="failed",
+                stage="failed",
+                message=state.message,
+                errors=[failure_code],
+                completed_at=datetime.now(UTC),
+            )
+        except Exception:
+            logger.exception("Could not persist failed generation job %s", job_id)
+        if tenant_id and reservation_required:
             try:
-                from sqlalchemy import text
-
-                from app.core.trial_limits import release_ai_course_generation
-                from app.modules.ai.budget import refund_llm_budget
-
-                async with async_session_factory() as session:
-                    await session.execute(
-                        text("SELECT set_current_tenant(:tid)"),
-                        {"tid": str(tenant_id)},
-                    )
-                    await release_ai_course_generation(session, tenant_id)
-                    await refund_llm_budget(session, str(tenant_id), "generate_course")
-                    await session.commit()
+                await _release_generation_reservation(job_id, tenant_id)
             except Exception:
                 logger.exception(
                     "Could not refund failed generation reservation for job %s",

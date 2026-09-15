@@ -2872,3 +2872,69 @@ contract or establish a blocker.
   accepted all four, and the source-wide audit retained 10 of 11 questions after
   deleting one semantic duplicate without padding. Exact CI, DEV and production
   user-flow readback remain release gates.
+
+## 2026-09-15 — Per-lesson embedding queries exhausted managed-provider RPM
+
+- Symptom: all Voyage V4 models passed small probes, but one 12-lesson Excel
+  simulation emitted repeated HTTP 429 responses and spent 62.717 seconds in
+  retrieval measurement before fallback.
+- Cause: V2 embedded every lesson query in a separate API call. Free token
+  capacity did not imply sufficient requests-per-minute capacity. Independent
+  failover could also return a query vector from a semantic space different
+  from the document vectors.
+- Fix: submit all lesson queries as one bounded query batch and pack documents by
+  provider item/aggregate-byte limits; declare the vendor-
+  compatible Voyage V4 family as one exact semantic space; compare vectors only
+  when document and query provenance match. A mismatch degrades the optional
+  retrieval metric and never discards source-grounded facts.
+- Prevention: provider probes must include production-shaped batching, exact
+  vector-space provenance and a real source simulation. Never infer workload
+  readiness from HTTP 200 on one short embedding request.
+- Provider finding: the unbilled Voyage account explicitly reported a reduced
+  limit of 3 RPM/10K TPM. Its separate 200M free token pools are capacity, not
+  production throughput. After the owner added billing, the same 250-fragment,
+  22,549-token production-shaped request returned HTTP 200; only then was Voyage
+  restored to first position.
+- Verification: the repeated full Excel simulation completed in 43.356 seconds;
+  embedding time fell to 2.550 seconds, with 12 lessons, 21 questions,
+  `publishable=true`, `embedding_degraded=false` and no 429/failover log.
+
+## 2026-09-15 — Cancelled generation could retain a reservation after cleanup failure
+
+- Symptom: a generation job was durably `cancelled`, but a transient quota or
+  budget cleanup failure could leave its reservation charged; repeating cancel
+  returned success without retrying cleanup.
+- Cause: the idempotent cancellation branch returned before calling the shared
+  reservation-release helper.
+- Fix: both first cancellation and repeated cancellation call the same
+  transactional, idempotent release helper. A cleanup failure returns `503`
+  while preserving the terminal cancellation, so the next request can retry.
+- Prevention: every terminal path that owns a reservation must use one durable
+  release marker and prove failure-then-retry behavior in tests.
+- Verification: focused cancellation tests cover successful release, exact-once
+  repeat behavior and transient failure followed by a successful retry.
+
+## 2026-09-15 — Degraded source-only lessons were labelled verified
+
+- Symptom: course diagnostics reported deterministic fallback, while persisted
+  lessons without an OCR marker could still receive `source_validation_status=verified`.
+- Cause: lesson review status was inferred only from one unreadable-value marker
+  instead of explicit realization provenance.
+- Fix: V2 records exact deterministic-fallback lesson IDs and maps those lessons
+  to `needs_review`; ordinary validated lessons remain `verified`.
+- Prevention: course-level degradation and each persisted lesson status must be
+  asserted together; never infer provider validation from readable source text.
+- Verification: provider-exhaustion and persistence tests assert all affected
+  lessons require review.
+
+## 2026-09-15 — Embedding failover looked like progress moved backwards
+
+- Symptom: when one embedding provider partially completed and failed, the next
+  provider restarted at `0 / total` without explaining the reset.
+- Cause: progress exposed provider and counts but omitted the failover attempt.
+- Fix: resilient embedding callbacks attach a one-based attempt; API and UI show
+  provider plus `#attempt`, and ETA is recalculated for that complete attempt.
+- Prevention: failover tests must include partial progress, provider change,
+  counter restart and attempt increment. Provider names remain sanitized.
+- Verification: backend sequence tests and frontend status rendering tests pass;
+  the full frontend suite contains 594 passing tests.

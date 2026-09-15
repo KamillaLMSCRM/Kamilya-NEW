@@ -71,3 +71,38 @@ async def test_update_ai_job_sets_completed_at_for_completed_status(monkeypatch)
 
     assert result is job
     assert job.completed_at == fixed_now
+
+
+@pytest.mark.asyncio
+async def test_generation_reservation_release_is_durable_and_idempotent(monkeypatch):
+    from app.core import trial_limits
+    from app.modules.ai import budget
+
+    job = AIJob(
+        id="reservation-contract",
+        tenant_id="tenant-contract",
+        status="cancelled",
+        params={
+            "documents": ["doc-1"],
+            "generation_reservation_required": True,
+            "generation_reservation_released": False,
+        },
+    )
+    lookup = AsyncMock(return_value=job)
+    release = AsyncMock()
+    refund = AsyncMock()
+    db = type("DB", (), {"flush": AsyncMock()})()
+    monkeypatch.setattr(job_service, "get_ai_job", lookup)
+    monkeypatch.setattr(trial_limits, "release_ai_course_generation", release)
+    monkeypatch.setattr(budget, "refund_llm_budget", refund)
+
+    assert await job_service.release_generation_reservation_once(
+        db, job_id=job.id, tenant_id="tenant-contract"
+    ) is True
+    assert await job_service.release_generation_reservation_once(
+        db, job_id=job.id, tenant_id="tenant-contract"
+    ) is False
+
+    release.assert_awaited_once_with(db, "tenant-contract")
+    refund.assert_awaited_once_with(db, "tenant-contract", "generate_course")
+    assert job.params["generation_reservation_released"] is True

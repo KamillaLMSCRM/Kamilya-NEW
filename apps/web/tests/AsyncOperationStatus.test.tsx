@@ -70,13 +70,15 @@ describe('AsyncOperationStatus', () => {
           progress_current: 320,
           progress_total: 1076,
           estimated_remaining_seconds: 721,
+          progress_provider: 'voyage-4-lite',
+          progress_attempt: 2,
         }}
         title="Document indexing"
         labels={labels}
       />,
     );
 
-    expect(screen.getByText(/^320 \/ 1076 · ≈ 13 /)).toBeInTheDocument();
+    expect(screen.getByText(/^320 \/ 1076 · voyage-4-lite · #2 · ≈ 13 /)).toBeInTheDocument();
     expect(screen.getByText('48%')).toBeInTheDocument();
   });
 
