@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-14.
+Current as of: 2026-09-15.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -2938,3 +2938,31 @@ contract or establish a blocker.
   counter restart and attempt increment. Provider names remain sanitized.
 - Verification: backend sequence tests and frontend status rendering tests pass;
   the full frontend suite contains 594 passing tests.
+
+## AI-QUALITY-023 - Legacy quality fixes did not cover the active V2 path
+
+- Date: 2026-09-15. Confirmed by post-release synthetic-tenant acceptance of
+  backend `0.5.50` and reproduced with the exact generated lesson and question
+  shapes before any course approval or publication.
+- Symptom: learner text still contained sales-style marketplace comparisons, and
+  one question marked a roller-guide answer correct while another roller-guide
+  option answered the same attribute with different qualifiers.
+- Cause: the release changed legacy lesson and assessment validators, while new
+  direct-source jobs run through the separate `evidence_v2` provider and final
+  publishability path. Focused tests exercised the changed functions instead of
+  the active generation-to-artifact seam.
+- Fix: share the deterministic ambiguous-answer contract with V2; delete invalid
+  questions without padding; reject blocked model prose during validated calls;
+  neutralize only the same known phrases in source-only fallback text; and apply
+  a defense-in-depth check to every final learner-visible field. Persisted V2
+  artifacts now carry quality policy `evidence-v2-quality-v2`.
+- Verification: exact RED/GREEN regressions pass through the active async V2 seam
+  and final publishability contract. The complete source Excel replay generated
+  12 lessons and 17 retained questions in 117.688 seconds, used Voyage without
+  embedding degradation, returned `publishable=true`, and an independent scan
+  found no blocked phrase, generic question, or exact duplicate. Full CI,
+  immutable deployment and post-release synthetic acceptance remain release gates.
+- Prevention: every generation-quality release must replay the production engine
+  named in job metadata from source conversion through final artifacts. Green
+  helper tests, API health and queue completion cannot replace semantic inspection
+  of the retained course and all answer options.

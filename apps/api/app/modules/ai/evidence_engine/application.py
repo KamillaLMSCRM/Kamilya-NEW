@@ -28,6 +28,7 @@ from app.modules.ai.direct_source import (
     merged_direct_source_worksheet_tables,
 )
 from app.modules.ai.document_passport import SectionRole, build_document_passport
+from app.modules.ai.lesson_quality import neutralize_unprofessional_source_language
 from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFailureReason
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 
@@ -46,7 +47,11 @@ from .models import (
 from .provider_engine import ProviderBackedEvidenceEngine, _normalize
 from .provider_models import GroundedBlock, ProviderBackedResult, RetrievalMeasurement
 from .providers import EVIDENCE_REALIZER_SYSTEM_PROMPT
-from .quality import evaluate_publishability
+from .quality import (
+    EVIDENCE_QUALITY_POLICY_VERSION,
+    evaluate_publishability,
+    filter_acceptable_questions,
+)
 
 ProgressCallback = Callable[[str, int, int, str | None, int | None], Awaitable[None] | None]
 CancellationCallback = Callable[[], Awaitable[None] | None]
@@ -372,8 +377,10 @@ def _grounded_fallback(
     rendered: list[str] = []
     for fact_id in plan_fact_ids:
         fact = facts_by_id[fact_id]
-        heading = " ".join(fact.attribute.strip().rstrip(".:").split()) or "Подтверждённые сведения"
-        text = fact.value.strip()
+        heading = neutralize_unprofessional_source_language(
+            " ".join(fact.attribute.strip().rstrip(".:").split())
+        ) or "Подтверждённые сведения"
+        text = neutralize_unprofessional_source_language(fact.value.strip())
         blocks.append(
             GroundedBlock(
                 lesson_id=base_lesson.lesson_id,
@@ -388,8 +395,8 @@ def _grounded_fallback(
         LessonDraft(
             lesson_id=base_lesson.lesson_id,
             module_title=base_lesson.module_title,
-            title=base_lesson.title,
-            objective=base_lesson.objective,
+            title=neutralize_unprofessional_source_language(base_lesson.title),
+            objective=neutralize_unprofessional_source_language(base_lesson.objective),
             content="\n".join(rendered).strip(),
             fact_ids=base_lesson.fact_ids,
             supporting_fact_ids=base_lesson.supporting_fact_ids,
@@ -608,7 +615,9 @@ async def generate_evidence_course(
         grounded_blocks.extend(blocks)
         await _progress(progress_callback, "realization", index, total)
 
-    realized_questions = _deduplicate_questions(realized_questions)
+    realized_questions = filter_acceptable_questions(
+        _deduplicate_questions(realized_questions)
+    )
     realized_course = CourseDraft(
         title=bundle.document.title,
         description=evidence_result.course.description,
@@ -720,7 +729,7 @@ def to_generation_artifacts(output: EvidenceGenerationOutput) -> GenerationArtif
                 content=lesson.content,
                 source_chunks=[fact.value for fact in lesson_facts],
                 source_references=references,
-                quality_policy_version="evidence_v2",
+                quality_policy_version=EVIDENCE_QUALITY_POLICY_VERSION,
                 source_validation_status=(
                     "needs_review" if lesson.lesson_id in fallback_lesson_ids else "verified"
                 ),
@@ -741,7 +750,7 @@ def to_generation_artifacts(output: EvidenceGenerationOutput) -> GenerationArtif
                     )
                     for question in lesson_questions
                 ],
-                quality_policy_version="evidence_v2",
+                quality_policy_version=EVIDENCE_QUALITY_POLICY_VERSION,
                 omission_reason=("no_safe_source_grounded_questions" if not lesson_questions else ""),
             ))
         structure_modules.append(StructureModule(
@@ -763,6 +772,7 @@ def to_generation_artifacts(output: EvidenceGenerationOutput) -> GenerationArtif
 
     diagnostics = {
         "engine": "evidence_v2",
+        "quality_policy_version": EVIDENCE_QUALITY_POLICY_VERSION,
         "semantic_fingerprint": result.evidence_result.semantic_fingerprint,
         "publishable": result.publishability.publishable,
         "fact_coverage_ratio": result.publishability.fact_coverage_ratio,

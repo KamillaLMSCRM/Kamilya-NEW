@@ -52,9 +52,39 @@ _GUIDE_VALUE_PATTERNS = {
     "roller": re.compile(r"\b(?:роликов\w*|roller)\b", re.IGNORECASE),
     "ball_bearing": re.compile(r"\b(?:шариков\w*|ball[- ]bearing)\b", re.IGNORECASE),
 }
+_MARKETPLACE_TERM = r"(?:маркетплейс\w*|маркет-?плейс\w*|marketplaces?)"
 _UNPROFESSIONAL_LEARNER_LANGUAGE_RE = re.compile(
     r"(?:\bсовременн\w*\s+look\b|\bне\s+[«\"']?игрушечн\w*[»\"']?\b|"
-    r"\bне\s+с\s+маркетплейс\w*\b)",
+    rf"\bне\s+[«\"']?с\s+{_MARKETPLACE_TERM}[»\"']?\b|"
+    rf"\bкомпакт\w*\s+с\s+{_MARKETPLACE_TERM}\b|"
+    rf"\b(?:в\s+отличие\s+от|превосход\w*|не\s+назва\w*|не\s+как\s+у)"
+    rf"[^.!?]{{0,120}}\b{_MARKETPLACE_TERM}\b)",
+    re.IGNORECASE,
+)
+_MODERN_LOOK_RE = re.compile(r"\bсовременн\w*\s+look\b", re.IGNORECASE)
+_TOY_SIZE_RE = re.compile(r",?\s*не\s+[«\"']?игрушечн\w*[»\"']?", re.IGNORECASE)
+_MARKETPLACE_COMPACT_RE = re.compile(
+    rf",?\s*(?:а\s+)?не\s+компакт\w*\s+с\s+{_MARKETPLACE_TERM}",
+    re.IGNORECASE,
+)
+_MARKETPLACE_NEGATION_RE = re.compile(
+    rf"\s*[«\"']?не\s+[«\"']?с\s+{_MARKETPLACE_TERM}[»\"']?",
+    re.IGNORECASE,
+)
+_MARKETPLACE_CONTRAST_PREFIX_RE = re.compile(
+    rf"\bв\s+отличие\s+от\s+[^,.!?;]{{0,120}}\b{_MARKETPLACE_TERM}\b\s*[,;:]?\s*",
+    re.IGNORECASE,
+)
+_MARKETPLACE_RELATIVE_RE = re.compile(
+    rf",?\s*котор\w*\s+не\s+назва\w*\s+[«\"']?с\s+{_MARKETPLACE_TERM}[»\"']?",
+    re.IGNORECASE,
+)
+_MARKETPLACE_NOT_LIKE_RE = re.compile(
+    rf",?\s*не\s+как\s+у\s+[^,.!?;]{{0,120}}\b{_MARKETPLACE_TERM}\b",
+    re.IGNORECASE,
+)
+_MARKETPLACE_SUPERIORITY_RE = re.compile(
+    rf"(\bпревосход\w*\s+[^.!?]{{0,120}}?)\s+(?:с\s+)?{_MARKETPLACE_TERM}\b",
     re.IGNORECASE,
 )
 
@@ -63,6 +93,25 @@ def has_unprofessional_learner_language(text: str) -> bool:
     """Return whether learner-visible text contains a blocked sales-style phrase."""
 
     return bool(_UNPROFESSIONAL_LEARNER_LANGUAGE_RE.search(text))
+
+
+def neutralize_unprofessional_source_language(text: str) -> str:
+    """Remove known sales-style comparisons while preserving source facts."""
+
+    if not has_unprofessional_learner_language(text):
+        return text
+    neutral = _MODERN_LOOK_RE.sub("современный внешний вид", text)
+    neutral = _TOY_SIZE_RE.sub("", neutral)
+    neutral = _MARKETPLACE_COMPACT_RE.sub("", neutral)
+    neutral = _MARKETPLACE_NEGATION_RE.sub("", neutral)
+    neutral = _MARKETPLACE_CONTRAST_PREFIX_RE.sub("", neutral)
+    neutral = _MARKETPLACE_RELATIVE_RE.sub("", neutral)
+    neutral = _MARKETPLACE_NOT_LIKE_RE.sub("", neutral)
+    neutral = _MARKETPLACE_SUPERIORITY_RE.sub(r"\1", neutral)
+    neutral = re.sub(r"\s+([,.!?])", r"\1", neutral)
+    neutral = re.sub(r",\s*,", ",", neutral)
+    neutral = re.sub(r"\s+", " ", neutral).strip()
+    return neutral
 
 
 _GUIDE_SCOPE_TOKENS = {

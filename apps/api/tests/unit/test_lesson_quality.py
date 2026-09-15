@@ -4,6 +4,8 @@ from app.modules.ai.lesson_quality import (
     LessonQualityEvaluation,
     capture_lesson_quality_evaluations,
     evaluate_lesson_quality,
+    has_unprofessional_learner_language,
+    neutralize_unprofessional_source_language,
 )
 
 
@@ -706,6 +708,12 @@ def test_conflicting_article_attribute_cannot_be_hidden_by_omitting_identifier()
         "Комоды имеют нормальные, не «игрушечные» габариты.",
         "Коллекция подойдёт покупателям, которым нужен современный look без ручек.",
         "Комоды имеют полноценные габариты, не с маркетплейса.",
+        "Габариты полноценные — не «с маркетплейса».",
+        "Полноценные габариты, а не компакт с маркетплейса.",
+        "Полноценные габариты, которые не назвать «с маркетплейса».",
+        "В отличие от marketplace, комод имеет полноценные габариты.",
+        "Комод превосходит аналоги с маркет-плейса по габаритам.",
+        "Габариты полноценные, не как у компактных моделей с маркетплейсов.",
     ),
 )
 def test_lesson_quality_rejects_unprofessional_sales_language(content: str) -> None:
@@ -717,3 +725,80 @@ def test_lesson_quality_rejects_unprofessional_sales_language(content: str) -> N
 
     assert result.accepted is False
     assert "unprofessional_learner_language" in result.reason_codes
+
+
+@pytest.mark.parametrize(
+    "source, retained_facts",
+    (
+        (
+            "Комод предлагает достаточно места для хранения. "
+            "Комод превосходит компактные аналоги с маркетплейсов по габаритам и входит "
+            "в модульную платформу для всей квартиры.",
+            (
+                "достаточно места для хранения",
+                "превосходит компактные аналоги по габаритам",
+                "входит в модульную платформу",
+            ),
+        ),
+        (
+            "В отличие от предложений маркетплейса, комод имеет три вместительных ящика "
+            "и входит в модульную платформу для всей квартиры.",
+            (
+                "комод имеет три вместительных ящика",
+                "входит в модульную платформу",
+            ),
+        ),
+        (
+            "Комод превосходит компактные аналоги маркетплейса по габаритам, имеет три "
+            "вместительных ящика и входит в модульную платформу.",
+            (
+                "превосходит компактные аналоги по габаритам",
+                "имеет три вместительных ящика",
+                "входит в модульную платформу",
+            ),
+        ),
+        (
+            "Комод имеет матовые ручки и полноценные габариты, которые не назвать "
+            "«с маркетплейса», а также входит в модульную платформу.",
+            (
+                "комод имеет матовые ручки и полноценные габариты",
+                "входит в модульную платформу",
+            ),
+        ),
+        (
+            "Комод имеет матовые ручки, а габариты — полноценные, не как у компактных "
+            "моделей с маркетплейсов, и входит в модульную платформу.",
+            (
+                "комод имеет матовые ручки",
+                "габариты — полноценные",
+                "входит в модульную платформу",
+            ),
+        ),
+    ),
+)
+def test_source_style_neutralization_preserves_non_comparative_facts_in_same_sentence(
+    source: str,
+    retained_facts: tuple[str, ...],
+) -> None:
+
+    neutral = neutralize_unprofessional_source_language(source)
+
+    assert all(fact in neutral.casefold() for fact in retained_facts)
+    assert "маркетплейс" not in neutral
+    assert has_unprofessional_learner_language(neutral) is False
+
+
+def test_marketplace_channel_fact_is_preserved_while_comparison_is_neutralized() -> None:
+    legitimate = "Товар размещается на маркетплейсе и синхронизирует остатки ежедневно."
+    mixed = (
+        f"{legitimate} В отличие от предложений маркетплейса, комод имеет три "
+        "вместительных ящика."
+    )
+
+    assert has_unprofessional_learner_language(legitimate) is False
+    assert neutralize_unprofessional_source_language(legitimate) == legitimate
+    neutral = neutralize_unprofessional_source_language(mixed)
+    assert legitimate in neutral
+    assert "комод имеет три вместительных ящика" in neutral.casefold()
+    assert "в отличие от" not in neutral.casefold()
+    assert has_unprofessional_learner_language(neutral) is False

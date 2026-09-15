@@ -342,7 +342,7 @@ def _answers_are_near_equivalent(left: str, right: str) -> bool:
     return longer[-len(shorter) :] == shorter
 
 
-def _distractor_repeats_correct_attribute_answer(
+def distractor_repeats_correct_attribute_answer(
     question: str,
     correct_answer: str,
     distractor: str,
@@ -371,6 +371,11 @@ def _distractor_repeats_correct_attribute_answer(
         and bool(shared_tokens & question_tokens)
         and bool(shared_tokens - question_tokens)
     )
+
+
+# Backward-compatible private alias for older call sites while V2 shares the
+# same deterministic question-quality contract.
+_distractor_repeats_correct_attribute_answer = distractor_repeats_correct_attribute_answer
 
 
 def _answers_share_distinctive_phrase(left: str, right: str) -> bool:

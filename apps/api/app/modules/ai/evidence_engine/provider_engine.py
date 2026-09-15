@@ -9,6 +9,11 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
+from app.modules.ai.lesson_quality import (
+    has_unprofessional_learner_language,
+    neutralize_unprofessional_source_language,
+)
+
 from .adapters import XlsxEvidenceAdapter
 from .engine import EvidenceCourseEngine
 from .models import (
@@ -27,6 +32,7 @@ from .providers import QWEN_QUERY_PREFIX, ChatJsonProvider, EmbeddingProvider, P
 from .quality import (
     contains_ocr_artifact,
     evaluate_publishability,
+    filter_acceptable_questions,
     is_acceptable_title,
     is_generic_question,
 )
@@ -206,14 +212,24 @@ class ProviderBackedEvidenceEngine:
                 fallback_count += 1
                 deterministic_fallback_lesson_ids.append(plan.lesson_id)
                 validation_errors.append(f"{plan.lesson_id}: {last_error or 'provider unavailable'}")
-                realized_lessons.append(base_lesson)
+                fallback_lesson = LessonDraft(
+                    lesson_id=base_lesson.lesson_id,
+                    module_title=base_lesson.module_title,
+                    title=neutralize_unprofessional_source_language(base_lesson.title),
+                    objective=neutralize_unprofessional_source_language(base_lesson.objective),
+                    content=neutralize_unprofessional_source_language(base_lesson.content),
+                    fact_ids=base_lesson.fact_ids,
+                    supporting_fact_ids=base_lesson.supporting_fact_ids,
+                    duration_minutes=base_lesson.duration_minutes,
+                )
+                realized_lessons.append(fallback_lesson)
                 realized_questions.extend(seeds)
                 grounded_blocks.append(
                     GroundedBlock(
-                        lesson_id=base_lesson.lesson_id,
+                        lesson_id=fallback_lesson.lesson_id,
                         heading="Детерминированный черновик",
-                        text=base_lesson.content,
-                        fact_ids=base_lesson.fact_ids,
+                        text=fallback_lesson.content,
+                        fact_ids=fallback_lesson.fact_ids,
                     )
                 )
             else:
@@ -223,6 +239,7 @@ class ProviderBackedEvidenceEngine:
                 grounded_blocks.extend(lesson_blocks)
         realization_seconds = perf_counter() - realization_started
 
+        realized_questions = filter_acceptable_questions(realized_questions)
         realized_course = CourseDraft(
             title=evidence_result.course.title,
             description=evidence_result.course.description,
@@ -355,6 +372,8 @@ class ProviderBackedEvidenceEngine:
                 raise ValueError("block cites a fact outside the lesson plan")
             if contains_ocr_artifact(heading) or contains_ocr_artifact(text):
                 raise ValueError("block exposes unresolved OCR artifacts")
+            if has_unprofessional_learner_language(heading) or has_unprofessional_learner_language(text):
+                raise ValueError("block contains blocked learner-visible language")
             allowed_numbers = set().union(
                 *(
                     _numbers(
@@ -412,6 +431,8 @@ class ProviderBackedEvidenceEngine:
                 continue
             if contains_ocr_artifact(prompt) or contains_ocr_artifact(explanation):
                 continue
+            if has_unprofessional_learner_language(prompt) or has_unprofessional_learner_language(explanation):
+                continue
             fact = facts_by_id[seed.fact_id]
             allowed_numbers = set().union(
                 *(
@@ -448,11 +469,14 @@ class ProviderBackedEvidenceEngine:
         title = _clean_output_text(str(payload.get("title") or base_lesson.title)).lstrip("# ")
         if not is_acceptable_title(title):
             raise ValueError("lesson title is not a concise complete nominal phrase")
+        objective = _clean_output_text(str(payload.get("objective") or base_lesson.objective))
+        if has_unprofessional_learner_language(title) or has_unprofessional_learner_language(objective):
+            raise ValueError("lesson metadata contains blocked learner-visible language")
         lesson = LessonDraft(
             lesson_id=base_lesson.lesson_id,
             module_title=base_lesson.module_title,
             title=title,
-            objective=_clean_output_text(str(payload.get("objective") or base_lesson.objective)),
+            objective=objective,
             content="\n".join(rendered).strip(),
             fact_ids=base_lesson.fact_ids,
             supporting_fact_ids=base_lesson.supporting_fact_ids,

@@ -107,6 +107,73 @@ def _narrative_corpus() -> DirectSourceCorpus:
     )
 
 
+def _ambiguous_guides_corpus() -> DirectSourceCorpus:
+    chunk = DirectSourceChunk(
+        chunk_id="chunk-guides",
+        doc_id="doc-guides",
+        doc_name="guides.xlsx",
+        title="guides.xlsx",
+        headings=("[Worksheet] Коллекции",),
+        text=(
+            "# [Worksheet] Коллекции\n\n"
+            "| Поле | Чикаго Стрит | Феникс | Чикаго Нео |\n"
+            "| --- | --- | --- | --- |\n"
+            "| Направляющие | Роликовые направляющие: плавный бесшумный ход ящиков. "
+            "| Роликовые направляющие на комодах, прикроватных тумбах и ящиках шкафов: "
+            "плавный ровный ход. | Шариковые направляющие полного выдвижения. |"
+        ),
+        source_revision="document:guides-sha",
+        chunk_index=0,
+    )
+    return DirectSourceCorpus(
+        tenant_id="tenant-one",
+        documents=(DirectSourceDocument(
+            doc_id="doc-guides",
+            title="Коллекции мебели",
+            filename="guides.xlsx",
+            category="training_material",
+            source_revision="document:guides-sha",
+            chunks=(chunk,),
+        ),),
+        total_chars=len(chunk.text),
+        total_chunks=1,
+    )
+
+
+def _source_style_phrase_corpus() -> DirectSourceCorpus:
+    chunk = DirectSourceChunk(
+        chunk_id="chunk-style",
+        doc_id="doc-style",
+        doc_name="style.xlsx",
+        title="style.xlsx",
+        headings=("[Worksheet] Коллекции",),
+        text=(
+            "# [Worksheet] Коллекции\n\n"
+            "| Поле | Чикаго Нео |\n"
+            "| --- | --- |\n"
+            "| Основная идея | Дорогая матовая эстетика и полноценные габариты, "
+            "не компакт с маркетплейса. |\n"
+            "| Кому рекомендовать | Кто хочет современный look без ручек и нормальные, "
+            "не «игрушечные» габариты. |"
+        ),
+        source_revision="document:style-sha",
+        chunk_index=0,
+    )
+    return DirectSourceCorpus(
+        tenant_id="tenant-one",
+        documents=(DirectSourceDocument(
+            doc_id="doc-style",
+            title="Коллекции мебели",
+            filename="style.xlsx",
+            category="training_material",
+            source_revision="document:style-sha",
+            chunks=(chunk,),
+        ),),
+        total_chars=len(chunk.text),
+        total_chunks=1,
+    )
+
+
 class _EmbeddingClient:
     def __init__(self, *, fail: bool = False, query_space: str = "test-space") -> None:
         self.fail = fail
@@ -166,6 +233,45 @@ class _GenerationClient:
         )
 
 
+class _ProductionDefectThenCleanGenerationClient(_GenerationClient):
+    def __init__(self) -> None:
+        self.rejected_production_defects = 0
+
+    async def ainvoke_validated(self, messages, parser, **_kwargs):
+        request = json.loads(messages[-1]["content"])
+        bad_payload = {
+            "title": request["lesson_title"],
+            "objective": request["objective"],
+            "blocks": [
+                {
+                    "heading": "Позиционирование",
+                    "text": (
+                        "Полноценные габариты, а не компакт с маркетплейса."
+                        if index == 0
+                        else fact["value"]
+                    ),
+                    "fact_ids": [fact["fact_id"]],
+                }
+                for index, fact in enumerate(request["facts"])
+            ],
+            "questions": [],
+        }
+        with pytest.raises(ValueError, match="learner-visible language"):
+            parser(json.dumps(bad_payload, ensure_ascii=False))
+        self.rejected_production_defects += 1
+        result = await super().ainvoke_validated(messages, parser, **_kwargs)
+        return ValidatedLLMResult(
+            provider=result.provider,
+            model_id=result.model_id,
+            value=result.value,
+            attempt_count=result.attempt_count + 1,
+            failure_reasons=(
+                ValidatedCallFailureReason.VALIDATION_BLOCKED,
+                *result.failure_reasons,
+            ),
+        )
+
+
 def test_direct_corpus_adapter_uses_passport_and_retains_source_identity() -> None:
     bundle = build_evidence_source(_spreadsheet_corpus())
 
@@ -216,6 +322,78 @@ async def test_async_application_generates_publishable_existing_pipeline_artifac
     assert generated.result.provider_fallback_count > 0
     assert generated.result.chat_attempt_count >= len(generated.result.realized_course.lessons)
     assert "provider_timeout" in generated.result.validation_errors
+
+
+@pytest.mark.asyncio
+async def test_active_v2_rejects_production_style_defect_before_persistence() -> None:
+    generation = _ProductionDefectThenCleanGenerationClient()
+
+    generated = await generate_evidence_course(
+        _spreadsheet_corpus(),
+        intent=CourseIntent(purpose="Обучить продавцов ассортименту"),
+        generation_client=generation,
+        embedding_client=_EmbeddingClient(),
+    )
+    artifacts = to_generation_artifacts(generated)
+    learner_text = "\n".join(
+        lesson.content
+        for module in artifacts.content.modules
+        for lesson in module.lessons
+    ).casefold()
+
+    assert generation.rejected_production_defects == len(generated.result.realized_course.lessons)
+    assert "маркетплейса" not in learner_text
+    assert generated.result.publishability.publishable is True
+
+
+@pytest.mark.asyncio
+async def test_active_v2_drops_ambiguous_same_attribute_question_without_padding() -> None:
+    generated = await generate_evidence_course(
+        _ambiguous_guides_corpus(),
+        intent=CourseIntent(purpose="Обучить продавцов ассортименту"),
+        generation_client=_GenerationClient(),
+        embedding_client=_EmbeddingClient(),
+    )
+    artifacts = to_generation_artifacts(generated)
+    questions = [
+        question
+        for assessment in artifacts.assessment.assessments
+        for question in assessment.mcq
+    ]
+    captured_prompt = "Какие направляющие используются в коллекции «Чикаго Стрит»?"
+    original_question = next(
+        question
+        for question in generated.result.evidence_result.assessment.questions
+        if question.prompt == captured_prompt
+    )
+    lesson_title = next(
+        lesson.title
+        for lesson in generated.result.evidence_result.course.lessons
+        if lesson.lesson_id == original_question.lesson_id
+    )
+    retained_assessment = next(
+        assessment
+        for assessment in artifacts.assessment.assessments
+        if assessment.lesson_title == lesson_title
+    )
+
+    assert questions
+    assert all(question.question != captured_prompt for question in questions)
+    assert retained_assessment.mcq == []
+    assert retained_assessment.omission_reason == "no_safe_source_grounded_questions"
+    assert all(
+        not (
+            option.is_correct
+            and "роликовые направляющие: плавный бесшумный ход ящиков" in option.text.casefold()
+            and any(
+                "роликовые направляющие на комодах" in other.text.casefold()
+                for other in question.options
+            )
+        )
+        for question in questions
+        for option in question.options
+    )
+    assert len(questions) < len(generated.result.evidence_result.assessment.questions)
 
 
 @pytest.mark.asyncio
@@ -339,6 +517,31 @@ async def test_generation_provider_exhaustion_uses_grounded_deterministic_lesson
         for fact_id in block.fact_ids
     }
     assert covered == planned
+
+
+@pytest.mark.asyncio
+async def test_grounded_fallback_neutralizes_source_style_without_inventing_replacement_facts() -> None:
+    generated = await generate_evidence_course(
+        _source_style_phrase_corpus(),
+        intent=CourseIntent(),
+        generation_client=_GenerationFailure(),
+        embedding_client=_EmbeddingClient(),
+    )
+    artifacts = to_generation_artifacts(generated)
+    content = "\n".join(
+        lesson.content
+        for module in artifacts.content.modules
+        for lesson in module.lessons
+    ).casefold()
+
+    assert generated.result.publishability.publishable is True
+    assert "маркетплейс" not in content
+    assert "игрушечн" not in content
+    assert " look" not in content
+    assert "полноценные габариты" in content
+    assert "современный внешний вид" in content
+    assert "дорогая матовая эстетика" in content
+    assert "без ручек" in content
 
 
 @pytest.mark.asyncio

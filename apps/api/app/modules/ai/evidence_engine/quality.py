@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import re
 
-from .models import AssessmentDraft, CourseDraft
+from app.modules.ai.assessment import distractor_repeats_correct_attribute_answer
+from app.modules.ai.lesson_quality import has_unprofessional_learner_language
+
+from .models import AssessmentDraft, CourseDraft, QuestionDraft
 from .provider_models import GroundedBlock, PublishabilityReport
+
+EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v2"
 
 _GENERIC_QUESTION_RE = re.compile(
     r"(?:о\s+ч[её]м\s+(?:этот\s+)?(?:урок|курс|раздел|модуль)|"
@@ -38,6 +43,40 @@ def is_acceptable_title(value: str) -> bool:
     return not any(word.casefold().endswith(("ется", "ются")) for word in words)
 
 
+def question_has_ambiguous_options(question: QuestionDraft) -> bool:
+    return any(
+        option != question.correct_answer
+        and distractor_repeats_correct_attribute_answer(
+            question.prompt,
+            question.correct_answer,
+            option,
+        )
+        for option in question.options
+    )
+
+
+def question_has_blocked_learner_language(question: QuestionDraft) -> bool:
+    return any(
+        has_unprofessional_learner_language(value)
+        for value in (
+            question.prompt,
+            *question.options,
+            question.explanation,
+        )
+    )
+
+
+def filter_acceptable_questions(questions: list[QuestionDraft]) -> list[QuestionDraft]:
+    """Delete deterministically invalid questions without quota padding."""
+
+    return [
+        question
+        for question in questions
+        if not question_has_ambiguous_options(question)
+        and not question_has_blocked_learner_language(question)
+    ]
+
+
 def evaluate_publishability(
     *,
     course: CourseDraft,
@@ -66,6 +105,22 @@ def evaluate_publishability(
         len(re.findall(r"\w+", lesson.content, flags=re.UNICODE)) > max_lesson_words
         for lesson in course.lessons
     )
+    blocked_language = any(
+        has_unprofessional_learner_language(value)
+        for value in (
+            course.title,
+            course.description,
+            *(lesson.title for lesson in course.lessons),
+            *(lesson.objective for lesson in course.lessons),
+            *(lesson.content for lesson in course.lessons),
+            *(question.prompt for question in assessment.questions),
+            *(option for question in assessment.questions for option in question.options),
+            *(question.explanation for question in assessment.questions),
+        )
+    )
+    ambiguous_options = any(
+        question_has_ambiguous_options(question) for question in assessment.questions
+    )
     reasons: list[str] = []
     if coverage < 1.0:
         reasons.append("incomplete_fact_coverage")
@@ -81,6 +136,10 @@ def evaluate_publishability(
         reasons.append("invalid_lesson_titles")
     if overlong:
         reasons.append("overlong_lessons")
+    if blocked_language:
+        reasons.append("unprofessional_learner_language")
+    if ambiguous_options:
+        reasons.append("ambiguous_question_options")
     return PublishabilityReport(
         publishable=not reasons,
         reasons=tuple(reasons),

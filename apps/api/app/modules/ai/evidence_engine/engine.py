@@ -298,6 +298,8 @@ def _spreadsheet_question_prompt(fact: SourceFact) -> str:
         return f"Чем «{subject}» отличается от сопоставимых коллекций?"
     if "особенност" in attribute or "преимуществ" in attribute:
         return f"Какая особенность лучше всего характеризует «{subject}»?"
+    if "направляющ" in attribute:
+        return f"Какие направляющие используются в коллекции «{subject}»?"
     return f"Какая характеристика «{fact.attribute}» относится к «{subject}»?"
 
 

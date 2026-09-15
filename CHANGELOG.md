@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.51] - 2026-09-15
+
+### Fixed
+
+- Apply ambiguous-answer and learner-language checks to the active evidence-first
+  V2 generation path before its single persistence boundary.
+- Drop ambiguous source-owned questions without quota padding and retain an empty
+  lesson assessment when no safe question remains.
+- Reject model-authored sales-style phrases, neutralize the same known phrases
+  when a provider outage requires a source-only fallback, and run a final
+  publishability check over every learner-visible field.
+- Version persisted V2 lesson and assessment quality metadata independently from
+  the generation-engine identifier.
+
 ## [0.5.50] - 2026-09-15
 
 ### Fixed

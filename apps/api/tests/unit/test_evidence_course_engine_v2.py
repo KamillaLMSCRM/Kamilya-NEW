@@ -7,9 +7,18 @@ from openpyxl import Workbook
 
 from app.modules.ai.evidence_engine import CourseIntent, EvidenceCourseEngine
 from app.modules.ai.evidence_engine.adapters import narrative_document_from_pages
-from app.modules.ai.evidence_engine.models import SourceDocument, SourceFact, SourceSection
+from app.modules.ai.evidence_engine.models import (
+    AssessmentDraft,
+    CourseDraft,
+    LessonDraft,
+    QuestionDraft,
+    SourceDocument,
+    SourceFact,
+    SourceSection,
+)
 from app.modules.ai.evidence_engine.provider_engine import ProviderBackedEvidenceEngine
-from app.modules.ai.evidence_engine.provider_models import ChatCompletion, EmbeddingBatch
+from app.modules.ai.evidence_engine.provider_models import ChatCompletion, EmbeddingBatch, GroundedBlock
+from app.modules.ai.evidence_engine.quality import evaluate_publishability
 
 
 class _RecordingEmbeddings:
@@ -757,3 +766,47 @@ def test_provider_v2_continues_when_auxiliary_embedding_is_unavailable() -> None
     assert result.retrieval == ()
     assert result.provider_fallback_count == 0
     assert result.publishability.publishable is True
+
+
+def test_v2_final_publishability_blocks_captured_style_and_ambiguous_answer_defects() -> None:
+    lesson = LessonDraft(
+        lesson_id="lesson-guides",
+        module_title="Коллекции",
+        title="Чикаго Стрит: направляющие",
+        objective="Объяснять устройство направляющих",
+        content="Полноценные габариты, а не компакт с маркетплейса.",
+        fact_ids=("fact-guides",),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+    question = QuestionDraft(
+        question_id="question-guides",
+        lesson_id=lesson.lesson_id,
+        kind="single_choice",
+        prompt="Какие направляющие используются в коллекции Чикаго Стрит?",
+        options=(
+            "Роликовые направляющие: плавный бесшумный ход ящиков.",
+            "Роликовые направляющие на комодах: плавный ровный ход.",
+            "Шариковые направляющие полного выдвижения.",
+        ),
+        correct_answer="Роликовые направляющие: плавный бесшумный ход ящиков.",
+        explanation="Ответ подтверждён исходным материалом.",
+        fact_id="fact-guides",
+    )
+
+    report = evaluate_publishability(
+        course=CourseDraft(title="Коллекции", description="", lessons=(lesson,)),
+        assessment=AssessmentDraft(questions=(question,)),
+        blocks=(GroundedBlock(
+            lesson_id=lesson.lesson_id,
+            heading="Направляющие",
+            text=lesson.content,
+            fact_ids=lesson.fact_ids,
+        ),),
+        planned_fact_ids={"fact-guides"},
+        provider_fallback_count=0,
+    )
+
+    assert report.publishable is False
+    assert "unprofessional_learner_language" in report.reasons
+    assert "ambiguous_question_options" in report.reasons
