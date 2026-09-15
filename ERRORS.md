@@ -2966,3 +2966,24 @@ contract or establish a blocker.
   named in job metadata from source conversion through final artifacts. Green
   helper tests, API health and queue completion cannot replace semantic inspection
   of the retained course and all answer options.
+
+## AI-QUALITY-024 - Marketplace comparison with an intervening noun escaped the V2 gate
+
+- Date: 2026-09-15. Found by reading every lesson in the synthetic production
+  course created after release `0.5.51`; the course remained a draft and was not
+  approved or published.
+- Symptom: `а не компактный вариант с маркетплейса` remained in one lesson even
+  though shorter forms such as `а не компакт с маркетплейса` were blocked.
+- Cause: the policy required `компакт*` to be immediately followed by `с
+  маркетплейса`; the source inserted the neutral noun `вариант` between them.
+- Fix: permit a bounded zero-to-three-word noun phrase in this exact comparison
+  shape, both in admission and deterministic neutralization. Do not ban ordinary
+  operational facts that merely mention a marketplace.
+- Verification: the exact production sentence is a RED/GREEN regression for
+  lesson admission and source-only neutralization; 131 focused quality tests and
+  all 1,759 backend unit tests pass. A full Excel replay retained 12 lessons and
+  17 questions, returned `publishable=true`, and contained no marketplace
+  comparison variant.
+- Prevention: production acceptance must inspect full rendered lesson bodies in
+  addition to titles, tests and aggregate diagnostics; phrase policies need exact
+  regressions for every observed grammatical variant.

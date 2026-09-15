@@ -56,7 +56,7 @@ _MARKETPLACE_TERM = r"(?:маркетплейс\w*|маркет-?плейс\w*|m
 _UNPROFESSIONAL_LEARNER_LANGUAGE_RE = re.compile(
     r"(?:\bсовременн\w*\s+look\b|\bне\s+[«\"']?игрушечн\w*[»\"']?\b|"
     rf"\bне\s+[«\"']?с\s+{_MARKETPLACE_TERM}[»\"']?\b|"
-    rf"\bкомпакт\w*\s+с\s+{_MARKETPLACE_TERM}\b|"
+    rf"\bкомпакт\w*(?:\s+[\w-]+){{0,3}}\s+с\s+{_MARKETPLACE_TERM}\b|"
     rf"\b(?:в\s+отличие\s+от|превосход\w*|не\s+назва\w*|не\s+как\s+у)"
     rf"[^.!?]{{0,120}}\b{_MARKETPLACE_TERM}\b)",
     re.IGNORECASE,
@@ -64,7 +64,7 @@ _UNPROFESSIONAL_LEARNER_LANGUAGE_RE = re.compile(
 _MODERN_LOOK_RE = re.compile(r"\bсовременн\w*\s+look\b", re.IGNORECASE)
 _TOY_SIZE_RE = re.compile(r",?\s*не\s+[«\"']?игрушечн\w*[»\"']?", re.IGNORECASE)
 _MARKETPLACE_COMPACT_RE = re.compile(
-    rf",?\s*(?:а\s+)?не\s+компакт\w*\s+с\s+{_MARKETPLACE_TERM}",
+    rf",?\s*(?:а\s+)?не\s+компакт\w*(?:\s+[\w-]+){{0,3}}\s+с\s+{_MARKETPLACE_TERM}",
     re.IGNORECASE,
 )
 _MARKETPLACE_NEGATION_RE = re.compile(

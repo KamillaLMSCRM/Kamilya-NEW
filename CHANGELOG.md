@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.52] - 2026-09-15
+
+### Fixed
+
+- Reject and neutralize marketplace comparisons that insert a short noun phrase
+  between `compact` and `from a marketplace`, including the exact wording found
+  during the production lesson-content acceptance of 0.5.51.
+- Keep ordinary factual statements about marketplace publication unchanged.
+
 ## [0.5.51] - 2026-09-15
 
 ### Fixed
