@@ -2850,7 +2850,11 @@ Explain briefly from the evidence. Return only this JSON object shape (not a JSO
                     if str(question.get("source_quote_id")) in evidence_bank
                 }
                 minimum_focused_questions = min(3, question_count, len(evidence_bank))
-                if minimum_focused_questions == 3 and len(attempted_evidence_ids) >= minimum_focused_questions:
+                if (
+                    minimum_focused_questions == 3
+                    and attempted_evidence_ids
+                    and not large_scoped_source
+                ):
                     focused = await _recover_with_focused_questions(
                         llm,
                         system_prompt=system_prompt,

@@ -2436,6 +2436,13 @@ contract or establish a blocker.
   recovery at six short requests. It still returns the named no-quiz result when
   safe recovery is impossible; it never pads a quota. Three RED/GREEN focused
   cases and the related 169-test structure/assessment matrix pass.
+- Recurrence (2026-09-16, `0.5.54` synthetic acceptance): the malformed batch
+  reused one valid evidence ID even though the lesson exposed 24 source-owned
+  evidence fragments. The three-ID admission gate therefore skipped focused
+  recovery and persisted zero questions. `0.5.55` admits bounded recovery after
+  any valid evidence-ID attempt when at least three fragments exist. Empty
+  batches, unknown IDs and sparse evidence still omit the quiz without extra
+  provider calls; all-invalid questions are never saved or padded.
 
 ## AI-QUALITY-018 - Approved lesson title caused an unrecoverable false rejection
 
@@ -2796,6 +2803,16 @@ contract or establish a blocker.
   supporting sections inflating capacity, and the selected ceilings allow two.
   The architect retries an underfilled plan with explicit no-padding guidance;
   small and supporting-sheet fixtures remain unchanged.
+- Recurrence (2026-09-16, `0.5.54` live acceptance): automatic generation did
+  not pass manual ceilings, so the new floor was inactive and the same source
+  again became one lesson. A production-like capture then exposed a second
+  defect: for ordinary prose, the claim validator built permitted text only
+  from worksheet headings, leaving an empty set and rejecting four grounded
+  plans. `0.5.55` derives the automatic floor from at least three passport
+  units, four primary rows and bounded repetition, and validates prose actions
+  against prose chunks. The exact synthetic source then produced a grounded
+  two-module/five-lesson plan in one provider call; sparse and repetitive-source
+  regressions remain one lesson.
 
 ## AI-REPLAY-001 - Quality corrections need contextual regression cases
 

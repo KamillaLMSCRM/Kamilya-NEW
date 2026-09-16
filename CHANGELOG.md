@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.55] - 2026-09-16
+
+### Fixed
+
+- Apply the anti-collapse lesson floor in automatic sizing when a prose source
+  has enough distinct, non-repetitive teachable material; genuinely small or
+  highly repetitive sources remain eligible for a single lesson.
+- Validate course-structure actions against ordinary prose source chunks when
+  no worksheet headings exist, preventing grounded plans from being rejected
+  because the permitted-text set was accidentally empty.
+- Run bounded focused question recovery when a failed batch used any valid
+  evidence ID and at least three evidence fragments are available, instead of
+  requiring the malformed batch itself to cover three different fragments.
+
 ## [0.5.54] - 2026-09-16
 
 ### Fixed
@@ -1002,7 +1016,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.54...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.55...HEAD
+[0.5.55]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.54...v0.5.55
 [0.5.54]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.53...v0.5.54
 [0.5.53]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.52...v0.5.53
 [0.5.48]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.47...v0.5.48

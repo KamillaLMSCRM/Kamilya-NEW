@@ -145,9 +145,11 @@ def _minimum_total_lessons(
     """Prevent a teachable source from collapsing into one catch-all lesson.
 
     The lower bound is deliberately conservative: it only asks for a second
-    lesson when source analysis is confident, at least two teachable units are
-    present, and the user-selected ceilings permit it. It never stretches a
-    small source to the configured maximum.
+    lesson when source analysis is confident and the source has enough distinct
+    primary material. Explicit user limits may establish that capacity; in
+    automatic mode the passport itself must identify at least three teachable
+    units and four meaningful primary rows. It never stretches a small source
+    to the configured maximum.
     """
 
     baseline = max(1, num_modules or 1)
@@ -159,11 +161,30 @@ def _minimum_total_lessons(
     allowed_total = max_total_lessons if max_total_lessons is not None else module_capacity
     if allowed_total is not None:
         baseline = min(baseline, allowed_total)
+    has_explicit_structure_limit = any(
+        value is not None for value in (num_modules, lessons_per_module, max_total_lessons)
+    )
+    primary_distinct_rows = sum(
+        section.distinct_rows for section in passport.sections if section.name in passport.primary_sections
+    )
+    primary_repetition_is_bounded = all(
+        section.repeated_row_share < 0.8
+        for section in passport.sections
+        if section.name in passport.primary_sections
+    )
+    source_supports_second_lesson = (
+        passport.teachable_units >= 2
+        if has_explicit_structure_limit
+        else (
+            passport.teachable_units >= 3
+            and primary_distinct_rows >= 4
+            and primary_repetition_is_bounded
+        )
+    )
     if (
         passport.confidence != "low"
-        and passport.teachable_units >= 2
+        and source_supports_second_lesson
         and not passport.supporting_sections
-        and any(value is not None for value in (num_modules, lessons_per_module, max_total_lessons))
         and (allowed_total is None or allowed_total >= 2)
         and (lessons_per_module is None or lessons_per_module >= 2)
     ):
@@ -191,7 +212,7 @@ _SUPPORTING_ANAPHORA_RE = re.compile(
     re.IGNORECASE,
 )
 _UNSUPPORTED_STRUCTURE_ACTION_RE = re.compile(
-    r"\b(?:подбор\w*|подобра\w*|подбир\w*|выбор\w*|выбра\w*|рекомендац\w*|"
+    r"\b(?:подбор\w*|подобра\w*|подбир\w*|выбор\w*|выбра\w*|выбир\w*|рекомендац\w*|"
     r"запрос\w*\s+клиент\w*|роль\w*\s+в\s+предложен\w*|"
     r"основ\w*\s+выбор\w*|как\s+использовать|selection|recommendation|"
     r"customer\s+(?:request|need))\b",
@@ -199,7 +220,7 @@ _UNSUPPORTED_STRUCTURE_ACTION_RE = re.compile(
 )
 _STRUCTURE_ACTION_EQUIVALENCE = (
     re.compile(
-        r"\b(?:подбор\w*|подобра\w*|подбир\w*|выбор\w*|выбра\w*|"
+        r"\b(?:подбор\w*|подобра\w*|подбир\w*|выбор\w*|выбра\w*|выбир\w*|"
         r"select\w*|selection|choos\w*|choice)\b",
         re.IGNORECASE,
     ),
@@ -1153,21 +1174,21 @@ def _validate_structure_sources(
         )
     )
     structure_text = " ".join(structure_values)
-    permitted_text = " ".join(
-        (
-            allowed_structure_context,
-            *(
-                chunk.text
-                for document in corpus.documents
-                for chunk in document.chunks
-                if {
-                    (chunk.doc_id, heading.casefold().removeprefix("[worksheet] ").strip())
-                    for heading in chunk.headings
-                }
-                & primary_section_keys
-            ),
+    permitted_source_chunks = (
+        tuple(
+            chunk.text
+            for document in corpus.documents
+            for chunk in document.chunks
+            if {
+                (chunk.doc_id, heading.casefold().removeprefix("[worksheet] ").strip())
+                for heading in chunk.headings
+            }
+            & primary_section_keys
         )
-    ).casefold()
+        if primary_section_keys
+        else tuple(chunk.text for document in corpus.documents for chunk in document.chunks)
+    )
+    permitted_text = " ".join((allowed_structure_context, *permitted_source_chunks)).casefold()
     unsupported_action = _UNSUPPORTED_STRUCTURE_ACTION_RE.search(structure_text)
     if (
         enforce_primary_worksheets

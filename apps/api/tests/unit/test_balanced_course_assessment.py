@@ -3345,6 +3345,71 @@ async def test_standard_assessment_recovers_distinct_questions_from_individual_e
 
 
 @pytest.mark.asyncio
+async def test_standard_assessment_recovers_when_invalid_batch_reuses_one_evidence_id():
+    """A malformed batch must not prevent focused recovery across rich evidence."""
+    source = " ".join(q["explanation"] for q in _loan_questions())
+    evidence = {
+        "E01": ("approval", "application review", "application intake"),
+        "E02": ("payment", "contract signing", "contract review"),
+        "E03": ("closure", "final repayment", "partial repayment"),
+    }
+
+    class FakeLLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            if self.calls == 1:
+                questions = _loan_questions()
+                for question in questions:
+                    question["source_quote_id"] = "E01"
+                    question["options"][0]["text"] = "Yes"
+            else:
+                schema = response_format["json_schema"]["schema"]
+                evidence_id = schema["properties"]["mcq"]["items"]["properties"]["source_quote_id"]["enum"][0]
+                subject, correct_suffix, alternative = evidence[evidence_id]
+                questions = [
+                    {
+                        "question": f"When does loan {subject} occur?",
+                        "options": [
+                            {"text": f"after {correct_suffix}", "is_correct": True},
+                            {"text": f"before {correct_suffix}", "is_correct": False},
+                            {"text": f"during {alternative}", "is_correct": False},
+                            {"text": f"without {correct_suffix}", "is_correct": False},
+                        ],
+                        "explanation": f"Loan {subject} occurs after {correct_suffix}.",
+                        "source_quote_id": evidence_id,
+                    }
+                ]
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    llm = FakeLLM()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Loan lifecycle",
+            content=source,
+            source_references=[],
+        ),
+        language="en",
+    )
+
+    assert llm.calls == 4
+    assert len(result.mcq) == 3
+    assert {question.source_quote for question in result.mcq} == {
+        "Loan approval occurs after application review.",
+        "Loan payment occurs after contract signing.",
+        "Loan closure occurs after final repayment.",
+    }
+
+
+@pytest.mark.asyncio
 async def test_focused_assessment_rejected_evidence_candidate_stays_in_its_own_seam():
     source = (
         "Loan approval occurs after application review. "

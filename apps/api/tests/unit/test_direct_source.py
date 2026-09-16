@@ -2067,3 +2067,215 @@ async def test_direct_architect_repairs_underfilled_small_high_confidence_course
     assert "minimum_lessons_in_whole_course=2" in llm.prompts[0]
     assert "direct_source_structure_underfilled" in llm.prompts[1]
     assert len(result.modules[0].lessons) == 2
+
+
+@pytest.mark.asyncio
+async def test_direct_architect_auto_mode_repairs_underfilled_teachable_prose():
+    """Automatic sizing must not bypass the anti-collapse quality floor."""
+    from app.modules.ai.direct_source import (
+        build_direct_source_corpus,
+        run_direct_architect,
+    )
+
+    tenant_id, document_id = uuid4(), uuid4()
+    blob = "\n\n".join(
+        (
+            "1. Начало разговора\nСотрудник приветствует клиента и уточняет цель обращения.",
+            "2. Уточнение потребности\nСотрудник выясняет ожидаемый результат и проверяет понимание.",
+            "3. Приоритеты\nКритический приоритет назначается при риске остановки процесса.",
+            "4. Фиксация\nВ карточке указываются факты, приоритет и следующий шаг.",
+            "5. Эскалация\nСложный случай передаётся руководителю с необходимыми фактами.",
+            "6. Завершение\nСотрудник проверяет результат и документирует закрытие.",
+        )
+    ).encode()
+    corpus = await build_direct_source_corpus(
+        [
+            _document(
+                tenant_id=tenant_id,
+                document_id=document_id,
+                key="service-rules-auto",
+                filename="service-rules-auto.txt",
+                blob=blob,
+            )
+        ],
+        tenant_id=tenant_id,
+        storage=_Storage({"service-rules-auto": blob}),
+        converter=_PlainTextConverter(),
+    )
+
+    def structure(lesson_count: int) -> str:
+        lessons = [
+            {
+                "title": "Приём и уточнение обращения",
+                "description": "",
+                "objectives": ["Применять правила начала обслуживания"],
+                "source_doc_ids": [str(document_id)],
+                "relevant_headings": [],
+            },
+            {
+                "title": "Приоритет, эскалация и завершение",
+                "description": "",
+                "objectives": ["Применять правила завершения обращения"],
+                "source_doc_ids": [str(document_id)],
+                "relevant_headings": [],
+            },
+        ][:lesson_count]
+        return json.dumps(
+            {
+                "title": "Безопасное обслуживание клиента",
+                "description": "",
+                "modules": [{"title": "Работа с клиентом", "description": "", "lessons": lessons}],
+            },
+            ensure_ascii=False,
+        )
+
+    class LLM:
+        def __init__(self) -> None:
+            self.responses = [structure(1), structure(2)]
+            self.prompts: list[str] = []
+
+        async def ainvoke(self, messages):
+            self.prompts.append(messages[-1]["content"])
+            return SimpleNamespace(content=self.responses.pop(0))
+
+    llm = LLM()
+    result = await run_direct_architect(llm, corpus)
+
+    assert len(llm.prompts) == 2
+    assert "minimum_lessons_in_whole_course=2" in llm.prompts[0]
+    assert "direct_source_structure_underfilled" in llm.prompts[1]
+    assert len(result.modules[0].lessons) == 2
+
+
+@pytest.mark.asyncio
+async def test_direct_architect_auto_mode_keeps_genuinely_small_source_in_one_lesson():
+    """Automatic sizing must not manufacture a second topic from sparse material."""
+    from app.modules.ai.direct_source import (
+        build_direct_source_corpus,
+        run_direct_architect,
+    )
+
+    tenant_id, document_id = uuid4(), uuid4()
+    blob = (
+        "Перед началом разговора сотрудник приветствует клиента.\n"
+        "После ответа сотрудник фиксирует результат обращения."
+    ).encode()
+    corpus = await build_direct_source_corpus(
+        [
+            _document(
+                tenant_id=tenant_id,
+                document_id=document_id,
+                key="short-rule",
+                filename="short-rule.txt",
+                blob=blob,
+            )
+        ],
+        tenant_id=tenant_id,
+        storage=_Storage({"short-rule": blob}),
+        converter=_PlainTextConverter(),
+    )
+    response = json.dumps(
+        {
+            "title": "Краткое обслуживание клиента",
+            "description": "",
+            "modules": [
+                {
+                    "title": "Обслуживание клиента",
+                    "description": "",
+                    "lessons": [
+                        {
+                            "title": "Краткий порядок обслуживания",
+                            "description": "",
+                            "objectives": ["Применять краткий порядок обслуживания"],
+                            "source_doc_ids": [str(document_id)],
+                            "relevant_headings": [],
+                        }
+                    ],
+                }
+            ],
+        },
+        ensure_ascii=False,
+    )
+
+    class LLM:
+        def __init__(self) -> None:
+            self.prompts: list[str] = []
+
+        async def ainvoke(self, messages):
+            self.prompts.append(messages[-1]["content"])
+            return SimpleNamespace(content=response)
+
+    llm = LLM()
+    result = await run_direct_architect(llm, corpus)
+
+    assert len(llm.prompts) == 1
+    assert "minimum_lessons_in_whole_course=1" in llm.prompts[0]
+    assert len(result.modules[0].lessons) == 1
+
+
+@pytest.mark.asyncio
+async def test_direct_architect_verifies_plain_text_action_against_plain_source():
+    """Claim validation must use prose source text when no worksheets exist."""
+    from app.modules.ai.direct_source import (
+        build_direct_source_corpus,
+        run_direct_architect,
+    )
+
+    tenant_id, document_id = uuid4(), uuid4()
+    blob = (
+        "При сомнении сотрудник выбирает более высокий приоритет и передает решение руководителю.\n"
+        "После выполнения действия сотрудник проверяет результат с клиентом.\n"
+        "В карточке фиксируются итог, дата и ответственный.\n"
+        "Сложный случай передается руководителю с необходимыми фактами."
+    ).encode()
+    corpus = await build_direct_source_corpus(
+        [
+            _document(
+                tenant_id=tenant_id,
+                document_id=document_id,
+                key="plain-actions",
+                filename="plain-actions.txt",
+                blob=blob,
+            )
+        ],
+        tenant_id=tenant_id,
+        storage=_Storage({"plain-actions": blob}),
+        converter=_PlainTextConverter(),
+    )
+    response = json.dumps(
+        {
+            "title": "Приоритет и завершение обращения",
+            "description": "",
+            "modules": [
+                {
+                    "title": "Работа с обращением",
+                    "description": "",
+                    "lessons": [
+                        {
+                            "title": "Выбор приоритета",
+                            "description": "",
+                            "objectives": ["Выбирать более высокий приоритет при сомнении"],
+                            "source_doc_ids": [str(document_id)],
+                            "relevant_headings": [],
+                        },
+                        {
+                            "title": "Завершение обращения",
+                            "description": "",
+                            "objectives": ["Проверять результат и фиксировать итог"],
+                            "source_doc_ids": [str(document_id)],
+                            "relevant_headings": [],
+                        },
+                    ],
+                }
+            ],
+        },
+        ensure_ascii=False,
+    )
+
+    class LLM:
+        async def ainvoke(self, messages):
+            return SimpleNamespace(content=response)
+
+    result = await run_direct_architect(LLM(), corpus)
+
+    assert len(result.modules[0].lessons) == 2
