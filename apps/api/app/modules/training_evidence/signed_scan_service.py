@@ -6,7 +6,7 @@ import hashlib
 import logging
 import re
 from datetime import UTC, datetime
-from pathlib import PurePath
+from pathlib import PurePosixPath
 from typing import cast
 from uuid import UUID, uuid4
 
@@ -30,7 +30,10 @@ _UNSAFE_FILENAME_CHARS = re.compile(r'[\x00-\x1f\x7f"\\]')
 
 
 def _safe_filename(value: str | None) -> str:
-    name = PurePath(value or "signed-copy").name
+    # Treat both slash styles as separators on every runtime OS. Otherwise a
+    # Windows-looking upload name is only reduced to its basename on Windows,
+    # while the same input reaches response headers differently on Linux.
+    name = PurePosixPath((value or "signed-copy").replace("\\", "/")).name
     # The filename is metadata only (the object key is UUID-based), but keep it
     # safe for Content-Disposition and audit exports as well.
     name = _UNSAFE_FILENAME_CHARS.sub("", name).strip()

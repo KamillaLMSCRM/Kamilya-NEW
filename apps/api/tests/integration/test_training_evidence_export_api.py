@@ -322,6 +322,7 @@ async def test_methodologist_uploads_signed_copy_and_cross_tenant_cannot_read_it
         make_module,
         make_lesson,
         make_quiz,
+        procedure_type="training",
         with_confirmation=False,
     )
 
@@ -348,7 +349,7 @@ async def test_methodologist_uploads_signed_copy_and_cross_tenant_cannot_read_it
     assert initial.status_code == 200, initial.text
     assert initial.json() == {
         "event_id": str(event.id),
-        "status": "awaiting_signed_copy",
+        "status": "awaiting_return",
         "scans": [],
     }
 
@@ -360,7 +361,7 @@ async def test_methodologist_uploads_signed_copy_and_cross_tenant_cannot_read_it
     assert uploaded.status_code == 201, uploaded.text
     body = uploaded.json()
     assert body["event_id"] == str(event.id)
-    assert body["status"] == "received"
+    assert body["status"] == "uploaded_pending_review"
     assert body["original_filename"] == "signed-result.pdf"
     assert "storage_key" not in body
     assert list(storage.objects.values()) == [b"%PDF-1.7\nhand-signed"]
@@ -370,7 +371,7 @@ async def test_methodologist_uploads_signed_copy_and_cross_tenant_cannot_read_it
         headers=auth_headers(methodologist),
     )
     assert ledger.status_code == 200, ledger.text
-    assert ledger.json()["status"] == "received"
+    assert ledger.json()["status"] == "uploaded_pending_review"
     assert len(ledger.json()["scans"]) == 1
 
     other_tenant = await make_tenant(name="Signed scan outsider")

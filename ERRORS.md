@@ -3117,3 +3117,24 @@ contract or establish a blocker.
   using both application versions' statuses under the runtime `lms_app` role.
 - Prevention: every forward migration must exercise the previous release's
   write contract whenever application rollback is part of the release plan.
+
+## TEST-INFRA-002 - Windows-only unit success and skipped DB coverage hid CI failures
+
+- Date: 2026-09-16. Confirmed by blocking CI run 35079199800 for the first
+  version 0.6.0 candidate; production deployment had not started.
+- Symptom: the local full unit suite passed, while Linux CI resolved a hostile
+  backslash filename differently and the PostgreSQL gate still exercised an
+  obsolete knowledge-check/legacy-status signed-copy fixture.
+- Cause: `PurePath` followed the workstation OS instead of one upload-name
+  contract, and the release preflight covered the new Supabase migration gate
+  but not the existing DB-backed export integration that is skipped without an
+  explicit database contour.
+- Fix: normalize both path separators with `PurePosixPath`; bind the existing
+  integration fixture to a course-level `training` event and assert the new
+  pending-review lifecycle names.
+- Verification: run the exact filename regression locally, the affected
+  integration test against the approved Supabase DEV transaction/cleanup
+  contour, and then require a new full Linux CI run for the corrected SHA.
+- Prevention: upload-filename tests must have OS-independent semantics, and a
+  release that changes a DB-backed route must run its existing integration
+  tests in addition to unit tests and focused migration/RLS gates.
