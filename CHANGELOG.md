@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.6.1] - 2026-09-16
+
+### Fixed
+
+- Ensure employees can download a complete printable course-confirmation form
+  for training completions recorded before printable form snapshots were
+  introduced. The learner PDF uses the tenant's current template only when the
+  immutable historical event has no saved template; newer completions remain
+  pinned to their completion-time template.
+
 ## [0.6.0] - 2026-09-16
 
 ### Added

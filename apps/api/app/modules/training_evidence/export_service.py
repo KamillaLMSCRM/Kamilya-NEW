@@ -46,6 +46,7 @@ from app.modules.training_evidence.export_schemas import (
     ServerGroupRecordEvidence,
     ServerIndividualEvidenceInput,
 )
+from app.modules.training_evidence.form_settings import get_training_evidence_form_settings
 from app.modules.training_evidence.models import (
     TrainingEvidenceEvent,
     TrainingEvidenceLegalHold,
@@ -720,6 +721,14 @@ async def build_learner_individual_evidence_input(
         event_id,
         require_confirmation=False,
     )
+    print_form = complete.print_form
+    if print_form is None and event.procedure_type == "training":
+        # Training events created before printable form snapshots were added
+        # must still give the learner a usable blank hand-signature form. The
+        # immutable evidence event remains untouched; only this learner-owned
+        # presentation falls back to the tenant's current template.
+        settings = await get_training_evidence_form_settings(db, tenant_id)
+        print_form = settings.to_print_form()
     # Construct a base schema rather than returning the server-only subclass:
     # this omits hashes, legal holds, corrections and every attempt answer.
     return IndividualEvidenceInput(
@@ -730,7 +739,7 @@ async def build_learner_individual_evidence_input(
         assignment=complete.assignment,
         attempts=[item.model_copy(update={"answers": []}) for item in complete.attempts],
         confirmation=None,
-        print_form=complete.print_form,
+        print_form=print_form,
         generated_at=complete.generated_at,
     )
 

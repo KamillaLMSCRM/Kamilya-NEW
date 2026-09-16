@@ -262,6 +262,44 @@ async def test_learner_owned_pdf_hides_answers_and_audit_only_data(
     assert methodologist.email not in pdf_text
 
 
+async def test_learner_training_pdf_adds_current_form_for_legacy_event_without_snapshot(
+    client,
+    db_session,
+    make_tenant,
+    make_user,
+    make_course,
+    make_module,
+    make_lesson,
+    make_quiz,
+    auth_headers,
+):
+    _, _, learner, event, _, _ = await _make_complete_event(
+        db_session,
+        make_tenant,
+        make_user,
+        make_course,
+        make_module,
+        make_lesson,
+        make_quiz,
+        procedure_type="training",
+        with_confirmation=False,
+    )
+    assert "print_form" not in event.payload_snapshot
+
+    response = await client.get(
+        f"/api/v1/training-evidence/events/mine/{event.id}/export",
+        headers=auth_headers(learner),
+    )
+
+    assert response.status_code == 200, response.text
+    pages = PdfReader(io.BytesIO(response.content)).pages
+    final_page_text = pages[-1].extract_text() or ""
+    assert len(pages) >= 2
+    assert "Подтверждение прохождения курса" in final_page_text
+    assert "Подпись сотрудника" in final_page_text
+    assert "Подпись представителя работодателя" in final_page_text
+
+
 async def test_learner_owned_pdf_returns_indistinguishable_404_for_foreign_event(
     client,
     db_session,

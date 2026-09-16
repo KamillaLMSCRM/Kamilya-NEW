@@ -3140,3 +3140,27 @@ contract or establish a blocker.
 - Prevention: upload-filename tests must have OS-independent semantics, and a
   release that changes a DB-backed route must run its existing integration
   tests in addition to unit tests and focused migration/RLS gates.
+
+## EVIDENCE-006 - Legacy completion exported an act without the signature form
+
+- Date: 2026-09-16. Found by the live synthetic production acceptance for
+  version 0.6.0 after deployment.
+- Symptom: the tenant-admin preview rendered the two-page hand-signature form,
+  while the learner download for a completion created before 0.6.0 contained
+  only the result act and quiz-attempt history.
+- Cause: printable form settings are snapshotted on new completion events, but
+  historical training events have no `print_form` key. The learner export
+  passed that missing value directly to the renderer, whose form page is
+  intentionally conditional.
+- Fix: when and only when a learner exports a historical `training` event with
+  no form snapshot, resolve the tenant's current form as a presentation-time
+  fallback. Do not change the immutable event or the private evidence package;
+  events with a saved snapshot remain pinned to it.
+- Verification: a database-free RED/GREEN service regression covers the exact
+  legacy branch, the DB-backed learner-export integration checks the final PDF
+  page for both signature labels, and live production acceptance must download
+  and visually inspect the historical learner PDF after the hotfix release.
+- Prevention: production acceptance fixtures for additive evidence features
+  must include one pre-feature historical event in addition to newly created
+  events, and PDF acceptance must inspect rendered pages rather than only HTTP
+  status, MIME type or extracted package metadata.
