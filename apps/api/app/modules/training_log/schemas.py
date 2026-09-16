@@ -44,6 +44,12 @@ class TrainingLogEvidenceItem(BaseModel):
     event_id: UUID
     procedure_type: str
     confirmation_status: Literal["not_required", "pending", "confirmed"]
+    signed_copy_status: Literal[
+        "awaiting_return",
+        "uploaded_pending_review",
+        "accepted",
+        "replacement_requested",
+    ] = "awaiting_return"
     evidence_state: Literal["forming", "ready", "incomplete", "revoked", "legal_hold"]
 
 
@@ -99,6 +105,12 @@ class TrainingLogRow(BaseModel):
     latest_evidence_event_id: UUID | None = None
     evidence_procedure_type: str | None = None
     evidence_confirmation_status: Literal["not_required", "pending", "confirmed"] = "not_required"
+    evidence_signed_copy_status: Literal[
+        "awaiting_return",
+        "uploaded_pending_review",
+        "accepted",
+        "replacement_requested",
+    ] = "awaiting_return"
     evidence_state: Literal["forming", "ready", "incomplete", "revoked", "legal_hold"] = "incomplete"
     evidence_events: list[TrainingLogEvidenceItem] = Field(default_factory=list)
 
@@ -168,6 +180,7 @@ class TrainingLogCSVResponse(BaseModel):
         "deadline_status",
         "evidence_procedure_type",
         "evidence_confirmation_status",
+        "evidence_signed_copy_status",
         "evidence_state",
         "progress_percent",
         "best_score",

@@ -14,6 +14,7 @@ from app.modules.certificates.models import Certificate
 from app.modules.courses.release_models import ContentRelease
 from app.modules.courses.release_service import canonical_json_sha256
 from app.modules.quizzes.models import Quiz, QuizAttempt
+from app.modules.training_evidence.form_settings import get_training_evidence_form_settings
 from app.modules.training_evidence.models import TrainingEvidenceEvent
 from app.modules.training_evidence.service import record_event
 
@@ -53,6 +54,8 @@ async def record_course_completion(
     if release is None:
         raise ValueError("Course completion release evidence is inconsistent")
 
+    print_form_settings = await get_training_evidence_form_settings(db, user.tenant_id)
+
     payload: dict[str, Any] = {
         "schema_version": 1,
         "source": "course_completion",
@@ -76,6 +79,7 @@ async def record_course_completion(
             ),
             "object_version": f"release:{release.version}",
         },
+        "print_form": print_form_settings.to_print_form().model_dump(),
     }
     return await record_event(
         db,

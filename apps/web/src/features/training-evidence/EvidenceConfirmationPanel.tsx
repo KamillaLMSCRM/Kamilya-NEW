@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle2, Clock3, Download, Mail, RefreshCw, ShieldCheck } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock3, Download, Mail, RefreshCw, ShieldCheck, Upload } from 'lucide-react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useT } from '@/i18n/useT';
@@ -24,6 +24,19 @@ export interface LearnerEvidenceEvent {
   confirmation_statement?: string | null;
   confirmation_object_version?: string | null;
 }
+
+interface LearnerSignedCopyLedger {
+  status: 'awaiting_return' | 'uploaded_pending_review' | 'accepted' | 'replacement_requested';
+  scans: Array<{
+    id: string;
+    original_filename: string;
+    status: 'uploaded_pending_review' | 'accepted' | 'replacement_requested';
+    latest_review_reason?: string | null;
+  }>;
+}
+
+const MAX_SIGNED_COPY_BYTES = 10 * 1024 * 1024;
+const SIGNED_COPY_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 
 interface EvidenceConfirmationPanelProps {
   eventId: string;
@@ -69,6 +82,26 @@ export function EvidenceConfirmationPanel({
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [signedCopyLedger, setSignedCopyLedger] = useState<LearnerSignedCopyLedger | null>(null);
+  const [signedCopyLoading, setSignedCopyLoading] = useState(false);
+  const [signedCopyUploading, setSignedCopyUploading] = useState(false);
+  const [signedCopyError, setSignedCopyError] = useState<string | null>(null);
+
+  const loadSignedCopies = useCallback(async () => {
+    if (activityKind !== 'course') return;
+    setSignedCopyLoading(true);
+    setSignedCopyError(null);
+    try {
+      const response = await api.get<LearnerSignedCopyLedger>(
+        `/v1/training-evidence/events/mine/${eventId}/signed-scans`,
+      );
+      setSignedCopyLedger(response.data);
+    } catch (requestError: any) {
+      setSignedCopyError(requestError?.response?.data?.message || 'Не удалось получить статус подписанного экземпляра.');
+    } finally {
+      setSignedCopyLoading(false);
+    }
+  }, [activityKind, eventId]);
 
   const loadEvent = useCallback(async () => {
     setLoading(true);
@@ -87,6 +120,31 @@ export function EvidenceConfirmationPanel({
   useEffect(() => {
     void loadEvent();
   }, [loadEvent]);
+
+  useEffect(() => {
+    void loadSignedCopies();
+  }, [loadSignedCopies]);
+
+  const uploadSignedCopy = async (file: File) => {
+    if (!SIGNED_COPY_TYPES.has(file.type) || file.size <= 0 || file.size > MAX_SIGNED_COPY_BYTES) {
+      setSignedCopyError('Выберите PDF, JPEG или PNG размером до 10 МБ.');
+      return;
+    }
+    setSignedCopyUploading(true);
+    setSignedCopyError(null);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      await api.post(`/v1/training-evidence/events/mine/${eventId}/signed-scans`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      await loadSignedCopies();
+    } catch (requestError: any) {
+      setSignedCopyError(requestError?.response?.data?.message || 'Не удалось загрузить подписанный экземпляр.');
+    } finally {
+      setSignedCopyUploading(false);
+    }
+  };
 
   const requestCode = async () => {
     setRequesting(true);
@@ -273,6 +331,46 @@ export function EvidenceConfirmationPanel({
           </Button>
         </div>
 
+        {activityKind === 'course' && (
+          <div className="space-y-3 rounded-md border border-border bg-muted/30 p-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">Подписанный экземпляр</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                После подписи сфотографируйте или отсканируйте все страницы и загрузите их здесь.
+                Файл автоматически привяжется к вашему назначению, курсу и его опубликованной версии.
+              </p>
+            </div>
+            <div className="text-sm" role="status">
+              {signedCopyLoading && !signedCopyLedger
+                ? 'Проверяем статус…'
+                : signedCopyLedger?.status === 'accepted'
+                  ? 'Подписанный экземпляр принят'
+                  : signedCopyLedger?.status === 'uploaded_pending_review'
+                    ? 'Загружен — ожидает проверки'
+                    : signedCopyLedger?.status === 'replacement_requested'
+                      ? `Нужна замена: ${signedCopyLedger.scans.at(-1)?.latest_review_reason || 'уточните причину у методиста'}`
+                      : 'Подписанный экземпляр ещё не загружен'}
+            </div>
+            <label className="inline-flex min-h-10 cursor-pointer items-center rounded-md border border-input px-3 text-sm font-medium hover:bg-accent">
+              {signedCopyUploading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              {signedCopyUploading ? 'Загрузка…' : 'Загрузить подписанный экземпляр'}
+              <input
+                type="file"
+                className="sr-only"
+                accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
+                disabled={signedCopyUploading}
+                onChange={(uploadEvent) => {
+                  const file = uploadEvent.target.files?.[0];
+                  uploadEvent.target.value = '';
+                  if (file) void uploadSignedCopy(file);
+                }}
+              />
+            </label>
+            <p className="text-xs text-muted-foreground">PDF, JPEG или PNG · до 10 МБ</p>
+            {signedCopyError && <p className="text-sm text-destructive" role="alert">{signedCopyError}</p>}
+          </div>
+        )}
+
         {!confirmed && learnerEmail && (
           <div className="space-y-3 rounded-md border border-border p-4">
             <p className="text-sm text-muted-foreground">{t('evidenceConfirmation.explanation')}</p>
@@ -320,7 +418,7 @@ export function EvidenceConfirmationPanel({
           </div>
         )}
 
-        {confirmed && actionButtons}
+        {actionButtons}
       </CardContent>
     </Card>
   );

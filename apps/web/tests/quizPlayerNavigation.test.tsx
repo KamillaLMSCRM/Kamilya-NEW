@@ -39,7 +39,7 @@ const quiz = {
   lesson_id: 'lesson-1',
   title: 'Проверка урока',
   pass_score: 50,
-  time_limit: null,
+  time_limit: null as number | null,
   attempt_limit: 3,
   questions: [{
     id: 'question-1',
@@ -54,6 +54,7 @@ const quiz = {
 
 let quizPayload = quiz;
 let previousAttempts: QuizAttemptFixture[] = [];
+let accessWindowPayload: unknown = null;
 let structureLessons = [
   { id: 'lesson-1', title: 'Первый урок', order_index: 0 },
   { id: 'lesson-2', title: 'Следующий урок', order_index: 1 },
@@ -72,6 +73,7 @@ describe('learner quiz result navigation', () => {
     vi.clearAllMocks();
     quizPayload = quiz;
     previousAttempts = [];
+    accessWindowPayload = null;
     structureLessons = [
       { id: 'lesson-1', title: 'Первый урок', order_index: 0 },
       { id: 'lesson-2', title: 'Следующий урок', order_index: 1 },
@@ -88,6 +90,7 @@ describe('learner quiz result navigation', () => {
       if (url.endsWith('/v1/courses/course-1/structure')) {
         return jsonResponse({ modules: [{ lessons: structureLessons }] });
       }
+      if (url.endsWith('/v1/courses/course-1/access-window')) return jsonResponse(accessWindowPayload);
       if (url.endsWith('/v1/quizzes/quiz-1/submit')) {
         return jsonResponse({
           attempt: {
@@ -117,6 +120,37 @@ describe('learner quiz result navigation', () => {
     expect(screen.getByRole('link', { name: 'Следующий урок' })).toHaveAttribute(
       'href', '/courses/course-1?lessonId=lesson-2',
     );
+  });
+
+  it('treats a passed response as server-confirmed lesson completion', async () => {
+    render(<QuizPlayerPage />);
+
+    await screen.findByText('Верный ответ?');
+    fireEvent.click(screen.getByRole('radio'));
+    fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Следующий урок' })).toBeInTheDocument());
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining('/v1/progress/lessons/lesson-1'),
+      expect.anything(),
+    );
+  });
+
+  it('uses the one assignment timer for the course and its quiz', async () => {
+    quizPayload = { ...quiz, time_limit: 5 };
+    accessWindowPayload = {
+      server_now: '2026-09-16T10:00:00Z',
+      access_policy: {
+        completion_window_expires_at: '2026-09-16T10:10:00Z',
+        due_at: null,
+      },
+    };
+
+    render(<QuizPlayerPage />);
+
+    const timer = await screen.findByRole('timer', { name: 'Оставшееся время на курс и тест' });
+    expect(timer).toHaveTextContent('10:00');
+    expect(screen.queryByRole('timer', { name: 'quiz.timeLeft' })).not.toBeInTheDocument();
   });
 
   it('keeps the learner SPA session when the final lesson is completed', async () => {

@@ -38,7 +38,11 @@ describe('EvidenceConfirmationPanel', () => {
   beforeEach(() => {
     apiMock.get.mockReset();
     apiMock.post.mockReset();
-    apiMock.get.mockReturnValue({ data: pendingEvent });
+    apiMock.get.mockImplementation((path: string) => ({
+      data: path.endsWith('/signed-scans')
+        ? { event_id: 'event-1', status: 'awaiting_return', scans: [] }
+        : pendingEvent,
+    }));
     apiMock.post.mockReturnValue({ data: { challenge_id: 'challenge-123456789', expires_in: 600 } });
     authUser.email = 'learner@example.kz';
     vi.stubGlobal('URL', {
@@ -61,6 +65,7 @@ describe('EvidenceConfirmationPanel', () => {
     await waitFor(() => expect(apiMock.get).toHaveBeenCalled());
     await waitFor(() => expect(document.body.textContent).toContain('evidenceConfirmation.title'));
     expect(apiMock.get).toHaveBeenCalledWith('/v1/training-evidence/events/mine/event-1');
+    expect(apiMock.get).toHaveBeenCalledWith('/v1/training-evidence/events/mine/event-1/signed-scans');
 
     const requestButton = await waitFor(() => screen.getByRole('button', { name: 'evidenceConfirmation.requestCode' }));
     fireEvent.click(requestButton);
@@ -93,6 +98,8 @@ describe('EvidenceConfirmationPanel', () => {
     apiMock.get.mockImplementation((path: string) => (
       path.endsWith('/export')
         ? { data: new Blob(['pdf'], { type: 'application/pdf' }) }
+        : path.endsWith('/signed-scans')
+          ? { data: { event_id: 'event-1', status: 'awaiting_return', scans: [] } }
         : { data: pendingEvent }
     ));
 
@@ -116,5 +123,28 @@ describe('EvidenceConfirmationPanel', () => {
 
     expect(await screen.findByText(/Электронное подтверждение недоступно/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'evidenceConfirmation.requestCode' })).not.toBeInTheDocument();
+  });
+
+  it('lets the learner upload a signed course-level copy for methodologist review', async () => {
+    const { container } = render(
+      <EvidenceConfirmationPanel
+        eventId="event-1"
+        activityTitle="Политика безопасности"
+        activityKind="course"
+      />,
+    );
+
+    await screen.findByText('Подписанный экземпляр ещё не загружен');
+    const inputs = container.querySelectorAll('input[type="file"]');
+    expect(inputs).toHaveLength(1);
+    fireEvent.change(inputs[0], {
+      target: { files: [new File(['%PDF-1.7'], 'signed.pdf', { type: 'application/pdf' })] },
+    });
+
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith(
+      '/v1/training-evidence/events/mine/event-1/signed-scans',
+      expect.any(FormData),
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    ));
   });
 });

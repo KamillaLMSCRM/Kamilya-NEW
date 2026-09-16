@@ -22,7 +22,8 @@ RecordType = Literal["original", "correction", "revocation"]
 ReauthMethod = Literal["email_otp", "telegram", "sso", "password"]
 HoldAction = Literal["placed", "released"]
 EvidenceConfirmationStatus = Literal["not_required", "pending", "confirmed"]
-SignedCopyStatus = Literal["awaiting_signed_copy", "received"]
+SignedCopyStatus = Literal["awaiting_return", "uploaded_pending_review", "accepted", "replacement_requested"]
+SignedScanReviewAction = Literal["accept", "request_replacement"]
 
 
 class EvidenceCorrectionCreate(BaseModel):
@@ -142,7 +143,7 @@ class SignedScanResponse(BaseModel):
     event_id: UUID
     enrollment_id: UUID
     user_id: UUID
-    status: Literal["received"]
+    status: SignedCopyStatus
     original_filename: str
     content_type: str
     size_bytes: int
@@ -150,6 +151,10 @@ class SignedScanResponse(BaseModel):
     uploaded_by_user_id: UUID
     uploaded_at: datetime
     created_at: datetime
+    latest_review_action: SignedScanReviewAction | None = None
+    latest_review_reason: str | None = None
+    latest_reviewed_by_user_id: UUID | None = None
+    latest_reviewed_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -158,3 +163,28 @@ class SignedScanLedgerResponse(BaseModel):
     event_id: UUID
     status: SignedCopyStatus
     scans: list[SignedScanResponse] = Field(default_factory=list)
+
+
+class SignedScanReviewCreate(BaseModel):
+    action: SignedScanReviewAction
+    reason: str | None = Field(default=None, min_length=1, max_length=2000)
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.action == "request_replacement" and self.reason is None:
+            raise ValueError("reason is required when requesting a replacement")
+        if self.action == "accept" and self.reason is not None:
+            raise ValueError("reason is not accepted for an acceptance review")
+
+
+class SignedScanReviewResponse(BaseModel):
+    id: UUID
+    event_id: UUID
+    signed_scan_id: UUID
+    action: SignedScanReviewAction
+    reason: str | None
+    reviewed_by_user_id: UUID
+    reviewed_at: datetime
+    created_at: datetime
+    status: SignedCopyStatus
+
+    model_config = ConfigDict(from_attributes=True)

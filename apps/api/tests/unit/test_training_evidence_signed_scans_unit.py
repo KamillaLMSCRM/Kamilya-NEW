@@ -9,10 +9,13 @@ import pytest
 from starlette.datastructures import Headers, UploadFile
 
 from app.modules.training_evidence import signed_scan_service
+from app.modules.training_evidence.schemas import SignedScanReviewCreate
 from app.modules.training_evidence.signed_scan_service import (
+    _safe_filename,
     _storage_key,
     _valid_magic_bytes,
     append_signed_scan,
+    derive_signed_copy_status,
 )
 
 API_ROOT = Path(__file__).resolve().parents[2]
@@ -41,6 +44,31 @@ def test_signed_scan_storage_key_is_tenant_and_event_scoped_without_filename():
     assert "signed-copy" not in key
 
 
+def test_signed_scan_filename_is_safe_for_response_headers_and_audit_exports():
+    assert _safe_filename('../../bad"\\name\r\n.pdf') == "name.pdf"
+    assert _safe_filename("\r\n") == "signed-copy"
+
+
+def test_signed_copy_status_is_derived_from_append_only_scan_and_review_rows():
+    assert derive_signed_copy_status([], []) == "awaiting_return"
+    assert derive_signed_copy_status([SimpleNamespace(id=uuid4())], []) == "uploaded_pending_review"
+    scan = SimpleNamespace(id=uuid4())
+    assert derive_signed_copy_status([scan], [SimpleNamespace(signed_scan_id=scan.id, action="accept")]) == "accepted"
+    assert (
+        derive_signed_copy_status(
+            [scan],
+            [SimpleNamespace(signed_scan_id=scan.id, action="accept"), SimpleNamespace(signed_scan_id=scan.id, action="replacement_requested")],
+        )
+        == "replacement_requested"
+    )
+
+
+def test_replacement_request_requires_a_reason_but_accept_does_not():
+    assert SignedScanReviewCreate(action="accept").reason is None
+    with pytest.raises(ValueError):
+        SignedScanReviewCreate(action="request_replacement")
+
+
 def test_signed_scan_migration_requires_append_only_rls_ownership_and_guarded_downgrade():
     migration = (API_ROOT / "alembic/versions/0107_training_evidence_signed_scans.py").read_text(
         encoding="utf-8"
@@ -57,6 +85,22 @@ def test_signed_scan_migration_requires_append_only_rls_ownership_and_guarded_do
     assert "training_evidence_retention_purge_authorized()" in migration
     assert "downgrade refused" in migration
     assert 'ondelete="CASCADE"' in migration
+
+
+def test_signed_scan_review_migration_is_linear_append_only_and_tenant_scoped():
+    migration = (API_ROOT / "alembic/versions/0160_training_evidence_signed_scan_reviews.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'revision = "0160"' in migration
+    assert 'down_revision = "0159"' in migration
+    assert "training_evidence_signed_scan_reviews" in migration
+    assert "validate_training_evidence_signed_scan_review_ownership" in migration
+    assert "trg_prevent_training_evidence_signed_scan_review_mutation" in migration
+    assert "training_evidence_retention_purge_authorized()" in migration
+    assert "FORCE ROW LEVEL SECURITY" in migration
+    assert "GRANT SELECT, INSERT ON {reviews} TO lms_app" in migration
+    assert "downgrade refused" in migration
 
 
 @pytest.mark.asyncio

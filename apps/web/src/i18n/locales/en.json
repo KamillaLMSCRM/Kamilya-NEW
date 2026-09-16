@@ -1146,6 +1146,7 @@
     "learning": "LEARNING",
     "quizConstructor": "Tests and questions",
     "certificateTemplate": "Certificate template",
+    "trainingEvidenceForm": "Course completion form",
     "userRole": {
       "superadmin": "Superadmin",
       "admin": "Administrator",

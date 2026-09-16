@@ -1146,6 +1146,7 @@
     "learning": "ОҚЫТУ",
     "quizConstructor": "Тесттер мен сұрақтар",
     "certificateTemplate": "Сертификат үлгісі",
+    "trainingEvidenceForm": "Курсты аяқтау бланкі",
     "userRole": {
       "superadmin": "Суперәкімші",
       "admin": "Әкімші",

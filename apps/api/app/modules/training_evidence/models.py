@@ -182,7 +182,12 @@ class TrainingEvidenceSignedScan(Base):
         index=True,
     )
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
-    status = Column(Text, nullable=False, default="received", server_default="received")
+    status = Column(
+        Text,
+        nullable=False,
+        default="uploaded_pending_review",
+        server_default="uploaded_pending_review",
+    )
     original_filename = Column(Text, nullable=False)
     content_type = Column(Text, nullable=False)
     size_bytes = Column(Integer, nullable=False)
@@ -195,4 +200,27 @@ class TrainingEvidenceSignedScan(Base):
         index=True,
     )
     uploaded_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default="now()")
+
+
+class TrainingEvidenceSignedScanReview(Base):
+    """Append-only methodologist decision for one returned signed scan."""
+
+    __tablename__ = "training_evidence_signed_scan_reviews"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, index=True)
+    event_id = Column(
+        UUID(as_uuid=True), ForeignKey("training_evidence_events.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    signed_scan_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("training_evidence_signed_scans.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    action = Column(Text, nullable=False)
+    reason = Column(Text, nullable=True)
+    reviewed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    reviewed_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     created_at = Column(DateTime(timezone=True), nullable=False, server_default="now()")

@@ -23,7 +23,7 @@ from app.modules.evidence_export import (
 )
 from app.modules.training_evidence.export_service import (
     build_group_evidence_input,
-    build_individual_evidence_input,
+    build_individual_evidence_package_input,
 )
 from app.modules.training_evidence.models import TrainingEvidenceShare, TrainingEvidenceShareAccessLog
 
@@ -127,7 +127,11 @@ async def create_share(
         )
 
     if len(event_ids) == 1:
-        evidence = await build_individual_evidence_input(db, tenant_id, event_ids[0])
+        evidence, _accepted_signed_copies = await build_individual_evidence_package_input(
+            db,
+            tenant_id,
+            event_ids[0],
+        )
         if package_format == "pdf":
             package_bytes = render_individual_act_pdf(evidence)
         else:

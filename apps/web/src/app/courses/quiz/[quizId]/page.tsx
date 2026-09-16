@@ -72,6 +72,14 @@ interface CourseModule {
   lessons: CourseLesson[];
 }
 
+interface AssignmentAccessWindow {
+  server_now: string;
+  access_policy: {
+    completion_window_expires_at: string | null;
+    due_at: string | null;
+  };
+}
+
 export default function QuizPlayerPage() {
   const params = useParams();
   const quizId = params?.quizId as string;
@@ -92,8 +100,11 @@ export default function QuizPlayerPage() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [attempts, setAttempts] = useState<QuizAttempt[]>([]);
   const [courseModules, setCourseModules] = useState<CourseModule[]>([]);
+  const [assignmentDeadlineMs, setAssignmentDeadlineMs] = useState<number | null>(null);
+  const [assignmentRemainingSeconds, setAssignmentRemainingSeconds] = useState<number | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const handleSubmitRef = useRef<() => void>(() => undefined);
+  const attemptStartedAtRef = useRef(Date.now());
 
   const getChoiceLabel = (question: Question, choice: QuizChoice, index: number) => {
     if (question.type === 'true_false') {
@@ -111,17 +122,34 @@ export default function QuizPlayerPage() {
       ];
       if (parentCourseId) {
         requests.push(fetch(`${API_URL}/v1/courses/${parentCourseId}/structure`, { headers: { Authorization: `Bearer ${token}` } }));
+        requests.push(fetch(`${API_URL}/v1/courses/${parentCourseId}/access-window`, { headers: { Authorization: `Bearer ${token}` } }));
       }
-      const [quizRes, attemptsRes, structureRes] = await Promise.all(requests);
+      const [quizRes, attemptsRes, structureRes, accessWindowRes] = await Promise.all(requests);
       if (quizRes.ok) {
         const data = await quizRes.json();
         setQuiz(data);
-        if (data.time_limit) setTimeLeft(data.time_limit * 60);
+        if (!parentCourseId && data.time_limit) setTimeLeft(data.time_limit * 60);
       }
       if (attemptsRes.ok) setAttempts(await attemptsRes.json());
       if (structureRes?.ok) {
         const structure = await structureRes.json();
         setCourseModules(structure.modules || []);
+      }
+      if (accessWindowRes?.ok) {
+        const accessWindow: AssignmentAccessWindow | null = await accessWindowRes.json();
+        if (accessWindow) {
+          const serverNowMs = Date.parse(accessWindow.server_now);
+          const deadlines = [
+            accessWindow.access_policy.completion_window_expires_at,
+            accessWindow.access_policy.due_at,
+          ]
+            .filter((value): value is string => Boolean(value))
+            .map((value) => Date.parse(value))
+            .filter((value) => Number.isFinite(value));
+          if (deadlines.length > 0 && Number.isFinite(serverNowMs)) {
+            setAssignmentDeadlineMs(Date.now() + Math.max(0, Math.min(...deadlines) - serverNowMs));
+          }
+        }
       }
     } finally {
       setLoading(false);
@@ -148,7 +176,23 @@ export default function QuizPlayerPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [timerActive]);
 
+  useEffect(() => {
+    if (assignmentDeadlineMs === null) {
+      setAssignmentRemainingSeconds(null);
+      return;
+    }
+    const update = () => {
+      setAssignmentRemainingSeconds(Math.max(0, Math.ceil((assignmentDeadlineMs - Date.now()) / 1000)));
+    };
+    update();
+    const assignmentTimer = window.setInterval(update, 1000);
+    return () => window.clearInterval(assignmentTimer);
+  }, [assignmentDeadlineMs]);
+
+  const assignmentBlocked = assignmentRemainingSeconds === 0;
+
   const handleSelect = (questionId: string, choiceId: string, type: string) => {
+    if (assignmentBlocked) return;
     setAnswers((prev) => {
       if (type === 'MCQ' || type === 'true_false') {
         return { ...prev, [questionId]: [choiceId] };
@@ -161,7 +205,7 @@ export default function QuizPlayerPage() {
   };
 
   const handleSubmit = async () => {
-    if (!quizId || !token || submitting || result) return;
+    if (!quizId || !token || submitting || result || assignmentBlocked) return;
     setSubmitting(true);
     try {
       const submission = {
@@ -169,7 +213,9 @@ export default function QuizPlayerPage() {
           question_id: q.id,
           selected_choice_ids: answers[q.id] || [],
         })) || [],
-        time_spent_seconds: quiz?.time_limit ? (quiz.time_limit * 60 - (timeLeft || 0)) : undefined,
+        time_spent_seconds: quiz?.time_limit && !parentCourseId
+          ? (quiz.time_limit * 60 - (timeLeft || 0))
+          : Math.max(0, Math.round((Date.now() - attemptStartedAtRef.current) / 1000)),
       };
       const res = await fetch(`${API_URL}/v1/quizzes/${quizId}/submit`, {
         method: 'POST',
@@ -204,6 +250,7 @@ export default function QuizPlayerPage() {
     setAnswers({});
     setCurrentIdx(0);
     setLoading(true);
+    attemptStartedAtRef.current = Date.now();
     fetchQuiz();
   };
 
@@ -237,6 +284,7 @@ export default function QuizPlayerPage() {
   const displayedChoices = currentQ
     ? [...currentQ.choices.slice(choiceRotation), ...currentQ.choices.slice(0, choiceRotation)]
     : [];
+  const visibleRemainingSeconds = assignmentRemainingSeconds ?? timeLeft;
 
   return (
     <div className="min-h-screen bg-muted">
@@ -245,20 +293,20 @@ export default function QuizPlayerPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">{quiz.title}</h1>
           <div className="flex items-center gap-4">
-            {timeLeft !== null && !result && (
+            {visibleRemainingSeconds !== null && !result && (
               <div
                 role="timer"
-                aria-live={timeLeft < 60 ? 'assertive' : 'polite'}
+                aria-live={visibleRemainingSeconds < 60 ? 'assertive' : 'polite'}
                 aria-atomic="true"
-                aria-label={t('quiz.timeLeft') || 'Time left'}
+                aria-label={assignmentRemainingSeconds !== null ? 'Оставшееся время на курс и тест' : (t('quiz.timeLeft') || 'Time left')}
                 className={
                   'text-lg px-3 py-1 rounded-md font-mono ' +
-                  (timeLeft < 60
+                  (visibleRemainingSeconds < 60
                     ? 'bg-destructive/15 text-destructive'
                     : 'bg-muted text-foreground')
                 }
               >
-                {formatTime(timeLeft)}
+                {formatTime(visibleRemainingSeconds)}
               </div>
             )}
             {result && (
@@ -268,6 +316,12 @@ export default function QuizPlayerPage() {
             )}
           </div>
         </div>
+
+        {assignmentBlocked && !result && (
+          <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+            Время, отведённое на курс и тестирование, истекло. Обратитесь к методисту.
+          </div>
+        )}
 
         {/* Results Summary */}
         {result && (
@@ -374,6 +428,7 @@ export default function QuizPlayerPage() {
                         name={`q-${currentQ.id}`}
                         checked={isSelected}
                         onChange={() => handleSelect(currentQ.id, choice.id, currentQ.type)}
+                        disabled={assignmentBlocked}
                         className="shrink-0"
                       />
                       <span>{getChoiceLabel(currentQ, choice, choiceIndex)}</span>
@@ -392,7 +447,7 @@ export default function QuizPlayerPage() {
             <Button
               variant="outline"
               onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
-              disabled={currentIdx === 0}
+              disabled={currentIdx === 0 || assignmentBlocked}
             >
               {t('quiz.previous')}
             </Button>
@@ -400,13 +455,13 @@ export default function QuizPlayerPage() {
               {answeredCount}/{totalQuestions}
             </span>
             {currentIdx < totalQuestions - 1 ? (
-              <Button onClick={() => setCurrentIdx((i) => Math.min(totalQuestions - 1, i + 1))}>
+              <Button disabled={assignmentBlocked} onClick={() => setCurrentIdx((i) => Math.min(totalQuestions - 1, i + 1))}>
                 {t('quiz.next')}
               </Button>
             ) : (
               <Button
                 onClick={handleSubmit}
-                disabled={submitting || answeredCount === 0}
+                disabled={submitting || answeredCount === 0 || assignmentBlocked}
               >
                 {submitting ? t('quiz.submitting') : t('quiz.finish')}
               </Button>

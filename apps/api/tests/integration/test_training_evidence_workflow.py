@@ -109,6 +109,8 @@ async def test_course_completion_workflow_is_idempotent(
     )
     assert object_version == f"release:{release.version}"
     assert first.payload_snapshot["content_release_sha256"] == release.snapshot_sha256
+    assert first.payload_snapshot["print_form"]["title"] == "Подтверждение прохождения курса"
+    assert "завершил" in first.payload_snapshot["print_form"]["confirmation_text"]
     assert (
         await db_session.scalar(
             select(TrainingEvidenceEvent.id).where(TrainingEvidenceEvent.source_event_key == first.source_event_key)

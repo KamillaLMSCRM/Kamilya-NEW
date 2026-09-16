@@ -140,6 +140,7 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'integrations', href: '/admin/settings/integrations', capability: 'configure_tenant', match: 'prefix', labelKey: 'integrations.title', section: 'tenant', icon: 'settings', order: 50, sidebar: true, commandPalette: true },
   { id: 'tenant-ai', href: '/admin/settings/ai', capability: 'configure_tenant', match: 'prefix', labelKey: 'tenantAi.title', section: 'tenant', icon: 'settings', order: 55, sidebar: true, commandPalette: true },
   { id: 'certificate-settings', href: '/admin/certificates/settings', capability: 'configure_tenant', match: 'prefix', labelKey: 'sidebar.certificateTemplate', section: 'tenant', icon: 'certificate', order: 60, sidebar: true, commandPalette: true },
+  { id: 'training-evidence-settings', href: '/admin/training-evidence/settings', capability: 'configure_tenant', match: 'prefix', labelKey: 'sidebar.trainingEvidenceForm', section: 'tenant', icon: 'certificate', order: 65, sidebar: true, commandPalette: true },
   { id: 'audit-log', href: '/admin/audit', capability: 'configure_tenant', match: 'prefix', labelKey: 'nav.auditLog', section: 'tenant', icon: 'log', order: 70, sidebar: true, commandPalette: true },
   // Approval configuration is intentionally contextual and not added to the global
   // role navigation. The route remains capability-guarded for direct course actions.

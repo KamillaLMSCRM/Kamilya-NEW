@@ -82,6 +82,38 @@ class ConfirmationEvidence(_EvidenceModel):
     evidence_reference: str | None = None
 
 
+class PrintFormEvidence(_EvidenceModel):
+    """Issue-time snapshot of the tenant's printable completion form."""
+
+    template_version: int = Field(default=1, ge=1, le=100)
+    organization_name: str = Field(default="", max_length=160)
+    title: str = Field(min_length=1, max_length=160)
+    intro_text: str = Field(default="", max_length=1000)
+    confirmation_text: str = Field(min_length=1, max_length=1500)
+    employee_signature_label: str = Field(min_length=1, max_length=120)
+    employee_date_label: str = Field(min_length=1, max_length=120)
+    representative_signature_label: str = Field(min_length=1, max_length=120)
+    representative_date_label: str = Field(min_length=1, max_length=120)
+    representative_name: str = Field(default="", max_length=160)
+    representative_title: str = Field(default="", max_length=160)
+    footer_note: str = Field(default="", max_length=500)
+
+
+class SignedCopyEvidence(_EvidenceModel):
+    """Metadata for one accepted immutable returned copy."""
+
+    id: str
+    original_filename: str
+    content_type: Literal["application/pdf", "image/jpeg", "image/png"]
+    size_bytes: int = Field(ge=1, le=10 * 1024 * 1024)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    uploaded_by: Literal["learner", "methodologist"]
+    uploaded_at: datetime
+    reviewed_by: str
+    reviewed_at: datetime
+    review_status: Literal["accepted"]
+
+
 class CorrectionEvidence(_EvidenceModel):
     id: str | None = None
     recorded_at: datetime | None = None
@@ -113,6 +145,7 @@ class IndividualEvidenceInput(_EvidenceModel):
     assignment: AssignmentEvidence | None = None
     attempts: list[AttemptEvidence] = Field(default_factory=list)
     confirmation: ConfirmationEvidence | None = None
+    print_form: PrintFormEvidence | None = None
     corrections: list[CorrectionEvidence] = Field(default_factory=list)
     commission: CommissionEvidence | None = None
     decision: DecisionEvidence | None = None

@@ -409,28 +409,26 @@ export default function CoursePlayerPage() {
     }
   };
 
-  const handleMarkComplete = async (lessonId: string) => {
-    if (assignmentAccessBlocked) return;
-    if (token && !isPrivilegedPreview) {
-      try {
-        await fetch(`${API_URL}/v1/progress/lessons/${lessonId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ completed: true }),
-        });
-      } catch (e) {
-        console.error('Failed to persist progress', e);
-      }
+  const persistLessonProgress = async (lessonId: string): Promise<boolean> => {
+    if (assignmentAccessBlocked) return false;
+    if (isPrivilegedPreview) {
+      setCompletedLessons((previous) => new Set(previous).add(lessonId));
+      return true;
     }
-    const newCompleted = new Set(completedLessons).add(lessonId);
-    setCompletedLessons(newCompleted);
-    if (selectedLesson?.id === lessonId && lessonQuiz && !quizPassed) {
-      return;
-    }
-    // Auto-complete course if all lessons and required quizzes are done.
-    const total = modules.reduce((acc, m) => acc + m.lessons.length, 0);
-    if (newCompleted.size >= total && total > 0 && token && courseId) {
-      await finalizeCourseCompletion();
+    if (!token) return false;
+    try {
+      const res = await fetch(`${API_URL}/v1/progress/lessons/${lessonId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ completed: true }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setCompletedLessons((previous) => new Set(previous).add(lessonId));
+      return true;
+    } catch (e) {
+      console.error('Failed to persist progress', e);
+      toast.error(t('common.saveFailed'), { description: e instanceof Error ? e.message : undefined });
+      return false;
     }
   };
 
@@ -445,25 +443,21 @@ export default function CoursePlayerPage() {
     return null;
   };
 
-  const handleNextLesson = () => {
+  const handleNextLesson = async () => {
     if (assignmentAccessBlocked) return;
     if (!selectedLesson) return;
+    if (!await persistLessonProgress(selectedLesson.id)) return;
     const next = findNextLesson(selectedLesson.id);
     if (next) {
-      setSelectedLesson(next);
+      router.push(`/courses/${courseId}?lessonId=${encodeURIComponent(next.id)}`);
     } else {
-      // Last lesson — check if course is complete
-      checkCourseCompletion();
-    }
-  };
-
-  const checkCourseCompletion = async () => {
-    const total = modules.reduce((acc, m) => acc + m.lessons.length, 0);
-    if (completedLessons.size >= total && total > 0 && token && courseId) {
-      await finalizeCourseCompletion();
-    } else {
-      // Not all lessons done — go back to courses
-      router.push('/courses');
+      const total = modules.reduce((acc, m) => acc + m.lessons.length, 0);
+      const completedCountAfterSave = new Set(completedLessons).add(selectedLesson.id).size;
+      if (completedCountAfterSave >= total && total > 0 && token && courseId) {
+        await finalizeCourseCompletion();
+      } else {
+        router.push('/courses');
+      }
     }
   };
 
@@ -744,7 +738,7 @@ export default function CoursePlayerPage() {
             </div>
 
             <div className="mt-8 space-y-4">
-              {lessonCompleted && hasQuiz && (
+              {hasQuiz && (
                 <div className="border rounded-lg p-6 bg-card shadow-sm">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center">
@@ -756,7 +750,6 @@ export default function CoursePlayerPage() {
                       <h3 className="font-semibold text-foreground">{lessonQuiz.title}</h3>
                       <p className="text-sm text-muted-foreground">
                         {t('quiz.passScore')}: {lessonQuiz.pass_score}%
-                        {lessonQuiz.time_limit && ` · ${lessonQuiz.time_limit} ${t('common.minutes')}`}
                         {` · ${t('quiz.attempts')}: ${lessonQuiz.attempt_limit}`}
                       </p>
                     </div>
@@ -808,18 +801,10 @@ export default function CoursePlayerPage() {
                 </div>
               )}
 
-              {!lessonCompleted ? (
-                <Button onClick={() => handleMarkComplete(selectedLesson.id)} disabled={assignmentAccessBlocked}>
-                  {t('courses.markComplete')} <CheckCircle2 className="w-4 h-4 ml-1" />
-                </Button>
-              ) : !hasQuiz ? (
+              {!hasQuiz ? (
                 <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-2 text-success font-medium">
-                    <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> {t('courses.markComplete')}
-                  </span>
                   <Button
-                    variant="outline"
-                    onClick={findNextLesson(selectedLesson.id) ? handleNextLesson : () => void finalizeCourseCompletion()}
+                    onClick={() => void handleNextLesson()}
                     disabled={assignmentAccessBlocked}
                   >
                     {findNextLesson(selectedLesson.id) ? t('courses.nextLesson') : t('courses.finishCourse')}
@@ -828,7 +813,7 @@ export default function CoursePlayerPage() {
                       : <CheckCircle2 className="w-4 h-4 ml-1" />}
                   </Button>
                 </div>
-              ) : quizPassed ? (
+              ) : lessonCompleted && quizPassed ? (
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-2 text-success font-medium">
                     <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> {t('quiz.passed')}

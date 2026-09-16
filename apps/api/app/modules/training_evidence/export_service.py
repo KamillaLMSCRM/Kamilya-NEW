@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from hashlib import sha256
 from typing import Any
 from uuid import UUID
 
@@ -12,6 +13,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.storage import get_storage
 from app.models.department import Department
 from app.models.enrollment import Enrollment
 from app.models.tenants import Tenant
@@ -29,7 +31,9 @@ from app.modules.evidence_export import (
     EmployeeEvidence,
     GroupEvidenceInput,
     IndividualEvidenceInput,
+    PrintFormEvidence,
     ProcedureEvidence,
+    SignedCopyEvidence,
     TenantEvidence,
 )
 from app.modules.evidence_export.schemas import CommissionEvidence
@@ -45,6 +49,8 @@ from app.modules.training_evidence.export_schemas import (
 from app.modules.training_evidence.models import (
     TrainingEvidenceEvent,
     TrainingEvidenceLegalHold,
+    TrainingEvidenceSignedScan,
+    TrainingEvidenceSignedScanReview,
     TrainingEvidenceStepUpConfirmation,
 )
 
@@ -513,6 +519,13 @@ async def _build_server_parts(
             actor=f"{user.first_name} {user.last_name}",
             evidence_reference=str(latest_confirmation.id),
         )
+    raw_print_form = _as_mapping(root.payload_snapshot).get("print_form")
+    print_form = None
+    if root.procedure_type == "training" and isinstance(raw_print_form, Mapping):
+        try:
+            print_form = PrintFormEvidence.model_validate(raw_print_form)
+        except ValidationError:
+            _incomplete(event_id, ["valid_print_form_snapshot"])
     individual = ServerIndividualEvidenceInput(
         tenant=TenantEvidence(id=str(tenant.id), name=tenant.name, slug=tenant.slug),
         employee=EmployeeEvidence(
@@ -541,6 +554,7 @@ async def _build_server_parts(
         ),
         attempts=attempts,
         confirmation=mapped_confirmation,
+        print_form=print_form,
         corrections=corrections,
         commission=commission,
         decision=decision,
@@ -556,6 +570,117 @@ async def build_individual_evidence_input(db: AsyncSession, tenant_id: UUID, eve
 
     result, _, _ = await _build_server_parts(db, tenant_id, event_id)
     return result
+
+
+async def build_individual_evidence_package_input(
+    db: AsyncSession,
+    tenant_id: UUID,
+    event_id: UUID,
+) -> tuple[IndividualEvidenceInput, list[tuple[SignedCopyEvidence, bytes]]]:
+    """Build a complete package, accepting either OTP or an accepted hand-signed copy."""
+
+    evidence, root, _ = await _build_server_parts(
+        db,
+        tenant_id,
+        event_id,
+        require_confirmation=False,
+    )
+    scans = list(
+        (
+            await db.scalars(
+                select(TrainingEvidenceSignedScan)
+                .where(
+                    TrainingEvidenceSignedScan.tenant_id == tenant_id,
+                    TrainingEvidenceSignedScan.event_id == root.id,
+                )
+                .order_by(TrainingEvidenceSignedScan.uploaded_at, TrainingEvidenceSignedScan.id)
+            )
+        ).all()
+    )
+    reviews = list(
+        (
+            await db.scalars(
+                select(TrainingEvidenceSignedScanReview)
+                .where(
+                    TrainingEvidenceSignedScanReview.tenant_id == tenant_id,
+                    TrainingEvidenceSignedScanReview.event_id == root.id,
+                )
+                .order_by(TrainingEvidenceSignedScanReview.reviewed_at, TrainingEvidenceSignedScanReview.id)
+            )
+        ).all()
+    )
+    latest_review_by_scan = {review.signed_scan_id: review for review in reviews}
+    accepted = [
+        (scan, latest_review_by_scan[scan.id])
+        for scan in scans
+        if scan.id in latest_review_by_scan and latest_review_by_scan[scan.id].action == "accept"
+    ]
+    if evidence.confirmation is None and not accepted:
+        _incomplete(
+            event_id,
+            ["confirmation_or_accepted_signed_copy"],
+            message="Подтвердите завершение или примите подписанный экземпляр перед экспортом.",
+        )
+
+    actor_ids = {
+        actor_id
+        for scan, review in accepted
+        for actor_id in (scan.uploaded_by_user_id, review.reviewed_by_user_id)
+    }
+    actors = (
+        {
+            actor.id: actor
+            for actor in (
+                await db.scalars(select(User).where(User.tenant_id == tenant_id, User.id.in_(actor_ids)))
+            ).all()
+        }
+        if actor_ids
+        else {}
+    )
+    storage = get_storage()
+    accepted_copies: list[tuple[SignedCopyEvidence, bytes]] = []
+    for scan, review in accepted:
+        reviewer = actors.get(review.reviewed_by_user_id)
+        if reviewer is None:
+            _incomplete(event_id, ["signed_copy_reviewer"])
+        content = storage.get_bytes(scan.storage_key)
+        if content is None:
+            _incomplete(event_id, ["accepted_signed_copy_blob"])
+        if len(content) != scan.size_bytes or sha256(content).hexdigest() != scan.sha256:
+            _incomplete(event_id, ["accepted_signed_copy_integrity"])
+        accepted_copies.append(
+            (
+                SignedCopyEvidence(
+                    id=str(scan.id),
+                    original_filename=scan.original_filename,
+                    content_type=scan.content_type,
+                    size_bytes=scan.size_bytes,
+                    sha256=scan.sha256,
+                    uploaded_by="learner" if scan.uploaded_by_user_id == root.user_id else "methodologist",
+                    uploaded_at=scan.uploaded_at,
+                    reviewed_by=f"{reviewer.first_name} {reviewer.last_name}".strip(),
+                    reviewed_at=review.reviewed_at,
+                    review_status="accepted",
+                ),
+                content,
+            )
+        )
+
+    if evidence.confirmation is None and accepted:
+        _, review = accepted[-1]
+        evidence = evidence.model_copy(
+            update={
+                "confirmation": ConfirmationEvidence(
+                    confirmed=True,
+                    method="manual",
+                    confirmed_at=review.reviewed_at,
+                    statement=(evidence.print_form.confirmation_text if evidence.print_form else None),
+                    actor=evidence.employee.full_name,
+                    evidence_reference=str(review.signed_scan_id),
+                )
+            }
+        )
+    return evidence, accepted_copies
 
 
 async def build_learner_individual_evidence_input(
@@ -603,6 +728,7 @@ async def build_learner_individual_evidence_input(
         assignment=complete.assignment,
         attempts=[item.model_copy(update={"answers": []}) for item in complete.attempts],
         confirmation=None,
+        print_form=complete.print_form,
         generated_at=complete.generated_at,
     )
 
@@ -617,7 +743,7 @@ async def build_group_evidence_input(db: AsyncSession, tenant_id: UUID, event_id
 
     individual_inputs = []
     for event_id in event_ids:
-        individual, _, _ = await _build_server_parts(db, tenant_id, event_id)
+        individual, _ = await build_individual_evidence_package_input(db, tenant_id, event_id)
         individual_inputs.append(individual)
 
     first = individual_inputs[0]

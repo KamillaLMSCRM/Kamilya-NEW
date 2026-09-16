@@ -16,7 +16,9 @@ from app.modules.evidence_export import (
     GroupEvidenceInput,
     GroupRecordEvidence,
     IndividualEvidenceInput,
+    PrintFormEvidence,
     ProcedureEvidence,
+    SignedCopyEvidence,
     TenantEvidence,
     build_group_evidence_package,
     build_individual_evidence_package,
@@ -242,3 +244,71 @@ def test_public_group_package_omits_commission_and_decision():
     package = build_group_evidence_package(group, public=True)
     assert "commission" not in package.manifest
     assert "decision" not in package.manifest
+
+
+def test_training_result_pdf_contains_tenant_configured_hand_signature_form():
+    data = _individual().model_copy(
+        update={
+            "procedure": ProcedureEvidence(
+                type="training",
+                title="Прохождение внутреннего курса",
+                version="3",
+                purpose="course_completion",
+            ),
+            "print_form": PrintFormEvidence(
+                template_version=1,
+                title="Подтверждение прохождения курса",
+                intro_text="Заполните и подпишите документ после завершения обучения.",
+                confirmation_text="Подтверждаю, что прошёл(ла) курс и ознакомился(лась) с материалами.",
+                employee_signature_label="Подпись сотрудника",
+                employee_date_label="Дата подписания",
+                representative_signature_label="Подпись представителя организации",
+                representative_date_label="Дата приёма",
+                representative_name="Айжан Методист",
+                representative_title="Методист",
+                footer_note="Верните подписанный экземпляр через Kamilya LMS.",
+            ),
+        }
+    )
+
+    text = "\n".join(
+        page.extract_text() or "" for page in PdfReader(io.BytesIO(render_individual_act_pdf(data))).pages
+    )
+
+    for expected in (
+        "Подтверждение прохождения курса",
+        "Подтверждаю, что прошёл(ла) курс",
+        "Подпись сотрудника",
+        "Дата подписания",
+        "Подпись представителя организации",
+        "Айжан Методист",
+        "Методист",
+        "Верните подписанный экземпляр",
+    ):
+        assert expected in text
+
+
+def test_individual_package_includes_only_explicitly_accepted_signed_copies():
+    signed_content = b"%PDF-1.7 accepted"
+    signed_copy = SignedCopyEvidence(
+        id="scan-1",
+        original_filename="подписанное подтверждение.pdf",
+        content_type="application/pdf",
+        size_bytes=len(signed_content),
+        sha256=hashlib.sha256(signed_content).hexdigest(),
+        uploaded_by="learner",
+        uploaded_at=datetime(2026, 7, 31, 10, 0, tzinfo=UTC),
+        reviewed_by="Айжан Методист",
+        reviewed_at=datetime(2026, 7, 31, 10, 5, tzinfo=UTC),
+        review_status="accepted",
+    )
+
+    package = build_individual_evidence_package(
+        _individual(),
+        accepted_signed_copies=[(signed_copy, signed_content)],
+    )
+
+    with zipfile.ZipFile(io.BytesIO(package.zip_bytes)) as archive:
+        assert "signed-copies/scan-1.pdf" in archive.namelist()
+        assert archive.read("signed-copies/scan-1.pdf") == signed_content
+    assert package.manifest["signed_copies"] == [signed_copy.model_dump(mode="json", exclude_none=True)]

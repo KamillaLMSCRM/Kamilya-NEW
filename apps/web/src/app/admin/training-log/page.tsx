@@ -77,11 +77,13 @@ interface TrainingLogRow {
   latest_evidence_event_id: string | null;
   evidence_procedure_type: string | null;
   evidence_confirmation_status: 'not_required' | 'pending' | 'confirmed';
+  evidence_signed_copy_status: 'awaiting_return' | 'uploaded_pending_review' | 'accepted' | 'replacement_requested';
   evidence_state: 'forming' | 'ready' | 'incomplete' | 'revoked' | 'legal_hold';
   evidence_events: Array<{
     event_id: string;
     procedure_type: string;
     confirmation_status: 'not_required' | 'pending' | 'confirmed';
+    signed_copy_status: 'awaiting_return' | 'uploaded_pending_review' | 'accepted' | 'replacement_requested';
     evidence_state: 'forming' | 'ready' | 'incomplete' | 'revoked' | 'legal_hold';
   }>;
   // Computed by backend from real activity data. Deadline status is separate
@@ -354,6 +356,8 @@ export default function AdminTrainingLogPage() {
       error={signedScanLedgers.errors[eventId]}
       onRetry={() => void signedScanLedgers.refresh(eventId)}
       onUpload={(file) => signedScanLedgers.upload(eventId, file)}
+      reviewingScanIds={signedScanLedgers.reviewingScanIds}
+      onReview={(scanId, action, reason) => signedScanLedgers.review(eventId, scanId, action, reason)}
     />
   );
 
@@ -803,7 +807,7 @@ export default function AdminTrainingLogPage() {
 function canExportEvidence(row: TrainingLogRow): boolean {
   return Boolean(
     row.latest_evidence_event_id
-    && row.evidence_confirmation_status === 'confirmed'
+    && (row.evidence_confirmation_status === 'confirmed' || row.evidence_signed_copy_status === 'accepted')
     && row.evidence_state === 'ready'
   );
 }
@@ -811,7 +815,7 @@ function canExportEvidence(row: TrainingLogRow): boolean {
 function canAttachSignedScan(row: TrainingLogRow): boolean {
   return Boolean(
     row.latest_evidence_event_id
-    && (row.evidence_procedure_type === 'training' || row.evidence_procedure_type === 'knowledge_check')
+    && row.evidence_procedure_type === 'training'
   );
 }
 
@@ -820,12 +824,18 @@ function EvidenceStatusBadge({ row, t }: { row: TrainingLogRow; t: ReturnType<ty
     ? t('trainingLog.evidence.legalHold')
     : row.evidence_state === 'revoked'
       ? t('trainingLog.evidence.revoked')
+      : row.evidence_signed_copy_status === 'accepted'
+        ? 'Подписанный экземпляр принят'
       : row.evidence_confirmation_status === 'pending'
         ? t('trainingLog.evidence.pending')
         : row.evidence_confirmation_status === 'confirmed'
           ? t('trainingLog.evidence.confirmed')
           : t('trainingLog.evidence.incomplete');
-  const variant = row.evidence_state === 'revoked' ? 'destructive' : row.evidence_confirmation_status === 'confirmed' && row.evidence_state === 'ready' ? 'default' : 'secondary';
+  const variant = row.evidence_state === 'revoked'
+    ? 'destructive'
+    : (row.evidence_confirmation_status === 'confirmed' || row.evidence_signed_copy_status === 'accepted') && row.evidence_state === 'ready'
+      ? 'default'
+      : 'secondary';
   return <Badge variant={variant}>{label}</Badge>;
 }
 

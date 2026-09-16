@@ -94,6 +94,7 @@ function setupFetch(
       });
     }
     if (url.endsWith('/v1/quizzes/quiz-1/attempts')) return jsonResponse([]);
+    if (url.includes('/v1/progress/lessons/') && init?.method === 'PUT') return jsonResponse({ completed: true });
     if (url.includes('/v1/learner/assistant/messages')) return jsonResponse([]);
     if (url.endsWith('/v1/courses/course-1/complete') && init?.method === 'POST') {
       return jsonResponse({ detail: 'Course must have an immutable ContentRelease before completion' }, 400);
@@ -123,6 +124,7 @@ describe('course player role modes', () => {
       if (url.endsWith('/v1/student/dashboard')) return jsonResponse({ enrolled_courses: [{ course_id: 'course-1', enrollment_id: 'enrollment-1', enrollment_status: 'in_progress' }] });
       if (url.endsWith('/v1/quizzes/by-lesson/lesson-1')) return jsonResponse({ id: 'quiz-1', title: 'Проверка урока', pass_score: 80, time_limit: null, attempt_limit: 3, deferral_days: 0 });
       if (url.endsWith('/v1/quizzes/quiz-1/attempts')) return jsonResponse([{ id: 'attempt-1', score_percent: 100, passed: true }]);
+      if (url.endsWith('/v1/progress/lessons/lesson-1') && init?.method === 'PUT') return jsonResponse({ completed: true });
       if (url.endsWith('/v1/courses/course-1/complete') && init?.method === 'POST') return jsonResponse({ status: 'completed', certificate_id: 'certificate-1', training_evidence_event_id: 'event-1' });
       if (url.includes('/v1/learner/assistant/messages')) return jsonResponse([]);
       return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
@@ -145,6 +147,63 @@ describe('course player role modes', () => {
       expect.stringContaining('/v1/courses/course-1/complete'),
       expect.objectContaining({ method: 'POST' }),
     ));
+  });
+
+  it('persists the current lesson before moving to the next lesson without a manual confirmation action', async () => {
+    const lessons = [lesson, { ...lesson, id: 'lesson-2', title: 'Следующий урок', order_index: 1 }];
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/v1/courses/course-1')) return jsonResponse({ ...course, status: 'published' });
+      if (url.endsWith('/v1/courses/course-1/structure')) return jsonResponse({ modules: [{ id: 'module-1', title: 'Модуль', description: '', order_index: 0, lessons }] });
+      if (url.endsWith('/v1/progress/courses/course-1/completed-ids')) return jsonResponse({ completed_lesson_ids: [] });
+      if (url.endsWith('/v1/courses/course-1/access-window')) return jsonResponse(null);
+      if (url.endsWith('/v1/student/dashboard')) return jsonResponse({ enrolled_courses: [{ course_id: 'course-1', enrollment_id: 'enrollment-1', enrollment_status: 'in_progress' }] });
+      if (url.includes('/v1/quizzes/by-lesson/')) return jsonResponse({ detail: 'No quiz' }, 404);
+      if (url.endsWith('/v1/progress/lessons/lesson-1') && init?.method === 'PUT') return jsonResponse({ completed: true });
+      if (url.includes('/v1/learner/assistant/messages')) return jsonResponse([]);
+      return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
+    });
+    useAuthStore.setState({ accessToken: 'student-token', user: { id: 'student-1', role: 'student' } as never, initialized: true });
+
+    render(<CoursePlayerPage />);
+
+    expect(await screen.findByRole('button', { name: 'Следующий урок' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Урок завершён' })).not.toBeInTheDocument();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Следующий урок' })));
+
+    await waitFor(() => expect(routerPush).toHaveBeenCalledWith('/courses/course-1?lessonId=lesson-2'));
+    const progressCall = fetchMock.mock.calls.findIndex(([input, init]) => String(input).endsWith('/v1/progress/lessons/lesson-1') && init?.method === 'PUT');
+    const navigationCall = routerPush.mock.invocationCallOrder[0];
+    expect(progressCall).toBeGreaterThanOrEqual(0);
+    expect(navigationCall).toBeGreaterThan(fetchMock.mock.invocationCallOrder[progressCall]);
+  });
+
+  it('persists the last lesson before requesting server-side course completion', async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/v1/courses/course-1')) return jsonResponse({ ...course, status: 'published' });
+      if (url.endsWith('/v1/courses/course-1/structure')) return jsonResponse({ modules: [{ id: 'module-1', title: 'Модуль', description: '', order_index: 0, lessons: [lesson] }] });
+      if (url.endsWith('/v1/progress/courses/course-1/completed-ids')) return jsonResponse({ completed_lesson_ids: [] });
+      if (url.endsWith('/v1/courses/course-1/access-window')) return jsonResponse(null);
+      if (url.endsWith('/v1/student/dashboard')) return jsonResponse({ enrolled_courses: [{ course_id: 'course-1', enrollment_id: 'enrollment-1', enrollment_status: 'in_progress' }] });
+      if (url.endsWith('/v1/quizzes/by-lesson/lesson-1')) return jsonResponse({ detail: 'No quiz' }, 404);
+      if (url.endsWith('/v1/progress/lessons/lesson-1') && init?.method === 'PUT') return jsonResponse({ completed: true });
+      if (url.endsWith('/v1/courses/course-1/complete') && init?.method === 'POST') return jsonResponse({ status: 'completed', training_evidence_event_id: 'event-1' });
+      if (url.includes('/v1/learner/assistant/messages')) return jsonResponse([]);
+      return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
+    });
+    useAuthStore.setState({ accessToken: 'student-token', user: { id: 'student-1', role: 'student' } as never, initialized: true });
+
+    render(<CoursePlayerPage />);
+    const finish = await screen.findByRole('button', { name: 'Завершить курс' });
+    await act(async () => fireEvent.click(finish));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/v1/courses/course-1/complete'), expect.objectContaining({ method: 'POST' })));
+    const progressOrder = fetchMock.mock.invocationCallOrder.find((order, index) => String(fetchMock.mock.calls[index][0]).endsWith('/v1/progress/lessons/lesson-1'));
+    const completionOrder = fetchMock.mock.invocationCallOrder.find((order, index) => String(fetchMock.mock.calls[index][0]).endsWith('/v1/courses/course-1/complete'));
+    expect(progressOrder).toBeDefined();
+    expect(completionOrder).toBeDefined();
+    expect(progressOrder as number).toBeLessThan(completionOrder as number);
   });
 
   it('finishes a methodologist preview without calling learner course completion', async () => {

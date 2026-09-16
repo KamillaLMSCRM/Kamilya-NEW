@@ -1190,6 +1190,7 @@
     "learning": "ОБУЧЕНИЕ",
     "quizConstructor": "Тесты и вопросы",
     "certificateTemplate": "Шаблон сертификата",
+    "trainingEvidenceForm": "Бланк подтверждения курса",
     "userRole": {
       "superadmin": "Суперадмин",
       "admin": "Администратор",

@@ -15,18 +15,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.storage import get_storage
 from app.models.enrollment import Enrollment
-from app.modules.training_evidence.models import TrainingEvidenceEvent, TrainingEvidenceSignedScan
+from app.modules.training_evidence.models import (
+    TrainingEvidenceEvent,
+    TrainingEvidenceSignedScan,
+    TrainingEvidenceSignedScanReview,
+)
 
 logger = logging.getLogger(__name__)
 
 MAX_SIGNED_SCAN_BYTES = 10 * 1024 * 1024
 _ALLOWED_CONTENT_TYPES = {"application/pdf", "image/jpeg", "image/png"}
-_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+_UNSAFE_FILENAME_CHARS = re.compile(r'[\x00-\x1f\x7f"\\]')
 
 
 def _safe_filename(value: str | None) -> str:
     name = PurePath(value or "signed-copy").name
-    name = _CONTROL_CHARS.sub("", name).strip()
+    # The filename is metadata only (the object key is UUID-based), but keep it
+    # safe for Content-Disposition and audit exports as well.
+    name = _UNSAFE_FILENAME_CHARS.sub("", name).strip()
     return (name or "signed-copy")[:255]
 
 
@@ -56,12 +62,12 @@ async def _eligible_event(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evidence event not found")
     if (
         event.record_type != "original"
-        or event.procedure_type not in {"training", "knowledge_check"}
+        or event.procedure_type != "training"
         or event.enrollment_id is None
     ):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="A signed copy can be attached only to an original enrolled training or knowledge-check event",
+            detail="A signed copy can be attached only to an original enrolled training event",
         )
     enrollment = await db.scalar(
         select(Enrollment).where(
@@ -113,7 +119,7 @@ async def append_signed_scan(
         event_id=event.id,
         enrollment_id=event.enrollment_id,
         user_id=event.user_id,
-        status="received",
+        status="uploaded_pending_review",
         original_filename=_safe_filename(file.filename),
         content_type=content_type,
         size_bytes=len(content),
@@ -162,3 +168,83 @@ async def list_signed_scans(
         ).all()
     )
     return event, scans
+
+
+def derive_signed_copy_status(
+    scans: list[TrainingEvidenceSignedScan], reviews: list[TrainingEvidenceSignedScanReview]
+) -> str:
+    """Derive lifecycle state without updating an immutable scan row."""
+    if not scans:
+        return "awaiting_return"
+    latest_by_scan: dict[UUID, TrainingEvidenceSignedScanReview] = {}
+    for review in reviews:
+        latest_by_scan[review.signed_scan_id] = review
+    latest = max(
+        scans,
+        key=lambda scan: (
+            getattr(scan, "uploaded_at", None) or datetime.min.replace(tzinfo=UTC),
+            scan.id,
+        ),
+    )
+    decision = latest_by_scan.get(latest.id)
+    if decision is None:
+        return "uploaded_pending_review"
+    return "accepted" if decision.action == "accept" else "replacement_requested"
+
+
+async def list_signed_scan_reviews(
+    db: AsyncSession,
+    *,
+    tenant_id: UUID,
+    event_id: UUID,
+) -> list[TrainingEvidenceSignedScanReview]:
+    rows = await db.scalars(
+        select(TrainingEvidenceSignedScanReview)
+        .where(
+            TrainingEvidenceSignedScanReview.tenant_id == tenant_id,
+            TrainingEvidenceSignedScanReview.event_id == event_id,
+        )
+        .order_by(TrainingEvidenceSignedScanReview.reviewed_at, TrainingEvidenceSignedScanReview.id)
+    )
+    return list(rows.all())
+
+
+async def review_signed_scan(
+    db: AsyncSession,
+    *,
+    tenant_id: UUID,
+    reviewer_user_id: UUID,
+    event_id: UUID,
+    scan_id: UUID,
+    action: str,
+    reason: str | None,
+) -> TrainingEvidenceSignedScanReview:
+    event = await _eligible_event(db, tenant_id=tenant_id, event_id=event_id)
+    scan = await db.scalar(
+        select(TrainingEvidenceSignedScan).where(
+            TrainingEvidenceSignedScan.id == scan_id,
+            TrainingEvidenceSignedScan.tenant_id == tenant_id,
+            TrainingEvidenceSignedScan.event_id == event.id,
+        )
+    )
+    if scan is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Signed copy not found")
+    if action not in {"accept", "request_replacement"}:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unsupported review action")
+    if action == "request_replacement" and not reason:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Replacement reason is required")
+    if action == "accept" and reason is not None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Acceptance cannot include a reason")
+    review = TrainingEvidenceSignedScanReview(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        event_id=event.id,
+        signed_scan_id=scan.id,
+        action=action,
+        reason=reason,
+        reviewed_by_user_id=reviewer_user_id,
+        reviewed_at=datetime.now(UTC),
+    )
+    db.add(review)
+    await db.commit()
+    return review

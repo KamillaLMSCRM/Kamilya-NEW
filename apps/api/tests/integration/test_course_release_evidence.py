@@ -174,6 +174,18 @@ async def test_publish_binds_enrollment_and_attempt_to_immutable_release(
     )
     assert len(attempt.evidence_snapshot["quiz"]["questions"]) == 2
 
+    from app.models.progress import Progress
+
+    progress = await db_session.scalar(
+        select(Progress).where(
+            Progress.tenant_id == tenant.id,
+            Progress.user_id == learner.id,
+            Progress.lesson_id == quiz.lesson_id,
+            Progress.completed.is_(True),
+        )
+    )
+    assert progress is not None
+
     release_savepoint = await db_session.begin_nested()
     try:
         with pytest.raises(DBAPIError):

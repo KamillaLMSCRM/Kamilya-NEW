@@ -453,7 +453,7 @@ async def submit_quiz(
     user=Depends(get_current_user),
 ):
     """Submit quiz answers and get graded results."""
-    await _require_quiz_access(db, quiz_id, user, active_only=True)
+    quiz = await _require_quiz_access(db, quiz_id, user, active_only=True)
     try:
         answers_dicts = [a.model_dump() for a in req.answers]
         result = await grade_quiz(
@@ -464,6 +464,18 @@ async def submit_quiz(
             answers=answers_dicts,
             time_spent_seconds=req.time_spent_seconds,
         )
+        if result["passed"]:
+            from app.modules.progress.service import update_lesson_progress
+
+            progress = await update_lesson_progress(
+                db,
+                user.id,
+                quiz.lesson_id,
+                user.tenant_id,
+                completed=True,
+            )
+            if progress is None:
+                raise ValueError("Course enrollment is required before lesson completion")
         # Update quiz assignment status if exists
         try:
             from app.modules.quizzes.assignment_service import update_assignment_status
@@ -508,7 +520,7 @@ async def submit_quiz(
         )
         return QuizResultResponse(**result, training_evidence_event_id=evidence_event.id)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/{quiz_id}/attempts", response_model=list[QuizAttemptResponse])

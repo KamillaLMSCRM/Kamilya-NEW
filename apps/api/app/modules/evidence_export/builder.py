@@ -21,6 +21,7 @@ from app.modules.evidence_export.schemas import (
     GroupEvidenceInput,
     GroupRecordEvidence,
     IndividualEvidenceInput,
+    SignedCopyEvidence,
 )
 
 FONT_DIR = __import__("pathlib").Path(__file__).resolve().parents[2] / "assets" / "fonts"
@@ -413,6 +414,56 @@ def render_individual_act_pdf(input_data: IndividualEvidenceInput, *, public: bo
         _field(pdf, "Принял", decision.get("decided_by"))
         _field(pdf, "Обоснование", decision.get("rationale"))
 
+    if not public and data.get("print_form") and procedure.get("type") == "training":
+        form = data["print_form"]
+        pdf.add_page()
+        pdf.set_font("Ubuntu", "B", 18)
+        pdf.set_text_color(30, 58, 138)
+        pdf.multi_cell(0, 9, _safe_text(form.get("title")), align="C", new_x="LMARGIN", new_y="NEXT")
+        if form.get("intro_text"):
+            _paragraph(pdf, form.get("intro_text"))
+        _heading(pdf, "Сведения о прохождении")
+        _field(pdf, "Организация", form.get("organization_name") or tenant.get("name"))
+        _field(pdf, "Сотрудник", employee.get("full_name"))
+        _field(pdf, "Курс", (course or {}).get("title"))
+        _field(pdf, "Версия публикации", (course or {}).get("release_version"))
+        _field(pdf, "Дата формирования", _human_datetime(input_data.generated_at))
+        _heading(pdf, "Подтверждение сотрудника")
+        _paragraph(pdf, form.get("confirmation_text"))
+        pdf.ln(8)
+        pdf.set_draw_color(80, 80, 80)
+        pdf.set_text_color(30, 30, 30)
+        pdf.set_font("Ubuntu", "", 9)
+        left_x = pdf.l_margin
+        right_x = pdf.w / 2 + 5
+        line_width = 72
+        for x, label in (
+            (left_x, form.get("employee_signature_label")),
+            (right_x, form.get("employee_date_label")),
+        ):
+            y = pdf.get_y()
+            pdf.line(x, y, x + line_width, y)
+            pdf.set_xy(x, y + 1.5)
+            pdf.cell(line_width, 5, _safe_text(label), align="C")
+        pdf.ln(16)
+        _heading(pdf, "Отметка представителя организации", level=2)
+        if form.get("representative_name"):
+            _field(pdf, "ФИО", form.get("representative_name"))
+        if form.get("representative_title"):
+            _field(pdf, "Должность", form.get("representative_title"))
+        pdf.ln(7)
+        for x, label in (
+            (left_x, form.get("representative_signature_label")),
+            (right_x, form.get("representative_date_label")),
+        ):
+            y = pdf.get_y()
+            pdf.line(x, y, x + line_width, y)
+            pdf.set_xy(x, y + 1.5)
+            pdf.cell(line_width, 5, _safe_text(label), align="C")
+        if form.get("footer_note"):
+            pdf.ln(16)
+            _paragraph(pdf, form.get("footer_note"), italic=True)
+
     return bytes(pdf.output())
 
 
@@ -550,12 +601,37 @@ def _package(manifest: dict[str, Any], artifacts: dict[str, tuple[str, bytes]]) 
     )
 
 
-def build_individual_evidence_package(input_data: IndividualEvidenceInput, *, public: bool = False) -> EvidencePackage:
+def build_individual_evidence_package(
+    input_data: IndividualEvidenceInput,
+    *,
+    public: bool = False,
+    accepted_signed_copies: Iterable[tuple[SignedCopyEvidence, bytes]] = (),
+) -> EvidencePackage:
     manifest = _base_manifest(input_data, "individual_result")
     if public:
         manifest = _publicize(manifest)
     pdf = render_individual_act_pdf(input_data, public=public)
-    return _package(manifest, {"individual-act.pdf": ("application/pdf", pdf)})
+    artifacts: dict[str, tuple[str, bytes]] = {"individual-act.pdf": ("application/pdf", pdf)}
+    signed_copy_manifest: list[dict[str, Any]] = []
+    extension_by_type = {"application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png"}
+    for signed_copy, content in accepted_signed_copies:
+        if public:
+            raise ValueError("Public evidence packages cannot contain returned signed copies")
+        if signed_copy.review_status != "accepted":
+            raise ValueError("Only accepted signed copies may enter an evidence package")
+        if len(content) != signed_copy.size_bytes:
+            raise ValueError("Signed copy size does not match its ledger metadata")
+        if sha256_bytes(content) != signed_copy.sha256:
+            raise ValueError("Signed copy digest does not match its ledger metadata")
+        extension = extension_by_type[signed_copy.content_type]
+        artifact_path = _safe_zip_path(f"signed-copies/{signed_copy.id}.{extension}")
+        if artifact_path in artifacts:
+            raise ValueError(f"Duplicate signed copy artifact: {artifact_path}")
+        artifacts[artifact_path] = (signed_copy.content_type, content)
+        signed_copy_manifest.append(signed_copy.model_dump(mode="json", exclude_none=True))
+    if signed_copy_manifest:
+        manifest["signed_copies"] = signed_copy_manifest
+    return _package(manifest, artifacts)
 
 
 def build_group_evidence_package(input_data: GroupEvidenceInput, *, public: bool = False) -> EvidencePackage:

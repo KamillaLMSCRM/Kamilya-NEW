@@ -51,6 +51,8 @@ from app.modules.learning_paths.models import LearningPathAssignment
 from app.modules.training_evidence.models import (
     TrainingEvidenceEvent,
     TrainingEvidenceLegalHold,
+    TrainingEvidenceSignedScan,
+    TrainingEvidenceSignedScanReview,
     TrainingEvidenceStepUpConfirmation,
 )
 from app.modules.training_log.deadline_policy import deadline_status_sql
@@ -469,6 +471,31 @@ async def _load_evidence_read_model(
             )
         ).all()
     )
+    signed_scans = list(
+        (
+            await db.scalars(
+                select(TrainingEvidenceSignedScan).where(
+                    TrainingEvidenceSignedScan.tenant_id == tenant_id,
+                    TrainingEvidenceSignedScan.event_id.in_(event_ids),
+                )
+            )
+        ).all()
+    )
+    signed_scan_ids = [scan.id for scan in signed_scans]
+    signed_scan_reviews = (
+        list(
+            (
+                await db.scalars(
+                    select(TrainingEvidenceSignedScanReview).where(
+                        TrainingEvidenceSignedScanReview.tenant_id == tenant_id,
+                        TrainingEvidenceSignedScanReview.signed_scan_id.in_(signed_scan_ids),
+                    )
+                )
+            ).all()
+        )
+        if signed_scan_ids
+        else []
+    )
     by_id = {event.id: event for event in events}
     confirmations_by_event: dict[UUID, list[TrainingEvidenceStepUpConfirmation]] = {}
     for confirmation in confirmations:
@@ -476,6 +503,12 @@ async def _load_evidence_read_model(
     holds_by_event: dict[UUID, list[TrainingEvidenceLegalHold]] = {}
     for hold in holds:
         holds_by_event.setdefault(hold.event_id, []).append(hold)
+    scans_by_event: dict[UUID, list[TrainingEvidenceSignedScan]] = {}
+    for scan in signed_scans:
+        scans_by_event.setdefault(scan.event_id, []).append(scan)
+    reviews_by_scan: dict[UUID, list[TrainingEvidenceSignedScanReview]] = {}
+    for review in signed_scan_reviews:
+        reviews_by_scan.setdefault(review.signed_scan_id, []).append(review)
 
     def event_key(event: TrainingEvidenceEvent):
         return (event.occurred_at or event.created_at, event.created_at, str(event.id))
@@ -507,6 +540,30 @@ async def _load_evidence_read_model(
                 root.payload_snapshot.get("confirmation"), dict
             )
             confirmed = any(confirmations_by_event.get(event_id) for event_id in chain_ids)
+            root_scans = scans_by_event.get(root.id, [])
+            latest_scan = max(
+                root_scans,
+                key=lambda scan: (scan.uploaded_at, str(scan.id)),
+                default=None,
+            )
+            latest_scan_review = (
+                max(
+                    reviews_by_scan.get(latest_scan.id, []),
+                    key=lambda review: (review.reviewed_at, str(review.id)),
+                    default=None,
+                )
+                if latest_scan is not None
+                else None
+            )
+            if latest_scan is None:
+                signed_copy_status = "awaiting_return"
+            elif latest_scan_review is None:
+                signed_copy_status = "uploaded_pending_review"
+            elif latest_scan_review.action == "accept":
+                signed_copy_status = "accepted"
+            else:
+                signed_copy_status = "replacement_requested"
+            accepted_signed_copy = signed_copy_status == "accepted"
             active_hold = False
             for event_id in chain_ids:
                 event_holds = sorted(
@@ -521,7 +578,7 @@ async def _load_evidence_read_model(
                 evidence_state = "legal_hold"
             elif revoked:
                 evidence_state = "revoked"
-            elif required and not confirmed:
+            elif required and not confirmed and not accepted_signed_copy:
                 evidence_state = "forming"
             else:
                 evidence_state = "ready"
@@ -530,6 +587,7 @@ async def _load_evidence_read_model(
                 "event_id": latest.id,
                 "procedure_type": procedure_type,
                 "confirmation_status": confirmation_status,
+                "signed_copy_status": signed_copy_status,
                 "evidence_state": evidence_state,
             }
             items.append(item)
@@ -541,6 +599,7 @@ async def _load_evidence_read_model(
             "latest_evidence_event_id": latest_item["event_id"],
             "evidence_procedure_type": latest_item["procedure_type"],
             "evidence_confirmation_status": latest_item["confirmation_status"],
+            "evidence_signed_copy_status": latest_item["signed_copy_status"],
             "evidence_state": latest_item["evidence_state"],
         }
     return result
@@ -848,6 +907,7 @@ async def list_training_log(
                 "latest_evidence_event_id": None,
                 "evidence_procedure_type": None,
                 "evidence_confirmation_status": "not_required",
+                "evidence_signed_copy_status": "awaiting_return",
                 "evidence_state": "incomplete",
             },
         )
@@ -886,6 +946,7 @@ async def list_training_log(
                 "latest_evidence_event_id": evidence_info.get("latest_evidence_event_id"),
                 "evidence_procedure_type": evidence_info.get("evidence_procedure_type"),
                 "evidence_confirmation_status": evidence_info.get("evidence_confirmation_status", "not_required"),
+                "evidence_signed_copy_status": evidence_info.get("evidence_signed_copy_status", "awaiting_return"),
                 "evidence_state": evidence_info.get("evidence_state", "incomplete"),
                 "evidence_events": evidence_info.get("items", []),
             }

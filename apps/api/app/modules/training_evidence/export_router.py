@@ -31,7 +31,7 @@ from app.modules.training_evidence.export_schemas import (
 )
 from app.modules.training_evidence.export_service import (
     build_group_evidence_input,
-    build_individual_evidence_input,
+    build_individual_evidence_package_input,
     build_learner_individual_evidence_input,
 )
 from app.modules.training_evidence.models import TrainingEvidenceShare
@@ -122,14 +122,21 @@ async def export_individual_training_evidence(
     tenant_user: User = Depends(require_tenant_user()),
     user: User = Depends(require_role("methodologist")),
 ):
-    evidence = await build_individual_evidence_input(db, user.tenant_id, event_id)
+    evidence, accepted_signed_copies = await build_individual_evidence_package_input(
+        db,
+        user.tenant_id,
+        event_id,
+    )
     if format == "pdf":
         return _download(
             render_individual_act_pdf(evidence),
             media_type="application/pdf",
             filename=_safe_filename("individual", event_id, extension="pdf"),
         )
-    package = build_individual_evidence_package(evidence)
+    package = build_individual_evidence_package(
+        evidence,
+        accepted_signed_copies=accepted_signed_copies,
+    )
     return _download(
         package.zip_bytes,
         media_type="application/zip",

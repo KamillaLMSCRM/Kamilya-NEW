@@ -20,7 +20,9 @@ from app.modules.evidence_export.schemas import (
     GroupEvidenceInput,
     GroupRecordEvidence,
     IndividualEvidenceInput,
+    PrintFormEvidence,
     ProcedureEvidence,
+    SignedCopyEvidence,
     TenantEvidence,
 )
 
@@ -36,7 +38,9 @@ __all__ = [
     "GroupEvidenceInput",
     "GroupRecordEvidence",
     "IndividualEvidenceInput",
+    "PrintFormEvidence",
     "ProcedureEvidence",
+    "SignedCopyEvidence",
     "TenantEvidence",
     "build_group_evidence_package",
     "build_individual_evidence_package",

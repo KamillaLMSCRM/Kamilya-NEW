@@ -32,6 +32,7 @@ const ADMIN_ACTION_IDS = new Set([
   'kiosks',
   'integrations',
   'certificate-settings',
+  'training-evidence-settings',
   'audit-log',
 ]);
 
@@ -41,6 +42,7 @@ const ACTION_ICONS: Record<string, LucideIcon> = {
   kiosks: Monitor,
   integrations: SlidersHorizontal,
   'certificate-settings': Award,
+  'training-evidence-settings': Award,
   'audit-log': History,
 };
 
