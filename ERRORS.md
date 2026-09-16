@@ -3038,6 +3038,37 @@ contract or establish a blocker.
 - Prevention: every learner-visible generation defect must be reproduced through
   the active evidence V2 parser and final artifact seam, not only a legacy helper.
 
+## AI-QUALITY-026 - Plain-text V2 source collapsed into one lesson without tests
+
+- Date: 2026-09-16. Found by post-release synthetic-tenant acceptance of
+  backend `0.5.55`; the generated course remained an unpublished draft.
+- Symptom: a ten-section plain-text service regulation produced one lesson and
+  zero questions even though source analysis found seven teachable units.
+- Cause: local acceptance replayed the legacy `run_direct_architect` helper with
+  manually injected Excel-oriented options and guidance. New production jobs
+  returned early through `evidence_v2`, where plain `1. Heading` sections had no
+  Markdown heading metadata. V2 therefore grouped every chunk under the document
+  title, kept several SLA values inside coarse facts, and could not form safe
+  assessment seeds. The replay never exercised that production seam.
+- Fix: reconstruct deterministic chunk overlaps, recover major plain-text
+  numbered sections, split them into independently traceable sentence facts,
+  build an adaptive contiguous lesson plan without quota padding, recognize
+  singular and minute duration values, add source-grounded section questions
+  only when two safe distractors exist, and deduplicate equivalent assessed
+  values across the course.
+- Verification: the exact source is now a RED/GREEN fixture through
+  `generate_evidence_course`; 15 application regressions and the combined
+  66-test V2/passport/pipeline set pass. A fresh real-provider replay with empty
+  methodologist guidance completed in 29.110 seconds with Voyage embeddings,
+  five lessons, seven retained questions, no embedding degradation, no
+  deterministic fallback, and `publishable=true`. Full CI, immutable deployment
+  and post-release browser acceptance remain release gates.
+- Prevention: every generation release must replay the exact observed source
+  through the engine named by production job metadata, using the production
+  chunker and default empty guidance, and inspect final lesson/question semantics.
+  A legacy helper, injected options or aggregate source-analysis counts cannot
+  satisfy this gate.
+
 ## AUTH-NAV-001 - Final quiz reload restored an unrelated browser session
 
 - Date: 2026-09-16.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -16,7 +17,9 @@ from app.modules.ai.evidence_engine.application import (
     generate_evidence_course,
     to_generation_artifacts,
 )
+from app.modules.ai.evidence_engine.engine import EvidenceCourseEngine
 from app.modules.ai.evidence_engine.models import CourseIntent
+from app.modules.ai.ingestion import DocumentChunker
 from app.modules.ai.llm_client import (
     AllProvidersFailedError,
     ValidatedCallFailureReason,
@@ -104,6 +107,46 @@ def _narrative_corpus() -> DirectSourceCorpus:
         ),),
         total_chars=len(chunk.text),
         total_chunks=1,
+    )
+
+
+def _production_smoke_narrative_corpus() -> DirectSourceCorpus:
+    source = (
+        Path(__file__).parents[1]
+        / "fixtures"
+        / "ai"
+        / "production_smoke_client_service.txt"
+    ).read_text(encoding="utf-8")
+    raw_chunks = DocumentChunker().chunk_markdown(
+        source,
+        "doc-production-smoke",
+        "production-smoke.txt",
+    )
+    chunks = tuple(
+        DirectSourceChunk(
+            chunk_id=f"direct:doc-production-smoke:{index}",
+            doc_id="doc-production-smoke",
+            doc_name="production-smoke.txt",
+            title="Smoke: безопасное обслуживание клиента",
+            headings=(),
+            text=str(chunk["text"]),
+            source_revision="document:production-smoke-sha",
+            chunk_index=index,
+        )
+        for index, chunk in enumerate(raw_chunks)
+    )
+    return DirectSourceCorpus(
+        tenant_id="tenant-one",
+        documents=(DirectSourceDocument(
+            doc_id="doc-production-smoke",
+            title="Smoke: безопасное обслуживание клиента",
+            filename="production-smoke.txt",
+            category="training_material",
+            source_revision="document:production-smoke-sha",
+            chunks=chunks,
+        ),),
+        total_chars=len(source),
+        total_chunks=len(chunks),
     )
 
 
@@ -293,6 +336,62 @@ def test_direct_corpus_adapter_splits_numbered_narrative_clauses() -> None:
     assert bundle.document.sections[0].role == "primary"
     assert [fact.attribute for fact in bundle.all_facts] == ["срок", "срок"]
     assert all("doc_id=doc-rules" in fact.source_locator for fact in bundle.all_facts)
+
+
+def test_production_smoke_plain_text_reconstructs_sections_without_overlap_duplicates() -> None:
+    bundle = build_evidence_source(_production_smoke_narrative_corpus())
+
+    assert [section.title for section in bundle.document.sections] == [
+        "1. Цель и область применения",
+        "2. Начало разговора",
+        "3. Уточнение потребности",
+        "4. Приоритеты",
+        "5. Фиксация обращения",
+        "6. Срок первого ответа",
+        "7. Эскалация",
+        "8. Завершение",
+        "9. Контрольные правила",
+        "10. Краткий пример",
+    ]
+    assert len(bundle.all_facts) == 34
+    assert sum("15 минут" in fact.value for fact in bundle.all_facts) == 2
+
+
+def test_sparse_narrative_is_not_padded_to_an_arbitrary_lesson_quota() -> None:
+    bundle = build_evidence_source(_narrative_corpus())
+    result = EvidenceCourseEngine().generate_from_document(bundle.document)
+
+    assert len(result.course.lessons) == 1
+
+
+@pytest.mark.asyncio
+async def test_production_smoke_plain_text_uses_real_v2_path_without_collapsing_course() -> None:
+    """The browser smoke source must exercise the production Evidence V2 seam."""
+
+    corpus = _production_smoke_narrative_corpus()
+    generated = await generate_evidence_course(
+        corpus,
+        intent=CourseIntent(),
+        generation_client=_GenerationClient(),
+        embedding_client=_EmbeddingClient(),
+    )
+    artifacts = to_generation_artifacts(generated)
+    lessons = [lesson for module in artifacts.structure.modules for lesson in module.lessons]
+    questions = [question for item in artifacts.assessment.assessments for question in item.mcq]
+
+    assert len(generated.result.evidence_result.document_plan.primary_sections) == 10
+    assert 4 <= len(lessons) <= 6
+    assert len(questions) >= 3
+    assert all(question.question not in {"О чём этот урок?", "Что именно разберём в этом уроке?"} for question in questions)
+    assert {"15 минут", "1 час", "4 рабочих часов"} <= {
+        next(option.text for option in question.options if option.is_correct)
+        for question in questions
+    }
+    correct_answers = [
+        next(option.text for option in question.options if option.is_correct).casefold()
+        for question in questions
+    ]
+    assert len(correct_answers) == len(set(correct_answers))
 
 
 @pytest.mark.asyncio

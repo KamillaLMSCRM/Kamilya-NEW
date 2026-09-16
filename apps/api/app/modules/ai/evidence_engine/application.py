@@ -148,7 +148,10 @@ def _narrative_section_role(
 
 def _narrative_attribute(value: str) -> str:
     normalized = value.casefold().replace("ё", "е")
-    if re.search(r"\b(?:дн|дня|дней|месяц|месяца|месяцев|час|часов|срок)\w*\b", normalized):
+    if re.search(
+        r"\b(?:минут|день|дня|дней|месяц|месяца|месяцев|час|часов|срок)\w*\b",
+        normalized,
+    ):
         return "срок"
     if re.search(r"\b(?:процент|ставк|вознагражден|тенге|сумм)\w*\b", normalized):
         return "финансовое условие"
@@ -156,19 +159,134 @@ def _narrative_attribute(value: str) -> str:
         return "право"
     if re.search(r"\b(?:обязан|должен|необходимо)\w*\b", normalized):
         return "обязанность"
-    if re.search(r"\b(?:запрещен|не допускается|не вправе)\w*\b", normalized):
+    if re.search(
+        r"(?:\bнельзя\b|\bзапрещен\w*\b|\bне допускается\b|\bне вправе\b)",
+        normalized,
+    ):
         return "запрет"
     return "положение"
 
 
 def _split_narrative_chunk(text: str) -> list[str]:
     cleaned = re.sub(r"(?m)^#{1,6}\s+.*$", "", text)
-    parts = re.split(
+    blocks = re.split(
         r"\n{2,}|(?=^\s*(?:\d+(?:\.\d+)*|[а-яё])\s*[.)]\s+)",
         cleaned,
         flags=re.MULTILINE | re.IGNORECASE,
     )
-    return [" ".join(part.split()) for part in parts if len(" ".join(part.split())) >= 25]
+    parts: list[str] = []
+    for block in blocks:
+        normalized = " ".join(block.split())
+        if not normalized:
+            continue
+        sentences = re.split(r"(?<=[.!?])\s+(?=[А-ЯЁA-Z0-9«])", normalized)
+        pending = ""
+        for sentence in sentences:
+            sentence = " ".join(sentence.split())
+            if not sentence:
+                continue
+            if len(sentence) < 25:
+                pending = f"{pending} {sentence}".strip()
+                continue
+            if pending:
+                sentence = f"{pending} {sentence}".strip()
+                pending = ""
+            parts.append(sentence)
+        if pending:
+            if parts:
+                parts[-1] = f"{parts[-1]} {pending}".strip()
+            elif len(pending) >= 25:
+                parts.append(pending)
+    return parts
+
+
+_PLAIN_NUMBERED_SECTION_RE = re.compile(
+    r"(?m)^\s*(?P<number>\d{1,3})\.\s+(?P<title>[^\n]{3,120}?)\s*$"
+)
+
+
+def _merge_overlapping_chunks(chunks: list[Any]) -> str:
+    """Reconstruct source text from deterministic overlapping ingestion chunks."""
+
+    merged = ""
+    for chunk in chunks:
+        text = str(chunk.text).strip()
+        if not text:
+            continue
+        if not merged:
+            merged = text
+            continue
+        overlap = 0
+        maximum = min(len(merged), len(text), 500)
+        for size in range(maximum, 19, -1):
+            if merged.endswith(text[:size]):
+                overlap = size
+                break
+        if overlap:
+            merged += text[overlap:]
+        else:
+            merged = f"{merged}\n\n{text}"
+    return merged.strip()
+
+
+def _plain_numbered_sections(text: str, fallback_title: str) -> list[tuple[str, str]]:
+    """Recover major ``1. Heading`` sections from plain text without Markdown metadata."""
+
+    matches = list(_PLAIN_NUMBERED_SECTION_RE.finditer(text))
+    if len(matches) < 2:
+        return []
+    sections: list[tuple[str, str]] = []
+    prefix = text[: matches[0].start()].strip()
+    if prefix and len(prefix.split()) >= 12 and prefix != prefix.upper():
+        sections.append((fallback_title, prefix))
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        body = text[match.end() : end].strip()
+        if not body:
+            continue
+        title = f"{match.group('number')}. {' '.join(match.group('title').split())}"
+        sections.append((title, body))
+    return sections
+
+
+def _narrative_section(
+    *,
+    document: Any,
+    section_name: str,
+    text: str,
+    role: SectionRole,
+    section_index: int,
+) -> SourceSection | None:
+    facts = tuple(
+        SourceFact(
+            fact_id=_stable_id(
+                "source-fact",
+                document.doc_id,
+                section_name,
+                str(part_index),
+                value,
+            ),
+            subject=section_name,
+            attribute=_narrative_attribute(value),
+            value=value,
+            source_locator=_locator(
+                doc_id=document.doc_id,
+                source_revision=document.source_revision,
+                section=section_name,
+                section_index=section_index,
+                part=part_index,
+            ),
+        )
+        for part_index, value in enumerate(_split_narrative_chunk(text), start=1)
+    )
+    if not facts:
+        return None
+    return SourceSection(
+        section_id=f"{document.doc_id}:section:{section_index}:{_slug(section_name)}",
+        title=section_name,
+        role=_section_role(role),  # type: ignore[arg-type]
+        facts=facts,
+    )
 
 
 def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
@@ -242,8 +360,44 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
             ))
 
     for document in corpus.documents:
+        ordered_chunks = [
+            chunk
+            for chunk in sorted(document.chunks, key=lambda item: item.chunk_index)
+            if (
+                document.doc_id,
+                next(
+                    (
+                        heading.removeprefix("[Worksheet] ").strip().casefold()
+                        for heading in reversed(chunk.headings)
+                    ),
+                    "",
+                ),
+            )
+            not in table_keys
+        ]
+        if ordered_chunks and all(not chunk.headings for chunk in ordered_chunks):
+            reconstructed = _merge_overlapping_chunks(ordered_chunks)
+            plain_sections = _plain_numbered_sections(reconstructed, document.title)
+            if plain_sections:
+                for section_index, (section_name, text) in enumerate(plain_sections, start=1):
+                    role = _narrative_section_role(
+                        document_id=document.doc_id,
+                        section_name=section_name,
+                        role_by_section=role_by_section,
+                    )
+                    section = _narrative_section(
+                        document=document,
+                        section_name=section_name,
+                        text=text,
+                        role=role,
+                        section_index=section_index,
+                    )
+                    if section is not None:
+                        sections.append(section)
+                continue
+
         grouped: dict[str, list[Any]] = defaultdict(list)
-        for chunk in sorted(document.chunks, key=lambda item: item.chunk_index):
+        for chunk in ordered_chunks:
             section_name = next(
                 (
                     heading.removeprefix("[Worksheet] ").strip()

@@ -148,7 +148,14 @@ def _narrative_lesson_title(module: str, facts: list[SourceFact], *, split: bool
 _DURATION_VALUE_RE = re.compile(
     r"(?:в\s+течение|не\s+позднее|срок(?:ом)?(?:\s+до)?|до)\s+"
     r"(?P<answer>(?:\d+(?:[.,]\d+)?|[а-яё-]+)(?:\s*\([^)]{1,50}\))?\s+"
-    r"(?:(?:рабочих|календарных)\s+)?(?:дн(?:я|ей)|месяц(?:а|ев)|час(?:а|ов)))",
+    r"(?:(?:рабочих|календарных)\s+)?"
+    r"(?:минут(?:а|ы)?|день|дня|дней|месяц(?:а|ев)?|час(?:а|ов)?))",
+    re.IGNORECASE,
+)
+_DURATION_ANY_RE = re.compile(
+    r"(?P<answer>\d+(?:[.,]\d+)?\s+"
+    r"(?:(?:рабочих|календарных)\s+)?"
+    r"(?:минут(?:а|ы)?|день|дня|дней|месяц(?:а|ев)?|час(?:а|ов)?))",
     re.IGNORECASE,
 )
 _PERCENT_VALUE_RE = re.compile(r"(?P<answer>\d+(?:[.,]\d+)?\s*%)")
@@ -159,7 +166,7 @@ def _extract_assessable_value(fact: SourceFact) -> str | None:
         return None
     if "Условие" in fact.value and "Описание" in fact.value:
         return None
-    patterns = (_DURATION_VALUE_RE, _PERCENT_VALUE_RE)
+    patterns = (_DURATION_VALUE_RE, _DURATION_ANY_RE, _PERCENT_VALUE_RE)
     matches: list[str] = []
     for pattern in patterns:
         matches.extend(" ".join(match.group("answer").split()) for match in pattern.finditer(fact.value))
@@ -225,6 +232,8 @@ def _answer_semantic_key(value: str) -> str:
         unit = "month"
     elif "час" in normalized:
         unit = "hour"
+    elif "минут" in normalized:
+        unit = "minute"
     elif "%" in normalized:
         unit = "percent"
     else:
@@ -421,6 +430,8 @@ class EvidenceCourseEngine:
         admitted: list[SourceFact],
         supporting: list[SourceFact],
     ) -> list[LessonEvidence]:
+        if kind == "narrative":
+            return EvidenceCourseEngine._build_narrative_evidence_plan(sections, admitted)
         section_by_fact = {
             _fact_key(fact): section.title
             for section in sections
@@ -433,29 +444,16 @@ class EvidenceCourseEngine:
 
         evidence: list[LessonEvidence] = []
         for (module, subject), facts in by_module_subject.items():
-            if kind == "narrative":
-                partitions = _partition_narrative_facts(facts)
-            else:
-                ordered = sorted(
-                    facts,
-                    key=lambda item: (_bucket_name(item.attribute), _norm(item.attribute)),
-                )
-                partitions = _partition_subject_facts(ordered)
+            ordered = sorted(
+                facts,
+                key=lambda item: (_bucket_name(item.attribute), _norm(item.attribute)),
+            )
+            partitions = _partition_subject_facts(ordered)
             for index, (bucket, selected) in enumerate(partitions, start=1):
-                if kind == "narrative":
-                    title = _narrative_lesson_title(
-                        module,
-                        selected,
-                        split=len(partitions) > 1,
-                    )
-                else:
-                    title = subject if len(partitions) == 1 else f"{subject}: {bucket or f'часть {index}'}"
+                title = subject if len(partitions) == 1 else f"{subject}: {bucket or f'часть {index}'}"
                 lesson_id = _stable_id("lesson", module, subject, bucket, str(index))
                 attributes = ", ".join(dict.fromkeys(fact.attribute for fact in selected))
-                if kind == "narrative":
-                    objective = f"Применять подтверждённые положения раздела «{module}»."
-                else:
-                    objective = f"Различать подтверждённые сведения: {attributes}."
+                objective = f"Различать подтверждённые сведения: {attributes}."
                 supporting_examples = (
                     _supporting_example_facts(
                         subject=subject,
@@ -478,6 +476,88 @@ class EvidenceCourseEngine:
                         ),
                     )
                 )
+        return evidence
+
+    @staticmethod
+    def _build_narrative_evidence_plan(
+        sections: list[SourceSection], admitted: list[SourceFact]
+    ) -> list[LessonEvidence]:
+        admitted_by_key = {_fact_key(fact): fact for fact in admitted}
+        units: list[tuple[str, list[SourceFact], int]] = []
+        for section in sections:
+            facts = [
+                admitted_by_key[_fact_key(fact)]
+                for fact in section.facts
+                if _fact_key(fact) in admitted_by_key
+            ]
+            for part_index, (_bucket, partition) in enumerate(
+                _partition_narrative_facts(facts), start=1
+            ):
+                units.append((section.title, partition, part_index))
+        if not units:
+            return []
+
+        total_words = sum(len(fact.value.split()) for _, facts, _ in units for fact in facts)
+        total_facts = sum(len(facts) for _, facts, _ in units)
+        target_lessons = min(
+            len(units),
+            max(
+                1,
+                math.ceil(total_words / 180),
+                math.ceil(total_facts / 7),
+                math.ceil(len(units) / 3),
+            ),
+        )
+        groups: list[list[tuple[str, list[SourceFact], int]]] = []
+        cursor = 0
+        used_words = 0
+        for group_index in range(target_lessons):
+            remaining_groups = target_lessons - group_index
+            remaining_units = len(units) - cursor
+            maximum_units = remaining_units - (remaining_groups - 1)
+            target_words = max(1, math.ceil((total_words - used_words) / remaining_groups))
+            group: list[tuple[str, list[SourceFact], int]] = []
+            group_words = 0
+            while cursor < len(units) and len(group) < maximum_units:
+                unit = units[cursor]
+                group.append(unit)
+                cursor += 1
+                unit_words = sum(len(fact.value.split()) for fact in unit[1])
+                group_words += unit_words
+                used_words += unit_words
+                if group_words >= target_words or len(group) >= 3:
+                    break
+            groups.append(group)
+
+        evidence: list[LessonEvidence] = []
+        for group_index, group in enumerate(groups, start=1):
+            selected = [fact for _, facts, _ in group for fact in facts]
+            section_titles = list(dict.fromkeys(title for title, _, _ in group))
+            cleaned_titles = [re.sub(r"^\d+\.\s*", "", title).strip() for title in section_titles]
+            if len(cleaned_titles) == 1:
+                title = cleaned_titles[0]
+                if len(group) > 1:
+                    title = f"{title}: часть {group[0][2]}"
+            elif len(cleaned_titles) == 2:
+                title = f"{cleaned_titles[0]} и {cleaned_titles[1]}"
+            else:
+                title = f"{cleaned_titles[0]} — {cleaned_titles[-1]}"
+            title = " ".join(title.split())
+            while len(title) > 96 and " " in title:
+                title = title.rsplit(" ", 1)[0]
+            covered = ", ".join(f"«{item}»" for item in cleaned_titles)
+            lesson_id = _stable_id("lesson", *section_titles, str(group_index))
+            evidence.append(
+                LessonEvidence(
+                    lesson_id=lesson_id,
+                    module_title="Основной материал",
+                    title=f"{title[:1].upper()}{title[1:]}",
+                    objective=f"Применять правила разделов {covered}.",
+                    fact_ids=tuple(fact.fact_id for fact in selected),
+                    supporting_fact_ids=(),
+                    source_locators=tuple(fact.source_locator for fact in selected),
+                )
+            )
         return evidence
 
     @staticmethod
@@ -611,6 +691,7 @@ class EvidenceCourseEngine:
 
         questions: list[QuestionDraft] = []
         seen_prompts: set[str] = set()
+        tested_answer_keys: set[tuple[str, str]] = set()
         for lesson in evidence:
             for fact_id in lesson.fact_ids:
                 if len([q for q in questions if q.lesson_id == lesson.lesson_id]) >= 3:
@@ -618,6 +699,9 @@ class EvidenceCourseEngine:
                 fact = by_id[fact_id]
                 answer = answer_by_fact.get(fact_id)
                 if not answer:
+                    continue
+                tested_answer_key = (_norm(fact.attribute), _answer_semantic_key(answer))
+                if tested_answer_key in tested_answer_keys:
                     continue
                 unique_answers: dict[str, tuple[SourceFact, str]] = {}
                 for peer, peer_answer in peers[_norm(fact.attribute)]:
@@ -656,6 +740,87 @@ class EvidenceCourseEngine:
                         ),
                     )
                 )
+                tested_answer_keys.add(tested_answer_key)
+
+            if any(question.lesson_id == lesson.lesson_id for question in questions):
+                continue
+            candidates = [
+                by_id[fact_id]
+                for fact_id in lesson.fact_ids
+                if 35 <= len(by_id[fact_id].value) <= 260
+                and not re.search(
+                    r"в\s+учебном\s+тесте|неверн\w*\s+вариант|"
+                    r"вопрос\s+не\s+должен|для\s+каждого\s+вопроса",
+                    by_id[fact_id].value,
+                    re.IGNORECASE,
+                )
+            ]
+            attribute_priority = {"запрет": 0, "обязанность": 1, "право": 2, "положение": 3}
+            candidates.sort(
+                key=lambda fact: (
+                    attribute_priority.get(_norm(fact.attribute), 4),
+                    0 if "сотрудник" in _norm(fact.value) else 1,
+                    len(fact.value),
+                )
+            )
+            for fact in candidates:
+                compatible = [
+                    peer
+                    for peer in facts
+                    if peer.fact_id != fact.fact_id
+                    and peer.subject != fact.subject
+                    and _norm(peer.attribute) == _norm(fact.attribute)
+                    and 35 <= len(peer.value) <= 260
+                    and 0.45 <= len(peer.value) / max(1, len(fact.value)) <= 2.2
+                    and not re.search(
+                        r"в\s+учебном\s+тесте|неверн\w*\s+вариант|"
+                        r"вопрос\s+не\s+должен|для\s+каждого\s+вопроса",
+                        peer.value,
+                        re.IGNORECASE,
+                    )
+                ]
+                unique_peers: dict[str, SourceFact] = {}
+                for peer in compatible:
+                    unique_peers.setdefault(_norm(peer.value), peer)
+                rule_distractors = list(unique_peers.values())[:3]
+                if len(rule_distractors) < 2:
+                    continue
+                subject = re.sub(r"^\d+\.\s*", "", fact.subject).strip()
+                noun = (
+                    "правило"
+                    if _norm(fact.attribute) in {"запрет", "обязанность", "право"}
+                    else "утверждение"
+                )
+                prompt = f"Какое {noun} относится к разделу «{subject}»?"
+                prompt_key = _norm(prompt)
+                if prompt_key in seen_prompts:
+                    continue
+                seen_prompts.add(prompt_key)
+                option_pairs = [
+                    (fact.value, fact.fact_id),
+                    *[(peer.value, peer.fact_id) for peer in rule_distractors],
+                ]
+                option_pairs.sort(key=lambda item: _norm(item[0]))
+                questions.append(
+                    QuestionDraft(
+                        question_id=_stable_id("question", fact.fact_id, "section-rule"),
+                        lesson_id=lesson.lesson_id,
+                        kind="single_choice",
+                        prompt=prompt,
+                        options=tuple(value for value, _ in option_pairs),
+                        correct_answer=fact.value,
+                        explanation=(
+                            f"Правило прямо указано в разделе «{subject}»."
+                        ),
+                        fact_id=fact.fact_id,
+                        distractor_fact_ids=tuple(
+                            source_id
+                            for _, source_id in option_pairs
+                            if source_id != fact.fact_id
+                        ),
+                    )
+                )
+                break
         return AssessmentDraft(questions=tuple(questions))
 
     @staticmethod
