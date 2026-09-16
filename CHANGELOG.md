@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.54] - 2026-09-16
+
+### Fixed
+
+- Keep a confidently classified source with several independent topics from
+  collapsing into one catch-all lesson, while preserving source-derived upper
+  limits and avoiding artificial lesson padding.
+- Recover a minimum useful set of three distinct, evidence-bound questions
+  when a model's first broad assessment is rejected, using bounded one-fact
+  retries; retain an empty assessment when safe recovery is not possible.
+
 ## [0.5.53] - 2026-09-16
 
 ### Fixed
@@ -991,7 +1002,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.48...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.54...HEAD
+[0.5.54]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.53...v0.5.54
+[0.5.53]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.52...v0.5.53
 [0.5.48]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.47...v0.5.48
 [0.5.47]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.46...v0.5.47
 [0.5.46]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.45...v0.5.46

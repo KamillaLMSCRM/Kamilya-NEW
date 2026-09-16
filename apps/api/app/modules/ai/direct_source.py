@@ -117,15 +117,58 @@ def _lesson_quality_repair_instruction(reason_codes: tuple[str, ...]) -> str:
 
 
 def _architect_validation_repair_instruction(code: str) -> str:
-    if code != "direct_source_structure_claim_unverified":
-        return ""
-    return (
-        " When the code is direct_source_structure_claim_unverified, remove "
-        "every invented learner action or business purpose such as selecting, "
-        "recommending, matching a customer request, or explaining a sales "
-        "offer. With blank user guidance, use neutral titles and objectives "
-        "made only from primary worksheet entity names and column headings."
+    if code == "direct_source_structure_claim_unverified":
+        return (
+            " When the code is direct_source_structure_claim_unverified, remove "
+            "every invented learner action or business purpose such as selecting, "
+            "recommending, matching a customer request, or explaining a sales "
+            "offer. With blank user guidance, use neutral titles and objectives "
+            "made only from primary worksheet entity names and column headings."
+        )
+    if code == "direct_source_structure_underfilled":
+        return (
+            " When the code is direct_source_structure_underfilled, split genuinely "
+            "distinct primary-source topics into the required minimum number of "
+            "lessons. Do not pad, repeat facts, promote supporting material, or invent "
+            "a topic merely to reach the minimum."
+        )
+    return ""
+
+
+def _minimum_total_lessons(
+    passport: DocumentPassport,
+    *,
+    num_modules: int | None,
+    lessons_per_module: int | None,
+    max_total_lessons: int | None,
+) -> int:
+    """Prevent a teachable source from collapsing into one catch-all lesson.
+
+    The lower bound is deliberately conservative: it only asks for a second
+    lesson when source analysis is confident, at least two teachable units are
+    present, and the user-selected ceilings permit it. It never stretches a
+    small source to the configured maximum.
+    """
+
+    baseline = max(1, num_modules or 1)
+    module_capacity = (
+        (num_modules or 1) * lessons_per_module
+        if lessons_per_module is not None
+        else max_total_lessons
     )
+    allowed_total = max_total_lessons if max_total_lessons is not None else module_capacity
+    if allowed_total is not None:
+        baseline = min(baseline, allowed_total)
+    if (
+        passport.confidence != "low"
+        and passport.teachable_units >= 2
+        and not passport.supporting_sections
+        and any(value is not None for value in (num_modules, lessons_per_module, max_total_lessons))
+        and (allowed_total is None or allowed_total >= 2)
+        and (lessons_per_module is None or lessons_per_module >= 2)
+    ):
+        return max(baseline, 2)
+    return baseline
 
 
 MAX_DIRECT_SEMANTIC_RESULTS = 24
@@ -1236,6 +1279,14 @@ def _validate_structure_sources(
                     raise DirectSourceError("direct_source_supporting_section_promoted")
             used.update(lesson_ids)
             covered_primary_keys.update(lesson_heading_keys & primary_section_keys)
+    minimum_total_lessons = _minimum_total_lessons(
+        passport,
+        num_modules=num_modules,
+        lessons_per_module=lessons_per_module,
+        max_total_lessons=max_total_lessons,
+    )
+    if total_lessons < minimum_total_lessons:
+        raise DirectSourceError("direct_source_structure_underfilled")
     if max_total_lessons is not None and total_lessons > max_total_lessons:
         raise DirectSourceError("direct_source_structure_invalid")
     if used != selected:
@@ -1278,6 +1329,12 @@ async def run_direct_architect(
         raise DirectSourceError("direct_source_combination_goal_required")
     await _checkpoint(check_cancelled)
     passport = build_document_passport(corpus)
+    minimum_total_lessons = _minimum_total_lessons(
+        passport,
+        num_modules=num_modules,
+        lessons_per_module=lessons_per_module,
+        max_total_lessons=max_total_lessons,
+    )
     passport_context = render_passport_for_architect(passport)
     user_intent = " ".join(
         (
@@ -1337,6 +1394,7 @@ course_hours={course_hours}
 required_module_count={num_modules}
 maximum_lessons_per_module={lessons_per_module}
 maximum_lessons_in_whole_course={max_total_lessons}
+minimum_lessons_in_whole_course={minimum_total_lessons}
 source_strategy={source_strategy}
 combination_goal={combination_goal.strip()}
 guidance={guidance or ''}
@@ -1350,6 +1408,7 @@ SELECTED SOURCES:
         raise DirectSourceError("direct_source_prompt_budget_exceeded")
     retryable_codes = {
         "direct_source_structure_invalid",
+        "direct_source_structure_underfilled",
         "direct_source_documents_omitted",
         "direct_source_primary_sections_omitted",
         "direct_source_lesson_primary_section_missing",

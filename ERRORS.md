@@ -2428,6 +2428,14 @@ contract or establish a blocker.
   21-lesson local capture yielded29 questions and3 explicit omissions; strict
   request/response replay reproduced it without network calls. This proves the
   replay and filtering path, not perfect educational quality.
+- Recurrence (2026-09-16, `0.5.53` synthetic acceptance): the first batch of
+  prose questions was correctly rejected, but the existing one-evidence-at-a-time
+  recovery routine had no production caller, so the draft retained zero tests.
+  `0.5.54` invokes that routine only after the batch attempted at least three
+  different valid evidence IDs, requires three distinct survivors, and caps the
+  recovery at six short requests. It still returns the named no-quiz result when
+  safe recovery is impossible; it never pads a quota. Three RED/GREEN focused
+  cases and the related 169-test structure/assessment matrix pass.
 
 ## AI-QUALITY-018 - Approved lesson title caused an unrecoverable false rejection
 
@@ -2780,6 +2788,14 @@ contract or establish a blocker.
   Synthetic cases prove that adding supporting rows does not increase the plan.
 - Prevention: present admission as preliminary and keep expensive work in the
   job. Validate business meaning, not only numerical progress or a terminal status.
+- Recurrence (2026-09-16, `0.5.53` synthetic acceptance): a high-confidence
+  six-section service source was advertised as supporting up to three lessons,
+  yet the architect accepted one catch-all lesson because validation enforced
+  only the maximum. `0.5.54` adds a conservative minimum of two only when the
+  source is confidently classified, has at least two teachable units, has no
+  supporting sections inflating capacity, and the selected ceilings allow two.
+  The architect retries an underfilled plan with explicit no-padding guidance;
+  small and supporting-sheet fixtures remain unchanged.
 
 ## AI-REPLAY-001 - Quality corrections need contextual regression cases
 

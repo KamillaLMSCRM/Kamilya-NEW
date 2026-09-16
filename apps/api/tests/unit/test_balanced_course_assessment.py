@@ -3063,7 +3063,7 @@ async def test_standard_assessment_drops_unanchored_question_from_evidence():
         language="ru",
     )
 
-    assert llm.calls == 1
+    assert llm.calls == 7
     assert result.mcq == []
     assert result.omission_reason == "no_valid_questions"
 
@@ -3203,7 +3203,7 @@ async def test_standard_assessment_drops_answer_length_tell():
         language="ru",
     )
 
-    assert llm.calls == 1
+    assert llm.calls == 7
     assert result.mcq == []
     assert result.omission_reason == "no_valid_questions"
 
@@ -3281,17 +3281,41 @@ async def test_standard_assessment_keeps_first_response_distinct_valid_questions
 
 
 @pytest.mark.asyncio
-async def test_standard_assessment_marks_empty_without_individual_evidence_retries():
+async def test_standard_assessment_recovers_distinct_questions_from_individual_evidence():
     source = " ".join(q["explanation"] for q in _loan_questions())
+
+    evidence = {
+        "E01": ("approval", "application review", "application intake"),
+        "E02": ("payment", "contract signing", "contract review"),
+        "E03": ("closure", "final repayment", "partial repayment"),
+    }
 
     class FakeLLM:
         calls = 0
 
         async def ainvoke(self, messages, config=None, response_format=None):
             self.calls += 1
-            questions = _loan_questions()
-            for question in questions:
-                question["options"][0]["text"] = "Yes"
+            if self.calls == 1:
+                questions = _loan_questions()
+                for question in questions:
+                    question["options"][0]["text"] = "Yes"
+            else:
+                schema = response_format["json_schema"]["schema"]
+                evidence_id = schema["properties"]["mcq"]["items"]["properties"]["source_quote_id"]["enum"][0]
+                subject, correct_suffix, alternative = evidence[evidence_id]
+                questions = [
+                    {
+                        "question": f"When does loan {subject} occur?",
+                        "options": [
+                            {"text": f"after {correct_suffix}", "is_correct": True},
+                            {"text": f"before {correct_suffix}", "is_correct": False},
+                            {"text": f"during {alternative}", "is_correct": False},
+                            {"text": f"without {correct_suffix}", "is_correct": False},
+                        ],
+                        "explanation": f"Loan {subject} occurs after {correct_suffix}.",
+                        "source_quote_id": evidence_id,
+                    }
+                ]
             return SimpleNamespace(
                 content=(
                     '{"mcq": '
@@ -3311,9 +3335,13 @@ async def test_standard_assessment_marks_empty_without_individual_evidence_retri
         language="en",
     )
 
-    assert llm.calls == 1
-    assert result.mcq == []
-    assert result.omission_reason == "no_valid_questions"
+    assert llm.calls == 4
+    assert len(result.mcq) == 3
+    assert {question.source_quote for question in result.mcq} == {
+        "Loan approval occurs after application review.",
+        "Loan payment occurs after contract signing.",
+        "Loan closure occurs after final repayment.",
+    }
 
 
 @pytest.mark.asyncio
@@ -3335,20 +3363,22 @@ async def test_focused_assessment_rejected_evidence_candidate_stays_in_its_own_s
 
         async def ainvoke(self, messages, config=None, response_format=None):
             self.calls += 1
-            if self.calls <= 5:
-                questions = [
-                    {
-                        "question": "When does loan approval occur?",
-                        "options": [
-                            {"text": "Yes", "is_correct": True},
-                            {"text": "before review", "is_correct": False},
-                            {"text": "during intake", "is_correct": False},
-                            {"text": "without review", "is_correct": False},
-                        ],
-                        "explanation": source,
-                        "source_quote_id": "E01",
-                    }
-                ]
+            if self.calls == 1:
+                questions = []
+                for evidence_id, (subject, correct_suffix, alternative) in evidence.items():
+                    questions.append(
+                        {
+                            "question": f"When does loan {subject} occur?",
+                            "options": [
+                                {"text": "Yes", "is_correct": True},
+                                {"text": f"before {correct_suffix}", "is_correct": False},
+                                {"text": f"during {alternative}", "is_correct": False},
+                                {"text": f"without {correct_suffix}", "is_correct": False},
+                            ],
+                            "explanation": source,
+                            "source_quote_id": evidence_id,
+                        }
+                    )
             else:
                 schema = response_format["json_schema"]["schema"]
                 evidence_id = schema["properties"]["mcq"]["items"]["properties"]["source_quote_id"]["enum"][0]
@@ -3398,10 +3428,9 @@ async def test_focused_assessment_rejected_evidence_candidate_stays_in_its_own_s
         language="en",
     )
 
-    assert llm.calls == 1
-    assert result.mcq == []
-    assert result.omission_reason == "no_valid_questions"
-    assert llm.focused_calls == {}
+    assert llm.calls == 7
+    assert len(result.mcq) == 3
+    assert llm.focused_calls == {"E01": 2, "E02": 2, "E03": 2}
 
 
 @pytest.mark.asyncio

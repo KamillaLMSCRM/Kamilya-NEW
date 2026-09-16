@@ -1983,3 +1983,87 @@ async def test_direct_architect_retries_one_invalid_module_count_before_failing(
     assert len(result.modules) == 10
     assert len(llm.prompts) == 2
     assert "direct_source_structure_invalid" in llm.prompts[1]
+
+
+@pytest.mark.asyncio
+async def test_direct_architect_repairs_underfilled_small_high_confidence_course():
+    """A teachable short source must not collapse to one catch-all lesson."""
+    from app.modules.ai.direct_source import (
+        build_direct_source_corpus,
+        run_direct_architect,
+    )
+
+    tenant_id, document_id = uuid4(), uuid4()
+    blob = "\n".join(
+        (
+            "1. Приветствуйте клиента и уточняйте цель обращения.",
+            "2. Проверяйте обязательные данные до начала обслуживания.",
+            "3. Объясняйте следующий шаг простыми словами.",
+            "4. Не сообщайте персональные данные посторонним.",
+            "5. Зафиксируйте результат обращения в рабочей системе.",
+            "6. Завершите диалог и подтвердите договорённости.",
+        )
+    ).encode()
+    corpus = await build_direct_source_corpus(
+        [
+            _document(
+                tenant_id=tenant_id,
+                document_id=document_id,
+                key="service-rules",
+                filename="service-rules.txt",
+                blob=blob,
+            )
+        ],
+        tenant_id=tenant_id,
+        storage=_Storage({"service-rules": blob}),
+        converter=_PlainTextConverter(),
+    )
+
+    def structure(lesson_count: int) -> str:
+        lessons = [
+            {
+                "title": "Начало обслуживания",
+                "description": "",
+                "objectives": ["Применять правила начала обслуживания"],
+                "source_doc_ids": [str(document_id)],
+                "relevant_headings": [],
+            },
+            {
+                "title": "Завершение и фиксация",
+                "description": "",
+                "objectives": ["Применять правила завершения обращения"],
+                "source_doc_ids": [str(document_id)],
+                "relevant_headings": [],
+            },
+        ][:lesson_count]
+        return json.dumps(
+            {
+                "title": "Безопасное обслуживание клиента",
+                "description": "",
+                "modules": [{"title": "Работа с клиентом", "description": "", "lessons": lessons}],
+            },
+            ensure_ascii=False,
+        )
+
+    class LLM:
+        def __init__(self) -> None:
+            self.responses = [structure(1), structure(2)]
+            self.prompts: list[str] = []
+
+        async def ainvoke(self, messages):
+            self.prompts.append(messages[-1]["content"])
+            return SimpleNamespace(content=self.responses.pop(0))
+
+    llm = LLM()
+    result = await run_direct_architect(
+        llm,
+        corpus,
+        num_modules=1,
+        lessons_per_module=3,
+        max_total_lessons=3,
+    )
+
+    assert len(llm.prompts) == 2
+    assert "minimum_lessons_in_whole_course=2" in llm.prompts[0]
+    assert "direct_source_structure_underfilled" in llm.prompts[1]
+    assert len(result.modules[0].lessons) == 2

@@ -2271,6 +2271,7 @@ async def _recover_with_focused_questions(
     max_requests: int | None = None,
     excluded_fact_keys: frozenset[tuple[str, str]] = frozenset(),
     preferred_evidence_ids: tuple[str, ...] = (),
+    lesson_scope: LessonContent | None = None,
 ) -> LessonAssessment | None:
     """Request one evidence-bound MCQ at a time when batch output stays invalid."""
     requests = 0
@@ -2389,6 +2390,7 @@ Requirements:
                     language=language,
                     minimum_questions=1,
                     excluded_fact_keys=excluded_fact_keys,
+                    lesson_scope=lesson_scope,
                 )
                 is None
             ):
@@ -2403,6 +2405,7 @@ Requirements:
                 minimum_questions=minimum_questions,
                 maximum_questions=minimum_questions,
                 excluded_fact_keys=excluded_fact_keys,
+                lesson_scope=lesson_scope,
             )
             if recovered is not None:
                 logger.warning(
@@ -2841,6 +2844,38 @@ Explain briefly from the evidence. Return only this JSON object shape (not a JSO
                         question_count,
                     )
                     return recovered
+                attempted_evidence_ids = {
+                    str(question.get("source_quote_id"))
+                    for question in recovery_pool
+                    if str(question.get("source_quote_id")) in evidence_bank
+                }
+                minimum_focused_questions = min(3, question_count, len(evidence_bank))
+                if minimum_focused_questions == 3 and len(attempted_evidence_ids) >= minimum_focused_questions:
+                    focused = await _recover_with_focused_questions(
+                        llm,
+                        system_prompt=system_prompt,
+                        evidence_bank=evidence_bank,
+                        bounded_source=bounded_lesson_content,
+                        lesson_title=lesson_content.title,
+                        language=language,
+                        language_name=lang_name,
+                        output_schema=output_schema,
+                        recovery_pool=recovery_pool,
+                        minimum_questions=minimum_focused_questions,
+                        check_cancelled=check_cancelled,
+                        max_requests=min(
+                            6,
+                            len(evidence_bank) * MAX_FOCUSED_ATTEMPTS_PER_EVIDENCE,
+                        ),
+                        excluded_fact_keys=excluded_fact_keys,
+                        preferred_evidence_ids=preferred_evidence_ids,
+                        lesson_scope=lesson_content,
+                    )
+                    if focused is not None:
+                        _record_assessment_path("focused")
+                        if on_path:
+                            on_path("focused")
+                        return focused
                 logger.warning(
                     "[ASSESSMENT_EMPTY_REVIEW] reason=%s requested=%d; lesson retained without a quiz",
                     ASSESSMENT_EMPTY_REVIEW_REASON,
