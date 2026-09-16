@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-15.
+Current as of: 2026-09-16.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -2987,3 +2987,50 @@ contract or establish a blocker.
 - Prevention: production acceptance must inspect full rendered lesson bodies in
   addition to titles, tests and aggregate diagnostics; phrase policies need exact
   regressions for every observed grammatical variant.
+
+## AI-QUALITY-025 - Provider instructions and source-meta wording reached learner content
+
+- Date: 2026-09-16.
+- Symptom: a generated lesson exposed internal question-writing instructions,
+  while a test could ask what the lesson material stated instead of testing the
+  underlying source fact.
+- Cause: V2 rejected generic headings and several meta-question forms, but did
+  not compare known generation-instruction markers against the cited facts and
+  did not cover the observed `what the lesson material states` grammar.
+- Fix: reject a generated block when it contains a known internal instruction
+  absent from its cited source facts, then use the existing bounded provider
+  retry; classify the observed source-meta question as generic.
+- Verification: exact RED/GREEN V2 regressions pass, including a first invalid
+  provider response followed by a clean retry. All 1,762 backend unit tests pass.
+- Prevention: every learner-visible generation defect must be reproduced through
+  the active evidence V2 parser and final artifact seam, not only a legacy helper.
+
+## AUTH-NAV-001 - Final quiz reload restored an unrelated browser session
+
+- Date: 2026-09-16.
+- Symptom: after a personal-link learner completed the final quiz, the final
+  action performed a full page load and could restore an unrelated refresh-cookie
+  session instead of keeping the in-memory assignment identity.
+- Cause: the final action called `window.location.assign` while the other course
+  transitions used Next.js client navigation.
+- Fix: route the final action through `router.push`, preserving the active
+  memory-only assignment session.
+- Verification: the focused navigation regression and all 595 frontend tests
+  pass; type checking and the production frontend build pass.
+- Prevention: personal-link flows must test navigation from a browser that also
+  contains an unrelated ordinary login cookie, including the last-lesson path.
+
+## TEST-INFRA-001 - Unit runs inherited an invented localhost PostgreSQL target
+
+- Date: 2026-09-16.
+- Symptom: a database-backed test attempted to connect to a PostgreSQL instance
+  that was not part of the approved test contour.
+- Cause: the shared pytest fixture inserted a localhost database URL whenever the
+  caller had not supplied one.
+- Fix: capture only an explicitly supplied database URL and skip database-backed
+  fixtures before engine access when it is absent. CI continues to supply its
+  isolated service URL explicitly.
+- Verification: a static contract test rejects the old localhost fallback; all
+  database-free unit tests pass without PostgreSQL access.
+- Prevention: workstation test helpers may never create, infer or default a
+  Kamilya database contour; DEV and CI contours must always be explicit.

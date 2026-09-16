@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.53] - 2026-09-16
+
+### Fixed
+
+- Reject source-meta questions such as “what does the lesson material state”
+  before a generated test can be saved; invalid questions are removed without
+  padding the test to a quota.
+- Retry lesson realization when provider output leaks internal question-writing
+  instructions that are absent from the cited source facts.
+- Keep the learner in the assignment session after the final quiz by returning
+  to the course through client-side navigation instead of a full page reload.
+- Require an explicit approved database URL for database-backed local tests;
+  unit-only runs no longer attempt to connect to an invented localhost database.
+
 ## [0.5.52] - 2026-09-15
 
 ### Fixed

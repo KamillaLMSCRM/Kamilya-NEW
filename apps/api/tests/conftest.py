@@ -34,11 +34,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # Settings override — must run BEFORE app imports so Pydantic Settings
 # load the test DATABASE_URL / JWT_SECRET at import time.
 # ---------------------------------------------------------------------------
+_EXPLICIT_TEST_DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 os.environ.setdefault("APP_ENV", "test")
-os.environ.setdefault(
-    "DATABASE_URL",
-    "postgresql+asyncpg://lms:lms_dev_password_2026@localhost:5432/kamilya_lms",  # pragma: allowlist secret
-)
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET", "test_jwt_secret_for_ci_only_min_length_32")
 os.environ.setdefault("JWT_AUDIENCE", "kamilya-lms")
@@ -75,8 +72,11 @@ def _requires_database_contour(path: str) -> bool:
 def require_database_test_contour() -> None:
     """Fail before integration tests can bypass ``db_session`` and dial localhost."""
 
+    if not _EXPLICIT_TEST_DATABASE_URL:
+        pytest.skip("database integration requires explicit approved DATABASE_URL")
+
     if _forbidden_local_postgres(
-        os.environ["DATABASE_URL"],
+        _EXPLICIT_TEST_DATABASE_URL,
         explicitly_allowed=os.getenv("KAMILYA_ALLOW_EPHEMERAL_CI_POSTGRES") == "1",
         github_actions=os.getenv("GITHUB_ACTIONS") == "true",
         platform=sys.platform,
@@ -108,8 +108,10 @@ async def db_session() -> AsyncIterator[AsyncSession]:
     Any commit() inside the test becomes a savepoint — visible to the test
     but discarded at teardown so other tests never see it.
     """
+    if not _EXPLICIT_TEST_DATABASE_URL:
+        pytest.skip("database integration requires explicit approved DATABASE_URL")
     if _forbidden_local_postgres(
-        os.environ["DATABASE_URL"],
+        _EXPLICIT_TEST_DATABASE_URL,
         explicitly_allowed=os.getenv("KAMILYA_ALLOW_EPHEMERAL_CI_POSTGRES") == "1",
         github_actions=os.getenv("GITHUB_ACTIONS") == "true",
         platform=sys.platform,

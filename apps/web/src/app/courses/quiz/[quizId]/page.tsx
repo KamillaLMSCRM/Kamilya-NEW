@@ -315,7 +315,7 @@ export default function QuizPlayerPage() {
               <p className="text-sm text-muted-foreground">
                 Все задания этого курса завершены. Вернитесь в курс и выполните одно итоговое подтверждение результата обучения.
               </p>
-              <Button onClick={() => window.location.assign(nextLessonHref || courseHref || getRoleHome(user?.role))}>
+              <Button onClick={() => router.push(nextLessonHref || courseHref || getRoleHome(user?.role))}>
                 Вернуться в курс и завершить
               </Button>
             </CardContent>

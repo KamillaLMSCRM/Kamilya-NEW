@@ -2,11 +2,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchMock = vi.hoisted(() => vi.fn());
+const routerPushMock = vi.hoisted(() => vi.fn());
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ quizId: 'quiz-1' }),
   useSearchParams: () => new URLSearchParams('courseId=course-1&lessonId=lesson-1'),
-  useRouter: () => ({ back: vi.fn(), push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ back: vi.fn(), push: routerPushMock, replace: vi.fn() }),
 }));
 
 vi.mock('@/i18n/useT', () => ({
@@ -53,6 +54,10 @@ const quiz = {
 
 let quizPayload = quiz;
 let previousAttempts: QuizAttemptFixture[] = [];
+let structureLessons = [
+  { id: 'lesson-1', title: 'Первый урок', order_index: 0 },
+  { id: 'lesson-2', title: 'Следующий урок', order_index: 1 },
+];
 
 interface QuizAttemptFixture {
   id: string;
@@ -67,6 +72,10 @@ describe('learner quiz result navigation', () => {
     vi.clearAllMocks();
     quizPayload = quiz;
     previousAttempts = [];
+    structureLessons = [
+      { id: 'lesson-1', title: 'Первый урок', order_index: 0 },
+      { id: 'lesson-2', title: 'Следующий урок', order_index: 1 },
+    ];
     useAuthStore.setState({
       accessToken: 'student-token',
       user: { id: 'student-1', email: 'student@example.com', role: 'student' } as never,
@@ -77,10 +86,7 @@ describe('learner quiz result navigation', () => {
       if (url.endsWith('/v1/quizzes/quiz-1') && init?.method !== 'POST') return jsonResponse(quizPayload);
       if (url.endsWith('/v1/quizzes/quiz-1/attempts')) return jsonResponse(previousAttempts);
       if (url.endsWith('/v1/courses/course-1/structure')) {
-        return jsonResponse({ modules: [{ lessons: [
-          { id: 'lesson-1', title: 'Первый урок', order_index: 0 },
-          { id: 'lesson-2', title: 'Следующий урок', order_index: 1 },
-        ] }] });
+        return jsonResponse({ modules: [{ lessons: structureLessons }] });
       }
       if (url.endsWith('/v1/quizzes/quiz-1/submit')) {
         return jsonResponse({
@@ -111,6 +117,20 @@ describe('learner quiz result navigation', () => {
     expect(screen.getByRole('link', { name: 'Следующий урок' })).toHaveAttribute(
       'href', '/courses/course-1?lessonId=lesson-2',
     );
+  });
+
+  it('keeps the learner SPA session when the final lesson is completed', async () => {
+    structureLessons = [{ id: 'lesson-1', title: 'Первый урок', order_index: 0 }];
+    render(<QuizPlayerPage />);
+
+    await screen.findByText('Верный ответ?');
+    fireEvent.click(screen.getByRole('radio'));
+    fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
+
+    const finishButton = await screen.findByRole('button', { name: 'Вернуться в курс и завершить' });
+    fireEvent.click(finishButton);
+
+    expect(routerPushMock).toHaveBeenCalledWith('/courses/course-1?lessonId=lesson-1');
   });
 
   it('rotates MCQ choices between attempts while keeping their ids selectable', async () => {

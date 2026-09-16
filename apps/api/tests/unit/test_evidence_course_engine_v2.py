@@ -18,7 +18,7 @@ from app.modules.ai.evidence_engine.models import (
 )
 from app.modules.ai.evidence_engine.provider_engine import ProviderBackedEvidenceEngine
 from app.modules.ai.evidence_engine.provider_models import ChatCompletion, EmbeddingBatch, GroundedBlock
-from app.modules.ai.evidence_engine.quality import evaluate_publishability
+from app.modules.ai.evidence_engine.quality import evaluate_publishability, is_generic_question
 
 
 class _RecordingEmbeddings:
@@ -173,6 +173,22 @@ class _AutonomousOcrRepairChat:
             model="deepseek-test",
             duration_seconds=0.01,
         )
+
+
+class _InstructionLeakRepairChat(_GroundedChat):
+    def __init__(self) -> None:
+        super().__init__()
+        self.attempts = 0
+
+    def complete_json(self, request: dict[str, Any]) -> ChatCompletion:
+        self.attempts += 1
+        completion = super().complete_json(request)
+        if self.attempts == 1:
+            completion.payload["blocks"][0]["text"] = (
+                "Неверные варианты должны быть правдоподобными. "
+                "Вопрос не должен содержать подсказок."
+            )
+        return completion
 
 
 class _MetaQuestionChat(_GroundedChat):
@@ -697,6 +713,33 @@ def test_provider_v2_drops_meta_question_rewrite_and_keeps_safe_seed() -> None:
     assert result.provider_fallback_count == 0
     assert result.publishability.publishable is True
     assert all("О чём этот урок" not in question.prompt for question in result.realized_assessment.questions)
+
+
+def test_customer_reported_source_meta_question_is_generic() -> None:
+    assert is_generic_question(
+        "Что в материале урока указано о выдаче микрокредита после проверки заявления?"
+    )
+
+
+def test_provider_v2_retries_internal_generation_instruction_leak() -> None:
+    source = _narrative_source(
+        "Заявление рассматривается в течение 15 рабочих дней.",
+        "Ответ направляется в течение 30 календарных дней.",
+        "Короткое уведомление направляется в течение 3 рабочих дней.",
+    )
+    chat = _InstructionLeakRepairChat()
+
+    result = ProviderBackedEvidenceEngine(
+        embeddings=_RecordingEmbeddings(),
+        chat=chat,
+        max_realizer_attempts=2,
+    ).generate_from_document(source)
+
+    assert chat.attempts == 2
+    assert result.provider_fallback_count == 0
+    content = result.realized_course.lessons[0].content.casefold()
+    assert "неверные варианты" not in content
+    assert "вопрос не должен содержать подсказок" not in content
 
 
 def test_provider_v2_ignores_extra_model_questions_outside_server_plan() -> None:

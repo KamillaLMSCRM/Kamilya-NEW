@@ -30,6 +30,7 @@ from .models import (
 from .provider_models import GroundedBlock, ProviderBackedResult, RetrievalMeasurement
 from .providers import QWEN_QUERY_PREFIX, ChatJsonProvider, EmbeddingProvider, ProviderCallError
 from .quality import (
+    contains_internal_generation_instruction,
     contains_ocr_artifact,
     evaluate_publishability,
     filter_acceptable_questions,
@@ -374,6 +375,12 @@ class ProviderBackedEvidenceEngine:
                 raise ValueError("block exposes unresolved OCR artifacts")
             if has_unprofessional_learner_language(heading) or has_unprofessional_learner_language(text):
                 raise ValueError("block contains blocked learner-visible language")
+            cited_source = " ".join(facts_by_id[fact_id].value for fact_id in fact_ids)
+            if (
+                contains_internal_generation_instruction(text)
+                and not contains_internal_generation_instruction(cited_source)
+            ):
+                raise ValueError("block exposes internal generation instructions")
             allowed_numbers = set().union(
                 *(
                     _numbers(

@@ -15,7 +15,15 @@ EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v2"
 _GENERIC_QUESTION_RE = re.compile(
     r"(?:о\s+ч[её]м\s+(?:этот\s+)?(?:урок|курс|раздел|модуль)|"
     r"что\s+(?:именно\s+)?(?:указано|разбер[её]м|рассматривается)\s+"
-    r"(?:в\s+этом\s+уроке|согласно\s+(?:заголовку|материалу)))",
+    r"(?:в\s+этом\s+уроке|согласно\s+(?:заголовку|материалу))|"
+    r"что\s+в\s+материал(?:е|ах)\s+(?:этого\s+)?урока\s+указано\b)",
+    re.IGNORECASE,
+)
+_INTERNAL_GENERATION_INSTRUCTION_RE = re.compile(
+    r"(?:неверн\w*\s+вариант\w*\s+должн\w*\s+быть\s+правдоподобн\w*|"
+    r"вопрос\s+не\s+должен\s+содержать\s+подсказок|"
+    r"incorrect\s+options?\s+(?:must|should)\s+be\s+plausible|"
+    r"question\s+(?:must|should)\s+not\s+contain\s+(?:hints?|clues?))",
     re.IGNORECASE,
 )
 _OCR_ARTIFACT_RE = re.compile(r"\(\)\s*\(\)|\ufffd|(?:\?{4,})")
@@ -28,6 +36,12 @@ def contains_ocr_artifact(value: str) -> bool:
 
 def is_generic_question(value: str) -> bool:
     return bool(_GENERIC_QUESTION_RE.search(value))
+
+
+def contains_internal_generation_instruction(value: str) -> bool:
+    """Detect prompt-writing instructions that must not leak into lessons."""
+
+    return bool(_INTERNAL_GENERATION_INSTRUCTION_RE.search(value))
 
 
 def is_acceptable_title(value: str) -> bool:
