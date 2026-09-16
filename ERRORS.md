@@ -3123,15 +3123,17 @@ contract or establish a blocker.
 - Date: 2026-09-16. Confirmed by blocking CI run 35079199800 for the first
   version 0.6.0 candidate; production deployment had not started.
 - Symptom: the local full unit suite passed, while Linux CI resolved a hostile
-  backslash filename differently and the PostgreSQL gate still exercised an
-  obsolete knowledge-check/legacy-status signed-copy fixture.
+  backslash filename differently. PostgreSQL then exposed two invalid signed-copy
+  fixtures: one still used the obsolete knowledge-check/legacy-status contract,
+  and another built an enrollment with a random nonexistent course id.
 - Cause: `PurePath` followed the workstation OS instead of one upload-name
   contract, and the release preflight covered the new Supabase migration gate
   but not the existing DB-backed export integration that is skipped without an
   explicit database contour.
 - Fix: normalize both path separators with `PurePosixPath`; bind the existing
   integration fixture to a course-level `training` event and assert the new
-  pending-review lifecycle names.
+  pending-review lifecycle names; create real tenant-owned courses for review
+  fixtures before inserting enrollments.
 - Verification: run the exact filename regression locally, the affected
   integration test against the approved Supabase DEV transaction/cleanup
   contour, and then require a new full Linux CI run for the corrected SHA.

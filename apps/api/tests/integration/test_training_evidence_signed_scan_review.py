@@ -14,15 +14,16 @@ pytestmark = pytest.mark.asyncio
 
 
 async def test_learner_can_append_only_to_own_training_event_and_methodologist_can_review(
-    client, db_session, make_tenant, make_user, auth_headers
+    client, db_session, make_tenant, make_user, make_course, auth_headers
 ):
     tenant = await make_tenant(name="Signed scan review contract")
     learner = await make_user(tenant, role="student", email=f"learner-{uuid4().hex}@example.test")
     methodologist = await make_user(tenant, role="methodologist", email=f"method-{uuid4().hex}@example.test")
+    course = await make_course(tenant, methodologist, title="Signed scan review course")
     enrollment = Enrollment(
         id=uuid4(),
         tenant_id=tenant.id,
-        course_id=uuid4(),
+        course_id=course.id,
         user_id=learner.id,
         status="completed",
         source="manual",
@@ -73,15 +74,16 @@ async def test_learner_can_append_only_to_own_training_event_and_methodologist_c
 
 
 async def test_knowledge_check_and_impersonation_cannot_use_returned_copy_routes(
-    client, db_session, make_tenant, make_user, auth_headers
+    client, db_session, make_tenant, make_user, make_course, auth_headers
 ):
     tenant = await make_tenant(name="Signed scan negative contract")
     learner = await make_user(tenant, role="student", email=f"learner-{uuid4().hex}@example.test")
     methodologist = await make_user(tenant, role="methodologist", email=f"method-{uuid4().hex}@example.test")
+    course = await make_course(tenant, methodologist, title="Signed scan negative course")
     enrollment = Enrollment(
         id=uuid4(),
         tenant_id=tenant.id,
-        course_id=uuid4(),
+        course_id=course.id,
         user_id=learner.id,
         status="completed",
         source="manual",
