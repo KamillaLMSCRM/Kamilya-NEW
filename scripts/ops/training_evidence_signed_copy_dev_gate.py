@@ -170,11 +170,31 @@ async def _create_baseline(owner, schema: str):
                 )
             )
             await connection.execute(text(f"GRANT SELECT, INSERT ON {qschema}.{table} TO lms_app"))
-    return tenant_a, tenant_b, reviewer_a, event_a, event_b, scan_a, scan_b
+    return (
+        tenant_a,
+        tenant_b,
+        learner_a,
+        reviewer_a,
+        enrollment_a,
+        event_a,
+        event_b,
+        scan_a,
+        scan_b,
+    )
 
 
 async def _exercise_runtime(runtime, schema: str, fixture) -> list[str]:
-    tenant_a, _tenant_b, reviewer_a, event_a, event_b, scan_a, scan_b = fixture
+    (
+        tenant_a,
+        _tenant_b,
+        learner_a,
+        reviewer_a,
+        enrollment_a,
+        event_a,
+        event_b,
+        scan_a,
+        scan_b,
+    ) = fixture
     checks: list[str] = []
     qschema = f'"{schema}"'
     async with runtime.connect() as connection:
@@ -185,6 +205,35 @@ async def _exercise_runtime(runtime, schema: str, fixture) -> list[str]:
             own_scan_count = await connection.scalar(text("SELECT count(*) FROM training_evidence_signed_scans"))
             assert own_scan_count == 1, "scan_rls_isolation_failed"
             checks.append("scan_rls_isolation")
+
+            legacy_status = await connection.scalar(
+                text("SELECT status FROM training_evidence_signed_scans WHERE id=:scan"),
+                {"scan": scan_a},
+            )
+            assert legacy_status == "received", "legacy_status_not_preserved"
+            checks.append("legacy_status_preserved")
+
+            for status in ("received", "uploaded_pending_review"):
+                await connection.execute(
+                    text(
+                        "INSERT INTO training_evidence_signed_scans "
+                        "(id,tenant_id,event_id,enrollment_id,user_id,status,original_filename,content_type,"
+                        "size_bytes,sha256,storage_key,uploaded_by_user_id) VALUES "
+                        "(:id,:tenant,:event,:enrollment,:user,:status,:filename,'application/pdf',8,:hash,:key,:user)"
+                    ),
+                    {
+                        "id": uuid4(),
+                        "tenant": tenant_a,
+                        "event": event_a,
+                        "enrollment": enrollment_a,
+                        "user": learner_a,
+                        "status": status,
+                        "filename": f"{status}.pdf",
+                        "hash": "b" * 64,
+                        "key": f"{status}-{uuid4()}.pdf",
+                    },
+                )
+                checks.append(f"scan_status_{status}_accepted")
 
             await connection.execute(
                 text(
@@ -246,12 +295,6 @@ async def main() -> int:
     try:
         fixture = await _create_baseline(owner, schema)
         checks = await _exercise_runtime(runtime, schema, fixture)
-        async with owner.connect() as connection:
-            status = await connection.scalar(
-                text(f'SELECT status FROM "{schema}".training_evidence_signed_scans LIMIT 1')
-            )
-            assert status == "uploaded_pending_review", "legacy_status_not_migrated"
-        checks.append("legacy_status_migrated")
         print(json.dumps({"status": "PASS", "target": "isolated_supabase_dev_schema", "checks": checks}))
         return 0
     except Exception as exc:

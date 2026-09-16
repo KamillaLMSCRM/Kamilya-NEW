@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any, cast
 from uuid import UUID
 
 from pydantic import Field, field_validator
@@ -74,7 +75,8 @@ async def get_training_evidence_form_settings(
     tenant_id: UUID,
 ) -> TrainingEvidenceFormSettings:
     tenant = await db.get(Tenant, tenant_id)
-    raw = ((tenant.settings or {}) if tenant else {}).get(_SETTINGS_KEY) or {}
+    tenant_settings = cast(dict[str, Any], tenant.settings or {}) if tenant else {}
+    raw = tenant_settings.get(_SETTINGS_KEY) or {}
     if tenant and not raw:
         raw = {"organization_name": tenant.name}
     return TrainingEvidenceFormSettings.model_validate(raw)
@@ -89,9 +91,10 @@ async def update_training_evidence_form_settings(
     if tenant is None:
         raise ValueError("Tenant not found")
     normalized = TrainingEvidenceFormSettings.model_validate(payload.model_dump())
-    settings = dict(tenant.settings or {})
+    settings = dict(cast(dict[str, Any], tenant.settings or {}))
     settings[_SETTINGS_KEY] = normalized.model_dump()
-    tenant.settings = settings
+    runtime_tenant = cast(Any, tenant)
+    runtime_tenant.settings = settings
     flag_modified(tenant, "settings")
     await db.flush()
     return normalized

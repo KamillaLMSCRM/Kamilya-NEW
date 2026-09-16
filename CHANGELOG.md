@@ -15,6 +15,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.6.0] - 2026-09-16
+
+### Added
+
+- Allow a learner to download a course-level confirmation form, return a signed
+  PDF/JPEG/PNG copy, and see its review state without sending the document
+  outside Kamilya LMS.
+- Allow a methodologist to attach a copy received through another channel,
+  inspect it, accept it or request a replacement with a reason.
+- Add tenant-level settings and a real PDF preview for the printable course
+  completion form, with the effective form settings snapshotted at completion.
+- Include accepted signed copies and their hashes in the private evidence ZIP.
+
+### Changed
+
+- Record lesson progress automatically when the learner moves forward, after a
+  required quiz is passed, and when the final course action is completed.
+- Use one assignment deadline across course lessons and required tests instead
+  of asking the learner to confirm each lesson manually.
+- Keep the server-side all-lessons gate while presenting one final **Complete
+  course** action to the learner.
+
+### Fixed
+
+- Keep migration 0160 compatible with both the previous application's
+  `received` scan status and the new `uploaded_pending_review` status so an
+  application rollback remains operational.
+
+### Security
+
+- Make returned-copy reviews append-only and tenant-scoped with forced RLS,
+  ownership validation, bounded file types and size, magic-byte validation,
+  content hashes and impersonation denial.
+- Exclude signed copies from public evidence shares; only private authorized
+  evidence packages can contain an accepted returned copy.
+
 ## [0.5.56] - 2026-09-16
 
 ### Fixed

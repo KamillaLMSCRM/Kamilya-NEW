@@ -42,17 +42,16 @@ def upgrade() -> None:
         type_="check",
         schema=schema,
     )
-    op.execute(f"UPDATE {scans} SET status = 'uploaded_pending_review' WHERE status = 'received'")
     op.alter_column(
         "training_evidence_signed_scans",
         "status",
-        server_default="uploaded_pending_review",
+        server_default="received",
         schema=schema,
     )
     op.create_check_constraint(
-        "ck_training_evidence_signed_scans_pending_review",
+        "ck_training_evidence_signed_scans_review_status",
         "training_evidence_signed_scans",
-        "status = 'uploaded_pending_review'",
+        "status IN ('received', 'uploaded_pending_review')",
         schema=schema,
     )
     op.execute(f"ALTER TABLE {scans} ENABLE TRIGGER trg_prevent_training_evidence_signed_scan_mutation")
@@ -212,7 +211,7 @@ def downgrade() -> None:
 
     op.execute(f"ALTER TABLE {scans} DISABLE TRIGGER trg_prevent_training_evidence_signed_scan_mutation")
     op.drop_constraint(
-        "ck_training_evidence_signed_scans_pending_review",
+        "ck_training_evidence_signed_scans_review_status",
         "training_evidence_signed_scans",
         type_="check",
         schema=schema,

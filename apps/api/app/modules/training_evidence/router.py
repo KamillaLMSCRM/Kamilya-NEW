@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
@@ -25,7 +25,11 @@ from app.modules.training_evidence.form_settings import (
     render_training_evidence_form_preview,
     update_training_evidence_form_settings,
 )
-from app.modules.training_evidence.models import TrainingEvidenceSignedScan
+from app.modules.training_evidence.models import (
+    TrainingEvidenceEvent,
+    TrainingEvidenceSignedScan,
+    TrainingEvidenceSignedScanReview,
+)
 from app.modules.training_evidence.schemas import (
     EvidenceCorrectionCreate,
     EvidenceEventCreate,
@@ -71,8 +75,8 @@ _EVIDENCE_WRITERS = ("methodologist",)
 async def get_printable_form_settings(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin")),
-):
-    return await get_training_evidence_form_settings(db, user.tenant_id)
+) -> TrainingEvidenceFormSettings:
+    return await get_training_evidence_form_settings(db, cast(UUID, user.tenant_id))
 
 
 @router.put("/form-settings", response_model=TrainingEvidenceFormSettings)
@@ -80,17 +84,17 @@ async def save_printable_form_settings(
     payload: TrainingEvidenceFormSettings,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin")),
-):
+) -> TrainingEvidenceFormSettings:
     try:
-        settings = await update_training_evidence_form_settings(db, user.tenant_id, payload)
+        settings = await update_training_evidence_form_settings(db, cast(UUID, user.tenant_id), payload)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     await log_action(
         db,
-        user.tenant_id,
+        cast(UUID, user.tenant_id),
         "training_evidence.form_settings.updated",
         "training_evidence_form_settings",
-        user_id=user.id,
+        user_id=cast(UUID, user.id),
         details={"template_version": settings.template_version},
     )
     return settings
@@ -100,7 +104,7 @@ async def save_printable_form_settings(
 async def preview_printable_form_settings(
     payload: TrainingEvidenceFormSettings,
     _user: User = Depends(require_role("admin")),
-):
+) -> Response:
     return Response(
         content=render_training_evidence_form_preview(payload),
         media_type="application/pdf",
@@ -111,28 +115,35 @@ async def preview_printable_form_settings(
     )
 
 
-def _signed_scan_response(scan, *, status_value: str, review=None) -> SignedScanResponse:
+def _signed_scan_response(
+    scan: TrainingEvidenceSignedScan,
+    *,
+    status_value: str,
+    review: TrainingEvidenceSignedScanReview | None = None,
+) -> SignedScanResponse:
+    raw_scan = cast(Any, scan)
+    raw_review = cast(Any, review)
     return SignedScanResponse(
-        id=scan.id,
-        event_id=scan.event_id,
-        enrollment_id=scan.enrollment_id,
-        user_id=scan.user_id,
+        id=raw_scan.id,
+        event_id=raw_scan.event_id,
+        enrollment_id=raw_scan.enrollment_id,
+        user_id=raw_scan.user_id,
         status=status_value,
-        original_filename=scan.original_filename,
-        content_type=scan.content_type,
-        size_bytes=scan.size_bytes,
-        sha256=scan.sha256,
-        uploaded_by_user_id=scan.uploaded_by_user_id,
-        uploaded_at=scan.uploaded_at,
-        created_at=scan.created_at,
-        latest_review_action=review.action if review else None,
-        latest_review_reason=review.reason if review else None,
-        latest_reviewed_by_user_id=review.reviewed_by_user_id if review else None,
-        latest_reviewed_at=review.reviewed_at if review else None,
+        original_filename=raw_scan.original_filename,
+        content_type=raw_scan.content_type,
+        size_bytes=raw_scan.size_bytes,
+        sha256=raw_scan.sha256,
+        uploaded_by_user_id=raw_scan.uploaded_by_user_id,
+        uploaded_at=raw_scan.uploaded_at,
+        created_at=raw_scan.created_at,
+        latest_review_action=raw_review.action if review else None,
+        latest_review_reason=raw_review.reason if review else None,
+        latest_reviewed_by_user_id=raw_review.reviewed_by_user_id if review else None,
+        latest_reviewed_at=raw_review.reviewed_at if review else None,
     )
 
 
-def _assignment_event_is_visible(user: User, event) -> None:
+def _assignment_event_is_visible(user: User, event: TrainingEvidenceEvent) -> None:
     assignment_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
     if assignment_enrollment_id is not None and event.enrollment_id != assignment_enrollment_id:
         raise HTTPException(status_code=404, detail="Evidence event not found")
@@ -287,16 +298,16 @@ async def learner_attach_returned_signed_scan(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("student")),
-):
+) -> SignedScanResponse:
     if getattr(user, "is_impersonating", False):
         raise HTTPException(status_code=403, detail="Impersonation cannot append returned evidence")
-    event = await get_learner_event(db, user.tenant_id, user.id, event_id)
+    event = await get_learner_event(db, cast(UUID, user.tenant_id), cast(UUID, user.id), event_id)
     _assignment_event_is_visible(user, event)
     scan = await append_signed_scan(
         db,
-        tenant_id=user.tenant_id,
-        uploader_user_id=user.id,
-        event_id=event.id,
+        tenant_id=cast(UUID, user.tenant_id),
+        uploader_user_id=cast(UUID, user.id),
+        event_id=cast(UUID, event.id),
         file=file,
     )
     return _signed_scan_response(scan, status_value="uploaded_pending_review")
@@ -307,26 +318,29 @@ async def learner_list_returned_signed_scans(
     event_id: UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("student")),
-):
-    event = await get_learner_event(db, user.tenant_id, user.id, event_id)
+) -> SignedScanLedgerResponse:
+    tenant_id = cast(UUID, user.tenant_id)
+    event = await get_learner_event(db, tenant_id, cast(UUID, user.id), event_id)
     _assignment_event_is_visible(user, event)
-    _, scans = await list_signed_scans(db, tenant_id=user.tenant_id, event_id=event.id)
-    reviews = await list_signed_scan_reviews(db, tenant_id=user.tenant_id, event_id=event.id)
-    latest_reviews = {review.signed_scan_id: review for review in reviews}
+    runtime_event_id = cast(UUID, event.id)
+    _, scans = await list_signed_scans(db, tenant_id=tenant_id, event_id=runtime_event_id)
+    reviews = await list_signed_scan_reviews(db, tenant_id=tenant_id, event_id=runtime_event_id)
+    latest_reviews = {cast(UUID, review.signed_scan_id): review for review in reviews}
     return SignedScanLedgerResponse(
-        event_id=event.id,
+        event_id=runtime_event_id,
         status=derive_signed_copy_status(scans, reviews),
         scans=[
             _signed_scan_response(
                 scan,
                 status_value=(
                     "accepted"
-                    if latest_reviews.get(scan.id) and latest_reviews[scan.id].action == "accept"
+                    if latest_reviews.get(cast(UUID, scan.id))
+                    and latest_reviews[cast(UUID, scan.id)].action == "accept"
                     else "replacement_requested"
-                    if latest_reviews.get(scan.id)
+                    if latest_reviews.get(cast(UUID, scan.id))
                     else "uploaded_pending_review"
                 ),
-                review=latest_reviews.get(scan.id),
+                review=latest_reviews.get(cast(UUID, scan.id)),
             )
             for scan in scans
         ],
@@ -338,24 +352,27 @@ async def get_returned_signed_scans(
     event_id: UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role(*_EVIDENCE_WRITERS)),
-):
-    event, scans = await list_signed_scans(db, tenant_id=user.tenant_id, event_id=event_id)
-    reviews = await list_signed_scan_reviews(db, tenant_id=user.tenant_id, event_id=event.id)
-    latest_reviews = {review.signed_scan_id: review for review in reviews}
+) -> SignedScanLedgerResponse:
+    tenant_id = cast(UUID, user.tenant_id)
+    event, scans = await list_signed_scans(db, tenant_id=tenant_id, event_id=event_id)
+    runtime_event_id = cast(UUID, event.id)
+    reviews = await list_signed_scan_reviews(db, tenant_id=tenant_id, event_id=runtime_event_id)
+    latest_reviews = {cast(UUID, review.signed_scan_id): review for review in reviews}
     return SignedScanLedgerResponse(
-        event_id=event.id,
+        event_id=runtime_event_id,
         status=derive_signed_copy_status(scans, reviews),
         scans=[
             _signed_scan_response(
                 scan,
                 status_value=(
                     "accepted"
-                    if latest_reviews.get(scan.id) and latest_reviews[scan.id].action == "accept"
+                    if latest_reviews.get(cast(UUID, scan.id))
+                    and latest_reviews[cast(UUID, scan.id)].action == "accept"
                     else "replacement_requested"
-                    if latest_reviews.get(scan.id)
+                    if latest_reviews.get(cast(UUID, scan.id))
                     else "uploaded_pending_review"
                 ),
-                review=latest_reviews.get(scan.id),
+                review=latest_reviews.get(cast(UUID, scan.id)),
             )
             for scan in scans
         ],
@@ -368,23 +385,24 @@ async def download_returned_signed_scan(
     scan_id: UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role(*_EVIDENCE_WRITERS)),
-):
-    event = await _eligible_event(db, tenant_id=user.tenant_id, event_id=event_id)
+) -> StreamingResponse:
+    tenant_id = cast(UUID, user.tenant_id)
+    event = await _eligible_event(db, tenant_id=tenant_id, event_id=event_id)
     scan = await db.scalar(
         select(TrainingEvidenceSignedScan).where(
             TrainingEvidenceSignedScan.id == scan_id,
-            TrainingEvidenceSignedScan.tenant_id == user.tenant_id,
+            TrainingEvidenceSignedScan.tenant_id == tenant_id,
             TrainingEvidenceSignedScan.event_id == event.id,
         )
     )
     if scan is None:
         raise HTTPException(status_code=404, detail="Signed copy not found")
-    content = get_storage().get_bytes(scan.storage_key)
+    content = get_storage().get_bytes(cast(str, scan.storage_key))
     if content is None:
         raise HTTPException(status_code=404, detail="Signed copy is unavailable")
     return StreamingResponse(
         iter((content,)),
-        media_type=scan.content_type,
+        media_type=cast(str, scan.content_type),
         headers={"Content-Disposition": f'inline; filename="{scan.original_filename}"'},
     )
 
@@ -400,13 +418,13 @@ async def review_returned_signed_scan(
     payload: SignedScanReviewCreate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role(*_EVIDENCE_WRITERS)),
-):
+) -> SignedScanReviewResponse:
     if getattr(user, "is_impersonating", False):
         raise HTTPException(status_code=403, detail="Impersonation cannot review returned evidence")
     review = await review_signed_scan(
         db,
-        tenant_id=user.tenant_id,
-        reviewer_user_id=user.id,
+        tenant_id=cast(UUID, user.tenant_id),
+        reviewer_user_id=cast(UUID, user.id),
         event_id=event_id,
         scan_id=scan_id,
         action=payload.action,

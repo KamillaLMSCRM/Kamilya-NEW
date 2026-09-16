@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from hashlib import sha256
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -643,9 +643,11 @@ async def build_individual_evidence_package_input(
         reviewer = actors.get(review.reviewed_by_user_id)
         if reviewer is None:
             _incomplete(event_id, ["signed_copy_reviewer"])
-        content = storage.get_bytes(scan.storage_key)
+        assert reviewer is not None
+        content = storage.get_bytes(cast(str, scan.storage_key))
         if content is None:
             _incomplete(event_id, ["accepted_signed_copy_blob"])
+        assert content is not None
         if len(content) != scan.size_bytes or sha256(content).hexdigest() != scan.sha256:
             _incomplete(event_id, ["accepted_signed_copy_integrity"])
         accepted_copies.append(

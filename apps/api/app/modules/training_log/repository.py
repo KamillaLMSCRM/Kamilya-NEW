@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import (
@@ -505,10 +505,10 @@ async def _load_evidence_read_model(
         holds_by_event.setdefault(hold.event_id, []).append(hold)
     scans_by_event: dict[UUID, list[TrainingEvidenceSignedScan]] = {}
     for scan in signed_scans:
-        scans_by_event.setdefault(scan.event_id, []).append(scan)
+        scans_by_event.setdefault(cast(UUID, scan.event_id), []).append(scan)
     reviews_by_scan: dict[UUID, list[TrainingEvidenceSignedScanReview]] = {}
     for review in signed_scan_reviews:
-        reviews_by_scan.setdefault(review.signed_scan_id, []).append(review)
+        reviews_by_scan.setdefault(cast(UUID, review.signed_scan_id), []).append(review)
 
     def event_key(event: TrainingEvidenceEvent):
         return (event.occurred_at or event.created_at, event.created_at, str(event.id))
@@ -540,7 +540,7 @@ async def _load_evidence_read_model(
                 root.payload_snapshot.get("confirmation"), dict
             )
             confirmed = any(confirmations_by_event.get(event_id) for event_id in chain_ids)
-            root_scans = scans_by_event.get(root.id, [])
+            root_scans = scans_by_event.get(cast(UUID, root.id), [])
             latest_scan = max(
                 root_scans,
                 key=lambda scan: (scan.uploaded_at, str(scan.id)),
@@ -548,7 +548,7 @@ async def _load_evidence_read_model(
             )
             latest_scan_review = (
                 max(
-                    reviews_by_scan.get(latest_scan.id, []),
+                    reviews_by_scan.get(cast(UUID, latest_scan.id), []),
                     key=lambda review: (review.reviewed_at, str(review.id)),
                     default=None,
                 )

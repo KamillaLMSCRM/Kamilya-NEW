@@ -7,6 +7,7 @@ import logging
 import re
 from datetime import UTC, datetime
 from pathlib import PurePath
+from typing import cast
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, UploadFile, status
@@ -112,7 +113,7 @@ async def append_signed_scan(
 
     event = await _eligible_event(db, tenant_id=tenant_id, event_id=event_id)
     scan_id = uuid4()
-    stored_key = _storage_key(tenant_id, event.id, scan_id, content_type)
+    stored_key = _storage_key(tenant_id, cast(UUID, event.id), scan_id, content_type)
     scan = TrainingEvidenceSignedScan(
         id=scan_id,
         tenant_id=tenant_id,
@@ -178,7 +179,7 @@ def derive_signed_copy_status(
         return "awaiting_return"
     latest_by_scan: dict[UUID, TrainingEvidenceSignedScanReview] = {}
     for review in reviews:
-        latest_by_scan[review.signed_scan_id] = review
+        latest_by_scan[cast(UUID, review.signed_scan_id)] = review
     latest = max(
         scans,
         key=lambda scan: (
@@ -186,7 +187,7 @@ def derive_signed_copy_status(
             scan.id,
         ),
     )
-    decision = latest_by_scan.get(latest.id)
+    decision = latest_by_scan.get(cast(UUID, latest.id))
     if decision is None:
         return "uploaded_pending_review"
     return "accepted" if decision.action == "accept" else "replacement_requested"

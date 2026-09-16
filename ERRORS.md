@@ -3098,3 +3098,22 @@ contract or establish a blocker.
   database-free unit tests pass without PostgreSQL access.
 - Prevention: workstation test helpers may never create, infer or default a
   Kamilya database contour; DEV and CI contours must always be explicit.
+
+## MIGRATION-005 - Signed-scan status migration made application rollback unsafe
+
+- Date: 2026-09-16. Found during the release preflight for version 0.6.0 before
+  any production publication or schema change.
+- Symptom: migration 0160 rewrote every legacy `received` scan to
+  `uploaded_pending_review` and rejected future `received` rows. Redeploying the
+  previous application after the migration would therefore break its signed
+  scan insert path.
+- Cause: the migration optimized the status vocabulary for the new UI without
+  treating the previous application binary as a required compatibility client.
+- Fix: preserve existing `received` rows, retain `received` as the database
+  default, and allow both `received` and `uploaded_pending_review` while the new
+  application explicitly writes the richer status.
+- Verification: a source-level RED/GREEN contract and the isolated Supabase DEV
+  gate require the upgraded schema to preserve a legacy row and accept inserts
+  using both application versions' statuses under the runtime `lms_app` role.
+- Prevention: every forward migration must exercise the previous release's
+  write contract whenever application rollback is part of the release plan.

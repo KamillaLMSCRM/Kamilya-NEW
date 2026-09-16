@@ -101,6 +101,9 @@ def test_signed_scan_review_migration_is_linear_append_only_and_tenant_scoped():
     assert "FORCE ROW LEVEL SECURITY" in migration
     assert "GRANT SELECT, INSERT ON {reviews} TO lms_app" in migration
     assert "downgrade refused" in migration
+    assert "status IN ('received', 'uploaded_pending_review')" in migration
+    assert "SET status = 'uploaded_pending_review' WHERE status = 'received'" not in migration
+    assert 'server_default="received"' in migration
 
 
 @pytest.mark.asyncio

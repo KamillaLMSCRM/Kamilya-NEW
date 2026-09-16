@@ -1,6 +1,7 @@
 """Quiz API router"""
 
 from datetime import UTC, datetime
+from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -470,7 +471,7 @@ async def submit_quiz(
             progress = await update_lesson_progress(
                 db,
                 user.id,
-                quiz.lesson_id,
+                cast(UUID, quiz.lesson_id),
                 user.tenant_id,
                 completed=True,
             )

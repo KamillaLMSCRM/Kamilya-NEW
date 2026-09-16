@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,7 +55,7 @@ async def record_course_completion(
     if release is None:
         raise ValueError("Course completion release evidence is inconsistent")
 
-    print_form_settings = await get_training_evidence_form_settings(db, user.tenant_id)
+    print_form_settings = await get_training_evidence_form_settings(db, cast(UUID, user.tenant_id))
 
     payload: dict[str, Any] = {
         "schema_version": 1,
