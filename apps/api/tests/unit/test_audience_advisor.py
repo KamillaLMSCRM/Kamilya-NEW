@@ -1,12 +1,16 @@
 from types import SimpleNamespace
 from uuid import uuid4
 
+from sqlalchemy import select
+from sqlalchemy.dialects import postgresql
+
 from app.modules.ai.audience_advisor import (
     AudienceSnapshot,
     ScopeCandidate,
     _course_status,
     _deterministic_scopes,
     _llm_select_scopes,
+    _unit_membership_clause,
     audience_prompt_reply,
     is_audience_recommendation_question,
 )
@@ -100,3 +104,25 @@ def test_typed_audience_question_is_detected_without_explicit_intent():
     )
     assert is_audience_recommendation_question("Which departments should take this course?")
     assert not is_audience_recommendation_question("Перепиши второй урок")
+
+
+def test_audience_membership_clause_prefers_explicit_unit_over_legacy_position():
+    """The SQL contract must not let a stale position department override placement."""
+    from app.models.users import User
+    from app.modules.positions.models import Position
+    # This is the same predicate shape used by _matched_count; compiling it
+    # keeps this database-free test focused on the tenant/NULL fallback seam.
+    unit_id = uuid4()
+    statement = select(User.id).select_from(User).outerjoin(Position, Position.id == User.position_id).where(
+        _unit_membership_clause({unit_id}, uuid4()),
+    )
+    sql = str(statement.compile(dialect=postgresql.dialect()))
+    assert "organization_unit_id" in sql
+    assert "IS NULL" in sql
+
+
+def test_scope_candidate_can_represent_nested_unit_without_new_public_type():
+    unit = ScopeCandidate("department_1", "department", uuid4(), "Sector", 4)
+    unit.semantic_context["unit_type"] = "sector"
+    assert unit.type == "department"
+    assert unit.semantic_context["unit_type"] == "sector"

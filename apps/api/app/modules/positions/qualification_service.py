@@ -15,6 +15,7 @@ from app.models.document import Document
 from app.models.users import User
 from app.modules.audit.service import log_action
 from app.modules.competencies.models import Competency, CompetencyCourse, PositionCompetency
+from app.modules.organization_scope import resolve_ancestor_path
 from app.modules.positions.batch_service import recompute_position_holders
 from app.modules.positions.models import DepartmentCourse, Position, PositionCourse, PositionQuiz
 from app.modules.positions.qualification_models import PositionQualificationVersion
@@ -131,10 +132,11 @@ async def _collect_state(db: AsyncSession, position: Position) -> dict[str, Any]
 
     department_course_rows: list[DepartmentCourse] = []
     if position.department_id:
+        unit_scope = await resolve_ancestor_path(db, tenant_id, position.department_id)
         department_course_rows = (
             await db.execute(
                 select(DepartmentCourse).where(
-                    DepartmentCourse.department_id == position.department_id,
+                    DepartmentCourse.department_id.in_(unit_scope),
                     DepartmentCourse.tenant_id == tenant_id,
                 )
             )

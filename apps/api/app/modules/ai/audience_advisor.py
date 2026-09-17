@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, distinct, func, select
+from sqlalchemy import and_, distinct, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -25,6 +25,7 @@ from app.models.users import User
 from app.modules.cohorts.models import Cohort, CohortMember
 from app.modules.competencies.models import Competency, CompetencyCourse, PositionCompetency
 from app.modules.lessons.models import Module
+from app.modules.organization_scope import resolve_employee_scope
 from app.modules.positions.models import DepartmentCourse, Position, PositionCourse
 from app.modules.training_rules.models import OrganizationCourseRule
 
@@ -76,6 +77,22 @@ def _active_student_filter(tenant_id: UUID):
         User.role == "student",
         User.is_active.is_(True),
         User.status == "active",
+    )
+
+
+def _unit_membership_clause(unit_ids: set[UUID], tenant_id: UUID):
+    """Match explicit placement, falling back to legacy position only when unset."""
+    return or_(
+        User.organization_unit_id.in_(unit_ids),
+        and_(
+            User.organization_unit_id.is_(None),
+            User.position_id.in_(
+                select(Position.id).where(
+                    Position.tenant_id == tenant_id,
+                    Position.department_id.in_(unit_ids),
+                )
+            ),
+        ),
     )
 
 
@@ -131,35 +148,38 @@ async def _load_positions(db: AsyncSession, tenant_id: UUID) -> tuple[list[Scope
 
 
 async def _load_departments(db: AsyncSession, tenant_id: UUID) -> list[ScopeCandidate]:
-    rows = await db.execute(
-        select(Department.id, Department.name, Department.description, func.count(User.id))
-        .outerjoin(
-            Position,
-            (Position.department_id == Department.id) & (Position.tenant_id == tenant_id),
+    units = (
+        await db.execute(
+            select(Department)
+            .where(Department.tenant_id == tenant_id, Department.is_active.is_(True))
+            .order_by(Department.name, Department.id)
         )
-        .outerjoin(
-            User,
-            (User.position_id == Position.id)
-            & (User.tenant_id == tenant_id)
-            & (User.role == "student")
-            & User.is_active.is_(True)
-            & (User.status == "active"),
-        )
-        .where(Department.tenant_id == tenant_id)
-        .group_by(Department.id, Department.name)
-        .order_by(Department.name)
-    )
+    ).scalars().all()
     items: list[ScopeCandidate] = []
-    for index, (department_id, name, description, count) in enumerate(rows.all(), start=1):
+    for index, unit in enumerate(units, start=1):
+        unit_scope = await resolve_employee_scope(db, tenant_id, [unit.id])
+        count_query = (
+            select(func.count(distinct(User.id)))
+            .select_from(User)
+            .outerjoin(Position, Position.id == User.position_id)
+            .where(
+                *_active_student_filter(tenant_id),
+                _unit_membership_clause(unit_scope, tenant_id),
+            )
+        )
+        count = await db.scalar(count_query)
         items.append(
             ScopeCandidate(
                 ref=f"department_{index}",
                 type="department",
-                id=department_id,
-                name=name,
+                id=unit.id,
+                name=unit.name,
                 employee_count=int(count or 0),
                 reasons=["department_structure"],
-                semantic_context={"description": description or ""},
+                semantic_context={
+                    "description": unit.description or "",
+                    "unit_type": unit.unit_type or "department",
+                },
             )
         )
     return items
@@ -329,18 +349,20 @@ async def _matched_count(db: AsyncSession, tenant_id: UUID, scopes: list[ScopeCa
     if any(scope.type == "organization" for scope in scopes):
         return int(await db.scalar(select(func.count(User.id)).where(*_active_student_filter(tenant_id))) or 0)
     position_ids: set[UUID] = set()
+    unit_ids: set[UUID] = set()
     cohort_ids: set[UUID] = set()
     for scope in scopes:
         if scope.type == "position" and scope.id:
             position_ids.add(scope.id)
         elif scope.type == "department" and scope.id:
-            dept_positions = await db.execute(select(Position.id).where(Position.tenant_id == tenant_id, Position.department_id == scope.id))
-            position_ids.update(dept_positions.scalars().all())
+            unit_ids.update(await resolve_employee_scope(db, tenant_id, [scope.id]))
         elif scope.type == "cohort" and scope.id:
             cohort_ids.add(scope.id)
     clauses = []
     if position_ids:
         clauses.append(User.position_id.in_(position_ids))
+    if unit_ids:
+        clauses.append(_unit_membership_clause(unit_ids, tenant_id))
     if cohort_ids:
         cohort_users = await db.execute(select(CohortMember.user_id).where(CohortMember.tenant_id == tenant_id, CohortMember.cohort_id.in_(cohort_ids)))
         user_ids = list(cohort_users.scalars().all())
@@ -348,7 +370,6 @@ async def _matched_count(db: AsyncSession, tenant_id: UUID, scopes: list[ScopeCa
             clauses.append(User.id.in_(user_ids))
     if not clauses:
         return 0
-    from sqlalchemy import or_
     return int(await db.scalar(select(func.count(distinct(User.id))).where(*_active_student_filter(tenant_id), or_(*clauses))) or 0)
 
 
