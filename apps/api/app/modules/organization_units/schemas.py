@@ -43,6 +43,22 @@ class OrganizationUnitArchive(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class OrganizationUnitMovePreviewRequest(BaseModel):
+    parent_id: UUID | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class OrganizationUnitMovePreviewResponse(BaseModel):
+    unit_id: UUID
+    parent_id: UUID | None
+    affected_units: int
+    affected_positions: int
+    affected_employees: int
+    resulting_depth: int
+    subtree_height: int
+
+
 class OrganizationUnitResponse(BaseModel):
     id: UUID
     name: str

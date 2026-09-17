@@ -42,19 +42,28 @@ worktree подписан проектным автором `Kamilya Codex <kami
 - `release-0.5.0-clean`;
 - `release-0.3.0-worktree`.
 
-Git/Windows не смог физически удалить три уже разрегистрированных каталога из-за
+Git/Windows не смог физически удалить четыре уже разрегистрированных каталога из-за
 слишком длинных имён вложенных файлов:
 
 - `C:\Kamilya New\.worktrees\course-generation-hardening-20260914`;
 - `C:\Kamilya New\Kamilya-NEW\.worktrees\release-0.5.0-clean`;
-- `C:\Kamilya New\release-0.3.0-worktree`.
+- `C:\Kamilya New\release-0.3.0-worktree`;
+- `C:\Kamilya New\.worktrees\org-hierarchy-v2-frontend-20260917`.
+
+Отдельный frontend-agent работал в
+`C:\Kamilya New\.worktrees\org-hierarchy-v2-frontend-20260917`. Его commit был
+принят в integration-ветку после сравнения одинакового patch-id. Регистрация
+worktree и временная branch удалены; физический каталог остался только как
+Windows long-path residue и больше не отображается в `git worktree list`.
 
 Они больше не являются Git worktree. Автоматический рекурсивный обход политики
 удаления не применялся; остаточные каталоги следует убрать отдельной
 контролируемой Windows long-path операцией после повторной проверки точных путей.
 
-Ветки не удалялись: снятие worktree не уничтожает Git history и оставляет
-возможность аудита.
+Ветки завершённых старых задач не удалялись: снятие worktree не уничтожает Git
+history и оставляет возможность аудита. Исключение — временная frontend-ветка
+этой задачи, удалённая только после exact patch-id readback и принятия commit в
+integration-ветку.
 
 ## Что намеренно сохранено
 

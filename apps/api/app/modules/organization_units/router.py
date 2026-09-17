@@ -15,6 +15,8 @@ from .domain import OrganizationHierarchyError
 from .schemas import (
     OrganizationUnitArchive,
     OrganizationUnitCreate,
+    OrganizationUnitMovePreviewRequest,
+    OrganizationUnitMovePreviewResponse,
     OrganizationUnitResponse,
     OrganizationUnitTreeResponse,
     OrganizationUnitUpdate,
@@ -27,6 +29,7 @@ from .service import (
     get_organization_unit_projection,
     list_organization_units,
     load_structure_projections,
+    preview_organization_unit_move,
     update_organization_unit,
 )
 
@@ -112,6 +115,26 @@ async def get_unit(
         return await get_organization_unit_projection(db, user.tenant_id, unit_id)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail="Organization unit not found") from exc
+
+
+@router.post("/{unit_id}/move-preview", response_model=OrganizationUnitMovePreviewResponse)
+async def preview_unit_move(
+    unit_id: UUID,
+    body: OrganizationUnitMovePreviewRequest,
+    db: DbSession,
+    user: Methodologist,
+):
+    try:
+        return await preview_organization_unit_move(
+            db,
+            tenant_id=user.tenant_id,
+            unit_id=unit_id,
+            parent_id=body.parent_id,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="Organization unit not found") from exc
+    except (OrganizationHierarchyError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.patch("/{unit_id}", response_model=OrganizationUnitResponse)

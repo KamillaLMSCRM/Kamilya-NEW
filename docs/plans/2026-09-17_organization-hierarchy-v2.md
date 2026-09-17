@@ -1,7 +1,7 @@
 # Организационная структура v2: произвольная вложенность и независимые должности
 
 **Дата:** 2026-09-17  
-**Статус:** утверждённый план реализации в отдельной feature-ветке; production не изменяется  
+**Статус:** локальная реализация и root-review завершены; production не изменяется; merge/release ожидают DEV и browser gates
 **Ветка:** `feature/org-hierarchy-v2-20260917`  
 **Базовая ревизия:** `6205c640fd0b9b6e3bb5a28b89be912915e29e39`
 
@@ -349,3 +349,64 @@ Root agent independently:
 - удаление legacy columns/tables;
 - изменение тарифов или платных ресурсов;
 - production deployment в рамках текущей задачи.
+
+## 13. Фактический результат реализации
+
+### 13.1. Реализовано в feature-ветке
+
+- additive migration `0161`: новые виды узлов, `is_head_office`, nullable
+  `users.organization_unit_id`, индексы, tenant ownership, RLS/FORCE RLS и
+  ограничение глубины;
+- единый deep module `organization_scope` для предков, потомков, аудиторий и
+  проверки перемещения;
+- generic CRUD дерева, recursive counts, breadcrumbs и preview перемещения;
+- явный признак центрального офиса с ограничением один активный корневой узел
+  на tenant;
+- независимые `position_id` и `organization_unit_id`: должность обязательна,
+  подразделение необязательно;
+- рекурсивное наследование правил обучения и применение к learning paths,
+  qualification, AI audience, training log и evidence projections;
+- generic import и legacy adapter с проверкой полной итоговой иерархии до
+  записи;
+- рекурсивное дерево до глубины 8, поиск, breadcrumbs, выбор типа, создание
+  дочернего узла, архивирование, перенос с серверным preview и явное управление
+  central-office;
+- модалка сотрудника показывает все существующие должности до выбора
+  подразделения и позволяет оставить подразделение пустым.
+
+### 13.2. Независимые исправления root-review
+
+Root не принял агентскую реализацию вслепую. После проверки исправлены:
+
+- расхождение глубины 8 между Python, migration trigger и UI;
+- возможная потеря выбранного корня аудитории при перекрывающихся поддеревьях;
+- N+1 при построении hierarchy paths и AI audience counts;
+- зависимость product behavior от конкретного типа SQLAlchemy session;
+- ошибочное восстановление подразделения из legacy position при явном `null`;
+- отсутствие UI/API preview перемещения при наличии backend move semantics;
+- отсутствие управления `is_head_office` в UI;
+- дублирование generic roots как legacy roots;
+- тест, неявно зависевший от локального PostgreSQL/DATABASE_URL.
+
+### 13.3. Локальная приёмка
+
+- focused hierarchy/API/import: `33 passed`;
+- focused frontend hierarchy/staff/import: `24 passed`;
+- полный database-free API gate: `2760 passed, 54 skipped`;
+- полный frontend gate: `115 files, 613 tests passed`;
+- frontend ESLint, TypeScript typecheck и production build: PASS;
+- focused Ruff и `git diff --check`: PASS;
+- local Docker PostgreSQL не использовался.
+
+### 13.4. Незакрытые внешние gates
+
+До решения о merge обязательны и пока **NOT VERIFIED**:
+
+1. migration/RLS/FORCE RLS в изолированной disposable-схеме Supabase DEV;
+2. synthetic browser journey: создать дерево, центральный офис, общую должность,
+   сотрудника без подразделения, сотрудника в глубоком узле, перенести поддерево
+   и проверить recursive rule readback;
+3. exact remote SHA и CI после публикации feature-ветки.
+
+Итог текущего этапа: локальный код может перейти к DEV/browser acceptance, но
+не является разрешением на merge или production release.

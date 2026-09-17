@@ -23,6 +23,7 @@ interface OrganizationUnitTreeProps {
   onTogglePosition: (positionId: string) => void;
   onAddChild: (node: OrganizationUnitNode) => void;
   onRename: (node: OrganizationUnitNode) => void;
+  onMove: (node: OrganizationUnitNode) => void;
   onArchive: (node: OrganizationUnitNode) => void;
   onEditEmployee: (employee: OrganizationStructureEmployee) => void;
   title?: string;
@@ -107,6 +108,7 @@ function UnitRow({
   onTogglePosition,
   onAddChild,
   onRename,
+  onMove,
   onArchive,
   onEditEmployee,
 }: UnitRowProps & { node: OrganizationUnitNode; path: OrganizationUnitNode[]; depth: number }) {
@@ -139,6 +141,7 @@ function UnitRow({
         <span className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => onAddChild(node)}>{addLabel}</Button>
           <Button type="button" variant="ghost" size="sm" onClick={() => onRename(node)}>Переименовать</Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => onMove(node)}>Переместить</Button>
           <Button type="button" variant="ghost" size="sm" onClick={() => onArchive(node)}>Архивировать</Button>
           {node.id && <Link href={`/training-rules?scope=department&department_id=${node.id}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-foreground hover:bg-background"><BookOpenCheck className="h-4 w-4" aria-hidden="true" /><span className="hidden sm:inline">Обязательные курсы</span></Link>}
         </span>
@@ -146,7 +149,7 @@ function UnitRow({
       {open && (
         <div className="bg-muted/20">
           {node.positions.length > 0 && <ul className="divide-y divide-border">{node.positions.filter((position) => positionMatches(position, query || '')).map((position) => <PositionRow key={position.id} position={position} query={query || ''} expanded={expandedPositionIds.has(position.id)} onToggle={() => onTogglePosition(position.id)} onEditEmployee={onEditEmployee} />)}</ul>}
-          {node.children.length > 0 && <ul className="divide-y divide-border">{node.children.map((child) => <UnitRow key={child.id} {...{ node: child, path: nextPath, depth: depth + 1, query, expandedUnitIds, expandedPositionIds, onToggleUnit, onTogglePosition, onAddChild, onRename, onArchive, onEditEmployee }} />)}</ul>}
+          {node.children.length > 0 && <ul className="divide-y divide-border">{node.children.map((child) => <UnitRow key={child.id} {...{ node: child, path: nextPath, depth: depth + 1, query, expandedUnitIds, expandedPositionIds, onToggleUnit, onTogglePosition, onAddChild, onRename, onMove, onArchive, onEditEmployee }} />)}</ul>}
           {!hasContent && <p className="px-12 py-3 text-xs text-muted-foreground">Нет должностей или дочерних подразделений</p>}
         </div>
       )}

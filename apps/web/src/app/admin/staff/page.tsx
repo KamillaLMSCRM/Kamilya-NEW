@@ -14,6 +14,7 @@ import { ApplyRulesProgress } from "@/components/ui/ApplyRulesProgress";
 import { OrganizationUnitPicker } from "@/features/staff-structure/OrganizationUnitPicker";
 import { OrganizationUnitTree } from "@/features/staff-structure/OrganizationUnitTree";
 import {
+  collectOrganizationUnitSubtreeIds,
   flattenOrganizationUnits,
   type OrganizationStructurePosition,
   type OrganizationUnitNode,
@@ -31,6 +32,14 @@ interface PositionOption {
   department: string | null;
   department_id: string | null;
   organization_unit_id?: string | null;
+}
+
+interface OrganizationMovePreview {
+  affected_units: number;
+  affected_positions: number;
+  affected_employees: number;
+  resulting_depth: number;
+  subtree_height: number;
 }
 
 type ImportProposalAction = "create" | "update" | "move" | "skip" | "conflict" | string;
@@ -1249,9 +1258,20 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
   const [expandedPositions, setExpandedPositions] = useState<Set<string>>(new Set());
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
-  const [unitModal, setUnitModal] = useState<{ type: string; parentId?: string; parentName?: string; unitId?: string } | null>(null);
+  const [unitModal, setUnitModal] = useState<{
+    type: string;
+    parentId?: string | null;
+    parentName?: string;
+    unitId?: string;
+    originalParentId?: string | null;
+    isHeadOffice?: boolean;
+    originalIsHeadOffice?: boolean;
+    excludedUnitIds?: Set<string>;
+  } | null>(null);
   const [unitName, setUnitName] = useState("");
   const [unitSaving, setUnitSaving] = useState(false);
+  const [movePreview, setMovePreview] = useState<OrganizationMovePreview | null>(null);
+  const [movePreviewLoading, setMovePreviewLoading] = useState(false);
   const [employeeLoadingId, setEmployeeLoadingId] = useState<string | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<EditableEmployee | null>(null);
   const [employeeSaving, setEmployeeSaving] = useState(false);
@@ -1272,6 +1292,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
     if (unitSaving) return;
     setUnitModal(null);
     setUnitName("");
+    setMovePreview(null);
   }, [unitSaving]);
 
   useEffect(() => {
@@ -1317,24 +1338,71 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
     setUnitSaving(true);
     try {
       if (unitModal.unitId) {
-        await api.patch(`/v1/organization-units/${unitModal.unitId}`, { name });
-        toast.success("Название обновлено");
+        const patch: Record<string, unknown> = { name };
+        const parentId = unitModal.parentId || null;
+        if (parentId !== (unitModal.originalParentId || null)) patch.parent_id = parentId;
+        if (Boolean(unitModal.isHeadOffice) !== Boolean(unitModal.originalIsHeadOffice)) {
+          patch.is_head_office = Boolean(unitModal.isHeadOffice);
+        }
+        await api.patch(`/v1/organization-units/${unitModal.unitId}`, patch);
+        toast.success(parentId !== (unitModal.originalParentId || null) ? "Подразделение перемещено" : "Подразделение обновлено");
       } else {
-        await api.post("/v1/organization-units", {
+        const body: Record<string, unknown> = {
           name,
           unit_type: unitModal.type,
           parent_id: unitModal.parentId || null,
-        });
+        };
+        if (unitModal.isHeadOffice) body.is_head_office = true;
+        await api.post("/v1/organization-units", body);
         toast.success(unitModal.type === "branch" ? "Филиал добавлен" : unitModal.type === "department" ? "Отдел добавлен" : "Подразделение добавлено");
       }
       setUnitModal(null);
       setUnitName("");
+      setMovePreview(null);
       setRetryKey((value) => value + 1);
     } catch (error: any) {
       const detail = error?.response?.data?.detail;
       toast.error(typeof detail === "string" ? detail : detail?.message || "Не удалось создать подразделение");
     } finally {
       setUnitSaving(false);
+    }
+  };
+
+  const openUnitEditor = (node: OrganizationUnitNode) => {
+    setUnitName(node.name);
+    setMovePreview(null);
+    setUnitModal({
+      type: node.unit_type || "department",
+      unitId: node.id,
+      parentId: node.parent_id || null,
+      originalParentId: node.parent_id || null,
+      isHeadOffice: Boolean(node.is_head_office),
+      originalIsHeadOffice: Boolean(node.is_head_office),
+      excludedUnitIds: collectOrganizationUnitSubtreeIds(node),
+    });
+  };
+
+  const chooseMoveParent = async (parentId: string | null) => {
+    if (!unitModal?.unitId) return;
+    setUnitModal((current) => current ? {
+      ...current,
+      parentId,
+      isHeadOffice: parentId ? false : current.isHeadOffice,
+    } : current);
+    setMovePreview(null);
+    if (parentId === (unitModal.originalParentId || null)) return;
+    setMovePreviewLoading(true);
+    try {
+      const response = await api.post<OrganizationMovePreview>(
+        `/v1/organization-units/${unitModal.unitId}/move-preview`,
+        { parent_id: parentId },
+      );
+      setMovePreview(response.data);
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : "Перемещение в выбранный узел недоступно");
+    } finally {
+      setMovePreviewLoading(false);
     }
   };
 
@@ -1585,7 +1653,8 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
         onToggleUnit={toggleUnit}
         onTogglePosition={togglePosition}
         onAddChild={(node) => setUnitModal({ type: node.unit_type === "branch" ? "department" : "department", parentId: node.id, parentName: node.name })}
-        onRename={(node) => { setUnitName(node.name); setUnitModal({ type: node.unit_type || "department", unitId: node.id, parentId: node.parent_id || undefined, parentName: "" }); }}
+        onRename={openUnitEditor}
+        onMove={openUnitEditor}
         onArchive={(node) => archiveUnit(node.id, node.name)}
         onEditEmployee={(employee) => openEmployeeEditor(employee.id)}
         title="Структура организации"
@@ -1601,7 +1670,8 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
           onToggleUnit={toggleUnit}
           onTogglePosition={togglePosition}
           onAddChild={(node) => setUnitModal({ type: "department", parentId: node.id, parentName: node.name })}
-          onRename={(node) => { setUnitName(node.name); setUnitModal({ type: "department", unitId: node.id }); }}
+          onRename={openUnitEditor}
+          onMove={openUnitEditor}
           onArchive={(node) => archiveUnit(node.id, node.name)}
           onEditEmployee={(employee) => openEmployeeEditor(employee.id)}
           title="Совместимые отделы"
@@ -1838,10 +1908,40 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       {unitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div role="dialog" aria-modal="true" aria-labelledby="unit-dialog-title" className="w-full max-w-md rounded-xl bg-card p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-3"><div><h2 id="unit-dialog-title" className="text-lg font-bold">{unitModal.unitId ? "Переименовать подразделение" : unitModal.type === "branch" ? "Новый филиал" : unitModal.type === "department" ? "Новый отдел" : "Новое подразделение"}</h2><p className="mt-1 text-sm text-muted-foreground">{unitModal.parentName ? `В подразделении «${unitModal.parentName}»` : "Корневое подразделение"}</p></div><button type="button" aria-label="Закрыть" onClick={closeUnitModal} disabled={unitSaving}><X className="h-5 w-5" /></button></div>
+            <div className="flex items-start justify-between gap-3"><div><h2 id="unit-dialog-title" className="text-lg font-bold">{unitModal.unitId ? "Редактирование подразделения" : unitModal.type === "branch" ? "Новый филиал" : unitModal.type === "department" ? "Новый отдел" : "Новое подразделение"}</h2><p className="mt-1 text-sm text-muted-foreground">{unitModal.parentName ? `В подразделении «${unitModal.parentName}»` : "Корневое подразделение"}</p></div><button type="button" aria-label="Закрыть" onClick={closeUnitModal} disabled={unitSaving}><X className="h-5 w-5" /></button></div>
             {!unitModal.unitId && <label className="mt-5 block space-y-1 text-sm"><span className="font-medium">Тип подразделения</span><select aria-label="Тип подразделения" value={unitModal.type} onChange={(event) => setUnitModal((current) => current ? { ...current, type: event.target.value } : current)} className="w-full rounded-md border border-border bg-background px-3 py-2"><option value="organization">Организация</option><option value="branch">Филиал</option><option value="management">Управление</option><option value="division">Департамент</option><option value="department">Отдел</option><option value="sector">Сектор</option><option value="team">Команда</option><option value="other">Другое</option></select></label>}
             <label className="mt-5 block space-y-1 text-sm"><span className="font-medium">Название</span><input autoFocus value={unitName} onChange={(event) => setUnitName(event.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2" placeholder={unitModal.type === "branch" ? "Например, Филиал Павлодар" : "Например, Отдел внутреннего контроля"} /></label>
-            <div className="mt-5 flex justify-end gap-2"><Button type="button" variant="outline" onClick={closeUnitModal} disabled={unitSaving}>Отмена</Button><Button type="button" onClick={createUnit} disabled={!unitName.trim() || unitSaving}>{unitSaving ? "Сохраняю…" : unitModal.unitId ? "Сохранить" : "Создать"}</Button></div>
+            {unitModal.unitId && data && (
+              <div className="mt-5 space-y-2 text-sm">
+                <span className="font-medium">Родительское подразделение</span>
+                <OrganizationUnitPicker
+                  roots={data.roots}
+                  value={unitModal.parentId || ""}
+                  onChange={(option) => void chooseMoveParent(option?.id || null)}
+                  excludeUnitIds={unitModal.excludedUnitIds}
+                  selectAriaLabel="Родительское подразделение"
+                  disabled={unitSaving || movePreviewLoading}
+                />
+                {movePreviewLoading && <p className="text-xs text-muted-foreground">Проверяю последствия перемещения…</p>}
+                {movePreview && (
+                  <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
+                    Будут перемещены: {movePreview.affected_units} узл., {movePreview.affected_positions} должн., {movePreview.affected_employees} сотр. Новая глубина: {movePreview.resulting_depth}; высота поддерева: {movePreview.subtree_height}.
+                  </div>
+                )}
+              </div>
+            )}
+            {!unitModal.parentId && (
+              <label className="mt-5 flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(unitModal.isHeadOffice)}
+                  onChange={(event) => setUnitModal((current) => current ? { ...current, isHeadOffice: event.target.checked } : current)}
+                  disabled={unitSaving}
+                />
+                <span><span className="font-medium">Центральный офис</span><span className="mt-0.5 block text-xs text-muted-foreground">У организации может быть только один активный корневой узел с этим признаком.</span></span>
+              </label>
+            )}
+            <div className="mt-5 flex justify-end gap-2"><Button type="button" variant="outline" onClick={closeUnitModal} disabled={unitSaving}>Отмена</Button><Button type="button" onClick={createUnit} disabled={!unitName.trim() || unitSaving || movePreviewLoading || Boolean(unitModal.unitId && (unitModal.parentId || null) !== (unitModal.originalParentId || null) && !movePreview)}>{unitSaving ? "Сохраняю…" : unitModal.unitId ? "Сохранить" : "Создать"}</Button></div>
           </div>
         </div>
       )}

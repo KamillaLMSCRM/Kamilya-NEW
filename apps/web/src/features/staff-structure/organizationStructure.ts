@@ -106,3 +106,14 @@ export function organizationUnitMatches(
     ),
   ) || node.children.some((child) => organizationUnitMatches(child, needle));
 }
+
+export function collectOrganizationUnitSubtreeIds(node: OrganizationUnitNode): Set<string> {
+  const ids = new Set<string>();
+  const visit = (current: OrganizationUnitNode) => {
+    if (ids.has(current.id)) return;
+    ids.add(current.id);
+    current.children.forEach(visit);
+  };
+  visit(node);
+  return ids;
+}

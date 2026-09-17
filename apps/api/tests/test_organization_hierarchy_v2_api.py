@@ -15,6 +15,7 @@ from app.modules.organization_units.domain import OrganizationUnitType
 from app.modules.organization_units.service import (
     build_tree,
     create_organization_unit,
+    preview_organization_unit_move,
     update_organization_unit,
 )
 from app.modules.positions.models import Position
@@ -149,6 +150,45 @@ async def test_nested_move_preserves_unit_id_and_validates_descendant_scope():
     assert moved.id == current.id
     assert moved.parent_id == new_parent.id
     assert child.parent_id == current.id
+
+
+@pytest.mark.asyncio
+async def test_move_preview_uses_write_validator_and_reports_affected_scope():
+    tenant_id = uuid4()
+    unit_id = uuid4()
+    child_id = uuid4()
+    parent_id = uuid4()
+    db = AsyncMock()
+    db.scalar = AsyncMock(side_effect=[3, 7])
+    scope = MoveScope(
+        unit_id=unit_id,
+        parent_id=parent_id,
+        descendant_ids=frozenset({unit_id, child_id}),
+        parent_depth=2,
+        subtree_height=1,
+    )
+
+    with patch(
+        "app.modules.organization_units.service.validate_move",
+        new=AsyncMock(return_value=scope),
+    ) as validate:
+        preview = await preview_organization_unit_move(
+            db,
+            tenant_id=tenant_id,
+            unit_id=unit_id,
+            parent_id=parent_id,
+        )
+
+    validate.assert_awaited_once_with(db, tenant_id, unit_id, parent_id)
+    assert preview == {
+        "unit_id": unit_id,
+        "parent_id": parent_id,
+        "affected_units": 2,
+        "affected_positions": 3,
+        "affected_employees": 7,
+        "resulting_depth": 3,
+        "subtree_height": 1,
+    }
 
 
 @pytest.mark.asyncio

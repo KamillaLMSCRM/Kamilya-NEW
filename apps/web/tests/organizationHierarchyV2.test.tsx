@@ -26,6 +26,7 @@ vi.mock('next/navigation', () => ({
 
 const getMock = vi.mocked(api.get);
 const postMock = vi.mocked(api.post);
+const patchMock = vi.mocked(api.patch);
 
 const user = {
   user_id: 'methodologist-1',
@@ -107,6 +108,7 @@ beforeEach(() => {
     throw new Error(`unexpected GET ${url}`);
   });
   postMock.mockReset();
+  patchMock.mockReset();
 });
 
 afterEach(() => {
@@ -159,6 +161,42 @@ describe('organization hierarchy v2 public UI', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Департамент испытаний/i }));
     expect(screen.getByText('Путь: Центральный офис → Управление качества → Департамент испытаний → Сектор испытаний')).toBeInTheDocument();
     expect(screen.getAllByText('Сектор').length).toBeGreaterThan(0);
+  });
+
+  it('previews a recursive move before saving the new parent', async () => {
+    postMock.mockResolvedValueOnce({
+      data: {
+        affected_units: 3,
+        affected_positions: 2,
+        affected_employees: 5,
+        resulting_depth: 0,
+        subtree_height: 2,
+      },
+    } as any);
+    patchMock.mockResolvedValueOnce({ data: { id: 'management-1' } } as any);
+
+    render(<AdminStaffPage />);
+    fireEvent.click(screen.getByRole('tab', { name: /Структура/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Центральный офис/i }));
+    const moveButtons = await screen.findAllByRole('button', { name: 'Переместить' });
+    fireEvent.click(moveButtons[1]);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Редактирование подразделения' });
+    fireEvent.change(within(dialog).getByRole('combobox', { name: 'Родительское подразделение' }), {
+      target: { value: '' },
+    });
+
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith(
+      '/v1/organization-units/management-1/move-preview',
+      { parent_id: null },
+    ));
+    expect(await within(dialog).findByText(/3 узл.*2 должн.*5 сотр/i)).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    await waitFor(() => expect(patchMock).toHaveBeenCalledWith(
+      '/v1/organization-units/management-1',
+      { name: 'Управление качества', parent_id: null },
+    ));
   });
 
   it('offers every existing position before a unit is selected', async () => {

@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.department import Department
@@ -216,6 +216,57 @@ async def update_organization_unit(
             setattr(unit, field, value.strip() if isinstance(value, str) else value)
     await db.flush()
     return unit
+
+
+async def preview_organization_unit_move(
+    db: AsyncSession,
+    *,
+    tenant_id: UUID,
+    unit_id: UUID,
+    parent_id: UUID | None,
+) -> dict[str, Any]:
+    """Validate a move and summarize its tenant-local consequences.
+
+    The preview deliberately uses the same ``validate_move`` seam as the write
+    path.  A preview that succeeds therefore cannot disagree with the cycle or
+    maximum-depth checks applied when the PATCH is committed.
+    """
+
+    from app.models.users import User
+    from app.modules.positions.models import Position
+
+    scope = await validate_move(db, tenant_id, unit_id, parent_id)
+    affected_ids = tuple(scope.descendant_ids)
+    affected_positions = int(
+        await db.scalar(
+            select(func.count(Position.id)).where(
+                Position.tenant_id == tenant_id,
+                Position.department_id.in_(affected_ids),
+                Position.is_active.is_(True),
+            )
+        )
+        or 0
+    )
+    affected_employees = int(
+        await db.scalar(
+            select(func.count(User.id)).where(
+                User.tenant_id == tenant_id,
+                User.organization_unit_id.in_(affected_ids),
+                User.is_active.is_(True),
+            )
+        )
+        or 0
+    )
+    resulting_depth = 0 if parent_id is None else scope.parent_depth + 1
+    return {
+        "unit_id": scope.unit_id,
+        "parent_id": scope.parent_id,
+        "affected_units": len(scope.descendant_ids),
+        "affected_positions": affected_positions,
+        "affected_employees": affected_employees,
+        "resulting_depth": resulting_depth,
+        "subtree_height": scope.subtree_height,
+    }
 
 
 async def archive_organization_unit(

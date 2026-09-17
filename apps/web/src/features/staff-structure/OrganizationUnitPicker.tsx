@@ -13,17 +13,27 @@ interface OrganizationUnitPickerProps {
   value: string;
   onChange: (unit: FlattenedOrganizationUnit | null) => void;
   disabled?: boolean;
+  excludeUnitIds?: ReadonlySet<string>;
+  selectAriaLabel?: string;
 }
 
-export function OrganizationUnitPicker({ roots, value, onChange, disabled = false }: OrganizationUnitPickerProps) {
+export function OrganizationUnitPicker({
+  roots,
+  value,
+  onChange,
+  disabled = false,
+  excludeUnitIds,
+  selectAriaLabel = 'Отдел / подразделение (необязательно)',
+}: OrganizationUnitPickerProps) {
   const [query, setQuery] = useState('');
   const options = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     return flattenOrganizationUnits(roots).filter((option) => {
+      if (excludeUnitIds?.has(option.id)) return false;
       if (!needle) return true;
       return `${option.name} ${option.breadcrumb} ${option.unitType}`.toLocaleLowerCase().includes(needle);
     });
-  }, [query, roots]);
+  }, [excludeUnitIds, query, roots]);
 
   return (
     <div className="space-y-2">
@@ -37,7 +47,7 @@ export function OrganizationUnitPicker({ roots, value, onChange, disabled = fals
         className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
       />
       <select
-        aria-label="Отдел / подразделение (необязательно)"
+        aria-label={selectAriaLabel}
         value={value}
         onChange={(event) => onChange(options.find((option) => option.id === event.target.value) || null)}
         disabled={disabled}
