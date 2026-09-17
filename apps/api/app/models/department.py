@@ -54,6 +54,7 @@ class Department(Base):
     # Existing flat rows may remain root departments until a tenant-specific
     # approved import classifies them. Canonical writes set this to false.
     legacy_root = Column(Boolean, nullable=False, default=True)
+    is_head_office = Column(Boolean, nullable=False, default=False, server_default="false")
 
     description = Column(Text, nullable=False, default="")
     code = Column(Text, nullable=True)

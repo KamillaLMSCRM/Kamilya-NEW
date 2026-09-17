@@ -15,15 +15,14 @@ class OrganizationUnitCreate(BaseModel):
     external_key: str | None = Field(default=None, min_length=1, max_length=200)
     description: str = Field(default="", max_length=2000)
     code: str | None = Field(default=None, max_length=100)
+    is_head_office: bool = False
 
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
     def validate_shape(self) -> OrganizationUnitCreate:
-        if self.unit_type is OrganizationUnitType.BRANCH and self.parent_id is not None:
-            raise ValueError("branch must be a root organization unit")
-        if self.unit_type is OrganizationUnitType.DEPARTMENT and self.parent_id is None:
-            raise ValueError("department requires a branch parent")
+        if self.is_head_office and self.parent_id is not None:
+            raise ValueError("head office must be a root organization unit")
         return self
 
 
@@ -33,6 +32,7 @@ class OrganizationUnitUpdate(BaseModel):
     external_key: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
     code: str | None = Field(default=None, max_length=100)
+    is_head_office: bool | None = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -55,6 +55,9 @@ class OrganizationUnitResponse(BaseModel):
     description: str
     code: str | None
     created_at: datetime
+    is_head_office: bool = False
+    depth: int | None = None
+    breadcrumb: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -101,6 +104,7 @@ class OrganizationUnitTreeNode(OrganizationUnitResponse):
 class OrganizationUnitTreeResponse(BaseModel):
     branches: list[OrganizationUnitTreeNode]
     legacy_roots: list[OrganizationUnitTreeNode]
+    roots: list[OrganizationUnitTreeNode] = Field(default_factory=list)
     unassigned_legacy_positions: list[OrganizationUnitPosition] = Field(default_factory=list)
     summary: dict[str, int]
 

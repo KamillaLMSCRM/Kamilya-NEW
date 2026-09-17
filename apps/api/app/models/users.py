@@ -40,6 +40,11 @@ class User(Base):
     role = Column(Text, nullable=False, default="student")
     is_active = Column(Boolean, nullable=False, default=True)
     position_id = Column(UUID(as_uuid=True), ForeignKey("positions.id", ondelete="SET NULL"), nullable=True)
+    organization_unit_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("departments.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     last_login = Column(DateTime(timezone=True), nullable=True)
     status = Column(Text, nullable=False, default="active")
     email_verified_at = Column(DateTime(timezone=True), nullable=True)
