@@ -11,10 +11,18 @@ import { toast } from "@/components/ui/Toast";
 import { api } from "@/lib/api";
 import { formatKzPhone, isCompleteKzPhone } from "@/lib/kzPhone";
 import { ApplyRulesProgress } from "@/components/ui/ApplyRulesProgress";
+import { OrganizationUnitPicker } from "@/features/staff-structure/OrganizationUnitPicker";
+import { OrganizationUnitTree } from "@/features/staff-structure/OrganizationUnitTree";
+import {
+  flattenOrganizationUnits,
+  type OrganizationStructurePosition,
+  type OrganizationUnitNode,
+} from "@/features/staff-structure/organizationStructure";
 
 interface DepartmentOption {
   id: string;
   name: string;
+  legacy?: boolean;
 }
 
 interface PositionOption {
@@ -22,6 +30,7 @@ interface PositionOption {
   name: string;
   department: string | null;
   department_id: string | null;
+  organization_unit_id?: string | null;
 }
 
 type ImportProposalAction = "create" | "update" | "move" | "skip" | "conflict" | string;
@@ -102,19 +111,6 @@ function getAdaptiveParserSummary(session: ImportSessionResponse | null): Adapti
   };
 }
 
-interface OrganizationUnitNode {
-  id: string;
-  name: string;
-  unit_type: "branch" | "department" | string;
-  parent_id?: string | null;
-  is_active?: boolean;
-  departments?: OrganizationUnitNode[];
-  children?: OrganizationUnitNode[];
-  positions?: StructurePosition[];
-  employee_count?: number;
-  position_count?: number;
-}
-
 const STAFF_FIELDS = [
   { key: "personnel_number", label: "Табельный номер", required: true },
   { key: "first_name", label: "Имя", required: true },
@@ -169,6 +165,8 @@ export default function AdminStaffPage() {
   const [manualOptionsLoading, setManualOptionsLoading] = useState(false);
   const [departmentOptions, setDepartmentOptions] = useState<DepartmentOption[]>([]);
   const [positionOptions, setPositionOptions] = useState<PositionOption[]>([]);
+  const [manualOrganizationRoots, setManualOrganizationRoots] = useState<OrganizationUnitNode[]>([]);
+  const [manualOrganizationTreeAvailable, setManualOrganizationTreeAvailable] = useState(false);
   const [structureRefreshKey, setStructureRefreshKey] = useState(0);
   const [manualForm, setManualForm] = useState({
     personnel_number: "",
@@ -177,6 +175,7 @@ export default function AdminStaffPage() {
     email: "",
     phone: "",
     department_id: "",
+    organization_unit_id: "",
     position_id: "",
     department: "",
     position: "",
@@ -392,11 +391,27 @@ export default function AdminStaffPage() {
     Promise.all([
       api.get<{ departments: DepartmentOption[] }>("/v1/departments"),
       api.get<PositionOption[]>("/v1/positions"),
+      api.get("/v1/organization-units/tree").catch(() => null),
     ])
-      .then(([departmentsResponse, positionsResponse]) => {
+      .then(([departmentsResponse, positionsResponse, organizationResponse]) => {
         if (!active) return;
         setDepartmentOptions(departmentsResponse.data.departments ?? []);
         setPositionOptions(positionsResponse.data ?? []);
+        if (organizationResponse?.data) {
+          setManualOrganizationTreeAvailable(true);
+          const normalizedOrganization = normaliseStructureResponse(organizationResponse.data);
+          setManualOrganizationRoots([...normalizedOrganization.roots, ...normalizedOrganization.legacyRoots]);
+        } else {
+          setManualOrganizationTreeAvailable(false);
+          setManualOrganizationRoots((departmentsResponse.data.departments ?? []).map((department) => ({
+            id: department.id,
+            name: department.name,
+            unit_type: "department",
+            legacy_root: true,
+            children: [],
+            positions: [],
+          })));
+        }
       })
       .catch((error: any) => {
         if (!active) return;
@@ -428,6 +443,7 @@ export default function AdminStaffPage() {
       email: "",
       phone: "",
       department_id: "",
+      organization_unit_id: "",
       position_id: "",
       department: "",
       position: "",
@@ -464,6 +480,9 @@ export default function AdminStaffPage() {
         last_name: manualForm.last_name.trim(),
         email: manualForm.email.trim() || undefined,
         phone: manualForm.phone.trim() || undefined,
+        organization_unit_id: selectedOrganizationUnit?.isLegacy || !manualOrganizationTreeAvailable
+          ? undefined
+          : manualForm.organization_unit_id || undefined,
         department_id: manualForm.department_id || undefined,
         position_id: manualForm.position_id || undefined,
         department: manualForm.department_id ? undefined : manualForm.department.trim() || undefined,
@@ -485,21 +504,23 @@ export default function AdminStaffPage() {
     }
   };
 
-  const selectedDepartment = departmentOptions.find(
-    (department) => department.id === manualForm.department_id,
-  );
   const resolvePositionDepartmentId = (position: PositionOption) =>
-    position.department_id ||
+    position.organization_unit_id || position.department_id ||
     departmentOptions.find(
       (department) =>
         department.name.trim().toLocaleLowerCase() ===
         (position.department || "").trim().toLocaleLowerCase(),
     )?.id ||
     "";
-  const filteredPositionOptions = manualForm.department_id
-    ? positionOptions.filter(
-        (position) => resolvePositionDepartmentId(position) === manualForm.department_id,
-      )
+  const organizationUnitOptions = useMemo(
+    () => flattenOrganizationUnits(manualOrganizationRoots),
+    [manualOrganizationRoots],
+  );
+  const selectedOrganizationUnit = organizationUnitOptions.find(
+    (option) => option.id === (manualForm.organization_unit_id || manualForm.department_id),
+  );
+  const filteredPositionOptions: PositionOption[] = manualForm.organization_unit_id
+    ? positionOptions
     : positionOptions;
 
   return (
@@ -594,29 +615,21 @@ export default function AdminStaffPage() {
                     />
                   </label>
                   <label className="space-y-1">
-                    <span className="text-sm font-medium">Отдел <span className="font-normal text-muted-foreground">(необязательно)</span></span>
-                    <select
-                      value={manualForm.department_id}
-                      onChange={(e) =>
-                        setManualForm((current) => ({
-                          ...current,
-                          department_id: e.target.value,
-                          department: "",
-                          position_id: "",
-                          position: "",
-                        }))
-                      }
+                    <span className="text-sm font-medium">Подразделение <span className="font-normal text-muted-foreground">(необязательно)</span></span>
+                    <OrganizationUnitPicker
+                      roots={manualOrganizationRoots}
+                      value={manualForm.organization_unit_id || manualForm.department_id}
+                      onChange={(option) => setManualForm((current) => ({
+                        ...current,
+                        organization_unit_id: option && !option.isLegacy && manualOrganizationTreeAvailable ? option.id : "",
+                        department_id: option?.isLegacy ? option.id : "",
+                        department: "",
+                        position_id: "",
+                        position: "",
+                      }))}
                       disabled={manualOptionsLoading}
-                      className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
-                    >
-                      <option value="">{t("staffPage.manualNewDepartment")}</option>
-                      {departmentOptions.map((department) => (
-                        <option key={department.id} value={department.id}>
-                          {department.name}
-                        </option>
-                      ))}
-                    </select>
-                    {!manualForm.department_id && (
+                    />
+                    {!manualForm.organization_unit_id && (
                       <input
                         value={manualForm.department}
                         onChange={(e) => handleManualChange("department", e.target.value)}
@@ -628,17 +641,20 @@ export default function AdminStaffPage() {
                   <label className="space-y-1">
                     <span className="text-sm font-medium">Должность *</span>
                     <select
-                      value={manualForm.position_id}
-                      onChange={(e) => {
-                        const positionId = e.target.value;
-                        const position = positionOptions.find((item) => item.id === positionId);
-                        const departmentId = position ? resolvePositionDepartmentId(position) : "";
-                        setManualForm((current) => ({
-                          ...current,
-                          department_id: departmentId || current.department_id,
-                          department: departmentId ? "" : current.department,
-                          position_id: positionId,
-                          position: "",
+                        value={manualForm.position_id}
+                        onChange={(e) => {
+                          const positionId = e.target.value;
+                          const position = positionOptions.find((item) => item.id === positionId);
+                          const organizationUnitId = position ? resolvePositionDepartmentId(position) : "";
+                          setManualForm((current) => ({
+                            ...current,
+                            organization_unit_id: organizationUnitId && manualOrganizationTreeAvailable && organizationUnitOptions.some((option) => option.id === organizationUnitId && !option.isLegacy)
+                              ? organizationUnitId
+                              : current.organization_unit_id,
+                            department_id: organizationUnitId ? (organizationUnitOptions.find((option) => option.id === organizationUnitId)?.isLegacy ? organizationUnitId : "") : current.department_id,
+                            department: organizationUnitId ? "" : current.department,
+                            position_id: positionId,
+                            position: "",
                         }));
                       }}
                       disabled={manualOptionsLoading}
@@ -648,7 +664,7 @@ export default function AdminStaffPage() {
                       {filteredPositionOptions.map((position) => (
                         <option key={position.id} value={position.id}>
                           {position.name}
-                          {!manualForm.department_id && (position.department || resolvePositionDepartmentId(position))
+                          {!manualForm.organization_unit_id && (position.department || resolvePositionDepartmentId(position))
                             ? ` — ${position.department || departmentOptions.find((department) => department.id === resolvePositionDepartmentId(position))?.name || ""}`
                             : ""}
                         </option>
@@ -662,7 +678,7 @@ export default function AdminStaffPage() {
                           className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
                           placeholder={t("staffPage.manualPositionName")}
                         />
-                        {!manualForm.department_id && (
+                        {!manualForm.organization_unit_id && (
                           <span className="text-xs text-muted-foreground">
                             {t("staffPage.manualPositionWillBeCreated")}
                           </span>
@@ -1101,13 +1117,6 @@ function AdaptiveImportFlow({
 
 // ── Structure tab ────────────────────────────────────────────────────
 
-interface StructureEmployee {
-  id: string;
-  full_name: string;
-  personnel_number: string | null;
-  is_active: boolean;
-}
-
 interface EditableEmployee {
   id: string;
   personnel_number: string;
@@ -1115,6 +1124,13 @@ interface EditableEmployee {
   last_name: string;
   email: string | null;
   phone: string | null;
+  is_active: boolean;
+}
+
+interface StructureEmployee {
+  id: string;
+  full_name: string;
+  personnel_number: string | null;
   is_active: boolean;
 }
 
@@ -1148,9 +1164,13 @@ interface StructureBranch {
 }
 
 interface StructureResponse {
+  roots: OrganizationUnitNode[];
+  legacyRoots: OrganizationUnitNode[];
+  unassignedPositions: OrganizationStructurePosition[];
+  // Kept for the compatibility renderer below while old tenant responses are
+  // still accepted during the transition to the generic tree.
   departments: StructureDepartment[];
   branches: StructureBranch[];
-  unassignedPositions: StructurePosition[];
   summary: {
     total_employees: number;
     total_branches?: number;
@@ -1160,51 +1180,65 @@ interface StructureResponse {
 }
 
 function normaliseStructureResponse(raw: any): StructureResponse {
-  if (Array.isArray(raw?.branches)) {
-    const toDepartment = (node: any, branch: any): StructureDepartment => ({
-      id: node.id,
-      name: node.name,
-      slug: node.slug || node.id,
-      position_count: node.position_count ?? node.positions?.length ?? 0,
-      employee_count: node.employee_count ?? 0,
-      positions: Array.isArray(node.positions) ? node.positions : [],
-      branch_id: branch?.id ?? null,
-      branch_name: branch?.name ?? null,
-    });
-    const toBranch = (branch: any): StructureBranch => ({
-      id: branch.id,
-      name: branch.name,
-      departments: (branch.departments || branch.children || [])
-        .filter((node: any) => node.unit_type === "department" || !node.unit_type)
-        .map((node: any) => toDepartment(node, branch)),
-      positions: Array.isArray(branch.positions) ? branch.positions : [],
-      department_count: branch.department_count ?? (branch.children || []).length ?? 0,
-      employee_count: branch.employee_count ?? 0,
-    });
-    const branches: StructureBranch[] = raw.branches.map(toBranch);
-    const legacyDepartments: StructureDepartment[] = (raw.legacy_roots || []).map((node: any) => toDepartment(node, null));
-    return {
-      departments: [...legacyDepartments, ...(Array.isArray(raw.departments) ? raw.departments : [])],
-      branches,
-      unassignedPositions: Array.isArray(raw.unassigned_legacy_positions) ? raw.unassigned_legacy_positions : [],
-      summary: {
-        total_employees: raw.summary?.total_employees ?? branches.reduce((sum, branch) => sum + branch.employee_count, 0),
-        total_branches: raw.summary?.total_branches ?? raw.branches.length,
-        total_departments: raw.summary?.total_departments ?? branches.reduce((sum, branch) => sum + branch.department_count, 0) + legacyDepartments.length,
-        total_positions: raw.summary?.total_positions ?? branches.reduce((sum, branch) => sum + branch.positions.length + branch.departments.reduce((inner, department) => inner + department.position_count, 0), 0),
-      },
-    };
-  }
-  // Compatibility response from /admin/staff/structure: root rows are kept
-  // as legacy departments and are never silently relabelled as branches.
+  const toNode = (rawNode: any, legacyRoot = false): OrganizationUnitNode => ({
+    id: String(rawNode.id),
+    name: rawNode.name || "Без названия",
+    slug: rawNode.slug || rawNode.id,
+    unit_type: rawNode.unit_type || "department",
+    parent_id: rawNode.parent_id ?? null,
+    is_active: rawNode.is_active ?? true,
+    is_head_office: Boolean(rawNode.is_head_office),
+    legacy_root: legacyRoot || Boolean(rawNode.legacy_root),
+    children: (Array.isArray(rawNode.children) ? rawNode.children : Array.isArray(rawNode.departments) ? rawNode.departments : []).map((child: any) => toNode(child, legacyRoot)),
+    positions: Array.isArray(rawNode.positions) ? rawNode.positions : [],
+    department_count: rawNode.department_count ?? 0,
+    position_count: rawNode.position_count ?? rawNode.positions?.length ?? 0,
+    employee_count: rawNode.employee_count ?? 0,
+  });
+  const roots: OrganizationUnitNode[] = Array.isArray(raw?.branches)
+    ? raw.branches.map((node: any) => toNode(node))
+    : [];
+  const legacyRoots: OrganizationUnitNode[] = Array.isArray(raw?.legacy_roots)
+    ? raw.legacy_roots.map((node: any) => toNode(node, true))
+    : Array.isArray(raw?.departments)
+      ? raw.departments.map((node: any) => toNode(node, true))
+      : [];
+  const toLegacyPosition = (position: any): StructurePosition => ({
+    id: String(position.id),
+    name: position.name,
+    department: position.department || "",
+    department_slug: position.department_slug ?? null,
+    employee_count: position.employee_count ?? position.employees?.length ?? 0,
+    employees: Array.isArray(position.employees) ? position.employees : [],
+  });
+  const toLegacyDepartment = (node: OrganizationUnitNode, branch: OrganizationUnitNode | null): StructureDepartment => ({
+    id: node.id,
+    name: node.name,
+    slug: node.slug || node.id,
+    position_count: node.position_count ?? node.positions.length,
+    employee_count: node.employee_count ?? 0,
+    positions: node.positions.map(toLegacyPosition),
+    branch_id: branch?.id ?? null,
+    branch_name: branch?.name ?? null,
+  });
+  const branches: StructureBranch[] = roots.map((root) => ({
+    id: root.id,
+    name: root.name,
+    positions: root.positions.map(toLegacyPosition),
+    departments: root.children.filter((child) => child.unit_type === "department" || !child.unit_type).map((child) => toLegacyDepartment(child, root)),
+    department_count: root.department_count ?? root.children.length,
+    employee_count: root.employee_count ?? 0,
+  }));
   return {
-    departments: Array.isArray(raw?.departments) ? raw.departments : [],
-    branches: [],
-    unassignedPositions: [],
+    roots,
+    legacyRoots,
+    unassignedPositions: Array.isArray(raw?.unassigned_legacy_positions) ? raw.unassigned_legacy_positions : [],
+    departments: legacyRoots.map((node) => toLegacyDepartment(node, null)),
+    branches,
     summary: {
       total_employees: raw?.summary?.total_employees ?? 0,
-      total_branches: 0,
-      total_departments: raw?.summary?.total_departments ?? raw?.departments?.length ?? 0,
+      total_branches: raw?.summary?.total_branches ?? roots.length,
+      total_departments: raw?.summary?.total_departments ?? legacyRoots.length,
       total_positions: raw?.summary?.total_positions ?? 0,
     },
   };
@@ -1216,11 +1250,12 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  const [expandedUnitIds, setExpandedUnitIds] = useState<Set<string>>(new Set());
   const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
   const [expandedPositions, setExpandedPositions] = useState<Set<string>>(new Set());
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
-  const [unitModal, setUnitModal] = useState<{ type: "branch" | "department"; parentId?: string; parentName?: string; unitId?: string } | null>(null);
+  const [unitModal, setUnitModal] = useState<{ type: string; parentId?: string; parentName?: string; unitId?: string } | null>(null);
   const [unitName, setUnitName] = useState("");
   const [unitSaving, setUnitSaving] = useState(false);
   const [employeeLoadingId, setEmployeeLoadingId] = useState<string | null>(null);
@@ -1296,7 +1331,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
           unit_type: unitModal.type,
           parent_id: unitModal.parentId || null,
         });
-        toast.success(unitModal.type === "branch" ? "Филиал добавлен" : "Отдел добавлен");
+        toast.success(unitModal.type === "branch" ? "Филиал добавлен" : unitModal.type === "department" ? "Отдел добавлен" : "Подразделение добавлено");
       }
       setUnitModal(null);
       setUnitName("");
@@ -1326,6 +1361,15 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       const next = new Set(prev);
       if (next.has(slug)) next.delete(slug);
       else next.add(slug);
+      return next;
+    });
+  };
+
+  const toggleUnit = (unitId: string) => {
+    setExpandedUnitIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(unitId)) next.delete(unitId);
+      else next.add(unitId);
       return next;
     });
   };
@@ -1480,7 +1524,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       </div>
     );
   }
-  if (!data || (data.departments.length === 0 && data.branches.length === 0 && data.unassignedPositions.length === 0)) {
+  if (!data || (data.roots.length === 0 && data.legacyRoots.length === 0 && data.unassignedPositions.length === 0)) {
     return (
       <div className="p-6 text-center text-muted-foreground">
         <p>{t("staffPage.structureEmpty")}</p>
@@ -1539,13 +1583,46 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
         />
       </label>
 
+      <OrganizationUnitTree
+        roots={data.roots}
+        query={query}
+        expandedUnitIds={expandedUnitIds}
+        expandedPositionIds={expandedPositions}
+        onToggleUnit={toggleUnit}
+        onTogglePosition={togglePosition}
+        onAddChild={(node) => setUnitModal({ type: node.unit_type === "branch" ? "department" : "department", parentId: node.id, parentName: node.name })}
+        onRename={(node) => { setUnitName(node.name); setUnitModal({ type: node.unit_type || "department", unitId: node.id, parentId: node.parent_id || undefined, parentName: "" }); }}
+        onArchive={(node) => archiveUnit(node.id, node.name)}
+        onEditEmployee={(employee) => openEmployeeEditor(employee.id)}
+        title="Структура организации"
+        description="Любой узел может содержать дочерние подразделения, должности и сотрудников."
+      />
+
+      {data.legacyRoots.length > 0 && (
+        <OrganizationUnitTree
+          roots={data.legacyRoots}
+          query={query}
+          expandedUnitIds={expandedUnitIds}
+          expandedPositionIds={expandedPositions}
+          onToggleUnit={toggleUnit}
+          onTogglePosition={togglePosition}
+          onAddChild={(node) => setUnitModal({ type: "department", parentId: node.id, parentName: node.name })}
+          onRename={(node) => { setUnitName(node.name); setUnitModal({ type: "department", unitId: node.id }); }}
+          onArchive={(node) => archiveUnit(node.id, node.name)}
+          onEditEmployee={(employee) => openEmployeeEditor(employee.id)}
+          title="Совместимые отделы"
+          description="Это данные старого формата, сохранённые без автоматического переименования в филиалы."
+          legacy
+        />
+      )}
+
       {filteredDepartments.length === 0 && filteredBranches.length === 0 && (
         <div className="rounded-md border border-border p-6 text-center text-sm text-muted-foreground">
           Поиск не дал результатов.
         </div>
       )}
 
-      {filteredBranches.length > 0 && (
+      {false && filteredBranches.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Филиалы</CardTitle>
@@ -1767,7 +1844,8 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       {unitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div role="dialog" aria-modal="true" aria-labelledby="unit-dialog-title" className="w-full max-w-md rounded-xl bg-card p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-3"><div><h2 id="unit-dialog-title" className="text-lg font-bold">{unitModal.unitId ? "Переименовать подразделение" : unitModal.type === "branch" ? "Новый филиал" : "Новый отдел"}</h2><p className="mt-1 text-sm text-muted-foreground">{unitModal.parentName ? `В филиале «${unitModal.parentName}»` : "Филиал верхнего уровня"}</p></div><button type="button" aria-label="Закрыть" onClick={closeUnitModal} disabled={unitSaving}><X className="h-5 w-5" /></button></div>
+            <div className="flex items-start justify-between gap-3"><div><h2 id="unit-dialog-title" className="text-lg font-bold">{unitModal.unitId ? "Переименовать подразделение" : unitModal.type === "branch" ? "Новый филиал" : unitModal.type === "department" ? "Новый отдел" : "Новое подразделение"}</h2><p className="mt-1 text-sm text-muted-foreground">{unitModal.parentName ? `В подразделении «${unitModal.parentName}»` : "Корневое подразделение"}</p></div><button type="button" aria-label="Закрыть" onClick={closeUnitModal} disabled={unitSaving}><X className="h-5 w-5" /></button></div>
+            {!unitModal.unitId && <label className="mt-5 block space-y-1 text-sm"><span className="font-medium">Тип подразделения</span><select aria-label="Тип подразделения" value={unitModal.type} onChange={(event) => setUnitModal((current) => current ? { ...current, type: event.target.value } : current)} className="w-full rounded-md border border-border bg-background px-3 py-2"><option value="organization">Организация</option><option value="branch">Филиал</option><option value="management">Управление</option><option value="division">Департамент</option><option value="department">Отдел</option><option value="sector">Сектор</option><option value="team">Команда</option><option value="other">Другое</option></select></label>}
             <label className="mt-5 block space-y-1 text-sm"><span className="font-medium">Название</span><input autoFocus value={unitName} onChange={(event) => setUnitName(event.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2" placeholder={unitModal.type === "branch" ? "Например, Филиал Павлодар" : "Например, Отдел внутреннего контроля"} /></label>
             <div className="mt-5 flex justify-end gap-2"><Button type="button" variant="outline" onClick={closeUnitModal} disabled={unitSaving}>Отмена</Button><Button type="button" onClick={createUnit} disabled={!unitName.trim() || unitSaving}>{unitSaving ? "Сохраняю…" : unitModal.unitId ? "Сохранить" : "Создать"}</Button></div>
           </div>
@@ -1775,7 +1853,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       )}
 
       {/* Department tree */}
-      {filteredDepartments.length > 0 && <Card>
+      {false && filteredDepartments.length > 0 && <Card>
         <CardHeader><CardTitle>Совместимые отделы</CardTitle><p className="text-sm text-muted-foreground">Это данные старого формата, сохранённые без автоматического переименования в филиалы.</p></CardHeader>
         <CardContent className="p-0">
           <ul className="divide-y divide-border">
