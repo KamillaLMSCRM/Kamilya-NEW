@@ -406,7 +406,13 @@ Root не принял агентскую реализацию вслепую. �
 2. synthetic browser journey: создать дерево, центральный офис, общую должность,
    сотрудника без подразделения, сотрудника в глубоком узле, перенести поддерево
    и проверить recursive rule readback;
-3. exact remote SHA и CI после публикации feature-ветки.
+3. CI на pull request перед merge.
+
+Feature-ветка опубликована проектным аккаунтом `KamillaLMSCRM`; exact remote SHA
+проверяется после каждого push. Отдельный push этой ветки не запускает текущий
+workflow: `ci.yml` слушает push только в `master/main/develop/dev`, а feature
+branches проверяет через `pull_request`. PR не создавался, потому что DEV и
+browser gates ещё не закрыты.
 
 Итог текущего этапа: локальный код может перейти к DEV/browser acceptance, но
 не является разрешением на merge или production release.
