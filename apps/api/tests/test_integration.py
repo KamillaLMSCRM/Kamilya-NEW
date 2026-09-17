@@ -204,13 +204,16 @@ class TestDatabaseConfig:
         url = get_settings().DATABASE_URL
         assert "asyncpg" in url
 
-    def test_database_url_overridden_from_env(self):
+    def test_database_url_overridden_from_env(self, monkeypatch):
         """DATABASE_URL from .env supersedes default."""
-        import os
+        from app.core.config import Settings
 
-        from app.core.config import get_settings
-        url = get_settings().DATABASE_URL
-        expected = os.environ["DATABASE_URL"]
-        if expected.startswith("postgres://"):
-            expected = expected.replace("postgres://", "postgresql+asyncpg://", 1)
-        assert url == expected
+        monkeypatch.setenv(
+            "DATABASE_URL",
+            "postgres://test_user:test_password@db.invalid:5432/test_db",
+        )
+        settings = Settings(_env_file=None)
+
+        assert settings.DATABASE_URL == (
+            "postgresql+asyncpg://test_user:test_password@db.invalid:5432/test_db"
+        )

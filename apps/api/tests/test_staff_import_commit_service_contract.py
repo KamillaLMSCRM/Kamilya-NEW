@@ -26,7 +26,8 @@ def test_commit_reclassifies_approved_legacy_branch_without_replacing_id() -> No
     source = SERVICE.read_text(encoding="utf-8")
     assert 'unit.unit_type = "branch"' in source
     assert "unit.legacy_root = False" in source
-    assert "units_by_external[proposal.external_key] = unit" in source
+    assert "proposal_key = normalize_import_key(proposal.external_key)" in source
+    assert "units_by_external[proposal_key] = unit" in source
 
 
 def test_position_lock_excludes_nullable_eager_join() -> None:
