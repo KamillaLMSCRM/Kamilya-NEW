@@ -123,6 +123,70 @@ async def resolve_ancestor_path(
     return path
 
 
+async def resolve_ancestor_paths(
+    db: AsyncSession,
+    tenant_id: UUID,
+    unit_ids: Iterable[UUID],
+    *,
+    active_only: bool = True,
+) -> dict[UUID, list[UUID]]:
+    """Resolve many root-to-unit paths with one tenant-scoped hierarchy read."""
+
+    units = await _tenant_units(db, tenant_id, active_only=active_only)
+    by_id = {unit.id: unit for unit in units}
+    paths: dict[UUID, list[UUID]] = {}
+    for unit_id in dict.fromkeys(unit_ids):
+        current = by_id.get(unit_id)
+        if current is None:
+            raise OrganizationScopeNotFoundError("organization_unit_not_found")
+        path: list[UUID] = []
+        seen: set[UUID] = set()
+        while current is not None:
+            if current.id in seen:
+                raise ValueError("hierarchy_cycle")
+            seen.add(current.id)
+            path.append(current.id)
+            current = by_id.get(current.parent_id) if current.parent_id is not None else None
+        path.reverse()
+        paths[unit_id] = path
+    return paths
+
+
+async def resolve_descendant_memberships(
+    db: AsyncSession,
+    tenant_id: UUID,
+    root_ids: Iterable[UUID],
+    *,
+    active_only: bool = True,
+) -> dict[UUID, UUID]:
+    """Map each visible descendant to its most specific selected root.
+
+    The value preserves the audience root chosen by the methodologist.  When
+    selected roots overlap, the closest selected ancestor wins; equal-distance
+    ties preserve the caller's order.
+    """
+
+    units = await _tenant_units(db, tenant_id, active_only=active_only)
+    by_id = {unit.id: unit for unit in units}
+    children = _children_by_parent(units)
+    roots = [unit_id for unit_id in dict.fromkeys(root_ids) if unit_id in by_id]
+    memberships: dict[UUID, tuple[int, int, UUID]] = {}
+    for order, root_id in enumerate(roots):
+        stack = [(root_id, 0)]
+        seen: set[UUID] = set()
+        while stack:
+            unit_id, distance = stack.pop()
+            if unit_id in seen:
+                continue
+            seen.add(unit_id)
+            candidate = (distance, order, root_id)
+            current = memberships.get(unit_id)
+            if current is None or candidate[:2] < current[:2]:
+                memberships[unit_id] = candidate
+            stack.extend((child.id, distance + 1) for child in children.get(unit_id, ()))
+    return {unit_id: value[2] for unit_id, value in memberships.items()}
+
+
 async def resolve_employee_scope(
     db: AsyncSession,
     tenant_id: UUID,

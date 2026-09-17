@@ -1,6 +1,8 @@
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
 from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
 
@@ -10,6 +12,7 @@ from app.modules.ai.audience_advisor import (
     _course_status,
     _deterministic_scopes,
     _llm_select_scopes,
+    _load_departments,
     _unit_membership_clause,
     audience_prompt_reply,
     is_audience_recommendation_question,
@@ -126,3 +129,33 @@ def test_scope_candidate_can_represent_nested_unit_without_new_public_type():
     unit.semantic_context["unit_type"] = "sector"
     assert unit.type == "department"
     assert unit.semantic_context["unit_type"] == "sector"
+
+
+@pytest.mark.asyncio
+async def test_department_candidates_roll_up_employee_counts_with_one_bulk_path_resolution():
+    tenant_id = uuid4()
+    root = SimpleNamespace(
+        id=uuid4(), name="Central", description="", unit_type="organization"
+    )
+    leaf = SimpleNamespace(
+        id=uuid4(), name="Sector", description="", unit_type="sector"
+    )
+    units_result = MagicMock()
+    units_result.scalars.return_value.all.return_value = [root, leaf]
+    members_result = MagicMock()
+    members_result.all.return_value = [
+        (uuid4(), leaf.id, uuid4()),
+        (uuid4(), None, leaf.id),
+    ]
+    db = AsyncMock()
+    db.execute.side_effect = [units_result, members_result]
+
+    with patch(
+        "app.modules.ai.audience_advisor.resolve_ancestor_paths",
+        new=AsyncMock(return_value={leaf.id: [root.id, leaf.id]}),
+    ) as resolver:
+        candidates = await _load_departments(db, tenant_id)
+
+    assert [candidate.employee_count for candidate in candidates] == [2, 2]
+    resolver.assert_awaited_once_with(db, tenant_id, {leaf.id})
+    db.scalar.assert_not_awaited()

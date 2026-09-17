@@ -67,6 +67,8 @@ class TrainingLogRow(BaseModel):
     personnel_number: str | None = None
 
     # Org structure (nullable: a user without a position/department still appears)
+    organization_unit_id: UUID | None = None
+    organization_unit_path: list[str] = Field(default_factory=list)
     department_id: UUID | None = None
     department_name: str | None = None
     position_id: UUID | None = None
@@ -168,6 +170,7 @@ class TrainingLogCSVResponse(BaseModel):
         "email",
         "personnel_number",
         "department_name",
+        "organization_unit_path",
         "position_name",
         "course_title",
         "delivery_type",

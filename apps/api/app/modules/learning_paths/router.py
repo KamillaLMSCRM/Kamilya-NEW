@@ -46,7 +46,7 @@ from app.modules.learning_paths.service import (
     path_step_states,
     sync_assignment_enrollments,
 )
-from app.modules.organization_scope.resolver import resolve_descendants
+from app.modules.organization_scope import resolve_descendant_memberships
 from app.modules.positions.models import Position
 
 logger = logging.getLogger(__name__)
@@ -623,7 +623,12 @@ async def _resolve_audience(
         for user_id, source_ref_id in rows.all():
             targets.setdefault(user_id, ("position", source_ref_id))
     if payload.department_ids:
-        department_scope_ids = await resolve_descendants(db, tenant_id, payload.department_ids)
+        unit_memberships = await resolve_descendant_memberships(
+            db,
+            tenant_id,
+            payload.department_ids,
+        )
+        department_scope_ids = set(unit_memberships)
         rows = await db.execute(
             select(User.id, User.organization_unit_id, Position.department_id)
             .outerjoin(Position, Position.id == User.position_id)
@@ -639,7 +644,8 @@ async def _resolve_audience(
             )
         )
         for user_id, organization_unit_id, legacy_department_id in rows.all():
-            targets[user_id] = ("department", organization_unit_id or legacy_department_id)
+            effective_unit_id = organization_unit_id or legacy_department_id
+            targets[user_id] = ("department", unit_memberships[effective_unit_id])
     if payload.cohort_ids:
         rows = await db.execute(
             select(User.id, Cohort.id)

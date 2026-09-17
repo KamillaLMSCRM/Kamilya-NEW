@@ -9,6 +9,8 @@ import pytest
 
 from app.modules.organization_scope import (
     resolve_ancestor_path,
+    resolve_ancestor_paths,
+    resolve_descendant_memberships,
     resolve_descendants,
     resolve_employee_scope,
 )
@@ -81,4 +83,23 @@ async def test_inactive_nodes_are_excluded_from_active_scope():
         root.id,
         inactive_child.id,
         leaf.id,
+    }
+
+
+@pytest.mark.asyncio
+async def test_bulk_paths_and_overlapping_audience_roots_use_one_hierarchy_read_each():
+    tenant_id = uuid4()
+    root = _unit(tenant_id)
+    child = _unit(tenant_id, parent_id=root.id)
+    leaf = _unit(tenant_id, parent_id=child.id)
+    db = _Db([root, child, leaf])
+
+    assert await resolve_ancestor_paths(db, tenant_id, [child.id, leaf.id]) == {
+        child.id: [root.id, child.id],
+        leaf.id: [root.id, child.id, leaf.id],
+    }
+    assert await resolve_descendant_memberships(db, tenant_id, [root.id, child.id]) == {
+        root.id: root.id,
+        child.id: child.id,
+        leaf.id: child.id,
     }

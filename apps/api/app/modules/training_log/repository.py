@@ -48,6 +48,7 @@ from app.models.users import User
 from app.modules.courses.models import Course as CourseModel
 from app.modules.learning_cycles.models import LearningPathCycleInstance, RecurringLearningAssignment
 from app.modules.learning_paths.models import LearningPathAssignment
+from app.modules.organization_scope import resolve_ancestor_paths, resolve_descendants
 from app.modules.training_evidence.models import (
     TrainingEvidenceEvent,
     TrainingEvidenceLegalHold,
@@ -195,6 +196,12 @@ def _apply_filters(stmt, f: TrainingLogFilter, tenant_id: UUID):
     return stmt
 
 
+async def _organization_unit_scope(db: AsyncSession, tenant_id: UUID, root_id: UUID) -> set[UUID]:
+    """Resolve an org filter once; recursion remains owned by organization_scope."""
+
+    return await resolve_descendants(db, tenant_id, [root_id], include_self=True, active_only=True)
+
+
 # Subqueries referenced from both list_training_log and count_training_log.
 # Each returns aggregate per (user, course) used to compute activity status
 # and progress percent.
@@ -330,7 +337,13 @@ async def count_training_log(
     stmt, cycle_columns = _join_cycle_read_model(stmt, tenant_id)
     stmt = _apply_filters(stmt, f, tenant_id)
     if f.department_id:
-        stmt = stmt.where(PositionModel.department_id == f.department_id)
+        unit_scope = await _organization_unit_scope(db, tenant_id, f.department_id)
+        stmt = stmt.where(
+            or_(
+                User.organization_unit_id.in_(unit_scope),
+                and_(User.organization_unit_id.is_(None), PositionModel.department_id.in_(unit_scope)),
+            )
+        )
     if f.position_id:
         stmt = stmt.where(User.position_id == f.position_id)
 
@@ -654,9 +667,16 @@ async def list_training_log(
             (User.first_name + " " + User.last_name).label("full_name"),
             User.email,
             User.personnel_number,
-            # Department comes from the user's position (Position.department_id),
-            # NOT from User directly (User has no department_id column).
-            pos.c.department_id.label("department_id"),
+            # User placement is authoritative; position department is only the
+            # compatibility fallback for legacy NULL placements.
+            case(
+                (User.organization_unit_id.is_not(None), User.organization_unit_id),
+                else_=pos.c.department_id,
+            ).label("organization_unit_id"),
+            case(
+                (User.organization_unit_id.is_not(None), User.organization_unit_id),
+                else_=pos.c.department_id,
+            ).label("department_id"),
             dept.c.name.label("department_name"),
             User.position_id,
             pos.c.name.label("position_name"),
@@ -680,7 +700,14 @@ async def list_training_log(
         .join(Enrollment, Enrollment.user_id == User.id)
         .join(CourseModel, CourseModel.id == Enrollment.course_id)
         .outerjoin(pos, pos.c.id == User.position_id)
-        .outerjoin(dept, dept.c.id == pos.c.department_id)
+        .outerjoin(
+            dept,
+            dept.c.id
+            == case(
+                (User.organization_unit_id.is_not(None), User.organization_unit_id),
+                else_=pos.c.department_id,
+            ),
+        )
         .outerjoin(
             native_activity,
             and_(
@@ -718,7 +745,13 @@ async def list_training_log(
     stmt = _apply_status_filter(stmt, f, native_activity, scorm_activity, cycle_columns)
 
     if f.department_id:
-        stmt = stmt.where(pos.c.department_id == f.department_id)
+        unit_scope = await _organization_unit_scope(db, tenant_id, f.department_id)
+        stmt = stmt.where(
+            or_(
+                User.organization_unit_id.in_(unit_scope),
+                and_(User.organization_unit_id.is_(None), pos.c.department_id.in_(unit_scope)),
+            )
+        )
     if f.position_id:
         stmt = stmt.where(User.position_id == f.position_id)
 
@@ -731,6 +764,37 @@ async def list_training_log(
         return []
 
     evidence_by_enrollment = await _load_evidence_read_model(db, tenant_id, rows)
+
+    current_unit_ids = {row["organization_unit_id"] for row in rows if row["organization_unit_id"] is not None}
+    unit_names: dict[UUID, str] = {}
+    unit_paths: dict[UUID, list[str]] = {}
+    if current_unit_ids:
+        paths_by_unit = await resolve_ancestor_paths(
+            db,
+            tenant_id,
+            current_unit_ids,
+            active_only=False,
+        )
+        path_unit_ids = {
+            path_unit_id
+            for path in paths_by_unit.values()
+            for path_unit_id in path
+        }
+        units = list(
+            (
+                await db.scalars(
+                    select(Department).where(
+                        Department.tenant_id == tenant_id,
+                        Department.id.in_(path_unit_ids),
+                    )
+                )
+            ).all()
+        )
+        unit_names = {unit.id: unit.name for unit in units}
+        unit_paths = {
+            unit_id: [unit_names[path_id] for path_id in path if path_id in unit_names]
+            for unit_id, path in paths_by_unit.items()
+        }
 
     # Batch-fetch extra fields: best quiz score, certificate, kiosk last-seen.
     user_ids = {r["user_id"] for r in rows}
@@ -917,8 +981,10 @@ async def list_training_log(
                 "full_name": (r["full_name"] or "").strip() or "—",
                 "email": r["email"],
                 "personnel_number": r["personnel_number"],
+                "organization_unit_id": r["organization_unit_id"],
+                "organization_unit_path": unit_paths.get(r["organization_unit_id"], []),
                 "department_id": r["department_id"],
-                "department_name": r["department_name"],
+                "department_name": unit_names.get(r["organization_unit_id"], r["department_name"]),
                 "position_id": r["position_id"],
                 "position_name": r["position_name"],
                 "course_id": r["course_id"],

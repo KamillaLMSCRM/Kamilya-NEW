@@ -923,13 +923,15 @@ async def test_department_audience_uses_recursive_scope_and_authoritative_unit()
     payload = LearningPathAssignmentAudience(department_ids=[department_id])
     with patch.object(
         router,
-        "resolve_descendants",
-        new=AsyncMock(return_value={department_id, descendant_id}),
+        "resolve_descendant_memberships",
+        new=AsyncMock(
+            return_value={department_id: department_id, descendant_id: department_id}
+        ),
     ) as resolve:
         targets = await router._resolve_audience(db, payload, tenant_id)
 
     resolve.assert_awaited_once_with(db, tenant_id, [department_id])
-    assert targets == {learner_id: ("department", descendant_id)}
+    assert targets == {learner_id: ("department", department_id)}
     statement = str(db.execute.await_args_list[1].args[0])
     assert "organization_unit_id" in statement
     assert "department_id" in statement

@@ -25,7 +25,7 @@ from app.models.users import User
 from app.modules.cohorts.models import Cohort, CohortMember
 from app.modules.competencies.models import Competency, CompetencyCourse, PositionCompetency
 from app.modules.lessons.models import Module
-from app.modules.organization_scope import resolve_employee_scope
+from app.modules.organization_scope import resolve_ancestor_paths, resolve_employee_scope
 from app.modules.positions.models import DepartmentCourse, Position, PositionCourse
 from app.modules.training_rules.models import OrganizationCourseRule
 
@@ -155,26 +155,38 @@ async def _load_departments(db: AsyncSession, tenant_id: UUID) -> list[ScopeCand
             .order_by(Department.name, Department.id)
         )
     ).scalars().all()
+    unit_ids = {unit.id for unit in units}
+    member_rows = (
+        await db.execute(
+            select(User.id, User.organization_unit_id, Position.department_id)
+            .outerjoin(Position, Position.id == User.position_id)
+            .where(*_active_student_filter(tenant_id))
+        )
+    ).all()
+    effective_unit_ids = {
+        explicit_unit_id or legacy_unit_id
+        for _, explicit_unit_id, legacy_unit_id in member_rows
+        if (explicit_unit_id or legacy_unit_id) in unit_ids
+    }
+    paths_by_unit = (
+        await resolve_ancestor_paths(db, tenant_id, effective_unit_ids)
+        if effective_unit_ids
+        else {}
+    )
+    counts_by_unit: dict[UUID, int] = {unit.id: 0 for unit in units}
+    for _, explicit_unit_id, legacy_unit_id in member_rows:
+        effective_unit_id = explicit_unit_id or legacy_unit_id
+        for ancestor_id in paths_by_unit.get(effective_unit_id, ()):
+            counts_by_unit[ancestor_id] = counts_by_unit.get(ancestor_id, 0) + 1
     items: list[ScopeCandidate] = []
     for index, unit in enumerate(units, start=1):
-        unit_scope = await resolve_employee_scope(db, tenant_id, [unit.id])
-        count_query = (
-            select(func.count(distinct(User.id)))
-            .select_from(User)
-            .outerjoin(Position, Position.id == User.position_id)
-            .where(
-                *_active_student_filter(tenant_id),
-                _unit_membership_clause(unit_scope, tenant_id),
-            )
-        )
-        count = await db.scalar(count_query)
         items.append(
             ScopeCandidate(
                 ref=f"department_{index}",
                 type="department",
                 id=unit.id,
                 name=unit.name,
-                employee_count=int(count or 0),
+                employee_count=counts_by_unit[unit.id],
                 reasons=["department_structure"],
                 semantic_context={
                     "description": unit.description or "",
@@ -349,19 +361,20 @@ async def _matched_count(db: AsyncSession, tenant_id: UUID, scopes: list[ScopeCa
     if any(scope.type == "organization" for scope in scopes):
         return int(await db.scalar(select(func.count(User.id)).where(*_active_student_filter(tenant_id))) or 0)
     position_ids: set[UUID] = set()
-    unit_ids: set[UUID] = set()
+    selected_unit_ids: set[UUID] = set()
     cohort_ids: set[UUID] = set()
     for scope in scopes:
         if scope.type == "position" and scope.id:
             position_ids.add(scope.id)
         elif scope.type == "department" and scope.id:
-            unit_ids.update(await resolve_employee_scope(db, tenant_id, [scope.id]))
+            selected_unit_ids.add(scope.id)
         elif scope.type == "cohort" and scope.id:
             cohort_ids.add(scope.id)
     clauses = []
     if position_ids:
         clauses.append(User.position_id.in_(position_ids))
-    if unit_ids:
+    if selected_unit_ids:
+        unit_ids = await resolve_employee_scope(db, tenant_id, selected_unit_ids)
         clauses.append(_unit_membership_clause(unit_ids, tenant_id))
     if cohort_ids:
         cohort_users = await db.execute(select(CohortMember.user_id).where(CohortMember.tenant_id == tenant_id, CohortMember.cohort_id.in_(cohort_ids)))

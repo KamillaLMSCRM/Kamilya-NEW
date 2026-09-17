@@ -37,11 +37,13 @@ from app.modules.evidence_export import (
     TenantEvidence,
 )
 from app.modules.evidence_export.schemas import CommissionEvidence
+from app.modules.organization_scope import resolve_ancestor_path
 from app.modules.positions.models import Position
 from app.modules.quizzes.models import Quiz, QuizAttempt
 from app.modules.training_evidence.export_schemas import (
     EvidenceState,
     LegalHoldEvidence,
+    ServerEmployeeEvidence,
     ServerGroupEvidenceInput,
     ServerGroupRecordEvidence,
     ServerIndividualEvidenceInput,
@@ -238,13 +240,16 @@ async def _load_tenant_context(
 
     position = None
     department_name = None
+    organization_unit_id = getattr(user, "organization_unit_id", None)
     if user.position_id is not None:
         position = await db.scalar(
             select(Position).where(Position.id == user.position_id, Position.tenant_id == tenant_id)
         )
         if position is not None:
             department_name = position.department
-            if position.department_id is not None:
+            if organization_unit_id is None:
+                organization_unit_id = position.department_id
+            if position.department_id is not None and getattr(user, "organization_unit_id", None) is None:
                 department = await db.scalar(
                     select(Department).where(
                         Department.id == position.department_id,
@@ -253,7 +258,20 @@ async def _load_tenant_context(
                 )
                 if department is not None:
                     department_name = department.name
-    return tenant, user, enrollment, release, course, position, department_name
+    organization_unit_path: list[str] = []
+    if organization_unit_id is not None:
+        path_ids = await resolve_ancestor_path(db, tenant_id, organization_unit_id, active_only=False)
+        path_units = list(
+            (
+                await db.scalars(
+                    select(Department).where(Department.tenant_id == tenant_id, Department.id.in_(path_ids))
+                )
+            ).all()
+        )
+        names_by_id = {unit.id: unit.name for unit in path_units}
+        organization_unit_path = [names_by_id[path_id] for path_id in path_ids if path_id in names_by_id]
+        department_name = names_by_id.get(organization_unit_id, department_name)
+    return tenant, user, enrollment, release, course, position, department_name, organization_unit_id, organization_unit_path
 
 
 async def _load_attempts(
@@ -381,7 +399,7 @@ async def _build_server_parts(
     require_confirmation: bool = True,
 ) -> tuple[IndividualEvidenceInput, TrainingEvidenceEvent, list[TrainingEvidenceEvent]]:
     root, chain = await _load_event_chain(db, tenant_id, event_id)
-    tenant, user, enrollment, release, course, position, department_name = await _load_tenant_context(
+    tenant, user, enrollment, release, course, position, department_name, organization_unit_id, organization_unit_path = await _load_tenant_context(
         db, tenant_id, root, event_id
     )
     if root.recorded_by_user_id is None:
@@ -529,12 +547,14 @@ async def _build_server_parts(
             _incomplete(event_id, ["valid_print_form_snapshot"])
     individual = ServerIndividualEvidenceInput(
         tenant=TenantEvidence(id=str(tenant.id), name=tenant.name, slug=tenant.slug),
-        employee=EmployeeEvidence(
+        employee=ServerEmployeeEvidence(
             id=str(user.id),
             full_name=f"{user.first_name} {user.last_name}".strip(),
             email=user.email,
             personnel_number=user.personnel_number,
             department=department_name,
+            organization_unit_id=organization_unit_id,
+            organization_unit_path=organization_unit_path,
             position=position.name if position else None,
             phone=user.phone,
         ),

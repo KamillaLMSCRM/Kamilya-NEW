@@ -13,8 +13,8 @@ from __future__ import annotations
 import csv
 import io
 import logging
+from collections.abc import AsyncIterator
 from datetime import date, datetime
-from typing import AsyncIterator
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,7 +40,8 @@ DEFAULT_LIMIT = 100
 CSV_COLUMNS = {
     "ru": [
         ("full_name", "ФИО"), ("email", "Email"), ("personnel_number", "Табельный номер"),
-        ("department_name", "Подразделение"), ("position_name", "Должность"),
+        ("department_name", "Подразделение"), ("organization_unit_path", "Путь подразделения"),
+        ("position_name", "Должность"),
         ("course_title", "Курс"), ("delivery_type", "Формат курса"),
         ("computed_status", "Статус"), ("enrollment_source", "Источник назначения"),
         ("enrolled_at", "Дата назначения"), ("completed_at", "Дата завершения"),
@@ -52,7 +53,8 @@ CSV_COLUMNS = {
     ],
     "kk": [
         ("full_name", "Аты-жөні"), ("email", "Email"), ("personnel_number", "Табельдік нөмір"),
-        ("department_name", "Бөлімше"), ("position_name", "Лауазым"),
+        ("department_name", "Бөлімше"), ("organization_unit_path", "Бөлімше жолы"),
+        ("position_name", "Лауазым"),
         ("course_title", "Курс"), ("delivery_type", "Курс форматы"),
         ("computed_status", "Мәртебе"), ("enrollment_source", "Тағайындау көзі"),
         ("enrolled_at", "Тағайындалған күні"), ("completed_at", "Аяқталған күні"),
@@ -64,7 +66,8 @@ CSV_COLUMNS = {
     ],
     "en": [
         ("full_name", "Full name"), ("email", "Email"), ("personnel_number", "Personnel number"),
-        ("department_name", "Department"), ("position_name", "Position"),
+        ("department_name", "Department"), ("organization_unit_path", "Organization path"),
+        ("position_name", "Position"),
         ("course_title", "Course"), ("delivery_type", "Course format"),
         ("computed_status", "Status"), ("enrollment_source", "Assignment source"),
         ("enrolled_at", "Assigned at"), ("completed_at", "Completed at"),
@@ -110,6 +113,8 @@ CSV_VALUE_LABELS = {
 def _csv_value(field: str, value, lang: str):
     if value is None:
         return ""
+    if field == "organization_unit_path" and isinstance(value, list):
+        return " / ".join(str(item) for item in value)
     if field in {"delivery_type", "computed_status", "enrollment_source", "cycle_type", "deadline_status"}:
         return CSV_VALUE_LABELS[lang].get(str(value), value)
     if field in {
@@ -119,7 +124,7 @@ def _csv_value(field: str, value, lang: str):
         "cycle_due_at",
         "certificate_issued_at",
     }:
-        if isinstance(value, (datetime, date)):
+        if isinstance(value, datetime | date):
             return value.strftime("%d.%m.%Y %H:%M" if isinstance(value, datetime) else "%d.%m.%Y")
         try:
             parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))

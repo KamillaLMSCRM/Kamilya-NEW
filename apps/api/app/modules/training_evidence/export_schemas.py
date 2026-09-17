@@ -30,6 +30,13 @@ from app.modules.evidence_export.schemas import (
 )
 
 
+class ServerEmployeeEvidence(EmployeeEvidence):
+    """Current placement projection; historical event snapshots stay untouched."""
+
+    organization_unit_id: UUID | None = None
+    organization_unit_path: list[str] = Field(default_factory=list)
+
+
 class LegalHoldEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -56,6 +63,7 @@ class ServerIndividualEvidenceInput(IndividualEvidenceInput):
 
     state: EvidenceState
     legal_holds: list[LegalHoldEvidence] = Field(default_factory=list)
+    employee: ServerEmployeeEvidence
 
 
 class ServerGroupRecordEvidence(GroupRecordEvidence):
@@ -97,6 +105,7 @@ __all__ = [
     "ProcedureEvidence",
     "ServerGroupEvidenceInput",
     "ServerGroupRecordEvidence",
+    "ServerEmployeeEvidence",
     "ServerIndividualEvidenceInput",
     "TenantEvidence",
 ]
