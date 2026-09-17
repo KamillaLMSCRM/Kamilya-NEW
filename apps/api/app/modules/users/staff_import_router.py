@@ -14,7 +14,7 @@ from uuid import UUID
 
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -99,12 +99,25 @@ class ManualStaffCreateRequest(BaseModel):
     personnel_number: str = Field(..., min_length=1, max_length=64)
     first_name: str = Field(..., min_length=1, max_length=120)
     last_name: str = Field(..., min_length=1, max_length=120)
+    organization_unit_id: UUID | None = None
+    # Compatibility alias retained for older clients.
     department_id: UUID | None = None
     position_id: UUID | None = None
     department: str | None = Field(default=None, min_length=1, max_length=160)
     position: str | None = Field(default=None, min_length=1, max_length=160)
     email: str | None = Field(default=None, max_length=320)
     phone: str | None = Field(default=None, max_length=64)
+
+    @model_validator(mode="after")
+    def validate_manual_hierarchy(self) -> "ManualStaffCreateRequest":
+        if self.organization_unit_id is not None and self.department_id is not None:
+            if self.organization_unit_id != self.department_id:
+                raise ValueError("organization_unit_id and department_id must match")
+        if self.organization_unit_id is None:
+            self.organization_unit_id = self.department_id
+        if self.position_id is None and not (self.position or "").strip():
+            raise ValueError("manual_position_required")
+        return self
 
 
 class ManualStaffCreateResponse(BaseModel):
@@ -184,10 +197,11 @@ async def _resolve_manual_hierarchy(
     department: Department | None = None
     position: Position | None = None
 
-    if payload.department_id is not None:
+    organization_unit_id = payload.organization_unit_id or payload.department_id
+    if organization_unit_id is not None:
         department = await db.scalar(
             select(Department).where(
-                Department.id == payload.department_id,
+                Department.id == organization_unit_id,
                 Department.tenant_id == tenant_id,
             )
         )
@@ -197,6 +211,14 @@ async def _resolve_manual_hierarchy(
                 detail={
                     "code": "department_not_found",
                     "message": "Выбранный отдел не найден в этой компании.",
+                },
+            )
+        if department.is_active is False:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "organization_unit_inactive",
+                    "message": "Нельзя назначить сотрудника в архивное подразделение.",
                 },
             )
 
@@ -216,15 +238,6 @@ async def _resolve_manual_hierarchy(
                 },
             )
 
-        if department is not None and position.department_id not in (None, department.id):
-            raise HTTPException(
-                status_code=422,
-                detail={
-                    "code": "position_department_mismatch",
-                    "message": "Выбранная должность относится к другому отделу.",
-                },
-            )
-
         if position.department_id is not None and department is None:
             department = await db.scalar(
                 select(Department).where(
@@ -232,10 +245,6 @@ async def _resolve_manual_hierarchy(
                     Department.tenant_id == tenant_id,
                 )
             )
-
-        if department is not None and position.department_id is None:
-            position.department_id = department.id
-            position.department = department.name
 
     department_name = (
         department.name
@@ -357,8 +366,10 @@ async def create_manual_staff(
             department=department_name,
             position=position_name,
             position_id=payload.position_id,
+            organization_unit_id=payload.organization_unit_id,
             email=payload.email,
             phone=payload.phone,
+            apply_rules=True,
         )
     except StaffEmailConflictError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e

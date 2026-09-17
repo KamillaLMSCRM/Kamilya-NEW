@@ -115,7 +115,7 @@ async def test_manual_hierarchy_allows_new_position_without_department() -> None
 
 
 @pytest.mark.asyncio
-async def test_manual_hierarchy_rejects_position_from_another_department() -> None:
+async def test_manual_hierarchy_allows_shared_position_in_another_unit() -> None:
     tenant_id = uuid4()
     selected_department = Department(
         id=uuid4(),
@@ -134,18 +134,17 @@ async def test_manual_hierarchy_rejects_position_from_another_department() -> No
     db = AsyncMock()
     db.scalar.side_effect = [selected_department, position]
 
-    with pytest.raises(HTTPException) as error:
-        await _resolve_manual_hierarchy(
-            db,
-            tenant_id,
-            _payload(
-                department_id=selected_department.id,
-                position_id=position.id,
-            ),
-        )
+    names = await _resolve_manual_hierarchy(
+        db,
+        tenant_id,
+        _payload(
+            department_id=selected_department.id,
+            position_id=position.id,
+        ),
+    )
 
-    assert error.value.status_code == 422
-    assert error.value.detail["code"] == "position_department_mismatch"
+    assert names == ("Creative", "Accountant")
+    assert position.department_id != selected_department.id
 
 
 @pytest.mark.asyncio

@@ -1231,6 +1231,8 @@ async def commit_import(
     commit_changes: bool = True,
     apply_rules: bool = True,
     position_id_override: UUID | None = None,
+    organization_unit_id: UUID | None = None,
+    manual_mode: bool = False,
 ) -> dict:
     """Apply the import: create/update users + create new positions.
 
@@ -1256,13 +1258,24 @@ async def commit_import(
 
     for row in parsed.rows:
         values = _normalized_row_values(row)
+        independent_manual_placement = manual_mode and organization_unit_id is not None
         pn_norm = normalize_staff_lookup(values["personnel_number"])
         existing = users_by_pn.get(pn_norm)
 
-        # Resolve/create the canonical Department before Position.
+        # Manual v2 placement is a User concern. The old department text/FK on
+        # Position remains a compatibility hint and must not be rewritten when
+        # a staff member is placed into an explicit organization unit.
         department_key = normalize_staff_lookup(values["department"])
-        department = departments_by_slug.get(department_key)
-        if department is None and department_key:
+        department = (
+            departments_by_id.get(organization_unit_id)
+            if manual_mode and organization_unit_id is not None
+            else departments_by_slug.get(department_key)
+        )
+        if manual_mode and organization_unit_id is not None and department is None:
+            raise ValueError("organization_unit_not_found")
+        if manual_mode and organization_unit_id is not None and department.is_active is False:
+            raise ValueError("organization_unit_inactive")
+        if department is None and department_key and not (manual_mode and organization_unit_id is not None):
             department = Department(
                 id=uuid4(),
                 tenant_id=tenant_id,
@@ -1279,7 +1292,18 @@ async def commit_import(
         pos = (
             positions_by_id.get(position_id_override)
             if position_id_override is not None
-            else _find_position(positions_by_key, department_key, department, position_key)
+            else (
+                next(
+                    (
+                        candidate
+                        for candidate in positions_by_id.values()
+                        if normalize_staff_lookup(candidate.name) == position_key
+                    ),
+                    None,
+                )
+                if manual_mode
+                else _find_position(positions_by_key, department_key, department, position_key)
+            )
         )
         if position_id_override is not None and pos is None:
             raise ValueError("selected position is not available in this tenant")
@@ -1288,12 +1312,14 @@ async def commit_import(
                 id=uuid4(),
                 tenant_id=tenant_id,
                 name=values["position"] or "",
-                department=department.name if department is not None else "",
+                department=(department.name if department is not None else "")
+                if not independent_manual_placement
+                else "",
                 level="",
                 responsibilities="",
                 requirements="",
                 employee_count=0,
-                department_id=department.id if department is not None else None,
+                department_id=department.id if department is not None and not independent_manual_placement else None,
             )
             db.add(pos)
             await db.flush()
@@ -1301,7 +1327,7 @@ async def commit_import(
                 positions_by_key[(str(department.id), position_key)] = pos
             positions_by_key.setdefault((department_key, position_key), pos)
             positions_created += 1
-        elif department is not None:
+        elif department is not None and not independent_manual_placement:
             # Legacy positions retain their text column for compatibility,
             # but all rows touched by a new write get the canonical FK.
             pos.department_id = department.id
@@ -1342,6 +1368,9 @@ async def commit_import(
                 existing.is_active = True
                 changed = True
                 position_changed = True
+            if manual_mode and existing.organization_unit_id != organization_unit_id:
+                existing.organization_unit_id = organization_unit_id
+                changed = True
             if changed:
                 updated += 1
                 # Recompute only if the user's position actually
@@ -1363,6 +1392,7 @@ async def commit_import(
                 role="student",  # bulk import always creates students; HR promotes separately
                 is_active=True,
                 position_id=pos.id,
+                organization_unit_id=organization_unit_id if manual_mode else None,
                 password_hash=None,  # no self-service login - HR-managed
                 status="active",
             )
@@ -1473,8 +1503,10 @@ async def create_manual_staff_member(
     department: str,
     position: str,
     position_id: UUID | None = None,
+    organization_unit_id: UUID | None = None,
     email: str | None = None,
     phone: str | None = None,
+    apply_rules: bool = True,
 ) -> dict:
     """Create one HR-managed learner without uploading a staff file."""
     row = ParsedRow(
@@ -1495,9 +1527,14 @@ async def create_manual_staff_member(
         missing_required_columns=[],
         total_rows_in_file=1,
     )
+    if not row.position:
+        raise ValueError("manual_position_required")
     return await commit_import(
         db,
         tenant_id,
         parsed,
         position_id_override=position_id,
+        organization_unit_id=organization_unit_id,
+        manual_mode=True,
+        apply_rules=apply_rules,
     )

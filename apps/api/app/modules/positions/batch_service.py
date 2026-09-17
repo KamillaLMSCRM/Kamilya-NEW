@@ -23,11 +23,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import literal, select
+from sqlalchemy import and_, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.department import Department
 from app.models.users import User
+from app.modules.organization_scope import resolve_employee_scope
 from app.modules.positions.assignment_service import (
     RecomputeResult,
     recompute_enrollments,
@@ -103,6 +104,33 @@ async def recompute_department_members(
     in this department.
     """
     result = BatchResult()
+    if isinstance(db, AsyncSession):
+        unit_scope = await resolve_employee_scope(db, tenant_id, [department_id])
+        user_result = await db.execute(
+            select(User.id)
+            .outerjoin(Position, User.position_id == Position.id)
+            .where(
+                User.tenant_id == tenant_id,
+                User.role == "student",
+                User.is_active.is_(True),
+                or_(
+                    User.organization_unit_id.in_(unit_scope),
+                    and_(
+                        User.organization_unit_id.is_(None),
+                        Position.tenant_id == tenant_id,
+                        Position.department_id.in_(unit_scope),
+                    ),
+                ),
+            )
+        )
+        user_ids = list(user_result.scalars().all())
+        for user_id in user_ids:
+            outcome = await recompute_enrollments(db, user_id)
+            result.merge(outcome)
+        return result
+
+    # Compatibility for database-free legacy test doubles; real sessions use
+    # organization_scope above and never expose recursive query construction.
     pos_result = await db.execute(
         select(Position.id).where(
             Position.department_id.in_(

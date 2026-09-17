@@ -24,7 +24,7 @@ from .service import (
     archive_organization_unit,
     build_tree,
     create_organization_unit,
-    get_organization_unit,
+    get_organization_unit_projection,
     list_organization_units,
     load_structure_projections,
     update_organization_unit,
@@ -48,9 +48,14 @@ async def get_organization_tree(
     )
     unassigned_legacy_positions = projections.pop(UNASSIGNED_LEGACY_UNIT_ID, [])
     branches, legacy_roots = build_tree(units, positions_by_unit=projections)
+    roots = sorted(
+        [*branches, *legacy_roots],
+        key=lambda node: (node["breadcrumb"], str(node["id"])),
+    )
     return OrganizationUnitTreeResponse(
         branches=branches,
         legacy_roots=legacy_roots,
+        roots=roots,
         unassigned_legacy_positions=unassigned_legacy_positions,
         summary={
             "total_branches": len(branches),
@@ -84,14 +89,16 @@ async def create_unit(
             external_key=body.external_key,
             description=body.description,
             code=body.code,
+            is_head_office=body.is_head_office,
         )
-    except OrganizationHierarchyError as exc:
+    except (OrganizationHierarchyError, ValueError) as exc:
+        await db.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(status_code=409, detail="Organization unit already exists") from exc
     await db.commit()
-    return unit
+    return await get_organization_unit_projection(db, user.tenant_id, unit.id)
 
 
 @router.get("/{unit_id}", response_model=OrganizationUnitResponse)
@@ -101,7 +108,7 @@ async def get_unit(
     user: Methodologist,
 ):
     try:
-        return await get_organization_unit(db, user.tenant_id, unit_id)
+        return await get_organization_unit_projection(db, user.tenant_id, unit_id)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail="Organization unit not found") from exc
 
@@ -121,7 +128,7 @@ async def update_unit(
             patch=body.model_dump(exclude_unset=True),
         )
         await db.commit()
-        return unit
+        return await get_organization_unit_projection(db, user.tenant_id, unit.id)
     except LookupError as exc:
         await db.rollback()
         raise HTTPException(status_code=404, detail="Organization unit not found") from exc
