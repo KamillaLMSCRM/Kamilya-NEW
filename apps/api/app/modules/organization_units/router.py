@@ -100,12 +100,13 @@ async def create_unit(
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(status_code=409, detail="Organization unit already exists") from exc
-    await db.commit()
-    return await get_organization_unit_projection(
+    response = await get_organization_unit_projection(
         db,
         cast(UUID, user.tenant_id),
         cast(UUID, unit.id),
     )
+    await db.commit()
+    return response
 
 
 @router.get("/{unit_id}", response_model=OrganizationUnitResponse)
@@ -154,12 +155,13 @@ async def update_unit(
             unit_id=unit_id,
             patch=body.model_dump(exclude_unset=True),
         )
-        await db.commit()
-        return await get_organization_unit_projection(
+        response = await get_organization_unit_projection(
             db,
             cast(UUID, user.tenant_id),
             cast(UUID, unit.id),
         )
+        await db.commit()
+        return response
     except LookupError as exc:
         await db.rollback()
         raise HTTPException(status_code=404, detail="Organization unit not found") from exc

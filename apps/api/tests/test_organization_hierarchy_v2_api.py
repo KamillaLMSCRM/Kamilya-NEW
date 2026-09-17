@@ -12,6 +12,8 @@ from fastapi import HTTPException
 
 from app.modules.organization_scope import MoveScope
 from app.modules.organization_units.domain import OrganizationUnitType
+from app.modules.organization_units.router import create_unit, update_unit
+from app.modules.organization_units.schemas import OrganizationUnitCreate, OrganizationUnitUpdate
 from app.modules.organization_units.service import (
     build_tree,
     create_organization_unit,
@@ -109,6 +111,81 @@ async def test_create_root_unit_uses_slots_safe_domain_reference():
     assert created.tenant_id == tenant_id
     assert created.parent_id is None
     db.add.assert_called_once_with(created)
+
+
+@pytest.mark.asyncio
+async def test_create_route_builds_projection_before_commit_preserves_rls_context():
+    tenant_id = uuid4()
+    created = _unit("Central office", "organization", is_head_office=True)
+    created.tenant_id = tenant_id
+    events: list[str] = []
+    db = AsyncMock()
+    db.commit.side_effect = lambda: events.append("commit")
+
+    async def project(_db, projected_tenant_id, projected_unit_id):
+        events.append("projection")
+        assert projected_tenant_id == tenant_id
+        assert projected_unit_id == created.id
+        return {"id": created.id, "name": created.name}
+
+    with (
+        patch(
+            "app.modules.organization_units.router.create_organization_unit",
+            new=AsyncMock(return_value=created),
+        ),
+        patch(
+            "app.modules.organization_units.router.get_organization_unit_projection",
+            new=AsyncMock(side_effect=project),
+        ),
+    ):
+        response = await create_unit(
+            OrganizationUnitCreate(
+                name="Central office",
+                unit_type=OrganizationUnitType.ORGANIZATION,
+                is_head_office=True,
+            ),
+            db,
+            SimpleNamespace(tenant_id=tenant_id),
+        )
+
+    assert response == {"id": created.id, "name": created.name}
+    assert events == ["projection", "commit"]
+
+
+@pytest.mark.asyncio
+async def test_update_route_builds_projection_before_commit_preserves_rls_context():
+    tenant_id = uuid4()
+    updated = _unit("Operations", "management")
+    updated.tenant_id = tenant_id
+    events: list[str] = []
+    db = AsyncMock()
+    db.commit.side_effect = lambda: events.append("commit")
+
+    async def project(_db, projected_tenant_id, projected_unit_id):
+        events.append("projection")
+        assert projected_tenant_id == tenant_id
+        assert projected_unit_id == updated.id
+        return {"id": updated.id, "name": updated.name}
+
+    with (
+        patch(
+            "app.modules.organization_units.router.update_organization_unit",
+            new=AsyncMock(return_value=updated),
+        ),
+        patch(
+            "app.modules.organization_units.router.get_organization_unit_projection",
+            new=AsyncMock(side_effect=project),
+        ),
+    ):
+        response = await update_unit(
+            updated.id,
+            OrganizationUnitUpdate(name="Operations"),
+            db,
+            SimpleNamespace(tenant_id=tenant_id),
+        )
+
+    assert response == {"id": updated.id, "name": updated.name}
+    assert events == ["projection", "commit"]
 
 
 @pytest.mark.asyncio

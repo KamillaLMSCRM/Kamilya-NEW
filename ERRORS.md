@@ -3208,3 +3208,26 @@ contract or establish a blocker.
 - Prevention: optional hierarchy levels must remain optional in UI validation,
   API validation and persistence tests; selector tests must start from the
   initial form state rather than only after selecting a parent.
+
+## ORG-HIERARCHY-001 - Successful organization-unit writes returned HTTP 500
+
+- Date: 2026-09-17. Found by the live synthetic production acceptance for
+  version 0.7.0 after the migration, CI, deployment and UI selector checks had
+  passed.
+- Symptom: creating a root organization unit returned HTTP 500, although the
+  row was committed and appeared in the next structure read.
+- Cause: the create and update routes committed before constructing their
+  response projection. The commit ended the transaction carrying the
+  `SET LOCAL app.tenant_id` RLS context; the subsequent readback ran in a new
+  transaction without tenant context and could not see the row it had written.
+- Fix: flush and build the tenant-scoped response projection first, commit only
+  after the projection succeeds, and return the already materialized response.
+- Verification: route-level RED/GREEN tests assert the exact
+  `projection -> commit` ordering for create and update. Production acceptance
+  must additionally create a disposable four-level hierarchy through the
+  authenticated HTTP API, verify depth and breadcrumbs, reject a nested central
+  office, archive children before parents, and prove no active residue remains.
+- Prevention: every endpoint that performs a tenant-scoped write followed by a
+  tenant-scoped read must keep both operations in the same RLS transaction or
+  explicitly restore the context; migration and service tests alone are not
+  sufficient HTTP acceptance.

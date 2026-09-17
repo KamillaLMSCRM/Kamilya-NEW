@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.7.1] - 2026-09-17
+
+### Fixed
+
+- Build the organization-unit response before committing create and update
+  requests, preserving the transaction-local tenant RLS context and preventing
+  a false HTTP 500 after the database write has already succeeded.
+- Add route-level regression coverage for create and update readback ordering,
+  closing the gap between migration/service tests and the production HTTP path.
+
 ## [0.7.0] - 2026-09-17
 
 ### Added
