@@ -1646,6 +1646,7 @@
       "manualDepartmentName": "New department name",
       "manualNewPosition": "Create a new position",
       "manualPositionName": "New position name",
+      "manualPositionWillBeCreated": "The new position will be created in the new department when the employee is added.",
       "manualPhoneInvalid": "Enter the complete phone number in the format +7 (777) 000-00-00",
     "fileTitle": "Employee file",
     "uploadTitle": "Upload employees",

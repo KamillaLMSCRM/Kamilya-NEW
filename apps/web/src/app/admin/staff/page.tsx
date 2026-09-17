@@ -632,7 +632,7 @@ export default function AdminStaffPage() {
                           position: "",
                         }))
                       }
-                      disabled={manualOptionsLoading || !manualForm.department_id}
+                      disabled={manualOptionsLoading}
                       className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
                     >
                       <option value="">{t("staffPage.manualNewPosition")}</option>
@@ -643,12 +643,19 @@ export default function AdminStaffPage() {
                       ))}
                     </select>
                     {!manualForm.position_id && (
-                      <input
-                        value={manualForm.position}
-                        onChange={(e) => handleManualChange("position", e.target.value)}
-                        className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
-                        placeholder={t("staffPage.manualPositionName")}
-                      />
+                      <>
+                        <input
+                          value={manualForm.position}
+                          onChange={(e) => handleManualChange("position", e.target.value)}
+                          className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
+                          placeholder={t("staffPage.manualPositionName")}
+                        />
+                        {!manualForm.department_id && (
+                          <span className="text-xs text-muted-foreground">
+                            {t("staffPage.manualPositionWillBeCreated")}
+                          </span>
+                        )}
+                      </>
                     )}
                   </label>
                   <label className="space-y-1 md:col-span-2">

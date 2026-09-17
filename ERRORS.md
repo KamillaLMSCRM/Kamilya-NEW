@@ -3164,3 +3164,24 @@ contract or establish a blocker.
   must include one pre-feature historical event in addition to newly created
   events, and PDF acceptance must inspect rendered pages rather than only HTTP
   status, MIME type or extracted package metadata.
+
+## STAFF-UI-001 - New-department flow disabled the required position choice
+
+- Date: 2026-09-17.
+- Symptom: in the manual employee modal, selecting `Create a new department`
+  left the required position selector disabled, so the UI appeared to prevent
+  completing the employee even though the new-position name input was visible.
+- Cause: the selector was disabled whenever `department_id` was empty. A newly
+  named department intentionally has no persisted id until the employee request
+  is committed, while the backend already supports the atomic free-text
+  department plus position path.
+- Fix: disable the position selector only while hierarchy options are loading;
+  when a new department is selected, keep `Create a new position` available and
+  explain that both records are created when the employee is added.
+- Verification: the frontend regression opens the modal, verifies that the
+  position choice is enabled, enters a new department and position, and asserts
+  the exact `/v1/admin/staff/manual` payload. Existing backend hierarchy tests
+  confirm canonical position creation and duplicate prevention.
+- Prevention: every dependent selector must cover both persisted-parent and
+  create-parent-in-the-same-request states; never use absence of a persisted id
+  as an availability rule when the API accepts an atomic create path.

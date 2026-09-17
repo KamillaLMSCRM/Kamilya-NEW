@@ -132,6 +132,8 @@ beforeEach(() => {
   vi.stubGlobal('crypto', { randomUUID: () => 'idempotency-1' });
   getMock.mockImplementation(async (url: string) => {
     if (url.includes('/import/mappings')) return { data: [] } as any;
+    if (url === '/v1/departments') return { data: { departments: [] } } as any;
+    if (url === '/v1/positions') return { data: [] } as any;
     if (url.includes('/organization-units/tree')) return { data: tree } as any;
     if (url.includes('/staff/manual/employee-direct-1')) return { data: { id: 'employee-direct-1', personnel_number: '101', first_name: 'Айдана', last_name: 'Сейтова', email: 'aidana@example.kz', phone: '+77070000000', is_active: true } } as any;
     if (url.includes('/import/sessions/session-1')) return { data: needsMapping } as any;
@@ -249,6 +251,71 @@ describe('adaptive staff import interactions', () => {
 });
 
 describe('organization structure interactions', () => {
+  it('keeps new-position selection available and creates it with a new department', async () => {
+    render(<AdminStaffPage />);
+    fireEvent.click(screen.getByRole('button', { name: /Добавить сотрудника/i }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Новый сотрудник' });
+    const positionSelect = within(dialog).getByRole('combobox', { name: /^Должность/ });
+    expect(positionSelect).toBeEnabled();
+    expect(positionSelect).toHaveValue('');
+    expect(within(positionSelect).getByRole('option', { name: /Создать новую должность/i })).toBeInTheDocument();
+
+    fireEvent.change(within(dialog).getByLabelText(/^Табельный номер/), { target: { value: 'EMP-NEW-1' } });
+    fireEvent.change(within(dialog).getByLabelText(/^Имя/), { target: { value: 'Алия' } });
+    fireEvent.change(within(dialog).getByLabelText(/^Фамилия/), { target: { value: 'Садыкова' } });
+    fireEvent.change(within(dialog).getByPlaceholderText(/Название нового отдела/i), { target: { value: 'Отдел качества' } });
+    fireEvent.change(within(dialog).getByPlaceholderText(/Название новой должности/i), { target: { value: 'Специалист по качеству' } });
+
+    postMock.mockResolvedValueOnce({
+      data: { created: 1, updated: 0, skipped: 0, positions_created: 1 },
+    } as any);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
+
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith(
+      '/v1/admin/staff/manual',
+      {
+        personnel_number: 'EMP-NEW-1',
+        first_name: 'Алия',
+        last_name: 'Садыкова',
+        email: undefined,
+        phone: undefined,
+        department_id: undefined,
+        position_id: undefined,
+        department: 'Отдел качества',
+        position: 'Специалист по качеству',
+      },
+    ));
+  });
+
+  it('loads positions for the selected existing department', async () => {
+    getMock.mockImplementation(async (url: string) => {
+      if (url.includes('/import/mappings')) return { data: [] } as any;
+      if (url === '/v1/departments') {
+        return { data: { departments: [{ id: 'dept-1', name: 'Бухгалтерия' }] } } as any;
+      }
+      if (url === '/v1/positions') {
+        return {
+          data: [{ id: 'position-dept-1', name: 'Кассир', department: 'Бухгалтерия', department_id: 'dept-1' }],
+        } as any;
+      }
+      if (url.includes('/organization-units/tree')) return { data: tree } as any;
+      throw new Error(`unexpected GET ${url}`);
+    });
+
+    render(<AdminStaffPage />);
+    fireEvent.click(screen.getByRole('button', { name: /Добавить сотрудника/i }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новый сотрудник' });
+    const departmentSelect = within(dialog).getByRole('combobox', { name: /^Отдел/ });
+    const positionSelect = within(dialog).getByRole('combobox', { name: /^Должность/ });
+
+    await waitFor(() => expect(departmentSelect).toHaveTextContent('Бухгалтерия'));
+    fireEvent.change(departmentSelect, { target: { value: 'dept-1' } });
+
+    expect(positionSelect).toBeEnabled();
+    expect(within(positionSelect).getByRole('option', { name: 'Кассир' })).toHaveValue('position-dept-1');
+  });
+
   it('pluralizes branch counts and drills down from a department to its employees', async () => {
     render(<AdminStaffPage />);
     fireEvent.click(screen.getByRole('tab', { name: /Структура/i }));
