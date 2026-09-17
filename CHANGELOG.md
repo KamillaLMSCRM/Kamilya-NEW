@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.6.2] - 2026-09-17
+
+### Fixed
+
+- Allow a tenant administrator to create a new department and its required new
+  position directly while adding an employee. The position field remains
+  available for the new-department path, and the employee, department and
+  position are submitted together through the existing atomic staff endpoint.
+
 ## [0.6.1] - 2026-09-16
 
 ### Fixed
