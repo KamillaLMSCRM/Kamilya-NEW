@@ -905,3 +905,31 @@ async def test_learner_query_is_assignment_scoped_not_tenant_catalog_scoped():
     assert "learning_path_assignments" in statement
     assert len(response) == 1
     assert response[0].current_course_id == course_id
+
+
+@pytest.mark.asyncio
+async def test_department_audience_uses_recursive_scope_and_authoritative_unit():
+    from app.modules.learning_paths import router
+
+    tenant_id = uuid4()
+    department_id = uuid4()
+    descendant_id = uuid4()
+    learner_id = uuid4()
+    db = AsyncMock()
+    department_result = _result(all_rows=[department_id])
+    audience_result = MagicMock()
+    audience_result.all.return_value = [(learner_id, descendant_id, None)]
+    db.execute.side_effect = [department_result, audience_result]
+    payload = LearningPathAssignmentAudience(department_ids=[department_id])
+    with patch.object(
+        router,
+        "resolve_descendants",
+        new=AsyncMock(return_value={department_id, descendant_id}),
+    ) as resolve:
+        targets = await router._resolve_audience(db, payload, tenant_id)
+
+    resolve.assert_awaited_once_with(db, tenant_id, [department_id])
+    assert targets == {learner_id: ("department", descendant_id)}
+    statement = str(db.execute.await_args_list[1].args[0])
+    assert "organization_unit_id" in statement
+    assert "department_id" in statement

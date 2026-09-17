@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 from datetime import UTC, datetime, timedelta, timezone
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -272,3 +273,36 @@ def test_missing_actual_latest_never_carries_forward_an_older_answer():
     assert stats[0].latest_respondents == 0 and stats[0].latest_unavailable == 1
     assert stats[0].latest_incorrect_percent is None
     assert stats[0].improved == stats[0].regressed == 0
+
+
+@pytest.mark.asyncio
+async def test_insights_department_filter_resolves_descendants_and_honors_authoritative_unit():
+    from app.modules.learning_insights import service
+
+    tenant_id = uuid4()
+    course_id = uuid4()
+    department_id = uuid4()
+    descendant_id = uuid4()
+    course = SimpleNamespace(id=course_id, title="Course")
+    result = MagicMock()
+    result.all.return_value = []
+    db = AsyncMock()
+    db.scalar.side_effect = [course, department_id]
+    db.execute.return_value = result
+
+    with patch.object(
+        service,
+        "resolve_descendants",
+        new=AsyncMock(return_value={department_id, descendant_id}),
+    ) as resolve:
+        await service.get_course_insights(
+            db,
+            tenant_id=tenant_id,
+            course_id=course_id,
+            department_id=department_id,
+        )
+
+    resolve.assert_awaited_once_with(db, tenant_id, [department_id])
+    statement = str(db.execute.await_args.args[0])
+    assert "organization_unit_id" in statement
+    assert "department_id" in statement

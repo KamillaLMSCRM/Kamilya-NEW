@@ -6,7 +6,7 @@ from typing import Any, cast
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -46,6 +46,7 @@ from app.modules.learning_paths.service import (
     path_step_states,
     sync_assignment_enrollments,
 )
+from app.modules.organization_scope.resolver import resolve_descendants
 from app.modules.positions.models import Position
 
 logger = logging.getLogger(__name__)
@@ -622,14 +623,23 @@ async def _resolve_audience(
         for user_id, source_ref_id in rows.all():
             targets.setdefault(user_id, ("position", source_ref_id))
     if payload.department_ids:
+        department_scope_ids = await resolve_descendants(db, tenant_id, payload.department_ids)
         rows = await db.execute(
-            select(User.id, Department.id)
-            .join(Position, Position.id == User.position_id)
-            .join(Department, Department.id == Position.department_id)
-            .where(*active_student, Position.tenant_id == tenant_id, Department.tenant_id == tenant_id, Department.id.in_(payload.department_ids))
+            select(User.id, User.organization_unit_id, Position.department_id)
+            .outerjoin(Position, Position.id == User.position_id)
+            .where(
+                *active_student,
+                or_(
+                    User.organization_unit_id.in_(department_scope_ids),
+                    and_(
+                        User.organization_unit_id.is_(None),
+                        Position.department_id.in_(department_scope_ids),
+                    ),
+                ),
+            )
         )
-        for user_id, source_ref_id in rows.all():
-            targets[user_id] = ("department", source_ref_id)
+        for user_id, organization_unit_id, legacy_department_id in rows.all():
+            targets[user_id] = ("department", organization_unit_id or legacy_department_id)
     if payload.cohort_ids:
         rows = await db.execute(
             select(User.id, Cohort.id)

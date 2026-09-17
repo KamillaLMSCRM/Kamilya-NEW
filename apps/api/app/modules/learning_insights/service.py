@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import UUID
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, false, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,6 +35,7 @@ from app.modules.learning_insights.schemas import (
     ReviewStatus,
     WrongChoice,
 )
+from app.modules.organization_scope.resolver import resolve_descendants
 from app.modules.positions.models import Position
 from app.modules.quizzes.models import QuizAttempt
 
@@ -634,6 +635,10 @@ async def get_course_insights(
     ):
         raise LearningInsightsNotFoundError("Position not found")
 
+    department_scope_ids: set[UUID] = set()
+    if department_id is not None:
+        department_scope_ids = await resolve_descendants(db, tenant_id, [department_id])
+
     conditions = [
         Enrollment.tenant_id == tenant_id,
         Enrollment.course_id == course_id,
@@ -646,7 +651,21 @@ async def get_course_insights(
     if position_id is not None:
         conditions.append(User.position_id == position_id)
     if department_id is not None:
-        conditions.extend((Position.tenant_id == tenant_id, Position.department_id == department_id))
+        conditions.extend(
+            (
+                or_(
+                    User.organization_unit_id.in_(department_scope_ids)
+                    if department_scope_ids
+                    else false(),
+                    and_(
+                        User.organization_unit_id.is_(None),
+                        Position.department_id.in_(department_scope_ids)
+                        if department_scope_ids
+                        else false(),
+                    ),
+                ),
+            )
+        )
     statement = (
         select(QuizAttempt, ContentRelease)
         .join(
