@@ -5,13 +5,14 @@ people. It is also intentionally independent from the assignment routers:
 recommendations can be calculated without creating or changing an
 Enrollment, rule, cohort, user, or invitation.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import and_, distinct, func, or_, select
@@ -80,7 +81,7 @@ def _active_student_filter(tenant_id: UUID):
     )
 
 
-def _unit_membership_clause(unit_ids: set[UUID], tenant_id: UUID):
+def _unit_membership_clause(unit_ids: set[UUID], tenant_id: UUID) -> Any:
     """Match explicit placement, falling back to legacy position only when unset."""
     return or_(
         User.organization_unit_id.in_(unit_ids),
@@ -98,7 +99,10 @@ def _unit_membership_clause(unit_ids: set[UUID], tenant_id: UUID):
 
 def _find_candidate(candidates: list[ScopeCandidate], scope_type: str, scope_id: UUID | None, name: str = ""):
     for candidate in candidates:
-        if candidate.type == scope_type and ((scope_id is not None and candidate.id == scope_id) or (scope_id is None and candidate.name.casefold() == name.casefold())):
+        if candidate.type == scope_type and (
+            (scope_id is not None and candidate.id == scope_id)
+            or (scope_id is None and candidate.name.casefold() == name.casefold())
+        ):
             return candidate
     return None
 
@@ -149,13 +153,17 @@ async def _load_positions(db: AsyncSession, tenant_id: UUID) -> tuple[list[Scope
 
 async def _load_departments(db: AsyncSession, tenant_id: UUID) -> list[ScopeCandidate]:
     units = (
-        await db.execute(
-            select(Department)
-            .where(Department.tenant_id == tenant_id, Department.is_active.is_(True))
-            .order_by(Department.name, Department.id)
+        (
+            await db.execute(
+                select(Department)
+                .where(Department.tenant_id == tenant_id, Department.is_active.is_(True))
+                .order_by(Department.name, Department.id)
+            )
         )
-    ).scalars().all()
-    unit_ids = {unit.id for unit in units}
+        .scalars()
+        .all()
+    )
+    unit_ids = {cast(UUID, unit.id) for unit in units}
     member_rows = (
         await db.execute(
             select(User.id, User.organization_unit_id, Position.department_id)
@@ -168,29 +176,26 @@ async def _load_departments(db: AsyncSession, tenant_id: UUID) -> list[ScopeCand
         for _, explicit_unit_id, legacy_unit_id in member_rows
         if (explicit_unit_id or legacy_unit_id) in unit_ids
     }
-    paths_by_unit = (
-        await resolve_ancestor_paths(db, tenant_id, effective_unit_ids)
-        if effective_unit_ids
-        else {}
-    )
-    counts_by_unit: dict[UUID, int] = {unit.id: 0 for unit in units}
+    paths_by_unit = await resolve_ancestor_paths(db, tenant_id, effective_unit_ids) if effective_unit_ids else {}
+    counts_by_unit: dict[UUID, int] = {cast(UUID, unit.id): 0 for unit in units}
     for _, explicit_unit_id, legacy_unit_id in member_rows:
         effective_unit_id = explicit_unit_id or legacy_unit_id
         for ancestor_id in paths_by_unit.get(effective_unit_id, ()):
             counts_by_unit[ancestor_id] = counts_by_unit.get(ancestor_id, 0) + 1
     items: list[ScopeCandidate] = []
     for index, unit in enumerate(units, start=1):
+        runtime_unit_id = cast(UUID, unit.id)
         items.append(
             ScopeCandidate(
                 ref=f"department_{index}",
                 type="department",
-                id=unit.id,
-                name=unit.name,
-                employee_count=counts_by_unit[unit.id],
+                id=runtime_unit_id,
+                name=cast(str, unit.name),
+                employee_count=counts_by_unit[runtime_unit_id],
                 reasons=["department_structure"],
                 semantic_context={
-                    "description": unit.description or "",
-                    "unit_type": unit.unit_type or "department",
+                    "description": cast(str | None, unit.description) or "",
+                    "unit_type": cast(str | None, unit.unit_type) or "department",
                 },
             )
         )
@@ -286,7 +291,13 @@ async def build_audience_snapshot(db: AsyncSession, tenant_id: UUID, course_id: 
     for cohort in cohorts:
         add_candidate(cohort, primary=False, reason="cohort_structure", confidence="low")
 
-    for position_id, in (await db.execute(select(PositionCourse.position_id).where(PositionCourse.tenant_id == tenant_id, PositionCourse.course_id == course_id))).all():
+    for (position_id,) in (
+        await db.execute(
+            select(PositionCourse.position_id).where(
+                PositionCourse.tenant_id == tenant_id, PositionCourse.course_id == course_id
+            )
+        )
+    ).all():
         position = positions_by_id.get(position_id)
         if position:
             add_candidate(position, primary=True, reason="position_rule")
@@ -294,7 +305,13 @@ async def build_audience_snapshot(db: AsyncSession, tenant_id: UUID, course_id: 
             warnings.append("missing_position_rule_target")
 
     department_by_id = {item.id: item for item in departments}
-    for department_id, in (await db.execute(select(DepartmentCourse.department_id).where(DepartmentCourse.tenant_id == tenant_id, DepartmentCourse.course_id == course_id))).all():
+    for (department_id,) in (
+        await db.execute(
+            select(DepartmentCourse.department_id).where(
+                DepartmentCourse.tenant_id == tenant_id, DepartmentCourse.course_id == course_id
+            )
+        )
+    ).all():
         department = department_by_id.get(department_id)
         if department:
             add_candidate(department, primary=True, reason="department_rule")
@@ -377,13 +394,20 @@ async def _matched_count(db: AsyncSession, tenant_id: UUID, scopes: list[ScopeCa
         unit_ids = await resolve_employee_scope(db, tenant_id, selected_unit_ids)
         clauses.append(_unit_membership_clause(unit_ids, tenant_id))
     if cohort_ids:
-        cohort_users = await db.execute(select(CohortMember.user_id).where(CohortMember.tenant_id == tenant_id, CohortMember.cohort_id.in_(cohort_ids)))
+        cohort_users = await db.execute(
+            select(CohortMember.user_id).where(
+                CohortMember.tenant_id == tenant_id, CohortMember.cohort_id.in_(cohort_ids)
+            )
+        )
         user_ids = list(cohort_users.scalars().all())
         if user_ids:
             clauses.append(User.id.in_(user_ids))
     if not clauses:
         return 0
-    return int(await db.scalar(select(func.count(distinct(User.id))).where(*_active_student_filter(tenant_id), or_(*clauses))) or 0)
+    return int(
+        await db.scalar(select(func.count(distinct(User.id))).where(*_active_student_filter(tenant_id), or_(*clauses)))
+        or 0
+    )
 
 
 def _safe_json_object(value: str) -> dict[str, Any] | None:
@@ -410,9 +434,7 @@ def _llm_select_scopes(snapshot: AudienceSnapshot, response: str) -> list[ScopeC
     refs = payload.get("selected_refs")
     if not isinstance(refs, list):
         return []
-    explicit_primary = [
-        candidate for candidate in snapshot.candidates if candidate.priority == "primary"
-    ]
+    explicit_primary = [candidate for candidate in snapshot.candidates if candidate.priority == "primary"]
     selected: list[ScopeCandidate] = list(explicit_primary)
     primary_refs = set(payload.get("primary_refs") or [])
     secondary_refs = set(payload.get("secondary_refs") or [])
@@ -421,9 +443,7 @@ def _llm_select_scopes(snapshot: AudienceSnapshot, response: str) -> list[ScopeC
             continue
         item = by_ref[ref]
         item.priority = (
-            "primary"
-            if item.priority == "primary" or ref in primary_refs or ref not in secondary_refs
-            else "secondary"
+            "primary" if item.priority == "primary" or ref in primary_refs or ref not in secondary_refs else "secondary"
         )
         selected.append(item)
     return selected
@@ -543,7 +563,12 @@ async def recommend_audience(db: AsyncSession, tenant_id: UUID, course_id: UUID,
                 "Prefer explicit rule/competency evidence over semantic guesses.\n"
                 f"Bounded context: {json.dumps(prompt_payload, ensure_ascii=False)}"
             )
-            response = await llm.ainvoke([{"role": "system", "content": "You are a cautious HR learning recommendation formatter."}, {"role": "user", "content": prompt}])
+            response = await llm.ainvoke(
+                [
+                    {"role": "system", "content": "You are a cautious HR learning recommendation formatter."},
+                    {"role": "user", "content": prompt},
+                ]
+            )
             llm_selected = _llm_select_scopes(snapshot, (response.content or "").strip())
             if llm_selected:
                 selected = llm_selected

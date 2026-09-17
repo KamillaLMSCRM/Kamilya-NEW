@@ -187,7 +187,17 @@ async def _load_tenant_context(
     tenant_id: UUID,
     root: TrainingEvidenceEvent,
     event_id: UUID,
-) -> tuple[Tenant, User, Enrollment, ContentRelease, Course, Position | None, str | None]:
+) -> tuple[
+    Tenant,
+    User,
+    Enrollment,
+    ContentRelease,
+    Course,
+    Position | None,
+    str | None,
+    UUID | None,
+    list[str],
+]:
     missing: list[str] = []
     tenant = await db.scalar(select(Tenant).where(Tenant.id == tenant_id))
     user = await db.scalar(select(User).where(User.id == root.user_id, User.tenant_id == tenant_id))
@@ -239,14 +249,14 @@ async def _load_tenant_context(
         _incomplete(event_id, missing)
 
     position = None
-    department_name = None
+    department_name: str | None = None
     organization_unit_id = getattr(user, "organization_unit_id", None)
     if user.position_id is not None:
         position = await db.scalar(
             select(Position).where(Position.id == user.position_id, Position.tenant_id == tenant_id)
         )
         if position is not None:
-            department_name = position.department
+            department_name = cast(str, position.department)
             if organization_unit_id is None:
                 organization_unit_id = position.department_id
             if position.department_id is not None and getattr(user, "organization_unit_id", None) is None:
@@ -257,7 +267,7 @@ async def _load_tenant_context(
                     )
                 )
                 if department is not None:
-                    department_name = department.name
+                    department_name = cast(str, department.name)
     organization_unit_path: list[str] = []
     if organization_unit_id is not None:
         path_ids = await resolve_ancestor_path(db, tenant_id, organization_unit_id, active_only=False)
@@ -268,10 +278,20 @@ async def _load_tenant_context(
                 )
             ).all()
         )
-        names_by_id = {unit.id: unit.name for unit in path_units}
+        names_by_id: dict[UUID, str] = {cast(UUID, unit.id): cast(str, unit.name) for unit in path_units}
         organization_unit_path = [names_by_id[path_id] for path_id in path_ids if path_id in names_by_id]
         department_name = names_by_id.get(organization_unit_id, department_name)
-    return tenant, user, enrollment, release, course, position, department_name, organization_unit_id, organization_unit_path
+    return (
+        tenant,
+        user,
+        enrollment,
+        release,
+        course,
+        position,
+        department_name,
+        organization_unit_id,
+        organization_unit_path,
+    )
 
 
 async def _load_attempts(
@@ -399,9 +419,17 @@ async def _build_server_parts(
     require_confirmation: bool = True,
 ) -> tuple[IndividualEvidenceInput, TrainingEvidenceEvent, list[TrainingEvidenceEvent]]:
     root, chain = await _load_event_chain(db, tenant_id, event_id)
-    tenant, user, enrollment, release, course, position, department_name, organization_unit_id, organization_unit_path = await _load_tenant_context(
-        db, tenant_id, root, event_id
-    )
+    (
+        tenant,
+        user,
+        enrollment,
+        release,
+        course,
+        position,
+        department_name,
+        organization_unit_id,
+        organization_unit_path,
+    ) = await _load_tenant_context(db, tenant_id, root, event_id)
     if root.recorded_by_user_id is None:
         _incomplete(event_id, ["recorded_by_user"])
     if root.procedure_type not in {
@@ -644,9 +672,7 @@ async def build_individual_evidence_package_input(
         )
 
     actor_ids = {
-        actor_id
-        for scan, review in accepted
-        for actor_id in (scan.uploaded_by_user_id, review.reviewed_by_user_id)
+        actor_id for scan, review in accepted for actor_id in (scan.uploaded_by_user_id, review.reviewed_by_user_id)
     }
     actors = (
         {

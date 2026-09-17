@@ -373,7 +373,9 @@ async def count_training_log(
                             text("progress.user_id = users.id"),
                             text("progress.course_id = courses.id"),
                             text("progress.completed = TRUE"),
-                            text("((enrollments.recurring_assignment_id IS NULL AND progress.enrollment_id IS NULL) OR progress.enrollment_id = enrollments.id)"),
+                            text(
+                                "((enrollments.recurring_assignment_id IS NULL AND progress.enrollment_id IS NULL) OR progress.enrollment_id = enrollments.id)"
+                            ),
                         )
                     )
                     .exists(),
@@ -412,7 +414,9 @@ async def count_training_log(
                         text("progress.user_id = users.id"),
                         text("progress.course_id = courses.id"),
                         text("progress.completed = TRUE"),
-                        text("((enrollments.recurring_assignment_id IS NULL AND progress.enrollment_id IS NULL) OR progress.enrollment_id = enrollments.id)"),
+                        text(
+                            "((enrollments.recurring_assignment_id IS NULL AND progress.enrollment_id IS NULL) OR progress.enrollment_id = enrollments.id)"
+                        ),
                     )
                 )
                 .exists(),
@@ -775,11 +779,7 @@ async def list_training_log(
             current_unit_ids,
             active_only=False,
         )
-        path_unit_ids = {
-            path_unit_id
-            for path in paths_by_unit.values()
-            for path_unit_id in path
-        }
+        path_unit_ids = {path_unit_id for path in paths_by_unit.values() for path_unit_id in path}
         units = list(
             (
                 await db.scalars(
@@ -790,7 +790,7 @@ async def list_training_log(
                 )
             ).all()
         )
-        unit_names = {unit.id: unit.name for unit in units}
+        unit_names = {cast(UUID, unit.id): cast(str, unit.name) for unit in units}
         unit_paths = {
             unit_id: [unit_names[path_id] for path_id in path if path_id in unit_names]
             for unit_id, path in paths_by_unit.items()

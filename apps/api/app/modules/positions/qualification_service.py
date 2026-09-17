@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -50,9 +50,7 @@ async def _locked_position(db: AsyncSession, position_id: UUID, tenant_id: UUID)
 
 
 async def _position(db: AsyncSession, position_id: UUID, tenant_id: UUID) -> Position:
-    result = await db.execute(
-        select(Position).where(Position.id == position_id, Position.tenant_id == tenant_id)
-    )
+    result = await db.execute(select(Position).where(Position.id == position_id, Position.tenant_id == tenant_id))
     position = result.scalar_one_or_none()
     if position is None:
         raise HTTPException(status_code=404, detail="Position not found")
@@ -62,9 +60,7 @@ async def _position(db: AsyncSession, position_id: UUID, tenant_id: UUID) -> Pos
 async def _course_map(db: AsyncSession, tenant_id: UUID, course_ids: set[UUID]) -> dict[UUID, Course]:
     if not course_ids:
         return {}
-    result = await db.execute(
-        select(Course).where(Course.tenant_id == tenant_id, Course.id.in_(course_ids))
-    )
+    result = await db.execute(select(Course).where(Course.tenant_id == tenant_id, Course.id.in_(course_ids)))
     return {course.id: course for course in result.scalars().all()}
 
 
@@ -79,7 +75,7 @@ def _course_rule(course: Course, required: bool, source: str) -> CourseRule:
 
 
 async def _collect_state(db: AsyncSession, position: Position) -> dict[str, Any]:
-    tenant_id = position.tenant_id
+    tenant_id = cast(UUID, position.tenant_id)
 
     instruction = None
     if position.instruction_document_id:
@@ -91,56 +87,80 @@ async def _collect_state(db: AsyncSession, position: Position) -> dict[str, Any]
         )
 
     position_links = (
-        await db.execute(
-            select(PositionCompetency).where(
-                PositionCompetency.position_id == position.id,
-                PositionCompetency.tenant_id == tenant_id,
+        (
+            await db.execute(
+                select(PositionCompetency).where(
+                    PositionCompetency.position_id == position.id,
+                    PositionCompetency.tenant_id == tenant_id,
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     competency_ids = {link.competency_id for link in position_links}
     competencies = (
-        await db.execute(
-            select(Competency).where(
-                Competency.tenant_id == tenant_id,
-                Competency.id.in_(competency_ids) if competency_ids else Competency.id == UUID(int=0),
+        (
+            await db.execute(
+                select(Competency).where(
+                    Competency.tenant_id == tenant_id,
+                    Competency.id.in_(competency_ids) if competency_ids else Competency.id == UUID(int=0),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     competency_by_id = {item.id: item for item in competencies}
 
     competency_course_rows = (
-        await db.execute(
-            select(CompetencyCourse).where(
-                CompetencyCourse.tenant_id == tenant_id,
-                CompetencyCourse.competency_id.in_(competency_ids)
-                if competency_ids
-                else CompetencyCourse.competency_id == UUID(int=0),
+        (
+            await db.execute(
+                select(CompetencyCourse).where(
+                    CompetencyCourse.tenant_id == tenant_id,
+                    CompetencyCourse.competency_id.in_(competency_ids)
+                    if competency_ids
+                    else CompetencyCourse.competency_id == UUID(int=0),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     competency_course_ids = {row.course_id for row in competency_course_rows}
 
     position_course_rows = (
-        await db.execute(
-            select(PositionCourse).where(
-                PositionCourse.position_id == position.id,
-                PositionCourse.tenant_id == tenant_id,
+        (
+            await db.execute(
+                select(PositionCourse).where(
+                    PositionCourse.position_id == position.id,
+                    PositionCourse.tenant_id == tenant_id,
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     department_course_rows: list[DepartmentCourse] = []
     if position.department_id:
-        unit_scope = await resolve_ancestor_path(db, tenant_id, position.department_id)
+        unit_scope = await resolve_ancestor_path(
+            db,
+            tenant_id,
+            cast(UUID, position.department_id),
+        )
         department_course_rows = (
-            await db.execute(
-                select(DepartmentCourse).where(
-                    DepartmentCourse.department_id.in_(unit_scope),
-                    DepartmentCourse.tenant_id == tenant_id,
+            (
+                await db.execute(
+                    select(DepartmentCourse).where(
+                        DepartmentCourse.department_id.in_(unit_scope),
+                        DepartmentCourse.tenant_id == tenant_id,
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
     all_course_ids = (
         {row.course_id for row in position_course_rows}
@@ -235,9 +255,7 @@ def _state_snapshot(state: dict[str, Any]) -> dict[str, Any]:
             "responsibilities": position.responsibilities,
             "requirements": position.requirements,
         },
-        "instruction_document_id": str(position.instruction_document_id)
-        if position.instruction_document_id
-        else None,
+        "instruction_document_id": str(position.instruction_document_id) if position.instruction_document_id else None,
         "competencies": [
             {"competency_id": str(link.competency_id), "required_level": link.required_level}
             for link in state["position_links"]
@@ -463,8 +481,7 @@ async def update_profile(
     changed_fields = {
         field: getattr(payload, field).strip()
         for field in ("name", "department", "level", "responsibilities", "requirements")
-        if getattr(payload, field) is not None
-        and getattr(position, field) != getattr(payload, field).strip()
+        if getattr(payload, field) is not None and getattr(position, field) != getattr(payload, field).strip()
     }
     if not changed_fields:
         return await get_card(db, position_id, tenant_id)
@@ -495,18 +512,24 @@ async def update_competencies(
                     Competency.id.in_(competency_ids) if competency_ids else Competency.id == UUID(int=0),
                 )
             )
-        ).scalars().all()
+        )
+        .scalars()
+        .all()
     )
     if valid != set(competency_ids):
         raise HTTPException(status_code=422, detail={"code": "competency_outside_tenant"})
     existing_rows = (
-        await db.execute(
-            select(PositionCompetency).where(
-                PositionCompetency.position_id == position.id,
-                PositionCompetency.tenant_id == tenant_id,
+        (
+            await db.execute(
+                select(PositionCompetency).where(
+                    PositionCompetency.position_id == position.id,
+                    PositionCompetency.tenant_id == tenant_id,
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     existing = {row.competency_id: row.required_level for row in existing_rows}
     requested = {item.competency_id: item.required_level for item in items}
     if existing == requested:
@@ -546,13 +569,17 @@ async def update_training(
     if len(courses) != len(set(course_ids)):
         raise HTTPException(status_code=422, detail={"code": "course_outside_tenant"})
     existing_rows = (
-        await db.execute(
-            select(PositionCourse).where(
-                PositionCourse.position_id == position.id,
-                PositionCourse.tenant_id == tenant_id,
+        (
+            await db.execute(
+                select(PositionCourse).where(
+                    PositionCourse.position_id == position.id,
+                    PositionCourse.tenant_id == tenant_id,
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     existing = {row.course_id: row.required for row in existing_rows}
     requested = {item.course_id: item.required for item in payload.items}
     if existing == requested:
@@ -632,7 +659,9 @@ async def restore(
                     Competency.id.in_(competency_ids) if competency_ids else Competency.id == UUID(int=0),
                 )
             )
-        ).scalars().all()
+        )
+        .scalars()
+        .all()
     )
     if valid_competencies != competency_ids:
         raise HTTPException(status_code=409, detail={"code": "snapshot_reference_missing", "entity": "competency"})

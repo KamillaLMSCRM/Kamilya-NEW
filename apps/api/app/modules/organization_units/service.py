@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
@@ -43,11 +43,11 @@ def _slug_part(value: str) -> str:
 
 def _as_ref(unit: Department) -> OrganizationUnitRef:
     return OrganizationUnitRef(
-        id=unit.id,
-        tenant_id=unit.tenant_id,
-        unit_type=OrganizationUnitType(unit.unit_type),
-        parent_id=unit.parent_id,
-        is_active=unit.is_active,
+        id=cast(UUID, unit.id),
+        tenant_id=cast(UUID, unit.tenant_id),
+        unit_type=OrganizationUnitType(cast(str, unit.unit_type)),
+        parent_id=cast(UUID | None, unit.parent_id),
+        is_active=cast(bool, unit.is_active),
         is_head_office=getattr(unit, "is_head_office", False),
     )
 
@@ -103,7 +103,7 @@ async def create_organization_unit(
     parent_path = []
     if parent is not None:
         try:
-            parent_path = await resolve_ancestor_path(db, tenant_id, parent.id)
+            parent_path = await resolve_ancestor_path(db, tenant_id, cast(UUID, parent.id))
         except OrganizationScopeNotFoundError as exc:
             raise ValueError("cross_tenant_parent") from exc
     ref = OrganizationUnitRef(
@@ -120,29 +120,33 @@ async def create_organization_unit(
         parent_depth=0 if parent is None else len(parent_path) - 1,
     )
     duplicate = await db.execute(
-        select(Department.id).where(
+        select(Department.id)
+        .where(
             Department.tenant_id == tenant_id,
             Department.normalized_name == normalize_unit_name(name),
             Department.unit_type == unit_type.value,
             Department.parent_id == parent_id if parent_id is not None else Department.parent_id.is_(None),
             Department.is_active.is_(True),
-        ).limit(1)
+        )
+        .limit(1)
     )
     if duplicate.scalar_one_or_none() is not None:
         raise ValueError("duplicate_sibling")
     if is_head_office:
         existing_head_office = await db.execute(
-            select(Department.id).where(
+            select(Department.id)
+            .where(
                 Department.tenant_id == tenant_id,
                 Department.is_head_office.is_(True),
                 Department.parent_id.is_(None),
                 Department.is_active.is_(True),
-            ).limit(1)
+            )
+            .limit(1)
         )
         if existing_head_office.scalar_one_or_none() is not None:
             raise ValueError("head_office_exists")
     normalized_name = normalize_unit_name(name)
-    parent_scope = parent.slug if parent else unit_type.value
+    parent_scope = cast(str, parent.slug) if parent else unit_type.value
     slug = f"{_slug_part(parent_scope)}--{_slug_part(name)}--{str(unit_id)[:8]}"
     unit = Department(
         id=unit_id,
@@ -175,18 +179,20 @@ async def update_organization_unit(
 ) -> Department:
     unit = await get_organization_unit(db, tenant_id, unit_id, for_update=True)
     parent_id = patch.get("parent_id", unit.parent_id)
-    await validate_move(db, tenant_id, unit.id, parent_id)
+    await validate_move(db, tenant_id, cast(UUID, unit.id), parent_id)
     requested_head_office = bool(patch.get("is_head_office", getattr(unit, "is_head_office", False)))
     if requested_head_office and parent_id is not None:
         raise ValueError("head_office_must_be_root")
     if requested_head_office and not getattr(unit, "is_head_office", False):
         existing_head_office = await db.execute(
-            select(Department.id).where(
+            select(Department.id)
+            .where(
                 Department.tenant_id == tenant_id,
                 Department.is_head_office.is_(True),
                 Department.is_active.is_(True),
                 Department.id != unit.id,
-            ).limit(1)
+            )
+            .limit(1)
         )
         if existing_head_office.scalar_one_or_none() is not None:
             raise ValueError("head_office_exists")
@@ -194,14 +200,16 @@ async def update_organization_unit(
         normalized_name = normalize_unit_name(patch.get("name", unit.name))
         unit_type = patch.get("unit_type", unit.unit_type)
         duplicate = await db.execute(
-            select(Department.id).where(
+            select(Department.id)
+            .where(
                 Department.tenant_id == tenant_id,
                 Department.normalized_name == normalized_name,
                 Department.unit_type == getattr(unit_type, "value", unit_type),
                 Department.parent_id == parent_id if parent_id is not None else Department.parent_id.is_(None),
                 Department.id != unit.id,
                 Department.is_active.is_(True),
-            ).limit(1)
+            )
+            .limit(1)
         )
         if duplicate.scalar_one_or_none() is not None:
             raise ValueError("duplicate_sibling")
@@ -326,7 +334,7 @@ def build_tree(
     units: list[Department],
     *,
     positions_by_unit: dict[UUID, list[dict[str, Any]]] | None = None,
-) -> tuple[list[dict], list[dict]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Build the tenant's unit tree and attach its staff projections.
 
     ``positions_by_unit`` is optional to keep the pure hierarchy helper useful
@@ -335,9 +343,9 @@ def build_tree(
     here, which avoids accidental cross-tenant lazy loads.
     """
     positions_by_unit = positions_by_unit or {}
-    nodes = {
-        unit.id: {
-            "id": unit.id,
+    nodes: dict[UUID, dict[str, Any]] = {
+        cast(UUID, unit.id): {
+            "id": cast(UUID, unit.id),
             "name": unit.name,
             "slug": unit.slug,
             "unit_type": unit.unit_type,
@@ -351,32 +359,32 @@ def build_tree(
             "created_at": unit.created_at,
             "children": [],
             "department_count": 0,
-            "position_count": len(positions_by_unit.get(unit.id, [])),
-            "employee_count": sum(item.get("employee_count", 0) for item in positions_by_unit.get(unit.id, [])),
+            "position_count": len(positions_by_unit.get(cast(UUID, unit.id), [])),
+            "employee_count": sum(
+                item.get("employee_count", 0) for item in positions_by_unit.get(cast(UUID, unit.id), [])
+            ),
             "ready_percent": 0,
-            "positions": positions_by_unit.get(unit.id, []),
+            "positions": positions_by_unit.get(cast(UUID, unit.id), []),
         }
         for unit in units
     }
     for unit in units:
-        if unit.parent_id in nodes:
-            nodes[unit.parent_id]["children"].append(nodes[unit.id])
+        runtime_parent_id = cast(UUID | None, unit.parent_id)
+        runtime_unit_id = cast(UUID, unit.id)
+        if runtime_parent_id in nodes:
+            nodes[runtime_parent_id]["children"].append(nodes[runtime_unit_id])
     for node in nodes.values():
         node["children"].sort(key=lambda child: (normalize_unit_name(child["name"]), str(child["id"])))
 
-    roots = [
-        node
-        for node in nodes.values()
-        if node["parent_id"] not in nodes
-    ]
+    roots = [node for node in nodes.values() if node["parent_id"] not in nodes]
 
-    def annotate(node: dict, *, depth: int, breadcrumb: list[str]) -> None:
+    def annotate(node: dict[str, Any], *, depth: int, breadcrumb: list[str]) -> None:
         node["depth"] = depth
         node["breadcrumb"] = [*breadcrumb, node["name"]]
         for child in node["children"]:
             annotate(child, depth=depth + 1, breadcrumb=node["breadcrumb"])
 
-    def roll_up(node: dict) -> tuple[int, int, int]:
+    def roll_up(node: dict[str, Any]) -> tuple[int, int, int]:
         """Return (departments, positions, employees) below this node."""
         child_departments = 0
         child_positions = 0
@@ -394,12 +402,12 @@ def build_tree(
         return child_departments, child_positions, child_employees
 
     root_ids = {node["id"] for node in roots}
-    branches = [nodes[u.id] for u in units if u.unit_type == "branch" and u.id in root_ids]
+    branches = [nodes[cast(UUID, u.id)] for u in units if u.unit_type == "branch" and cast(UUID, u.id) in root_ids]
     # The second collection contains every non-branch root for compatibility
     # with the historical two-list helper.  The HTTP adapter must expose only
     # nodes carrying ``legacy_root`` through its legacy projection; generic
     # organization/management roots belong exclusively to ``roots``.
-    other_roots = [nodes[u.id] for u in units if u.unit_type != "branch" and u.id in root_ids]
+    other_roots = [nodes[cast(UUID, u.id)] for u in units if u.unit_type != "branch" and cast(UUID, u.id) in root_ids]
     for root in roots:
         annotate(root, depth=0, breadcrumb=[])
         roll_up(root)
@@ -417,21 +425,16 @@ async def get_organization_unit_projection(
 
     await get_organization_unit(db, tenant_id, unit_id)
     units = await list_organization_units(db, tenant_id)
-    by_id = {candidate.id: candidate for candidate in units}
+    by_id = {cast(UUID, candidate.id): candidate for candidate in units}
     path_ids = await resolve_ancestor_path(db, tenant_id, unit_id)
     branches, other_roots = build_tree(units)
-    node = next(
-        node
-        for root in branches + other_roots
-        for node in _walk_tree(root)
-        if node["id"] == unit_id
-    )
-    node["breadcrumb"] = [by_id[path_id].name for path_id in path_ids if path_id in by_id]
+    node = next(node for root in branches + other_roots for node in _walk_tree(root) if node["id"] == unit_id)
+    node["breadcrumb"] = [cast(str, by_id[path_id].name) for path_id in path_ids if path_id in by_id]
     node["depth"] = len(node["breadcrumb"]) - 1
     return node
 
 
-def _walk_tree(node: dict[str, Any]):
+def _walk_tree(node: dict[str, Any]) -> Iterator[dict[str, Any]]:
     yield node
     for child in node.get("children", []):
         yield from _walk_tree(child)
@@ -455,10 +458,10 @@ async def load_structure_projections(
     from app.modules.positions.models import Position, PositionCourse
 
     unit_list = list(units)
-    unit_by_id = {unit.id: unit for unit in unit_list}
+    unit_by_id = {cast(UUID, unit.id): unit for unit in unit_list}
     by_name: dict[str, list[Department]] = {}
     for unit in unit_list:
-        by_name.setdefault(normalize_unit_name(unit.name), []).append(unit)
+        by_name.setdefault(normalize_unit_name(cast(str, unit.name)), []).append(unit)
 
     position_result = await db.execute(
         select(Position)
@@ -479,7 +482,7 @@ async def load_structure_projections(
     employees_by_position: dict[UUID, list[User]] = {}
     for employee in user_result.scalars().all():
         if employee.position_id is not None:
-            employees_by_position.setdefault(employee.position_id, []).append(employee)
+            employees_by_position.setdefault(cast(UUID, employee.position_id), []).append(employee)
 
     required_courses_by_position: dict[UUID, set[UUID]] = {}
     if position_ids:
@@ -507,21 +510,22 @@ async def load_structure_projections(
 
     result: dict[UUID, list[dict[str, Any]]] = {}
     for position in positions:
-        unit = unit_by_id.get(position.department_id)
-        if unit is None:
+        resolved_unit: Department | None = unit_by_id.get(cast(UUID, position.department_id))
+        if resolved_unit is None:
             candidates = by_name.get(normalize_unit_name(position.department or ""), [])
             if len(candidates) == 1:
-                unit = candidates[0]
-        fallback_unit_id = unit.id if unit is not None else None
+                resolved_unit = candidates[0]
+        fallback_unit_id = cast(UUID, resolved_unit.id) if resolved_unit is not None else None
         if fallback_unit_id is None:
             # Keep the payload tenant-safe; an orphan legacy position is not
             # silently attached to a same-named unit in another branch.
             fallback_unit_id = UNASSIGNED_LEGACY_UNIT_ID
 
-        required_courses = required_courses_by_position.get(position.id, set())
+        runtime_position_id = cast(UUID, position.id)
+        required_courses = required_courses_by_position.get(runtime_position_id, set())
         employee_groups: dict[UUID, list[dict[str, Any]]] = {}
-        for employee in employees_by_position.get(position.id, []):
-            enrollments = enrollments_by_employee.get(employee.id, [])
+        for employee in employees_by_position.get(runtime_position_id, []):
+            enrollments = enrollments_by_employee.get(cast(UUID, employee.id), [])
             enrolled_courses = {course_id for course_id, _ in enrollments}
             assigned_courses = required_courses | enrolled_courses
             completed_courses = {course_id for course_id, complete in enrollments if complete} & assigned_courses
@@ -554,7 +558,9 @@ async def load_structure_projections(
                 {
                     "id": position.id,
                     "name": position.name,
-                    "department": target_unit.name if target_unit is not None else (position.department or "Не распределено"),
+                    "department": target_unit.name
+                    if target_unit is not None
+                    else (position.department or "Не распределено"),
                     "department_slug": target_unit.slug if target_unit is not None else None,
                     "employee_count": len(employee_nodes),
                     "ready_percent": int(completed_total * 100 / assigned_total) if assigned_total else 0,

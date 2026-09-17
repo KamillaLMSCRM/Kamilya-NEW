@@ -24,10 +24,7 @@ def _relative_path(raw: str) -> str:
 
 
 def summarize_ruff(payload: list[dict[str, Any]]) -> Counter[str]:
-    return Counter(
-        f"{_relative_path(str(item['filename']))}|{item.get('code') or 'unknown'}"
-        for item in payload
-    )
+    return Counter(f"{_relative_path(str(item['filename']))}|{item.get('code') or 'unknown'}" for item in payload)
 
 
 def summarize_mypy(lines: str) -> Counter[str]:
@@ -44,11 +41,7 @@ def summarize_mypy(lines: str) -> Counter[str]:
 
 
 def compare_counts(current: Counter[str], allowed: Counter[str]) -> dict[str, tuple[int, int]]:
-    return {
-        key: (count, allowed.get(key, 0))
-        for key, count in current.items()
-        if count > allowed.get(key, 0)
-    }
+    return {key: (count, allowed.get(key, 0)) for key, count in current.items() if count > allowed.get(key, 0)}
 
 
 def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -62,20 +55,25 @@ def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
         check=False,
     )
     if result.returncode not in (0, 1):
-        raise RuntimeError(
-            f"quality tool failed ({result.returncode}): {' '.join(command)}\n{result.stderr[-2000:]}"
-        )
+        raise RuntimeError(f"quality tool failed ({result.returncode}): {' '.join(command)}\n{result.stderr[-2000:]}")
     return result
 
 
 def collect_current() -> dict[str, Counter[str]]:
-    ruff = _run(
-        [sys.executable, "-m", "ruff", "check", "app", "tests", "--output-format=json"]
-    )
+    ruff = _run([sys.executable, "-m", "ruff", "check", "app", "tests", "--output-format=json"])
     mypy = _run([sys.executable, "-m", "mypy", "app", "-O", "json", "--no-error-summary"])
+    ruff_output = "\n".join(part for part in (ruff.stdout, ruff.stderr) if part).strip()
+    mypy_output = "\n".join(part for part in (mypy.stdout, mypy.stderr) if part).strip()
+    try:
+        ruff_payload = json.loads(ruff_output or "[]")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"ruff did not emit valid JSON diagnostics: {ruff_output[-2000:]}") from exc
+    mypy_counts = summarize_mypy(mypy_output)
+    if mypy.returncode == 1 and not mypy_counts:
+        raise RuntimeError("mypy exited with code 1 but emitted no JSON error diagnostics: " f"{mypy_output[-2000:]}")
     return {
-        "ruff": summarize_ruff(json.loads(ruff.stdout or "[]")),
-        "mypy": summarize_mypy(mypy.stdout),
+        "ruff": summarize_ruff(ruff_payload),
+        "mypy": mypy_counts,
     }
 
 
@@ -83,10 +81,7 @@ def _serializable(counts: dict[str, Counter[str]]) -> dict[str, Any]:
     return {
         "schema_version": 1,
         "policy": "per-file-and-code counts are upper bounds; reductions are allowed",
-        "tools": {
-            tool: dict(sorted(tool_counts.items()))
-            for tool, tool_counts in sorted(counts.items())
-        },
+        "tools": {tool: dict(sorted(tool_counts.items())) for tool, tool_counts in sorted(counts.items())},
     }
 
 

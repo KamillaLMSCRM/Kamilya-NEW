@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
@@ -85,7 +85,7 @@ def build_generic_unit_commit_plan(
                 unit
                 for unit in existing_units
                 if unit.parent_id == (parent.id if parent is not None else None)
-                and normalize_unit_name(unit.name) == normalized_name
+                and normalize_unit_name(cast(str, unit.name)) == normalized_name
                 and getattr(unit.unit_type, "value", unit.unit_type) == proposal.unit_type.value
             ]
             if len(candidates) > 1:
@@ -102,18 +102,14 @@ def build_generic_unit_commit_plan(
         for unit in existing_units
         if getattr(unit, "is_head_office", False) and getattr(unit, "is_active", True)
     }
-    matched_head_office_ids = {
-        item.existing.id for item in incoming_head_offices if item.existing is not None
-    }
+    matched_head_office_ids = {item.existing.id for item in incoming_head_offices if item.existing is not None}
     if existing_head_office_ids - matched_head_office_ids and incoming_head_offices:
         raise ImportCommitConflictError("tenant already has an active head office")
 
     # Validate the final graph, not only the incoming fragment.  An imported
     # node may be attached to an existing depth-eight parent or an existing
     # descendant; both must fail before the session changes state or writes.
-    identity_by_key: dict[str, object] = {
-        key: unit.id for key, unit in existing_by_external.items()
-    }
+    identity_by_key: dict[str, object] = {key: unit.id for key, unit in existing_by_external.items()}
     identity_by_item: dict[int, object] = {}
     for item in active_items:
         key = normalize_import_key(item.proposal.external_key)
@@ -121,9 +117,7 @@ def build_generic_unit_commit_plan(
         identity_by_key[key] = identity
         identity_by_item[id(item)] = identity
 
-    parent_by_identity: dict[object, object | None] = {
-        unit.id: unit.parent_id for unit in existing_units
-    }
+    parent_by_identity: dict[object, object | None] = {unit.id: unit.parent_id for unit in existing_units}
     for item in active_items:
         parent_key = normalize_import_key(item.proposal.parent_external_key)
         parent_identity = identity_by_key.get(parent_key) if parent_key else None
@@ -146,9 +140,7 @@ def build_generic_unit_commit_plan(
         depth = 0 if parent_identity is None else final_depth(parent_identity) + 1
         visiting.remove(identity)
         if depth > 8:
-            raise ImportCommitConflictError(
-                "organization unit hierarchy exceeds maximum depth of 8"
-            )
+            raise ImportCommitConflictError("organization unit hierarchy exceeds maximum depth of 8")
         depths[identity] = depth
         return depth
 
@@ -248,97 +240,97 @@ async def commit_approved_import_session(
     affected_user_ids: set[UUID] = set()
     units = existing_units
     units_by_external = {
-        normalize_import_key(unit.external_key): unit
-        for unit in units
-        if normalize_import_key(unit.external_key)
+        normalize_import_key(unit.external_key): unit for unit in units if normalize_import_key(unit.external_key)
     }
     resolved_units: dict[str, Department] = {}
 
     if generic_plan is not None:
         for plan_item in generic_plan:
-            proposal = plan_item.proposal
-            parent_key = normalize_import_key(proposal.parent_external_key)
+            unit_proposal = plan_item.proposal
+            parent_key = normalize_import_key(unit_proposal.parent_external_key)
             parent = resolved_units.get(parent_key) or units_by_external.get(parent_key)
             if parent_key and parent is None:
                 raise ImportCommitConflictError(
-                    f"approved organization unit parent is missing: {proposal.parent_external_key}"
+                    "approved organization unit parent is missing: " f"{unit_proposal.parent_external_key}"
                 )
             unit = plan_item.existing
             if unit is None:
                 unit_id = uuid4()
-                scope = parent.slug if parent is not None else "root"
+                scope = cast(str, parent.slug) if parent is not None else "root"
                 unit = Department(
                     id=unit_id,
                     tenant_id=tenant_id,
-                    name=proposal.name,
-                    slug=f"{_slug_part(scope)}--{_slug_part(proposal.name)}--{str(unit_id)[:8]}",
-                    unit_type=proposal.unit_type.value,
-                    normalized_name=normalize_unit_name(proposal.name),
-                    external_key=proposal.external_key,
+                    name=unit_proposal.name,
+                    slug=(f"{_slug_part(scope)}--{_slug_part(unit_proposal.name)}--" f"{str(unit_id)[:8]}"),
+                    unit_type=unit_proposal.unit_type.value,
+                    normalized_name=normalize_unit_name(unit_proposal.name),
+                    external_key=unit_proposal.external_key,
                     parent_id=parent.id if parent is not None else None,
                     is_active=True,
                     source_metadata={"origin": "adaptive_import", "session_id": str(record.id)},
-                    legacy_root=_is_legacy_compatibility_root(proposal.external_key),
-                    is_head_office=proposal.is_head_office,
+                    legacy_root=_is_legacy_compatibility_root(unit_proposal.external_key),
+                    is_head_office=unit_proposal.is_head_office,
                     description="",
                 )
                 db.add(unit)
                 units.append(unit)
                 counts["organization_units_created"] = counts.get("organization_units_created", 0) + 1
-                count_key = f"{proposal.unit_type.value}s_created"
+                count_key = f"{unit_proposal.unit_type.value}s_created"
                 if count_key in counts:
                     counts[count_key] += 1
             else:
                 changed = (
-                    unit.name != proposal.name
+                    unit.name != unit_proposal.name
                     or unit.parent_id != (parent.id if parent is not None else None)
-                    or unit.unit_type != proposal.unit_type.value
-                    or unit.external_key != proposal.external_key
-                    or unit.is_head_office != proposal.is_head_office
-                    or unit.legacy_root != _is_legacy_compatibility_root(proposal.external_key)
+                    or unit.unit_type != unit_proposal.unit_type.value
+                    or unit.external_key != unit_proposal.external_key
+                    or unit.is_head_office != unit_proposal.is_head_office
+                    or unit.legacy_root != _is_legacy_compatibility_root(unit_proposal.external_key)
                 )
-                unit.name = proposal.name
-                unit.normalized_name = normalize_unit_name(proposal.name)
-                unit.unit_type = proposal.unit_type.value
-                unit.parent_id = parent.id if parent is not None else None
-                unit.external_key = proposal.external_key
-                unit.is_active = True
-                unit.is_head_office = proposal.is_head_office
-                unit.legacy_root = _is_legacy_compatibility_root(proposal.external_key)
+                writable_unit = cast(Any, unit)
+                writable_unit.name = unit_proposal.name
+                writable_unit.normalized_name = normalize_unit_name(unit_proposal.name)
+                writable_unit.unit_type = unit_proposal.unit_type.value
+                writable_unit.parent_id = parent.id if parent is not None else None
+                writable_unit.external_key = unit_proposal.external_key
+                writable_unit.is_active = True
+                writable_unit.is_head_office = unit_proposal.is_head_office
+                writable_unit.legacy_root = _is_legacy_compatibility_root(unit_proposal.external_key)
                 if changed:
                     counts["organization_units_updated"] = counts.get("organization_units_updated", 0) + 1
-                    count_key = f"{proposal.unit_type.value}s_updated"
+                    count_key = f"{unit_proposal.unit_type.value}s_updated"
                     if count_key in counts:
                         counts[count_key] += 1
                 else:
                     counts["unchanged"] += 1
-            proposal_key = normalize_import_key(proposal.external_key)
+            proposal_key = normalize_import_key(unit_proposal.external_key)
             units_by_external[proposal_key] = unit
             resolved_units[proposal_key] = unit
             await db.flush()
 
-    for proposal in (() if generic_plan is not None else domain.proposal.branches):
-        if not _active_action(proposal.action):
+    for branch_proposal in () if generic_plan is not None else domain.proposal.branches:
+        if not _active_action(branch_proposal.action):
             counts["skipped"] += 1
             continue
+        proposal = branch_proposal
         proposal_key = normalize_import_key(proposal.external_key)
         unit = units_by_external.get(proposal_key)
         if unit is None:
-            normalized = normalize_unit_name(proposal.branch_name)
+            normalized = normalize_unit_name(branch_proposal.branch_name)
             unit = _one_or_none(
                 [u for u in units if u.parent_id is None and u.normalized_name == normalized],
-                conflict=f"ambiguous branch {proposal.branch_name}",
+                conflict=f"ambiguous branch {branch_proposal.branch_name}",
             )
         if unit is None:
             unit_id = uuid4()
             unit = Department(
                 id=unit_id,
                 tenant_id=tenant_id,
-                name=proposal.branch_name,
-                slug=f"branch--{_slug_part(proposal.branch_name)}--{str(unit_id)[:8]}",
+                name=branch_proposal.branch_name,
+                slug=f"branch--{_slug_part(branch_proposal.branch_name)}--{str(unit_id)[:8]}",
                 unit_type="branch",
-                normalized_name=normalize_unit_name(proposal.branch_name),
-                external_key=proposal.external_key,
+                normalized_name=normalize_unit_name(branch_proposal.branch_name),
+                external_key=branch_proposal.external_key,
                 is_active=True,
                 source_metadata={"origin": "adaptive_import", "session_id": str(record.id)},
                 legacy_root=False,
@@ -349,17 +341,17 @@ async def commit_approved_import_session(
             counts["branches_created"] += 1
         else:
             changed = (
-                unit.name != proposal.branch_name
+                unit.name != branch_proposal.branch_name
                 or unit.unit_type != "branch"
-                or unit.external_key != proposal.external_key
+                or unit.external_key != branch_proposal.external_key
                 or unit.parent_id is not None
                 or unit.legacy_root
             )
-            unit.name = proposal.branch_name
-            unit.normalized_name = normalize_unit_name(proposal.branch_name)
+            unit.name = branch_proposal.branch_name
+            unit.normalized_name = normalize_unit_name(branch_proposal.branch_name)
             unit.unit_type = "branch"
             unit.parent_id = None
-            unit.external_key = proposal.external_key
+            unit.external_key = branch_proposal.external_key
             unit.legacy_root = False
             unit.is_active = True
             if changed:
@@ -370,23 +362,23 @@ async def commit_approved_import_session(
         resolved_units[proposal_key] = unit
         await db.flush()
 
-    for proposal in (() if generic_plan is not None else domain.proposal.departments):
-        if not _active_action(proposal.action):
+    for department_proposal in () if generic_plan is not None else domain.proposal.departments:
+        if not _active_action(department_proposal.action):
             counts["skipped"] += 1
             continue
         parent = None
-        legacy_root = proposal.branch_external_key == LEGACY_ROOT_EXTERNAL_KEY
+        legacy_root = department_proposal.branch_external_key == LEGACY_ROOT_EXTERNAL_KEY
         if not legacy_root:
-            parent_key = normalize_import_key(proposal.branch_external_key)
+            parent_key = normalize_import_key(department_proposal.branch_external_key)
             parent = resolved_units.get(parent_key) or units_by_external.get(parent_key)
             if parent is None or parent.unit_type != "branch":
                 raise ImportCommitConflictError(
-                    f"approved department parent is missing: {proposal.branch_external_key}"
+                    "approved department parent is missing: " f"{department_proposal.branch_external_key}"
                 )
-        proposal_key = normalize_import_key(proposal.external_key)
+        proposal_key = normalize_import_key(department_proposal.external_key)
         unit = units_by_external.get(proposal_key)
         if unit is None:
-            normalized = normalize_unit_name(proposal.department_name)
+            normalized = normalize_unit_name(department_proposal.department_name)
             unit = _one_or_none(
                 [
                     item
@@ -395,19 +387,21 @@ async def commit_approved_import_session(
                     and item.normalized_name == normalized
                     and item.unit_type == "department"
                 ],
-                conflict=f"ambiguous department {proposal.department_name}",
+                conflict=f"ambiguous department {department_proposal.department_name}",
             )
         if unit is None:
             unit_id = uuid4()
-            scope = parent.slug if parent else "legacy-root"
+            scope = cast(str, parent.slug) if parent else "legacy-root"
             unit = Department(
                 id=unit_id,
                 tenant_id=tenant_id,
-                name=proposal.department_name,
-                slug=f"{_slug_part(scope)}--{_slug_part(proposal.department_name)}--{str(unit_id)[:8]}",
+                name=department_proposal.department_name,
+                slug=(
+                    f"{_slug_part(scope)}--" f"{_slug_part(department_proposal.department_name)}--{str(unit_id)[:8]}"
+                ),
                 unit_type="department",
-                normalized_name=normalize_unit_name(proposal.department_name),
-                external_key=proposal.external_key,
+                normalized_name=normalize_unit_name(department_proposal.department_name),
+                external_key=department_proposal.external_key,
                 parent_id=parent.id if parent else None,
                 is_active=True,
                 source_metadata={"origin": "adaptive_import", "session_id": str(record.id)},
@@ -419,15 +413,15 @@ async def commit_approved_import_session(
             counts["departments_created"] += 1
         else:
             changed = (
-                unit.name != proposal.department_name
+                unit.name != department_proposal.department_name
                 or unit.parent_id != (parent.id if parent else None)
-                or unit.external_key != proposal.external_key
+                or unit.external_key != department_proposal.external_key
             )
-            unit.name = proposal.department_name
-            unit.normalized_name = normalize_unit_name(proposal.department_name)
+            unit.name = department_proposal.department_name
+            unit.normalized_name = normalize_unit_name(department_proposal.department_name)
             unit.unit_type = "department"
             unit.parent_id = parent.id if parent else None
-            unit.external_key = proposal.external_key
+            unit.external_key = department_proposal.external_key
             unit.legacy_root = legacy_root
             unit.is_active = True
             if changed:
@@ -447,22 +441,22 @@ async def commit_approved_import_session(
     positions = list(positions_result.scalars().all())
     positions_by_external = {position.external_key: position for position in positions if position.external_key}
     resolved_positions: dict[str, Position] = {}
-    for proposal in domain.proposal.positions:
-        if not _active_action(proposal.action):
+    for position_proposal in domain.proposal.positions:
+        if not _active_action(position_proposal.action):
             counts["skipped"] += 1
             continue
         unit_key = (
-            proposal.organization_unit_external_key
-            or proposal.department_external_key
-            or proposal.branch_external_key
+            position_proposal.organization_unit_external_key
+            or position_proposal.department_external_key
+            or position_proposal.branch_external_key
         )
         normalized_unit_key = normalize_import_key(unit_key)
         unit = resolved_units.get(normalized_unit_key) or units_by_external.get(normalized_unit_key)
         if unit is None and unit_key:
             raise ImportCommitConflictError(f"approved position unit is missing: {unit_key}")
-        position = positions_by_external.get(proposal.external_key)
+        position = positions_by_external.get(position_proposal.external_key)
         if position is None:
-            normalized = normalize_unit_name(proposal.position_name)
+            normalized = normalize_unit_name(position_proposal.position_name)
             position = _one_or_none(
                 [
                     item
@@ -470,15 +464,15 @@ async def commit_approved_import_session(
                     if item.department_id == (unit.id if unit is not None else None)
                     and item.normalized_name == normalized
                 ],
-                conflict=f"ambiguous position {proposal.position_name}",
+                conflict=f"ambiguous position {position_proposal.position_name}",
             )
         if position is None:
             position = Position(
                 id=uuid4(),
                 tenant_id=tenant_id,
-                name=proposal.position_name,
-                normalized_name=normalize_unit_name(proposal.position_name),
-                external_key=proposal.external_key,
+                name=position_proposal.position_name,
+                normalized_name=normalize_unit_name(position_proposal.position_name),
+                external_key=position_proposal.external_key,
                 source_metadata={"origin": "adaptive_import", "session_id": str(record.id)},
                 is_active=True,
                 department=unit.name if unit is not None else "",
@@ -493,13 +487,13 @@ async def commit_approved_import_session(
             counts["positions_created"] += 1
         else:
             changed = (
-                position.name != proposal.position_name
+                position.name != position_proposal.position_name
                 or position.department_id != (unit.id if unit is not None else None)
-                or position.external_key != proposal.external_key
+                or position.external_key != position_proposal.external_key
             )
-            position.name = proposal.position_name
-            position.normalized_name = normalize_unit_name(proposal.position_name)
-            position.external_key = proposal.external_key
+            position.name = position_proposal.position_name
+            position.normalized_name = normalize_unit_name(position_proposal.position_name)
+            position.external_key = position_proposal.external_key
             position.department = unit.name if unit is not None else ""
             position.department_id = unit.id if unit is not None else None
             position.is_active = True
@@ -507,8 +501,8 @@ async def commit_approved_import_session(
                 counts["positions_updated"] += 1
             else:
                 counts["unchanged"] += 1
-        positions_by_external[proposal.external_key] = position
-        resolved_positions[proposal.external_key] = position
+        positions_by_external[position_proposal.external_key] = position
+        resolved_positions[position_proposal.external_key] = position
         await db.flush()
 
     personnel_numbers = [
@@ -527,21 +521,23 @@ async def commit_approved_import_session(
         for user in users_result.scalars().all()
         if user.personnel_number
     }
-    for proposal in domain.proposal.staff:
-        if not _active_action(proposal.action):
+    for staff_proposal in domain.proposal.staff:
+        if not _active_action(staff_proposal.action):
             counts["skipped"] += 1
             continue
-        position = resolved_positions.get(proposal.position_external_key) or positions_by_external.get(
-            proposal.position_external_key
+        position = resolved_positions.get(staff_proposal.position_external_key) or positions_by_external.get(
+            staff_proposal.position_external_key
         )
         if position is None:
-            raise ImportCommitConflictError(f"approved staff position is missing: {proposal.position_external_key}")
+            raise ImportCommitConflictError(
+                "approved staff position is missing: " f"{staff_proposal.position_external_key}"
+            )
         organization_unit_key = (
-            proposal.organization_unit_external_key
-            or proposal.department_external_key
+            staff_proposal.organization_unit_external_key
+            or staff_proposal.department_external_key
             or (
-                proposal.branch_external_key
-                if proposal.branch_external_key != LEGACY_ROOT_EXTERNAL_KEY
+                staff_proposal.branch_external_key
+                if staff_proposal.branch_external_key != LEGACY_ROOT_EXTERNAL_KEY
                 else None
             )
         )
@@ -553,15 +549,13 @@ async def commit_approved_import_session(
             else None
         )
         if organization_unit_key and organization_unit is None:
-            raise ImportCommitConflictError(
-                f"approved staff organization unit is missing: {organization_unit_key}"
-            )
-        user = users_by_personnel.get(normalize_unit_name(proposal.personnel_number))
-        if user is None and proposal.email:
+            raise ImportCommitConflictError(f"approved staff organization unit is missing: {organization_unit_key}")
+        user = users_by_personnel.get(normalize_unit_name(staff_proposal.personnel_number))
+        if user is None and staff_proposal.email:
             email_result = await db.execute(
                 select(User).where(
                     User.tenant_id == tenant_id,
-                    func.lower(func.btrim(User.email)) == proposal.email.strip().casefold(),
+                    func.lower(func.btrim(User.email)) == staff_proposal.email.strip().casefold(),
                 )
             )
             user = email_result.scalar_one_or_none()
@@ -569,11 +563,11 @@ async def commit_approved_import_session(
             user = User(
                 id=uuid4(),
                 tenant_id=tenant_id,
-                personnel_number=proposal.personnel_number,
-                email=proposal.email,
-                phone=proposal.phone,
-                first_name=proposal.first_name,
-                last_name=proposal.last_name,
+                personnel_number=staff_proposal.personnel_number,
+                email=staff_proposal.email,
+                phone=staff_proposal.phone,
+                first_name=staff_proposal.first_name,
+                last_name=staff_proposal.last_name,
                 role="student",
                 is_active=True,
                 position_id=position.id,
@@ -582,31 +576,30 @@ async def commit_approved_import_session(
                 status="active",
             )
             db.add(user)
-            users_by_personnel[normalize_unit_name(proposal.personnel_number)] = user
+            users_by_personnel[normalize_unit_name(staff_proposal.personnel_number)] = user
             counts["staff_created"] += 1
             affected_user_ids.add(user.id)
         else:
-            desired_organization_unit_id = (
-                organization_unit.id if organization_unit is not None else None
-            )
-            changed = (
-                user.first_name != proposal.first_name
-                or user.last_name != proposal.last_name
+            desired_organization_unit_id = organization_unit.id if organization_unit is not None else None
+            staff_changed = (
+                user.first_name != staff_proposal.first_name
+                or user.last_name != staff_proposal.last_name
                 or user.position_id != position.id
                 or user.organization_unit_id != desired_organization_unit_id
-                or (proposal.email is not None and user.email != proposal.email)
-                or (proposal.phone is not None and user.phone != proposal.phone)
+                or (staff_proposal.email is not None and user.email != staff_proposal.email)
+                or (staff_proposal.phone is not None and user.phone != staff_proposal.phone)
             )
-            user.first_name = proposal.first_name
-            user.last_name = proposal.last_name
-            user.position_id = position.id
-            user.organization_unit_id = desired_organization_unit_id
-            user.is_active = True
-            if proposal.email is not None:
-                user.email = proposal.email
-            if proposal.phone is not None:
-                user.phone = proposal.phone
-            if changed:
+            writable_user = cast(Any, user)
+            writable_user.first_name = staff_proposal.first_name
+            writable_user.last_name = staff_proposal.last_name
+            writable_user.position_id = position.id
+            writable_user.organization_unit_id = desired_organization_unit_id
+            writable_user.is_active = True
+            if staff_proposal.email is not None:
+                writable_user.email = staff_proposal.email
+            if staff_proposal.phone is not None:
+                writable_user.phone = staff_proposal.phone
+            if staff_changed:
                 counts["staff_updated"] += 1
                 affected_user_ids.add(user.id)
             else:

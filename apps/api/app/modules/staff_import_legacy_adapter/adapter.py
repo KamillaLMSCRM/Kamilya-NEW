@@ -384,12 +384,12 @@ def adapt_legacy_rows(
             ],
         )
 
-    for key, proposal in branch_by_key.items():
-        branch_by_key[key] = proposal.model_copy(update={"source_refs": branch_refs[key]})
-    for key, proposal in department_by_key.items():
-        department_by_key[key] = proposal.model_copy(update={"source_refs": department_refs[key]})
-    for key, proposal in position_by_key.items():
-        position_by_key[key] = proposal.model_copy(update={"source_refs": position_refs[key]})
+    for key, branch_proposal in branch_by_key.items():
+        branch_by_key[key] = branch_proposal.model_copy(update={"source_refs": branch_refs[key]})
+    for key, department_proposal in department_by_key.items():
+        department_by_key[key] = department_proposal.model_copy(update={"source_refs": department_refs[key]})
+    for key, position_proposal in position_by_key.items():
+        position_by_key[key] = position_proposal.model_copy(update={"source_refs": position_refs[key]})
 
     organization_units = [
         OrganizationUnitProposal(
@@ -409,9 +409,7 @@ def adapt_legacy_rows(
         OrganizationUnitProposal(
             external_key=department.external_key,
             parent_external_key=(
-                None
-                if department.branch_external_key == LEGACY_ROOT_EXTERNAL_KEY
-                else department.branch_external_key
+                None if department.branch_external_key == LEGACY_ROOT_EXTERNAL_KEY else department.branch_external_key
             ),
             unit_type=OrganizationUnitType.DEPARTMENT,
             name=department.department_name,
@@ -425,18 +423,22 @@ def adapt_legacy_rows(
     )
     organization_units.sort(key=lambda item: item.external_key)
 
-    for key, proposal in position_by_key.items():
-        organization_unit_external_key = proposal.department_external_key or (
-            None if proposal.branch_external_key == LEGACY_ROOT_EXTERNAL_KEY else proposal.branch_external_key
+    for key, position_proposal in position_by_key.items():
+        organization_unit_external_key = position_proposal.department_external_key or (
+            None
+            if position_proposal.branch_external_key == LEGACY_ROOT_EXTERNAL_KEY
+            else position_proposal.branch_external_key
         )
-        position_by_key[key] = proposal.model_copy(
+        position_by_key[key] = position_proposal.model_copy(
             update={"organization_unit_external_key": organization_unit_external_key}
         )
-    for key, proposal in staff_by_personnel.items():
-        organization_unit_external_key = proposal.department_external_key or (
-            None if proposal.branch_external_key == LEGACY_ROOT_EXTERNAL_KEY else proposal.branch_external_key
+    for key, staff_proposal in staff_by_personnel.items():
+        organization_unit_external_key = staff_proposal.department_external_key or (
+            None
+            if staff_proposal.branch_external_key == LEGACY_ROOT_EXTERNAL_KEY
+            else staff_proposal.branch_external_key
         )
-        staff_by_personnel[key] = proposal.model_copy(
+        staff_by_personnel[key] = staff_proposal.model_copy(
             update={"organization_unit_external_key": organization_unit_external_key}
         )
 

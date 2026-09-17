@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -49,9 +50,7 @@ async def _tenant_units(
         statement = statement.where(Department.is_active.is_(True))
     result = await db.execute(statement)
     return [
-        unit
-        for unit in result.scalars().all()
-        if unit.tenant_id == tenant_id and (not active_only or unit.is_active)
+        unit for unit in result.scalars().all() if unit.tenant_id == tenant_id and (not active_only or unit.is_active)
     ]
 
 
@@ -59,7 +58,7 @@ def _children_by_parent(units: Iterable[Department]) -> dict[UUID, list[Departme
     children: dict[UUID, list[Department]] = {}
     for unit in units:
         if unit.parent_id is not None:
-            children.setdefault(unit.parent_id, []).append(unit)
+            children.setdefault(cast(UUID, unit.parent_id), []).append(unit)
     return children
 
 
@@ -74,7 +73,7 @@ async def resolve_descendants(
     """Return the visible recursive subtree for tenant-local ``unit_ids``."""
 
     units = await _tenant_units(db, tenant_id, active_only=active_only)
-    by_id = {unit.id: unit for unit in units}
+    by_id = {cast(UUID, unit.id): unit for unit in units}
     children = _children_by_parent(units)
     requested = [unit_id for unit_id in unit_ids if unit_id in by_id]
     resolved: set[UUID] = set(requested if include_self else ())
@@ -82,10 +81,11 @@ async def resolve_descendants(
     while stack:
         current_id = stack.pop()
         for child in children.get(current_id, ()):
-            if child.id in resolved:
+            child_id = cast(UUID, child.id)
+            if child_id in resolved:
                 continue
-            resolved.add(child.id)
-            stack.append(child.id)
+            resolved.add(child_id)
+            stack.append(child_id)
     if not include_self:
         resolved.difference_update(requested)
     return resolved
@@ -105,7 +105,7 @@ async def resolve_ancestor_path(
     """
 
     units = await _tenant_units(db, tenant_id, active_only=active_only)
-    by_id = {unit.id: unit for unit in units}
+    by_id = {cast(UUID, unit.id): unit for unit in units}
     current = by_id.get(unit_id)
     if current is None:
         raise OrganizationScopeNotFoundError("organization_unit_not_found")
@@ -113,12 +113,13 @@ async def resolve_ancestor_path(
     path: list[UUID] = []
     seen: set[UUID] = set()
     while current is not None:
-        if current.id in seen:
+        current_id = cast(UUID, current.id)
+        if current_id in seen:
             raise ValueError("hierarchy_cycle")
-        seen.add(current.id)
+        seen.add(current_id)
         if not active_only or current.is_active:
-            path.append(current.id)
-        current = by_id.get(current.parent_id) if current.parent_id is not None else None
+            path.append(current_id)
+        current = by_id.get(cast(UUID, current.parent_id)) if current.parent_id is not None else None
     path.reverse()
     return path
 
@@ -133,7 +134,7 @@ async def resolve_ancestor_paths(
     """Resolve many root-to-unit paths with one tenant-scoped hierarchy read."""
 
     units = await _tenant_units(db, tenant_id, active_only=active_only)
-    by_id = {unit.id: unit for unit in units}
+    by_id = {cast(UUID, unit.id): unit for unit in units}
     paths: dict[UUID, list[UUID]] = {}
     for unit_id in dict.fromkeys(unit_ids):
         current = by_id.get(unit_id)
@@ -142,11 +143,12 @@ async def resolve_ancestor_paths(
         path: list[UUID] = []
         seen: set[UUID] = set()
         while current is not None:
-            if current.id in seen:
+            current_id = cast(UUID, current.id)
+            if current_id in seen:
                 raise ValueError("hierarchy_cycle")
-            seen.add(current.id)
-            path.append(current.id)
-            current = by_id.get(current.parent_id) if current.parent_id is not None else None
+            seen.add(current_id)
+            path.append(current_id)
+            current = by_id.get(cast(UUID, current.parent_id)) if current.parent_id is not None else None
         path.reverse()
         paths[unit_id] = path
     return paths
@@ -167,7 +169,7 @@ async def resolve_descendant_memberships(
     """
 
     units = await _tenant_units(db, tenant_id, active_only=active_only)
-    by_id = {unit.id: unit for unit in units}
+    by_id = {cast(UUID, unit.id): unit for unit in units}
     children = _children_by_parent(units)
     roots = [unit_id for unit_id in dict.fromkeys(root_ids) if unit_id in by_id]
     memberships: dict[UUID, tuple[int, int, UUID]] = {}
@@ -183,7 +185,7 @@ async def resolve_descendant_memberships(
             current = memberships.get(unit_id)
             if current is None or candidate[:2] < current[:2]:
                 memberships[unit_id] = candidate
-            stack.extend((child.id, distance + 1) for child in children.get(unit_id, ()))
+            stack.extend((cast(UUID, child.id), distance + 1) for child in children.get(unit_id, ()))
     return {unit_id: value[2] for unit_id, value in memberships.items()}
 
 
@@ -208,7 +210,7 @@ async def validate_move(
     """Validate a move and return the computed subtree/depth context."""
 
     all_units = await _tenant_units(db, tenant_id, active_only=False)
-    by_id = {unit.id: unit for unit in all_units}
+    by_id = {cast(UUID, unit.id): unit for unit in all_units}
     unit = by_id.get(unit_id)
     if unit is None:
         raise OrganizationScopeNotFoundError("organization_unit_not_found")
@@ -219,47 +221,50 @@ async def validate_move(
 
     descendants: set[UUID] = set()
     children = _children_by_parent(all_units)
-    stack = [unit.id]
-    distances = {unit.id: 0}
+    runtime_unit_id = cast(UUID, unit.id)
+    stack = [runtime_unit_id]
+    distances = {runtime_unit_id: 0}
     while stack:
         current_id = stack.pop()
         descendants.add(current_id)
         for child in children.get(current_id, ()):
-            if child.id in distances:
+            child_id = cast(UUID, child.id)
+            if child_id in distances:
                 raise ValueError("hierarchy_cycle")
-            distances[child.id] = distances[current_id] + 1
-            stack.append(child.id)
+            distances[child_id] = distances[current_id] + 1
+            stack.append(child_id)
 
     parent_path: list[UUID] = []
     if parent is not None:
-        current = parent
+        current: Department | None = parent
         seen: set[UUID] = set()
         while current is not None:
-            if current.id in seen:
+            current_id = cast(UUID, current.id)
+            if current_id in seen:
                 raise ValueError("hierarchy_cycle")
-            seen.add(current.id)
-            parent_path.append(current.id)
-            current = by_id.get(current.parent_id) if current.parent_id is not None else None
+            seen.add(current_id)
+            parent_path.append(current_id)
+            current = by_id.get(cast(UUID, current.parent_id)) if current.parent_id is not None else None
         parent_path.reverse()
 
     parent_depth = len(parent_path) - 1 if parent_path else 0
     subtree_height = max(distances.values(), default=0)
     validate_organization_unit_hierarchy(
         unit=OrganizationUnitRef(
-            id=unit.id,
-            tenant_id=unit.tenant_id,
-            unit_type=OrganizationUnitType(unit.unit_type),
+            id=runtime_unit_id,
+            tenant_id=cast(UUID, unit.tenant_id),
+            unit_type=OrganizationUnitType(cast(str, unit.unit_type)),
             parent_id=parent_id,
-            is_active=unit.is_active,
+            is_active=cast(bool, unit.is_active),
             is_head_office=getattr(unit, "is_head_office", False),
         ),
         parent=(
             OrganizationUnitRef(
-                id=parent.id,
-                tenant_id=parent.tenant_id,
-                unit_type=OrganizationUnitType(parent.unit_type),
-                parent_id=parent.parent_id,
-                is_active=parent.is_active,
+                id=cast(UUID, parent.id),
+                tenant_id=cast(UUID, parent.tenant_id),
+                unit_type=OrganizationUnitType(cast(str, parent.unit_type)),
+                parent_id=cast(UUID | None, parent.parent_id),
+                is_active=cast(bool, parent.is_active),
                 is_head_office=getattr(parent, "is_head_office", False),
             )
             if parent is not None
@@ -273,7 +278,7 @@ async def validate_move(
     if parent_depth + 1 + subtree_height > max_depth:
         raise ValueError("max_depth")
     return MoveScope(
-        unit_id=unit.id,
+        unit_id=runtime_unit_id,
         parent_id=parent_id,
         descendant_ids=frozenset(descendants),
         parent_depth=parent_depth,

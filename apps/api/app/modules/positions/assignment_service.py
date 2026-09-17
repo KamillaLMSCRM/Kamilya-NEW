@@ -1,7 +1,9 @@
 """Course assignment kernel for position, department and organization rules."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import and_, delete, or_, select, update
@@ -83,7 +85,7 @@ async def _rule_course_sets(
     user: User,
 ) -> tuple[set[UUID], set[UUID], set[UUID]]:
     """Return published position, department and organization course sets."""
-    tenant_id = user.tenant_id
+    tenant_id = cast(UUID, user.tenant_id)
     assert tenant_id is not None
     position_courses: set[UUID] = set()
     department_courses: set[UUID] = set()
@@ -122,9 +124,7 @@ async def _rule_course_sets(
             )
         )
 
-    organization_courses = set(
-        await _published_rule_courses(db, OrganizationCourseRule, tenant_id)
-    )
+    organization_courses = set(await _published_rule_courses(db, OrganizationCourseRule, tenant_id))
     return position_courses, department_courses, organization_courses
 
 
@@ -296,9 +296,7 @@ async def preview_rule_change(
         else:
             raise ValueError("Unsupported rule preview operation")
 
-        desired_source = _effective_sources(
-            position_courses, department_courses, organization_courses
-        ).get(course_id)
+        desired_source = _effective_sources(position_courses, department_courses, organization_courses).get(course_id)
         current = await db.execute(
             select(Enrollment.source, Enrollment.status).where(
                 Enrollment.tenant_id == tenant_id,

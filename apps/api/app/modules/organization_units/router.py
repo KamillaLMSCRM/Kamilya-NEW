@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -67,8 +67,7 @@ async def get_organization_tree(
             # counted as departments for compatibility with the old flat
             # structure endpoint.
             "total_departments": sum(branch["department_count"] for branch in branches) + len(legacy_roots),
-            "total_positions": sum(node["position_count"] for node in roots)
-            + len(unassigned_legacy_positions),
+            "total_positions": sum(node["position_count"] for node in roots) + len(unassigned_legacy_positions),
             "total_employees": sum(node["employee_count"] for node in roots)
             + sum(item["employee_count"] for item in unassigned_legacy_positions),
             "legacy_roots": len(legacy_roots),
@@ -102,7 +101,11 @@ async def create_unit(
         await db.rollback()
         raise HTTPException(status_code=409, detail="Organization unit already exists") from exc
     await db.commit()
-    return await get_organization_unit_projection(db, user.tenant_id, unit.id)
+    return await get_organization_unit_projection(
+        db,
+        cast(UUID, user.tenant_id),
+        cast(UUID, unit.id),
+    )
 
 
 @router.get("/{unit_id}", response_model=OrganizationUnitResponse)
@@ -123,11 +126,11 @@ async def preview_unit_move(
     body: OrganizationUnitMovePreviewRequest,
     db: DbSession,
     user: Methodologist,
-):
+) -> dict[str, Any]:
     try:
         return await preview_organization_unit_move(
             db,
-            tenant_id=user.tenant_id,
+            tenant_id=cast(UUID, user.tenant_id),
             unit_id=unit_id,
             parent_id=body.parent_id,
         )
@@ -152,7 +155,11 @@ async def update_unit(
             patch=body.model_dump(exclude_unset=True),
         )
         await db.commit()
-        return await get_organization_unit_projection(db, user.tenant_id, unit.id)
+        return await get_organization_unit_projection(
+            db,
+            cast(UUID, user.tenant_id),
+            cast(UUID, unit.id),
+        )
     except LookupError as exc:
         await db.rollback()
         raise HTTPException(status_code=404, detail="Organization unit not found") from exc

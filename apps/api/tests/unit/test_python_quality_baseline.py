@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
@@ -16,9 +17,7 @@ def test_seeded_new_violation_exceeds_baseline() -> None:
     baseline = Counter({"app/example.py|F401": 2})
     seeded_current = Counter({"app/example.py|F401": 3})
 
-    assert quality_baseline.compare_counts(seeded_current, baseline) == {
-        "app/example.py|F401": (3, 2)
-    }
+    assert quality_baseline.compare_counts(seeded_current, baseline) == {"app/example.py|F401": (3, 2)}
 
 
 def test_seeded_new_violation_makes_cli_gate_red(monkeypatch, tmp_path: Path) -> None:
@@ -59,7 +58,12 @@ def test_quality_tools_use_the_active_python_environment(monkeypatch) -> None:
 
     def capture(command: list[str]):
         commands.append(command)
-        return type("Result", (), {"stdout": "[]" if "ruff" in command else ""})()
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="[]" if "ruff" in command else "",
+            stderr="",
+        )
 
     monkeypatch.setattr(quality_baseline, "_run", capture)
 
@@ -67,3 +71,24 @@ def test_quality_tools_use_the_active_python_environment(monkeypatch) -> None:
 
     assert commands[0][:3] == [sys.executable, "-m", "ruff"]
     assert commands[1][:3] == [sys.executable, "-m", "mypy"]
+
+
+def test_missing_mypy_cannot_look_like_a_clean_run(monkeypatch) -> None:
+    def missing_tool(command: list[str]):
+        if "ruff" in command:
+            return subprocess.CompletedProcess(command, 0, stdout="[]", stderr="")
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            stdout="",
+            stderr="No module named mypy",
+        )
+
+    monkeypatch.setattr(quality_baseline, "_run", missing_tool)
+
+    try:
+        quality_baseline.collect_current()
+    except RuntimeError as exc:
+        assert "no JSON error diagnostics" in str(exc)
+    else:
+        raise AssertionError("missing mypy must fail the quality gate")

@@ -1273,7 +1273,12 @@ async def commit_import(
         )
         if manual_mode and organization_unit_id is not None and department is None:
             raise ValueError("organization_unit_not_found")
-        if manual_mode and organization_unit_id is not None and department.is_active is False:
+        if (
+            manual_mode
+            and organization_unit_id is not None
+            and department is not None
+            and not cast(bool, department.is_active)
+        ):
             raise ValueError("organization_unit_inactive")
         if department is None and department_key and not (manual_mode and organization_unit_id is not None):
             department = Department(
@@ -1370,7 +1375,8 @@ async def commit_import(
                 position_changed = True
             placement_changed = False
             if manual_mode and existing.organization_unit_id != organization_unit_id:
-                existing.organization_unit_id = organization_unit_id
+                writable_existing = cast(Any, existing)
+                writable_existing.organization_unit_id = organization_unit_id
                 changed = True
                 placement_changed = True
             if changed:
