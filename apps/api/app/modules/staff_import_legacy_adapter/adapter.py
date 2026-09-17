@@ -20,6 +20,7 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
+from app.modules.organization_units.domain import OrganizationUnitType
 from app.modules.staff_import_matching import normalize_import_key
 from app.modules.staff_import_sessions import (
     BranchProposal,
@@ -31,6 +32,7 @@ from app.modules.staff_import_sessions import (
     ImportSessionConflict,
     ImportSessionProposal,
     MatchAction,
+    OrganizationUnitProposal,
     ProposalConfidence,
     SourceCellRef,
 )
@@ -297,7 +299,7 @@ def adapt_legacy_rows(
                         )
                     ],
                 )
-            department_key: str | None = None
+            department_key = None
             branch_key = parent_key
         else:
             department_key = _department_key(department_name)
@@ -389,6 +391,55 @@ def adapt_legacy_rows(
     for key, proposal in position_by_key.items():
         position_by_key[key] = proposal.model_copy(update={"source_refs": position_refs[key]})
 
+    organization_units = [
+        OrganizationUnitProposal(
+            external_key=branch.external_key,
+            parent_external_key=None,
+            unit_type=OrganizationUnitType.BRANCH,
+            name=branch.branch_name,
+            is_head_office=False,
+            action=branch.action,
+            confidence=branch.confidence,
+            source_refs=branch.source_refs,
+            evidence=branch.evidence,
+        )
+        for branch in branch_by_key.values()
+    ]
+    organization_units.extend(
+        OrganizationUnitProposal(
+            external_key=department.external_key,
+            parent_external_key=(
+                None
+                if department.branch_external_key == LEGACY_ROOT_EXTERNAL_KEY
+                else department.branch_external_key
+            ),
+            unit_type=OrganizationUnitType.DEPARTMENT,
+            name=department.department_name,
+            is_head_office=False,
+            action=department.action,
+            confidence=department.confidence,
+            source_refs=department.source_refs,
+            evidence=department.evidence,
+        )
+        for department in department_by_key.values()
+    )
+    organization_units.sort(key=lambda item: item.external_key)
+
+    for key, proposal in position_by_key.items():
+        organization_unit_external_key = proposal.department_external_key or (
+            None if proposal.branch_external_key == LEGACY_ROOT_EXTERNAL_KEY else proposal.branch_external_key
+        )
+        position_by_key[key] = proposal.model_copy(
+            update={"organization_unit_external_key": organization_unit_external_key}
+        )
+    for key, proposal in staff_by_personnel.items():
+        organization_unit_external_key = proposal.department_external_key or (
+            None if proposal.branch_external_key == LEGACY_ROOT_EXTERNAL_KEY else proposal.branch_external_key
+        )
+        staff_by_personnel[key] = proposal.model_copy(
+            update={"organization_unit_external_key": organization_unit_external_key}
+        )
+
     top_evidence = [
         _evidence(
             "legacy_flat_adapter",
@@ -409,6 +460,7 @@ def adapt_legacy_rows(
         source_file_name=source_file_name,
         source_file_sha256=source_file_sha256,
         extracted_by="legacy-flat-adapter-v1",
+        organization_units=organization_units,
         branches=sorted(branch_by_key.values(), key=lambda item: item.external_key),
         departments=sorted(department_by_key.values(), key=lambda item: item.external_key),
         positions=sorted(position_by_key.values(), key=lambda item: item.external_key),

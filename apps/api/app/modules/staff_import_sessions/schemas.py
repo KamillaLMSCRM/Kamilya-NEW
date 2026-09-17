@@ -11,6 +11,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.modules.organization_units.domain import OrganizationUnitType
+
 
 class ImportMode(StrEnum):
     """Session import strategy.
@@ -73,6 +75,7 @@ class MatchAction(StrEnum):
 
 
 class ProposalItemKind(StrEnum):
+    ORGANIZATION_UNIT = "organization_unit"
     BRANCH = "branch"
     DEPARTMENT = "department"
     POSITION = "position"
@@ -133,6 +136,15 @@ class BranchProposal(CanonicalProposalBase):
     parent_path: str = "ROOT"
 
 
+class OrganizationUnitProposal(CanonicalProposalBase):
+    """Generic organization-unit proposal used by arbitrary-depth imports."""
+
+    parent_external_key: str | None = Field(default=None, min_length=1, max_length=200)
+    unit_type: OrganizationUnitType
+    name: str = Field(..., min_length=1, max_length=255)
+    is_head_office: bool = False
+
+
 class CanonicalDepartmentProposal(CanonicalProposalBase):
     """Canonical department proposal under a branch."""
 
@@ -146,8 +158,9 @@ class CanonicalPositionProposal(CanonicalProposalBase):
 
     position_id: str = Field(..., min_length=1, max_length=120)
     position_name: str = Field(..., min_length=1, max_length=255)
-    branch_external_key: str = Field(..., min_length=1, max_length=120)
+    branch_external_key: str | None = Field(default=None, min_length=1, max_length=120)
     department_external_key: str | None = Field(default=None, min_length=1, max_length=120)
+    organization_unit_external_key: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 class CanonicalStaffProposal(CanonicalProposalBase):
@@ -157,8 +170,9 @@ class CanonicalStaffProposal(CanonicalProposalBase):
     first_name: str = Field(..., min_length=1, max_length=120)
     last_name: str = Field(..., min_length=1, max_length=120)
     position_external_key: str = Field(..., min_length=1, max_length=120)
-    branch_external_key: str = Field(..., min_length=1, max_length=120)
+    branch_external_key: str | None = Field(default=None, min_length=1, max_length=120)
     department_external_key: str | None = Field(default=None, min_length=1, max_length=120)
+    organization_unit_external_key: str | None = Field(default=None, min_length=1, max_length=200)
     email: str | None = Field(default=None, max_length=320)
     phone: str | None = Field(default=None, max_length=64)
 
@@ -173,6 +187,7 @@ class ImportSessionProposal(BaseModel):
     source_file_name: str = Field(..., min_length=1, max_length=255)
     source_file_sha256: str = Field(..., pattern=r"^[0-9a-f]{64}$")
     extracted_by: str = Field(default="adaptive-workflow", max_length=120)
+    organization_units: list[OrganizationUnitProposal] = Field(default_factory=list)
     branches: list[BranchProposal] = Field(default_factory=list)
     departments: list[CanonicalDepartmentProposal] = Field(default_factory=list)
     positions: list[CanonicalPositionProposal] = Field(default_factory=list)
@@ -192,6 +207,7 @@ class ProposalCorrection(BaseModel):
     kind: ProposalItemKind
     external_key: str = Field(..., min_length=1, max_length=200)
     name: str | None = Field(default=None, min_length=1, max_length=255)
+    parent_external_key: str | None = Field(default=None, min_length=1, max_length=200)
     branch_external_key: str | None = Field(default=None, min_length=1, max_length=200)
     department_external_key: str | None = Field(default=None, min_length=1, max_length=200)
     position_external_key: str | None = Field(default=None, min_length=1, max_length=200)

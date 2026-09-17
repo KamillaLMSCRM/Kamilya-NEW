@@ -31,6 +31,7 @@ from app.modules.organization_units.domain import OrganizationUnitType
 from app.modules.staff_import_sessions.schemas import (
     EvidenceItem,
     MatchAction,
+    OrganizationUnitProposal,
     ProposalConfidence,
     SourceCellRef,
 )
@@ -38,6 +39,14 @@ from app.modules.staff_import_sessions.schemas import (
 # Re-export the session contract's action enum so adapters do not need a
 # conversion layer between review proposals and this pure diff seam.
 ImportDiffAction = MatchAction
+
+
+class ImportHierarchyConflictError(ValueError):
+    """Raised when an import unit graph cannot be resolved before writes."""
+
+    def __init__(self, message: str, *, code: str) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 class ImportEntityType(StrEnum):
@@ -81,11 +90,11 @@ class ExistingOrganizationUnit:
 
 @dataclass(frozen=True, slots=True)
 class IncomingPosition:
-    """Position source row.  ``org_unit_external_key`` may be a branch key."""
+    """Position source row.  Organization-unit linkage is optional."""
 
     tenant_id: UUID
     name: str
-    org_unit_external_key: str
+    org_unit_external_key: str | None = None
     external_key: str | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
     source_refs: tuple[SourceCellRef, ...] = ()
@@ -98,7 +107,7 @@ class ExistingPosition:
     tenant_id: UUID
     record_id: str
     name: str
-    org_unit_external_key: str
+    org_unit_external_key: str | None = None
     external_key: str | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -141,7 +150,7 @@ class ImportDiffEntry:
     """Reviewable diff entry with source traceability and conflict details."""
 
     entity_type: ImportEntityType
-    action: ImportDiffAction
+    action: MatchAction
     incoming_key: str
     existing_id: str | None
     source_refs: tuple[SourceCellRef, ...] = ()
@@ -166,8 +175,68 @@ class ImportDiffResult:
     def has_blocking_conflicts(self) -> bool:
         return any(entry.blocking for entry in self.entries)
 
-    def by_action(self, action: ImportDiffAction) -> tuple[ImportDiffEntry, ...]:
+    def by_action(self, action: MatchAction) -> tuple[ImportDiffEntry, ...]:
         return tuple(entry for entry in self.entries if entry.action is action)
+
+
+def topologically_order_organization_units(
+    units: Sequence[OrganizationUnitProposal],
+    *,
+    known_external_keys: Iterable[str] = (),
+) -> tuple[OrganizationUnitProposal, ...]:
+    """Validate and order generic unit proposals without touching storage.
+
+    ``known_external_keys`` represents tenant-owned parents already persisted;
+    those parents need not be repeated in an additive proposal.  Every
+    in-proposal parent must still be emitted before its child.  The result is
+    deterministic for independent siblings and raises before any commit seam
+    can mutate a session or organization row.
+    """
+
+    active_units = [unit for unit in units if unit.action not in {MatchAction.SKIP, MatchAction.CONFLICT}]
+    by_key: dict[str, OrganizationUnitProposal] = {}
+    for unit in active_units:
+        key = normalize_import_key(unit.external_key)
+        if not key:
+            raise ImportHierarchyConflictError("organization unit external key is missing", code="missing_external_key")
+        if key in by_key:
+            raise ImportHierarchyConflictError(
+                f"ambiguous parent external key: {unit.external_key}",
+                code="ambiguous_parent",
+            )
+        by_key[key] = unit
+
+    known_keys = {normalize_import_key(key) for key in known_external_keys if normalize_import_key(key)}
+    for unit in active_units:
+        parent_key = normalize_import_key(unit.parent_external_key)
+        if parent_key and parent_key not in by_key and parent_key not in known_keys:
+            raise ImportHierarchyConflictError(
+                f"missing parent external key: {unit.parent_external_key}",
+                code="missing_parent",
+            )
+
+    state: dict[str, int] = {}
+    ordered: list[OrganizationUnitProposal] = []
+
+    def visit(key: str) -> None:
+        current = state.get(key, 0)
+        if current == 1:
+            raise ImportHierarchyConflictError("organization unit parent cycle detected", code="cycle")
+        if current == 2:
+            return
+        state[key] = 1
+        parent_key = normalize_import_key(by_key[key].parent_external_key)
+        if parent_key in by_key:
+            visit(parent_key)
+        state[key] = 2
+        ordered.append(by_key[key])
+
+    for key in sorted(by_key):
+        visit(key)
+    return tuple(ordered)
+
+
+validate_organization_unit_proposals = topologically_order_organization_units
 
 
 _SPACE_RE = re.compile(r"\s+")
@@ -201,7 +270,7 @@ def _evidence(code: str, claim: str, *, confidence: str = "high", reason: str = 
     )
 
 
-def _index_by(values: Iterable[Any], key_fn) -> dict[str, list[Any]]:
+def _index_by(values: Iterable[Any], key_fn: Any) -> dict[str, list[Any]]:
     indexed: dict[str, list[Any]] = defaultdict(list)
     for value in values:
         key = key_fn(value)
@@ -403,15 +472,15 @@ def _position_entry(
             "Incoming record belongs to another tenant.",
         )
     org_key = normalize_import_key(incoming.org_unit_external_key)
-    if not org_key:
+    external_key = _nonempty(incoming.external_key)
+    if not org_key and not external_key:
         return _conflict(
             ImportEntityType.POSITION,
             incoming_key,
             refs,
-            "missing_org_unit",
-            "Position must reference a branch or department.",
+            "missing_position_identity",
+            "Position without an organization unit requires an external key.",
         )
-    external_key = _nonempty(incoming.external_key)
     if external_key:
         key_matches = [item for item in existing if _nonempty(item.external_key) == external_key]
         if len(key_matches) > 1:
@@ -465,6 +534,7 @@ def _position_entry(
         item
         for item in existing
         if item.tenant_id == tenant_id
+        and bool(org_key)
         and normalize_import_key(item.org_unit_external_key) == org_key
         and normalize_import_key(item.name) == normalize_import_key(incoming.name)
     ]
@@ -488,7 +558,7 @@ def _position_entry(
             ),
         )
     match = matches[0]
-    changes = _mapping_changes(incoming.metadata, match.metadata)
+    changes = list(_mapping_changes(incoming.metadata, match.metadata))
     return ImportDiffEntry(
         entity_type=ImportEntityType.POSITION,
         action=ImportDiffAction.UPDATE if changes else ImportDiffAction.UNCHANGED,
@@ -498,7 +568,7 @@ def _position_entry(
         evidence=(
             _evidence("position_composite_identity", "Matched by organization unit and normalized position name."),
         ),
-        changed_fields=changes,
+        changed_fields=tuple(changes),
     )
 
 
@@ -622,7 +692,7 @@ def _staff_entry(
     )
 
 
-def _validate_duplicates(values: Sequence[Any], key_fn) -> set[str]:
+def _validate_duplicates(values: Sequence[Any], key_fn: Any) -> set[str]:
     """Return source-object identities that belong to duplicate groups."""
 
     result: set[str] = set()
@@ -684,33 +754,35 @@ def build_import_diff(
         incoming_positions,
         lambda item: f"{normalize_import_key(item.org_unit_external_key)}|{normalize_import_key(item.name)}",
     )
-    for incoming in incoming_positions:
-        if str(id(incoming)) in duplicate_position_keys:
+    for incoming_position in incoming_positions:
+        if str(id(incoming_position)) in duplicate_position_keys:
             entries.append(
                 _conflict(
                     ImportEntityType.POSITION,
-                    _nonempty(incoming.external_key)
-                    or f"{normalize_import_key(incoming.org_unit_external_key)}:{normalize_import_key(incoming.name)}",
-                    _source_refs(incoming),
+                    _nonempty(incoming_position.external_key)
+                    or f"{normalize_import_key(incoming_position.org_unit_external_key)}:{normalize_import_key(incoming_position.name)}",
+                    _source_refs(incoming_position),
                     "duplicate_source_identity",
                     "Multiple incoming rows share the same position identity key.",
                 )
             )
         else:
-            entries.append(_position_entry(incoming, existing_positions, tenant_id))
+            entries.append(_position_entry(incoming_position, existing_positions, tenant_id))
 
     duplicate_staff_keys = _validate_staff_duplicates(incoming_staff)
-    for incoming in incoming_staff:
-        if str(id(incoming)) in duplicate_staff_keys:
+    for incoming_staff_row in incoming_staff:
+        if str(id(incoming_staff_row)) in duplicate_staff_keys:
             entries.append(
                 _conflict(
                     ImportEntityType.STAFF,
-                    _nonempty(incoming.personnel_number) or _nonempty(incoming.email) or "staff",
-                    _source_refs(incoming),
+                    _nonempty(incoming_staff_row.personnel_number)
+                    or _nonempty(incoming_staff_row.email)
+                    or "staff",
+                    _source_refs(incoming_staff_row),
                     "duplicate_source_identity",
                     "Multiple incoming rows share the same staff identity key.",
                 )
             )
         else:
-            entries.append(_staff_entry(incoming, existing_staff, tenant_id))
+            entries.append(_staff_entry(incoming_staff_row, existing_staff, tenant_id))
     return ImportDiffResult(entries=tuple(entries))

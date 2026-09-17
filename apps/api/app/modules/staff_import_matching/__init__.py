@@ -8,11 +8,14 @@ from .matching import (
     ImportDiffEntry,
     ImportDiffResult,
     ImportEntityType,
+    ImportHierarchyConflictError,
     IncomingOrganizationUnit,
     IncomingPosition,
     IncomingStaff,
     build_import_diff,
     normalize_import_key,
+    topologically_order_organization_units,
+    validate_organization_unit_proposals,
 )
 
 __all__ = [
@@ -22,10 +25,13 @@ __all__ = [
     "ImportDiffAction",
     "ImportDiffEntry",
     "ImportEntityType",
+    "ImportHierarchyConflictError",
     "ImportDiffResult",
     "IncomingOrganizationUnit",
     "IncomingPosition",
     "IncomingStaff",
     "build_import_diff",
     "normalize_import_key",
+    "topologically_order_organization_units",
+    "validate_organization_unit_proposals",
 ]

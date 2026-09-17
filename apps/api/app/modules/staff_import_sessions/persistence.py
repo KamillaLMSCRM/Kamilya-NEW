@@ -45,7 +45,13 @@ def proposal_review_state(proposal: ImportSessionProposal) -> ImportSessionState
 
     if any(conflict.blocking for conflict in proposal.conflicts):
         return ImportSessionState.NEEDS_CORRECTION
-    items = (*proposal.branches, *proposal.departments, *proposal.positions, *proposal.staff)
+    items = (
+        *proposal.organization_units,
+        *proposal.branches,
+        *proposal.departments,
+        *proposal.positions,
+        *proposal.staff,
+    )
     if any(
         item.action is MatchAction.CONFLICT
         or (item.confidence is ProposalConfidence.LOW and item.action is not MatchAction.SKIP)

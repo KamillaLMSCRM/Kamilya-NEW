@@ -149,6 +149,7 @@ def _has_blocking_conflicts(session: ImportSession) -> bool:
 
 def _has_unresolved_proposals(proposal: ImportSessionProposal) -> bool:
     proposed_items = (
+        *proposal.organization_units,
         *proposal.branches,
         *proposal.departments,
         *proposal.positions,

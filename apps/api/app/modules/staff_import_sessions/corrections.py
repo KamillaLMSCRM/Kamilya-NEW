@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from app.modules.staff_import_legacy_adapter import LEGACY_ROOT_EXTERNAL_KEY
+from app.modules.staff_import_matching import topologically_order_organization_units
 
 from .schemas import (
     EvidenceItem,
@@ -72,6 +73,7 @@ def apply_proposal_corrections(
         raise ValueError("too many proposal corrections")
 
     branches = list(proposal.branches)
+    organization_units = list(proposal.organization_units)
     departments = list(proposal.departments)
     positions = list(proposal.positions)
     staff = list(proposal.staff)
@@ -81,7 +83,14 @@ def apply_proposal_corrections(
         if correction.external_key in corrected_keys:
             raise ValueError(f"duplicate correction: {correction.external_key}")
         corrected_keys.add(correction.external_key)
-        if correction.kind is ProposalItemKind.BRANCH:
+        if correction.kind is ProposalItemKind.ORGANIZATION_UNIT:
+            updates = {}
+            if correction.name is not None:
+                updates["name"] = correction.name
+            if correction.parent_external_key is not None:
+                updates["parent_external_key"] = correction.parent_external_key
+            organization_units = _replace(organization_units, correction, updates)
+        elif correction.kind is ProposalItemKind.BRANCH:
             updates = {"branch_name": correction.name} if correction.name is not None else {}
             branches = _replace(branches, correction, updates)
         elif correction.kind is ProposalItemKind.DEPARTMENT:
@@ -122,6 +131,7 @@ def apply_proposal_corrections(
     department_keys = {item.external_key for item in departments}
     position_keys = {item.external_key for item in positions}
     allowed_branches = branch_keys | {LEGACY_ROOT_EXTERNAL_KEY}
+    topologically_order_organization_units(organization_units)
     for item in departments:
         if item.branch_external_key not in allowed_branches:
             raise ValueError(f"unknown department branch: {item.branch_external_key}")
@@ -145,6 +155,7 @@ def apply_proposal_corrections(
         {
             **proposal.model_dump(mode="python"),
             "branches": branches,
+            "organization_units": organization_units,
             "departments": departments,
             "positions": positions,
             "staff": staff,

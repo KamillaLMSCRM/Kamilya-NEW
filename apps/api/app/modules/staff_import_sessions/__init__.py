@@ -25,7 +25,10 @@ from .schemas import (
     ImportSessionState,
     ImportSessionStateTransition,
     MatchAction,
+    OrganizationUnitProposal,
     ProposalConfidence,
+    ProposalCorrection,
+    ProposalItemKind,
     SourceCellRef,
 )
 from .state_machine import (
@@ -59,6 +62,9 @@ __all__ = [
     "ImportSessionMutationConflictError",
     "ImportSessionNotFoundError",
     "MatchAction",
+    "OrganizationUnitProposal",
+    "ProposalCorrection",
+    "ProposalItemKind",
     "ProposalConfidence",
     "SourceCellRef",
     "ApprovalBlockedError",
