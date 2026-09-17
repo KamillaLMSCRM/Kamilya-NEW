@@ -35,7 +35,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 import xlrd  # type: ignore[import-untyped]
@@ -125,7 +125,7 @@ async def _load_staff_indexes(
     for position in positions_result.scalars().all():
         if position.tenant_id != tenant_id:
             continue
-        positions_by_id[position.id] = position
+        positions_by_id[cast(UUID, position.id)] = position
         position_key = normalize_staff_lookup(position.name)
         if not position_key:
             continue
