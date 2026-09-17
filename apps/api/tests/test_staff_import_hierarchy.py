@@ -272,6 +272,64 @@ async def test_same_position_name_is_separate_per_department_and_tenant():
 
 
 @pytest.mark.asyncio
+async def test_manual_staff_reuses_position_without_creating_blank_department():
+    tenant_id = uuid4()
+    position = Position(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        name="Director",
+        department="",
+        department_id=None,
+        level="",
+        responsibilities="",
+        requirements="",
+        employee_count=0,
+    )
+    db = _MemorySession(positions=[position])
+
+    result = await _manual(
+        db,
+        tenant_id,
+        personnel_number="DIRECT-001",
+        first_name="Direct",
+        last_name="Employee",
+        department="",
+        position="Director",
+        position_id=position.id,
+    )
+
+    assert result["created"] == 1
+    assert result["positions_created"] == 0
+    assert db.departments == []
+    assert db.positions == [position]
+    assert db.users[0].position_id == position.id
+
+
+@pytest.mark.asyncio
+async def test_manual_staff_creates_position_without_blank_department():
+    tenant_id = uuid4()
+    db = _MemorySession()
+
+    result = await _manual(
+        db,
+        tenant_id,
+        personnel_number="DIRECT-002",
+        first_name="Direct",
+        last_name="Employee",
+        department="",
+        position="New Director",
+    )
+
+    assert result["created"] == 1
+    assert result["positions_created"] == 1
+    assert db.departments == []
+    assert len(db.positions) == 1
+    assert db.positions[0].department == ""
+    assert db.positions[0].department_id is None
+    assert db.users[0].position_id == db.positions[0].id
+
+
+@pytest.mark.asyncio
 async def test_department_lookup_uses_name_and_slug():
     tenant_id = uuid4()
     department = Department(

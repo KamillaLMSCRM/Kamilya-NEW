@@ -3185,3 +3185,26 @@ contract or establish a blocker.
 - Prevention: every dependent selector must cover both persisted-parent and
   create-parent-in-the-same-request states; never use absence of a persisted id
   as an availability rule when the API accepts an atomic create path.
+
+## STAFF-UI-002 - Existing positions were hidden until a department was selected
+
+- Date: 2026-09-17.
+- Symptom: the manual employee modal initially offered only `Create a new
+  position`, even when the tenant already had positions. It also required a
+  department although the position model permits a department-free position.
+- Cause: the frontend filtered the position list by an initially empty
+  `department_id`, and both frontend and backend validation treated department
+  plus position as an inseparable required pair. The shared import commit path
+  would additionally materialize an empty department for a blank department
+  name.
+- Fix: show every existing position before a department is selected, annotate
+  department-linked choices, fill a linked department when applicable, and
+  require only the position. Preserve department-free positions end to end and
+  never create a department for an empty name.
+- Verification: a RED/GREEN modal test proves that a returned existing position
+  is immediately selectable; another submits an employee with an existing
+  department-free position. Backend tests cover resolving, reusing and creating
+  department-free positions without an empty department row.
+- Prevention: optional hierarchy levels must remain optional in UI validation,
+  API validation and persistence tests; selector tests must start from the
+  initial form state rather than only after selecting a parent.

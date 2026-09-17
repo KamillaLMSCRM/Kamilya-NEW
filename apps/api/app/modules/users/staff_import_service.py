@@ -85,6 +85,7 @@ async def _load_staff_indexes(
     dict[str, Department],
     dict[UUID, Department],
     dict[tuple[str, str], Position],
+    dict[UUID, Position],
 ]:
     """Load tenant-scoped users and hierarchy, including legacy text fallback."""
     users_result = await db.execute(
@@ -120,9 +121,11 @@ async def _load_staff_indexes(
 
     positions_result = await db.execute(select(Position).where(Position.tenant_id == tenant_id))
     positions_by_key: dict[tuple[str, str], Position] = {}
+    positions_by_id: dict[UUID, Position] = {}
     for position in positions_result.scalars().all():
         if position.tenant_id != tenant_id:
             continue
+        positions_by_id[position.id] = position
         position_key = normalize_staff_lookup(position.name)
         if not position_key:
             continue
@@ -136,6 +139,8 @@ async def _load_staff_indexes(
         legacy_department_key = normalize_staff_lookup(position.department)
         if legacy_department_key:
             positions_by_key.setdefault((legacy_department_key, position_key), position)
+        elif position.department_id is None:
+            positions_by_key.setdefault(("", position_key), position)
 
     return (
         users_by_pn,
@@ -143,6 +148,7 @@ async def _load_staff_indexes(
         departments_by_slug,
         departments_by_id,
         positions_by_key,
+        positions_by_id,
     )
 
 
@@ -1091,6 +1097,7 @@ async def build_preview(
         departments_by_slug,
         _,
         positions_by_key,
+        _,
     ) = await _load_staff_indexes(db, tenant_id)
     _assert_unique_staff_emails(parsed, users_by_pn, users_by_email)
 
@@ -1110,7 +1117,7 @@ async def build_preview(
         position = _find_position(positions_by_key, department_key, department, position_key)
         if department is None and department_key:
             new_departments.setdefault(department_key, values["department"] or "")
-        if position is None and department_key and position_key:
+        if position is None and position_key:
             new_positions.setdefault(
                 (department_key, position_key),
                 (values["department"] or "", values["position"] or ""),
@@ -1207,7 +1214,7 @@ async def build_preview(
     }
     return PreviewResult(
         items=items,
-        new_positions=sorted([f"{dept} / {pos}" for dept, pos in new_positions.values()]),
+        new_positions=sorted([f"{dept} / {pos}" if dept else pos for dept, pos in new_positions.values()]),
         new_departments=sorted(new_departments.values()),
         summary=summary,
     )
@@ -1223,6 +1230,7 @@ async def commit_import(
     *,
     commit_changes: bool = True,
     apply_rules: bool = True,
+    position_id_override: UUID | None = None,
 ) -> dict:
     """Apply the import: create/update users + create new positions.
 
@@ -1234,6 +1242,7 @@ async def commit_import(
         departments_by_slug,
         departments_by_id,
         positions_by_key,
+        positions_by_id,
     ) = await _load_staff_indexes(db, tenant_id)
     _assert_unique_staff_emails(parsed, users_by_pn, users_by_email)
 
@@ -1253,7 +1262,7 @@ async def commit_import(
         # Resolve/create the canonical Department before Position.
         department_key = normalize_staff_lookup(values["department"])
         department = departments_by_slug.get(department_key)
-        if department is None:
+        if department is None and department_key:
             department = Department(
                 id=uuid4(),
                 tenant_id=tenant_id,
@@ -1267,25 +1276,32 @@ async def commit_import(
             departments_by_id[department.id] = department
 
         position_key = normalize_staff_lookup(values["position"])
-        pos = _find_position(positions_by_key, department_key, department, position_key)
+        pos = (
+            positions_by_id.get(position_id_override)
+            if position_id_override is not None
+            else _find_position(positions_by_key, department_key, department, position_key)
+        )
+        if position_id_override is not None and pos is None:
+            raise ValueError("selected position is not available in this tenant")
         if pos is None:
             pos = Position(
                 id=uuid4(),
                 tenant_id=tenant_id,
                 name=values["position"] or "",
-                department=department.name,
+                department=department.name if department is not None else "",
                 level="",
                 responsibilities="",
                 requirements="",
                 employee_count=0,
-                department_id=department.id,
+                department_id=department.id if department is not None else None,
             )
             db.add(pos)
             await db.flush()
-            positions_by_key[(str(department.id), position_key)] = pos
+            if department is not None:
+                positions_by_key[(str(department.id), position_key)] = pos
             positions_by_key.setdefault((department_key, position_key), pos)
             positions_created += 1
-        else:
+        elif department is not None:
             # Legacy positions retain their text column for compatibility,
             # but all rows touched by a new write get the canonical FK.
             pos.department_id = department.id
@@ -1456,6 +1472,7 @@ async def create_manual_staff_member(
     last_name: str,
     department: str,
     position: str,
+    position_id: UUID | None = None,
     email: str | None = None,
     phone: str | None = None,
 ) -> dict:
@@ -1478,4 +1495,9 @@ async def create_manual_staff_member(
         missing_required_columns=[],
         total_rows_in_file=1,
     )
-    return await commit_import(db, tenant_id, parsed)
+    return await commit_import(
+        db,
+        tenant_id,
+        parsed,
+        position_id_override=position_id,
+    )

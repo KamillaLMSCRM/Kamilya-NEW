@@ -446,10 +446,9 @@ export default function AdminStaffPage() {
       "last_name",
     ];
     const hierarchyMissing =
-      (!manualForm.department_id && !manualForm.department.trim()) ||
-      (!manualForm.position_id && !manualForm.position.trim());
+      !manualForm.position_id && !manualForm.position.trim();
     if (requiredFields.some((field) => !manualForm[field].trim()) || hierarchyMissing) {
-      toast.error("Заполните табельный номер, имя, фамилию, отдел и должность");
+      toast.error("Заполните табельный номер, имя, фамилию и должность");
       return;
     }
     if (manualForm.phone && !isCompleteKzPhone(manualForm.phone)) {
@@ -467,8 +466,8 @@ export default function AdminStaffPage() {
         phone: manualForm.phone.trim() || undefined,
         department_id: manualForm.department_id || undefined,
         position_id: manualForm.position_id || undefined,
-        department: manualForm.department_id ? undefined : manualForm.department.trim(),
-        position: manualForm.position_id ? undefined : manualForm.position.trim(),
+        department: manualForm.department_id ? undefined : manualForm.department.trim() || undefined,
+        position: manualForm.position_id ? undefined : manualForm.position.trim() || undefined,
       };
       const res = await api.post("/v1/admin/staff/manual", payload);
       const r = res.data;
@@ -489,14 +488,19 @@ export default function AdminStaffPage() {
   const selectedDepartment = departmentOptions.find(
     (department) => department.id === manualForm.department_id,
   );
-  const filteredPositionOptions = positionOptions.filter(
-    (position) =>
-      position.department_id === manualForm.department_id ||
-      (!position.department_id &&
-        Boolean(selectedDepartment) &&
-        (position.department || "").trim().toLocaleLowerCase() ===
-          selectedDepartment!.name.trim().toLocaleLowerCase()),
-  );
+  const resolvePositionDepartmentId = (position: PositionOption) =>
+    position.department_id ||
+    departmentOptions.find(
+      (department) =>
+        department.name.trim().toLocaleLowerCase() ===
+        (position.department || "").trim().toLocaleLowerCase(),
+    )?.id ||
+    "";
+  const filteredPositionOptions = manualForm.department_id
+    ? positionOptions.filter(
+        (position) => resolvePositionDepartmentId(position) === manualForm.department_id,
+      )
+    : positionOptions;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-5 sm:p-6">
@@ -590,7 +594,7 @@ export default function AdminStaffPage() {
                     />
                   </label>
                   <label className="space-y-1">
-                    <span className="text-sm font-medium">Отдел *</span>
+                    <span className="text-sm font-medium">Отдел <span className="font-normal text-muted-foreground">(необязательно)</span></span>
                     <select
                       value={manualForm.department_id}
                       onChange={(e) =>
@@ -625,13 +629,18 @@ export default function AdminStaffPage() {
                     <span className="text-sm font-medium">Должность *</span>
                     <select
                       value={manualForm.position_id}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const positionId = e.target.value;
+                        const position = positionOptions.find((item) => item.id === positionId);
+                        const departmentId = position ? resolvePositionDepartmentId(position) : "";
                         setManualForm((current) => ({
                           ...current,
-                          position_id: e.target.value,
+                          department_id: departmentId || current.department_id,
+                          department: departmentId ? "" : current.department,
+                          position_id: positionId,
                           position: "",
-                        }))
-                      }
+                        }));
+                      }}
                       disabled={manualOptionsLoading}
                       className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
                     >
@@ -639,6 +648,9 @@ export default function AdminStaffPage() {
                       {filteredPositionOptions.map((position) => (
                         <option key={position.id} value={position.id}>
                           {position.name}
+                          {!manualForm.department_id && (position.department || resolvePositionDepartmentId(position))
+                            ? ` — ${position.department || departmentOptions.find((department) => department.id === resolvePositionDepartmentId(position))?.name || ""}`
+                            : ""}
                         </option>
                       ))}
                     </select>

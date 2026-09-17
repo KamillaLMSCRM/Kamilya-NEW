@@ -246,12 +246,12 @@ async def _resolve_manual_hierarchy(
         position.name if position is not None else payload.position or ""
     ).strip()
 
-    if not department_name or not position_name:
+    if not position_name:
         raise HTTPException(
             status_code=422,
             detail={
-                "code": "manual_hierarchy_required",
-                "message": "Выберите отдел и должность либо явно создайте новые.",
+                "code": "manual_position_required",
+                "message": "Выберите существующую должность либо явно создайте новую.",
             },
         )
 
@@ -356,6 +356,7 @@ async def create_manual_staff(
             last_name=payload.last_name,
             department=department_name,
             position=position_name,
+            position_id=payload.position_id,
             email=payload.email,
             phone=payload.phone,
         )

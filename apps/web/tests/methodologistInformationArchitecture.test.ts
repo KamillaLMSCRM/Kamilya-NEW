@@ -50,12 +50,14 @@ describe("methodologist information architecture", () => {
     expect(staffSource).not.toContain("Запасной сценарий для прежних файлов");
   });
 
-  it("uses canonical department and position ids for manual employees", () => {
+  it("uses canonical position ids while keeping department optional for manual employees", () => {
     expect(staffSource).toContain('api.get<{ departments: DepartmentOption[] }>("/v1/departments")');
     expect(staffSource).toContain('api.get<PositionOption[]>("/v1/positions")');
     expect(staffSource).toContain("department_id: manualForm.department_id || undefined");
     expect(staffSource).toContain("position_id: manualForm.position_id || undefined");
-    expect(staffSource).toContain("position.department_id === manualForm.department_id");
+    expect(staffSource).toContain("const resolvePositionDepartmentId");
+    expect(staffSource).toContain(": positionOptions;");
+    expect(staffSource).toContain("department: manualForm.department_id ? undefined : manualForm.department.trim() || undefined");
   });
 
   it("keeps large structures searchable and separately collapsible by position", () => {

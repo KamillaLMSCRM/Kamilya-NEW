@@ -316,6 +316,77 @@ describe('organization structure interactions', () => {
     expect(within(positionSelect).getByRole('option', { name: 'Кассир' })).toHaveValue('position-dept-1');
   });
 
+  it('offers existing positions immediately and selects their department automatically', async () => {
+    getMock.mockImplementation(async (url: string) => {
+      if (url.includes('/import/mappings')) return { data: [] } as any;
+      if (url === '/v1/departments') {
+        return { data: { departments: [{ id: 'dept-1', name: 'Бухгалтерия' }] } } as any;
+      }
+      if (url === '/v1/positions') {
+        return {
+          data: [{ id: 'position-dept-1', name: 'Кассир', department: 'Бухгалтерия', department_id: 'dept-1' }],
+        } as any;
+      }
+      if (url.includes('/organization-units/tree')) return { data: tree } as any;
+      throw new Error(`unexpected GET ${url}`);
+    });
+
+    render(<AdminStaffPage />);
+    fireEvent.click(screen.getByRole('button', { name: /Добавить сотрудника/i }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новый сотрудник' });
+    const departmentSelect = within(dialog).getByRole('combobox', { name: /^Отдел/ });
+    const positionSelect = within(dialog).getByRole('combobox', { name: /^Должность/ });
+
+    const existingPosition = await within(positionSelect).findByRole('option', { name: /Кассир/ });
+    expect(existingPosition).toHaveValue('position-dept-1');
+
+    fireEvent.change(positionSelect, { target: { value: 'position-dept-1' } });
+
+    expect(departmentSelect).toHaveValue('dept-1');
+    expect(within(dialog).queryByPlaceholderText(/Название нового отдела/i)).not.toBeInTheDocument();
+    expect(within(dialog).queryByPlaceholderText(/Название новой должности/i)).not.toBeInTheDocument();
+  });
+
+  it('allows an existing position without requiring a department', async () => {
+    getMock.mockImplementation(async (url: string) => {
+      if (url.includes('/import/mappings')) return { data: [] } as any;
+      if (url === '/v1/departments') return { data: { departments: [] } } as any;
+      if (url === '/v1/positions') {
+        return {
+          data: [{ id: 'position-direct-1', name: 'Директор', department: null, department_id: null }],
+        } as any;
+      }
+      if (url.includes('/organization-units/tree')) return { data: tree } as any;
+      throw new Error(`unexpected GET ${url}`);
+    });
+
+    render(<AdminStaffPage />);
+    fireEvent.click(screen.getByRole('button', { name: /Добавить сотрудника/i }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новый сотрудник' });
+    const departmentSelect = within(dialog).getByRole('combobox', { name: /^Отдел/ });
+    const positionSelect = within(dialog).getByRole('combobox', { name: /^Должность/ });
+
+    await within(positionSelect).findByRole('option', { name: 'Директор' });
+    fireEvent.change(positionSelect, { target: { value: 'position-direct-1' } });
+    expect(departmentSelect).toHaveValue('');
+
+    fireEvent.change(within(dialog).getByLabelText(/^Табельный номер/), { target: { value: 'EMP-DIRECT-1' } });
+    fireEvent.change(within(dialog).getByLabelText(/^Имя/), { target: { value: 'Алия' } });
+    fireEvent.change(within(dialog).getByLabelText(/^Фамилия/), { target: { value: 'Садыкова' } });
+    postMock.mockResolvedValueOnce({ data: { created: 1, updated: 0, skipped: 0, positions_created: 0 } } as any);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Добавить' }));
+
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith(
+      '/v1/admin/staff/manual',
+      expect.objectContaining({
+        department_id: undefined,
+        department: undefined,
+        position_id: 'position-direct-1',
+        position: undefined,
+      }),
+    ));
+  });
+
   it('pluralizes branch counts and drills down from a department to its employees', async () => {
     render(<AdminStaffPage />);
     fireEvent.click(screen.getByRole('tab', { name: /Структура/i }));

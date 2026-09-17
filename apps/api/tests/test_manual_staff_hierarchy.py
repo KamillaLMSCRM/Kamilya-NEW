@@ -82,6 +82,39 @@ async def test_manual_hierarchy_uses_canonical_ids() -> None:
 
 
 @pytest.mark.asyncio
+async def test_manual_hierarchy_allows_position_without_department() -> None:
+    tenant_id = uuid4()
+    position = Position(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        name="Director",
+        department="",
+        department_id=None,
+    )
+    db = AsyncMock()
+    db.scalar.return_value = position
+
+    names = await _resolve_manual_hierarchy(
+        db,
+        tenant_id,
+        _payload(position_id=position.id),
+    )
+
+    assert names == ("", "Director")
+
+
+@pytest.mark.asyncio
+async def test_manual_hierarchy_allows_new_position_without_department() -> None:
+    names = await _resolve_manual_hierarchy(
+        AsyncMock(),
+        uuid4(),
+        _payload(position=" New Position "),
+    )
+
+    assert names == ("", "New Position")
+
+
+@pytest.mark.asyncio
 async def test_manual_hierarchy_rejects_position_from_another_department() -> None:
     tenant_id = uuid4()
     selected_department = Department(
