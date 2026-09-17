@@ -1,7 +1,7 @@
 # Организационная структура v2: произвольная вложенность и независимые должности
 
 **Дата:** 2026-09-17  
-**Статус:** локальная реализация и root-review завершены; production не изменяется; merge/release ожидают DEV и browser gates
+**Статус:** локальная реализация, root-review и изолированный Supabase DEV gate завершены; production не изменяется; merge/release ожидают exact-SHA CI
 **Ветка:** `feature/org-hierarchy-v2-20260917`  
 **Базовая ревизия:** `6205c640fd0b9b6e3bb5a28b89be912915e29e39`
 
@@ -402,17 +402,22 @@ Root не принял агентскую реализацию вслепую. �
 
 До решения о merge обязательны и пока **NOT VERIFIED**:
 
-1. migration/RLS/FORCE RLS в изолированной disposable-схеме Supabase DEV;
-2. synthetic browser journey: создать дерево, центральный офис, общую должность,
+1. synthetic browser journey: создать дерево, центральный офис, общую должность,
    сотрудника без подразделения, сотрудника в глубоком узле, перенести поддерево
    и проверить recursive rule readback;
-3. CI на pull request перед merge.
+2. CI на pull request перед merge.
 
 Feature-ветка опубликована проектным аккаунтом `KamillaLMSCRM`; exact remote SHA
 проверяется после каждого push. Отдельный push этой ветки не запускает текущий
 workflow: `ci.yml` слушает push только в `master/main/develop/dev`, а feature
 branches проверяет через `pull_request`. PR не создавался, потому что DEV и
 browser gates ещё не закрыты.
+
+Supabase DEV gate **PASS**: реальная migration `0161` прошла upgrade,
+downgrade/re-upgrade, restricted `lms_app`, RLS/FORCE RLS, backfill,
+cross-tenant negatives, уровни `0…8`, отказ уровня `9`, cycle rejection и
+прямой SQL-перенос поддерева с переполнением глубины. Disposable schema удалена;
+shared `public.alembic_version` не изменилась.
 
 Итог текущего этапа: локальный код может перейти к DEV/browser acceptance, но
 не является разрешением на merge или production release.

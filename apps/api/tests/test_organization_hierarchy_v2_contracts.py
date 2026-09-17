@@ -218,3 +218,8 @@ def test_v2_migration_replaces_old_checks_and_guards_destructive_downgrade():
     assert "DO $$" in source
     assert "ALTER TABLE {departments} FORCE ROW LEVEL SECURITY" in source
     assert "WHERE id = NEW.id OR depth > 8" in source
+    assert "target_depth + subtree_height > 8" in source
+    assert "JOIN descendants AS d ON child.parent_id = d.id" in source
+    assert "for statement in _unit_trigger_sql(schema)" in source
+    assert "for statement in _user_trigger_sql(schema)" in source
+    assert "op.execute(_unit_trigger_sql(schema))" not in source

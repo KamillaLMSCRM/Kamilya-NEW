@@ -15,6 +15,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.7.0] - 2026-09-17
+
+### Added
+
+- Add organization structures of arbitrary practical depth with explicit unit
+  types for organizations, branches, management units, divisions, departments,
+  sectors, teams and other tenant-defined levels.
+- Add an explicit central-office marker, recursive structure search and
+  breadcrumbs, and a server-validated move preview that reports affected units,
+  positions and employees before a subtree is moved.
+- Add a generic hierarchy import contract while preserving the existing
+  branch/department spreadsheet adapter.
+
+### Changed
+
+- Keep an employee's required position independent from their optional
+  organization-unit placement, so one position profile can be used in several
+  branches or by an employee without a department.
+- Resolve training rules, learning-program audiences, qualification inheritance,
+  AI audience suggestions, training-log filters and evidence paths through the
+  complete active organization subtree.
+- Replace branch/department-specific structure rendering with one recursive tree
+  that supports creation, editing, movement and archival at every level.
+
+### Fixed
+
+- Reject direct database moves that would keep the moved root within the depth
+  limit while pushing one of its existing descendants below the limit.
+- Keep explicit empty employee placement from being silently restored through a
+  legacy position-to-department hint.
+
+### Security
+
+- Enforce tenant ownership, cycle prevention, maximum depth, one active root
+  central office, restricted runtime grants, RLS and FORCE RLS for the expanded
+  organization hierarchy and employee placement.
+
 ## [0.6.3] - 2026-09-17
 
 ### Fixed

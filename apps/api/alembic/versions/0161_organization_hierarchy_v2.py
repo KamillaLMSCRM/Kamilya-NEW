@@ -45,17 +45,19 @@ def _table(schema: str, name: str) -> str:
     return f'"{schema}".{name}'
 
 
-def _unit_trigger_sql(schema: str) -> str:
+def _unit_trigger_sql(schema: str) -> tuple[str, str]:
     departments = _table(schema, "departments")
     users = _table(schema, "users")
     allowed = ", ".join(f"'{value}'" for value in ALLOWED_UNIT_TYPES)
-    return f"""
+    function_sql = f"""
     CREATE FUNCTION "{schema}".validate_organization_unit_v2()
     RETURNS trigger LANGUAGE plpgsql SET search_path="{schema}",pg_temp AS $$
     DECLARE
       parent_tenant uuid;
       parent_active boolean;
       head_tenant uuid;
+      target_depth integer := 0;
+      subtree_height integer := 0;
     BEGIN
       NEW.name := btrim(NEW.name);
       NEW.normalized_name := lower(regexp_replace(btrim(NEW.name), '\\s+', ' ', 'g'));
@@ -123,6 +125,35 @@ def _unit_trigger_sql(schema: str) -> str:
           RAISE EXCEPTION 'organization unit hierarchy exceeds maximum depth of 8'
             USING ERRCODE = 'check_violation';
         END IF;
+
+        WITH RECURSIVE parent_path(id, parent_id, path) AS (
+          SELECT id, parent_id, ARRAY[id]
+            FROM {departments}
+           WHERE id = NEW.parent_id
+          UNION ALL
+          SELECT parent.id, parent.parent_id, p.path || parent.id
+            FROM {departments} AS parent
+            JOIN parent_path AS p ON parent.id = p.parent_id
+           WHERE NOT parent.id = ANY(p.path)
+        )
+        SELECT count(*) INTO target_depth FROM parent_path;
+
+        -- A move can keep the unit itself within the limit while pushing an
+        -- existing descendant below it.  Enforce the complete resulting
+        -- subtree depth at the database boundary, not only in the API.
+        WITH RECURSIVE descendants(id, depth, path) AS (
+          SELECT NEW.id, 0, ARRAY[NEW.id]
+          UNION ALL
+          SELECT child.id, d.depth + 1, d.path || child.id
+            FROM {departments} AS child
+            JOIN descendants AS d ON child.parent_id = d.id
+           WHERE NOT child.id = ANY(d.path)
+        )
+        SELECT coalesce(max(depth), 0) INTO subtree_height FROM descendants;
+        IF target_depth + subtree_height > 8 THEN
+          RAISE EXCEPTION 'organization unit hierarchy exceeds maximum depth of 8'
+            USING ERRCODE = 'check_violation';
+        END IF;
       END IF;
 
       IF NEW.is_head_office AND NEW.is_active AND EXISTS (
@@ -159,16 +190,18 @@ def _unit_trigger_sql(schema: str) -> str:
       END IF;
       RETURN NEW;
     END $$;
-
+    """
+    trigger_sql = f"""
     CREATE TRIGGER trg_validate_organization_unit_v2
     BEFORE INSERT OR UPDATE ON {departments}
     FOR EACH ROW EXECUTE FUNCTION "{schema}".validate_organization_unit_v2();
     """
+    return function_sql, trigger_sql
 
 
-def _user_trigger_sql(schema: str) -> str:
+def _user_trigger_sql(schema: str) -> tuple[str, str]:
     departments = _table(schema, "departments")
-    return f"""
+    function_sql = f"""
     CREATE FUNCTION "{schema}".validate_user_organization_unit_ownership()
     RETURNS trigger LANGUAGE plpgsql SET search_path="{schema}",pg_temp AS $$
     DECLARE unit_tenant uuid;
@@ -184,17 +217,19 @@ def _user_trigger_sql(schema: str) -> str:
       END IF;
       RETURN NEW;
     END $$;
-
+    """
+    trigger_sql = f"""
     CREATE TRIGGER trg_validate_user_organization_unit_ownership
     BEFORE INSERT OR UPDATE OF tenant_id, organization_unit_id ON "{schema}".users
     FOR EACH ROW EXECUTE FUNCTION "{schema}".validate_user_organization_unit_ownership();
     """
+    return function_sql, trigger_sql
 
 
-def _legacy_unit_trigger_sql(schema: str) -> str:
+def _legacy_unit_trigger_sql(schema: str) -> tuple[str, str]:
     departments = _table(schema, "departments")
     users = _table(schema, "users")
-    return f"""
+    function_sql = f"""
     CREATE FUNCTION "{schema}".validate_organization_unit_ownership()
     RETURNS trigger LANGUAGE plpgsql SET search_path="{schema}",pg_temp AS $$
     DECLARE
@@ -242,10 +277,13 @@ def _legacy_unit_trigger_sql(schema: str) -> str:
       END IF;
       RETURN NEW;
     END $$;
+    """
+    trigger_sql = f"""
     CREATE TRIGGER trg_validate_organization_unit_ownership
     BEFORE INSERT OR UPDATE ON {departments}
     FOR EACH ROW EXECUTE FUNCTION "{schema}".validate_organization_unit_ownership();
     """
+    return function_sql, trigger_sql
 
 
 def upgrade() -> None:
@@ -336,8 +374,10 @@ def upgrade() -> None:
         schema=schema,
     )
 
-    op.execute(_unit_trigger_sql(schema))
-    op.execute(_user_trigger_sql(schema))
+    for statement in _unit_trigger_sql(schema):
+        op.execute(statement)
+    for statement in _user_trigger_sql(schema):
+        op.execute(statement)
 
     op.execute(f"ALTER TABLE {departments} ENABLE ROW LEVEL SECURITY")
     op.execute(f"ALTER TABLE {departments} FORCE ROW LEVEL SECURITY")
@@ -402,7 +442,8 @@ def downgrade() -> None:
         "unit_type IN ('branch', 'department')",
         schema=schema,
     )
-    op.execute(_legacy_unit_trigger_sql(schema))
+    for statement in _legacy_unit_trigger_sql(schema):
+        op.execute(statement)
     op.create_check_constraint(
         "ck_departments_branch_root",
         "departments",
