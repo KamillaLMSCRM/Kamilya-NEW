@@ -13,14 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+### Security
+
+## [0.6.3] - 2026-09-17
+
+### Fixed
+
 - Show all existing positions immediately in the manual employee modal instead
   of hiding them until a department is selected. Selecting a department-linked
   position fills its department automatically, while positions and newly
   created employees may remain without a department.
 - Stop creating an empty department record when a manual employee is assigned
   to an existing or new department-free position.
-
-### Security
 
 ## [0.6.2] - 2026-09-17
 
