@@ -110,7 +110,7 @@ function UnitRow({
   onArchive,
   onEditEmployee,
 }: UnitRowProps & { node: OrganizationUnitNode; path: OrganizationUnitNode[]; depth: number }) {
-  if (depth >= 8) return null;
+  if (depth > 8) return null;
   const nextPath = [...path, node];
   const matches = organizationUnitMatches(node, query || '');
   if (!matches) return null;
@@ -128,7 +128,7 @@ function UnitRow({
           {hasContent ? (open ? <ChevronDown className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> : <ChevronRight className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />) : <span className="h-4 w-4 shrink-0" aria-hidden="true" />}
           <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
           <span className="min-w-0">
-            <span className="flex flex-wrap items-center gap-2 font-semibold text-foreground"><span>{node.name}</span><span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{typeLabel}</span>{node.is_head_office && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">Головной офис</span>}</span>
+            <span className="flex flex-wrap items-center gap-2 font-semibold text-foreground"><span>{node.name}</span><span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{typeLabel}</span>{node.is_head_office && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">Центральный офис</span>}</span>
             <span className="mt-1 block text-xs text-muted-foreground">Путь: {getOrganizationUnitBreadcrumb(nextPath)}</span>
             <span className="mt-0.5 block text-xs text-muted-foreground">
               {departmentCount > 0 && `${departmentCount} ${departmentCount === 1 ? 'отдел' : 'отделов'} · `}

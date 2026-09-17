@@ -154,6 +154,32 @@ def test_generic_units_are_committed_in_topological_order_at_any_supported_depth
     ]
 
 
+def test_generic_units_reject_depth_nine_before_commit() -> None:
+    units = [
+        _unit(f"u{depth}", f"u{depth - 1}" if depth else None, f"Level {depth}")
+        for depth in range(10)
+    ]
+
+    with pytest.raises(ImportHierarchyConflictError, match="maximum depth"):
+        topologically_order_organization_units(units)
+
+
+def test_generic_units_require_one_explicit_root_head_office() -> None:
+    two_heads = [
+        _unit("head-1", None, "Central A").model_copy(update={"is_head_office": True}),
+        _unit("head-2", None, "Central B").model_copy(update={"is_head_office": True}),
+    ]
+    nested_head = _unit("head", "parent", "Central").model_copy(
+        update={"is_head_office": True}
+    )
+
+    with pytest.raises(ImportHierarchyConflictError, match="more than one head office"):
+        topologically_order_organization_units(two_heads)
+    with pytest.raises(ImportHierarchyConflictError, match="root organization unit"):
+        topologically_order_organization_units(
+            [_unit("parent", None, "Parent"), nested_head]
+        )
+
 def test_generic_unit_parent_validation_rejects_missing_ambiguous_and_cyclic_graphs() -> None:
     with pytest.raises(ImportHierarchyConflictError, match="missing parent"):
         topologically_order_organization_units([_unit("child", "missing", "Child")])
@@ -257,6 +283,61 @@ def test_repeated_generic_commit_planning_is_idempotent_and_reuses_every_id() ->
 
     assert [item.existing.id for item in first] == [ids[key] for key in ("u1", "u2", "u3", "u4")]
     assert [item.existing.id for item in second] == [item.existing.id for item in first]
+
+
+def test_generic_commit_plan_rejects_child_below_existing_depth_eight() -> None:
+    ids = [uuid4() for _ in range(9)]
+    existing = [
+        SimpleNamespace(
+            id=ids[depth],
+            external_key=f"existing-{depth}",
+            parent_id=ids[depth - 1] if depth else None,
+            normalized_name=f"level {depth}",
+            name=f"Level {depth}",
+            unit_type="other",
+            is_active=True,
+            is_head_office=False,
+        )
+        for depth in range(9)
+    ]
+
+    with pytest.raises(ImportCommitConflictError, match="maximum depth"):
+        build_generic_unit_commit_plan(
+            [_unit("incoming-child", "existing-8", "Too deep")],
+            existing_units=existing,
+        )
+
+
+def test_generic_commit_plan_rejects_move_below_existing_descendant() -> None:
+    root_id, child_id = uuid4(), uuid4()
+    existing = [
+        SimpleNamespace(
+            id=root_id,
+            external_key="root",
+            parent_id=None,
+            normalized_name="root",
+            name="Root",
+            unit_type="other",
+            is_active=True,
+            is_head_office=False,
+        ),
+        SimpleNamespace(
+            id=child_id,
+            external_key="child",
+            parent_id=root_id,
+            normalized_name="child",
+            name="Child",
+            unit_type="other",
+            is_active=True,
+            is_head_office=False,
+        ),
+    ]
+
+    with pytest.raises(ImportCommitConflictError, match="cycle"):
+        build_generic_unit_commit_plan(
+            [_unit("root", "child", "Root")],
+            existing_units=existing,
+        )
 
 
 def test_generic_unit_name_never_requests_head_office_without_explicit_flag() -> None:

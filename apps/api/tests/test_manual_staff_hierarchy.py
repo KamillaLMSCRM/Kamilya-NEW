@@ -104,6 +104,29 @@ async def test_manual_hierarchy_allows_position_without_department() -> None:
 
 
 @pytest.mark.asyncio
+async def test_manual_hierarchy_does_not_infer_unit_from_position_legacy_hint() -> None:
+    tenant_id = uuid4()
+    position = Position(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        name="Accountant",
+        department="Finance",
+        department_id=uuid4(),
+    )
+    db = AsyncMock()
+    db.scalar.return_value = position
+
+    names = await _resolve_manual_hierarchy(
+        db,
+        tenant_id,
+        _payload(position_id=position.id),
+    )
+
+    assert names == ("", "Accountant")
+    db.scalar.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_manual_hierarchy_allows_new_position_without_department() -> None:
     names = await _resolve_manual_hierarchy(
         AsyncMock(),

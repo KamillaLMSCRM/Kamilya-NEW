@@ -126,4 +126,28 @@ describe('manual staff organization unit contract', () => {
       }),
     ));
   });
+
+  it('keeps position and placement independent in either selection order', async () => {
+    getMock.mockImplementation(async (url: string) => {
+      if (url.includes('/import/mappings')) return { data: [] } as any;
+      if (url === '/v1/departments') return { data: { departments: [] } } as any;
+      if (url === '/v1/positions') return { data: [
+        { id: 'shared-position', name: 'Общая должность', department: 'Legacy', department_id: 'unit-1' },
+      ] } as any;
+      if (url.includes('/organization-units/tree')) return { data: tree } as any;
+      throw new Error(`unexpected GET ${url}`);
+    });
+
+    render(<AdminStaffPage />);
+    fireEvent.click(screen.getByRole('button', { name: /Добавить сотрудника/i }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новый сотрудник' });
+    const positionSelect = within(dialog).getByRole('combobox', { name: /^Должность/ });
+    const unitSelect = within(dialog).getByRole('combobox', { name: /^Отдел/ });
+
+    fireEvent.change(positionSelect, { target: { value: 'shared-position' } });
+    expect(unitSelect).toHaveValue('');
+
+    fireEvent.change(unitSelect, { target: { value: 'unit-1' } });
+    expect(positionSelect).toHaveValue('shared-position');
+  });
 });

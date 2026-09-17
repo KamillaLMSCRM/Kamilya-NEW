@@ -4,11 +4,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import and_, delete, literal, or_, select, update
+from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.courses import Course
-from app.models.department import Department
 from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.organization_scope import resolve_ancestor_path, resolve_employee_scope
@@ -109,16 +108,11 @@ async def _rule_course_sets(
         legacy_position_unit_id = None
     effective_unit_id = placement_id or legacy_position_unit_id
     if effective_unit_id is not None:
-        if placement_id is not None or isinstance(db, AsyncSession):
-            department_scope_ids = await resolve_ancestor_path(
-                db,
-                tenant_id,
-                effective_unit_id,
-            )
-        else:
-            # Keep database-free v1 mocks and legacy adapters compatible;
-            # real sessions always use organization_scope above.
-            department_scope_ids = [effective_unit_id]
+        department_scope_ids = await resolve_ancestor_path(
+            db,
+            tenant_id,
+            effective_unit_id,
+        )
         department_courses = set(
             await _published_rule_courses(
                 db,
@@ -268,43 +262,24 @@ async def preview_rule_change(
             User.is_active.is_(True),
         )
     elif scope == "department" and department_id is not None:
-        if isinstance(db, AsyncSession):
-            unit_scope = await resolve_employee_scope(db, tenant_id, [department_id])
-            user_query = (
-                select(User)
-                .outerjoin(Position, User.position_id == Position.id)
-                .where(
-                    User.tenant_id == tenant_id,
-                    User.role == "student",
-                    User.is_active.is_(True),
-                    or_(
-                        User.organization_unit_id.in_(unit_scope),
-                        and_(
-                            User.organization_unit_id.is_(None),
-                            Position.tenant_id == tenant_id,
-                            Position.department_id.in_(unit_scope),
-                        ),
+        unit_scope = await resolve_employee_scope(db, tenant_id, [department_id])
+        user_query = (
+            select(User)
+            .outerjoin(Position, User.position_id == Position.id)
+            .where(
+                User.tenant_id == tenant_id,
+                User.role == "student",
+                User.is_active.is_(True),
+                or_(
+                    User.organization_unit_id.in_(unit_scope),
+                    and_(
+                        User.organization_unit_id.is_(None),
+                        Position.tenant_id == tenant_id,
+                        Position.department_id.in_(unit_scope),
                     ),
-                )
+                ),
             )
-        else:
-            # Preserve the database-free v1 preview test double contract.
-            child_department_ids = select(Department.id).where(
-                Department.tenant_id == tenant_id,
-                Department.parent_id == department_id,
-                Department.is_active.is_(True),
-            )
-            user_query = (
-                select(User)
-                .join(Position, User.position_id == Position.id)
-                .where(
-                    User.tenant_id == tenant_id,
-                    User.role == "student",
-                    User.is_active.is_(True),
-                    Position.tenant_id == tenant_id,
-                    Position.department_id.in_(child_department_ids.union_all(select(literal(department_id)))),
-                )
-            )
+        )
     else:
         raise ValueError("Department rule preview requires department_id")
 

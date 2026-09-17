@@ -97,26 +97,21 @@ async def test_recompute_department_members_walks_position_to_users():
     db = AsyncMock()
     department_id = uuid4()
     tenant_id = uuid4()
-    pos_a, pos_b = uuid4(), uuid4()
     user_a, user_b = uuid4(), uuid4()
 
-    # First execute: positions in department → 2 positions
-    scalars_first = MagicMock()
-    scalars_first.all = MagicMock(return_value=[(pos_a,), (pos_b,)])
-    result_first = MagicMock()
-    result_first.scalars = MagicMock(return_value=scalars_first)
-
-    # Second execute: users in those positions → 2 users
-    scalars_second = MagicMock()
-    scalars_second.all = MagicMock(return_value=[(user_a,), (user_b,)])
-    result_second = MagicMock()
-    result_second.scalars = MagicMock(return_value=scalars_second)
-
-    db.execute = AsyncMock(side_effect=[result_first, result_second])
+    scalars = MagicMock()
+    scalars.all = MagicMock(return_value=[user_a, user_b])
+    db.execute = AsyncMock(return_value=MagicMock(scalars=MagicMock(return_value=scalars)))
 
     async def fake_recompute(d, user_id):
         return _result_mock(added=1)
-    with patch("app.modules.positions.batch_service.recompute_enrollments", side_effect=fake_recompute):
+    with (
+        patch(
+            "app.modules.positions.batch_service.resolve_employee_scope",
+            new=AsyncMock(return_value={department_id}),
+        ),
+        patch("app.modules.positions.batch_service.recompute_enrollments", side_effect=fake_recompute),
+    ):
         result = await recompute_department_members(db, department_id, tenant_id)
 
     assert result.users_processed == 2
@@ -129,11 +124,18 @@ async def test_recompute_department_members_empty_department():
     db = AsyncMock()
     _mock_select_chain(db, [])
 
-    with patch("app.modules.positions.batch_service.recompute_enrollments") as fake:
-        result = await recompute_department_members(db, uuid4(), uuid4())
+    department_id = uuid4()
+    with (
+        patch(
+            "app.modules.positions.batch_service.resolve_employee_scope",
+            new=AsyncMock(return_value={department_id}),
+        ),
+        patch("app.modules.positions.batch_service.recompute_enrollments") as fake,
+    ):
+        result = await recompute_department_members(db, department_id, uuid4())
 
     assert result.users_processed == 0
-    # Only one execute() was made (the position query). No second query.
+    # Only one execute() was made (the recursive-scope user query).
     assert db.execute.call_count == 1
     fake.assert_not_called()
 

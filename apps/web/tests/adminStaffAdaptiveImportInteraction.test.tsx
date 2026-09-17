@@ -316,7 +316,7 @@ describe('organization structure interactions', () => {
     expect(within(positionSelect).getByRole('option', { name: 'Кассир' })).toHaveValue('position-dept-1');
   });
 
-  it('offers existing positions immediately and selects their department automatically', async () => {
+  it('offers existing positions immediately without forcing their legacy department', async () => {
     getMock.mockImplementation(async (url: string) => {
       if (url.includes('/import/mappings')) return { data: [] } as any;
       if (url === '/v1/departments') {
@@ -342,8 +342,8 @@ describe('organization structure interactions', () => {
 
     fireEvent.change(positionSelect, { target: { value: 'position-dept-1' } });
 
-    expect(departmentSelect).toHaveValue('dept-1');
-    expect(within(dialog).queryByPlaceholderText(/Название нового отдела/i)).not.toBeInTheDocument();
+    expect(departmentSelect).toHaveValue('');
+    expect(within(dialog).getByPlaceholderText(/Название нового отдела/i)).toBeInTheDocument();
     expect(within(dialog).queryByPlaceholderText(/Название новой должности/i)).not.toBeInTheDocument();
   });
 

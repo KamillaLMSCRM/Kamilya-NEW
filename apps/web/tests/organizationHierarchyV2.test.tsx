@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import AdminStaffPage from '@/app/admin/staff/page';
+import { flattenOrganizationUnits, type OrganizationUnitNode } from '@/features/staff-structure/organizationStructure';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 
@@ -47,8 +48,7 @@ const position = {
   employees: [{ id: 'employee-sector-1', full_name: 'Мария Иванова', personnel_number: '102', is_active: true }],
 };
 
-const fourLevelTree = {
-  branches: [{
+const fourLevelRoot = {
     id: 'office-1',
     name: 'Центральный офис',
     slug: 'central-office',
@@ -86,7 +86,11 @@ const fourLevelTree = {
         }],
       }],
     }],
-  }],
+  };
+
+const fourLevelTree = {
+  roots: [fourLevelRoot],
+  branches: [],
   legacy_roots: [],
   unassigned_legacy_positions: [],
   summary: { total_branches: 1, total_departments: 3, total_positions: 1, total_employees: 1 },
@@ -110,6 +114,23 @@ afterEach(() => {
 });
 
 describe('organization hierarchy v2 public UI', () => {
+  it('keeps depth eight visible and excludes only deeper corrupt input', () => {
+    const root: OrganizationUnitNode = {
+      id: 'depth-0', name: 'Level 0', children: [], positions: [],
+    };
+    let current = root;
+    for (let depth = 1; depth <= 9; depth += 1) {
+      const child: OrganizationUnitNode = {
+        id: `depth-${depth}`, name: `Level ${depth}`, children: [], positions: [],
+      };
+      current.children = [child];
+      current = child;
+    }
+
+    expect(flattenOrganizationUnits([root]).map((item) => item.depth)).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7, 8,
+    ]);
+  });
   it('renders a four-level tree and positions at the deepest node', async () => {
     render(<AdminStaffPage />);
     fireEvent.click(screen.getByRole('tab', { name: /Структура/i }));
@@ -132,7 +153,7 @@ describe('organization hierarchy v2 public UI', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Структура/i }));
 
     expect((await screen.findAllByText('Центральный офис')).length).toBeGreaterThan(0);
-    expect(screen.getByText('Головной офис')).toBeInTheDocument();
+    expect((await screen.findAllByText('Центральный офис')).length).toBeGreaterThan(1);
     fireEvent.click(screen.getByRole('button', { name: /Центральный офис/i }));
     fireEvent.click(await screen.findByRole('button', { name: /Управление качества/i }));
     fireEvent.click(await screen.findByRole('button', { name: /Департамент испытаний/i }));

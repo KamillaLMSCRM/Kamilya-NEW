@@ -1,5 +1,5 @@
 """Focused unit coverage for organization-wide course-rule inheritance."""
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -72,7 +72,11 @@ async def test_position_department_and_organization_use_declared_precedence():
         current_rows=[],
     )
 
-    outcome = await recompute_enrollments(db, uuid4())
+    with patch(
+        "app.modules.positions.assignment_service.resolve_ancestor_path",
+        new=AsyncMock(return_value=[uuid4()]),
+    ):
+        outcome = await recompute_enrollments(db, uuid4())
 
     assert outcome.added == 3
     sources = {call.args[0].course_id: call.args[0].source for call in db.add.call_args_list}
@@ -128,7 +132,11 @@ async def test_existing_organization_enrollment_is_upgraded_to_position_source()
         current_rows=[(course_id, "organization", "enrolled")],
     )
 
-    outcome = await recompute_enrollments(db, uuid4())
+    with patch(
+        "app.modules.positions.assignment_service.resolve_ancestor_path",
+        new=AsyncMock(return_value=[uuid4()]),
+    ):
+        outcome = await recompute_enrollments(db, uuid4())
 
     assert outcome.added == 0
     assert outcome.updated == 1

@@ -194,6 +194,12 @@ def topologically_order_organization_units(
     """
 
     active_units = [unit for unit in units if unit.action not in {MatchAction.SKIP, MatchAction.CONFLICT}]
+    head_offices = [unit for unit in active_units if unit.is_head_office]
+    if len(head_offices) > 1:
+        raise ImportHierarchyConflictError(
+            "proposal contains more than one head office",
+            code="multiple_head_offices",
+        )
     by_key: dict[str, OrganizationUnitProposal] = {}
     for unit in active_units:
         key = normalize_import_key(unit.external_key)
@@ -209,6 +215,11 @@ def topologically_order_organization_units(
     known_keys = {normalize_import_key(key) for key in known_external_keys if normalize_import_key(key)}
     for unit in active_units:
         parent_key = normalize_import_key(unit.parent_external_key)
+        if unit.is_head_office and parent_key:
+            raise ImportHierarchyConflictError(
+                "head office must be a root organization unit",
+                code="head_office_not_root",
+            )
         if parent_key and parent_key not in by_key and parent_key not in known_keys:
             raise ImportHierarchyConflictError(
                 f"missing parent external key: {unit.parent_external_key}",
@@ -218,18 +229,28 @@ def topologically_order_organization_units(
     state: dict[str, int] = {}
     ordered: list[OrganizationUnitProposal] = []
 
-    def visit(key: str) -> None:
+    depths: dict[str, int] = {}
+
+    def visit(key: str) -> int:
         current = state.get(key, 0)
         if current == 1:
             raise ImportHierarchyConflictError("organization unit parent cycle detected", code="cycle")
         if current == 2:
-            return
+            return depths[key]
         state[key] = 1
         parent_key = normalize_import_key(by_key[key].parent_external_key)
+        depth = 0
         if parent_key in by_key:
-            visit(parent_key)
+            depth = visit(parent_key) + 1
+        if depth > 8:
+            raise ImportHierarchyConflictError(
+                "organization unit hierarchy exceeds maximum depth of 8",
+                code="max_depth",
+            )
+        depths[key] = depth
         state[key] = 2
         ordered.append(by_key[key])
+        return depth
 
     for key in sorted(by_key):
         visit(key)

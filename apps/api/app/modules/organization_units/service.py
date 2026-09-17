@@ -112,9 +112,10 @@ async def create_organization_unit(
         unit_type=unit_type,
         parent_id=parent_id,
         is_active=True,
+        is_head_office=is_head_office,
     )
     validate_parent_assignment(
-        unit=OrganizationUnitRef(**{**ref.__dict__, "is_head_office": is_head_office}),
+        unit=ref,
         parent=_as_ref(parent) if parent else None,
         parent_depth=0 if parent is None else len(parent_path) - 1,
     )
@@ -343,16 +344,17 @@ def build_tree(
 
     root_ids = {node["id"] for node in roots}
     branches = [nodes[u.id] for u in units if u.unit_type == "branch" and u.id in root_ids]
-    # Existing flat records are department roots.  Include every non-branch
-    # root, not only rows carrying the legacy_root flag, so old tenants cannot
-    # disappear from the structure summary after a partial migration.
-    legacy = [nodes[u.id] for u in units if u.unit_type != "branch" and u.id in root_ids]
+    # The second collection contains every non-branch root for compatibility
+    # with the historical two-list helper.  The HTTP adapter must expose only
+    # nodes carrying ``legacy_root`` through its legacy projection; generic
+    # organization/management roots belong exclusively to ``roots``.
+    other_roots = [nodes[u.id] for u in units if u.unit_type != "branch" and u.id in root_ids]
     for root in roots:
         annotate(root, depth=0, breadcrumb=[])
         roll_up(root)
     branches.sort(key=lambda node: (normalize_unit_name(node["name"]), str(node["id"])))
-    legacy.sort(key=lambda node: (normalize_unit_name(node["name"]), str(node["id"])))
-    return branches, legacy
+    other_roots.sort(key=lambda node: (normalize_unit_name(node["name"]), str(node["id"])))
+    return branches, other_roots
 
 
 async def get_organization_unit_projection(
@@ -366,9 +368,10 @@ async def get_organization_unit_projection(
     units = await list_organization_units(db, tenant_id)
     by_id = {candidate.id: candidate for candidate in units}
     path_ids = await resolve_ancestor_path(db, tenant_id, unit_id)
+    branches, other_roots = build_tree(units)
     node = next(
         node
-        for root in build_tree(units)[0] + build_tree(units)[1]
+        for root in branches + other_roots
         for node in _walk_tree(root)
         if node["id"] == unit_id
     )

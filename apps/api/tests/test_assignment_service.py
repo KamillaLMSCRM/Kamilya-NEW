@@ -15,7 +15,7 @@ Uses mocked DB to keep tests fast and DB-independent. Tests cover:
 Mocks the AsyncSession.execute() return chains carefully — recompute
 runs several queries in sequence.
 """
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -352,7 +352,11 @@ async def test_department_and_position_overlap_position_wins():
     db.add = MagicMock()
     db.flush = AsyncMock()
 
-    result = await recompute_enrollments(db, user_id=uuid4())
+    with patch(
+        "app.modules.positions.assignment_service.resolve_ancestor_path",
+        new=AsyncMock(return_value=[department_id]),
+    ):
+        result = await recompute_enrollments(db, user_id=uuid4())
 
     # Only one enrollment, and it has source='position' (priority).
     assert result.added == 1

@@ -102,7 +102,7 @@ def _unit_trigger_sql(schema: str) -> str:
              WHERE NOT parent.id = ANY(a.path)
           )
           SELECT 1 FROM ancestors
-           WHERE id = NEW.id OR depth >= 8
+           WHERE id = NEW.id OR depth > 8
         ) THEN
           IF EXISTS (
             WITH RECURSIVE ancestors(id, parent_id, path) AS (

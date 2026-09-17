@@ -238,18 +238,10 @@ async def _resolve_manual_hierarchy(
                 },
             )
 
-        if position.department_id is not None and department is None:
-            department = await db.scalar(
-                select(Department).where(
-                    Department.id == position.department_id,
-                    Department.tenant_id == tenant_id,
-                )
-            )
-
     department_name = (
         department.name
         if department is not None
-        else (position.department if position is not None else payload.department or "")
+        else (payload.department or "")
     ).strip()
     position_name = (
         position.name if position is not None else payload.position or ""

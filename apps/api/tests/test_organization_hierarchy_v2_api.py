@@ -11,8 +11,10 @@ import pytest
 from fastapi import HTTPException
 
 from app.modules.organization_scope import MoveScope
+from app.modules.organization_units.domain import OrganizationUnitType
 from app.modules.organization_units.service import (
     build_tree,
+    create_organization_unit,
     update_organization_unit,
 )
 from app.modules.positions.models import Position
@@ -80,6 +82,32 @@ def test_four_level_tree_has_depth_breadcrumb_head_office_and_recursive_rollups(
     assert leaf["breadcrumb"] == ["Central Office", "Management", "Division", "Sector"]
     assert node["position_count"] == 1
     assert node["employee_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_create_root_unit_uses_slots_safe_domain_reference():
+    tenant_id = uuid4()
+    db = AsyncMock()
+    duplicate_result = MagicMock()
+    duplicate_result.scalar_one_or_none.return_value = None
+    db.execute.return_value = duplicate_result
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+
+    created = await create_organization_unit(
+        db,
+        tenant_id=tenant_id,
+        name="Operations",
+        unit_type=OrganizationUnitType.MANAGEMENT,
+        parent_id=None,
+        external_key=None,
+        description="",
+        code=None,
+    )
+
+    assert created.tenant_id == tenant_id
+    assert created.parent_id is None
+    db.add.assert_called_once_with(created)
 
 
 @pytest.mark.asyncio

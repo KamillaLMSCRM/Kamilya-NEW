@@ -23,10 +23,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import and_, literal, or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.department import Department
 from app.models.users import User
 from app.modules.organization_scope import resolve_employee_scope
 from app.modules.positions.assignment_service import (
@@ -104,66 +103,22 @@ async def recompute_department_members(
     in this department.
     """
     result = BatchResult()
-    if isinstance(db, AsyncSession):
-        unit_scope = await resolve_employee_scope(db, tenant_id, [department_id])
-        user_result = await db.execute(
-            select(User.id)
-            .outerjoin(Position, User.position_id == Position.id)
-            .where(
-                User.tenant_id == tenant_id,
-                User.role == "student",
-                User.is_active.is_(True),
-                or_(
-                    User.organization_unit_id.in_(unit_scope),
-                    and_(
-                        User.organization_unit_id.is_(None),
-                        Position.tenant_id == tenant_id,
-                        Position.department_id.in_(unit_scope),
-                    ),
-                ),
-            )
-        )
-        user_ids = list(user_result.scalars().all())
-        for user_id in user_ids:
-            outcome = await recompute_enrollments(db, user_id)
-            result.merge(outcome)
-        return result
-
-    # Compatibility for database-free legacy test doubles; real sessions use
-    # organization_scope above and never expose recursive query construction.
-    pos_result = await db.execute(
-        select(Position.id).where(
-            Position.department_id.in_(
-                select(Department.id)
-                .where(
-                    Department.tenant_id == tenant_id,
-                    Department.parent_id == department_id,
-                    Department.is_active.is_(True),
-                )
-                .union_all(select(literal(department_id)))
-            ),
-            Position.tenant_id == tenant_id,
-        )
-    )
-    # Pre-existing bug fixed 2026-06-30: `pos_result.scalars().all()`
-    # on a single-column SELECT returns native `asyncpg.UUID` objects
-    # (not Row objects and not `uuid.UUID`). Iterating with `row[0]`
-    # then tried UUID[0] and raised
-    #   TypeError: 'asyncpg.pgproto.pgproto.UUID' object is not subscriptable
-    # The bug was dormant because legacy Excel-imported tenants had
-    # `Position.department_id = NULL` for every row, so the earlier
-    # `if not position_ids: return result` short-circuit masked it.
-    # After the slug-or-UUID fix backfills Position.department_id,
-    # recompute actually iterates — and crashed.
-    # Fix: take scalars() as-is (already UUID values, not Rows).
-    position_ids = list(pos_result.scalars().all())
-    if not position_ids:
-        return result
-
+    unit_scope = await resolve_employee_scope(db, tenant_id, [department_id])
     user_result = await db.execute(
-        select(User.id).where(
-            User.position_id.in_(position_ids),
+        select(User.id)
+        .outerjoin(Position, User.position_id == Position.id)
+        .where(
             User.tenant_id == tenant_id,
+            User.role == "student",
+            User.is_active.is_(True),
+            or_(
+                User.organization_unit_id.in_(unit_scope),
+                and_(
+                    User.organization_unit_id.is_(None),
+                    Position.tenant_id == tenant_id,
+                    Position.department_id.in_(unit_scope),
+                ),
+            ),
         )
     )
     user_ids = list(user_result.scalars().all())

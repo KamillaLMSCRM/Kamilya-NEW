@@ -68,7 +68,7 @@ export function flattenOrganizationUnits(
   const flattened: FlattenedOrganizationUnit[] = [];
 
   const visit = (node: OrganizationUnitNode, path: OrganizationUnitNode[], depth: number, ancestors: Set<string>) => {
-    if (depth >= maxDepth || ancestors.has(node.id)) return;
+    if (depth > maxDepth || ancestors.has(node.id)) return;
     const nextPath = [...path, node];
     flattened.push({
       id: node.id,

@@ -47,9 +47,10 @@ async def get_organization_tree(
         units=units,
     )
     unassigned_legacy_positions = projections.pop(UNASSIGNED_LEGACY_UNIT_ID, [])
-    branches, legacy_roots = build_tree(units, positions_by_unit=projections)
+    branches, other_roots = build_tree(units, positions_by_unit=projections)
+    legacy_roots = [node for node in other_roots if node["legacy_root"]]
     roots = sorted(
-        [*branches, *legacy_roots],
+        [*branches, *other_roots],
         key=lambda node: (node["breadcrumb"], str(node["id"])),
     )
     return OrganizationUnitTreeResponse(
@@ -63,9 +64,9 @@ async def get_organization_tree(
             # counted as departments for compatibility with the old flat
             # structure endpoint.
             "total_departments": sum(branch["department_count"] for branch in branches) + len(legacy_roots),
-            "total_positions": sum(node["position_count"] for node in (*branches, *legacy_roots))
+            "total_positions": sum(node["position_count"] for node in roots)
             + len(unassigned_legacy_positions),
-            "total_employees": sum(node["employee_count"] for node in (*branches, *legacy_roots))
+            "total_employees": sum(node["employee_count"] for node in roots)
             + sum(item["employee_count"] for item in unassigned_legacy_positions),
             "legacy_roots": len(legacy_roots),
             "unassigned_positions": len(unassigned_legacy_positions),

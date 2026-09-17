@@ -94,6 +94,66 @@ def build_generic_unit_commit_plan(
         plan.append(GenericUnitCommitPlanItem(proposal=proposal, existing=existing))
         if existing is not None:
             resolved_existing_by_key[key] = existing
+
+    active_items = [item for item in plan if _active_action(item.proposal.action)]
+    incoming_head_offices = [item for item in active_items if item.proposal.is_head_office]
+    existing_head_office_ids = {
+        unit.id
+        for unit in existing_units
+        if getattr(unit, "is_head_office", False) and getattr(unit, "is_active", True)
+    }
+    matched_head_office_ids = {
+        item.existing.id for item in incoming_head_offices if item.existing is not None
+    }
+    if existing_head_office_ids - matched_head_office_ids and incoming_head_offices:
+        raise ImportCommitConflictError("tenant already has an active head office")
+
+    # Validate the final graph, not only the incoming fragment.  An imported
+    # node may be attached to an existing depth-eight parent or an existing
+    # descendant; both must fail before the session changes state or writes.
+    identity_by_key: dict[str, object] = {
+        key: unit.id for key, unit in existing_by_external.items()
+    }
+    identity_by_item: dict[int, object] = {}
+    for item in active_items:
+        key = normalize_import_key(item.proposal.external_key)
+        identity = item.existing.id if item.existing is not None else ("incoming", key)
+        identity_by_key[key] = identity
+        identity_by_item[id(item)] = identity
+
+    parent_by_identity: dict[object, object | None] = {
+        unit.id: unit.parent_id for unit in existing_units
+    }
+    for item in active_items:
+        parent_key = normalize_import_key(item.proposal.parent_external_key)
+        parent_identity = identity_by_key.get(parent_key) if parent_key else None
+        if parent_key and parent_identity is None:
+            raise ImportCommitConflictError(
+                f"approved organization unit parent is missing: {item.proposal.parent_external_key}"
+            )
+        parent_by_identity[identity_by_item[id(item)]] = parent_identity
+
+    depths: dict[object, int] = {}
+    visiting: set[object] = set()
+
+    def final_depth(identity: object) -> int:
+        if identity in depths:
+            return depths[identity]
+        if identity in visiting:
+            raise ImportCommitConflictError("organization unit parent cycle detected")
+        visiting.add(identity)
+        parent_identity = parent_by_identity.get(identity)
+        depth = 0 if parent_identity is None else final_depth(parent_identity) + 1
+        visiting.remove(identity)
+        if depth > 8:
+            raise ImportCommitConflictError(
+                "organization unit hierarchy exceeds maximum depth of 8"
+            )
+        depths[identity] = depth
+        return depth
+
+    for item in active_items:
+        final_depth(identity_by_item[id(item)])
     return tuple(plan)
 
 
@@ -187,21 +247,18 @@ async def commit_approved_import_session(
     }
     affected_user_ids: set[UUID] = set()
     units = existing_units
-    units_by_external = {unit.external_key: unit for unit in units if unit.external_key}
+    units_by_external = {
+        normalize_import_key(unit.external_key): unit
+        for unit in units
+        if normalize_import_key(unit.external_key)
+    }
     resolved_units: dict[str, Department] = {}
 
     if generic_plan is not None:
         for plan_item in generic_plan:
             proposal = plan_item.proposal
             parent_key = normalize_import_key(proposal.parent_external_key)
-            parent = resolved_units.get(parent_key) or next(
-                (
-                    unit
-                    for key, unit in units_by_external.items()
-                    if normalize_import_key(key) == parent_key
-                ),
-                None,
-            )
+            parent = resolved_units.get(parent_key) or units_by_external.get(parent_key)
             if parent_key and parent is None:
                 raise ImportCommitConflictError(
                     f"approved organization unit parent is missing: {proposal.parent_external_key}"
@@ -255,15 +312,17 @@ async def commit_approved_import_session(
                         counts[count_key] += 1
                 else:
                     counts["unchanged"] += 1
-            units_by_external[proposal.external_key] = unit
-            resolved_units[proposal.external_key] = unit
+            proposal_key = normalize_import_key(proposal.external_key)
+            units_by_external[proposal_key] = unit
+            resolved_units[proposal_key] = unit
             await db.flush()
 
     for proposal in (() if generic_plan is not None else domain.proposal.branches):
         if not _active_action(proposal.action):
             counts["skipped"] += 1
             continue
-        unit = units_by_external.get(proposal.external_key)
+        proposal_key = normalize_import_key(proposal.external_key)
+        unit = units_by_external.get(proposal_key)
         if unit is None:
             normalized = normalize_unit_name(proposal.branch_name)
             unit = _one_or_none(
@@ -307,8 +366,8 @@ async def commit_approved_import_session(
                 counts["branches_updated"] += 1
             else:
                 counts["unchanged"] += 1
-        units_by_external[proposal.external_key] = unit
-        resolved_units[proposal.external_key] = unit
+        units_by_external[proposal_key] = unit
+        resolved_units[proposal_key] = unit
         await db.flush()
 
     for proposal in (() if generic_plan is not None else domain.proposal.departments):
@@ -318,14 +377,14 @@ async def commit_approved_import_session(
         parent = None
         legacy_root = proposal.branch_external_key == LEGACY_ROOT_EXTERNAL_KEY
         if not legacy_root:
-            parent = resolved_units.get(proposal.branch_external_key) or units_by_external.get(
-                proposal.branch_external_key
-            )
+            parent_key = normalize_import_key(proposal.branch_external_key)
+            parent = resolved_units.get(parent_key) or units_by_external.get(parent_key)
             if parent is None or parent.unit_type != "branch":
                 raise ImportCommitConflictError(
                     f"approved department parent is missing: {proposal.branch_external_key}"
                 )
-        unit = units_by_external.get(proposal.external_key)
+        proposal_key = normalize_import_key(proposal.external_key)
+        unit = units_by_external.get(proposal_key)
         if unit is None:
             normalized = normalize_unit_name(proposal.department_name)
             unit = _one_or_none(
@@ -375,8 +434,8 @@ async def commit_approved_import_session(
                 counts["departments_updated"] += 1
             else:
                 counts["unchanged"] += 1
-        units_by_external[proposal.external_key] = unit
-        resolved_units[proposal.external_key] = unit
+        units_by_external[proposal_key] = unit
+        resolved_units[proposal_key] = unit
         await db.flush()
 
     # Position eagerly joins its optional department.  PostgreSQL rejects a
@@ -397,7 +456,8 @@ async def commit_approved_import_session(
             or proposal.department_external_key
             or proposal.branch_external_key
         )
-        unit = resolved_units.get(unit_key) or units_by_external.get(unit_key)
+        normalized_unit_key = normalize_import_key(unit_key)
+        unit = resolved_units.get(normalized_unit_key) or units_by_external.get(normalized_unit_key)
         if unit is None and unit_key:
             raise ImportCommitConflictError(f"approved position unit is missing: {unit_key}")
         position = positions_by_external.get(proposal.external_key)
@@ -485,8 +545,10 @@ async def commit_approved_import_session(
                 else None
             )
         )
+        normalized_organization_unit_key = normalize_import_key(organization_unit_key)
         organization_unit = (
-            resolved_units.get(organization_unit_key) or units_by_external.get(organization_unit_key)
+            resolved_units.get(normalized_organization_unit_key)
+            or units_by_external.get(normalized_organization_unit_key)
             if organization_unit_key
             else None
         )
@@ -524,22 +586,21 @@ async def commit_approved_import_session(
             counts["staff_created"] += 1
             affected_user_ids.add(user.id)
         else:
+            desired_organization_unit_id = (
+                organization_unit.id if organization_unit is not None else None
+            )
             changed = (
                 user.first_name != proposal.first_name
                 or user.last_name != proposal.last_name
                 or user.position_id != position.id
-                or (
-                    organization_unit is not None
-                    and user.organization_unit_id != organization_unit.id
-                )
+                or user.organization_unit_id != desired_organization_unit_id
                 or (proposal.email is not None and user.email != proposal.email)
                 or (proposal.phone is not None and user.phone != proposal.phone)
             )
             user.first_name = proposal.first_name
             user.last_name = proposal.last_name
             user.position_id = position.id
-            if organization_unit is not None:
-                user.organization_unit_id = organization_unit.id
+            user.organization_unit_id = desired_organization_unit_id
             user.is_active = True
             if proposal.email is not None:
                 user.email = proposal.email

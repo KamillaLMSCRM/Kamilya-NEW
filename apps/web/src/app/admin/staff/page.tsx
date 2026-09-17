@@ -624,12 +624,10 @@ export default function AdminStaffPage() {
                         organization_unit_id: option && !option.isLegacy && manualOrganizationTreeAvailable ? option.id : "",
                         department_id: option?.isLegacy ? option.id : "",
                         department: "",
-                        position_id: "",
-                        position: "",
                       }))}
                       disabled={manualOptionsLoading}
                     />
-                    {!manualForm.organization_unit_id && (
+                    {!manualForm.organization_unit_id && !manualForm.department_id && (
                       <input
                         value={manualForm.department}
                         onChange={(e) => handleManualChange("department", e.target.value)}
@@ -645,17 +643,11 @@ export default function AdminStaffPage() {
                         onChange={(e) => {
                           const positionId = e.target.value;
                           const position = positionOptions.find((item) => item.id === positionId);
-                          const organizationUnitId = position ? resolvePositionDepartmentId(position) : "";
                           setManualForm((current) => ({
                             ...current,
-                            organization_unit_id: organizationUnitId && manualOrganizationTreeAvailable && organizationUnitOptions.some((option) => option.id === organizationUnitId && !option.isLegacy)
-                              ? organizationUnitId
-                              : current.organization_unit_id,
-                            department_id: organizationUnitId ? (organizationUnitOptions.find((option) => option.id === organizationUnitId)?.isLegacy ? organizationUnitId : "") : current.department_id,
-                            department: organizationUnitId ? "" : current.department,
                             position_id: positionId,
                             position: "",
-                        }));
+                          }));
                       }}
                       disabled={manualOptionsLoading}
                       className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
@@ -1195,9 +1187,11 @@ function normaliseStructureResponse(raw: any): StructureResponse {
     position_count: rawNode.position_count ?? rawNode.positions?.length ?? 0,
     employee_count: rawNode.employee_count ?? 0,
   });
-  const roots: OrganizationUnitNode[] = Array.isArray(raw?.branches)
-    ? raw.branches.map((node: any) => toNode(node))
-    : [];
+  const roots: OrganizationUnitNode[] = Array.isArray(raw?.roots)
+    ? raw.roots.map((node: any) => toNode(node))
+    : Array.isArray(raw?.branches)
+      ? raw.branches.map((node: any) => toNode(node))
+      : [];
   const legacyRoots: OrganizationUnitNode[] = Array.isArray(raw?.legacy_roots)
     ? raw.legacy_roots.map((node: any) => toNode(node, true))
     : Array.isArray(raw?.departments)

@@ -217,3 +217,4 @@ def test_v2_migration_replaces_old_checks_and_guards_destructive_downgrade():
     assert "downgrade refused" in source
     assert "DO $$" in source
     assert "ALTER TABLE {departments} FORCE ROW LEVEL SECURITY" in source
+    assert "WHERE id = NEW.id OR depth > 8" in source

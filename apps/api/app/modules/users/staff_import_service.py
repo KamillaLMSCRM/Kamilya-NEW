@@ -1368,14 +1368,16 @@ async def commit_import(
                 existing.is_active = True
                 changed = True
                 position_changed = True
+            placement_changed = False
             if manual_mode and existing.organization_unit_id != organization_unit_id:
                 existing.organization_unit_id = organization_unit_id
                 changed = True
+                placement_changed = True
             if changed:
                 updated += 1
                 # Recompute only if the user's position actually
                 # changed — name/email updates don't move rules.
-                if position_changed or not existing.position_id:
+                if position_changed or placement_changed or not existing.position_id:
                     affected_user_ids.append(existing.id)
             else:
                 skipped += 1
