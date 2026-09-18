@@ -9,6 +9,37 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
+## Release 0.7.2 — local candidate GO; CI/production pending, 2026-09-18
+
+- No migration, database, frontend behavior, DNS, provider, billing, model-route
+  or infrastructure change. The deployment scope is the API and all three
+  application workers; the native frontend remains on the compatible 0.7.1
+  runtime unless a separate frontend release is approved.
+- Evidence V2 now classifies large catalogue worksheets as supporting sources,
+  preserves real narrative section boundaries, rejects invalid plans before
+  provider calls and bounds each narrative lesson by 20 facts and 550 source
+  words without imposing a fixed lesson count.
+- The complete database-free API unit suite passed `1838` tests. The affected
+  selection passed `158` tests after an independent allowed-containment
+  regression was added; the 7 database-free `AI-COURSE-01` checks, Ruff,
+  release/version contracts and `git diff --check` passed.
+- A provider-backed replay of the complete control workbook produced 3 lessons
+  and 5 questions in 20.775 seconds with 48/48 fact coverage, no fallback and a
+  publishable result. A replay of the complete Lombard regulation produced 24
+  section-bound lessons and 10 questions in 157.321 seconds with 314/314 fact
+  coverage, no deterministic fallback and a publishable result.
+- TypeSafe evaluated only synthetic artifacts as a development-only report. The
+  synthetic policy course passed; the synthetic catalogue correctly exposed an
+  intentional source contradiction and weak mechanical questions. Its result is
+  a quality warning, not a production dependency or a substitute for source and
+  human review. Raw tenant documents were not sent to TypeSafe.
+- Independent read-only review found no release-blocking defect. Public runtime
+  preflight still reports production 0.7.1 at
+  `e01dabc18a7a36f56ae3976176e6c53135b2c37c`.
+- **Gate:** local candidate GO. Exact project-account push, remote SHA readback,
+  CI, immutable image, synchronized API/worker rollout, production readback,
+  bounded synthetic smoke and cleanup remain required before production GO.
+
 ## Release 0.5.46 — local candidate GO; CI/DEV/production pending, 2026-09-14
 
 - No migration, infrastructure, DNS, provider, billing or model-route change.

@@ -52,7 +52,12 @@ async def test_new_evidence_v2_job_bypasses_legacy_agents_and_uses_single_save(m
     monkeypatch.setattr(pipeline, "load_direct_source_corpus", AsyncMock(return_value=corpus))
     monkeypatch.setattr(pipeline, "generate_evidence_course", generate)
     monkeypatch.setattr(pipeline, "to_generation_artifacts", convert)
-    monkeypatch.setattr(pipeline.ResilientLLMClient, "from_settings_async", AsyncMock(return_value=object()))
+    generation_factory = AsyncMock(return_value=object())
+    monkeypatch.setattr(
+        pipeline.ResilientLLMClient,
+        "from_settings_async",
+        generation_factory,
+    )
     monkeypatch.setattr(pipeline.ResilientEmbeddingsClient, "from_settings_async", AsyncMock(return_value=object()))
     monkeypatch.setattr(pipeline, "run_direct_architect", AsyncMock(side_effect=AssertionError("legacy architect called")))
     monkeypatch.setattr(pipeline, "write_direct_course", AsyncMock(side_effect=AssertionError("legacy writer called")))
@@ -76,6 +81,7 @@ async def test_new_evidence_v2_job_bypasses_legacy_agents_and_uses_single_save(m
     assert state.assessment is artifacts.assessment
     assert state.source_analysis["evidence_v2"] == artifacts.diagnostics
     generate.assert_awaited_once()
+    generation_factory.assert_awaited_once_with(tenant_id=tenant_id, temperature=0.2)
     save.assert_awaited_once_with(state, tenant_id, user_id)
     pipeline.run_direct_architect.assert_not_awaited()
     pipeline.write_direct_course.assert_not_awaited()

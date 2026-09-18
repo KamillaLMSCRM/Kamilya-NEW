@@ -423,7 +423,13 @@ async def _run_evidence_v2_generation(
 ) -> None:
     """Populate the existing persistence state from one complete V2 result."""
 
-    generation_client = await ResilientLLMClient.from_settings_async(tenant_id=tenant_id)
+    # Evidence V2 asks the model to faithfully reorganize supplied facts. A
+    # low temperature makes the strict evidence contract reproducible and
+    # avoids needless failover caused by creative paraphrases.
+    generation_client = await ResilientLLMClient.from_settings_async(
+        tenant_id=tenant_id,
+        temperature=0.2,
+    )
     embedding_client = await ResilientEmbeddingsClient.from_settings_async(
         tenant_id=tenant_id
     )

@@ -364,8 +364,12 @@ class ProviderBackedEvidenceEngine:
         for block in blocks:
             if not isinstance(block, dict):
                 raise ValueError("block must be an object")
-            heading = _clean_output_text(str(block.get("heading") or ""))
-            text = _clean_output_text(str(block.get("text") or ""))
+            heading = neutralize_unprofessional_source_language(
+                _clean_output_text(str(block.get("heading") or ""))
+            )
+            text = neutralize_unprofessional_source_language(
+                _clean_output_text(str(block.get("text") or ""))
+            )
             fact_ids = {str(value) for value in block.get("fact_ids") or []}
             if not heading or not text or not fact_ids:
                 raise ValueError("block heading, text and fact_ids are required")
@@ -412,6 +416,28 @@ class ProviderBackedEvidenceEngine:
                     fact_ids=tuple(sorted(fact_ids)),
                 )
             )
+        # Keep valid provider-authored teaching blocks, but do not discard an
+        # entire lesson merely because the model omitted one of many atomic
+        # source facts. Missing facts are rendered verbatim and remain cited,
+        # so the server still guarantees complete, source-only coverage.
+        for fact_id in base_lesson.fact_ids:
+            if fact_id not in plan_fact_ids or fact_id in covered:
+                continue
+            fact = facts_by_id[fact_id]
+            heading = neutralize_unprofessional_source_language(
+                " ".join(fact.attribute.strip().rstrip(".:").split())
+            ) or "Подтверждённые сведения"
+            text = neutralize_unprofessional_source_language(fact.value.strip())
+            rendered.extend([f"### {heading}", "", text, ""])
+            grounded_blocks.append(
+                GroundedBlock(
+                    lesson_id=base_lesson.lesson_id,
+                    heading=heading,
+                    text=text,
+                    fact_ids=(fact_id,),
+                )
+            )
+            covered.add(fact_id)
         if covered != plan_fact_ids:
             raise ValueError("realizer did not cover every planned fact")
 
@@ -430,8 +456,12 @@ class ProviderBackedEvidenceEngine:
             seed = seed_by_fact[cited[0]]
             options = seed.options
             correct_answer = seed.correct_answer
-            prompt = _clean_output_text(str(raw.get("prompt") or ""))
-            explanation = _clean_output_text(str(raw.get("explanation") or ""))
+            prompt = neutralize_unprofessional_source_language(
+                _clean_output_text(str(raw.get("prompt") or ""))
+            )
+            explanation = neutralize_unprofessional_source_language(
+                _clean_output_text(str(raw.get("explanation") or ""))
+            )
             if not prompt or not explanation:
                 continue
             if is_generic_question(prompt):
@@ -461,7 +491,10 @@ class ProviderBackedEvidenceEngine:
                 question_id=seed.question_id,
                 lesson_id=seed.lesson_id,
                 kind=seed.kind,
-                prompt=prompt,
+                # A specific deterministic seed already names the tested
+                # attribute and is safer than an unconstrained paraphrase.
+                # Only generic source-membership seeds require model rewriting.
+                prompt=(prompt if is_generic_question(seed.prompt) else seed.prompt),
                 options=options,
                 correct_answer=correct_answer,
                 explanation=explanation,
@@ -473,10 +506,14 @@ class ProviderBackedEvidenceEngine:
         word_count = len(re.findall(r"\w+", " ".join(rendered)))
         if word_count > 650:
             raise ValueError("lesson exceeds the 650-word publishability ceiling")
-        title = _clean_output_text(str(payload.get("title") or base_lesson.title)).lstrip("# ")
+        title = neutralize_unprofessional_source_language(
+            _clean_output_text(str(payload.get("title") or base_lesson.title)).lstrip("# ")
+        )
         if not is_acceptable_title(title):
             raise ValueError("lesson title is not a concise complete nominal phrase")
-        objective = _clean_output_text(str(payload.get("objective") or base_lesson.objective))
+        objective = neutralize_unprofessional_source_language(
+            _clean_output_text(str(payload.get("objective") or base_lesson.objective))
+        )
         if has_unprofessional_learner_language(title) or has_unprofessional_learner_language(objective):
             raise ValueError("lesson metadata contains blocked learner-visible language")
         lesson = LessonDraft(

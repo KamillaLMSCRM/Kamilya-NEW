@@ -206,7 +206,9 @@ async def _run(label: str, corpus, output_dir: Path, runs: int) -> list[dict]:
 
     rows = []
     for run_number in range(1, runs + 1):
-        llm = await ResilientLLMClient.from_settings_async()
+        # Match the production Evidence V2 route: this is source-grounded
+        # realization, not creative writing.
+        llm = await ResilientLLMClient.from_settings_async(temperature=0.2)
         embeddings = await ResilientEmbeddingsClient.from_settings_async()
         events = []
 

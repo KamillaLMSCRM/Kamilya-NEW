@@ -15,6 +15,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.7.2] - 2026-09-18
+
+### Changed
+
+- Build narrative courses in source order with section-preserving lesson groups
+  bounded by both evidence count and source-word volume, so large regulations
+  remain editable without padding small sources to a fixed lesson quota.
+- Use supporting catalogue worksheets to enrich the primary curriculum without
+  letting their row count inflate the number of lessons.
+
+### Fixed
+
+- Reject implausible or invalid deterministic course plans before embedding or
+  content-provider calls instead of spending provider capacity on a draft that
+  cannot pass final validation.
+- Preserve authoritative numbered headings while keeping sentence-like numbered
+  list items inside their real source section.
+- Remove low-value identifier and dimension recall questions, answer-revealing
+  subjects, repeated attribute-answer pairs, and overlapping answer options
+  without generating artificial replacements.
+- Keep the input reservation for Evidence V2 large enough for the accepted
+  content-derived course plan while retaining bounded provider requests.
+
 ## [0.7.1] - 2026-09-17
 
 ### Fixed
@@ -1146,7 +1169,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.56...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.2...HEAD
+[0.7.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.1...v0.7.2
 [0.5.56]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.55...v0.5.56
 [0.5.55]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.54...v0.5.55
 [0.5.54]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.53...v0.5.54

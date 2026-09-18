@@ -94,6 +94,53 @@ def test_passport_keeps_small_learning_sheet_primary_and_large_catalog_supportin
     assert passport.confidence in {"high", "medium"}
 
 
+def test_large_sku_catalog_cannot_define_curriculum_when_primary_workbook_sheets_exist() -> None:
+    primary_sheets = (
+        ("Collections", "Collection | Description\nKitchen collection | Modular fronts"),
+        ("Modules", "Module | Description\nBase module | Assemble the cabinet"),
+        ("Materials", "Material | Description\nMDF | Durable board"),
+        ("Scenarios", "Scenario | Procedure\nCustomer choice | Compare the collection options"),
+    )
+    sku_rows = "\n".join(
+        f"SKU-{index:03d} | ARTICLE-{index:03d} | Collection {index} | Oak description {index} | "
+        f"Installation instruction {index} | 1200 x 600 | 199000 | Oak characteristics"
+        for index in range(1, 91)
+    )
+    chunks = [
+        _chunk(index, sheet, text)
+        for index, (sheet, text) in enumerate(primary_sheets)
+    ]
+    chunks.append(
+        _chunk(
+            len(chunks),
+            "SKU-список",
+            "SKU | Article | Collection | Description | Instruction | Dimensions | Price | Characteristics\n" + sku_rows,
+        )
+    )
+    document = DirectSourceDocument(
+        doc_id="doc-1",
+        title="Synthetic modular kitchens catalog",
+        filename="synthetic-modular-kitchens-catalog.xlsx",
+        category="general",
+        source_revision="document:" + "a" * 64,
+        chunks=tuple(chunks),
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(document,),
+        total_chars=sum(len(chunk.text) for chunk in chunks),
+        total_chunks=len(chunks),
+    )
+
+    passport = build_document_passport(corpus)
+    sections = {section.name: section for section in passport.sections}
+
+    assert all(sections[name].role is SectionRole.PRIMARY for name, _ in primary_sheets)
+    assert sections["SKU-список"].role is SectionRole.SUPPORTING
+    assert passport.primary_sections == tuple(name for name, _ in primary_sheets)
+    assert passport.teachable_units < 40
+
+
 def test_mixed_learning_sheet_is_not_forced_to_supporting_by_reference_columns() -> None:
     learning = _chunk(
         0,

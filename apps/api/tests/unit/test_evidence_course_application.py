@@ -13,6 +13,7 @@ from app.modules.ai.direct_source import (
 )
 from app.modules.ai.evidence_engine.application import (
     _escape_markdown_text,
+    _split_narrative_chunk,
     build_evidence_source,
     generate_evidence_course,
     to_generation_artifacts,
@@ -106,6 +107,72 @@ def _narrative_corpus() -> DirectSourceCorpus:
             chunks=(chunk,),
         ),),
         total_chars=len(chunk.text),
+        total_chunks=1,
+    )
+
+
+def _sentence_heading_narrative_corpus() -> DirectSourceCorpus:
+    chunk = DirectSourceChunk(
+        chunk_id="chunk-sentence-heading",
+        doc_id="doc-sentence-heading",
+        doc_name="warehouse-policy.pdf",
+        title="Правила склада",
+        headings=(
+            "3. Проверять каждый SKU смешанной паллеты, если нет условий для выборочного пересчета.",
+        ),
+        text=(
+            "Каждую товарную позицию смешанной паллеты сверяют с накладной.\n\n"
+            "Расхождения фиксируют в акте приемки."
+        ),
+        source_revision="document:sentence-heading-sha",
+        chunk_index=0,
+    )
+    return DirectSourceCorpus(
+        tenant_id="tenant-one",
+        documents=(DirectSourceDocument(
+            doc_id="doc-sentence-heading",
+            title="Правила склада",
+            filename="warehouse-policy.pdf",
+            category="training_material",
+            source_revision="document:sentence-heading-sha",
+            chunks=(chunk,),
+        ),),
+        total_chars=len(chunk.text),
+        total_chunks=1,
+    )
+
+
+def _plain_numbered_policy_corpus() -> DirectSourceCorpus:
+    text = (
+        "1. Назначение и область применения\n"
+        "Правила определяют порядок работы склада.\n\n"
+        "2. Роли и ответственность\n"
+        "Ответственный сотрудник проверяет документы поставки.\n"
+        "3. Не смешивать поставки до окончания приемки.\n\n"
+        "3. Подготовка к прибытию транспорта\n"
+        "До прибытия транспорта сотрудник освобождает зону разгрузки."
+    )
+    chunk = DirectSourceChunk(
+        chunk_id="chunk-plain-numbered",
+        doc_id="doc-plain-numbered",
+        doc_name="warehouse-policy.pdf",
+        title="Правила склада",
+        headings=(),
+        text=text,
+        source_revision="document:plain-numbered-sha",
+        chunk_index=0,
+    )
+    return DirectSourceCorpus(
+        tenant_id="tenant-one",
+        documents=(DirectSourceDocument(
+            doc_id="doc-plain-numbered",
+            title="Правила склада",
+            filename="warehouse-policy.pdf",
+            category="training_material",
+            source_revision="document:plain-numbered-sha",
+            chunks=(chunk,),
+        ),),
+        total_chars=len(text),
         total_chunks=1,
     )
 
@@ -276,9 +343,9 @@ class _GenerationClient:
         )
 
 
-class _ProductionDefectThenCleanGenerationClient(_GenerationClient):
+class _ProductionDefectNeutralizingGenerationClient(_GenerationClient):
     def __init__(self) -> None:
-        self.rejected_production_defects = 0
+        self.neutralized_production_defects = 0
 
     async def ainvoke_validated(self, messages, parser, **_kwargs):
         request = json.loads(messages[-1]["content"])
@@ -299,19 +366,13 @@ class _ProductionDefectThenCleanGenerationClient(_GenerationClient):
             ],
             "questions": [],
         }
-        with pytest.raises(ValueError, match="learner-visible language"):
-            parser(json.dumps(bad_payload, ensure_ascii=False))
-        self.rejected_production_defects += 1
-        result = await super().ainvoke_validated(messages, parser, **_kwargs)
+        value = parser(json.dumps(bad_payload, ensure_ascii=False))
+        assert "маркетплейса" not in value[0].content.casefold()
+        self.neutralized_production_defects += 1
         return ValidatedLLMResult(
-            provider=result.provider,
-            model_id=result.model_id,
-            value=result.value,
-            attempt_count=result.attempt_count + 1,
-            failure_reasons=(
-                ValidatedCallFailureReason.VALIDATION_BLOCKED,
-                *result.failure_reasons,
-            ),
+            provider="test-generation",
+            model_id="test-model",
+            value=value,
         )
 
 
@@ -336,6 +397,153 @@ def test_direct_corpus_adapter_splits_numbered_narrative_clauses() -> None:
     assert bundle.document.sections[0].role == "primary"
     assert [fact.attribute for fact in bundle.all_facts] == ["срок", "срок"]
     assert all("doc_id=doc-rules" in fact.source_locator for fact in bundle.all_facts)
+
+
+def test_plain_numbered_policy_keeps_instruction_items_inside_major_sections() -> None:
+    bundle = build_evidence_source(_plain_numbered_policy_corpus())
+
+    assert [section.title for section in bundle.document.sections] == [
+        "1. Назначение и область применения",
+        "2. Роли и ответственность",
+        "3. Подготовка к прибытию транспорта",
+    ]
+    roles = next(
+        section for section in bundle.document.sections if section.title == "2. Роли и ответственность"
+    )
+    assert any("Не смешивать поставки" in fact.value for fact in roles.facts)
+
+
+def test_plain_numbered_policy_supports_parentheses_and_finite_verb_items() -> None:
+    text = (
+        "1) Назначение и область применения\n"
+        "Правила определяют порядок работы склада.\n\n"
+        "2) К условиям хранения\n"
+        "Описание условий хранения для каждой поставки.\n"
+        "3) Сотрудник проверяет документы\n"
+        "4) Check the label before unloading\n\n"
+        "5) Подготовка к прибытию транспорта\n"
+        "До прибытия транспорта сотрудник освобождает зону разгрузки."
+    )
+    chunk = DirectSourceChunk(
+        chunk_id="chunk-plain-parenthesized",
+        doc_id="doc-plain-parenthesized",
+        doc_name="warehouse-policy.pdf",
+        title="Правила склада",
+        headings=(),
+        text=text,
+        source_revision="document:plain-parenthesized-sha",
+        chunk_index=0,
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-one",
+        documents=(DirectSourceDocument(
+            doc_id="doc-plain-parenthesized",
+            title="Правила склада",
+            filename="warehouse-policy.pdf",
+            category="training_material",
+            source_revision="document:plain-parenthesized-sha",
+            chunks=(chunk,),
+        ),),
+        total_chars=len(text),
+        total_chunks=1,
+    )
+
+    bundle = build_evidence_source(corpus)
+
+    assert [section.title for section in bundle.document.sections] == [
+        "1) Назначение и область применения",
+        "2) К условиям хранения",
+        "5) Подготовка к прибытию транспорта",
+    ]
+    storage = next(
+        section for section in bundle.document.sections if section.title == "2) К условиям хранения"
+    )
+    assert any("Сотрудник проверяет документы" in fact.value for fact in storage.facts)
+    assert any("Check the label before unloading" in fact.value for fact in storage.facts)
+
+
+def test_narrative_preamble_and_appendices_are_supporting_context() -> None:
+    chunks = (
+        DirectSourceChunk(
+            chunk_id="chunk-preamble",
+            doc_id="doc-policy",
+            doc_name="policy.pdf",
+            title="Политика склада",
+            headings=(),
+            text="Версия 1.0. Документ для сотрудников склада.",
+            source_revision="document:policy-sha",
+            chunk_index=0,
+        ),
+        DirectSourceChunk(
+            chunk_id="chunk-main",
+            doc_id="doc-policy",
+            doc_name="policy.pdf",
+            title="Политика склада",
+            headings=("1. Порядок приемки",),
+            text="Сотрудник проверяет документы до разгрузки.",
+            source_revision="document:policy-sha",
+            chunk_index=1,
+        ),
+        DirectSourceChunk(
+            chunk_id="chunk-appendix",
+            doc_id="doc-policy",
+            doc_name="policy.pdf",
+            title="Политика склада",
+            headings=("1. Порядок приемки",),
+            text="Приложение A. Контрольные сроки. Уведомить руководителя за 15 минут.",
+            source_revision="document:policy-sha",
+            chunk_index=2,
+        ),
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-one",
+        documents=(DirectSourceDocument(
+            doc_id="doc-policy",
+            title="Политика склада",
+            filename="policy.pdf",
+            category="training_material",
+            source_revision="document:policy-sha",
+            chunks=chunks,
+        ),),
+        total_chars=sum(len(chunk.text) for chunk in chunks),
+        total_chunks=len(chunks),
+    )
+
+    bundle = build_evidence_source(corpus)
+    roles = {section.title: section.role for section in bundle.document.sections}
+
+    assert roles == {
+        "Политика склада": "supporting",
+        "1. Порядок приемки": "primary",
+        "Приложение A": "supporting",
+    }
+
+
+def test_narrative_fact_split_drops_page_markers_but_keeps_appendix_markers() -> None:
+    parts = _split_narrative_chunk(
+        "Политика склада Страница 2\n\n"
+        "Сотрудник проверяет документы до разгрузки.\n\n"
+        "Политика склада Страница 19 Приложение A. Контрольные сроки."
+    )
+
+    assert all("Страница 2" not in part for part in parts)
+    assert any("Приложение A" in part for part in parts)
+
+
+def test_narrative_fact_split_removes_ocr_title_page_and_inline_glyph_noise() -> None:
+    parts = _split_narrative_chunk(
+        '„т«УТВЕРЖДЕНО» © Протоколом №5. '
+        "ПРАВИЛА ПРЕДОСТАВЛЕНИЯ МИКРОКРЕДИТОВ.\n\n"
+        "Получение залогового имущества подтверждается подписью Клиента "
+        "в соответствующей ® т строке Залогового билета.\n\n"
+        "Ломбард отвечает за сохранность залога (ст."
+    )
+
+    assert len(parts) == 2
+    assert all("УТВЕРЖДЕНО" not in part for part in parts)
+    assert all(not any(marker in part for marker in ("®", "©", "°", "™")) for part in parts)
+    assert "в соответствующей строке" in parts[0]
+    assert parts[1].endswith("сохранность залога")
 
 
 def test_production_smoke_plain_text_reconstructs_sections_without_overlap_duplicates() -> None:
@@ -395,6 +603,22 @@ async def test_production_smoke_plain_text_uses_real_v2_path_without_collapsing_
 
 
 @pytest.mark.asyncio
+async def test_invalid_deterministic_plan_fails_before_embedding_or_generation_calls() -> None:
+    embeddings = _EmbeddingClient()
+
+    with pytest.raises(ValueError, match="evidence_plan_invalid:invalid_lesson_titles"):
+        await generate_evidence_course(
+            _sentence_heading_narrative_corpus(),
+            intent=CourseIntent(),
+            generation_client=_GenerationClient(),
+            embedding_client=embeddings,
+        )
+
+    assert embeddings.documents == []
+    assert embeddings.queries == []
+
+
+@pytest.mark.asyncio
 async def test_async_application_generates_publishable_existing_pipeline_artifacts() -> None:
     embeddings = _EmbeddingClient()
     generated = await generate_evidence_course(
@@ -424,8 +648,8 @@ async def test_async_application_generates_publishable_existing_pipeline_artifac
 
 
 @pytest.mark.asyncio
-async def test_active_v2_rejects_production_style_defect_before_persistence() -> None:
-    generation = _ProductionDefectThenCleanGenerationClient()
+async def test_active_v2_neutralizes_source_sales_style_before_persistence() -> None:
+    generation = _ProductionDefectNeutralizingGenerationClient()
 
     generated = await generate_evidence_course(
         _spreadsheet_corpus(),
@@ -440,7 +664,7 @@ async def test_active_v2_rejects_production_style_defect_before_persistence() ->
         for lesson in module.lessons
     ).casefold()
 
-    assert generation.rejected_production_defects == len(generated.result.realized_course.lessons)
+    assert generation.neutralized_production_defects == len(generated.result.realized_course.lessons)
     assert "маркетплейса" not in learner_text
     assert generated.result.publishability.publishable is True
 

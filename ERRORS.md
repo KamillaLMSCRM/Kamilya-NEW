@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-17.
+Current as of: 2026-09-18.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -3231,3 +3231,60 @@ contract or establish a blocker.
   tenant-scoped read must keep both operations in the same RLS transaction or
   explicitly restore the context; migration and service tests alone are not
   sufficient HTTP acceptance.
+
+## AI-GEN-009 - Parser partitions and catalog rows inflated the course outline
+
+- Date: 2026-09-18. Reproduced locally with the repeatability Excel catalog and
+  the synthetic narrative PDF before any production release.
+- Symptom: a large supporting SKU sheet produced one lesson per catalog row,
+  while numbered action-list sentences in the PDF were mistaken for section
+  headings. A dense final policy section was then split into additional lessons
+  because prompt-sized fact partitions leaked into the pedagogical outline.
+- Cause: worksheet role classification did not give strong catalog naming
+  precedence when generic primary markers tied; plain-text and Markdown
+  section recovery treated every ordinal sentence as a heading; and narrative
+  lesson sizing reused provider-safety partitions as curriculum units.
+- Fix: classify a dominant catalog-named worksheet as supporting when primary
+  peers exist; retain sentence-like ordinal instructions under their enclosing
+  section; bound spreadsheet lessons by source-derived teachable capacity; and
+  size narrative lessons by content density independently of provider request
+  partitions. Reject invalid deterministic lesson titles before embeddings or
+  generation calls.
+- Verification: RED/GREEN regressions cover the 90-row SKU sheet, numbered PDF
+  instructions, source-derived spreadsheet capacity, narrative over-splitting,
+  and zero provider calls after a failed plan preflight. Provider-backed local
+  acceptance must still pass twice for both Excel and PDF before release.
+- Prevention: generation changes must first replay structural fixtures through
+  the public application seam; parser chunks, retrieval chunks and curriculum
+  lessons are separate abstractions and must never share an implicit one-to-one
+  cardinality rule.
+
+## AI-GEN-010 - Weak catalog recall and an overlong safe fallback blocked acceptance
+
+- Date: 2026-09-18. Found by the final local synthetic/real replay and the
+  development-only TypeSafe evaluation before production release.
+- Symptom: catalog tests asked for dimensions already encoded in SKU names and
+  repeated the same attribute-answer pair across products. Options such as
+  `Терра` and `Терра с разъяснением` could coexist. Separately, when all model
+  attempts for one dense legal lesson failed, the exact source-only fallback
+  exceeded the 650-word publication limit and rejected the otherwise complete
+  course.
+- Cause: deterministic assessment selection prioritized short numeric values and
+  deduplicated complete fact triples instead of the tested attribute-answer.
+  Option ambiguity was one-directional. Narrative planning bounded fact count
+  but could merge provider-sized partitions past the safe source-word budget.
+- Fix: omit catalog identifier/specification recall from tests, reject answers
+  exposed by the subject identifier, assess each attribute-answer once, reject
+  option containment in either direction, and greedily group narrative source
+  units under hard 550-word and 20-fact limits while preserving section order
+  and complete fact coverage.
+- Verification: exact RED/GREEN regressions cover every defect, including one
+  legitimate substring-sharing option set; the combined affected suite has 158
+  passing tests and Ruff/diff checks are clean. The real
+  Plus workbook completed with 3 lessons and 5 retained questions in 20.775
+  seconds. The real Lombard PDF completed with 24 lessons, all 314 facts, 10
+  retained questions and no deterministic fallback in 157.321 seconds.
+- Prevention: release acceptance must exercise both a successful provider path
+  and the source-only fallback bound; question acceptance must prefer educational
+  discrimination over count, and TypeSafe findings must be traced back to the
+  source before changing the generator.

@@ -270,6 +270,114 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
     }
 
 
+_ORDINAL_HEADING_RE = re.compile(r"^#*\s*\d+[.)]\s+(?P<body>.+?)\s*$")
+_RUSSIAN_INFINITIVE_SUFFIXES = (
+    "ть",
+    "ться",
+    "ти",
+    "ать",
+    "ять",
+    "ить",
+    "еть",
+    "уть",
+    "чь",
+)
+_RUSSIAN_FINITE_SUFFIXES = (
+    "аю",
+    "яю",
+    "ешь",
+    "ишь",
+    "ает",
+    "яет",
+    "аете",
+    "яете",
+    "ете",
+    "ите",
+    "ают",
+    "яют",
+    "уют",
+    "ется",
+    "ится",
+    "аются",
+    "яются",
+)
+_RUSSIAN_CONTEXTUAL_FINITE_SUFFIXES = ("ет", "ит", "ем", "им", "ют", "ут", "ят", "ат")
+_ENGLISH_IMPERATIVE_ACTIONS = frozenset(
+    {
+        "check",
+        "complete",
+        "confirm",
+        "document",
+        "ensure",
+        "follow",
+        "identify",
+        "inspect",
+        "keep",
+        "measure",
+        "open",
+        "place",
+        "record",
+        "remove",
+        "review",
+        "store",
+        "submit",
+        "use",
+        "verify",
+    }
+)
+_ENGLISH_SUBJECT_STARTS = frozenset(
+    {"a", "an", "employee", "operator", "the", "user", "worker"}
+)
+_RUSSIAN_ACTION_PREFIXES = frozenset(
+    {"в", "если", "когда", "не", "перед", "после", "при"}
+)
+
+
+def is_sentence_like_ordinal_heading(value: str) -> bool:
+    """Distinguish converted action-list items from numbered section headings.
+
+    This is deliberately a bounded heuristic, not language parsing.  Ordinal
+    markers are treated as body evidence only when the text contains a narrow
+    action signal; short nominal headings, including prepositional headings,
+    remain structural even if they contain terminal punctuation.
+    """
+
+    match = _ORDINAL_HEADING_RE.match(value.strip())
+    if match is None:
+        return False
+    body = " ".join(match.group("body").split())
+    normalized = body.casefold().replace("ё", "е")
+    words = re.findall(r"[^\W\d_]+", normalized, re.UNICODE)
+    if len(words) < 2:
+        return False
+
+    if words[0].endswith(_RUSSIAN_INFINITIVE_SUFFIXES):
+        return True
+    if (
+        words[0] in _RUSSIAN_ACTION_PREFIXES or body.endswith((".", "!", "?", ";"))
+    ) and any(
+        word.endswith(_RUSSIAN_INFINITIVE_SUFFIXES) for word in words[1:5]
+    ):
+        return True
+    if any(word.endswith(_RUSSIAN_FINITE_SUFFIXES) for word in words[:8]):
+        return True
+    if any(
+        index > 0
+        and index + 1 < len(words)
+        and word.endswith(_RUSSIAN_CONTEXTUAL_FINITE_SUFFIXES)
+        for index, word in enumerate(words[:8])
+    ):
+        return True
+
+    if words[0] in _ENGLISH_IMPERATIVE_ACTIONS:
+        return True
+    if words[0] in _ENGLISH_SUBJECT_STARTS and any(
+        word.endswith(("s", "ed")) for word in words[1:]
+    ):
+        return True
+    return False
+
+
 class DocumentChunker:
     """Split documents into chunks for embedding."""
 
@@ -324,8 +432,12 @@ class DocumentChunker:
             if not para:
                 continue
 
-            # Track headings
-            if para.startswith("#"):
+            # Converted PDFs can render ordinal instruction sentences as Markdown
+            # headings. Keep sentence-like items in their enclosing section.
+            sentence_like_ordinal_heading = is_sentence_like_ordinal_heading(para)
+            if sentence_like_ordinal_heading:
+                para = para.lstrip("#").lstrip()
+            if para.startswith("#") and not sentence_like_ordinal_heading:
                 # A heading belongs to the content that follows it. Flush the
                 # previous section before changing metadata so its final chunk
                 # cannot be relabelled. Worksheet boundaries are hard source

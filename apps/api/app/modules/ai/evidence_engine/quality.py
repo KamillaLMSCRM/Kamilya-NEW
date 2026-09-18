@@ -7,13 +7,15 @@ import re
 from app.modules.ai.assessment import distractor_repeats_correct_attribute_answer
 from app.modules.ai.lesson_quality import has_unprofessional_learner_language
 
-from .models import AssessmentDraft, CourseDraft, QuestionDraft
+from .models import AssessmentDraft, CourseDraft, EvidenceCourseResult, QuestionDraft
 from .provider_models import GroundedBlock, PublishabilityReport
 
 EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v2"
 
 _GENERIC_QUESTION_RE = re.compile(
     r"(?:о\s+ч[её]м\s+(?:этот\s+)?(?:урок|курс|раздел|модуль)|"
+    r"какое\s+(?:правило|утверждение)\s+относится\s+к\s+"
+    r"(?:разделу|уроку|курсу|модулю)|"
     r"что\s+(?:именно\s+)?(?:указано|разбер[её]м|рассматривается)\s+"
     r"(?:в\s+этом\s+уроке|согласно\s+(?:заголовку|материалу))|"
     r"что\s+в\s+материал(?:е|ах)\s+(?:этого\s+)?урока\s+указано\b)",
@@ -28,6 +30,19 @@ _INTERNAL_GENERATION_INSTRUCTION_RE = re.compile(
 )
 _OCR_ARTIFACT_RE = re.compile(r"\(\)\s*\(\)|\ufffd|(?:\?{4,})")
 _TITLE_START_RE = re.compile(r"^(?:после|в\s+случае|к\s+|при\s+|из\s+)", re.IGNORECASE)
+_MATERIAL_QUESTION_RE = re.compile(
+    r"(?:из\s+как(?:ого\s+материала|их\s+материалов)|"
+    r"как(?:ой\s+материал|ие\s+материалы)|"
+    r"what\s+materials?|which\s+materials?|what\s+is\b[^?]{0,80}\bmade\s+(?:of|from))",
+    re.IGNORECASE,
+)
+_MATERIAL_FAMILY_RE = re.compile(
+    r"\b(?:лдсп|лхдф|мдф|дерев\w*|металл\w*|стал\w*|алюмин\w*|"
+    r"пластик\w*|стекл\w*|фанер\w*|ткан\w*|кож\w*|хлоп\w*|"
+    r"полиэстер\w*|chipboard|particleboard|mdf|hdf|wood\w*|metal\w*|"
+    r"steel|alumin\w*|plastic\w*|glass|plywood|fabric\w*|leather|cotton|polyester)\b",
+    re.IGNORECASE,
+)
 
 
 def contains_ocr_artifact(value: str) -> bool:
@@ -58,6 +73,43 @@ def is_acceptable_title(value: str) -> bool:
 
 
 def question_has_ambiguous_options(question: QuestionDraft) -> bool:
+    correct = " ".join(question.correct_answer.casefold().replace("ё", "е").split())
+    if len(correct) >= 3 and any(
+        option != question.correct_answer
+        and (
+            bool(
+                re.search(
+                    rf"(?<!\w){re.escape(correct)}(?!\w)",
+                    " ".join(option.casefold().replace("ё", "е").split()),
+                )
+            )
+            or bool(
+                re.search(
+                    rf"(?<!\w){re.escape(' '.join(option.casefold().replace('ё', 'е').split()))}(?!\w)",
+                    correct,
+                )
+            )
+        )
+        for option in question.options
+    ):
+        return True
+    if _MATERIAL_QUESTION_RE.search(question.prompt):
+        correct_materials = {
+            match.group(0).casefold()
+            for match in _MATERIAL_FAMILY_RE.finditer(question.correct_answer)
+        }
+        if correct_materials and any(
+            option != question.correct_answer
+            and bool(
+                correct_materials
+                & {
+                    match.group(0).casefold()
+                    for match in _MATERIAL_FAMILY_RE.finditer(option)
+                }
+            )
+            for option in question.options
+        ):
+            return True
     return any(
         option != question.correct_answer
         and distractor_repeats_correct_attribute_answer(
@@ -86,9 +138,31 @@ def filter_acceptable_questions(questions: list[QuestionDraft]) -> list[Question
     return [
         question
         for question in questions
-        if not question_has_ambiguous_options(question)
+        if not is_generic_question(question.prompt)
+        and not question_has_ambiguous_options(question)
         and not question_has_blocked_learner_language(question)
     ]
+
+
+def evaluate_plan_preflight(result: EvidenceCourseResult) -> tuple[str, ...]:
+    """Reject deterministic plan defects before any external provider call."""
+
+    reasons: list[str] = []
+    if any(not is_acceptable_title(lesson.title) for lesson in result.course.lessons):
+        reasons.append("invalid_lesson_titles")
+    planned = [fact_id for lesson in result.evidence_plan for fact_id in lesson.fact_ids]
+    admitted = {fact.fact_id for fact in result.admitted_facts}
+    if len(planned) != len(set(planned)):
+        reasons.append("duplicate_planned_fact_ids")
+    if set(planned) != admitted:
+        reasons.append("incomplete_planned_fact_coverage")
+    if (
+        result.document_plan.kind == "spreadsheet"
+        and result.document_plan.teachable_units > 0
+        and len(result.evidence_plan) > result.document_plan.teachable_units
+    ):
+        reasons.append("lesson_capacity_exceeded")
+    return tuple(reasons)
 
 
 def evaluate_publishability(

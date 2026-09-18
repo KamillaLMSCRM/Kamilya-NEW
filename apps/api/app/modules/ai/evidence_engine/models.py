@@ -43,6 +43,7 @@ class SourceDocument:
     kind: SourceKind
     sections: tuple[SourceSection, ...]
     source_sha256: str = ""
+    teachable_units: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +56,7 @@ class DocumentPlan:
     admitted_fact_count: int
     supporting_fact_count: int
     duplicate_fact_count: int
+    teachable_units: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +119,10 @@ class EvaluationReport:
     quota_padding_count: int
     uncertain_fact_count: int = 0
     warnings: tuple[str, ...] = ()
+    supporting_lesson_share: float = 0.0
+    capacity_ratio: float = 0.0
+    generated_duration_minutes: int = 0
+    invalid_title_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)

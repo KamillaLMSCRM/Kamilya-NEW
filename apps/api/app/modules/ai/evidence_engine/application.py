@@ -28,6 +28,7 @@ from app.modules.ai.direct_source import (
     merged_direct_source_worksheet_tables,
 )
 from app.modules.ai.document_passport import SectionRole, build_document_passport
+from app.modules.ai.ingestion import is_sentence_like_ordinal_heading
 from app.modules.ai.lesson_quality import neutralize_unprofessional_source_language
 from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFailureReason
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
@@ -49,6 +50,7 @@ from .provider_models import GroundedBlock, ProviderBackedResult, RetrievalMeasu
 from .providers import EVIDENCE_REALIZER_SYSTEM_PROMPT
 from .quality import (
     EVIDENCE_QUALITY_POLICY_VERSION,
+    evaluate_plan_preflight,
     evaluate_publishability,
     filter_acceptable_questions,
 )
@@ -169,6 +171,13 @@ def _narrative_attribute(value: str) -> str:
 
 def _split_narrative_chunk(text: str) -> list[str]:
     cleaned = re.sub(r"(?m)^#{1,6}\s+.*$", "", text)
+    cleaned = re.sub(
+        r"(?is).{0,120}утвержден[оа]?.{0,500}?"
+        r"правила\s+предоставления\s+микрокредитов[^\n]*",
+        "",
+        cleaned,
+        count=1,
+    )
     blocks = re.split(
         r"\n{2,}|(?=^\s*(?:\d+(?:\.\d+)*|[а-яё])\s*[.)]\s+)",
         cleaned,
@@ -185,6 +194,12 @@ def _split_narrative_chunk(text: str) -> list[str]:
             sentence = " ".join(sentence.split())
             if not sentence:
                 continue
+            if (
+                re.search(r"\b(?:page|страница)\s+\d+\b", sentence, re.IGNORECASE)
+                and len(sentence.split()) <= 20
+                and not _APPENDIX_MARKER_RE.search(sentence)
+            ):
+                continue
             if len(sentence) < 25:
                 pending = f"{pending} {sentence}".strip()
                 continue
@@ -197,12 +212,30 @@ def _split_narrative_chunk(text: str) -> list[str]:
                 parts[-1] = f"{parts[-1]} {pending}".strip()
             elif len(pending) >= 25:
                 parts.append(pending)
-    return parts
+    cleaned_parts: list[str] = []
+    for part in parts:
+        normalized = " ".join(part.casefold().replace("ё", "е").split())
+        if (
+            "утвержден" in normalized
+            and "правила предоставления микрокредитов" in normalized
+        ):
+            continue
+        cleaned = part.translate(str.maketrans("®©°™„‚", '    ",'))
+        cleaned = re.sub(r"\s+[тТ]\s+(?=строке\b)", " ", cleaned)
+        cleaned = re.sub(r"\s*\(ст\.\s*$", "", cleaned, flags=re.IGNORECASE)
+        cleaned = " ".join(cleaned.split()).strip(" =\\|#")
+        if len(cleaned) >= 25:
+            cleaned_parts.append(cleaned)
+    return cleaned_parts
 
 
 _PLAIN_NUMBERED_SECTION_RE = re.compile(
-    r"(?m)^\s*(?P<number>\d{1,3})\.\s+(?P<title>[^\n]{3,120}?)\s*$"
+    r"(?m)^\s*(?P<number>\d{1,3})(?P<separator>[.)])\s+(?P<title>[^\n]{3,120}?)\s*$"
 )
+
+
+def _is_plain_numbered_section_heading(match: re.Match[str]) -> bool:
+    return not is_sentence_like_ordinal_heading(match.group(0))
 
 
 def _merge_overlapping_chunks(chunks: list[Any]) -> str:
@@ -232,7 +265,11 @@ def _merge_overlapping_chunks(chunks: list[Any]) -> str:
 def _plain_numbered_sections(text: str, fallback_title: str) -> list[tuple[str, str]]:
     """Recover major ``1. Heading`` sections from plain text without Markdown metadata."""
 
-    matches = list(_PLAIN_NUMBERED_SECTION_RE.finditer(text))
+    matches = [
+        match
+        for match in _PLAIN_NUMBERED_SECTION_RE.finditer(text)
+        if _is_plain_numbered_section_heading(match)
+    ]
     if len(matches) < 2:
         return []
     sections: list[tuple[str, str]] = []
@@ -244,7 +281,10 @@ def _plain_numbered_sections(text: str, fallback_title: str) -> list[tuple[str, 
         body = text[match.end() : end].strip()
         if not body:
             continue
-        title = f"{match.group('number')}. {' '.join(match.group('title').split())}"
+        title = (
+            f"{match.group('number')}{match.group('separator')} "
+            f"{' '.join(match.group('title').split())}"
+        )
         sections.append((title, body))
     return sections
 
@@ -287,6 +327,59 @@ def _narrative_section(
         role=_section_role(role),  # type: ignore[arg-type]
         facts=facts,
     )
+
+
+_APPENDIX_MARKER_RE = re.compile(
+    r"\b(?:appendix|приложение)\s+(?P<label>[A-ZА-Я0-9]+)\s*[.:]",
+    re.IGNORECASE,
+)
+
+
+def _supporting_appendix(
+    section: SourceSection,
+    title: str,
+    facts: list[SourceFact],
+) -> SourceSection:
+    return SourceSection(
+        section_id=f"{section.section_id}:appendix:{_slug(title)}",
+        title=title,
+        role="supporting",
+        facts=tuple(facts),
+    )
+
+
+def _split_narrative_appendices(sections: list[SourceSection]) -> list[SourceSection]:
+    """Move explicit appendices out of the curriculum while keeping them retrievable."""
+
+    resolved: list[SourceSection] = []
+    for section in sections:
+        primary_facts: list[SourceFact] = []
+        appendix_title = ""
+        appendix_facts: list[SourceFact] = []
+
+        for fact in section.facts:
+            marker = _APPENDIX_MARKER_RE.search(fact.value)
+            if marker is not None:
+                if appendix_facts:
+                    resolved.append(
+                        _supporting_appendix(section, appendix_title, appendix_facts)
+                    )
+                appendix_title = f"Приложение {marker.group('label').upper()}"
+                appendix_facts = [fact]
+            elif appendix_title:
+                appendix_facts.append(fact)
+            else:
+                primary_facts.append(fact)
+        if primary_facts:
+            resolved.append(SourceSection(
+                section_id=section.section_id,
+                title=section.title,
+                role=section.role,
+                facts=tuple(primary_facts),
+            ))
+        if appendix_facts:
+            resolved.append(_supporting_appendix(section, appendix_title, appendix_facts))
+    return resolved
 
 
 def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
@@ -385,6 +478,8 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
                         section_name=section_name,
                         role_by_section=role_by_section,
                     )
+                    if section_name == document.title and len(plain_sections) > 1:
+                        role = SectionRole.SUPPORTING
                     section = _narrative_section(
                         document=document,
                         section_name=section_name,
@@ -397,6 +492,7 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
                 continue
 
         grouped: dict[str, list[Any]] = defaultdict(list)
+        has_structured_headings = any(chunk.headings for chunk in ordered_chunks)
         for chunk in ordered_chunks:
             section_name = next(
                 (
@@ -415,6 +511,8 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
                 section_name=section_name,
                 role_by_section=role_by_section,
             )
+            if has_structured_headings and section_name == document.title:
+                role = SectionRole.SUPPORTING
             narrative_facts: list[SourceFact] = []
             for chunk in chunks:
                 for part_index, value in enumerate(_split_narrative_chunk(chunk.text), start=1):
@@ -449,6 +547,8 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
     digest = hashlib.sha256("\x1f".join(revisions).encode("utf-8")).hexdigest()
     titles = list(dict.fromkeys(document.title for document in corpus.documents))
     kind: Literal["spreadsheet", "narrative"] = "spreadsheet" if tables else "narrative"
+    if kind == "narrative":
+        sections = _split_narrative_appendices(sections)
     return EvidenceSourceBundle(
         document=SourceDocument(
             source_id=f"direct:{digest}",
@@ -456,6 +556,7 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
             kind=kind,
             sections=tuple(sections),
             source_sha256=digest,
+            teachable_units=passport.teachable_units,
         )
     )
 
@@ -578,6 +679,9 @@ async def generate_evidence_course(
     evidence_result = EvidenceCourseEngine().generate_from_document(bundle.document, intent=intent)
     if not evidence_result.evidence_plan:
         raise ValueError("evidence_plan_empty")
+    preflight_reasons = evaluate_plan_preflight(evidence_result)
+    if preflight_reasons:
+        raise ValueError("evidence_plan_invalid:" + ",".join(preflight_reasons))
     evidence_seconds = perf_counter() - started
     await _progress(progress_callback, "evidence_plan", 1, 1)
 
@@ -934,6 +1038,15 @@ def to_generation_artifacts(output: EvidenceGenerationOutput) -> GenerationArtif
         "supporting_fact_count": result.evidence_result.document_plan.supporting_fact_count,
         "lesson_count": len(result.realized_course.lessons),
         "question_count": len(result.realized_assessment.questions),
+        "supporting_lesson_share": result.evidence_result.evaluation.supporting_lesson_share,
+        "plan_capacity_ratio": result.evidence_result.evaluation.capacity_ratio,
+        "generated_duration_minutes": sum(
+            lesson.duration_minutes for lesson in result.realized_course.lessons
+        ),
+        "pre_realization_invalid_title_count": (
+            result.evidence_result.evaluation.invalid_title_count
+        ),
+        "quota_padding_count": result.evidence_result.evaluation.quota_padding_count,
         "embedding_model": result.embedding_model,
         "embedding_dimension": result.embedding_dimension,
         "embedding_degraded": result.embedding_degraded,
