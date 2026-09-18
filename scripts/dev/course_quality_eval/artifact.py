@@ -91,12 +91,122 @@ def _parse_question(
     )
 
 
+def _load_provider_backed(
+    *,
+    payload: dict[str, Any],
+    artifact_path: Path,
+    artifact_sha256: str,
+) -> CourseArtifact:
+    evidence = payload.get("evidence_result")
+    realized_course = payload.get("realized_course")
+    realized_assessment = payload.get("realized_assessment")
+    if not isinstance(evidence, dict) or not isinstance(realized_course, dict):
+        raise ValueError("Malformed provider-backed course artifact")
+    facts: dict[str, str] = {}
+    for collection_name in ("admitted_facts", "supporting_facts"):
+        collection = evidence.get(collection_name, [])
+        if not isinstance(collection, list):
+            continue
+        for fact in collection:
+            if not isinstance(fact, dict):
+                continue
+            fact_id = str(fact.get("fact_id", "")).strip()
+            subject = str(fact.get("subject", "")).strip()
+            attribute = str(fact.get("attribute", "")).strip()
+            value = str(fact.get("value", "")).strip()
+            if fact_id and value:
+                context = [
+                    f"Раздел: {subject}" if subject else "",
+                    f"Атрибут: {attribute}" if attribute else "",
+                    f"Факт: {value}",
+                ]
+                facts[fact_id] = "\n".join(part for part in context if part)
+    lessons: list[LessonArtifact] = []
+    lesson_by_id: dict[str, LessonArtifact] = {}
+    raw_lessons = realized_course.get("lessons", [])
+    if isinstance(raw_lessons, list):
+        for index, raw_lesson in enumerate(raw_lessons):
+            if not isinstance(raw_lesson, dict):
+                continue
+            raw_id = str(raw_lesson.get("lesson_id", "")).strip()
+            title = str(raw_lesson.get("title", "Untitled lesson")).strip() or "Untitled lesson"
+            fact_ids = [
+                str(item)
+                for key in ("fact_ids", "supporting_fact_ids")
+                for item in (raw_lesson.get(key, []) if isinstance(raw_lesson.get(key), list) else [])
+            ]
+            lesson = LessonArtifact(
+                id=raw_id or _stable_id("lesson", index, title),
+                title=title,
+                objectives=(str(raw_lesson.get("objective", "")).strip(),)
+                if str(raw_lesson.get("objective", "")).strip()
+                else (),
+                content=str(raw_lesson.get("content", "")).strip(),
+                source="\n".join(facts[fact_id] for fact_id in fact_ids if fact_id in facts),
+            )
+            lessons.append(lesson)
+            lesson_by_id[lesson.id] = lesson
+    questions: list[QuestionArtifact] = []
+    raw_questions = (
+        realized_assessment.get("questions", []) if isinstance(realized_assessment, dict) else []
+    )
+    if isinstance(raw_questions, list):
+        for index, raw_question in enumerate(raw_questions):
+            if not isinstance(raw_question, dict):
+                continue
+            question_lesson = lesson_by_id.get(str(raw_question.get("lesson_id", "")))
+            if question_lesson is None:
+                continue
+            options = _strings(raw_question.get("options"))
+            correct_answer = str(raw_question.get("correct_answer", "")).strip()
+            correct_indexes = tuple(
+                option_index for option_index, option in enumerate(options) if option == correct_answer
+            )
+            fact_id = str(raw_question.get("fact_id", "")).strip()
+            questions.append(
+                QuestionArtifact(
+                    id=str(raw_question.get("question_id", "")).strip()
+                    or _stable_id("question", question_lesson.id, index),
+                    lesson_id=question_lesson.id,
+                    lesson_title=question_lesson.title,
+                    text=str(raw_question.get("prompt", "")).strip(),
+                    options=options,
+                    correct_indexes=correct_indexes,
+                    explanation=str(raw_question.get("explanation", "")).strip(),
+                    source=facts.get(fact_id, question_lesson.source),
+                )
+            )
+    if not lessons:
+        raise ValueError("Provider-backed course artifact contains no lessons")
+    plan = evidence.get("document_plan", {})
+    source_sha = plan.get("source_sha256") if isinstance(plan, dict) else None
+    return CourseArtifact(
+        identity=ArtifactIdentity(
+            path=str(artifact_path),
+            sha256=artifact_sha256,
+            source_sha256=str(source_sha) if source_sha else None,
+            course_title=str(realized_course.get("title", "Untitled course")).strip()
+            or "Untitled course",
+        ),
+        lessons=tuple(lessons),
+        questions=tuple(questions),
+        raw_path=artifact_path,
+    )
+
+
 def load_artifact(path: str | Path) -> CourseArtifact:
     artifact_path = Path(path).resolve()
     raw_bytes = artifact_path.read_bytes()
     payload = json.loads(raw_bytes.decode("utf-8"))
     if not isinstance(payload, dict):
         raise ValueError("Course artifact root must be a JSON object")
+    artifact_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+    if "realized_course" in payload and "evidence_result" in payload:
+        return _load_provider_backed(
+            payload=payload,
+            artifact_path=artifact_path,
+            artifact_sha256=artifact_sha256,
+        )
     course = payload.get("course", payload)
     if not isinstance(course, dict):
         raise ValueError("Course artifact must contain a course object")
@@ -134,7 +244,7 @@ def load_artifact(path: str | Path) -> CourseArtifact:
     return CourseArtifact(
         identity=ArtifactIdentity(
             path=str(artifact_path),
-            sha256=hashlib.sha256(raw_bytes).hexdigest(),
+            sha256=artifact_sha256,
             source_sha256=str(source_sha) if source_sha else None,
             course_title=title,
         ),

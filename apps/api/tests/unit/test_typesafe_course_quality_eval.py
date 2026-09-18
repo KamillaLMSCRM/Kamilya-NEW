@@ -89,6 +89,65 @@ def test_public_seam_parses_artifact_and_composes_policy_in_code() -> None:
     assert len(evaluator.calls) == 3
 
 
+def test_loader_accepts_provider_backed_evidence_result(tmp_path: Path) -> None:
+    payload = {
+        "evidence_result": {
+            "document_plan": {"source_sha256": "b" * 64},
+            "admitted_facts": [
+                {
+                    "fact_id": "fact-1",
+                    "subject": "Коллекция Север",
+                    "attribute": "Помещение",
+                    "value": "Предназначена для прихожей",
+                    "source_locator": "Лист Коллекции, строка 2",
+                }
+            ],
+        },
+        "realized_course": {
+            "title": "Синтетический evidence-курс",
+            "description": "",
+            "lessons": [
+                {
+                    "lesson_id": "lesson-1",
+                    "module_title": "Коллекции",
+                    "title": "Коллекция Север",
+                    "objective": "Определить назначение",
+                    "content": "Коллекция Север предназначена для прихожей.",
+                    "fact_ids": ["fact-1"],
+                    "supporting_fact_ids": [],
+                    "duration_minutes": 5,
+                }
+            ],
+        },
+        "realized_assessment": {
+            "questions": [
+                {
+                    "question_id": "question-1",
+                    "lesson_id": "lesson-1",
+                    "kind": "single_choice",
+                    "prompt": "Для какого помещения предназначена коллекция Север?",
+                    "options": ["Для прихожей", "Для кухни", "Для ванной"],
+                    "correct_answer": "Для прихожей",
+                    "explanation": "Это прямо указано в источнике.",
+                    "fact_id": "fact-1",
+                }
+            ]
+        },
+    }
+    path = tmp_path / "provider-result.json"
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    artifact = load_artifact(path)
+
+    assert artifact.identity.course_title == "Синтетический evidence-курс"
+    assert artifact.identity.source_sha256 == "b" * 64
+    assert artifact.lessons[0].source == (
+        "Раздел: Коллекция Север\nАтрибут: Помещение\nФакт: Предназначена для прихожей"
+    )
+    assert artifact.questions[0].correct_indexes == (0,)
+    assert artifact.questions[0].source == artifact.lessons[0].source
+
+
 def test_privacy_preflight_blocks_customer_identifiers_before_adapter_call(tmp_path: Path) -> None:
     payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
     payload["course"]["modules"][0]["lessons"][0]["content"] += " Автор: person@example.kz"

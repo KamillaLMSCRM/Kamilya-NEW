@@ -250,6 +250,10 @@ async def _run(label: str, corpus, output_dir: Path, runs: int) -> list[dict]:
         run_dir.mkdir(parents=True, exist_ok=True)
         rendered = _render(output)
         (run_dir / "course-and-assessment.md").write_text(rendered, encoding="utf-8")
+        (run_dir / "result.json").write_text(
+            json.dumps(result.to_dict(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
         metrics = {
             "wall_seconds": round(wall, 3),
             "stage_seconds": {item.stage: round(item.seconds, 3) for item in result.timings},
