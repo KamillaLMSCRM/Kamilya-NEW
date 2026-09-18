@@ -106,9 +106,8 @@ async def _converted_pdf_corpus(path: Path):
     doc_id = str(uuid5(NAMESPACE_URL, f"local-simulation:{digest}"))
     converted = await DocumentConverter().convert(str(path))
     markdown = str(converted.get("markdown") or "")
-    engine = str((converted.get("metadata") or {}).get("engine") or "")
-    if not markdown.strip() or engine == "pypdf":
-        raise RuntimeError("configured Docling route did not return OCR text")
+    if not markdown.strip():
+        raise RuntimeError("configured document converter returned no PDF text")
     raw_chunks = DocumentChunker().chunk_markdown(markdown, doc_id, path.name)
     chunks = tuple(
         DirectSourceChunk(
@@ -234,20 +233,33 @@ async def _run(label: str, corpus, output_dir: Path, runs: int) -> list[dict]:
             )
 
         started = time.perf_counter()
-        output = await generate_evidence_course(
-            corpus,
-            intent=CourseIntent(
-                purpose="Подготовить сотрудника к правильному применению сведений источника без домыслов.",
-                audience="Сотрудник организации, применяющий материал в ежедневной работе.",
-            ),
-            generation_client=llm,
-            embedding_client=embeddings,
-            progress_callback=progress,
-        )
-        wall = time.perf_counter() - started
-        result = output.result
         run_dir = output_dir / label / f"run-{run_number}"
         run_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            output = await generate_evidence_course(
+                corpus,
+                intent=CourseIntent(
+                    purpose="Подготовить сотрудника к правильному применению сведений источника без домыслов.",
+                    audience="Сотрудник организации, применяющий материал в ежедневной работе.",
+                ),
+                generation_client=llm,
+                embedding_client=embeddings,
+                progress_callback=progress,
+            )
+        except Exception as exc:
+            failure = {
+                "wall_seconds": round(time.perf_counter() - started, 3),
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+                "events": events,
+            }
+            (run_dir / "failure.json").write_text(
+                json.dumps(failure, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            raise
+        wall = time.perf_counter() - started
+        result = output.result
         rendered = _render(output)
         (run_dir / "course-and-assessment.md").write_text(rendered, encoding="utf-8")
         (run_dir / "result.json").write_text(
