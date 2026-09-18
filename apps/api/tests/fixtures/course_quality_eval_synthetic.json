@@ -1,0 +1,55 @@
+{
+  "source": {
+    "filename": "synthetic_furniture_catalog.xlsx",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "course": {
+    "title": "Синтетический курс по мебели",
+    "modules": [
+      {
+        "title": "Коллекции",
+        "lessons": [
+          {
+            "title": "Коллекция Север",
+            "objectives": [
+              "Объяснить назначение коллекции Север"
+            ],
+            "content": "Коллекция Север предназначена для прихожей. Фасады матовые, а двери закрываются плавно и бесшумно.",
+            "source_chunks": [
+              "Коллекция Север: прихожая; фасады матовые; механизм закрывания — плавный и бесшумный."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "assessments": [
+    {
+      "lesson_title": "Коллекция Север",
+      "mcq": [
+        {
+          "question": "Для какого помещения предназначена коллекция Север?",
+          "options": [
+            {"text": "Для прихожей", "is_correct": true},
+            {"text": "Для кухни", "is_correct": false},
+            {"text": "Для ванной", "is_correct": false},
+            {"text": "Для кабинета", "is_correct": false}
+          ],
+          "explanation": "В источнике коллекция Север отнесена к прихожей.",
+          "source_quote": "Коллекция Север: прихожая."
+        },
+        {
+          "question": "Как закрываются двери коллекции Север?",
+          "options": [
+            {"text": "Плавно и бесшумно", "is_correct": true},
+            {"text": "Плавно и тихо", "is_correct": false},
+            {"text": "Резко и громко", "is_correct": false},
+            {"text": "Только вручную", "is_correct": false}
+          ],
+          "explanation": "Источник прямо указывает плавное и бесшумное закрывание.",
+          "source_quote": "механизм закрывания — плавный и бесшумный"
+        }
+      ]
+    }
+  ]
+}
