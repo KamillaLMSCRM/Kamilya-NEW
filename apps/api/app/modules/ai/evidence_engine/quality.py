@@ -18,7 +18,9 @@ _GENERIC_QUESTION_RE = re.compile(
     r"(?:разделу|уроку|курсу|модулю)|"
     r"что\s+(?:именно\s+)?(?:указано|разбер[её]м|рассматривается)\s+"
     r"(?:в\s+этом\s+уроке|согласно\s+(?:заголовку|материалу))|"
-    r"что\s+в\s+материал(?:е|ах)\s+(?:этого\s+)?урока\s+указано\b)",
+    r"что\s+в\s+материал(?:е|ах)\s+(?:этого\s+)?урока\s+указано\b|"
+    r"что\s+верно\s+в\s+отношении\s+[«\"].+?[»\"]\s+"
+    r"у\s+объект\w*\s+[«\"])",
     re.IGNORECASE,
 )
 _INTERNAL_GENERATION_INSTRUCTION_RE = re.compile(
@@ -29,13 +31,20 @@ _INTERNAL_GENERATION_INSTRUCTION_RE = re.compile(
     re.IGNORECASE,
 )
 _OCR_ARTIFACT_RE = re.compile(
-    r"\(\)\s*\(\)|\ufffd|(?:\?{4,})|\bвидна\s+жительство\b|"
+    r"\[UNREADABLE(?:\\?_[A-Z]+)*\]|\(\)\s*\(\)|\ufffd|(?:\?{4,})|"
+    r"\bвидна\s+жительство\b|"
     r'\b\d{1,3}\.\s*[%("]\s*(?=(?:паспорт|удостоверение|вид)\b)|'
     r"(?:^|[.;:]\s+)[%*]\s+(?=(?:паспорт|удостоверение|вид)\b)",
     re.IGNORECASE,
 )
 _TRUNCATED_ABBREVIATION_RE = re.compile(
     r"(?:^|[.!?]\s+)др\.\s*\)\s+[А-ЯЁ]",
+    re.IGNORECASE,
+)
+_INCOMPLETE_ANSWER_TAIL_RE = re.compile(
+    r"(?:\b(?:следующим|таким)\s+образом|"
+    r"\b(?:включает|содержит)\s+(?:следующее|следующие)|"
+    r"\bas\s+follows|\bthe\s+following)\s*[:;,-]?\s*$",
     re.IGNORECASE,
 )
 MAX_ASSESSMENT_ANSWER_CHARS = 240
@@ -155,6 +164,12 @@ def question_has_blocked_learner_language(question: QuestionDraft) -> bool:
     )
 
 
+def question_has_incomplete_correct_answer(question: QuestionDraft) -> bool:
+    """Reject an answer that promises missing steps instead of answering."""
+
+    return _INCOMPLETE_ANSWER_TAIL_RE.search(question.correct_answer.strip()) is not None
+
+
 def filter_acceptable_questions(questions: list[QuestionDraft]) -> list[QuestionDraft]:
     """Delete deterministically invalid questions without quota padding."""
 
@@ -163,6 +178,7 @@ def filter_acceptable_questions(questions: list[QuestionDraft]) -> list[Question
         for question in questions
         if not is_generic_question(question.prompt)
         and len(question.correct_answer.strip()) <= MAX_ASSESSMENT_ANSWER_CHARS
+        and not question_has_incomplete_correct_answer(question)
         and not question_has_ambiguous_options(question)
         and not question_has_blocked_learner_language(question)
     ]

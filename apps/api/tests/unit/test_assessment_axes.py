@@ -206,6 +206,55 @@ def test_spreadsheet_axis_uses_one_exact_claim_not_the_whole_compound_cell() -> 
     assert axis.correct_value in value
 
 
+def test_spreadsheet_axis_keeps_direct_first_value_before_shorter_context() -> None:
+    value = (
+        "Спальня и прихожая: кровати, шкафы, комоды, прикроватные тумбы, вешалки. "
+        "Стыкуется с жилыми зонами той же палитры."
+    )
+    fact = SourceFact(
+        "fact-rooms",
+        "Чикаго Нео",
+        "Для каких комнат",
+        value,
+        "doc_id=catalog;section=Коллекции;row=3;column=3",
+    )
+    lesson = LessonDraft(
+        "lesson-rooms", "Коллекции", "Чикаго Нео", "Консультировать по ассортименту",
+        value, (fact.fact_id,), (), 2,
+    )
+
+    axis = derive_assessment_axes(lesson, [fact], block_id="block-rooms")[0]
+
+    assert axis.correct_value == (
+        "Спальня и прихожая: кровати, шкафы, комоды, прикроватные тумбы, вешалки."
+    )
+
+
+def test_right_to_refuse_uses_a_server_owned_non_conditional_prompt() -> None:
+    value = (
+        "Заявитель вправе отказаться от заключения договора о предоставлении "
+        "микрокредита (Залогового билета)."
+    )
+    fact = SourceFact(
+        "fact-refusal",
+        "Заключение договора",
+        "право заявителя",
+        value,
+        "doc_id=rules;section=contract;part=1",
+    )
+    lesson = LessonDraft(
+        "lesson-refusal", "Договор", "Права заявителя", "Применять право отказа",
+        value, (fact.fact_id,), (), 2,
+    )
+
+    axis = derive_assessment_axes(lesson, [fact], block_id="block-refusal")[0]
+
+    assert axis.required_prompt == (
+        "Что вправе сделать Заявитель в отношении заключения договора о предоставлении "
+        "микрокредита (Залогового билета)?"
+    )
+
+
 @pytest.mark.parametrize(
     ("value", "expected"),
     [

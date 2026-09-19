@@ -375,6 +375,47 @@ def test_spreadsheet_plan_respects_source_derived_teachable_capacity() -> None:
     } == {fact.fact_id for fact in result.admitted_facts}
 
 
+def test_narrative_plan_excludes_unreadable_placeholder_fact_from_course() -> None:
+    source = SourceDocument(
+        source_id="ocr-rules",
+        title="Правила",
+        kind="narrative",
+        sections=(
+            SourceSection(
+                section_id="rates",
+                title="Ставки",
+                role="primary",
+                facts=(
+                    SourceFact(
+                        "good-rule",
+                        "Ставка",
+                        "правило",
+                        "Ставка указывается в пересчёте на год.",
+                        "page=1;section=rates",
+                    ),
+                    SourceFact(
+                        "unreadable-rate",
+                        "Ставка",
+                        "значение",
+                        "Ставка составляет [UNREADABLE_PERCENTAGE_VALUE] годовых.",
+                        "page=1;section=rates",
+                        confidence=1.0,
+                        uncertainty="local_ocr",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    result = EvidenceCourseEngine().generate_from_document(source)
+
+    assert len(result.admitted_facts) == 1
+    assert result.admitted_facts[0].value == "Ставка указывается в пересчёте на год."
+    assert "[UNREADABLE" not in "\n".join(
+        lesson.content for lesson in result.course.lessons
+    )
+
+
 def test_spreadsheet_plan_bounds_multi_module_capacity_without_repeating_facts() -> None:
     sections = tuple(
         SourceSection(
@@ -1138,6 +1179,12 @@ def test_customer_reported_source_meta_question_is_generic() -> None:
     )
 
 
+def test_server_axis_placeholder_question_is_generic() -> None:
+    assert is_generic_question(
+        "Что верно в отношении «положение» у объекта «12. КОНФИДЕНЦИАЛЬНОСТЬ»?"
+    )
+
+
 def test_provider_v2_retries_internal_generation_instruction_leak() -> None:
     source = _narrative_source(
         "Заявление рассматривается в течение 15 рабочих дней.",
@@ -1670,6 +1717,46 @@ def test_v2_question_filter_deletes_overlong_answer_without_count_padding() -> N
     )
 
     assert filter_acceptable_questions([question]) == []
+
+
+def test_v2_question_filter_deletes_answer_that_only_introduces_missing_steps() -> None:
+    question = QuestionDraft(
+        question_id="question-missing-steps",
+        lesson_id="lesson-missing-steps",
+        kind="single_choice",
+        prompt="Как округляется рассчитанная ставка?",
+        options=(
+            "Число округляется до десятых долей следующим образом",
+            "Число всегда округляется до целого значения",
+            "Число не округляется",
+        ),
+        correct_answer="Число округляется до десятых долей следующим образом",
+        explanation="Число округляется до десятых долей следующим образом",
+        fact_id="fact-missing-steps",
+        semantic_reviewed=True,
+    )
+
+    assert filter_acceptable_questions([question]) == []
+
+
+def test_v2_question_filter_keeps_complete_rounding_rule() -> None:
+    complete = (
+        "До десятых долей: если сотая доля больше или равна 5, "
+        "десятая доля увеличивается на 1."
+    )
+    question = QuestionDraft(
+        question_id="question-complete-steps",
+        lesson_id="lesson-complete-steps",
+        kind="single_choice",
+        prompt="Как округляется рассчитанная ставка?",
+        options=(complete, "Всегда до целого значения", "Не округляется"),
+        correct_answer=complete,
+        explanation=complete,
+        fact_id="fact-complete-steps",
+        semantic_reviewed=True,
+    )
+
+    assert filter_acceptable_questions([question]) == [question]
 
 
 def test_v2_rejects_material_question_when_distractor_repeats_the_material_family() -> None:

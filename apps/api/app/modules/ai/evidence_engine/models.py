@@ -9,6 +9,11 @@ SectionRole = Literal["primary", "supporting"]
 SourceKind = Literal["spreadsheet", "narrative"]
 QuestionKind = Literal["single_choice", "true_false"]
 AssessmentAxisKind = Literal["attribute", "numeric_value", "rule_value"]
+DistractorSourceRelation = Literal[
+    "same_axis",
+    "same_attribute_other_subject",
+    "other_function_or_attribute",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +129,21 @@ class AssessmentAxis:
     normalized_correct_value: str
     eligible_distractor_fact_ids: tuple[str, ...]
     axis_kind: AssessmentAxisKind
+    distractor_constraints: tuple[DistractorConstraint, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class DistractorConstraint:
+    """Source-owned classification for a source value proposed as a distractor."""
+
+    fact_id: str
+    subject: str
+    attribute: str
+    value: str
+    relation: DistractorSourceRelation
+    attribute_anchors: tuple[str, ...] = ()
+    value_anchors: tuple[str, ...] = ()
+    distinctive_anchors: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

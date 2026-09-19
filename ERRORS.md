@@ -185,6 +185,28 @@ open, also record status, safe interim path, and review condition.
   denied. Next design must derive the assessed axis and keyed answer from the
   normalized source contract and restrict the model to candidate distractors;
   do not add another prompt-only retry or select a favorable repeat.
+- Axis-owned completion, 2026-09-19: provider wording could still switch to a
+  different source function, use another clause of the same compound fact, or
+  leave a server fallback prompt such as `Что верно в отношении ... у объекта`
+  learner-visible. A three-axis block cap also hid the status of later assessable
+  facts, and terminal review state was not reflected by the development runner.
+  The current fix binds wording, answer key, distractors and evidence to one
+  immutable source axis; classifies every assessable axis as retained, omitted,
+  unassessable or uncovered; rejects placeholder prompts, unfinished keys and
+  `[UNREADABLE_*]` facts; and propagates terminal review status through both the
+  application seam and runner. A permanently failed redundant axis may be
+  omitted only when another accepted item covers the same lesson/topic, while
+  the provider failure remains in audit evidence. A sole failed axis stays
+  uncovered and requires review. Full API unit suite `2054 PASS`; exact
+  `AI-COURSE-01` selection `7 PASS`; complete Excel acceptance retained 8 items
+  with 3/3 topics; production-Docling PDF acceptance retained 30 items with
+  13/13 topics and classified 44/44 assessable axes. Root manually checked all
+  retained questions against source quotations. Prevention: acceptance must
+  assert complete contract classification, terminal review propagation, zero
+  learner-visible OCR/placeholders, no quota padding and explicit provider
+  failure evidence before release. Final candidate regression is `2055 PASS`;
+  fresh repeated acceptance retained 8/8 Excel questions and 29/30 PDF questions
+  across runs while preserving full topic/contract classification.
 
 ## UI-CONTENT-001 - Read-only lesson preview exposed Markdown editing syntax
 

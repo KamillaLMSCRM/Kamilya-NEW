@@ -187,6 +187,38 @@ def test_known_attribute_label_does_not_discard_exact_cell_evidence():
     assert _value_quote("светлый фасад", spaced) == "Светлый   фасад"
 
 
+def test_constraint_quote_accepts_only_substantial_exact_ordered_ellipsis() -> None:
+    from app.modules.ai.evidence_engine.semantic_assessment import (
+        _constraint_quote_is_source_bound,
+    )
+
+    fact = SourceFact(
+        "f-rule",
+        "Залог",
+        "запрет",
+        "Ломбарду не допускается принятие в залог предметов первой категории; "
+        "2) вещей, изъятых из оборота и ограниченных в обороте.",
+        "doc_id=d1;section=collateral",
+    )
+
+    assert _constraint_quote_is_source_bound(
+        "Ломбарду не допускается принятие в залог ... "
+        "вещей, изъятых из оборота и ограниченных в обороте.",
+        fact,
+    )
+    assert not _constraint_quote_is_source_bound(
+        "вещей, изъятых из оборота и ограниченных в обороте ... "
+        "Ломбарду не допускается принятие в залог",
+        fact,
+    )
+    assert not _constraint_quote_is_source_bound(
+        "Ломбарду не допускается принятие в залог ... "
+        "вещей, разрешённых в свободном обороте.",
+        fact,
+    )
+    assert not _constraint_quote_is_source_bound("Ломбарду ... вещей", fact)
+
+
 def test_reviewer_rejects_absurd_option_even_if_relevant_and_clearly_false():
     from app.modules.ai.evidence_engine.semantic_assessment import _parse_questions, _parse_reviews
 
@@ -555,6 +587,17 @@ async def test_failed_multi_axis_authoring_falls_back_to_isolated_axes():
                     "fixture",
                     [ValidatedCallFailureReason.VALIDATION_BLOCKED],
                 )
+            if request["task"] == "assessment_generate" and "15" in request["axes"][0]["source_claim"]:
+                self.requests.append(request)
+                axis = request["axes"][0]
+                payload = {"questions": [{
+                    "axis_id": axis["axis_id"],
+                    "prompt": "В какой срок обрабатывается обращение?",
+                    "distractors": ["В течение 30 минут.", "В течение одного часа."],
+                }]}
+                return SimpleNamespace(
+                    value=parser(json.dumps(payload, ensure_ascii=False)), attempt_count=1,
+                )
             return await super().ainvoke_validated(messages, parser, **kwargs)
 
     client = BatchAuthorRejectingClient()
@@ -842,6 +885,23 @@ async def test_multiple_rejections_create_only_singleton_repair_requests():
     class TwoRejectedClient(Client):
         async def ainvoke_validated(self, messages, parser, **kwargs):
             request = json.loads(messages[-1]["content"])
+            if request["task"] == "assessment_repair":
+                self.requests.append(request)
+                axis = request["axes"][0]
+                distractors = OPTIONS[1:]
+                if request["rejected"][0]["primary_fact_id"] == "f2":
+                    distractors = [
+                        "Сотрудник обязан звонить клиенту лично.",
+                        "Сотрудник обязан отправить письменное уведомление.",
+                    ]
+                payload = {"questions": [{
+                    "axis_id": axis["axis_id"],
+                    "prompt": request["rejected"][0]["prompt"],
+                    "distractors": distractors,
+                }]}
+                return SimpleNamespace(
+                    value=parser(json.dumps(payload, ensure_ascii=False)), attempt_count=1,
+                )
             if request["task"] != "assessment_generate":
                 return await super().ainvoke_validated(messages, parser, **kwargs)
             self.requests.append(request)

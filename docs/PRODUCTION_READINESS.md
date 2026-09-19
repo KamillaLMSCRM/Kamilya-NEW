@@ -9,17 +9,50 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Release 0.7.4 — corrective candidate; CI/production pending, 2026-09-19
+## Release 0.7.5 — local candidate GO; CI/production pending, 2026-09-19
+
+- No migration, database, DNS, provider, billing, model-route or infrastructure
+  change. Backend scope is API and all three application workers; native frontend
+  changes only its product-version manifest and has no UI behavior delta.
+- Each generated assessment is bound to a server-owned source axis. Every
+  assessable axis ends as retained, omitted, unassessable or uncovered; an
+  incomplete audit or uncovered topic requires methodologist review.
+- Unrelated source truths, copied neighboring clauses, unfinished keys, OCR
+  unreadability markers and internal placeholder prompts are rejected. Rejected
+  questions are not replaced to satisfy a count.
+- Complete API unit suite passed `2055`; database-free `AI-COURSE-01` passed `7`;
+  release-plane contracts passed `24`; release-contract gate passed with 159
+  revisions and head `0161`. Ruff, script compilation, diff check and Graphify
+  multigraph diagnostics passed.
+- Two production-shaped complete Excel runs each produced 3 lessons and 8
+  retained questions with 3/3 source-topic coverage. Production-Docling PDF
+  acceptance produced 15 lessons and 29–30 retained questions across the live
+  and replayed candidates, always with 13/13 source-topic coverage and 44/44
+  assessable axes classified; variation came only from explicit omission of
+  weak questions, never padding. Root manually reviewed every retained item
+  against its quote.
+- TypeSafe was used only on a synthetic development artifact as a report-only
+  evaluator. No tenant or customer document was sent to TypeSafe, and it is not
+  part of the client generation path.
+- **Gate:** local candidate GO. Exact project-account commit/push, remote SHA
+  readback, exact-SHA CI/artifact, synchronized VM126 rollout, native frontend
+  version synchronization, production synthetic smoke and cleanup remain required
+  before production GO. Rollback target is immutable production `0.7.4`.
+
+## Release 0.7.4 — deployed production baseline, 2026-09-19
 
 - Runtime behavior is identical to the accepted `0.7.3` candidate. This patch
   changes only Git executable metadata for two production-equivalent Docling
   verification helpers and advances the immutable product version.
 - CI run `35431736647` for `0.7.3` failed closed in the shell-policy gate before
-  any image deployment because both new `.sh` files were mode `100644`. Secrets,
-  frontend and dependency audit passed; production remained on `0.7.2`.
-- Both scripts are now mode `100755`. The complete shell gate, replacement exact
-  SHA CI, immutable artifacts, synchronized rollout and production acceptance
-  remain required before production GO.
+  any image deployment because both new `.sh` files were mode `100644`.
+- Exact corrective source `19e55a95a6ead014976168dcbebd7ad20c91f328` passed CI
+  `35431973202`, native frontend build `35432193621`, protected KZ release
+  `35432455271` and production smoke `35434995585`. Published GitHub release
+  `v0.7.4` and remote `master` identify the same source.
+- Independent public health readback reports product `0.7.4`, environment
+  `kz-production` and exact release SHA `19e55a95a6ead014976168dcbebd7ad20c91f328`.
+  This exact release is the rollback baseline for `0.7.5`.
 
 ## Release 0.7.3 — local candidate GO; CI/production pending, 2026-09-19
 

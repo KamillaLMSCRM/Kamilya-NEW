@@ -27,7 +27,7 @@ from .models import (
     SourceSection,
     StageTiming,
 )
-from .quality import is_acceptable_title
+from .quality import contains_ocr_artifact, is_acceptable_title
 
 _BUCKETS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
@@ -607,6 +607,7 @@ class EvidenceCourseEngine:
                 for section in primary_sections
                 for fact in section.facts
                 if fact.confidence >= 0.8 and fact.uncertainty in {"", "local_ocr"}
+                and not contains_ocr_artifact(fact.value)
             ]
         )
         supporting, supporting_duplicates = _deduplicate_facts(
@@ -615,6 +616,7 @@ class EvidenceCourseEngine:
                 for section in supporting_sections
                 for fact in section.facts
                 if fact.confidence >= 0.8 and fact.uncertainty in {"", "local_ocr"}
+                and not contains_ocr_artifact(fact.value)
             ]
         )
         timings.append(StageTiming(stage="document_plan", seconds=perf_counter() - started))

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -919,8 +920,38 @@ async def test_active_v2_drops_ambiguous_same_attribute_question_without_padding
         for question in questions
         for option in question.options
     )
-    assert generated.result.assessment_review["dropped"] == 1
-    assert len(questions) < generated.result.assessment_review["candidates"]
+    assert generated.result.assessment_review["omitted_count"] >= 1
+    assert any(
+        "correct_option_count_or_key" in outcome["reason"]
+        for outcome in generated.result.assessment_review["axis_outcomes"]
+    )
+    assert len(questions) < generated.result.assessment_review["requested_axes"]
+
+
+@pytest.mark.asyncio
+async def test_artifacts_require_review_when_assessment_contract_audit_is_incomplete() -> None:
+    generated = await generate_evidence_course(
+        _spreadsheet_corpus(),
+        intent=CourseIntent(),
+        generation_client=_GenerationClient(),
+        embedding_client=_EmbeddingClient(),
+    )
+    review = {
+        **generated.result.assessment_review,
+        "terminal_status": "review_required",
+        "coverage": {
+            **generated.result.assessment_review.get("coverage", {}),
+            "requires_review": False,
+        },
+    }
+    output = replace(
+        generated,
+        result=replace(generated.result, assessment_review=review),
+    )
+
+    artifacts = to_generation_artifacts(output)
+
+    assert artifacts.diagnostics["quality_status"] == "assessment_needs_review"
 
 
 @pytest.mark.asyncio

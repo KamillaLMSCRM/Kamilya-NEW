@@ -15,6 +15,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.7.5] - 2026-09-19
+
+### Changed
+
+- Bind every generated test item to one server-owned source axis and preserve an
+  explicit retained, omitted, unassessable or uncovered outcome for every
+  assessable source claim.
+- Treat assessment volume as a consequence of useful source material: unsafe,
+  redundant and low-value questions are omitted without filling a numeric quota.
+
+### Fixed
+
+- Reject answer options copied from a different source function, a different
+  clause of the same compound fact or an unrelated attribute, even when each
+  option is independently true in the source.
+- Exclude OCR unreadability markers, unfinished answer keys and internal
+  placeholder prompts from learner-visible courses and tests.
+- Require an explicit methodologist-review result when the assessment audit is
+  incomplete or a source topic remains uncovered.
+
 ## [0.7.4] - 2026-09-19
 
 ### Fixed

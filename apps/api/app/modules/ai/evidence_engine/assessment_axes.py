@@ -14,6 +14,7 @@ from .models import (
     AssessmentAxis,
     AssessmentAxisKind,
     AuthoredAssessment,
+    DistractorConstraint,
     LessonDraft,
     QuestionDraft,
     SourceFact,
@@ -22,6 +23,31 @@ from .models import (
 
 def _norm(text: str) -> str:
     return " ".join(text.casefold().replace("ё", "е").split())
+
+
+_ANCHOR_TOKEN = re.compile(r"[^\W_]+", flags=re.UNICODE)
+
+
+def _conservative_stem(token: str) -> str:
+    """Normalize only common inflections; lexical meaning remains source-owned."""
+    if len(token) >= 5 and token.endswith("ies"):
+        return f"{token[:-3]}y"
+    if len(token) >= 5 and token.endswith("s") and not token.endswith("ss"):
+        return token[:-1]
+    for suffix in ("ами", "ями", "ого", "ему", "ому", "ыми", "ими", "ах", "ях", "ов", "ев"):
+        if token.endswith(suffix) and len(token) - len(suffix) >= 4:
+            return token[:-len(suffix)]
+    if len(token) >= 6 and token[-1] in "аеиоуыэюя":
+        return token[:-1]
+    return token
+
+
+def _lexical_anchors(text: str) -> frozenset[str]:
+    return frozenset(
+        _conservative_stem(token)
+        for token in _ANCHOR_TOKEN.findall(_norm(text))
+        if len(token) >= 3
+    )
 
 
 _LOW_VALUE_ATTRIBUTE = re.compile(
@@ -170,7 +196,7 @@ def _source_owned_correct_value(fact: SourceFact) -> str:
     if len(sentences) <= 1:
         return _concise_source_span(fact.value.strip())
 
-    def score(sentence: str) -> tuple[int, int]:
+    def score(sentence: str, index: int) -> tuple[int, int, int]:
         normalized = _norm(sentence)
         points = 0
         if re.search(r"\b(?:если|когда|при|unless|when|if)\b", normalized):
@@ -186,9 +212,15 @@ def _source_owned_correct_value(fact: SourceFact) -> str:
             points -= 5
         if 40 <= len(sentence) <= 240:
             points += 2
-        return points, -len(sentence)
+        # Spreadsheet cells normally lead with the direct value for the row
+        # attribute and follow with compatibility/context.  Preserve that
+        # source order when no later sentence has a stronger normative signal.
+        return points, -index, -len(sentence)
 
-    return _concise_source_span(max(sentences, key=score))
+    return _concise_source_span(max(
+        enumerate(sentences),
+        key=lambda item: score(item[1], item[0]),
+    )[1])
 
 
 def _is_dependent_source_fragment(value: str) -> bool:
@@ -206,6 +238,16 @@ def _is_dependent_source_fragment(value: str) -> bool:
 
 
 def _required_prompt(correct_value: str) -> str:
+    refusal_right = re.fullmatch(
+        r"(?P<actor>.+?)\s+вправе\s+отказаться\s+от\s+(?P<object>.+?)\.?",
+        correct_value.strip(),
+        flags=re.IGNORECASE,
+    )
+    if refusal_right is not None:
+        return (
+            f"Что вправе сделать {refusal_right.group('actor').strip()} в отношении "
+            f"{refusal_right.group('object').strip()}?"
+        )
     open_information = re.fullmatch(
         r"(?P<subject>.+?)\s+являются\s+открытой\s+информацией\s+и\s+"
         r"не\s+могут\s+быть\s+предметом\s+коммерческой\s+тайны\.?",
@@ -341,6 +383,192 @@ def _server_owned_inverse(correct_value: str) -> str | None:
     return None
 
 
+def _distractor_constraints(
+    target: SourceFact,
+    facts: list[SourceFact],
+) -> tuple[DistractorConstraint, ...]:
+    """Classify source values once so model wording cannot move the tested axis."""
+    constraints: list[DistractorConstraint] = []
+    seen: set[tuple[str, str]] = set()
+    target_subject = _norm(target.subject)
+    target_attribute = _norm(target.attribute)
+    anchors_by_fact = {
+        fact.fact_id: (
+            _lexical_anchors(fact.attribute)
+            | _lexical_anchors(fact.value)
+            | _lexical_anchors(_source_owned_correct_value(fact))
+        )
+        for fact in facts
+    }
+    anchor_owners: dict[str, set[str]] = {}
+    for fact_id, anchors in anchors_by_fact.items():
+        for anchor in anchors:
+            anchor_owners.setdefault(anchor, set()).add(fact_id)
+    for fact in facts:
+        if fact.fact_id == target.fact_id:
+            relation = "same_axis"
+        elif (
+            _norm(fact.attribute) == target_attribute
+            and _norm(fact.subject) != target_subject
+        ):
+            relation = "same_attribute_other_subject"
+        else:
+            relation = "other_function_or_attribute"
+        for value in (fact.value.strip(), _source_owned_correct_value(fact)):
+            normalized_value = _norm(value)
+            identity = (fact.fact_id, normalized_value)
+            if not normalized_value or identity in seen:
+                continue
+            seen.add(identity)
+            constraints.append(DistractorConstraint(
+                fact_id=fact.fact_id,
+                subject=fact.subject.strip(),
+                attribute=fact.attribute.strip(),
+                value=value,
+                relation=relation,
+                attribute_anchors=tuple(sorted(_lexical_anchors(fact.attribute))),
+                value_anchors=tuple(sorted(_lexical_anchors(value))),
+                distinctive_anchors=tuple(sorted(
+                    anchor
+                    for anchor in anchors_by_fact[fact.fact_id]
+                    if anchor_owners[anchor] == {fact.fact_id}
+                )),
+            ))
+    return tuple(constraints)
+
+
+def _recognizably_bound_to_source(
+    candidate_anchors: frozenset[str],
+    constraint: DistractorConstraint,
+) -> bool:
+    attribute_hits = candidate_anchors.intersection(constraint.attribute_anchors)
+    value_hits = candidate_anchors.intersection(constraint.value_anchors)
+    distinctive_hits = candidate_anchors.intersection(constraint.distinctive_anchors)
+    value_coverage = len(value_hits) / max(1, len(constraint.value_anchors))
+    return bool(
+        attribute_hits
+        and len(value_hits) >= 2
+        and distinctive_hits
+        and value_coverage >= 0.6
+    ) or (
+        len(value_hits) >= 3
+        and len(distinctive_hits) >= 2
+        and value_coverage >= 0.7
+    )
+
+
+def _prompt_is_bound_to_axis(prompt: str, axis: AssessmentAxis) -> bool:
+    """Require generic provider wording to name the server-owned target.
+
+    A provider may paraphrase a question, but it cannot silently switch the
+    practical task.  Subject, attribute, or a source-owned value anchor is
+    enough to establish that the wording is about this axis.  Normative axes
+    already have a server-owned prompt and are handled separately by the
+    caller.
+    """
+    prompt_anchors = _lexical_anchors(prompt)
+    axis_anchors = (
+        _lexical_anchors(axis.subject)
+        | _lexical_anchors(axis.attribute)
+        | _lexical_anchors(axis.correct_value)
+    )
+    return bool(prompt_anchors.intersection(axis_anchors))
+
+
+def _server_owned_axis_prompt(axis: AssessmentAxis) -> str:
+    """Build a neutral prompt when provider wording switches the task."""
+    return (
+        f"Что верно в отношении «{axis.attribute.strip()}» "
+        f"у объекта «{axis.subject.strip()}»?"
+    )
+
+
+def _is_different_same_fact_clause(
+    candidate: str,
+    axis: AssessmentAxis,
+    constraint: DistractorConstraint,
+) -> bool:
+    """Reject a source clause that answers a different task in this axis.
+
+    Compound spreadsheet cells often contain both the requested attribute and
+    a nearby caveat.  The caveat is still from the same fact, so a different
+    source-axis check cannot catch it.  Exact clause matching is deliberately
+    strict; value-changing counterfactuals remain valid because they are not a
+    copied clause.
+    """
+    if constraint.relation != "same_axis":
+        return False
+    normalized_candidate = _norm(candidate)
+    normalized_correct = _norm(axis.correct_value)
+    if normalized_candidate == normalized_correct:
+        return False
+    clauses = _structured_list_clauses(constraint.value) or [
+        match.group(0).strip()
+        for match in re.finditer(r"[^.!?]+(?:[.!?]+|$)", constraint.value)
+        if match.group(0).strip()
+    ]
+    return any(
+        normalized_candidate == _norm(clause)
+        and _norm(clause) != normalized_correct
+        for clause in clauses
+    )
+
+
+def _admissible_source_distractors(
+    axis: AssessmentAxis,
+    distractors: tuple[str, ...],
+    prompt: str,
+) -> bool:
+    """Allow a cited alternative only for the target attribute and named subject.
+
+    Free-form wrong options remain provider-authored hypotheses.  A candidate
+    that exactly restates an admitted source value is different: the source
+    gives the server enough information to determine whether it answers this
+    axis.  Ambiguous duplicate source values fail closed.
+    """
+    for distractor in distractors:
+        normalized_distractor = _norm(distractor)
+        candidate_anchors = _lexical_anchors(distractor)
+        exact_matches = [
+            constraint
+            for constraint in axis.distractor_constraints
+            if _norm(constraint.value) == normalized_distractor
+        ]
+        # Exact same-axis source text is another copy of the key.  Fuzzy
+        # same-axis overlap is deliberately not enough: a useful
+        # counterfactual often differs from the true value by one term (movable
+        # vs immovable property, 15 vs 30 days).  The independent reviewer owns
+        # semantic equivalence; this deterministic boundary only rejects exact
+        # keys and candidates recognizably bound to a different source axis.
+        if any(match.relation == "same_axis" for match in exact_matches):
+            return False
+        if any(
+            _is_different_same_fact_clause(distractor, axis, constraint)
+            for constraint in axis.distractor_constraints
+        ):
+            return False
+        source_matches = [
+            constraint
+            for constraint in axis.distractor_constraints
+            if constraint.relation != "same_axis"
+            and (
+                constraint in exact_matches
+                or _recognizably_bound_to_source(candidate_anchors, constraint)
+            )
+        ]
+        if not source_matches:
+            continue
+        if (
+            _norm(axis.subject) not in _norm(prompt)
+            or any(
+                match.relation != "same_attribute_other_subject"
+                for match in source_matches
+            )
+        ):
+            return False
+    return True
+
+
 def derive_assessment_axes(
     lesson: LessonDraft,
     facts: list[SourceFact],
@@ -388,6 +616,7 @@ def derive_assessment_axes(
             for peer in eligible
             if peer.fact_id != fact.fact_id
             and _norm(peer.attribute) == _norm(fact.attribute)
+            and _norm(peer.subject) != _norm(fact.subject)
             and _norm(peer.value) != normalized_value
         )
         result.append(AssessmentAxis(
@@ -403,6 +632,7 @@ def derive_assessment_axes(
             normalized_correct_value=normalized_value,
             eligible_distractor_fact_ids=peers,
             axis_kind=_axis_kind(fact),
+            distractor_constraints=_distractor_constraints(fact, eligible),
         ))
     return tuple(result)
 
@@ -427,7 +657,15 @@ def materialize_assessment(
         return None
     if axis.normalized_correct_value in normalized:
         return None
-    prompt = axis.required_prompt or authored.prompt.strip()
+    authored_prompt = authored.prompt.strip()
+    if axis.required_prompt:
+        prompt = axis.required_prompt
+    elif _prompt_is_bound_to_axis(authored_prompt, axis):
+        prompt = authored_prompt
+    else:
+        prompt = _server_owned_axis_prompt(axis)
+    if inverse is None and not _admissible_source_distractors(axis, distractors, prompt):
+        return None
     return QuestionDraft(
         question_id=f"semantic-{axis.axis_id.removeprefix('axis-')}",
         lesson_id=axis.lesson_id,

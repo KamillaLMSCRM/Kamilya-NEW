@@ -10,7 +10,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from uuid import uuid5, NAMESPACE_URL
+from uuid import NAMESPACE_URL, uuid5
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
@@ -352,8 +352,11 @@ async def _run(
             total: int,
             provider: str | None,
             attempt: int | None,
+            _events: list[dict[str, object]] = events,
+            _run_number: int = run_number,
+            _label: str = label,
         ) -> None:
-            events.append({
+            _events.append({
                 "stage": stage,
                 "current": current,
                 "total": total,
@@ -364,7 +367,7 @@ async def _run(
             provider_suffix = f" provider={provider}" if provider else ""
             attempt_suffix = f" attempt={attempt}" if attempt else ""
             print(
-                f"[{label}/run-{run_number}] {stage} {current}/{total}{provider_suffix}{attempt_suffix}",
+                f"[{_label}/run-{_run_number}] {stage} {current}/{total}{provider_suffix}{attempt_suffix}",
                 flush=True,
             )
 
@@ -447,6 +450,7 @@ async def _run(
                 if result.embedding_degraded or result.deterministic_fallback_count > 0
                 else "assessment_needs_review" if (
                     not result.realized_assessment.questions
+                    or result.assessment_review.get("terminal_status") == "review_required"
                     or result.assessment_review.get("coverage", {}).get("requires_review", False)
                 )
                 else "validated_draft"

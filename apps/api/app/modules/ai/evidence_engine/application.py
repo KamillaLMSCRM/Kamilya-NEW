@@ -1250,6 +1250,7 @@ def to_generation_artifacts(output: EvidenceGenerationOutput) -> GenerationArtif
         "quality_status": (
             "degraded_needs_review" if degraded else
             "assessment_needs_review" if not result.realized_assessment.questions
+            or result.assessment_review.get("terminal_status") == "review_required"
             or result.assessment_review.get("coverage", {}).get("requires_review") else "validated_draft"
         ),
         "provider_fallback_count": result.provider_fallback_count,
