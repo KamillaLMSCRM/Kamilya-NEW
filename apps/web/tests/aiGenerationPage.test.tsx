@@ -320,7 +320,7 @@ describe('/ai/generate multi-document selection contract', () => {
     render(<AIGeneratePage />);
     fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
 
-    expect(await screen.findByText('1 мод., до 2 содержательных уроков, ориентировочно 6–10 мин.')).toBeInTheDocument();
+    expect(await screen.findByText('Ориентир: 1 мод., около 2 содержательных уроков, 6–10 мин.')).toBeInTheDocument();
     expect(screen.getByText(/Оценка, а не обещанный результат/)).toBeInTheDocument();
     expect(screen.queryByText(/урока на модуль/)).not.toBeInTheDocument();
   });

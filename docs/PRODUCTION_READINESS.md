@@ -9,7 +9,24 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Release 0.7.6 — local candidate; final gates pending, 2026-09-19
+## Release 0.7.7 — local candidate; final gates pending, 2026-09-19
+
+- Frontend-only wording correction: the lightweight pre-generation source
+  estimate is now labelled as an approximate guideline. The authoritative
+  full-source analysis may legitimately produce a different lesson count after
+  parsing all source blocks.
+- No generator, API contract, worker behavior, database, DNS, provider,
+  model-route, billing or infrastructure change. The API, all three workers and
+  native frontend still require one synchronized product-version identity.
+- Focused regression passed `22`; the complete frontend suite passed `619`,
+  followed by typecheck, lint and production build.
+- **Gate:** local candidate, not production GO. Exact project-account commit and
+  remote SHA readback, exact-SHA CI/artifacts, synchronized API/worker and CT137
+  rollout, public/private exact-SHA readback, browser wording acceptance and
+  synthetic cleanup remain required. Rollback target is immutable production
+  `v0.7.6`.
+
+## Release 0.7.6 — deployed production baseline, 2026-09-19
 
 - No database migration, DNS, provider, billing, model-route or infrastructure
   change. API and three application workers change; the native frontend only
@@ -32,10 +49,20 @@ DB/storage gate и приёмкой клиента
   DeepSeek Flash generation, no fallback and `publishable=true`. All four
   retained answer sets passed root manual review; seven weaker candidates were
   omitted rather than padded or exposed to learners.
-- **Gate:** local candidate, not production GO. Exact project-account commit and
-  remote SHA readback, exact-SHA CI/artifacts, deployment, public/private
-  readback, production synthetic human-path smoke, visual question review and
-  cleanup are required. Rollback target is immutable production `v0.7.5`.
+- Exact source `657946c7b3ec4b97034c38ecc1708ed354e2b814` passed CI
+  `35453716126`, native frontend build `35454154644`, protected production
+  release `35454157820` and production smoke `35454840303`.
+- Public API and native frontend read back product `0.7.6` and the exact release
+  SHA. API and all three workers use the synchronized immutable release; CT137
+  retains `v0.7.5` as rollback and has no obsolete `v0.7.4` release tree.
+- Full synthetic production journeys completed through the human-facing path:
+  the Excel source generated 3 lessons and 8 retained questions in 88.653
+  seconds; the Lombard PDF generated 15 lessons and 28 retained questions in
+  390.280 seconds. Root review found no unrelated options, unsupported keys,
+  duplicates or OCR noise. One PDF lesson had no safe retained question and was
+  explicitly marked for methodologist review instead of being padded.
+- **Gate:** production GO for release `v0.7.6`. TypeSafe remained development-only
+  and received no tenant or customer document.
 
 ## Release 0.7.5 — local candidate GO; CI/production pending, 2026-09-19
 

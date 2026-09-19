@@ -825,7 +825,7 @@
     "courseFormatHint": "Kamilya recommends a structure from source volume and coherence.",
     "courseFormats": { "automatic": "Automatic (recommended)", "brief": "Brief", "standard": "Standard", "detailed": "Detailed" },
     "recommendedStructure": "Recommended structure",
-    "recommendedStructureValue": "{modules} modules, up to {lessons} substantive lessons, approximately {minMinutes}–{maxMinutes} min.",
+    "recommendedStructureValue": "Guideline: {modules} modules, about {lessons} substantive lessons, {minMinutes}–{maxMinutes} min.",
     "sourceInterpretation": "How Kamilya interpreted the material",
     "primarySections": "Primary sections",
     "supportingSections": "Reference sections",

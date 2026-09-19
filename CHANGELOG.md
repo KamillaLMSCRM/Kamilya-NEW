@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.7.7] - 2026-09-19
+
+### Fixed
+
+- Describe the source-based lesson count as an approximate planning guideline,
+  not as a hard maximum that the authoritative full-source analysis must obey.
+
 ## [0.7.6] - 2026-09-19
 
 ### Changed
@@ -1248,7 +1255,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.6...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.7...HEAD
+[0.7.7]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.6...v0.7.7
 [0.7.6]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.5...v0.7.6
 [0.7.5]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.4...v0.7.5
 [0.7.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.1...v0.7.2

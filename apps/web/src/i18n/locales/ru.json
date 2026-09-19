@@ -869,7 +869,7 @@
     "courseFormatHint": "Kamilya предложит структуру по объёму и связности материалов.",
     "courseFormats": { "automatic": "Автоматически (рекомендуется)", "brief": "Краткий", "standard": "Стандартный", "detailed": "Подробный" },
     "recommendedStructure": "Рекомендуемая структура",
-    "recommendedStructureValue": "{modules} мод., до {lessons} содержательных уроков, ориентировочно {minMinutes}–{maxMinutes} мин.",
+    "recommendedStructureValue": "Ориентир: {modules} мод., около {lessons} содержательных уроков, {minMinutes}–{maxMinutes} мин.",
     "sourceInterpretation": "Как Kamilya поняла материал",
     "primarySections": "Основные разделы",
     "supportingSections": "Справочные разделы",
