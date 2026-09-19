@@ -207,6 +207,18 @@ open, also record status, safe interim path, and review condition.
   failure evidence before release. Final candidate regression is `2055 PASS`;
   fresh repeated acceptance retained 8/8 Excel questions and 29/30 PDF questions
   across runs while preserving full topic/contract classification.
+- Release-gate correction, 2026-09-19: exact-SHA CI run `35443649257`
+  stopped before deployment because two changed modules introduced one mypy
+  `arg-type` and one mypy `assignment` violation. The pre-push packet had run
+  Ruff and unit tests but not the blocking Python quality baseline, so local
+  green evidence was incomplete. The relation is now explicitly narrowed to
+  the server-owned literal type and the reused list/bool local is split into
+  distinct names. Focused assessment tests `178 PASS` and changed-file Ruff
+  pass. Prevention: every release packet that changes Python must run the
+  canonical Python quality baseline, or an OS-equivalent changed-file mypy
+  check when the Windows baseline wrapper reports unrelated path-normalization
+  noise, before commit and push; never raise the committed baseline for a new
+  violation.
 
 ## UI-CONTENT-001 - Read-only lesson preview exposed Markdown editing syntax
 

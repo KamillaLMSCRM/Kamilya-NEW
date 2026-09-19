@@ -15,6 +15,7 @@ from .models import (
     AssessmentAxisKind,
     AuthoredAssessment,
     DistractorConstraint,
+    DistractorSourceRelation,
     LessonDraft,
     QuestionDraft,
     SourceFact,
@@ -405,6 +406,7 @@ def _distractor_constraints(
         for anchor in anchors:
             anchor_owners.setdefault(anchor, set()).add(fact_id)
     for fact in facts:
+        relation: DistractorSourceRelation
         if fact.fact_id == target.fact_id:
             relation = "same_axis"
         elif (

@@ -876,14 +876,18 @@ async def generate_block_assessment(
         request_axes = axes[:3]
         requested_axis_ids = {axis.axis_id for axis in request_axes}
         for axis in axes:
-            selected = axis.axis_id in requested_axis_ids
+            is_requested = axis.axis_id in requested_axis_ids
             axis_records[axis.axis_id] = {
                 "axis_id": axis.axis_id,
                 "lesson_id": axis.lesson_id,
                 "primary_fact_id": axis.primary_fact_id,
                 "evidence_fact_ids": list(axis.evidence_fact_ids),
-                "state": "uncovered" if selected else "omitted",
-                "reason": "assessment_not_completed" if selected else "assessment_density_limit",
+                "state": "uncovered" if is_requested else "omitted",
+                "reason": (
+                    "assessment_not_completed"
+                    if is_requested
+                    else "assessment_density_limit"
+                ),
                 "attempt_counts": {"authored": 0, "deterministic_repair": 0,
                                    "model_repair": 0, "replacement": 0},
             }
