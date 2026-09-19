@@ -696,13 +696,13 @@ async def test_partial_rich_block_recovers_only_missing_axes_before_review():
     class PartialClient(Client):
         async def ainvoke_validated(self, messages, parser, **kwargs):
             request = json.loads(messages[-1]["content"])
-            if request["task"] == "assessment_generate" and len(request["axes"]) > 1:
+            if request["task"] == "assessment_generate":
                 self.requests.append(request)
                 axis = request["axes"][0]
                 payload = {"questions": [{
                     "axis_id": axis["axis_id"],
                     "prompt": f"Каково значение «{axis['attribute']}»?",
-                    "distractors": ["Другое значение", "Третье значение"],
+                    "distractors": ["Другая коллекция", "Третья коллекция"],
                 }]}
                 return SimpleNamespace(value=parser(json.dumps(payload, ensure_ascii=False)),
                                        attempt_count=1)
@@ -714,6 +714,7 @@ async def test_partial_rich_block_recovers_only_missing_axes_before_review():
     author_requests = [request for request in client.requests
                        if request["task"] == "assessment_generate"]
     assert [len(request["axes"]) for request in author_requests] == [3, 1, 1]
+    assert result.audit["derived_axes"] == 3
     assert result.audit["requested_axes"] == 3
     assert result.audit["authored_axes"] == 3
 

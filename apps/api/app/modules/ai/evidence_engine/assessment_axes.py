@@ -27,6 +27,11 @@ def _norm(text: str) -> str:
 
 
 _ANCHOR_TOKEN = re.compile(r"[^\W_]+", flags=re.UNICODE)
+_BARE_NUMBER = re.compile(r"[+-]?\d+(?:[.,]\d+)?")
+_NUMBER_WITH_OPTIONAL_UNIT = re.compile(
+    r"\s*(?P<number>[+-]?\d+(?:[.,]\d+)?)\s*"
+    r"(?P<unit>[%A-Za-zА-Яа-яЁё°²³/.-]+)?\s*"
+)
 
 
 def _conservative_stem(token: str) -> str:
@@ -516,6 +521,51 @@ def _is_different_same_fact_clause(
     )
 
 
+def _has_comparable_option_shape(axis: AssessmentAxis, candidate: str) -> bool:
+    """Keep concise categorical alternatives comparable with the answer key.
+
+    A provider can otherwise answer a question such as "which collection?"
+    with one collection name and several full statements about usage scope.
+    Those statements may be false and well written, but they do not belong to
+    the same answer domain.  The guard is deliberately narrow: it applies only
+    to short attribute values and still allows a little contextual wording.
+    """
+    correct_tokens = _ANCHOR_TOKEN.findall(axis.correct_value)
+    if (
+        axis.axis_kind != "attribute"
+        or len(axis.correct_value) > 50
+        or not 1 <= len(correct_tokens) <= 3
+    ):
+        return True
+    candidate_tokens = _ANCHOR_TOKEN.findall(candidate)
+    return len(candidate_tokens) <= len(correct_tokens) + 3
+
+
+def _normalize_bare_numeric_distractors(
+    axis: AssessmentAxis,
+    distractors: tuple[str, ...],
+) -> tuple[str, ...] | None:
+    """Remove an answer-position cue when the source key is a bare number.
+
+    Spreadsheet sources often store a dimension as ``720`` while a provider
+    phrases alternatives as ``560 мм``.  Keeping that formatting would expose
+    the correct option.  The unit is not invented for the key; instead, every
+    option is reduced to its numeric value.  A nonnumeric alternative fails
+    closed because it is not comparable with this source-owned numeric axis.
+    """
+    if axis.axis_kind != "numeric_value" or not _BARE_NUMBER.fullmatch(
+        axis.correct_value.strip()
+    ):
+        return distractors
+    normalized: list[str] = []
+    for distractor in distractors:
+        match = _NUMBER_WITH_OPTIONAL_UNIT.fullmatch(distractor)
+        if match is None:
+            return None
+        normalized.append(match.group("number"))
+    return tuple(normalized)
+
+
 def _admissible_source_distractors(
     axis: AssessmentAxis,
     distractors: tuple[str, ...],
@@ -529,6 +579,8 @@ def _admissible_source_distractors(
     axis.  Ambiguous duplicate source values fail closed.
     """
     for distractor in distractors:
+        if not _has_comparable_option_shape(axis, distractor):
+            return False
         normalized_distractor = _norm(distractor)
         candidate_anchors = _lexical_anchors(distractor)
         exact_matches = [
@@ -649,6 +701,10 @@ def materialize_assessment(
     if authored.axis_id != axis.axis_id or not authored.prompt.strip():
         return None
     distractors = tuple(item.strip() for item in authored.distractors if item.strip())
+    normalized_numeric = _normalize_bare_numeric_distractors(axis, distractors)
+    if normalized_numeric is None:
+        return None
+    distractors = normalized_numeric
     inverse = _server_owned_inverse(axis.correct_value)
     if inverse is not None:
         distractors = (inverse,)

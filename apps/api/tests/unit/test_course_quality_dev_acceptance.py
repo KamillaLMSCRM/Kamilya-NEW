@@ -227,6 +227,96 @@ def test_output_inspection_rejects_blind_fixed_position_and_longest_strategies()
     assert facts["blind_longest_answer_quizzes"] == 1
 
 
+def test_output_inspection_rejects_more_than_three_questions_per_lesson() -> None:
+    lesson_content = "Для коллекции Альфа указаны проверяемые характеристики."
+    preview = {
+        "modules": [
+            {
+                "title": "Коллекция Альфа",
+                "lessons": [
+                    {
+                        "title": "Характеристики коллекции Альфа",
+                        "content_preview": lesson_content,
+                        "source_validation_status": "verified",
+                        "source_document_ids": ["doc"],
+                        "source_references": [{"chunk_id": "one"}],
+                        "quiz_id": "quiz-1",
+                    }
+                ],
+            }
+        ],
+    }
+    questions = [
+        {
+            "id": f"question-{index}",
+            "text": f"Какое правило {index} применяется к коллекции Альфа?",
+            "explanation": lesson_content,
+            "choices": [
+                {"text": f"Правило {index}", "is_correct": True},
+                {"text": f"Исключение {index}", "is_correct": False},
+                {"text": f"Запрет {index}", "is_correct": False},
+            ],
+        }
+        for index in range(4)
+    ]
+
+    failures, facts = MODULE.inspect_output(
+        preview,
+        quizzes=[
+            {
+                "id": "quiz-1",
+                "pass_score": 80,
+                "review_status": "needs_review",
+                "questions": questions,
+            }
+        ],
+        recommendation={},
+        focus_terms=set(),
+        accepted_lesson_evidence=[],
+        require_captured_evidence=False,
+    )
+
+    assert "lesson_question_density_exceeded" in failures
+    assert facts["quizzes_over_question_limit"] == 1
+
+
+def test_output_inspection_does_not_enforce_lightweight_admission_proxy() -> None:
+    preview = {
+        "modules": [
+            {
+                "title": "Материалы",
+                "lessons": [
+                    {
+                        "title": f"Урок {index}",
+                        "content_preview": "Подтверждённые сведения источника.",
+                        "source_validation_status": "verified",
+                        "source_document_ids": ["doc"],
+                        "source_references": [{"chunk_id": str(index)}],
+                    }
+                    for index in range(9)
+                ],
+            }
+        ],
+    }
+
+    failures, facts = MODULE.inspect_output(
+        preview,
+        quizzes=[],
+        recommendation={
+            "recommended_total_lessons": 5,
+            "hard_max_total_lessons": 6,
+        },
+        focus_terms=set(),
+        accepted_lesson_evidence=[],
+        require_captured_evidence=False,
+        enforce_structure_limits=False,
+    )
+
+    assert "lesson_count_exceeds_hard_max" not in failures
+    assert "lesson_count_exceeds_recommendation" not in failures
+    assert facts["lessons"] == 9
+
+
 def test_operational_metadata_does_not_serialize_review_text(tmp_path: Path) -> None:
     marker = "CUSTOMER-SOURCE-MARKER-DO-NOT-PERSIST"
     review_sample = {

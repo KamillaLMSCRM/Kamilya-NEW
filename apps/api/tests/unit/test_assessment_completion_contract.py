@@ -26,8 +26,9 @@ def _lesson_and_facts():
 
 
 class _CompletionClient:
-    def __init__(self):
+    def __init__(self, *, truncate_batches: bool = True):
         self.requests = []
+        self.truncate_batches = truncate_batches
 
     async def ainvoke_validated(self, messages, parser, **kwargs):
         request = json.loads(messages[-1]["content"])
@@ -37,7 +38,7 @@ class _CompletionClient:
             axes = request["axes"]
             # Deliberately return only one axis from the batch.  Completion must
             # request only the exact missing axis, retaining server truth.
-            if len(axes) > 1:
+            if self.truncate_batches and len(axes) > 1:
                 axes = axes[:1]
             payload = {"questions": [
                 {
@@ -193,6 +194,10 @@ async def test_semantic_rejection_is_omitted_after_one_model_repair_without_padd
     assert {outcome["state"] for outcome in result.audit["axis_outcomes"]} == {"omitted"}
     assert result.audit["omitted_count"] == 2
     assert result.audit["terminal_status"] == "completed_with_warnings"
+    assert result.audit["coverage"]["requires_review"] is False
+    assert {block["outcome"] for block in result.audit["block_outcomes"]} == {
+        "quality_omitted",
+    }
     assert all(outcome["reason"].startswith("option_")
                for outcome in result.audit["axis_outcomes"])
     assert all(outcome["attempt_counts"]["model_repair"] == 1
@@ -405,7 +410,8 @@ async def test_density_cap_classifies_every_assessable_axis_without_padding() ->
 
     outcomes = result.audit["axis_outcomes"]
     assert len(outcomes) == 4
-    assert result.audit["requested_axes"] == 4
+    assert result.audit["derived_axes"] == 4
+    assert result.audit["requested_axes"] == 3
     assert sum(outcome["state"] == "retained" for outcome in outcomes) == 3
     omitted = [outcome for outcome in outcomes if outcome["state"] == "omitted"]
     assert len(omitted) == 1
@@ -420,6 +426,59 @@ async def test_density_cap_classifies_every_assessable_axis_without_padding() ->
         "uncovered_contract_count": 0,
         "audit_incomplete": False,
     }
+    assert result.audit["terminal_status"] == "completed_with_warnings"
+
+
+@pytest.mark.asyncio
+async def test_multi_scope_spreadsheet_lesson_round_robins_three_axes_without_padding() -> None:
+    fact_specs = (
+        ("alpha_material", "Коллекция Альфа", "материал", "Дуб", "alpha"),
+        ("alpha_opening", "Коллекция Альфа", "открывание", "Push-to-open", "alpha"),
+        ("beta_rooms", "Коллекция Бета", "помещения", "Гостиная", "beta"),
+        ("beta_warranty", "Коллекция Бета", "гарантия", "24 месяца", "beta"),
+    )
+    facts = {
+        fact_id: SourceFact(
+            fact_id,
+            subject,
+            attribute,
+            value,
+            f"doc_id=collections;source_revision=r1;section={section}",
+        )
+        for fact_id, subject, attribute, value, section in fact_specs
+    }
+    lesson = LessonDraft(
+        "lesson-multi-scope",
+        "Коллекции",
+        "Сравнение коллекций",
+        "Различать характеристики коллекций",
+        "",
+        tuple(facts),
+        (),
+        2,
+    )
+    client = _CompletionClient(truncate_batches=False)
+
+    result = await generate_block_assessment([lesson], facts, client)
+
+    author_requests = [
+        request for request in client.requests if request["task"] == "assessment_generate"
+    ]
+    assert [
+        [axis["source_claim"] for axis in request["axes"]]
+        for request in author_requests
+    ] == [["Дуб", "Push-to-open"], ["Гостиная"]]
+    assert {question.fact_id for question in result.questions} == {
+        "alpha_material", "alpha_opening", "beta_rooms",
+    }
+    assert len(result.questions) == 3
+    omitted = {
+        outcome["primary_fact_id"]: outcome
+        for outcome in result.audit["axis_outcomes"]
+        if outcome["state"] == "omitted"
+    }
+    assert omitted["beta_warranty"]["reason"] == "assessment_density_limit"
+    assert result.audit["coverage"]["requires_review"] is False
     assert result.audit["terminal_status"] == "completed_with_warnings"
 
 

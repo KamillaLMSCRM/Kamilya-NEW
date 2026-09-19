@@ -9,6 +9,34 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
+## Release 0.7.6 — local candidate; final gates pending, 2026-09-19
+
+- No database migration, DNS, provider, billing, model-route or infrastructure
+  change. API and three application workers change; the native frontend only
+  synchronizes the product version and has no UI behavior delta.
+- Assessment density is now owned by the learner-visible lesson: no more than
+  three axes are selected round-robin across semantic blocks. Weak questions
+  are explicitly omitted after bounded review/repair and are never regenerated
+  merely to meet a count. Provider or contract failures still fail closed.
+- Concise categorical answers reject sentence-shaped options from another
+  answer domain. Bare numeric options are normalized to one presentation shape
+  so the answer is not disclosed by an unmatched unit suffix.
+- The production-shaped harness defers authoritative sizing to the worker source
+  passport and reports derived axes separately from model-requested axes.
+- Complete API unit suite passed `2061`; `AI-COURSE-01` passed `7`; release,
+  version and release-plane contracts passed `47`; frontend passed `619` tests,
+  typecheck, lint and production build. Ruff, changed-file mypy, diff check and
+  the post-change Graphify integrity check passed.
+- Final fresh provider-backed synthetic Excel produced 9 lessons and 4 retained
+  questions in 169.859 seconds with 4/4 required topics, Voyage embeddings,
+  DeepSeek Flash generation, no fallback and `publishable=true`. All four
+  retained answer sets passed root manual review; seven weaker candidates were
+  omitted rather than padded or exposed to learners.
+- **Gate:** local candidate, not production GO. Exact project-account commit and
+  remote SHA readback, exact-SHA CI/artifacts, deployment, public/private
+  readback, production synthetic human-path smoke, visual question review and
+  cleanup are required. Rollback target is immutable production `v0.7.5`.
+
 ## Release 0.7.5 — local candidate GO; CI/production pending, 2026-09-19
 
 - No migration, database, DNS, provider, billing, model-route or infrastructure

@@ -52,12 +52,16 @@ def assess_topic_coverage(
                     "rejected",
                     "unavailable",
                     "density_omitted",
+                    "quality_omitted",
                 }
                 or type(candidates) is not int or candidates < 0):
             invalid = True
             continue
         seen.update(ids)
-        if outcome == "no_assessable_questions" and candidates == 0:
+        if (
+            outcome in {"no_assessable_questions", "density_omitted"}
+            and candidates == 0
+        ) or outcome == "quality_omitted":
             continue
         for fid in ids:
             required.setdefault(_topic(facts[fid]), set()).add(fid)

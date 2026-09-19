@@ -70,6 +70,69 @@ def test_materialization_rejects_a_distractor_equivalent_to_the_server_key() -> 
     assert materialize_assessment(axis, authored) is None
 
 
+def test_short_categorical_answer_rejects_sentence_shaped_distractors() -> None:
+    fact = SourceFact(
+        "fact-plywood-collection",
+        "Фанера",
+        "коллекция",
+        "Терра",
+        "doc_id=catalog;section=materials;row=12",
+    )
+    lesson = LessonDraft(
+        "lesson-materials",
+        "Материалы",
+        "Применение фанеры",
+        "Различать материалы по коллекциям",
+        "Фанера используется в коллекции Терра.",
+        (fact.fact_id,),
+        (),
+        2,
+    )
+    axis = derive_assessment_axes(lesson, [fact], block_id="block-materials")[0]
+
+    question = materialize_assessment(axis, AuthoredAssessment(
+        axis_id=axis.axis_id,
+        prompt="В какой коллекции используется фанера?",
+        distractors=(
+            "Фанера используется только в навесных модулях.",
+            "Фанера используется во всей коллекции.",
+            "Фанера используется только в напольных шкафах.",
+        ),
+    ))
+
+    assert question is None
+
+
+def test_bare_numeric_key_normalizes_measurement_suffixes_from_distractors() -> None:
+    fact = SourceFact(
+        "fact-height",
+        "АЛ-НШ-300",
+        "Высота",
+        "720",
+        "doc_id=catalog;section=modules;row=2;column=5",
+    )
+    lesson = LessonDraft(
+        "lesson-modules",
+        "Модули",
+        "Базовые параметры",
+        "Различать размеры модулей",
+        "",
+        (fact.fact_id,),
+        (),
+        2,
+    )
+    axis = derive_assessment_axes(lesson, [fact], block_id="block-modules")[0]
+
+    question = materialize_assessment(axis, AuthoredAssessment(
+        axis_id=axis.axis_id,
+        prompt="Какая высота у модуля АЛ-НШ-300?",
+        distractors=("560 мм", "300 мм", "800 мм"),
+    ))
+
+    assert question is not None
+    assert question.options == ("720", "560", "300", "800")
+
+
 def test_axis_identity_and_key_do_not_depend_on_fact_order() -> None:
     lesson, first = _fixture()
     second = SourceFact(

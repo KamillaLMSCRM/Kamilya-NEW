@@ -44,6 +44,20 @@ def test_failed_author_is_not_a_successfully_empty_introduction():
     assert result["requires_review"] is True
 
 
+def test_bounded_quality_rejection_is_an_audited_omission_not_a_coverage_gap():
+    facts = {"a": fact("a")}
+
+    result = assess_topic_coverage(
+        facts,
+        [],
+        [block("a", "quality_omitted", 1)],
+    )
+
+    assert result["requires_review"] is False
+    assert result["audit_incomplete"] is False
+    assert result["required_topic_count"] == 0
+
+
 def test_another_document_cannot_supply_coverage_for_same_named_topic():
     facts = {"a": fact("a"), "b": fact("b", doc="another")}
     result = assess_topic_coverage(facts, [question("a")], [block("a"), block("b")])

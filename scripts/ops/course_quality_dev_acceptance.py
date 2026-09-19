@@ -485,6 +485,7 @@ def inspect_output(
     accepted_lesson_evidence: list[dict[str, Any]],
     *,
     require_captured_evidence: bool,
+    enforce_structure_limits: bool = True,
 ) -> tuple[list[str], dict[str, Any]]:
     failures: list[str] = []
     modules = preview.get("modules") or []
@@ -506,9 +507,9 @@ def inspect_output(
 
     hard_max = int(recommendation.get("hard_max_total_lessons") or 0)
     recommended = int(recommendation.get("recommended_total_lessons") or 0)
-    if hard_max and len(lessons) > hard_max:
+    if enforce_structure_limits and hard_max and len(lessons) > hard_max:
         failures.append("lesson_count_exceeds_hard_max")
-    if recommended and len(lessons) > recommended:
+    if enforce_structure_limits and recommended and len(lessons) > recommended:
         failures.append("lesson_count_exceeds_recommendation")
 
     unverified_lessons = 0
@@ -599,6 +600,7 @@ def inspect_output(
     answer_leakage_questions = 0
     blind_fixed_position_quizzes = 0
     blind_longest_answer_quizzes = 0
+    quizzes_over_question_limit = 0
     for quiz_id in expected_quiz_ids:
         quiz = quiz_by_id.get(quiz_id)
         if not quiz:
@@ -606,6 +608,8 @@ def inspect_output(
         if quiz.get("review_status") != "needs_review":
             review_state_failures += 1
         quiz_questions = quiz.get("questions") or []
+        if len(quiz_questions) > 3:
+            quizzes_over_question_limit += 1
         for question in quiz_questions:
             questions.append(question)
             text = " ".join(str(question.get("text") or "").split())
@@ -680,6 +684,7 @@ def inspect_output(
         (answer_leakage_questions, "question_contains_correct_answer"),
         (blind_fixed_position_quizzes, "blind_fixed_position_can_pass"),
         (blind_longest_answer_quizzes, "blind_longest_answer_can_pass"),
+        (quizzes_over_question_limit, "lesson_question_density_exceeded"),
     ):
         if count:
             failures.append(code)
@@ -707,6 +712,7 @@ def inspect_output(
         "answer_leakage_questions": answer_leakage_questions,
         "blind_fixed_position_quizzes": blind_fixed_position_quizzes,
         "blind_longest_answer_quizzes": blind_longest_answer_quizzes,
+        "quizzes_over_question_limit": quizzes_over_question_limit,
         "primary_focus_terms_available": len(focus_terms),
         "primary_focus_terms_matched": len(matched_focus_terms),
         "unsupported_relationship_claims": unsupported_relationship_claims,
@@ -878,26 +884,36 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         )
         client._expect(compatibility, {200}, "compatibility")
         compatibility_payload = compatibility.json()
-        passport = compatibility_payload.get("source_passport") or {}
-        roles = {str(section.get("name")): str(section.get("role")) for section in passport.get("sections") or []}
-        if roles.get("Коллекция") != "primary":
-            raise AcceptanceError("collection_sheet_not_primary")
-        if roles.get("Список") != "supporting":
-            raise AcceptanceError("list_sheet_not_supporting")
-        if "Расчёты" in roles:
-            raise AcceptanceError("hidden_sheet_entered_passport")
-        if passport.get("confidence") not in {"high", "medium"}:
-            raise AcceptanceError("document_passport_low_confidence")
+        passport = compatibility_payload.get("source_passport")
+        authoritative_admission_structure = isinstance(passport, dict) and bool(passport)
+        roles = {
+            str(section.get("name")): str(section.get("role"))
+            for section in (passport.get("sections") if authoritative_admission_structure else []) or []
+        }
+        if authoritative_admission_structure:
+            if roles.get("Коллекция") != "primary":
+                raise AcceptanceError("collection_sheet_not_primary")
+            if roles.get("Список") != "supporting":
+                raise AcceptanceError("list_sheet_not_supporting")
+            if "Расчёты" in roles:
+                raise AcceptanceError("hidden_sheet_entered_passport")
+            if passport.get("confidence") not in {"high", "medium"}:
+                raise AcceptanceError("document_passport_low_confidence")
         recommendation = compatibility_payload.get("recommended_structure") or {}
         if int(recommendation.get("recommended_total_lessons") or 0) > 14:
             raise AcceptanceError("supporting_rows_inflated_course_size")
         report["passport"] = {
-            "confidence": passport.get("confidence"),
-            "teachable_units": passport.get("teachable_units"),
+            "admission_authoritative": authoritative_admission_structure,
+            "confidence": passport.get("confidence") if authoritative_admission_structure else None,
+            "teachable_units": passport.get("teachable_units") if authoritative_admission_structure else None,
             "roles": roles,
             "recommended_total_lessons": recommendation.get("recommended_total_lessons"),
         }
-        report["checks"].append("document_passport_roles")
+        report["checks"].append(
+            "document_passport_roles"
+            if authoritative_admission_structure
+            else "document_passport_deferred_to_worker"
+        )
         report["checks"].append("adaptive_course_size")
 
         stage("generation_submit")
@@ -990,6 +1006,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             focus_terms,
             accepted_lesson_evidence,
             require_captured_evidence=args.execute_local_worker,
+            enforce_structure_limits=authoritative_admission_structure,
         )
         facts["assessment_model_lessons"] = assessment_model_lessons
         facts["tabular_assessment_lessons"] = tabular_assessment_lessons

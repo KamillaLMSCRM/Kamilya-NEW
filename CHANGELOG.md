@@ -15,6 +15,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.7.6] - 2026-09-19
+
+### Changed
+
+- Limit generated assessment density to at most three retained questions per
+  learner-visible lesson, selected fairly across its semantic source blocks.
+- Treat questions that still fail the bounded quality-review cycle as explicit
+  audited omissions instead of padding the test or blocking an otherwise safe
+  course.
+
+### Fixed
+
+- Reject sentence-shaped distractors when the source-owned answer is a concise
+  categorical value, and normalize bare numeric answer choices so formatting
+  cannot reveal the correct option.
+- Keep lightweight upload admission estimates advisory in the production-shaped
+  acceptance runner; the worker-owned source passport remains authoritative.
+- Report derived source axes separately from axes actually sent for assessment
+  generation, so progress and usage evidence are not inflated.
+
+### Security
+
 ## [0.7.5] - 2026-09-19
 
 ### Changed
@@ -1226,7 +1248,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.6...HEAD
+[0.7.6]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.5...v0.7.6
+[0.7.5]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.4...v0.7.5
 [0.7.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.1...v0.7.2
 [0.5.56]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.55...v0.5.56
 [0.5.55]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.5.54...v0.5.55

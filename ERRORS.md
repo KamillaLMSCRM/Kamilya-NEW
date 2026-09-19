@@ -3538,3 +3538,39 @@ contract or establish a blocker.
   inspection of every answer key and option set. Binary facts use server-owned
   inverses; dependent source fragments are not assessment facts; test fixtures
   must implement the same explicit evidence contract as production objects.
+
+## AI-QUALITY-028 - Per-block assessment caps multiplied questions per lesson
+
+- Date: 2026-09-19. Found by the first production synthetic human-path check of
+  release 0.7.5 and reproduced through the production-shaped local application
+  seam before preparing 0.7.6.
+- Symptom: a nine-lesson workbook produced 51 questions because each internal
+  semantic block could independently request up to three. Some alternatives
+  answered a different task than a concise categorical key, and bare numeric
+  keys were visually distinguishable from options carrying unit suffixes.
+  Separately, the acceptance harness compared authoritative worker output with
+  a lightweight upload-admission estimate and reported a false size mismatch.
+- Cause: assessment density was bounded at the internal block seam instead of
+  the learner-visible lesson seam. The deterministic answer boundary checked
+  source identity and truth but not concise answer-domain shape or numeric
+  presentation shape. The DEV harness fabricated authority that the admission
+  response did not have.
+- Fix: select at most three axes per lesson round-robin across blocks before any
+  provider call; classify excess axes as `density_omitted`; classify questions
+  rejected after bounded review/repair as `quality_omitted`; reject
+  sentence-shaped alternatives for short categorical keys; normalize numeric
+  alternatives when the source key is a bare number; and defer authoritative
+  sizing to the worker source passport. Report derived and requested axes as
+  separate counters.
+- Verification: RED/GREEN regressions cover multi-block lesson density,
+  categorical answer shape, numeric option shape, quality omission, provider
+  outage fail-closed behavior and harness authority. Full API unit suite passed
+  `2061`; `AI-COURSE-01` passed `7`; release contracts passed `47`. The final
+  exact-code provider run completed with 9 lessons, 4 retained questions, 4/4
+  required topics, no fallback and `publishable=true`; root manually accepted
+  every retained answer set. Production human-path acceptance remains mandatory.
+- Prevention: question density is always measured at the learner-visible lesson
+  seam; optional weak questions may be deleted but infrastructure failures may
+  not be relabelled as quality omissions. Every release acceptance must inspect
+  all retained answer sets for answer-domain and formatting cues, and a proxy
+  may never substitute for the authoritative worker contract.

@@ -622,3 +622,41 @@ Rules:
   release/version/controller contracts45PASS. Frontend619PASS, typecheckPASS,
   ESLintPASS and production buildPASS. No production mutation had occurred at
   this checkpoint.
+
+### 2026-09-19 — lesson-level assessment density and omission closeout
+
+- Isolated worktree only at this checkpoint; no production, tenant, database,
+  DNS, provider-route or billing mutation. Synthetic workbook SHA-256:
+  `8fa46317a50ac158cd5aabc67b0b1183a53dc265f9a6424e5a1c20c46fd10da1`.
+- Reproduced the production 0.7.5 fan-out: a cap applied to each semantic block
+  could yield 51 questions for nine learner-visible lessons. Added a
+  deterministic round-robin ceiling of three requested axes per lesson and no
+  quota padding. Audit now separates 198 derived axes from 27 requested axes.
+- Added explicit `quality_omitted` coverage semantics: a question rejected after
+  bounded review/repair is removed without blocking the course; provider and
+  contract failures remain uncovered and review-required. Added categorical
+  answer-shape and bare-numeric presentation guards.
+- Focused final assessment selection:79PASS. Full API unit suite before the
+  final numeric-shape guard:2060PASS with5 existing deprecation warnings. Ruff,
+  changed-file mypy and diff checkPASS; final full rerun remains a release gate.
+- Fresh provider-backed run before the final numeric guard: Voyage embeddings,
+  DeepSeek Flash generation, no fallbacks,9lessons/6questions,
+  derived/requested/authored axes198/27/13, coverage6/6,
+  `publishable=true`,207.109s total (evidence0.048, embeddings3.389,
+  realization41.177, assessment162.471),141656 prompt and27185 completion
+  tokens. Manual review rejected a visible numeric unit-format cue.
+- Exact-response replay after the correction:9lessons/3retainedquestions,
+  derived/requested axes198/27, uncovered0, provider fallback0,
+  `publishable=true`,4.170s; all retained answer sets are relevant and
+  source-grounded.
+- Final fresh exact-code provider run:9lessons/4retainedquestions from11
+  authored candidates, derived/requested axes198/27, required/covered topics4/4,
+  uncovered0, provider and deterministic fallback0, `publishable=true`,
+  169.859s (evidence0.041, embeddings3.505, realization40.221,
+  assessment126.076),127003 prompt and23701 completion tokens. Root manually
+  reviewed all four retained answer sets: wrong keys0, unrelated options0,
+  unsupported claims0, numeric formatting cues0, duplicates0.
+- Final gates: API unit2061PASS with5 existing warnings; AI-COURSE-01 7PASS;
+  release/version/release-plane47PASS; release contract159 revisions/head0161;
+  frontend619PASS plus typecheck/lint/buildPASS; post-change Graphify21267 nodes/
+  49066 edges/dangling0. Production acceptance remains NOTVERIFIED.
