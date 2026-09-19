@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-09-14 по исходникам и production-контурам
+**Проверено:** 2026-09-19 по исходникам; production readback обновляется релизом
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -8,6 +8,32 @@ DB/storage gate и приёмкой клиента
 **Назначение:** единственный актуальный реестр production-gates. История изменений
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
+
+## Release 0.7.3 — local candidate GO; CI/production pending, 2026-09-19
+
+- No migration, database, DNS, provider, billing, model-route or infrastructure
+  change. The synchronized scope is API, all three application workers and the
+  native frontend; rollback remains immutable release 0.7.2.
+- Assessment generation is bound to coherent source blocks and explicit assessed
+  axes. Keys, distractors, constraints, practical plausibility, duplicates and
+  lesson/topic coverage fail closed; rejected questions are not quota-padded.
+- If no safe assessment survives, the generated lessons remain a reviewable
+  draft and the frontend opens that draft instead of resuming a terminal job.
+- Complete database-free API unit suite passed `2028` tests; final focused
+  constraint/practical-quality selection passed `33`; Ruff and diff checks passed.
+  Frontend passed `115` files / `619` tests plus TypeScript and lint.
+- Production-equivalent local acceptance: complete control Excel produced
+  3 lessons, 8/9 accepted questions, 3/3 topic coverage and zero unassessed
+  lessons or fallbacks. Complete Lombard PDF converted through production
+  Docling (21 pages, 72,525 Markdown characters) and produced 15 lessons,
+  30 questions and 13/13 topic coverage without fallback.
+- Independent Excel review found no wrong keys, irrelevant options, ambiguity,
+  unsupported claims, OCR artifacts, exact duplicates or cross-lesson leakage.
+  TypeSafe saw only a synthetic development artifact and remains report-only.
+- **Gate:** local candidate GO. Exact project-account commit/push, remote SHA
+  readback, CI, immutable backend image, native frontend artifact, synchronized
+  production rollout, public/private exact-SHA readback, bounded synthetic smoke
+  and cleanup remain required before production GO.
 
 ## Release 0.7.2 — local candidate GO; CI/production pending, 2026-09-18
 

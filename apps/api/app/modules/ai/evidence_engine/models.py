@@ -8,6 +8,7 @@ from typing import Literal
 SectionRole = Literal["primary", "supporting"]
 SourceKind = Literal["spreadsheet", "narrative"]
 QuestionKind = Literal["single_choice", "true_false"]
+AssessmentAxisKind = Literal["attribute", "numeric_value", "rule_value"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +101,38 @@ class QuestionDraft:
     explanation: str
     fact_id: str
     distractor_fact_ids: tuple[str, ...] = ()
+    evidence_fact_ids: tuple[str, ...] = ()
+    source_quote: str = ""
+    semantic_block_id: str = ""
+    semantic_reviewed: bool = False
+    repaired_prompt: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class AssessmentAxis:
+    """Immutable source-owned knowledge target for one assessment question."""
+
+    axis_id: str
+    lesson_id: str
+    semantic_block_id: str
+    primary_fact_id: str
+    evidence_fact_ids: tuple[str, ...]
+    subject: str
+    attribute: str
+    required_prompt: str
+    correct_value: str
+    normalized_correct_value: str
+    eligible_distractor_fact_ids: tuple[str, ...]
+    axis_kind: AssessmentAxisKind
+
+
+@dataclass(frozen=True, slots=True)
+class AuthoredAssessment:
+    """Provider-owned wording only; it has no authority over answer truth."""
+
+    axis_id: str
+    prompt: str
+    distractors: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)

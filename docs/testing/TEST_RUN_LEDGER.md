@@ -264,3 +264,361 @@ Rules:
   deterministic lesson admission 4/4 PASS; final audit retained 10/11 questions
   in `6.033s`, deleting one semantic duplicate without padding.
 - **Status:** local candidate GO. CI, DEV and production evidence pending.
+
+## SEMANTIC-BLOCK-ASSESSMENT-LOCAL-20260918
+
+- Timestamp: `2026-09-18T08:15:36Z`.
+- Baseline SHA: `46fccaec609fec852d4f384ea3ae8ed58fb6d3f2` plus uncommitted
+  current-task changes on `feature/typesafe-course-eval-20260918`.
+  This is not immutable-release or production evidence.
+- Executors: root; bounded gpt-5.6-terra workers for blocks, outcomes, UI and
+  synthetic harness; gpt-5.6-luna for DEV evaluator and independent review.
+- Verification: full API unit 1879 PASS / 5 warnings / 75.89s. Final reviewer
+  refinement additionally checked by 53 affected tests. Python baseline PASS
+  ruff=1061, mypy=2238. Web focused25 before localization; final page21 and
+  typecheck PASS after RU/EN/KK labels. No new dependencies or DB schema.
+- Real-provider local replays: single paragraph1 lesson/1 question8.443s;
+  independent sections3/2 in22.072s; corrected synthetic-table surrogate3/7
+  in32.156s; full owner-provided Excel3/5 in60.908s then3/3 in56.293s.
+  Customer-derived content is only in ignored private output files, not ledger.
+- Final isolated assessment replay on saved Excel lessons: accepted6/9,
+  23.790s, no provider failures. No ingestion/lesson/DB/browser replay in that
+  measurement. Known absurd alternatives were independently rejected in a
+  separate assessment-only rereview. No lesson/question minimum quota.
+- Corrected harness failure: synthetic-table metadata had been omitted;
+  deterministic regression now proves all9 cells and3 entity owners.
+- TypeSafe: DEV-only, synthetic only, report_only REVIEW for simple recall,
+  source repetition and distractor distinction; not universal PASS. A subtle
+  optional-vs-forbidden wording risk was found manually despite TypeSafe PASS.
+- Graphify AST refresh refused smaller graph; no force overwrite. Source/tests,
+  not stale graph, establish findings. Canonical local Python environment drift
+  restored to lock-pinned packages; no manifest or production environment edit.
+- Decision: targeted defect remediated locally; overall release GO NOT GIVEN.
+  Full current PDF replay, DB integration, web production build, CI and runtime
+  acceptance remain unverified. No Git push/deploy or existing course mutation.
+- Detailed Russian report: `docs/testing/2026-09-18-semantic-block-assessment.md`.
+
+## SEMANTIC-BLOCK-CONSTRAINTS-LOCAL-20260918
+
+- Recorded: `2026-09-18T09:02:35Z`; same baseline
+  `46fccaec609fec852d4f384ea3ae8ed58fb6d3f2`, uncommitted candidate, no release.
+- Root exact modal replay: old general and added LLM constraint checks both
+  accepted a bad optional-to-forbidden key. Narrow deterministic guard rejects
+  it, retaining a valid privacy question. Boundary unit tests6; constraint tests16.
+- Root checks: focused61 PASS; full API unit1902 PASS,5 warnings,77.19s;
+  Python baseline PASS Ruff1061/mypy2238; targeted Ruff and diff whitespace PASS.
+- Frozen assessment SHA256:
+  `45fb69a91f505d259973f6d1fa7800f58f50fa3492425e5effd36e1bfed2dc3b`.
+  Two assessment-only real-provider runs:5/9 in45.655s and4/9 in47.895s;
+  primary-lesson counts2/0/3 and1/1/2. Repair-validation/fallback failures2 and1.
+- Local PDF prep:21 pages, rendering23.108s,OCR5.740s,corpus0.262s;
+  250chunks/238facts/25 planned lessons, NOT generated lessons. Visual page3
+  confirms reordered definition fragments. Production converter unavailable
+  locally; no generation from this invalid substitute, no production inference.
+- TypeSafe: no additional calls; earlier false PASS remains documented.
+- Workers requested Terra/medium (16 constraint tests,one specification correction)
+  and Luna/medium (read-only independent review). Root integrated and verified.
+  Runtime effort/token counters and isolated review elapsed time not exposed;
+  unknown, not zero. Root rejected the reviewer's source-hash/page conflation:
+  original PDF SHA and normalized-document hash are different identifiers.
+- Decision NO_GO: exact bug narrowed, repeatability/coverage not accepted.
+  No full generation, DB, browser, CI, push or deployment. Private source traces
+  retained only in ignored local outputs; no secrets/customer text in this ledger.
+
+## SEMANTIC-REPAIR-COVERAGE-LOCAL-20260918
+
+- Baseline46fccaec609fec852d4f384ea3ae8ed58fb6d3f2; local uncommitted candidate,
+  no release/push/DB/customer-course change. Terra implementation, Luna readonly
+  content review, root integration/acceptance. Worker token counters unavailable.
+- Implemented singleton server-bound repair, same-block citation refinement,
+  trusted rejection reasons, fail-closed primary-topic coverage, saved-draft UI,
+  ordinal-explanation guard before option shuffle. RED->GREEN contract tests.
+- Frozen assessmentSHA60f541fedd9be19b3b35f26ef6f4b2e633261123f60a5d5fb72c96f37a69e49d.
+  Excel assessment-only42.843s6/9 topics3/3;39.876s5/6 topics2/3 due invalidJSON
+  and fallbackConnectTimeout. Root detects absurd remaining distractor. NO_GO.
+- Owner-authorized deployed VM126 converter used, currentrelease46fcca...,green;
+  Docling2.106.0,21pages,95.934s,no fallback. Captured artifactSHA
+  b4f7ff47546a25a5d765bbd2ded8353c68792e57f3413cfb1fc0d009d576e7ab.
+  Two actual conversions: first extraction failed in DEV harness. Temporary
+  container and host files cleaned after verifiedlocaltransfer; original retained.
+- PDF prep0.220s116chunks321facts29plannedlessons. Image marker/TOC become
+  lessons; PDFassessment stopped31/321blocks,lastcheckpoint111.200s. No final
+  artifact, no secondPDFassessment/fullcourses; partial trace is not a PASS.
+- Synthetic fullseam25.618s3lessons3questions. TypeSafeDEV6livecalls6988inputtokens,
+  5.632s,costestimateUSD0.00029350,REVIEW(distractors_distinct); no customer input
+  senttoTypeSafe. Repetitionofshortsource alone is not release blocker.
+- FullAPIunit1924PASS,5warnings77.05s; separatecapture6PASS; web22PASS/typecheck;
+  PythonbaselinePASS(ruff1061/mypy2238). Focusedcounts overlap, not summed.
+- No CI/DBworker/browserreleaseevidence. DecisionNO_GO; next bounded work is
+  sourceblocknormalization and exact bad-option/providerJSON replay, not fullprod
+  regeneration. Details:docs/testing/2026-09-18-semantic-block-assessment.md.
+
+### 2026-09-18 — semantic assessment V1.4 local continuation
+
+- Scope:local only; samebaseline46fccaec609fec852d4f384ea3ae8ed58fb6d3f2.
+- Terra/medium source+JSON writers; Luna/medium independent artifact reviewer;
+  root integration/manualacceptance. Sourcewriter firstpass notaccepted; root
+  corrected overlap navigation, repeated heading and strict TOCcorroboration.
+  Reviewer falsepositive onpaletteclaim withdrawn afterroot exactfactreadback.
+  Perworker duration/rootreworktime/token counters not separatelyavailable.
+- APIunit1946PASS/76.89s/5warnings; capture6PASS/0.40s; PythonbaselinePASS
+  Ruff1061/mypy2238. No newfrontenddelta or livebrowserverification.
+- Excel assessment67.880s:7/9,3/3topics;56.883s:6/9,3/3topics,oneconstraintschema
+  failure+unreachablefallbacks. Both manuallyNOTACCEPTED. Laterenumclarification
+  verifiedonlyon4casecalibration/allmatched andnewsynthetic,notnewExcelpair.
+- PDFcachedproductionDocling sourceprep0.152s:116chunks267facts26plannedlessons;
+  firstfactisbodyrule,notTOC; nofullPDFcourse orassessmentrepeatclaimed.
+- Syntheticsmallfullseam24.274s:3lessons2questions,coverage2/3REVIEW.
+  TypeSafeDEVonlyPASS:4live1cache5614inputtokens3.911swallUSD0.00019345estimate.
+  Rootrejects duplicatewrongactiondespiteTypeSafePASS. No customerTypeSafepayload.
+- DecisionNO_GO; noDB/push/release/providerconfiguration. Allagentsclosed.
+  Artifacts:outputs/semantic-normalization-20260918; detailedfindings in
+  docs/testing/2026-09-18-semantic-block-assessment.md.
+
+### 2026-09-18 — isolated objective-alignment A/B pilot
+
+- Root-owned local-only experiment; runtime AI SHA256 map50files unchanged.
+  Freeze manifest723d0a9cb478ad81308ba99a32fa69d6f7429466b979c20c13d795e51bf0840a.
+- 4synthetic cases,2repeats,A/B=16attempts; sameenv DeepSeek-v4-flash,temp0.2,
+  max8192tokens,30calls/arm,180s/arm. Shared source-plan packs; onlyA computes
+  embedding retrieval metric, so totaltime is not a pure speed comparison.
+- A8/8artifacts26questions99calls225.594s103462input32779completion tokens;
+  B1/8artifacts4questions22calls53.554s17025input8664completion tokens.
+  Completion is not quality. Both fail repeatability/coverage or semantics.
+- TypeSafe synthetic only9reports4PASS5REVIEW51evaluations50live1cache;
+  60154input6054output45.420ssummedwall,adapterestimatedUSD0.00248754.
+  FalsepositivePASS onB duplicateaction/optionalexclusion; no runtime dependency.
+- Root corrected two DEV validator false positives after RED controls:
+  short exactquotes/options and identical general errorcategory≠sameaction.
+  19focusedPASS0.64s,RuffPASS;8savedBtraces replayedoffline0APIcalls.
+  Frozen engine preserved, originalfailedmetricsunchanged; no fullrerun claimed.
+- Holdoutwriter Feynman:Luna/medium,firstpass accepted with later oracle caveat;
+  tests Godel:Terra/medium,14testsfirstpass; reviewer Singer:Luna/medium,
+  firstpassnotaccepted,1root-directedcorrectionconfirmedtwo semanticdefects.
+  Requested models known; independent backend model/token/elapsed counters not
+  exposed. Root implementation/integration/QA; rootwall/rework not separatelytimed.
+  All agents closed. No CI/DB/browser/release, no fullcustomerfile replay.
+- Artifacts:outputs/objective-alignment-20260918. DecisionNO_GO; detailed
+  perattempt timings,root findings andlimitations in existing semantic report.
+
+### 2026-09-18 — objective alignment continuation and per-stage thinking
+
+- Local-only: engine/review/runner/source adapter, no runtime/DB/tenant/frontend,
+  no Git push/release. AI50file SHA map independently unchanged from firstpilot.
+- 3DEVseries x2cases +8freshholdoutattempts =14generationattempts/130calls;
+  two captured-artifact reviewjobs add6calls, no course regeneration.
+  Recorded usage total185472input/286661completion; not an account billing total.
+- Same-prompt disabled vs low:61.232s vs253.004s summed2cases; semantics improve,
+  cost/latency rise. Later selective series changes prompts too, not clean A/B.
+- Freshholdout manifestae69eb25e33e3c3c1dbd91ab5f90541f5b744590b70b88fa96cb72d8a836bf85:
+  8attempts/49calls/651.021s,5completed artifacts,3HTTP failures. Two short cases
+  accepted byroot; mixedtable sourcecoverage fails; policy normative wording not
+  accepted. Reviewer self-PASS is not rootacceptance. No newTypeSafe run.
+- Sourcebuilder excludes narrative sharing table heading; DEV-only adapter
+  preserves prose and original sectionroles.3offlinecontrolsPASS, liveNOTVERIFIED.
+  Holdout oracleoptional->forbidden error marked; frozenfixtureunchanged.
+- Read-only balance HTTP200 availablefalse USD-0.03; furtherDeepSeek calls stopped.
+  Original error HTTPcodesunknown. No top-up/plan/credentialmutation authorized.
+- Source-only realprep,0modelcalls: Plus48facts3plannedlessons0.515s;
+  Lombard267facts26plannedlessons0.129s usinghash-boundproductionDocling capture.
+  Neither is a completednewrealcourse. NOTGO forproduction.
+- Luna/medium leafworkers: hiddenfixtures/contracts and read-only quality/harness
+  review. Root rejected unsupported blocker claims (hashing is not holdout
+  disclosure; authorized localrawartifacts are not externalexfiltration) and
+  implemented actionable direct-main preflight. Full-testfixtures needed one
+  correction for missing testfiles; rootownsfinal acceptance.
+- Artifacts: outputs/objective-alignment-{round2-dev,round2-thinking,
+  round3-selective,final}-20260918; capturedrechecks and real-source-check folders.
+  See existingsemanticreport for exact paths, caveats and everyattempttime.
+- Final focused44PASS/0.74s,RuffPASS,diff--checkPASS. Pendingtransfer frozen,
+  zeroAPIcalls,manifest2139332ef49ee64b744b911c11e8a6835f0d2e1f6d72233349e554ebff774214.
+  Bothleafagentsclosed; no generationleft running. Externalbalance restoration
+  and unresolvedqualitygates are required before claiming completion.
+
+### 2026-09-18 — ASUS GLM route and cache observability (DEV only)
+
+- Owner requested local GLM while DeepSeek balance remains unrefilled; later
+  explicitly requested longer GLM timeouts. No paid inference, deployment,
+  credentials, billing, global env or production mutations in this continuation.
+- Live discovery: GLM-5.3-Flash-EXL3 at10.66.66.28:8888, qwen3.8-flash-next
+  at.30:8888, nvidia/Qwen3.6-35B-A3B-NVFP4 at.15:8000. Embeddings at.15/.7:8001
+  both returned4096dim; .25:8001 and old.28:8000 ConnectError fromworkstation.
+- GLM probe JSON200/3.45s. Firstdev-policy run NOT_COMPLETED214.738s:
+  plan75.038s,teacher19.247s,assessmentReadTimeout120.453s;3calls,
+  1352prompt/2817completion from2returnedresponses only.
+- Failed stage only retry, saved plan/teacher,1call: ReadTimeout240.693s;
+  no usage returned. Do not interpret oldzero accumulator as zero server work.
+  Queue metrics afterward running0/waiting0. Fresh authorized600s one-call
+  targetedretry recordedseparately, not overwritten historical evidence.
+- Local route no paid key lookup or fallback. New experiment defaults GLM.
+  Limits request600s,syntheticarm1800s,lesson1800s,fullcourse7200s;
+  no full customer-document generation was run in this continuation.
+- Recorder now retains optional cachehit/miss/reasoning usage, requesthash/time,
+  returnedmodel; absentmetrics unknown, notzero. Historical136DeepSeekcalls:
+  185472prompt/286661completion; cache-hit fraction not recoverable from totals.
+- Regression46PASS/0.85s; latertimeoutfocused10PASS/0.34s andrunner6PASS/0.29s;
+  RuffPASS,diffcheckPASS. RuntimeAI50filehashmap unchanged fromfirstpilot.
+  Source-faithful semantic acceptance and production GO remain separate gates.
+- Targeted600s attempt finished170.670s,1GLMcall,1228input/4959completion,
+  onequestion/threeon-topicoptions. Root sourcecheck: distinct wrongactions;
+  explanation ordinalreferences remain a shuffle defect. No blind audit or
+  full-course acceptance claimed. No background generation remains.
+
+### 2026-09-18 — ASUS GLM objective-alignment repeatability closeout
+
+- DEV-only, no DeepSeek calls, no production/runtime/env/DB/tenant mutation.
+- Added source-tethered plan/teaching/question recovery, complete-fact citation
+  expansion, risky-stem neutralization and duplicate-wrong-action collapse.
+- Focused objective-alignment regression61PASS/0.86s; RuffPASS; diffcheckPASS.
+- Seven key frozen two-repeat policy series:4COMPLETED,1COMPLETED_WITH_GAPS,
+  9NOT_COMPLETED across14attempts. One apparent2/2 series was root-rejected
+  because a lesson omitted a required middle clause from its cited fact.
+- Latest live frozen candidate before final offline missing-block correction:
+  repeat1 NOT_COMPLETED95.919s/11calls; repeat2 COMPLETED96.552s/12calls,
+  3lessons/3questions/0unresolved. This is1/2 and fails repeatability.
+- Final offline missing-teaching recovery is test-proven only; no claim of live
+  completion. Dev-table, holdout, Plus Excel and Lombard PDF were not run after
+  policy failure. DecisionNO_GO; no generation remains running.
+
+### 2026-09-18 — axis-owned assessment and TypeSafe replay acceptance
+
+- Local-only isolated worktree; no release, production, DB, tenant, credential,
+  billing or provider configuration mutation. New model calls for replay:0.
+- Server now owns axis/fact/key/evidence/id; model supplies wording+distractors.
+  Malicious model key fields are ignored. Optional rules use deterministic
+  binary questions. Weak extra distractors may be deleted without quota padding.
+- Captured GLM replay harness fixed to route by axis/question identity; dedicated
+  regression protects against queue shift when new logic skips a former repair.
+- Final replay `axis-owned-glm-independent-sections-20260918-v4-replay3`:
+  3lessons/3questions, coverage3/3, dropped0, removed1, publishabletrue,0.011s.
+- Complete cited multi-sentence facts are restored source-exactly; duplicate
+  teaching blocks for the same fact are removed. No unsupported advice added.
+- TypeSafe/Jev synthetic DEV report improved REJECT->REVIEW. Final questions:
+  2PASS/1REVIEW; lessons:1PASS/2REVIEW. Remaining reviews are source repetition
+  and low educational value on a one-rule binary question, not key/support
+  defects.6calls:2live/4cache,cost estimate$0.00008051,report_only.
+- Focused regression186PASS/7.08s,RuffPASS,diff-checkPASS. Real Plus/Lombard
+  full-document acceptance and production deployment remain separate NOTVERIFIED gates.
+
+### 2026-09-18 — Plus Excel axis-owned run and checkpoint resume
+
+- Local isolated worktree only; no production/release/DB/tenant mutation and no
+  TypeSafe submission of customer material. Voyage embeddings + explicit ASUS
+  GLM generation route; DeepSeek calls0.
+- Preserved v3-v6 evidence instead of overwriting failures. v3=3lessons/7questions/
+  publishable/401.506s; v4=3/4/publishable/291.568s; v5=3/6/not-publishable/
+  311.781s; v6=3/0/not-publishable/294.510s.
+- Negative evidence isolated two defects: strict all-axes parsing lost a whole
+  block after partial output, and the relevance reviewer incorrectly rejected
+  distractors before the specialized source-constraint audit.
+- v7 resumed from v6 trace and used live GLM only for missing/invalid stages:
+  10 captured calls +8 live fallback calls,170.236s,17847 prompt/5284 completion
+  tokens,3lessons/8acceptedquestions,requested/authored axes9/9,coverage3/3,
+  publishabletrue,fallbacks0.
+- Manual acceptance: keys and topic relevance pass. Editorial debt remains:
+  near-duplicate lesson phrasing and two over-broad correct answers. Lombard PDF
+  final-logic run NOTVERIFIED; production GO not claimed.
+- Final focused regression192PASS/2.67s; RuffPASS; diff-checkPASS.
+
+### 2026-09-18 — Plus Excel atomic keys and layered checkpoint acceptance
+
+- Local isolated worktree only; no production/release/DB/tenant mutation,
+  DeepSeek calls0, client material not sent to TypeSafe.
+- Multi-sentence source facts remain complete in lessons/evidence, while each
+  assessment key is now one exact atomic source claim. Model still owns only
+  wording+distractors, never truth/key.
+- Deterministic lesson cleanup now removes later semantic repeats across exact,
+  inflected and catalog-list wording; source fact links remain intact.
+- DEV replay accepts ordered immutable trace layers. v8=3lessons/3questions/
+  not-publishable/103.805s(two HTTP failures); v9=3/6/not-publishable/108.054s
+  (one malformed JSON); v10=3/9/publishable/81.261s; v11=3/9/publishable/
+  43.897s,15captured+2live,4364prompt/1486completion tokens.
+- v11 acceptance: axes9/9,accepted9,repaired1,dropped0,removed1,coverage3/3,
+  3questions/lesson. Root manually reviewed every question: concise exact keys,
+  same-task plausible distractors, no unrelated filler. One question safely has
+  3 total options after weak-option removal; no quota padding.
+- Existing tenant generation checkpoint tables are the intended production
+  seam for later fact/block/axis/audit persistence; no schema change in this run.
+- Final focused regression198PASS/2.66s; RuffPASS; diff-checkPASS. Plus Excel
+  local candidate accepted. Lombard final run and production remain NOTVERIFIED.
+
+### 2026-09-18 — adaptive narrative assessment and real-source acceptance
+
+- Local isolated worktree only; no production/release/DB/tenant/provider config
+  mutation, no TypeSafe customer-data submission, DeepSeek calls0.
+- Real production-Docling Lombard subset baseline:35facts/4lessons/31assessment
+  scopes/8questions/not-publishable/616.516s; DEV 64-call recorder exhausted.
+- Added autonomous source preflight for truncated fragments, non-text OCR debris,
+  dangling clauses and ambiguous formula glyphs; unsafe facts cannot own lessons
+  or assessment truth.
+- Narrative density is source-adaptive: up to3 atomic facts per lesson, one
+  author batch, no per-fact quota. Explicit `density_omitted` outcomes keep the
+  audit complete while topic coverage remains mandatory.
+- Added one contract-only retry, isolated review fallback for malformed batch
+  JSON, semantic paragraph dedup and server-owned concise source spans.
+- Final bounded Lombard v19:17facts/3lessons/6questions, per-lesson3/1/2,
+  coverage3/3,audit-complete,failures0,publishabletrue,230.028s. One weak
+  question was deleted without regeneration/padding.
+- Current-code full Plus v12:3lessons/9questions,axes9/9,accepted9,dropped0,
+  coverage3/3,failures0,publishabletrue,225.998s.
+- Voyage `voyage-4-lite` first and healthy in both runs; ASUS GLM generation;
+  no DeepSeek. Final expanded regression137PASS; RuffPASS; diff-checkPASS.
+- Full26-lesson Lombard generation, production release and browser acceptance
+  remain NOTVERIFIED and were not performed in this run.
+
+### 2026-09-19 — current-source Excel and live-Docling local closeout
+
+- Local isolated worktree only. Production, tenant data, database, deployment
+  and runtime provider configuration were not changed. Customer material was
+  not submitted to TypeSafe.
+- The current full Plus workbook was independently hashed as
+  `00783869f407800c94917053d84430091424de2cf36108d4e972540cf8bc52be`;
+  it differs from the earlier v12 fixture and therefore received a fresh run.
+- The first current-source run correctly failed closed: 3 lessons, 9 candidate
+  questions, 6 accepted, one lesson unassessed, `publishable=false`. The
+  constraint reviewer had collapsed categorical product alternatives such as
+  classic, loft and Provence into one broad `not minimalism` misconception.
+- The correction is deliberately narrow: only an explicit allowlist of
+  categorical attributes may ignore that broad model collapse after each wrong
+  option has independently passed contradiction, realism and option-level
+  review. Scope, duties, permissions, prohibitions and open-ended advice retain
+  the strict distinct-error veto. A red regression reproduced the defect; the
+  existing scope-veto regression prevented the initial over-broad correction.
+- Final current-source Excel result
+  `axis-owned-real-plus-20260919-current-source-fixed-final-v2`: 3 lessons,
+  8 accepted questions from 9 candidates, 3/3 required topics, no unassessed
+  lesson, failures0, validation errors0, provider fallback0, deterministic
+  fallback0, Voyage embedding degradation false, `publishable=true`,
+  `quality_status=validated_draft`. One weak bed-selection question was deleted
+  instead of padding the course. Replay/live-tail path used 18 exact captured
+  responses and 2 DeepSeek calls; wall time6.928s, new usage3599 prompt and656
+  completion tokens.
+- Independent read-only review of all eight questions: GO, P0=0, P1=0, P2=2.
+  The P2 items are two related but non-duplicate pairs (`main accent` versus
+  `style`); incorrect keys, irrelevant questions, materially implausible
+  distractors, ambiguity, OCR artifacts, exact duplicates, unsupported keys and
+  cross-lesson leakage were all0. The 3/3/2 question distribution is accepted;
+  no ninth question is required.
+- Current synthetic table through the live model seam: 3 lessons, 8 questions,
+  3/3 topics, no unassessed lesson, failures0,38.589s. TypeSafe/Jev report-only
+  evaluation used only that deidentified synthetic artifact: decision REVIEW,
+  11 live calls,11277 input tokens, estimated costUSD0.00047363. Signals concern
+  expected source repetition and low educational depth in a deliberately tiny
+  three-fact-per-product source; source support and exactly-one-correct remained
+  high. This is a development signal, not a client-flow gate.
+- Full Lombard evidence remains accepted from v39 after a fresh production-
+  application Docling conversion: 21 pages,72525 Markdown chars,98.189s,
+  conversion fallback false; generation15 lessons/30 questions/13 of13 topics,
+  `publishable=true`, no embedding degradation. Independent review found P0=0,
+  P1=0 and only six P2 reduced-option/discrimination notes.
+- Final verification after the categorical-attribute correction: full API unit
+  suite2028PASS/77.59s with5 existing deprecation warnings; focused constraint
+  and practical-quality suite33PASS; previously completed web suite619PASS,
+  TypeScript typecheckPASS and ESLintPASS. Production remains unchanged.
+- Release-tree verification for version0.7.3 after the type-only quality-gate
+  correction: full API unit suite2028PASS/77.25s with the same5 deprecation
+  warnings; Python quality baselinePASS (`ruff=1061`, `mypy=2238`); affected
+  assessment/application selection86PASS; local AI-COURSE-01 selection7PASS;
+  release/version/controller contracts45PASS. Frontend619PASS, typecheckPASS,
+  ESLintPASS and production buildPASS. No production mutation had occurred at
+  this checkpoint.

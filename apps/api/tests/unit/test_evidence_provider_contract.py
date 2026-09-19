@@ -58,6 +58,431 @@ def test_realizer_preserves_valid_provider_content_and_fills_omitted_facts() -> 
     assert "Поставки не смешивают до завершения приемки." in lesson.content
 
 
+def test_realizer_removes_unsupported_advice_but_keeps_source_backed_teaching() -> None:
+    fact = SourceFact(
+        fact_id="fact-channel",
+        subject="Защита данных",
+        attribute="правило",
+        value="Персональные данные передаются только по разрешённым каналам.",
+        source_locator="section=privacy;fact=1",
+    )
+    base = LessonDraft(
+        lesson_id="lesson-channel",
+        module_title="Безопасность",
+        title="Разрешённые каналы",
+        objective="Применять правило разрешённых каналов.",
+        content="",
+        fact_ids=(fact.fact_id,),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+    payload = {
+        "title": base.title,
+        "objective": base.objective,
+        "blocks": [{
+            "heading": "Передача данных",
+            "text": (
+                "Персональные данные передаются только по разрешённым каналам. "
+                "Если рабочий канал недоступен, нужно дождаться его восстановления "
+                "или запросить разрешение руководителя."
+            ),
+            "fact_ids": [fact.fact_id],
+        }],
+        "questions": [],
+    }
+
+    lesson, _questions, blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload,
+        base_lesson=base,
+        plan_fact_ids={fact.fact_id},
+        facts_by_id={fact.fact_id: fact},
+        seeds=[],
+    )
+
+    assert fact.value in lesson.content
+    assert "дождаться" not in lesson.content.casefold()
+    assert "разрешение руководителя" not in lesson.content.casefold()
+    assert blocks[0].text == fact.value
+
+
+def test_realizer_restores_omitted_sentence_from_a_cited_multi_sentence_fact() -> None:
+    fact = SourceFact(
+        fact_id="fact-channel-complete",
+        subject="Защита данных",
+        attribute="запрет",
+        value=(
+            "Персональные данные нельзя передавать в личные мессенджеры. "
+            "Используется только разрешённый канал; срочность не является исключением."
+        ),
+        source_locator="section=privacy;part=1",
+    )
+    base = LessonDraft(
+        lesson_id="lesson-channel-complete",
+        module_title="Безопасность",
+        title="Разрешённые каналы",
+        objective="Применять полное правило разрешённых каналов.",
+        content="",
+        fact_ids=(fact.fact_id,),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+    payload = {
+        "title": base.title,
+        "objective": base.objective,
+        "blocks": [{
+            "heading": "Передача данных",
+            "text": "Персональные данные нельзя передавать в личные мессенджеры.",
+            "fact_ids": [fact.fact_id],
+        }],
+        "questions": [],
+    }
+
+    lesson, _questions, blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload,
+        base_lesson=base,
+        plan_fact_ids={fact.fact_id},
+        facts_by_id={fact.fact_id: fact},
+        seeds=[],
+    )
+
+    assert "срочность не является исключением" in lesson.content
+    assert blocks[0].text == fact.value
+
+
+def test_realizer_deduplicates_identical_blocks_for_the_same_fact() -> None:
+    fact = SourceFact(
+        fact_id="fact-first-response",
+        subject="Первый ответ",
+        attribute="положение",
+        value=(
+            "Первый ответ подтверждает приём обращения и сообщает следующий шаг. "
+            "Окончательное решение в первом ответе не требуется."
+        ),
+        source_locator="section=response;part=1",
+    )
+    base = LessonDraft(
+        lesson_id="lesson-first-response",
+        module_title="Обращения",
+        title="Первый ответ",
+        objective="Давать первый ответ.",
+        content="",
+        fact_ids=(fact.fact_id,),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+    payload = {
+        "title": base.title,
+        "objective": base.objective,
+        "blocks": [
+            {"heading": "Определение", "text": fact.value, "fact_ids": [fact.fact_id]},
+            {"heading": "Практика", "text": fact.value, "fact_ids": [fact.fact_id]},
+        ],
+        "questions": [],
+    }
+
+    lesson, _questions, blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload,
+        base_lesson=base,
+        plan_fact_ids={fact.fact_id},
+        facts_by_id={fact.fact_id: fact},
+        seeds=[],
+    )
+
+    assert len(blocks) == 1
+    assert lesson.content.count(fact.value) == 1
+
+
+def test_realizer_does_not_append_single_sentence_after_supported_paraphrase() -> None:
+    fact = SourceFact(
+        fact_id="fact-rate",
+        subject="Расчёт ставки",
+        attribute="финансовое условие",
+        value=(
+            "1. Годовая эффективная ставка рассчитывается с учетом расходов Клиента, "
+            "включающих вознаграждение, комиссионные и иные платежи Ломбарду за "
+            "предоставление, обслуживание и погашение микрокредита."
+        ),
+        source_locator="section=rate;part=1",
+    )
+    base = LessonDraft(
+        lesson_id="lesson-rate",
+        module_title="Ставка",
+        title="Расчёт эффективной ставки",
+        objective="Учитывать расходы клиента.",
+        content="",
+        fact_ids=(fact.fact_id,),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+    paraphrase = (
+        "Годовая эффективная ставка учитывает расходы клиента: вознаграждение, "
+        "комиссионные и другие платежи ломбарду за предоставление, обслуживание "
+        "и погашение микрокредита."
+    )
+    payload = {
+        "title": base.title,
+        "objective": base.objective,
+        "blocks": [{"heading": "Учитываемые расходы", "text": paraphrase,
+                    "fact_ids": [fact.fact_id]}],
+        "questions": [],
+    }
+
+    lesson, _questions, blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload,
+        base_lesson=base,
+        plan_fact_ids={fact.fact_id},
+        facts_by_id={fact.fact_id: fact},
+        seeds=[],
+    )
+
+    assert blocks[0].text == paraphrase
+    assert fact.value not in lesson.content
+
+
+def test_realizer_renders_an_exact_sentence_once_across_overlapping_facts() -> None:
+    value = "Кроватей в линейке нет — кровать подбирают из совместимой коллекции."
+    facts = {
+        "fact-range": SourceFact(
+            fact_id="fact-range",
+            subject="Ассортимент",
+            attribute="состав",
+            value=value,
+            source_locator="sheet=Коллекции;row=2;column=Состав",
+        ),
+        "fact-pitch": SourceFact(
+            fact_id="fact-pitch",
+            subject="Ассортимент",
+            attribute="презентация",
+            value=value,
+            source_locator="sheet=Коллекции;row=2;column=Презентация",
+        ),
+    }
+    base = LessonDraft(
+        lesson_id="lesson-overlap",
+        module_title="Коллекции",
+        title="Ассортимент",
+        objective="Учитывать состав линейки.",
+        content="",
+        fact_ids=tuple(facts),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+    payload = {
+        "title": base.title,
+        "objective": base.objective,
+        "blocks": [
+            {"heading": "Состав", "text": value, "fact_ids": ["fact-range"]},
+            {"heading": "Презентация", "text": value, "fact_ids": ["fact-pitch"]},
+        ],
+        "questions": [],
+    }
+
+    lesson, _questions, blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload,
+        base_lesson=base,
+        plan_fact_ids=set(facts),
+        facts_by_id=facts,
+        seeds=[],
+    )
+
+    assert len(blocks) == 1
+    assert lesson.content.count(value) == 1
+
+
+def test_realizer_removes_a_short_semantic_repeat_but_keeps_both_fact_links() -> None:
+    facts = {
+        "fact-range": SourceFact(
+            fact_id="fact-range",
+            subject="Феникс",
+            attribute="Особенности кроватей",
+            value=(
+                "Кроватей в линейке нет: для спальни шкафы Феникс комбинируют "
+                "с кроватью другой линейки."
+            ),
+            source_locator="sheet=Коллекции;row=12;column=2",
+        ),
+        "fact-summary": SourceFact(
+            fact_id="fact-summary",
+            subject="Феникс",
+            attribute="Для каких комнат",
+            value="В коллекции Феникс кроватей нет.",
+            source_locator="sheet=Коллекции;row=3;column=2",
+        ),
+    }
+    base = LessonDraft(
+        lesson_id="lesson-phoenix",
+        module_title="Коллекции",
+        title="Феникс",
+        objective="Учитывать состав коллекции.",
+        content="",
+        fact_ids=tuple(facts),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+    payload = {
+        "title": base.title,
+        "objective": base.objective,
+        "blocks": [{
+            "heading": "Ассортимент",
+            "text": facts["fact-range"].value + " " + facts["fact-summary"].value,
+            "fact_ids": list(facts),
+        }],
+        "questions": [],
+    }
+
+    lesson, _questions, blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload,
+        base_lesson=base,
+        plan_fact_ids=set(facts),
+        facts_by_id=facts,
+        seeds=[],
+    )
+
+    assert facts["fact-range"].value in lesson.content
+    assert facts["fact-summary"].value not in lesson.content
+    assert set(blocks[0].fact_ids) == set(facts)
+
+
+def test_realizer_recognizes_an_inflected_short_repeat() -> None:
+    fact = SourceFact(
+        fact_id="fact-style",
+        subject="Феникс",
+        attribute="Стиль",
+        value=(
+            "Коллекция выдержана в современном минимализме с нейтральной "
+            "палитрой. Современный минимализм, нейтральная палитра."
+        ),
+        source_locator="sheet=Коллекции;row=4;column=2",
+    )
+    base = LessonDraft(
+        lesson_id="lesson-style",
+        module_title="Коллекции",
+        title="Стиль Феникс",
+        objective="Описывать стиль коллекции.",
+        content="",
+        fact_ids=(fact.fact_id,),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+    payload = {
+        "title": base.title,
+        "objective": base.objective,
+        "blocks": [{
+            "heading": "Стиль",
+            "text": fact.value,
+            "fact_ids": [fact.fact_id],
+        }],
+        "questions": [],
+    }
+
+    lesson, _questions, blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload,
+        base_lesson=base,
+        plan_fact_ids={fact.fact_id},
+        facts_by_id={fact.fact_id: fact},
+        seeds=[],
+    )
+
+    assert "Коллекция выдержана" in lesson.content
+    assert lesson.content.count("Современный минимализм") == 0
+    assert len(blocks) == 1
+
+
+def test_realizer_recognizes_a_catalog_list_repeat_with_inflected_items() -> None:
+    detailed = (
+        "Шкафы представлены сериями на 1/2/3 двери, угловыми, антресолями, "
+        "комплектами полок и ящиков; внутри — металлическая штанга."
+    )
+    repeated = (
+        "Серии 1 / 2 / 3 двери, угловые, антресоли, комплекты полок и ящиков."
+    )
+    fact = SourceFact(
+        fact_id="fact-cabinets",
+        subject="Феникс",
+        attribute="Особенности шкафов",
+        value=f"{detailed} {repeated}",
+        source_locator="sheet=Коллекции;row=11;column=2",
+    )
+    base = LessonDraft(
+        lesson_id="lesson-cabinets",
+        module_title="Коллекции",
+        title="Шкафы Феникс",
+        objective="Описывать состав шкафов.",
+        content="",
+        fact_ids=(fact.fact_id,),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+    payload = {
+        "title": base.title,
+        "objective": base.objective,
+        "blocks": [{
+            "heading": "Шкафы",
+            "text": fact.value,
+            "fact_ids": [fact.fact_id],
+        }],
+        "questions": [],
+    }
+
+    lesson, _questions, blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload,
+        base_lesson=base,
+        plan_fact_ids={fact.fact_id},
+        facts_by_id={fact.fact_id: fact},
+        seeds=[],
+    )
+
+    assert detailed in lesson.content
+    assert repeated not in lesson.content
+    assert len(blocks) == 1
+
+
+def test_realizer_removes_a_short_repeat_with_one_case_ending_difference() -> None:
+    detailed = (
+        "Кровати имеют основание на гибких ламелях; спокойный цвет создаёт "
+        "мягкую зону сна в той же палитре, что шкаф и комод."
+    )
+    repeated = "Спокойный цвет — мягкая зона сна в той же палитре, что шкаф и комод."
+    fact = SourceFact(
+        fact_id="fact-bed",
+        subject="Чикаго Нео",
+        attribute="Особенности кроватей",
+        value=f"{detailed} {repeated}",
+        source_locator="sheet=Коллекции;row=12;column=3",
+    )
+    base = LessonDraft(
+        lesson_id="lesson-bed",
+        module_title="Коллекции",
+        title="Кровати Чикаго Нео",
+        objective="Описывать особенности кроватей.",
+        content="",
+        fact_ids=(fact.fact_id,),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+    payload = {
+        "title": base.title,
+        "objective": base.objective,
+        "blocks": [{
+            "heading": "Кровати",
+            "text": fact.value,
+            "fact_ids": [fact.fact_id],
+        }],
+        "questions": [],
+    }
+
+    lesson, _questions, _blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload,
+        base_lesson=base,
+        plan_fact_ids={fact.fact_id},
+        facts_by_id={fact.fact_id: fact},
+        seeds=[],
+    )
+
+    assert detailed in lesson.content
+    assert repeated not in lesson.content
+
+
 def test_section_membership_question_is_generic() -> None:
     assert is_generic_question(
         "Какое утверждение относится к разделу «Назначение и область применения»?"

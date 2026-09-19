@@ -135,6 +135,27 @@ def _provider_validated_failure_reason(exc: ProviderFailedError) -> ValidatedCal
     return ValidatedCallFailureReason.PROVIDER_UNAVAILABLE
 
 
+_JSON_SYNTAX_CORRECTION_PROMPT = (
+    "Your preceding response is not valid JSON because of JSON syntax only. "
+    "Return only that same response as valid JSON. Preserve its meaning, values, "
+    "and structure; do not add, remove, or reinterpret content."
+)
+
+
+def _json_syntax_correction_messages(
+    messages: str | list[dict[str, Any]],
+    invalid_response: str,
+) -> list[dict[str, Any]]:
+    """Ask the current provider for one syntax-only correction without mutating input."""
+
+    original_messages = [{"role": "user", "content": messages}] if isinstance(messages, str) else list(messages)
+    return [
+        *original_messages,
+        {"role": "assistant", "content": invalid_response},
+        {"role": "user", "content": _JSON_SYNTAX_CORRECTION_PROMPT},
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Provider config
 # ---------------------------------------------------------------------------
@@ -880,6 +901,8 @@ class ResilientLLMClient:
         parser: Callable[[str], T],
         config: dict | None = None,
         response_format: dict | None = None,
+        *,
+        repair_json_syntax: bool = False,
     ) -> ValidatedLLMResult[T]:
         """Invoke providers until one response passes a pure parser/validator.
 
@@ -887,25 +910,21 @@ class ResilientLLMClient:
         validator rejection is treated as provider failure and moves to the
         next provider, without logging the prompt, response, tenant, or
         parsed value. Existing ``ainvoke`` callers keep their original
-        response type and behavior.
+        response type and behavior. JSON syntax correction is opt-in and is
+        limited to one parser-originated JSONDecodeError per invocation.
         """
 
         failure_reasons: list[ValidatedCallFailureReason] = []
+        validated_attempts = 0
+        syntax_correction_used = False
         for index, client in enumerate(self._clients):
+            validated_attempts += 1
             try:
                 provider_response_format = _response_format_for_provider(client.name, response_format)
                 response = await client.ainvoke(
                     messages,
                     config=config,
                     response_format=provider_response_format,
-                )
-                value = parser(response.content)
-                return ValidatedLLMResult(
-                    provider=client.name,
-                    model_id=client.config.model,
-                    value=value,
-                    attempt_count=index + 1,
-                    failure_reasons=tuple(failure_reasons),
                 )
             except ProviderFailedError as exc:
                 failure_reasons.append(_provider_validated_failure_reason(exc))
@@ -915,6 +934,7 @@ class ResilientLLMClient:
                     type(exc.last_exc).__name__,
                     len(self._clients) - index - 1,
                 )
+                continue
             except Exception as exc:
                 failure_reasons.append(_validated_parser_failure_reason(exc))
                 logger.warning(
@@ -923,6 +943,79 @@ class ResilientLLMClient:
                     type(exc).__name__,
                     len(self._clients) - index - 1,
                 )
+                continue
+
+            try:
+                value = parser(response.content)
+            except json.JSONDecodeError:
+                if not repair_json_syntax or syntax_correction_used:
+                    failure_reasons.append(ValidatedCallFailureReason.PROVIDER_OUTPUT_UNPARSEABLE)
+                    logger.warning(
+                        "[LLM_VALIDATED_REJECT] provider=%s failure=JSONDecodeError remaining=%s",
+                        client.name,
+                        len(self._clients) - index - 1,
+                    )
+                    continue
+
+                # A completed response with invalid JSON is not a transport error and
+                # does not justify abandoning an otherwise healthy provider. This is
+                # the sole correction request for the whole validated invocation.
+                syntax_correction_used = True
+                failure_reasons.append(ValidatedCallFailureReason.PROVIDER_OUTPUT_UNPARSEABLE)
+                validated_attempts += 1
+                try:
+                    correction = await client.ainvoke(
+                        _json_syntax_correction_messages(messages, response.content),
+                        config=config,
+                        response_format=provider_response_format,
+                    )
+                except ProviderFailedError as exc:
+                    failure_reasons.append(_provider_validated_failure_reason(exc))
+                    logger.warning(
+                        "[LLM_VALIDATED_SYNTAX_CORRECTION_FAIL] provider=%s failure=%s remaining=%s",
+                        client.name,
+                        type(exc.last_exc).__name__,
+                        len(self._clients) - index - 1,
+                    )
+                    continue
+                except Exception as exc:
+                    failure_reasons.append(_validated_parser_failure_reason(exc))
+                    logger.warning(
+                        "[LLM_VALIDATED_SYNTAX_CORRECTION_FAIL] provider=%s failure=%s remaining=%s",
+                        client.name,
+                        type(exc).__name__,
+                        len(self._clients) - index - 1,
+                    )
+                    continue
+
+                try:
+                    value = parser(correction.content)
+                except Exception as exc:
+                    failure_reasons.append(_validated_parser_failure_reason(exc))
+                    logger.warning(
+                        "[LLM_VALIDATED_SYNTAX_CORRECTION_REJECT] provider=%s failure=%s remaining=%s",
+                        client.name,
+                        type(exc).__name__,
+                        len(self._clients) - index - 1,
+                    )
+                    continue
+            except Exception as exc:
+                failure_reasons.append(_validated_parser_failure_reason(exc))
+                logger.warning(
+                    "[LLM_VALIDATED_REJECT] provider=%s failure=%s remaining=%s",
+                    client.name,
+                    type(exc).__name__,
+                    len(self._clients) - index - 1,
+                )
+                continue
+
+            return ValidatedLLMResult(
+                provider=client.name,
+                model_id=client.config.model,
+                value=value,
+                attempt_count=validated_attempts,
+                failure_reasons=tuple(failure_reasons),
+            )
 
         raise AllProvidersFailedError(
             "All LLM providers failed validation or transport",

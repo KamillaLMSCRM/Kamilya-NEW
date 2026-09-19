@@ -9,7 +9,7 @@ import math
 import re
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from time import perf_counter
 from typing import Any, Literal, Protocol
 from urllib.parse import quote, unquote
@@ -52,8 +52,9 @@ from .quality import (
     EVIDENCE_QUALITY_POLICY_VERSION,
     evaluate_plan_preflight,
     evaluate_publishability,
-    filter_acceptable_questions,
 )
+from .semantic_assessment import generate_block_assessment
+from .source_blocks import is_navigation_heading, split_narrative_blocks
 
 ProgressCallback = Callable[[str, int, int, str | None, int | None], Awaitable[None] | None]
 CancellationCallback = Callable[[], Awaitable[None] | None]
@@ -134,6 +135,8 @@ def _narrative_section_role(
     section_name: str,
     role_by_section: dict[tuple[str, str], SectionRole],
 ) -> SectionRole:
+    if is_navigation_heading(section_name):
+        return SectionRole.SUPPORTING
     exact = role_by_section.get((document_id, section_name.casefold().strip()))
     if exact is not None:
         return exact
@@ -169,49 +172,57 @@ def _narrative_attribute(value: str) -> str:
     return "положение"
 
 
+_FORMULA_DEFINITION_RE = re.compile(
+    r"^\s*[A-Za-zА-Яа-яЁё0-9|]{1,3}\s*[-—]\s*"
+    r"(?:порядков\w*\s+номер|период\w*\s+времени|сумм\w*|"
+    r"годов\w*\s+эффективн\w*\s+ставк\w*)\b",
+    flags=re.IGNORECASE,
+)
+
+
+def _narrative_fact_metadata(value: str) -> dict[str, float | str]:
+    """Mark source-boundary and formula OCR risk without guessing repairs."""
+    stripped = value.strip()
+    if _FORMULA_DEFINITION_RE.match(stripped):
+        return {"confidence": 0.6, "uncertainty": "ambiguous_formula_symbol"}
+    if re.match(r"^\d{1,3}:\s+", stripped):
+        return {"confidence": 0.0, "uncertainty": "ocr_numbering_prefix"}
+    if re.match(r"^[)\]}]", stripped):
+        return {"confidence": 0.0, "uncertainty": "truncated_source_boundary"}
+    if re.search(r"(?:^|[.!?]\s+)(?:др\.\s*)?\)\s+[А-ЯЁ]", stripped):
+        return {"confidence": 0.0, "uncertainty": "truncated_source_boundary"}
+    if re.fullmatch(
+        r"(?:условие|поле|параметр|характеристика)\s*\|\s*(?:описание|значение)",
+        stripped,
+        flags=re.IGNORECASE,
+    ):
+        return {"confidence": 0.0, "uncertainty": "table_header_fragment"}
+    if stripped.endswith(":"):
+        return {"confidence": 0.0, "uncertainty": "incomplete_source_clause"}
+    first_letter = next((character for character in stripped if character.isalpha()), "")
+    if first_letter and first_letter.islower():
+        return {"confidence": 0.0, "uncertainty": "truncated_source_boundary"}
+    # Production PDF conversion occasionally cuts a paragraph at a page or
+    # column boundary. Complete prose emitted by Docling retains sentence/list
+    # punctuation; an alphanumeric tail is unsafe evidence for autonomous
+    # question keys because the missing continuation can change the rule.
+    if stripped and stripped[-1].isalnum():
+        return {"confidence": 0.0, "uncertainty": "incomplete_source_clause"}
+    return {"confidence": 1.0, "uncertainty": ""}
+
+
 def _split_narrative_chunk(text: str) -> list[str]:
     cleaned = re.sub(r"(?m)^#{1,6}\s+.*$", "", text)
     cleaned = re.sub(
-        r"(?is).{0,120}утвержден[оа]?.{0,500}?"
-        r"правила\s+предоставления\s+микрокредитов[^\n]*",
+        r"(?is)^\s*.{0,160}\bутвержден[оа]?\b.{0,320}?"
+        r"\b(?:правила|положение|инструкция|регламент)\b[^\n]*\n+",
         "",
         cleaned,
         count=1,
     )
-    blocks = re.split(
-        r"\n{2,}|(?=^\s*(?:\d+(?:\.\d+)*|[а-яё])\s*[.)]\s+)",
-        cleaned,
-        flags=re.MULTILINE | re.IGNORECASE,
-    )
-    parts: list[str] = []
-    for block in blocks:
-        normalized = " ".join(block.split())
-        if not normalized:
-            continue
-        sentences = re.split(r"(?<=[.!?])\s+(?=[А-ЯЁA-Z0-9«])", normalized)
-        pending = ""
-        for sentence in sentences:
-            sentence = " ".join(sentence.split())
-            if not sentence:
-                continue
-            if (
-                re.search(r"\b(?:page|страница)\s+\d+\b", sentence, re.IGNORECASE)
-                and len(sentence.split()) <= 20
-                and not _APPENDIX_MARKER_RE.search(sentence)
-            ):
-                continue
-            if len(sentence) < 25:
-                pending = f"{pending} {sentence}".strip()
-                continue
-            if pending:
-                sentence = f"{pending} {sentence}".strip()
-                pending = ""
-            parts.append(sentence)
-        if pending:
-            if parts:
-                parts[-1] = f"{parts[-1]} {pending}".strip()
-            elif len(pending) >= 25:
-                parts.append(pending)
+    # A paragraph/list rule is the assessment evidence unit. Splitting each
+    # sentence detached exceptions from their rule and lost short prohibitions.
+    parts = split_narrative_blocks(cleaned)
     cleaned_parts: list[str] = []
     for part in parts:
         normalized = " ".join(part.casefold().replace("ё", "е").split())
@@ -224,7 +235,13 @@ def _split_narrative_chunk(text: str) -> list[str]:
         cleaned = re.sub(r"\s+[тТ]\s+(?=строке\b)", " ", cleaned)
         cleaned = re.sub(r"\s*\(ст\.\s*$", "", cleaned, flags=re.IGNORECASE)
         cleaned = " ".join(cleaned.split()).strip(" =\\|#")
-        if len(cleaned) >= 25:
+        letter_count = sum(character.isalpha() for character in cleaned)
+        page_footer = (
+            len(cleaned.split()) <= 20
+            and re.search(r"\b(?:page|страница)\s+\d+\s*$", cleaned, re.IGNORECASE)
+            and not _APPENDIX_MARKER_RE.search(cleaned)
+        )
+        if cleaned and letter_count >= 8 and not page_footer:
             cleaned_parts.append(cleaned)
     return cleaned_parts
 
@@ -232,10 +249,146 @@ def _split_narrative_chunk(text: str) -> list[str]:
 _PLAIN_NUMBERED_SECTION_RE = re.compile(
     r"(?m)^\s*(?P<number>\d{1,3})(?P<separator>[.)])\s+(?P<title>[^\n]{3,120}?)\s*$"
 )
+_NUMBERED_SECTION_PREFIX_RE = re.compile(r"^\s*(\d{1,3}(?:\.\d+)*[.)])\s+")
+_WRAPPED_MARKDOWN_HEADING_RE = re.compile(
+    r"(?m)^\s*#{1,6}\s*(?P<number>\d{1,3}(?:\.\d+)*[.)]\s+[^\n]+?)\s*\n"
+    r"\s*\n\s*#{1,6}\s*(?P<fragment>[^\n]+?)\s*$"
+)
 
 
 def _is_plain_numbered_section_heading(match: re.Match[str]) -> bool:
     return not is_sentence_like_ordinal_heading(match.group(0))
+
+
+def _is_wrapped_heading_extension(previous: str, current: str) -> bool:
+    """Recognize one adjacent conversion heading continued onto a later chunk."""
+
+    previous_prefix = _NUMBERED_SECTION_PREFIX_RE.match(previous)
+    current_prefix = _NUMBERED_SECTION_PREFIX_RE.match(current)
+    if previous_prefix is None or current_prefix is None:
+        return False
+    if previous_prefix.group(1) != current_prefix.group(1):
+        return False
+    normalized_previous = " ".join(previous.casefold().split())
+    normalized_current = " ".join(current.casefold().split())
+    return (
+        normalized_current.startswith(f"{normalized_previous} ")
+        and len(normalized_current) > len(normalized_previous)
+    )
+
+
+def _initial_navigation_prefix_end(chunks: list[Any]) -> int:
+    """Return the first numbered body chunk after an initial explicit contents marker."""
+
+    navigation_index = next(
+        (
+            index
+            for index, chunk in enumerate(chunks)
+            if any(is_navigation_heading(heading) for heading in chunk.headings)
+        ),
+        None,
+    )
+    if navigation_index is None or navigation_index == 0:
+        return 0
+    prefix_text = "\n".join(str(chunk.text) for chunk in chunks[:navigation_index])
+    prefix_text = re.sub(r"<!--\s*image\s*-->", "", prefix_text, flags=re.IGNORECASE)
+    prefix_text = re.sub(r"(?m)^\s*#{1,6}\s+.*$", "", prefix_text)
+    prefix_lines = [
+        " ".join(line.split())
+        for line in prefix_text.splitlines()
+        if line.strip()
+    ]
+    # A contents page can follow one dated cover line and its sequential
+    # heading-only entries, but never authorizes discarding source prose.
+    expected_number = 1
+    seen_numbered_entry = False
+    prefix_titles: dict[int, str] = {}
+    for line in prefix_lines:
+        numbered = re.match(r"^(\d+)[.)]\s+\S", line)
+        if numbered is not None:
+            if int(numbered.group(1)) != expected_number:
+                return 0
+            expected_number += 1
+            seen_numbered_entry = True
+            prefix_titles[int(numbered.group(1))] = re.sub(r"^\d+[.)]\s+", "", line).casefold()
+            continue
+        if (
+            not seen_numbered_entry
+            and len(line.split()) <= 12
+            and re.search(r"\b\d{4}(?:\s*[а-яёa-z])?\.?$", line, re.IGNORECASE)
+        ):
+            continue
+        if seen_numbered_entry and re.match(r"^приложение\s+\S", line, re.IGNORECASE):
+            continue
+        return 0
+    if not seen_numbered_entry:
+        return 0
+    for index, chunk in enumerate(chunks[navigation_index + 1 :], start=navigation_index + 1):
+        heading = next(reversed(chunk.headings), "")
+        if _NUMBERED_SECTION_PREFIX_RE.match(heading):
+            body_index = index
+            break
+    else:
+        return 0
+    body_titles: dict[int, set[str]] = {}
+    last_body_number: int | None = None
+    for chunk in chunks[body_index:]:
+        heading = _chunk_section_name(chunk, "")
+        match = _NUMBERED_SECTION_PREFIX_RE.match(heading)
+        if match is not None:
+            last_body_number = int(match.group(1).rstrip(".)"))
+            body_titles.setdefault(last_body_number, set()).update(
+                re.findall(r"[^\W\d_]+", heading[match.end() :].casefold(), re.UNICODE)
+            )
+        elif last_body_number is not None and _is_uppercase_heading_fragment(heading):
+            body_titles[last_body_number].update(re.findall(r"[^\W\d_]+", heading.casefold(), re.UNICODE))
+        else:
+            last_body_number = None
+    for title in prefix_titles.values():
+        prefix_tokens = set(re.findall(r"[^\W\d_]+", title, re.UNICODE))
+        # OCR can duplicate a numeric label and shift later TOC ordinals. Only
+        # title correspondence is evidence of navigation, not those ordinals.
+        if not prefix_tokens and re.fullmatch(r"[\d\s.)]+", title):
+            continue
+        if not prefix_tokens or not any(
+            len(prefix_tokens & body_tokens) >= 0.8 * max(len(prefix_tokens), len(body_tokens))
+            for body_tokens in body_titles.values()
+        ):
+            return 0
+    return body_index
+
+
+def _trim_to_first_numbered_markdown_heading(text: str) -> str:
+    match = re.search(r"(?m)^\s*#{1,6}\s+\d{1,3}(?:\.\d+)*[.)]\s+", text)
+    return text[match.start() :] if match is not None else text
+
+
+def _chunk_section_name(chunk: Any, fallback_title: str) -> str:
+    """Return a section heading, rejoining one Docling split Markdown heading."""
+
+    section_name = next(reversed(chunk.headings), fallback_title)
+    for match in _WRAPPED_MARKDOWN_HEADING_RE.finditer(chunk.text):
+        fragment = " ".join(match.group("fragment").split())
+        letters = "".join(character for character in fragment if character.isalpha())
+        if (
+            section_name.casefold() == fragment.casefold()
+            and len(letters) >= 3
+            and fragment == fragment.upper()
+            and not fragment.endswith((".", ":", ";", "!", "?"))
+        ):
+            return f"{' '.join(match.group('number').split())} {fragment}"
+    return section_name
+
+
+def _is_uppercase_heading_fragment(value: str) -> bool:
+    letters = "".join(character for character in value if character.isalpha())
+    return (
+        len(value) <= 120
+        and len(letters) >= 3
+        and not any(character.isdigit() for character in value)
+        and value == value.upper()
+        and not value.endswith((".", ":", ";", "!", "?"))
+    )
 
 
 def _merge_overlapping_chunks(chunks: list[Any]) -> str:
@@ -297,6 +450,7 @@ def _narrative_section(
     role: SectionRole,
     section_index: int,
 ) -> SourceSection | None:
+    fact_values = _split_narrative_chunk(text)
     facts = tuple(
         SourceFact(
             fact_id=_stable_id(
@@ -316,8 +470,10 @@ def _narrative_section(
                 section_index=section_index,
                 part=part_index,
             ),
+            confidence=float(_narrative_fact_metadata(value)["confidence"]),
+            uncertainty=str(_narrative_fact_metadata(value)["uncertainty"]),
         )
-        for part_index, value in enumerate(_split_narrative_chunk(text), start=1)
+        for part_index, value in enumerate(fact_values, start=1)
     )
     if not facts:
         return None
@@ -491,20 +647,42 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
                         sections.append(section)
                 continue
 
+        navigation_prefix_end = _initial_navigation_prefix_end(ordered_chunks)
+        if navigation_prefix_end:
+            first_body = ordered_chunks[navigation_prefix_end]
+            ordered_chunks = [
+                replace(first_body, text=_trim_to_first_numbered_markdown_heading(first_body.text)),
+                *ordered_chunks[navigation_prefix_end + 1 :],
+            ]
+
         grouped: dict[str, list[Any]] = defaultdict(list)
         has_structured_headings = any(chunk.headings for chunk in ordered_chunks)
+        previous_section_name = ""
         for chunk in ordered_chunks:
-            section_name = next(
-                (
-                    heading.removeprefix("[Worksheet] ").strip()
-                    for heading in reversed(chunk.headings)
-                ),
-                document.title,
-            )
+            section_name = _chunk_section_name(chunk, document.title).removeprefix(
+                "[Worksheet] "
+            ).strip()
             normalized = section_name.casefold().strip()
             if (document.doc_id, normalized) in table_keys:
                 continue
-            grouped[section_name].append(chunk)
+            if is_navigation_heading(section_name):
+                previous_section_name = ""
+                continue
+            if _is_wrapped_heading_extension(previous_section_name, section_name):
+                grouped[section_name] = [*grouped.pop(previous_section_name), chunk]
+            elif (
+                _NUMBERED_SECTION_PREFIX_RE.match(previous_section_name)
+                and _is_uppercase_heading_fragment(section_name)
+            ):
+                if previous_section_name.casefold().endswith(section_name.casefold()):
+                    grouped[previous_section_name].append(chunk)
+                    section_name = previous_section_name
+                else:
+                    section_name = f"{previous_section_name} {section_name}"
+                    grouped[section_name] = [*grouped.pop(previous_section_name), chunk]
+            else:
+                grouped[section_name].append(chunk)
+            previous_section_name = section_name
         for section_name, chunks in grouped.items():
             role = _narrative_section_role(
                 document_id=document.doc_id,
@@ -514,27 +692,25 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
             if has_structured_headings and section_name == document.title:
                 role = SectionRole.SUPPORTING
             narrative_facts: list[SourceFact] = []
-            for chunk in chunks:
-                for part_index, value in enumerate(_split_narrative_chunk(chunk.text), start=1):
-                    narrative_facts.append(SourceFact(
-                        fact_id=_stable_id(
-                            "source-fact",
-                            document.doc_id,
-                            chunk.chunk_id,
-                            str(part_index),
-                            value,
-                        ),
-                        subject=section_name,
-                        attribute=_narrative_attribute(value),
-                        value=value,
-                        source_locator=_locator(
-                            doc_id=document.doc_id,
-                            source_revision=document.source_revision,
-                            chunk_id=chunk.chunk_id,
-                            section=section_name,
-                            part=part_index,
-                        ),
-                    ))
+            # Reassemble overlapping storage chunks before semantic splitting;
+            # storage/token boundaries must not detach a rule from its exception.
+            section_text = _merge_overlapping_chunks(chunks)
+            for part_index, value in enumerate(_split_narrative_chunk(section_text), start=1):
+                metadata = _narrative_fact_metadata(value)
+                narrative_facts.append(SourceFact(
+                    fact_id=_stable_id("source-fact", document.doc_id, section_name,
+                                       str(part_index), value),
+                    subject=section_name,
+                    attribute=_narrative_attribute(value),
+                    value=value,
+                    source_locator=_locator(
+                        doc_id=document.doc_id, source_revision=document.source_revision,
+                        chunk_ids=",".join(chunk.chunk_id for chunk in chunks),
+                        section=section_name, part=part_index,
+                    ),
+                    confidence=float(metadata["confidence"]),
+                    uncertainty=str(metadata["uncertainty"]),
+                ))
             if narrative_facts:
                 sections.append(SourceSection(
                     section_id=f"{document.doc_id}:section:{_slug(section_name)}",
@@ -873,9 +1049,18 @@ async def generate_evidence_course(
         grounded_blocks.extend(blocks)
         await _progress(progress_callback, "realization", index, total)
 
-    realized_questions = filter_acceptable_questions(
-        _deduplicate_questions(realized_questions)
+    assessment_started = perf_counter()
+
+    async def assessment_progress(done: int, count: int) -> None:
+        await _progress(progress_callback, "assessment", done, count)
+
+    reviewed = await generate_block_assessment(
+        realized_lessons, facts_by_id, generation_client,
+        checkpoint=lambda: _checkpoint(cancellation_callback),
+        on_progress=assessment_progress,
     )
+    realized_questions = list(reviewed.questions)
+    chat_attempt_count += reviewed.attempt_count
     realized_course = CourseDraft(
         title=bundle.document.title,
         description=evidence_result.course.description,
@@ -891,6 +1076,14 @@ async def generate_evidence_course(
     )
     if not publishability.publishable:
         raise ValueError("evidence_publishability_failed:" + ",".join(publishability.reasons))
+    if not realized_questions:
+        # Keep usable lessons, but never label an empty assessment publishable.
+        # The pipeline persists this as a review-required saved draft.
+        publishability = replace(publishability, publishable=False,
+                                 reasons=("assessment_no_valid_questions",))
+    elif reviewed.audit.get("coverage", {}).get("requires_review"):
+        publishability = replace(publishability, publishable=False,
+                                 reasons=("assessment_coverage_incomplete",))
     await _checkpoint(cancellation_callback)
     await _progress(progress_callback, "quality", 1, 1)
     result = ProviderBackedResult(
@@ -912,10 +1105,12 @@ async def generate_evidence_course(
         chat_attempt_count=chat_attempt_count,
         prompt_tokens=0,
         completion_tokens=0,
+        assessment_review=reviewed.audit,
         timings=(
             StageTiming(stage="evidence_plan", seconds=evidence_seconds),
             StageTiming(stage="embeddings", seconds=embedding_seconds),
-            StageTiming(stage="realization", seconds=perf_counter() - realization_started),
+            StageTiming(stage="realization", seconds=assessment_started - realization_started),
+            StageTiming(stage="assessment", seconds=perf_counter() - assessment_started),
         ),
     )
     return EvidenceGenerationOutput(result=result, corpus=corpus)
@@ -1003,8 +1198,8 @@ def to_generation_artifacts(output: EvidenceGenerationOutput) -> GenerationArtif
                             for option in question.options
                         ],
                         explanation=question.explanation,
-                        source_quote=facts_by_id[question.fact_id].value,
-                        quality_score=5.0,
+                        source_quote=question.source_quote or facts_by_id[question.fact_id].value,
+                        quality_score=3.0,
                     )
                     for question in lesson_questions
                 ],
@@ -1038,6 +1233,7 @@ def to_generation_artifacts(output: EvidenceGenerationOutput) -> GenerationArtif
         "supporting_fact_count": result.evidence_result.document_plan.supporting_fact_count,
         "lesson_count": len(result.realized_course.lessons),
         "question_count": len(result.realized_assessment.questions),
+        "assessment_review": result.assessment_review,
         "supporting_lesson_share": result.evidence_result.evaluation.supporting_lesson_share,
         "plan_capacity_ratio": result.evidence_result.evaluation.capacity_ratio,
         "generated_duration_minutes": sum(
@@ -1051,7 +1247,11 @@ def to_generation_artifacts(output: EvidenceGenerationOutput) -> GenerationArtif
         "embedding_dimension": result.embedding_dimension,
         "embedding_degraded": result.embedding_degraded,
         "chat_model": result.chat_model,
-        "quality_status": "degraded_needs_review" if degraded else "validated_draft",
+        "quality_status": (
+            "degraded_needs_review" if degraded else
+            "assessment_needs_review" if not result.realized_assessment.questions
+            or result.assessment_review.get("coverage", {}).get("requires_review") else "validated_draft"
+        ),
         "provider_fallback_count": result.provider_fallback_count,
         "deterministic_fallback_count": result.deterministic_fallback_count,
         "validation_errors": list(dict.fromkeys(result.validation_errors))[:50],

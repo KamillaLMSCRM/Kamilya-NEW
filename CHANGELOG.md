@@ -15,6 +15,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.7.3] - 2026-09-19
+
+### Added
+
+- Add development-only semantic assessment and objective-alignment evaluators
+  for replaying generated courses without sending tenant documents to TypeSafe.
+
+### Changed
+
+- Generate course tests from coherent source blocks, retaining conditions and
+  exceptions instead of using unrelated source statements as answer options.
+- Adapt lesson and test volume to available information without a minimum quota.
+- Derive safe binary checks from explicit source rules and bind every generated
+  question to one assessed source axis before accepting model-written options.
+
+### Fixed
+
+- Review every generated answer option for relevance and ambiguity, repair a
+  rejected question once within its original topic, and omit invalid questions.
+- Preserve a course as an accessible draft when no valid test questions remain;
+  do not report successful completion or offer to resume that saved review outcome.
+- Reject dependent sentence fragments, cross-topic distractors, unsupported
+  exclusions and semantically duplicated questions without padding a quota.
+- Keep valid categorical alternatives when a broad model review incorrectly
+  collapses distinct styles, materials, colours or mechanisms into one error.
+- Require the production-equivalent Docling route for live local PDF acceptance
+  instead of silently substituting a different converter.
+
+### Security
+
 ## [0.7.2] - 2026-09-18
 
 ### Changed

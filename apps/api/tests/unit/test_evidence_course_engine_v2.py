@@ -24,6 +24,7 @@ from app.modules.ai.evidence_engine.provider_engine import ProviderBackedEvidenc
 from app.modules.ai.evidence_engine.provider_models import ChatCompletion, EmbeddingBatch, GroundedBlock
 from app.modules.ai.evidence_engine.quality import (
     evaluate_publishability,
+    filter_acceptable_questions,
     is_generic_question,
     question_has_ambiguous_options,
 )
@@ -520,7 +521,7 @@ def test_large_narrative_preserves_source_sections_without_partition_explosion()
 
     result = EvidenceCourseEngine().generate_from_document(source)
 
-    assert 9 <= len(result.evidence_plan) <= 12
+    assert 17 <= len(result.evidence_plan) <= 20
     assert max(len(lesson.fact_ids) for lesson in result.evidence_plan) <= 20
     assert {
         fact_id
@@ -1402,6 +1403,273 @@ def test_v2_final_publishability_blocks_captured_style_and_ambiguous_answer_defe
     assert report.publishable is False
     assert "unprofessional_learner_language" in report.reasons
     assert "ambiguous_question_options" in report.reasons
+
+
+def test_v2_final_publishability_rejects_truncated_ocr_boundary_in_lesson() -> None:
+    lesson = LessonDraft(
+        lesson_id="lesson-ocr-tail",
+        module_title="Правила",
+        title="Имущество в залоге",
+        objective="Определять допустимое имущество",
+        content=(
+            "Перечень имущества не является исчерпывающим. др. ) Ломбарда, "
+            "с учетом условий договора."
+        ),
+        fact_ids=("fact-ocr-tail",),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+
+    report = evaluate_publishability(
+        course=CourseDraft(title="Правила", description="", lessons=(lesson,)),
+        assessment=AssessmentDraft(questions=()),
+        blocks=(GroundedBlock(
+            lesson_id=lesson.lesson_id,
+            heading="Имущество",
+            text=lesson.content,
+            fact_ids=lesson.fact_ids,
+        ),),
+        planned_fact_ids={"fact-ocr-tail"},
+        provider_fallback_count=0,
+    )
+
+    assert report.publishable is False
+    assert "visible_ocr_artifacts" in report.reasons
+
+
+def test_v2_final_publishability_keeps_legitimate_abbreviation_inside_parentheses() -> None:
+    lesson = LessonDraft(
+        lesson_id="lesson-abbreviation",
+        module_title="Документы",
+        title="Организационные документы",
+        objective="Различать документы",
+        content="Используются организационные документы (распоряжения, приказы и др. ).",
+        fact_ids=("fact-abbreviation",),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+
+    report = evaluate_publishability(
+        course=CourseDraft(title="Документы", description="", lessons=(lesson,)),
+        assessment=AssessmentDraft(questions=()),
+        blocks=(GroundedBlock(
+            lesson_id=lesson.lesson_id,
+            heading="Документы",
+            text=lesson.content,
+            fact_ids=lesson.fact_ids,
+        ),),
+        planned_fact_ids={"fact-abbreviation"},
+        provider_fallback_count=0,
+    )
+
+    assert "visible_ocr_artifacts" not in report.reasons
+
+
+def test_v2_ocr_gate_keeps_observed_abbreviation_with_spurious_period_inside_parentheses() -> None:
+    lesson = LessonDraft(
+        lesson_id="lesson-abbreviation-ocr",
+        module_title="Документы",
+        title="Организационные документы",
+        objective="Различать документы",
+        content=(
+            "Требования определяются организационными документами "
+            "(постановления, приказы и. др. ) Ломбарда."
+        ),
+        fact_ids=("fact-abbreviation-ocr",),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+
+    report = evaluate_publishability(
+        course=CourseDraft(title="Документы", description="", lessons=(lesson,)),
+        assessment=AssessmentDraft(questions=()),
+        blocks=(GroundedBlock(
+            lesson_id=lesson.lesson_id,
+            heading="Документы",
+            text=lesson.content,
+            fact_ids=lesson.fact_ids,
+        ),),
+        planned_fact_ids={"fact-abbreviation-ocr"},
+        provider_fallback_count=0,
+    )
+
+    assert "visible_ocr_artifacts" not in report.reasons
+
+
+def test_v2_realizer_normalizes_observed_abbreviation_typography() -> None:
+    fact = SourceFact(
+        fact_id="fact-abbreviation-clean",
+        subject="Документы",
+        attribute="организационные документы",
+        value=(
+            "Требования определяются организационными документами "
+            "(постановления, приказы и. др. ) Ломбарда."
+        ),
+        source_locator="doc_id=rules;section=documents;part=1",
+    )
+    lesson = LessonDraft(
+        lesson_id="lesson-abbreviation-clean",
+        module_title="Документы",
+        title="Организационные документы",
+        objective="Различать документы",
+        content=fact.value,
+        fact_ids=(fact.fact_id,),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+
+    rendered, _, _ = ProviderBackedEvidenceEngine._validate_and_render(
+        {"blocks": [{
+            "heading": "Организационные документы",
+            "text": fact.value,
+            "fact_ids": [fact.fact_id],
+        }]},
+        base_lesson=lesson,
+        plan_fact_ids={fact.fact_id},
+        facts_by_id={fact.fact_id: fact},
+        seeds=[],
+    )
+
+    assert "и. др. )" not in rendered.content
+    assert "и др.)" in rendered.content
+
+
+def test_v2_final_publishability_rejects_observed_identity_list_ocr_noise() -> None:
+    lesson = LessonDraft(
+        lesson_id="lesson-identity-list-ocr",
+        module_title="Правила",
+        title="Документы, удостоверяющие личность",
+        objective="Различать допустимые документы",
+        content=(
+            "Предъявляется один из документов: 14. % паспорт гражданина Республики "
+            "Казахстан; 16. ( паспорт иностранного государства; 17. \" видна "
+            "жительство иностранца; * удостоверение лица без гражданства."
+        ),
+        fact_ids=("fact-identity-list-ocr",),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+
+    report = evaluate_publishability(
+        course=CourseDraft(title="Правила", description="", lessons=(lesson,)),
+        assessment=AssessmentDraft(questions=()),
+        blocks=(GroundedBlock(
+            lesson_id=lesson.lesson_id,
+            heading="Документы",
+            text=lesson.content,
+            fact_ids=lesson.fact_ids,
+        ),),
+        planned_fact_ids={"fact-identity-list-ocr"},
+        provider_fallback_count=0,
+    )
+
+    assert report.publishable is False
+    assert "visible_ocr_artifacts" in report.reasons
+
+
+def test_v2_realizer_cleans_observed_identity_list_without_losing_items() -> None:
+    value = (
+        "Документы: 14. % паспорт гражданина Республики Казахстан; "
+        "15. % удостоверение личности гражданина Республики Казахстан; "
+        "16. ( паспорт гражданина иностранного государства; "
+        "17. \" видна жительство иностранца в Республике Казахстан; "
+        "* удостоверение лица без гражданства. Предоставление осуществляется "
+        "в соответствии с законодательством PK."
+    )
+    fact = SourceFact(
+        fact_id="fact-identity-list-clean",
+        subject="Документы",
+        attribute="перечень",
+        value=value,
+        source_locator="doc_id=rules;section=identity;part=1",
+    )
+    lesson = LessonDraft(
+        lesson_id="lesson-identity-list-clean",
+        module_title="Правила",
+        title="Документы, удостоверяющие личность",
+        objective="Различать допустимые документы",
+        content=value,
+        fact_ids=(fact.fact_id,),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+
+    rendered, _, _ = ProviderBackedEvidenceEngine._validate_and_render(
+        {"blocks": [{
+            "heading": "Документы",
+            "text": value,
+            "fact_ids": [fact.fact_id],
+        }]},
+        base_lesson=lesson,
+        plan_fact_ids={fact.fact_id},
+        facts_by_id={fact.fact_id: fact},
+        seeds=[],
+    )
+
+    assert "паспорт гражданина Республики Казахстан" in rendered.content
+    assert "удостоверение личности гражданина Республики Казахстан" in rendered.content
+    assert "паспорт гражданина иностранного государства" in rendered.content
+    assert "вид на жительство иностранца" in rendered.content
+    assert "удостоверение лица без гражданства" in rendered.content
+    assert "законодательством РК" in rendered.content
+    assert "видна жительство" not in rendered.content
+    assert not any(marker in rendered.content for marker in ("14. %", "15. %", "16. (", "17. \""))
+
+
+def test_v2_final_publishability_rejects_overlong_correct_answer() -> None:
+    lesson = LessonDraft(
+        lesson_id="lesson-answer-length",
+        module_title="Правила",
+        title="Обязанности сотрудников",
+        objective="Знать обязанность",
+        content="Сотрудники обязаны изучить правила и применимое законодательство.",
+        fact_ids=("fact-answer-length",),
+        supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+    overlong = "А" * 241
+    question = QuestionDraft(
+        question_id="question-answer-length",
+        lesson_id=lesson.lesson_id,
+        kind="single_choice",
+        prompt="Что обязаны изучить сотрудники?",
+        options=(overlong, "Только рекламные материалы", "Только внутренние объявления"),
+        correct_answer=overlong,
+        explanation=overlong,
+        fact_id="fact-answer-length",
+    )
+
+    report = evaluate_publishability(
+        course=CourseDraft(title="Правила", description="", lessons=(lesson,)),
+        assessment=AssessmentDraft(questions=(question,)),
+        blocks=(GroundedBlock(
+            lesson_id=lesson.lesson_id,
+            heading="Обязанности",
+            text=lesson.content,
+            fact_ids=lesson.fact_ids,
+        ),),
+        planned_fact_ids={"fact-answer-length"},
+        provider_fallback_count=0,
+    )
+
+    assert report.publishable is False
+    assert "overlong_correct_answers" in report.reasons
+
+
+def test_v2_question_filter_deletes_overlong_answer_without_count_padding() -> None:
+    overlong = "А" * 241
+    question = QuestionDraft(
+        question_id="question-overlong-filter",
+        lesson_id="lesson-overlong-filter",
+        kind="single_choice",
+        prompt="Что требуется сделать?",
+        options=(overlong, "Первое действие", "Второе действие"),
+        correct_answer=overlong,
+        explanation=overlong,
+        fact_id="fact-overlong-filter",
+    )
+
+    assert filter_acceptable_questions([question]) == []
 
 
 def test_v2_rejects_material_question_when_distractor_repeats_the_material_family() -> None:

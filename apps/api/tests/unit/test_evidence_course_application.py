@@ -13,13 +13,19 @@ from app.modules.ai.direct_source import (
 )
 from app.modules.ai.evidence_engine.application import (
     _escape_markdown_text,
+    _narrative_fact_metadata,
     _split_narrative_chunk,
     build_evidence_source,
     generate_evidence_course,
     to_generation_artifacts,
 )
 from app.modules.ai.evidence_engine.engine import EvidenceCourseEngine
-from app.modules.ai.evidence_engine.models import CourseIntent
+from app.modules.ai.evidence_engine.models import (
+    CourseIntent,
+    SourceDocument,
+    SourceFact,
+    SourceSection,
+)
 from app.modules.ai.ingestion import DocumentChunker
 from app.modules.ai.llm_client import (
     AllProvidersFailedError,
@@ -314,6 +320,34 @@ class _EmbeddingClient:
 class _GenerationClient:
     async def ainvoke_validated(self, messages, parser, **_kwargs):
         request = json.loads(messages[-1]["content"])
+        if request.get("task", "").startswith("assessment_"):
+            # Contract transport fake, not a semantic quality oracle. Semantic
+            # negatives and live-provider acceptance have separate fixtures.
+            if request["task"] == "assessment_constraints":
+                payload = {"rules": [{"fact_id": f["fact_id"], "quote": f["value"], "kind": "attribute"}
+                                     for f in request["facts"]],
+                           "reviews": [{"question_id": q["question_id"], "reason": "Fixture contract", "distinct_errors": True,
+                                        "options": [{"index": i, "relation": "entailed" if i == 0 else "contradicted",
+                                                     "invented_constraint": False, "realistic_error": True} for i in range(len(q["options"]))]}
+                                       for q in request["questions"]]}
+            elif request["task"] == "assessment_review":
+                payload = {"reviews": [
+                    {"question_id": q["question_id"], "question_supported": True,
+                     "educational": True, "explanation_supported": True, "options_distinct": True,
+                     "options": [{"index": i, "answers_question": True,
+                                  "correct": i == 0, "plausible_error": i != 0,
+                                  "contradicted_by_source": i != 0, "same_practical_task": True}
+                                 for i in range(len(q["options"]))]}
+                    for q in request["questions"]]}
+            else:
+                payload = {"questions": [
+                    {"prompt": f"Как применять правило для «{axis['subject']}»?",
+                     "axis_id": axis["axis_id"],
+                     "distractors": ["Применять обратный порядок действий.",
+                                     "Не учитывать установленные условия применения."]}
+                    for axis in request["axes"]]}
+            return ValidatedLLMResult(provider="test-generation", model_id="test-model",
+                value=parser(json.dumps(payload, ensure_ascii=False)), attempt_count=1, failure_reasons=())
         payload = {
             "title": request["lesson_title"],
             "objective": request["objective"],
@@ -343,12 +377,41 @@ class _GenerationClient:
         )
 
 
+class _AdversarialAnswerKeyGenerationClient(_GenerationClient):
+    async def ainvoke_validated(self, messages, parser, **kwargs):
+        request = json.loads(messages[-1]["content"])
+        if request.get("task") == "assessment_generate":
+            payload = {"questions": [
+                {
+                    "axis_id": axis["axis_id"],
+                    "prompt": "Какое правило необходимо применить?",
+                    "distractors": [
+                        "Применить противоположное правило.",
+                        "Игнорировать условие исходного документа.",
+                    ],
+                    "correct_index": 1,
+                    "correct_answer": "Игнорировать условие исходного документа.",
+                }
+                for axis in request["axes"]
+            ]}
+            return ValidatedLLMResult(
+                provider="adversarial-fixture",
+                model_id="adversarial-fixture",
+                value=parser(json.dumps(payload, ensure_ascii=False)),
+                attempt_count=1,
+                failure_reasons=(),
+            )
+        return await super().ainvoke_validated(messages, parser, **kwargs)
+
+
 class _ProductionDefectNeutralizingGenerationClient(_GenerationClient):
     def __init__(self) -> None:
         self.neutralized_production_defects = 0
 
     async def ainvoke_validated(self, messages, parser, **_kwargs):
         request = json.loads(messages[-1]["content"])
+        if request.get("task", "").startswith("assessment_"):
+            return await super().ainvoke_validated(messages, parser, **_kwargs)
         bad_payload = {
             "title": request["lesson_title"],
             "objective": request["objective"],
@@ -546,6 +609,114 @@ def test_narrative_fact_split_removes_ocr_title_page_and_inline_glyph_noise() ->
     assert parts[1].endswith("сохранность залога")
 
 
+def test_narrative_fact_split_drops_non_textual_ocr_fragments() -> None:
+    parts = _split_narrative_chunk(
+        "Сотрудник проверяет документ до выдачи.\n\n`\n\n| -- |"
+    )
+
+    assert parts == ["Сотрудник проверяет документ до выдачи."]
+
+
+@pytest.mark.parametrize(
+    ("value", "uncertainty"),
+    [
+        (") Ломбарда, с учетом условий и ограничений, установленных законодательством.",
+         "truncated_source_boundary"),
+        ("14: При получении заявления Ломбард вправе оставить его без ответа.",
+         "ocr_numbering_prefix"),
+        ("Ломбард обязан письменно известить уполномоченный орган путем опубликования соответствующей",
+         "incomplete_source_clause"),
+        ("Условие | Описание", "table_header_fragment"),
+        (
+            "Перечень имущества не является исчерпывающим. др. ) Ломбарда, "
+            "с учетом условий, установленных законодательством.",
+            "truncated_source_boundary",
+        ),
+    ],
+)
+def test_narrative_adapter_rejects_observed_ocr_boundary_artifacts(
+    value: str,
+    uncertainty: str,
+) -> None:
+    metadata = _narrative_fact_metadata(value)
+
+    assert metadata == {"confidence": 0.0, "uncertainty": uncertainty}
+
+
+def test_narrative_adapter_keeps_complete_numbered_rule() -> None:
+    metadata = _narrative_fact_metadata(
+        "14. Ломбард вправе оставить заявление без ответа по существу."
+    )
+
+    assert metadata == {"confidence": 1.0, "uncertainty": ""}
+
+
+def test_narrative_adapter_marks_truncated_lowercase_boundary_unusable() -> None:
+    chunk = DirectSourceChunk(
+        chunk_id="chunk-truncated",
+        doc_id="doc-truncated",
+        doc_name="policy.pdf",
+        title="Политика",
+        headings=("7. Расчёт ставки",),
+        text=(
+            "и микрокредита не допускаются в период рассмотрения обращения.\n\n"
+            "Клиент вправе получить расчёт ставки."
+        ),
+        source_revision="document:truncated-sha",
+        chunk_index=0,
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-one",
+        documents=(DirectSourceDocument(
+            doc_id="doc-truncated",
+            title="Политика",
+            filename="policy.pdf",
+            category="training_material",
+            source_revision="document:truncated-sha",
+            chunks=(chunk,),
+        ),),
+        total_chars=len(chunk.text),
+        total_chunks=1,
+    )
+
+    bundle = build_evidence_source(corpus)
+    facts = list(bundle.all_facts)
+
+    assert facts[0].confidence == 0.0
+    assert facts[0].uncertainty == "truncated_source_boundary"
+    assert facts[1].confidence == 1.0
+
+
+def test_zero_confidence_narrative_fragment_is_not_admitted_to_course() -> None:
+    source = SourceDocument(
+        source_id="source",
+        title="Политика",
+        kind="narrative",
+        sections=(SourceSection(
+            section_id="section",
+            title="7. Расчёт ставки",
+            role="primary",
+            facts=(
+                SourceFact(
+                    "broken", "7. Расчёт ставки", "положение",
+                    "и микрокредита не допускаются в период рассмотрения обращения.",
+                    "doc_id=d1;section=7;part=1", 0.0, "truncated_source_boundary",
+                ),
+                SourceFact(
+                    "valid", "7. Расчёт ставки", "право",
+                    "Клиент вправе получить расчёт ставки.",
+                    "doc_id=d1;section=7;part=2",
+                ),
+            ),
+        ),),
+    )
+
+    result = EvidenceCourseEngine().generate_from_document(source)
+
+    assert len(result.admitted_facts) == 1
+    assert result.admitted_facts[0].value == "Клиент вправе получить расчёт ставки."
+
+
 def test_production_smoke_plain_text_reconstructs_sections_without_overlap_duplicates() -> None:
     bundle = build_evidence_source(_production_smoke_narrative_corpus())
 
@@ -561,7 +732,8 @@ def test_production_smoke_plain_text_reconstructs_sections_without_overlap_dupli
         "9. Контрольные правила",
         "10. Краткий пример",
     ]
-    assert len(bundle.all_facts) == 34
+    # Paragraphs preserve conditions/exceptions instead of 34 isolated sentences.
+    assert len(bundle.all_facts) == 10
     assert sum("15 минут" in fact.value for fact in bundle.all_facts) == 2
 
 
@@ -588,13 +760,12 @@ async def test_production_smoke_plain_text_uses_real_v2_path_without_collapsing_
     questions = [question for item in artifacts.assessment.assessments for question in item.mcq]
 
     assert len(generated.result.evidence_result.document_plan.primary_sections) == 10
-    assert 4 <= len(lessons) <= 6
+    assert len(lessons) == 10  # independent section boundaries, not size-only pairs
     assert len(questions) >= 3
     assert all(question.question not in {"О чём этот урок?", "Что именно разберём в этом уроке?"} for question in questions)
-    assert {"15 минут", "1 час", "4 рабочих часов"} <= {
-        next(option.text for option in question.options if option.is_correct)
-        for question in questions
-    }
+    assert all(question.source_quote for question in questions)
+    assert any("15 минут" in question.source_quote for question in questions)
+    assert artifacts.diagnostics["assessment_review"]["accepted"] == len(questions)
     correct_answers = [
         next(option.text for option in question.options if option.is_correct).casefold()
         for question in questions
@@ -671,10 +842,42 @@ async def test_active_v2_neutralizes_source_sales_style_before_persistence() -> 
 
 @pytest.mark.asyncio
 async def test_active_v2_drops_ambiguous_same_attribute_question_without_padding() -> None:
+    class AmbiguousClient(_GenerationClient):
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            if request.get("task") == "assessment_review" and any(
+                q["prompt"] == "Какие направляющие используются в коллекции «Чикаго Стрит»?"
+                for q in request["questions"]
+            ):
+                # Exact negative oracle: the first TWO options describe roller
+                # guides and both answer the asked attribute correctly.
+                payload = {"reviews": [{"question_id": q["question_id"],
+                        "question_supported": True, "educational": True, "explanation_supported": True, "options_distinct": True,
+                    "options": [{"index": i, "answers_question": True, "correct": i < 2,
+                                     "plausible_error": i == 2, "contradicted_by_source": i == 2, "same_practical_task": True}
+                                for i in range(len(q["options"]))]}
+                    for q in request["questions"]]}
+                return ValidatedLLMResult(provider="fixture", model_id="fixture",
+                    value=parser(json.dumps(payload)), attempt_count=1, failure_reasons=())
+            if request.get("task") in {"assessment_generate", "assessment_repair"}:
+                fact = next((f for f in request["facts"]
+                             if "роликовые направляющие: плавный" in f["value"].casefold()), None)
+                if fact:
+                    axis = next(a for a in request["axes"]
+                                if a["source_claim"] == fact["value"])
+                    payload = {"questions": [{
+                        "prompt": "Какие направляющие используются в коллекции «Чикаго Стрит»?",
+                        "axis_id": axis["axis_id"],
+                        "distractors": ["Роликовые направляющие на комодах", "Шариковые направляющие"],
+                    }]}
+                    return ValidatedLLMResult(provider="fixture", model_id="fixture",
+                        value=parser(json.dumps(payload, ensure_ascii=False)), attempt_count=1, failure_reasons=())
+            return await super().ainvoke_validated(messages, parser, **kwargs)
+
     generated = await generate_evidence_course(
         _ambiguous_guides_corpus(),
         intent=CourseIntent(purpose="Обучить продавцов ассортименту"),
-        generation_client=_GenerationClient(),
+        generation_client=AmbiguousClient(),
         embedding_client=_EmbeddingClient(),
     )
     artifacts = to_generation_artifacts(generated)
@@ -716,7 +919,8 @@ async def test_active_v2_drops_ambiguous_same_attribute_question_without_padding
         for question in questions
         for option in question.options
     )
-    assert len(questions) < len(generated.result.evidence_result.assessment.questions)
+    assert generated.result.assessment_review["dropped"] == 1
+    assert len(questions) < generated.result.assessment_review["candidates"]
 
 
 @pytest.mark.asyncio
@@ -745,6 +949,26 @@ async def test_embedding_progress_counts_document_and_query_units_with_provider(
     assert embedding_events[-1][1] == embedding_events[-1][2]
     assert embedding_events[-1][3] == "test-query-provider"
     assert generated.result.embedding_degraded is False
+
+
+@pytest.mark.asyncio
+async def test_application_seam_ignores_provider_selected_answer_key() -> None:
+    generated = await generate_evidence_course(
+        _narrative_corpus(),
+        intent=CourseIntent(),
+        generation_client=_AdversarialAnswerKeyGenerationClient(),
+        embedding_client=_EmbeddingClient(),
+    )
+
+    source_values = {fact.value for fact in generated.result.evidence_result.admitted_facts}
+    questions = generated.result.realized_assessment.questions
+    assert questions
+    assert all(any(question.correct_answer in value for value in source_values)
+               for question in questions)
+    assert all(question.correct_answer != "Игнорировать условие исходного документа."
+               for question in questions)
+    assert all(question.fact_id in {fact.fact_id for fact in generated.result.evidence_result.admitted_facts}
+               for question in questions)
 
 
 @pytest.mark.asyncio
@@ -801,7 +1025,8 @@ async def test_generation_contract_gets_one_bounded_retry_before_failing_job() -
     )
 
     assert generated.result.publishability.publishable is True
-    assert generation.calls == 2
+    # Writer retry plus one bounded author/review/constraint batch for the lesson.
+    assert generation.calls == 5
 
 
 @pytest.mark.asyncio
@@ -813,7 +1038,8 @@ async def test_generation_provider_exhaustion_uses_grounded_deterministic_lesson
         embedding_client=_EmbeddingClient(),
     )
 
-    assert generated.result.publishability.publishable is True
+    assert generated.result.publishability.publishable is False
+    assert generated.result.publishability.reasons == ("assessment_no_valid_questions",)
     assert generated.result.provider_fallback_count > 0
     assert generated.result.validation_errors
     assert all(lesson.content for lesson in generated.result.realized_course.lessons)
@@ -857,7 +1083,8 @@ async def test_grounded_fallback_neutralizes_source_style_without_inventing_repl
         for lesson in module.lessons
     ).casefold()
 
-    assert generated.result.publishability.publishable is True
+    assert generated.result.publishability.publishable is False
+    assert generated.result.publishability.reasons == ("assessment_no_valid_questions",)
     assert "маркетплейс" not in content
     assert "игрушечн" not in content
     assert " look" not in content

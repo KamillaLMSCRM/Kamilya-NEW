@@ -148,6 +148,134 @@ def test_loader_accepts_provider_backed_evidence_result(tmp_path: Path) -> None:
     assert artifact.questions[0].source == artifact.lessons[0].source
 
 
+def _provider_payload_for_question_source() -> dict[str, Any]:
+    return {
+        "evidence_result": {
+            "admitted_facts": [
+                {"fact_id": "fact-1", "subject": "Раздел 1", "value": "Первый факт"},
+                {"fact_id": "fact-2", "subject": "Раздел 2", "value": "Второй факт"},
+            ]
+        },
+        "realized_course": {
+            "title": "Курс источников",
+            "lessons": [
+                {
+                    "lesson_id": "lesson-1",
+                    "title": "Урок",
+                    "content": "Содержание",
+                    "fact_ids": ["fact-1", "fact-2"],
+                }
+            ],
+        },
+        "realized_assessment": {"questions": []},
+    }
+
+
+def test_provider_question_source_includes_all_deduplicated_evidence_facts(
+    tmp_path: Path,
+) -> None:
+    payload = _provider_payload_for_question_source()
+    payload["realized_assessment"]["questions"] = [
+        {
+            "question_id": "question-1",
+            "lesson_id": "lesson-1",
+            "prompt": "Что указано?",
+            "options": ["Оба факта"],
+            "correct_answer": "Оба факта",
+            "evidence_fact_ids": ["fact-1", "fact-2", "fact-1"],
+        }
+    ]
+    path = tmp_path / "provider-result.json"
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    artifact = load_artifact(path)
+
+    assert artifact.questions[0].source == (
+        "Раздел: Раздел 1\nФакт: Первый факт\n"
+        "Раздел: Раздел 2\nФакт: Второй факт"
+    )
+
+
+def test_provider_question_source_keeps_legacy_fact_id_fallback(tmp_path: Path) -> None:
+    payload = _provider_payload_for_question_source()
+    payload["realized_assessment"]["questions"] = [
+        {
+            "question_id": "question-1",
+            "lesson_id": "lesson-1",
+            "prompt": "Что указано?",
+            "options": ["Первый факт"],
+            "correct_answer": "Первый факт",
+            "fact_id": "fact-1",
+        },
+        {
+            "question_id": "question-2",
+            "lesson_id": "lesson-1",
+            "prompt": "Что в уроке?",
+            "options": ["Содержание"],
+            "correct_answer": "Содержание",
+        },
+        {
+            "question_id": "question-3",
+            "lesson_id": "lesson-1",
+            "prompt": "Что указано?",
+            "options": ["Второй факт"],
+            "correct_answer": "Второй факт",
+            "fact_id": "fact-2",
+            "evidence_fact_ids": [],
+        },
+    ]
+    path = tmp_path / "provider-result.json"
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    artifact = load_artifact(path)
+
+    assert artifact.questions[0].source == "Раздел: Раздел 1\nФакт: Первый факт"
+    assert artifact.questions[1].source == artifact.lessons[0].source
+    assert artifact.questions[2].source == "Раздел: Раздел 2\nФакт: Второй факт"
+
+
+def test_provider_question_source_fails_closed_on_unknown_explicit_evidence_fact(
+    tmp_path: Path,
+) -> None:
+    payload = _provider_payload_for_question_source()
+    payload["realized_assessment"]["questions"] = [
+        {
+            "question_id": "question-1",
+            "lesson_id": "lesson-1",
+            "prompt": "Что указано?",
+            "options": ["Ответ"],
+            "correct_answer": "Ответ",
+            "evidence_fact_ids": ["fact-1", "fact-unknown"],
+        }
+    ]
+    path = tmp_path / "provider-result.json"
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unknown evidence_fact_ids: fact-unknown"):
+        load_artifact(path)
+
+
+def test_provider_question_source_rejects_non_string_explicit_evidence_id(
+    tmp_path: Path,
+) -> None:
+    payload = _provider_payload_for_question_source()
+    payload["realized_assessment"]["questions"] = [
+        {
+            "question_id": "question-1",
+            "lesson_id": "lesson-1",
+            "prompt": "Что указано?",
+            "options": ["Ответ"],
+            "correct_answer": "Ответ",
+            "evidence_fact_ids": ["fact-1", None],
+        }
+    ]
+    path = tmp_path / "provider-result.json"
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="evidence_fact_ids must contain only strings"):
+        load_artifact(path)
+
+
 def test_privacy_preflight_blocks_customer_identifiers_before_adapter_call(tmp_path: Path) -> None:
     payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
     payload["course"]["modules"][0]["lessons"][0]["content"] += " Автор: person@example.kz"

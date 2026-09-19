@@ -77,8 +77,167 @@ def _numbers(value: str) -> set[str]:
 
 def _clean_output_text(value: str) -> str:
     cleaned = re.sub(r"\bтаюке\b", "также", value, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bвидна\s+жительство\b", "вид на жительство", cleaned,
+                     flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bзаконодательством\s+PK\b", "законодательством РК", cleaned,
+                     flags=re.IGNORECASE)
+    cleaned = re.sub(
+        r'\b\d{1,3}\.\s*[%("]\s*(?=(?:паспорт|удостоверение|вид\s+на\s+жительство)\b)',
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"(^|[.;:])\s*[%*]\s+(?=(?:паспорт|удостоверение|вид\s+на\s+жительство)\b)",
+        r"\1 ",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"\bи\.\s*др\.", "и др.", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bдр\.\s+\)", "др.)", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"([.!?])\s+,", r"\1,", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     return cleaned
+
+
+_GROUNDING_STOPWORDS = {
+    "без", "более", "бы", "был", "была", "быть", "в", "во", "для", "до",
+    "его", "если", "и", "из", "или", "к", "как", "на", "не", "но", "о",
+    "по", "при", "с", "со", "также", "то", "только", "у", "что", "это",
+    "a", "an", "and", "as", "at", "for", "from", "if", "in", "is", "not",
+    "of", "on", "only", "or", "the", "this", "to", "when", "with",
+}
+
+
+def _grounding_tokens(value: str) -> set[str]:
+    return {
+        token[:7]
+        for token in re.findall(r"[^\W\d_]{3,}", value.casefold().replace("ё", "е"), re.UNICODE)
+        if token not in _GROUNDING_STOPWORDS
+    }
+
+
+_REDUNDANCY_GENERIC_TOKENS = {"колл", "лине", "сери", "coll", "rang"}
+
+
+def _redundancy_tokens(value: str) -> set[str]:
+    return {token[:4] for token in _grounding_tokens(value)} - _REDUNDANCY_GENERIC_TOKENS
+
+
+def _is_covered_sentence(value: str, previous: list[set[str]]) -> bool:
+    """Return true when a later short sentence adds no new source meaning."""
+    tokens = _redundancy_tokens(value)
+    if len(tokens) < 3:
+        return False
+    return any(
+        len(tokens) <= len(available)
+        and len(tokens & available) / len(tokens) >= 0.85
+        for available in previous
+    )
+
+
+def _grounded_teaching_text(text: str, facts: list[SourceFact]) -> str:
+    """Keep supported prose and restore every omitted sentence of cited facts."""
+    sources = [
+        " ".join((fact.subject, fact.attribute, _clean_output_text(fact.value)))
+        for fact in facts
+    ]
+    normalized_sources = [" ".join(source.casefold().replace("ё", "е").split())
+                          for source in sources]
+    source_tokens = [_grounding_tokens(source) for source in sources]
+    sentences = [match.group(0).strip() for match in re.finditer(r"[^.!?]+(?:[.!?]+|$)", text)
+                 if match.group(0).strip()]
+    grounded: list[str] = []
+    for sentence in sentences:
+        normalized = " ".join(sentence.casefold().replace("ё", "е").split())
+        tokens = _grounding_tokens(sentence)
+        exact = any(normalized in source or source in normalized for source in normalized_sources)
+        lexical = max(
+            ((len(tokens & available) / len(tokens)) if tokens else 0.0)
+            for available in source_tokens
+        )
+        if exact or lexical >= 0.65:
+            grounded.append(sentence)
+    if grounded:
+        deduplicated: list[str] = []
+        seen_sentences: set[str] = set()
+        seen_token_sets: list[set[str]] = []
+        for sentence in grounded:
+            normalized = " ".join(sentence.casefold().replace("ё", "е").split())
+            if normalized in seen_sentences or _is_covered_sentence(sentence, seen_token_sets):
+                continue
+            seen_sentences.add(normalized)
+            seen_token_sets.append(_redundancy_tokens(sentence))
+            deduplicated.append(sentence)
+        grounded = deduplicated
+        # Citing one fact id is not enough when the provider kept only one
+        # sentence of a multi-sentence rule. Preserve supported paraphrases,
+        # then append only source sentences whose meaning is still absent.
+        # OCR-tainted facts remain excluded from this restoration path.
+        if not any(contains_ocr_artifact(_clean_output_text(fact.value)) for fact in facts):
+            grounded_normalized = [
+                " ".join(sentence.casefold().replace("ё", "е").split())
+                for sentence in grounded
+            ]
+            grounded_tokens = [_grounding_tokens(sentence) for sentence in grounded]
+            combined_grounded_tokens = set().union(*grounded_tokens) if grounded_tokens else set()
+            grounded_redundancy_tokens = [
+                _redundancy_tokens(sentence) for sentence in grounded
+            ]
+            for fact in facts:
+                source_sentences = [
+                    match.group(0).strip()
+                    for match in re.finditer(
+                        r"[^.!?]+(?:[.!?]+|$)", _clean_output_text(fact.value)
+                    )
+                    if match.group(0).strip()
+                    and any(character.isalpha() for character in match.group(0))
+                ]
+                for source_sentence in source_sentences:
+                    normalized = " ".join(
+                        source_sentence.casefold().replace("ё", "е").split()
+                    )
+                    tokens = _grounding_tokens(source_sentence)
+                    semantic_threshold = 0.65 if len(source_sentences) == 1 else 0.9
+                    covered = any(
+                        normalized in candidate or candidate in normalized
+                        for candidate in grounded_normalized
+                    ) or any(
+                        tokens and len(tokens & available) / len(tokens) >= semantic_threshold
+                        for available in grounded_tokens
+                    ) or any(
+                        tokens
+                        and available
+                        and len(tokens & available) / min(len(tokens), len(available)) >= 0.85
+                        and len(available) / len(tokens) >= 0.45
+                        for available in grounded_tokens
+                    ) or (
+                        tokens
+                        and len(tokens & combined_grounded_tokens) / len(tokens) >= 0.65
+                    ) or _is_covered_sentence(
+                        source_sentence, grounded_redundancy_tokens
+                    )
+                    if covered:
+                        continue
+                    restored = _clean_output_text(
+                        neutralize_unprofessional_source_language(source_sentence)
+                    )
+                    grounded.append(restored)
+                    grounded_normalized.append(normalized)
+                    grounded_tokens.append(tokens)
+                    grounded_redundancy_tokens.append(
+                        _redundancy_tokens(source_sentence)
+                    )
+        return " ".join(grounded)
+    if any(contains_ocr_artifact(_clean_output_text(fact.value)) for fact in facts):
+        # A validated clean omission notice is safer than re-exposing unreadable
+        # source glyphs or guessing the missing value.
+        return text
+    return " ".join(
+        _clean_output_text(neutralize_unprofessional_source_language(fact.value.strip()))
+        for fact in facts
+        if fact.value.strip()
+    )
 
 
 class ProviderBackedEvidenceEngine:
@@ -330,7 +489,7 @@ class ProviderBackedEvidenceEngine:
                     "fact_id": fact_id,
                     "subject": facts_by_id[fact_id].subject,
                     "attribute": facts_by_id[fact_id].attribute,
-                    "value": facts_by_id[fact_id].value,
+                    "value": _clean_output_text(facts_by_id[fact_id].value),
                     "source_locator": facts_by_id[fact_id].source_locator,
                 }
                 for fact_id in plan.fact_ids
@@ -361,6 +520,9 @@ class ProviderBackedEvidenceEngine:
         rendered: list[str] = []
         grounded_blocks: list[GroundedBlock] = []
         covered: set[str] = set()
+        seen_blocks: set[tuple[str, tuple[str, ...]]] = set()
+        seen_lesson_sentences: set[str] = set()
+        seen_lesson_token_sets: list[set[str]] = []
         for block in blocks:
             if not isinstance(block, dict):
                 raise ValueError("block must be an object")
@@ -406,6 +568,38 @@ class ProviderBackedEvidenceEngine:
                     "block introduces a number absent from cited facts: "
                     f"{sorted(unexpected_numbers)}"
                 )
+            text = _grounded_teaching_text(
+                text,
+                [facts_by_id[fact_id] for fact_id in sorted(fact_ids)],
+            )
+            fresh_sentences: list[str] = []
+            for match in re.finditer(r"[^.!?]+(?:[.!?]+|$)", text):
+                sentence = match.group(0).strip()
+                if not sentence:
+                    continue
+                normalized_sentence = " ".join(
+                    sentence.casefold().replace("ё", "е").split()
+                )
+                if (
+                    normalized_sentence in seen_lesson_sentences
+                    or _is_covered_sentence(sentence, seen_lesson_token_sets)
+                ):
+                    continue
+                seen_lesson_sentences.add(normalized_sentence)
+                seen_lesson_token_sets.append(_redundancy_tokens(sentence))
+                fresh_sentences.append(sentence)
+            text = _clean_output_text(" ".join(fresh_sentences))
+            if not text:
+                covered.update(fact_ids)
+                continue
+            block_key = (
+                " ".join(text.casefold().replace("ё", "е").split()),
+                tuple(sorted(fact_ids)),
+            )
+            if block_key in seen_blocks:
+                covered.update(fact_ids)
+                continue
+            seen_blocks.add(block_key)
             covered.update(fact_ids)
             rendered.extend([f"### {heading}", "", text, ""])
             grounded_blocks.append(
@@ -427,7 +621,11 @@ class ProviderBackedEvidenceEngine:
             heading = neutralize_unprofessional_source_language(
                 " ".join(fact.attribute.strip().rstrip(".:").split())
             ) or "Подтверждённые сведения"
-            text = neutralize_unprofessional_source_language(fact.value.strip())
+            text = _clean_output_text(
+                neutralize_unprofessional_source_language(fact.value.strip())
+            )
+            if contains_ocr_artifact(text):
+                raise ValueError("fallback fact exposes unresolved OCR artifacts")
             rendered.extend([f"### {heading}", "", text, ""])
             grounded_blocks.append(
                 GroundedBlock(

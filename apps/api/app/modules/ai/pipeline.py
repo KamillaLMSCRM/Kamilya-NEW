@@ -58,6 +58,7 @@ from app.modules.ai.writer_schema import CourseContent, LessonContent
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from app.models.ai_job import AIJob
     from app.modules.ai.source_analysis import CourseStructurePlan
 
 GENERATION_FAILURE_CODE = "generation_failed"
@@ -340,9 +341,10 @@ def _assessment_audit_reason_code(error: AssessmentAuditError) -> str:
 async def _update_job_db(
     job_id: str,
     tenant_id: UUID | str | None = None,
+    saved_v2_state: GenerationState | None = None,
     **kwargs: object,
-) -> None:
-    """Update job state in the database."""
+) -> bool:
+    """Update job state; return whether a saved V2 review outcome was restored."""
     from sqlalchemy import text
 
     from app.modules.ai.job_service import update_ai_job
@@ -352,7 +354,21 @@ async def _update_job_db(
             await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_value})
         progress_detail_supplied = "progress_detail" in kwargs
         progress_detail = kwargs.pop("progress_detail", None)
+        completion_result = kwargs.pop("completion_result", None)
         job = await update_ai_job(session, job_id, tenant_id=tenant_value, **kwargs)
+        # update_ai_job holds the cancellation row lock. Restore before commit,
+        # so a resume cannot publish a new running state for this saved outcome.
+        if job is not None and saved_v2_state is not None:
+            if job.status == "cancelled":
+                raise asyncio.CancelledError(f"Job {job_id} cancelled")
+            if _restore_saved_v2_outcome(saved_v2_state, job):
+                await session.commit()
+                return True
+        if job is not None and isinstance(completion_result, dict):
+            if job.status == "cancelled":
+                raise asyncio.CancelledError(f"Job {job_id} cancelled")
+            job.result = {**(job.result or {}), **completion_result}  # type: ignore[assignment]
+            job.params = {**(job.params or {}), "completion": completion_result}  # type: ignore[assignment]
         if job is not None and progress_detail_supplied:
             params = dict(job.params or {})
             if progress_detail is None:
@@ -361,6 +377,7 @@ async def _update_job_db(
                 params["progress_detail"] = progress_detail
             job.params = params  # type: ignore[assignment]
         await session.commit()
+        return False
 
 
 async def _release_generation_reservation(
@@ -412,6 +429,132 @@ def _completed_progress_detail(content: CourseContent) -> dict[str, int] | None:
     return {"current": total, "total": total, "estimated_remaining_seconds": 0}
 
 
+ASSESSMENT_NO_VALID_QUESTIONS_CODE = "assessment_no_valid_questions"
+ASSESSMENT_NO_VALID_QUESTIONS_MESSAGE = (
+    "Уроки сохранены в черновике, но действительных вопросов для теста нет. "
+    "Проверьте и добавьте тесты перед публикацией курса."
+)
+ASSESSMENT_COVERAGE_INCOMPLETE_CODE = "assessment_coverage_incomplete"
+ASSESSMENT_REVIEW_MESSAGES = {
+    ASSESSMENT_NO_VALID_QUESTIONS_CODE: ASSESSMENT_NO_VALID_QUESTIONS_MESSAGE,
+    ASSESSMENT_COVERAGE_INCOMPLETE_CODE: (
+        "Черновик курса и готовые вопросы сохранены. Тесты не покрывают часть "
+        "содержательных тем; проверьте их перед публикацией."
+    ),
+}
+
+
+def _assessment_question_count(assessment: CourseAssessment | None) -> int:
+    if assessment is None:
+        return 0
+    return sum(
+        len(lesson.mcq) + len(lesson.true_false) + sum(len(item.pairs) for item in lesson.matching)
+        for lesson in assessment.assessments
+    )
+
+
+def _evidence_v2_completion_detail(state: GenerationState) -> dict[str, object]:
+    """Return bounded V2 completion facts suitable for job params and result."""
+    content = state.content
+    assessment = state.assessment
+    modules = len(content.modules) if content is not None else 0
+    lessons = sum(len(module.lessons) for module in content.modules) if content is not None else 0
+    questions = _assessment_question_count(assessment)
+    quizzes = sum(
+        1
+        for lesson in (assessment.assessments if assessment is not None else [])
+        if len(lesson.mcq) + len(lesson.true_false) + sum(len(item.pairs) for item in lesson.matching)
+    )
+    omitted_titles = list(content.omitted_lesson_titles) if content is not None else []
+    diagnostics = state.source_analysis.get("evidence_v2", {})
+    assessment_review = diagnostics.get("assessment_review", {})
+    coverage = assessment_review.get("coverage") if isinstance(assessment_review, dict) else None
+    coverage_requires_review = not (
+        isinstance(coverage, dict) and coverage.get("requires_review") is False
+    )
+    return {
+        "outcome": (
+            ASSESSMENT_NO_VALID_QUESTIONS_CODE if questions == 0 else
+            ASSESSMENT_COVERAGE_INCOMPLETE_CODE if coverage_requires_review else "completed"
+        ),
+        "counts": {
+            "modules": modules,
+            "lessons": lessons,
+            "quizzes": quizzes,
+            "questions": questions,
+        },
+        "omitted_lessons": [
+            {"title": title, "reasons": ["lesson_omitted"]} for title in omitted_titles
+        ],
+        "omitted_assessments": [
+            {"title": lesson.lesson_title, "reasons": [ASSESSMENT_NO_VALID_QUESTIONS_CODE]}
+            for lesson in (assessment.assessments if assessment is not None else [])
+            if not (lesson.mcq or lesson.true_false or any(item.pairs for item in lesson.matching))
+        ],
+        "source_warnings": list(content.source_warnings) if content is not None else [],
+        "assessment_review": assessment_review,
+    }
+
+
+def _apply_evidence_v2_completion_outcome(state: GenerationState) -> None:
+    """Keep a saved V2 draft reviewable when every assessment question was rejected."""
+    if state.source_analysis.get("generation_engine") != "evidence_v2":
+        return
+    completion = _evidence_v2_completion_detail(state)
+    state.source_analysis = {**state.source_analysis, "completion": completion}
+    state.errors = []
+    if completion["outcome"] not in ASSESSMENT_REVIEW_MESSAGES:
+        return
+    state.status = "interrupted"
+    state.stage = "interrupted"
+    state.progress = 100
+    code = str(completion["outcome"])
+    state.message = ASSESSMENT_REVIEW_MESSAGES[code]
+    state.errors = [code]
+
+
+def _job_completion_result(
+    state: GenerationState, *, course_id: str | None = None,
+) -> dict[str, object] | None:
+    if state.source_analysis.get("generation_engine") != "evidence_v2":
+        return None
+    completion = state.source_analysis.get("completion")
+    if not isinstance(completion, dict):
+        return None
+    result = dict(completion)
+    if course_id or state.course_id:
+        result["course_id"] = course_id or state.course_id
+    return result
+
+
+def _restore_saved_v2_outcome(state: GenerationState, job: AIJob) -> bool:
+    """A saved assessment-review draft is not a resumable generation checkpoint."""
+    if state.source_analysis.get("generation_engine") != "evidence_v2" or not job.course_id:
+        return False
+    completion = cast(dict[str, object], job.params or {}).get("completion")
+    if not isinstance(completion, dict) or completion.get("outcome") not in ASSESSMENT_REVIEW_MESSAGES:
+        return False
+    state.course_id = str(job.course_id)
+    state.status = state.stage = "interrupted"
+    state.progress = 100
+    code = str(completion["outcome"])
+    state.message = ASSESSMENT_REVIEW_MESSAGES[code]
+    state.errors = [code]
+    state.source_analysis = {**state.source_analysis, "completion": dict(completion)}
+    counts = completion.get("counts", {})
+    lessons = counts.get("lessons") if isinstance(counts, dict) else None
+    if type(lessons) is int and lessons > 0:
+        job.params = {  # type: ignore[assignment]
+            **(job.params or {}),
+            "progress_detail": {"current": lessons, "total": lessons, "estimated_remaining_seconds": 0},
+        }
+    for name in ("status", "stage", "progress", "message", "errors"):
+        setattr(job, name, getattr(state, name))
+    job.completed_at = None  # type: ignore[assignment]
+    job.updated_at = datetime.now(UTC)  # type: ignore[assignment]
+    return True
+
+
 async def _run_evidence_v2_generation(
     state: GenerationState,
     corpus: DirectSourceCorpus,
@@ -434,6 +577,7 @@ async def _run_evidence_v2_generation(
         tenant_id=tenant_id
     )
     realization_started = time.monotonic()
+    assessment_started: float | None = None
 
     embedding_started = time.monotonic()
 
@@ -444,6 +588,7 @@ async def _run_evidence_v2_generation(
         provider: str | None,
         attempt: int | None,
     ) -> None:
+        nonlocal assessment_started
         if stage == "evidence_plan":
             progress, message, detail = 15, "Построен доказательный план курса", None
         elif stage == "embeddings":
@@ -458,8 +603,14 @@ async def _run_evidence_v2_generation(
             progress = 25 + math.floor(65 * current / max(1, total))
             message = f"Создание уроков: {current} из {total}"
             detail = _timed_progress_detail(current, total, realization_started)
+        elif stage == "assessment":
+            if assessment_started is None:
+                assessment_started = time.monotonic()
+            progress = 90 + math.floor(4 * current / max(1, total))
+            message = f"Создание и проверка тестов: {current} из {total} смысловых блоков"
+            detail = _timed_progress_detail(current, total, assessment_started)
         elif stage == "quality":
-            progress, message, detail = 95, "Курс и тесты прошли внутреннюю проверку", None
+            progress, message, detail = 95, "Проверка уроков и тестов завершена", None
         else:
             raise ValueError("unknown_evidence_v2_progress_stage")
         state.stage = stage
@@ -546,6 +697,11 @@ async def _save_generation_to_db(
             raise RuntimeError("Generation job does not exist in this tenant")
         if job.status == "cancelled":
             raise asyncio.CancelledError(f"Job {state.job_id} cancelled")
+        # A late concurrent delivery may have generated against the original
+        # null course_id while another delivery saved the review-required draft.
+        if _restore_saved_v2_outcome(state, job):
+            await session.commit()
+            return
         if job.status != "running":
             raise RuntimeError(f"Generation job is not active: {job.status}")
         if not state.course_id:
@@ -789,7 +945,9 @@ async def _save_generation_to_db(
         state.stage = "completed"
         state.progress = 100
         state.message = _generation_completion_message(state.content)
-        completed_at = datetime.now(timezone.utc)  # noqa: UP017 -- Python 3.10 runtime
+        _apply_evidence_v2_completion_outcome(state)
+        updated_at = datetime.now(timezone.utc)  # noqa: UP017 -- Python 3.10 runtime
+        completed_at = None if state.status == "interrupted" else updated_at
         for field_name, value in (
             ("status", state.status),
             ("stage", state.stage),
@@ -797,7 +955,7 @@ async def _save_generation_to_db(
             ("message", state.message),
             ("course_id", course.id),
             ("completed_at", completed_at),
-            ("updated_at", completed_at),
+            ("updated_at", updated_at),
         ):
             setattr(job, field_name, value)
         params = dict(getattr(job, "params", None) or {})
@@ -810,6 +968,16 @@ async def _save_generation_to_db(
             params["progress_detail"] = completed_progress
         else:
             params.pop("progress_detail", None)
+        completion_result = _job_completion_result(state, course_id=str(course.id))
+        if completion_result is not None:
+            params["completion"] = completion_result
+            job.result = {**(job.result or {}), **completion_result}  # type: ignore[assignment]
+            job.errors = state.errors  # type: ignore[assignment]
+            # SQLAlchemy's legacy JSON Column annotation lacks instance typing.
+            course.source_analysis = {  # type: ignore[assignment]
+                **state.source_analysis,
+                **({"reuse_reason": state.reuse_reason} if state.reuse_reason else {}),
+            }
         job.params = params  # type: ignore[assignment]
         await session.commit()
         state.course_id = str(course.id)
@@ -888,7 +1056,15 @@ async def run_generation_pipeline(
             if direct_mode
             else "Проверка эмбеддингов документов..."
         )
-        await _update_job_db(job_id, tenant_id=tenant_id, status="running", stage="ingestion", progress=5, message=state.message)
+        if direct_mode and state.source_analysis.get("generation_engine") == "evidence_v2":
+            restored = await _update_job_db(
+                job_id, tenant_id=tenant_id, saved_v2_state=state,
+                status="running", stage="ingestion", progress=5, message=state.message,
+            )
+            if restored is True:
+                return state
+        else:
+            await _update_job_db(job_id, tenant_id=tenant_id, status="running", stage="ingestion", progress=5, message=state.message)
 
         if direct_mode:
             if not tenant_id:
@@ -926,20 +1102,24 @@ async def run_generation_pipeline(
                     await _save_generation_to_db(state, tenant_id, user_id)
                 else:
                     assert state.content is not None
+                    _apply_assessment_omission_notices(state)
                     state.status = "completed"
                     state.stage = "completed"
                     state.progress = 100
                     state.message = _generation_completion_message(state.content)
+                    _apply_evidence_v2_completion_outcome(state)
                     await _update_job_db(
                         job_id,
                         tenant_id=tenant_id,
-                        status="completed",
-                        stage="completed",
-                        progress=100,
+                        status=state.status,
+                        stage=state.stage,
+                        progress=state.progress,
                         message=state.message,
                         course_id=UUID(state.course_id) if state.course_id else None,
-                        completed_at=datetime.now(UTC),
+                        errors=state.errors,
+                        completed_at=(None if state.status == "interrupted" else datetime.now(UTC)),
                         progress_detail=_completed_progress_detail(state.content),
+                        completion_result=_job_completion_result(state),
                     )
                 logger.info("Evidence V2 generation complete for job %s", job_id)
                 return state

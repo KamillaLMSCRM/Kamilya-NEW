@@ -5,6 +5,8 @@ import { api } from '@/lib/api';
 
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 const toastErrorMock = vi.hoisted(() => vi.fn());
+const routerPushMock = vi.hoisted(() => vi.fn());
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: routerPushMock }) }));
 vi.mock('@/components/ui/Toast', () => ({ toast: { success: vi.fn(), error: toastErrorMock, warning: vi.fn() } }));
 
 const apiMock = vi.mocked(api);
@@ -27,6 +29,51 @@ beforeEach(() => {
 });
 
 describe('/ai/generate job workflow parity', () => {
+  it.each([
+    ['assessment_no_valid_questions'],
+    ['assessment_coverage_incomplete'],
+    ['another_diagnostic', 'assessment_no_valid_questions'],
+  ])('opens the saved assessment-review draft instead of resuming its generation: %j', async (...errors) => {
+    const savedDraftJob = {
+      ...activeJob, status: 'interrupted', stage: 'interrupted', progress: 100,
+      errors, message: 'Lessons saved; assessment requires review.',
+    };
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${activeJob.id}`) return { data: savedDraftJob } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+
+    render(<AIGeneratePage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Открыть сохранённый черновик' }));
+    expect(routerPushMock).toHaveBeenCalledWith('/courses/course-1/edit');
+    expect(screen.getByText('Тесты требуют проверки')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Продолжить/ })).not.toBeInTheDocument();
+    expect(apiMock.post).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { errors: ['generation_provider_interrupted'], course_id: 'course-1' },
+    { errors: ['assessment_no_valid_questions'], course_id: null },
+    { errors: undefined, course_id: 'course-1' },
+  ])('preserves Continue for other interrupted jobs: %j', async (shape) => {
+    const interruptedJob = { ...activeJob, ...shape, status: 'interrupted', stage: 'interrupted' };
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${activeJob.id}`) return { data: interruptedJob } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    apiMock.post.mockResolvedValue({ data: { ...activeJob, status: 'pending', stage: 'queued' } } as any);
+
+    render(<AIGeneratePage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Продолжить/ }));
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/v1/ai/jobs/job-1/resume'));
+    expect(routerPushMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Открыть сохранённый черновик' })).not.toBeInTheDocument();
+  });
+
   it('restores an active job and returns to the documents view after cancellation', async () => {
     render(<AIGeneratePage />);
 
@@ -185,7 +232,7 @@ describe('/ai/generate job workflow parity', () => {
   });
 
   it('lets the methodologist start a new course from a restored completed review', async () => {
-    const completedJob = { ...activeJob, status: 'completed', stage: 'completed', progress: 100 };
+    const completedJob = { ...activeJob, status: 'completed', stage: 'completed', progress: 100, errors: ['assessment_no_valid_questions'] };
     localStorage.setItem('ai_generation_workflow_context', JSON.stringify({
       job_id: completedJob.id,
       program_id: 'program-1',
@@ -205,6 +252,10 @@ describe('/ai/generate job workflow parity', () => {
     render(<AIGeneratePage />);
 
     expect(await screen.findByText('Старый курс')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Открыть сохранённый черновик' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Продолжить/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Редактировать курс' }));
+    expect(routerPushMock).toHaveBeenCalledWith('/courses/course-1/edit');
     fireEvent.click(screen.getByRole('button', { name: 'Создать новый курс' }));
 
     expect(await screen.findByText(/Перетащите документы/)).toBeInTheDocument();

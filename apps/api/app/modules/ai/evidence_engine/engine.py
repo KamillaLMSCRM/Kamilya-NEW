@@ -602,10 +602,20 @@ class EvidenceCourseEngine:
         primary_sections = [section for section in document.sections if section.role == "primary"]
         supporting_sections = [section for section in document.sections if section.role == "supporting"]
         admitted, duplicate_count = _deduplicate_facts(
-            [fact for section in primary_sections for fact in section.facts]
+            [
+                fact
+                for section in primary_sections
+                for fact in section.facts
+                if fact.confidence >= 0.8 and fact.uncertainty in {"", "local_ocr"}
+            ]
         )
         supporting, supporting_duplicates = _deduplicate_facts(
-            [fact for section in supporting_sections for fact in section.facts]
+            [
+                fact
+                for section in supporting_sections
+                for fact in section.facts
+                if fact.confidence >= 0.8 and fact.uncertainty in {"", "local_ocr"}
+            ]
         )
         timings.append(StageTiming(stage="document_plan", seconds=perf_counter() - started))
 
@@ -802,33 +812,6 @@ class EvidenceCourseEngine:
             if group:
                 groups.append(group)
                 group_is_major.append(is_major)
-
-        # Short, non-regulatory adjacent topics can share one lesson. This
-        # avoids turning every heading in a small handbook into a micro-lesson,
-        # while uppercase/large legal sections remain strict boundaries.
-        consolidated_groups: list[list[tuple[str, list[SourceFact], int]]] = []
-        consolidated_major: list[bool] = []
-        cursor = 0
-        while cursor < len(groups):
-            current = list(groups[cursor])
-            current_major = group_is_major[cursor]
-            if not current_major and cursor + 1 < len(groups) and not group_is_major[cursor + 1]:
-                candidate = [*current, *groups[cursor + 1]]
-                candidate_facts = sum(len(item[1]) for item in candidate)
-                candidate_words = sum(
-                    len(fact.value.split()) for item in candidate for fact in item[1]
-                )
-                if (
-                    candidate_facts <= _NARRATIVE_MAX_FACTS_PER_LESSON
-                    and candidate_words <= _NARRATIVE_WORDS_PER_LESSON
-                ):
-                    current = candidate
-                    cursor += 1
-            consolidated_groups.append(current)
-            consolidated_major.append(current_major)
-            cursor += 1
-        groups = consolidated_groups
-        group_is_major = consolidated_major
 
         # A one-clause cover page is context, not a standalone learning topic.
         # Merge only that leading fragment with the first substantive section;

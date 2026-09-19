@@ -10,7 +10,7 @@ from app.modules.ai.lesson_quality import has_unprofessional_learner_language
 from .models import AssessmentDraft, CourseDraft, EvidenceCourseResult, QuestionDraft
 from .provider_models import GroundedBlock, PublishabilityReport
 
-EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v2"
+EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v3"
 
 _GENERIC_QUESTION_RE = re.compile(
     r"(?:о\s+ч[её]м\s+(?:этот\s+)?(?:урок|курс|раздел|модуль)|"
@@ -28,7 +28,17 @@ _INTERNAL_GENERATION_INSTRUCTION_RE = re.compile(
     r"question\s+(?:must|should)\s+not\s+contain\s+(?:hints?|clues?))",
     re.IGNORECASE,
 )
-_OCR_ARTIFACT_RE = re.compile(r"\(\)\s*\(\)|\ufffd|(?:\?{4,})")
+_OCR_ARTIFACT_RE = re.compile(
+    r"\(\)\s*\(\)|\ufffd|(?:\?{4,})|\bвидна\s+жительство\b|"
+    r'\b\d{1,3}\.\s*[%("]\s*(?=(?:паспорт|удостоверение|вид)\b)|'
+    r"(?:^|[.;:]\s+)[%*]\s+(?=(?:паспорт|удостоверение|вид)\b)",
+    re.IGNORECASE,
+)
+_TRUNCATED_ABBREVIATION_RE = re.compile(
+    r"(?:^|[.!?]\s+)др\.\s*\)\s+[А-ЯЁ]",
+    re.IGNORECASE,
+)
+MAX_ASSESSMENT_ANSWER_CHARS = 240
 _TITLE_START_RE = re.compile(r"^(?:после|в\s+случае|к\s+|при\s+|из\s+)", re.IGNORECASE)
 _MATERIAL_QUESTION_RE = re.compile(
     r"(?:из\s+как(?:ого\s+материала|их\s+материалов)|"
@@ -46,7 +56,15 @@ _MATERIAL_FAMILY_RE = re.compile(
 
 
 def contains_ocr_artifact(value: str) -> bool:
-    return bool(_OCR_ARTIFACT_RE.search(value))
+    if _OCR_ARTIFACT_RE.search(value):
+        return True
+    for match in _TRUNCATED_ABBREVIATION_RE.finditer(value):
+        prefix = value[:match.start()]
+        # ``и. др. )`` is noisy punctuation inside a complete parenthetical,
+        # not the observed detached OCR tail ``. др. ) Ломбарда``.
+        if prefix.rfind("(") <= prefix.rfind(")"):
+            return True
+    return False
 
 
 def is_generic_question(value: str) -> bool:
@@ -110,6 +128,11 @@ def question_has_ambiguous_options(question: QuestionDraft) -> bool:
             for option in question.options
         ):
             return True
+    # The old headword heuristic equates "refuse this channel and offer a safe
+    # one" with "refuse all channels". A complete blind option review supersedes
+    # that approximation, not exact duplicate/containment/material checks above.
+    if question.semantic_reviewed:
+        return False
     return any(
         option != question.correct_answer
         and distractor_repeats_correct_attribute_answer(
@@ -139,6 +162,7 @@ def filter_acceptable_questions(questions: list[QuestionDraft]) -> list[Question
         question
         for question in questions
         if not is_generic_question(question.prompt)
+        and len(question.correct_answer.strip()) <= MAX_ASSESSMENT_ANSWER_CHARS
         and not question_has_ambiguous_options(question)
         and not question_has_blocked_learner_language(question)
     ]
@@ -185,8 +209,13 @@ def evaluate_publishability(
             *(lesson.title for lesson in course.lessons),
             *(lesson.content for lesson in course.lessons),
             *(question.prompt for question in assessment.questions),
+            *(option for question in assessment.questions for option in question.options),
             *(question.explanation for question in assessment.questions),
         )
+    )
+    overlong_answers = sum(
+        len(question.correct_answer.strip()) > MAX_ASSESSMENT_ANSWER_CHARS
+        for question in assessment.questions
     )
     invalid_titles = sum(not is_acceptable_title(lesson.title) for lesson in course.lessons)
     overlong = sum(
@@ -220,6 +249,8 @@ def evaluate_publishability(
         reasons.append("duplicate_questions")
     if ocr_count:
         reasons.append("visible_ocr_artifacts")
+    if overlong_answers:
+        reasons.append("overlong_correct_answers")
     if invalid_titles:
         reasons.append("invalid_lesson_titles")
     if overlong:

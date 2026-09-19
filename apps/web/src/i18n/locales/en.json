@@ -813,6 +813,8 @@
   "ai": {
     "programAttach": { "idle": "The published course is ready to be added", "attaching": "Adding the course to the program", "attached": "The course was added to the program", "failed": "The course was published but could not be added to the program", "hint": "Existing program courses are preserved.", "failedHint": "The program may be unavailable or no longer editable. You can retry or return to the programs list.", "attach": "Add to program", "retry": "Try again", "returnToProgram": "Return to program", "returnToPrograms": "Return to programs" },
     "title": "Create course from materials",
+    "assessmentNeedsReview": "Assessments need review",
+    "openSavedDraft": "Open saved draft",
     "targetAudience": "Target Audience",
     "targetAudiencePlaceholder": "Describe who this course is for...",
     "courseIntent": "What the course should achieve",

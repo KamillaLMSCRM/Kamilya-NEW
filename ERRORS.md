@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-18.
+Current as of: 2026-09-19.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -30,6 +30,161 @@ personal data, or raw logs here.
 Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
+
+## AI-QUALITY-027 - True source sentences became unrelated answer options
+
+- Date: 2026-09-18. Confirmed against the owner's privacy-question screenshot
+  and reproduced through the active V2 application seam before release.
+- Symptom: wrong options were true sentences about initial replies/escalation,
+  unrelated to the question about handling personal data.
+- Cause: deterministic source-peer options survived into final assessment; the
+  writer could rewrite prompts but not options. Local structural checks proved
+  source membership, not that each option answered the same question. Narrative
+  sentence splitting also detached conditions/exceptions from their rules.
+- Fix: retain coherent source paragraphs; generate block-owned assessment with
+  exact evidence references and a separate all-option semantic review. Allow
+  plausible counterfactual mistakes, never arbitrary unrelated true statements.
+  One bounded repair preserves original question identity/evidence; invalid
+  questions are omitted without quota padding. Zero questions preserves a draft
+  with an explicit review outcome and UI action, not a successful course.
+- Verification: local API unit suite 1879 PASS (75.89s), final affected tests
+  53 PASS after reviewer refinement; frontend focused suite
+  25 PASS plus typecheck/lint; canonical Python baseline PASS. Synthetic real
+  calls prove one paragraph -> one lesson/one question and three independent
+  sections -> three lessons/three questions. TypeSafe is DEV-only report-only;
+  some earlier runs return REVIEW, not universal PASS. Production NOT VERIFIED.
+- Prevention: test the exact unrelated-options defect, separate option relevance
+  from factual truth, test ambiguous and missing review responses, keep bounded
+  repair identity/order and zero-question persistence/UI regressions. Do not
+  substitute fake provider responses or a green unit suite for semantic QA.
+- Additional harness finding: the first synthetic-table replay omitted chunk
+  headings/table-fragment metadata and was not valid Excel acceptance. Correct
+  the harness and verify exact column ownership before using its quality score.
+- Follow-up 2026-09-18: general and separate blind logical reviewers both
+  accepted a key converting "not required" into mandatory exclusion. Added a
+  narrowly scoped executable Russian optional-exclusion guard with six boundary
+  cases, strict constraint-review parsing and per-lesson coverage audit. Exact
+  saved replay now rejects the bad key while retaining the valid privacy item.
+  Full API unit 1902 PASS / 77.19s; this is not semantic release acceptance.
+- Current NO_GO: two frozen-code Excel assessment replays retained 5/9 and 4/9
+  questions in 45.655s and 47.895s. One left an entire primary lesson unassessed;
+  repair responses failed identity/evidence validation and fallback timed out.
+  Do not hide coverage gaps by quota-padding, selecting only a favorable run,
+  relaxing evidence checks or repeating full production generation.
+- PDF test-input limitation: local Windows OCR reordered definition fragments
+  (visually confirmed on original page 3). Production Docling route was not
+  configured locally, so this fallback is NOT production ingestion evidence.
+  Do not judge generator correctness from a silently substituted corrupt input.
+- V1.3 follow-up: server-bound singleton repair allows grounded same-block
+  citation refinement and carries trusted rejection reasons. Course-wide primary
+  topic coverage fails closed on missing/malformed audit; preserves saved draft
+  and idempotent readback. Positional explanations are rejected per question
+  before final shuffle, routed through one repair, not a whole-block parse error.
+  Full unit1924 PASS does not prove semantic acceptance. Frozen Excel replays6/9
+  and5/6 retain3/3 and2/3 topics; latter invalid JSON + unreachable fallbacks
+  correctly require review. A bed-replaced-with-dresser distractor still passes
+  the model reviewer: OPEN semantic quality defect, not a solved problem.
+- Production-converter capture: Docling2.106.0,21pages,95.934s, nofallback;
+  hash-bound DEV replay excludes wrong source/engine (6tests). Definition
+  fragments improve, but image placeholders/TOC become planned lessons and a
+  wrapped heading becomes two sections. PDF acceptance stopped before full
+  generation. Source-block normalization remains OPEN. TypeSafe synthetic DEV
+  REVIEW also flags repeated misconceptions; not a runtime dependency.
+- Capture harness recurrence prevention: resolve active blue/green slot from
+  current release state. Docker archive copy failed against read-only runtime;
+  transfer exact temporary files through the running process and writable /tmp,
+  never disable hardening. Capture/result/identity and bounded cleanup must be
+  tested before treating local replay as production-converter evidence.
+- 2026-09-19 correction: a live local PDF run had no `DOCLING_URL` or
+  `DOCLING_API_KEY`, silently used `pypdf`, and misreported the resulting empty
+  scan as a converter failure. The ignored canonical local env now carries the
+  VM126 API key and a loopback tunnel URL. The DEV runner fails before work with
+  `live_docling_not_configured` when those values are absent. The reusable
+  tunnel reaches `docling:8600` through proxy SSH, VM126 SSH and the active API
+  container network; it does not publish port 8600. Fresh application conversion
+  of exact source SHA `a30c8f3d...e605` returned Docling 2.106.0, 21 pages,
+  72,525 Markdown characters in 98.189s, no fallback; Markdown SHA matched the
+  prior production capture. Focused regression 15 PASS; Ruff and diff check PASS.
+- V1.4 local follow-up: explanations now use verified exact quotations rather
+  than model-authored additions; opt-in JSON syntax correction is bounded to
+  one additional request per validated call. General/constraint reviews require
+  practical and distinct errors. Four frozen diagnostic cases pass after enum
+  clarification, but fresh Excel questions still contain roller-guide bed-base
+  distractors and internally conflicting lamella claims. NO_GO remains; do not
+  substitute a catalog of forbidden furniture words for a general quality fix.
+- Source normalization correction: checking only absence of explicit Contents
+  or image headings missed overlap TOC tails and repeated heading concatenation.
+  Verify actual first facts and all final titles on the captured production
+  corpus, not only synthetic marker checks. Prefix removal must corroborate
+  later body headings and preserve meaningful pre-TOC numbered rules. Final
+  source-only replay:116chunks267facts26plannedlessons; not a generated course.
+- Independent-review correction: one reviewer incorrectly rejected a palette
+  statement actually present in its exact cited fact. Root reread withdrew it.
+  Reviewers and TypeSafe are fallible evidence, not substitutes for direct
+  source checking or missing-topic coverage. Latest synthetic TypeSafe PASS
+  covers surviving content while source-topic coverage still requires review.
+- Objective-alignment pilot, 2026-09-18: isolated DEV module; unchanged runtime
+  SHA256 map (50 AI files). Frozen A/B protocol ran 16 attempts. Baseline produced
+  8/8 artifacts, experimental B only1/8; this is completion, not quality. B still
+  duplicated a personal-messenger action under different excuses and converted
+  optional final resolution into exclusion. TypeSafe PASS and first independent
+  reviewer PASS missed both; root source review corrected acceptance to NO_GO.
+- Pilot validator defects: an 8-character citation floor rejected valid `МДФ`;
+  duplicate free-text error labels rejected distinct glue/screw alternatives.
+  Fixed only in DEV, with RED/GREEN positive controls (19focused PASS total).
+  Offline replay of all8 B traces requires0 provider calls and does NOT turn
+  partial/failed runs into completed courses. Original frozen code, outputs and
+  failed metrics remain intact. Short exact source values are valid; descriptive
+  category equality is not semantic action equivalence.
+- Open experiment constraints: a paragraph containing teachable rules plus an
+  informational introduction cannot be simultaneously marked cited/omitted by
+  whole fact_id; source-topic coverage does not prove objective coverage. The
+  new module is not production-ready. Do not patch prompts against disclosed
+  holdout or discard failed cases; a fresh experiment needs fresh held-out cases.
+- Local continuation: source -> objective -> teaching -> blind-key review now
+  supports selective distractor deletion and singleton question repair without
+  replacing valid teaching/questions. Explicit unassessable/empty assessment
+  remains a gap. These are DEV-only changes, not a production acceptance.
+- Thinking-mode finding: canonical DeepSeek factory forces thinking disabled.
+  Same-prompt low-thinking DEV examples improved semantic contrasts, but raised
+  time/tokens and did not prove universal correctness. Per-request role policy
+  is possible with one key; account concurrency/balance is shared across keys.
+  Record configured AND returned model IDs because provider aliases can drift.
+- New frozen holdout: eight attempts, five completed artifacts, only the two
+  smallest cases manually accepted. Matrix narrative notes never reached the
+  model: table_keys caused the whole matching chunk to be excluded from prose
+  processing. DEV source adapter preserves adjacent prose, original roles and
+  locators; three offline controls pass. Fresh live replay remains NOT VERIFIED.
+- Oracle correction: a worker-written expected objective converted 'not required'
+  into 'do not continue'. Do not alter frozen inputs or reward model agreement
+  with an incorrect oracle. Root must check every expected behavior against its
+  exact quote, especially permissions/obligations and necessary conditions.
+- Provider stop: after three HTTP failures, read-only balance returned available
+  false and USD -0.03. Original HTTP codes were not captured, so 402 is inference,
+  not measured evidence. DEV Recorder now retains numeric HTTP status only and
+  stops batch on 401/402/403. No payment, credential or billing change performed.
+  Preserve partial artifacts and resume only after access/balance is restored.
+- Cache-observability correction, 2026-09-18: DEV Recorder retained input/output
+  totals but discarded provider cache-hit/miss and reasoning counters. Historical
+  totals do not prove zero cache hits. Preserve per-request optional counters
+  (missing means unknown, not zero), exact payload hash, returned model and time;
+  do not log keys or hidden reasoning. Two regression tests reproduced the gap
+  and prove the new explicit ASUS GLM route cannot inherit DeepSeek parameters
+  or paid fallback. Prefix caching never replaces newly generated output.
+- ASUS GLM repeatability follow-up, 2026-09-18: source-faithful fallbacks now
+  expand partial citations to complete facts, neutralize unsupported scenario
+  requirements only when the keyed answer remains supported, remove duplicate
+  wrong actions, restore missing teaching blocks from exact evidence, and
+  collapse identical fallback prose. The focused objective-alignment suite is
+  61 PASS with Ruff/diff checks clean. Nevertheless, no final frozen series
+  achieved two completed, root-accepted repeats after all corrections: the
+  latest live series was 1 NOT_COMPLETED + 1 COMPLETED. A prior apparent 2/2
+  completion lost one required clause inside a cited fact and is rejected by
+  root review. GLM availability and timeout are not the blocker; unconstrained
+  plan/teaching/question cardinality remains variable. Production GO remains
+  denied. Next design must derive the assessed axis and keyed answer from the
+  normalized source contract and restrict the model to candidate distractors;
+  do not add another prompt-only retry or select a favorable repeat.
 
 ## UI-CONTENT-001 - Read-only lesson preview exposed Markdown editing syntax
 
@@ -2906,6 +3061,33 @@ contract or establish a blocker.
   deleting one semantic duplicate without padding. Exact CI, DEV and production
   user-flow readback remain release gates.
 
+## AI-REPLAY-002 - Legacy realization replay survived a changed evidence set
+
+- Date: 2026-09-19.
+- Symptom: the full Lombard PDF v23 preflight excluded a malformed OCR fact, but
+  the rendered lesson still contained `др. ) Ломбарда...` and was reported as
+  publishable. Two retained correct answers were also longer than 240 characters.
+- Cause: assessment responses were keyed by stable axis/question identity, while
+  lesson realization responses were replayed from an unkeyed FIFO queue. A legacy
+  response could therefore survive a changed source fact set. Final
+  publishability did not inspect this OCR boundary form or correct-answer length.
+- Fix: capture a canonical SHA-256 of the complete model request; replay lesson
+  realization only when that hash matches exactly. Legacy realization traces
+  without a request hash fail closed to the explicitly configured live provider.
+  Final quality now checks lesson text and every answer option for the observed
+  OCR boundary, rejects correct answers above 240 characters, and the drop-only
+  question filter removes such answers without quota padding. Stable source
+  patterns atomize definition headwords and employee obligations before authoring.
+- Verification: RED reproduced stale lesson reuse, the OCR tail and both observed
+  long Lombard keys. GREEN passed 73 focused tests, then 306 evidence/assessment/
+  replay regressions, Ruff and `git diff --check`. Re-evaluating saved v23 now
+  returns `publishable=false` with `visible_ocr_artifacts` and
+  `overlong_correct_answers`. Fresh GLM acceptance is pending because the local
+  WireGuard tunnel could not reach any tested ASUS node after workstation restart.
+- Prevention: never replay a provider-authored lesson without complete-request
+  identity; old traces are evidence only for stages whose stable semantic identity
+  is present. Keep deterministic artifact checks independent of model reviews.
+
 ## 2026-09-15 — Per-lesson embedding queries exhausted managed-provider RPM
 
 - Symptom: all Voyage V4 models passed small probes, but one 12-lesson Excel
@@ -3288,3 +3470,31 @@ contract or establish a blocker.
   and the source-only fallback bound; question acceptance must prefer educational
   discrimination over count, and TypeSafe findings must be traced back to the
   source before changing the generator.
+
+## AI-GEN-011 - Formally grounded fragments and binary distractors caused false quality results
+
+- Date: 2026-09-19. Found by manual review after a formally green full Lombard
+  PDF run and then reproduced with the same production-converter corpus.
+- Symptom: one question used the dependent fragment `Получив информацию и
+  ознакомившись ...` as its complete answer. Separately, an open-information
+  yes/no rule was repeatedly dropped because the model could not invent two or
+  three genuinely distinct false versions of the same binary proposition.
+- Cause: exact source containment was treated as sufficient even when the span
+  had no independent predicate; binary normative axes still delegated all
+  distractors to the model. Older constraint-review fixtures also omitted the
+  now-required `evidence_fact_ids`, hiding stale test-contract assumptions.
+- Fix: reject source spans that are only an introductory gerund phrase while
+  preserving complete sentences with a following main clause. For unambiguous
+  open-information, negative-right, non-admission and optional rules, derive
+  the inverse on the server and materialize a true/false question. Keep answer
+  keys, evidence and inverses outside model ownership. Update fixtures to carry
+  exact evidence identity; never weaken the evidence gate to satisfy old tests.
+- Verification: 74 focused assessment tests and the full 2027-test API unit
+  suite pass. The full local DeepSeek Flash application run produced 15
+  lessons, 27 accepted questions, 13/13 source-topic coverage and
+  `publishable=true`; manual review found no duplicate prompts/keys, OCR marker
+  leakage or dependent-fragment answers.
+- Prevention: a green publishability gate must be followed by bounded manual
+  inspection of every answer key and option set. Binary facts use server-owned
+  inverses; dependent source fragments are not assessment facts; test fixtures
+  must implement the same explicit evidence contract as production objects.

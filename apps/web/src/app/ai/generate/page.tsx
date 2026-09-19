@@ -173,6 +173,14 @@ export default function AIGeneratePage() {
     resetWorkflow,
   } = useGenerationWorkflow(requestedProgramId);
   const step = currentJob ? workflowStep : pageStep;
+  const savedAssessmentDraftId = (
+    currentJob?.status === 'interrupted'
+    && currentJob.course_id
+    && 'errors' in currentJob
+    && Array.isArray(currentJob.errors)
+    && currentJob.errors.some((code) =>
+      code === 'assessment_no_valid_questions' || code === 'assessment_coverage_incomplete')
+  ) ? currentJob.course_id : null;
   const [dragOver, setDragOver] = useState(false);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
@@ -1343,8 +1351,8 @@ export default function AIGeneratePage() {
             job={currentJob}
             stages={STAGES}
             title={t('ai.progress')}
-            labels={{ queued: t('asyncOperation.queued'), running: t('asyncOperation.running'), completed: t('asyncOperation.completed'), failed: t('asyncOperation.failed'), cancelled: t('asyncOperation.cancelled'), interrupted: t('asyncOperation.interrupted'), stalled: t('asyncOperation.stalled') }}
-            retryLabel={currentJob.status === 'interrupted' ? t('asyncOperation.continue') : resolveAsyncOperationState(currentJob) === 'failed' ? t('ai.newCourse') : t('asyncOperation.retry')}
+            labels={{ queued: t('asyncOperation.queued'), running: t('asyncOperation.running'), completed: t('asyncOperation.completed'), failed: t('asyncOperation.failed'), cancelled: t('asyncOperation.cancelled'), interrupted: savedAssessmentDraftId ? t('ai.assessmentNeedsReview') : t('asyncOperation.interrupted'), stalled: t('asyncOperation.stalled') }}
+            retryLabel={savedAssessmentDraftId ? t('ai.openSavedDraft') : currentJob.status === 'interrupted' ? t('asyncOperation.continue') : resolveAsyncOperationState(currentJob) === 'failed' ? t('ai.newCourse') : t('asyncOperation.retry')}
             checkAgainLabel={t('asyncOperation.checkAgain')}
             cancelLabel={t('asyncOperation.cancel')}
             cancelQueuedLabel={t('asyncOperation.cancelQueued')}
@@ -1354,7 +1362,7 @@ export default function AIGeneratePage() {
             estimatedWait={t('ai.estimatedWait', { minutes: Math.max(1, Math.ceil((currentJob.estimated_wait_seconds ?? 0) / 60)) })}
             queueEstimateHint={t('ai.queueEstimateHint')}
             completedUnitsLabel={t('ai.savedLessonsProgress')}
-            onRetry={currentJob.status === 'interrupted' ? () => void resumeJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : resolveAsyncOperationState(currentJob) === 'stalled' ? () => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : retryGeneration}
+            onRetry={savedAssessmentDraftId ? () => router.push(`/courses/${savedAssessmentDraftId}/edit`) : currentJob.status === 'interrupted' ? () => void resumeJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : resolveAsyncOperationState(currentJob) === 'stalled' ? () => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : retryGeneration}
             onCancel={() => void cancelJob().catch((error) => console.error('Cancel failed', error))}
           />
 

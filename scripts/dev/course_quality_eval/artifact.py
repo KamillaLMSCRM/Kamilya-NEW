@@ -27,6 +27,34 @@ def _lesson_source(lesson: dict[str, Any]) -> str:
     return str(source).strip()
 
 
+def _question_source(
+    raw_question: dict[str, Any],
+    *,
+    facts: dict[str, str],
+    lesson: LessonArtifact,
+) -> str:
+    if "evidence_fact_ids" in raw_question:
+        raw_fact_ids = raw_question["evidence_fact_ids"]
+        if not isinstance(raw_fact_ids, list):
+            raise ValueError("Provider-backed question evidence_fact_ids must be an array")
+        if any(not isinstance(fact_id, str) for fact_id in raw_fact_ids):
+            raise ValueError(
+                "Provider-backed question evidence_fact_ids must contain only strings"
+            )
+        fact_ids = tuple(dict.fromkeys(_strings(raw_fact_ids)))
+        unknown_fact_ids = tuple(fact_id for fact_id in fact_ids if fact_id not in facts)
+        if unknown_fact_ids:
+            raise ValueError(
+                "Provider-backed question contains unknown evidence_fact_ids: "
+                + ", ".join(unknown_fact_ids)
+            )
+        if fact_ids:
+            return "\n".join(facts[fact_id] for fact_id in fact_ids)
+
+    fact_id = str(raw_question.get("fact_id", "")).strip()
+    return facts.get(fact_id, lesson.source)
+
+
 def _assessment_questions(payload: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     by_lesson: dict[str, list[dict[str, Any]]] = {}
     assessments = payload.get("assessments", [])
@@ -162,7 +190,6 @@ def _load_provider_backed(
             correct_indexes = tuple(
                 option_index for option_index, option in enumerate(options) if option == correct_answer
             )
-            fact_id = str(raw_question.get("fact_id", "")).strip()
             questions.append(
                 QuestionArtifact(
                     id=str(raw_question.get("question_id", "")).strip()
@@ -173,7 +200,7 @@ def _load_provider_backed(
                     options=options,
                     correct_indexes=correct_indexes,
                     explanation=str(raw_question.get("explanation", "")).strip(),
-                    source=facts.get(fact_id, question_lesson.source),
+                    source=_question_source(raw_question, facts=facts, lesson=question_lesson),
                 )
             )
     if not lessons:

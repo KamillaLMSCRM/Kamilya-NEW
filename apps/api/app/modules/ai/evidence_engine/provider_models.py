@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from .models import AssessmentDraft, CourseDraft, EvidenceCourseResult, StageTiming
@@ -73,6 +73,7 @@ class ProviderBackedResult:
     prompt_tokens: int
     completion_tokens: int
     timings: tuple[StageTiming, ...]
+    assessment_review: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
