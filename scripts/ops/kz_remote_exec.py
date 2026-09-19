@@ -21,7 +21,9 @@ MAX_SCRIPT_BYTES = 1024 * 1024
 MAX_REMOTE_OUTPUT_BYTES = 64 * 1024
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 EVIDENCE_LINE_RE = re.compile(
-    r"^EVIDENCE(?:\|[a-z][a-z0-9_]{0,63}=[A-Za-z0-9._:/-]{1,256})+$"
+    r"^EVIDENCE(?:\|(?:image=[A-Za-z0-9.-]+(?::[0-9]{1,5})?/"
+    r"[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}|"
+    r"[a-z][a-z0-9_]{0,63}=[A-Za-z0-9._:/-]{1,256}))+$"
 )
 HEADER_RE = re.compile(
     r"^# kamilya-(target|mode|correlation|output): ([A-Za-z0-9._:/-]+)$"
@@ -74,7 +76,7 @@ DOCKER_EVIDENCE_FORMAT = (
     "status={{.State.Status}}|restarts={{.RestartCount}}"
 )
 DOCKER_EVIDENCE_CONTAINER_RE = re.compile(
-    r"kamilya-runtime-(?:api|worker-ai|worker-documents|worker-ops)-1"
+    r"(?:kamilya-runtime|kamilya-(?:blue|green))-(?:api|worker-ai|worker-documents|worker-ops)-1"
 )
 
 MUTATING_PATTERNS = (

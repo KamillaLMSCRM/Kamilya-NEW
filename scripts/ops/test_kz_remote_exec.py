@@ -196,6 +196,21 @@ def test_remote_hash_and_evidence_contract_fail_closed() -> None:
         remote.evidence_lines(b"\xff\xfe")
 
 
+def test_remote_evidence_allows_immutable_docker_image_digest_only_in_image_field() -> None:
+    line = (
+        "EVIDENCE|container=/kamilya-green-api-1|"
+        "image=ghcr.io/kamillalmscrm/kamilya-api@sha256:"
+        + "0" * 64
+        + "|status=running|restarts=0"
+    )
+
+    assert remote.evidence_lines((line + "\n").encode("utf-8")) == [line]
+    with pytest.raises(remote.GateBlocked, match="remote_evidence_contract_invalid"):
+        remote.evidence_lines(b"EVIDENCE|status=person@example.com\n")
+    with pytest.raises(remote.GateBlocked, match="remote_evidence_contract_invalid"):
+        remote.evidence_lines(b"EVIDENCE|image=person@example.com\n")
+
+
 def test_remote_failure_preserves_only_sanitized_evidence() -> None:
     payload = b"payload"
     digest = hashlib.sha256(payload).hexdigest()
@@ -371,11 +386,43 @@ def test_read_only_sudo_docker_evidence_format_is_narrowly_allowed(monkeypatch, 
     assert manifest.mode == "read-only"
 
 
+@pytest.mark.parametrize("slot", ("blue", "green"))
+@pytest.mark.parametrize(
+    "service",
+    ("api", "worker-ai", "worker-documents", "worker-ops"),
+)
+def test_read_only_sudo_docker_evidence_format_allows_release_slot_containers(
+    monkeypatch, tmp_path, slot, service
+) -> None:
+    _inside_repo(monkeypatch, tmp_path)
+    body = (
+        "sudo -n docker inspect --format '"
+        + remote.DOCKER_EVIDENCE_FORMAT
+        + f"' kamilya-{slot}-{service}-1"
+    )
+    path = _script(tmp_path, body)
+
+    manifest = remote.load_script(
+        path, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
+    )
+
+    assert manifest.mode == "read-only"
+
+
 @pytest.mark.parametrize(
     "body",
     (
         "sudo -n docker inspect --format '{{json .Config}}' kamilya-runtime-api-1",
         "sudo -n docker inspect --format 'EVIDENCE|image={{.Config.Image}}' other-container",
+        "sudo -n docker inspect --format '"
+        + remote.DOCKER_EVIDENCE_FORMAT
+        + "' kamilya-yellow-api-1",
+        "sudo -n docker inspect --format '"
+        + remote.DOCKER_EVIDENCE_FORMAT
+        + "' kamilya-green-unapproved-1",
+        "sudo -n docker inspect --format '"
+        + remote.DOCKER_EVIDENCE_FORMAT
+        + "' kamilya-runtime-green-api-1",
     ),
 )
 def test_read_only_sudo_docker_evidence_format_rejects_other_shapes(

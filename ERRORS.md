@@ -3574,3 +3574,31 @@ contract or establish a blocker.
   not be relabelled as quality omissions. Every release acceptance must inspect
   all retained answer sets for answer-domain and formatting cues, and a proxy
   may never substitute for the authoritative worker contract.
+
+## TOOL-010 - VM126 container readback lagged behind the slot release plane
+
+- Date: 2026-09-19. Found while independently closing the `v0.7.7` production
+  evidence after the protected release had already passed its own service gates.
+- Symptom: the fail-closed remote executor rejected the current blue/green
+  container names locally. After the guessed name shape was corrected, a real
+  readback reached Docker but its valid immutable `repo@sha256:...` image value
+  was rejected by the evidence sanitizer.
+- Cause: the verifier allowed only legacy Compose names such as
+  `kamilya-runtime-api-1`, while release-plane configuration uses project prefix
+  `kamilya` and therefore names active containers `kamilya-<slot>-<service>-1`.
+  The generic evidence-value alphabet also omitted `@`, although immutable
+  Docker image references require it.
+- Fix: derive the accepted slot name shape from the source-controlled
+  release-plane prefix, retain the exact legacy names for rollback-era
+  inspection, and permit `@` only in the `image` evidence field. Unknown slots,
+  services, output formats and generic values containing `@` remain blocked.
+- Verification: the focused executor suite passes `65` tests across all four
+  services and both slots, legacy compatibility and adversarial names. A real
+  reviewed read-only script then returned API, worker-ai, worker-documents and
+  worker-ops on active slot `green`, all running image digest
+  `sha256:03e2401468e608f6ecff80a025b199cf8f5275d3fce219ec66f49efae8233f14`
+  with zero restarts.
+- Prevention: every release-plane naming or evidence-format change must add a
+  remote-executor contract test in the same change. Readback scripts must use
+  the exact source-controlled `project_prefix`; do not infer container names
+  from pre-release Compose history.

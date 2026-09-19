@@ -191,6 +191,9 @@ jobs:
       - name: Render-like release-plane contract tests
         run: poetry run pytest -q ../../scripts/deploy/test_release_plane.py ../../scripts/deploy/test_release_workflow_contract.py ../../scripts/deploy/test_release_plane_bundle.py ../../scripts/deploy/test_release_plane_upgrade_workflow_contract.py
 
+      - name: Fail-closed KZ remote executor contract tests
+        run: poetry run pytest -q ../../scripts/ops/test_kz_remote_exec.py
+
       - name: Native CT137 frontend helper safety and rollback state
         run: poetry run python ../../scripts/ops/test_kamilya_web_deploy.py
 

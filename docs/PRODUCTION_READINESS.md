@@ -9,7 +9,7 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Release 0.7.7 — local candidate; final gates pending, 2026-09-19
+## Release 0.7.7 — deployed production baseline, 2026-09-19
 
 - Frontend-only wording correction: the lightweight pre-generation source
   estimate is now labelled as an approximate guideline. The authoritative
@@ -17,14 +17,37 @@ DB/storage gate и приёмкой клиента
   parsing all source blocks.
 - No generator, API contract, worker behavior, database, DNS, provider,
   model-route, billing or infrastructure change. The API, all three workers and
-  native frontend still require one synchronized product-version identity.
+  native frontend were synchronized to one immutable product-version identity.
 - Focused regression passed `22`; the complete frontend suite passed `619`,
   followed by typecheck, lint and production build.
-- **Gate:** local candidate, not production GO. Exact project-account commit and
-  remote SHA readback, exact-SHA CI/artifacts, synchronized API/worker and CT137
-  rollout, public/private exact-SHA readback, browser wording acceptance and
-  synthetic cleanup remain required. Rollback target is immutable production
-  `v0.7.6`.
+- Exact project-account commit and annotated tag are
+  `ce790557ba6a3933b2d4a6a96f5f6de2a5aabec0` / `v0.7.7`. The remote `master`
+  SHA and peeled tag were independently read back. GitHub CI run `35457070572`
+  and native frontend build `35457497298` passed.
+- Protected no-migration release `REL-COURSE-ESTIMATE-077-20260919`, workflow
+  `35457965251`, deployed immutable backend image
+  `ghcr.io/kamillalmscrm/kamilya-api@sha256:03e2401468e608f6ecff80a025b199cf8f5275d3fce219ec66f49efae8233f14`.
+  Independent VM126 readback confirmed API, worker-ai, worker-documents and
+  worker-ops running that exact digest with zero restarts. Production smoke
+  workflow `35458694727` passed.
+- CT137 serves native frontend archive SHA-256
+  `4e33b7e124442904df1f815ca28cc5435837bc0359f696ed38803216a08ae48c`.
+  Public `/healthz` returned HTTP 200 with the exact release SHA; browser
+  acceptance showed the revised Russian wording `Ориентир` and `около`, with no
+  console errors. Immutable `v0.7.6` remains the local rollback release.
+- The obsolete CT137 `v0.7.5` tree was removed only after its exact off-host
+  recovery archive had been verified. The two disposable production-acceptance
+  courses were deleted with post-delete HTTP 404 readback; their source
+  documents were preserved.
+- Generator behavior is unchanged from the accepted `v0.7.6` human-path runs:
+  the full Excel source produced 3 lessons and 8 retained questions in 88.653
+  seconds; the Lombard PDF produced 15 lessons and 28 retained questions in
+  390.280 seconds. Manual review found no unrelated options, unsupported keys,
+  duplicates or OCR noise. One PDF lesson had no safe question and remained
+  explicitly reviewable instead of being padded.
+- **Gate:** production GO for release `v0.7.7`. No database migration was run.
+  TypeSafe remained development-only and received no tenant or customer
+  document.
 
 ## Release 0.7.6 — deployed production baseline, 2026-09-19
 
