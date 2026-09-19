@@ -9,6 +9,18 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
+## Release 0.7.4 — corrective candidate; CI/production pending, 2026-09-19
+
+- Runtime behavior is identical to the accepted `0.7.3` candidate. This patch
+  changes only Git executable metadata for two production-equivalent Docling
+  verification helpers and advances the immutable product version.
+- CI run `35431736647` for `0.7.3` failed closed in the shell-policy gate before
+  any image deployment because both new `.sh` files were mode `100644`. Secrets,
+  frontend and dependency audit passed; production remained on `0.7.2`.
+- Both scripts are now mode `100755`. The complete shell gate, replacement exact
+  SHA CI, immutable artifacts, synchronized rollout and production acceptance
+  remain required before production GO.
+
 ## Release 0.7.3 — local candidate GO; CI/production pending, 2026-09-19
 
 - No migration, database, DNS, provider, billing, model-route or infrastructure

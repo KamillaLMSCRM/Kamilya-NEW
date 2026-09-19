@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.7.4] - 2026-09-19
+
+### Fixed
+
+- Preserve executable Git modes for the production-equivalent Docling preflight
+  and capture helpers so the repository shell-policy gate can execute them.
+
 ## [0.7.3] - 2026-09-19
 
 ### Added

@@ -991,6 +991,12 @@ production runtime and cross-container readback remain pending release approval.
 - Prevention: every new tracked `.sh` file must run the complete
   `scripts/ci/shell-quality-gate.sh` before commit; `bash -n` alone does not
   verify Git executable metadata.
+- Recurrence 2026-09-19: release `0.7.3` repeated the Windows mode error for
+  `scripts/dev/capture_vm126_pdf.sh` and `scripts/dev/converter_preflight.sh`.
+  CI run `35431736647` failed closed before deployment. Both paths were changed
+  to Git mode `100755`, the complete shell gate was added to the local release
+  packet, and the correction was issued as immutable patch release `0.7.4`
+  rather than moving the published `v0.7.3` tag.
 
 ## TOOL-003 - Skill validator dependency was absent from available Python runtimes
 
