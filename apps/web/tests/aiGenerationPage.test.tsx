@@ -182,6 +182,22 @@ describe('/ai/generate job workflow parity', () => {
     jobInterval.mockRestore();
   });
 
+  it('uses a localized generic fallback instead of exposing backend upload details', async () => {
+    localStorage.clear();
+    apiMock.post.mockRejectedValueOnce({ response: { data: { detail: 'internal backend secret' } } });
+
+    const { container } = render(<AIGeneratePage />);
+    await screen.findByText(/Перетащите документы/);
+    const input = container.querySelector('input[type="file"]');
+    expect(input).not.toBeNull();
+    fireEvent.change(input!, {
+      target: { files: [new File(['content'], 'upload.pdf', { type: 'application/pdf' })] },
+    });
+
+    expect(await screen.findByText('Документ не загрузился. Проверьте формат файла и попробуйте ещё раз.')).toBeInTheDocument();
+    expect(screen.queryByText('internal backend secret')).not.toBeInTheDocument();
+  });
+
   it('does not let an old failed job take over a new generation form', async () => {
     localStorage.clear();
     const failedJob = {

@@ -134,7 +134,7 @@ export default function CoursesPage() {
 
   const handleScormImport = async () => {
     if (!scormFile) {
-      toast.warning('Выберите SCORM ZIP');
+      toast.warning(t('authenticatedUi.scorm.selectZip'));
       return;
     }
     const form = new FormData();
@@ -146,14 +146,14 @@ export default function CoursesPage() {
       await api.post('/v1/scorm/packages/import', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      toast.success('SCORM-курс импортирован');
+      toast.success(t('authenticatedUi.scorm.imported'));
       setShowScormImport(false);
       setScormTitle('');
       setScormStatus('draft');
       setScormFile(null);
       fetchCourses();
     } catch (err: any) {
-      toast.error('Не удалось импортировать SCORM', {
+      toast.error(t('authenticatedUi.scorm.importFailed'), {
         description: err?.response?.data?.detail || err?.message,
       });
     } finally {
@@ -340,14 +340,13 @@ export default function CoursesPage() {
       {showScormImport && (
         <div className="rounded-2xl border border-border bg-card p-6 shadow-card space-y-4">
           <div>
-            <h3 className="font-bold text-foreground font-display">Импорт SCORM-курса</h3>
+            <h3 className="font-bold text-foreground font-display">{t('authenticatedUi.scorm.title')}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Поддерживается первый рабочий контур SCORM 1.2: ZIP с `imsmanifest.xml`.
-              SCORM 2004 будет добавлен отдельным runtime-адаптером.
+              {t('authenticatedUi.scorm.description')}
             </p>
           </div>
           <Input
-            placeholder="Название курса (можно оставить пустым)"
+            placeholder={t('authenticatedUi.scorm.titlePlaceholder')}
             value={scormTitle}
             onChange={(e) => setScormTitle(e.target.value)}
           />
@@ -362,7 +361,7 @@ export default function CoursesPage() {
               />
             </label>
             <label className="w-full sm:w-56">
-              <span className="block text-xs font-medium text-muted-foreground mb-1">Статус после импорта</span>
+              <span className="block text-xs font-medium text-muted-foreground mb-1">{t('authenticatedUi.scorm.statusAfterImport')}</span>
               <select
                 value={scormStatus}
                 onChange={(e) => setScormStatus(e.target.value)}
@@ -380,7 +379,7 @@ export default function CoursesPage() {
           )}
           <div className="flex gap-2">
             <Button onClick={handleScormImport} disabled={scormImporting}>
-              {scormImporting ? 'Импорт...' : 'Импортировать'}
+              {scormImporting ? t('authenticatedUi.scorm.importing') : t('authenticatedUi.scorm.import')}
             </Button>
             <Button variant="outline" onClick={() => setShowScormImport(false)} disabled={scormImporting}>
               {t('common.cancel')}
@@ -515,7 +514,7 @@ export default function CoursesPage() {
                         className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                       >
                         <GraduationCap className="h-4 w-4" aria-hidden="true" />
-                        Назначить сотрудникам
+                        {t('authenticatedUi.course.assignEmployees')}
                       </Link>
                     )}
                     <div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] items-center gap-2">

@@ -10,6 +10,8 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/compo
 import { api } from '@/lib/api';
 import { getRoleHome } from '@/lib/rolePolicy';
 import { useAuthStore } from '@/store/authStore';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { useT } from '@/i18n/useT';
 
 interface PublicInvitation {
   masked_email: string;
@@ -24,28 +26,26 @@ interface PublicInvitation {
   reason_if_invalid: string | null;
 }
 
-const REASON_LABELS: Record<string, string> = {
-  invitation_not_found: 'Приглашение не найдено. Проверьте ссылку или попросите методолога прислать новую.',
-  already_accepted: 'Это приглашение уже принято. Войдите в систему по коду из email.',
-  superseded: 'Приглашение заменено новым. Используйте последнюю полученную ссылку.',
-  revoked: 'Приглашение отозвано. Обратитесь к методологу вашей организации.',
-  expired: 'Срок действия приглашения истёк. Попросите методолога создать новое.',
-};
-
 function normalizeCode(value: string): string {
   return value.replace(/\D/g, '').slice(0, 6);
 }
 
 export default function AcceptInvitePage() {
   return (
-    <Suspense fallback={<LoadingState />}>
-      <AcceptInviteForm />
-    </Suspense>
+    <div className="relative min-h-screen">
+      <div className="fixed right-4 top-4 z-50">
+        <LanguageSwitcher />
+      </div>
+      <Suspense fallback={<LoadingState />}>
+        <AcceptInviteForm />
+      </Suspense>
+    </div>
   );
 }
 
 function AcceptInviteForm() {
   const router = useRouter();
+  const { t, lang } = useT();
   const params = useSearchParams();
   const token = params.get('token');
   const { login, accessToken } = useAuthStore();
@@ -60,6 +60,13 @@ function AcceptInviteForm() {
   const [showIdentityHelp, setShowIdentityHelp] = useState(false);
   const [retryAt, setRetryAt] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const reasonLabels: Record<string, string> = {
+    invitation_not_found: t('publicUi.invite.reasons.invitationNotFound'),
+    already_accepted: t('publicUi.invite.reasons.alreadyAccepted'),
+    superseded: t('publicUi.invite.reasons.superseded'),
+    revoked: t('publicUi.invite.reasons.revoked'),
+    expired: t('publicUi.invite.reasons.expired'),
+  };
 
   useEffect(() => {
     if (accessToken && !completingInvitation.current) {
@@ -123,17 +130,17 @@ function AcceptInviteForm() {
       setRetryAt(Date.now() + retryAfter * 1000);
       setCodeSent(true);
     } catch (requestError: any) {
-      setError(requestError?.response?.data?.detail || 'Не удалось отправить код. Попробуйте позже.');
+      setError(requestError?.response?.data?.detail || t('publicUi.invite.sendCodeError'));
     } finally {
       setSubmitting(false);
     }
-  }, [secondsLeft, submitting, token]);
+  }, [secondsLeft, submitting, t, token]);
 
   const verifyCode = useCallback(async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!token || submitting) return;
     if (code.length !== 6) {
-      setError('Введите шестизначный код из письма.');
+      setError(t('publicUi.invite.sixDigitCode'));
       return;
     }
     setError('');
@@ -147,18 +154,18 @@ function AcceptInviteForm() {
       login(response.data.access_token, response.data.user);
       router.replace(response.data.next_url || getRoleHome(response.data.role));
     } catch (verifyError: any) {
-      setError(verifyError?.response?.data?.detail || 'Код неверный или истёк.');
+      setError(verifyError?.response?.data?.detail || t('publicUi.invite.invalidCode'));
     } finally {
       setSubmitting(false);
     }
-  }, [code, login, router, submitting, token]);
+  }, [code, login, router, submitting, t, token]);
 
   if (loadingInvitation) return <LoadingState />;
   if (!token) {
     return (
       <UnavailableState
-        title="Ссылка неполная"
-        message="Откройте полную ссылку из приглашения. В ней должен быть защищённый токен доступа."
+        title={t('publicUi.invite.incompleteTitle')}
+        message={t('publicUi.invite.incompleteMessage')}
       />
     );
   }
@@ -166,8 +173,8 @@ function AcceptInviteForm() {
     const reason = invitation?.reason_if_invalid || 'invitation_not_found';
     return (
       <UnavailableState
-        title="Приглашение недоступно"
-        message={REASON_LABELS[reason] || 'Обратитесь к методологу вашей организации.'}
+        title={t('publicUi.invite.unavailableTitle')}
+        message={reasonLabels[reason] || t('publicUi.invite.contactMethodologist')}
       />
     );
   }
@@ -184,25 +191,25 @@ function AcceptInviteForm() {
             <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-md bg-primary/10 text-primary">
               <ShieldCheck className="h-6 w-6" aria-hidden="true" />
             </div>
-            <CardTitle className="text-2xl">Вас пригласили пройти обучение</CardTitle>
+            <CardTitle className="text-2xl">{t('publicUi.invite.title')}</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Проверьте данные и подтвердите доступ кодом из рабочей почты.
+              {t('publicUi.invite.subtitle')}
             </p>
           </CardHeader>
 
           <CardContent className="space-y-6 px-5 py-6 sm:px-7">
-            <section className="space-y-4 rounded-md border bg-muted/20 p-4" aria-label="Данные приглашения">
+            <section className="space-y-4 rounded-md border bg-muted/20 p-4" aria-label={t('publicUi.invite.details')}>
               <div className="flex items-start gap-3">
                 <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Организация</p>
+                  <p className="text-xs text-muted-foreground">{t('publicUi.invite.organization')}</p>
                   <p className="font-semibold text-foreground">{invitation.tenant_name}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <UserRound className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Сотрудник</p>
+                  <p className="text-xs text-muted-foreground">{t('publicUi.invite.employee')}</p>
                   <p className="font-semibold text-foreground">{fullName}</p>
                   {invitation.position_name && (
                     <p className="text-sm text-muted-foreground">{invitation.position_name}</p>
@@ -212,7 +219,7 @@ function AcceptInviteForm() {
               <div className="flex items-start gap-3">
                 <Mail className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Email для подтверждения</p>
+                  <p className="text-xs text-muted-foreground">{t('publicUi.invite.confirmationEmail')}</p>
                   <p className="font-medium text-foreground">{invitation.masked_email}</p>
                 </div>
               </div>
@@ -222,7 +229,7 @@ function AcceptInviteForm() {
               <section aria-labelledby="assigned-training-title">
                 <div className="mb-2 flex items-center gap-2">
                   <BookOpen className="h-5 w-5 text-primary" aria-hidden="true" />
-                  <h2 id="assigned-training-title" className="font-semibold">Назначенное обучение</h2>
+                  <h2 id="assigned-training-title" className="font-semibold">{t('publicUi.invite.assignedTraining')}</h2>
                 </div>
                 <ul className="space-y-2">
                   {invitation.course_titles.map((title) => (
@@ -237,13 +244,13 @@ function AcceptInviteForm() {
             {!codeSent ? (
               <Button className="h-11 w-full" onClick={requestCode} disabled={submitting}>
                 <Mail className="h-4 w-4" aria-hidden="true" />
-                {submitting ? 'Отправляем код...' : 'Получить код'}
+                {submitting ? t('publicUi.invite.sending') : t('publicUi.invite.getCode')}
               </Button>
             ) : (
               <form className="space-y-4" onSubmit={verifyCode}>
                 <div>
                   <label htmlFor="invitation-code" className="mb-1.5 block text-sm font-medium">
-                    Код из письма
+                    {t('publicUi.invite.code')}
                   </label>
                   <Input
                     id="invitation-code"
@@ -257,12 +264,12 @@ function AcceptInviteForm() {
                     autoFocus
                   />
                   <p id="invitation-code-hint" className="mt-1.5 text-xs text-muted-foreground">
-                    Код действует 5 минут и подтверждает доступ к указанному email.
+                    {t('publicUi.invite.codeHelp')}
                   </p>
                 </div>
                 <Button type="submit" className="h-11 w-full" disabled={submitting || code.length !== 6}>
                   <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                  {submitting ? 'Проверяем...' : 'Подтвердить и начать обучение'}
+                  {submitting ? t('publicUi.invite.checking') : t('publicUi.invite.confirm')}
                 </Button>
                 <Button
                   type="button"
@@ -271,7 +278,7 @@ function AcceptInviteForm() {
                   onClick={requestCode}
                   disabled={submitting || secondsLeft > 0}
                 >
-                  {secondsLeft > 0 ? `Отправить повторно через ${secondsLeft} с` : 'Отправить код повторно'}
+                  {secondsLeft > 0 ? t('publicUi.invite.resendIn', { seconds: secondsLeft }) : t('publicUi.invite.resend')}
                 </Button>
               </form>
             )}
@@ -289,28 +296,27 @@ function AcceptInviteForm() {
                 onClick={() => setShowIdentityHelp((current) => !current)}
                 aria-expanded={showIdentityHelp}
               >
-                Данные или email указаны неверно
+                {t('publicUi.invite.identityProblem')}
               </button>
               {showIdentityHelp && (
                 <div className="mt-3 flex gap-2 rounded-md bg-warning/10 p-3 text-sm text-foreground">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
                   <p>
-                    Не продолжайте активацию. Попросите методолога исправить карточку сотрудника
-                    и создать новое приглашение.
+                    {t('publicUi.invite.identityHelp')}
                   </p>
                 </div>
               )}
             </div>
 
             <p className="text-center text-xs text-muted-foreground">
-              Приглашение действует до{' '}
-              {new Date(invitation.expires_at).toLocaleString('ru-RU', {
+              {t('publicUi.invite.expires', { date: new Date(invitation.expires_at).toLocaleString(
+                lang === 'en' ? 'en-US' : lang === 'kk' ? 'kk-KZ' : 'ru-RU', {
                 day: '2-digit',
                 month: '2-digit',
                 year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit',
-              })}
+              }) })}
             </p>
           </CardContent>
         </Card>
@@ -321,15 +327,17 @@ function AcceptInviteForm() {
 }
 
 function LoadingState() {
+  const { t } = useT();
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-label="Загрузка" />
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-label={t('publicUi.invite.loading')} />
     </div>
   );
 }
 
 function UnavailableState({ title, message }: { title: string; message: string }) {
   const router = useRouter();
+  const { t } = useT();
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
@@ -340,7 +348,7 @@ function UnavailableState({ title, message }: { title: string; message: string }
           <h1 className="text-xl font-semibold">{title}</h1>
           <p className="text-sm text-muted-foreground">{message}</p>
           <Button variant="outline" className="w-full" onClick={() => router.push('/login')}>
-            Перейти на страницу входа
+            {t('publicUi.invite.goToLogin')}
           </Button>
         </CardContent>
       </Card>

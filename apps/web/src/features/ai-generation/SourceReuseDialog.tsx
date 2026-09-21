@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useT } from '@/i18n/useT';
 
 export type ReuseReason =
   | 'different_audience'
@@ -16,20 +17,14 @@ export interface ReusedSourceCourse {
   status: string;
 }
 
-const REUSE_REASONS: Array<{ value: ReuseReason; label: string }> = [
-  { value: 'different_audience', label: 'Другая аудитория' },
-  { value: 'different_language', label: 'Другой язык' },
-  { value: 'different_depth', label: 'Другая глубина материала' },
-  { value: 'updated_revision', label: 'Обновлённая редакция источника' },
-  { value: 'recurring_training', label: 'Повторное обучение' },
-  { value: 'other', label: 'Другая причина' },
+const REUSE_REASON_KEYS: Array<{ value: ReuseReason; key: string }> = [
+  { value: 'different_audience', key: 'differentAudience' },
+  { value: 'different_language', key: 'differentLanguage' },
+  { value: 'different_depth', key: 'differentDepth' },
+  { value: 'updated_revision', key: 'updatedRevision' },
+  { value: 'recurring_training', key: 'recurringTraining' },
+  { value: 'other', key: 'other' },
 ];
-
-const COURSE_STATUSES: Record<string, string> = {
-  draft: 'Черновик',
-  published: 'Опубликован',
-  archived: 'Архив',
-};
 
 interface SourceReuseDialogProps {
   courses: ReusedSourceCourse[];
@@ -48,6 +43,12 @@ export function SourceReuseDialog({
   onCancel,
   onConfirm,
 }: SourceReuseDialogProps) {
+  const { t } = useT();
+  const courseStatuses: Record<string, string> = {
+    draft: t('authenticatedUi.sourceReuse.statusDraft'),
+    published: t('authenticatedUi.sourceReuse.statusPublished'),
+    archived: t('authenticatedUi.sourceReuse.statusArchived'),
+  };
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const onCancelRef = useRef(onCancel);
@@ -106,33 +107,32 @@ export function SourceReuseDialog({
       >
         <div className="border-b border-border px-5 py-4">
           <h3 id="reuse-source-title" className="font-bold text-foreground font-display">
-            Источник уже использован
+            {t('authenticatedUi.sourceReuse.title')}
           </h3>
           <p id="reuse-source-description" className="mt-1 text-sm text-muted-foreground">
-            Создание нового курса не изменит эти курсы, но создаст независимый
-            черновик и израсходует AI-лимит.
+            {t('authenticatedUi.sourceReuse.description')}
           </p>
         </div>
         <div className="space-y-4 px-5 py-4">
           <div
-            aria-label="Курсы, уже созданные по выбранным источникам"
+            aria-label={t('authenticatedUi.sourceReuse.existingCourses')}
             className="max-h-36 space-y-2 overflow-y-auto rounded-lg border border-border bg-muted/30 p-3"
           >
             {courses.map((course) => (
               <div key={course.id} className="flex justify-between gap-3 text-sm">
                 <span className="min-w-0 truncate text-foreground">{course.title}</span>
                 <span className="shrink-0 text-muted-foreground">
-                  {COURSE_STATUSES[course.status] ?? course.status}
+                  {courseStatuses[course.status] ?? course.status}
                 </span>
               </div>
             ))}
           </div>
           <fieldset>
             <legend className="mb-2 text-sm font-semibold text-foreground">
-              Почему нужен ещё один курс?
+              {t('authenticatedUi.sourceReuse.reasonLabel')}
             </legend>
             <div className="space-y-2">
-              {REUSE_REASONS.map((option) => (
+              {REUSE_REASON_KEYS.map((option) => (
                 <label
                   key={option.value}
                   className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
@@ -145,7 +145,7 @@ export function SourceReuseDialog({
                     disabled={submitting}
                     onChange={() => onReasonChange(option.value)}
                   />
-                  {option.label}
+                    {t(`authenticatedUi.sourceReuse.reasons.${option.key}` as any)}
                 </label>
               ))}
             </div>
@@ -159,7 +159,7 @@ export function SourceReuseDialog({
             disabled={submitting}
             className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted disabled:opacity-50"
           >
-            Отмена
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -167,7 +167,7 @@ export function SourceReuseDialog({
             disabled={!reason || submitting}
             className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
-            {submitting ? 'Запуск...' : 'Создать независимый курс'}
+            {submitting ? t('authenticatedUi.sourceReuse.submitting') : t('authenticatedUi.sourceReuse.confirm')}
           </button>
         </div>
       </div>

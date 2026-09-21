@@ -16,7 +16,25 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/i18n/useT', () => ({
   useT: () => ({
-    t: (key: string) => key,
+    t: (key: string) => ({
+      'authenticatedUi.editor.approval': 'Согласование',
+      'authenticatedUi.editor.publish': 'Опубликовать',
+      'authenticatedUi.editor.assistant': 'AI-помощник',
+      'authenticatedUi.editor.moveModuleUp': 'Переместить модуль выше',
+      'authenticatedUi.editor.moveModuleDown': 'Переместить модуль ниже',
+      'authenticatedUi.editor.moveLessonUp': 'Переместить урок выше',
+      'authenticatedUi.editor.moveLessonDown': 'Переместить урок ниже',
+      'authenticatedUi.editor.lessonAssistantTitle': 'AI-помощник по этому уроку',
+      'authenticatedUi.editor.openLessonAssistant': 'Открыть AI-помощника для урока {title}',
+      'authenticatedUi.editor.deleteLesson': 'Удалить урок {title}',
+      'authenticatedUi.editor.modalTitle': 'Редактирование урока',
+      'authenticatedUi.editor.modalDescription': 'Измените название и содержание. Форматирование Markdown сохранится.',
+      'authenticatedUi.editor.lessonTitle': 'Название урока',
+      'authenticatedUi.editor.lessonTitlePlaceholder': 'Например, Введение в информационную безопасность…',
+      'authenticatedUi.editor.lessonContent': 'Содержание урока',
+      'authenticatedUi.editor.lessonContentPlaceholder': 'Введите содержание урока…',
+      'common.edit': 'Редактировать',
+    }[key] ?? key),
     tp: (key: string, count: number) => `${count} ${key}`,
   }),
 }));

@@ -36,7 +36,13 @@ export default function CommandPalette() {
 
   return (
     <div className="cmd-overlay" onClick={() => setOpen(false)}>
-      <div className="cmd-box" onClick={(event) => event.stopPropagation()}>
+      <div
+        className="cmd-box"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('topbar.commandPalette')}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="flex items-center gap-3 border-b border-border px-4 py-3">
           <Search className="h-[18px] w-[18px] shrink-0 text-muted-foreground" aria-hidden />
           <input
@@ -50,7 +56,7 @@ export default function CommandPalette() {
           />
           <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">esc</kbd>
         </div>
-        <div className="flex-1 overflow-y-auto p-2" role="listbox">
+        <div className="flex-1 overflow-y-auto p-2" role="listbox" aria-label={t('commandPalette.navigation')}>
           {filtered.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">{t('commandPalette.noResults')}</div>
           ) : filtered.map((route) => (

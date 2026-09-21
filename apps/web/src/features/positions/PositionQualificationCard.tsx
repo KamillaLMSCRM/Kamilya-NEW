@@ -26,6 +26,7 @@ import { Badge, Button } from "@/components/ui";
 import { toast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { api } from "@/lib/api";
+import { useT, type TranslationKey } from "@/i18n/useT";
 
 import {
   getQualificationCard,
@@ -46,16 +47,16 @@ import type {
 
 const TABS: Array<{
   id: QualificationTab;
-  label: string;
+  labelKey: string;
   icon: typeof BriefcaseBusiness;
 }> = [
-  { id: "profile", label: "Профиль", icon: BriefcaseBusiness },
-  { id: "instruction", label: "Должностная инструкция", icon: FileText },
-  { id: "competencies", label: "Компетенции", icon: ClipboardCheck },
-  { id: "training", label: "Обязательное обучение", icon: BookOpenCheck },
+  { id: "profile", labelKey: "authenticatedUi.positions.tabs.profile", icon: BriefcaseBusiness },
+  { id: "instruction", labelKey: "authenticatedUi.positions.tabs.instruction", icon: FileText },
+  { id: "competencies", labelKey: "authenticatedUi.positions.tabs.competencies", icon: ClipboardCheck },
+  { id: "training", labelKey: "authenticatedUi.positions.tabs.training", icon: BookOpenCheck },
   // The legacy position quiz editor stays hidden until it has a real
   // assignment, learner-delivery and reporting flow.
-  { id: "history", label: "История версий", icon: History },
+  { id: "history", labelKey: "authenticatedUi.positions.tabs.history", icon: History },
 ];
 
 const VALID_TABS = new Set<QualificationTab>(TABS.map((tab) => tab.id));
@@ -81,23 +82,23 @@ function messageFromError(error: unknown, fallback: string) {
   return fallback;
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "Нет данных";
-  return new Intl.DateTimeFormat("ru-RU", {
+function formatDate(value: string | null | undefined, locale = "ru-RU") {
+  if (!value) return "";
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
 }
 
-function statusLabel(status: string) {
+function statusLabel(status: string, t: (key: TranslationKey) => string) {
   const labels: Record<string, string> = {
-    ready: "Готов",
-    partial: "Частично готов",
-    processing: "Обрабатывается",
-    failed: "Ошибка",
-    published: "Опубликован",
-    draft: "Черновик",
-    archived: "В архиве",
+    ready: t("authenticatedUi.positions.status.ready" as TranslationKey),
+    partial: t("authenticatedUi.positions.status.partial" as TranslationKey),
+    processing: t("authenticatedUi.positions.status.processing" as TranslationKey),
+    failed: t("authenticatedUi.positions.status.failed" as TranslationKey),
+    published: t("authenticatedUi.positions.status.published" as TranslationKey),
+    draft: t("authenticatedUi.positions.status.draft" as TranslationKey),
+    archived: t("authenticatedUi.positions.status.archived" as TranslationKey),
   };
   return labels[status] ?? status;
 }
@@ -119,6 +120,11 @@ interface Props {
 }
 
 export function PositionQualificationCard({ positionId }: Props) {
+  const { t, lang } = useT();
+  const ui = useCallback(
+    (key: string, params?: Record<string, string | number>) => t(key as TranslationKey, params),
+    [t],
+  );
   const router = useRouter();
   const searchParams = useSearchParams();
   const uploadRef = useRef<HTMLInputElement>(null);
@@ -191,18 +197,18 @@ export function PositionQualificationCard({ positionId }: Props) {
       const courses =
         coursesResult.status === "fulfilled" ? (coursesResult.value.data?.items ?? coursesResult.value.data ?? []) : [];
       if (competenciesResult.status === "rejected" || coursesResult.status === "rejected") {
-        setCatalogError("Карточка загружена, но справочники компетенций или курсов временно недоступны.");
+        setCatalogError(ui("authenticatedUi.positions.cardCatalogUnavailable"));
       }
       setCard(nextCard);
       setCompetencyCatalog(competencies);
       setCourseCatalog(courses);
       syncDrafts(nextCard);
     } catch (loadError) {
-      setError(messageFromError(loadError, "Не удалось загрузить карточку должности. Повторите попытку."));
+      setError(messageFromError(loadError, ui("authenticatedUi.positions.cardLoadError")));
     } finally {
       setLoading(false);
     }
-  }, [positionId, syncDrafts]);
+  }, [positionId, syncDrafts, ui]);
 
   useEffect(() => {
     load();
@@ -213,11 +219,11 @@ export function PositionQualificationCard({ positionId }: Props) {
     try {
       setHistory(await getQualificationHistory(positionId));
     } catch (historyError) {
-      toast.error(messageFromError(historyError, "Не удалось загрузить историю версий"));
+      toast.error(messageFromError(historyError, ui("authenticatedUi.positions.historyLoadError")));
     } finally {
       setHistoryLoading(false);
     }
-  }, [positionId]);
+  }, [positionId, ui]);
 
   useEffect(() => {
     if (activeTab === "history") loadHistory();
@@ -238,7 +244,7 @@ export function PositionQualificationCard({ positionId }: Props) {
 
   const saveProfile = async () => {
     if (!profileDraft.name.trim()) {
-      toast.error("Укажите название должности");
+      toast.error(ui("authenticatedUi.positions.nameRequired"));
       return;
     }
     setSaving("profile");
@@ -252,9 +258,9 @@ export function PositionQualificationCard({ positionId }: Props) {
         change_reason: profileDraft.change_reason.trim() || undefined,
       });
       applyCard(next);
-      toast.success("Профиль должности сохранён");
+      toast.success(ui("authenticatedUi.positions.profileSaved"));
     } catch (saveError) {
-      toast.error(messageFromError(saveError, "Не удалось сохранить профиль"));
+      toast.error(messageFromError(saveError, ui("authenticatedUi.positions.profileSaveError")));
     } finally {
       setSaving(null);
     }
@@ -271,9 +277,9 @@ export function PositionQualificationCard({ positionId }: Props) {
         })),
       );
       applyCard(next);
-      toast.success("Требования к компетенциям сохранены");
+      toast.success(ui("authenticatedUi.positions.competenciesSaved"));
     } catch (saveError) {
-      toast.error(messageFromError(saveError, "Не удалось сохранить компетенции"));
+      toast.error(messageFromError(saveError, ui("authenticatedUi.positions.competenciesSaveError")));
     } finally {
       setSaving(null);
     }
@@ -290,9 +296,9 @@ export function PositionQualificationCard({ positionId }: Props) {
         })),
       );
       applyCard(next);
-      toast.success("Правила обязательного обучения сохранены");
+      toast.success(ui("authenticatedUi.positions.trainingSaved"));
     } catch (saveError) {
-      toast.error(messageFromError(saveError, "Не удалось сохранить правила обучения"));
+      toast.error(messageFromError(saveError, ui("authenticatedUi.positions.trainingSaveError")));
     } finally {
       setSaving(null);
     }
@@ -309,9 +315,9 @@ export function PositionQualificationCard({ positionId }: Props) {
         headers: { "Content-Type": "multipart/form-data" },
       });
       await load();
-      toast.success("Новая версия инструкции загружена");
+      toast.success(ui("authenticatedUi.positions.instructionUploaded"));
     } catch (uploadError) {
-      toast.error(messageFromError(uploadError, "Не удалось загрузить инструкцию. Проверьте формат файла."));
+      toast.error(messageFromError(uploadError, ui("authenticatedUi.positions.instructionUploadError")));
     } finally {
       event.target.value = "";
       setSaving(null);
@@ -332,7 +338,7 @@ export function PositionQualificationCard({ positionId }: Props) {
       anchor.click();
       URL.revokeObjectURL(url);
     } catch (downloadError) {
-      toast.error(messageFromError(downloadError, "Не удалось скачать инструкцию"));
+      toast.error(messageFromError(downloadError, ui("authenticatedUi.positions.instructionDownloadError")));
     } finally {
       setSaving(null);
     }
@@ -347,9 +353,9 @@ export function PositionQualificationCard({ positionId }: Props) {
         title: response.data.title,
         questions: response.data.questions,
       }));
-      toast.success("Черновик теста создан. Проверьте вопросы перед сохранением.");
+      toast.success(ui("authenticatedUi.positions.quizDraftCreated"));
     } catch (quizError) {
-      toast.error(messageFromError(quizError, "Не удалось создать черновик теста"));
+      toast.error(messageFromError(quizError, ui("authenticatedUi.positions.quizDraftError")));
     } finally {
       setSaving(null);
     }
@@ -357,7 +363,7 @@ export function PositionQualificationCard({ positionId }: Props) {
 
   const saveQuiz = async () => {
     if (!quizDraft.title.trim() || quizDraft.questions.length === 0) {
-      toast.error("Добавьте название и хотя бы 1 вопрос");
+      toast.error(ui("authenticatedUi.positions.quizRequired"));
       return;
     }
     const invalidQuestionIndex = quizDraft.questions.findIndex(
@@ -369,7 +375,7 @@ export function PositionQualificationCard({ positionId }: Props) {
     );
     if (invalidQuestionIndex >= 0) {
       toast.error(
-        `Проверьте вопрос ${invalidQuestionIndex + 1}: нужен текст, минимум 2 варианта и ровно 1 правильный ответ`,
+        ui("authenticatedUi.positions.quizQuestionInvalid", { index: invalidQuestionIndex + 1 }),
       );
       return;
     }
@@ -383,9 +389,9 @@ export function PositionQualificationCard({ positionId }: Props) {
         is_active: quizDraft.is_active,
       });
       await load();
-      toast.success("Onboarding-тест сохранён");
+      toast.success(ui("authenticatedUi.positions.quizSaved"));
     } catch (quizError) {
-      toast.error(messageFromError(quizError, "Не удалось сохранить тест"));
+      toast.error(messageFromError(quizError, ui("authenticatedUi.positions.quizSaveError")));
     } finally {
       setSaving(null);
     }
@@ -393,19 +399,19 @@ export function PositionQualificationCard({ positionId }: Props) {
 
   const deleteQuiz = async () => {
     const accepted = await confirm({
-      title: "Удалить onboarding-тест?",
-      message: "Вопросы будут удалены из карточки должности.",
+      title: ui("authenticatedUi.positions.quizDeleteTitle"),
+      message: ui("authenticatedUi.positions.quizDeleteMessage"),
       variant: "danger",
-      confirmLabel: "Удалить тест",
+      confirmLabel: ui("authenticatedUi.positions.quizDeleteConfirm"),
     });
     if (!accepted) return;
     setSaving("quiz-delete");
     try {
       await api.delete(`/v1/positions/${positionId}/onboarding-quiz`);
       await load();
-      toast.success("Onboarding-тест удалён");
+      toast.success(ui("authenticatedUi.positions.quizDeleted"));
     } catch (quizError) {
-      toast.error(messageFromError(quizError, "Не удалось удалить тест"));
+      toast.error(messageFromError(quizError, ui("authenticatedUi.positions.quizDeleteError")));
     } finally {
       setSaving(null);
     }
@@ -413,22 +419,22 @@ export function PositionQualificationCard({ positionId }: Props) {
 
   const restoreVersion = async (item: QualificationHistoryItem) => {
     const accepted = await confirm({
-      title: `Восстановить версию ${item.version_no}?`,
+      title: ui("authenticatedUi.positions.restoreTitle", { version: item.version_no }),
       message:
-        "Текущая конфигурация останется в истории как новая версия, после чего будет восстановлен выбранный снимок.",
+        ui("authenticatedUi.positions.restoreMessage"),
       variant: "warning",
-      confirmLabel: "Восстановить",
+      confirmLabel: ui("authenticatedUi.positions.restoreConfirm"),
     });
     if (!accepted) return;
     setSaving(`restore-${item.id}`);
     try {
-      const next = await restoreQualificationVersion(positionId, item.id, `Восстановление версии ${item.version_no}`);
+      const next = await restoreQualificationVersion(positionId, item.id, ui("authenticatedUi.positions.restoreReason", { version: item.version_no }));
       applyCard(next);
       await loadHistory();
-      toast.success(`Версия ${item.version_no} восстановлена`);
+      toast.success(ui("authenticatedUi.positions.restoreSuccess", { version: item.version_no }));
     } catch (restoreError) {
       toast.error(
-        messageFromError(restoreError, "Не удалось восстановить версию. Проверьте доступность связанных объектов."),
+        messageFromError(restoreError, ui("authenticatedUi.positions.restoreError")),
       );
     } finally {
       setSaving(null);
@@ -445,7 +451,7 @@ export function PositionQualificationCard({ positionId }: Props) {
     return (
       <div className="flex min-h-[420px] items-center justify-center" aria-live="polite">
         <RefreshCw className="h-7 w-7 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
-        <span className="sr-only">Загрузка карточки должности…</span>
+        <span className="sr-only">{ui("authenticatedUi.positions.cardLoading")}</span>
       </div>
     );
   }
@@ -453,18 +459,18 @@ export function PositionQualificationCard({ positionId }: Props) {
   if (error || !card) {
     return (
       <div className="mx-auto max-w-xl py-16 text-center">
-        <h1 className="text-xl font-semibold text-foreground">Карточка должности недоступна</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{error ?? "Должность не найдена или у вас нет доступа."}</p>
+        <h1 className="text-xl font-semibold text-foreground">{ui("authenticatedUi.positions.cardUnavailable")}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{error ?? ui("authenticatedUi.positions.cardNotFound")}</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <Button type="button" onClick={load}>
             <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
-            Повторить
+            {ui("authenticatedUi.positions.retry")}
           </Button>
           <Link
             href="/positions"
             className="inline-flex h-10 items-center rounded-md border border-input px-4 text-sm font-medium text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            Вернуться к должностям
+            {ui("authenticatedUi.positions.backToPositions")}
           </Link>
         </div>
       </div>
@@ -479,7 +485,7 @@ export function PositionQualificationCard({ positionId }: Props) {
           className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Все должности
+          {ui("authenticatedUi.positions.allPositions")}
         </Link>
 
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -488,36 +494,36 @@ export function PositionQualificationCard({ positionId }: Props) {
               <h1 className="break-words text-2xl font-bold text-foreground sm:text-3xl">{card.profile.name}</h1>
               {card.profile.level ? <Badge variant="secondary">{card.profile.level}</Badge> : null}
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">{card.profile.department || "Отдел не указан"}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{card.profile.department || ui("authenticatedUi.positions.departmentNotSpecified")}</p>
           </div>
 
           <dl className="grid min-w-0 grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4 xl:min-w-[520px]">
             <div>
-              <dt className="text-xs text-muted-foreground">Сотрудников</dt>
+              <dt className="text-xs text-muted-foreground">{ui("authenticatedUi.positions.employees")}</dt>
               <dd className="mt-1 flex items-center gap-1.5 font-semibold tabular-nums">
                 <Users className="h-4 w-4 text-primary" aria-hidden="true" />
                 {card.employees.active_count}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Компетенций</dt>
+              <dt className="text-xs text-muted-foreground">{ui("authenticatedUi.positions.competencies")}</dt>
               <dd className="mt-1 font-semibold tabular-nums">{card.competencies.length}</dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Курсов</dt>
+              <dt className="text-xs text-muted-foreground">{ui("authenticatedUi.positions.courses")}</dt>
               <dd className="mt-1 font-semibold tabular-nums">
                 {publishedEffectiveCount}/{card.training.effective_courses.length}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Версия</dt>
+              <dt className="text-xs text-muted-foreground">{ui("authenticatedUi.positions.version")}</dt>
               <dd className="mt-1 font-semibold tabular-nums">{card.latest_version ?? "—"}</dd>
             </div>
           </dl>
         </div>
       </header>
 
-      <nav aria-label="Разделы карточки должности" className="-mx-1 overflow-x-auto px-1 pb-1">
+      <nav aria-label={ui("authenticatedUi.positions.cardSectionsAria")} className="-mx-1 overflow-x-auto px-1 pb-1">
         <div className="flex min-w-max gap-1 border-b border-border">
           {TABS.map((tab) => {
             const Icon = tab.icon;
@@ -535,7 +541,7 @@ export function PositionQualificationCard({ positionId }: Props) {
                 }`}
               >
                 <Icon className="h-4 w-4" aria-hidden="true" />
-                {tab.label}
+                {ui(tab.labelKey)}
               </button>
             );
           })}
@@ -546,15 +552,15 @@ export function PositionQualificationCard({ positionId }: Props) {
         <section aria-labelledby="profile-heading" className="space-y-5">
           <div>
             <h2 id="profile-heading" className="text-xl font-semibold">
-              Профиль должности
+              {ui("authenticatedUi.positions.profileTitle")}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Базовые требования используются в должностной инструкции и AI-рекомендациях.
+              {ui("authenticatedUi.positions.profileDescription")}
             </p>
           </div>
           <div className="grid gap-5 rounded-lg border border-border bg-card p-5 lg:grid-cols-2">
             <label className="space-y-1.5">
-              <span className="text-sm font-medium">Название</span>
+                <span className="text-sm font-medium">{ui("authenticatedUi.positions.name")}</span>
               <input
                 name="position_name"
                 autoComplete="off"
@@ -570,7 +576,7 @@ export function PositionQualificationCard({ positionId }: Props) {
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-1.5">
-                <span className="text-sm font-medium">Отдел</span>
+                <span className="text-sm font-medium">{ui("authenticatedUi.positions.department")}</span>
                 <input
                   name="position_department"
                   autoComplete="off"
@@ -585,7 +591,7 @@ export function PositionQualificationCard({ positionId }: Props) {
                 />
               </label>
               <label className="space-y-1.5">
-                <span className="text-sm font-medium">Уровень</span>
+                <span className="text-sm font-medium">{ui("authenticatedUi.positions.level")}</span>
                 <input
                   name="position_level"
                   autoComplete="off"
@@ -601,7 +607,7 @@ export function PositionQualificationCard({ positionId }: Props) {
               </label>
             </div>
             <label className="space-y-1.5">
-              <span className="text-sm font-medium">Обязанности</span>
+                <span className="text-sm font-medium">{ui("authenticatedUi.positions.responsibilities")}</span>
               <textarea
                 name="position_responsibilities"
                 autoComplete="off"
@@ -617,7 +623,7 @@ export function PositionQualificationCard({ positionId }: Props) {
               />
             </label>
             <label className="space-y-1.5">
-              <span className="text-sm font-medium">Требования</span>
+                <span className="text-sm font-medium">{ui("authenticatedUi.positions.requirements")}</span>
               <textarea
                 name="position_requirements"
                 autoComplete="off"
@@ -634,12 +640,12 @@ export function PositionQualificationCard({ positionId }: Props) {
             </label>
             <label className="space-y-1.5 lg:col-span-2">
               <span className="text-sm font-medium">
-                Причина изменения <span className="font-normal text-muted-foreground">(необязательно)</span>
+                {ui("authenticatedUi.positions.changeReason")} <span className="font-normal text-muted-foreground">({ui("authenticatedUi.positions.optional")})</span>
               </span>
               <input
                 name="profile_change_reason"
                 autoComplete="off"
-                placeholder="Например: актуализация после изменения процесса…"
+                placeholder={ui("authenticatedUi.positions.changeReasonPlaceholder")}
                 value={profileDraft.change_reason}
                 onChange={(event) =>
                   setProfileDraft((current) => ({
@@ -653,7 +659,7 @@ export function PositionQualificationCard({ positionId }: Props) {
             <div className="flex justify-end lg:col-span-2">
               <Button type="button" onClick={saveProfile} disabled={saving === "profile"}>
                 <Save className="mr-2 h-4 w-4" aria-hidden="true" />
-                {saving === "profile" ? "Сохранение…" : "Сохранить профиль"}
+                {saving === "profile" ? ui("authenticatedUi.positions.saving") : ui("authenticatedUi.positions.saveProfile")}
               </Button>
             </div>
           </div>
@@ -664,10 +670,10 @@ export function PositionQualificationCard({ positionId }: Props) {
         <section aria-labelledby="instruction-heading" className="space-y-5">
           <div>
             <h2 id="instruction-heading" className="text-xl font-semibold">
-              Должностная инструкция
+              {ui("authenticatedUi.positions.instructionTitle")}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Исходник хранится в единой библиотеке документов и связан с этой должностью.
+              {ui("authenticatedUi.positions.instructionDescription")}
             </p>
           </div>
           <input
@@ -685,17 +691,17 @@ export function PositionQualificationCard({ positionId }: Props) {
                   <div className="min-w-0">
                     <h3 className="break-words font-semibold">{card.instruction.filename}</h3>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <Badge variant="secondary">Версия {card.instruction.version}</Badge>
+                      <Badge variant="secondary">{ui("authenticatedUi.positions.versionValue", { version: card.instruction.version })}</Badge>
                       <Badge variant={card.instruction.index_status === "failed" ? "destructive" : "secondary"}>
-                        {statusLabel(card.instruction.index_status)}
+                        {statusLabel(card.instruction.index_status, t)}
                       </Badge>
                     </div>
                     <p className="mt-3 text-sm text-muted-foreground">
-                      Обновлено: {formatDate(card.instruction.updated_at)}
+                      {ui("authenticatedUi.positions.updatedAt", { date: formatDate(card.instruction.updated_at, lang) })}
                     </p>
                     {card.instruction.index_error_code ? (
                       <p className="mt-2 text-sm text-destructive">
-                        Индексация завершилась ошибкой. Загрузите исправленную версию документа.
+                        {ui("authenticatedUi.positions.indexingError")}
                       </p>
                     ) : null}
                   </div>
@@ -708,11 +714,11 @@ export function PositionQualificationCard({ positionId }: Props) {
                     disabled={saving === "download"}
                   >
                     <FileText className="mr-2 h-4 w-4" aria-hidden="true" />
-                    Скачать
+                    {ui("authenticatedUi.positions.download")}
                   </Button>
                   <Button type="button" onClick={() => uploadRef.current?.click()} disabled={saving === "instruction"}>
                     <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
-                    {saving === "instruction" ? "Загрузка…" : "Загрузить новую версию"}
+                    {saving === "instruction" ? ui("authenticatedUi.positions.uploading") : ui("authenticatedUi.positions.uploadNewVersion")}
                   </Button>
                 </div>
               </div>
@@ -721,16 +727,16 @@ export function PositionQualificationCard({ positionId }: Props) {
                   href={`/documents?search=${encodeURIComponent(card.instruction.filename)}`}
                   className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  Открыть источник в библиотеке документов
+                  {ui("authenticatedUi.positions.openDocumentLibrary")}
                 </Link>
               </div>
             </div>
           ) : (
             <div className="rounded-lg border border-dashed border-border px-5 py-12 text-center">
               <FileText className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
-              <h3 className="mt-3 font-semibold">Инструкция не загружена</h3>
+              <h3 className="mt-3 font-semibold">{ui("authenticatedUi.positions.instructionEmptyTitle")}</h3>
               <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-                Загрузите утверждённый документ. Он будет проиндексирован и доступен для генерации курса по должности.
+                {ui("authenticatedUi.positions.instructionEmptyDescription")}
               </p>
               <Button
                 type="button"
@@ -739,7 +745,7 @@ export function PositionQualificationCard({ positionId }: Props) {
                 disabled={saving === "instruction"}
               >
                 <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
-                {saving === "instruction" ? "Загрузка…" : "Загрузить документ"}
+                {saving === "instruction" ? ui("authenticatedUi.positions.uploading") : ui("authenticatedUi.positions.uploadDocument")}
               </Button>
             </div>
           )}
@@ -751,17 +757,17 @@ export function PositionQualificationCard({ positionId }: Props) {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 id="competencies-heading" className="text-xl font-semibold">
-                Компетенции должности
+              {ui("authenticatedUi.positions.competenciesTitle")}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Выберите обязательные компетенции и ожидаемый уровень от 1 до 5.
+              {ui("authenticatedUi.positions.competenciesDescription")}
               </p>
             </div>
             <Link
               href="/competencies"
               className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              Открыть справочник компетенций
+              {ui("authenticatedUi.positions.openCompetencyCatalog")}
             </Link>
           </div>
           {catalogError ? (
@@ -772,18 +778,18 @@ export function PositionQualificationCard({ positionId }: Props) {
               <span>{catalogError}</span>
               <Button type="button" variant="outline" onClick={load}>
                 <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
-                Повторить
+                {ui("authenticatedUi.positions.retry")}
               </Button>
             </div>
           ) : null}
           {competencyCatalog.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border px-5 py-10 text-center">
-              <p className="text-sm text-muted-foreground">В справочнике пока нет компетенций.</p>
+              <p className="text-sm text-muted-foreground">{ui("authenticatedUi.positions.competenciesEmpty")}</p>
               <Link
                 href="/competencies"
                 className="mt-4 inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                Создать компетенцию
+                {ui("authenticatedUi.positions.createCompetency")}
               </Link>
             </div>
           ) : (
@@ -818,9 +824,9 @@ export function PositionQualificationCard({ positionId }: Props) {
                     </label>
                     {selected ? (
                       <label className="flex items-center gap-2 text-sm">
-                        <span className="text-muted-foreground">Требуемый уровень</span>
+                        <span className="text-muted-foreground">{ui("authenticatedUi.positions.requiredLevel")}</span>
                         <select
-                          aria-label={`Требуемый уровень: ${item.name}`}
+                          aria-label={ui("authenticatedUi.positions.requiredLevelAria", { name: item.name })}
                           value={competencyDraft[item.id]}
                           onChange={(event) =>
                             setCompetencyDraft((current) => ({
@@ -846,7 +852,7 @@ export function PositionQualificationCard({ positionId }: Props) {
           <div className="flex justify-end">
             <Button type="button" onClick={saveCompetencies} disabled={saving === "competencies"}>
               <Save className="mr-2 h-4 w-4" aria-hidden="true" />
-              {saving === "competencies" ? "Сохранение…" : "Сохранить компетенции"}
+              {saving === "competencies" ? ui("authenticatedUi.positions.saving") : ui("authenticatedUi.positions.saveCompetencies")}
             </Button>
           </div>
         </section>
@@ -856,11 +862,10 @@ export function PositionQualificationCard({ positionId }: Props) {
         <section aria-labelledby="training-heading" className="space-y-6">
           <div>
             <h2 id="training-heading" className="text-xl font-semibold">
-              Обязательное обучение
+              {ui("authenticatedUi.positions.trainingTitle")}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Здесь редактируются только прямые правила должности. Правила отдела и покрытие компетенций отображаются
-              как источники итогового набора.
+              {ui("authenticatedUi.positions.trainingDescription")}
             </p>
           </div>
           {catalogError ? (
@@ -871,17 +876,17 @@ export function PositionQualificationCard({ positionId }: Props) {
               <span>{catalogError}</span>
               <Button type="button" variant="outline" onClick={load}>
                 <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
-                Повторить
+                {ui("authenticatedUi.positions.retry")}
               </Button>
             </div>
           ) : null}
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.7fr)]">
             <div className="space-y-3">
-              <h3 className="font-semibold">Курсы должности</h3>
+              <h3 className="font-semibold">{ui("authenticatedUi.positions.positionCourses")}</h3>
               {courseCatalog.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">
-                  Сначала создайте курс в разделе «Курсы».
+                  {ui("authenticatedUi.positions.noCoursesHint")}
                 </div>
               ) : (
                 <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
@@ -909,7 +914,7 @@ export function PositionQualificationCard({ positionId }: Props) {
                           <span className="min-w-0">
                             <span className="block break-words font-medium">{course.title}</span>
                             <span className="mt-1 block text-xs text-muted-foreground">
-                              {statusLabel(course.status)}
+                              {statusLabel(course.status, t)}
                             </span>
                           </span>
                         </label>
@@ -926,7 +931,7 @@ export function PositionQualificationCard({ positionId }: Props) {
                               }
                               className="h-4 w-4 rounded border-input text-primary focus-visible:ring-2 focus-visible:ring-ring"
                             />
-                            Учитывать в готовности
+                            {ui("authenticatedUi.positions.includeInReadiness")}
                           </label>
                         ) : null}
                       </div>
@@ -935,19 +940,19 @@ export function PositionQualificationCard({ positionId }: Props) {
                 </div>
               )}
               <div className="flex items-center justify-between gap-3">
-                <span className="text-sm text-muted-foreground">Выбрано: {selectedCourseCount}</span>
+                <span className="text-sm text-muted-foreground">{ui("authenticatedUi.positions.selectedCourses", { count: selectedCourseCount })}</span>
                 <Button type="button" onClick={saveTraining} disabled={saving === "training"}>
                   <Save className="mr-2 h-4 w-4" aria-hidden="true" />
-                  {saving === "training" ? "Применение…" : "Сохранить правила"}
+                  {saving === "training" ? ui("authenticatedUi.positions.applying") : ui("authenticatedUi.positions.saveRules")}
                 </Button>
               </div>
             </div>
 
             <div className="space-y-3">
-              <h3 className="font-semibold">Итоговый набор</h3>
+              <h3 className="font-semibold">{ui("authenticatedUi.positions.effectiveSet")}</h3>
               {card.training.effective_courses.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">
-                  Для должности пока не определено обязательное обучение.
+                  {ui("authenticatedUi.positions.noEffectiveTraining")}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -965,16 +970,16 @@ export function PositionQualificationCard({ positionId }: Props) {
                             {course.sources.map((source) => (
                               <Badge key={source} variant="secondary">
                                 {source === "position"
-                                  ? "Должность"
+                                  ? ui("authenticatedUi.positions.sourcePosition")
                                   : source === "department"
-                                    ? "Отдел"
-                                    : "Компетенция"}
+                                    ? ui("authenticatedUi.positions.sourceDepartment")
+                                    : ui("authenticatedUi.positions.sourceCompetency")}
                               </Badge>
                             ))}
                           </div>
                         </div>
                         <Badge variant={course.status === "published" ? "secondary" : "outline"}>
-                          {statusLabel(course.status)}
+                          {statusLabel(course.status, t)}
                         </Badge>
                       </div>
                     </div>
@@ -991,23 +996,22 @@ export function PositionQualificationCard({ positionId }: Props) {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 id="onboarding-heading" className="text-xl font-semibold">
-                Onboarding-тест
+                {ui("authenticatedUi.positions.quizTitle")}
               </h2>
               <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                Это шаблон теста для должности. Он не назначается новым сотрудникам автоматически: назначение
-                выполняется методологом после проверки вопросов.
+                {ui("authenticatedUi.positions.quizDescription")}
               </p>
             </div>
             <Button type="button" variant="outline" onClick={generateQuiz} disabled={saving === "quiz-generate"}>
               <Sparkles className="mr-2 h-4 w-4" aria-hidden="true" />
-              {saving === "quiz-generate" ? "Создание…" : "Создать черновик из ДИ"}
+              {saving === "quiz-generate" ? ui("authenticatedUi.positions.creating") : ui("authenticatedUi.positions.createQuizDraft")}
             </Button>
           </div>
 
           <div className="space-y-5 rounded-lg border border-border bg-card p-5">
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_160px_180px]">
               <label className="space-y-1.5">
-                <span className="text-sm font-medium">Название теста</span>
+                <span className="text-sm font-medium">{ui("authenticatedUi.positions.quizName")}</span>
                 <input
                   name="onboarding_quiz_title"
                   autoComplete="off"
@@ -1022,7 +1026,7 @@ export function PositionQualificationCard({ positionId }: Props) {
                 />
               </label>
               <label className="space-y-1.5">
-                <span className="text-sm font-medium">Проходной балл, %</span>
+                <span className="text-sm font-medium">{ui("authenticatedUi.positions.passingScore")}</span>
                 <input
                   name="onboarding_pass_score"
                   type="number"
@@ -1040,14 +1044,14 @@ export function PositionQualificationCard({ positionId }: Props) {
                 />
               </label>
               <label className="space-y-1.5">
-                <span className="text-sm font-medium">Время, минут</span>
+                <span className="text-sm font-medium">{ui("authenticatedUi.positions.timeLimit")}</span>
                 <input
                   name="onboarding_time_limit"
                   type="number"
                   min={1}
                   max={600}
                   inputMode="numeric"
-                  placeholder="Без ограничения…"
+                  placeholder={ui("authenticatedUi.positions.noTimeLimit")}
                   value={quizDraft.time_limit}
                   onChange={(event) =>
                     setQuizDraft((current) => ({
@@ -1072,13 +1076,13 @@ export function PositionQualificationCard({ positionId }: Props) {
                 }
                 className="h-4 w-4 rounded border-input text-primary focus-visible:ring-2 focus-visible:ring-ring"
               />
-              Активный шаблон
+              {ui("authenticatedUi.positions.activeTemplate")}
             </label>
 
             <div className="space-y-3">
               {quizDraft.questions.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-                  Вопросов пока нет. Создайте черновик из ДИ или добавьте вопрос вручную.
+                  {ui("authenticatedUi.positions.noQuestions")}
                 </div>
               ) : (
                 quizDraft.questions.map((question, questionIndex) => (
@@ -1089,9 +1093,9 @@ export function PositionQualificationCard({ positionId }: Props) {
                       </span>
                       <div className="min-w-0 flex-1 space-y-3">
                         <label className="block space-y-1.5">
-                          <span className="sr-only">Текст вопроса {questionIndex + 1}</span>
+                          <span className="sr-only">{ui("authenticatedUi.positions.questionText", { index: questionIndex + 1 })}</span>
                           <textarea
-                            aria-label={`Текст вопроса ${questionIndex + 1}`}
+                            aria-label={ui("authenticatedUi.positions.questionText", { index: questionIndex + 1 })}
                             rows={2}
                             value={question.text}
                             onChange={(event) =>
@@ -1113,7 +1117,7 @@ export function PositionQualificationCard({ positionId }: Props) {
                               <input
                                 type="radio"
                                 name={`correct-${questionIndex}`}
-                                aria-label={`Правильный ответ ${choiceIndex + 1}`}
+                                aria-label={ui("authenticatedUi.positions.correctAnswer", { index: choiceIndex + 1 })}
                                 checked={choice.is_correct}
                                 onChange={() =>
                                   setQuizDraft((current) => {
@@ -1131,7 +1135,7 @@ export function PositionQualificationCard({ positionId }: Props) {
                                 className="h-4 w-4 border-input text-primary focus-visible:ring-2 focus-visible:ring-ring"
                               />
                               <input
-                                aria-label={`Вариант ответа ${choiceIndex + 1}`}
+                                aria-label={ui("authenticatedUi.positions.answerOption", { index: choiceIndex + 1 })}
                                 value={choice.text}
                                 onChange={(event) =>
                                   setQuizDraft((current) => {
@@ -1153,7 +1157,7 @@ export function PositionQualificationCard({ positionId }: Props) {
                               {question.choices.length > 2 ? (
                                 <button
                                   type="button"
-                                  aria-label={`Удалить вариант ${choiceIndex + 1}`}
+                                  aria-label={ui("authenticatedUi.positions.removeOption", { index: choiceIndex + 1 })}
                                   onClick={() =>
                                     setQuizDraft((current) => {
                                       const questions = [...current.questions];
@@ -1198,7 +1202,7 @@ export function PositionQualificationCard({ positionId }: Props) {
                             className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                           >
                             <Plus className="h-4 w-4" aria-hidden="true" />
-                            Добавить вариант
+                            {ui("authenticatedUi.positions.addOption")}
                           </button>
                           <button
                             type="button"
@@ -1211,7 +1215,7 @@ export function PositionQualificationCard({ positionId }: Props) {
                             className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <Trash2 className="h-4 w-4" aria-hidden="true" />
-                            Удалить вопрос
+                            {ui("authenticatedUi.positions.removeQuestion")}
                           </button>
                         </div>
                       </div>
@@ -1234,18 +1238,18 @@ export function PositionQualificationCard({ positionId }: Props) {
                 disabled={quizDraft.questions.length >= 30}
               >
                 <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-                Добавить вопрос
+                {ui("authenticatedUi.positions.addQuestion")}
               </Button>
               <div className="flex flex-wrap justify-end gap-2">
                 {card.onboarding_quiz ? (
                   <Button type="button" variant="destructive" onClick={deleteQuiz} disabled={saving === "quiz-delete"}>
                     <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                    Удалить тест
+                    {ui("authenticatedUi.positions.deleteQuiz")}
                   </Button>
                 ) : null}
                 <Button type="button" onClick={saveQuiz} disabled={saving === "quiz"}>
                   <Save className="mr-2 h-4 w-4" aria-hidden="true" />
-                  {saving === "quiz" ? "Сохранение…" : "Сохранить тест"}
+                  {saving === "quiz" ? ui("authenticatedUi.positions.saving") : ui("authenticatedUi.positions.saveQuiz")}
                 </Button>
               </div>
             </div>
@@ -1258,10 +1262,10 @@ export function PositionQualificationCard({ positionId }: Props) {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 id="history-heading" className="text-xl font-semibold">
-                История версий
+                {ui("authenticatedUi.positions.historyTitle")}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Каждый снимок содержит профиль, инструкцию, компетенции, курсы и onboarding-тест.
+                {ui("authenticatedUi.positions.historyDescription")}
               </p>
             </div>
             <Button type="button" variant="outline" onClick={loadHistory} disabled={historyLoading}>
@@ -1269,17 +1273,17 @@ export function PositionQualificationCard({ positionId }: Props) {
                 className={`mr-2 h-4 w-4 ${historyLoading ? "animate-spin motion-reduce:animate-none" : ""}`}
                 aria-hidden="true"
               />
-              Обновить
+              {ui("authenticatedUi.positions.refresh")}
             </Button>
           </div>
           {historyLoading ? (
             <div className="py-12 text-center text-sm text-muted-foreground" aria-live="polite">
-              Загрузка истории…
+              {ui("authenticatedUi.positions.historyLoading")}
             </div>
           ) : history.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border px-5 py-10 text-center">
               <FileClock className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
-              <p className="mt-3 text-sm text-muted-foreground">История появится после первого сохранения карточки.</p>
+              <p className="mt-3 text-sm text-muted-foreground">{ui("authenticatedUi.positions.historyEmpty")}</p>
             </div>
           ) : (
             <ol className="space-y-2">
@@ -1290,13 +1294,13 @@ export function PositionQualificationCard({ positionId }: Props) {
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold tabular-nums">Версия {item.version_no}</span>
+                      <span className="font-semibold tabular-nums">{ui("authenticatedUi.positions.versionValue", { version: item.version_no })}</span>
                       <Badge variant="secondary">{item.change_kind}</Badge>
                     </div>
                     <p className="mt-1 break-words text-sm text-muted-foreground">
-                      {item.change_reason || "Причина изменения не указана"}
+                      {item.change_reason || ui("authenticatedUi.positions.changeReasonMissing")}
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">{formatDate(item.created_at)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{formatDate(item.created_at, lang)}</p>
                   </div>
                   <Button
                     type="button"
@@ -1305,7 +1309,7 @@ export function PositionQualificationCard({ positionId }: Props) {
                     disabled={saving === `restore-${item.id}`}
                   >
                     <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
-                    {saving === `restore-${item.id}` ? "Восстановление…" : "Восстановить"}
+                    {saving === `restore-${item.id}` ? ui("authenticatedUi.positions.restoring") : ui("authenticatedUi.positions.restoreConfirm")}
                   </Button>
                 </li>
               ))}

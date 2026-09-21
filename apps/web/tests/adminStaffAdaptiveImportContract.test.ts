@@ -13,19 +13,20 @@ describe('adaptive staff import and organization structure contract', () => {
     expect(source).toContain('mapping_json: adaptiveMapping');
     expect(source).toContain('mapping_id');
     expect(source).not.toContain('/v1/admin/staff/import/preview');
-    expect(source).not.toContain('Открыть старый импорт');
-    expect(source).not.toContain('Запасной сценарий для прежних файлов');
+    expect(source).not.toContain('legacyImport');
+    expect(source).not.toContain('legacyFallback');
   });
 
   it('makes the no-write-until-approval promise visible and distinguishes unit types', () => {
-    expect(source).toContain('До вашего подтверждения данные не меняются');
-    expect(source).toContain('Филиалы');
-    expect(source).toContain('Отделы');
-    expect(source).toContain('+ Добавить филиал');
-    expect(source).toContain('+ Добавить отдел');
+    expect(source).toContain('authenticatedUi.adminStaff.import.description');
+    expect(source).toContain('authenticatedUi.adminStaff.structure.branches');
+    expect(source).toContain('authenticatedUi.adminStaff.structure.departments');
+    expect(source).toContain('authenticatedUi.adminStaff.structure.addBranch');
+    expect(source).toContain('authenticatedUi.adminStaff.structure.addDepartment');
     expect(source).toContain('/v1/organization-units/tree');
     expect(source).toContain('/v1/organization-units');
     expect(source).toContain('needs_mapping');
     expect(source).not.toContain('JSON.stringify(session.workbook_analysis');
+    expect(source).not.toMatch(/["'`]\s*(?:Адаптивная|Выбрать файл|Режим загрузки|Предлагаемая структура|Добавить филиал|Добавить отдел|Данные сотрудника)/);
   });
 });

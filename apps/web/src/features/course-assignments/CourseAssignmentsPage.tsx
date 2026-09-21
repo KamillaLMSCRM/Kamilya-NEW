@@ -15,7 +15,7 @@ import {
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { useAuthStore } from '@/store/authStore';
-import { useT } from '@/i18n/useT';
+import { useT, type TranslationKey } from '@/i18n/useT';
 import { getAssignmentSourceInfo } from '@/lib/assignmentSource';
 
 interface Course {
@@ -147,45 +147,57 @@ function matchesCourseQuery(c: Course, q: string): boolean {
   return (c.title || '').toLowerCase().includes(q.toLowerCase());
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  enrolled: 'Записан',
-  in_progress: 'В процессе',
-  completed: 'Пройден',
-};
+const STATUS_LABEL_KEYS = {
+  enrolled: 'courseAssignments.status.enrolled',
+  in_progress: 'courseAssignments.status.inProgress',
+  completed: 'courseAssignments.status.completed',
+} as const;
 const STATUS_BADGE_VARIANT: Record<string, 'default' | 'outline' | 'secondary'> = {
   enrolled: 'outline',
   in_progress: 'secondary',
   completed: 'default',
 };
-const REMINDER_STATUS_LABELS: Record<string, string> = {
-  queued: 'В очереди',
-  sending: 'Отправляется',
-  sent: 'Отправлено',
-  failed: 'Не доставлено',
-  skipped: 'Пропущено',
-};
-const REMINDER_ERROR_LABELS: Record<string, string> = {
-  configuration_missing: 'Настройка отправки недоступна',
-  delivery_uncertain: 'Доставка не подтверждена. Автоповтор отключён для защиты от дублей',
-  transport_changed: 'Способ отправки изменён. Требуется проверка администратором',
-  recipient_missing: 'Не указан адрес получателя',
-  activation_required: 'Получателю нужно активировать доступ',
-  ineligible: 'Напоминание больше не требуется',
-  expired: 'Срок напоминания истёк',
-  attempt_limit: 'Лимит попыток исчерпан',
-  retry_window_expired: 'Окно повторной отправки истекло',
-  payload_changed: 'Данные обучения изменились',
-  provider_timeout: 'Сервис отправки не ответил вовремя',
-  provider_unreachable: 'Сервис отправки недоступен',
-  provider_rate_limited: 'Сервис отправки временно ограничил запросы',
-  provider_unavailable: 'Сервис отправки временно недоступен',
-  provider_rejected: 'Сервис отправки отклонил запрос',
-  internal_error: 'Не удалось подготовить напоминание',
-};
+const REMINDER_STATUS_LABEL_KEYS = {
+  queued: 'courseAssignments.reminderStatus.queued',
+  sending: 'courseAssignments.reminderStatus.sending',
+  sent: 'courseAssignments.reminderStatus.sent',
+  failed: 'courseAssignments.reminderStatus.failed',
+  skipped: 'courseAssignments.reminderStatus.skipped',
+} as const;
+const NOTIFICATION_STATUS_LABEL_KEYS = {
+  pending: 'courseAssignments.notificationStatus.pending',
+  claimed: 'courseAssignments.notificationStatus.claimed',
+  retry: 'courseAssignments.notificationStatus.retry',
+  delivered: 'courseAssignments.notificationStatus.delivered',
+  dead: 'courseAssignments.notificationStatus.dead',
+} as const;
+const REMINDER_ERROR_LABEL_KEYS = {
+  configuration_missing: 'courseAssignments.reminderErrors.configurationMissing',
+  delivery_uncertain: 'courseAssignments.reminderErrors.deliveryUncertain',
+  transport_changed: 'courseAssignments.reminderErrors.transportChanged',
+  recipient_missing: 'courseAssignments.reminderErrors.recipientMissing',
+  activation_required: 'courseAssignments.reminderErrors.activationRequired',
+  ineligible: 'courseAssignments.reminderErrors.ineligible',
+  expired: 'courseAssignments.reminderErrors.expired',
+  attempt_limit: 'courseAssignments.reminderErrors.attemptLimit',
+  retry_window_expired: 'courseAssignments.reminderErrors.retryWindowExpired',
+  payload_changed: 'courseAssignments.reminderErrors.payloadChanged',
+  provider_timeout: 'courseAssignments.reminderErrors.providerTimeout',
+  provider_unreachable: 'courseAssignments.reminderErrors.providerUnreachable',
+  provider_rate_limited: 'courseAssignments.reminderErrors.providerRateLimited',
+  provider_unavailable: 'courseAssignments.reminderErrors.providerUnavailable',
+  provider_rejected: 'courseAssignments.reminderErrors.providerRejected',
+  internal_error: 'courseAssignments.reminderErrors.internalError',
+} as const;
 // ── component ─────────────────────────────────────────────
 
 export default function EnrollmentsPage() {
   const { t, tp } = useT();
+  const translatedLabel = (
+    labels: Record<string, TranslationKey>,
+    value: string,
+    fallback?: TranslationKey,
+  ) => labels[value] ? t(labels[value]) : fallback ? t(fallback) : value;
   const { confirm, dialog } = useConfirm();
   const [courses, setCourses] = useState<Course[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -338,30 +350,30 @@ export default function EnrollmentsPage() {
     const personalLink = deliveryMode === 'personal_link';
     const withoutEmail = selected.filter((user) => !user.email?.trim());
     if (!personalLink && withoutEmail.length > 0) {
-      toast.error('У выбранных сотрудников нет email', {
-        description: 'Укажите email в карточке сотрудника или выберите персональную ссылку и PIN.',
+      toast.error(t('courseAssignments.validation.missingEmail'), {
+        description: t('courseAssignments.validation.missingEmailHint'),
       });
       return;
     }
     if (personalLink && selectedUsers.size !== 1) {
-      toast.info('Персональный доступ создаётся по одному сотруднику', {
-        description: 'Выберите одного человека, чтобы одноразовый PIN не потерялся и не попал другому адресату.',
+      toast.info(t('courseAssignments.validation.singlePersonalLink'), {
+        description: t('courseAssignments.validation.singlePersonalLinkHint'),
       });
       return;
     }
     const dueAtIso = personalLink && dueAt ? new Date(dueAt).toISOString() : null;
     const ok = await confirm({
-      title: 'Назначить обучение?',
+      title: t('courseAssignments.confirm.assignTitle'),
       message: [
-        `${course?.title || 'Выбранный курс'} будет назначен. Выбрано: ${tp('common.counts.learner', selected.length)}.`,
+        `${course?.title || t('courseAssignments.fallback.selectedCourse')} ${t('courseAssignments.confirm.willBeAssigned')}. ${t('courseAssignments.confirm.selected')}: ${tp('common.counts.learner', selected.length)}.`,
         personalLink
-          ? 'Для каждого сотрудника будет создана персональная ссылка и PIN.'
+          ? t('courseAssignments.confirm.personalLinkCreated')
           : withoutAccess.length > 0
-          ? `Ссылки активации будут подготовлены: ${tp('common.counts.learner', withoutAccess.length)}.`
+          ? `${t('courseAssignments.confirm.activationLinksPrepared')}: ${tp('common.counts.learner', withoutAccess.length)}.`
           : '',
       ].filter(Boolean).join(' '),
       variant: 'info',
-      confirmLabel: 'Назначить',
+      confirmLabel: t('courseAssignments.actions.assign'),
     });
     if (!ok) return;
     setEnrolling(true);
@@ -384,7 +396,7 @@ export default function EnrollmentsPage() {
         });
         if (!response.ok) {
           const error = await response.json().catch(() => ({}));
-          throw new Error(error?.detail || 'Не удалось создать назначение и персональный доступ');
+          throw new Error(error?.detail || t('courseAssignments.errors.createPersonalAccess'));
         }
         const credential = await response.json() as NoEmailAccessIssue;
         const learner = usersById.get(selectedUserId);
@@ -392,7 +404,7 @@ export default function EnrollmentsPage() {
           ...credential,
           learner_name: learner ? `${learner.first_name} ${learner.last_name}`.trim() : selectedUserId,
         });
-        toast.success('Курс назначен, персональная ссылка и PIN готовы');
+        toast.success(t('courseAssignments.success.personalLinkReady'));
         setSelectedUsers(new Set());
         await fetchEnrollments(selectedCourse);
         return;
@@ -416,13 +428,13 @@ export default function EnrollmentsPage() {
       }
       const created = await res.json();
       if (Array.isArray(created) && created.length > 0) {
-        toast.success(`Назначено: ${tp('common.counts.learner', created.length)}`);
+        toast.success(`${t('courseAssignments.success.assigned')}: ${tp('common.counts.learner', created.length)}`);
       } else {
-        toast.info('Новых назначений нет: выбранные обучающиеся уже назначены или недоступны');
+        toast.info(t('courseAssignments.info.noNewAssignments'));
       }
 
       if (!personalLink && withoutAccess.length > 0) {
-        toast.info('Назначение сохранено: настройте доступ у сотрудника в списке назначений.');
+        toast.info(t('courseAssignments.info.accessSetupAfterSave'));
       }
       setSelectedUsers(new Set());
       await fetchEnrollments(selectedCourse);
@@ -511,7 +523,7 @@ export default function EnrollmentsPage() {
 
   const copyAccessLink = async (url: string) => {
     await navigator.clipboard.writeText(url);
-    toast.success('Ссылка доступа скопирована');
+    toast.success(t('courseAssignments.success.accessLinkCopied'));
   };
 
   const handleAssignmentAccess = async (enrollment: Enrollment, learner?: User) => {
@@ -519,17 +531,17 @@ export default function EnrollmentsPage() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) {
-      toast.error('Не удалось получить состояние доступа');
+      toast.error(t('courseAssignments.errors.accessState'));
       return;
     }
     const access = await response.json() as EnrollmentAccess;
     if (access.access_kind === 'access_without_email' || access.access_kind === 'personal_link') {
       if (access.state === 'available') {
         const approved = await confirm({
-          title: 'Перевыпустить доступ?',
-          message: 'Действующая ссылка и PIN будут отозваны. Новый PIN показывается только один раз.',
+          title: t('courseAssignments.confirm.reissueTitle'),
+          message: t('courseAssignments.confirm.reissueMessage'),
           variant: 'danger',
-          confirmLabel: 'Перевыпустить',
+          confirmLabel: t('courseAssignments.actions.reissue'),
         });
         if (!approved) return;
       }
@@ -539,14 +551,14 @@ export default function EnrollmentsPage() {
         body: JSON.stringify({ delivery_mode: 'personal_link' }),
       });
       if (!issued.ok) {
-        toast.error('Не удалось подготовить доступ без email');
+        toast.error(t('courseAssignments.errors.preparePersonalAccess'));
         return;
       }
       const credential = await issued.json() as NoEmailAccessIssue;
       setAccessStates((current) => ({ ...current, [enrollment.id]: {
         enrollment_id: enrollment.id, user_id: enrollment.user_id,
         access_kind: access.access_kind, state: 'available', access_url: null,
-        expires_at: credential.expires_at, message: 'Защищённый доступ активен',
+        expires_at: credential.expires_at, message: t('courseAssignments.access.secureActive'),
       } }));
       setIssuedNoEmailAccess({
         ...credential,
@@ -565,20 +577,20 @@ export default function EnrollmentsPage() {
     });
     if (!invitationRes.ok) {
       const error = await invitationRes.json().catch(() => ({}));
-      toast.error('Не удалось подготовить активацию', { description: error?.detail });
+      toast.error(t('courseAssignments.errors.prepareActivation'), { description: error?.detail });
       return;
     }
     const invitation = await invitationRes.json() as AccessLink;
     setAccessLinks([invitation]);
-    toast.success('Ссылка активации подготовлена');
+    toast.success(t('courseAssignments.success.activationReady'));
   };
 
   const handleRevokeAssignmentAccess = async (enrollment: Enrollment, learner?: User) => {
     const approved = await confirm({
-      title: 'Отозвать персональный доступ?',
-      message: `Ссылка и PIN для ${learner ? `${learner.first_name} ${learner.last_name}`.trim() : 'сотрудника'} перестанут работать сразу. Назначение, прогресс и результаты сохранятся.`,
+      title: t('courseAssignments.confirm.revokeTitle'),
+      message: `${t('courseAssignments.confirm.revokeMessagePrefix')} ${learner ? `${learner.first_name} ${learner.last_name}`.trim() : t('courseAssignments.fallback.employee')} ${t('courseAssignments.confirm.revokeMessageSuffix')}`,
       variant: 'danger',
-      confirmLabel: 'Отозвать доступ',
+      confirmLabel: t('courseAssignments.actions.revokeAccess'),
     });
     if (!approved) return;
     const response = await fetch(`${API_URL}/v1/courses/enrollments/${enrollment.id}/access-policy/revoke`, {
@@ -587,7 +599,7 @@ export default function EnrollmentsPage() {
       body: JSON.stringify({ reason: 'revoked_from_assignments_ui' }),
     });
     if (!response.ok) {
-      toast.error('Не удалось отозвать персональный доступ');
+      toast.error(t('courseAssignments.errors.revokeAccess'));
       return;
     }
     setAccessStates((current) => ({
@@ -602,11 +614,11 @@ export default function EnrollmentsPage() {
         }),
         state: 'revoked',
         expires_at: null,
-        message: 'Доступ отозван',
+        message: t('courseAssignments.access.revoked'),
       },
     }));
     setIssuedNoEmailAccess((current) => current?.enrollment_id === enrollment.id ? null : current);
-    toast.success('Персональный доступ отозван');
+    toast.success(t('courseAssignments.success.personalAccessRevoked'));
   };
 
   const resendNotification = async (enrollment: Enrollment) => {
@@ -614,10 +626,10 @@ export default function EnrollmentsPage() {
       method: 'POST', headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) {
-      toast.error('Не удалось повторно отправить уведомление');
+      toast.error(t('courseAssignments.errors.resendNotification'));
       return;
     }
-    toast.success('Уведомление поставлено на повторную отправку');
+    toast.success(t('courseAssignments.success.notificationResent'));
     await fetchEnrollments(selectedCourse);
   };
 
@@ -640,12 +652,12 @@ export default function EnrollmentsPage() {
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(error?.detail || 'Не удалось сохранить правило');
+        throw new Error(error?.detail || t('courseAssignments.errors.saveRule'));
       }
-      toast.success('Черновик повторного обучения сохранён');
+      toast.success(t('courseAssignments.success.ruleDraftSaved'));
       await fetchRecurringRules();
     } catch (error: any) {
-      toast.error('Не удалось сохранить правило', { description: error?.message });
+      toast.error(t('courseAssignments.errors.saveRule'), { description: error?.message });
     } finally {
       setSavingRule(false);
     }
@@ -657,7 +669,97 @@ export default function EnrollmentsPage() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (response.ok) await fetchRecurringRules();
-    else toast.error('Не удалось остановить правило');
+    else toast.error(t('courseAssignments.errors.stopRule'));
+  };
+
+  const reminderDraftFor = (rule: RecurringLearningRule): ReminderDraft => (
+    reminderDrafts[rule.id] ?? {
+      enabled: rule.reminder_enabled ?? false,
+      daysBeforeDue: String(rule.reminder_days_before_due ?? 1),
+    }
+  );
+
+  const updateReminderDraft = (rule: RecurringLearningRule, update: Partial<ReminderDraft>) => {
+    setReminderDrafts((current) => ({
+      ...current,
+      [rule.id]: { ...reminderDraftFor(rule), ...update },
+    }));
+  };
+
+  const saveReminderSettings = async (rule: RecurringLearningRule) => {
+    const draft = reminderDraftFor(rule);
+    const daysBeforeDue = Number(draft.daysBeforeDue);
+    if (!Number.isInteger(daysBeforeDue) || daysBeforeDue < 1 || daysBeforeDue > 30) {
+      toast.error(t('courseAssignments.validation.reminderDays'));
+      return;
+    }
+    if (savingReminderRuleIds.has(rule.id)) return;
+
+    const requestToken = token;
+    const requestEpoch = reminderRequestEpoch.current;
+    const isCurrentRequest = () => reminderAuthTokenRef.current === requestToken
+      && reminderRequestEpoch.current === requestEpoch;
+    setSavingReminderRuleIds((current) => new Set(current).add(rule.id));
+    try {
+      const response = await fetch(`${API_URL}/v1/learning-cycles/${rule.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          reminder_enabled: draft.enabled,
+          reminder_days_before_due: daysBeforeDue,
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error?.detail || t('courseAssignments.errors.saveReminderSettings'));
+      }
+      const saved = await response.json() as RecurringLearningRule;
+      if (!isCurrentRequest()) return;
+      setRecurringRules((current) => current.map((item) => item.id === rule.id ? saved : item));
+      setReminderDrafts((current) => {
+        const { [rule.id]: _savedDraft, ...remaining } = current;
+        return remaining;
+      });
+      toast.success(t('courseAssignments.success.reminderSettingsSaved'));
+    } catch (error: any) {
+      if (isCurrentRequest()) {
+        toast.error(t('courseAssignments.errors.saveReminderSettings'), { description: error?.message });
+      }
+    } finally {
+      if (isCurrentRequest()) {
+        setSavingReminderRuleIds((current) => {
+          const next = new Set(current);
+          next.delete(rule.id);
+          return next;
+        });
+      }
+    }
+  };
+
+  const loadReminderHistory = async (ruleId: string) => {
+    reminderHistoryControllers.current[ruleId]?.abort();
+    const controller = new AbortController();
+    const requestToken = token;
+    reminderHistoryControllers.current[ruleId] = controller;
+    setReminderHistories((current) => ({ ...current, [ruleId]: { state: 'loading' } }));
+    try {
+      const response = await fetch(`${API_URL}/v1/learning-cycles/${ruleId}/reminders`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error('Reminder history request failed');
+      const items = await response.json() as ReminderStatus[];
+      if (!controller.signal.aborted && reminderAuthTokenRef.current === requestToken) {
+        setReminderHistories((current) => ({ ...current, [ruleId]: { state: 'loaded', items } }));
+      }
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError' && !controller.signal.aborted && reminderAuthTokenRef.current === requestToken) {
+        setReminderHistories((current) => ({ ...current, [ruleId]: { state: 'error' } }));
+      }
+    }
   };
 
   const reminderDraftFor = (rule: RecurringLearningRule): ReminderDraft => (
@@ -755,11 +857,11 @@ export default function EnrollmentsPage() {
       method: 'POST', headers: { Authorization: `Bearer ${token}` },
     });
     if (response.ok) {
-      toast.success('Повторное обучение запущено');
+      toast.success(t('courseAssignments.success.ruleStarted'));
       await fetchRecurringRules();
     } else {
       const error = await response.json().catch(() => ({}));
-      toast.error('Не удалось запустить правило', { description: error?.detail });
+      toast.error(t('courseAssignments.errors.startRule'), { description: error?.detail });
     }
   };
 
@@ -769,11 +871,9 @@ export default function EnrollmentsPage() {
     return (
       <Card>
         <CardContent className="p-6 space-y-2">
-          <h1 className="text-xl font-semibold">Назначения курсов</h1>
+          <h1 className="text-xl font-semibold">{t('courseAssignments.accessDenied.title')}</h1>
           <p className="text-sm text-muted-foreground">
-            Этот раздел доступен методологу. Администратор тенанта управляет
-            командой, доступами и настройками организации, но не назначает
-            учебные траектории обучающимся.
+            {t('courseAssignments.accessDenied.description')}
           </p>
         </CardContent>
       </Card>
@@ -785,13 +885,12 @@ export default function EnrollmentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Назначения и доступ</h1>
+        <h1 className="text-2xl font-bold">{t('courseAssignments.title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Назначайте опубликованные курсы сотрудникам и явно выбирайте способ доступа: email либо
-          персональная ссылка и PIN для открытия на телефоне без обычного входа.
+          {t('courseAssignments.description')}
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Тесты уроков становятся доступны вместе с курсом — назначать их отдельно не нужно.
+          {t('courseAssignments.testsDescription')}
         </p>
       </div>
 
@@ -801,9 +900,9 @@ export default function EnrollmentsPage() {
             <div className="flex items-start gap-3">
               <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
               <div>
-                <h2 className="font-semibold">Ссылка активации аккаунта</h2>
+                <h2 className="font-semibold">{t('courseAssignments.ui.activationTitle')}</h2>
                 <p className="text-sm text-muted-foreground">
-                  Это отдельный шаг от назначения курса. Назначенный курс уже сохранён.
+                  {t('courseAssignments.ui.activationDescription')}
                 </p>
               </div>
             </div>
@@ -813,7 +912,7 @@ export default function EnrollmentsPage() {
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">{item.email}</span>
                   <Button variant="outline" size="sm" onClick={() => copyAccessLink(item.invite_url)}>
                     <Copy className="h-4 w-4" aria-hidden="true" />
-                    Скопировать ссылку
+                    {t('courseAssignments.ui.copyLink')}
                   </Button>
                 </div>
               ))}
@@ -825,16 +924,16 @@ export default function EnrollmentsPage() {
       {issuedNoEmailAccess && (
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="space-y-2 p-4">
-            <h2 className="font-semibold">Персональный доступ сотрудника</h2>
+            <h2 className="font-semibold">{t('courseAssignments.ui.personalAccessTitle')}</h2>
             <p className="text-sm text-muted-foreground">
-              {issuedNoEmailAccess.learner_name}. PIN показывается только сейчас; передайте его отдельно от ссылки.
+              {issuedNoEmailAccess.learner_name}. {t('courseAssignments.ui.pinNotice')}
             </p>
             <p className="break-all text-sm">{issuedNoEmailAccess.access_url}</p>
             <p className="font-mono text-lg">PIN: {issuedNoEmailAccess.temporary_pin}</p>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => void copyAccessLink(issuedNoEmailAccess.access_url)}>
                 <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
-                Копировать ссылку
+                {t('courseAssignments.ui.copyLink')}
               </Button>
               <Button
                 type="button"
@@ -842,17 +941,17 @@ export default function EnrollmentsPage() {
                 size="sm"
                 onClick={async () => {
                   await navigator.clipboard.writeText(issuedNoEmailAccess.temporary_pin);
-                  toast.success('PIN скопирован');
+                  toast.success(t('courseAssignments.success.pinCopied'));
                 }}
               >
                 <KeyRound className="mr-2 h-4 w-4" aria-hidden="true" />
-                Копировать PIN
+                {t('courseAssignments.ui.copyPin')}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Действует до {new Date(issuedNoEmailAccess.link_expires_at || issuedNoEmailAccess.expires_at || '').toLocaleString()}.
+              {t('courseAssignments.ui.expiresAt')} {new Date(issuedNoEmailAccess.link_expires_at || issuedNoEmailAccess.expires_at || '').toLocaleString()}.
               {issuedNoEmailAccess.completion_window_minutes
-                ? ` После первого входа на прохождение отводится ${issuedNoEmailAccess.completion_window_minutes} минут.`
+                ? t('courseAssignments.ui.completionWindow', { minutes: issuedNoEmailAccess.completion_window_minutes })
                 : ''}
             </p>
           </CardContent>
@@ -868,11 +967,11 @@ export default function EnrollmentsPage() {
             <SearchInput
               value={courseSearch}
               onChange={setCourseSearch}
-              placeholder="Найти курс…"
+              placeholder={t('courseAssignments.ui.searchCourse')}
             />
 
             <select
-              aria-label="Курс для назначения"
+              aria-label={t('courseAssignments.ui.courseLabel')}
               value={selectedCourse}
               onChange={(e) => {
                 setAccessLinks([]);
@@ -891,7 +990,7 @@ export default function EnrollmentsPage() {
             </select>
             {courses.length > 0 && filteredCourses.length === 0 && (
               <p className="text-xs text-muted-foreground">
-                Ничего не найдено. Попробуйте короче запрос.
+                {t('courseAssignments.ui.noCourses')}
               </p>
             )}
 
@@ -901,7 +1000,7 @@ export default function EnrollmentsPage() {
                   <h3 className="font-medium text-sm text-muted-foreground">
                     {t('courses.enrollments')}: {filteredEnrollments.length}
                     {filteredEnrollments.length !== enrollments.length &&
-                      ` из ${enrollments.length}`}
+                      ` ${t('courseAssignments.ui.ofTotal', { total: enrollments.length })}`}
                   </h3>
                   {/* Status filter — backend уже вернул все,
                      фильтруем UI-сайдом потому что дешевле. */}
@@ -911,12 +1010,12 @@ export default function EnrollmentsPage() {
                       setStatusFilter(e.target.value as StatusFilter)
                     }
                     className="text-xs border rounded-md px-2 py-1"
-                    aria-label="Фильтр по статусу"
+                    aria-label={t('courseAssignments.ui.statusFilter')}
                   >
-                    <option value="all">Все статусы</option>
-                    <option value="enrolled">Записан</option>
-                    <option value="in_progress">В процессе</option>
-                    <option value="completed">Пройден</option>
+                    <option value="all">{t('courseAssignments.status.all')}</option>
+                    <option value="enrolled">{t('courseAssignments.status.enrolled')}</option>
+                    <option value="in_progress">{t('courseAssignments.status.inProgress')}</option>
+                    <option value="completed">{t('courseAssignments.status.completed')}</option>
                   </select>
                 </div>
 
@@ -926,7 +1025,7 @@ export default function EnrollmentsPage() {
                   <SearchInput
                     value={userSearch}
                     onChange={setUserSearch}
-                    placeholder="Найти сотрудника в списке…"
+                    placeholder={t('courseAssignments.ui.searchEmployee')}
                   />
                 )}
 
@@ -934,7 +1033,7 @@ export default function EnrollmentsPage() {
                   <p className="text-sm text-muted-foreground">
                     {enrollments.length === 0
                       ? t('courses.noCourses')
-                      : 'Нет записей, подходящих под фильтр'}
+                      : t('courseAssignments.ui.noFilteredEnrollments')}
                   </p>
                 ) : (
                   <Table>
@@ -942,10 +1041,10 @@ export default function EnrollmentsPage() {
                       <tr>
                         <th className="text-left p-2">{t('users.name')}</th>
                         <th className="text-left p-2">{t('courses.status')}</th>
-                        <th className="text-left p-2">Источник</th>
-                        <th className="text-left p-2">Доступ</th>
-                        <th className="text-left p-2">Уведомление</th>
-                        <th className="text-left p-2">Действие</th>
+                        <th className="text-left p-2">{t('courseAssignments.ui.source')}</th>
+                        <th className="text-left p-2">{t('courseAssignments.ui.access')}</th>
+                        <th className="text-left p-2">{t('courseAssignments.ui.notification')}</th>
+                        <th className="text-left p-2">{t('courseAssignments.ui.action')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -970,7 +1069,7 @@ export default function EnrollmentsPage() {
                                 </>
                               ) : (
                                 <span className="text-muted-foreground">
-                                  {e.user_id} (сотрудник не найден)
+                                  {e.user_id} ({t('courseAssignments.ui.missingUser')})
                                 </span>
                               )}
                             </td>
@@ -980,7 +1079,7 @@ export default function EnrollmentsPage() {
                                   className="text-sm font-normal leading-5"
                                   variant={STATUS_BADGE_VARIANT[e.status] || 'outline'}
                                 >
-                                  {STATUS_LABELS[e.status] || e.status}
+                                  {translatedLabel(STATUS_LABEL_KEYS, e.status)}
                                 </Badge>
                               </span>
                             </td>
@@ -1004,8 +1103,8 @@ export default function EnrollmentsPage() {
                                     onClick={() => void handleAssignmentAccess(e, u)}
                                   >
                                     {u && !u.email
-                                      ? accessStates[e.id]?.state === 'available' ? 'Перевыпустить доступ' : 'Создать доступ'
-                                      : 'Получить ссылку'}
+                                      ? accessStates[e.id]?.state === 'available' ? t('courseAssignments.ui.reissueAccess') : t('courseAssignments.ui.createAccess')
+                                      : t('courseAssignments.ui.getLink')}
                                   </Button>
                                 )}
                                 {u && !u.email && accessStates[e.id]?.state === 'available' && (
@@ -1015,16 +1114,16 @@ export default function EnrollmentsPage() {
                                     size="sm"
                                     onClick={() => void handleRevokeAssignmentAccess(e, u)}
                                   >
-                                    Отозвать доступ
+                                    {t('courseAssignments.actions.revokeAccess')}
                                   </Button>
                                 )}
                                 {e.status === 'completed' && accessStates[e.id]?.state !== 'available' && (
-                                  <span className="text-xs text-muted-foreground">Доступ отозван</span>
+                                  <span className="text-xs text-muted-foreground">{t('courseAssignments.access.revoked')}</span>
                                 )}
                               </div>
                               {u && !u.email && accessStates[e.id]?.state === 'available' && accessStates[e.id]?.expires_at && (
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                  Активен до {new Date(accessStates[e.id].expires_at!).toLocaleString()}
+                                  {t('courseAssignments.ui.activeUntil')} {new Date(accessStates[e.id].expires_at!).toLocaleString()}
                                 </p>
                               )}
                             </td>
@@ -1033,13 +1132,13 @@ export default function EnrollmentsPage() {
                                 <div className="space-y-1">
                                   <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5">
                                     <Badge className="text-sm font-normal leading-5" variant={e.notification_status === 'delivered' ? 'default' : e.notification_status === 'dead' ? 'outline' : 'secondary'}>
-                                      {{ pending: 'Ожидает', claimed: 'Отправляется', retry: 'Повтор', delivered: 'Доставлено', dead: 'Не доставлено' }[e.notification_status]}
+                                      {translatedLabel(NOTIFICATION_STATUS_LABEL_KEYS, e.notification_status)}
                                     </Badge>
                                   </span>
                                   {e.notification_error && <p className="text-xs text-muted-foreground">{e.notification_error}</p>}
-                                  <Button variant="outline" size="sm" onClick={() => void resendNotification(e)}>Отправить повторно</Button>
+                                  <Button variant="outline" size="sm" onClick={() => void resendNotification(e)}>{t('courseAssignments.ui.resend')}</Button>
                                 </div>
-                              ) : <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5 text-muted-foreground">Не требуется</span>}
+                              ) : <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5 text-muted-foreground">{t('courseAssignments.ui.notRequired')}</span>}
                             </td>
                             <td className="p-2 align-top">
                               <Button
@@ -1068,7 +1167,7 @@ export default function EnrollmentsPage() {
         <Card>
           <CardContent className="p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold">Обучающиеся</h2>
+              <h2 className="font-semibold">{t('courseAssignments.ui.learners')}</h2>
               <Button
                 onClick={handleEnroll}
                 disabled={
@@ -1078,11 +1177,11 @@ export default function EnrollmentsPage() {
               >
                 {enrolling
                   ? t('common.loading')
-                  : `Назначить (${selectedUsers.size})`}
+                  : t('courseAssignments.ui.assignCount', { count: selectedUsers.size })}
               </Button>
             </div>
             <fieldset className="space-y-3 rounded-md border border-border p-3">
-              <legend className="px-1 text-sm font-medium">Как сотрудник получит доступ</legend>
+              <legend className="px-1 text-sm font-medium">{t('courseAssignments.ui.deliveryLegend')}</legend>
               <label className="flex items-start gap-2 text-sm">
                 <input
                   type="radio"
@@ -1091,7 +1190,7 @@ export default function EnrollmentsPage() {
                   checked={deliveryMode === 'email'}
                   onChange={() => setDeliveryMode('email')}
                 />
-                <span><b>Email</b><span className="block text-xs text-muted-foreground">Отправим приглашение или уведомление на кадровый email.</span></span>
+                <span><b>{t('courseAssignments.ui.email')}</b><span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.emailHint')}</span></span>
               </label>
               <label className="flex items-start gap-2 text-sm">
                 <input
@@ -1101,72 +1200,72 @@ export default function EnrollmentsPage() {
                   checked={deliveryMode === 'personal_link'}
                   onChange={() => setDeliveryMode('personal_link')}
                 />
-                <span><b>Персональная ссылка и PIN</b><span className="block text-xs text-muted-foreground">Подходит для телефона и не требует обычного входа или наличия email.</span></span>
+                <span><b>{t('courseAssignments.ui.personalLink')}</b><span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.personalLinkHint')}</span></span>
               </label>
               {deliveryMode === 'personal_link' && (
                 <div data-testid="personal-link-settings-grid" className="grid gap-3 sm:grid-cols-3">
                   <label data-testid="personal-link-field" className="grid grid-rows-[2.5rem_2.5rem_auto] gap-y-1 text-sm">
-                    <span className="leading-5">Время на прохождение после первого входа, минут</span>
+                    <span className="leading-5">{t('courseAssignments.ui.completionWindowLabel')}</span>
                     <Input
                       className="h-10"
                       type="number"
-                      aria-label="Время на прохождение после первого входа, минут"
+                      aria-label={t('courseAssignments.ui.completionWindowLabel')}
                       min={1}
                       max={1440}
                       value={completionWindowMinutes ?? ''}
-                      placeholder="Без ограничения"
+                      placeholder={t('courseAssignments.ui.unlimited')}
                       onChange={(event) => setCompletionWindowMinutes(event.target.value ? Number(event.target.value) : null)}
                     />
-                    <span className="block text-xs text-muted-foreground">Таймер запускается, когда сотрудник впервые открыл назначение.</span>
+                    <span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.completionWindowHint')}</span>
                   </label>
                   <label data-testid="personal-link-field" className="grid grid-rows-[2.5rem_2.5rem_auto] gap-y-1 text-sm">
-                    <span className="leading-5">Ссылка действительна, дней</span>
+                    <span className="leading-5">{t('courseAssignments.ui.linkValidityLabel')}</span>
                     <Input
                       className="h-10"
                       type="number"
-                      aria-label="Ссылка действительна, дней"
+                      aria-label={t('courseAssignments.ui.linkValidityLabel')}
                       min={1}
                       max={31}
                       value={linkValidityDays}
                       onChange={(event) => setLinkValidityDays(Number(event.target.value))}
                     />
-                    <span className="block text-xs text-muted-foreground">Это срок входа по ссылке, а не время прохождения курса.</span>
+                    <span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.linkValidityHint')}</span>
                   </label>
                   <label data-testid="personal-link-field" className="grid grid-rows-[2.5rem_2.5rem_auto] gap-y-1 text-sm">
-                    <span className="leading-5">Завершить до (необязательно)</span>
+                    <span className="leading-5">{t('courseAssignments.ui.dueDateLabel')}</span>
                     <Input
                       className="h-10"
                       type="datetime-local"
-                      aria-label="Завершить до"
+                      aria-label={t('courseAssignments.ui.dueDateAria')}
                       value={dueAt}
                       onChange={(event) => setDueAt(event.target.value)}
                     />
-                    <span className="block text-xs text-muted-foreground">Абсолютный крайний срок действует вместе с таймером после первого входа.</span>
+                    <span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.dueDateHint')}</span>
                   </label>
                 </div>
               )}
               {deliveryMode === 'personal_link' && selectedUsers.size > 1 && (
                 <p className="text-sm text-warning" role="alert">
-                  Для персональной ссылки выберите одного сотрудника: PIN показывается только один раз.
+                  {t('courseAssignments.ui.singleEmployeeHint')}
                 </p>
               )}
             </fieldset>
             <p className="text-sm text-muted-foreground">
               {selectedCourse
-                ? `Доступно: ${availableUsers.length} из ${tp('common.counts.learnerTotal', users.length)}`
-                : 'Сначала выберите курс слева'}
+                ? t('courseAssignments.ui.availableCount', { available: availableUsers.length, total: tp('common.counts.learnerTotal', users.length) })
+                : t('courseAssignments.ui.selectCourseHint')}
             </p>
             <SearchInput
               value={userSearch}
               onChange={setUserSearch}
-              placeholder="Найти обучающегося по имени, email или табельному…"
+              placeholder={t('courseAssignments.ui.searchLearner')}
             />
             <div className="max-h-96 overflow-y-auto space-y-1">
               {availableUsers.length === 0 && users.length > 0 ? (
                 <p className="text-xs text-muted-foreground p-2">
                   {selectedCourse
-                    ? 'Все сотрудники уже записаны или не подходят под фильтр'
-                    : 'Выберите курс слева, чтобы увидеть список'}
+                    ? t('courseAssignments.ui.allAlreadyAssigned')
+                    : t('courseAssignments.ui.selectCourseToList')}
                 </p>
               ) : (
                 availableUsers.map((user) => (
@@ -1192,17 +1291,17 @@ export default function EnrollmentsPage() {
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {user.position_name && `${user.position_name} · `}
-                        {user.email || 'Email не указан'}
+                        {user.email || t('courseAssignments.ui.emailMissing')}
                         {user.personnel_number && ` · ${user.personnel_number}`}
                       </div>
                       {user.has_login_access === false && (
                         <div className="mt-1 text-xs font-medium text-warning">
-                          После назначения будет создана ссылка доступа
+                          {t('courseAssignments.ui.accessLinkAfterAssignment')}
                         </div>
                       )}
                       {deliveryMode === 'email' && !user.email?.trim() && (
                         <div className="mt-1 text-xs font-medium text-warning">
-                          Для этого сотрудника выберите персональную ссылку и PIN
+                          {t('courseAssignments.ui.personalLinkRequired')}
                         </div>
                       )}
                     </div>
@@ -1217,44 +1316,42 @@ export default function EnrollmentsPage() {
       <Card>
         <CardContent className="space-y-4 p-4">
           <div>
-            <h2 className="font-semibold">Повторное обучение</h2>
+            <h2 className="font-semibold">{t('courseAssignments.ui.recurringTitle')}</h2>
             <p className="text-sm text-muted-foreground">
-              Каждый запуск создаёт отдельный период обучения со своим прогрессом,
-              попытками тестов, сроком и сертификатом. Поддерживаются опубликованные
-              обычные курсы; SCORM пока недоступен для повторных циклов.
+              {t('courseAssignments.ui.recurringDescription')}
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
             <label className="text-sm">
-              Курс
+              {t('courseAssignments.ui.course')}
               <select className="mt-1 block min-w-52 rounded border bg-background px-2 py-1" value={recurringCourseId} onChange={(event) => setRecurringCourseId(event.target.value)}>
-                <option value="">Выберите курс</option>
+                <option value="">{t('courseAssignments.ui.selectCourse')}</option>
                 {courses.map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}
               </select>
             </label>
             <label className="text-sm">
-              Обучающийся
+              {t('courseAssignments.ui.learner')}
               <select className="mt-1 block min-w-52 rounded border bg-background px-2 py-1" value={recurringUserId} onChange={(event) => setRecurringUserId(event.target.value)}>
-                <option value="">Выберите обучающегося</option>
+                <option value="">{t('courseAssignments.ui.selectLearner')}</option>
                 {users.map((learner) => <option key={learner.id} value={learner.id}>{learner.first_name} {learner.last_name}</option>)}
               </select>
             </label>
             <label className="text-sm">
-              Периодичность, дней
+              {t('courseAssignments.ui.cadence')}
               <input className="mt-1 block w-32 rounded border bg-background px-2 py-1" type="number" min={1} max={3660} value={cadenceDays} onChange={(event) => setCadenceDays(Number(event.target.value))} />
             </label>
             <label className="text-sm">
-              Срок выполнения, дней
+              {t('courseAssignments.ui.dueDays')}
               <input className="mt-1 block w-32 rounded border bg-background px-2 py-1" type="number" min={0} max={365} value={dueDays} onChange={(event) => setDueDays(Number(event.target.value))} />
             </label>
             <Button variant="outline" onClick={() => void createRecurringRule()} disabled={savingRule || !recurringCourseId || !recurringUserId}>
-              Сохранить черновик
+              {t('courseAssignments.ui.saveDraft')}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">Можно выбрать сотрудника, который уже проходил этот курс: черновик не меняет его текущее назначение.</p>
+          <p className="text-xs text-muted-foreground">{t('courseAssignments.ui.recurringHint')}</p>
           <div className="space-y-2">
             {recurringRules.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Правил пока нет.</p>
+              <p className="text-sm text-muted-foreground">{t('courseAssignments.ui.noRules')}</p>
             ) : recurringRules.map((rule) => {
               const course = courses.find((item) => item.id === rule.course_id);
               const learner = users.find((item) => item.id === rule.user_id);
@@ -1266,28 +1363,95 @@ export default function EnrollmentsPage() {
               const reminderDraftIsSaved = reminderDraft.enabled === savedReminderEnabled
                 && Number(reminderDraft.daysBeforeDue) === savedReminderDays;
               const reminderHistory = reminderHistories[rule.id] ?? { state: 'idle' as const };
-              const occurrenceLabel = occurrence ? ({
-                assigned: 'Назначено', overdue: 'Просрочено', completed: 'Завершено',
-                completed_late: 'Завершено с опозданием', skipped: 'Пропущено',
-              } as const)[occurrence.status] : null;
+              const occurrenceLabel = occurrence
+                ? translatedLabel({
+                    assigned: 'courseAssignments.occurrence.assigned',
+                    overdue: 'courseAssignments.occurrence.overdue',
+                    completed: 'courseAssignments.occurrence.completed',
+                    completed_late: 'courseAssignments.occurrence.completedLate',
+                    skipped: 'courseAssignments.occurrence.skipped',
+                  }, occurrence.status)
+                : null;
               const targetLabel = course?.title || (rule.target_type === 'learning_path' || rule.learning_path_id
-                ? 'Программа обучения'
-                : 'Курс обучения');
+                ? t('courseAssignments.ui.learningProgram')
+                : t('courseAssignments.ui.learningCourse'));
               return (
                 <div key={rule.id} className="space-y-3 rounded border p-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium">{targetLabel} · {learner ? `${learner.first_name} ${learner.last_name}` : 'Обучающийся'}</p>
-                    <p className="text-xs text-muted-foreground">Каждые {rule.cadence_days} дн., срок {rule.due_days} дн. · Следующий запуск: {rule.next_run_at ? new Date(rule.next_run_at).toLocaleString() : 'не запланирован'}</p>
+                    <p className="text-sm font-medium">{targetLabel} · {learner ? `${learner.first_name} ${learner.last_name}` : t('courseAssignments.ui.learnerFallback')}</p>
+                    <p className="text-xs text-muted-foreground">{t('courseAssignments.ui.recurrenceSummary', { cadence: rule.cadence_days, due: rule.due_days, next: rule.next_run_at ? new Date(rule.next_run_at).toLocaleString() : t('courseAssignments.ui.notScheduled') })}</p>
                     {occurrence && <p className={`mt-1 text-xs ${occurrence.status === 'overdue' || occurrence.status === 'completed_late' ? 'font-medium text-destructive' : 'text-muted-foreground'}`}>
-                      Последний период: {occurrenceLabel}. Срок: {new Date(occurrence.due_at).toLocaleString()}.
-                      {occurrence.completed_at ? ` Завершено: ${new Date(occurrence.completed_at).toLocaleString()}.` : ''}
+                      {t('courseAssignments.ui.occurrenceSummary', { status: occurrenceLabel || '', due: new Date(occurrence.due_at).toLocaleString() })}
+                      {occurrence.completed_at ? ` ${t('courseAssignments.ui.completedSummary', { completed: new Date(occurrence.completed_at).toLocaleString() })}` : ''}
                     </p>}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline">{rule.status === 'draft' ? 'Черновик' : rule.status === 'active' ? 'Активно' : 'Остановлено'}</Badge>
-                    {rule.status === 'active' && <Button size="sm" variant="outline" onClick={() => void deactivateRecurringRule(rule.id)}>Остановить</Button>}
-                    {rule.status !== 'active' && <Button size="sm" onClick={() => void activateRecurringRule(rule.id)}>Запустить</Button>}
+                    <Badge variant="outline">{rule.status === 'draft' ? t('courseAssignments.ui.draft') : rule.status === 'active' ? t('courseAssignments.ui.active') : t('courseAssignments.ui.stopped')}</Badge>
+                    {rule.status === 'active' && <Button size="sm" variant="outline" onClick={() => void deactivateRecurringRule(rule.id)}>{t('courseAssignments.ui.stop')}</Button>}
+                    {rule.status !== 'active' && <Button size="sm" onClick={() => void activateRecurringRule(rule.id)}>{t('courseAssignments.ui.start')}</Button>}
+                  </div>
+                  </div>
+                  <fieldset className="space-y-2 rounded bg-muted/30 p-3">
+                    <legend className="px-1 text-sm font-medium">{t('courseAssignments.ui.reminderTitle')}</legend>
+                    <p className="text-xs text-muted-foreground">{t('courseAssignments.ui.reminderDescription')}</p>
+                    <div className="flex flex-wrap items-end gap-3">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={reminderDraft.enabled}
+                          disabled={savingReminder}
+                          onChange={(event) => updateReminderDraft(rule, { enabled: event.target.checked })}
+                        />
+                        {t('courseAssignments.ui.enableReminder')}
+                      </label>
+                      <label className="text-sm">
+                        {t('courseAssignments.ui.daysBeforeDue')}
+                        <input
+                          aria-label={t('courseAssignments.ui.daysBeforeDueForRule', { id: rule.id })}
+                          className="mt-1 block w-28 rounded border bg-background px-2 py-1"
+                          type="number"
+                          min={1}
+                          max={30}
+                          inputMode="numeric"
+                          value={reminderDraft.daysBeforeDue}
+                          disabled={savingReminder}
+                          onChange={(event) => updateReminderDraft(rule, { daysBeforeDue: event.target.value })}
+                        />
+                      </label>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void saveReminderSettings(rule)}
+                        disabled={savingReminder || reminderDraftIsSaved}
+                      >
+                        {savingReminder ? t('courseAssignments.ui.saving') : t('courseAssignments.ui.saveReminder')}
+                      </Button>
+                      <span className="text-xs text-muted-foreground" aria-live="polite">
+                        {reminderDraftIsSaved ? t('courseAssignments.ui.saved') : t('courseAssignments.ui.unsaved')}
+                      </span>
+                    </div>
+                  </fieldset>
+                  <div className="space-y-2">
+                    <Button size="sm" variant="ghost" onClick={() => void loadReminderHistory(rule.id)} disabled={reminderHistory.state === 'loading'}>
+                      {reminderHistory.state === 'loading' ? t('courseAssignments.ui.loadingReminderStatuses') : t('courseAssignments.ui.showReminderStatuses')}
+                    </Button>
+                    <div aria-live="polite">
+                      {reminderHistory.state === 'loading' && <p className="text-xs text-muted-foreground">{t('courseAssignments.ui.loadingReminderStatuses')}</p>}
+                      {reminderHistory.state === 'error' && <p className="text-xs text-destructive">{t('courseAssignments.ui.reminderHistoryError')}</p>}
+                      {reminderHistory.state === 'loaded' && reminderHistory.items.length === 0 && <p className="text-xs text-muted-foreground">{t('courseAssignments.ui.noReminderStatuses')}</p>}
+                      {reminderHistory.state === 'loaded' && reminderHistory.items.length > 0 && (
+                        <ul className="space-y-1 text-xs text-muted-foreground" aria-label={t('courseAssignments.ui.reminderStatusesForRule', { id: rule.id })}>
+                          {reminderHistory.items.map((status) => (
+                            <li key={status.id}>
+                              {t('courseAssignments.ui.reminderStatusSummary', { status: translatedLabel(REMINDER_STATUS_LABEL_KEYS, status.status, 'courseAssignments.reminderStatus.unknown'), attempts: status.attempt_count, scheduled: new Date(status.scheduled_at).toLocaleString() })}
+                              {status.delivered_at ? ` · ${t('courseAssignments.ui.sentSummary', { sent: new Date(status.delivered_at).toLocaleString() })}` : ''}
+                              {status.last_error_category ? ` · ${t('courseAssignments.ui.reasonSummary', { reason: translatedLabel(REMINDER_ERROR_LABEL_KEYS, status.last_error_category, 'courseAssignments.reminderErrors.unknown') })}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
                   </div>
                   <fieldset className="space-y-2 rounded bg-muted/30 p-3">

@@ -5,6 +5,62 @@ import AdminStaffPage from '@/app/admin/staff/page';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 
+vi.mock('@/i18n/useT', () => {
+  const values: Record<string, string> = {
+    'staffPage.tabs.import': 'Импорт',
+    'staffPage.tabs.structure': 'Структура',
+    'authenticatedUi.adminStaff.import.title': 'Адаптивная загрузка штатки',
+    'authenticatedUi.adminStaff.import.chooseFileAria': 'Выбрать файл штатного расписания для анализа',
+    'authenticatedUi.adminStaff.import.startAnalysis': 'Запустить анализ файла',
+    'authenticatedUi.adminStaff.import.mappingNeeded': 'Нужно сопоставить колонки',
+    'authenticatedUi.adminStaff.fields.personnelNumber': 'Табельный номер',
+    'authenticatedUi.adminStaff.fields.firstName': 'Имя',
+    'authenticatedUi.adminStaff.fields.lastName': 'Фамилия',
+    'authenticatedUi.adminStaff.fields.department': 'Отдел',
+    'authenticatedUi.adminStaff.fields.position': 'Должность',
+    'authenticatedUi.adminStaff.import.saveMapping': 'Сохранить сопоставление и продолжить',
+    'authenticatedUi.adminStaff.import.proposalTitle': 'Предлагаемая структура',
+    'authenticatedUi.adminStaff.import.refreshAnalysis': 'Обновить анализ',
+    'authenticatedUi.adminStaff.import.editStructure': 'Редактировать структуру',
+    'authenticatedUi.adminStaff.import.branchNameAria': 'Название филиала {index}',
+    'authenticatedUi.adminStaff.import.positionNameAria': 'Название должности {index}',
+    'authenticatedUi.adminStaff.import.positionUnitAria': 'Подразделение должности {index}',
+    'authenticatedUi.adminStaff.import.employeePositionAria': 'Должность сотрудника {index}',
+    'authenticatedUi.adminStaff.import.saveCorrections': 'Сохранить исправления',
+    'authenticatedUi.adminStaff.structure.branches': 'Филиалы',
+    'authenticatedUi.adminStaff.structure.departments': 'Отделы',
+    'authenticatedUi.adminStaff.structure.addBranch': '+ Добавить филиал',
+    'authenticatedUi.adminStaff.structure.addDepartment': '+ Добавить отдел',
+    'authenticatedUi.adminStaff.structure.profileAndTraining': 'Профиль и обучение',
+    'authenticatedUi.adminStaff.structure.assignTraining': 'Назначить обучение',
+    'authenticatedUi.adminStaff.actions.edit': 'Изменить',
+    'authenticatedUi.adminStaff.actions.rename': 'Переименовать',
+    'authenticatedUi.adminStaff.actions.archive': 'Архивировать',
+    'authenticatedUi.adminStaff.actions.save': 'Сохранить',
+    'authenticatedUi.adminStaff.actions.create': 'Создать',
+    'authenticatedUi.adminStaff.structure.departmentPlaceholder': 'Например, Отдел внутреннего контроля',
+    'authenticatedUi.adminStaff.structure.branchPlaceholder': 'Например, Филиал Павлодар',
+    'authenticatedUi.adminStaff.structure.unassignedTitle': 'Требуют распределения',
+    'authenticatedUi.adminStaff.employee.title': 'Данные сотрудника',
+    'authenticatedUi.adminStaff.fields.firstNameRequired': 'Имя *',
+    'authenticatedUi.adminStaff.fields.lastNameRequired': 'Фамилия *',
+  };
+  const interpolate = (template: string, params?: Record<string, string | number>) =>
+    template.replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? `{${name}}`));
+  return {
+    useT: () => ({
+      t: (key: string, params?: Record<string, string | number>) => interpolate(values[key] ?? key, params),
+      tp: (key: string, count: number) => {
+        if (key.endsWith('.department')) return `${count} отдел`;
+        if (key.endsWith('.position')) return `${count} должность`;
+        if (key.endsWith('.employee')) return `${count} сотрудник`;
+        return `${count}`;
+      },
+      lang: 'ru',
+    }),
+  };
+});
+
 vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn(),
@@ -447,8 +503,8 @@ describe('organization structure interactions', () => {
     render(<AdminStaffPage />);
     fireEvent.click(screen.getByRole('tab', { name: /Структура/i }));
     expect(await screen.findByText('Филиал Павлодар')).toBeInTheDocument();
-    expect(screen.getByText('Филиалов')).toBeInTheDocument();
-    expect(screen.getByText('Отделов')).toBeInTheDocument();
+    expect(screen.getAllByText('Филиалы').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Отделы').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: /Добавить отдел/i }));
     const dialog = await screen.findByRole('dialog');
     const name = within(dialog).getByPlaceholderText(/Отдел внутреннего контроля/i);

@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { useT } from "@/i18n/useT";
+import { useT, type TranslationKey } from "@/i18n/useT";
 import { toast } from "@/components/ui/Toast";
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from "@/components/ui";
 
@@ -61,12 +61,12 @@ interface BulkCreateResponse {
   failed: { index: number; name: string; error: string }[];
 }
 
-function instructionLabel(position: Position): string {
-  if (!position.instruction_document_id) return "ДИ не загружена";
+function instructionLabel(position: Position, t: (key: TranslationKey) => string): string {
+  if (!position.instruction_document_id) return t("authenticatedUi.positions.instructionNotUploaded" as TranslationKey);
   const status = position.instruction_embedding_status;
-  if (status === "failed" || status === "error") return "Ошибка обработки ДИ";
-  if (status === "pending" || status === "processing") return "ДИ обрабатывается";
-  return "ДИ загружена";
+  if (status === "failed" || status === "error") return t("authenticatedUi.positions.instructionProcessingError" as TranslationKey);
+  if (status === "pending" || status === "processing") return t("authenticatedUi.positions.instructionProcessing" as TranslationKey);
+  return t("authenticatedUi.positions.instructionUploaded" as TranslationKey);
 }
 
 function instructionVariant(position: Position): "default" | "secondary" | "destructive" | "outline" {
@@ -80,6 +80,10 @@ function instructionVariant(position: Position): "default" | "secondary" | "dest
 
 export default function PositionsPage() {
   const { t, tp } = useT();
+  const ui = useCallback(
+    (key: string, params?: Record<string, string | number>) => t(key as TranslationKey, params),
+    [t],
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,11 +106,11 @@ export default function PositionsPage() {
       const response = await api.get<Position[]>("/v1/positions");
       setPositions(Array.isArray(response.data) ? response.data : []);
     } catch {
-      setLoadError("Не удалось загрузить должности. Проверьте соединение и повторите попытку.");
+      setLoadError(ui("authenticatedUi.positions.loadError"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [ui]);
 
   useEffect(() => {
     void fetchPositions();
@@ -142,11 +146,11 @@ export default function PositionsPage() {
         requirements: "",
         course_ids: [],
       });
-      toast.success("Должность создана");
+      toast.success(ui("authenticatedUi.positions.createSuccess"));
       resetCreate();
       await fetchPositions();
     } catch {
-      toast.error("Не удалось создать должность");
+      toast.error(ui("authenticatedUi.positions.createError"));
     } finally {
       setCreating(false);
     }
@@ -157,7 +161,7 @@ export default function PositionsPage() {
     event.target.value = "";
     if (!files.length) return;
     if (files.length > 50) {
-      setBulkError("Можно выбрать не более 50 файлов за один раз.");
+      setBulkError(ui("authenticatedUi.positions.bulkMaxFiles"));
       return;
     }
     setBulkLoading(true);
@@ -175,7 +179,7 @@ export default function PositionsPage() {
       setBulkItems(items);
       setShowBulkPreview(true);
     } catch {
-      setBulkError("Не удалось обработать файлы. Проверьте формат и размер документов.");
+      setBulkError(ui("authenticatedUi.positions.bulkAnalyzeError"));
     } finally {
       setBulkLoading(false);
     }
@@ -202,14 +206,14 @@ export default function PositionsPage() {
       const failed = response.data.failed?.length ?? 0;
       toast.success(
         failed
-          ? `Создано должностей: ${response.data.created.length}. Ошибок: ${failed}.`
-          : `Создано должностей: ${response.data.created.length}.`,
+          ? ui("authenticatedUi.positions.bulkCreateSuccessWithErrors", { created: response.data.created.length, failed })
+          : ui("authenticatedUi.positions.bulkCreateSuccess", { created: response.data.created.length }),
       );
       setBulkItems([]);
       setShowBulkPreview(false);
       await fetchPositions();
     } catch {
-      toast.error("Не удалось создать должности из предпросмотра");
+      toast.error(ui("authenticatedUi.positions.bulkCreateError"));
     } finally {
       setBulkCreating(false);
     }
@@ -221,11 +225,11 @@ export default function PositionsPage() {
         <div className="min-w-0">
           <p className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
             <BriefcaseBusiness className="h-4 w-4" aria-hidden="true" />
-            Управление квалификационными профилями
+            {ui("authenticatedUi.positions.eyebrow")}
           </p>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{t("positions.title")}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Реестр должностей. Откройте карточку, чтобы настроить профиль, должностную инструкцию, компетенции и обязательное обучение.
+            {ui("authenticatedUi.positions.subtitle")}
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
@@ -241,7 +245,7 @@ export default function PositionsPage() {
             ) : (
               <Upload className="h-4 w-4" aria-hidden="true" />
             )}
-            Загрузить ДИ
+            {ui("authenticatedUi.positions.uploadInstruction")}
           </Button>
           <input
             ref={fileInputRef}
@@ -250,7 +254,7 @@ export default function PositionsPage() {
             accept=".pdf,.doc,.docx,.txt"
             className="sr-only"
             onChange={handleBulkAnalyze}
-            aria-label="Загрузить должностные инструкции"
+            aria-label={ui("authenticatedUi.positions.uploadInstructionAria")}
           />
           <Button type="button" className="w-full gap-2 sm:w-auto" onClick={() => setShowCreate(true)}>
             <Plus className="h-4 w-4" aria-hidden="true" />
@@ -261,7 +265,7 @@ export default function PositionsPage() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <label className="relative block w-full sm:max-w-md">
-          <span className="sr-only">Поиск должности</span>
+          <span className="sr-only">{ui("authenticatedUi.positions.searchLabel")}</span>
           <Search
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden="true"
@@ -269,21 +273,21 @@ export default function PositionsPage() {
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Поиск по должности, отделу или уровню"
+            placeholder={ui("authenticatedUi.positions.searchPlaceholder")}
             className="pl-9"
           />
         </label>
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <span>
-            {filteredPositions.length} из {positions.length}
+            {ui("authenticatedUi.positions.resultCount", { filtered: filteredPositions.length, total: positions.length })}
           </span>
           <Button
             type="button"
             variant="ghost"
             size="icon"
             onClick={() => void fetchPositions()}
-            aria-label="Обновить список"
-            title="Обновить список"
+            aria-label={ui("authenticatedUi.positions.refresh")}
+            title={ui("authenticatedUi.positions.refresh")}
           >
             <RefreshCw className="h-4 w-4" aria-hidden="true" />
           </Button>
@@ -300,7 +304,7 @@ export default function PositionsPage() {
             type="button"
             className="rounded p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => setBulkError(null)}
-            aria-label="Закрыть сообщение"
+            aria-label={ui("authenticatedUi.positions.closeMessage")}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -311,7 +315,7 @@ export default function PositionsPage() {
         <Card>
           <CardContent className="flex min-h-52 items-center justify-center gap-3 text-sm text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-            Загружаем должности...
+            {ui("authenticatedUi.positions.loading")}
           </CardContent>
         </Card>
       ) : loadError ? (
@@ -322,7 +326,7 @@ export default function PositionsPage() {
             </p>
             <Button type="button" variant="outline" className="gap-2" onClick={() => void fetchPositions()}>
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              Повторить
+              {ui("authenticatedUi.positions.retry")}
             </Button>
           </CardContent>
         </Card>
@@ -330,20 +334,20 @@ export default function PositionsPage() {
         <Card>
           <CardContent className="flex min-h-60 flex-col items-center justify-center gap-3 px-6 text-center">
             <BriefcaseBusiness className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
-            <h2 className="text-lg font-medium">Должностей пока нет</h2>
+            <h2 className="text-lg font-medium">{ui("authenticatedUi.positions.emptyTitle")}</h2>
             <p className="max-w-md text-sm text-muted-foreground">
-              Создайте базовую должность вручную или загрузите несколько должностных инструкций для предпросмотра.
+              {ui("authenticatedUi.positions.emptyDescription")}
             </p>
             <Button type="button" onClick={() => setShowCreate(true)} className="mt-2 gap-2">
               <Plus className="h-4 w-4" aria-hidden="true" />
-              Создать должность
+              {ui("authenticatedUi.positions.create")}
             </Button>
           </CardContent>
         </Card>
       ) : filteredPositions.length === 0 ? (
         <Card>
           <CardContent className="flex min-h-40 items-center justify-center px-6 text-center text-sm text-muted-foreground">
-            По вашему запросу должности не найдены.
+            {ui("authenticatedUi.positions.noSearchResults")}
           </CardContent>
         </Card>
       ) : (
@@ -361,10 +365,10 @@ export default function PositionsPage() {
                       <h2 className="min-w-0 truncate text-base font-semibold text-foreground sm:text-lg">
                         {position.name}
                       </h2>
-                      <Badge variant={instructionVariant(position)}>{instructionLabel(position)}</Badge>
+                      <Badge variant={instructionVariant(position)}>{instructionLabel(position, t)}</Badge>
                     </div>
                     <p className="mt-1 truncate text-sm text-muted-foreground">
-                      {position.department || "Без отдела"}
+                      {position.department || ui("authenticatedUi.positions.noDepartment")}
                       {position.level ? ` · ${position.level}` : ""}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -387,7 +391,7 @@ export default function PositionsPage() {
                     </div>
                   </div>
                   <span className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-primary">
-                    Открыть карточку
+                    {ui("authenticatedUi.positions.openCard")}
                     <ChevronRight
                       className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
                       aria-hidden="true"
@@ -411,13 +415,13 @@ export default function PositionsPage() {
             <CardHeader className="flex flex-row items-start justify-between gap-4">
               <div>
                 <h2 id="create-position-title" className="text-lg font-semibold">
-                  Создать должность
+                  {ui("authenticatedUi.positions.create")}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Базовый профиль создается здесь. Остальные настройки доступны в карточке.
+                  {ui("authenticatedUi.positions.createDescription")}
                 </p>
               </div>
-              <Button type="button" variant="ghost" size="icon" onClick={resetCreate} aria-label="Закрыть">
+              <Button type="button" variant="ghost" size="icon" onClick={resetCreate} aria-label={ui("authenticatedUi.positions.close")}>
                 <X className="h-5 w-5" aria-hidden="true" />
               </Button>
             </CardHeader>
@@ -425,7 +429,7 @@ export default function PositionsPage() {
               <form className="space-y-4" onSubmit={handleCreate}>
                 <div>
                   <label htmlFor="position-name" className="mb-1.5 block text-sm font-medium">
-                    Название должности
+                    {ui("authenticatedUi.positions.name")}
                   </label>
                   <Input
                     id="position-name"
@@ -433,39 +437,39 @@ export default function PositionsPage() {
                     onChange={(event) => setName(event.target.value)}
                     required
                     autoFocus
-                    placeholder="Например, Менеджер по обучению"
+                    placeholder={ui("authenticatedUi.positions.namePlaceholder")}
                   />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label htmlFor="position-department" className="mb-1.5 block text-sm font-medium">
-                      Отдел
+                      {ui("authenticatedUi.positions.department")}
                     </label>
                     <Input
                       id="position-department"
                       value={department}
                       onChange={(event) => setDepartment(event.target.value)}
-                      placeholder="Отдел кадров"
+                      placeholder={ui("authenticatedUi.positions.departmentPlaceholder")}
                     />
                   </div>
                   <div>
                     <label htmlFor="position-level" className="mb-1.5 block text-sm font-medium">
-                      Уровень
+                      {ui("authenticatedUi.positions.level")}
                     </label>
                     <Input
                       id="position-level"
                       value={level}
                       onChange={(event) => setLevel(event.target.value)}
-                      placeholder="Middle"
+                      placeholder={ui("authenticatedUi.positions.levelPlaceholder")}
                     />
                   </div>
                 </div>
                 <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
                   <Button type="button" variant="outline" onClick={resetCreate}>
-                    Отмена
+                    {ui("authenticatedUi.positions.cancel")}
                   </Button>
                   <Button type="submit" disabled={creating || !name.trim()} className="gap-2">
-                    {creating && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}Создать
+                    {creating && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}{ui("authenticatedUi.positions.create")}
                   </Button>
                 </div>
               </form>
@@ -485,10 +489,10 @@ export default function PositionsPage() {
             <CardHeader className="flex flex-row items-start justify-between gap-4">
               <div>
                 <h2 id="bulk-preview-title" className="text-lg font-semibold">
-                  Предпросмотр должностных инструкций
+                  {ui("authenticatedUi.positions.bulkPreviewTitle")}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Проверьте распознанные поля. В реестр попадут только выбранные записи без ошибок.
+                  {ui("authenticatedUi.positions.bulkPreviewDescription")}
                 </p>
               </div>
               <Button
@@ -496,7 +500,7 @@ export default function PositionsPage() {
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowBulkPreview(false)}
-                aria-label="Закрыть"
+                aria-label={ui("authenticatedUi.positions.close")}
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </Button>
@@ -504,7 +508,7 @@ export default function PositionsPage() {
             <CardContent className="space-y-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
-                Выбрано: {selectedBulkItems.length} из {bulkItems.length}
+                {ui("authenticatedUi.positions.selectedCount", { selected: selectedBulkItems.length, total: bulkItems.length })}
               </div>
               <div className="space-y-2">
                 {bulkItems.map((item, index) => (
@@ -529,18 +533,18 @@ export default function PositionsPage() {
                       <span className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{item.name || item.filename}</span>
                         {item.error ? (
-                          <Badge variant="destructive">Ошибка</Badge>
+                          <Badge variant="destructive">{ui("authenticatedUi.positions.errorStatus")}</Badge>
                         ) : (
-                          <Badge variant="default">Готово</Badge>
+                          <Badge variant="default">{ui("authenticatedUi.positions.readyStatus")}</Badge>
                         )}
                       </span>
                       <span className="mt-1 block text-xs text-muted-foreground">
-                        {item.department || "Без отдела"}
+                        {item.department || ui("authenticatedUi.positions.noDepartment")}
                         {item.level ? ` · ${item.level}` : ""} · {item.filename}
                       </span>
                       {item.error && <span className="mt-1 block text-sm text-destructive">{item.error}</span>}
                       {!item.error && item.issues?.length > 0 && (
-                        <span className="mt-1 block text-xs text-warning">Замечаний AI: {item.issues.length}</span>
+                        <span className="mt-1 block text-xs text-warning">{ui("authenticatedUi.positions.aiIssues", { count: item.issues.length })}</span>
                       )}
                     </span>
                   </label>
@@ -555,7 +559,7 @@ export default function PositionsPage() {
                     setBulkItems([]);
                   }}
                 >
-                  Отмена
+                  {ui("authenticatedUi.positions.cancel")}
                 </Button>
                 <Button
                   type="button"
@@ -563,8 +567,7 @@ export default function PositionsPage() {
                   onClick={() => void handleBulkCreate()}
                   className="gap-2"
                 >
-                  {bulkCreating && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}Создать выбранные (
-                  {selectedBulkItems.length})
+                  {bulkCreating && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}{ui("authenticatedUi.positions.createSelected", { count: selectedBulkItems.length })}
                 </Button>
               </div>
             </CardContent>

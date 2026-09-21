@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { BookOpenCheck, Building2, ChevronDown, ChevronRight, FileText, GraduationCap, Network, Search, Upload, UserMinus, Users, X } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from "@/components/ui";
 import { useAuthStore } from "@/store/authStore";
-import { useT } from "@/i18n/useT";
+import { useT, type TranslationKey } from "@/i18n/useT";
 import { toast } from "@/components/ui/Toast";
 import { api } from "@/lib/api";
 import { formatKzPhone, isCompleteKzPhone } from "@/lib/kzPhone";
@@ -121,20 +121,21 @@ function getAdaptiveParserSummary(session: ImportSessionResponse | null): Adapti
 }
 
 const STAFF_FIELDS = [
-  { key: "personnel_number", label: "Табельный номер", required: true },
-  { key: "first_name", label: "Имя", required: true },
-  { key: "last_name", label: "Фамилия", required: true },
-  { key: "full_name", label: "ФИО (вместо имени и фамилии)", required: false },
-  { key: "branch", label: "Филиал", required: false },
-  { key: "department", label: "Отдел", required: false },
-  { key: "position", label: "Должность", required: true },
+  { key: "personnel_number", label: "authenticatedUi.adminStaff.fields.personnelNumber", required: true },
+  { key: "first_name", label: "authenticatedUi.adminStaff.fields.firstName", required: true },
+  { key: "last_name", label: "authenticatedUi.adminStaff.fields.lastName", required: true },
+  { key: "full_name", label: "authenticatedUi.adminStaff.fields.fullName", required: false },
+  { key: "branch", label: "authenticatedUi.adminStaff.fields.branch", required: false },
+  { key: "department", label: "authenticatedUi.adminStaff.fields.department", required: false },
+  { key: "position", label: "authenticatedUi.adminStaff.fields.position", required: true },
   { key: "email", label: "Email", required: false },
-  { key: "phone", label: "Телефон", required: false },
-  { key: "hire_date", label: "Дата приёма", required: false },
+  { key: "phone", label: "authenticatedUi.adminStaff.fields.phone", required: false },
+  { key: "hire_date", label: "authenticatedUi.adminStaff.fields.hireDate", required: false },
 ] as const;
 
 export default function AdminStaffPage() {
   const { t, tp } = useT();
+  const ui = (key: string, params?: Record<string, string | number>) => t(key as TranslationKey, params);
   const router = useRouter();
   const search = useSearchParams();
 
@@ -250,9 +251,9 @@ export default function AdminStaffPage() {
       setAdaptiveSheetName(parser.selected_sheet || "");
       setAdaptiveStep(response.data.state === "needs_mapping" ? 2 : 1);
       window.sessionStorage.setItem("kamilya-adaptive-import-session-id", response.data.id);
-      toast.success("Файл разобран. Ничего ещё не изменено.");
+      toast.success(ui("authenticatedUi.adminStaff.import.analyzed"));
     } catch (error) {
-      toast.error(adaptiveError(error, "Не удалось разобрать файл"));
+      toast.error(adaptiveError(error, ui("authenticatedUi.adminStaff.import.analyzeError")));
     } finally {
       setAdaptiveLoading(false);
     }
@@ -267,7 +268,7 @@ export default function AdminStaffPage() {
       setAdaptiveMapping((current) => Object.keys(current).length > 0 ? current : response.data.mapping_json || parser.suggested_mapping);
       setAdaptiveSheetName((current) => current || parser.selected_sheet || "");
     } catch (error) {
-      toast.error(adaptiveError(error, "Не удалось обновить анализ"));
+      toast.error(adaptiveError(error, ui("authenticatedUi.adminStaff.import.refreshError")));
     }
   };
 
@@ -278,11 +279,11 @@ export default function AdminStaffPage() {
     const hasOrganizationUnit = Boolean(adaptiveMapping.branch || adaptiveMapping.department);
     const required = ["personnel_number", "position"];
     if (!hasName || !hasOrganizationUnit || required.some((field) => !adaptiveMapping[field])) {
-      toast.error("Сопоставьте табельный номер, филиал или отдел, должность и ФИО (или имя и фамилию).");
+      toast.error(ui("authenticatedUi.adminStaff.import.mappingRequired"));
       return;
     }
     if (parser.raw_columns.length > 0 && Object.values(adaptiveMapping).some((column) => !parser.raw_columns.includes(column))) {
-      toast.error("В сопоставлении есть колонка, которой нет в выбранном листе.");
+      toast.error(ui("authenticatedUi.adminStaff.import.mappingColumnMissing"));
       return;
     }
     setAdaptiveMappingLoading(true);
@@ -293,9 +294,9 @@ export default function AdminStaffPage() {
       });
       setAdaptiveSession(response.data);
       setAdaptiveStep(response.data.state === "needs_mapping" ? 2 : 3);
-      toast.success("Сопоставление сохранено. Предложение обновлено.");
+      toast.success(ui("authenticatedUi.adminStaff.import.mappingSaved"));
     } catch (error) {
-      toast.error(adaptiveError(error, "Не удалось сохранить сопоставление"));
+      toast.error(adaptiveError(error, ui("authenticatedUi.adminStaff.import.mappingSaveError")));
     } finally {
       setAdaptiveMappingLoading(false);
     }
@@ -304,7 +305,7 @@ export default function AdminStaffPage() {
   const handleAdaptiveApprove = async () => {
     if (!adaptiveSession || !adaptiveSession.proposal_revision) return;
     const fullReconciliation = adaptiveSession.mode === "FULL_RECONCILIATION";
-    if (fullReconciliation && !window.confirm("Полная сверка может отметить отсутствующих в файле сотрудников. Продолжить только после проверки списка?")) {
+    if (fullReconciliation && !window.confirm(ui("authenticatedUi.adminStaff.import.fullReconciliationConfirm"))) {
       return;
     }
     setAdaptiveLoading(true);
@@ -315,9 +316,9 @@ export default function AdminStaffPage() {
       });
       setAdaptiveSession(response.data);
       setAdaptiveStep(4);
-      toast.success("Изменения подтверждены. Теперь можно применить их.");
+      toast.success(ui("authenticatedUi.adminStaff.import.approved"));
     } catch (error) {
-      toast.error(adaptiveError(error, "Подтверждение заблокировано конфликтами"));
+      toast.error(adaptiveError(error, ui("authenticatedUi.adminStaff.import.approvalBlocked")));
     } finally {
       setAdaptiveLoading(false);
     }
@@ -333,9 +334,9 @@ export default function AdminStaffPage() {
       });
       setAdaptiveSession(response.data);
       setAdaptiveStep(3);
-      toast.success("Исправления сохранены. Проверьте обновлённое предложение.");
+      toast.success(ui("authenticatedUi.adminStaff.import.correctionsSaved"));
     } catch (error: any) {
-      toast.error(adaptiveError(error, "Не удалось сохранить исправления структуры"));
+      toast.error(adaptiveError(error, ui("authenticatedUi.adminStaff.import.correctionsSaveError")));
     } finally {
       setAdaptiveLoading(false);
     }
@@ -352,9 +353,9 @@ export default function AdminStaffPage() {
       setAdaptiveStep(5);
       window.sessionStorage.removeItem("kamilya-adaptive-import-session-id");
       setStructureRefreshKey((value) => value + 1);
-      toast.success("Структура и сотрудники обновлены.");
+      toast.success(ui("authenticatedUi.adminStaff.import.committed"));
     } catch (error) {
-      toast.error(adaptiveError(error, "Не удалось применить подтверждённые изменения"));
+      toast.error(adaptiveError(error, ui("authenticatedUi.adminStaff.import.commitError")));
     } finally {
       setAdaptiveCommitting(false);
     }
@@ -473,7 +474,7 @@ export default function AdminStaffPage() {
     const hierarchyMissing =
       !manualForm.position_id && !manualForm.position.trim();
     if (requiredFields.some((field) => !manualForm[field].trim()) || hierarchyMissing) {
-      toast.error("Заполните табельный номер, имя, фамилию и должность");
+      toast.error(ui("authenticatedUi.adminStaff.manual.required"));
       return;
     }
     if (manualForm.phone && !isCompleteKzPhone(manualForm.phone)) {
@@ -506,7 +507,7 @@ export default function AdminStaffPage() {
       setManualOpen(false);
       resetManualForm();
     } catch (err: any) {
-      const detail = err?.response?.data?.detail || "Не удалось добавить сотрудника";
+      const detail = err?.response?.data?.detail || ui("authenticatedUi.adminStaff.manual.createError");
       toast.error(typeof detail === "string" ? detail : detail.message || JSON.stringify(detail));
     } finally {
       setManualSaving(false);
@@ -554,10 +555,10 @@ export default function AdminStaffPage() {
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm text-muted-foreground">
-              Сотрудников можно загрузить файлом или добавить вручную.
+              {ui("authenticatedUi.adminStaff.manual.intro")}
             </div>
             <Button type="button" onClick={() => setManualOpen(true)}>
-              + Добавить сотрудника
+              {ui("authenticatedUi.adminStaff.manual.addEmployee")}
             </Button>
           </div>
 
@@ -571,7 +572,7 @@ export default function AdminStaffPage() {
               >
                 <div className="mb-5 flex items-start justify-between gap-4">
                   <div>
-                    <h2 id="manual-employee-title" className="text-xl font-bold text-foreground">Новый сотрудник</h2>
+                    <h2 id="manual-employee-title" className="text-xl font-bold text-foreground">{ui("authenticatedUi.adminStaff.manual.newEmployee")}</h2>
                     <p className="mt-1 text-sm text-muted-foreground">{t("staffPage.manualRuleInheritance")}</p>
                   </div>
                   <button
@@ -587,12 +588,12 @@ export default function AdminStaffPage() {
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="space-y-1">
-                    <span className="text-sm font-medium">Табельный номер *</span>
+                    <span className="text-sm font-medium">{ui("authenticatedUi.adminStaff.fields.personnelNumberRequired")}</span>
                     <input
                       value={manualForm.personnel_number}
                       onChange={(e) => handleManualChange("personnel_number", e.target.value)}
                       className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
-                      placeholder="Например, 0001"
+                      placeholder={ui("authenticatedUi.adminStaff.manual.personnelNumberPlaceholder")}
                     />
                   </label>
                   <label className="space-y-1">
@@ -606,25 +607,25 @@ export default function AdminStaffPage() {
                     />
                   </label>
                   <label className="space-y-1">
-                    <span className="text-sm font-medium">Имя *</span>
+                    <span className="text-sm font-medium">{ui("authenticatedUi.adminStaff.fields.firstNameRequired")}</span>
                     <input
                       value={manualForm.first_name}
                       onChange={(e) => handleManualChange("first_name", e.target.value)}
                       className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
-                      placeholder="Имя"
+                      placeholder={ui("authenticatedUi.adminStaff.fields.firstName")}
                     />
                   </label>
                   <label className="space-y-1">
-                    <span className="text-sm font-medium">Фамилия *</span>
+                    <span className="text-sm font-medium">{ui("authenticatedUi.adminStaff.fields.lastNameRequired")}</span>
                     <input
                       value={manualForm.last_name}
                       onChange={(e) => handleManualChange("last_name", e.target.value)}
                       className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
-                      placeholder="Фамилия"
+                      placeholder={ui("authenticatedUi.adminStaff.fields.lastName")}
                     />
                   </label>
                   <label className="space-y-1">
-                    <span className="text-sm font-medium">Подразделение <span className="font-normal text-muted-foreground">(необязательно)</span></span>
+                    <span className="text-sm font-medium">{ui("authenticatedUi.adminStaff.fields.department")} <span className="font-normal text-muted-foreground">({t("common.optional")})</span></span>
                     <OrganizationUnitPicker
                       roots={manualOrganizationRoots}
                       value={manualForm.organization_unit_id || manualForm.department_id}
@@ -646,7 +647,7 @@ export default function AdminStaffPage() {
                     )}
                   </label>
                   <label className="space-y-1">
-                    <span className="text-sm font-medium">Должность *</span>
+                    <span className="text-sm font-medium">{ui("authenticatedUi.adminStaff.fields.positionRequired")}</span>
                     <select
                         value={manualForm.position_id}
                         onChange={(e) => {
@@ -688,7 +689,7 @@ export default function AdminStaffPage() {
                     )}
                   </label>
                   <label className="space-y-1 md:col-span-2">
-                    <span className="text-sm font-medium">Телефон</span>
+                    <span className="text-sm font-medium">{ui("authenticatedUi.adminStaff.fields.phone")}</span>
                     <input
                       type="tel"
                       value={manualForm.phone}
@@ -704,10 +705,10 @@ export default function AdminStaffPage() {
 
                 <div className="mt-6 flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={closeManualModal}>
-                    Отмена
+                    {ui("authenticatedUi.adminStaff.actions.cancel")}
                   </Button>
                   <Button type="button" onClick={handleManualCreate} disabled={manualSaving}>
-                    {manualSaving ? "Сохраняю…" : "Добавить"}
+                    {manualSaving ? ui("authenticatedUi.adminStaff.actions.saving") : ui("authenticatedUi.adminStaff.actions.add")}
                   </Button>
                 </div>
               </div>
@@ -788,16 +789,16 @@ function proposalRows(session: ImportSessionResponse | null, key: "branches" | "
   return Array.isArray(rows) ? rows : [];
 }
 
-function rowEvidence(row: ImportProposalRow) {
+function rowEvidence(row: ImportProposalRow, sourceFallback: string, noDetailsFallback: string) {
   if (row.message) return row.message;
   if (Array.isArray(row.evidence)) {
     return row.evidence.map((item) => {
       if (typeof item === "string") return item;
-      if (item && typeof item === "object") return String((item as { claim?: string; message?: string }).claim || (item as { message?: string }).message || "Подтверждение источником");
+      if (item && typeof item === "object") return String((item as { claim?: string; message?: string }).claim || (item as { message?: string }).message || sourceFallback);
       return String(item);
     }).join(" · ");
   }
-  return typeof row.evidence === "string" ? row.evidence : "Нет дополнительных пояснений";
+  return typeof row.evidence === "string" ? row.evidence : noDetailsFallback;
 }
 
 function rowConfidence(row: ImportProposalRow) {
@@ -851,6 +852,8 @@ function AdaptiveImportFlow({
   onCommit: () => void;
   onReset: () => void;
 }) {
+  const { t } = useT();
+  const ui = (key: string, params?: Record<string, string | number>) => t(key as TranslationKey, params);
   const branchRows = useMemo(() => proposalRows(session, "branches"), [session]);
   const departmentRows = useMemo(() => proposalRows(session, "departments"), [session]);
   const positionRows = useMemo(() => proposalRows(session, "positions"), [session]);
@@ -859,7 +862,13 @@ function AdaptiveImportFlow({
   const summary = session?.proposal?.summary || session?.result_summary || {};
   const blocking = conflicts.some((row) => row.blocking === true) || session?.state === "needs_correction";
   const approvalReady = session?.state === "ready_for_approval";
-  const steps = ["Файл", "Сопоставление", "Предложение", "Подтверждение", "Готово"];
+  const steps = [
+    ui("authenticatedUi.adminStaff.import.steps.file"),
+    ui("authenticatedUi.adminStaff.import.steps.mapping"),
+    ui("authenticatedUi.adminStaff.import.steps.proposal"),
+    ui("authenticatedUi.adminStaff.import.steps.approval"),
+    ui("authenticatedUi.adminStaff.import.steps.done"),
+  ];
   const [proposalEditing, setProposalEditing] = useState(false);
   const [proposalDraft, setProposalDraft] = useState<{
     branches: ImportProposalRow[];
@@ -900,7 +909,7 @@ function AdaptiveImportFlow({
       if (typeof row.external_key === "string") corrections.push({ kind: "staff", external_key: row.external_key, branch_external_key: String(row.branch_external_key || "legacy:root"), department_external_key: String(row.department_external_key || "legacy:root"), position_external_key: String(row.position_external_key || "") });
     });
     if (corrections.some((item) => !item.external_key || ("name" in item && !item.name) || (item.kind === "staff" && !item.position_external_key))) {
-      toast.error("Заполните названия и связи всех элементов предложения.");
+      toast.error(ui("authenticatedUi.adminStaff.import.correctionsRequired"));
       return;
     }
     await onCorrectProposal(corrections);
@@ -910,15 +919,15 @@ function AdaptiveImportFlow({
     <Card data-testid="adaptive-import-flow">
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-3">
-          <span>Адаптивная загрузка штатки</span>
-          <Badge variant="secondary">Новый безопасный сценарий</Badge>
+          <span>{ui("authenticatedUi.adminStaff.import.title")}</span>
+          <Badge variant="secondary">{ui("authenticatedUi.adminStaff.import.safeFlowBadge")}</Badge>
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Система сама разберёт формат файла, покажет предполагаемые филиалы, отделы и сотрудников. До вашего подтверждения данные не меняются.
+          {ui("authenticatedUi.adminStaff.import.description")}
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
-        <ol className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-5" aria-label="Шаги импорта">
+        <ol className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-5" aria-label={ui("authenticatedUi.adminStaff.import.stepsAria")}>
           {steps.map((label, index) => (
             <li key={label} className={`rounded-md border px-2 py-2 ${step >= index + 1 ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
               <span className="font-semibold">{index + 1}. </span>{label}
@@ -936,33 +945,33 @@ function AdaptiveImportFlow({
                 type="file"
                 accept=".xls,.xlsx,.csv"
                 className="sr-only"
-                aria-label="Выбрать файл штатного расписания для анализа"
+                aria-label={ui("authenticatedUi.adminStaff.import.chooseFileAria")}
                 onChange={(event) => onFileChange(event.target.files?.[0] || null)}
               />
               <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}>
-                Выбрать файл для анализа
+                {ui("authenticatedUi.adminStaff.import.chooseFile")}
               </Button>
-              <span className="text-sm text-muted-foreground">{file?.name || "Файл не выбран"}</span>
+              <span className="text-sm text-muted-foreground">{file?.name || ui("authenticatedUi.adminStaff.import.noFileSelected")}</span>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-1 text-sm">
-                <span className="font-medium">Режим загрузки</span>
+                <span className="font-medium">{ui("authenticatedUi.adminStaff.import.modeLabel")}</span>
                 <select
-                  aria-label="Режим загрузки"
+                  aria-label={ui("authenticatedUi.adminStaff.import.modeLabel")}
                   value={mode}
                   onChange={(event) => onModeChange(event.target.value as "ADD_OR_UPDATE" | "FULL_RECONCILIATION")}
                   className="w-full rounded-md border border-border bg-background px-3 py-2"
                 >
-                  <option value="ADD_OR_UPDATE">Добавить или обновить найденное</option>
-                  <option value="FULL_RECONCILIATION" disabled>Полная сверка — готовится (автоматического удаления нет)</option>
+                  <option value="ADD_OR_UPDATE">{ui("authenticatedUi.adminStaff.import.modeAddOrUpdate")}</option>
+                  <option value="FULL_RECONCILIATION" disabled>{ui("authenticatedUi.adminStaff.import.modeFullReconciliation")}</option>
                 </select>
               </label>
               <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
-                Сначала появится предложение структуры. Можно загрузить даже привычный старый Excel — методисту не нужно заранее приводить его к шаблону.
+                {ui("authenticatedUi.adminStaff.import.modeHint")}
               </div>
             </div>
             <Button type="button" onClick={onAnalyze} disabled={!file || loading}>
-              {loading ? "Анализирую…" : "Запустить анализ файла"}
+              {loading ? ui("authenticatedUi.adminStaff.import.analyzing") : ui("authenticatedUi.adminStaff.import.startAnalysis")}
             </Button>
           </div>
         )}
@@ -972,46 +981,46 @@ function AdaptiveImportFlow({
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/20 p-3 text-sm">
               <div>
                 <strong>{session.source_file_name}</strong>
-                <span className="ml-2 text-muted-foreground">Формат: {session.source_format} · Статус: {session.state}</span>
+                <span className="ml-2 text-muted-foreground">{ui("authenticatedUi.adminStaff.import.fileMeta", { format: session.source_format, status: session.state })}</span>
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={onRefresh}>Обновить анализ</Button>
+              <Button type="button" variant="outline" size="sm" onClick={onRefresh}>{ui("authenticatedUi.adminStaff.import.refreshAnalysis")}</Button>
             </div>
 
             {session.workbook_analysis && (() => {
               const parser = getAdaptiveParserSummary(session);
               const fullNameMapped = Boolean(mapping.full_name);
               const requiredMissing = [
-                !mapping.personnel_number && "Табельный номер",
-                !mapping.branch && !mapping.department && "Филиал или отдел",
-                !mapping.position && "Должность",
-                !fullNameMapped && !(mapping.first_name && mapping.last_name) && "ФИО или Имя + Фамилия",
+                !mapping.personnel_number && ui("authenticatedUi.adminStaff.fields.personnelNumber"),
+                !mapping.branch && !mapping.department && ui("authenticatedUi.adminStaff.import.branchOrDepartment"),
+                !mapping.position && ui("authenticatedUi.adminStaff.fields.position"),
+                !fullNameMapped && !(mapping.first_name && mapping.last_name) && ui("authenticatedUi.adminStaff.import.fullNameOrParts"),
               ].filter(Boolean) as string[];
               const needsMapping = session.state === "needs_mapping" || parser.missing_required_columns.length > 0;
               return (
                 <div className="rounded-md border border-border p-3 text-sm">
-                  <h3 className="font-semibold">1–2. Что найдено в файле</h3>
+                  <h3 className="font-semibold">{ui("authenticatedUi.adminStaff.import.fileAnalysisTitle")}</h3>
                   <p className="mt-1 text-muted-foreground">
-                    Листы и заголовки проанализированы автоматически. Исходный файл не изменяется.
+                    {ui("authenticatedUi.adminStaff.import.fileAnalysisDescription")}
                   </p>
                   <div className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
-                    <div className="rounded bg-muted/50 p-2"><span className="text-muted-foreground">Колонок найдено</span><strong className="ml-1">{parser.raw_columns.length}</strong></div>
-                    <div className="rounded bg-muted/50 p-2"><span className="text-muted-foreground">Лист</span><strong className="ml-1">{sheetName || parser.selected_sheet || "по умолчанию"}</strong></div>
-                    <div className="rounded bg-muted/50 p-2"><span className="text-muted-foreground">Строка заголовка</span><strong className="ml-1">{parser.header_row || "—"}</strong></div>
+                    <div className="rounded bg-muted/50 p-2"><span className="text-muted-foreground">{ui("authenticatedUi.adminStaff.import.columnsFound")}</span><strong className="ml-1">{parser.raw_columns.length}</strong></div>
+                    <div className="rounded bg-muted/50 p-2"><span className="text-muted-foreground">{ui("authenticatedUi.adminStaff.import.sheet")}</span><strong className="ml-1">{sheetName || parser.selected_sheet || ui("authenticatedUi.adminStaff.import.defaultSheet")}</strong></div>
+                    <div className="rounded bg-muted/50 p-2"><span className="text-muted-foreground">{ui("authenticatedUi.adminStaff.import.headerRow")}</span><strong className="ml-1">{parser.header_row || "—"}</strong></div>
                   </div>
 
                   {needsMapping ? (
                     <div className="mt-4 rounded-md border border-warning/40 bg-warning/10 p-3">
-                      <h4 className="font-semibold text-warning">Нужно сопоставить колонки</h4>
-                      <p className="mt-1 text-xs text-muted-foreground">Выберите, какая колонка исходного файла означает каждое поле. После сохранения система продолжит анализ этой же сессии.</p>
-                      {parser.missing_required_columns.length > 0 && <p className="mt-2 text-xs text-destructive">Не распознано автоматически: {parser.missing_required_columns.join(", ")}</p>}
+                      <h4 className="font-semibold text-warning">{ui("authenticatedUi.adminStaff.import.mappingNeeded")}</h4>
+                      <p className="mt-1 text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.import.mappingDescription")}</p>
+                      {parser.missing_required_columns.length > 0 && <p className="mt-2 text-xs text-destructive">{ui("authenticatedUi.adminStaff.import.notRecognized", { fields: parser.missing_required_columns.join(", ") })}</p>}
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
                         {STAFF_FIELDS.map((field) => {
                           const required = field.required && !(fullNameMapped && (field.key === "first_name" || field.key === "last_name"));
                           return (
                             <label key={field.key} className="space-y-1">
-                              <span className="text-xs font-semibold text-muted-foreground">{field.label}{required ? " *" : ""}</span>
+                              <span className="text-xs font-semibold text-muted-foreground">{ui(field.label)}{required ? " *" : ""}</span>
                               <select
-                                aria-label={field.label}
+                                aria-label={ui(field.label)}
                                 value={mapping[field.key] || ""}
                                 onChange={(event) => {
                                   const next = { ...mapping };
@@ -1021,41 +1030,41 @@ function AdaptiveImportFlow({
                                 }}
                                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                               >
-                                <option value="">Не использовать</option>
+                                <option value="">{ui("authenticatedUi.adminStaff.import.doNotUse")}</option>
                                 {parser.raw_columns.map((column) => <option key={`${field.key}-${column}`} value={column}>{column}</option>)}
                               </select>
                             </label>
                           );
                         })}
                       </div>
-                      {requiredMissing.length > 0 && <p className="mt-2 text-xs text-destructive">Обязательные поля: {requiredMissing.join(", ")}</p>}
+                      {requiredMissing.length > 0 && <p className="mt-2 text-xs text-destructive">{ui("authenticatedUi.adminStaff.import.requiredFields", { fields: requiredMissing.join(", ") })}</p>}
                       <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <Button type="button" onClick={onSubmitMapping} disabled={mappingLoading || requiredMissing.length > 0}>{mappingLoading ? "Сохраняю…" : "Сохранить сопоставление и продолжить"}</Button>
-                        {parser.selected_sheet && <label className="text-xs text-muted-foreground">Лист: <select value={sheetName || parser.selected_sheet} onChange={(event) => onSheetNameChange(event.target.value)} className="rounded border border-border bg-background px-2 py-1"><option value={parser.selected_sheet}>{parser.selected_sheet}</option></select></label>}
+                        <Button type="button" onClick={onSubmitMapping} disabled={mappingLoading || requiredMissing.length > 0}>{mappingLoading ? ui("authenticatedUi.adminStaff.actions.saving") : ui("authenticatedUi.adminStaff.import.saveMapping")}</Button>
+                        {parser.selected_sheet && <label className="text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.import.sheet")}: <select value={sheetName || parser.selected_sheet} onChange={(event) => onSheetNameChange(event.target.value)} className="rounded border border-border bg-background px-2 py-1"><option value={parser.selected_sheet}>{parser.selected_sheet}</option></select></label>}
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-3 rounded border border-success/30 bg-success/5 p-2 text-xs text-muted-foreground">Сопоставление полей распознано. Проверьте предложенную структуру ниже.</div>
+                    <div className="mt-3 rounded border border-success/30 bg-success/5 p-2 text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.import.mappingRecognized")}</div>
                   )}
                 </div>
               );
             })()}
 
             <div className="rounded-md border border-border p-3">
-              <h3 className="font-semibold">3. Предлагаемая структура</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Проверьте, что строки филиалов не попали в отделы, а отделы находятся внутри правильного филиала.</p>
+              <h3 className="font-semibold">{ui("authenticatedUi.adminStaff.import.proposalTitle")}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{ui("authenticatedUi.adminStaff.import.proposalDescription")}</p>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-                {[["Филиалы", branchRows.length], ["Отделы", departmentRows.length], ["Должности", positionRows.length], ["Сотрудники", staffRows.length], ["Конфликты", conflicts.length]].map(([label, count]) => (
+                {[[ui("authenticatedUi.adminStaff.structure.branches"), branchRows.length], [ui("authenticatedUi.adminStaff.structure.departments"), departmentRows.length], [ui("authenticatedUi.adminStaff.structure.positions"), positionRows.length], [ui("authenticatedUi.adminStaff.structure.employees"), staffRows.length], [ui("authenticatedUi.adminStaff.import.conflicts"), conflicts.length]].map(([label, count]) => (
                   <div key={String(label)} className="rounded bg-muted/50 p-2 text-center"><div className="text-lg font-bold">{count}</div><div className="text-xs text-muted-foreground">{label}</div></div>
                 ))}
               </div>
               <div className="mt-4 max-h-80 overflow-auto rounded border border-border">
-                {[...branchRows.map((row) => ({ ...row, _kind: "Филиал" })), ...departmentRows.map((row) => ({ ...row, _kind: "Отдел" })), ...positionRows.map((row) => ({ ...row, _kind: "Должность" })), ...staffRows.map((row) => ({ ...row, _kind: "Сотрудник" }))].map((row, index) => (
+                {[...branchRows.map((row) => ({ ...row, _kind: ui("authenticatedUi.adminStaff.structure.branch") })), ...departmentRows.map((row) => ({ ...row, _kind: ui("authenticatedUi.adminStaff.structure.department") })), ...positionRows.map((row) => ({ ...row, _kind: ui("authenticatedUi.adminStaff.structure.position") })), ...staffRows.map((row) => ({ ...row, _kind: ui("authenticatedUi.adminStaff.structure.employee") }))].map((row, index) => (
                   <div key={row.id || `${row._kind}-${index}`} className="grid gap-1 border-b border-border px-3 py-2 text-xs sm:grid-cols-[100px_1fr_100px_1.5fr]">
                     <span className="font-semibold">{row._kind}</span>
                     <span>{row.full_name || row.branch_name || row.department_name || row.position_name || row.name || row.personnel_number || "—"}</span>
                     <span className="text-muted-foreground">{row.action || "—"} · {rowConfidence(row)}</span>
-                    <span className="text-muted-foreground">{rowEvidence(row)}</span>
+                    <span className="text-muted-foreground">{rowEvidence(row, ui("authenticatedUi.adminStaff.import.sourceEvidence"), ui("authenticatedUi.adminStaff.import.noAdditionalDetails"))}</span>
                   </div>
                 ))}
               </div>
@@ -1063,24 +1072,24 @@ function AdaptiveImportFlow({
                 <div className="mt-4 rounded-md border border-primary/30 bg-primary/5 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <h4 className="text-sm font-semibold">Исправить предложение до подтверждения</h4>
-                      <p className="text-xs text-muted-foreground">Можно переименовать филиал или отдел и исправить связи. Исходный Excel менять не нужно.</p>
+                      <h4 className="text-sm font-semibold">{ui("authenticatedUi.adminStaff.import.editProposalTitle")}</h4>
+                      <p className="text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.import.editProposalDescription")}</p>
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={() => setProposalEditing((value) => !value)}>
-                      {proposalEditing ? "Скрыть редактор" : "Редактировать структуру"}
+                      {proposalEditing ? ui("authenticatedUi.adminStaff.import.hideEditor") : ui("authenticatedUi.adminStaff.import.editStructure")}
                     </Button>
                   </div>
                   {proposalEditing && (
                     <div className="mt-3 max-h-[60vh] space-y-4 overflow-y-auto pr-1">
-                      {proposalDraft.branches.length > 0 && <fieldset className="space-y-2"><legend className="text-sm font-semibold">Филиалы</legend>{proposalDraft.branches.map((row, index) => <label key={String(row.external_key)} className="block text-xs"><span className="text-muted-foreground">Название филиала</span><input aria-label={`Название филиала ${index + 1}`} value={String(row.branch_name || "")} onChange={(event) => updateDraft("branches", index, { branch_name: event.target.value })} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm" /></label>)}</fieldset>}
+                      {proposalDraft.branches.length > 0 && <fieldset className="space-y-2"><legend className="text-sm font-semibold">{ui("authenticatedUi.adminStaff.structure.branches")}</legend>{proposalDraft.branches.map((row, index) => <label key={String(row.external_key)} className="block text-xs"><span className="text-muted-foreground">{ui("authenticatedUi.adminStaff.import.branchName")}</span><input aria-label={ui("authenticatedUi.adminStaff.import.branchNameAria", { index: index + 1 })} value={String(row.branch_name || "")} onChange={(event) => updateDraft("branches", index, { branch_name: event.target.value })} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm" /></label>)}</fieldset>}
 
-                      {proposalDraft.departments.length > 0 && <fieldset className="space-y-2"><legend className="text-sm font-semibold">Отделы</legend>{proposalDraft.departments.map((row, index) => <div key={String(row.external_key)} className="grid gap-2 rounded border border-border bg-background p-2 sm:grid-cols-2"><label className="text-xs"><span className="text-muted-foreground">Название отдела</span><input aria-label={`Название отдела ${index + 1}`} value={String(row.department_name || "")} onChange={(event) => updateDraft("departments", index, { department_name: event.target.value })} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm" /></label><label className="text-xs"><span className="text-muted-foreground">Филиал</span><select aria-label={`Филиал отдела ${index + 1}`} value={String(row.branch_external_key || "legacy:root")} onChange={(event) => updateDraft("departments", index, { branch_external_key: event.target.value })} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"><option value="legacy:root">Без филиала (старый формат)</option>{proposalDraft.branches.map((branch) => <option key={String(branch.external_key)} value={String(branch.external_key)}>{String(branch.branch_name)}</option>)}</select></label></div>)}</fieldset>}
+                      {proposalDraft.departments.length > 0 && <fieldset className="space-y-2"><legend className="text-sm font-semibold">{ui("authenticatedUi.adminStaff.structure.departments")}</legend>{proposalDraft.departments.map((row, index) => <div key={String(row.external_key)} className="grid gap-2 rounded border border-border bg-background p-2 sm:grid-cols-2"><label className="text-xs"><span className="text-muted-foreground">{ui("authenticatedUi.adminStaff.import.departmentName")}</span><input aria-label={ui("authenticatedUi.adminStaff.import.departmentNameAria", { index: index + 1 })} value={String(row.department_name || "")} onChange={(event) => updateDraft("departments", index, { department_name: event.target.value })} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm" /></label><label className="text-xs"><span className="text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.branch")}</span><select aria-label={ui("authenticatedUi.adminStaff.import.departmentBranchAria", { index: index + 1 })} value={String(row.branch_external_key || "legacy:root")} onChange={(event) => updateDraft("departments", index, { branch_external_key: event.target.value })} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"><option value="legacy:root">{ui("authenticatedUi.adminStaff.import.noBranchLegacy")}</option>{proposalDraft.branches.map((branch) => <option key={String(branch.external_key)} value={String(branch.external_key)}>{String(branch.branch_name)}</option>)}</select></label></div>)}</fieldset>}
 
-                      {proposalDraft.positions.length > 0 && <fieldset className="space-y-2"><legend className="text-sm font-semibold">Должности</legend>{proposalDraft.positions.map((row, index) => <div key={String(row.external_key)} className="grid gap-2 rounded border border-border bg-background p-2 sm:grid-cols-2"><label className="text-xs"><span className="text-muted-foreground">Название должности</span><input aria-label={`Название должности ${index + 1}`} value={String(row.position_name || "")} onChange={(event) => updateDraft("positions", index, { position_name: event.target.value })} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm" /></label><label className="text-xs"><span className="text-muted-foreground">Отдел или прямое подчинение филиалу</span><select aria-label={`Подразделение должности ${index + 1}`} value={String(row.department_external_key || "legacy:root")} onChange={(event) => { const departmentKey = event.target.value; const department = proposalDraft.departments.find((item) => item.external_key === departmentKey); updateDraft("positions", index, { department_external_key: departmentKey, branch_external_key: department?.branch_external_key || row.branch_external_key || "legacy:root" }); }} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"><option value="legacy:root">Непосредственно в филиале</option>{proposalDraft.departments.map((department) => <option key={String(department.external_key)} value={String(department.external_key)}>{String(department.department_name)}</option>)}</select></label></div>)}</fieldset>}
+                      {proposalDraft.positions.length > 0 && <fieldset className="space-y-2"><legend className="text-sm font-semibold">{ui("authenticatedUi.adminStaff.structure.positions")}</legend>{proposalDraft.positions.map((row, index) => <div key={String(row.external_key)} className="grid gap-2 rounded border border-border bg-background p-2 sm:grid-cols-2"><label className="text-xs"><span className="text-muted-foreground">{ui("authenticatedUi.adminStaff.import.positionName")}</span><input aria-label={ui("authenticatedUi.adminStaff.import.positionNameAria", { index: index + 1 })} value={String(row.position_name || "")} onChange={(event) => updateDraft("positions", index, { position_name: event.target.value })} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm" /></label><label className="text-xs"><span className="text-muted-foreground">{ui("authenticatedUi.adminStaff.import.positionUnit")}</span><select aria-label={ui("authenticatedUi.adminStaff.import.positionUnitAria", { index: index + 1 })} value={String(row.department_external_key || "legacy:root")} onChange={(event) => { const departmentKey = event.target.value; const department = proposalDraft.departments.find((item) => item.external_key === departmentKey); updateDraft("positions", index, { department_external_key: departmentKey, branch_external_key: department?.branch_external_key || row.branch_external_key || "legacy:root" }); }} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"><option value="legacy:root">{ui("authenticatedUi.adminStaff.import.directBranch")}</option>{proposalDraft.departments.map((department) => <option key={String(department.external_key)} value={String(department.external_key)}>{String(department.department_name)}</option>)}</select></label></div>)}</fieldset>}
 
-                      {proposalDraft.staff.length > 0 && <fieldset className="space-y-2"><legend className="text-sm font-semibold">Сотрудники</legend>{proposalDraft.staff.map((row, index) => <div key={String(row.external_key)} className="grid items-end gap-2 rounded border border-border bg-background p-2 sm:grid-cols-2"><div className="text-sm"><span className="block font-medium">{String(row.first_name || "")} {String(row.last_name || "")}</span><span className="text-xs text-muted-foreground">Табельный № {String(row.personnel_number || "—")}</span></div><label className="text-xs"><span className="text-muted-foreground">Должность</span><select aria-label={`Должность сотрудника ${index + 1}`} value={String(row.position_external_key || "")} onChange={(event) => { const positionKey = event.target.value; const position = proposalDraft.positions.find((item) => item.external_key === positionKey); updateDraft("staff", index, { position_external_key: positionKey, branch_external_key: position?.branch_external_key || "legacy:root", department_external_key: position?.department_external_key || "legacy:root" }); }} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"><option value="">Выберите должность</option>{proposalDraft.positions.map((position) => <option key={String(position.external_key)} value={String(position.external_key)}>{String(position.position_name)}</option>)}</select></label></div>)}</fieldset>}
+                      {proposalDraft.staff.length > 0 && <fieldset className="space-y-2"><legend className="text-sm font-semibold">{ui("authenticatedUi.adminStaff.structure.employees")}</legend>{proposalDraft.staff.map((row, index) => <div key={String(row.external_key)} className="grid items-end gap-2 rounded border border-border bg-background p-2 sm:grid-cols-2"><div className="text-sm"><span className="block font-medium">{String(row.first_name || "")} {String(row.last_name || "")}</span><span className="text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.import.personnelNumberValue", { number: String(row.personnel_number || "—") })}</span></div><label className="text-xs"><span className="text-muted-foreground">{ui("authenticatedUi.adminStaff.fields.position")}</span><select aria-label={ui("authenticatedUi.adminStaff.import.employeePositionAria", { index: index + 1 })} value={String(row.position_external_key || "")} onChange={(event) => { const positionKey = event.target.value; const position = proposalDraft.positions.find((item) => item.external_key === positionKey); updateDraft("staff", index, { position_external_key: positionKey, branch_external_key: position?.branch_external_key || "legacy:root", department_external_key: position?.department_external_key || "legacy:root" }); }} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"><option value="">{ui("authenticatedUi.adminStaff.import.choosePosition")}</option>{proposalDraft.positions.map((position) => <option key={String(position.external_key)} value={String(position.external_key)}>{String(position.position_name)}</option>)}</select></label></div>)}</fieldset>}
 
-                      <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-card py-3"><Button type="button" variant="outline" onClick={() => setProposalEditing(false)}>Отмена</Button><Button type="button" onClick={submitProposalCorrections} disabled={loading}>{loading ? "Сохраняю…" : "Сохранить исправления"}</Button></div>
+                      <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-card py-3"><Button type="button" variant="outline" onClick={() => setProposalEditing(false)}>{ui("authenticatedUi.adminStaff.actions.cancel")}</Button><Button type="button" onClick={submitProposalCorrections} disabled={loading}>{loading ? ui("authenticatedUi.adminStaff.actions.saving") : ui("authenticatedUi.adminStaff.import.saveCorrections")}</Button></div>
                     </div>
                   )}
                 </div>
@@ -1089,26 +1098,26 @@ function AdaptiveImportFlow({
 
             {blocking && (
               <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-                <strong>Нужно разобрать конфликты до подтверждения.</strong>
-                <ul className="mt-2 list-disc pl-5">{conflicts.filter((row) => row.blocking !== false).map((row, index) => <li key={row.id || index}>{rowEvidence(row) || row.name || "Неоднозначная строка"}</li>)}</ul>
+                <strong>{ui("authenticatedUi.adminStaff.import.resolveConflicts")}</strong>
+                <ul className="mt-2 list-disc pl-5">{conflicts.filter((row) => row.blocking !== false).map((row, index) => <li key={row.id || index}>{rowEvidence(row, ui("authenticatedUi.adminStaff.import.sourceEvidence"), ui("authenticatedUi.adminStaff.import.noAdditionalDetails")) || row.name || ui("authenticatedUi.adminStaff.import.ambiguousRow")}</li>)}</ul>
               </div>
             )}
 
             <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
-              <Button type="button" variant="outline" onClick={onReset}>Выбрать другой файл</Button>
+              <Button type="button" variant="outline" onClick={onReset}>{ui("authenticatedUi.adminStaff.import.chooseAnotherFile")}</Button>
               <Button type="button" variant="outline" onClick={onApprove} disabled={loading || blocking || !approvalReady}>
-                {loading ? "Подтверждаю…" : "Подтвердить предложение"}
+                {loading ? ui("authenticatedUi.adminStaff.import.approving") : ui("authenticatedUi.adminStaff.import.approveProposal")}
               </Button>
               <Button type="button" onClick={onCommit} disabled={committing || session.state !== "approved" || !session.proposal_revision}>
-                {committing ? "Применяю…" : "Применить подтверждённые изменения"}
+                {committing ? ui("authenticatedUi.adminStaff.import.applying") : ui("authenticatedUi.adminStaff.import.applyApproved")}
               </Button>
             </div>
             {session.state === "committed" && (
               <div className="rounded-md border border-success/40 bg-success/10 p-3 text-sm text-success" role="status">
-                Импорт завершён. Результат зафиксирован, повторная отправка того же файла безопасна.
+                {ui("authenticatedUi.adminStaff.import.completed")}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">Ревизия предложения: {session.proposal_revision}. Подтверждение не выполняет удаление сотрудников.</p>
+            <p className="text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.import.revisionNote", { revision: session.proposal_revision || "—" })}</p>
           </>
         )}
       </CardContent>
@@ -1249,6 +1258,7 @@ function normaliseStructureResponse(raw: any): StructureResponse {
 
 function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
   const { t, tp } = useT();
+  const ui = (key: string, params?: Record<string, string | number>) => t(key as TranslationKey, params);
   const [data, setData] = useState<StructureResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -1345,7 +1355,9 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
           patch.is_head_office = Boolean(unitModal.isHeadOffice);
         }
         await api.patch(`/v1/organization-units/${unitModal.unitId}`, patch);
-        toast.success(parentId !== (unitModal.originalParentId || null) ? "Подразделение перемещено" : "Подразделение обновлено");
+        toast.success(parentId !== (unitModal.originalParentId || null)
+          ? ui("authenticatedUi.adminStaff.structure.unitMoved")
+          : ui("authenticatedUi.adminStaff.structure.nameUpdated"));
       } else {
         const body: Record<string, unknown> = {
           name,
@@ -1354,7 +1366,11 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
         };
         if (unitModal.isHeadOffice) body.is_head_office = true;
         await api.post("/v1/organization-units", body);
-        toast.success(unitModal.type === "branch" ? "Филиал добавлен" : unitModal.type === "department" ? "Отдел добавлен" : "Подразделение добавлено");
+        toast.success(unitModal.type === "branch"
+          ? ui("authenticatedUi.adminStaff.structure.branchAdded")
+          : unitModal.type === "department"
+            ? ui("authenticatedUi.adminStaff.structure.departmentAdded")
+            : ui("authenticatedUi.adminStaff.structure.unitAdded"));
       }
       setUnitModal(null);
       setUnitName("");
@@ -1362,7 +1378,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       setRetryKey((value) => value + 1);
     } catch (error: any) {
       const detail = error?.response?.data?.detail;
-      toast.error(typeof detail === "string" ? detail : detail?.message || "Не удалось создать подразделение");
+      toast.error(typeof detail === "string" ? detail : detail?.message || ui("authenticatedUi.adminStaff.structure.createUnitError"));
     } finally {
       setUnitSaving(false);
     }
@@ -1407,14 +1423,14 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
   };
 
   const archiveUnit = async (unitId: string, name: string) => {
-    if (!window.confirm(`Архивировать «${name}»? Подразделение с активными отделами или должностями архивировать нельзя.`)) return;
+    if (!window.confirm(ui("authenticatedUi.adminStaff.structure.archiveConfirm", { name }))) return;
     try {
       await api.post(`/v1/organization-units/${unitId}/archive`, { reason: "Архивировано методистом через раздел структуры" });
-      toast.success("Подразделение архивировано");
+      toast.success(ui("authenticatedUi.adminStaff.structure.archived"));
       setRetryKey((value) => value + 1);
     } catch (error: any) {
       const detail = error?.response?.data?.detail;
-      toast.error(typeof detail === "string" ? detail : "Не удалось архивировать подразделение");
+      toast.error(typeof detail === "string" ? detail : ui("authenticatedUi.adminStaff.structure.archiveError"));
     }
   };
 
@@ -1460,7 +1476,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       });
     } catch (error: any) {
       const detail = error?.response?.data?.detail;
-      toast.error(typeof detail === "string" ? detail : "Не удалось загрузить данные сотрудника");
+      toast.error(typeof detail === "string" ? detail : ui("authenticatedUi.adminStaff.employee.loadError"));
     } finally {
       setEmployeeLoadingId(null);
     }
@@ -1480,7 +1496,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       || !employeeForm.first_name.trim()
       || !employeeForm.last_name.trim()
     ) {
-      toast.error("Заполните табельный номер, имя и фамилию");
+      toast.error(ui("authenticatedUi.adminStaff.employee.required"));
       return;
     }
     if (employeeForm.phone && !isCompleteKzPhone(employeeForm.phone)) {
@@ -1497,12 +1513,12 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
         email: employeeForm.email.trim() || null,
         phone: employeeForm.phone.trim() || null,
       });
-      toast.success("Данные сотрудника обновлены");
+      toast.success(ui("authenticatedUi.adminStaff.employee.updated"));
       setEditingEmployee(null);
       setRetryKey((value) => value + 1);
     } catch (error: any) {
       const detail = error?.response?.data?.detail;
-      toast.error(typeof detail === "string" ? detail : detail?.message || "Не удалось обновить сотрудника");
+      toast.error(typeof detail === "string" ? detail : detail?.message || ui("authenticatedUi.adminStaff.employee.updateError"));
     } finally {
       setEmployeeSaving(false);
     }
@@ -1510,7 +1526,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
 
   const terminateEmployee = async () => {
     if (!editingEmployee || terminationReason.trim().length < 3) {
-      toast.error("Укажите причину увольнения");
+      toast.error(ui("authenticatedUi.adminStaff.employee.terminationReasonRequired"));
       return;
     }
     setEmployeeTerminating(true);
@@ -1518,14 +1534,14 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       await api.post(`/v1/admin/staff/manual/${editingEmployee.id}/terminate`, {
         reason: terminationReason.trim(),
       });
-      toast.success("Доступ сотрудника закрыт, история обучения сохранена");
+      toast.success(ui("authenticatedUi.adminStaff.employee.terminated"));
       setEditingEmployee(null);
       setShowTermination(false);
       setTerminationReason("");
       setRetryKey((value) => value + 1);
     } catch (error: any) {
       const detail = error?.response?.data?.detail;
-      toast.error(typeof detail === "string" ? detail : "Не удалось уволить сотрудника");
+      toast.error(typeof detail === "string" ? detail : ui("authenticatedUi.adminStaff.employee.terminateError"));
     } finally {
       setEmployeeTerminating(false);
     }
@@ -1568,7 +1584,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
   }, [data, query]);
 
   if (loading) {
-    return <div className="p-6 text-muted-foreground">Загружаю структуру…</div>;
+    return <div className="p-6 text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.loading")}</div>;
   }
   if (loadError) {
     return (
@@ -1581,7 +1597,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
           <p className="mt-1 text-sm text-muted-foreground">{t("staffPage.retryHint")}</p>
         </div>
         <Button type="button" variant="outline" onClick={() => setRetryKey((value) => value + 1)}>
-          Повторить
+          {ui("authenticatedUi.adminStaff.actions.retry")}
         </Button>
       </div>
     );
@@ -1601,24 +1617,24 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
         <div className="rounded-lg bg-primary/10 p-3 text-center">
           <div className="text-2xl font-bold text-primary">{data.summary.total_employees}</div>
-          <div className="text-xs text-primary">Сотрудников</div>
+          <div className="text-xs text-primary">{ui("authenticatedUi.adminStaff.structure.employees")}</div>
         </div>
         <div className="rounded-lg bg-accent/10 p-3 text-center">
         <div className="text-2xl font-bold text-accent">{data.summary.total_branches ?? data.branches.length}</div>
-          <div className="text-xs text-accent">Филиалов</div>
+          <div className="text-xs text-accent">{ui("authenticatedUi.adminStaff.structure.branches")}</div>
         </div>
         <div className="rounded-lg bg-warning/10 p-3 text-center">
           <div className="text-2xl font-bold text-warning">{data.summary.total_departments}</div>
-          <div className="text-xs text-warning">Отделов</div>
+          <div className="text-xs text-warning">{ui("authenticatedUi.adminStaff.structure.departments")}</div>
         </div>
         <div className="rounded-lg bg-muted p-3 text-center">
           <div className="text-2xl font-bold text-foreground">{data.summary.total_positions}</div>
-          <div className="text-xs text-foreground">Должностей</div>
+          <div className="text-xs text-foreground">{ui("authenticatedUi.adminStaff.structure.positions")}</div>
         </div>
       </div>
 
       <div className="flex justify-end">
-        <Button type="button" onClick={() => setUnitModal({ type: "branch" })}>+ Добавить филиал</Button>
+        <Button type="button" onClick={() => setUnitModal({ type: "branch" })}>{ui("authenticatedUi.adminStaff.structure.addBranch")}</Button>
       </div>
 
       <Link
@@ -1630,7 +1646,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       </Link>
 
       <label className="relative block w-full sm:max-w-md">
-        <span className="sr-only">Поиск по структуре</span>
+        <span className="sr-only">{ui("authenticatedUi.adminStaff.structure.searchLabel")}</span>
         <Search
           className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
           aria-hidden="true"
@@ -1639,8 +1655,8 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Найти сотрудника, должность или отдел…"
-          aria-label="Поиск по структуре"
+          placeholder={ui("authenticatedUi.adminStaff.structure.searchPlaceholder")}
+          aria-label={ui("authenticatedUi.adminStaff.structure.searchLabel")}
           className="w-full rounded-md border border-border bg-background px-9 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </label>
@@ -1682,15 +1698,15 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
 
       {filteredDepartments.length === 0 && filteredBranches.length === 0 && (
         <div className="rounded-md border border-border p-6 text-center text-sm text-muted-foreground">
-          Поиск не дал результатов.
+          {ui("authenticatedUi.adminStaff.structure.noSearchResults")}
         </div>
       )}
 
       {false && filteredBranches.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Филиалы</CardTitle>
-            <p className="text-sm text-muted-foreground">Отделы, должности и сотрудники находятся внутри филиала. Добавление филиала не создаёт сотрудников автоматически.</p>
+            <CardTitle>{ui("authenticatedUi.adminStaff.structure.branches")}</CardTitle>
+            <p className="text-sm text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.branchesDescription")}</p>
           </CardHeader>
           <CardContent className="p-0">
             <ul className="divide-y divide-border">
@@ -1708,12 +1724,12 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                           {tp('common.counts.employee', branch.employee_count)}
                         </span>
                       </button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => setUnitModal({ type: "department", parentId: branch.id, parentName: branch.name })}>+ Добавить отдел</Button>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => { setUnitName(branch.name); setUnitModal({ type: "branch", unitId: branch.id }); }}>Переименовать</Button>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => archiveUnit(branch.id, branch.name)}>Архивировать</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setUnitModal({ type: "department", parentId: branch.id, parentName: branch.name })}>{ui("authenticatedUi.adminStaff.structure.addDepartment")}</Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => { setUnitName(branch.name); setUnitModal({ type: "branch", unitId: branch.id }); }}>{ui("authenticatedUi.adminStaff.actions.rename")}</Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => archiveUnit(branch.id, branch.name)}>{ui("authenticatedUi.adminStaff.actions.archive")}</Button>
                     </div>
                     {open && <ul className="divide-y divide-border bg-muted/20">
-                      {branch.positions.length === 0 && branch.departments.length === 0 && <li className="px-12 py-3 text-xs text-muted-foreground">В филиале пока нет отделов и должностей</li>}
+                      {branch.positions.length === 0 && branch.departments.length === 0 && <li className="px-12 py-3 text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.emptyBranch")}</li>}
                       {branch.positions.map((pos) => {
                         const positionOpen = expandedPositions.has(pos.id) || query.trim().length > 0;
                         return (
@@ -1739,7 +1755,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                 href={`/positions/${pos.id}?tab=training`}
                                 className="shrink-0 rounded-sm text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               >
-                                Профиль и обучение
+                                {ui("authenticatedUi.adminStaff.structure.profileAndTraining")}
                               </Link>
                             </div>
                             {positionOpen && pos.employees.length > 0 && (
@@ -1758,7 +1774,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                         onClick={() => openEmployeeEditor(emp.id)}
                                         disabled={employeeLoadingId === emp.id}
                                       >
-                                        {employeeLoadingId === emp.id ? "Открываю…" : "Изменить"}
+                                        {employeeLoadingId === emp.id ? ui("authenticatedUi.adminStaff.actions.opening") : ui("authenticatedUi.adminStaff.actions.edit")}
                                       </Button>
                                     {emp.is_active && (
                                       <Link
@@ -1766,8 +1782,8 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                         className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                       >
                                         <GraduationCap className="h-4 w-4" aria-hidden="true" />
-                                        <span className="hidden sm:inline">Назначить обучение</span>
-                                        <span className="sm:hidden">Назначить</span>
+                                        <span className="hidden sm:inline">{ui("authenticatedUi.adminStaff.structure.assignTraining")}</span>
+                                        <span className="sm:hidden">{ui("authenticatedUi.adminStaff.actions.assign")}</span>
                                       </Link>
                                     )}
                                     </span>
@@ -1804,16 +1820,16 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                               </button>
                               {department.id && (
                                 <span className="flex flex-wrap items-center gap-2">
-                                  <Link href={`/training-rules?scope=department&department_id=${department.id}`} className="text-xs text-primary hover:underline">Обязательные курсы</Link>
-                                  <Button type="button" variant="ghost" size="sm" onClick={() => { setUnitName(department.name); setUnitModal({ type: "department", unitId: department.id || undefined, parentId: branch.id, parentName: branch.name }); }}>Переименовать</Button>
-                                  <Button type="button" variant="ghost" size="sm" onClick={() => department.id && archiveUnit(department.id, department.name)}>Архивировать</Button>
+                                  <Link href={`/training-rules?scope=department&department_id=${department.id}`} className="text-xs text-primary hover:underline">{ui("authenticatedUi.adminStaff.structure.requiredCourses")}</Link>
+                                  <Button type="button" variant="ghost" size="sm" onClick={() => { setUnitName(department.name); setUnitModal({ type: "department", unitId: department.id || undefined, parentId: branch.id, parentName: branch.name }); }}>{ui("authenticatedUi.adminStaff.actions.rename")}</Button>
+                                  <Button type="button" variant="ghost" size="sm" onClick={() => department.id && archiveUnit(department.id, department.name)}>{ui("authenticatedUi.adminStaff.actions.archive")}</Button>
                                 </span>
                               )}
                             </div>
                             {departmentOpen && (
                               <ul className="divide-y divide-border bg-muted/30">
                                 {department.positions.length === 0 && (
-                                  <li className="px-4 py-3 pl-20 text-xs italic text-muted-foreground">Нет должностей</li>
+                                  <li className="px-4 py-3 pl-20 text-xs italic text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.noPositions")}</li>
                                 )}
                                 {department.positions.map((pos) => {
                                   const positionOpen = expandedPositions.has(pos.id) || query.trim().length > 0;
@@ -1842,7 +1858,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                           href={`/positions/${pos.id}?tab=training`}
                                           className="shrink-0 rounded-sm text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                         >
-                                          Профиль и обучение
+                                          {ui("authenticatedUi.adminStaff.structure.profileAndTraining")}
                                         </Link>
                                       </div>
                                       {positionOpen && pos.employees.length > 0 && (
@@ -1871,7 +1887,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                                   onClick={() => openEmployeeEditor(emp.id)}
                                                   disabled={employeeLoadingId === emp.id}
                                                 >
-                                                  {employeeLoadingId === emp.id ? "Открываю…" : "Изменить"}
+                                                  {employeeLoadingId === emp.id ? ui("authenticatedUi.adminStaff.actions.opening") : ui("authenticatedUi.adminStaff.actions.edit")}
                                                 </Button>
                                                 {emp.is_active && (
                                                   <Link
@@ -1879,8 +1895,8 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                                     className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                                   >
                                                     <GraduationCap className="h-4 w-4" aria-hidden="true" />
-                                                    <span className="hidden sm:inline">Назначить обучение</span>
-                                                    <span className="sm:hidden">Назначить</span>
+                                                    <span className="hidden sm:inline">{ui("authenticatedUi.adminStaff.structure.assignTraining")}</span>
+                                                    <span className="sm:hidden">{ui("authenticatedUi.adminStaff.actions.assign")}</span>
                                                   </Link>
                                                 )}
                                               </span>
@@ -1908,24 +1924,24 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       {unitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div role="dialog" aria-modal="true" aria-labelledby="unit-dialog-title" className="w-full max-w-md rounded-xl bg-card p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-3"><div><h2 id="unit-dialog-title" className="text-lg font-bold">{unitModal.unitId ? "Редактирование подразделения" : unitModal.type === "branch" ? "Новый филиал" : unitModal.type === "department" ? "Новый отдел" : "Новое подразделение"}</h2><p className="mt-1 text-sm text-muted-foreground">{unitModal.parentName ? `В подразделении «${unitModal.parentName}»` : "Корневое подразделение"}</p></div><button type="button" aria-label="Закрыть" onClick={closeUnitModal} disabled={unitSaving}><X className="h-5 w-5" /></button></div>
-            {!unitModal.unitId && <label className="mt-5 block space-y-1 text-sm"><span className="font-medium">Тип подразделения</span><select aria-label="Тип подразделения" value={unitModal.type} onChange={(event) => setUnitModal((current) => current ? { ...current, type: event.target.value } : current)} className="w-full rounded-md border border-border bg-background px-3 py-2"><option value="organization">Организация</option><option value="branch">Филиал</option><option value="management">Управление</option><option value="division">Департамент</option><option value="department">Отдел</option><option value="sector">Сектор</option><option value="team">Команда</option><option value="other">Другое</option></select></label>}
-            <label className="mt-5 block space-y-1 text-sm"><span className="font-medium">Название</span><input autoFocus value={unitName} onChange={(event) => setUnitName(event.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2" placeholder={unitModal.type === "branch" ? "Например, Филиал Павлодар" : "Например, Отдел внутреннего контроля"} /></label>
+            <div className="flex items-start justify-between gap-3"><div><h2 id="unit-dialog-title" className="text-lg font-bold">{unitModal.unitId ? ui("authenticatedUi.adminStaff.structure.editUnit") : unitModal.type === "branch" ? ui("authenticatedUi.adminStaff.structure.newBranch") : unitModal.type === "department" ? ui("authenticatedUi.adminStaff.structure.newDepartment") : ui("authenticatedUi.adminStaff.structure.newUnit")}</h2><p className="mt-1 text-sm text-muted-foreground">{unitModal.parentName ? ui("authenticatedUi.adminStaff.structure.inUnit", { name: unitModal.parentName }) : ui("authenticatedUi.adminStaff.structure.rootUnit")}</p></div><button type="button" aria-label={ui("authenticatedUi.adminStaff.actions.close")} onClick={closeUnitModal} disabled={unitSaving}><X className="h-5 w-5" /></button></div>
+            {!unitModal.unitId && <label className="mt-5 block space-y-1 text-sm"><span className="font-medium">{ui("authenticatedUi.adminStaff.structure.unitType")}</span><select aria-label={ui("authenticatedUi.adminStaff.structure.unitType")} value={unitModal.type} onChange={(event) => setUnitModal((current) => current ? { ...current, type: event.target.value } : current)} className="w-full rounded-md border border-border bg-background px-3 py-2"><option value="organization">{ui("authenticatedUi.adminStaff.structure.types.organization")}</option><option value="branch">{ui("authenticatedUi.adminStaff.structure.types.branch")}</option><option value="management">{ui("authenticatedUi.adminStaff.structure.types.management")}</option><option value="division">{ui("authenticatedUi.adminStaff.structure.types.division")}</option><option value="department">{ui("authenticatedUi.adminStaff.structure.types.department")}</option><option value="sector">{ui("authenticatedUi.adminStaff.structure.types.sector")}</option><option value="team">{ui("authenticatedUi.adminStaff.structure.types.team")}</option><option value="other">{ui("authenticatedUi.adminStaff.structure.types.other")}</option></select></label>}
+            <label className="mt-5 block space-y-1 text-sm"><span className="font-medium">{ui("authenticatedUi.adminStaff.structure.name")}</span><input autoFocus value={unitName} onChange={(event) => setUnitName(event.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2" placeholder={unitModal.type === "branch" ? ui("authenticatedUi.adminStaff.structure.branchPlaceholder") : ui("authenticatedUi.adminStaff.structure.departmentPlaceholder")} /></label>
             {unitModal.unitId && data && (
               <div className="mt-5 space-y-2 text-sm">
-                <span className="font-medium">Родительское подразделение</span>
+                <span className="font-medium">{ui("authenticatedUi.adminStaff.structure.parentUnit")}</span>
                 <OrganizationUnitPicker
                   roots={data.roots}
                   value={unitModal.parentId || ""}
                   onChange={(option) => void chooseMoveParent(option?.id || null)}
                   excludeUnitIds={unitModal.excludedUnitIds}
-                  selectAriaLabel="Родительское подразделение"
+                  selectAriaLabel={ui("authenticatedUi.adminStaff.structure.parentUnit")}
                   disabled={unitSaving || movePreviewLoading}
                 />
-                {movePreviewLoading && <p className="text-xs text-muted-foreground">Проверяю последствия перемещения…</p>}
+                {movePreviewLoading && <p className="text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.checkingMove")}</p>}
                 {movePreview && (
                   <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
-                    Будут перемещены: {movePreview.affected_units} узл., {movePreview.affected_positions} должн., {movePreview.affected_employees} сотр. Новая глубина: {movePreview.resulting_depth}; высота поддерева: {movePreview.subtree_height}.
+                    {ui("authenticatedUi.adminStaff.structure.movePreview", { units: movePreview.affected_units, positions: movePreview.affected_positions, employees: movePreview.affected_employees, depth: movePreview.resulting_depth, height: movePreview.subtree_height })}
                   </div>
                 )}
               </div>
@@ -1938,17 +1954,17 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                   onChange={(event) => setUnitModal((current) => current ? { ...current, isHeadOffice: event.target.checked } : current)}
                   disabled={unitSaving}
                 />
-                <span><span className="font-medium">Центральный офис</span><span className="mt-0.5 block text-xs text-muted-foreground">У организации может быть только один активный корневой узел с этим признаком.</span></span>
+                <span><span className="font-medium">{ui("authenticatedUi.adminStaff.structure.headOffice")}</span><span className="mt-0.5 block text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.headOfficeHint")}</span></span>
               </label>
             )}
-            <div className="mt-5 flex justify-end gap-2"><Button type="button" variant="outline" onClick={closeUnitModal} disabled={unitSaving}>Отмена</Button><Button type="button" onClick={createUnit} disabled={!unitName.trim() || unitSaving || movePreviewLoading || Boolean(unitModal.unitId && (unitModal.parentId || null) !== (unitModal.originalParentId || null) && !movePreview)}>{unitSaving ? "Сохраняю…" : unitModal.unitId ? "Сохранить" : "Создать"}</Button></div>
+            <div className="mt-5 flex justify-end gap-2"><Button type="button" variant="outline" onClick={closeUnitModal} disabled={unitSaving}>{ui("authenticatedUi.adminStaff.actions.cancel")}</Button><Button type="button" onClick={createUnit} disabled={!unitName.trim() || unitSaving || movePreviewLoading || Boolean(unitModal.unitId && (unitModal.parentId || null) !== (unitModal.originalParentId || null) && !movePreview)}>{unitSaving ? ui("authenticatedUi.adminStaff.actions.saving") : unitModal.unitId ? ui("authenticatedUi.adminStaff.actions.save") : ui("authenticatedUi.adminStaff.actions.create")}</Button></div>
           </div>
         </div>
       )}
 
       {/* Department tree */}
       {false && filteredDepartments.length > 0 && <Card>
-        <CardHeader><CardTitle>Совместимые отделы</CardTitle><p className="text-sm text-muted-foreground">Это данные старого формата, сохранённые без автоматического переименования в филиалы.</p></CardHeader>
+        <CardHeader><CardTitle>{ui("authenticatedUi.adminStaff.structure.compatibleDepartments")}</CardTitle><p className="text-sm text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.compatibleDepartmentsDescription")}</p></CardHeader>
         <CardContent className="p-0">
           <ul className="divide-y divide-border">
             {filteredDepartments.map((dept) => {
@@ -1979,14 +1995,14 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                         className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-foreground hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <BookOpenCheck className="h-4 w-4" aria-hidden="true" />
-                        <span className="hidden sm:inline">Обязательные курсы</span>
+                        <span className="hidden sm:inline">{ui("authenticatedUi.adminStaff.structure.requiredCourses")}</span>
                       </Link>
                     )}
                   </div>
                   {isOpen && (
                     <ul className="bg-muted/30 divide-y divide-border">
                       {dept.positions.length === 0 && (
-                        <li className="px-4 py-3 pl-14 text-xs text-muted-foreground italic">Нет должностей</li>
+                        <li className="px-4 py-3 pl-14 text-xs text-muted-foreground italic">{ui("authenticatedUi.adminStaff.structure.noPositions")}</li>
                       )}
                       {dept.positions.map((pos) => {
                         const positionOpen = expandedPositions.has(pos.id) || query.trim().length > 0;
@@ -2015,7 +2031,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                               href={`/positions/${pos.id}?tab=training`}
                               className="shrink-0 rounded-sm text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             >
-                              Профиль и обучение
+                              {ui("authenticatedUi.adminStaff.structure.profileAndTraining")}
                             </Link>
                           </div>
                           {positionOpen && pos.employees.length > 0 && (
@@ -2044,7 +2060,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                       onClick={() => openEmployeeEditor(emp.id)}
                                       disabled={employeeLoadingId === emp.id}
                                     >
-                                      {employeeLoadingId === emp.id ? "Открываю…" : "Изменить"}
+                                      {employeeLoadingId === emp.id ? ui("authenticatedUi.adminStaff.actions.opening") : ui("authenticatedUi.adminStaff.actions.edit")}
                                     </Button>
                                   {emp.is_active && (
                                     <Link
@@ -2052,8 +2068,8 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                       className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     >
                                       <GraduationCap className="h-4 w-4" aria-hidden="true" />
-                                      <span className="hidden sm:inline">Назначить обучение</span>
-                                      <span className="sm:hidden">Назначить</span>
+                                      <span className="hidden sm:inline">{ui("authenticatedUi.adminStaff.structure.assignTraining")}</span>
+                                      <span className="sm:hidden">{ui("authenticatedUi.adminStaff.actions.assign")}</span>
                                     </Link>
                                   )}
                                   </span>
@@ -2074,8 +2090,8 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       </Card>}
 
       {data.unassignedPositions.length > 0 && <Card>
-        <CardHeader><CardTitle>Требуют распределения</CardTitle><p className="text-sm text-muted-foreground">Должности старого формата, для которых нельзя безопасно определить филиал или отдел. Они не потеряны и показаны отдельно.</p></CardHeader>
-        <CardContent className="space-y-2">{data.unassignedPositions.map((position) => <div key={position.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-warning/30 bg-warning/5 p-3"><div><span className="block text-sm font-medium">{position.name}</span><span className="text-xs text-muted-foreground">Исходное подразделение: {position.department || "не указано"}</span></div><span className="text-xs text-muted-foreground">{position.employee_count} сотрудников</span></div>)}</CardContent>
+        <CardHeader><CardTitle>{ui("authenticatedUi.adminStaff.structure.unassignedTitle")}</CardTitle><p className="text-sm text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.unassignedDescription")}</p></CardHeader>
+        <CardContent className="space-y-2">{data.unassignedPositions.map((position) => <div key={position.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-warning/30 bg-warning/5 p-3"><div><span className="block text-sm font-medium">{position.name}</span><span className="text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.sourceUnit", { name: position.department || ui("authenticatedUi.adminStaff.structure.notSpecified") })}</span></div><span className="text-xs text-muted-foreground">{tp('common.counts.employee', position.employee_count)}</span></div>)}</CardContent>
       </Card>}
 
       {editingEmployee && (
@@ -2088,15 +2104,15 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 id="edit-employee-title" className="text-xl font-bold text-foreground">Данные сотрудника</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Изменения не затронут должность, назначенные курсы и историю обучения. Увольнение закрывает доступ, но не удаляет историю.</p>
+                <h2 id="edit-employee-title" className="text-xl font-bold text-foreground">{ui("authenticatedUi.adminStaff.employee.title")}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{ui("authenticatedUi.adminStaff.employee.description")}</p>
               </div>
               <button
                 type="button"
                 onClick={closeEmployeeEditor}
                 disabled={employeeSaving || employeeTerminating}
                 className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label="Закрыть"
+                aria-label={ui("authenticatedUi.adminStaff.actions.close")}
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
@@ -2104,7 +2120,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <label className="space-y-1">
-                <span className="text-sm font-medium">Табельный номер *</span>
+                <span className="text-sm font-medium">{ui("authenticatedUi.adminStaff.fields.personnelNumberRequired")}</span>
                 <input
                   value={employeeForm.personnel_number}
                   onChange={(event) => setEmployeeForm((current) => ({ ...current, personnel_number: event.target.value }))}
@@ -2120,10 +2136,10 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
                   placeholder="employee@company.kz"
                 />
-                <span className="block text-xs text-muted-foreground">После смены адреса коды входа будут отправляться на новый email.</span>
+                <span className="block text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.employee.emailChangeHint")}</span>
               </label>
               <label className="space-y-1">
-                <span className="text-sm font-medium">Имя *</span>
+                <span className="text-sm font-medium">{ui("authenticatedUi.adminStaff.fields.firstNameRequired")}</span>
                 <input
                   value={employeeForm.first_name}
                   onChange={(event) => setEmployeeForm((current) => ({ ...current, first_name: event.target.value }))}
@@ -2131,7 +2147,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-sm font-medium">Фамилия *</span>
+                <span className="text-sm font-medium">{ui("authenticatedUi.adminStaff.fields.lastNameRequired")}</span>
                 <input
                   value={employeeForm.last_name}
                   onChange={(event) => setEmployeeForm((current) => ({ ...current, last_name: event.target.value }))}
@@ -2139,7 +2155,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                 />
               </label>
               <label className="space-y-1 md:col-span-2">
-                <span className="text-sm font-medium">Телефон</span>
+                <span className="text-sm font-medium">{ui("authenticatedUi.adminStaff.fields.phone")}</span>
                 <input
                   type="tel"
                   value={employeeForm.phone}
@@ -2155,21 +2171,21 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
 
             {showTermination && (
               <div className="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-                <h3 className="font-semibold text-destructive">Уволить сотрудника</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Сотрудник станет неактивным и будет исключён из групп. Назначения, результаты и журнал действий сохранятся.</p>
+                <h3 className="font-semibold text-destructive">{ui("authenticatedUi.adminStaff.employee.terminateTitle")}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{ui("authenticatedUi.adminStaff.employee.terminateDescription")}</p>
                 <label className="mt-3 block space-y-1">
-                  <span className="text-sm font-medium">Причина *</span>
+                  <span className="text-sm font-medium">{ui("authenticatedUi.adminStaff.employee.reasonRequired")}</span>
                   <textarea
                     value={terminationReason}
                     onChange={(event) => setTerminationReason(event.target.value)}
                     className="min-h-24 w-full resize-y rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-destructive"
-                    placeholder="Например: трудовой договор завершён"
+                    placeholder={ui("authenticatedUi.adminStaff.employee.reasonPlaceholder")}
                   />
                 </label>
                 <div className="mt-3 flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setShowTermination(false)} disabled={employeeTerminating}>Не увольнять</Button>
+                  <Button type="button" variant="outline" onClick={() => setShowTermination(false)} disabled={employeeTerminating}>{ui("authenticatedUi.adminStaff.employee.cancelTermination")}</Button>
                   <Button type="button" className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={terminateEmployee} disabled={employeeTerminating || terminationReason.trim().length < 3}>
-                    {employeeTerminating ? "Закрываю доступ…" : "Подтвердить увольнение"}
+                    {employeeTerminating ? ui("authenticatedUi.adminStaff.employee.closingAccess") : ui("authenticatedUi.adminStaff.employee.confirmTermination")}
                   </Button>
                 </div>
               </div>
@@ -2177,12 +2193,12 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
 
             <div className="mt-6 flex flex-wrap justify-between gap-2">
               <Button type="button" variant="outline" className="text-destructive" onClick={() => setShowTermination(true)} disabled={employeeSaving || employeeTerminating || showTermination}>
-                <UserMinus className="mr-2 h-4 w-4" /> Уволить
+                <UserMinus className="mr-2 h-4 w-4" /> {ui("authenticatedUi.adminStaff.employee.terminate")}
               </Button>
               <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={closeEmployeeEditor} disabled={employeeSaving || employeeTerminating}>Отмена</Button>
+              <Button type="button" variant="outline" onClick={closeEmployeeEditor} disabled={employeeSaving || employeeTerminating}>{ui("authenticatedUi.adminStaff.actions.cancel")}</Button>
               <Button type="button" onClick={saveEmployee} disabled={employeeSaving || employeeTerminating}>
-                {employeeSaving ? "Сохраняю…" : "Сохранить"}
+                {employeeSaving ? ui("authenticatedUi.adminStaff.actions.saving") : ui("authenticatedUi.adminStaff.actions.save")}
               </Button>
               </div>
             </div>

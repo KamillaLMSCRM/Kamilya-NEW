@@ -7,6 +7,13 @@ import { api } from "@/lib/api";
 import { getQualificationCard, getQualificationHistory } from "@/features/positions/qualification-api";
 import type { PositionQualificationCardData } from "@/features/positions/qualification-types";
 
+vi.mock("@/i18n/useT", () => {
+  const t = (key: string, params?: Record<string, string | number>) =>
+    key.replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? `{${name}}`));
+  const tp = (key: string, count: number) => `${key}:${count}`;
+  return { useT: () => ({ t, tp, lang: "en" }) };
+});
+
 let requestedTab = "profile";
 const replace = vi.fn();
 
@@ -86,7 +93,7 @@ describe("PositionQualificationCard", () => {
 
     expect(await screen.findByRole("heading", { name: "Оператор" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("Работа на линии")).toBeInTheDocument();
-    expect(screen.queryByText(/справочники компетенций или курсов временно недоступны/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("authenticatedUi.positions.cardCatalogUnavailable")).not.toBeInTheDocument();
   });
 
   it("shows a recoverable catalog error on the training tab", async () => {
@@ -95,9 +102,9 @@ describe("PositionQualificationCard", () => {
 
     render(<PositionQualificationCard positionId="position-1" />);
 
-    expect(await screen.findByText(/справочники компетенций или курсов временно недоступны/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Повторить/i })).toBeInTheDocument();
-    expect(screen.getByText(/Итоговый набор/i)).toBeInTheDocument();
+    expect(await screen.findByText("authenticatedUi.positions.cardCatalogUnavailable")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "authenticatedUi.positions.retry" })).toBeInTheDocument();
+    expect(screen.getByText("authenticatedUi.positions.effectiveSet")).toBeInTheDocument();
   });
 
   it("shows a retry state when the qualification aggregate fails", async () => {
@@ -105,8 +112,8 @@ describe("PositionQualificationCard", () => {
 
     render(<PositionQualificationCard positionId="position-1" />);
 
-    expect(await screen.findByText(/Не удалось загрузить карточку должности/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Повторить/i })).toBeInTheDocument();
+    expect(await screen.findByText("authenticatedUi.positions.cardLoadError")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "authenticatedUi.positions.retry" })).toBeInTheDocument();
     await waitFor(() => expect(getCardMock).toHaveBeenCalledWith("position-1"));
   });
 });

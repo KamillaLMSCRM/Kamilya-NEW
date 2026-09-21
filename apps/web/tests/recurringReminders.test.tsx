@@ -12,9 +12,25 @@ vi.mock('@/store/authStore', () => ({
     accessToken: authState.token, user: { role: authState.role },
   }),
 }));
-vi.mock('@/i18n/useT', () => ({
-  useT: () => ({ t: (key: string) => key === 'common.loading' ? 'Загрузка' : key, tp: (_key: string, count: number) => `${count}` }),
-}));
+vi.mock('@/i18n/useT', async () => {
+  const messages = (await import('@/i18n/locales/ru.json')).default as Record<string, unknown>;
+  const translate = (key: string, params?: Record<string, unknown>) => {
+    const value = key.split('.').reduce<unknown>(
+      (current, part) => current && typeof current === 'object'
+        ? (current as Record<string, unknown>)[part]
+        : undefined,
+      messages,
+    );
+    if (typeof value !== 'string') return key;
+    return value.replace(/\{(\w+)\}/g, (_match, name: string) => String(params?.[name] ?? `{${name}}`));
+  };
+  return {
+    useT: () => ({
+      t: translate,
+      tp: (_key: string, count: number) => `${count}`,
+    }),
+  };
+});
 vi.mock('@/components/ui/ConfirmDialog', () => ({ useConfirm: () => ({ confirm: vi.fn(), dialog: null }) }));
 vi.mock('@/components/ui/Toast', () => ({ toast: toastMock }));
 
@@ -124,7 +140,7 @@ describe('recurring reminder settings', () => {
     await renderRule();
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/reminders'))).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Показать статусы напоминаний' }));
-    expect(screen.getByText('Загрузка статусов напоминаний…')).toBeInTheDocument();
+    expect(screen.getAllByText('Загрузка статусов…').length).toBeGreaterThan(0);
     resolveHistory?.(jsonResponse([]));
     expect(await screen.findByText('Статусов напоминаний пока нет.')).toBeInTheDocument();
 

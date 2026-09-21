@@ -220,7 +220,7 @@ export default function CourseEditPage() {
         if (!response.ok) throw new Error('Lesson reorder failed');
       } catch {
         setModules(modules);
-        toast.error('Не удалось изменить порядок уроков. Попробуйте ещё раз.');
+        toast.error(t('authenticatedUi.editor.reorderFailed'));
       }
     }
   };
@@ -242,7 +242,7 @@ export default function CourseEditPage() {
       setEditLessonTitle(data.title || '');
       setEditLessonContent(data.content || '');
     } catch (error) {
-      toast.error('Не удалось открыть урок', { description: (error as Error).message });
+      toast.error(t('authenticatedUi.editor.openLessonFailed'), { description: (error as Error).message });
     } finally {
       setLoadingLessonId(null);
     }
@@ -274,10 +274,10 @@ export default function CourseEditPage() {
           ),
         }))
       );
-      toast.success('Урок сохранён');
+      toast.success(t('authenticatedUi.editor.lessonSaved'));
       setEditingLessonId(null);
     } catch (error) {
-      toast.error('Не удалось сохранить урок', { description: (error as Error).message });
+      toast.error(t('authenticatedUi.editor.saveLessonFailed'), { description: (error as Error).message });
     } finally {
       setSavingLesson(false);
     }
@@ -301,7 +301,7 @@ export default function CourseEditPage() {
         || payload?.details?.message
         || payload?.detail?.message
         || payload?.detail
-        || 'Не удалось изменить статус курса',
+        || t('authenticatedUi.editor.statusChangeFailed'),
       );
     }
     return response.json() as Promise<Course>;
@@ -312,9 +312,9 @@ export default function CourseEditPage() {
     try {
       const updated = await releaseRequest('review', { review_status: 'approved' });
       if (updated) setCourse(updated);
-      toast.success('Курс одобрен', { description: 'Теперь его можно опубликовать.' });
+      toast.success(t('authenticatedUi.editor.courseApproved'), { description: t('authenticatedUi.editor.courseApprovedHint') });
     } catch (error) {
-      toast.error('Не удалось одобрить курс', { description: (error as Error).message });
+      toast.error(t('authenticatedUi.editor.approveFailed'), { description: (error as Error).message });
     } finally {
       setReleaseAction(null);
     }
@@ -326,13 +326,13 @@ export default function CourseEditPage() {
       const updated = await releaseRequest('publish');
       if (updated) setCourse(updated);
       toast.success(
-        course?.source_instruction_id ? 'Курс опубликован и назначен' : 'Курс опубликован',
+        course?.source_instruction_id ? t('authenticatedUi.editor.publishedAssigned') : t('authenticatedUi.editor.published'),
         course?.source_instruction_id
-          ? { description: 'Назначения по должности активированы для текущих сотрудников.' }
+          ? { description: t('authenticatedUi.editor.assignmentActivated') }
           : undefined,
       );
     } catch (error) {
-      toast.error('Не удалось опубликовать курс', { description: (error as Error).message });
+      toast.error(t('authenticatedUi.editor.publishFailed'), { description: (error as Error).message });
     } finally {
       setReleaseAction(null);
     }
@@ -355,27 +355,27 @@ export default function CourseEditPage() {
             </Badge>
             {course.ai_generated && (
               <Badge variant={course.review_status === 'approved' ? 'secondary' : 'outline'}>
-                {course.review_status === 'approved' ? 'Проверен методологом' : 'Требует проверки'}
+                {course.review_status === 'approved' ? t('authenticatedUi.editor.reviewed') : t('authenticatedUi.editor.needsReview')}
               </Badge>
             )}
-            {course.source_instruction_id && <Badge variant="outline">По должностной инструкции</Badge>}
+            {course.source_instruction_id && <Badge variant="outline">{t('authenticatedUi.editor.byJobInstruction')}</Badge>}
           </div>
         </div>
         <div className="flex flex-wrap gap-2 sm:justify-end">
           {course.status !== 'published' && course.ai_generated && course.review_status !== 'approved' && (
             <Button size="sm" variant="outline" onClick={handleApprove} disabled={releaseAction !== null}>
               <CheckCircle2 className="mr-1.5 h-4 w-4" />
-              {releaseAction === 'approve' ? 'Одобрение...' : 'Одобрить курс'}
+              {releaseAction === 'approve' ? t('authenticatedUi.editor.approving') : t('authenticatedUi.editor.approveCourse')}
             </Button>
           )}
           {course.status !== 'published' && (!course.ai_generated || course.review_status === 'approved') && (
             <Button size="sm" onClick={handlePublish} disabled={releaseAction !== null}>
               <Rocket className="mr-1.5 h-4 w-4" />
               {releaseAction === 'publish'
-                ? 'Публикация...'
+                ? t('authenticatedUi.editor.publishing')
                 : course.source_instruction_id
-                  ? 'Опубликовать и назначить'
-                  : 'Опубликовать'}
+                  ? t('authenticatedUi.editor.publishAndAssign')
+                  : t('authenticatedUi.editor.publish')}
             </Button>
           )}
           <Button
@@ -387,27 +387,26 @@ export default function CourseEditPage() {
             }}
           >
             <Sparkles className="w-4 h-4 mr-1" />
-            AI-помощник
+            {t('authenticatedUi.editor.assistant')}
           </Button>
           <Link
             href={`/admin/course-approvals?courseId=${encodeURIComponent(course.id)}`}
             className="inline-flex min-h-9 items-center justify-center rounded-md border border-input px-3 py-2 text-sm font-medium hover:bg-muted"
           >
-            Согласование
+            {t('authenticatedUi.editor.approval')}
           </Link>
         </div>
       </div>
       <ApprovalPolicyCard courseId={course.id} initialRequiresApproval={Boolean(course.requires_approval)} />
       {course.status !== 'published' && course.ai_generated && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          Перед публикацией откройте раздел <a className="font-semibold underline" href="/quizzes">Тесты</a> и явно одобрите каждый AI-тест. Проверка курса не заменяет проверку правильных и неверных вариантов ответа.
+          {t('authenticatedUi.editor.quizReviewHint')}
         </div>
       )}
 
       {course.status !== 'published' && course.source_instruction_id && (
         <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
-          Пока курс является черновиком, сотрудники его не видят. После проверки публикация заменит
-          прежнее правило этой должностной инструкции и назначит курс текущим сотрудникам должности.
+          {t('authenticatedUi.editor.draftVisibilityHint')}
         </div>
       )}
 
@@ -437,8 +436,8 @@ export default function CourseEditPage() {
                 {/* Module header */}
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="flex flex-col gap-0.5">
-                    <Button aria-label="Переместить модуль выше" variant="ghost" size="sm" className="h-5 px-1" onClick={() => handleMoveModule(mod.id, 'up')} disabled={modIdx === 0}><ChevronUp className="w-3 h-3" aria-hidden="true" /></Button>
-                    <Button aria-label="Переместить модуль ниже" variant="ghost" size="sm" className="h-5 px-1" onClick={() => handleMoveModule(mod.id, 'down')} disabled={modIdx === modules.length - 1}><ChevronDown className="w-3 h-3" aria-hidden="true" /></Button>
+                    <Button aria-label={t('authenticatedUi.editor.moveModuleUp')} variant="ghost" size="sm" className="h-5 px-1" onClick={() => handleMoveModule(mod.id, 'up')} disabled={modIdx === 0}><ChevronUp className="w-3 h-3" aria-hidden="true" /></Button>
+                    <Button aria-label={t('authenticatedUi.editor.moveModuleDown')} variant="ghost" size="sm" className="h-5 px-1" onClick={() => handleMoveModule(mod.id, 'down')} disabled={modIdx === modules.length - 1}><ChevronDown className="w-3 h-3" aria-hidden="true" /></Button>
                   </div>
                   {editingModuleId === mod.id ? (
                     <div className="flex gap-2 flex-1">
@@ -468,8 +467,8 @@ export default function CourseEditPage() {
                     <div key={lesson.id} className="rounded-md border border-border/70 bg-muted/35">
                       <div className="flex flex-wrap items-center gap-2 p-3 text-sm">
                         <div className="flex flex-col gap-0.5">
-                          <Button aria-label="Переместить урок выше" variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'up')} disabled={lessonIdx === 0}><ChevronUp className="w-3 h-3" aria-hidden="true" /></Button>
-                          <Button aria-label="Переместить урок ниже" variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'down')} disabled={lessonIdx === mod.lessons.length - 1}><ChevronDown className="w-3 h-3" aria-hidden="true" /></Button>
+                          <Button aria-label={t('authenticatedUi.editor.moveLessonUp')} variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'up')} disabled={lessonIdx === 0}><ChevronUp className="w-3 h-3" aria-hidden="true" /></Button>
+                          <Button aria-label={t('authenticatedUi.editor.moveLessonDown')} variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'down')} disabled={lessonIdx === mod.lessons.length - 1}><ChevronDown className="w-3 h-3" aria-hidden="true" /></Button>
                         </div>
                         <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                         <span className="min-w-[220px] flex-1 text-sm font-medium leading-5">{lesson.title}</span>
@@ -486,14 +485,14 @@ export default function CourseEditPage() {
                           ) : (
                             <Pencil className="mr-1.5 h-4 w-4" />
                           )}
-                          Редактировать
+                          {t('common.edit')}
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
                           className="text-primary text-xs"
-                          title="AI-помощник по этому уроку"
-                          aria-label={`Открыть AI-помощника для урока «${lesson.title}»`}
+                          title={t('authenticatedUi.editor.lessonAssistantTitle')}
+                          aria-label={t('authenticatedUi.editor.openLessonAssistant', { title: lesson.title })}
                           onClick={() => {
                             setChatFocus({
                               lessonId: lesson.id,
@@ -504,7 +503,7 @@ export default function CourseEditPage() {
                         >
                           <Bot className="w-3 h-3" aria-hidden="true" />
                         </Button>
-                        <Button aria-label={`Удалить урок «${lesson.title}»`} variant="ghost" size="sm" className="text-destructive text-xs" onClick={() => handleDeleteLesson(lesson.id, mod.id)}>
+                        <Button aria-label={t('authenticatedUi.editor.deleteLesson', { title: lesson.title })} variant="ghost" size="sm" className="text-destructive text-xs" onClick={() => handleDeleteLesson(lesson.id, mod.id)}>
                           <X className="w-3 h-3" aria-hidden="true" />
                         </Button>
                       </div>
@@ -542,47 +541,47 @@ export default function CourseEditPage() {
         onClose={() => {
           if (!savingLesson) setEditingLessonId(null);
         }}
-        title="Редактирование урока"
-        description="Редактируйте исходный текст слева и сразу проверяйте оформление справа."
+        title={t('authenticatedUi.editor.modalTitle')}
+        description={t('authenticatedUi.editor.modalDescription')}
         dismissable={false}
         className="flex h-[calc(100dvh-1rem)] max-h-[960px] w-[calc(100%-1rem)] !max-w-[1400px] flex-col overflow-hidden p-4 sm:h-[calc(100dvh-1.5rem)] sm:w-[calc(100%-1.5rem)] sm:p-6"
       >
         <div className="flex min-h-0 flex-1 flex-col gap-4">
           <label className="block shrink-0 space-y-2">
-            <span className="text-sm font-medium text-foreground">Название урока</span>
+            <span className="text-sm font-medium text-foreground">{t('authenticatedUi.editor.lessonTitle')}</span>
             <Input
               value={editLessonTitle}
               onChange={(event) => setEditLessonTitle(event.target.value)}
               name="lesson-title"
               autoComplete="off"
-              placeholder="Например, Введение в информационную безопасность…"
+              placeholder={t('authenticatedUi.editor.lessonTitlePlaceholder')}
             />
           </label>
           <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
             <label className="flex min-h-[260px] flex-col gap-2">
-              <span className="text-sm font-medium text-foreground">Содержание урока</span>
+              <span className="text-sm font-medium text-foreground">{t('authenticatedUi.editor.lessonContent')}</span>
               <textarea
                 value={editLessonContent}
                 onChange={(event) => setEditLessonContent(event.target.value)}
                 name="lesson-content"
                 autoComplete="off"
                 className="min-h-[220px] w-full flex-1 resize-none rounded-md border border-input bg-background px-4 py-3 text-base leading-7 text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
-                placeholder="Введите содержание урока…"
+                placeholder={t('authenticatedUi.editor.lessonContentPlaceholder')}
               />
             </label>
             <section
               role="region"
-              aria-label="Предпросмотр содержания урока"
+              aria-label={t('authenticatedUi.editor.lessonContent')}
               className="flex min-h-[260px] min-w-0 flex-col gap-2"
             >
-              <span className="text-sm font-medium text-foreground">Как увидит сотрудник</span>
+              <span className="text-sm font-medium text-foreground">{t('authenticatedUi.editor.lessonContent')}</span>
               <div className="min-h-[220px] flex-1 overflow-auto rounded-md border border-border bg-muted/20 px-5 py-4">
                 {editLessonContent.trim() ? (
                   <div className="prose max-w-none text-foreground">
                     <SafeLessonContent text={editLessonContent} />
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Предпросмотр появится после ввода текста.</p>
+                  <p className="text-sm text-muted-foreground">{t('authenticatedUi.editor.lessonContentPlaceholder')}</p>
                 )}
               </div>
             </section>

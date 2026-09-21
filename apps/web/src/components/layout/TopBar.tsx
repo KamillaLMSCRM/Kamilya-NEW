@@ -189,8 +189,9 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
               <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
             </svg>
             <span className="truncate">
-              <strong>Вы как суперадмин:</strong> видите систему как{' '}
-              <strong>{user?.tenant?.name || 'тенант'}</strong>{' '}
+              <strong>{t('topbar.impersonationAsSuperadmin')}</strong>{' '}
+              {t('topbar.impersonationViewingAs')}{' '}
+              <strong>{user?.tenant?.name || t('topbar.tenantFallback')}</strong>{' '}
               <span className="text-warning/70">({user?.impersonated_role})</span>
             </span>
           </div>
@@ -204,7 +205,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
               <polyline points="16 17 21 12 16 7" />
               <line x1="21" x2="9" y1="12" y2="12" />
             </svg>
-            Выйти
+            {t('nav.logout')}
           </button>
         </div>
       )}
@@ -216,8 +217,8 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
           type="button"
           onClick={onMenuClick}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border text-muted-foreground hover:text-foreground md:hidden"
-          aria-label={t('sidebar.open') || 'Открыть меню'}
-          title={t('sidebar.open') || 'Открыть меню'}
+          aria-label={t('sidebar.open')}
+          title={t('sidebar.open')}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <path d="M4 6h16M4 12h16M4 18h16" />
@@ -229,9 +230,9 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
         {tenantName && (
           <div
             className="mt-0.5 hidden max-w-[360px] items-center gap-1.5 truncate text-xs font-medium text-muted-foreground md:flex"
-            title={`Кабинет: ${tenantName}`}
+            title={t('topbar.tenantTitle', { tenant: tenantName })}
           >
-            <span className="shrink-0 text-muted-foreground/70">Кабинет:</span>
+            <span className="shrink-0 text-muted-foreground/70">{t('topbar.tenantLabel')}</span>
             <span className="truncate text-foreground/80">{tenantName}</span>
           </div>
         )}
@@ -269,7 +270,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
             window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
           }}
           className="hidden sm:flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2 text-sm text-muted-foreground hover:border-border hover:text-foreground transition-colors"
-          aria-label={t('topbar.openCommandPalette') || 'Open command palette'}
+          aria-label={t('topbar.openCommandPalette')}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="8" />
@@ -356,13 +357,13 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
             type="button"
             onClick={goToSuperadmin}
             className="inline-flex items-center gap-1.5 rounded-xl border border-warning/40 bg-warning/5 px-3 py-2 text-xs font-medium text-warning hover:bg-warning/15 transition-colors"
-            title="Войти как оператор платформы"
-            aria-label="Войти как суперадмин"
+            title={t('topbar.operatorTitle')}
+            aria-label={t('topbar.operatorAria')}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
-            Super admin
+            {t('topbar.superadminButton')}
           </button>
         )}
       </div>

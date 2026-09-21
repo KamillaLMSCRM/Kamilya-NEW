@@ -6,7 +6,7 @@ import { Card, CardContent, Button, Badge, Input, Modal } from '@/components/ui'
 import { useAuthStore } from '@/store/authStore';
 import { getAccessToken } from '@/lib/auth';
 import { api } from '@/lib/api';
-import { useT } from '@/i18n/useT';
+import { useT, type TranslationKey } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { QuestionAssistantPreview } from '@/components/quizzes/QuestionAssistantPreview';
@@ -127,12 +127,12 @@ function questionEditorIsDirty(
     snapshot.choices.some((choice, index) => choice.id !== choices[index]?.id || choice.text !== choices[index]?.text || choice.is_correct !== choices[index]?.is_correct);
 }
 
-function questionTypeLabel(type: string) {
-  if (type === 'MCQ') return 'Один правильный ответ';
-  if (type === 'multiple_choice') return 'Несколько правильных ответов';
-  if (type === 'true_false') return 'Верно / неверно';
-  if (type === 'matching') return 'Сопоставление';
-  return type;
+function questionTypeLabel(type: string): TranslationKey | null {
+  if (type === 'MCQ') return 'authenticatedUi.quizUi.mcq';
+  if (type === 'multiple_choice') return 'authenticatedUi.quizUi.multiple';
+  if (type === 'true_false') return 'authenticatedUi.quizUi.trueFalse';
+  if (type === 'matching') return 'authenticatedUi.quizUi.matching';
+  return null;
 }
 
 function apiErrorMessage(error: unknown) {
@@ -284,7 +284,7 @@ export default function QuizzesAdminPage() {
       // Refresh the tree so the new quiz appears under the chosen lesson.
       await fetchGrouped();
     } catch (error) {
-      toast.error(`Не удалось создать тест: ${apiErrorMessage(error)}`);
+      toast.error(`${t('authenticatedUi.quizUi.createFailed')}: ${apiErrorMessage(error)}`);
     }
   };
 
@@ -312,7 +312,7 @@ export default function QuizzesAdminPage() {
         pass_score: draft.suggested_pass_score,
       }));
     } catch (e) {
-      toast.error(`AI-генерация не удалась: ${apiErrorMessage(e)}`);
+      toast.error(`${t('authenticatedUi.quizUi.aiFailed')}: ${apiErrorMessage(e)}`);
     } finally {
       setAiGenerating(false);
     }
@@ -326,7 +326,7 @@ export default function QuizzesAdminPage() {
   const handleSaveAiDraft = async () => {
     if (!aiDraft || !token) return;
     if (!newQuiz.lesson_id) {
-      toast.error('Сначала выберите урок');
+      toast.error(t('authenticatedUi.quizUi.selectLesson'));
       return;
     }
     setAiGenerating(true);
@@ -372,10 +372,10 @@ export default function QuizzesAdminPage() {
       setAiGuidance('');
       await fetchGrouped();
       toast.success(
-        `Тест создан: добавлено ${added} из ${tp('common.counts.question', aiDraft.questions.length)}`
+        t('authenticatedUi.quizUi.created', { added, total: tp('common.counts.question', aiDraft.questions.length) })
       );
     } catch (e) {
-      toast.error(`Не удалось сохранить: ${apiErrorMessage(e)}`);
+      toast.error(`${t('authenticatedUi.quizUi.saveFailed')}: ${apiErrorMessage(e)}`);
     } finally {
       setAiGenerating(false);
     }
@@ -457,11 +457,11 @@ export default function QuizzesAdminPage() {
         order_index: index,
       }));
     if (choices.length < 2) {
-      toast.error('Добавьте минимум два варианта ответа');
+      toast.error(t('authenticatedUi.quizUi.minChoices'));
       return;
     }
     if (!choices.some((choice) => choice.is_correct)) {
-      toast.error('Отметьте правильный вариант ответа');
+      toast.error(t('authenticatedUi.quizUi.correctChoice'));
       return;
     }
 
@@ -487,9 +487,9 @@ export default function QuizzesAdminPage() {
       setQuestionEditorMode(null);
       setEditingQuestionId(null);
       setSavedQuestionSnapshot(null);
-      toast.success(isEditing ? 'Вопрос обновлён' : 'Вопрос добавлен');
+      toast.success(isEditing ? t('authenticatedUi.quizUi.questionUpdated') : t('authenticatedUi.quizUi.questionAdded'));
     } catch (error) {
-      toast.error('Не удалось сохранить вопрос', { description: apiErrorMessage(error) });
+      toast.error(t('authenticatedUi.quizUi.saveQuestionFailed'), { description: apiErrorMessage(error) });
     } finally {
       setSavingQuestion(false);
     }
@@ -509,7 +509,7 @@ export default function QuizzesAdminPage() {
       applyUpdatedQuiz(quiz);
       return;
     } catch (error) {
-      toast.error('Не удалось удалить вопрос', { description: apiErrorMessage(error) });
+      toast.error(t('authenticatedUi.quizUi.deleteQuestionFailed'), { description: apiErrorMessage(error) });
     }
   };
 
@@ -527,7 +527,7 @@ export default function QuizzesAdminPage() {
       await fetchGrouped();
       return;
     } catch (error) {
-      toast.error('Не удалось удалить тест', { description: apiErrorMessage(error) });
+      toast.error(t('authenticatedUi.quizUi.deleteQuizFailed'), { description: apiErrorMessage(error) });
     }
   };
 
@@ -560,7 +560,7 @@ export default function QuizzesAdminPage() {
       } else {
         const n = parseInt(tl, 10);
         if (!Number.isFinite(n) || n <= 0) {
-          toast.error('Время должно быть положительным числом минут или пустым');
+          toast.error(t('authenticatedUi.quizUi.timeInvalid'));
           return;
         }
         body.time_limit = n;
@@ -569,9 +569,9 @@ export default function QuizzesAdminPage() {
       const updated = res.data;
       applyUpdatedQuiz(updated);
       setEditingSettings(false);
-      toast.success('Параметры теста сохранены');
+      toast.success(t('authenticatedUi.quizUi.settingsSaved'));
     } catch (e) {
-      toast.error(`Не удалось сохранить: ${apiErrorMessage(e)}`);
+      toast.error(`${t('authenticatedUi.quizUi.saveFailed')}: ${apiErrorMessage(e)}`);
     } finally {
       setSavingSettings(false);
     }
@@ -582,9 +582,9 @@ export default function QuizzesAdminPage() {
     try {
       const response = await api.post<Quiz>(`/v1/quizzes/${selectedQuiz.id}/approve`);
       applyUpdatedQuiz(response.data);
-      toast.success('Тест одобрен для публикации и обучения');
+      toast.success(t('authenticatedUi.quizUi.approved'));
     } catch (error) {
-      toast.error(`Не удалось одобрить тест: ${apiErrorMessage(error)}`);
+      toast.error(`${t('authenticatedUi.quizUi.approveFailed')}: ${apiErrorMessage(error)}`);
     }
   };
 
@@ -596,9 +596,9 @@ export default function QuizzesAdminPage() {
     <div className="mx-auto max-w-[1560px] space-y-5 px-1">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 max-w-4xl">
-          <h1 className="text-2xl font-bold leading-8 text-foreground">Тесты и вопросы</h1>
+          <h1 className="text-2xl font-bold leading-8 text-foreground">{t('authenticatedUi.quizUi.title')}</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-            Создание и редактирование тестов. Выберите урок → добавьте вопросы вручную или сгенерируйте черновик из контента урока с помощью AI.
+            {t('authenticatedUi.quizUi.description')}
           </p>
         </div>
         <Button onClick={() => setShowCreateQuiz(!showCreateQuiz)} className="h-11 px-5">
@@ -620,7 +620,7 @@ export default function QuizzesAdminPage() {
                 accidentally create a second quiz for the same lesson. */}
             <div className="grid md:grid-cols-3 gap-2">
               <div>
-                <label className="text-sm text-muted-foreground">Курс</label>
+                <label className="text-sm text-muted-foreground">{t('authenticatedUi.quizUi.course')}</label>
                 <select
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={newQuiz.course_id}
@@ -629,40 +629,40 @@ export default function QuizzesAdminPage() {
                     setNewQuiz((p) => ({ ...p, course_id: cid, module_id: '', lesson_id: '' }));
                   }}
                 >
-                  <option value="">— выберите курс —</option>
+                <option value="">— {t('authenticatedUi.quizUi.selectCourse').toLowerCase()} —</option>
                   {grouped?.courses.map((c) => (
                     <option key={c.id} value={c.id}>{c.title}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="text-sm text-muted-foreground">Модуль</label>
+                <label className="text-sm text-muted-foreground">{t('authenticatedUi.quizUi.module')}</label>
                 <select
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={newQuiz.module_id}
                   onChange={(e) => setNewQuiz((p) => ({ ...p, module_id: e.target.value, lesson_id: '' }))}
                   disabled={!newQuiz.course_id}
                 >
-                  <option value="">— выберите модуль —</option>
+                  <option value="">— {t('authenticatedUi.quizUi.selectModule').toLowerCase()} —</option>
                   {selectedCourseInForm?.modules.map((m) => (
                     <option key={m.id} value={m.id}>{m.title}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="text-sm text-muted-foreground">Урок</label>
+                <label className="text-sm text-muted-foreground">{t('authenticatedUi.quizUi.lesson')}</label>
                 <select
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={newQuiz.lesson_id}
                   onChange={(e) => setNewQuiz((p) => ({ ...p, lesson_id: e.target.value }))}
                   disabled={!newQuiz.module_id}
                 >
-                  <option value="">— выберите урок —</option>
+                  <option value="">— {t('authenticatedUi.quizUi.selectLesson').toLowerCase()} —</option>
                   {selectedCourseInForm?.modules
                     .find((m) => m.id === newQuiz.module_id)
                     ?.lessons.map((l) => (
                       <option key={l.id} value={l.id} disabled={l.quiz != null}>
-                        {l.title}{l.quiz ? ' (уже есть тест)' : ''}
+                        {l.title}{l.quiz ? t('authenticatedUi.quizUi.hasTest') : ''}
                       </option>
                     ))}
                 </select>
@@ -683,7 +683,7 @@ export default function QuizzesAdminPage() {
                 />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground">{t('quiz.timeLeft')} (мин)</label>
+                <label className="text-sm text-muted-foreground">{t('quiz.timeLeft')} ({t('authenticatedUi.quizUi.minutesShort')})</label>
                 <Input
                   type="number"
                   placeholder="∞"
@@ -692,7 +692,7 @@ export default function QuizzesAdminPage() {
                 />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground">Лимит попыток</label>
+                <label className="text-sm text-muted-foreground">{t('authenticatedUi.quizUi.attemptLimit')}</label>
                 <Input
                   type="number"
                   value={newQuiz.attempt_limit}
@@ -724,26 +724,26 @@ export default function QuizzesAdminPage() {
               <div className="mt-3 pt-3 border-t border-border/50">
                 <div className="flex items-center gap-2 mb-2">
                   <Lightbulb size={14} className="text-amber-500" />
-                  <span className="text-sm font-medium">Или сгенерировать черновик с AI</span>
+                  <span className="text-sm font-medium">{t('authenticatedUi.quizUi.generateDraft')}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <div>
-                    <label className="text-xs text-muted-foreground">Сложность</label>
+                    <label className="text-xs text-muted-foreground">{t('authenticatedUi.quizUi.difficulty')}</label>
                     <select
                       className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                       value={aiDifficulty}
                       onChange={(e) => setAiDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
                       disabled={aiGenerating}
                     >
-                      <option value="easy">Лёгкий (онбординг)</option>
-                      <option value="medium">Средний</option>
-                      <option value="hard">Сложный (senior)</option>
+                      <option value="easy">{t('authenticatedUi.quizUi.easy')}</option>
+                      <option value="medium">{t('authenticatedUi.quizUi.medium')}</option>
+                      <option value="hard">{t('authenticatedUi.quizUi.hard')}</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground">Пожелания (опц.)</label>
+                    <label className="text-xs text-muted-foreground">{t('authenticatedUi.quizUi.preferences')}</label>
                     <Input
-                      placeholder="например: фокус на штрафы"
+                      placeholder={t('authenticatedUi.quizUi.guidancePlaceholder')}
                       value={aiGuidance}
                       onChange={(e) => setAiGuidance(e.target.value)}
                       disabled={aiGenerating}
@@ -756,13 +756,13 @@ export default function QuizzesAdminPage() {
                   disabled={!newQuiz.lesson_id || aiGenerating}
                   className="w-full"
                 >
-                  {aiGenerating ? 'Генерируем черновик…' : '✨ Сгенерировать черновик'}
+                  {aiGenerating ? t('authenticatedUi.quizUi.generating') : `✨ ${t('authenticatedUi.quizUi.generate')}`}
                 </Button>
                 {aiDraft && (
                   <p className="text-xs text-muted-foreground mt-2">
-                    Черновик готов ({tp('common.counts.question', aiDraft.questions.length)}
-                    {aiDraft.latency_ms ? `, ${(aiDraft.latency_ms / 1000).toFixed(1)}с` : ''}).
-                    Прокрутите вниз, чтобы посмотреть и сохранить.
+                    {t('authenticatedUi.quizUi.draftReady')} ({tp('common.counts.question', aiDraft.questions.length)}
+                    {aiDraft.latency_ms ? `, ${t('authenticatedUi.quizUi.secondsShort', { seconds: (aiDraft.latency_ms / 1000).toFixed(1) })}` : ''}).
+                    {t('authenticatedUi.quizUi.draftHint')}
                   </p>
                 )}
               </div>
@@ -771,8 +771,8 @@ export default function QuizzesAdminPage() {
                 <div className="flex items-start gap-2">
                   <Lightbulb size={14} className="text-muted-foreground mt-0.5 shrink-0" />
                   <p className="text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">AI-черновик:</span>{' '}
-                    выберите урок выше — AI прочитает его контент и предложит вопросы. Без выбранного урока генерация невозможна.
+                    <span className="font-medium text-foreground">{t('authenticatedUi.quizUi.draftLabel')}</span>{' '}
+                    {t('authenticatedUi.quizUi.draftInstruction')}
                   </p>
                 </div>
               </div>
@@ -793,7 +793,7 @@ export default function QuizzesAdminPage() {
               <div className="flex items-center gap-2">
                 <Lightbulb size={16} className="text-amber-500" />
                 <h3 className="font-semibold">
-                  Черновик от AI — проверьте перед сохранением
+                  {t('authenticatedUi.quizUi.reviewBeforeSave')}
                 </h3>
               </div>
               <button
@@ -801,13 +801,13 @@ export default function QuizzesAdminPage() {
                 className="text-sm text-muted-foreground hover:underline"
                 onClick={() => setAiDraft(null)}
               >
-                Отклонить
+                {t('authenticatedUi.quizUi.reject')}
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
               {tp('common.counts.question', aiDraft.questions.length)}
-              {aiDraft.latency_ms ? `, сгенерировано за ${(aiDraft.latency_ms / 1000).toFixed(1)}с` : ''}.
-              AI мог ошибиться в формулировках или фактах — обязательно проверьте каждый вопрос.
+              {aiDraft.latency_ms ? `, ${t('authenticatedUi.quizUi.generatedIn', { seconds: (aiDraft.latency_ms / 1000).toFixed(1) })}` : ''}.
+              {' '}{t('authenticatedUi.quizUi.reviewWarning')}
             </p>
             <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
               {aiDraft.questions.map((q, qi) => (
@@ -915,17 +915,17 @@ export default function QuizzesAdminPage() {
                       );
                     }}
                   >
-                    Удалить вопрос
+                          {t('common.delete')} {t('quiz.question').toLowerCase()}
                   </button>
                 </div>
               ))}
             </div>
             <div className="flex gap-2 pt-2 border-t border-border/50">
               <Button onClick={handleSaveAiDraft} disabled={aiGenerating}>
-                {aiGenerating ? 'Сохраняем…' : 'Сохранить тест'}
+                {aiGenerating ? t('common.saving') : t('common.save')}
               </Button>
               <Button variant="outline" onClick={() => setAiDraft(null)}>
-                Отклонить
+                {t('authenticatedUi.quizUi.reject')}
               </Button>
             </div>
           </CardContent>
@@ -941,14 +941,14 @@ export default function QuizzesAdminPage() {
         <Card className="overflow-hidden border-border/70 shadow-none">
           <CardContent className="p-0">
             <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Тесты</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('authenticatedUi.quizUi.tests')}</h3>
               <Badge variant="secondary" className="bg-muted text-foreground">{flatQuizzes.length}</Badge>
             </div>
             {loading ? (
-              <p className="px-4 py-5 text-sm text-muted-foreground">Загрузка…</p>
+              <p className="px-4 py-5 text-sm text-muted-foreground">{t('authenticatedUi.quizUi.loading')}</p>
             ) : grouped && grouped.courses.every((c) => c.modules.every((m) => m.lessons.every((l) => !l.quiz))) && grouped.orphans.length === 0 ? (
               <p className="px-4 py-5 text-sm leading-6 text-muted-foreground">
-                Тестов пока нет. Нажмите «Создать тест» выше.
+                {t('authenticatedUi.quizUi.empty')}
               </p>
             ) : (
               <div className="max-h-[calc(100vh-280px)] space-y-1 overflow-y-auto p-3">
@@ -1012,7 +1012,7 @@ export default function QuizzesAdminPage() {
                 {grouped && grouped.orphans.length > 0 && (
                   <div className="mt-2 rounded-md border border-dashed border-border/70 bg-background">
                     <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Без привязки
+                      {t('authenticatedUi.quizUi.noLesson')}
                     </div>
                     {grouped.orphans.map(({ quiz }) => (
                       <button
@@ -1055,20 +1055,20 @@ export default function QuizzesAdminPage() {
                     </div>
                     {selectedQuiz.review_status === 'needs_review' && (
                       <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                        Этот тест создан ИИ или требует повторной проверки после изменения урока. Сопоставьте каждый правильный ответ с материалом, убедитесь, что неверные варианты правдоподобны и похожи по длине, а правильный вариант только один. После этого явно одобрите тест.
+                        {t('authenticatedUi.quizUi.aiWarning')}
                       </div>
                     )}
                   </div>
                   {selectedQuiz.review_status === 'needs_review' && (
                     <Button size="sm" onClick={handleApproveQuiz}>
-                      Одобрить после проверки
+                      {t('authenticatedUi.quizUi.approveAfterReview')}
                     </Button>
                   )}
                 </div>
                 <section className="mt-5" aria-labelledby="quiz-settings-heading">
                   <div className="mb-3 flex min-h-9 flex-wrap items-center justify-between gap-3">
                     <h4 id="quiz-settings-heading" className="text-sm font-semibold text-foreground">
-                      Параметры теста
+                      {t('authenticatedUi.quizUi.settings')}
                     </h4>
                     {!editingSettings && (
                       <Button
@@ -1077,7 +1077,7 @@ export default function QuizzesAdminPage() {
                         onClick={() => startEditSettings(selectedQuiz)}
                       >
                         <Pencil className="mr-1.5 h-4 w-4" />
-                        Изменить параметры
+                        {t('authenticatedUi.quizUi.editSettings')}
                       </Button>
                     )}
                   </div>
@@ -1100,7 +1100,7 @@ export default function QuizzesAdminPage() {
                         />
                       </label>
                       <label className="flex flex-col gap-1">
-                        <span className="text-muted-foreground">{t('quiz.timeLeft')} (мин, пусто = без лимита)</span>
+                        <span className="text-muted-foreground">{t('authenticatedUi.quizUi.timeLimitHint')}</span>
                         <Input
                           type="number"
                           min={1}
@@ -1112,7 +1112,7 @@ export default function QuizzesAdminPage() {
                         />
                       </label>
                       <label className="flex flex-col gap-1">
-                        <span className="text-muted-foreground">Попыток</span>
+                        <span className="text-muted-foreground">{t('authenticatedUi.quizUi.attempts')}</span>
                         <Input
                           type="number"
                           min={1}
@@ -1143,10 +1143,10 @@ export default function QuizzesAdminPage() {
                       </div>
                       <div className="rounded-md border border-border/70 bg-muted/30 px-4 py-3">
                         <div className="text-sm text-muted-foreground">{t('quiz.timeLeft')}</div>
-                        <div className="mt-1 text-lg font-semibold tabular-nums">{selectedQuiz.time_limit ? `${selectedQuiz.time_limit} мин` : '∞'}</div>
+                        <div className="mt-1 text-lg font-semibold tabular-nums">{selectedQuiz.time_limit ? `${selectedQuiz.time_limit} ${t('authenticatedUi.quizUi.minutesShort')}` : '∞'}</div>
                       </div>
                       <div className="rounded-md border border-border/70 bg-muted/30 px-4 py-3">
-                        <div className="text-sm text-muted-foreground">Попыток</div>
+                        <div className="text-sm text-muted-foreground">{t('authenticatedUi.quizUi.attempts')}</div>
                         <div className="mt-1 text-lg font-semibold tabular-nums">{selectedQuiz.attempt_limit}</div>
                       </div>
                     </>
@@ -1158,18 +1158,18 @@ export default function QuizzesAdminPage() {
                   aria-labelledby="quiz-danger-heading"
                 >
                   <div>
-                    <h4 id="quiz-danger-heading" className="text-sm font-medium text-foreground">Удаление теста</h4>
-                    <p className="mt-1 text-xs text-muted-foreground">Удалит тест и все его вопросы без возможности восстановления.</p>
+                    <h4 id="quiz-danger-heading" className="text-sm font-medium text-foreground">{t('authenticatedUi.quizUi.deleteTitle')}</h4>
+                    <p className="mt-1 text-xs text-muted-foreground">{t('authenticatedUi.quizUi.deleteDescription')}</p>
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
                     className="h-9 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    aria-label="Удалить тест"
+                    aria-label={t('authenticatedUi.quizUi.deleteTest')}
                     onClick={() => handleDeleteQuiz(selectedQuiz.id)}
                   >
                     <Trash2 className="mr-1.5 h-4 w-4" />
-                    Удалить тест
+                    {t('authenticatedUi.quizUi.deleteTest')}
                   </Button>
                 </section>
               </CardContent>
@@ -1178,10 +1178,10 @@ export default function QuizzesAdminPage() {
             {/* Questions */}
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h4 className="text-base font-semibold text-foreground">Вопросы</h4>
+                <h4 className="text-base font-semibold text-foreground">{t('authenticatedUi.quizUi.questions')}</h4>
                 <Button size="sm" className="h-9" onClick={openCreateQuestionEditor}>
                   <Plus className="mr-1.5 h-4 w-4" />
-                  {t('common.create')} вопрос
+                  {t('common.create')} {t('authenticatedUi.quizUi.question')}
                 </Button>
               </div>
 
@@ -1198,7 +1198,7 @@ export default function QuizzesAdminPage() {
                           <Badge variant="secondary" className="bg-primary/10 text-primary">
                             {tp('common.counts.point', q.points)}
                           </Badge>
-                          <Badge variant="outline" className="border-border bg-card text-muted-foreground">{questionTypeLabel(q.type)}</Badge>
+                          <Badge variant="outline" className="border-border bg-card text-muted-foreground">{questionTypeLabel(q.type) ? t(questionTypeLabel(q.type)!) : q.type}</Badge>
                         </div>
                         <div className="space-y-2">
                           {q.choices.map((c) => (
@@ -1245,7 +1245,7 @@ export default function QuizzesAdminPage() {
         ) : (
           <Card className="border-border/70 shadow-none">
             <CardContent className="p-10 text-center text-muted-foreground">
-              Загрузите тест по ID или создайте новый
+              {t('authenticatedUi.quizUi.loadOrCreate')}
             </CardContent>
           </Card>
         )}
@@ -1254,14 +1254,14 @@ export default function QuizzesAdminPage() {
       <Modal
         open={questionEditorMode !== null}
         onClose={closeQuestionEditor}
-        title={questionEditorMode === 'edit' ? 'Редактирование вопроса' : 'Новый вопрос'}
-        description="Сформулируйте вопрос, настройте баллы и отметьте правильные ответы."
+        title={questionEditorMode === 'edit' ? t('authenticatedUi.quizUi.editQuestion') : t('authenticatedUi.quizUi.newQuestion')}
+        description={t('authenticatedUi.quizUi.questionDescription')}
         dismissable={false}
         className="max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-4xl overscroll-contain overflow-y-auto p-5 sm:p-6"
       >
         <div className="space-y-5">
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-foreground">Текст вопроса</span>
+            <span className="text-sm font-medium text-foreground">{t('authenticatedUi.quizUi.questionText')}</span>
             <textarea
               value={newQuestion.text}
               onChange={(event) =>
@@ -1270,13 +1270,13 @@ export default function QuizzesAdminPage() {
               name="question-text"
               autoComplete="off"
               className="min-h-28 w-full resize-y rounded-md border border-input bg-background px-4 py-3 text-base leading-6 text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
-              placeholder="Например, Какое действие сотрудник должен выполнить первым?…"
+              placeholder={t('authenticatedUi.quizUi.questionPlaceholder')}
             />
           </label>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block space-y-2">
-              <span className="text-sm font-medium text-foreground">Тип вопроса</span>
+              <span className="text-sm font-medium text-foreground">{t('authenticatedUi.quizUi.questionType')}</span>
               <select
                 value={newQuestion.type}
                 name="question-type"
@@ -1285,18 +1285,18 @@ export default function QuizzesAdminPage() {
                 }
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               >
-                <option value="MCQ">Один правильный вариант</option>
-                <option value="multiple_choice">Несколько правильных вариантов</option>
-                <option value="true_false">Верно / неверно</option>
+                <option value="MCQ">{t('authenticatedUi.quizUi.singleOption')}</option>
+                <option value="multiple_choice">{t('authenticatedUi.quizUi.multipleOptions')}</option>
+                <option value="true_false">{t('authenticatedUi.quizUi.trueFalse')}</option>
                 {newQuestion.type === 'matching' && (
                   <option value="matching" disabled>
-                    Сопоставление (редактор пока недоступен)
+                    {t('authenticatedUi.quizUi.matchingUnavailable')}
                   </option>
                 )}
               </select>
             </label>
             <label className="block space-y-2">
-              <span className="text-sm font-medium text-foreground">Баллы за правильный ответ</span>
+              <span className="text-sm font-medium text-foreground">{t('authenticatedUi.quizUi.points')}</span>
               <Input
                 type="number"
                 name="question-points"
@@ -1316,7 +1316,7 @@ export default function QuizzesAdminPage() {
 
           <label className="block space-y-2">
             <span className="text-sm font-medium text-foreground">
-              Пояснение после ответа <span className="font-normal text-muted-foreground">(необязательно)</span>
+              {t('authenticatedUi.quizUi.explanation')}
             </span>
             <textarea
               value={newQuestion.explanation}
@@ -1326,18 +1326,18 @@ export default function QuizzesAdminPage() {
               name="question-explanation"
               autoComplete="off"
               className="min-h-24 w-full resize-y rounded-md border border-input bg-background px-4 py-3 text-sm leading-6 text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
-              placeholder="Например, этот шаг обязателен согласно внутренней политике…"
+              placeholder={t('authenticatedUi.quizUi.explanationPlaceholder')}
             />
           </label>
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-semibold text-foreground">Варианты ответа</h3>
+                <h3 className="text-sm font-semibold text-foreground">{t('authenticatedUi.quizUi.answerChoices')}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {newQuestion.type === 'multiple_choice'
-                    ? 'Отметьте все правильные варианты.'
-                    : 'Отметьте один правильный вариант.'}
+                    ? t('authenticatedUi.quizUi.selectAll')
+                    : t('authenticatedUi.quizUi.selectOne')}
                 </p>
               </div>
               <Button
@@ -1353,7 +1353,7 @@ export default function QuizzesAdminPage() {
                 }
               >
                 <Plus className="mr-1.5 h-4 w-4" />
-                Добавить вариант
+                {t('authenticatedUi.quizUi.addChoice')}
               </Button>
             </div>
             <div className="space-y-3">
@@ -1366,7 +1366,7 @@ export default function QuizzesAdminPage() {
                     type={newQuestion.type === 'multiple_choice' ? 'checkbox' : 'radio'}
                     id={`correct-choice-${index}`}
                     name="correct-choice"
-                    aria-label={`Отметить вариант ${index + 1} правильным`}
+                    aria-label={t('authenticatedUi.quizUi.markChoice', { index: index + 1 })}
                     checked={choice.is_correct}
                     onChange={() =>
                       setNewChoices((current) =>
@@ -1386,7 +1386,7 @@ export default function QuizzesAdminPage() {
                   <Input
                     name={`choice-${index + 1}`}
                     autoComplete="off"
-                    placeholder={`Вариант ${index + 1}…`}
+                    placeholder={t('authenticatedUi.quizUi.choicePlaceholder', { index: index + 1 })}
                     value={choice.text}
                     onChange={(event) =>
                       setNewChoices((current) =>
@@ -1401,7 +1401,7 @@ export default function QuizzesAdminPage() {
                     variant="ghost"
                     size="sm"
                     className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive"
-                    aria-label={`Удалить вариант ${index + 1}`}
+                    aria-label={t('authenticatedUi.quizUi.removeChoice', { index: index + 1 })}
                     disabled={newChoices.length <= 2}
                     onClick={() =>
                       setNewChoices((current) => {
@@ -1430,11 +1430,11 @@ export default function QuizzesAdminPage() {
               quizId={selectedQuiz.id}
               questionId={editingQuestionId}
               isDirty={isQuestionEditorDirty}
-              disabledReason="Сначала сохраните изменения вопроса, пояснения или вариантов ответа, затем сформируйте предложение."
+              disabledReason={t('authenticatedUi.quizUi.assistantDisabled')}
             />
           ) : questionEditorMode === 'edit' && selectedQuiz && editingQuestionId ? (
             <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-              Помощник доступен для сохранённых вопросов с одним правильным ответом и стабильными вариантами ответа.
+              {t('authenticatedUi.quizUi.assistantAvailable')}
             </p>
           ) : null}
 
@@ -1455,7 +1455,7 @@ export default function QuizzesAdminPage() {
                 ? t('common.saving')
                 : questionEditorMode === 'edit'
                   ? t('common.save')
-                  : `${t('common.create')} вопрос`}
+                  : `${t('common.create')} ${t('authenticatedUi.quizUi.question')}`}
             </Button>
           </div>
         </div>

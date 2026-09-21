@@ -15,6 +15,7 @@
  */
 
 import { useState } from "react";
+import { useT } from '@/i18n/useT';
 import {
   ChevronRight,
   ClipboardCheck,
@@ -67,14 +68,15 @@ export function ReviewBadge({
 }: {
   status: "pending" | "approved" | "needs_changes";
 }) {
+  const { t } = useT();
   if (status === "approved") {
     return (
       <span
         className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-xs font-medium text-success"
-        aria-label="Одобрено методологом"
+        aria-label={t('authenticatedUi.review.approvedByMethodologist')}
       >
         <CheckCircle2 className="w-3 h-3" />
-        Одобрено
+        {t('authenticatedUi.review.approved')}
       </span>
     );
   }
@@ -82,20 +84,20 @@ export function ReviewBadge({
     return (
       <span
         className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2.5 py-1 text-xs font-medium text-warning"
-        aria-label="Требуются правки"
+        aria-label={t('authenticatedUi.review.needsChanges')}
       >
         <XCircle className="w-3 h-3" />
-        Нужны правки
+        {t('authenticatedUi.review.needsChanges')}
       </span>
     );
   }
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
-      aria-label="Ожидает проверки методологом"
+      aria-label={t('authenticatedUi.review.pendingByMethodologist')}
     >
       <Clock className="w-3 h-3" />
-      На проверке
+      {t('authenticatedUi.review.pending')}
     </span>
   );
 }
@@ -136,6 +138,7 @@ export function CoursePreviewTree({
   onSaveEdit,
   onEditFormChange,
 }: CoursePreviewProps) {
+  const { t } = useT();
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
   const toggle = (id: string) => {
     setOpenIds((prev) => {
@@ -169,7 +172,7 @@ export function CoursePreviewTree({
                   )}
                 </span>
                 <span className="shrink-0 text-[11px] text-muted-foreground">
-                  {m.lessons?.length || 0} ур.
+                  {m.lessons?.length || 0} {t('authenticatedUi.coursePreview.lessonsShort')}
                 </span>
                 <ChevronRight
                   className={`shrink-0 h-4 w-4 text-muted-foreground transition-transform ${isOpen ? "rotate-90" : ""}`}
@@ -181,10 +184,10 @@ export function CoursePreviewTree({
                   type="button"
                   onClick={() => onFocusChat("module", m.id)}
                   className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                  title="Спросить AI про этот модуль"
+                  title={t('authenticatedUi.coursePreview.askModule')}
                 >
                   <MessageSquare className="w-3 h-3" />
-                  Спросить AI
+                  {t('authenticatedUi.coursePreview.askAi')}
                 </button>
                 <button
                   type="button"
@@ -193,7 +196,7 @@ export function CoursePreviewTree({
                   className="inline-flex items-center gap-1 rounded-lg border border-warning/40 bg-warning/10 px-2 py-1 text-[11px] font-medium text-warning hover:bg-warning/15 transition-colors disabled:opacity-50"
                 >
                   {moduleBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                  Перегенерировать
+                  {t('authenticatedUi.coursePreview.regenerate')}
                 </button>
               </div>
             </div>
@@ -215,14 +218,14 @@ export function CoursePreviewTree({
                                   value={editForm.title}
                                   onChange={(e) => onEditFormChange({ ...editForm, title: e.target.value })}
                                   className="w-full rounded-lg border border-primary bg-background px-2 py-1 text-sm font-medium text-foreground focus:outline-none"
-                                  placeholder="Название урока"
+                                  placeholder={t('authenticatedUi.coursePreview.lessonTitle')}
                                 />
                                 <textarea
                                   value={editForm.content}
                                   onChange={(e) => onEditFormChange({ ...editForm, content: e.target.value })}
                                   rows={Math.min(15, Math.max(6, editForm.content.split("\n").length + 2))}
                                   className="w-full rounded-lg border border-primary bg-background px-2 py-1.5 text-xs text-foreground font-mono leading-relaxed focus:outline-none resize-y"
-                                  placeholder="Содержимое урока"
+                                  placeholder={t('authenticatedUi.coursePreview.lessonContent')}
                                 />
                                 <div className="flex items-center justify-end gap-2">
                                   <button
@@ -232,7 +235,7 @@ export function CoursePreviewTree({
                                     className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
                                   >
                                     <XCircle className="w-3 h-3" />
-                                    Отмена
+                                    {t('common.cancel')}
                                   </button>
                                   <button
                                     type="button"
@@ -241,7 +244,7 @@ export function CoursePreviewTree({
                                     className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                                   >
                                     {editSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                                    Сохранить
+                                    {t('common.save')}
                                   </button>
                                 </div>
                               </div>
@@ -253,7 +256,7 @@ export function CoursePreviewTree({
                                     type="button"
                                     onClick={() => onFocusChat("lesson", l.id)}
                                     className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
-                                    title="Спросить AI про этот урок"
+                                    title={t('authenticatedUi.coursePreview.askLesson')}
                                   >
                                     <MessageSquare className="w-2.5 h-2.5" />
                                     AI
@@ -263,10 +266,10 @@ export function CoursePreviewTree({
                                     onClick={() => onEditLesson(l.id, l.title, l.content_preview || "")}
                                     disabled={!!busyTargetId}
                                     className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 shrink-0"
-                                    title="Редактировать урок"
+                                    title={t('authenticatedUi.coursePreview.editLesson')}
                                   >
                                     <PenLine className="w-2.5 h-2.5" />
-                                    Изменить
+                                    {t('common.edit')}
                                   </button>
                                   <button
                                     type="button"
@@ -275,7 +278,7 @@ export function CoursePreviewTree({
                                     className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning hover:bg-warning/15 transition-colors disabled:opacity-50 shrink-0"
                                   >
                                     {lessonBusy ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
-                                    Перегенерировать
+                                    {t('authenticatedUi.coursePreview.regenerate')}
                                   </button>
                                 </div>
                                 {l.content_preview && (
@@ -287,7 +290,7 @@ export function CoursePreviewTree({
                                   <details className="mt-2 rounded-md border border-border bg-background px-2.5 py-2">
                                     <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[11px] font-medium text-primary">
                                       <FileText className="h-3 w-3" />
-                                      Источники урока ({new Set(l.source_references.map((reference: any) => reference.doc_id)).size})
+                                      {t('authenticatedUi.coursePreview.lessonSources')} ({new Set(l.source_references.map((reference: any) => reference.doc_id)).size})
                                     </summary>
                                     <ul className="mt-2 space-y-1.5 text-[11px] text-muted-foreground">
                                       {Array.from(
@@ -312,19 +315,19 @@ export function CoursePreviewTree({
                                 {l.source_validation_status === 'needs_review' && (
                                   <div className="mt-2 flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2.5 py-2 text-[11px] text-warning">
                                     <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-                                    Текст изменён после автоматической проверки источников. Проверьте соответствие перед одобрением курса.
+                                    {t('authenticatedUi.coursePreview.sourceReviewWarning')}
                                   </div>
                                 )}
                                 <div className="flex flex-wrap items-center gap-2 mt-1.5">
                                   {l.duration_seconds ? (
                                     <span className="text-[11px] text-muted-foreground">
-                                      ⏱ {Math.max(1, Math.round(l.duration_seconds / 60))} мин
+                                      ⏱ {Math.max(1, Math.round(l.duration_seconds / 60))} {t('authenticatedUi.coursePreview.minutes')}
                                     </span>
                                   ) : null}
                                   {l.has_quiz && (
                                     <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">
                                       <ClipboardCheck className="w-3 h-3" />
-                                      Тест: {l.quiz_question_count || 0} вопр.
+                                      {t('authenticatedUi.coursePreview.quiz')}: {l.quiz_question_count || 0} {t('authenticatedUi.coursePreview.questionsShort')}
                                     </span>
                                   )}
                                 </div>
@@ -336,7 +339,7 @@ export function CoursePreviewTree({
                     );
                   })
                 ) : (
-                  <li className="px-4 py-3 pl-14 text-xs text-muted-foreground italic">Нет уроков</li>
+                  <li className="px-4 py-3 pl-14 text-xs text-muted-foreground italic">{t('authenticatedUi.coursePreview.noLessons')}</li>
                 )}
               </ul>
             )}

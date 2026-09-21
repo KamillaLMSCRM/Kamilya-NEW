@@ -15,19 +15,20 @@ import { getTenantRegistrationError } from '@/lib/tenantRegistrationError';
 import { formatKzPhone } from '@/lib/kzPhone';
 import { extractTenantAttribution } from '@/lib/tenantAttribution';
 import { PublicLegalFooter } from '@/components/legal/PublicLegalFooter';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { useT } from '@/i18n/useT';
+import { useLocaleQuery } from '@/i18n/useLocaleQuery';
+import { useLanguageStore } from '@/store/languageStore';
 
 type TenantIntent = 'try' | 'demo' | 'buy';
-
-const intentOptions: Array<{ value: TenantIntent; label: string; hint: string }> = [
-  { value: 'try', label: 'Попробовать', hint: '14 дней и бесплатная генерация' },
-  { value: 'demo', label: 'Демо', hint: 'Показать сценарий команде' },
-  { value: 'buy', label: 'Купить', hint: 'Передать заявку менеджеру' },
-];
 
 const employeeRanges = ['1-10', '11-50', '51-200', '201-1000', '1000+'];
 
 export default function TenantRegisterPage() {
+  useLocaleQuery();
   const router = useRouter();
+  const { t } = useT();
+  const lang = useLanguageStore((state) => state.lang);
   const login = useAuthStore((state) => state.login);
   const [companyName, setCompanyName] = useState('');
   const [contactName, setContactName] = useState('');
@@ -45,6 +46,19 @@ export default function TenantRegisterPage() {
   const [error, setError] = useState('');
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const intentOptions: Array<{ value: TenantIntent; label: string; hint: string }> = [
+    { value: 'try', label: t('publicUi.registration.intent.tryLabel'), hint: t('publicUi.registration.intent.tryHint') },
+    { value: 'demo', label: t('publicUi.registration.intent.demoLabel'), hint: t('publicUi.registration.intent.demoHint') },
+    { value: 'buy', label: t('publicUi.registration.intent.buyLabel'), hint: t('publicUi.registration.intent.buyHint') },
+  ];
+
+  function registrationErrorMessage(errorValue: any): string {
+    if (lang === 'ru') return getTenantRegistrationError(errorValue);
+    // Backend validation details are not a localized public contract and may
+    // contain Russian implementation copy. Keep the selected UI language
+    // coherent instead of leaking server text into KK/EN registration.
+    return t('publicUi.registration.genericError');
+  }
 
   const canSubmit = useMemo(() => {
     return companyName.trim().length >= 2
@@ -65,7 +79,7 @@ export default function TenantRegisterPage() {
   async function requestEmailCode() {
     const normalizedEmail = email.trim();
     if (!normalizedEmail || !normalizedEmail.includes('@')) {
-      setError('Укажите корректный email.');
+      setError(t('publicUi.registration.validEmail'));
       return;
     }
 
@@ -74,13 +88,13 @@ export default function TenantRegisterPage() {
     try {
       await api.post('/v1/tenants/register/request-code', { email: normalizedEmail });
       setCodeRequested(true);
-      toast.success('Код отправлен', {
-        description: 'Введите шестизначный код из письма. Он действует 5 минут.',
+      toast.success(t('publicUi.registration.codeSent'), {
+        description: t('publicUi.registration.codeSentDescription'),
       });
     } catch (err: any) {
-      const messageText = getTenantRegistrationError(err);
+      const messageText = registrationErrorMessage(err);
       setError(messageText);
-      toast.error('Не удалось отправить код', { description: messageText });
+      toast.error(t('publicUi.registration.sendCodeError'), { description: messageText });
     } finally {
       setCodeLoading(false);
     }
@@ -91,7 +105,7 @@ export default function TenantRegisterPage() {
     setError('');
 
     if (!canSubmit) {
-      setError('Заполните обязательные поля и подтвердите email шестизначным кодом.');
+      setError(t('publicUi.registration.requiredFields'));
       return;
     }
 
@@ -106,7 +120,7 @@ export default function TenantRegisterPage() {
         phone: phone.trim() || null,
         telegram_username: telegramUsername.trim() || null,
         employee_count_range: employeeCountRange || null,
-        preferred_language: 'ru',
+        preferred_language: lang,
         intent,
         billing_identifier: billingIdentifier.trim() || null,
         message: message.trim() || null,
@@ -118,36 +132,37 @@ export default function TenantRegisterPage() {
       });
 
       login(data.access_token, data.user);
-      toast.success('Trial создан', {
-        description: `${data.tenant_name}: 1 обычный AI-курс и 1 курс по должностной инструкции доступны бесплатно.`,
+      toast.success(t('publicUi.registration.trialCreated'), {
+        description: t('publicUi.registration.trialCreatedDescription', { tenant: data.tenant_name }),
       });
       router.push(getRoleHome(data.user?.role));
     } catch (err: any) {
-      const messageText = getTenantRegistrationError(err);
+      const messageText = registrationErrorMessage(err);
       setError(messageText);
-      toast.error('Ошибка регистрации', { description: messageText });
+      toast.error(t('publicUi.registration.registrationError'), { description: messageText });
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main id="main-content" className="min-h-screen bg-background">
+    <main id="main-content" className="relative min-h-screen bg-background">
+      <div className="absolute right-4 top-4 z-10">
+        <LanguageSwitcher />
+      </div>
       <div className="mx-auto grid min-h-screen w-full max-w-6xl grid-cols-1 gap-8 px-4 py-8 lg:grid-cols-[1fr_420px] lg:items-center lg:px-8">
         <section className="space-y-6">
           <div className="flex items-center gap-3">
             <Logo variant="full" size={44} />
-            <Badge variant="outline">Trial 14 дней</Badge>
+            <Badge variant="outline">{t('publicUi.registration.trialBadge')}</Badge>
           </div>
 
           <div className="max-w-2xl space-y-4">
             <h1 className="text-3xl font-semibold leading-tight text-foreground md:text-4xl">
-              Создайте рабочее пространство Kamilya LMS для вашей компании
+              {t('publicUi.registration.heroTitle')}
             </h1>
             <p className="text-base text-muted-foreground">
-              Первый пользователь получает роли методиста и администратора. После регистрации откроется
-              рабочий интерфейс методиста: можно сразу подготовить один обычный AI-курс и один курс по
-              должностной инструкции, а затем переключиться в администрирование.
+              {t('publicUi.registration.heroDescription')}
             </p>
           </div>
 
@@ -155,28 +170,28 @@ export default function TenantRegisterPage() {
             <Card>
               <CardHeader className="p-4 pb-2">
                 <Sparkles className="h-5 w-5 text-primary" aria-hidden="true" />
-                <CardTitle className="text-sm">2 AI-генерации</CardTitle>
+                <CardTitle className="text-sm">{t('publicUi.registration.generationTitle')}</CardTitle>
               </CardHeader>
               <CardContent className="p-4 pt-0 text-sm text-muted-foreground">
-                1 обычный курс и 1 курс по должностной инструкции.
+                {t('publicUi.registration.generationDescription')}
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="p-4 pb-2">
                 <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
-                <CardTitle className="text-sm">До 10 обучающихся</CardTitle>
+                <CardTitle className="text-sm">{t('publicUi.registration.learnersTitle')}</CardTitle>
               </CardHeader>
               <CardContent className="p-4 pt-0 text-sm text-muted-foreground">
-                Достаточно для проверки полного учебного flow.
+                {t('publicUi.registration.learnersDescription')}
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="p-4 pb-2">
                 <Building2 className="h-5 w-5 text-primary" aria-hidden="true" />
-                <CardTitle className="text-sm">Отдельный кабинет</CardTitle>
+                <CardTitle className="text-sm">{t('publicUi.registration.workspaceTitle')}</CardTitle>
               </CardHeader>
               <CardContent className="p-4 pt-0 text-sm text-muted-foreground">
-                Своя компания, администратор, структура, сотрудники и учебные данные.
+                {t('publicUi.registration.workspaceDescription')}
               </CardContent>
             </Card>
           </div>
@@ -186,9 +201,9 @@ export default function TenantRegisterPage() {
           <CardHeader>
             <div className="flex items-center justify-between gap-4">
               <div>
-                <CardTitle className="text-xl">Регистрация тенанта</CardTitle>
+                <CardTitle className="text-xl">{t('publicUi.registration.formTitle')}</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Доступ откроется после подтверждения email.
+                  {t('publicUi.registration.formDescription')}
                 </p>
               </div>
 
@@ -206,14 +221,14 @@ export default function TenantRegisterPage() {
               <div>
                 <label htmlFor="company_name" className="mb-1 block text-sm font-medium">
                   <span aria-hidden="true" className="mr-0.5 text-destructive">*</span>
-                  Компания
+                  {t('publicUi.registration.company')}
                 </label>
                 <Input
                   id="company_name"
                   value={companyName}
                   onChange={(event) => setCompanyName(event.target.value)}
                   autoComplete="organization"
-                  placeholder="ТОО Kamilya Foods"
+                  placeholder={t('publicUi.registration.companyPlaceholder')}
                   required
                   aria-required="true"
                 />
@@ -222,14 +237,14 @@ export default function TenantRegisterPage() {
               <div>
                 <label htmlFor="contact_name" className="mb-1 block text-sm font-medium">
                   <span aria-hidden="true" className="mr-0.5 text-destructive">*</span>
-                  Контактное лицо
+                  {t('publicUi.registration.contact')}
                 </label>
                 <Input
                   id="contact_name"
                   value={contactName}
                   onChange={(event) => setContactName(event.target.value)}
                   autoComplete="name"
-                  placeholder="Камилла Ахметова"
+                  placeholder={t('publicUi.registration.contactPlaceholder')}
                   required
                   aria-required="true"
                 />
@@ -260,11 +275,10 @@ export default function TenantRegisterPage() {
                     aria-busy={codeLoading}
                   >
                     <Mail className="mr-2 h-4 w-4" aria-hidden="true" />
-                    {codeLoading ? 'Отправляем...' : codeRequested ? 'Отправить код ещё раз' : 'Получить код'}
+                    {codeLoading ? t('publicUi.registration.sending') : codeRequested ? t('publicUi.registration.resendCode') : t('publicUi.registration.getCode')}
                   </Button>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Кабинет будет создан только после подтверждения этого адреса.
-                    Пароль не требуется: для следующих входов можно получать одноразовый код на email.
+                    {t('publicUi.registration.emailHelp')}
                   </p>
                 </div>
               </div>
@@ -273,7 +287,7 @@ export default function TenantRegisterPage() {
                 <div>
                   <label htmlFor="email_code" className="mb-1 block text-sm font-medium">
                     <span aria-hidden="true" className="mr-0.5 text-destructive">*</span>
-                    Код из письма
+                    {t('publicUi.registration.code')}
                   </label>
                   <Input
                     id="email_code"
@@ -290,7 +304,7 @@ export default function TenantRegisterPage() {
                     aria-describedby="email-code-hint"
                   />
                   <p id="email-code-hint" className="mt-1 text-xs text-muted-foreground">
-                    Код действует 5 минут и подходит только для регистрации этого email.
+                    {t('publicUi.registration.codeHelp')}
                   </p>
                 </div>
               )}
@@ -298,7 +312,7 @@ export default function TenantRegisterPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label htmlFor="phone" className="mb-1 block text-sm font-medium">
-                    Телефон
+                    {t('publicUi.registration.phone')}
                   </label>
                   <Input
                     id="phone"
@@ -326,7 +340,7 @@ export default function TenantRegisterPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label htmlFor="employees" className="mb-1 block text-sm font-medium">
-                    Размер компании
+                    {t('publicUi.registration.companySize')}
                   </label>
                   <select
                     id="employees"
@@ -334,7 +348,7 @@ export default function TenantRegisterPage() {
                     onChange={(event) => setEmployeeCountRange(event.target.value)}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                   >
-                    <option value="">Не выбрано</option>
+                    <option value="">{t('publicUi.registration.notSelected')}</option>
                     {employeeRanges.map((range) => (
                       <option key={range} value={range}>{range}</option>
                     ))}
@@ -342,19 +356,19 @@ export default function TenantRegisterPage() {
                 </div>
                 <div>
                   <label htmlFor="billing_identifier" className="mb-1 block text-sm font-medium">
-                    БИН/ИИН
+                    {t('publicUi.registration.billingId')}
                   </label>
                   <Input
                     id="billing_identifier"
                     value={billingIdentifier}
                     onChange={(event) => setBillingIdentifier(event.target.value)}
-                    placeholder="Опционально"
+                    placeholder={t('publicUi.registration.optional')}
                   />
                 </div>
               </div>
 
               <div>
-                <span className="mb-2 block text-sm font-medium">Цель</span>
+                <span className="mb-2 block text-sm font-medium">{t('publicUi.registration.goal')}</span>
                 <div className="grid gap-2 sm:grid-cols-3">
                   {intentOptions.map((option) => (
                     <button
@@ -381,7 +395,7 @@ export default function TenantRegisterPage() {
 
               <div>
                 <label htmlFor="message" className="mb-1 block text-sm font-medium">
-                  Комментарий
+                  {t('publicUi.registration.comment')}
                 </label>
                 <textarea
                   id="message"
@@ -389,34 +403,35 @@ export default function TenantRegisterPage() {
                   onChange={(event) => setMessage(event.target.value)}
                   rows={3}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                  placeholder="Например: хотим протестировать обучение для отдела продаж"
+                  placeholder={t('publicUi.registration.commentPlaceholder')}
                 />
               </div>
 
               <fieldset className="space-y-3 rounded-md border border-input p-3">
-                <legend className="px-1 text-sm font-medium">Подтверждения</legend>
+                <legend className="px-1 text-sm font-medium">{t('publicUi.registration.confirmations')}</legend>
+                <p className="text-xs text-muted-foreground">{t('publicUi.registration.legalLanguageNotice')}</p>
                 <label htmlFor="privacy-acceptance" className="flex items-start gap-2 text-sm">
                   <input id="privacy-acceptance" type="checkbox" checked={privacyAccepted} onChange={(event) => setPrivacyAccepted(event.target.checked)} required aria-required="true" className="mt-1" />
-                  <span><span aria-hidden="true" className="mr-1 text-destructive">*</span>Я подтверждаю согласие на обработку персональных данных согласно <Link href="/legal/privacy" className="text-primary underline">Уведомлению о конфиденциальности</Link>.</span>
+                  <span><span aria-hidden="true" className="mr-1 text-destructive">*</span>{t('publicUi.registration.privacyBefore')} <Link href="/legal/privacy" className="text-primary underline">{t('publicUi.registration.privacyLink')}</Link>{t('publicUi.registration.privacyAfter')}</span>
                 </label>
                 <label htmlFor="terms-acceptance" className="flex items-start gap-2 text-sm">
                   <input id="terms-acceptance" type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} required aria-required="true" className="mt-1" />
-                  <span><span aria-hidden="true" className="mr-1 text-destructive">*</span>Я ознакомился(ась) и принимаю <Link href="/legal/terms" className="text-primary underline">Условия сайта и пробного доступа</Link> от имени организации.</span>
+                  <span><span aria-hidden="true" className="mr-1 text-destructive">*</span>{t('publicUi.registration.termsBefore')} <Link href="/legal/terms" className="text-primary underline">{t('publicUi.registration.termsLink')}</Link> {t('publicUi.registration.termsAfter')}</span>
                 </label>
               </fieldset>
 
               <Button type="submit" className="w-full" disabled={loading || !canSubmit} aria-busy={loading}>
-                {loading ? 'Создаем trial...' : 'Подтвердить email и создать trial'}
+                {loading ? t('publicUi.registration.creating') : t('publicUi.registration.submit')}
               </Button>
             </form>
 
             <div className="mt-4 flex items-center justify-between gap-3 text-sm text-muted-foreground">
               <Link href="/login" className="inline-flex items-center gap-1 text-primary hover:underline">
                 <Mail className="h-4 w-4" aria-hidden="true" />
-                Уже есть доступ
+                {t('publicUi.registration.existingAccess')}
               </Link>
               <Link href="/login/demo" className="text-primary hover:underline">
-                Общий демо-кабинет без регистрации
+                {t('publicUi.registration.sharedDemo')}
               </Link>
             </div>
           </CardContent>

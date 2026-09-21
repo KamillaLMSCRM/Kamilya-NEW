@@ -129,7 +129,7 @@ class PublicLeadRequest(BaseModel):
     industry: str | None = Field(None, max_length=80)
     interest: str = Field(..., max_length=40)
     message: str | None = Field(None, max_length=1000)
-    locale: Literal["ru", "kk"] = "ru"
+    locale: Literal["ru", "kk", "en"] = "ru"
     utm_source: str | None = Field(None, max_length=100)
     utm_medium: str | None = Field(None, max_length=100)
     utm_campaign: str | None = Field(None, max_length=100)

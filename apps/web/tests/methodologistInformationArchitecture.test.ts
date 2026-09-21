@@ -38,7 +38,7 @@ describe("methodologist information architecture", () => {
     expect(staffSource).toContain("selected_sheet");
     expect(staffSource).toContain("setAdaptiveMapping");
     expect(staffSource).toContain("setStructureRefreshKey((value) => value + 1)");
-    expect(staffSource).toContain("Сохранить сопоставление и продолжить");
+    expect(staffSource).toContain('ui("authenticatedUi.adminStaff.import.saveMapping")');
     expect(staffSource).not.toContain("const [sheets, setSheets]");
   });
 

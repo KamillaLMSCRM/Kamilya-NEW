@@ -19,12 +19,25 @@ vi.mock('@/store/authStore', () => ({
   useAuthStore: (selector: (state: { accessToken: string }) => unknown) =>
     selector({ accessToken: 'test-token' }),
 }));
-vi.mock('@/i18n/useT', () => ({
-  useT: () => ({
-    t: (key: string) => key,
-    tp: (_key: string, count: number) => String(count),
-  }),
-}));
+vi.mock('@/i18n/useT', async () => {
+  const messages = (await import('@/i18n/locales/ru.json')).default as Record<string, unknown>;
+  const translate = (key: string, params?: Record<string, unknown>) => {
+    const value = key.split('.').reduce<unknown>(
+      (current, part) => current && typeof current === 'object'
+        ? (current as Record<string, unknown>)[part]
+        : undefined,
+      messages,
+    );
+    if (typeof value !== 'string') return key;
+    return value.replace(/\{(\w+)\}/g, (_match, name: string) => String(params?.[name] ?? `{${name}}`));
+  };
+  return {
+    useT: () => ({
+      t: translate,
+      tp: (_key: string, count: number) => String(count),
+    }),
+  };
+});
 vi.mock('@/components/ui/Toast', () => ({
   toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() },
 }));
@@ -111,7 +124,7 @@ describe('AI generation repeated-source page flow', () => {
       }),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /ai.generate/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Генерировать курс/ }));
     expect(await screen.findByRole('dialog', { name: 'Источник уже использован' })).toBeInTheDocument();
     expect(screen.getByText('Действующий курс по ИБ')).toBeInTheDocument();
 

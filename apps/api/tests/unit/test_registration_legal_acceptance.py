@@ -174,3 +174,18 @@ def test_public_lead_requires_canonical_consent_and_rejects_client_timestamp() -
     payload["consent_version"] = "fictitious-version"
     with pytest.raises(ValidationError, match="consent_version"):
         PublicLeadRequest.model_validate(payload)
+
+
+def test_public_lead_accepts_every_landing_locale() -> None:
+    for locale in ("ru", "kk", "en"):
+        lead = PublicLeadRequest.model_validate(
+            {
+                "name": "QA Lead",
+                "company": "QA Company",
+                "email": "qa@example.com",
+                "interest": "demo",
+                "locale": locale,
+                "consent_version": CURRENT_PUBLIC_LEAD_CONSENT_VERSION,
+            }
+        )
+        assert lead.locale == locale

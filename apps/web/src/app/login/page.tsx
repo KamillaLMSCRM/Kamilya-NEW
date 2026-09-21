@@ -13,11 +13,14 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { getRoleHome } from '@/lib/rolePolicy';
 import { useT } from '@/i18n/useT';
+import { useLocaleQuery } from '@/i18n/useLocaleQuery';
 import { PublicLegalFooter } from '@/components/legal/PublicLegalFooter';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 type LoginMode = 'password' | 'email' | 'telegram';
 
 export default function LoginPage() {
+  useLocaleQuery();
   const router = useRouter();
   const { t } = useT();
   const { login, accessToken } = useAuthStore();
@@ -82,7 +85,7 @@ export default function LoginPage() {
     const timer = setInterval(() => {
       const remaining = Math.max(0, expiresAt - Date.now() / 1000);
       if (remaining <= 0) {
-        setTimeLeft('Код истек');
+        setTimeLeft(t('publicUi.login.codeExpired'));
         if (pollingRef.current) clearInterval(pollingRef.current);
         return;
       }
@@ -91,7 +94,7 @@ export default function LoginPage() {
       setTimeLeft(`${minutes}:${seconds.toString().padStart(2, '0')}`);
     }, 1000);
     return () => clearInterval(timer);
-  }, [expiresAt]);
+  }, [expiresAt, t]);
 
   useEffect(() => {
     return () => {
@@ -111,19 +114,19 @@ export default function LoginPage() {
         }
       } catch (err: any) {
         if (err.response?.status === 429) {
-          setError('Слишком много запросов. Подождите минуту или обновите страницу.');
+          setError(t('publicUi.login.tooManyRequests'));
           if (pollingRef.current) clearInterval(pollingRef.current);
         }
       }
     }, 5000);
-  }, [login, router, setError]);
+  }, [login, router, setError, t]);
 
   async function requestEmailCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail || !normalizedEmail.includes('@')) {
-      setError('Введите рабочий email.');
+      setError(t('publicUi.login.workEmailRequired'));
       return;
     }
 
@@ -133,11 +136,11 @@ export default function LoginPage() {
       setEmail(normalizedEmail);
       setEmailCodeSent(true);
       setExpiresAt(Date.now() / 1000 + (res.data.expires_in || 300));
-      toast.success('Код отправлен', { description: 'Если email есть в системе, письмо придет в течение минуты.' });
+      toast.success(t('publicUi.login.codeSentTitle'), { description: t('publicUi.login.codeSentDescription') });
     } catch (err: any) {
-      const message = err?.response?.data?.detail || 'Не удалось отправить код.';
+      const message = err?.response?.data?.detail || t('publicUi.login.sendCodeError');
       setError(message);
-      toast.error('Ошибка входа', { description: message });
+      toast.error(t('publicUi.login.signInErrorTitle'), { description: message });
     } finally {
       setLoading(false);
     }
@@ -179,7 +182,7 @@ export default function LoginPage() {
     setError('');
     const normalizedCode = emailCode.trim();
     if (normalizedCode.length !== 6) {
-      setError('Введите 6-значный код из письма.');
+      setError(t('publicUi.login.sixDigitCode'));
       return;
     }
 
@@ -192,9 +195,9 @@ export default function LoginPage() {
       login(res.data.access_token, res.data.user);
       router.push(getRoleHome(res.data.user?.role));
     } catch (err: any) {
-      const message = err?.response?.data?.detail || 'Код неверный или истек.';
+      const message = err?.response?.data?.detail || t('publicUi.login.invalidCode');
       setError(message);
-      toast.error('Ошибка входа', { description: message });
+      toast.error(t('publicUi.login.signInErrorTitle'), { description: message });
     } finally {
       setLoading(false);
     }
@@ -214,7 +217,7 @@ export default function LoginPage() {
         setError(details);
         return;
       }
-      setError(err?.response?.data?.detail || 'Ошибка генерации кода.');
+      setError(err?.response?.data?.detail || t('publicUi.login.generateCodeError'));
     } finally {
       setLoading(false);
     }
@@ -234,19 +237,22 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-primary/5 to-background px-4 py-10">
+    <div className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-primary/5 to-background px-4 py-10">
       <SkipLink />
+      <div className="absolute right-4 top-4">
+        <LanguageSwitcher />
+      </div>
       <main id="main-content" className="w-full max-w-md rounded-lg bg-card p-8 shadow-card">
         <div className="mb-7 text-center">
           <div className="mb-3 flex justify-center">
             <Logo variant="full" size={40} />
           </div>
-          <h1 className="text-xl font-semibold">Вход в Kamilya LMS</h1>
+          <h1 className="text-xl font-semibold">{t('publicUi.login.title')}</h1>
         </div>
 
         <div
           role="tablist"
-          aria-label="Способ входа"
+          aria-label={t('publicUi.login.method')}
           className={`mb-5 grid gap-1.5 rounded-lg border border-primary/20 bg-primary/5 p-1.5 shadow-inner ${telegramEnabled ? 'grid-cols-3' : 'grid-cols-2'}`}
         >
           <button
@@ -341,7 +347,7 @@ export default function LoginPage() {
               <form onSubmit={requestEmailCode} className="space-y-4" autoComplete="off">
                 <div>
                   <label htmlFor="email-login" className="mb-1 block text-sm font-medium">
-                    Рабочий email
+                    {t('publicUi.login.workEmail')}
                   </label>
                   <Input
                     id="email-login"
@@ -355,14 +361,14 @@ export default function LoginPage() {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Отправляем...' : 'Получить код'}
+                  {loading ? t('publicUi.login.sending') : t('publicUi.login.getCode')}
                 </Button>
               </form>
             ) : (
               <form onSubmit={verifyEmailCode} className="space-y-4">
                 <div>
                   <label htmlFor="email-code" className="mb-1 block text-sm font-medium">
-                    Код из письма
+                    {t('publicUi.login.codeFromEmail')}
                   </label>
                   <Input
                     id="email-code"
@@ -374,11 +380,11 @@ export default function LoginPage() {
                     required
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Отправили код на {email}. Действует: {timeLeft || '5:00'}.
+                    {t('publicUi.login.sentTo', { email, time: timeLeft || '5:00' })}
                   </p>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Проверяем...' : 'Войти'}
+                  {loading ? t('publicUi.login.checking') : t('publicUi.login.signIn')}
                 </Button>
                 <button
                   type="button"
@@ -389,7 +395,7 @@ export default function LoginPage() {
                   }}
                   className="w-full text-sm text-muted-foreground hover:text-foreground underline"
                 >
-                  Изменить email
+                  {t('publicUi.login.changeEmail')}
                 </button>
               </form>
             )}
@@ -402,14 +408,14 @@ export default function LoginPage() {
                   {t('auth.telegramPrerequisite')}
                 </p>
                 <Button type="button" className="w-full" onClick={generateTelegramCode} disabled={loading}>
-                  {loading ? 'Генерируем...' : 'Получить Telegram-код'}
+                  {loading ? t('publicUi.login.generating') : t('publicUi.login.getTelegramCode')}
                 </Button>
               </>
             ) : (
               <>
                 <div className="text-center">
-                  <p className="mb-3 text-sm text-muted-foreground">Ваш код для входа:</p>
-                  <div className="flex justify-center gap-2" role="img" aria-label={`Код: ${telegramCode}`}>
+                  <p className="mb-3 text-sm text-muted-foreground">{t('publicUi.login.yourCode')}</p>
+                  <div className="flex justify-center gap-2" role="img" aria-label={t('publicUi.login.codeAria', { code: telegramCode })}>
                     {telegramCode.split('').map((digit, index) => (
                       <div
                         key={`${digit}-${index}`}
@@ -425,12 +431,12 @@ export default function LoginPage() {
                     className="mt-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary"
                   >
                     <Copy className="h-4 w-4" aria-hidden="true" />
-                    {copied ? 'Скопировано' : 'Скопировать код'}
+                    {copied ? t('publicUi.login.copied') : t('publicUi.login.copyCode')}
                   </button>
                 </div>
 
                 <div className="text-center text-sm text-muted-foreground">
-                  Код действителен: <span className="font-medium">{timeLeft}</span>
+                  {t('publicUi.login.codeValid')} <span className="font-medium">{timeLeft}</span>
                 </div>
 
                 <p className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
@@ -445,7 +451,7 @@ export default function LoginPage() {
                     className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                   >
                     <MessageCircle className="h-5 w-5" aria-hidden="true" />
-                    Открыть бота
+                    {t('publicUi.login.openBot')}
                     <ChevronRight className="h-4 w-4" aria-hidden="true" />
                   </a>
                 </div>
@@ -456,7 +462,7 @@ export default function LoginPage() {
                   className="flex w-full items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground underline"
                 >
                   <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                  Получить новый код
+                  {t('publicUi.login.newCode')}
                 </button>
                 <p className="text-center text-xs text-muted-foreground">{t('auth.telegramRecovery')}</p>
               </>
@@ -466,14 +472,14 @@ export default function LoginPage() {
 
         <div className="mt-6 space-y-3 text-center text-sm text-muted-foreground">
           <Link href="/register-tenant" className="text-primary hover:underline">
-            Зарегистрировать компанию
+            {t('publicUi.login.registerCompany')}
           </Link>
           <div>
             <Link
               href="/login/demo"
               className="inline-flex items-center gap-1.5 rounded-md bg-muted px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
             >
-              Попробовать демо
+              {t('publicUi.login.tryDemo')}
             </Link>
           </div>
         </div>

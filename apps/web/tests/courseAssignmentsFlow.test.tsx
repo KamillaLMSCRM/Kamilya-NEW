@@ -19,20 +19,24 @@ vi.mock('@/store/authStore', () => ({
     user: { role: 'methodologist' },
   }),
 }));
-vi.mock('@/i18n/useT', () => ({
-  useT: () => ({
-    t: (key: string) => ({
-      'common.loading': 'Загрузка',
-      'common.saveFailed': 'Не удалось сохранить',
-      'courses.title': 'Курсы',
-      'courses.enrollments': 'Назначения',
-      'courses.selectCourseCount': 'Выберите курс',
-      'users.name': 'Имя',
-      'courses.status': 'Статус',
-    }[key] ?? key),
-    tp: (_key: string, count: number) => `${count} обучающихся`,
-  }),
-}));
+vi.mock('@/i18n/useT', async () => {
+  const { default: ru } = await import('@/i18n/locales/ru.json');
+  const translate = (key: string, params?: Record<string, string | number>) => {
+    const value = key.split('.').reduce<unknown>((current, part) => (
+      current && typeof current === 'object' && part in current
+        ? (current as Record<string, unknown>)[part]
+        : undefined
+    ), ru);
+    if (typeof value !== 'string') return key;
+    return value.replace(/\{(\w+)\}/g, (_, name: string) => String(params?.[name] ?? `{${name}}`));
+  };
+  return {
+    useT: () => ({
+      t: translate,
+      tp: (_key: string, count: number) => `${count} обучающихся`,
+    }),
+  };
+});
 vi.mock('@/components/ui/ConfirmDialog', () => ({
   useConfirm: () => ({ confirm: confirmMock, dialog: null }),
 }));

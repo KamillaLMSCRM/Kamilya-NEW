@@ -4,6 +4,7 @@ import { Manrope, Syne, DM_Mono } from "next/font/google";
 import RouteWrapper from "@/components/RouteWrapper";
 import { Toaster } from "@/components/ui/Toast";
 import { SkipToContent } from "@/components/a11y/SkipToContent";
+import { LocaleDocumentSync } from "@/components/LocaleDocumentSync";
 
 // Brand fonts — loaded once, exposed via CSS variables for Tailwind config.
 // Matches tailwind.config.js fontFamily tokens:
@@ -52,6 +53,7 @@ export default function RootLayout({
   return (
     <html lang="ru" className={`${manrope.variable} ${syne.variable} ${dmMono.variable}`}>
       <body className={manrope.className}>
+        <LocaleDocumentSync />
         <SkipToContent />
         <RouteWrapper>
           {children}

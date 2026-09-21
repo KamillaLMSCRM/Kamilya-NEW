@@ -116,11 +116,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           if (lastNotifiedJobRef.current !== jobId) {
             lastNotifiedJobRef.current = jobId;
             if (status === 'completed') {
-              toast.success(t('toast.generationComplete' as any) || 'Курс готов');
+              toast.success(t('toast.generationComplete' as any));
             } else if (status === 'failed') {
-              toast.error(t('toast.generationFailed' as any) || 'Не удалось сгенерировать курс');
+              toast.error(t('toast.generationFailed' as any));
             } else {
-              toast.warning(t('toast.generationCancelled' as any) || 'Генерация отменена');
+              toast.warning(t('toast.generationCancelled' as any));
             }
           }
           localStorage.removeItem('ai_active_job_id');
@@ -167,7 +167,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               className="fixed inset-0 z-20 bg-black/30 md:hidden"
-              aria-label={t('sidebar.close') || 'Закрыть меню'}
+              aria-label={t('sidebar.close')}
               onClick={() => setMobileSidebarOpen(false)}
             />
           )}

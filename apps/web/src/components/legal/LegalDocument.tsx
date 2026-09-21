@@ -1,7 +1,11 @@
+'use client';
+
 import Link from 'next/link';
 
 import { Logo } from '@/components/brand/Logo';
 import { PublicLegalFooter } from '@/components/legal/PublicLegalFooter';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { useT } from '@/i18n/useT';
 
 type Language = 'ru' | 'kk';
 type DocumentKind = 'privacy' | 'terms';
@@ -54,7 +58,8 @@ const copy: Record<Language, Record<DocumentKind, { title: string; sections: Sec
 };
 
 export function LegalDocument({ language, kind }: { language: Language; kind: DocumentKind }) {
+  const { t } = useT();
   const document = copy[language][kind];
   const suffix = language === 'ru' ? '/kk' : '';
-  return <main id="main-content" className="min-h-screen bg-muted/30 px-4 py-8"><article className="mx-auto max-w-3xl rounded-lg bg-card p-6 shadow-card sm:p-8"><div className="mb-8 flex items-center justify-between gap-4"><Logo variant="full" size={36} /><Link href={`/legal/${kind}${suffix}`} className="text-sm text-primary underline-offset-4 hover:underline">{language === 'ru' ? 'Қазақша' : 'Русский'}</Link></div><h1 className="text-2xl font-semibold">{document.title}</h1><p className="mt-2 text-sm text-muted-foreground">{document.updated}</p><div className="mt-6 space-y-5 text-sm leading-6 text-foreground">{document.sections.map((section) => <section key={section.title}><h2 className="font-semibold">{section.title}</h2><p>{section.body}</p></section>)}</div></article><PublicLegalFooter /></main>;
+  return <main id="main-content" className="relative min-h-screen bg-muted/30 px-4 py-8"><div className="absolute right-4 top-4"><LanguageSwitcher /></div><article lang={language} className="mx-auto max-w-3xl rounded-lg bg-card p-6 shadow-card sm:p-8"><div className="mb-8 flex flex-wrap items-center justify-between gap-4 pr-28 sm:pr-0"><Logo variant="full" size={36} /><Link href={`/legal/${kind}${suffix}`} className="text-sm text-primary underline-offset-4 hover:underline">{language === 'ru' ? t('publicUi.legal.kazakhVersion') : t('publicUi.legal.russianVersion')}</Link></div><p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('publicUi.legal.documentLanguage', { language: language === 'ru' ? t('publicUi.legal.russian') : t('publicUi.legal.kazakh') })}</p><h1 className="text-2xl font-semibold">{document.title}</h1><p className="mt-2 text-sm text-muted-foreground">{document.updated}</p><div className="mt-6 space-y-5 text-sm leading-6 text-foreground">{document.sections.map((section) => <section key={section.title}><h2 className="font-semibold">{section.title}</h2><p>{section.body}</p></section>)}</div></article><PublicLegalFooter /></main>;
 }

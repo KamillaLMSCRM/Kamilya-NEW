@@ -245,7 +245,7 @@ export default function CoursePlayerPage() {
         try {
           parsedLaunch = new URL(launchUrl);
         } catch {
-          throw new Error('Сервер вернул некорректный адрес SCORM');
+          throw new Error(t('authenticatedUi.player.invalidScormUrl'));
         }
         if (
           !launchOrigin
@@ -253,14 +253,14 @@ export default function CoursePlayerPage() {
           || parsedLaunch.origin !== launchOrigin
           || (typeof window !== 'undefined' && parsedLaunch.origin === window.location.origin)
         ) {
-          throw new Error('SCORM-контент не изолирован на отдельном домене');
+          throw new Error(t('authenticatedUi.player.scormIsolation'));
         }
         if (!cancelled) {
           setScormRuntimeStatus(null);
           setScormLaunchSession({ url: launchUrl, origin: launchOrigin, channel: bridgeChannel });
         }
       } catch (e) {
-        if (!cancelled) setScormLaunchError(e instanceof Error ? e.message : 'Не удалось открыть SCORM');
+        if (!cancelled) setScormLaunchError(e instanceof Error ? e.message : t('authenticatedUi.player.openScormFailed'));
       } finally {
         if (!cancelled) setScormLaunchLoading(false);
       }
@@ -269,7 +269,7 @@ export default function CoursePlayerPage() {
     return () => {
       cancelled = true;
     };
-  }, [course?.delivery_type, token, courseId, API_URL]);
+  }, [course?.delivery_type, token, courseId, API_URL, t]);
 
   useEffect(() => {
     if (!scormLaunchSession) return;
@@ -552,7 +552,7 @@ export default function CoursePlayerPage() {
     } catch (e) {
       setAssistantMessages((prev) => [...prev, {
         role: 'assistant',
-        content: e instanceof Error ? `Не удалось ответить: ${e.message}` : 'Не удалось ответить',
+        content: e instanceof Error ? `${t('authenticatedUi.player.assistantReplyFailed')}: ${e.message}` : t('authenticatedUi.player.assistantReplyFailed'),
       }]);
     } finally {
       setAssistantLoading(false);
@@ -573,7 +573,7 @@ export default function CoursePlayerPage() {
   const kioskSessionNotice = kioskSession && kioskWarningSeconds !== null ? (
     <div className="fixed inset-x-0 top-0 z-50 mx-auto max-w-2xl px-4 pt-4" role="status">
       <div className="rounded-lg border border-warning/30 bg-warning px-4 py-3 text-sm text-warning-foreground shadow-lg">
-        Сеанс на общем устройстве завершится через {kioskWarningSeconds} сек. Продолжите работу, чтобы сохранить доступ.
+        {t('authenticatedUi.player.kioskWarning', { seconds: kioskWarningSeconds })}
       </div>
     </div>
   ) : null;
@@ -647,7 +647,7 @@ export default function CoursePlayerPage() {
               <div className="flex items-start gap-3">
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
                 <div>
-                  <p className="font-semibold text-foreground">Не удалось открыть SCORM-курс</p>
+                  <p className="font-semibold text-foreground">{t('authenticatedUi.player.openScormCourseFailed')}</p>
                   <p className="mt-1 text-muted-foreground">{scormLaunchError}</p>
                 </div>
               </div>
@@ -656,7 +656,7 @@ export default function CoursePlayerPage() {
         ) : scormLaunchSession ? (
           <div className="flex min-h-0 flex-1 flex-col">
             <p className="sr-only" aria-live="polite">
-              {scormRuntimeStatus ? `SCORM: ${scormRuntimeStatus}` : 'SCORM загружается'}
+              {scormRuntimeStatus ? `SCORM: ${scormRuntimeStatus}` : t('authenticatedUi.player.scormLoading')}
             </p>
             <iframe
               ref={scormFrameRef}
@@ -834,14 +834,14 @@ export default function CoursePlayerPage() {
             </div>
             <aside className="h-fit rounded-xl border border-border bg-card p-4 shadow-sm">
               <div className="mb-3">
-                <h2 className="text-sm font-semibold text-foreground">AI-ассистент по уроку</h2>
+                <h2 className="text-sm font-semibold text-foreground">{t('authenticatedUi.player.assistantTitle')}</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Задайте вопрос по материалу. Ассистент не выбирает ответы теста за вас.
+                  {t('authenticatedUi.player.assistantHint')}
                 </p>
               </div>
               <div className="max-h-[420px] space-y-3 overflow-y-auto rounded-lg bg-muted/40 p-3">
                 {assistantMessages.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Пока нет сообщений.</p>
+                  <p className="text-xs text-muted-foreground">{t('authenticatedUi.player.noMessages')}</p>
                 ) : (
                   assistantMessages.map((m, idx) => (
                     <div key={m.id || idx} className={m.role === 'user' ? 'text-right' : 'text-left'}>
@@ -855,7 +855,7 @@ export default function CoursePlayerPage() {
                     </div>
                   ))
                 )}
-                {assistantLoading && <p className="text-xs text-muted-foreground">Ассистент думает...</p>}
+                {assistantLoading && <p className="text-xs text-muted-foreground">{t('authenticatedUi.player.assistantThinking')}</p>}
               </div>
               <div className="mt-3 space-y-2">
                 <textarea
@@ -868,11 +868,11 @@ export default function CoursePlayerPage() {
                       handleAssistantSend();
                     }
                   }}
-                  placeholder="Что непонятно в этом уроке?"
+                  placeholder={t('authenticatedUi.player.assistantPlaceholder')}
                   className="min-h-[84px] w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                 />
                 <Button onClick={handleAssistantSend} disabled={assignmentAccessBlocked || assistantLoading || !assistantInput.trim()} className="w-full">
-                  Спросить
+                {t('authenticatedUi.player.ask')}
                 </Button>
               </div>
             </aside>
@@ -894,11 +894,12 @@ function AssignmentAccessTimer({
   remainingSeconds: number | null;
   blocked: boolean;
 }) {
+  const { t } = useT();
   if (blocked) {
     return (
       <div className="mx-auto mb-5 max-w-6xl rounded-xl border border-destructive/30 bg-destructive/10 p-4" role="alert">
-        <p className="font-semibold text-destructive">Время, отведённое на прохождение, истекло</p>
-        <p className="mt-1 text-sm text-muted-foreground">Материалы и тестирование закрыты. Обратитесь к методисту, чтобы получить новое окно доступа.</p>
+        <p className="font-semibold text-destructive">{t('authenticatedUi.player.timeExpiredTitle')}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t('authenticatedUi.player.timeExpiredDescription')}</p>
       </div>
     );
   }
@@ -906,8 +907,8 @@ function AssignmentAccessTimer({
   return (
     <div className="mx-auto mb-5 flex max-w-6xl items-center justify-between gap-4 rounded-xl border border-warning/30 bg-warning/10 p-4" role="timer" aria-live="polite">
       <div>
-        <p className="font-semibold text-foreground">Оставшееся время на курс и тест</p>
-        <p className="text-sm text-muted-foreground">Таймер не сбрасывается при обновлении страницы.</p>
+        <p className="font-semibold text-foreground">{t('authenticatedUi.player.timeRemaining')}</p>
+        <p className="text-sm text-muted-foreground">{t('authenticatedUi.player.timerHint')}</p>
       </div>
       <span className="font-mono text-xl font-bold tabular-nums text-warning-foreground">{formatRemainingTime(remainingSeconds)}</span>
     </div>
@@ -915,12 +916,13 @@ function AssignmentAccessTimer({
 }
 
 function AssignmentAccessExpired() {
+  const { t } = useT();
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted p-6">
       <div className="max-w-lg rounded-xl border border-destructive/30 bg-card p-8 text-center shadow-sm" role="alert">
         <AlertTriangle className="mx-auto h-12 w-12 text-destructive" aria-hidden="true" />
-        <h1 className="mt-4 text-xl font-bold">Время прохождения истекло</h1>
-        <p className="mt-2 text-muted-foreground">Эта персональная сессия больше не даёт доступ к курсу и тесту. Запросите у методиста новое окно доступа.</p>
+        <h1 className="mt-4 text-xl font-bold">{t('authenticatedUi.player.sessionExpiredTitle')}</h1>
+        <p className="mt-2 text-muted-foreground">{t('authenticatedUi.player.sessionExpiredDescription')}</p>
       </div>
     </div>
   );

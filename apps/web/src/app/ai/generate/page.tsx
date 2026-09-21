@@ -135,18 +135,16 @@ interface DocumentIndexProgress {
   estimatedRemainingSeconds: number | null;
   status: string;
 }
-
-const STAGES = [
-  { key: 'ingestion', label: 'Обработка документов', icon: FileText, color: 'text-primary' },
-  { key: 'architect', label: 'Проектирование структуры', icon: Building2, color: 'text-accent' },
-  { key: 'content_generation', label: 'Генерация контента', icon: PenLine, color: 'text-primary' },
-  { key: 'review', label: 'Проверка качества', icon: Search, color: 'text-accent' },
-  { key: 'assessment', label: 'Генерация тестов', icon: ClipboardCheck, color: 'text-success' },
-  { key: 'saving', label: 'Сохранение', icon: Save, color: 'text-muted-foreground' },
-];
-
 export default function AIGeneratePage() {
   const { t, tp } = useT();
+  const stages = [
+    { key: 'ingestion', label: t('aiGeneration.stages.ingestion'), icon: FileText, color: 'text-primary' },
+    { key: 'architect', label: t('aiGeneration.stages.architect'), icon: Building2, color: 'text-accent' },
+    { key: 'content_generation', label: t('aiGeneration.stages.content_generation'), icon: PenLine, color: 'text-primary' },
+    { key: 'review', label: t('aiGeneration.stages.review'), icon: Search, color: 'text-accent' },
+    { key: 'assessment', label: t('aiGeneration.stages.assessment'), icon: ClipboardCheck, color: 'text-success' },
+    { key: 'saving', label: t('aiGeneration.stages.saving'), icon: Save, color: 'text-muted-foreground' },
+  ];
   const router = useRouter();
   const token = useAuthStore((s) => s.accessToken);
 
@@ -302,10 +300,7 @@ export default function AIGeneratePage() {
   const uploading = uploadingCount > 0;
 
   const documentStatusLabel = (status: DocumentIndexStatus) => {
-    if (status === 'ready') return 'Готов';
-    if (status === 'partial') return 'Готов частично';
-    if (status === 'failed') return 'Ошибка';
-    return 'Обработка';
+    return t(`aiGeneration.status.${status}` as never);
   };
 
   const documentStatusClass = (status: DocumentIndexStatus) => {
@@ -343,7 +338,7 @@ export default function AIGeneratePage() {
       } catch (error: any) {
         if (!cancelled) {
           setCompatibility(null);
-          setCompatibilityError('Не удалось прочитать выбранные источники. Проверьте, что файлы содержат текст и доступны в библиотеке.');
+          setCompatibilityError(t('aiGeneration.errors.compatibility'));
         }
       } finally {
         if (!cancelled) setCompatibilityLoading(false);
@@ -353,7 +348,7 @@ export default function AIGeneratePage() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [selectedDocIds, selectedNotReadyCount, courseFormat, manualModules, numModules]);
+  }, [selectedDocIds, selectedNotReadyCount, courseFormat, manualModules, numModules, t]);
 
   const fetchDocuments = useCallback(async () => {
     setDocumentLoadError('');
@@ -379,9 +374,9 @@ export default function AIGeneratePage() {
       setCatalogHasMore(res.data.page.has_more);
     } catch (error) {
       console.error('Document catalog load failed', error);
-      setDocumentLoadError('Не удалось загрузить библиотеку документов. Повторите попытку.');
+      setDocumentLoadError(t('aiGeneration.errors.documentLoad'));
     }
-  }, []);
+  }, [t]);
 
   const hasProcessingDocuments = documents.some(
     (document) => document.index_status === 'processing'
@@ -458,14 +453,14 @@ export default function AIGeneratePage() {
         setDuplicateDocument({ title: duplicate.title, version: duplicate.version });
         return;
       }
-      const message = 'Документ не загрузился. Проверьте формат файла и попробуйте ещё раз.';
+      const message = t('aiGeneration.errors.upload');
       setUploadError(message);
-      toast.error('Ошибка загрузки документа', { description: message });
+      toast.error(t('aiGeneration.errors.uploadTitle'), { description: message });
     } finally {
       setUploadingCount((count) => Math.max(0, count - 1));
       setUploadingFiles((files) => files.filter((name) => name !== file.name));
     }
-  }, [fetchDocuments]);
+  }, [fetchDocuments, t]);
 
   useEffect(() => {
     const entries = Object.entries(documentIndexProgressRef.current).filter(([, progress]) => (
@@ -544,7 +539,7 @@ export default function AIGeneratePage() {
     const doc = documents.find((item) => item.id === id);
     if (!doc) return;
     if (!selectedDocIds.includes(id) && selectedDocIds.length >= 5) {
-      toast.warning('Можно выбрать не более 5 документов для одного курса.');
+      toast.warning(t('aiGeneration.errors.selectionLimit'));
       return;
     }
     setSelectedDocIds(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
@@ -593,8 +588,8 @@ export default function AIGeneratePage() {
       if (['mixed_document_topics', 'source_combination_goal_required'].includes(detail?.code) && detail.analysis) {
         setCompatibility(detail.analysis);
         setPageStep('documents');
-        toast.error('Укажите общую учебную цель', {
-          description: 'Выберите один источник или объясните, чему должен научить курс по выбранным материалам.',
+        toast.error(t('aiGeneration.compatibility.mixedTopicsTitle'), {
+          description: t('aiGeneration.compatibility.mixedTopicsHint'),
         });
         return;
       }
@@ -608,11 +603,7 @@ export default function AIGeneratePage() {
         setReuseDialog({ open: true, courses: detail.existing_courses, reason: null });
         return;
       }
-      toast.error('Не удалось запустить генерацию', {
-        description: typeof detail === 'string'
-          ? detail
-          : detail?.message || e?.response?.data?.message || 'Проверьте документы и повторите попытку.',
-      });
+      toast.error(t('aiGeneration.errors.generation'), { description: t('aiGeneration.errors.generationHint') });
     } finally {
       setGenerationSubmitting(false);
     }
@@ -734,10 +725,10 @@ export default function AIGeneratePage() {
       const res = await api.post(`/v1/courses/${currentJob.course_id}/publish`);
       setCourseMeta(res.data);
       if (programId) await attachPublishedCourseToProgram(currentJob.course_id);
-      toast.success('Курс опубликован', { description: 'Теперь его можно назначать обучающимся.' });
+       toast.success(t('authenticatedUi.editor.published'), { description: t('aiGeneration.result.publishedHint') });
     } catch (error: any) {
-      toast.error('Не удалось опубликовать курс', {
-        description: coursePublicationError(error?.response?.data, t) || error?.response?.data?.detail || error?.message,
+      toast.error(t('aiGeneration.errors.publish'), {
+        description: coursePublicationError(error?.response?.data, t) || t('aiGeneration.fallback.backend'),
       });
     } finally {
       setPublishSubmitting(false);
@@ -769,7 +760,7 @@ export default function AIGeneratePage() {
     } catch (e: any) {
       setChatMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: `⚠️ Ошибка: ${e?.response?.data?.detail || e?.message || 'неизвестно'}`, at: Date.now() },
+        { role: 'assistant', content: `⚠️ ${t('aiGeneration.chat.error')}: ${t('aiGeneration.fallback.backend')}`, at: Date.now() },
       ]);
     } finally {
       setChatSending(false);
@@ -786,7 +777,7 @@ export default function AIGeneratePage() {
         await loadCoursePreview(currentJob.course_id);
       }
     } catch (e: any) {
-      alert(`Не удалось применить: ${e?.response?.data?.detail || e?.message || 'неизвестно'}`);
+      alert(t('aiGeneration.errors.apply'));
     }
   };
 
@@ -816,7 +807,7 @@ export default function AIGeneratePage() {
       setRegenDialog({ open: false, kind: 'module', target_id: '', target_title: '', guidance: '', regenerate_quiz: true });
     } catch (e: any) {
       console.error('Regenerate start failed', e);
-      alert(`Не удалось запустить перегенерацию: ${e?.response?.data?.detail || e?.message || 'неизвестно'}`);
+      alert(t('aiGeneration.errors.regenerate'));
     } finally {
       setReviewSubmitting(false);
     }
@@ -838,7 +829,7 @@ export default function AIGeneratePage() {
           }
         } else if (res.data.status === 'failed' || res.data.status === 'cancelled') {
           if (cancelled) return;
-          alert(`Перегенерация ${res.data.status}: ${res.data.message || ''}`);
+          alert(t('aiGeneration.errors.regenerate'));
           setRegenJob(null);
         } else {
           setRegenJob((j) => j ? { ...j, progress: res.data.progress, stage: res.data.stage } : j);
@@ -876,16 +867,16 @@ export default function AIGeneratePage() {
         await loadCoursePreview(currentJob.course_id);
       }
     } catch (e: any) {
-      alert(`Не удалось сохранить: ${e?.response?.data?.detail || e?.message || 'неизвестно'}`);
+      alert(t('aiGeneration.errors.save'));
     } finally {
       setEditSaving(false);
     }
   };
 
   const stepConfig = [
-    { key: 'documents', label: 'Документы', num: 1 },
-    { key: 'generate', label: 'Генерация', num: 2 },
-    { key: 'review', label: 'Результат', num: 3 },
+    { key: 'documents', label: t('aiGeneration.steps.documents'), num: 1 },
+    { key: 'generate', label: t('aiGeneration.steps.generate'), num: 2 },
+    { key: 'review', label: t('aiGeneration.steps.review'), num: 3 },
   ];
 
   return (
@@ -968,11 +959,11 @@ export default function AIGeneratePage() {
               {uploading ? <Loader2 className="w-8 h-8 mx-auto animate-spin" /> : <FolderOpen className="w-8 h-8 mx-auto" />}
             </div>
             <p className="text-sm text-muted-foreground">
-              {uploading ? `Загружаю: ${uploadingFiles.join(', ') || 'файл'}` : 'Перетащите документы или нажмите для выбора'}
+              {uploading ? t('aiGeneration.upload.loading', { files: uploadingFiles.join(', ') || t('aiGeneration.upload.file') }) : t('aiGeneration.upload.prompt')}
             </p>
             {uploading && (
               <p className="mt-1 text-xs text-muted-foreground">
-                Идёт загрузка и индексация. Не закрывайте вкладку до появления документа в списке.
+                {t('aiGeneration.upload.progress')}
               </p>
             )}
           </div>
@@ -986,14 +977,14 @@ export default function AIGeneratePage() {
           {duplicateDocument && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-foreground">
               <span>
-                Этот файл уже есть в библиотеке: «{duplicateDocument.title}», версия {duplicateDocument.version}.
+                {t('aiGeneration.upload.duplicate', { title: duplicateDocument.title, version: duplicateDocument.version })}
               </span>
               <button
                 type="button"
                 onClick={() => router.push(`/documents?q=${encodeURIComponent(duplicateDocument.title)}`)}
                 className="shrink-0 rounded-lg border border-warning/50 bg-background px-3 py-1.5 font-medium hover:bg-muted"
               >
-                Открыть существующий документ
+                {t('aiGeneration.upload.openExisting')}
               </button>
             </div>
           )}
@@ -1006,7 +997,7 @@ export default function AIGeneratePage() {
                 onClick={() => void fetchDocuments()}
                 className="shrink-0 rounded-lg border border-destructive/30 px-2 py-1 font-medium hover:bg-destructive/10"
               >
-                Повторить
+                {t('aiGeneration.upload.retry')}
               </button>
             </div>
           )}
@@ -1015,7 +1006,7 @@ export default function AIGeneratePage() {
           {documents.length > 0 && (
             <div className="space-y-2">
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
-                Загруженные документы ({tp('common.counts.document', selectedDocIds.length)} выбрано)
+                {t('aiGeneration.documents.selected', { count: tp('common.counts.document', selectedDocIds.length) })}
               </div>
               {documents.map(doc => {
                 // Catalog is filtered to active sources. Original-file validation,
@@ -1040,9 +1031,9 @@ export default function AIGeneratePage() {
                   <div
                     key={doc.id}
                     title={doc.index_status === 'failed'
-                      ? documentProcessingErrorMessage(null, doc.embedding_error)
+                      ? doc.embedding_error || t('aiGeneration.documents.failedTitle')
                       : doc.index_status === 'partial'
-                        ? documentProcessingErrorMessage(null, doc.embedding_error)
+                        ? doc.embedding_error || t('aiGeneration.documents.partialTitle')
                         : undefined}
                     className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${
                       isSelected
@@ -1058,7 +1049,7 @@ export default function AIGeneratePage() {
                       disabled={!isReady}
                       onChange={() => toggleDoc(doc.id)}
                       className="h-4 w-4 rounded border-border text-primary focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
-                      aria-label={`Выбрать документ ${doc.title}`}
+                      aria-label={t('aiGeneration.documents.selectAria', { title: doc.title })}
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
@@ -1091,11 +1082,11 @@ export default function AIGeneratePage() {
                         </div>
                       ) : doc.index_status === 'failed' ? (
                         <div className="text-xs text-destructive truncate">
-                          Индексация недоступна. Для курса проверим исходный файл напрямую.
+                          {t('aiGeneration.documents.directSourceHint')}
                         </div>
                       ) : doc.index_status === 'processing' ? (
                         <div className="text-xs text-warning truncate">
-                          Индексация ещё идёт. Исходный файл можно выбрать для курса.
+                          {t('aiGeneration.documents.processingHint')}
                         </div>
                       ) : doc.description ? (
                         <div className="text-xs text-muted-foreground truncate">{doc.description}</div>
@@ -1108,20 +1099,20 @@ export default function AIGeneratePage() {
               {failedDocumentsCount > 0 && (
                 <div className="flex items-start justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   <span>
-                    Поисковый индекс готов не для всех документов. Это не блокирует создание курса: после выбора проверим исходные файлы напрямую.
+                    {t('aiGeneration.documents.directSourceNotice')}
                   </span>
                   <button
                     type="button"
                     onClick={() => router.push('/documents')}
                     className="shrink-0 rounded-lg border border-destructive/30 px-2 py-1 font-medium transition-colors hover:bg-destructive/10"
                   >
-                    Документы
+                    {t('aiGeneration.documents.open')}
                   </button>
                 </div>
               )}
               {catalogHasMore && (
                 <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                  Показаны первые 100 документов. Используйте раздел «Документы», чтобы найти и упорядочить остальные источники.
+                  {t('aiGeneration.documents.catalogMore')}
                 </div>
               )}
             </div>
@@ -1134,16 +1125,16 @@ export default function AIGeneratePage() {
                   {compatibilityLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Layers3 className="h-5 w-5" />}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold text-foreground">Проверка источников</h3>
+                  <h3 className="text-sm font-semibold text-foreground">{t('aiGeneration.compatibility.title')}</h3>
                   {compatibilityLoading ? (
-                    <p className="mt-1 text-sm text-muted-foreground">Проверяем доступность и читаемость исходных файлов...</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{t('aiGeneration.compatibility.checking')}</p>
                   ) : compatibilityError ? (
                     <p className="mt-1 text-sm text-destructive">{compatibilityError}</p>
                   ) : compatibility && !compatibility.requires_decision ? (
                     <p className="mt-1 text-sm text-success">
                       {compatibility.analysis_mode === 'direct_source'
-                        ? 'Исходный файл прочитан. Можно создавать курс без поискового индекса.'
-                        : 'Документы образуют одну тематическую группу. Можно проектировать единый курс.'}
+                        ? t('aiGeneration.compatibility.directReady')
+                        : t('aiGeneration.compatibility.compatible')}
                     </p>
                   ) : compatibility ? (
                     <div className="mt-2 space-y-4">
@@ -1151,14 +1142,14 @@ export default function AIGeneratePage() {
                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                         <p>
                           {compatibility.analysis_mode === 'direct_source'
-                            ? 'Исходные файлы прочитаны, но сходство их тем не оценивалось. Выберите один источник или задайте общую учебную цель для объединения материалов.'
-                            : 'Выбраны материалы из разных предметных областей. Выберите одну группу или объясните, зачем темы должны быть в одном курсе.'}
+                            ? t('aiGeneration.compatibility.directMixed')
+                            : t('aiGeneration.compatibility.mixed')}
                         </p>
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2">
                         {compatibility.clusters.map((cluster, index) => (
                           <div key={cluster.id} className="rounded-lg border border-border bg-background p-3">
-                            <div className="text-xs font-semibold uppercase text-muted-foreground">Группа {index + 1}</div>
+                            <div className="text-xs font-semibold uppercase text-muted-foreground">{t('aiGeneration.compatibility.group', { index: index + 1 })}</div>
                             <div className="mt-1 text-sm font-semibold text-foreground line-clamp-2">{cluster.label}</div>
                             <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
                               {cluster.documents.map((document) => (
@@ -1170,7 +1161,7 @@ export default function AIGeneratePage() {
                               onClick={() => handleCompatibilityCluster(cluster)}
                               className="mt-3 w-full rounded-lg border border-primary/30 px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/5"
                             >
-                              Создать курс по этой группе
+                              {t('aiGeneration.compatibility.useGroup')}
                             </button>
                           </div>
                         ))}
@@ -1184,14 +1175,14 @@ export default function AIGeneratePage() {
                           className="mt-1 h-4 w-4 text-primary focus:ring-primary"
                         />
                         <span>
-                          <span className="block text-sm font-medium text-foreground">Объединить темы в один курс осознанно</span>
-                          <span className="mt-0.5 block text-xs text-muted-foreground">Материалы останутся разделены по урокам, а общая цель свяжет модули курса.</span>
+                           <span className="block text-sm font-medium text-foreground">{t('aiGeneration.compatibility.intentional')}</span>
+                           <span className="mt-0.5 block text-xs text-muted-foreground">{t('aiGeneration.compatibility.intentionalHint')}</span>
                         </span>
                       </label>
                       {sourceStrategy === 'intentional_combination' && (
                         <div>
                           <label className="mb-1 block text-xs font-semibold text-muted-foreground" htmlFor="combination-goal">
-                            Общая учебная цель
+                             {t('aiGeneration.compatibility.goal')}
                           </label>
                           <textarea
                             id="combination-goal"
@@ -1199,11 +1190,11 @@ export default function AIGeneratePage() {
                             onChange={(event) => setCombinationGoal(event.target.value)}
                             rows={3}
                             maxLength={2000}
-                            placeholder="Например: подготовить руководителей филиалов к запуску новой точки, объединив требования безопасности и стандарт бренда."
+                             placeholder={t('aiGeneration.compatibility.goalPlaceholder')}
                             className="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-primary"
                           />
                           <div className={`mt-1 text-xs ${combinationGoal.trim().length >= 20 ? 'text-success' : 'text-muted-foreground'}`}>
-                            Опишите ожидаемый результат не менее чем 20 символами.
+                             {t('aiGeneration.compatibility.goalHint')}
                           </div>
                         </div>
                       )}
@@ -1216,7 +1207,7 @@ export default function AIGeneratePage() {
 
           {/* Config */}
           <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
-            <h3 className="font-bold text-foreground font-display">Настройки генерации</h3>
+            <h3 className="font-bold text-foreground font-display">{t('aiGeneration.generation.settings')}</h3>
             <div>
               <label htmlFor="course-intent" className="block text-xs font-semibold text-muted-foreground mb-1">{t('ai.courseIntent')}</label>
               <textarea
@@ -1334,11 +1325,11 @@ export default function AIGeneratePage() {
             disabled={!canGenerate || generationSubmitting}
             className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {generationSubmitting ? <><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Запуск генерации...</> : <>{t('ai.generate')} ({tp('common.counts.document', selectedDocIds.length)})</>}
+            {generationSubmitting ? <><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />{t('aiGeneration.generation.starting')}</> : <>{t('ai.generate')} ({tp('common.counts.document', selectedDocIds.length)})</>}
           </button>
           {selectedDocIds.length > 0 && selectedNotReadyCount > 0 && (
             <div className="text-center text-xs text-warning">
-              Часть выбранных документов недоступна. Обновите список и выберите источники заново.
+              {t('aiGeneration.generation.notReady')}
             </div>
           )}
         </div>
@@ -1349,7 +1340,7 @@ export default function AIGeneratePage() {
         <div className="space-y-6">
           <GenerationProgressPanel
             job={currentJob}
-            stages={STAGES}
+            stages={stages}
             title={t('ai.progress')}
             labels={{ queued: t('asyncOperation.queued'), running: t('asyncOperation.running'), completed: t('asyncOperation.completed'), failed: t('asyncOperation.failed'), cancelled: t('asyncOperation.cancelled'), interrupted: savedAssessmentDraftId ? t('ai.assessmentNeedsReview') : t('asyncOperation.interrupted'), stalled: t('asyncOperation.stalled') }}
             retryLabel={savedAssessmentDraftId ? t('ai.openSavedDraft') : currentJob.status === 'interrupted' ? t('asyncOperation.continue') : resolveAsyncOperationState(currentJob) === 'failed' ? t('ai.newCourse') : t('asyncOperation.retry')}
@@ -1371,7 +1362,7 @@ export default function AIGeneratePage() {
               onClick={() => router.push(`/courses/${currentJob.course_id}/edit`)}
               className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
             >
-              Открыть курс <ChevronRight className="w-4 h-4 ml-1 inline" />
+              {t('aiGeneration.generation.openCourse')} <ChevronRight className="w-4 h-4 ml-1 inline" />
             </button>
           )}
 
@@ -1386,9 +1377,9 @@ export default function AIGeneratePage() {
             <div className="mb-3">
               <CheckCircle2 className="w-12 h-12 mx-auto text-primary" />
             </div>
-            <h3 className="font-bold text-foreground font-display text-lg">{currentJob.message || 'Черновик курса сохранён'}</h3>
+            <h3 className="font-bold text-foreground font-display text-lg">{t('aiGeneration.result.success')}</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              Проверьте структуру ниже. Методолог должен одобрить курс перед публикацией.
+              {t('aiGeneration.result.successHint')}
             </p>
           </div>
           <div className="flex justify-end">
@@ -1416,7 +1407,7 @@ export default function AIGeneratePage() {
                 <div className="rounded-lg border border-border bg-muted/30 p-3">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                     <FileText className="h-3.5 w-3.5 text-primary" />
-                    Источники курса
+                    {t('aiGeneration.result.sources')}
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {preview.source_documents.map((document: any) => (
@@ -1427,7 +1418,7 @@ export default function AIGeneratePage() {
                   </div>
                   {preview.source_strategy === 'intentional_combination' && preview.source_combination_goal && (
                     <p className="mt-2 border-t border-border pt-2 text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">Общая учебная цель:</span> {preview.source_combination_goal}
+                       <span className="font-medium text-foreground">{t('aiGeneration.result.learningGoal')}</span> {preview.source_combination_goal}
                     </p>
                   )}
                 </div>
@@ -1436,7 +1427,7 @@ export default function AIGeneratePage() {
               {/* Reviewer info */}
               {courseMeta.review_status !== 'pending' && courseMeta.reviewer && (
                 <div className="text-xs text-muted-foreground border-t border-border pt-3">
-                  <span className="font-medium text-foreground">{courseMeta.reviewer.full_name || 'Методолог'}</span>
+                  <span className="font-medium text-foreground">{courseMeta.reviewer.full_name || t('aiGeneration.result.reviewerFallback')}</span>
                   {courseMeta.reviewed_at && (
                     <span> · {new Date(courseMeta.reviewed_at).toLocaleString('ru-RU')}</span>
                   )}
@@ -1456,7 +1447,7 @@ export default function AIGeneratePage() {
                     className="inline-flex items-center gap-1.5 rounded-xl bg-success px-3 py-2 text-sm font-medium text-success-foreground hover:bg-success/90 transition-colors disabled:opacity-50"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    Одобрить как методолог
+                     {t('aiGeneration.result.approveAsMethodologist')}
                   </button>
                   <button
                     type="button"
@@ -1465,7 +1456,7 @@ export default function AIGeneratePage() {
                     className="inline-flex items-center gap-1.5 rounded-xl border border-warning/50 bg-warning/10 px-3 py-2 text-sm font-medium text-warning hover:bg-warning/15 transition-colors disabled:opacity-50"
                   >
                     <XCircle className="w-4 h-4" />
-                    Нужны правки
+                     {t('aiGeneration.result.needsChanges')}
                   </button>
                 </div>
               )}
@@ -1476,7 +1467,7 @@ export default function AIGeneratePage() {
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
             <div className="border-b border-border bg-muted/50 px-4 py-3 flex items-center justify-between">
               <h4 className="text-sm font-bold text-foreground font-display">
-                Структура курса
+                 {t('aiGeneration.result.structure')}
               </h4>
               {preview && (
                 <div className="flex gap-3 text-xs text-muted-foreground">
@@ -1509,7 +1500,7 @@ export default function AIGeneratePage() {
               />
             ) : (
               <div className="p-6 text-center text-sm text-muted-foreground">
-                Структура пуста. Откройте курс в редакторе для просмотра.
+                 {t('aiGeneration.result.emptyStructure')}
               </div>
             )}
           </div>
@@ -1520,7 +1511,7 @@ export default function AIGeneratePage() {
               <div className="flex items-center gap-2 min-w-0">
                 <MessageSquare className="w-4 h-4 text-primary shrink-0" />
                 <h4 className="text-sm font-bold text-foreground font-display truncate">
-                  AI-ассистент методолога
+                   {t('aiGeneration.chat.title')}
                 </h4>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
@@ -1539,11 +1530,11 @@ export default function AIGeneratePage() {
                     }
                     title={
                       ctx !== 'course' && !chatContext.target_id
-                        ? 'Сначала выберите урок или модуль'
+                         ? t('aiGeneration.chat.selectTarget')
                         : undefined
                     }
                   >
-                    {ctx === 'course' ? 'Весь курс' : ctx === 'module' ? 'Модуль' : 'Урок'}
+                     {ctx === 'course' ? t('aiGeneration.chat.course') : ctx === 'module' ? t('aiGeneration.chat.module') : t('aiGeneration.chat.lesson')}
                   </button>
                 ))}
               </div>
@@ -1552,8 +1543,7 @@ export default function AIGeneratePage() {
             <div className="max-h-72 overflow-y-auto p-4 space-y-3 bg-background">
               {chatMessages.length === 0 ? (
                 <div className="text-center py-8 text-sm text-muted-foreground">
-                  Спросите AI: «Что спорно в модуле 2?», «Перепиши урок про охрану труда проще», «Сделай тест сложнее».
-                  Чтобы сфокусировать на конкретном уроке или модуле — нажмите «Спросить AI» рядом с ним.
+                   {t('aiGeneration.chat.empty')}
                 </div>
               ) : (
                 chatMessages.map((m, i) => (
@@ -1575,19 +1565,19 @@ export default function AIGeneratePage() {
                       <div className="flex justify-start">
                         <div className="max-w-[85%] rounded-2xl rounded-tl-md border border-success/30 bg-success/5 p-3 space-y-2">
                           <div className="text-[11px] font-semibold uppercase tracking-wider text-success">
-                            Предложение замены{m.apply_lesson_title_hint ? `: «${m.apply_lesson_title_hint}»` : ''}
+                             {t('aiGeneration.chat.applyProposal', { title: m.apply_lesson_title_hint ? `: «${m.apply_lesson_title_hint}»` : '' })}
                           </div>
                           <div className="text-xs text-muted-foreground line-clamp-4 whitespace-pre-line font-mono">
                             {m.apply_lesson_content}
                           </div>
                           <div className="flex items-center justify-between gap-2 pt-1">
                             <span className="text-[10px] text-muted-foreground">
-                              Урок id: {m.apply_lesson_id.slice(0, 8)}…
+                               {t('aiGeneration.chat.lessonId', { id: m.apply_lesson_id.slice(0, 8) })}
                             </span>
                             {m.applied_lesson_id === m.apply_lesson_id ? (
                               <span className="inline-flex items-center gap-1 rounded-md bg-success/15 px-2 py-1 text-[11px] font-medium text-success">
                                 <CheckCircle2 className="w-3 h-3" />
-                                Применено
+                                 {t('aiGeneration.chat.applied')}
                               </span>
                             ) : (
                               <button
@@ -1596,7 +1586,7 @@ export default function AIGeneratePage() {
                                 className="inline-flex items-center gap-1 rounded-md bg-success px-2 py-1 text-[11px] font-medium text-success-foreground hover:bg-success/90 transition-colors"
                               >
                                 <CheckCircle2 className="w-3 h-3" />
-                                Применить к уроку
+                                 {t('aiGeneration.chat.apply')}
                               </button>
                             )}
                           </div>
@@ -1623,8 +1613,8 @@ export default function AIGeneratePage() {
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
                 placeholder={
                   chatContext.context === 'course'
-                    ? 'Спросите что угодно про этот курс…'
-                    : `Спросите про ${chatContext.context === 'module' ? 'модуль' : 'урок'}…`
+                     ? t('aiGeneration.chat.coursePlaceholder')
+                     : t('aiGeneration.chat.contextPlaceholder', { context: chatContext.context === 'module' ? t('aiGeneration.chat.module') : t('aiGeneration.chat.lesson') })
                 }
                 disabled={chatSending}
                 maxLength={2000}
@@ -1637,7 +1627,7 @@ export default function AIGeneratePage() {
                 className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 <Send className="w-4 h-4" />
-                <span className="hidden sm:inline">Отправить</span>
+                 <span className="hidden sm:inline">{t('aiGeneration.chat.send')}</span>
               </button>
             </div>
           </div>
@@ -1663,7 +1653,7 @@ export default function AIGeneratePage() {
                 className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-success px-4 py-3 text-sm font-medium text-success-foreground hover:bg-success/90 transition-colors disabled:opacity-50"
               >
                 {publishSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-                {publishSubmitting ? 'Публикация...' : 'Опубликовать курс'}
+                 {publishSubmitting ? t('aiGeneration.result.publishStarting') : t('aiGeneration.result.publish')}
               </button>
             )}
             {courseMeta?.status === 'published' && !programId && (
@@ -1671,20 +1661,20 @@ export default function AIGeneratePage() {
                 onClick={() => router.push('/assignments')}
                 className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-success px-4 py-3 text-sm font-medium text-success-foreground hover:bg-success/90 transition-colors"
               >
-                Назначить курс <ChevronRight className="w-4 h-4" />
+                 {t('aiGeneration.result.assign')} <ChevronRight className="w-4 h-4" />
               </button>
             )}
             <button
               onClick={() => router.push(`/courses/${currentJob.course_id}/edit`)}
               className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              Редактировать курс <ChevronRight className="w-4 h-4" />
+               {t('aiGeneration.result.edit')} <ChevronRight className="w-4 h-4" />
             </button>
             <button
               onClick={() => router.push('/courses')}
               className="rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground hover:bg-muted transition-colors"
             >
-              Все курсы
+               {t('aiGeneration.result.allCourses')}
             </button>
           </div>
         </div>
@@ -1711,27 +1701,27 @@ export default function AIGeneratePage() {
               <div className="flex items-start gap-3">
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
                 <div>
-                  <h3 id="mixed-language-title" className="font-bold text-foreground font-display">Документы на разных языках</h3>
+                  <h3 id="mixed-language-title" className="font-bold text-foreground font-display">{t('aiGeneration.language.title')}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Проверьте выбор перед запуском. Курс и тесты будут сформированы на выбранном языке курса.
+                    {t('aiGeneration.language.description')}
                   </p>
                 </div>
               </div>
             </div>
             <div className="space-y-4 px-5 py-4">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Обнаружены языки</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('aiGeneration.language.detected')}</div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {languageConfirmation.detectedLanguages.map((detectedLanguage) => (
                     <span key={detectedLanguage} className="rounded-full border border-border bg-muted px-3 py-1 text-sm text-foreground">
-                      {({ ru: 'Русский', kk: 'Казахский', en: 'Английский', latin: 'Латиница', cjk: 'Китайский/японский/корейский', arabic: 'Арабская письменность', unknown: 'Не определён' } as Record<string, string>)[detectedLanguage] ?? detectedLanguage}
+                      {t(`aiGeneration.language.${detectedLanguage}` as never)}
                     </span>
                   ))}
                 </div>
               </div>
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm text-foreground">
-                Язык будущего курса: <strong>{language === 'ru' ? 'Русский' : language === 'kk' ? 'Казахский' : language === 'en' ? 'Английский' : language}</strong>.
-                Если это неверно, отмените запуск и измените язык в настройках генерации.
+                {t('aiGeneration.language.courseLanguage', { language: t(`aiGeneration.language.${language}` as never) })}
+                {' '}{t('aiGeneration.language.hint')}
               </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
@@ -1744,7 +1734,7 @@ export default function AIGeneratePage() {
                 disabled={generationSubmitting}
                 className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
               >
-                Вернуться к документам
+                {t('aiGeneration.language.back')}
               </button>
               <button
                 type="button"
@@ -1756,7 +1746,7 @@ export default function AIGeneratePage() {
                 className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 {generationSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                Подтвердить и запустить
+                {t('aiGeneration.language.confirm')}
               </button>
             </div>
           </div>
@@ -1769,17 +1759,17 @@ export default function AIGeneratePage() {
           <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-card-lg">
             <div className="border-b border-border px-5 py-4">
               <h3 className="font-bold text-foreground font-display">
-                {reviewDialog.status === 'approved' ? 'Одобрить курс' : 'Курс требует правок'}
+                {reviewDialog.status === 'approved' ? t('aiGeneration.reviewDialog.approveTitle') : t('aiGeneration.reviewDialog.changesTitle')}
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {reviewDialog.status === 'approved'
-                  ? 'Курс будет помечен как одобренный методологом. Это действие фиксируется в audit log.'
-                  : 'Методолог может оставить комментарий — курс останется в статусе "нужны правки" пока вы не одобрите.'}
+                  ? t('aiGeneration.reviewDialog.approveDescription')
+                  : t('aiGeneration.reviewDialog.changesDescription')}
               </p>
             </div>
             <div className="px-5 py-4">
               <label htmlFor="review-comment" className="block text-xs font-semibold text-muted-foreground mb-1">
-                Комментарий (опционально)
+                {t('aiGeneration.reviewDialog.comment')}
               </label>
               <textarea
                 id="review-comment"
@@ -1787,7 +1777,7 @@ export default function AIGeneratePage() {
                 onChange={(e) => setReviewDialog((d) => ({ ...d, comment: e.target.value }))}
                 maxLength={2000}
                 rows={4}
-                placeholder={reviewDialog.status === 'needs_changes' ? 'Что нужно поправить…' : 'Любые замечания…'}
+                placeholder={reviewDialog.status === 'needs_changes' ? t('aiGeneration.reviewDialog.changesPlaceholder') : t('aiGeneration.reviewDialog.generalPlaceholder')}
                 className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
               />
             </div>
@@ -1798,7 +1788,7 @@ export default function AIGeneratePage() {
                 disabled={reviewSubmitting}
                 className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
               >
-                Отмена
+                {t('aiGeneration.reviewDialog.cancel')}
               </button>
               <button
                 type="button"
@@ -1811,7 +1801,7 @@ export default function AIGeneratePage() {
                 }
               >
                 {reviewSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                {reviewDialog.status === 'approved' ? 'Одобрить' : 'Отправить'}
+                {reviewDialog.status === 'approved' ? t('aiGeneration.reviewDialog.approve') : t('aiGeneration.reviewDialog.send')}
               </button>
             </div>
           </div>
@@ -1824,7 +1814,7 @@ export default function AIGeneratePage() {
           <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-card-lg">
             <div className="border-b border-border px-5 py-4">
               <h3 className="font-bold text-foreground font-display">
-                Перегенерировать {regenDialog.kind === 'module' ? 'модуль' : 'урок'}
+                {t('aiGeneration.regenerateDialog.title', { kind: regenDialog.kind === 'module' ? t('aiGeneration.regenerateDialog.module') : t('aiGeneration.regenerateDialog.lesson') })}
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5 truncate">
                 «{regenDialog.target_title}»
@@ -1833,7 +1823,7 @@ export default function AIGeneratePage() {
             <div className="px-5 py-4 space-y-3">
               <div>
                 <label htmlFor="regen-guidance" className="block text-xs font-semibold text-muted-foreground mb-1">
-                  Что поправить (опционально)
+                  {t('aiGeneration.regenerateDialog.guidance')}
                 </label>
                 <textarea
                   id="regen-guidance"
@@ -1841,7 +1831,7 @@ export default function AIGeneratePage() {
                   onChange={(e) => setRegenDialog((d) => ({ ...d, guidance: e.target.value }))}
                   maxLength={1000}
                   rows={3}
-                  placeholder="Например: «Добавь больше примеров», «Сделай тон проще», «Убери устаревшие ссылки»"
+                  placeholder={t('aiGeneration.regenerateDialog.placeholder')}
                   className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
                 />
               </div>
@@ -1853,11 +1843,11 @@ export default function AIGeneratePage() {
                     onChange={(e) => setRegenDialog((d) => ({ ...d, regenerate_quiz: e.target.checked }))}
                     className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                   />
-                  Перегенерировать тест (3 вопроса)
+                  {t('aiGeneration.regenerateDialog.quiz')}
                 </label>
               )}
               <p className="text-[11px] text-muted-foreground italic">
-                Текущий контент будет заменён. Действие нельзя отменить (можно начать новую генерацию).
+                {t('aiGeneration.regenerateDialog.warning')}
               </p>
             </div>
             <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
@@ -1867,7 +1857,7 @@ export default function AIGeneratePage() {
                 disabled={reviewSubmitting}
                 className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
               >
-                Отмена
+                {t('aiGeneration.regenerateDialog.cancel')}
               </button>
               <button
                 type="button"
@@ -1877,7 +1867,7 @@ export default function AIGeneratePage() {
               >
                 {reviewSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 <RefreshCw className="w-4 h-4" />
-                Запустить
+                {t('aiGeneration.regenerateDialog.start')}
               </button>
             </div>
           </div>
@@ -1890,7 +1880,7 @@ export default function AIGeneratePage() {
           <div className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin text-warning" />
             <span className="text-sm font-medium text-foreground">
-              Перегенерация {regenJob.target_kind === 'module' ? 'модуля' : 'урока'}
+               {t('aiGeneration.regenerateDialog.progress', { kind: regenJob.target_kind === 'module' ? t('aiGeneration.regenerateDialog.module') : t('aiGeneration.regenerateDialog.lesson') })}
             </span>
           </div>
           <div className="h-2 bg-muted rounded overflow-hidden">
