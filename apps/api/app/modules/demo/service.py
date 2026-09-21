@@ -1,6 +1,7 @@
 """Idempotent data guarantees for the public demo sandbox."""
 
 from datetime import UTC, datetime
+from typing import TypedDict, cast
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -15,8 +16,18 @@ from app.modules.enrollments.service import enroll_users
 from app.modules.lessons.models import Lesson, Module
 from app.modules.quizzes.models import Question, Quiz, QuizChoice
 
+
+class _DemoLessonFixture(TypedDict):
+    title: str
+    content: str
+    question: str
+    choices: tuple[str, ...]
+    correct_index: int
+    explanation: str
+
+
 _DEMO_FIXTURE_VERSION = 1
-_DEMO_LESSONS = (
+_DEMO_LESSONS: tuple[_DemoLessonFixture, ...] = (
     {
         "title": "Как устроен учебный маршрут",
         "content": (
@@ -156,9 +167,7 @@ async def ensure_demo_student_course(
     scenario without coupling the contract to a translated course title or a
     deployment-specific UUID.
     """
-    is_demo_tenant = await db.scalar(
-        select(Tenant.is_demo).where(Tenant.id == tenant_id)
-    )
+    is_demo_tenant = await db.scalar(select(Tenant.is_demo).where(Tenant.id == tenant_id))
     if is_demo_tenant is not True:
         return None
 
@@ -180,8 +189,7 @@ async def ensure_demo_student_course(
         select(Course.id)
         .join(
             Enrollment,
-            (Enrollment.course_id == Course.id)
-            & (Enrollment.tenant_id == tenant_id),
+            (Enrollment.course_id == Course.id) & (Enrollment.tenant_id == tenant_id),
         )
         .where(
             Course.tenant_id == tenant_id,
@@ -197,8 +205,7 @@ async def ensure_demo_student_course(
         select(Course)
         .outerjoin(
             Enrollment,
-            (Enrollment.course_id == Course.id)
-            & (Enrollment.tenant_id == tenant_id),
+            (Enrollment.course_id == Course.id) & (Enrollment.tenant_id == tenant_id),
         )
         .where(
             Course.tenant_id == tenant_id,
@@ -215,24 +222,27 @@ async def ensure_demo_student_course(
     if course is None:
         course = await _create_demo_course(db, tenant_id=tenant_id)
 
-    created = await enroll_users(db, course.id, tenant_id, [student_id])
+    course_id = cast(UUID, course.id)
+    created = await enroll_users(db, course_id, tenant_id, [student_id])
     if created:
-        return course.id
+        return course_id
 
     # A concurrent or historical assignment may have become visible after
     # the initial check. Confirm the postcondition rather than returning a
     # successful login with an empty learner dashboard.
-    return await db.scalar(
-        select(Course.id)
-        .join(
-            Enrollment,
-            (Enrollment.course_id == Course.id)
-            & (Enrollment.tenant_id == tenant_id),
-        )
-        .where(
-            Course.tenant_id == tenant_id,
-            Course.status == "published",
-            Enrollment.user_id == student_id,
-        )
-        .limit(1)
+    return cast(
+        UUID | None,
+        await db.scalar(
+            select(Course.id)
+            .join(
+                Enrollment,
+                (Enrollment.course_id == Course.id) & (Enrollment.tenant_id == tenant_id),
+            )
+            .where(
+                Course.tenant_id == tenant_id,
+                Course.status == "published",
+                Enrollment.user_id == student_id,
+            )
+            .limit(1)
+        ),
     )
