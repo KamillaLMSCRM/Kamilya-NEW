@@ -190,7 +190,7 @@ describe('organization hierarchy v2 public UI', () => {
       '/v1/organization-units/management-1/move-preview',
       { parent_id: null },
     ));
-    expect(await within(dialog).findByText(/3 узл.*2 должн.*5 сотр/i)).toBeInTheDocument();
+    expect(await within(dialog).findByText(/3 подраздел.*2 должн.*5 сотр/i)).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
     await waitFor(() => expect(patchMock).toHaveBeenCalledWith(

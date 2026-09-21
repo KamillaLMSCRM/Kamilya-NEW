@@ -10,9 +10,8 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ back: vi.fn(), push: routerPush, replace: vi.fn(), prefetch: vi.fn() }),
 }));
 
-vi.mock('@/i18n/useT', () => ({
-  useT: () => ({
-    t: (key: string) => ({
+vi.mock('@/i18n/useT', () => {
+  const t = (key: string) => ({
       'courses.nextLesson': 'Следующий урок',
       'courses.finishCourse': 'Завершить курс',
       'courses.markComplete': 'Урок завершён',
@@ -25,10 +24,10 @@ vi.mock('@/i18n/useT', () => ({
       'authenticatedUi.player.timeExpiredDescription': 'Материалы и тестирование закрыты. Обратитесь к методисту, чтобы получить новое окно доступа.',
       'authenticatedUi.player.timeRemaining': 'Оставшееся время на курс и тест',
       'authenticatedUi.player.timerHint': 'Таймер не сбрасывается при обновлении страницы.',
-    }[key] || key),
-    tp: (key: string, count: number) => `${count} ${key}`,
-  }),
-}));
+    }[key] || key);
+  const tp = (key: string, count: number) => `${count} ${key}`;
+  return { useT: () => ({ t, tp }) };
+});
 
 vi.mock('@/components/ui/Toast', () => ({
   toast: { dismiss: vi.fn(), success: vi.fn(), error: vi.fn() },

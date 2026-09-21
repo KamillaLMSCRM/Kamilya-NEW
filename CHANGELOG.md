@@ -15,6 +15,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.8.0] - 2026-09-21
+
+### Added
+
+- Add English as a supported language across the public landing pages and the
+  primary tenant, learner, authentication, demo and superadmin workflows.
+- Preserve the selected language through login, registration, invitations,
+  public access links and campaign-to-trial transitions.
+
+### Changed
+
+- Keep advertising attribution parameters when a visitor moves from the
+  landing page to tenant registration or the demo cabinet.
+- Present generated course content in a wide editor with a localized,
+  learner-facing Markdown preview.
+- Localize the current staff hierarchy, position qualification, course
+  assignment, assessment and AI-generation workflows without removing their
+  production behavior.
+
+### Fixed
+
+- Make the public learner demo resilient when no prepared learner account is
+  available, while preserving tenant isolation and synthetic-only demo data.
+- Keep direct-source course generation usable when an embedding provider is
+  unavailable and report the selected compatibility mode to the methodologist.
+- Preserve recurring-reminder controls and organization-hierarchy behavior
+  during the localization merge.
+
+### Security
+
+- No new secret, billing, DNS, storage or tenant-isolation boundary is
+  introduced. Database migrations are not required.
+
 ## [0.7.7] - 2026-09-19
 
 ### Fixed
@@ -1255,7 +1288,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.7...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.7...v0.8.0
 [0.7.7]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.6...v0.7.7
 [0.7.6]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.5...v0.7.6
 [0.7.5]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.4...v0.7.5

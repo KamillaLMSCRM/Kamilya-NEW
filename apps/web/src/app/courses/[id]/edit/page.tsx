@@ -571,17 +571,17 @@ export default function CourseEditPage() {
             </label>
             <section
               role="region"
-              aria-label={t('authenticatedUi.editor.lessonContent')}
+              aria-label={t('authenticatedUi.editorPreview.aria')}
               className="flex min-h-[260px] min-w-0 flex-col gap-2"
             >
-              <span className="text-sm font-medium text-foreground">{t('authenticatedUi.editor.lessonContent')}</span>
+              <span className="text-sm font-medium text-foreground">{t('authenticatedUi.editorPreview.label')}</span>
               <div className="min-h-[220px] flex-1 overflow-auto rounded-md border border-border bg-muted/20 px-5 py-4">
                 {editLessonContent.trim() ? (
                   <div className="prose max-w-none text-foreground">
                     <SafeLessonContent text={editLessonContent} />
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">{t('authenticatedUi.editor.lessonContentPlaceholder')}</p>
+                  <p className="text-sm text-muted-foreground">{t('authenticatedUi.editorPreview.empty')}</p>
                 )}
               </div>
             </section>

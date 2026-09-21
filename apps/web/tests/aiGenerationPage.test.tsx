@@ -405,7 +405,7 @@ describe('/ai/generate multi-document selection contract', () => {
     apiMock.post.mockRejectedValue({ response: { status: 409, data: { detail: { code: 'direct_source_hash_mismatch' } } } });
     render(<AIGeneratePage />);
     fireEvent.click(await screen.findByRole('checkbox', { name: /Сломанный документ/ }));
-    expect(await screen.findByText(/Не удалось прочитать выбранные источники/)).toBeInTheDocument();
+    expect(await screen.findByText(/Не удалось проверить совместимость документов/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Генерировать курс \(/ })).toBeDisabled();
     expect(apiMock.post).not.toHaveBeenCalledWith('/v1/ai/generate-course', expect.anything());
   });

@@ -6,7 +6,6 @@ import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import { coursePublicationError } from '@/lib/coursePublicationError';
-import { documentProcessingErrorMessage } from '@/lib/documentProcessingErrors';
 import {
   type DocumentCatalogResponse,
   type DocumentIndexStatus,

@@ -9,15 +9,20 @@ vi.mock('@/i18n/useT', () => {
   const values: Record<string, string> = {
     'staffPage.tabs.import': 'Импорт',
     'staffPage.tabs.structure': 'Структура',
+    'staffPage.manualNewPosition': 'Создать новую должность',
+    'staffPage.manualDepartmentName': 'Название нового отдела',
+    'staffPage.manualPositionName': 'Название новой должности',
     'authenticatedUi.adminStaff.import.title': 'Адаптивная загрузка штатки',
     'authenticatedUi.adminStaff.import.chooseFileAria': 'Выбрать файл штатного расписания для анализа',
     'authenticatedUi.adminStaff.import.startAnalysis': 'Запустить анализ файла',
     'authenticatedUi.adminStaff.import.mappingNeeded': 'Нужно сопоставить колонки',
     'authenticatedUi.adminStaff.fields.personnelNumber': 'Табельный номер',
+    'authenticatedUi.adminStaff.fields.personnelNumberRequired': 'Табельный номер *',
     'authenticatedUi.adminStaff.fields.firstName': 'Имя',
     'authenticatedUi.adminStaff.fields.lastName': 'Фамилия',
     'authenticatedUi.adminStaff.fields.department': 'Отдел',
     'authenticatedUi.adminStaff.fields.position': 'Должность',
+    'authenticatedUi.adminStaff.fields.positionRequired': 'Должность *',
     'authenticatedUi.adminStaff.import.saveMapping': 'Сохранить сопоставление и продолжить',
     'authenticatedUi.adminStaff.import.proposalTitle': 'Предлагаемая структура',
     'authenticatedUi.adminStaff.import.refreshAnalysis': 'Обновить анализ',
@@ -44,18 +49,23 @@ vi.mock('@/i18n/useT', () => {
     'authenticatedUi.adminStaff.employee.title': 'Данные сотрудника',
     'authenticatedUi.adminStaff.fields.firstNameRequired': 'Имя *',
     'authenticatedUi.adminStaff.fields.lastNameRequired': 'Фамилия *',
+    'authenticatedUi.adminStaff.manual.addEmployee': 'Добавить сотрудника',
+    'authenticatedUi.adminStaff.manual.newEmployee': 'Новый сотрудник',
+    'authenticatedUi.adminStaff.actions.add': 'Добавить',
   };
   const interpolate = (template: string, params?: Record<string, string | number>) =>
     template.replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? `{${name}}`));
+  const t = (key: string, params?: Record<string, string | number>) => interpolate(values[key] ?? key, params);
+  const tp = (key: string, count: number) => {
+    if (key.endsWith('.department')) return `${count} отдел`;
+    if (key.endsWith('.position')) return `${count} должность`;
+    if (key.endsWith('.employee')) return `${count} сотрудник`;
+    return `${count}`;
+  };
   return {
     useT: () => ({
-      t: (key: string, params?: Record<string, string | number>) => interpolate(values[key] ?? key, params),
-      tp: (key: string, count: number) => {
-        if (key.endsWith('.department')) return `${count} отдел`;
-        if (key.endsWith('.position')) return `${count} должность`;
-        if (key.endsWith('.employee')) return `${count} сотрудник`;
-        return `${count}`;
-      },
+      t,
+      tp,
       lang: 'ru',
     }),
   };

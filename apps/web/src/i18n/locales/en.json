@@ -2051,6 +2051,11 @@
     "legal": { "operator": "Document. KZ LLP · BIN 080340022947 · 152L Radostovets Street, Bostandyk District, Almaty 050060, Kazakhstan", "privacy": "Privacy Notice", "terms": "Website and Trial Access Terms", "kazakhVersion": "Kazakh", "russianVersion": "Russian", "documentLanguage": "Document language: {language}", "russian": "Russian", "kazakh": "Kazakh" }
   },
   "authenticatedUi": {
+    "editorPreview": {
+      "aria": "Lesson content preview",
+      "label": "Employee preview",
+      "empty": "Enter lesson content to see the preview."
+    },
     "adminStaff": {
       "actions": {
         "add": "Add",
