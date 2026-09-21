@@ -108,6 +108,8 @@ describe('buyer-journey START presentation', () => {
 
     const preview = screen.getByText('demo.login.openExample').closest('a');
     expect(preview).toHaveAttribute('href', '/login/example?lang=ru');
+    expect(screen.getByText('demo.login.back').closest('a')).toHaveAttribute('href', '/login?lang=ru');
+    expect(screen.getByText('demo.login.register').closest('a')).toHaveAttribute('href', '/register-tenant?lang=ru');
     expect(screen.getByText('demo.login.exampleSubtitle')).toBeInTheDocument();
     expect(screen.getByText('demo.login.workspaceSubtitle')).toBeInTheDocument();
     expect(preview?.compareDocumentPosition(screen.getByText('users.roleMethodologist'))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);

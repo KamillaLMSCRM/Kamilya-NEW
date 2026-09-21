@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LocaleDocumentSync } from '@/components/LocaleDocumentSync';
 import LoginPage from '@/app/login/page';
+import DemoLoginPage from '@/app/login/demo/page';
 import TenantRegisterPage from '@/app/register-tenant/page';
 import { useLanguageStore } from '@/store/languageStore';
 
@@ -86,6 +87,23 @@ describe('public locale contract', () => {
 
     expect(await screen.findByRole('heading', { name: 'Sign in to Kamilya LMS' })).toBeInTheDocument();
     expect(useLanguageStore.getState().lang).toBe('en');
+  });
+
+  it('honours a direct language parameter on the public demo-role page', async () => {
+    window.history.replaceState({}, '', '/login/demo?lang=en');
+
+    render(<DemoLoginPage />);
+
+    expect(await screen.findByRole('heading', { name: 'Demo access' })).toBeInTheDocument();
+    expect(useLanguageStore.getState().lang).toBe('en');
+    expect(screen.getByRole('link', { name: 'Back to sign in' })).toHaveAttribute(
+      'href',
+      '/login?lang=en',
+    );
+    expect(screen.getByRole('link', { name: 'Create a separate trial for your company' })).toHaveAttribute(
+      'href',
+      '/register-tenant?lang=en',
+    );
   });
 
   it('ignores an unsupported cross-site language value', async () => {

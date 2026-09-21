@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import { Logo } from '@/components/brand/Logo';
 import { PUBLIC_DEMO_ROLE_IDS } from '@/lib/demoRoleCopy';
 import { useT } from '@/i18n/useT';
+import { useLocaleQuery } from '@/i18n/useLocaleQuery';
 import { BookOpen, GraduationCap, ArrowLeft, ChevronRight } from 'lucide-react';
 
 interface RoleCard {
@@ -22,6 +23,7 @@ interface RoleCard {
 }
 
 export default function DemoLoginPage() {
+  useLocaleQuery();
   const router = useRouter();
   const { t, lang } = useT();
   const { login } = useAuthStore();
@@ -122,14 +124,14 @@ export default function DemoLoginPage() {
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 border-t border-border pt-6 text-center">
           <Link
-            href="/login"
+            href={`/login?lang=${lang}`}
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             {t('demo.login.back')}
           </Link>
           <Link
-            href="/register-tenant"
+            href={`/register-tenant?lang=${lang}`}
             className="text-sm font-medium text-primary hover:underline"
           >
             {t('demo.login.register')}

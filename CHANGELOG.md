@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.8.2] - 2026-09-21
+
+### Fixed
+
+- Apply an explicit `lang` parameter when the public demo-role page is opened
+  directly, not only after visiting another localized page first.
+- Preserve the selected language on the demo-role page links back to sign-in
+  and forward to tenant registration.
+
+### Security
+
+- No database migration, secret, billing, DNS, storage or tenant-isolation
+  boundary changes.
+
 ## [0.8.1] - 2026-09-21
 
 ### Fixed
@@ -1302,7 +1316,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.7...v0.8.0
 [0.7.7]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.6...v0.7.7
