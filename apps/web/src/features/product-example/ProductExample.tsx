@@ -1,20 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLanguageStore } from '@/store/languageStore';
 import { exampleCopy, type ExampleLanguage } from './copy';
 
 export function ProductExample({ language = 'ru' }: { language?: ExampleLanguage }) {
   const c = exampleCopy[language];
+  const setLanguage = useLanguageStore(state => state.setLang);
   const [answer, setAnswer] = useState<number | null>(null);
   const [checked, setChecked] = useState(false);
   const [detail, setDetail] = useState<number | null>(null);
   const linkStyle = 'rounded-lg border border-border px-4 py-3 text-sm font-semibold hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary';
 
+  useEffect(() => {
+    setLanguage(language);
+  }, [language, setLanguage]);
+
   return (
     <main id="main-content" lang={language} className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-8">
       <div className="mx-auto max-w-6xl">
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5">
-          <a href="/login" className="text-xl font-bold">Kamilya LMS</a>
+          <a href={`/login?lang=${language}`} className="text-xl font-bold">Kamilya LMS</a>
           <nav aria-label="Language" className="flex gap-3 text-sm">
             {(['ru', 'kk', 'en'] as const).map(lang => <a key={lang} href={`/login/example?lang=${lang}`} lang={lang} aria-current={language === lang ? 'page' : undefined} className={language === lang ? 'font-bold text-primary underline underline-offset-4' : ''}>{lang === 'ru' ? 'Русский' : lang === 'kk' ? 'Қазақша' : 'English'}</a>)}
           </nav>
@@ -65,7 +71,7 @@ export function ProductExample({ language = 'ru' }: { language?: ExampleLanguage
           <h2 id="example-start" className="text-2xl font-semibold">{c.start}</h2>
           <div className="mt-5 grid gap-6 sm:grid-cols-2">{c.paths.map(path => <div key={path.title}><h3 className="font-semibold">{path.title}</h3><p className="mt-2 leading-7 text-muted-foreground">{path.body}</p></div>)}</div>
           <p className="mt-6 max-w-4xl text-sm leading-6">{c.responsibility}</p>
-          <div className="mt-6 flex flex-wrap gap-3"><a href="/register-tenant" className="rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground">{c.trial}</a><a href="/login/demo" className={linkStyle}>{c.demo}</a><a href="/login" className={linkStyle}>{c.login}</a></div>
+          <div className="mt-6 flex flex-wrap gap-3"><a href={`/register-tenant?lang=${language}`} className="rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground">{c.trial}</a><a href={`/login/demo?lang=${language}`} className={linkStyle}>{c.demo}</a><a href={`/login?lang=${language}`} className={linkStyle}>{c.login}</a></div>
         </section>
       </div>
     </main>

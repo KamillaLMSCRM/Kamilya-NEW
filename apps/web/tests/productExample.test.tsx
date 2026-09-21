@@ -1,9 +1,11 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { ProductExample } from '@/features/product-example/ProductExample';
 import { exampleCopy, resolveExampleLanguage } from '@/features/product-example/copy';
 import ExamplePage, { generateMetadata } from '@/app/login/example/page';
+import { SkipToContent } from '@/components/a11y/SkipToContent';
+import { useLanguageStore } from '@/store/languageStore';
 
 describe('public learning example contract', () => {
   it.each(['ru', 'kk', 'en', 'unsupported'])('resolves public route and metadata for %s', async lang => {
@@ -12,7 +14,7 @@ describe('public learning example contract', () => {
     expect(await generateMetadata(props)).toEqual({ title: `Kamilya LMS — ${exampleCopy[expected].title}` });
     expect((await ExamplePage(props)).props.language).toBe(expected);
   });
-  it.each(['ru', 'kk', 'en'] as const)('shows the complete labeled example in %s without auth or network', language => {
+  it.each(['ru', 'kk', 'en'] as const)('shows the complete labeled example in %s without auth or network', async language => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     render(<ProductExample language={language} />);
     const c = exampleCopy[language];
@@ -33,8 +35,11 @@ describe('public learning example contract', () => {
       fireEvent.click(screen.getByRole('button', { name: row.action }));
       expect(screen.getByText(row.detail)).toBeInTheDocument();
     });
-    expect(screen.getByRole('link', { name: c.demo })).toHaveAttribute('href', '/login/demo');
-    expect(screen.getByRole('link', { name: c.trial })).toHaveAttribute('href', '/register-tenant');
+    expect(screen.getByRole('link', { name: c.demo })).toHaveAttribute('href', `/login/demo?lang=${language}`);
+    expect(screen.getByRole('link', { name: c.trial })).toHaveAttribute('href', `/register-tenant?lang=${language}`);
+    expect(screen.getByRole('link', { name: c.login })).toHaveAttribute('href', `/login?lang=${language}`);
+    expect(screen.getByRole('link', { name: 'Kamilya LMS' })).toHaveAttribute('href', `/login?lang=${language}`);
+    await waitFor(() => expect(useLanguageStore.getState().lang).toBe(language));
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
@@ -43,6 +48,22 @@ describe('public learning example contract', () => {
     expect(resolveExampleLanguage('kk')).toBe('kk');
     expect(resolveExampleLanguage('en')).toBe('en');
     for (const value of [undefined, 'xx', ['kk'], '__proto__']) expect(resolveExampleLanguage(value)).toBe('ru');
+  });
+
+  it('synchronizes the public example language with the global accessibility copy', async () => {
+    useLanguageStore.getState().setLang('ru');
+    render(
+      <>
+        <SkipToContent />
+        <ProductExample language="en" />
+      </>,
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Skip to main content' })).toHaveAttribute(
+        'href',
+        '#main-content',
+      );
+    });
   });
 
   it('keeps preview free of API, auth, persistence and tenant dependencies', () => {

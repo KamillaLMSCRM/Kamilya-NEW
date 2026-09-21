@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.8.1] - 2026-09-21
+
+### Fixed
+
+- Keep the selected language on every exit from the public learning example,
+  including registration, demo workspace, sign-in and the Kamilya logo link.
+- Synchronize the public example language with the global accessibility copy so
+  the skip-to-content link is shown in English on the English route.
+
+### Security
+
+- No database migration, secret, billing, DNS, storage or tenant-isolation
+  boundary changes.
+
 ## [0.8.0] - 2026-09-21
 
 ### Added
@@ -1288,7 +1302,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.7...v0.8.0
 [0.7.7]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.6...v0.7.7
 [0.7.6]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.5...v0.7.6
