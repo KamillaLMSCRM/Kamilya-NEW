@@ -30,7 +30,16 @@ async def _login(client, user, password: str = "Password123!") -> str:
     return resp.json()["access_token"]
 
 
-async def _enroll(db, user, course):
+async def _enroll(
+    db,
+    user,
+    course,
+    *,
+    status="enrolled",
+    source="manual",
+    recurring_assignment_id=None,
+    completed_at=None,
+):
     """Insert an enrollment row directly (faster than HTTP-driven flow)."""
     from app.models.enrollment import Enrollment
 
@@ -39,9 +48,11 @@ async def _enroll(db, user, course):
         tenant_id=user.tenant_id,
         user_id=user.id,
         course_id=course.id,
-        status="enrolled",
+        status=status,
         enrolled_at=datetime.now(UTC),
-        source="manual",
+        source=source,
+        recurring_assignment_id=recurring_assignment_id,
+        completed_at=completed_at,
     )
     db.add(e)
     await db.flush()
@@ -945,11 +956,15 @@ async def test_training_log_completed_status_without_timestamp_is_completed_not_
     )
     db_session.add(occurrence)
     await db_session.flush()
-    enrollment = await _enroll(db_session, learner, course)
-    enrollment.source = "recurring"
-    enrollment.recurring_assignment_id = occurrence.id
-    enrollment.status = "completed"
-    enrollment.completed_at = None
+    enrollment = await _enroll(
+        db_session,
+        learner,
+        course,
+        status="completed",
+        source="recurring",
+        recurring_assignment_id=occurrence.id,
+        completed_at=None,
+    )
     occurrence.enrollment_id = enrollment.id
     await db_session.flush()
 
