@@ -167,4 +167,37 @@ describe('auth refresh coordinator', () => {
     expect(auth.getCurrentUser()).toBeNull();
     vi.doUnmock('@/lib/authRefreshCoordinator');
   });
+
+  it('restores the platform session when exiting impersonation', async () => {
+    vi.resetModules();
+    const platformUser: AuthUser = {
+      ...user,
+      tenant_id: null,
+      tenant: null,
+      role: 'superadmin',
+      roles: ['superadmin'],
+    };
+    const refreshSession = vi.fn().mockResolvedValue({
+      access_token: 'platform-access',
+      user: platformUser,
+    });
+    vi.doMock('@/lib/authRefreshCoordinator', () => ({ refreshSession }));
+
+    const auth = await import('@/lib/auth');
+    auth.setAuth('impersonation-access', {
+      ...user,
+      impersonated_by: 'superadmin-1',
+      impersonated_role: 'methodologist',
+    });
+    const observedUsers: Array<AuthUser | null> = [];
+    const unsubscribe = auth.subscribeAuth((state) => observedUsers.push(state.user));
+
+    await expect(auth.exitImpersonation()).resolves.toEqual(platformUser);
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(auth.getAccessToken()).toBe('platform-access');
+    expect(auth.getCurrentUser()).toEqual(platformUser);
+    expect(observedUsers).toEqual([platformUser]);
+    unsubscribe();
+    vi.doUnmock('@/lib/authRefreshCoordinator');
+  });
 });

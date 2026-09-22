@@ -21,9 +21,15 @@ interface Stat {
 interface PipelineJob {
   id: string;
   status: string;
+  job_type?: string;
+  stage?: string;
   course_title?: string;
   created_at: string;
 }
+
+const ACTIVE_JOB_STATUSES = new Set(['pending', 'running']);
+const FAILED_JOB_STATUSES = new Set(['failed', 'error', 'interrupted']);
+const HIDDEN_JOB_STATUSES = new Set(['completed', 'cancelled']);
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
@@ -58,7 +64,10 @@ export default function DashboardPage() {
     try {
       const res = await api.get('/v1/ai/jobs');
       if (Array.isArray(res.data)) {
-        setPipelineJobs(res.data.filter((j: any) => j.status !== 'completed').slice(0, 5));
+        setPipelineJobs(res.data.filter((job: PipelineJob) => (
+          job.job_type === 'course_generation'
+          && !HIDDEN_JOB_STATUSES.has(job.status)
+        )).slice(0, 5));
       }
     } catch {}
   }, []);
@@ -77,6 +86,19 @@ export default function DashboardPage() {
     fetchPipeline();
     fetchRecentCourses();
   }, [fetchStats, fetchPipeline, fetchRecentCourses]);
+
+  const activePipelineJobs = pipelineJobs.filter((job) => ACTIVE_JOB_STATUSES.has(job.status));
+  const attentionPipelineJobs = pipelineJobs.filter((job) => !ACTIVE_JOB_STATUSES.has(job.status));
+  const pipelineSummary = activePipelineJobs.length > 0 && attentionPipelineJobs.length > 0
+    ? t('dashboard.activeAndAttention', {
+        active: activePipelineJobs.length,
+        attention: attentionPipelineJobs.length,
+      })
+    : activePipelineJobs.length > 0
+      ? t('dashboard.inProgress')
+      : attentionPipelineJobs.length > 0
+        ? t('dashboard.needsAttentionCount', { count: attentionPipelineJobs.length })
+        : t('dashboard.queueEmpty');
 
   const statCards: Stat[] = [
     {
@@ -105,7 +127,7 @@ export default function DashboardPage() {
     {
       label: t('dashboard.aiGenerations'),
       value: pipelineJobs.length,
-      delta: pipelineJobs.length > 0 ? t('dashboard.inProgress') : t('dashboard.queueEmpty'),
+      delta: pipelineSummary,
       icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4Z" />
@@ -142,10 +164,9 @@ export default function DashboardPage() {
     { key: 'other', label: t('dashboard.kanban.needsAttention'), color: 'bg-warning' },
   ];
   const canStartLearning = user?.role === 'methodologist';
-  const knownPipelineStatuses = new Set([
+  const knownPipelineStages = new Set([
     'queued', 'ingesting', 'ingestion', 'architecting', 'architect',
     'generating', 'content_generation', 'reviewing', 'review', 'assessment',
-    'failed', 'error', 'cancelled',
   ]);
 
   return (
@@ -228,13 +249,15 @@ export default function DashboardPage() {
         <div className="flex gap-4 overflow-x-auto pb-4">
           {kanbanColumns.map((col) => {
             const jobs = pipelineJobs.filter((j) => {
-              if (col.key === 'queued') return j.status === 'queued';
-              if (col.key === 'ingesting') return j.status === 'ingesting' || j.status === 'ingestion';
-              if (col.key === 'architecting') return j.status === 'architecting' || j.status === 'architect';
-              if (col.key === 'generating') return j.status === 'generating' || j.status === 'content_generation';
-              if (col.key === 'reviewing') return j.status === 'reviewing' || j.status === 'review' || j.status === 'assessment';
-              if (col.key === 'failed') return j.status === 'failed' || j.status === 'error' || j.status === 'cancelled';
-              return !knownPipelineStatuses.has(j.status);
+              if (FAILED_JOB_STATUSES.has(j.status)) return col.key === 'failed';
+              if (!ACTIVE_JOB_STATUSES.has(j.status)) return col.key === 'other';
+              const stage = j.stage || 'queued';
+              if (col.key === 'queued') return stage === 'queued';
+              if (col.key === 'ingesting') return stage === 'ingesting' || stage === 'ingestion';
+              if (col.key === 'architecting') return stage === 'architecting' || stage === 'architect';
+              if (col.key === 'generating') return stage === 'generating' || stage === 'content_generation';
+              if (col.key === 'reviewing') return stage === 'reviewing' || stage === 'review' || stage === 'assessment';
+              return col.key === 'other' && !knownPipelineStages.has(stage);
             });
 
             return (

@@ -51,7 +51,7 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
   const [state, dispatch] = useReducer(generationWorkflowReducer, initialGenerationWorkflowState);
 
   const restoreFromJobList = useCallback(async () => {
-    const response = await api.get<AIGenerationJob[]>('/v1/ai/jobs');
+    const response = await api.get<AIGenerationJob[]>('/v1/ai/jobs?scope=mine');
     const activeJob = selectOldestActiveCourseJob(response.data);
     if (activeJob) {
       const savedContext = readWorkflowContext();
@@ -83,9 +83,11 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
       const job = response.data;
       const programId = savedContext?.job_id === job.id ? savedContext.program_id : null;
       if (isRestorable(job)) dispatch({ type: 'job_restored', job, programId });
-      else if (job.status === 'completed' && job.course_id) dispatch({ type: 'job_restored', job, programId });
-      else dispatch({ type: 'job_cleared' });
-      if (!isRestorable(job)) localStorage.removeItem(activeJobStorageKey);
+      else {
+        localStorage.removeItem(activeJobStorageKey);
+        clearWorkflowContext();
+        dispatch({ type: 'job_cleared' });
+      }
     } catch (error: any) {
       // An impersonation/tenant switch can leave a stale id. On a confirmed
       // 404, clear it and immediately discover the active job in this tenant.
@@ -113,7 +115,10 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
     const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${state.currentJob.id}`);
     const job = response.data;
     dispatch(actionForPolledJob(job));
-    if (!isRestorable(job)) localStorage.removeItem(activeJobStorageKey);
+    if (!isRestorable(job)) {
+      localStorage.removeItem(activeJobStorageKey);
+      clearWorkflowContext();
+    }
   }, [state.currentJob]);
 
   const cancelJob = useCallback(async () => {

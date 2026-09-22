@@ -26,6 +26,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
   const { t } = useT();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const restorePlatformSession = useAuthStore((s) => s.exitImpersonation);
   const switchRole = useAuthStore((s) => s.switchRole);
   const [isSwitchingRole, setIsSwitchingRole] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -81,22 +82,13 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
   };
 
   const exitImpersonation = async () => {
-    // Impersonation is a one-shot session: the only way out is to
-    // re-authenticate as the platform superadmin. Wipe local storage
-    // and route back to the superadmin login form.
-    await logout();
-    if (typeof window !== 'undefined') {
-      window.location.href = '/superadmin/login';
-    }
-  };
-
-  const goToSuperadmin = () => {
-    // The current user is a tenant admin whose telegram_id also
-    // belongs to the platform superadmin (same identity, different
-    // tenant rows). Swap to the superadmin session by re-logging-in
-    // via the email/password form.
-    if (typeof window !== 'undefined') {
-      window.location.href = '/superadmin/login';
+    try {
+      await restorePlatformSession();
+      window.location.assign('/admin/super');
+    } catch {
+      toast.error(t('topbar.impersonationExitError'));
+      await logout();
+      window.location.assign('/superadmin/login');
     }
   };
 
@@ -348,14 +340,11 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
           {user?.full_name?.[0] || '?'}
         </Link>
 
-        {/* Super admin switch — only visible to tenant users whose
-            telegram_id is also bound to the platform superadmin row.
-            Clicking routes to the superadmin login form. The actual
-            swap happens after re-auth. */}
+        {/* Secondary superadmin exit mirrors the banner action. */}
         {canExitToSuperadmin && !isSuperadmin && (
           <button
             type="button"
-            onClick={goToSuperadmin}
+            onClick={exitImpersonation}
             className="inline-flex items-center gap-1.5 rounded-xl border border-warning/40 bg-warning/5 px-3 py-2 text-xs font-medium text-warning hover:bg-warning/15 transition-colors"
             title={t('topbar.operatorTitle')}
             aria-label={t('topbar.operatorAria')}

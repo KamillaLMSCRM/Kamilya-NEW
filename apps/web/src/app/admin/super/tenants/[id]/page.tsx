@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, DateInput, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { formatUsageCounter, type TenantUsageCounters } from '@/features/superadmin/usage';
 import { toast } from '@/components/ui/Toast';
 
 const PLAN_KEYS = ['free', 'trial', 'pro', 'enterprise'] as const;
@@ -69,13 +70,7 @@ interface Tenant {
     enrollment_count: number;
     last_activity_at: string | null;
   };
-  usage?: {
-    ai_course_generations_used: number;
-    jd_course_generations_used: number;
-    active_students_count_snapshot: number;
-    system_users_count_snapshot: number;
-    updated_at: string | null;
-  } | null;
+  usage?: TenantUsageCounters | null;
   latest_lead?: {
     id: string;
     company_name: string;
@@ -434,27 +429,27 @@ export default function TenantDetailPage() {
                   <div className="text-text-tertiary text-xs">
                     {t('superadmin.tenants.launch.aiCourses')}
                   </div>
-                  <div className="font-semibold">{usage?.ai_course_generations_used ?? 0}/1</div>
+                  <div className="font-semibold">{formatUsageCounter(usage?.ai_course_generations_used, usage?.ai_course_generations_limit, t('superadmin.tenants.subscription.unlimited'))}</div>
                 </div>
                 <div className="rounded border border-border bg-bg-primary p-2">
                   <div className="text-text-tertiary text-xs">
                     {t('superadmin.tenants.launch.jdCourses')}
                   </div>
-                  <div className="font-semibold">{usage?.jd_course_generations_used ?? 0}/1</div>
+                  <div className="font-semibold">{formatUsageCounter(usage?.jd_course_generations_used, usage?.jd_course_generations_limit, t('superadmin.tenants.subscription.unlimited'))}</div>
                 </div>
                 <div className="rounded border border-border bg-bg-primary p-2">
                   <div className="text-text-tertiary text-xs">
                     {t('superadmin.tenants.launch.learners')}
                   </div>
                   <div className="font-semibold">
-                    {usage?.active_students_count_snapshot ?? stats?.active_user_count ?? 0}/{tenant.max_users ?? 10}
+                    {formatUsageCounter(usage?.active_students_count_snapshot ?? stats?.active_user_count, usage?.active_students_limit ?? tenant.max_users, t('superadmin.tenants.subscription.unlimited'))}
                   </div>
                 </div>
                 <div className="rounded border border-border bg-bg-primary p-2">
                   <div className="text-text-tertiary text-xs">
                     {t('superadmin.tenants.launch.team')}
                   </div>
-                  <div className="font-semibold">{usage?.system_users_count_snapshot ?? stats?.admin_count ?? 0}/3</div>
+                  <div className="font-semibold">{formatUsageCounter(usage?.system_users_count_snapshot ?? stats?.admin_count, usage?.system_users_limit, t('superadmin.tenants.subscription.unlimited'))}</div>
                 </div>
               </div>
               <div className="text-xs text-text-tertiary">

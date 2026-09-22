@@ -8,6 +8,7 @@ import { toast } from '@/components/ui/Toast';
 import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/store/authStore';
 import { useDebounce } from '@/lib/useDebounce';
+import { formatUsageCounter, type TenantUsageCounters } from '@/features/superadmin/usage';
 
 interface Tenant {
   id: string;
@@ -34,13 +35,7 @@ interface Tenant {
     enrollment_count: number;
     last_activity_at: string | null;
   } | null;
-  usage?: {
-    ai_course_generations_used: number;
-    jd_course_generations_used: number;
-    active_students_count_snapshot: number;
-    system_users_count_snapshot: number;
-    updated_at: string | null;
-  } | null;
+  usage?: TenantUsageCounters | null;
   latest_lead?: {
     contact_name: string;
     email: string;
@@ -488,9 +483,9 @@ export default function SuperAdminTenants() {
                       <td className="px-3 py-2 text-sm text-text-secondary">
                         <div className="font-medium text-text-primary">
                           {t('superadmin.tenants.launch.aiCourses')}{' '}
-                          {tnt.usage?.ai_course_generations_used ?? 0}/1 ·{' '}
+                          {formatUsageCounter(tnt.usage?.ai_course_generations_used, tnt.usage?.ai_course_generations_limit, t('superadmin.tenants.subscription.unlimited'))} ·{' '}
                           {t('superadmin.tenants.launch.jdCourses')}{' '}
-                          {tnt.usage?.jd_course_generations_used ?? 0}/1
+                          {formatUsageCounter(tnt.usage?.jd_course_generations_used, tnt.usage?.jd_course_generations_limit, t('superadmin.tenants.subscription.unlimited'))}
                         </div>
                         <div className="text-xs text-text-tertiary">
                           {t('superadmin.tenants.publishedOfTotal', {

@@ -150,4 +150,32 @@ describe('manual staff organization unit contract', () => {
     fireEvent.change(unitSelect, { target: { value: 'unit-1' } });
     expect(positionSelect).toHaveValue('shared-position');
   });
+
+  it('does not repeat a canonical unit returned again as a compatible legacy root', async () => {
+    const duplicatedTree = {
+      ...tree,
+      legacy_roots: [{
+        id: 'unit-1',
+        name: 'Команда продукта',
+        unit_type: 'department',
+        legacy_root: true,
+        children: [],
+        positions: [],
+      }],
+    };
+    getMock.mockImplementation(async (url: string) => {
+      if (url.includes('/import/mappings')) return { data: [] } as any;
+      if (url === '/v1/departments') return { data: { departments: [] } } as any;
+      if (url === '/v1/positions') return { data: [] } as any;
+      if (url.includes('/organization-units/tree')) return { data: duplicatedTree } as any;
+      throw new Error(`unexpected GET ${url}`);
+    });
+
+    render(<AdminStaffPage />);
+    fireEvent.click(screen.getByRole('button', { name: /Добавить сотрудника/i }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новый сотрудник' });
+    const unitSelect = await within(dialog).findByRole('combobox', { name: /^Отдел/ });
+
+    expect(within(unitSelect).getAllByRole('option', { name: /Команда продукта/ })).toHaveLength(1);
+  });
 });

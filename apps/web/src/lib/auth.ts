@@ -198,6 +198,37 @@ export async function logout(): Promise<void> {
   });
 }
 
+/** Restore the platform session that remains in the httpOnly refresh cookie.
+ *
+ * Tenant impersonation only replaces the in-memory access token; it does not
+ * rotate the platform refresh cookie. Logging out here would revoke that
+ * platform session and force an unnecessary second login.
+ */
+export async function exitImpersonation(): Promise<AuthUser> {
+  if (!_user?.impersonated_by) throw new Error('No impersonation session is active');
+  // Do not emit an intermediate anonymous state: the authenticated layout
+  // would treat it as a real logout and navigate away before refresh returns.
+  // First let an older refresh settle, then invalidate the impersonation token
+  // in memory and atomically publish only the restored platform identity.
+  await _refreshAndStoreInflight?.catch(() => false);
+  _authEpoch += 1;
+  _accessToken = null;
+  _user = null;
+  const restored = await refreshAndStoreSession();
+  const platformUser = getCurrentUser();
+  if (
+    !restored
+    || !platformUser
+    || platformUser.role !== 'superadmin'
+    || platformUser.tenant_id !== null
+    || platformUser.impersonated_by
+  ) {
+    clearAuth();
+    throw new Error('Platform session could not be restored');
+  }
+  return platformUser;
+}
+
 
 export async function switchRole(role: string): Promise<AuthUser> {
   if (!_accessToken) throw new Error('Authentication required');

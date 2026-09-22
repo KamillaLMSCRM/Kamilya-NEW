@@ -88,6 +88,15 @@ const TOPICS: readonly HelpTopicDefinition[] = [
     important: text('Программа не заменяет отдельные курсы: сначала подготовьте и опубликуйте их.', 'Бағдарлама жеке курстарды алмастырмайды: алдымен оларды дайындап, жариялаңыз.', 'A program does not replace its courses; prepare and publish them first.'),
   },
   {
+    id: 'learning-cycles', paths: ['/learning-cycles'], roles: ['methodologist'],
+    title: text('Циклы обучения', 'Оқу циклдері', 'Learning cycles'),
+    purpose: text('Повторное назначение курса или программы одному сотруднику через заданный интервал.', 'Белгіленген аралықтан кейін курс немесе бағдарламаны бір қызметкерге қайта тағайындау.', 'Reassign a course or program to one employee on a defined schedule.'),
+    steps: [text('Выберите опубликованный курс или программу и сотрудника.', 'Жарияланған курс не бағдарламаны және қызметкерді таңдаңыз.', 'Choose a published course or program and an employee.'), text('Задайте интервал между запусками и срок прохождения каждого нового периода.', 'Іске қосу аралығын және әр жаңа кезеңді аяқтау мерзімін белгілеңіз.', 'Set the interval between runs and the completion window for each new period.'), text('Создайте правило, проверьте его и только затем активируйте.', 'Ережені жасап, тексеріп, содан кейін ғана іске қосыңыз.', 'Create the rule, review it, and only then activate it.')],
+    example: text('Курс по безопасности назначается повторно каждые 365 дней, а на прохождение нового периода даётся 30 дней.', 'Қауіпсіздік курсы әр 365 күн сайын қайта тағайындалады, жаңа кезеңді аяқтауға 30 күн беріледі.', 'A safety course is reassigned every 365 days, with 30 days to complete each new period.'),
+    result: text('Каждый запуск создаёт отдельный период обучения со своим прогрессом и сроком.', 'Әр іске қосу жеке ілгерілеуі мен мерзімі бар жаңа оқу кезеңін жасайды.', 'Each run creates a separate learning period with its own progress and due date.'),
+    important: text('Интервал определяет частоту повторения, а срок выполнения — сколько дней дано сотруднику внутри каждого периода.', 'Аралық қайталау жиілігін, ал орындау мерзімі әр кезеңде қызметкерге берілетін күн санын анықтайды.', 'The interval controls recurrence; the completion window is the time allowed within each period.'),
+  },
+  {
     id: 'cohorts', paths: ['/cohorts'], roles: ['methodologist'],
     title: text('Группы сотрудников', 'Қызметкерлер топтары', 'Employee groups'),
     purpose: text('Объединение сотрудников для общего назначения и контроля.', 'Қызметкерлерді ортақ тағайындау және бақылау үшін біріктіру.', 'Group employees for shared assignment and monitoring.'),

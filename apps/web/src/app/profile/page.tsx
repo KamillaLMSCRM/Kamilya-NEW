@@ -23,10 +23,15 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const updatesLocale = lang === 'kk' ? 'kk' : 'ru';
+  const isImpersonating = Boolean(user?.impersonated_by);
 
   useEffect(() => {
     let cancelled = false;
     async function loadProfile() {
+      if (isImpersonating) {
+        setLoading(false);
+        return;
+      }
       try {
         const response = await api.get('/v1/users/me');
         if (cancelled) return;
@@ -45,7 +50,7 @@ export default function ProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [isImpersonating, t]);
 
   async function saveProfile() {
     setSaving(true);
@@ -81,7 +86,16 @@ export default function ProfilePage() {
       <Card>
         <CardContent className="space-y-4 p-6">
           <h2 className="text-lg font-semibold text-foreground">{t('settings.profile')}</h2>
-          {loading ? (
+          {isImpersonating ? (
+            <div className="rounded-xl border border-warning/30 bg-warning/10 p-4">
+              <p className="font-medium text-foreground">{t('settings.impersonationProfileTitle')}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('settings.impersonationProfileHelp')}</p>
+              <dl className="mt-3 space-y-1 text-sm text-foreground">
+                <div><dt className="inline font-medium">{t('settings.platformOperator')}:</dt> <dd className="inline">{user?.full_name || '—'}</dd></div>
+                <div><dt className="inline font-medium">{t('auth.email')}:</dt> <dd className="inline">{user?.email || '—'}</dd></div>
+              </dl>
+            </div>
+          ) : loading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               {t('common.loading')}

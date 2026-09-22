@@ -66,6 +66,17 @@ open, also record status, safe interim path, and review condition.
   cases, strict constraint-review parsing and per-lesson coverage audit. Exact
   saved replay now rejects the bad key while retaining the valid privacy item.
   Full API unit 1902 PASS / 77.19s; this is not semantic release acceptance.
+- Recurrence 2026-09-22: the deterministic reviewer still exempted an option
+  whenever that option was a true sentence anywhere in the lesson evidence.
+  This let initial-response and escalation rules survive as alternatives to a
+  personal-data scenario. For action questions only, derive distinctive anchors
+  shared by the question and its selected evidence, exclude generic actor terms,
+  and reject every distractor that does not carry one of those anchors. Preserve
+  source-grounded competing descriptions for non-scenario attribute questions.
+  The exact customer-reported pattern is now a RED/GREEN regression; the focused
+  assessment suite passes 119 tests and the combined assessment/auth set passes
+  129 tests. The final database-free API verification passes 2123 tests.
+  Production semantic acceptance remains required after release.
 - Current NO_GO: two frozen-code Excel assessment replays retained 5/9 and 4/9
   questions in 45.655s and 47.895s. One left an entire primary lesson unassessed;
   repair responses failed identity/evidence validation and fallback timed out.
@@ -3306,6 +3317,31 @@ contract or establish a blocker.
 - Prevention: personal-link flows must test navigation from a browser that also
   contains an unrelated ordinary login cookie, including the last-lesson path.
 
+## AUTH-NAV-002 - Tenant preview profile exposed the platform operator seam and exit revoked the session
+
+- Date: 2026-09-22. Confirmed in the synthetic tenant through the superadmin
+  preview flow and reproduced directly against the profile/auth boundaries.
+- Symptom: `/profile` showed blank fields with HTTP 422, while leaving tenant
+  preview logged the operator out and returned to `/superadmin/login`.
+- Cause: `/users/me` reloaded the real platform-superadmin row (`tenant_id=NULL`)
+  and serialized it through the tenant-only `UserResponse`; PATCH could mutate
+  that operator row before the same serialization failure. The frontend exit
+  called full logout even though impersonation replaces only the in-memory access
+  token and leaves the platform refresh cookie intact.
+- Fix: reject profile reads and writes before DB access while impersonating;
+  present an explicit read-only preview explanation in the profile UI. Exit now
+  clears only the impersonation token, restores the platform session through the
+  existing httpOnly refresh cookie, verifies the restored identity is an actual
+  platform superadmin and returns to `/admin/super`. A failed identity check
+  fails closed to ordinary reauthentication.
+- Verification: two API guards, the profile UI regression, the auth restoration
+  regression and adjacent auth/logout tests pass; combined focused API set is
+  129 tests and focused frontend set is 26 tests. Final frontend verification
+  passes 124 files / 676 tests, lint, typecheck and production build.
+- Prevention: every impersonation-only route must distinguish the tenant role
+  wrapper from a persisted tenant user. Never mutate the wrapped platform actor,
+  and never use full logout to leave an access-token-only preview session.
+
 ## TEST-INFRA-001 - Unit runs inherited an invented localhost PostgreSQL target
 
 - Date: 2026-09-16.
@@ -3430,6 +3466,88 @@ contract or establish a blocker.
 - Prevention: optional hierarchy levels must remain optional in UI validation,
   API validation and persistence tests; selector tests must start from the
   initial form state rather than only after selecting a parent.
+
+## STAFF-UI-003 - Canonical organization units were rendered again as compatible departments
+
+- Date: 2026-09-22. Confirmed in the synthetic tenant and reproduced with the
+  exact organization-tree response contract.
+- Symptom: the same departments appeared in the primary structure, in the
+  `Compatible departments` section and twice in the manual employee picker.
+- Cause: `/v1/organization-units/tree` already includes legacy roots inside the
+  complete `roots` forest, while also returning the same rows in `legacy_roots`
+  for compatibility consumers. The staff page concatenated and rendered both.
+- Fix: merge compatibility roots only when their ID is absent from the entire
+  canonical tree, including descendants. Keep `/v1/departments` for its separate
+  course-binding contract and for the fallback used when the tree endpoint is
+  unavailable.
+- Verification: the integration-style modal regression first reproduced two
+  options and React's duplicate-key warning, then passed with one option. Both
+  staff hierarchy files pass 10 tests; final frontend verification passes
+  124 files / 676 tests, lint, typecheck and production build.
+- Prevention: UI consumers must treat `roots` as the complete organization
+  forest. Compatibility collections require ID-based de-duplication against the
+  full recursive tree before rendering or selection.
+
+## AI-JOBS-003 - Historical and unrelated jobs were shown as active course generation
+
+- Date: 2026-09-22. Confirmed in the synthetic tenant and reproduced against the
+  AI job response contract.
+- Symptom: the dashboard described failed, cancelled and non-course jobs as
+  current course generation. Returning to `/ai/generate` could restore a
+  completed result from an earlier visit, and tenant-wide recovery could select
+  another methodologist's active job.
+- Cause: the dashboard used `status` as both lifecycle and pipeline stage,
+  accepted every non-completed job type, and treated cancelled jobs as attention.
+  The generation workflow retained completed local-storage context and used the
+  tenant-wide history endpoint for personal recovery.
+- Fix: filter the dashboard to `course_generation`, omit completed/cancelled
+  jobs, classify lifecycle by `status` and active phase by `stage`. Recovery now
+  requests `scope=mine`; a completion remains visible in the current mounted
+  session but clears both restoration keys and cannot replace a later new form.
+- Verification: focused dashboard/recovery/page regressions pass 38 tests; API
+  RBAC and current-user query tests pass 26 tests; final API verification passes
+  2123 tests and frontend verification passes 124 files / 676 tests plus lint,
+  typecheck and production build.
+- Prevention: tenant history and current-user recovery are separate contracts.
+  Never infer active work from `status != completed`, never use a lifecycle
+  status as a stage, and test navigation after completion in a new mount.
+
+## SUPERADMIN-UI-002 - Usage cards displayed invented fixed limits
+
+- Date: 2026-09-22. Confirmed by source/runtime-contract review of the tenant list
+  and detail views.
+- Symptom: AI and job-description generation always appeared as `/1`, and the
+  platform-team count as `/3`, regardless of the tenant's configured limits.
+- Cause: the superadmin DTO exposed only counters while the frontend hard-coded
+  denominators instead of using `tenant.settings.trial_limits`.
+- Fix: expose nullable limits beside each usage counter, derive them from the
+  same tenant limit settings used for enforcement, and render the exact value or
+  a localized `unlimited` label. No default denominator is invented.
+- Verification: pure presentation regressions cover non-default and unlimited
+  limits; the API lifecycle fixture covers 7/4/25/6 configured limits. The local
+  integration module was skipped without an explicit approved DB contour and
+  therefore remains a release gate, not a claimed pass.
+- Prevention: usage responses must pair every `used` value with an authoritative
+  nullable `limit`; UI code may not encode plan limits.
+
+## LEARNING-UX-001 - Recurrence fields and duplicate selector labels were ambiguous
+
+- Date: 2026-09-22. Confirmed by the synthetic-tenant UX review and component
+  regressions.
+- Symptom: users had to infer the difference between recurrence interval and
+  completion window; same-name employees, courses and organization units could
+  not be distinguished before selection.
+- Cause: timing inputs had no associated descriptions, and option labels omitted
+  available identity/hierarchy context.
+- Fix: add localized field descriptions with `aria-describedby` and contextual
+  help for learning cycles. Include email or personnel number for learners,
+  short identity only for duplicate targets, and full breadcrumbs for structure
+  units.
+- Verification: focused UX/help/selector suite passes 9 files / 58 tests; final
+  frontend verification passes 124 files / 676 tests, lint, typecheck and build.
+- Prevention: any selector whose visible label is not unique must expose a stable
+  human discriminator before selection; paired timing fields require explicit
+  meaning and accessible descriptions.
 
 ## ORG-HIERARCHY-001 - Successful organization-unit writes returned HTTP 500
 

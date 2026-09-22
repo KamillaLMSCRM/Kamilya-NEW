@@ -9,6 +9,7 @@ const METHODOLOGIST_PATHS = [
   '/quizzes',
   '/documents',
   '/learning-paths',
+  '/learning-cycles',
   '/cohorts',
   '/staff',
   '/training-procedures',
@@ -20,7 +21,7 @@ const METHODOLOGIST_PATHS = [
 
 describe('contextual help registry', () => {
   it('covers every primary methodologist menu section', () => {
-    expect(CONTEXTUAL_HELP_TOPIC_IDS).toHaveLength(14);
+    expect(CONTEXTUAL_HELP_TOPIC_IDS).toHaveLength(15);
     for (const path of METHODOLOGIST_PATHS) {
       const help = getContextualHelp(path, 'methodologist', 'ru');
       expect(help, path).not.toBeNull();
@@ -37,6 +38,7 @@ describe('contextual help registry', () => {
     expect(getContextualHelp('/candidate-assessments', 'methodologist', 'ru')?.title).toBe('Тестирование кандидатов');
     expect(getContextualHelp('/training-procedures', 'methodologist', 'ru')?.title).toBe('Подтверждение обучения');
     expect(getContextualHelp('/training-retention', 'methodologist', 'ru')?.title).toBe('Сроки хранения результатов');
+    expect(getContextualHelp('/learning-cycles', 'methodologist', 'ru')?.title).toBe('Циклы обучения');
   });
 
   it('does not expose role-inappropriate help', () => {

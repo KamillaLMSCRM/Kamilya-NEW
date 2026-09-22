@@ -2,7 +2,11 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import AdminStaffPage from '@/app/admin/staff/page';
-import { flattenOrganizationUnits, type OrganizationUnitNode } from '@/features/staff-structure/organizationStructure';
+import {
+  flattenOrganizationUnits,
+  mergeUniqueOrganizationUnitRoots,
+  type OrganizationUnitNode,
+} from '@/features/staff-structure/organizationStructure';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 
@@ -58,6 +62,7 @@ const fourLevelRoot = {
     is_head_office: true,
     employee_count: 0,
     position_count: 0,
+    positions: [],
     children: [{
       id: 'management-1',
       name: 'Управление качества',
@@ -132,6 +137,27 @@ describe('organization hierarchy v2 public UI', () => {
     expect(flattenOrganizationUnits([root]).map((item) => item.depth)).toEqual([
       0, 1, 2, 3, 4, 5, 6, 7, 8,
     ]);
+  });
+
+  it('prunes compatibility descendants already present in the canonical tree', () => {
+    const compatibilityRoot: OrganizationUnitNode = {
+      id: 'legacy-parent',
+      name: 'Legacy parent',
+      children: [{
+        ...fourLevelRoot.children[0],
+        children: [],
+      }],
+      positions: [],
+    };
+
+    const merged = mergeUniqueOrganizationUnitRoots(
+      [fourLevelRoot],
+      [compatibilityRoot],
+    );
+
+    expect(merged).toHaveLength(2);
+    expect(merged[1].children).toEqual([]);
+    expect(flattenOrganizationUnits(merged).filter((node) => node.id === 'management-1')).toHaveLength(1);
   });
   it('renders a four-level tree and positions at the deepest node', async () => {
     render(<AdminStaffPage />);

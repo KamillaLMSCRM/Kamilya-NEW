@@ -111,6 +111,11 @@ async def get_current_user_profile(
 
     Returns the user object derived from the JWT — does not require admin role.
     """
+    if getattr(user, "is_impersonating", False):
+        raise HTTPException(
+            status_code=403,
+            detail="Profile is unavailable while impersonating",
+        )
     # Reload from DB to get fresh data (not the JWT-cached user from get_current_user).
     fresh = await db.get(User, user.id)
     if not fresh:
@@ -129,6 +134,11 @@ async def update_current_user_profile(
 
     Tenant isolation: only fields allowed for self-update are accepted.
     """
+    if getattr(user, "is_impersonating", False):
+        raise HTTPException(
+            status_code=403,
+            detail="Profile is unavailable while impersonating",
+        )
     # Whitelist: regular users can only update their own first_name, last_name, email.
     # role/is_active changes must go through admin endpoints.
     updates = req.model_dump(exclude_unset=True, exclude={"role", "is_active"})

@@ -156,6 +156,24 @@ _ATTRIBUTE_QUESTION_RE = re.compile(
     r"handle|drawer|wardrobe|bed|dresser|advantage|difference)",
     re.IGNORECASE,
 )
+_ACTION_SCENARIO_QUESTION_RE = re.compile(
+    r"\b(?:как\s+(?:следует|нужно|должен|должна|должны)|"
+    r"что\s+(?:следует|нужно|должен|должна|должны)|"
+    r"how\s+should|what\s+should|"
+    r"қалай\s+(?:әрекет|істеу)|не\s+істеу)\b",
+    re.IGNORECASE,
+)
+_SCENARIO_GENERIC_ANCHOR_STEMS = frozenset(
+    {
+        "сотру",
+        "клиен",
+        "работ",
+        "қызме",
+        "emplo",
+        "staff",
+        "user",
+    }
+)
 _WHICH_CATEGORY_QUESTION_RE = re.compile(
     r"^\s*(?:"
     r"к\s+как\w+\s+(?:категор\w*|коллекц\w*|линейк\w*|тип\w*|платформ\w*|сери\w*)|"
@@ -1225,7 +1243,7 @@ def _validate_question_evidence(
             for option in options
         )
         question["_all_options_source_grounded"] = all_options_source_grounded
-        implausible_indices = tuple(
+        implausible_indices = {
             option_index
             for option_index, option in enumerate(options)
             if option.get("is_correct") is not True
@@ -1234,8 +1252,18 @@ def _validate_question_evidence(
             and not any(
                 _is_extractive_answer(str(option.get("text", "")), evidence) for evidence in evidence_bank.values()
             )
-        )
-        question["_implausible_distractor_indices"] = implausible_indices
+        }
+        question_text = str(question.get("question", ""))
+        if _ACTION_SCENARIO_QUESTION_RE.search(question_text):
+            scenario_anchors = (question_stems & quote_stems) - _SCENARIO_GENERIC_ANCHOR_STEMS
+            if scenario_anchors:
+                implausible_indices.update(
+                    option_index
+                    for option_index, option in enumerate(options)
+                    if option.get("is_correct") is not True
+                    and not (_grounding_stems(str(option.get("text", ""))) & scenario_anchors)
+                )
+        question["_implausible_distractor_indices"] = tuple(sorted(implausible_indices))
         generated_meta_stems = {
             token.lower()[:5]
             for token in _META_TERM_RE.findall(

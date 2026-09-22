@@ -623,16 +623,19 @@ async def generate_course(
 
 @router.get("/jobs", response_model=list[AIJobResponse])
 async def list_jobs(
+    scope: str = Query("tenant", pattern="^(tenant|mine)$"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_ai_job_access),
 ):
-    """List AI jobs for current tenant."""
+    """List AI jobs for the tenant dashboard or only the current user's recovery."""
     from sqlalchemy import select
     from app.models.ai_job import AIJob
 
     stmt = select(AIJob)
     if user.tenant_id is not None:
         stmt = stmt.where(AIJob.tenant_id == user.tenant_id)
+    if scope == "mine":
+        stmt = stmt.where(AIJob.user_id == user.id)
     stmt = stmt.order_by(AIJob.created_at.desc()).limit(20)
     result = await db.execute(stmt)
     jobs = result.scalars().all()

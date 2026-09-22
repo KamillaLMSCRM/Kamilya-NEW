@@ -16,6 +16,7 @@ import { OrganizationUnitTree } from "@/features/staff-structure/OrganizationUni
 import {
   collectOrganizationUnitSubtreeIds,
   flattenOrganizationUnits,
+  mergeUniqueOrganizationUnitRoots,
   type OrganizationStructurePosition,
   type OrganizationUnitNode,
 } from "@/features/staff-structure/organizationStructure";
@@ -410,7 +411,12 @@ export default function AdminStaffPage() {
         if (organizationResponse?.data) {
           setManualOrganizationTreeAvailable(true);
           const normalizedOrganization = normaliseStructureResponse(organizationResponse.data);
-          setManualOrganizationRoots([...normalizedOrganization.roots, ...normalizedOrganization.legacyRoots]);
+          setManualOrganizationRoots(
+            mergeUniqueOrganizationUnitRoots(
+              normalizedOrganization.roots,
+              normalizedOrganization.legacyRoots,
+            ),
+          );
         } else {
           setManualOrganizationTreeAvailable(false);
           setManualOrganizationRoots((departmentsResponse.data.departments ?? []).map((department) => ({
@@ -1210,11 +1216,12 @@ function normaliseStructureResponse(raw: any): StructureResponse {
     : Array.isArray(raw?.branches)
       ? raw.branches.map((node: any) => toNode(node))
       : [];
-  const legacyRoots: OrganizationUnitNode[] = Array.isArray(raw?.legacy_roots)
+  const rawLegacyRoots: OrganizationUnitNode[] = Array.isArray(raw?.legacy_roots)
     ? raw.legacy_roots.map((node: any) => toNode(node, true))
     : Array.isArray(raw?.departments)
       ? raw.departments.map((node: any) => toNode(node, true))
       : [];
+  const legacyRoots = mergeUniqueOrganizationUnitRoots(roots, rawLegacyRoots).slice(roots.length);
   const toLegacyPosition = (position: any): StructurePosition => ({
     id: String(position.id),
     name: position.name,

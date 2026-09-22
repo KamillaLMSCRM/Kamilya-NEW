@@ -13,10 +13,19 @@ type Rule = { id: string; target_type: 'course' | 'learning_path'; course_id: st
 type Occurrence = { id: string; rule_id: string; user_id: string; target_type: 'course' | 'learning_path'; course_id: string | null; learning_path_id: string | null; enrollment_id: string | null; scheduled_for: string; due_at: string; completed_at: string | null; status: string };
 type Course = { id: string; title: string; status?: string; delivery_type?: string };
 type LearningPath = { id: string; title?: string; name?: string; status: string; recurrence_mode?: string; recurrence_cadence_days?: number | null; recurrence_due_days?: number | null };
-type Learner = { id: string; first_name?: string; last_name?: string; full_name?: string; email?: string; name?: string };
+type Learner = { id: string; first_name?: string; last_name?: string; full_name?: string; email?: string; name?: string; employee_number?: string };
+
+function targetName(item: Course | LearningPath) {
+  return ('title' in item ? item.title : undefined) || ('name' in item ? item.name : undefined) || '—';
+}
 
 function learnerName(learner?: Learner) {
   return learner?.full_name || learner?.name || [learner?.first_name, learner?.last_name].filter(Boolean).join(' ') || learner?.email || '—';
+}
+function learnerOptionLabel(learner: Learner) {
+  const name = learnerName(learner);
+  const discriminator = learner.email || learner.employee_number;
+  return discriminator && discriminator !== name ? `${name} · ${discriminator}` : name;
 }
 function message(error: unknown) {
   const value = error as { response?: { data?: { detail?: string } }; message?: string };
@@ -85,6 +94,16 @@ export default function LearningCyclesPage() {
   useEffect(() => { if (canManage) void load(); else setLoading(false); }, [canManage, load]);
 
   const targets = targetType === 'course' ? courses : paths;
+  const targetOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    targets.forEach((item) => counts.set(targetName(item), (counts.get(targetName(item)) || 0) + 1));
+    return targets.map((item) => ({
+      ...item,
+      optionLabel: counts.get(targetName(item))! > 1
+        ? `${targetName(item)} · ${item.id.slice(0, 8)}`
+        : targetName(item),
+    }));
+  }, [targets]);
   const targetLabel = (rule: Rule | Occurrence) => {
     if (rule.target_type === 'course') return courses.find((item) => item.id === rule.course_id)?.title || t('learningCycles.unknownTarget');
     const path = paths.find((item) => item.id === rule.learning_path_id);
@@ -151,9 +170,12 @@ export default function LearningCyclesPage() {
       <div><h2 className="font-semibold">{t('learningCycles.createTitle')}</h2><p className="text-sm text-muted-foreground">{t('learningCycles.identityHint')}</p></div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <label className="text-sm">{t('learningCycles.targetType')}<select className="mt-1 block w-full rounded border bg-background p-2" value={targetType} onChange={(event) => { const value = event.target.value as 'course' | 'learning_path'; setTargetType(value); setTargetId(''); }}><option value="course">{t('learningCycles.course')}</option><option value="learning_path">{t('learningCycles.program')}</option></select></label>
-        <label className="text-sm">{t('learningCycles.target')}<select className="mt-1 block w-full rounded border bg-background p-2" value={targetId} onChange={(event) => setTargetId(event.target.value)}><option value="">{t('learningCycles.selectTarget')}</option>{targets.map((item) => <option key={item.id} value={item.id}>{('title' in item ? item.title : undefined) || ('name' in item ? item.name : undefined)}</option>)}</select></label>
-        <label className="text-sm">{t('learningCycles.learner')}<select className="mt-1 block w-full rounded border bg-background p-2" value={userId} onChange={(event) => setUserId(event.target.value)}><option value="">{t('learningCycles.selectLearner')}</option>{learners.map((item) => <option key={item.id} value={item.id}>{learnerName(item)}</option>)}</select></label>
-        {targetType === 'course' && <><label className="text-sm">{t('learningCycles.cadenceDays')}<Input type="number" min={1} max={3660} value={cadence} onChange={(event) => setCadence(event.target.value)} /></label><label className="text-sm">{t('learningCycles.dueDays')}<Input type="number" min={0} max={3650} value={due} onChange={(event) => setDue(event.target.value)} /></label></>}
+        <label className="text-sm">{t('learningCycles.target')}<select className="mt-1 block w-full rounded border bg-background p-2" value={targetId} onChange={(event) => setTargetId(event.target.value)}><option value="">{t('learningCycles.selectTarget')}</option>{targetOptions.map((item) => <option key={item.id} value={item.id}>{item.optionLabel}</option>)}</select></label>
+        <label className="text-sm">{t('learningCycles.learner')}<select className="mt-1 block w-full rounded border bg-background p-2" value={userId} onChange={(event) => setUserId(event.target.value)}><option value="">{t('learningCycles.selectLearner')}</option>{learners.map((item) => <option key={item.id} value={item.id}>{learnerOptionLabel(item)}</option>)}</select></label>
+        {targetType === 'course' && <>
+          <div className="text-sm"><label htmlFor="learning-cycle-cadence">{t('learningCycles.cadenceDays')}</label><Input id="learning-cycle-cadence" aria-describedby="learning-cycle-cadence-hint" type="number" min={1} max={3660} value={cadence} onChange={(event) => setCadence(event.target.value)} /><span id="learning-cycle-cadence-hint" className="mt-1 block text-xs text-muted-foreground">{t('learningCycles.cadenceHint')}</span></div>
+          <div className="text-sm"><label htmlFor="learning-cycle-due">{t('learningCycles.dueDays')}</label><Input id="learning-cycle-due" aria-describedby="learning-cycle-due-hint" type="number" min={0} max={3650} value={due} onChange={(event) => setDue(event.target.value)} /><span id="learning-cycle-due-hint" className="mt-1 block text-xs text-muted-foreground">{t('learningCycles.dueHint')}</span></div>
+        </>}
       </div>
       <div className="flex justify-end"><Button onClick={() => void createRule()} disabled={saving || !targetId || !userId || (targetType === 'course' && (!Number.isInteger(Number(cadence)) || Number(cadence) < 1 || !Number.isInteger(Number(due)) || Number(due) < 0 || Number(due) > Number(cadence)))}>{saving ? t('learningCycles.saving') : t('learningCycles.createDraft')}</Button></div>
     </CardContent></Card>

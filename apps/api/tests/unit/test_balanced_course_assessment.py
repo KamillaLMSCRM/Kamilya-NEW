@@ -616,6 +616,46 @@ def test_generation_contract_rejects_off_topic_planet_distractor_despite_shared_
     assert any("implausible_distractors" in issue for issue in issues)
 
 
+def test_generation_contract_rejects_other_policy_facts_as_distractors() -> None:
+    selected_evidence = (
+        "Если клиент сообщает персональные данные, сотрудник не повторяет их "
+        "вслух без необходимости и не переносит в неразрешённые каналы."
+    )
+    source = (
+        f"{selected_evidence} "
+        "Первый ответ подтверждает приём обращения и сообщает следующий шаг. "
+        "Эскалация не снимает с первоначального сотрудника обязанности следить за результатом."
+    )
+    data = {
+        "mcq": [
+            {
+                "question": "Клиент называет персональные данные. Как следует поступить сотруднику?",
+                "options": [
+                    {
+                        "text": "Не повторять данные без необходимости и не переносить их в неразрешённые каналы",
+                        "is_correct": True,
+                    },
+                    {
+                        "text": "Подтвердить приём обращения и сообщить следующий шаг",
+                        "is_correct": False,
+                    },
+                    {
+                        "text": "Следить за результатом до явной передачи ответственности",
+                        "is_correct": False,
+                    },
+                ],
+                "explanation": selected_evidence,
+                "source_quote_id": "E01",
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(data, {"E01": selected_evidence}, source, "ru")
+    issues.extend(_validate_generated_question_set(data, "ru"))
+
+    assert any("implausible_distractors" in issue for issue in issues)
+
+
 def test_generation_contract_blocks_incorrect_option_supported_by_selected_evidence() -> None:
     source = "| Для каких комнат | Спальня (шкафы и хранение), прихожая, " "гостиная, гардеробная. |"
     data = {
@@ -2587,6 +2627,63 @@ async def test_standard_assessment_uses_five_as_a_ceiling_not_a_quota():
     assert result.mcq[0].source_quote.startswith("Выдача микрокредита")
     assert result.true_false == []
     assert result.matching == []
+
+
+@pytest.mark.asyncio
+async def test_standard_assessment_drops_answer_that_does_not_name_requested_category():
+    source_quote = (
+        "Если ключевой сервис недоступен всем сотрудникам организации, "
+        "обращению назначается высокий приоритет."
+    )
+
+    class FakeLLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            questions = [
+                {
+                    "question": (
+                        "Какой приоритет назначается, если ключевой сервис "
+                        "недоступен всем сотрудникам?"
+                    ),
+                    "options": [
+                        {
+                            "text": "Ключевой сервис недоступен всем сотрудникам организации",
+                            "is_correct": True,
+                        },
+                        {"text": "Высокий приоритет", "is_correct": False},
+                        {"text": "Средний приоритет", "is_correct": False},
+                        {"text": "Низкий приоритет", "is_correct": False},
+                    ],
+                    "explanation": source_quote,
+                    "source_quote": source_quote,
+                    "source_quote_id": "E01",
+                },
+                *_additional_questions(),
+            ]
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    llm = FakeLLM()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Приоритет обращений",
+            content=_source_with_additional_facts(source_quote),
+            source_references=[],
+        ),
+        language="ru",
+    )
+
+    assert llm.calls == 1
+    assert len(result.mcq) == 4
+    assert all("Какой приоритет" not in question.question for question in result.mcq)
 
 
 @pytest.mark.asyncio

@@ -31,7 +31,7 @@ describe('AI generation workflow recovery', () => {
     await waitFor(() => expect(result.current.currentJob?.id).toBe('current-tenant-job'));
     expect(result.current.step).toBe('generate');
     expect(localStorage.getItem('ai_active_job_id')).toBe('current-tenant-job');
-    expect(apiMock.get).toHaveBeenNthCalledWith(2, '/v1/ai/jobs');
+    expect(apiMock.get).toHaveBeenNthCalledWith(2, '/v1/ai/jobs?scope=mine');
   });
 
   it('keeps a new generation form on documents when only a failed job exists', async () => {
@@ -49,7 +49,7 @@ describe('AI generation workflow recovery', () => {
 
     await act(async () => { await result.current.restoreActiveJob(); });
 
-    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/ai/jobs'));
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/ai/jobs?scope=mine'));
     expect(result.current.currentJob).toBeNull();
     expect(result.current.step).toBe('documents');
     expect(localStorage.getItem('ai_active_job_id')).toBeNull();
@@ -78,7 +78,7 @@ describe('AI generation workflow recovery', () => {
     expect(result.current.currentJob?.status).toBe('pending');
   });
 
-  it('clears a restored completed workflow when starting a new course', async () => {
+  it('does not restore a completed workflow from a previous visit', async () => {
     const completedJob = { ...activeJob, status: 'completed', stage: 'completed', progress: 100 };
     localStorage.setItem('ai_active_job_id', completedJob.id);
     localStorage.setItem('ai_generation_workflow_context', JSON.stringify({
@@ -89,12 +89,27 @@ describe('AI generation workflow recovery', () => {
     const { result } = renderHook(() => useGenerationWorkflow());
 
     await act(async () => { await result.current.restoreActiveJob(); });
-    expect(result.current.step).toBe('review');
-
-    act(() => { result.current.resetWorkflow(); });
-
     expect(result.current.currentJob).toBeNull();
     expect(result.current.step).toBe('documents');
+    expect(localStorage.getItem('ai_active_job_id')).toBeNull();
+    expect(localStorage.getItem('ai_generation_workflow_context')).toBeNull();
+  });
+
+  it('keeps a just-completed job in the current session but clears restoration state', async () => {
+    const completedJob = { ...activeJob, status: 'completed', stage: 'completed', progress: 100 };
+    localStorage.setItem('ai_active_job_id', activeJob.id);
+    localStorage.setItem('ai_generation_workflow_context', JSON.stringify({
+      job_id: activeJob.id,
+      program_id: 'program-1',
+    }));
+    apiMock.get.mockResolvedValueOnce({ data: completedJob });
+    const { result } = renderHook(() => useGenerationWorkflow());
+
+    act(() => { result.current.startJob(activeJob); });
+    await act(async () => { await result.current.refreshJob(); });
+
+    expect(result.current.currentJob?.status).toBe('completed');
+    expect(result.current.step).toBe('review');
     expect(localStorage.getItem('ai_active_job_id')).toBeNull();
     expect(localStorage.getItem('ai_generation_workflow_context')).toBeNull();
   });

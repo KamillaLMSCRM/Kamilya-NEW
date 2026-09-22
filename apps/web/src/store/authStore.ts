@@ -7,6 +7,7 @@ import {
   clearAuth as clearAuthMemory,
   restoreSession,
   logout as logoutRequest,
+  exitImpersonation as exitImpersonationRequest,
   subscribeAuth,
   switchRole as switchRoleRequest,
 } from '@/lib/auth';
@@ -22,6 +23,8 @@ interface AuthStore {
   login: (accessToken: string, user: AuthUser) => void;
   /** Logout — clears in-memory state and tells server to blacklist the refresh cookie. */
   logout: () => Promise<void>;
+  /** Leave a tenant preview and restore the existing platform session. */
+  exitImpersonation: () => Promise<AuthUser>;
   /** Manually set user (e.g. after profile update). */
   setUser: (user: AuthUser) => void;
   /** Switch to another server-assigned role and rotate the session tokens. */
@@ -69,6 +72,16 @@ export const useAuthStore = create<AuthStore>((set) => {
       set({ accessToken: null, user: null, initialized: true });
       await logoutRequest();
       set({ accessToken: null, user: null, initialized: true });
+    },
+
+    exitImpersonation: async () => {
+      const platformUser = await exitImpersonationRequest();
+      set({
+        accessToken: getAccessToken(),
+        user: platformUser,
+        initialized: true,
+      });
+      return platformUser;
     },
 
     setUser: (user) => {

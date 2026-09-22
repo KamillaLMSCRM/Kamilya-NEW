@@ -56,7 +56,7 @@ export function OrganizationUnitPicker({
         <option value="">Без подразделения</option>
         {options.map((option) => (
           <option key={option.id} value={option.id}>
-            {`${'  '.repeat(Math.min(option.depth, 8))}${option.name} — ${option.unitType}`}
+            {`${option.breadcrumb} — ${option.unitType}`}
           </option>
         ))}
       </select>

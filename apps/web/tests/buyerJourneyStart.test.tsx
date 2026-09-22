@@ -82,8 +82,8 @@ describe('buyer-journey START presentation', () => {
 
   it('keeps failed and unknown existing jobs visible in the AI board', async () => {
     mockExistingRequests([
-      { id: 'failed-job', status: 'failed', course_title: 'Failed course', created_at: '2026-09-06T00:00:00Z' },
-      { id: 'unknown-job', status: 'waiting_for_review', course_title: 'Unknown job', created_at: '2026-09-06T00:00:00Z' },
+      { id: 'failed-job', job_type: 'course_generation', status: 'failed', course_title: 'Failed course', created_at: '2026-09-06T00:00:00Z' },
+      { id: 'unknown-job', job_type: 'course_generation', status: 'waiting_for_review', course_title: 'Unknown job', created_at: '2026-09-06T00:00:00Z' },
     ]);
 
     render(<DashboardPage />);
@@ -93,6 +93,57 @@ describe('buyer-journey START presentation', () => {
     expect(screen.getByText('Unknown job')).toBeInTheDocument();
     expect(screen.getByText('dashboard.kanban.failed')).toBeInTheDocument();
     expect(screen.getByText('dashboard.kanban.needsAttention')).toBeInTheDocument();
+    expect(screen.queryByText('dashboard.inProgress')).not.toBeInTheDocument();
+    expect(screen.getByText('dashboard.needsAttentionCount')).toBeInTheDocument();
+  });
+
+  it('uses job stage for active kanban placement and status for the summary', async () => {
+    mockExistingRequests([
+      {
+        id: 'running-job',
+        job_type: 'course_generation',
+        status: 'running',
+        stage: 'architect',
+        course_title: 'Course being planned',
+        created_at: '2026-09-06T00:00:00Z',
+      },
+    ]);
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText('Course being planned')).toBeInTheDocument();
+    expect(screen.getByText('dashboard.inProgress')).toBeInTheDocument();
+    const architectingColumn = screen.getByText('dashboard.kanban.architecting').closest('.kanban-col');
+    expect(architectingColumn).toHaveTextContent('Course being planned');
+  });
+
+  it('ignores cancelled course jobs and non-course AI jobs', async () => {
+    mockExistingRequests([
+      {
+        id: 'cancelled-course-job',
+        job_type: 'course_generation',
+        status: 'cancelled',
+        stage: 'cancelled',
+        course_title: 'Cancelled course',
+        created_at: '2026-09-06T00:00:00Z',
+      },
+      {
+        id: 'document-reindex-job',
+        job_type: 'document_reindex',
+        status: 'running',
+        stage: 'generating',
+        course_title: 'Document indexing',
+        created_at: '2026-09-06T00:00:00Z',
+      },
+    ]);
+
+    render(<DashboardPage />);
+
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/ai/jobs'));
+    expect(screen.queryByText('dashboard.aiPipeline')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cancelled course')).not.toBeInTheDocument();
+    expect(screen.queryByText('Document indexing')).not.toBeInTheDocument();
+    expect(screen.getByText('dashboard.queueEmpty')).toBeInTheDocument();
   });
 
   it('keeps the active session role authoritative and offers the alternate template basis without changing server steps', async () => {

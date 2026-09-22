@@ -35,9 +35,13 @@ describe('/ai/generate job workflow parity', () => {
     const completedJob = { ...activeJob, status: 'completed', stage: 'completed', progress: 100 };
     const fullContent = '# Полный урок\n\n' + 'Полный текст урока. '.repeat(80);
     const excerpt = `${fullContent.slice(0, 90)}...`;
+    let jobReads = 0;
     apiMock.get.mockImplementation(async (url: string) => {
       if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
-      if (url === `/v1/ai/jobs/${activeJob.id}`) return { data: completedJob } as any;
+      if (url === `/v1/ai/jobs/${activeJob.id}`) {
+        jobReads += 1;
+        return { data: jobReads === 1 ? activeJob : completedJob } as any;
+      }
       if (url === `/v1/courses/${activeJob.course_id}/preview`) return { data: {
         source_documents: [], modules_count: 1, lessons_count: 1, quizzes_count: 0,
         modules: [{ id: 'module-1', title: 'Модуль', lessons: [{ id: 'lesson-full', title: 'Полный урок', content_preview: excerpt }] }],
@@ -47,7 +51,16 @@ describe('/ai/generate job workflow parity', () => {
       throw new Error(`Unexpected GET ${url}`);
     });
 
+    const jobInterval = vi.spyOn(window, 'setInterval');
     render(<AIGeneratePage />);
+    expect(await screen.findByText('Прогресс генерации')).toBeInTheDocument();
+    const intervalCallback = jobInterval.mock.calls.find((call) => call[1] === 3000)?.[0] as (() => void) | undefined;
+    expect(intervalCallback).toBeDefined();
+    await act(async () => {
+      intervalCallback!();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
     fireEvent.click(await screen.findByRole('button', { expanded: false }));
     await screen.findByText('Полный урок');
     fireEvent.click(await screen.findByRole('button', { name: 'Редактировать' }));
@@ -62,6 +75,7 @@ describe('/ai/generate job workflow parity', () => {
     await waitFor(() => expect(apiMock.patch).toHaveBeenCalledWith('/v1/lessons/lesson-full', {
       title: 'Полный урок', content: fullContent,
     }));
+    jobInterval.mockRestore();
   });
 
   it.each([
@@ -176,7 +190,7 @@ describe('/ai/generate job workflow parity', () => {
         catalogReads += 1;
         return { data: { items: [processingDocument], page: { has_more: false } } } as any;
       }
-      if (url === '/v1/ai/jobs') return { data: [] } as any;
+      if (url === '/v1/ai/jobs?scope=mine') return { data: [] } as any;
       if (url === '/v1/ai/jobs/index-job-1') {
         indexingJobPolls += 1;
         return { data: indexingJobPolls === 1 ? indexingJob : { ...indexingJob, status: 'completed', estimated_remaining_seconds: 0 } } as any;
@@ -246,7 +260,7 @@ describe('/ai/generate job workflow parity', () => {
     };
     apiMock.get.mockImplementation(async (url: string) => {
       if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
-      if (url === '/v1/ai/jobs') return { data: [failedJob] } as any;
+      if (url === '/v1/ai/jobs?scope=mine') return { data: [failedJob] } as any;
       throw new Error(`Unexpected GET ${url}`);
     });
     render(<AIGeneratePage />);
@@ -259,9 +273,13 @@ describe('/ai/generate job workflow parity', () => {
 
   it('maps an approval-required publish conflict before the raw API detail', async () => {
     const completedJob = { ...activeJob, status: 'completed', stage: 'completed', progress: 100 };
+    let jobReads = 0;
     apiMock.get.mockImplementation(async (url: string) => {
       if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
-      if (url === `/v1/ai/jobs/${activeJob.id}`) return { data: completedJob } as any;
+      if (url === `/v1/ai/jobs/${activeJob.id}`) {
+        jobReads += 1;
+        return { data: jobReads === 1 ? activeJob : completedJob } as any;
+      }
       if (url === `/v1/courses/${activeJob.course_id}/preview`) return { data: { source_documents: [] } } as any;
       if (url === `/v1/courses/${activeJob.course_id}`) return { data: { id: activeJob.course_id, title: 'Курс', description: '', review_status: 'approved', status: 'draft' } } as any;
       throw new Error(`Unexpected GET ${url}`);
@@ -273,16 +291,26 @@ describe('/ai/generate job workflow parity', () => {
       return { data: {} } as any;
     });
 
+    const jobInterval = vi.spyOn(window, 'setInterval');
     render(<AIGeneratePage />);
+    expect(await screen.findByText('Прогресс генерации')).toBeInTheDocument();
+    const intervalCallback = jobInterval.mock.calls.find((call) => call[1] === 3000)?.[0] as (() => void) | undefined;
+    expect(intervalCallback).toBeDefined();
+    await act(async () => {
+      intervalCallback!();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
     fireEvent.click(await screen.findByRole('button', { name: 'Опубликовать курс' }));
 
     await waitFor(() => expect(toastErrorMock).toHaveBeenCalledWith(
       'Не удалось опубликовать курс',
       expect.objectContaining({ description: 'Для курса включено отдельное согласование. Откройте «Согласование» и получите решение рецензента. Если оно не требуется, отключите настройку там.' }),
     ));
+    jobInterval.mockRestore();
   });
 
-  it('lets the methodologist start a new course from a restored completed review', async () => {
+  it('opens a clean document step instead of restoring a completed review from an earlier visit', async () => {
     const completedJob = { ...activeJob, status: 'completed', stage: 'completed', progress: 100, errors: ['assessment_no_valid_questions'] };
     localStorage.setItem('ai_generation_workflow_context', JSON.stringify({
       job_id: completedJob.id,
@@ -291,23 +319,10 @@ describe('/ai/generate job workflow parity', () => {
     apiMock.get.mockImplementation(async (url: string) => {
       if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
       if (url === `/v1/ai/jobs/${activeJob.id}`) return { data: completedJob } as any;
-      if (url === `/v1/courses/${activeJob.course_id}/preview`) {
-        return { data: { source_documents: [], modules: [], modules_count: 0, lessons_count: 0, quizzes_count: 0 } } as any;
-      }
-      if (url === `/v1/courses/${activeJob.course_id}`) {
-        return { data: { id: activeJob.course_id, title: 'Старый курс', description: 'Старый результат', review_status: 'approved', status: 'draft' } } as any;
-      }
       throw new Error(`Unexpected GET ${url}`);
     });
 
     render(<AIGeneratePage />);
-
-    expect(await screen.findByText('Старый курс')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Открыть сохранённый черновик' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^Продолжить/ })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Редактировать курс' }));
-    expect(routerPushMock).toHaveBeenCalledWith('/courses/course-1/edit');
-    fireEvent.click(screen.getByRole('button', { name: 'Создать новый курс' }));
 
     expect(await screen.findByText(/Перетащите документы/)).toBeInTheDocument();
     expect(screen.queryByText('Старый курс')).not.toBeInTheDocument();

@@ -83,4 +83,29 @@ describe('learning cycles page catalogs', () => {
     expect(await screen.findByRole('option', { name: 'Course 100' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Learner 500' })).toBeInTheDocument();
   });
+
+  it('explains cycle timing fields and disambiguates same-name learners', async () => {
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url === '/v1/learning-cycles' || url === '/v1/learning-cycles/occurrences') return { data: [] };
+      if (url === '/v1/learning-paths') return { data: [] };
+      if (url === '/v1/courses') return { data: [
+        { id: 'course-aaaa1111', title: 'Safety', status: 'published', delivery_type: 'native' },
+        { id: 'course-bbbb2222', title: 'Safety', status: 'published', delivery_type: 'native' },
+      ] };
+      if (url === '/v1/users') return { data: { users: [
+        { id: 'learner-1', full_name: 'Alex Kim', email: 'alex.one@example.test' },
+        { id: 'learner-2', full_name: 'Alex Kim', employee_number: 'EMP-002' },
+      ] } };
+      throw new Error(`Unexpected GET ${url}`);
+    });
+
+    render(<LearningCyclesPage />);
+
+    expect(await screen.findByRole('option', { name: 'Alex Kim · alex.one@example.test' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Alex Kim · EMP-002' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Safety · course-a' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Safety · course-b' })).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'learningCycles.cadenceDays' })).toHaveAccessibleDescription('learningCycles.cadenceHint');
+    expect(screen.getByRole('spinbutton', { name: 'learningCycles.dueDays' })).toHaveAccessibleDescription('learningCycles.dueHint');
+  });
 });

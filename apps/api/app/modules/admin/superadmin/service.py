@@ -159,15 +159,28 @@ class SuperadminService:
         )
 
     async def get_tenant_usage(self, tenant_id: uuid.UUID) -> TenantUsageInfo:
+        tenant = await self.db.get(Tenant, tenant_id)
+        if tenant is None:
+            raise LookupError(f"Tenant {tenant_id} not found")
+        settings = tenant.settings if isinstance(tenant.settings, dict) else {}
+        trial_limits = settings.get("trial_limits")
+        limits = trial_limits if isinstance(trial_limits, dict) else {}
+
+        def optional_limit(key: str, fallback: int | None = None) -> int | None:
+            value = limits.get(key, fallback)
+            return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else fallback
+
         usage = await self.db.get(TenantUsage, tenant_id)
-        if usage is None:
-            return TenantUsageInfo()
         return TenantUsageInfo(
-            ai_course_generations_used=int(usage.ai_course_generations_used or 0),
-            jd_course_generations_used=int(usage.jd_course_generations_used or 0),
-            active_students_count_snapshot=int(usage.active_students_count_snapshot or 0),
-            system_users_count_snapshot=int(usage.system_users_count_snapshot or 0),
-            updated_at=usage.updated_at,
+            ai_course_generations_used=int((usage.ai_course_generations_used if usage else 0) or 0),
+            ai_course_generations_limit=optional_limit("ai_course_generations_limit"),
+            jd_course_generations_used=int((usage.jd_course_generations_used if usage else 0) or 0),
+            jd_course_generations_limit=optional_limit("jd_course_generations_limit"),
+            active_students_count_snapshot=int((usage.active_students_count_snapshot if usage else 0) or 0),
+            active_students_limit=optional_limit("max_students", tenant.max_users),
+            system_users_count_snapshot=int((usage.system_users_count_snapshot if usage else 0) or 0),
+            system_users_limit=optional_limit("system_users_limit"),
+            updated_at=usage.updated_at if usage else None,
         )
 
     async def get_latest_lead(self, tenant_id: uuid.UUID) -> TenantLeadInfo | None:

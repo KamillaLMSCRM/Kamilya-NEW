@@ -47,9 +47,13 @@ class TenantStats(BaseModel):
 
 class TenantUsageInfo(BaseModel):
     ai_course_generations_used: int = 0
+    ai_course_generations_limit: int | None = None
     jd_course_generations_used: int = 0
+    jd_course_generations_limit: int | None = None
     active_students_count_snapshot: int = 0
+    active_students_limit: int | None = None
     system_users_count_snapshot: int = 0
+    system_users_limit: int | None = None
     updated_at: datetime | None = None
 
 

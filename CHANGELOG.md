@@ -15,6 +15,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.10.1] - 2026-09-22
+
+### Added
+
+- Show clearer learning-cycle statuses and contextual help so a methodologist
+  can distinguish recurring rules, corrective assignments and current learner
+  outcomes without knowing the internal data model.
+- Show real employee and course limits in the superadmin tenant view instead of
+  placeholder denominators.
+
+### Changed
+
+- Restore an interrupted AI-generation job only for the signed-in user who
+  started it, and clear a stale completed result when a new generation starts.
+- Display complete organization-unit breadcrumbs in staff selectors, including
+  nested units with the same local name.
+
+### Fixed
+
+- Reject generated multiple-choice distractors that belong to a different
+  scenario than the question and stop padding a quiz merely to reach a target
+  question count.
+- Restore the superadmin identity atomically when leaving tenant preview and
+  prevent the tenant profile route from exposing a misleading impersonated
+  profile during the transition.
+- Deduplicate organization units by their full hierarchy path instead of their
+  leaf name, so legitimate same-named units in different branches remain
+  selectable.
+- Keep AI-generation progress and retry state consistent after reload, account
+  switching and a new run.
+
+### Security
+
+- Scope resumable AI jobs to the authenticated user as well as the tenant.
+- Fail closed on the tenant profile endpoint while a superadmin preview token is
+  active; no new database migration, secret, provider or billing change is
+  required.
+
 ## [0.10.0] - 2026-09-22
 
 ### Added

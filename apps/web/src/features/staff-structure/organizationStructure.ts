@@ -88,6 +88,37 @@ export function flattenOrganizationUnits(
   return flattened;
 }
 
+/**
+ * Merge canonical and compatibility roots without showing the same unit twice.
+ * A compatibility root can point at a unit that is already present anywhere in
+ * the canonical tree, so root-only de-duplication is not sufficient.
+ */
+export function mergeUniqueOrganizationUnitRoots(
+  canonicalRoots: OrganizationUnitNode[],
+  compatibilityRoots: OrganizationUnitNode[],
+): OrganizationUnitNode[] {
+  const seen = new Set<string>();
+  canonicalRoots.forEach((root) => {
+    collectOrganizationUnitSubtreeIds(root).forEach((id) => seen.add(id));
+  });
+
+  const appendUniqueNode = (node: OrganizationUnitNode): OrganizationUnitNode | null => {
+    if (seen.has(node.id)) return null;
+    seen.add(node.id);
+    return {
+      ...node,
+      children: node.children
+        .map(appendUniqueNode)
+        .filter((child): child is OrganizationUnitNode => child !== null),
+    };
+  };
+  const uniqueCompatibilityRoots = compatibilityRoots
+    .map(appendUniqueNode)
+    .filter((root): root is OrganizationUnitNode => root !== null);
+
+  return [...canonicalRoots, ...uniqueCompatibilityRoots];
+}
+
 export function organizationUnitMatches(
   node: OrganizationUnitNode,
   query: string,

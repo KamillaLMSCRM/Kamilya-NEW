@@ -113,16 +113,22 @@ async def test_list_jobs_filters_tenant_methodologist_but_not_platform_superadmi
 
     result = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
     tenant_db = SimpleNamespace(execute=AsyncMock(return_value=result))
-    tenant_user = SimpleNamespace(tenant_id=uuid4(), role="methodologist")
+    tenant_user = SimpleNamespace(id=uuid4(), tenant_id=uuid4(), role="methodologist")
     await list_jobs(db=tenant_db, user=tenant_user)
     tenant_statement = str(tenant_db.execute.await_args.args[0])
     assert "ai_jobs.tenant_id" in tenant_statement
 
     platform_db = SimpleNamespace(execute=AsyncMock(return_value=result))
-    platform_user = SimpleNamespace(tenant_id=None, role="superadmin")
+    platform_user = SimpleNamespace(id=uuid4(), tenant_id=None, role="superadmin")
     await list_jobs(db=platform_db, user=platform_user)
     platform_statement = str(platform_db.execute.await_args.args[0])
     assert "WHERE ai_jobs.tenant_id" not in platform_statement
+
+    current_user_db = SimpleNamespace(execute=AsyncMock(return_value=result))
+    await list_jobs(scope="mine", db=current_user_db, user=tenant_user)
+    current_user_statement = str(current_user_db.execute.await_args.args[0])
+    assert "ai_jobs.tenant_id" in current_user_statement
+    assert "ai_jobs.user_id" in current_user_statement
 
 
 @pytest.mark.parametrize("handler_name", ("get_job", "cancel_generation"))

@@ -16,7 +16,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.models.tenants import RegistrationLegalAcceptance, Tenant
+from app.models.tenants import RegistrationLegalAcceptance, Tenant, TenantUsage
 from app.modules.courses.models import Course
 from app.modules.courses.release_models import ContentRelease
 
@@ -253,7 +253,26 @@ async def test_superadmin_get_tenant_surfaces_stats(
     _, token = await _make_superadmin(client, db_session, make_superadmin)
     headers = {"Authorization": f"Bearer {token}"}
 
-    tenant = await make_tenant(name="StatsCo", slug="statsco")
+    tenant = await make_tenant(
+        name="StatsCo",
+        slug="statsco",
+        settings={
+            "trial_limits": {
+                "ai_course_generations_limit": 7,
+                "jd_course_generations_limit": 4,
+                "max_students": 25,
+                "system_users_limit": 6,
+            },
+        },
+    )
+    db_session.add(TenantUsage(
+        tenant_id=tenant.id,
+        ai_course_generations_used=3,
+        jd_course_generations_used=2,
+        active_students_count_snapshot=5,
+        system_users_count_snapshot=1,
+    ))
+    await db_session.flush()
     admin = await make_user(tenant, role="admin", email="a@stats.example")
 
     resp = await client.get(
@@ -279,6 +298,11 @@ async def test_superadmin_get_tenant_surfaces_stats(
     assert "ai_course_generations_used" in usage
     assert "jd_course_generations_used" in usage
     assert "active_students_count_snapshot" in usage
+    assert usage["ai_course_generations_used"] == 3
+    assert usage["ai_course_generations_limit"] == 7
+    assert usage["jd_course_generations_limit"] == 4
+    assert usage["active_students_limit"] == 25
+    assert usage["system_users_limit"] == 6
 
 
 @pytest.mark.asyncio
