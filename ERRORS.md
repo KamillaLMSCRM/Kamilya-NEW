@@ -3789,3 +3789,22 @@ contract or establish a blocker.
   repository root before every release commit that changes Python. A green
   pytest suite, Ruff on changed files or an independent review does not replace
   the committed Ruff/mypy regression gate.
+
+## RELEASE-002 - Local version check omitted the release-note identity contract
+
+- Date: 2026-09-22.
+- Symptom: DEV exact-SHA acceptance passed, but the production tag preflight
+  stopped before tag creation because release notes had the localized label
+  `Версия продукта` instead of the required machine-readable marker
+  `Product version`.
+- Cause: pre-push checks invoked `scripts/validate_version.py` only in
+  development mode. That mode verifies manifest versions but intentionally does
+  not validate the dated changelog section and release-note identity markers.
+- Fix: restore the canonical English identity marker while keeping the body of
+  the customer-facing notes in Russian. No tag or GitHub Release was created for
+  the rejected SHA.
+- Verification: `python scripts/validate_version.py --release
+  --expected-version 0.10.1` passes before the replacement exact SHA is pushed.
+- Prevention: once a version has a dated changelog section and release notes,
+  run the release-mode validator before the first DEV push. Development-mode
+  validation is not sufficient for a release candidate.
