@@ -270,14 +270,36 @@ async def test_training_log_summary_matches_filters_and_fresh_enrollment_state(
     before = await client.get("/api/v1/admin/training-log/summary", headers=headers)
     assert before.status_code == 200
     assert before.headers["cache-control"] == "no-store"
-    assert before.json() == {"total": 0, "assigned": 0, "in_progress": 0, "completed": 0, "overdue": 0}
+    assert before.json() == {
+        "total": 0,
+        "assigned": 0,
+        "in_progress": 0,
+        "completed": 0,
+        "overdue": 0,
+        "failed_current": 0,
+        "exhausted_attempts": 0,
+        "reassigned": 0,
+        "cancelled_history": 0,
+        "superseded_history": 0,
+    }
 
     enrollment = await _enroll(db_session, student, course)
     after_assignment = await client.get(
         "/api/v1/admin/training-log/summary?course_id=" + str(course.id), headers=headers
     )
     table_after_assignment = await client.get("/api/v1/admin/training-log?course_id=" + str(course.id), headers=headers)
-    assert after_assignment.json() == {"total": 1, "assigned": 1, "in_progress": 0, "completed": 0, "overdue": 0}
+    assert after_assignment.json() == {
+        "total": 1,
+        "assigned": 1,
+        "in_progress": 0,
+        "completed": 0,
+        "overdue": 0,
+        "failed_current": 0,
+        "exhausted_attempts": 0,
+        "reassigned": 0,
+        "cancelled_history": 0,
+        "superseded_history": 0,
+    }
     assert table_after_assignment.json()["total"] == after_assignment.json()["total"]
 
     enrollment.status = "completed"
@@ -287,7 +309,18 @@ async def test_training_log_summary_matches_filters_and_fresh_enrollment_state(
         "/api/v1/admin/training-log/summary?course_id=" + str(course.id), headers=headers
     )
     table_after_completion = await client.get("/api/v1/admin/training-log?course_id=" + str(course.id), headers=headers)
-    assert after_completion.json() == {"total": 1, "assigned": 0, "in_progress": 0, "completed": 1, "overdue": 0}
+    assert after_completion.json() == {
+        "total": 1,
+        "assigned": 0,
+        "in_progress": 0,
+        "completed": 1,
+        "overdue": 0,
+        "failed_current": 0,
+        "exhausted_attempts": 0,
+        "reassigned": 0,
+        "cancelled_history": 0,
+        "superseded_history": 0,
+    }
     assert table_after_completion.json()["total"] == after_completion.json()["total"]
 
 
@@ -929,7 +962,18 @@ async def test_training_log_completed_status_without_timestamp_is_completed_not_
     token = await _login(client, admin)
     summary = await client.get("/api/v1/admin/training-log/summary", headers={"Authorization": f"Bearer {token}"})
     assert summary.status_code == 200, summary.text
-    assert summary.json() == {"total": 1, "assigned": 0, "in_progress": 0, "completed": 1, "overdue": 0}
+    assert summary.json() == {
+        "total": 1,
+        "assigned": 0,
+        "in_progress": 0,
+        "completed": 1,
+        "overdue": 0,
+        "failed_current": 0,
+        "exhausted_attempts": 0,
+        "reassigned": 0,
+        "cancelled_history": 0,
+        "superseded_history": 0,
+    }
 
 
 @pytest.mark.asyncio
