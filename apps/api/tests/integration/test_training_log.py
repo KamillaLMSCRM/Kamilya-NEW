@@ -429,11 +429,61 @@ async def test_training_log_due_policy_precedence_and_exact_enrollment_certifica
             due_at=policy_due_at,
         )
     )
+    certificate_occurrence = RecurringLearningAssignment(
+        tenant_id=tenant.id,
+        rule_id=rule.id,
+        user_id=learner.id,
+        course_id=course.id,
+        scheduled_for=now - timedelta(days=30),
+        due_at=now - timedelta(days=20),
+        status="completed",
+    )
+    db_session.add(certificate_occurrence)
+    await db_session.flush()
+    certificate_enrollment = Enrollment(
+        tenant_id=tenant.id,
+        user_id=learner.id,
+        course_id=course.id,
+        recurring_assignment_id=certificate_occurrence.id,
+        status="completed",
+        source="recurring",
+        enrolled_at=now - timedelta(days=30),
+        completed_at=now - timedelta(days=10),
+    )
+    db_session.add(certificate_enrollment)
+    await db_session.flush()
+    certificate_occurrence.enrollment_id = certificate_enrollment.id
+    await db_session.flush()
+    older_certificate_occurrence = RecurringLearningAssignment(
+        tenant_id=tenant.id,
+        rule_id=rule.id,
+        user_id=learner.id,
+        course_id=course.id,
+        scheduled_for=now - timedelta(days=60),
+        due_at=now - timedelta(days=50),
+        status="completed",
+    )
+    db_session.add(older_certificate_occurrence)
+    await db_session.flush()
+    older_certificate_enrollment = Enrollment(
+        tenant_id=tenant.id,
+        user_id=learner.id,
+        course_id=course.id,
+        recurring_assignment_id=older_certificate_occurrence.id,
+        status="completed",
+        source="recurring",
+        enrolled_at=now - timedelta(days=60),
+        completed_at=now - timedelta(days=40),
+    )
+    db_session.add(older_certificate_enrollment)
+    await db_session.flush()
+    older_certificate_occurrence.enrollment_id = older_certificate_enrollment.id
+    await db_session.flush()
     certificate = Certificate(
         tenant_id=tenant.id,
         user_id=learner.id,
         course_id=course.id,
-        enrollment_id=recurring_enrollment.id,
+        enrollment_id=certificate_enrollment.id,
         certificate_number=f"TL-{uuid4().hex[:12]}",
         issued_at=now,
         expires_at=now + timedelta(days=30),
@@ -443,7 +493,7 @@ async def test_training_log_due_policy_precedence_and_exact_enrollment_certifica
         tenant_id=tenant.id,
         user_id=learner.id,
         course_id=course.id,
-        enrollment_id=recurring_enrollment.id,
+        enrollment_id=older_certificate_enrollment.id,
         certificate_number=f"TL-{uuid4().hex[:12]}",
         issued_at=now - timedelta(days=10),
         expires_at=now + timedelta(days=365),
@@ -455,6 +505,8 @@ async def test_training_log_due_policy_precedence_and_exact_enrollment_certifica
     by_enrollment = {row["enrollment_id"]: row for row in rows}
     legacy_row = by_enrollment[legacy_enrollment.id]
     recurring_row = by_enrollment[recurring_enrollment.id]
+    certificate_row = by_enrollment[certificate_enrollment.id]
+    older_certificate_row = by_enrollment[older_certificate_enrollment.id]
 
     assert legacy_row["assignment_due_at"] is None
     assert legacy_row["deadline_state"] == "none"
@@ -463,10 +515,14 @@ async def test_training_log_due_policy_precedence_and_exact_enrollment_certifica
     assert recurring_row["assignment_due_at"] == policy_due_at
     assert recurring_row["deadline_state"] == "upcoming"
     assert recurring_row["deadline_status"] == "overdue"
-    assert recurring_row["certificate_id"] == certificate.id
-    assert recurring_row["certificate_expires_at"] == certificate.expires_at
-    assert recurring_row["certificate_status"] == "revoked"
-    assert recurring_row["certificate_id"] != older_certificate.id
+    assert recurring_row["certificate_id"] is None
+    assert recurring_row["certificate_status"] == "none"
+    assert certificate_row["certificate_id"] == certificate.id
+    assert certificate_row["certificate_expires_at"] == certificate.expires_at
+    assert certificate_row["certificate_status"] == "revoked"
+    assert older_certificate_row["certificate_id"] == older_certificate.id
+    assert older_certificate_row["certificate_expires_at"] == older_certificate.expires_at
+    assert older_certificate_row["certificate_status"] == "active"
 
     overdue_rows = await list_training_log(
         db_session,
