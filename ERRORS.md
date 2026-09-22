@@ -3768,3 +3768,24 @@ contract or establish a blocker.
   chain before full suites or release. Run repository-root tests from their
   documented working directory; a wrong cwd is an execution artifact, not a
   product regression.
+
+## CI-005 - Local release checks omitted the committed Python quality baseline
+
+- Date: 2026-09-22.
+- Symptom: exact-SHA CI passed unit, frontend, release, secret and dependency
+  gates but blocked on `Backend Python quality baseline`; local tests and a
+  focused code review had already passed.
+- Cause: the pre-push checklist ran tests and `git diff --check` but did not run
+  `scripts/ci/python_quality_baseline.py`. New tenant-usage code therefore added
+  one unannotated generic mapping and passed a legacy SQLAlchemy `Column[int]`
+  to an `int | None` helper without an explicit runtime-model cast.
+- Fix: type the JSON settings mapping as `dict[str, Any]` and cast the loaded
+  tenant limit at the SQLAlchemy model boundary. Do not raise the committed
+  baseline to absorb new findings.
+- Verification: the canonical baseline now passes with `ruff=1056` and
+  `mypy=2227`; the affected Supabase DEV integration test passes, and the
+  focused assessment/profile set passes 121 tests.
+- Prevention: run `python scripts/ci/python_quality_baseline.py` from the
+  repository root before every release commit that changes Python. A green
+  pytest suite, Ruff on changed files or an independent review does not replace
+  the committed Ruff/mypy regression gate.

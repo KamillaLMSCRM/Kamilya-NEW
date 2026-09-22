@@ -5,6 +5,7 @@ import logging
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 import argon2
 from sqlalchemy import desc, func, select, text
@@ -162,7 +163,7 @@ class SuperadminService:
         tenant = await self.db.get(Tenant, tenant_id)
         if tenant is None:
             raise LookupError(f"Tenant {tenant_id} not found")
-        settings = tenant.settings if isinstance(tenant.settings, dict) else {}
+        settings: dict[str, Any] = tenant.settings if isinstance(tenant.settings, dict) else {}
         trial_limits = settings.get("trial_limits")
         limits = trial_limits if isinstance(trial_limits, dict) else {}
 
@@ -177,7 +178,7 @@ class SuperadminService:
             jd_course_generations_used=int((usage.jd_course_generations_used if usage else 0) or 0),
             jd_course_generations_limit=optional_limit("jd_course_generations_limit"),
             active_students_count_snapshot=int((usage.active_students_count_snapshot if usage else 0) or 0),
-            active_students_limit=optional_limit("max_students", tenant.max_users),
+            active_students_limit=optional_limit("max_students", cast(int | None, tenant.max_users)),
             system_users_count_snapshot=int((usage.system_users_count_snapshot if usage else 0) or 0),
             system_users_limit=optional_limit("system_users_limit"),
             updated_at=usage.updated_at if usage else None,
