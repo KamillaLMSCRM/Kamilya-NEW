@@ -71,6 +71,10 @@ async def test_methodologist_reassignment_supersedes_open_manual_predecessor_and
     learner_a = await make_user(tenant_a, role="student")
     course_a = await make_course(tenant_a, owner_a, title="A course", status="published")
     predecessor = await _manual_enrollment(db_session, tenant=tenant_a, learner=learner_a, course=course_a)
+    # The foreign request is expected to roll its transaction back.  Persist the
+    # fixture savepoint first so that rollback cannot erase the subsequent
+    # same-tenant actor and turn the success assertion into an unrelated 401.
+    await db_session.commit()
 
     foreign = await client.post(
         f"/api/v1/courses/{course_a.id}/reassignments",
@@ -213,7 +217,11 @@ async def test_reassignment_reissues_personal_link_and_returns_new_one_time_secr
     assert policy is not None
     assert policy.delivery_mode == "personal_link"
     assert policy.completion_window_minutes == 120
-    assert before + timedelta(days=6, hours=23) <= policy.link_expires_at <= datetime.now(UTC) + timedelta(days=7, minutes=1)
+    assert (
+        before + timedelta(days=6, hours=23)
+        <= policy.link_expires_at
+        <= datetime.now(UTC) + timedelta(days=7, minutes=1)
+    )
     active = await db_session.scalar(
         select(AssignmentAccessCredential).where(
             AssignmentAccessCredential.enrollment_id == current_id,
