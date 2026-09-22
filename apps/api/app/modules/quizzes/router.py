@@ -102,11 +102,11 @@ async def _require_quiz_access(
 
 async def _require_quiz_preview_access(db: AsyncSession, quiz_id: UUID, user: User) -> Quiz:
     """Allow tenant content roles to preview draft or published quiz scoring."""
-    quiz = await _require_quiz_tenant(db, quiz_id, user.tenant_id)
+    quiz = await _require_quiz_tenant(db, quiz_id, cast(UUID, user.tenant_id))
     if user.role not in AUTHORING_ROLES:
         raise HTTPException(status_code=404, detail="Quiz not found")
     if quiz.lesson_id is not None:
-        await require_lesson_access(db, quiz.lesson_id, user)
+        await require_lesson_access(db, cast(UUID, quiz.lesson_id), user)
     return quiz
 
 
@@ -542,14 +542,14 @@ async def preview_submit_quiz(
     req: QuizSubmission,
     db: AsyncSession = Depends(get_db),  # noqa: B008
     user: User = Depends(require_role("superadmin", "methodologist")),  # noqa: B008
-):
+) -> QuizPreviewResultResponse:
     """Score a tenant quiz for content review without learner-side persistence."""
     await _require_quiz_preview_access(db, quiz_id, user)
     try:
         scoring = await evaluate_quiz_submission(
             db=db,
             quiz_id=quiz_id,
-            tenant_id=user.tenant_id,
+            tenant_id=cast(UUID, user.tenant_id),
             answers=[answer.model_dump() for answer in req.answers],
         )
     except ValueError as exc:

@@ -3,6 +3,7 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
@@ -20,7 +21,7 @@ class QuizScoringResult:
     total_points: int
     earned_points: int
     passed: bool
-    graded_answers: list[dict]
+    graded_answers: list[dict[str, Any]]
     quiz: Quiz | None = None
     questions: list[Question] | None = None
     choices_by_question: dict[UUID, list[QuizChoice]] | None = None
@@ -189,14 +190,14 @@ async def evaluate_quiz_submission(
     db: AsyncSession,
     quiz_id: UUID,
     tenant_id: UUID,
-    answers: list[dict],
+    answers: list[dict[str, Any]],
 ) -> QuizScoringResult:
     """Validate and score a complete tenant quiz without creating learner state."""
     quiz = await db.scalar(select(Quiz).where(Quiz.id == quiz_id, Quiz.tenant_id == tenant_id))
     if not quiz:
         raise ValueError("Quiz not found")
 
-    questions = (
+    questions = list(
         (
             await db.execute(
                 select(Question)
@@ -211,8 +212,8 @@ async def evaluate_quiz_submission(
     if not questions:
         raise ValueError("Quiz has no questions")
 
-    expected_question_ids = {question.id for question in questions}
-    submitted_question_ids = []
+    expected_question_ids = {cast(UUID, question.id) for question in questions}
+    submitted_question_ids: list[UUID] = []
     normalized_answers: dict[UUID, list[UUID]] = {}
     for answer in answers:
         try:
@@ -251,34 +252,39 @@ async def evaluate_quiz_submission(
     )
     choices_by_question: dict[UUID, list[QuizChoice]] = {question_id: [] for question_id in expected_question_ids}
     for choice in all_choices:
-        choices_by_question.setdefault(choice.question_id, []).append(choice)
+        choices_by_question.setdefault(cast(UUID, choice.question_id), []).append(choice)
 
     total_points = 0
     earned_points = 0
-    graded_answers = []
+    graded_answers: list[dict[str, Any]] = []
     for question in questions:
-        question_id = question.id
+        question_id = cast(UUID, question.id)
+        question_points = cast(int, question.points)
         selected_ids = normalized_answers[question_id]
-        total_points += question.points
+        total_points += question_points
         question_choices = choices_by_question.get(question_id, [])
-        valid_choice_ids = {choice.id for choice in question_choices}
+        valid_choice_ids = {cast(UUID, choice.id) for choice in question_choices}
         selected_set = set(selected_ids)
-        correct_ids = {choice.id for choice in question_choices if choice.is_correct}
+        correct_ids = {
+            cast(UUID, choice.id)
+            for choice in question_choices
+            if cast(bool, choice.is_correct)
+        }
         if not valid_choice_ids or not correct_ids:
             raise ValueError("Quiz contains a question without a valid answer key")
         if not selected_set.issubset(valid_choice_ids):
             raise ValueError("A selected choice does not belong to its question")
         is_correct = correct_ids == selected_set
         if is_correct:
-            earned_points += question.points
+            earned_points += question_points
         graded_answers.append(
             {
                 "question_id": str(question_id),
                 "selected_choice_ids": sorted(str(choice_id) for choice_id in selected_set),
                 "correct_choice_ids": sorted(str(choice_id) for choice_id in correct_ids),
                 "is_correct": is_correct,
-                "points_earned": question.points if is_correct else 0,
-                "points_possible": question.points,
+                "points_earned": question_points if is_correct else 0,
+                "points_possible": question_points,
             }
         )
 
@@ -287,7 +293,7 @@ async def evaluate_quiz_submission(
         score_percent=score_percent,
         total_points=total_points,
         earned_points=earned_points,
-        passed=score_percent >= quiz.pass_score,
+        passed=score_percent >= cast(int, quiz.pass_score),
         graded_answers=graded_answers,
         quiz=quiz,
         questions=questions,
@@ -300,9 +306,9 @@ async def grade_quiz(
     quiz_id: UUID,
     user_id: UUID,
     tenant_id: UUID,
-    answers: list[dict],
+    answers: list[dict[str, Any]],
     time_spent_seconds: int | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Grade one complete, tenant-scoped quiz submission and preserve evidence."""
     quiz = await db.scalar(select(Quiz).where(Quiz.id == quiz_id, Quiz.tenant_id == tenant_id))
     if not quiz:
