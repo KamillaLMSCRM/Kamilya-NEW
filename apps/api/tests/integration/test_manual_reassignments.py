@@ -10,7 +10,19 @@ import pytest
 pytestmark = pytest.mark.asyncio
 
 
-async def _manual_enrollment(db_session, *, tenant, learner, course, status="enrolled", source="manual"):
+async def _manual_enrollment(
+    db_session,
+    *,
+    tenant,
+    learner,
+    course,
+    status="enrolled",
+    source="manual",
+    previous_enrollment_id=None,
+    reassignment_reason=None,
+    reassigned_by=None,
+    reassigned_at=None,
+):
     from app.models.enrollment import Enrollment
 
     enrollment = Enrollment(
@@ -21,6 +33,10 @@ async def _manual_enrollment(db_session, *, tenant, learner, course, status="enr
         status=status,
         source=source,
         completed_at=datetime.now(UTC) if status == "completed" else None,
+        previous_enrollment_id=previous_enrollment_id,
+        reassignment_reason=reassignment_reason,
+        reassigned_by=reassigned_by,
+        reassigned_at=reassigned_at,
     )
     db_session.add(enrollment)
     await db_session.flush()
@@ -441,11 +457,16 @@ async def test_training_log_current_default_excludes_retained_history_and_histor
     predecessor = await _manual_enrollment(
         db_session, tenant=tenant, learner=learner, course=course, status="completed"
     )
-    current = await _manual_enrollment(db_session, tenant=tenant, learner=learner, course=course)
-    current.previous_enrollment_id = predecessor.id
-    current.reassignment_reason = "knowledge refresh"
-    current.reassigned_by = methodologist.id
-    current.reassigned_at = datetime.now(UTC)
+    current = await _manual_enrollment(
+        db_session,
+        tenant=tenant,
+        learner=learner,
+        course=course,
+        previous_enrollment_id=predecessor.id,
+        reassignment_reason="knowledge refresh",
+        reassigned_by=methodologist.id,
+        reassigned_at=datetime.now(UTC),
+    )
     cancelled = await _manual_enrollment(db_session, tenant=tenant, learner=learner, course=course, status="cancelled")
     superseded = await _manual_enrollment(
         db_session, tenant=tenant, learner=learner, course=course, status="superseded"
