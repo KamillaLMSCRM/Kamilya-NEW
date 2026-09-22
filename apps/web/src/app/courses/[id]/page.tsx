@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { SafeLessonContent } from '@/components/SafeLessonContent';
 import { useParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
 import Link from 'next/link';
@@ -14,6 +13,7 @@ import { clearAuth } from '@/lib/auth';
 import { useIdleTimeout } from '@/lib/useIdleTimeout';
 import { EvidenceConfirmationPanel } from '@/features/training-evidence/EvidenceConfirmationPanel';
 import { isTrustedScormBridgeMessage, type ScormBridgeStatus } from '@/features/scorm/bridge';
+import { LessonContent } from '@/features/course-authoring/LessonContent';
 
 interface Lesson {
   id: string;
@@ -731,7 +731,10 @@ export default function CoursePlayerPage() {
 
             <div className="prose max-w-none">
               {selectedLesson.content ? (
-                <SafeLessonContent text={selectedLesson.content} />
+                <LessonContent
+                  text={selectedLesson.content}
+                  className="space-y-4 [&_blockquote]:border-l-4 [&_blockquote]:border-primary/40 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_h1]:text-3xl [&_h1]:font-bold [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-2 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-2 [&_th]:text-left [&_ul]:list-disc"
+                />
               ) : (
                 <p className="text-muted-foreground italic">{t('common.noData')}</p>
               )}

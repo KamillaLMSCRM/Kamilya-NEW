@@ -3,6 +3,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const routerPush = vi.hoisted(() => vi.fn());
 const fetchMock = vi.hoisted(() => vi.fn());
+const translateMock = vi.hoisted(() => (key: string) => ({
+  'courses.nextLesson': 'Следующий урок',
+  'courses.finishCourse': 'Завершить курс',
+  'courses.markComplete': 'Урок завершён',
+  'quiz.startQuiz': 'Начать тест',
+  'quiz.passScore': 'Проходной балл',
+  'quiz.attempts': 'Попытки',
+  'quiz.deferralDays': 'Повтор через дней',
+  'toast.coursePreviewCompleted': 'Предпросмотр курса завершён',
+  'authenticatedUi.player.timeExpiredTitle': 'Время, отведённое на прохождение, истекло',
+  'authenticatedUi.player.timeExpiredDescription': 'Материалы и тестирование закрыты. Обратитесь к методисту, чтобы получить новое окно доступа.',
+  'authenticatedUi.player.timeRemaining': 'Оставшееся время на курс и тест',
+  'authenticatedUi.player.timerHint': 'Таймер не сбрасывается при обновлении страницы.',
+}[key] || key));
+const translatePluralMock = vi.hoisted(() => (key: string, count: number) => `${count} ${key}`);
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'course-1' }),
@@ -10,24 +25,12 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ back: vi.fn(), push: routerPush, replace: vi.fn(), prefetch: vi.fn() }),
 }));
 
-vi.mock('@/i18n/useT', () => {
-  const t = (key: string) => ({
-      'courses.nextLesson': 'Следующий урок',
-      'courses.finishCourse': 'Завершить курс',
-      'courses.markComplete': 'Урок завершён',
-      'quiz.startQuiz': 'Начать тест',
-      'quiz.passScore': 'Проходной балл',
-      'quiz.attempts': 'Попытки',
-      'quiz.deferralDays': 'Повтор через дней',
-      'toast.coursePreviewCompleted': 'Предпросмотр курса завершён',
-      'authenticatedUi.player.timeExpiredTitle': 'Время, отведённое на прохождение, истекло',
-      'authenticatedUi.player.timeExpiredDescription': 'Материалы и тестирование закрыты. Обратитесь к методисту, чтобы получить новое окно доступа.',
-      'authenticatedUi.player.timeRemaining': 'Оставшееся время на курс и тест',
-      'authenticatedUi.player.timerHint': 'Таймер не сбрасывается при обновлении страницы.',
-    }[key] || key);
-  const tp = (key: string, count: number) => `${count} ${key}`;
-  return { useT: () => ({ t, tp }) };
-});
+vi.mock('@/i18n/useT', () => ({
+  useT: () => ({
+    t: translateMock,
+    tp: translatePluralMock,
+  }),
+}));
 
 vi.mock('@/components/ui/Toast', () => ({
   toast: { dismiss: vi.fn(), success: vi.fn(), error: vi.fn() },
@@ -247,7 +250,7 @@ describe('course player role modes', () => {
   it('renders persisted lesson markup as safe text while preserving basic emphasis', async () => {
     setupFetch(
       null,
-      'Безопасный **жирный** текст\n<img src=x onerror="alert(1)"><script>alert(2)</script><a href="javascript:alert(3)">ссылка</a>',
+      '## Заголовок урока\n\nБезопасный **жирный** текст\n<img src=x onerror="alert(1)"><script>alert(2)</script><a href="javascript:alert(3)">ссылка</a>',
     );
     useAuthStore.setState({
       accessToken: 'student-token',
@@ -257,6 +260,8 @@ describe('course player role modes', () => {
 
     render(<CoursePlayerPage />);
 
+    expect(await screen.findByRole('heading', { level: 2, name: 'Заголовок урока' })).toBeInTheDocument();
+    expect(screen.queryByText(/## Заголовок урока/)).not.toBeInTheDocument();
     expect(await screen.findByText('жирный')).toHaveProperty('tagName', 'STRONG');
     expect(document.body.textContent).toContain('<img src=x onerror="alert(1)">');
     expect(document.querySelector('img[src="x"]')).not.toBeInTheDocument();
