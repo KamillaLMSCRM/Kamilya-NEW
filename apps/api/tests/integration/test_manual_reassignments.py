@@ -268,20 +268,25 @@ async def test_reassignment_rejects_an_unrecoverable_expired_deadline_policy(
         )
     )
     await db_session.flush()
+    course_id = course.id
+    learner_id = learner.id
+    predecessor_id = predecessor.id
+    headers = auth_headers(methodologist)
+    await db_session.commit()
 
     response = await client.post(
-        f"/api/v1/courses/{course.id}/reassignments",
+        f"/api/v1/courses/{course_id}/reassignments",
         json={
-            "user_id": str(learner.id),
-            "previous_enrollment_id": str(predecessor.id),
+            "user_id": str(learner_id),
+            "previous_enrollment_id": str(predecessor_id),
             "reason": "must not drop an expired policy",
         },
-        headers=auth_headers(methodologist),
+        headers=headers,
     )
     assert response.status_code == 409
-    assert response.json()["detail"] == "Assignment deadline policy must be extended before reassignment"
+    assert response.json()["message"] == "Assignment deadline policy must be extended before reassignment"
     assert await db_session.scalar(
-        select(func.count(Enrollment.id)).where(Enrollment.previous_enrollment_id == predecessor.id)
+        select(func.count(Enrollment.id)).where(Enrollment.previous_enrollment_id == predecessor_id)
     ) == 0
 
 
