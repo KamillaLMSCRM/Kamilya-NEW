@@ -10,7 +10,7 @@ import pytest
 pytestmark = pytest.mark.asyncio
 
 
-async def _manual_enrollment(db_session, *, tenant, learner, course, status="enrolled"):
+async def _manual_enrollment(db_session, *, tenant, learner, course, status="enrolled", source="manual"):
     from app.models.enrollment import Enrollment
 
     enrollment = Enrollment(
@@ -19,7 +19,7 @@ async def _manual_enrollment(db_session, *, tenant, learner, course, status="enr
         user_id=learner.id,
         course_id=course.id,
         status=status,
-        source="manual",
+        source=source,
         completed_at=datetime.now(UTC) if status == "completed" else None,
     )
     db_session.add(enrollment)
@@ -412,9 +412,13 @@ async def test_reassignment_rejects_rule_driven_source_and_non_methodologist(
     )
     assert forbidden.status_code == 403
 
-    rule_enrollment = await _manual_enrollment(db_session, tenant=tenant, learner=learner, course=course)
-    rule_enrollment.source = "position"
-    await db_session.flush()
+    rule_enrollment = await _manual_enrollment(
+        db_session,
+        tenant=tenant,
+        learner=learner,
+        course=course,
+        source="position",
+    )
     response = await client.post(
         f"/api/v1/courses/{course.id}/reassignments",
         json={
