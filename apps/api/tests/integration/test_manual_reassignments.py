@@ -71,31 +71,40 @@ async def test_methodologist_reassignment_supersedes_open_manual_predecessor_and
     learner_a = await make_user(tenant_a, role="student")
     course_a = await make_course(tenant_a, owner_a, title="A course", status="published")
     predecessor = await _manual_enrollment(db_session, tenant=tenant_a, learner=learner_a, course=course_a)
-    # The foreign request is expected to roll its transaction back.  Persist the
-    # fixture savepoint first so that rollback cannot erase the subsequent
-    # same-tenant actor and turn the success assertion into an unrelated 401.
+    course_a_id = course_a.id
+    learner_a_id = learner_a.id
+    predecessor_id = predecessor.id
+    owner_a_headers = auth_headers(owner_a)
+    owner_b_headers = auth_headers(owner_b)
+    # The foreign request is expected to roll its transaction back. Persist the
+    # fixture savepoint and retain scalar identities first: rollback expires ORM
+    # instances, and touching those instances would trigger async lazy loading.
     await db_session.commit()
 
     foreign = await client.post(
-        f"/api/v1/courses/{course_a.id}/reassignments",
-        json={"user_id": str(learner_a.id), "previous_enrollment_id": str(predecessor.id), "reason": "foreign retry"},
-        headers=auth_headers(owner_b),
+        f"/api/v1/courses/{course_a_id}/reassignments",
+        json={"user_id": str(learner_a_id), "previous_enrollment_id": str(predecessor_id), "reason": "foreign retry"},
+        headers=owner_b_headers,
     )
     assert foreign.status_code == 404
 
     response = await client.post(
-        f"/api/v1/courses/{course_a.id}/reassignments",
+        f"/api/v1/courses/{course_a_id}/reassignments",
         json={
-            "user_id": str(learner_a.id),
-            "previous_enrollment_id": str(predecessor.id),
+            "user_id": str(learner_a_id),
+            "previous_enrollment_id": str(predecessor_id),
             "reason": "corrective training",
         },
-        headers=auth_headers(owner_a),
+        headers=owner_a_headers,
     )
     assert response.status_code == 201, response.text
-    await db_session.refresh(predecessor)
-    assert predecessor.status == "superseded"
-    assert response.json()["enrollment"]["previous_enrollment_id"] == str(predecessor.id)
+    from sqlalchemy import select
+
+    from app.models.enrollment import Enrollment
+
+    predecessor_status = await db_session.scalar(select(Enrollment.status).where(Enrollment.id == predecessor_id))
+    assert predecessor_status == "superseded"
+    assert response.json()["enrollment"]["previous_enrollment_id"] == str(predecessor_id)
 
 
 async def test_reassignment_reissues_email_delivery_and_carries_relative_timing_policy(
