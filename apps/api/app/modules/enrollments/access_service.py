@@ -6,6 +6,7 @@ import hashlib
 import math
 import secrets
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 from uuid import UUID
 
 from argon2 import PasswordHasher
@@ -116,10 +117,11 @@ async def upsert_access_policy(
         db.add(policy)
     policy.delivery_mode = delivery_mode
     policy.link_expires_at = link_expires_at
-    policy.link_validity_minutes = relative_window_minutes(link_expires_at, origin=now)
+    writable_policy = cast(Any, policy)
+    writable_policy.link_validity_minutes = relative_window_minutes(link_expires_at, origin=now)
     policy.completion_window_minutes = completion_window_minutes
     policy.due_at = due_at
-    policy.due_window_minutes = relative_window_minutes(due_at, origin=now)
+    writable_policy.due_window_minutes = relative_window_minutes(due_at, origin=now)
     policy.revoked_at = None
     policy.revoked_reason = None
     # A changed window defines a fresh, not-yet-started policy. Existing

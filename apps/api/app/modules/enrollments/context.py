@@ -1,5 +1,6 @@
 """Resolve the learner's current course delivery instance."""
 
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import case, select
@@ -23,7 +24,7 @@ def scoped_enrollment_id(enrollment: Enrollment | None) -> UUID | None:
         or getattr(enrollment, "learning_path_assignment_id", None)
         or getattr(enrollment, "previous_enrollment_id", None)
     ):
-        return enrollment.id
+        return cast(UUID, enrollment.id)
     return None
 
 

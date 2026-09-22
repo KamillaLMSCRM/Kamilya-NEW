@@ -1,6 +1,8 @@
 """Enrollments — API service."""
 
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select, update
@@ -17,6 +19,15 @@ from app.modules.enrollments.notification_outbox import (
     queue_manual_enrollment_notification,
 )
 from app.modules.enrollments.occurrences import is_current_occurrence
+
+
+@dataclass(frozen=True)
+class ReassignmentOutcome:
+    enrollment: Enrollment
+    predecessor_status: str
+    personal_access: dict[str, object] | None
+    delivery_mode: str
+    notification_outbox_id: UUID | None
 
 
 async def get_enrolled_users(db: AsyncSession, course_id: UUID, tenant_id: UUID):
@@ -302,7 +313,7 @@ async def reassign_manual_enrollment(
     previous_enrollment_id: UUID,
     reassigned_by: UUID,
     reason: str,
-) -> tuple[Enrollment, dict | None, str]:
+) -> ReassignmentOutcome:
     """Create one immutable manual occurrence from the learner's current history.
 
     The predecessor is retained as evidence.  Only an open manual occurrence is
@@ -356,9 +367,10 @@ async def reassign_manual_enrollment(
     )
     release = await ensure_course_release(db, course)
     now = datetime.now(UTC)
-    predecessor_status = predecessor.status
+    predecessor_status = cast(str, predecessor.status)
     if predecessor.status in {"enrolled", "in_progress"}:
-        predecessor.status = "superseded"
+        writable_predecessor = cast(Any, predecessor)
+        writable_predecessor.status = "superseded"
         await db.execute(
             update(AssignmentAccessCredential)
             .where(
@@ -399,31 +411,36 @@ async def reassign_manual_enrollment(
     # A repeat is a complete new delivery occurrence, not only a new progress
     # scope. Carry durations (not stale absolute timestamps) forward so the
     # learner receives a fresh link/deadline window with the same policy.
-    delivery_mode = predecessor_policy.delivery_mode if predecessor_policy is not None else "email"
+    delivery_mode = cast(str, predecessor_policy.delivery_mode) if predecessor_policy is not None else "email"
     completion_window_minutes = (
-        predecessor_policy.completion_window_minutes if predecessor_policy is not None else None
+        cast(int | None, predecessor_policy.completion_window_minutes) if predecessor_policy is not None else None
     )
     link_expires_at = None
     due_at = None
     if predecessor_policy is not None:
-        if predecessor_policy.link_expires_at is not None and not predecessor_policy.link_validity_minutes:
+        predecessor_link_expires_at = cast(datetime | None, predecessor_policy.link_expires_at)
+        predecessor_link_minutes = cast(int | None, predecessor_policy.link_validity_minutes)
+        predecessor_due_at = cast(datetime | None, predecessor_policy.due_at)
+        predecessor_due_minutes = cast(int | None, predecessor_policy.due_window_minutes)
+        if predecessor_link_expires_at is not None and not predecessor_link_minutes:
             raise ValueError("Assignment link policy must be extended before reassignment")
-        if predecessor_policy.due_at is not None and not predecessor_policy.due_window_minutes:
+        if predecessor_due_at is not None and not predecessor_due_minutes:
             raise ValueError("Assignment deadline policy must be extended before reassignment")
-        if predecessor_policy.link_validity_minutes:
-            link_expires_at = now + timedelta(minutes=predecessor_policy.link_validity_minutes)
-        if predecessor_policy.due_window_minutes:
-            due_at = now + timedelta(minutes=predecessor_policy.due_window_minutes)
+        if predecessor_link_minutes:
+            link_expires_at = now + timedelta(minutes=predecessor_link_minutes)
+        if predecessor_due_minutes:
+            due_at = now + timedelta(minutes=predecessor_due_minutes)
 
     from app.modules.enrollments.access_service import issue_assignment_access, upsert_access_policy
 
     personal_access = None
+    notification_id = None
     if delivery_mode == "personal_link":
         from app.core.config import get_settings
 
         personal_access = await issue_assignment_access(
             db,
-            enrollment.id,
+            cast(UUID, enrollment.id),
             tenant_id,
             get_settings().PUBLIC_URL,
             link_expires_at=link_expires_at,
@@ -442,7 +459,8 @@ async def reassign_manual_enrollment(
             completion_window_minutes=completion_window_minutes,
             due_at=due_at,
         )
-        if learner.email and learner.email.strip() and not learner.has_login_access:
+        learner_email = cast(str | None, learner.email)
+        if learner_email and learner_email.strip() and not learner.has_login_access:
             from app.core.config import get_settings
             from app.modules.users.invitations_service import prepare_user_invitation
 
@@ -450,20 +468,23 @@ async def reassign_manual_enrollment(
                 db,
                 tenant_id,
                 reassigned_by,
-                learner.id,
+                cast(UUID, learner.id),
                 get_settings().PUBLIC_URL,
                 reuse_valid=True,
             )
         notification_id = await queue_manual_enrollment_notification(
             db,
             tenant_id=tenant_id,
-            enrollment_id=enrollment.id,
+            enrollment_id=cast(UUID, enrollment.id),
             assigned_by=reassigned_by,
         )
-        enrollment.notification_outbox_id = notification_id
-
-    enrollment.predecessor_status = predecessor_status
-    return enrollment, personal_access, delivery_mode
+    return ReassignmentOutcome(
+        enrollment=enrollment,
+        predecessor_status=predecessor_status,
+        personal_access=cast(dict[str, object] | None, personal_access),
+        delivery_mode=delivery_mode,
+        notification_outbox_id=notification_id,
+    )
 
 
 async def resend_enrollment_notification(db: AsyncSession, *, tenant_id: UUID, enrollment_id: UUID) -> UUID | None:

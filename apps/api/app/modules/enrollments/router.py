@@ -1,6 +1,7 @@
 """Enrollments — API router"""
 
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -139,17 +140,17 @@ async def create_enrollments(
 async def create_reassignment(
     course_id: UUID,
     req: ReassignmentCreate,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role(*_ENROLLMENT_MANAGER_ROLES)),
-):
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    user: User = Depends(require_role(*_ENROLLMENT_MANAGER_ROLES)),  # noqa: B008
+) -> ReassignmentResponse:
     try:
-        enrollment, personal_access, delivery_mode = await reassign_manual_enrollment(
+        outcome = await reassign_manual_enrollment(
             db,
             course_id=course_id,
-            tenant_id=user.tenant_id,
+            tenant_id=cast(UUID, user.tenant_id),
             user_id=req.user_id,
             previous_enrollment_id=req.previous_enrollment_id,
-            reassigned_by=user.id,
+            reassigned_by=cast(UUID, user.id),
             reason=req.reason,
         )
         await db.commit()
@@ -158,8 +159,8 @@ async def create_reassignment(
         detail = str(exc)
         status_code = 404 if detail in {"Course not found", "Learner not found", "Manual enrollment not found"} else 409
         raise HTTPException(status_code=status_code, detail=detail) from exc
-    if delivery_mode == "email":
-        notification_id = getattr(enrollment, "notification_outbox_id", None)
+    if outcome.delivery_mode == "email":
+        notification_id = outcome.notification_outbox_id
         if notification_id is not None:
             from app.modules.enrollments.notification_tasks import deliver_assignment_notification_task
 
@@ -169,12 +170,12 @@ async def create_reassignment(
                 # The committed outbox remains recoverable by the timer.
                 pass
     return ReassignmentResponse(
-        enrollment=EnrollmentResponse.model_validate(enrollment),
-        previous_enrollment_id=enrollment.previous_enrollment_id,
-        predecessor_status=enrollment.predecessor_status,
-        reason=enrollment.reassignment_reason,
-        delivery_mode=delivery_mode,
-        personal_access=personal_access,
+        enrollment=EnrollmentResponse.model_validate(outcome.enrollment),
+        previous_enrollment_id=req.previous_enrollment_id,
+        predecessor_status=outcome.predecessor_status,
+        reason=req.reason,
+        delivery_mode=outcome.delivery_mode,
+        personal_access=outcome.personal_access,
     )
 
 
@@ -436,7 +437,8 @@ async def extend_enrollment_access_policy(
         raise HTTPException(status_code=404, detail="Enrollment access policy not found")
     if req.link_expires_at is not None:
         policy.link_expires_at = req.link_expires_at
-        policy.link_validity_minutes = relative_window_minutes(req.link_expires_at, origin=policy_change_time)
+        writable_policy = cast(Any, policy)
+        writable_policy.link_validity_minutes = relative_window_minutes(req.link_expires_at, origin=policy_change_time)
         from app.models.assignment_access import AssignmentAccessCredential
 
         credentials = await db.scalars(
@@ -460,7 +462,8 @@ async def extend_enrollment_access_policy(
             policy.completion_window_expires_at = datetime.now(UTC) + timedelta(minutes=req.completion_window_minutes)
     if req.due_at is not None:
         policy.due_at = req.due_at
-        policy.due_window_minutes = relative_window_minutes(req.due_at, origin=policy_change_time)
+        writable_policy = cast(Any, policy)
+        writable_policy.due_window_minutes = relative_window_minutes(req.due_at, origin=policy_change_time)
     policy.revoked_at = None
     policy.revoked_reason = None
     await db.flush()
