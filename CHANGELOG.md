@@ -15,6 +15,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.9.2] - 2026-09-22
+
+### Added
+
+- Let methodologists and superadmins answer draft quiz questions in an explicit
+  preview route without creating learner attempts, progress or completion data.
+- Show selected and correct choices plus the authoring explanation after a
+  non-persistent preview submission.
+
+### Changed
+
+- Load the complete generated lesson before editing instead of treating the
+  shortened course-preview excerpt as editable source text.
+- Keep a generated course proportional to meaningful source material and reject
+  lessons whose only purpose is a quiz, test or learner acknowledgement.
+
+### Fixed
+
+- Reject quiz previews whose questions have no valid answer key instead of
+  accepting an empty selection as a correct answer.
+- Keep privileged quiz previews free of learner timers, access-window checks and
+  course-completion actions.
+- Keep answer keys and answer-review code out of the learner quiz route.
+
+### Security
+
+- Privileged quiz preview remains tenant-scoped and restricted to authoring roles. It uses
+  the same scoring rules as learner submission but performs no evidence writes.
+- No database migration, secret, billing, DNS, storage or provider-route changes.
+
 ## [0.9.1] - 2026-09-22
 
 ### Fixed
@@ -1359,7 +1389,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.8.1...v0.8.2

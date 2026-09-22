@@ -222,6 +222,10 @@ describe('course player role modes', () => {
     render(<CoursePlayerPage />);
 
     await screen.findByText('Проверка урока');
+    expect(screen.getByRole('link', { name: 'Начать тест' })).toHaveAttribute(
+      'href',
+      '/courses/quiz/quiz-1/preview?courseId=course-1&lessonId=lesson-1',
+    );
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Следующий урок' }));
     });

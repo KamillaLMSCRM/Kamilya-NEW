@@ -1,6 +1,7 @@
 """Quiz service — grading and attempt management"""
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -9,6 +10,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.courses.release_service import canonical_json_sha256, ensure_course_release
 from app.modules.quizzes.models import Question, Quiz, QuizAttempt, QuizChoice
+
+
+@dataclass(frozen=True)
+class QuizScoringResult:
+    """Server-derived quiz score with no learner or evidence persistence."""
+
+    score_percent: int
+    total_points: int
+    earned_points: int
+    passed: bool
+    graded_answers: list[dict]
+    quiz: Quiz | None = None
+    questions: list[Question] | None = None
+    choices_by_question: dict[UUID, list[QuizChoice]] | None = None
 
 
 async def get_quiz_with_questions(
@@ -170,34 +185,23 @@ async def _is_quiz_expired(db: AsyncSession, quiz: Quiz, user_id: UUID, tenant_i
     return datetime.now(UTC) > deadline
 
 
-async def grade_quiz(
+async def evaluate_quiz_submission(
     db: AsyncSession,
     quiz_id: UUID,
-    user_id: UUID,
     tenant_id: UUID,
     answers: list[dict],
-    time_spent_seconds: int | None = None,
-) -> dict:
-    """Grade one complete, tenant-scoped quiz submission and preserve evidence."""
+) -> QuizScoringResult:
+    """Validate and score a complete tenant quiz without creating learner state."""
     quiz = await db.scalar(select(Quiz).where(Quiz.id == quiz_id, Quiz.tenant_id == tenant_id))
     if not quiz:
         raise ValueError("Quiz not found")
-
-    # Enforce deferral window
-    if await _is_quiz_expired(db, quiz, user_id, tenant_id):
-        raise ValueError(
-            f"Quiz deferral window expired ({quiz.deferral_days} days). " "Contact your methodologist to re-open."
-        )
 
     questions = (
         (
             await db.execute(
                 select(Question)
                 .join(Quiz, Quiz.id == Question.quiz_id)
-                .where(
-                    Question.quiz_id == quiz_id,
-                    Quiz.tenant_id == tenant_id,
-                )
+                .where(Question.quiz_id == quiz_id, Quiz.tenant_id == tenant_id)
                 .order_by(Question.order_index, Question.id)
             )
         )
@@ -228,28 +232,30 @@ async def grade_quiz(
         unknown = len(set(submitted_question_ids) - expected_question_ids)
         raise ValueError(f"Submit every quiz question exactly once (missing={missing}, unknown={unknown})")
 
-    all_choices = []
-    if expected_question_ids:
-        all_choices = (
-            (
-                await db.execute(
-                    select(QuizChoice)
-                    .where(QuizChoice.question_id.in_(expected_question_ids))
-                    .order_by(QuizChoice.question_id, QuizChoice.order_index, QuizChoice.id)
+    all_choices = (
+        (
+            await db.execute(
+                select(QuizChoice)
+                .join(Question, Question.id == QuizChoice.question_id)
+                .join(Quiz, Quiz.id == Question.quiz_id)
+                .where(
+                    QuizChoice.question_id.in_(expected_question_ids),
+                    Question.quiz_id == quiz_id,
+                    Quiz.tenant_id == tenant_id,
                 )
+                .order_by(QuizChoice.question_id, QuizChoice.order_index, QuizChoice.id)
             )
-            .scalars()
-            .all()
         )
+        .scalars()
+        .all()
+    )
     choices_by_question: dict[UUID, list[QuizChoice]] = {question_id: [] for question_id in expected_question_ids}
     for choice in all_choices:
         choices_by_question.setdefault(choice.question_id, []).append(choice)
 
-    # Grade each answer against the complete server-side quiz definition.
     total_points = 0
     earned_points = 0
     graded_answers = []
-
     for question in questions:
         question_id = question.id
         selected_ids = normalized_answers[question_id]
@@ -257,14 +263,14 @@ async def grade_quiz(
         question_choices = choices_by_question.get(question_id, [])
         valid_choice_ids = {choice.id for choice in question_choices}
         selected_set = set(selected_ids)
+        correct_ids = {choice.id for choice in question_choices if choice.is_correct}
+        if not valid_choice_ids or not correct_ids:
+            raise ValueError("Quiz contains a question without a valid answer key")
         if not selected_set.issubset(valid_choice_ids):
             raise ValueError("A selected choice does not belong to its question")
-        correct_ids = {choice.id for choice in question_choices if choice.is_correct}
-
         is_correct = correct_ids == selected_set
         if is_correct:
             earned_points += question.points
-
         graded_answers.append(
             {
                 "question_id": str(question_id),
@@ -276,9 +282,46 @@ async def grade_quiz(
             }
         )
 
-    # Calculate score
     score_percent = round((earned_points / total_points * 100) if total_points > 0 else 0)
-    passed = score_percent >= quiz.pass_score
+    return QuizScoringResult(
+        score_percent=score_percent,
+        total_points=total_points,
+        earned_points=earned_points,
+        passed=score_percent >= quiz.pass_score,
+        graded_answers=graded_answers,
+        quiz=quiz,
+        questions=questions,
+        choices_by_question=choices_by_question,
+    )
+
+
+async def grade_quiz(
+    db: AsyncSession,
+    quiz_id: UUID,
+    user_id: UUID,
+    tenant_id: UUID,
+    answers: list[dict],
+    time_spent_seconds: int | None = None,
+) -> dict:
+    """Grade one complete, tenant-scoped quiz submission and preserve evidence."""
+    quiz = await db.scalar(select(Quiz).where(Quiz.id == quiz_id, Quiz.tenant_id == tenant_id))
+    if not quiz:
+        raise ValueError("Quiz not found")
+
+    # Enforce deferral window
+    if await _is_quiz_expired(db, quiz, user_id, tenant_id):
+        raise ValueError(
+            f"Quiz deferral window expired ({quiz.deferral_days} days). " "Contact your methodologist to re-open."
+        )
+
+    scoring = await evaluate_quiz_submission(db, quiz_id, tenant_id, answers)
+    questions = scoring.questions or []
+    choices_by_question = scoring.choices_by_question or {}
+    score_percent = scoring.score_percent
+    total_points = scoring.total_points
+    earned_points = scoring.earned_points
+    passed = scoring.passed
+    graded_answers = scoring.graded_answers
 
     from app.modules.courses.models import Course
     from app.modules.courses.release_models import ContentRelease

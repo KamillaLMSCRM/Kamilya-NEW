@@ -15,6 +15,8 @@ vi.mock('@/i18n/useT', () => ({
     t: (key: string) => ({
       'courses.backToCourse': 'Вернуться к курсу',
       'courses.nextLesson': 'Следующий урок',
+      'quiz.assignmentTimeLeft': 'Оставшееся время на курс и тест',
+      'quiz.returnAndComplete': 'Вернуться в курс и завершить',
     }[key] || key),
     tp: (key: string, count: number) => `${count} ${key}`,
   }),
@@ -202,4 +204,5 @@ describe('learner quiz result navigation', () => {
       expect.objectContaining({ body: expect.stringContaining('choice-b') }),
     ));
   });
+
 });

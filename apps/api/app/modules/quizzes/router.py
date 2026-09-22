@@ -31,12 +31,14 @@ from app.modules.quizzes.schemas import (
     QuizGenerateRequest,
     QuizGenerateResponse,
     QuizGroupedResponse,
+    QuizPreviewResultResponse,
     QuizResponse,
     QuizResultResponse,
     QuizSubmission,
     QuizUpdate,
 )
 from app.modules.quizzes.service import (
+    evaluate_quiz_submission,
     get_quiz_stats,
     get_quiz_with_questions,
     get_quizzes_with_questions,
@@ -95,6 +97,16 @@ async def _require_quiz_access(
             raise assignment_window_error(exc) from exc
     if quiz.review_status == "needs_review" and user.role not in AUTHORING_ROLES:
         raise HTTPException(status_code=409, detail="Quiz is awaiting methodologist review")
+    return quiz
+
+
+async def _require_quiz_preview_access(db: AsyncSession, quiz_id: UUID, user: User) -> Quiz:
+    """Allow tenant content roles to preview draft or published quiz scoring."""
+    quiz = await _require_quiz_tenant(db, quiz_id, user.tenant_id)
+    if user.role not in AUTHORING_ROLES:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    if quiz.lesson_id is not None:
+        await require_lesson_access(db, quiz.lesson_id, user)
     return quiz
 
 
@@ -522,6 +534,34 @@ async def submit_quiz(
         return QuizResultResponse(**result, training_evidence_event_id=evidence_event.id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.post("/{quiz_id}/preview-submit", response_model=QuizPreviewResultResponse)
+async def preview_submit_quiz(
+    quiz_id: UUID,
+    req: QuizSubmission,
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    user: User = Depends(require_role("superadmin", "methodologist")),  # noqa: B008
+):
+    """Score a tenant quiz for content review without learner-side persistence."""
+    await _require_quiz_preview_access(db, quiz_id, user)
+    try:
+        scoring = await evaluate_quiz_submission(
+            db=db,
+            quiz_id=quiz_id,
+            tenant_id=user.tenant_id,
+            answers=[answer.model_dump() for answer in req.answers],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return QuizPreviewResultResponse(
+        quiz_id=quiz_id,
+        score_percent=scoring.score_percent,
+        total_points=scoring.total_points,
+        earned_points=scoring.earned_points,
+        passed=scoring.passed,
+        graded_answers=scoring.graded_answers,
+    )
 
 
 @router.get("/{quiz_id}/attempts", response_model=list[QuizAttemptResponse])

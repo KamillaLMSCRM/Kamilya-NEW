@@ -133,6 +133,26 @@ class QuizResultResponse(BaseModel):
     training_evidence_event_id: UUID
 
 
+class QuizGradedAnswerResponse(BaseModel):
+    question_id: UUID
+    selected_choice_ids: list[UUID]
+    correct_choice_ids: list[UUID]
+    is_correct: bool
+    points_earned: int
+    points_possible: int
+
+
+class QuizPreviewResultResponse(BaseModel):
+    """Non-persistent score returned to a privileged content reviewer."""
+
+    quiz_id: UUID
+    score_percent: int
+    total_points: int
+    earned_points: int
+    passed: bool
+    graded_answers: list[QuizGradedAnswerResponse]
+
+
 # --- AI generation schemas (2026-06-26) -------------------------------
 # Methodologists used to hand-write 5-15 questions with 4 choices each —
 # a 30-60 min task per test. The AI assistant generates a draft from the

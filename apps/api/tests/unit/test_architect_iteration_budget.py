@@ -9,6 +9,8 @@ import pytest
 
 from app.core import db as core_db
 from app.modules.ai.architect import run_architect
+from app.modules.ai.architect_schema import CourseStructure
+from app.modules.ai.structure_quality import course_structure_quality_issues
 
 
 class _Result:
@@ -97,6 +99,39 @@ class _BudgetCorrectingLLM:
         return SimpleNamespace(content=f"```json\n{json.dumps(payload)}\n```")
 
 
+class _MetaLessonCorrectingLLM:
+    def __init__(self):
+        self.calls = 0
+        self.messages = []
+
+    async def ainvoke(self, messages):
+        self.calls += 1
+        self.messages = list(messages)
+        lesson = (
+            {
+                "title": "Контроль ознакомления и итоговый тест",
+                "description": "Проверка того, что сотрудник изучил уроки.",
+                "objectives": ["Пройти итоговый тест по материалам курса"],
+                "source_doc_ids": ["doc-1"],
+                "relevant_headings": ["Порядок сообщения об инциденте"],
+            }
+            if self.calls == 1
+            else {
+                "title": "Порядок сообщения об инциденте",
+                "description": "Действия сотрудника при обнаружении инцидента.",
+                "objectives": ["Передать сообщение ответственному сотруднику"],
+                "source_doc_ids": ["doc-1"],
+                "relevant_headings": ["Порядок сообщения об инциденте"],
+            }
+        )
+        payload = {
+            "title": "Сообщение об инцидентах",
+            "description": "Порядок действий сотрудников.",
+            "modules": [{"title": "Порядок действий", "lessons": [lesson]}],
+        }
+        return SimpleNamespace(content=f"```json\n{json.dumps(payload, ensure_ascii=False)}\n```")
+
+
 @pytest.mark.asyncio
 async def test_architect_reserves_a_final_turn_when_model_keeps_using_tools(monkeypatch):
     monkeypatch.setattr(core_db, "async_session_factory", lambda: _SessionContext())
@@ -151,5 +186,54 @@ async def test_architect_rejects_oversized_structure_before_lesson_generation(mo
     assert llm.calls == 2
 
 
+@pytest.mark.asyncio
+async def test_architect_rejects_assessment_meta_lesson_before_writing_content(monkeypatch):
+    monkeypatch.setattr(core_db, "async_session_factory", lambda: _SessionContext())
+    llm = _MetaLessonCorrectingLLM()
+
+    structure = await run_architect(
+        llm=llm,
+        tools={"list_documents": lambda: _async_value('[{"id":"doc-1"}]')},
+        max_total_lessons=1,
+        max_iterations=4,
+        tenant_id="00000000-0000-0000-0000-000000000001",
+    )
+
+    assert structure.modules[0].lessons[0].title == "Порядок сообщения об инциденте"
+    assert llm.calls == 2
+    assert "assessment-only" in llm.messages[-1]["content"]
+
+
 async def _async_value(value):
     return value
+
+
+@pytest.mark.parametrize("title", ["Проверка знаний", "Knowledge check"])
+def test_common_assessment_only_lesson_titles_are_rejected(title: str):
+    structure = CourseStructure.from_json(
+        json.dumps(
+            {
+                "title": "Safety",
+                "description": "",
+                "modules": [
+                    {
+                        "title": "Module",
+                        "description": "",
+                        "lessons": [
+                            {
+                                "title": title,
+                                "description": "Answer the final questions.",
+                                "objectives": ["Pass the test"],
+                                "source_doc_ids": ["doc-1"],
+                                "relevant_headings": ["Safety"],
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+    )
+
+    assert [issue.code for issue in course_structure_quality_issues(structure)] == [
+        "assessment_only_lesson"
+    ]

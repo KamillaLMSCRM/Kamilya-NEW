@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AIGeneratePage from '@/app/ai/generate/page';
 import { api } from '@/lib/api';
+import { useLanguageStore } from '@/store/languageStore';
 
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 const toastErrorMock = vi.hoisted(() => vi.fn());
@@ -18,6 +19,7 @@ const activeJob = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  useLanguageStore.setState({ lang: 'ru' });
   localStorage.clear();
   localStorage.setItem('ai_active_job_id', activeJob.id);
   apiMock.get.mockImplementation(async (url: string) => {
@@ -29,6 +31,39 @@ beforeEach(() => {
 });
 
 describe('/ai/generate job workflow parity', () => {
+  it('loads full lesson content before allowing an edit from a truncated preview excerpt', async () => {
+    const completedJob = { ...activeJob, status: 'completed', stage: 'completed', progress: 100 };
+    const fullContent = '# Полный урок\n\n' + 'Полный текст урока. '.repeat(80);
+    const excerpt = `${fullContent.slice(0, 90)}...`;
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${activeJob.id}`) return { data: completedJob } as any;
+      if (url === `/v1/courses/${activeJob.course_id}/preview`) return { data: {
+        source_documents: [], modules_count: 1, lessons_count: 1, quizzes_count: 0,
+        modules: [{ id: 'module-1', title: 'Модуль', lessons: [{ id: 'lesson-full', title: 'Полный урок', content_preview: excerpt }] }],
+      } } as any;
+      if (url === `/v1/courses/${activeJob.course_id}`) return { data: { id: activeJob.course_id, title: 'Курс', description: '', review_status: 'approved', status: 'draft' } } as any;
+      if (url === '/v1/lessons/lesson-full') return { data: { id: 'lesson-full', title: 'Полный урок', content: fullContent } } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('button', { expanded: false }));
+    await screen.findByText('Полный урок');
+    fireEvent.click(await screen.findByRole('button', { name: 'Редактировать' }));
+
+    await waitFor(() => expect(document.querySelector('textarea')).toHaveValue(fullContent));
+    const editor = document.querySelector('textarea');
+    expect(apiMock.get).toHaveBeenCalledWith('/v1/lessons/lesson-full');
+    expect(editor).toHaveValue(fullContent);
+    expect(editor).not.toHaveValue(excerpt);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    await waitFor(() => expect(apiMock.patch).toHaveBeenCalledWith('/v1/lessons/lesson-full', {
+      title: 'Полный урок', content: fullContent,
+    }));
+  });
+
   it.each([
     ['assessment_no_valid_questions'],
     ['assessment_coverage_incomplete'],

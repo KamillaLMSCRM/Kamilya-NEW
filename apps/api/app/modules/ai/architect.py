@@ -10,10 +10,20 @@ from app.ml_prompts import get_renderer
 from app.modules.ai.architect_schema import CourseStructure
 from app.modules.ai.ingestion import VectorStore
 from app.modules.ai.llm_client import LLMClient
+from app.modules.ai.structure_quality import course_structure_quality_issues
 
 logger = logging.getLogger(__name__)
 
 CHAPTER_TEXT_MAX_CHARS = 8000
+
+
+def _structure_quality_errors(structure: CourseStructure) -> list[str]:
+    """Return bounded learner-visible structure defects before content writing."""
+    return [
+        f"assessment-only lesson is not allowed: {issue.lesson_title!r}"
+        for issue in course_structure_quality_issues(structure)
+        if issue.code == "assessment_only_lesson"
+    ]
 
 
 def _load_system_prompt() -> str:
@@ -534,20 +544,22 @@ When ready to output the final course structure, output ONLY the JSON code block
                     budget_errors.append(
                         f"the whole course must contain at most {max_total_lessons} lessons"
                     )
-                if budget_errors:
+                quality_errors = _structure_quality_errors(structure)
+                if budget_errors or quality_errors:
                     messages.append({"role": "assistant", "content": content})
                     messages.append(
                         {
                             "role": "user",
                             "content": (
-                                "Your course structure violates the mandatory size budget: "
-                                + "; ".join(budget_errors)
-                                + ". Merge related topics and output the complete corrected JSON ONLY."
+                                "Your course structure violates mandatory constraints: "
+                                + "; ".join(budget_errors + quality_errors)
+                                + ". Remove assessment-only lessons, merge related topics when needed, "
+                                "and output the complete corrected JSON ONLY."
                             ),
                         }
                     )
                     if on_message:
-                        on_message("Course structure exceeded the mandatory size budget; requesting correction")
+                        on_message("Course structure failed mandatory constraints; requesting correction")
                     continue
                 return structure
             except ValueError as e:

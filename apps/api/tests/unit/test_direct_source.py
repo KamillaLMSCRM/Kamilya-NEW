@@ -2214,6 +2214,86 @@ async def test_direct_architect_auto_mode_keeps_genuinely_small_source_in_one_le
 
 
 @pytest.mark.asyncio
+async def test_direct_architect_replaces_assessment_only_lesson_with_source_topic():
+    """Assessment is generated separately and must not consume a lesson slot."""
+    from app.modules.ai.direct_source import (
+        build_direct_source_corpus,
+        run_direct_architect,
+    )
+
+    tenant_id, document_id = uuid4(), uuid4()
+    blob = (
+        "Сотрудник сообщает об инциденте ответственному лицу в течение рабочего дня.\n"
+        "В сообщении указываются время, место и краткое описание события."
+    ).encode()
+    corpus = await build_direct_source_corpus(
+        [
+            _document(
+                tenant_id=tenant_id,
+                document_id=document_id,
+                key="incident-rule",
+                filename="incident-rule.txt",
+                blob=blob,
+            )
+        ],
+        tenant_id=tenant_id,
+        storage=_Storage({"incident-rule": blob}),
+        converter=_PlainTextConverter(),
+    )
+
+    def response(*, meta: bool) -> str:
+        lesson = {
+            "title": (
+                "Контроль ознакомления и итоговый тест"
+                if meta
+                else "Сообщение об инциденте"
+            ),
+            "description": (
+                "Проверка усвоения материала курса."
+                if meta
+                else "Срок и обязательные сведения сообщения."
+            ),
+            "objectives": [
+                "Пройти итоговый тест"
+                if meta
+                else "Передать обязательные сведения ответственному лицу"
+            ],
+            "source_doc_ids": [str(document_id)],
+            "relevant_headings": [],
+        }
+        return json.dumps(
+            {
+                "title": "Сообщение об инцидентах",
+                "description": "Порядок действий сотрудника.",
+                "modules": [
+                    {
+                        "title": "Порядок сообщения",
+                        "description": "",
+                        "lessons": [lesson],
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        )
+
+    class LLM:
+        def __init__(self) -> None:
+            self.responses = [response(meta=True), response(meta=False)]
+            self.prompts: list[str] = []
+
+        async def ainvoke(self, messages):
+            self.prompts.append(messages[-1]["content"])
+            return SimpleNamespace(content=self.responses.pop(0))
+
+    llm = LLM()
+    result = await run_direct_architect(llm, corpus)
+
+    assert len(llm.prompts) == 2
+    assert "direct_source_assessment_only_lesson" in llm.prompts[1]
+    assert result.modules[0].lessons[0].title == "Сообщение об инциденте"
+
+
+@pytest.mark.asyncio
 async def test_direct_architect_verifies_plain_text_action_against_plain_source():
     """Claim validation must use prose source text when no worksheets exist."""
     from app.modules.ai.direct_source import (

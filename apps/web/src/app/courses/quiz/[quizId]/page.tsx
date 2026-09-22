@@ -116,21 +116,24 @@ export default function QuizPlayerPage() {
   const fetchQuiz = useCallback(async () => {
     if (!quizId || !token) return;
     try {
-      const requests: Promise<Response>[] = [
+      const [quizRes, attemptsRes, structureRes, accessWindowRes] = await Promise.all([
         fetch(`${API_URL}/v1/quizzes/${quizId}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_URL}/v1/quizzes/${quizId}/attempts`, { headers: { Authorization: `Bearer ${token}` } }),
-      ];
-      if (parentCourseId) {
-        requests.push(fetch(`${API_URL}/v1/courses/${parentCourseId}/structure`, { headers: { Authorization: `Bearer ${token}` } }));
-        requests.push(fetch(`${API_URL}/v1/courses/${parentCourseId}/access-window`, { headers: { Authorization: `Bearer ${token}` } }));
-      }
-      const [quizRes, attemptsRes, structureRes, accessWindowRes] = await Promise.all(requests);
+        parentCourseId
+          ? fetch(`${API_URL}/v1/courses/${parentCourseId}/structure`, { headers: { Authorization: `Bearer ${token}` } })
+          : Promise.resolve(null),
+        parentCourseId
+          ? fetch(`${API_URL}/v1/courses/${parentCourseId}/access-window`, { headers: { Authorization: `Bearer ${token}` } })
+          : Promise.resolve(null),
+      ]);
       if (quizRes.ok) {
         const data = await quizRes.json();
         setQuiz(data);
-        if (!parentCourseId && data.time_limit) setTimeLeft(data.time_limit * 60);
+        if (!parentCourseId && data.time_limit) {
+          setTimeLeft(data.time_limit * 60);
+        }
       }
-      if (attemptsRes.ok) setAttempts(await attemptsRes.json());
+      if (attemptsRes?.ok) setAttempts(await attemptsRes.json());
       if (structureRes?.ok) {
         const structure = await structureRes.json();
         setCourseModules(structure.modules || []);
@@ -226,16 +229,14 @@ export default function QuizPlayerPage() {
         const data = await res.json();
         setResult(data);
         if (timerRef.current) clearInterval(timerRef.current);
-        // Refresh attempts
         const attemptsRes = await fetch(`${API_URL}/v1/quizzes/${quizId}/attempts`, { headers: { Authorization: `Bearer ${token}` } });
         if (attemptsRes.ok) setAttempts(await attemptsRes.json());
         toast.dismiss();
-        toast.success(
-          `${data.passed ? 'Тест пройден!' : 'Тест завершён'} Результат: ${data.attempt.score_percent}%`,
-        );
+        const scorePercent = data.attempt.score_percent;
+        toast.success(`${data.passed ? t('quiz.passed') : t('quiz.failed')} ${t('quiz.result', { score: scorePercent })}`);
       } else {
         const err = await res.json();
-        toast.error(t('common.saveFailed'), { description: err.detail || 'Ошибка отправки' });
+        toast.error(t('common.saveFailed'), { description: err.detail || t('quiz.submissionFailedDescription') });
       }
     } finally {
       setSubmitting(false);
@@ -268,6 +269,7 @@ export default function QuizPlayerPage() {
   const answeredCount = Object.keys(answers).length;
   const attemptsUsed = attempts.length;
   const canAttempt = attemptsUsed < quiz.attempt_limit;
+  const resultScore = result?.attempt.score_percent ?? 0;
   const lessonId = quiz.lesson_id;
   const orderedLessons = courseModules.flatMap((module) => module.lessons || []);
   const currentLessonIndex = orderedLessons.findIndex((lesson) => lesson.id === lessonId);
@@ -298,7 +300,7 @@ export default function QuizPlayerPage() {
                 role="timer"
                 aria-live={visibleRemainingSeconds < 60 ? 'assertive' : 'polite'}
                 aria-atomic="true"
-                aria-label={assignmentRemainingSeconds !== null ? 'Оставшееся время на курс и тест' : (t('quiz.timeLeft') || 'Time left')}
+                aria-label={assignmentRemainingSeconds !== null ? t('quiz.assignmentTimeLeft') : t('quiz.timeLeft')}
                 className={
                   'text-lg px-3 py-1 rounded-md font-mono ' +
                   (visibleRemainingSeconds < 60
@@ -311,7 +313,7 @@ export default function QuizPlayerPage() {
             )}
             {result && (
               <Badge variant={result.passed ? 'default' : 'destructive'} className="text-lg px-3 py-1">
-                {result.attempt.score_percent}%
+                {resultScore}%
               </Badge>
             )}
           </div>
@@ -319,7 +321,7 @@ export default function QuizPlayerPage() {
 
         {assignmentBlocked && !result && (
           <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-            Время, отведённое на курс и тестирование, истекло. Обратитесь к методисту.
+            {t('quiz.assignmentExpiredDescription')}
           </div>
         )}
 
@@ -330,9 +332,11 @@ export default function QuizPlayerPage() {
               <div className={`${result.passed ? 'text-success' : 'text-destructive'}`}>
                 {result.passed ? <CheckCircle2 className="w-12 h-12 mx-auto" /> : <XCircle className="w-12 h-12 mx-auto" />}
               </div>
-              <p className="text-lg font-semibold">{result.message}</p>
+              <p className="text-lg font-semibold">
+                {result.message}
+              </p>
               <p className="text-sm text-muted-foreground">
-                {result.attempt.score_percent}%
+                {resultScore}%
               </p>
               <div className="flex gap-3 justify-center mt-4">
                 {canAttempt && !result.passed && (
@@ -365,12 +369,12 @@ export default function QuizPlayerPage() {
         {result?.passed && !nextLessonHref && (
           <Card>
             <CardContent className="space-y-3 p-5">
-              <h2 className="font-semibold">Что делать дальше</h2>
+              <h2 className="font-semibold">{t('quiz.nextStepsTitle')}</h2>
               <p className="text-sm text-muted-foreground">
-                Все задания этого курса завершены. Вернитесь в курс и выполните одно итоговое подтверждение результата обучения.
+                {t('quiz.nextStepsDescription')}
               </p>
               <Button onClick={() => router.push(nextLessonHref || courseHref || getRoleHome(user?.role))}>
-                Вернуться в курс и завершить
+                {t('quiz.returnAndComplete')}
               </Button>
             </CardContent>
           </Card>

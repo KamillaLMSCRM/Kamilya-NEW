@@ -48,6 +48,7 @@ from app.modules.ai.source_topic_map import (
     build_source_topic_map,
     compose_architect_overview,
 )
+from app.modules.ai.structure_quality import course_structure_quality_issues
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 
 MAX_DIRECT_SOURCE_BYTES = 50 * 1024 * 1024
@@ -131,6 +132,13 @@ def _architect_validation_repair_instruction(code: str) -> str:
             "distinct primary-source topics into the required minimum number of "
             "lessons. Do not pad, repeat facts, promote supporting material, or invent "
             "a topic merely to reach the minimum."
+        )
+    if code == "direct_source_assessment_only_lesson":
+        return (
+            " Remove every lesson whose purpose is to announce, prepare for, or "
+            "complete a test, assessment, knowledge check, or acknowledgement. "
+            "Assessment is generated separately. Replace the slot only with a "
+            "distinct source-grounded subject topic; otherwise return fewer lessons."
         )
     return ""
 
@@ -1075,6 +1083,17 @@ def _validate_structure_sources(
     max_total_lessons: int | None,
     allowed_structure_context: str,
 ) -> None:
+    structure_quality_issues = course_structure_quality_issues(structure)
+    assessment_only_titles = tuple(
+        issue.lesson_title
+        for issue in structure_quality_issues
+        if issue.code == "assessment_only_lesson"
+    )
+    if assessment_only_titles:
+        raise DirectSourceError(
+            "direct_source_assessment_only_lesson",
+            assessment_only_titles,
+        )
     selected = set(corpus.document_ids)
     worksheet_section_keys = {
         (chunk.doc_id, heading.removeprefix("[Worksheet] ").casefold().strip())
@@ -1435,6 +1454,7 @@ SELECTED SOURCES:
         "direct_source_lesson_primary_section_missing",
         "direct_source_supporting_section_promoted",
         "direct_source_structure_claim_unverified",
+        "direct_source_assessment_only_lesson",
     }
     validation_error: DirectSourceError | None = None
     previous_plan = ""

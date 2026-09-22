@@ -109,7 +109,9 @@ export type CoursePreviewCallbacks = {
   onRegenerateModule: (moduleId: string, title: string) => void;
   onRegenerateLesson: (lessonId: string, title: string) => void;
   onFocusChat: (context: "module" | "lesson", targetId: string) => void;
-  onEditLesson: (lessonId: string, title: string, content: string) => void;
+  onEditLesson: (lessonId: string) => void;
+  loadingLessonId?: string | null;
+  editLessonError?: { lessonId: string; message: string } | null;
   onCancelEdit: () => void;
   onSaveEdit: () => void;
   onEditFormChange: (next: { title: string; content: string }) => void;
@@ -130,6 +132,8 @@ export function CoursePreviewTree({
   onRegenerateLesson,
   onFocusChat,
   onEditLesson,
+  loadingLessonId,
+  editLessonError,
   busyTargetId,
   editingLessonId,
   editForm,
@@ -206,11 +210,18 @@ export function CoursePreviewTree({
                   m.lessons.map((l: any, li: number) => {
                     const lessonBusy = busyTargetId === l.id;
                     const isEditing = editingLessonId === l.id;
+                    const lessonLoading = loadingLessonId === l.id;
+                    const lessonEditError = editLessonError && editLessonError.lessonId === l.id
+                      ? editLessonError.message
+                      : null;
                     return (
                       <li key={l.id} className="px-4 py-3 pl-14 space-y-1.5">
                         <div className="flex items-start gap-2">
                           <span className="text-xs font-mono text-muted-foreground shrink-0 mt-0.5">{mi + 1}.{li + 1}</span>
                           <div className="flex-1 min-w-0">
+                            {lessonEditError && (
+                              <p role="alert" className="mb-2 text-xs text-destructive">{lessonEditError}</p>
+                            )}
                             {isEditing ? (
                               <div className="space-y-2">
                                 <input
@@ -263,13 +274,13 @@ export function CoursePreviewTree({
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => onEditLesson(l.id, l.title, l.content_preview || "")}
-                                    disabled={!!busyTargetId}
+                                    onClick={() => onEditLesson(l.id)}
+                                    disabled={!!busyTargetId || !!loadingLessonId}
                                     className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 shrink-0"
                                     title={t('authenticatedUi.coursePreview.editLesson')}
                                   >
-                                    <PenLine className="w-2.5 h-2.5" />
-                                    {t('common.edit')}
+                                    {lessonLoading ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <PenLine className="w-2.5 h-2.5" />}
+                                    {lessonLoading ? t('authenticatedUi.coursePreview.loadingLesson') : t('common.edit')}
                                   </button>
                                   <button
                                     type="button"

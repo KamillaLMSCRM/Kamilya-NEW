@@ -118,6 +118,7 @@ export default function CoursePlayerPage() {
   const isPrivilegedPreview = user?.role === 'admin'
     || user?.role === 'superadmin'
     || user?.role === 'methodologist';
+  const canPreviewQuiz = user?.role === 'superadmin' || user?.role === 'methodologist';
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const selectedLessonId = selectedLesson?.id;
 
@@ -789,7 +790,7 @@ export default function CoursePlayerPage() {
                         {assignmentAccessBlocked ? (
                           <Button disabled>{t('quiz.startQuiz')} <ChevronRight className="w-4 h-4 ml-1" /></Button>
                         ) : (
-                          <Link href={`/courses/quiz/${lessonQuiz.id}?courseId=${encodeURIComponent(courseId)}&lessonId=${encodeURIComponent(selectedLesson.id)}`}>
+                          <Link href={`/courses/quiz/${lessonQuiz.id}${canPreviewQuiz ? '/preview' : ''}?courseId=${encodeURIComponent(courseId)}&lessonId=${encodeURIComponent(selectedLesson.id)}`}>
                             <Button>{t('quiz.startQuiz')} <ChevronRight className="w-4 h-4 ml-1" /></Button>
                           </Link>
                         )}

@@ -25,6 +25,9 @@ the source has a conclusions/final-provisions section, that lesson may cover
 only the unique directives in that source section.
 10. `relevant_headings` MUST contain the exact source headings that delimit the
 lesson. Do not attach headings owned by another lesson.
+11. Do NOT create lessons whose purpose is to announce, prepare for, or complete
+an assessment, quiz, knowledge check, or acknowledgement. Assessment is generated
+separately. Every lesson must teach source-grounded subject matter.
 
 ## Workflow
 

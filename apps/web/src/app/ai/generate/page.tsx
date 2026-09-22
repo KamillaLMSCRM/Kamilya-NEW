@@ -266,6 +266,9 @@ export default function AIGeneratePage() {
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ title: string; content: string }>({ title: '', content: '' });
   const [editSaving, setEditSaving] = useState(false);
+  const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
+  const [editLessonError, setEditLessonError] = useState<{ lessonId: string; message: string } | null>(null);
+  const editLessonRequestRef = useRef(0);
 
   const documentIndexJobKey = Object.entries(documentIndexProgress)
     .filter(([, progress]) => progress.status === 'pending' || progress.status === 'running')
@@ -845,13 +848,35 @@ export default function AIGeneratePage() {
   }, [regenJob?.job_id, currentJob?.course_id]);
 
   // ── Inline edit (Phase 5) ──
-  const startEditLesson = (lessonId: string, lessonTitle: string, lessonContent: string) => {
-    setEditingLessonId(lessonId);
-    setEditForm({ title: lessonTitle, content: lessonContent });
+  const startEditLesson = async (lessonId: string) => {
+    const requestId = ++editLessonRequestRef.current;
+    setLoadingLessonId(lessonId);
+    setEditLessonError(null);
+    try {
+      const response = await api.get(`/v1/lessons/${lessonId}`);
+      if (editLessonRequestRef.current !== requestId) return;
+      if (typeof response.data?.title !== 'string' || typeof response.data?.content !== 'string') {
+        throw new Error('Full lesson response is incomplete');
+      }
+      setEditForm({
+        title: response.data.title,
+        content: response.data.content,
+      });
+      setEditingLessonId(lessonId);
+    } catch {
+      if (editLessonRequestRef.current === requestId) {
+        setEditLessonError({ lessonId, message: t('authenticatedUi.coursePreview.loadLessonFailed') });
+      }
+    } finally {
+      if (editLessonRequestRef.current === requestId) setLoadingLessonId(null);
+    }
   };
   const cancelEditLesson = () => {
+    editLessonRequestRef.current += 1;
     setEditingLessonId(null);
+    setLoadingLessonId(null);
     setEditForm({ title: '', content: '' });
+    setEditLessonError(null);
   };
   const saveEditLesson = async () => {
     if (!editingLessonId || editSaving) return;
@@ -1489,6 +1514,8 @@ export default function AIGeneratePage() {
                 onRegenerateLesson={(lessonId, title) => startRegenerate('lesson', lessonId, title)}
                 onFocusChat={(context, target_id) => setChatContext({ context, target_id })}
                 onEditLesson={startEditLesson}
+                loadingLessonId={loadingLessonId}
+                editLessonError={editLessonError}
                 busyTargetId={regenJob?.target_id ?? null}
                 editingLessonId={editingLessonId}
                 editForm={editForm}
