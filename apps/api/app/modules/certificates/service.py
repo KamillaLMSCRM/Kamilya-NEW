@@ -27,6 +27,7 @@ from app.modules.certificates.schemas import (
     CertificatePreviewRequest,
     CertificateSettings,
 )
+from app.modules.enrollments.context import current_enrollment, scoped_enrollment_id
 
 logger = logging.getLogger(__name__)
 
@@ -198,8 +199,6 @@ async def issue_certificate(
             )
         )
     else:
-        from app.modules.enrollments.context import current_enrollment
-
         enrollment = await current_enrollment(db, tenant_id=tenant_id, user_id=user_id, course_id=course_id)
     if not enrollment:
         raise ValueError("Not enrolled in this course")
@@ -208,9 +207,7 @@ async def issue_certificate(
     # Completion flows pass an explicit enrollment and need an artifact bound
     # to that exact attempt (including one-time personal-link assignments).
     # Legacy/manual account issuance keeps the historical one-per-course rule.
-    certificate_enrollment_id = (
-        enrollment.id if enrollment_id is not None or enrollment.recurring_assignment_id else None
-    )
+    certificate_enrollment_id = enrollment.id if enrollment_id is not None else scoped_enrollment_id(enrollment)
     existing = await db.scalar(
         select(Certificate).where(
             Certificate.user_id == user_id,

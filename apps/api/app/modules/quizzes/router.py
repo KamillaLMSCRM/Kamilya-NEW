@@ -15,6 +15,8 @@ from app.core.db import get_db
 from app.models.users import User
 from app.modules.courses.access import AUTHORING_ROLES, require_lesson_access
 from app.modules.editor_assistant.router import router as editor_assistant_router
+from app.modules.enrollments.context import current_enrollment, scoped_enrollment_id
+from app.modules.enrollments.occurrences import is_current_occurrence
 from app.modules.quizzes.ai import generate_quiz_draft as build_quiz_draft
 from app.modules.quizzes.models import Question, Quiz, QuizAttempt, QuizChoice
 from app.modules.quizzes.schemas import (
@@ -293,12 +295,15 @@ async def list_enrolled_quizzes(
     assignment_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
     if assignment_enrollment_id is not None:
         enrollment_query = enrollment_query.where(Enrollment.id == assignment_enrollment_id)
+    else:
+        enrollment_query = enrollment_query.where(
+            Enrollment.status.notin_(("cancelled", "superseded")),
+            is_current_occurrence(),
+        )
     enrollments = await db.execute(enrollment_query)
     course_ids = list(dict.fromkeys(r[0] for r in enrollments.fetchall()))
     if not course_ids:
         return []
-    from app.modules.enrollments.context import current_enrollment
-
     current_by_course = {
         course_id: await current_enrollment(db, tenant_id=user.tenant_id, user_id=user.id, course_id=course_id)
         for course_id in course_ids
@@ -376,7 +381,7 @@ async def list_enrolled_quizzes(
         li = lesson_map.get(lid, {})
         att = attempt_map.get(str(quiz.id))
         current = current_by_course.get(UUID(li.get("course_id"))) if li.get("course_id") else None
-        progress_enrollment_id = current.id if current and current.recurring_assignment_id else None
+        progress_enrollment_id = scoped_enrollment_id(current)
 
         # Compute is_expired from progress.completed_at + deferral_days
         is_expired = False

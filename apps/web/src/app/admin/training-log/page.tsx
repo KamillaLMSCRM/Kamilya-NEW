@@ -65,6 +65,8 @@ interface TrainingLogRow {
   course_title: string;
   delivery_type: 'native' | 'scorm';
   enrollment_status: string;
+  previous_enrollment_id?: string | null;
+  reassignment_reason?: string | null;
   enrollment_source: string;
   enrolled_at: string | null;
   completed_at: string | null;
@@ -146,6 +148,7 @@ export default function AdminTrainingLogPage() {
   const canInspectLearning = canUseLearningInsights(user);
 
   const [filters, setFilters] = useState<Filters>({});
+  const [includeHistory, setIncludeHistory] = useState(false);
   const [page, setPage] = useState<TrainingLogPage | null>(null);
   const [summary, setSummary] = useState<TrainingLogSummary | null>(null);
   const [loading, setLoading] = useState(false);
@@ -171,12 +174,12 @@ export default function AdminTrainingLogPage() {
   }, [searchInput]);
 
   const queryString = useMemo(() => {
-    return buildTrainingLogPageQuery(filters, debouncedSearch, limit, offset);
-  }, [debouncedSearch, filters, limit, offset]);
+    return buildTrainingLogPageQuery({ ...filters, history: includeHistory || undefined }, debouncedSearch, limit, offset);
+  }, [debouncedSearch, filters, includeHistory, limit, offset]);
 
   const summaryQueryString = useMemo(() => (
-    buildTrainingLogFilterQuery(filters, debouncedSearch).toString()
-  ), [debouncedSearch, filters]);
+    buildTrainingLogFilterQuery({ ...filters, history: includeHistory || undefined }, debouncedSearch).toString()
+  ), [debouncedSearch, filters, includeHistory]);
 
   const fetchPage = useCallback(async () => {
     if (!accessToken) return;
@@ -436,6 +439,10 @@ export default function AdminTrainingLogPage() {
           <CardTitle>{t('trainingLog.filters.title')}</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <label className="flex items-center gap-2 text-sm md:col-span-3 lg:col-span-4">
+            <input type="checkbox" checked={includeHistory} onChange={(event) => { setIncludeHistory(event.target.checked); setOffset(0); }} />
+            {t('trainingLog.history.include')}
+          </label>
           <div className="md:col-span-2 lg:col-span-1">
             <label className="block text-xs font-medium text-muted-foreground mb-1">
               {t('trainingLog.filter.search.label')}
@@ -567,8 +574,8 @@ export default function AdminTrainingLogPage() {
                       <button type="button" className="mt-1 text-left text-sm text-primary hover:underline" onClick={() => router.push(`/courses/${row.course_id}`)}>{row.course_title}</button>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={row.computed_status === 'completed' ? 'default' : 'secondary'}>
-                        {row.computed_status === 'completed' ? t('trainingLog.badge.completed') : row.computed_status === 'in_progress' ? t('trainingLog.badge.inProgress') : t('trainingLog.badge.assigned')}
+                      <Badge variant={row.enrollment_status === 'cancelled' || row.enrollment_status === 'superseded' ? 'outline' : row.computed_status === 'completed' ? 'default' : 'secondary'}>
+                        {row.enrollment_status === 'cancelled' ? t('trainingLog.history.cancelled') : row.enrollment_status === 'superseded' ? t('trainingLog.history.superseded') : row.computed_status === 'completed' ? t('trainingLog.badge.completed') : row.computed_status === 'in_progress' ? t('trainingLog.badge.inProgress') : t('trainingLog.badge.assigned')}
                       </Badge>
                       <span className="text-sm tabular-nums text-muted-foreground">{t('trainingLog.table.progress')}: {row.progress_percent}%</span>
                       {(row.assignment_due_at || row.cycle_due_at) && (
@@ -708,9 +715,9 @@ export default function AdminTrainingLogPage() {
                       </td>
                       <td className={columnClass.status}>
                         <Badge
-                          variant={row.computed_status === 'completed' ? 'default' : 'secondary'}
+                          variant={row.enrollment_status === 'cancelled' || row.enrollment_status === 'superseded' ? 'outline' : row.computed_status === 'completed' ? 'default' : 'secondary'}
                         >
-                          {row.computed_status === 'completed'
+                          {row.enrollment_status === 'cancelled' ? t('trainingLog.history.cancelled') : row.enrollment_status === 'superseded' ? t('trainingLog.history.superseded') : row.computed_status === 'completed'
                             ? t('trainingLog.badge.completed')
                             : row.computed_status === 'in_progress'
                               ? t('trainingLog.badge.inProgress')

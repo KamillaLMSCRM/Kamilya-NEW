@@ -28,7 +28,10 @@ class TrainingLogFilter(BaseModel):
     #                 (native) or scorm_attempt (scorm)
     #   completed   = enrollment.status='completed' OR enrollment.completed_at IS NOT NULL
     #   overdue     = unfinished cycle-linked enrollment after its immutable due_at
-    status: Literal["assigned", "in_progress", "completed", "overdue"] | None = None
+    status: Literal["assigned", "in_progress", "completed", "overdue", "cancelled", "superseded"] | None = None
+    # Current is the operational default. Retained cancelled/superseded
+    # occurrences are visible only through an explicit history read.
+    history: bool = False
     delivery_type: Literal["native", "scorm"] | None = None
     date_from: datetime | None = None
     date_to: datetime | None = None
@@ -82,6 +85,8 @@ class TrainingLogRow(BaseModel):
     # Enrollment
     enrollment_status: str  # raw: enrolled / completed
     enrollment_source: str  # manual / position / department / cohort / learning_path
+    previous_enrollment_id: UUID | None = None
+    reassignment_reason: str | None = None
     enrolled_at: datetime | None = None
     completed_at: datetime | None = None
 
@@ -122,7 +127,7 @@ class TrainingLogRow(BaseModel):
     #   assigned    = no completion AND no progress/attempt
     #   in_progress = no completion AND has progress/attempt
     #   completed   = enrollment completed
-    computed_status: Literal["assigned", "in_progress", "completed"] = "assigned"
+    computed_status: Literal["assigned", "in_progress", "completed", "cancelled", "superseded"] = "assigned"
 
     # Progress
     progress_percent: int  # 0..100
@@ -163,6 +168,11 @@ class TrainingLogSummary(BaseModel):
     in_progress: int
     completed: int
     overdue: int = 0
+    failed_current: int = 0
+    exhausted_attempts: int = 0
+    reassigned: int = 0
+    cancelled_history: int = 0
+    superseded_history: int = 0
 
 
 class TrainingLogCSVResponse(BaseModel):

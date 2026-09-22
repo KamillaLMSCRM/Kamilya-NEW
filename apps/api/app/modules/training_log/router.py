@@ -50,7 +50,10 @@ async def training_log_summary(
     course_id: UUID | None = Query(default=None),
     department_id: UUID | None = Query(default=None),
     position_id: UUID | None = Query(default=None),
-    status: Literal["assigned", "in_progress", "completed", "overdue"] | None = Query(default=None),
+    status: Literal["assigned", "in_progress", "completed", "overdue", "cancelled", "superseded"] | None = Query(
+        default=None
+    ),
+    history: bool = Query(default=False),
     delivery_type: Literal["native", "scorm"] | None = Query(default=None),
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
@@ -69,6 +72,7 @@ async def training_log_summary(
             department_id=department_id,
             position_id=position_id,
             status=status,
+            history=history,
             delivery_type=delivery_type,
             date_from=date_from,
             date_to=date_to,
@@ -84,7 +88,10 @@ async def list_training_log(
     course_id: UUID | None = Query(default=None),
     department_id: UUID | None = Query(default=None),
     position_id: UUID | None = Query(default=None),
-    status: Literal["assigned", "in_progress", "completed", "overdue"] | None = Query(default=None),
+    status: Literal["assigned", "in_progress", "completed", "overdue", "cancelled", "superseded"] | None = Query(
+        default=None
+    ),
+    history: bool = Query(default=False),
     delivery_type: Literal["native", "scorm"] | None = Query(default=None),
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
@@ -115,6 +122,7 @@ async def list_training_log(
         department_id=department_id,
         position_id=position_id,
         status=status,
+        history=history,
         delivery_type=delivery_type,
         date_from=date_from,
         date_to=date_to,

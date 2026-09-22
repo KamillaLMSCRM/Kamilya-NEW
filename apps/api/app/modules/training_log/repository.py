@@ -48,6 +48,7 @@ from app.models.enrollment import Enrollment
 from app.models.enrollment_access_policy import EnrollmentAccessPolicy
 from app.models.users import User
 from app.modules.courses.models import Course as CourseModel
+from app.modules.enrollments.occurrences import is_current_occurrence
 from app.modules.learning_cycles.models import LearningPathCycleInstance, RecurringLearningAssignment
 from app.modules.learning_paths.models import LearningPathAssignment
 from app.modules.organization_scope import resolve_ancestor_paths, resolve_descendants
@@ -201,8 +202,15 @@ def _apply_filters(stmt, f: TrainingLogFilter, tenant_id: UUID):
         stmt = stmt.where(Enrollment.enrolled_at >= f.date_from)
     if f.date_to:
         stmt = stmt.where(Enrollment.enrolled_at <= f.date_to)
+    if not f.history:
+        stmt = stmt.where(
+            Enrollment.status.notin_(("cancelled", "superseded")),
+            is_current_occurrence(),
+        )
     if f.status == "completed":
         stmt = stmt.where(or_(Enrollment.status == "completed", Enrollment.completed_at.is_not(None)))
+    elif f.status in {"cancelled", "superseded"}:
+        stmt = stmt.where(Enrollment.status == f.status)
     # 'assigned' / 'in_progress' are applied by `list_training_log` / `count_training_log`
     # because they reference the LEFT-JOINed activity subqueries that live on the main
     # query, not on the count query.
@@ -256,6 +264,7 @@ def _build_activity_subqueries():
         Column("course_id", PG_UUID),
         Column("user_id", PG_UUID),
         Column("tenant_id", PG_UUID),
+        Column("enrollment_id", PG_UUID),
     )
     _lessons = Table(
         "lessons",
@@ -291,9 +300,10 @@ def _build_activity_subqueries():
         select(
             _scorm_attempts.c.user_id.label("user_id"),
             _scorm_attempts.c.course_id.label("course_id"),
+            _scorm_attempts.c.enrollment_id.label("enrollment_id"),
             func.bool_or(literal(True)).label("has_attempt"),
         )
-        .group_by(_scorm_attempts.c.user_id, _scorm_attempts.c.course_id)
+        .group_by(_scorm_attempts.c.user_id, _scorm_attempts.c.course_id, _scorm_attempts.c.enrollment_id)
         .subquery()
     )
 
@@ -397,19 +407,34 @@ async def count_training_log(
                             text("progress.course_id = courses.id"),
                             text("progress.completed = TRUE"),
                             text(
-                                "((enrollments.recurring_assignment_id IS NULL AND progress.enrollment_id IS NULL) OR progress.enrollment_id = enrollments.id)"
+                                "((enrollments.recurring_assignment_id IS NULL "
+                                "AND enrollments.previous_enrollment_id IS NULL "
+                                "AND progress.enrollment_id IS NULL) "
+                                "OR progress.enrollment_id = enrollments.id)"
                             ),
                         )
                     )
                     .exists(),
                     select(1)
                     .select_from(
-                        Table("scorm_attempts", MetaData(), Column("user_id", PG_UUID), Column("course_id", PG_UUID))
+                        Table(
+                            "scorm_attempts",
+                            MetaData(),
+                            Column("user_id", PG_UUID),
+                            Column("course_id", PG_UUID),
+                            Column("enrollment_id", PG_UUID),
+                        )
                     )
                     .where(
                         and_(
                             text("scorm_attempts.user_id = users.id"),
                             text("scorm_attempts.course_id = courses.id"),
+                            text(
+                                "(scorm_attempts.enrollment_id = enrollments.id OR "
+                                "(enrollments.recurring_assignment_id IS NULL "
+                                "AND enrollments.previous_enrollment_id IS NULL "
+                                "AND scorm_attempts.enrollment_id IS NULL))"
+                            ),
                         )
                     )
                     .exists(),
@@ -438,19 +463,34 @@ async def count_training_log(
                         text("progress.course_id = courses.id"),
                         text("progress.completed = TRUE"),
                         text(
-                            "((enrollments.recurring_assignment_id IS NULL AND progress.enrollment_id IS NULL) OR progress.enrollment_id = enrollments.id)"
+                            "((enrollments.recurring_assignment_id IS NULL "
+                            "AND enrollments.previous_enrollment_id IS NULL "
+                            "AND progress.enrollment_id IS NULL) "
+                            "OR progress.enrollment_id = enrollments.id)"
                         ),
                     )
                 )
                 .exists(),
                 ~select(1)
                 .select_from(
-                    Table("scorm_attempts", MetaData(), Column("user_id", PG_UUID), Column("course_id", PG_UUID))
+                    Table(
+                        "scorm_attempts",
+                        MetaData(),
+                        Column("user_id", PG_UUID),
+                        Column("course_id", PG_UUID),
+                        Column("enrollment_id", PG_UUID),
+                    )
                 )
                 .where(
                     and_(
                         text("scorm_attempts.user_id = users.id"),
                         text("scorm_attempts.course_id = courses.id"),
+                        text(
+                            "(scorm_attempts.enrollment_id = enrollments.id OR "
+                            "(enrollments.recurring_assignment_id IS NULL "
+                            "AND enrollments.previous_enrollment_id IS NULL "
+                            "AND scorm_attempts.enrollment_id IS NULL))"
+                        ),
                     )
                 )
                 .exists(),
@@ -713,6 +753,8 @@ async def list_training_log(
             Enrollment.status.label("enrollment_status"),
             Enrollment.source.label("enrollment_source"),
             Enrollment.id.label("enrollment_id"),
+            Enrollment.previous_enrollment_id.label("previous_enrollment_id"),
+            Enrollment.reassignment_reason.label("reassignment_reason"),
             Enrollment.content_release_id.label("content_release_id"),
             Enrollment.enrolled_at,
             Enrollment.completed_at,
@@ -744,6 +786,7 @@ async def list_training_log(
                     native_activity.c.enrollment_id == Enrollment.id,
                     and_(
                         Enrollment.recurring_assignment_id.is_(None),
+                        Enrollment.previous_enrollment_id.is_(None),
                         native_activity.c.enrollment_id.is_(None),
                     ),
                 ),
@@ -754,6 +797,14 @@ async def list_training_log(
             and_(
                 scorm_activity.c.user_id == User.id,
                 scorm_activity.c.course_id == CourseModel.id,
+                or_(
+                    scorm_activity.c.enrollment_id == Enrollment.id,
+                    and_(
+                        Enrollment.recurring_assignment_id.is_(None),
+                        Enrollment.previous_enrollment_id.is_(None),
+                        scorm_activity.c.enrollment_id.is_(None),
+                    ),
+                ),
             ),
         )
         .outerjoin(course_lessons, course_lessons.c.course_id == CourseModel.id)
@@ -982,7 +1033,10 @@ async def list_training_log(
         completed_lessons = int(r["completed_lessons"] or 0)
         total_lessons = int(r["total_lessons"] or 0)
 
-        if is_completed:
+        if r["enrollment_status"] in {"cancelled", "superseded"}:
+            progress_percent = 0
+            computed_status = r["enrollment_status"]
+        elif is_completed:
             progress_percent = 100
             computed_status = "completed"
         elif is_scorm:
@@ -1036,6 +1090,8 @@ async def list_training_log(
                 "delivery_type": r["delivery_type"],
                 "enrollment_status": r["enrollment_status"],
                 "enrollment_source": r["enrollment_source"],
+                "previous_enrollment_id": r["previous_enrollment_id"],
+                "reassignment_reason": r["reassignment_reason"],
                 "enrollment_id": r["enrollment_id"],
                 "content_release_id": r["content_release_id"],
                 "enrolled_at": r["enrolled_at"],
@@ -1071,6 +1127,94 @@ async def list_training_log(
             }
         )
     return result
+
+
+async def count_reassigned_training_log(db: AsyncSession, tenant_id: UUID, f: TrainingLogFilter) -> int:
+    """Count current reassignment occurrences without folding history into totals."""
+    from app.modules.positions.models import Position as PositionModel
+
+    stmt = (
+        select(func.count())
+        .select_from(User)
+        .join(Enrollment, Enrollment.user_id == User.id)
+        .join(CourseModel, CourseModel.id == Enrollment.course_id)
+        .outerjoin(PositionModel, PositionModel.id == User.position_id)
+        .where(Enrollment.previous_enrollment_id.is_not(None))
+    )
+    stmt, _ = _join_cycle_read_model(stmt, tenant_id)
+    stmt = _apply_filters(stmt, f, tenant_id)
+    if f.department_id:
+        unit_scope = await _organization_unit_scope(db, tenant_id, f.department_id)
+        stmt = stmt.where(
+            or_(
+                User.organization_unit_id.in_(unit_scope),
+                and_(User.organization_unit_id.is_(None), PositionModel.department_id.in_(unit_scope)),
+            )
+        )
+    if f.position_id:
+        stmt = stmt.where(User.position_id == f.position_id)
+    return int((await db.scalar(stmt)) or 0)
+
+
+async def count_current_attempt_outcomes(db: AsyncSession, tenant_id: UUID, f: TrainingLogFilter) -> tuple[int, int]:
+    """Return (failed_current, exhausted_attempts) by exact enrollment occurrence.
+
+    A failed occurrence has an unresolved quiz failure: at least one failed
+    submission and no passing submission for that same quiz. An exhausted
+    occurrence has an individual quiz whose enrollment-scoped failed attempts
+    reach that quiz's configured limit. Historical cancelled/superseded rows
+    are deliberately excluded unless the caller explicitly requests history.
+    """
+    from app.modules.positions.models import Position as PositionModel
+
+    eligible = (
+        select(Enrollment.id)
+        .select_from(User)
+        .join(Enrollment, Enrollment.user_id == User.id)
+        .join(CourseModel, CourseModel.id == Enrollment.course_id)
+        .outerjoin(PositionModel, PositionModel.id == User.position_id)
+    )
+    eligible, _ = _join_cycle_read_model(eligible, tenant_id)
+    eligible = _apply_filters(eligible, f.model_copy(update={"status": None}), tenant_id)
+    if f.department_id:
+        unit_scope = await _organization_unit_scope(db, tenant_id, f.department_id)
+        eligible = eligible.where(
+            or_(
+                User.organization_unit_id.in_(unit_scope),
+                and_(User.organization_unit_id.is_(None), PositionModel.department_id.in_(unit_scope)),
+            )
+        )
+    if f.position_id:
+        eligible = eligible.where(User.position_id == f.position_id)
+    eligible = eligible.subquery()
+    quizzes = Table("quizzes", MetaData(), Column("id", PG_UUID), Column("attempt_limit", Integer))
+    attempts = Table(
+        "quiz_attempts", MetaData(), Column("id", PG_UUID), Column("tenant_id", PG_UUID),
+        Column("enrollment_id", PG_UUID), Column("quiz_id", PG_UUID), Column("passed", Boolean),
+    )
+    by_quiz = (
+        select(
+            attempts.c.enrollment_id.label("enrollment_id"),
+            attempts.c.quiz_id.label("quiz_id"),
+            func.count(attempts.c.id).label("attempt_count"),
+            func.bool_or(attempts.c.passed).label("has_passed"),
+        )
+        .where(attempts.c.tenant_id == tenant_id, attempts.c.enrollment_id.in_(select(eligible.c.id)))
+        .group_by(attempts.c.enrollment_id, attempts.c.quiz_id)
+        .subquery()
+    )
+    # A learner who failed first and then passed the same quiz no longer belongs
+    # in "failed current". Count only unresolved failed quiz outcomes.
+    failed_current = await db.scalar(
+        select(func.count(func.distinct(by_quiz.c.enrollment_id))).where(by_quiz.c.has_passed.is_(False))
+    )
+    exhausted_attempts = await db.scalar(
+        select(func.count(func.distinct(by_quiz.c.enrollment_id)))
+        .select_from(by_quiz)
+        .join(quizzes, quizzes.c.id == by_quiz.c.quiz_id)
+        .where(by_quiz.c.attempt_count >= quizzes.c.attempt_limit, by_quiz.c.has_passed.is_(False))
+    )
+    return int(failed_current or 0), int(exhausted_attempts or 0)
 
 
 async def stream_training_log_csv(

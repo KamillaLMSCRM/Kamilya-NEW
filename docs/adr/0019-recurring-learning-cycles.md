@@ -31,6 +31,15 @@ time-based recurrence.
 
 Introduce a separate, methodologist-owned learning-cycle domain.
 
+Manual repeat assignment uses the same occurrence principle without creating a
+recurrence rule. A methodologist must select the exact current manual
+enrollment and record a reason. The system creates a new enrollment linked by
+`previous_enrollment_id`; it never reopens a completed row. An open predecessor
+may become `superseded`, while completed and cancelled predecessors retain their
+original status. Operational reads select only the head of this occurrence
+chain; the training log exposes predecessors only through an explicit history
+view. Rule-owned enrollments remain under their own rule or cycle workflow.
+
 - A tenant-scoped cycle template declares a published course or a published
   learning-path version, recurrence calendar, timezone, due-date policy and
   reminder policy. Changes apply only to future cycle instances.

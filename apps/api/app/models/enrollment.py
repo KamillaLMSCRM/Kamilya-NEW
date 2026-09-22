@@ -42,3 +42,14 @@ class Enrollment(Base):
     # learning_path and future unknown sources are protected from rule
     # recomputation.
     source = Column(Text, nullable=False, default="manual", server_default="manual")
+    # A reassignment is a new immutable occurrence.  These fields link it to
+    # retained evidence without reopening or rewriting the predecessor.
+    previous_enrollment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("enrollments.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    reassignment_reason = Column(Text, nullable=True)
+    reassigned_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    reassigned_at = Column(DateTime(timezone=True), nullable=True)

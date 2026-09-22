@@ -10,6 +10,7 @@ from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
 from app.models.enrollment import Enrollment
 from app.models.users import User
+from app.modules.enrollments.occurrences import is_current_occurrence
 from app.modules.enrollments.schemas import (
     AssignmentAccessExchangeRequest,
     AssignmentAccessExchangeResponse,
@@ -23,12 +24,15 @@ from app.modules.enrollments.schemas import (
     EnrollmentNotificationResponse,
     EnrollmentResponse,
     PersonalLinkEnrollmentCreate,
+    ReassignmentCreate,
+    ReassignmentResponse,
 )
 from app.modules.enrollments.service import (
     enroll_users,
     get_course_enrollment_stats,
     get_enrolled_users,
     get_enrollment_access,
+    reassign_manual_enrollment,
     resend_enrollment_notification,
     self_enroll,
     unenroll,
@@ -50,13 +54,20 @@ async def global_enrollment_stats(
     user: User = Depends(get_current_user),
 ):
     """Global enrollment statistics for dashboard."""
-    total_result = await db.execute(select(func.count(Enrollment.id)).where(Enrollment.tenant_id == user.tenant_id))
+    total_result = await db.execute(
+        select(func.count(Enrollment.id)).where(
+            Enrollment.tenant_id == user.tenant_id,
+            Enrollment.status.notin_(("cancelled", "superseded")),
+            is_current_occurrence(),
+        )
+    )
     total = total_result.scalar() or 0
 
     completed_result = await db.execute(
         select(func.count(Enrollment.id)).where(
             Enrollment.tenant_id == user.tenant_id,
             Enrollment.status == "completed",
+            is_current_occurrence(),
         )
     )
     completed = completed_result.scalar() or 0
@@ -121,6 +132,37 @@ async def create_enrollments(
     except ValueError as exc:
         status_code = 409 if "published" in str(exc) else 404
         raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+
+
+@router.post("/{course_id}/reassignments", response_model=ReassignmentResponse, status_code=201)
+async def create_reassignment(
+    course_id: UUID,
+    req: ReassignmentCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(*_ENROLLMENT_MANAGER_ROLES)),
+):
+    try:
+        enrollment = await reassign_manual_enrollment(
+            db,
+            course_id=course_id,
+            tenant_id=user.tenant_id,
+            user_id=req.user_id,
+            previous_enrollment_id=req.previous_enrollment_id,
+            reassigned_by=user.id,
+            reason=req.reason,
+        )
+        await db.commit()
+    except ValueError as exc:
+        await db.rollback()
+        detail = str(exc)
+        status_code = 404 if detail in {"Course not found", "Learner not found", "Manual enrollment not found"} else 409
+        raise HTTPException(status_code=status_code, detail=detail) from exc
+    return ReassignmentResponse(
+        enrollment=EnrollmentResponse.model_validate(enrollment),
+        previous_enrollment_id=enrollment.previous_enrollment_id,
+        predecessor_status=enrollment.predecessor_status,
+        reason=enrollment.reassignment_reason,
+    )
 
 
 @router.post(

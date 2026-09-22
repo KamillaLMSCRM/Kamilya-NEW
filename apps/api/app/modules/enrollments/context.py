@@ -6,6 +6,21 @@ from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enrollment import Enrollment
+from app.modules.enrollments.occurrences import is_current_occurrence
+
+
+def scoped_enrollment_id(enrollment: Enrollment | None) -> UUID | None:
+    """Return the occurrence key for state that must not leak across cycles.
+
+    Historic first-generation manual assignments used NULL-scoped progress and
+    retain that contract. Recurring and manually repeated assignments are true
+    occurrences and therefore use their exact enrollment ID.
+    """
+    if enrollment is None:
+        return None
+    if getattr(enrollment, "recurring_assignment_id", None) or getattr(enrollment, "previous_enrollment_id", None):
+        return enrollment.id
+    return None
 
 
 async def current_enrollment(db: AsyncSession, *, tenant_id: UUID, user_id: UUID, course_id: UUID) -> Enrollment | None:
@@ -17,6 +32,7 @@ async def current_enrollment(db: AsyncSession, *, tenant_id: UUID, user_id: UUID
             Enrollment.user_id == user_id,
             Enrollment.course_id == course_id,
             Enrollment.status.in_(("enrolled", "in_progress", "completed")),
+            is_current_occurrence(),
         )
         .order_by(
             case((Enrollment.status.in_(("enrolled", "in_progress")), 0), else_=1),

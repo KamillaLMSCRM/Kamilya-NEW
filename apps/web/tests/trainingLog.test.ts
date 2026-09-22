@@ -20,6 +20,11 @@ describe('training-log request and count text', () => {
       .toBe('status=overdue');
   });
 
+  it('requests historical enrollment rows only when explicitly enabled', () => {
+    expect(buildTrainingLogFilterQuery({ history: true }, '').toString()).toBe('history=true');
+    expect(buildTrainingLogFilterQuery({}, '').toString()).toBe('');
+  });
+
   it.each([
     [ru, 'Всего записей: 2', 'Показаны 1–2'],
     [kk, 'Барлығы: 2', '1–2 көрсетілді'],
@@ -49,6 +54,12 @@ describe('training-log request and count text', () => {
     expect(locale.trainingLog.badge.certificateExpiring).toBeTruthy();
     expect(locale.trainingLog.badge.certificateExpired).toBeTruthy();
     expect(locale.trainingLog.badge.certificateRevoked).toBeTruthy();
+  });
+
+  it.each([ru, kk, en])('labels historical lifecycle states explicitly', (locale) => {
+    expect(locale.trainingLog.history.include).toBeTruthy();
+    expect(locale.trainingLog.history.cancelled).toBeTruthy();
+    expect(locale.trainingLog.history.superseded).toBeTruthy();
   });
 });
 

@@ -16,6 +16,7 @@ from app.modules.enrollments.notification_outbox import (
     PostgresAssignmentNotificationStore,
     queue_manual_enrollment_notification,
 )
+from app.modules.enrollments.occurrences import is_current_occurrence
 
 
 async def get_enrolled_users(db: AsyncSession, course_id: UUID, tenant_id: UUID):
@@ -34,6 +35,7 @@ async def get_enrolled_users(db: AsyncSession, course_id: UUID, tenant_id: UUID)
             Enrollment.course_id == course_id,
             Enrollment.tenant_id == tenant_id,
             Enrollment.status.in_(("enrolled", "in_progress", "completed")),
+            is_current_occurrence(),
         )
     )
     enrollments = list(result.scalars().all())
@@ -289,6 +291,104 @@ async def enroll_users(
             )
             enrollment.notification_outbox_id = notification_id
     return enrollments
+
+
+async def reassign_manual_enrollment(
+    db: AsyncSession,
+    *,
+    course_id: UUID,
+    tenant_id: UUID,
+    user_id: UUID,
+    previous_enrollment_id: UUID,
+    reassigned_by: UUID,
+    reason: str,
+) -> Enrollment:
+    """Create one immutable manual occurrence from the learner's current history.
+
+    The predecessor is retained as evidence.  Only an open manual occurrence is
+    superseded; completed and cancelled rows remain unchanged.
+    """
+    course = await db.scalar(select(Course).where(Course.id == course_id, Course.tenant_id == tenant_id))
+    if course is None:
+        raise ValueError("Course not found")
+    if course.status != "published":
+        raise ValueError("Course must be published before reassignment")
+    learner = await db.scalar(
+        select(User)
+        .where(User.id == user_id, User.tenant_id == tenant_id, User.role == "student")
+        .with_for_update()
+    )
+    if learner is None:
+        raise ValueError("Learner not found")
+
+    rows = list(
+        (await db.scalars(
+            select(Enrollment)
+            .where(
+                Enrollment.course_id == course_id,
+                Enrollment.user_id == user_id,
+                Enrollment.tenant_id == tenant_id,
+            )
+            .order_by(Enrollment.enrolled_at.desc(), Enrollment.id.desc())
+            .with_for_update()
+        )).all()
+    )
+    open_rows = [row for row in rows if row.status in {"enrolled", "in_progress"}]
+    if any(row.source != "manual" for row in open_rows):
+        raise ValueError("Rule-driven enrollments must be changed through their owner workflow")
+    predecessor = next((row for row in rows if row.id == previous_enrollment_id), None)
+    if predecessor is None:
+        raise ValueError("Manual enrollment not found")
+    if predecessor.source != "manual":
+        raise ValueError("Rule-driven enrollments must be changed through their owner workflow")
+    if any(row.previous_enrollment_id == predecessor.id for row in rows):
+        raise ValueError("Selected enrollment is historical; refresh assignments and retry")
+    if open_rows and predecessor.id not in {row.id for row in open_rows}:
+        raise ValueError("Selected enrollment is not the current assignment")
+
+    release = await ensure_course_release(db, course)
+    now = datetime.now(UTC)
+    predecessor_status = predecessor.status
+    if predecessor.status in {"enrolled", "in_progress"}:
+        predecessor.status = "superseded"
+        await db.execute(
+            update(AssignmentAccessCredential)
+            .where(
+                AssignmentAccessCredential.enrollment_id == predecessor.id,
+                AssignmentAccessCredential.tenant_id == tenant_id,
+                AssignmentAccessCredential.revoked_at.is_(None),
+            )
+            .values(revoked_at=now, revoked_reason="Enrollment superseded by reassignment")
+        )
+        await db.execute(
+            update(EnrollmentAccessPolicy)
+            .where(
+                EnrollmentAccessPolicy.enrollment_id == predecessor.id,
+                EnrollmentAccessPolicy.tenant_id == tenant_id,
+            )
+            .values(revoked_at=now, revoked_reason="Enrollment superseded by reassignment")
+        )
+        # Release the partial current-occurrence uniqueness slot before the new
+        # occurrence is inserted in this same locked transaction.
+        await db.flush()
+
+    enrollment = Enrollment(
+        id=uuid4(),
+        course_id=course_id,
+        user_id=user_id,
+        tenant_id=tenant_id,
+        content_release_id=release.id,
+        status="enrolled",
+        source="manual",
+        previous_enrollment_id=predecessor.id,
+        reassignment_reason=reason.strip(),
+        reassigned_by=reassigned_by,
+        reassigned_at=now,
+    )
+    db.add(enrollment)
+    await db.flush()
+    enrollment.predecessor_status = predecessor_status
+    return enrollment
 
 
 async def resend_enrollment_notification(db: AsyncSession, *, tenant_id: UUID, enrollment_id: UUID) -> UUID | None:

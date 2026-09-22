@@ -9,6 +9,8 @@ from app.models.courses import Course
 from app.models.enrollment import Enrollment
 from app.models.progress import Progress
 from app.modules.certificates.models import Certificate
+from app.modules.enrollments.context import current_enrollment, scoped_enrollment_id
+from app.modules.enrollments.occurrences import is_current_occurrence
 from app.modules.lessons.models import Lesson, Module
 
 
@@ -40,6 +42,11 @@ async def get_student_dashboard(
     )
     if enrollment_id is not None:
         enrollment_query = enrollment_query.where(Enrollment.id == enrollment_id)
+    else:
+        enrollment_query = enrollment_query.where(
+            Enrollment.status.notin_(("cancelled", "superseded")),
+            is_current_occurrence(),
+        )
     enrollments_result = await db.execute(enrollment_query)
     enrollments = enrollments_result.all()
 
@@ -85,7 +92,7 @@ async def get_student_dashboard(
             progress_percent = 100 if enrollment.status == "completed" else 0
         else:
             total_lessons = totals_by_course.get(course.id, [0, 0])[0]
-            progress_key = enrollment.id if enrollment.recurring_assignment_id else None
+            progress_key = scoped_enrollment_id(enrollment)
             completed_lessons = completed_by_instance.get((course.id, progress_key), 0)
             progress_percent = round((completed_lessons / total_lessons * 100) if total_lessons > 0 else 0)
 
@@ -141,10 +148,8 @@ async def get_course_progress_detail(db: AsyncSession, user_id: UUID, course_id:
     if not course:
         return None
 
-    from app.modules.enrollments.context import current_enrollment
-
     enrollment = await current_enrollment(db, tenant_id=tenant_id, user_id=user_id, course_id=course_id)
-    progress_enrollment_id = enrollment.id if enrollment and enrollment.recurring_assignment_id else None
+    progress_enrollment_id = scoped_enrollment_id(enrollment)
     # Get modules
     modules_result = await db.execute(select(Module).where(Module.course_id == course_id).order_by(Module.order_index))
     modules = modules_result.scalars().all()

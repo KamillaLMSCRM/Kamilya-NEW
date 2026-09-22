@@ -15,6 +15,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.10.0] - 2026-09-22
+
+### Added
+
+- Let a methodologist explicitly assign the same course again with a required
+  reason while preserving the learner's previous completion and quiz history.
+- Add current/history switching to the training journal and expose failed,
+  exhausted-attempt, repeated, cancelled-history and superseded-history counts
+  on the main methodologist dashboard.
+
+### Changed
+
+- Treat every manual repeat as a new enrollment occurrence bound to the current
+  published course release. Attempt limits start again only for that new
+  occurrence.
+- Keep operational assignment lists and statistics on the current occurrence;
+  retained predecessors appear only in the explicit history view.
+- Bind lesson progress, quiz availability, SCORM activity and certificates to
+  the new occurrence while preserving legacy one-time progress in place.
+
+### Fixed
+
+- Prevent cancelled, superseded or completed predecessor rows from inflating
+  current training totals after a repeat assignment.
+- Prevent a repeated course from inheriting or overwriting lesson progress from
+  the previous occurrence.
+- Scope SCORM activity to the exact enrollment occurrence in the training log.
+
+### Security
+
+- Validate predecessor, learner, course and methodologist ownership in both the
+  API transaction and a tenant-aware database trigger under FORCE RLS.
+- Reject rule-owned and stale historical assignments from the manual repeat
+  workflow.
+
 ## [0.9.2] - 2026-09-22
 
 ### Added
@@ -1389,7 +1424,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.8.2...v0.9.0

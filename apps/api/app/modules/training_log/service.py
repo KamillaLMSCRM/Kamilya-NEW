@@ -20,6 +20,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.training_log.repository import (
+    count_current_attempt_outcomes,
+    count_reassigned_training_log,
     count_training_log,
     list_training_log,
     stream_training_log_csv,
@@ -127,9 +129,18 @@ def _csv_value(field: str, value, lang: str):
         return ""
     if field == "certificate_status":
         labels = {
-            "ru": {"none": "Нет", "active": "Действует", "expiring": "Истекает", "expired": "Истёк", "revoked": "Отозван"},
-            "kk": {"none": "Жоқ", "active": "Жарамды", "expiring": "Мерзімі жақын", "expired": "Мерзімі өткен", "revoked": "Күші жойылған"},
-            "en": {"none": "None", "active": "Active", "expiring": "Expiring", "expired": "Expired", "revoked": "Revoked"},
+            "ru": {
+                "none": "Нет", "active": "Действует", "expiring": "Истекает",
+                "expired": "Истёк", "revoked": "Отозван",
+            },
+            "kk": {
+                "none": "Жоқ", "active": "Жарамды", "expiring": "Мерзімі жақын",
+                "expired": "Мерзімі өткен", "revoked": "Күші жойылған",
+            },
+            "en": {
+                "none": "None", "active": "Active", "expiring": "Expiring",
+                "expired": "Expired", "revoked": "Revoked",
+            },
         }
         return labels[lang].get(str(value), value)
     if field == "organization_unit_path" and isinstance(value, list):
@@ -221,14 +232,29 @@ async def get_training_log_summary(
 ) -> TrainingLogSummary:
     """Return status counts using the same repository status semantics as the table."""
     f = f or TrainingLogFilter()
-    assigned = await count_training_log(db, tenant_id, f.model_copy(update={"status": "assigned"}))
-    in_progress = await count_training_log(db, tenant_id, f.model_copy(update={"status": "in_progress"}))
-    completed = await count_training_log(db, tenant_id, f.model_copy(update={"status": "completed"}))
-    overdue = await count_training_log(db, tenant_id, f.model_copy(update={"status": "overdue"}))
+    # Operational cards remain current even when the table deliberately includes
+    # history. Historical lifecycle totals have their own explicit fields below.
+    current = f.model_copy(update={"history": False})
+    assigned = await count_training_log(db, tenant_id, current.model_copy(update={"status": "assigned"}))
+    in_progress = await count_training_log(db, tenant_id, current.model_copy(update={"status": "in_progress"}))
+    completed = await count_training_log(db, tenant_id, current.model_copy(update={"status": "completed"}))
+    overdue = await count_training_log(db, tenant_id, current.model_copy(update={"status": "overdue"}))
+    reassigned = await count_reassigned_training_log(db, tenant_id, current.model_copy(update={"status": None}))
+    history = f.model_copy(update={"history": True})
+    cancelled_history = await count_training_log(db, tenant_id, history.model_copy(update={"status": "cancelled"}))
+    superseded_history = await count_training_log(db, tenant_id, history.model_copy(update={"status": "superseded"}))
+    failed_current, exhausted_attempts = await count_current_attempt_outcomes(
+        db, tenant_id, current.model_copy(update={"status": None})
+    )
     return TrainingLogSummary(
         total=assigned + in_progress + completed,
         assigned=assigned,
         in_progress=in_progress,
         completed=completed,
         overdue=overdue,
+        reassigned=reassigned,
+        cancelled_history=cancelled_history,
+        superseded_history=superseded_history,
+        failed_current=failed_current,
+        exhausted_attempts=exhausted_attempts,
     )

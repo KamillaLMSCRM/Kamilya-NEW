@@ -54,7 +54,8 @@ async def fixture_count(engine) -> int:
 
 
 async def main() -> int:
-    values = dotenv_values(Path(__file__).resolve().parents[2] / ".env")
+    root = Path(__file__).resolve().parents[2]
+    values = dotenv_values(Path(os.environ.get("KAMILYA_DEV_ENV_FILE", root / ".env")))
     runtime_rls = "--runtime-rls" in sys.argv
     try:
         expected_revision = sys.argv[sys.argv.index("--expected-revision") + 1]

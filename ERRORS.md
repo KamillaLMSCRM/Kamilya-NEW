@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-19.
+Current as of: 2026-09-22.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -3602,3 +3602,37 @@ contract or establish a blocker.
   remote-executor contract test in the same change. Readback scripts must use
   the exact source-controlled `project_prefix`; do not infer container names
   from pre-release Compose history.
+
+## LEARNING-003 - Repeat-assignment UI and API drifted before integration review
+
+- Date: 2026-09-22.
+- Symptom: the first delegated frontend expected `include_history`,
+  `total_history`, `attempts_exhausted` and `lifecycle_status`, while the API
+  exposed `history`, `total`, `exhausted_attempts` and `enrollment_status`.
+  TypeScript passed because the summary response was treated as an untyped
+  record; production would have shown dashes and the history toggle would have
+  been ignored.
+- Cause: backend and frontend were implemented in parallel from prose instead
+  of one executable wire contract. The initial current-row filter also removed
+  cancelled/superseded statuses but still counted an immutable completed
+  predecessor referenced by a new occurrence. Independent review then found
+  that legacy NULL-scoped lesson progress would be inherited by a manual repeat,
+  history mode could contaminate current summary cards, and the first trigger
+  draft revalidated an actor's present-day role on every later status update.
+- Fix: align the exact query/response names, bind the mutation to the selected
+  `previous_enrollment_id`, and centralize current-occurrence SQL as a NOT EXISTS
+  successor predicate. The assignments list, journal and summary now share that
+  occurrence-head rule. Repeated progress uses the exact enrollment ID across
+  progress, learner dashboard, quiz availability and training-log joins; summary
+  cards remain current while history has explicit counters; immutable audit
+  identity no longer blocks status updates after the actor changes role.
+- Verification: focused web tests 43 PASS; full web 664 PASS; typecheck and
+  production build PASS; API database-free 3059 PASS / 495 integration-only
+  skipped; migration/static contracts PASS; isolated Supabase DEV
+  migration, restricted-role FORCE RLS, ownership negatives, post-demotion
+  status update, downgrade/re-upgrade and cleanup PASS.
+- Prevention: every parallel API/UI slice must end with one executable contract
+  test that asserts exact query names, response keys and a completed-predecessor
+  chain before full suites or release. Run repository-root tests from their
+  documented working directory; a wrong cwd is an execution artifact, not a
+  product regression.

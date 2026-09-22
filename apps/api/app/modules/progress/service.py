@@ -7,12 +7,12 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.progress import Progress
-from app.modules.enrollments.context import current_enrollment
+from app.modules.enrollments.context import current_enrollment, scoped_enrollment_id
 from app.modules.lessons.models import Lesson, Module
 
 
 def _progress_instance_id(enrollment):
-    return enrollment.id if enrollment and enrollment.recurring_assignment_id else None
+    return scoped_enrollment_id(enrollment)
 
 
 async def _lesson_context(db, user_id, lesson_id, tenant_id):

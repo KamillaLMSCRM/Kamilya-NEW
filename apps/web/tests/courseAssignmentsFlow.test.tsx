@@ -116,6 +116,38 @@ describe('contextual course assignment flow', () => {
     expect(screen.getByText('После назначения будет создана ссылка доступа')).toBeInTheDocument();
   });
 
+  it('requires a reason to repeat a manual assignment and refreshes the assignment list', async () => {
+    let enrollmentReads = 0;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!init?.method && url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([{ id: 'course-1', title: 'Охрана труда', status: 'published' }]));
+      if (!init?.method && url.includes('/v1/users?')) return Promise.resolve(jsonResponse({ users: [{ id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: 'aliya@example.kz', role: 'student' }] }));
+      if (!init?.method && url.endsWith('/v1/learning-cycles')) return Promise.resolve(jsonResponse([]));
+      if (!init?.method && url.endsWith('/v1/learning-cycles/occurrences')) return Promise.resolve(jsonResponse([]));
+      if (!init?.method && url.endsWith('/v1/courses/course-1/enrollments')) {
+        enrollmentReads += 1;
+        return Promise.resolve(jsonResponse([{ id: 'enrollment-1', user_id: 'user-1', course_id: 'course-1', status: 'completed', source: 'manual', enrolled_at: '2026-01-01T00:00:00Z' }]));
+      }
+      if (init?.method === 'POST' && url.endsWith('/v1/courses/course-1/reassignments')) return Promise.resolve(jsonResponse({ previous_enrollment: { id: 'enrollment-1' }, new_enrollment: { id: 'enrollment-2' } }, 201));
+      throw new Error(`Unexpected request: ${url} ${init?.method || 'GET'}`);
+    });
+
+    render(<CourseAssignmentsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Назначить повторно' }));
+    const submit = screen.getByRole('button', { name: 'Создать повторное назначение' });
+    expect(submit).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Причина повторного назначения (обязательно)'), { target: { value: 'Annual recertification' } });
+    expect(submit).toBeEnabled();
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/courses/course-1/reassignments'),
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ user_id: 'user-1', previous_enrollment_id: 'enrollment-1', reason: 'Annual recertification' }) }),
+    ));
+    await waitFor(() => expect(enrollmentReads).toBeGreaterThanOrEqual(2));
+    expect(toastMock.success).toHaveBeenCalledWith('Новое назначение создано; прежняя история сохранена.');
+  });
+
   it('shows recurring learning controls with independent occurrence semantics', async () => {
     render(<CourseAssignmentsPage />);
 

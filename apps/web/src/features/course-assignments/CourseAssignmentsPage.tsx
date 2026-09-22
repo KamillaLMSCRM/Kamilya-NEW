@@ -203,6 +203,9 @@ export default function EnrollmentsPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string>('');
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [repeatReasons, setRepeatReasons] = useState<Record<string, string>>({});
+  const [repeatTarget, setRepeatTarget] = useState<string | null>(null);
+  const [repeating, setRepeating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
@@ -469,6 +472,35 @@ export default function EnrollmentsPage() {
       fetchEnrollments(selectedCourse);
     } catch (err: any) {
       toast.error(t('common.saveFailed'), { description: err?.message });
+    }
+  };
+
+  const repeatEnrollment = async (enrollment: Enrollment) => {
+    const reason = (repeatReasons[enrollment.id] || '').trim();
+    if (!reason || !selectedCourse || !token || enrollment.source !== 'manual') return;
+    setRepeating(true);
+    try {
+      const response = await fetch(`${API_URL}/v1/courses/${selectedCourse}/reassignments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          user_id: enrollment.user_id,
+          previous_enrollment_id: enrollment.id,
+          reason,
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error?.detail || t('courseAssignments.repeat.failed'));
+      }
+      toast.success(t('courseAssignments.repeat.success'));
+      setRepeatTarget(null);
+      setRepeatReasons((current) => ({ ...current, [enrollment.id]: '' }));
+      await fetchEnrollments(selectedCourse);
+    } catch (error: any) {
+      toast.error(t('courseAssignments.repeat.failed'), { description: error?.message });
+    } finally {
+      setRepeating(false);
     }
   };
 
@@ -1061,6 +1093,18 @@ export default function EnrollmentsPage() {
                               >
                                 {sourceInfo.managedByRule ? t('assignmentSources.managedByRule') : t('common.delete')}
                               </Button>
+                              {canManageAssignments && e.source === 'manual' && e.status !== 'cancelled' && e.status !== 'superseded' && (
+                                <div className="mt-2 space-y-2">
+                                  {repeatTarget === e.id ? (
+                                    <>
+                                      <label className="block text-xs" htmlFor={`repeat-reason-${e.id}`}>{t('courseAssignments.repeat.reason')}</label>
+                                      <Input id={`repeat-reason-${e.id}`} value={repeatReasons[e.id] || ''} onChange={(event) => setRepeatReasons((current) => ({ ...current, [e.id]: event.target.value}))} />
+                                      <p className="text-xs text-muted-foreground">{t('courseAssignments.repeat.historyPreserved')}</p>
+                                      <Button size="sm" disabled={!repeatReasons[e.id]?.trim() || repeating} onClick={() => void repeatEnrollment(e)}>{t('courseAssignments.repeat.confirm')}</Button>
+                                    </>
+                                  ) : <Button variant="outline" size="sm" onClick={() => setRepeatTarget(e.id)}>{t('courseAssignments.repeat.action')}</Button>}
+                                </div>
+                              )}
                             </td>
                           </tr>
                         );

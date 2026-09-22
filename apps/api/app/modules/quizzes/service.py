@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.courses.release_service import canonical_json_sha256, ensure_course_release
+from app.modules.enrollments.context import current_enrollment, scoped_enrollment_id
 from app.modules.quizzes.models import Question, Quiz, QuizAttempt, QuizChoice
 
 
@@ -160,7 +161,6 @@ async def _is_quiz_expired(db: AsyncSession, quiz: Quiz, user_id: UUID, tenant_i
     considered expired (methodologist may have shared quiz without forced progression).
     """
     from app.models.progress import Progress
-    from app.modules.enrollments.context import current_enrollment
     from app.modules.lessons.models import Lesson, Module
 
     course_id = await db.scalar(
@@ -169,7 +169,7 @@ async def _is_quiz_expired(db: AsyncSession, quiz: Quiz, user_id: UUID, tenant_i
     enrollment = (
         await current_enrollment(db, tenant_id=tenant_id, user_id=user_id, course_id=course_id) if course_id else None
     )
-    progress_enrollment_id = enrollment.id if enrollment and enrollment.recurring_assignment_id else None
+    progress_enrollment_id = scoped_enrollment_id(enrollment)
 
     progress_result = await db.execute(
         select(Progress).where(

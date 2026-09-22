@@ -328,7 +328,7 @@ def test_personal_link_completion_certificate_is_bound_to_explicit_enrollment() 
 
     service = Path("app/modules/certificates/service.py").read_text(encoding="utf-8")
     router = Path("app/modules/certificates/router.py").read_text(encoding="utf-8")
-    assert "enrollment_id is not None or enrollment.recurring_assignment_id" in service
+    assert "enrollment.id if enrollment_id is not None else scoped_enrollment_id(enrollment)" in service
     assert 'getattr(user, "assignment_access_enrollment_id", None) is not None' in router
     assert "Certificate is issued by course completion" in router
 

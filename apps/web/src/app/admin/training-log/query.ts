@@ -7,6 +7,7 @@ export interface TrainingLogFilters {
   date_from?: string;
   date_to?: string;
   search?: string;
+  history?: boolean;
 }
 
 /** Build the shared, non-paginated filter portion for table, summary, and CSV. */

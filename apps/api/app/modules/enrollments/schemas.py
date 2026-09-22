@@ -37,7 +37,22 @@ class EnrollmentResponse(BaseModel):
     notification_attempt_count: int = 0
     notification_delivered_at: datetime | None = None
     notification_error: str | None = None
+    previous_enrollment_id: UUID | None = None
+    reassignment_reason: str | None = None
     model_config = {"from_attributes": True}
+
+
+class ReassignmentCreate(BaseModel):
+    user_id: UUID
+    previous_enrollment_id: UUID
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class ReassignmentResponse(BaseModel):
+    enrollment: EnrollmentResponse
+    previous_enrollment_id: UUID
+    predecessor_status: str
+    reason: str
 
 
 class EnrollmentAccessResponse(BaseModel):

@@ -14,4 +14,13 @@ describe('course assignment selector copy', () => {
 
     expect(messages.courses.selectCourseCount).toBe(expected);
   });
+
+  it.each(['ru', 'kk', 'en'])('provides localized repeat-assignment safeguards for %s', (locale) => {
+    const messages = JSON.parse(
+      readFileSync(resolve(process.cwd(), `src/i18n/locales/${locale}.json`), 'utf8'),
+    );
+    expect(messages.courseAssignments.repeat.reason).toBeTruthy();
+    expect(messages.courseAssignments.repeat.historyPreserved).toBeTruthy();
+    expect(messages.courseAssignments.repeat.failed).toBeTruthy();
+  });
 });
