@@ -262,6 +262,31 @@ describe('course lesson editor', () => {
     expect(screen.getByDisplayValue('# Несохранённый текст')).toBeInTheDocument();
   });
 
+  it('guards internal navigation links rendered outside the editor subtree', async () => {
+    setupFetch();
+    render(<CourseEditPage />);
+
+    await screen.findByRole('button', { name: 'Введение' });
+    openLessonEditor();
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), {
+      target: { value: '# Несохранённый текст' },
+    });
+
+    const sidebarLink = document.createElement('a');
+    sidebarLink.href = '/courses';
+    sidebarLink.textContent = 'Глобальная ссылка курсов';
+    document.body.appendChild(sidebarLink);
+    const navigationAllowed = fireEvent.click(sidebarLink);
+
+    expect(navigationAllowed).toBe(false);
+    await waitFor(() => expect(confirmMock).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Изменения будут потеряны',
+    })));
+    expect(routerPushMock).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue('# Несохранённый текст')).toBeInTheDocument();
+    sidebarLink.remove();
+  });
+
   it('warns about the active unsaved draft before deleting its lesson or module', async () => {
     setupFetch();
     render(<CourseEditPage />);

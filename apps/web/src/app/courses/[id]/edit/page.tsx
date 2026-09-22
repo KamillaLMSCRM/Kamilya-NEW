@@ -109,6 +109,48 @@ export default function CourseEditPage() {
     return () => window.removeEventListener('beforeunload', guardUnload);
   }, [lessonDirty]);
 
+  useEffect(() => {
+    if (!lessonDirty) return;
+
+    const guardInternalNavigation = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented
+        || event.button !== 0
+        || event.metaKey
+        || event.ctrlKey
+        || event.shiftKey
+        || event.altKey
+      ) return;
+
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const link = target.closest<HTMLAnchorElement>('a[href]');
+      if (!link || link.target === '_blank' || link.hasAttribute('download')) return;
+
+      const href = link.getAttribute('href');
+      if (!href || href.startsWith('#')) return;
+
+      const destination = new URL(link.href, window.location.href);
+      if (destination.origin !== window.location.origin) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      void confirm({
+        title: t('authenticatedUi.editor.unsavedTitle'),
+        message: t('authenticatedUi.editor.unsavedDescription'),
+        confirmLabel: t('authenticatedUi.editor.leaveWithoutSaving'),
+        variant: 'danger',
+      }).then((discard) => {
+        if (discard) {
+          router.push(`${destination.pathname}${destination.search}${destination.hash}`);
+        }
+      });
+    };
+
+    document.addEventListener('click', guardInternalNavigation, true);
+    return () => document.removeEventListener('click', guardInternalNavigation, true);
+  }, [confirm, lessonDirty, router, t]);
+
   const fetchData = useCallback(async () => {
     if (!courseId || !token) return;
     try {
