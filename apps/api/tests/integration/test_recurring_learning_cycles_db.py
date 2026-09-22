@@ -42,7 +42,7 @@ async def test_recurring_schema_and_recovery_permissions(db_session):
             await db_session.scalars(
                 text(
                     """SELECT indexname FROM pg_indexes WHERE schemaname='public'
-                    AND indexname IN ('uq_enrollments_legacy_active',
+                    AND indexname IN ('uq_enrollments_current_occurrence',
                     'uq_enrollments_recurring_assignment','uq_progress_legacy_lesson',
                     'uq_progress_enrollment_lesson','uq_certificates_legacy_user_course',
                     'uq_certificates_enrollment')"""
@@ -50,7 +50,14 @@ async def test_recurring_schema_and_recovery_permissions(db_session):
             )
         ).all()
     )
-    assert len(indexes) == 6
+    assert indexes == {
+        "uq_enrollments_current_occurrence",
+        "uq_enrollments_recurring_assignment",
+        "uq_progress_legacy_lesson",
+        "uq_progress_enrollment_lesson",
+        "uq_certificates_legacy_user_course",
+        "uq_certificates_enrollment",
+    }
 
     permissions = (
         await db_session.execute(
