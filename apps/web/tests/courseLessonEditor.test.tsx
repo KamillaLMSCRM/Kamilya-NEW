@@ -176,7 +176,7 @@ describe('course lesson editor', () => {
     expect(contentEditor.className).toContain('text-base');
     expect(contentEditor.className).toContain('leading-7');
     expect(contentEditor.className).toContain('flex-1');
-    expect(contentEditor.className).toContain('resize-none');
+    expect(contentEditor.className).toContain('resize-y');
     expect(contentEditor.className).not.toContain('font-mono');
     fireEvent.change(screen.getByRole('textbox', { name: 'Название урока' }), {
       target: { value: 'Новое название' },
@@ -255,6 +255,11 @@ describe('course lesson editor', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Согласование' }));
     await waitFor(() => expect(confirmMock).toHaveBeenCalledTimes(2));
     expect(routerPushMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Курс по безопасности' }));
+    await waitFor(() => expect(confirmMock).toHaveBeenCalledTimes(3));
+    expect(routerPushMock).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue('# Несохранённый текст')).toBeInTheDocument();
   });
 
   it('warns about the active unsaved draft before deleting its lesson or module', async () => {

@@ -56,6 +56,13 @@ async def fixture_count(engine) -> int:
 async def main() -> int:
     values = dotenv_values(Path(__file__).resolve().parents[2] / ".env")
     runtime_rls = "--runtime-rls" in sys.argv
+    try:
+        expected_revision = sys.argv[sys.argv.index("--expected-revision") + 1]
+    except (ValueError, IndexError):
+        expected_revision = ""
+    if ("--execute-tests" in sys.argv or runtime_rls) and not expected_revision:
+        print(json.dumps({"status": "BLOCKED", "reason": "expected_revision_required", "writes": 0}))
+        return 2
     database_url = normalize_database_url(values.get("MIGRATION_DATABASE_URL") or "")
     runtime_url = normalize_database_url(values.get("DATABASE_URL") or "")
     if not same_supabase_project(database_url, values.get("SUPABASE_URL") or ""):
@@ -88,13 +95,35 @@ async def main() -> int:
                 columns = (
                     await connection.execute(
                         text(
-                            "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema='public' AND ((table_name='learning_path_assignments' AND column_name='recurrence_instance_id') OR (table_name='enrollments' AND column_name='learning_path_assignment_id'))"
+                            "SELECT table_name, column_name FROM information_schema.columns "
+                            "WHERE table_schema='public' AND ("
+                            "(table_name='learning_path_assignments' AND column_name='recurrence_instance_id') OR "
+                            "(table_name='enrollments' AND column_name='learning_path_assignment_id') OR "
+                            "(table_name='users' AND column_name='organization_unit_id') OR "
+                            "(table_name='departments' AND column_name='is_head_office'))"
                         )
                     )
                 ).all()
                 runtime = next((row for row in roles if row["rolname"] == "lms_app"), None)
-                if len(columns) != 2 or runtime is None or runtime["rolsuper"] or runtime["rolbypassrls"]:
-                    print(json.dumps({"status": "BLOCKED", "reason": "schema_or_runtime_role_preflight", "writes": 0}))
+                if (
+                    (expected_revision and revision != [expected_revision])
+                    or len(columns) != 4
+                    or runtime is None
+                    or runtime["rolsuper"]
+                    or runtime["rolbypassrls"]
+                ):
+                    print(
+                        json.dumps(
+                            {
+                                "status": "BLOCKED",
+                                "reason": "schema_or_runtime_role_preflight",
+                                "actual_revision": revision,
+                                "expected_revision": expected_revision or None,
+                                "required_columns": len(columns),
+                                "writes": 0,
+                            }
+                        )
+                    )
                     return 2
                 print(
                     json.dumps(

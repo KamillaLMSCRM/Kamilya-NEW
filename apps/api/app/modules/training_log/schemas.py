@@ -91,6 +91,8 @@ class TrainingLogRow(BaseModel):
     cycle_type: Literal["course", "learning_path"] | None = None
     cycle_scheduled_for: datetime | None = None
     cycle_due_at: datetime | None = None
+    assignment_due_at: datetime | None = None
+    deadline_state: Literal["none", "upcoming", "overdue", "completed_on_time", "completed_late"] = "none"
     deadline_status: Literal[
         "not_applicable",
         "active",
@@ -137,6 +139,8 @@ class TrainingLogRow(BaseModel):
     certificate_id: UUID | None = None
     certificate_number: str | None = None
     certificate_issued_at: datetime | None = None
+    certificate_expires_at: datetime | None = None
+    certificate_status: Literal["none", "active", "expiring", "expired", "revoked"] = "none"
 
     # Source channel
     kiosk_last_seen_at: datetime | None = None
@@ -180,7 +184,9 @@ class TrainingLogCSVResponse(BaseModel):
         "cycle_type",
         "cycle_scheduled_for",
         "cycle_due_at",
+        "assignment_due_at",
         "deadline_status",
+        "deadline_state",
         "evidence_procedure_type",
         "evidence_confirmation_status",
         "evidence_signed_copy_status",
@@ -190,4 +196,6 @@ class TrainingLogCSVResponse(BaseModel):
         "quiz_attempts_count",
         "certificate_number",
         "certificate_issued_at",
+        "certificate_expires_at",
+        "certificate_status",
     ]

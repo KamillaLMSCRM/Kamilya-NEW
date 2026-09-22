@@ -15,6 +15,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.9.0] - 2026-09-22
+
+### Added
+
+- Add a full-page course authoring workspace with a persistent lesson outline,
+  readable Markdown preview and a learner-view shortcut.
+- Add a dedicated learning-cycle operations screen for recurring course and
+  program rules, latest-period status, reminders and corrective assignments.
+- Show the effective assignment deadline and certificate validity in the
+  training journal and CSV export.
+
+### Changed
+
+- Load all available published courses and active learners in learning-cycle
+  selectors instead of silently truncating them at the first API page.
+- Keep immutable recurring-cycle deadline reporting separate from a one-time
+  assignment deadline.
+
+### Fixed
+
+- Protect unsaved lesson edits when leaving through the course title,
+  approvals, another lesson or learner preview.
+- Select the latest issued certificate deterministically when a certificate
+  was reissued for the same enrollment.
+
+### Security
+
+- All new reporting joins remain tenant-scoped and read-only. Database
+  migrations, new secrets, billing changes and provider changes are not
+  required.
+
 ## [0.8.2] - 2026-09-21
 
 ### Fixed
@@ -1316,7 +1347,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.7.7...v0.8.0

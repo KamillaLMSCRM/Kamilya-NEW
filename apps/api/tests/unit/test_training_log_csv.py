@@ -22,6 +22,9 @@ async def test_training_log_csv_is_excel_compatible(monkeypatch):
                 "cycle_type": "course",
                 "cycle_due_at": datetime(2026, 7, 28, 9, 5, tzinfo=UTC),
                 "deadline_status": "overdue",
+                "assignment_due_at": datetime(2026, 7, 22, 9, 5, tzinfo=UTC),
+                "deadline_state": "upcoming",
+                "certificate_status": "expiring",
             }
         ]
 
@@ -52,4 +55,7 @@ async def test_training_log_csv_is_excel_compatible(monkeypatch):
     assert rows[0]["Тип цикла"] == "Курс"
     assert rows[0]["Срок"] == "28.07.2026 09:05"
     assert rows[0]["Статус срока"] == "Просрочено"
+    assert rows[0]["Срок назначения"] == "22.07.2026 09:05"
+    assert rows[0]["Состояние срока"] == "Ожидается"
+    assert rows[0]["Статус сертификата"] == "Истекает"
     assert "user_id" not in rows[0]

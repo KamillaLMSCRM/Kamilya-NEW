@@ -15,6 +15,11 @@ vi.mock('@/i18n/useT', () => {
       'trainingLog.badge.deadlineOverdue': 'Overdue',
       'trainingLog.badge.completedOnTime': 'Completed on time',
       'trainingLog.badge.completedLate': 'Completed late',
+      'trainingLog.badge.certificateActive': 'Certificate active',
+      'trainingLog.badge.certificateExpiring': 'Certificate expiring',
+      'trainingLog.badge.certificateExpired': 'Certificate expired',
+      'trainingLog.badge.certificateRevoked': 'Certificate revoked',
+      'trainingLog.table.certificateValidUntil': 'Valid until',
     }[key] ?? key);
   return { useT: () => ({ lang: 'en', t }) };
 });
@@ -87,5 +92,27 @@ describe('training log deadline presentation', () => {
   it('renders the active deadline state only with a complete valid deadline', async () => {
     renderTrainingLog({ cycle_due_at: '2026-09-10T00:00:00Z', deadline_status: 'active' });
     expect(await screen.findAllByText('On track')).toHaveLength(2);
+  });
+
+  it('prefers the explicit assignment deadline and operational state', async () => {
+    renderTrainingLog({
+      cycle_due_at: '2026-09-10T00:00:00Z',
+      deadline_status: 'active',
+      assignment_due_at: '2026-09-08T00:00:00Z',
+      deadline_state: 'overdue',
+    });
+    expect(await screen.findAllByText('Overdue')).toHaveLength(2);
+    expect(screen.queryByText('On track')).not.toBeInTheDocument();
+  });
+
+  it('shows certificate expiry and status without conflating it with evidence', async () => {
+    renderTrainingLog({
+      certificate_id: 'certificate-1',
+      certificate_number: 'KML-2026-1',
+      certificate_expires_at: '2026-10-01T00:00:00Z',
+      certificate_status: 'expiring',
+    });
+    expect(await screen.findAllByText('Certificate expiring')).toHaveLength(2);
+    expect(screen.getAllByText(/Valid until/)).toHaveLength(2);
   });
 });

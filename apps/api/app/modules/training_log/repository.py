@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
 
@@ -44,6 +45,7 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from app.models.department import Department
 from app.models.enrollment import Enrollment
+from app.models.enrollment_access_policy import EnrollmentAccessPolicy
 from app.models.users import User
 from app.modules.courses.models import Course as CourseModel
 from app.modules.learning_cycles.models import LearningPathCycleInstance, RecurringLearningAssignment
@@ -56,7 +58,11 @@ from app.modules.training_evidence.models import (
     TrainingEvidenceSignedScanReview,
     TrainingEvidenceStepUpConfirmation,
 )
-from app.modules.training_log.deadline_policy import deadline_status_sql
+from app.modules.training_log.deadline_policy import (
+    classify_certificate_status,
+    deadline_status_sql,
+    operational_deadline_state_sql,
+)
 from app.modules.training_log.schemas import TrainingLogFilter
 
 logger = logging.getLogger(__name__)
@@ -84,6 +90,7 @@ class _CycleReadColumns:
     cycle_type: Any
     scheduled_for: Any
     due_at: Any
+    assignment_due_at: Any
     eligible: Any
 
     def deadline_status(self) -> ColumnElement[str]:
@@ -104,6 +111,7 @@ def _join_cycle_read_model(stmt: Any, tenant_id: UUID) -> tuple[Any, _CycleReadC
             RecurringLearningAssignment.tenant_id == tenant_id,
             RecurringLearningAssignment.user_id == Enrollment.user_id,
             RecurringLearningAssignment.course_id == Enrollment.course_id,
+            RecurringLearningAssignment.enrollment_id == Enrollment.id,
         ),
     )
     stmt = stmt.outerjoin(
@@ -123,6 +131,32 @@ def _join_cycle_read_model(stmt: Any, tenant_id: UUID) -> tuple[Any, _CycleReadC
             LearningPathCycleInstance.path_id == LearningPathAssignment.path_id,
         ),
     )
+    stmt = stmt.outerjoin(
+        EnrollmentAccessPolicy,
+        and_(
+            EnrollmentAccessPolicy.enrollment_id == Enrollment.id,
+            EnrollmentAccessPolicy.tenant_id == tenant_id,
+            EnrollmentAccessPolicy.user_id == Enrollment.user_id,
+        ),
+    )
+    cycle_due_at = func.coalesce(
+        RecurringLearningAssignment.due_at,
+        LearningPathCycleInstance.due_at,
+    )
+    cycle_eligible = case(
+        (
+            RecurringLearningAssignment.id.is_not(None),
+            RecurringLearningAssignment.status.in_(("assigned", "completed")),
+        ),
+        else_=and_(
+            LearningPathCycleInstance.status.in_(("active", "completed")),
+            LearningPathAssignment.status.in_(("active", "completed")),
+        ),
+    )
+    assignment_due_at = func.coalesce(
+        EnrollmentAccessPolicy.due_at,
+        case((cycle_eligible.is_(True), cycle_due_at), else_=None),
+    )
     return stmt, _CycleReadColumns(
         cycle_id=func.coalesce(RecurringLearningAssignment.id, LearningPathCycleInstance.id),
         cycle_type=case(
@@ -134,20 +168,9 @@ def _join_cycle_read_model(stmt: Any, tenant_id: UUID) -> tuple[Any, _CycleReadC
             RecurringLearningAssignment.scheduled_for,
             LearningPathCycleInstance.scheduled_for,
         ),
-        due_at=func.coalesce(
-            RecurringLearningAssignment.due_at,
-            LearningPathCycleInstance.due_at,
-        ),
-        eligible=case(
-            (
-                RecurringLearningAssignment.id.is_not(None),
-                RecurringLearningAssignment.status.in_(("assigned", "completed")),
-            ),
-            else_=and_(
-                LearningPathCycleInstance.status.in_(("active", "completed")),
-                LearningPathAssignment.status.in_(("active", "completed")),
-            ),
-        ),
+        due_at=cycle_due_at,
+        assignment_due_at=assignment_due_at,
+        eligible=cycle_eligible,
     )
 
 
@@ -745,6 +768,15 @@ async def list_training_log(
         cycle_columns.deadline_status().label("deadline_status"),
     )
 
+    stmt = stmt.add_columns(
+        cycle_columns.assignment_due_at.label("assignment_due_at"),
+        operational_deadline_state_sql(
+            due_at=cycle_columns.assignment_due_at,
+            completed_at=Enrollment.completed_at,
+            enrollment_status=Enrollment.status,
+        ).label("deadline_state"),
+    )
+
     stmt = _apply_filters(stmt, f, tenant_id)
     stmt = _apply_status_filter(stmt, f, native_activity, scorm_activity, cycle_columns)
 
@@ -888,20 +920,31 @@ async def list_training_log(
         Certificate.id.label("certificate_id"),
         Certificate.certificate_number,
         Certificate.issued_at,
+        Certificate.expires_at,
+        Certificate.revoked_at,
     ).where(
         Certificate.tenant_id == tenant_id,
         Certificate.user_id.in_(user_ids),
         Certificate.course_id.in_(course_ids),
+    ).order_by(
+        Certificate.issued_at.desc().nullslast(),
+        Certificate.id.desc(),
     )
     cert_rows = (await db.execute(cert_stmt)).mappings().all()
-    cert_by_pair = {
-        (r["user_id"], r["course_id"], r["enrollment_id"]): {
+    cert_by_pair: dict[tuple[UUID, UUID, UUID | None], dict[str, Any]] = {}
+    for r in cert_rows:
+        # A certificate may be reissued for the same enrollment. The newest
+        # issuance is authoritative, including when that issuance was revoked.
+        cert_by_pair.setdefault(
+            (r["user_id"], r["course_id"], r["enrollment_id"]),
+            {
             "certificate_id": r["certificate_id"],
             "certificate_number": r["certificate_number"],
             "certificate_issued_at": r["issued_at"],
-        }
-        for r in cert_rows
-    }
+            "certificate_expires_at": r["expires_at"],
+            "certificate_revoked_at": r["revoked_at"],
+            },
+        )
 
     # Kiosk last seen per user (most recent kiosk_access_log entry).
     kiosk_stmt = (
@@ -917,6 +960,7 @@ async def list_training_log(
     )
     kiosk_rows = (await db.execute(kiosk_stmt)).mappings().all()
     kiosk_by_user = {r["user_id"]: r["last_seen"] for r in kiosk_rows}
+    read_model_now = datetime.now(UTC)
 
     # Assemble result.
     # progress_percent:
@@ -1001,6 +1045,8 @@ async def list_training_log(
                 "cycle_scheduled_for": r["cycle_scheduled_for"],
                 "cycle_due_at": r["cycle_due_at"],
                 "deadline_status": r["deadline_status"],
+                "assignment_due_at": r["assignment_due_at"],
+                "deadline_state": r["deadline_state"],
                 "computed_status": computed_status,
                 "progress_percent": progress_percent,
                 "best_score": quiz_info.get("best_score"),
@@ -1008,6 +1054,13 @@ async def list_training_log(
                 "certificate_id": cert_info.get("certificate_id"),
                 "certificate_number": cert_info.get("certificate_number"),
                 "certificate_issued_at": cert_info.get("certificate_issued_at"),
+                "certificate_expires_at": cert_info.get("certificate_expires_at"),
+                "certificate_status": classify_certificate_status(
+                    expires_at=cert_info.get("certificate_expires_at"),
+                    revoked_at=cert_info.get("certificate_revoked_at"),
+                    certificate_exists=cert_info.get("certificate_id") is not None,
+                    now=read_model_now,
+                ),
                 "kiosk_last_seen_at": kiosk_by_user.get(r["user_id"]),
                 "latest_evidence_event_id": evidence_info.get("latest_evidence_event_id"),
                 "evidence_procedure_type": evidence_info.get("evidence_procedure_type"),

@@ -47,9 +47,11 @@ CSV_COLUMNS = {
         ("enrolled_at", "Дата назначения"), ("completed_at", "Дата завершения"),
         ("cycle_type", "Тип цикла"), ("cycle_scheduled_for", "Дата цикла"),
         ("cycle_due_at", "Срок"), ("deadline_status", "Статус срока"),
+        ("assignment_due_at", "Срок назначения"), ("deadline_state", "Состояние срока"),
         ("progress_percent", "Прогресс, %"), ("best_score", "Лучший результат, %"),
         ("quiz_attempts_count", "Попыток теста"), ("certificate_number", "Номер сертификата"),
         ("certificate_issued_at", "Дата выдачи сертификата"),
+        ("certificate_expires_at", "Сертификат действителен до"), ("certificate_status", "Статус сертификата"),
     ],
     "kk": [
         ("full_name", "Аты-жөні"), ("email", "Email"), ("personnel_number", "Табельдік нөмір"),
@@ -60,9 +62,11 @@ CSV_COLUMNS = {
         ("enrolled_at", "Тағайындалған күні"), ("completed_at", "Аяқталған күні"),
         ("cycle_type", "Цикл түрі"), ("cycle_scheduled_for", "Цикл күні"),
         ("cycle_due_at", "Мерзімі"), ("deadline_status", "Мерзім күйі"),
+        ("assignment_due_at", "Тағайындау мерзімі"), ("deadline_state", "Мерзім күйі"),
         ("progress_percent", "Прогресс, %"), ("best_score", "Үздік нәтиже, %"),
         ("quiz_attempts_count", "Тест әрекеттері"), ("certificate_number", "Сертификат нөмірі"),
         ("certificate_issued_at", "Сертификат берілген күн"),
+        ("certificate_expires_at", "Сертификаттың жарамдылық мерзімі"), ("certificate_status", "Сертификат мәртебесі"),
     ],
     "en": [
         ("full_name", "Full name"), ("email", "Email"), ("personnel_number", "Personnel number"),
@@ -73,9 +77,11 @@ CSV_COLUMNS = {
         ("enrolled_at", "Assigned at"), ("completed_at", "Completed at"),
         ("cycle_type", "Cycle type"), ("cycle_scheduled_for", "Cycle date"),
         ("cycle_due_at", "Due at"), ("deadline_status", "Deadline status"),
+        ("assignment_due_at", "Assignment due at"), ("deadline_state", "Deadline state"),
         ("progress_percent", "Progress, %"), ("best_score", "Best score, %"),
         ("quiz_attempts_count", "Quiz attempts"), ("certificate_number", "Certificate number"),
         ("certificate_issued_at", "Certificate issued at"),
+        ("certificate_expires_at", "Certificate expires at"), ("certificate_status", "Certificate status"),
     ],
 }
 
@@ -88,6 +94,8 @@ CSV_VALUE_LABELS = {
         "course": "Курс", "learning_path": "Программа",
         "not_applicable": "Без срока", "active": "В срок", "overdue": "Просрочено",
         "completed_on_time": "Завершено в срок", "completed_late": "Завершено с опозданием",
+        "none": "Нет", "upcoming": "Ожидается", "expiring": "Истекает",
+        "expired": "Истёк", "revoked": "Отозван",
     },
     "kk": {
         "assigned": "Тағайындалды", "in_progress": "Орындалуда", "completed": "Аяқталды",
@@ -97,6 +105,8 @@ CSV_VALUE_LABELS = {
         "course": "Курс", "learning_path": "Бағдарлама",
         "not_applicable": "Мерзімсіз", "active": "Мерзімінде", "overdue": "Мерзімі өтті",
         "completed_on_time": "Мерзімінде аяқталды", "completed_late": "Кеш аяқталды",
+        "none": "Жоқ", "upcoming": "Алда", "expiring": "Мерзімі жақын",
+        "expired": "Мерзімі өткен", "revoked": "Күші жойылған",
     },
     "en": {
         "assigned": "Assigned", "in_progress": "In progress", "completed": "Completed",
@@ -106,6 +116,8 @@ CSV_VALUE_LABELS = {
         "course": "Course", "learning_path": "Program",
         "not_applicable": "No deadline", "active": "On track", "overdue": "Overdue",
         "completed_on_time": "Completed on time", "completed_late": "Completed late",
+        "none": "None", "upcoming": "Upcoming", "expiring": "Expiring",
+        "expired": "Expired", "revoked": "Revoked",
     },
 }
 
@@ -113,16 +125,28 @@ CSV_VALUE_LABELS = {
 def _csv_value(field: str, value, lang: str):
     if value is None:
         return ""
+    if field == "certificate_status":
+        labels = {
+            "ru": {"none": "Нет", "active": "Действует", "expiring": "Истекает", "expired": "Истёк", "revoked": "Отозван"},
+            "kk": {"none": "Жоқ", "active": "Жарамды", "expiring": "Мерзімі жақын", "expired": "Мерзімі өткен", "revoked": "Күші жойылған"},
+            "en": {"none": "None", "active": "Active", "expiring": "Expiring", "expired": "Expired", "revoked": "Revoked"},
+        }
+        return labels[lang].get(str(value), value)
     if field == "organization_unit_path" and isinstance(value, list):
         return " / ".join(str(item) for item in value)
-    if field in {"delivery_type", "computed_status", "enrollment_source", "cycle_type", "deadline_status"}:
+    if field in {
+        "delivery_type", "computed_status", "enrollment_source", "cycle_type", "deadline_status",
+        "deadline_state",
+    }:
         return CSV_VALUE_LABELS[lang].get(str(value), value)
     if field in {
         "enrolled_at",
         "completed_at",
         "cycle_scheduled_for",
         "cycle_due_at",
+        "assignment_due_at",
         "certificate_issued_at",
+        "certificate_expires_at",
     }:
         if isinstance(value, datetime | date):
             return value.strftime("%d.%m.%Y %H:%M" if isinstance(value, datetime) else "%d.%m.%Y")

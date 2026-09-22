@@ -475,6 +475,9 @@
   "competencies": {
     "title": "Матрица компетенций", "subtitle": "Свяжите компетенции с должностями и курсами", "new": "Новая компетенция", "name": "Название", "namePlaceholder": "Например, клиентоориентированность", "description": "Описание", "descriptionPlaceholder": "Что должен уметь сотрудник?", "positions": "Должности", "courses": "Курсы", "create": "Создать", "save": "Сохранить", "empty": "Компетенций пока нет", "created": "Компетенция создана", "saved": "Матрица сохранена", "loadFailed": "Не удалось загрузить матрицу", "saveFailed": "Не удалось сохранить", "forbidden": "Раздел доступен методологу и администратору"
   },
+  "learningCycles": {
+    "title": "Циклы обучения", "subtitle": "Управляйте повторным обучением и просроченными назначениями.", "forbidden": "Раздел доступен методологам.", "createTitle": "Новое правило цикла", "identityHint": "Сначала выберите учебную цель, затем отдельно — обучающегося.", "targetType": "Тип цели", "target": "Учебная цель", "course": "Курс", "program": "Программа", "selectTarget": "Выберите цель", "learner": "Обучающийся", "selectLearner": "Выберите обучающегося", "cadenceDays": "Интервал, дней", "dueDays": "Срок выполнения, дней", "saving": "Сохраняем…", "createDraft": "Создать правило", "created": "Правило цикла создано", "saveFailed": "Не удалось создать правило", "activated": "Цикл активирован", "deactivated": "Цикл остановлен", "actionFailed": "Не удалось изменить цикл", "rulesTitle": "Правила циклов", "rulesHint": "Правила курса применяются к опубликованным обычным курсам; периодичность программы задаётся в настройках программы.", "emptyRules": "Правил циклов пока нет.", "unknownTarget": "Учебная цель недоступна", "status": { "draft": "Черновик", "active": "Активно", "inactive": "Остановлено" }, "cadenceDue": "Каждые {cadence} дн. · срок {due} дн.", "nextRun": "Следующий запуск", "lastRun": "Последний запуск", "latestOccurrence": "Последний период", "dueAt": "Срок", "completedAt": "Завершено", "noOccurrence": "Период ещё не создан", "occurrence": { "assigned": "В процессе", "overdue": "Просрочено", "completed": "Завершено вовремя", "completed_late": "Завершено с опозданием", "skipped": "Пропущено" }, "activate": "Активировать", "deactivate": "Остановить", "attentionTitle": "Требуют внимания", "attentionHint": "Незавершённые курсы: повторно отправьте уведомление или откройте корректирующее назначение.", "noAttention": "Нет незавершённых периодов курса.", "selectAll": "Выбрать все доступные", "selectOccurrence": "Выбрать период для {learner}", "resend": "Повторить уведомление", "resendSelected": "Повторить выбранные ({count})", "correctiveAssignment": "Корректирующее назначение", "resendQueued": "Запрос на повторную отправку принят", "resendFailed": "Не удалось повторить уведомление", "bulkComplete": "Повторная отправка принята: {count}", "bulkPartial": "Успешно: {succeeded}, ошибки: {failed}", "bulkSummary": "Результат: успешно {succeeded}, ошибок {failed}. Ошибки указаны ниже."
+  },
   "learningPaths": {
     "createCourseFromMaterials": "Создать курс для этой программы",
     "createCourseFromMaterialsHint": "Подготовьте курс и тест по материалам компании, проверьте и опубликуйте их, а затем верните курс в эту программу.",
@@ -1880,6 +1883,7 @@
       "score": "Лучший балл",
       "completedAt": "Завершён",
       "certificate": "Сертификат",
+      "certificateValidUntil": "Действителен до",
       "actions": "Действия"
     },
     "badge": {
@@ -1891,7 +1895,11 @@
       "deadlineActive": "В срок",
       "deadlineOverdue": "Просрочено",
       "completedOnTime": "Завершено в срок",
-      "completedLate": "Завершено с опозданием"
+      "completedLate": "Завершено с опозданием",
+      "certificateActive": "Действует",
+      "certificateExpiring": "Срок скоро истекает",
+      "certificateExpired": "Срок истёк",
+      "certificateRevoked": "Отозван"
     },
     "export": {
       "csv": "Скачать CSV",

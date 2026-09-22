@@ -437,7 +437,11 @@ export default function CourseEditPage() {
     <div className="mx-auto max-w-[1800px] space-y-6 px-4 py-5 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <a href={`/courses/${courseId}`} className="flex items-center gap-1 text-sm text-primary hover:underline">
+          <a
+            href={`/courses/${courseId}`}
+            onClick={(event) => void handleGuardedLink(event, `/courses/${courseId}`)}
+            className="flex items-center gap-1 text-sm text-primary hover:underline"
+          >
             <ChevronLeft className="w-4 h-4" /> {course.title}
           </a>
           <h1 className="text-2xl font-bold mt-1">{t('courses.editCourse')}</h1>

@@ -32,8 +32,6 @@ async def _login(client, user, password: str = "Password123!") -> str:
 
 async def _enroll(db, user, course):
     """Insert an enrollment row directly (faster than HTTP-driven flow)."""
-    from datetime import datetime, timezone
-
     from app.models.enrollment import Enrollment
 
     e = Enrollment(
@@ -42,7 +40,7 @@ async def _enroll(db, user, course):
         user_id=user.id,
         course_id=course.id,
         status="enrolled",
-        enrolled_at=datetime.now(timezone.utc),
+        enrolled_at=datetime.now(UTC),
         source="manual",
     )
     db.add(e)
@@ -145,10 +143,8 @@ async def test_training_log_filter_by_completed_status(client, db_session, make_
     enrollment = await _enroll(db_session, student, course)
 
     # Mark it completed
-    from datetime import datetime, timezone
-
     enrollment.status = "completed"
-    enrollment.completed_at = datetime.now(timezone.utc)
+    enrollment.completed_at = datetime.now(UTC)
     await db_session.flush()
 
     token = await _login(client, admin)
@@ -284,10 +280,8 @@ async def test_training_log_summary_matches_filters_and_fresh_enrollment_state(
     assert after_assignment.json() == {"total": 1, "assigned": 1, "in_progress": 0, "completed": 0, "overdue": 0}
     assert table_after_assignment.json()["total"] == after_assignment.json()["total"]
 
-    from datetime import datetime, timezone
-
     enrollment.status = "completed"
-    enrollment.completed_at = datetime.now(timezone.utc)
+    enrollment.completed_at = datetime.now(UTC)
     await db_session.flush()
     after_completion = await client.get(
         "/api/v1/admin/training-log/summary?course_id=" + str(course.id), headers=headers
@@ -367,6 +361,125 @@ async def test_training_log_status_assigned_no_progress(client, db_session, make
     row = body["items"][0]
     assert row["computed_status"] == "assigned"
     assert row["progress_percent"] == 0
+    assert row["assignment_due_at"] is None
+    assert row["deadline_state"] == "none"
+    assert row["certificate_expires_at"] is None
+    assert row["certificate_status"] == "none"
+
+
+@pytest.mark.asyncio
+async def test_training_log_due_policy_precedence_and_exact_enrollment_certificate(
+    client, db_session, make_tenant, make_user, make_course, set_current_tenant
+):
+    from app.models.enrollment import Enrollment
+    from app.models.enrollment_access_policy import EnrollmentAccessPolicy
+    from app.modules.certificates.models import Certificate
+    from app.modules.learning_cycles.models import RecurringLearningAssignment, RecurringLearningRule
+    from app.modules.training_log.repository import count_training_log, list_training_log
+    from app.modules.training_log.schemas import TrainingLogFilter
+
+    tenant = await make_tenant(name="Training log operational fields", slug="training-log-operational-fields")
+    actor = await make_user(tenant, role="methodologist", email="operational-owner@example.test")
+    learner = await make_user(tenant, role="student", email="operational-learner@example.test")
+    course = await make_course(tenant, actor, title="Operational course")
+    await set_current_tenant(tenant)
+
+    now = datetime.now(UTC)
+    legacy_enrollment = await _enroll(db_session, learner, course)
+    rule = RecurringLearningRule(
+        tenant_id=tenant.id,
+        course_id=course.id,
+        user_id=learner.id,
+        cadence_days=365,
+        due_days=7,
+        status="active",
+        created_by=actor.id,
+    )
+    db_session.add(rule)
+    await db_session.flush()
+    occurrence = RecurringLearningAssignment(
+        tenant_id=tenant.id,
+        rule_id=rule.id,
+        user_id=learner.id,
+        course_id=course.id,
+        scheduled_for=now,
+        due_at=now - timedelta(days=2),
+        status="assigned",
+    )
+    db_session.add(occurrence)
+    await db_session.flush()
+    recurring_enrollment = Enrollment(
+        tenant_id=tenant.id,
+        user_id=learner.id,
+        course_id=course.id,
+        recurring_assignment_id=occurrence.id,
+        status="enrolled",
+        source="recurring",
+        enrolled_at=now,
+    )
+    db_session.add(recurring_enrollment)
+    await db_session.flush()
+    occurrence.enrollment_id = recurring_enrollment.id
+    policy_due_at = now + timedelta(days=2)
+    db_session.add(
+        EnrollmentAccessPolicy(
+            tenant_id=tenant.id,
+            enrollment_id=recurring_enrollment.id,
+            user_id=learner.id,
+            due_at=policy_due_at,
+        )
+    )
+    certificate = Certificate(
+        tenant_id=tenant.id,
+        user_id=learner.id,
+        course_id=course.id,
+        enrollment_id=recurring_enrollment.id,
+        certificate_number=f"TL-{uuid4().hex[:12]}",
+        issued_at=now,
+        expires_at=now + timedelta(days=30),
+        revoked_at=now,
+    )
+    older_certificate = Certificate(
+        tenant_id=tenant.id,
+        user_id=learner.id,
+        course_id=course.id,
+        enrollment_id=recurring_enrollment.id,
+        certificate_number=f"TL-{uuid4().hex[:12]}",
+        issued_at=now - timedelta(days=10),
+        expires_at=now + timedelta(days=365),
+    )
+    db_session.add_all([older_certificate, certificate])
+    await db_session.flush()
+
+    rows = await list_training_log(db_session, tenant.id, TrainingLogFilter(), limit=10)
+    by_enrollment = {row["enrollment_id"]: row for row in rows}
+    legacy_row = by_enrollment[legacy_enrollment.id]
+    recurring_row = by_enrollment[recurring_enrollment.id]
+
+    assert legacy_row["assignment_due_at"] is None
+    assert legacy_row["deadline_state"] == "none"
+    assert legacy_row["certificate_id"] is None
+    assert legacy_row["certificate_status"] == "none"
+    assert recurring_row["assignment_due_at"] == policy_due_at
+    assert recurring_row["deadline_state"] == "upcoming"
+    assert recurring_row["deadline_status"] == "overdue"
+    assert recurring_row["certificate_id"] == certificate.id
+    assert recurring_row["certificate_expires_at"] == certificate.expires_at
+    assert recurring_row["certificate_status"] == "revoked"
+    assert recurring_row["certificate_id"] != older_certificate.id
+
+    overdue_rows = await list_training_log(
+        db_session,
+        tenant.id,
+        TrainingLogFilter(status="overdue"),
+        limit=10,
+    )
+    assert recurring_enrollment.id in {row["enrollment_id"] for row in overdue_rows}
+    assert await count_training_log(
+        db_session,
+        tenant.id,
+        TrainingLogFilter(status="overdue"),
+    ) == 1
 
 
 @pytest.mark.asyncio
@@ -467,8 +580,6 @@ async def test_training_log_status_in_progress_scorm_attempt(client, db_session,
     await _enroll(db_session, student, course)
 
     # Add a scorm_attempt to simulate a started SCORM attempt.
-    from datetime import datetime, timezone
-
     from app.modules.scorm.models import ScormAttempt, ScormPackage
 
     pkg = ScormPackage(
@@ -491,8 +602,8 @@ async def test_training_log_status_in_progress_scorm_attempt(client, db_session,
         course_id=course.id,
         package_id=pkg.id,
         user_id=student.id,
-        started_at=datetime.now(timezone.utc),
-        last_commit_at=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC),
+        last_commit_at=datetime.now(UTC),
         cmi_json={},
     )
     db_session.add(attempt)
@@ -582,6 +693,8 @@ async def test_training_log_status_overdue_reads_immutable_cycle_deadline(
     assert row["cycle_type"] == "course"
     assert row["cycle_due_at"] is not None
     assert row["deadline_status"] == "overdue"
+    assert row["assignment_due_at"] == occurrence.due_at
+    assert row["deadline_state"] == "overdue"
 
     summary = await client.get(
         "/api/v1/admin/training-log/summary",
@@ -710,6 +823,8 @@ async def test_training_log_path_cycle_deadlines_and_ineligible_cycles(
     assert by_id[active_enrollment.id]["cycle_id"] == active_cycle.id
     assert by_id[active_enrollment.id]["cycle_due_at"] == active_cycle.due_at
     assert by_id[active_enrollment.id]["deadline_status"] == "overdue"
+    assert by_id[active_enrollment.id]["assignment_due_at"] == active_cycle.due_at
+    assert by_id[active_enrollment.id]["deadline_state"] == "overdue"
     for enrollment in (cancelled_cycle, skipped_path_cycle, cancelled_assignment, manual_path, skipped_enrollment):
         assert by_id[enrollment.id]["deadline_status"] == "not_applicable"
     overdue_rows = await list_training_log(db_session, tenant.id, TrainingLogFilter(status="overdue"), limit=20)
@@ -746,11 +861,14 @@ async def test_training_log_completed_status_without_timestamp_is_completed_not_
     enrollment.recurring_assignment_id = occurrence.id
     enrollment.status = "completed"
     enrollment.completed_at = None
+    occurrence.enrollment_id = enrollment.id
     await db_session.flush()
 
     rows = await list_training_log(db_session, tenant.id, TrainingLogFilter(), limit=10)
     assert rows[0]["computed_status"] == "completed"
     assert rows[0]["deadline_status"] == "not_applicable"
+    assert rows[0]["assignment_due_at"] == occurrence.due_at
+    assert rows[0]["deadline_state"] == "none"
     assert await list_training_log(db_session, tenant.id, TrainingLogFilter(status="overdue"), limit=10) == []
     token = await _login(client, admin)
     summary = await client.get("/api/v1/admin/training-log/summary", headers={"Authorization": f"Bearer {token}"})
@@ -783,11 +901,14 @@ async def test_training_log_equal_due_and_completion_is_on_time_and_pagination_u
     second = Enrollment(id=uuid4(), tenant_id=tenant.id, user_id=learner.id, course_id=course.id, status="enrolled", enrolled_at=stamp, source="manual")
     db_session.add_all([first, second])
     await db_session.flush()
+    occurrence.enrollment_id = first.id
+    await db_session.flush()
 
     full = await list_training_log(db_session, tenant.id, TrainingLogFilter(), limit=10)
     first_page = await list_training_log(db_session, tenant.id, TrainingLogFilter(), limit=1, offset=0)
     second_page = await list_training_log(db_session, tenant.id, TrainingLogFilter(), limit=1, offset=1)
     assert next(row for row in full if row["enrollment_id"] == first.id)["deadline_status"] == "completed_on_time"
+    assert next(row for row in full if row["enrollment_id"] == first.id)["deadline_state"] == "completed_on_time"
     assert [row["enrollment_id"] for row in first_page + second_page] == [row["enrollment_id"] for row in full]
     assert [row["enrollment_id"] for row in full] == sorted([first.id, second.id])
 

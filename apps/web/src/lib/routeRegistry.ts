@@ -119,6 +119,7 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'quizzes', href: '/quizzes', capability: 'manage_content', match: 'prefix', labelKey: 'sidebar.quizConstructor', section: 'content', icon: 'quiz', order: 50, sidebar: true, commandPalette: true },
   { id: 'learning-paths-manage', href: '/learning-paths', capability: 'manage_content', labelKey: 'learningPaths.title', section: 'delivery', icon: 'route', order: 60, sidebar: true, commandPalette: true },
   { id: 'course-assignments', href: '/assignments', capability: 'manage_assignments', match: 'prefix', labelKey: 'nav.assignmentsAndAccess', section: 'delivery', icon: 'assignment', order: 70, sidebar: true, commandPalette: true },
+  { id: 'learning-cycles', href: '/learning-cycles', capability: 'manage_assignments', labelKey: 'learningCycles.title', section: 'delivery', icon: 'calendar', order: 75, sidebar: true, commandPalette: true },
   { id: 'competencies', href: '/competencies', capability: 'manage_qualifications', labelKey: 'competencies.title', section: 'workforce', icon: 'target', order: 80, sidebar: false, commandPalette: false },
   { id: 'surveys-manage', href: '/surveys', capability: 'manage_communications' },
   { id: 'announcements', href: '/announcements', capability: 'manage_communications' },

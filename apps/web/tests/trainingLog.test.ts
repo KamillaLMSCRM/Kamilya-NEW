@@ -42,6 +42,14 @@ describe('training-log request and count text', () => {
     expect(locale.trainingLog.badge.deadlineOverdue).toBeTruthy();
     expect(locale.trainingLog.badge.completedLate).toBeTruthy();
   });
+
+  it.each([ru, kk, en])('labels certificate validity independently from evidence', (locale) => {
+    expect(locale.trainingLog.table.certificateValidUntil).toBeTruthy();
+    expect(locale.trainingLog.badge.certificateActive).toBeTruthy();
+    expect(locale.trainingLog.badge.certificateExpiring).toBeTruthy();
+    expect(locale.trainingLog.badge.certificateExpired).toBeTruthy();
+    expect(locale.trainingLog.badge.certificateRevoked).toBeTruthy();
+  });
 });
 
 describe('training-log ownership', () => {

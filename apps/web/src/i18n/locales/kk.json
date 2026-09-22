@@ -475,6 +475,9 @@
   "competencies": {
     "title": "Құзыреттер матрицасы", "subtitle": "Құзыреттерді лауазымдармен және курстармен байланыстырыңыз", "new": "Жаңа құзырет", "name": "Атауы", "namePlaceholder": "Мысалы, клиентке бағдарлану", "description": "Сипаттама", "descriptionPlaceholder": "Қызметкер не істей алуы керек?", "positions": "Лауазымдар", "courses": "Курстар", "create": "Құру", "save": "Сақтау", "empty": "Құзыреттер әзірге жоқ", "created": "Құзырет құрылды", "saved": "Матрица сақталды", "loadFailed": "Матрицаны жүктеу мүмкін болмады", "saveFailed": "Сақтау мүмкін болмады", "forbidden": "Бұл бөлім әдіскерлер мен әкімшілерге қолжетімді"
   },
+  "learningCycles": {
+    "title": "Оқу циклдері", "subtitle": "Қайта оқыту циклдері мен мерзімі өткен тапсырмаларды басқарыңыз.", "forbidden": "Бұл бөлім әдіскерлерге қолжетімді.", "createTitle": "Жаңа цикл ережесі", "identityHint": "Алдымен оқу мақсатын, содан кейін білім алушыны бөлек таңдаңыз.", "targetType": "Мақсат түрі", "target": "Оқу мақсаты", "course": "Курс", "program": "Бағдарлама", "selectTarget": "Мақсатты таңдаңыз", "learner": "Білім алушы", "selectLearner": "Білім алушыны таңдаңыз", "cadenceDays": "Аралығы, күн", "dueDays": "Орындау мерзімі, күн", "saving": "Сақталуда…", "createDraft": "Ереже жасау", "created": "Оқу циклі ережесі жасалды", "saveFailed": "Ереже жасау мүмкін болмады", "activated": "Цикл іске қосылды", "deactivated": "Цикл тоқтатылды", "actionFailed": "Циклді өзгерту мүмкін болмады", "rulesTitle": "Цикл ережелері", "rulesHint": "Курс ережелері жарияланған кәдімгі курстарға қолданылады; бағдарлама мерзімділігі бағдарлама баптауларында көрсетіледі.", "emptyRules": "Әзірге цикл ережелері жоқ.", "unknownTarget": "Оқу мақсаты қолжетімсіз", "status": { "draft": "Жоба", "active": "Белсенді", "inactive": "Тоқтатылды" }, "cadenceDue": "Әр {cadence} күн · {due} күн ішінде аяқтау", "nextRun": "Келесі іске қосу", "lastRun": "Соңғы іске қосу", "latestOccurrence": "Соңғы кезең", "dueAt": "Мерзімі", "completedAt": "Аяқталды", "noOccurrence": "Әзірге кезең жоқ", "occurrence": { "assigned": "Орындалуда", "overdue": "Мерзімі өтті", "completed": "Уақытында аяқталды", "completed_late": "Кеш аяқталды", "skipped": "Өткізілді" }, "activate": "Іске қосу", "deactivate": "Тоқтату", "attentionTitle": "Назар аударуды қажет етеді", "attentionHint": "Аяқталмаған курс кезеңі үшін хабарламаны қайта жіберіңіз немесе түзету тапсырмасын ашыңыз.", "noAttention": "Аяқталмаған курс кезеңдері жоқ.", "selectAll": "Барлығын таңдау", "selectOccurrence": "{learner} үшін кезеңді таңдау", "resend": "Хабарламаны қайта жіберу", "resendSelected": "Таңдалғандарды қайта жіберу ({count})", "correctiveAssignment": "Түзету тапсырмасы", "resendQueued": "Қайта жіберу сұрауы қабылданды", "resendFailed": "Хабарламаны қайта жіберу мүмкін болмады", "bulkComplete": "Қайта жіберу сұраулары қабылданды: {count}", "bulkPartial": "Сәтті: {succeeded}, қате: {failed}", "bulkSummary": "Нәтиже: {succeeded} сәтті, {failed} қате. Қателер төменде көрсетілген."
+  },
   "learningPaths": {
     "createCourseFromMaterials": "Осы бағдарлама үшін курс жасау",
     "createCourseFromMaterialsHint": "Компания материалдары бойынша курс пен тест дайындап, оларды тексеріп жариялаңыз, содан кейін курсты осы бағдарламаға қайтарыңыз.",
@@ -1836,6 +1839,7 @@
       "score": "Ең жақсы балл",
       "completedAt": "Аяқталды",
       "certificate": "Сертификат",
+      "certificateValidUntil": "Жарамды мерзімі",
       "actions": "Әрекеттер"
     },
     "badge": {
@@ -1847,7 +1851,11 @@
       "deadlineActive": "Мерзімінде",
       "deadlineOverdue": "Мерзімі өтті",
       "completedOnTime": "Мерзімінде аяқталды",
-      "completedLate": "Кеш аяқталды"
+      "completedLate": "Кеш аяқталды",
+      "certificateActive": "Жарамды",
+      "certificateExpiring": "Мерзімі жақында аяқталады",
+      "certificateExpired": "Мерзімі аяқталды",
+      "certificateRevoked": "Күші жойылды"
     },
     "export": {
       "csv": "CSV жүктеу",

@@ -49,6 +49,8 @@ import { useLearningInsightsT } from '@/features/learning-insights/i18n';
  */
 
 type DeadlineStatus = 'not_applicable' | 'active' | 'overdue' | 'completed_on_time' | 'completed_late';
+type DeadlineState = 'none' | 'upcoming' | 'overdue' | 'completed_on_time' | 'completed_late';
+type CertificateStatus = 'none' | 'active' | 'expiring' | 'expired' | 'revoked';
 
 interface TrainingLogRow {
   user_id: string;
@@ -73,6 +75,8 @@ interface TrainingLogRow {
   // not contain deadline fields and must not be presented as being on track.
   cycle_due_at?: string | null;
   deadline_status?: DeadlineStatus;
+  assignment_due_at?: string | null;
+  deadline_state?: DeadlineState;
   enrollment_id: string;
   latest_evidence_event_id: string | null;
   evidence_procedure_type: string | null;
@@ -95,6 +99,8 @@ interface TrainingLogRow {
   certificate_id: string | null;
   certificate_number: string | null;
   certificate_issued_at: string | null;
+  certificate_expires_at?: string | null;
+  certificate_status?: CertificateStatus;
   kiosk_last_seen_at: string | null;
 }
 
@@ -565,12 +571,21 @@ export default function AdminTrainingLogPage() {
                         {row.computed_status === 'completed' ? t('trainingLog.badge.completed') : row.computed_status === 'in_progress' ? t('trainingLog.badge.inProgress') : t('trainingLog.badge.assigned')}
                       </Badge>
                       <span className="text-sm tabular-nums text-muted-foreground">{t('trainingLog.table.progress')}: {row.progress_percent}%</span>
-                      {row.cycle_due_at && (
+                      {(row.assignment_due_at || row.cycle_due_at) && (
                         <span className="text-sm text-muted-foreground">
-                          {t('trainingLog.table.deadline')}: {formatDate(row.cycle_due_at)}
+                          {t('trainingLog.table.deadline')}: {formatDate(row.assignment_due_at || row.cycle_due_at as string)}
                         </span>
                       )}
                       <DeadlineStatusBadge row={row} t={t} />
+                      {row.certificate_number && (
+                        <span className="inline-flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                          <span>{row.certificate_number}</span>
+                          {row.certificate_expires_at && (
+                            <span>{t('trainingLog.table.certificateValidUntil')}: {formatDate(row.certificate_expires_at)}</span>
+                          )}
+                          <CertificateStatusBadge status={row.certificate_status} t={t} />
+                        </span>
+                      )}
                       {row.latest_evidence_event_id && (
                         <EvidenceStatusBadge row={row} t={t} />
                       )}
@@ -703,9 +718,9 @@ export default function AdminTrainingLogPage() {
                         </Badge>
                       </td>
                       <td className={columnClass.deadline}>
-                        {row.cycle_due_at ? (
+                        {(row.assignment_due_at || row.cycle_due_at) ? (
                           <div className="space-y-1">
-                            <div className="text-sm tabular-nums text-foreground">{formatDate(row.cycle_due_at)}</div>
+                            <div className="text-sm tabular-nums text-foreground">{formatDate(row.assignment_due_at || row.cycle_due_at as string)}</div>
                             <DeadlineStatusBadge row={row} t={t} />
                           </div>
                         ) : <span className="text-sm text-muted-foreground">—</span>}
@@ -743,6 +758,12 @@ export default function AdminTrainingLogPage() {
                         {row.certificate_number ? (
                           <div className="space-y-1">
                             <span className="text-primary">{row.certificate_number}</span>
+                            {row.certificate_expires_at && (
+                              <p className="text-xs text-muted-foreground">
+                                {t('trainingLog.table.certificateValidUntil')}: {formatDate(row.certificate_expires_at)}
+                              </p>
+                            )}
+                            <CertificateStatusBadge status={row.certificate_status} t={t} />
                             {row.evidence_confirmation_status === 'pending' && (
                               <p className="text-xs text-muted-foreground">
                                 {t('trainingLog.evidence.certificateIndependent')}
@@ -839,10 +860,10 @@ function EvidenceStatusBadge({ row, t }: { row: TrainingLogRow; t: ReturnType<ty
   return <Badge variant={variant}>{label}</Badge>;
 }
 
-function DeadlineStatusBadge({ row, t }: { row: Pick<TrainingLogRow, 'cycle_due_at' | 'deadline_status'>; t: ReturnType<typeof useT>['t'] }) {
-  if (!row.cycle_due_at) return null;
+function DeadlineStatusBadge({ row, t }: { row: Pick<TrainingLogRow, 'cycle_due_at' | 'deadline_status' | 'assignment_due_at' | 'deadline_state'>; t: ReturnType<typeof useT>['t'] }) {
+  if (!row.assignment_due_at && !row.cycle_due_at) return null;
 
-  switch (row.deadline_status) {
+  switch (row.deadline_state || row.deadline_status) {
     case 'overdue':
       return <Badge variant="destructive">{t('trainingLog.badge.deadlineOverdue')}</Badge>;
     case 'completed_late':
@@ -850,8 +871,26 @@ function DeadlineStatusBadge({ row, t }: { row: Pick<TrainingLogRow, 'cycle_due_
     case 'completed_on_time':
       return <Badge variant="outline">{t('trainingLog.badge.completedOnTime')}</Badge>;
     case 'active':
+    case 'upcoming':
       return <Badge variant="outline">{t('trainingLog.badge.deadlineActive')}</Badge>;
+    case 'none':
     case 'not_applicable':
+    default:
+      return null;
+  }
+}
+
+function CertificateStatusBadge({ status, t }: { status: CertificateStatus | undefined; t: ReturnType<typeof useT>['t'] }) {
+  switch (status) {
+    case 'active':
+      return <Badge variant="outline">{t('trainingLog.badge.certificateActive')}</Badge>;
+    case 'expiring':
+      return <Badge variant="secondary">{t('trainingLog.badge.certificateExpiring')}</Badge>;
+    case 'expired':
+      return <Badge variant="destructive">{t('trainingLog.badge.certificateExpired')}</Badge>;
+    case 'revoked':
+      return <Badge variant="destructive">{t('trainingLog.badge.certificateRevoked')}</Badge>;
+    case 'none':
     default:
       return null;
   }

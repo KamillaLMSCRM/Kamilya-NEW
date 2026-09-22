@@ -475,6 +475,9 @@
   "competencies": {
     "title": "Competency matrix", "subtitle": "Link competencies to positions and courses", "new": "New competency", "name": "Name", "namePlaceholder": "For example, customer focus", "description": "Description", "descriptionPlaceholder": "What should the employee be able to do?", "positions": "Positions", "courses": "Courses", "create": "Create", "save": "Save", "empty": "No competencies yet", "created": "Competency created", "saved": "Matrix saved", "loadFailed": "Could not load the matrix", "saveFailed": "Could not save", "forbidden": "This section is available to methodologists and administrators"
   },
+  "learningCycles": {
+    "title": "Learning cycles", "subtitle": "Manage retraining cycles and overdue assignments.", "forbidden": "This section is available to methodologists.", "createTitle": "New cycle rule", "identityHint": "Choose the learning target first, then choose the learner separately.", "targetType": "Target type", "target": "Learning target", "course": "Course", "program": "Program", "selectTarget": "Select a target", "learner": "Learner", "selectLearner": "Select a learner", "cadenceDays": "Interval, days", "dueDays": "Completion window, days", "saving": "Saving…", "createDraft": "Create rule", "created": "Learning cycle rule created", "saveFailed": "Could not create the rule", "activated": "Cycle activated", "deactivated": "Cycle stopped", "actionFailed": "Could not update the cycle", "rulesTitle": "Cycle rules", "rulesHint": "Course rules apply to published native courses; program timing is configured in the learning program.", "emptyRules": "No cycle rules yet.", "unknownTarget": "Learning target unavailable", "status": { "draft": "Draft", "active": "Active", "inactive": "Stopped" }, "cadenceDue": "Every {cadence} days · due in {due} days", "nextRun": "Next run", "lastRun": "Last run", "latestOccurrence": "Latest occurrence", "dueAt": "Due", "completedAt": "Completed", "noOccurrence": "No occurrence yet", "occurrence": { "assigned": "In progress", "overdue": "Overdue", "completed": "Completed on time", "completed_late": "Completed late", "skipped": "Skipped" }, "activate": "Activate", "deactivate": "Stop", "attentionTitle": "Needs attention", "attentionHint": "For unfinished course occurrences, resend the notification or open a corrective assignment.", "noAttention": "No unfinished course occurrences.", "selectAll": "Select all eligible", "selectOccurrence": "Select occurrence for {learner}", "resend": "Resend notification", "resendSelected": "Resend selected ({count})", "correctiveAssignment": "Corrective assignment", "resendQueued": "Resend request accepted", "resendFailed": "Could not resend the notification", "bulkComplete": "Resend requests accepted: {count}", "bulkPartial": "Succeeded: {succeeded}, failed: {failed}", "bulkSummary": "Result: {succeeded} succeeded, {failed} failed. Failures are listed below."
+  },
   "learningPaths": {
     "createCourseFromMaterials": "Create a course for this program",
     "createCourseFromMaterialsHint": "Use company materials to prepare a course and test, then return it to this draft program after review and publication.",
@@ -1836,6 +1839,7 @@
       "score": "Best score",
       "completedAt": "Completed",
       "certificate": "Certificate",
+      "certificateValidUntil": "Valid until",
       "actions": "Actions"
     },
     "badge": {
@@ -1847,7 +1851,11 @@
       "deadlineActive": "On track",
       "deadlineOverdue": "Overdue",
       "completedOnTime": "Completed on time",
-      "completedLate": "Completed late"
+      "completedLate": "Completed late",
+      "certificateActive": "Active",
+      "certificateExpiring": "Expiring soon",
+      "certificateExpired": "Expired",
+      "certificateRevoked": "Revoked"
     },
     "export": {
       "csv": "Download CSV",

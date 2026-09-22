@@ -89,6 +89,7 @@ describe('route and capability registry', () => {
       'quizzes',
       'learning-paths-manage',
       'course-assignments',
+      'learning-cycles',
       'staff',
       'positions',
       'cohorts',
@@ -102,6 +103,9 @@ describe('route and capability registry', () => {
     expect(routes.find(({ id }) => id === 'cohorts')?.section).toBe('workforce');
     expect(routes.find(({ id }) => id === 'positions')?.parentId).toBe('staff');
     expect(routes.find(({ id }) => id === 'cohorts')?.parentId).toBe('staff');
+    expect(routes.find(({ id }) => id === 'learning-cycles')?.href).toBe('/learning-cycles');
+    expect(canAccessRegisteredRoute('methodologist', '/learning-cycles')).toBe(true);
+    expect(canAccessRegisteredRoute('student', '/learning-cycles')).toBe(false);
     expect(routes.find(({ id }) => id === 'candidate-assessments')?.parentId).toBe('staff');
     expect(routes.findIndex(({ id }) => id === 'positions'))
       .toBe(routes.findIndex(({ id }) => id === 'staff') + 1);
