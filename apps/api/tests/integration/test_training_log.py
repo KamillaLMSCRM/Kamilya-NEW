@@ -749,7 +749,7 @@ async def test_training_log_status_overdue_reads_immutable_cycle_deadline(
     assert row["cycle_type"] == "course"
     assert row["cycle_due_at"] is not None
     assert row["deadline_status"] == "overdue"
-    assert row["assignment_due_at"] == occurrence.due_at
+    assert datetime.fromisoformat(row["assignment_due_at"].replace("Z", "+00:00")) == occurrence.due_at
     assert row["deadline_state"] == "overdue"
 
     summary = await client.get(
