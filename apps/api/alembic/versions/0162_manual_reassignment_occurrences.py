@@ -32,6 +32,45 @@ def upgrade() -> None:
     schema = _schema_name()
     enrollments = _table(schema, "enrollments")
     users = _table(schema, "users")
+    access_policies = _table(schema, "enrollment_access_policies")
+    op.add_column(
+        "enrollment_access_policies",
+        sa.Column("link_validity_minutes", sa.Integer(), nullable=True),
+        schema=schema,
+    )
+    op.add_column(
+        "enrollment_access_policies",
+        sa.Column("due_window_minutes", sa.Integer(), nullable=True),
+        schema=schema,
+    )
+    op.create_check_constraint(
+        "ck_enrollment_access_policy_link_validity_positive",
+        "enrollment_access_policies",
+        "link_validity_minutes IS NULL OR link_validity_minutes > 0",
+        schema=schema,
+    )
+    op.create_check_constraint(
+        "ck_enrollment_access_policy_due_window_positive",
+        "enrollment_access_policies",
+        "due_window_minutes IS NULL OR due_window_minutes > 0",
+        schema=schema,
+    )
+    op.execute(f"""
+        UPDATE {access_policies}
+           SET link_validity_minutes = GREATEST(
+                 1, CEIL(EXTRACT(EPOCH FROM (link_expires_at - created_at)) / 60.0)::integer
+               )
+         WHERE link_expires_at IS NOT NULL AND link_expires_at > created_at
+           AND (updated_at IS NULL OR updated_at <= created_at + interval '1 second')
+    """)
+    op.execute(f"""
+        UPDATE {access_policies}
+           SET due_window_minutes = GREATEST(
+                 1, CEIL(EXTRACT(EPOCH FROM (due_at - created_at)) / 60.0)::integer
+               )
+         WHERE due_at IS NOT NULL AND due_at > created_at
+           AND (updated_at IS NULL OR updated_at <= created_at + interval '1 second')
+    """)
     op.add_column(
         "enrollments",
         sa.Column("previous_enrollment_id", postgresql.UUID(as_uuid=True), nullable=True),
@@ -165,3 +204,17 @@ def downgrade() -> None:
     op.drop_column("enrollments", "reassigned_by", schema=schema)
     op.drop_column("enrollments", "reassignment_reason", schema=schema)
     op.drop_column("enrollments", "previous_enrollment_id", schema=schema)
+    op.drop_constraint(
+        "ck_enrollment_access_policy_due_window_positive",
+        "enrollment_access_policies",
+        type_="check",
+        schema=schema,
+    )
+    op.drop_constraint(
+        "ck_enrollment_access_policy_link_validity_positive",
+        "enrollment_access_policies",
+        type_="check",
+        schema=schema,
+    )
+    op.drop_column("enrollment_access_policies", "due_window_minutes", schema=schema)
+    op.drop_column("enrollment_access_policies", "link_validity_minutes", schema=schema)

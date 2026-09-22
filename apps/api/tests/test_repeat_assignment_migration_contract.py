@@ -18,3 +18,8 @@ def test_manual_reassignment_migration_preserves_tenant_ownership_and_rls_contra
     assert 'SET search_path="{schema}",pg_temp' in source
     assert "TG_OP = 'UPDATE'" in source
     assert "manual reassignment identity is immutable" in source
+    assert "link_validity_minutes" in source
+    assert "due_window_minutes" in source
+    assert "link_expires_at - created_at" in source
+    assert "due_at - created_at" in source
+    assert "updated_at <= created_at + interval '1 second'" in source

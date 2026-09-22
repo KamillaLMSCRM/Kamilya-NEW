@@ -18,7 +18,11 @@ def scoped_enrollment_id(enrollment: Enrollment | None) -> UUID | None:
     """
     if enrollment is None:
         return None
-    if getattr(enrollment, "recurring_assignment_id", None) or getattr(enrollment, "previous_enrollment_id", None):
+    if (
+        getattr(enrollment, "recurring_assignment_id", None)
+        or getattr(enrollment, "learning_path_assignment_id", None)
+        or getattr(enrollment, "previous_enrollment_id", None)
+    ):
         return enrollment.id
     return None
 

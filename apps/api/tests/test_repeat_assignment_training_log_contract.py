@@ -32,5 +32,12 @@ def test_manual_repeat_gets_an_exact_state_scope_while_legacy_manual_keeps_null_
     enrollment_id = uuid4()
     legacy = SimpleNamespace(id=enrollment_id, recurring_assignment_id=None, previous_enrollment_id=None)
     repeated = SimpleNamespace(id=enrollment_id, recurring_assignment_id=None, previous_enrollment_id=uuid4())
+    learning_path = SimpleNamespace(
+        id=enrollment_id,
+        recurring_assignment_id=None,
+        learning_path_assignment_id=uuid4(),
+        previous_enrollment_id=None,
+    )
     assert scoped_enrollment_id(legacy) is None
     assert scoped_enrollment_id(repeated) == enrollment_id
+    assert scoped_enrollment_id(learning_path) == enrollment_id

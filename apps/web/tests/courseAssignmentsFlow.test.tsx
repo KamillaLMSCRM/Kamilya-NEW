@@ -148,6 +148,55 @@ describe('contextual course assignment flow', () => {
     expect(toastMock.success).toHaveBeenCalledWith('Новое назначение создано; прежняя история сохранена.');
   });
 
+  it('reveals the fresh protected link and PIN returned for a repeated personal-link assignment', async () => {
+    let repeatCalls = 0;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!init?.method && url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([{ id: 'course-1', title: 'Охрана труда', status: 'published' }]));
+      if (!init?.method && url.includes('/v1/users?')) return Promise.resolve(jsonResponse({ users: [{ id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: 'aliya@example.kz', role: 'student' }] }));
+      if (!init?.method && url.endsWith('/v1/learning-cycles')) return Promise.resolve(jsonResponse([]));
+      if (!init?.method && url.endsWith('/v1/learning-cycles/occurrences')) return Promise.resolve(jsonResponse([]));
+      if (!init?.method && url.endsWith('/v1/courses/course-1/enrollments')) {
+        return Promise.resolve(jsonResponse([{ id: 'enrollment-1', user_id: 'user-1', course_id: 'course-1', status: 'completed', source: 'manual', enrolled_at: '2026-01-01T00:00:00Z' }]));
+      }
+      if (init?.method === 'POST' && url.endsWith('/v1/courses/course-1/reassignments')) {
+        repeatCalls += 1;
+        if (repeatCalls > 1) {
+          return Promise.resolve(jsonResponse({ delivery_mode: 'email', personal_access: null }, 201));
+        }
+        return Promise.resolve(jsonResponse({
+          delivery_mode: 'personal_link',
+          personal_access: {
+            enrollment_id: 'enrollment-2',
+            access_url: 'https://app.kml.kz/access/fresh-repeat-token',
+            temporary_pin: '482913',
+            expires_at: '2026-10-01T00:00:00Z',
+            link_expires_at: '2026-10-01T00:00:00Z',
+            completion_window_minutes: 120,
+          },
+        }, 201));
+      }
+      throw new Error(`Unexpected request: ${url} ${init?.method || 'GET'}`);
+    });
+
+    render(<CourseAssignmentsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Назначить повторно' }));
+    fireEvent.change(screen.getByLabelText('Причина повторного назначения (обязательно)'), { target: { value: 'Repeat protected access' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Создать повторное назначение' }));
+
+    const accessCard = (await screen.findByRole('heading', { name: 'Персональный доступ сотрудника' })).parentElement;
+    expect(accessCard).not.toBeNull();
+    expect(within(accessCard!).getByText('https://app.kml.kz/access/fresh-repeat-token')).toBeInTheDocument();
+    expect(within(accessCard!).getByText('PIN: 482913')).toBeInTheDocument();
+    expect(within(accessCard!).getByText(/Алия Садыкова/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Назначить повторно' }));
+    fireEvent.change(screen.getByLabelText('Причина повторного назначения (обязательно)'), { target: { value: 'Repeat by email' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Создать повторное назначение' }));
+    await waitFor(() => expect(repeatCalls).toBe(2));
+    await waitFor(() => expect(screen.queryByText('https://app.kml.kz/access/fresh-repeat-token')).not.toBeInTheDocument());
+  });
+
   it('shows recurring learning controls with independent occurrence semantics', async () => {
     render(<CourseAssignmentsPage />);
 

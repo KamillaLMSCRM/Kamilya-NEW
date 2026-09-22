@@ -78,6 +78,11 @@ interface VisibleNoEmailAccess extends NoEmailAccessIssue {
   learner_name: string;
 }
 
+interface ReassignmentResult {
+  delivery_mode: DeliveryMode;
+  personal_access?: NoEmailAccessIssue | null;
+}
+
 interface RecurringLearningRule {
   id: string;
   course_id: string | null;
@@ -492,6 +497,17 @@ export default function EnrollmentsPage() {
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error?.detail || t('courseAssignments.repeat.failed'));
+      }
+      const result = await response.json() as ReassignmentResult;
+      setIssuedNoEmailAccess(null);
+      if (result.delivery_mode === 'personal_link' && result.personal_access) {
+        const learner = users.find((item) => item.id === enrollment.user_id);
+        setIssuedNoEmailAccess({
+          ...result.personal_access,
+          learner_name: learner
+            ? `${learner.first_name} ${learner.last_name}`.trim()
+            : enrollment.user_id,
+        });
       }
       toast.success(t('courseAssignments.repeat.success'));
       setRepeatTarget(null);

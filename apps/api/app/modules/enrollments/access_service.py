@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -32,6 +33,14 @@ def assignment_access_session_ttl() -> timedelta:
 
 def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def relative_window_minutes(deadline: datetime | None, *, origin: datetime) -> int | None:
+    """Persist an explicit positive relative policy duration."""
+    if deadline is None:
+        return None
+    seconds = (deadline - origin).total_seconds()
+    return max(1, math.ceil(seconds / 60)) if seconds > 0 else None
 
 
 def can_exchange_assignment_link(credential: AssignmentAccessCredential, *, now: datetime) -> bool:
@@ -88,6 +97,7 @@ async def upsert_access_policy(
     completion_window_minutes: int | None = None,
     due_at: datetime | None = None,
 ) -> EnrollmentAccessPolicy:
+    now = datetime.now(UTC)
     policy = await db.scalar(
         select(EnrollmentAccessPolicy)
         .where(
@@ -106,8 +116,10 @@ async def upsert_access_policy(
         db.add(policy)
     policy.delivery_mode = delivery_mode
     policy.link_expires_at = link_expires_at
+    policy.link_validity_minutes = relative_window_minutes(link_expires_at, origin=now)
     policy.completion_window_minutes = completion_window_minutes
     policy.due_at = due_at
+    policy.due_window_minutes = relative_window_minutes(due_at, origin=now)
     policy.revoked_at = None
     policy.revoked_reason = None
     # A changed window defines a fresh, not-yet-started policy. Existing

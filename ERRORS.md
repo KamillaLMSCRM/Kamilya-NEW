@@ -3626,8 +3626,22 @@ contract or establish a blocker.
   progress, learner dashboard, quiz availability and training-log joins; summary
   cards remain current while history has explicit counters; immutable audit
   identity no longer blocks status updates after the actor changes role.
-- Verification: focused web tests 43 PASS; full web 664 PASS; typecheck and
-  production build PASS; API database-free 3059 PASS / 495 integration-only
+- Recurrence during final review: the first reassignment service created the new
+  row but did not recreate its access policy, notification or protected-link
+  credential, and the centralized progress helper omitted learning-path
+  assignments. An open personal-link predecessor would therefore be revoked
+  without a replacement, while path progress could fall back to legacy scope.
+- Additional fix: make delivery part of the occurrence contract. Email repeats
+  create a new policy and durable outbox notification; personal-link repeats
+  issue a new one-time URL/PIN and return it only in the mutation response.
+  Relative link, due-date and completion-window durations are restarted from the
+  repeat time. The shared progress helper also scopes learning paths explicitly.
+- A single legacy `updated_at` cannot prove which deadline field changed. The
+  migration therefore backfills durations only for unmodified policies and
+  leaves ambiguous rows fail-closed until an audited explicit extension writes
+  field-specific duration metadata.
+- Verification: focused web tests PASS; full web 665 PASS; typecheck and
+  production build PASS; API database-free 3059 PASS / 498 integration-only
   skipped; migration/static contracts PASS; isolated Supabase DEV
   migration, restricted-role FORCE RLS, ownership negatives, post-demotion
   status update, downgrade/re-upgrade and cleanup PASS.

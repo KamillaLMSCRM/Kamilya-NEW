@@ -1,6 +1,6 @@
 """Enrollments — API service."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select, update
@@ -302,7 +302,7 @@ async def reassign_manual_enrollment(
     previous_enrollment_id: UUID,
     reassigned_by: UUID,
     reason: str,
-) -> Enrollment:
+) -> tuple[Enrollment, dict | None, str]:
     """Create one immutable manual occurrence from the learner's current history.
 
     The predecessor is retained as evidence.  Only an open manual occurrence is
@@ -346,6 +346,14 @@ async def reassign_manual_enrollment(
     if open_rows and predecessor.id not in {row.id for row in open_rows}:
         raise ValueError("Selected enrollment is not the current assignment")
 
+    predecessor_policy = await db.scalar(
+        select(EnrollmentAccessPolicy)
+        .where(
+            EnrollmentAccessPolicy.enrollment_id == predecessor.id,
+            EnrollmentAccessPolicy.tenant_id == tenant_id,
+        )
+        .with_for_update()
+    )
     release = await ensure_course_release(db, course)
     now = datetime.now(UTC)
     predecessor_status = predecessor.status
@@ -387,8 +395,75 @@ async def reassign_manual_enrollment(
     )
     db.add(enrollment)
     await db.flush()
+
+    # A repeat is a complete new delivery occurrence, not only a new progress
+    # scope. Carry durations (not stale absolute timestamps) forward so the
+    # learner receives a fresh link/deadline window with the same policy.
+    delivery_mode = predecessor_policy.delivery_mode if predecessor_policy is not None else "email"
+    completion_window_minutes = (
+        predecessor_policy.completion_window_minutes if predecessor_policy is not None else None
+    )
+    link_expires_at = None
+    due_at = None
+    if predecessor_policy is not None:
+        if predecessor_policy.link_expires_at is not None and not predecessor_policy.link_validity_minutes:
+            raise ValueError("Assignment link policy must be extended before reassignment")
+        if predecessor_policy.due_at is not None and not predecessor_policy.due_window_minutes:
+            raise ValueError("Assignment deadline policy must be extended before reassignment")
+        if predecessor_policy.link_validity_minutes:
+            link_expires_at = now + timedelta(minutes=predecessor_policy.link_validity_minutes)
+        if predecessor_policy.due_window_minutes:
+            due_at = now + timedelta(minutes=predecessor_policy.due_window_minutes)
+
+    from app.modules.enrollments.access_service import issue_assignment_access, upsert_access_policy
+
+    personal_access = None
+    if delivery_mode == "personal_link":
+        from app.core.config import get_settings
+
+        personal_access = await issue_assignment_access(
+            db,
+            enrollment.id,
+            tenant_id,
+            get_settings().PUBLIC_URL,
+            link_expires_at=link_expires_at,
+            completion_window_minutes=completion_window_minutes,
+            due_at=due_at,
+            allow_email=True,
+        )
+        if personal_access is None:
+            raise ValueError("Personal access credential could not be issued")
+    else:
+        await upsert_access_policy(
+            db,
+            enrollment=enrollment,
+            delivery_mode="email",
+            link_expires_at=None,
+            completion_window_minutes=completion_window_minutes,
+            due_at=due_at,
+        )
+        if learner.email and learner.email.strip() and not learner.has_login_access:
+            from app.core.config import get_settings
+            from app.modules.users.invitations_service import prepare_user_invitation
+
+            await prepare_user_invitation(
+                db,
+                tenant_id,
+                reassigned_by,
+                learner.id,
+                get_settings().PUBLIC_URL,
+                reuse_valid=True,
+            )
+        notification_id = await queue_manual_enrollment_notification(
+            db,
+            tenant_id=tenant_id,
+            enrollment_id=enrollment.id,
+            assigned_by=reassigned_by,
+        )
+        enrollment.notification_outbox_id = notification_id
+
     enrollment.predecessor_status = predecessor_status
-    return enrollment
+    return enrollment, personal_access, delivery_mode
 
 
 async def resend_enrollment_notification(db: AsyncSession, *, tenant_id: UUID, enrollment_id: UUID) -> UUID | None:

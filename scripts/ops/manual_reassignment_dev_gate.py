@@ -92,6 +92,8 @@ async def _create_baseline(owner, schema: str) -> dict[str, UUID]:
         "course_a": uuid4(),
         "predecessor_a": uuid4(),
         "predecessor_b": uuid4(),
+        "policy_a": uuid4(),
+        "policy_ambiguous": uuid4(),
     }
     q = f'"{schema}"'
     async with owner.begin() as connection:
@@ -121,6 +123,15 @@ async def _create_baseline(owner, schema: str) -> dict[str, UUID]:
                 "WHERE status IN ('enrolled','completed') "
                 "AND recurring_assignment_id IS NULL "
                 "AND learning_path_assignment_id IS NULL"
+            )
+        )
+        await connection.execute(
+            text(
+                f"CREATE TABLE {q}.enrollment_access_policies ("
+                "id uuid PRIMARY KEY, tenant_id uuid NOT NULL, enrollment_id uuid NOT NULL, "
+                "user_id uuid NOT NULL, delivery_mode text NOT NULL DEFAULT 'email', "
+                "link_expires_at timestamptz NULL, due_at timestamptz NULL, "
+                "created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NULL)"
             )
         )
         await connection.execute(
@@ -155,6 +166,34 @@ async def _create_baseline(owner, schema: str) -> dict[str, UUID]:
                 "tb": ids["tenant_b"],
             },
         )
+        await connection.execute(
+            text(
+                f"INSERT INTO {q}.enrollment_access_policies "
+                "(id,tenant_id,enrollment_id,user_id,delivery_mode,link_expires_at,due_at,created_at,updated_at) "
+                "VALUES (:id,:tenant,:enrollment,:user,'personal_link',"
+                "now()+interval '7 days',now()+interval '14 days',now(),now())"
+            ),
+            {
+                "id": ids["policy_a"],
+                "tenant": ids["tenant_a"],
+                "enrollment": ids["predecessor_a"],
+                "user": ids["learner_a"],
+            },
+        )
+        await connection.execute(
+            text(
+                f"INSERT INTO {q}.enrollment_access_policies "
+                "(id,tenant_id,enrollment_id,user_id,delivery_mode,link_expires_at,due_at,created_at,updated_at) "
+                "VALUES (:id,:tenant,:enrollment,:user,'email',"
+                "now()+interval '7 days',now()+interval '14 days',now()-interval '30 days',now())"
+            ),
+            {
+                "id": ids["policy_ambiguous"],
+                "tenant": ids["tenant_b"],
+                "enrollment": ids["predecessor_b"],
+                "user": ids["learner_b"],
+            },
+        )
         for table in ("users", "enrollments"):
             await connection.execute(
                 text(f"ALTER TABLE {q}.{table} ENABLE ROW LEVEL SECURITY")
@@ -178,6 +217,26 @@ async def _create_baseline(owner, schema: str) -> dict[str, UUID]:
                 text(f"GRANT SELECT, INSERT, UPDATE, DELETE ON {q}.{table} TO lms_app")
             )
         await connection.run_sync(_upgrade, schema)
+        durations = (
+            await connection.execute(
+                text(
+                    f"SELECT link_validity_minutes,due_window_minutes FROM {q}.enrollment_access_policies "
+                    "WHERE id=:id"
+                ),
+                {"id": ids["policy_a"]},
+            )
+        ).one()
+        assert tuple(durations) == (7 * 24 * 60, 14 * 24 * 60), "policy_duration_backfill_failed"
+        ambiguous_durations = (
+            await connection.execute(
+                text(
+                    f"SELECT link_validity_minutes,due_window_minutes FROM {q}.enrollment_access_policies "
+                    "WHERE id=:id"
+                ),
+                {"id": ids["policy_ambiguous"]},
+            )
+        ).one()
+        assert tuple(ambiguous_durations) == (None, None), "ambiguous_policy_backfill_must_fail_closed"
     return ids
 
 
@@ -313,6 +372,18 @@ async def _exercise_downgrade_reupgrade(
             or 0
         )
         assert columns == 0, "downgrade_did_not_remove_columns"
+        policy_columns = int(
+            await connection.scalar(
+                text(
+                    "SELECT count(*) FROM information_schema.columns "
+                    "WHERE table_schema=:schema AND table_name='enrollment_access_policies' "
+                    "AND column_name IN ('link_validity_minutes','due_window_minutes')"
+                ),
+                {"schema": schema},
+            )
+            or 0
+        )
+        assert policy_columns == 0, "downgrade_did_not_remove_policy_duration_columns"
         await connection.run_sync(_upgrade, schema)
         checks.extend(("clean_downgrade", "reupgrade"))
     return checks

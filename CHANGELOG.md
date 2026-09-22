@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retained predecessors appear only in the explicit history view.
 - Bind lesson progress, quiz availability, SCORM activity and certificates to
   the new occurrence while preserving legacy one-time progress in place.
+- Reissue the predecessor's delivery mode for the new occurrence: durable email
+  notification or a fresh protected-link secret, with equivalent relative
+  access-window durations.
 
 ### Fixed
 
@@ -42,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prevent a repeated course from inheriting or overwriting lesson progress from
   the previous occurrence.
 - Scope SCORM activity to the exact enrollment occurrence in the training log.
+- Keep learning-path progress scoped to its path enrollment after centralizing
+  occurrence selection.
 
 ### Security
 

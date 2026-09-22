@@ -48,13 +48,6 @@ class ReassignmentCreate(BaseModel):
     reason: str = Field(min_length=1, max_length=500)
 
 
-class ReassignmentResponse(BaseModel):
-    enrollment: EnrollmentResponse
-    previous_enrollment_id: UUID
-    predecessor_status: str
-    reason: str
-
-
 class EnrollmentAccessResponse(BaseModel):
     """Methodologist-only delivery/access view for one assignment.
 
@@ -89,6 +82,15 @@ class AssignmentAccessIssueResponse(BaseModel):
     completion_window_started_at: datetime | None = None
     completion_window_expires_at: datetime | None = None
     due_at: datetime | None = None
+
+
+class ReassignmentResponse(BaseModel):
+    enrollment: EnrollmentResponse
+    previous_enrollment_id: UUID
+    predecessor_status: str
+    reason: str
+    delivery_mode: Literal["email", "personal_link"]
+    personal_access: AssignmentAccessIssueResponse | None = None
 
 
 class EnrollmentAccessPolicyRequest(BaseModel):

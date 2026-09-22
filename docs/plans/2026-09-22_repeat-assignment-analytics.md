@@ -32,6 +32,10 @@ training log can deliberately include historical occurrences.
 - Repeating rule-driven enrollment is rejected; its owner workflow is the rule or
   recurring-cycle domain.
 - Attempt limits are enrollment-scoped, so the new occurrence starts at zero.
+- Delivery is occurrence-scoped: repeat email assignments enqueue a new durable
+  notification; repeat personal-link assignments issue a new link and PIN.
+- Relative access-policy durations are carried to the new occurrence while old
+  absolute timestamps and credentials remain historical/revoked.
 - Tenant ownership is enforced in API, database trigger/RLS and cross-tenant tests.
 - Operational totals exclude `cancelled` and `superseded`; history views include
   them only when explicitly requested.
@@ -52,6 +56,8 @@ training log can deliberately include historical occurrences.
 - [x] Slice 6: dashboard summary exposes active, not-started, in-progress,
   completed, overdue, failed-current, exhausted-attempt and reassigned counts;
   cancelled/superseded history cannot inflate current totals.
+- [x] Slice 6a: repeat delivery reissues email/outbox or personal-link access,
+  preserves relative timing policy, and retains learning-path progress scoping.
 - [ ] Slice 7: focused API/web tests, complete local no-DB/API/web regression,
   canonical Supabase DEV migration/RLS/integration checks and browser acceptance.
 - [ ] Slice 8: version/changelog/release notes, exact-SHA CI and protected release,

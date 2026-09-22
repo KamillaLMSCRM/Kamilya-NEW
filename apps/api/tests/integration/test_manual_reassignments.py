@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
@@ -92,6 +92,180 @@ async def test_methodologist_reassignment_supersedes_open_manual_predecessor_and
     await db_session.refresh(predecessor)
     assert predecessor.status == "superseded"
     assert response.json()["enrollment"]["previous_enrollment_id"] == str(predecessor.id)
+
+
+async def test_reassignment_reissues_email_delivery_and_carries_relative_timing_policy(
+    client, db_session, make_tenant, make_user, make_course, auth_headers
+):
+    from sqlalchemy import select
+
+    from app.models.course_assignment_notification import CourseAssignmentNotificationOutbox
+    from app.models.enrollment_access_policy import EnrollmentAccessPolicy
+
+    tenant = await make_tenant(name="Repeat email delivery tenant")
+    methodologist = await make_user(tenant, role="methodologist")
+    learner = await make_user(tenant, role="student")
+    course = await make_course(tenant, methodologist, title="Repeat email delivery", status="published")
+    predecessor = await _manual_enrollment(
+        db_session, tenant=tenant, learner=learner, course=course, status="completed"
+    )
+    policy_origin = datetime.now(UTC) - timedelta(days=1)
+    db_session.add(
+        EnrollmentAccessPolicy(
+            tenant_id=tenant.id,
+            enrollment_id=predecessor.id,
+            user_id=learner.id,
+            delivery_mode="email",
+            completion_window_minutes=90,
+            due_at=policy_origin + timedelta(days=14),
+            due_window_minutes=14 * 24 * 60,
+            created_at=policy_origin,
+        )
+    )
+    await db_session.flush()
+
+    extended_due_at = datetime.now(UTC) + timedelta(days=3)
+    extension = await client.post(
+        f"/api/v1/courses/enrollments/{predecessor.id}/access-policy/extend",
+        json={"due_at": extended_due_at.isoformat(), "reason": "new deadline policy"},
+        headers=auth_headers(methodologist),
+    )
+    assert extension.status_code == 200, extension.text
+
+    before = datetime.now(UTC)
+    response = await client.post(
+        f"/api/v1/courses/{course.id}/reassignments",
+        json={
+            "user_id": str(learner.id),
+            "previous_enrollment_id": str(predecessor.id),
+            "reason": "repeat with fresh email delivery",
+        },
+        headers=auth_headers(methodologist),
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["delivery_mode"] == "email"
+    assert body["personal_access"] is None
+    current_id = UUID(body["enrollment"]["id"])
+    policy = await db_session.scalar(
+        select(EnrollmentAccessPolicy).where(EnrollmentAccessPolicy.enrollment_id == current_id)
+    )
+    assert policy is not None
+    assert policy.delivery_mode == "email"
+    assert policy.completion_window_minutes == 90
+    assert before + timedelta(days=2, hours=23) <= policy.due_at <= datetime.now(UTC) + timedelta(days=3, minutes=1)
+    notification = await db_session.scalar(
+        select(CourseAssignmentNotificationOutbox).where(
+            CourseAssignmentNotificationOutbox.enrollment_id == current_id
+        )
+    )
+    assert notification is not None
+
+
+async def test_reassignment_reissues_personal_link_and_returns_new_one_time_secret(
+    client, db_session, make_tenant, make_user, make_course, auth_headers
+):
+    from sqlalchemy import select
+
+    from app.models.assignment_access import AssignmentAccessCredential
+    from app.models.enrollment_access_policy import EnrollmentAccessPolicy
+
+    tenant = await make_tenant(name="Repeat personal delivery tenant")
+    methodologist = await make_user(tenant, role="methodologist")
+    learner = await make_user(tenant, role="student")
+    course = await make_course(tenant, methodologist, title="Repeat personal delivery", status="published")
+    predecessor = await _manual_enrollment(db_session, tenant=tenant, learner=learner, course=course)
+    policy_origin = datetime.now(UTC) - timedelta(hours=6)
+    predecessor_policy = EnrollmentAccessPolicy(
+        tenant_id=tenant.id,
+        enrollment_id=predecessor.id,
+        user_id=learner.id,
+        delivery_mode="personal_link",
+        link_expires_at=policy_origin + timedelta(days=7),
+        link_validity_minutes=7 * 24 * 60,
+        completion_window_minutes=120,
+        due_at=policy_origin + timedelta(days=10),
+        due_window_minutes=10 * 24 * 60,
+        created_at=policy_origin,
+    )
+    db_session.add(predecessor_policy)
+    await db_session.flush()
+
+    before = datetime.now(UTC)
+    response = await client.post(
+        f"/api/v1/courses/{course.id}/reassignments",
+        json={
+            "user_id": str(learner.id),
+            "previous_enrollment_id": str(predecessor.id),
+            "reason": "repeat with a fresh protected link",
+        },
+        headers=auth_headers(methodologist),
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["delivery_mode"] == "personal_link"
+    assert body["personal_access"]["access_url"].startswith("https://")
+    assert len(body["personal_access"]["temporary_pin"]) == 6
+    current_id = UUID(body["enrollment"]["id"])
+    policy = await db_session.scalar(
+        select(EnrollmentAccessPolicy).where(EnrollmentAccessPolicy.enrollment_id == current_id)
+    )
+    assert policy is not None
+    assert policy.delivery_mode == "personal_link"
+    assert policy.completion_window_minutes == 120
+    assert before + timedelta(days=6, hours=23) <= policy.link_expires_at <= datetime.now(UTC) + timedelta(days=7, minutes=1)
+    active = await db_session.scalar(
+        select(AssignmentAccessCredential).where(
+            AssignmentAccessCredential.enrollment_id == current_id,
+            AssignmentAccessCredential.revoked_at.is_(None),
+        )
+    )
+    assert active is not None
+    await db_session.refresh(predecessor_policy)
+    assert predecessor_policy.revoked_at is not None
+
+
+async def test_reassignment_rejects_an_unrecoverable_expired_deadline_policy(
+    client, db_session, make_tenant, make_user, make_course, auth_headers
+):
+    from sqlalchemy import func, select
+
+    from app.models.enrollment import Enrollment
+    from app.models.enrollment_access_policy import EnrollmentAccessPolicy
+
+    tenant = await make_tenant(name="Expired repeat policy tenant")
+    methodologist = await make_user(tenant, role="methodologist")
+    learner = await make_user(tenant, role="student")
+    course = await make_course(tenant, methodologist, title="Expired repeat policy", status="published")
+    predecessor = await _manual_enrollment(
+        db_session, tenant=tenant, learner=learner, course=course, status="completed"
+    )
+    db_session.add(
+        EnrollmentAccessPolicy(
+            tenant_id=tenant.id,
+            enrollment_id=predecessor.id,
+            user_id=learner.id,
+            delivery_mode="email",
+            due_at=datetime.now(UTC) - timedelta(days=1),
+            due_window_minutes=None,
+        )
+    )
+    await db_session.flush()
+
+    response = await client.post(
+        f"/api/v1/courses/{course.id}/reassignments",
+        json={
+            "user_id": str(learner.id),
+            "previous_enrollment_id": str(predecessor.id),
+            "reason": "must not drop an expired policy",
+        },
+        headers=auth_headers(methodologist),
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Assignment deadline policy must be extended before reassignment"
+    assert await db_session.scalar(
+        select(func.count(Enrollment.id)).where(Enrollment.previous_enrollment_id == predecessor.id)
+    ) == 0
 
 
 async def test_reassignment_resets_quiz_attempt_scope_without_erasing_predecessor_attempts(
