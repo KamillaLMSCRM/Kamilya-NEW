@@ -9,13 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add a synthetic four-seam course-quality corpus and bounded local probe for checking document conversion, source mapping, lessons and questions without tenant data or database writes.
-
 ### Changed
 
 ### Fixed
 
+### Security
+
+## [0.10.2] - 2026-09-23
+
+### Added
+
+- Add a synthetic four-seam course-quality corpus and bounded local probe for checking document conversion, source mapping, lessons and questions without tenant data or database writes.
+
+### Changed
+
+- Bind lessons and questions more closely to the source's semantic blocks and labelled spreadsheet facts; keep assessment length proportional to independently testable material.
+
+### Fixed
+
 - Keep a sole title-matching narrative section as teachable material, and classify a small named nomenclature sheet as supporting when a stronger learning sheet is present.
+- Prevent unlabelled or mismatched workbook values in lessons, duplicate short rules, unsupported lesson metadata, off-topic answer choices and misleading question premises.
 
 ### Security
 
