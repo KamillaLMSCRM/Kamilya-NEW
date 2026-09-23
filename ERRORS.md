@@ -3808,3 +3808,26 @@ contract or establish a blocker.
 - Prevention: once a version has a dated changelog section and release notes,
   run the release-mode validator before the first DEV push. Development-mode
   validation is not sufficient for a release candidate.
+
+## AI-QUALITY-029 - A title-matching sole section or small catalog distorted source density
+
+- Date: 2026-09-23. Local candidate only; no DEV or production deployment.
+- Symptom: a one-rule source produced zero lessons, while a two-sheet workbook
+  produced four lessons because its auxiliary nomenclature became a teaching
+  section. A green pipeline status alone would not reveal either semantic loss.
+- Cause: a multi-section preamble rule was applied even when the narrative had
+  only one section. The passport reference heuristic required a large or strongly
+  dominant catalog and missed a small, explicitly named catalog beside a clear
+  primary worksheet.
+- Fix: preserve a sole narrative section as primary; classify a named reference
+  sheet as supporting when its reference evidence exceeds its primary evidence
+  and the same document has a strong primary sheet.
+- Verification: independent synthetic gold cases go red before each fix and green
+  after; actual local XLSX/PDF conversion plus source/plan checks pass. A bounded
+  live DeepSeek micro-source probe accepted one question only with the working
+  8192-token response limit; 1800 tokens truncated its review JSON. This does not
+  prove full-document quality or a production release.
+- Prevention: test the four seams separately from question back to file; include
+  both tiny and multi-section documents, actual converter output, exact source
+  roles, no-padding and no-invented-value assertions. Keep model probes under an
+  explicit call/cost cap and distinguish harness failures from product defects.

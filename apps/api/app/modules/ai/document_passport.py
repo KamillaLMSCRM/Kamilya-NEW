@@ -271,6 +271,12 @@ def build_document_passport(corpus: _Corpus) -> DocumentPassport:
             has_strong_primary_peer = section.document_id in strong_primary_documents
             catalog_named = bool(_tokens(section.name) & _STRONG_REFERENCE_MARKERS)
             reference_dominates = strong_reference_signals >= 1 and reference_signals - primary_signals >= 2
+            named_reference_beside_primary = (
+                has_strong_primary_peer
+                and catalog_named
+                and strong_reference_signals >= 1
+                and reference_signals > primary_signals
+            )
             balanced_large_reference = (
                 has_strong_primary_peer
                 and much_larger
@@ -278,7 +284,7 @@ def build_document_passport(corpus: _Corpus) -> DocumentPassport:
                 and reference_signals >= primary_signals
                 and (strong_primary_signals == 0 or catalog_named)
             )
-            if reference_dominates or balanced_large_reference:
+            if reference_dominates or named_reference_beside_primary or balanced_large_reference:
                 roles.append(SectionRole.SUPPORTING)
             elif (
                 primary_signals >= reference_signals

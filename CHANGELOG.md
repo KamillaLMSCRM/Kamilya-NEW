@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add a synthetic four-seam course-quality corpus and bounded local probe for checking document conversion, source mapping, lessons and questions without tenant data or database writes.
+
 ### Changed
 
 ### Fixed
+
+- Keep a sole title-matching narrative section as teachable material, and classify a small named nomenclature sheet as supporting when a stronger learning sheet is present.
 
 ### Security
 

@@ -689,7 +689,7 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
                 section_name=section_name,
                 role_by_section=role_by_section,
             )
-            if has_structured_headings and section_name == document.title:
+            if has_structured_headings and len(grouped) > 1 and section_name == document.title:
                 role = SectionRole.SUPPORTING
             narrative_facts: list[SourceFact] = []
             # Reassemble overlapping storage chunks before semantic splitting;

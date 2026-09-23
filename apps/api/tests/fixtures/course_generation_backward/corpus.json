@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "purpose": "Synthetic, source-owned regression corpus for the four agreed generation seams. No client data.",
+  "cases": [
+    {
+      "id": "micro_one_rule",
+      "level": "one_atomic_rule",
+      "filename": "return-rule.txt",
+      "title": "Возврат заявки",
+      "chunks": [
+        {
+          "heading": "Возврат заявки",
+          "text": "Если покупатель просит отменить заявку до передачи товара, сотрудник отмечает отмену в системе."
+        }
+      ],
+      "gold": {
+        "primary_topics": ["Возврат заявки"],
+        "must_preserve": ["до передачи товара", "отмечает отмену в системе"],
+        "must_not_claim": ["после передачи товара", "возврат денег"],
+        "max_lessons": 1,
+        "distinct_assessable_decisions": 1
+      }
+    },
+    {
+      "id": "structured_policy",
+      "level": "two_clear_sections",
+      "filename": "warehouse-policy.pdf",
+      "title": "Приёмка товара",
+      "chunks": [
+        {
+          "heading": "1. Проверка документов",
+          "text": "1. Проверка документов\nСотрудник сверяет номер накладной с номером заказа до разгрузки. Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены."
+        },
+        {
+          "heading": "2. Осмотр товара",
+          "text": "2. Осмотр товара\nПосле сверки документов сотрудник осматривает упаковку. Повреждение упаковки фиксируют в акте приёмки до подписания накладной."
+        }
+      ],
+      "gold": {
+        "primary_topics": ["Проверка документов", "Осмотр товара"],
+        "must_preserve": ["до разгрузки", "не начинают", "до подписания накладной"],
+        "must_not_claim": ["разгрузку начинают при несовпадении", "акт составляют после подписания"],
+        "max_lessons": 2,
+        "distinct_assessable_decisions": 3
+      }
+    },
+    {
+      "id": "spreadsheet_primary_auxiliary",
+      "level": "multi_sheet_primary_vs_catalog",
+      "filename": "collections.xlsx",
+      "title": "Коллекции мебели",
+      "chunks": [
+        {
+          "heading": "[Worksheet] Коллекции",
+          "text": "# [Worksheet] Коллекции\n\n| Поле | Север | Берег |\n| --- | --- | --- |\n| Назначение | Для прихожей | Для спальни |\n| Материал фасада | МДФ | ЛДСП |\n| Особенность | Зеркало в комплекте | Ящики полного выдвижения |"
+        },
+        {
+          "heading": "[Worksheet] Номенклатура",
+          "text": "# [Worksheet] Номенклатура\n\n| Артикул | Наименование | Коллекция | Остаток |\n| --- | --- | --- | --- |\n| N-001 | Шкаф 80 см | Север | 4 |\n| N-002 | Вешалка 60 см | Север | 2 |\n| B-001 | Комод 120 см | Берег | 3 |"
+        }
+      ],
+      "gold": {
+        "primary_topics": ["Север", "Берег"],
+        "supporting_sections": ["Номенклатура"],
+        "must_preserve": ["Для прихожей", "Для спальни", "МДФ", "ЛДСП"],
+        "must_not_claim": ["остаток определяет назначение коллекции"],
+        "max_lessons": 2,
+        "distinct_assessable_decisions": 4
+      }
+    },
+    {
+      "id": "uncertain_ocr_value",
+      "level": "ambiguous_source_value",
+      "filename": "delivery-rule.pdf",
+      "title": "Передача товара",
+      "chunks": [
+        {
+          "heading": "3. Передача товара",
+          "text": "3. Передача товара\nПеред передачей товара сотрудник проверяет комплектность по накладной. Срок хранения невыданного товара — ? рабочих дней."
+        }
+      ],
+      "gold": {
+        "primary_topics": ["Передача товара"],
+        "must_preserve": ["проверяет комплектность по накладной"],
+        "must_not_claim": ["срок хранения составляет 3 рабочих дня", "срок хранения составляет 5 рабочих дней"],
+        "max_lessons": 1,
+        "distinct_assessable_decisions": 1
+      }
+    }
+  ]
+}
