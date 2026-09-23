@@ -959,12 +959,13 @@ remove-операции без отдельной сверки запрещен�
 Минимальный gate:
 
 ```powershell
-python -m compileall -q apps/api/app
-python -m pytest apps/api/tests -q
-cd apps/web
-npm test
-npm run typecheck
-npx next build
+.\.venv\Scripts\python.exe -m compileall -q apps/api/app
+.\scripts\dev\run_api_pytest.ps1 tests -q
+Push-Location apps/web
+pnpm test
+pnpm typecheck
+pnpm build
+Pop-Location
 ```
 
 Известные ограничения текущей проверки:

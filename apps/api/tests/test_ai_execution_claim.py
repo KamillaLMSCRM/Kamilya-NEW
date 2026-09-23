@@ -30,6 +30,8 @@ async def test_claim_generation_execution_is_atomic_and_commits():
     statement = db.execute.await_args_list[1].args[0]
     compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
     assert "ai_jobs.status = 'pending'" in compiled
+    assert "generation_engine" in compiled
+    assert "evidence_v2" in compiled
     assert "UPDATE ai_jobs" in compiled
 
 
@@ -110,11 +112,102 @@ def test_failed_pipeline_result_is_terminal_and_not_retried(monkeypatch):
         lessons_per_module=4,
         tenant_id=str(uuid4()),
         user_id=str(uuid4()),
+        source_analysis={
+            "analysis_mode": "direct_source",
+            "generation_engine": "evidence_v2",
+        },
     )
 
     assert result == {"job_id": "job-1", "status": "failed", "message": "provider failed", "progress": 42}
     assert captured["num_modules"] == 1
     assert captured["lessons_per_module"] == 4
+
+
+def test_worker_retires_old_generation_without_claiming_or_calling_providers(monkeypatch):
+    from app.core import db as db_module
+    from app.modules.ai import tasks
+
+    class Session:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+    class Factory:
+        def __call__(self):
+            return Session()
+
+    retired = AsyncMock(return_value=True)
+    claimed = AsyncMock(side_effect=AssertionError("retired job was claimed"))
+    pipeline = AsyncMock(side_effect=AssertionError("retired engine reached pipeline"))
+    monkeypatch.setattr(db_module, "async_session_factory", Factory())
+    monkeypatch.setattr(job_service, "retire_legacy_generation_execution", retired, raising=False)
+    monkeypatch.setattr(job_service, "claim_generation_execution", claimed)
+    monkeypatch.setattr(tasks, "run_generation_pipeline", pipeline)
+    monkeypatch.setattr(tasks, "_run_async", lambda awaitable: asyncio.run(awaitable))
+
+    tenant_id = str(uuid4())
+    result = tasks.generate_course_task.run(
+        job_id="job-retired",
+        documents=[str(uuid4())],
+        tenant_id=tenant_id,
+        user_id=str(uuid4()),
+        source_analysis={"analysis_mode": "direct_source"},
+    )
+
+    assert result == {
+        "job_id": "job-retired",
+        "status": "failed",
+        "message": job_service.RETIRED_GENERATION_ENGINE_MESSAGE,
+        "error_code": "generation_engine_retired",
+    }
+    retired.assert_awaited_once_with(retired.await_args.args[0], "job-retired", tenant_id)
+    claimed.assert_not_awaited()
+    pipeline.assert_not_awaited()
+
+
+def test_worker_retires_persisted_legacy_job_even_if_delivery_claims_v2(monkeypatch):
+    from app.core import db as db_module
+    from app.modules.ai import tasks
+
+    class Session:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+    class Factory:
+        def __call__(self):
+            return Session()
+
+    claimed = AsyncMock(return_value=False)
+    retired = AsyncMock(return_value=True)
+    pipeline = AsyncMock(side_effect=AssertionError("retired engine reached pipeline"))
+    monkeypatch.setattr(db_module, "async_session_factory", Factory())
+    monkeypatch.setattr(job_service, "claim_generation_execution", claimed)
+    monkeypatch.setattr(job_service, "retire_legacy_generation_execution", retired)
+    monkeypatch.setattr(tasks, "run_generation_pipeline", pipeline)
+    monkeypatch.setattr(tasks, "_run_async", lambda awaitable: asyncio.run(awaitable))
+
+    tenant_id = str(uuid4())
+    result = tasks.generate_course_task.run(
+        job_id="persisted-legacy-job",
+        documents=[str(uuid4())],
+        tenant_id=tenant_id,
+        user_id=str(uuid4()),
+        source_analysis={
+            "analysis_mode": "direct_source",
+            "generation_engine": "evidence_v2",
+        },
+    )
+
+    assert result["status"] == "failed"
+    assert result["error_code"] == "generation_engine_retired"
+    claimed.assert_awaited_once()
+    retired.assert_awaited_once()
+    pipeline.assert_not_awaited()
 
 
 def test_pipeline_exception_is_persisted_as_terminal_failure(monkeypatch):
@@ -151,6 +244,10 @@ def test_pipeline_exception_is_persisted_as_terminal_failure(monkeypatch):
         documents=[],
         tenant_id=tenant_id,
         user_id=str(uuid4()),
+        source_analysis={
+            "analysis_mode": "direct_source",
+            "generation_engine": "evidence_v2",
+        },
     )
 
     assert result == {
@@ -202,6 +299,10 @@ def test_soft_time_limit_is_persisted_as_resumable_interruption(monkeypatch):
         documents=[],
         tenant_id=tenant_id,
         user_id=str(uuid4()),
+        source_analysis={
+            "analysis_mode": "direct_source",
+            "generation_engine": "evidence_v2",
+        },
     )
 
     assert result == {

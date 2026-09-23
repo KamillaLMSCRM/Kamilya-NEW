@@ -10,7 +10,39 @@ from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleCon
 
 
 @pytest.mark.asyncio
-async def test_new_evidence_v2_job_bypasses_legacy_agents_and_uses_single_save(monkeypatch):
+async def test_course_generation_rejects_retired_engine_before_source_or_provider_calls(monkeypatch):
+    """Only evidence_v2 may execute, including direct/internal invocations."""
+    tenant_id = uuid4()
+    load_corpus = AsyncMock(side_effect=AssertionError("source loader called"))
+    create_llm = AsyncMock(side_effect=AssertionError("provider called"))
+    monkeypatch.setattr(pipeline, "_update_job_db", AsyncMock())
+    monkeypatch.setattr(pipeline, "load_direct_source_corpus", load_corpus)
+    monkeypatch.setattr(
+        pipeline.ResilientLLMClient,
+        "from_settings_async",
+        create_llm,
+    )
+    monkeypatch.setattr(
+        pipeline,
+        "_release_generation_reservation",
+        AsyncMock(return_value=True),
+    )
+
+    state = await pipeline.run_generation_pipeline(
+        str(uuid4()),
+        documents=[str(uuid4())],
+        tenant_id=tenant_id,
+        source_analysis={"analysis_mode": "direct_source"},
+    )
+
+    assert state.status == "failed"
+    assert state.errors == ["generation_engine_retired"]
+    load_corpus.assert_not_awaited()
+    create_llm.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_evidence_v2_job_uses_single_generation_and_save(monkeypatch):
     from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
     from app.modules.ai.direct_source import DirectSourceCorpus
     from app.modules.ai.evidence_engine.application import GenerationArtifacts
@@ -59,8 +91,6 @@ async def test_new_evidence_v2_job_bypasses_legacy_agents_and_uses_single_save(m
         generation_factory,
     )
     monkeypatch.setattr(pipeline.ResilientEmbeddingsClient, "from_settings_async", AsyncMock(return_value=object()))
-    monkeypatch.setattr(pipeline, "run_direct_architect", AsyncMock(side_effect=AssertionError("legacy architect called")))
-    monkeypatch.setattr(pipeline, "write_direct_course", AsyncMock(side_effect=AssertionError("legacy writer called")))
     monkeypatch.setattr(pipeline, "_save_generation_to_db", save)
 
     state = await pipeline.run_generation_pipeline(
@@ -69,6 +99,7 @@ async def test_new_evidence_v2_job_bypasses_legacy_agents_and_uses_single_save(m
         tenant_id=tenant_id,
         user_id=user_id,
         guidance="Train the employee",
+        max_total_lessons=2,
         source_analysis={
             "analysis_mode": "direct_source",
             "generation_engine": "evidence_v2",
@@ -81,10 +112,9 @@ async def test_new_evidence_v2_job_bypasses_legacy_agents_and_uses_single_save(m
     assert state.assessment is artifacts.assessment
     assert state.source_analysis["evidence_v2"] == artifacts.diagnostics
     generate.assert_awaited_once()
+    assert generate.await_args.kwargs["max_lessons"] == 2
     generation_factory.assert_awaited_once_with(tenant_id=tenant_id, temperature=0.2)
     save.assert_awaited_once_with(state, tenant_id, user_id)
-    pipeline.run_direct_architect.assert_not_awaited()
-    pipeline.write_direct_course.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -153,7 +183,13 @@ async def test_failure_status_write_cannot_skip_reserved_generation_cleanup(monk
     monkeypatch.setattr(pipeline, "_release_generation_reservation", release)
 
     state = await pipeline.run_generation_pipeline(
-        str(uuid4()), documents=[], tenant_id=tenant_id
+        str(uuid4()),
+        documents=[],
+        tenant_id=tenant_id,
+        source_analysis={
+            "analysis_mode": "direct_source",
+            "generation_engine": "evidence_v2",
+        },
     )
 
     assert state.status == "failed"
@@ -178,107 +214,14 @@ async def test_new_course_cancellation_releases_reservation_once(monkeypatch):
         str(uuid4()),
         documents=[doc_id],
         tenant_id=tenant_id,
-        source_analysis={"analysis_mode": "direct_source"},
+        source_analysis={
+            "analysis_mode": "direct_source",
+            "generation_engine": "evidence_v2",
+        },
     )
 
     assert state.status == "cancelled"
     release.assert_awaited_once_with(state.job_id, tenant_id)
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("outcome", ["success", "failed", "cancelled"])
-@pytest.mark.parametrize("audit_outcome", ["passed", "gaps", "interrupted"])
-@pytest.mark.parametrize("intent", [{}, {"guidance": "Compare the specified attributes"}, {"target_audience": "Sales staff"}, {"goals": ["Compare source facts"]}])
-async def test_direct_pipeline_forwards_trusted_tenant_to_semantic_writer(monkeypatch, outcome, audit_outcome, intent):
-    tenant_id, user_id, doc_id = uuid4(), uuid4(), str(uuid4())
-    monkeypatch.setattr(pipeline, '_update_job_db', AsyncMock())
-    monkeypatch.setattr(pipeline, '_check_cancelled_async', AsyncMock())
-    monkeypatch.setattr(pipeline, 'load_direct_source_corpus', AsyncMock(return_value=SimpleNamespace(
-        total_chunks=1, documents=[SimpleNamespace(category='general')], tenant_id=str(tenant_id))))
-    monkeypatch.setattr(pipeline.ResilientLLMClient, 'from_settings_async', AsyncMock(return_value=object()))
-    checkpoints = SimpleNamespace(clear=AsyncMock(), aclose=AsyncMock())
-    from unittest.mock import Mock
-    checkpoint_factory = Mock(return_value=checkpoints)
-    monkeypatch.setattr(pipeline, '_source_map_checkpoint_store', checkpoint_factory)
-    monkeypatch.setattr(pipeline, 'run_direct_architect', AsyncMock(return_value=CourseStructure(
-        title='Synthetic', modules=[Module(title='Module', lessons=[Lesson(title='Lesson', source_doc_ids=[doc_id])])])))
-    writer = AsyncMock(return_value=CourseContent(title='Synthetic', modules=[ModuleContent(
-        title='Module', lessons=[LessonContent(title='Lesson', content='Synthetic source material.', objectives=['Identify the rule.'])])]))
-    monkeypatch.setattr(pipeline, 'write_direct_course', writer)
-    monkeypatch.setattr(pipeline, 'ReviewerAgent', lambda **kwargs: SimpleNamespace(
-        review_lesson=AsyncMock(return_value={'quality_score': 9, 'issues': []})))
-    monkeypatch.setattr(pipeline, 'generate_course_assessment', AsyncMock(return_value=object()))
-    monkeypatch.setattr(pipeline, 'finalize_course_assessment', AsyncMock(return_value=SimpleNamespace(
-        assessment=object(), uncovered_objectives=[(0, 0)] if audit_outcome == 'gaps' else [])))
-    if audit_outcome == 'interrupted':
-        pipeline.finalize_course_assessment.side_effect = pipeline.AssessmentAuditError('synthetic_invalid_verdict')
-    save = AsyncMock()
-    async def save_success(state, *_args):
-        state.status = 'completed'
-    save.side_effect = save_success
-    monkeypatch.setattr(pipeline, '_save_generation_to_db', save)
-    if outcome != 'success':
-        import asyncio
-        # Existing course avoids unrelated quota-refund DB work in a failed fixture.
-        error = asyncio.CancelledError() if outcome == 'cancelled' else pipeline.DirectSourceError('synthetic_fault')
-        pipeline.run_direct_architect.side_effect = error
-    state = await pipeline.run_generation_pipeline(
-        str(uuid4()), documents=[doc_id], tenant_id=tenant_id, user_id=user_id,
-        course_id=str(uuid4()) if outcome == 'failed' else None,
-        source_analysis={'analysis_mode': 'direct_source'}, **intent)
-    checkpoints.aclose.assert_awaited_once()
-    assert pipeline.run_direct_architect.call_args.kwargs['checkpoint_store'] is checkpoints
-    assert checkpoint_factory.call_args.args[1] == tenant_id
-    if outcome == 'failed':
-        checkpoints.clear.assert_not_awaited()
-        assert state.status == 'failed'
-        return
-    if outcome == 'cancelled':
-        checkpoints.clear.assert_awaited_once()
-        assert state.status == 'cancelled'
-        assert any(
-            call.kwargs.get('status') == 'cancelled'
-            and call.kwargs.get('stage') == 'cancelled'
-            for call in pipeline._update_job_db.await_args_list
-        )
-        return
-    if audit_outcome == 'interrupted':
-        checkpoints.clear.assert_not_awaited()
-        assert state.status == 'interrupted'
-        assert state.errors == [
-            'assessment_audit_interrupted',
-            'assessment_audit_invalid_verdict',
-        ]
-        save.assert_not_awaited()
-        return
-    checkpoints.clear.assert_awaited_once()
-    assert state.errors == []
-    assert writer.await_count == 1
-    assert writer.call_args.kwargs['tenant_id'] == tenant_id
-    assert writer.call_args.kwargs['use_source_cards'] is (not bool(intent))
-    save.assert_awaited_once_with(state, tenant_id, user_id)
-    if audit_outcome == 'gaps':
-        assert 'Проверьте охват' in state.content.description
-        assert 'Проверьте охват' in state.structure.description
-        assert any('Проверьте охват' in notice for notice in state.content.source_warnings)
-    audit_args = pipeline.finalize_course_assessment.call_args.kwargs
-    assert audit_args['course_content'] is state.content
-    assert audit_args['check_cancelled'] is not None
-
-
-def test_checkpoint_factory_namespaces_settings_and_job(monkeypatch):
-    from unittest.mock import Mock
-    factory = Mock()
-    monkeypatch.setattr(pipeline, 'SourceMapCheckpointStore', factory)
-    llm = SimpleNamespace(cache_fingerprint=lambda: 'a' * 64)
-    tenant, job = uuid4(), str(uuid4())
-    pipeline._source_map_checkpoint_store(llm, tenant, job, {'language': 'ru'})
-    first = factory.call_args.args
-    pipeline._source_map_checkpoint_store(llm, tenant, job, {'language': 'kk'})
-    assert first[:2] == factory.call_args.args[:2] == (str(tenant), job)
-    assert first[2] != factory.call_args.args[2]
-    assert pipeline._source_map_checkpoint_store(object(), tenant, job, {}) is None
-    assert pipeline._source_map_checkpoint_store(llm, None, job, {}) is None
 
 
 def test_completed_progress_counts_only_persisted_lessons() -> None:

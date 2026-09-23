@@ -274,6 +274,12 @@ async def test_interrupted_job_resumes_same_lineage_without_new_charge(monkeypat
         completed_at=datetime.now(UTC),
         started_at=datetime.now(UTC),
         result=None,
+        params={
+            "source_analysis": {
+                "analysis_mode": "direct_source",
+                "generation_engine": "evidence_v2",
+            }
+        },
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -326,98 +332,30 @@ async def test_interrupted_job_resumes_same_lineage_without_new_charge(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_legacy_soft_timeout_resumes_only_with_persisted_checkpoints(monkeypatch):
+async def test_resume_rejects_retired_generation_engine_before_queue_admission(monkeypatch):
     tenant_id = uuid4()
     job = SimpleNamespace(
-        id="job-timeout",
+        id="job-retired",
         tenant_id=tenant_id,
-        status="failed",
-        stage="failed",
-        message="SoftTimeLimitExceeded: generation failed",
-        errors=None,
-        completed_at=datetime.now(UTC),
-        started_at=datetime.now(UTC),
-        result=None,
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
+        status="interrupted",
+        params={"source_analysis": {"analysis_mode": "direct_source"}},
     )
-    db = _CommitSession()
-    dispatcher = job_service.InMemoryAIJobDispatcher()
-
-    async def noop(*args, **kwargs):
-        return None
-
-    async def locked_job(*args, **kwargs):
-        return job
-
-    async def active_count(*args, **kwargs):
-        return 0
-
-    async def metadata(*args, **kwargs):
-        return {"tenant_active_jobs": 1, "tenant_active_limit": 2, "queue_position": 1, "estimated_wait_seconds": 0}
-
-    checkpoint = SimpleNamespace(content_payload={"title": "Saved lesson"})
-    repository = SimpleNamespace(
-        load_plan=AsyncMock(return_value=SimpleNamespace(lessons=("lesson",))),
-        load_checkpoints=AsyncMock(return_value=(checkpoint,)),
-    )
-    monkeypatch.setattr(job_service, "_lock_tenant_row", noop)
-    monkeypatch.setattr(job_service, "get_ai_job", locked_job)
+    monkeypatch.setattr(job_service, "_lock_tenant_row", AsyncMock())
+    monkeypatch.setattr(job_service, "get_ai_job", AsyncMock(return_value=job))
+    active_count = AsyncMock(side_effect=AssertionError("legacy job reached admission"))
     monkeypatch.setattr(job_service, "count_active_ai_jobs", active_count)
-    monkeypatch.setattr(job_service, "build_ai_job_queue_metadata", metadata)
-    monkeypatch.setattr(job_service, "_generation_checkpoint_repository", lambda: repository, raising=False)
 
-    resumed, _ = await job_service.resume_interrupted_ai_job(
-        db,
-        job=job,
-        tenant_id=tenant_id,
-        task_kwargs={"job_id": "job-timeout"},
-        active_limit=2,
-        worker_concurrency=2,
-        historical_estimate_seconds=60,
-        dispatcher=dispatcher,
-    )
-
-    assert resumed.status == "pending"
-    assert resumed.result["resume_count"] == 1
-    repository.load_plan.assert_awaited_once()
-    repository.load_checkpoints.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_legacy_soft_timeout_without_saved_work_remains_terminal(monkeypatch):
-    tenant_id = uuid4()
-    job = SimpleNamespace(
-        id="job-empty-timeout",
-        tenant_id=tenant_id,
-        status="failed",
-        stage="failed",
-        message="SoftTimeLimitExceeded: generation failed",
-        result=None,
-    )
-    repository = SimpleNamespace(
-        load_plan=AsyncMock(return_value=SimpleNamespace(lessons=("lesson",))),
-        load_checkpoints=AsyncMock(return_value=()),
-    )
-
-    async def noop(*args, **kwargs):
-        return None
-
-    async def locked_job(*args, **kwargs):
-        return job
-
-    monkeypatch.setattr(job_service, "_lock_tenant_row", noop)
-    monkeypatch.setattr(job_service, "get_ai_job", locked_job)
-    monkeypatch.setattr(job_service, "_generation_checkpoint_repository", lambda: repository)
-
-    with pytest.raises(job_service.AIJobSubmissionUnavailableError, match="not resumable"):
+    with pytest.raises(job_service.AIJobSubmissionUnavailableError) as exc_info:
         await job_service.resume_interrupted_ai_job(
             _CommitSession(),
             job=job,
             tenant_id=tenant_id,
-            task_kwargs={"job_id": "job-empty-timeout"},
+            task_kwargs={"job_id": "job-retired"},
             active_limit=2,
             worker_concurrency=2,
             historical_estimate_seconds=60,
             dispatcher=job_service.InMemoryAIJobDispatcher(),
         )
+
+    assert exc_info.value.detail == job_service.RETIRED_GENERATION_ENGINE_MESSAGE
+    active_count.assert_not_awaited()

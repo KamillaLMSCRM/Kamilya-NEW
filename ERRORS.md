@@ -3999,11 +3999,50 @@ contract or establish a blocker.
   `Коллекция` with one collection per row, while the current expanded fixture
   uses `Коллекции` with collection names in the header.
 - Fix: pin the acceptance harness to the committed expanded workbook SHA and
-  derive its focus terms from the primary-sheet header while retaining the
-  legacy layout branch for older focused tests.
+  derive its focus terms from the primary-sheet header used by the current
+  Evidence V2 path.
 - Verification: the new regression failed against the stale fixture contract,
   then all 13 acceptance-harness tests and 104 related evidence/corpus tests
   passed after the correction.
 - Prevention: every release-quality fixture must be committed beside its
   consumer, covered by an exact-byte test and parsed through the same layout
   branch that the live acceptance script will execute.
+
+## TEST-INFRA-003 - API pytest again used an ambient Poetry runtime
+
+- Date: 2026-09-23. Local focused TDD only; no DEV or production mutation.
+- Symptom: a focused AI-generation test command stopped before collection
+  because the Poetry-created environment did not contain `pytest_asyncio`.
+- Cause: the existing absolute-path rule in `TEST-ENV-001` remained passive;
+  the operator invoked bare `poetry run pytest` instead of the maintained root
+  `.venv` that the repository runbook identifies as canonical.
+- Fix: add `scripts/dev/run_api_pytest.ps1` as the only local API pytest
+  entrypoint. It resolves the repository root, verifies `pytest` and
+  `pytest_asyncio`, invokes the exact root `.venv` interpreter from `apps/api`,
+  and never installs or falls back to an ambient environment. Make the wrapper
+  mandatory in `AGENTS.md` and cover its command contract with a static test.
+- Verification: the wrapper contract test passed, followed by the originally
+  failing focused selection and 165 related API tests through the wrapper.
+- Prevention: skill suggestion and `ERRORS.md` discovery assist routing but do
+  not enforce the runtime. The executable wrapper is the fail-closed boundary.
+
+## AI-QUALITY-037 - DEV acceptance mixed Evidence V2 with retired generator assumptions
+
+- Date: 2026-09-23. Found during the release gate for `0.10.2`; no production
+  mutation had started.
+- Symptom: a successful Evidence V2 draft exceeded the requested lesson ceiling,
+  while the DEV harness reported missing source evidence, missing tabular
+  assessment paths and a fixed-position weakness in one-question quizzes.
+- Cause: Evidence V2 did not receive the admission ceiling. The harness captured
+  quality events and assessment counters emitted only by the retired generator,
+  and applied a multi-question guessing heuristic to singleton quizzes.
+- Fix: thread the lesson ceiling through the sole Evidence V2 entrypoint and
+  merge source-owned units without dropping admitted facts. Capture persisted
+  lesson evidence and diagnostics directly from the V2 state. Validate V2
+  assessment coverage instead of retired path counters, and apply positional
+  guessing checks only when a quiz has at least two keyed questions.
+- Verification: each symptom had a deterministic red regression; all six focused
+  regressions and 165 related API tests then passed through the canonical runner.
+- Prevention: release acceptance must observe the same engine state that is
+  persisted. Engine-specific counters may not be shared across implementations,
+  and obsolete execution routes must fail closed rather than remain resumable.

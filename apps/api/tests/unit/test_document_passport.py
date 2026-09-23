@@ -13,30 +13,6 @@ from app.modules.ai.document_passport import (
 from app.modules.ai.source_analysis import recommend_course_structure
 
 
-def test_worker_resizes_new_jobs_from_primary_source_not_admission_chunk_count():
-    from app.modules.ai.pipeline import _direct_source_structure_plan
-
-    source = _plus_shaped_corpus()
-    options = {"course_sizing_request": {"course_format": "automatic", "manual_modules": None}}
-    resolved = _direct_source_structure_plan(source, options)
-    preview = recommend_course_structure(total_chunks=source.total_chunks, document_count=1)
-    assert resolved.recommended_total_lessons < preview.recommended_total_lessons
-    assert resolved == _direct_source_structure_plan(_plus_shaped_corpus(catalog_chunks=2), options)
-    assert _direct_source_structure_plan(source, {}) is None
-
-
-def test_worker_preserves_explicit_format_and_source_bounded_manual_modules():
-    from app.modules.ai.pipeline import _direct_source_structure_plan
-
-    source = _plus_shaped_corpus()
-    resolved = _direct_source_structure_plan(source, {
-        "course_sizing_request": {"course_format": "detailed", "manual_modules": 2},
-    })
-    assert resolved.requested_format == "detailed"
-    assert resolved.module_count == 2
-    assert resolved.hard_max_total_lessons <= build_document_passport(source).teachable_units
-
-
 def _chunk(index: int, sheet: str, text: str) -> DirectSourceChunk:
     return DirectSourceChunk(
         chunk_id=f"direct:doc-1:{index}",

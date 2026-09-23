@@ -241,6 +241,53 @@ def poll_job(
     raise AcceptanceError(f"{label}_timeout")
 
 
+def candidate_source_analysis(source_analysis: dict[str, Any]) -> dict[str, Any]:
+    """Mirror the new-job engine selection performed by the public API."""
+
+    return {**source_analysis, "generation_engine": "evidence_v2"}
+
+
+def capture_v2_generation_state(state: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Capture the exact V2 lesson evidence and diagnostics before persistence."""
+
+    content = getattr(state, "content", None)
+    evidence = [
+        {
+            "module_index": module_index,
+            "lesson_index": lesson_index,
+            "title": lesson.title,
+            "content": lesson.content,
+            "source_chunks": list(lesson.source_chunks),
+        }
+        for module_index, module in enumerate(getattr(content, "modules", []) or [])
+        for lesson_index, lesson in enumerate(module.lessons)
+    ]
+    source_analysis = getattr(state, "source_analysis", {}) or {}
+    diagnostics = source_analysis.get("evidence_v2", {})
+    return evidence, dict(diagnostics) if isinstance(diagnostics, dict) else {}
+
+
+def inspect_v2_diagnostics(
+    diagnostics: dict[str, Any],
+    *,
+    expected_lesson_count: int,
+    expected_question_count: int,
+) -> list[str]:
+    """Validate the active engine contract without retired path counters."""
+
+    failures: list[str] = []
+    if diagnostics.get("engine") != "evidence_v2":
+        failures.append("generation_engine_not_evidence_v2")
+    if diagnostics.get("lesson_count") != expected_lesson_count:
+        failures.append("v2_diagnostic_lesson_count_mismatch")
+    if diagnostics.get("question_count") != expected_question_count:
+        failures.append("v2_diagnostic_question_count_mismatch")
+    coverage = (diagnostics.get("assessment_review") or {}).get("coverage") or {}
+    if coverage.get("requires_review") is not False:
+        failures.append("v2_assessment_coverage_requires_review")
+    return failures
+
+
 def execute_generation_locally(
     *,
     env_file: Path,
@@ -266,15 +313,22 @@ def execute_generation_locally(
     # A real Celery worker imports the full configured task set before handling
     # AI jobs, which registers every cross-module SQLAlchemy FK target.  This
     # direct runner must establish the same model registry before task import.
+    from unittest.mock import patch
+
     import app.main as _application  # noqa: F401
-    from app.modules.ai.assessment import capture_assessment_paths
-    from app.modules.ai.lesson_quality import capture_lesson_quality_evaluations
+    from app.modules.ai import pipeline
     from app.modules.ai.tasks import generate_course_task
 
-    with (
-        capture_assessment_paths() as assessment_paths,
-        capture_lesson_quality_evaluations() as quality_evaluations,
-    ):
+    captured_evidence: list[dict[str, Any]] = []
+    captured_diagnostics: dict[str, Any] = {}
+    original_save = pipeline._save_generation_to_db
+
+    async def capture_and_save(state: Any, *args: Any, **kwargs: Any) -> None:
+        nonlocal captured_evidence, captured_diagnostics
+        captured_evidence, captured_diagnostics = capture_v2_generation_state(state)
+        await original_save(state, *args, **kwargs)
+
+    with patch.object(pipeline, "_save_generation_to_db", capture_and_save):
         result = generate_course_task.run(
             job_id=job_id,
             documents=[document_id],
@@ -288,50 +342,12 @@ def execute_generation_locally(
             user_id=user_id,
             source_strategy="single_topic",
             combination_goal="",
-            source_analysis=source_analysis,
+            source_analysis=candidate_source_analysis(source_analysis),
         )
     return {
         **result,
-        "assessment_model_lessons": assessment_paths.count("model"),
-        "tabular_assessment_lessons": assessment_paths.count("tabular"),
-        "_lesson_quality_attempts": [
-            {
-                "module_index": evaluation.lesson_identity[0] if evaluation.lesson_identity is not None else None,
-                "lesson_index": evaluation.lesson_identity[1] if evaluation.lesson_identity is not None else None,
-                "title": evaluation.title,
-                "accepted": evaluation.result.accepted,
-                "reason_codes": list(evaluation.result.reason_codes),
-                "source_anchor_matches": evaluation.result.source_anchor_matches,
-                "required_source_anchor_matches": (evaluation.result.required_source_anchor_matches),
-                "generic_sentence_share": evaluation.result.generic_sentence_share,
-                "repeated_sentence_count": evaluation.result.repeated_sentence_count,
-                "cross_lesson_repeated_sentence_count": (evaluation.result.cross_lesson_repeated_sentence_count),
-            }
-            for evaluation in quality_evaluations
-        ],
-        "_accepted_lesson_evidence": [
-            {
-                "module_index": evaluation.lesson_identity[0],
-                "lesson_index": evaluation.lesson_identity[1],
-                "title": evaluation.title,
-                "content": evaluation.content,
-                "source_chunks": list(evaluation.source_chunks),
-            }
-            for evaluation in quality_evaluations
-            if evaluation.result.accepted and evaluation.lesson_identity is not None
-        ],
-        "_lesson_quality_review": [
-            {
-                "module_index": evaluation.lesson_identity[0] if evaluation.lesson_identity is not None else None,
-                "lesson_index": evaluation.lesson_identity[1] if evaluation.lesson_identity is not None else None,
-                "title": evaluation.title,
-                "content": evaluation.content,
-                "source_chunks": list(evaluation.source_chunks),
-                "accepted": evaluation.result.accepted,
-                "reason_codes": list(evaluation.result.reason_codes),
-            }
-            for evaluation in quality_evaluations
-        ],
+        "_accepted_lesson_evidence": captured_evidence,
+        "_generation_diagnostics": captured_diagnostics,
     }
 
 
@@ -651,7 +667,7 @@ def inspect_output(
                 for choice in question.get("choices") or []
             ) == 1
         ]
-        if keyed_questions:
+        if len(keyed_questions) >= 2:
             pass_score = float(quiz.get("pass_score") or 80)
             maximum_choices = max(len(question.get("choices") or []) for question in keyed_questions)
             fixed_position_scores = [
@@ -834,10 +850,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     generation_job_id = ""
     tenant_id = ""
     cleanup_failures: list[str] = []
-    assessment_model_lessons = 0
-    tabular_assessment_lessons = 0
     accepted_lesson_evidence: list[dict[str, Any]] = []
-    lesson_quality_review: list[dict[str, Any]] = []
+    generation_diagnostics: dict[str, Any] = {}
     try:
         stage("health")
         health = client.http.get(health_url(args.api_base))
@@ -959,14 +973,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             report["local_worker"] = {
                 "used": True,
                 "status": local_result.get("status"),
-                "assessment_model_lessons": local_result.get("assessment_model_lessons", 0),
-                "tabular_assessment_lessons": local_result.get("tabular_assessment_lessons", 0),
-                "lesson_quality_attempts": local_result.get("_lesson_quality_attempts", []),
+                "generation_engine": (local_result.get("_generation_diagnostics") or {}).get("engine"),
             }
-            assessment_model_lessons = int(local_result.get("assessment_model_lessons") or 0)
-            tabular_assessment_lessons = int(local_result.get("tabular_assessment_lessons") or 0)
             accepted_lesson_evidence = list(local_result.get("_accepted_lesson_evidence") or [])
-            lesson_quality_review = list(local_result.get("_lesson_quality_review") or [])
+            generation_diagnostics = dict(local_result.get("_generation_diagnostics") or {})
 
         job = poll_job(
             client,
@@ -984,11 +994,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "status": job.get("status"),
                 "error_codes": error_codes,
             }
-            if args.review_output and lesson_quality_review:
-                report["manual_review"] = write_synthetic_review_artifact(
-                    {"failed_lesson_attempts": lesson_quality_review},
-                    args.review_output,
-                )
             raise AcceptanceError("generation_not_completed")
         if not course_id:
             raise AcceptanceError("completed_generation_missing_course")
@@ -1017,13 +1022,17 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             require_captured_evidence=args.execute_local_worker,
             enforce_structure_limits=authoritative_admission_structure,
         )
-        facts["assessment_model_lessons"] = assessment_model_lessons
-        facts["tabular_assessment_lessons"] = tabular_assessment_lessons
         expected_lesson_count = sum(len(module.get("lessons") or []) for module in preview.get("modules") or [])
-        if args.execute_local_worker and assessment_model_lessons:
-            failures.append("assessment_model_fallback_used_for_structured_fixture")
-        if args.execute_local_worker and tabular_assessment_lessons != expected_lesson_count:
-            failures.append("not_all_structured_lessons_used_tabular_assessment")
+        expected_question_count = facts["questions"]
+        if args.execute_local_worker:
+            failures.extend(
+                inspect_v2_diagnostics(
+                    generation_diagnostics,
+                    expected_lesson_count=expected_lesson_count,
+                    expected_question_count=expected_question_count,
+                )
+            )
+        facts["generation_engine"] = generation_diagnostics.get("engine")
         report["quality"] = facts
         review_sample = build_review_sample(preview, quizzes_response.json())
         report["manual_review"] = (

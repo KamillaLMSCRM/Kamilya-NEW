@@ -6,7 +6,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
+from typing import Any, Literal, Protocol, cast
 from uuid import UUID
 
 from sqlalchemy import and_, func, or_, select, text, update
@@ -14,9 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ai_job import AIJob
 from app.models.tenants import Tenant
-
-if TYPE_CHECKING:
-    from app.modules.ai.generation_checkpoint import AIGenerationCheckpointRepository
+from app.modules.ai.generation_engine import (
+    CURRENT_GENERATION_ENGINE,
+    RETIRED_GENERATION_ENGINE_CODE,
+    RETIRED_GENERATION_ENGINE_MESSAGE,
+    job_uses_current_generation_engine,
+)
 
 DEFAULT_TENANT_AI_ACTIVE_LIMIT = 2
 MAX_TENANT_AI_ACTIVE_LIMIT = 8
@@ -24,7 +27,6 @@ TENANT_AI_ACTIVE_LIMIT_SETTING = "ai_max_active_jobs"
 DEFAULT_AI_WORKER_CONCURRENCY = 2
 DEFAULT_HISTORICAL_JOB_SECONDS = 510
 ACTIVE_AI_JOB_STATUSES = frozenset({"pending", "running"})
-LEGACY_SOFT_TIMEOUT_MESSAGE = "SoftTimeLimitExceeded: generation failed"
 GENERATION_INTERRUPTED_MESSAGE = (
     "Генерация приостановлена и может быть продолжена без повторной обработки готовых частей"
 )
@@ -383,7 +385,13 @@ async def claim_generation_execution(
     if tenant_id is None:
         raise ValueError("tenant_id is required for worker generation execution")
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
-    predicates = [AIJob.id == job_id, AIJob.status == "pending", AIJob.tenant_id == tenant_id]
+    predicates = [
+        AIJob.id == job_id,
+        AIJob.status == "pending",
+        AIJob.tenant_id == tenant_id,
+        AIJob.params["source_analysis"]["generation_engine"].as_string()
+        == CURRENT_GENERATION_ENGINE,
+    ]
     result = await db.execute(
         update(AIJob).where(*predicates).values(
             status="running",
@@ -394,6 +402,41 @@ async def claim_generation_execution(
     )
     await db.commit()
     return bool(result.rowcount)
+
+
+async def retire_legacy_generation_execution(
+    db: AsyncSession, job_id: str, tenant_id: str | None = None
+) -> bool:
+    """Fail an old queued job before providers run and refund its reservation once."""
+    if tenant_id is None:
+        raise ValueError("tenant_id is required for worker generation execution")
+    await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
+    now = datetime.now(UTC)
+    result = await db.execute(
+        update(AIJob)
+        .where(
+            AIJob.id == job_id,
+            AIJob.status == "pending",
+            AIJob.tenant_id == tenant_id,
+        )
+        .values(
+            status="failed",
+            stage="failed",
+            message=RETIRED_GENERATION_ENGINE_MESSAGE,
+            errors=[RETIRED_GENERATION_ENGINE_CODE],
+            updated_at=now,
+            completed_at=now,
+        )
+    )
+    retired = bool(result.rowcount)  # type: ignore[attr-defined]
+    if retired:
+        await release_generation_reservation_once(
+            db,
+            job_id=job_id,
+            tenant_id=tenant_id,
+        )
+    await db.commit()
+    return retired
 
 
 async def fail_claimed_generation_execution(
@@ -437,52 +480,8 @@ async def interrupt_claimed_generation_execution(
 
 
 def is_resumable_generation_job(job: AIJob) -> bool:
-    """Recognize current interruptions and the exact legacy timeout shape."""
-    return bool(
-        job.status == "interrupted"
-        or (
-            job.status == "failed"
-            and getattr(job, "message", None) == LEGACY_SOFT_TIMEOUT_MESSAGE
-        )
-    )
-
-
-def _generation_checkpoint_repository() -> AIGenerationCheckpointRepository:
-    from app.modules.ai.generation_checkpoint import AIGenerationCheckpointRepository
-
-    return AIGenerationCheckpointRepository()
-
-
-async def _legacy_timeout_has_checkpoints(
-    db: AsyncSession, *, tenant_id: UUID | str, generation_key: str
-) -> bool:
-    """Fail closed unless a legacy timeout has a valid persisted plan and work."""
-    from app.modules.ai.generation_checkpoint import AIGenerationCheckpointError
-
-    repository = _generation_checkpoint_repository()
-    try:
-        plan = await repository.load_plan(
-            db,
-            tenant_id=str(tenant_id),
-            generation_key=generation_key,
-        )
-        checkpoints = await repository.load_checkpoints(
-            db,
-            tenant_id=str(tenant_id),
-            generation_key=generation_key,
-        )
-    except AIGenerationCheckpointError:
-        return False
-    return bool(
-        plan.lessons
-        and checkpoints
-        and any(
-            checkpoint.content_payload is not None
-            or checkpoint.review_payload is not None
-            or checkpoint.assessment_payload is not None
-            for checkpoint in checkpoints
-        )
-    )
+    """Only explicit evidence_v2 interruptions can be resumed."""
+    return bool(job.status == "interrupted" and job_uses_current_generation_engine(job))
 
 
 async def get_user_jobs(
@@ -610,13 +609,9 @@ async def resume_interrupted_ai_job(
     )
     if locked is None:
         raise AIJobSubmissionUnavailableError("AI job was not found")
+    if not job_uses_current_generation_engine(locked):
+        raise AIJobSubmissionUnavailableError(RETIRED_GENERATION_ENGINE_MESSAGE)
     if not is_resumable_generation_job(locked):
-        raise AIJobSubmissionUnavailableError("AI job is not resumable")
-    if locked.status == "failed" and not await _legacy_timeout_has_checkpoints(
-        db,
-        tenant_id=tenant_id,
-        generation_key=str(locked.id),
-    ):
         raise AIJobSubmissionUnavailableError("AI job is not resumable")
     active_count = await count_active_ai_jobs(db, tenant_id)
     if active_count >= active_limit:

@@ -377,7 +377,10 @@ async def test_resume_endpoint_requeues_same_job_with_persisted_adaptive_scope(m
             },
             "language": "ru",
             "source_strategy": "single_topic",
-            "source_analysis": {"analysis_mode": "direct_source"},
+            "source_analysis": {
+                "analysis_mode": "direct_source",
+                "generation_engine": "evidence_v2",
+            },
         },
     )
     resumed = AsyncMock(return_value=(job, {"queue_position": 1}))
@@ -403,7 +406,7 @@ async def test_resume_endpoint_requeues_same_job_with_persisted_adaptive_scope(m
 
 
 @pytest.mark.asyncio
-async def test_resume_endpoint_accepts_legacy_soft_timeout_candidate(monkeypatch):
+async def test_resume_endpoint_rejects_retired_generation_with_restart_action(monkeypatch):
     tenant_id = uuid4()
     user_id = uuid4()
     document_id = uuid4()
@@ -426,11 +429,17 @@ async def test_resume_endpoint_accepts_legacy_soft_timeout_candidate(monkeypatch
     monkeypatch.setattr(router, "resume_interrupted_ai_job", resumed)
     monkeypatch.setattr(router, "_job_response", AsyncMock(return_value={"id": "job-timeout", "status": "pending"}))
 
-    response = await router.resume_generation(
-        "job-timeout",
-        db=SimpleNamespace(),
-        user=SimpleNamespace(id=user_id, tenant_id=tenant_id),
-    )
+    with pytest.raises(HTTPException) as exc_info:
+        await router.resume_generation(
+            "job-timeout",
+            db=SimpleNamespace(),
+            user=SimpleNamespace(id=user_id, tenant_id=tenant_id),
+        )
 
-    assert response == {"id": "job-timeout", "status": "pending"}
-    resumed.assert_awaited_once()
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == {
+        "code": "generation_engine_retired",
+        "message": router.RETIRED_GENERATION_ENGINE_MESSAGE,
+        "action": "start_new_generation",
+    }
+    resumed.assert_not_awaited()

@@ -882,6 +882,7 @@ async def generate_evidence_course(
     intent: CourseIntent,
     generation_client: GenerationClient,
     embedding_client: EmbeddingClient,
+    max_lessons: int | None = None,
     progress_callback: ProgressCallback | None = None,
     cancellation_callback: CancellationCallback | None = None,
 ) -> EvidenceGenerationOutput:
@@ -890,7 +891,11 @@ async def generate_evidence_course(
     started = perf_counter()
     await _checkpoint(cancellation_callback)
     bundle = build_evidence_source(corpus)
-    evidence_result = EvidenceCourseEngine().generate_from_document(bundle.document, intent=intent)
+    evidence_result = EvidenceCourseEngine().generate_from_document(
+        bundle.document,
+        intent=intent,
+        max_lessons=max_lessons,
+    )
     if not evidence_result.evidence_plan:
         raise ValueError("evidence_plan_empty")
     preflight_reasons = evaluate_plan_preflight(evidence_result)

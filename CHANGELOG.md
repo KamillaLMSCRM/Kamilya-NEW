@@ -11,7 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Make Evidence V2 the only executable course-generation engine; retire queued
+  jobs created for older engines instead of silently replaying them.
+- Apply the requested lesson ceiling to Evidence V2 without padding small
+  sources or dropping admitted source facts.
+
 ### Fixed
+
+- Validate DEV course generation from the exact Evidence V2 state instead of
+  obsolete architect/writer path counters, and avoid treating a one-question
+  quiz as vulnerable to a fixed-position answering strategy.
+- Add a fail-closed local API pytest runner that always uses the canonical
+  project environment and never falls back to ambient Poetry.
 
 ### Security
 

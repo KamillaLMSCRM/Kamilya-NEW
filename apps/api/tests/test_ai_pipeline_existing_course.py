@@ -1,6 +1,7 @@
 """Regression coverage for generating into a pre-created source course."""
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -381,8 +382,21 @@ async def test_pipeline_persists_only_bounded_failure_diagnostics(monkeypatch):
         updates.append(kwargs)
 
     monkeypatch.setattr(pipeline, "_update_job_db", fail_then_capture)
+    monkeypatch.setattr(
+        pipeline,
+        "_release_generation_reservation",
+        AsyncMock(return_value=True),
+    )
 
-    state = await run_generation_pipeline("failed-job", documents=[])
+    state = await run_generation_pipeline(
+        "failed-job",
+        documents=[],
+        tenant_id=uuid4(),
+        source_analysis={
+            "analysis_mode": "direct_source",
+            "generation_engine": "evidence_v2",
+        },
+    )
 
     assert state.status == "failed"
     assert state.message == GENERATION_FAILURE_MESSAGE

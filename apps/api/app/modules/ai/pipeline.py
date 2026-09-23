@@ -1,65 +1,46 @@
-﻿"""AI Generation Pipeline вЂ” orchestrates architect, writer, and assessment agents."""
+"""AI generation pipeline for the single evidence-backed course engine."""
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import logging
 import math
-import re
 import time
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timezone
-from typing import TYPE_CHECKING, TypedDict, cast
+from typing import TYPE_CHECKING, cast
 from uuid import UUID, uuid4
 
 from billiard.exceptions import SoftTimeLimitExceeded  # type: ignore[import-untyped]
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import async_session_factory
-from app.modules.ai.architect import create_architect_tools, run_architect
 from app.modules.ai.architect_schema import CourseStructure
-from app.modules.ai.architect_schema import Module as StructureModule
-from app.modules.ai.assessment import generate_course_assessment
-from app.modules.ai.assessment_audit import AssessmentAuditError
-from app.modules.ai.assessment_completion import finalize_course_assessment
 from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
 from app.modules.ai.direct_source import (
     DirectSourceCorpus,
     DirectSourceError,
     load_direct_source_corpus,
-    run_direct_architect,
-    write_direct_course,
 )
 from app.modules.ai.evidence_engine.application import (
     generate_evidence_course,
     to_generation_artifacts,
 )
 from app.modules.ai.evidence_engine.models import CourseIntent
-from app.modules.ai.generation_checkpoint import (
-    AIGenerationCheckpointError,
-    AIGenerationCheckpointRepository,
-    GenerationCheckpointSnapshot,
-    GenerationPlan,
-    PlannedLesson,
+from app.modules.ai.generation_checkpoint import AIGenerationCheckpointError
+from app.modules.ai.generation_engine import (
+    RETIRED_GENERATION_ENGINE_CODE,
+    uses_current_generation_engine,
 )
-from app.modules.ai.ingestion import EmbeddingsProvider, VectorStore
-from app.modules.ai.lesson_quality import LESSON_QUALITY_POLICY_VERSION
 from app.modules.ai.llm_client import (
     AllProvidersFailedError,
     ResilientEmbeddingsClient,
     ResilientLLMClient,
 )
-from app.modules.ai.reviewer import ReviewerAgent
-from app.modules.ai.source_map_checkpoint import SourceMapCheckpointStore
-from app.modules.ai.writer import UnsupportedLessonSourceError, write_course
-from app.modules.ai.writer_schema import CourseContent, LessonContent
+from app.modules.ai.writer_schema import CourseContent
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from app.models.ai_job import AIJob
-    from app.modules.ai.source_analysis import CourseStructurePlan
 
 GENERATION_FAILURE_CODE = "generation_failed"
 GENERATION_FAILURE_MESSAGE = (
@@ -72,119 +53,15 @@ GENERATION_PROVIDER_INTERRUPTED_MESSAGE = (
 )
 
 
-class _DocumentProfile(TypedDict):
-    all_job_instructions: bool
-    total_chunks: int
-
-
-def _source_map_checkpoint_store(
-    llm: object, tenant_id: UUID | None, job_id: str, options: dict[str, object],
-) -> SourceMapCheckpointStore | None:
-    """Only identified jobs using a resolved route may reuse internal checkpoints."""
-    fingerprint = getattr(llm, "cache_fingerprint", None)
-    if tenant_id is None or not callable(fingerprint):
-        return None
-    route_digest = fingerprint()
-    if not isinstance(route_digest, str) or not re.fullmatch(r"[0-9a-f]{64}", route_digest):
-        return None
-    digest = hashlib.sha256(json.dumps(
-        [route_digest, options], sort_keys=True, separators=(",", ":"),
-    ).encode()).hexdigest()
-    try:
-        return SourceMapCheckpointStore(str(tenant_id), job_id, digest)
-    except ValueError:
-        # Legacy/internal non-UUID job identifiers cannot enter the shared cache.
-        return None
-
-
 def _estimate_lesson_duration_seconds(
     content: str | None,
     assessment_question_count: int = 0,
 ) -> int:
-    """Estimate total study time from reading plus one minute per question."""
-    word_count = len(re.findall(r"\b[\w-]+\b", content or "", flags=re.UNICODE))
+    """Estimate study time from reading plus one minute per question."""
+    word_count = len((content or "").split())
     reading_minutes = max(2, math.ceil(word_count / 150))
     question_minutes = max(0, int(assessment_question_count))
     return (reading_minutes + question_minutes) * 60
-
-
-def _generation_plan_payload(
-    structure: CourseStructure,
-    *,
-    documents: list[str],
-    options: dict[str, object],
-) -> dict[str, object]:
-    return {
-        "structure": json.loads(structure.to_json()),
-        "source_document_ids": list(documents),
-        "options": options,
-    }
-
-
-def _compact_structure_for_generated_content(
-    structure: CourseStructure,
-    content: CourseContent,
-    compact_lesson_origins: dict[tuple[int, int], tuple[int, int]],
-) -> CourseStructure:
-    """Align persisted structure with the lessons retained by direct-source writing.
-
-    Checkpoint coordinates remain tied to the immutable original plan, while the
-    course saved for a methodologist must contain only accepted lessons.  The
-    compact-to-original mapping is therefore consumed once here to build the
-    final structure used by assessment identity checks and persistence.
-    """
-    modules: list[StructureModule] = []
-    seen_original_modules: set[int] = set()
-    for compact_module_index, content_module in enumerate(content.modules):
-        original_module_index: int | None = None
-        lessons = []
-        for compact_lesson_index, content_lesson in enumerate(content_module.lessons):
-            original = compact_lesson_origins.get(
-                (compact_module_index, compact_lesson_index)
-            )
-            if original is None:
-                raise AIGenerationCheckpointError(
-                    "generation_compact_lesson_identity_missing"
-                )
-            module_index, lesson_index = original
-            if original_module_index is None:
-                original_module_index = module_index
-            elif original_module_index != module_index:
-                raise AIGenerationCheckpointError(
-                    "generation_compact_module_identity_conflict"
-                )
-            try:
-                original_lesson = structure.modules[module_index].lessons[lesson_index]
-            except IndexError as exc:
-                raise AIGenerationCheckpointError(
-                    "generation_compact_lesson_identity_conflict"
-                ) from exc
-            lessons.append(
-                replace(
-                    original_lesson,
-                    title=content_lesson.title or original_lesson.title,
-                )
-            )
-        if original_module_index is None:
-            raise AIGenerationCheckpointError("generation_compact_module_empty")
-        if original_module_index in seen_original_modules:
-            raise AIGenerationCheckpointError(
-                "generation_compact_module_identity_conflict"
-            )
-        seen_original_modules.add(original_module_index)
-        original_module = structure.modules[original_module_index]
-        modules.append(
-            StructureModule(
-                title=original_module.title,
-                description=original_module.description,
-                lessons=lessons,
-            )
-        )
-    return CourseStructure(
-        title=structure.title,
-        description=content.description if content.omitted_lesson_titles or content.source_warnings else structure.description,
-        modules=modules,
-    )
 
 
 def _generation_completion_message(content: CourseContent | None) -> str:
@@ -195,114 +72,6 @@ def _generation_completion_message(content: CourseContent | None) -> str:
         if notices:
             return "\n".join(notices)
     return "Курс успешно сгенерирован!"
-
-
-def _direct_source_structure_plan(
-    corpus: DirectSourceCorpus, source_analysis: dict[str, object] | None,
-) -> CourseStructurePlan | None:
-    """Resolve a lightweight admission estimate only after original conversion.
-
-    Old queued jobs retain their original options. Saved generation plans are
-    restored separately and must never be resized by this helper.
-    """
-    from app.modules.ai.document_passport import build_document_passport
-    from app.modules.ai.source_analysis import recommend_course_structure
-
-    sizing = (source_analysis or {}).get("course_sizing_request")
-    if not isinstance(sizing, dict):
-        return None
-    return recommend_course_structure(
-        total_chunks=corpus.total_chunks,
-        document_count=len(corpus.documents),
-        course_format=sizing["course_format"],
-        manual_modules=sizing.get("manual_modules"),
-        source_passport=build_document_passport(corpus),
-    )
-
-
-def _generation_plan_revision(payload: dict[str, object]) -> str:
-    return hashlib.sha256(
-        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-    ).hexdigest()
-
-
-def _planned_generation_lessons(structure: CourseStructure) -> tuple[PlannedLesson, ...]:
-    return tuple(
-        PlannedLesson(
-            module_key=f"module-{module_index:03d}",
-            lesson_key=f"lesson-{module_index:03d}-{lesson_index:03d}",
-            module_order=module_index,
-            lesson_order=lesson_index,
-        )
-        for module_index, module in enumerate(structure.modules)
-        for lesson_index, _lesson in enumerate(module.lessons)
-    )
-
-
-def _structure_from_generation_plan(
-    plan: GenerationPlan,
-    *,
-    documents: list[str],
-) -> CourseStructure:
-    payload = dict(plan.plan_payload)
-    if payload.get("source_document_ids") != documents:
-        raise AIGenerationCheckpointError("generation_source_identity_conflict")
-    if _generation_plan_revision(payload) != plan.plan_revision:
-        raise AIGenerationCheckpointError("generation_plan_revision_conflict")
-    structure_payload = payload.get("structure")
-    if not isinstance(structure_payload, dict):
-        raise AIGenerationCheckpointError("invalid_persisted_plan_payload")
-    structure = CourseStructure.from_json(
-        json.dumps(structure_payload, ensure_ascii=False)
-    )
-    if _planned_generation_lessons(structure) != plan.lessons:
-        raise AIGenerationCheckpointError("generation_plan_lesson_identity_conflict")
-    return structure
-
-
-async def _selected_document_profile(
-    document_ids: list[str],
-    tenant_id: UUID | str | None,
-) -> _DocumentProfile:
-    if not document_ids or not tenant_id:
-        return {"all_job_instructions": False, "total_chunks": 0}
-    from sqlalchemy import select, text
-
-    from app.models.document import Document
-
-    parsed_ids = []
-    for document_id in document_ids:
-        try:
-            parsed_ids.append(UUID(str(document_id)))
-        except ValueError:
-            continue
-    if not parsed_ids:
-        return {"all_job_instructions": False, "total_chunks": 0}
-    async with async_session_factory() as session:
-        await session.execute(
-            text("SELECT set_current_tenant(:tid)"),
-            {"tid": str(tenant_id)},
-        )
-        documents = (
-            await session.execute(
-                select(Document).where(
-                    Document.id.in_(parsed_ids),
-                    Document.tenant_id == UUID(str(tenant_id)),
-                )
-            )
-        ).scalars().all()
-    return {
-        "all_job_instructions": (
-            len(documents) == len(parsed_ids)
-            and all(
-                cast(str, document.category) == "job_instruction"
-                for document in documents
-            )
-        ),
-        "total_chunks": sum(
-            cast(int, document.index_chunks_total or 0) for document in documents
-        ),
-    }
 
 
 @dataclass
@@ -324,18 +93,6 @@ class GenerationState:
     source_combination_goal: str = ""
     source_analysis: dict = field(default_factory=dict)
     reuse_reason: str | None = None
-
-
-def _assessment_audit_reason_code(error: AssessmentAuditError) -> str:
-    """Return a bounded diagnostic without exposing audit/source payloads."""
-    message = str(error)
-    if "budget exceeded" in message:
-        return "assessment_audit_budget_exceeded"
-    if "cancel" in message:
-        return "assessment_audit_cancelled"
-    if "incomplete" in message or "missing" in message:
-        return "assessment_audit_incomplete_verdict"
-    return "assessment_audit_invalid_verdict"
 
 
 async def _update_job_db(
@@ -563,6 +320,7 @@ async def _run_evidence_v2_generation(
     target_audience: str,
     guidance: str | None,
     goals: list[str] | None,
+    max_total_lessons: int | None,
 ) -> None:
     """Populate the existing persistence state from one complete V2 result."""
 
@@ -634,6 +392,7 @@ async def _run_evidence_v2_generation(
         ),
         generation_client=generation_client,
         embedding_client=embedding_client,
+        max_lessons=max_total_lessons,
         progress_callback=report_progress,
         cancellation_callback=lambda: _check_cancelled_async(
             state.job_id,
@@ -1019,17 +778,8 @@ async def run_generation_pipeline(
     combination_goal: str = "",
     source_analysis: dict | None = None,
     reuse_reason: str | None = None,
-    generation_checkpoint_repository: AIGenerationCheckpointRepository | None = None,
-    delivery_id: str | None = None,
 ) -> GenerationState:
-    """
-    Full generation pipeline:
-    1. Ingest documents
-    2. Run Architect Agent (course structure)
-    3. Run Writer Agent (content for each lesson)
-    4. Run Assessment Agent (questions for each lesson)
-    5. Save results to DB
-    """
+    """Generate a course exclusively through the evidence_v2 engine."""
     state = GenerationState(
         job_id=job_id,
         course_id=course_id,
@@ -1040,918 +790,43 @@ async def run_generation_pipeline(
         reuse_reason=reuse_reason,
     )
     reservation_required = course_id is None
-    direct_mode = state.source_analysis.get("analysis_mode") == "direct_source"
-    direct_corpus: DirectSourceCorpus | None = None
-    map_checkpoints: SourceMapCheckpointStore | None = None
-    generation_checkpoints = generation_checkpoint_repository if tenant_id else None
-    generation_plan: GenerationPlan | None = None
-    lease_owner = delivery_id or job_id
 
     try:
-        # Stage 1: validate the selected source path before any model call.
+        if not uses_current_generation_engine(state.source_analysis):
+            raise DirectSourceError(RETIRED_GENERATION_ENGINE_CODE)
+        if tenant_id is None:
+            raise DirectSourceError("tenant_id_required")
+
         state.stage = "ingestion"
         state.progress = 5
-        state.message = (
-            "Проверка исходных документов..."
-            if direct_mode
-            else "Проверка эмбеддингов документов..."
-        )
-        if direct_mode and state.source_analysis.get("generation_engine") == "evidence_v2":
-            restored = await _update_job_db(
-                job_id, tenant_id=tenant_id, saved_v2_state=state,
-                status="running", stage="ingestion", progress=5, message=state.message,
-            )
-            if restored is True:
-                return state
-        else:
-            await _update_job_db(job_id, tenant_id=tenant_id, status="running", stage="ingestion", progress=5, message=state.message)
-
-        if direct_mode:
-            if not tenant_id:
-                raise DirectSourceError("tenant_id_required")
-            direct_corpus = await load_direct_source_corpus(
-                documents,
-                tenant_id=tenant_id,
-                check_cancelled=lambda: _check_cancelled_async(
-                    job_id,
-                    tenant_id=tenant_id,
-                ),
-            )
-            if state.source_analysis.get("generation_engine") == "evidence_v2":
-                await _run_evidence_v2_generation(
-                    state,
-                    direct_corpus,
-                    tenant_id=tenant_id,
-                    target_audience=target_audience,
-                    guidance=guidance,
-                    goals=goals,
-                )
-                await _check_cancelled_async(job_id, tenant_id=tenant_id)
-                state.stage = "saving"
-                state.progress = 98
-                state.message = "Сохранение результатов..."
-                await _update_job_db(
-                    job_id,
-                    tenant_id=tenant_id,
-                    stage="saving",
-                    progress=98,
-                    message=state.message,
-                    progress_detail=None,
-                )
-                if user_id:
-                    await _save_generation_to_db(state, tenant_id, user_id)
-                else:
-                    assert state.content is not None
-                    _apply_assessment_omission_notices(state)
-                    state.status = "completed"
-                    state.stage = "completed"
-                    state.progress = 100
-                    state.message = _generation_completion_message(state.content)
-                    _apply_evidence_v2_completion_outcome(state)
-                    await _update_job_db(
-                        job_id,
-                        tenant_id=tenant_id,
-                        status=state.status,
-                        stage=state.stage,
-                        progress=state.progress,
-                        message=state.message,
-                        course_id=UUID(state.course_id) if state.course_id else None,
-                        errors=state.errors,
-                        completed_at=(None if state.status == "interrupted" else datetime.now(UTC)),
-                        progress_detail=_completed_progress_detail(state.content),
-                        completion_result=_job_completion_result(state),
-                    )
-                logger.info("Evidence V2 generation complete for job %s", job_id)
-                return state
-        # Semantic documents are ingested at upload time into pgvector. Keep
-        # the legacy verification path unchanged for semantic generation.
-        elif documents:
-            from app.modules.ai.ingestion import VectorStore
-            verification_store = VectorStore()
-            missing_docs: list[str] = []
-            for doc_id in documents:
-                try:
-                    chunks = await verification_store.get_all_chunks(
-                        doc_ids=[doc_id],
-                        tenant_id=str(tenant_id) if tenant_id else None,
-                    )
-                    if not chunks:
-                        missing_docs.append(doc_id)
-                        logger.warning(f"No embeddings found for doc {doc_id} вЂ” may need re-upload")
-                except Exception as e:
-                    logger.warning(
-                        "Could not check embeddings for %s error_type=%s",
-                        doc_id,
-                        type(e).__name__,
-                    )
-            if len(missing_docs) == len(documents):
-                raise ValueError(
-                    f"None of the {len(documents)} selected document(s) have embeddings. "
-                    "Re-upload them and try again."
-                )
-            if missing_docs:
-                logger.warning(
-                    f"Proceeding with {len(documents) - len(missing_docs)}/{len(documents)} "
-                    f"docs that have embeddings (missing: {missing_docs})"
-                )
-
-        # Stage 2: Architect
-        await _check_cancelled_async(job_id, tenant_id=tenant_id)
-        state.stage = "architect"
-        state.progress = 10
-        state.message = "Проектирование структуры курса..."
-        await _update_job_db(job_id, tenant_id=tenant_id, stage="architect", progress=10, message=state.message)
-
-        llm = await ResilientLLMClient.from_settings_async(tenant_id=tenant_id)
-        semantic_store: VectorStore | None = None
-        semantic_embeddings_provider: EmbeddingsProvider | None = None
-        architect_tools: dict | None = None
-        document_profile: _DocumentProfile
-        if direct_mode:
-            if direct_corpus is None:
-                raise DirectSourceError("direct_source_unavailable")
-            document_profile = {
-                "all_job_instructions": all(
-                    document.category == "job_instruction"
-                    for document in direct_corpus.documents
-                ),
-                "total_chunks": direct_corpus.total_chunks,
-            }
-        else:
-            semantic_store = VectorStore()
-            semantic_embeddings_provider = EmbeddingsProvider(tenant_id=tenant_id)
-            architect_tools = create_architect_tools(
-                summaries_dir="./summaries",
-                chroma_dir="./chroma_data",
-                doc_ids=documents if documents else None,
-                embeddings_client=semantic_embeddings_provider,
-                vector_store=semantic_store,
-                tenant_id=str(tenant_id) if tenant_id else None,
-            )
-            document_profile = await _selected_document_profile(documents, tenant_id)
-        effective_guidance = guidance
-        if document_profile["all_job_instructions"]:
-            compact_instruction = (
-                "This source is a job instruction. Build a concise onboarding course, "
-                "not a general professional or legal curriculum. Use no more than two "
-                "lessons per module and no more than six lessons in total. Group related "
-                "duties together. Do not create standalone lessons about legislation, "
-                "industry regulation, safety, ethics, or qualifications unless the "
-                "instruction contains enough operational detail to teach and test them."
-            )
-            effective_guidance = "\n\n".join(
-                part for part in (guidance, compact_instruction) if part
-            )
-
-        if generation_checkpoints is not None and tenant_id is not None:
-            async with async_session_factory() as session:
-                try:
-                    generation_plan = await generation_checkpoints.load_plan(
-                        session,
-                        tenant_id=str(tenant_id),
-                        generation_key=job_id,
-                    )
-                except AIGenerationCheckpointError as exc:
-                    if str(exc) != "generation_plan_not_found":
-                        raise
-
-        if generation_plan is not None:
-            structure = _structure_from_generation_plan(
-                generation_plan,
-                documents=documents,
-            )
-            state.message = "Продолжаем ранее начатую генерацию по сохранённому плану..."
-            await _update_job_db(
-                job_id,
-                tenant_id=tenant_id,
-                stage="architect",
-                progress=10,
-                message=state.message,
-            )
-        elif direct_mode:
-            if direct_corpus is None:
-                raise DirectSourceError("direct_source_unavailable")
-            source_plan = _direct_source_structure_plan(direct_corpus, source_analysis)
-            if source_plan is not None:
-                num_modules = source_plan.module_count
-                lessons_per_module = source_plan.lessons_per_module
-                max_total_lessons = source_plan.hard_max_total_lessons
-            map_checkpoints = _source_map_checkpoint_store(llm, tenant_id, job_id, {
-                "goals": goals, "course_hours": course_hours, "num_modules": num_modules,
-                "lessons_per_module": lessons_per_module, "language": language,
-                "max_total_lessons": max_total_lessons,
-                "guidance": effective_guidance, "target_audience": target_audience,
-                "source_strategy": source_strategy, "combination_goal": combination_goal,
-            })
-            structure = await run_direct_architect(
-                llm,
-                direct_corpus,
-                goals=goals,
-                course_hours=course_hours,
-                num_modules=num_modules,
-                lessons_per_module=lessons_per_module,
-                max_total_lessons=max_total_lessons,
-                language=language,
-                guidance=effective_guidance,
-                target_audience=target_audience,
-                source_strategy=source_strategy,
-                combination_goal=combination_goal,
-                checkpoint_store=map_checkpoints,
-                check_cancelled=lambda: _check_cancelled_async(
-                    job_id,
-                    tenant_id=tenant_id,
-                ),
-            )
-        else:
-            if architect_tools is None:
-                raise RuntimeError("semantic_architect_tools_unavailable")
-            structure = await run_architect(
-                llm=llm,
-                tools=architect_tools,
-                goals=goals,
-                course_hours=course_hours,
-                num_modules=num_modules,
-                lessons_per_module=lessons_per_module,
-                max_total_lessons=max_total_lessons,
-                language=language,
-                guidance=effective_guidance,
-                on_message=lambda msg: asyncio.create_task(_update_job_db(job_id, tenant_id=tenant_id, message=f"Architect: {msg}")),
-                tenant_id=str(tenant_id) if tenant_id else None,
-                target_audience=target_audience,
-                source_strategy=source_strategy,
-                combination_goal=combination_goal,
-            )
-
-        plan_options: dict[str, object] = {
-            "target_audience": target_audience,
-            "num_modules": num_modules,
-            "lessons_per_module": lessons_per_module,
-            "max_total_lessons": max_total_lessons,
-            "language": language,
-            "goals": list(goals or []),
-            "course_hours": course_hours,
-            "guidance": effective_guidance or "",
-            "source_strategy": source_strategy,
-            "combination_goal": combination_goal,
-        }
-        plan_payload = _generation_plan_payload(
-            structure,
-            documents=documents,
-            options=plan_options,
-        )
-        planned_lessons = _planned_generation_lessons(structure)
-
-        state.structure = structure
-        state.progress = 25
-        state.message = f"Структура спроектирована: {len(structure.modules)} модулей"
-        await _update_job_db(job_id, tenant_id=tenant_id, progress=25, message=state.message)
-
-        checkpoint_keys = {
-            (planned.module_order, planned.lesson_order): (
-                planned.module_key,
-                planned.lesson_key,
-            )
-            for planned in planned_lessons
-        }
-        completed_content: dict[tuple[int, int], LessonContent] = {}
-        completed_omissions: dict[tuple[int, int], tuple[str, ...]] = {}
-        completed_reviews: dict[tuple[int, int], dict[str, object]] = {}
-        completed_assessments: dict[tuple[int, int], LessonAssessment] = {}
-        if generation_checkpoints is not None and tenant_id is not None:
-            snapshots: tuple[GenerationCheckpointSnapshot, ...] = ()
-            if generation_plan is not None:
-                async with async_session_factory() as session:
-                    snapshots = await generation_checkpoints.load_checkpoints(
-                        session,
-                        tenant_id=str(tenant_id),
-                        generation_key=job_id,
-                    )
-            for snapshot in snapshots:
-                index = (snapshot.module_order, snapshot.lesson_order)
-                if checkpoint_keys.get(index) != (snapshot.module_key, snapshot.lesson_key):
-                    raise AIGenerationCheckpointError(
-                        "generation_plan_lesson_identity_conflict"
-                    )
-                expected_title = structure.modules[index[0]].lessons[index[1]].title
-                if snapshot.content_status == "omitted":
-                    if (
-                        snapshot.review_status != "omitted"
-                        or snapshot.assessment_status != "omitted"
-                        or snapshot.content_payload is None
-                    ):
-                        raise AIGenerationCheckpointError(
-                            "generation_omission_checkpoint_invalid"
-                        )
-                    reason_codes = snapshot.content_payload.get("reason_codes")
-                    if not isinstance(reason_codes, list) or not reason_codes or not all(
-                        isinstance(reason, str) and reason for reason in reason_codes
-                    ):
-                        raise AIGenerationCheckpointError(
-                            "generation_omission_checkpoint_invalid"
-                        )
-                    if (
-                        snapshot.content_payload.get("quality_policy_version")
-                        != LESSON_QUALITY_POLICY_VERSION
-                    ):
-                        raise DirectSourceError(
-                            "direct_source_checkpoint_quality_policy_stale"
-                        )
-                    completed_omissions[index] = tuple(reason_codes)
-                    continue
-                if snapshot.content_payload is not None:
-                    restored_content = LessonContent.from_dict(
-                        dict(snapshot.content_payload)
-                    )
-                    if restored_content.title != expected_title:
-                        raise AIGenerationCheckpointError(
-                            "generation_content_identity_conflict"
-                        )
-                    completed_content[index] = restored_content
-                if snapshot.review_payload is not None:
-                    completed_reviews[index] = dict(snapshot.review_payload)
-                if snapshot.assessment_payload is not None:
-                    restored_assessment = LessonAssessment.from_dict(  # type: ignore[no-untyped-call]
-                        dict(snapshot.assessment_payload)
-                    )
-                    if restored_assessment.lesson_title != expected_title:
-                        raise AIGenerationCheckpointError(
-                            "generation_assessment_identity_conflict"
-                        )
-                    completed_assessments[index] = restored_assessment
-
-        async def ensure_generation_plan(session: AsyncSession) -> None:
-            nonlocal generation_plan
-            if generation_checkpoints is None or tenant_id is None:
-                return
-            generation_plan = await generation_checkpoints.create_plan(
-                session,
-                tenant_id=str(tenant_id),
-                generation_key=job_id,
-                plan_revision=_generation_plan_revision(plan_payload),
-                source_job_id=job_id,
-                plan_payload=plan_payload,
-                lessons=planned_lessons,
-            )
-
-        async def claim_generation_item(
-            module_index: int,
-            lesson_index: int,
-            stage: str,
-        ) -> None:
-            if generation_checkpoints is None or tenant_id is None:
-                return
-            module_key, lesson_key = checkpoint_keys[(module_index, lesson_index)]
-            async with async_session_factory() as session:
-                claimed = await generation_checkpoints.claim_item(
-                    session,
-                    tenant_id=str(tenant_id),
-                    generation_key=job_id,
-                    module_key=module_key,
-                    lesson_key=lesson_key,
-                    stage=stage,
-                    lease_owner=lease_owner,
-                )
-                await session.commit()
-            if claimed is None:
-                raise AIGenerationCheckpointError(
-                    "generation_checkpoint_lease_unavailable"
-                )
-
-        async def checkpoint_lesson_content(
-            module_index: int,
-            lesson_index: int,
-            lesson_content: LessonContent,
-        ) -> None:
-            if generation_checkpoints is None or tenant_id is None:
-                return
-            module_key, lesson_key = checkpoint_keys[(module_index, lesson_index)]
-            async with async_session_factory() as session:
-                await ensure_generation_plan(session)
-                await generation_checkpoints.checkpoint_content(
-                    session,
-                    tenant_id=str(tenant_id),
-                    generation_key=job_id,
-                    module_key=module_key,
-                    lesson_key=lesson_key,
-                    content_payload=lesson_content.to_dict(),
-                    lease_owner=lease_owner,
-                )
-                await session.commit()
-
-        async def checkpoint_lesson_omitted(
-            module_index: int,
-            lesson_index: int,
-            reason_codes: tuple[str, ...],
-        ) -> None:
-            normalized_reasons = tuple(reason for reason in reason_codes if reason)
-            if not normalized_reasons:
-                raise AIGenerationCheckpointError("generation_omission_reason_missing")
-            if generation_checkpoints is not None and tenant_id is not None:
-                module_key, lesson_key = checkpoint_keys[(module_index, lesson_index)]
-                async with async_session_factory() as session:
-                    await ensure_generation_plan(session)
-                    await generation_checkpoints.checkpoint_omitted(
-                        session,
-                        tenant_id=str(tenant_id),
-                        generation_key=job_id,
-                        module_key=module_key,
-                        lesson_key=lesson_key,
-                        omission_payload={
-                            "reason_codes": list(normalized_reasons),
-                            "quality_policy_version": LESSON_QUALITY_POLICY_VERSION,
-                        },
-                        lease_owner=lease_owner,
-                    )
-                    await session.commit()
-            completed_omissions[(module_index, lesson_index)] = normalized_reasons
-
-        async def checkpoint_lesson_review(
-            module_index: int,
-            lesson_index: int,
-            review: dict[str, object],
-        ) -> None:
-            if generation_checkpoints is None or tenant_id is None:
-                return
-            module_key, lesson_key = checkpoint_keys[(module_index, lesson_index)]
-            async with async_session_factory() as session:
-                await generation_checkpoints.checkpoint_review(
-                    session,
-                    tenant_id=str(tenant_id),
-                    generation_key=job_id,
-                    module_key=module_key,
-                    lesson_key=lesson_key,
-                    review_payload=review,
-                    lease_owner=lease_owner,
-                )
-                await session.commit()
-
-        async def checkpoint_lesson_assessment(
-            module_index: int,
-            lesson_index: int,
-            lesson_assessment: LessonAssessment,
-        ) -> None:
-            if generation_checkpoints is None or tenant_id is None:
-                return
-            module_key, lesson_key = checkpoint_keys[(module_index, lesson_index)]
-            async with async_session_factory() as session:
-                await ensure_generation_plan(session)
-                await generation_checkpoints.checkpoint_assessment(
-                    session,
-                    tenant_id=str(tenant_id),
-                    generation_key=job_id,
-                    module_key=module_key,
-                    lesson_key=lesson_key,
-                    assessment_payload=lesson_assessment.to_dict(),  # type: ignore[no-untyped-call]
-                    lease_owner=lease_owner,
-                )
-                await session.commit()
-
-        if generation_checkpoints is not None and tenant_id is not None:
-            async with async_session_factory() as session:
-                await ensure_generation_plan(session)
-                await session.commit()
-
-        # Stage 3: Content Generation (Writer)
-        await _check_cancelled_async(job_id, tenant_id=tenant_id)
-        state.stage = "content_generation"
-        state.progress = 30
-        state.message = "Генерация контента уроков..."
-        await _update_job_db(
+        state.message = "Проверка исходных документов..."
+        restored = await _update_job_db(
             job_id,
             tenant_id=tenant_id,
-            stage="content_generation",
-            progress=30,
+            saved_v2_state=state,
+            status="running",
+            stage="ingestion",
+            progress=5,
             message=state.message,
-            progress_detail={"current": 0, "total": len(planned_lessons)},
         )
+        if restored is True:
+            return state
 
-        async def write_grounded_course(
-            course_structure: CourseStructure,
-        ) -> tuple[CourseContent, int, dict[tuple[int, int], tuple[int, int]]]:
-            total = sum(len(module.lessons) for module in course_structure.modules)
-            completed = 0
-            content_started_at = time.monotonic()
-            included_originals: list[tuple[int, int]] = []
-
-            async def record_lesson_included(
-                module_index: int,
-                lesson_index: int,
-                _lesson_content: LessonContent,
-            ) -> None:
-                included_originals.append((module_index, lesson_index))
-
-            async def on_lesson_progress(msg: str) -> None:
-                nonlocal completed
-                completed += 1
-                pct = 30 + int(completed / total * 40) if total > 0 else 70
-                await _update_job_db(
-                    job_id,
-                    tenant_id=tenant_id,
-                    progress=min(pct, 70),
-                    message=msg,
-                    progress_detail=_timed_progress_detail(
-                        completed,
-                        total,
-                        content_started_at,
-                    ),
-                )
-
-            if direct_mode:
-                if direct_corpus is None:
-                    raise DirectSourceError("direct_source_unavailable")
-                generated = await write_direct_course(
-                    llm,
-                    direct_corpus,
-                    course_structure,
-                    tenant_id=tenant_id,
-                    use_source_cards=not bool(" ".join((
-                        target_audience, effective_guidance or "", combination_goal, *(goals or [])
-                    )).strip()),
-                    language=language,
-                    on_progress=on_lesson_progress,
-                    check_cancelled=lambda: _check_cancelled_async(
-                        job_id,
-                        tenant_id=tenant_id,
-                    ),
-                    completed_lessons=completed_content,
-                    completed_omissions=completed_omissions,
-                    before_lesson_generate=lambda module_index, lesson_index: claim_generation_item(
-                        module_index, lesson_index, "content"
-                    ),
-                    on_lesson_complete=checkpoint_lesson_content,
-                    on_lesson_included=record_lesson_included,
-                    on_lesson_omitted=checkpoint_lesson_omitted,
-                )
-            else:
-                if semantic_store is None:
-                    raise RuntimeError("semantic_store_unavailable")
-                generated = await write_course(
-                    llm=llm,
-                    store=semantic_store,
-                    structure=course_structure,
-                    doc_ids=documents if documents else None,
-                    language=language,
-                    on_progress=on_lesson_progress,
-                    embeddings_provider=semantic_embeddings_provider,
-                    tenant_id=str(tenant_id) if tenant_id else None,
-                    completed_lessons=completed_content,
-                    before_lesson_generate=lambda module_index, lesson_index: claim_generation_item(
-                        module_index, lesson_index, "content"
-                    ),
-                    on_lesson_complete=checkpoint_lesson_content,
-                )
-            generated_total = sum(len(module.lessons) for module in generated.modules)
-            if direct_mode:
-                accepted_origins = included_originals or [
-                    (module_index, lesson_index)
-                    for module_index, module in enumerate(course_structure.modules)
-                    for lesson_index, _lesson in enumerate(module.lessons)
-                    if (module_index, lesson_index) not in completed_omissions
-                ]
-                expected_total = len(accepted_origins)
-                if expected_total != generated_total:
-                    raise AIGenerationCheckpointError(
-                        "generation_compact_lesson_count_conflict"
-                    )
-                origins_by_module: dict[int, list[tuple[int, int]]] = {}
-                for origin in accepted_origins:
-                    origins_by_module.setdefault(origin[0], []).append(origin)
-                compact_origins: dict[tuple[int, int], tuple[int, int]] = {}
-                compact_module_index = 0
-                for original_module_index in range(len(course_structure.modules)):
-                    module_origins = origins_by_module.get(original_module_index, [])
-                    if not module_origins:
-                        continue
-                    if compact_module_index >= len(generated.modules):
-                        raise AIGenerationCheckpointError(
-                            "generation_compact_module_count_conflict"
-                        )
-                    generated_module = generated.modules[compact_module_index]
-                    if len(generated_module.lessons) != len(module_origins):
-                        raise AIGenerationCheckpointError(
-                            "generation_compact_module_lesson_count_conflict"
-                        )
-                    for compact_lesson_index, original in enumerate(module_origins):
-                        compact_origins[(compact_module_index, compact_lesson_index)] = original
-                    compact_module_index += 1
-                if compact_module_index != len(generated.modules):
-                    raise AIGenerationCheckpointError(
-                        "generation_compact_module_count_conflict"
-                    )
-            else:
-                compact_origins = {
-                    (module_index, lesson_index): (module_index, lesson_index)
-                    for module_index, module in enumerate(generated.modules)
-                    for lesson_index, _lesson in enumerate(module.lessons)
-                }
-            return generated, generated_total, compact_origins
-
-        try:
-            content, total_lessons, compact_lesson_origins = await write_grounded_course(structure)
-        except UnsupportedLessonSourceError as exc:
-            if direct_mode:
-                raise
-            if generation_plan is not None:
-                raise AIGenerationCheckpointError(
-                    "generation_plan_grounding_conflict"
-                ) from exc
-            state.stage = "architect_recovery"
-            state.progress = 28
-            state.message = (
-                "Перестраиваем план: один из уроков не подтверждается выбранными источниками"
-            )
-            await _update_job_db(
-                job_id,
-                tenant_id=tenant_id,
-                stage=state.stage,
-                progress=state.progress,
-                message=state.message,
-            )
-            recovery_guidance = "\n\n".join(
-                part
-                for part in (
-                    effective_guidance,
-                    (
-                        "The previous outline included a lesson that could not be grounded "
-                        f"in the selected documents: '{exc.lesson_title}'. Redesign the whole "
-                        "outline using only topics explicitly supported by document headings "
-                        "and retrieved source text. Do not add legal background, industry "
-                        "practice, compliance duties, rates, limits, or procedures unless they "
-                        "are present in the selected sources. Every lesson must name precise "
-                        "source_doc_ids and relevant_headings."
-                    ),
-                )
-                if part
-            )
-            if architect_tools is None:
-                raise RuntimeError("semantic_architect_tools_unavailable") from exc
-            structure = await run_architect(
-                llm=llm,
-                tools=architect_tools,
-                goals=goals,
-                course_hours=course_hours,
-                num_modules=num_modules,
-                lessons_per_module=lessons_per_module,
-                max_total_lessons=max_total_lessons,
-                language=language,
-                guidance=recovery_guidance,
-                on_message=lambda msg: asyncio.create_task(
-                    _update_job_db(
-                        job_id,
-                        tenant_id=tenant_id,
-                        message=f"Architect recovery: {msg}",
-                    )
-                ),
-                tenant_id=str(tenant_id) if tenant_id else None,
-                target_audience=target_audience,
-                source_strategy=source_strategy,
-                combination_goal=combination_goal,
-            )
-            state.structure = structure
-            plan_payload = _generation_plan_payload(
-                structure,
-                documents=documents,
-                options=plan_options,
-            )
-            planned_lessons = _planned_generation_lessons(structure)
-            checkpoint_keys = {
-                (planned.module_order, planned.lesson_order): (
-                    planned.module_key,
-                    planned.lesson_key,
-                )
-                for planned in planned_lessons
-            }
-            completed_content = {}
-            completed_omissions = {}
-            completed_reviews = {}
-            completed_assessments = {}
-            state.stage = "content_generation"
-            state.progress = 30
-            state.message = "Новый план подтверждён источниками. Генерация уроков..."
-            await _update_job_db(
-                job_id,
-                tenant_id=tenant_id,
-                stage=state.stage,
-                progress=state.progress,
-                message=state.message,
-            )
-            content, total_lessons, compact_lesson_origins = await write_grounded_course(structure)
-
-        state.content = content
-        if direct_mode:
-            structure = _compact_structure_for_generated_content(
-                structure,
-                content,
-                compact_lesson_origins,
-            )
-            state.structure = structure
-        state.progress = 70
-        state.message = "Контент сгенерирован"
-        await _update_job_db(job_id, tenant_id=tenant_id, progress=70, message=state.message)
-
-        # Stage 3.5: Review content quality
-        await _check_cancelled_async(job_id, tenant_id=tenant_id)
-        state.stage = "review"
-        state.progress = 72
-        state.message = "Проверка качества контента..."
-        await _update_job_db(
-            job_id,
+        corpus = await load_direct_source_corpus(
+            documents,
             tenant_id=tenant_id,
-            stage="review",
-            progress=72,
-            message=state.message,
-            progress_detail={"current": 0, "total": total_lessons},
-        )
-
-        reviewer = ReviewerAgent(llm_client=llm)
-        low_quality_lessons = []
-        reviewed_lessons = 0
-        review_started_at = time.monotonic()
-        for mod_idx, content_mod in enumerate(content.modules):
-            for les_idx, content_les in enumerate(content_mod.lessons):
-                reviewed_lessons += 1
-                await _update_job_db(
-                    job_id,
-                    tenant_id=tenant_id,
-                    progress=min(72 + int(reviewed_lessons / max(total_lessons, 1) * 3), 74),
-                    message=f"Reviewing lesson {reviewed_lessons}/{total_lessons}: {content_les.title if hasattr(content_les, 'title') else ''}",
-                    progress_detail=_timed_progress_detail(
-                        reviewed_lessons,
-                        total_lessons,
-                        review_started_at,
-                    ),
-                )
-                original_index = compact_lesson_origins[(mod_idx, les_idx)]
-                review = completed_reviews.get(original_index)
-                if review is None:
-                    await claim_generation_item(*original_index, "review")
-                    review = await reviewer.review_lesson(
-                        lesson_content=content_les.content if hasattr(content_les, 'content') else "",
-                        lesson_meta={
-                            "content_type": "text",
-                            "language": language,
-                            "title": content_les.title if hasattr(content_les, 'title') else "",
-                        },
-                    )
-                    await checkpoint_lesson_review(*original_index, review)
-                quality_value = review.get("quality_score", 0.0)
-                quality_score = (
-                    float(quality_value)
-                    if isinstance(quality_value, int | float)
-                    else 0.0
-                )
-                if quality_score < 5.0:
-                    low_quality_lessons.append({
-                        "module": mod_idx,
-                        "lesson": les_idx,
-                        "score": quality_score,
-                        "issues": review["issues"],
-                    })
-
-        if low_quality_lessons:
-            state.message = f"Проверка: {len(low_quality_lessons)} уроков ниже порога качества"
-            await _update_job_db(job_id, tenant_id=tenant_id, message=state.message)
-        else:
-            state.message = "Качество контента проверено"
-            await _update_job_db(job_id, tenant_id=tenant_id, message=state.message)
-
-        # Stage 4: Assessment Generation
-        await _check_cancelled_async(job_id, tenant_id=tenant_id)
-        state.stage = "assessment"
-        state.progress = 75
-        state.message = "Генерация тестов..."
-        await _update_job_db(
-            job_id,
-            tenant_id=tenant_id,
-            stage="assessment",
-            progress=75,
-            message=state.message,
-            progress_detail={"current": 0, "total": total_lessons},
-        )
-
-        assessments_done = 0
-        assessment_started_at = time.monotonic()
-
-        async def on_assessment_progress(msg: str) -> None:
-            nonlocal assessments_done
-            assessments_done += 1
-            pct = 75 + int(assessments_done / total_lessons * 17) if total_lessons > 0 else 92
-            await _update_job_db(
-                job_id,
-                tenant_id=tenant_id,
-                progress=min(pct, 92),
-                message=msg,
-                progress_detail=_timed_progress_detail(
-                    assessments_done,
-                    total_lessons,
-                    assessment_started_at,
-                ),
-            )
-
-        # Assessment JSON needs deterministic schema/evidence compliance.
-        # Do not reuse the more creative writer client (temperature 0.7):
-        # Qwen may paraphrase server-owned evidence IDs/answer excerpts.
-        assessment_llm = await ResilientLLMClient.from_settings_async(
-            temperature=0.2,
-            max_tokens=4096,
-            tenant_id=tenant_id,
-        )
-        compact_completed_assessments = {
-            compact_index: completed_assessments[original_index]
-            for compact_index, original_index in compact_lesson_origins.items()
-            if original_index in completed_assessments
-        }
-
-        async def claim_compact_assessment(
-            module_index: int, lesson_index: int
-        ) -> None:
-            original_index = compact_lesson_origins[(module_index, lesson_index)]
-            await claim_generation_item(*original_index, "assessment")
-
-        async def checkpoint_compact_assessment(
-            module_index: int,
-            lesson_index: int,
-            lesson_assessment: LessonAssessment,
-        ) -> None:
-            original_index = compact_lesson_origins[(module_index, lesson_index)]
-            await checkpoint_lesson_assessment(*original_index, lesson_assessment)
-
-        assessment = await generate_course_assessment(
-            llm=assessment_llm,
-            course_content=content,
-            language=language,
-            on_progress=on_assessment_progress,
-            compact=document_profile["all_job_instructions"],
             check_cancelled=lambda: _check_cancelled_async(job_id, tenant_id=tenant_id),
-            completed_assessments=compact_completed_assessments,
-            before_assessment_generate=claim_compact_assessment,
-            on_assessment_complete=checkpoint_compact_assessment,
         )
-
-        async def on_assessment_audit_progress(message: str) -> None:
-            state.message = message
-            await _update_job_db(
-                job_id, tenant_id=tenant_id, progress=93, message=message,
-                progress_detail=None,
-            )
-
-        await on_assessment_audit_progress("Проверка ответов, повторов и покрытия тем...")
-        audit_llm = await ResilientLLMClient.from_settings_async(
-            temperature=0.2, max_tokens=8192, tenant_id=tenant_id,
+        await _run_evidence_v2_generation(
+            state,
+            corpus,
+            tenant_id=tenant_id,
+            target_audience=target_audience,
+            guidance=guidance,
+            goals=goals,
+            max_total_lessons=max_total_lessons,
         )
-        # Run after restoration as well: raw checkpoints never bypass final QA.
-        audited = await finalize_course_assessment(
-            llm=audit_llm, course_content=content, assessment=assessment,
-            language=language, compact=document_profile["all_job_instructions"],
-            check_cancelled=lambda: _check_cancelled_async(job_id, tenant_id=tenant_id),
-            on_progress=on_assessment_audit_progress,
-        )
-        state.assessment = audited.assessment
-        flat_lessons = [lesson for module in content.modules for lesson in module.lessons]
-        if audited.uncovered_objectives:
-            objectives = list(dict.fromkeys(
-                f"{flat_lessons[li].title} — {flat_lessons[li].objectives[oi]}"
-                for li, oi in audited.uncovered_objectives
-            ))
-            notice = (
-                "Проверьте охват учебных целей тестами: " + "; ".join(objectives)
-                + ". При генерации были отмечены пробелы; дополнение вопросов не заменяет проверку методистом."
-            )
-            if notice not in content.source_warnings:
-                content.source_warnings.append(notice)
-            if notice not in content.description:
-                content.description = "\n\n".join(filter(None, (content.description, notice)))
-            if state.structure is not None and notice not in state.structure.description:
-                state.structure.description = "\n\n".join(filter(None, (state.structure.description, notice)))
-        uncovered_content_objectives = getattr(audited, "uncovered_content_objectives", [])
-        if uncovered_content_objectives:
-            objectives = list(dict.fromkeys(
-                f"{flat_lessons[li].title} — {flat_lessons[li].objectives[oi]}"
-                for li, oi in uncovered_content_objectives
-            ))
-            notice = (
-                "Проверьте непокрытые учебные цели в содержании курса: " + "; ".join(objectives)
-                + ". Цель не считается раскрытой только по заголовку; перед публикацией дополните материал или подтвердите охват."
-            )
-            if notice not in content.source_warnings:
-                content.source_warnings.append(notice)
-            if notice not in content.description:
-                content.description = "\n\n".join(filter(None, (content.description, notice)))
-            if state.structure is not None and notice not in state.structure.description:
-                state.structure.description = "\n\n".join(filter(None, (state.structure.description, notice)))
-        state.progress = 95
-        state.message = "Тесты сгенерированы"
-        await _update_job_db(job_id, tenant_id=tenant_id, progress=95, message=state.message)
-
-        if generation_checkpoints is not None and tenant_id is not None:
-            async with async_session_factory() as session:
-                await generation_checkpoints.assert_complete(
-                    session,
-                    tenant_id=str(tenant_id),
-                    generation_key=job_id,
-                )
-
-        # Stage 5: Save to DB
+        await _check_cancelled_async(job_id, tenant_id=tenant_id)
         state.stage = "saving"
         state.progress = 98
         state.message = "Сохранение результатов..."
@@ -1963,38 +838,31 @@ async def run_generation_pipeline(
             message=state.message,
             progress_detail=None,
         )
-
-        if tenant_id and user_id:
+        if user_id:
             await _save_generation_to_db(state, tenant_id, user_id)
         else:
+            assert state.content is not None
+            _apply_assessment_omission_notices(state)
             state.status = "completed"
             state.stage = "completed"
             state.progress = 100
             state.message = _generation_completion_message(state.content)
+            _apply_evidence_v2_completion_outcome(state)
             await _update_job_db(
                 job_id,
                 tenant_id=tenant_id,
-                status="completed",
-                stage="completed",
-                progress=100,
+                status=state.status,
+                stage=state.stage,
+                progress=state.progress,
                 message=state.message,
                 course_id=UUID(state.course_id) if state.course_id else None,
-                completed_at=datetime.now(UTC),
+                errors=state.errors,
+                completed_at=(None if state.status == "interrupted" else datetime.now(UTC)),
                 progress_detail=_completed_progress_detail(state.content),
+                completion_result=_job_completion_result(state),
             )
-
-        logger.info(f"Generation pipeline complete for job {job_id}")
-
-    except AssessmentAuditError as exc:
-        state.status = "interrupted"
-        state.stage = "interrupted"
-        state.message = "Готовые уроки сохранены. Проверка тестов не завершена; продолжите генерацию."
-        state.errors = ["assessment_audit_interrupted", _assessment_audit_reason_code(exc)]
-        await _update_job_db(
-            job_id, tenant_id=tenant_id, status="interrupted", stage="interrupted",
-            message=state.message, errors=state.errors, completed_at=None,
-        )
-        logger.warning("Assessment audit interrupted for job %s: %s", job_id, state.errors[-1])
+        logger.info("Evidence V2 generation complete for job %s", job_id)
+        return state
     except AllProvidersFailedError:
         state.status = "interrupted"
         state.stage = "interrupted"
@@ -2009,16 +877,11 @@ async def run_generation_pipeline(
             errors=state.errors,
             completed_at=None,
         )
-        logger.warning(
-            "Generation pipeline paused after provider exhaustion for job %s",
-            job_id,
-        )
+        logger.warning("Evidence V2 paused after provider exhaustion for job %s", job_id)
     except SoftTimeLimitExceeded:
         state.status = "interrupted"
         state.stage = "interrupted"
-        state.message = (
-            "Генерация приостановлена по лимиту времени. Готовые уроки сохранены — продолжите с оставшихся."
-        )
+        state.message = "Генерация приостановлена по лимиту времени. Продолжите задачу позднее."
         state.errors = ["generation_interrupted"]
         await _update_job_db(
             job_id,
@@ -2029,7 +892,7 @@ async def run_generation_pipeline(
             errors=state.errors,
             completed_at=None,
         )
-        logger.warning("Generation pipeline interrupted for job %s", job_id)
+        logger.warning("Evidence V2 interrupted for job %s", job_id)
     except asyncio.CancelledError:
         state.status = "cancelled"
         state.stage = "cancelled"
@@ -2054,12 +917,15 @@ async def run_generation_pipeline(
                     "Could not refund cancelled generation reservation for job %s",
                     job_id,
                 )
-        logger.info("Generation pipeline cancelled for job %s", job_id)
-    except Exception as e:
+        logger.info("Evidence V2 cancelled for job %s", job_id)
+    except Exception as error:
         state.status = "failed"
+        state.stage = "failed"
         state.message = GENERATION_FAILURE_MESSAGE
-        failure_code = e.code if isinstance(e, DirectSourceError) else GENERATION_FAILURE_CODE
-        state.errors.append(failure_code)
+        failure_code = (
+            error.code if isinstance(error, DirectSourceError) else GENERATION_FAILURE_CODE
+        )
+        state.errors = [failure_code]
         try:
             await _update_job_db(
                 job_id,
@@ -2067,7 +933,7 @@ async def run_generation_pipeline(
                 status="failed",
                 stage="failed",
                 message=state.message,
-                errors=[failure_code],
+                errors=state.errors,
                 completed_at=datetime.now(UTC),
             )
         except Exception:
@@ -2080,29 +946,9 @@ async def run_generation_pipeline(
                     "Could not refund failed generation reservation for job %s",
                     job_id,
                 )
-        logger.error("Generation pipeline failed for job %s error_type=%s", job_id, type(e).__name__)
-    finally:
-        if generation_checkpoints is not None and tenant_id is not None:
-            try:
-                async with async_session_factory() as session:
-                    await generation_checkpoints.release_leases(
-                        session,
-                        tenant_id=str(tenant_id),
-                        generation_key=job_id,
-                        lease_owner=lease_owner,
-                    )
-                    await session.commit()
-            except Exception as exc:
-                logger.warning(
-                    "Could not release generation leases for job %s error_type=%s",
-                    job_id,
-                    type(exc).__name__,
-                )
-        if map_checkpoints is not None:
-            try:
-                if state.status in {"completed", "cancelled"}:
-                    await map_checkpoints.clear()
-            finally:
-                await map_checkpoints.aclose()
-
+        logger.error(
+            "Evidence V2 failed for job %s error_type=%s",
+            job_id,
+            type(error).__name__,
+        )
     return state

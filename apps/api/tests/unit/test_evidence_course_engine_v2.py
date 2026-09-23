@@ -378,6 +378,51 @@ def test_spreadsheet_plan_respects_source_derived_teachable_capacity() -> None:
     } == {fact.fact_id for fact in result.admitted_facts}
 
 
+def test_spreadsheet_plan_honours_requested_lesson_ceiling_without_dropping_facts() -> None:
+    source = SourceDocument(
+        source_id="bounded-catalog",
+        title="Каталог материалов",
+        kind="spreadsheet",
+        teachable_units=3,
+        sections=(
+            SourceSection(
+                section_id="materials",
+                title="Материалы",
+                role="primary",
+                facts=tuple(
+                    SourceFact(
+                        fact_id=f"material-{index}",
+                        subject=f"Материал {index}",
+                        attribute="Применение",
+                        value=f"Материал {index} применяется для операции {index}.",
+                        source_locator=f"sheet=Материалы;row={index + 1}",
+                    )
+                    for index in range(1, 7)
+                ),
+            ),
+        ),
+    )
+
+    result = EvidenceCourseEngine().generate_from_document(source, max_lessons=1)
+
+    assert len(result.evidence_plan) == 1
+    assert {
+        fact_id
+        for lesson in result.evidence_plan
+        for fact_id in lesson.fact_ids
+    } == {fact.fact_id for fact in result.admitted_facts}
+
+
+def test_lesson_ceiling_never_pads_a_small_source() -> None:
+    source = _narrative_source(
+        "Сотрудник проверяет полноту представленных документов.",
+    )
+
+    result = EvidenceCourseEngine().generate_from_document(source, max_lessons=5)
+
+    assert len(result.evidence_plan) == 1
+
+
 def test_narrative_plan_excludes_unreadable_placeholder_fact_from_course() -> None:
     source = SourceDocument(
         source_id="ocr-rules",

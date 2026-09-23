@@ -31,6 +31,11 @@ from app.modules.ai.assistant_policy import (
     assistant_request_refusal,
     assistant_scope_refusal,
 )
+from app.modules.ai.generation_engine import (
+    RETIRED_GENERATION_ENGINE_CODE,
+    RETIRED_GENERATION_ENGINE_MESSAGE,
+    job_uses_current_generation_engine,
+)
 from app.modules.ai.job_service import (
     AIJobAdmissionLimitReachedError,
     AIJobSubmissionUnavailableError,
@@ -454,9 +459,8 @@ async def generate_course(
         "course_format": req.course_format,
         "manual_modules": req.num_modules,
     }
-    # Only newly admitted jobs opt into the evidence-first engine. Historical
-    # interrupted jobs retain their persisted source_analysis and resume through
-    # the legacy path, so a deploy cannot change an in-flight generation plan.
+    # Every new job is bound to the sole evidence-first engine. Historical jobs
+    # without this marker fail closed and must be submitted as a new generation.
     analysis_payload["generation_engine"] = "evidence_v2"
     if analysis.requires_decision and req.source_strategy != "intentional_combination":
         raise HTTPException(
@@ -629,6 +633,7 @@ async def list_jobs(
 ):
     """List AI jobs for the tenant dashboard or only the current user's recovery."""
     from sqlalchemy import select
+
     from app.models.ai_job import AIJob
 
     stmt = select(AIJob)
@@ -766,9 +771,18 @@ async def resume_generation(
     job = await get_ai_job(db, job_id, tenant_id=str(tenant_id))
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    params: dict[str, Any] = job.params if isinstance(job.params, dict) else {}
+    if not job_uses_current_generation_engine(job):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": RETIRED_GENERATION_ENGINE_CODE,
+                "message": RETIRED_GENERATION_ENGINE_MESSAGE,
+                "action": "start_new_generation",
+            },
+        )
     if not is_resumable_generation_job(job):
         raise HTTPException(status_code=409, detail="Job is not resumable")
-    params: dict[str, Any] = job.params if isinstance(job.params, dict) else {}
     documents = params.get("documents")
     course_structure = params.get("course_structure")
     if not isinstance(documents, list) or not documents or not isinstance(course_structure, dict):
@@ -918,7 +932,7 @@ async def job_progress_ws(websocket: WebSocket, job_id: str, token: str = Query(
 
 async def _fetch_course_summary(db: AsyncSession, course_id: UUID, tenant_id: UUID) -> str:
     """Compact course outline (modules → lessons titles + quiz count)."""
-    from app.modules.lessons.models import Module, Lesson
+    from app.modules.lessons.models import Lesson, Module
 
     course_q = await db.execute(
         select(Course).where(Course.id == course_id, Course.tenant_id == tenant_id)
@@ -957,7 +971,7 @@ async def _fetch_target_context(
     db: AsyncSession, course_id: UUID, context: str, target_id: UUID, tenant_id: UUID
 ) -> str:
     """If the user picked a specific lesson/module as focus, fetch its content."""
-    from app.modules.lessons.models import Module, Lesson
+    from app.modules.lessons.models import Lesson, Module
     if context == "module":
         m = await db.get(Module, target_id)
         if not m or m.course_id != course_id or m.tenant_id != tenant_id:
@@ -1209,8 +1223,8 @@ async def _regenerate_module_job(
     Keeps the same AIJob record so the frontend can poll /jobs/{id}.
     """
     from app.core.db import async_session_factory
-    from app.modules.lessons.models import Module, Lesson
-    from app.modules.quizzes.models import Quiz, Question, QuizChoice
+    from app.modules.lessons.models import Lesson, Module
+    from app.modules.quizzes.models import Question, Quiz, QuizChoice
     async with async_session_factory() as session:
         try:
             if not await _set_regeneration_job_state(
@@ -1438,10 +1452,11 @@ async def _regenerate_lesson_job(
     tenant_id: UUID,
     user_id: UUID,
 ):
-    from app.core.db import async_session_factory
-    from app.modules.lessons.models import Module, Lesson
-    from app.modules.quizzes.models import Quiz, Question, QuizChoice
     import json as _json
+
+    from app.core.db import async_session_factory
+    from app.modules.lessons.models import Lesson, Module
+    from app.modules.quizzes.models import Question, Quiz, QuizChoice
 
     async with async_session_factory() as session:
         try:
@@ -1657,7 +1672,7 @@ async def regenerate_lesson(
     user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Rewrite a single lesson (and optionally its quiz)."""
-    from app.modules.lessons.models import Module, Lesson
+    from app.modules.lessons.models import Lesson, Module
 
     lesson = await db.get(Lesson, lesson_id)
     if not lesson or lesson.tenant_id != user.tenant_id:

@@ -100,6 +100,10 @@ negative test. Tenant write без установленного tenant context �
   migration или RLS-проверок. Использовать канонический Supabase DEV/test-контур.
   Docker без базы допустим для build/runtime-hardening; CI service containers не
   затрагиваются.
+- Локальные API pytest на этой машине запускать только через
+  `scripts/dev/run_api_pytest.ps1`. Wrapper проверяет и вызывает поддерживаемый
+  root `.venv` абсолютным путём. Bare `poetry run pytest`, ambient Python и
+  worktree-local окружение запрещены.
 
 Перед Git, DB, provider, deployment или infrastructure действием найти
 канонический путь в релевантной записи `ERRORS.md`, разделе

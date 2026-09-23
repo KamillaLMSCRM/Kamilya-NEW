@@ -1,6 +1,7 @@
 import json
 from importlib import util
 from pathlib import Path
+from types import SimpleNamespace
 
 SCRIPT = Path(__file__).resolve().parents[4] / "scripts" / "ops" / "course_quality_dev_acceptance.py"
 SPEC = util.spec_from_file_location("course_quality_dev_acceptance", SCRIPT)
@@ -227,6 +228,120 @@ def test_output_inspection_rejects_blind_fixed_position_and_longest_strategies()
     assert facts["blind_longest_answer_quizzes"] == 1
 
 
+def test_output_inspection_does_not_apply_position_strategy_to_single_question_quiz() -> None:
+    lesson_content = "Для коллекции Альфа указана единая платформа для всей квартиры."
+    preview = {
+        "modules": [
+            {
+                "title": "Коллекция Альфа",
+                "lessons": [
+                    {
+                        "title": "Преимущества коллекции Альфа",
+                        "content_preview": lesson_content,
+                        "source_validation_status": "verified",
+                        "source_document_ids": ["doc"],
+                        "source_references": [{"chunk_id": "one"}],
+                        "quiz_id": "quiz-1",
+                    }
+                ],
+            }
+        ],
+    }
+    question = {
+        "id": "question-1",
+        "text": "Какое преимущество указано для коллекции Альфа?",
+        "explanation": lesson_content,
+        "choices": [
+            {"text": "единая платформа для всей квартиры", "is_correct": True},
+            {"text": "светлые фасады", "is_correct": False},
+            {"text": "открытые секции", "is_correct": False},
+        ],
+    }
+
+    failures, facts = MODULE.inspect_output(
+        preview,
+        quizzes=[
+            {
+                "id": "quiz-1",
+                "pass_score": 80,
+                "review_status": "needs_review",
+                "questions": [question],
+            }
+        ],
+        recommendation={"recommended_total_lessons": 1},
+        focus_terms=set(),
+        accepted_lesson_evidence=[],
+        require_captured_evidence=False,
+    )
+
+    assert "blind_fixed_position_can_pass" not in failures
+    assert facts["blind_fixed_position_quizzes"] == 0
+
+
+def test_v2_state_exposes_exact_lesson_evidence_for_readback() -> None:
+    state = SimpleNamespace(
+        content=SimpleNamespace(
+            modules=[
+                SimpleNamespace(
+                    lessons=[
+                        SimpleNamespace(
+                            title="Коллекция Альфа",
+                            content="Подтверждённые сведения об Альфе.",
+                            source_chunks=["Альфа: подтверждённое свойство."],
+                        )
+                    ]
+                )
+            ]
+        ),
+        source_analysis={
+            "generation_engine": "evidence_v2",
+            "evidence_v2": {
+                "assessment_review": {
+                    "coverage": {"requires_review": False},
+                }
+            },
+        },
+    )
+
+    evidence, diagnostics = MODULE.capture_v2_generation_state(state)
+
+    assert evidence == [
+        {
+            "module_index": 0,
+            "lesson_index": 0,
+            "title": "Коллекция Альфа",
+            "content": "Подтверждённые сведения об Альфе.",
+            "source_chunks": ["Альфа: подтверждённое свойство."],
+        }
+    ]
+    assert diagnostics["assessment_review"]["coverage"]["requires_review"] is False
+
+
+def test_v2_diagnostics_replace_retired_assessment_path_counters() -> None:
+    diagnostics = {
+        "engine": "evidence_v2",
+        "lesson_count": 2,
+        "question_count": 4,
+        "assessment_review": {
+            "coverage": {"requires_review": False},
+        },
+    }
+
+    assert MODULE.inspect_v2_diagnostics(
+        diagnostics,
+        expected_lesson_count=2,
+        expected_question_count=4,
+    ) == []
+    assert "v2_assessment_coverage_requires_review" in MODULE.inspect_v2_diagnostics(
+        {
+            **diagnostics,
+            "assessment_review": {"coverage": {"requires_review": True}},
+        },
+        expected_lesson_count=2,
+        expected_question_count=4,
+    )
+
+
 def test_output_inspection_rejects_more_than_three_questions_per_lesson() -> None:
     lesson_content = "Для коллекции Альфа указаны проверяемые характеристики."
     preview = {
@@ -381,3 +496,15 @@ def test_committed_expanded_workbook_is_the_approved_dev_fixture() -> None:
     content = MODULE.approved_fixture_bytes(fixture)
 
     assert MODULE.fixture_focus_terms(content) == {"север", "берег", "риф"}
+
+
+def test_local_dev_worker_uses_the_same_evidence_engine_as_new_api_jobs() -> None:
+    original = {"documents": ["synthetic-document"]}
+
+    resolved = MODULE.candidate_source_analysis(original)
+
+    assert resolved == {
+        "documents": ["synthetic-document"],
+        "generation_engine": "evidence_v2",
+    }
+    assert original == {"documents": ["synthetic-document"]}

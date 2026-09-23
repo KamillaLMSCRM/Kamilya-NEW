@@ -67,19 +67,47 @@ try:
 
         try:
             from app.core.db import async_session_factory
-            from app.modules.ai.job_service import claim_generation_execution
+            from app.modules.ai.generation_engine import (
+                RETIRED_GENERATION_ENGINE_CODE,
+                RETIRED_GENERATION_ENGINE_MESSAGE,
+                uses_current_generation_engine,
+            )
+            from app.modules.ai.job_service import (
+                claim_generation_execution,
+                retire_legacy_generation_execution,
+            )
+
+            async def retire() -> bool:
+                async with async_session_factory() as session:
+                    return await retire_legacy_generation_execution(
+                        session,
+                        job_id,
+                        tenant_id,
+                    )
+
+            if not uses_current_generation_engine(source_analysis):
+                _run_async(retire())
+                return {
+                    "job_id": job_id,
+                    "status": "failed",
+                    "message": RETIRED_GENERATION_ENGINE_MESSAGE,
+                    "error_code": RETIRED_GENERATION_ENGINE_CODE,
+                }
 
             async def claim() -> bool:
                 async with async_session_factory() as session:
                     return await claim_generation_execution(session, job_id, tenant_id)
 
             if not _run_async(claim()):
+                if _run_async(retire()):
+                    return {
+                        "job_id": job_id,
+                        "status": "failed",
+                        "message": RETIRED_GENERATION_ENGINE_MESSAGE,
+                        "error_code": RETIRED_GENERATION_ENGINE_CODE,
+                    }
                 logger.info("Skipping duplicate or terminal generation delivery for job %s", job_id)
                 return {"job_id": job_id, "status": "skipped"}
-
-            from app.modules.ai.generation_checkpoint import (
-                AIGenerationCheckpointRepository,
-            )
 
             result = _run_async(
                 run_generation_pipeline(
@@ -100,12 +128,6 @@ try:
                     combination_goal=combination_goal,
                     source_analysis=source_analysis,
                     reuse_reason=reuse_reason,
-                    generation_checkpoint_repository=(
-                        AIGenerationCheckpointRepository()
-                        if tenant_id
-                        else None
-                    ),
-                    delivery_id=str(self.request.id or job_id),
                 )
             )
 

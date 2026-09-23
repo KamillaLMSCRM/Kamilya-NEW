@@ -187,12 +187,12 @@ def _partition_narrative_facts(facts: list[SourceFact]) -> list[tuple[str, list[
     return [("", partition) for partition in partitions]
 
 
-def _bounded_spreadsheet_plan(
+def _bounded_lesson_plan(
     evidence: list[LessonEvidence],
     *,
     teachable_units: int,
 ) -> list[LessonEvidence]:
-    """Merge source-owned units without dropping facts when the passport sets a ceiling."""
+    """Merge source-owned units without dropping facts when a lesson ceiling applies."""
 
     if teachable_units <= 0 or len(evidence) <= teachable_units:
         return evidence
@@ -570,6 +570,7 @@ class EvidenceCourseEngine:
         *,
         intent: CourseIntent | None = None,
         simulation_seed: int = 0,
+        max_lessons: int | None = None,
     ) -> EvidenceCourseResult:
         suffix = source_path.suffix.casefold()
         if suffix != ".xlsx":
@@ -581,6 +582,7 @@ class EvidenceCourseEngine:
             document,
             intent=intent,
             simulation_seed=simulation_seed,
+            max_lessons=max_lessons,
         )
         return replace(
             result,
@@ -593,6 +595,7 @@ class EvidenceCourseEngine:
         *,
         intent: CourseIntent | None = None,
         simulation_seed: int = 0,
+        max_lessons: int | None = None,
     ) -> EvidenceCourseResult:
         del simulation_seed  # Fact allocation is deliberately seed-independent.
         resolved_intent = intent or CourseIntent()
@@ -628,11 +631,12 @@ class EvidenceCourseEngine:
             admitted,
             supporting,
         )
-        if document.kind == "spreadsheet":
-            evidence = _bounded_spreadsheet_plan(
-                evidence,
-                teachable_units=document.teachable_units,
-            )
+        lesson_ceiling = len(evidence)
+        if document.kind == "spreadsheet" and document.teachable_units > 0:
+            lesson_ceiling = min(lesson_ceiling, document.teachable_units)
+        if max_lessons is not None:
+            lesson_ceiling = min(lesson_ceiling, max(1, max_lessons))
+        evidence = _bounded_lesson_plan(evidence, teachable_units=lesson_ceiling)
         timings.append(StageTiming(stage="evidence_plan", seconds=perf_counter() - started))
 
         started = perf_counter()
