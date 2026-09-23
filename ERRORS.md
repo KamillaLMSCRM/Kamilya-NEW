@@ -4013,18 +4013,45 @@ contract or establish a blocker.
 - Date: 2026-09-23. Local focused TDD only; no DEV or production mutation.
 - Symptom: a focused AI-generation test command stopped before collection
   because the Poetry-created environment did not contain `pytest_asyncio`.
+  The first wrapper revision then ran the full suite from the monorepo root,
+  causing 17 false `FileNotFoundError` failures in API-relative contract tests.
 - Cause: the existing absolute-path rule in `TEST-ENV-001` remained passive;
   the operator invoked bare `poetry run pytest` instead of the maintained root
   `.venv` that the repository runbook identifies as canonical.
 - Fix: add `scripts/dev/run_api_pytest.ps1` as the only local API pytest
   entrypoint. It resolves the repository root, verifies `pytest` and
-  `pytest_asyncio`, invokes the exact root `.venv` interpreter from `apps/api`,
+  `pytest_asyncio`, invokes the exact root `.venv` interpreter from the
+  `apps/api` working directory, normalizes both API and root-script selectors,
   and never installs or falls back to an ambient environment. Make the wrapper
   mandatory in `AGENTS.md` and cover its command contract with a static test.
-- Verification: the wrapper contract test passed, followed by the originally
-  failing focused selection and 165 related API tests through the wrapper.
+- Verification: the wrapper contract and mixed API/root selectors passed,
+  followed by 184 related Evidence V2 tests and the full API suite: 3070
+  passed, 499 skipped.
 - Prevention: skill suggestion and `ERRORS.md` discovery assist routing but do
   not enforce the runtime. The executable wrapper is the fail-closed boundary.
+
+## AI-QUALITY-038 - Valid worksheet output repeated headings and knowledge targets
+
+- Date: 2026-09-23. Found by manual review after a structurally green DEV
+  acceptance; production still remained on `0.10.1`.
+- Symptom: one lesson rendered `Назначение` and `Гарантия` once per collection,
+  while two accepted questions both tested `Гарантия = 24 месяца` for different
+  rows. Every fact and answer was source-backed, so the older structural checks
+  did not reject the repetition.
+- Cause: validated grounded blocks were rendered one-by-one, and tabular
+  assessment selection was fair by row but not by semantic attribute. The
+  final short-answer identity also included `fact_id`, preserving duplicate
+  `attribute + answer` targets across rows.
+- Fix: coalesce validated tabular blocks by normalized source attribute while
+  retaining stable text and every fact id. Select distinct tabular attributes
+  before spending the bounded question budget, and drop repeated
+  `attribute + answer` identities without replacement or quota padding.
+- Verification: all three deterministic regressions failed before the fix and
+  passed afterward; 184 related Evidence V2 tests and the full API suite (3070
+  passed, 499 skipped) passed through the canonical runner.
+- Prevention: release acceptance includes a human-readable review artifact;
+  structural PASS is not sufficient until heading repetition and semantic
+  question variety are inspected.
 
 ## AI-QUALITY-037 - DEV acceptance mixed Evidence V2 with retired generator assumptions
 

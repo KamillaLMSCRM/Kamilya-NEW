@@ -94,6 +94,51 @@ def test_catalog_fallback_keeps_subject_and_label_with_each_short_cell() -> None
     assert "Берег — Материал фасада: ЛДСП." in lesson.content
 
 
+def test_realizer_groups_repeated_tabular_attribute_under_one_heading() -> None:
+    facts = {
+        "north": SourceFact(
+            fact_id="north", subject="Север", attribute="Гарантия",
+            value="24 месяца",
+            source_locator="doc_id=synthetic;section=Коллекции;row=2;column=Гарантия",
+        ),
+        "shore": SourceFact(
+            fact_id="shore", subject="Берег", attribute="Гарантия",
+            value="18 месяцев",
+            source_locator="doc_id=synthetic;section=Коллекции;row=3;column=Гарантия",
+        ),
+        "reef": SourceFact(
+            fact_id="reef", subject="Риф", attribute="Гарантия",
+            value="24 месяца",
+            source_locator="doc_id=synthetic;section=Коллекции;row=4;column=Гарантия",
+        ),
+    }
+    base = LessonDraft(
+        lesson_id="warranty-lesson", module_title="Коллекции", title="Гарантия коллекций",
+        objective="Сравнивать гарантию", content="", fact_ids=tuple(facts),
+        supporting_fact_ids=(), duration_minutes=2,
+    )
+    payload = {
+        "blocks": [
+            {
+                "heading": "Гарантия",
+                "text": f"{fact.subject} — Гарантия: {fact.value}.",
+                "fact_ids": [fact.fact_id],
+            }
+            for fact in facts.values()
+        ],
+        "questions": [],
+    }
+
+    lesson, _questions, blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload, base_lesson=base, plan_fact_ids=set(facts), facts_by_id=facts, seeds=[],
+    )
+
+    assert lesson.content.count("### Гарантия") == 1
+    assert len(blocks) == 1
+    assert blocks[0].fact_ids == ("north", "shore", "reef")
+    assert all(fact.value in lesson.content for fact in facts.values())
+
+
 def test_later_block_cannot_repeat_a_rule_already_taught_in_full() -> None:
     fact = SourceFact(
         fact_id="unload-rule", subject="Приёмка", attribute="Правило",

@@ -175,6 +175,30 @@ def test_short_or_cross_document_answers_keep_distinct_course_identities() -> No
     )
 
 
+def test_same_tabular_attribute_and_short_answer_has_one_course_identity() -> None:
+    facts = {
+        "north": SourceFact(
+            "north", "Север", "Гарантия", "24 месяца",
+            "doc_id=d1;source_revision=r1;section=Коллекции;row=2;column=Гарантия",
+        ),
+        "reef": SourceFact(
+            "reef", "Риф", "Гарантия", "24 месяца",
+            "doc_id=d1;source_revision=r1;section=Коллекции;row=4;column=Гарантия",
+        ),
+    }
+    first = QuestionDraft(
+        "q1", "l1", "single_choice", "Какова гарантия для Север?",
+        ("24 месяца", "18 месяцев", "12 месяцев"), "24 месяца", "24 месяца",
+        "north", evidence_fact_ids=("north",), semantic_reviewed=True,
+    )
+    second = replace(
+        first, question_id="q2", fact_id="reef", prompt="Какова гарантия для Риф?",
+        evidence_fact_ids=("reef",),
+    )
+
+    assert _course_question_identity(first, facts) == _course_question_identity(second, facts)
+
+
 def test_known_attribute_label_does_not_discard_exact_cell_evidence():
     fact = SourceFact("f1", "Коллекция", "Материал фасада", "ЛДСП", "doc_id=d1;section=s1")
     assert _value_quote("Материал фасада: ЛДСП", fact) == "ЛДСП"
@@ -670,6 +694,44 @@ async def test_no_teachable_question_is_not_padded():
         "fact_ids": ["f1"], "candidates": 0, "accepted": 0,
         "outcome": "no_assessable_questions",
     }]
+
+
+@pytest.mark.asyncio
+async def test_spreadsheet_question_budget_prefers_distinct_attributes_without_padding():
+    facts: dict[str, SourceFact] = {}
+    ordered_ids: list[str] = []
+    for row, subject, warranty, purpose in (
+        (2, "Север", "24 месяца", "Для прихожей"),
+        (3, "Берег", "18 месяцев", "Для спальни"),
+        (4, "Риф", "24 месяца", "Для гостиной"),
+    ):
+        for suffix, attribute, value in (
+            ("warranty", "Гарантия", warranty),
+            ("purpose", "Назначение", purpose),
+        ):
+            fact_id = f"{row}-{suffix}"
+            facts[fact_id] = SourceFact(
+                fact_id, subject, attribute, value,
+                f"doc_id=d1;section=Коллекции;row={row};column={attribute}",
+            )
+            ordered_ids.append(fact_id)
+    lesson = LessonDraft(
+        "l-catalog", "Коллекции", "Основные характеристики", "Сравнивать коллекции",
+        "", tuple(ordered_ids), (), 2,
+    )
+
+    client = Client(empty=True)
+    result = await generate_block_assessment([lesson], facts, client)
+
+    requested_attributes = {
+        axis["attribute"]
+        for request in client.requests
+        if request["task"] == "assessment_generate"
+        for axis in request["axes"]
+    }
+    assert result.audit["requested_axes"] == 2
+    assert requested_attributes == {"Гарантия", "Назначение"}
+    assert result.questions == ()
 
 
 @pytest.mark.asyncio

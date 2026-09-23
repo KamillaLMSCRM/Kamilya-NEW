@@ -8,6 +8,7 @@ from collections import defaultdict
 from pathlib import Path
 from time import perf_counter
 from typing import Any
+from urllib.parse import parse_qsl
 
 from app.modules.ai.lesson_quality import (
     has_unprofessional_learner_language,
@@ -48,6 +49,78 @@ def _normalize(vector: tuple[float, ...]) -> tuple[float, ...]:
     if any(not math.isfinite(value) for value in normalized):
         raise ProviderCallError("embedding vector contains non-finite values")
     return normalized
+
+
+def coalesce_grounded_blocks(
+    blocks: list[GroundedBlock],
+    facts_by_id: dict[str, SourceFact],
+) -> list[GroundedBlock]:
+    """Render one stable section per repeated tabular attribute or heading.
+
+    The provider and deterministic fallback may emit one block per worksheet
+    cell.  Keeping those blocks separate preserves evidence but produces a
+    repeated learner-visible heading for every row.  Coalescing happens only
+    after validation, retains first-occurrence order, and unions every fact id.
+    """
+
+    grouped: dict[tuple[str, str], int] = {}
+    result: list[GroundedBlock] = []
+    texts: list[list[str]] = []
+    fact_ids: list[list[str]] = []
+    for block in blocks:
+        cited = [facts_by_id[fact_id] for fact_id in block.fact_ids]
+        tabular_scopes = {
+            (
+                locator.get("doc_id", ""),
+                locator.get("source_revision", ""),
+                locator.get("section", locator.get("sheet", "")),
+                " ".join(fact.attribute.casefold().replace("ё", "е").split()),
+            )
+            for fact in cited
+            for locator in (dict(parse_qsl(fact.source_locator.replace(";", "&"))),)
+        }
+        if cited and len(tabular_scopes) == 1 and all(
+            is_tabular_locator(fact.source_locator) for fact in cited
+        ):
+            key = ("tabular-attribute", "|".join(next(iter(tabular_scopes))))
+            heading = " ".join(cited[0].attribute.strip().rstrip(".:").split()) or block.heading
+        else:
+            key = (
+                "heading",
+                " ".join(block.heading.casefold().replace("ё", "е").split()),
+            )
+            heading = block.heading
+        position = grouped.get(key)
+        if position is None:
+            grouped[key] = len(result)
+            result.append(
+                GroundedBlock(
+                    lesson_id=block.lesson_id,
+                    heading=heading,
+                    text=block.text,
+                    fact_ids=block.fact_ids,
+                )
+            )
+            texts.append([block.text])
+            fact_ids.append(list(block.fact_ids))
+            continue
+        normalized_text = " ".join(block.text.casefold().replace("ё", "е").split())
+        if normalized_text not in {
+            " ".join(text.casefold().replace("ё", "е").split())
+            for text in texts[position]
+        }:
+            texts[position].append(block.text)
+        for fact_id in block.fact_ids:
+            if fact_id not in fact_ids[position]:
+                fact_ids[position].append(fact_id)
+        previous = result[position]
+        result[position] = GroundedBlock(
+            lesson_id=previous.lesson_id,
+            heading=previous.heading,
+            text="\n\n".join(texts[position]),
+            fact_ids=tuple(fact_ids[position]),
+        )
+    return result
 
 
 _SPOKEN_NUMBER_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -754,11 +827,12 @@ class ProviderBackedEvidenceEngine:
             grounded_blocks.sort(
                 key=lambda block: min(source_rows[fact_id] or 0 for fact_id in block.fact_ids)
             )
-            rendered = [
-                part
-                for block in grounded_blocks
-                for part in (f"### {block.heading}", "", block.text, "")
-            ]
+        grounded_blocks = coalesce_grounded_blocks(grounded_blocks, facts_by_id)
+        rendered = [
+            part
+            for block in grounded_blocks
+            for part in (f"### {block.heading}", "", block.text, "")
+        ]
 
         seed_by_fact = {seed.fact_id: seed for seed in seeds}
         raw_questions = payload.get("questions")

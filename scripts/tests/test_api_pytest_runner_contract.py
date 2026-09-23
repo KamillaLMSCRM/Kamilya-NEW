@@ -11,8 +11,9 @@ def test_api_pytest_runner_uses_only_the_canonical_root_runtime() -> None:
     assert "--git-common-dir" in source
     assert 'apps\\api' in source
     assert 'import pytest, pytest_asyncio' in source
-    assert "^tests[\\\\/]+" in source
-    assert '"apps/api/$argument"' in source
+    assert "^apps[\\\\/]api[\\\\/]" in source
+    assert "^scripts[\\\\/]" in source
+    assert "Push-Location -LiteralPath $apiRoot" in source
     assert '-m pytest @normalizedArgs' in source
     assert "poetry" not in source.lower()
     assert "uv sync" not in source.lower()

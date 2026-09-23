@@ -21,7 +21,14 @@ from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFail
 
 from .assessment_axes import derive_assessment_axes, materialize_assessment
 from .assessment_coverage import assess_topic_coverage
-from .models import AssessmentAxis, AuthoredAssessment, LessonDraft, QuestionDraft, SourceFact
+from .models import (
+    AssessmentAxis,
+    AuthoredAssessment,
+    LessonDraft,
+    QuestionDraft,
+    SourceFact,
+    is_tabular_locator,
+)
 from .quality import (
     contains_internal_generation_instruction,
     filter_acceptable_questions,
@@ -213,6 +220,16 @@ def _course_question_identity(
     """Collapse one repeated source-owned rule without hiding short collisions."""
     answer = _norm(question.correct_answer)
     fact = facts.get(question.fact_id)
+    if fact is not None and is_tabular_locator(fact.source_locator):
+        locator = dict(parse_qsl(fact.source_locator.replace(";", "&")))
+        return (
+            "tabular-attribute-answer",
+            locator.get("doc_id", ""),
+            locator.get("source_revision", ""),
+            locator.get("section", locator.get("sheet", "")),
+            _norm(fact.attribute),
+            answer,
+        )
     if fact is not None and len(answer) >= 24 and answer in _norm(fact.value):
         locator = dict(parse_qsl(fact.source_locator.replace(";", "&")))
         return (
@@ -788,9 +805,11 @@ async def generate_block_assessment(
     # spreadsheet row cannot multiply into dozens of questions merely because
     # it contains many independently grouped attributes.
     selected_axis_ids: set[str] = set()
+    axis_omission_reasons: dict[str, str] = {}
     for lesson in lessons:
         group_indexes = lesson_group_indexes.get(lesson.lesson_id, [])
         lesson_selected = 0
+        selected_attributes: set[tuple[str, str, str, str]] = set()
         depth = 0
         while lesson_selected < _MAX_QUESTIONS_PER_LESSON:
             selected_at_depth = False
@@ -798,10 +817,28 @@ async def generate_block_assessment(
                 axes = prepared_groups[group_index][3]
                 if depth >= len(axes):
                     continue
-                selected_axis_id = axes[depth].axis_id
+                axis = axes[depth]
+                selected_axis_id = axis.axis_id
                 if selected_axis_id in selected_axis_ids:
                     continue
+                primary_fact = facts_by_id[axis.primary_fact_id]
+                is_tabular_axis = is_tabular_locator(primary_fact.source_locator)
+                locator = dict(parse_qsl(primary_fact.source_locator.replace(";", "&")))
+                attribute_key = (
+                    locator.get("doc_id", ""),
+                    locator.get("source_revision", ""),
+                    locator.get("section", locator.get("sheet", "")),
+                    _norm(axis.attribute),
+                )
+                if is_tabular_axis and attribute_key in selected_attributes:
+                    axis_omission_reasons.setdefault(
+                        selected_axis_id,
+                        "assessment_attribute_diversity_limit",
+                    )
+                    continue
                 selected_axis_ids.add(selected_axis_id)
+                if is_tabular_axis:
+                    selected_attributes.add(attribute_key)
                 lesson_selected += 1
                 selected_at_depth = True
                 if lesson_selected >= _MAX_QUESTIONS_PER_LESSON:
@@ -933,7 +970,10 @@ async def generate_block_assessment(
                 "reason": (
                     "assessment_not_completed"
                     if is_requested
-                    else "assessment_density_limit"
+                    else axis_omission_reasons.get(
+                        axis.axis_id,
+                        "assessment_density_limit",
+                    )
                 ),
                 "attempt_counts": {"authored": 0, "deterministic_repair": 0,
                                    "model_repair": 0, "replacement": 0},
@@ -1353,7 +1393,12 @@ async def generate_block_assessment(
         if identity in unique:
             if axis_id is not None:
                 axis_records[axis_id].update(
-                    state="omitted", reason="duplicate_question",
+                    state="omitted",
+                    reason=(
+                        "duplicate_attribute_answer"
+                        if identity[0] == "tabular-attribute-answer"
+                        else "duplicate_question"
+                    ),
                 )
             continue
         unique[identity] = replace(q, options=shuffled)

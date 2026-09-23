@@ -11,18 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Make Evidence V2 the only executable course-generation engine; retire queued
-  jobs created for older engines instead of silently replaying them.
-- Apply the requested lesson ceiling to Evidence V2 without padding small
-  sources or dropping admitted source facts.
-
 ### Fixed
-
-- Validate DEV course generation from the exact Evidence V2 state instead of
-  obsolete architect/writer path counters, and avoid treating a one-question
-  quiz as vulnerable to a fixed-position answering strategy.
-- Add a fail-closed local API pytest runner that always uses the canonical
-  project environment and never falls back to ambient Poetry.
 
 ### Security
 
@@ -35,12 +24,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Bind lessons and questions more closely to the source's semantic blocks and labelled spreadsheet facts; keep assessment length proportional to independently testable material.
+- Make Evidence V2 the only executable course-generation engine; retire queued
+  jobs created for older engines instead of silently replaying them.
+- Apply the requested lesson ceiling to Evidence V2 without padding small
+  sources or dropping admitted source facts.
+- Group repeated worksheet attributes under one learner-facing heading and
+  prefer distinct tabular attributes when selecting bounded quiz questions.
 
 ### Fixed
 
 - Keep a sole title-matching narrative section as teachable material, and classify a small named nomenclature sheet as supporting when a stronger learning sheet is present.
 - Prevent unlabelled or mismatched workbook values in lessons, duplicate short rules, unsupported lesson metadata, off-topic answer choices and misleading question premises.
 - Keep the DEV course-quality acceptance fixture pinned to the committed expanded workbook and derive collection focus terms from its current primary-sheet layout.
+- Drop repeated worksheet questions with the same attribute and correct answer
+  instead of regenerating or padding the quiz.
+- Validate DEV course generation from the exact Evidence V2 state instead of
+  obsolete architect/writer path counters, and avoid treating a one-question
+  quiz as vulnerable to a fixed-position answering strategy.
+- Add a fail-closed local API pytest runner that always uses the canonical
+  project environment and API working directory, never ambient Poetry.
 
 ### Security
 

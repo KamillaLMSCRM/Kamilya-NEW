@@ -25,8 +25,18 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $normalizedArgs = foreach ($argument in $PytestArgs) {
-    if ($argument -match '^tests[\\/]+') {
-        "apps/api/$argument"
+    if ($argument -match '^apps[\\/]api[\\/](.+)$') {
+        $matches[1]
+    }
+    elseif ($argument -match '^scripts[\\/]') {
+        $selectorParts = $argument -split '::', 2
+        $absolutePath = Join-Path $repoRoot $selectorParts[0]
+        if ($selectorParts.Count -eq 2) {
+            "${absolutePath}::$($selectorParts[1])"
+        }
+        else {
+            $absolutePath
+        }
     }
     else {
         $argument
@@ -36,7 +46,7 @@ $normalizedArgs = foreach ($argument in $PytestArgs) {
 $previousPythonPath = $env:PYTHONPATH
 try {
     $env:PYTHONPATH = $apiRoot
-    Push-Location -LiteralPath $repoRoot
+    Push-Location -LiteralPath $apiRoot
     try {
         & $canonicalPython -m pytest @normalizedArgs
         exit $LASTEXITCODE

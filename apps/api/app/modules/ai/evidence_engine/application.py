@@ -45,7 +45,7 @@ from .models import (
     SourceSection,
     StageTiming,
 )
-from .provider_engine import ProviderBackedEvidenceEngine, _normalize
+from .provider_engine import ProviderBackedEvidenceEngine, _normalize, coalesce_grounded_blocks
 from .provider_models import (
     GroundedBlock,
     ProviderBackedResult,
@@ -859,6 +859,17 @@ def _grounded_fallback(
             )
         )
         rendered.extend((f"### {_escape_markdown_text(heading)}", "", _escape_markdown_text(text), ""))
+    blocks = coalesce_grounded_blocks(blocks, facts_by_id)
+    rendered = [
+        part
+        for block in blocks
+        for part in (
+            f"### {_escape_markdown_text(block.heading)}",
+            "",
+            _escape_markdown_text(block.text),
+            "",
+        )
+    ]
     word_count = len(re.findall(r"\w+", " ".join(rendered), flags=re.UNICODE))
     return (
         LessonDraft(
