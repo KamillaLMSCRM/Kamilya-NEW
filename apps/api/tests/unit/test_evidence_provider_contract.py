@@ -62,6 +62,124 @@ def test_realizer_replaces_only_unsupported_blocks_with_separate_labeled_facts()
     assert "МДФ Для прихожей" not in lesson.content
 
 
+def test_catalog_fallback_keeps_subject_and_label_with_each_short_cell() -> None:
+    facts = {
+        "feature": SourceFact(
+            fact_id="feature", subject="Берег", attribute="Особенность",
+            value="Ящики полного выдвижения",
+            source_locator="doc_id=synthetic;section=Коллекции;row=4;column=2",
+        ),
+        "material": SourceFact(
+            fact_id="material", subject="Берег", attribute="Материал фасада",
+            value="ЛДСП", source_locator="doc_id=synthetic;section=Коллекции;row=4;column=2",
+        ),
+    }
+    base = LessonDraft(
+        lesson_id="shore-lesson", module_title="Коллекции", title="Коллекция Берег",
+        objective="Различать характеристики", content="", fact_ids=("feature", "material"),
+        supporting_fact_ids=(), duration_minutes=2,
+    )
+    payload = {
+        "blocks": [{"heading": "Совет", "text": "Убедите клиента купить быстрее.",
+                    "fact_ids": ["feature", "material"]}],
+        "questions": [],
+    }
+
+    lesson, _questions, blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload, base_lesson=base, plan_fact_ids=set(facts), facts_by_id=facts, seeds=[],
+    )
+
+    assert len(blocks) == 2
+    assert "Берег — Особенность: Ящики полного выдвижения." in lesson.content
+    assert "Берег — Материал фасада: ЛДСП." in lesson.content
+
+
+def test_later_block_cannot_repeat_a_rule_already_taught_in_full() -> None:
+    fact = SourceFact(
+        fact_id="unload-rule", subject="Приёмка", attribute="Правило",
+        value=("Сотрудник сверяет номер накладной с номером заказа до разгрузки. "
+               "Если номера не совпадают, разгрузку не начинают и сообщают "
+               "руководителю смены."),
+        source_locator="section=1;fact=1",
+    )
+    base = LessonDraft(
+        lesson_id="unload-lesson", module_title="Приёмка", title="Проверка документов",
+        objective="Применять правило", content="", fact_ids=(fact.fact_id,),
+        supporting_fact_ids=(), duration_minutes=2,
+    )
+    payload = {
+        "blocks": [
+            {"heading": "Проверка до разгрузки", "text": fact.value,
+             "fact_ids": [fact.fact_id]},
+            {"heading": "Действия при несовпадении", "text":
+             "Если номера накладной и заказа не совпадают, разгрузку не начинают.",
+             "fact_ids": [fact.fact_id]},
+        ],
+        "questions": [],
+    }
+
+    lesson, _questions, blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload, base_lesson=base, plan_fact_ids={fact.fact_id},
+        facts_by_id={fact.fact_id: fact}, seeds=[],
+    )
+
+    assert len(blocks) == 1
+    assert "сообщают руководителю смены" in lesson.content
+    assert "### Действия при несовпадении" not in lesson.content
+
+
+def test_spreadsheet_realizer_cannot_narrow_collection_to_a_supporting_item() -> None:
+    short_facts, base = _short_catalog_lesson()
+    facts = {
+        fact_id: SourceFact(
+            fact_id=fact.fact_id, subject=fact.subject, attribute=fact.attribute,
+            value=fact.value,
+            source_locator=f"doc_id=synthetic;section=Коллекции;row=4;column={index}",
+        )
+        for index, (fact_id, fact) in enumerate(short_facts.items(), start=2)
+    }
+    payload = {
+        "title": "Комод «Север»: характеристики",
+        "objective": "Объяснять покупателю свойства комода «Север».",
+        "blocks": [{"heading": "Характеристики", "text":
+                    "Материал фасада — МДФ. Назначение — для прихожей.",
+                    "fact_ids": list(facts)}],
+        "questions": [],
+    }
+
+    lesson, _questions, _blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload, base_lesson=base, plan_fact_ids=set(facts), facts_by_id=facts, seeds=[],
+    )
+
+    assert lesson.title == base.title
+    assert lesson.objective == base.objective
+
+
+def test_spreadsheet_source_title_survives_invalid_model_title() -> None:
+    fact = SourceFact(
+        fact_id="material", subject="Север", attribute="Материал фасада",
+        value="МДФ", source_locator="doc_id=synthetic;section=Коллекции;row=3;column=2",
+    )
+    base = LessonDraft(
+        lesson_id="north", module_title="Коллекции", title="Север",
+        objective="Различать подтверждённые свойства", content="",
+        fact_ids=(fact.fact_id,), supporting_fact_ids=(), duration_minutes=2,
+    )
+    payload = {
+        "title": "X" * 110,
+        "blocks": [{"heading": "Материал", "text": "Материал фасада — МДФ.",
+                    "fact_ids": [fact.fact_id]}],
+        "questions": [],
+    }
+
+    lesson, _questions, _blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload, base_lesson=base, plan_fact_ids={fact.fact_id},
+        facts_by_id={fact.fact_id: fact}, seeds=[],
+    )
+
+    assert lesson.title == "Север"
+
+
 def test_generic_fallback_heading_uses_source_words_not_internal_label() -> None:
     fact = SourceFact(
         fact_id="inspection", subject="Осмотр товара", attribute="положение",

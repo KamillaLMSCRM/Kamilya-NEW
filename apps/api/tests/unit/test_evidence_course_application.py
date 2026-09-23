@@ -847,7 +847,7 @@ async def test_active_v2_drops_ambiguous_same_attribute_question_without_padding
         async def ainvoke_validated(self, messages, parser, **kwargs):
             request = json.loads(messages[-1]["content"])
             if request.get("task") == "assessment_review" and any(
-                q["prompt"] == "Какие направляющие используются в коллекции «Чикаго Стрит»?"
+                "роликовые направляющие: плавный" in q["source_quote"].casefold()
                 for q in request["questions"]
             ):
                 # Exact negative oracle: the first TWO options describe roller

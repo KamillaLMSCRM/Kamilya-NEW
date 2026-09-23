@@ -1,0 +1,368 @@
+{
+  "status": "completed",
+  "case": "spreadsheet_primary_auxiliary",
+  "calls": 10,
+  "converter_engine": "openpyxl",
+  "conversion_seconds": 0.008,
+  "timings": [
+    {
+      "stage": "evidence_plan",
+      "seconds": 0.002777900022920221
+    },
+    {
+      "stage": "embeddings",
+      "seconds": 2.080004196614027e-05
+    },
+    {
+      "stage": "realization",
+      "seconds": 39.9050992000266
+    },
+    {
+      "stage": "assessment",
+      "seconds": 71.40092759998515
+    }
+  ],
+  "provider": "glm",
+  "glm_reasoning": "off",
+  "provider_failures": [],
+  "call_details": [
+    {
+      "task": "unknown",
+      "seconds": 22.214,
+      "finish_reason": "stop",
+      "content_chars": 2109,
+      "prompt_tokens": 674,
+      "completion_tokens": 620,
+      "raw_content_preview": "{\"title\":\"Коллекция «Север»: ключевые характеристики\",\"objective\":\"Различать подтверждённые сведения о коллекции «Север»: особенность, материал фасада и назначение.\",\"blocks\":[{\"heading\":\"Что подтверждено о коллекции «Север»\",\"text\":\"По данным таблицы коллекций у коллекции «Север» подтверждены три характеристики. Её назначение — для прихожей. Материал фасада — МДФ. Особенность — зеркало в комплекте. Эти сведения взяты из раздела «Коллекции» и служат опорой при ответах о товаре.\",\"fact_ids\":[\"fact-603952f80b96ac92\",\"fact-548aefd62a6a30a9\",\"fact-ef0b7514b7e64f2f\"]},{\"heading\":\"Как применять эти сведения\",\"text\":\"Когда клиент спрашивает о коллекции «Север», опирайтесь только на подтверждённые атрибуты. Если вопрос касается назначения — уточните, что коллекция предназначена для прихожей. Если интересует материал — назовите МДФ как материал фасада. Если клиент уточняет комплектацию — сообщите, что зеркало входит в комплект. Не добавляйте характеристики, которых нет в данных: если атрибут не подтверждён, честно скажите, что этой информации у вас нет, и проверьте источник.\",\"fact_ids\":[\"fact-603952f80b96ac92\",\"fact-548aefd62a6a30a9\",\"fact-ef0b7514b7e64f2f\"]}],\"questions\":[{\"prompt\":\"Клиент интересуется, из какого материала выполнен фасад в коллекции «Север». Что вы ответите, опираясь на подтверждённые данные?\",\"explanation\":\"Материал фасада коллекции «Север» — МДФ. Это подтверждённый атрибут из раздела «Коллекции», поэтому его можно называть клиенту без оговорок.\",\"fact_ids\":[\"fact-548aefd62a6a30a9\"]},{\"prompt\":\"Для какого помещения предназначена коллекция «Север»?\",\"explanation\":\"Назначение коллекции «Север» — для прихожей. Это подтверждённая характеристика, на которую можно опираться при подборе товара под запрос клиента.\",\"fact_ids\":[\"fact-603952f80b96ac92\"]},{\"prompt\":\"Клиент уточняет, входит ли зеркало в комплект коллекции «Север». Какой подтверждённый факт вы сообщите?\",\"explanation\":\"Особенность коллекции «Север» — зеркало в комплекте. Это подтверждённые данные, поэ"
+    },
+    {
+      "task": "unknown",
+      "seconds": 17.687,
+      "finish_reason": "stop",
+      "content_chars": 1655,
+      "prompt_tokens": 668,
+      "completion_tokens": 487,
+      "raw_content_preview": "{\"title\":\"Коллекция «Берег»: ключевые характеристики\",\"objective\":\"Различать подтверждённые сведения о коллекции «Берег»: особенность конструкции, материал фасада и назначение.\",\"blocks\":[{\"heading\":\"Что подтверждено о коллекции\",\"text\":\"По данным таблицы коллекций, для «Берега» зафиксированы три характеристики: назначение — для спальни, материал фасада — ЛДСП, особенность — ящики полного выдвижения. Это подтверждённые сведения, на которые можно опираться при работе с клиентом или в внутренних задачах.\",\"fact_ids\":[\"fact-afeac7c5ff6cae11\",\"fact-c12ac0965eab7910\",\"fact-2527778ca0c22931\"]},{\"heading\":\"Как применять эти сведения\",\"text\":\"Когда требуется описать «Берег», разделяйте сведения по типу: назначение отвечает на вопрос «для какого помещения», материал фасада — «из чего выполнен фасад», особенность — «что выделяет конструкцию». Не подменяйте один атрибут другим: например, «ящики полного выдвижения» — это особенность, а не материал, а «ЛДСП» — материал фасада, а не назначение.\",\"fact_ids\":[\"fact-afeac7c5ff6cae11\",\"fact-c12ac0965eab7910\",\"fact-2527778ca0c22931\"]}],\"questions\":[{\"prompt\":\"Коллекция «Берег» предназначена для какого помещения?\",\"explanation\":\"В таблице коллекций назначение «Берега» указано как «для спальни».\",\"fact_ids\":[\"fact-afeac7c5ff6cae11\"]},{\"prompt\":\"Из какого материала выполнен фасад коллекции «Берег»?\",\"explanation\":\"Материалом фасада коллекции «Берег» является ЛДСП.\",\"fact_ids\":[\"fact-c12ac0965eab7910\"]},{\"prompt\":\"Какая конструктивная особенность характерна для коллекции «Берег»?\",\"explanation\":\"Особенностью коллекции «Берег» являются ящики полного выдвижения.\",\"fact_ids\":[\"fact-2527778ca0c22931\"]}]}"
+    },
+    {
+      "task": "assessment_generate",
+      "seconds": 6.419,
+      "finish_reason": "stop",
+      "content_chars": 491,
+      "prompt_tokens": 1280,
+      "completion_tokens": 166,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_review",
+      "seconds": 10.706,
+      "finish_reason": "stop",
+      "content_chars": 1681,
+      "prompt_tokens": 1278,
+      "completion_tokens": 441,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_constraints",
+      "seconds": 16.361,
+      "finish_reason": "stop",
+      "content_chars": 2467,
+      "prompt_tokens": 1070,
+      "completion_tokens": 666,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_generate",
+      "seconds": 7.426,
+      "finish_reason": "stop",
+      "content_chars": 575,
+      "prompt_tokens": 1278,
+      "completion_tokens": 199,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_generate",
+      "seconds": 3.614,
+      "finish_reason": "stop",
+      "content_chars": 181,
+      "prompt_tokens": 1127,
+      "completion_tokens": 64,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_generate",
+      "seconds": 4.605,
+      "finish_reason": "stop",
+      "content_chars": 164,
+      "prompt_tokens": 1128,
+      "completion_tokens": 57,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_review",
+      "seconds": 7.911,
+      "finish_reason": "stop",
+      "content_chars": 1255,
+      "prompt_tokens": 1103,
+      "completion_tokens": 332,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_constraints",
+      "seconds": 14.348,
+      "finish_reason": "stop",
+      "content_chars": 2109,
+      "prompt_tokens": 978,
+      "completion_tokens": 533,
+      "raw_content_preview": null
+    }
+  ],
+  "lessons": [
+    {
+      "title": "Север",
+      "content": "### Что подтверждено о коллекции «Север»\n\nЕё назначение — для прихожей. Материал фасада — МДФ. Особенность — зеркало в комплекте."
+    },
+    {
+      "title": "Берег",
+      "content": "### Особенность\n\nБерег — Особенность: Ящики полного выдвижения.\n\n### Материал фасада\n\nБерег — Материал фасада: ЛДСП.\n\n### Назначение\n\nБерег — Назначение: Для спальни."
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "Что указано в характеристике «Особенность» для «Север»?",
+      "options": [
+        "Зеркало в комплекте",
+        "Скрытые петли",
+        "Ящик для обуви в комплекте"
+      ],
+      "correct": [
+        "Зеркало в комплекте"
+      ],
+      "source_quote": "Зеркало в комплекте"
+    },
+    {
+      "prompt": "Что указано в характеристике «Материал фасада» для «Север»?",
+      "options": [
+        "ЛДСП",
+        "МДФ",
+        "Массив дерева"
+      ],
+      "correct": [
+        "МДФ"
+      ],
+      "source_quote": "МДФ"
+    },
+    {
+      "prompt": "Что указано в характеристике «Назначение» для «Север»?",
+      "options": [
+        "Для гостиной",
+        "Для прихожей",
+        "Для ванной комнаты"
+      ],
+      "correct": [
+        "Для прихожей"
+      ],
+      "source_quote": "Для прихожей"
+    },
+    {
+      "prompt": "Что указано в характеристике «Назначение» для «Берег»?",
+      "options": [
+        "Для гостиной",
+        "Для прихожей",
+        "Для детской комнаты",
+        "Для спальни"
+      ],
+      "correct": [
+        "Для спальни"
+      ],
+      "source_quote": "Для спальни"
+    },
+    {
+      "prompt": "Что указано в характеристике «Материал фасада» для «Берег»?",
+      "options": [
+        "ЛДСП",
+        "МДФ",
+        "Массив дерева"
+      ],
+      "correct": [
+        "ЛДСП"
+      ],
+      "source_quote": "ЛДСП"
+    }
+  ],
+  "publishable": true,
+  "publishability_reasons": [],
+  "fallback_count": 0,
+  "assessment_review": {
+    "policy": "semantic-block-v1",
+    "blocks": 2,
+    "candidates": 5,
+    "accepted": 5,
+    "repaired": 0,
+    "dropped": 0,
+    "removed_distractors": 0,
+    "failures": [],
+    "block_outcomes": [
+      {
+        "block_id": "9751453703697c650629",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "fact_ids": [
+          "fact-ef0b7514b7e64f2f",
+          "fact-548aefd62a6a30a9",
+          "fact-603952f80b96ac92"
+        ],
+        "candidates": 3,
+        "accepted": 3,
+        "outcome": "accepted"
+      },
+      {
+        "block_id": "044d4670d14a654bb03a",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "fact_ids": [
+          "fact-2527778ca0c22931",
+          "fact-c12ac0965eab7910",
+          "fact-afeac7c5ff6cae11"
+        ],
+        "candidates": 2,
+        "accepted": 2,
+        "outcome": "accepted"
+      }
+    ],
+    "axis_outcomes": [
+      {
+        "axis_id": "axis-2a2e947e967cfffe7ddd",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "primary_fact_id": "fact-ef0b7514b7e64f2f",
+        "evidence_fact_ids": [
+          "fact-ef0b7514b7e64f2f"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-cf75da41475a8da3adcf",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "primary_fact_id": "fact-548aefd62a6a30a9",
+        "evidence_fact_ids": [
+          "fact-548aefd62a6a30a9"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-d297abd361f51a40f078",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "primary_fact_id": "fact-603952f80b96ac92",
+        "evidence_fact_ids": [
+          "fact-603952f80b96ac92"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-f740e97b52799a3da17c",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "primary_fact_id": "fact-2527778ca0c22931",
+        "evidence_fact_ids": [
+          "fact-2527778ca0c22931"
+        ],
+        "state": "omitted",
+        "reason": "no_admissible_candidate",
+        "attempt_counts": {
+          "authored": 0,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 1
+        }
+      },
+      {
+        "axis_id": "axis-e08e9ac608b689dc5044",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "primary_fact_id": "fact-c12ac0965eab7910",
+        "evidence_fact_ids": [
+          "fact-c12ac0965eab7910"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 1
+        }
+      },
+      {
+        "axis_id": "axis-04f85d1f7c8b317101ee",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "primary_fact_id": "fact-afeac7c5ff6cae11",
+        "evidence_fact_ids": [
+          "fact-afeac7c5ff6cae11"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      }
+    ],
+    "derived_axes": 6,
+    "requested_axes": 6,
+    "authored_axes": 5,
+    "attempt_counts": {
+      "authored": 5,
+      "deterministic_repair": 0,
+      "model_repair": 0,
+      "replacement": 2
+    },
+    "questions_per_lesson": {
+      "lesson-9a78de539a1f3fbe": 3,
+      "lesson-aa4090e4e976bb54": 2
+    },
+    "unassessed_lesson_ids": [],
+    "coverage": {
+      "policy": "source-topic-coverage-v2",
+      "requires_review": false,
+      "audit_incomplete": false,
+      "required_topic_count": 2,
+      "covered_topic_count": 2,
+      "missing_topic_ids": [],
+      "missing_fact_ids": []
+    },
+    "retained_count": 5,
+    "omitted_count": 1,
+    "unassessable_count": 0,
+    "uncovered_count": 0,
+    "contract_coverage": {
+      "policy": "assessment-contract-v1",
+      "assessable_contract_count": 6,
+      "classified_contract_count": 6,
+      "retained_contract_count": 5,
+      "omitted_contract_count": 1,
+      "unassessable_source_count": 0,
+      "uncovered_contract_count": 0,
+      "audit_incomplete": false
+    },
+    "terminal_status": "completed_with_warnings"
+  }
+}

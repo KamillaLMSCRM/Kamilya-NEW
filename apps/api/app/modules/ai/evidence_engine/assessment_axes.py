@@ -19,6 +19,7 @@ from .models import (
     LessonDraft,
     QuestionDraft,
     SourceFact,
+    is_tabular_locator,
 )
 
 
@@ -244,6 +245,25 @@ def _is_dependent_source_fragment(value: str) -> bool:
 
 
 def _required_prompt(correct_value: str) -> str:
+    after_action = re.fullmatch(
+        r"После\s+(?P<condition>[^.!?]{5,100}?)\s+"
+        r"(?P<actor>сотрудник|работник|оператор)\s+(?P<action>[^.!?]{5,160})\.?",
+        correct_value.strip(), flags=re.IGNORECASE,
+    )
+    if after_action is not None:
+        return (
+            f"Что делает {after_action.group('actor').strip()} после "
+            f"{after_action.group('condition').strip()}?"
+        )
+    conditional_action = re.fullmatch(
+        r"Если\s+(?P<condition>[^,.!?]{5,100}),\s+(?P<action>[^.!?]{5,180})\.?",
+        correct_value.strip(), flags=re.IGNORECASE,
+    )
+    if conditional_action is not None and re.search(
+        r"\b(?:долж\w*|нельзя|(?:не\s+)?\w+(?:ют|ет|ит))\b",
+        conditional_action.group("action"), flags=re.IGNORECASE,
+    ):
+        return f"Как следует поступить, если {conditional_action.group('condition').strip()}?"
     refusal_right = re.fullmatch(
         r"(?P<actor>.+?)\s+вправе\s+отказаться\s+от\s+(?P<object>.+?)\.?",
         correct_value.strip(),
@@ -445,9 +465,22 @@ def _distractor_constraints(
 
 
 def _recognizably_bound_to_source(
+    candidate: str,
     candidate_anchors: frozenset[str],
     constraint: DistractorConstraint,
 ) -> bool:
+    # Short workbook values may have only one anchor. A wrong option that
+    # quotes another known attribute's exact value is still source-bound,
+    # even when the independent reviewer overlooks the axis mismatch.
+    source_value = _norm(constraint.value)
+    value_quoted = len(source_value) >= 3 and re.search(
+        rf"(?<!\w){re.escape(source_value)}(?!\w)", _norm(candidate)
+    )
+    if value_quoted and (
+        len(source_value) >= 6
+        or bool(candidate_anchors.intersection(constraint.attribute_anchors))
+    ):
+        return True
     attribute_hits = candidate_anchors.intersection(constraint.attribute_anchors)
     value_hits = candidate_anchors.intersection(constraint.value_anchors)
     distinctive_hits = candidate_anchors.intersection(constraint.distinctive_anchors)
@@ -607,7 +640,7 @@ def _admissible_source_distractors(
             if constraint.relation != "same_axis"
             and (
                 constraint in exact_matches
-                or _recognizably_bound_to_source(candidate_anchors, constraint)
+                or _recognizably_bound_to_source(distractor, candidate_anchors, constraint)
             )
         ]
         if not source_matches:
@@ -650,6 +683,14 @@ def derive_assessment_axes(
             continue
         correct_value, required_prompt = _contextualized_list_axis(fact, source_value)
         required_prompt = required_prompt or _required_prompt(correct_value)
+        if not required_prompt and is_tabular_locator(fact.source_locator):
+            # Keep the source-owned table subject and attribute in the stem;
+            # a provider may propose alternatives, not recast a collection as
+            # one product inferred from an attribute value or catalog row.
+            required_prompt = (
+                f"Что указано в характеристике «{fact.attribute.strip()}» "
+                f"для «{fact.subject.strip()}»?"
+            )
         normalized_value = _norm(correct_value)
         identity = (_norm(fact.subject), _norm(fact.attribute), normalized_value)
         if identity in seen:
@@ -716,6 +757,10 @@ def materialize_assessment(
     if axis.normalized_correct_value in normalized:
         return None
     authored_prompt = authored.prompt.strip()
+    if inverse is None and not _admissible_source_distractors(
+        axis, distractors, authored_prompt
+    ):
+        return None
     if axis.required_prompt:
         prompt = axis.required_prompt
     elif _prompt_is_bound_to_axis(authored_prompt, axis):

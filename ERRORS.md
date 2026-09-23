@@ -3918,3 +3918,43 @@ contract or establish a blocker.
   postprocessor against short table cells and absent per-block assessment.
   Never equate `publishable=true` with human-quality prose or complete learning
   coverage without checking the assessment ledger.
+- Follow-up, 2026-09-23: the earlier short-cell test used `sheet=...`, whereas
+  the active direct-source route encodes table provenance as
+  `doc_id=...;section=...;row=...;column=...`. The fallback therefore still
+  emitted bare values in a live synthetic XLSX run. A shared structured
+  locator check now recognizes both forms; the canonical-format regression
+  failed before the fix and passed after it. Two later GLM XLSX runs retained
+  explicit subject and attribute for fallback cells.
+
+## AI-QUALITY-034 - Model metadata and question stems changed source scope
+
+- Date: 2026-09-23. Isolated local candidate only; no DEV/production write.
+- Symptom: a synthetic XLSX source described the collection `Берег`, but one
+  run called it a `Комод`; another called collection `Север` a `прихожая`
+  because that was its intended room. A PDF question asserted that documents
+  had been compared with goods, while the source required comparing invoice
+  and order numbers. Each answer key was source-backed, so the usual blind
+  reviewer accepted the misleading question stem.
+- Cause: the provider could rewrite a spreadsheet lesson title/objective and
+  a question premise independently of the source-owned row subject. Its
+  metadata then became context for the next assessment stage. GLM also
+  rubber-stamped false premises when premise checking was merely added to the
+  existing broad review prompt; a separate focused audit was inconsistent.
+- Fix: keep planned title/objective for table facts; render short fallback cells
+  with subject and attribute; reject distractors that quote another known
+  attribute as if it answered this one. Table question stems use source-owned
+  subject/attribute wording, but authored wording is still checked first so
+  cross-collection ambiguity cannot be hidden. For unambiguous `После ...`
+  and actionable `Если ...` rules, form the question from the source condition
+  rather than from a model-invented scenario. Do not add a GLM audit call that
+  failed the frozen counterexamples.
+- Verification: red-then-green focused cases, 367 related local tests and the
+  seven database-free `AI-COURSE-01` checks passed. Two subsequent canonical
+  MarkItDown PDF runs produced two lessons and 3/2 accepted questions; two
+  `openpyxl` XLSX runs produced two collection lessons and 6/5 accepted
+  questions. No observed answer key or stem changed entity type in those four
+  final runs. This is synthetic local evidence, not a claim about all sources.
+- Prevention: freeze real converter provenance and provider outputs in tests;
+  review stems as well as keys; keep source subjects authoritative across
+  lesson metadata and assessment, and do not promote a prompt-only auditor
+  without repeated negative and positive evidence.

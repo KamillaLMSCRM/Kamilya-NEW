@@ -103,6 +103,97 @@ def test_short_categorical_answer_rejects_sentence_shaped_distractors() -> None:
     assert question is None
 
 
+def test_feature_question_rejects_other_true_catalog_attributes_as_distractors() -> None:
+    facts = [
+        SourceFact("feature", "Север", "Особенность", "Зеркало в комплекте", "sheet=Коллекции;row=3"),
+        SourceFact("purpose", "Север", "Назначение", "Для прихожей", "sheet=Коллекции;row=3"),
+        SourceFact("material", "Север", "Материал фасада", "МДФ", "sheet=Коллекции;row=3"),
+    ]
+    lesson = LessonDraft(
+        "lesson-north", "Коллекции", "Север", "Различать свойства коллекции", "",
+        tuple(fact.fact_id for fact in facts), (), 2,
+    )
+    axis = next(
+        axis for axis in derive_assessment_axes(lesson, facts, block_id="north")
+        if axis.primary_fact_id == "feature"
+    )
+
+    question = materialize_assessment(axis, AuthoredAssessment(
+        axis_id=axis.axis_id,
+        prompt="Что является особенностью коллекции «Север»?",
+        distractors=("Предназначена для прихожей", "Фасад из МДФ"),
+    ))
+
+    assert question is None
+
+
+def test_spreadsheet_question_cannot_recast_collection_as_product_type() -> None:
+    fact = SourceFact(
+        "material", "Север", "Материал фасада", "МДФ",
+        "doc_id=synthetic;section=Коллекции;row=3;column=2",
+    )
+    lesson = LessonDraft(
+        "north", "Коллекции", "Север", "Различать характеристики", "",
+        (fact.fact_id,), (), 2,
+    )
+    axis = derive_assessment_axes(lesson, [fact], block_id="north")[0]
+
+    question = materialize_assessment(axis, AuthoredAssessment(
+        axis_id=axis.axis_id,
+        prompt="Из какого материала выполнен фасад прихожей «Север»?",
+        distractors=("ЛДСП", "Массив дерева"),
+    ))
+
+    assert question is not None
+    assert question.prompt == (
+        "Что указано в характеристике «Материал фасада» для «Север»?"
+    )
+
+
+def test_temporal_rule_question_uses_source_condition_not_model_premise() -> None:
+    fact = SourceFact(
+        "inspect", "Осмотр товара", "действие",
+        "После сверки документов сотрудник осматривает упаковку.",
+        "doc_id=synthetic;section=Осмотр товара;part=1",
+    )
+    lesson = LessonDraft(
+        "inspection", "Приёмка", "Осмотр товара", "Знать порядок осмотра", "",
+        (fact.fact_id,), (), 2,
+    )
+    axis = derive_assessment_axes(lesson, [fact], block_id="inspection")[0]
+
+    question = materialize_assessment(axis, AuthoredAssessment(
+        axis_id=axis.axis_id,
+        prompt="Сотрудник сверил документы с товаром. Что сделать дальше?",
+        distractors=("Подписать накладную без осмотра.", "Отложить осмотр упаковки."),
+    ))
+
+    assert question is not None
+    assert question.prompt == "Что делает сотрудник после сверки документов?"
+
+
+def test_conditional_rule_question_uses_source_condition() -> None:
+    fact = SourceFact(
+        "mismatch", "Проверка документов", "действие",
+        "Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены.",
+        "doc_id=synthetic;section=Проверка документов;part=2",
+    )
+    lesson = LessonDraft(
+        "checking", "Приёмка", "Проверка документов", "Знать порядок", "",
+        (fact.fact_id,), (), 2,
+    )
+    axis = derive_assessment_axes(lesson, [fact], block_id="checking")[0]
+
+    question = materialize_assessment(axis, AuthoredAssessment(
+        axis_id=axis.axis_id,
+        prompt="Водитель подписал накладную. Можно ли начинать разгрузку?",
+        distractors=("Начать разгрузку сразу.", "Сообщить только после разгрузки."),
+    ))
+
+    assert question is not None
+    assert question.prompt == "Как следует поступить, если номера не совпадают?"
+
+
 def test_bare_numeric_key_normalizes_measurement_suffixes_from_distractors() -> None:
     fact = SourceFact(
         "fact-height",

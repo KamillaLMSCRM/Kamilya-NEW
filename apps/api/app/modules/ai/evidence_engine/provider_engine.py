@@ -26,6 +26,7 @@ from .models import (
     SourceDocument,
     SourceFact,
     StageTiming,
+    is_tabular_locator,
 )
 from .provider_models import GroundedBlock, ProviderBackedResult, RetrievalMeasurement
 from .providers import QWEN_QUERY_PREFIX, ChatJsonProvider, EmbeddingProvider, ProviderCallError
@@ -521,6 +522,8 @@ class ProviderBackedEvidenceEngine:
         seen_blocks: set[tuple[str, tuple[str, ...]]] = set()
         seen_lesson_sentences: set[str] = set()
         seen_lesson_token_sets: list[set[str]] = []
+        prior_sentences_by_fact: dict[str, list[str]] = defaultdict(list)
+        prior_tokens_by_fact: dict[str, set[str]] = defaultdict(set)
         for block in blocks:
             if not isinstance(block, dict):
                 raise ValueError("block must be an object")
@@ -587,8 +590,32 @@ class ProviderBackedEvidenceEngine:
                     or _is_covered_sentence(sentence, seen_lesson_token_sets)
                 ):
                     continue
+                tail = " ".join(
+                    re.sub(
+                        r"[ .;:]+$", "",
+                        sentence.rsplit(",", 1)[-1].casefold().replace("ё", "е"),
+                    ).split()
+                )
+                sentence_tokens = _redundancy_tokens(sentence)
+                if (
+                    "," in sentence
+                    and len(_redundancy_tokens(tail)) >= 2
+                    and any(
+                        sentence_tokens <= prior_tokens_by_fact[fact_id]
+                        and any(
+                            tail in earlier for earlier in prior_sentences_by_fact[fact_id]
+                        )
+                        for fact_id in fact_ids
+                    )
+                ):
+                    # The clause after the condition was already taught in
+                    # full, and this restatement adds no source vocabulary.
+                    continue
                 seen_lesson_sentences.add(normalized_sentence)
-                seen_lesson_token_sets.append(_redundancy_tokens(sentence))
+                seen_lesson_token_sets.append(sentence_tokens)
+                for fact_id in fact_ids:
+                    prior_sentences_by_fact[fact_id].append(normalized_sentence)
+                    prior_tokens_by_fact[fact_id].update(sentence_tokens)
                 fresh_sentences.append(sentence)
             text = _clean_output_text(" ".join(fresh_sentences))
             if not text:
@@ -627,6 +654,13 @@ class ProviderBackedEvidenceEngine:
             )
             if contains_ocr_artifact(text):
                 raise ValueError("fallback fact exposes unresolved OCR artifacts")
+            if is_tabular_locator(fact.source_locator) and not re.search(r"[.!?]$", text):
+                # A workbook cell alone is not a teachable statement. Preserve
+                # its exact subject, column label and value without inventing
+                # a grammatical relationship absent from the source.
+                subject = _clean_output_text(fact.subject)
+                attribute = _clean_output_text(fact.attribute)
+                text = f"{subject} — {attribute}: {text}."
             heading = neutralize_unprofessional_source_language(
                 " ".join(fact.attribute.strip().rstrip(".:").split())
             ) or "Подтверждённые сведения"
@@ -715,11 +749,20 @@ class ProviderBackedEvidenceEngine:
         title = neutralize_unprofessional_source_language(
             _clean_output_text(str(payload.get("title") or base_lesson.title)).lstrip("# ")
         )
-        if not is_acceptable_title(title):
-            raise ValueError("lesson title is not a concise complete nominal phrase")
         objective = neutralize_unprofessional_source_language(
             _clean_output_text(str(payload.get("objective") or base_lesson.objective))
         )
+        if plan_fact_ids and all(
+            is_tabular_locator(facts_by_id[fact_id].source_locator)
+            for fact_id in plan_fact_ids
+        ):
+            # The plan owns the row subject. A model must not turn a collection
+            # into one item mentioned only in a supporting catalog sheet; both
+            # fields feed the later assessment author as factual context.
+            title = base_lesson.title
+            objective = base_lesson.objective
+        if not is_acceptable_title(title):
+            raise ValueError("lesson title is not a concise complete nominal phrase")
         if has_unprofessional_learner_language(title) or has_unprofessional_learner_language(objective):
             raise ValueError("lesson metadata contains blocked learner-visible language")
         lesson = LessonDraft(

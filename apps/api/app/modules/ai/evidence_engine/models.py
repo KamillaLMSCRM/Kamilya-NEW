@@ -7,6 +7,18 @@ from typing import Literal
 
 SectionRole = Literal["primary", "supporting"]
 SourceKind = Literal["spreadsheet", "narrative"]
+
+
+def is_tabular_locator(locator: str) -> bool:
+    """Recognize worksheet provenance in either supported source adapter."""
+    fields = {
+        key for item in locator.split(";")
+        for key, separator, _value in (item.partition("="),)
+        if separator
+    }
+    return "sheet" in fields or {"row", "column"} <= fields
+
+
 QuestionKind = Literal["single_choice", "true_false"]
 AssessmentAxisKind = Literal["attribute", "numeric_value", "rule_value"]
 DistractorSourceRelation = Literal[
