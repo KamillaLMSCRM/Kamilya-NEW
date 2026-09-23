@@ -3986,3 +3986,24 @@ contract or establish a blocker.
 - Prevention: add medium-complexity PDF/XLSX fixtures, inspect rendered text
   as well as question keys, and never treat cited IDs or `publishable=true`
   alone as proof that learner-visible prose is complete and readable.
+
+## AI-QUALITY-036 - DEV acceptance pinned an absent synthetic workbook
+
+- Date: 2026-09-23. Found before promoting release `0.10.2` from DEV to
+  production; no production mutation had started.
+- Symptom: the exact DEV runtime and CI were green, but
+  `course_quality_dev_acceptance.py` rejected every available repository fixture
+  before upload with `fixture_not_approved_synthetic_workbook`.
+- Cause: the fail-closed SHA still identified an older generated workbook that
+  was no longer committed. The focus extractor also expected the legacy sheet
+  `Коллекция` with one collection per row, while the current expanded fixture
+  uses `Коллекции` with collection names in the header.
+- Fix: pin the acceptance harness to the committed expanded workbook SHA and
+  derive its focus terms from the primary-sheet header while retaining the
+  legacy layout branch for older focused tests.
+- Verification: the new regression failed against the stale fixture contract,
+  then all 13 acceptance-harness tests and 104 related evidence/corpus tests
+  passed after the correction.
+- Prevention: every release-quality fixture must be committed beside its
+  consumer, covered by an exact-byte test and parsed through the same layout
+  branch that the live acceptance script will execute.

@@ -139,7 +139,7 @@ STOP_WORDS = {
     "этой",
     "является",
 }
-SYNTHETIC_FIXTURE_SHA256 = "97b6bdc3c2a310aaf0b1fceb685ef5cf7bc0c1a86db5bce0e40cbd7965a9cdf7"
+SYNTHETIC_FIXTURE_SHA256 = "13d7dbbaf0ef0b133059fc853d13b220340bf71b2ed670cbd9e70ee15bfb9449"
 
 
 class AcceptanceError(RuntimeError):
@@ -393,14 +393,23 @@ def approved_fixture_bytes(xlsx: Path) -> bytes:
 def fixture_focus_terms(xlsx_content: bytes) -> set[str]:
     workbook = load_workbook(io.BytesIO(xlsx_content), read_only=True, data_only=True)
     try:
-        if "Коллекция" not in workbook.sheetnames:
-            raise AcceptanceError("fixture_primary_sheet_missing")
-        rows = workbook["Коллекция"].iter_rows(min_row=2, values_only=True)
-        return {
-            str(row[0]).strip().casefold()
-            for row in rows
-            if row and row[0] is not None and len(str(row[0]).strip()) >= 4
-        }
+        if "Коллекции" in workbook.sheetnames:
+            header = next(
+                workbook["Коллекции"].iter_rows(min_row=1, max_row=1, values_only=True)
+            )
+            return {
+                str(value).strip().casefold()
+                for value in header[1:]
+                if value is not None and len(str(value).strip()) >= 2
+            }
+        if "Коллекция" in workbook.sheetnames:
+            rows = workbook["Коллекция"].iter_rows(min_row=2, values_only=True)
+            return {
+                str(row[0]).strip().casefold()
+                for row in rows
+                if row and row[0] is not None and len(str(row[0]).strip()) >= 4
+            }
+        raise AcceptanceError("fixture_primary_sheet_missing")
     finally:
         workbook.close()
 

@@ -368,3 +368,16 @@ def test_approved_fixture_bytes_are_stable_after_source_path_changes(tmp_path: P
     fixture.write_bytes(b"replacement customer bytes")
 
     assert captured == approved
+
+
+def test_committed_expanded_workbook_is_the_approved_dev_fixture() -> None:
+    fixture = (
+        Path(__file__).resolve().parents[1]
+        / "fixtures"
+        / "course_generation_backward"
+        / "expanded_collections.xlsx"
+    )
+
+    content = MODULE.approved_fixture_bytes(fixture)
+
+    assert MODULE.fixture_focus_terms(content) == {"север", "берег", "риф"}

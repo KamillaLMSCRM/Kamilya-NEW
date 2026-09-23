@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Keep a sole title-matching narrative section as teachable material, and classify a small named nomenclature sheet as supporting when a stronger learning sheet is present.
 - Prevent unlabelled or mismatched workbook values in lessons, duplicate short rules, unsupported lesson metadata, off-topic answer choices and misleading question premises.
+- Keep the DEV course-quality acceptance fixture pinned to the committed expanded workbook and derive collection focus terms from its current primary-sheet layout.
 
 ### Security
 
