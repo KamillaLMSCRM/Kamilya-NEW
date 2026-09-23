@@ -176,6 +176,7 @@ def _grounded_teaching_text(text: str, facts: list[SourceFact]) -> str:
         # then append only source sentences whose meaning is still absent.
         # OCR-tainted facts remain excluded from this restoration path.
         if not any(contains_ocr_artifact(_clean_output_text(fact.value)) for fact in facts):
+            restored_any = False
             grounded_normalized = [
                 " ".join(sentence.casefold().replace("ё", "е").split())
                 for sentence in grounded
@@ -220,6 +221,7 @@ def _grounded_teaching_text(text: str, facts: list[SourceFact]) -> str:
                     )
                     if covered:
                         continue
+                    restored_any = True
                     restored = _clean_output_text(
                         neutralize_unprofessional_source_language(source_sentence)
                     )
@@ -229,6 +231,21 @@ def _grounded_teaching_text(text: str, facts: list[SourceFact]) -> str:
                     grounded_redundancy_tokens.append(
                         _redundancy_tokens(source_sentence)
                     )
+            if (
+                restored_any
+                and all(not is_tabular_locator(fact.source_locator) for fact in facts)
+                and not any(contains_internal_generation_instruction(fact.value) for fact in facts)
+                and sum(len(re.findall(r"\w+", fact.value)) for fact in facts) <= 100
+            ):
+                # A short rule mixed with a partial paraphrase reads as the
+                # same instruction twice. Prefer its complete source wording
+                # once; long/OCR/table sources keep their existing path.
+                return " ".join(
+                    _clean_output_text(
+                        neutralize_unprofessional_source_language(fact.value)
+                    )
+                    for fact in facts
+                )
         return " ".join(grounded)
     if any(contains_ocr_artifact(_clean_output_text(fact.value)) for fact in facts):
         # A validated clean omission notice is safer than re-exposing unreadable
@@ -237,6 +254,41 @@ def _grounded_teaching_text(text: str, facts: list[SourceFact]) -> str:
     # Do not splice several bare table-cell values into an unsupported model
     # block. The caller can render uncovered facts separately with their labels.
     return ""
+
+
+def _tabular_block_covers_labelled_facts(text: str, facts: list[SourceFact]) -> bool:
+    """A cited workbook cell needs its own attribute beside its value.
+
+    Citing five cell IDs while listing five naked values is not a lesson.
+    When the provider omits even one label, the source-owned fallback renders
+    those cells individually instead of treating the whole block as covered.
+    """
+    clauses = [clause.strip() for clause in re.split(r"[.!?;,]+", text) if clause.strip()]
+    for fact in facts:
+        # A spreadsheet cell may itself contain a complete prose rule. This
+        # guard is only for short atomic values such as "МДФ" or "24 месяца";
+        # long/sentential cells keep the normal grounding and dedup path.
+        clean_value = _clean_output_text(fact.value)
+        if len(re.findall(r"\w+", clean_value)) > 12 or re.search(r"[.!?;]", clean_value):
+            continue
+        value = " ".join(_clean_output_text(fact.value).casefold().split())
+        attribute_tokens = _grounding_tokens(fact.attribute)
+        if not value or not attribute_tokens:
+            return False
+        if not any(
+            value in " ".join(clause.casefold().split())
+            and bool(attribute_tokens & _grounding_tokens(clause))
+            for clause in clauses
+        ):
+            return False
+    return True
+
+
+def _tabular_source_row(fact: SourceFact) -> int | None:
+    if not is_tabular_locator(fact.source_locator):
+        return None
+    matched = re.search(r"(?:^|;)row=(\d+)(?:;|$)", fact.source_locator)
+    return int(matched.group(1)) if matched else None
 
 
 class ProviderBackedEvidenceEngine:
@@ -573,6 +625,16 @@ class ProviderBackedEvidenceEngine:
                 text,
                 [facts_by_id[fact_id] for fact_id in sorted(fact_ids)],
             )
+            cited_facts = [facts_by_id[fact_id] for fact_id in sorted(fact_ids)]
+            if (
+                text
+                and all(is_tabular_locator(fact.source_locator) for fact in cited_facts)
+                and not _tabular_block_covers_labelled_facts(text, cited_facts)
+            ):
+                # Every cell will be rendered later with subject and label.
+                # A model block that cites all cells but teaches only a subset
+                # must not suppress that fallback by claiming their coverage.
+                continue
             if not text:
                 # Unsupported model prose contributes no coverage. Facts still
                 # absent after all blocks are rendered below with attribution.
@@ -680,6 +742,23 @@ class ProviderBackedEvidenceEngine:
             covered.add(fact_id)
         if covered != plan_fact_ids:
             raise ValueError("realizer did not cover every planned fact")
+
+        source_rows = {
+            fact_id: _tabular_source_row(facts_by_id[fact_id])
+            for fact_id in plan_fact_ids
+        }
+        if source_rows and all(row is not None for row in source_rows.values()):
+            # A model may mention warranty before purpose, and the plan may
+            # rank facts by assessment value. Present a workbook lesson in
+            # the source's row order regardless of either incidental order.
+            grounded_blocks.sort(
+                key=lambda block: min(source_rows[fact_id] or 0 for fact_id in block.fact_ids)
+            )
+            rendered = [
+                part
+                for block in grounded_blocks
+                for part in (f"### {block.heading}", "", block.text, "")
+            ]
 
         seed_by_fact = {seed.fact_id: seed for seed in seeds}
         raw_questions = payload.get("questions")

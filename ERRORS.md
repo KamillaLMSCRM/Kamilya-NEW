@@ -3958,3 +3958,31 @@ contract or establish a blocker.
   review stems as well as keys; keep source subjects authoritative across
   lesson metadata and assessment, and do not promote a prompt-only auditor
   without repeated negative and positive evidence.
+
+## AI-QUALITY-035 - Multi-fact table block hid naked values; rule restoration repeated prose
+
+- Date: 2026-09-23. Isolated local candidate; no DEV or production mutation.
+- Symptom: a larger synthetic workbook yielded `Белый 24 месяца МДФ Для прихожей`
+  inside a lesson despite source-backed fact IDs. A four-section PDF repeatedly
+  placed a source sentence after a near-equivalent model paraphrase.
+- Cause: one model block could cite all workbook cells and thereby claim full
+  coverage even when their values lacked attribute labels. The short-rule
+  restoration path appended exact source wording to a partial paraphrase
+  instead of choosing one complete presentation.
+- Fix: for short atomic workbook cells, require each cited value to occur with
+  its own attribute in the same clause; otherwise leave it to the labelled
+  source-owned fallback. Keep sentential/long workbook cells on the existing
+  prose path. Order resulting workbook blocks by source row. For a short clean
+  narrative rule that needed restoration, render its complete source wording
+  once instead of mixing it with a partial paraphrase; leave long, OCR-tainted
+  and tabular sources on their prior paths.
+- Verification: the naked-value, reversed-row, swapped-label and repeated-rule
+  regressions failed before their respective fixes and passed afterward.
+  328 related local tests, six critical-journey gate tests and the Ruff/mypy
+  baseline passed. Final production-converter synthetic probes gave four PDF
+  lessons/five accepted questions without repeated rules and three workbook
+  lessons/nine accepted questions with all 15 labelled attributes. No live
+  tenant, embedding, UI or database path was exercised.
+- Prevention: add medium-complexity PDF/XLSX fixtures, inspect rendered text
+  as well as question keys, and never treat cited IDs or `publishable=true`
+  alone as proof that learner-visible prose is complete and readable.

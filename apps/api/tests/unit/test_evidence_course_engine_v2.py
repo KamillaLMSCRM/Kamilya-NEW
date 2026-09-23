@@ -20,7 +20,10 @@ from app.modules.ai.evidence_engine.models import (
     SourceFact,
     SourceSection,
 )
-from app.modules.ai.evidence_engine.provider_engine import ProviderBackedEvidenceEngine
+from app.modules.ai.evidence_engine.provider_engine import (
+    ProviderBackedEvidenceEngine,
+    _tabular_block_covers_labelled_facts,
+)
 from app.modules.ai.evidence_engine.provider_models import ChatCompletion, EmbeddingBatch, GroundedBlock
 from app.modules.ai.evidence_engine.quality import (
     evaluate_publishability,
@@ -1579,6 +1582,52 @@ def test_v2_realizer_normalizes_observed_abbreviation_typography() -> None:
 
     assert "и. др. )" not in rendered.content
     assert "и др.)" in rendered.content
+
+
+def test_v2_realizer_does_not_accept_unlabelled_spreadsheet_values_as_lesson() -> None:
+    facts = (
+        SourceFact("purpose", "Север", "Назначение", "Для прихожей", "sheet=Коллекции;row=2"),
+        SourceFact("material", "Север", "Материал фасада", "МДФ", "sheet=Коллекции;row=3"),
+        SourceFact("feature", "Север", "Особенность", "Зеркало в комплекте", "sheet=Коллекции;row=4"),
+        SourceFact("color", "Север", "Цвет", "Белый", "sheet=Коллекции;row=5"),
+        SourceFact("warranty", "Север", "Гарантия", "24 месяца", "sheet=Коллекции;row=6"),
+    )
+    lesson = LessonDraft(
+        lesson_id="lesson-north", module_title="Коллекции", title="Север",
+        objective="Знать характеристики Севера", content="",
+        fact_ids=tuple(fact.fact_id for fact in reversed(facts)), supporting_fact_ids=(),
+        duration_minutes=2,
+    )
+
+    rendered, _, _ = ProviderBackedEvidenceEngine._validate_and_render(
+        {"blocks": [{
+            "heading": "Что известно о коллекции",
+            "text": "В комплект входит зеркало. Белый 24 месяца МДФ Для прихожей",
+            "fact_ids": [fact.fact_id for fact in facts],
+        }]},
+        base_lesson=lesson,
+        plan_fact_ids={fact.fact_id for fact in facts},
+        facts_by_id={fact.fact_id: fact for fact in facts},
+        seeds=[],
+    )
+
+    assert "Белый 24 месяца МДФ Для прихожей" not in rendered.content
+    assert "Назначение: Для прихожей" in rendered.content
+    assert "Цвет: Белый" in rendered.content
+    assert "Гарантия: 24 месяца" in rendered.content
+    assert rendered.content.index("Назначение") < rendered.content.index("Материал фасада")
+    assert rendered.content.index("Материал фасада") < rendered.content.index("Цвет")
+    assert rendered.content.index("Цвет") < rendered.content.index("Гарантия")
+
+
+def test_v2_tabular_block_does_not_treat_swapped_labels_as_coverage() -> None:
+    facts = [
+        SourceFact("color", "Север", "Цвет", "Белый", "sheet=Коллекции;row=5"),
+        SourceFact("warranty", "Север", "Гарантия", "24 месяца", "sheet=Коллекции;row=6"),
+    ]
+    assert not _tabular_block_covers_labelled_facts(
+        "Цвет: 24 месяца; Гарантия: Белый.", facts,
+    )
 
 
 def test_v2_final_publishability_rejects_observed_identity_list_ocr_noise() -> None:

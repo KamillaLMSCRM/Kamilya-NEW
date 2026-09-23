@@ -13,8 +13,8 @@ from reportlab.pdfgen.canvas import Canvas
 
 def main() -> None:
     output = Path(sys.argv[1])
-    if output.name != "structured_policy.pdf":
-        raise ValueError("Pass the exact structured_policy.pdf fixture path")
+    if output.name not in {"structured_policy.pdf", "expanded_policy.pdf"}:
+        raise ValueError("Pass the exact structured_policy.pdf or expanded_policy.pdf fixture path")
     pdfmetrics.registerFont(TTFont("Arial", r"C:\Windows\Fonts\arial.ttf"))
     canvas = Canvas(str(output), pagesize=A4)
     canvas.setTitle("Синтетические правила приёмки товара")
@@ -23,7 +23,7 @@ def main() -> None:
     canvas.setFont("Arial", 18)
     canvas.drawString(left, y, "Приёмка товара")
     y -= 52
-    for heading, lines in [
+    compact_sections = [
         (
             "1. Проверка документов",
             [
@@ -40,7 +40,44 @@ def main() -> None:
                 "накладной.",
             ],
         ),
-    ]:
+    ]
+    expanded_sections = [
+        (
+            "1. Сверка документов",
+            [
+                "До разгрузки сотрудник сверяет номер заказа с номером накладной.",
+                "Если номера различаются, разгрузку не начинают и сообщают",
+                "руководителю смены. Исправленную накладную получают до разгрузки.",
+            ],
+        ),
+        (
+            "2. Осмотр упаковки",
+            [
+                "После сверки документов сотрудник осматривает целостность упаковки.",
+                "Если упаковка повреждена, сотрудник фотографирует повреждение",
+                "и составляет акт до подписания накладной.",
+            ],
+        ),
+        (
+            "3. Учёт расхождений",
+            [
+                "Сотрудник сравнивает фактическое количество мест с накладной.",
+                "Недостачу отмечают в акте с указанием позиции и количества.",
+                "До регистрации акта расхождения приёмку не закрывают.",
+            ],
+        ),
+        (
+            "4. Завершение приёмки",
+            [
+                "Если расхождений нет, сотрудник подписывает накладную после",
+                "осмотра упаковки и сверки количества мест.",
+                "После подписания сотрудник сохраняет накладную в карточке поставки.",
+            ],
+        ),
+    ]
+    for heading, lines in (
+        expanded_sections if output.name == "expanded_policy.pdf" else compact_sections
+    ):
         canvas.setFont("Arial", 13)
         canvas.drawString(left, y, heading)
         y -= 30

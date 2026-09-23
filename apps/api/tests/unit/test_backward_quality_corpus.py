@@ -176,6 +176,41 @@ async def test_text_layer_pdf_conversion_retains_rules_and_section_order() -> No
         assert any(phrase in fact.value for fact in result.admitted_facts)
 
 
+@pytest.mark.asyncio
+async def test_expanded_pdf_conversion_retains_all_four_source_owned_sections() -> None:
+    case = next(item for item in CORPUS["cases"] if item["id"] == "expanded_policy")
+    fixture = Path(__file__).parents[1] / "fixtures" / "course_generation_backward" / case["filename"]
+    converted = await _local_convert(str(fixture))
+    text = converted["markdown"]
+    assert converted["metadata"]["engine"] == "pypdf"
+    assert [text.index(topic) for topic in case["gold"]["primary_topics"]] == sorted(
+        text.index(topic) for topic in case["gold"]["primary_topics"]
+    )
+    source = build_evidence_source(_converted_source(case, text)).document
+    result = EvidenceCourseEngine().generate_from_document(source)
+    assert len(result.course.lessons) == 4
+    for phrase in case["gold"]["must_preserve"]:
+        assert any(phrase in fact.value for fact in result.admitted_facts)
+
+
+@pytest.mark.asyncio
+async def test_expanded_spreadsheet_keeps_catalog_supporting() -> None:
+    case = next(
+        item for item in CORPUS["cases"]
+        if item["id"] == "expanded_spreadsheet_primary_auxiliary"
+    )
+    fixture = Path(__file__).parents[1] / "fixtures" / "course_generation_backward" / case["filename"]
+    converted = await DocumentConverter().convert(str(fixture))
+    assert converted["metadata"]["engine"] == "openpyxl"
+    assert "| Гарантия | 24 месяца | 18 месяцев | 24 месяца |" in converted["markdown"]
+    source = build_evidence_source(_converted_source(case, converted["markdown"])).document
+    result = EvidenceCourseEngine().generate_from_document(source)
+    assert len(result.course.lessons) == 3
+    assert any("Номенклатура" in name for name in result.document_plan.supporting_sections)
+    for phrase in case["gold"]["must_preserve"]:
+        assert any(phrase in fact.value for fact in result.admitted_facts)
+
+
 def test_production_style_plaintext_pdf_sections_remain_separate() -> None:
     # Remote MarkItDown returns numbered nominal headings without Markdown '#'.
     # This is distinct from the pypdf local fallback used by the PDF fixture test.

@@ -1,0 +1,638 @@
+{
+  "status": "completed",
+  "case": "expanded_spreadsheet_primary_auxiliary",
+  "calls": 16,
+  "converter_engine": "openpyxl",
+  "conversion_seconds": 0.011,
+  "timings": [
+    {
+      "stage": "evidence_plan",
+      "seconds": 0.002931100025307387
+    },
+    {
+      "stage": "embeddings",
+      "seconds": 1.5900004655122757e-05
+    },
+    {
+      "stage": "realization",
+      "seconds": 64.06621599994833
+    },
+    {
+      "stage": "assessment",
+      "seconds": 143.3190052000573
+    }
+  ],
+  "provider": "glm",
+  "glm_reasoning": "off",
+  "provider_failures": [
+    "ValueError"
+  ],
+  "call_details": [
+    {
+      "task": "unknown",
+      "seconds": 19.287,
+      "finish_reason": "stop",
+      "content_chars": 1856,
+      "prompt_tokens": 1001,
+      "completion_tokens": 570,
+      "raw_content_preview": "{\"title\":\"Характеристики мебели «Север»\",\"objective\":\"Различать подтверждённые сведения о коллекции «Север»: гарантия, особенность, материал фасада, цвет и назначение.\",\"blocks\":[{\"heading\":\"Что подтверждено о коллекции «Север»\",\"text\":\"По данным таблицы коллекций, «Север» — это мебель для прихожей. Фасад выполнен из МДФ, цвет — белый. В комплект входит зеркало. На коллекцию действует гарантия 24 месяца. Эти пять характеристик — назначение, материал фасада, цвет, комплектация и гарантия — являются подтверждёнными сведениями, на которые можно опираться при работе с покупателем.\",\"fact_ids\":[\"fact-603952f80b96ac92\",\"fact-548aefd62a6a30a9\",\"fact-11c47a619986175b\",\"fact-ef0b7514b7e64f2f\",\"fact-41b4b6ce352c2862\"]},{\"heading\":\"Как применять эти сведения\",\"text\":\"Когда покупатель спрашивает о «Север», называйте только подтверждённые характеристики: фасад из МДФ, белый цвет, зеркало в комплекте, назначение — прихожая, гарантия — 24 месяца. Если покупателя интересует другой цвет, другой материал фасада или иные условия гарантии, не приписывайте коллекции неподтверждённые свойства — проверьте актуальные данные в источнике.\",\"fact_ids\":[\"fact-548aefd62a6a30a9\",\"fact-11c47a619986175b\",\"fact-ef0b7514b7e64f2f\",\"fact-603952f80b96ac92\",\"fact-41b4b6ce352c2862\"]}],\"questions\":[{\"prompt\":\"Покупатель уточняет, из какого материала выполнен фасад прихожей «Север». Какой материал указан в подтверждённых данных?\",\"explanation\":\"В таблице коллекций для «Север» указан материал фасада МДФ. Называйте только этот подтверждённый материал.\",\"fact_ids\":[\"fact-548aefd62a6a30a9\"]},{\"prompt\":\"Покупатель хочет знать, в каком цвете доступна прихожая «Север». Какой цвет подтверждён данными?\",\"explanation\":\"Подтверждённый цвет коллекции «Север» — белый. Другие варианты цвета в данных не указаны, поэтому их называть нельзя.\",\"fact_ids\":[\"fact-11c47a619986175b\"]}]}"
+    },
+    {
+      "task": "unknown",
+      "seconds": 23.106,
+      "finish_reason": "stop",
+      "content_chars": 2165,
+      "prompt_tokens": 997,
+      "completion_tokens": 637,
+      "raw_content_preview": "{\"title\":\"Комод «Берег»: ключевые характеристики\",\"objective\":\"Различать подтверждённые сведения о комоде «Берег»: гарантия, особенность, материал фасада, цвет и назначение.\",\"blocks\":[{\"heading\":\"Назначение и цвет\",\"text\":\"По данным каталога коллекций комод «Берег» предназначен для спальни. Цвет модели — графит. Эти два параметра помогают сразу понять, куда подходит предмет и как он выглядит.\",\"fact_ids\":[\"fact-afeac7c5ff6cae11\",\"fact-140da9aa1f54116b\"]},{\"heading\":\"Материал фасада\",\"text\":\"Фасад «Берега» выполнен из ЛДСП. Это подтверждённая характеристика из таблицы коллекций, поэтому при вопросах о материале фасада следует называть именно ЛДСП, а не другие материалы.\",\"fact_ids\":[\"fact-c12ac0965eab7910\"]},{\"heading\":\"Особенность конструкции\",\"text\":\"Особенность «Берега» — ящики полного выдвижения. Это значит, что ящики выезжают на всю глубину корпуса, и именно эта конструктивная деталь отличает модель.\",\"fact_ids\":[\"fact-2527778ca0c22931\"]},{\"heading\":\"Гарантия\",\"text\":\"На «Берег» действует гарантия 18 месяцев. Если покупатель уточняет срок гарантии, называйте именно это значение.\",\"fact_ids\":[\"fact-efcf4055597b0437\"]},{\"heading\":\"Как применять эти сведения\",\"text\":\"Все пять характеристик — назначение, цвет, материал фасада, особенность и гарантия — взяты из одной строки каталога коллекций. Отвечая клиенту или коллеге, опирайтесь только на эти подтверждённые значения и не смешивайте их с данными других моделей.\",\"fact_ids\":[\"fact-afeac7c5ff6cae11\",\"fact-140da9aa1f54116b\",\"fact-c12ac0965eab7910\",\"fact-2527778ca0c22931\",\"fact-efcf4055597b0437\"]}],\"questions\":[{\"prompt\":\"Клиент спрашивает, из какого материала выполнен фасад комода «Берег». Что вы ответите, опираясь на данные каталога?\",\"explanation\":\"По каталогу коллекций фасад «Берега» изготовлен из ЛДСП. Это подтверждённая характеристика модели.\",\"fact_ids\":[\"fact-c12ac0965eab7910\"]},{\"prompt\":\"Покупатель выбирает комод в спальню и уточняет доступный цвет «Берега». Какой вариант отделки соответствует данным катало"
+    },
+    {
+      "task": "unknown",
+      "seconds": 21.663,
+      "finish_reason": "stop",
+      "content_chars": 2086,
+      "prompt_tokens": 1013,
+      "completion_tokens": 631,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_generate",
+      "seconds": 5.831,
+      "finish_reason": "stop",
+      "content_chars": 483,
+      "prompt_tokens": 1376,
+      "completion_tokens": 170,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_review",
+      "seconds": 9.789,
+      "finish_reason": "stop",
+      "content_chars": 1684,
+      "prompt_tokens": 1282,
+      "completion_tokens": 447,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_constraints",
+      "seconds": 19.221,
+      "finish_reason": "stop",
+      "content_chars": 2859,
+      "prompt_tokens": 1159,
+      "completion_tokens": 782,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_generate",
+      "seconds": 6.284,
+      "finish_reason": "stop",
+      "content_chars": 485,
+      "prompt_tokens": 1363,
+      "completion_tokens": 165,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_review",
+      "seconds": 11.355,
+      "finish_reason": "stop",
+      "content_chars": 1819,
+      "prompt_tokens": 1263,
+      "completion_tokens": 526,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_constraints",
+      "seconds": 19.285,
+      "finish_reason": "stop",
+      "content_chars": 2909,
+      "prompt_tokens": 1142,
+      "completion_tokens": 767,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_constraints",
+      "seconds": 18.176,
+      "finish_reason": "stop",
+      "content_chars": 2726,
+      "prompt_tokens": 1142,
+      "completion_tokens": 730,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_generate",
+      "seconds": 5.811,
+      "finish_reason": "stop",
+      "content_chars": 462,
+      "prompt_tokens": 1370,
+      "completion_tokens": 163,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_review",
+      "seconds": 11.682,
+      "finish_reason": "stop",
+      "content_chars": 1674,
+      "prompt_tokens": 1259,
+      "completion_tokens": 443,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_constraints",
+      "seconds": 15.835,
+      "finish_reason": "stop",
+      "content_chars": 2172,
+      "prompt_tokens": 1062,
+      "completion_tokens": 589,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_repair",
+      "seconds": 3.198,
+      "finish_reason": "stop",
+      "content_chars": 161,
+      "prompt_tokens": 1344,
+      "completion_tokens": 57,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_review",
+      "seconds": 5.062,
+      "finish_reason": "stop",
+      "content_chars": 615,
+      "prompt_tokens": 968,
+      "completion_tokens": 178,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_constraints",
+      "seconds": 11.772,
+      "finish_reason": "stop",
+      "content_chars": 1267,
+      "prompt_tokens": 980,
+      "completion_tokens": 375,
+      "raw_content_preview": null
+    }
+  ],
+  "lessons": [
+    {
+      "title": "Север",
+      "content": "### Что подтверждено о коллекции «Север»\n\nВ комплект входит зеркало. Белый 24 месяца МДФ Для прихожей"
+    },
+    {
+      "title": "Берег",
+      "content": "### Назначение и цвет\n\nЦвет модели — графит. Для спальни\n\n### Особенность конструкции\n\nОсобенность «Берега» — ящики полного выдвижения.\n\n### Гарантия\n\nНа «Берег» действует гарантия 18 месяцев.\n\n### Материал фасада\n\nБерег — Материал фасада: ЛДСП."
+    },
+    {
+      "title": "Риф",
+      "content": "### Гарантия\n\nРиф — Гарантия: 24 месяца.\n\n### Особенность\n\nРиф — Особенность: Открытые полки.\n\n### Материал фасада\n\nРиф — Материал фасада: Шпон дуба.\n\n### Цвет\n\nРиф — Цвет: Натуральный дуб.\n\n### Назначение\n\nРиф — Назначение: Для гостиной."
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "Что указано в характеристике «Гарантия» для «Север»?",
+      "options": [
+        "12 месяцев",
+        "36 месяцев",
+        "24 месяца"
+      ],
+      "correct": [
+        "24 месяца"
+      ],
+      "source_quote": "24 месяца"
+    },
+    {
+      "prompt": "Что указано в характеристике «Особенность» для «Север»?",
+      "options": [
+        "Ящик для обуви в комплекте",
+        "Зеркало в комплекте",
+        "Полки в комплекте"
+      ],
+      "correct": [
+        "Зеркало в комплекте"
+      ],
+      "source_quote": "Зеркало в комплекте"
+    },
+    {
+      "prompt": "Что указано в характеристике «Материал фасада» для «Север»?",
+      "options": [
+        "ЛДСП",
+        "Массив дерева",
+        "МДФ"
+      ],
+      "correct": [
+        "МДФ"
+      ],
+      "source_quote": "МДФ"
+    },
+    {
+      "prompt": "Что указано в характеристике «Гарантия» для «Берег»?",
+      "options": [
+        "24 месяца",
+        "12 месяцев",
+        "18 месяцев"
+      ],
+      "correct": [
+        "18 месяцев"
+      ],
+      "source_quote": "18 месяцев"
+    },
+    {
+      "prompt": "Что указано в характеристике «Особенность» для «Берег»?",
+      "options": [
+        "Ящики частичного выдвижения",
+        "Ящики полного выдвижения",
+        "Доводчики на дверцах"
+      ],
+      "correct": [
+        "Ящики полного выдвижения"
+      ],
+      "source_quote": "Ящики полного выдвижения"
+    },
+    {
+      "prompt": "Что указано в характеристике «Материал фасада» для «Берег»?",
+      "options": [
+        "Массив дерева",
+        "ЛДСП",
+        "МДФ"
+      ],
+      "correct": [
+        "ЛДСП"
+      ],
+      "source_quote": "ЛДСП"
+    },
+    {
+      "prompt": "Что указано в характеристике «Гарантия» для «Риф»?",
+      "options": [
+        "36 месяцев",
+        "24 месяца",
+        "12 месяцев"
+      ],
+      "correct": [
+        "24 месяца"
+      ],
+      "source_quote": "24 месяца"
+    },
+    {
+      "prompt": "Что указано в характеристике «Особенность» для «Риф»?",
+      "options": [
+        "Открытые полки",
+        "Раздвижные двери",
+        "Закрытые ящики"
+      ],
+      "correct": [
+        "Открытые полки"
+      ],
+      "source_quote": "Открытые полки"
+    },
+    {
+      "prompt": "Что указано в характеристике «Материал фасада» для «Риф»?",
+      "options": [
+        "ЛДСП",
+        "Шпон дуба",
+        "Массив дуба"
+      ],
+      "correct": [
+        "Шпон дуба"
+      ],
+      "source_quote": "Шпон дуба"
+    }
+  ],
+  "publishable": true,
+  "publishability_reasons": [],
+  "fallback_count": 0,
+  "assessment_review": {
+    "policy": "semantic-block-v1",
+    "blocks": 3,
+    "candidates": 9,
+    "accepted": 9,
+    "repaired": 1,
+    "dropped": 0,
+    "removed_distractors": 0,
+    "failures": [],
+    "block_outcomes": [
+      {
+        "block_id": "01a1e2df6f6268467a45",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "fact_ids": [
+          "fact-41b4b6ce352c2862",
+          "fact-ef0b7514b7e64f2f",
+          "fact-548aefd62a6a30a9",
+          "fact-11c47a619986175b",
+          "fact-603952f80b96ac92"
+        ],
+        "candidates": 3,
+        "accepted": 3,
+        "outcome": "accepted"
+      },
+      {
+        "block_id": "f34146e39e9130fc47cf",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "fact_ids": [
+          "fact-efcf4055597b0437",
+          "fact-2527778ca0c22931",
+          "fact-c12ac0965eab7910",
+          "fact-140da9aa1f54116b",
+          "fact-afeac7c5ff6cae11"
+        ],
+        "candidates": 3,
+        "accepted": 3,
+        "outcome": "accepted"
+      },
+      {
+        "block_id": "1588666101628deb1b75",
+        "lesson_id": "lesson-e7aec1149914bd6e",
+        "fact_ids": [
+          "fact-e7222fc26f84962d",
+          "fact-f2ee15e904d77f8b",
+          "fact-3d93f9ce0bddf71d",
+          "fact-4bed2ea6d3e3bca4",
+          "fact-3c0809f4c992a1d6"
+        ],
+        "candidates": 3,
+        "accepted": 3,
+        "outcome": "accepted"
+      }
+    ],
+    "axis_outcomes": [
+      {
+        "axis_id": "axis-6df966777d0d829a8464",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "primary_fact_id": "fact-41b4b6ce352c2862",
+        "evidence_fact_ids": [
+          "fact-41b4b6ce352c2862"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-202625e6e248d40215a0",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "primary_fact_id": "fact-ef0b7514b7e64f2f",
+        "evidence_fact_ids": [
+          "fact-ef0b7514b7e64f2f"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-6c7c4ca5abe86e87d8ee",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "primary_fact_id": "fact-548aefd62a6a30a9",
+        "evidence_fact_ids": [
+          "fact-548aefd62a6a30a9"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-30bc6de36302dfda9201",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "primary_fact_id": "fact-11c47a619986175b",
+        "evidence_fact_ids": [
+          "fact-11c47a619986175b"
+        ],
+        "state": "omitted",
+        "reason": "assessment_density_limit",
+        "attempt_counts": {
+          "authored": 0,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-39233450babdc8caf7b1",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "primary_fact_id": "fact-603952f80b96ac92",
+        "evidence_fact_ids": [
+          "fact-603952f80b96ac92"
+        ],
+        "state": "omitted",
+        "reason": "assessment_density_limit",
+        "attempt_counts": {
+          "authored": 0,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-3372037c28b2e434155f",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "primary_fact_id": "fact-efcf4055597b0437",
+        "evidence_fact_ids": [
+          "fact-efcf4055597b0437"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-213b91c535a611e44a73",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "primary_fact_id": "fact-2527778ca0c22931",
+        "evidence_fact_ids": [
+          "fact-2527778ca0c22931"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-195bb189b41a8539f09b",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "primary_fact_id": "fact-c12ac0965eab7910",
+        "evidence_fact_ids": [
+          "fact-c12ac0965eab7910"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-173c374639287286b7e0",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "primary_fact_id": "fact-140da9aa1f54116b",
+        "evidence_fact_ids": [
+          "fact-140da9aa1f54116b"
+        ],
+        "state": "omitted",
+        "reason": "assessment_density_limit",
+        "attempt_counts": {
+          "authored": 0,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-d693c22ba51b550de84f",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "primary_fact_id": "fact-afeac7c5ff6cae11",
+        "evidence_fact_ids": [
+          "fact-afeac7c5ff6cae11"
+        ],
+        "state": "omitted",
+        "reason": "assessment_density_limit",
+        "attempt_counts": {
+          "authored": 0,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-1ec0dee37ae51f4ad7d7",
+        "lesson_id": "lesson-e7aec1149914bd6e",
+        "primary_fact_id": "fact-e7222fc26f84962d",
+        "evidence_fact_ids": [
+          "fact-e7222fc26f84962d"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-5866c84473e703d9fc63",
+        "lesson_id": "lesson-e7aec1149914bd6e",
+        "primary_fact_id": "fact-f2ee15e904d77f8b",
+        "evidence_fact_ids": [
+          "fact-f2ee15e904d77f8b"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-69424da6cedda5c43348",
+        "lesson_id": "lesson-e7aec1149914bd6e",
+        "primary_fact_id": "fact-3d93f9ce0bddf71d",
+        "evidence_fact_ids": [
+          "fact-3d93f9ce0bddf71d"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 1,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-5813a0b8bc5abb740920",
+        "lesson_id": "lesson-e7aec1149914bd6e",
+        "primary_fact_id": "fact-4bed2ea6d3e3bca4",
+        "evidence_fact_ids": [
+          "fact-4bed2ea6d3e3bca4"
+        ],
+        "state": "omitted",
+        "reason": "assessment_density_limit",
+        "attempt_counts": {
+          "authored": 0,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-c046efb66561e3a3ff5d",
+        "lesson_id": "lesson-e7aec1149914bd6e",
+        "primary_fact_id": "fact-3c0809f4c992a1d6",
+        "evidence_fact_ids": [
+          "fact-3c0809f4c992a1d6"
+        ],
+        "state": "omitted",
+        "reason": "assessment_density_limit",
+        "attempt_counts": {
+          "authored": 0,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      }
+    ],
+    "derived_axes": 15,
+    "requested_axes": 9,
+    "authored_axes": 9,
+    "attempt_counts": {
+      "authored": 9,
+      "deterministic_repair": 0,
+      "model_repair": 1,
+      "replacement": 0
+    },
+    "questions_per_lesson": {
+      "lesson-9a78de539a1f3fbe": 3,
+      "lesson-aa4090e4e976bb54": 3,
+      "lesson-e7aec1149914bd6e": 3
+    },
+    "unassessed_lesson_ids": [],
+    "coverage": {
+      "policy": "source-topic-coverage-v2",
+      "requires_review": false,
+      "audit_incomplete": false,
+      "required_topic_count": 3,
+      "covered_topic_count": 3,
+      "missing_topic_ids": [],
+      "missing_fact_ids": []
+    },
+    "retained_count": 9,
+    "omitted_count": 6,
+    "unassessable_count": 0,
+    "uncovered_count": 0,
+    "contract_coverage": {
+      "policy": "assessment-contract-v1",
+      "assessable_contract_count": 15,
+      "classified_contract_count": 15,
+      "retained_contract_count": 9,
+      "omitted_contract_count": 6,
+      "unassessable_source_count": 0,
+      "uncovered_contract_count": 0,
+      "audit_incomplete": false
+    },
+    "terminal_status": "completed_with_warnings"
+  }
+}

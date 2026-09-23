@@ -338,7 +338,10 @@ async def main() -> int:
     case = next((item for item in cases if item["id"] == args.case), None)
     if case is None:
         parser.error("unknown synthetic corpus case")
-    if args.convert_fixture and case["id"] not in {"structured_policy", "spreadsheet_primary_auxiliary"}:
+    if args.convert_fixture and case["id"] not in {
+        "structured_policy", "spreadsheet_primary_auxiliary",
+        "expanded_policy", "expanded_spreadsheet_primary_auxiliary",
+    }:
         parser.error("conversion fixture is available only for PDF and XLSX cases")
     conversion_started = perf_counter()
     doc_id = f"synthetic-{case['id']}"
@@ -346,6 +349,8 @@ async def main() -> int:
         fixture_name = {
             "structured_policy": "structured_policy.pdf",
             "spreadsheet_primary_auxiliary": "collections.xlsx",
+            "expanded_policy": "expanded_policy.pdf",
+            "expanded_spreadsheet_primary_auxiliary": "expanded_collections.xlsx",
         }[case["id"]]
         fixture = repo / "apps/api/tests/fixtures/course_generation_backward" / fixture_name
         if not fixture.is_file():

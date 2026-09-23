@@ -350,6 +350,54 @@ def test_realizer_restores_omitted_sentence_from_a_cited_multi_sentence_fact() -
     assert blocks[0].text == fact.value
 
 
+def test_realizer_does_not_repeat_rule_when_restoring_after_paraphrase() -> None:
+    fact = SourceFact(
+        fact_id="fact-unloading",
+        subject="Приёмка товара",
+        attribute="сверка документов",
+        value=(
+            "До разгрузки сотрудник сверяет номер заказа с номером накладной. "
+            "Если номера различаются, разгрузку не начинают и сообщают руководителю смены. "
+            "Исправленную накладную получают до разгрузки."
+        ),
+        source_locator="doc_id=policy;section=1;part=1",
+    )
+    base = LessonDraft(
+        lesson_id="lesson-unloading", module_title="Приёмка", title="Сверка документов",
+        objective="Применять порядок сверки", content="", fact_ids=(fact.fact_id,),
+        supporting_fact_ids=(), duration_minutes=2,
+    )
+    payload = {"blocks": [
+        {
+            "heading": "Сверка до разгрузки",
+            "text": "Перед началом разгрузки сотрудник обязан сверить номер заказа с номером накладной.",
+            "fact_ids": [fact.fact_id],
+        },
+        {
+            "heading": "Действия при расхождении номеров",
+            "text": (
+                "Если номер заказа и номер накладной не совпадают, разгрузку не начинают. "
+                "Сотрудник сообщает о расхождении руководителю смены и получает "
+                "исправленную накладную до разгрузки."
+            ),
+            "fact_ids": [fact.fact_id],
+        },
+    ]}
+
+    lesson, _questions, _blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload,
+        base_lesson=base,
+        plan_fact_ids={fact.fact_id},
+        facts_by_id={fact.fact_id: fact},
+        seeds=[],
+    )
+
+    assert lesson.content.count("разгрузку не начинают") == 1
+    assert "сообщают руководителю смены" in lesson.content
+    assert "Исправленную накладную получают до разгрузки" in lesson.content
+    assert lesson.content.count("сверяет номер заказа") == 1
+
+
 def test_realizer_deduplicates_identical_blocks_for_the_same_fact() -> None:
     fact = SourceFact(
         fact_id="fact-first-response",
