@@ -1,0 +1,266 @@
+{
+  "status": "completed",
+  "case": "structured_policy",
+  "calls": 8,
+  "converter_engine": "markitdown",
+  "conversion_seconds": 0.712,
+  "timings": [
+    {
+      "stage": "evidence_plan",
+      "seconds": 0.004236999957356602
+    },
+    {
+      "stage": "embeddings",
+      "seconds": 1.839996548369527e-05
+    },
+    {
+      "stage": "realization",
+      "seconds": 9.660216099990066
+    },
+    {
+      "stage": "assessment",
+      "seconds": 72.63356720004231
+    }
+  ],
+  "aggregate_reserved_usd": 0.55739,
+  "provider_failures": [
+    "JSONDecodeError"
+  ],
+  "call_details": [
+    {
+      "task": "lesson",
+      "finish_reason": "stop",
+      "content_chars": 411,
+      "completion_tokens": 1134,
+      "peak_price_usage_usd": 0.001543
+    },
+    {
+      "task": "lesson",
+      "finish_reason": "stop",
+      "content_chars": 831,
+      "completion_tokens": 758,
+      "peak_price_usage_usd": 0.00112
+    },
+    {
+      "task": "assessment_generate",
+      "finish_reason": "stop",
+      "content_chars": 432,
+      "completion_tokens": 613,
+      "peak_price_usage_usd": 0.001058
+    },
+    {
+      "task": "assessment_review",
+      "finish_reason": "stop",
+      "content_chars": 701,
+      "completion_tokens": 1561,
+      "peak_price_usage_usd": 0.00223
+    },
+    {
+      "task": "assessment_repair",
+      "finish_reason": "stop",
+      "content_chars": 460,
+      "completion_tokens": 700
+    },
+    {
+      "task": "assessment_generate",
+      "finish_reason": "stop",
+      "content_chars": 566,
+      "completion_tokens": 2100,
+      "peak_price_usage_usd": 0.002881
+    },
+    {
+      "task": "assessment_review",
+      "finish_reason": "stop",
+      "content_chars": 1387,
+      "completion_tokens": 3922,
+      "peak_price_usage_usd": 0.005123
+    },
+    {
+      "task": "assessment_constraints",
+      "finish_reason": "stop",
+      "content_chars": 1625,
+      "completion_tokens": 5422,
+      "peak_price_usage_usd": 0.006853
+    }
+  ],
+  "lessons": [
+    {
+      "title": "Проверка документов при разгрузке",
+      "content": "### Сверка номера накладной с номером заказа\n\nПеред разгрузкой сотрудник сверяет номер накладной с номером заказа. Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены."
+    },
+    {
+      "title": "Осмотр упаковки и фиксация повреждений",
+      "content": "### Осмотр упаковки после сверки документов\n\nПосле сверки документов сотрудник осматривает упаковку.\n\n### Фиксация повреждений в акте приёмки\n\nЕсли при осмотре обнаружено повреждение упаковки, его фиксируют в акте приёмки."
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "Какое действие сотрудник выполняет после сверки документов?",
+      "options": [
+        "После сверки документов сотрудник осматривает упаковку.",
+        "Повторно сверяет документы, а осмотр упаковки откладывает.",
+        "Осматривает упаковку до сверки документов.",
+        "Сразу подписывает накладную, не осматривая упаковку."
+      ],
+      "correct": [
+        "После сверки документов сотрудник осматривает упаковку."
+      ],
+      "source_quote": "После сверки документов сотрудник осматривает упаковку."
+    },
+    {
+      "prompt": "Как нужно зафиксировать повреждение упаковки?",
+      "options": [
+        "В накладной до её подписания.",
+        "Устно сообщить о повреждении до подписания накладной, не оформляя акт.",
+        "Повреждение упаковки фиксируют в акте приёмки до подписания накладной.",
+        "В акте приёмки после подписания накладной."
+      ],
+      "correct": [
+        "Повреждение упаковки фиксируют в акте приёмки до подписания накладной."
+      ],
+      "source_quote": "Повреждение упаковки фиксируют в акте приёмки до подписания накладной."
+    }
+  ],
+  "publishable": false,
+  "publishability_reasons": [
+    "assessment_coverage_incomplete"
+  ],
+  "fallback_count": 0,
+  "assessment_review": {
+    "policy": "semantic-block-v1",
+    "blocks": 2,
+    "candidates": 3,
+    "accepted": 2,
+    "repaired": 0,
+    "dropped": 1,
+    "removed_distractors": 0,
+    "failures": [
+      {
+        "block_id": "89638082e2b39df34d8e",
+        "stage": "assessment_repair",
+        "reason": "assessment_provider_or_validation_unavailable",
+        "axis_ids": [
+          "axis-2557abe11e2030209398"
+        ]
+      }
+    ],
+    "block_outcomes": [
+      {
+        "block_id": "89638082e2b39df34d8e",
+        "lesson_id": "lesson-967dd6e4e95c1030",
+        "fact_ids": [
+          "fact-01d3254682d1b0dd"
+        ],
+        "candidates": 1,
+        "accepted": 0,
+        "outcome": "unavailable"
+      },
+      {
+        "block_id": "df54933f931ee9888b34",
+        "lesson_id": "lesson-ea4bf1ba54540b1e",
+        "fact_ids": [
+          "fact-5f39962b971fe5a4",
+          "fact-1f1437d5f0c645bd"
+        ],
+        "candidates": 2,
+        "accepted": 2,
+        "outcome": "accepted"
+      }
+    ],
+    "axis_outcomes": [
+      {
+        "axis_id": "axis-2557abe11e2030209398",
+        "lesson_id": "lesson-967dd6e4e95c1030",
+        "primary_fact_id": "fact-01d3254682d1b0dd",
+        "evidence_fact_ids": [
+          "fact-01d3254682d1b0dd"
+        ],
+        "state": "uncovered",
+        "reason": "assessment_provider_or_validation_unavailable",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 1,
+          "replacement": 0
+        },
+        "failure_kind": "provider_or_contract"
+      },
+      {
+        "axis_id": "axis-2ef1a3c934e6c5977fef",
+        "lesson_id": "lesson-ea4bf1ba54540b1e",
+        "primary_fact_id": "fact-5f39962b971fe5a4",
+        "evidence_fact_ids": [
+          "fact-5f39962b971fe5a4"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-b94e1fbc91706be38aaf",
+        "lesson_id": "lesson-ea4bf1ba54540b1e",
+        "primary_fact_id": "fact-1f1437d5f0c645bd",
+        "evidence_fact_ids": [
+          "fact-1f1437d5f0c645bd"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      }
+    ],
+    "derived_axes": 3,
+    "requested_axes": 3,
+    "authored_axes": 3,
+    "attempt_counts": {
+      "authored": 3,
+      "deterministic_repair": 0,
+      "model_repair": 1,
+      "replacement": 0
+    },
+    "questions_per_lesson": {
+      "lesson-967dd6e4e95c1030": 0,
+      "lesson-ea4bf1ba54540b1e": 2
+    },
+    "unassessed_lesson_ids": [
+      "lesson-967dd6e4e95c1030"
+    ],
+    "coverage": {
+      "policy": "source-topic-coverage-v2",
+      "requires_review": true,
+      "audit_incomplete": false,
+      "required_topic_count": 2,
+      "covered_topic_count": 1,
+      "missing_topic_ids": [
+        "3c849f22bb9f06195e6b"
+      ],
+      "missing_fact_ids": [
+        "fact-01d3254682d1b0dd"
+      ]
+    },
+    "retained_count": 2,
+    "omitted_count": 0,
+    "unassessable_count": 0,
+    "uncovered_count": 1,
+    "contract_coverage": {
+      "policy": "assessment-contract-v1",
+      "assessable_contract_count": 3,
+      "classified_contract_count": 2,
+      "retained_contract_count": 2,
+      "omitted_contract_count": 0,
+      "unassessable_source_count": 0,
+      "uncovered_contract_count": 1,
+      "audit_incomplete": true
+    },
+    "terminal_status": "review_required"
+  }
+}

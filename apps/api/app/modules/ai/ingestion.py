@@ -270,7 +270,9 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
     }
 
 
-_ORDINAL_HEADING_RE = re.compile(r"^#*\s*\d+[.)]\s+(?P<body>.+?)\s*$")
+_ORDINAL_HEADING_RE = re.compile(
+    r"^#*\s*(?P<number>\d+(?:\.\d+)+(?:[.)])?|\d+[.)])\s+(?P<body>.+?)\s*$"
+)
 _RUSSIAN_INFINITIVE_SUFFIXES = (
     "ть",
     "ться",
@@ -352,6 +354,8 @@ def is_sentence_like_ordinal_heading(value: str) -> bool:
         return False
 
     if words[0].endswith(_RUSSIAN_INFINITIVE_SUFFIXES):
+        return True
+    if words[0].endswith(("йте", "ьте", "ите")):
         return True
     if (
         words[0] in _RUSSIAN_ACTION_PREFIXES or body.endswith((".", "!", "?", ";"))
@@ -437,14 +441,31 @@ class DocumentChunker:
             sentence_like_ordinal_heading = is_sentence_like_ordinal_heading(para)
             if sentence_like_ordinal_heading:
                 para = para.lstrip("#").lstrip()
+            # The production PDF converter can return plain text with nominal
+            # numbered headings rather than Markdown headings. Preserve those
+            # section boundaries; action-list sentences remain body evidence.
+            ordinal_match = _ORDINAL_HEADING_RE.match(para)
+            promoted_ordinal = bool(
+                not sentence_like_ordinal_heading
+                and not para.startswith("#")
+                and "\n" not in para
+                and len(para) <= 120
+                and ordinal_match
+                and (
+                    not re.search(r"\d\.\d", ordinal_match.group("number"))
+                    or ordinal_match.group("body")[:1].isupper()
+                )
+            )
+            if promoted_ordinal:
+                para = "# " + para
             if para.startswith("#") and not sentence_like_ordinal_heading:
                 # A heading belongs to the content that follows it. Flush the
                 # previous section before changing metadata so its final chunk
                 # cannot be relabelled. Worksheet boundaries are hard source
                 # boundaries: do not carry overlap from one sheet into another.
-                if current_chunk.strip():
+                if current_chunk.strip() and (current_headings or not promoted_ordinal):
                     current_chunk = emit_current()
-                    if para.startswith("# [Worksheet] "):
+                    if para.startswith("# [Worksheet] ") or promoted_ordinal:
                         current_chunk = ""
                 level = len(para.split(" ")[0])
                 title = para.lstrip("#").strip()

@@ -46,7 +46,12 @@ from .models import (
     StageTiming,
 )
 from .provider_engine import ProviderBackedEvidenceEngine, _normalize
-from .provider_models import GroundedBlock, ProviderBackedResult, RetrievalMeasurement
+from .provider_models import (
+    GroundedBlock,
+    ProviderBackedResult,
+    PublishabilityReport,
+    RetrievalMeasurement,
+)
 from .providers import EVIDENCE_REALIZER_SYSTEM_PROMPT
 from .quality import (
     EVIDENCE_QUALITY_POLICY_VERSION,
@@ -100,6 +105,32 @@ class GenerationArtifacts:
     content: CourseContent
     assessment: CourseAssessment
     diagnostics: dict[str, Any]
+
+
+def _finalize_assessment_publishability(
+    report: PublishabilityReport, *, question_count: int, audit: dict[str, Any],
+) -> PublishabilityReport:
+    """Do not label a course ready when an assessable block lost every question."""
+    if question_count == 0:
+        return replace(report, publishable=False, reasons=("assessment_no_valid_questions",))
+    coverage = audit.get("coverage")
+    outcomes = audit.get("block_outcomes")
+    if not isinstance(coverage, dict) or not isinstance(outcomes, tuple | list):
+        return replace(report, publishable=False, reasons=("assessment_audit_incomplete",))
+    if coverage.get("requires_review"):
+        return replace(report, publishable=False, reasons=("assessment_coverage_incomplete",))
+    if any(
+        isinstance(outcome, dict)
+        and isinstance(outcome.get("candidates"), int)
+        and outcome["candidates"] > 0
+        and outcome.get("accepted", 0) == 0
+        for outcome in outcomes
+    ):
+        return replace(
+            report, publishable=False,
+            reasons=("assessment_assessable_block_unassessed",),
+        )
+    return report
 
 
 def _slug(value: str) -> str:
@@ -213,6 +244,13 @@ def _narrative_fact_metadata(value: str) -> dict[str, float | str]:
 
 def _split_narrative_chunk(text: str) -> list[str]:
     cleaned = re.sub(r"(?m)^#{1,6}\s+.*$", "", text)
+    # MarkItDown can insert a blank paragraph break inside one printed line.
+    # Rejoin only an unpunctuated fragment followed by a lowercase continuation;
+    # true paragraph endings and uncertain uppercase starts remain separate.
+    cleaned = re.sub(
+        r"(?<=[А-Яа-яЁёA-Za-z0-9])\n\s*\n(?=[а-яёa-z])",
+        " ", cleaned,
+    )
     cleaned = re.sub(
         r"(?is)^\s*.{0,160}\bутвержден[оа]?\b.{0,320}?"
         r"\b(?:правила|положение|инструкция|регламент)\b[^\n]*\n+",
@@ -1076,14 +1114,9 @@ async def generate_evidence_course(
     )
     if not publishability.publishable:
         raise ValueError("evidence_publishability_failed:" + ",".join(publishability.reasons))
-    if not realized_questions:
-        # Keep usable lessons, but never label an empty assessment publishable.
-        # The pipeline persists this as a review-required saved draft.
-        publishability = replace(publishability, publishable=False,
-                                 reasons=("assessment_no_valid_questions",))
-    elif reviewed.audit.get("coverage", {}).get("requires_review"):
-        publishability = replace(publishability, publishable=False,
-                                 reasons=("assessment_coverage_incomplete",))
+    publishability = _finalize_assessment_publishability(
+        publishability, question_count=len(realized_questions), audit=reviewed.audit,
+    )
     await _checkpoint(cancellation_callback)
     await _progress(progress_callback, "quality", 1, 1)
     result = ProviderBackedResult(

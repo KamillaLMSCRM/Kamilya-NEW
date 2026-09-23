@@ -15,6 +15,9 @@ from enum import StrEnum
 from typing import Literal, Protocol
 
 _WORKSHEET_PREFIX = "[Worksheet] "
+_NUMBERED_SECTION_HEADING_RE = re.compile(
+    r"^(?:\d{1,3}(?:\.\d+)+(?:[.)])?|\d{1,3}[.)])\s+\S+"
+)
 _TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
 _TABLE_SEPARATOR_RE = re.compile(r"^\|?(?:\s*:?-{3,}:?\s*\|)+\s*$")
 _REFERENCE_MARKERS = frozenset(
@@ -184,6 +187,8 @@ def _section_name(document: _Document, chunk: _Chunk) -> str:
     for heading in reversed(chunk.headings):
         if heading.startswith(_WORKSHEET_PREFIX):
             return heading.removeprefix(_WORKSHEET_PREFIX).strip() or document.title
+        if _NUMBERED_SECTION_HEADING_RE.match(heading.strip()):
+            return heading.strip()
     return document.title.strip() or "Document"
 
 
@@ -290,6 +295,15 @@ def build_document_passport(corpus: _Corpus) -> DocumentPassport:
                 primary_signals >= reference_signals
                 or (strong_primary_signals >= 1 and primary_signals + strong_primary_signals >= reference_signals)
             ) and primary_signals >= 1:
+                roles.append(SectionRole.PRIMARY)
+            elif (
+                reference_signals == 0
+                and _NUMBERED_SECTION_HEADING_RE.match(section.name)
+                and section.distinct_rows >= 1
+                and section.chars >= 60
+            ):
+                # Substantive, explicitly headed prose is a teachable section
+                # even when its vocabulary has no policy/course marker.
                 roles.append(SectionRole.PRIMARY)
             else:
                 roles.append(SectionRole.UNKNOWN)

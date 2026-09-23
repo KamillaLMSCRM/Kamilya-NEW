@@ -5,6 +5,89 @@ from app.modules.ai.evidence_engine.provider_engine import ProviderBackedEvidenc
 from app.modules.ai.evidence_engine.quality import is_generic_question
 
 
+def _short_catalog_lesson():
+    facts = {
+        "material": SourceFact(
+            fact_id="material", subject="Север", attribute="Материал фасада",
+            value="МДФ", source_locator="sheet=Коллекции;row=3",
+        ),
+        "purpose": SourceFact(
+            fact_id="purpose", subject="Север", attribute="Назначение",
+            value="Для прихожей", source_locator="sheet=Коллекции;row=2",
+        ),
+    }
+    lesson = LessonDraft(
+        lesson_id="catalog-lesson", module_title="Север", title="Коллекция Север",
+        objective="Различать характеристики", content="",
+        fact_ids=("material", "purpose"), supporting_fact_ids=(), duration_minutes=2,
+    )
+    return facts, lesson
+
+
+def test_realizer_drops_unsupported_advice_without_repeating_already_covered_short_facts() -> None:
+    facts, base = _short_catalog_lesson()
+    payload = {
+        "title": base.title, "objective": base.objective,
+        "blocks": [
+            {"heading": "Подтверждённые характеристики",
+             "text": "Материал фасада — МДФ. Назначение — для прихожей.",
+             "fact_ids": ["material", "purpose"]},
+            {"heading": "Как применять", "text": "Рекомендуйте клиенту быструю покупку.",
+             "fact_ids": ["material", "purpose"]},
+        ],
+        "questions": [],
+    }
+    lesson, _questions, blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload, base_lesson=base, plan_fact_ids=set(base.fact_ids), facts_by_id=facts, seeds=[],
+    )
+    assert len(blocks) == 1
+    assert "Как применять" not in lesson.content
+    assert "МДФ Для прихожей" not in lesson.content
+
+
+def test_realizer_replaces_only_unsupported_blocks_with_separate_labeled_facts() -> None:
+    facts, base = _short_catalog_lesson()
+    payload = {
+        "title": base.title, "objective": base.objective,
+        "blocks": [{"heading": "Советы", "text": "Рекомендуйте клиенту быструю покупку.",
+                    "fact_ids": ["material", "purpose"]}],
+        "questions": [],
+    }
+    lesson, _questions, blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload, base_lesson=base, plan_fact_ids=set(base.fact_ids), facts_by_id=facts, seeds=[],
+    )
+    assert len(blocks) == 2
+    assert "### Материал фасада" in lesson.content
+    assert "### Назначение" in lesson.content
+    assert "МДФ Для прихожей" not in lesson.content
+
+
+def test_generic_fallback_heading_uses_source_words_not_internal_label() -> None:
+    fact = SourceFact(
+        fact_id="inspection", subject="Осмотр товара", attribute="положение",
+        value="После сверки документов сотрудник осматривает упаковку.",
+        source_locator="section=2;fact=1",
+    )
+    base = LessonDraft(
+        lesson_id="inspection-lesson", module_title="Приёмка", title="Осмотр товара",
+        objective="Знать порядок осмотра", content="", fact_ids=(fact.fact_id,),
+        supporting_fact_ids=(), duration_minutes=2,
+    )
+    payload = {
+        "title": base.title, "objective": base.objective,
+        "blocks": [{"heading": "Советы", "text": "Покажите товар клиенту до приёмки.",
+                    "fact_ids": [fact.fact_id]}], "questions": [],
+    }
+    lesson, _questions, blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload, base_lesson=base, plan_fact_ids={fact.fact_id},
+        facts_by_id={fact.fact_id: fact}, seeds=[],
+    )
+    assert len(blocks) == 1
+    assert blocks[0].heading == "После сверки документов сотрудник осматривает"
+    assert "### положение" not in lesson.content
+    assert fact.value in lesson.content
+
+
 def test_realizer_preserves_valid_provider_content_and_fills_omitted_facts() -> None:
     facts = {
         "fact-1": SourceFact(

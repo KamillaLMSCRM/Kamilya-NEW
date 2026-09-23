@@ -233,11 +233,9 @@ def _grounded_teaching_text(text: str, facts: list[SourceFact]) -> str:
         # A validated clean omission notice is safer than re-exposing unreadable
         # source glyphs or guessing the missing value.
         return text
-    return " ".join(
-        _clean_output_text(neutralize_unprofessional_source_language(fact.value.strip()))
-        for fact in facts
-        if fact.value.strip()
-    )
+    # Do not splice several bare table-cell values into an unsupported model
+    # block. The caller can render uncovered facts separately with their labels.
+    return ""
 
 
 class ProviderBackedEvidenceEngine:
@@ -572,6 +570,10 @@ class ProviderBackedEvidenceEngine:
                 text,
                 [facts_by_id[fact_id] for fact_id in sorted(fact_ids)],
             )
+            if not text:
+                # Unsupported model prose contributes no coverage. Facts still
+                # absent after all blocks are rendered below with attribution.
+                continue
             fresh_sentences: list[str] = []
             for match in re.finditer(r"[^.!?]+(?:[.!?]+|$)", text):
                 sentence = match.group(0).strip()
@@ -590,6 +592,8 @@ class ProviderBackedEvidenceEngine:
                 fresh_sentences.append(sentence)
             text = _clean_output_text(" ".join(fresh_sentences))
             if not text:
+                # The same grounded sentence was already rendered by an
+                # earlier block; only this duplicate can claim coverage.
                 covered.update(fact_ids)
                 continue
             block_key = (
@@ -618,14 +622,18 @@ class ProviderBackedEvidenceEngine:
             if fact_id not in plan_fact_ids or fact_id in covered:
                 continue
             fact = facts_by_id[fact_id]
-            heading = neutralize_unprofessional_source_language(
-                " ".join(fact.attribute.strip().rstrip(".:").split())
-            ) or "Подтверждённые сведения"
             text = _clean_output_text(
                 neutralize_unprofessional_source_language(fact.value.strip())
             )
             if contains_ocr_artifact(text):
                 raise ValueError("fallback fact exposes unresolved OCR artifacts")
+            heading = neutralize_unprofessional_source_language(
+                " ".join(fact.attribute.strip().rstrip(".:").split())
+            ) or "Подтверждённые сведения"
+            if heading.casefold() == "положение":
+                # Conversion labels like "положение" are not useful headings.
+                # A short exact source prefix distinguishes adjacent rules.
+                heading = " ".join(text.split()[:5]).rstrip(".,;:") or fact.subject
             rendered.extend([f"### {heading}", "", text, ""])
             grounded_blocks.append(
                 GroundedBlock(

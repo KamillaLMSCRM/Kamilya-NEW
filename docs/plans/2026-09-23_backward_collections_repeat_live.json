@@ -1,0 +1,339 @@
+{
+  "status": "completed",
+  "case": "spreadsheet_primary_auxiliary",
+  "calls": 9,
+  "converter_engine": "openpyxl",
+  "conversion_seconds": 0.006,
+  "timings": [
+    {
+      "stage": "evidence_plan",
+      "seconds": 0.0017016000347211957
+    },
+    {
+      "stage": "embeddings",
+      "seconds": 1.4199991710484028e-05
+    },
+    {
+      "stage": "realization",
+      "seconds": 15.685313299996778
+    },
+    {
+      "stage": "assessment",
+      "seconds": 94.21765080001205
+    }
+  ],
+  "aggregate_reserved_usd": 0.89511,
+  "provider_failures": [],
+  "call_details": [
+    {
+      "task": "lesson",
+      "finish_reason": "stop",
+      "content_chars": 517,
+      "completion_tokens": 1982,
+      "peak_price_usage_usd": 0.002603
+    },
+    {
+      "task": "lesson",
+      "finish_reason": "stop",
+      "content_chars": 707,
+      "completion_tokens": 1130,
+      "peak_price_usage_usd": 0.001581
+    },
+    {
+      "task": "assessment_generate",
+      "finish_reason": "stop",
+      "content_chars": 427,
+      "completion_tokens": 1327,
+      "peak_price_usage_usd": 0.001959
+    },
+    {
+      "task": "assessment_review",
+      "finish_reason": "stop",
+      "content_chars": 1680,
+      "completion_tokens": 4084,
+      "peak_price_usage_usd": 0.005302
+    },
+    {
+      "task": "assessment_constraints",
+      "finish_reason": "stop",
+      "content_chars": 2052,
+      "completion_tokens": 2901,
+      "peak_price_usage_usd": 0.003819
+    },
+    {
+      "task": "assessment_repair",
+      "finish_reason": "stop",
+      "content_chars": 246,
+      "completion_tokens": 5105,
+      "peak_price_usage_usd": 0.006515
+    },
+    {
+      "task": "assessment_generate",
+      "finish_reason": "stop",
+      "content_chars": 495,
+      "completion_tokens": 1217,
+      "peak_price_usage_usd": 0.001829
+    },
+    {
+      "task": "assessment_review",
+      "finish_reason": "stop",
+      "content_chars": 1678,
+      "completion_tokens": 1753,
+      "peak_price_usage_usd": 0.00251
+    },
+    {
+      "task": "assessment_constraints",
+      "finish_reason": "stop",
+      "content_chars": 1941,
+      "completion_tokens": 1977,
+      "peak_price_usage_usd": 0.002714
+    }
+  ],
+  "lessons": [
+    {
+      "title": "Север: подтверждённые характеристики",
+      "content": "### Особенность\n\nПодтверждённая особенность «Север»: зеркало в комплекте.\n\n### Материал фасада\n\nМатериал фасада «Север» — МДФ.\n\n### Назначение\n\nНазначение «Север» — для прихожей."
+    },
+    {
+      "title": "Коллекция «Берег»: основные характеристики",
+      "content": "### Назначение\n\nДля спальни\n\n### Материал фасада\n\nУ коллекции «Берег» материал фасада — ЛДСП.\n\n### Особенность\n\nУ коллекции «Берег» есть особенность: ящики полного выдвижения."
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "Какой материал фасада у «Север»?",
+      "options": [
+        "ЛДСП",
+        "МДФ",
+        "Массив дерева"
+      ],
+      "correct": [
+        "МДФ"
+      ],
+      "source_quote": "МДФ"
+    },
+    {
+      "prompt": "Для какого помещения предназначен «Север»?",
+      "options": [
+        "Для спальни",
+        "Для прихожей",
+        "Для ванной"
+      ],
+      "correct": [
+        "Для прихожей"
+      ],
+      "source_quote": "Для прихожей"
+    },
+    {
+      "prompt": "Какая особенность характерна для коллекции «Берег»?",
+      "options": [
+        "Корпус только с полками, без ящиков",
+        "Ящики полного выдвижения",
+        "Ящики частичного выдвижения"
+      ],
+      "correct": [
+        "Ящики полного выдвижения"
+      ],
+      "source_quote": "Ящики полного выдвижения"
+    },
+    {
+      "prompt": "Какой материал фасада используется в коллекции «Берег»?",
+      "options": [
+        "ЛДСП",
+        "МДФ",
+        "Массив дерева"
+      ],
+      "correct": [
+        "ЛДСП"
+      ],
+      "source_quote": "ЛДСП"
+    },
+    {
+      "prompt": "Для какого помещения предназначена коллекция «Берег»?",
+      "options": [
+        "Для гостиной",
+        "Для спальни",
+        "Для кухни"
+      ],
+      "correct": [
+        "Для спальни"
+      ],
+      "source_quote": "Для спальни"
+    }
+  ],
+  "publishable": true,
+  "publishability_reasons": [],
+  "fallback_count": 0,
+  "assessment_review": {
+    "policy": "semantic-block-v1",
+    "blocks": 2,
+    "candidates": 6,
+    "accepted": 5,
+    "repaired": 0,
+    "dropped": 1,
+    "removed_distractors": 0,
+    "failures": [],
+    "block_outcomes": [
+      {
+        "block_id": "9751453703697c650629",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "fact_ids": [
+          "fact-ef0b7514b7e64f2f",
+          "fact-548aefd62a6a30a9",
+          "fact-603952f80b96ac92"
+        ],
+        "candidates": 3,
+        "accepted": 2,
+        "outcome": "accepted"
+      },
+      {
+        "block_id": "044d4670d14a654bb03a",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "fact_ids": [
+          "fact-2527778ca0c22931",
+          "fact-c12ac0965eab7910",
+          "fact-afeac7c5ff6cae11"
+        ],
+        "candidates": 3,
+        "accepted": 3,
+        "outcome": "accepted"
+      }
+    ],
+    "axis_outcomes": [
+      {
+        "axis_id": "axis-2a2e947e967cfffe7ddd",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "primary_fact_id": "fact-ef0b7514b7e64f2f",
+        "evidence_fact_ids": [
+          "fact-ef0b7514b7e64f2f"
+        ],
+        "state": "omitted",
+        "reason": "constraint_option_1:unrealistic_error;constraint_option_1:expected_contradicted_got_undetermined;constraint_option_2:unrealistic_error;constraint_option_2:expected_contradicted_got_undetermined;constraint_duplicate_misconceptions",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 1,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-cf75da41475a8da3adcf",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "primary_fact_id": "fact-548aefd62a6a30a9",
+        "evidence_fact_ids": [
+          "fact-548aefd62a6a30a9"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-d297abd361f51a40f078",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "primary_fact_id": "fact-603952f80b96ac92",
+        "evidence_fact_ids": [
+          "fact-603952f80b96ac92"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-f740e97b52799a3da17c",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "primary_fact_id": "fact-2527778ca0c22931",
+        "evidence_fact_ids": [
+          "fact-2527778ca0c22931"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-e08e9ac608b689dc5044",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "primary_fact_id": "fact-c12ac0965eab7910",
+        "evidence_fact_ids": [
+          "fact-c12ac0965eab7910"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-04f85d1f7c8b317101ee",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "primary_fact_id": "fact-afeac7c5ff6cae11",
+        "evidence_fact_ids": [
+          "fact-afeac7c5ff6cae11"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      }
+    ],
+    "derived_axes": 6,
+    "requested_axes": 6,
+    "authored_axes": 6,
+    "attempt_counts": {
+      "authored": 6,
+      "deterministic_repair": 0,
+      "model_repair": 1,
+      "replacement": 0
+    },
+    "questions_per_lesson": {
+      "lesson-9a78de539a1f3fbe": 2,
+      "lesson-aa4090e4e976bb54": 3
+    },
+    "unassessed_lesson_ids": [],
+    "coverage": {
+      "policy": "source-topic-coverage-v2",
+      "requires_review": false,
+      "audit_incomplete": false,
+      "required_topic_count": 2,
+      "covered_topic_count": 2,
+      "missing_topic_ids": [],
+      "missing_fact_ids": []
+    },
+    "retained_count": 5,
+    "omitted_count": 1,
+    "unassessable_count": 0,
+    "uncovered_count": 0,
+    "contract_coverage": {
+      "policy": "assessment-contract-v1",
+      "assessable_contract_count": 6,
+      "classified_contract_count": 6,
+      "retained_contract_count": 5,
+      "omitted_contract_count": 1,
+      "unassessable_source_count": 0,
+      "uncovered_contract_count": 0,
+      "audit_incomplete": false
+    },
+    "terminal_status": "completed_with_warnings"
+  }
+}

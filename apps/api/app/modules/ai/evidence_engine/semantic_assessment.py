@@ -65,6 +65,12 @@ Use 3 options by default. Each wrong option must contradict this block, not mere
 add an unmentioned detail. If explicit confirmation is required, verbal explicit
 confirmation is NOT wrong unless this source prohibits it. "Not required" does
 NOT mean "forbidden". Do not invent these restrictions in the key or distractors.
+For a short before/after procedure, keep the SAME named action and objects:
+plausible errors reverse the stated order or omit an explicitly required step.
+For example, when damage must be recorded in an act before signing, "record it
+after signing" and "report it verbally instead of recording it in the act"
+are different errors. Do not add a driver, supplier, office, alternate document
+or other actor/location absent from this block just to reach three options.
 When asking what a response MUST include, list its mandatory contents; do not
 append 'without <optional item>'. Say '<item> is optional/not required' if needed.
 For an explicitly specified attribute (e.g. facade material), a mutually

@@ -16,6 +16,7 @@ from app.modules.ai.direct_source import (
     DirectSourceCorpus,
     DirectSourceDocument,
 )
+from app.modules.ai.document_passport import build_document_passport
 from app.modules.ai.evidence_engine.application import build_evidence_source
 from app.modules.ai.evidence_engine.assessment_axes import derive_assessment_axes
 from app.modules.ai.evidence_engine.engine import EvidenceCourseEngine
@@ -173,3 +174,101 @@ async def test_text_layer_pdf_conversion_retains_rules_and_section_order() -> No
     assert 0 < len(result.course.lessons) <= case["gold"]["max_lessons"]
     for phrase in case["gold"]["must_preserve"]:
         assert any(phrase in fact.value for fact in result.admitted_facts)
+
+
+def test_production_style_plaintext_pdf_sections_remain_separate() -> None:
+    # Remote MarkItDown returns numbered nominal headings without Markdown '#'.
+    # This is distinct from the pypdf local fallback used by the PDF fixture test.
+    markdown = (
+        "Приёмка товара\n\n"
+        "1. Проверка документов\n\n"
+        "Сотрудник сверяет номер накладной с номером заказа до разгрузки.\n\n"
+        "Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены.\n\n"
+        "2. Осмотр товара\n\n"
+        "После сверки документов сотрудник осматривает упаковку.\n\n"
+        "Повреждение упаковки фиксируют в акте приёмки до подписания накладной."
+    )
+    case = next(item for item in CORPUS["cases"] if item["id"] == "structured_policy")
+    rows = DocumentChunker().chunk_markdown(markdown, "pdf-plain", case["filename"])
+    assert len(rows) == 2
+    assert json.loads(rows[0]["metadata"]["headings"]) == ["1. Проверка документов"]
+    assert json.loads(rows[1]["metadata"]["headings"]) == ["2. Осмотр товара"]
+    assert "разгрузку" not in rows[1]["text"]
+    assert "упаковку" not in rows[0]["text"]
+    result = EvidenceCourseEngine().generate_from_document(
+        build_evidence_source(_converted_source(case, markdown)).document
+    )
+    assert len(result.course.lessons) == 2
+    assert all(
+        any(phrase in fact.value for fact in result.admitted_facts)
+        for phrase in case["gold"]["must_preserve"]
+    )
+
+
+def test_numbered_action_line_is_not_promoted_to_pdf_section() -> None:
+    markdown = (
+        "Порядок приёмки\n\n1. Сверьте номер накладной до разгрузки.\n\n"
+        "2. Сообщите о несовпадении руководителю смены."
+    )
+    rows = DocumentChunker().chunk_markdown(markdown, "actions", "actions.pdf")
+    assert len(rows) == 1
+    assert json.loads(rows[0]["metadata"]["headings"]) == []
+
+
+def test_two_short_numbered_rules_are_not_collapsed_to_one_lesson() -> None:
+    markdown = (
+        "1. Проверка допуска\n\n"
+        "Перед началом смены сотрудник проверяет действующий допуск.\n\n"
+        "2. Регистрация результата\n\n"
+        "После проверки сотрудник фиксирует результат в журнале допуска."
+    )
+    case = {"id": "two-short-rules", "title": "Порядок допуска", "filename": "rules.pdf"}
+    source = build_evidence_source(_converted_source(case, markdown)).document
+    result = EvidenceCourseEngine().generate_from_document(source)
+    assert len(result.course.lessons) == 2
+
+
+def test_nested_numbered_pdf_headings_keep_distinct_boundaries() -> None:
+    markdown = (
+        "1.1 Проверка номера заказа\n\n"
+        "Сотрудник проверяет номер заказа перед началом обработки.\n\n"
+        "1.2 Проверка упаковки\n\n"
+        "После этого сотрудник проверяет целостность упаковки."
+    )
+    rows = DocumentChunker().chunk_markdown(markdown, "nested", "nested.pdf")
+    assert [json.loads(row["metadata"]["headings"]) for row in rows] == [
+        ["1.1 Проверка номера заказа"], ["1.2 Проверка упаковки"]
+    ]
+    case = {"id": "nested-rules", "title": "Порядок проверки", "filename": "nested.pdf"}
+    corpus = _converted_source(case, markdown)
+    assert build_document_passport(corpus).primary_sections == (
+        "1.1 Проверка номера заказа", "1.2 Проверка упаковки"
+    )
+    source = build_evidence_source(corpus).document
+    assert len(EvidenceCourseEngine().generate_from_document(source).course.lessons) == 2
+
+
+def test_actual_remote_converter_text_preserves_wrapped_rule_and_sections() -> None:
+    fixture = (
+        Path(__file__).parents[1] / "fixtures" / "course_generation_backward"
+        / "structured_policy_markitdown.md"
+    )
+    markdown = fixture.read_text(encoding="utf-8")
+    case = next(item for item in CORPUS["cases"] if item["id"] == "structured_policy")
+    rows = DocumentChunker().chunk_markdown(markdown, "remote-capture", case["filename"])
+    assert len(rows) == 2
+    assert [json.loads(row["metadata"]["headings"]) for row in rows] == [
+        ["1. Проверка документов"], ["2. Осмотр товара"]
+    ]
+    result = EvidenceCourseEngine().generate_from_document(
+        build_evidence_source(_converted_source(case, markdown)).document
+    )
+    assert len(result.course.lessons) == 2
+    assert any(
+        "сообщают руководителю смены" in fact.value.replace("\n", " ")
+        for fact in result.admitted_facts
+    )
+    assert any(
+        "до подписания накладной" in fact.value.replace("\n", " ")
+        for fact in result.admitted_facts
+    )

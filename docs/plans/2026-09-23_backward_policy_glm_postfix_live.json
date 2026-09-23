@@ -1,0 +1,276 @@
+{
+  "status": "completed",
+  "case": "structured_policy",
+  "calls": 8,
+  "converter_engine": "markitdown",
+  "conversion_seconds": 0.397,
+  "timings": [
+    {
+      "stage": "evidence_plan",
+      "seconds": 0.003042600001208484
+    },
+    {
+      "stage": "embeddings",
+      "seconds": 1.4699995517730713e-05
+    },
+    {
+      "stage": "realization",
+      "seconds": 30.448114099970553
+    },
+    {
+      "stage": "assessment",
+      "seconds": 59.01757640001597
+    }
+  ],
+  "provider": "glm",
+  "glm_reasoning": "off",
+  "provider_failures": [],
+  "call_details": [
+    {
+      "task": "unknown",
+      "seconds": 15.72,
+      "finish_reason": "stop",
+      "content_chars": 1496,
+      "prompt_tokens": 536,
+      "completion_tokens": 408,
+      "raw_content_preview": "{\"title\":\"Проверка документов до разгрузки\",\"objective\":\"Применять правило сверки номера накладной с номером заказа до начала разгрузки и знать порядок действий при расхождении.\",\"blocks\":[{\"heading\":\"Сверка до начала разгрузки\",\"text\":\"До того как начнётся разгрузка, сотрудник сверяет номер накладной с номером заказа. Это обязательный шаг: сначала проверка, потом разгрузка. Сверка позволяет убедиться, что прибывший груз соответствует заказу, и не допустить разгрузки ошибочной поставки.\",\"fact_ids\":[\"fact-01d3254682d1b0dd\"]},{\"heading\":\"Действия при несовпадении номеров\",\"text\":\"Если номер накладной и номер заказа не совпадают, разгрузку не начинают. О расхождении сообщают руководителю смены, который принимает дальнейшее решение. Сотруднику не следует пытаться самостоятельно «согласовать» расхождение или продолжать работу — его задача: остановить разгрузку и доложить руководителю смены.\",\"fact_ids\":[\"fact-01d3254682d1b0dd\"]}],\"questions\":[{\"prompt\":\"Что вы делаете перед началом разгрузки, чтобы убедиться, что прибывший груз соответствует заказу?\",\"explanation\":\"До разгрузки сотрудник сверяет номер накладной с номером заказа. Только после совпадения номеров можно начинать разгрузку.\",\"fact_ids\":[\"fact-01d3254682d1b0dd\"]},{\"prompt\":\"Номер накладной не совпадает с номером заказа. Как вы поступаете?\",\"explanation\":\"При несовпадении номеров разгрузку не начинают и сообщают руководителю смены. Продолжать разгрузку в этой ситуации нельзя.\",\"fact_ids\":[\"fact-01d3254682d1b0dd\"]}]}"
+    },
+    {
+      "task": "unknown",
+      "seconds": 14.723,
+      "finish_reason": "stop",
+      "content_chars": 1413,
+      "prompt_tokens": 626,
+      "completion_tokens": 360,
+      "raw_content_preview": "{\"title\":\"Осмотр товара при приёмке\",\"objective\":\"Знать порядок осмотра товара при приёмке: когда осматривать упаковку и как фиксировать её повреждения.\",\"blocks\":[{\"heading\":\"Когда осматривать товар\",\"text\":\"Осмотр товара — обязательный шаг приёмки, который выполняется после сверки документов. Сначала вы проверяете сопроводительные документы, и только затем переходите к осмотру упаковки. Такой порядок помогает убедиться, что товар соответствует документам, прежде чем вы начнёте его принимать.\",\"fact_ids\":[\"fact-5f39962b971fe5a4\"]},{\"heading\":\"Как фиксировать повреждения упаковки\",\"text\":\"Если при осмотре вы обнаружили повреждение упаковки, его необходимо зафиксировать в акте приёмки. Важно сделать это до подписания накладной: после подписания подтвердить повреждение будет значительно сложнее. Поэтому осматривайте упаковку внимательно и не подписывайте накладную, пока все замечания не внесены в акт.\",\"fact_ids\":[\"fact-1f1437d5f0c645bd\"]}],\"questions\":[{\"prompt\":\"Вы сверили документы по поставке. Какое действие выполняется следующим при приёмке товара?\",\"explanation\":\"После сверки документов сотрудник осматривает упаковку товара.\",\"fact_ids\":[\"fact-5f39962b971fe5a4\"]},{\"prompt\":\"При осмотре вы заметили повреждение упаковки. Что нужно сделать до подписания накладной?\",\"explanation\":\"Повреждение упаковки фиксируют в акте приёмки до подписания накладной.\",\"fact_ids\":[\"fact-1f1437d5f0c645bd\"]}]}"
+    },
+    {
+      "task": "assessment_generate",
+      "seconds": 7.887,
+      "finish_reason": "stop",
+      "content_chars": 535,
+      "prompt_tokens": 1094,
+      "completion_tokens": 147,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_review",
+      "seconds": 5.303,
+      "finish_reason": "stop",
+      "content_chars": 700,
+      "prompt_tokens": 1133,
+      "completion_tokens": 183,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_constraints",
+      "seconds": 12.008,
+      "finish_reason": "stop",
+      "content_chars": 1438,
+      "prompt_tokens": 956,
+      "completion_tokens": 334,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_generate",
+      "seconds": 9.9,
+      "finish_reason": "stop",
+      "content_chars": 735,
+      "prompt_tokens": 1190,
+      "completion_tokens": 203,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_review",
+      "seconds": 8.915,
+      "finish_reason": "stop",
+      "content_chars": 1391,
+      "prompt_tokens": 1298,
+      "completion_tokens": 366,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_constraints",
+      "seconds": 14.992,
+      "finish_reason": "stop",
+      "content_chars": 2096,
+      "prompt_tokens": 1082,
+      "completion_tokens": 512,
+      "raw_content_preview": null
+    }
+  ],
+  "lessons": [
+    {
+      "title": "Проверка документов до разгрузки",
+      "content": "### Сверка до начала разгрузки\n\nДо того как начнётся разгрузка, сотрудник сверяет номер накладной с номером заказа. Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены.\n\n### Действия при несовпадении номеров\n\nЕсли номер накладной и номер заказа не совпадают, разгрузку не начинают."
+    },
+    {
+      "title": "Осмотр товара при приёмке",
+      "content": "### положение\n\nПосле сверки документов сотрудник осматривает упаковку.\n\n### положение\n\nПовреждение упаковки фиксируют в акте приёмки до подписания накладной."
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "Сотрудник сверил номер накладной с номером заказа и обнаружил, что они не совпадают. Что он должен сделать?",
+      "options": [
+        "Отложить сверку до конца разгрузки и сообщить о расхождении руководителю смены только при обнаружении брака в товаре",
+        "Начать разгрузку, так как товар уже доставлен, а расхождение номеров можно устранить после разгрузки",
+        "Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены.",
+        "Сверить номера ещё раз и, если расхождение подтвердится, самостоятельно исправить номер в накладной и продолжить приёмку"
+      ],
+      "correct": [
+        "Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены."
+      ],
+      "source_quote": "Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены."
+    },
+    {
+      "prompt": "Сотрудник принял партию товара и сверил сопроводительные документы. Что он должен сделать следующим шагом при приёмке?",
+      "options": [
+        "После сверки документов сотрудник осматривает упаковку.",
+        "Отложить осмотр упаковки до момента, когда товар понадобится на складе",
+        "Подписать накладную, не осматривая упаковку"
+      ],
+      "correct": [
+        "После сверки документов сотрудник осматривает упаковку."
+      ],
+      "source_quote": "После сверки документов сотрудник осматривает упаковку."
+    },
+    {
+      "prompt": "При осмотре товара сотрудник обнаружил повреждение упаковки. Как правильно поступить?",
+      "options": [
+        "Подписать накладную сразу, а повреждение записать в отдельный внутренний журнал",
+        "Зафиксировать повреждение в акте приёмки после подписания накладной",
+        "Сообщить о повреждении устно и не оформлять акт приёмки",
+        "Повреждение упаковки фиксируют в акте приёмки до подписания накладной."
+      ],
+      "correct": [
+        "Повреждение упаковки фиксируют в акте приёмки до подписания накладной."
+      ],
+      "source_quote": "Повреждение упаковки фиксируют в акте приёмки до подписания накладной."
+    }
+  ],
+  "publishable": true,
+  "publishability_reasons": [],
+  "fallback_count": 0,
+  "assessment_review": {
+    "policy": "semantic-block-v1",
+    "blocks": 2,
+    "candidates": 3,
+    "accepted": 3,
+    "repaired": 0,
+    "dropped": 0,
+    "removed_distractors": 1,
+    "failures": [],
+    "block_outcomes": [
+      {
+        "block_id": "89638082e2b39df34d8e",
+        "lesson_id": "lesson-967dd6e4e95c1030",
+        "fact_ids": [
+          "fact-01d3254682d1b0dd"
+        ],
+        "candidates": 1,
+        "accepted": 1,
+        "outcome": "accepted"
+      },
+      {
+        "block_id": "df54933f931ee9888b34",
+        "lesson_id": "lesson-ea4bf1ba54540b1e",
+        "fact_ids": [
+          "fact-5f39962b971fe5a4",
+          "fact-1f1437d5f0c645bd"
+        ],
+        "candidates": 2,
+        "accepted": 2,
+        "outcome": "accepted"
+      }
+    ],
+    "axis_outcomes": [
+      {
+        "axis_id": "axis-2557abe11e2030209398",
+        "lesson_id": "lesson-967dd6e4e95c1030",
+        "primary_fact_id": "fact-01d3254682d1b0dd",
+        "evidence_fact_ids": [
+          "fact-01d3254682d1b0dd"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-2ef1a3c934e6c5977fef",
+        "lesson_id": "lesson-ea4bf1ba54540b1e",
+        "primary_fact_id": "fact-5f39962b971fe5a4",
+        "evidence_fact_ids": [
+          "fact-5f39962b971fe5a4"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 1,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-b94e1fbc91706be38aaf",
+        "lesson_id": "lesson-ea4bf1ba54540b1e",
+        "primary_fact_id": "fact-1f1437d5f0c645bd",
+        "evidence_fact_ids": [
+          "fact-1f1437d5f0c645bd"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      }
+    ],
+    "derived_axes": 3,
+    "requested_axes": 3,
+    "authored_axes": 3,
+    "attempt_counts": {
+      "authored": 3,
+      "deterministic_repair": 1,
+      "model_repair": 0,
+      "replacement": 0
+    },
+    "questions_per_lesson": {
+      "lesson-967dd6e4e95c1030": 1,
+      "lesson-ea4bf1ba54540b1e": 2
+    },
+    "unassessed_lesson_ids": [],
+    "coverage": {
+      "policy": "source-topic-coverage-v2",
+      "requires_review": false,
+      "audit_incomplete": false,
+      "required_topic_count": 2,
+      "covered_topic_count": 2,
+      "missing_topic_ids": [],
+      "missing_fact_ids": []
+    },
+    "retained_count": 3,
+    "omitted_count": 0,
+    "unassessable_count": 0,
+    "uncovered_count": 0,
+    "contract_coverage": {
+      "policy": "assessment-contract-v1",
+      "assessable_contract_count": 3,
+      "classified_contract_count": 3,
+      "retained_contract_count": 3,
+      "omitted_contract_count": 0,
+      "unassessable_source_count": 0,
+      "uncovered_contract_count": 0,
+      "audit_incomplete": false
+    },
+    "terminal_status": "completed"
+  }
+}

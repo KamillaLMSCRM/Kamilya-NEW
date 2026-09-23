@@ -1,0 +1,157 @@
+{
+  "status": "completed",
+  "case": "structured_policy",
+  "calls": 4,
+  "converter_engine": "markitdown",
+  "conversion_seconds": 1.063,
+  "timings": [
+    {
+      "stage": "evidence_plan",
+      "seconds": 0.0025632999604567885
+    },
+    {
+      "stage": "embeddings",
+      "seconds": 1.3299984857439995e-05
+    },
+    {
+      "stage": "realization",
+      "seconds": 2.6824882000219077
+    },
+    {
+      "stage": "assessment",
+      "seconds": 52.01295750000281
+    }
+  ],
+  "aggregate_reserved_usd": 0.26995,
+  "provider_failures": [],
+  "call_details": [
+    {
+      "task": "lesson",
+      "finish_reason": "stop",
+      "content_chars": 377,
+      "completion_tokens": 348,
+      "peak_price_usage_usd": 0.00058
+    },
+    {
+      "task": "assessment_generate",
+      "finish_reason": "stop",
+      "content_chars": 236,
+      "completion_tokens": 834,
+      "peak_price_usage_usd": 0.001311
+    },
+    {
+      "task": "assessment_review",
+      "finish_reason": "stop",
+      "content_chars": 700,
+      "completion_tokens": 6554,
+      "peak_price_usage_usd": 0.008189
+    },
+    {
+      "task": "assessment_constraints",
+      "finish_reason": "stop",
+      "content_chars": 945,
+      "completion_tokens": 2910,
+      "peak_price_usage_usd": 0.003768
+    }
+  ],
+  "lessons": [
+    {
+      "title": "Осмотр упаковки после сверки документов",
+      "content": "### Последовательность действий\n\nПосле сверки документов сотрудник осматривает упаковку."
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "В какой момент сотрудник осматривает упаковку?",
+      "options": [
+        "До сверки документов",
+        "После сверки документов сотрудник осматривает упаковку.",
+        "Одновременно со сверкой документов"
+      ],
+      "correct": [
+        "После сверки документов сотрудник осматривает упаковку."
+      ],
+      "source_quote": "После сверки документов сотрудник осматривает упаковку."
+    }
+  ],
+  "publishable": true,
+  "publishability_reasons": [],
+  "fallback_count": 0,
+  "assessment_review": {
+    "policy": "semantic-block-v1",
+    "blocks": 1,
+    "candidates": 1,
+    "accepted": 1,
+    "repaired": 0,
+    "dropped": 0,
+    "removed_distractors": 1,
+    "failures": [],
+    "block_outcomes": [
+      {
+        "block_id": "117f6fc2fd314dac6778",
+        "lesson_id": "lesson-8dbf0356e68dc51b",
+        "fact_ids": [
+          "fact-5f39962b971fe5a4"
+        ],
+        "candidates": 1,
+        "accepted": 1,
+        "outcome": "accepted"
+      }
+    ],
+    "axis_outcomes": [
+      {
+        "axis_id": "axis-5d72af1b4b3a17395bcc",
+        "lesson_id": "lesson-8dbf0356e68dc51b",
+        "primary_fact_id": "fact-5f39962b971fe5a4",
+        "evidence_fact_ids": [
+          "fact-5f39962b971fe5a4"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 1,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      }
+    ],
+    "derived_axes": 1,
+    "requested_axes": 1,
+    "authored_axes": 1,
+    "attempt_counts": {
+      "authored": 1,
+      "deterministic_repair": 1,
+      "model_repair": 0,
+      "replacement": 0
+    },
+    "questions_per_lesson": {
+      "lesson-8dbf0356e68dc51b": 1
+    },
+    "unassessed_lesson_ids": [],
+    "coverage": {
+      "policy": "source-topic-coverage-v2",
+      "requires_review": false,
+      "audit_incomplete": false,
+      "required_topic_count": 1,
+      "covered_topic_count": 1,
+      "missing_topic_ids": [],
+      "missing_fact_ids": []
+    },
+    "retained_count": 1,
+    "omitted_count": 0,
+    "unassessable_count": 0,
+    "uncovered_count": 0,
+    "contract_coverage": {
+      "policy": "assessment-contract-v1",
+      "assessable_contract_count": 1,
+      "classified_contract_count": 1,
+      "retained_contract_count": 1,
+      "omitted_contract_count": 0,
+      "unassessable_source_count": 0,
+      "uncovered_contract_count": 0,
+      "audit_incomplete": false
+    },
+    "terminal_status": "completed"
+  }
+}

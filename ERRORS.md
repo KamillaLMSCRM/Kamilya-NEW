@@ -3831,3 +3831,90 @@ contract or establish a blocker.
   both tiny and multi-section documents, actual converter output, exact source
   roles, no-padding and no-invented-value assertions. Keep model probes under an
   explicit call/cost cap and distinguish harness failures from product defects.
+
+## AI-QUALITY-030 - Production PDF conversion silently removed a teachable section
+
+- Date: 2026-09-23. Isolated local candidate only; no DEV or production write.
+- Symptom: the real remote converter returned both numbered sections of a
+  synthetic PDF, but the course contained only the second section and was
+  marked publishable. The local pypdf test did not reproduce this route.
+- Cause: MarkItDown emitted nominal numbered headings without Markdown `#`, so
+  the chunker made one unheaded chunk. It also inserted blank lines inside
+  printed sentences; the evidence boundary correctly rejected those fragments
+  as incomplete. The passport did not identify numbered narrative sections.
+- Fix: recognize standalone nominal numbered headings while leaving action-list
+  sentences as body text; do not overlap facts across those hard boundaries;
+  join only unpunctuated, lowercase paragraph continuations; classify
+  substantive numbered sections independently. Freeze the actual synthetic
+  converter text as a regression fixture.
+- Verification: the same PDF through the canonical VM126 converter changed
+  from one lesson to two; source-boundary tests and the local evidence suite
+  pass. A successful model run is not proof of stable assessment quality.
+- Prevention: for each converter engine used in production, capture a bounded
+  synthetic source and assert source chunks, admitted facts, section roles and
+  lesson plan before testing model output. Treat `publishable=true` with a
+  missing source section as a defect, and never infer fidelity from local
+  fallback conversion alone.
+
+## AI-QUALITY-031 - Local LLM probe understated retry behavior and hid quiz variance
+
+- Date: 2026-09-23. Isolated local candidate only; no DEV or production write.
+- Symptom: one synthetic PDF run lost an otherwise assessable question after a
+  model JSON syntax error. Later independent runs varied from one to three
+  accepted questions for the same two lessons while all reported publishable.
+- Cause: the bounded probe adapter lacked the production client's single JSON
+  syntax correction and returned no typed parse-failure reason, so the
+  assessment retry policy could not run faithfully. Separately, short temporal
+  rules invited distractors with new actors/documents, which review removed.
+- Fix: make the test adapter reserve and count the correction request, preserve
+  typed failure reasons, and test it with a fake provider; narrow the assessment
+  author prompt to same-action order/omission errors without invented actors.
+- Verification: two independent post-change PDF probes retained three questions
+  across both lessons; Excel retained five source-relevant questions while
+  dropping one weak option. The full results and stage times are in the
+  backward-quality report. The paid probe is now closed in code.
+- Prevention: compare a local provider adapter against production retry/JSON
+  semantics before interpreting a failed live probe as a product defect.
+  Evaluate repeated outputs and the per-lesson axis ledger, not only a green
+  publishability bit. Avoid forcing question count when review rejects an item.
+
+## AI-QUALITY-032 - Local GLM default reasoning hid its viable test mode
+
+- Date: 2026-09-23. Isolated synthetic probe only; no DEV or production write.
+- Symptom: `/v1/models` and a tiny JSON call passed, but the first full PDF
+  probe gave no intermediate result for 15 minutes and was stopped.
+- Cause: this EXL3 deployment enables long reasoning by default. The test
+  client capped output at 8192 tokens, which can end before a final JSON answer.
+- Fix: the local-only adapter explicitly sends
+  `chat_template_kwargs.enable_thinking=false`, checks HTTP status, bounds
+  individual requests and total runtime, and logs per-call duration. The
+  paid DeepSeek test path remains closed.
+- Verification: the same PDF completed in 8 GLM calls with 2 lessons and 3
+  accepted questions; XLSX conversion and generation also completed. The
+  endpoint and exact model ID were read back before the calls.
+- Prevention: for every new local model, test a representative structured
+  response with its documented reasoning mode and time limit before running
+  a multi-step pipeline. A healthy `/models` or one tiny answer is insufficient.
+
+## AI-QUALITY-033 - Unsupported teaching prose became bare cells and hidden quiz loss
+
+- Date: 2026-09-23. Isolated local candidate only; no DEV or production write.
+- Symptom: the GLM Excel lesson contained `МДФ Для прихожей Зеркало в комплекте`
+  although the raw model response was coherent. Another run omitted every
+  question for one assessable lesson but still reported `publishable=true`.
+- Cause: the grounding filter correctly discarded unsupported sales advice,
+  then concatenated unrelated source values into the rejected block. The
+  publishability gate checked topic coverage but ignored an assessable block
+  whose candidates were all rejected as weak.
+- Fix: skip unsupported model blocks; render still-uncovered facts separately
+  with source labels and source-derived headings. Mark a result review-required
+  when a block with candidates has zero accepted questions, without making up
+  replacement questions or increasing a quota.
+- Verification: regression cases red then green; 221 focused tests and the
+  committed Ruff/mypy baseline passed. A later GLM Excel run produced 2 lessons
+  and 6 questions across both; a separate omission test confirmed the new
+  publishability reason. These are local tests, not a release gate.
+- Prevention: inspect both raw model output and rendered lessons; test the
+  postprocessor against short table cells and absent per-block assessment.
+  Never equate `publishable=true` with human-quality prose or complete learning
+  coverage without checking the assessment ledger.

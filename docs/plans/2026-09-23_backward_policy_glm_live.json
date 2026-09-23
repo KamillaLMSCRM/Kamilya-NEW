@@ -1,0 +1,260 @@
+{
+  "status": "completed",
+  "case": "structured_policy",
+  "calls": 8,
+  "converter_engine": "markitdown",
+  "conversion_seconds": 0.406,
+  "timings": [
+    {
+      "stage": "evidence_plan",
+      "seconds": 0.003340700000990182
+    },
+    {
+      "stage": "embeddings",
+      "seconds": 1.7799960914999247e-05
+    },
+    {
+      "stage": "realization",
+      "seconds": 30.317405899986625
+    },
+    {
+      "stage": "assessment",
+      "seconds": 57.22747500002151
+    }
+  ],
+  "provider": "glm",
+  "provider_failures": [],
+  "call_details": [
+    {
+      "seconds": 14.303,
+      "finish_reason": "stop",
+      "content_chars": 1366,
+      "prompt_tokens": 536,
+      "completion_tokens": 370
+    },
+    {
+      "seconds": 16.009,
+      "finish_reason": "stop",
+      "content_chars": 1477,
+      "prompt_tokens": 626,
+      "completion_tokens": 372
+    },
+    {
+      "seconds": 6.605,
+      "finish_reason": "stop",
+      "content_chars": 451,
+      "prompt_tokens": 1094,
+      "completion_tokens": 131
+    },
+    {
+      "seconds": 6.012,
+      "finish_reason": "stop",
+      "content_chars": 759,
+      "prompt_tokens": 1117,
+      "completion_tokens": 218
+    },
+    {
+      "seconds": 11.347,
+      "finish_reason": "stop",
+      "content_chars": 1426,
+      "prompt_tokens": 940,
+      "completion_tokens": 347
+    },
+    {
+      "seconds": 9.948,
+      "finish_reason": "stop",
+      "content_chars": 714,
+      "prompt_tokens": 1190,
+      "completion_tokens": 195
+    },
+    {
+      "seconds": 8.736,
+      "finish_reason": "stop",
+      "content_chars": 1387,
+      "prompt_tokens": 1290,
+      "completion_tokens": 366
+    },
+    {
+      "seconds": 14.565,
+      "finish_reason": "stop",
+      "content_chars": 2004,
+      "prompt_tokens": 1074,
+      "completion_tokens": 503
+    }
+  ],
+  "lessons": [
+    {
+      "title": "Проверка документов до разгрузки",
+      "content": "### Сверка до начала разгрузки\n\nДо того как начата разгрузка, сотрудник сверяет номер накладной с номером заказа. Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены.\n\n### Действия при несовпадении номеров\n\nЕсли номера накладной и заказа не совпадают, разгрузку не начинают."
+    },
+    {
+      "title": "Осмотр товара при приёмке",
+      "content": "### Когда осматривать упаковку\n\nОсмотр товара начинается после сверки документов. После сверки документов сотрудник осматривает упаковку.\n\n### Как фиксировать повреждения упаковки\n\nПовреждение упаковки фиксируют в акте приёмки до подписания накладной."
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "Сотрудник сверил номер накладной с номером заказа и обнаружил, что номера не совпадают. Что он должен сделать?",
+      "options": [
+        "Сообщить руководителю смены о расхождении и начать разгрузку, не дожидаясь его указаний",
+        "Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены.",
+        "Начать разгрузку, а после её завершения сообщить руководителю смены о расхождении номеров",
+        "Начать разгрузку, так как расхождение номеров не влияет на приёмку товара"
+      ],
+      "correct": [
+        "Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены."
+      ],
+      "source_quote": "Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены."
+    },
+    {
+      "prompt": "Сотрудник принял партию товара и сверил документы по накладной. Что он должен сделать сразу после сверки документов?",
+      "options": [
+        "Отправить товар сразу на склад без осмотра",
+        "После сверки документов сотрудник осматривает упаковку.",
+        "Подписать накладную, не осматривая упаковку",
+        "Отложить осмотр упаковки до конца рабочей смены"
+      ],
+      "correct": [
+        "После сверки документов сотрудник осматривает упаковку."
+      ],
+      "source_quote": "После сверки документов сотрудник осматривает упаковку."
+    },
+    {
+      "prompt": "При приёмке товара сотрудник обнаружил повреждение упаковки. Как правильно оформить это повреждение?",
+      "options": [
+        "Зафиксировать повреждение в акте приёмки после подписания накладной",
+        "Повреждение упаковки фиксируют в акте приёмки до подписания накладной.",
+        "Сообщить о повреждении водителю устно и не оформлять документально",
+        "Сделать фото повреждения и приложить его к накладной вместо акта"
+      ],
+      "correct": [
+        "Повреждение упаковки фиксируют в акте приёмки до подписания накладной."
+      ],
+      "source_quote": "Повреждение упаковки фиксируют в акте приёмки до подписания накладной."
+    }
+  ],
+  "publishable": true,
+  "publishability_reasons": [],
+  "fallback_count": 0,
+  "assessment_review": {
+    "policy": "semantic-block-v1",
+    "blocks": 2,
+    "candidates": 3,
+    "accepted": 3,
+    "repaired": 0,
+    "dropped": 0,
+    "removed_distractors": 0,
+    "failures": [],
+    "block_outcomes": [
+      {
+        "block_id": "89638082e2b39df34d8e",
+        "lesson_id": "lesson-967dd6e4e95c1030",
+        "fact_ids": [
+          "fact-01d3254682d1b0dd"
+        ],
+        "candidates": 1,
+        "accepted": 1,
+        "outcome": "accepted"
+      },
+      {
+        "block_id": "df54933f931ee9888b34",
+        "lesson_id": "lesson-ea4bf1ba54540b1e",
+        "fact_ids": [
+          "fact-5f39962b971fe5a4",
+          "fact-1f1437d5f0c645bd"
+        ],
+        "candidates": 2,
+        "accepted": 2,
+        "outcome": "accepted"
+      }
+    ],
+    "axis_outcomes": [
+      {
+        "axis_id": "axis-2557abe11e2030209398",
+        "lesson_id": "lesson-967dd6e4e95c1030",
+        "primary_fact_id": "fact-01d3254682d1b0dd",
+        "evidence_fact_ids": [
+          "fact-01d3254682d1b0dd"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-2ef1a3c934e6c5977fef",
+        "lesson_id": "lesson-ea4bf1ba54540b1e",
+        "primary_fact_id": "fact-5f39962b971fe5a4",
+        "evidence_fact_ids": [
+          "fact-5f39962b971fe5a4"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-b94e1fbc91706be38aaf",
+        "lesson_id": "lesson-ea4bf1ba54540b1e",
+        "primary_fact_id": "fact-1f1437d5f0c645bd",
+        "evidence_fact_ids": [
+          "fact-1f1437d5f0c645bd"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      }
+    ],
+    "derived_axes": 3,
+    "requested_axes": 3,
+    "authored_axes": 3,
+    "attempt_counts": {
+      "authored": 3,
+      "deterministic_repair": 0,
+      "model_repair": 0,
+      "replacement": 0
+    },
+    "questions_per_lesson": {
+      "lesson-967dd6e4e95c1030": 1,
+      "lesson-ea4bf1ba54540b1e": 2
+    },
+    "unassessed_lesson_ids": [],
+    "coverage": {
+      "policy": "source-topic-coverage-v2",
+      "requires_review": false,
+      "audit_incomplete": false,
+      "required_topic_count": 2,
+      "covered_topic_count": 2,
+      "missing_topic_ids": [],
+      "missing_fact_ids": []
+    },
+    "retained_count": 3,
+    "omitted_count": 0,
+    "unassessable_count": 0,
+    "uncovered_count": 0,
+    "contract_coverage": {
+      "policy": "assessment-contract-v1",
+      "assessable_contract_count": 3,
+      "classified_contract_count": 3,
+      "retained_contract_count": 3,
+      "omitted_contract_count": 0,
+      "unassessable_source_count": 0,
+      "uncovered_contract_count": 0,
+      "audit_incomplete": false
+    },
+    "terminal_status": "completed"
+  }
+}

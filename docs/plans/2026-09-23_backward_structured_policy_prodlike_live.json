@@ -1,0 +1,259 @@
+{
+  "status": "completed",
+  "case": "structured_policy",
+  "calls": 10,
+  "converter_engine": "markitdown",
+  "conversion_seconds": 0.698,
+  "timings": [
+    {
+      "stage": "evidence_plan",
+      "seconds": 0.0041927999700419605
+    },
+    {
+      "stage": "embeddings",
+      "seconds": 1.7700018361210823e-05
+    },
+    {
+      "stage": "realization",
+      "seconds": 9.94627259997651
+    },
+    {
+      "stage": "assessment",
+      "seconds": 126.27635160001228
+    }
+  ],
+  "aggregate_reserved_usd": 0.68245,
+  "provider_failures": [],
+  "call_details": [
+    {
+      "task": "lesson",
+      "finish_reason": "stop",
+      "content_chars": 482,
+      "completion_tokens": 783,
+      "peak_price_usage_usd": 0.001122
+    },
+    {
+      "task": "lesson",
+      "finish_reason": "stop",
+      "content_chars": 569,
+      "completion_tokens": 1227,
+      "peak_price_usage_usd": 0.001683
+    },
+    {
+      "task": "assessment_generate",
+      "finish_reason": "stop",
+      "content_chars": 378,
+      "completion_tokens": 1971,
+      "peak_price_usage_usd": 0.002691
+    },
+    {
+      "task": "assessment_review",
+      "finish_reason": "stop",
+      "content_chars": 568,
+      "completion_tokens": 683,
+      "peak_price_usage_usd": 0.001172
+    },
+    {
+      "task": "assessment_constraints",
+      "finish_reason": "stop",
+      "content_chars": 1145,
+      "completion_tokens": 3272,
+      "peak_price_usage_usd": 0.004226
+    },
+    {
+      "task": "assessment_generate",
+      "finish_reason": "stop",
+      "content_chars": 425,
+      "completion_tokens": 1127,
+      "peak_price_usage_usd": 0.001707
+    },
+    {
+      "task": "assessment_review",
+      "finish_reason": "stop",
+      "content_chars": 1124,
+      "completion_tokens": 8080,
+      "peak_price_usage_usd": 0.010098
+    },
+    {
+      "task": "assessment_constraints",
+      "finish_reason": "stop",
+      "content_chars": 899,
+      "completion_tokens": 3013,
+      "peak_price_usage_usd": 0.003916
+    },
+    {
+      "task": "assessment_repair",
+      "finish_reason": "stop",
+      "content_chars": 271,
+      "completion_tokens": 1801,
+      "peak_price_usage_usd": 0.002533
+    },
+    {
+      "task": "assessment_review",
+      "finish_reason": "stop",
+      "content_chars": 570,
+      "completion_tokens": 6000,
+      "peak_price_usage_usd": 0.007534
+    }
+  ],
+  "lessons": [
+    {
+      "title": "Проверка накладной перед разгрузкой",
+      "content": "### Сверка до разгрузки\n\nПеред началом разгрузки сотрудник сверяет номер накладной с номером заказа. Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены."
+    },
+    {
+      "title": "Осмотр упаковки при приёмке товара",
+      "content": "### Осмотр упаковки после сверки документов\n\nПосле сверки документов сотрудник осматривает упаковку.\n\n### Фиксация повреждений упаковки\n\nПовреждение упаковки фиксируют в акте приёмки до подписания накладной."
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "Сотрудник сверяет номер накладной с номером заказа перед разгрузкой. Что он должен сделать, если номера не совпадают?",
+      "options": [
+        "Не начинать разгрузку, но сообщить о несовпадении водителю, а не руководителю смены.",
+        "Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены.",
+        "Начать разгрузку, а несовпадение номеров зафиксировать в документах после её завершения."
+      ],
+      "correct": [
+        "Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены."
+      ],
+      "source_quote": "Если номера не совпадают, разгрузку не начинают и сообщают руководителю смены."
+    },
+    {
+      "prompt": "Когда повреждение упаковки фиксируют в акте приёмки?",
+      "options": [
+        "В акте приёмки не фиксируют, а сообщают о повреждении поставщику отдельно",
+        "После подписания накладной",
+        "Повреждение упаковки фиксируют в акте приёмки до подписания накладной."
+      ],
+      "correct": [
+        "Повреждение упаковки фиксируют в акте приёмки до подписания накладной."
+      ],
+      "source_quote": "Повреждение упаковки фиксируют в акте приёмки до подписания накладной."
+    }
+  ],
+  "publishable": true,
+  "publishability_reasons": [],
+  "fallback_count": 0,
+  "assessment_review": {
+    "policy": "semantic-block-v1",
+    "blocks": 2,
+    "candidates": 3,
+    "accepted": 2,
+    "repaired": 0,
+    "dropped": 1,
+    "removed_distractors": 0,
+    "failures": [],
+    "block_outcomes": [
+      {
+        "block_id": "89638082e2b39df34d8e",
+        "lesson_id": "lesson-967dd6e4e95c1030",
+        "fact_ids": [
+          "fact-01d3254682d1b0dd"
+        ],
+        "candidates": 1,
+        "accepted": 1,
+        "outcome": "accepted"
+      },
+      {
+        "block_id": "df54933f931ee9888b34",
+        "lesson_id": "lesson-ea4bf1ba54540b1e",
+        "fact_ids": [
+          "fact-5f39962b971fe5a4",
+          "fact-1f1437d5f0c645bd"
+        ],
+        "candidates": 2,
+        "accepted": 1,
+        "outcome": "accepted"
+      }
+    ],
+    "axis_outcomes": [
+      {
+        "axis_id": "axis-2557abe11e2030209398",
+        "lesson_id": "lesson-967dd6e4e95c1030",
+        "primary_fact_id": "fact-01d3254682d1b0dd",
+        "evidence_fact_ids": [
+          "fact-01d3254682d1b0dd"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-2ef1a3c934e6c5977fef",
+        "lesson_id": "lesson-ea4bf1ba54540b1e",
+        "primary_fact_id": "fact-5f39962b971fe5a4",
+        "evidence_fact_ids": [
+          "fact-5f39962b971fe5a4"
+        ],
+        "state": "omitted",
+        "reason": "educational",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 1,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-b94e1fbc91706be38aaf",
+        "lesson_id": "lesson-ea4bf1ba54540b1e",
+        "primary_fact_id": "fact-1f1437d5f0c645bd",
+        "evidence_fact_ids": [
+          "fact-1f1437d5f0c645bd"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 0,
+          "replacement": 0
+        }
+      }
+    ],
+    "derived_axes": 3,
+    "requested_axes": 3,
+    "authored_axes": 3,
+    "attempt_counts": {
+      "authored": 3,
+      "deterministic_repair": 0,
+      "model_repair": 1,
+      "replacement": 0
+    },
+    "questions_per_lesson": {
+      "lesson-967dd6e4e95c1030": 1,
+      "lesson-ea4bf1ba54540b1e": 1
+    },
+    "unassessed_lesson_ids": [],
+    "coverage": {
+      "policy": "source-topic-coverage-v2",
+      "requires_review": false,
+      "audit_incomplete": false,
+      "required_topic_count": 2,
+      "covered_topic_count": 2,
+      "missing_topic_ids": [],
+      "missing_fact_ids": []
+    },
+    "retained_count": 2,
+    "omitted_count": 1,
+    "unassessable_count": 0,
+    "uncovered_count": 0,
+    "contract_coverage": {
+      "policy": "assessment-contract-v1",
+      "assessable_contract_count": 3,
+      "classified_contract_count": 3,
+      "retained_contract_count": 2,
+      "omitted_contract_count": 1,
+      "unassessable_source_count": 0,
+      "uncovered_contract_count": 0,
+      "audit_incomplete": false
+    },
+    "terminal_status": "completed_with_warnings"
+  }
+}

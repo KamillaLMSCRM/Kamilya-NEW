@@ -1,0 +1,430 @@
+{
+  "status": "completed",
+  "case": "spreadsheet_primary_auxiliary",
+  "calls": 19,
+  "converter_engine": "openpyxl",
+  "conversion_seconds": 0.007,
+  "timings": [
+    {
+      "stage": "evidence_plan",
+      "seconds": 0.0018023999873548746
+    },
+    {
+      "stage": "embeddings",
+      "seconds": 1.550000160932541e-05
+    },
+    {
+      "stage": "realization",
+      "seconds": 71.72449519997463
+    },
+    {
+      "stage": "assessment",
+      "seconds": 150.8758097999962
+    }
+  ],
+  "provider": "glm",
+  "glm_reasoning": "off",
+  "provider_failures": [
+    "ValueError"
+  ],
+  "call_details": [
+    {
+      "task": "unknown",
+      "seconds": 19.601,
+      "finish_reason": "stop",
+      "content_chars": 1927,
+      "prompt_tokens": 674,
+      "completion_tokens": 576,
+      "raw_content_preview": "{\"title\":\"Коллекция «Север»: ключевые характеристики\",\"objective\":\"Различать подтверждённые сведения о коллекции «Север»: особенность, материал фасада и назначение.\",\"blocks\":[{\"heading\":\"Что подтверждено о коллекции «Север»\",\"text\":\"По данным таблицы коллекций, у коллекции «Север» подтверждены три характеристики. Её назначение — для прихожей. Материал фасада — МДФ. Особенность — зеркало в комплекте. Эти сведения взяты из раздела «Коллекции» и служат опорой при ответах о товаре.\",\"fact_ids\":[\"fact-603952f80b96ac92\",\"fact-548aefd62a6a30a9\",\"fact-ef0b7514b7e64f2f\"]},{\"heading\":\"Как применять эти сведения\",\"text\":\"Когда клиент спрашивает о коллекции «Север», опирайтесь только на подтверждённые атрибуты. Если вопрос касается помещения — это коллекция для прихожей. Если интересует материал — фасад выполнен из МДФ. Если важно оснащение — зеркало идёт в комплекте. По остальным характеристикам, которых нет в подтверждённых данных, корректно сообщать, что сведений нет, не домысливая.\",\"fact_ids\":[\"fact-603952f80b96ac92\",\"fact-548aefd62a6a30a9\",\"fact-ef0b7514b7e64f2f\"]}],\"questions\":[{\"prompt\":\"Клиент уточняет, из какого материала выполнен фасад мебели коллекции «Север». Что из подтверждённых данных вы назовёте?\",\"explanation\":\"В подтверждённых сведениях о коллекции «Север» материалом фасада указан МДФ.\",\"fact_ids\":[\"fact-548aefd62a6a30a9\"]},{\"prompt\":\"Покупатель интересуется, входит ли зеркало в комплект мебели коллекции «Север». Какой подтверждённый атрибут отвечает на этот вопрос?\",\"explanation\":\"Особенность коллекции «Север» — зеркало в комплекте, это подтверждённая характеристика.\",\"fact_ids\":[\"fact-ef0b7514b7e64f2f\"]},{\"prompt\":\"Клиент подбирает мебель для прихожей и спрашивает, подходит ли коллекция «Север». Что говорят подтверждённые данные о её назначении?\",\"explanation\":\"Назначение коллекции «Север» — для прихожей, что подтверждено в данных о коллекциях.\",\"fact_ids\":[\"fact-603952f80b96ac92\"]}]}"
+    },
+    {
+      "task": "unknown",
+      "seconds": 24.472,
+      "finish_reason": "stop",
+      "content_chars": 2401,
+      "prompt_tokens": 668,
+      "completion_tokens": 720,
+      "raw_content_preview": "{\"title\":\"Коллекция «Берег»: ключевые характеристики\",\"objective\":\"Различать подтверждённые сведения о коллекции «Берег»: особенность конструкции, материал фасада и назначение.\",\"blocks\":[{\"heading\":\"Что подтверждено о коллекции\",\"text\":\"По данным таблицы коллекций, о модели «Берег» подтверждены три характеристики. Во-первых, её назначение — для спальни (fact-afeac7c5ff6cae11). Во-вторых, материал фасада — ЛДСП (fact-c12ac0965eab7910). В-третьих, особенность конструкции — ящики полного выдвижения (fact-2527778ca0c22931). Эти три атрибута относятся к одному и тому же предмету — коллекции «Берег», поэтому при ответах на вопросы клиентов их нельзя смешивать с данными других коллекций.\",\"fact_ids\":[\"fact-afeac7c5ff6cae11\",\"fact-c12ac0965eab7910\",\"fact-2527778ca0c22931\"]},{\"heading\":\"Как применять эти сведения\",\"text\":\"Когда сотрудник описывает «Берег», важно разделять атрибуты по смыслу. Назначение отвечает на вопрос «для чего предназначена коллекция» — здесь это спальня (fact-afeac7c5ff6cae11). Материал фасада отвечает на вопрос «из чего выполнен фасад» — это ЛДСП (fact-c12ac0965eab7910). Особенность отвечает на вопрос «что выделяет конструкцию» — это ящики полного выдвижения (fact-2527778ca0c22931). Если клиент спрашивает, например, о материале фасада, отвечать следует именно значением ЛДСП, а не подменять его назначением или особенностью. Все три сведения равнозначны и подтверждаются одним источником — таблицей коллекций.\",\"fact_ids\":[\"fact-afeac7c5ff6cae11\",\"fact-c12ac0965eab7910\",\"fact-2527778ca0c22931\"]}],\"questions\":[{\"prompt\":\"Клиент уточняет, какой материал фасада у коллекции «Берег». Какое значение вы назовёте?\",\"explanation\":\"Материал фасада коллекции «Берег» — ЛДСП. Это отдельный атрибут, который не следует путать с назначением или конструктивной особенностью.\",\"fact_ids\":[\"fact-c12ac0965eab7910\"]},{\"prompt\":\"Клиент спрашивает, для какого помещения предназначена коллекция «Берег». Что является подтверждённым ответом?\",\"explanation\":\"Назначение коллекции «Бер"
+    },
+    {
+      "task": "unknown",
+      "seconds": 27.645,
+      "finish_reason": "stop",
+      "content_chars": 2855,
+      "prompt_tokens": 705,
+      "completion_tokens": 807,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_generate",
+      "seconds": 7.453,
+      "finish_reason": "stop",
+      "content_chars": 514,
+      "prompt_tokens": 1241,
+      "completion_tokens": 169,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_review",
+      "seconds": 13.464,
+      "finish_reason": "stop",
+      "content_chars": 2257,
+      "prompt_tokens": 1284,
+      "completion_tokens": 645,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_constraints",
+      "seconds": 18.9,
+      "finish_reason": "stop",
+      "content_chars": 2885,
+      "prompt_tokens": 1076,
+      "completion_tokens": 731,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_repair",
+      "seconds": 4.005,
+      "finish_reason": "stop",
+      "content_chars": 257,
+      "prompt_tokens": 1343,
+      "completion_tokens": 80,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_repair",
+      "seconds": 3.051,
+      "finish_reason": "stop",
+      "content_chars": 166,
+      "prompt_tokens": 1317,
+      "completion_tokens": 53,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_repair",
+      "seconds": 3.244,
+      "finish_reason": "stop",
+      "content_chars": 186,
+      "prompt_tokens": 1323,
+      "completion_tokens": 57,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_review",
+      "seconds": 10.938,
+      "finish_reason": "stop",
+      "content_chars": 1947,
+      "prompt_tokens": 1341,
+      "completion_tokens": 509,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_constraints",
+      "seconds": 19.218,
+      "finish_reason": "stop",
+      "content_chars": 2765,
+      "prompt_tokens": 1088,
+      "completion_tokens": 712,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_generate",
+      "seconds": 7.076,
+      "finish_reason": "stop",
+      "content_chars": 536,
+      "prompt_tokens": 1240,
+      "completion_tokens": 179,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_review",
+      "seconds": 12.913,
+      "finish_reason": "stop",
+      "content_chars": 2260,
+      "prompt_tokens": 1281,
+      "completion_tokens": 651,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_constraints",
+      "seconds": 15.43,
+      "finish_reason": "stop",
+      "content_chars": 2400,
+      "prompt_tokens": 1077,
+      "completion_tokens": 638,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_repair",
+      "seconds": 3.345,
+      "finish_reason": "stop",
+      "content_chars": 185,
+      "prompt_tokens": 1342,
+      "completion_tokens": 62,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_repair",
+      "seconds": 3.233,
+      "finish_reason": "stop",
+      "content_chars": 160,
+      "prompt_tokens": 1314,
+      "completion_tokens": 53,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_repair",
+      "seconds": 3.314,
+      "finish_reason": "stop",
+      "content_chars": 180,
+      "prompt_tokens": 1322,
+      "completion_tokens": 59,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_review",
+      "seconds": 10.667,
+      "finish_reason": "stop",
+      "content_chars": 1814,
+      "prompt_tokens": 1312,
+      "completion_tokens": 478,
+      "raw_content_preview": null
+    },
+    {
+      "task": "assessment_constraints",
+      "seconds": 14.614,
+      "finish_reason": "stop",
+      "content_chars": 2241,
+      "prompt_tokens": 1062,
+      "completion_tokens": 589,
+      "raw_content_preview": null
+    }
+  ],
+  "lessons": [
+    {
+      "title": "Коллекция «Север»: ключевые характеристики",
+      "content": "### Что подтверждено о коллекции «Север»\n\nЕё назначение — для прихожей. Материал фасада — МДФ. Особенность — зеркало в комплекте."
+    },
+    {
+      "title": "Коллекция «Берег»: ключевые характеристики",
+      "content": "### Особенность: ящики полного выдвижения\n\nОсобенность коллекции «Берег» — ящики полного выдвижения.\n\n### Материал фасада\n\nЛДСП\n\n### Назначение\n\nДля спальни"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "Какая особенность заявлена у коллекции «Север»?",
+      "options": [
+        "Особенность — скамейка в комплекте",
+        "Зеркало в комплекте",
+        "Особенность — полка для обуви в комплекте",
+        "Особенность — крючки для одежды в комплекте"
+      ],
+      "correct": [
+        "Зеркало в комплекте"
+      ],
+      "source_quote": "Зеркало в комплекте"
+    },
+    {
+      "prompt": "Из какого материала выполнен фасад мебели коллекции «Север»?",
+      "options": [
+        "ЛДСП",
+        "МДФ",
+        "Массив дерева"
+      ],
+      "correct": [
+        "МДФ"
+      ],
+      "source_quote": "МДФ"
+    },
+    {
+      "prompt": "Для какого помещения предназначена коллекция «Север»?",
+      "options": [
+        "Для спальни",
+        "Для гостиной",
+        "Для прихожей",
+        "Для ванной комнаты"
+      ],
+      "correct": [
+        "Для прихожей"
+      ],
+      "source_quote": "Для прихожей"
+    }
+  ],
+  "publishable": true,
+  "publishability_reasons": [],
+  "fallback_count": 0,
+  "assessment_review": {
+    "policy": "semantic-block-v1",
+    "blocks": 2,
+    "candidates": 6,
+    "accepted": 3,
+    "repaired": 3,
+    "dropped": 3,
+    "removed_distractors": 0,
+    "failures": [],
+    "block_outcomes": [
+      {
+        "block_id": "9751453703697c650629",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "fact_ids": [
+          "fact-ef0b7514b7e64f2f",
+          "fact-548aefd62a6a30a9",
+          "fact-603952f80b96ac92"
+        ],
+        "candidates": 3,
+        "accepted": 3,
+        "outcome": "accepted"
+      },
+      {
+        "block_id": "044d4670d14a654bb03a",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "fact_ids": [
+          "fact-2527778ca0c22931",
+          "fact-c12ac0965eab7910",
+          "fact-afeac7c5ff6cae11"
+        ],
+        "candidates": 3,
+        "accepted": 0,
+        "outcome": "quality_omitted"
+      }
+    ],
+    "axis_outcomes": [
+      {
+        "axis_id": "axis-2a2e947e967cfffe7ddd",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "primary_fact_id": "fact-ef0b7514b7e64f2f",
+        "evidence_fact_ids": [
+          "fact-ef0b7514b7e64f2f"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 1,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-cf75da41475a8da3adcf",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "primary_fact_id": "fact-548aefd62a6a30a9",
+        "evidence_fact_ids": [
+          "fact-548aefd62a6a30a9"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 1,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-d297abd361f51a40f078",
+        "lesson_id": "lesson-9a78de539a1f3fbe",
+        "primary_fact_id": "fact-603952f80b96ac92",
+        "evidence_fact_ids": [
+          "fact-603952f80b96ac92"
+        ],
+        "state": "retained",
+        "reason": "",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 1,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-f740e97b52799a3da17c",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "primary_fact_id": "fact-2527778ca0c22931",
+        "evidence_fact_ids": [
+          "fact-2527778ca0c22931"
+        ],
+        "state": "omitted",
+        "reason": "constraint_option_1:unrealistic_error;constraint_option_1:expected_contradicted_got_undetermined;constraint_option_2:unrealistic_error;constraint_option_2:expected_contradicted_got_undetermined;constraint_option_3:unrealistic_error;constraint_option_3:expected_contradicted_got_undetermined;constraint_duplicate_misconceptions",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 1,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-e08e9ac608b689dc5044",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "primary_fact_id": "fact-c12ac0965eab7910",
+        "evidence_fact_ids": [
+          "fact-c12ac0965eab7910"
+        ],
+        "state": "omitted",
+        "reason": "constraint_option_1:unrealistic_error;constraint_option_1:expected_contradicted_got_undetermined;constraint_option_2:unrealistic_error;constraint_option_2:expected_contradicted_got_undetermined;constraint_option_3:unrealistic_error;constraint_option_3:expected_contradicted_got_undetermined",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 1,
+          "replacement": 0
+        }
+      },
+      {
+        "axis_id": "axis-04f85d1f7c8b317101ee",
+        "lesson_id": "lesson-aa4090e4e976bb54",
+        "primary_fact_id": "fact-afeac7c5ff6cae11",
+        "evidence_fact_ids": [
+          "fact-afeac7c5ff6cae11"
+        ],
+        "state": "omitted",
+        "reason": "constraint_option_1:unrealistic_error;constraint_option_1:expected_contradicted_got_undetermined;constraint_option_2:unrealistic_error;constraint_option_2:expected_contradicted_got_undetermined;constraint_option_3:unrealistic_error;constraint_option_3:expected_contradicted_got_undetermined;constraint_duplicate_misconceptions",
+        "attempt_counts": {
+          "authored": 1,
+          "deterministic_repair": 0,
+          "model_repair": 1,
+          "replacement": 0
+        }
+      }
+    ],
+    "derived_axes": 6,
+    "requested_axes": 6,
+    "authored_axes": 6,
+    "attempt_counts": {
+      "authored": 6,
+      "deterministic_repair": 0,
+      "model_repair": 6,
+      "replacement": 0
+    },
+    "questions_per_lesson": {
+      "lesson-9a78de539a1f3fbe": 3,
+      "lesson-aa4090e4e976bb54": 0
+    },
+    "unassessed_lesson_ids": [
+      "lesson-aa4090e4e976bb54"
+    ],
+    "coverage": {
+      "policy": "source-topic-coverage-v2",
+      "requires_review": false,
+      "audit_incomplete": false,
+      "required_topic_count": 1,
+      "covered_topic_count": 1,
+      "missing_topic_ids": [],
+      "missing_fact_ids": []
+    },
+    "retained_count": 3,
+    "omitted_count": 3,
+    "unassessable_count": 0,
+    "uncovered_count": 0,
+    "contract_coverage": {
+      "policy": "assessment-contract-v1",
+      "assessable_contract_count": 6,
+      "classified_contract_count": 6,
+      "retained_contract_count": 3,
+      "omitted_contract_count": 3,
+      "unassessable_source_count": 0,
+      "uncovered_contract_count": 0,
+      "audit_incomplete": false
+    },
+    "terminal_status": "completed_with_warnings"
+  }
+}
