@@ -1,8 +1,14 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const navigation = vi.hoisted(() => ({
+  params: new URLSearchParams(),
+  replace: vi.fn(),
+}));
+
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: vi.fn() }),
+  useRouter: () => ({ replace: navigation.replace, push: vi.fn() }),
+  useSearchParams: () => navigation.params,
 }));
 
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn() } }));
@@ -57,6 +63,7 @@ function renderTrainingLog(deadline: Record<string, unknown>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  navigation.params = new URLSearchParams();
   useAuthStore.setState({
     accessToken: 'test-token', initialized: true,
     user: {
@@ -68,6 +75,21 @@ beforeEach(() => {
 });
 
 describe('training log deadline presentation', () => {
+  it('restores a dashboard status filter from the URL and exposes a safe return link', async () => {
+    navigation.params = new URLSearchParams('status=overdue&return_to=%2Fdashboard');
+    renderTrainingLog({ cycle_due_at: '2026-09-10T00:00:00Z', deadline_status: 'overdue' });
+
+    expect(await screen.findByRole('link', { name: 'trainingLog.returnToDashboard' })).toHaveAttribute('href', '/dashboard');
+    expect(screen.getByLabelText('trainingLog.filter.status.label')).toHaveValue('overdue');
+    expect(apiMock.get).toHaveBeenCalledWith(expect.stringContaining('status=overdue'));
+
+    fireEvent.change(screen.getByLabelText('trainingLog.filter.status.label'), { target: { value: 'assigned' } });
+    expect(navigation.replace).toHaveBeenCalledWith(
+      '/training-log?status=assigned&return_to=%2Fdashboard',
+      { scroll: false },
+    );
+  });
+
   it.each([
     ['legacy missing fields', {}],
     ['a missing status', { cycle_due_at: '2026-09-10T00:00:00Z' }],

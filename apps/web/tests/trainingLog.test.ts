@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildTrainingLogFilterQuery, buildTrainingLogPageQuery } from '@/app/admin/training-log/query';
+import {
+  buildTrainingLogBrowserHref,
+  buildTrainingLogFilterQuery,
+  buildTrainingLogPageQuery,
+  parseTrainingLogBrowserQuery,
+} from '@/app/admin/training-log/query';
 import { interpolate } from '@/i18n/useT';
 import ru from '@/i18n/locales/ru.json';
 import kk from '@/i18n/locales/kk.json';
@@ -9,6 +14,46 @@ import path from 'node:path';
 import { TRAINING_LOG_COLUMN_CLASS } from '@/app/admin/training-log/presentation';
 
 describe('training-log request and count text', () => {
+  it('round-trips only the supported browser filters and a safe dashboard return path', () => {
+    const href = buildTrainingLogBrowserHref({
+      filters: {
+        enrollment_id: '11111111-1111-4111-8111-111111111111',
+        course_id: '22222222-2222-4222-8222-222222222222',
+        status: 'overdue',
+        history: true,
+      },
+      search: '  learner  ',
+      returnTo: '/dashboard',
+    });
+
+    expect(href).toBe('/training-log?enrollment_id=11111111-1111-4111-8111-111111111111&course_id=22222222-2222-4222-8222-222222222222&status=overdue&history=true&search=learner&return_to=%2Fdashboard');
+    expect(parseTrainingLogBrowserQuery(new URLSearchParams(href.split('?')[1]))).toEqual({
+      filters: {
+        enrollment_id: '11111111-1111-4111-8111-111111111111',
+        course_id: '22222222-2222-4222-8222-222222222222',
+        status: 'overdue',
+        history: true,
+      },
+      search: 'learner',
+      returnTo: '/dashboard',
+    });
+  });
+
+  it('drops malformed filters, API-only parameters, and unsafe return targets', () => {
+    const parsed = parseTrainingLogBrowserQuery(new URLSearchParams({
+      enrollment_id: 'not-a-uuid',
+      status: 'failed',
+      delivery_type: 'video',
+      date_from: 'not-a-date',
+      limit: '500',
+      format: 'csv',
+      return_to: '//evil.example/path',
+      search: ' x '.repeat(120),
+    }));
+
+    expect(parsed).toEqual({ filters: {}, search: '', returnTo: null });
+  });
+
   it('sends a trimmed search term to table, summary, and CSV-compatible filters', () => {
     const filters = { status: 'assigned' as const, delivery_type: 'native' as const };
 
@@ -18,6 +63,11 @@ describe('training-log request and count text', () => {
       .toBe('status=assigned&delivery_type=native&search=QA-UX-20260723-001&limit=100&offset=0');
     expect(buildTrainingLogFilterQuery({ status: 'overdue' }, '').toString())
       .toBe('status=overdue');
+  });
+
+  it('passes an exact enrollment occurrence to table and summary queries', () => {
+    expect(buildTrainingLogFilterQuery({ enrollment_id: '11111111-1111-4111-8111-111111111111' }, '').toString())
+      .toBe('enrollment_id=11111111-1111-4111-8111-111111111111');
   });
 
   it('requests historical enrollment rows only when explicitly enabled', () => {

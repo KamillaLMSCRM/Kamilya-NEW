@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Card,
   CardContent,
@@ -21,8 +22,10 @@ import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { canAccessRoute } from '@/lib/rolePolicy';
 import {
+  buildTrainingLogBrowserHref,
   buildTrainingLogFilterQuery,
   buildTrainingLogPageQuery,
+  parseTrainingLogBrowserQuery,
   type TrainingLogFilters,
 } from './query';
 import { TRAINING_LOG_COLUMN_CLASS as columnClass } from './presentation';
@@ -143,13 +146,19 @@ export default function AdminTrainingLogPage() {
   const { t, lang } = useT();
   const { text: insightsText } = useLearningInsightsT();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const browserQuery = searchParams.toString();
+  const browserState = useMemo(
+    () => parseTrainingLogBrowserQuery(new URLSearchParams(browserQuery)),
+    [browserQuery],
+  );
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const isMethodologist = user?.role === 'methodologist';
   const canInspectLearning = canUseLearningInsights(user);
 
-  const [filters, setFilters] = useState<Filters>({});
-  const [includeHistory, setIncludeHistory] = useState(false);
+  const filters = browserState.filters;
+  const includeHistory = Boolean(filters.history);
   const [page, setPage] = useState<TrainingLogPage | null>(null);
   const [summary, setSummary] = useState<TrainingLogSummary | null>(null);
   const [loading, setLoading] = useState(false);
@@ -166,8 +175,29 @@ export default function AdminTrainingLogPage() {
   const [courseCatalogLoading, setCourseCatalogLoading] = useState(false);
   const courseCatalogGeneration = useRef(0);
 
-  const [searchInput, setSearchInput] = useState('');
+  const [searchInput, setSearchInputState] = useState(browserState.search);
   const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    setSearchInputState(browserState.search);
+  }, [browserState.search]);
+
+  const replaceBrowserState = useCallback((nextFilters: Filters, nextSearch: string) => {
+    router.replace(buildTrainingLogBrowserHref({
+      filters: nextFilters,
+      search: nextSearch,
+      returnTo: browserState.returnTo,
+    }), { scroll: false });
+  }, [browserState.returnTo, router]);
+
+  const updateFilters = useCallback((update: (current: Filters) => Filters) => {
+    replaceBrowserState(update(filters), searchInput);
+  }, [filters, replaceBrowserState, searchInput]);
+
+  const setSearchInput = useCallback((value: string) => {
+    setSearchInputState(value);
+    replaceBrowserState(filters, value);
+  }, [filters, replaceBrowserState]);
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedSearch(searchInput), 350);
@@ -317,8 +347,8 @@ export default function AdminTrainingLogPage() {
   ];
   const hasActiveFilters = Object.values(filters).some(Boolean) || Boolean(searchInput.trim());
   const resetFilters = () => {
-    setFilters({});
-    setSearchInput('');
+    setSearchInputState('');
+    replaceBrowserState({}, '');
     setOffset(0);
     setSelectedEvidenceIds(new Set());
   };
@@ -375,6 +405,11 @@ export default function AdminTrainingLogPage() {
     <div className="space-y-6">
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div>
+          {browserState.returnTo && (
+            <Link href={browserState.returnTo} className="mb-2 inline-flex items-center text-sm font-medium text-primary hover:underline">
+              {t('trainingLog.returnToDashboard')}
+            </Link>
+          )}
           <h1 className="text-2xl font-semibold text-foreground">
             {t('trainingLog.title')}
           </h1>
@@ -426,6 +461,12 @@ export default function AdminTrainingLogPage() {
         </div>
       </header>
 
+      {filters.enrollment_id && (
+        <div role="status" className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">
+          {t('trainingLog.selectedAssignment')}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <SummaryCard label={t('trainingLog.title')} value={summary?.total ?? 0} />
         <SummaryCard label={t('trainingLog.filter.status.assigned')} value={summary?.assigned ?? 0} />
@@ -441,7 +482,7 @@ export default function AdminTrainingLogPage() {
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
           <label className="flex items-center gap-2 text-sm md:col-span-3 lg:col-span-4">
-            <input type="checkbox" checked={includeHistory} onChange={(event) => { setIncludeHistory(event.target.checked); setOffset(0); }} />
+            <input type="checkbox" checked={includeHistory} onChange={(event) => { updateFilters((current) => ({ ...current, history: event.target.checked || undefined })); setOffset(0); }} />
             {t('trainingLog.history.include')}
           </label>
           <div className="md:col-span-2 lg:col-span-1">
@@ -459,7 +500,7 @@ export default function AdminTrainingLogPage() {
             label={t('trainingLog.filter.status.label')}
             value={filters.status ?? ''}
             options={STATUS_OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
-            onChange={(v) => setFilters((f) => ({ ...f, status: (v || undefined) as Filters['status'] }))}
+            onChange={(v) => updateFilters((f) => ({ ...f, status: (v || undefined) as Filters['status'] }))}
           />
 
           <SelectField
@@ -467,19 +508,19 @@ export default function AdminTrainingLogPage() {
             value={filters.delivery_type ?? ''}
             options={DELIVERY_OPTIONS}
             onChange={(v) =>
-              setFilters((f) => ({ ...f, delivery_type: (v || undefined) as 'native' | 'scorm' }))
+              updateFilters((f) => ({ ...f, delivery_type: (v || undefined) as 'native' | 'scorm' }))
             }
           />
 
           <DateField
             label={t('trainingLog.filter.dateFrom')}
             value={filters.date_from ?? ''}
-            onChange={(v) => setFilters((f) => ({ ...f, date_from: v || undefined }))}
+            onChange={(v) => updateFilters((f) => ({ ...f, date_from: v || undefined }))}
           />
           <DateField
             label={t('trainingLog.filter.dateTo')}
             value={filters.date_to ?? ''}
-            onChange={(v) => setFilters((f) => ({ ...f, date_to: v || undefined }))}
+            onChange={(v) => updateFilters((f) => ({ ...f, date_to: v || undefined }))}
           />
           {canInspectLearning && (
             <div className="space-y-2">
@@ -487,7 +528,7 @@ export default function AdminTrainingLogPage() {
                 label={insightsText('title')}
                 value={filters.course_id ?? ''}
                 options={courseOptions}
-                onChange={(v) => setFilters((f) => ({ ...f, course_id: v || undefined }))}
+                onChange={(v) => updateFilters((f) => ({ ...f, course_id: v || undefined }))}
               />
               {courseCatalogError && (
                 <div className="flex items-center gap-2 text-xs text-destructive" role="alert">
@@ -504,7 +545,9 @@ export default function AdminTrainingLogPage() {
 
       {canInspectLearning && (
         <>
-          <LearningActionCenter courseId={filters.course_id} />
+          <div id="learning-action-center" className="scroll-mt-6">
+            <LearningActionCenter courseId={filters.course_id} />
+          </div>
           <LearningInsightsPanel
             courseId={filters.course_id}
             departmentId={filters.department_id}

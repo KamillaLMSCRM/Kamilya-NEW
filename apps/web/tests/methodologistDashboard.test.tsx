@@ -34,10 +34,10 @@ const actionCenter = {
   },
   training_items: [
     {
-      enrollment_id: 'enrollment-1',
-      user_id: 'user-1',
+      enrollment_id: '11111111-1111-4111-8111-111111111111',
+      user_id: '33333333-3333-4333-8333-333333333333',
       full_name: 'Сотрудник с риском',
-      course_id: 'course-1',
+      course_id: '22222222-2222-4222-8222-222222222222',
       course_title: 'Безопасность',
       issue_type: 'overdue',
       progress_percent: 25,
@@ -88,11 +88,27 @@ describe('methodologist operations dashboard', () => {
 
     expect(await screen.findByText('Сотрудник с риском')).toBeInTheDocument();
     expect(screen.getByText('40%')).toBeInTheDocument();
-    expect(screen.getByTestId('training-overdue')).toHaveTextContent('2');
-    expect(screen.getByTestId('open-actions')).toHaveTextContent('2');
+    expect(screen.getByRole('link', { name: 'Просрочено: 2' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Действий открыто: 2' })).toBeInTheDocument();
     expect(screen.getByText('Сбойный курс')).toBeInTheDocument();
     expect(apiMock.get).toHaveBeenCalledWith('/v1/admin/learning-actions', expect.objectContaining({ signal: expect.any(AbortSignal) }));
     expect(apiMock.get).not.toHaveBeenCalledWith('/v1/admin/training-log/summary', expect.anything());
+  });
+
+  it('links only truthful training metrics and exact priority assignments to canonical filters', async () => {
+    render(<MethodologistDashboard />);
+
+    const expectedReturn = 'return_to=%2Fdashboard';
+    expect(await screen.findByRole('link', { name: /Сотрудник с риском/ })).toHaveAttribute(
+      'href',
+      `/training-log?enrollment_id=11111111-1111-4111-8111-111111111111&course_id=22222222-2222-4222-8222-222222222222&${expectedReturn}`,
+    );
+    expect(screen.getByRole('link', { name: 'Не начали: 3' })).toHaveAttribute('href', `/training-log?status=assigned&${expectedReturn}`);
+    expect(screen.getByRole('link', { name: 'В процессе: 3' })).toHaveAttribute('href', `/training-log?status=in_progress&${expectedReturn}`);
+    expect(screen.getByRole('link', { name: 'Завершено: 4' })).toHaveAttribute('href', `/training-log?status=completed&${expectedReturn}`);
+    expect(screen.getByRole('link', { name: 'Просрочено: 2' })).toHaveAttribute('href', `/training-log?status=overdue&${expectedReturn}`);
+    expect(screen.queryByRole('link', { name: /Тест не пройден/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Попытки исчерпаны/ })).not.toBeInTheDocument();
   });
 
   it('keeps learning data unknown when the primary read model is unavailable', async () => {

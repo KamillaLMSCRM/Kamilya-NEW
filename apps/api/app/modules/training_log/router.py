@@ -47,6 +47,7 @@ _TRAINING_LOG_ROLES = ("admin", "methodologist", "superadmin")
 @router.get("/summary", response_model=TrainingLogSummary)
 async def training_log_summary(
     response: Response,
+    enrollment_id: UUID | None = Query(default=None),
     course_id: UUID | None = Query(default=None),
     department_id: UUID | None = Query(default=None),
     position_id: UUID | None = Query(default=None),
@@ -68,6 +69,7 @@ async def training_log_summary(
         db,
         user.tenant_id,
         TrainingLogFilter(
+            enrollment_id=enrollment_id,
             course_id=course_id,
             department_id=department_id,
             position_id=position_id,
@@ -85,6 +87,7 @@ async def training_log_summary(
 async def list_training_log(
     request: Request,
     response: Response,
+    enrollment_id: UUID | None = Query(default=None),
     course_id: UUID | None = Query(default=None),
     department_id: UUID | None = Query(default=None),
     position_id: UUID | None = Query(default=None),
@@ -118,6 +121,7 @@ async def list_training_log(
     response.headers["Cache-Control"] = "no-store"
 
     f = TrainingLogFilter(
+        enrollment_id=enrollment_id,
         course_id=course_id,
         department_id=department_id,
         position_id=position_id,

@@ -1827,6 +1827,8 @@
     "history": {"include": "Include historical assignments", "cancelled": "Cancelled history", "superseded": "Superseded history"},
     "title": "Training log",
     "subtitle": "All assignments, progress and certificates in one place — including SCORM.",
+    "returnToDashboard": "Back to learning overview",
+    "selectedAssignment": "Showing the specific assignment selected from the learning overview.",
     "forbidden": "Training log is available to admins and methodologists only.",
     "filters": {
       "title": "Filters",

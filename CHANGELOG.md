@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unfinished course work.
 - Use the action-center read model as the dashboard's single source of learning
   status, and keep onboarding below the operational overview.
+- Turn supported dashboard health metrics and priority assignments into exact,
+  keyboard-accessible training-log links with URL-restored filters and a safe
+  return to the learning overview.
 
 ### Fixed
 
