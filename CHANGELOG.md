@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+### Security
+
+## [0.11.1] - 2026-09-24
+
+### Added
+
+### Changed
+
 - Replace the methodologist's decorative dashboard with an operational learning
   overview built around current risks, training health, owned actions and
   unfinished course work.
