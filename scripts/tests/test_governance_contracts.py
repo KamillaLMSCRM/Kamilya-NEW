@@ -20,7 +20,8 @@ class GovernanceContractTests(unittest.TestCase):
         )
         release_runner = read(".codex/agents/release-runner/AGENTS.md")
 
-        self.assertIn("Единственный канонический контракт", project_rules)
+        self.assertIn("Постоянные workers:", project_rules)
+        self.assertIn(".codex/agents/test-runner/AGENTS.md", project_rules)
         self.assertIn("compatibility redirect", test_runner)
         self.assertIn("canonical Test Runner contract", compatibility_entrypoint)
         self.assertLessEqual(len(compatibility_entrypoint.splitlines()), 8)
@@ -40,13 +41,22 @@ class GovernanceContractTests(unittest.TestCase):
         self.assertIn("## Turn completion invariant", release_runner)
         self.assertIn("final five-field handoff", release_runner)
 
+    def test_release_runner_makes_ct137_capacity_and_recovery_hard_gates(self) -> None:
+        release_runner = read(".codex/agents/release-runner/AGENTS.md")
+
+        self.assertIn("capacity and release inventory are hard", release_runner)
+        self.assertIn("free KiB on", release_runner)
+        self.assertIn("matching off-host recovery archive", release_runner)
+        self.assertIn("Never delete an old release merely to make a", release_runner)
+
     def test_release_authority_and_evidence_modules_have_distinct_owners(self) -> None:
         project_rules = read("AGENTS.md")
         release_lifecycle = read("docs/releases/README.md")
         evidence_skill = read(".codex/skills/kamilya-release-evidence-gate/SKILL.md")
 
         self.assertIn("root retains GO/NO_GO and acceptance", release_lifecycle)
-        self.assertIn("scripts/ci/release-contract-gate.py", project_rules)
+        self.assertIn("Только root утверждает GO/NO_GO", project_rules)
+        self.assertIn("Release Runner может выполнить только точный уже разрешённый", project_rules)
         self.assertIn("Do not confuse it with", evidence_skill)
         self.assertNotIn("No phase can be skipped", evidence_skill)
 

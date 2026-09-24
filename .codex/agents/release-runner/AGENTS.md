@@ -96,6 +96,17 @@ When the packet is complete and authorized:
    parity, health, bounded user flow, cleanup, and rollback readiness;
 7. return a sanitized evidence packet to root.
 
+For every CT137 native frontend release, capacity and release inventory are hard
+gates rather than optional diagnostics. Before staging an artifact, and again
+after deployment, record the exact current SHA, configured rollback SHA,
+immutable release directories, incoming SHA-scoped files, and free KiB on
+`/opt/kamilya-web`. Stop before mutation when current or rollback identity is
+ambiguous, when the required rollback directory is absent, or when the helper's
+documented reserve cannot be met. Never delete an old release merely to make a
+deployment fit. Cleanup requires an exact root packet naming the obsolete,
+current, and rollback SHAs plus the matching off-host recovery archive and
+manifest; report retained releases and staged files explicitly in the handoff.
+
 Never print or persist secrets. Credentials may be loaded only process-locally from
 the current allowed `.env` and only for the named operation.
 
