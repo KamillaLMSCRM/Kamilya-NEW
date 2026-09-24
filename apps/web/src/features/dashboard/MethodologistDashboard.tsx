@@ -212,8 +212,8 @@ export function MethodologistDashboard() {
       {!model && <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground"><LoaderCircle className="h-5 w-5 animate-spin" />{m.loading}</div>}
       {model && !model.learningAvailable && <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 p-5 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"><CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />{m.unavailable}</div>}
 
-      {model?.training && model.attention && <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
-        <section className="rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="attention-title">
+      {model?.training && model.attention && <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
+        <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="attention-title">
           <SectionHeading id="attention-title" title={m.attention} hint={m.attentionHint} icon={<AlertTriangle className="h-5 w-5" />} tone="amber" />
           <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Metric label={m.trainingIssues} value={model.attention.trainingIssues} testId="training-issues" />
@@ -222,7 +222,7 @@ export function MethodologistDashboard() {
             <Metric label={m.overdueActions} value={model.attention.overdueActions} tone={model.attention.overdueActions > 0 ? 'danger' : 'default'} />
           </dl>
           <div className="mt-6 border-t border-border pt-5">
-            <div className="flex items-center justify-between gap-3"><h3 className="font-semibold text-foreground">{m.priorityPeople}</h3><Link href="/training-log" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">{m.allActions}<ArrowRight className="h-4 w-4" /></Link></div>
+            <div className="flex min-w-0 flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"><h3 className="font-semibold text-foreground">{m.priorityPeople}</h3><Link href="/training-log" className="inline-flex min-w-0 items-center gap-1 text-sm font-medium text-primary hover:underline">{m.allActions}<ArrowRight className="h-4 w-4 shrink-0" /></Link></div>
             {model.attention.items.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">{m.noIssues}</p> : <ul className="mt-3 divide-y divide-border">
               {model.attention.items.map((item) => <li key={item.enrollment_id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="truncate text-sm font-semibold text-foreground">{item.full_name}</p><p className="truncate text-sm text-muted-foreground">{item.course_title}</p></div><div className="flex shrink-0 items-center gap-2 text-xs"><span className="rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-200">{issueLabel(item.issue_type)}</span><span className="text-muted-foreground">{m.progress.replace('{value}', String(item.progress_percent))}</span></div></li>)}
             </ul>}
@@ -230,7 +230,7 @@ export function MethodologistDashboard() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="health-title">
+        <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="health-title">
           <SectionHeading id="health-title" title={m.health} hint={m.healthHint} icon={<ListChecks className="h-5 w-5" />} tone="primary" />
           <div className="mt-6 flex items-end justify-between"><div><div className="text-4xl font-bold tracking-tight text-foreground">{model.training.completionPercent}%</div><div className="mt-1 text-sm text-muted-foreground">{m.completion}: {model.training.completed} / {model.training.total}</div></div><CheckCircle2 className="h-9 w-9 text-emerald-500" /></div>
           <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${model.training.completionPercent}%` }} /></div>
@@ -238,7 +238,7 @@ export function MethodologistDashboard() {
         </section>
       </div>}
 
-      {model && <section className="rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="content-title">
+      {model && <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="content-title">
         <SectionHeading id="content-title" title={m.content} hint={m.contentHint} icon={<BookOpen className="h-5 w-5" />} tone="blue" />
         {(!model.content.coursesAvailable || !model.content.jobsAvailable) && <p className="mt-4 text-sm text-amber-700 dark:text-amber-300">{m.contentUnavailable}</p>}
         <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5"><Metric label={m.allCourses} value={displayValue(model.content.totalCourses)} /><Metric label={m.published} value={displayValue(model.content.publishedCourses)} /><Metric label={m.drafts} value={displayValue(model.content.draftCourses)} /><Metric label={m.activeGeneration} value={displayValue(model.content.activeJobs)} /><Metric label={m.generationAttention} value={displayValue(model.content.attentionJobs)} tone={(model.content.attentionJobs ?? 0) > 0 ? 'danger' : 'default'} /></dl>
@@ -253,11 +253,11 @@ export function MethodologistDashboard() {
 
 function SectionHeading({ id, title, hint, icon, tone }: { id: string; title: string; hint: string; icon: ReactNode; tone: 'amber' | 'primary' | 'blue' }) {
   const colors = tone === 'amber' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' : tone === 'blue' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'bg-primary/10 text-primary';
-  return <div className="flex items-start gap-3"><div className={`rounded-xl p-2.5 ${colors}`}>{icon}</div><div><h2 id={id} className="text-lg font-bold text-foreground">{title}</h2><p className="mt-1 text-sm text-muted-foreground">{hint}</p></div></div>;
+  return <div className="flex min-w-0 items-start gap-3"><div className={`shrink-0 rounded-xl p-2.5 ${colors}`}>{icon}</div><div className="min-w-0"><h2 id={id} className="text-lg font-bold text-foreground">{title}</h2><p className="mt-1 break-words text-sm text-muted-foreground">{hint}</p></div></div>;
 }
 
 function Metric({ label, value, tone = 'default', testId }: { label: string; value: number | string; tone?: 'default' | 'danger'; testId?: string }) {
-  return <div data-testid={testId} className={`flex flex-col rounded-xl border p-3 ${tone === 'danger' ? 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30' : 'border-border bg-muted/30'}`}><dt className="order-2 mt-1 text-xs leading-4 text-muted-foreground">{label}</dt><dd className={`order-1 text-2xl font-bold ${tone === 'danger' ? 'text-red-700 dark:text-red-300' : 'text-foreground'}`}>{value}</dd></div>;
+  return <div data-testid={testId} className={`flex min-w-0 flex-col rounded-xl border p-3 ${tone === 'danger' ? 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30' : 'border-border bg-muted/30'}`}><dt className="order-2 mt-1 break-words text-xs leading-4 text-muted-foreground">{label}</dt><dd className={`order-1 text-2xl font-bold ${tone === 'danger' ? 'text-red-700 dark:text-red-300' : 'text-foreground'}`}>{value}</dd></div>;
 }
 
 function MetricCompact({ label, value, danger = false, testId }: { label: string; value: number; danger?: boolean; testId?: string }) {
