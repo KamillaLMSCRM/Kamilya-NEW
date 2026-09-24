@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response
@@ -47,7 +47,7 @@ _TRAINING_LOG_ROLES = ("admin", "methodologist", "superadmin")
 @router.get("/summary", response_model=TrainingLogSummary)
 async def training_log_summary(
     response: Response,
-    enrollment_id: UUID | None = Query(default=None),
+    enrollment_id: Annotated[UUID | None, Query()] = None,
     course_id: UUID | None = Query(default=None),
     department_id: UUID | None = Query(default=None),
     position_id: UUID | None = Query(default=None),
@@ -87,7 +87,7 @@ async def training_log_summary(
 async def list_training_log(
     request: Request,
     response: Response,
-    enrollment_id: UUID | None = Query(default=None),
+    enrollment_id: Annotated[UUID | None, Query()] = None,
     course_id: UUID | None = Query(default=None),
     department_id: UUID | None = Query(default=None),
     position_id: UUID | None = Query(default=None),
