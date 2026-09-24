@@ -4139,3 +4139,31 @@ contract or establish a blocker.
 - Prevention: authenticated-shell acceptance must include an impersonated tenant
   at 1024px and assert document `scrollWidth <= clientWidth`; responsive source
   tests must keep wide, redundant controls behind the `xl` breakpoint.
+
+## RELEASE-004 - Routine CT137 releases were manually reassembled from low-level steps
+
+- Date: 2026-09-24. Found while reviewing repeated native frontend release
+  friction; no new production deployment was performed.
+- Symptom: each release required the operator to rediscover the active checkout,
+  artifact, current release, rollback and capacity, then manually order status,
+  stage, deploy and readback commands. A stale hard-coded checkout path and a
+  guessed absent rollback could fail before the real release gate was evaluated.
+- Cause: the hardened host helper protected each individual operation, but no
+  single release-level interface bound source, CI, artifact, host inventory,
+  rollback, capacity and public readback to the same approved packet.
+- Fix: add `scripts/ops/ct137_native_release.py` as the sole routine native
+  release controller. It requires a digest-bound strict packet, verifies exact
+  repository/tag and GitHub run identities, inspects the immutable bundle, reads
+  live CT137 releases/staging/free space, verifies rollback and privilege boundary,
+  computes a conservative capacity budget, stages/deploys in one order and emits
+  atomic technical evidence. Resolve lower-level paths from the active isolated
+  checkout instead of the shared primary tree.
+- Verification: 50 focused controller and host-helper tests pass from the
+  repository root (19 Linux-only cases skipped on Windows), the separate CLI
+  contract passes, and Ruff/compilation are clean. A live read-only CT137 probe
+  confirmed current `7613885d`, rollback `f771a740`, restricted privilege
+  boundary, four immutable release directories and conservative free-space
+  readback. Authenticated product acceptance remains a distinct Test Runner gate.
+- Prevention: Release Runner may not manually compose routine native deployment
+  subcommands or infer rollback identity. A controller result ending in
+  `SEPARATE_TEST_RUNNER_REQUIRED` is technical deployment evidence, not product GO.

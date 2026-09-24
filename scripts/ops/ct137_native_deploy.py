@@ -9,12 +9,13 @@ import shlex
 import tempfile
 from pathlib import Path
 
-ROOT = Path("C:/Kamilya New/Kamilya-NEW")
 SOURCE_ROOT = Path(__file__).resolve().parents[2]
+ROOT = SOURCE_ROOT
 parser = argparse.ArgumentParser()
 parser.add_argument("--stage-file", type=Path)
 parser.add_argument("--expected-sha256")
 parser.add_argument("--status", action="store_true")
+parser.add_argument("--inventory", action="store_true")
 parser.add_argument("--test-helper", action="store_true")
 parser.add_argument("--verify-boundary", action="store_true")
 parser.add_argument("--expected-rollback-sha")
@@ -31,6 +32,7 @@ operation_count = sum(
     [
         bool(args.stage_file),
         args.status,
+        args.inventory,
         args.test_helper,
         args.verify_boundary,
         bool(args.deploy),
@@ -144,6 +146,35 @@ try:
     )
     if args.stage_file:
         transport.stream(client, path)
+    elif args.inventory:
+        command = r"""set -eu
+test "$(hostname)" = webkml
+test "$(id -un)" = kamilya-admin
+for path in /opt/kamilya-web/releases/*; do
+    test -d "$path" || continue
+    name=${path##*/}
+    printf '%s\n' "$name" | grep -Eq '^[0-9a-f]{40}$' || continue
+    printf 'RELEASE %s\n' "$name"
+done
+for path in /home/kamilya-admin/incoming/frontend-native-*; do
+    test -f "$path" || continue
+    name=${path##*/}
+    printf '%s\n' "$name" | grep -Eq '^frontend-native-[0-9a-f]{40}\.(tar\.gz|manifest\.json)$' || continue
+    size=$(stat -c '%s' "$path")
+    printf 'STAGED %s %s\n' "$name" "$size"
+done
+printf 'FREE_KB='; df -Pk /opt/kamilya-web | awk 'NR==2 {print $4}'
+"""
+        _, out, err = client.exec_command(
+            transport.PREFIX + shlex.quote(command), timeout=30
+        )
+        output = out.read(16384).decode("utf-8", "replace")
+        errors = err.read(4096)
+        code = out.channel.recv_exit_status()
+        print(output)
+        print(json.dumps({"inventory_exit": code, "stderr_bytes": len(errors)}))
+        if code or errors:
+            raise SystemExit(1)
     elif args.verify_boundary:
         command = """set -eu
 test "$(hostname)" = webkml

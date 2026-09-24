@@ -107,6 +107,16 @@ deployment fit. Cleanup requires an exact root packet naming the obsolete,
 current, and rollback SHAs plus the matching off-host recovery archive and
 manifest; report retained releases and staged files explicitly in the handoff.
 
+For the routine CT137 path, execute only
+`scripts/ops/ct137_native_release.py preflight` and then `execute` with the same
+digest-bound JSON packet. This controller verifies exact source/tag/CI/artifact,
+downloads or inspects the SHA-scoped native bundle, reads the live inventory and
+rollback, computes the conservative space requirement, orders staging/deployment,
+and writes technical readback evidence. Do not replace it with an ad hoc sequence
+of `ct137_native_deploy.py` commands. That lower-level tool is reserved for the
+controller and exact maintenance/recovery packets. A successful controller run
+still requires separately owned Test Runner product acceptance.
+
 Never print or persist secrets. Credentials may be loaded only process-locally from
 the current allowed `.env` and only for the named operation.
 

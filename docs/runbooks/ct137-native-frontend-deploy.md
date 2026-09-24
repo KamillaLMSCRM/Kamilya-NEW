@@ -23,34 +23,56 @@ Infrastructure bootstrap or changing the privilege boundary still needs owner ap
 
 ## Release procedure
 
-1. Verify owner approval, exact source/CI, compatibility and rollback. Download
-   the successful native workflow artifact; verify its archive digest and manifest.
-   The archive contains built `.next`, dependencies and public assets, not source
-   needing a build. Do not package a dirty working tree or environment files.
-2. Preserve the original CI `manifest.json` beside the archive. Make an identical
-   SHA-scoped copy named `frontend-native-<full-sha>.manifest.json` for staging.
-3. With the canonical agent-tools Python (Paramiko already installed), use:
+1. Root prepares a digest-bound JSON release packet for exactly one frontend
+   SHA. It names exact successful CI and native-build run IDs, the read-back
+   current release, one verified rollback release, owner approval and the fixed
+   technical smoke scope. `scripts/ops/ct137_native_release.py` is the only
+   routine release-level entrypoint; do not manually compose its stage/deploy
+   subcommands.
+2. With the canonical agent-tools Python (Paramiko already installed), run the
+   fail-closed preflight and preserve its evidence:
 
    ```powershell
-   & $toolPython scripts/ops/ct137_native_deploy.py --status
-   & $toolPython scripts/ops/ct137_native_deploy.py --stage-file <absolute-archive-path> --expected-sha256 <archive-digest>
-   & $toolPython scripts/ops/ct137_native_deploy.py --stage-file <absolute-sha-scoped-manifest-path> --expected-sha256 <manifest-digest>
-   & $toolPython scripts/ops/ct137_native_deploy.py --deploy <full-sha> <verified-current-full-sha> <archive-digest>
-   & $toolPython scripts/ops/ct137_native_deploy.py --status
+   $toolPython = 'C:/Users/user/.codex/tool-envs/kamilya-agent-tools/Scripts/python.exe'
+   & $toolPython scripts/ops/ct137_native_release.py preflight `
+     --packet <absolute-release-packet.json> `
+     --packet-sha256 <packet-sha256> `
+     --evidence .release-evidence/<release-id>/preflight.json
    ```
 
-   Set `$toolPython` to
-   `C:/Users/user/.codex/tool-envs/kamilya-agent-tools/Scripts/python.exe`.
-   Run from the intended repository checkout. Staging refuses to overwrite an
-   existing incoming file: reconcile its exact digest before any cleanup/retry.
+   Unless `--artifact-dir` is supplied, the controller downloads the exact
+   SHA-scoped GitHub Actions artifact itself. It verifies source/tag/version,
+   exact CI identity, bundle digest and archive layout, CT137 status, immutable
+   release inventory, rollback presence, privilege boundary and conservative
+   free-space budget before staging anything.
+3. After reviewing `READY` evidence and confirming the same authorization is
+   still current, run the same packet through `execute`:
+
+   ```powershell
+   & $toolPython scripts/ops/ct137_native_release.py execute `
+     --packet <absolute-release-packet.json> `
+     --packet-sha256 <packet-sha256> `
+     --evidence .release-evidence/<release-id>/technical-readback.json
+   ```
+
+   Execute repeats every preflight gate, creates only the required temporary
+   SHA-scoped manifest copy, stages the exact archive/manifest pair, deploys once,
+   then reads back CT137 status and the public frontend/API identity. A stopped
+   preflight or execute is a block, never permission to fall back to manual
+   staging. `ct137_native_deploy.py` remains a lower-level maintenance and
+   recovery tool.
 4. Helper verifies baseline, snapshot/digest, sidecar, paths/links, archive size,
    expanded bytes and disk reserve; extracts without executing package code;
    atomically switches and waits for application routes. Failure after switch
    triggers restoration of symlink, marker and Nginx plus old-app startup checks.
-5. Independently read `https://app.kml.kz/healthz` and confirm the exact SHA.
-   Perform the changed authenticated user journey; marker200 alone is not acceptance.
+5. Technical readback deliberately returns
+   `product_acceptance=SEPARATE_TEST_RUNNER_REQUIRED`. Test Runner then performs
+   the changed authenticated user journey. Release Runner does not absorb or
+   silently skip that responsibility; HTTP 200 and an exact marker are not
+   product acceptance.
 6. Preserve release/rollback evidence and current operational state. Do not call
-   the release accepted if browser/API capability verification is still incomplete.
+   the release accepted if the separately owned browser/API acceptance is still
+   incomplete.
 
 ## Capacity, cleanup and recovery
 

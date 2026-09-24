@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Route routine CT137 native frontend releases through one digest-bound,
+  fail-closed controller that verifies exact source, CI, artifact, host inventory,
+  rollback and capacity before ordered deployment and technical readback.
+
 ### Fixed
 
 ### Security
