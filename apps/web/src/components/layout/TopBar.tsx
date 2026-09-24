@@ -202,9 +202,9 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
         </div>
       )}
 
-      <div className="flex h-16 items-center justify-between px-3 sm:px-6">
+      <div className="flex min-h-16 flex-wrap items-center justify-between gap-2 px-3 py-2 sm:px-6 xl:flex-nowrap">
       {/* Left: Page title and tenant context */}
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
           type="button"
           onClick={onMenuClick}
@@ -231,7 +231,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
       </div>
 
       {/* Right: Actions */}
-      <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
+      <div className="flex min-w-0 w-full flex-wrap items-center justify-end gap-1.5 sm:gap-3 xl:w-auto xl:flex-nowrap">
         {assignedRoles.length > 1 && !isImpersonating && (
           <label className="flex items-center gap-2">
             <span className="sr-only">{t('topbar.activeRole')}</span>
@@ -261,7 +261,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
           onClick={() => {
             window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
           }}
-          className="hidden sm:flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2 text-sm text-muted-foreground hover:border-border hover:text-foreground transition-colors"
+          className="hidden xl:flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2 text-sm text-muted-foreground hover:border-border hover:text-foreground transition-colors"
           aria-label={t('topbar.openCommandPalette')}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -345,7 +345,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
           <button
             type="button"
             onClick={exitImpersonation}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-warning/40 bg-warning/5 px-3 py-2 text-xs font-medium text-warning hover:bg-warning/15 transition-colors"
+            className="hidden xl:inline-flex items-center gap-1.5 rounded-xl border border-warning/40 bg-warning/5 px-3 py-2 text-xs font-medium text-warning hover:bg-warning/15 transition-colors"
             title={t('topbar.operatorTitle')}
             aria-label={t('topbar.operatorAria')}
           >

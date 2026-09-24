@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Keep the impersonated tenant top bar inside tablet and narrow-desktop
+  viewports by wrapping actions and deferring redundant wide controls.
 - Make sidebar section headings visibly larger and blue while keeping ordinary
   navigation items at their established size and strengthening nested-item
   indentation.

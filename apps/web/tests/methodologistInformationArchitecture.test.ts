@@ -68,11 +68,22 @@ describe("methodologist information architecture", () => {
   });
 
   it("keeps the shared top bar within a phone viewport", () => {
-    expect(topBarSource).toContain("px-3 sm:px-6");
+    expect(topBarSource).toContain("px-3 py-2 sm:px-6");
     expect(topBarSource).toContain("w-28 rounded-lg");
     expect(topBarSource).toContain("hidden h-9 w-9");
     expect(languageSwitcherSource).toContain("sm:gap-2 sm:px-2.5");
     expect(languageSwitcherSource).toContain("hidden h-4 w-4");
+  });
+
+  it("keeps the impersonated top bar inside tablet and narrow desktop viewports", () => {
+    expect(topBarSource).toContain(
+      "flex min-h-16 flex-wrap items-center justify-between gap-2 px-3 py-2 sm:px-6 xl:flex-nowrap",
+    );
+    expect(topBarSource).toContain(
+      "flex min-w-0 w-full flex-wrap items-center justify-end gap-1.5 sm:gap-3 xl:w-auto xl:flex-nowrap",
+    );
+    expect(topBarSource).toContain("hidden xl:flex items-center gap-2");
+    expect(topBarSource).toContain("hidden xl:inline-flex items-center gap-1.5");
   });
 
   it("keeps structure free of training progress metrics and requires preview before rules mutations", () => {

@@ -4115,3 +4115,27 @@ contract or establish a blocker.
 - Prevention: a completed runner turn without an `agentMessage` is a runner
   health failure, never release evidence. Do not resend production packets into
   that task; re-anchor or replace the task with the canonical contract first.
+
+## UI-002 - Impersonated tenant top bar overflowed a 1024px viewport
+
+- Date: 2026-09-24. Found during the post-release human acceptance of the
+  methodologist shell in the production synthetic tenant.
+- Symptom: at a 1024px viewport the document became 193px wider than the visible
+  area. Notifications, profile and the secondary `Superadmin` action moved off
+  screen even though the sidebar and page content remained responsive.
+- Cause: the top-bar row had a fixed height and could not wrap. The full command
+  search and a redundant secondary impersonation-exit button became visible at
+  the `sm` breakpoint, while the open desktop sidebar left only 774px for the
+  header.
+- Fix: allow the top-bar row and action group to wrap below `xl`; give the left
+  context a shrinkable flex allocation; show the full command search and the
+  redundant secondary exit only at `xl`. The always-visible impersonation banner
+  retains its primary exit action at narrower widths.
+- Verification: the exact 1024px production DOM measurement reproduced
+  `scrollWidth=1207` against `clientWidth=1014`. The focused responsive contract
+  failed before the fix and passes afterward together with the TopBar,
+  localization and sidebar regressions. DEV and production browser readback must
+  remeasure document overflow before release acceptance.
+- Prevention: authenticated-shell acceptance must include an impersonated tenant
+  at 1024px and assert document `scrollWidth <= clientWidth`; responsive source
+  tests must keep wide, redundant controls behind the `xl` breakpoint.
