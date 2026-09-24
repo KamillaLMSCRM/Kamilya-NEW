@@ -15,6 +15,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.11.0] - 2026-09-24
+
+### Added
+
+- Add a methodologist action center that turns current learner issues and
+  privacy-safe weak-question signals into owned, dated actions with durable
+  baseline and outcome snapshots.
+- Add explicit observed, manual and cancelled closure paths with append-only
+  event history and explanations for manual outcomes or cancellation.
+
+### Changed
+
+- Restrict course question analytics to the current enrollment occurrence so
+  predecessor attempts remain historical evidence without changing the active
+  cohort.
+- Keep multiple action types available for one issue while preventing duplicate
+  open actions of the same type.
+
+### Fixed
+
+- Distinguish an attempted quiz with no passing attempt from a quiz that has
+  already been passed when classifying learner attention signals.
+- Preserve an empty department scope as an empty analytics cohort and visibly
+  warn when a bounded action-center result is partial.
+- Keep the canonical API pytest wrapper from splitting a single selector into
+  individual characters.
+
+### Security
+
+- Enforce tenant ownership for action targets, owners, creators and event actors
+  with FORCE RLS, restricted runtime grants and cross-tenant negative checks.
+
 ## [0.10.2] - 2026-09-23
 
 ### Added
@@ -1498,7 +1530,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.10.2...v0.11.0
+[0.10.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.10.1...v0.10.2
+[0.10.1]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.9.0...v0.9.1
