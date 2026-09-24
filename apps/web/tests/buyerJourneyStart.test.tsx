@@ -11,7 +11,7 @@ import ru from '@/i18n/locales/ru.json';
 const apiMock = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 const authState = vi.hoisted(() => ({
   accessToken: 'test-token',
-  user: { role: 'methodologist', full_name: 'Test Methodologist' },
+  user: { role: 'methodologist', full_name: 'Test Methodologist', tenant_id: 'tenant-1', user_id: 'methodologist-1' },
   login: vi.fn(),
 }));
 
@@ -46,16 +46,20 @@ const onboardingStatus = {
 function mockExistingRequests(jobs: Array<Record<string, unknown>>) {
   apiMock.get.mockImplementation((path: string) => {
     if (path === '/v1/ai/jobs') return Promise.resolve({ data: jobs });
-    if (path === '/v1/users?page=1&per_page=1&role=student&is_active=true&include_students=true') {
-      return Promise.resolve({ data: { total: 0 } });
-    }
-    if (path === '/v1/enrollments/stats') return Promise.resolve({ data: { total: 0, completed: 0 } });
+    if (path === '/v1/admin/learning-actions') return Promise.resolve({ data: {
+      summary: {
+        training_log: { total: 2, assigned: 1, in_progress: 0, completed: 1, overdue: 0, failed_current: 0, exhausted_attempts: 0, reassigned: 0, cancelled_history: 0, superseded_history: 0 },
+        training_issue_count: 0, training_issue_counts: {}, training_items_truncated: false,
+        weak_question_count: 0, action_count: 0, actions_truncated: false, open_action_count: 0, overdue_action_count: 0,
+      },
+      training_items: [], weak_questions: [], actions: [],
+    } });
     return Promise.resolve({ data: [] });
   });
 }
 
 beforeEach(() => {
-  authState.user = { role: 'methodologist', full_name: 'Test Methodologist' };
+  authState.user = { role: 'methodologist', full_name: 'Test Methodologist', tenant_id: 'tenant-1', user_id: 'methodologist-1' };
   authState.accessToken = 'test-token';
   apiMock.get.mockReset();
   apiMock.post.mockReset();
@@ -71,16 +75,16 @@ afterEach(() => {
 });
 
 describe('buyer-journey START presentation', () => {
-  it('hides the AI board only when the existing jobs API returns no active, failed, or unknown jobs', async () => {
+  it('shows an explicit empty content state when there are no active or problematic jobs', async () => {
     mockExistingRequests([]);
 
     render(<DashboardPage />);
 
-    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/ai/jobs'));
-    expect(screen.queryByText('dashboard.aiPipeline')).not.toBeInTheDocument();
+    expect(await screen.findByText('Активных или проблемных генераций нет.')).toBeInTheDocument();
+    expect(apiMock.get).toHaveBeenCalledWith('/v1/ai/jobs', expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
-  it('keeps failed and unknown existing jobs visible in the AI board', async () => {
+  it('keeps failed and unknown jobs visible as items that need attention', async () => {
     mockExistingRequests([
       { id: 'failed-job', job_type: 'course_generation', status: 'failed', course_title: 'Failed course', created_at: '2026-09-06T00:00:00Z' },
       { id: 'unknown-job', job_type: 'course_generation', status: 'waiting_for_review', course_title: 'Unknown job', created_at: '2026-09-06T00:00:00Z' },
@@ -88,16 +92,13 @@ describe('buyer-journey START presentation', () => {
 
     render(<DashboardPage />);
 
-    expect(await screen.findByText('dashboard.aiPipeline')).toBeInTheDocument();
+    expect(await screen.findByText('Контент в работе')).toBeInTheDocument();
     expect(screen.getByText('Failed course')).toBeInTheDocument();
     expect(screen.getByText('Unknown job')).toBeInTheDocument();
-    expect(screen.getByText('dashboard.kanban.failed')).toBeInTheDocument();
-    expect(screen.getByText('dashboard.kanban.needsAttention')).toBeInTheDocument();
-    expect(screen.queryByText('dashboard.inProgress')).not.toBeInTheDocument();
-    expect(screen.getByText('dashboard.needsAttentionCount')).toBeInTheDocument();
+    expect(screen.getAllByText('Требует внимания').length).toBeGreaterThan(0);
   });
 
-  it('uses job stage for active kanban placement and status for the summary', async () => {
+  it('uses status for urgency while preserving the current pipeline stage', async () => {
     mockExistingRequests([
       {
         id: 'running-job',
@@ -112,9 +113,8 @@ describe('buyer-journey START presentation', () => {
     render(<DashboardPage />);
 
     expect(await screen.findByText('Course being planned')).toBeInTheDocument();
-    expect(screen.getByText('dashboard.inProgress')).toBeInTheDocument();
-    const architectingColumn = screen.getByText('dashboard.kanban.architecting').closest('.kanban-col');
-    expect(architectingColumn).toHaveTextContent('Course being planned');
+    expect(screen.getByText('architect')).toBeInTheDocument();
+    expect(screen.getByText('В работе')).toBeInTheDocument();
   });
 
   it('ignores cancelled course jobs and non-course AI jobs', async () => {
@@ -139,11 +139,9 @@ describe('buyer-journey START presentation', () => {
 
     render(<DashboardPage />);
 
-    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/ai/jobs'));
-    expect(screen.queryByText('dashboard.aiPipeline')).not.toBeInTheDocument();
+    expect(await screen.findByText('Активных или проблемных генераций нет.')).toBeInTheDocument();
     expect(screen.queryByText('Cancelled course')).not.toBeInTheDocument();
     expect(screen.queryByText('Document indexing')).not.toBeInTheDocument();
-    expect(screen.getByText('dashboard.queueEmpty')).toBeInTheDocument();
   });
 
   it('keeps the active session role authoritative and offers the alternate template basis without changing server steps', async () => {

@@ -66,6 +66,7 @@ export interface WeakQuestionItem {
 
 export interface LearningActionCenterPayload {
   summary: {
+    training_log: TrainingLogSummary | null;
     training_issue_count: number;
     training_issue_counts: Record<string, number>;
     training_items_truncated: boolean;
@@ -78,6 +79,19 @@ export interface LearningActionCenterPayload {
   training_items: TrainingAttentionItem[];
   weak_questions: WeakQuestionItem[];
   actions: LearningAction[];
+}
+
+export interface TrainingLogSummary {
+  total: number;
+  assigned: number;
+  in_progress: number;
+  completed: number;
+  overdue: number;
+  failed_current: number;
+  exhausted_attempts: number;
+  reassigned: number;
+  cancelled_history: number;
+  superseded_history: number;
 }
 
 export interface CreateLearningAction {

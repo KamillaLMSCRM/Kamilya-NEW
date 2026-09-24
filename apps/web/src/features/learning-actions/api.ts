@@ -8,13 +8,18 @@ import type {
 
 const BASE = '/v1/admin/learning-actions';
 
-export async function getLearningActionCenter(courseId?: string): Promise<LearningActionCenterPayload> {
+export async function getLearningActionCenter(courseId?: string, signal?: AbortSignal): Promise<LearningActionCenterPayload> {
   const params = new URLSearchParams();
   if (courseId) params.set('course_id', courseId);
-  const response = await api.get<LearningActionCenterPayload>(`${BASE}${params.size ? `?${params}` : ''}`);
+  const url = `${BASE}${params.size ? `?${params}` : ''}`;
+  const response = signal
+    ? await api.get<LearningActionCenterPayload>(url, { signal })
+    : await api.get<LearningActionCenterPayload>(url);
   const data = response.data as Partial<LearningActionCenterPayload>;
+  const trainingLog = data.summary?.training_log;
   return {
     summary: {
+      training_log: trainingLog && typeof trainingLog.total === 'number' ? trainingLog : null,
       training_issue_count: data.summary?.training_issue_count ?? 0,
       training_issue_counts: data.summary?.training_issue_counts ?? {},
       training_items_truncated: data.summary?.training_items_truncated ?? false,

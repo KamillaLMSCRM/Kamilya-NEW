@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Replace the methodologist's decorative dashboard with an operational learning
+  overview built around current risks, training health, owned actions and
+  unfinished course work.
+- Use the action-center read model as the dashboard's single source of learning
+  status, and keep onboarding below the operational overview.
+
 ### Fixed
 
 - Keep the impersonated tenant top bar inside tablet and narrow-desktop
