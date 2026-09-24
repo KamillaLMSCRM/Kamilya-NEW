@@ -4091,3 +4091,27 @@ contract or establish a blocker.
 - Prevention: wrapper tests must verify argument cardinality as well as
   interpreter selection. A zero-test invocation or a shortened selector is a
   failed gate, never a product result.
+
+## RELEASE-003 - Persistent Release Runner completed packets with empty turns
+
+- Date: 2026-09-24. Found after the exact frontend release `aa23e3d7`; the root
+  completed the authorized production deployment through the canonical runbook.
+- Symptom: five consecutive Release Runner turns reached `completed` with no
+  commentary, tools, final handoff or explicit blocker. Earlier runs also read a
+  stale primary checkout and misclassified executor access failures as release
+  or credential failures.
+- Cause: the persistent task had accumulated a long stale context and started
+  outside the current repository. The prepared executor/checkout preflight fix
+  remained on an unmerged branch, while the active contract had no explicit
+  invariant forbidding an empty completed turn.
+- Fix: bring executor and exact-Git-object preflight into the canonical runner
+  contract; classify sandbox, network and host-key failures as
+  `EXECUTOR_ACCESS`; require visible commentary and a final five-field handoff
+  for every packet, including validation failures before the first tool call.
+- Verification: `test_release_runner_fails_closed_on_checkout_drift_and_empty_turns`
+  fails against the previous contract and passes after the correction. The
+  persistent task must additionally pass a fresh no-mutation probe before it is
+  trusted with another release packet.
+- Prevention: a completed runner turn without an `agentMessage` is a runner
+  health failure, never release evidence. Do not resend production packets into
+  that task; re-anchor or replace the task with the canonical contract first.

@@ -29,10 +29,14 @@ describe('methodologist sidebar information hierarchy', () => {
     expect(screen.queryByRole('link', { name: 'Панель управления' })).not.toBeInTheDocument();
 
     const contentHeading = screen.getByRole('heading', { name: 'Курсы и материалы' });
-    expect(contentHeading).toHaveClass('text-xs');
+    expect(contentHeading).toHaveClass('text-sm', 'font-bold', 'text-primary/80');
+    expect(contentHeading).not.toHaveClass('text-xs');
     expect(contentHeading).not.toHaveClass('uppercase');
+    expect(contentHeading.closest('[data-sidebar-section]')).toHaveClass('border-t');
 
     const staffLink = screen.getByRole('link', { name: 'Сотрудники и структура' });
+    expect(staffLink).toHaveClass('text-sm', 'font-medium');
+    expect(staffLink).not.toHaveClass('text-[15px]');
     const groupToggle = staffLink.parentElement?.querySelector('button');
     expect(groupToggle).not.toBeNull();
     fireEvent.click(groupToggle!);
@@ -40,7 +44,7 @@ describe('methodologist sidebar information hierarchy', () => {
     const positionLink = screen.getByRole('link', { name: 'Должности' });
     expect(positionLink).toHaveClass('text-sm');
     const nestedList = positionLink.closest('ul');
-    expect(nestedList).toHaveClass('border-primary/20');
+    expect(nestedList).toHaveClass('ml-8', 'border-l-2', 'border-primary/30');
     expect(container.querySelectorAll('nav h2').length).toBeGreaterThan(2);
   });
 });

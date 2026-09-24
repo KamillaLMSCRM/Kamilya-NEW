@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Make sidebar section headings visibly larger and blue while keeping ordinary
+  navigation items at their established size and strengthening nested-item
+  indentation.
+- Make the Release Runner fail closed on checkout/executor drift and require a
+  visible five-field handoff for every received packet, including early blocks.
+
 ### Security
 
 ## [0.11.0] - 2026-09-24

@@ -25,6 +25,40 @@ For every run, read only the relevant parts of:
 Use Graphify only if packet validation exposes a non-trivial source dependency. A
 prepared release normally requires neither source exploration nor graph loading.
 
+## Executor and checkout preflight
+
+Before accepting a release packet for execution, record the task's actual working
+directory, the repository root, its HEAD and status, and the exact packet SHA.
+The persistent task may start outside the repository. Its current directory is
+not release identity, and the shared primary checkout may be on an older branch
+with unrelated changes. Never infer that a runbook or release file is missing
+from a release because it is absent from that checkout. Check the exact Git object
+(`git cat-file -e <EXACT_SHA>:<path>`) and read it from that object or an
+isolated worktree at the same SHA. Do not deploy a working-directory archive.
+
+Perform one bounded capability check for every required external gate before
+mutating anything: canonical process-local GitHub auth from the verified
+repository root, outbound HTTPS, and read access to the approved SSH host-key
+file when remote execution is in scope. Report only account identity, exit code,
+error class and whether the request reached the service; never expose tokens or
+host-key contents. A sandbox denial, unreadable `known_hosts`, or task-level
+network restriction is `EXECUTOR_ACCESS`, not proof of an expired token or a
+production outage. A `gh auth status` failure before HTTP exchange is likewise
+not token-invalid evidence. Stop and return that precise capability gap to root;
+do not repeat the same blocked release or use ambient/keyring credentials. Root
+must execute the protected gate in an authorized environment or provide a new
+executor; its evidence does not grant this runner access or deployment authority.
+
+## Turn completion invariant
+
+Every received packet must produce a visible response in the same turn. Start
+with one concise commentary message that names the packet and current gate, then
+finish with the final five-field handoff below even when validation fails before
+the first tool call. Never end a turn with reasoning, tool output, or an empty
+assistant message. If execution cannot start, return `BLOCKED` with `changed:
+none` and the exact failed gate. Sending a copy to `ROOT_THREAD_ID` never replaces
+the final five-field handoff in this task.
+
 ## Required release packet
 
 Do nothing except read-only packet validation unless root supplies all fields:

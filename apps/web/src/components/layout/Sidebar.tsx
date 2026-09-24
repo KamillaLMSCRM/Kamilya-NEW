@@ -134,9 +134,14 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
           );
 
           return (
-            <div key={section} aria-labelledby={!collapsed ? `sidebar-section-${section}` : undefined}>
+            <div
+              key={section}
+              data-sidebar-section={section}
+              aria-labelledby={!collapsed ? `sidebar-section-${section}` : undefined}
+              className="border-t border-border/70 pt-4 first:border-t-0 first:pt-0"
+            >
               {!collapsed && (
-                <h2 id={`sidebar-section-${section}`} className="mb-2 px-3 text-xs font-bold tracking-wide text-foreground/65">
+                <h2 id={`sidebar-section-${section}`} className="mb-2 px-3 text-sm font-bold leading-5 tracking-wide text-primary/80">
                   {t(SECTION_LABELS[section])}
                 </h2>
               )}
@@ -164,7 +169,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
                           title={label}
                           aria-current={active ? 'page' : undefined}
                           className={cn(
-                            'group relative flex min-h-11 flex-1 items-center rounded-xl px-3 py-2 text-[15px] font-semibold transition-colors',
+                            'group relative flex min-h-11 flex-1 items-center rounded-xl px-3 py-2 text-sm font-medium transition-colors',
                             collapsed && 'justify-center px-0',
                             childRoutes.length > 0 && !collapsed && 'pr-10',
                             active
@@ -200,7 +205,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
                       {!collapsed && groupOpen && (
                         <ul
                           id={`sidebar-group-${route.id}`}
-                          className="ml-6 mt-1.5 space-y-1 rounded-lg border-l-2 border-primary/20 bg-muted/20 py-1 pl-2"
+                          className="ml-8 mt-1.5 space-y-1 rounded-lg border-l-2 border-primary/30 bg-muted/20 py-1 pl-2"
                           role="list"
                         >
                           {childRoutes.map((child) => {

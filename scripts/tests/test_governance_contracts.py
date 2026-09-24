@@ -31,6 +31,15 @@ class GovernanceContractTests(unittest.TestCase):
                 self.assertIn(field, contract)
         self.assertNotIn("STATUS: READY", release_runner)
 
+    def test_release_runner_fails_closed_on_checkout_drift_and_empty_turns(self) -> None:
+        release_runner = read(".codex/agents/release-runner/AGENTS.md")
+
+        self.assertIn("## Executor and checkout preflight", release_runner)
+        self.assertIn("exact Git object", release_runner)
+        self.assertIn("EXECUTOR_ACCESS", release_runner)
+        self.assertIn("## Turn completion invariant", release_runner)
+        self.assertIn("final five-field handoff", release_runner)
+
     def test_release_authority_and_evidence_modules_have_distinct_owners(self) -> None:
         project_rules = read("AGENTS.md")
         release_lifecycle = read("docs/releases/README.md")
