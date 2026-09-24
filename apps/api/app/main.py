@@ -59,6 +59,7 @@ from app.modules.enrollments.router import router as enrollments_router
 from app.modules.enrollments.router import stats_router as enrollments_stats_router
 from app.modules.integrations.router import router as integrations_router
 from app.modules.learner_assistant.router import router as learner_assistant_router
+from app.modules.learning_actions.router import router as learning_actions_router
 from app.modules.learning_cycles.router import router as learning_cycles_router
 from app.modules.learning_insights.router import router as learning_insights_router
 from app.modules.learning_paths.router import router as learning_paths_router
@@ -265,6 +266,7 @@ app.include_router(integrations_router, prefix=f"{settings.API_PREFIX}", tags=["
 app.include_router(learner_assistant_router, prefix=f"{settings.API_PREFIX}", tags=["learner-assistant"])
 app.include_router(training_log_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(learning_insights_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
+app.include_router(learning_actions_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(training_evidence_router, prefix=f"{settings.API_PREFIX}", tags=["training-evidence"])
 app.include_router(training_evidence_step_up_router, prefix=f"{settings.API_PREFIX}", tags=["training-evidence"])
 app.include_router(training_evidence_export_router, prefix=f"{settings.API_PREFIX}", tags=["training-evidence"])

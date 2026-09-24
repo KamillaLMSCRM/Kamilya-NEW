@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-23.
+Current as of: 2026-09-24.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -4073,3 +4073,21 @@ contract or establish a blocker.
 - Prevention: release acceptance must observe the same engine state that is
   persisted. Engine-specific counters may not be shared across implementations,
   and obsolete execution routes must fail closed rather than remain resumable.
+
+## TEST-INFRA-004 - Canonical pytest wrapper split one selector into characters
+
+- Date: 2026-09-24. Found by the first red test for the Learning Actions slice;
+  no application, DEV or production data had been changed.
+- Symptom: the mandatory wrapper invoked pytest with the path `t` and collected
+  zero tests whenever exactly one selector was supplied.
+- Cause: PowerShell collapsed the `foreach` result to a scalar string.
+  Splatting that scalar expanded its characters instead of passing one argument.
+- Fix: materialize `$normalizedArgs` as an array with `@(...)` before
+  invoking the canonical root `.venv`. Extend the static runner contract to
+  require this executable boundary.
+- Verification: the wrapper contract passed, then one-selector TDD collected
+  and passed 3 tests; the integrated focused backend run collected and passed
+  35 tests.
+- Prevention: wrapper tests must verify argument cardinality as well as
+  interpreter selection. A zero-test invocation or a shortened selector is a
+  failed gate, never a product result.

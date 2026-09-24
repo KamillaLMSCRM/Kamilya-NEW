@@ -32,6 +32,7 @@ import { EvidenceShareDialog } from '@/features/training-evidence/EvidenceShareD
 import { SignedScanControl, useSignedScanLedgers } from '@/features/training-evidence/SignedScanControl';
 import { LearnerAnswers, LearningInsightsPanel, canUseLearningInsights } from '@/features/learning-insights/LearningInsights';
 import { useLearningInsightsT } from '@/features/learning-insights/i18n';
+import { LearningActionCenter } from '@/features/learning-actions/LearningActionCenter';
 
 /**
  * Training log — единый журнал обучения (P0.3 first-tenant hardening).
@@ -502,13 +503,16 @@ export default function AdminTrainingLogPage() {
       </Card>
 
       {canInspectLearning && (
-        <LearningInsightsPanel
-          courseId={filters.course_id}
-          departmentId={filters.department_id}
-          positionId={filters.position_id}
-          dateFrom={filters.date_from}
-          dateTo={filters.date_to}
-        />
+        <>
+          <LearningActionCenter courseId={filters.course_id} />
+          <LearningInsightsPanel
+            courseId={filters.course_id}
+            departmentId={filters.department_id}
+            positionId={filters.position_id}
+            dateFrom={filters.date_from}
+            dateTo={filters.date_to}
+          />
+        </>
       )}
 
       {/* Summary */}

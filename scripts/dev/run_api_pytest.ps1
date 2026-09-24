@@ -24,7 +24,8 @@ if ($LASTEXITCODE -ne 0) {
     throw "Canonical API test runtime is incomplete: pytest/pytest_asyncio import failed"
 }
 
-$normalizedArgs = foreach ($argument in $PytestArgs) {
+$normalizedArgs = @(
+foreach ($argument in $PytestArgs) {
     if ($argument -match '^apps[\\/]api[\\/](.+)$') {
         $matches[1]
     }
@@ -42,6 +43,7 @@ $normalizedArgs = foreach ($argument in $PytestArgs) {
         $argument
     }
 }
+)
 
 $previousPythonPath = $env:PYTHONPATH
 try {

@@ -5,6 +5,7 @@ TrainingLogRow is the flat row that joins User, Course, Enrollment, Position,
 Department, Progress (best score for SCORM/native aggregated from Progress),
 Certificate, and the latest KioskAccessLog timestamp.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -20,6 +21,7 @@ class TrainingLogFilter(BaseModel):
     """Filter params for /admin/training-log (used as a typed dep)."""
 
     course_id: UUID | None = None
+    enrollment_id: UUID | None = None
     department_id: UUID | None = None
     position_id: UUID | None = None
     # enrollment status derived from `enrollments.status`, activity and cycle rules:
@@ -139,6 +141,9 @@ class TrainingLogRow(BaseModel):
     # Quiz (native only; SCORM has its own score_raw stored on scorm_attempts)
     best_score: int | None = None  # 0..100
     quiz_attempts_count: int = 0
+    # True only when at least one attempted quiz has no passing attempt for
+    # this exact enrollment occurrence.
+    failed_required_quiz: bool = False
 
     # Certificate
     certificate_id: UUID | None = None

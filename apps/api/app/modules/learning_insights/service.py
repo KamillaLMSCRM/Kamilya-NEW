@@ -18,12 +18,14 @@ from uuid import UUID
 from sqlalchemy import and_, false, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import Select
 
 from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.courses.models import Course
 from app.modules.courses.release_models import ContentRelease
 from app.modules.courses.release_service import canonical_json_sha256
+from app.modules.enrollments.occurrences import is_current_occurrence
 from app.modules.learning_insights.schemas import (
     AttemptDetail,
     ChoiceDetail,
@@ -635,55 +637,15 @@ async def get_course_insights(
     ):
         raise LearningInsightsNotFoundError("Position not found")
 
-    department_scope_ids: set[UUID] = set()
+    department_scope_ids: set[UUID] | None = None
     if department_id is not None:
         department_scope_ids = await resolve_descendants(db, tenant_id, [department_id])
 
-    conditions = [
-        Enrollment.tenant_id == tenant_id,
-        Enrollment.course_id == course_id,
-        QuizAttempt.tenant_id == tenant_id,
-        QuizAttempt.enrollment_id == Enrollment.id,
-        QuizAttempt.user_id == Enrollment.user_id,
-        QuizAttempt.completed_at.is_not(None),
-        User.tenant_id == tenant_id,
-    ]
-    if position_id is not None:
-        conditions.append(User.position_id == position_id)
-    if department_id is not None:
-        conditions.extend(
-            (
-                or_(
-                    User.organization_unit_id.in_(department_scope_ids)
-                    if department_scope_ids
-                    else false(),
-                    and_(
-                        User.organization_unit_id.is_(None),
-                        Position.department_id.in_(department_scope_ids)
-                        if department_scope_ids
-                        else false(),
-                    ),
-                ),
-            )
-        )
-    statement = (
-        select(QuizAttempt, ContentRelease)
-        .join(
-            Enrollment, and_(Enrollment.id == QuizAttempt.enrollment_id, Enrollment.tenant_id == QuizAttempt.tenant_id)
-        )
-        .join(User, and_(User.id == Enrollment.user_id, User.tenant_id == Enrollment.tenant_id))
-        .outerjoin(Position, and_(Position.id == User.position_id, Position.tenant_id == User.tenant_id))
-        .outerjoin(
-            ContentRelease,
-            and_(
-                ContentRelease.id == QuizAttempt.content_release_id,
-                ContentRelease.tenant_id == QuizAttempt.tenant_id,
-                ContentRelease.course_id == course_id,
-            ),
-        )
-        .where(*conditions)
-        .order_by(QuizAttempt.user_id, QuizAttempt.completed_at, QuizAttempt.id)
-        .limit(MAX_CANDIDATE_ATTEMPTS + 1)
+    statement = build_course_attempt_statement(
+        tenant_id=tenant_id,
+        course_id=course_id,
+        department_scope_ids=department_scope_ids,
+        position_id=position_id,
     )
     rows = (await db.execute(statement)).all()
     if len(rows) > MAX_CANDIDATE_ATTEMPTS:
@@ -759,6 +721,63 @@ async def get_course_insights(
         included_employees=included_employees,
         excluded_attempts=excluded_attempts,
         questions=stats,
+    )
+
+
+def build_course_attempt_statement(
+    *,
+    tenant_id: UUID,
+    course_id: UUID,
+    department_scope_ids: set[UUID] | None = None,
+    position_id: UUID | None = None,
+) -> Select[Any]:
+    """Build the current-occurrence question-analytics query.
+
+    Keeping this seam explicit lets the contract test verify that immutable quiz
+    attempts from predecessor assignments cannot enter the current cohort.
+    """
+    department_filter_applied = department_scope_ids is not None
+    department_scope_ids = department_scope_ids or set()
+    conditions = [
+        Enrollment.tenant_id == tenant_id,
+        Enrollment.course_id == course_id,
+        is_current_occurrence(),
+        QuizAttempt.tenant_id == tenant_id,
+        QuizAttempt.enrollment_id == Enrollment.id,
+        QuizAttempt.user_id == Enrollment.user_id,
+        QuizAttempt.completed_at.is_not(None),
+        User.tenant_id == tenant_id,
+    ]
+    if position_id is not None:
+        conditions.append(User.position_id == position_id)
+    if department_filter_applied:
+        conditions.append(
+            or_(
+                User.organization_unit_id.in_(department_scope_ids) if department_scope_ids else false(),
+                and_(
+                    User.organization_unit_id.is_(None),
+                    Position.department_id.in_(department_scope_ids) if department_scope_ids else false(),
+                ),
+            )
+        )
+    return (
+        select(QuizAttempt, ContentRelease)
+        .join(
+            Enrollment, and_(Enrollment.id == QuizAttempt.enrollment_id, Enrollment.tenant_id == QuizAttempt.tenant_id)
+        )
+        .join(User, and_(User.id == Enrollment.user_id, User.tenant_id == Enrollment.tenant_id))
+        .outerjoin(Position, and_(Position.id == User.position_id, Position.tenant_id == User.tenant_id))
+        .outerjoin(
+            ContentRelease,
+            and_(
+                ContentRelease.id == QuizAttempt.content_release_id,
+                ContentRelease.tenant_id == QuizAttempt.tenant_id,
+                ContentRelease.course_id == course_id,
+            ),
+        )
+        .where(*conditions)
+        .order_by(QuizAttempt.user_id, QuizAttempt.completed_at, QuizAttempt.id)
+        .limit(MAX_CANDIDATE_ATTEMPTS + 1)
     )
 
 

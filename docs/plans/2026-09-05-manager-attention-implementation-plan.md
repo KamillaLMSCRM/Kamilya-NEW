@@ -331,3 +331,34 @@ Token counters, независимые model IDs и точное время root
 сборку теста, но не валидность DB fixtures; следующий пакет тестов должен явно
 ссылаться на существующий lifecycle создания программы и запускаться изолированно
 на одном тесте до полного набора. Общие инструкции этим наблюдением не переписаны.
+
+## R3/R4 action center — локальная приёмка, 2026-09-24
+
+Реализована единая цепочка `issue → action → outcome` поверх существующих
+Training Log и Learning Insights. Сервер сам фиксирует baseline/outcome, не
+переписывает попытки и enrollment history, не отправляет письма и не создаёт
+повторные назначения скрытно. В очередь попадают только текущие occurrences;
+слабый вопрос требует минимум 5 ответов и 30% ошибок. Дубли открытого действия
+для точной цели, проблемы и типа отклоняются.
+
+Методист видит RU/KK/EN состояния loading/empty/error, создаёт действие со
+сроком и комментарием, а ответственным V1 становится текущий методист. Закрытие
+различает наблюдаемый, ручной и отменённый результат; ручной результат и отмена
+требуют пояснение. Ошибка сохранения не закрывает форму и допускает повтор.
+
+Проверено root:
+
+- API unit: **2100 passed**; профильный набор: **41 passed**; runner contract:
+  **1 passed**;
+- frontend: **685 passed**, typecheck, lint и production build PASS;
+- Python quality baseline: **Ruff 1050 / mypy 2221**, без расширения baseline;
+- одноразовая Supabase DEV схема: реальная 0163 upgrade/downgrade/re-upgrade,
+  `lms_app` tenant ownership/isolation, cross-tenant target/actor rejection, запрет update
+  events/delete actions, cleanup; shared migration head не изменён;
+- production, shared DEV/public migration и deployed browser flow не запускались.
+
+Делегирование: два дешёвых read-only агента исследовали существующие seams,
+один дешёвый backend writer подготовил bounded пакет; root проверил каждое
+изменение, исправил occurrence/failed-quiz семантику, transaction race,
+frontend identities, recoverable UX и канонический test runner. Независимые
+token/model counters инструментами не предоставлены: UNKNOWN.

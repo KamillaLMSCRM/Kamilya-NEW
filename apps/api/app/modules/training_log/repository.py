@@ -196,6 +196,8 @@ def _apply_filters(stmt, f: TrainingLogFilter, tenant_id: UUID):
     stmt = stmt.where(User.role.in_(("student",)))  # HR doesn't want to see admins/methodologists in this log
     if f.course_id:
         stmt = stmt.where(CourseModel.id == f.course_id)
+    if f.enrollment_id:
+        stmt = stmt.where(Enrollment.id == f.enrollment_id)
     if f.delivery_type:
         stmt = stmt.where(CourseModel.delivery_type == f.delivery_type)
     if f.date_from:
@@ -891,6 +893,7 @@ async def list_training_log(
             _quiz_attempts.c.enrollment_id.label("enrollment_id"),
             func.max(_quiz_attempts.c.score_percent).label("best_score"),
             func.count(_quiz_attempts.c.id).label("attempts_count"),
+            func.bool_or(_quiz_attempts.c.passed).label("has_passed"),
         )
         .where(_quiz_attempts.c.tenant_id == tenant_id)
         .where(_quiz_attempts.c.user_id.in_(user_ids))
@@ -942,6 +945,7 @@ async def list_training_log(
             quiz_stats_stmt.c.enrollment_id.label("enrollment_id"),
             func.max(quiz_stats_stmt.c.best_score).label("best_score"),
             func.sum(quiz_stats_stmt.c.attempts_count).label("attempts_count"),
+            func.bool_and(quiz_stats_stmt.c.has_passed).label("all_attempted_quizzes_passed"),
         )
         .select_from(quiz_course_stmt)
         .join(
@@ -959,27 +963,32 @@ async def list_training_log(
         (r["user_id"], r["course_id"], r["enrollment_id"]): {
             "best_score": r["best_score"],
             "quiz_attempts_count": int(r["attempts_count"] or 0),
+            "failed_required_quiz": not bool(r["all_attempted_quizzes_passed"]),
         }
         for r in quiz_rows
     }
 
     # Certificate: one row per (user, course).
-    cert_stmt = select(
-        Certificate.user_id,
-        Certificate.course_id,
-        Certificate.enrollment_id,
-        Certificate.id.label("certificate_id"),
-        Certificate.certificate_number,
-        Certificate.issued_at,
-        Certificate.expires_at,
-        Certificate.revoked_at,
-    ).where(
-        Certificate.tenant_id == tenant_id,
-        Certificate.user_id.in_(user_ids),
-        Certificate.course_id.in_(course_ids),
-    ).order_by(
-        Certificate.issued_at.desc().nullslast(),
-        Certificate.id.desc(),
+    cert_stmt = (
+        select(
+            Certificate.user_id,
+            Certificate.course_id,
+            Certificate.enrollment_id,
+            Certificate.id.label("certificate_id"),
+            Certificate.certificate_number,
+            Certificate.issued_at,
+            Certificate.expires_at,
+            Certificate.revoked_at,
+        )
+        .where(
+            Certificate.tenant_id == tenant_id,
+            Certificate.user_id.in_(user_ids),
+            Certificate.course_id.in_(course_ids),
+        )
+        .order_by(
+            Certificate.issued_at.desc().nullslast(),
+            Certificate.id.desc(),
+        )
     )
     cert_rows = (await db.execute(cert_stmt)).mappings().all()
     cert_by_pair: dict[tuple[UUID, UUID, UUID | None], dict[str, Any]] = {}
@@ -989,11 +998,11 @@ async def list_training_log(
         cert_by_pair.setdefault(
             (r["user_id"], r["course_id"], r["enrollment_id"]),
             {
-            "certificate_id": r["certificate_id"],
-            "certificate_number": r["certificate_number"],
-            "certificate_issued_at": r["issued_at"],
-            "certificate_expires_at": r["expires_at"],
-            "certificate_revoked_at": r["revoked_at"],
+                "certificate_id": r["certificate_id"],
+                "certificate_number": r["certificate_number"],
+                "certificate_issued_at": r["issued_at"],
+                "certificate_expires_at": r["expires_at"],
+                "certificate_revoked_at": r["revoked_at"],
             },
         )
 
@@ -1107,6 +1116,7 @@ async def list_training_log(
                 "progress_percent": progress_percent,
                 "best_score": quiz_info.get("best_score"),
                 "quiz_attempts_count": quiz_info.get("quiz_attempts_count", 0),
+                "failed_required_quiz": quiz_info.get("failed_required_quiz", False),
                 "certificate_id": cert_info.get("certificate_id"),
                 "certificate_number": cert_info.get("certificate_number"),
                 "certificate_issued_at": cert_info.get("certificate_issued_at"),
@@ -1189,8 +1199,13 @@ async def count_current_attempt_outcomes(db: AsyncSession, tenant_id: UUID, f: T
     eligible = eligible.subquery()
     quizzes = Table("quizzes", MetaData(), Column("id", PG_UUID), Column("attempt_limit", Integer))
     attempts = Table(
-        "quiz_attempts", MetaData(), Column("id", PG_UUID), Column("tenant_id", PG_UUID),
-        Column("enrollment_id", PG_UUID), Column("quiz_id", PG_UUID), Column("passed", Boolean),
+        "quiz_attempts",
+        MetaData(),
+        Column("id", PG_UUID),
+        Column("tenant_id", PG_UUID),
+        Column("enrollment_id", PG_UUID),
+        Column("quiz_id", PG_UUID),
+        Column("passed", Boolean),
     )
     by_quiz = (
         select(
