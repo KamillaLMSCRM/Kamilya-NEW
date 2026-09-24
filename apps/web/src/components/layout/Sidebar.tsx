@@ -126,7 +126,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
         <span aria-hidden>×</span>
       </button>
 
-      <nav id="sidebar-nav" className="flex-1 space-y-4 overflow-y-auto px-3 py-4" aria-label={t('a11y.mainNavigation')}>
+      <nav id="sidebar-nav" className="flex-1 space-y-5 overflow-y-auto px-3 py-4" aria-label={t('a11y.mainNavigation')}>
         {sections.map((section) => {
           const sectionRoutes = routes.filter((route) => route.section === section);
           const topLevelRoutes = sectionRoutes.filter(
@@ -134,9 +134,9 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
           );
 
           return (
-            <div key={section}>
+            <div key={section} aria-labelledby={!collapsed ? `sidebar-section-${section}` : undefined}>
               {!collapsed && (
-                <h2 className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <h2 id={`sidebar-section-${section}`} className="mb-2 px-3 text-xs font-bold tracking-wide text-foreground/65">
                   {t(SECTION_LABELS[section])}
                 </h2>
               )}
@@ -164,7 +164,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
                           title={label}
                           aria-current={active ? 'page' : undefined}
                           className={cn(
-                            'group relative flex min-h-11 flex-1 items-center rounded-xl px-3 py-2 text-sm font-medium transition-colors',
+                            'group relative flex min-h-11 flex-1 items-center rounded-xl px-3 py-2 text-[15px] font-semibold transition-colors',
                             collapsed && 'justify-center px-0',
                             childRoutes.length > 0 && !collapsed && 'pr-10',
                             active
@@ -187,7 +187,9 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
                             }))}
                             aria-expanded={groupOpen}
                             aria-controls={`sidebar-group-${route.id}`}
-                            aria-label={groupOpen ? t('sidebar.collapse') : t('sidebar.expand')}
+                            aria-label={groupOpen
+                              ? t('sidebar.collapseGroup', { name: label })
+                              : t('sidebar.expandGroup', { name: label })}
                             className="absolute right-1.5 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                           >
                             <ChevronDown className={cn('h-4 w-4 transition-transform', groupOpen && 'rotate-180')} />
@@ -198,7 +200,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
                       {!collapsed && groupOpen && (
                         <ul
                           id={`sidebar-group-${route.id}`}
-                          className="ml-5 mt-1 space-y-0.5 border-l border-border pl-2"
+                          className="ml-6 mt-1.5 space-y-1 rounded-lg border-l-2 border-primary/20 bg-muted/20 py-1 pl-2"
                           role="list"
                         >
                           {childRoutes.map((child) => {
@@ -215,7 +217,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
                                   onFocus={() => router.prefetch(child.href)}
                                   aria-current={isChildActive ? 'page' : undefined}
                                   className={cn(
-                                    'relative flex min-h-9 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors',
+                                    'relative flex min-h-10 items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
                                     isChildActive
                                       ? 'bg-primary/10 text-primary'
                                       : 'text-muted-foreground hover:bg-muted hover:text-foreground',

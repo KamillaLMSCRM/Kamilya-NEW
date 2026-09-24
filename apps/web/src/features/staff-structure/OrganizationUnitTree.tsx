@@ -13,6 +13,7 @@ import {
   type OrganizationStructurePosition,
   type OrganizationUnitNode,
 } from './organizationStructure';
+import { EmployeeStatusBadge } from './EmployeeStatusBadge';
 
 interface OrganizationUnitTreeProps {
   roots: OrganizationUnitNode[];
@@ -83,9 +84,12 @@ function PositionRow({
 function EmployeeRow({ employee, onEdit }: { employee: OrganizationStructureEmployee; onEdit: (employee: OrganizationStructureEmployee) => void }) {
   return (
     <li className="flex min-w-0 items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-background">
-      <span className={employee.is_active ? 'min-w-0 text-base font-semibold text-primary' : 'min-w-0 text-base font-semibold text-muted-foreground line-through'}>
-        {employee.full_name}
-        {employee.personnel_number && <span className="ml-2 whitespace-nowrap text-xs font-normal text-muted-foreground">· {employee.personnel_number}</span>}
+      <span className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className={employee.is_active ? 'min-w-0 text-base font-semibold text-primary' : 'min-w-0 text-base font-semibold text-foreground'}>
+          {employee.full_name}
+          {employee.personnel_number && <span className="ml-2 whitespace-nowrap text-xs font-normal text-muted-foreground">· {employee.personnel_number}</span>}
+        </span>
+        <EmployeeStatusBadge isActive={employee.is_active} />
       </span>
       <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={() => onEdit(employee)}>Изменить</Button>

@@ -174,6 +174,70 @@ describe('organization hierarchy v2 public UI', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Инженер сектора/i }));
     expect(screen.getByText('Мария Иванова')).toBeInTheDocument();
+    expect(screen.getByText('Активен')).toBeInTheDocument();
+  });
+
+  it('shows an explicit terminated status in the tree and employee dialog', async () => {
+    const inactiveTree = {
+      ...fourLevelTree,
+      roots: [{
+        ...fourLevelRoot,
+        children: [{
+          ...fourLevelRoot.children[0],
+          children: [{
+            ...fourLevelRoot.children[0].children[0],
+            children: [{
+              ...fourLevelRoot.children[0].children[0].children[0],
+              positions: [{
+                ...position,
+                employees: [{
+                  ...position.employees[0],
+                  is_active: false,
+                }],
+              }],
+            }],
+          }],
+        }],
+      }],
+    };
+    getMock.mockImplementation(async (url: string) => {
+      if (url.includes('/import/mappings')) return { data: [] } as any;
+      if (url === '/v1/departments') return { data: { departments: [] } } as any;
+      if (url === '/v1/positions') return { data: [] } as any;
+      if (url.includes('/organization-units/tree')) return { data: inactiveTree } as any;
+      if (url === '/v1/admin/staff/manual/employee-sector-1') {
+        return {
+          data: {
+            id: 'employee-sector-1',
+            personnel_number: '102',
+            first_name: 'Мария',
+            last_name: 'Иванова',
+            email: 'maria@example.com',
+            phone: null,
+            is_active: false,
+          },
+        } as any;
+      }
+      throw new Error(`unexpected GET ${url}`);
+    });
+
+    render(<AdminStaffPage />);
+    fireEvent.click(screen.getByRole('tab', { name: /Структура/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Центральный офис/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Управление качества/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Департамент испытаний/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Сектор испытаний/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Инженер сектора/i }));
+
+    const employeeName = await screen.findByText('Мария Иванова');
+    expect(employeeName).not.toHaveClass('line-through');
+    expect(screen.getByText('Уволен')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Изменить' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Данные сотрудника' });
+    expect(within(dialog).getByText('Уволен')).toBeInTheDocument();
+    expect(within(dialog).getByText(/доступ закрыт/i)).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /^Уволить$/i })).not.toBeInTheDocument();
   });
 
   it('shows the complete local breadcrumb and explicit head-office badge', async () => {

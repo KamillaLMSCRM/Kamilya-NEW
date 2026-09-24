@@ -13,6 +13,7 @@ import { formatKzPhone, isCompleteKzPhone } from "@/lib/kzPhone";
 import { ApplyRulesProgress } from "@/components/ui/ApplyRulesProgress";
 import { OrganizationUnitPicker } from "@/features/staff-structure/OrganizationUnitPicker";
 import { OrganizationUnitTree } from "@/features/staff-structure/OrganizationUnitTree";
+import { EmployeeStatusBadge } from "@/features/staff-structure/EmployeeStatusBadge";
 import {
   collectOrganizationUnitSubtreeIds,
   flattenOrganizationUnits,
@@ -1532,7 +1533,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
   };
 
   const terminateEmployee = async () => {
-    if (!editingEmployee || terminationReason.trim().length < 3) {
+    if (!editingEmployee || !editingEmployee.is_active || terminationReason.trim().length < 3) {
       toast.error(ui("authenticatedUi.adminStaff.employee.terminationReasonRequired"));
       return;
     }
@@ -1769,9 +1770,12 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                               <ul className="mt-2 space-y-1 pl-6">
                                 {pos.employees.map((emp) => (
                                   <li key={emp.id} className="flex min-w-0 items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-background">
-                                    <span className={emp.is_active ? "min-w-0 text-base font-semibold text-primary" : "min-w-0 text-base font-semibold text-muted-foreground line-through"}>
-                                      {emp.full_name}
-                                      {emp.personnel_number && <span className="ml-2 whitespace-nowrap text-xs font-normal text-muted-foreground">· {emp.personnel_number}</span>}
+                                    <span className="flex min-w-0 flex-wrap items-center gap-2">
+                                      <span className={emp.is_active ? "min-w-0 text-base font-semibold text-primary" : "min-w-0 text-base font-semibold text-foreground"}>
+                                        {emp.full_name}
+                                        {emp.personnel_number && <span className="ml-2 whitespace-nowrap text-xs font-normal text-muted-foreground">· {emp.personnel_number}</span>}
+                                      </span>
+                                      <EmployeeStatusBadge isActive={emp.is_active} />
                                     </span>
                                     <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                                       <Button
@@ -1872,19 +1876,16 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                         <ul className="mt-2 space-y-1 pl-6">
                                           {pos.employees.map((emp) => (
                                             <li key={emp.id} className="flex min-w-0 items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-background">
-                                              <span
-                                                className={
-                                                  emp.is_active
-                                                    ? "min-w-0 text-base font-semibold text-primary"
-                                                    : "min-w-0 text-base font-semibold text-muted-foreground line-through"
-                                                }
-                                              >
-                                                {emp.full_name}
-                                                {emp.personnel_number && (
-                                                  <span className="ml-2 whitespace-nowrap text-xs font-normal text-muted-foreground">
-                                                    · {emp.personnel_number}
-                                                  </span>
-                                                )}
+                                              <span className="flex min-w-0 flex-wrap items-center gap-2">
+                                                <span className={emp.is_active ? "min-w-0 text-base font-semibold text-primary" : "min-w-0 text-base font-semibold text-foreground"}>
+                                                  {emp.full_name}
+                                                  {emp.personnel_number && (
+                                                    <span className="ml-2 whitespace-nowrap text-xs font-normal text-muted-foreground">
+                                                      · {emp.personnel_number}
+                                                    </span>
+                                                  )}
+                                                </span>
+                                                <EmployeeStatusBadge isActive={emp.is_active} />
                                               </span>
                                               <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                                                 <Button
@@ -2045,19 +2046,16 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                             <ul className="mt-2 space-y-1 pl-6">
                               {pos.employees.map((emp) => (
                                 <li key={emp.id} className="flex min-w-0 items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-background">
-                                  <span
-                                    className={
-                                      emp.is_active
-                                        ? "min-w-0 text-base font-semibold text-primary"
-                                        : "min-w-0 text-base font-semibold text-muted-foreground line-through"
-                                    }
-                                  >
-                                    {emp.full_name}
-                                    {emp.personnel_number && (
-                                      <span className="ml-2 whitespace-nowrap text-xs font-normal text-muted-foreground">
-                                        · {emp.personnel_number}
-                                      </span>
-                                    )}
+                                  <span className="flex min-w-0 flex-wrap items-center gap-2">
+                                    <span className={emp.is_active ? "min-w-0 text-base font-semibold text-primary" : "min-w-0 text-base font-semibold text-foreground"}>
+                                      {emp.full_name}
+                                      {emp.personnel_number && (
+                                        <span className="ml-2 whitespace-nowrap text-xs font-normal text-muted-foreground">
+                                          · {emp.personnel_number}
+                                        </span>
+                                      )}
+                                    </span>
+                                    <EmployeeStatusBadge isActive={emp.is_active} />
                                   </span>
                                   <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                                     <Button
@@ -2125,6 +2123,18 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
               </button>
             </div>
 
+            <div className="mt-5 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border bg-muted/30 p-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground">{ui("authenticatedUi.adminStaff.employee.statusLabel")}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {editingEmployee.is_active
+                    ? ui("authenticatedUi.adminStaff.employee.activeAccessHint")
+                    : ui("authenticatedUi.adminStaff.employee.terminatedAccessHint")}
+                </p>
+              </div>
+              <EmployeeStatusBadge isActive={editingEmployee.is_active} />
+            </div>
+
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <label className="space-y-1">
                 <span className="text-sm font-medium">{ui("authenticatedUi.adminStaff.fields.personnelNumberRequired")}</span>
@@ -2176,7 +2186,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
               </label>
             </div>
 
-            {showTermination && (
+            {editingEmployee.is_active && showTermination && (
               <div className="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
                 <h3 className="font-semibold text-destructive">{ui("authenticatedUi.adminStaff.employee.terminateTitle")}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{ui("authenticatedUi.adminStaff.employee.terminateDescription")}</p>
@@ -2198,11 +2208,13 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
               </div>
             )}
 
-            <div className="mt-6 flex flex-wrap justify-between gap-2">
-              <Button type="button" variant="outline" className="text-destructive" onClick={() => setShowTermination(true)} disabled={employeeSaving || employeeTerminating || showTermination}>
-                <UserMinus className="mr-2 h-4 w-4" /> {ui("authenticatedUi.adminStaff.employee.terminate")}
-              </Button>
-              <div className="flex gap-2">
+            <div className="mt-6 flex flex-wrap gap-2">
+              {editingEmployee.is_active ? (
+                <Button type="button" variant="outline" className="mr-auto text-destructive" onClick={() => setShowTermination(true)} disabled={employeeSaving || employeeTerminating || showTermination}>
+                  <UserMinus className="mr-2 h-4 w-4" /> {ui("authenticatedUi.adminStaff.employee.terminate")}
+                </Button>
+              ) : null}
+              <div className="ml-auto flex gap-2">
               <Button type="button" variant="outline" onClick={closeEmployeeEditor} disabled={employeeSaving || employeeTerminating}>{ui("authenticatedUi.adminStaff.actions.cancel")}</Button>
               <Button type="button" onClick={saveEmployee} disabled={employeeSaving || employeeTerminating}>
                 {employeeSaving ? ui("authenticatedUi.adminStaff.actions.saving") : ui("authenticatedUi.adminStaff.actions.save")}
