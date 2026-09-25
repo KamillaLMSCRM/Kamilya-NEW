@@ -4372,9 +4372,11 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   database. The acceptance also documented a wake/keepalive requirement but did
   not implement it.
 - Fix: point both DEV services to Redis logical database `1`; keep production
-  and old workers on database `0`. The acceptance runner now wakes the free
-  worker before upload and refreshes its payload-free health URL every four
-  minutes during indexing, generation and cleanup.
+  and old workers on database `0`. The free worker consumes
+  `ai,documents,maintenance`, because disposable-document cleanup is routed to
+  `maintenance`. The acceptance runner now wakes the worker before upload and
+  refreshes its payload-free health URL every four minutes during indexing,
+  generation and cleanup.
 - Prevention: an environment match is insufficient unless the broker database
   index and visible Celery node set are checked. A DEV gate must see only the
   expected DEV consumer for `ai,documents`, observe terminal application state,

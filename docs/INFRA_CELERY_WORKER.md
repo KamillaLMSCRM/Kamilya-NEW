@@ -48,7 +48,8 @@ checkout удалены.
 DEV не использует production Valkey, production PostgreSQL или worker VM126.
 Отдельный сервис Render `kamilya-lms-dev-worker` (`srv-dar2dvbncjis73bsda3g`)
 работает как Free Web Service с `autoDeploy=no`, без диска и без pre-deploy
-migration. Он запускает один Celery consumer для очередей `ai,documents` с
+migration. Он запускает один Celery consumer для очередей
+`ai,documents,maintenance` с
 `concurrency=1`, используя те же DEV environment variables, что Render API, и
 публикует только статический health response на
 `https://kamilya-lms-dev-worker.onrender.com/`.
@@ -59,7 +60,8 @@ worker на `vmi3311535` используют database `0`; общий DB `0` у
 application database. Перед приёмкой нужно проверить не только совпадение
 `REDIS_URL` у DEV API/worker, но и путь `/1`, пустой список посторонних Celery
 узлов и ожидаемый единственный узел `render-dev-worker@...` с очередями
-`ai,documents`.
+`ai,documents,maintenance`. Очередь `maintenance` нужна для обязательного
+cleanup одноразовых документов и курсов после приёмки.
 
 Render Free усыпляет web service без входящих запросов. Перед DEV-приёмкой
 нужно вызвать health URL и дождаться HTTP 200 `ok`; для генерации дольше 15 минут
