@@ -56,8 +56,12 @@ MIN_CLEANUP_AGE_HOURS = 24
 MAX_CLEANUP_AGE_HOURS = 24 * 365 * 5
 CLEANUP_CONFIRM_TOKEN = "CLEANUP_SYNTHETIC_TENANTS"
 MAX_CLEANUP_CANDIDATES = 100
-CELERY_INSPECT_TIMEOUT_SECONDS = 0.75
-CELERY_INSPECT_OUTER_MARGIN_SECONDS = 0.25
+# Celery remote-control broadcasts wait for their full timeout so every worker
+# can reply.  The production VM126 topology has three workers and consistently
+# needs about two seconds per command; a 750 ms budget falsely reported all
+# roles as unavailable even while every worker was healthy.
+CELERY_INSPECT_TIMEOUT_SECONDS = 2.0
+CELERY_INSPECT_OUTER_MARGIN_SECONDS = 3.0
 CELERY_WORKER_ROLES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
     ("fast", ("maintenance", "notifications"), ("celery",)),
     ("documents", ("documents",), ()),

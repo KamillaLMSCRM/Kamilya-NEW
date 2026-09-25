@@ -4215,3 +4215,30 @@ contract or establish a blocker.
   runtime dependency manifest must have a blocking, stdlib-only parity gate in
   the release path, and async SQLAlchemy environments must request the asyncio
   extra explicitly.
+
+## OPS-OBS-001 - Celery health used a sub-production remote-control timeout
+
+- Date: 2026-09-25. Found during authenticated production acceptance of the
+  superadmin operations dashboard after all three worker containers had passed
+  immutable-image and zero-restart readback.
+- Symptom: the dashboard marked the fast, documents and AI worker roles as
+  unavailable even though all three containers were running and processing the
+  production broker topology.
+- Cause: the endpoint allowed only 0.75 seconds for each Celery remote-control
+  broadcast. A sanitized production probe from the API container received three
+  responses for `ping`, `registered` and `active_queues`, but even a two-second
+  Celery timeout completed in about three wall-clock seconds. The outer timeout
+  was therefore also too short for the two sequential inventory commands.
+- Fix: use a two-second Celery control timeout and a three-second outer margin,
+  preserving fail-closed behavior while allowing the observed three-worker
+  topology to answer. Add a public-summary regression with two one-second
+  control responses; it fails under the old budget and passes under the new one.
+- Verification: the focused regression was red before the change; the complete
+  operations contract suite passes afterward. Exact-SHA CI, DEV runtime and a
+  repeated authenticated production dashboard readback remain mandatory before
+  accepting the corrective release.
+- Prevention: worker-container liveness is not a substitute for application
+  control-plane reachability, and localhost-speed mocks are not production
+  latency evidence. Every Celery observability change must include a delayed
+  multi-worker regression and a sanitized live `registered`/`active_queues`
+  timing probe before production acceptance.

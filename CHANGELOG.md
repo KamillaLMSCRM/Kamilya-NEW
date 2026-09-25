@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.11.3] - 2026-09-25
+
+### Fixed
+
+- Allow the production Celery control plane enough time to return the
+  `registered` and `active_queues` inventories, so the superadmin operations
+  dashboard no longer marks three healthy worker roles as unavailable.
+
+### Security
+
 ## [0.11.2] - 2026-09-25
 
 ### Added
@@ -1585,7 +1595,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.3...HEAD
+[0.11.3]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.2...v0.11.3
+[0.11.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.1...v0.11.2
+[0.11.1]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.10.2...v0.11.0
 [0.10.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.10.0...v0.10.1

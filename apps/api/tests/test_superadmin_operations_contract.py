@@ -369,3 +369,45 @@ async def test_celery_probe_outer_timeout_allows_inspect_margin(monkeypatch):
     assert summary.worker_count == 3
     assert inspector_calls == 1
     assert probe_calls == 2
+
+
+@pytest.mark.asyncio
+async def test_celery_probe_allows_observed_production_control_latency(monkeypatch):
+    """Three healthy workers must not be hidden by the old 750 ms budget."""
+
+    class ProductionLatencyInspector:
+        def registered(self):
+            time.sleep(1.0)
+            return {
+                "fast@private-node": list(REQUIRED_CELERY_TASKS),
+                "documents@private-node": list(REQUIRED_CELERY_TASKS),
+                "ai@private-node": list(REQUIRED_CELERY_TASKS),
+            }
+
+        def active_queues(self):
+            time.sleep(1.0)
+            return {
+                "fast@private-node": [
+                    {"name": "maintenance"},
+                    {"name": "notifications"},
+                ],
+                "documents@private-node": [{"name": "documents"}],
+                "ai@private-node": [{"name": "ai"}],
+            }
+
+    def inspect_with_production_budget(**kwargs):
+        assert kwargs["timeout"] >= 2.0
+        return ProductionLatencyInspector()
+
+    monkeypatch.setattr(
+        operations.celery_app.control,
+        "inspect",
+        inspect_with_production_budget,
+    )
+
+    summary = await operations._celery_worker_summary()
+
+    assert summary.status == "available"
+    assert summary.health == "healthy"
+    assert summary.worker_count == 3
+    assert all(worker.status == "healthy" for worker in summary.workers)
