@@ -78,6 +78,14 @@ DOCKER_EVIDENCE_FORMAT = (
 DOCKER_EVIDENCE_CONTAINER_RE = re.compile(
     r"(?:kamilya-runtime|kamilya-(?:blue|green))-(?:api|worker-ai|worker-documents|worker-ops)-1"
 )
+DOCKER_AI_WORKER_LOG_CONTAINER_RE = re.compile(
+    r"(?:kamilya-runtime|kamilya-(?:blue|green))-worker-ai-1"
+)
+GENERATION_ERROR_LOG_RE = re.compile(
+    r"Evidence V2 failed for job "
+    r"(?P<job>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}) "
+    r"error_type=(?P<error_type>[A-Za-z][A-Za-z0-9_]{0,63})"
+)
 
 MUTATING_PATTERNS = (
     re.compile(r"(^|[;&|]\s*)rm\s", re.IGNORECASE),
@@ -254,11 +262,24 @@ def _assert_read_only(text: str) -> None:
             and argv[3] == DOCKER_EVIDENCE_FORMAT
             and DOCKER_EVIDENCE_CONTAINER_RE.fullmatch(argv[4]) is not None
         )
-        if SHELL_CONTROL.search(stripped) and not safe_docker_evidence_format:
+        safe_bounded_ai_worker_logs = (
+            len(argv) == 7
+            and argv[:6] == ["docker", "logs", "--since", "15m", "--tail", "200"]
+            and DOCKER_AI_WORKER_LOG_CONTAINER_RE.fullmatch(argv[6]) is not None
+        )
+        if SHELL_CONTROL.search(stripped) and not (
+            safe_docker_evidence_format or safe_bounded_ai_worker_logs
+        ):
             raise GateBlocked("read_only_shell_construct_not_allowed")
         if not argv or argv[0] not in READ_ONLY_COMMANDS:
             raise GateBlocked("read_only_command_not_allowed")
-        if argv[0] == "docker" and (len(argv) < 2 or argv[1] not in {"ps", "stats", "inspect", "version", "info"}):
+        if argv[0] == "docker" and (
+            len(argv) < 2
+            or (
+                argv[1] not in {"ps", "stats", "inspect", "version", "info"}
+                and not safe_bounded_ai_worker_logs
+            )
+        ):
             raise GateBlocked("read_only_docker_command_not_allowed")
         if argv[0] == "systemctl" and (len(argv) < 2 or argv[1] not in {"is-active", "is-enabled", "show", "status"}):
             raise GateBlocked("read_only_systemctl_command_not_allowed")
@@ -372,6 +393,11 @@ def evidence_lines(output: bytes) -> list[str]:
     except UnicodeDecodeError as exc:
         raise GateBlocked("remote_evidence_contract_invalid") from exc
     lines = [line for line in text.splitlines() if line.startswith("EVIDENCE|")]
+    lines.extend(
+        "EVIDENCE|job={job}|error_type={error_type}".format(**match.groupdict())
+        for match in GENERATION_ERROR_LOG_RE.finditer(text)
+    )
+    lines = list(dict.fromkeys(lines))
     if not lines or len(lines) > 50 or any(
         len(line) > 500 or not EVIDENCE_LINE_RE.fullmatch(line) for line in lines
     ):
@@ -458,7 +484,7 @@ def execute_stages(
     execution = runner(profile.command(timeout, *execution_argv), payload)
     if execution.exit_code != 0:
         try:
-            sanitized_evidence = evidence_lines(execution.stdout)
+            sanitized_evidence = evidence_lines(execution.stdout + b"\n" + execution.stderr)
         except GateBlocked:
             sanitized_evidence = []
         raise RemoteScriptBlocked("remote_script_failed", sanitized_evidence)
@@ -469,7 +495,7 @@ def execute_stages(
         "remote_execution_privilege": execution_privilege,
         "server_timeout_seconds": timeout,
         "remote_execution_exit_code": execution.exit_code,
-        "evidence": evidence_lines(execution.stdout),
+        "evidence": evidence_lines(execution.stdout + b"\n" + execution.stderr),
         "stdout_bytes": len(execution.stdout),
         "stdout_sha256": hashlib.sha256(execution.stdout).hexdigest(),
         "stderr_bytes": len(execution.stderr),

@@ -409,6 +409,53 @@ def test_read_only_sudo_docker_evidence_format_allows_release_slot_containers(
     assert manifest.mode == "read-only"
 
 
+def test_read_only_allows_bounded_ai_worker_logs_for_sanitized_diagnostics(
+    monkeypatch, tmp_path
+) -> None:
+    _inside_repo(monkeypatch, tmp_path)
+    path = _script(
+        tmp_path,
+        "sudo -n docker logs --since 15m --tail 200 kamilya-green-worker-ai-1",
+    )
+
+    manifest = remote.load_script(
+        path, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
+    )
+
+    assert manifest.mode == "read-only"
+
+
+@pytest.mark.parametrize(
+    "body",
+    (
+        "sudo -n docker logs kamilya-green-worker-ai-1",
+        "sudo -n docker logs --since 15m --tail 201 kamilya-green-worker-ai-1",
+        "sudo -n docker logs --since 15m --tail 200 kamilya-green-api-1",
+        "sudo -n docker logs --since 2h --tail 200 kamilya-green-worker-ai-1",
+    ),
+)
+def test_read_only_rejects_unbounded_or_non_ai_container_logs(monkeypatch, tmp_path, body) -> None:
+    _inside_repo(monkeypatch, tmp_path)
+    path = _script(tmp_path, body)
+
+    with pytest.raises(remote.GateBlocked):
+        remote.load_script(
+            path, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
+        )
+
+
+def test_evidence_lines_extracts_only_sanitized_generation_error_metadata() -> None:
+    job_id = "0228597d-dd8f-42fa-aea4-ea5055a096d5"
+    raw = (
+        "customer text must never escape\n"
+        f"Evidence V2 failed for job {job_id} error_type=ValueError\n"
+    ).encode()
+
+    assert remote.evidence_lines(raw) == [
+        f"EVIDENCE|job={job_id}|error_type=ValueError"
+    ]
+
+
 @pytest.mark.parametrize(
     "body",
     (

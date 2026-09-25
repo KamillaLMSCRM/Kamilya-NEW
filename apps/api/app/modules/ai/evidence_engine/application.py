@@ -887,6 +887,71 @@ def _grounded_fallback(
     )
 
 
+def _grounded_fallback_parts(
+    *,
+    base_lesson: LessonDraft,
+    plan_fact_ids: tuple[str, ...],
+    facts_by_id: dict[str, SourceFact],
+    seeds: list[QuestionDraft],
+    max_words: int = 650,
+) -> list[tuple[LessonDraft, list[QuestionDraft], list[GroundedBlock]]]:
+    """Split only an oversized source-only fallback without dropping evidence."""
+
+    groups: list[tuple[str, ...]] = []
+    current: tuple[str, ...] = ()
+    for fact_id in plan_fact_ids:
+        candidate = (*current, fact_id)
+        candidate_lesson, _, _ = _grounded_fallback(
+            base_lesson=base_lesson,
+            plan_fact_ids=candidate,
+            facts_by_id=facts_by_id,
+            seeds=[],
+        )
+        if current and len(re.findall(r"\w+", candidate_lesson.content, flags=re.UNICODE)) > max_words:
+            groups.append(current)
+            current = (fact_id,)
+        else:
+            current = candidate
+    if current:
+        groups.append(current)
+
+    parts: list[tuple[LessonDraft, list[QuestionDraft], list[GroundedBlock]]] = []
+    for index, group in enumerate(groups, start=1):
+        group_set = set(group)
+        split = len(groups) > 1
+        part_base = replace(
+            base_lesson,
+            lesson_id=(
+                f"{base_lesson.lesson_id}-part-{index}"
+                if split
+                else base_lesson.lesson_id
+            ),
+            title=(
+                f"{base_lesson.title} — часть {index}"
+                if split
+                else base_lesson.title
+            ),
+            content="",
+            fact_ids=tuple(fact_id for fact_id in base_lesson.fact_ids if fact_id in group_set),
+            supporting_fact_ids=tuple(
+                fact_id for fact_id in base_lesson.supporting_fact_ids if fact_id in group_set
+            ),
+        )
+        part_seeds = [
+            replace(seed, lesson_id=part_base.lesson_id)
+            for seed in seeds
+            if seed.fact_id in group_set
+        ]
+        part = _grounded_fallback(
+            base_lesson=part_base,
+            plan_fact_ids=group,
+            facts_by_id=facts_by_id,
+            seeds=part_seeds,
+        )
+        parts.append(part)
+    return parts
+
+
 async def generate_evidence_course(
     corpus: DirectSourceCorpus,
     *,
@@ -1087,20 +1152,24 @@ async def generate_evidence_course(
         validation_errors.extend(reason.value for reason in lesson_failure_reasons)
         if validated is None:
             deterministic_fallback_count += 1
-            deterministic_fallback_lesson_ids.append(plan.lesson_id)
-            lesson, questions, blocks = _grounded_fallback(
+            fallback_parts = _grounded_fallback_parts(
                 base_lesson=base_lesson,
                 plan_fact_ids=plan.fact_ids,
                 facts_by_id=facts_by_id,
                 seeds=seeds,
             )
             chat_model = "deterministic-grounded-fallback"
+            for lesson, questions, blocks in fallback_parts:
+                deterministic_fallback_lesson_ids.append(lesson.lesson_id)
+                realized_lessons.append(lesson)
+                realized_questions.extend(questions)
+                grounded_blocks.extend(blocks)
         else:
             lesson, questions, blocks = validated.value
             chat_model = str(validated.model_id)
-        realized_lessons.append(lesson)
-        realized_questions.extend(questions)
-        grounded_blocks.extend(blocks)
+            realized_lessons.append(lesson)
+            realized_questions.extend(questions)
+            grounded_blocks.extend(blocks)
         await _progress(progress_callback, "realization", index, total)
 
     assessment_started = perf_counter()

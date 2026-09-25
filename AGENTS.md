@@ -240,10 +240,12 @@ Production release маршрутизировать через:
 - Использовать только repository-root `GITHUB_TOKEN` через process-local
   `gh auth git-credential`; plain `git push`, чужая keyring-сессия или custom
   `GIT_ASKPASS` не являются каноническим credential path.
-- Перед push из `apps/api`:
-  `poetry run dotenv -f ..\..\.env run -- gh auth status --hostname github.com`.
+- Перед push из корня целевого checkout:
+  `py -3 scripts/ops/with_project_github_token.py --repo . -- gh auth status --hostname github.com`.
 - Push:
-  `poetry run dotenv -f ..\..\.env run -- git -c credential.helper= -c "credential.helper=!gh auth git-credential" -C ..\.. push origin <exact-sha>:<branch>`.
+  `py -3 scripts/ops/with_project_github_token.py --repo . -- git -c credential.helper= -c "credential.helper=!gh auth git-credential" push origin <exact-sha>:<branch>`.
+  Обёртка сама находит main checkout через Git common-dir и не зависит от
+  глубины worktree или ambient `GH_TOKEN`.
 - После push независимо прочитать remote branch SHA и сохранить sanitized
   repository/branch/local SHA/remote SHA/account/credential-path/timestamp
   evidence. Никогда не сохранять token value.

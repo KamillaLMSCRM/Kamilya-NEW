@@ -1421,8 +1421,23 @@ async def generate_block_assessment(
         for lesson in lessons
         for fact_id in lesson.fact_ids
     }
+    for record in axis_records.values():
+        if (record["state"] == "uncovered"
+                and "failure_kind" not in record
+                and record["reason"] != "replacement_exhausted"):
+            record["state"] = "omitted"
+            if record["reason"] == "assessment_not_completed":
+                record["reason"] = "semantic_rejection"
+    audited_omitted_fact_ids = {
+        record["primary_fact_id"]
+        for record in axis_records.values()
+        if record["state"] == "omitted"
+    }
     audit["coverage"] = assess_topic_coverage(
-        planned_facts, list(unique.values()), audit["block_outcomes"],
+        planned_facts,
+        list(unique.values()),
+        audit["block_outcomes"],
+        audited_omitted_fact_ids=audited_omitted_fact_ids,
     )
     missing_fact_ids = set(audit["coverage"]["missing_fact_ids"])
     for record in axis_records.values():
@@ -1438,13 +1453,6 @@ async def generate_block_assessment(
             record["provider_failure_reason"] = record["reason"]
             record["state"] = "omitted"
             record["reason"] = "provider_review_unavailable_redundant_axis"
-    for record in axis_records.values():
-        if (record["state"] == "uncovered"
-                and "failure_kind" not in record
-                and record["reason"] != "replacement_exhausted"):
-            record["state"] = "omitted"
-            if record["reason"] == "assessment_not_completed":
-                record["reason"] = "semantic_rejection"
     audit["axis_outcomes"] = list(axis_records.values())
     audit["retained_count"] = sum(record["state"] == "retained" for record in axis_records.values())
     audit["omitted_count"] = sum(record["state"] == "omitted" for record in axis_records.values())

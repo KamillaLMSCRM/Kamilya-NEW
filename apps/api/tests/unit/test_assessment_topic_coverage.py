@@ -58,6 +58,31 @@ def test_bounded_quality_rejection_is_an_audited_omission_not_a_coverage_gap():
     assert result["required_topic_count"] == 0
 
 
+def test_audited_axis_omission_does_not_poison_an_accepted_mixed_block():
+    facts = {"kept": fact("kept"), "omitted": fact("omitted", "Collection B")}
+    mixed_block = {
+        "block_id": "mixed",
+        "lesson_id": "lesson-mixed",
+        "fact_ids": ["kept", "omitted"],
+        "outcome": "accepted",
+        "candidates": 2,
+        "accepted": 1,
+    }
+
+    result = assess_topic_coverage(
+        facts,
+        [question("kept")],
+        [mixed_block],
+        audited_omitted_fact_ids={"omitted"},
+    )
+
+    assert result["requires_review"] is False
+    assert result["audit_incomplete"] is False
+    assert result["required_topic_count"] == 1
+    assert result["covered_topic_count"] == 1
+    assert result["missing_fact_ids"] == []
+
+
 def test_another_document_cannot_supply_coverage_for_same_named_topic():
     facts = {"a": fact("a"), "b": fact("b", doc="another")}
     result = assess_topic_coverage(facts, [question("a")], [block("a"), block("b")])

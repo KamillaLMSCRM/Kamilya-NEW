@@ -15,6 +15,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.11.5] - 2026-09-25
+
+### Changed
+
+- Treat a question axis rejected by the bounded semantic review as an explicit
+  audited omission even when another axis in the same source block survives;
+  weak questions are removed without quota padding while provider failures,
+  unassessed lessons and incomplete audits still fail closed.
+
+### Fixed
+
+- Split an oversized source-only lesson fallback at fact boundaries instead of
+  failing the entire course after a model response cannot satisfy the lesson
+  contract.
+- Bind local GitHub authentication to the canonical main-checkout `.env` from
+  any managed worktree and remove higher-precedence ambient account tokens.
+- Add bounded, sanitized production job error-type diagnostics without exposing
+  raw logs or tenant payloads.
+
+### Security
+
 ## [0.11.4] - 2026-09-25
 
 ### Changed
@@ -1618,7 +1639,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.4...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.5...HEAD
+[0.11.5]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.4...v0.11.5
 [0.11.4]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.3...v0.11.4
 [0.11.3]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.2...v0.11.3
 [0.11.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.1...v0.11.2

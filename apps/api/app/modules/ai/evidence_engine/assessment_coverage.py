@@ -36,10 +36,14 @@ def _topic(fact: SourceFact) -> str:
 def assess_topic_coverage(
     facts: dict[str, SourceFact], questions: list[QuestionDraft],
     block_outcomes: list[dict[str, Any]],
+    *,
+    audited_omitted_fact_ids: set[str] | None = None,
 ) -> dict[str, Any]:
+    audited_omissions = set(audited_omitted_fact_ids or ())
     required: dict[str, set[str]] = {}
     seen: set[str] = set()
-    invalid = not block_outcomes and bool(facts)
+    invalid = ((not block_outcomes and bool(facts))
+               or not audited_omissions.issubset(facts))
     for block in block_outcomes:
         ids = block.get("fact_ids", [])
         outcome = block.get("outcome")
@@ -64,6 +68,13 @@ def assess_topic_coverage(
         ) or outcome == "quality_omitted":
             continue
         for fid in ids:
+            # A bounded author/review/repair cycle may prove one axis unsafe
+            # while another axis from the same semantic block remains useful.
+            # That explicit omission is not a silent coverage loss: it is the
+            # no-padding policy applied at axis granularity. Provider/contract
+            # failures are never included here and therefore still block.
+            if fid in audited_omissions:
+                continue
             required.setdefault(_topic(facts[fid]), set()).add(fid)
     if set(facts) - seen:
         invalid = True

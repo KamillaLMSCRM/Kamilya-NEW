@@ -1144,12 +1144,12 @@ production runtime and cross-container readback remain pending release approval.
 - Cause: plain Git does not load the repository `.env`, and the GitHub CLI had no
   persisted login. The access-path failure was initially treated as an authentication
   problem before independently validating the process-local token.
-- Fix: use only `GITHUB_TOKEN` from the current repository root `.env`. From
-  `apps/api`, validate it with
-  `poetry run dotenv -f ..\..\.env run -- gh auth status --hostname github.com`,
-  then push through the official process-local helper with
-  `poetry run dotenv -f ..\..\.env run -- git -c credential.helper= -c
-  "credential.helper=!gh auth git-credential" -C ..\.. push origin
+- Fix: use only `GITHUB_TOKEN` from the canonical main-checkout root `.env`.
+  From the target checkout root, validate it with `py -3
+  scripts/ops/with_project_github_token.py --repo . -- gh auth status
+  --hostname github.com`, then push through the same project-bound child with
+  `py -3 scripts/ops/with_project_github_token.py --repo . -- git -c
+  credential.helper= -c "credential.helper=!gh auth git-credential" push origin
   <exact-sha>:master`.
 - Verification: `gh auth status` identified the active token-backed GitHub account
   without exposing the token. The helper then pushed exact commit
@@ -1180,6 +1180,16 @@ DB, provider, deployment, or infrastructure action, search `AGENTS.md`, this
 journal, `docs/PROJECT-CONTEXT.md`, and the matching runbook for the verified
 path. Ambient CLI/keyring state cannot override a project-specific credential
 contract or establish a blocker.
+
+**RECURRENCE 2026-09-25:** a worktree command used a relative dotenv path that
+resolved outside the canonical LMS checkout and silently exposed ambient GitHub
+identity. Replace the obsolete `poetry run dotenv ...` procedure with
+`scripts/ops/with_project_github_token.py`. The helper resolves the main checkout
+through Git's common directory, reads only its root `GITHUB_TOKEN`, removes the
+higher-precedence ambient `GH_TOKEN`, verifies the Kamilya origin, and injects
+the credential only into one child process. Three tests cover root token parsing,
+fail-closed absence and ambient precedence removal. Never reconstruct a relative
+`.env` path from worktree depth.
 
 ## GIT-002 - Landing push used the LMS repository token instead of the landing token
 
@@ -4066,6 +4076,48 @@ contract or establish a blocker.
   failing smoke test plus wrapper contract pass four tests; the full API suite
   then passes 2853 tests with 499 contour skips. Do not work around this class
   by switching interpreters or running bare pytest.
+- Recurrence 2026-09-25: invoking the wrapper by absolute path from the main
+  checkout while editing a managed worktree correctly tested the main checkout,
+  not the changed worktree. This produced a false green result with a plausible
+  test count. Invoke `.\scripts\dev\run_api_pytest.ps1` from the target checkout
+  root; never borrow the wrapper file from another checkout. Verification: the
+  worktree-local invocation reproduced the expected red `TypeError`, then the
+  same selector passed after implementation. The wrapper continues to borrow
+  only the canonical interpreter, not canonical source files.
+
+## AI-QUALITY-039 - Oversized source fallback and audited omissions blocked a valid course
+
+- Date: 2026-09-25. Reproduced with the exact original Lombard PDF through the
+  production Docling converter, Voyage embeddings and the production-shaped
+  DeepSeek route; no tenant or database mutation was used for diagnosis.
+- Symptom: production generation reached assessment 94% and failed with a
+  generic error. Sanitized bounded log evidence identified `ValueError`. The
+  exact local replay proved `evidence_publishability_failed:overlong_lessons`.
+  After splitting the lesson, nineteen valid questions across all ten lessons
+  still received `assessment_coverage_incomplete` because four rejected axes
+  shared blocks with retained questions.
+- Cause: when both provider lesson attempts failed validation, the deterministic
+  source-only fallback concatenated all facts into one lesson and could exceed
+  the 650-word contract. Topic coverage then applied block-level acceptance to
+  every axis, so a bounded, explicitly audited weak-question omission inside an
+  otherwise accepted block remained falsely mandatory.
+- Fix: greedily split only oversized deterministic fallbacks at source-fact
+  boundaries, preserving every fact id and locator. Before topic coverage,
+  classify bounded non-provider semantic rejections as audited omissions and
+  exclude only those exact fact ids from required coverage. Provider/contract
+  failures remain uncovered; an unassessed lesson, incomplete audit, or source
+  block with candidates but no accepted question remains a hard stop.
+- Verification: the exact PDF replay produced ten lessons and nineteen reviewed
+  questions; all lessons were assessed, coverage was 10/10 required topics,
+  missing and uncovered counts were zero, and publishability passed. Course and
+  assessment SHA-256 was byte-identical before/after the coverage correction.
+  The affected suite passed 193 tests; full CI and production acceptance remain
+  separate release gates.
+- Prevention: release acceptance for a large source must inspect the first
+  sanitized error class, replay the exact production conversion, distinguish
+  provider failures from audited no-padding omissions, and verify every lesson
+  has at least one retained question. Never relax the lesson limit, suppress an
+  incomplete audit, or convert unavailable provider output into an omission.
 
 ## AI-QUALITY-038 - Valid worksheet output repeated headings and knowledge targets
 

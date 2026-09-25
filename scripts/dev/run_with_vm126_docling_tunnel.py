@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import os
 import select
 import socketserver
 from pathlib import Path
@@ -163,7 +164,11 @@ def main() -> int:
             "DOC_TUNNEL|status=ready|local=127.0.0.1:18600|"
             f"remote=vm126:{container}:docling:8600"
         )
-        return subprocess.run(command, cwd=ROOT, check=False).returncode
+        child_env = {
+            **os.environ,
+            "KAMILYA_DOCLING_TUNNEL_URL": f"http://{LOCAL_HOST}:{LOCAL_PORT}",
+        }
+        return subprocess.run(command, cwd=ROOT, env=child_env, check=False).returncode
     finally:
         if server is not None:
             server.shutdown()

@@ -25,6 +25,9 @@ def _load_env(path: Path) -> None:
         key, value = stripped.split("=", 1)
         if key.strip().replace("_", "").isalnum():
             os.environ[key.strip()] = value.strip().strip('"').strip("'")
+    tunnel_url = os.environ.get("KAMILYA_DOCLING_TUNNEL_URL", "").strip()
+    if tunnel_url:
+        os.environ["DOCLING_URL"] = tunnel_url
 
 
 def _validate_pdf_conversion_config(
@@ -84,11 +87,14 @@ def _dev_generation_config(policy: str):
         if not api_key:
             raise ValueError("deepseek_api_key_required")
         base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+        model = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat").strip()
+        if not model:
+            raise ValueError("deepseek_model_required")
         return LLMProviderConfig(
             name="deepseek-flash-dev",
             base_url=base_url.rstrip("/"),
             api_key=api_key,
-            model="deepseek-flash",
+            model=model,
             timeout=180,
             max_retries=0,
             extra_body={"thinking": {"type": "disabled"}},
@@ -309,6 +315,8 @@ async def _run(
     generation_provider: str = "runtime",
     replay_trace: tuple[Path, ...] | None = None,
     max_provider_calls: int = 64,
+    max_lessons: int | None = None,
+    blank_intent: bool = False,
 ) -> list[dict]:
     from app.modules.ai.evidence_engine.application import generate_evidence_course
     from app.modules.ai.evidence_engine.models import CourseIntent
@@ -375,14 +383,20 @@ async def _run(
         run_dir = output_dir / label / f"run-{run_number}"
         run_dir.mkdir(parents=True, exist_ok=True)
         try:
-            output = await generate_evidence_course(
-                corpus,
-                intent=CourseIntent(
+            intent = (
+                CourseIntent()
+                if blank_intent
+                else CourseIntent(
                     purpose="Подготовить сотрудника к правильному применению сведений источника без домыслов.",
                     audience="Сотрудник организации, применяющий материал в ежедневной работе.",
-                ),
+                )
+            )
+            output = await generate_evidence_course(
+                corpus,
+                intent=intent,
                 generation_client=generation_client,
                 embedding_client=embeddings,
+                max_lessons=max_lessons,
                 progress_callback=progress,
             )
         except Exception as exc:
@@ -520,6 +534,8 @@ async def main() -> int:
         default=64,
         help="DEV-only hard ceiling for recorded live generation calls.",
     )
+    parser.add_argument("--max-lessons", type=int)
+    parser.add_argument("--blank-intent", action="store_true")
     args = parser.parse_args()
     if args.ocr_json and args.converter_json:
         parser.error("Choose one conversion input")
@@ -546,6 +562,8 @@ async def main() -> int:
             generation_provider=args.generation_provider,
             replay_trace=tuple(args.replay_trace) if args.replay_trace else None,
             max_provider_calls=args.max_provider_calls,
+            max_lessons=args.max_lessons,
+            blank_intent=args.blank_intent,
         )
     if args.source in {"both", "pdf"}:
         pdf = (
@@ -562,6 +580,8 @@ async def main() -> int:
             generation_provider=args.generation_provider,
             replay_trace=tuple(args.replay_trace) if args.replay_trace else None,
             max_provider_calls=args.max_provider_calls,
+            max_lessons=args.max_lessons,
+            blank_intent=args.blank_intent,
         )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "summary.json").write_text(

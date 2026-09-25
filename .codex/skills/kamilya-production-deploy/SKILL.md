@@ -24,13 +24,18 @@ preservation requirements, stop conditions, and rollback operation.
 `askar0007amirkhanov`.**
 
 - Require exact commit author `Kamilya Codex <kamilla_lms_crm@proton.me>`.
-- From `apps/api`, verify the process-local credential without printing it:
-  `poetry run dotenv -f ..\..\.env run -- gh auth status --hostname github.com`.
+- From the target checkout root, verify the process-local credential without
+  printing it: `py -3 scripts/ops/with_project_github_token.py --repo . -- gh
+  auth status --hostname github.com`. The helper resolves the main checkout
+  through Git's common directory, reads only its root `GITHUB_TOKEN`, and
+  removes an ambient `GH_TOKEN` that would otherwise take precedence.
 - Push only through the official process-local helper:
-  `poetry run dotenv -f ..\..\.env run -- git -c credential.helper= -c "credential.helper=!gh auth git-credential" -C ..\.. push origin <exact-sha>:<exact-branch>`.
+  `py -3 scripts/ops/with_project_github_token.py --repo . -- git -c
+  credential.helper= -c "credential.helper=!gh auth git-credential" push origin
+  <exact-sha>:<exact-branch>`.
 - Never create a custom askpass script, use a browser/device login, put the token
   in a URL/command/config, or treat another account's 403 as token evidence.
-- Declare the canonical token invalid only when this exact root-env
+- Declare the canonical token invalid only when this exact helper-bound
   `gh auth status` fails authentication.
 
 ## Fixed production topology

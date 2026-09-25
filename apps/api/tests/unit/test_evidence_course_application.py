@@ -291,6 +291,44 @@ def _source_style_phrase_corpus() -> DirectSourceCorpus:
     )
 
 
+def _overlong_fallback_spreadsheet_corpus() -> DirectSourceCorpus:
+    rows = "\n".join(
+        f"| Правило {index} | "
+        + " ".join(f"условие{index}" for _ in range(125))
+        + " |"
+        for index in range(1, 7)
+    )
+    text = (
+        "# [Worksheet] Правила\n\n"
+        "| Поле | Основной порядок |\n"
+        "| --- | --- |\n"
+        f"{rows}"
+    )
+    chunk = DirectSourceChunk(
+        chunk_id="chunk-overlong-fallback",
+        doc_id="doc-overlong-fallback",
+        doc_name="rules.xlsx",
+        title="rules.xlsx",
+        headings=("[Worksheet] Правила",),
+        text=text,
+        source_revision="document:overlong-fallback-sha",
+        chunk_index=0,
+    )
+    return DirectSourceCorpus(
+        tenant_id="tenant-one",
+        documents=(DirectSourceDocument(
+            doc_id="doc-overlong-fallback",
+            title="Основной порядок",
+            filename="rules.xlsx",
+            category="training_material",
+            source_revision="document:overlong-fallback-sha",
+            chunks=(chunk,),
+        ),),
+        total_chars=len(text),
+        total_chunks=1,
+    )
+
+
 class _EmbeddingClient:
     def __init__(self, *, fail: bool = False, query_space: str = "test-space") -> None:
         self.fail = fail
@@ -1097,6 +1135,33 @@ async def test_generation_provider_exhaustion_uses_grounded_deterministic_lesson
         for fact_id in block.fact_ids
     }
     assert covered == planned
+
+
+@pytest.mark.asyncio
+async def test_grounded_fallback_splits_only_overlong_lesson_and_preserves_all_facts() -> None:
+    generated = await generate_evidence_course(
+        _overlong_fallback_spreadsheet_corpus(),
+        intent=CourseIntent(),
+        generation_client=_GenerationFailure(),
+        embedding_client=_EmbeddingClient(),
+    )
+
+    lessons = generated.result.realized_course.lessons
+    assert len(lessons) > 1
+    assert len({lesson.lesson_id for lesson in lessons}) == len(lessons)
+    assert all(len(lesson.content.split()) <= 650 for lesson in lessons)
+    planned = {
+        fact_id
+        for plan in generated.result.evidence_result.evidence_plan
+        for fact_id in plan.fact_ids
+    }
+    covered = {
+        fact_id
+        for block in generated.result.grounded_blocks
+        for fact_id in block.fact_ids
+    }
+    assert covered == planned
+    assert generated.result.publishability.reasons == ("assessment_no_valid_questions",)
 
 
 @pytest.mark.asyncio
