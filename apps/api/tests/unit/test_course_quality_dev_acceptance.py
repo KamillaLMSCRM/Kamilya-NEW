@@ -2,6 +2,7 @@ import json
 from importlib import util
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import httpx
 import pytest
@@ -11,6 +12,58 @@ SPEC = util.spec_from_file_location("course_quality_dev_acceptance", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 MODULE = util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
+
+
+def test_dev_worker_keepalive_wakes_once_then_only_after_interval() -> None:
+    clock = Mock(side_effect=[100.0, 120.0, 341.0, 341.0])
+    response = httpx.Response(
+        200,
+        text="ok\n",
+        request=httpx.Request("GET", "https://worker.example/"),
+    )
+    request = Mock(return_value=response)
+    keepalive = MODULE.WorkerKeepalive(
+        "https://worker.example/",
+        interval_seconds=240,
+        request_get=request,
+        clock=clock,
+    )
+
+    keepalive.wake()
+    keepalive.maintain()
+    keepalive.maintain()
+
+    assert request.call_count == 2
+    assert all(call.args == ("https://worker.example/",) for call in request.call_args_list)
+    assert all(call.kwargs["follow_redirects"] is False for call in request.call_args_list)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://worker.example/",
+        "https://user:password@worker.example/",
+        "https://worker.example/?token=secret",
+    ],
+)
+def test_dev_worker_keepalive_rejects_unsafe_health_urls(url: str) -> None:
+    with pytest.raises(MODULE.AcceptanceError, match="^worker_health_url_unsafe$"):
+        MODULE.WorkerKeepalive(url)
+
+
+def test_dev_worker_keepalive_requires_exact_small_ok_response() -> None:
+    response = httpx.Response(
+        200,
+        text="unexpected",
+        request=httpx.Request("GET", "https://worker.example/"),
+    )
+    keepalive = MODULE.WorkerKeepalive(
+        "https://worker.example/",
+        request_get=Mock(return_value=response),
+    )
+
+    with pytest.raises(MODULE.AcceptanceError, match="^worker_health_invalid_response$"):
+        keepalive.wake()
 
 
 def test_acceptance_reports_current_api_error_code() -> None:

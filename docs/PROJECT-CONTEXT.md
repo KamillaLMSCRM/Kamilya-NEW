@@ -39,7 +39,7 @@
 | Dev/demo data | Supabase DEV/test PostgreSQL и Storage; не является production |
 | Broker/cache | Valkey на VM126, наружу не опубликован |
 | Background jobs | Три Celery worker на VM126: AI, documents и operations/notifications |
-| Dev background jobs | `kamilya-lms-dev-worker` на Render Free Web Service; отдельные Supabase DEV и DEV Redis, очереди `ai,documents`, concurrency 1, cold start |
+| Dev background jobs | `kamilya-lms-dev-worker` на Render Free Web Service; Supabase DEV и изолированный Redis DB `1`, очереди `ai,documents`, concurrency 1, cold start |
 | Email | Resend, домен `notify.kml.kz` |
 | Telegram | Kamilya bot/auth flow |
 | Document conversion | Ограниченный локальный сервис: MarkItDown для Office/PDF с текстом, Docling для сканов/OCR, LibreOffice для старого `.doc` |
@@ -185,7 +185,7 @@ Dev browser
   -> Render DEV FastAPI
   -> https://kamilya-lms-dev-worker.onrender.com/
      wakes the free DEV-only Celery consumer for queues ai,documents
-     -> separate DEV Redis -> Supabase DEV
+     -> isolated DEV Redis DB 1 -> Supabase DEV
 
 KZ production management/ingress path
   -> public proxy VPS (TLS/Nginx + WireGuard hub 10.77.77.1)

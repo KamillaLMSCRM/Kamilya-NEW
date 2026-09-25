@@ -4357,3 +4357,26 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   observe a terminal job state, domain output and cleanup. Error reporters must
   test the active public error envelope so a known limiter never becomes
   `unknown` again.
+
+## DEV-WORKER-002 - A shared Redis database let an old worker steal DEV jobs
+
+- Date: 2026-09-25. Found during the exact-SHA `0.11.5` DEV acceptance; no
+  production or customer job was submitted.
+- Symptom: the public DEV API returned `202` and persisted a job as
+  `pending/queued/0`, but the freshly woken Render worker never logged the task.
+  The queue was empty and the job stayed pending until the bounded acceptance
+  cancelled it.
+- Cause: DEV API, Render DEV worker and three older workers on `vmi3311535`
+  shared Redis logical database `0`. The old `ai` consumer received the DEV
+  delivery first, then could not claim the job from its different application
+  database. The acceptance also documented a wake/keepalive requirement but did
+  not implement it.
+- Fix: point both DEV services to Redis logical database `1`; keep production
+  and old workers on database `0`. The acceptance runner now wakes the free
+  worker before upload and refreshes its payload-free health URL every four
+  minutes during indexing, generation and cleanup.
+- Prevention: an environment match is insufficient unless the broker database
+  index and visible Celery node set are checked. A DEV gate must see only the
+  expected DEV consumer for `ai,documents`, observe terminal application state,
+  and remove its disposable objects. Never connect a production worker to the
+  DEV database or accept HTTP worker health as proof that a task was consumed.

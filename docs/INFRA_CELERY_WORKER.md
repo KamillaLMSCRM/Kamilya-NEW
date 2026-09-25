@@ -53,6 +53,14 @@ migration. Он запускает один Celery consumer для очеред�
 публикует только статический health response на
 `https://kamilya-lms-dev-worker.onrender.com/`.
 
+DEV API и DEV worker обязаны использовать Redis logical database `1`. Старые
+worker на `vmi3311535` используют database `0`; общий DB `0` уже приводил к
+тому, что старый `ai` consumer забирал DEV-задачу и искал её в другой
+application database. Перед приёмкой нужно проверить не только совпадение
+`REDIS_URL` у DEV API/worker, но и путь `/1`, пустой список посторонних Celery
+узлов и ожидаемый единственный узел `render-dev-worker@...` с очередями
+`ai,documents`.
+
 Render Free усыпляет web service без входящих запросов. Перед DEV-приёмкой
 нужно вызвать health URL и дождаться HTTP 200 `ok`; для генерации дольше 15 минут
 повторять безопасный health GET, не отправляя payload или credentials. После
@@ -61,6 +69,10 @@ Render Free усыпляет web service без входящих запросо�
 Render deploy readback. Нельзя заменять сервис платным Background Worker,
 включать auto-deploy, менять тариф или подключать production broker без новой
 явной санкции владельца.
+
+Канонический runner `scripts/ops/course_quality_dev_acceptance.py` получает
+health URL через `--worker-health-url`, будит consumer до загрузки документа и
+выполняет безопасный keepalive во время индексации, генерации и cleanup.
 
 ## Текущий известный статус
 

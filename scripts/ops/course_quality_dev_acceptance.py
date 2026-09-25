@@ -146,6 +146,59 @@ class AcceptanceError(RuntimeError):
     pass
 
 
+class WorkerKeepalive:
+    """Wake a Render Free DEV worker without sending credentials or payloads."""
+
+    def __init__(
+        self,
+        url: str,
+        *,
+        interval_seconds: int = 240,
+        request_get: Callable[..., httpx.Response] = httpx.get,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        parsed = urlsplit(url)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise AcceptanceError("worker_health_url_unsafe")
+        if interval_seconds < 60:
+            raise AcceptanceError("worker_keepalive_interval_too_short")
+        self.url = url
+        self.interval_seconds = interval_seconds
+        self._request_get = request_get
+        self._clock = clock
+        self._last_success: float | None = None
+
+    def wake(self) -> None:
+        try:
+            response = self._request_get(
+                self.url,
+                timeout=httpx.Timeout(90.0, connect=30.0),
+                follow_redirects=False,
+                headers={"User-Agent": "Kamilya-DEV-worker-keepalive/1"},
+            )
+        except httpx.HTTPError as exc:
+            raise AcceptanceError("worker_health_unavailable") from exc
+        if (
+            response.status_code != 200
+            or len(response.content) > 32
+            or response.text.strip() != "ok"
+        ):
+            raise AcceptanceError("worker_health_invalid_response")
+        self._last_success = self._clock()
+
+    def maintain(self) -> None:
+        now = self._clock()
+        if self._last_success is None or now - self._last_success >= self.interval_seconds:
+            self.wake()
+
+
 class DevClient:
     def __init__(self, base_url: str, browser_origin: str, email: str, password: str) -> None:
         self._email = email
@@ -225,10 +278,13 @@ def poll_job(
     *,
     timeout_seconds: int,
     label: str,
+    worker_keepalive: WorkerKeepalive | None = None,
 ) -> dict[str, Any]:
     deadline = time.monotonic() + timeout_seconds
     last_marker: tuple[str, str, int] | None = None
     while time.monotonic() < deadline:
+        if worker_keepalive is not None:
+            worker_keepalive.maintain()
         response = client.request("GET", f"v1/ai/jobs/{job_id}")
         client._expect(response, {200}, f"{label}_poll")
         payload = response.json()
@@ -370,10 +426,18 @@ def execute_document_cleanup_locally(*, env_file: Path, job_id: str, document_id
         raise AcceptanceError("local_document_cleanup_failed")
 
 
-def poll_document(client: DevClient, document_id: str, timeout_seconds: int) -> dict[str, Any]:
+def poll_document(
+    client: DevClient,
+    document_id: str,
+    timeout_seconds: int,
+    *,
+    worker_keepalive: WorkerKeepalive | None = None,
+) -> dict[str, Any]:
     deadline = time.monotonic() + timeout_seconds
     last_status = ""
     while time.monotonic() < deadline:
+        if worker_keepalive is not None:
+            worker_keepalive.maintain()
         response = client.request(
             "GET",
             "v1/documents/catalog?lifecycle_status=active&limit=100",
@@ -850,6 +914,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "cleanup": {"course": False, "document": False},
     }
     client = DevClient(args.api_base, args.browser_origin, email, password)
+    worker_keepalive = (
+        WorkerKeepalive(args.worker_health_url)
+        if args.worker_health_url
+        else None
+    )
     document_id = ""
     course_id = ""
     generation_job_id = ""
@@ -865,6 +934,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if health_payload.get("release_sha") != args.expected_release_sha:
             raise AcceptanceError("dev_release_sha_mismatch")
         report["checks"].append("exact_dev_release")
+
+        if worker_keepalive is not None:
+            stage("worker_wake")
+            worker_keepalive.wake()
+            report["checks"].append("dev_worker_awake")
 
         stage("login")
         login = client.login()
@@ -898,7 +972,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             raise AcceptanceError("upload_missing_document_id")
         report["checks"].append("xlsx_uploaded")
 
-        document = poll_document(client, document_id, args.index_timeout)
+        document = poll_document(
+            client,
+            document_id,
+            args.index_timeout,
+            worker_keepalive=worker_keepalive,
+        )
         index = document["index"]
         if not index.get("chunks_total") or index.get("chunks_indexed") != index.get("chunks_total"):
             raise AcceptanceError("document_index_incomplete")
@@ -988,6 +1067,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             generation_job_id,
             timeout_seconds=args.generation_timeout,
             label="course_generation",
+            worker_keepalive=worker_keepalive,
         )
         course_id = str(job.get("course_id") or "")
         if job.get("status") != "completed":
@@ -1104,6 +1184,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         cleanup_job_id,
                         timeout_seconds=180,
                         label="document_cleanup",
+                        worker_keepalive=worker_keepalive,
                     )
                     if cleanup_job.get("status") != "completed":
                         raise AcceptanceError("document_cleanup_job_failed")
@@ -1128,6 +1209,7 @@ def main() -> int:
     parser.add_argument("--env-file", type=Path, required=True)
     parser.add_argument("--index-timeout", type=int, default=600)
     parser.add_argument("--generation-timeout", type=int, default=1800)
+    parser.add_argument("--worker-health-url")
     parser.add_argument("--execute-local-worker", action="store_true")
     parser.add_argument("--review-output", type=Path)
     parser.add_argument("--report", type=Path)
