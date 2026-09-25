@@ -43,6 +43,25 @@ checkout удалены.
 - `celery`: временно сохраняется только для безопасного дренирования старых
   сообщений.
 
+## DEV topology
+
+DEV не использует production Valkey, production PostgreSQL или worker VM126.
+Отдельный сервис Render `kamilya-lms-dev-worker` (`srv-dar2dvbncjis73bsda3g`)
+работает как Free Web Service с `autoDeploy=no`, без диска и без pre-deploy
+migration. Он запускает один Celery consumer для очередей `ai,documents` с
+`concurrency=1`, используя те же DEV environment variables, что Render API, и
+публикует только статический health response на
+`https://kamilya-lms-dev-worker.onrender.com/`.
+
+Render Free усыпляет web service без входящих запросов. Перед DEV-приёмкой
+нужно вызвать health URL и дождаться HTTP 200 `ok`; для генерации дольше 15 минут
+повторять безопасный health GET, не отправляя payload или credentials. После
+пробуждения acceptance обязана доказать не только HTTP 200, но и terminal state
+реальной задачи через публичный DEV API. Exact SHA worker проверяется через
+Render deploy readback. Нельзя заменять сервис платным Background Worker,
+включать auto-deploy, менять тариф или подключать production broker без новой
+явной санкции владельца.
+
 ## Текущий известный статус
 
 На 2026-08-04 три unit active/enabled, checkout находится на application release

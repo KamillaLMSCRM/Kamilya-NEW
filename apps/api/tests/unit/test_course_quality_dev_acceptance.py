@@ -3,11 +3,32 @@ from importlib import util
 from pathlib import Path
 from types import SimpleNamespace
 
+import httpx
+import pytest
+
 SCRIPT = Path(__file__).resolve().parents[4] / "scripts" / "ops" / "course_quality_dev_acceptance.py"
 SPEC = util.spec_from_file_location("course_quality_dev_acceptance", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 MODULE = util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
+
+
+def test_acceptance_reports_current_api_error_code() -> None:
+    response = httpx.Response(
+        403,
+        json={
+            "error": "forbidden",
+            "message": "Demo generation limit reached",
+            "details": {"code": "demo_limit_exceeded"},
+        },
+        request=httpx.Request("POST", "https://dev.example/api/v1/ai/generate-course"),
+    )
+
+    with pytest.raises(
+        MODULE.AcceptanceError,
+        match=r"^generation_submit_http_403_demo_limit_exceeded$",
+    ):
+        MODULE.DevClient._expect(response, {202}, "generation_submit")
 
 
 def test_acceptance_rejects_options_that_change_only_the_final_word() -> None:

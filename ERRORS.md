@@ -4279,3 +4279,29 @@ contract or establish a blocker.
   latency evidence. Every Celery observability change must include a delayed
   multi-worker regression and a sanitized live `registered`/`active_queues`
   timing probe before production acceptance.
+
+## DEV-WORKER-001 - DEV API accepted uploads but had no real queue consumer
+
+- Date: 2026-09-25. Found during exact-SHA document-to-course acceptance; no
+  production service or client tenant was used.
+- Symptom: the synthetic XLSX reached `ready`, but its generation job remained
+  `pending/queued/0`. An earlier retry then surfaced only
+  `generation_submit_http_403_unknown`, hiding the already-consumed demo quota.
+- Cause: Render DEV API used asynchronous Celery submission without a DEV
+  consumer. The acceptance parser still expected FastAPI's retired
+  `detail.code` envelope instead of the current `details.code` envelope.
+- Fix: add an isolated `kamilya-lms-dev-worker` Render Free Web Service on the
+  DEV broker/database, queues `ai,documents`, concurrency 1 and auto-deploy off;
+  teach acceptance to preserve the current public error code. The synthetic
+  tenant demo flag may be disabled only inside a bounded superadmin wrapper and
+  must be restored in `finally` when a same-day acceptance needs another run.
+- Verification: error-envelope regression was red then green; the complete
+  acceptance unit file passed 18 tests. The public DEV journey reached
+  embeddings, realization, assessment, saving and completed 100%; all 12
+  structural checks passed, both disposable objects were removed and the
+  tenant `is_demo=true` marker was restored.
+- Prevention: every DEV queue-backed release gate requires a real consumer on
+  a separate DEV broker. HTTP API readiness is insufficient; acceptance must
+  observe a terminal job state, domain output and cleanup. Error reporters must
+  test the active public error envelope so a known limiter never becomes
+  `unknown` again.

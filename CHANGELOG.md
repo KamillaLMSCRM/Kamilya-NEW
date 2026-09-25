@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   residual generic-token heuristic.
 - Allow a platform superadmin to restore the `is_demo` marker on an existing
   synthetic tenant through the audited tenant-update API.
+- Restore real asynchronous DEV acceptance with an isolated free Render Celery
+  consumer, and preserve current machine-readable API error codes in the
+  acceptance report instead of collapsing them to `unknown`.
 
 ### Security
 

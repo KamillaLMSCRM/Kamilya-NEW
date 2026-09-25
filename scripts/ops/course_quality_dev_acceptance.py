@@ -195,11 +195,16 @@ class DevClient:
         if response.status_code not in statuses:
             detail_code = "unknown"
             try:
-                detail = response.json().get("detail")
+                payload = response.json()
+                detail = payload.get("detail")
                 if isinstance(detail, dict):
                     detail_code = str(detail.get("code") or "structured_error")
                 elif isinstance(detail, str):
                     detail_code = "message_error"
+                elif isinstance(payload.get("details"), dict):
+                    detail_code = str(payload["details"].get("code") or "structured_error")
+                elif isinstance(payload.get("error"), str):
+                    detail_code = str(payload["error"])
             except Exception:
                 detail_code = "non_json_error"
             raise AcceptanceError(f"{stage}_http_{response.status_code}_{detail_code}")
