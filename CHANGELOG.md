@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+### Security
+
+## [0.11.4] - 2026-09-25
+
+### Changed
+
 - Make Evidence V2 the only course-assessment implementation in the source
   tree, move the still-used Markdown-table parser behind a neutral shared
   module and replace the stale fixed-question documentation with the active
@@ -1605,7 +1613,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.3...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.4...HEAD
+[0.11.4]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.3...v0.11.4
 [0.11.3]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.2...v0.11.3
 [0.11.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.0...v0.11.1
