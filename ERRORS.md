@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-24.
+Current as of: 2026-09-25.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -4167,3 +4167,28 @@ contract or establish a blocker.
 - Prevention: Release Runner may not manually compose routine native deployment
   subcommands or infer rollback identity. A controller result ending in
   `SEPARATE_TEST_RUNNER_REQUIRED` is technical deployment evidence, not product GO.
+
+## TEST-INFRA-005 - Shared DEV cleanup tests selected persistent synthetic tenants
+
+- Date: 2026-09-25. Found while running the superadmin operations integration
+  suite against the approved Supabase DEV transaction-rollback contour; no
+  persistent row was deleted.
+- Symptom: cleanup preview returned an older persistent synthetic tenant before
+  the test fixture, and the destructive cleanup test first attempted that same
+  unrelated tenant. The exact-result assertions failed even though the test's
+  own candidate was handled inside the rollback transaction.
+- Cause: the tests used the production cleanup prefixes in a shared DEV database,
+  so their global superadmin query could legitimately match persistent demo
+  tenants. Transaction rollback protected persistence but did not isolate result
+  selection or prevent unnecessary access to unrelated synthetic rows.
+- Fix: each cleanup integration test now replaces the allowed-prefix tuple with a
+  unique per-test prefix and creates all matching fixtures under that namespace.
+  The endpoint still executes its real SQL and guards at the normal 24-hour
+  threshold, while no shared tenant can match the test-only prefix.
+- Verification: both previously failing cleanup scenarios pass against the same
+  Supabase DEV contour, followed by the complete operations integration suite
+  (`8 passed`) with transaction cleanup.
+- Prevention: shared-environment integration tests for global maintenance
+  operations must use a unique server-enforced selector. Extreme ages and
+  transaction rollback alone are not selection isolation, and exact-result
+  assertions may not assume an otherwise empty DEV database.

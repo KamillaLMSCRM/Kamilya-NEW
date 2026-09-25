@@ -1,8 +1,10 @@
 """Pure contract tests for operations guards and route registration."""
+
 from __future__ import annotations
 
 import time
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -50,15 +52,9 @@ def test_operations_router_is_registered_inside_superadmin_router():
 
 
 def test_cleanup_guard_requires_demo_flag_and_fixed_prefix():
-    assert _is_allowed_synthetic_tenant(
-        _tenant(slug="synthetic-contract", is_demo=True)
-    )
-    assert not _is_allowed_synthetic_tenant(
-        _tenant(slug="synthetic-contract", is_demo=False)
-    )
-    assert not _is_allowed_synthetic_tenant(
-        _tenant(slug="customer-contract", is_demo=True)
-    )
+    assert _is_allowed_synthetic_tenant(_tenant(slug="synthetic-contract", is_demo=True))
+    assert not _is_allowed_synthetic_tenant(_tenant(slug="synthetic-contract", is_demo=False))
+    assert not _is_allowed_synthetic_tenant(_tenant(slug="customer-contract", is_demo=True))
 
 
 def test_cleanup_defaults_to_dry_run_and_cannot_lower_age_floor():
@@ -68,6 +64,7 @@ def test_cleanup_defaults_to_dry_run_and_cannot_lower_age_floor():
 
     with pytest.raises(ValidationError):
         SyntheticCleanupRequest(min_age_hours=MIN_CLEANUP_AGE_HOURS - 1)
+
 
 def test_confirmation_token_is_not_accepted_as_a_default():
     payload = SyntheticCleanupRequest(dry_run=False)
@@ -124,12 +121,37 @@ def test_runtime_summary_is_safe_and_gracefully_allows_missing_metrics():
     host, process, filesystem = _runtime_summaries()
 
     assert host.cpu_percent is None or 0 <= host.cpu_percent <= 100
+    assert host.total_memory_bytes is None or host.total_memory_bytes > 0
+    assert host.available_memory_bytes is None or host.available_memory_bytes >= 0
+    assert host.used_memory_bytes is None or host.used_memory_bytes >= 0
+    assert host.used_memory_percent is None or 0 <= host.used_memory_percent <= 100
     assert process.process_id > 0
     assert process.rss_memory_bytes is None or process.rss_memory_bytes > 0
     assert filesystem.total_bytes is None or filesystem.total_bytes > 0
     assert filesystem.free_bytes is None or filesystem.free_bytes >= 0
     assert filesystem.used_percent is None or 0 <= filesystem.used_percent <= 100
     assert "C:\\" not in process.model_dump_json()
+
+
+def test_runtime_summary_maps_host_memory_without_confusing_it_with_process_rss(monkeypatch):
+    monkeypatch.setattr(
+        operations.psutil,
+        "virtual_memory",
+        lambda: SimpleNamespace(
+            total=16 * 1024**3,
+            available=6 * 1024**3,
+            used=10 * 1024**3,
+            percent=62.5,
+        ),
+    )
+
+    host, process, _filesystem = _runtime_summaries()
+
+    assert host.total_memory_bytes == 16 * 1024**3
+    assert host.available_memory_bytes == 6 * 1024**3
+    assert host.used_memory_bytes == 10 * 1024**3
+    assert host.used_memory_percent == 62.5
+    assert process.rss_memory_bytes != host.used_memory_bytes
 
 
 def test_celery_probe_returns_unavailable_without_broker_details(monkeypatch):
@@ -141,7 +163,10 @@ def test_celery_probe_returns_unavailable_without_broker_details(monkeypatch):
     summary = _inspect_celery_worker()
 
     assert summary.status == "unavailable"
+    assert summary.health == "unavailable"
     assert summary.reachable is False
+    assert [worker.role for worker in summary.workers] == ["fast", "documents", "ai"]
+    assert all(worker.status == "unavailable" for worker in summary.workers)
     assert summary.registered_required_tasks == []
     assert summary.missing_required_tasks == list(REQUIRED_CELERY_TASKS)
     assert "broker details" not in summary.model_dump_json()
@@ -151,10 +176,22 @@ def test_celery_probe_returns_only_required_task_names(monkeypatch):
     class FakeInspector:
         def registered(self):
             return {
-                "worker-host-secret": [
+                "fast@worker-host-secret": [
                     "ai.generate_course",
                     "private.task.with.payload",
-                ]
+                ],
+                "documents@worker-host-secret": ["documents.reindex"],
+                "ai@worker-host-secret": ["ai.generate_course"],
+            }
+
+        def active_queues(self):
+            return {
+                "fast@worker-host-secret": [
+                    {"name": "maintenance"},
+                    {"name": "notifications"},
+                ],
+                "documents@worker-host-secret": [{"name": "documents"}],
+                "ai@worker-host-secret": [{"name": "ai"}],
             }
 
     monkeypatch.setattr(
@@ -166,10 +203,110 @@ def test_celery_probe_returns_only_required_task_names(monkeypatch):
     summary = _inspect_celery_worker()
 
     assert summary.status == "available"
-    assert summary.worker_count == 1
-    assert summary.registered_required_tasks == ["ai.generate_course"]
+    assert summary.health == "degraded"
+    assert summary.worker_count == 3
+    assert summary.registered_required_tasks == [
+        "ai.generate_course",
+        "documents.reindex",
+    ]
+    assert [worker.role for worker in summary.workers] == ["fast", "documents", "ai"]
+    assert all(worker.status == "healthy" for worker in summary.workers)
     assert "worker-host-secret" not in summary.model_dump_json()
     assert "private.task.with.payload" not in summary.model_dump_json()
+
+
+def test_celery_probe_reports_partial_queue_degradation_without_hiding_healthy_roles(monkeypatch):
+    class FakeInspector:
+        def registered(self):
+            return {
+                "fast@private-node": list(REQUIRED_CELERY_TASKS),
+                "documents@private-node": list(REQUIRED_CELERY_TASKS),
+                "ai@private-node": list(REQUIRED_CELERY_TASKS),
+            }
+
+        def active_queues(self):
+            return {
+                "fast@private-node": [{"name": "maintenance"}],
+                "documents@private-node": [{"name": "documents"}],
+                "ai@private-node": [{"name": "ai"}],
+            }
+
+    monkeypatch.setattr(
+        operations.celery_app.control,
+        "inspect",
+        lambda **kwargs: FakeInspector(),
+    )
+
+    summary = _inspect_celery_worker()
+    workers = {worker.role: worker for worker in summary.workers}
+
+    assert summary.status == "available"
+    assert summary.health == "degraded"
+    assert workers["fast"].status == "degraded"
+    assert workers["fast"].active_queues == ["maintenance"]
+    assert workers["fast"].missing_queues == ["notifications"]
+    assert workers["documents"].status == "healthy"
+    assert workers["ai"].status == "healthy"
+    assert "private-node" not in summary.model_dump_json()
+
+
+def test_celery_probe_degrades_role_without_exposing_unapproved_queue_name(monkeypatch):
+    class FakeInspector:
+        def registered(self):
+            return {
+                "fast@private-node": list(REQUIRED_CELERY_TASKS),
+                "documents@private-node": list(REQUIRED_CELERY_TASKS),
+                "ai@private-node": list(REQUIRED_CELERY_TASKS),
+            }
+
+        def active_queues(self):
+            return {
+                "fast@private-node": [
+                    {"name": "maintenance"},
+                    {"name": "notifications"},
+                    {"name": "customer-private-queue"},
+                ],
+                "documents@private-node": [{"name": "documents"}],
+                "ai@private-node": [{"name": "ai"}],
+            }
+
+    monkeypatch.setattr(
+        operations.celery_app.control,
+        "inspect",
+        lambda **kwargs: FakeInspector(),
+    )
+
+    summary = _inspect_celery_worker()
+    workers = {worker.role: worker for worker in summary.workers}
+
+    assert summary.health == "degraded"
+    assert workers["fast"].status == "degraded"
+    assert workers["fast"].unapproved_queue_count == 1
+    assert "customer-private-queue" not in summary.model_dump_json()
+
+
+@pytest.mark.parametrize("active_queues", [None, {}, []])
+def test_celery_probe_fails_closed_when_queue_topology_is_missing(monkeypatch, active_queues):
+    class FakeInspector:
+        def registered(self):
+            return {"fast@private-node": list(REQUIRED_CELERY_TASKS)}
+
+        def active_queues(self):
+            return active_queues
+
+    monkeypatch.setattr(
+        operations.celery_app.control,
+        "inspect",
+        lambda **kwargs: FakeInspector(),
+    )
+
+    summary = _inspect_celery_worker()
+
+    assert summary.status == "unavailable"
+    assert summary.health == "unavailable"
+    assert summary.reachable is False
+    assert all(worker.status == "unavailable" for worker in summary.workers)
+    assert "private-node" not in summary.model_dump_json()
 
 
 @pytest.mark.asyncio
@@ -186,25 +323,49 @@ async def test_celery_probe_timeout_returns_unavailable(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_celery_probe_outer_timeout_allows_inspect_margin(monkeypatch):
-    calls = 0
+    inspector_calls = 0
+    probe_calls = 0
 
     class SlowInspector:
         def registered(self):
-            nonlocal calls
-            calls += 1
+            nonlocal probe_calls
+            probe_calls += 1
             time.sleep(0.04)
-            return {"worker-1": list(REQUIRED_CELERY_TASKS)}
+            return {
+                "fast@private-node": list(REQUIRED_CELERY_TASKS),
+                "documents@private-node": list(REQUIRED_CELERY_TASKS),
+                "ai@private-node": list(REQUIRED_CELERY_TASKS),
+            }
+
+        def active_queues(self):
+            nonlocal probe_calls
+            probe_calls += 1
+            time.sleep(0.04)
+            return {
+                "fast@private-node": [
+                    {"name": "maintenance"},
+                    {"name": "notifications"},
+                ],
+                "documents@private-node": [{"name": "documents"}],
+                "ai@private-node": [{"name": "ai"}],
+            }
+
+    def inspect_once(**kwargs):
+        nonlocal inspector_calls
+        inspector_calls += 1
+        return SlowInspector()
 
     monkeypatch.setattr(operations, "CELERY_INSPECT_TIMEOUT_SECONDS", 0.05)
     monkeypatch.setattr(operations, "CELERY_INSPECT_OUTER_MARGIN_SECONDS", 0.05)
     monkeypatch.setattr(
         operations.celery_app.control,
         "inspect",
-        lambda **kwargs: SlowInspector(),
+        inspect_once,
     )
 
     summary = await operations._celery_worker_summary()
 
     assert summary.status == "available"
-    assert summary.worker_count == 1
-    assert calls == 1
+    assert summary.worker_count == 3
+    assert inspector_calls == 1
+    assert probe_calls == 2

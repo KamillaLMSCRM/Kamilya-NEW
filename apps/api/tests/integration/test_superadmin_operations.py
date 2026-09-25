@@ -1,4 +1,5 @@
 """P1 tests for superadmin operational observability and safe cleanup."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -11,6 +12,7 @@ from sqlalchemy import select, text, update
 from app.models.ai_job import AIJob
 from app.models.document import Document
 from app.models.tenants import Tenant
+from app.modules.admin.superadmin import operations
 from app.modules.admin.superadmin.operations import (
     CLEANUP_CONFIRM_TOKEN,
     CRM_OUTBOX_REQUEUE_CONFIRM_TOKEN,
@@ -74,29 +76,26 @@ async def test_crm_outbox_summary_and_bounded_requeue(
         )
     ).scalar_one()
     claimed = (
-        await db_session.execute(
-            text("SELECT * FROM crm_claim_lead_outbox(:id)"),
-            {"id": lead_id},
+        (
+            await db_session.execute(
+                text("SELECT * FROM crm_claim_lead_outbox(:id)"),
+                {"id": lead_id},
+            )
         )
-    ).mappings().one()
+        .mappings()
+        .one()
+    )
     assert (
         await db_session.execute(
-            text(
-                "SELECT crm_finalize_lead_outbox("
-                ":id, :token, 'terminal', 422, 'terminal_http')"
-            ),
+            text("SELECT crm_finalize_lead_outbox(" ":id, :token, 'terminal', 422, 'terminal_http')"),
             {"id": lead_id, "token": claimed["claim_token"]},
         )
     ).scalar_one()
 
     superadmin = await make_superadmin()
     token = await _login(client, superadmin, password="SuperPass123!")
-    await db_session.execute(
-        text("SELECT set_config('app.is_superadmin', 'true', true)")
-    )
-    summary = (
-        await db_session.execute(text("SELECT * FROM crm_lead_outbox_summary()"))
-    ).mappings().one()
+    await db_session.execute(text("SELECT set_config('app.is_superadmin', 'true', true)"))
+    summary = (await db_session.execute(text("SELECT * FROM crm_lead_outbox_summary()"))).mappings().one()
     assert summary["dead_count"] >= 1
     assert "Private CRM Company" not in str(dict(summary))
     assert f"private-crm-{suffix}@example.test" not in str(dict(summary))
@@ -132,16 +131,17 @@ async def test_crm_outbox_summary_and_bounded_requeue(
     assert applied.json()["requeued_count"] == 1
 
     reclaimed = (
-        await db_session.execute(
-            text("SELECT * FROM crm_claim_lead_outbox(:id)"),
-            {"id": lead_id},
+        (
+            await db_session.execute(
+                text("SELECT * FROM crm_claim_lead_outbox(:id)"),
+                {"id": lead_id},
+            )
         )
-    ).mappings().one()
+        .mappings()
+        .one()
+    )
     await db_session.execute(
-        text(
-            "SELECT crm_finalize_lead_outbox("
-            ":id, :token, 'defer', NULL, 'test_cleanup')"
-        ),
+        text("SELECT crm_finalize_lead_outbox(" ":id, :token, 'defer', NULL, 'test_cleanup')"),
         {"id": lead_id, "token": reclaimed["claim_token"]},
     )
 
@@ -214,13 +214,19 @@ async def test_operations_summary_is_aggregate_and_has_no_tenant_pii(
     assert body["database"]["pool_class"]
     assert body["process"]["process_id"] > 0
     assert body["host"]["cpu_percent"] is None or 0 <= body["host"]["cpu_percent"] <= 100
+    assert body["host"]["total_memory_bytes"] is None or body["host"]["total_memory_bytes"] > 0
+    assert body["host"]["available_memory_bytes"] is None or body["host"]["available_memory_bytes"] >= 0
+    assert body["host"]["used_memory_bytes"] is None or body["host"]["used_memory_bytes"] >= 0
+    assert body["host"]["used_memory_percent"] is None or 0 <= body["host"]["used_memory_percent"] <= 100
     assert body["process"]["cpu_percent"] is None or body["process"]["cpu_percent"] >= 0
     assert body["process"]["rss_memory_bytes"] is None or body["process"]["rss_memory_bytes"] > 0
     assert body["filesystem"]["total_bytes"] is None or body["filesystem"]["total_bytes"] > 0
     assert body["filesystem"]["free_bytes"] is None or body["filesystem"]["free_bytes"] >= 0
     assert body["filesystem"]["used_percent"] is None or 0 <= body["filesystem"]["used_percent"] <= 100
     assert body["celery"]["status"] in {"available", "unavailable"}
+    assert body["celery"]["health"] in {"healthy", "degraded", "unavailable"}
     assert body["celery"]["reachable"] == (body["celery"]["status"] == "available")
+    assert [worker["role"] for worker in body["celery"]["workers"]] == ["fast", "documents", "ai"]
     assert "Tenant Secret Name" not in response.text
     assert "Other Tenant Name" not in response.text
     assert "secret-person@private.example" not in response.text
@@ -233,29 +239,32 @@ async def test_operations_summary_is_aggregate_and_has_no_tenant_pii(
 
 @pytest.mark.asyncio
 async def test_cleanup_dry_run_matches_only_old_demo_prefixes(
-    client, db_session, make_tenant, make_superadmin
+    client, db_session, make_tenant, make_superadmin, monkeypatch
 ):
+    marker = uuid4().hex
+    allowed_prefix = f"synthetic-{marker}-"
+    monkeypatch.setattr(operations, "ALLOWED_SYNTHETIC_SLUG_PREFIXES", (allowed_prefix,))
     old_synthetic = await make_tenant(
         name="Synthetic Old",
-        slug="synthetic-old-ops",
+        slug=f"{allowed_prefix}old",
         is_demo=True,
     )
-    old_synthetic.created_at = datetime.now(UTC) - timedelta(days=3)
+    old_synthetic.created_at = datetime.now(UTC) - timedelta(days=2)
     ordinary_prefix = await make_tenant(
         name="Ordinary Prefix",
-        slug="synthetic-ordinary-ops",
+        slug=f"{allowed_prefix}ordinary",
         is_demo=False,
     )
-    ordinary_prefix.created_at = datetime.now(UTC) - timedelta(days=3)
+    ordinary_prefix.created_at = datetime.now(UTC) - timedelta(days=2)
     old_unapproved = await make_tenant(
         name="Unapproved Prefix",
-        slug="customer-old-ops",
+        slug=f"customer-{marker}-old",
         is_demo=True,
     )
-    old_unapproved.created_at = datetime.now(UTC) - timedelta(days=3)
+    old_unapproved.created_at = datetime.now(UTC) - timedelta(days=2)
     young_synthetic = await make_tenant(
         name="Synthetic Young",
-        slug="qa-young-ops",
+        slug=f"{allowed_prefix}young",
         is_demo=True,
     )
     young_synthetic.created_at = datetime.now(UTC) - timedelta(hours=2)
@@ -283,9 +292,7 @@ async def test_cleanup_dry_run_matches_only_old_demo_prefixes(
 
 
 @pytest.mark.asyncio
-async def test_cleanup_requires_confirmation_for_destructive_mode(
-    client, make_superadmin
-):
+async def test_cleanup_requires_confirmation_for_destructive_mode(client, make_superadmin):
     superadmin = await make_superadmin()
     token = await _login(client, superadmin, password="SuperPass123!")
     headers = {"Authorization": f"Bearer {token}"}
@@ -305,17 +312,20 @@ async def test_cleanup_requires_confirmation_for_destructive_mode(
 
 @pytest.mark.asyncio
 async def test_cleanup_execute_deletes_only_guarded_tenant(
-    client, db_session, make_tenant, make_superadmin
+    client, db_session, make_tenant, make_superadmin, monkeypatch
 ):
+    marker = uuid4().hex
+    allowed_prefix = f"e2e-{marker}-"
+    monkeypatch.setattr(operations, "ALLOWED_SYNTHETIC_SLUG_PREFIXES", (allowed_prefix,))
     candidate = await make_tenant(
         name="Synthetic To Delete",
-        slug="e2e-delete-ops",
+        slug=f"{allowed_prefix}delete",
         is_demo=True,
     )
     candidate.created_at = datetime.now(UTC) - timedelta(days=2)
     ordinary = await make_tenant(
         name="Ordinary Tenant",
-        slug="ordinary-ops",
+        slug=f"ordinary-{marker}",
         is_demo=False,
     )
     ordinary.created_at = datetime.now(UTC) - timedelta(days=2)
@@ -341,12 +351,8 @@ async def test_cleanup_execute_deletes_only_guarded_tenant(
     assert body["results"][0]["action"] == "deleted"
 
     await db_session.rollback()
-    candidate_row = (
-        await db_session.execute(select(Tenant).where(Tenant.id == candidate_id))
-    ).scalar_one_or_none()
-    ordinary_row = (
-        await db_session.execute(select(Tenant).where(Tenant.id == ordinary_id))
-    ).scalar_one_or_none()
+    candidate_row = (await db_session.execute(select(Tenant).where(Tenant.id == candidate_id))).scalar_one_or_none()
+    ordinary_row = (await db_session.execute(select(Tenant).where(Tenant.id == ordinary_id))).scalar_one_or_none()
     assert candidate_row is None
     assert ordinary_row is not None
 
@@ -458,7 +464,7 @@ async def test_stale_ai_job_recovery_requires_superadmin_confirmation_and_caps_r
                 errors={"worker": "timeout"} if index == 0 else None,
                 result={"checkpoint": "retained"} if index == 0 else None,
             )
-    )
+        )
     await db_session.flush()
 
     regular = await make_user(
@@ -504,31 +510,35 @@ async def test_stale_ai_job_recovery_requires_superadmin_confirmation_and_caps_r
     await db_session.flush()
     await set_current_tenant(tenant_id)
     cancelled_count = (
-        await db_session.execute(
-            select(AIJob).where(
-                AIJob.tenant_id == tenant_id,
-                AIJob.status == "cancelled",
-                AIJob.id.like("stale-cap-%"),
+        (
+            await db_session.execute(
+                select(AIJob).where(
+                    AIJob.tenant_id == tenant_id,
+                    AIJob.status == "cancelled",
+                    AIJob.id.like("stale-cap-%"),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     pending_count = (
-        await db_session.execute(
-            select(AIJob).where(
-                AIJob.tenant_id == tenant_id,
-                AIJob.status == "pending",
-                AIJob.id.like("stale-cap-%"),
+        (
+            await db_session.execute(
+                select(AIJob).where(
+                    AIJob.tenant_id == tenant_id,
+                    AIJob.status == "pending",
+                    AIJob.id.like("stale-cap-%"),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(cancelled_count) == 100
     assert len(pending_count) == 1
 
-    recovered = (
-        await db_session.execute(
-            select(AIJob).where(AIJob.id == "stale-cap-0")
-        )
-    ).scalar_one()
+    recovered = (await db_session.execute(select(AIJob).where(AIJob.id == "stale-cap-0"))).scalar_one()
     assert recovered.status == "cancelled"
     assert recovered.stage == "cancelled"
     assert recovered.message.startswith("worker diagnostic retained")

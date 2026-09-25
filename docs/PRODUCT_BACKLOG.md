@@ -32,19 +32,17 @@ fallback, worker parity и production smoke реализованы. В backlog �
 операционный delivery monitoring.
 ## P1: эксплуатация
 
-1. Добавить host CPU/RAM/disk и состояние трёх Celery worker к агрегированной
-   operational console. Пятиминутный watchdog и queue-depth alert уже работают.
-2. Delivery monitoring для email с tenant-safe диагностикой.
-3. Безопасная очистка зависших jobs после определения retry/retention policy.
-4. Сверить ORM metadata с исторической схемой из 77 Alembic revisions:
+1. Delivery monitoring для email с tenant-safe диагностикой.
+2. Безопасная очистка зависших jobs после определения retry/retention policy.
+3. Сверить ORM metadata с исторической схемой из 77 Alembic revisions:
    описать SQL-only `document_embeddings`, согласовать типы, индексы,
    внешние ключи и nullable/default. До завершения сверки не применять
    autogenerate output: текущий drift содержит разрушительные remove-операции.
-5. Добавить oldest-job age, task failure rate, provider 429/timeout и разрез
+4. Добавить oldest-job age, task failure rate, provider 429/timeout и разрез
    queue depth по tenant без раскрытия tenant PII.
-7. Провести отдельный capacity acceptance на реальных многостраничных сканах и
+5. Провести отдельный capacity acceptance на реальных многостраничных сканах и
    платный прогон 10 генераций; текущая оценка 50 задач не является SLA.
-8. Выпустить и принять durable LMS→CRM lead outbox: migration/API/worker parity,
+6. Выпустить и принять durable LMS→CRM lead outbox: migration/API/worker parity,
    минутный recovery timer, общий secret и end-to-end smoke с идемпотентным
    повтором. После подтверждения перенести evidence в `PRODUCTION_READINESS.md`
    и удалить этот пункт.

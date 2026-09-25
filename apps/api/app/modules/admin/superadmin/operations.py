@@ -58,6 +58,16 @@ CLEANUP_CONFIRM_TOKEN = "CLEANUP_SYNTHETIC_TENANTS"
 MAX_CLEANUP_CANDIDATES = 100
 CELERY_INSPECT_TIMEOUT_SECONDS = 0.75
 CELERY_INSPECT_OUTER_MARGIN_SECONDS = 0.25
+CELERY_WORKER_ROLES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    ("fast", ("maintenance", "notifications"), ("celery",)),
+    ("documents", ("documents",), ()),
+    ("ai", ("ai",), ()),
+)
+CODE_OWNED_CELERY_QUEUES = frozenset(
+    queue
+    for _role, required_queues, optional_queues in CELERY_WORKER_ROLES
+    for queue in (*required_queues, *optional_queues)
+)
 REQUIRED_CELERY_TASKS = (
     "ai.generate_course",
     "ai.ingest_document",
@@ -120,6 +130,10 @@ class ProcessRuntimeSummary(BaseModel):
 
 class HostRuntimeSummary(BaseModel):
     cpu_percent: float | None = None
+    total_memory_bytes: int | None = None
+    available_memory_bytes: int | None = None
+    used_memory_bytes: int | None = None
+    used_memory_percent: float | None = None
 
 
 class FilesystemRuntimeSummary(BaseModel):
@@ -128,10 +142,24 @@ class FilesystemRuntimeSummary(BaseModel):
     used_percent: float | None = None
 
 
-class CeleryWorkerSummary(BaseModel):
-    status: Literal["available", "unavailable"]
+class CeleryWorkerRoleSummary(BaseModel):
+    role: Literal["fast", "documents", "ai"]
+    status: Literal["healthy", "degraded", "unavailable"]
     reachable: bool
     worker_count: int = 0
+    expected_queues: list[str] = Field(default_factory=list)
+    active_queues: list[str] = Field(default_factory=list)
+    missing_queues: list[str] = Field(default_factory=list)
+    unexpected_queues: list[str] = Field(default_factory=list)
+    unapproved_queue_count: int = 0
+
+
+class CeleryWorkerSummary(BaseModel):
+    status: Literal["available", "unavailable"]
+    health: Literal["healthy", "degraded", "unavailable"]
+    reachable: bool
+    worker_count: int = 0
+    workers: list[CeleryWorkerRoleSummary] = Field(default_factory=list)
     registered_required_tasks: list[str] = Field(default_factory=list)
     missing_required_tasks: list[str] = Field(default_factory=list)
 
@@ -331,6 +359,10 @@ def _runtime_summaries() -> (
     host_cpu: float | None = None
     process_cpu: float | None = None
     rss_memory: int | None = None
+    total_memory: int | None = None
+    available_memory: int | None = None
+    used_memory: int | None = None
+    used_memory_percent: float | None = None
     total_bytes: int | None = None
     free_bytes: int | None = None
     used_percent: float | None = None
@@ -346,6 +378,14 @@ def _runtime_summaries() -> (
     except Exception:
         pass
     try:
+        memory = psutil.virtual_memory()
+        total_memory = int(memory.total)
+        available_memory = int(memory.available)
+        used_memory = int(memory.used)
+        used_memory_percent = round(float(memory.percent), 2)
+    except Exception:
+        pass
+    try:
         usage = psutil.disk_usage(Path.cwd().anchor or os.sep)
         total_bytes = int(usage.total)
         free_bytes = int(usage.free)
@@ -354,7 +394,13 @@ def _runtime_summaries() -> (
         pass
 
     return (
-        HostRuntimeSummary(cpu_percent=host_cpu),
+        HostRuntimeSummary(
+            cpu_percent=host_cpu,
+            total_memory_bytes=total_memory,
+            available_memory_bytes=available_memory,
+            used_memory_bytes=used_memory,
+            used_memory_percent=used_memory_percent,
+        ),
         ProcessRuntimeSummary(
             process_id=os.getpid(),
             started_at=PROCESS_STARTED_AT,
@@ -374,20 +420,89 @@ def _runtime_summaries() -> (
 def _unavailable_celery_summary() -> CeleryWorkerSummary:
     return CeleryWorkerSummary(
         status="unavailable",
+        health="unavailable",
         reachable=False,
+        workers=[
+            CeleryWorkerRoleSummary(
+                role=role,
+                status="unavailable",
+                reachable=False,
+                expected_queues=list(required_queues),
+                missing_queues=list(required_queues),
+            )
+            for role, required_queues, _optional_queues in CELERY_WORKER_ROLES
+        ],
         missing_required_tasks=list(REQUIRED_CELERY_TASKS),
     )
+
+
+def _queue_inventory(queue_items: object) -> tuple[set[str], int]:
+    if not isinstance(queue_items, list):
+        return set(), 0
+    queue_names = {
+        name for item in queue_items if isinstance(item, dict) for name in [item.get("name")] if isinstance(name, str)
+    }
+    approved_names = queue_names & CODE_OWNED_CELERY_QUEUES
+    return approved_names, len(queue_names - CODE_OWNED_CELERY_QUEUES)
+
+
+def _celery_role_summaries(active_queues: object) -> list[CeleryWorkerRoleSummary]:
+    node_queues = (
+        {
+            node_name: _queue_inventory(queue_items)
+            for node_name, queue_items in active_queues.items()
+            if isinstance(active_queues, dict) and isinstance(node_name, str)
+        }
+        if isinstance(active_queues, dict)
+        else {}
+    )
+
+    summaries: list[CeleryWorkerRoleSummary] = []
+    for role, required_queues, optional_queues in CELERY_WORKER_ROLES:
+        required = set(required_queues)
+        allowed = required | set(optional_queues)
+        candidates = [
+            (queues, unapproved_count) for queues, unapproved_count in node_queues.values() if queues & allowed
+        ]
+        active = set().union(*(queues for queues, _count in candidates)) if candidates else set()
+        unapproved_queue_count = sum(count for _queues, count in candidates)
+        missing = required - active
+        unexpected = active - allowed
+        if not candidates:
+            role_status: Literal["healthy", "degraded", "unavailable"] = "unavailable"
+        elif len(candidates) == 1 and not missing and not unexpected and unapproved_queue_count == 0:
+            role_status = "healthy"
+        else:
+            role_status = "degraded"
+        summaries.append(
+            CeleryWorkerRoleSummary(
+                role=role,
+                status=role_status,
+                reachable=bool(candidates),
+                worker_count=len(candidates),
+                expected_queues=list(required_queues),
+                active_queues=sorted(active),
+                missing_queues=sorted(missing),
+                unexpected_queues=sorted(unexpected),
+                unapproved_queue_count=unapproved_queue_count,
+            )
+        )
+    return summaries
 
 
 def _inspect_celery_worker() -> CeleryWorkerSummary:
     """Inspect workers and retain only the code-owned required task names."""
 
     try:
-        registered = celery_app.control.inspect(timeout=CELERY_INSPECT_TIMEOUT_SECONDS).registered()
+        inspector = celery_app.control.inspect(timeout=CELERY_INSPECT_TIMEOUT_SECONDS)
+        registered = inspector.registered()
+        active_queues = inspector.active_queues()
     except Exception:
         return _unavailable_celery_summary()
 
     if not isinstance(registered, dict) or not registered:
+        return _unavailable_celery_summary()
+    if not isinstance(active_queues, dict) or not active_queues:
         return _unavailable_celery_summary()
 
     registered_tasks = {
@@ -398,12 +513,21 @@ def _inspect_celery_worker() -> CeleryWorkerSummary:
         if isinstance(task_name, str)
     }
     registered_required = [task_name for task_name in REQUIRED_CELERY_TASKS if task_name in registered_tasks]
+    workers = _celery_role_summaries(active_queues)
+    missing_required_tasks = [task_name for task_name in REQUIRED_CELERY_TASKS if task_name not in registered_tasks]
+    health: Literal["healthy", "degraded"] = (
+        "healthy"
+        if not missing_required_tasks and all(worker.status == "healthy" for worker in workers)
+        else "degraded"
+    )
     return CeleryWorkerSummary(
         status="available",
+        health=health,
         reachable=True,
         worker_count=len(registered),
+        workers=workers,
         registered_required_tasks=registered_required,
-        missing_required_tasks=[task_name for task_name in REQUIRED_CELERY_TASKS if task_name not in registered_tasks],
+        missing_required_tasks=missing_required_tasks,
     )
 
 
@@ -411,7 +535,7 @@ async def _celery_worker_summary() -> CeleryWorkerSummary:
     try:
         return await asyncio.wait_for(
             asyncio.to_thread(_inspect_celery_worker),
-            timeout=CELERY_INSPECT_TIMEOUT_SECONDS + CELERY_INSPECT_OUTER_MARGIN_SECONDS,
+            timeout=(2 * CELERY_INSPECT_TIMEOUT_SECONDS) + CELERY_INSPECT_OUTER_MARGIN_SECONDS,
         )
     except Exception:
         return _unavailable_celery_summary()
@@ -657,10 +781,7 @@ class SuperadminOperationsService:
         # ``delete_tenant`` commits and SQLAlchemy expires ORM instances in
         # this session.  Keep the initial listing as plain values so a later
         # candidate cannot trigger implicit async IO (MissingGreenlet).
-        candidate_snapshots = [
-            (candidate.id, candidate.slug, candidate.created_at)
-            for candidate in candidates
-        ]
+        candidate_snapshots = [(candidate.id, candidate.slug, candidate.created_at) for candidate in candidates]
         results: list[SyntheticCleanupResult] = []
         deleted_count = skipped_count = failed_count = 0
         deletion_service = SuperadminService(self.db)

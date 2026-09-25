@@ -11,11 +11,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+### Security
+
+## [0.11.2] - 2026-09-25
+
+### Added
+
+- Show host RAM pressure and independent `fast`, `documents` and `ai` Celery
+  role health in the existing superadmin operational console without exposing
+  worker identities, infrastructure details or tenant data.
+
+### Changed
+
 - Route routine CT137 native frontend releases through one digest-bound,
   fail-closed controller that verifies exact source, CI, artifact, host inventory,
   rollback and capacity before ordered deployment and technical readback.
+- Keep the operations page usable during an API-first rollout or coordinated
+  rollback by treating missing additive runtime fields as unavailable.
 
 ### Fixed
+
+- Fail closed when Celery task registration is reachable but active queue
+  topology cannot be inspected, instead of reporting a misleading available
+  control plane.
+- Isolate destructive cleanup integration tests from persistent shared DEV
+  tenants with a unique per-test server-enforced prefix.
 
 ### Security
 

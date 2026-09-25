@@ -870,7 +870,14 @@ API изменения course links отклоняет, endpoints apply/progress
 `/api/v1/admin/super/operations/*` доступны только `superadmin`.
 
 - summary содержит агрегированные AI queue/running/failure, индексацию и
-  cleanup документов, состояние DB pool и runtime процесса;
+  cleanup документов, состояние DB pool, runtime процесса, host CPU/RAM/disk и
+  отдельное состояние ролей Celery `fast`, `documents`, `ai`;
+- роли worker определяются только по разрешённым code-owned очередям. Для каждой
+  роли видны ожидаемые, активные и отсутствующие очереди; неизвестные названия
+  не возвращаются, показывается только их количество;
+- если task registration или topology очередей не получены полностью, Celery
+  fail-closed помечается недоступным. Частичная потеря одной роли не скрывает
+  состояние остальных ролей;
 - tenant names, email, filenames и job messages не возвращаются;
 - synthetic cleanup по умолчанию выполняет dry-run;
 - удаление допускается только для `is_demo=true`, фиксированного test-prefix,

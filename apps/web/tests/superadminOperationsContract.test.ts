@@ -33,10 +33,25 @@ describe('superadmin operations UI contract', () => {
 
   it('renders bounded runtime and worker metrics with an unavailable state', () => {
     expect(page).toContain('rss_memory_bytes');
+    expect(page).toContain('total_memory_bytes');
+    expect(page).toContain('available_memory_bytes');
+    expect(page).toContain('used_memory_bytes');
+    expect(page).toContain('used_memory_percent');
     expect(page).toContain('filesystem.used_percent');
     expect(page).toContain('registered_required_tasks');
+    expect(page).toContain('effectiveCeleryWorkers');
+    expect(page).toContain('worker.expected_queues');
+    expect(page).toContain('worker.missing_queues');
+    for (const role of ['fast', 'documents', 'ai']) {
+      expect(page).toContain(`roles.${role}`);
+    }
     expect(page).toContain('superadmin.operations.unavailable');
     expect(page).toContain('TaskList');
+  });
+
+  it('keeps the page usable during an API-first rollout or coordinated rollback', () => {
+    expect(page).toContain('summary?.celery.health ??');
+    expect(page).toContain('summary?.celery.workers ?? []');
   });
 
   it('keeps runtime metric translations present in every supported locale', () => {
@@ -44,9 +59,21 @@ describe('superadmin operations UI contract', () => {
       const operations = locale.superadmin.operations;
       expect(operations.unavailable).toBeTruthy();
       expect(operations.host.title).toBeTruthy();
+      expect(operations.host.memoryTotal).toBeTruthy();
+      expect(operations.host.memoryAvailable).toBeTruthy();
+      expect(operations.host.memoryUsed).toBeTruthy();
       expect(operations.cpu).toBeTruthy();
       expect(operations.rss).toBeTruthy();
       expect(operations.filesystem.used).toBeTruthy();
+      expect(operations.celery.health.healthy).toBeTruthy();
+      expect(operations.celery.health.degraded).toBeTruthy();
+      expect(operations.celery.health.unavailable).toBeTruthy();
+      expect(operations.celery.expectedQueues).toBeTruthy();
+      expect(operations.celery.activeQueues).toBeTruthy();
+      expect(operations.celery.missingQueues).toBeTruthy();
+      expect(operations.celery.roles.fast).toBeTruthy();
+      expect(operations.celery.roles.documents).toBeTruthy();
+      expect(operations.celery.roles.ai).toBeTruthy();
       expect(operations.celery.registered).toBeTruthy();
       expect(operations.celery.missing).toBeTruthy();
       expect(operations.staleRecovery.title).toBeTruthy();
