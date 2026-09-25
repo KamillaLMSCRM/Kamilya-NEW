@@ -4377,6 +4377,11 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   `maintenance`. The acceptance runner now wakes the worker before upload and
   refreshes its payload-free health URL every four minutes during indexing,
   generation and cleanup.
+- Verification: both Render services reached `live` on exact SHA
+  `630d04a777ec2a5425ecb99f5fa8fb64910d728b`; Redis DB `1` exposed exactly one
+  DEV worker with queues `ai,documents,maintenance`. The public disposable XLSX
+  journey completed generation and cleanup at 100%, passed all twelve output
+  checks, and restored the synthetic tenant to `is_demo=true`.
 - Prevention: an environment match is insufficient unless the broker database
   index and visible Celery node set are checked. A DEV gate must see only the
   expected DEV consumer for `ai,documents`, observe terminal application state,
