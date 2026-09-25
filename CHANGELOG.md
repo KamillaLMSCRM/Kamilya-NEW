@@ -38,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   control plane.
 - Isolate destructive cleanup integration tests from persistent shared DEV
   tenants with a unique per-test server-enforced prefix.
+- Install SQLAlchemy's async runtime explicitly in Render and block releases
+  when its independent requirements file drifts from declared API dependencies.
 
 ### Security
 

@@ -4192,3 +4192,26 @@ contract or establish a blocker.
   operations must use a unique server-enforced selector. Extreme ages and
   transaction rollback alone are not selection isolation, and exact-result
   assertions may not assume an otherwise empty DEV database.
+
+## TEST-INFRA-006 - Render requirements drift passed CI and failed at API startup
+
+- Date: 2026-09-25. Found during exact-SHA DEV promotion of the superadmin
+  operations observability release; production was not touched.
+- Symptom: Render built the candidate successfully but the replacement process
+  exited while importing `sqlalchemy.ext.asyncio` because `greenlet` was absent.
+- Cause: Render installs the independently maintained `apps/api/requirements.txt`.
+  Its unconstrained plain `sqlalchemy` requirement resolved to SQLAlchemy 2.1,
+  where the asyncio runtime dependency is selected through an explicit extra,
+  while Poetry-based CI and production-image tests used the lock graph and had
+  `greenlet` installed. The earlier `xlrd` recurrence note had no enforcing gate.
+- Fix: declare SQLAlchemy with the `asyncio` extra in both Poetry and Render
+  dependency contracts, bound the Render major version, and extend the release
+  contract gate to require every direct API runtime dependency plus the
+  SQLAlchemy asyncio extra in `requirements.txt`.
+- Verification: the focused regression fails against the old Render dependency
+  line and passes after the fix; the release contract, complete local suites,
+  exact-SHA CI and Render DEV runtime readback must pass before production.
+- Prevention: prose in `ERRORS.md` is not a control. Any independently installed
+  runtime dependency manifest must have a blocking, stdlib-only parity gate in
+  the release path, and async SQLAlchemy environments must request the asyncio
+  extra explicitly.

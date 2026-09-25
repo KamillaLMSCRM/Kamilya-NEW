@@ -6,6 +6,7 @@ from __future__ import annotations
 import ast
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -14,6 +15,8 @@ CELERY_APP = REPO_ROOT / "apps" / "api" / "app" / "core" / "celery_app.py"
 ERRORS_JOURNAL = REPO_ROOT / "ERRORS.md"
 AGENT_RULES = REPO_ROOT / "AGENTS.md"
 LEGACY_LESSONS = REPO_ROOT / "docs" / "LESSONS.md"
+API_PYPROJECT = REPO_ROOT / "apps" / "api" / "pyproject.toml"
+RENDER_REQUIREMENTS = REPO_ROOT / "apps" / "api" / "requirements.txt"
 EXPECTED_TASK_MODULES = {
     "app.modules.ai.tasks",
     "app.modules.positions.tasks",
@@ -198,6 +201,59 @@ def check_migration_owner() -> str:
     return "migration ownership OK (Render pre-deploy and fail-closed Docker startup)"
 
 
+def _canonical_dependency_name(value: str) -> str:
+    return re.sub(r"[-_.]+", "-", value).lower()
+
+
+def _requirement_names_and_extras(source: str) -> dict[str, set[str]]:
+    requirements: dict[str, set[str]] = {}
+    for raw_line in source.splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if not line or line.startswith(("-", ".", "/")):
+            continue
+        match = re.match(r"^([A-Za-z0-9_.-]+)(?:\[([^\]]+)\])?", line)
+        if not match:
+            raise ValueError(f"Render dependency contract error: unsupported requirement {line!r}")
+        name = _canonical_dependency_name(match.group(1))
+        extras = {
+            extra.strip().lower()
+            for extra in (match.group(2) or "").split(",")
+            if extra.strip()
+        }
+        requirements.setdefault(name, set()).update(extras)
+    return requirements
+
+
+def check_render_runtime_dependencies() -> str:
+    try:
+        pyproject = tomllib.loads(API_PYPROJECT.read_text(encoding="utf-8"))
+        render_requirements = _requirement_names_and_extras(
+            RENDER_REQUIREMENTS.read_text(encoding="utf-8")
+        )
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        raise ValueError(f"Render dependency contract error: {error}") from error
+
+    poetry_dependencies = pyproject["tool"]["poetry"]["dependencies"]
+    expected = {
+        _canonical_dependency_name(name)
+        for name, specification in poetry_dependencies.items()
+        if name != "python"
+        and not (isinstance(specification, dict) and "path" in specification)
+    }
+    missing = sorted(expected - render_requirements.keys())
+    if missing:
+        raise ValueError(
+            "Render dependency contract error: requirements.txt is missing "
+            + ", ".join(missing)
+        )
+    if "asyncio" not in render_requirements.get("sqlalchemy", set()):
+        raise ValueError(
+            "Render dependency contract error: SQLAlchemy must request the asyncio "
+            "extra so greenlet is installed for the API runtime"
+        )
+    return f"Render runtime dependencies OK ({len(expected)} direct packages)"
+
+
 def check_errors_journal() -> str:
     try:
         journal = ERRORS_JOURNAL.read_text(encoding="utf-8")
@@ -254,6 +310,7 @@ def main() -> int:
         print(f"release-contract-gate: {check_alembic_chain()}")
         print(f"release-contract-gate: {check_celery_contract()}")
         print(f"release-contract-gate: {check_migration_owner()}")
+        print(f"release-contract-gate: {check_render_runtime_dependencies()}")
         print(f"release-contract-gate: {check_errors_journal()}")
     except ValueError as error:
         print(f"release-contract-gate: {error}", file=sys.stderr)
