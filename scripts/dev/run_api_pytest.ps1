@@ -47,7 +47,7 @@ foreach ($argument in $PytestArgs) {
 
 $previousPythonPath = $env:PYTHONPATH
 try {
-    $env:PYTHONPATH = $apiRoot
+    $env:PYTHONPATH = $apiRoot, $repoRoot -join [IO.Path]::PathSeparator
     Push-Location -LiteralPath $apiRoot
     try {
         & $canonicalPython -m pytest @normalizedArgs

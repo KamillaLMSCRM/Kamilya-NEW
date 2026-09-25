@@ -49,10 +49,17 @@ $toolPython = Join-Path $env:USERPROFILE `
 
 ## Packages
 
-### Graphify 0.9.23 (existing pipx environment)
+### Graphify (existing pipx environment)
 
 - Distribution: `graphifyy`, command: `graphify`; do not confuse with other packages.
 - Verified Python: `C:/Users/user/AppData/Local/pipx/pipx/venvs/graphifyy/Scripts/python.exe`.
+- Do not pin an observed workstation version in this document. Read the installed
+  version and supported commands with `graphify --version` and `graphify --help`
+  at the start of the task. On 2026-09-25 the observed version was `0.9.58`.
+- An exit code of zero or populated cache is not a successful index build by
+  itself: require a readable `graphify-out/graph.json`. If it is absent, record
+  Graphify as unavailable and use bounded source/import inspection instead of
+  claiming graph-derived evidence or repeatedly rebuilding it.
 - Project procedure and bounded ASUS semantics: `.codex/skills/graphify/SKILL.md`.
 - `scripts/ops/graphify_asus.py` uses stdlib HTTP with existing Graphify components;
   it does not require the optional OpenAI SDK or change application dependencies.

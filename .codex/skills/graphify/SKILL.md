@@ -55,6 +55,6 @@ Only when explicitly needed, read the relevant reference completely:
 - [upstream workflow archive](references/upstream-workflows.md): other upstream
   operations. It is reference material, not automatically active project policy.
 
-The archived skill was marked 0.9.27 while the executable is 0.9.23. Some upstream
-examples conflict with the local CLI or permissions. Verify `--help` and source
-before adopting one; this project entrypoint governs operational choices.
+Upstream examples may target a different executable version or conflict with
+local permissions. Verify the installed `--version`, `--help` and source before
+adopting one; this project entrypoint governs operational choices.

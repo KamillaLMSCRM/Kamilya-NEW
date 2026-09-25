@@ -9,10 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from app.ml_prompts import PromptRenderer, get_renderer
-from app.ml_prompts.renderer import PromptRenderer as _PromptRenderer
 
 _PROMPTS_DIR = get_renderer().env.loader.searchpath[0] if hasattr(get_renderer(), "env") else None
 
@@ -158,26 +155,6 @@ def test_reviewer_uses_renderer():
     assert "Return ONLY valid JSON" in REVIEW_PROMPT
 
 
-# ── assessment.py ─────────────────────────────────────────────────────────
-
-
-def test_assessment_system_prompt_template():
-    """assessment/system.md template renders correctly."""
-    output = get_renderer().render("assessment/system.md")
-
-    assert "assessment designer" in output
-    assert "valid JSON" in output
-    assert len(output) > 30
-
-
-def test_assessment_uses_renderer():
-    """assessment imports get_renderer (system_prompt is built at runtime)."""
-    import app.modules.ai.assessment as assessment_module  # noqa: F401
-
-    src = Path(assessment_module.__file__).read_text(encoding="utf-8")
-    assert "get_renderer().render(\"assessment/system.md\")" in src
-
-
 # ── router.py ─────────────────────────────────────────────────────────────
 
 
@@ -262,13 +239,12 @@ def test_all_prompt_templates_listed_in_prompts_dir():
 
     Catches typos in template names or missing files.
     """
-    from pathlib import Path
-    prompts_root = Path(__file__).resolve().parents[3] / "packages" / "ml_pipeline" / "prompts"
+    prompts_root = Path(get_renderer().env.loader.searchpath[0])
     md_files = sorted(
         md for md in prompts_root.rglob("*.md") if md.name.lower() != "readme.md"
     )
 
-    assert len(md_files) >= 10, f"Expected ≥10 prompt .md templates (1 architect + 9 new), got {len(md_files)}: {md_files}"
+    assert len(md_files) >= 9, f"Expected at least 9 active prompt templates, got {len(md_files)}: {md_files}"
 
     renderer = get_renderer()
     for md in md_files:

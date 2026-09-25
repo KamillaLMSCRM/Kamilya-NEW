@@ -1445,9 +1445,7 @@ async def test_blank_intent_builds_adaptive_primary_table_structure_without_mode
 
 
 @pytest.mark.asyncio
-async def test_blank_intent_builds_multi_module_structure_from_split_primary_table(
-    monkeypatch,
-) -> None:
+async def test_blank_intent_builds_multi_module_structure_from_split_primary_table() -> None:
     from app.modules.ai.direct_source import (
         DirectSourceChunk,
         DirectSourceCorpus,
@@ -1573,40 +1571,6 @@ async def test_blank_intent_builds_multi_module_structure_from_split_primary_tab
         for source_chunk in lesson.source_chunks
     )
     assert all("Источник: сайт производителя" not in lesson.source_chunks[0] for lesson in written_lessons)
-
-    from app.modules.ai.assessment import capture_assessment_paths, generate_course_assessment
-
-    async def reject_provider_delay(_seconds: float) -> None:
-        raise AssertionError("deterministic table assessment must not use provider delay")
-
-    monkeypatch.setattr("app.modules.ai.assessment.asyncio.sleep", reject_provider_delay)
-
-    with capture_assessment_paths() as assessment_paths:
-        assessment = await generate_course_assessment(
-            LLM(),
-            course,
-            language="ru",
-            compact=False,
-        )
-
-    assert assessment_paths == ["tabular"] * len(written_lessons)
-    assert len(assessment.assessments) == len(written_lessons)
-    option_counts = [
-        (lesson_assessment.lesson_title, question.question, len(question.options))
-        for lesson_assessment in assessment.assessments
-        for question in lesson_assessment.mcq
-    ]
-    assert all(count == 3 for _lesson, _question, count in option_counts), option_counts
-    assert all("Какое значение характеристики" in question or any(
-        marker in question for marker in ("стил", "материал", "преимуществ", "сценари")
-    ) for _lesson, question, _count in option_counts)
-    assert all(
-        option.text in "\n".join(primary_chunks)
-        for lesson_assessment in assessment.assessments
-        for question in lesson_assessment.mcq
-        for option in question.options
-    )
-
 
 @pytest.mark.asyncio
 async def test_blank_intent_reassembles_column_sliced_primary_table() -> None:

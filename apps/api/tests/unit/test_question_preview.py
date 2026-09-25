@@ -261,7 +261,9 @@ async def test_published_preview_requires_new_draft_revision():
 
 def test_generation_paths_do_not_import_preview_adapter():
     root = Path(__file__).parents[2] / "app" / "modules" / "ai"
-    assert "question_preview" not in (root / "assessment.py").read_text(encoding="utf-8")
+    assert "question_preview" not in (
+        root / "evidence_engine" / "semantic_assessment.py"
+    ).read_text(encoding="utf-8")
     assert "question_preview" not in (root / "pipeline.py").read_text(encoding="utf-8")
 
 

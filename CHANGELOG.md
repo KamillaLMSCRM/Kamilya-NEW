@@ -11,7 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Make Evidence V2 the only course-assessment implementation in the source
+  tree, move the still-used Markdown-table parser behind a neutral shared
+  module and replace the stale fixed-question documentation with the active
+  adaptive evidence-axis policy.
+
 ### Fixed
+
+- Prevent engineering snapshots and architecture checks from silently
+  traversing retired assessment generators, and add offline replay diagnostics
+  for coverage omissions, per-lesson cap saturation, order stability and the
+  residual generic-token heuristic.
 
 ### Security
 

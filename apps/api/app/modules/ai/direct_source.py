@@ -41,6 +41,7 @@ from app.modules.ai.lesson_quality import (
     remove_unsupported_relationship_fragments,
 )
 from app.modules.ai.llm_client import AllProvidersFailedError, ProviderFailedError
+from app.modules.ai.source_tables import markdown_tables
 from app.modules.ai.source_topic_map import (
     SMALL_SOURCE_CONTEXT_CHARS,
     MapCheckpointStore,
@@ -312,8 +313,6 @@ def _merged_worksheet_tables(
 ) -> list[tuple[str, str, str, list[str], list[tuple[list[str], str]]]]:
     """Reassemble converter-owned row and column slices for one table per sheet."""
 
-    from app.modules.ai.assessment import _markdown_tables
-
     groups: dict[tuple[str, str, str], dict[str, Any]] = {}
 
     def merge_fragment(
@@ -367,7 +366,7 @@ def _merged_worksheet_tables(
                         headers=[str(value) for value in fragment_headers],
                         cells=[str(value) for value in fragment_cells],
                     )
-            for headers, rows in _markdown_tables(chunk.text):
+            for headers, rows in markdown_tables(chunk.text):
                 for cells, _raw_row in rows:
                     merge_fragment(
                         chunk=chunk,

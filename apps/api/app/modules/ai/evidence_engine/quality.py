@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
-from app.modules.ai.assessment import distractor_repeats_correct_attribute_answer
 from app.modules.ai.lesson_quality import has_unprofessional_learner_language
 
 from .models import AssessmentDraft, CourseDraft, EvidenceCourseResult, QuestionDraft
@@ -62,6 +62,49 @@ _MATERIAL_FAMILY_RE = re.compile(
     r"steel|alumin\w*|plastic\w*|glass|plywood|fabric\w*|leather|cotton|polyester)\b",
     re.IGNORECASE,
 )
+
+
+def _plain_question_text(text: str) -> str:
+    """Return the human-visible text represented by a short Markdown value."""
+
+    value = text.strip()
+    if value.startswith("|") and value.endswith("|"):
+        cells = [cell.strip() for cell in value.strip("|").split("|") if cell.strip()]
+        if cells:
+            value = " — ".join(cells)
+    value = re.sub(r"^\s{0,3}(?:[-*+]\s+|#{1,6}\s+)", "", value)
+    value = re.sub(r"\*\*(.+?)\*\*", r"\1", value)
+    value = re.sub(r"__(.+?)__", r"\1", value)
+    value = re.sub(r"`(.+?)`", r"\1", value)
+    return " ".join(value.split())
+
+
+def _normalize_question_text(text: str) -> str:
+    plain = unicodedata.normalize("NFKC", _plain_question_text(text)).casefold()
+    return " ".join(re.sub(r"[^\w]+", " ", plain, flags=re.UNICODE).split())
+
+
+def distractor_repeats_correct_attribute_answer(
+    question: str,
+    correct_answer: str,
+    distractor: str,
+) -> bool:
+    """Detect options that begin with the same answer to one attribute question."""
+
+    question_tokens = set(_normalize_question_text(question).split())
+    correct_tokens = _normalize_question_text(correct_answer).split()
+    distractor_tokens = _normalize_question_text(distractor).split()
+    shared_prefix: list[str] = []
+    for correct_token, distractor_token in zip(correct_tokens, distractor_tokens, strict=False):
+        if correct_token != distractor_token:
+            break
+        shared_prefix.append(correct_token)
+    shared_tokens = set(shared_prefix)
+    return (
+        len(shared_prefix) >= 2
+        and bool(shared_tokens & question_tokens)
+        and bool(shared_tokens - question_tokens)
+    )
 
 
 def contains_ocr_artifact(value: str) -> bool:

@@ -14,6 +14,7 @@ def test_api_pytest_runner_uses_only_the_canonical_root_runtime() -> None:
     assert "^apps[\\\\/]api[\\\\/]" in source
     assert "^scripts[\\\\/]" in source
     assert "Push-Location -LiteralPath $apiRoot" in source
+    assert "$apiRoot, $repoRoot -join [IO.Path]::PathSeparator" in source
     assert '-m pytest @normalizedArgs' in source
     assert '$normalizedArgs = @(' in source
     assert "poetry" not in source.lower()

@@ -5,8 +5,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.modules.ai.assessment import generate_course_assessment
-from app.modules.ai.assessment_schema import LessonAssessment
 from app.modules.ai.direct_source import (
     DirectSourceChunk,
     DirectSourceCorpus,
@@ -84,52 +82,6 @@ async def test_writer_restores_completed_positions_and_calls_provider_only_for_m
         for lesson in result.modules[0].lessons[:15]
     ]
     assert result_bytes == restored_bytes
-
-
-@pytest.mark.asyncio
-async def test_assessment_resume_preserves_order_skips_restored_and_does_not_sleep(
-    monkeypatch,
-):
-    course = SimpleNamespace(
-        modules=[
-            SimpleNamespace(lessons=[SimpleNamespace(title=f"Lesson {index}", content="source") for index in range(25)])
-        ]
-    )
-    restored = {(0, index): LessonAssessment(lesson_title=f"Lesson {index}") for index in range(15)}
-    provider_calls: list[int] = []
-    completions: list[tuple[int, int]] = []
-    claims: list[tuple[int, int]] = []
-    sleeps: list[float] = []
-
-    async def fake_generate(llm, lesson, **kwargs):
-        index = int(lesson.title.split()[-1])
-        provider_calls.append(index)
-        kwargs["on_path"]("model")
-        return LessonAssessment(lesson_title=lesson.title)
-
-    async def fake_sleep(seconds):
-        sleeps.append(seconds)
-
-    monkeypatch.setattr("app.modules.ai.assessment.generate_lesson_assessment", fake_generate)
-    monkeypatch.setattr(
-        "app.modules.ai.assessment._restored_assessment_is_valid",
-        lambda *args, **kwargs: True,
-    )
-    monkeypatch.setattr("app.modules.ai.assessment.asyncio.sleep", fake_sleep)
-
-    result = await generate_course_assessment(
-        llm=object(),
-        course_content=course,
-        completed_assessments=restored,
-        before_assessment_generate=lambda module, lesson: claims.append((module, lesson)),
-        on_assessment_complete=lambda module, lesson, assessment: completions.append((module, lesson)),
-    )
-
-    assert provider_calls == list(range(15, 25))
-    assert completions == [(0, index) for index in range(15, 25)]
-    assert claims == [(0, index) for index in range(15, 25)]
-    assert [assessment.lesson_title for assessment in result.assessments] == [f"Lesson {index}" for index in range(25)]
-    assert sleeps == [5] * 9
 
 
 @pytest.mark.asyncio

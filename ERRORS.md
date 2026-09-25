@@ -31,6 +31,35 @@ Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
 
+## AI-ARCH-001 - Retired assessment code was mistaken for the production engine
+
+- Date: 2026-09-25. Confirmed against `origin/master` after an external review
+  attributed current production behavior to `assessment.py`, even though the
+  pipeline had already been fail-closed to `evidence_v2`.
+- Symptom: code reviews and generated engineering snapshots reported obsolete
+  drop-only, audit-budget and traversal-order behavior as current. Follow-up
+  work could therefore target thousands of unreachable lines and their tests.
+- Cause: the retired generator, audit, completion module, replay script, prompt
+  and extensive unit tests remained in the tree. The snapshot builder also
+  enumerated those files. Two live helpers still imported the retired module,
+  making deletion unsafe until the helpers were given active owners.
+- Fix: extract Markdown-table parsing to `source_tables.py`, keep the active
+  question-quality predicate inside Evidence V2, delete the retired path and
+  dead-only tests, replace the snapshot builder with an Evidence-V2-only source
+  inventory, and add an executable retirement contract. Add offline replay
+  diagnostics for coverage reasons, cap saturation, order-independent question
+  fingerprints and generic-token ablation.
+- Verification: focused retirement/helper tests pass, the active Evidence V2
+  assessment result is invariant under reversed lesson/fact traversal, the
+  affected AI suite passes 338 tests, the critical journey passes seven tests,
+  and the full API suite passes 2853 tests with 499 contour skips. Ruff and diff
+  checks are clean. DEV and production are not implied by local evidence.
+- Prevention: before using a large implementation as current evidence, trace
+  the production entry point from `pipeline.py` and require an active call or
+  import path. The retirement contract must fail if old module names, generator
+  symbols or snapshot sources return. Historical accepted V1 documents remain
+  historical; the module index and V2 successor identify the active contract.
+
 ## AI-QUALITY-027 - True source sentences became unrelated answer options
 
 - Date: 2026-09-18. Confirmed against the owner's privacy-question screenshot
@@ -4029,6 +4058,14 @@ contract or establish a blocker.
   passed, 499 skipped.
 - Prevention: skill suggestion and `ERRORS.md` discovery assist routing but do
   not enforce the runtime. The executable wrapper is the fail-closed boundary.
+- Recurrence 2026-09-25: the wrapper correctly selected the canonical runtime
+  but replaced `PYTHONPATH` with `apps/api` alone. A root-script smoke test was
+  therefore unimportable when selected through the required wrapper. The
+  wrapper now joins `apps/api` and the repository root with the platform path
+  separator, and its contract asserts that exact behavior. The previously
+  failing smoke test plus wrapper contract pass four tests; the full API suite
+  then passes 2853 tests with 499 contour skips. Do not work around this class
+  by switching interpreters or running bare pytest.
 
 ## AI-QUALITY-038 - Valid worksheet output repeated headings and knowledge targets
 

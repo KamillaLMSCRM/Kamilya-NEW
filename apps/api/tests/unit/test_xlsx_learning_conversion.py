@@ -14,6 +14,7 @@ from app.modules.ai.direct_source import (
 )
 from app.modules.ai.document_passport import SectionRole, build_document_passport
 from app.modules.ai.ingestion import DocumentChunker, DocumentConverter
+from app.modules.ai.source_tables import markdown_tables
 
 
 @pytest.mark.asyncio
@@ -119,11 +120,9 @@ async def test_xlsx_chunking_bounds_long_rows_and_preserves_column_context(
     assert all(len(chunk["text"]) <= 160 for chunk in chunks)
     assert all("| Field |" in chunk["text"] for chunk in row_chunks)
     assert all("| --- | --- |" in chunk["text"] for chunk in row_chunks)
-    from app.modules.ai.assessment import _markdown_tables
-
     values: dict[str, str] = {}
     for chunk in row_chunks:
-        for headers, rows in _markdown_tables(chunk["text"]):
+        for headers, rows in markdown_tables(chunk["text"]):
             for cells, _raw_row in rows:
                 for header, value in zip(headers[1:], cells[1:], strict=True):
                     values[header] = values.get(header, "") + value
