@@ -292,7 +292,7 @@ class SuperadminService:
         for field in (
             "name", "slug", "status", "plan", "trial_ends_at", "paid_until",
             "max_users", "max_courses_per_month", "notes", "settings",
-            "is_financial_organization",
+            "is_demo", "is_financial_organization",
         ):
             new_value = getattr(payload, field)
             if new_value is not None and getattr(tenant, field) != new_value:

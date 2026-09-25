@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   traversing retired assessment generators, and add offline replay diagnostics
   for coverage omissions, per-lesson cap saturation, order stability and the
   residual generic-token heuristic.
+- Allow a platform superadmin to restore the `is_demo` marker on an existing
+  synthetic tenant through the audited tenant-update API.
 
 ### Security
 

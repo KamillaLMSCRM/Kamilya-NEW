@@ -134,6 +134,7 @@ class TenantUpdate(BaseModel):
     slug: str | None = Field(None, min_length=2, max_length=64, pattern=r"^[a-z0-9-]+$")
     status: TENANT_STATUSES | None = None
     plan: PLAN_NAMES | None = None
+    is_demo: bool | None = None
     is_financial_organization: bool | None = None
     trial_ends_at: datetime | None = None
     paid_until: datetime | None = None

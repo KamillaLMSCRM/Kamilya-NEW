@@ -247,6 +247,34 @@ async def test_superadmin_create_tenant_persists_explicit_is_demo_true_without_f
 
 
 @pytest.mark.asyncio
+async def test_superadmin_can_mark_existing_tenant_as_demo(
+    client, db_session, make_tenant, make_superadmin
+):
+    _, token = await _make_superadmin(client, db_session, make_superadmin)
+    headers = {"Authorization": f"Bearer {token}"}
+    tenant = await make_tenant(
+        name="Synthetic Recovery",
+        slug="synthetic-recovery",
+        is_demo=False,
+    )
+
+    response = await client.patch(
+        f"/api/v1/admin/super/tenants/{tenant.id}",
+        headers=headers,
+        json={"is_demo": True},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["is_demo"] is True
+    readback = await client.get(
+        f"/api/v1/admin/super/tenants/{tenant.id}",
+        headers=headers,
+    )
+    assert readback.status_code == 200, readback.text
+    assert readback.json()["is_demo"] is True
+
+
+@pytest.mark.asyncio
 async def test_superadmin_get_tenant_surfaces_stats(
     client, db_session, make_tenant, make_user, make_superadmin
 ):
