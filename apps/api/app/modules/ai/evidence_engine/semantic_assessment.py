@@ -809,10 +809,43 @@ async def generate_block_assessment(
     for lesson in lessons:
         group_indexes = lesson_group_indexes.get(lesson.lesson_id, [])
         lesson_selected = 0
+        selected_subjects: set[str] = set()
         selected_attributes: set[tuple[str, str, str, str]] = set()
-        depth = 0
-        while lesson_selected < _MAX_QUESTIONS_PER_LESSON:
-            selected_at_depth = False
+
+        # First give each source entity one assessment slot.  A catalog lesson
+        # commonly contains the same attributes for several products; choosing
+        # attributes globally before subjects made the first product consume the
+        # whole three-question budget while later products disappeared.
+        for group_index in group_indexes:
+            for axis in prepared_groups[group_index][3]:
+                if lesson_selected >= _MAX_QUESTIONS_PER_LESSON:
+                    break
+                subject_key = _norm(axis.subject)
+                if subject_key in selected_subjects:
+                    continue
+                selected_axis_ids.add(axis.axis_id)
+                selected_subjects.add(subject_key)
+                primary_fact = facts_by_id[axis.primary_fact_id]
+                if is_tabular_locator(primary_fact.source_locator):
+                    locator = dict(parse_qsl(primary_fact.source_locator.replace(";", "&")))
+                    selected_attributes.add((
+                        locator.get("doc_id", ""),
+                        locator.get("source_revision", ""),
+                        locator.get("section", locator.get("sheet", "")),
+                        _norm(axis.attribute),
+                    ))
+                lesson_selected += 1
+                break
+            if lesson_selected >= _MAX_QUESTIONS_PER_LESSON:
+                break
+
+        max_depth = max(
+            (len(prepared_groups[group_index][3]) for group_index in group_indexes),
+            default=0,
+        )
+        for depth in range(max_depth):
+            if lesson_selected >= _MAX_QUESTIONS_PER_LESSON:
+                break
             for group_index in group_indexes:
                 axes = prepared_groups[group_index][3]
                 if depth >= len(axes):
@@ -840,12 +873,8 @@ async def generate_block_assessment(
                 if is_tabular_axis:
                     selected_attributes.add(attribute_key)
                 lesson_selected += 1
-                selected_at_depth = True
                 if lesson_selected >= _MAX_QUESTIONS_PER_LESSON:
                     break
-            if not selected_at_depth:
-                break
-            depth += 1
 
     accepted: list[QuestionDraft] = []
     audit: dict[str, Any] = {"policy": "semantic-block-v1", "blocks": len(prepared_groups),

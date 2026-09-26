@@ -76,7 +76,7 @@ beforeEach(() => {
     ] });
     if (path === '/v1/ai/jobs') return Promise.resolve({ data: [
       { id: 'job-1', job_type: 'course_generation', status: 'running', stage: 'generating', course_title: 'Новый курс', created_at: '2026-09-24T10:00:00Z' },
-      { id: 'job-2', job_type: 'course_generation', status: 'failed', stage: 'review', course_title: 'Сбойный курс', created_at: '2026-09-24T09:00:00Z' },
+      { id: '0228597d-1111-4111-8111-111111111111', job_type: 'course_generation', status: 'failed', stage: 'review', created_at: '2026-09-24T09:00:00Z' },
     ] });
     return Promise.reject(new Error(`Unexpected path: ${path}`));
   });
@@ -90,7 +90,8 @@ describe('methodologist operations dashboard', () => {
     expect(screen.getByText('40%')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Просрочено: 2' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Действий открыто: 2' })).toBeInTheDocument();
-    expect(screen.getByText('Сбойный курс')).toBeInTheDocument();
+    expect(screen.getByText('Не удалось создать курс')).toBeInTheDocument();
+    expect(screen.getByText('Этап: проверка качества · заявка 0228597d')).toBeInTheDocument();
     expect(apiMock.get).toHaveBeenCalledWith('/v1/admin/learning-actions', expect.objectContaining({ signal: expect.any(AbortSignal) }));
     expect(apiMock.get).not.toHaveBeenCalledWith('/v1/admin/training-log/summary', expect.anything());
   });

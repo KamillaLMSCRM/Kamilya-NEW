@@ -49,6 +49,9 @@ def test_server_owned_axis_materializes_the_same_key_regardless_of_model_key_fie
 
     assert question is not None
     assert question.correct_answer == fact.value
+    assert question.explanation != question.correct_answer
+    assert "правило передачи" in question.explanation.casefold()
+    assert fact.value in question.explanation
     assert question.fact_id == fact.fact_id
     assert question.evidence_fact_ids == (fact.fact_id,)
     assert question.options[0] == fact.value

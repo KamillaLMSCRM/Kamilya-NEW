@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { useDemoLimit } from './DemoLimitProvider';
-import { Sparkles, X, AlertCircle } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 
 interface DemoUsage {
@@ -49,15 +49,15 @@ export function DemoBanner() {
 
   const limits = usage?.limits ?? {};
   return (
-    <div className="bg-warning/10 border-b border-warning/30 px-4 py-2 flex items-center justify-between text-sm">
-      <div className="flex items-center gap-2 text-warning-foreground">
+    <div className="flex items-center justify-between border-b border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+      <div className="flex items-center gap-2">
         <Sparkles className="w-4 h-4" />
         <span className="font-medium">{t('demo.banner.title')}</span>
-        <span className="text-text-secondary hidden sm:inline">
+        <span className="hidden text-amber-800 sm:inline dark:text-amber-200">
           · {t('demo.banner.subtitle')}
         </span>
         {usage && (
-          <span className="text-text-secondary text-xs ml-2 hidden md:inline">
+          <span className="ml-2 hidden text-xs text-amber-800 md:inline dark:text-amber-200">
             {t('demo.banner.limits', {
               courses: usage.courses ?? 0,
               coursesLimit: limits.courses ?? 5,
@@ -71,7 +71,7 @@ export function DemoBanner() {
       <div className="flex items-center gap-2">
         <Link
           href="/register-tenant"
-          className="text-xs font-medium text-primary hover:underline"
+          className="text-xs font-semibold text-blue-700 hover:underline dark:text-blue-300"
         >
           {t('demo.banner.registerCta')}
         </Link>
@@ -80,7 +80,7 @@ export function DemoBanner() {
             setDismissed(true);
             dismiss();
           }}
-          className="text-text-tertiary hover:text-text-primary p-1"
+          className="p-1 text-amber-700 hover:text-amber-950 dark:text-amber-300 dark:hover:text-amber-100"
           aria-label="Dismiss"
         >
           <X className="w-3.5 h-3.5" />

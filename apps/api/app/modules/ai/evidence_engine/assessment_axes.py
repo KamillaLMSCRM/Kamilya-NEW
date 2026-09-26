@@ -769,6 +769,7 @@ def materialize_assessment(
         prompt = _server_owned_axis_prompt(axis)
     if inverse is None and not _admissible_source_distractors(axis, distractors, prompt):
         return None
+    explanation = _teaching_explanation(axis)
     return QuestionDraft(
         question_id=f"semantic-{axis.axis_id.removeprefix('axis-')}",
         lesson_id=axis.lesson_id,
@@ -776,10 +777,66 @@ def materialize_assessment(
         prompt=prompt,
         options=(axis.correct_value, *distractors),
         correct_answer=axis.correct_value,
-        explanation=axis.correct_value,
+        explanation=explanation,
         fact_id=axis.primary_fact_id,
         evidence_fact_ids=axis.evidence_fact_ids,
         source_quote=axis.correct_value,
         semantic_block_id=axis.semantic_block_id,
         repaired_prompt=repaired_prompt,
+    )
+
+
+def _teaching_explanation(axis: AssessmentAxis) -> str:
+    """Explain the server-owned key without trusting provider prose."""
+    sample = f"{axis.subject} {axis.attribute} {axis.correct_value}".casefold()
+    if any(character in sample for character in "әғқңөұүһі"):
+        if axis.axis_kind == "numeric_value":
+            return (
+                f"«{axis.subject}» үшін дереккөзде «{axis.attribute}» параметрі "
+                f"«{axis.correct_value}» деп көрсетілген. Басқа мән көрсетілген "
+                "параметрді өзгертер еді."
+            )
+        if axis.axis_kind == "rule_value":
+            return (
+                f"Сұрақ «{axis.subject}» үшін «{axis.attribute}» ережесін тексереді. "
+                f"Дереккөзде тікелей «{axis.correct_value}» деп көрсетілген; осы "
+                "ережені қолдану қажет."
+            )
+        return (
+            f"«{axis.subject}» үшін «{axis.attribute}» сипаттамасы тексеріледі. "
+            f"Дереккөзде оған «{axis.correct_value}» мәні сәйкес келеді, сондықтан "
+            "басқа мән бұл сипаттаманы білдірмейді."
+        )
+    if not re.search(r"[а-яё]", sample):
+        if axis.axis_kind == "numeric_value":
+            return (
+                f"For “{axis.subject}”, the source sets “{axis.attribute}” to "
+                f"“{axis.correct_value}”. A different value would change the stated parameter."
+            )
+        if axis.axis_kind == "rule_value":
+            return (
+                f"This question checks the “{axis.attribute}” rule for “{axis.subject}”. "
+                f"The source states: “{axis.correct_value}”; this is the rule to apply."
+            )
+        return (
+            f"This question checks the “{axis.attribute}” characteristic for "
+            f"“{axis.subject}”. The source gives “{axis.correct_value}”, so a different "
+            "value does not describe that characteristic."
+        )
+    if axis.axis_kind == "numeric_value":
+        return (
+            f"Для «{axis.subject}» параметр «{axis.attribute}» в источнике "
+            f"задан так: «{axis.correct_value}». Другое значение изменило бы "
+            "указанный параметр."
+        )
+    if axis.axis_kind == "rule_value":
+        return (
+            f"Вопрос проверяет правило «{axis.attribute}» для «{axis.subject}». "
+            f"Источник прямо устанавливает: «{axis.correct_value}»; именно это "
+            "правило следует применить."
+        )
+    return (
+        f"Для «{axis.subject}» проверяется характеристика «{axis.attribute}». "
+        f"В источнике ей соответствует значение «{axis.correct_value}», поэтому "
+        "вариант с другим значением не описывает эту характеристику."
     )

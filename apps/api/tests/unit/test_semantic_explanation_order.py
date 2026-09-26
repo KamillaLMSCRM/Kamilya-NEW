@@ -108,7 +108,7 @@ class _OrdinalRepairClient:
 
 
 @pytest.mark.asyncio
-async def test_author_ordinal_explanations_are_replaced_by_verified_quotes_without_retry():
+async def test_author_ordinal_explanations_are_replaced_by_grounded_teaching_explanations():
     first = SourceFact("f1", "Doors", "operation", "Doors use Push-to-open.", "doc_id=d1;section=doors")
     second = SourceFact("f2", "Doors", "note", "Handles are not used.", "doc_id=d1;section=doors")
     lesson = LessonDraft(
@@ -118,10 +118,17 @@ async def test_author_ordinal_explanations_are_replaced_by_verified_quotes_witho
 
     result = await generate_block_assessment([lesson], {"f1": first, "f2": second}, client)
 
-    # Both author explanations normalize without repair; duplicate facts still
-    # collapse to one question under the existing coverage policy.
+    # Provider explanation text is ignored. The server creates a stable,
+    # source-grounded teaching explanation without answer-position references;
+    # duplicate facts still collapse under the existing coverage policy.
     assert len(result.questions) == 1
-    assert all(question.explanation == first.value for question in result.questions)
+    assert all(question.explanation != question.correct_answer for question in result.questions)
+    assert all(first.value in question.explanation for question in result.questions)
+    assert all("The source" in question.explanation for question in result.questions)
+    assert all(
+        not _has_position_dependent_explanation(question.explanation)
+        for question in result.questions
+    )
     repairs = [request for request in client.requests if request["task"] == "assessment_repair"]
     assert not repairs
     assert result.audit["repaired"] == 0

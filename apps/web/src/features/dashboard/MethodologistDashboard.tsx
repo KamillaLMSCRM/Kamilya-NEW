@@ -56,6 +56,12 @@ const copy = {
     noJobs: 'Активных или проблемных генераций нет.',
     running: 'В работе',
     jobAttention: 'Требует внимания',
+    courseGeneration: 'Создание курса',
+    failedGeneration: 'Не удалось создать курс',
+    jobStage: 'Этап: {stage}',
+    jobRequest: 'заявка {id}',
+    unknownStage: 'подготовка',
+    jobStages: { pending: 'в очереди', processing: 'обработка материалов', architect: 'проектирование структуры', generating: 'генерация содержания', review: 'проверка качества', saving: 'сохранение' },
     quickActions: 'Быстрые действия',
     createFromMaterials: 'Создать курс из материалов',
     reviewCourses: 'Проверить курсы',
@@ -101,6 +107,12 @@ const copy = {
     noJobs: 'There are no active or problematic generations.',
     running: 'In progress',
     jobAttention: 'Needs attention',
+    courseGeneration: 'Course generation',
+    failedGeneration: 'Course generation failed',
+    jobStage: 'Stage: {stage}',
+    jobRequest: 'request {id}',
+    unknownStage: 'preparation',
+    jobStages: { pending: 'queued', processing: 'processing materials', architect: 'designing structure', generating: 'generating content', review: 'quality review', saving: 'saving' },
     quickActions: 'Quick actions',
     createFromMaterials: 'Create from materials',
     reviewCourses: 'Review courses',
@@ -146,6 +158,12 @@ const copy = {
     noJobs: 'Белсенді немесе мәселелі генерация жоқ.',
     running: 'Орындалуда',
     jobAttention: 'Назар аудару қажет',
+    courseGeneration: 'Курс жасау',
+    failedGeneration: 'Курсты жасау мүмкін болмады',
+    jobStage: 'Кезең: {stage}',
+    jobRequest: 'өтінім {id}',
+    unknownStage: 'дайындау',
+    jobStages: { pending: 'кезекте', processing: 'материалдарды өңдеу', architect: 'құрылымды жобалау', generating: 'мазмұнды жасау', review: 'сапаны тексеру', saving: 'сақтау' },
     quickActions: 'Жылдам әрекеттер',
     createFromMaterials: 'Материалдардан курс жасау',
     reviewCourses: 'Курстарды тексеру',
@@ -202,6 +220,11 @@ export function MethodologistDashboard() {
     stalled: m.stalledIssue,
     not_started: m.notStartedIssue,
   }[issue] ?? issue);
+  const jobStageLabel = (stage?: string) => (
+    stage && stage in m.jobStages
+      ? m.jobStages[stage as keyof typeof m.jobStages]
+      : m.unknownStage
+  );
   const trainingLogHref = (filters: TrainingLogFilters = {}) => buildTrainingLogBrowserHref({
     filters,
     search: '',
@@ -250,7 +273,12 @@ export function MethodologistDashboard() {
         {(!model.content.coursesAvailable || !model.content.jobsAvailable) && <p className="mt-4 text-sm text-amber-700 dark:text-amber-300">{m.contentUnavailable}</p>}
         <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5"><Metric label={m.allCourses} value={displayValue(model.content.totalCourses)} /><Metric label={m.published} value={displayValue(model.content.publishedCourses)} /><Metric label={m.drafts} value={displayValue(model.content.draftCourses)} /><Metric label={m.activeGeneration} value={displayValue(model.content.activeJobs)} /><Metric label={m.generationAttention} value={displayValue(model.content.attentionJobs)} tone={(model.content.attentionJobs ?? 0) > 0 ? 'danger' : 'default'} /></dl>
         <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.45fr)]">
-          <div className="rounded-xl border border-border">{model.content.jobs.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{m.noJobs}</p> : <ul className="divide-y divide-border">{model.content.jobs.map((job) => { const active = job.status === 'pending' || job.status === 'running'; return <li key={job.id} className="flex items-center justify-between gap-3 p-4"><div className="min-w-0"><p className="truncate text-sm font-medium text-foreground">{job.course_title || job.id.slice(0, 8)}</p><p className="mt-0.5 text-xs text-muted-foreground">{job.stage || job.status}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${active ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200' : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'}`}>{active ? m.running : m.jobAttention}</span></li>; })}</ul>}</div>
+          <div className="rounded-xl border border-border">{model.content.jobs.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{m.noJobs}</p> : <ul className="divide-y divide-border">{model.content.jobs.map((job) => {
+            const active = job.status === 'pending' || job.status === 'running';
+            const title = job.course_title || (active ? m.courseGeneration : m.failedGeneration);
+            const details = `${m.jobStage.replace('{stage}', jobStageLabel(job.stage))} · ${m.jobRequest.replace('{id}', job.id.slice(0, 8))}`;
+            return <li key={job.id} className="flex items-center justify-between gap-3 p-4"><div className="min-w-0"><p className="truncate text-sm font-medium text-foreground">{title}</p><p className="mt-0.5 text-xs text-muted-foreground">{details}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${active ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200' : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'}`}>{active ? m.running : m.jobAttention}</span></li>;
+          })}</ul>}</div>
           <nav aria-label={m.quickActions} className="space-y-2"><h3 className="mb-3 font-semibold text-foreground">{m.quickActions}</h3><QuickLink href="/ai/generate" label={m.createFromMaterials} icon={<FilePlus2 className="h-4 w-4" />} /><QuickLink href="/courses" label={m.reviewCourses} icon={<BookOpen className="h-4 w-4" />} /><QuickLink href="/training-log" label={m.trainingLog} icon={<Clock3 className="h-4 w-4" />} /></nav>
         </div>
       </section>}

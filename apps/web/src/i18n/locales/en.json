@@ -2037,8 +2037,8 @@
     "trial": "Trial",
     "trialDays": "{daysText}",
     "users": "users",
-    "allSetTitle": "All set — every step is done",
-    "allSetSubtitle": "The core workflow for your role is configured.",
+    "allSetTitle": "Workspace setup is complete",
+    "allSetSubtitle": "The core workflow for your role is configured. Current learning and generation issues are shown separately below.",
     "methodologistRequired": "This step is completed by a methodologist. Switch roles or contact a methodologist.",
     "basisStart": "Start with a ready baseline",
     "basisStartHint": "Choose a template and adapt it to the organisation before publishing."

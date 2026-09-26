@@ -113,7 +113,7 @@ describe('buyer-journey START presentation', () => {
     render(<DashboardPage />);
 
     expect(await screen.findByText('Course being planned')).toBeInTheDocument();
-    expect(screen.getByText('architect')).toBeInTheDocument();
+    expect(screen.getByText('Этап: проектирование структуры · заявка running-')).toBeInTheDocument();
     expect(screen.getByText('В работе')).toBeInTheDocument();
   });
 
@@ -170,5 +170,6 @@ describe('buyer-journey START presentation', () => {
     expect(locale.courses.blueprint.steps.checklistDescription).not.toMatch(/server|сервер/i);
     expect(locale.demo.login.exampleSubtitle).toBeTruthy();
     expect(locale.onboarding.basisStart).toBeTruthy();
+    expect(locale.onboarding.allSetTitle).not.toMatch(/все шаги|every step|барлық қадам/i);
   });
 });

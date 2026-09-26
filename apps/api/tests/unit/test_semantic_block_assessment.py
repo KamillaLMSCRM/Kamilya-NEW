@@ -697,7 +697,7 @@ async def test_no_teachable_question_is_not_padded():
 
 
 @pytest.mark.asyncio
-async def test_spreadsheet_question_budget_prefers_distinct_attributes_without_padding():
+async def test_spreadsheet_question_budget_covers_distinct_entities_before_more_attributes():
     facts: dict[str, SourceFact] = {}
     ordered_ids: list[str] = []
     for row, subject, warranty, purpose in (
@@ -723,14 +723,14 @@ async def test_spreadsheet_question_budget_prefers_distinct_attributes_without_p
     client = Client(empty=True)
     result = await generate_block_assessment([lesson], facts, client)
 
-    requested_attributes = {
-        axis["attribute"]
+    requested_axes = [
+        axis
         for request in client.requests
         if request["task"] == "assessment_generate"
         for axis in request["axes"]
-    }
-    assert result.audit["requested_axes"] == 2
-    assert requested_attributes == {"Гарантия", "Назначение"}
+    ]
+    assert result.audit["requested_axes"] == 3
+    assert {axis["subject"] for axis in requested_axes} == {"Север", "Берег", "Риф"}
     assert result.questions == ()
 
 

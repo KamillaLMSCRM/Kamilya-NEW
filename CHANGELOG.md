@@ -15,6 +15,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.11.6] - 2026-09-26
+
+### Added
+
+### Changed
+
+- Prefer distinct source entities before additional attributes when allocating
+  the bounded three-question budget for a tabular lesson, without padding small
+  or unassessable lessons.
+- Generate deterministic, source-grounded teaching explanations that identify
+  the tested entity and characteristic or rule instead of repeating the correct
+  answer verbatim.
+
+### Fixed
+
+- Replace raw generation job stages and opaque IDs on the methodologist
+  dashboard with localized stage text, a human-readable fallback title and a
+  short secondary request reference.
+- Clarify that the completed onboarding card describes workspace setup only,
+  not the absence of current learning or generation problems.
+- Give the demo-tenant banner explicit high-contrast light and dark colors.
+
+### Security
+
 ## [0.11.5] - 2026-09-25
 
 ### Changed
@@ -1639,7 +1663,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.5...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.6...HEAD
+[0.11.6]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.5...v0.11.6
 [0.11.5]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.4...v0.11.5
 [0.11.4]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.3...v0.11.4
 [0.11.3]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.2...v0.11.3
