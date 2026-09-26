@@ -1,6 +1,7 @@
 # FastAPI dependencies are intentionally declared in endpoint signatures.
 # ruff: noqa: B008
 
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -153,7 +154,7 @@ async def update_cohort(
         item.description = payload.description.strip()
     if "responsible_user_id" in payload.model_fields_set:
         await _validate_responsible_user(db, user.tenant_id, payload.responsible_user_id)
-        item.responsible_user_id = payload.responsible_user_id
+        cast(Any, item).responsible_user_id = payload.responsible_user_id
     if not item.name:
         raise HTTPException(status_code=422, detail="Cohort name cannot be empty")
     return await _summary_then_commit(db, item)

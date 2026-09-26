@@ -312,7 +312,10 @@ async def resolve_effective_requirements_for_users(
             Course.status == "published",
         )
     )
-    organization_rules = list(organization_rows.all())
+    organization_rules: list[RequirementRule] = [
+        (course_id, rule_id)
+        for course_id, rule_id in organization_rows.all()
+    ]
 
     resolved: dict[UUID, dict[UUID, EffectiveRequirement]] = {}
     for user in user_rows:
@@ -328,7 +331,11 @@ async def resolve_effective_requirements_for_users(
         resolved[user_id] = merge_effective_requirements(
             organization_rules=organization_rules,
             department_rules=department_rules,
-            position_rules=position_rules_by_position.get(position_id, ()),
+            position_rules=(
+                position_rules_by_position.get(position_id, ())
+                if position_id is not None
+                else ()
+            ),
             department_scope_path=path,
         )
     return resolved
@@ -347,10 +354,12 @@ def project_mandatory_training(
     """
 
     current_by_course: dict[UUID, EnrollmentAssignment] = {}
-    for enrollment in enrollments:
-        if enrollment.course_id in current_by_course:
-            raise ValueError(f"duplicate_current_enrollment:{enrollment.course_id}")
-        current_by_course[enrollment.course_id] = enrollment
+    for current_enrollment in enrollments:
+        if current_enrollment.course_id in current_by_course:
+            raise ValueError(
+                f"duplicate_current_enrollment:{current_enrollment.course_id}"
+            )
+        current_by_course[current_enrollment.course_id] = current_enrollment
 
     rows: list[MandatoryTrainingProjection] = []
     for course_id in sorted(

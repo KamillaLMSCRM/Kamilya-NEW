@@ -134,7 +134,10 @@ async def list_employee_contexts(
                 Department.id.in_(all_unit_ids),
             )
         )
-        unit_names = dict(unit_rows.all())
+        unit_names = {
+            unit_id: unit_name
+            for unit_id, unit_name in unit_rows.all()
+        }
 
     contexts: list[EmployeeContext] = []
     for user, position_name in rows:
@@ -215,17 +218,25 @@ async def load_source_names(
     position_scope = tuple(dict.fromkeys(position_ids))
     unit_scope = tuple(dict.fromkeys(unit_ids))
     if position_scope:
-        positions = dict((await db.execute(
+        position_rows = (await db.execute(
             select(Position.id, Position.name).where(
                 Position.tenant_id == tenant_id,
                 Position.id.in_(position_scope),
             )
-        )).all())
+        )).all()
+        positions = {
+            position_id: position_name
+            for position_id, position_name in position_rows
+        }
     if unit_scope:
-        units = dict((await db.execute(
+        unit_rows = (await db.execute(
             select(Department.id, Department.name).where(
                 Department.tenant_id == tenant_id,
                 Department.id.in_(unit_scope),
             )
-        )).all())
+        )).all()
+        units = {
+            unit_id: unit_name
+            for unit_id, unit_name in unit_rows
+        }
     return positions, units

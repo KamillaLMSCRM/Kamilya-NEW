@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response
@@ -70,11 +70,14 @@ async def training_log_summary(
     response.headers["Cache-Control"] = "no-store"
     if user.tenant_id is None:
         return TrainingLogSummary(total=0, assigned=0, in_progress=0, completed=0, overdue=0)
+    tenant_id = cast(UUID, user.tenant_id)
+    user_id = cast(UUID, user.id)
+    role = cast(str, user.role)
     reporting_scope = await resolve_reporting_scope(
         db,
-        user.tenant_id,
-        user_id=user.id,
-        role=user.role,
+        tenant_id,
+        user_id=user_id,
+        role=role,
     )
     filters = TrainingLogFilter(
         enrollment_id=enrollment_id,
@@ -94,7 +97,7 @@ async def training_log_summary(
         )
     return await get_training_log_summary(
         db,
-        user.tenant_id,
+        tenant_id,
         filters,
     )
 
@@ -135,6 +138,9 @@ async def list_training_log(
         return TrainingLogPage(items=[], total=0, limit=limit, offset=offset)
 
     response.headers["Cache-Control"] = "no-store"
+    tenant_id = cast(UUID, user.tenant_id)
+    user_id = cast(UUID, user.id)
+    role = cast(str, user.role)
 
     f = TrainingLogFilter(
         enrollment_id=enrollment_id,
@@ -150,9 +156,9 @@ async def list_training_log(
     )
     reporting_scope = await resolve_reporting_scope(
         db,
-        user.tenant_id,
-        user_id=user.id,
-        role=user.role,
+        tenant_id,
+        user_id=user_id,
+        role=role,
     )
     if reporting_scope.mode is ReportingScopeMode.RESTRICTED:
         f = f.model_copy(update={"responsible_user_ids": reporting_scope.user_ids})
@@ -160,7 +166,7 @@ async def list_training_log(
     if format == "csv":
         # Stream CSV with all rows matching the filter (no pagination cap).
         return StreamingResponse(
-            stream_training_log_as_csv(db, user.tenant_id, f, lang=lang),
+            stream_training_log_as_csv(db, tenant_id, f, lang=lang),
             media_type="text/csv; charset=utf-8",
             headers={
                 "Content-Disposition": (
@@ -173,7 +179,7 @@ async def list_training_log(
 
     page = await get_training_log_page(
         db,
-        user.tenant_id,
+        tenant_id,
         f,
         limit=limit,
         offset=offset,

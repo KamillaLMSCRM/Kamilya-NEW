@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterable, Mapping
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -167,17 +167,19 @@ async def build_mandatory_training_rows(
     if not employees:
         return []
     users = [employee.user for employee in employees]
+    user_ids = [cast(UUID, user.id) for user in users]
     requirements_by_user = await resolve_effective_requirements_for_users(db, users)
     enrollments_by_user = await list_current_enrollments(
         db,
         tenant_id,
-        [user.id for user in users],
+        user_ids,
     )
     projections: list[tuple[EmployeeContext, MandatoryTrainingProjection]] = []
     for employee in employees:
+        employee_user_id = cast(UUID, employee.user.id)
         for projection in project_mandatory_training(
-            requirements=requirements_by_user.get(employee.user.id, {}),
-            enrollments=enrollments_by_user.get(employee.user.id, ()),
+            requirements=requirements_by_user.get(employee_user_id, {}),
+            enrollments=enrollments_by_user.get(employee_user_id, ()),
         ):
             if filters.course_id is not None and projection.course_id != filters.course_id:
                 continue

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -78,12 +78,15 @@ async def mandatory_training_summary(
             action_materialize=0,
             action_review_stale=0,
         )
+    tenant_id = cast(UUID, user.tenant_id)
+    user_id = cast(UUID, user.id)
+    role = cast(str, user.role)
     try:
         reporting_scope = await resolve_reporting_scope(
             db,
-            user.tenant_id,
-            user_id=user.id,
-            role=user.role,
+            tenant_id,
+            user_id=user_id,
+            role=role,
         )
         filters = _filters(
             course_id=course_id,
@@ -100,7 +103,7 @@ async def mandatory_training_summary(
             )
         return await get_mandatory_training_summary(
             db,
-            user.tenant_id,
+            tenant_id,
             filters,
         )
     except ValueError as exc:
@@ -130,12 +133,15 @@ async def list_mandatory_training(
     response.headers["Cache-Control"] = "no-store"
     if user.tenant_id is None:
         return MandatoryTrainingPage(items=[], total=0, limit=limit, offset=offset)
+    tenant_id = cast(UUID, user.tenant_id)
+    user_id = cast(UUID, user.id)
+    role = cast(str, user.role)
     try:
         reporting_scope = await resolve_reporting_scope(
             db,
-            user.tenant_id,
-            user_id=user.id,
-            role=user.role,
+            tenant_id,
+            user_id=user_id,
+            role=role,
         )
         filters = _filters(
             course_id=course_id,
@@ -152,7 +158,7 @@ async def list_mandatory_training(
             )
         page = await get_mandatory_training_page(
             db,
-            user.tenant_id,
+            tenant_id,
             filters,
             limit=limit,
             offset=offset,
