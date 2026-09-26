@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Literal, cast
 from uuid import UUID
 
@@ -51,6 +52,7 @@ class EnrollmentAssignment:
     course_id: UUID
     source: str
     status: str
+    enrolled_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -353,13 +355,27 @@ def project_mandatory_training(
     not be mixed into this projection.
     """
 
+    def precedence(enrollment: EnrollmentAssignment) -> tuple[float, int, int, str]:
+        enrolled_at = enrollment.enrolled_at
+        if enrolled_at is not None and enrolled_at.tzinfo is None:
+            enrolled_at = enrolled_at.replace(tzinfo=UTC)
+        timestamp = (
+            enrolled_at.astimezone(UTC).timestamp()
+            if enrolled_at is not None
+            else float("-inf")
+        )
+        status = {"completed": 3, "in_progress": 2, "enrolled": 1}.get(
+            enrollment.status,
+            0,
+        )
+        protected = int(enrollment.source not in MANAGED_REQUIREMENT_SOURCES)
+        return timestamp, status, protected, str(enrollment.enrollment_id)
+
     current_by_course: dict[UUID, EnrollmentAssignment] = {}
     for current_enrollment in enrollments:
-        if current_enrollment.course_id in current_by_course:
-            raise ValueError(
-                f"duplicate_current_enrollment:{current_enrollment.course_id}"
-            )
-        current_by_course[current_enrollment.course_id] = current_enrollment
+        existing = current_by_course.get(current_enrollment.course_id)
+        if existing is None or precedence(current_enrollment) > precedence(existing):
+            current_by_course[current_enrollment.course_id] = current_enrollment
 
     rows: list[MandatoryTrainingProjection] = []
     for course_id in sorted(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -247,3 +248,82 @@ async def test_matrix_filters_before_pagination_and_clamps_page_bounds(monkeypat
     assert len(page.items) == 1
     assert page.items[0].assignment_reason.kind == "organization"
     assert page.items[0].assignment_reason.source_name is None
+
+
+@pytest.mark.asyncio
+async def test_matrix_and_summary_tolerate_independent_current_enrollment_chains(monkeypatch):
+    tenant_id = uuid4()
+    unit_id = uuid4()
+    course_id = uuid4()
+    older_manual_id = uuid4()
+    latest_recurring_id = uuid4()
+    now = datetime.now(UTC)
+    employee = _employee(
+        tenant_id=tenant_id,
+        unit_id=unit_id,
+        position_id=uuid4(),
+        first_name="Synthetic",
+        last_name="Learner",
+    )
+
+    async def employee_contexts(*_args, **_kwargs):
+        return [employee]
+
+    async def requirements(*_args, **_kwargs):
+        return {employee.user.id: {}}
+
+    async def enrollments(*_args, **_kwargs):
+        return {
+            employee.user.id: [
+                EnrollmentAssignment(
+                    older_manual_id,
+                    course_id,
+                    "manual",
+                    "completed",
+                    enrolled_at=now - timedelta(days=30),
+                ),
+                EnrollmentAssignment(
+                    latest_recurring_id,
+                    course_id,
+                    "recurring",
+                    "completed",
+                    enrolled_at=now,
+                ),
+            ]
+        }
+
+    async def courses(*_args, **_kwargs):
+        return {course_id: CourseContext(title="Required", delivery_type="native")}
+
+    async def source_names(*_args, **_kwargs):
+        return {}, {}
+
+    async def operational_rows(_db, actual_tenant_id, enrollment_ids):
+        assert actual_tenant_id == tenant_id
+        assert tuple(enrollment_ids) == (latest_recurring_id,)
+        return {}
+
+    monkeypatch.setattr(service, "list_employee_contexts", employee_contexts)
+    monkeypatch.setattr(service, "resolve_effective_requirements_for_users", requirements)
+    monkeypatch.setattr(service, "list_current_enrollments", enrollments)
+    monkeypatch.setattr(service, "load_course_contexts", courses)
+    monkeypatch.setattr(service, "load_source_names", source_names)
+    monkeypatch.setattr(service, "list_training_log_by_enrollment_ids", operational_rows)
+
+    page = await service.get_mandatory_training_page(
+        object(),
+        tenant_id,
+        MandatoryTrainingFilter(),
+    )
+    summary = await service.get_mandatory_training_summary(
+        object(),
+        tenant_id,
+        MandatoryTrainingFilter(),
+    )
+
+    assert page.total == 1
+    assert page.items[0].enrollment_id == latest_recurring_id
+    assert page.items[0].enrollment_source == "recurring"
+    assert page.items[0].enrollment_status == "completed"
+    assert summary.total == 1
+    assert summary.protected_assignment == 1

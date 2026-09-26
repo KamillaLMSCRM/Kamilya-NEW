@@ -1,5 +1,6 @@
 """Contracts for the explainable mandatory-training requirement resolver."""
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -135,15 +136,79 @@ def test_projection_marks_orphaned_managed_enrollment_for_review():
     assert rows[0].action_required == "review_stale"
 
 
-def test_projection_rejects_ambiguous_current_enrollments_for_one_course():
+def test_projection_coalesces_duplicate_current_enrollments_without_hiding_manual_assignment():
     course_id = uuid4()
+    manual_enrollment_id = uuid4()
+    managed_enrollment_id = uuid4()
+    now = datetime.now(UTC)
+    requirements = merge_effective_requirements(
+        organization_rules=[],
+        department_rules=[],
+        position_rules=[(course_id, uuid4())],
+    )
     duplicate_rows = [
-        EnrollmentAssignment(uuid4(), course_id, "manual", "enrolled"),
-        EnrollmentAssignment(uuid4(), course_id, "position", "enrolled"),
+        EnrollmentAssignment(
+            managed_enrollment_id,
+            course_id,
+            "position",
+            "enrolled",
+            enrolled_at=now - timedelta(days=1),
+        ),
+        EnrollmentAssignment(
+            manual_enrollment_id,
+            course_id,
+            "manual",
+            "enrolled",
+            enrolled_at=now,
+        ),
     ]
 
-    with pytest.raises(ValueError, match="duplicate_current_enrollment"):
-        project_mandatory_training(requirements={}, enrollments=duplicate_rows)
+    rows = project_mandatory_training(
+        requirements=requirements,
+        enrollments=duplicate_rows,
+    )
+    reversed_rows = project_mandatory_training(
+        requirements=requirements,
+        enrollments=reversed(duplicate_rows),
+    )
+
+    assert rows == reversed_rows
+    assert len(rows) == 1
+    assert rows[0].enrollment_id == manual_enrollment_id
+    assert rows[0].enrollment_source == "manual"
+    assert rows[0].requirement_state == "protected_assignment"
+    assert rows[0].action_required == "none"
+
+
+def test_projection_uses_latest_completed_occurrence_for_legacy_independent_chains():
+    course_id = uuid4()
+    older_manual_id = uuid4()
+    latest_recurring_id = uuid4()
+    now = datetime.now(UTC)
+    duplicate_rows = [
+        EnrollmentAssignment(
+            older_manual_id,
+            course_id,
+            "manual",
+            "completed",
+            enrolled_at=now - timedelta(days=30),
+        ),
+        EnrollmentAssignment(
+            latest_recurring_id,
+            course_id,
+            "recurring",
+            "completed",
+            enrolled_at=now,
+        ),
+    ]
+
+    rows = project_mandatory_training(requirements={}, enrollments=duplicate_rows)
+
+    assert len(rows) == 1
+    assert rows[0].enrollment_id == latest_recurring_id
+    assert rows[0].enrollment_source == "recurring"
+    assert rows[0].enrollment_status == "completed"
+    assert rows[0].requirement_state == "protected_assignment"
 
 
 @pytest.mark.asyncio

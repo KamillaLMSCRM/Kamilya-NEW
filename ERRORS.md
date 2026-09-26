@@ -4420,3 +4420,24 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   before API/worker rollout and stop if it is not exact. A provider field shown
   in settings is not proof that a plan supports or executed that lifecycle
   phase.
+# 2026-09-26 - Mandatory-training read model failed on independent current enrollment chains
+
+- **Symptom:** the production synthetic tenant returned HTTP 500 from both
+  `/api/v1/admin/mandatory-training` and its `/summary` endpoint, while the
+  methodologist page showed an explicit load error instead of false zeroes.
+- **Cause:** retained legacy data contained two independent head occurrences for
+  the same employee and course. `project_mandatory_training` treated that valid
+  historical inconsistency as an unrecoverable ambiguity and raised
+  `duplicate_current_enrollment`, failing the whole tenant read model.
+- **Fix:** current-enrollment reads now carry `enrolled_at`; the projection
+  deterministically selects the latest occurrence, then uses status, protected
+  source and enrollment id only as stable tie-breakers. No enrollment row is
+  rewritten or removed, so the training log and evidence history remain intact.
+- **Verification:** the production-shaped regression covers an older
+  `manual-completed` occurrence plus a newer `recurring-completed` occurrence;
+  order independence and protected manual fallback are also covered. Focused
+  mandatory-training tests and the committed Ruff/mypy baseline pass.
+- **Prevention:** mandatory-training and similar one-row-per-course projections
+  must tolerate independently rooted legacy occurrence chains. Integrity repair
+  may be reported separately, but a read-side dashboard must not turn one
+  recoverable duplicate into a tenant-wide HTTP 500.

@@ -168,6 +168,7 @@ async def list_current_enrollments(
             Enrollment.course_id,
             Enrollment.source,
             Enrollment.status,
+            Enrollment.enrolled_at,
         ).where(
             Enrollment.tenant_id == tenant_id,
             Enrollment.user_id.in_(ids),
@@ -176,12 +177,13 @@ async def list_current_enrollments(
         )
     )
     result: dict[UUID, list[EnrollmentAssignment]] = {}
-    for user_id, enrollment_id, course_id, source, status in rows.all():
+    for user_id, enrollment_id, course_id, source, status, enrolled_at in rows.all():
         result.setdefault(user_id, []).append(EnrollmentAssignment(
             enrollment_id=enrollment_id,
             course_id=course_id,
             source=source,
             status=status,
+            enrolled_at=enrolled_at,
         ))
     return result
 
