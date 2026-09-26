@@ -32,6 +32,9 @@ const copy = {
     employee: 'Сотрудник', structure: 'Структура', course: 'Курс', state: 'Состояние', reason: 'Почему назначено', action: 'Что делать',
     inactive: 'Неактивен', noPosition: 'Без должности', noUnit: 'Без подразделения',
     source: 'Источник правила', path: 'Путь действия правила', noSource: 'Точный объект источника не сохранён',
+    progress: 'Прогресс', due: 'Срок',
+    deadlineLabels: { none: 'Без срока', upcoming: 'Срок приближается', overdue: 'Просрочено', completed_on_time: 'Завершено в срок', completed_late: 'Завершено с опозданием' },
+    evidenceLabels: { awaiting_return: 'Ожидается подписанный экземпляр', uploaded_pending_review: 'Скан ожидает проверки', accepted: 'Подписанный экземпляр принят', replacement_requested: 'Запрошена замена скана' },
     previousPage: 'Предыдущая страница', nextPage: 'Следующая страница', range: (from: number, to: number, total: number) => `${from}–${to} из ${total}`,
     stateLabels: {
       materialized: 'Назначение создано', missing_enrollment: 'Назначение ещё не создано',
@@ -51,6 +54,9 @@ const copy = {
     empty: 'No rows match the selected filters.', total: 'Total requirements', materialized: 'Assigned', missing: 'Missing assignment', protected: 'Protected', stale: 'Needs review',
     employee: 'Employee', structure: 'Structure', course: 'Course', state: 'State', reason: 'Why assigned', action: 'Next action',
     inactive: 'Inactive', noPosition: 'No position', noUnit: 'No organization unit', source: 'Rule source', path: 'Rule scope', noSource: 'The exact source object was not retained',
+    progress: 'Progress', due: 'Due',
+    deadlineLabels: { none: 'No deadline', upcoming: 'Due soon', overdue: 'Overdue', completed_on_time: 'Completed on time', completed_late: 'Completed late' },
+    evidenceLabels: { awaiting_return: 'Signed copy expected', uploaded_pending_review: 'Scan awaiting review', accepted: 'Signed copy accepted', replacement_requested: 'Replacement scan requested' },
     previousPage: 'Previous page', nextPage: 'Next page', range: (from: number, to: number, total: number) => `${from}–${to} of ${total}`,
     stateLabels: { materialized: 'Assignment created', missing_enrollment: 'Assignment has not been created', protected_assignment: 'Manual or program assignment is protected', stale_managed_enrollment: 'Assignment needs review' },
     reasonLabels: { position: 'By position', department: 'By organization unit', organization: 'Organization-wide', manual: 'Manual', cohort: 'By cohort', learning_path: 'By program', recurring: 'By learning cycle', auto: 'Automatic', unknown: 'Unknown source' },
@@ -63,6 +69,9 @@ const copy = {
     empty: 'Таңдалған шарттар бойынша жол жоқ.', total: 'Барлық талап', materialized: 'Тағайындалды', missing: 'Тағайындау жоқ', protected: 'Қорғалған', stale: 'Тексеру қажет',
     employee: 'Қызметкер', structure: 'Құрылым', course: 'Курс', state: 'Күйі', reason: 'Неге тағайындалды', action: 'Не істеу керек',
     inactive: 'Белсенді емес', noPosition: 'Лауазымсыз', noUnit: 'Бөлімшесіз', source: 'Ереже көзі', path: 'Ереже аумағы', noSource: 'Нақты дереккөз нысаны сақталмаған',
+    progress: 'Прогресс', due: 'Мерзімі',
+    deadlineLabels: { none: 'Мерзімсіз', upcoming: 'Мерзімі жақындады', overdue: 'Мерзімі өтті', completed_on_time: 'Уақытында аяқталды', completed_late: 'Кеш аяқталды' },
+    evidenceLabels: { awaiting_return: 'Қол қойылған дана күтілуде', uploaded_pending_review: 'Скан тексеруді күтуде', accepted: 'Қол қойылған дана қабылданды', replacement_requested: 'Сканды ауыстыру сұралды' },
     previousPage: 'Алдыңғы бет', nextPage: 'Келесі бет', range: (from: number, to: number, total: number) => `${from}–${to} / ${total}`,
     stateLabels: { materialized: 'Тағайындау жасалды', missing_enrollment: 'Тағайындау әлі жасалмаған', protected_assignment: 'Қолмен немесе бағдарлама арқылы тағайындау қорғалған', stale_managed_enrollment: 'Тағайындауды тексеру қажет' },
     reasonLabels: { position: 'Лауазым бойынша', department: 'Бөлімше бойынша', organization: 'Бүкіл ұйым үшін', manual: 'Қолмен', cohort: 'Топ бойынша', learning_path: 'Бағдарлама бойынша', recurring: 'Оқу циклі бойынша', auto: 'Автоматты түрде', unknown: 'Дереккөз анықталмаған' },
@@ -172,11 +181,20 @@ function Reason({ row, m }: { row: MandatoryTrainingRow; m: Copy }) {
 }
 
 function DesktopRow({ row, m }: { row: MandatoryTrainingRow; m: Copy }) {
-  return <tr className="border-t border-border align-top"><td className="px-4 py-4"><div className="font-medium">{row.full_name}</div><div className="text-xs text-muted-foreground">{row.personnel_number || '—'}{!row.is_active && ` · ${m.inactive}`}</div></td><td className="px-4 py-4 text-sm"><div>{row.position_name || m.noPosition}</div><div className="mt-1 text-xs text-muted-foreground">{row.organization_unit_path.join(' → ') || m.noUnit}</div></td><td className="px-4 py-4"><div className="font-medium">{row.course_title}</div><div className="text-xs uppercase text-muted-foreground">{row.delivery_type}</div></td><td className="px-4 py-4"><Badge variant={row.requirement_state === 'missing_enrollment' ? 'destructive' : 'secondary'}>{m.stateLabels[row.requirement_state]}</Badge></td><td className="px-4 py-4"><Reason row={row} m={m} /></td><td className="px-4 py-4 text-sm">{m.actionLabels[row.action_required]}</td></tr>;
+  return <tr className="border-t border-border align-top"><td className="px-4 py-4"><div className="font-medium">{row.full_name}</div><div className="text-xs text-muted-foreground">{row.personnel_number || '—'}{!row.is_active && ` · ${m.inactive}`}</div></td><td className="px-4 py-4 text-sm"><div>{row.position_name || m.noPosition}</div><div className="mt-1 text-xs text-muted-foreground">{row.organization_unit_path.join(' → ') || m.noUnit}</div></td><td className="px-4 py-4"><div className="font-medium">{row.course_title}</div><div className="text-xs uppercase text-muted-foreground">{row.delivery_type}</div></td><td className="space-y-2 px-4 py-4"><Badge variant={row.requirement_state === 'missing_enrollment' ? 'destructive' : 'secondary'}>{m.stateLabels[row.requirement_state]}</Badge><OperationalState row={row} m={m} /></td><td className="px-4 py-4"><Reason row={row} m={m} /></td><td className="px-4 py-4 text-sm">{m.actionLabels[row.action_required]}</td></tr>;
 }
 
 function MobileRow({ row, m }: { row: MandatoryTrainingRow; m: Copy }) {
-  return <article className="space-y-3 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">{row.full_name}</h2><p className="text-sm text-muted-foreground">{row.course_title}</p></div><Badge variant={row.requirement_state === 'missing_enrollment' ? 'destructive' : 'secondary'}>{m.stateLabels[row.requirement_state]}</Badge></div><p className="text-sm">{row.position_name || m.noPosition} · {row.organization_unit_path.join(' → ') || m.noUnit}</p><Reason row={row} m={m} /><p className="text-sm font-medium">{m.actionLabels[row.action_required]}</p></article>;
+  return <article className="space-y-3 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">{row.full_name}</h2><p className="text-sm text-muted-foreground">{row.course_title}</p></div><Badge variant={row.requirement_state === 'missing_enrollment' ? 'destructive' : 'secondary'}>{m.stateLabels[row.requirement_state]}</Badge></div><p className="text-sm">{row.position_name || m.noPosition} · {row.organization_unit_path.join(' → ') || m.noUnit}</p><OperationalState row={row} m={m} /><Reason row={row} m={m} /><p className="text-sm font-medium">{m.actionLabels[row.action_required]}</p></article>;
+}
+
+function OperationalState({ row, m }: { row: MandatoryTrainingRow; m: Copy }) {
+  if (!row.enrollment_id) return null;
+  return <div className="space-y-1 text-xs text-muted-foreground">
+    {row.progress_percent != null && <div className="flex gap-1"><span>{m.progress}:</span><strong className="font-semibold text-foreground">{row.progress_percent}%</strong></div>}
+    {row.deadline_state && <div className="flex flex-wrap items-center gap-1"><span>{m.due}:</span><Badge variant={row.deadline_state === 'overdue' ? 'destructive' : 'outline'}>{m.deadlineLabels[row.deadline_state]}</Badge></div>}
+    {row.latest_evidence_event_id && row.evidence_signed_copy_status && <Badge variant={row.evidence_signed_copy_status === 'replacement_requested' ? 'destructive' : 'outline'}>{m.evidenceLabels[row.evidence_signed_copy_status]}</Badge>}
+  </div>;
 }
 
 function normalizeAction(value: string | null): RequirementAction | undefined {

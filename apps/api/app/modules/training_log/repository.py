@@ -19,6 +19,7 @@ the query plan should stay under 1s on the indexes we have
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -687,12 +688,14 @@ async def _load_evidence_read_model(
     return result
 
 
-async def list_training_log(
+async def _list_training_log_rows(
     db: AsyncSession,
     tenant_id: UUID,
     f: TrainingLogFilter,
     limit: int = 100,
     offset: int = 0,
+    *,
+    enrollment_ids: tuple[UUID, ...] | None = None,
 ) -> list[dict[str, Any]]:
     """Return flat rows for the training log.
 
@@ -843,6 +846,8 @@ async def list_training_log(
         )
     if f.position_id:
         stmt = stmt.where(User.position_id == f.position_id)
+    if enrollment_ids is not None:
+        stmt = stmt.where(Enrollment.id.in_(enrollment_ids))
 
     # Multiple occurrences may share user/course/enrolled_at; identity breaks ties.
     stmt = stmt.order_by(desc(Enrollment.enrolled_at), User.id, CourseModel.id, Enrollment.id)
@@ -958,6 +963,7 @@ async def list_training_log(
             quiz_stats_stmt.c.enrollment_id,
         )
     )
+
     quiz_rows = (await db.execute(quiz_join_stmt)).mappings().all()
     quiz_by_pair = {
         (r["user_id"], r["course_id"], r["enrollment_id"]): {
@@ -1137,6 +1143,50 @@ async def list_training_log(
             }
         )
     return result
+
+
+async def list_training_log(
+    db: AsyncSession,
+    tenant_id: UUID,
+    f: TrainingLogFilter,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """Return the canonical paginated training-log read model."""
+
+    return await _list_training_log_rows(
+        db,
+        tenant_id,
+        f,
+        limit=limit,
+        offset=offset,
+    )
+
+
+async def list_training_log_by_enrollment_ids(
+    db: AsyncSession,
+    tenant_id: UUID,
+    enrollment_ids: Iterable[UUID],
+) -> dict[UUID, dict[str, Any]]:
+    """Return canonical operational fields for an exact tenant-local page.
+
+    This adapter lets reporting modules reuse progress, deadline, certificate,
+    and evidence calculations without copying the training-log query. Callers
+    must pass a bounded page of enrollment identifiers.
+    """
+
+    ids = tuple(dict.fromkeys(enrollment_ids))
+    if not ids:
+        return {}
+    rows = await _list_training_log_rows(
+        db,
+        tenant_id,
+        TrainingLogFilter(),
+        limit=len(ids),
+        offset=0,
+        enrollment_ids=ids,
+    )
+    return {row["enrollment_id"]: row for row in rows}
 
 
 async def count_reassigned_training_log(db: AsyncSession, tenant_id: UUID, f: TrainingLogFilter) -> int:

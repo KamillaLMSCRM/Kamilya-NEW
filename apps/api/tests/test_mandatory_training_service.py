@@ -40,6 +40,7 @@ async def test_matrix_and_summary_share_explainable_expected_vs_actual_rows(monk
     position_id = uuid4()
     required_course_id = uuid4()
     manual_course_id = uuid4()
+    manual_enrollment_id = uuid4()
     employee = _employee(
         tenant_id=tenant_id,
         unit_id=unit_id,
@@ -80,7 +81,7 @@ async def test_matrix_and_summary_share_explainable_expected_vs_actual_rows(monk
         return {
             employee.user.id: [
                 EnrollmentAssignment(
-                    enrollment_id=uuid4(),
+                    enrollment_id=manual_enrollment_id,
                     course_id=manual_course_id,
                     source="manual",
                     status="enrolled",
@@ -108,11 +109,30 @@ async def test_matrix_and_summary_share_explainable_expected_vs_actual_rows(monk
         assert set(unit_ids) == {unit_id}
         return {}, {unit_id: "Operations"}
 
+    async def operational_rows(_db, actual_tenant_id, enrollment_ids):
+        assert actual_tenant_id == tenant_id
+        assert tuple(enrollment_ids) == (manual_enrollment_id,)
+        return {
+            manual_enrollment_id: {
+                "progress_percent": 40,
+                "computed_status": "in_progress",
+                "assignment_due_at": None,
+                "deadline_state": "none",
+                "deadline_status": "not_applicable",
+                "certificate_status": "none",
+                "latest_evidence_event_id": None,
+                "evidence_confirmation_status": "pending",
+                "evidence_signed_copy_status": "awaiting_return",
+                "evidence_state": "forming",
+            }
+        }
+
     monkeypatch.setattr(service, "list_employee_contexts", employee_contexts)
     monkeypatch.setattr(service, "resolve_effective_requirements_for_users", requirements)
     monkeypatch.setattr(service, "list_current_enrollments", enrollments)
     monkeypatch.setattr(service, "load_course_contexts", courses)
     monkeypatch.setattr(service, "load_source_names", source_names)
+    monkeypatch.setattr(service, "list_training_log_by_enrollment_ids", operational_rows)
 
     page = await service.get_mandatory_training_page(
         object(),
@@ -128,6 +148,9 @@ async def test_matrix_and_summary_share_explainable_expected_vs_actual_rows(monk
     required = rows[required_course_id]
     assert required.requirement_state == "missing_enrollment"
     assert required.action_required == "materialize"
+    assert required.progress_percent is None
+    assert required.deadline_state is None
+    assert required.evidence_state is None
     assert required.assignment_reason.model_dump() == {
         "kind": "department",
         "source_ref_id": unit_id,
@@ -141,6 +164,11 @@ async def test_matrix_and_summary_share_explainable_expected_vs_actual_rows(monk
     assert rows[manual_course_id].assignment_reason.source_ref_id is None
     assert rows[manual_course_id].assignment_reason.source_name is None
     assert rows[manual_course_id].assignment_reason.scope_path_ids == []
+    assert rows[manual_course_id].progress_percent == 40
+    assert rows[manual_course_id].computed_status == "in_progress"
+    assert rows[manual_course_id].deadline_state == "none"
+    assert rows[manual_course_id].evidence_confirmation_status == "pending"
+    assert rows[manual_course_id].evidence_state == "forming"
     assert summary.model_dump() == {
         "total": 2,
         "materialized": 0,

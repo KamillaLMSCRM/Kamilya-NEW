@@ -105,6 +105,37 @@ async def test_training_log_happy_path(client, db_session, make_tenant, make_use
 
 
 @pytest.mark.asyncio
+async def test_training_log_exact_enrollment_projection_is_tenant_local(
+    client, db_session, make_tenant, make_user, make_course, set_current_tenant
+):
+    from app.modules.training_log.repository import list_training_log_by_enrollment_ids
+
+    tenant_a = await make_tenant(name="Projection A", slug="projection-a")
+    tenant_b = await make_tenant(name="Projection B", slug="projection-b")
+    owner_a = await make_user(tenant_a, role="methodologist", email="owner-a@projection.example")
+    owner_b = await make_user(tenant_b, role="methodologist", email="owner-b@projection.example")
+    learner_a = await make_user(tenant_a, role="student", email="learner-a@projection.example")
+    learner_b = await make_user(tenant_b, role="student", email="learner-b@projection.example")
+    course_a = await make_course(tenant_a, owner_a, title="Projection course A")
+    course_b = await make_course(tenant_b, owner_b, title="Projection course B")
+    await set_current_tenant(tenant_a)
+    enrollment_a = await _enroll(db_session, learner_a, course_a)
+    await set_current_tenant(tenant_b)
+    enrollment_b = await _enroll(db_session, learner_b, course_b)
+
+    await set_current_tenant(tenant_a)
+    rows = await list_training_log_by_enrollment_ids(
+        db_session,
+        tenant_a.id,
+        [enrollment_a.id, enrollment_b.id],
+    )
+
+    assert set(rows) == {enrollment_a.id}
+    assert rows[enrollment_a.id]["progress_percent"] == 0
+    assert await list_training_log_by_enrollment_ids(db_session, tenant_a.id, []) == {}
+
+
+@pytest.mark.asyncio
 async def test_tenant_admin_can_read_and_export_training_report(
     client, db_session, make_tenant, make_user, make_course
 ):

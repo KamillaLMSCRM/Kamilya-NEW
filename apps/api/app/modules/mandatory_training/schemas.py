@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -64,6 +65,30 @@ class MandatoryTrainingRow(BaseModel):
     enrollment_id: UUID | None = None
     enrollment_source: str | None = None
     enrollment_status: str | None = None
+    computed_status: Literal[
+        "assigned", "in_progress", "completed", "cancelled", "superseded"
+    ] | None = None
+    progress_percent: int | None = Field(default=None, ge=0, le=100)
+    assignment_due_at: datetime | None = None
+    deadline_state: Literal[
+        "none", "upcoming", "overdue", "completed_on_time", "completed_late"
+    ] | None = None
+    deadline_status: Literal[
+        "not_applicable", "active", "overdue", "completed_on_time", "completed_late"
+    ] | None = None
+    certificate_status: Literal[
+        "none", "active", "expiring", "expired", "revoked"
+    ] | None = None
+    latest_evidence_event_id: UUID | None = None
+    evidence_confirmation_status: Literal[
+        "not_required", "pending", "confirmed"
+    ] | None = None
+    evidence_signed_copy_status: Literal[
+        "awaiting_return", "uploaded_pending_review", "accepted", "replacement_requested"
+    ] | None = None
+    evidence_state: Literal[
+        "forming", "ready", "incomplete", "revoked", "legal_hold"
+    ] | None = None
 
 
 class MandatoryTrainingPage(BaseModel):

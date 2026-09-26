@@ -1,5 +1,7 @@
-[CmdletBinding()]
+[CmdletBinding(PositionalBinding = $false)]
 param(
+    [string]$EnvFile,
+
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$PytestArgs
 )
@@ -50,7 +52,13 @@ try {
     $env:PYTHONPATH = $apiRoot, $repoRoot -join [IO.Path]::PathSeparator
     Push-Location -LiteralPath $apiRoot
     try {
-        & $canonicalPython -m pytest @normalizedArgs
+        if ($EnvFile) {
+            $resolvedEnvFile = (Resolve-Path -LiteralPath $EnvFile).Path
+            & $canonicalPython -m dotenv -f $resolvedEnvFile run -- $canonicalPython -m pytest @normalizedArgs
+        }
+        else {
+            & $canonicalPython -m pytest @normalizedArgs
+        }
         exit $LASTEXITCODE
     }
     finally {

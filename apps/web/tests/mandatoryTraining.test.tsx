@@ -98,6 +98,37 @@ describe('mandatory training matrix', () => {
     expect(screen.queryByTestId('missing-enrollment-count')).not.toBeInTheDocument();
   });
 
+  it('shows the canonical progress, deadline, and evidence state for a real assignment', async () => {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.endsWith('/summary')) return Promise.resolve({ data: {
+        total: 1, materialized: 1, missing_enrollment: 0,
+        protected_assignment: 0, stale_managed_enrollment: 0,
+        action_materialize: 0, action_review_stale: 0,
+      } });
+      return Promise.resolve({ data: {
+        items: [{
+          user_id: 'user-2', full_name: 'Бек Нуров', personnel_number: 'PN-102', is_active: true,
+          organization_unit_id: 'unit-1', organization_unit_path: ['Центральный офис'],
+          position_id: 'position-1', position_name: 'Специалист', course_id: 'course-2',
+          course_title: 'Охрана труда', delivery_type: 'native', requirement_state: 'materialized',
+          assignment_reason: { kind: 'position', source_ref_id: 'position-1', source_name: 'Специалист', scope_path_ids: [], scope_path_names: [], reason_code: 'mandatory_training.reason.position' },
+          action_required: 'none', enrollment_id: 'enrollment-2', enrollment_source: 'position', enrollment_status: 'enrolled',
+          computed_status: 'in_progress', progress_percent: 40, assignment_due_at: '2026-09-25T00:00:00Z',
+          deadline_state: 'overdue', deadline_status: 'overdue', certificate_status: 'none',
+          latest_evidence_event_id: 'event-1', evidence_confirmation_status: 'pending',
+          evidence_signed_copy_status: 'uploaded_pending_review', evidence_state: 'forming',
+        }],
+        total: 1, limit: 100, offset: 0,
+      } });
+    });
+
+    render(<MandatoryTrainingPage />);
+
+    expect((await screen.findAllByText('40%')).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('Просрочено').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('Скан ожидает проверки').length).toBeGreaterThanOrEqual(2);
+  });
+
   it('does not request tenant rows for a learner', async () => {
     useAuthStore.setState({ user: { ...useAuthStore.getState().user!, role: 'student', roles: ['student'] } });
 

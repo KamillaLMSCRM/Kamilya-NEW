@@ -33,6 +33,16 @@ export interface MandatoryTrainingRow {
   enrollment_id: string | null;
   enrollment_source: string | null;
   enrollment_status: string | null;
+  computed_status: 'assigned' | 'in_progress' | 'completed' | 'cancelled' | 'superseded' | null;
+  progress_percent: number | null;
+  assignment_due_at: string | null;
+  deadline_state: 'none' | 'upcoming' | 'overdue' | 'completed_on_time' | 'completed_late' | null;
+  deadline_status: 'not_applicable' | 'active' | 'overdue' | 'completed_on_time' | 'completed_late' | null;
+  certificate_status: 'none' | 'active' | 'expiring' | 'expired' | 'revoked' | null;
+  latest_evidence_event_id: string | null;
+  evidence_confirmation_status: 'not_required' | 'pending' | 'confirmed' | null;
+  evidence_signed_copy_status: 'awaiting_return' | 'uploaded_pending_review' | 'accepted' | 'replacement_requested' | null;
+  evidence_state: 'forming' | 'ready' | 'incomplete' | 'revoked' | 'legal_hold' | null;
 }
 
 export interface MandatoryTrainingPage {

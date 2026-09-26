@@ -17,5 +17,9 @@ def test_api_pytest_runner_uses_only_the_canonical_root_runtime() -> None:
     assert "$apiRoot, $repoRoot -join [IO.Path]::PathSeparator" in source
     assert '-m pytest @normalizedArgs' in source
     assert '$normalizedArgs = @(' in source
+    assert '[string]$EnvFile' in source
+    assert 'PositionalBinding = $false' in source
+    assert 'Resolve-Path -LiteralPath $EnvFile' in source
+    assert '-m dotenv -f $resolvedEnvFile run -- $canonicalPython -m pytest' in source
     assert "poetry" not in source.lower()
     assert "uv sync" not in source.lower()

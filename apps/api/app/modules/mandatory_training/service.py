@@ -31,10 +31,24 @@ from app.modules.mandatory_training.schemas import (
     MandatoryTrainingRow,
     MandatoryTrainingSummary,
 )
+from app.modules.training_log.repository import list_training_log_by_enrollment_ids
 
 MAX_SCOPE_USERS = 1000
 DEFAULT_LIMIT = 100
 MAX_LIMIT = 500
+
+_OPERATIONAL_FIELDS = (
+    "computed_status",
+    "progress_percent",
+    "assignment_due_at",
+    "deadline_state",
+    "deadline_status",
+    "certificate_status",
+    "latest_evidence_event_id",
+    "evidence_confirmation_status",
+    "evidence_signed_copy_status",
+    "evidence_state",
+)
 
 _REASON_CODES = {
     "position": "mandatory_training.reason.position",
@@ -224,8 +238,27 @@ async def get_mandatory_training_page(
     limit = max(1, min(limit, MAX_LIMIT))
     offset = max(0, offset)
     rows = await build_mandatory_training_rows(db, tenant_id, filters)
+    page_rows = rows[offset:offset + limit]
+    operational_by_enrollment = await list_training_log_by_enrollment_ids(
+        db,
+        tenant_id,
+        (
+            row.enrollment_id
+            for row in page_rows
+            if row.enrollment_id is not None
+        ),
+    )
+    enriched_rows = [
+        row.model_copy(update={
+            field: operational_by_enrollment.get(row.enrollment_id, {}).get(field)
+            for field in _OPERATIONAL_FIELDS
+        })
+        if row.enrollment_id is not None
+        else row
+        for row in page_rows
+    ]
     return MandatoryTrainingPage(
-        items=rows[offset:offset + limit],
+        items=enriched_rows,
         total=len(rows),
         limit=limit,
         offset=offset,

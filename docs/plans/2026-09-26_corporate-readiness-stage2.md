@@ -1,6 +1,7 @@
 # Этап 2: матрица обязательного обучения и объяснимые назначения
 
-Статус: 2.1 local implementation complete; DEV/runtime acceptance pending
+Статус: 2.1 local implementation complete; 2.2 operational projection complete;
+scoped responsibility and deployed DEV browser acceptance pending
 
 ## Цель
 
@@ -124,6 +125,22 @@ training log. Их включение в саму матрицу относит�
    сверить matrix → dashboard → training log → CSV на одной синтетической паре
    сотрудник/курс.
 4. Production допускается только отдельным exact-SHA релизом после DEV PASS.
+
+## Выполнено в срезе 2.2: operational projection
+
+- Страница матрицы получает progress, deadline, certificate и evidence из
+  канонической training-log projection по точному набору enrollment текущей
+  страницы. Расчёты не скопированы в mandatory-training.
+- Отсутствующее назначение сохраняет `null`-состояния и не маскируется
+  выдуманным нулевым прогрессом.
+- Desktop/mobile UI показывает фактический процент, состояние срока и
+  подписанного экземпляра; RU/KK/EN покрыты одним компонентом.
+- Canonical pytest runner принимает явный `-EnvFile` без вывода секретов и без
+  поломки прежних позиционных pytest-селекторов.
+- Локальная приёмка: API focused `3 passed, 1 skipped`; web `5 passed`;
+  TypeScript, ESLint, Ruff и `git diff --check` — PASS.
+- Supabase DEV/RLS: точечная training-log projection вернула только enrollment
+  текущего tenant при передаче идентификаторов двух tenant — `1 passed`.
 
 ## Наблюдение за расходом контекста
 
