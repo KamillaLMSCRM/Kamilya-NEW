@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Security
+
+## [0.11.8] - 2026-09-26
+
+### Added
+
 - Allow a methodologist to be assigned as the training-report owner for an
   organization unit subtree or employee group.
 
@@ -1697,7 +1707,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.6...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.8...HEAD
+[0.11.8]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.7...v0.11.8
+[0.11.7]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.6...v0.11.7
 [0.11.6]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.5...v0.11.6
 [0.11.5]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.4...v0.11.5
 [0.11.4]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.3...v0.11.4
