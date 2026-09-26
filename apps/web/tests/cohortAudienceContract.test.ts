@@ -24,6 +24,7 @@ describe('cohort audience contract', () => {
     expect(source).toContain('learningPaths.forbidden');
     expect(source).toContain('responsible_user_id');
     expect(source).toContain('role=methodologist');
+    expect(source).toContain("cohortUserOptions(methodologistList.data, 'methodologist')");
     expect(source).toContain("cohorts.responsibleHint");
   });
 });

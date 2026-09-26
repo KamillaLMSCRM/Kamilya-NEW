@@ -25,9 +25,12 @@ export function cohortMemberPayload(userIds: string[]) {
   return { user_ids: [...new Set(userIds)] };
 }
 
-export function cohortUserOptions(response: UserListResponse): CohortUserOption[] {
+export function cohortUserOptions(
+  response: UserListResponse,
+  eligibleRole: 'student' | 'methodologist' = 'student',
+): CohortUserOption[] {
   return response.users
-    .filter((user) => user.role === 'student' && user.is_active !== false)
+    .filter((user) => user.role === eligibleRole && user.is_active !== false)
     .map((user) => ({
       id: user.id,
       name:

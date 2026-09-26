@@ -965,7 +965,11 @@ rollback-контуром. Актуальные revisions и gates не дубл
 
 Владельцы DDL определены явно:
 
-- Render dev/demo выполняет `alembic upgrade head` в `preDeployCommand`;
+- Render Free dev/demo не поддерживает `preDeployCommand`. До раскатки
+  schema-affecting DEV API/worker release-runner обязан выполнить из корня
+  репозитория `<canonical-api-python>
+  scripts/ops/dev_public_schema_gate.py --apply`, получить точный readback
+  public revision и только затем переключать API и worker на новый SHA;
 - production API container выполняет миграцию до запуска Uvicorn и завершает startup с
   ошибкой, если миграция не прошла;
 - HTTP lifespan приложения миграции не запускает.

@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-25.
+Current as of: 2026-09-26.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -4394,3 +4394,29 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   expected DEV consumer for `ai,documents`, observe terminal application state,
   and remove its disposable objects. Never connect a production worker to the
   DEV database or accept HTTP worker health as proof that a task was consumed.
+
+## DEV-SCHEMA-001 - Render Free reported a live release without running the configured migration
+
+- Date: 2026-09-26. Found during exact-SHA DEV acceptance of scoped training
+  responsibility; production was not touched.
+- Symptom: Render API and worker were live on revision `d56a2ca2`, but the
+  canonical Supabase DEV public schema still reported Alembic `0163` while the
+  deployed code required `0164`.
+- Cause: repository and provider settings treated `preDeployCommand` as the DEV
+  migration owner, but Render documents that pre-deploy commands are available
+  only to paid web services, private services and background workers. The DEV
+  API is intentionally a Free web service, so the configured command did not
+  provide a migration gate.
+- Fix: keep Render DEV explicitly free, remove the false pre-deploy contract,
+  and add `scripts/ops/dev_public_schema_gate.py`. It resolves the canonical
+  checkout environment, proves both runtime and migration URLs belong to the
+  named Supabase DEV project, is read-only by default, requires `--apply` to
+  run `upgrade head`, and emits only a hashed project identity plus exact
+  revision readback. The release-contract gate now rejects the old assumption.
+- Verification: unit policy `3 passed`; the read-only canonical gate returned
+  public revision `0164`, repository head `0164`, `applied=false`; API health,
+  worker and frontend exact-SHA readback remain separate release gates.
+- Prevention: for every schema-affecting DEV release, run the public-schema gate
+  before API/worker rollout and stop if it is not exact. A provider field shown
+  in settings is not proof that a plan supports or executed that lifecycle
+  phase.

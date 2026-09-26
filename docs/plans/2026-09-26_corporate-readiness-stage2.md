@@ -192,3 +192,28 @@ API+web прогон создал два ложных таймерных пад�
 bounded selectors и последовательные полные suites. Точное число сэкономленных
 токенов инструментально недоступно, поэтому в наблюдении фиксируются причины и
 повторные прогоны, а не выдуманный процент экономии.
+
+## DEV release и человеческая приёмка среза 2.2
+
+- Git/Vercel/Render API/Render worker были приведены к exact SHA
+  `d56a2ca20ad7004f4cddb06030de5dba96b940de`; Vercel deployment
+  `dpl_EmMLZfjEZmraC8zHvxY6hFxuzrxw`, Render API
+  `dep-darnsp8jo6nc738o2jfg` и worker `dep-darntm60tbcc73cc0g2g` достигли
+  готового состояния. API `/health` вернул `render-development` и тот же SHA.
+- После live-состояния API public Supabase DEV оставался на `0163`: Render Free
+  не выполнил настроенный `preDeployCommand`. Схема была восстановлена штатным
+  owner-credential путём до `0164`, затем добавлен отдельный fail-closed
+  `dev_public_schema_gate.py`; read-only повтор подтвердил `0164 == head`.
+- В публичном демо-кабинете методиста матрица и журнал после полной загрузки
+  показали одинаковые три enrollment: назначен 1, в процессе 1, завершён 1.
+  Первое чтение журнала до завершения асинхронной загрузки показало нули;
+  повтор после загрузки вернул согласованный read model, браузерных ошибок нет.
+- Живая проверка обнаружила блокирующий UI-дефект до production: API возвращал
+  двух активных методистов, но общий mapper жёстко фильтровал только роль
+  `student`, поэтому список ответственных группы был пуст. Добавлена отдельная
+  role-параметризация и regression-контракт. Focused web: 36/36; typecheck,
+  ESLint и release-contract PASS. Первый полный Vitest-прогон дал один старый
+  AI-UI timer flake, изолированный повтор прошёл 1/1; последовательный полный
+  прогон прошёл 129 файлов / 706 тестов, production build — 66 страниц.
+  Production promotion запрещён до нового DEV exact-SHA deploy и повторного
+  browser readback.

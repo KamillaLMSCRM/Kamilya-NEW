@@ -44,7 +44,7 @@ export default function CohortsPage() {
       ]);
       setItems(cohorts.data);
       setUsers(cohortUserOptions(userList.data));
-      setMethodologists(cohortUserOptions(methodologistList.data));
+      setMethodologists(cohortUserOptions(methodologistList.data, 'methodologist'));
       setLoadState('success');
     } catch (error: unknown) {
       setLoadState('error');

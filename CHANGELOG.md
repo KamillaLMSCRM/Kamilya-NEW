@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Populate the employee-group responsibility selector with active
+  methodologists instead of accidentally filtering the list as learners.
+- Replace the unsupported Render Free pre-deploy migration assumption with an
+  explicit fail-closed Supabase DEV public-schema gate.
+
 ### Security
 
 - Enforce same-tenant, active-methodologist ownership for employee groups in

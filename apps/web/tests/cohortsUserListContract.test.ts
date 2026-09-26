@@ -35,6 +35,21 @@ describe('cohort user list contract', () => {
     expect(result).toEqual([{ id: 'student', name: 'Active Learner' }]);
   });
 
+  it('builds a separate active-methodologist list for responsibility assignment', () => {
+    const result = cohortUserOptions({
+      users: [
+        { id: 'student', first_name: 'Active', last_name: 'Learner', email: null, role: 'student', is_active: true },
+        { id: 'methodologist', first_name: 'Course', last_name: 'Owner', email: null, role: 'methodologist', is_active: true },
+        { id: 'inactive', first_name: 'Former', last_name: 'Owner', email: null, role: 'methodologist', is_active: false },
+      ],
+      total: 3,
+      page: 1,
+      per_page: 500,
+    }, 'methodologist');
+
+    expect(result).toEqual([{ id: 'methodologist', name: 'Course Owner' }]);
+  });
+
   it('returns an empty list only when the successful response has no users', () => {
     expect(cohortUserOptions({ users: [], total: 0, page: 1, per_page: 500 })).toEqual([]);
   });

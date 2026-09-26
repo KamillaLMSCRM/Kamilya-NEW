@@ -49,6 +49,13 @@ Supabase и Render используются только для разработ
 API, worker, файловый runtime и PostgreSQL размещены в казахстанском контуре;
 каждый из них сохраняет собственный release/backup/readback gate.
 
+Render DEV API также работает на Free Web Service. Этот тариф не выполняет
+`preDeployCommand`, поэтому schema-affecting DEV release до API/worker rollout
+обязан пройти явный public-schema gate:
+`<canonical-api-python> scripts/ops/dev_public_schema_gate.py --apply`.
+Без точного readback `current_revision == repository head` DEV релиз считается
+смешанным и останавливается.
+
 На 2026-09-07 `kml.kz`, `www.kml.kz`, `app.kml.kz` и `api.kml.kz` направлены
 DNS-only A-записями на KZ-IP `92.38.49.167`. Public proxy завершает TLS и по
 WireGuard направляет лендинг и LMS frontend на разные внутренние listeners

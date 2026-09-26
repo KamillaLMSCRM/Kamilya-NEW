@@ -191,14 +191,23 @@ def check_migration_owner() -> str:
     render_blueprint = (REPO_ROOT / "render.yaml").read_text(encoding="utf-8")
     dockerfile = (REPO_ROOT / "apps" / "api" / "Dockerfile").read_text(encoding="utf-8")
     app_main = (REPO_ROOT / "apps" / "api" / "app" / "main.py").read_text(encoding="utf-8")
+    dev_gate = REPO_ROOT / "scripts" / "ops" / "dev_public_schema_gate.py"
+    api_render_block = render_blueprint.split("name: kamilya-lms-api", 1)[1].split("\n  - type:", 1)[0]
 
-    if "preDeployCommand: PYTHONPATH=. alembic upgrade head" not in render_blueprint:
-        raise ValueError("Migration owner error: Render pre-deploy migration is missing")
+    if "plan: free" not in api_render_block:
+        raise ValueError("Migration owner error: Render DEV API must stay on the free plan")
+    if "preDeployCommand:" in api_render_block:
+        raise ValueError("Migration owner error: Render Free cannot own pre-deploy migrations")
+    if not dev_gate.is_file():
+        raise ValueError("Migration owner error: explicit DEV public-schema gate is missing")
+    dev_gate_source = dev_gate.read_text(encoding="utf-8")
+    if "canonical_supabase_dev_public_schema" not in dev_gate_source or '"--apply"' not in dev_gate_source:
+        raise ValueError("Migration owner error: DEV public-schema gate is incomplete")
     if "alembic upgrade head &&" not in dockerfile:
         raise ValueError("Migration owner error: Docker startup is not fail-closed")
     if "_run_migrations" in app_main or "alembic upgrade" in app_main:
         raise ValueError("Migration owner error: HTTP application startup must not run migrations")
-    return "migration ownership OK (Render pre-deploy and fail-closed Docker startup)"
+    return "migration ownership OK (explicit Supabase DEV gate and fail-closed Docker startup)"
 
 
 def _canonical_dependency_name(value: str) -> str:
