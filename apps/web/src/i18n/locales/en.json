@@ -134,6 +134,10 @@
       "label": "By department",
       "description": "The course was assigned by a department rule. Change it in training rules."
     },
+    "organization": {
+      "label": "For the whole organization",
+      "description": "The course is mandatory for every employee in the organization. Change the organization-level rule."
+    },
     "cohort": {
       "label": "Legacy group rule",
       "description": "This historical assignment came from the former group rule. Its result is retained; new delivery starts from a program or rule."
@@ -141,6 +145,14 @@
     "learningPath": {
       "label": "By program",
       "description": "The course is part of a learning program assigned to the employee. Change the program or its audience."
+    },
+    "recurring": {
+      "label": "Recurring training",
+      "description": "The course was reassigned by a training cycle. Change the cycle or its audience."
+    },
+    "auto": {
+      "label": "Automatic",
+      "description": "The course was assigned by an automatic rule. Check the employee's training rules."
     },
     "unknown": {
       "label": "System rule",
@@ -171,6 +183,7 @@
     "staffSchedule": "Employees and structure",
     "kiosks": "Shared kiosk",
     "trainingLog": "Training log",
+    "mandatoryTraining": "Mandatory training",
     "auditLog": "Action log",
     "courseApprovals": "Course approvals",
     "courseReview": "Course review",
@@ -1827,6 +1840,7 @@
     "history": {"include": "Include historical assignments", "cancelled": "Cancelled history", "superseded": "Superseded history"},
     "title": "Training log",
     "subtitle": "All assignments, progress and certificates in one place — including SCORM.",
+    "assignmentReason": {"source": "Rule source", "scope": "Rule scope", "state": "Requirement state", "materialized": "Assignment created", "missing": "Assignment missing", "protected": "Assignment protected", "stale": "Needs review"},
     "returnToDashboard": "Back to learning overview",
     "selectedAssignment": "Showing the specific assignment selected from the learning overview.",
     "forbidden": "Training log is available to admins and methodologists only.",

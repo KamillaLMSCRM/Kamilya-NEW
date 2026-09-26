@@ -78,6 +78,15 @@ beforeEach(() => {
       { id: 'job-1', job_type: 'course_generation', status: 'running', stage: 'generating', course_title: 'Новый курс', created_at: '2026-09-24T10:00:00Z' },
       { id: '0228597d-1111-4111-8111-111111111111', job_type: 'course_generation', status: 'failed', stage: 'review', created_at: '2026-09-24T09:00:00Z' },
     ] });
+    if (path === '/v1/admin/mandatory-training/summary') return Promise.resolve({ data: {
+      total: 12,
+      materialized: 9,
+      missing_enrollment: 2,
+      protected_assignment: 1,
+      stale_managed_enrollment: 1,
+      action_materialize: 2,
+      action_review_stale: 1,
+    } });
     return Promise.reject(new Error(`Unexpected path: ${path}`));
   });
 });
@@ -92,6 +101,8 @@ describe('methodologist operations dashboard', () => {
     expect(screen.getByRole('link', { name: 'Действий открыто: 2' })).toBeInTheDocument();
     expect(screen.getByText('Не удалось создать курс')).toBeInTheDocument();
     expect(screen.getByText('Этап: проверка качества · заявка 0228597d')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Без назначения: 2' })).toHaveAttribute('href', '/mandatory-training?action_required=materialize');
+    expect(screen.getByRole('link', { name: 'Требует сверки: 1' })).toHaveAttribute('href', '/mandatory-training?action_required=review_stale');
     expect(apiMock.get).toHaveBeenCalledWith('/v1/admin/learning-actions', expect.objectContaining({ signal: expect.any(AbortSignal) }));
     expect(apiMock.get).not.toHaveBeenCalledWith('/v1/admin/training-log/summary', expect.anything());
   });
@@ -115,6 +126,7 @@ describe('methodologist operations dashboard', () => {
   it('keeps learning data unknown when the primary read model is unavailable', async () => {
     apiMock.get.mockImplementation((path: string) => {
       if (path === '/v1/admin/learning-actions') return Promise.reject(new Error('unavailable'));
+      if (path === '/v1/admin/mandatory-training/summary') return Promise.reject(new Error('unavailable'));
       return Promise.resolve({ data: [] });
     });
 

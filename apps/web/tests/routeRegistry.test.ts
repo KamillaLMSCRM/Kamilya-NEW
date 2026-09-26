@@ -35,6 +35,9 @@ describe('route and capability registry', () => {
     expect(canAccessRegisteredRoute('methodologist', '/training-log')).toBe(true);
     expect(canAccessRegisteredRoute('admin', '/training-log')).toBe(true);
     expect(getNavigationRoutes('admin', 'sidebar').some((route) => route.id === 'training-log')).toBe(true);
+    expect(canAccessRegisteredRoute('methodologist', '/mandatory-training')).toBe(true);
+    expect(canAccessRegisteredRoute('admin', '/mandatory-training')).toBe(true);
+    expect(canAccessRegisteredRoute('student', '/mandatory-training')).toBe(false);
   });
 
   it('exposes isolated candidate assessment only to the methodologist', () => {
@@ -94,6 +97,7 @@ describe('route and capability registry', () => {
       'positions',
       'cohorts',
       'candidate-assessments',
+      'mandatory-training',
       'training-log',
       'training-procedures',
       'training-retention',

@@ -1,4 +1,5 @@
 import type { LearningActionCenterPayload, TrainingAttentionItem } from '@/features/learning-actions/types';
+import type { MandatoryTrainingSummary } from '@/features/mandatory-training/types';
 
 export interface DashboardCourse {
   id: string;
@@ -19,6 +20,7 @@ export interface DashboardSources {
   learning: LearningActionCenterPayload | null;
   courses: DashboardCourse[] | null;
   jobs: DashboardJob[] | null;
+  mandatory: MandatoryTrainingSummary | null;
 }
 
 export interface MethodologistDashboardModel {
@@ -41,6 +43,7 @@ export interface MethodologistDashboardModel {
     items: TrainingAttentionItem[];
     truncated: boolean;
   };
+  mandatory: MandatoryTrainingSummary | null;
   content: {
     coursesAvailable: boolean;
     totalCourses: number | null;
@@ -82,6 +85,7 @@ export function buildMethodologistDashboard(sources: DashboardSources): Methodol
       items: sources.learning.training_items.slice(0, 3),
       truncated: sources.learning.summary.training_items_truncated,
     } : null,
+    mandatory: sources.mandatory,
     content: {
       coursesAvailable: sources.courses !== null,
       totalCourses: sources.courses?.length ?? null,

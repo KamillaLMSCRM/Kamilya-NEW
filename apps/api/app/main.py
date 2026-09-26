@@ -64,6 +64,7 @@ from app.modules.learning_cycles.router import router as learning_cycles_router
 from app.modules.learning_insights.router import router as learning_insights_router
 from app.modules.learning_paths.router import router as learning_paths_router
 from app.modules.lessons.router import router as lessons_router
+from app.modules.mandatory_training.router import router as mandatory_training_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.organization_units.router import router as organization_units_router
 from app.modules.positions.admin_router import router as positions_admin_router
@@ -265,6 +266,7 @@ app.include_router(training_rules_router, prefix=f"{settings.API_PREFIX}", tags=
 app.include_router(integrations_router, prefix=f"{settings.API_PREFIX}", tags=["integrations"])
 app.include_router(learner_assistant_router, prefix=f"{settings.API_PREFIX}", tags=["learner-assistant"])
 app.include_router(training_log_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
+app.include_router(mandatory_training_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(learning_insights_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(learning_actions_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(training_evidence_router, prefix=f"{settings.API_PREFIX}", tags=["training-evidence"])

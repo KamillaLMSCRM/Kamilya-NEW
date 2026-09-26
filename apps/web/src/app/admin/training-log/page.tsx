@@ -16,7 +16,7 @@ import {
 } from '@/components/ui';
 import { Check, FileDown, Link2, Package, RefreshCw, Square, SquareCheck } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { useT } from '@/i18n/useT';
+import { useT, type TranslationKey } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -36,6 +36,7 @@ import { SignedScanControl, useSignedScanLedgers } from '@/features/training-evi
 import { LearnerAnswers, LearningInsightsPanel, canUseLearningInsights } from '@/features/learning-insights/LearningInsights';
 import { useLearningInsightsT } from '@/features/learning-insights/i18n';
 import { LearningActionCenter } from '@/features/learning-actions/LearningActionCenter';
+import type { AssignmentReason, RequirementAction, RequirementState } from '@/features/mandatory-training/types';
 
 /**
  * Training log — единый журнал обучения (P0.3 first-tenant hardening).
@@ -72,6 +73,9 @@ interface TrainingLogRow {
   previous_enrollment_id?: string | null;
   reassignment_reason?: string | null;
   enrollment_source: string;
+  requirement_state?: RequirementState;
+  assignment_reason?: AssignmentReason;
+  action_required?: RequirementAction;
   enrolled_at: string | null;
   completed_at: string | null;
   cycle_id: string | null;
@@ -613,7 +617,6 @@ export default function AdminTrainingLogPage() {
             <>
               <div className="divide-y divide-border lg:hidden" data-testid="training-log-mobile-list">
                 {items.map((row, idx) => {
-                  const sourceInfo = getAssignmentSourceInfo(row.enrollment_source);
                   return (
                   <article key={`${row.user_id}-${row.course_id}-${idx}`} className="space-y-3 p-4">
                     <div>
@@ -644,9 +647,7 @@ export default function AdminTrainingLogPage() {
                         <EvidenceStatusBadge row={row} t={t} />
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {t('assignmentSources.title')}: {t(sourceInfo.labelKey)}. {t(sourceInfo.descriptionKey)}
-                    </p>
+                    <AssignmentReasonDetails row={row} t={t} />
                     {isMethodologist && canAttachSignedScan(row) && signedScanControl(row.latest_evidence_event_id as string)}
                     {isMethodologist && canExportEvidence(row) && (
                       <div className="flex flex-wrap gap-2">
@@ -714,7 +715,6 @@ export default function AdminTrainingLogPage() {
                 </thead>
                 <tbody>
                   {items.map((row, idx) => {
-                    const sourceInfo = getAssignmentSourceInfo(row.enrollment_source);
                     return (
                     <tr key={`${row.user_id}-${row.course_id}-${idx}`} className="border-t border-border">
                       {isMethodologist && (
@@ -788,16 +788,7 @@ export default function AdminTrainingLogPage() {
                         ) : <span className="text-sm text-muted-foreground">—</span>}
                       </td>
                       <td className={columnClass.source}>
-                        <details>
-                          <summary className="cursor-help list-none">
-                            <Badge variant={sourceInfo.managedByRule ? 'secondary' : 'outline'}>
-                              {t(sourceInfo.labelKey)}
-                            </Badge>
-                          </summary>
-                          <p className="mt-1 min-w-52 text-xs text-muted-foreground">
-                            {t(sourceInfo.descriptionKey)}
-                          </p>
-                        </details>
+                        <AssignmentReasonDetails row={row} t={t} />
                       </td>
                       <td className={`${columnClass.progress} text-sm tabular-nums`}>
                         {row.progress_percent}%
@@ -884,6 +875,33 @@ function canExportEvidence(row: TrainingLogRow): boolean {
     row.latest_evidence_event_id
     && (row.evidence_confirmation_status === 'confirmed' || row.evidence_signed_copy_status === 'accepted')
     && row.evidence_state === 'ready'
+  );
+}
+
+const REQUIREMENT_STATE_KEYS: Record<RequirementState, TranslationKey> = {
+  materialized: 'trainingLog.assignmentReason.materialized',
+  missing_enrollment: 'trainingLog.assignmentReason.missing',
+  protected_assignment: 'trainingLog.assignmentReason.protected',
+  stale_managed_enrollment: 'trainingLog.assignmentReason.stale',
+};
+
+function AssignmentReasonDetails({ row, t }: { row: TrainingLogRow; t: ReturnType<typeof useT>['t'] }) {
+  const reason = row.assignment_reason;
+  const sourceInfo = getAssignmentSourceInfo(reason?.kind || row.enrollment_source);
+  return (
+    <details>
+      <summary className="cursor-help list-none">
+        <Badge variant={sourceInfo.managedByRule ? 'secondary' : 'outline'}>
+          {t(sourceInfo.labelKey)}
+        </Badge>
+      </summary>
+      <div className="mt-1 min-w-52 space-y-1 text-xs text-muted-foreground">
+        <p>{t(sourceInfo.descriptionKey)}</p>
+        {reason?.source_name && <p>{t('trainingLog.assignmentReason.source')}: <span className="text-foreground">{reason.source_name}</span></p>}
+        {reason && reason.scope_path_names.length > 0 && <p>{t('trainingLog.assignmentReason.scope')}: <span className="text-foreground">{reason.scope_path_names.join(' → ')}</span></p>}
+        {row.requirement_state && <p>{t('trainingLog.assignmentReason.state')}: <span className="text-foreground">{t(REQUIREMENT_STATE_KEYS[row.requirement_state])}</span></p>}
+      </div>
+    </details>
   );
 }
 

@@ -151,6 +151,15 @@ const TOPICS: readonly HelpTopicDefinition[] = [
     important: text('Перед массовым назначением проверьте выборку получателей на небольшом списке.', 'Жаппай тағайындаудан бұрын алушыларды шағын тізімде тексеріңіз.', 'Before a bulk assignment, validate the recipient selection on a small list.'),
   },
   {
+    id: 'mandatory-training', paths: ['/mandatory-training'], roles: ['methodologist'],
+    title: text('Обязательное обучение', 'Міндетті оқу', 'Mandatory training'),
+    purpose: text('Проверка, что правила обучения превратились в реальные назначения для нужных сотрудников.', 'Оқу ережелерінің қажетті қызметкерлер үшін нақты тағайындауға айналғанын тексеру.', 'Verify that training rules have become real assignments for the right employees.'),
+    steps: [text('Сначала разберите строки «Без назначения» и «Требует сверки».', 'Алдымен «Тағайындау жоқ» және «Тексеру қажет» жолдарын қараңыз.', 'Start with Missing assignment and Needs review rows.'), text('Откройте «Почему назначено» и проверьте должность, подразделение или другой источник.', '«Неге тағайындалды» бөлімін ашып, лауазымды, бөлімшені немесе басқа дереккөзді тексеріңіз.', 'Open Why assigned and verify the position, unit, or other source.'), text('После исправления правила проверьте, что состояние обновилось, а ручные назначения сохранились.', 'Ережені түзеткеннен кейін күй жаңарып, қолмен тағайындаулар сақталғанын тексеріңіз.', 'After correcting the rule, confirm the state updates and manual assignments remain intact.')],
+    example: text('Правило отдела требует курс, но у нового сотрудника назначение ещё не создано.', 'Бөлім ережесі курсты талап етеді, бірақ жаңа қызметкерге тағайындау әлі жасалмаған.', 'A unit rule requires a course, but the new employee does not yet have an assignment.'),
+    result: text('Объяснимая сверка требований и фактических назначений.', 'Талаптар мен нақты тағайындаулардың түсіндірілетін салыстыруы.', 'An explainable reconciliation of requirements and actual assignments.'),
+    important: text('Матрица не удаляет ручные и программные назначения: они показываются как защищённые.', 'Матрица қолмен және бағдарлама арқылы тағайындауларды жоймайды: олар қорғалған болып көрсетіледі.', 'The matrix does not delete manual or program assignments; it marks them as protected.'),
+  },
+  {
     id: 'training-log', paths: ['/training-log'], roles: ['methodologist'],
     title: text('Журнал обучения', 'Оқу журналы', 'Training log'),
     purpose: text('Контроль назначений, прохождения, результатов и подтверждений.', 'Тағайындауларды, өтуді, нәтижелерді және растауларды бақылау.', 'Track assignments, completion, results, and confirmations.'),

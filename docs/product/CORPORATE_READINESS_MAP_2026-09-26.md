@@ -1,7 +1,7 @@
 # Kamilya Corporate Readiness: карта продукта
 
 Дата среза: 2026-09-26  
-Git-срез: `94d064ae59ed50bb51fa4f78870e2e77fa037fd5`  
+Git/runtime-срез этапа 1: `66576b1a4ab33f201956aae0e3798aed26d0023b` (`v0.11.7`)
 Назначение: source of truth для этапов 0 и 1 корпоративной приёмки.  
 Результат этапа 1: [`CORPORATE_STAGE1_RESULT_2026-09-26.md`](CORPORATE_STAGE1_RESULT_2026-09-26.md).
 
@@ -54,11 +54,11 @@ HTTP 200, наличие страницы, локальный commit или пр
 | Внутренняя аттестация и допуск | Только конфигурация procedure | PARTIAL | fail-closed; фактическая комиссия/решение отсутствуют |
 | Recurring learning cycles | Частично | SOURCE/TEST/DEV для отдельных срезов | occurrence, reminder, repeat history, overdue read model |
 | Action center и deadline read model | Локально/DEV реализовано | SOURCE/TEST/DEV | deployed browser acceptance отсутствует |
-| Methodologist dashboard | Production UI smoke пройден на несинхронном frontend | SOURCE/TEST + LIVE-RECHECK PARTIAL | синхронизировать frontend/API SHA и повторить smoke |
+| Methodologist dashboard | Production UI smoke этапа 1; stage-2 counters готовы локально | SOURCE/TEST/LIVE для v0.11.7; LOCAL TEST для counters | DEV/runtime reconciliation с матрицей и журналом |
 | Learning Insights / слабые темы | Локально реализовано | SOURCE/TEST/DEV для срезов | current-runtime privacy и action navigation |
 | SCORM 1.2 | Реализован базовый flow | SOURCE/TEST | реальные пакеты и browser UX |
-| Матрица обязательного обучения | Нет единой проекции | ABSENT | спроектировать после baseline этапа 1 |
-| Объяснение `why assigned` | Данные распределены по правилам | PARTIAL | проверить доступность причины пользователю |
+| Матрица обязательного обучения | Локальный вертикальный срез 2.1 реализован | SOURCE/TEST; DEV/runtime pending | DEV/RLS и browser acceptance |
+| Объяснение `why assigned` | Единый reason contract в matrix/log/CSV | SOURCE/TEST; DEV/runtime pending | сверить точный источник и путь в DEV |
 | Scoped responsible-for-training view | Нет единого capability/scope | ABSENT | определить read/write границы по subtree/group |
 | Content owner/review/change impact | Нет замкнутого workflow | ABSENT | определить version-change decision flow |
 | Полная матрица компетенций | Карточка должности частично | PARTIAL | фактический уровень, evidence, gap отсутствуют |
@@ -91,13 +91,15 @@ HTTP 200, наличие страницы, локальный commit или пр
 5. reconciliation dashboard/log/export/evidence;
 6. управление актуальностью источника и повторным обучением.
 
-До завершения этапа 1 этот эпик не кодируется: сначала фиксируются фактические
-PASS/FAIL и реальные границы уже существующих модулей.
+Этап 1 закрыт как `PASS_WITH_FOLLOW_UP`; эпик переведён в реализацию с
+вертикального среза 2.1.
 
 ## Состояние после этапа 1
 
-Local и isolated DEV контракты подтверждают основную корпоративную модель, но
-этап 1 не закрыт: production frontend `7f54b652` и API `94d064ae` не являются
-единым exact release, а полный synthetic human journey не выполнен после этого
-обнаружения. Текущий итог — `PARTIAL`, не production-ready verdict для всего
-корпоративного контура.
+Local и isolated DEV контракты подтверждают основную корпоративную модель.
+Production frontend/API синхронизированы на `v0.11.7`; новый bounded
+source-to-draft human smoke завершился за 67 секунд, создал 1/3/3/7 и был
+очищен с readback отсутствия. Поэтому этап 1 закрыт как
+`PASS_WITH_FOLLOW_UP`. Вся corporate readiness остаётся `PARTIAL`, пока один
+непрерывный сценарий не сверит dashboard, training log, export и evidence
+package, а capacity не подтверждён отдельно.

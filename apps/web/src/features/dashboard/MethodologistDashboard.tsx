@@ -32,6 +32,8 @@ const copy = {
     weakQuestions: 'Слабых вопросов',
     openActions: 'Действий открыто',
     overdueActions: 'Из них просрочено',
+    missingAssignments: 'Без назначения',
+    staleAssignments: 'Требует сверки',
     noIssues: 'Сейчас нет выявленных проблем по обучению.',
     priorityPeople: 'Кому уделить внимание',
     allActions: 'Открыть центр действий',
@@ -83,6 +85,8 @@ const copy = {
     weakQuestions: 'Weak questions',
     openActions: 'Open actions',
     overdueActions: 'Overdue actions',
+    missingAssignments: 'Missing assignments',
+    staleAssignments: 'Needs review',
     noIssues: 'No learning issues are currently detected.',
     priorityPeople: 'People to focus on',
     allActions: 'Open action center',
@@ -134,6 +138,8 @@ const copy = {
     weakQuestions: 'Әлсіз сұрақ',
     openActions: 'Ашық әрекет',
     overdueActions: 'Мерзімі өткен әрекет',
+    missingAssignments: 'Тағайындау жоқ',
+    staleAssignments: 'Тексеру қажет',
     noIssues: 'Қазір оқу бойынша анықталған мәселе жоқ.',
     priorityPeople: 'Кімге назар аудару керек',
     allActions: 'Әрекет орталығын ашу',
@@ -197,6 +203,7 @@ export function MethodologistDashboard() {
           learningAvailable: false,
           training: null,
           attention: null,
+          mandatory: null,
           content: {
             coursesAvailable: false,
             totalCourses: null,
@@ -250,6 +257,8 @@ export function MethodologistDashboard() {
             <Metric label={m.weakQuestions} value={model.attention.weakQuestions} />
             <Metric label={m.openActions} value={model.attention.openActions} testId="open-actions" href={actionCenterHref} />
             <Metric label={m.overdueActions} value={model.attention.overdueActions} tone={model.attention.overdueActions > 0 ? 'danger' : 'default'} />
+            {model.mandatory && <Metric label={m.missingAssignments} value={model.mandatory.missing_enrollment} tone={model.mandatory.missing_enrollment > 0 ? 'danger' : 'default'} href="/mandatory-training?action_required=materialize" />}
+            {model.mandatory && <Metric label={m.staleAssignments} value={model.mandatory.stale_managed_enrollment} tone={model.mandatory.stale_managed_enrollment > 0 ? 'danger' : 'default'} href="/mandatory-training?action_required=review_stale" />}
           </div>
           <div className="mt-6 border-t border-border pt-5">
             <div className="flex min-w-0 flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"><h3 className="font-semibold text-foreground">{m.priorityPeople}</h3><Link href={actionCenterHref} className="inline-flex min-w-0 items-center gap-1 text-sm font-medium text-primary hover:underline">{m.allActions}<ArrowRight className="h-4 w-4 shrink-0" /></Link></div>

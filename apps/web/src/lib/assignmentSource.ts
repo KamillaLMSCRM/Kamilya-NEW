@@ -22,6 +22,11 @@ const sourceInfo: Record<string, AssignmentSourceInfo> = {
     descriptionKey: 'assignmentSources.department.description',
     managedByRule: true,
   },
+  organization: {
+    labelKey: 'assignmentSources.organization.label',
+    descriptionKey: 'assignmentSources.organization.description',
+    managedByRule: true,
+  },
   cohort: {
     labelKey: 'assignmentSources.cohort.label',
     descriptionKey: 'assignmentSources.cohort.description',
@@ -30,6 +35,16 @@ const sourceInfo: Record<string, AssignmentSourceInfo> = {
   learning_path: {
     labelKey: 'assignmentSources.learningPath.label',
     descriptionKey: 'assignmentSources.learningPath.description',
+    managedByRule: true,
+  },
+  recurring: {
+    labelKey: 'assignmentSources.recurring.label',
+    descriptionKey: 'assignmentSources.recurring.description',
+    managedByRule: true,
+  },
+  auto: {
+    labelKey: 'assignmentSources.auto.label',
+    descriptionKey: 'assignmentSources.auto.description',
     managedByRule: true,
   },
 };

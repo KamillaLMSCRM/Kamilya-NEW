@@ -19,6 +19,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.mandatory_training.service import enrich_training_log_rows
 from app.modules.training_log.repository import (
     count_current_attempt_outcomes,
     count_reassigned_training_log,
@@ -46,6 +47,11 @@ CSV_COLUMNS = {
         ("position_name", "Должность"),
         ("course_title", "Курс"), ("delivery_type", "Формат курса"),
         ("computed_status", "Статус"), ("enrollment_source", "Источник назначения"),
+        ("requirement_state", "Состояние требования"),
+        ("assignment_reason_kind", "Основание назначения"),
+        ("assignment_reason_source_name", "Источник правила"),
+        ("assignment_reason_code", "Код основания"),
+        ("action_required", "Требуемое действие"),
         ("enrolled_at", "Дата назначения"), ("completed_at", "Дата завершения"),
         ("cycle_type", "Тип цикла"), ("cycle_scheduled_for", "Дата цикла"),
         ("cycle_due_at", "Срок"), ("deadline_status", "Статус срока"),
@@ -61,6 +67,11 @@ CSV_COLUMNS = {
         ("position_name", "Лауазым"),
         ("course_title", "Курс"), ("delivery_type", "Курс форматы"),
         ("computed_status", "Мәртебе"), ("enrollment_source", "Тағайындау көзі"),
+        ("requirement_state", "Талап күйі"),
+        ("assignment_reason_kind", "Тағайындау негізі"),
+        ("assignment_reason_source_name", "Ереже көзі"),
+        ("assignment_reason_code", "Негіз коды"),
+        ("action_required", "Қажетті әрекет"),
         ("enrolled_at", "Тағайындалған күні"), ("completed_at", "Аяқталған күні"),
         ("cycle_type", "Цикл түрі"), ("cycle_scheduled_for", "Цикл күні"),
         ("cycle_due_at", "Мерзімі"), ("deadline_status", "Мерзім күйі"),
@@ -76,6 +87,11 @@ CSV_COLUMNS = {
         ("position_name", "Position"),
         ("course_title", "Course"), ("delivery_type", "Course format"),
         ("computed_status", "Status"), ("enrollment_source", "Assignment source"),
+        ("requirement_state", "Requirement state"),
+        ("assignment_reason_kind", "Assignment reason"),
+        ("assignment_reason_source_name", "Rule source"),
+        ("assignment_reason_code", "Reason code"),
+        ("action_required", "Required action"),
         ("enrolled_at", "Assigned at"), ("completed_at", "Completed at"),
         ("cycle_type", "Cycle type"), ("cycle_scheduled_for", "Cycle date"),
         ("cycle_due_at", "Due at"), ("deadline_status", "Deadline status"),
@@ -92,7 +108,11 @@ CSV_VALUE_LABELS = {
         "assigned": "Назначен", "in_progress": "В процессе", "completed": "Завершён",
         "native": "Курс Kamilya LMS", "scorm": "SCORM 1.2", "manual": "Вручную",
         "position": "По должности", "department": "По подразделению", "cohort": "По группе",
+        "organization": "Для всей организации", "recurring": "По циклу обучения",
         "auto": "Автоматически", "instruction_replace": "По должностной инструкции",
+        "materialized": "Назначение создано", "missing_enrollment": "Назначение отсутствует",
+        "protected_assignment": "Защищённое назначение", "stale_managed_enrollment": "Требует сверки",
+        "materialize": "Создать назначение", "review_stale": "Проверить назначение",
         "course": "Курс", "learning_path": "Программа",
         "not_applicable": "Без срока", "active": "В срок", "overdue": "Просрочено",
         "completed_on_time": "Завершено в срок", "completed_late": "Завершено с опозданием",
@@ -103,7 +123,11 @@ CSV_VALUE_LABELS = {
         "assigned": "Тағайындалды", "in_progress": "Орындалуда", "completed": "Аяқталды",
         "native": "Kamilya LMS курсы", "scorm": "SCORM 1.2", "manual": "Қолмен",
         "position": "Лауазым бойынша", "department": "Бөлімше бойынша", "cohort": "Топ бойынша",
+        "organization": "Бүкіл ұйым үшін", "recurring": "Оқу циклі бойынша",
         "auto": "Автоматты түрде", "instruction_replace": "Лауазымдық нұсқаулық бойынша",
+        "materialized": "Тағайындау жасалды", "missing_enrollment": "Тағайындау жоқ",
+        "protected_assignment": "Қорғалған тағайындау", "stale_managed_enrollment": "Тексеру қажет",
+        "materialize": "Тағайындау жасау", "review_stale": "Тағайындауды тексеру",
         "course": "Курс", "learning_path": "Бағдарлама",
         "not_applicable": "Мерзімсіз", "active": "Мерзімінде", "overdue": "Мерзімі өтті",
         "completed_on_time": "Мерзімінде аяқталды", "completed_late": "Кеш аяқталды",
@@ -114,7 +138,11 @@ CSV_VALUE_LABELS = {
         "assigned": "Assigned", "in_progress": "In progress", "completed": "Completed",
         "native": "Kamilya LMS course", "scorm": "SCORM 1.2", "manual": "Manual",
         "position": "By position", "department": "By department", "cohort": "By cohort",
+        "organization": "Organization-wide", "recurring": "By learning cycle",
         "auto": "Automatic", "instruction_replace": "By job instruction",
+        "materialized": "Assignment created", "missing_enrollment": "Assignment missing",
+        "protected_assignment": "Protected assignment", "stale_managed_enrollment": "Needs review",
+        "materialize": "Create assignment", "review_stale": "Review assignment",
         "course": "Course", "learning_path": "Program",
         "not_applicable": "No deadline", "active": "On track", "overdue": "Overdue",
         "completed_on_time": "Completed on time", "completed_late": "Completed late",
@@ -147,7 +175,7 @@ def _csv_value(field: str, value, lang: str):
         return " / ".join(str(item) for item in value)
     if field in {
         "delivery_type", "computed_status", "enrollment_source", "cycle_type", "deadline_status",
-        "deadline_state",
+        "deadline_state", "requirement_state", "assignment_reason_kind", "action_required",
     }:
         return CSV_VALUE_LABELS[lang].get(str(value), value)
     if field in {
@@ -192,6 +220,7 @@ async def get_training_log_page(
 ) -> TrainingLogPage:
     limit, offset = validate_pagination(limit, offset)
     rows = await list_training_log(db, tenant_id, f, limit=limit, offset=offset)
+    rows = await enrich_training_log_rows(db, tenant_id, rows)
     total = await count_training_log(db, tenant_id, f)
     items = [TrainingLogRow.model_validate(r) for r in rows]
     return TrainingLogPage(items=items, total=total, limit=limit, offset=offset)
@@ -218,6 +247,7 @@ async def stream_training_log_as_csv(
     buf.truncate()
 
     async for batch in stream_training_log_csv(db, tenant_id, f, batch_size=500):
+        batch = await enrich_training_log_rows(db, tenant_id, batch)
         for r in batch:
             writer.writerow([_csv_value(field, r.get(field), lang) for field, _ in columns])
         yield buf.getvalue().encode("utf-8")

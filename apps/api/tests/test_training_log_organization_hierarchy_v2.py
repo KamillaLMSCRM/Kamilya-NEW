@@ -40,6 +40,16 @@ def test_training_log_row_exposes_current_path_without_breaking_legacy_departmen
         delivery_type="native",
         enrollment_status="enrolled",
         enrollment_source="manual",
+        requirement_state="protected_assignment",
+        assignment_reason={
+            "kind": "manual",
+            "source_ref_id": None,
+            "source_name": None,
+            "scope_path_ids": [],
+            "scope_path_names": [],
+            "reason_code": "mandatory_training.reason.manual",
+        },
+        action_required="none",
         enrollment_id=uuid4(),
         progress_percent=0,
     )

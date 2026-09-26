@@ -18,6 +18,11 @@ async def test_training_log_csv_is_excel_compatible(monkeypatch):
                 "email": '=HYPERLINK("https://example.invalid")',
                 "course_title": "Охрана труда, вводный курс",
                 "computed_status": "in_progress",
+                "requirement_state": "protected_assignment",
+                "action_required": "none",
+                "assignment_reason_kind": "manual",
+                "assignment_reason_source_name": None,
+                "assignment_reason_code": "mandatory_training.reason.manual",
                 "enrolled_at": datetime(2026, 7, 21, 9, 5, tzinfo=UTC),
                 "cycle_type": "course",
                 "cycle_due_at": datetime(2026, 7, 28, 9, 5, tzinfo=UTC),
@@ -29,6 +34,11 @@ async def test_training_log_csv_is_excel_compatible(monkeypatch):
         ]
 
     monkeypatch.setattr(service, "stream_training_log_csv", fake_batches)
+    monkeypatch.setattr(
+        service,
+        "enrich_training_log_rows",
+        lambda _db, _tenant_id, rows: _identity_rows(rows),
+    )
     chunks = [
         chunk
         async for chunk in service.stream_training_log_as_csv(
@@ -50,6 +60,9 @@ async def test_training_log_csv_is_excel_compatible(monkeypatch):
     assert rows[0]["ФИО"] == "Иванов; Иван"
     assert rows[0]["Курс"] == "Охрана труда, вводный курс"
     assert rows[0]["Статус"] == "В процессе"
+    assert rows[0]["Состояние требования"] == "Защищённое назначение"
+    assert rows[0]["Основание назначения"] == "Вручную"
+    assert rows[0]["Код основания"] == "mandatory_training.reason.manual"
     assert rows[0]["Email"].startswith("'=")
     assert rows[0]["Дата назначения"] == "21.07.2026 09:05"
     assert rows[0]["Тип цикла"] == "Курс"
@@ -59,3 +72,7 @@ async def test_training_log_csv_is_excel_compatible(monkeypatch):
     assert rows[0]["Состояние срока"] == "Ожидается"
     assert rows[0]["Статус сертификата"] == "Истекает"
     assert "user_id" not in rows[0]
+
+
+async def _identity_rows(rows):
+    return rows

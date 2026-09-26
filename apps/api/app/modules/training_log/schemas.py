@@ -14,6 +14,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.modules.mandatory_training.requirements import (
+    RequirementAction,
+    RequirementState,
+)
+from app.modules.mandatory_training.schemas import AssignmentReason
+
 
 # Filters for the query string. The repository builds SQL from these.
 # Keep names snake_case and short — they hit the wire as ?course_id=&department_id=...
@@ -87,6 +93,9 @@ class TrainingLogRow(BaseModel):
     # Enrollment
     enrollment_status: str  # raw: enrolled / completed
     enrollment_source: str  # manual / position / department / cohort / learning_path
+    requirement_state: RequirementState
+    assignment_reason: AssignmentReason
+    action_required: RequirementAction
     previous_enrollment_id: UUID | None = None
     reassignment_reason: str | None = None
     enrolled_at: datetime | None = None
@@ -194,6 +203,11 @@ class TrainingLogCSVResponse(BaseModel):
         "course_title",
         "delivery_type",
         "enrollment_source",
+        "requirement_state",
+        "assignment_reason_kind",
+        "assignment_reason_source_name",
+        "assignment_reason_code",
+        "action_required",
         "enrolled_at",
         "completed_at",
         "cycle_type",

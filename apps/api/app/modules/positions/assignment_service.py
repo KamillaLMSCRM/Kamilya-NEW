@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.courses import Course
 from app.models.enrollment import Enrollment
 from app.models.users import User
+from app.modules.mandatory_training.requirements import merge_effective_requirements
 from app.modules.organization_scope import resolve_ancestor_path, resolve_employee_scope
 from app.modules.positions.models import DepartmentCourse, Position, PositionCourse
 from app.modules.training_rules.models import OrganizationCourseRule
@@ -133,10 +134,15 @@ def _effective_sources(
     department_courses: set[UUID],
     organization_courses: set[UUID],
 ) -> dict[UUID, str]:
-    expected = {course_id: "organization" for course_id in organization_courses}
-    expected.update({course_id: "department" for course_id in department_courses})
-    expected.update({course_id: "position" for course_id in position_courses})
-    return expected
+    requirements = merge_effective_requirements(
+        organization_rules=((course_id, None) for course_id in organization_courses),
+        department_rules=((course_id, None) for course_id in department_courses),
+        position_rules=((course_id, None) for course_id in position_courses),
+    )
+    return {
+        course_id: requirement.source
+        for course_id, requirement in requirements.items()
+    }
 
 
 async def recompute_enrollments(db: AsyncSession, user_id: UUID) -> RecomputeResult:

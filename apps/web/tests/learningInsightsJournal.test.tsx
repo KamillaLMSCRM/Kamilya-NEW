@@ -41,6 +41,36 @@ beforeEach(() => {
 });
 
 describe('learning insights journal integration', () => {
+  it('shows the exact assignment source and scope from the shared read model', async () => {
+    const originalGet = apiMock.get.getMockImplementation()!;
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/admin/training-log?')) return { data: { items: [{
+        user_id: 'learner-a', full_name: 'Synthetic learner', email: null, personnel_number: 'PN-1',
+        department_id: 'unit-a', department_name: 'Operations', position_id: null, position_name: null,
+        course_id: 'course-a', course_title: 'Synthetic course', delivery_type: 'native',
+        enrollment_id: 'enrollment-a', enrollment_status: 'enrolled', enrollment_source: 'department',
+        requirement_state: 'materialized', action_required: 'none',
+        assignment_reason: {
+          kind: 'department', source_ref_id: 'unit-a', source_name: 'Operations',
+          scope_path_ids: ['root-a', 'unit-a'], scope_path_names: ['Central office', 'Operations'],
+          reason_code: 'mandatory_training.reason.department',
+        },
+        enrolled_at: null, completed_at: null, cycle_id: null, cycle_type: null, cycle_scheduled_for: null,
+        latest_evidence_event_id: null, evidence_procedure_type: null,
+        evidence_confirmation_status: 'not_required', evidence_signed_copy_status: 'awaiting_return', evidence_state: 'incomplete', evidence_events: [],
+        computed_status: 'assigned', progress_percent: 0, best_score: null, quiz_attempts_count: 0,
+        certificate_id: null, certificate_number: null, certificate_issued_at: null, kiosk_last_seen_at: null,
+      }], total: 1, limit: 100, offset: 0 } } as never;
+      return originalGet(url);
+    });
+
+    render(<AdminTrainingLogPage />);
+
+    expect((await screen.findAllByText('Operations')).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('Central office → Operations')).toHaveLength(2);
+    expect(screen.getAllByText('assignmentSources.department.label')).toHaveLength(2);
+  });
+
   it('keeps superadmin behind the canonical active-methodologist role boundary', async () => {
     setActor('tenant-a', 'superadmin');
     const originalGet = apiMock.get.getMockImplementation()!;

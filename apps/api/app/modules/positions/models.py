@@ -59,8 +59,9 @@ class DepartmentCourse(Base):
 
     When a user holds a position in this department, recompute_enrollments
     materializes an Enrollment for them. Same required semantics as
-    PositionCourse. v1.0 ignores Department.parent_id — the rule
-    applies only to the department it is attached to, not ancestors.
+    PositionCourse. Rules are inherited through the active organization-unit
+    ancestor path; a rule attached to the nearest matching unit wins when the
+    same course appears more than once on that path.
     """
     __tablename__ = "department_courses"
     __table_args__ = (
