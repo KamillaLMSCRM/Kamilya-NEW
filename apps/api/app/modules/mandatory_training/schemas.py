@@ -34,6 +34,7 @@ class MandatoryTrainingFilter(BaseModel):
     action_required: RequirementAction | None = None
     search: str | None = Field(default=None, max_length=200)
     include_inactive: bool = False
+    responsible_user_ids: frozenset[UUID] | None = Field(default=None, exclude=True)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -96,6 +97,7 @@ class MandatoryTrainingPage(BaseModel):
     total: int
     limit: int
     offset: int
+    reporting_scope: Literal["tenant", "restricted"] = "tenant"
 
 
 class MandatoryTrainingSummary(BaseModel):

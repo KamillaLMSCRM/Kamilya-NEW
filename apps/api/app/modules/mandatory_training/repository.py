@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import false, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.department import Department
@@ -54,6 +54,12 @@ async def list_employee_contexts(
     )
     if not filters.include_inactive:
         stmt = stmt.where(User.is_active.is_(True), User.status == "active")
+    if filters.responsible_user_ids is not None:
+        stmt = stmt.where(
+            User.id.in_(filters.responsible_user_ids)
+            if filters.responsible_user_ids
+            else false()
+        )
     if filters.position_id is not None:
         stmt = stmt.where(User.position_id == filters.position_id)
     if filters.search:

@@ -13,6 +13,12 @@ class Cohort(Base):
     description = Column(Text, nullable=False, default="")
     is_active = Column(Boolean, nullable=False, default=True, server_default="true")
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    responsible_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 

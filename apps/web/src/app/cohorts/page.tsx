@@ -14,7 +14,7 @@ import {
   type UserListResponse,
 } from './user-list-contract';
 
-type Cohort = { id: string; name: string; description: string; member_count: number };
+type Cohort = { id: string; name: string; description: string; member_count: number; responsible_user_id: string | null; responsible_user_name: string | null };
 type Option = { id: string; name: string };
 type Detail = Cohort & { user_ids: string[] };
 
@@ -24,23 +24,27 @@ export default function CohortsPage() {
   const canManage = role === COHORT_MANAGER_ROLE;
   const [items, setItems] = useState<Cohort[]>([]);
   const [users, setUsers] = useState<Option[]>([]);
+  const [methodologists, setMethodologists] = useState<Option[]>([]);
   const [selected, setSelected] = useState<Detail | null>(null);
   const [loadState, setLoadState] = useState<'loading' | 'success' | 'error'>('loading');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [userIds, setUserIds] = useState<string[]>([]);
+  const [responsibleUserId, setResponsibleUserId] = useState('');
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!canManage) return;
     setLoadState('loading');
     try {
-      const [cohorts, userList] = await Promise.all([
+      const [cohorts, userList, methodologistList] = await Promise.all([
         api.get<Cohort[]>('/v1/cohorts'),
         api.get<UserListResponse>('/v1/users?per_page=500&role=student&is_active=true'),
+        api.get<UserListResponse>('/v1/users?per_page=500&role=methodologist&is_active=true'),
       ]);
       setItems(cohorts.data);
       setUsers(cohortUserOptions(userList.data));
+      setMethodologists(cohortUserOptions(methodologistList.data));
       setLoadState('success');
     } catch (error: unknown) {
       setLoadState('error');
@@ -57,6 +61,7 @@ export default function CohortsPage() {
       setSelected(detail.data);
       setName(detail.data.name);
       setDescription(detail.data.description);
+      setResponsibleUserId(detail.data.responsible_user_id || '');
       const eligibleUserIds = new Set(users.map((item) => item.id));
       setUserIds(detail.data.user_ids.filter((id) => eligibleUserIds.has(id)));
     } catch (error: any) {
@@ -69,13 +74,18 @@ export default function CohortsPage() {
     setName('');
     setDescription('');
     setUserIds([]);
+    setResponsibleUserId('');
   };
 
   const create = async () => {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const response = await api.post<Cohort>('/v1/cohorts', { name: name.trim(), description });
+      const response = await api.post<Cohort>('/v1/cohorts', {
+        name: name.trim(),
+        description,
+        responsible_user_id: responsibleUserId || null,
+      });
       setItems((list) => [response.data, ...list]);
       setSelected({ ...response.data, user_ids: [] });
       toast.success(t('cohorts.created'));
@@ -90,7 +100,11 @@ export default function CohortsPage() {
     if (!selected) return;
     setSaving(true);
     try {
-      await api.patch(`/v1/cohorts/${selected.id}`, { name: name.trim(), description });
+      await api.patch(`/v1/cohorts/${selected.id}`, {
+        name: name.trim(),
+        description,
+        responsible_user_id: responsibleUserId || null,
+      });
       await api.put(`/v1/cohorts/${selected.id}/members`, cohortMemberPayload(userIds));
       await load();
       toast.success(t('cohorts.saved'));
@@ -123,6 +137,7 @@ export default function CohortsPage() {
           <div className="mt-1 text-xs text-muted-foreground">
             {tp('common.counts.participant', item.member_count)}
           </div>
+          {item.responsible_user_name && <div className="mt-1 truncate text-xs text-primary">{t('cohorts.responsible')}: {item.responsible_user_name}</div>}
         </button>)}
         {!items.length && <p className="p-3 text-sm text-muted-foreground">{t('cohorts.empty')}</p>}
       </CardContent></Card>
@@ -131,6 +146,14 @@ export default function CohortsPage() {
           <label className="space-y-2 text-sm font-medium">{t('cohorts.name')}<Input value={name} onChange={(event) => setName(event.target.value)} placeholder={t('cohorts.namePlaceholder')} /></label>
           <label className="space-y-2 text-sm font-medium">{t('cohorts.description')}<Input value={description} onChange={(event) => setDescription(event.target.value)} /></label>
         </div>
+        <label className="block space-y-2 text-sm font-medium">
+          {t('cohorts.responsible')}
+          <select value={responsibleUserId} onChange={(event) => setResponsibleUserId(event.target.value)} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm">
+            <option value="">{t('cohorts.responsibleNone')}</option>
+            {methodologists.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+          <span className="block text-xs font-normal text-muted-foreground">{t('cohorts.responsibleHint')}</span>
+        </label>
         {selected ? <>
           <Selector title={t('cohorts.members')} items={users} selected={userIds} onToggle={toggle} />
           <div className="flex justify-end"><Button variant="outline" onClick={saveMembers} disabled={saving} className="gap-2"><Save className="h-4 w-4" />{t('cohorts.save')}</Button></div>

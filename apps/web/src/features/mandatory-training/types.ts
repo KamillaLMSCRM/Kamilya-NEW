@@ -50,6 +50,7 @@ export interface MandatoryTrainingPage {
   total: number;
   limit: number;
   offset: number;
+  reporting_scope: 'tenant' | 'restricted';
 }
 
 export interface MandatoryTrainingSummary {

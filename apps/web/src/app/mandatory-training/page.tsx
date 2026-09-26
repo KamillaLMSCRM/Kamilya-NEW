@@ -35,6 +35,7 @@ const copy = {
     progress: 'Прогресс', due: 'Срок',
     deadlineLabels: { none: 'Без срока', upcoming: 'Срок приближается', overdue: 'Просрочено', completed_on_time: 'Завершено в срок', completed_late: 'Завершено с опозданием' },
     evidenceLabels: { awaiting_return: 'Ожидается подписанный экземпляр', uploaded_pending_review: 'Скан ожидает проверки', accepted: 'Подписанный экземпляр принят', replacement_requested: 'Запрошена замена скана' },
+    restrictedScope: 'Показаны только сотрудники из подразделений и групп, за которые вы отвечаете.',
     previousPage: 'Предыдущая страница', nextPage: 'Следующая страница', range: (from: number, to: number, total: number) => `${from}–${to} из ${total}`,
     stateLabels: {
       materialized: 'Назначение создано', missing_enrollment: 'Назначение ещё не создано',
@@ -57,6 +58,7 @@ const copy = {
     progress: 'Progress', due: 'Due',
     deadlineLabels: { none: 'No deadline', upcoming: 'Due soon', overdue: 'Overdue', completed_on_time: 'Completed on time', completed_late: 'Completed late' },
     evidenceLabels: { awaiting_return: 'Signed copy expected', uploaded_pending_review: 'Scan awaiting review', accepted: 'Signed copy accepted', replacement_requested: 'Replacement scan requested' },
+    restrictedScope: 'Only employees in the organization units and groups assigned to you are shown.',
     previousPage: 'Previous page', nextPage: 'Next page', range: (from: number, to: number, total: number) => `${from}–${to} of ${total}`,
     stateLabels: { materialized: 'Assignment created', missing_enrollment: 'Assignment has not been created', protected_assignment: 'Manual or program assignment is protected', stale_managed_enrollment: 'Assignment needs review' },
     reasonLabels: { position: 'By position', department: 'By organization unit', organization: 'Organization-wide', manual: 'Manual', cohort: 'By cohort', learning_path: 'By program', recurring: 'By learning cycle', auto: 'Automatic', unknown: 'Unknown source' },
@@ -72,6 +74,7 @@ const copy = {
     progress: 'Прогресс', due: 'Мерзімі',
     deadlineLabels: { none: 'Мерзімсіз', upcoming: 'Мерзімі жақындады', overdue: 'Мерзімі өтті', completed_on_time: 'Уақытында аяқталды', completed_late: 'Кеш аяқталды' },
     evidenceLabels: { awaiting_return: 'Қол қойылған дана күтілуде', uploaded_pending_review: 'Скан тексеруді күтуде', accepted: 'Қол қойылған дана қабылданды', replacement_requested: 'Сканды ауыстыру сұралды' },
+    restrictedScope: 'Сізге бекітілген бөлімшелер мен топтардағы қызметкерлер ғана көрсетілген.',
     previousPage: 'Алдыңғы бет', nextPage: 'Келесі бет', range: (from: number, to: number, total: number) => `${from}–${to} / ${total}`,
     stateLabels: { materialized: 'Тағайындау жасалды', missing_enrollment: 'Тағайындау әлі жасалмаған', protected_assignment: 'Қолмен немесе бағдарлама арқылы тағайындау қорғалған', stale_managed_enrollment: 'Тағайындауды тексеру қажет' },
     reasonLabels: { position: 'Лауазым бойынша', department: 'Бөлімше бойынша', organization: 'Бүкіл ұйым үшін', manual: 'Қолмен', cohort: 'Топ бойынша', learning_path: 'Бағдарлама бойынша', recurring: 'Оқу циклі бойынша', auto: 'Автоматты түрде', unknown: 'Дереккөз анықталмаған' },
@@ -134,6 +137,7 @@ export default function MandatoryTrainingPage() {
     {!error && (!page || !summary) && <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">{m.loading}</div>}
 
     {page && summary && <>
+      {page.reporting_scope === 'restricted' && <div role="status" className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">{m.restrictedScope}</div>}
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" aria-label={m.total}>
         <Summary label={m.total} value={summary.total} />
         <Summary label={m.materialized} value={summary.materialized} />

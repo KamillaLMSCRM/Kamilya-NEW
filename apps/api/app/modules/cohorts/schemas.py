@@ -8,12 +8,14 @@ class CohortCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(..., min_length=1, max_length=255)
     description: str = Field(default="", max_length=5000)
+    responsible_user_id: UUID | None = None
 
 
 class CohortUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=5000)
+    responsible_user_id: UUID | None = None
 
 
 class CohortMembers(BaseModel):
@@ -40,6 +42,8 @@ class CohortSummary(BaseModel):
     description: str
     is_active: bool
     member_count: int
+    responsible_user_id: UUID | None = None
+    responsible_user_name: str | None = None
     created_at: datetime
 
 

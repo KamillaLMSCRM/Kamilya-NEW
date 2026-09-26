@@ -117,6 +117,8 @@ describe('training-log ownership', () => {
   it('uses one canonical read-only reporting screen and keeps evidence actions methodologist-only', () => {
     const source = fs.readFileSync(path.join(process.cwd(), 'src/app/admin/training-log/page.tsx'), 'utf8');
     expect(source).toContain('user?.role === \'methodologist\'');
+    expect(source).toContain("page?.reporting_scope === 'restricted'");
+    expect(source).toContain('Показаны только сотрудники из подразделений и групп');
   });
 });
 

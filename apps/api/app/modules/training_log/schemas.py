@@ -45,6 +45,7 @@ class TrainingLogFilter(BaseModel):
     date_to: datetime | None = None
     # Free-text search across first_name, last_name, email, personnel_number.
     search: str | None = Field(default=None, max_length=200)
+    responsible_user_ids: frozenset[UUID] | None = Field(default=None, exclude=True)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -174,6 +175,7 @@ class TrainingLogPage(BaseModel):
     total: int
     limit: int
     offset: int
+    reporting_scope: Literal["tenant", "restricted"] = "tenant"
 
 
 class TrainingLogSummary(BaseModel):

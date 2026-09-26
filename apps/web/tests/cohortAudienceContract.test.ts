@@ -22,5 +22,8 @@ describe('cohort audience contract', () => {
     expect(source).toContain("role === COHORT_MANAGER_ROLE");
     expect(source).toContain('/members`');
     expect(source).toContain('learningPaths.forbidden');
+    expect(source).toContain('responsible_user_id');
+    expect(source).toContain('role=methodologist');
+    expect(source).toContain("cohorts.responsibleHint");
   });
 });

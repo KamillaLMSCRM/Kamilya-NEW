@@ -81,6 +81,28 @@ async def get_organization_unit(
     return unit
 
 
+async def _validate_head_user(
+    db: AsyncSession,
+    tenant_id: UUID,
+    head_user_id: UUID | None,
+) -> None:
+    if head_user_id is None:
+        return
+    from app.models.users import User
+
+    exists = await db.scalar(
+        select(User.id).where(
+            User.id == head_user_id,
+            User.tenant_id == tenant_id,
+            User.role == "methodologist",
+            User.is_active.is_(True),
+            User.status == "active",
+        )
+    )
+    if exists is None:
+        raise ValueError("head_user_must_be_active_tenant_methodologist")
+
+
 async def create_organization_unit(
     db: AsyncSession,
     *,
@@ -92,6 +114,7 @@ async def create_organization_unit(
     description: str,
     code: str | None,
     is_head_office: bool = False,
+    head_user_id: UUID | None = None,
 ) -> Department:
     unit_id = uuid4()
     parent = None
@@ -145,6 +168,7 @@ async def create_organization_unit(
         )
         if existing_head_office.scalar_one_or_none() is not None:
             raise ValueError("head_office_exists")
+    await _validate_head_user(db, tenant_id, head_user_id)
     normalized_name = normalize_unit_name(name)
     parent_scope = cast(str, parent.slug) if parent else unit_type.value
     slug = f"{_slug_part(parent_scope)}--{_slug_part(name)}--{str(unit_id)[:8]}"
@@ -164,6 +188,7 @@ async def create_organization_unit(
         is_head_office=is_head_office,
         description=description.strip(),
         code=code.strip() if code else None,
+        head_user_id=head_user_id,
     )
     db.add(unit)
     await db.flush()
@@ -218,6 +243,9 @@ async def update_organization_unit(
         unit.normalized_name = normalize_unit_name(unit.name)
     unit.parent_id = parent_id
     unit.is_head_office = requested_head_office
+    if "head_user_id" in patch:
+        await _validate_head_user(db, tenant_id, patch["head_user_id"])
+        unit.head_user_id = patch["head_user_id"]
     for field in ("external_key", "description", "code"):
         if field in patch:
             value = patch[field]
@@ -354,6 +382,7 @@ def build_tree(
             "is_active": unit.is_active,
             "legacy_root": unit.legacy_root,
             "is_head_office": getattr(unit, "is_head_office", False),
+            "head_user_id": getattr(unit, "head_user_id", None),
             "description": unit.description,
             "code": unit.code,
             "created_at": unit.created_at,

@@ -480,7 +480,7 @@
     }
   },
   "cohorts": {
-    "title": "Employee groups", "subtitle": "Build an audience once and reuse it when assigning learning programs.", "audienceHint": "A group stores employees only. Courses are assigned through learning programs or rules.", "learnerHint": "Your learning groups will appear here", "new": "New group", "name": "Name", "namePlaceholder": "For example, new managers 2026", "description": "Description", "members": "members", "create": "Create group", "save": "Save members", "empty": "No groups yet", "created": "Group created", "saved": "Group members saved", "loadFailed": "Could not load groups", "saveFailed": "Could not save"
+    "title": "Employee groups", "subtitle": "Build an audience once and reuse it when assigning learning programs.", "audienceHint": "A group stores employees only. Courses are assigned through learning programs or rules.", "learnerHint": "Your learning groups will appear here", "new": "New group", "name": "Name", "namePlaceholder": "For example, new managers 2026", "description": "Description", "members": "members", "responsible": "Training owner", "responsibleNone": "Not assigned", "responsibleHint": "Once assigned, the owner sees only their organization units and groups in reporting.", "create": "Create group", "save": "Save members", "empty": "No groups yet", "created": "Group created", "saved": "Group members saved", "loadFailed": "Could not load groups", "saveFailed": "Could not save"
   },
   "surveys": {
     "title": "Feedback", "managerSubtitle": "Collect feedback after course completion", "learnerSubtitle": "Rate a course you completed", "name": "Survey name", "namePlaceholder": "For example, course feedback", "course": "Course", "selectCourse": "Select a course", "question": "Question", "questionPlaceholder": "How useful was the course?", "create": "Create survey", "questions": "questions", "empty": "No surveys yet", "noPending": "No surveys available", "alreadySubmitted": "Response already submitted", "created": "Survey created", "submitted": "Thank you for your feedback", "loadFailed": "Could not load surveys", "saveFailed": "Could not save", "submitFailed": "Could not submit response"
@@ -2301,6 +2301,9 @@
         "movePreview": "Will move: {units} units, {positions} positions, {employees} employees. New depth: {depth}; subtree height: {height}.",
         "headOffice": "Head office",
         "headOfficeHint": "An organization can have only one active root unit with this designation.",
+        "trainingOwner": "Training owner",
+        "trainingOwnerNone": "Not assigned",
+        "trainingOwnerHint": "The owner sees employees from this unit and all descendant units in the matrix and training log.",
         "name": "Name",
         "nameUpdated": "Name updated",
         "newBranch": "New branch",

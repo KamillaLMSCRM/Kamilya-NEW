@@ -9,11 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Allow a methodologist to be assigned as the training-report owner for an
+  organization unit subtree or employee group.
+
 ### Changed
+
+- Restrict mandatory-training and training-log rows, summaries and CSV exports
+  to an explicitly assigned methodologist audience while preserving tenant-wide
+  reporting for administrators and unassigned methodologists.
+- Show a clear scoped-reporting notice when a methodologist sees only assigned
+  organization units and employee groups.
 
 ### Fixed
 
 ### Security
+
+- Enforce same-tenant, active-methodologist ownership for employee groups in
+  both the API and the database trigger, with isolated Supabase DEV RLS and
+  migration upgrade/downgrade verification.
 
 ## [0.11.7] - 2026-09-26
 

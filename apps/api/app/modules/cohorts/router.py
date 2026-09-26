@@ -1,3 +1,6 @@
+# FastAPI dependencies are intentionally declared in endpoint signatures.
+# ruff: noqa: B008
+
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -40,14 +43,49 @@ async def _summary(db: AsyncSession, item: Cohort) -> CohortSummary:
         )
         or 0
     )
+    responsible_name = None
+    if item.responsible_user_id is not None:
+        responsible = await db.scalar(
+            select(User).where(
+                User.id == item.responsible_user_id,
+                User.tenant_id == item.tenant_id,
+            )
+        )
+        if responsible is not None:
+            responsible_name = f"{responsible.first_name} {responsible.last_name}".strip()
     return CohortSummary(
         id=item.id,
         name=item.name,
         description=item.description,
         is_active=item.is_active,
         member_count=members,
+        responsible_user_id=item.responsible_user_id,
+        responsible_user_name=responsible_name,
         created_at=item.created_at,
     )
+
+
+async def _validate_responsible_user(
+    db: AsyncSession,
+    tenant_id: UUID,
+    responsible_user_id: UUID | None,
+) -> None:
+    if responsible_user_id is None:
+        return
+    exists = await db.scalar(
+        select(User.id).where(
+            User.id == responsible_user_id,
+            User.tenant_id == tenant_id,
+            User.role == "methodologist",
+            User.is_active.is_(True),
+            User.status == "active",
+        )
+    )
+    if exists is None:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "responsible_user_must_be_active_tenant_methodologist"},
+        )
 
 
 async def _summary_then_commit(db: AsyncSession, item: Cohort) -> CohortSummary:
@@ -89,8 +127,13 @@ async def list_cohorts(db: AsyncSession = Depends(get_db), user=Depends(require_
 async def create_cohort(
     payload: CohortCreate, db: AsyncSession = Depends(get_db), user=Depends(require_role(*MANAGER_ROLES))
 ):
+    await _validate_responsible_user(db, user.tenant_id, payload.responsible_user_id)
     item = Cohort(
-        tenant_id=user.tenant_id, created_by=user.id, name=payload.name.strip(), description=payload.description.strip()
+        tenant_id=user.tenant_id,
+        created_by=user.id,
+        responsible_user_id=payload.responsible_user_id,
+        name=payload.name.strip(),
+        description=payload.description.strip(),
     )
     db.add(item)
     return await _summary_then_commit(db, item)
@@ -108,6 +151,9 @@ async def update_cohort(
         item.name = payload.name.strip()
     if payload.description is not None:
         item.description = payload.description.strip()
+    if "responsible_user_id" in payload.model_fields_set:
+        await _validate_responsible_user(db, user.tenant_id, payload.responsible_user_id)
+        item.responsible_user_id = payload.responsible_user_id
     if not item.name:
         raise HTTPException(status_code=422, detail="Cohort name cannot be empty")
     return await _summary_then_commit(db, item)

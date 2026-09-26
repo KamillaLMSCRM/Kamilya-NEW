@@ -44,6 +44,11 @@ interface OrganizationMovePreview {
   subtree_height: number;
 }
 
+interface TrainingOwnerOption {
+  id: string;
+  name: string;
+}
+
 type ImportProposalAction = "create" | "update" | "move" | "skip" | "conflict" | string;
 
 interface ImportProposalRow {
@@ -1205,6 +1210,7 @@ function normaliseStructureResponse(raw: any): StructureResponse {
     parent_id: rawNode.parent_id ?? null,
     is_active: rawNode.is_active ?? true,
     is_head_office: Boolean(rawNode.is_head_office),
+    head_user_id: rawNode.head_user_id ?? null,
     legacy_root: legacyRoot || Boolean(rawNode.legacy_root),
     children: (Array.isArray(rawNode.children) ? rawNode.children : Array.isArray(rawNode.departments) ? rawNode.departments : []).map((child: any) => toNode(child, legacyRoot)),
     positions: Array.isArray(rawNode.positions) ? rawNode.positions : [],
@@ -1284,8 +1290,11 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
     originalParentId?: string | null;
     isHeadOffice?: boolean;
     originalIsHeadOffice?: boolean;
+    headUserId?: string | null;
+    originalHeadUserId?: string | null;
     excludedUnitIds?: Set<string>;
   } | null>(null);
+  const [trainingOwners, setTrainingOwners] = useState<TrainingOwnerOption[]>([]);
   const [unitName, setUnitName] = useState("");
   const [unitSaving, setUnitSaving] = useState(false);
   const [movePreview, setMovePreview] = useState<OrganizationMovePreview | null>(null);
@@ -1350,6 +1359,24 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
     };
   }, [refreshKey, retryKey]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void api.get("/v1/users?per_page=500&role=methodologist&is_active=true")
+      .then((response) => {
+        if (cancelled) return;
+        const payload = response.data;
+        const rows = Array.isArray(payload) ? payload : payload?.items || payload?.users || [];
+        setTrainingOwners(rows.map((item: any) => ({
+          id: String(item.id || item.user_id),
+          name: String(item.full_name || `${item.first_name || ""} ${item.last_name || ""}`.trim() || item.email || item.id),
+        })).filter((item: TrainingOwnerOption) => item.id && item.name));
+      })
+      .catch(() => {
+        if (!cancelled) setTrainingOwners([]);
+      });
+    return () => { cancelled = true; };
+  }, [refreshKey]);
+
   const createUnit = async () => {
     const name = unitName.trim();
     if (!unitModal || !name) return;
@@ -1362,6 +1389,9 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
         if (Boolean(unitModal.isHeadOffice) !== Boolean(unitModal.originalIsHeadOffice)) {
           patch.is_head_office = Boolean(unitModal.isHeadOffice);
         }
+        if ((unitModal.headUserId || null) !== (unitModal.originalHeadUserId || null)) {
+          patch.head_user_id = unitModal.headUserId || null;
+        }
         await api.patch(`/v1/organization-units/${unitModal.unitId}`, patch);
         toast.success(parentId !== (unitModal.originalParentId || null)
           ? ui("authenticatedUi.adminStaff.structure.unitMoved")
@@ -1373,6 +1403,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
           parent_id: unitModal.parentId || null,
         };
         if (unitModal.isHeadOffice) body.is_head_office = true;
+        if (unitModal.headUserId) body.head_user_id = unitModal.headUserId;
         await api.post("/v1/organization-units", body);
         toast.success(unitModal.type === "branch"
           ? ui("authenticatedUi.adminStaff.structure.branchAdded")
@@ -1402,6 +1433,8 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       originalParentId: node.parent_id || null,
       isHeadOffice: Boolean(node.is_head_office),
       originalIsHeadOffice: Boolean(node.is_head_office),
+      headUserId: node.head_user_id || null,
+      originalHeadUserId: node.head_user_id || null,
       excludedUnitIds: collectOrganizationUnitSubtreeIds(node),
     });
   };
@@ -1935,6 +1968,14 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
             <div className="flex items-start justify-between gap-3"><div><h2 id="unit-dialog-title" className="text-lg font-bold">{unitModal.unitId ? ui("authenticatedUi.adminStaff.structure.editUnit") : unitModal.type === "branch" ? ui("authenticatedUi.adminStaff.structure.newBranch") : unitModal.type === "department" ? ui("authenticatedUi.adminStaff.structure.newDepartment") : ui("authenticatedUi.adminStaff.structure.newUnit")}</h2><p className="mt-1 text-sm text-muted-foreground">{unitModal.parentName ? ui("authenticatedUi.adminStaff.structure.inUnit", { name: unitModal.parentName }) : ui("authenticatedUi.adminStaff.structure.rootUnit")}</p></div><button type="button" aria-label={ui("authenticatedUi.adminStaff.actions.close")} onClick={closeUnitModal} disabled={unitSaving}><X className="h-5 w-5" /></button></div>
             {!unitModal.unitId && <label className="mt-5 block space-y-1 text-sm"><span className="font-medium">{ui("authenticatedUi.adminStaff.structure.unitType")}</span><select aria-label={ui("authenticatedUi.adminStaff.structure.unitType")} value={unitModal.type} onChange={(event) => setUnitModal((current) => current ? { ...current, type: event.target.value } : current)} className="w-full rounded-md border border-border bg-background px-3 py-2"><option value="organization">{ui("authenticatedUi.adminStaff.structure.types.organization")}</option><option value="branch">{ui("authenticatedUi.adminStaff.structure.types.branch")}</option><option value="management">{ui("authenticatedUi.adminStaff.structure.types.management")}</option><option value="division">{ui("authenticatedUi.adminStaff.structure.types.division")}</option><option value="department">{ui("authenticatedUi.adminStaff.structure.types.department")}</option><option value="sector">{ui("authenticatedUi.adminStaff.structure.types.sector")}</option><option value="team">{ui("authenticatedUi.adminStaff.structure.types.team")}</option><option value="other">{ui("authenticatedUi.adminStaff.structure.types.other")}</option></select></label>}
             <label className="mt-5 block space-y-1 text-sm"><span className="font-medium">{ui("authenticatedUi.adminStaff.structure.name")}</span><input autoFocus value={unitName} onChange={(event) => setUnitName(event.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2" placeholder={unitModal.type === "branch" ? ui("authenticatedUi.adminStaff.structure.branchPlaceholder") : ui("authenticatedUi.adminStaff.structure.departmentPlaceholder")} /></label>
+            <label className="mt-5 block space-y-1 text-sm">
+              <span className="font-medium">{ui("authenticatedUi.adminStaff.structure.trainingOwner")}</span>
+              <select value={unitModal.headUserId || ""} onChange={(event) => setUnitModal((current) => current ? { ...current, headUserId: event.target.value || null } : current)} className="w-full rounded-md border border-border bg-background px-3 py-2" disabled={unitSaving}>
+                <option value="">{ui("authenticatedUi.adminStaff.structure.trainingOwnerNone")}</option>
+                {trainingOwners.map((owner) => <option key={owner.id} value={owner.id}>{owner.name}</option>)}
+              </select>
+              <span className="block text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.trainingOwnerHint")}</span>
+            </label>
             {unitModal.unitId && data && (
               <div className="mt-5 space-y-2 text-sm">
                 <span className="font-medium">{ui("authenticatedUi.adminStaff.structure.parentUnit")}</span>

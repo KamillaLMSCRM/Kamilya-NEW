@@ -24,6 +24,8 @@ from app.modules.mandatory_training.service import (
     get_mandatory_training_page,
     get_mandatory_training_summary,
 )
+from app.modules.training_responsibility import resolve_reporting_scope
+from app.modules.training_responsibility.policy import ReportingScopeMode
 
 router = APIRouter(prefix="/admin/mandatory-training", tags=["admin"])
 
@@ -77,18 +79,29 @@ async def mandatory_training_summary(
             action_review_stale=0,
         )
     try:
+        reporting_scope = await resolve_reporting_scope(
+            db,
+            user.tenant_id,
+            user_id=user.id,
+            role=user.role,
+        )
+        filters = _filters(
+            course_id=course_id,
+            organization_unit_id=organization_unit_id,
+            position_id=position_id,
+            requirement_state=requirement_state,
+            action_required=action_required,
+            search=search,
+            include_inactive=include_inactive,
+        )
+        if reporting_scope.mode is ReportingScopeMode.RESTRICTED:
+            filters = filters.model_copy(
+                update={"responsible_user_ids": reporting_scope.user_ids}
+            )
         return await get_mandatory_training_summary(
             db,
             user.tenant_id,
-            _filters(
-                course_id=course_id,
-                organization_unit_id=organization_unit_id,
-                position_id=position_id,
-                requirement_state=requirement_state,
-                action_required=action_required,
-                search=search,
-                include_inactive=include_inactive,
-            ),
+            filters,
         )
     except ValueError as exc:
         if str(exc) != "mandatory_training_scope_too_large":
@@ -118,21 +131,33 @@ async def list_mandatory_training(
     if user.tenant_id is None:
         return MandatoryTrainingPage(items=[], total=0, limit=limit, offset=offset)
     try:
-        return await get_mandatory_training_page(
+        reporting_scope = await resolve_reporting_scope(
             db,
             user.tenant_id,
-            _filters(
-                course_id=course_id,
-                organization_unit_id=organization_unit_id,
-                position_id=position_id,
-                requirement_state=requirement_state,
-                action_required=action_required,
-                search=search,
-                include_inactive=include_inactive,
-            ),
+            user_id=user.id,
+            role=user.role,
+        )
+        filters = _filters(
+            course_id=course_id,
+            organization_unit_id=organization_unit_id,
+            position_id=position_id,
+            requirement_state=requirement_state,
+            action_required=action_required,
+            search=search,
+            include_inactive=include_inactive,
+        )
+        if reporting_scope.mode is ReportingScopeMode.RESTRICTED:
+            filters = filters.model_copy(
+                update={"responsible_user_ids": reporting_scope.user_ids}
+            )
+        page = await get_mandatory_training_page(
+            db,
+            user.tenant_id,
+            filters,
             limit=limit,
             offset=offset,
         )
+        return page.model_copy(update={"reporting_scope": reporting_scope.mode.value})
     except ValueError as exc:
         if str(exc) != "mandatory_training_scope_too_large":
             raise

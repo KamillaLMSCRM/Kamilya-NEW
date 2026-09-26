@@ -69,6 +69,7 @@ beforeEach(() => {
       total: 1,
       limit: 100,
       offset: 0,
+      reporting_scope: 'restricted',
     } });
     return Promise.reject(new Error(`Unexpected path: ${path}`));
   });
@@ -87,6 +88,7 @@ describe('mandatory training matrix', () => {
     expect(screen.getAllByText(/Операции/).length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('Нужно создать назначение')).toHaveLength(2);
     expect(screen.getByText('1', { selector: '[data-testid="missing-enrollment-count"]' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Показаны только сотрудники из подразделений и групп');
   });
 
   it('shows a truthful error instead of replacing unavailable data with zeros', async () => {

@@ -93,6 +93,7 @@ async def create_unit(
             description=body.description,
             code=body.code,
             is_head_office=body.is_head_office,
+            head_user_id=body.head_user_id,
         )
     except (OrganizationHierarchyError, ValueError) as exc:
         await db.rollback()

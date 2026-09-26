@@ -682,6 +682,13 @@ production runtime and cross-container readback remain pending release approval.
 - Verification: from `apps/api`, the command returned single head `0111`.
 - Prevention: split repo-level and app-level operations by working directory; do not
   classify a directory/tool error as a migration defect.
+- Recurrence 2026-09-26: `python -m alembic -c apps/api/alembic.ini heads`
+  was invoked from the repository root. Alembic resolved the script location
+  relative to the current directory and reported `Path doesn't exist: alembic`.
+  The canonical source-head check is run from `apps/api` with
+  `python -m alembic -c alembic.ini heads`; it returned single head `0164`.
+  Do not retry the root-relative variant or treat this message as a broken
+  migration chain.
 
 ## PROVISION-001 - A privileged user was created through learner invitation
 

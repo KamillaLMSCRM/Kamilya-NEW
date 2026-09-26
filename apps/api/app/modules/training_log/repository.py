@@ -34,6 +34,7 @@ from sqlalchemy import (
     and_,
     case,
     desc,
+    false,
     func,
     literal,
     or_,
@@ -195,6 +196,12 @@ def _apply_filters(stmt, f: TrainingLogFilter, tenant_id: UUID):
         CourseModel.tenant_id == tenant_id,
     )
     stmt = stmt.where(User.role.in_(("student",)))  # HR doesn't want to see admins/methodologists in this log
+    if f.responsible_user_ids is not None:
+        stmt = stmt.where(
+            User.id.in_(f.responsible_user_ids)
+            if f.responsible_user_ids
+            else false()
+        )
     if f.course_id:
         stmt = stmt.where(CourseModel.id == f.course_id)
     if f.enrollment_id:

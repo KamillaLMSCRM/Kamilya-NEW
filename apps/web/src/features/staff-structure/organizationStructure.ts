@@ -23,6 +23,7 @@ export interface OrganizationUnitNode {
   parent_id?: string | null;
   is_active?: boolean;
   is_head_office?: boolean;
+  head_user_id?: string | null;
   legacy_root?: boolean;
   children: OrganizationUnitNode[];
   positions: OrganizationStructurePosition[];

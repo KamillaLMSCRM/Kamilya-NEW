@@ -119,6 +119,7 @@ interface TrainingLogPage {
   total: number;
   limit: number;
   offset: number;
+  reporting_scope: 'tenant' | 'restricted';
 }
 
 interface TrainingLogSummary {
@@ -159,6 +160,11 @@ export default function AdminTrainingLogPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const isMethodologist = user?.role === 'methodologist';
+  const restrictedScopeCopy = lang === 'kk'
+    ? 'Сізге бекітілген бөлімшелер мен топтардағы қызметкерлер ғана көрсетілген.'
+    : lang === 'en'
+      ? 'Only employees in the organization units and groups assigned to you are shown.'
+      : 'Показаны только сотрудники из подразделений и групп, за которые вы отвечаете.';
   const canInspectLearning = canUseLearningInsights(user);
 
   const filters = browserState.filters;
@@ -468,6 +474,12 @@ export default function AdminTrainingLogPage() {
       {filters.enrollment_id && (
         <div role="status" className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">
           {t('trainingLog.selectedAssignment')}
+        </div>
+      )}
+
+      {page?.reporting_scope === 'restricted' && (
+        <div role="status" className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">
+          {restrictedScopeCopy}
         </div>
       )}
 

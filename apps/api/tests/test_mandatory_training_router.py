@@ -17,6 +17,7 @@ from app.modules.mandatory_training.schemas import (
     MandatoryTrainingPage,
     MandatoryTrainingSummary,
 )
+from app.modules.training_responsibility.policy import ReportingScopeMode
 
 
 def _empty_summary() -> MandatoryTrainingSummary:
@@ -54,7 +55,7 @@ def test_application_registers_mandatory_training_routes():
 @pytest.mark.asyncio
 async def test_routes_forward_one_tenant_filter_and_disable_caching(monkeypatch):
     tenant_id = uuid4()
-    user = SimpleNamespace(tenant_id=tenant_id)
+    user = SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="admin")
     observed = []
 
     async def fake_page(_db, actual_tenant_id, filters, *, limit, offset):
@@ -121,12 +122,64 @@ async def test_routes_fail_closed_for_oversized_scope_and_empty_superadmin_conte
     }
 
     with pytest.raises(HTTPException) as exc:
-        await list_mandatory_training(user=SimpleNamespace(tenant_id=uuid4()), **common)
+        await list_mandatory_training(
+            user=SimpleNamespace(id=uuid4(), tenant_id=uuid4(), role="admin"),
+            **common,
+        )
     assert exc.value.status_code == 422
     assert exc.value.detail == {"code": "mandatory_training_scope_too_large"}
 
     empty = await list_mandatory_training(
-        user=SimpleNamespace(tenant_id=None),
+        user=SimpleNamespace(id=uuid4(), tenant_id=None, role="superadmin"),
         **{**common, "response": Response()},
     )
     assert empty == MandatoryTrainingPage(items=[], total=0, limit=100, offset=0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("responsible_user_ids", [frozenset({uuid4(), uuid4()}), frozenset()])
+async def test_page_and_summary_apply_the_same_restricted_reporting_scope(
+    monkeypatch,
+    responsible_user_ids,
+):
+    tenant_id = uuid4()
+    user = SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist")
+    observed = []
+
+    async def fake_scope(*_args, **_kwargs):
+        return SimpleNamespace(
+            mode=ReportingScopeMode.RESTRICTED,
+            user_ids=responsible_user_ids,
+        )
+
+    async def fake_page(_db, actual_tenant_id, filters, *, limit, offset):
+        assert actual_tenant_id == tenant_id
+        observed.append(filters.responsible_user_ids)
+        return MandatoryTrainingPage(items=[], total=0, limit=limit, offset=offset)
+
+    async def fake_summary(_db, actual_tenant_id, filters):
+        assert actual_tenant_id == tenant_id
+        observed.append(filters.responsible_user_ids)
+        return _empty_summary()
+
+    monkeypatch.setattr(mandatory_training_router, "resolve_reporting_scope", fake_scope)
+    monkeypatch.setattr(mandatory_training_router, "get_mandatory_training_page", fake_page)
+    monkeypatch.setattr(mandatory_training_router, "get_mandatory_training_summary", fake_summary)
+    common = {
+        "response": Response(),
+        "course_id": None,
+        "organization_unit_id": None,
+        "position_id": None,
+        "requirement_state": None,
+        "action_required": None,
+        "search": None,
+        "include_inactive": False,
+        "db": object(),
+        "user": user,
+    }
+
+    page = await list_mandatory_training(limit=50, offset=0, **common)
+    await mandatory_training_summary(**{**common, "response": Response()})
+
+    assert observed == [responsible_user_ids, responsible_user_ids]
+    assert page.reporting_scope == "restricted"

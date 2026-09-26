@@ -16,6 +16,7 @@ class OrganizationUnitCreate(BaseModel):
     description: str = Field(default="", max_length=2000)
     code: str | None = Field(default=None, max_length=100)
     is_head_office: bool = False
+    head_user_id: UUID | None = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -33,6 +34,7 @@ class OrganizationUnitUpdate(BaseModel):
     description: str | None = Field(default=None, max_length=2000)
     code: str | None = Field(default=None, max_length=100)
     is_head_office: bool | None = None
+    head_user_id: UUID | None = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -72,6 +74,7 @@ class OrganizationUnitResponse(BaseModel):
     code: str | None
     created_at: datetime
     is_head_office: bool = False
+    head_user_id: UUID | None = None
     depth: int | None = None
     breadcrumb: list[str] = Field(default_factory=list)
 

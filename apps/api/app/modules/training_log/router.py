@@ -7,6 +7,9 @@ Endpoints:
 - GET /api/v1/admin/training-log?format=csv      CSV stream
 """
 
+# FastAPI Query/Depends factories are intentionally declared in signatures.
+# ruff: noqa: B008
+
 from __future__ import annotations
 
 import logging
@@ -31,6 +34,8 @@ from app.modules.training_log.service import (
     get_training_log_summary,
     stream_training_log_as_csv,
 )
+from app.modules.training_responsibility import resolve_reporting_scope
+from app.modules.training_responsibility.policy import ReportingScopeMode
 
 logger = logging.getLogger(__name__)
 
@@ -65,21 +70,32 @@ async def training_log_summary(
     response.headers["Cache-Control"] = "no-store"
     if user.tenant_id is None:
         return TrainingLogSummary(total=0, assigned=0, in_progress=0, completed=0, overdue=0)
+    reporting_scope = await resolve_reporting_scope(
+        db,
+        user.tenant_id,
+        user_id=user.id,
+        role=user.role,
+    )
+    filters = TrainingLogFilter(
+        enrollment_id=enrollment_id,
+        course_id=course_id,
+        department_id=department_id,
+        position_id=position_id,
+        status=status,
+        history=history,
+        delivery_type=delivery_type,
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
+    )
+    if reporting_scope.mode is ReportingScopeMode.RESTRICTED:
+        filters = filters.model_copy(
+            update={"responsible_user_ids": reporting_scope.user_ids}
+        )
     return await get_training_log_summary(
         db,
         user.tenant_id,
-        TrainingLogFilter(
-            enrollment_id=enrollment_id,
-            course_id=course_id,
-            department_id=department_id,
-            position_id=position_id,
-            status=status,
-            history=history,
-            delivery_type=delivery_type,
-            date_from=date_from,
-            date_to=date_to,
-            search=search,
-        ),
+        filters,
     )
 
 
@@ -132,6 +148,14 @@ async def list_training_log(
         date_to=date_to,
         search=search,
     )
+    reporting_scope = await resolve_reporting_scope(
+        db,
+        user.tenant_id,
+        user_id=user.id,
+        role=user.role,
+    )
+    if reporting_scope.mode is ReportingScopeMode.RESTRICTED:
+        f = f.model_copy(update={"responsible_user_ids": reporting_scope.user_ids})
 
     if format == "csv":
         # Stream CSV with all rows matching the filter (no pagination cap).
@@ -147,10 +171,11 @@ async def list_training_log(
             },
         )
 
-    return await get_training_log_page(
+    page = await get_training_log_page(
         db,
         user.tenant_id,
         f,
         limit=limit,
         offset=offset,
     )
+    return page.model_copy(update={"reporting_scope": reporting_scope.mode.value})
