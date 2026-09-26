@@ -580,7 +580,6 @@ export default function AIGeneratePage() {
       setAcknowledgements({ languageConfirmed: false, reuseReason: null });
       startJob(res.data);
     } catch (e: any) {
-      console.error('Generation failed', e);
       const detail = e?.response?.data?.details ?? e?.response?.data?.detail;
       if (e?.response?.status === 429 && detail?.code === 'tenant_ai_job_limit_reached') {
         setAdmissionError(true);
@@ -605,6 +604,7 @@ export default function AIGeneratePage() {
         setReuseDialog({ open: true, courses: detail.existing_courses, reason: null });
         return;
       }
+      console.error('Generation failed', e);
       toast.error(t('aiGeneration.errors.generation'), { description: t('aiGeneration.errors.generationHint') });
     } finally {
       setGenerationSubmitting(false);

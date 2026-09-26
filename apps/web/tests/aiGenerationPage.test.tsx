@@ -553,6 +553,40 @@ describe('/ai/generate combined 409 acknowledgement sequences', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Генерировать курс/ }));
   }
 
+  it('does not report an expected reuse acknowledgement as a generation failure', async () => {
+    mockCatalogWith(readyDocuments);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    apiMock.post.mockImplementation(async (url: string) => {
+      if (url === '/v1/ai/document-compatibility') {
+        return { data: { status: 'compatible', score: 1, requires_decision: false, clusters: [] } } as any;
+      }
+      if (url === '/v1/ai/generate-course') {
+        throw {
+          response: {
+            status: 409,
+            data: {
+              detail: {
+                code: 'source_documents_already_used',
+                message: 'These documents already have courses',
+                existing_courses: [{ id: 'course-9', title: 'Существующий курс', status: 'draft' }],
+              },
+            },
+          },
+        };
+      }
+      throw new Error(`Unexpected POST ${url}`);
+    });
+
+    try {
+      await selectTwoDocumentsAndClickGenerate();
+
+      expect(await screen.findByRole('dialog', { name: 'Источник уже использован' })).toBeInTheDocument();
+      expect(consoleError).not.toHaveBeenCalledWith('Generation failed', expect.anything());
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it('keeps language confirmation through the reuse dialog when sources are mixed-language and already used', async () => {
     mockCatalogWith(readyDocuments);
     let generateCalls = 0;

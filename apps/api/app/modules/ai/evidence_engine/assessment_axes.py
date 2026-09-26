@@ -178,11 +178,53 @@ def _structured_list_clauses(value: str) -> list[str]:
     ]
 
 
-def _axis_kind(fact: SourceFact) -> AssessmentAxisKind:
-    value = _norm(fact.value)
+_AUTO_NARRATIVE_ATTRIBUTES = {
+    "срок",
+    "финансовое условие",
+    "право",
+    "обязанность",
+    "запрет",
+    "положение",
+}
+
+
+def _claim_attribute(value: str) -> str:
+    """Classify the exact claim selected from a larger narrative evidence unit."""
+    normalized = _norm(value)
+    if re.search(
+        r"\b(?:минут|день|дня|дней|месяц|месяца|месяцев|час|часов|срок)\w*\b",
+        normalized,
+    ):
+        return "срок"
+    if re.search(r"\b(?:процент|ставк|вознагражден|тенге|сумм)\w*\b", normalized):
+        return "финансовое условие"
+    if re.search(
+        r"(?:\bнельзя\b|\bзапрещен\w*\b|\bне допускается\b|\bне вправе\b)",
+        normalized,
+    ):
+        return "запрет"
+    if re.search(r"\b(?:вправе|право)\w*\b", normalized):
+        return "право"
+    if re.search(r"\b(?:обязан|должен|необходимо)\w*\b", normalized):
+        return "обязанность"
+    return "положение"
+
+
+def _axis_attribute(fact: SourceFact, correct_value: str) -> str:
+    attribute = fact.attribute.strip()
+    if _norm(attribute) not in _AUTO_NARRATIVE_ATTRIBUTES:
+        return attribute
+    return _claim_attribute(correct_value)
+
+
+def _axis_kind(attribute: str, value: str) -> AssessmentAxisKind:
+    value = _norm(value)
     if re.search(r"\d|%|\b(?:минут|час|дн|день|месяц)", value):
         return "numeric_value"
-    if re.search(r"\b(?:правил|требован|запрещ|нельзя|долж|разреш|обязат)", _norm(fact.attribute + " " + fact.value)):
+    if re.search(
+        r"\b(?:правил|требован|запрещ|нельзя|долж|разреш|обязат)",
+        _norm(attribute + " " + value),
+    ):
         return "rule_value"
     return "attribute"
 
@@ -682,6 +724,7 @@ def derive_assessment_axes(
         if _is_dependent_source_fragment(source_value):
             continue
         correct_value, required_prompt = _contextualized_list_axis(fact, source_value)
+        axis_attribute = _axis_attribute(fact, correct_value)
         required_prompt = required_prompt or _required_prompt(correct_value)
         if not required_prompt and is_tabular_locator(fact.source_locator):
             # Keep the source-owned table subject and attribute in the stem;
@@ -692,7 +735,7 @@ def derive_assessment_axes(
                 f"для «{fact.subject.strip()}»?"
             )
         normalized_value = _norm(correct_value)
-        identity = (_norm(fact.subject), _norm(fact.attribute), normalized_value)
+        identity = (_norm(fact.subject), _norm(axis_attribute), normalized_value)
         if identity in seen:
             continue
         seen.add(identity)
@@ -702,7 +745,7 @@ def derive_assessment_axes(
                 lesson.lesson_id,
                 block_id,
                 fact.fact_id,
-                _norm(fact.attribute),
+                _norm(axis_attribute),
                 normalized_value,
             )).encode("utf-8")
         ).hexdigest()[:20]
@@ -721,12 +764,12 @@ def derive_assessment_axes(
             primary_fact_id=fact.fact_id,
             evidence_fact_ids=(fact.fact_id,),
             subject=fact.subject.strip(),
-            attribute=fact.attribute.strip(),
+            attribute=axis_attribute,
             required_prompt=required_prompt,
             correct_value=correct_value,
             normalized_correct_value=normalized_value,
             eligible_distractor_fact_ids=peers,
-            axis_kind=_axis_kind(fact),
+            axis_kind=_axis_kind(axis_attribute, correct_value),
             distractor_constraints=_distractor_constraints(fact, eligible),
         ))
     return tuple(result)
@@ -789,6 +832,7 @@ def materialize_assessment(
 def _teaching_explanation(axis: AssessmentAxis) -> str:
     """Explain the server-owned key without trusting provider prose."""
     sample = f"{axis.subject} {axis.attribute} {axis.correct_value}".casefold()
+    generic_attribute = _norm(axis.attribute) == "положение"
     if any(character in sample for character in "әғқңөұүһі"):
         if axis.axis_kind == "numeric_value":
             return (
@@ -801,6 +845,12 @@ def _teaching_explanation(axis: AssessmentAxis) -> str:
                 f"Сұрақ «{axis.subject}» үшін «{axis.attribute}» ережесін тексереді. "
                 f"Дереккөзде тікелей «{axis.correct_value}» деп көрсетілген; осы "
                 "ережені қолдану қажет."
+            )
+        if generic_attribute:
+            return (
+                f"«{axis.subject}» бойынша дереккөздегі тұжырым тексеріледі. "
+                f"Дереккөзде: «{axis.correct_value}» деп көрсетілген; жауап осы "
+                "тұжырымға сәйкес келуі керек."
             )
         return (
             f"«{axis.subject}» үшін «{axis.attribute}» сипаттамасы тексеріледі. "
@@ -818,6 +868,12 @@ def _teaching_explanation(axis: AssessmentAxis) -> str:
                 f"This question checks the “{axis.attribute}” rule for “{axis.subject}”. "
                 f"The source states: “{axis.correct_value}”; this is the rule to apply."
             )
+        if generic_attribute:
+            return (
+                f"This question checks the source statement for “{axis.subject}”. "
+                f"The source states: “{axis.correct_value}”; the answer must match "
+                "that statement."
+            )
         return (
             f"This question checks the “{axis.attribute}” characteristic for "
             f"“{axis.subject}”. The source gives “{axis.correct_value}”, so a different "
@@ -834,6 +890,12 @@ def _teaching_explanation(axis: AssessmentAxis) -> str:
             f"Вопрос проверяет правило «{axis.attribute}» для «{axis.subject}». "
             f"Источник прямо устанавливает: «{axis.correct_value}»; именно это "
             "правило следует применить."
+        )
+    if generic_attribute:
+        return (
+            f"Для «{axis.subject}» проверяется положение из источника. "
+            f"В источнике указано: «{axis.correct_value}»; ответ должен "
+            "соответствовать этому положению."
         )
     return (
         f"Для «{axis.subject}» проверяется характеристика «{axis.attribute}». "

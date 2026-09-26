@@ -15,6 +15,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.11.7] - 2026-09-26
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Classify the exact source claim selected for an assessment question instead
+  of inheriting an unrelated deadline or rule label from another sentence in
+  the same evidence paragraph.
+- Keep expected course-generation acknowledgement responses out of the browser
+  error console while preserving real generation failures as errors.
+
+### Security
+
 ## [0.11.6] - 2026-09-26
 
 ### Added

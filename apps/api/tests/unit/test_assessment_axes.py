@@ -58,6 +58,77 @@ def test_server_owned_axis_materializes_the_same_key_regardless_of_model_key_fie
     assert set(question.options[1:]) == set(authored.distractors)
 
 
+def test_selected_claim_does_not_inherit_an_unrelated_paragraph_deadline_label() -> None:
+    fact = SourceFact(
+        "fact-needs-clarification",
+        "Уточнение потребности",
+        "срок",
+        (
+            "Сотрудник выясняет ожидаемый результат и желаемый срок. "
+            "Если фактов недостаточно, задаются уточняющие вопросы. "
+            "Запрещено придумывать отсутствующие сведения."
+        ),
+        "doc_id=policy;section=needs;part=1",
+    )
+    lesson = LessonDraft(
+        "lesson-needs",
+        "Обслуживание",
+        "Уточнение потребности",
+        "Уточнять запрос без домыслов",
+        fact.value,
+        (fact.fact_id,),
+        (),
+        2,
+    )
+
+    axis = derive_assessment_axes(lesson, [fact], block_id="block-needs")[0]
+
+    assert axis.correct_value == "Если фактов недостаточно, задаются уточняющие вопросы."
+    assert axis.attribute == "положение"
+    assert axis.axis_kind == "attribute"
+
+    question = materialize_assessment(
+        axis,
+        AuthoredAssessment(
+            axis_id=axis.axis_id,
+            prompt="Что делать сотруднику, если фактов недостаточно?",
+            distractors=(
+                "Придумать недостающие сведения.",
+                "Подменить запрос похожим случаем.",
+            ),
+        ),
+    )
+
+    assert question is not None
+    assert "положение из источника" in question.explanation.casefold()
+    assert "характеристика «положение»" not in question.explanation.casefold()
+
+
+def test_selected_deadline_claim_keeps_its_deadline_axis() -> None:
+    fact = SourceFact(
+        "fact-critical-deadline",
+        "Срок первого ответа",
+        "срок",
+        "Для критического обращения первый ответ должен быть дан не позднее 15 минут.",
+        "doc_id=policy;section=response-time;part=1",
+    )
+    lesson = LessonDraft(
+        "lesson-response-time",
+        "Обслуживание",
+        "Срок первого ответа",
+        "Соблюдать сроки ответа",
+        fact.value,
+        (fact.fact_id,),
+        (),
+        2,
+    )
+
+    axis = derive_assessment_axes(lesson, [fact], block_id="block-response-time")[0]
+
+    assert axis.attribute == "срок"
+    assert axis.axis_kind == "numeric_value"
+
+
 def test_materialization_rejects_a_distractor_equivalent_to_the_server_key() -> None:
     lesson, fact = _fixture()
     axis = derive_assessment_axes(lesson, [fact], block_id="block-1")[0]
