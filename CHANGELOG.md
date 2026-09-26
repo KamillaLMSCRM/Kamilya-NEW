@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.11.9] - 2026-09-26
+
+### Fixed
+
+- Keep mandatory-training list and summary available when retained legacy data
+  contains independent current enrollment chains for one employee and course.
+  The read model selects the latest occurrence deterministically without
+  rewriting or deleting training-log and evidence history.
+
 ## [0.11.8] - 2026-09-26
 
 ### Added
@@ -1707,7 +1716,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.8...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.9...HEAD
+[0.11.9]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.8...v0.11.9
 [0.11.8]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.7...v0.11.8
 [0.11.7]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.6...v0.11.7
 [0.11.6]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.5...v0.11.6

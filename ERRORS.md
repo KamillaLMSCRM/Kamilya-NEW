@@ -3855,6 +3855,17 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   run the release-mode validator before the first DEV push. Development-mode
   validation is not sufficient for a release candidate.
 
+### Recurrence 2026-09-26
+
+- A patch release changed `VERSION` and the web manifest but omitted the API
+  manifest and dated changelog section. DEV CI stopped at the version gate; no
+  new runtime was deployed. This repeated the same pre-push process failure.
+- The replacement candidate is not pushed until
+  `python scripts/validate_version.py --release --expected-version 0.11.9`
+  passes locally. For any version bump, that command is now part of the local
+  hard gate before Git authentication and push, not a later production-only
+  check.
+
 ## AI-QUALITY-029 - A title-matching sole section or small catalog distorted source density
 
 - Date: 2026-09-23. Local candidate only; no DEV or production deployment.
