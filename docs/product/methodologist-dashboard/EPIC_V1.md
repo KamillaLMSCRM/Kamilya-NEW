@@ -1,6 +1,6 @@
 # Methodologist dashboard — operational overview V1
 
-Status: implemented locally, awaiting DEV and production acceptance.
+Status: implemented and DEV accepted; production acceptance pending.
 
 ## Outcome
 
@@ -48,5 +48,5 @@ Tenant administrators do not request learner-level information. Their landing sc
 - [x] Russian, Kazakh, and English user-facing copy.
 - [x] Responsive grid with no fixed-width horizontal board.
 - [x] Unit coverage for healthy, partial-failure, empty, failed-job, and role-boundary states.
-- [ ] DEV browser acceptance at desktop, 1024 px, and mobile width.
+- [x] DEV browser acceptance at desktop, 1024 px, and mobile width.
 - [ ] Production browser acceptance with exact deployed SHA readback.

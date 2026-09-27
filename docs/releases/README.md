@@ -57,6 +57,28 @@ protected workflow fails closed unless `VERSION`, the dated changelog section,
 release SHA all identify the same immutable commit. Production readback must
 confirm both the semantic `product_version` and the exact `release_sha`.
 
+After publication or a runtime rollout, reconcile the current source release
+with both public runtime surfaces from the exact tagged checkout:
+
+```powershell
+py -3 scripts/ops/product_state_reconcile.py `
+  --output outputs/product-state/latest.json
+```
+
+The command is read-only and returns one of three bounded states:
+
+- `ALIGNED`: API and native frontend both run the exact source SHA;
+- `SPLIT_ANCESTRY`: each runtime SHA is a verified ancestor of the source SHA,
+  which is legitimate only when intervening releases did not change that
+  runtime surface;
+- `DRIFT`: at least one public runtime SHA is outside the current source
+  history. The command exits non-zero and release acceptance must stop.
+
+This reconciliation does not replace authenticated browser journeys, database
+revision checks, worker/image readback or business-flow acceptance. It prevents
+an intentional frontend-only or tooling-only release from being mistaken for
+runtime drift while still failing closed for an unknown deployment identity.
+
 The first release has no changelog comparison link because no earlier product
 tag exists. From the second release onward, root adds an `[Unreleased]`
 comparison URL using the actual repository and the latest published tag.

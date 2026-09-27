@@ -61,9 +61,9 @@ const HIDDEN_JOB_STATUSES = new Set(['completed', 'cancelled']);
 
 export function buildMethodologistDashboard(sources: DashboardSources): MethodologistDashboardModel {
   const log = sources.learning?.summary.training_log ?? null;
-  const visibleJobs = (sources.jobs ?? [])
-    .filter((job) => job.job_type === 'course_generation' && !HIDDEN_JOB_STATUSES.has(job.status))
-    .slice(0, 5);
+  const relevantJobs = (sources.jobs ?? [])
+    .filter((job) => job.job_type === 'course_generation' && !HIDDEN_JOB_STATUSES.has(job.status));
+  const visibleJobs = relevantJobs.slice(0, 5);
 
   return {
     learningAvailable: Boolean(log && sources.learning),
@@ -92,8 +92,8 @@ export function buildMethodologistDashboard(sources: DashboardSources): Methodol
       publishedCourses: sources.courses?.filter((course) => course.status === 'published').length ?? null,
       draftCourses: sources.courses?.filter((course) => course.status !== 'published').length ?? null,
       jobsAvailable: sources.jobs !== null,
-      activeJobs: sources.jobs === null ? null : visibleJobs.filter((job) => ACTIVE_JOB_STATUSES.has(job.status)).length,
-      attentionJobs: sources.jobs === null ? null : visibleJobs.filter((job) => !ACTIVE_JOB_STATUSES.has(job.status)).length,
+      activeJobs: sources.jobs === null ? null : relevantJobs.filter((job) => ACTIVE_JOB_STATUSES.has(job.status)).length,
+      attentionJobs: sources.jobs === null ? null : relevantJobs.filter((job) => !ACTIVE_JOB_STATUSES.has(job.status)).length,
       jobs: visibleJobs,
     },
   };

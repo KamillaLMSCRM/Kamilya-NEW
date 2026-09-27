@@ -9,9 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add a read-only product-state reconciler that classifies exact runtime
+  alignment, legitimate split ancestry and unknown production drift across the
+  published source release, API health and native frontend health.
+
 ### Changed
 
+- Make the AI course critical-journey gate execute the accepted four-interface
+  source, plan, lesson and assessment regressions instead of relying only on
+  older generic upload and persistence checks.
+
 ### Fixed
+
+- Count all active and problematic course-generation jobs on the methodologist
+  dashboard while still limiting the detailed list to five rows.
 
 ### Security
 

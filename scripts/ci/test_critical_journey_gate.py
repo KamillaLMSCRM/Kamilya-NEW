@@ -30,9 +30,21 @@ def test_ai_paths_resolve_the_complete_critical_journey() -> None:
         ],
     )
     assert [journey.journey_id for journey in impacted] == ["AI-COURSE-01"]
-    assert len(impacted[0].required_tests) == 5
+    assert len(impacted[0].required_tests) == 13
     assert len(impacted[0].database_tests) == 1
     assert "scripts/ci/kb_rag_schema_contract.py" in impacted[0].runtime_gates
+    assert (
+        "apps/api/tests/unit/test_backward_quality_corpus.py::"
+        "test_source_plan_and_draft_respect_document_information_density"
+    ) in impacted[0].required_tests
+    assert (
+        "apps/api/tests/unit/test_semantic_block_assessment.py::"
+        "test_source_scope_excludes_other_sections_and_supporting_catalog"
+    ) in impacted[0].required_tests
+    assert (
+        "apps/api/tests/unit/test_evidence_course_application.py::"
+        "test_application_seam_ignores_provider_selected_answer_key"
+    ) in impacted[0].required_tests
 
 
 def test_unrelated_path_does_not_trigger_ai_journey() -> None:
@@ -57,9 +69,9 @@ def test_local_mode_emits_database_free_tests_and_defers_database_gate(tmp_path:
     )
     assert result["status"] == "READY"
     assert result["journeys"] == ["AI-COURSE-01"]
-    assert result["required_tests"] == 5
+    assert result["required_tests"] == 13
     assert result["deferred_database_tests"] == 1
-    assert len(output.read_text(encoding="utf-8").splitlines()) == 5
+    assert len(output.read_text(encoding="utf-8").splitlines()) == 13
     assert "test_document_reindex_worker_completes_and_is_idempotent" not in output.read_text(encoding="utf-8")
 
 
@@ -74,7 +86,7 @@ def test_ci_mode_emits_database_tests_for_ephemeral_ci_postgres(tmp_path: Path) 
         execution_profile="ci",
     )
 
-    assert result["required_tests"] == 6
+    assert result["required_tests"] == 14
     assert result["deferred_database_tests"] == 0
     assert "test_document_reindex_worker_completes_and_is_idempotent" in output.read_text(encoding="utf-8")
 

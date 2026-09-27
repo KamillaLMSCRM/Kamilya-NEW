@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-09-19 по исходникам; production readback обновляется релизом
+**Проверено:** 2026-09-27 по исходникам и публичному production readback
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -8,6 +8,26 @@ DB/storage gate и приёмкой клиента
 **Назначение:** единственный актуальный реестр production-gates. История изменений
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
+
+## Current product-state reconciliation — 2026-09-27
+
+- Published source release `v0.11.11` peels to exact commit
+  `ee197447bef8198ff678f078dcb61241eb426898`. GitHub CI run `36301829366`,
+  deterministic release workflow `36302004951` and production smoke runs
+  `36302087123` / `36321086010` passed.
+- Public API health reports product version `0.11.9` and exact release SHA
+  `04689ed4cf728f23cda73d8c371ffb93e435c37f` for `kz-production`.
+- Public native frontend `/healthz` reports exact SHA
+  `315e01320a0395b4c30a0f7738d3eccb01e5417e` in both the response body and
+  `X-Kamilya-Release` header. That SHA is the published `v0.11.10` release.
+- `scripts/ops/product_state_reconcile.py` classifies this state as
+  `SPLIT_ANCESTRY`: both runtime SHAs are verified ancestors of the current
+  source release. This is expected because `v0.11.10` was frontend-only and
+  `v0.11.11` changed release tooling only; neither release required an API
+  runtime rollout.
+- `SPLIT_ANCESTRY` is not an authenticated product-journey acceptance. The
+  remaining browser gates in the product epics still require their own
+  exact-SHA, role-correct human-path verification.
 
 ## Release 0.7.7 — deployed production baseline, 2026-09-19
 

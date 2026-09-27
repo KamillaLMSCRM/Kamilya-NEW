@@ -1,6 +1,6 @@
 # Methodologist dashboard — action navigation V2
 
-Status: implementation in progress.
+Status: implemented and DEV accepted; production acceptance pending.
 
 ## Outcome
 

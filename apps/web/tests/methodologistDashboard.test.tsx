@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MethodologistDashboard } from '@/features/dashboard/MethodologistDashboard';
+import { buildMethodologistDashboard } from '@/features/dashboard/model';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 
@@ -92,6 +93,40 @@ beforeEach(() => {
 });
 
 describe('methodologist operations dashboard', () => {
+  it('counts every relevant generation while limiting only the visible job list', () => {
+    const jobs = [
+      ...Array.from({ length: 6 }, (_, index) => ({
+        id: `active-${index}`,
+        job_type: 'course_generation',
+        status: 'running',
+        created_at: `2026-09-24T10:0${index}:00Z`,
+      })),
+      {
+        id: 'failed-1',
+        job_type: 'course_generation',
+        status: 'failed',
+        created_at: '2026-09-24T09:00:00Z',
+      },
+      {
+        id: 'completed-1',
+        job_type: 'course_generation',
+        status: 'completed',
+        created_at: '2026-09-24T08:00:00Z',
+      },
+    ];
+
+    const model = buildMethodologistDashboard({
+      learning: null,
+      courses: [],
+      jobs,
+      mandatory: null,
+    });
+
+    expect(model.content.activeJobs).toBe(6);
+    expect(model.content.attentionJobs).toBe(1);
+    expect(model.content.jobs).toHaveLength(5);
+  });
+
   it('answers the operational questions from one learning read model', async () => {
     render(<MethodologistDashboard />);
 
