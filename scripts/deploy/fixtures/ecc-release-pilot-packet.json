@@ -1,0 +1,21 @@
+{
+  "ci_run_id": 1001,
+  "exact_sha": "1111111111111111111111111111111111111111",
+  "expected_current_release": "2222222222222222222222222222222222222222",
+  "migration_scope": "none",
+  "native_build_run_id": 1002,
+  "owner_approval": "ECC pilot with no provider mutation",
+  "release_id": "REL-ECC-PILOT-20260927",
+  "rollback_sha": "3333333333333333333333333333333333333333",
+  "schema_version": 1,
+  "smoke_scope": [
+    "/healthz",
+    "/login",
+    "api-health"
+  ],
+  "source_branch": "master",
+  "target_environment": "kz-production",
+  "target_services": [
+    "ct137-frontend"
+  ]
+}
