@@ -10,20 +10,42 @@ Repository: `C:\Kamilya New\Kamilya-NEW`.
 Adjacent projects, including `kamilya-landing` and `Kamilya CRM`, are forbidden
 unless the current root packet names them explicitly.
 
-## Mandatory sources
+## Deterministic routine path
 
-For every run, read only the relevant parts of:
+Do not reread project documentation, `ERRORS.md`, skills, runbooks, history, or
+source code on the successful path of a complete prepared release. The immutable
+packet and deterministic controller are the routine interface.
 
-1. workspace and repository `AGENTS.md`;
-2. relevant `ERRORS.md` entries;
-3. `.codex/skills/kamilya-production-deploy/SKILL.md`;
-4. `.codex/skills/kamilya-release-evidence-gate/SKILL.md`;
-5. `.codex/skills/kamilya-safe-remote-exec/SKILL.md` when remote execution is in scope;
-6. `docs/PROJECT-CONTEXT.md`, `docs/VPS_CONNECTION_GUIDE.md`, and
-   `docs/PRODUCTION_READINESS.md` only for the named target.
+For a CT137 frontend packet, invoke only:
 
-Use Graphify only if packet validation exposes a non-trivial source dependency. A
-prepared release normally requires neither source exploration nor graph loading.
+```text
+py -3 scripts/deploy/release_runner_bridge.py dispatch
+  --mode preflight
+  --packet <absolute-packet.json>
+  --packet-sha256 <packet-sha256>
+  --repo-root <exact-SHA-checkout>
+  --evidence-root <checkout>/.release-evidence
+```
+
+The bridge validates the existing strict `ReleasePacket`, suppresses raw
+controller stdout/stderr, binds the evidence to the packet identity, and returns
+the final five-field handoff. If preflight is `READY`, stop with `NOT READY` until
+root confirms the same release remains authorized. Execute with the same
+arguments plus `--mode execute --confirm-release-id <RELEASE_ID>`. Never rebuild
+the command manually or invoke the lower-level deploy helper on the routine path.
+
+For the backend release plane, use only the protected
+`.github/workflows/release-kz-production.yml` and installed
+`kamilya-release-runner`; do not reconstruct its validate/execute sequence in
+the chat.
+
+## Exception-only retrieval
+
+Read one exact source section only after the deterministic bridge/workflow returns
+a structured `BLOCKED` reason that cannot be resolved from the packet itself.
+Map the reason to one relevant `ERRORS.md` entry, skill, runbook, or source range;
+do not perform a broad search or reload all project documentation. Use Graphify
+only when that bounded retrieval exposes a non-trivial source dependency.
 
 ## Executor and checkout preflight
 
@@ -36,18 +58,15 @@ from a release because it is absent from that checkout. Check the exact Git obje
 (`git cat-file -e <EXACT_SHA>:<path>`) and read it from that object or an
 isolated worktree at the same SHA. Do not deploy a working-directory archive.
 
-Perform one bounded capability check for every required external gate before
-mutating anything: canonical process-local GitHub auth from the verified
-repository root, outbound HTTPS, and read access to the approved SSH host-key
-file when remote execution is in scope. Report only account identity, exit code,
-error class and whether the request reached the service; never expose tokens or
-host-key contents. A sandbox denial, unreadable `known_hosts`, or task-level
-network restriction is `EXECUTOR_ACCESS`, not proof of an expired token or a
-production outage. A `gh auth status` failure before HTTP exchange is likewise
-not token-invalid evidence. Stop and return that precise capability gap to root;
-do not repeat the same blocked release or use ambient/keyring credentials. Root
-must execute the protected gate in an authorized environment or provide a new
-executor; its evidence does not grant this runner access or deployment authority.
+The deterministic controller owns routine capability checks for canonical
+process-local GitHub auth, outbound HTTPS, approved SSH host-key access and live
+target identity. Do not duplicate those checks as separate chat commands. A
+reported sandbox denial, unreadable `known_hosts`, or task-level network
+restriction is `EXECUTOR_ACCESS`, not proof of an expired token or a production
+outage. Stop and return that precise capability gap to root; do not repeat the
+same blocked release or use ambient/keyring credentials. Root must execute the
+protected gate in an authorized environment or provide a new executor; its
+evidence does not grant this runner access or deployment authority.
 
 ## Turn completion invariant
 
@@ -107,9 +126,10 @@ deployment fit. Cleanup requires an exact root packet naming the obsolete,
 current, and rollback SHAs plus the matching off-host recovery archive and
 manifest; report retained releases and staged files explicitly in the handoff.
 
-For the routine CT137 path, execute only
-`scripts/ops/ct137_native_release.py preflight` and then `execute` with the same
-digest-bound JSON packet. This controller verifies exact source/tag/CI/artifact,
+For the routine CT137 path,
+`scripts/deploy/release_runner_bridge.py dispatch` is the sole chat-facing
+interface. It calls `scripts/ops/ct137_native_release.py` with the same
+digest-bound JSON packet. The controller verifies exact source/tag/CI/artifact,
 downloads or inspects the SHA-scoped native bundle, reads the live inventory and
 rollback, computes the conservative space requirement, orders staging/deployment,
 and writes technical readback evidence. Do not replace it with an ad hoc sequence

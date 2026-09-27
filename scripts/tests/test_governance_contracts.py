@@ -15,9 +15,7 @@ class GovernanceContractTests(unittest.TestCase):
     def test_persistent_runners_use_one_owner_and_one_handoff_interface(self) -> None:
         project_rules = read("AGENTS.md")
         test_runner = read(".codex/agents/test-runner/AGENTS.md")
-        compatibility_entrypoint = read(
-            ".codex/agents/test-evidence-runner/AGENTS.md"
-        )
+        compatibility_entrypoint = read(".codex/agents/test-evidence-runner/AGENTS.md")
         release_runner = read(".codex/agents/release-runner/AGENTS.md")
 
         self.assertIn("Постоянные workers:", project_rules)
@@ -32,7 +30,9 @@ class GovernanceContractTests(unittest.TestCase):
                 self.assertIn(field, contract)
         self.assertNotIn("STATUS: READY", release_runner)
 
-    def test_release_runner_fails_closed_on_checkout_drift_and_empty_turns(self) -> None:
+    def test_release_runner_fails_closed_on_checkout_drift_and_empty_turns(
+        self,
+    ) -> None:
         release_runner = read(".codex/agents/release-runner/AGENTS.md")
 
         self.assertIn("## Executor and checkout preflight", release_runner)
@@ -49,6 +49,19 @@ class GovernanceContractTests(unittest.TestCase):
         self.assertIn("matching off-host recovery archive", release_runner)
         self.assertIn("Never delete an old release merely to make a", release_runner)
 
+    def test_release_runner_uses_deterministic_ct137_success_path(self) -> None:
+        release_runner = read(".codex/agents/release-runner/AGENTS.md")
+
+        self.assertIn("## Deterministic routine path", release_runner)
+        self.assertIn(
+            "scripts/deploy/release_runner_bridge.py dispatch", release_runner
+        )
+        self.assertIn("Do not reread project documentation", release_runner)
+        self.assertIn("## Exception-only retrieval", release_runner)
+        self.assertNotIn(
+            "For every run, read only the relevant parts of:", release_runner
+        )
+
     def test_release_authority_and_evidence_modules_have_distinct_owners(self) -> None:
         project_rules = read("AGENTS.md")
         release_lifecycle = read("docs/releases/README.md")
@@ -56,11 +69,16 @@ class GovernanceContractTests(unittest.TestCase):
 
         self.assertIn("root retains GO/NO_GO and acceptance", release_lifecycle)
         self.assertIn("Только root утверждает GO/NO_GO", project_rules)
-        self.assertIn("Release Runner может выполнить только точный уже разрешённый", project_rules)
+        self.assertIn(
+            "Release Runner может выполнить только точный уже разрешённый",
+            project_rules,
+        )
         self.assertIn("Do not confuse it with", evidence_skill)
         self.assertNotIn("No phase can be skipped", evidence_skill)
 
-    def test_graphify_archive_is_non_operational_and_semantic_runner_is_pinned(self) -> None:
+    def test_graphify_archive_is_non_operational_and_semantic_runner_is_pinned(
+        self,
+    ) -> None:
         archive = read(".codex/skills/graphify/references/upstream-workflows.md")
         semantic_index = read("docs/SEMANTIC_ENGINEERING_INDEX.md")
 

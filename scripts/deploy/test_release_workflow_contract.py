@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "release-kz-production.yml"
+CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 COMPOSE = ROOT / "infra" / "compose" / "kamilya-release-slot.yml"
 LEGACY_COMPOSE = ROOT / "infra" / "compose" / "kamilya-app-worker.yml"
 
@@ -10,7 +11,10 @@ LEGACY_COMPOSE = ROOT / "infra" / "compose" / "kamilya-app-worker.yml"
 def _job(text: str, name: str) -> str:
     start = text.index(f"  {name}:")
     rest = text[start + 1 :]
-    positions = [rest.find(f"\n  {candidate}:") for candidate in ("build-image", "deploy-production")]
+    positions = [
+        rest.find(f"\n  {candidate}:")
+        for candidate in ("build-image", "deploy-production")
+    ]
     positions = [value for value in positions if value >= 0]
     end = start + 1 + min(positions) if positions else len(text)
     return text[start:end]
@@ -19,25 +23,31 @@ def _job(text: str, name: str) -> str:
 def test_workflow_builds_exact_sha_digest_and_requires_matching_ci() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     build = _job(text, "build-image")
-    assert "actual_sha" in build and 'workflow_name' in build and 'conclusion' in build
+    assert "actual_sha" in build and "workflow_name" in build and "conclusion" in build
     assert '[[ "${workflow_name}" == "CI" ]]' in build
     assert '[[ "${conclusion}" == "success" ]]' in build
     assert "apps/api/Dockerfile" in build
     assert "@${{ steps.build.outputs.digest }}" in build
     assert "Verify image identity and secret exclusions" in build
-    assert 'test ! -e /app/.env' in build
-    assert 'test ! -d /app/.pytest_cache' in build
+    assert "test ! -e /app/.env" in build
+    assert "test ! -d /app/.pytest_cache" in build
     assert "actions/attest-build-provenance@v2" in build
 
 
 def test_build_only_creates_image_evidence_without_release_manifest() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     build = _job(text, "build-image")
-    assert 'name: release-image-${{ env.RELEASE_SHA }}' in build
-    assert 'path: release-image.json' in build
+    assert "name: release-image-${{ env.RELEASE_SHA }}" in build
+    assert "path: release-image.json" in build
     assert '"ci_run_id": os.environ["CI_RUN_ID"]' in build
-    assert "Create strict release manifest\n        if: ${{ inputs.deploy_to_production }}" in build
-    assert "name: release-manifest-${{ inputs.release_sha }}\n          path: release-manifest.json" in build
+    assert (
+        "Create strict release manifest\n        if: ${{ inputs.deploy_to_production }}"
+        in build
+    )
+    assert (
+        "name: release-manifest-${{ inputs.release_sha }}\n          path: release-manifest.json"
+        in build
+    )
     assert build.count("if: ${{ inputs.deploy_to_production }}") == 2
 
 
@@ -56,7 +66,10 @@ def test_successful_master_ci_automatically_builds_but_never_deploys() -> None:
     verify = verify.split("\n      - name:", 1)[0]
     assert "RELEASE_SHA: ${{ inputs.release_sha }}" not in verify
     assert 'test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"' in verify
-    assert "github.event_name == 'workflow_dispatch' && inputs.deploy_to_production" in deploy
+    assert (
+        "github.event_name == 'workflow_dispatch' && inputs.deploy_to_production"
+        in deploy
+    )
 
 
 def test_previous_runtime_identity_is_optional_until_production_deploy() -> None:
@@ -69,15 +82,19 @@ def test_previous_runtime_identity_is_optional_until_production_deploy() -> None
         assert match is not None
         assert "required: false" in match.group("body")
     deploy = _job(text, "deploy-production")
-    assert "github.event_name == 'workflow_dispatch' && inputs.deploy_to_production" in deploy
+    assert (
+        "github.event_name == 'workflow_dispatch' && inputs.deploy_to_production"
+        in deploy
+    )
 
 
 def test_production_identity_formats_are_validated_before_image_build() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     build = _job(text, "build-image")
     validation = build[
-        build.index("      - name: Validate exact successful CI identity") :
-        build.index("      - uses: actions/checkout@v4")
+        build.index(
+            "      - name: Validate exact successful CI identity"
+        ) : build.index("      - uses: actions/checkout@v4")
     ]
 
     assert "Exact approved ID matching REL-[A-Z0-9][A-Z0-9-]{7,95}" in text
@@ -95,8 +112,8 @@ def test_production_deploy_requires_version_tag_and_published_release() -> None:
     assert "release_version:" in inputs
     assert "RELEASE_VERSION: ${{ inputs.release_version || '' }}" in build
     assert "python scripts/validate_version.py --release" in build
-    assert 'git/ref/tags/v${RELEASE_VERSION}' in build
-    assert 'releases/tags/v${RELEASE_VERSION}' in build
+    assert "git/ref/tags/v${RELEASE_VERSION}" in build
+    assert "releases/tags/v${RELEASE_VERSION}" in build
     assert '[[ "${tag_commit_sha}" == "${RELEASE_SHA}" ]]' in build
     assert '[[ "${release_draft}" == "false" ]]' in build
     assert '[[ "${release_prerelease}" == "false" ]]' in build
@@ -112,6 +129,13 @@ def test_production_job_is_protected_fixed_runner_without_checkout() -> None:
     assert "sudo -n /usr/local/sbin/kamilya-release-runner execute" in deploy
     assert "/opt/kamilya-release-plane/venv/bin/python" not in deploy
     assert "--confirm-release-id" not in deploy
+
+
+def test_ci_blocks_release_bridge_syntax_and_contract_regressions() -> None:
+    text = CI_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "scripts/deploy/release_runner_bridge.py" in text
+    assert "../../scripts/deploy/test_release_runner_bridge.py" in text
 
 
 def test_slot_compose_never_runs_migrations_on_api_start() -> None:
