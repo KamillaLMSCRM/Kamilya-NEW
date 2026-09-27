@@ -15,6 +15,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.11.11] - 2026-09-27
+
+### Added
+
+- Add deterministic, digest-bound controllers for routine DEV releases and
+  native CT137 release packets, including exact-SHA provider reconciliation,
+  terminal evidence and focused contract tests.
+
+### Changed
+
+- Route the Release Runner through the deterministic release controllers on
+  the normal success path instead of rereading broad project context and
+  reconstructing mechanical provider operations through an LLM.
+- Run release-controller syntax and contract checks in the canonical CI gate.
+
+### Fixed
+
+- Resolve policy from the packet's exact checkout and keep DEV-only releases
+  out of the unrelated CT137 and SSH paths, preventing stale-checkout access
+  failures and large repeated context reads.
+
 ## [0.11.10] - 2026-09-27
 
 ### Fixed
