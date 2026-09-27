@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Show the due date and the authenticated methodologist owner on open learning
+  actions so an operational follow-up does not lose its deadline after saving.
+
 ### Security
 
 ## [0.11.9] - 2026-09-26

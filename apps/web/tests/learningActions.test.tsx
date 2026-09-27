@@ -54,7 +54,7 @@ const payload = {
     status: 'open',
     owner_id: 'methodologist-1',
     created_by: 'methodologist-1',
-    due_at: null,
+    due_at: '2026-09-30T12:00:00Z',
     comment: 'Check the blocker',
     baseline_snapshot: { progress_percent: 10 },
     outcome_snapshot: null,
@@ -100,6 +100,8 @@ describe('learning action center', () => {
     expect(await screen.findByText('Synthetic Learner')).toBeInTheDocument();
     expect(screen.getByText('Which control is required?')).toBeInTheDocument();
     expect(screen.getByText('Check the blocker')).toBeInTheDocument();
+    expect(screen.getByText('Срок: 30.09.2026')).toBeInTheDocument();
+    expect(screen.getByText('Ответственный: вы')).toBeInTheDocument();
     expect(apiMock.get).toHaveBeenCalledWith('/v1/admin/learning-actions?course_id=course-1');
   });
 

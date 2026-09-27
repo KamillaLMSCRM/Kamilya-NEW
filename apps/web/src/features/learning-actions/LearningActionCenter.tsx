@@ -151,6 +151,19 @@ const messages = {
   },
 } as const;
 
+type MessageLanguage = keyof typeof messages;
+
+function formatDueDate(value: string, lang: MessageLanguage): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const locale = { ru: 'ru-RU', kk: 'kk-KZ', en: 'en-US' }[lang];
+  return new Intl.DateTimeFormat(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
+
 type Target =
   | { kind: 'enrollment'; item: TrainingAttentionItem }
   | { kind: 'question'; item: WeakQuestionItem };
@@ -314,7 +327,15 @@ export function LearningActionCenter({ courseId }: { courseId?: string }) {
         {data.actions.length > 0 && <section className="space-y-2">
           <h3 className="font-medium">{m.actions}</h3>
           {data.actions.map((action) => <article key={action.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
-            <div><p className="font-medium">{m[action.action_type]}</p><p className="text-sm text-muted-foreground">{m[action.issue_type]}</p>{action.comment && <p className="text-sm">{action.comment}</p>}</div>
+            <div>
+              <p className="font-medium">{m[action.action_type]}</p>
+              <p className="text-sm text-muted-foreground">{m[action.issue_type]}</p>
+              {action.comment && <p className="text-sm">{action.comment}</p>}
+              {(action.due_at || action.owner_id === user?.user_id) && <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                {action.due_at && <span>{m.dueAt}: {formatDueDate(action.due_at, lang as MessageLanguage)}</span>}
+                {action.owner_id === user?.user_id && <span>{m.ownerSelf}</span>}
+              </div>}
+            </div>
             {action.status === 'open' && <Button size="sm" onClick={() => startClosing(action.id)}><CheckCircle2 className="mr-2 h-4 w-4" />{m.close}</Button>}
           </article>)}
         </section>}
