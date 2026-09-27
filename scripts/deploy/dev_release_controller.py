@@ -80,6 +80,10 @@ class ProviderAdapter(Protocol):
 
     def trigger_render(self, service_id: str, release_sha: str) -> str: ...
 
+    def find_render(
+        self, service_id: str, release_sha: str
+    ) -> Mapping[str, Any] | None: ...
+
     def wait_render(
         self, service_id: str, deployment_id: str, release_sha: str
     ) -> Mapping[str, Any]: ...
@@ -320,6 +324,19 @@ class LiveProviderAdapter:
         if not deployment_id:
             raise DevReleaseBlocked("render_deployment_id_missing")
         return str(deployment_id)
+
+    def find_render(
+        self, service_id: str, release_sha: str
+    ) -> Mapping[str, Any] | None:
+        for deploy in self._render_deploys(service_id):
+            commit = deploy.get("commit") or {}
+            if commit.get("id") == release_sha:
+                return {
+                    "status": deploy.get("status"),
+                    "deployment_id": deploy.get("id"),
+                    "release_sha": release_sha,
+                }
+        return None
 
     def _render_deploys(self, service_id: str) -> list[Mapping[str, Any]]:
         result = self._http_json(
@@ -628,7 +645,21 @@ class DevReleaseController:
             ("worker", "worker_service_id"),
         ):
             service_id = str(cfg[key])
-            deployment_id = self.providers.trigger_render(service_id, release_sha)
+            existing = self.providers.find_render(service_id, release_sha)
+            failed = {
+                "build_failed",
+                "update_failed",
+                "canceled",
+                "deactivated",
+            }
+            if (
+                existing
+                and existing.get("deployment_id")
+                and existing.get("status") not in failed
+            ):
+                deployment_id = str(existing["deployment_id"])
+            else:
+                deployment_id = self.providers.trigger_render(service_id, release_sha)
             result[label] = self._validate_render_deploy(
                 self.providers.wait_render(service_id, deployment_id, release_sha)
             )

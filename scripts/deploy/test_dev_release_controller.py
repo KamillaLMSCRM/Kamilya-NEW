@@ -80,6 +80,10 @@ class FakeProviders:
                 "release_sha": RELEASE,
             },
         }
+        self.existing_render: dict[str, dict | None] = {
+            "srv_api": None,
+            "srv_worker": None,
+        }
         self.health = {
             "https://api.example.test/api/v1/health": {
                 "status": "ok",
@@ -117,6 +121,10 @@ class FakeProviders:
     def trigger_render(self, service_id: str, release_sha: str) -> str:
         self.calls.append(("trigger_render", service_id, release_sha))
         return self.render_deploys[service_id]["deployment_id"]
+
+    def find_render(self, service_id: str, release_sha: str):
+        self.calls.append(("find_render", service_id, release_sha))
+        return self.existing_render[service_id]
 
     def wait_render(
         self, service_id: str, deployment_id: str, release_sha: str
@@ -219,6 +227,23 @@ class DevReleaseControllerTests(unittest.TestCase):
             release.execute("REL-DEV-ECC-20260927-001")
 
         self.assertNotIn("push_exact_sha", [call[0] for call in providers.calls])
+
+    def test_execute_reuses_exact_autodeploy_instead_of_triggering_duplicate(
+        self,
+    ) -> None:
+        providers = FakeProviders()
+        providers.existing_render["srv_api"] = {
+            "status": "build_in_progress",
+            "deployment_id": "dep_api",
+            "release_sha": RELEASE,
+        }
+        release = controller.DevReleaseController(packet_data(), providers)
+
+        result = release.execute("REL-DEV-ECC-20260927-001")
+
+        self.assertEqual(result["status"], "RELEASE_OK")
+        self.assertNotIn(("trigger_render", "srv_api", RELEASE), providers.calls)
+        self.assertIn(("trigger_render", "srv_worker", RELEASE), providers.calls)
 
     def test_reconcile_is_read_only_and_verifies_existing_release(self) -> None:
         providers = FakeProviders(branch_sha=RELEASE)
