@@ -33,4 +33,8 @@ Aggregate indicators without an exact server filter remain informational. In par
 - [x] A safe visible return link appears for dashboard-originated navigation.
 - [x] Exact priority-assignment navigation is tenant-scoped by the existing API and RLS contract.
 - [x] Supported dashboard metrics are keyboard-operable links; unsupported metrics remain visually passive.
-- [ ] Unit, type, lint, DEV browser, and production browser acceptance pass.
+- [x] Unit, type, lint and production build pass.
+- [x] DEV exact-SHA browser acceptance passes for dashboard navigation,
+  canonical filters and the create → deadline/owner readback → close action
+  journey.
+- [ ] Production browser acceptance passes on the promoted exact SHA.

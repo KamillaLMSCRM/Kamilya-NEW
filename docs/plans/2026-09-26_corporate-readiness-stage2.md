@@ -1,7 +1,8 @@
 # Этап 2: матрица обязательного обучения и объяснимые назначения
 
-Статус: 2.1 и 2.2 реализованы и полностью проверены локально; isolated
-Supabase DEV/RLS gate PASS; deployment и browser acceptance на общем DEV pending
+Статус: 2.1 и 2.2 выпущены в production в составе `0.11.9`. Дополнительная
+приёмка action center и dashboard прошла на DEV exact SHA `87d767de`;
+production promotion этого follow-up остаётся отдельным gate.
 
 ## Цель
 
@@ -215,5 +216,21 @@ bounded selectors и последовательные полные suites. То�
   ESLint и release-contract PASS. Первый полный Vitest-прогон дал один старый
   AI-UI timer flake, изолированный повтор прошёл 1/1; последовательный полный
   прогон прошёл 129 файлов / 706 тестов, production build — 66 страниц.
-  Production promotion запрещён до нового DEV exact-SHA deploy и повторного
-  browser readback.
+  Этот блокер снят последующим DEV readback и production-релизом `0.11.9`.
+
+## DEV action-center follow-up
+
+- Exact DEV SHA `87d767de846ae2a630ccdfbd83e218b58c4277b9` развёрнут Vercel deployment
+  `dpl_21YrFUxEKzgszD3rZNP1JYJG3jkm`; project, repository, branch, READY и alias
+  проверены через provider readback.
+- Живой путь методиста подтверждает exact dashboard → training-log filters,
+  создание действия, сохранение срока в POST/API, отображение срока и текущего
+  ответственного, системное закрытие и возврат счётчика открытых действий к нулю.
+- Найден и исправлен фактический UX-дефект: открытая карточка скрывала уже
+  сохранённые `due_at` и `owner_id`. Имя другого ответственного API пока не
+  отдаёт, поэтому интерфейс честно показывает только подтверждаемое
+  `Ответственный: вы`, не раскрывая UUID и не выдумывая имя.
+- Первый браузерный ввод даты через низкоуровневый Playwright `fill` изменил DOM,
+  но не React-state и создал запись без срока. Контроль штатным settable
+  date-control, CDP readback POST и API response отделил артефакт тестового
+  инструмента от продукта; обе синтетические записи закрыты.

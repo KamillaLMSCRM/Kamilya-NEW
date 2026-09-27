@@ -109,3 +109,21 @@ cache-read, forward rate, outcome и review quality с этой приёмкой
 детерминированная RU/KK/EN формулировка, затем повторены focused tests, полный
 API unit suite, полный frontend suite, lint, typecheck и production build.
 
+## Контрольная точка: action center и dashboard
+
+- Для узкого дефекта использованы один bounded Graphify query, две проверки
+  целостности и одно AST update; после update новый локальный helper не появился
+  в query result, поэтому граф не принят как доказательство свежего diff.
+- Авторитетными остались прямой source readback, красный/зелёный компонентный
+  тест, полный web regression, provider exact-SHA readback, браузерный POST/API
+  readback и видимый результат.
+- Один первоначальный широкий `rg`-вывод был обрезан. Дальше поиск ограничен
+  двумя файлами компонента/теста и точными разделами runbook/error journal.
+- Дешёвый независимый агент получил только read-only задачу на тестовый seam и
+  локализацию; реализация, provider mutation и browser acceptance остались у
+  root. Это уменьшило передаваемый контекст без параллельного редактирования.
+- Context Mode/JEV в этом срезе не вызывались; точная экономия токенов не
+  измеряется и не подменяется оценкой. Важный отрицательный результат:
+  низкоуровневый browser `fill` дал ложный вывод о потере срока, а штатное
+  управление date-control плюс сетевой readback исправили решение до релиза.
+

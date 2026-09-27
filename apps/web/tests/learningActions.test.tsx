@@ -141,6 +141,9 @@ describe('learning action center', () => {
     fireEvent.change(screen.getByLabelText(/Comment|Комментарий|Түсініктеме/i), {
       target: { value: 'Repeat the mandatory course' },
     });
+    fireEvent.change(screen.getByLabelText(/Due date|Срок|Мерзімі/i), {
+      target: { value: '2026-10-01' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /Save action|Сохранить действие|Әрекетті сақтау/i }));
 
     await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/v1/admin/learning-actions', expect.objectContaining({
@@ -148,6 +151,7 @@ describe('learning action center', () => {
       enrollment_id: 'enrollment-1',
       issue_type: 'overdue',
       action_type: 'reassignment',
+      due_at: new Date('2026-10-01T23:59:59').toISOString(),
       comment: 'Repeat the mandatory course',
     })));
     expect(apiMock.get).toHaveBeenCalledTimes(2);
