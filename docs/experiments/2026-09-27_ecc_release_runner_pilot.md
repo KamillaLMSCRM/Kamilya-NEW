@@ -121,25 +121,78 @@ controller dispatch and handoff compaction. The existing deterministic
 controllers already contain the complex implementation; the missing piece was a
 small stable interface around them plus exception-only retrieval rules.
 
-This result does not prove end-to-end token savings for a real release because no
-DEV/production deployment was executed and the root-agent work required to build
-the pilot is outside the candidate runtime measurement. It proves that the
-routine execution seam itself can use zero model calls and bounded output.
+The local replay proves that the routine CT137 controller seam itself can use
+zero model calls and bounded output. It does not imply that the current DEV
+provider path is deterministic: the bridge is intentionally CT137-production
+specific.
 
-## Decision and remaining external proof
+## Authorized DEV follow-up
 
-**Local decision: GO for review/merge.** Do not infer production approval from
-this result. No DEV or production system, provider, database or deployment state
-was changed by the pilot.
+The owner subsequently authorized one DEV-only experiment. Exact SHA
+`b3b4c314750a7a2e3df89f526b92345d54c305d0` was fast-forwarded from base
+`315e01320a0395b4c30a0f7738d3eccb01e5417e` to `origin/dev` with the canonical
+project-bound GitHub credential. The change contained no migration or application
+runtime modification.
 
-The remaining proof is one separately authorized DEV-only A/B release against
-the same immutable packet:
+### Exact runtime evidence
 
-1. current persistent Release Runner path;
-2. deterministic bridge/controller path, with the LLM invoked only for the final
-   root decision.
+| Gate | Result |
+|---|---|
+| Remote branch | `origin/dev` exact SHA `b3b4c314750a7a2e3df89f526b92345d54c305d0` |
+| GitHub CI | run `36298869875`, success, 7/7 jobs, 06:01:17Z-06:05:52Z |
+| Vercel DEV | `dpl_EZDr2aAcEukvg1WWCLJg7XuX7mdM`, `READY`, exact SHA; 111.934 s |
+| Render DEV API | `dep-dasb4r7pn0mc73fl6pvg`, `live`, exact SHA; 104.650 s |
+| Render DEV worker | `dep-dasb4r60tbcc73el9olg`, `live`, exact SHA; 52.163 s |
+| Public API | `/api/v1/health` returned `status=ok`, `render-development`, exact SHA |
+| Public worker | root returned HTTP 200 and `ok` |
+| Public frontend | `/login` returned HTTP 200 |
+| Migration scope | none |
 
-Compare model calls, input/cache/output tokens, elapsed time, first-pass success,
-technical evidence completeness and product-acceptance result. The candidate is
-ready for that external experiment; provider mutation remains outside this
-local pilot.
+Both Render services remained on the existing `free` plan. No plan, billing,
+environment, database, DNS or production setting was changed.
+
+### Persistent-runner A arm
+
+The existing persistent `Kamilya - Release Runner` received the same immutable
+identity and performed read-only post-release reconciliation. It returned
+`BLOCKED` before any external readback after 106.646 s.
+
+Measured usage for that one turn:
+
+| Metric | A arm |
+|---|---:|
+| Model | `gpt-6-luna` |
+| Input tokens | 133,750 |
+| Cache-read tokens included above | 132,864 |
+| Output tokens | 855 |
+| Command executions | 5 |
+| Recorded source tool-output characters | 34,648 |
+| External evidence verified | none |
+| Final result | false `BLOCKED` (`AUTH_EXIT=112`) |
+
+The runner loaded the stale contract from the shared primary checkout instead of
+the packet's exact-SHA checkout, broadly read project documentation, entered the
+irrelevant CT137/SSH path for a DEV packet, and then classified its own executor
+access failure as the release blocker. The root executor successfully used the
+same canonical GitHub helper immediately before this run, so the result is not
+evidence of a bad project token or DEV outage.
+
+### Interpretation limit
+
+This is a decision-useful comparison, but not a symmetric two-deployment A/B.
+Only one provider release was performed. The A arm reconciled that completed
+release read-only; the B release was mechanically sequenced by the root because
+no dedicated DEV controller exists yet. Therefore:
+
+- the persistent LLM runner is conclusively unsuitable for the routine path;
+- the CT137 deterministic bridge is validated locally and by exact-SHA CI;
+- end-to-end zero-model-call DEV release savings are **not yet proven**;
+- a dedicated DEV controller is the remaining deep-module seam if DEV releases
+  also need zero-model-call execution.
+
+## Decision
+
+**GO for review/merge of the CT137 bridge and exception-only runner contract.**
+The live DEV evidence confirms that the candidate is release-safe and that the
+old persistent-runner behavior is both expensive and unreliable. Production was
+not changed or authorized by this experiment.

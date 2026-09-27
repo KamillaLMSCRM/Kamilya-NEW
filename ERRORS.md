@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-26.
+Current as of: 2026-09-27.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -4431,6 +4431,36 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   before API/worker rollout and stop if it is not exact. A provider field shown
   in settings is not proof that a plan supports or executed that lifecycle
   phase.
+
+## RELEASE-005 - Persistent runner used stale checkout policy and produced a false DEV access block
+
+- Date: 2026-09-27. Found during the owner-approved ECC DEV token-efficiency
+  experiment; production and customer data were not touched.
+- Symptom: read-only reconciliation of an already successful exact-SHA DEV
+  release spent 106.646 seconds and 133,750 input tokens, then returned
+  `BLOCKED` before checking GitHub CI, Vercel, Render or public health. The root
+  executor had already verified those same identities and endpoints.
+- Cause: the persistent runner read its old release contract and broad project
+  context from the stale shared primary checkout instead of the packet's
+  exact-SHA worktree. It entered the unrelated CT137/SSH path for a DEV-only
+  packet, produced at least 34,648 characters of command output, and treated its
+  executor-local GitHub helper failure (`AUTH_EXIT=112`) as release evidence.
+- Fix: route routine CT137 packets only through the digest-bound deterministic
+  bridge in the exact checkout. Resolve policy from the packet's exact Git
+  object or exact-SHA worktree, never from the shared checkout. A DEV packet
+  must not invoke CT137, SSH or `known_hosts` checks. Until a dedicated DEV
+  controller exists, return `dev_deterministic_controller_missing` rather than
+  reconstructing provider operations through an LLM.
+- Verification: exact SHA `b3b4c314750a7a2e3df89f526b92345d54c305d0`
+  passed GitHub CI run `36298869875`; Vercel DEV, Render API and Render worker
+  reached terminal success on the same SHA; API health, worker root and frontend
+  login passed. The deterministic bridge contracts passed 33 unittests, 42
+  pytest contracts and the release-contract gate.
+- Prevention: packet target and exact-SHA checkout are routing inputs, not
+  advisory text. Successful routine execution performs no broad documentation
+  bootstrap. An executor capability failure is not provider or credential
+  evidence, and a production-only controller is never substituted for DEV.
+
 # 2026-09-26 - Mandatory-training read model failed on independent current enrollment chains
 
 - **Symptom:** the production synthetic tenant returned HTTP 500 from both
