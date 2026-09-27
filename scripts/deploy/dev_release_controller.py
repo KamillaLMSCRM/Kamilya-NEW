@@ -112,7 +112,7 @@ class LiveProviderAdapter:
         if not self.github_helper.is_file():
             raise DevReleaseBlocked("canonical_github_helper_missing")
 
-    def _gh(self, args: list[str]) -> Any:
+    def _project_command(self, command: list[str], *, timeout: int = 60):
         completed = subprocess.run(
             [
                 sys.executable,
@@ -120,19 +120,24 @@ class LiveProviderAdapter:
                 "--repo",
                 str(self.repo_root),
                 "--",
-                "gh",
-                "api",
-                *args,
+                *command,
             ],
             cwd=self.repo_root,
             capture_output=True,
             text=True,
             encoding="utf-8",
-            timeout=60,
+            timeout=timeout,
             check=False,
         )
         if completed.returncode != 0:
-            raise DevReleaseBlocked("github_api_failed")
+            raise DevReleaseBlocked("project_command_failed")
+        return completed
+
+    def _gh(self, args: list[str]) -> Any:
+        try:
+            completed = self._project_command(["gh", "api", *args])
+        except DevReleaseBlocked as exc:
+            raise DevReleaseBlocked("github_api_failed") from exc
         try:
             return json.loads(completed.stdout)
         except json.JSONDecodeError as exc:
@@ -188,17 +193,20 @@ class LiveProviderAdapter:
             raise DevReleaseBlocked("github_branch_identity_invalid") from exc
 
     def push_exact_sha(self, repository: str, branch: str, release_sha: str) -> None:
-        self._gh(
-            [
-                "--method",
-                "PATCH",
-                f"repos/{repository}/git/refs/heads/{branch}",
-                "-f",
-                f"sha={release_sha}",
-                "-F",
-                "force=false",
-            ]
-        )
+        del repository  # Origin identity is validated by the canonical helper.
+        try:
+            self._project_command(
+                [
+                    "git",
+                    "push",
+                    "--porcelain",
+                    "origin",
+                    f"{release_sha}:refs/heads/{branch}",
+                ],
+                timeout=120,
+            )
+        except DevReleaseBlocked as exc:
+            raise DevReleaseBlocked("github_push_failed") from exc
 
     def wait_github_ci(
         self, repository: str, workflow: str, release_sha: str

@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -301,6 +302,25 @@ class DevReleaseControllerTests(unittest.TestCase):
             controller.DevReleaseBlocked, "worker_health_request_failed"
         ):
             release.reconcile()
+
+    def test_live_adapter_pushes_the_exact_local_object_with_project_credentials(
+        self,
+    ) -> None:
+        adapter = object.__new__(controller.LiveProviderAdapter)
+        adapter.repo_root = ROOT
+        adapter.github_helper = ROOT / "scripts/ops/with_project_github_token.py"
+        completed = mock.Mock(returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(
+            controller.subprocess, "run", return_value=completed
+        ) as run:
+            adapter.push_exact_sha("KamillaLMSCRM/Kamilya-NEW", "dev", RELEASE)
+
+        argv = run.call_args.args[0]
+        self.assertIn("git", argv)
+        self.assertIn("push", argv)
+        self.assertIn(f"{RELEASE}:refs/heads/dev", argv)
+        self.assertNotIn("PATCH", argv)
 
 
 if __name__ == "__main__":
