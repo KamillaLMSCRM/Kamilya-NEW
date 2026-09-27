@@ -1,0 +1,28 @@
+{
+  "branch": "dev",
+  "expected_previous_sha": "315e01320a0395b4c30a0f7738d3eccb01e5417e",
+  "github": {
+    "workflow": "CI"
+  },
+  "migration_scope": "none",
+  "release_id": "REL-DEV-ECC-20260927-B3B4C314",
+  "release_sha": "b3b4c314750a7a2e3df89f526b92345d54c305d0",
+  "render": {
+    "api_auto_deploy": "yes",
+    "api_health_url": "https://kamilya-lms-api.onrender.com/api/v1/health",
+    "api_service_id": "srv-d8rp8ej7uimc73fglid0",
+    "expected_plan": "free",
+    "worker_auto_deploy": "no",
+    "worker_health_url": "https://kamilya-lms-dev-worker.onrender.com/",
+    "worker_service_id": "srv-dar2dvbncjis73bsda3g"
+  },
+  "repository": "KamillaLMSCRM/Kamilya-NEW",
+  "schema": "kamilya-dev-release-v1",
+  "vercel": {
+    "expected_plan": "hobby",
+    "project_id": "prj_JN1xM4BMmhoHzDt6joPaCBXvOSLk",
+    "project_name": "kamilya-lms-dev",
+    "public_url": "https://kamilya-lms-dev.vercel.app/login",
+    "team_id": "team_EknCOCWEL771BUDea5UFM2Ba"
+  }
+}

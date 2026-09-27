@@ -101,6 +101,7 @@ jobs:
             scripts/deploy/release_plane.py \
             scripts/deploy/release_plane_bundle.py \
             scripts/deploy/release_plane_upgrader.py \
+            scripts/deploy/dev_release_controller.py \
             scripts/deploy/release_runner_bridge.py \
             scripts/provision_production_smoke_tenant.py
           bash -n infra/deploy/kamilya-ct125-release-gate.sh
@@ -190,7 +191,7 @@ jobs:
         run: poetry run pytest -q ../../scripts/tests/test_validate_version.py ../../scripts/ci/test_validate_version_workflow_contract.py
 
       - name: Render-like release-plane contract tests
-        run: poetry run pytest -q ../../scripts/deploy/test_release_plane.py ../../scripts/deploy/test_release_workflow_contract.py ../../scripts/deploy/test_release_plane_bundle.py ../../scripts/deploy/test_release_plane_upgrade_workflow_contract.py ../../scripts/deploy/test_release_runner_bridge.py
+        run: poetry run pytest -q ../../scripts/deploy/test_release_plane.py ../../scripts/deploy/test_release_workflow_contract.py ../../scripts/deploy/test_release_plane_bundle.py ../../scripts/deploy/test_release_plane_upgrade_workflow_contract.py ../../scripts/deploy/test_release_runner_bridge.py ../../scripts/deploy/test_dev_release_controller.py
 
       - name: Fail-closed KZ remote executor contract tests
         run: poetry run pytest -q ../../scripts/ops/test_kz_remote_exec.py

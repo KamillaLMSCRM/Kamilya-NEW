@@ -1,0 +1,766 @@
+#!/usr/bin/env python3
+"""Deterministic, digest-bound controller for one Kamilya DEV release.
+
+The public seam is intentionally small: load one immutable packet, then either
+reconcile the exact DEV identity read-only or execute that exact release.  All
+provider details live behind the injected adapter used by the controller.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Mapping, Protocol
+
+
+SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+RELEASE_ID_RE = re.compile(r"^REL-[A-Z0-9][A-Z0-9-]{7,95}$")
+PACKET_SCHEMA = "kamilya-dev-release-v1"
+
+
+class DevReleaseBlocked(RuntimeError):
+    """Fail-closed outcome safe to expose as a compact reason code."""
+
+
+def _read_env_file(path: Path) -> dict[str, str]:
+    if not path.is_file():
+        raise DevReleaseBlocked("project_env_missing")
+    values: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
+        raw = line.strip()
+        if not raw or raw.startswith("#") or "=" not in raw:
+            continue
+        name, value = raw.split("=", 1)
+        name = name.strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        if name and value:
+            values[name] = value
+    return values
+
+
+def _required_secret(values: Mapping[str, str], *names: str) -> str:
+    for name in names:
+        value = values.get(name)
+        if value:
+            return value
+    raise DevReleaseBlocked(f"provider_secret_missing_{names[0].lower()}")
+
+
+class ProviderAdapter(Protocol):
+    def remote_branch_sha(self, repository: str, branch: str) -> str: ...
+
+    def push_exact_sha(
+        self, repository: str, branch: str, release_sha: str
+    ) -> None: ...
+
+    def wait_github_ci(
+        self, repository: str, workflow: str, release_sha: str
+    ) -> Mapping[str, Any]: ...
+
+    def wait_vercel(
+        self, project_id: str, team_id: str, release_sha: str
+    ) -> Mapping[str, Any]: ...
+
+    def vercel_project(self, project_id: str, team_id: str) -> Mapping[str, Any]: ...
+
+    def render_service(self, service_id: str) -> Mapping[str, Any]: ...
+
+    def trigger_render(self, service_id: str, release_sha: str) -> str: ...
+
+    def wait_render(
+        self, service_id: str, deployment_id: str, release_sha: str
+    ) -> Mapping[str, Any]: ...
+
+    def read_health(self, url: str) -> Any: ...
+
+
+class LiveProviderAdapter:
+    """Production adapters for the existing free Kamilya DEV resources."""
+
+    def __init__(
+        self,
+        *,
+        repo_root: Path,
+        env_file: Path,
+        timeout_seconds: int = 1200,
+        poll_seconds: float = 5.0,
+    ) -> None:
+        self.repo_root = repo_root.resolve()
+        values = _read_env_file(env_file)
+        self.vercel_token = _required_secret(values, "vercel_token", "VERCEL_TOKEN")
+        self.render_token = _required_secret(values, "RENDER_API_KEY")
+        self.timeout_seconds = timeout_seconds
+        self.poll_seconds = poll_seconds
+        self.github_helper = self.repo_root / "scripts/ops/with_project_github_token.py"
+        if not self.github_helper.is_file():
+            raise DevReleaseBlocked("canonical_github_helper_missing")
+
+    def _gh(self, args: list[str]) -> Any:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(self.github_helper),
+                "--repo",
+                str(self.repo_root),
+                "--",
+                "gh",
+                "api",
+                *args,
+            ],
+            cwd=self.repo_root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=60,
+            check=False,
+        )
+        if completed.returncode != 0:
+            raise DevReleaseBlocked("github_api_failed")
+        try:
+            return json.loads(completed.stdout)
+        except json.JSONDecodeError as exc:
+            raise DevReleaseBlocked("github_api_json_invalid") from exc
+
+    def _http_json(
+        self,
+        url: str,
+        token: str,
+        *,
+        method: str = "GET",
+        body: Mapping[str, Any] | None = None,
+    ) -> Any:
+        encoded = None
+        if body is not None:
+            encoded = json.dumps(body, separators=(",", ":")).encode("utf-8")
+        request = urllib.request.Request(
+            url,
+            data=encoded,
+            method=method,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "User-Agent": "Kamilya-DEV-Release-Controller/1",
+            },
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                payload = response.read()
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+            raise DevReleaseBlocked("provider_http_failed") from exc
+        try:
+            return json.loads(payload)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise DevReleaseBlocked("provider_json_invalid") from exc
+
+    def _wait(self, probe, terminal, reason: str) -> Any:
+        deadline = time.monotonic() + self.timeout_seconds
+        last = None
+        while time.monotonic() < deadline:
+            last = probe()
+            if terminal(last):
+                return last
+            time.sleep(self.poll_seconds)
+        raise DevReleaseBlocked(reason)
+
+    def remote_branch_sha(self, repository: str, branch: str) -> str:
+        result = self._gh([f"repos/{repository}/git/ref/heads/{branch}"])
+        try:
+            return str(result["object"]["sha"])
+        except (KeyError, TypeError) as exc:
+            raise DevReleaseBlocked("github_branch_identity_invalid") from exc
+
+    def push_exact_sha(self, repository: str, branch: str, release_sha: str) -> None:
+        self._gh(
+            [
+                "--method",
+                "PATCH",
+                f"repos/{repository}/git/refs/heads/{branch}",
+                "-f",
+                f"sha={release_sha}",
+                "-F",
+                "force=false",
+            ]
+        )
+
+    def wait_github_ci(
+        self, repository: str, workflow: str, release_sha: str
+    ) -> Mapping[str, Any]:
+        endpoint = (
+            f"repos/{repository}/actions/runs?head_sha={release_sha}"
+            "&branch=dev&event=push&per_page=20"
+        )
+
+        def probe() -> Mapping[str, Any]:
+            response = self._gh([endpoint])
+            runs = (
+                response.get("workflow_runs", [])
+                if isinstance(response, Mapping)
+                else []
+            )
+            matches = [
+                run
+                for run in runs
+                if run.get("name") == workflow and run.get("head_sha") == release_sha
+            ]
+            if not matches:
+                return {"status": "waiting", "conclusion": None, "run_id": None}
+            run = max(matches, key=lambda item: int(item.get("id", 0)))
+            return {
+                "status": run.get("status"),
+                "conclusion": run.get("conclusion"),
+                "run_id": run.get("id"),
+            }
+
+        result = self._wait(
+            probe,
+            lambda item: item.get("status") == "completed",
+            "github_ci_timeout",
+        )
+        return result
+
+    def vercel_project(self, project_id: str, team_id: str) -> Mapping[str, Any]:
+        team = self._http_json(
+            f"https://api.vercel.com/v2/teams/{urllib.parse.quote(team_id)}",
+            self.vercel_token,
+        )
+        project = self._http_json(
+            "https://api.vercel.com/v9/projects/"
+            f"{urllib.parse.quote(project_id)}?teamId={urllib.parse.quote(team_id)}",
+            self.vercel_token,
+        )
+        return {
+            "project_id": project.get("id"),
+            "project_name": project.get("name"),
+            "branch": (project.get("link") or {}).get("productionBranch"),
+            "plan": (team.get("billing") or {}).get("plan"),
+        }
+
+    def wait_vercel(
+        self, project_id: str, team_id: str, release_sha: str
+    ) -> Mapping[str, Any]:
+        query = urllib.parse.urlencode(
+            {
+                "projectId": project_id,
+                "teamId": team_id,
+                "sha": release_sha,
+                "branch": "dev",
+                "limit": 20,
+            }
+        )
+
+        def probe() -> Mapping[str, Any]:
+            response = self._http_json(
+                f"https://api.vercel.com/v7/deployments?{query}", self.vercel_token
+            )
+            deployments = response.get("deployments", [])
+            if not deployments:
+                return {
+                    "status": "WAITING",
+                    "deployment_id": None,
+                    "release_sha": release_sha,
+                }
+            deployment = max(
+                deployments, key=lambda item: int(item.get("createdAt", 0) or 0)
+            )
+            return {
+                "status": deployment.get("readyState"),
+                "deployment_id": deployment.get("uid") or deployment.get("id"),
+                "release_sha": release_sha,
+            }
+
+        result = dict(
+            self._wait(
+                probe,
+                lambda item: item.get("status")
+                in {"READY", "ERROR", "CANCELED", "BLOCKED"},
+                "vercel_deployment_timeout",
+            )
+        )
+        result["plan"] = self.vercel_project(project_id, team_id)["plan"]
+        return result
+
+    def render_service(self, service_id: str) -> Mapping[str, Any]:
+        result = self._http_json(
+            f"https://api.render.com/v1/services/{urllib.parse.quote(service_id)}",
+            self.render_token,
+        )
+        details = result.get("serviceDetails") or {}
+        return {
+            "plan": details.get("plan"),
+            "branch": result.get("branch"),
+            "auto_deploy": result.get("autoDeploy"),
+        }
+
+    def trigger_render(self, service_id: str, release_sha: str) -> str:
+        result = self._http_json(
+            f"https://api.render.com/v1/services/{urllib.parse.quote(service_id)}/deploys",
+            self.render_token,
+            method="POST",
+            body={
+                "commitId": release_sha,
+                "clearCache": "do_not_clear",
+                "deployMode": "build_and_deploy",
+            },
+        )
+        deployment_id = result.get("id")
+        if not deployment_id:
+            raise DevReleaseBlocked("render_deployment_id_missing")
+        return str(deployment_id)
+
+    def _render_deploys(self, service_id: str) -> list[Mapping[str, Any]]:
+        result = self._http_json(
+            f"https://api.render.com/v1/services/{urllib.parse.quote(service_id)}/deploys?limit=20",
+            self.render_token,
+        )
+        if not isinstance(result, list):
+            raise DevReleaseBlocked("render_deploy_list_invalid")
+        deploys: list[Mapping[str, Any]] = []
+        for item in result:
+            if not isinstance(item, Mapping):
+                continue
+            deploy = item.get("deploy")
+            if isinstance(deploy, Mapping):
+                deploys.append(deploy)
+            elif "id" in item:
+                deploys.append(item)
+        return deploys
+
+    def wait_render(
+        self, service_id: str, deployment_id: str, release_sha: str
+    ) -> Mapping[str, Any]:
+        def probe() -> Mapping[str, Any]:
+            matches = []
+            for deploy in self._render_deploys(service_id):
+                commit = deploy.get("commit") or {}
+                if commit.get("id") != release_sha:
+                    continue
+                if deployment_id and deploy.get("id") != deployment_id:
+                    continue
+                matches.append(deploy)
+            if not matches:
+                return {
+                    "status": "waiting",
+                    "deployment_id": deployment_id or None,
+                    "release_sha": release_sha,
+                }
+            deploy = matches[0]
+            return {
+                "status": deploy.get("status"),
+                "deployment_id": deploy.get("id"),
+                "release_sha": release_sha,
+            }
+
+        return self._wait(
+            probe,
+            lambda item: item.get("status")
+            in {"live", "build_failed", "update_failed", "canceled", "deactivated"},
+            "render_deployment_timeout",
+        )
+
+    def read_health(self, url: str) -> Any:
+        last_error: Exception | None = None
+        for _attempt in range(3):
+            request = urllib.request.Request(
+                url, headers={"User-Agent": "Kamilya-DEV-Release-Controller/1"}
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=60) as response:
+                    status = response.status
+                    raw = response.read()
+                    content_type = response.headers.get("Content-Type", "")
+                break
+            except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+                last_error = exc
+                time.sleep(self.poll_seconds)
+        else:
+            raise DevReleaseBlocked("public_health_request_failed") from last_error
+        if "application/json" in content_type:
+            try:
+                return json.loads(raw)
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise DevReleaseBlocked("public_health_json_invalid") from exc
+        text = raw.decode("utf-8", errors="replace").strip()
+        if text == "ok":
+            return "ok"
+        return {"http_status": status}
+
+
+def _require_string(data: Mapping[str, Any], name: str) -> str:
+    value = data.get(name)
+    if not isinstance(value, str) or not value:
+        raise DevReleaseBlocked(f"packet_{name}_invalid")
+    return value
+
+
+def _require_mapping(data: Mapping[str, Any], name: str) -> Mapping[str, Any]:
+    value = data.get(name)
+    if not isinstance(value, Mapping):
+        raise DevReleaseBlocked(f"packet_{name}_invalid")
+    return value
+
+
+def validate_packet(data: Mapping[str, Any]) -> dict[str, Any]:
+    if data.get("schema") != PACKET_SCHEMA:
+        raise DevReleaseBlocked("release_packet_schema_invalid")
+
+    release_id = _require_string(data, "release_id")
+    release_sha = _require_string(data, "release_sha")
+    previous_sha = _require_string(data, "expected_previous_sha")
+    if not RELEASE_ID_RE.fullmatch(release_id):
+        raise DevReleaseBlocked("release_id_invalid")
+    if not SHA_RE.fullmatch(release_sha):
+        raise DevReleaseBlocked("release_sha_invalid")
+    if not SHA_RE.fullmatch(previous_sha):
+        raise DevReleaseBlocked("expected_previous_sha_invalid")
+    if release_sha == previous_sha:
+        raise DevReleaseBlocked("release_sha_not_new")
+    if data.get("migration_scope") != "none":
+        raise DevReleaseBlocked("schema_gate_required")
+    if data.get("branch") != "dev":
+        raise DevReleaseBlocked("dev_branch_required")
+
+    github = _require_mapping(data, "github")
+    vercel = _require_mapping(data, "vercel")
+    render = _require_mapping(data, "render")
+    for name in ("workflow",):
+        _require_string(github, name)
+    for name in (
+        "project_id",
+        "project_name",
+        "team_id",
+        "expected_plan",
+        "public_url",
+    ):
+        _require_string(vercel, name)
+    for name in (
+        "api_service_id",
+        "worker_service_id",
+        "expected_plan",
+        "api_auto_deploy",
+        "worker_auto_deploy",
+        "api_health_url",
+        "worker_health_url",
+    ):
+        _require_string(render, name)
+
+    # Round-trip through JSON to detach the validated packet from caller state.
+    return json.loads(json.dumps(data))
+
+
+def load_packet(path: Path, expected_sha256: str) -> dict[str, Any]:
+    raw = path.read_bytes()
+    actual = hashlib.sha256(raw).hexdigest()
+    if actual != expected_sha256:
+        raise DevReleaseBlocked("release_packet_digest_mismatch")
+    try:
+        decoded = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise DevReleaseBlocked("release_packet_json_invalid") from exc
+    if not isinstance(decoded, Mapping):
+        raise DevReleaseBlocked("release_packet_root_invalid")
+    return validate_packet(decoded)
+
+
+@dataclass(frozen=True)
+class DevReleaseController:
+    packet: Mapping[str, Any]
+    providers: ProviderAdapter
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "packet", validate_packet(self.packet))
+
+    def execute(self, confirm_release_id: str) -> dict[str, Any]:
+        release_id = str(self.packet["release_id"])
+        if confirm_release_id != release_id:
+            raise DevReleaseBlocked("execute_confirmation_mismatch")
+
+        repository = str(self.packet["repository"])
+        branch = str(self.packet["branch"])
+        release_sha = str(self.packet["release_sha"])
+        expected_previous = str(self.packet["expected_previous_sha"])
+        current = self.providers.remote_branch_sha(repository, branch)
+        if current != expected_previous:
+            raise DevReleaseBlocked("expected_previous_sha_mismatch")
+
+        self._verify_provider_contract()
+        self.providers.push_exact_sha(repository, branch, release_sha)
+        if self.providers.remote_branch_sha(repository, branch) != release_sha:
+            raise DevReleaseBlocked("remote_branch_readback_mismatch")
+
+        github_ci = self._github_ci()
+        vercel = self._vercel()
+        render = self._deploy_render()
+        health = self._health()
+        return self._bounded(
+            {
+                "status": "RELEASE_OK",
+                "release_id": release_id,
+                "release_sha": release_sha,
+                "previous_release_sha": expected_previous,
+                "migration_scope": "none",
+                "github_ci": github_ci,
+                "vercel": vercel,
+                "render": render,
+                "health": health,
+            }
+        )
+
+    def reconcile(self) -> dict[str, Any]:
+        repository = str(self.packet["repository"])
+        branch = str(self.packet["branch"])
+        release_sha = str(self.packet["release_sha"])
+        if self.providers.remote_branch_sha(repository, branch) != release_sha:
+            raise DevReleaseBlocked("remote_branch_readback_mismatch")
+
+        self._verify_provider_contract()
+        github_ci = self._github_ci()
+        vercel = self._vercel()
+        render_cfg = _require_mapping(self.packet, "render")
+        api_service = str(render_cfg["api_service_id"])
+        worker_service = str(render_cfg["worker_service_id"])
+        render = {
+            "api": self._validate_render_deploy(
+                self.providers.wait_render(api_service, "", release_sha)
+            ),
+            "worker": self._validate_render_deploy(
+                self.providers.wait_render(worker_service, "", release_sha)
+            ),
+        }
+        return self._bounded(
+            {
+                "status": "RECONCILED",
+                "release_id": self.packet["release_id"],
+                "release_sha": release_sha,
+                "migration_scope": "none",
+                "github_ci": github_ci,
+                "vercel": vercel,
+                "render": render,
+                "health": self._health(),
+            }
+        )
+
+    def _github_ci(self) -> dict[str, Any]:
+        result = dict(
+            self.providers.wait_github_ci(
+                str(self.packet["repository"]),
+                str(_require_mapping(self.packet, "github")["workflow"]),
+                str(self.packet["release_sha"]),
+            )
+        )
+        if result.get("status") != "completed" or result.get("conclusion") != "success":
+            raise DevReleaseBlocked("github_ci_not_successful")
+        return {
+            "status": "completed",
+            "conclusion": "success",
+            "run_id": result.get("run_id"),
+        }
+
+    def _vercel(self) -> dict[str, Any]:
+        cfg = _require_mapping(self.packet, "vercel")
+        result = dict(
+            self.providers.wait_vercel(
+                str(cfg["project_id"]),
+                str(cfg["team_id"]),
+                str(self.packet["release_sha"]),
+            )
+        )
+        if result.get("status") != "READY":
+            raise DevReleaseBlocked("vercel_deployment_not_ready")
+        if result.get("release_sha") != self.packet["release_sha"]:
+            raise DevReleaseBlocked("vercel_release_sha_mismatch")
+        if result.get("plan") != cfg["expected_plan"]:
+            raise DevReleaseBlocked("vercel_plan_mismatch")
+        return {
+            "status": "READY",
+            "deployment_id": result.get("deployment_id"),
+            "release_sha": result.get("release_sha"),
+            "plan": result.get("plan"),
+        }
+
+    def _verify_provider_contract(self) -> None:
+        vercel = _require_mapping(self.packet, "vercel")
+        project = self.providers.vercel_project(
+            str(vercel["project_id"]), str(vercel["team_id"])
+        )
+        if project.get("project_id") != vercel["project_id"]:
+            raise DevReleaseBlocked("vercel_project_id_mismatch")
+        if project.get("project_name") != vercel["project_name"]:
+            raise DevReleaseBlocked("vercel_project_name_mismatch")
+        if project.get("branch") != self.packet["branch"]:
+            raise DevReleaseBlocked("vercel_branch_mismatch")
+        if project.get("plan") != vercel["expected_plan"]:
+            raise DevReleaseBlocked("vercel_plan_mismatch")
+
+        cfg = _require_mapping(self.packet, "render")
+        expected_plan = cfg["expected_plan"]
+        for key, auto_deploy_key in (
+            ("api_service_id", "api_auto_deploy"),
+            ("worker_service_id", "worker_auto_deploy"),
+        ):
+            service = self.providers.render_service(str(cfg[key]))
+            if service.get("plan") != expected_plan:
+                raise DevReleaseBlocked("render_plan_mismatch")
+            if service.get("branch") != self.packet["branch"]:
+                raise DevReleaseBlocked("render_branch_mismatch")
+            if service.get("auto_deploy") != cfg[auto_deploy_key]:
+                raise DevReleaseBlocked("render_auto_deploy_mismatch")
+
+    def _deploy_render(self) -> dict[str, Any]:
+        cfg = _require_mapping(self.packet, "render")
+        release_sha = str(self.packet["release_sha"])
+        result: dict[str, Any] = {}
+        for label, key in (
+            ("api", "api_service_id"),
+            ("worker", "worker_service_id"),
+        ):
+            service_id = str(cfg[key])
+            deployment_id = self.providers.trigger_render(service_id, release_sha)
+            result[label] = self._validate_render_deploy(
+                self.providers.wait_render(service_id, deployment_id, release_sha)
+            )
+        return result
+
+    def _validate_render_deploy(self, value: Mapping[str, Any]) -> dict[str, Any]:
+        result = dict(value)
+        if result.get("status") != "live":
+            raise DevReleaseBlocked("render_deployment_not_live")
+        if result.get("release_sha") != self.packet["release_sha"]:
+            raise DevReleaseBlocked("render_release_sha_mismatch")
+        return {
+            "status": "live",
+            "deployment_id": result.get("deployment_id"),
+            "release_sha": result.get("release_sha"),
+        }
+
+    def _health(self) -> dict[str, Any]:
+        render = _require_mapping(self.packet, "render")
+        vercel = _require_mapping(self.packet, "vercel")
+        api = self._read_health("api", str(render["api_health_url"]))
+        worker = self._read_health("worker", str(render["worker_health_url"]))
+        frontend = self._read_health("frontend", str(vercel["public_url"]))
+        if not isinstance(api, Mapping) or api.get("status") != "ok":
+            raise DevReleaseBlocked("api_health_not_ok")
+        if api.get("deployment_environment") != "render-development":
+            raise DevReleaseBlocked("api_environment_mismatch")
+        if api.get("release_sha") != self.packet["release_sha"]:
+            raise DevReleaseBlocked("api_release_sha_mismatch")
+        if worker != "ok":
+            raise DevReleaseBlocked("worker_health_not_ok")
+        if not isinstance(frontend, Mapping) or frontend.get("http_status") != 200:
+            raise DevReleaseBlocked("frontend_health_not_ok")
+        return {"api": dict(api), "worker": worker, "frontend": dict(frontend)}
+
+    def _read_health(self, label: str, url: str) -> Any:
+        try:
+            return self.providers.read_health(url)
+        except DevReleaseBlocked as exc:
+            raise DevReleaseBlocked(f"{label}_health_request_failed") from exc
+
+    @staticmethod
+    def _bounded(result: dict[str, Any]) -> dict[str, Any]:
+        if len(json.dumps(result, sort_keys=True)) >= 4096:
+            raise DevReleaseBlocked("evidence_output_too_large")
+        return result
+
+
+def _evidence_path(evidence_root: Path, packet: Mapping[str, Any], mode: str) -> Path:
+    return evidence_root / "dev" / str(packet["release_id"]) / f"{mode}.json"
+
+
+def _write_evidence(
+    evidence_root: Path,
+    repo_root: Path,
+    packet: Mapping[str, Any],
+    mode: str,
+    result: Mapping[str, Any],
+) -> Path:
+    canonical = (repo_root.resolve() / ".release-evidence").resolve()
+    if evidence_root.resolve() != canonical:
+        raise DevReleaseBlocked("evidence_root_not_canonical")
+    path = _evidence_path(canonical, packet, mode)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    os.replace(temporary, path)
+    return path
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("command", choices=("reconcile", "execute"))
+    parser.add_argument("--packet", required=True, type=Path)
+    parser.add_argument("--packet-sha256", required=True)
+    parser.add_argument("--repo-root", required=True, type=Path)
+    parser.add_argument("--env-file", required=True, type=Path)
+    parser.add_argument("--evidence-root", required=True, type=Path)
+    parser.add_argument("--confirm-release-id", default="")
+    parser.add_argument("--timeout-seconds", type=int, default=1200)
+    parser.add_argument("--poll-seconds", type=float, default=5.0)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    try:
+        packet = load_packet(args.packet, args.packet_sha256)
+        adapter = LiveProviderAdapter(
+            repo_root=args.repo_root,
+            env_file=args.env_file,
+            timeout_seconds=args.timeout_seconds,
+            poll_seconds=args.poll_seconds,
+        )
+        release = DevReleaseController(packet, adapter)
+        if args.command == "reconcile":
+            result = release.reconcile()
+        else:
+            result = release.execute(args.confirm_release_id)
+        evidence = _write_evidence(
+            args.evidence_root, args.repo_root, packet, args.command, result
+        )
+        output = dict(result)
+        output["evidence"] = str(evidence)
+        print(
+            json.dumps(
+                output, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            )
+        )
+        return 0
+    except DevReleaseBlocked as exc:
+        error = {"status": "BLOCKED", "reason": str(exc)}
+        print(
+            json.dumps(
+                error, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            ),
+            file=sys.stderr,
+        )
+        return 1
+    except Exception:
+        error = {"status": "BLOCKED", "reason": "unexpected_controller_failure"}
+        print(
+            json.dumps(
+                error, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            ),
+            file=sys.stderr,
+        )
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

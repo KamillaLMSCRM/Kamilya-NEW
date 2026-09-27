@@ -4446,11 +4446,12 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   packet, produced at least 34,648 characters of command output, and treated its
   executor-local GitHub helper failure (`AUTH_EXIT=112`) as release evidence.
 - Fix: route routine CT137 packets only through the digest-bound deterministic
-  bridge in the exact checkout. Resolve policy from the packet's exact Git
-  object or exact-SHA worktree, never from the shared checkout. A DEV packet
-  must not invoke CT137, SSH or `known_hosts` checks. Until a dedicated DEV
-  controller exists, return `dev_deterministic_controller_missing` rather than
-  reconstructing provider operations through an LLM.
+  bridge in the exact checkout, and route no-migration DEV packets only through
+  `scripts/deploy/dev_release_controller.py`. Resolve policy from the packet's
+  exact Git object or exact-SHA worktree, never from the shared checkout. A DEV
+  packet must not invoke CT137, SSH or `known_hosts` checks or reconstruct
+  provider operations through an LLM. Schema-affecting DEV packets continue to
+  stop at the separately owned public-schema gate.
 - Verification: exact SHA `b3b4c314750a7a2e3df89f526b92345d54c305d0`
   passed GitHub CI run `36298869875`; Vercel DEV, Render API and Render worker
   reached terminal success on the same SHA; API health, worker root and frontend
@@ -4459,7 +4460,9 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: packet target and exact-SHA checkout are routing inputs, not
   advisory text. Successful routine execution performs no broad documentation
   bootstrap. An executor capability failure is not provider or credential
-  evidence, and a production-only controller is never substituted for DEV.
+  evidence, and a production-only controller is never substituted for DEV. The
+  DEV controller is covered by digest, provider-plan, exact-SHA, health and CI
+  contracts and emits only bounded sanitized evidence.
 
 # 2026-09-26 - Mandatory-training read model failed on independent current enrollment chains
 

@@ -34,6 +34,25 @@ root confirms the same release remains authorized. Execute with the same
 arguments plus `--mode execute --confirm-release-id <RELEASE_ID>`. Never rebuild
 the command manually or invoke the lower-level deploy helper on the routine path.
 
+For a no-migration DEV packet, invoke only:
+
+```text
+py -3 scripts/deploy/dev_release_controller.py reconcile
+  --packet <absolute-packet.json>
+  --packet-sha256 <packet-sha256>
+  --repo-root <Kamilya-checkout>
+  --env-file <canonical-checkout>/.env
+  --evidence-root <checkout>/.release-evidence
+```
+
+Use `execute` with the same arguments plus
+`--confirm-release-id <RELEASE_ID>` only after the exact packet is authorized.
+The controller owns GitHub, Vercel and Render sequencing, free-plan guards,
+terminal waits, exact-SHA readback and public health evidence. A DEV packet must
+not invoke CT137, SSH or `known_hosts`, and the runner must not reconstruct these
+provider operations as chat commands. Schema-affecting DEV packets stop with
+`schema_gate_required` and remain owned by the separate canonical schema gate.
+
 For the backend release plane, use only the protected
 `.github/workflows/release-kz-production.yml` and installed
 `kamilya-release-runner`; do not reconstruct its validate/execute sequence in

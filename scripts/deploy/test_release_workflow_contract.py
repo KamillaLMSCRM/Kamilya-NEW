@@ -135,7 +135,9 @@ def test_ci_blocks_release_bridge_syntax_and_contract_regressions() -> None:
     text = CI_WORKFLOW.read_text(encoding="utf-8")
 
     assert "scripts/deploy/release_runner_bridge.py" in text
+    assert "scripts/deploy/dev_release_controller.py" in text
     assert "../../scripts/deploy/test_release_runner_bridge.py" in text
+    assert "../../scripts/deploy/test_dev_release_controller.py" in text
 
 
 def test_slot_compose_never_runs_migrations_on_api_start() -> None:

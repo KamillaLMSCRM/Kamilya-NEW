@@ -177,7 +177,7 @@ access failure as the release blocker. The root executor successfully used the
 same canonical GitHub helper immediately before this run, so the result is not
 evidence of a bad project token or DEV outage.
 
-### Interpretation limit
+### Interpretation limit after the first live release
 
 This is a decision-useful comparison, but not a symmetric two-deployment A/B.
 Only one provider release was performed. The A arm reconciled that completed
@@ -190,9 +190,30 @@ no dedicated DEV controller exists yet. Therefore:
 - a dedicated DEV controller is the remaining deep-module seam if DEV releases
   also need zero-model-call execution.
 
+## Dedicated DEV controller candidate
+
+The remaining seam was implemented as
+`scripts/deploy/dev_release_controller.py`. Its public interface accepts one
+digest-bound `kamilya-dev-release-v1` packet and exposes only `reconcile` and
+`execute`. The implementation owns canonical GitHub authentication, branch and
+CI identity, Vercel and Render plan/branch guards, exact-commit provider waits,
+public health, and bounded evidence. It rejects schema-changing packets with
+`schema_gate_required`; it does not change plans, databases, DNS or production.
+
+Before any second release, the controller reconciled the existing exact SHA
+`b3b4c314750a7a2e3df89f526b92345d54c305d0` read-only. It recovered GitHub CI
+run `36298869875`, Vercel deployment `dpl_EZDr2aAcEukvg1WWCLJg7XuX7mdM`, Render
+deployments `dep-dasb4r7pn0mc73fl6pvg` and `dep-dasb4r60tbcc73el9olg`, and passed
+API, worker and frontend public health. During this verification two adapter
+defects were found and fixed test-first: Render list records are wrapped in a
+`deploy` envelope, and free Render cold starts need bounded health retries.
+
+The final experiment gate is one real no-migration DEV release executed entirely
+through this controller. Its exact IDs and timing are recorded below after that
+run; until then the end-to-end zero-model claim remains open.
+
 ## Decision
 
-**GO for review/merge of the CT137 bridge and exception-only runner contract.**
-The live DEV evidence confirms that the candidate is release-safe and that the
-old persistent-runner behavior is both expensive and unreliable. Production was
-not changed or authorized by this experiment.
+**GO for the final deterministic DEV execution gate.** The CT137 bridge,
+exception-only runner contract and read-only DEV reconciliation are verified.
+Production remains outside this experiment and is not authorized.

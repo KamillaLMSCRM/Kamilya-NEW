@@ -62,6 +62,15 @@ class GovernanceContractTests(unittest.TestCase):
             "For every run, read only the relevant parts of:", release_runner
         )
 
+    def test_release_runner_uses_deterministic_dev_success_path(self) -> None:
+        release_runner = read(".codex/agents/release-runner/AGENTS.md")
+
+        self.assertIn("scripts/deploy/dev_release_controller.py", release_runner)
+        self.assertIn("--packet-sha256", release_runner)
+        self.assertIn("--confirm-release-id", release_runner)
+        self.assertIn("A DEV packet must", release_runner)
+        self.assertIn("not invoke CT137", release_runner)
+
     def test_release_authority_and_evidence_modules_have_distinct_owners(self) -> None:
         project_rules = read("AGENTS.md")
         release_lifecycle = read("docs/releases/README.md")
