@@ -4456,7 +4456,11 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   passed GitHub CI run `36298869875`; Vercel DEV, Render API and Render worker
   reached terminal success on the same SHA; API health, worker root and frontend
   login passed. The deterministic bridge contracts passed 33 unittests, 42
-  pytest contracts and the release-contract gate.
+  pytest contracts and the release-contract gate. The completed DEV controller
+  then released exact SHA `9ea132ad6bc8e631ddf5eaba5e0d5da67b8e844d`:
+  GitHub CI run `36301070653`, Vercel and both Render services reached terminal
+  success on that SHA, all public health checks passed, and the combined focused
+  release/governance suite passed `45` tests.
 - Prevention: packet target and exact-SHA checkout are routing inputs, not
   advisory text. Successful routine execution performs no broad documentation
   bootstrap. An executor capability failure is not provider or credential

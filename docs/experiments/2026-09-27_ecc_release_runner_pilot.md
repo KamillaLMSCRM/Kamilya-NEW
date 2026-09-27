@@ -208,12 +208,49 @@ API, worker and frontend public health. During this verification two adapter
 defects were found and fixed test-first: Render list records are wrapped in a
 `deploy` envelope, and free Render cold starts need bounded health retries.
 
-The final experiment gate is one real no-migration DEV release executed entirely
-through this controller. Its exact IDs and timing are recorded below after that
-run; until then the end-to-end zero-model claim remains open.
+### Final deterministic DEV execution
+
+The first execute attempt stopped before changing `origin/dev` because GitHub's
+ref API cannot point at a commit object that exists only in the local repository.
+The adapter was corrected test-first to use the canonical project-bound
+credential helper with an exact non-force Git push. A second regression also
+prevents a duplicate Render API deployment by reusing an existing exact-SHA
+autodeploy while still explicitly deploying the worker whose autodeploy is off.
+
+Exact SHA `9ea132ad6bc8e631ddf5eaba5e0d5da67b8e844d` was then released through one
+`dev_release_controller.py execute` call:
+
+| Gate | Result |
+|---|---|
+| Authenticated GitHub account | `KamillaLMSCRM` through `scripts/ops/with_project_github_token.py` |
+| Independent remote readback | `refs/heads/dev` exact SHA `9ea132ad6bc8e631ddf5eaba5e0d5da67b8e844d` at `2026-09-27T06:54:05Z` |
+| GitHub CI | run `36301070653`, success, exact SHA; 06:46:09Z-06:50:32Z (`263 s`) |
+| Vercel DEV | `dpl_75qUprBy5bWr1rjFoFxzxBudnny5`, `READY`, exact SHA, `hobby`; `63.368 s` |
+| Render DEV API | `dep-dasbpfe0tbcc73enu1jg`, `live`, exact SHA, `free`; `103.067 s` |
+| Render DEV worker | `dep-dasbqal9fdbs73cp7btg`, `live`, exact SHA, `free`; `52.429 s` |
+| Public API | `status=ok`, `render-development`, exact SHA |
+| Public worker | HTTP 200 body `ok` |
+| Public frontend | `/login` HTTP 200 |
+| Migration scope | `none`; no database gate or write invoked |
+
+The controller performed no model call, read no policy document during execute,
+and emitted one bounded sanitized JSON result. Provider waiting dominates elapsed
+time; it no longer consumes model context. The full focused
+release/bridge/governance suite passed `45` tests and the release-contract gate
+passed the Alembic, Celery, migration-ownership, Render dependency and error
+journal checks.
+
+This closes the interpretation limit from the first DEV run: end-to-end routine
+DEV execution now has a zero-model deterministic path. The A and B timings remain
+non-symmetric because A only attempted read-only reconciliation while B performed
+a real provider release. The decisive comparison is capability and context cost:
+A consumed `133,750` input tokens and produced a false block without external
+evidence; B performed the complete release with zero controller model calls.
 
 ## Decision
 
-**GO for the final deterministic DEV execution gate.** The CT137 bridge,
-exception-only runner contract and read-only DEV reconciliation are verified.
-Production remains outside this experiment and is not authorized.
+**GO for review/merge of both deterministic release modules and the
+exception-only runner contract.** The experiment is complete: CT137 has a
+deterministic bridge, no-migration DEV has a deterministic controller, and the
+persistent LLM runner is removed from both routine paths. Production remained
+untouched and was not authorized by this experiment.
