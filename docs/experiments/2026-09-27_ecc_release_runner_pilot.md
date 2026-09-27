@@ -1,7 +1,9 @@
 # ECC selective pilot: deterministic Kamilya release bridge
 
-Date: 2026-09-27  
-Branch: `experiment/ecc-release-pilot-20260927`  
+Date: 2026-09-27
+
+Branch: `experiment/ecc-release-pilot-20260927`
+
 Base: `origin/master` at `315e01320a0395b4c30a0f7738d3eccb01e5417e`
 
 ## Goal
