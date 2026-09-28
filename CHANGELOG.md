@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restore superadmin tenant deletion when a tenant contains source-actuality
   policies or document-change reviews by purging those records before their
   referenced documents and users.
+- Make the exact-SHA DEV release controller resumable after provider build
+  failures, and remove Render DEV's unused Uvicorn hot-reload extra.
 - Keep deletion limited to the exact active tenant and an authenticated
   superadmin session; ordinary methodologists retain no delete permission on
   source-actuality history.

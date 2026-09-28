@@ -4534,6 +4534,27 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   regression test proves resume does not push again and does retrigger the
   failed service.
 
+## RELEASE-006 - Render DEV depended on an unused hot-reload package
+
+- Date: 2026-09-28. Found while promoting source actuality `0.11.15`; no
+  production or customer data was touched.
+- Symptom: three consecutive exact-SHA Render API builds failed after five
+  `pypi.org/simple/watchfiles` timeouts. Pip then backtracked across every
+  available Uvicorn release and reported a misleading `ResolutionImpossible`.
+- Cause: Render's independent `requirements.txt` requested
+  `uvicorn[standard]>=0.32`. The DEV service starts Uvicorn without `--reload`,
+  while `watchfiles` is used only by the optional standard extra's reload path.
+  The range was also broader than Poetry's `^0.32` production contract.
+- Fix: keep production Poetry/Docker dependencies unchanged, but make the
+  Render-only requirement `uvicorn>=0.32,<0.33`. WebSocket support remains an
+  explicit direct dependency; DEV no longer downloads reload-only watchfiles.
+- Verification: a red contract first reproduced the standard-extra dependency;
+  the corrected requirement must pass that contract, the runtime dependency
+  gate, exact-SHA CI and a fresh Render DEV build/readback.
+- Prevention: Render-only requirements must contain only runtime dependencies,
+  preserve the same version range as Poetry and have a contract for optional
+  extras whose packages are not exercised by the service start command.
+
 # 2026-09-26 - Mandatory-training read model failed on independent current enrollment chains
 
 - **Symptom:** the production synthetic tenant returned HTTP 500 from both
