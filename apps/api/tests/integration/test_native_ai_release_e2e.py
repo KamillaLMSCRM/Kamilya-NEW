@@ -190,6 +190,23 @@ async def test_ai_draft_reaches_certificate_and_training_log_for_selected_group(
     assert lesson_progress.status_code == 200, lesson_progress.text
     assert lesson_progress.json()["completed"] is True
 
+    failed_quiz_result = await client.post(
+        f"/api/v1/quizzes/{quiz.id}/submit",
+        headers=learner_headers,
+        json={
+            "answers": [
+                {
+                    "question_id": str(question.id),
+                    "selected_choice_ids": [str(wrong_choice.id)],
+                }
+            ],
+            "time_spent_seconds": 10,
+        },
+    )
+    assert failed_quiz_result.status_code == 200, failed_quiz_result.text
+    assert failed_quiz_result.json()["passed"] is False
+    assert failed_quiz_result.json()["attempt"]["score_percent"] == 0
+
     quiz_result = await client.post(
         f"/api/v1/quizzes/{quiz.id}/submit",
         headers=learner_headers,
@@ -261,7 +278,7 @@ async def test_ai_draft_reaches_certificate_and_training_log_for_selected_group(
     assert completed_row["computed_status"] == "completed"
     assert completed_row["progress_percent"] == 100
     assert completed_row["best_score"] == 100
-    assert completed_row["quiz_attempts_count"] == 1
+    assert completed_row["quiz_attempts_count"] == 2
     assert completed_row["certificate_number"] == completion_body["certificate_number"]
 
     for learner in learners[1:]:

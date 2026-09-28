@@ -1,8 +1,10 @@
 # Этап 2: матрица обязательного обучения и объяснимые назначения
 
-Статус: 2.1 и 2.2 выпущены в production в составе `0.11.9`. Дополнительная
-приёмка action center и dashboard прошла на DEV exact SHA `87d767de`;
-production promotion этого follow-up остаётся отдельным gate.
+Статус: завершён. 2.1 и 2.2 выпущены в production в составе `0.11.9`.
+Action-center follow-up выпущен в `0.11.10`; dashboard count correction и
+обязательный AI critical journey выпущены в `0.11.12`. Открытая сквозная
+приёмка перенесена в
+[`2026-09-28_corporate-readiness-stage3.md`](2026-09-28_corporate-readiness-stage3.md).
 
 ## Цель
 

@@ -1,5 +1,6 @@
 """Enrollments — API service."""
 
+import math
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
@@ -28,6 +29,27 @@ class ReassignmentOutcome:
     personal_access: dict[str, object] | None
     delivery_mode: str
     notification_outbox_id: UUID | None
+
+
+def _recover_historical_window_minutes(
+    deadline: datetime | None,
+    *,
+    created_at: datetime | None,
+    updated_at: datetime | None,
+) -> int | None:
+    """Recover the last explicit positive window from pre-duration policies.
+
+    Older persisted policies stored only an absolute deadline. Reassignment
+    needs a duration so the new occurrence receives a fresh window. Prefer the
+    latest policy timestamp that still precedes the deadline; this preserves a
+    later operator-approved extension instead of reverting to the first term.
+    """
+    if deadline is None:
+        return None
+    origins = [origin for origin in (updated_at, created_at) if origin is not None and origin < deadline]
+    if not origins:
+        return None
+    return max(1, math.ceil((deadline - max(origins)).total_seconds() / 60))
 
 
 async def get_enrolled_users(db: AsyncSession, course_id: UUID, tenant_id: UUID):
@@ -422,6 +444,18 @@ async def reassign_manual_enrollment(
         predecessor_link_minutes = cast(int | None, predecessor_policy.link_validity_minutes)
         predecessor_due_at = cast(datetime | None, predecessor_policy.due_at)
         predecessor_due_minutes = cast(int | None, predecessor_policy.due_window_minutes)
+        if predecessor_link_expires_at is not None and not predecessor_link_minutes:
+            predecessor_link_minutes = _recover_historical_window_minutes(
+                predecessor_link_expires_at,
+                created_at=cast(datetime | None, predecessor_policy.created_at),
+                updated_at=cast(datetime | None, predecessor_policy.updated_at),
+            )
+        if predecessor_due_at is not None and not predecessor_due_minutes:
+            predecessor_due_minutes = _recover_historical_window_minutes(
+                predecessor_due_at,
+                created_at=cast(datetime | None, predecessor_policy.created_at),
+                updated_at=cast(datetime | None, predecessor_policy.updated_at),
+            )
         if predecessor_link_expires_at is not None and not predecessor_link_minutes:
             raise ValueError("Assignment link policy must be extended before reassignment")
         if predecessor_due_at is not None and not predecessor_due_minutes:

@@ -148,6 +148,33 @@ describe('contextual course assignment flow', () => {
     expect(toastMock.success).toHaveBeenCalledWith('Новое назначение создано; прежняя история сохранена.');
   });
 
+  it('shows the API reason when a repeated assignment cannot be created', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!init?.method && url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([{ id: 'course-1', title: 'Охрана труда', status: 'published' }]));
+      if (!init?.method && url.includes('/v1/users?')) return Promise.resolve(jsonResponse({ users: [{ id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: 'aliya@example.kz', role: 'student' }] }));
+      if (!init?.method && url.endsWith('/v1/learning-cycles')) return Promise.resolve(jsonResponse([]));
+      if (!init?.method && url.endsWith('/v1/learning-cycles/occurrences')) return Promise.resolve(jsonResponse([]));
+      if (!init?.method && url.endsWith('/v1/courses/course-1/enrollments')) {
+        return Promise.resolve(jsonResponse([{ id: 'enrollment-1', user_id: 'user-1', course_id: 'course-1', status: 'completed', source: 'manual', enrolled_at: '2026-01-01T00:00:00Z' }]));
+      }
+      if (init?.method === 'POST' && url.endsWith('/v1/courses/course-1/reassignments')) {
+        return Promise.resolve(jsonResponse({ error: 'conflict', message: 'Extend the historical access policy first' }, 409));
+      }
+      throw new Error(`Unexpected request: ${url} ${init?.method || 'GET'}`);
+    });
+
+    render(<CourseAssignmentsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Назначить повторно' }));
+    fireEvent.change(screen.getByLabelText('Причина повторного назначения (обязательно)'), { target: { value: 'Repeat diagnostics' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Создать повторное назначение' }));
+
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith(
+      'Не удалось создать повторное назначение',
+      { description: 'Extend the historical access policy first' },
+    ));
+  });
+
   it('reveals the fresh protected link and PIN returned for a repeated personal-link assignment', async () => {
     let repeatCalls = 0;
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {

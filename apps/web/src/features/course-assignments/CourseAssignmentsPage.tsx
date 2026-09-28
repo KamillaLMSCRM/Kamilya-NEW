@@ -496,7 +496,7 @@ export default function EnrollmentsPage() {
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(error?.detail || t('courseAssignments.repeat.failed'));
+        throw new Error(error?.message || error?.detail || t('courseAssignments.repeat.failed'));
       }
       const result = await response.json() as ReassignmentResult;
       setIssuedNoEmailAccess(null);

@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from dotenv import dotenv_values
+from dotenv import dotenv_values, load_dotenv
 from kb_rag_isolated_dev_gate import (
     API_ROOT,
     GateBlocked,
@@ -464,6 +464,10 @@ def main() -> int:
     if not args.execute:
         print(json.dumps({"status": "BLOCKED", "error_class": "execute_flag_required"}))
         return 2
+    # The explicit DEV env file is authoritative for both the gate's connection
+    # checks and the application modules imported by run_gate(). Keeping those
+    # two sources aligned avoids ambient-shell settings producing a false RED.
+    load_dotenv(args.env_file, override=True)
     config = dotenv_values(args.env_file)
     owner_url = normalize_database_url(config.get("MIGRATION_DATABASE_URL") or "")
     runtime_url = normalize_database_url(config.get("DATABASE_URL") or "")

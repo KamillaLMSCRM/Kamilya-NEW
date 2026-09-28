@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "journeys": [
+    {
+      "id": "CORPORATE-READINESS-01",
+      "title": "Methodologist assignment through learner evidence and operational reconciliation",
+      "description": "Follow one assigned course occurrence from methodologist assignment through learner progress, a failed mandatory quiz and successful retry, completion confirmation, signed-copy review, evidence-package export, and reconciliation of the current occurrence and retained history across operational views.",
+      "trigger_paths": [
+        "apps/api/app/modules/enrollments/**",
+        "apps/api/app/modules/lessons/**",
+        "apps/api/app/modules/quizzes/**",
+        "apps/api/app/modules/courses/**",
+        "apps/api/app/modules/training_evidence/**",
+        "apps/api/app/modules/evidence_export/**",
+        "apps/api/app/modules/mandatory_training/**",
+        "apps/api/app/modules/training_log/**",
+        "apps/api/app/modules/learning_actions/**",
+        "apps/api/app/modules/learning_insights/**",
+        "apps/web/src/app/assignments/**",
+        "apps/web/src/app/courses/**",
+        "apps/web/src/app/training-log/**",
+        "apps/web/src/app/mandatory-training/**",
+        "apps/web/src/app/dashboard/**",
+        "apps/web/tests/methodologistDashboard.test.tsx",
+        "apps/web/tests/learningActions.test.tsx"
+      ],
+      "required_tests": [
+        "apps/api/tests/unit/test_quiz_submission_progress.py::test_passed_quiz_persists_lesson_before_returning_success",
+        "apps/api/tests/unit/test_training_evidence_signed_scans_unit.py::test_signed_copy_status_is_derived_from_append_only_scan_and_review_rows",
+        "apps/api/tests/unit/test_training_evidence_package_service.py::test_accepted_signed_copy_becomes_manual_confirmation_and_package_attachment",
+        "apps/api/tests/unit/test_evidence_export.py::test_individual_package_includes_only_explicitly_accepted_signed_copies",
+        "apps/api/tests/test_mandatory_training_service.py::test_matrix_and_summary_share_explainable_expected_vs_actual_rows",
+        "apps/api/tests/unit/test_training_log_csv.py::test_training_log_csv_is_excel_compatible",
+        "apps/api/tests/unit/test_training_log_router_filter_contract.py::test_training_log_json_summary_and_csv_share_restricted_scope",
+        "apps/api/tests/test_repeat_assignment_training_log_contract.py::test_training_log_defaults_to_current_and_exposes_history_and_operational_metrics",
+        "apps/api/tests/test_corporate_readiness_journey_contract.py::test_corporate_journey_contract_covers_end_to_end_acceptance"
+      ],
+      "database_tests": [
+        "apps/api/tests/integration/test_native_ai_release_e2e.py::test_ai_draft_reaches_certificate_and_training_log_for_selected_group",
+        "apps/api/tests/integration/test_course_release_evidence.py::test_publish_binds_enrollment_and_attempt_to_immutable_release",
+        "apps/api/tests/integration/test_training_evidence_workflow.py::test_course_completion_route_creates_training_evidence",
+        "apps/api/tests/integration/test_training_evidence_export_api.py::test_learner_training_pdf_adds_current_form_for_legacy_event_without_snapshot",
+        "apps/api/tests/integration/test_training_evidence_signed_scan_review.py::test_learner_can_append_only_to_own_training_event_and_methodologist_can_review",
+        "apps/api/tests/integration/test_training_evidence_export_api.py::test_individual_export_builds_server_owned_zip_and_state",
+        "apps/api/tests/integration/test_manual_reassignments.py::test_reassignment_resets_quiz_attempt_scope_without_erasing_predecessor_attempts",
+        "apps/api/tests/integration/test_manual_reassignments.py::test_training_log_current_default_excludes_retained_history_and_history_is_explicit",
+        "apps/api/tests/integration/test_manual_reassignments.py::test_reassignment_starts_clean_lesson_progress_and_learner_dashboard_occurrence"
+      ],
+      "runtime_gates": [
+        "scripts/ops/training_evidence_signed_copy_dev_gate.py",
+        "scripts/ops/manual_reassignment_dev_gate.py",
+        "scripts/ops/training_log_dev_check.py",
+        "scripts/ops/training_responsibility_dev_gate.py"
+      ],
+      "invariants": [
+        "The methodologist assigns a published course to the learner and the assignment occurrence has a stable identity.",
+        "The learner opens the assigned course; lesson progress is scoped to that assignment occurrence and persists when moving between lessons.",
+        "A failed mandatory quiz attempt is retained and does not complete its lesson or course; a successful retry is recorded before the lesson and course can complete.",
+        "Course completion makes the learner confirmation PDF available for the completed assignment occurrence, with the employee signature area present.",
+        "The learner can append a signed scan only to their own completed training event; the methodologist can review it and acceptance is append-only.",
+        "The evidence package includes the signed copy only after an explicit methodologist acceptance and retains tenant and event ownership.",
+        "Manual reassignment creates a new occurrence while preserving the predecessor's quiz attempts, lesson progress, completion state, and training history.",
+        "Mandatory training, training-log rows and CSV export, dashboard statistics, and the action center agree on the current occurrence without erasing or double-counting retained history.",
+        "Verification uses only the documented application routes and current journey contracts; no endpoint is inferred from this contract."
+      ],
+      "dev_gate": "Run the focused deterministic test selectors, then exercise the full flow in an isolated DEV tenant and reconcile current versus historical rows, dashboard/action-center state, exported PDF, and evidence package.",
+      "production_gate": "Run one bounded human-style acceptance in an authorized synthetic tenant after DEV passes; verify the learner confirmation PDF, learner-uploaded signed copy, methodologist acceptance, accepted-copy package inclusion, and current/history reconciliation, then prove cleanup."
+    }
+  ]
+}

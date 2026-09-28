@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-09-27 по исходникам и публичному production readback
+**Проверено:** 2026-09-28 по исходникам и публичному production readback
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,25 +9,20 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current product-state reconciliation — 2026-09-27
+## Current product-state reconciliation — 2026-09-28
 
-- Published source release `v0.11.11` peels to exact commit
-  `ee197447bef8198ff678f078dcb61241eb426898`. GitHub CI run `36301829366`,
-  deterministic release workflow `36302004951` and production smoke runs
-  `36302087123` / `36321086010` passed.
-- Public API health reports product version `0.11.9` and exact release SHA
-  `04689ed4cf728f23cda73d8c371ffb93e435c37f` for `kz-production`.
-- Public native frontend `/healthz` reports exact SHA
-  `315e01320a0395b4c30a0f7738d3eccb01e5417e` in both the response body and
-  `X-Kamilya-Release` header. That SHA is the published `v0.11.10` release.
-- `scripts/ops/product_state_reconcile.py` classifies this state as
-  `SPLIT_ANCESTRY`: both runtime SHAs are verified ancestors of the current
-  source release. This is expected because `v0.11.10` was frontend-only and
-  `v0.11.11` changed release tooling only; neither release required an API
-  runtime rollout.
-- `SPLIT_ANCESTRY` is not an authenticated product-journey acceptance. The
-  remaining browser gates in the product epics still require their own
-  exact-SHA, role-correct human-path verification.
+- Published source release `v0.11.12` points to exact commit
+  `967d15cd82a96bc863560769dc2a0e356acfea9f`.
+- Fresh public API readback from `/health` and `/api/v1/health` reports product
+  version `0.11.12`, environment `production` and the same exact release SHA.
+- Fresh native frontend `/healthz` readback reports the same SHA in both the
+  response body and `X-Kamilya-Release` header.
+- Release evidence records successful exact-SHA CI, protected production
+  rollout, synchronized API/worker image and production smoke for `0.11.12`.
+- Product state is therefore `ALIGNED`. This proves release identity, not the
+  still-open continuous corporate journey. Stage 3 must separately reconcile
+  mandatory-training matrix, dashboard, training log, export, signed evidence
+  and reassignment history in the existing production synthetic tenant.
 
 ## Release 0.7.7 — deployed production baseline, 2026-09-19
 

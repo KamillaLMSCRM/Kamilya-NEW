@@ -128,8 +128,8 @@ async def test_reassignment_reissues_email_delivery_and_carries_relative_timing_
 ):
     from sqlalchemy import select
 
-    from app.models.course_assignment_notification import CourseAssignmentNotificationOutbox
     from app.models.enrollment_access_policy import EnrollmentAccessPolicy
+    from app.modules.enrollments.notification_outbox import PostgresAssignmentNotificationStore
 
     tenant = await make_tenant(name="Repeat email delivery tenant")
     methodologist = await make_user(tenant, role="methodologist")
@@ -183,12 +183,12 @@ async def test_reassignment_reissues_email_delivery_and_carries_relative_timing_
     assert policy.delivery_mode == "email"
     assert policy.completion_window_minutes == 90
     assert before + timedelta(days=2, hours=23) <= policy.due_at <= datetime.now(UTC) + timedelta(days=3, minutes=1)
-    notification = await db_session.scalar(
-        select(CourseAssignmentNotificationOutbox).where(
-            CourseAssignmentNotificationOutbox.enrollment_id == current_id
-        )
+    notifications = await PostgresAssignmentNotificationStore(db_session).statuses(
+        tenant_id=tenant.id,
+        course_id=course.id,
     )
-    assert notification is not None
+    assert current_id in notifications
+    assert notifications[current_id].status == "pending"
 
 
 async def test_reassignment_reissues_personal_link_and_returns_new_one_time_secret(
@@ -256,6 +256,58 @@ async def test_reassignment_reissues_personal_link_and_returns_new_one_time_secr
     assert active is not None
     await db_session.refresh(predecessor_policy)
     assert predecessor_policy.revoked_at is not None
+
+
+async def test_reassignment_recovers_relative_link_window_from_historical_absolute_policy(
+    client, db_session, make_tenant, make_user, make_course, auth_headers
+):
+    from sqlalchemy import select
+
+    from app.models.enrollment_access_policy import EnrollmentAccessPolicy
+
+    tenant = await make_tenant(name="Historical repeat policy tenant")
+    methodologist = await make_user(tenant, role="methodologist")
+    learner = await make_user(tenant, role="student")
+    course = await make_course(tenant, methodologist, title="Historical repeat policy", status="published")
+    predecessor = await _manual_enrollment(
+        db_session, tenant=tenant, learner=learner, course=course, status="completed"
+    )
+    policy_origin = datetime.now(UTC) - timedelta(days=21)
+    db_session.add(
+        EnrollmentAccessPolicy(
+            tenant_id=tenant.id,
+            enrollment_id=predecessor.id,
+            user_id=learner.id,
+            delivery_mode="personal_link",
+            link_expires_at=policy_origin + timedelta(days=7),
+            link_validity_minutes=None,
+            created_at=policy_origin,
+            updated_at=policy_origin,
+        )
+    )
+    await db_session.flush()
+
+    before = datetime.now(UTC)
+    response = await client.post(
+        f"/api/v1/courses/{course.id}/reassignments",
+        json={
+            "user_id": str(learner.id),
+            "previous_enrollment_id": str(predecessor.id),
+            "reason": "repeat historical assignment without a stored relative window",
+        },
+        headers=auth_headers(methodologist),
+    )
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    current_id = UUID(body["enrollment"]["id"])
+    policy = await db_session.scalar(
+        select(EnrollmentAccessPolicy).where(EnrollmentAccessPolicy.enrollment_id == current_id)
+    )
+    assert policy is not None
+    assert policy.link_validity_minutes == 7 * 24 * 60
+    assert before + timedelta(days=6, hours=23) <= policy.link_expires_at
+    assert policy.link_expires_at <= datetime.now(UTC) + timedelta(days=7, minutes=1)
 
 
 async def test_reassignment_rejects_an_unrecoverable_expired_deadline_policy(

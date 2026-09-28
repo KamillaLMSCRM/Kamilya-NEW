@@ -4489,3 +4489,72 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   must tolerate independently rooted legacy occurrence chains. Integrity repair
   may be reported separately, but a read-side dashboard must not turn one
   recoverable duplicate into a tenant-wide HTTP 500.
+
+## TEST-INFRA-006 - Acceptance test read a protected outbox table directly
+
+- Date: 2026-09-28. Found while running the corporate-readiness selectors on
+  the approved Supabase DEV transaction/cleanup contour.
+- Symptom: reassignment, deadline carry-over and notification enqueue all
+  succeeded, but the integration test ended with `permission denied for table
+  course_assignment_notification_outbox`.
+- Cause: the test asserted the queued row through an ORM `SELECT` as `lms_app`.
+  Direct table privileges are intentionally revoked; tenant-visible status is
+  exposed only through the bounded `course_assignment_notification_statuses`
+  function and `PostgresAssignmentNotificationStore` adapter.
+- Fix: keep the table closed and assert the new enrollment's pending status
+  through the production adapter. No database grant or application behavior was
+  changed.
+- Verification: the exact failing Supabase DEV selector changed from RED to
+  PASS, then all nine database selectors in `CORPORATE-READINESS-01` passed.
+- Prevention: integration assertions must use the same bounded RLS-safe read
+  interface as production whenever a table is deliberately hidden from the
+  runtime role. A test failure is never authority to broaden table privileges.
+
+## DEV-GATE-002 - Explicit DEV env file was not loaded before application imports
+
+- Date: 2026-09-28. Found in the isolated training-responsibility runtime gate;
+  cleanup passed and the shared public schema was unchanged.
+- Symptom: migration and RLS checks passed, then the application resolver failed
+  with a Pydantic `ValidationError` only when the gate was invoked directly.
+- Cause: `--env-file` supplied database URLs to the gate, but those values were
+  not loaded into the process before `resolve_reporting_scope` imported the
+  application settings. Connection identity and application configuration could
+  therefore come from different sources.
+- Fix: load the explicit env file process-locally with override before reading
+  it and before any application import. The explicit gate input, not ambient
+  shell state, is authoritative.
+- Verification: a focused unit regression is RED without the load and GREEN
+  with it; the direct gate then passed all nine resolver/migration/RLS checks
+  without an external dotenv wrapper and removed its disposable schema.
+- Prevention: a gate that accepts an explicit environment file must use that
+  same file for connection preflight and all lazily imported application
+  settings. Do not require undocumented shell wrappers to make a gate valid.
+
+## ENROLLMENT-011 - Historical absolute access policy blocked a valid reassignment
+
+- Date: 2026-09-28. Found by the production synthetic human-path acceptance;
+  customer tenants and provider settings were not touched.
+- Symptom: the assignments page retained the completed occurrence and required
+  a reassignment reason, but `POST /courses/{course_id}/reassignments` returned
+  HTTP 409 for a historical personal-link assignment. The UI repeated only the
+  generic failure text.
+- Cause: older access policies stored an absolute link or due deadline without
+  the relative duration introduced for repeat occurrences. The reassignment
+  service rejected every such row even when `created_at`/`updated_at` and the
+  stored deadline proved the previously approved positive window. The frontend
+  also read only the legacy `detail` error field while the canonical envelope
+  exposes `message`.
+- Fix: recover a missing duration from the latest policy timestamp that still
+  precedes the historical deadline, use it only for the fresh occurrence, and
+  keep the predecessor immutable. Fail closed when no positive historical
+  window can be proven. Display the canonical API `message` before the fallback
+  `detail` text.
+- Verification: the production case was reproduced as HTTP 409; a Supabase DEV
+  RED/GREEN regression now proves seven-day historical-link recovery while the
+  unrecoverable-deadline rejection remains green. The full reassignment file
+  passed `10` tests, the assignment UI passed `14`, and the complete corporate
+  DEV runner passed all six stages in `429.782s` with cleanup PASS, zero customer
+  writes and zero provider or billing changes.
+- Prevention: migration-era policy rows must be accepted only when their own
+  timestamps prove an explicit positive duration. A standard API error envelope
+  must remain visible to the operator; generic copy alone is not diagnostic.
