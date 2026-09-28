@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -41,6 +41,12 @@ class SourceActualityTransientError(RuntimeError):
 
 def _norm(value: object) -> str:
     return _SPACE.sub(" ", str(value or "").casefold().replace("ё", "е").strip())
+
+
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value]
 
 
 def _fact_index(facts: Iterable[SourceFact]) -> dict[tuple[str, str, str], SourceFact]:
@@ -185,17 +191,18 @@ async def list_actuality(db: AsyncSession, *, tenant_id: UUID, now: datetime | N
     )
     latest: dict[UUID, Document] = {}
     for document in documents:
-        if document.source_family_id not in latest or document.version > latest[document.source_family_id].version:
-            latest[document.source_family_id] = document
-    policies = {
+        family_id = cast(UUID, document.source_family_id)
+        if family_id not in latest or int(document.version) > int(latest[family_id].version):
+            latest[family_id] = document
+    policies: dict[UUID, DocumentSourcePolicy] = {
         policy.source_family_id: policy
         for policy in (
             await db.execute(select(DocumentSourcePolicy).where(DocumentSourcePolicy.tenant_id == tenant_id))
         ).scalars()
     }
     owner_ids = {policy.owner_id for policy in policies.values() if policy.owner_id is not None}
-    owners = {
-        owner.id: owner
+    owners: dict[UUID, User] = {
+        cast(UUID, owner.id): owner
         for owner in (
             (
                 await db.execute(
@@ -233,8 +240,11 @@ async def list_actuality(db: AsyncSession, *, tenant_id: UUID, now: datetime | N
         owner = owners.get(policy.owner_id) if policy and policy.owner_id else None
         owner_name = None
         if owner is not None:
-            owner_name = " ".join(part for part in (owner.first_name, owner.last_name) if part).strip()
-            owner_name = owner_name or owner.email
+            first_name = cast(str | None, owner.first_name)
+            last_name = cast(str | None, owner.last_name)
+            owner_email = cast(str, owner.email)
+            owner_name = " ".join(part for part in (first_name, last_name) if part).strip()
+            owner_name = owner_name or owner_email
         items.append(
             SourceActualityItem(
                 source_family_id=family_id,
@@ -397,7 +407,7 @@ async def _impact_snapshot(db: AsyncSession, *, tenant_id: UUID, predecessor_id:
             # Older native courses may persist provenance only at course level.
             # In that case every lesson is reviewable; reporting zero would be
             # a false claim of precision.
-            impacted_lessons = lessons
+            impacted_lessons = list(lessons)
         lesson_ids = [lesson.id for lesson in impacted_lessons]
         questions = 0
         if lesson_ids:
@@ -478,8 +488,8 @@ async def process_review(db: AsyncSession, *, tenant_id: UUID, review_id: UUID) 
     review.status, review.analysis_error_code, review.analysis_error_message = "processing", None, None
     await db.flush()
     try:
-        documents = {
-            document.id: document
+        documents: dict[UUID, Document] = {
+            cast(UUID, document.id): document
             for document in (
                 await db.execute(
                     select(Document).where(
@@ -513,10 +523,12 @@ async def process_review(db: AsyncSession, *, tenant_id: UUID, review_id: UUID) 
             [str(previous.id), str(new.id)],
             tenant_id=tenant_id,
         )
-        previous_source = build_evidence_source(_single_document_corpus(corpus, previous.id))
-        new_source = build_evidence_source(_single_document_corpus(corpus, new.id))
+        previous_id = cast(UUID, previous.id)
+        new_id = cast(UUID, new.id)
+        previous_source = build_evidence_source(_single_document_corpus(corpus, previous_id))
+        new_source = build_evidence_source(_single_document_corpus(corpus, new_id))
         delta = bounded_fact_diff(previous_source.all_facts, new_source.all_facts)
-        impact = await _impact_snapshot(db, tenant_id=tenant_id, predecessor_id=previous.id)
+        impact = await _impact_snapshot(db, tenant_id=tenant_id, predecessor_id=previous_id)
         courses = impact["impacted_courses"]
         (
             review.added_fact_count,
@@ -579,7 +591,7 @@ async def _clone_course(
         else course.source_instruction_id,
         source_document_ids=[
             str(replacement_id) if str(value) == str(predecessor_id) else str(value)
-            for value in (course.source_document_ids or [])
+            for value in _string_list(course.source_document_ids)
         ],
         source_strategy=course.source_strategy,
         source_combination_goal=course.source_combination_goal,
@@ -643,7 +655,7 @@ async def _clone_course(
                 source_document_ids=(
                     [
                         str(replacement_id) if str(value) == str(predecessor_id) else str(value)
-                        for value in (lesson.source_document_ids or [])
+                        for value in _string_list(lesson.source_document_ids)
                     ]
                     if impacted
                     else lesson.source_document_ids
@@ -702,7 +714,8 @@ async def _clone_course(
                     (
                         await db.execute(
                             select(Question)
-                            .where(Question.quiz_id == quiz.id)
+                            .join(Quiz)
+                            .where(Question.quiz_id == quiz.id, Quiz.tenant_id == tenant_id)
                             .order_by(Question.order_index, Question.id)
                         )
                     )
@@ -743,7 +756,7 @@ async def _clone_course(
                             for choice in choices
                         ]
                     )
-    return clone.id
+    return cast(UUID, clone.id)
 
 
 async def decide_review(
@@ -806,7 +819,7 @@ async def decide_review(
                     )
                 )
             if decision == "suspend_old_assignments":
-                course.status = "archived"
+                course.status = cast(Any, "archived")
                 snapshot["archived_course_ids"].append(str(course.id))
         if decision == "suspend_old_assignments" and snapshot["archived_course_ids"]:
             course_ids = [UUID(value) for value in snapshot["archived_course_ids"]]

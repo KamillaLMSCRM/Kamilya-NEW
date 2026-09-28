@@ -298,6 +298,16 @@ open, also record status, safe interim path, and review condition.
   check when the Windows baseline wrapper reports unrelated path-normalization
   noise, before commit and push; never raise the committed baseline for a new
   violation.
+- Recurrence, 2026-09-28: source-actuality `0.11.14` was pushed to `dev` after
+  focused Ruff and complete tests but before the canonical
+  `python_quality_baseline.py` and `tenant-gate.sh`. CI correctly stopped on new
+  mypy findings and one `select(Question)` without an explicit tenant filter;
+  no DEV application deployment was accepted. The query now joins the
+  tenant-scoped quiz, the new module has no changed-file mypy delta, and both
+  exact CI gates pass locally. Prevention is procedural and fail-closed: for
+  every Python release candidate, run these two named CI scripts before commit
+  and push; Ruff is not a substitute and prior full pytest success is not
+  relevant to this gate.
 
 ## UI-CONTENT-001 - Read-only lesson preview exposed Markdown editing syntax
 

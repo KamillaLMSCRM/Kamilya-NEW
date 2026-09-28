@@ -40,7 +40,7 @@ async def mark_review_failed(*, tenant_id: UUID, review_id: UUID) -> dict[str, s
         return {"review_id": str(review.id), "status": review.status}
 
 
-@celery_app.task(
+@celery_app.task(  # type: ignore[untyped-decorator]
     bind=True,
     name="source_actuality.analyze_review",
     max_retries=3,

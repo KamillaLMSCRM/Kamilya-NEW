@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role, require_tenant_user
 from app.core.db import get_db
+from app.models.users import User
 from app.modules.audit.service import log_action
 from app.modules.source_actuality.models import DocumentChangeReview
 from app.modules.source_actuality.schemas import (
@@ -31,14 +32,18 @@ from app.modules.source_actuality.tasks import analyze_review_task
 router = APIRouter(
     prefix="/admin/source-actuality",
     tags=["source-actuality"],
-    dependencies=[Depends(require_tenant_user())],
+    dependencies=[Depends(require_tenant_user())],  # type: ignore[no-untyped-call]
 )
 DbSession = Annotated[AsyncSession, Depends(get_db)]
-Methodologist = Annotated[Any, Depends(require_role("methodologist"))]
+Methodologist = Annotated[User, Depends(require_role("methodologist"))]
 
 
 def _no_store(response: Response) -> None:
     response.headers["Cache-Control"] = "no-store"
+
+
+def _user_ids(user: User) -> tuple[UUID, UUID]:
+    return cast(UUID, user.tenant_id), cast(UUID, user.id)
 
 
 def _review_record(review: DocumentChangeReview) -> SourceChangeReviewRecord:
@@ -79,9 +84,10 @@ async def get_source_actuality(
     response: Response,
     db: DbSession,
     user: Methodologist,
-):
+) -> SourceActualityList:
+    tenant_id, _ = _user_ids(user)
     _no_store(response)
-    return await list_actuality(db, tenant_id=user.tenant_id)
+    return await list_actuality(db, tenant_id=tenant_id)
 
 
 @router.put("/{source_family_id}/policy", response_model=SourcePolicyRecord)
@@ -92,11 +98,12 @@ async def put_source_policy(
     response: Response,
     db: DbSession,
     user: Methodologist,
-):
+) -> SourcePolicyRecord:
+    tenant_id, actor_id = _user_ids(user)
     policy = await upsert_policy(
         db,
-        tenant_id=user.tenant_id,
-        actor_id=user.id,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
         source_family_id=source_family_id,
         owner_id=payload.owner_id,
         reviewed_at=payload.reviewed_at,
@@ -117,11 +124,11 @@ async def put_source_policy(
     )
     await log_action(
         db,
-        user.tenant_id,
+        tenant_id,
         "source_actuality.policy_updated",
         "document_source_policy",
         resource_id=source_family_id,
-        user_id=user.id,
+        user_id=actor_id,
         details={
             "owner_assigned": payload.owner_id is not None,
             "reviewed_at": payload.reviewed_at.isoformat() if payload.reviewed_at else None,
@@ -146,19 +153,20 @@ async def analyze_document_change(
     response: Response,
     db: DbSession,
     user: Methodologist,
-):
+) -> SourceChangeReviewRecord:
+    tenant_id, actor_id = _user_ids(user)
     review, should_enqueue = await request_analysis(
         db,
-        tenant_id=user.tenant_id,
+        tenant_id=tenant_id,
         new_document_id=new_document_id,
     )
     await log_action(
         db,
-        user.tenant_id,
+        tenant_id,
         "source_actuality.analysis_requested",
         "document_change_review",
         resource_id=review.id,
-        user_id=user.id,
+        user_id=actor_id,
         details={"new_document_id": str(new_document_id), "queued": should_enqueue},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
@@ -166,7 +174,7 @@ async def analyze_document_change(
     await db.commit()
     if should_enqueue:
         try:
-            analyze_review_task.apply_async(args=[str(user.tenant_id), str(review.id)])
+            analyze_review_task.apply_async(args=[str(tenant_id), str(review.id)])
         except Exception:
             review.status = "failed"
             review.analysis_error_code = "source_analysis_dispatch_failed"
@@ -183,9 +191,10 @@ async def get_review(
     response: Response,
     db: DbSession,
     user: Methodologist,
-):
+) -> SourceChangeReviewRecord:
+    tenant_id, _ = _user_ids(user)
     review = await db.get(DocumentChangeReview, review_id)
-    if review is None or review.tenant_id != user.tenant_id:
+    if review is None or review.tenant_id != tenant_id:
         raise HTTPException(status_code=404, detail="Review not found")
     _no_store(response)
     return _review_record(review)
@@ -199,11 +208,12 @@ async def decide_source_change(
     response: Response,
     db: DbSession,
     user: Methodologist,
-):
+) -> SourceChangeReviewRecord:
+    tenant_id, actor_id = _user_ids(user)
     review = await decide_review(
         db,
-        tenant_id=user.tenant_id,
-        actor_id=user.id,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
         review_id=review_id,
         decision=payload.decision,
         reason=payload.reason,
@@ -216,11 +226,11 @@ async def decide_source_change(
     record = _review_record(review)
     await log_action(
         db,
-        user.tenant_id,
+        tenant_id,
         "source_actuality.decision_recorded",
         "document_change_review",
         resource_id=review.id,
-        user_id=user.id,
+        user_id=actor_id,
         details={
             "decision": payload.decision,
             "retraining_due_at": (

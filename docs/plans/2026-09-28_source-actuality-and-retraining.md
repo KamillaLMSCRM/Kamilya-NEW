@@ -140,7 +140,7 @@
   and production build passed. The transactional Supabase DEV journey passed
   through revision admission, production-shaped conversion, impact, methodologist
   decision, draft/lesson/quiz review states and cross-tenant `404`. Graphify was
-  refreshed to 17,838 nodes / 46,765 edges with zero dangling or duplicate edges;
+  refreshed to 20,889 nodes / 49,988 edges with zero dangling or duplicate edges;
   SQL parsing remains unavailable and is not used as migration evidence.
 
 ### SA-06 — Release and production synthetic acceptance

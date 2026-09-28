@@ -132,7 +132,7 @@ API unit suite, полный frontend suite, lint, typecheck и production build
 - Context Mode/JEV в эпике не вызывались, поэтому точная экономия токенов не
   заявляется. Контекст удерживался узким task graph, точечными `rg`/Graphify
   запросами и одним read-only заданием дешёвому независимому агенту.
-- Graphify после реализации обновлён до 17 838 nodes / 46 765 edges; диагностика
+- Graphify после реализации обновлён до 20 889 nodes / 49 988 edges; диагностика
   показала ноль dangling endpoints, self-loops и duplicate edges. SQL parser не
   установлен, поэтому граф использован для навигации, но не как доказательство
   migration/RLS корректности.
