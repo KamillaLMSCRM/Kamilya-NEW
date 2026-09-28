@@ -4607,3 +4607,46 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: migration-era policy rows must be accepted only when their own
   timestamps prove an explicit positive duration. A standard API error envelope
   must remain visible to the operator; generic copy alone is not diagnostic.
+
+## TENANT-PURGE-004 - Source-actuality records blocked superadmin tenant deletion
+
+- Date: 2026-09-28. Found during the bounded production acceptance of release
+  `0.11.14`; only disposable synthetic tenants and documents were involved.
+- Symptom: the complete source-actuality journey passed, but cleanup stopped at
+  `SuperadminService.delete_tenant` with PostgreSQL `23503`. The referenced user
+  and documents could not be removed while source policies and change reviews
+  remained.
+- Cause: migration `0165` added `document_source_policies` and
+  `document_change_reviews` with `FORCE RLS` and no runtime DELETE grant, but the
+  canonical tenant purge list and a superadmin-only DELETE policy were not
+  extended. The acceptance harness also initially read the legacy single-
+  document DTO for catalog-only version fields and attempted cleanup against
+  the DEV migration URL; both verifier errors were corrected before retry.
+- Recovery: delete the two synthetic source-actuality row sets through the
+  migration owner while preserving ENABLE/FORCE RLS, then run the canonical
+  app-role purge. Runtime readback confirmed one tenant and two storage objects
+  removed, zero matching tenants remaining, and both tables still FORCE RLS.
+- Fix: migration `0166` first replaces each permissive tenant `FOR ALL` policy
+  with command-specific SELECT, INSERT and UPDATE policies, then grants DELETE
+  only under an exact-tenant `app.is_superadmin=true` policy. This avoids
+  PostgreSQL's permissive-policy OR semantics accidentally authorizing ordinary
+  tenant deletion. `TENANT_DELETE_SQL` removes reviews and policies before
+  documents and users. The production smoke reads version and index status from
+  `/documents/catalog` and performs cleanup only in the KZ runtime contour.
+- Verification: focused migration and purge-order contracts pass locally.
+  The canonical Supabase DEV schema completed `0166 -> 0165 -> 0166`; an
+  isolated schema independently completed `0165 -> 0166 -> 0165 -> 0166`, all
+  21 migration/RLS/ACL/cleanup checks passed and the public schema was
+  unchanged. Live `lms_app` tests prove ordinary same-tenant and superadmin
+  cross-tenant DELETE return zero rows, while the authenticated same-tenant
+  superadmin HTTP purge returns 204 and subsequent readback returns 404. The
+  complete database-free API suite passed `2916` tests with `506` expected
+  skips. An exact-SHA production synthetic purge remains mandatory before
+  release acceptance.
+- Prevention: every migration that adds a tenant-owned table must extend and
+  test the canonical tenant purge order, role-scoped DELETE policy and a
+  disposable DB-backed purge journey. Before adding a new command policy,
+  inspect every existing permissive policy because matching policies combine
+  with OR. A completed background job is not proof
+  that fields absent from its response DTO exist; verify against the endpoint
+  that owns the contract.

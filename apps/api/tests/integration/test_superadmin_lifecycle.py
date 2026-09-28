@@ -15,10 +15,15 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import text
 
 from app.models.tenants import RegistrationLegalAcceptance, Tenant, TenantUsage
 from app.modules.courses.models import Course
 from app.modules.courses.release_models import ContentRelease
+from app.modules.source_actuality.models import (
+    DocumentChangeReview,
+    DocumentSourcePolicy,
+)
 
 
 async def _login(client, user, password: str = "Password123!") -> str:
@@ -34,6 +39,19 @@ async def _make_superadmin(client, db_session, make_superadmin):
     sa = await make_superadmin()
     token = await _login(client, sa, password="SuperPass123!")
     return sa, token
+
+
+async def _set_runtime_role(db_session) -> None:
+    await db_session.execute(text("SET LOCAL ROLE lms_app"))
+    role = (
+        await db_session.execute(
+            text(
+                "SELECT current_user, rolsuper, rolbypassrls "
+                "FROM pg_roles WHERE rolname=current_user"
+            )
+        )
+    ).one()
+    assert role == ("lms_app", False, False)
 
 
 @pytest.mark.asyncio
@@ -89,11 +107,12 @@ async def test_superadmin_delete_with_correct_confirm_slug_succeeds(
 
 @pytest.mark.asyncio
 async def test_superadmin_delete_removes_published_content_release_before_course(
-    client, db_session, make_tenant, make_superadmin
+    client, db_session, make_tenant, make_superadmin, set_current_tenant
 ):
     _, token = await _make_superadmin(client, db_session, make_superadmin)
     headers = {"Authorization": f"Bearer {token}"}
     tenant = await make_tenant(name="Published", slug="published-release")
+    await set_current_tenant(tenant)
     course = Course(
         tenant_id=tenant.id,
         title="Published course",
@@ -149,6 +168,198 @@ async def test_superadmin_delete_removes_trial_legal_acceptance_before_user_and_
     )
 
     assert resp.status_code == 204, resp.text
+
+
+@pytest.mark.asyncio
+async def test_superadmin_delete_removes_source_actuality_history_before_documents(
+    client,
+    db_session,
+    make_tenant,
+    make_user,
+    make_document,
+    make_superadmin,
+):
+    _, token = await _make_superadmin(client, db_session, make_superadmin)
+    headers = {"Authorization": f"Bearer {token}"}
+    tenant = await make_tenant(
+        name="Source actuality purge",
+        slug=f"source-purge-{uuid4().hex[:8]}",
+    )
+    methodologist = await make_user(tenant, role="methodologist")
+    family_id = uuid4()
+    previous = await make_document(
+        tenant,
+        methodologist,
+        name="policy-v1.md",
+        source_family_id=family_id,
+        version=1,
+        index_status="ready",
+    )
+    current = await make_document(
+        tenant,
+        methodologist,
+        name="policy-v2.md",
+        source_family_id=family_id,
+        version=2,
+        index_status="ready",
+    )
+    db_session.add_all(
+        [
+            DocumentSourcePolicy(
+                tenant_id=tenant.id,
+                source_family_id=family_id,
+                owner_id=methodologist.id,
+                created_by=methodologist.id,
+                updated_by=methodologist.id,
+            ),
+            DocumentChangeReview(
+                tenant_id=tenant.id,
+                source_family_id=family_id,
+                previous_document_id=previous.id,
+                new_document_id=current.id,
+                status="pending",
+            ),
+        ]
+    )
+    await db_session.commit()
+    tenant_id = tenant.id
+    tenant_slug = tenant.slug
+    await _set_runtime_role(db_session)
+
+    resp = await client.delete(
+        f"/api/v1/admin/super/tenants/{tenant_id}?confirm_slug={tenant_slug}",
+        headers=headers,
+    )
+
+    assert resp.status_code == 204, resp.text
+    db_session.expire_all()
+    readback = await client.get(
+        f"/api/v1/admin/super/tenants/{tenant_id}",
+        headers=headers,
+    )
+    assert readback.status_code == 404, readback.text
+
+
+@pytest.mark.asyncio
+async def test_runtime_tenant_context_cannot_delete_source_actuality_history(
+    db_session,
+    make_tenant,
+    make_user,
+    make_document,
+    set_current_tenant,
+):
+    tenant = await make_tenant(
+        name="Source actuality retention",
+        slug=f"source-retention-{uuid4().hex[:8]}",
+    )
+    methodologist = await make_user(tenant, role="methodologist")
+    family_id = uuid4()
+    previous = await make_document(
+        tenant,
+        methodologist,
+        name="retained-v1.md",
+        source_family_id=family_id,
+        version=1,
+    )
+    current = await make_document(
+        tenant,
+        methodologist,
+        name="retained-v2.md",
+        source_family_id=family_id,
+        version=2,
+    )
+    policy = DocumentSourcePolicy(
+        tenant_id=tenant.id,
+        source_family_id=family_id,
+        owner_id=methodologist.id,
+        created_by=methodologist.id,
+        updated_by=methodologist.id,
+    )
+    review = DocumentChangeReview(
+        tenant_id=tenant.id,
+        source_family_id=family_id,
+        previous_document_id=previous.id,
+        new_document_id=current.id,
+        status="pending",
+    )
+    db_session.add_all([policy, review])
+    await db_session.flush()
+    outsider = await make_tenant(
+        name="Source actuality outsider",
+        slug=f"source-outsider-{uuid4().hex[:8]}",
+    )
+    await _set_runtime_role(db_session)
+    await db_session.execute(
+        text("SELECT set_config('app.is_superadmin', 'false', true)")
+    )
+
+    deleted_review = await db_session.execute(
+        text("DELETE FROM document_change_reviews WHERE id=:id"),
+        {"id": review.id},
+    )
+    deleted_policy = await db_session.execute(
+        text("DELETE FROM document_source_policies WHERE id=:id"),
+        {"id": policy.id},
+    )
+
+    assert deleted_review.rowcount == 0
+    assert deleted_policy.rowcount == 0
+
+    await set_current_tenant(outsider)
+    await db_session.execute(
+        text("SELECT set_config('app.is_superadmin', 'true', true)")
+    )
+    cross_tenant_review = await db_session.execute(
+        text("DELETE FROM document_change_reviews WHERE id=:id"),
+        {"id": review.id},
+    )
+    cross_tenant_policy = await db_session.execute(
+        text("DELETE FROM document_source_policies WHERE id=:id"),
+        {"id": policy.id},
+    )
+
+    assert cross_tenant_review.rowcount == 0
+    assert cross_tenant_policy.rowcount == 0
+
+
+@pytest.mark.asyncio
+async def test_source_actuality_policy_catalog_is_command_specific(db_session):
+    policies = {
+        (row.tablename, row.policyname): (row.cmd, tuple(row.roles))
+        for row in (
+            await db_session.execute(
+                text(
+                    "SELECT tablename, policyname, cmd, roles "
+                    "FROM pg_policies WHERE schemaname=current_schema() "
+                    "AND tablename IN "
+                    "('document_change_reviews','document_source_policies')"
+                )
+            )
+        ).all()
+    }
+
+    for table in ("document_change_reviews", "document_source_policies"):
+        assert policies[(table, f"{table}_tenant_select")] == (
+            "SELECT",
+            ("lms_app",),
+        )
+        assert policies[(table, f"{table}_tenant_insert")] == (
+            "INSERT",
+            ("lms_app",),
+        )
+        assert policies[(table, f"{table}_tenant_update")] == (
+            "UPDATE",
+            ("lms_app",),
+        )
+        assert policies[(table, f"{table}_superadmin_delete")] == (
+            "DELETE",
+            ("lms_app",),
+        )
+        assert (table, f"{table}_tenant") not in policies
+        assert await db_session.scalar(
+            text("SELECT has_table_privilege('lms_app', :table, 'DELETE')"),
+            {"table": table},
+        ) is True
 
 
 @pytest.mark.asyncio
@@ -301,7 +512,7 @@ async def test_superadmin_get_tenant_surfaces_stats(
         system_users_count_snapshot=1,
     ))
     await db_session.flush()
-    admin = await make_user(tenant, role="admin", email="a@stats.example")
+    await make_user(tenant, role="admin", email="a@stats.example")
 
     resp = await client.get(
         f"/api/v1/admin/super/tenants/{tenant.id}",

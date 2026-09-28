@@ -15,6 +15,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.11.15] - 2026-09-28
+
+### Fixed
+
+- Restore superadmin tenant deletion when a tenant contains source-actuality
+  policies or document-change reviews by purging those records before their
+  referenced documents and users.
+- Keep deletion limited to the exact active tenant and an authenticated
+  superadmin session; ordinary methodologists retain no delete permission on
+  source-actuality history.
+
+### Security
+
+- Add DELETE-only RLS policies for the two source-actuality tables, scoped to
+  `lms_app`, the exact `app.tenant_id`, and `app.is_superadmin=true`.
+- Split the former permissive tenant `FOR ALL` policies into SELECT, INSERT and
+  UPDATE policies so their OR semantics cannot authorize ordinary tenant
+  deletion after the bounded DELETE grant is introduced.
+
 ## [0.11.14] - 2026-09-28
 
 ### Added
@@ -1818,7 +1837,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.14...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.15...HEAD
+[0.11.15]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.14...v0.11.15
 [0.11.14]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.13...v0.11.14
 [0.11.13]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.12...v0.11.13
 [0.11.12]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.11...v0.11.12

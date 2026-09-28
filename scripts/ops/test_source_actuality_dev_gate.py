@@ -85,12 +85,22 @@ def test_schema_name_is_random_scope_only() -> None:
 
 def test_exact_migration_contract_and_no_public_ddl() -> None:
     gate.assert_migration_contract()
-    migration = gate.MIGRATION_PATH.read_text(encoding="utf-8")
+    migration = gate.MIGRATION_0165_PATH.read_text(encoding="utf-8")
     assert 'revision = "0165"' in migration
     assert 'down_revision = "0164"' in migration
     assert 'version_table_schema' in migration
     assert "DROP TABLE" in migration
     assert not re.search(r"(?:CREATE|ALTER|DROP|GRANT|REVOKE)\s+[^\n;]*\bpublic\.", migration, re.I)
+    purge_migration = gate.MIGRATION_0166_PATH.read_text(encoding="utf-8")
+    assert 'revision = "0166"' in purge_migration
+    assert 'down_revision = "0165"' in purge_migration
+    assert "version_table_schema" in purge_migration
+    assert "FOR DELETE TO lms_app" in purge_migration
+    assert not re.search(
+        r"(?:CREATE|ALTER|DROP|GRANT|REVOKE)\s+[^\n;]*\bpublic\.",
+        purge_migration,
+        re.I,
+    )
 
 
 def test_cleanup_is_in_finally_and_reads_schema_existence() -> None:

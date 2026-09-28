@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise migration 0165 in a disposable isolated Supabase DEV schema."""
+"""Exercise migrations 0165-0166 in a disposable isolated Supabase DEV schema."""
 
 from __future__ import annotations
 
@@ -32,7 +32,8 @@ from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
 from sqlalchemy.pool import NullPool
 
 REPO_ROOT = API_ROOT.parent.parent
-MIGRATION_PATH = API_ROOT / "alembic" / "versions" / "0165_source_actuality_and_change_reviews.py"
+MIGRATION_0165_PATH = API_ROOT / "alembic" / "versions" / "0165_source_actuality_and_change_reviews.py"
+MIGRATION_0166_PATH = API_ROOT / "alembic" / "versions" / "0166_source_actuality_superadmin_purge.py"
 SCHEMA_RE = re.compile(r"^source_actuality_[0-9a-f]{12}$")
 EXPECTED_TABLES = {"document_source_policies", "document_change_reviews"}
 
@@ -44,7 +45,7 @@ def safe_schema_name(value: str) -> str:
 
 
 def assert_migration_contract() -> None:
-    source = MIGRATION_PATH.read_text(encoding="utf-8")
+    source = MIGRATION_0165_PATH.read_text(encoding="utf-8")
     required = (
         'revision = "0165"',
         'down_revision = "0164"',
@@ -71,9 +72,32 @@ def assert_migration_contract() -> None:
     if not runtime_grants or any("DELETE" in line.upper() for line in runtime_grants):
         raise GateBlocked("migration_runtime_delete_grant")
 
+    purge_source = MIGRATION_0166_PATH.read_text(encoding="utf-8")
+    purge_required = (
+        'revision = "0166"',
+        'down_revision = "0165"',
+        'op.get_context().opts.get("version_table_schema")',
+        "FOR SELECT TO lms_app",
+        "FOR INSERT TO lms_app",
+        "FOR UPDATE TO lms_app",
+        "FOR DELETE TO lms_app",
+        "app.is_superadmin",
+        "REVOKE DELETE",
+    )
+    if any(token not in purge_source for token in purge_required):
+        raise GateBlocked("migration_0166_contract_missing")
+    if re.search(r"(?:CREATE|ALTER|DROP|GRANT|REVOKE)\s+[^\n;]*\bpublic\.", purge_source, re.I):
+        raise GateBlocked("migration_0166_hard_codes_public")
 
-def _migration_module() -> Any:
-    spec = importlib.util.spec_from_file_location("source_actuality_0165", MIGRATION_PATH)
+
+def _migration_module(revision: str) -> Any:
+    path = {
+        "0165": MIGRATION_0165_PATH,
+        "0166": MIGRATION_0166_PATH,
+    }.get(revision)
+    if path is None:
+        raise GateBlocked("unsupported_migration_revision")
+    spec = importlib.util.spec_from_file_location(f"source_actuality_{revision}", path)
     if spec is None or spec.loader is None:
         raise GateBlocked("migration_module_unavailable")
     module = importlib.util.module_from_spec(spec)
@@ -81,11 +105,16 @@ def _migration_module() -> Any:
     return module
 
 
-async def run_migration(connection: AsyncConnection, schema: str, action: str) -> None:
+async def run_migration(
+    connection: AsyncConnection,
+    schema: str,
+    revision: str,
+    action: str,
+) -> None:
     safe_schema_name(schema)
     if action not in {"upgrade", "downgrade"}:
         raise GateBlocked("unsupported_migration_action")
-    migration = _migration_module()
+    migration = _migration_module(revision)
 
     def run(sync_connection: Any) -> None:
         from alembic.migration import MigrationContext
@@ -243,7 +272,7 @@ async def run_gate(owner_url: str, runtime_url: str, supabase_url: str, schema: 
             await connection.commit()
 
             stage = "upgrade_actual_0165_with_version_table_schema"
-            await run_migration(connection, schema, "upgrade")
+            await run_migration(connection, schema, "0165", "upgrade")
             await connection.commit()
             actual_tables = await connection.execute(
                 text("SELECT table_name FROM information_schema.tables WHERE table_schema=:schema"),
@@ -375,7 +404,7 @@ async def run_gate(owner_url: str, runtime_url: str, supabase_url: str, schema: 
             if await scalar(connection, f"SELECT count(*) FROM {reviews}") != 0:
                 raise GateBlocked("tenant_b_review_visibility_failed")
 
-            stage = "runtime_delete_denied"
+            stage = "runtime_delete_denied_before_0166"
             if await scalar(
                 connection,
                 "SELECT has_table_privilege('lms_app', :table, 'DELETE')",
@@ -391,8 +420,126 @@ async def run_gate(owner_url: str, runtime_url: str, supabase_url: str, schema: 
             await connection.rollback()
 
         async with owner_engine.connect() as connection:
+            stage = "upgrade_actual_0166_with_version_table_schema"
+            await run_migration(connection, schema, "0166", "upgrade")
+            await connection.commit()
+            policies_after_upgrade = {
+                (row.tablename, row.policyname): row.cmd
+                for row in (
+                    await connection.execute(
+                        text(
+                            "SELECT tablename,policyname,cmd FROM pg_policies "
+                            "WHERE schemaname=:schema AND tablename IN "
+                            "('document_source_policies','document_change_reviews')"
+                        ),
+                        {"schema": schema},
+                    )
+                ).all()
+            }
+            for table in EXPECTED_TABLES:
+                expected = {
+                    (table, f"{table}_tenant_select"): "SELECT",
+                    (table, f"{table}_tenant_insert"): "INSERT",
+                    (table, f"{table}_tenant_update"): "UPDATE",
+                    (table, f"{table}_superadmin_delete"): "DELETE",
+                }
+                if any(
+                    policies_after_upgrade.get(key) != command
+                    for key, command in expected.items()
+                ):
+                    raise GateBlocked("migration_0166_policy_inventory_mismatch")
+                if (table, f"{table}_tenant") in policies_after_upgrade:
+                    raise GateBlocked("migration_0166_permissive_all_policy_remained")
+                if not await scalar(
+                    connection,
+                    "SELECT has_table_privilege('lms_app', :table, 'DELETE')",
+                    table=f"{schema}.{table}",
+                ):
+                    raise GateBlocked("migration_0166_delete_grant_missing")
+
+        async with runtime_engine.connect() as connection:
+            stage = "runtime_0166_delete_boundaries"
+            await set_tenant_context(connection, tenant_a)
+            await connection.execute(text("SELECT set_config('app.is_superadmin','false',true)"))
+            if (
+                await connection.execute(
+                    text(f"DELETE FROM {reviews} WHERE id=:id"),
+                    {"id": review_id},
+                )
+            ).rowcount != 0:
+                raise GateBlocked("ordinary_tenant_deleted_review")
+            if (
+                await connection.execute(
+                    text(f"DELETE FROM {policies} WHERE id=:id"),
+                    {"id": policy_id},
+                )
+            ).rowcount != 0:
+                raise GateBlocked("ordinary_tenant_deleted_policy")
+
+            await set_tenant_context(connection, tenant_b)
+            await connection.execute(text("SELECT set_config('app.is_superadmin','true',true)"))
+            if (
+                await connection.execute(
+                    text(f"DELETE FROM {reviews} WHERE id=:id"),
+                    {"id": review_id},
+                )
+            ).rowcount != 0:
+                raise GateBlocked("cross_tenant_superadmin_deleted_review")
+            if (
+                await connection.execute(
+                    text(f"DELETE FROM {policies} WHERE id=:id"),
+                    {"id": policy_id},
+                )
+            ).rowcount != 0:
+                raise GateBlocked("cross_tenant_superadmin_deleted_policy")
+
+            await set_tenant_context(connection, tenant_a)
+            if (
+                await connection.execute(
+                    text(f"DELETE FROM {reviews} WHERE id=:id"),
+                    {"id": review_id},
+                )
+            ).rowcount != 1:
+                raise GateBlocked("exact_tenant_superadmin_review_delete_failed")
+            if (
+                await connection.execute(
+                    text(f"DELETE FROM {policies} WHERE id=:id"),
+                    {"id": policy_id},
+                )
+            ).rowcount != 1:
+                raise GateBlocked("exact_tenant_superadmin_policy_delete_failed")
+            await connection.rollback()
+
+        async with owner_engine.connect() as connection:
+            stage = "downgrade_and_reupgrade_actual_0166"
+            await run_migration(connection, schema, "0166", "downgrade")
+            restored = {
+                (row.tablename, row.policyname): row.cmd
+                for row in (
+                    await connection.execute(
+                        text(
+                            "SELECT tablename,policyname,cmd FROM pg_policies "
+                            "WHERE schemaname=:schema AND tablename IN "
+                            "('document_source_policies','document_change_reviews')"
+                        ),
+                        {"schema": schema},
+                    )
+                ).all()
+            }
+            for table in EXPECTED_TABLES:
+                if restored.get((table, f"{table}_tenant")) != "ALL":
+                    raise GateBlocked("migration_0166_downgrade_policy_not_restored")
+                if await scalar(
+                    connection,
+                    "SELECT has_table_privilege('lms_app', :table, 'DELETE')",
+                    table=f"{schema}.{table}",
+                ):
+                    raise GateBlocked("migration_0166_downgrade_delete_grant_remained")
+            await run_migration(connection, schema, "0166", "upgrade")
+            await run_migration(connection, schema, "0166", "downgrade")
+
             stage = "downgrade_actual_0165_with_version_table_schema"
-            await run_migration(connection, schema, "downgrade")
+            await run_migration(connection, schema, "0165", "downgrade")
             await connection.commit()
             remaining = await connection.execute(
                 text("SELECT table_name FROM information_schema.tables WHERE table_schema=:schema"),
@@ -404,6 +551,7 @@ async def run_gate(owner_url: str, runtime_url: str, supabase_url: str, schema: 
                 raise GateBlocked("public_schema_changed_during_migration")
             checks = {
                 "migration_0165_contract": True,
+                "migration_0166_contract": True,
                 "actual_upgrade_with_version_table_schema": True,
                 "lms_app_non_bypass_rls": True,
                 "tenant_a_visibility": True,
@@ -415,7 +563,12 @@ async def run_gate(owner_url: str, runtime_url: str, supabase_url: str, schema: 
                 "non_methodologist_decision_rejected": True,
                 "resolved_review_immutable": True,
                 "old_new_review_same_family_enforced": True,
-                "runtime_delete_denied": True,
+                "runtime_delete_denied_before_0166": True,
+                "ordinary_tenant_delete_denied_after_0166": True,
+                "cross_tenant_superadmin_delete_denied": True,
+                "exact_tenant_superadmin_delete_allowed": True,
+                "migration_0166_policy_inventory": True,
+                "migration_0166_downgrade_reupgrade": True,
                 "actual_downgrade_with_version_table_schema": True,
                 "public_revision_and_table_neutrality": True,
             }
@@ -449,7 +602,8 @@ async def run_gate(owner_url: str, runtime_url: str, supabase_url: str, schema: 
         "scope": "isolated_supabase_dev_source_actuality",
         "executed_at": started_at.isoformat().replace("+00:00", "Z"),
         "project_ref_sha256": hashlib.sha256(supabase_project_ref(supabase_url).encode("ascii")).hexdigest(),
-        "migration_sha256": file_sha256(MIGRATION_PATH),
+        "migration_sha256": file_sha256(MIGRATION_0165_PATH),
+        "purge_migration_sha256": file_sha256(MIGRATION_0166_PATH),
         "disposable_schema_digest": hashlib.sha256(schema.encode("ascii")).hexdigest(),
         "checks": checks,
         "cleanup_readback": "passed",
