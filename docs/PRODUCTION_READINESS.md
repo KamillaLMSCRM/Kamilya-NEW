@@ -11,18 +11,29 @@ DB/storage gate и приёмкой клиента
 
 ## Current product-state reconciliation — 2026-09-28
 
-- Published source release `v0.11.12` points to exact commit
-  `967d15cd82a96bc863560769dc2a0e356acfea9f`.
+- Published source release `v0.11.13` points to exact commit
+  `123718aacd9d4d743fdb87cc6b5d70b84cb3501d`.
 - Fresh public API readback from `/health` and `/api/v1/health` reports product
-  version `0.11.12`, environment `production` and the same exact release SHA.
-- Fresh native frontend `/healthz` readback reports the same SHA in both the
-  response body and `X-Kamilya-Release` header.
+  version `0.11.13`, environment `production` and the same exact release SHA.
+- Production frontend provider readback reports the same exact release SHA.
+  The DEV Vercel deployment does not expose a public `/healthz`; this remains a
+  provider-readback limitation rather than evidence of application failure.
 - Release evidence records successful exact-SHA CI, protected production
-  rollout, synchronized API/worker image and production smoke for `0.11.12`.
-- Product state is therefore `ALIGNED`. This proves release identity, not the
-  still-open continuous corporate journey. Stage 3 must separately reconcile
-  mandatory-training matrix, dashboard, training log, export, signed evidence
-  and reassignment history in the existing production synthetic tenant.
+  rollout, synchronized API/worker image and production smoke for `0.11.13`.
+- The production synthetic human journey confirmed reassignment after retained
+  completed history, including the visible reassignment reason. No database
+  migration was part of `0.11.13`, so a fresh CT125 restore drill was not
+  required for that release.
+- Product state is therefore `ALIGNED`; Corporate Readiness stage 3 is closed.
+  Source actuality, change impact and controlled retraining are now a local and
+  isolated-Supabase-DEV candidate only: revision `0165`, FORCE RLS, deterministic
+  impact, explicit methodologist decisions and draft-only course updates passed
+  their gates. This capability is **not production-deployed** and must not be
+  presented as available until an exact release packet completes DEV promotion,
+  production rollout and synthetic browser acceptance. The Release Runner still lacks Python in its isolated executor,
+  so `0.11.13` used the documented deterministic root-controller exception;
+  this operational limitation remains open and must not be mistaken for
+  application test coverage.
 
 ## Release 0.7.7 — deployed production baseline, 2026-09-19
 

@@ -79,6 +79,7 @@ from app.modules.quizzes.assignment_router import router as quiz_assignments_rou
 from app.modules.quizzes.router import router as quizzes_router
 from app.modules.scorm.cmi_ingress import ScormCommitBodyLimitMiddleware
 from app.modules.scorm.router import router as scorm_router
+from app.modules.source_actuality.router import router as source_actuality_router
 from app.modules.staff_import_sessions.router import router as staff_import_sessions_router
 from app.modules.staff_sync.router import router as staff_sync_router
 from app.modules.student.router import router as student_router
@@ -223,6 +224,7 @@ app.include_router(candidate_assessments_router, prefix=f"{settings.API_PREFIX}"
 app.include_router(candidate_assessment_public_router, prefix=f"{settings.API_PREFIX}", tags=["candidate-assessment"])
 app.include_router(progress_router, prefix=f"{settings.API_PREFIX}", tags=["progress"])
 app.include_router(documents_router, prefix=f"{settings.API_PREFIX}", tags=["documents"])
+app.include_router(source_actuality_router, prefix=f"{settings.API_PREFIX}", tags=["source-actuality"])
 app.include_router(youtube_transcript_router, prefix=f"{settings.API_PREFIX}", tags=["youtube-transcript"])
 app.include_router(quizzes_router, prefix=f"{settings.API_PREFIX}", tags=["quizzes"])
 app.include_router(quiz_assignments_router, prefix=f"{settings.API_PREFIX}", tags=["quiz-assignments"])

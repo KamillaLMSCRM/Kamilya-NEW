@@ -15,6 +15,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.11.14] - 2026-09-28
+
+### Added
+
+- Add tenant-scoped source ownership and review dates, immutable revision impact
+  analysis, and explicit methodologist decisions for controlled course updates.
+- Add a documents-page workflow in Russian, Kazakh and English that shows the
+  latest source revision, affected learning content and reviewable next actions.
+
+### Changed
+
+- Create a separate reviewable draft for accepted source changes while
+  preserving published releases, completed learning history and assignments.
+- Require the latest active source revision and production-shaped direct-source
+  conversion before impact analysis; no generative provider call is required.
+
+### Fixed
+
+- Keep impacted lessons and quizzes in their existing review-state contracts,
+  including course-level provenance, and materialize trigger-updated review data
+  before async API serialization.
+- Preserve an absent review date as empty instead of inventing a browser-local
+  timestamp.
+
+### Security
+
+- Enforce FORCE RLS, active same-tenant methodologist ownership and immutable
+  resolved decisions for source-actuality records.
+
 ## [0.11.13] - 2026-09-28
 
 ### Added
@@ -1789,7 +1818,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.13...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.14...HEAD
+[0.11.14]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.13...v0.11.14
 [0.11.13]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.12...v0.11.13
 [0.11.12]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.11...v0.11.12
 [0.11.11]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.10...v0.11.11

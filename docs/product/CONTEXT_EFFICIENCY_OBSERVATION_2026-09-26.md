@@ -127,3 +127,25 @@ API unit suite, полный frontend suite, lint, typecheck и production build
   низкоуровневый browser `fill` дал ложный вывод о потере срока, а штатное
   управление date-control плюс сетевой readback исправили решение до релиза.
 
+## Контрольная точка: source actuality и controlled retraining
+
+- Context Mode/JEV в эпике не вызывались, поэтому точная экономия токенов не
+  заявляется. Контекст удерживался узким task graph, точечными `rg`/Graphify
+  запросами и одним read-only заданием дешёвому независимому агенту.
+- Graphify после реализации обновлён до 17 838 nodes / 46 765 edges; диагностика
+  показала ноль dangling endpoints, self-loops и duplicate edges. SQL parser не
+  установлен, поэтому граф использован для навигации, но не как доказательство
+  migration/RLS корректности.
+- Дешёвый reviewer нашёл три P2 до DEV-релиза: анализ устаревшей ревизии,
+  неполную маркировку course-level impact и придуманную браузером дату review.
+  Root исправил их и добавил регрессии.
+- Первый production-shaped Supabase DEV journey нашёл ещё два контракта, которые
+  не ловили unit-тесты: loader получил ORM-объекты вместо document IDs, а quiz
+  draft использовал недопустимый статус `pending`. Следующий прогон выявил
+  implicit async reload `updated_at`; явный refresh до сериализации закрыл его.
+- Авторитетная приёмка: focused API 26, full API 2914, live transactional DEV
+  journey 1, isolated migration/RLS gate, frontend 711, typecheck/lint/build.
+  Вывод: bounded delegation и графовая навигация сократили передаваемый контекст,
+  но качество обеспечили прямые source/test/DEV gates; численную экономию без
+  телеметрии инструмента приписывать нельзя.
+

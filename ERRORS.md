@@ -31,6 +31,45 @@ Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
 
+## API-003 - Source actuality passed ORM rows into an ID-only corpus loader
+
+- Date: 2026-09-28. Confirmed by the first transactional Supabase DEV journey
+  for source revision impact.
+- Symptom: analysis was admitted, but processing failed with
+  `documents_not_found` before creating an impact snapshot.
+- Cause: `process_review` passed `Document` ORM instances to
+  `load_direct_source_corpus`, whose public contract accepts document IDs and
+  resolves tenant-owned rows in its own production session.
+- Fix: pass exact string document IDs. The transactional integration adapter
+  asserts the ID-only boundary, then invokes the production
+  `build_direct_source_corpus` converter against rollback-scoped fixtures.
+- Verification: the complete revision-to-decision DEV journey passed, focused
+  source-actuality API tests passed 26, and the full API suite passed 2914 with
+  503 environment skips.
+- Prevention: integration tests at a session boundary must assert primitive
+  public inputs, not merely mock the returned corpus. Never infer that an ORM
+  object is interchangeable with its identifier across a loader/session seam.
+
+## API-004 - Draft quiz state and trigger-refreshed timestamps broke decision response
+
+- Date: 2026-09-28. Confirmed in two consecutive transactional Supabase DEV
+  reruns after the ID-only loader fix.
+- Symptom: draft cloning first violated `quizzes_review_status_check` with
+  `pending`; after that fix, decision serialization raised `MissingGreenlet`
+  while reading trigger-updated `updated_at`.
+- Cause: course and quiz review vocabularies were conflated, and a database-
+  updated ORM attribute was serialized after flush without an explicit async
+  refresh.
+- Fix: impacted quizzes use their existing `needs_review` contract; the endpoint
+  explicitly refreshes the resolved review before constructing its response and
+  commits the already materialized response after audit logging.
+- Verification: the exact flow now returns 200, creates only a draft course,
+  marks its lesson and quiz for review, preserves tenant isolation and passes the
+  focused/full API gates above.
+- Prevention: use each model's declared status vocabulary; any trigger/onupdate
+  field needed in an async response must be refreshed explicitly before sync
+  serialization. Keep the integration assertion on the persisted quiz state.
+
 ## AI-ARCH-001 - Retired assessment code was mistaken for the production engine
 
 - Date: 2026-09-25. Confirmed against `origin/master` after an external review

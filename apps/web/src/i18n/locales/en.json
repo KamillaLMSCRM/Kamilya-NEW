@@ -926,6 +926,16 @@
     "fallback": { "backend": "The service returned an unknown error. Try again." }
   },
   "documents": {
+    "sourceActuality": {
+      "title": "Source actuality",
+      "description": "Review source ownership and schedule checks. Compare newer indexed revisions before deciding what happens to affected learning.",
+      "refresh": "Refresh", "loading": "Loading source families…", "loadError": "Could not load source actuality.", "retry": "Retry", "empty": "No source families to review yet.",
+      "current": "Current", "dueSoon": "Due soon", "overdue": "Overdue", "unassignedStatus": "Review not scheduled", "owner": "Owner", "ownerAssigned": "Assigned", "ownerUnassigned": "Not assigned", "nextReview": "Next review", "manage": "Manage source", "openReview": "Open revision review",
+      "dialogDescription": "Set an owner and review dates, then analyze a newer indexed revision when available.", "reviewedAt": "Reviewed at", "assignMe": "Assign to me", "clearOwner": "Clear owner", "analysisTitle": "Revision impact", "analysisDescription": "Analysis compares indexed source facts and lists bounded changes and affected learning content.", "startAnalysis": "Analyze latest indexed revision", "noPreviousVersion": "Upload and index a new version before running change analysis.", "working": "Working…", "processing": "Analysis is processing. This view will update automatically.", "analysisFailed": "Analysis failed. Refresh and retry.",
+      "addedFacts": "Added facts", "removedFacts": "Removed facts", "changedFacts": "Changed recognition", "impactedLessons": "Impacted lessons", "impactedQuestions": "Questions to review", "impactedCourses": "Impacted courses", "lessonCount": "{count} lessons", "questionCount": "{count} questions to review", "activeEnrollments": "{count} active enrollments", "completedEnrollments": "{count} completed enrollments", "added": "Added facts (up to 10 shown)", "removed": "Removed facts (up to 10 shown)", "changed": "Recognition confidence changed", "confidenceChanged": "Confidence", "none": "None identified.", "questionScope": "Question counts indicate questions in impacted lessons that need review; facts are not bound to individual questions.", "truncated": "The analysis is bounded; not all changes may be shown.",
+      "alreadyDecided": "A decision has already been recorded for this review.",
+      "decision": "Decision", "chooseDecision": "Choose one explicit decision", "decisions": { "no_learning_impact": "No learning impact", "update_future": "Update future course drafts", "update_and_retrain": "Update and retrain", "suspend_old_assignments": "Suspend old assignments" }, "retrainingDeadline": "Optional retraining deadline (local time; sent with timezone)", "reason": "Reason (at least 20 characters)", "noAutoPublish": "Update decisions create drafts and never auto-publish or reassign learners.", "submitDecision": "Submit decision", "actionError": "Action failed. Check the connection and retry."
+    },
     "title": "Documents",
     "upload": "Upload Document",
     "name": "Name",

@@ -11,39 +11,29 @@
 и
 [`product/CORPORATE_STAGE1_RESULT_2026-09-26.md`](product/CORPORATE_STAGE1_RESULT_2026-09-26.md).
 Текущая работа ведётся по
-[`plans/2026-09-28_corporate-readiness-stage3.md`](plans/2026-09-28_corporate-readiness-stage3.md).
+[`plans/2026-09-28_source-actuality-and-retraining.md`](plans/2026-09-28_source-actuality-and-retraining.md).
 
 ## P0: замыкание корпоративного контура
 
-До следующего крупного продуктового эпика пройти три синтетических архетипа на
-текущем exact release:
+Corporate Readiness stage 3 закрыт в production на `v0.11.13`: синтетический
+человеческий сценарий подтвердил повторное назначение при сохранении завершённой
+истории и видимого основания. Управление актуальностью источника реализовано и
+принято локально и в изолированном Supabase DEV: владелец и дата пересмотра,
+детерминированный анализ новой версии, видимое влияние на курсы и только явное
+решение методиста о новом draft и повторном обучении. Открытый P0 — выпустить
+этот точный кандидат через DEV и production с браузерной приёмкой.
 
-1. небольшая компания с простой структурой;
-2. компания с филиалами и разной глубиной организационной структуры;
-3. регулируемая организация с повторным обучением, подтверждением результата,
-   подписанным экземпляром и evidence package.
-
-Обязательные границы: один source of truth для dashboard/training log/export,
-tenant isolation, точное основание назначения, сохранение истории после
-повторного назначения, идемпотентный import/assignment, mobile UX и cleanup без
-клиентских записей. Производительность и DB/RLS проверять только через
-канонические local/CI и изолированный Supabase DEV контуры. В production
-разрешён только существующий синтетический tenant с точным readback и cleanup.
-
-Этап 2 уже выпустил матрицу обязательного обучения, объяснимое основание
-назначения, scoped responsibility по ветви/группе и action center. P0 остаётся
-открытым, пока один непрерывный сценарий не свяжет structure/import -> source ->
-course/review/publish -> assignment -> learner fail/retry/pass -> signed copy ->
-reassignment -> dashboard/log/export/evidence и не докажет cleanup.
+Обязательные границы: immutable опубликованные версии и завершённая история не
+переписываются; AI не публикует и не переназначает автоматически; tenant/RLS,
+идемпотентность решения, mobile UX и cleanup подтверждаются через канонические
+local/CI и изолированный Supabase DEV контуры до любого production-релиза.
 
 ## P1: Corporate Readiness — открытые части
 
-1. Сверять dashboard, mandatory-training matrix, training log, CSV/PDF/ZIP
-   export и evidence package по
-   одной occurrence/enrollment модели. Несовпадение счётчиков является
-   release blocker.
-2. Добавить управление актуальностью источника: владелец, утверждающий, дата
-   пересмотра, новая версия, связанные курсы и решение о повторном обучении.
+1. Сохранять reconciliation dashboard, mandatory-training matrix, training
+   log, CSV/PDF/ZIP export и evidence package как обязательную регрессию одной
+   occurrence/enrollment модели. Несовпадение счётчиков является release
+   blocker.
 
 ## P1: качество курсов и тестов
 

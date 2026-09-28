@@ -46,6 +46,7 @@ celery_app = Celery(
         "app.modules.learning_cycles.tasks",
         "app.modules.candidate_assessments.retention_tasks",
         "app.modules.staff_import_sessions.retention_tasks",
+        "app.modules.source_actuality.tasks",
         "app.modules.tenants.tasks",
         "app.modules.youtube_transcript.tasks",
     ],
@@ -70,6 +71,7 @@ celery_app.conf.update(
         "documents.reindex": {"queue": "documents"},
         "documents.cleanup": {"queue": "maintenance"},
         "documents.hash_backfill": {"queue": "maintenance"},
+        "source_actuality.analyze_review": {"queue": "documents"},
         "youtube.import_transcript": {"queue": "documents"},
         "youtube.analyze_transcript": {"queue": "documents"},
         "positions.apply_course_rules": {"queue": "maintenance"},
@@ -113,6 +115,10 @@ celery_app.conf.update(
             "time_limit": 1500,
         },
         "documents.reindex": {
+            "soft_time_limit": 900,
+            "time_limit": 1200,
+        },
+        "source_actuality.analyze_review": {
             "soft_time_limit": 900,
             "time_limit": 1200,
         },

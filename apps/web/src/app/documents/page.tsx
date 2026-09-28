@@ -32,6 +32,8 @@ import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import { documentProcessingErrorMessage } from '@/lib/documentProcessingErrors';
 import { useDebounce } from '@/lib/useDebounce';
+import { useAuthStore } from '@/store/authStore';
+import { SourceActualityPanel } from '@/features/source-actuality/SourceActualityPanel';
 import {
   documentDeleteError,
   getDuplicateDocumentConflict,
@@ -93,6 +95,7 @@ interface YouTubeAnalysisStatus {
 export default function DocumentsPage() {
   const router = useRouter();
   const { t, tp } = useT();
+  const user = useAuthStore((state) => state.user);
   const { confirm, dialog } = useConfirm();
   const fileRef = useRef<HTMLInputElement>(null);
   const pollingJobRef = useRef<string | null>(null);
@@ -530,6 +533,8 @@ export default function DocumentsPage() {
           </button>
         </div>
       </header>
+
+      {user?.role === 'methodologist' && <SourceActualityPanel userId={user.user_id} catalogDocuments={documents} />}
 
       {uploading && uploadStartedAt && (
         <AsyncOperationStatus
