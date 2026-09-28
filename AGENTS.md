@@ -104,6 +104,10 @@ negative test. Tenant write без установленного tenant context �
   `scripts/dev/run_api_pytest.ps1`. Wrapper проверяет и вызывает поддерживаемый
   root `.venv` абсолютным путём. Bare `poetry run pytest`, ambient Python и
   worktree-local окружение запрещены.
+- Локальный Python quality baseline запускать только через
+  `scripts/dev/run_python_quality_baseline.ps1`. Прямой вызов
+  `python scripts/ci/python_quality_baseline.py` запрещён: ambient Python может
+  не содержать Ruff/Mypy и создаёт ложный результат проверки.
 
 Перед Git, DB, provider, deployment или infrastructure действием найти
 канонический путь в релевантной записи `ERRORS.md`, разделе

@@ -203,6 +203,22 @@ class DevReleaseControllerTests(unittest.TestCase):
 
         self.assertNotIn("push_exact_sha", [call[0] for call in providers.calls])
 
+    def test_execute_resumes_same_release_without_repeating_push(self) -> None:
+        providers = FakeProviders(branch_sha=RELEASE)
+        providers.existing_render["api"] = {
+            "status": "build_failed",
+            "deployment_id": "dep_failed_api",
+            "release_sha": RELEASE,
+        }
+        release = controller.DevReleaseController(packet_data(), providers)
+
+        result = release.execute("REL-DEV-ECC-20260927-001")
+
+        self.assertEqual(result["status"], "RELEASE_OK")
+        self.assertEqual(result["previous_release_sha"], PREVIOUS)
+        self.assertNotIn("push_exact_sha", [call[0] for call in providers.calls])
+        self.assertIn(("trigger_render", "srv_api", RELEASE), providers.calls)
+
     def test_execute_rejects_paid_or_unknown_provider_plan_before_render_mutation(
         self,
     ) -> None:

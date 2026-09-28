@@ -518,13 +518,14 @@ class DevReleaseController:
         release_sha = str(self.packet["release_sha"])
         expected_previous = str(self.packet["expected_previous_sha"])
         current = self.providers.remote_branch_sha(repository, branch)
-        if current != expected_previous:
+        if current not in {expected_previous, release_sha}:
             raise DevReleaseBlocked("expected_previous_sha_mismatch")
 
         self._verify_provider_contract()
-        self.providers.push_exact_sha(repository, branch, release_sha)
-        if self.providers.remote_branch_sha(repository, branch) != release_sha:
-            raise DevReleaseBlocked("remote_branch_readback_mismatch")
+        if current == expected_previous:
+            self.providers.push_exact_sha(repository, branch, release_sha)
+            if self.providers.remote_branch_sha(repository, branch) != release_sha:
+                raise DevReleaseBlocked("remote_branch_readback_mismatch")
 
         github_ci = self._github_ci()
         vercel = self._vercel()

@@ -308,6 +308,13 @@ open, also record status, safe interim path, and review condition.
   every Python release candidate, run these two named CI scripts before commit
   and push; Ruff is not a substitute and prior full pytest success is not
   relevant to this gate.
+- Recurrence, 2026-09-28: the baseline was invoked with ambient `py -3` and
+  failed before analysis because that interpreter did not contain Ruff. The
+  result was an execution artifact, not a code finding. The canonical Windows
+  entry point is now `scripts/dev/run_python_quality_baseline.ps1`; it resolves
+  the shared root `.venv` through Git common-dir, proves Ruff and Mypy are
+  available, then runs the unchanged baseline from the exact worktree root. A
+  static contract prevents reintroduction of ambient Python or Poetry.
 
 ## UI-CONTENT-001 - Read-only lesson preview exposed Markdown editing syntax
 
@@ -3880,7 +3887,7 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Verification: the canonical baseline now passes with `ruff=1056` and
   `mypy=2227`; the affected Supabase DEV integration test passes, and the
   focused assessment/profile set passes 121 tests.
-- Prevention: run `python scripts/ci/python_quality_baseline.py` from the
+- Prevention: run `scripts/dev/run_python_quality_baseline.ps1` from the
   repository root before every release commit that changes Python. A green
   pytest suite, Ruff on changed files or an independent review does not replace
   the committed Ruff/mypy regression gate.
@@ -4516,6 +4523,16 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   evidence, and a production-only controller is never substituted for DEV. The
   DEV controller is covered by digest, provider-plan, exact-SHA, health and CI
   contracts and emits only bounded sanitized evidence.
+- Recurrence, 2026-09-28: a transient PyPI timeout made the Render API build
+  fail after the controller had already moved `dev` to the packet SHA. Re-running
+  the same immutable packet then stopped on `expected_previous_sha_mismatch`,
+  even though the branch had not drifted and the failed exact-SHA deployment was
+  safe to retry. The controller now treats `current == release_sha` as an
+  idempotent resume, skips the Git push, revalidates provider contracts and
+  retries only failed or absent exact-SHA Render deployments. Any branch SHA
+  other than the packet's previous or release identity still fails closed. A
+  regression test proves resume does not push again and does retrigger the
+  failed service.
 
 # 2026-09-26 - Mandatory-training read model failed on independent current enrollment chains
 
