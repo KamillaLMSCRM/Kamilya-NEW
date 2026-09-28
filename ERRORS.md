@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-27.
+Current as of: 2026-09-28.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -4490,7 +4490,7 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   may be reported separately, but a read-side dashboard must not turn one
   recoverable duplicate into a tenant-wide HTTP 500.
 
-## TEST-INFRA-006 - Acceptance test read a protected outbox table directly
+## TEST-INFRA-007 - Acceptance test read a protected outbox table directly
 
 - Date: 2026-09-28. Found while running the corporate-readiness selectors on
   the approved Supabase DEV transaction/cleanup contour.

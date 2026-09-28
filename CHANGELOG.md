@@ -15,6 +15,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.11.13] - 2026-09-28
+
+### Added
+
+- Add a deterministic corporate-readiness acceptance runner and a
+  machine-readable journey contract for assignment, completion, signed-copy,
+  evidence-export and reassignment verification on synthetic contours.
+
+### Changed
+
+- Make DEV responsibility checks load their explicit environment before API
+  imports, keeping test execution independent from ambient process state.
+
+### Fixed
+
+- Recover a provable historical assignment window when a retained access
+  policy has an absolute deadline but no relative duration, while preserving
+  immutable predecessor evidence and remaining fail-closed for unprovable
+  policies.
+- Show the canonical API error message first in the course-assignment UI so a
+  methodologist receives the actionable reassignment reason.
+
+### Security
+
 ## [0.11.12] - 2026-09-28
 
 ### Added
@@ -1765,7 +1789,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.12...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.13...HEAD
+[0.11.13]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.12...v0.11.13
 [0.11.12]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.11...v0.11.12
 [0.11.11]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.10...v0.11.11
 [0.11.10]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.9...v0.11.10
