@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Security
+
+## [0.11.12] - 2026-09-28
+
+### Added
+
 - Add a read-only product-state reconciler that classifies exact runtime
   alignment, legitimate split ancestry and unknown production drift across the
   published source release, API health and native frontend health.
@@ -1755,7 +1765,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.9...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.12...HEAD
+[0.11.12]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.11...v0.11.12
+[0.11.11]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.10...v0.11.11
+[0.11.10]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.9...v0.11.10
 [0.11.9]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.8...v0.11.9
 [0.11.8]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.7...v0.11.8
 [0.11.7]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.11.6...v0.11.7
