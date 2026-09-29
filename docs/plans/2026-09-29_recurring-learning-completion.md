@@ -1,7 +1,8 @@
 # Recurring learning completion and source-actuality support fix
 
-Date: 2026-09-29  
-Status: RELEASE CANDIDATE VERIFIED  
+Date: 2026-09-29
+
+Status: RELEASE CANDIDATE VERIFIED
 Owner authorization: fix source-actuality support impersonation locally, finish
 recurring learning, then release both together to DEV and production.
 

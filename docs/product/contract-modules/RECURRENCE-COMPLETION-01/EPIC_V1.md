@@ -1,7 +1,8 @@
 # EPIC RECURRENCE-COMPLETION-01 V1
 
-Status: Accepted  
-Approved by: Kamilya owner, 2026-09-29  
+Status: Accepted
+
+Approved by: Kamilya owner, 2026-09-29
 Change control: root proposes versioned addenda; material product or production
 scope changes require owner approval.
 
