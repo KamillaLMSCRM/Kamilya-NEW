@@ -218,7 +218,7 @@ async def test_manual_employee_update_changes_identity_and_invalidates_changed_e
             phone=" +77071111111 ",
         ),
         db=db,
-        user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id),
+        user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist"),
     )
 
     assert result.personnel_number == "EMP-002"
@@ -247,7 +247,7 @@ async def test_manual_employee_update_rejects_duplicate_personnel_number() -> No
                 last_name="Person",
             ),
             db=db,
-            user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id),
+            user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist"),
         )
 
     assert error.value.status_code == 409
@@ -281,7 +281,7 @@ async def test_manual_employee_termination_preserves_record_and_blocks_access() 
         employee.id,
         ManualStaffTerminationRequest(reason="Employment ended"),
         db=db,
-        user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id),
+        user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist"),
     )
 
     assert result == {"ok": True}

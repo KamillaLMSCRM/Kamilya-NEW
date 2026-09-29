@@ -27,6 +27,7 @@ from app.models.users import User, UserInvitation
 from app.modules.audit.service import log_action
 from app.modules.cohorts.models import CohortMember
 from app.modules.positions.models import Position
+from app.modules.privacy_control.service import record_processing
 from app.modules.users.staff_import_service import (
     ParsedFile,
     PreviewResult,
@@ -348,6 +349,16 @@ async def create_manual_staff(
         payload,
     )
 
+    await record_processing(
+        db,
+        tenant_id=cast(UUID, user.tenant_id),
+        actor_id=cast(UUID, user.id),
+        actor_role=user.role,
+        operation="employee.update" if existing_user is not None else "employee.create",
+        resource_type="employee",
+        resource_id=existing_user.id if existing_user is not None else "tenant-staff-manual",
+    )
+
     try:
         result = await create_manual_staff_member(
             db,
@@ -488,6 +499,15 @@ async def update_manual_staff_member(
         )
         if before != after
     ]
+    await record_processing(
+        db,
+        tenant_id=tenant_id,
+        actor_id=cast(UUID, user.id),
+        actor_role=user.role,
+        operation="employee.update",
+        resource_type="employee",
+        resource_id=cast(UUID, employee.id),
+    )
     await log_action(
         db,
         tenant_id=tenant_id,
@@ -549,6 +569,15 @@ async def terminate_manual_staff_member(
         )
         .values(status="revoked")
     )
+    await record_processing(
+        db,
+        tenant_id=tenant_id,
+        actor_id=cast(UUID, user.id),
+        actor_role=user.role,
+        operation="employee.terminate",
+        resource_type="employee",
+        resource_id=cast(UUID, employee.id),
+    )
     await log_action(
         db,
         tenant_id=tenant_id,
@@ -573,7 +602,8 @@ async def import_staff_preview(
 ):
     """Parse uploaded file (xlsx/csv) and return a preview of what would change.
 
-    No DB writes. The methodologist reviews the preview, then POSTs to
+    No staff or hierarchy writes. A value-free processing-ledger event is the
+    only durable write; the methodologist reviews the preview, then POSTs to
     /import/commit to apply the learner roster changes.
 
     P0.4: pass `mapping_id` (UUID of a saved mapping) to skip the
@@ -591,8 +621,6 @@ async def import_staff_preview(
 
     # P0.4: if mapping_id is provided and no inline mapping, load saved mapping.
     if mapping_id and not effective_mapping:
-        from uuid import UUID
-
         from sqlalchemy import select
 
         from app.models.staff_import_mapping import StaffImportMapping
@@ -626,6 +654,16 @@ async def import_staff_preview(
             status_code=400,
             detail=f"Не удалось прочитать файл: {type(e).__name__}: {e}",
         )
+
+    await record_processing(
+        db,
+        tenant_id=cast(UUID, user.tenant_id),
+        actor_id=cast(UUID, user.id),
+        actor_role=user.role,
+        operation="employee.import_preview",
+        resource_type="employee_import",
+        resource_id="tenant-staff-import-preview",
+    )
 
     if parsed.missing_required_columns:
         return _parsed_file_to_response(parsed, None)
@@ -674,8 +712,6 @@ async def import_staff_commit(
     effective_sheet_name = sheet_name or None
 
     if mapping_id and not effective_mapping:
-        from uuid import UUID
-
         from sqlalchemy import select
 
         from app.models.staff_import_mapping import StaffImportMapping
@@ -736,6 +772,15 @@ async def import_staff_commit(
             db,
             user.tenant_id,
             requested=int(preview.summary.get("create") or 0),
+        )
+        await record_processing(
+            db,
+            tenant_id=cast(UUID, user.tenant_id),
+            actor_id=cast(UUID, user.id),
+            actor_role=user.role,
+            operation="employee.import",
+            resource_type="employee_import",
+            resource_id="tenant-staff-import",
         )
         result = await commit_import(db, user.tenant_id, parsed)
     except StaffEmailConflictError as e:

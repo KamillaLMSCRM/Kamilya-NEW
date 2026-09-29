@@ -1,21 +1,24 @@
 """Admin dashboard API router"""
+import io
+from typing import cast
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-import io
 
 from app.core.auth import require_role
 from app.core.db import get_db
-from app.modules.admin.schemas import AdminDashboard, TenantStats, TrialUsage
-from app.modules.admin.service import get_admin_dashboard, get_tenant_stats, get_trial_usage
+from app.models.users import User
 from app.modules.admin.export import (
-    export_users_csv,
     export_courses_csv,
     export_enrollments_csv,
     export_quiz_results_csv,
+    export_users_csv,
 )
-from app.models.users import User
+from app.modules.admin.schemas import AdminDashboard, TenantStats, TrialUsage
+from app.modules.admin.service import get_admin_dashboard, get_tenant_stats, get_trial_usage
+from app.modules.privacy_control.service import record_processing
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -57,6 +60,15 @@ async def export_users(
 ):
     """Export users to CSV (admin only)."""
     csv_data = await export_users_csv(db, user.tenant_id)
+    await record_processing(
+        db,
+        tenant_id=cast(UUID, user.tenant_id),
+        actor_id=cast(UUID, user.id),
+        actor_role=user.role,
+        operation="employee.export",
+        resource_type="user_export",
+        resource_id="tenant-users",
+    )
     return _csv_response(csv_data, "users.csv")
 
 
@@ -83,6 +95,15 @@ async def export_enrollments(
 ):
     """Export enrollments to CSV (methodologist only)."""
     csv_data = await export_enrollments_csv(db, user.tenant_id)
+    await record_processing(
+        db,
+        tenant_id=cast(UUID, user.tenant_id),
+        actor_id=cast(UUID, user.id),
+        actor_role=user.role,
+        operation="enrollment.export",
+        resource_type="enrollment_export",
+        resource_id="tenant-enrollments",
+    )
     return _csv_response(csv_data, "enrollments.csv")
 
 
@@ -93,6 +114,15 @@ async def export_quiz_results(
 ):
     """Export quiz results to CSV (admin only)."""
     csv_data = await export_quiz_results_csv(db, user.tenant_id)
+    await record_processing(
+        db,
+        tenant_id=cast(UUID, user.tenant_id),
+        actor_id=cast(UUID, user.id),
+        actor_role=user.role,
+        operation="quiz_result.export",
+        resource_type="quiz_result_export",
+        resource_id="tenant-quiz-results",
+    )
     return _csv_response(csv_data, "quiz-results.csv")
 
 

@@ -14,6 +14,7 @@ from app.core.email import EmailDeliveryError, EmailService
 from app.models.tenant_settings import TenantSettings
 from app.models.tenants import Tenant
 from app.models.users import User, UserInvitation
+from app.modules.privacy_control.service import record_processing
 from app.modules.users.invitations_service import (
     attempt_invitation_delivery,
     bulk_create_invitations,
@@ -332,6 +333,15 @@ async def create_new_user(
             await assign_role(db, existing.id, user.tenant_id, req.role)
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc))
+        await record_processing(
+            db,
+            tenant_id=cast(UUID, user.tenant_id),
+            actor_id=cast(UUID, user.id),
+            actor_role=user.role,
+            operation="team_member.assign_role",
+            resource_type="user",
+            resource_id=existing.id,
+        )
         await db.commit()
         delivery_status, delivery_failure_category = await _deliver_team_member_welcome(
             db,
@@ -363,6 +373,15 @@ async def create_new_user(
             role=req.role,
             password=req.password or "",
             is_active=req.is_active,
+        )
+        await record_processing(
+            db,
+            tenant_id=cast(UUID, user.tenant_id),
+            actor_id=cast(UUID, user.id),
+            actor_role=user.role,
+            operation="team_member.create",
+            resource_type="user",
+            resource_id=new_user.id,
         )
         # The account must exist before an external provider receives a welcome
         # message. A provider failure never rolls back the team member.
@@ -433,6 +452,15 @@ async def update_user_detail(
     updated = await update_user(db, user_id, user.tenant_id, updates)
     if not updated:
         raise HTTPException(status_code=404, detail="User not found")
+    await record_processing(
+        db,
+        tenant_id=cast(UUID, user.tenant_id),
+        actor_id=cast(UUID, user.id),
+        actor_role=user.role,
+        operation="team_member.update",
+        resource_type="user",
+        resource_id=updated.id,
+    )
     return await _user_response(db, updated)
 
 
@@ -454,6 +482,15 @@ async def add_user_role(
         raise HTTPException(status_code=409, detail=str(exc))
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
+    await record_processing(
+        db,
+        tenant_id=cast(UUID, user.tenant_id),
+        actor_id=cast(UUID, user.id),
+        actor_role=user.role,
+        operation="team_member.assign_role",
+        resource_type="user",
+        resource_id=target.id,
+    )
     return await _user_response(db, target)
 
 
@@ -467,6 +504,15 @@ async def deactivate_user(
     success = await delete_user(db, user_id, user.tenant_id)
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
+    await record_processing(
+        db,
+        tenant_id=cast(UUID, user.tenant_id),
+        actor_id=cast(UUID, user.id),
+        actor_role=user.role,
+        operation="team_member.deactivate",
+        resource_type="user",
+        resource_id=user_id,
+    )
 
 
 @router.post("/{user_id}/reset-password")
@@ -480,6 +526,15 @@ async def reset_user_password(
     success = await reset_password(db, user_id, user.tenant_id, req.new_password)
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
+    await record_processing(
+        db,
+        tenant_id=cast(UUID, user.tenant_id),
+        actor_id=cast(UUID, user.id),
+        actor_role=user.role,
+        operation="team_member.reset_password",
+        resource_type="user",
+        resource_id=user_id,
+    )
     return {"status": "ok"}
 
 
@@ -509,6 +564,15 @@ async def change_user_role(
         updated = await change_role(db, user_id, user.tenant_id, role)
         if not updated:
             raise HTTPException(status_code=404, detail="User not found")
+        await record_processing(
+            db,
+            tenant_id=cast(UUID, user.tenant_id),
+            actor_id=cast(UUID, user.id),
+            actor_role=user.role,
+            operation="team_member.change_role",
+            resource_type="user",
+            resource_id=updated.id,
+        )
         return await _user_response(db, updated)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
