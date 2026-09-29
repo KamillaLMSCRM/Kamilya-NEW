@@ -90,6 +90,13 @@ def upgrade() -> None:
     # with every other statement, preserving the pre-migration FORCE state.
     op.execute(f"ALTER TABLE {course_occurrences} NO FORCE ROW LEVEL SECURITY")
     op.execute(f"ALTER TABLE {path_occurrences} NO FORCE ROW LEVEL SECURITY")
+    op.execute(
+        f"ALTER TABLE {course_occurrences} DISABLE TRIGGER trg_validate_recurring_learning_assignment_ownership"
+    )
+    op.execute(
+        f"ALTER TABLE {path_occurrences} DISABLE TRIGGER trg_validate_learning_path_cycle_ownership"
+    )
+    op.execute(f"ALTER TABLE {schema}.enrollments NO FORCE ROW LEVEL SECURITY")
 
     op.execute(f"ALTER TABLE {course_occurrences} ADD COLUMN sequence_no integer")
     op.execute(f"""
@@ -131,6 +138,13 @@ def upgrade() -> None:
     op.execute(f"ALTER TABLE {path_occurrences} ADD COLUMN effective_due_at timestamptz")
     op.execute(f"UPDATE {path_occurrences} SET effective_due_at=due_at")
     op.execute(f"ALTER TABLE {path_occurrences} ADD CONSTRAINT ck_learning_path_cycle_effective_due CHECK (effective_due_at IS NULL OR effective_due_at >= coalesce(starts_at,scheduled_for))")
+    op.execute(f"ALTER TABLE {schema}.enrollments FORCE ROW LEVEL SECURITY")
+    op.execute(
+        f"ALTER TABLE {course_occurrences} ENABLE TRIGGER trg_validate_recurring_learning_assignment_ownership"
+    )
+    op.execute(
+        f"ALTER TABLE {path_occurrences} ENABLE TRIGGER trg_validate_learning_path_cycle_ownership"
+    )
     op.execute(f"ALTER TABLE {course_occurrences} FORCE ROW LEVEL SECURITY")
     op.execute(f"ALTER TABLE {path_occurrences} FORCE ROW LEVEL SECURITY")
 

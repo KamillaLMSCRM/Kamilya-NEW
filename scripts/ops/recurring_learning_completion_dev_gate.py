@@ -96,8 +96,10 @@ async def _execute_batch(
 async def _create_baseline(connection: AsyncConnection, schema: str) -> dict[str, uuid.UUID]:
     q = f'"{schema}"'
     ids = {name: uuid.uuid4() for name in (
-        "tenant_a", "tenant_b", "methodologist_a", "methodologist_b", "learner_a",
-        "course_a", "release_a", "rule_a", "occurrence_a", "invalid_occurrence", "enrollment_a", "reminder_a",
+        "tenant_a", "tenant_b", "methodologist_a", "methodologist_b", "learner_a", "learner_b",
+        "course_a", "course_b", "release_a", "release_b", "rule_a", "rule_b",
+        "occurrence_a", "occurrence_b", "invalid_occurrence", "enrollment_a", "enrollment_b", "reminder_a",
+        "path_a", "path_rule_a", "path_occurrence_a",
     )}
     now = datetime.now(UTC)
     await connection.execute(text(f"CREATE SCHEMA {q}"))
@@ -143,16 +145,27 @@ async def _create_baseline(connection: AsyncConnection, schema: str) -> dict[str
       INSERT INTO {q}.users(id,tenant_id,role,is_active,status,email,password_hash,first_name,last_name) VALUES
         (:ma,:ta,'methodologist',true,'active','methodologist-a@example.invalid','x','M','A'),
         (:mb,:tb,'methodologist',true,'active','methodologist-b@example.invalid','x','M','B'),
-        (:la,:ta,'student',true,'active','learner-a@example.invalid','x','L','A');
-      INSERT INTO {q}.courses VALUES (:course,:ta,'Course A','published');
-      INSERT INTO {q}.content_releases VALUES (:release,:ta,:course);
+        (:la,:ta,'student',true,'active','learner-a@example.invalid','x','L','A'),
+        (:lb,:tb,'student',true,'active','learner-b@example.invalid','x','L','B');
+      INSERT INTO {q}.courses VALUES (:course,:ta,'Course A','published'),(:course_b,:tb,'Course B','published');
+      INSERT INTO {q}.content_releases VALUES (:release,:ta,:course),(:release_b,:tb,:course_b);
       INSERT INTO {q}.recurring_learning_rules VALUES (:rule,:ta,:course,NULL,:la,true,1,'active');
+      INSERT INTO {q}.recurring_learning_rules VALUES (:rule_b,:tb,:course_b,NULL,:lb,false,1,'active');
+      INSERT INTO {q}.learning_paths VALUES (:path_a,:ta,'Path A','published');
+      INSERT INTO {q}.recurring_learning_rules VALUES (:path_rule_a,:ta,NULL,:path_a,:la,false,1,'active');
       INSERT INTO {q}.recurring_learning_assignments VALUES
         (:occ,:ta,:rule,:la,:course,NULL,:scheduled,:due,'assigned');
       INSERT INTO {q}.recurring_learning_assignments VALUES
+        (:occ_b,:tb,:rule_b,:lb,:course_b,NULL,:scheduled,:due,'assigned');
+      INSERT INTO {q}.recurring_learning_assignments VALUES
         (:invalid_occurrence,:ta,:rule,:la,:course,NULL,:invalid_scheduled,:invalid_due,'assigned');
       INSERT INTO {q}.enrollments VALUES (:enrollment,:ta,:la,:course,:occ,:release,'enrolled',NULL);
+      INSERT INTO {q}.enrollments VALUES (:enrollment_b,:tb,:lb,:course_b,:occ_b,:release_b,'enrolled',NULL);
       UPDATE {q}.recurring_learning_assignments SET enrollment_id=:enrollment WHERE id=:occ;
+      UPDATE {q}.recurring_learning_assignments SET enrollment_id=:enrollment_b WHERE id=:occ_b;
+      INSERT INTO {q}.learning_path_cycle_instances(
+        id,tenant_id,rule_id,path_id,user_id,sequence_no,scheduled_for,starts_at,due_at,status)
+      VALUES (:path_occurrence_a,:ta,:path_rule_a,:path_a,:la,1,:scheduled,:scheduled,:due,'active');
       INSERT INTO {q}.learning_reminder_outbox(
         id,tenant_id,rule_id,course_occurrence_id,scheduled_at,due_at,status,next_attempt_at)
       VALUES (:reminder,:ta,:rule,:occ,:reminder_at,:due,'queued',:reminder_at);
@@ -172,14 +185,59 @@ async def _create_baseline(connection: AsyncConnection, schema: str) -> dict[str
         USING (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid);
     """, {
         "ta": ids["tenant_a"], "tb": ids["tenant_b"], "ma": ids["methodologist_a"],
-        "mb": ids["methodologist_b"], "la": ids["learner_a"], "course": ids["course_a"],
-        "release": ids["release_a"], "rule": ids["rule_a"], "occ": ids["occurrence_a"],
+        "mb": ids["methodologist_b"], "la": ids["learner_a"], "lb": ids["learner_b"],
+        "course": ids["course_a"], "course_b": ids["course_b"],
+        "release": ids["release_a"], "release_b": ids["release_b"],
+        "rule": ids["rule_a"], "rule_b": ids["rule_b"], "occ": ids["occurrence_a"],
+        "occ_b": ids["occurrence_b"], "enrollment_b": ids["enrollment_b"],
+        "path_a": ids["path_a"], "path_rule_a": ids["path_rule_a"],
+        "path_occurrence_a": ids["path_occurrence_a"],
         "invalid_occurrence": ids["invalid_occurrence"],
         "enrollment": ids["enrollment_a"], "reminder": ids["reminder_a"],
         "scheduled": now, "due": now + timedelta(days=7),
         "invalid_scheduled": now + timedelta(days=1), "invalid_due": now + timedelta(days=8),
         "reminder_at": now + timedelta(days=6),
     })
+    await connection.execute(text(f"""
+      CREATE FUNCTION {q}.validate_recurring_learning_assignment_ownership()
+      RETURNS trigger LANGUAGE plpgsql SET search_path={q},pg_temp AS $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM recurring_learning_rules r WHERE r.id=NEW.rule_id AND r.tenant_id=NEW.tenant_id AND r.user_id=NEW.user_id AND r.course_id=NEW.course_id)
+           OR NOT EXISTS (SELECT 1 FROM users u WHERE u.id=NEW.user_id AND u.tenant_id=NEW.tenant_id)
+           OR NOT EXISTS (SELECT 1 FROM courses c WHERE c.id=NEW.course_id AND c.tenant_id=NEW.tenant_id)
+           OR (NEW.enrollment_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM enrollments e WHERE e.id=NEW.enrollment_id AND e.tenant_id=NEW.tenant_id AND e.user_id=NEW.user_id AND e.course_id=NEW.course_id))
+        THEN RAISE EXCEPTION 'recurring learning assignment tenant ownership mismatch'; END IF;
+        RETURN NEW; END $$
+    """))
+    await connection.execute(text(f"""
+      CREATE TRIGGER trg_validate_recurring_learning_assignment_ownership
+      BEFORE INSERT OR UPDATE ON {q}.recurring_learning_assignments
+      FOR EACH ROW EXECUTE FUNCTION {q}.validate_recurring_learning_assignment_ownership()
+    """))
+    await connection.execute(text(f"""
+      CREATE FUNCTION {q}.validate_learning_path_cycle_ownership()
+      RETURNS trigger LANGUAGE plpgsql SET search_path={q},pg_temp AS $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM recurring_learning_rules r WHERE r.id=NEW.rule_id AND r.tenant_id=NEW.tenant_id AND r.learning_path_id=NEW.path_id AND r.user_id=NEW.user_id)
+           OR NOT EXISTS (SELECT 1 FROM learning_paths p WHERE p.id=NEW.path_id AND p.tenant_id=NEW.tenant_id)
+           OR NOT EXISTS (SELECT 1 FROM users u WHERE u.id=NEW.user_id AND u.tenant_id=NEW.tenant_id)
+        THEN RAISE EXCEPTION 'learning path cycle instance tenant ownership mismatch'; END IF;
+        RETURN NEW; END $$
+    """))
+    await connection.execute(text(f"""
+      CREATE TRIGGER trg_validate_learning_path_cycle_ownership
+      BEFORE INSERT OR UPDATE ON {q}.learning_path_cycle_instances
+      FOR EACH ROW EXECUTE FUNCTION {q}.validate_learning_path_cycle_ownership()
+    """))
+    for table in ("enrollments", "recurring_learning_rules", "users", "courses", "learning_paths"):
+        await _execute_batch(connection, f"""
+          ALTER TABLE {q}.{table} ENABLE ROW LEVEL SECURITY;
+          ALTER TABLE {q}.{table} FORCE ROW LEVEL SECURITY;
+          CREATE POLICY gate_{table}_runtime ON {q}.{table} TO lms_app
+            USING (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid)
+            WITH CHECK (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid);
+          CREATE POLICY gate_{table}_owner ON {q}.{table} FOR SELECT TO CURRENT_USER
+            USING (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid);
+          GRANT SELECT ON {q}.{table} TO lms_app;
+        """)
     await connection.commit()
     return ids
 
@@ -209,14 +267,17 @@ async def run(owner_url: str, runtime_url: str, supabase_url: str, schema: str) 
             public_before = await _public_revision(owner)
             ids = await _create_baseline(owner, schema)
             q = f'"{schema}"'
+            protected_tables = (
+                "recurring_learning_assignments", "learning_path_cycle_instances", "enrollments",
+                "recurring_learning_rules", "users", "courses", "learning_paths",
+            )
             rls_before = (await owner.execute(text("""
               SELECT relname,relrowsecurity,relforcerowsecurity FROM pg_class c
               JOIN pg_namespace n ON n.oid=c.relnamespace
-              WHERE n.nspname=:schema AND relname IN
-                ('recurring_learning_assignments','learning_path_cycle_instances')
+              WHERE n.nspname=:schema AND relname=ANY(:tables)
               ORDER BY relname
-            """), {"schema": schema})).all()
-            if len(rls_before) != 2 or any(row[1:] != (True, True) for row in rls_before):
+            """), {"schema": schema, "tables": list(protected_tables)})).all()
+            if len(rls_before) != len(protected_tables) or any(row[1:] != (True, True) for row in rls_before):
                 raise RuntimeError("baseline_force_rls_missing")
             checks.append("production_force_rls_prestate")
             savepoint = await owner.begin_nested()
@@ -227,6 +288,17 @@ async def run(owner_url: str, runtime_url: str, supabase_url: str, schema: str) 
             else:
                 await savepoint.rollback()
                 raise RuntimeError("malformed_legacy_occurrence_was_not_rejected")
+            rollback_state = (await owner.execute(text("""
+              SELECT
+                (SELECT bool_and(relforcerowsecurity) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                  WHERE n.nspname=:schema AND relname=ANY(:tables)),
+                (SELECT bool_and(tgenabled='O') FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+                  JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=:schema
+                  AND tgname IN ('trg_validate_recurring_learning_assignment_ownership','trg_validate_learning_path_cycle_ownership'))
+            """), {"schema": schema, "tables": list(protected_tables)})).one()
+            if rollback_state != (True, True):
+                raise RuntimeError("failed_migration_did_not_restore_rls_and_triggers")
+            checks.append("failed_upgrade_restored_force_rls_and_triggers")
             await owner.execute(text(f"ALTER TABLE {q}.recurring_learning_assignments NO FORCE ROW LEVEL SECURITY"))
             await owner.execute(text(f"DELETE FROM {q}.recurring_learning_assignments WHERE id=:id"), {"id": ids["invalid_occurrence"]})
             await owner.execute(text(f"ALTER TABLE {q}.recurring_learning_assignments FORCE ROW LEVEL SECURITY"))
@@ -237,13 +309,41 @@ async def run(owner_url: str, runtime_url: str, supabase_url: str, schema: str) 
             rls_after = (await owner.execute(text("""
               SELECT relname,relrowsecurity,relforcerowsecurity FROM pg_class c
               JOIN pg_namespace n ON n.oid=c.relnamespace
-              WHERE n.nspname=:schema AND relname IN
-                ('recurring_learning_assignments','learning_path_cycle_instances')
+              WHERE n.nspname=:schema AND relname=ANY(:tables)
               ORDER BY relname
-            """), {"schema": schema})).all()
-            if len(rls_after) != 2 or any(row[1:] != (True, True) for row in rls_after):
+            """), {"schema": schema, "tables": list(protected_tables)})).all()
+            triggers_after = await owner.scalar(text("""
+              SELECT bool_and(tgenabled='O') FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+              JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=:schema
+              AND tgname IN ('trg_validate_recurring_learning_assignment_ownership','trg_validate_learning_path_cycle_ownership')
+            """), {"schema": schema})
+            if len(rls_after) != len(protected_tables) or any(row[1:] != (True, True) for row in rls_after) or triggers_after is not True:
                 raise RuntimeError("migration_force_rls_not_restored")
             checks.append("production_force_rls_restored")
+            for tenant_id, occurrence_id, release_id in (
+                (ids["tenant_a"], ids["occurrence_a"], ids["release_a"]),
+                (ids["tenant_b"], ids["occurrence_b"], ids["release_b"]),
+            ):
+                await owner.execute(
+                    text("SELECT set_config('app.tenant_id',:tenant,true)"),
+                    {"tenant": str(tenant_id)},
+                )
+                backfilled = (await owner.execute(text(f"""
+                  SELECT sequence_no,content_release_id,effective_due_at
+                  FROM {q}.recurring_learning_assignments WHERE id=:id
+                """), {"id": occurrence_id})).one_or_none()
+                if backfilled is None or backfilled[0] != 1 or backfilled[1] != release_id or backfilled[2] is None:
+                    raise RuntimeError("multi_tenant_course_backfill_incomplete")
+            await owner.execute(
+                text("SELECT set_config('app.tenant_id',:tenant,true)"),
+                {"tenant": str(ids["tenant_a"])},
+            )
+            path_due = await owner.scalar(text(f"""
+              SELECT effective_due_at FROM {q}.learning_path_cycle_instances WHERE id=:id
+            """), {"id": ids["path_occurrence_a"]})
+            if path_due is None:
+                raise RuntimeError("learning_path_backfill_incomplete")
+            checks.append("multi_tenant_occurrence_backfill")
             columns = set((await owner.execute(text(
                 "SELECT table_name,column_name FROM information_schema.columns WHERE table_schema=:schema "
                 "AND ((table_name='recurring_learning_assignments' AND column_name IN ('sequence_no','content_release_id','effective_due_at')) "
