@@ -290,4 +290,41 @@ describe('learning cycles page catalogs', () => {
     expect((await screen.findAllByText('Archived Learner · EMP-ARCH-1')).length).toBeGreaterThan(0);
     expect(screen.getByText('learningCycles.learnerInactive')).toBeInTheDocument();
   });
+
+  it('keeps an inactive learner identity in history, rule, and attention cards', async () => {
+    const inactiveIdentity = {
+      user_id: 'inactive-learner',
+      learner_name: 'Archived Learner',
+      learner_personnel_number: 'EMP-ARCH-1',
+      learner_is_active: false,
+    };
+    const latestOccurrence = {
+      id: 'occurrence-1',
+      rule_id: 'rule-1',
+      target_type: 'course' as const,
+      course_id: 'course-1',
+      learning_path_id: null,
+      enrollment_id: 'enrollment-1',
+      scheduled_for: '2030-01-01T10:00:00Z',
+      due_at: '2030-01-12T12:30:17Z',
+      completed_at: null,
+      status: 'assigned',
+      ...inactiveIdentity,
+    };
+    apiMock.get.mockImplementation(async (url: string, config?: { params?: Record<string, unknown> }) => {
+      if (url === '/v1/learning-cycles/occurrences' && config?.params?.scope === 'history') return { data: [{ ...activeHistoryOccurrence, ...inactiveIdentity }] };
+      if (url === '/v1/learning-cycles/occurrences') return { data: [latestOccurrence] };
+      if (url === '/v1/learning-cycles') return { data: [{ id: 'rule-1', target_type: 'course', course_id: 'course-1', learning_path_id: null, user_id: 'inactive-learner', cadence_days: 365, due_days: 30, status: 'active', next_run_at: null, last_run_at: null }] };
+      if (url === '/v1/learning-paths') return { data: [] };
+      if (url === '/v1/courses') return { data: [{ id: 'course-1', title: 'Safety', status: 'published', delivery_type: 'native' }] };
+      if (url === '/v1/users') return { data: { users: [] } };
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    render(<LearningCyclesPage />);
+
+    expect(await screen.findByText('Archived Learner · EMP-ARCH-1')).toBeInTheDocument();
+    expect(screen.getAllByText('Safety · Archived Learner · EMP-ARCH-1')).toHaveLength(2);
+    expect(screen.getAllByText('learningCycles.learnerInactive')).toHaveLength(3);
+    expect(screen.getByRole('checkbox', { name: 'learningCycles.selectOccurrence' })).toBeInTheDocument();
+  });
 });

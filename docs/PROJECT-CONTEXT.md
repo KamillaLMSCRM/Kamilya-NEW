@@ -39,7 +39,7 @@
 | Dev/demo data | Supabase DEV/test PostgreSQL и Storage; не является production |
 | Broker/cache | Valkey на VM126, наружу не опубликован |
 | Background jobs | Три Celery worker на VM126: AI, documents и operations/notifications |
-| Dev background jobs | `kamilya-lms-dev-worker` на Render Free Web Service; Supabase DEV и изолированный Redis DB `1`, очереди `ai,documents,maintenance`, concurrency 1, cold start |
+| Dev background jobs | `kamilya-lms-dev-worker` на Render Free Web Service; Supabase DEV и изолированный Redis DB `1`, очереди `ai,documents,maintenance`, concurrency 1, cold start; DB pool `2+0`, API pool `3+1`, общий максимум 6 из 15 session-mode подключений |
 | Email | Resend, домен `notify.kml.kz` |
 | Telegram | Kamilya bot/auth flow |
 | Document conversion | Ограниченный локальный сервис: MarkItDown для Office/PDF с текстом, Docling для сканов/OCR, LibreOffice для старого `.doc` |

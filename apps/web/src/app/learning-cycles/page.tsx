@@ -10,8 +10,13 @@ import { toast } from '@/components/ui/Toast';
 import { collectPages, correctiveAssignmentUrl, deriveOccurrenceState, isResendEligible, runBounded } from './helpers';
 
 type Rule = { id: string; target_type: 'course' | 'learning_path'; course_id: string | null; learning_path_id: string | null; user_id: string; cadence_days: number; due_days: number; status: string; next_run_at: string | null; last_run_at: string | null };
-type Occurrence = { id: string; rule_id: string; user_id: string; target_type: 'course' | 'learning_path'; course_id: string | null; learning_path_id: string | null; enrollment_id: string | null; scheduled_for: string; due_at: string; completed_at: string | null; status: string };
-type HistoryOccurrence = {
+type OccurrenceLearnerIdentity = {
+  learner_name?: string;
+  learner_personnel_number?: string | null;
+  learner_is_active?: boolean;
+};
+type Occurrence = OccurrenceLearnerIdentity & { id: string; rule_id: string; user_id: string; target_type: 'course' | 'learning_path'; course_id: string | null; learning_path_id: string | null; enrollment_id: string | null; scheduled_for: string; due_at: string; completed_at: string | null; status: string };
+type HistoryOccurrence = OccurrenceLearnerIdentity & {
   id: string;
   rule_id: string;
   sequence_no: number;
@@ -25,9 +30,6 @@ type HistoryOccurrence = {
   status: string;
   is_active?: boolean;
   active?: boolean;
-  learner_name?: string;
-  learner_personnel_number?: string | null;
-  learner_is_active?: boolean;
 };
 type DeadlineEvent = {
   id: string;
@@ -52,7 +54,7 @@ function learnerOptionLabel(learner: Learner) {
   const discriminator = learner.email || learner.employee_number;
   return discriminator && discriminator !== name ? `${name} · ${discriminator}` : name;
 }
-function historyLearnerLabel(occurrence: HistoryOccurrence, learner?: Learner) {
+function occurrenceLearnerLabel(occurrence: OccurrenceLearnerIdentity & { user_id: string }, learner?: Learner) {
   if (learner) return learnerOptionLabel(learner);
   const name = occurrence.learner_name?.trim();
   const personnelNumber = occurrence.learner_personnel_number?.trim();
@@ -358,12 +360,12 @@ export default function LearningCyclesPage() {
           const reasonId = `deadline-override-reason-${occurrence.id}`;
           return <article key={occurrence.id} className="rounded-lg border p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('learningCycles.sequence', { number: occurrence.sequence_no })}</p><p className="mt-1 font-semibold">{targetLabel(occurrence)} · {historyLearnerLabel(occurrence, learner)}</p></div>
+              <div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('learningCycles.sequence', { number: occurrence.sequence_no })}</p><p className="mt-1 font-semibold">{targetLabel(occurrence)} · {occurrenceLearnerLabel(occurrence, learner)}</p></div>
               <div className="flex flex-wrap items-center gap-2"><Badge variant={state === 'overdue' || state === 'completed_late' ? 'destructive' : 'secondary'}>{t(`learningCycles.occurrence.${occurrenceTranslationState(state)}` as never)}</Badge>{adjusted && <Badge variant="outline" className="border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">{t('learningCycles.deadlineAdjusted')}</Badge>}</div>
             </div>
             <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
               <div><dt className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.target')}</dt><dd className="mt-1 break-words">{targetLabel(occurrence)}</dd></div>
-              <div><dt className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.learner')}</dt><dd className="mt-1 flex flex-wrap items-center gap-2 break-words"><span>{historyLearnerLabel(occurrence, learner)}</span>{occurrence.learner_is_active === false && <Badge variant="outline">{t('learningCycles.learnerInactive')}</Badge>}</dd></div>
+              <div><dt className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.learner')}</dt><dd className="mt-1 flex flex-wrap items-center gap-2 break-words"><span>{occurrenceLearnerLabel(occurrence, learner)}</span>{occurrence.learner_is_active === false && <Badge variant="outline">{t('learningCycles.learnerInactive')}</Badge>}</dd></div>
               <div><dt className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.originalDueAt')}</dt><dd className="mt-1">{dateText(occurrence.original_due_at)}</dd></div>
               <div className={adjusted ? 'rounded-md border border-amber-300 bg-amber-50/60 p-2 dark:bg-amber-950/20' : ''}><dt className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.effectiveDueAt')}</dt><dd className="mt-1 font-medium">{dateText(occurrence.effective_due_at)}</dd></div>
             </dl>
@@ -393,9 +395,10 @@ export default function LearningCyclesPage() {
       {loading ? <p>{t('common.loading')}</p> : loadError ? <div className="space-y-2"><p className="text-sm text-destructive">{loadError}</p><Button variant="outline" onClick={() => void load()}>{t('common.retry')}</Button></div> : rules.length === 0 ? <p className="text-sm text-muted-foreground">{t('learningCycles.emptyRules')}</p> : <div className="space-y-3">{rules.map((rule) => {
         const occurrence = occurrenceByRule.get(rule.id);
         const learner = learners.find((item) => item.id === rule.user_id);
+        const learnerLabel = occurrence ? occurrenceLearnerLabel(occurrence, learner) : learnerName(learner);
         const state = occurrence ? deriveOccurrenceState(occurrence) : null;
         return <article key={rule.id} className="grid gap-3 rounded-lg border p-4 lg:grid-cols-[1.5fr_1fr_1fr_auto]">
-          <div><p className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.target')}</p><p className="font-medium">{targetLabel(rule)}</p><p className="mt-2 text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.learner')}</p><p>{learnerName(learner)}</p></div>
+          <div><p className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.target')}</p><p className="font-medium">{targetLabel(rule)}</p><p className="mt-2 text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.learner')}</p><p className="flex flex-wrap items-center gap-2"><span>{learnerLabel}</span>{occurrence?.learner_is_active === false && <Badge variant="outline">{t('learningCycles.learnerInactive')}</Badge>}</p></div>
           <div className="space-y-1 text-sm"><Badge variant={rule.status === 'active' ? 'default' : 'outline'}>{t(`learningCycles.status.${rule.status}` as never)}</Badge><p>{t('learningCycles.cadenceDue', { cadence: rule.cadence_days, due: rule.due_days })}</p><p className="text-muted-foreground">{t('learningCycles.nextRun')}: {dateText(rule.next_run_at)}</p><p className="text-muted-foreground">{t('learningCycles.lastRun')}: {dateText(rule.last_run_at)}</p></div>
           <div className="text-sm">{occurrence ? <><p className="font-medium">{t('learningCycles.latestOccurrence')}</p><Badge variant={state === 'overdue' || state === 'completed_late' ? 'destructive' : 'secondary'}>{t(`learningCycles.occurrence.${state}` as never)}</Badge><p className="mt-1 text-muted-foreground">{t('learningCycles.dueAt')}: {dateText(occurrence.due_at)}</p>{occurrence.completed_at && <p className="text-muted-foreground">{t('learningCycles.completedAt')}: {dateText(occurrence.completed_at)}</p>}</> : <p className="text-muted-foreground">{t('learningCycles.noOccurrence')}</p>}</div>
           <div className="flex flex-wrap items-start gap-2">{rule.status === 'active' ? <Button size="sm" variant="outline" disabled={busy.has(rule.id)} onClick={() => void setRuleState(rule, 'deactivate')}>{t('learningCycles.deactivate')}</Button> : <Button size="sm" disabled={busy.has(rule.id)} onClick={() => void setRuleState(rule, 'activate')}>{t('learningCycles.activate')}</Button>}</div>
@@ -410,11 +413,12 @@ export default function LearningCyclesPage() {
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={eligible.length > 0 && eligible.every((item) => selected.has(item.id))} onChange={(event) => setSelected(event.target.checked ? new Set(eligibleIds) : new Set())} />{t('learningCycles.selectAll')}</label>
         <div className="space-y-2">{eligible.map((item) => {
           const learner = learners.find((person) => person.id === item.user_id);
+          const learnerLabel = occurrenceLearnerLabel(item, learner);
           const url = correctiveAssignmentUrl(item.course_id, item.user_id);
           const state = deriveOccurrenceState(item);
           return <article key={item.id} className="grid items-center gap-3 rounded border p-3 md:grid-cols-[auto_1fr_auto]">
-            <input aria-label={t('learningCycles.selectOccurrence', { learner: learnerName(learner) })} type="checkbox" checked={selected.has(item.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(item.id); else next.delete(item.id); return next; })} />
-            <div><p className="font-medium">{targetLabel(item)} · {learnerName(learner)}</p><p className="text-sm text-muted-foreground"><Badge variant={state === 'overdue' ? 'destructive' : 'secondary'}>{t(`learningCycles.occurrence.${state}` as never)}</Badge> · {t('learningCycles.dueAt')}: {dateText(item.due_at)}</p></div>
+            <input aria-label={t('learningCycles.selectOccurrence', { learner: learnerLabel })} type="checkbox" checked={selected.has(item.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(item.id); else next.delete(item.id); return next; })} />
+            <div><p className="flex flex-wrap items-center gap-2 font-medium"><span>{targetLabel(item)} · {learnerLabel}</span>{item.learner_is_active === false && <Badge variant="outline">{t('learningCycles.learnerInactive')}</Badge>}</p><p className="text-sm text-muted-foreground"><Badge variant={state === 'overdue' ? 'destructive' : 'secondary'}>{t(`learningCycles.occurrence.${state}` as never)}</Badge> · {t('learningCycles.dueAt')}: {dateText(item.due_at)}</p></div>
             <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busy.has(item.id)} onClick={() => void resendOne(item)}>{t('learningCycles.resend')}</Button>{url && <Link className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90" href={url}>{t('learningCycles.correctiveAssignment')}</Link>}</div>
           </article>;
         })}</div>

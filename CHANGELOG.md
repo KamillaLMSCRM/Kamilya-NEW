@@ -23,13 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   individual recurring-learning deadline, and refresh an already-open event
   history immediately after saving.
 - Keep archived employee identity visible in recurring course and program
-  history, including personnel number and active-state disclosure.
+  history, rule cards and attention actions, including personnel number and
+  active-state disclosure.
 
 ### Fixed
 
 - Preserve a still-valid bounded superadmin tenant preview across full-page
   reloads without converting it into a renewable tenant session.
 - Keep tenant identity and preview controls usable on narrow superadmin screens.
+- Bound the combined Render DEV API/worker connection pools below the Supabase
+  session-mode cap so browser acceptance and maintenance tasks do not fail with
+  intermittent HTTP 503 responses.
 
 ### Security
 

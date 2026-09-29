@@ -4565,6 +4565,29 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   preserve the same version range as Poetry and have a contract for optional
   extras whose packages are not exercised by the service start command.
 
+## DEV-DB-001 - Render DEV services exhausted the shared Supabase session pool
+
+- Date: 2026-09-29. Found during the exact-SHA browser acceptance of recurring
+  learning `0.11.17`; production and customer data were not touched.
+- Symptom: the learning-cycle page intermittently returned HTTP 503 and the
+  exact `learning_cycles.materialize` task did not create its first occurrence.
+  A direct run of the same service code failed before tenant setup with
+  `EMAXCONNSESSION` and the Supabase session-mode limit of 15 clients.
+- Cause: the Render DEV API and DEV worker both inherited the application
+  defaults `DB_POOL_SIZE=5` and `DB_MAX_OVERFLOW=5`. Their combined possible
+  demand was 20 connections before any bounded acceptance process connected.
+- Fix: cap the existing Free API service at `3+1` and the existing Free worker
+  at `2+0`, then redeploy both from the same immutable SHA. Keep the API values
+  in `render.yaml`; keep the separately managed worker values in the provider
+  configuration and verify them by sanitized readback.
+- Verification: the release-contract gate protects the API blueprint budget.
+  Every DEV release acceptance must additionally read back both worker pool
+  values, prove API/worker exact-SHA health and materialize one synthetic cycle
+  occurrence through the DEV maintenance queue.
+- Prevention: database capacity is a shared contour budget, not a per-process
+  budget. The combined steady and overflow limits of every DEV process plus one
+  bounded diagnostic connection must stay below the provider session cap.
+
 # 2026-09-26 - Mandatory-training read model failed on independent current enrollment chains
 
 - **Symptom:** the production synthetic tenant returned HTTP 500 from both

@@ -198,6 +198,10 @@ def check_migration_owner() -> str:
 
     if "plan: free" not in api_render_block:
         raise ValueError("Migration owner error: Render DEV API must stay on the free plan")
+    if not re.search(r'- key: DB_POOL_SIZE\s+value: "3"', api_render_block):
+        raise ValueError("Render DEV pool error: API DB_POOL_SIZE must stay at 3")
+    if not re.search(r'- key: DB_MAX_OVERFLOW\s+value: "1"', api_render_block):
+        raise ValueError("Render DEV pool error: API DB_MAX_OVERFLOW must stay at 1")
     if "preDeployCommand:" in api_render_block:
         raise ValueError("Migration owner error: Render Free cannot own pre-deploy migrations")
     if not dev_gate.is_file():

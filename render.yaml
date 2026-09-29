@@ -24,10 +24,14 @@ services:
         sync: false
       - key: MIGRATION_DATABASE_URL
         sync: false
+      # Supabase DEV session mode is capped at 15 clients shared by the
+      # Render API, worker and bounded acceptance tooling. Keep the API
+      # budget at four connections; the separately managed DEV worker uses
+      # DB_POOL_SIZE=2 and DB_MAX_OVERFLOW=0.
       - key: DB_POOL_SIZE
-        value: "5"
+        value: "3"
       - key: DB_MAX_OVERFLOW
-        value: "5"
+        value: "1"
       - key: DB_POOL_TIMEOUT
         value: "10"
       - key: DB_POOL_RECYCLE_SECONDS

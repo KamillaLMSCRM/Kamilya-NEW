@@ -54,8 +54,11 @@ describe('/ai/generate job workflow parity', () => {
     const jobInterval = vi.spyOn(window, 'setInterval');
     render(<AIGeneratePage />);
     expect(await screen.findByText('Прогресс генерации')).toBeInTheDocument();
-    const intervalCallback = jobInterval.mock.calls.find((call) => call[1] === 3000)?.[0] as (() => void) | undefined;
-    expect(intervalCallback).toBeDefined();
+    let intervalCallback: (() => void) | undefined;
+    await waitFor(() => {
+      intervalCallback = jobInterval.mock.calls.find((call) => call[1] === 3000)?.[0] as (() => void) | undefined;
+      expect(intervalCallback).toBeDefined();
+    });
     await act(async () => {
       intervalCallback!();
       await Promise.resolve();
@@ -217,14 +220,17 @@ describe('/ai/generate job workflow parity', () => {
     expect(screen.getByText('Осталось примерно: 2 мин')).toBeInTheDocument();
     expect(screen.getByRole('progressbar', { name: 'Индексация документа Правила ИБ' })).toHaveAttribute('aria-valuenow', '38');
 
-    const intervalCallback = jobInterval.mock.calls.at(-1)?.[0] as (() => void) | undefined;
-    expect(intervalCallback).toBeDefined();
+    let intervalCallback: (() => void) | undefined;
+    await waitFor(() => {
+      intervalCallback = jobInterval.mock.calls.filter((call) => call[1] === 3000).at(-1)?.[0] as (() => void) | undefined;
+      expect(intervalCallback).toBeDefined();
+    });
     await act(async () => {
       intervalCallback!();
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(indexingJobPolls).toBe(2);
+    await waitFor(() => expect(indexingJobPolls).toBe(2));
     await waitFor(() => expect(screen.queryByText('Индексация: 3 / 8')).not.toBeInTheDocument());
     expect(indexingJobPolls).toBe(2);
     expect(catalogReads).toBe(3);
@@ -294,8 +300,11 @@ describe('/ai/generate job workflow parity', () => {
     const jobInterval = vi.spyOn(window, 'setInterval');
     render(<AIGeneratePage />);
     expect(await screen.findByText('Прогресс генерации')).toBeInTheDocument();
-    const intervalCallback = jobInterval.mock.calls.find((call) => call[1] === 3000)?.[0] as (() => void) | undefined;
-    expect(intervalCallback).toBeDefined();
+    let intervalCallback: (() => void) | undefined;
+    await waitFor(() => {
+      intervalCallback = jobInterval.mock.calls.find((call) => call[1] === 3000)?.[0] as (() => void) | undefined;
+      expect(intervalCallback).toBeDefined();
+    });
     await act(async () => {
       intervalCallback!();
       await Promise.resolve();
