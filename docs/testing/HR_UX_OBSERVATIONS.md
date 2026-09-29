@@ -277,11 +277,18 @@ Entry template:
 ## UX-20260831-017 — Superadmin impersonation is lost on ordinary methodologist links
 
 - **Related run:** `RUN-20260831-PROD-SMOKE-BE35E60`
-- **State:** `OPEN`
+- **State:** `FIXED LOCALLY — NOT DEPLOYED`
 - **Severity:** `HIGH`
 - **Observation:** Several course, quiz and result navigation links returned an impersonating superadmin to `/admin/super` instead of the requested tenant route. Re-entering impersonation restored access.
 - **User impact:** Support and acceptance work is interrupted, and the operator can mistake a navigation defect for lost tenant data.
 - **Recommendation:** Persist the bounded impersonation context across all same-origin SPA and full-document navigations, and add route-level E2E coverage for every sidebar and course-detail link.
+- **Candidate resolution (2026-09-29):** The existing 15-minute impersonation
+  JWT is persisted only in an httpOnly, Secure, auth-path cookie. Reload restores
+  it only while its original expiry and platform-superadmin/tenant/role binding
+  remain valid; exit clears it and restores the platform session atomically.
+  The focused reload/exit contracts and complete local API/web regressions pass.
+  Exact-SHA deployed browser acceptance is still required before marking this
+  observation closed.
 
 ## UX-20260831-018 — Learner confirmation wording lags the certificate/evidence contract
 

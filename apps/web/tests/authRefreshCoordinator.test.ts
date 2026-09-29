@@ -177,11 +177,14 @@ describe('auth refresh coordinator', () => {
       role: 'superadmin',
       roles: ['superadmin'],
     };
-    const refreshSession = vi.fn().mockResolvedValue({
-      access_token: 'platform-access',
-      user: platformUser,
+    const refreshSession = vi.fn();
+    const runExclusiveAuthAction = vi.fn(async (callback: () => Promise<unknown>) => callback());
+    vi.doMock('@/lib/authRefreshCoordinator', () => ({ refreshSession, runExclusiveAuthAction }));
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ access_token: 'platform-access', user: platformUser }),
     });
-    vi.doMock('@/lib/authRefreshCoordinator', () => ({ refreshSession }));
+    vi.stubGlobal('fetch', fetchMock);
 
     const auth = await import('@/lib/auth');
     auth.setAuth('impersonation-access', {
@@ -193,11 +196,17 @@ describe('auth refresh coordinator', () => {
     const unsubscribe = auth.subscribeAuth((state) => observedUsers.push(state.user));
 
     await expect(auth.exitImpersonation()).resolves.toEqual(platformUser);
-    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(refreshSession).not.toHaveBeenCalled();
+    expect(runExclusiveAuthAction).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/auth/exit-impersonation'),
+      expect.objectContaining({ method: 'POST', credentials: 'include' }),
+    );
     expect(auth.getAccessToken()).toBe('platform-access');
     expect(auth.getCurrentUser()).toEqual(platformUser);
     expect(observedUsers).toEqual([platformUser]);
     unsubscribe();
+    vi.unstubAllGlobals();
     vi.doUnmock('@/lib/authRefreshCoordinator');
   });
 });

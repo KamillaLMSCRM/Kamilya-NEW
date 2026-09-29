@@ -266,11 +266,17 @@ async def test_occurrences_readback_serializes_latest_course_and_path_targets():
         id=uuid4(), rule_id=uuid4(), user_id=uuid4(), path_id=uuid4(), scheduled_for=now,
         sequence_no=1, due_at=now, effective_due_at=now, completed_at=None, status="active",
     )
+    course_learner = SimpleNamespace(
+        first_name="Course", last_name="Learner", personnel_number="C-001", is_active=True,
+    )
+    path_learner = SimpleNamespace(
+        first_name="Path", last_name="Learner", personnel_number="P-001", is_active=False,
+    )
     db = SimpleNamespace(
         execute=AsyncMock(
             side_effect=[
-                SimpleNamespace(all=lambda: [(course_occurrence, None)]),
-                SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [path_occurrence])),
+                SimpleNamespace(all=lambda: [(course_occurrence, None, course_learner)]),
+                SimpleNamespace(all=lambda: [(path_occurrence, path_learner)]),
             ]
         )
     )
@@ -281,6 +287,8 @@ async def test_occurrences_readback_serializes_latest_course_and_path_targets():
     path_result = next(item for item in result if item.target_type == "learning_path")
     assert path_result.course_id is None
     assert path_result.learning_path_id == path_occurrence.path_id
+    assert path_result.learner_name == "Path Learner"
+    assert path_result.learner_is_active is False
 
 
 def test_0145_contains_due_identity_and_occurrence_scoped_enrollment_contract():

@@ -299,6 +299,7 @@ export default function TenantDetailPage() {
     try {
       const res = await fetch(`${API_URL}/v1/admin/super/tenants/${id}/impersonate`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -349,21 +350,23 @@ export default function TenantDetailPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href="/admin/super/tenants" className="text-text-tertiary hover:text-text-primary">
-          ←
-        </Link>
-        <h1 className="text-2xl font-semibold">{tenant.name}</h1>
-        <Badge variant="secondary">{t(`superadmin.plans.${tenant.plan}` as any)}</Badge>
-        <Badge variant={tenant.status === 'active' ? 'default' : 'secondary'}>
-          {t(`superadmin.statuses.${tenant.status}` as any)}
-        </Badge>
-        <code className="text-xs text-text-tertiary">/{tenant.slug}</code>
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Link href="/admin/super/tenants" className="shrink-0 text-text-tertiary hover:text-text-primary">
+            ←
+          </Link>
+          <h1 className="min-w-0 break-words text-2xl font-semibold">{tenant.name}</h1>
+          <Badge variant="secondary">{t(`superadmin.plans.${tenant.plan}` as any)}</Badge>
+          <Badge variant={tenant.status === 'active' ? 'default' : 'secondary'}>
+            {t(`superadmin.statuses.${tenant.status}` as any)}
+          </Badge>
+          <code className="break-all text-xs text-text-tertiary">/{tenant.slug}</code>
+        </div>
 
         {/* Impersonation control — superadmin enters the tenant as
             one of its admin-level roles. Useful for debugging what
             a real tenant user sees, and for support. */}
-        <div className="ml-auto flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/5 px-3 py-1.5">
+        <div className="flex w-full flex-wrap items-center gap-2 rounded-xl border border-warning/30 bg-warning/5 px-3 py-2 sm:ml-auto sm:w-auto sm:py-1.5">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="text-warning shrink-0">
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
             <circle cx="9" cy="7" r="4" />
@@ -374,7 +377,7 @@ export default function TenantDetailPage() {
           <select
             value={impersonateRole}
             onChange={(e) => setImpersonateRole(e.target.value as typeof impersonateRole)}
-            className="rounded border border-warning/30 bg-background px-2 py-1 text-xs"
+            className="min-w-0 flex-1 rounded border border-warning/30 bg-background px-2 py-1 text-xs sm:flex-none"
             disabled={impersonating}
           >
             {ROLE_KEYS.map((r) => (
@@ -388,7 +391,7 @@ export default function TenantDetailPage() {
             variant="default"
             onClick={handleImpersonate}
             disabled={impersonating}
-            className="bg-warning text-warning-foreground hover:bg-warning/90"
+            className="shrink-0 bg-warning text-warning-foreground hover:bg-warning/90"
           >
             {impersonating ? t('common.loading') : t('superadmin.tenants.impersonate.submit')}
           </Button>

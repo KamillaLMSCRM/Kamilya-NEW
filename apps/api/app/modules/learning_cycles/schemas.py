@@ -81,6 +81,9 @@ class OccurrenceResponse(BaseModel):
     due_at: datetime
     completed_at: datetime | None
     status: str
+    learner_name: str
+    learner_personnel_number: str | None = None
+    learner_is_active: bool
 
 
 class DeadlineOverrideRequest(BaseModel):

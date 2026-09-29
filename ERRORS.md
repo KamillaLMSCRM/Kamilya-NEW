@@ -3443,6 +3443,16 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: every impersonation-only route must distinguish the tenant role
   wrapper from a persisted tenant user. Never mutate the wrapped platform actor,
   and never use full logout to leave an access-token-only preview session.
+- Follow-up 2026-09-29: full-document reload still discarded the in-memory
+  impersonation access token and `/auth/refresh` restored the platform identity.
+  The bounded token is now mirrored only in a 15-minute httpOnly, Secure,
+  auth-path cookie. Refresh validates its JWT expiry, platform actor, target
+  tenant and allowed role before restoring it, never mints an extension, and
+  clears invalid state. `/auth/exit-impersonation` now clears that cookie while
+  atomically rotating and restoring the platform session. Web Storage remains
+  forbidden. Focused auth tests, the full API suite, full web suite, lint,
+  typecheck and production build pass locally; deployment is not part of this
+  candidate.
 
 ## TEST-INFRA-001 - Unit runs inherited an invented localhost PostgreSQL target
 
@@ -4728,3 +4738,29 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   time from the current reporting clock; never alias a future due date as
   `now`. Static contract tests supplement but never replace the database and CI
   gates.
+
+## RECURRENCE-013 - Deadline editing lost precision and history lost archived learner identity
+
+- Date: 2026-09-29. Found during synthetic acceptance of recurring-learning
+  history; no DEV or production mutation was required for diagnosis.
+- Symptom: opening a saved deadline discarded seconds, saving did not refresh an
+  already-open event history, and occurrences belonging to inactive employees
+  displayed an em dash because the page only knew the active learner catalog.
+- Cause: the datetime-local editor used minute steps and an empty initial value;
+  event-history state was not invalidated after mutation; the occurrence API
+  returned only `user_id`, so the browser could not render durable historical
+  identity after staff archival.
+- Fix: initialise the editor from the exact effective deadline with second
+  precision, preserve `step=1`, reload an open event timeline after a successful
+  override, and join the tenant-bound learner when serialising both course and
+  learning-path occurrences. The durable response now includes learner name,
+  personnel number and active state while keeping the user id.
+- Verification: focused API/frontend regressions pass, the full API suite passes
+  `2929` tests with `508` expected skips, the full web suite passes `721` tests,
+  and lint, typecheck, Python quality baseline and production build pass. The
+  Supabase-backed recurrence integration file remains skipped without an active
+  canonical DEV database contour and is not claimed as executed.
+- Prevention: an event-history mutation must test open-panel invalidation;
+  editable timestamps must round-trip every precision unit displayed by the UI;
+  audit/history DTOs must carry the historical display identity instead of
+  depending on an active-entity picker.

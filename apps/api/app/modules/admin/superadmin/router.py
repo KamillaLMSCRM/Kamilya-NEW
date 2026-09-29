@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +33,7 @@ from app.modules.admin.superadmin.schemas import (
 from app.modules.admin.superadmin.service import SuperadminService
 from app.modules.admin.superadmin.operations import router as operations_router
 from app.modules.audit.service import log_action
+from app.modules.auth.browser_session import get_browser_session_policy
 
 router = APIRouter(
     prefix="/admin/super",
@@ -364,6 +365,7 @@ class ImpersonateResponse(BaseModel):
 async def impersonate_tenant(
     tenant_id: uuid.UUID,
     request: Request,
+    response: Response,
     user: User = Depends(require_role("superadmin")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -438,6 +440,7 @@ async def impersonate_tenant(
         user_agent=request.headers.get("user-agent"),
     )
     await db.commit()
+    get_browser_session_policy().set_impersonation_cookie(response, access_token)
 
     return ImpersonateResponse(
         access_token=access_token,
@@ -457,6 +460,7 @@ async def impersonate_tenant(
             "tenant_id": str(tenant.id),
             "telegram_id": str(user.telegram_id) if user.telegram_id else "",
             "role": req.role,
+            "roles": [req.role],
             "full_name": f"{user.first_name} {user.last_name}",
             "email": user.email,
             "tenant": {

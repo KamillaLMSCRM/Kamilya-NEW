@@ -12,6 +12,10 @@ const qualificationCardSource = readFileSync(
   "utf8",
 );
 const learningPathsSource = readFileSync(resolve(process.cwd(), "src/app/learning-paths/page.tsx"), "utf8");
+const tenantDetailSource = readFileSync(
+  resolve(process.cwd(), "src/app/admin/super/tenants/[id]/page.tsx"),
+  "utf8",
+);
 
 describe("methodologist information architecture", () => {
   it("registers rules for the active methodologist only", () => {
@@ -84,6 +88,17 @@ describe("methodologist information architecture", () => {
     );
     expect(topBarSource).toContain("hidden xl:flex items-center gap-2");
     expect(topBarSource).toContain("hidden xl:inline-flex items-center gap-1.5");
+  });
+
+  it("wraps tenant identity and impersonation controls inside narrow viewports", () => {
+    expect(tenantDetailSource).toContain('className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"');
+    expect(tenantDetailSource).toContain('className="flex min-w-0 flex-wrap items-center gap-2"');
+    expect(tenantDetailSource).toContain('className="flex w-full flex-wrap items-center gap-2 rounded-xl');
+    expect(tenantDetailSource).toContain('sm:ml-auto sm:w-auto');
+  });
+
+  it("includes browser credentials when starting bounded impersonation", () => {
+    expect(tenantDetailSource).toContain("credentials: 'include'");
   });
 
   it("keeps structure free of training progress metrics and requires preview before rules mutations", () => {

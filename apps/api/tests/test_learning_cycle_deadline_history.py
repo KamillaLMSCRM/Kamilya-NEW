@@ -1,9 +1,12 @@
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
 
+from app.modules.learning_cycles.router import _course_occurrence_response
 from app.modules.learning_cycles.schemas import DeadlineOverrideRequest
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -68,3 +71,32 @@ def test_original_and_effective_deadlines_remain_distinct_after_override():
     original = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
     effective = original + timedelta(days=5)
     assert original != effective
+
+
+def test_occurrence_response_preserves_inactive_learner_identity_for_history():
+    due = datetime(2026, 10, 1, 12, 0, 17, tzinfo=UTC)
+    occurrence = SimpleNamespace(
+        id=uuid4(),
+        rule_id=uuid4(),
+        user_id=uuid4(),
+        course_id=uuid4(),
+        enrollment_id=uuid4(),
+        sequence_no=2,
+        content_release_id=uuid4(),
+        scheduled_for=due - timedelta(days=5),
+        due_at=due,
+        effective_due_at=due,
+        status="assigned",
+    )
+    learner = SimpleNamespace(
+        first_name="Archived",
+        last_name="Learner",
+        personnel_number="EMP-ARCH-1",
+        is_active=False,
+    )
+
+    response = _course_occurrence_response(occurrence, None, learner=learner)
+
+    assert response.learner_name == "Archived Learner"
+    assert response.learner_personnel_number == "EMP-ARCH-1"
+    assert response.learner_is_active is False

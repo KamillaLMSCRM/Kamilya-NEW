@@ -69,6 +69,7 @@ export interface AuthUser {
 // rewrite involved — this hits the backend directly cross-origin.
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 const LOGOUT_ENDPOINT = `${API_BASE}/v1/auth/logout`;
+const EXIT_IMPERSONATION_ENDPOINT = `${API_BASE}/v1/auth/exit-impersonation`;
 const SWITCH_ROLE_ENDPOINT = `${API_BASE}/v1/auth/switch-role`;
 
 let _accessToken: string | null = null;
@@ -211,22 +212,32 @@ export async function exitImpersonation(): Promise<AuthUser> {
   // First let an older refresh settle, then invalidate the impersonation token
   // in memory and atomically publish only the restored platform identity.
   await _refreshAndStoreInflight?.catch(() => false);
-  _authEpoch += 1;
-  _accessToken = null;
-  _user = null;
-  const restored = await refreshAndStoreSession();
-  const platformUser = getCurrentUser();
-  if (
-    !restored
-    || !platformUser
-    || platformUser.role !== 'superadmin'
-    || platformUser.tenant_id !== null
-    || platformUser.impersonated_by
-  ) {
-    clearAuth();
-    throw new Error('Platform session could not be restored');
-  }
-  return platformUser;
+  return runExclusiveAuthAction(async () => {
+    const response = await fetch(EXIT_IMPERSONATION_ENDPOINT, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    if (!response.ok) {
+      clearAuth();
+      throw new Error('Platform session could not be restored');
+    }
+    const data = await response.json();
+    const platformUser = data.user as AuthUser | undefined;
+    if (
+      !data.access_token
+      || !platformUser
+      || platformUser.role !== 'superadmin'
+      || platformUser.tenant_id !== null
+      || platformUser.impersonated_by
+    ) {
+      clearAuth();
+      throw new Error('Platform session could not be restored');
+    }
+    setAuth(data.access_token, platformUser);
+    return platformUser;
+  });
 }
 
 

@@ -25,6 +25,9 @@ type HistoryOccurrence = {
   status: string;
   is_active?: boolean;
   active?: boolean;
+  learner_name?: string;
+  learner_personnel_number?: string | null;
+  learner_is_active?: boolean;
 };
 type DeadlineEvent = {
   id: string;
@@ -49,6 +52,13 @@ function learnerOptionLabel(learner: Learner) {
   const discriminator = learner.email || learner.employee_number;
   return discriminator && discriminator !== name ? `${name} · ${discriminator}` : name;
 }
+function historyLearnerLabel(occurrence: HistoryOccurrence, learner?: Learner) {
+  if (learner) return learnerOptionLabel(learner);
+  const name = occurrence.learner_name?.trim();
+  const personnelNumber = occurrence.learner_personnel_number?.trim();
+  if (name && personnelNumber) return `${name} · ${personnelNumber}`;
+  return name || personnelNumber || occurrence.user_id;
+}
 function message(error: unknown) {
   const value = error as { response?: { data?: { detail?: string } }; message?: string };
   return value.response?.data?.detail || value.message || 'Request failed';
@@ -70,6 +80,14 @@ function occurrenceTranslationState(status: string) {
   if (status === 'scheduled' || status === 'active') return 'assigned';
   if (status === 'cancelled') return 'skipped';
   return status;
+}
+
+function toLocalDateTimeValue(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+    + `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 export default function LearningCyclesPage() {
@@ -238,9 +256,24 @@ export default function LearningCyclesPage() {
     else toast.success(t('learningCycles.bulkComplete', { count: results.length }));
   };
 
+  const loadEventHistory = async (occurrence: HistoryOccurrence) => {
+    setEventHistoryLoading((current) => new Set(current).add(occurrence.id));
+    setEventHistoryError((current) => { const next = new Set(current); next.delete(occurrence.id); return next; });
+    try {
+      const response = await api.get<DeadlineEvent[]>(
+        `/v1/learning-cycles/occurrences/${occurrence.target_type}/${occurrence.id}/events`,
+      );
+      setEventHistory((current) => ({ ...current, [occurrence.id]: response.data }));
+    } catch {
+      setEventHistoryError((current) => new Set(current).add(occurrence.id));
+    } finally {
+      setEventHistoryLoading((current) => { const next = new Set(current); next.delete(occurrence.id); return next; });
+    }
+  };
+
   const openDeadlineOverride = (occurrence: HistoryOccurrence) => {
     setOverrideOccurrenceId(occurrence.id);
-    setOverrideDeadline('');
+    setOverrideDeadline(toLocalDateTimeValue(occurrence.effective_due_at));
     setOverrideReason('');
     setOverrideError('');
   };
@@ -276,27 +309,14 @@ export default function LearningCyclesPage() {
       setOverrideOccurrenceId(null);
       setOverrideDeadline('');
       setOverrideReason('');
-      await Promise.all([load(), loadHistory()]);
+      const reloads: Promise<unknown>[] = [load(), loadHistory()];
+      if (eventHistoryOpen.has(occurrence.id)) reloads.push(loadEventHistory(occurrence));
+      await Promise.all(reloads);
     } catch {
       setOverrideError(t('learningCycles.overrideFailed'));
       toast.error(t('learningCycles.overrideFailed'));
     } finally {
       setOverrideSaving(false);
-    }
-  };
-
-  const loadEventHistory = async (occurrence: HistoryOccurrence) => {
-    setEventHistoryLoading((current) => new Set(current).add(occurrence.id));
-    setEventHistoryError((current) => { const next = new Set(current); next.delete(occurrence.id); return next; });
-    try {
-      const response = await api.get<DeadlineEvent[]>(
-        `/v1/learning-cycles/occurrences/${occurrence.target_type}/${occurrence.id}/events`,
-      );
-      setEventHistory((current) => ({ ...current, [occurrence.id]: response.data }));
-    } catch {
-      setEventHistoryError((current) => new Set(current).add(occurrence.id));
-    } finally {
-      setEventHistoryLoading((current) => { const next = new Set(current); next.delete(occurrence.id); return next; });
     }
   };
 
@@ -338,12 +358,12 @@ export default function LearningCyclesPage() {
           const reasonId = `deadline-override-reason-${occurrence.id}`;
           return <article key={occurrence.id} className="rounded-lg border p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('learningCycles.sequence', { number: occurrence.sequence_no })}</p><p className="mt-1 font-semibold">{targetLabel(occurrence)} · {learnerName(learner)}</p></div>
+              <div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('learningCycles.sequence', { number: occurrence.sequence_no })}</p><p className="mt-1 font-semibold">{targetLabel(occurrence)} · {historyLearnerLabel(occurrence, learner)}</p></div>
               <div className="flex flex-wrap items-center gap-2"><Badge variant={state === 'overdue' || state === 'completed_late' ? 'destructive' : 'secondary'}>{t(`learningCycles.occurrence.${occurrenceTranslationState(state)}` as never)}</Badge>{adjusted && <Badge variant="outline" className="border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">{t('learningCycles.deadlineAdjusted')}</Badge>}</div>
             </div>
             <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
               <div><dt className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.target')}</dt><dd className="mt-1 break-words">{targetLabel(occurrence)}</dd></div>
-              <div><dt className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.learner')}</dt><dd className="mt-1 break-words">{learnerName(learner)}</dd></div>
+              <div><dt className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.learner')}</dt><dd className="mt-1 flex flex-wrap items-center gap-2 break-words"><span>{historyLearnerLabel(occurrence, learner)}</span>{occurrence.learner_is_active === false && <Badge variant="outline">{t('learningCycles.learnerInactive')}</Badge>}</dd></div>
               <div><dt className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.originalDueAt')}</dt><dd className="mt-1">{dateText(occurrence.original_due_at)}</dd></div>
               <div className={adjusted ? 'rounded-md border border-amber-300 bg-amber-50/60 p-2 dark:bg-amber-950/20' : ''}><dt className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.effectiveDueAt')}</dt><dd className="mt-1 font-medium">{dateText(occurrence.effective_due_at)}</dd></div>
             </dl>
@@ -357,7 +377,7 @@ export default function LearningCyclesPage() {
             </div>}
             {overrideOpen && <form className="mt-4 space-y-4 rounded-lg border bg-muted/30 p-4" onSubmit={(event) => { event.preventDefault(); void saveDeadlineOverride(occurrence); }}>
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-1"><label htmlFor={deadlineId} className="text-sm font-medium">{t('learningCycles.overrideDeadlineLabel')}</label><Input id={deadlineId} type="datetime-local" step={60} required value={overrideDeadline} aria-invalid={overrideError === t('learningCycles.overrideDeadlineError')} aria-describedby={`${deadlineId}-hint`} onChange={(event) => { setOverrideDeadline(event.target.value); setOverrideError(''); }} /><p id={`${deadlineId}-hint`} className="text-xs text-muted-foreground">{t('learningCycles.overrideTimezoneHint', { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' })}</p></div>
+                <div className="space-y-1"><label htmlFor={deadlineId} className="text-sm font-medium">{t('learningCycles.overrideDeadlineLabel')}</label><Input id={deadlineId} type="datetime-local" step={1} required value={overrideDeadline} aria-invalid={overrideError === t('learningCycles.overrideDeadlineError')} aria-describedby={`${deadlineId}-hint`} onChange={(event) => { setOverrideDeadline(event.target.value); setOverrideError(''); }} /><p id={`${deadlineId}-hint`} className="text-xs text-muted-foreground">{t('learningCycles.overrideTimezoneHint', { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' })}</p></div>
                 <div className="space-y-1"><div className="flex items-center justify-between gap-2"><label htmlFor={reasonId} className="text-sm font-medium">{t('learningCycles.overrideReason')}</label><span aria-hidden="true" className="text-xs text-muted-foreground">{overrideReason.length}/1000</span></div><textarea id={reasonId} className="min-h-24 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required minLength={20} maxLength={1000} value={overrideReason} aria-invalid={overrideError === t('learningCycles.overrideReasonError')} aria-describedby={`${reasonId}-hint`} onChange={(event) => { setOverrideReason(event.target.value); setOverrideError(''); }} /><p id={`${reasonId}-hint`} className="text-xs text-muted-foreground">{t('learningCycles.overrideReasonHint')}</p></div>
               </div>
               {overrideError && <p role="alert" className="text-sm text-destructive">{overrideError}</p>}

@@ -9,7 +9,9 @@ from fastapi import HTTPException, Request, Response
 from app.core.config import get_settings
 
 REFRESH_COOKIE_NAME = "kamilya_refresh"
+IMPERSONATION_COOKIE_NAME = "kamilya_impersonation"
 REFRESH_COOKIE_PATH = "/api/v1/auth"
+IMPERSONATION_COOKIE_MAX_AGE_SECONDS = 15 * 60
 CookieProfile = Literal["same_site", "cross_site"]
 
 
@@ -138,6 +140,11 @@ class BrowserSessionPolicy:
             return body_token
         return None
 
+    def read_impersonation_token(self, request: Request) -> str | None:
+        """Read the bounded impersonation credential after browser validation."""
+        self.enforce_request(request)
+        return request.cookies.get(IMPERSONATION_COOKIE_NAME)
+
     def set_refresh_cookie(self, response: Response, refresh_token: str) -> None:
         response.set_cookie(
             key=REFRESH_COOKIE_NAME,
@@ -149,7 +156,7 @@ class BrowserSessionPolicy:
             samesite="none" if self.cookie_profile == "cross_site" else "lax",
         )
         if self.cookie_profile == "cross_site":
-            self._append_partitioned(response)
+            self._append_partitioned(response, REFRESH_COOKIE_NAME)
 
     def clear_refresh_cookie(self, response: Response) -> None:
         response.set_cookie(
@@ -162,11 +169,38 @@ class BrowserSessionPolicy:
             samesite="none" if self.cookie_profile == "cross_site" else "lax",
         )
         if self.cookie_profile == "cross_site":
-            self._append_partitioned(response)
+            self._append_partitioned(response, REFRESH_COOKIE_NAME)
+
+    def set_impersonation_cookie(self, response: Response, access_token: str) -> None:
+        """Persist only the existing short-lived token; never extend its JWT expiry."""
+        response.set_cookie(
+            key=IMPERSONATION_COOKIE_NAME,
+            value=access_token,
+            max_age=IMPERSONATION_COOKIE_MAX_AGE_SECONDS,
+            path=REFRESH_COOKIE_PATH,
+            httponly=True,
+            secure=self.cookie_secure,
+            samesite="none" if self.cookie_profile == "cross_site" else "lax",
+        )
+        if self.cookie_profile == "cross_site":
+            self._append_partitioned(response, IMPERSONATION_COOKIE_NAME)
+
+    def clear_impersonation_cookie(self, response: Response) -> None:
+        response.set_cookie(
+            key=IMPERSONATION_COOKIE_NAME,
+            value="",
+            max_age=0,
+            path=REFRESH_COOKIE_PATH,
+            httponly=True,
+            secure=self.cookie_secure,
+            samesite="none" if self.cookie_profile == "cross_site" else "lax",
+        )
+        if self.cookie_profile == "cross_site":
+            self._append_partitioned(response, IMPERSONATION_COOKIE_NAME)
 
     @staticmethod
-    def _append_partitioned(response: Response) -> None:
-        prefix = f"{REFRESH_COOKIE_NAME}=".lower().encode()
+    def _append_partitioned(response: Response, cookie_name: str) -> None:
+        prefix = f"{cookie_name}=".lower().encode()
         for index in range(len(response.raw_headers) - 1, -1, -1):
             key, value = response.raw_headers[index]
             if key.lower() == b"set-cookie" and value.lower().startswith(prefix):

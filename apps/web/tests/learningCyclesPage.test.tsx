@@ -27,10 +27,13 @@ const activeHistoryOccurrence = {
   course_id: 'course-1',
   learning_path_id: null,
   original_due_at: '2030-01-10T10:00:00Z',
-  effective_due_at: '2030-01-12T12:30:00Z',
+  effective_due_at: '2030-01-12T12:30:17Z',
   completed_at: null,
   status: 'assigned',
   is_active: true,
+  learner_name: 'Alex Kim',
+  learner_personnel_number: 'EMP-001',
+  learner_is_active: true,
 };
 
 function mockLearningCycleData(history = [activeHistoryOccurrence]) {
@@ -166,6 +169,22 @@ describe('learning cycles page catalogs', () => {
     expect(apiMock.post).not.toHaveBeenCalled();
   });
 
+  it('opens the deadline editor at the exact effective deadline including seconds', async () => {
+    mockLearningCycleData();
+    render(<LearningCyclesPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'learningCycles.overrideDeadline' }));
+
+    const input = screen.getByLabelText('learningCycles.overrideDeadlineLabel');
+    const deadline = new Date(activeHistoryOccurrence.effective_due_at);
+    const expectedLocalValue = [
+      `${deadline.getFullYear()}-${String(deadline.getMonth() + 1).padStart(2, '0')}-${String(deadline.getDate()).padStart(2, '0')}`,
+      `${String(deadline.getHours()).padStart(2, '0')}:${String(deadline.getMinutes()).padStart(2, '0')}:${String(deadline.getSeconds()).padStart(2, '0')}`,
+    ].join('T');
+    expect(input).toHaveValue(`${expectedLocalValue}.000`);
+    expect(input).toHaveAttribute('step', '1');
+  });
+
   it('loads and shows the append-only deadline change reason on demand', async () => {
     mockLearningCycleData();
     render(<LearningCyclesPage />);
@@ -210,5 +229,65 @@ describe('learning cycles page catalogs', () => {
       url === '/v1/learning-cycles/occurrences'
       && (config as { params?: { scope?: string } } | undefined)?.params?.scope === 'history'
     ))).toHaveLength(2));
+  });
+
+  it('refreshes an already open deadline event history immediately after saving', async () => {
+    let eventLoads = 0;
+    mockLearningCycleData();
+    apiMock.get.mockImplementation(async (url: string, config?: { params?: Record<string, unknown> }) => {
+      if (url === '/v1/learning-cycles/occurrences/course/occurrence-1/events') {
+        eventLoads += 1;
+        return { data: eventLoads === 1
+          ? [{ id: 'event-1', previous_effective_due_at: '2030-01-10T10:00:00Z', effective_due_at: '2030-01-12T12:30:00Z', reason: 'The learner was assigned to an approved field project.', created_at: '2030-01-09T08:00:00Z' }]
+          : [{ id: 'event-2', previous_effective_due_at: '2030-01-12T12:30:00Z', effective_due_at: '2030-01-15T09:45:17Z', reason: 'The approved schedule changed for this learner.', created_at: '2030-01-10T08:00:00Z' }]
+        };
+      }
+      if (url === '/v1/learning-cycles/occurrences' && config?.params?.scope === 'history') return { data: [activeHistoryOccurrence] };
+      if (url === '/v1/learning-cycles' || url === '/v1/learning-cycles/occurrences') return { data: [] };
+      if (url === '/v1/learning-paths') return { data: [] };
+      if (url === '/v1/courses') return { data: [{ id: 'course-1', title: 'Safety', status: 'published', delivery_type: 'native' }] };
+      if (url === '/v1/users') return { data: { users: [{ id: 'learner-1', full_name: 'Alex Kim' }] } };
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    apiMock.post.mockResolvedValue({ data: {} });
+    render(<LearningCyclesPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'learningCycles.historyTitle' }));
+    expect(await screen.findByText('The learner was assigned to an approved field project.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'learningCycles.overrideDeadline' }));
+    fireEvent.change(screen.getByLabelText('learningCycles.overrideDeadlineLabel'), { target: { value: '2030-01-15T09:45:17' } });
+    fireEvent.change(screen.getByLabelText('learningCycles.overrideReason'), { target: { value: 'The approved schedule changed for this learner.' } });
+    fireEvent.submit(screen.getByRole('button', { name: 'learningCycles.overrideSave' }).closest('form')!);
+
+    await waitFor(() => expect(eventLoads).toBe(2));
+    expect(await screen.findByText('The approved schedule changed for this learner.')).toBeInTheDocument();
+  });
+
+  it('shows the historical identity and inactive state even when the learner is absent from the active catalog', async () => {
+    mockLearningCycleData([{
+      ...activeHistoryOccurrence,
+      user_id: 'inactive-learner',
+      learner_name: 'Archived Learner',
+      learner_personnel_number: 'EMP-ARCH-1',
+      learner_is_active: false,
+    }]);
+    apiMock.get.mockImplementation(async (url: string, config?: { params?: Record<string, unknown> }) => {
+      if (url === '/v1/learning-cycles/occurrences' && config?.params?.scope === 'history') return { data: [{
+        ...activeHistoryOccurrence,
+        user_id: 'inactive-learner',
+        learner_name: 'Archived Learner',
+        learner_personnel_number: 'EMP-ARCH-1',
+        learner_is_active: false,
+      }] };
+      if (url === '/v1/learning-cycles' || url === '/v1/learning-cycles/occurrences') return { data: [] };
+      if (url === '/v1/learning-paths') return { data: [] };
+      if (url === '/v1/courses') return { data: [{ id: 'course-1', title: 'Safety', status: 'published', delivery_type: 'native' }] };
+      if (url === '/v1/users') return { data: { users: [] } };
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    render(<LearningCyclesPage />);
+
+    expect((await screen.findAllByText('Archived Learner · EMP-ARCH-1')).length).toBeGreaterThan(0);
+    expect(screen.getByText('learningCycles.learnerInactive')).toBeInTheDocument();
   });
 });

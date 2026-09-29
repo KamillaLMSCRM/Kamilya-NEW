@@ -441,6 +441,21 @@ async def test_occurrence_history_and_reasoned_deadline_override_are_tenant_scop
     assert history.status_code == 200, history.text
     own_history = [item for item in history.json() if item["rule_id"] == str(rule.id)]
     assert [item["sequence_no"] for item in own_history] == [2, 1]
+    assert all(item["learner_name"] == f"{learner.first_name} {learner.last_name}".strip() for item in own_history)
+    assert all(item["learner_personnel_number"] == learner.personnel_number for item in own_history)
+    assert all(item["learner_is_active"] is True for item in own_history)
+
+    learner.is_active = False
+    learner.status = "inactive"
+    await db_session.commit()
+    inactive_history = await client.get(
+        "/api/v1/learning-cycles/occurrences?scope=history",
+        headers=auth_headers(methodologist),
+    )
+    assert inactive_history.status_code == 200, inactive_history.text
+    inactive_rows = [item for item in inactive_history.json() if item["rule_id"] == str(rule.id)]
+    assert all(item["learner_name"] == f"{learner.first_name} {learner.last_name}".strip() for item in inactive_rows)
+    assert all(item["learner_is_active"] is False for item in inactive_rows)
 
     changed_due = original_active_due + timedelta(days=5)
     changed = await client.post(

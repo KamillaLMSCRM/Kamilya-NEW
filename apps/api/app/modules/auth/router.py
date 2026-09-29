@@ -1,11 +1,12 @@
 import logging
 from datetime import UTC, datetime, timezone
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse
 
 from app.core.auth import (
@@ -64,6 +65,58 @@ async def _get_browser_session_current_user(
     return current_user
 
 
+async def restore_impersonation_session(
+    db: AsyncSession,
+    access_token: str,
+    platform_user: dict[str, Any],
+) -> tuple[str, dict[str, Any], int] | None:
+    """Restore a still-valid impersonation without minting or extending it."""
+    try:
+        payload = decode_token(access_token)
+        platform_user_id = str(platform_user.get("user_id") or "")
+        tenant_id = str(payload.get("impersonated_tenant") or "")
+        role = str(payload.get("impersonated_role") or "")
+        if (
+            platform_user.get("role") != "superadmin"
+            or platform_user.get("tenant_id") is not None
+            or payload.get("type") != "access"
+            or str(payload.get("sub") or "") != platform_user_id
+            or str(payload.get("impersonated_by") or "") != platform_user_id
+            or str(payload.get("tenant_id") or "") != tenant_id
+            or payload.get("roles") != [role]
+            or role not in {"admin", "methodologist"}
+        ):
+            return None
+        tenant_uuid = UUID(tenant_id)
+        expires_in = max(0, int(payload["exp"]) - int(datetime.now(UTC).timestamp()))
+    except (KeyError, TypeError, ValueError):
+        return None
+    if expires_in <= 0:
+        return None
+    tenant = (
+        await db.execute(select(Tenant).where(Tenant.id == tenant_uuid))
+    ).scalar_one_or_none()
+    if tenant is None:
+        return None
+    impersonated_user = {
+        **platform_user,
+        "tenant_id": str(tenant.id),
+        "role": role,
+        "roles": [role],
+        "tenant": {
+            "id": str(tenant.id),
+            "name": tenant.name,
+            "slug": tenant.slug,
+            "is_demo": bool(tenant.is_demo),
+            "plan": tenant.plan,
+        },
+        "impersonated_by": platform_user_id,
+        "impersonated_tenant": str(tenant.id),
+        "impersonated_role": role,
+    }
+    return access_token, impersonated_user, expires_in
+
+
 @router.post("/login", response_model=TokenResponse)
 async def login(req: LoginRequest, request: Request, response: Response, db=Depends(get_db)):
     browser_session = get_browser_session_policy()
@@ -113,6 +166,7 @@ async def login(req: LoginRequest, request: Request, response: Response, db=Depe
 async def refresh(req: RefreshRequest, request: Request, response: Response, db=Depends(get_db)):
     browser_session = get_browser_session_policy()
     refresh_token = browser_session.read_refresh_token(request, req.refresh_token)
+    impersonation_token = browser_session.read_impersonation_token(request)
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Missing refresh token")
     try:
@@ -124,9 +178,55 @@ async def refresh(req: RefreshRequest, request: Request, response: Response, db=
         logging.getLogger(__name__).exception("/refresh failed")
         error_response = JSONResponse(status_code=401, content={"detail": "Invalid refresh token"})
         browser_session.clear_refresh_cookie(error_response)
+        browser_session.clear_impersonation_cookie(error_response)
+        return error_response
+    restored = None
+    if impersonation_token:
+        restored = await restore_impersonation_session(db, impersonation_token, user_payload)
+    await db.commit()
+    browser_session.set_refresh_cookie(response, new_refresh)
+    if impersonation_token:
+        if restored is not None:
+            restored_token, restored_user, expires_in = restored
+            return TokenResponse(
+                access_token=restored_token,
+                expires_in=expires_in,
+                user=restored_user,
+            )
+        browser_session.clear_impersonation_cookie(response)
+    return TokenResponse(
+        access_token=new_access,
+        expires_in=900,
+        user=user_payload,
+    )
+
+
+@router.post("/exit-impersonation", response_model=TokenResponse)
+async def exit_impersonation(
+    req: RefreshRequest,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse | JSONResponse:
+    """End bounded impersonation and atomically restore the platform session."""
+    browser_session = get_browser_session_policy()
+    refresh_token = browser_session.read_refresh_token(request, req.refresh_token)
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Missing refresh token")
+    try:
+        new_access, new_refresh, user_payload = await refresh_access_token(db, refresh_token)
+    except Exception:
+        error_response = JSONResponse(status_code=401, content={"detail": "Invalid refresh token"})
+        browser_session.clear_refresh_cookie(error_response)
+        browser_session.clear_impersonation_cookie(error_response)
+        return error_response
+    if user_payload.get("role") != "superadmin" or user_payload.get("tenant_id") is not None:
+        error_response = JSONResponse(status_code=403, content={"detail": "Platform session required"})
+        browser_session.clear_impersonation_cookie(error_response)
         return error_response
     await db.commit()
     browser_session.set_refresh_cookie(response, new_refresh)
+    browser_session.clear_impersonation_cookie(response)
     return TokenResponse(
         access_token=new_access,
         expires_in=900,
@@ -229,6 +329,7 @@ async def logout(req: RefreshRequest, request: Request, response: Response, db=D
         )
     await db.commit()
     browser_session.clear_refresh_cookie(response)
+    browser_session.clear_impersonation_cookie(response)
     return {"status": "ok"}
 
 

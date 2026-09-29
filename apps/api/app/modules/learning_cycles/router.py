@@ -64,6 +64,8 @@ def occurrence_reporting_status(
 def _course_occurrence_response(
     occurrence: RecurringLearningAssignment,
     completed_at: datetime | None,
+    *,
+    learner: User,
 ) -> OccurrenceResponse:
     effective_due_at = cast(datetime, occurrence.effective_due_at or occurrence.due_at)
     return OccurrenceResponse(
@@ -86,10 +88,13 @@ def _course_occurrence_response(
             due_at=effective_due_at,
             completed_at=completed_at,
         ),
+        learner_name=f"{learner.first_name} {learner.last_name}".strip(),
+        learner_personnel_number=cast(str | None, learner.personnel_number),
+        learner_is_active=cast(bool, learner.is_active),
     )
 
 
-def _path_occurrence_response(cycle: LearningPathCycleInstance) -> OccurrenceResponse:
+def _path_occurrence_response(cycle: LearningPathCycleInstance, *, learner: User) -> OccurrenceResponse:
     original_due_at = cast(datetime, cycle.due_at or cycle.scheduled_for)
     effective_due_at = cast(datetime, cycle.effective_due_at or original_due_at)
     return OccurrenceResponse(
@@ -112,6 +117,9 @@ def _path_occurrence_response(cycle: LearningPathCycleInstance) -> OccurrenceRes
             due_at=effective_due_at,
             completed_at=cast(datetime | None, cycle.completed_at),
         ),
+        learner_name=f"{learner.first_name} {learner.last_name}".strip(),
+        learner_personnel_number=cast(str | None, learner.personnel_number),
+        learner_is_active=cast(bool, learner.is_active),
     )
 
 
@@ -151,8 +159,9 @@ async def list_latest_occurrences(
 ) -> list[OccurrenceResponse]:
     rows = (
         await db.execute(
-            select(RecurringLearningAssignment, Enrollment.completed_at)
+            select(RecurringLearningAssignment, Enrollment.completed_at, User)
             .outerjoin(Enrollment, Enrollment.id == RecurringLearningAssignment.enrollment_id)
+            .join(User, User.id == RecurringLearningAssignment.user_id)
             .where(RecurringLearningAssignment.tenant_id == user.tenant_id)
             .order_by(
                 RecurringLearningAssignment.rule_id,
@@ -161,20 +170,21 @@ async def list_latest_occurrences(
         )
     ).all()
     responses: list[OccurrenceResponse] = []
-    for occurrence, completed_at in rows:
-        responses.append(_course_occurrence_response(occurrence, completed_at))
+    for occurrence, completed_at, learner in rows:
+        responses.append(_course_occurrence_response(occurrence, completed_at, learner=learner))
     path_rows = (
         await db.execute(
-            select(LearningPathCycleInstance)
+            select(LearningPathCycleInstance, User)
+            .join(User, User.id == LearningPathCycleInstance.user_id)
             .where(LearningPathCycleInstance.tenant_id == user.tenant_id)
             .order_by(
                 LearningPathCycleInstance.rule_id,
                 LearningPathCycleInstance.scheduled_for.desc(),
             )
         )
-    ).scalars().all()
-    for cycle in path_rows:
-        responses.append(_path_occurrence_response(cycle))
+    ).all()
+    for cycle, learner in path_rows:
+        responses.append(_path_occurrence_response(cycle, learner=learner))
     responses.sort(key=lambda item: (item.scheduled_for, str(item.id)), reverse=True)
     if scope == "history":
         return responses
@@ -327,10 +337,22 @@ async def override_occurrence_deadline(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
+    learner = await db.scalar(
+        select(User).where(
+            User.id == occurrence.user_id,
+            User.tenant_id == user.tenant_id,
+        )
+    )
+    if learner is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Occurrence learner identity is unavailable")
     await db.commit()
     if target_type == "course":
-        return _course_occurrence_response(cast(RecurringLearningAssignment, occurrence), completed_at)
-    return _path_occurrence_response(cast(LearningPathCycleInstance, occurrence))
+        return _course_occurrence_response(
+            cast(RecurringLearningAssignment, occurrence),
+            completed_at,
+            learner=learner,
+        )
+    return _path_occurrence_response(cast(LearningPathCycleInstance, occurrence), learner=learner)
 
 
 @router.post("", response_model=RuleResponse, status_code=status.HTTP_201_CREATED)

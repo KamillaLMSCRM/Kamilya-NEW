@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -98,6 +99,32 @@ def test_same_site_cookie_set_and_clear_have_matching_security_scope() -> None:
     assert "Partitioned" not in cleared_cookie
     assert "Domain=" not in issued_cookie
     assert "Max-Age=0" in cleared_cookie
+
+
+def test_impersonation_cookie_is_short_lived_http_only_and_auth_scoped() -> None:
+    policy = _policy()
+    issued = Response()
+    cleared = Response()
+
+    policy.set_impersonation_cookie(issued, "opaque-impersonation")
+    policy.clear_impersonation_cookie(cleared)
+
+    issued_cookie = issued.headers["set-cookie"]
+    cleared_cookie = cleared.headers["set-cookie"]
+    assert "kamilya_impersonation=opaque-impersonation" in issued_cookie
+    assert "Max-Age=900" in issued_cookie
+    for attribute in ("HttpOnly", "Path=/api/v1/auth", "SameSite=lax", "Secure"):
+        assert attribute in issued_cookie
+        assert attribute in cleared_cookie
+    assert "Max-Age=0" in cleared_cookie
+    assert "Domain=" not in issued_cookie
+
+    request = _request(
+        origin="https://app.kml.kz",
+        content_type="application/json",
+        cookie="kamilya_impersonation=opaque-impersonation",
+    )
+    assert policy.read_impersonation_token(request) == "opaque-impersonation"
 
 
 def test_cross_site_cookie_profile_is_partitioned_only_outside_production() -> None:
@@ -277,6 +304,142 @@ def test_invalid_refresh_clears_cookie_on_the_actual_error_response(monkeypatch)
     assert "HttpOnly" in cookie
     assert "Path=/api/v1/auth" in cookie
     assert "SameSite=lax" in cookie
+
+
+def test_refresh_keeps_valid_bounded_impersonation_context(monkeypatch) -> None:
+    platform_user = {
+        "user_id": "00000000-0000-0000-0000-000000000001",
+        "tenant_id": None,
+        "role": "superadmin",
+        "roles": ["superadmin"],
+        "tenant": None,
+    }
+    impersonated_user = {
+        **platform_user,
+        "tenant_id": "00000000-0000-0000-0000-000000000002",
+        "role": "methodologist",
+        "roles": ["methodologist"],
+        "impersonated_by": platform_user["user_id"],
+        "impersonated_tenant": "00000000-0000-0000-0000-000000000002",
+        "impersonated_role": "methodologist",
+    }
+    monkeypatch.setattr(
+        auth_router,
+        "refresh_access_token",
+        AsyncMock(return_value=("platform-access", "rotated-refresh", platform_user)),
+    )
+    restore = AsyncMock(return_value=("bounded-impersonation", impersonated_user, 731))
+    monkeypatch.setattr(auth_router, "restore_impersonation_session", restore)
+    monkeypatch.setattr(auth_router, "get_browser_session_policy", lambda: _policy(environment="test"))
+    db = SimpleNamespace(commit=AsyncMock())
+
+    async def fake_db():
+        yield db
+
+    app = FastAPI()
+    app.include_router(auth_router.router, prefix="/api/v1")
+    app.dependency_overrides[get_db] = fake_db
+
+    with TestClient(app) as client:
+        client.cookies.set("kamilya_refresh", "platform-refresh")
+        client.cookies.set("kamilya_impersonation", "bounded-impersonation")
+        response = client.post("/api/v1/auth/refresh", json={})
+
+    assert response.status_code == 200
+    assert response.json()["access_token"] == "bounded-impersonation"
+    assert response.json()["expires_in"] == 731
+    assert response.json()["user"] == impersonated_user
+    restore.assert_awaited_once_with(db, "bounded-impersonation", platform_user)
+
+
+@pytest.mark.asyncio
+async def test_restore_impersonation_validates_claim_binding_and_preserves_expiry(monkeypatch) -> None:
+    platform_user_id = "00000000-0000-0000-0000-000000000001"
+    tenant_id = "00000000-0000-0000-0000-000000000002"
+    expires_at = int(datetime.now(UTC).timestamp()) + 480
+    claims = {
+        "type": "access",
+        "sub": platform_user_id,
+        "tenant_id": tenant_id,
+        "roles": ["methodologist"],
+        "impersonated_by": platform_user_id,
+        "impersonated_tenant": tenant_id,
+        "impersonated_role": "methodologist",
+        "exp": expires_at,
+    }
+    monkeypatch.setattr(auth_router, "decode_token", lambda _token: claims)
+    tenant = SimpleNamespace(
+        id=tenant_id,
+        name="Synthetic tenant",
+        slug="synthetic",
+        is_demo=True,
+        plan="trial",
+    )
+    result = SimpleNamespace(scalar_one_or_none=lambda: tenant)
+    db = SimpleNamespace(execute=AsyncMock(return_value=result))
+    platform_user = {
+        "user_id": platform_user_id,
+        "tenant_id": None,
+        "role": "superadmin",
+        "roles": ["superadmin"],
+        "tenant": None,
+    }
+
+    restored = await auth_router.restore_impersonation_session(
+        db,
+        "bounded-impersonation",
+        platform_user,
+    )
+
+    assert restored is not None
+    token, user, expires_in = restored
+    assert token == "bounded-impersonation"
+    assert user["tenant_id"] == tenant_id
+    assert user["role"] == "methodologist"
+    assert 475 <= expires_in <= 480
+
+    claims["impersonated_by"] = "00000000-0000-0000-0000-000000000099"
+    assert await auth_router.restore_impersonation_session(
+        db,
+        "bounded-impersonation",
+        platform_user,
+    ) is None
+
+
+def test_exit_impersonation_restores_platform_identity_and_clears_cookie(monkeypatch) -> None:
+    platform_user = {
+        "user_id": "00000000-0000-0000-0000-000000000001",
+        "tenant_id": None,
+        "role": "superadmin",
+        "roles": ["superadmin"],
+        "tenant": None,
+    }
+    monkeypatch.setattr(
+        auth_router,
+        "refresh_access_token",
+        AsyncMock(return_value=("platform-access", "rotated-refresh", platform_user)),
+    )
+    monkeypatch.setattr(auth_router, "get_browser_session_policy", lambda: _policy(environment="test"))
+    db = SimpleNamespace(commit=AsyncMock())
+
+    async def fake_db():
+        yield db
+
+    app = FastAPI()
+    app.include_router(auth_router.router, prefix="/api/v1")
+    app.dependency_overrides[get_db] = fake_db
+
+    with TestClient(app) as client:
+        client.cookies.set("kamilya_refresh", "platform-refresh")
+        client.cookies.set("kamilya_impersonation", "bounded-impersonation")
+        response = client.post("/api/v1/auth/exit-impersonation", json={})
+
+    assert response.status_code == 200
+    assert response.json()["access_token"] == "platform-access"
+    assert response.json()["user"] == platform_user
+    cookies = response.headers.get_list("set-cookie")
+    assert any("kamilya_refresh=rotated-refresh" in cookie for cookie in cookies)
+    assert any("kamilya_impersonation=" in cookie and "Max-Age=0" in cookie for cookie in cookies)
 
 
 def test_hostile_origin_blocks_alternative_session_issuers_before_db_or_service(monkeypatch) -> None:
