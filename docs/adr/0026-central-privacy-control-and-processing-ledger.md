@@ -30,6 +30,15 @@ intended to be immutable.
 6. HR employees (`employee.*`) and tenant system-team accounts
    (`team_member.*`) are separate operations even though both persist in
    `users`.
+7. An authorized tenant business workflow normally receives the full values it
+   needs. Missing authorization is handled by omission or denial, not by using
+   masking as a substitute for RBAC, RLS or reporting scope. `masked` is used
+   only for a separately catalogued disclosure surface where partial value
+   recognition is necessary and full disclosure is not.
+8. The reviewed logical flow inventory is maintained in
+   `docs/legal/kamilya-personal-data-flow-map-ru.md`. Adding a new external,
+   public, diagnostic, export or cross-environment disclosure path requires an
+   update to that map and to the implementation register.
 
 ## Consequences
 
@@ -37,5 +46,7 @@ intended to be immutable.
 - The ledger is useful for later compliance reporting without duplicating a
   second event table.
 - Existing RBAC, response bodies and UI do not change in this foundation step.
+- Blanket masking of tenant UI and authorized internal exports is explicitly
+  not a consequence of this ADR.
 - No public claim, provider configuration, infrastructure routing or customer
   instruction is part of this decision.
