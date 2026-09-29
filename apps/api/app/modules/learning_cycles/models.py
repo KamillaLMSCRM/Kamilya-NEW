@@ -51,13 +51,19 @@ class RecurringLearningAssignment(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     course_id = Column(UUID(as_uuid=True), ForeignKey("courses.id", ondelete="RESTRICT"), nullable=False)
     enrollment_id = Column(UUID(as_uuid=True), ForeignKey("enrollments.id", ondelete="RESTRICT"), nullable=True)
+    content_release_id = Column(UUID(as_uuid=True), ForeignKey("content_releases.id", ondelete="RESTRICT"), nullable=True)
+    sequence_no = Column(Integer, nullable=False)
     scheduled_for = Column(DateTime(timezone=True), nullable=False)
     due_at = Column(DateTime(timezone=True), nullable=False)
+    effective_due_at = Column(DateTime(timezone=True), nullable=False)
     status = Column(Text, nullable=False, default="assigned", server_default="assigned")
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     __table_args__ = (
         CheckConstraint("status IN ('assigned','completed','skipped')", name="ck_recurring_assignment_status"),
+        CheckConstraint("sequence_no >= 1", name="ck_recurring_assignment_sequence"),
+        CheckConstraint("effective_due_at >= scheduled_for", name="ck_recurring_assignment_effective_due"),
         UniqueConstraint("rule_id", "scheduled_for", name="uq_recurring_assignment_run"),
+        UniqueConstraint("tenant_id", "rule_id", "sequence_no", name="uq_recurring_assignment_occurrence"),
     )
 
 
@@ -75,6 +81,7 @@ class LearningPathCycleInstance(Base):
     scheduled_for = Column(DateTime(timezone=True), nullable=False)
     starts_at = Column(DateTime(timezone=True), nullable=True)
     due_at = Column(DateTime(timezone=True), nullable=True)
+    effective_due_at = Column(DateTime(timezone=True), nullable=True)
     status = Column(Text, nullable=False, default="scheduled", server_default="scheduled")
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)
@@ -88,8 +95,47 @@ class LearningPathCycleInstance(Base):
         ),
         CheckConstraint("due_at IS NULL OR starts_at IS NULL OR due_at >= starts_at", name="ck_learning_path_cycle_instance_dates"),
         CheckConstraint(
+            "effective_due_at IS NULL OR effective_due_at >= coalesce(starts_at,scheduled_for)",
+            name="ck_learning_path_cycle_effective_due",
+        ),
+        CheckConstraint(
             "(status = 'completed' AND completed_at IS NOT NULL) OR "
             "(status <> 'completed' AND completed_at IS NULL)",
             name="ck_learning_path_cycle_instance_completion",
+        ),
+    )
+
+
+class LearningCycleParticipantEvent(Base):
+    """Append-only participant-level changes to one immutable occurrence."""
+
+    __tablename__ = "learning_cycle_participant_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_occurrence_id = Column(
+        UUID(as_uuid=True), ForeignKey("recurring_learning_assignments.id", ondelete="CASCADE"), nullable=True
+    )
+    path_cycle_instance_id = Column(
+        UUID(as_uuid=True), ForeignKey("learning_path_cycle_instances.id", ondelete="CASCADE"), nullable=True
+    )
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    event_type = Column(Text, nullable=False, default="deadline_override", server_default="deadline_override")
+    previous_effective_due_at = Column(DateTime(timezone=True), nullable=False)
+    effective_due_at = Column(DateTime(timezone=True), nullable=False)
+    reason = Column(Text, nullable=False)
+    actor_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint(
+            "(course_occurrence_id IS NULL) <> (path_cycle_instance_id IS NULL)",
+            name="ck_learning_cycle_event_exactly_one_target",
+        ),
+        CheckConstraint("event_type='deadline_override'", name="ck_learning_cycle_event_type"),
+        CheckConstraint("length(reason) BETWEEN 20 AND 1000", name="ck_learning_cycle_event_reason"),
+        CheckConstraint(
+            "previous_effective_due_at <> effective_due_at",
+            name="ck_learning_cycle_event_changed_deadline",
         ),
     )

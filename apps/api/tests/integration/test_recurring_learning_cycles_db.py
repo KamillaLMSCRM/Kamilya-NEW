@@ -9,8 +9,13 @@ from app.models.enrollment import Enrollment
 from app.models.progress import Progress
 from app.modules.certificates.models import Certificate
 from app.modules.certificates.service import issue_certificate
+from app.modules.courses.release_service import ensure_course_release
 from app.modules.learning_cycles import service as cycle_service
-from app.modules.learning_cycles.models import RecurringLearningAssignment, RecurringLearningRule
+from app.modules.learning_cycles.models import (
+    LearningCycleParticipantEvent,
+    RecurringLearningAssignment,
+    RecurringLearningRule,
+)
 from app.modules.progress.service import get_lesson_progress, update_lesson_progress
 from app.modules.quizzes.models import QuizAttempt
 from app.modules.quizzes.service import get_user_attempts
@@ -139,6 +144,7 @@ async def test_materialized_occurrence_is_idempotent_and_isolates_learning_recor
     methodologist = await make_user(tenant, role="methodologist")
     learner = await make_user(tenant, role="student", email=" ")
     course = await make_course(tenant, methodologist, status="published", delivery_type="native")
+    release = await ensure_course_release(db_session, course)
     module = await make_module(course)
     lesson = await make_lesson(module)
     quiz = await make_quiz(lesson)
@@ -149,6 +155,7 @@ async def test_materialized_occurrence_is_idempotent_and_isolates_learning_recor
         tenant_id=tenant.id,
         user_id=learner.id,
         course_id=course.id,
+        content_release_id=release.id,
         status="completed",
         source="manual",
         completed_at=datetime.now(UTC) - timedelta(days=30),
@@ -276,8 +283,7 @@ async def test_materialized_occurrence_is_idempotent_and_isolates_learning_recor
         == 2
     )
 
-    now = datetime.now(UTC)
-    occurrence.due_at = now - timedelta(days=1)
+    now = occurrence.due_at + timedelta(days=1)
     recurring.completed_at = now
     before_learner = await make_user(tenant, role="student")
     overdue_learner = await make_user(tenant, role="student")
@@ -309,8 +315,10 @@ async def test_materialized_occurrence_is_idempotent_and_isolates_learning_recor
                 rule_id=before_rule.id,
                 user_id=before_learner.id,
                 course_id=course.id,
+                sequence_no=1,
                 scheduled_for=now,
                 due_at=now + timedelta(days=1),
+                effective_due_at=now + timedelta(days=1),
                 status="assigned",
             ),
             RecurringLearningAssignment(
@@ -318,8 +326,10 @@ async def test_materialized_occurrence_is_idempotent_and_isolates_learning_recor
                 rule_id=overdue_rule.id,
                 user_id=overdue_learner.id,
                 course_id=course.id,
+                sequence_no=1,
                 scheduled_for=now - timedelta(days=2),
                 due_at=now - timedelta(days=1),
+                effective_due_at=now - timedelta(days=1),
                 status="assigned",
             ),
         ]
@@ -333,3 +343,160 @@ async def test_materialized_occurrence_is_idempotent_and_isolates_learning_recor
     assert by_rule[str(rule.id)]["status"] == "completed_late"
     assert by_rule[str(rule.id)]["due_at"] is not None
     assert by_rule[str(rule.id)]["completed_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_occurrence_history_and_reasoned_deadline_override_are_tenant_scoped(
+    client,
+    db_session,
+    make_tenant,
+    make_user,
+    make_course,
+    set_current_tenant,
+    auth_headers,
+):
+    tenant = await make_tenant(name="Recurring deadline history")
+    methodologist = await make_user(tenant, role="methodologist")
+    learner = await make_user(tenant, role="student")
+    course = await make_course(tenant, methodologist, status="published", delivery_type="native")
+    release = await ensure_course_release(db_session, course)
+    await set_current_tenant(tenant)
+    now = datetime.now(UTC)
+    rule = RecurringLearningRule(
+        tenant_id=tenant.id,
+        course_id=course.id,
+        user_id=learner.id,
+        cadence_days=30,
+        due_days=7,
+        status="active",
+        created_by=methodologist.id,
+    )
+    db_session.add(rule)
+    await db_session.flush()
+    original_first_due = now - timedelta(days=20)
+    original_active_due = now + timedelta(days=7)
+    completed = RecurringLearningAssignment(
+        tenant_id=tenant.id,
+        rule_id=rule.id,
+        user_id=learner.id,
+        course_id=course.id,
+        content_release_id=release.id,
+        sequence_no=1,
+        scheduled_for=now - timedelta(days=30),
+        due_at=original_first_due,
+        effective_due_at=original_first_due,
+        status="completed",
+    )
+    active = RecurringLearningAssignment(
+        tenant_id=tenant.id,
+        rule_id=rule.id,
+        user_id=learner.id,
+        course_id=course.id,
+        content_release_id=release.id,
+        sequence_no=2,
+        scheduled_for=now,
+        due_at=original_active_due,
+        effective_due_at=original_active_due,
+        status="assigned",
+    )
+    db_session.add_all([completed, active])
+    await db_session.flush()
+    completed_enrollment = Enrollment(
+        tenant_id=tenant.id,
+        user_id=learner.id,
+        course_id=course.id,
+        recurring_assignment_id=completed.id,
+        content_release_id=release.id,
+        status="completed",
+        completed_at=now - timedelta(days=10),
+        source="recurring",
+    )
+    enrollment = Enrollment(
+        tenant_id=tenant.id,
+        user_id=learner.id,
+        course_id=course.id,
+        recurring_assignment_id=active.id,
+        content_release_id=release.id,
+        status="enrolled",
+        source="recurring",
+    )
+    db_session.add_all([completed_enrollment, enrollment])
+    await db_session.flush()
+    completed.enrollment_id = completed_enrollment.id
+    active.enrollment_id = enrollment.id
+    await db_session.commit()
+
+    latest = await client.get(
+        "/api/v1/learning-cycles/occurrences",
+        headers=auth_headers(methodologist),
+    )
+    assert latest.status_code == 200, latest.text
+    assert [item["id"] for item in latest.json() if item["rule_id"] == str(rule.id)] == [str(active.id)]
+
+    history = await client.get(
+        "/api/v1/learning-cycles/occurrences?scope=history",
+        headers=auth_headers(methodologist),
+    )
+    assert history.status_code == 200, history.text
+    own_history = [item for item in history.json() if item["rule_id"] == str(rule.id)]
+    assert [item["sequence_no"] for item in own_history] == [2, 1]
+
+    changed_due = original_active_due + timedelta(days=5)
+    changed = await client.post(
+        f"/api/v1/learning-cycles/occurrences/course/{active.id}/deadline-override",
+        headers=auth_headers(methodologist),
+        json={
+            "effective_due_at": changed_due.isoformat(),
+            "reason": "Подтвержденная командировка сотрудника требует переноса срока",
+        },
+    )
+    assert changed.status_code == 200, changed.text
+    assert datetime.fromisoformat(changed.json()["original_due_at"].replace("Z", "+00:00")) == original_active_due
+    assert datetime.fromisoformat(changed.json()["effective_due_at"].replace("Z", "+00:00")) == changed_due
+    assert datetime.fromisoformat(changed.json()["due_at"].replace("Z", "+00:00")) == changed_due
+
+    await set_current_tenant(tenant)
+    await db_session.refresh(active)
+    assert active.due_at == original_active_due
+    assert active.effective_due_at == changed_due
+    events = list(
+        (
+            await db_session.scalars(
+                select(LearningCycleParticipantEvent).where(
+                    LearningCycleParticipantEvent.course_occurrence_id == active.id
+                )
+            )
+        ).all()
+    )
+    assert len(events) == 1
+    assert events[0].reason == "Подтвержденная командировка сотрудника требует переноса срока"
+    assert events[0].actor_id == methodologist.id
+
+    event_response = await client.get(
+        f"/api/v1/learning-cycles/occurrences/course/{active.id}/events",
+        headers=auth_headers(methodologist),
+    )
+    assert event_response.status_code == 200, event_response.text
+    assert len(event_response.json()) == 1
+
+    terminal = await client.post(
+        f"/api/v1/learning-cycles/occurrences/course/{completed.id}/deadline-override",
+        headers=auth_headers(methodologist),
+        json={
+            "effective_due_at": (original_first_due + timedelta(days=1)).isoformat(),
+            "reason": "Этот перенос не должен примениться к завершенному циклу",
+        },
+    )
+    assert terminal.status_code == 409
+
+    foreign_tenant = await make_tenant(name="Recurring deadline foreign")
+    foreign_methodologist = await make_user(foreign_tenant, role="methodologist")
+    foreign = await client.post(
+        f"/api/v1/learning-cycles/occurrences/course/{active.id}/deadline-override",
+        headers=auth_headers(foreign_methodologist),
+        json={
+            "effective_due_at": (changed_due + timedelta(days=1)).isoformat(),
+            "reason": "Чужой кабинет не может изменять срок этого сотрудника",
+        },
+    )
+    assert foreign.status_code == 404

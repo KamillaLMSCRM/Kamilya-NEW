@@ -143,8 +143,8 @@ def _join_cycle_read_model(stmt: Any, tenant_id: UUID) -> tuple[Any, _CycleReadC
         ),
     )
     cycle_due_at = func.coalesce(
-        RecurringLearningAssignment.due_at,
-        LearningPathCycleInstance.due_at,
+        RecurringLearningAssignment.effective_due_at,
+        LearningPathCycleInstance.effective_due_at,
     )
     cycle_eligible = case(
         (

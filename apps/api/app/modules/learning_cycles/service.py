@@ -114,6 +114,7 @@ async def _materialize_path_rule(db, rule, *, scheduled_for, now) -> tuple[str, 
         scheduled_for=scheduled_for,
         starts_at=scheduled_for,
         due_at=due_at,
+        effective_due_at=due_at,
         status="active" if valid_target and valid_learner else "skipped",
     )
     db.add(cycle)
@@ -195,17 +196,16 @@ async def materialize_rule(rule_id: UUID, tenant_id: UUID, now=None):
                 )
             )
             if occurrence is None:
-                occurrence = RecurringLearningAssignment(
-                    tenant_id=tenant_id,
-                    rule_id=rule.id,
-                    user_id=rule.user_id,
-                    course_id=rule.course_id,
-                    scheduled_for=scheduled_for,
-                    due_at=scheduled_for + timedelta(days=rule.due_days),
-                    status="assigned",
-                )
-                db.add(occurrence)
-                await db.flush()
+                sequence_no = (
+                    await db.scalar(
+                        select(func.max(RecurringLearningAssignment.sequence_no)).where(
+                            RecurringLearningAssignment.tenant_id == tenant_id,
+                            RecurringLearningAssignment.rule_id == rule.id,
+                        )
+                    )
+                    or 0
+                ) + 1
+                due_at = scheduled_for + timedelta(days=rule.due_days)
                 learner = await db.scalar(
                     select(User).where(
                         User.id == rule.user_id,
@@ -225,10 +225,24 @@ async def materialize_rule(rule_id: UUID, tenant_id: UUID, now=None):
                         Course.delivery_type != "scorm",
                     )
                 )
+                release = await ensure_course_release(db, course) if learner is not None and course is not None else None
+                occurrence = RecurringLearningAssignment(
+                    tenant_id=tenant_id,
+                    rule_id=rule.id,
+                    user_id=rule.user_id,
+                    course_id=rule.course_id,
+                    content_release_id=release.id if release is not None else None,
+                    sequence_no=sequence_no,
+                    scheduled_for=scheduled_for,
+                    due_at=due_at,
+                    effective_due_at=due_at,
+                    status="skipped",
+                )
+                db.add(occurrence)
+                await db.flush()
                 if learner is None or course is None:
                     occurrence.status = "skipped"
                 else:
-                    release = await ensure_course_release(db, course)
                     enrollment = Enrollment(
                         tenant_id=tenant_id,
                         user_id=learner.id,
@@ -241,6 +255,7 @@ async def materialize_rule(rule_id: UUID, tenant_id: UUID, now=None):
                     db.add(enrollment)
                     await db.flush()
                     occurrence.enrollment_id = enrollment.id
+                    occurrence.status = "assigned"
                     if learner.email and not learner.has_login_access:
                         await prepare_user_invitation(
                             db, tenant_id, rule.created_by, learner.id, get_settings().PUBLIC_URL, reuse_valid=True

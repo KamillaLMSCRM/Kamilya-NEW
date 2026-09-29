@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import text
 
 from app.models.enrollment import Enrollment
+from app.modules.courses.release_service import ensure_course_release
 from app.modules.learning_cycles import service as cycle_service
 from app.modules.learning_cycles.models import RecurringLearningAssignment, RecurringLearningRule
 from app.modules.learning_reminders.store import PostgresLearningReminderStore
@@ -18,6 +19,7 @@ async def _course_occurrence(db_session, make_tenant, make_user, make_course, se
     learner.password_hash = None
     learner.telegram_id = 700000000 + int(uuid4().int % 1000000)
     course = await make_course(tenant, methodologist, status="published", review_status="approved")
+    release = await ensure_course_release(db_session, course)
     await set_current_tenant(tenant)
     now = datetime.now(UTC)
     rule = RecurringLearningRule(
@@ -29,14 +31,17 @@ async def _course_occurrence(db_session, make_tenant, make_user, make_course, se
     await db_session.flush()
     assignment = RecurringLearningAssignment(
         tenant_id=tenant.id, rule_id=rule.id, user_id=learner.id,
-        course_id=course.id, scheduled_for=now, due_at=now + timedelta(hours=1),
+        course_id=course.id, sequence_no=1, scheduled_for=now,
+        content_release_id=release.id,
+        due_at=now + timedelta(hours=1), effective_due_at=now + timedelta(hours=1),
         status="assigned",
     )
     db_session.add(assignment)
     await db_session.flush()
     enrollment = Enrollment(
         tenant_id=tenant.id, user_id=learner.id, course_id=course.id,
-        recurring_assignment_id=assignment.id, status="enrolled", source="recurring",
+        recurring_assignment_id=assignment.id, content_release_id=release.id,
+        status="enrolled", source="recurring",
     )
     db_session.add(enrollment)
     await db_session.flush()
@@ -154,3 +159,57 @@ async def test_smtp_second_reservation_is_blocked_without_email_or_network(
     )
     assert response.json()[0]["status"] == "sending"
     assert response.json()[0]["attempt_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_deadline_override_reschedules_only_unsent_reminder_history(
+    db_session, client, auth_headers, make_tenant, make_user, make_course, set_current_tenant, monkeypatch
+):
+    occurrence = await _course_occurrence(db_session, make_tenant, make_user, make_course, set_current_tenant)
+    await _enqueue(db_session, occurrence, monkeypatch)
+    reminder_id = await _reminder_id(client, auth_headers, occurrence)
+    first_due = occurrence[4].effective_due_at + timedelta(hours=1)
+    changed = await client.post(
+        f"/api/v1/learning-cycles/occurrences/course/{occurrence[4].id}/deadline-override",
+        headers=auth_headers(occurrence[1]),
+        json={
+            "effective_due_at": first_due.isoformat(),
+            "reason": "Подтвержденная рабочая смена требует переноса срока обучения",
+        },
+    )
+    assert changed.status_code == 200, changed.text
+    await _restore_tenant(set_current_tenant, occurrence)
+    queued_due = await db_session.scalar(
+        text("SELECT due_at FROM learning_reminder_outbox WHERE id=:id"),
+        {"id": reminder_id},
+    )
+    assert queued_due == first_due
+
+    store = PostgresLearningReminderStore(db_session)
+    event = await store.claim(tenant_id=occurrence[0].id, reminder_id=reminder_id)
+    assert event is not None
+    await _restore_tenant(set_current_tenant, occurrence)
+    assert await store.begin_send(event, payload_hash="c" * 64, transport="resend") is True
+    await _restore_tenant(set_current_tenant, occurrence)
+    assert await store.finalize(event, kind="success", message_id="<deadline-history@example.invalid>") is True
+
+    second_due = first_due + timedelta(hours=1)
+    second = await client.post(
+        f"/api/v1/learning-cycles/occurrences/course/{occurrence[4].id}/deadline-override",
+        headers=auth_headers(occurrence[1]),
+        json={
+            "effective_due_at": second_due.isoformat(),
+            "reason": "Второй подтвержденный перенос не переписывает отправленное письмо",
+        },
+    )
+    assert second.status_code == 200, second.text
+    await _restore_tenant(set_current_tenant, occurrence)
+    sent = (
+        await db_session.execute(
+            text("SELECT status,due_at,delivered_at FROM learning_reminder_outbox WHERE id=:id"),
+            {"id": reminder_id},
+        )
+    ).one()
+    assert sent.status == "sent"
+    assert sent.due_at == first_due
+    assert sent.delivered_at is not None

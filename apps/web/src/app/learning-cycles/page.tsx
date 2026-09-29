@@ -11,6 +11,28 @@ import { collectPages, correctiveAssignmentUrl, deriveOccurrenceState, isResendE
 
 type Rule = { id: string; target_type: 'course' | 'learning_path'; course_id: string | null; learning_path_id: string | null; user_id: string; cadence_days: number; due_days: number; status: string; next_run_at: string | null; last_run_at: string | null };
 type Occurrence = { id: string; rule_id: string; user_id: string; target_type: 'course' | 'learning_path'; course_id: string | null; learning_path_id: string | null; enrollment_id: string | null; scheduled_for: string; due_at: string; completed_at: string | null; status: string };
+type HistoryOccurrence = {
+  id: string;
+  rule_id: string;
+  sequence_no: number;
+  user_id: string;
+  target_type: 'course' | 'learning_path';
+  course_id: string | null;
+  learning_path_id: string | null;
+  original_due_at: string;
+  effective_due_at: string;
+  completed_at: string | null;
+  status: string;
+  is_active?: boolean;
+  active?: boolean;
+};
+type DeadlineEvent = {
+  id: string;
+  previous_effective_due_at: string;
+  effective_due_at: string;
+  reason: string;
+  created_at: string;
+};
 type Course = { id: string; title: string; status?: string; delivery_type?: string };
 type LearningPath = { id: string; title?: string; name?: string; status: string; recurrence_mode?: string; recurrence_cadence_days?: number | null; recurrence_due_days?: number | null };
 type Learner = { id: string; first_name?: string; last_name?: string; full_name?: string; email?: string; name?: string; employee_number?: string };
@@ -32,17 +54,38 @@ function message(error: unknown) {
   return value.response?.data?.detail || value.message || 'Request failed';
 }
 
+function deadlineWasAdjusted(occurrence: HistoryOccurrence) {
+  const original = new Date(occurrence.original_due_at).getTime();
+  const effective = new Date(occurrence.effective_due_at).getTime();
+  return Number.isFinite(original) && Number.isFinite(effective)
+    ? original !== effective
+    : occurrence.original_due_at !== occurrence.effective_due_at;
+}
+
+function isActiveHistoryOccurrence(occurrence: HistoryOccurrence) {
+  return occurrence.is_active ?? occurrence.active ?? ['assigned', 'overdue', 'scheduled', 'active'].includes(occurrence.status);
+}
+
+function occurrenceTranslationState(status: string) {
+  if (status === 'scheduled' || status === 'active') return 'assigned';
+  if (status === 'cancelled') return 'skipped';
+  return status;
+}
+
 export default function LearningCyclesPage() {
   const { t } = useT();
   const role = useAuthStore((state) => state.user?.role);
   const canManage = role === 'methodologist';
   const [rules, setRules] = useState<Rule[]>([]);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
+  const [history, setHistory] = useState<HistoryOccurrence[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [paths, setPaths] = useState<LearningPath[]>([]);
   const [learners, setLearners] = useState<Learner[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState('');
   const [targetType, setTargetType] = useState<'course' | 'learning_path'>('course');
   const [targetId, setTargetId] = useState('');
   const [userId, setUserId] = useState('');
@@ -52,6 +95,15 @@ export default function LearningCyclesPage() {
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkReport, setBulkReport] = useState<{ succeeded: number; failed: { id: string; error: string }[] } | null>(null);
+  const [overrideOccurrenceId, setOverrideOccurrenceId] = useState<string | null>(null);
+  const [overrideDeadline, setOverrideDeadline] = useState('');
+  const [overrideReason, setOverrideReason] = useState('');
+  const [overrideSaving, setOverrideSaving] = useState(false);
+  const [overrideError, setOverrideError] = useState('');
+  const [eventHistory, setEventHistory] = useState<Record<string, DeadlineEvent[]>>({});
+  const [eventHistoryOpen, setEventHistoryOpen] = useState<Set<string>>(new Set());
+  const [eventHistoryLoading, setEventHistoryLoading] = useState<Set<string>>(new Set());
+  const [eventHistoryError, setEventHistoryError] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,7 +143,30 @@ export default function LearningCyclesPage() {
     }
   }, []);
 
-  useEffect(() => { if (canManage) void load(); else setLoading(false); }, [canManage, load]);
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      const response = await api.get<HistoryOccurrence[]>('/v1/learning-cycles/occurrences', {
+        params: { scope: 'history' },
+      });
+      setHistory(response.data);
+    } catch (error) {
+      setHistoryError(message(error));
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (canManage) {
+      void load();
+      void loadHistory();
+    } else {
+      setLoading(false);
+      setHistoryLoading(false);
+    }
+  }, [canManage, load, loadHistory]);
 
   const targets = targetType === 'course' ? courses : paths;
   const targetOptions = useMemo(() => {
@@ -104,7 +179,7 @@ export default function LearningCyclesPage() {
         : targetName(item),
     }));
   }, [targets]);
-  const targetLabel = (rule: Rule | Occurrence) => {
+  const targetLabel = (rule: Pick<Rule, 'target_type' | 'course_id' | 'learning_path_id'>) => {
     if (rule.target_type === 'course') return courses.find((item) => item.id === rule.course_id)?.title || t('learningCycles.unknownTarget');
     const path = paths.find((item) => item.id === rule.learning_path_id);
     return path?.title || path?.name || t('learningCycles.program');
@@ -163,6 +238,77 @@ export default function LearningCyclesPage() {
     else toast.success(t('learningCycles.bulkComplete', { count: results.length }));
   };
 
+  const openDeadlineOverride = (occurrence: HistoryOccurrence) => {
+    setOverrideOccurrenceId(occurrence.id);
+    setOverrideDeadline('');
+    setOverrideReason('');
+    setOverrideError('');
+  };
+
+  const closeDeadlineOverride = () => {
+    if (overrideSaving) return;
+    setOverrideOccurrenceId(null);
+    setOverrideDeadline('');
+    setOverrideReason('');
+    setOverrideError('');
+  };
+
+  const saveDeadlineOverride = async (occurrence: HistoryOccurrence) => {
+    const reason = overrideReason.trim();
+    if (reason.length < 20 || reason.length > 1000) {
+      setOverrideError(t('learningCycles.overrideReasonError'));
+      return;
+    }
+    const parsedDeadline = new Date(overrideDeadline);
+    if (!overrideDeadline || Number.isNaN(parsedDeadline.getTime())) {
+      setOverrideError(t('learningCycles.overrideDeadlineError'));
+      return;
+    }
+
+    setOverrideSaving(true);
+    setOverrideError('');
+    try {
+      await api.post(
+        `/v1/learning-cycles/occurrences/${occurrence.target_type}/${occurrence.id}/deadline-override`,
+        { effective_due_at: parsedDeadline.toISOString(), reason },
+      );
+      toast.success(t('learningCycles.overrideSaved'));
+      setOverrideOccurrenceId(null);
+      setOverrideDeadline('');
+      setOverrideReason('');
+      await Promise.all([load(), loadHistory()]);
+    } catch {
+      setOverrideError(t('learningCycles.overrideFailed'));
+      toast.error(t('learningCycles.overrideFailed'));
+    } finally {
+      setOverrideSaving(false);
+    }
+  };
+
+  const loadEventHistory = async (occurrence: HistoryOccurrence) => {
+    setEventHistoryLoading((current) => new Set(current).add(occurrence.id));
+    setEventHistoryError((current) => { const next = new Set(current); next.delete(occurrence.id); return next; });
+    try {
+      const response = await api.get<DeadlineEvent[]>(
+        `/v1/learning-cycles/occurrences/${occurrence.target_type}/${occurrence.id}/events`,
+      );
+      setEventHistory((current) => ({ ...current, [occurrence.id]: response.data }));
+    } catch {
+      setEventHistoryError((current) => new Set(current).add(occurrence.id));
+    } finally {
+      setEventHistoryLoading((current) => { const next = new Set(current); next.delete(occurrence.id); return next; });
+    }
+  };
+
+  const toggleEventHistory = async (occurrence: HistoryOccurrence) => {
+    if (eventHistoryOpen.has(occurrence.id)) {
+      setEventHistoryOpen((current) => { const next = new Set(current); next.delete(occurrence.id); return next; });
+      return;
+    }
+    setEventHistoryOpen((current) => new Set(current).add(occurrence.id));
+    if (!eventHistory[occurrence.id]) await loadEventHistory(occurrence);
+  };
+
   if (!canManage) return <div className="p-6"><h1 className="text-2xl font-bold">{t('learningCycles.title')}</h1><p className="mt-2 text-sm text-muted-foreground">{t('learningCycles.forbidden')}</p></div>;
   return <main className="mx-auto max-w-7xl space-y-6 p-6">
     <header><h1 className="text-2xl font-bold">{t('learningCycles.title')}</h1><p className="mt-1 text-sm text-muted-foreground">{t('learningCycles.subtitle')}</p></header>
@@ -178,6 +324,48 @@ export default function LearningCyclesPage() {
         </>}
       </div>
       <div className="flex justify-end"><Button onClick={() => void createRule()} disabled={saving || !targetId || !userId || (targetType === 'course' && (!Number.isInteger(Number(cadence)) || Number(cadence) < 1 || !Number.isInteger(Number(due)) || Number(due) < 0 || Number(due) > Number(cadence)))}>{saving ? t('learningCycles.saving') : t('learningCycles.createDraft')}</Button></div>
+    </CardContent></Card>
+
+    <Card><CardContent className="space-y-4 p-5">
+      <div><h2 className="font-semibold">{t('learningCycles.historyTitle')}</h2><p className="text-sm text-muted-foreground">{t('learningCycles.historyHint')}</p></div>
+      <div aria-live="polite">
+        {historyLoading ? <p>{t('learningCycles.historyLoading')}</p> : historyError ? <div className="space-y-2"><p role="alert" className="text-sm text-destructive">{t('learningCycles.historyLoadFailed')}</p><Button type="button" variant="outline" onClick={() => void loadHistory()}>{t('common.retry')}</Button></div> : history.length === 0 ? <p className="text-sm text-muted-foreground">{t('learningCycles.emptyHistory')}</p> : <div className="space-y-3">{history.map((occurrence) => {
+          const learner = learners.find((item) => item.id === occurrence.user_id);
+          const state = occurrence.status;
+          const adjusted = deadlineWasAdjusted(occurrence);
+          const overrideOpen = overrideOccurrenceId === occurrence.id;
+          const deadlineId = `deadline-override-${occurrence.id}`;
+          const reasonId = `deadline-override-reason-${occurrence.id}`;
+          return <article key={occurrence.id} className="rounded-lg border p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('learningCycles.sequence', { number: occurrence.sequence_no })}</p><p className="mt-1 font-semibold">{targetLabel(occurrence)} · {learnerName(learner)}</p></div>
+              <div className="flex flex-wrap items-center gap-2"><Badge variant={state === 'overdue' || state === 'completed_late' ? 'destructive' : 'secondary'}>{t(`learningCycles.occurrence.${occurrenceTranslationState(state)}` as never)}</Badge>{adjusted && <Badge variant="outline" className="border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">{t('learningCycles.deadlineAdjusted')}</Badge>}</div>
+            </div>
+            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+              <div><dt className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.target')}</dt><dd className="mt-1 break-words">{targetLabel(occurrence)}</dd></div>
+              <div><dt className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.learner')}</dt><dd className="mt-1 break-words">{learnerName(learner)}</dd></div>
+              <div><dt className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.originalDueAt')}</dt><dd className="mt-1">{dateText(occurrence.original_due_at)}</dd></div>
+              <div className={adjusted ? 'rounded-md border border-amber-300 bg-amber-50/60 p-2 dark:bg-amber-950/20' : ''}><dt className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.effectiveDueAt')}</dt><dd className="mt-1 font-medium">{dateText(occurrence.effective_due_at)}</dd></div>
+            </dl>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              {adjusted && <Button type="button" size="sm" variant="ghost" aria-expanded={eventHistoryOpen.has(occurrence.id)} onClick={() => void toggleEventHistory(occurrence)}>{t('learningCycles.historyTitle')}</Button>}
+              {isActiveHistoryOccurrence(occurrence) && !overrideOpen && <Button type="button" size="sm" variant="outline" onClick={() => openDeadlineOverride(occurrence)}>{t('learningCycles.overrideDeadline')}</Button>}
+            </div>
+            {eventHistoryOpen.has(occurrence.id) && <div className="mt-3 rounded-lg border bg-muted/20 p-3">
+              <h3 className="text-sm font-semibold">{t('learningCycles.historyTitle')}</h3>
+              {eventHistoryLoading.has(occurrence.id) ? <p className="mt-2 text-sm text-muted-foreground">{t('learningCycles.historyLoading')}</p> : eventHistoryError.has(occurrence.id) ? <div className="mt-2 flex flex-wrap items-center gap-2"><p role="alert" className="text-sm text-destructive">{t('learningCycles.historyLoadFailed')}</p><Button type="button" size="sm" variant="outline" onClick={() => void loadEventHistory(occurrence)}>{t('common.retry')}</Button></div> : (eventHistory[occurrence.id] || []).length === 0 ? <p className="mt-2 text-sm text-muted-foreground">{t('learningCycles.emptyHistory')}</p> : <ol className="mt-2 space-y-2">{eventHistory[occurrence.id].map((event) => <li key={event.id} className="rounded border bg-background p-3 text-sm"><p className="font-medium">{dateText(event.previous_effective_due_at)} → {dateText(event.effective_due_at)}</p><p className="mt-1 whitespace-pre-wrap">{event.reason}</p><p className="mt-1 text-xs text-muted-foreground">{dateText(event.created_at)}</p></li>)}</ol>}
+            </div>}
+            {overrideOpen && <form className="mt-4 space-y-4 rounded-lg border bg-muted/30 p-4" onSubmit={(event) => { event.preventDefault(); void saveDeadlineOverride(occurrence); }}>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1"><label htmlFor={deadlineId} className="text-sm font-medium">{t('learningCycles.overrideDeadlineLabel')}</label><Input id={deadlineId} type="datetime-local" step={60} required value={overrideDeadline} aria-invalid={overrideError === t('learningCycles.overrideDeadlineError')} aria-describedby={`${deadlineId}-hint`} onChange={(event) => { setOverrideDeadline(event.target.value); setOverrideError(''); }} /><p id={`${deadlineId}-hint`} className="text-xs text-muted-foreground">{t('learningCycles.overrideTimezoneHint', { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' })}</p></div>
+                <div className="space-y-1"><div className="flex items-center justify-between gap-2"><label htmlFor={reasonId} className="text-sm font-medium">{t('learningCycles.overrideReason')}</label><span aria-hidden="true" className="text-xs text-muted-foreground">{overrideReason.length}/1000</span></div><textarea id={reasonId} className="min-h-24 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required minLength={20} maxLength={1000} value={overrideReason} aria-invalid={overrideError === t('learningCycles.overrideReasonError')} aria-describedby={`${reasonId}-hint`} onChange={(event) => { setOverrideReason(event.target.value); setOverrideError(''); }} /><p id={`${reasonId}-hint`} className="text-xs text-muted-foreground">{t('learningCycles.overrideReasonHint')}</p></div>
+              </div>
+              {overrideError && <p role="alert" className="text-sm text-destructive">{overrideError}</p>}
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" disabled={overrideSaving} onClick={closeDeadlineOverride}>{t('common.cancel')}</Button><Button type="submit" disabled={overrideSaving}>{overrideSaving ? t('learningCycles.overrideSaving') : t('learningCycles.overrideSave')}</Button></div>
+            </form>}
+          </article>;
+        })}</div>}
+      </div>
     </CardContent></Card>
 
     <Card><CardContent className="space-y-4 p-5">

@@ -259,11 +259,12 @@ async def test_occurrences_readback_serializes_latest_course_and_path_targets():
     now = datetime.now(UTC)
     course_occurrence = SimpleNamespace(
         id=uuid4(), rule_id=uuid4(), user_id=uuid4(), course_id=uuid4(), enrollment_id=uuid4(),
-        scheduled_for=now, due_at=now, status="assigned",
+        content_release_id=uuid4(), sequence_no=1, scheduled_for=now,
+        due_at=now, effective_due_at=now, status="assigned",
     )
     path_occurrence = SimpleNamespace(
         id=uuid4(), rule_id=uuid4(), user_id=uuid4(), path_id=uuid4(), scheduled_for=now,
-        due_at=now, completed_at=None, status="active",
+        sequence_no=1, due_at=now, effective_due_at=now, completed_at=None, status="active",
     )
     db = SimpleNamespace(
         execute=AsyncMock(

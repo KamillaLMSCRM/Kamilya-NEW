@@ -42,8 +42,17 @@ def _no_store(response: Response) -> None:
     response.headers["Cache-Control"] = "no-store"
 
 
-def _user_ids(user: User) -> tuple[UUID, UUID]:
-    return cast(UUID, user.tenant_id), cast(UUID, user.id)
+def _actor_ids(user: User) -> tuple[UUID, UUID | None, UUID]:
+    """Separate tenant-owned authorship from the real audit operator.
+
+    Platform superadmins do not belong to the impersonated tenant, so their ID
+    cannot be stored in tenant-owned foreign keys. The audit log still records
+    the real platform operator under the explicit impersonation DB context.
+    """
+
+    audit_actor_id = cast(UUID, user.id)
+    domain_actor_id = None if getattr(user, "is_impersonating", False) else audit_actor_id
+    return cast(UUID, user.tenant_id), domain_actor_id, audit_actor_id
 
 
 def _review_record(review: DocumentChangeReview) -> SourceChangeReviewRecord:
@@ -85,7 +94,7 @@ async def get_source_actuality(
     db: DbSession,
     user: Methodologist,
 ) -> SourceActualityList:
-    tenant_id, _ = _user_ids(user)
+    tenant_id, _, _ = _actor_ids(user)
     _no_store(response)
     return await list_actuality(db, tenant_id=tenant_id)
 
@@ -99,11 +108,11 @@ async def put_source_policy(
     db: DbSession,
     user: Methodologist,
 ) -> SourcePolicyRecord:
-    tenant_id, actor_id = _user_ids(user)
+    tenant_id, domain_actor_id, audit_actor_id = _actor_ids(user)
     policy = await upsert_policy(
         db,
         tenant_id=tenant_id,
-        actor_id=actor_id,
+        actor_id=domain_actor_id,
         source_family_id=source_family_id,
         owner_id=payload.owner_id,
         reviewed_at=payload.reviewed_at,
@@ -128,7 +137,7 @@ async def put_source_policy(
         "source_actuality.policy_updated",
         "document_source_policy",
         resource_id=source_family_id,
-        user_id=actor_id,
+        user_id=audit_actor_id,
         details={
             "owner_assigned": payload.owner_id is not None,
             "reviewed_at": payload.reviewed_at.isoformat() if payload.reviewed_at else None,
@@ -154,7 +163,7 @@ async def analyze_document_change(
     db: DbSession,
     user: Methodologist,
 ) -> SourceChangeReviewRecord:
-    tenant_id, actor_id = _user_ids(user)
+    tenant_id, _, audit_actor_id = _actor_ids(user)
     review, should_enqueue = await request_analysis(
         db,
         tenant_id=tenant_id,
@@ -166,7 +175,7 @@ async def analyze_document_change(
         "source_actuality.analysis_requested",
         "document_change_review",
         resource_id=review.id,
-        user_id=actor_id,
+        user_id=audit_actor_id,
         details={"new_document_id": str(new_document_id), "queued": should_enqueue},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
@@ -192,7 +201,7 @@ async def get_review(
     db: DbSession,
     user: Methodologist,
 ) -> SourceChangeReviewRecord:
-    tenant_id, _ = _user_ids(user)
+    tenant_id, _, _ = _actor_ids(user)
     review = await db.get(DocumentChangeReview, review_id)
     if review is None or review.tenant_id != tenant_id:
         raise HTTPException(status_code=404, detail="Review not found")
@@ -209,11 +218,11 @@ async def decide_source_change(
     db: DbSession,
     user: Methodologist,
 ) -> SourceChangeReviewRecord:
-    tenant_id, actor_id = _user_ids(user)
+    tenant_id, domain_actor_id, audit_actor_id = _actor_ids(user)
     review = await decide_review(
         db,
         tenant_id=tenant_id,
-        actor_id=actor_id,
+        actor_id=domain_actor_id,
         review_id=review_id,
         decision=payload.decision,
         reason=payload.reason,
@@ -230,7 +239,7 @@ async def decide_source_change(
         "source_actuality.decision_recorded",
         "document_change_review",
         resource_id=review.id,
-        user_id=actor_id,
+        user_id=audit_actor_id,
         details={
             "decision": payload.decision,
             "retraining_due_at": (

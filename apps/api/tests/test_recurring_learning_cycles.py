@@ -61,6 +61,16 @@ def test_occurrence_reporting_status_before_due_overdue_and_completed_late():
         == "completed_late"
     )
 
+    assert (
+        occurrence_reporting_status(
+            stored_status="active",
+            due_at=now - timedelta(seconds=1),
+            completed_at=None,
+            now=now,
+        )
+        == "overdue"
+    )
+
 
 def test_0103_adds_independent_occurrence_identity_and_safe_downgrade():
     migration = (ROOT / "apps/api/alembic/versions/0103_recurring_enrollment_instances.py").read_text(encoding="utf-8")

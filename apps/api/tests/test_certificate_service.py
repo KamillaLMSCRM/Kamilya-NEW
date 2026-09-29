@@ -9,6 +9,7 @@ from uuid import uuid4
 import pytest
 from pypdf import PdfReader
 
+from app.models.registry import load_all_models
 from app.modules.certificates.schemas import (
     PUBLIC_CERTIFICATE_VERIFICATION_BASE_URL,
     CertificatePreviewRequest,
@@ -20,6 +21,8 @@ from app.modules.certificates.service import (
     render_certificate_preview,
     verify_certificate,
 )
+
+load_all_models()
 
 
 def _program_fixture(*, certificate_mode="final_course", validity_months=6):
@@ -100,6 +103,26 @@ async def test_program_certificate_is_one_dual_purpose_row_with_program_snapshot
     assert result is row
     # Existing uq_certificates_enrollment makes this one row serve both program
     # and final-course completion semantics; a second legacy row is forbidden.
+
+
+@pytest.mark.asyncio
+async def test_program_certificate_selects_final_enrollment_from_exact_path_assignment():
+    from app.modules.certificates.service import issue_learning_path_certificate
+
+    tenant, user, assignment, path, step, course, enrollment = _program_fixture()
+    db = _program_db([tenant, assignment, path, course, enrollment, None])
+    db.execute.return_value.scalars.return_value.all.return_value = [step]
+
+    with patch("app.modules.certificates.service._generate_and_store_pdf", new=AsyncMock()):
+        await issue_learning_path_certificate(
+            db, tenant_id=tenant.id, user=user, learning_path_assignment_id=assignment.id
+        )
+
+    enrollment_query = db.scalar.await_args_list[4].args[0]
+    compiled = enrollment_query.compile(compile_kwargs={"literal_binds": True})
+    sql = " ".join(str(compiled).split())
+    assert "enrollments.learning_path_assignment_id" in sql
+    assert assignment.id.hex in sql
 
 
 @pytest.mark.asyncio

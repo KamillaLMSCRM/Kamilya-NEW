@@ -327,6 +327,7 @@ async def issue_learning_path_certificate(
             Enrollment.tenant_id == tenant.id,
             Enrollment.user_id == user.id,
             Enrollment.course_id == course.id,
+            Enrollment.learning_path_assignment_id == assignment.id,
             Enrollment.status == "completed",
         ).order_by(Enrollment.completed_at.desc().nullslast(), Enrollment.id.desc())
     )

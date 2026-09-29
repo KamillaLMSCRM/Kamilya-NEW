@@ -15,6 +15,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.11.16] - 2026-09-29
+
+### Added
+
+- Add complete recurring-learning occurrence history for native courses and
+  learning programs, including stable sequence numbers, frozen content-release
+  identity and original versus effective participant deadlines.
+- Add reason-required participant deadline changes with append-only tenant
+  history and a methodologist workflow in Russian, Kazakh and English.
+
+### Changed
+
+- Use effective recurring deadlines consistently in the training journal and
+  reminder projection while preserving original occurrence dates.
+- Reschedule only reminders that have never entered a delivery attempt; sent,
+  failed and delivery-uncertain records remain immutable history.
+- Bind program certificates to the exact program-assignment enrollment rather
+  than another completion of the same course.
+
+### Fixed
+
+- Allow source-actuality mutations during bounded superadmin tenant support
+  without storing the platform operator in a tenant-owned author foreign key;
+  the real operator remains in the audit trail.
+- Report overdue active program occurrences consistently with course
+  occurrences and the training journal.
+
+### Security
+
+- Add FORCE RLS and read/insert-only runtime access for participant deadline
+  events, revoke runtime deletion of course occurrences, and reject malformed
+  legacy occurrence/release anchors during migration.
+
 ## [0.11.15] - 2026-09-28
 
 ### Fixed

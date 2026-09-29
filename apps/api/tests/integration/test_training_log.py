@@ -477,8 +477,10 @@ async def test_training_log_due_policy_precedence_and_exact_enrollment_certifica
         rule_id=rule.id,
         user_id=learner.id,
         course_id=course.id,
-        scheduled_for=now,
+        sequence_no=1,
+        scheduled_for=now - timedelta(days=10),
         due_at=now - timedelta(days=2),
+        effective_due_at=now - timedelta(days=2),
         status="assigned",
     )
     db_session.add(occurrence)
@@ -509,8 +511,10 @@ async def test_training_log_due_policy_precedence_and_exact_enrollment_certifica
         rule_id=rule.id,
         user_id=learner.id,
         course_id=course.id,
+        sequence_no=2,
         scheduled_for=now - timedelta(days=30),
         due_at=now - timedelta(days=20),
+        effective_due_at=now - timedelta(days=20),
         status="completed",
     )
     db_session.add(certificate_occurrence)
@@ -534,8 +538,10 @@ async def test_training_log_due_policy_precedence_and_exact_enrollment_certifica
         rule_id=rule.id,
         user_id=learner.id,
         course_id=course.id,
+        sequence_no=3,
         scheduled_for=now - timedelta(days=60),
         due_at=now - timedelta(days=50),
+        effective_due_at=now - timedelta(days=50),
         status="completed",
     )
     db_session.add(older_certificate_occurrence)
@@ -790,8 +796,10 @@ async def test_training_log_status_overdue_reads_immutable_cycle_deadline(
         rule_id=rule.id,
         user_id=learner.id,
         course_id=course.id,
+        sequence_no=1,
         scheduled_for=now - timedelta(days=10),
         due_at=now - timedelta(days=3),
+        effective_due_at=now - timedelta(days=3),
         status="assigned",
     )
     db_session.add(occurrence)
@@ -903,7 +911,7 @@ async def test_training_log_path_cycle_deadlines_and_ineligible_cycles(
         cycle = LearningPathCycleInstance(
             tenant_id=tenant.id, rule_id=rule.id, path_id=path.id, user_id=learner.id,
             sequence_no=sequence_no, scheduled_for=now - timedelta(days=10),
-            due_at=now - timedelta(days=1), status=cycle_status,
+            due_at=now - timedelta(days=1), effective_due_at=now - timedelta(days=1), status=cycle_status,
             completed_at=now if cycle_status == "completed" else None,
         )
         db_session.add(cycle)
@@ -937,7 +945,8 @@ async def test_training_log_path_cycle_deadlines_and_ineligible_cycles(
     await db_session.flush()
     skipped_occurrence = RecurringLearningAssignment(
         tenant_id=tenant.id, rule_id=direct_rule.id, user_id=learner.id, course_id=course.id,
-        scheduled_for=now - timedelta(days=10), due_at=now - timedelta(days=1), status="skipped",
+        sequence_no=1, scheduled_for=now - timedelta(days=10),
+        due_at=now - timedelta(days=1), effective_due_at=now - timedelta(days=1), status="skipped",
     )
     db_session.add(skipped_occurrence)
     await db_session.flush()
@@ -983,7 +992,8 @@ async def test_training_log_completed_status_without_timestamp_is_completed_not_
     await db_session.flush()
     occurrence = RecurringLearningAssignment(
         tenant_id=tenant.id, rule_id=rule.id, user_id=learner.id, course_id=course.id,
-        scheduled_for=now - timedelta(days=10), due_at=now - timedelta(days=1), status="assigned",
+        sequence_no=1, scheduled_for=now - timedelta(days=10),
+        due_at=now - timedelta(days=1), effective_due_at=now - timedelta(days=1), status="assigned",
     )
     db_session.add(occurrence)
     await db_session.flush()
@@ -1040,7 +1050,7 @@ async def test_training_log_equal_due_and_completion_is_on_time_and_pagination_u
     rule = RecurringLearningRule(tenant_id=tenant.id, course_id=course.id, user_id=learner.id, cadence_days=365, due_days=7, status="active", created_by=actor.id)
     db_session.add(rule)
     await db_session.flush()
-    occurrence = RecurringLearningAssignment(tenant_id=tenant.id, rule_id=rule.id, user_id=learner.id, course_id=course.id, scheduled_for=stamp, due_at=stamp, status="completed")
+    occurrence = RecurringLearningAssignment(tenant_id=tenant.id, rule_id=rule.id, user_id=learner.id, course_id=course.id, sequence_no=1, scheduled_for=stamp, due_at=stamp, effective_due_at=stamp, status="completed")
     db_session.add(occurrence)
     await db_session.flush()
     first = Enrollment(id=uuid4(), tenant_id=tenant.id, user_id=learner.id, course_id=course.id, recurring_assignment_id=occurrence.id, status="completed", completed_at=stamp, enrolled_at=stamp, source="recurring")

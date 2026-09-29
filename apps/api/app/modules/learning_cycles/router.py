@@ -1,11 +1,11 @@
 # ruff: noqa: B008
 
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any, Literal, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,18 +14,22 @@ from app.core.db import get_db
 from app.models.courses import Course
 from app.models.enrollment import Enrollment
 from app.models.users import User
+from app.modules.audit.service import log_action
 from app.modules.learning_cycles.bridge import (
     reconcile_learning_path_assignment,
     sync_learning_path_rules,
 )
 from app.modules.learning_cycles.models import (
+    LearningCycleParticipantEvent,
     LearningPathCycleInstance,
     RecurringLearningAssignment,
     RecurringLearningRule,
 )
 from app.modules.learning_cycles.schemas import (
+    DeadlineOverrideRequest,
     LearningPathSyncResponse,
     OccurrenceResponse,
+    ParticipantEventResponse,
     RuleCreate,
     RuleResponse,
     RuleUpdate,
@@ -52,9 +56,63 @@ def occurrence_reporting_status(
     now = now or datetime.now(UTC)
     if completed_at is not None:
         return "completed_late" if completed_at > due_at else "completed"
-    if stored_status == "assigned" and due_at < now:
+    if stored_status in {"assigned", "active"} and due_at < now:
         return "overdue"
     return stored_status
+
+
+def _course_occurrence_response(
+    occurrence: RecurringLearningAssignment,
+    completed_at: datetime | None,
+) -> OccurrenceResponse:
+    effective_due_at = cast(datetime, occurrence.effective_due_at or occurrence.due_at)
+    return OccurrenceResponse(
+        id=occurrence.id,
+        rule_id=occurrence.rule_id,
+        user_id=occurrence.user_id,
+        target_type="course",
+        course_id=occurrence.course_id,
+        learning_path_id=None,
+        enrollment_id=occurrence.enrollment_id,
+        sequence_no=occurrence.sequence_no,
+        content_release_id=occurrence.content_release_id,
+        scheduled_for=occurrence.scheduled_for,
+        original_due_at=occurrence.due_at,
+        effective_due_at=effective_due_at,
+        due_at=effective_due_at,
+        completed_at=completed_at,
+        status=occurrence_reporting_status(
+            stored_status=cast(str, occurrence.status),
+            due_at=effective_due_at,
+            completed_at=completed_at,
+        ),
+    )
+
+
+def _path_occurrence_response(cycle: LearningPathCycleInstance) -> OccurrenceResponse:
+    original_due_at = cast(datetime, cycle.due_at or cycle.scheduled_for)
+    effective_due_at = cast(datetime, cycle.effective_due_at or original_due_at)
+    return OccurrenceResponse(
+        id=cycle.id,
+        rule_id=cycle.rule_id,
+        user_id=cycle.user_id,
+        target_type="learning_path",
+        course_id=None,
+        learning_path_id=cycle.path_id,
+        enrollment_id=None,
+        sequence_no=cycle.sequence_no,
+        content_release_id=None,
+        scheduled_for=cycle.scheduled_for,
+        original_due_at=original_due_at,
+        effective_due_at=effective_due_at,
+        due_at=effective_due_at,
+        completed_at=cycle.completed_at,
+        status=occurrence_reporting_status(
+            stored_status=cast(str, cycle.status),
+            due_at=effective_due_at,
+            completed_at=cast(datetime | None, cycle.completed_at),
+        ),
+    )
 
 
 async def _owned_rule(db: AsyncSession, rule_id: UUID, tenant_id: UUID) -> RecurringLearningRule:
@@ -87,6 +145,7 @@ async def list_rules(
 
 @router.get("/occurrences", response_model=list[OccurrenceResponse])
 async def list_latest_occurrences(
+    scope: Literal["latest", "history"] = Query("latest"),
     db: AsyncSession = Depends(get_db),
     user: Any = Depends(require_role("methodologist")),
 ) -> list[OccurrenceResponse]:
@@ -101,27 +160,9 @@ async def list_latest_occurrences(
             )
         )
     ).all()
-    latest = {}
+    responses: list[OccurrenceResponse] = []
     for occurrence, completed_at in rows:
-        if occurrence.rule_id in latest:
-            continue
-        latest[occurrence.rule_id] = OccurrenceResponse(
-            id=occurrence.id,
-            rule_id=occurrence.rule_id,
-            user_id=occurrence.user_id,
-            target_type="course",
-            course_id=occurrence.course_id,
-            learning_path_id=None,
-            enrollment_id=occurrence.enrollment_id,
-            scheduled_for=occurrence.scheduled_for,
-            due_at=occurrence.due_at,
-            completed_at=completed_at,
-            status=occurrence_reporting_status(
-                stored_status=occurrence.status,
-                due_at=occurrence.due_at,
-                completed_at=completed_at,
-            ),
-        )
+        responses.append(_course_occurrence_response(occurrence, completed_at))
     path_rows = (
         await db.execute(
             select(LearningPathCycleInstance)
@@ -133,27 +174,163 @@ async def list_latest_occurrences(
         )
     ).scalars().all()
     for cycle in path_rows:
-        if cycle.rule_id in latest:
-            continue
-        due_at = cycle.due_at or cycle.scheduled_for
-        latest[cycle.rule_id] = OccurrenceResponse(
-            id=cycle.id,
-            rule_id=cycle.rule_id,
-            user_id=cycle.user_id,
-            target_type="learning_path",
-            course_id=None,
-            learning_path_id=cycle.path_id,
-            enrollment_id=None,
-            scheduled_for=cycle.scheduled_for,
-            due_at=due_at,
-            completed_at=cycle.completed_at,
-            status=occurrence_reporting_status(
-                stored_status=cast(str, cycle.status),
-                due_at=cast(datetime, due_at),
-                completed_at=cast(datetime | None, cycle.completed_at),
-            ),
-        )
+        responses.append(_path_occurrence_response(cycle))
+    responses.sort(key=lambda item: (item.scheduled_for, str(item.id)), reverse=True)
+    if scope == "history":
+        return responses
+    latest: dict[UUID, OccurrenceResponse] = {}
+    for occurrence in responses:
+        latest.setdefault(occurrence.rule_id, occurrence)
     return list(latest.values())
+
+
+async def _owned_occurrence(
+    db: AsyncSession,
+    *,
+    target_type: Literal["course", "learning_path"],
+    occurrence_id: UUID,
+    tenant_id: UUID,
+) -> tuple[RecurringLearningAssignment | LearningPathCycleInstance, datetime | None]:
+    if target_type == "course":
+        row = (
+            await db.execute(
+                select(RecurringLearningAssignment, Enrollment.completed_at)
+                .outerjoin(Enrollment, Enrollment.id == RecurringLearningAssignment.enrollment_id)
+                .where(
+                    RecurringLearningAssignment.id == occurrence_id,
+                    RecurringLearningAssignment.tenant_id == tenant_id,
+                )
+                .with_for_update(of=RecurringLearningAssignment)
+            )
+        ).one_or_none()
+        if row is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Learning occurrence not found")
+        return row[0], row[1]
+    cycle = await db.scalar(
+        select(LearningPathCycleInstance)
+        .where(
+            LearningPathCycleInstance.id == occurrence_id,
+            LearningPathCycleInstance.tenant_id == tenant_id,
+        )
+        .with_for_update()
+    )
+    if cycle is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Learning occurrence not found")
+    return cycle, cast(datetime | None, cycle.completed_at)
+
+
+@router.get(
+    "/occurrences/{target_type}/{occurrence_id}/events",
+    response_model=list[ParticipantEventResponse],
+)
+async def list_occurrence_events(
+    target_type: Literal["course", "learning_path"],
+    occurrence_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: Any = Depends(require_role("methodologist")),
+) -> list[LearningCycleParticipantEvent]:
+    await _owned_occurrence(
+        db,
+        target_type=target_type,
+        occurrence_id=occurrence_id,
+        tenant_id=user.tenant_id,
+    )
+    target_column = (
+        LearningCycleParticipantEvent.course_occurrence_id
+        if target_type == "course"
+        else LearningCycleParticipantEvent.path_cycle_instance_id
+    )
+    return list(
+        (
+            await db.scalars(
+                select(LearningCycleParticipantEvent)
+                .where(
+                    LearningCycleParticipantEvent.tenant_id == user.tenant_id,
+                    target_column == occurrence_id,
+                )
+                .order_by(
+                    LearningCycleParticipantEvent.created_at.desc(),
+                    LearningCycleParticipantEvent.id.desc(),
+                )
+            )
+        ).all()
+    )
+
+
+@router.post(
+    "/occurrences/{target_type}/{occurrence_id}/deadline-override",
+    response_model=OccurrenceResponse,
+)
+async def override_occurrence_deadline(
+    target_type: Literal["course", "learning_path"],
+    occurrence_id: UUID,
+    body: DeadlineOverrideRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: Any = Depends(require_role("methodologist")),
+) -> OccurrenceResponse:
+    occurrence, completed_at = await _owned_occurrence(
+        db,
+        target_type=target_type,
+        occurrence_id=occurrence_id,
+        tenant_id=user.tenant_id,
+    )
+    terminal = {"completed", "skipped"} if target_type == "course" else {"completed", "skipped", "cancelled"}
+    if occurrence.status in terminal or completed_at is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "A terminal occurrence deadline cannot be changed")
+    if target_type == "course":
+        earliest = cast(datetime, cast(RecurringLearningAssignment, occurrence).scheduled_for)
+    else:
+        path_occurrence = cast(LearningPathCycleInstance, occurrence)
+        earliest = cast(datetime, path_occurrence.starts_at or path_occurrence.scheduled_for)
+    if body.effective_due_at < earliest:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Deadline cannot precede occurrence start")
+    previous = occurrence.effective_due_at or occurrence.due_at
+    if previous is None or body.effective_due_at == previous:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Deadline must change")
+
+    cast(Any, occurrence).effective_due_at = body.effective_due_at
+    event = LearningCycleParticipantEvent(
+        tenant_id=user.tenant_id,
+        course_occurrence_id=occurrence.id if target_type == "course" else None,
+        path_cycle_instance_id=occurrence.id if target_type == "learning_path" else None,
+        user_id=occurrence.user_id,
+        previous_effective_due_at=previous,
+        effective_due_at=body.effective_due_at,
+        reason=body.reason,
+        actor_id=_rule_actor_id(user),
+    )
+    db.add(event)
+    await db.flush()
+    await db.execute(
+        text("SELECT public.reschedule_learning_reminder(:tenant_id,:course_id,:path_id,:due_at)"),
+        {
+            "tenant_id": user.tenant_id,
+            "course_id": occurrence.id if target_type == "course" else None,
+            "path_id": occurrence.id if target_type == "learning_path" else None,
+            "due_at": body.effective_due_at,
+        },
+    )
+    await log_action(
+        db,
+        user.tenant_id,
+        "learning_cycle.deadline_overridden",
+        "learning_occurrence",
+        resource_id=cast(UUID, occurrence.id),
+        user_id=user.id,
+        details={
+            "target_type": target_type,
+            "previous_effective_due_at": previous.isoformat(),
+            "effective_due_at": body.effective_due_at.isoformat(),
+            "reason": body.reason,
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+    if target_type == "course":
+        return _course_occurrence_response(cast(RecurringLearningAssignment, occurrence), completed_at)
+    return _path_occurrence_response(cast(LearningPathCycleInstance, occurrence))
 
 
 @router.post("", response_model=RuleResponse, status_code=status.HTTP_201_CREATED)

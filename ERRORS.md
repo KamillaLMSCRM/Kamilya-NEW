@@ -4688,3 +4688,31 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   with OR. A completed background job is not proof
   that fields absent from its response DTO exist; verify against the endpoint
   that owns the contract.
+
+## RECURRENCE-012 - Mock-only checks missed PostgreSQL and delivery-history invariants
+
+- Date: 2026-09-29. Found by independent review before release `0.11.16`; no
+  canonical DEV or production schema had been changed.
+- Symptom: the first recurring-deadline candidate passed focused unit tests,
+  but still contained an outer-join row lock PostgreSQL rejects, could reset an
+  attempted reminder, and did not prevent later enrollment re-binding.
+- Cause: the initial acceptance concentrated on response shape and simple
+  queued-reminder behavior. It did not execute the exact PostgreSQL lock, an
+  SMTP `delivery_uncertain` state, a malformed legacy evidence anchor, or the
+  deferred one-time enrollment-link invariant.
+- Fix: lock only the recurring occurrence side of the outer join; reschedule
+  only never-attempted queued reminders; preserve attempted, failed, sent and
+  uncertain records; freeze enrollment after its first reciprocal link; reject
+  non-skipped legacy rows without a matching enrollment/release anchor; and
+  classify overdue active program periods consistently.
+- Verification: the isolated Supabase DEV gate now proves malformed-backfill
+  rejection, `FOR UPDATE OF` behavior, immutable original and enrollment
+  identity, append-only tenant events, safe queued rescheduling, preservation of
+  delivery-uncertain history, cross-tenant RLS, guarded downgrade, restored
+  reminder projection, public-schema neutrality and schema cleanup. The full
+  API suite passed `2924` tests with `508` expected skips; the web suite passed
+  `715`, followed by lint, typecheck and production build.
+- Prevention: every schema-affecting workflow must include one real PostgreSQL
+  gate for dialect-specific locks and deferred constraints. Reminder changes
+  must test each durable delivery state, especially ambiguous post-reservation
+  failures. Static contract tests supplement but never replace that gate.

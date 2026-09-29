@@ -35,7 +35,7 @@ class TrainingLogFilter(BaseModel):
     #   in_progress = enrollment exists, NOT completed, BUT has lesson progress
     #                 (native) or scorm_attempt (scorm)
     #   completed   = enrollment.status='completed' OR enrollment.completed_at IS NOT NULL
-    #   overdue     = unfinished cycle-linked enrollment after its immutable due_at
+    #   overdue     = unfinished cycle-linked enrollment after its effective deadline
     status: Literal["assigned", "in_progress", "completed", "overdue", "cancelled", "superseded"] | None = None
     # Current is the operational default. Retained cancelled/superseded
     # occurrences are visible only through an explicit history read.
