@@ -15,6 +15,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.11.18] - 2026-09-29
+
+### Added
+
+- Add a centralized, versioned privacy-processing policy for covered employee,
+  tenant-team and training-report operations, with value-free append-only audit
+  records tied to the business transaction.
+
+### Changed
+
+- Make the runtime audit ledger append-only by revoking direct update and delete
+  privileges from the application database role while preserving the bounded
+  tenant-purge path.
+
+### Security
+
 - Honor each tenant's configured AI provider in methodology chat, audience
   recommendations, learner assistance, question editing and job-description
   workflows instead of silently falling back to the platform provider chain.
