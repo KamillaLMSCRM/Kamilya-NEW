@@ -4699,12 +4699,18 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Cause: the initial acceptance concentrated on response shape and simple
   queued-reminder behavior. It did not execute the exact PostgreSQL lock, an
   SMTP `delivery_uncertain` state, a malformed legacy evidence anchor, or the
-  deferred one-time enrollment-link invariant.
+  deferred one-time enrollment-link invariant. The first CI run also exposed a
+  test-clock regression: after original deadlines became immutable, an
+  integration fixture reused a future occurrence deadline as if it were the
+  wall clock and therefore expected `overdue` for a still-future record.
 - Fix: lock only the recurring occurrence side of the outer join; reschedule
   only never-attempted queued reminders; preserve attempted, failed, sent and
   uncertain records; freeze enrollment after its first reciprocal link; reject
   non-skipped legacy rows without a matching enrollment/release anchor; and
-  classify overdue active program periods consistently.
+  classify overdue active program periods consistently. Materialize the
+  completed-cycle fixture in the past and derive reporting cases from a fresh
+  UTC wall-clock value instead of mutating or reinterpreting the immutable
+  source deadline.
 - Verification: the isolated Supabase DEV gate now proves malformed-backfill
   rejection, `FOR UPDATE OF` behavior, immutable original and enrollment
   identity, append-only tenant events, safe queued rescheduling, preservation of
@@ -4715,4 +4721,7 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: every schema-affecting workflow must include one real PostgreSQL
   gate for dialect-specific locks and deferred constraints. Reminder changes
   must test each durable delivery state, especially ambiguous post-reservation
-  failures. Static contract tests supplement but never replace that gate.
+  failures. Time-sensitive integration fixtures must separate domain event
+  time from the current reporting clock; never alias a future due date as
+  `now`. Static contract tests supplement but never replace the database and CI
+  gates.

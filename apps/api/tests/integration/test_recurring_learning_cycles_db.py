@@ -222,8 +222,9 @@ async def test_materialized_occurrence_is_idempotent_and_isolates_learning_recor
         "queue_manual_enrollment_notification",
         AsyncMock(return_value=None),
     )
-    first = await cycle_service.materialize_rule(rule.id, tenant.id, now=datetime.now(UTC))
-    second = await cycle_service.materialize_rule(rule.id, tenant.id, now=datetime.now(UTC))
+    materialization_now = datetime.now(UTC) - timedelta(days=30)
+    first = await cycle_service.materialize_rule(rule.id, tenant.id, now=materialization_now)
+    second = await cycle_service.materialize_rule(rule.id, tenant.id, now=materialization_now)
     assert first["status"] == "materialized"
     assert second["status"] == "skipped"
 
@@ -283,8 +284,8 @@ async def test_materialized_occurrence_is_idempotent_and_isolates_learning_recor
         == 2
     )
 
-    now = occurrence.due_at + timedelta(days=1)
-    recurring.completed_at = now
+    recurring.completed_at = datetime.now(UTC)
+    reporting_now = datetime.now(UTC)
     before_learner = await make_user(tenant, role="student")
     overdue_learner = await make_user(tenant, role="student")
     await set_current_tenant(tenant)
@@ -316,9 +317,9 @@ async def test_materialized_occurrence_is_idempotent_and_isolates_learning_recor
                 user_id=before_learner.id,
                 course_id=course.id,
                 sequence_no=1,
-                scheduled_for=now,
-                due_at=now + timedelta(days=1),
-                effective_due_at=now + timedelta(days=1),
+                scheduled_for=reporting_now,
+                due_at=reporting_now + timedelta(days=1),
+                effective_due_at=reporting_now + timedelta(days=1),
                 status="assigned",
             ),
             RecurringLearningAssignment(
@@ -327,9 +328,9 @@ async def test_materialized_occurrence_is_idempotent_and_isolates_learning_recor
                 user_id=overdue_learner.id,
                 course_id=course.id,
                 sequence_no=1,
-                scheduled_for=now - timedelta(days=2),
-                due_at=now - timedelta(days=1),
-                effective_due_at=now - timedelta(days=1),
+                scheduled_for=reporting_now - timedelta(days=2),
+                due_at=reporting_now - timedelta(days=1),
+                effective_due_at=reporting_now - timedelta(days=1),
                 status="assigned",
             ),
         ]
