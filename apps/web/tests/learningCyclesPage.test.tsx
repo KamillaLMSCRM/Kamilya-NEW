@@ -176,6 +176,20 @@ describe('learning cycles page catalogs', () => {
     expect(apiMock.get).toHaveBeenCalledWith('/v1/learning-cycles/occurrences/course/occurrence-1/events');
   });
 
+  it('keeps deadline event history available after the deadline is restored to its original value', async () => {
+    const restoredOccurrence = {
+      ...activeHistoryOccurrence,
+      effective_due_at: activeHistoryOccurrence.original_due_at,
+    };
+    mockLearningCycleData([restoredOccurrence]);
+    render(<LearningCyclesPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'learningCycles.historyTitle' }));
+
+    expect(await screen.findByText('The learner was assigned to an approved field project.')).toBeInTheDocument();
+    expect(apiMock.get).toHaveBeenCalledWith('/v1/learning-cycles/occurrences/course/occurrence-1/events');
+  });
+
   it('posts a timezone-aware deadline override and reloads the page data', async () => {
     mockLearningCycleData();
     apiMock.post.mockResolvedValue({ data: {} });

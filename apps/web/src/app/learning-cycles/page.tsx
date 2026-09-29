@@ -348,7 +348,7 @@ export default function LearningCyclesPage() {
               <div className={adjusted ? 'rounded-md border border-amber-300 bg-amber-50/60 p-2 dark:bg-amber-950/20' : ''}><dt className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.effectiveDueAt')}</dt><dd className="mt-1 font-medium">{dateText(occurrence.effective_due_at)}</dd></div>
             </dl>
             <div className="mt-4 flex flex-wrap justify-end gap-2">
-              {adjusted && <Button type="button" size="sm" variant="ghost" aria-expanded={eventHistoryOpen.has(occurrence.id)} onClick={() => void toggleEventHistory(occurrence)}>{t('learningCycles.historyTitle')}</Button>}
+              <Button type="button" size="sm" variant="ghost" aria-expanded={eventHistoryOpen.has(occurrence.id)} onClick={() => void toggleEventHistory(occurrence)}>{t('learningCycles.historyTitle')}</Button>
               {isActiveHistoryOccurrence(occurrence) && !overrideOpen && <Button type="button" size="sm" variant="outline" onClick={() => openDeadlineOverride(occurrence)}>{t('learningCycles.overrideDeadline')}</Button>}
             </div>
             {eventHistoryOpen.has(occurrence.id) && <div className="mt-3 rounded-lg border bg-muted/20 p-3">

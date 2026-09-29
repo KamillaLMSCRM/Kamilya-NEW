@@ -97,7 +97,7 @@ async def _create_baseline(connection: AsyncConnection, schema: str) -> dict[str
     q = f'"{schema}"'
     ids = {name: uuid.uuid4() for name in (
         "tenant_a", "tenant_b", "methodologist_a", "methodologist_b", "learner_a",
-        "course_a", "release_a", "rule_a", "occurrence_a", "enrollment_a", "reminder_a",
+        "course_a", "release_a", "rule_a", "occurrence_a", "invalid_occurrence", "enrollment_a", "reminder_a",
     )}
     now = datetime.now(UTC)
     await connection.execute(text(f"CREATE SCHEMA {q}"))
@@ -149,17 +149,36 @@ async def _create_baseline(connection: AsyncConnection, schema: str) -> dict[str
       INSERT INTO {q}.recurring_learning_rules VALUES (:rule,:ta,:course,NULL,:la,true,1,'active');
       INSERT INTO {q}.recurring_learning_assignments VALUES
         (:occ,:ta,:rule,:la,:course,NULL,:scheduled,:due,'assigned');
+      INSERT INTO {q}.recurring_learning_assignments VALUES
+        (:invalid_occurrence,:ta,:rule,:la,:course,NULL,:invalid_scheduled,:invalid_due,'assigned');
       INSERT INTO {q}.enrollments VALUES (:enrollment,:ta,:la,:course,:occ,:release,'enrolled',NULL);
       UPDATE {q}.recurring_learning_assignments SET enrollment_id=:enrollment WHERE id=:occ;
       INSERT INTO {q}.learning_reminder_outbox(
         id,tenant_id,rule_id,course_occurrence_id,scheduled_at,due_at,status,next_attempt_at)
       VALUES (:reminder,:ta,:rule,:occ,:reminder_at,:due,'queued',:reminder_at);
+      ALTER TABLE {q}.recurring_learning_assignments ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE {q}.recurring_learning_assignments FORCE ROW LEVEL SECURITY;
+      CREATE POLICY gate_course_runtime ON {q}.recurring_learning_assignments TO lms_app
+        USING (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid)
+        WITH CHECK (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid);
+      CREATE POLICY gate_course_owner ON {q}.recurring_learning_assignments FOR SELECT TO CURRENT_USER
+        USING (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid);
+      ALTER TABLE {q}.learning_path_cycle_instances ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE {q}.learning_path_cycle_instances FORCE ROW LEVEL SECURITY;
+      CREATE POLICY gate_path_runtime ON {q}.learning_path_cycle_instances TO lms_app
+        USING (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid)
+        WITH CHECK (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid);
+      CREATE POLICY gate_path_owner ON {q}.learning_path_cycle_instances FOR SELECT TO CURRENT_USER
+        USING (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid);
     """, {
         "ta": ids["tenant_a"], "tb": ids["tenant_b"], "ma": ids["methodologist_a"],
         "mb": ids["methodologist_b"], "la": ids["learner_a"], "course": ids["course_a"],
         "release": ids["release_a"], "rule": ids["rule_a"], "occ": ids["occurrence_a"],
+        "invalid_occurrence": ids["invalid_occurrence"],
         "enrollment": ids["enrollment_a"], "reminder": ids["reminder_a"],
-        "scheduled": now, "due": now + timedelta(days=7), "reminder_at": now + timedelta(days=6),
+        "scheduled": now, "due": now + timedelta(days=7),
+        "invalid_scheduled": now + timedelta(days=1), "invalid_due": now + timedelta(days=8),
+        "reminder_at": now + timedelta(days=6),
     })
     await connection.commit()
     return ids
@@ -189,15 +208,17 @@ async def run(owner_url: str, runtime_url: str, supabase_url: str, schema: str) 
         async with owner_engine.connect() as owner:
             public_before = await _public_revision(owner)
             ids = await _create_baseline(owner, schema)
-            invalid_occurrence = uuid.uuid4()
             q = f'"{schema}"'
-            await owner.execute(text(f"""
-              INSERT INTO {q}.recurring_learning_assignments(
-                id,tenant_id,rule_id,user_id,course_id,enrollment_id,scheduled_for,due_at,status)
-              SELECT :id,tenant_id,rule_id,user_id,course_id,NULL,scheduled_for+interval '1 day',due_at+interval '1 day','assigned'
-              FROM {q}.recurring_learning_assignments WHERE id=:source
-            """), {"id": invalid_occurrence, "source": ids["occurrence_a"]})
-            await owner.commit()
+            rls_before = (await owner.execute(text("""
+              SELECT relname,relrowsecurity,relforcerowsecurity FROM pg_class c
+              JOIN pg_namespace n ON n.oid=c.relnamespace
+              WHERE n.nspname=:schema AND relname IN
+                ('recurring_learning_assignments','learning_path_cycle_instances')
+              ORDER BY relname
+            """), {"schema": schema})).all()
+            if len(rls_before) != 2 or any(row[1:] != (True, True) for row in rls_before):
+                raise RuntimeError("baseline_force_rls_missing")
+            checks.append("production_force_rls_prestate")
             savepoint = await owner.begin_nested()
             try:
                 await _run_migration(owner, schema, "upgrade")
@@ -206,11 +227,23 @@ async def run(owner_url: str, runtime_url: str, supabase_url: str, schema: str) 
             else:
                 await savepoint.rollback()
                 raise RuntimeError("malformed_legacy_occurrence_was_not_rejected")
-            await owner.execute(text(f"DELETE FROM {q}.recurring_learning_assignments WHERE id=:id"), {"id": invalid_occurrence})
+            await owner.execute(text(f"ALTER TABLE {q}.recurring_learning_assignments NO FORCE ROW LEVEL SECURITY"))
+            await owner.execute(text(f"DELETE FROM {q}.recurring_learning_assignments WHERE id=:id"), {"id": ids["invalid_occurrence"]})
+            await owner.execute(text(f"ALTER TABLE {q}.recurring_learning_assignments FORCE ROW LEVEL SECURITY"))
             await owner.commit()
             checks.append("malformed_legacy_anchor_rejected")
             await _run_migration(owner, schema, "upgrade")
             await owner.commit()
+            rls_after = (await owner.execute(text("""
+              SELECT relname,relrowsecurity,relforcerowsecurity FROM pg_class c
+              JOIN pg_namespace n ON n.oid=c.relnamespace
+              WHERE n.nspname=:schema AND relname IN
+                ('recurring_learning_assignments','learning_path_cycle_instances')
+              ORDER BY relname
+            """), {"schema": schema})).all()
+            if len(rls_after) != 2 or any(row[1:] != (True, True) for row in rls_after):
+                raise RuntimeError("migration_force_rls_not_restored")
+            checks.append("production_force_rls_restored")
             columns = set((await owner.execute(text(
                 "SELECT table_name,column_name FROM information_schema.columns WHERE table_schema=:schema "
                 "AND ((table_name='recurring_learning_assignments' AND column_name IN ('sequence_no','content_release_id','effective_due_at')) "

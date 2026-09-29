@@ -82,6 +82,15 @@ def upgrade() -> None:
     reminders = f"{schema}.learning_reminder_outbox"
     tenant = "tenant_id = nullif(current_setting('app.tenant_id',true),'')::uuid"
 
+    # Production keeps both occurrence tables under FORCE RLS and the migration
+    # owner does not have BYPASSRLS.  The backfill is intentionally global, so
+    # bounded runtime/owner policies cannot expose every tenant to it.  Relax
+    # FORCE only inside this transactional migration and restore it immediately
+    # after the backfill.  A failed migration rolls the ALTERs back together
+    # with every other statement, preserving the pre-migration FORCE state.
+    op.execute(f"ALTER TABLE {course_occurrences} NO FORCE ROW LEVEL SECURITY")
+    op.execute(f"ALTER TABLE {path_occurrences} NO FORCE ROW LEVEL SECURITY")
+
     op.execute(f"ALTER TABLE {course_occurrences} ADD COLUMN sequence_no integer")
     op.execute(f"""
         WITH ranked AS (
@@ -122,6 +131,8 @@ def upgrade() -> None:
     op.execute(f"ALTER TABLE {path_occurrences} ADD COLUMN effective_due_at timestamptz")
     op.execute(f"UPDATE {path_occurrences} SET effective_due_at=due_at")
     op.execute(f"ALTER TABLE {path_occurrences} ADD CONSTRAINT ck_learning_path_cycle_effective_due CHECK (effective_due_at IS NULL OR effective_due_at >= coalesce(starts_at,scheduled_for))")
+    op.execute(f"ALTER TABLE {course_occurrences} FORCE ROW LEVEL SECURITY")
+    op.execute(f"ALTER TABLE {path_occurrences} FORCE ROW LEVEL SECURITY")
 
     op.execute(f"""
         CREATE TABLE {events} (
