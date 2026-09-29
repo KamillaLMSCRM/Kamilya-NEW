@@ -4702,7 +4702,9 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   deferred one-time enrollment-link invariant. The first CI run also exposed a
   test-clock regression: after original deadlines became immutable, an
   integration fixture reused a future occurrence deadline as if it were the
-  wall clock and therefore expected `overdue` for a still-future record.
+  wall clock and therefore expected `overdue` for a still-future record. Its
+  first correction moved materialization time but not the rule's `next_run_at`,
+  so the service correctly skipped a cycle that was not due on that clock.
 - Fix: lock only the recurring occurrence side of the outer join; reschedule
   only never-attempted queued reminders; preserve attempted, failed, sent and
   uncertain records; freeze enrollment after its first reciprocal link; reject
@@ -4710,7 +4712,8 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   classify overdue active program periods consistently. Materialize the
   completed-cycle fixture in the past and derive reporting cases from a fresh
   UTC wall-clock value instead of mutating or reinterpreting the immutable
-  source deadline.
+  source deadline. Keep `next_run_at` on the same explicit fixture timeline as
+  materialization.
 - Verification: the isolated Supabase DEV gate now proves malformed-backfill
   rejection, `FOR UPDATE OF` behavior, immutable original and enrollment
   identity, append-only tenant events, safe queued rescheduling, preservation of

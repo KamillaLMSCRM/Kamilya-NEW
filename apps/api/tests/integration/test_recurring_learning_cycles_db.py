@@ -196,6 +196,7 @@ async def test_materialized_occurrence_is_idempotent_and_isolates_learning_recor
             certificate_number=f"LEGACY-{uuid4().hex[:12]}",
         )
     )
+    materialization_now = datetime.now(UTC) - timedelta(days=30)
     rule = RecurringLearningRule(
         tenant_id=tenant.id,
         course_id=course.id,
@@ -203,7 +204,7 @@ async def test_materialized_occurrence_is_idempotent_and_isolates_learning_recor
         cadence_days=180,
         due_days=14,
         status="active",
-        next_run_at=datetime.now(UTC),
+        next_run_at=materialization_now,
         created_by=methodologist.id,
     )
     db_session.add(rule)
@@ -222,7 +223,6 @@ async def test_materialized_occurrence_is_idempotent_and_isolates_learning_recor
         "queue_manual_enrollment_notification",
         AsyncMock(return_value=None),
     )
-    materialization_now = datetime.now(UTC) - timedelta(days=30)
     first = await cycle_service.materialize_rule(rule.id, tenant.id, now=materialization_now)
     second = await cycle_service.materialize_rule(rule.id, tenant.id, now=materialization_now)
     assert first["status"] == "materialized"
