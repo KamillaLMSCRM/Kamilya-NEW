@@ -28,6 +28,7 @@
 |---|---|
 | `kazakhstan-2026-personal-data-implementation-register-ru.md` | Живой реестр кодовых доработок и доказательств по приказам № 534/НҚ и № 535/НҚ; источник для будущего дополнения к договору или уведомления клиентам |
 | `kamilya-personal-data-flow-map-ru.md` | Проверяемая карта входов, хранилищ, ролей, внешних передач и решений `FULL/OMIT/AGGREGATE/REDACT/MASK/DENY`; определяет, где маскирование действительно требуется |
+| `external-ai-email-field-audit-ru.md` | Field-level аудит внешних AI/embedding и email/support payloads: exact поля, порядок провайдеров, обнаруженные пробелы и проверяемый план исправления |
 
 ## Минимальное размещение
 
