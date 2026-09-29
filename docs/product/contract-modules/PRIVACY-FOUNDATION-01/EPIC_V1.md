@@ -59,3 +59,12 @@ users/admin adapters
 - Migration contract and isolated database gate prove runtime append-only grants.
 - Graphify post-change comparison shows only accepted adapter dependencies.
 - No DEV or production release is part of V1 implementation acceptance.
+
+## Mandatory implementation register
+
+Every later change related to the 2026 personal-data protection or
+masking/hashing requirements must update
+`docs/legal/kazakhstan-2026-personal-data-implementation-register-ru.md` in the
+same commit. The update records the requirement ID, implementation status,
+tests, release SHA/environment, readback evidence and the boundary of any
+future customer-facing statement.
