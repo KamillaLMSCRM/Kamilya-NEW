@@ -15,6 +15,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.11.17] - 2026-09-29
+
+### Changed
+
+- Preserve second-level precision when a methodologist reviews or changes an
+  individual recurring-learning deadline, and refresh an already-open event
+  history immediately after saving.
+- Keep archived employee identity visible in recurring course and program
+  history, including personnel number and active-state disclosure.
+
+### Fixed
+
+- Preserve a still-valid bounded superadmin tenant preview across full-page
+  reloads without converting it into a renewable tenant session.
+- Keep tenant identity and preview controls usable on narrow superadmin screens.
+
+### Security
+
+- Store the existing 15-minute impersonation token only in an auth-path,
+  HttpOnly, Secure cookie; validate platform actor, tenant, role and original
+  expiry on restoration, and clear it atomically when leaving tenant preview.
+
 ## [0.11.16] - 2026-09-29
 
 ### Added
