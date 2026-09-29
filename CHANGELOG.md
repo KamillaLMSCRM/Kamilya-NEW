@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Honor each tenant's configured AI provider in methodology chat, audience
+  recommendations, learner assistance, question editing and job-description
+  workflows instead of silently falling back to the platform provider chain.
+
 ## [0.11.17] - 2026-09-29
 
 ### Changed

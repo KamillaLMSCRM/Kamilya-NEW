@@ -73,6 +73,13 @@ router = APIRouter(
 )
 
 
+def _require_ai_tenant_id(user: User) -> UUID:
+    tenant_id = user.tenant_id
+    if not isinstance(tenant_id, UUID):
+        raise HTTPException(status_code=403, detail="Tenant context required")
+    return tenant_id
+
+
 @router.post(
     "/{position_id}/generate-instruction-course",
     response_model=GenerateInstructionCourseResponse,
@@ -290,7 +297,11 @@ async def suggest_courses(
 Пиши на русском. Курсы должны быть конкретными и actionable, не общими."""
 
     try:
-        llm = await ResilientLLMClient.from_settings_async(temperature=0.5, max_tokens=1500)
+        llm = await ResilientLLMClient.from_settings_async(
+            tenant_id=_require_ai_tenant_id(user),
+            temperature=0.5,
+            max_tokens=1500,
+        )
         response = await llm.ainvoke([{"role": "user", "content": prompt}])
         raw = response.content.strip()
         if raw.startswith("```"):
@@ -684,7 +695,11 @@ async def suggest_onboarding_quiz(
 Пиши на русском. Вопросы и варианты — конкретные по этой должности, не общие."""
 
     try:
-        llm = await ResilientLLMClient.from_settings_async(temperature=0.6, max_tokens=3500)
+        llm = await ResilientLLMClient.from_settings_async(
+            tenant_id=_require_ai_tenant_id(user),
+            temperature=0.6,
+            max_tokens=3500,
+        )
         response = await llm.ainvoke([{"role": "user", "content": prompt}])
         raw = response.content.strip()
         if raw.startswith("```"):

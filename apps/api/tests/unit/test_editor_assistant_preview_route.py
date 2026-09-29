@@ -368,8 +368,11 @@ async def test_provider_resolution_is_lazy_and_occurs_once_per_runner_invocation
     resolutions = 0
     expected = _response()
 
-    async def resolve_provider():
+    tenant_id = uuid4()
+
+    async def resolve_provider(resolved_tenant_id: UUID):
         nonlocal resolutions
+        assert resolved_tenant_id == tenant_id
         resolutions += 1
         return object()
 
@@ -384,7 +387,11 @@ async def test_provider_resolution_is_lazy_and_occurs_once_per_runner_invocation
     runner = get_question_preview_application_runner(resolve_provider)
     assert resolutions == 0
 
-    response = await runner(object(), object(), object())
+    response = await runner(
+        type("Context", (), {"tenant_id": tenant_id})(),
+        object(),
+        object(),
+    )
 
     assert response is expected
     assert resolutions == 1

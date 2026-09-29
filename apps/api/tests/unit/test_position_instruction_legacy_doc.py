@@ -30,12 +30,17 @@ async def test_document_upload_restores_transaction_local_tenant_context(
 async def test_legacy_doc_upload_defers_analysis_to_document_pipeline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fail_local_analysis(content: bytes, filename: str) -> dict:
+    async def fail_local_analysis(content: bytes, filename: str, tenant_id: UUID) -> dict:
         raise HTTPException(status_code=400, detail="Could not extract text from file")
 
     monkeypatch.setattr(jd_router, "_analyze_jd_content", fail_local_analysis)
 
-    result = await jd_router._analyze_instruction_for_upload(b"legacy", "expert.doc")
+    tenant_id = UUID("61cfa933-0d0b-45ab-bd11-353c4f3193f3")
+    result = await jd_router._analyze_instruction_for_upload(
+        b"legacy",
+        "expert.doc",
+        tenant_id,
+    )
 
     assert result == {
         "name": "",
@@ -53,13 +58,21 @@ async def test_instruction_upload_does_not_hide_other_extraction_failures(
     monkeypatch: pytest.MonkeyPatch,
     filename: str,
 ) -> None:
-    async def fail_local_analysis(content: bytes, current_filename: str) -> dict:
+    async def fail_local_analysis(
+        content: bytes,
+        current_filename: str,
+        tenant_id: UUID,
+    ) -> dict:
         raise HTTPException(status_code=400, detail="Could not extract text from file")
 
     monkeypatch.setattr(jd_router, "_analyze_jd_content", fail_local_analysis)
 
     with pytest.raises(HTTPException) as exc_info:
-        await jd_router._analyze_instruction_for_upload(b"broken", filename)
+        await jd_router._analyze_instruction_for_upload(
+            b"broken",
+            filename,
+            UUID("61cfa933-0d0b-45ab-bd11-353c4f3193f3"),
+        )
 
     assert exc_info.value.status_code == 400
 
@@ -68,12 +81,16 @@ async def test_instruction_upload_does_not_hide_other_extraction_failures(
 async def test_instruction_upload_does_not_hide_ai_failures(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fail_local_analysis(content: bytes, filename: str) -> dict:
+    async def fail_local_analysis(content: bytes, filename: str, tenant_id: UUID) -> dict:
         raise HTTPException(status_code=503, detail="AI unavailable")
 
     monkeypatch.setattr(jd_router, "_analyze_jd_content", fail_local_analysis)
 
     with pytest.raises(HTTPException) as exc_info:
-        await jd_router._analyze_instruction_for_upload(b"legacy", "expert.doc")
+        await jd_router._analyze_instruction_for_upload(
+            b"legacy",
+            "expert.doc",
+            UUID("61cfa933-0d0b-45ab-bd11-353c4f3193f3"),
+        )
 
     assert exc_info.value.status_code == 503

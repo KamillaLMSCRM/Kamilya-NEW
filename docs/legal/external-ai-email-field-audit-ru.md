@@ -4,7 +4,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | Завершённый статический аудит исходного кода |
+| Статус | Статический аудит актуализирован после локального исправления tenant-aware routing |
 | Дата | 29 сентября 2026 года |
 | Проект | Kamilya LMS (`Kamilya-NEW`) |
 | Срез кода | ветка `feature/privacy-foundation-20260929`, база аудита `4a73340c` |
@@ -92,17 +92,17 @@ Embeddings отправляют один из вариантов:
 
 | ID | Функция | Поля, уходящие провайдеру | Маршрут tenant-aware | Что сохраняется Kamilya | Решение |
 |---|---|---|---|---|---|
-| `AI-01` | Индексация документа | `model`; массив полных `chunk.text` | Да: ingestion связывает client с tenant | исходный файл, chunks, vectors, provenance | Текст нужен для embedding, но прямые идентификаторы обычно не нужны. Для внешнего провайдера требуется preflight/minimization или private-only route |
-| `AI-02` | Evidence V2: retrieval quality | все `SourceFact.value`; запросы из title, objective и названий attributes | Да | facts, vectors, retrieval diagnostics | Та же политика, что `AI-01`; внутренние `fact_id` провайдеру embeddings не отправляются |
-| `AI-03` | Evidence V2: урок | lesson title/objective; purpose/audience/emphasis; для каждого факта `fact_id`, subject, attribute, точный value, source locator; question seeds | Да | итоговые уроки, вопросы, evidence mapping, diagnostics | Учебные факты нужны полностью; прямые идентификаторы и технические locator не нужны для изложения и должны удаляться/заменяться до внешнего маршрута |
-| `AI-04` | Evidence V2: тесты и проверки | lesson title/objective; facts; semantic axes; candidates; options; explanation; source quote; cited facts | Да | вопросы, варианты, evidence IDs, axis/block outcomes | Повторно передаёт часть исходных фактов при author/review/repair. Нужен один уже очищенный fact envelope, используемый всеми стадиями |
-| `AI-05` | Ручная генерация теста к уроку | lesson title, до ограниченного объёма lesson content, difficulty, language, methodologist guidance | Да | черновик после подтверждения пользователя | Содержимое урока может унаследовать идентификаторы из документа; применить тот же outbound gate |
-| `AI-06` | Регенерация модуля/урока | course/module/lesson titles и descriptions, lesson content, guidance, параметры структуры | Да | новая draft-версия контента и тестов | Tenant route соблюдается; перед managed provider нужен единый disclosure gate |
-| `AI-07` | Методистский AI-чат и подбор аудитории | course summary/content, target block, message; aggregate scope names/counts/context | **Нет** для AI-чата и audience advisor | ответ и применяемое изменение; recommendation response | Контактные данные частично скрываются, но `tenant_id` не передаётся; tenant provider choice обходится |
-| `AI-08` | Learner assistant | course title/description; lesson/module title; до 7000 символов lesson content либо сводные excerpts; свободный вопрос обучающегося | **Нет** | полный вопрос и ответ в `learner_assistant_messages` | Высокий риск свободного ввода. Нужны tenant-aware route, явная retention policy и outbound gate |
-| `AI-09` | Question editor preview | instruction; question; все answer options и correct flags; explanation; evidence locator и excerpt | **Нет** | structured patch, source refs, provider provenance | Tenant provider choice обходится; evidence excerpt может содержать идентификаторы |
-| `AI-10` | Анализ должностной инструкции | до 8000 символов извлечённого файла, название/отдел/уровень, обязанности и требования | **Нет** | структурированная должность и audit findings | Загружаемая ДИ может содержать ФИО, подписи, телефоны и email; сейчас текст отправляется без field-level очистки |
-| `AI-11` | Рекомендации курсов и onboarding-тест по должности | position name, department, level, responsibilities, requirements | **Нет** | рекомендации/черновики после действий пользователя | Обычно организационные, а не персональные данные, но tenant provider contract всё равно должен соблюдаться |
+| `AI-01` | Индексация документа | `model`; массив полных `chunk.text` | Да: ingestion связывает client с tenant | исходный файл, chunks, vectors, provenance | Полный учебный текст является содержанием разрешённой операции; отдельное маскирование вводится только для отдельного подтверждённого сценария |
+| `AI-02` | Evidence V2: retrieval quality | все `SourceFact.value`; запросы из title, objective и названий attributes | Да | facts, vectors, retrieval diagnostics | Полные факты нужны для качества retrieval; внутренние `fact_id` провайдеру embeddings не отправляются |
+| `AI-03` | Evidence V2: урок | lesson title/objective; purpose/audience/emphasis; для каждого факта `fact_id`, subject, attribute, точный value, source locator; question seeds | Да | итоговые уроки, вопросы, evidence mapping, diagnostics | Учебные факты передаются полностью в выбранный tenant route; blanket masking не применяется |
+| `AI-04` | Evidence V2: тесты и проверки | lesson title/objective; facts; semantic axes; candidates; options; explanation; source quote; cited facts | Да | вопросы, варианты, evidence IDs, axis/block outcomes | Повторная передача фактов является частью одной разрешённой генерации; отдельный sanitized envelope не является текущим требованием |
+| `AI-05` | Ручная генерация теста к уроку | lesson title, до ограниченного объёма lesson content, difficulty, language, methodologist guidance | Да | черновик после подтверждения пользователя | Содержимое идёт через выбранный tenant route; дополнительная трансформация возможна позже для отдельного use case |
+| `AI-06` | Регенерация модуля/урока | course/module/lesson titles и descriptions, lesson content, guidance, параметры структуры | Да | новая draft-версия контента и тестов | Tenant route соблюдается; дополнительный disclosure gate не блокирует текущую модель продукта |
+| `AI-07` | Методистский AI-чат и подбор аудитории | course summary/content, target block, message; aggregate scope names/counts/context | **Да, локально исправлено** | ответ и применяемое изменение; recommendation response | `tenant_id` передаётся resolver; существующая очистка контактов сохранена |
+| `AI-08` | Learner assistant | course title/description; lesson/module title; до 7000 символов lesson content либо сводные excerpts; свободный вопрос обучающегося | **Да, локально исправлено** | полный вопрос и ответ в `learner_assistant_messages` | Provider выбирается в контексте tenant; retention остаётся отдельной продуктовой политикой |
+| `AI-09` | Question editor preview | instruction; question; все answer options и correct flags; explanation; evidence locator и excerpt | **Да, локально исправлено** | structured patch, source refs, provider provenance | Tenant берётся из проверенного `ResolvedQuestionContext`, а не из клиентского payload |
+| `AI-10` | Анализ должностной инструкции | до 8000 символов извлечённого файла, название/отдел/уровень, обязанности и требования | **Да, локально исправлено** | структурированная должность и audit findings | Анализ и повторный audit используют один tenant route |
+| `AI-11` | Рекомендации курсов и onboarding-тест по должности | position name, department, level, responsibilities, requirements | **Да, локально исправлено** | рекомендации/черновики после действий пользователя | Tenant provider contract соблюдается |
 
 ### 3.1. Что текущая очистка действительно умеет
 
@@ -151,45 +151,54 @@ question preview и JD analysis отправляют выбранный текс
 
 ## 5. Findings
 
-### `EXT-P0-01` — нет единого outbound disclosure gate для AI
+### `EXT-BACKLOG-01` — нет единого outbound disclosure gate для AI
 
 `CODE VERIFIED`. Низкоуровневые клиенты передают полученный текст как есть, а
 каждый feature самостоятельно решает, что включить в prompt. Общего контракта
 `purpose + recipient + provider class + allowed fields` нет. Поэтому доказать
 минимизацию для нового AI-вызова без ручного повторного аудита невозможно.
 
-### `EXT-P0-02` — managed embeddings являются первым маршрутом
+Это наблюдение не является блокирующим дефектом текущего продукта: tenant
+передаёт учебный материал для генерации курса выбранному для него провайдеру.
+Возвращаться к disclosure gate следует только при появлении отдельного сценария,
+где часть исходного содержания действительно не нужна получателю.
+
+### `EXT-OBS-02` — managed embeddings являются первым маршрутом
 
 `CODE VERIFIED`. При наличии Voyage key document chunks/facts сначала уходят в
 Voyage V4, а частные Qwen-реплики используются позже. Это не «внешний fallback
 после локального контура». Внешняя передача происходит в штатном успешном пути.
 
-### `EXT-P0-03` — часть AI-функций обходит tenant provider selection
+Порядок провайдеров не меняется этим пакетом: это действующая операционная
+конфигурация, а не доказанный дефект.
 
-`CODE VERIFIED`. Learner assistant, editor question preview, methodology chat,
-audience advisor, JD analysis и position recommendations создают client без
-`tenant_id`. Они используют глобальную цепочку даже при tenant override.
+### `EXT-P0-03` — часть AI-функций обходила tenant provider selection
 
-### `EXT-P1-01` — существующий redactor недостаточен для исходных документов
+`LOCAL VERIFIED`. Learner assistant, editor question preview, methodology chat,
+audience advisor, JD analysis и position recommendations теперь передают
+достоверный `tenant_id`. AST-контракт запрещает новый user-facing resolver без
+tenant context; поведенческие тесты фиксируют UUID на ключевых границах.
+
+### `EXT-BACKLOG-02` — существующий redactor не предназначен для исходных документов
 
 `CODE VERIFIED`. Он предназначен для логов и не покрывает ИИН, ФИО, подписи,
 адреса и контекстные идентификаторы. Расширять его до «угадывания всего» тоже
 неправильно: silent rewrite может повредить учебный смысл.
 
-### `EXT-P1-02` — support автоматически прикладывает query string
+### `EXT-BACKLOG-03` — support автоматически прикладывает query string
 
 `CODE VERIFIED`. Frontend формирует
 `window.location.pathname + window.location.search`, API сохраняет значение и
 EmailService отправляет его support inbox. Для диагностики обычно достаточно
 pathname; query-параметры нужно исключать по умолчанию.
 
-### `EXT-P1-03` — public lead email копирует избыточную атрибуцию
+### `EXT-BACKLOG-04` — public lead email копирует расширенную атрибуцию
 
 `CODE VERIFIED`. `_public_lead_rows()` перечисляет каждое поле dataclass,
 включая UTM/gclid/referrer/landing/ROI. Email notification не нуждается во всей
 аналитической записи.
 
-### `EXT-P1-04` — raw provider response может остаться в exception cause
+### `EXT-BACKLOG-05` — raw provider response может остаться в exception cause
 
 `CODE VERIFIED`. При HTTP 4xx AI adapter помещает первые 500 символов response
 body в `HTTPStatusError`, затем в `ProviderFailedError`; обычные failover logs
@@ -198,69 +207,61 @@ body в `HTTPStatusError`, затем в `ProviderFailedError`; обычные f
 произвольного echoed source text. В exception нужно хранить status/category, а
 не response body.
 
-### `EXT-P1-05` — invitation capability token хранится открытым
+### `EXT-BACKLOG-06` — invitation capability token хранится открытым
 
 `CODE VERIFIED`. `UserInvitation.token` хранит raw token, хотя публичные
 capability-потоки в других модулях используют hash/verifier. Это не лишнее поле
 email provider, но увеличивает ущерб при доступе к БД и относится к той же
 цепочке приглашения.
 
-### `EXT-P2-01` — сторона внешних провайдеров не подтверждена
+### `EXT-OBS-03` — сторона внешних провайдеров не подтверждена
 
 `RUNTIME NOT VERIFIED`, `PROVIDER CONTRACT NOT VERIFIED`. По коду нельзя
 установить production route, регион обработки, retention, dashboard logging,
 training opt-out и удаление данных у DeepSeek, Voyage, Cohere, OpenRouter или
 Resend.
 
-## 6. Целевой архитектурный seam
+## 6. Обязательный архитектурный seam
 
-Нужен один глубокий модуль перед внешним transport adapter:
+Для текущей модели продукта обязателен один проверяемый маршрут:
 
 ```text
-feature payload builder
-  -> ExternalDisclosureRequest(
-       tenant_id,
-       purpose,
-       recipient_class = private_model | managed_model | email_provider,
-       fields,
-       content,
-     )
-  -> disclosure policy
-       FULL_PRIVATE | TRANSFORM_EXTERNAL | PRIVATE_ONLY | DENY
+authenticated tenant operation
+  -> verified tenant_id
+  -> tenant-aware provider resolver
+  -> tenant override, если настроен
+     иначе platform provider chain
   -> provider adapter
-  -> value-free processing ledger
 ```
 
 Правила:
 
-1. Внутренний tenant UI не меняется и продолжает получать полный необходимый
-   состав.
-2. Private model может получить полный учебный материал по разрешённой цели.
-3. Managed model получает только поля конкретной стадии; известные прямые
-   идентификаторы заменяются стабильными placeholders без передачи mapping.
-4. Если идентификатор является предметом обучения или безопасная трансформация
-   не доказана, запрос получает `PRIVATE_ONLY`, а не silently damaged prompt.
-5. Каждый пользовательский AI entry point обязан передать `tenant_id`;
-   отсутствие tenant context допускается только для явно catalogued platform
-   operation.
-6. Provider identity/class и набор преобразованных field codes фиксируются без
-   исходных значений.
-7. Email использует отдельные typed builders; транспорт не должен получать
-   произвольный ORM/dataclass dump.
+1. Каждый пользовательский AI entry point получает tenant identity только из
+   аутентифицированного пользователя или уже проверенного tenant context.
+2. Отсутствующий или неверный tenant context прекращает resolution до обращения
+   к провайдеру; неявный переход на глобальную цепочку запрещён.
+3. Ошибка tenant override не должна приводить к fallback с другим tenant или
+   платформенным ключом.
+4. Полный учебный payload разрешён выбранному provider route как содержание
+   явно запрошенной tenant-операции.
+5. `ExternalDisclosureRequest`, masking, `PRIVATE_ONLY` и typed email builders
+   могут быть спроектированы отдельно только для подтверждённого сценария; они
+   не входят в обязательный seam этого пакета.
 
 ## 7. Порядок исправления и приёмка
 
-### Пакет A — закрыть маршрутизацию
+### Пакет A — закрыть маршрутизацию — локально выполнен
 
 - сделать `tenant_id` обязательным для user-facing AI provider resolution;
 - исправить `AI-07`–`AI-11`;
 - добавить negative tests: tenant override никогда не обращается к global
   provider, а ошибка override не приводит к fallback с чужим ключом.
 
-Критерий: для каждого активного AI endpoint тест фиксирует exact provider route
-и tenant identity без реального внешнего вызова.
+Критерий выполнен локально: статический контракт покрывает все перечисленные
+user-facing modules, а поведенческие тесты проверяют tenant identity без
+реального внешнего вызова. DEV/production readback не выполнялся.
 
-### Пакет B — ввести outbound disclosure policy
+### Необязательный backlog B — outbound disclosure policy
 
 - catalogued purposes для `AI-01`–`AI-11`;
 - provider class (`private`, `managed`, `email`);
@@ -270,10 +271,10 @@ feature payload builder
 - private-only outcome для неоднозначного/смыслового identifier;
 - один sanitized envelope повторно используется author/review/repair стадиями.
 
-Критерий: synthetic canaries не встречаются ни в одном captured managed-provider
-request, но private-provider request сохраняет необходимый учебный смысл.
+Не включать в текущий scope без конкретного продуктового сценария и отдельного
+решения владельца: blanket masking может повредить учебный смысл.
 
-### Пакет C — минимизировать email/support
+### Необязательный backlog C — минимизировать email/support
 
 - support отправляет pathname без query string;
 - public lead notification получает явный allowlist оперативных полей;
@@ -283,7 +284,7 @@ request, но private-provider request сохраняет необходимый
 Критерий: contract tests сравнивают exact outbound payload; query/UTM/gclid/raw
 token/provider response body отсутствуют в неразрешённых поверхностях.
 
-### Пакет D — runtime/provider readback
+### Отдельная эксплуатационная проверка D — runtime/provider readback
 
 Без изменения тарифов и настроек подтвердить:
 
@@ -296,18 +297,11 @@ token/provider response body отсутствуют в неразрешённы�
 
 ## 8. Итог аудита
 
-Внутренняя tenant-модель не требует blanket masking. Основная доработка нужна на
-четырёх узких границах:
-
-1. обязательный tenant-aware provider routing;
-2. единый field-level disclosure gate перед managed AI;
-3. typed минимальные email/support payloads;
-4. проверяемая provider/runtime конфигурация.
-
-До реализации этих пакетов корректная внешняя формулировка ограничивается тем,
-что Kamilya имеет tenant/RLS/RBAC-контроли и безопасное штатное логирование, но
-field-level минимизация managed AI и отдельных email payloads ещё находится в
-доработке.
+Внутренняя tenant-модель не требует blanket masking. Единственный подтверждённый
+кодовый дефект этого аудита — обход tenant provider selection — исправлен
+локально. Disclosure transformation, email/support minimization и provider
+readback остаются отдельными необязательными или эксплуатационными задачами и
+не блокируют этот пакет.
 
 ## 9. Индекс кодовых доказательств
 

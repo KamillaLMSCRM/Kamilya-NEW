@@ -124,8 +124,11 @@ async def learner_chat(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    tenant_id = user.tenant_id
+    if not isinstance(tenant_id, UUID):
+        raise HTTPException(status_code=403, detail="Tenant context required")
     course = await _assert_course_mutation_access(db, req.course_id, user)
-    context, sources = await _build_context(db, course, req.lesson_id, user.tenant_id)
+    context, sources = await _build_context(db, course, req.lesson_id, tenant_id)
 
     system_prompt = (
         "Ты AI-ассистент обучающегося в корпоративной LMS Kamilya. "
@@ -139,7 +142,7 @@ async def learner_chat(
 
     db.add(
         LearnerAssistantMessage(
-            tenant_id=user.tenant_id,
+            tenant_id=tenant_id,
             user_id=user.id,
             course_id=req.course_id,
             lesson_id=req.lesson_id,
@@ -148,7 +151,11 @@ async def learner_chat(
         )
     )
 
-    llm = await ResilientLLMClient.from_settings_async(temperature=0.2, max_tokens=900)
+    llm = await ResilientLLMClient.from_settings_async(
+        tenant_id=tenant_id,
+        temperature=0.2,
+        max_tokens=900,
+    )
     try:
         resp = await llm.ainvoke(
             [
@@ -163,7 +170,7 @@ async def learner_chat(
 
     db.add(
         LearnerAssistantMessage(
-            tenant_id=user.tenant_id,
+            tenant_id=tenant_id,
             user_id=user.id,
             course_id=req.course_id,
             lesson_id=req.lesson_id,

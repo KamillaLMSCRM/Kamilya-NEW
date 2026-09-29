@@ -49,7 +49,7 @@ from .schemas import (
 from .service import EditorRequestService
 
 router = APIRouter()
-QuestionPreviewProviderResolver = Callable[[], Awaitable[ResilientLLMClient]]
+QuestionPreviewProviderResolver = Callable[[UUID], Awaitable[ResilientLLMClient]]
 
 _ACCESS_UNAVAILABLE = "Editor access is unavailable."
 _ERROR_RESPONSES: dict[PreviewUseCaseFailureCode, tuple[int, str]] = {
@@ -152,10 +152,13 @@ def _application_runner(llm: ResilientLLMClient) -> PreviewApplicationRunner:
     return run_preview
 
 
-async def _resolve_question_preview_provider() -> ResilientLLMClient:
+async def _resolve_question_preview_provider(tenant_id: UUID) -> ResilientLLMClient:
     """Resolve the provider-key-aware chain only at authorized execution time."""
 
+    if not isinstance(tenant_id, UUID):
+        raise RuntimeError("tenant_context_required")
     return await ResilientLLMClient.from_settings_async(
+        tenant_id=tenant_id,
         temperature=0.2,
         max_tokens=4_096,
     )
@@ -178,7 +181,7 @@ def get_question_preview_application_runner(
         request: EditorAssistantPreviewRequest,
         identity_factory: PreviewIdentityFactory,
     ) -> EditorAssistantPreviewResponse:
-        llm = await provider_resolver()
+        llm = await provider_resolver(context.tenant_id)
         return await _application_runner(llm)(context, request, identity_factory)
 
     return run_preview

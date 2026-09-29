@@ -4787,3 +4787,28 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   editable timestamps must round-trip every precision unit displayed by the UI;
   audit/history DTOs must carry the historical display identity instead of
   depending on an active-entity picker.
+
+## AI-PROVIDER-004 - User-facing AI helpers bypassed tenant provider selection
+
+- Date: 2026-09-29. Found during the personal-data flow audit; no external AI
+  request, provider setting, DEV deployment or production mutation was made.
+- Symptom: the main Evidence V2 generator honored tenant provider overrides,
+  while methodology chat, audience recommendations, learner assistance,
+  question editing and job-description helpers constructed the global provider
+  chain without the authenticated tenant identity.
+- Cause: tenant-aware routing was added first at the generation pipeline seam,
+  but auxiliary features continued to call `from_settings_async()` directly.
+  Their tests mocked provider output without asserting provider-resolution
+  arguments, so functional success hid the routing divergence.
+- Fix: pass the authenticated or already-verified context `tenant_id` through
+  every known user-facing AI provider resolution. Question editing derives it
+  from `ResolvedQuestionContext`; it is never accepted from the request body.
+- Verification: a TDD regression failed on the five affected module groups and
+  then passed. Behavioral tests capture the exact tenant UUID for methodology
+  chat, learner assistance, editor preview and JD analysis; an AST contract
+  rejects any listed user-facing `from_settings_async()` call without the
+  `tenant_id` keyword. Existing tenant-provider and audience suites also pass.
+- Prevention: every new user-facing AI module must be added to the explicit
+  routing-contract inventory and must assert the authenticated tenant at the
+  provider-resolution seam. A successful mocked LLM response alone is not
+  routing evidence.

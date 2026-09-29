@@ -1029,7 +1029,7 @@ async def chat(
             detail=f"target_id is required when context='{req.context}'",
         )
     tenant_id = user.tenant_id
-    if tenant_id is None:
+    if not isinstance(tenant_id, UUID):
         raise HTTPException(status_code=403, detail="Tenant context required")
 
     request_refusal = assistant_request_refusal(req.message, req.language)
@@ -1055,7 +1055,11 @@ async def chat(
 
         llm = None
         try:
-            llm = await ResilientLLMClient.from_settings_async(temperature=0.1, max_tokens=900)
+            llm = await ResilientLLMClient.from_settings_async(
+                tenant_id=tenant_id,
+                temperature=0.1,
+                max_tokens=900,
+            )
         except Exception:
             logger.warning("Could not initialize audience recommendation LLM; using fallback", exc_info=True)
         recommendation = await recommend_audience(db, tenant_id, req.course_id, llm=llm)
@@ -1088,7 +1092,11 @@ async def chat(
     user_block_parts.append(f"\nСообщение методолога:\n{safe_message}")
     user_block = "\n".join(user_block_parts)
 
-    llm = await ResilientLLMClient.from_settings_async(temperature=0.4, max_tokens=1500)
+    llm = await ResilientLLMClient.from_settings_async(
+        tenant_id=tenant_id,
+        temperature=0.4,
+        max_tokens=1500,
+    )
     try:
         resp = await llm.ainvoke(
             [

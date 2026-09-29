@@ -77,6 +77,13 @@ router = APIRouter(
 # ── Helpers ──────────────────────────────────────────────────
 
 
+def _require_ai_tenant_id(user: User) -> UUID:
+    tenant_id = user.tenant_id
+    if not isinstance(tenant_id, UUID):
+        raise HTTPException(status_code=403, detail="Tenant context required")
+    return tenant_id
+
+
 @router.post("/analyze-jd")
 async def analyze_jd(
     file: UploadFile = File(...),
@@ -85,10 +92,14 @@ async def analyze_jd(
 ):
     """Analyze a job description document and extract position fields."""
     content = await file.read()
-    return await _analyze_jd_content(content, file.filename or "")
+    return await _analyze_jd_content(
+        content,
+        file.filename or "",
+        _require_ai_tenant_id(user),
+    )
 
 
-async def _analyze_jd_content(content: bytes, filename: str) -> dict:
+async def _analyze_jd_content(content: bytes, filename: str, tenant_id: UUID) -> dict:
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="File too large (max 10MB)")
 
@@ -117,7 +128,11 @@ async def _analyze_jd_content(content: bytes, filename: str) -> dict:
 
     try:
         from app.modules.ai.llm_client import ResilientLLMClient
-        llm = await ResilientLLMClient.from_settings_async(temperature=0.3, max_tokens=1024)
+        llm = await ResilientLLMClient.from_settings_async(
+            tenant_id=tenant_id,
+            temperature=0.3,
+            max_tokens=1024,
+        )
         response = await llm.ainvoke([{"role": "user", "content": prompt}])
         raw = response.content.strip()
 
@@ -161,11 +176,16 @@ async def _analyze_jd_content(content: bytes, filename: str) -> dict:
             data.get("name", ""),
             data.get("responsibilities", ""),
             data.get("requirements", ""),
+            tenant_id=tenant_id,
         ),
     }
 
 
-async def _analyze_instruction_for_upload(content: bytes, filename: str) -> dict:
+async def _analyze_instruction_for_upload(
+    content: bytes,
+    filename: str,
+    tenant_id: UUID,
+) -> dict:
     """Analyze when possible, but let the document pipeline handle legacy DOC.
 
     python-docx cannot read the binary Word 97-2003 format.  The document
@@ -175,7 +195,7 @@ async def _analyze_instruction_for_upload(content: bytes, filename: str) -> dict
     failures to its caller.
     """
     try:
-        return await _analyze_jd_content(content, filename)
+        return await _analyze_jd_content(content, filename, tenant_id)
     except HTTPException as exc:
         is_legacy_doc = os.path.splitext(filename or "")[1].lower() == ".doc"
         is_local_extraction_failure = (
@@ -225,7 +245,12 @@ async def upload_position_instruction(
         raise HTTPException(status_code=404, detail="Position not found")
 
     content = await file.read()
-    analysis = await _analyze_instruction_for_upload(content, file.filename or "")
+    tenant_id = _require_ai_tenant_id(user)
+    analysis = await _analyze_instruction_for_upload(
+        content,
+        file.filename or "",
+        tenant_id,
+    )
 
     await file.seek(0)
     document = await upload_document(
@@ -237,7 +262,7 @@ async def upload_position_instruction(
         db=db,
         user=user,
     )
-    await _restore_tenant_context_after_document_upload(db, user.tenant_id)
+    await _restore_tenant_context_after_document_upload(db, tenant_id)
 
     pos = await qualification_service.prepare_external_change(
         db,
@@ -286,6 +311,8 @@ async def _audit_jd_text(
     name: str = "",
     responsibilities: str = "",
     requirements: str = "",
+    *,
+    tenant_id: UUID,
 ) -> list[JDAuditItem]:
     """Run an LLM quality audit on a JD and return a list of findings.
 
@@ -341,7 +368,11 @@ async def _audit_jd_text(
 Если ДИ хорошая — всё равно верни 1-2 positive findings (severity="ok")."""
 
     try:
-        llm = await ResilientLLMClient.from_settings_async(temperature=0.2, max_tokens=1500)
+        llm = await ResilientLLMClient.from_settings_async(
+            tenant_id=tenant_id,
+            temperature=0.2,
+            max_tokens=1500,
+        )
         response = await llm.ainvoke([{"role": "user", "content": audit_prompt}])
         raw = response.content.strip()
         if raw.startswith("```"):
@@ -395,7 +426,13 @@ async def jd_audit(
     if not text:
         return JDAuditResponse(items=[])
 
-    issues = await _audit_jd_text(text, pos.name, pos.responsibilities, pos.requirements)
+    issues = await _audit_jd_text(
+        text,
+        pos.name,
+        pos.responsibilities,
+        pos.requirements,
+        tenant_id=_require_ai_tenant_id(user),
+    )
     return JDAuditResponse(items=issues)
 
 
@@ -524,7 +561,11 @@ async def bulk_analyze_jd(
 
 Если информация не найдена — поставь пустую строку."""
 
-            llm = await ResilientLLMClient.from_settings_async(temperature=0.3, max_tokens=1024)
+            llm = await ResilientLLMClient.from_settings_async(
+                tenant_id=_require_ai_tenant_id(user),
+                temperature=0.3,
+                max_tokens=1024,
+            )
             response = await llm.ainvoke([{"role": "user", "content": prompt}])
             raw = response.content.strip()
             if raw.startswith("```"):
@@ -546,6 +587,7 @@ async def bulk_analyze_jd(
                     item.name,
                     item.responsibilities,
                     item.requirements,
+                    tenant_id=_require_ai_tenant_id(user),
                 )
             except Exception as audit_err:
                 logger.warning("bulk-analyze-jd: audit failed error_type=%s", type(audit_err).__name__)
@@ -601,7 +643,11 @@ async def generate_jd_from_name(
 Пиши реалистично, как для реальной должности в казахстанской компании."""
 
     try:
-        llm = await ResilientLLMClient.from_settings_async(temperature=0.4, max_tokens=1024)
+        llm = await ResilientLLMClient.from_settings_async(
+            tenant_id=_require_ai_tenant_id(user),
+            temperature=0.4,
+            max_tokens=1024,
+        )
         response = await llm.ainvoke([{"role": "user", "content": prompt}])
         raw = response.content.strip()
         if raw.startswith("```"):
@@ -698,7 +744,11 @@ async def jd_preview(
   "requirements": "(уточнённый текст)"
 }}"""
         try:
-            llm = await ResilientLLMClient.from_settings_async(temperature=0.3, max_tokens=1024)
+            llm = await ResilientLLMClient.from_settings_async(
+                tenant_id=_require_ai_tenant_id(user),
+                temperature=0.3,
+                max_tokens=1024,
+            )
             response = await llm.ainvoke([{"role": "user", "content": prompt}])
             raw = response.content.strip()
             if raw.startswith("```"):
