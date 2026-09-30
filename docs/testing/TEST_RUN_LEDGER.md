@@ -764,3 +764,35 @@ Rules:
   update:21391nodes/50926edges, helper31nodes; bounded query matches the canonical
   Supabase helper imports.55zero-node non-code sources are an index limitation,
   not runtime evidence; no package upgrade or external semantic extraction used.
+
+### 2026-09-30 — REL-QA-NAV-DEV-20260930-DE37FABA release/readback
+
+- Executor/root writer: root. Owner explicitly approved exact de37faba DEV
+  promotion after green CI and the bounded retained-stand browser check.
+- Exact runtime/source: `de37faba938f0dc660fb7de7010d7710d7e9a160`; no migrations.
+  Feature CI36729782556 SUCCESS; DEV push CI36730755381 all7 SUCCESS.
+  Controller RELEASE_OK; immutable packet digest
+  `0b276ce8e087464f91976677370bbe6904ce0a55f6913ff35caddbb98a87e906`.
+- Vercel READY `dpl_FB41b2sARm9uwCLzzaKVYxrRKWj8`; independent deployment
+  metadata SHA and branch dev match. Render API live `dep-daui07uk1f9s73btr2fg`,
+  worker live `dep-daui17093c1s73eatqm0`, both exact SHA. API health render-development
+  exact SHA, worker ok, frontend login200. No production or master action.
+- Pre/post provider readback PASS: Vercel Hobby, API/worker Free; API pool3+1,
+  worker2+0, Redis logical DB1. No provider resource, tier, capacity, autoDeploy,
+  secret, database schema or billing change.
+- Canonical existing QA verification PASS before browser at14:47:30Z and after
+  at14:50:11Z: same users2/courses2/assignments2, exact IDs and failing attempts1/2,
+  failed2/exhausted1, zero notifications, verification business mutations0.
+  Normal auth/session audit only; no bootstrap/reset/delete/fixture replacement.
+- Fresh frontend reload and normal methodologist password login; dashboard
+  exhausted1 -> filtered journal1 -> assignment-operation CTA PASS. Final canonical
+  `/assignments` URL retained exact course/enrollment IDs, selected course
+  QA: attempts exhausted, one focused QA learner row, notification Not required.
+  No redirect to dashboard. No business mutation button clicked; password not
+  persisted/disclosed. Browser evidence and screenshot saved in ignored packet dir.
+- Accepted earlier76b7 browser failure is retained, superseded only for this
+  corrected navigation by the exact de37faba readback. Real maintenance task
+  remains NOT VERIFIED under no-email scope; worker health is not queue proof.
+- Independent dev remote SHA matched local at14:39:27Z, account KamillaLMSCRM,
+  canonical root-env helper. Sanitized receipt saved in task and owner-required
+  persistent memory note. Permanent stand intentionally remains.

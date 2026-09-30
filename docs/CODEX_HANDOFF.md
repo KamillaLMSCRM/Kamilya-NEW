@@ -9,10 +9,10 @@
 
 ### Current continuation — permanent DEV QA stand (2026-09-30)
 
-- result: exact `76b7fd2ee608531efc084471ab5d92658ac34114` promoted to DEV;
-  controller RELEASE_OK, CI36717819559 all7 SUCCESS, Vercel/API/worker exact SHA.
-  Owner then approved permanent `kamilya-dev-qa` instead of repeated tenant
-  creation/deletion. Bootstrap and separate repeat API verification PASS.
+- result: exact `de37faba938f0dc660fb7de7010d7710d7e9a160` promoted to DEV
+  with fresh exact owner approval; controller RELEASE_OK, DEV CI36730755381
+  all7 SUCCESS, Vercel/API/worker exact SHA. Permanent `kamilya-dev-qa` retained;
+  no tenant recreation, attempt reset or cleanup. Browser navigation PASS.
 - changed: one owned synthetic stand retained; canonical IDs in
   `docs/testing/fixtures/kamilya-dev-qa.json`; one-time bootstrap and fail-closed
   read-only smoke in `scripts/ops/dev_qa_stand.py`. Never bootstrap again or reset
@@ -20,23 +20,21 @@
 - verified: two users/courses/assignments, failing attempts1/2, failed2/exhausted1,
   list/summary/CSV, true deadlines and canonical continuation; zero notification
   attempts; Supabase lms_app READ ONLY, no super/BYPASSRLS, revision0168. Ten new
-  local contract tests PASS; independent Luna source review READY. This helper
-  was added after deployed SHA; do not imply the helper is deployed or CI-tested.
-- blockers: deployed browser acceptance is PARTIAL: normal password login for
-  both roles, failed2/exhausted1 drill-down, action focus and learner next-step
-  readback passed. The assignment-operation CTA used unregistered
-  `/course-assignments` and redirected the methodologist to `/dashboard`.
-  Its source correction needs a new exact-SHA DEV packet and browser readback;
-  do not report the already-deployed `76b7...` flow as fully accepted.
-  Both CTA hrefs corrected locally; red/green regression, 41 affected web tests,
-  typecheck and independent route-slice review PASS.
-  Actual maintenance task not exercised because
+  local contract tests PASS; independent Luna source review READY. Helper source
+  and contracts are included in the deployed revision's green exact-SHA CI;
+  the helper is run from the checkout, not a new API endpoint or worker task.
+  On freshly reloaded DEV frontend, dashboard exhausted1 -> journal -> assignment
+  operations reached `/assignments` with exact course/enrollment query IDs,
+  selected course and one focused QA learner row. No dashboard redirect or command.
+  Before/after-browser API verification PASS, latest14:50:11Z; same IDs/attempts,
+  notifications0. API3+1/worker2+0 and RedisDB1 unchanged; plans Hobby/Free unchanged.
+- blockers: none for the approved assignment-navigation release/readback.
+  Actual maintenance task remains NOT VERIFIED because
   recurring materialization can dispatch mail; worker health is not queue proof.
-- next: use `verify --expected-sha <exact-live-dev-sha>` for ordinary smoke;
-  finish assignment-route correction and separately approve its DEV release.
-  Post-browser verification PASS at14:21:03Z with the same IDs/counts/attempts.
-  No production
-  approval, master merge, redeploy, migration or automatic stand deletion implied.
+- next: ordinary smoke uses `verify --expected-sha <exact-live-dev-sha>`.
+  Evidence: ignored `.release-evidence/dev/REL-QA-NAV-DEV-20260930-DE37FABA/`;
+  prior failure retained under QA-STAND-20260930. No production approval, master
+  merge, further redeploy, migration, mail or automatic stand deletion implied.
 
 The following candidate notes retain earlier static/isolated acceptance history;
 their older next/release statements are superseded only by the DEV facts above.

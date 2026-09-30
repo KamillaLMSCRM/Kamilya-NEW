@@ -4926,7 +4926,9 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Verification: the original failure is preserved in QA-STAND-20260930 browser
   evidence. Focused href regressions failed before the patch, then25tests passed;
   root affected action/route/assignment suite41tests and typecheck PASS. Corrected
-  deployed browser flow remains NOT VERIFIED
-  until separately approved exact-SHA DEV promotion and readback.
+  deployed browser flow PASS after owner-approved exact-SHA DEV promotion of
+  `de37faba938f0dc660fb7de7010d7710d7e9a160`: exhausted journal -> canonical
+  assignments page, selected course and one exact enrollment row, no redirect.
+  DEV CI36730755381 all7 SUCCESS; post-browser stand verification PASS, no drift.
 - Prevention: actionable navigation tests must validate the URL against the actual
   route registry and preserve the selected resource, not merely assert link presence.
