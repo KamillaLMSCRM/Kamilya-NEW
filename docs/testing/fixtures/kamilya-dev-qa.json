@@ -1,0 +1,37 @@
+{
+  "schema": "KAMILYA_PERSISTENT_DEV_QA_V1",
+  "slug": "kamilya-dev-qa",
+  "tenant_id": "a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0",
+  "bootstrap_sha": "76b7fd2ee608531efc084471ab5d92658ac34114",
+  "status": "READY",
+  "position_id": "eae4ae53-9915-4f1e-bad9-0e1747d33c86",
+  "users": {
+    "methodologist": "5187fa5f-c046-4e35-945e-5c95f469a886",
+    "student": "cbebc705-caef-45f8-bcc0-45912ce73917"
+  },
+  "courses": [
+    {
+      "course_id": "2f66d625-d1a2-4b49-b36a-ebe7be00b740",
+      "title": "QA: можно повторить",
+      "attempt_ids": [
+        "70e3204c-ed5f-4af5-9218-7ad68621639c"
+      ],
+      "lesson_id": "2612dfa2-38b6-4d63-a4ec-5f2559496d17",
+      "quiz_id": "20b08fcc-7239-4571-ae35-9f13bd70893b",
+      "due_at": "2026-10-07T13:57:03.295678+00:00",
+      "enrollment_id": "09da25db-95cc-48c3-aae5-232fb9e4c3b2"
+    },
+    {
+      "course_id": "73657865-4982-4922-a2f3-445356dc8fcf",
+      "title": "QA: попытки закончились",
+      "attempt_ids": [
+        "6b10c11e-e1ac-4377-82e5-c14429d78c94",
+        "c82f782d-a412-45ce-9858-c79a366f7031"
+      ],
+      "lesson_id": "0baaf36e-dcdb-4dc4-9b30-c836c62e8567",
+      "quiz_id": "61198cba-415d-44d9-8141-39ff02c61402",
+      "due_at": "2026-10-14T13:57:06.870026+00:00",
+      "enrollment_id": "f5981136-5917-4772-a350-5f2a0fc3e8c9"
+    }
+  ]
+}

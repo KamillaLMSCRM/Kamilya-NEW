@@ -134,6 +134,44 @@ gate: он обнаруживает DB integration suites. Локально ис
 `critical_journey_gate.py`, а DB-проверки выполнять отдельным approved Supabase
 DEV application gate.
 
+### Постоянный QA-стенд DEV
+
+Владелец согласовал 2026-09-30 один постоянный synthetic tenant
+`kamilya-dev-qa`. Его точные tenant/user/course/quiz/enrollment/attempt IDs
+закреплены в `docs/testing/fixtures/kamilya-dev-qa.json`; это не customer tenant.
+Состав: методолог, ученик, одна должность без автоназначений, два курса и два
+personal-link назначения. Первый тест имеет одну неудачную попытку из двух,
+второй — две из двух. Письма, AI-генерация и платные ресурсы не используются.
+
+Повторная API-проверка, из linked worktree каноническим root `.venv` Python:
+
+```powershell
+& 'C:\Kamilya New\Kamilya-NEW\.venv\Scripts\python.exe' scripts/ops/dev_qa_stand.py verify --expected-sha <exact-live-dev-sha> --evidence .release-evidence/dev/qa-verify.json
+```
+
+`verify` не создаёт и не удаляет tenant, пользователей, курсы, назначения или
+попытки, не сбрасывает пароли и не исправляет drift. Допустимы только обычные
+auth/session audit записи входа, GET API reads и одна READ ONLY транзакция
+Supabase DEV как non-super/non-bypass `lms_app`. При missing/partial manifest,
+несовпадении exact SHA, revision `0168`, идентичности или состава — STOP, без
+автоматического bootstrap/replenishment. После изменения схемы сначала обновить
+контракт проверки, а не обходить gate.
+
+Учётные записи: `methodologist@kamilya-dev-qa.example.com` и
+`learner@kamilya-dev-qa.example.com`. Для этих двух synthetic QA identities
+используется существующий `DEV_QA_METHODOLOGIST_PASSWORD` из канонического
+primary `.env`, только process-locally; значения не сохранять в source/evidence.
+Не менять пароль ранее существующей QA-учётной записи другого tenant.
+
+Обычный браузерный smoke читает подготовленные состояния; не нажимать «Отправить
+ответ», не завершать курс и не создавать action records. Сроки в fixture
+фиксированные: с течением времени upcoming закономерно станет overdue; это не
+повод автоматически менять дедлайн. Mutation journeys используют отдельно
+разрешённые disposable fixtures. Стенд остаётся намеренно, его удаление требует
+отдельного разрешения. Worker task execution не доказывается этим read-only
+smoke: recurring materialization может отправить уведомление и в данном scope
+не запускалась.
+
 Зона `kml.kz` использует authoritative nameservers Cloudflare
 `sureena.ns.cloudflare.com` и `syeef.ns.cloudflare.com`. Vercel verified domain
 не означает управление DNS-записями: Vercel DNS records для зоны пусты. DNS

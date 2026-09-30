@@ -346,7 +346,7 @@ export function LearningActionCenter({ courseId, focus, issueType, onClearFocus 
               </div>
               {item.active_action_types.length < 4 && <Button size="sm" variant="outline" onClick={() => startAction({ kind: 'enrollment', item })}>{m.create}</Button>}
             </div>
-            <div className="mt-3 flex flex-wrap gap-3 text-xs"><Link className="text-primary hover:underline" href={`/training-log?enrollment_id=${encodeURIComponent(item.enrollment_id)}&course_id=${encodeURIComponent(item.course_id)}`}>{m.journal}</Link><Link className="text-primary hover:underline" href={`/course-assignments?course_id=${encodeURIComponent(item.course_id)}&enrollment_id=${encodeURIComponent(item.enrollment_id)}`}>{m.assignmentOperations}</Link></div>
+            <div className="mt-3 flex flex-wrap gap-3 text-xs"><Link className="text-primary hover:underline" href={`/training-log?enrollment_id=${encodeURIComponent(item.enrollment_id)}&course_id=${encodeURIComponent(item.course_id)}`}>{m.journal}</Link><Link className="text-primary hover:underline" href={`/assignments?course_id=${encodeURIComponent(item.course_id)}&enrollment_id=${encodeURIComponent(item.enrollment_id)}`}>{m.assignmentOperations}</Link></div>
           </article>)}
         </section>}
         {visibleQuestions.length > 0 && <section className="space-y-2">
@@ -364,7 +364,7 @@ export function LearningActionCenter({ courseId, focus, issueType, onClearFocus 
               <p className="font-medium">{m[action.action_type]}</p>
               <p className="text-sm text-muted-foreground">{m[action.issue_type]}</p>
               {action.comment && <p className="text-sm">{action.comment}</p>}
-              {action.target_type === 'enrollment' && action.enrollment_id && (action.action_type === 'reminder' || action.action_type === 'reassignment') && <Link className="mt-2 inline-flex text-xs text-primary hover:underline" href={`/course-assignments?course_id=${encodeURIComponent(action.course_id)}&enrollment_id=${encodeURIComponent(action.enrollment_id)}`}>{m.assignmentOperations}</Link>}
+              {action.target_type === 'enrollment' && action.enrollment_id && (action.action_type === 'reminder' || action.action_type === 'reassignment') && <Link className="mt-2 inline-flex text-xs text-primary hover:underline" href={`/assignments?course_id=${encodeURIComponent(action.course_id)}&enrollment_id=${encodeURIComponent(action.enrollment_id)}`}>{m.assignmentOperations}</Link>}
               {(action.due_at || action.owner_id === user?.user_id || (action.target_type === 'enrollment' && (action.action_type === 'reminder' || action.action_type === 'reassignment'))) && <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                 {action.due_at && <span>{m.dueAt}: {formatDueDate(action.due_at, lang as MessageLanguage)}</span>}
                 {action.owner_id === user?.user_id && <span>{m.ownerSelf}</span>}

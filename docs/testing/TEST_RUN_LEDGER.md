@@ -698,3 +698,69 @@ Rules:
   vulnerabilities. Source branch remote independently matched local SHA under
   project account KamillaLMSCRM. Final documentation-only closeout still requires
   green final-head CI; read current status in PR15 rather than infer it here.
+
+### 2026-09-30 — QA-STAND-20260930: persistent DEV QA bootstrap and repeat verification
+
+- Executor/writer: root; no test runner owns this ledger append. Owner explicitly
+  approved one permanent stand in place of the disposable tenant proposal.
+- Runtime: exact `76b7fd2ee608531efc084471ab5d92658ac34114`, DEV only.
+  CI36717819559 all7 SUCCESS; frontend/API/worker controller RELEASE_OK.
+  This is deployed source identity, not CI coverage of the later local QA helper.
+- Canonical Origin/auth preflight PASS; canonical Supabase READ ONLY preflight
+  PASS as non-super/non-bypass `lms_app`, revision0168. Exact slug absent before
+  bootstrap. Prior request without Origin failed403 before fixture creation;
+  corrected request passed without changing credentials or server protection.
+- One-time `dev_qa_stand.py bootstrap --confirm-bootstrap QA-STAND-20260930`
+  PASS at13:57:23Z. Exact owned IDs: `fixtures/kamilya-dev-qa.json`. Two users,
+  one rule-free position, two published native courses/quizzes, two personal-link
+  assignments, initial failing attempts1/2. No AI/provider call or email dispatch.
+- Independent `dev_qa_stand.py verify` PASS at13:59:31Z: same exact IDs and counts,
+  personal-link policies/deadlines, notification attempt count0, fail rows2 and
+  exhausted row1; list/summary/CSV agreement; canonical learner continuation.
+  Zero business mutations during verification. Bootstrap itself created the
+  approved fixtures; the original bootstrap artifact's business_mutations=0
+  refers only to its embedded verification phase, not to setup.
+- Local new helper contracts:10 PASS. Requested Luna/medium independent source
+  review READY; Luna/medium test writer required one import-format correction.
+  Observed cost/token/time counters NOT AVAILABLE; no inferred savings.
+- Retention: permanent fixture intentionally remains; no deletion or automatic
+  repair authorized. Repeated normal smoke creates no new business fixtures.
+- Browser acceptance: NOT VERIFIED; prepared password login for owner handoff.
+  Real maintenance-queue execution: NOT VERIFIED under no-email scope.
+  No master merge, production mutation, migration, tier/capacity change or deploy
+  was performed by this QA-stand task. Raw sanitized run artifacts remain under
+  ignored `.release-evidence/dev/QA-STAND-20260930/`.
+
+### 2026-09-30 — QA-STAND-20260930 deployed browser readback
+
+- Root used normal password login, owner explicitly authorized existing QA
+  credential entry; no credential persisted or disclosed. Both roles verified.
+- PASS: methodologist failed filter2, exhausted filter1 and browser-only training
+  action focus; learner actual7October deadline, manual-assignment reason and
+  canonical course+lesson resume href. Mobile390px has no horizontal overflow
+  (document clientWidth/scrollWidth380/380). Player launch/quiz submission and
+  action creation deliberately not exercised; stand is read-only for ordinary smoke.
+- PARTIAL overall: assignment-operation CTA navigated to `/course-assignments`
+  then redirected to `/dashboard`. Independent Luna source investigation confirmed
+  an unregistered route; canonical `/assignments` permits methodologist. This is
+  a product navigation defect, not a credential or tenant-access failure.
+- Post-browser canonical API verification PASS at14:21:03Z, exact deployed76b7:
+  same2users/2courses/2assignments/attemptIDs, failed2/exhausted1,
+  notification attempts0, verification business mutations0; normal auth audit only.
+- Sanitized browser evidence and screenshots are in the ignored packet directory.
+  The earlier NOT VERIFIED login-handoff note is superseded by this readback.
+  Route correction is not deployed; real worker task remains NOT VERIFIED.
+
+- Local correction closeout: Luna bounded writer changed only two CTA route
+  prefixes and their focused tests. Red regression reproduced both stale hrefs;
+  green focused suite25tests and typecheck PASS. Root broadened to action center,
+  route registry, assignment flow and assignment-access page:41tests/4files PASS.
+  Independent Luna reviewer READY; no alias, API mutation, role expansion or
+  assignment-page change. Model/effort requested Luna/medium; observed cost and
+  token counters NOT AVAILABLE. Replacement DEV promotion/readback still required.
+- Root closeout gates: changed web files ESLint PASS; helper contracts10PASS,
+  Ruff PASS; version consistency0.11.18 and release-contract gate PASS. QA manifest
+  serialized as UTF-8/LF, with unchanged identity/fixture values. Graphify AST-only
+  update:21391nodes/50926edges, helper31nodes; bounded query matches the canonical
+  Supabase helper imports.55zero-node non-code sources are an index limitation,
+  not runtime evidence; no package upgrade or external semantic extraction used.

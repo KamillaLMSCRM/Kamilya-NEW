@@ -4893,3 +4893,40 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   verified duplicates, fast-forward without reset/clean/stash, and finish with
   `--mode primary-status`. A clean primary is a coordination invariant, not a
   convenient shared writer directory.
+
+## DEV-GATE-003 - Acceptance helper omitted the trusted browser Origin
+
+- Date: 2026-09-30; persistent DEV QA setup, no customer or production mutation.
+- Symptom: the initial disposable-fixture helper received403 from `/auth/login`
+  before any tenant creation. It was not evidence of invalid GitHub credentials.
+- Cause: the helper copied an older non-browser HTTP login pattern and omitted
+  `Origin`. Render DEV uses APP_ENV=production with explicit
+  DEPLOYMENT_ENVIRONMENT=render-development; browser-session policy therefore
+  requires its trusted DEV frontend Origin before authentication.
+- Fix: follow `course_quality_dev_acceptance.py` DevClient's Origin contract.
+  Replacement `dev_qa_stand.py` pins the canonical DEV Origin and checks exact
+  runtime SHA/environment before setup. No auth settings or credentials changed.
+- Verification: corrected canonical login PASS; permanent stand bootstrap PASS;
+  separate repeat read-only verification PASS. Ten database-free helper contract
+  tests include the trusted-Origin configuration and forbidden-mutation gate.
+- Prevention: reuse the canonical environment's browser-session contract, not an
+  old production provisioning example. Classify missing request metadata as a
+  harness failure; never disable Origin checks or guess other credentials.
+
+## LEARNING-004 - Action-center operation links targeted an unregistered route
+
+- Date: 2026-09-30; exact deployed DEV candidate76b7fd2, persistent QA browser smoke.
+- Symptom: methodologist clicked assignment operations from the training journal,
+  saw loading, then returned to `/dashboard` instead of the selected assignment.
+- Cause: two action-center links used nonexistent `/course-assignments`. The
+  registered canonical route is `/assignments`; fail-closed route policy correctly
+  sent the unknown route to the role home. No API or credential defect was involved.
+- Fix: point both links at the canonical assignments route, retaining course and
+  enrollment query context; do not add an alias or broaden role capabilities.
+- Verification: the original failure is preserved in QA-STAND-20260930 browser
+  evidence. Focused href regressions failed before the patch, then25tests passed;
+  root affected action/route/assignment suite41tests and typecheck PASS. Corrected
+  deployed browser flow remains NOT VERIFIED
+  until separately approved exact-SHA DEV promotion and readback.
+- Prevention: actionable navigation tests must validate the URL against the actual
+  route registry and preserve the selected resource, not merely assert link presence.

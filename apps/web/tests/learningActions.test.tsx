@@ -157,7 +157,10 @@ describe('learning action center', () => {
     expect(apiMock.get).toHaveBeenCalledTimes(2);
   });
 
-  it('exposes side-effect-free journal and assignment plan links with truthful copy', async () => {
+  it('links assignment operations to the canonical assignment screen for the methodologist', async () => {
+    apiMock.get.mockResolvedValueOnce({
+      data: { ...payload, actions: payload.actions.map((action) => ({ ...action, action_type: 'reassignment' })) },
+    });
     render(<LearningActionCenter courseId="course-1" />);
     await screen.findByText('Synthetic Learner');
 
@@ -165,11 +168,12 @@ describe('learning action center', () => {
       'href',
       '/training-log?enrollment_id=enrollment-1&course_id=course-1',
     );
-    expect(screen.getByRole('link', { name: /Открыть операции назначения|Open assignment operations/i })).toHaveAttribute(
-      'href',
-      '/course-assignments?course_id=course-1&enrollment_id=enrollment-1',
-    );
-    fireEvent.click(screen.getByRole('link', { name: /Открыть операции назначения|Open assignment operations/i }));
+    const assignmentLinks = screen.getAllByRole('link', { name: /Открыть операции назначения|Open assignment operations/i });
+    expect(assignmentLinks.map((link) => link.getAttribute('href'))).toEqual([
+      '/assignments?course_id=course-1&enrollment_id=enrollment-1',
+      '/assignments?course_id=course-1&enrollment_id=enrollment-2',
+    ]);
+    fireEvent.click(assignmentLinks[0]);
     expect(apiMock.post).not.toHaveBeenCalled();
   });
 

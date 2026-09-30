@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Point methodologist assignment-operation links at the canonical `/assignments`
+  route, retaining the selected course and enrollment context.
 - Resolve pass-after-fail assessment drill-down consistently and count exhausted
   attempts per quiz rather than combining limits across quizzes.
 

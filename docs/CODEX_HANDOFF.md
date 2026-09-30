@@ -7,6 +7,40 @@
 
 ## Daily learning: кандидат с изолированной DEV-приёмкой, не production
 
+### Current continuation — permanent DEV QA stand (2026-09-30)
+
+- result: exact `76b7fd2ee608531efc084471ab5d92658ac34114` promoted to DEV;
+  controller RELEASE_OK, CI36717819559 all7 SUCCESS, Vercel/API/worker exact SHA.
+  Owner then approved permanent `kamilya-dev-qa` instead of repeated tenant
+  creation/deletion. Bootstrap and separate repeat API verification PASS.
+- changed: one owned synthetic stand retained; canonical IDs in
+  `docs/testing/fixtures/kamilya-dev-qa.json`; one-time bootstrap and fail-closed
+  read-only smoke in `scripts/ops/dev_qa_stand.py`. Never bootstrap again or reset
+  attempts to make smoke green. Credentials stay process-local in primary `.env`.
+- verified: two users/courses/assignments, failing attempts1/2, failed2/exhausted1,
+  list/summary/CSV, true deadlines and canonical continuation; zero notification
+  attempts; Supabase lms_app READ ONLY, no super/BYPASSRLS, revision0168. Ten new
+  local contract tests PASS; independent Luna source review READY. This helper
+  was added after deployed SHA; do not imply the helper is deployed or CI-tested.
+- blockers: deployed browser acceptance is PARTIAL: normal password login for
+  both roles, failed2/exhausted1 drill-down, action focus and learner next-step
+  readback passed. The assignment-operation CTA used unregistered
+  `/course-assignments` and redirected the methodologist to `/dashboard`.
+  Its source correction needs a new exact-SHA DEV packet and browser readback;
+  do not report the already-deployed `76b7...` flow as fully accepted.
+  Both CTA hrefs corrected locally; red/green regression, 41 affected web tests,
+  typecheck and independent route-slice review PASS.
+  Actual maintenance task not exercised because
+  recurring materialization can dispatch mail; worker health is not queue proof.
+- next: use `verify --expected-sha <exact-live-dev-sha>` for ordinary smoke;
+  finish assignment-route correction and separately approve its DEV release.
+  Post-browser verification PASS at14:21:03Z with the same IDs/counts/attempts.
+  No production
+  approval, master merge, redeploy, migration or automatic stand deletion implied.
+
+The following candidate notes retain earlier static/isolated acceptance history;
+their older next/release statements are superseded only by the DEV facts above.
+
 - result: реализованы RPT/ACT/LRN из принятого EPIC_V1; активная поправка
   continuation safety V2. База `bf858214573387128a20ba03e72d90d13ff6dfab`.
 - changed: assessment drill-down; browser-only action focus; планы не выдают себя

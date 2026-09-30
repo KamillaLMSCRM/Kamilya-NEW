@@ -144,6 +144,8 @@ describe('route and capability registry', () => {
     for (const [, pathname] of contextualRoutes) {
       expect(canAccessRegisteredRoute('methodologist', pathname)).toBe(true);
     }
+    expect(canAccessRegisteredRoute('admin', '/assignments')).toBe(false);
+    expect(canAccessRegisteredRoute('student', '/assignments')).toBe(false);
   });
 
   it('exposes a common profile to every authenticated working mode', () => {
