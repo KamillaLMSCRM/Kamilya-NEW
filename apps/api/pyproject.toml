@@ -1,7 +1,7 @@
 # Backend monorepo config
 [tool.poetry]
 name = "api"
-version = "0.11.21"
+version = "0.11.22"
 description = "Kamilya LMS API"
 authors = ["Kamilya Team <dev@kml.kz>"]
 
@@ -15,7 +15,7 @@ asyncpg = "^0.30"
 pydantic = "^2.9"
 pydantic-settings = "^2.5"
 email-validator = "^2.0"
-pyjwt = "2.14.0"
+pyjwt = "2.15.1"
 argon2-cffi = "^23.1"
 celery = "^5.4"
 psutil = "^6.1"

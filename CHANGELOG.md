@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.22] - 2026-09-30
+
+### Security
+
+- Pin PyJWT to2.15.1 consistently in Poetry/lock/requirements after the fresh
+ 2.14.0 audit finding; retain blocking SCA, algorithm/issuer/audience validation.
+- Regress malformed NumericDate and deeply nested signed inputs through the real
+  auth dependency:401 before any database lookup rather than an uncaught error.
+
+### Fixed
+
+- Carry forward0.11.21's mobile assignment layout correction, which was not
+  production-deployed because fresh audit and duplicate journal ID gates failed.
+- Assign a unique incident ID and verify the complete local release contract.
+
 ## [0.11.21] - 2026-09-30
 
 ### Fixed

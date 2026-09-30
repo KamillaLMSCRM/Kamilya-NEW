@@ -5,11 +5,23 @@
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/daily-learning-20260930`
 
-## Daily learning: production 0.11.20, мобильная поправка 0.11.21 в проверке
+## Daily learning: production 0.11.20, мобильная/security поправка 0.11.22 в проверке
+
+- result:0.11.21 ea1a8ad5 source-published, NOT deployed; CI36746148434 FAIL.
+- changed:0.11.22 candidate includes PyJWT2.15.1 three-surface pin/Poetry lock,
+  malformed/deep JWT auth regressions and unique journal ID RELEASE-007.
+- verified: fresh independent Luna investigation/review READY; local40tests PASS,
+  baseline ruff1010/mypy2200 unchanged; complete release contract189entries PASS.
+  Seven malformed signed NumericDate cases RED TypeError on2.14 -> GREEN401
+  beforeDB; nested payload/ordinary controls PASS. Native36746472002 SUCCESS for
+  failed0.11.21 is NOT a deploy gate. Fresh audit found CVE-2026-101918; no ignore.
+- blockers: new exact-SHA CI/build/protected/native gates and real mobile geometry
+  remain required. Production still c239de80/0.11.20; stands/customer data preserved.
+- next: publish new immutable0.11.22 after fresh gates; do not move0.11.21 tag.
 
 - result: owner-authorized0.11.20 exact c239de80d7f9d292492fde20601381cdbe6a334f
   is live on VM126 API+3workers and native CT137. Responsive acceptance is incomplete:
-  mobile390 pageWidth725 reproduced; bounded0.11.21 follow-up in progress.
+  mobile390 pageWidth725 reproduced; bounded0.11.22 follow-up in progress.
 - changed: urllib3-only2.8.0 pin/lock/compatibility contracts; standard immutable
   release, no migration, customer mutation, mail/AI or provider/billing change.
 - verified: CI36738812896 all7 SUCCESS; backend3488PASS/2SKIP, RLS42PASS,

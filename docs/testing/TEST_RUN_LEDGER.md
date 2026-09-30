@@ -829,3 +829,23 @@ Rules:
   learner credential); corresponding permanent DEV evidence retained. Actual
   maintenance/mail task NOT VERIFIED under no-mail scope; worker health is not
   task evidence. Sanitized0.11.20 packet under ignored REL-C239DE80 directory.
+
+### 2026-09-30 — 0.11.21 stopped; bounded PyJWT 0.11.22 candidate
+
+- Source0.11.21 ea1a8ad5/master/tag independently read back, primary clean/aligned.
+  CI36746148434 FAIL: fresh PyJWT2.14.0 CVE-2026-101918 fix2.15.0; duplicate new
+  RELEASE-005 journal ID also rejected by contract/unit. No deployment/ignore;
+  native36746472002 SUCCESS is retained as build-only history. ID corrected uniquely
+  to RELEASE-007, local complete contract189entries and two owning tests PASS.
+- Fresh read-only security investigator and fresh independent candidate reviewer:
+  gpt-6-luna/medium requested/observed; costs/tokens NOT AVAILABLE; READY, one
+  review cycle, no confirmed rework. Root pins2.15.1 all3surfaces; generated lock
+  only PyJWT/hash changes; no auth policy/backend API alteration.
+- RED pin contract1FAIL/2PASS; actual malformed NumericDate auth boundary7FAIL/
+ 2PASS TypeError on2.14. GREEN40focused tests on2.15.1, all malformed9cases401
+ beforeDB; two nested malicious classes and ordinary access/refresh controls PASS.
+ Nested inputs already401 on2.14: do not claim original-CVE reproduction there.
+- Poetry lock check PASS; version0.11.22 consistency PASS; release contract PASS;
+  Python baseline ruff1010/mypy2200 unchanged. Web functional content unchanged
+  from mobile patch accepted by root131files/738PASS. Exact new CI and production
+  SHA/image/geometry/business readback still required; no tag rewrite.

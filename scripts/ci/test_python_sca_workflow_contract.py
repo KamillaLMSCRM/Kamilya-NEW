@@ -11,10 +11,10 @@ def test_pyjwt_runtime_and_lock_pin_the_verified_security_release() -> None:
     api = WORKFLOW.parents[2] / "apps" / "api"
     project = tomllib.loads((api / "pyproject.toml").read_text(encoding="utf-8"))
     lock = tomllib.loads((api / "poetry.lock").read_text(encoding="utf-8"))
-    assert project["tool"]["poetry"]["dependencies"]["pyjwt"] == "2.14.0"
+    assert project["tool"]["poetry"]["dependencies"]["pyjwt"] == "2.15.1"
     package = next(item for item in lock["package"] if item["name"] == "pyjwt")
-    assert package["version"] == "2.14.0"
-    assert "pyjwt==2.14.0" in (api / "requirements.txt").read_text(encoding="utf-8").splitlines()
+    assert package["version"] == "2.15.1"
+    assert "pyjwt==2.15.1" in (api / "requirements.txt").read_text(encoding="utf-8").splitlines()
 
 
 def test_python_sca_is_a_blocking_image_graph_derived_production_gate() -> None:

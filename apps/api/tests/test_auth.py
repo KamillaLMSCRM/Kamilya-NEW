@@ -1,4 +1,8 @@
 """JWT token tests — create, decode, claims validation."""
+import base64
+import hashlib
+import hmac
+import sys
 from datetime import UTC, datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -109,6 +113,50 @@ def test_decode_invalid_token_raises():
     with pytest.raises(Exception) as exc_info:
         auth_module.decode_token("invalid.token.here")
     assert "Invalid token" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("nested_kind", ["array", "object"])
+async def test_deeply_nested_signed_payload_is_401_before_database_lookup(nested_kind):
+    depth = sys.getrecursionlimit() + 100
+    payload = (
+        '{"nested":' + '[' * depth + '0' + ']' * depth + '}'
+        if nested_kind == "array"
+        else '{"nested":' * depth + '0' + '}' * depth
+    )
+
+    def segment(value):
+        return base64.urlsafe_b64encode(value).rstrip(b'=')
+
+    header = segment(b'{"alg":"HS256","typ":"JWT"}')
+    signing_input = header + b'.' + segment(payload.encode())
+    signature = hmac.new(auth_module.settings.JWT_SECRET.encode(), signing_input, hashlib.sha256).digest()
+    token = (signing_input + b'.' + segment(signature)).decode()
+    db = SimpleNamespace(execute=AsyncMock(), rollback=AsyncMock())
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+    with pytest.raises(HTTPException) as exc_info:
+        await auth_module.get_current_user(credentials=credentials, db=db)
+    assert exc_info.value.status_code == 401
+    db.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("claim", ["exp", "iat", "nbf"])
+@pytest.mark.parametrize("malformed", [None, {}, []])
+async def test_malformed_numeric_date_is_401_before_database_lookup(claim, malformed):
+    now = int(datetime.now(UTC).timestamp())
+    payload = {
+        "sub": str(uuid4()), "type": "access", "exp": now + 300,
+        "iat": now, "nbf": now, "aud": auth_module.settings.JWT_AUDIENCE,
+        "iss": auth_module.settings.JWT_ISSUER, claim: malformed,
+    }
+    token = jwt.encode(payload, auth_module.settings.JWT_SECRET, algorithm="HS256")
+    db = SimpleNamespace(execute=AsyncMock(), rollback=AsyncMock())
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+    with pytest.raises(HTTPException) as exc_info:
+        await auth_module.get_current_user(credentials=credentials, db=db)
+    assert exc_info.value.status_code == 401
+    db.execute.assert_not_awaited()
 
 
 def test_create_access_token_custom_expiry():

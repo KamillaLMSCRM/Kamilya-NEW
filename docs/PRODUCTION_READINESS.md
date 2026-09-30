@@ -11,7 +11,19 @@ DB/storage gate и приёмкой клиента
 
 ## Daily learning candidate — 2026-09-30
 
-### Current runtime 0.11.20; bounded mobile follow-up 0.11.21 pending
+### Current runtime 0.11.20; bounded mobile/security follow-up 0.11.22 pending
+
+0.11.21 ea1a8ad50bc3a50481e4eab3bee40613a2c921df was source-published but
+not deployed: CI36746148434 blocked on new PyJWT2.14.0 CVE-2026-101918
+(reported fix2.15.0) and a duplicate new journal ID. Native36746472002 SUCCESS
+does not override failed CI. New0.11.22 pins PyJWT2.15.1 on all three surfaces,
+Poetry-generated lock changes only that package/content hash; no auth policy or
+audit weakening. Independent fresh investigation and candidate review accepted
+the bounded pin; local40auth/SCA/release tests PASS, quality baseline unchanged.
+Seven malformed signed NumericDate cases raised TypeError on2.14, now401 before
+DB; deeply nested inputs and ordinary controls also PASS. Journal ID is unique
+RELEASE-007; complete local release contract189entries PASS. Never rewrite
+published0.11.21 tag. Fresh exact-SHA CI and responsive production readback required.
 
 Fresh owner request authorized all bounded release repairs and production rollout.
 Exact `c239de80d7f9d292492fde20601381cdbe6a334f` /0.11.20 is production-deployed.
@@ -19,7 +31,7 @@ CI36738812896 all7 SUCCESS: backend3488PASS/2SKIP, coverage74.44%, RLS42PASS,
 blocking dependency audit no known vulnerabilities. urllib3 is2.8.0 on all three
 pin surfaces; focused local16PASS. Native build36738991107 SUCCESS, artifact11109147129.
 Protected backend36740593404 attempt2 SUCCESS; first attempt stopped before any
-runtime mutation on a task-created empty lock (RELEASE-005), independently
+runtime mutation on a task-created empty lock (RELEASE-007), independently
 reconciled and narrowly cleaned. Same image/artifact retained; no rebuild/bypass.
 
 Independent public/private API, state and all4 blue services read back exact
@@ -40,7 +52,7 @@ assessment422. Notification counters unchanged, business mutations0, tenant
 retained without recreation/reset/deletion. Browser desktop dashboard -> assessment
 filter -> canonical assignment operations preserves exact course/enrollment,
 selected course and1of5 focused rows, no command click; console errors0.
-However mobile390 rendered page width725: follow-up0.11.21 is required before
+However mobile390 rendered page width725: follow-up0.11.22 is required before
 complete responsive acceptance. Never mark that branch PASS based on desktop.
 Nonzero failed/exhausted and learner browser flows were accepted on permanent
 DEV; production nonzero/learner browser NOT VERIFIED (no existing learner

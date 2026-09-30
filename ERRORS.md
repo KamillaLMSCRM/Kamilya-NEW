@@ -1149,6 +1149,24 @@ production runtime and cross-container readback remain pending release approval.
 - Prevention: re-audit the exact production graph at release time and retain the
   failed attempt. Synchronize Poetry and pip paths; do not rewrite published tags.
 
+## SECURITY-017 - PyJWT 2.14.0 failed a newly refreshed release-time audit
+
+- Date: 2026-09-30; fresh CI36746148434 on published0.11.21/ea1a8ad5.
+- Symptom: production dependency audit reported CVE-2026-101918 with fix2.15.0;
+  no candidate deployment occurred. Earlier0.11.20 audit was green, not timeless.
+- Cause: advisory data changed after the previous exact release check. A locally
+  cached result or earlier green dependency audit cannot authorize a new release.
+- Fix: independently reviewed PyJWT-only2.15.1 declaration/requirements/Poetry
+  generated lock update, including2.15.0 fixes and2.15.1 padding compatibility.
+  JWT algorithm/issuer/audience/required-claim/session policy unchanged; no ignore.
+- Verification: pin contract RED on2.14; malformed signed NumericDate regression
+ 7FAIL/2PASS TypeError -> all9PASS401 beforeDB on2.15.1. Nested payload controls
+ 2PASS on both versions (not a claimed original-CVE reproducer). Full focused
+ auth/SCA/release suite40PASS; lock check, local release contract and baseline PASS.
+ Fresh exact-SHA CI/audit and production proof remain required.
+- Prevention: evaluate the exact graph with fresh audit data; publish a new
+ immutable version after failure and never move an already-published release tag.
+
 ## CI-001 - English errors journal broke the release contract parser
 
 - Date: 2026-08-21.
@@ -4950,7 +4968,7 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: actionable navigation tests must validate the URL against the actual
   route registry and preserve the selected resource, not merely assert link presence.
 
-## RELEASE-005 - Advisory flock preflight created the controller's existence lock
+## RELEASE-007 - Advisory flock preflight created the controller's existence lock
 
 - Date: 2026-09-30; protected release36740593404 attempt1.
 - Symptom: build/validation passed; execute stopped before runtime mutation with
