@@ -5,7 +5,7 @@
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/daily-learning-20260930`
 
-## Daily learning: локальный кандидат, не production
+## Daily learning: кандидат с изолированной DEV-приёмкой, не production
 
 - result: реализованы RPT/ACT/LRN из принятого EPIC_V1; активная поправка
   continuation safety V2. База `bf858214573387128a20ba03e72d90d13ff6dfab`.
@@ -19,12 +19,25 @@
   (ruff 1010, mypy 2200); version/release-contract gates; synthetic Playwright
   2/2 at 1440/390 px and visual inspection, API mocked and commands blocked.
   Независимое source review: READY for local acceptance; no release claim.
-- blockers: Supabase DEV/RLS и current exact-SHA CI пока NOT VERIFIED. Production
-  readback не выполнялся. На baseline CI отдельно известен SCA failure PyJWT
-  2.13.0; это не доказательство результата CI нового кандидата.
-- next: exact-SHA CI -> isolated DEV -> отдельное разрешение владельца на release.
+  Continuation: 79 auth/JWT/deadline/SCA contract tests PASS; canonical Supabase
+  DEV revision `0168`: existing reporting regression 24 PASS and assembled daily
+  chain 3 PASS (66.31s). Effective `lms_app` is non-super/non-bypass, six read
+  tables FORCE RLS; foreign tenant/user/enrollment reads denied. Both gates
+  ended with zero fixture tenants and unchanged public revision, outer rollback.
+- blockers: CI run `36709677536` for `2c038da452e08ec720e6b08c586a381d52b75e92`
+  failed dependency audit (PyJWT 2.13.0) and a stale source-location guard after
+  extracting the shared deadline model. Bounded remediation pins only PyJWT
+  2.14.0 across all dependency surfaces and corrects that guard; replacement
+  exact-SHA CI is required. Production/browser deployment readback not performed.
+- next: replacement exact-SHA CI -> отдельное разрешение владельца на release.
   Не обещать произвольный occurrence launch: canonical resolver guard обязателен
   также для enrollment-restricted dashboard reads.
+
+PR: https://github.com/KamillaLMSCRM/Kamilya-NEW/pull/15. Project-token PR
+permission was rechecked after the owner update and PR creation succeeded.
+DEV evidence is rollback-isolated synthetic read-chain acceptance, not deployed
+DEV browser acceptance or a production/customer journey. No audit bypass,
+migration, provider spend or merge is authorized by this continuation.
 
 Delegation ledger (English-only handoffs; root owns integration and Git):
 inventory/review used requested gpt-5.6-luna medium; learner used requested
@@ -34,9 +47,12 @@ corrections; root independently verified final deltas. Observed provider model,
 token/cost counters, exact duration and root rework time: NOT AVAILABLE; do not
 infer savings or first-pass acceptance. No nested delegation.
 
-Graphify code-only update: 21343 nodes / 50800 edges / 1292 communities; 55 source
+Graphify code-only update: 21354 nodes / 50841 edges / 1293 communities; 54 source
 files produced no nodes, no large graph HTML. Derived navigation evidence only,
-not tenant/runtime verification; bounded source remains authoritative.
+not tenant/runtime verification; bounded source remains authoritative. Bounded
+daily_learning fixture query confirms the real release helper/ORM neighbors;
+21/153 nodes returned (truncated). CLI 0.9.23 versus skill 0.9.58 warning retained,
+no shared tool upgrade performed.
 
 ## Сначала прочитать
 

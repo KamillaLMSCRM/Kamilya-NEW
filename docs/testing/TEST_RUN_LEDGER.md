@@ -660,3 +660,34 @@ Rules:
   release/version/release-plane47PASS; release contract159 revisions/head0161;
   frontend619PASS plus typecheck/lint/buildPASS; post-change Graphify21267 nodes/
   49066 edges/dangling0. Production acceptance remains NOTVERIFIED.
+
+### 2026-09-30 — daily-learning CI remediation and isolated DEV acceptance
+
+- Scope: linked worktree `C:\Kamilya New\.worktrees\daily-learning-20260930`,
+  PR 15, base `bf858214573387128a20ba03e72d90d13ff6dfab`. No merge, production,
+  public-schema migration, provider-plan change, real email or customer mutation.
+- Published candidate `2c038da452e08ec720e6b08c586a381d52b75e92`, CI
+  `36709677536`: five jobs passed, two failed. Audit identified ten PyJWT 2.13.0
+  advisories with 2.14.0 remediation; full backend stopped at a moved deadline
+  source guard after 883 PASS / 2 SKIP. This failed run is not release evidence.
+- Bounded repair: PyJWT-only 2.14.0 update on all three dependency surfaces,
+  dependency-surface contract and corrected shared-model consumer guard.
+  Lock check PASS; 79 focused auth/session/kiosk/JWT/deadline/SCA tests PASS;
+  final quality baseline PASS, ruff1010/mypy2200 unchanged.
+- Canonical DEV preflight: same configured Supabase project, revision0168,
+  runtime lms_app non-super/non-bypass. No local Docker PostgreSQL used.
+- Existing training-log suite24PASS, 188.41s. New assembled daily-learning
+  suite3PASS, 66.31s: failed/exhausted rows/count/summary/CSV, per-quiz limits,
+  pass-after-fail, canonical and restricted occurrence continuation, historical
+  progress isolation, actual manual/recurring deadlines, foreign tenant/user
+  negatives, six tables RLS/FORCE-RLS. Real immutable content-release anchors.
+- Both successful gates verified outer-transaction cleanup: zero test tenants
+  remaining, public revision unchanged. Earlier bounded harness runs failed
+  collection arguments, isolated model bootstrap, illegal duplicate manual
+  occurrence, and CSV delimiter respectively; each had verified zero residue
+  and unchanged revision. These failures are not product acceptance evidence.
+- Independent read-only Luna review READY, no actionable source defects.
+  Requested gpt-5.6-luna/medium; observed model/token/cost counters unavailable.
+  Root owns edits, runtime verification, integration, Git and durable evidence.
+- Replacement exact-SHA CI is required after push. Deployed DEV browser and
+  production identity/image/worker/user-flow readback are NOT VERIFIED here.

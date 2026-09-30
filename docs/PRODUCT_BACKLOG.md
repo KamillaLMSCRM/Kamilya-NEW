@@ -21,9 +21,11 @@
 [`product/contract-modules/daily-learning/MODULE_INDEX.md`](product/contract-modules/daily-learning/MODULE_INDEX.md).
 Локальная приёмка и границы записаны в `CODEX_HANDOFF.md`; production не менялся.
 
-1. Подтвердить точный SHA в CI и изолированном Supabase DEV, включая tenant/RLS
-   и совпадение reporting/learner deadline projection. Локальные unit/SQLite
-   проверки не заменяют этот gate.
+1. Подтвердить replacement exact-SHA CI в PR 15 после минимального исправления
+   PyJWT и устаревшего source-location теста. Изолированный Supabase DEV gate
+   пройден: 24 reporting + 3 assembled daily-learning tests, effective `lms_app`,
+   RLS negatives, reporting/learner deadline equality, zero fixture residue,
+   unchanged revision `0168`. Это не deployed DEV browser acceptance.
 2. Пройти отдельный owner-approved release packet и реальный browser readback.
    Планы напоминания/переназначения не представлять как выполненные действия.
 3. Отдельно спроектировать occurrence-aware continuation всего плеера/прогресса,

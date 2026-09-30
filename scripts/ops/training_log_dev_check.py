@@ -37,6 +37,8 @@ TEST_TENANT_SLUGS = [
     "stable-deadline-page",
     "training-log-rls-a",
     "training-log-rls-b",
+    "daily-learning-a",
+    "daily-learning-b",
 ]
 
 
@@ -57,6 +59,10 @@ async def main() -> int:
     root = Path(__file__).resolve().parents[2]
     values = dotenv_values(Path(os.environ.get("KAMILYA_DEV_ENV_FILE", root / ".env")))
     runtime_rls = "--runtime-rls" in sys.argv
+    daily_learning = "--daily-learning" in sys.argv
+    if daily_learning and (runtime_rls or "--execute-tests" not in sys.argv):
+        print(json.dumps({"status": "BLOCKED", "reason": "daily_learning_requires_execute_tests_only", "writes": 0}))
+        return 2
     try:
         expected_revision = sys.argv[sys.argv.index("--expected-revision") + 1]
     except (ValueError, IndexError):
@@ -157,7 +163,9 @@ async def main() -> int:
             test_env["REDIS_URL"] = "redis://localhost:6379/15"
             tests_started = True
             target = "tests/integration/test_training_log.py"
-            if runtime_rls:
+            if daily_learning:
+                target = "tests/integration/test_daily_learning.py"
+            elif runtime_rls:
                 target += "::test_training_log_repository_lms_app_rls_hides_other_tenant_rows_and_counts"
             result = subprocess.run(
                 [sys.executable, "-m", "pytest", target, "-q", "--tb=line", "-ra"],
@@ -173,8 +181,16 @@ async def main() -> int:
             output = re.sub(r"(?:postgres(?:ql)?(?:\+asyncpg)?|redis)://[^\s'\"]+", "[redacted-connection]", output)
             print(output[-10000:])
             residue = await fixture_count(engine)
-            print(json.dumps({"cleanup": "PASS" if residue == 0 else "BLOCKED", "remaining_test_tenants": residue}))
-            if residue:
+            async with engine.connect() as connection:
+                async with connection.begin():
+                    await connection.execute(text("SET TRANSACTION READ ONLY"))
+                    final_revision = (await connection.execute(text("SELECT version_num FROM alembic_version"))).scalars().all()
+            cleanup = residue == 0 and final_revision == revision
+            print(json.dumps({
+                "cleanup": "PASS" if cleanup else "BLOCKED", "remaining_test_tenants": residue,
+                "public_revision_unchanged": final_revision == revision,
+            }))
+            if not cleanup:
                 return 4
             if result.returncode == 0 and re.search(r"\b[1-9]\d* skipped\b", output):
                 print(json.dumps({"status": "PARTIAL", "reason": "required_integration_gate_skipped"}))

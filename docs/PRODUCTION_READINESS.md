@@ -11,7 +11,7 @@ DB/storage gate и приёмкой клиента
 
 ## Daily learning candidate — 2026-09-30
 
-This is a local implementation candidate on `feature/daily-learning-20260930`,
+This is an implementation candidate on `feature/daily-learning-20260930`,
 not a production release. It adds assessment drill-down, truthful action-plan
 navigation and learner next-step/deadline reads; no migration, provider/billing
 change, customer mutation or delivery-engine replacement occurred.
@@ -20,11 +20,19 @@ Local evidence: 58 focused API tests; 87 affected web tests; final full web suit
 131 files / 737 tests; lint and Next production build PASS (66 pages); Python
 quality debt unchanged; 2 synthetic Playwright cases at desktop/mobile widths
 with mocked API and no command side effects, plus visual inspection. Local SQL/SQLite adapters are
-not Supabase DEV/RLS evidence. Exact candidate CI, isolated DEV and production
-user-flow readback remain separate gates; production authorization was not given.
-Baseline `bf858214573387128a20ba03e72d90d13ff6dfab` CI had an SCA failure involving
-PyJWT 2.13.0. Do not silently expand this UX candidate into dependency repair or
-infer the candidate CI result from that older run.
+not Supabase DEV/RLS evidence. Separately, the canonical Supabase DEV at revision
+`0168` passed 24 existing reporting regressions and 3 assembled daily-learning
+tests under effective non-super/non-bypass `lms_app`, with FORCE RLS assertions,
+foreign tenant/user/enrollment negatives, real immutable-release anchors, exact
+occurrence continuation and shared reporting/learner deadline checks. Synthetic
+fixtures rolled back; zero residue and unchanged public revision verified.
+79 focused auth/JWT/deadline/SCA contract tests also passed after a bounded
+PyJWT-only update to 2.14.0. Exact-SHA CI run `36709677536` on candidate
+`2c038da452e08ec720e6b08c586a381d52b75e92` failed the inherited PyJWT 2.13.0 audit
+and a source-location test invalidated by helper extraction; both are remediated
+in the replacement candidate, whose CI must pass independently. No audit ignore
+or workflow weakening. PR 15 is open; deployed DEV browser and production
+user-flow readback remain separate gates. No merge/release approval was given.
 
 Overlapping current grants are displayed, but continuation is disabled unless
 the existing canonical player resolver selects that exact enrollment. This also

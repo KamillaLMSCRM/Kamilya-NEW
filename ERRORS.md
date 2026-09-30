@@ -1118,6 +1118,20 @@ production runtime and cross-container readback remain pending release approval.
   runtime role, not only `tenant_id` predicates. Never run destructive fixtures
   against production or shared remote DB.
 
+## SECURITY-015 - PyJWT 2.13.0 became a blocking dependency audit finding
+
+- Date: 2026-09-30.
+- Symptom: exact-SHA CI `36709677536` rejected PyJWT 2.13.0 with ten advisories,
+  each reporting 2.14.0 as the fixed version.
+- Cause: dependency pins were consistent but their security status changed;
+  passing auth unit tests did not establish an acceptable production graph.
+- Fix: bounded PyJWT-only update to 2.14.0 in pyproject, requirements and Poetry
+  lock; add a contract covering all three surfaces. No SCA ignore or bypass.
+- Verification: lock consistency PASS; 79 focused auth/JWT/deadline/SCA tests
+  PASS; Python quality baseline unchanged. Replacement exact-SHA audit required.
+- Prevention: audit the exact exported dependency graph before candidate
+  acceptance; synchronize all pin surfaces and verify auth/session regressions.
+
 ## CI-001 - English errors journal broke the release contract parser
 
 - Date: 2026-08-21.
@@ -2174,6 +2188,22 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: structured internal response metadata must be parsed before public
   content redaction, while every user-visible or persisted field is validated
   separately with deterministic adversarial identifiers.
+
+## TEST-013 - A source-location guard lagged shared deadline extraction
+
+- Date: 2026-09-30.
+- Symptom: exact-SHA CI `36709677536` stopped at a deadline projection source
+  assertion after 883 passing tests; it searched the old reporting repository.
+- Cause: the exact existing projection moved to learning_cycles/read_model.py,
+  while the guard assumed the old physical location instead of both consumers.
+- Fix: assert effective_due_at in the shared read model and its use by reporting
+  and student reads. Add rollback-isolated assembled Supabase DEV coverage.
+- Verification: focused tests PASS; 24 reporting and 3 assembled DEV tests PASS,
+  including equal deadlines and restricted exact-occurrence continuation.
+  Effective lms_app non-bypass role, zero residue, unchanged revision 0168.
+- Prevention: update source guards with module extraction, retain behavioral
+  coverage, and build legal recurring/manual fixtures with real release anchors;
+  do not weaken current-occurrence constraints to accommodate a synthetic test.
 
 ## INFRA-010 - Frontend hosting and TLS renewal documentation lagged runtime
 

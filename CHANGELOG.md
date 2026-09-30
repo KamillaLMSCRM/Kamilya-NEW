@@ -31,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Pin PyJWT to 2.14.0 consistently in Poetry, its lock and requirements to address
+  the blocking 2.13.0 dependency audit; retain the fail-closed SCA workflow.
+
 ## [0.11.18] - 2026-09-29
 
 ### Added

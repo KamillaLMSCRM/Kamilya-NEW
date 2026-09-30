@@ -58,11 +58,20 @@ def test_training_log_and_reminders_use_effective_deadline_projection():
     training_log = (
         ROOT / "apps/api/app/modules/training_log/repository.py"
     ).read_text(encoding="utf-8")
+    read_model = (
+        ROOT / "apps/api/app/modules/learning_cycles/read_model.py"
+    ).read_text(encoding="utf-8")
+    student = (
+        ROOT / "apps/api/app/modules/student/service.py"
+    ).read_text(encoding="utf-8")
     migration = (
         ROOT / "apps/api/alembic/versions/0167_recurring_occurrence_deadline_history.py"
     ).read_text(encoding="utf-8")
-    assert "RecurringLearningAssignment.effective_due_at" in training_log
-    assert "LearningPathCycleInstance.effective_due_at" in training_log
+    assert "join_cycle_read_model as _join_cycle_read_model" in training_log
+    assert "_join_cycle_read_model(stmt, tenant_id)" in training_log
+    assert "join_cycle_read_model(enrollment_query, tenant_id)" in student
+    assert "RecurringLearningAssignment.effective_due_at" in read_model
+    assert "LearningPathCycleInstance.effective_due_at" in read_model
     assert "a.effective_due_at" in migration
     assert "i.effective_due_at" in migration
 
