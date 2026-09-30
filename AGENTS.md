@@ -92,6 +92,14 @@ negative test. Tenant write без установленного tenant context �
 ## Репозиторий и код
 
 - Сначала проверить `git status`; сохранить unrelated dirty/untracked work.
+- Primary checkout `C:\Kamilya New\Kamilya-NEW` является только sync/coordination
+  anchor. Перед любой правкой репозитория выполнить
+  `py -3 scripts/dev/check_primary_checkout.py --mode write`. Результат
+  `PRIMARY_WRITE_FORBIDDEN` требует создать или переиспользовать отдельный linked
+  worktree от актуального `origin/master`; постоянные domain-чаты не пишут в
+  primary. Сам primary разрешено менять только в отдельной hygiene-задаче после
+  пофайловой классификации остатка и проверки
+  `py -3 scripts/dev/check_primary_checkout.py --mode primary-status`.
 - Не выполнять reset, clean, broad stash, слепое staging или unrelated refactor.
 - Использовать существующие domain boundaries и parser/API для структурированных
   данных; string hacks допустимы только как проверенное локальное преобразование.

@@ -4812,3 +4812,33 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   routing-contract inventory and must assert the authenticated tenant at the
   provider-resolution seam. A successful mocked LLM response alone is not
   routing evidence.
+
+## TOOL-011 - Persistent domain work accumulated in the shared primary checkout
+
+- Date: 2026-09-30. Recurrence of the repository-hygiene condition documented
+  in `docs/audits/2026-09-17_git-worktree-inventory.md`.
+- Symptom: the primary checkout was clean enough to remain usable but stayed 57
+  commits behind live `origin/master`; a persistent Google Ads task then wrote a
+  completed provider-evidence document and a one-off mutation script directly
+  into `docs/marketing` as untracked files. Every later task had to classify the
+  same residue and defer synchronization again.
+- Cause: the September audit established a worktree-only writer rule but left it
+  as prose. Persistent chats shared the workspace root, no executable gate
+  distinguished the primary checkout from a linked worktree, and successful
+  pushes from isolated worktrees did not synchronize the primary anchor.
+- Fix: `scripts/dev/check_primary_checkout.py` resolves Git common-dir, blocks
+  write-capable tasks in the primary checkout with
+  `PRIMARY_WRITE_FORBIDDEN`, permits linked worktrees, and separately reports
+  primary cleanliness, branch and `origin/master` alignment. `AGENTS.md` makes
+  that command the mandatory pre-write gate. The durable Ads readback was moved
+  onto current `origin/master`; the disposable operator script is not retained.
+- Verification: synthetic Git repositories prove primary blocking, linked-
+  worktree allowance, and dirty/behind detection; governance tests require the
+  exact executable gate. The real primary is clean, on `master`, and aligned
+  only after both original files are hash-accounted and the resulting commit is
+  independently read back from the remote.
+- Prevention: every writer task starts in a linked worktree. A primary hygiene
+  task must classify every path, preserve useful work in Git, remove only exact
+  verified duplicates, fast-forward without reset/clean/stash, and finish with
+  `--mode primary-status`. A clean primary is a coordination invariant, not a
+  convenient shared writer directory.
