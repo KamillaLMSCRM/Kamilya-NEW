@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.20] - 2026-09-30
+
+### Security
+
+- Pin urllib3 to 2.8.0 in the Poetry production image and pip requirements,
+  addressing the three advisories reported against 2.7.0 by the blocking audit.
+  Preserve the fail-closed audit and verify all dependency pin surfaces.
+
+### Changed
+
+- Carry forward the daily-learning improvements prepared in 0.11.19, which
+  was not production-deployed because its fresh dependency audit failed.
+
 ## [0.11.19] - 2026-09-30
 
 ### Added

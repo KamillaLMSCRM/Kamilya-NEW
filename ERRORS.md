@@ -1132,6 +1132,21 @@ production runtime and cross-container readback remain pending release approval.
 - Prevention: audit the exact exported dependency graph before candidate
   acceptance; synchronize all pin surfaces and verify auth/session regressions.
 
+## SECURITY-016 - urllib3 2.7.0 became a fresh blocking production audit finding
+
+- Date: 2026-09-30.
+- Symptom: exact-SHA CI `36736107879` rejected urllib3 2.7.0 with three
+  advisories: CVE-2026-97687, CVE-2026-97688 and CVE-2026-97689; each reported
+  2.8.0 as the fix. The release stopped before production mutation.
+- Cause: the transitive HTTP package remained at a previously accepted version
+  in the lock; earlier green DEV evidence did not establish current audit status.
+- Fix: bounded urllib3-only update to 2.8.0, explicit Poetry/pip security pin,
+  resolver-generated lock and a three-surface contract. No ignore or bypass.
+- Verification: lock consistency and release validator PASS; focused dependency
+  and caption-adapter contracts PASS. Fresh exact-SHA CI remains required.
+- Prevention: re-audit the exact production graph at release time and retain the
+  failed attempt. Synchronize Poetry and pip paths; do not rewrite published tags.
+
 ## CI-001 - English errors journal broke the release contract parser
 
 - Date: 2026-08-21.

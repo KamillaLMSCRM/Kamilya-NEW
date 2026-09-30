@@ -1,7 +1,7 @@
 # Backend monorepo config
 [tool.poetry]
 name = "api"
-version = "0.11.19"
+version = "0.11.20"
 description = "Kamilya LMS API"
 authors = ["Kamilya Team <dev@kml.kz>"]
 
@@ -23,6 +23,7 @@ redis = "^5.2"
 python-multipart = "^0.0.32"
 alembic = "^1.14"
 httpx = "^0.27"
+urllib3 = "2.8.0"
 websockets = "^14.0"
 # YouTube public-caption adapter (experimental, YTG-06). MIT, pinned minor.
 # Feature-flagged off by default (YOUTUBE_IMPORT_ENABLED).
