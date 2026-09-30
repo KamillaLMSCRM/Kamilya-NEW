@@ -11,6 +11,34 @@ DB/storage gate и приёмкой клиента
 
 ## Daily learning candidate — 2026-09-30
 
+### Current production attempt: NO_GO
+
+Owner requested production deployment and final test on 2026-09-30. Release
+metadata `0.11.19`, exact `0b69e81ecbad05f0181dfa114bef273cff7d7c45`, was
+independently read back on master, feature branch and peeled `v0.11.19` tag.
+This is source publication, **not production deployment**. Fresh master CI
+`36736107879` failed its blocking production dependency audit: urllib3 `2.7.0`,
+three reported IDs `CVE-2026-97687`, `CVE-2026-97688`, `CVE-2026-97689`; the audit
+reports fix version `2.8.0`. No ignore or weakened gate was applied. Native
+frontend build `36736269388` succeeded, but protected backend run `36736621137`
+was skipped and frontend was not switched independently.
+
+Fresh public API and CT137 frontend readback still agree on production
+`0.11.18` / `e15dc8dd8a0d93a451fbf32bc5a453fc28b08687`. Independent VM126
+read-only execution found all four active green services running with zero
+restarts and immutable image
+`ghcr.io/kamillalmscrm/kamilya-api@sha256:18e39b30d347cc5124344ff1e40f8864aad8cdd5d016620e52fb2024889cd6f7`.
+CT137 restricted-helper boundary and retained rollback
+`359d7cda1fba310a4e2e890fbfc48fef89a3f357` passed. No production mutation,
+migration, customer-data change, mail, AI call or billing change occurred.
+Full web regression was repeated: 131 files / 737 tests PASS. Final production
+browser acceptance of the candidate is **NOT VERIFIED**, because it was not
+deployed. Next: approve the bounded urllib3 repair, then issue a new exact-SHA
+release packet with fresh CI; never rewrite the published release tag.
+Sanitized local evidence:
+`.release-evidence/production/REL-DAILY-LEARNING-PROD-20260930/`.
+The older candidate notes below are historical and do not override this NO_GO.
+
 This is an implementation candidate on `feature/daily-learning-20260930`,
 not a production release. It adds assessment drill-down, truthful action-plan
 navigation and learner next-step/deadline reads; no migration, provider/billing

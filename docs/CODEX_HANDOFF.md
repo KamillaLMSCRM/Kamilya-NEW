@@ -7,6 +7,30 @@
 
 ## Daily learning: кандидат с изолированной DEV-приёмкой, не production
 
+### Current production attempt — NO_GO (2026-09-30)
+
+- result: owner requested production rollout and final test; exact release
+  candidate `0.11.19` / `0b69e81ecbad05f0181dfa114bef273cff7d7c45` is published
+  to master/feature/tag, but NOT production-deployed.
+- changed: standard release metadata only above accepted DEV functional payload;
+  no production mutation. Primary fast-forwarded safely; clean master and remote
+  identity independently confirmed, with sanitized push receipts preserved.
+- verified: full web 131 files / 737 tests PASS; release validator PASS;
+  native CI36736269388 SUCCESS. Fresh master CI36736107879 FAIL in production
+  audit: urllib3 2.7.0, CVE-2026-97687/97688/97689, reported fix2.8.0.
+  Protected backend36736621137 SKIPPED; CT137 not switched. Public production
+  API/frontend remain exact `e15dc8dd8a0d93a451fbf32bc5a453fc28b08687` /0.11.18;
+  active green API+3workers share immutable digest18e39b30, running/restarts0.
+- blockers: fresh dependency audit; candidate production browser acceptance
+  NOT VERIFIED. No audit ignore, alternate deploy or tag rewrite.
+- next: obtain approval for bounded urllib3 repair, fresh exact-SHA CI and new
+  release identity, then resume protected backend/native frontend gates and
+  synthetic production test. Evidence:
+  `.release-evidence/production/REL-DAILY-LEARNING-PROD-20260930/`.
+
+The production request supersedes older statements below that no production
+approval existed; the current candidate stopped at the failed audit gate.
+
 ### Current continuation — permanent DEV QA stand (2026-09-30)
 
 - result: exact `de37faba938f0dc660fb7de7010d7710d7e9a160` promoted to DEV
