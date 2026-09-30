@@ -21,14 +21,15 @@
 [`product/contract-modules/daily-learning/MODULE_INDEX.md`](product/contract-modules/daily-learning/MODULE_INDEX.md).
 Локальная приёмка и границы записаны в `CODEX_HANDOFF.md`; production не менялся.
 
-1. Подтвердить replacement exact-SHA CI в PR 15 после минимального исправления
-   PyJWT и устаревшего source-location теста. Изолированный Supabase DEV gate
-   пройден: 24 reporting + 3 assembled daily-learning tests, effective `lms_app`,
-   RLS negatives, reporting/learner deadline equality, zero fixture residue,
-   unchanged revision `0168`. Это не deployed DEV browser acceptance.
-2. Пройти отдельный owner-approved release packet и реальный browser readback.
+CI/isolated DEV gates runtime-кандидата `a838464adda2cff646e6b55bc381c65f4757da7c`
+закрыты: CI `36713494647`, все 7 jobs PASS; DEV 24 reporting + 3 assembled tests,
+effective `lms_app`, RLS negatives, shared deadlines, zero residue, unchanged
+revision `0168`. Final documentation-only PR head CI проверяется отдельно.
+
+1. Пройти отдельный owner-approved release packet и реальный browser readback
+   развёрнутого приложения. Изолированный DEV gate не заменяет этот readback.
    Планы напоминания/переназначения не представлять как выполненные действия.
-3. Отдельно спроектировать occurrence-aware continuation всего плеера/прогресса,
+2. Отдельно спроектировать occurrence-aware continuation всего плеера/прогресса,
    если требуется работа с произвольным перекрывающимся назначением. Текущий
    кандидат безопасно скрывает продолжение для неканонического экземпляра;
    он не решает весь player contract.

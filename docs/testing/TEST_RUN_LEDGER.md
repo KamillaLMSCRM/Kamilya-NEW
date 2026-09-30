@@ -691,3 +691,10 @@ Rules:
   Root owns edits, runtime verification, integration, Git and durable evidence.
 - Replacement exact-SHA CI is required after push. Deployed DEV browser and
   production identity/image/worker/user-flow readback are NOT VERIFIED here.
+- Closeout: runtime candidate `a838464adda2cff646e6b55bc381c65f4757da7c`, exact
+  CI `36713494647` SUCCESS, all7jobs. Full backend3475PASS/2SKIP/138warnings,
+  121.01s, coverage74%; unit1933PASS/5warnings,21.06s; PostgreSQL17/pgvector
+  RLS42PASS/6warnings,8.42s; exported production graph audit reports no known
+  vulnerabilities. Source branch remote independently matched local SHA under
+  project account KamillaLMSCRM. Final documentation-only closeout still requires
+  green final-head CI; read current status in PR15 rather than infer it here.

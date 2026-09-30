@@ -30,8 +30,12 @@ fixtures rolled back; zero residue and unchanged public revision verified.
 PyJWT-only update to 2.14.0. Exact-SHA CI run `36709677536` on candidate
 `2c038da452e08ec720e6b08c586a381d52b75e92` failed the inherited PyJWT 2.13.0 audit
 and a source-location test invalidated by helper extraction; both are remediated
-in the replacement candidate, whose CI must pass independently. No audit ignore
-or workflow weakening. PR 15 is open; deployed DEV browser and production
+in runtime candidate `a838464adda2cff646e6b55bc381c65f4757da7c`, whose exact-SHA
+CI `36713494647` passed all 7 jobs independently: full backend3475PASS/2SKIP,
+coverage74%, unit1933PASS, PostgreSQL17/pgvector RLS42PASS, production graph
+audit with no known vulnerabilities. Final closeout is documentation-only;
+the final PR head CI remains independently required. No audit ignore or workflow
+weakening. PR 15 is open; deployed DEV browser and production
 user-flow readback remain separate gates. No merge/release approval was given.
 
 Overlapping current grants are displayed, but continuation is disabled unless

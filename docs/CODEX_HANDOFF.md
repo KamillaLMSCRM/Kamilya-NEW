@@ -24,17 +24,24 @@
   chain 3 PASS (66.31s). Effective `lms_app` is non-super/non-bypass, six read
   tables FORCE RLS; foreign tenant/user/enrollment reads denied. Both gates
   ended with zero fixture tenants and unchanged public revision, outer rollback.
-- blockers: CI run `36709677536` for `2c038da452e08ec720e6b08c586a381d52b75e92`
+  Runtime candidate `a838464adda2cff646e6b55bc381c65f4757da7c`: exact-SHA CI
+  `36713494647` SUCCESS, all 7 jobs. Backend full 3475 PASS / 2 SKIP, coverage
+  74%; unit 1933 PASS; PostgreSQL17/pgvector RLS gate 42 PASS; production
+  dependency audit found no known vulnerabilities in the exported graph.
+- blockers: no candidate CI/isolated DEV blocker at that SHA. Prior CI
+  `36709677536` for `2c038da452e08ec720e6b08c586a381d52b75e92`
   failed dependency audit (PyJWT 2.13.0) and a stale source-location guard after
   extracting the shared deadline model. Bounded remediation pins only PyJWT
-  2.14.0 across all dependency surfaces and corrects that guard; replacement
-  exact-SHA CI is required. Production/browser deployment readback not performed.
-- next: replacement exact-SHA CI -> отдельное разрешение владельца на release.
+  2.14.0 across all dependency surfaces and corrects that guard; the replacement
+  exact-SHA CI above passed. Production/browser deployment readback not performed.
+- next: отдельное разрешение владельца на release и deployed browser readback.
   Не обещать произвольный occurrence launch: canonical resolver guard обязателен
   также для enrollment-restricted dashboard reads.
 
 PR: https://github.com/KamillaLMSCRM/Kamilya-NEW/pull/15. Project-token PR
 permission was rechecked after the owner update and PR creation succeeded.
+Final evidence closeout changes documentation only after the tested runtime SHA;
+the final PR head must still retain green exact-SHA CI, read directly from PR/CI.
 DEV evidence is rollback-isolated synthetic read-chain acceptance, not deployed
 DEV browser acceptance or a production/customer journey. No audit bypass,
 migration, provider spend or merge is authorized by this continuation.
