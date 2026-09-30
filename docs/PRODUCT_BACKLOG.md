@@ -1,6 +1,6 @@
 # Kamilya LMS: актуальный продуктовый backlog
 
-**Дата:** 2026-09-28
+**Дата:** 2026-09-30
 **Область:** открытые продуктовые и UX-задачи. Выполненные эпики здесь не
 хранятся.
 
@@ -10,8 +10,26 @@
 [`product/CORPORATE_STAGE1_ACCEPTANCE_2026-09-26.md`](product/CORPORATE_STAGE1_ACCEPTANCE_2026-09-26.md)
 и
 [`product/CORPORATE_STAGE1_RESULT_2026-09-26.md`](product/CORPORATE_STAGE1_RESULT_2026-09-26.md).
-Текущая работа ведётся по
-[`plans/2026-09-28_source-actuality-and-retraining.md`](plans/2026-09-28_source-actuality-and-retraining.md).
+Работа по актуальности источников остаётся отдельным кандидатом; её предыдущий
+план не является описанием новой задачи daily learning.
+
+## P1: daily learning — оставшиеся gates
+
+Кандидат `feature/daily-learning-20260930` добавляет точный разбор проблемных
+результатов, навигацию к существующим операциям назначения и следующий шаг
+ученика. Контракты:
+[`product/contract-modules/daily-learning/MODULE_INDEX.md`](product/contract-modules/daily-learning/MODULE_INDEX.md).
+Локальная приёмка и границы записаны в `CODEX_HANDOFF.md`; production не менялся.
+
+1. Подтвердить точный SHA в CI и изолированном Supabase DEV, включая tenant/RLS
+   и совпадение reporting/learner deadline projection. Локальные unit/SQLite
+   проверки не заменяют этот gate.
+2. Пройти отдельный owner-approved release packet и реальный browser readback.
+   Планы напоминания/переназначения не представлять как выполненные действия.
+3. Отдельно спроектировать occurrence-aware continuation всего плеера/прогресса,
+   если требуется работа с произвольным перекрывающимся назначением. Текущий
+   кандидат безопасно скрывает продолжение для неканонического экземпляра;
+   он не решает весь player contract.
 
 ## P0: замыкание корпоративного контура
 

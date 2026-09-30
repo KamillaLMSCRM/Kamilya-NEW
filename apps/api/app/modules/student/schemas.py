@@ -25,12 +25,17 @@ class EnrolledCourse(BaseModel):
     description: str
     status: str
     enrollment_status: str
+    can_resume: bool = True
+    delivery_type: str = "native"
     progress_percent: int = 0
     total_lessons: int = 0
     completed_lessons: int = 0
     enrolled_at: datetime
     last_accessed_at: datetime | None = None
     thumbnail_url: str | None = None
+    assignment_due_at: datetime | None = None
+    assignment_source: str | None = None
+    resume_href: str | None = None
 
 
 class StudentDashboard(BaseModel):

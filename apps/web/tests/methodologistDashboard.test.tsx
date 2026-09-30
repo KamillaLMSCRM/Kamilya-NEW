@@ -154,8 +154,18 @@ describe('methodologist operations dashboard', () => {
     expect(screen.getByRole('link', { name: 'В процессе: 3' })).toHaveAttribute('href', `/training-log?status=in_progress&${expectedReturn}`);
     expect(screen.getByRole('link', { name: 'Завершено: 4' })).toHaveAttribute('href', `/training-log?status=completed&${expectedReturn}`);
     expect(screen.getByRole('link', { name: 'Просрочено: 2' })).toHaveAttribute('href', `/training-log?status=overdue&${expectedReturn}`);
-    expect(screen.queryByRole('link', { name: /Тест не пройден/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Попытки исчерпаны/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Тест не пройден: 1' })).toHaveAttribute(
+      'href',
+      `/training-log?assessment_status=failed&${expectedReturn}`,
+    );
+    expect(screen.getByRole('link', { name: 'Попытки исчерпаны: 1' })).toHaveAttribute(
+      'href',
+      `/training-log?assessment_status=exhausted&${expectedReturn}`,
+    );
+    expect(screen.getByRole('link', { name: 'Действий открыто: 2' })).toHaveAttribute(
+      'href',
+      '/training-log?return_to=%2Fdashboard&action_focus=open#learning-action-center',
+    );
   });
 
   it('keeps learning data unknown when the primary read model is unavailable', async () => {

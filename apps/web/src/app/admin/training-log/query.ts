@@ -1,3 +1,5 @@
+import { parseActionFocus, parseActionIssueType, type ActionFocus, type ActionIssueType } from '@/features/learning-actions/focus';
+
 export interface TrainingLogFilters {
   enrollment_id?: string;
   course_id?: string;
@@ -9,12 +11,15 @@ export interface TrainingLogFilters {
   date_to?: string;
   search?: string;
   history?: boolean;
+  assessment_status?: 'failed' | 'exhausted';
 }
 
 export interface TrainingLogBrowserState {
   filters: TrainingLogFilters;
   search: string;
   returnTo: '/dashboard' | null;
+  action_focus?: ActionFocus;
+  issue_type?: ActionIssueType;
 }
 
 const FILTER_KEYS = [
@@ -27,10 +32,12 @@ const FILTER_KEYS = [
   'date_from',
   'date_to',
   'history',
+  'assessment_status',
 ] as const;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const STATUS_VALUES = new Set(['assigned', 'in_progress', 'completed', 'overdue']);
 const DELIVERY_VALUES = new Set(['native', 'scorm']);
+const ASSESSMENT_STATUS_VALUES = new Set(['failed', 'exhausted']);
 
 function validDate(value: string | null): value is string {
   return Boolean(value && value.length <= 40 && !Number.isNaN(Date.parse(value)));
@@ -53,6 +60,7 @@ export function parseTrainingLogBrowserQuery(
   const deliveryType = params.get('delivery_type');
   const dateFrom = params.get('date_from');
   const dateTo = params.get('date_to');
+  const assessmentStatus = params.get('assessment_status');
 
   if (validUuid(enrollmentId)) filters.enrollment_id = enrollmentId;
   if (validUuid(courseId)) filters.course_id = courseId;
@@ -63,15 +71,20 @@ export function parseTrainingLogBrowserQuery(
   if (validDate(dateFrom)) filters.date_from = dateFrom;
   if (validDate(dateTo)) filters.date_to = dateTo;
   if (params.get('history') === 'true') filters.history = true;
+  if (assessmentStatus && ASSESSMENT_STATUS_VALUES.has(assessmentStatus)) filters.assessment_status = assessmentStatus as TrainingLogFilters['assessment_status'];
 
   const rawSearch = params.get('search');
   const search = rawSearch?.trim() ?? '';
   const returnTo = params.get('return_to') === '/dashboard' ? '/dashboard' : null;
+  const actionFocus = params.get('action_focus');
+  const issueType = params.get('issue_type');
 
   return {
     filters,
     search: search.length <= 200 ? search : '',
     returnTo,
+    action_focus: parseActionFocus(actionFocus),
+    issue_type: parseActionIssueType(issueType),
   };
 }
 
@@ -94,6 +107,8 @@ export function buildTrainingLogFilterQuery(
 export function buildTrainingLogBrowserHref(state: TrainingLogBrowserState): string {
   const params = buildTrainingLogFilterQuery(state.filters, state.search);
   if (state.returnTo === '/dashboard') params.set('return_to', state.returnTo);
+  if (state.action_focus) params.set('action_focus', state.action_focus);
+  if (state.issue_type) params.set('issue_type', state.issue_type);
   const query = params.toString();
   return query ? `/training-log?${query}` : '/training-log';
 }

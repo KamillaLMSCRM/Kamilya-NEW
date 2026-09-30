@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 const fetchMock = vi.hoisted(() => vi.fn());
+const queryState = vi.hoisted(() => ({ value: 'courseId=course-1&employeeId=user-1' }));
 const confirmMock = vi.hoisted(() => vi.fn().mockResolvedValue(true));
 const toastMock = vi.hoisted(() => ({
   error: vi.fn(),
@@ -11,7 +12,7 @@ const toastMock = vi.hoisted(() => ({
 
 vi.stubGlobal('fetch', fetchMock);
 vi.mock('next/navigation', () => ({
-  useSearchParams: () => new URLSearchParams('courseId=course-1&employeeId=user-1'),
+  useSearchParams: () => new URLSearchParams(queryState.value),
 }));
 vi.mock('@/store/authStore', () => ({
   useAuthStore: (selector: (state: any) => unknown) => selector({
@@ -53,6 +54,7 @@ function jsonResponse(body: unknown, status = 200) {
 
 describe('contextual course assignment flow', () => {
   beforeEach(() => {
+    queryState.value = 'courseId=course-1&employeeId=user-1';
     fetchMock.mockReset();
     confirmMock.mockClear();
     toastMock.error.mockClear();
@@ -114,6 +116,28 @@ describe('contextual course assignment flow', () => {
     });
     expect(screen.queryByRole('option', { name: 'Черновик' })).not.toBeInTheDocument();
     expect(screen.getByText('После назначения будет создана ссылка доступа')).toBeInTheDocument();
+  });
+
+  it('focuses the exact linked enrollment without executing a command and can show all', async () => {
+    const target = '10000000-0000-4000-8000-000000000001';
+    queryState.value = `course_id=course-1&enrollment_id=${target}`;
+    const fallback = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (!init?.method && String(input).endsWith('/v1/courses/course-1/enrollments')) {
+        return Promise.resolve(jsonResponse([
+          { id: target, user_id: 'user-1', course_id: 'course-1', status: 'completed', source: 'manual' },
+          { id: '10000000-0000-4000-8000-000000000002', user_id: 'user-1', course_id: 'course-1', status: 'enrolled', source: 'manual' },
+        ]));
+      }
+      return fallback(input, init);
+    });
+    render(<CourseAssignmentsPage />);
+    expect(await screen.findByText('Показано выбранное назначение. Операции запускаются отдельно от плана.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Назначить повторно' })).toHaveLength(1));
+    expect(fetchMock.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Показать все назначения' }));
+    expect(screen.getAllByRole('button', { name: 'Назначить повторно' })).toHaveLength(2);
+    expect(confirmMock).not.toHaveBeenCalled();
   });
 
   it('requires a reason to repeat a manual assignment and refreshes the assignment list', async () => {

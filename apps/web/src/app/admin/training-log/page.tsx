@@ -197,8 +197,10 @@ export default function AdminTrainingLogPage() {
       filters: nextFilters,
       search: nextSearch,
       returnTo: browserState.returnTo,
+      action_focus: browserState.action_focus,
+      issue_type: browserState.issue_type,
     }), { scroll: false });
-  }, [browserState.returnTo, router]);
+  }, [browserState.returnTo, browserState.action_focus, browserState.issue_type, router]);
 
   const updateFilters = useCallback((update: (current: Filters) => Filters) => {
     replaceBrowserState(update(filters), searchInput);
@@ -362,6 +364,13 @@ export default function AdminTrainingLogPage() {
     setOffset(0);
     setSelectedEvidenceIds(new Set());
   };
+  const clearActionFocus = () => {
+    router.replace(buildTrainingLogBrowserHref({
+      filters,
+      search: searchInput,
+      returnTo: browserState.returnTo,
+    }), { scroll: false });
+  };
 
   const exportableRows = items.filter((row) => canExportEvidence(row));
   const allExportableSelected = exportableRows.length > 0
@@ -477,6 +486,15 @@ export default function AdminTrainingLogPage() {
         </div>
       )}
 
+      {filters.assessment_status && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+          <span>{lang === 'en' ? `Assessment result: ${filters.assessment_status === 'failed' ? 'not passed' : 'attempts exhausted'}` : lang === 'kk' ? `Бағалау нәтижесі: ${filters.assessment_status === 'failed' ? 'өтпеген' : 'әрекеттер таусылды'}` : `Результат теста: ${filters.assessment_status === 'failed' ? 'не пройден' : 'попытки исчерпаны'}`}</span>
+          <Button type="button" size="sm" variant="outline" onClick={() => updateFilters(({ assessment_status: _assessmentStatus, ...rest }) => rest)}>
+            {lang === 'en' ? 'Clear result filter' : lang === 'kk' ? 'Нәтиже сүзгісін тазалау' : 'Сбросить фильтр результата'}
+          </Button>
+        </div>
+      )}
+
       {page?.reporting_scope === 'restricted' && (
         <div role="status" className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">
           {restrictedScopeCopy}
@@ -562,7 +580,7 @@ export default function AdminTrainingLogPage() {
       {canInspectLearning && (
         <>
           <div id="learning-action-center" className="scroll-mt-6">
-            <LearningActionCenter courseId={filters.course_id} />
+            <LearningActionCenter courseId={filters.course_id} focus={browserState.action_focus} issueType={browserState.issue_type} onClearFocus={clearActionFocus} />
           </div>
           <LearningInsightsPanel
             courseId={filters.course_id}

@@ -123,18 +123,18 @@ describe('learning action center', () => {
     });
     render(<LearningActionCenter courseId="course-1" />);
     await screen.findByText('Synthetic Learner');
-    fireEvent.click(screen.getAllByRole('button', { name: /Create action|Создать действие|Әрекет құру/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /Create plan|Создать план|Жоспар құру/i })[0]);
 
     const select = screen.getByLabelText(/Action type|Тип действия|Әрекет түрі/i);
     expect(select).toHaveValue('reassignment');
-    expect(screen.getByRole('option', { name: /Send reminder|Напомнить|Еске салу/i })).toBeDisabled();
+    expect(screen.getByRole('option', { name: /Reminder plan|План напоминания|Еске салу жоспары/i })).toBeDisabled();
   });
 
   it('creates an occurrence-bound action and reloads the center', async () => {
     render(<LearningActionCenter courseId="course-1" />);
     await screen.findByText('Synthetic Learner');
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Create action|Создать действие|Әрекет құру/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /Create plan|Создать план|Жоспар құру/i })[0]);
     fireEvent.change(screen.getByLabelText(/Action type|Тип действия|Әрекет түрі/i), {
       target: { value: 'reassignment' },
     });
@@ -144,7 +144,7 @@ describe('learning action center', () => {
     fireEvent.change(screen.getByLabelText(/Due date|Срок|Мерзімі/i), {
       target: { value: '2026-10-01' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /Save action|Сохранить действие|Әрекетті сақтау/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Save plan|Сохранить план|Жоспарды сақтау/i }));
 
     await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/v1/admin/learning-actions', expect.objectContaining({
       target_type: 'enrollment',
@@ -155,6 +155,31 @@ describe('learning action center', () => {
       comment: 'Repeat the mandatory course',
     })));
     expect(apiMock.get).toHaveBeenCalledTimes(2);
+  });
+
+  it('exposes side-effect-free journal and assignment plan links with truthful copy', async () => {
+    render(<LearningActionCenter courseId="course-1" />);
+    await screen.findByText('Synthetic Learner');
+
+    expect(screen.getByRole('link', { name: /Открыть запись в журнале|Open journal record/i })).toHaveAttribute(
+      'href',
+      '/training-log?enrollment_id=enrollment-1&course_id=course-1',
+    );
+    expect(screen.getByRole('link', { name: /Открыть операции назначения|Open assignment operations/i })).toHaveAttribute(
+      'href',
+      '/course-assignments?course_id=course-1&enrollment_id=enrollment-1',
+    );
+    fireEvent.click(screen.getByRole('link', { name: /Открыть операции назначения|Open assignment operations/i }));
+    expect(apiMock.post).not.toHaveBeenCalled();
+  });
+
+  it('offers a local reset when opened through a focused deep link', async () => {
+    const onClearFocus = vi.fn();
+    render(<LearningActionCenter courseId="course-1" focus="training" onClearFocus={onClearFocus} />);
+    await screen.findByText('Synthetic Learner');
+    fireEvent.click(screen.getByRole('button', { name: /Показать все разделы|Show all sections/i }));
+    expect(onClearFocus).toHaveBeenCalledTimes(1);
+    expect(apiMock.post).not.toHaveBeenCalled();
   });
 
   it('closes an action through the explicit observed-outcome seam', async () => {
@@ -194,19 +219,19 @@ describe('learning action center', () => {
     render(<LearningActionCenter courseId="course-1" />);
     await screen.findByText('Synthetic Learner');
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Create action|Создать действие|Әрекет құру/i })[0]);
-    fireEvent.click(screen.getByRole('button', { name: /Save action|Сохранить действие|Әрекетті сақтау/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /Create plan|Создать план|Жоспар құру/i })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /Save plan|Сохранить план|Жоспарды сақтау/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/Could not save|Не удалось сохранить|сақтау мүмкін болмады/i);
-    expect(screen.getByRole('button', { name: /Save action|Сохранить действие|Әрекетті сақтау/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Save plan|Сохранить план|Жоспарды сақтау/i })).toBeInTheDocument();
   });
 
   it('creates a question action with the full immutable question identity', async () => {
     render(<LearningActionCenter courseId="course-1" />);
     await screen.findByText('Which control is required?');
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Create action|Создать действие|Әрекет құру/i })[1]);
-    fireEvent.click(screen.getByRole('button', { name: /Save action|Сохранить действие|Әрекетті сақтау/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /Create plan|Создать план|Жоспар құру/i })[1]);
+    fireEvent.click(screen.getByRole('button', { name: /Save plan|Сохранить план|Жоспарды сақтау/i }));
 
     await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/v1/admin/learning-actions', expect.objectContaining({
       target_type: 'question',

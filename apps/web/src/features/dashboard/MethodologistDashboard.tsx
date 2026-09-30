@@ -30,6 +30,7 @@ const copy = {
     attentionHint: 'Сначала разберите просрочки, неудачные попытки и остановившееся обучение.',
     trainingIssues: 'Проблемных назначений',
     weakQuestions: 'Слабых вопросов',
+    weakQuestionsHint: 'Без курса показываются глобальные слабые вопросы, если API их вернул.',
     openActions: 'Действий открыто',
     overdueActions: 'Из них просрочено',
     missingAssignments: 'Без назначения',
@@ -83,6 +84,7 @@ const copy = {
     attentionHint: 'Start with overdue, failed, and stalled learning.',
     trainingIssues: 'Problem assignments',
     weakQuestions: 'Weak questions',
+    weakQuestionsHint: 'No course is selected; only global weak-question rows returned by the API are shown.',
     openActions: 'Open actions',
     overdueActions: 'Overdue actions',
     missingAssignments: 'Missing assignments',
@@ -136,6 +138,7 @@ const copy = {
     attentionHint: 'Алдымен мерзімі өткен, сәтсіз және тоқтап қалған оқуды қараңыз.',
     trainingIssues: 'Мәселелі тағайындау',
     weakQuestions: 'Әлсіз сұрақ',
+    weakQuestionsHint: 'Курс таңдалмаған; API қайтарған жаһандық әлсіз сұрақтар ғана көрсетіледі.',
     openActions: 'Ашық әрекет',
     overdueActions: 'Мерзімі өткен әрекет',
     missingAssignments: 'Тағайындау жоқ',
@@ -238,6 +241,9 @@ export function MethodologistDashboard() {
     returnTo: '/dashboard',
   });
   const actionCenterHref = `${trainingLogHref()}#learning-action-center`;
+  const actionFocusHref = (focus: 'training' | 'weak_questions' | 'open' | 'overdue', issueType?: string) => {
+    return `${buildTrainingLogBrowserHref({ filters: {}, search: '', returnTo: '/dashboard', action_focus: focus, issue_type: issueType as 'not_started' | 'stalled' | 'overdue' | 'failed_required_quiz' | undefined })}#learning-action-center`;
+  };
 
   return (
     <div className="space-y-6" data-testid="methodologist-dashboard">
@@ -253,10 +259,11 @@ export function MethodologistDashboard() {
         <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="attention-title">
           <SectionHeading id="attention-title" title={m.attention} hint={m.attentionHint} icon={<AlertTriangle className="h-5 w-5" />} tone="amber" />
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Metric label={m.trainingIssues} value={model.attention.trainingIssues} testId="training-issues" />
-            <Metric label={m.weakQuestions} value={model.attention.weakQuestions} />
-            <Metric label={m.openActions} value={model.attention.openActions} testId="open-actions" href={actionCenterHref} />
-            <Metric label={m.overdueActions} value={model.attention.overdueActions} tone={model.attention.overdueActions > 0 ? 'danger' : 'default'} />
+            <Metric label={m.trainingIssues} value={model.attention.trainingIssues} testId="training-issues" href={actionFocusHref('training')} />
+            <Metric label={m.weakQuestions} value={model.attention.weakQuestions} href={actionFocusHref('weak_questions')} />
+            <p className="col-span-2 text-xs text-muted-foreground sm:col-span-4">{m.weakQuestionsHint}</p>
+            <Metric label={m.openActions} value={model.attention.openActions} testId="open-actions" href={actionFocusHref('open')} />
+            <Metric label={m.overdueActions} value={model.attention.overdueActions} tone={model.attention.overdueActions > 0 ? 'danger' : 'default'} href={actionFocusHref('overdue')} />
             {model.mandatory && <Metric label={m.missingAssignments} value={model.mandatory.missing_enrollment} tone={model.mandatory.missing_enrollment > 0 ? 'danger' : 'default'} href="/mandatory-training?action_required=materialize" />}
             {model.mandatory && <Metric label={m.staleAssignments} value={model.mandatory.stale_managed_enrollment} tone={model.mandatory.stale_managed_enrollment > 0 ? 'danger' : 'default'} href="/mandatory-training?action_required=review_stale" />}
           </div>
@@ -273,7 +280,7 @@ export function MethodologistDashboard() {
           <SectionHeading id="health-title" title={m.health} hint={m.healthHint} icon={<ListChecks className="h-5 w-5" />} tone="primary" />
           <Link href={trainingLogHref({ status: 'completed' })} className="mt-6 flex items-end justify-between rounded-xl transition hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`${m.completion}: ${model.training.completed}`}><div><div className="text-4xl font-bold tracking-tight text-foreground">{model.training.completionPercent}%</div><div className="mt-1 text-sm text-muted-foreground">{m.completion}: {model.training.completed} / {model.training.total}</div></div><CheckCircle2 className="h-9 w-9 text-emerald-500" /></Link>
           <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={m.completion} aria-valuemin={0} aria-valuemax={100} aria-valuenow={model.training.completionPercent}><div className="h-full rounded-full bg-emerald-500" style={{ width: `${model.training.completionPercent}%` }} /></div>
-          <div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-4"><MetricCompact label={m.notStarted} value={model.training.notStarted} href={trainingLogHref({ status: 'assigned' })} /><MetricCompact label={m.inProgress} value={model.training.inProgress} href={trainingLogHref({ status: 'in_progress' })} /><MetricCompact label={m.overdue} value={model.training.overdue} testId="training-overdue" danger={model.training.overdue > 0} href={trainingLogHref({ status: 'overdue' })} /><MetricCompact label={m.failed} value={model.training.failed} danger={model.training.failed > 0} /><MetricCompact label={m.exhausted} value={model.training.exhausted} danger={model.training.exhausted > 0} /></div>
+          <div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-4"><MetricCompact label={m.notStarted} value={model.training.notStarted} href={trainingLogHref({ status: 'assigned' })} /><MetricCompact label={m.inProgress} value={model.training.inProgress} href={trainingLogHref({ status: 'in_progress' })} /><MetricCompact label={m.overdue} value={model.training.overdue} testId="training-overdue" danger={model.training.overdue > 0} href={trainingLogHref({ status: 'overdue' })} /><MetricCompact label={m.failed} value={model.training.failed} danger={model.training.failed > 0} href={trainingLogHref({ assessment_status: 'failed' })} /><MetricCompact label={m.exhausted} value={model.training.exhausted} danger={model.training.exhausted > 0} href={trainingLogHref({ assessment_status: 'exhausted' })} /></div>
         </section>
       </div>}
 

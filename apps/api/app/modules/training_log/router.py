@@ -60,6 +60,7 @@ async def training_log_summary(
         default=None
     ),
     history: bool = Query(default=False),
+    assessment_status: Literal["failed", "exhausted"] | None = Query(default=None),
     delivery_type: Literal["native", "scorm"] | None = Query(default=None),
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
@@ -86,6 +87,7 @@ async def training_log_summary(
         position_id=position_id,
         status=status,
         history=history,
+        assessment_status=assessment_status,
         delivery_type=delivery_type,
         date_from=date_from,
         date_to=date_to,
@@ -114,6 +116,7 @@ async def list_training_log(
         default=None
     ),
     history: bool = Query(default=False),
+    assessment_status: Literal["failed", "exhausted"] | None = Query(default=None),
     delivery_type: Literal["native", "scorm"] | None = Query(default=None),
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
@@ -149,6 +152,7 @@ async def list_training_log(
         position_id=position_id,
         status=status,
         history=history,
+        assessment_status=assessment_status,
         delivery_type=delivery_type,
         date_from=date_from,
         date_to=date_to,

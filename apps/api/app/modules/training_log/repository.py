@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
@@ -43,16 +42,14 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.selectable import Select, Subquery
 
 from app.models.department import Department
 from app.models.enrollment import Enrollment
-from app.models.enrollment_access_policy import EnrollmentAccessPolicy
 from app.models.users import User
 from app.modules.courses.models import Course as CourseModel
 from app.modules.enrollments.occurrences import is_current_occurrence
-from app.modules.learning_cycles.models import LearningPathCycleInstance, RecurringLearningAssignment
-from app.modules.learning_paths.models import LearningPathAssignment
+from app.modules.learning_cycles.read_model import join_cycle_read_model as _join_cycle_read_model
 from app.modules.organization_scope import resolve_ancestor_paths, resolve_descendants
 from app.modules.training_evidence.models import (
     TrainingEvidenceEvent,
@@ -63,7 +60,6 @@ from app.modules.training_evidence.models import (
 )
 from app.modules.training_log.deadline_policy import (
     classify_certificate_status,
-    deadline_status_sql,
     operational_deadline_state_sql,
 )
 from app.modules.training_log.schemas import TrainingLogFilter
@@ -87,94 +83,51 @@ _quiz_attempts = Table(
 )
 
 
-@dataclass(frozen=True)
-class _CycleReadColumns:
-    cycle_id: Any
-    cycle_type: Any
-    scheduled_for: Any
-    due_at: Any
-    assignment_due_at: Any
-    eligible: Any
 
-    def deadline_status(self) -> ColumnElement[str]:
-        return deadline_status_sql(
-            due_at=self.due_at,
-            completed_at=Enrollment.completed_at,
-            enrollment_status=Enrollment.status,
-            eligible=self.eligible,
+
+def _assessment_outcomes(tenant_id: UUID) -> Subquery:
+    """One outcome per quiz/occurrence, reused by metric counts and drill-down.
+
+    A passing attempt resolves that quiz's failures. Attempt limits are never
+    summed across quizzes. Tenant and learner identity are checked explicitly.
+    """
+    attempts = Table(
+        "quiz_attempts", MetaData(),
+        Column("id", PG_UUID), Column("tenant_id", PG_UUID),
+        Column("user_id", PG_UUID), Column("enrollment_id", PG_UUID),
+        Column("quiz_id", PG_UUID), Column("passed", Boolean),
+    )
+    quizzes = Table(
+        "quizzes", MetaData(), Column("id", PG_UUID),
+        Column("tenant_id", PG_UUID), Column("attempt_limit", Integer),
+    )
+    occurrence = Enrollment.__table__.alias("assessment_occurrence")
+    return (
+        select(
+            attempts.c.enrollment_id.label("enrollment_id"),
+            attempts.c.quiz_id.label("quiz_id"),
+            func.count(attempts.c.id).label("attempt_count"),
+            func.bool_or(attempts.c.passed).label("has_passed"),
+            quizzes.c.attempt_limit.label("attempt_limit"),
         )
+        .join(occurrence, and_(
+            occurrence.c.id == attempts.c.enrollment_id,
+            occurrence.c.tenant_id == tenant_id,
+            occurrence.c.user_id == attempts.c.user_id,
+        ))
+        .join(quizzes, and_(quizzes.c.id == attempts.c.quiz_id, quizzes.c.tenant_id == tenant_id))
+        .where(attempts.c.tenant_id == tenant_id)
+        .group_by(attempts.c.enrollment_id, attempts.c.quiz_id, quizzes.c.attempt_limit)
+        .subquery()
+    )
 
 
-def _join_cycle_read_model(stmt: Any, tenant_id: UUID) -> tuple[Any, _CycleReadColumns]:
-    """Attach direct-course and learning-path cycle identity without writes."""
-    stmt = stmt.outerjoin(
-        RecurringLearningAssignment,
-        and_(
-            RecurringLearningAssignment.id == Enrollment.recurring_assignment_id,
-            RecurringLearningAssignment.tenant_id == tenant_id,
-            RecurringLearningAssignment.user_id == Enrollment.user_id,
-            RecurringLearningAssignment.course_id == Enrollment.course_id,
-            RecurringLearningAssignment.enrollment_id == Enrollment.id,
-        ),
-    )
-    stmt = stmt.outerjoin(
-        LearningPathAssignment,
-        and_(
-            LearningPathAssignment.id == Enrollment.learning_path_assignment_id,
-            LearningPathAssignment.tenant_id == tenant_id,
-            LearningPathAssignment.user_id == Enrollment.user_id,
-        ),
-    )
-    stmt = stmt.outerjoin(
-        LearningPathCycleInstance,
-        and_(
-            LearningPathCycleInstance.id == LearningPathAssignment.recurrence_instance_id,
-            LearningPathCycleInstance.tenant_id == tenant_id,
-            LearningPathCycleInstance.user_id == Enrollment.user_id,
-            LearningPathCycleInstance.path_id == LearningPathAssignment.path_id,
-        ),
-    )
-    stmt = stmt.outerjoin(
-        EnrollmentAccessPolicy,
-        and_(
-            EnrollmentAccessPolicy.enrollment_id == Enrollment.id,
-            EnrollmentAccessPolicy.tenant_id == tenant_id,
-            EnrollmentAccessPolicy.user_id == Enrollment.user_id,
-        ),
-    )
-    cycle_due_at = func.coalesce(
-        RecurringLearningAssignment.effective_due_at,
-        LearningPathCycleInstance.effective_due_at,
-    )
-    cycle_eligible = case(
-        (
-            RecurringLearningAssignment.id.is_not(None),
-            RecurringLearningAssignment.status.in_(("assigned", "completed")),
-        ),
-        else_=and_(
-            LearningPathCycleInstance.status.in_(("active", "completed")),
-            LearningPathAssignment.status.in_(("active", "completed")),
-        ),
-    )
-    assignment_due_at = func.coalesce(
-        EnrollmentAccessPolicy.due_at,
-        case((cycle_eligible.is_(True), cycle_due_at), else_=None),
-    )
-    return stmt, _CycleReadColumns(
-        cycle_id=func.coalesce(RecurringLearningAssignment.id, LearningPathCycleInstance.id),
-        cycle_type=case(
-            (RecurringLearningAssignment.id.is_not(None), literal("course")),
-            (LearningPathCycleInstance.id.is_not(None), literal("learning_path")),
-            else_=None,
-        ),
-        scheduled_for=func.coalesce(
-            RecurringLearningAssignment.scheduled_for,
-            LearningPathCycleInstance.scheduled_for,
-        ),
-        due_at=cycle_due_at,
-        assignment_due_at=assignment_due_at,
-        eligible=cycle_eligible,
-    )
+def _assessment_enrollment_ids(tenant_id: UUID, status: str) -> Select[Any]:
+    outcomes = _assessment_outcomes(tenant_id)
+    stmt = select(outcomes.c.enrollment_id).where(outcomes.c.has_passed.is_(False))
+    if status == "exhausted":
+        stmt = stmt.where(outcomes.c.attempt_count >= outcomes.c.attempt_limit)
+    return stmt
 
 
 def _apply_filters(stmt, f: TrainingLogFilter, tenant_id: UUID):
@@ -206,6 +159,8 @@ def _apply_filters(stmt, f: TrainingLogFilter, tenant_id: UUID):
         stmt = stmt.where(CourseModel.id == f.course_id)
     if f.enrollment_id:
         stmt = stmt.where(Enrollment.id == f.enrollment_id)
+    if f.assessment_status:
+        stmt = stmt.where(Enrollment.id.in_(_assessment_enrollment_ids(tenant_id, f.assessment_status)))
     if f.delivery_type:
         stmt = stmt.where(CourseModel.delivery_type == f.delivery_type)
     if f.date_from:
@@ -1254,37 +1209,16 @@ async def count_current_attempt_outcomes(db: AsyncSession, tenant_id: UUID, f: T
     if f.position_id:
         eligible = eligible.where(User.position_id == f.position_id)
     eligible = eligible.subquery()
-    quizzes = Table("quizzes", MetaData(), Column("id", PG_UUID), Column("attempt_limit", Integer))
-    attempts = Table(
-        "quiz_attempts",
-        MetaData(),
-        Column("id", PG_UUID),
-        Column("tenant_id", PG_UUID),
-        Column("enrollment_id", PG_UUID),
-        Column("quiz_id", PG_UUID),
-        Column("passed", Boolean),
-    )
-    by_quiz = (
-        select(
-            attempts.c.enrollment_id.label("enrollment_id"),
-            attempts.c.quiz_id.label("quiz_id"),
-            func.count(attempts.c.id).label("attempt_count"),
-            func.bool_or(attempts.c.passed).label("has_passed"),
-        )
-        .where(attempts.c.tenant_id == tenant_id, attempts.c.enrollment_id.in_(select(eligible.c.id)))
-        .group_by(attempts.c.enrollment_id, attempts.c.quiz_id)
-        .subquery()
-    )
-    # A learner who failed first and then passed the same quiz no longer belongs
-    # in "failed current". Count only unresolved failed quiz outcomes.
+    # The drill-down and summary share exactly the same per-quiz policy.
     failed_current = await db.scalar(
-        select(func.count(func.distinct(by_quiz.c.enrollment_id))).where(by_quiz.c.has_passed.is_(False))
+        select(func.count()).select_from(eligible).where(
+            eligible.c.id.in_(_assessment_enrollment_ids(tenant_id, "failed"))
+        )
     )
     exhausted_attempts = await db.scalar(
-        select(func.count(func.distinct(by_quiz.c.enrollment_id)))
-        .select_from(by_quiz)
-        .join(quizzes, quizzes.c.id == by_quiz.c.quiz_id)
-        .where(by_quiz.c.attempt_count >= quizzes.c.attempt_limit, by_quiz.c.has_passed.is_(False))
+        select(func.count()).select_from(eligible).where(
+            eligible.c.id.in_(_assessment_enrollment_ids(tenant_id, "exhausted"))
+        )
     )
     return int(failed_current or 0), int(exhausted_attempts or 0)
 

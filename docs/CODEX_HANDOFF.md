@@ -1,8 +1,42 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-09-07
-**Рабочая папка:** `C:\Kamilya New\Kamilya-NEW`
-**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `master`
+**Обновлено:** 2026-09-30
+**Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
+**Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
+**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/daily-learning-20260930`
+
+## Daily learning: локальный кандидат, не production
+
+- result: реализованы RPT/ACT/LRN из принятого EPIC_V1; активная поправка
+  continuation safety V2. База `bf858214573387128a20ba03e72d90d13ff6dfab`.
+- changed: assessment drill-down; browser-only action focus; планы не выдают себя
+  за отправленные письма/назначения; переход к существующим операциям; дедлайн,
+  основание и безопасный следующий шаг ученика. Нет миграций, новой отправки,
+  player/progress/quiz/SCORM write changes или расширения ролей.
+- verified: 58 focused API tests; 87 affected web tests; final full web suite
+  131 files / 737 tests; final lint PASS and Next production build PASS (66 pages);
+  Python quality baseline unchanged
+  (ruff 1010, mypy 2200); version/release-contract gates; synthetic Playwright
+  2/2 at 1440/390 px and visual inspection, API mocked and commands blocked.
+  Независимое source review: READY for local acceptance; no release claim.
+- blockers: Supabase DEV/RLS и current exact-SHA CI пока NOT VERIFIED. Production
+  readback не выполнялся. На baseline CI отдельно известен SCA failure PyJWT
+  2.13.0; это не доказательство результата CI нового кандидата.
+- next: exact-SHA CI -> isolated DEV -> отдельное разрешение владельца на release.
+  Не обещать произвольный occurrence launch: canonical resolver guard обязателен
+  также для enrollment-restricted dashboard reads.
+
+Delegation ledger (English-only handoffs; root owns integration and Git):
+inventory/review used requested gpt-5.6-luna medium; learner used requested
+gpt-6-luna medium; action navigation used requested gpt-5.6-luna medium.
+At most two leaf workers wrote disjoint files. Both writing scopes needed
+corrections; root independently verified final deltas. Observed provider model,
+token/cost counters, exact duration and root rework time: NOT AVAILABLE; do not
+infer savings or first-pass acceptance. No nested delegation.
+
+Graphify code-only update: 21343 nodes / 50800 edges / 1292 communities; 55 source
+files produced no nodes, no large graph HTML. Derived navigation evidence only,
+not tenant/runtime verification; bounded source remains authoritative.
 
 ## Сначала прочитать
 
@@ -20,7 +54,11 @@
 production. Они удалены из рабочего дерева и при необходимости доступны в Git
 history.
 
-## Текущее состояние
+## Ранее записанный контур — срез 2026-09-07
+
+Таблица ниже сохранена как исторический handoff, не как свежий readback
+2026-09-30. Для release факты проверяются заново по каноническому environment
+map и `PRODUCTION_READINESS.md`; локальный daily-learning кандидат их не обновляет.
 
 | Контур | Состояние |
 |---|---|

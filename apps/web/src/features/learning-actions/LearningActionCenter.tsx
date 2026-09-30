@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/store/authStore';
 import { useLanguageStore } from '@/store/languageStore';
 import { closeLearningAction, createLearningAction, getLearningActionCenter } from './api';
+import type { ActionFocus, ActionIssueType } from './focus';
+import Link from 'next/link';
 import type {
   CreateLearningAction,
   LearningActionCenterPayload,
@@ -30,8 +32,8 @@ const messages = {
     open: 'Открыто',
     overdueCount: 'Просрочено действий',
     partial: 'Показана только часть результатов. Выберите курс или уточните фильтры.',
-    create: 'Создать действие',
-    save: 'Сохранить действие',
+    create: 'Создать план',
+    save: 'Сохранить план',
     cancel: 'Отмена',
     close: 'Зафиксировать результат',
     actionType: 'Тип действия',
@@ -48,8 +50,8 @@ const messages = {
     cancelledResolution: 'Действие отменено',
     noteRequired: 'Для ручного результата или отмены укажите пояснение.',
     confirmClose: 'Закрыть действие',
-    reminder: 'Напомнить',
-    reassignment: 'Повторно назначить',
+    reminder: 'План напоминания',
+    reassignment: 'План переназначения',
     supplemental_material: 'Добавить материал',
     manual_review: 'Разобрать вручную',
     not_started: 'Не начато',
@@ -60,6 +62,11 @@ const messages = {
     progress: 'Прогресс: {value}%',
     attempts: 'Попыток теста: {value}',
     incorrect: 'Ошибок: {percent}% из {count} ответов',
+    planOnly: 'Сохранение плана не отправляет email и не выполняет переназначение.',
+    journal: 'Открыть запись в журнале',
+    assignmentOperations: 'Открыть операции назначения',
+    clearFocus: 'Показать все разделы',
+    chooseWeakCourse: 'Выберите курс в фильтре журнала, чтобы увидеть его слабые вопросы. Общая выборка вопросов здесь не загружена.',
   },
   kk: {
     title: 'Әдіскердің әрекет орталығы',
@@ -74,8 +81,8 @@ const messages = {
     open: 'Ашық',
     overdueCount: 'Мерзімі өткен әрекеттер',
     partial: 'Нәтижелердің бір бөлігі ғана көрсетілді. Курсты таңдаңыз немесе сүзгілерді нақтылаңыз.',
-    create: 'Әрекет құру',
-    save: 'Әрекетті сақтау',
+    create: 'Жоспар құру',
+    save: 'Жоспарды сақтау',
     cancel: 'Бас тарту',
     close: 'Нәтижені тіркеу',
     actionType: 'Әрекет түрі',
@@ -92,8 +99,8 @@ const messages = {
     cancelledResolution: 'Әрекет тоқтатылды',
     noteRequired: 'Қолмен расталған нәтиже немесе тоқтату үшін түсіндірме жазыңыз.',
     confirmClose: 'Әрекетті жабу',
-    reminder: 'Еске салу',
-    reassignment: 'Қайта тағайындау',
+    reminder: 'Еске салу жоспары',
+    reassignment: 'Қайта тағайындау жоспары',
     supplemental_material: 'Материал қосу',
     manual_review: 'Қолмен талдау',
     not_started: 'Басталмаған',
@@ -104,6 +111,11 @@ const messages = {
     progress: 'Прогресс: {value}%',
     attempts: 'Тест талпыныстары: {value}',
     incorrect: 'Қате: {percent}% / {count} жауап',
+    planOnly: 'Жоспарды сақтау email жібермейді және қайта тағайындауды орындамайды.',
+    journal: 'Журналдағы жазбаны ашу',
+    assignmentOperations: 'Тағайындау операцияларын ашу',
+    clearFocus: 'Барлық бөлімдерді көрсету',
+    chooseWeakCourse: 'Әлсіз сұрақтарды көру үшін журнал сүзгісінен курсты таңдаңыз. Барлық курстардың сұрақтары мұнда жүктелмеген.',
   },
   en: {
     title: 'Methodologist action center',
@@ -118,8 +130,8 @@ const messages = {
     open: 'Open',
     overdueCount: 'Overdue actions',
     partial: 'Only part of the results is shown. Select a course or narrow the filters.',
-    create: 'Create action',
-    save: 'Save action',
+    create: 'Create plan',
+    save: 'Save plan',
     cancel: 'Cancel',
     close: 'Record outcome',
     actionType: 'Action type',
@@ -136,8 +148,8 @@ const messages = {
     cancelledResolution: 'Action cancelled',
     noteRequired: 'A manual outcome or cancellation requires an explanation.',
     confirmClose: 'Close action',
-    reminder: 'Send reminder',
-    reassignment: 'Reassign training',
+    reminder: 'Reminder plan',
+    reassignment: 'Reassignment plan',
     supplemental_material: 'Add material',
     manual_review: 'Review manually',
     not_started: 'Not started',
@@ -148,6 +160,11 @@ const messages = {
     progress: 'Progress: {value}%',
     attempts: 'Quiz attempts: {value}',
     incorrect: 'Incorrect: {percent}% of {count} responses',
+    planOnly: 'Saving a plan does not send email or execute reassignment.',
+    journal: 'Open journal record',
+    assignmentOperations: 'Open assignment operations',
+    clearFocus: 'Show all sections',
+    chooseWeakCourse: 'Select a course in the journal filter to see its weak questions. Questions across all courses are not loaded here.',
   },
 } as const;
 
@@ -168,7 +185,7 @@ type Target =
   | { kind: 'enrollment'; item: TrainingAttentionItem }
   | { kind: 'question'; item: WeakQuestionItem };
 
-export function LearningActionCenter({ courseId }: { courseId?: string }) {
+export function LearningActionCenter({ courseId, focus, issueType, onClearFocus }: { courseId?: string; focus?: ActionFocus; issueType?: ActionIssueType; onClearFocus?: () => void }) {
   const user = useAuthStore((state) => state.user);
   const lang = useLanguageStore((state) => state.lang);
   const m = messages[lang as keyof typeof messages] ?? messages.ru;
@@ -289,7 +306,20 @@ export function LearningActionCenter({ courseId }: { courseId?: string }) {
       setSaving(false);
     }
   };
-  const noSignals = data.training_items.length === 0 && data.weak_questions.length === 0 && data.actions.length === 0;
+  const visibleTraining = data.training_items.filter((item) =>
+    (!focus || focus === 'training') && (!issueType || item.issue_type === issueType),
+  );
+  const visibleQuestions = data.weak_questions.filter((item) =>
+    (!focus || focus === 'weak_questions') && !issueType,
+  );
+  const now = Date.now();
+  const visibleActions = data.actions.filter((action) => {
+    if (focus === 'open' && action.status !== 'open') return false;
+    if (focus === 'overdue' && !(action.status === 'open' && action.due_at && new Date(action.due_at).getTime() < now)) return false;
+    if (focus === 'training' || focus === 'weak_questions') return false;
+    return !issueType || action.issue_type === issueType;
+  });
+  const hasVisibleSignals = visibleTraining.length > 0 || visibleQuestions.length > 0 || visibleActions.length > 0;
   const truncated = data.summary.training_items_truncated || data.summary.actions_truncated;
 
   return (
@@ -297,6 +327,7 @@ export function LearningActionCenter({ courseId }: { courseId?: string }) {
       <CardHeader className="space-y-2">
         <CardTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5" />{m.title}</CardTitle>
         <p className="text-sm text-muted-foreground">{m.subtitle}</p>
+        {(focus || issueType) && onClearFocus && <Button size="sm" variant="outline" onClick={onClearFocus}>{m.clearFocus}</Button>}
         <div className="flex flex-wrap gap-2 text-xs">
           <span className="rounded bg-muted px-2 py-1">{m.open}: {data.summary.open_action_count}</span>
           <span className="rounded bg-muted px-2 py-1">{m.overdueCount}: {data.summary.overdue_action_count}</span>
@@ -304,36 +335,40 @@ export function LearningActionCenter({ courseId }: { courseId?: string }) {
         {truncated && <p role="status" className="text-sm text-amber-700 dark:text-amber-300">{m.partial}</p>}
       </CardHeader>
       <CardContent className="space-y-6">
-        {noSignals && <p className="text-sm text-muted-foreground">{m.empty}</p>}
-        {data.training_items.length > 0 && <section className="space-y-2">
+        {focus === 'weak_questions' && !courseId ? <p role="status" className="text-sm text-muted-foreground">{m.chooseWeakCourse}</p>
+          : !hasVisibleSignals && <p className="text-sm text-muted-foreground">{m.empty}</p>}
+        {visibleTraining.length > 0 && <section className="space-y-2">
           <h3 className="font-medium">{m.training}</h3>
-          {data.training_items.map((item) => <article key={item.enrollment_id} className="rounded-lg border p-3">
+          {visibleTraining.map((item) => <article key={item.enrollment_id} className="rounded-lg border p-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div><p className="font-medium">{item.full_name}</p><p className="text-sm text-muted-foreground">{item.course_title} · {m[item.issue_type]}</p>
                 <p className="text-xs text-muted-foreground">{format(m.progress, { value: item.progress_percent })} · {format(m.attempts, { value: item.quiz_attempts_count })}</p>
               </div>
               {item.active_action_types.length < 4 && <Button size="sm" variant="outline" onClick={() => startAction({ kind: 'enrollment', item })}>{m.create}</Button>}
             </div>
+            <div className="mt-3 flex flex-wrap gap-3 text-xs"><Link className="text-primary hover:underline" href={`/training-log?enrollment_id=${encodeURIComponent(item.enrollment_id)}&course_id=${encodeURIComponent(item.course_id)}`}>{m.journal}</Link><Link className="text-primary hover:underline" href={`/course-assignments?course_id=${encodeURIComponent(item.course_id)}&enrollment_id=${encodeURIComponent(item.enrollment_id)}`}>{m.assignmentOperations}</Link></div>
           </article>)}
         </section>}
-        {data.weak_questions.length > 0 && <section className="space-y-2">
+        {visibleQuestions.length > 0 && <section className="space-y-2">
           <h3 className="font-medium">{m.questions}</h3>
-          {data.weak_questions.map((item) => <article key={item.question_key} className="rounded-lg border p-3">
+          {visibleQuestions.map((item) => <article key={item.question_key} className="rounded-lg border p-3">
             <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-medium">{item.text}</p><p className="text-xs text-muted-foreground">{item.quiz_title} · {format(m.incorrect, { percent: item.incorrect_percent, count: item.respondents })}</p></div>
               {item.active_action_types.length < 4 && <Button size="sm" variant="outline" onClick={() => startAction({ kind: 'question', item })}>{m.create}</Button>}
             </div>
           </article>)}
         </section>}
-        {data.actions.length > 0 && <section className="space-y-2">
+        {visibleActions.length > 0 && <section className="space-y-2">
           <h3 className="font-medium">{m.actions}</h3>
-          {data.actions.map((action) => <article key={action.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+          {visibleActions.map((action) => <article key={action.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
             <div>
               <p className="font-medium">{m[action.action_type]}</p>
               <p className="text-sm text-muted-foreground">{m[action.issue_type]}</p>
               {action.comment && <p className="text-sm">{action.comment}</p>}
-              {(action.due_at || action.owner_id === user?.user_id) && <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+              {action.target_type === 'enrollment' && action.enrollment_id && (action.action_type === 'reminder' || action.action_type === 'reassignment') && <Link className="mt-2 inline-flex text-xs text-primary hover:underline" href={`/course-assignments?course_id=${encodeURIComponent(action.course_id)}&enrollment_id=${encodeURIComponent(action.enrollment_id)}`}>{m.assignmentOperations}</Link>}
+              {(action.due_at || action.owner_id === user?.user_id || (action.target_type === 'enrollment' && (action.action_type === 'reminder' || action.action_type === 'reassignment'))) && <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                 {action.due_at && <span>{m.dueAt}: {formatDueDate(action.due_at, lang as MessageLanguage)}</span>}
                 {action.owner_id === user?.user_id && <span>{m.ownerSelf}</span>}
+                {action.target_type === 'enrollment' && (action.action_type === 'reminder' || action.action_type === 'reassignment') && <span>{m.planOnly}</span>}
               </div>}
             </div>
             {action.status === 'open' && <Button size="sm" onClick={() => startClosing(action.id)}><CheckCircle2 className="mr-2 h-4 w-4" />{m.close}</Button>}
@@ -354,6 +389,7 @@ export function LearningActionCenter({ courseId }: { courseId?: string }) {
         {target && <section className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
           <div className="flex items-center gap-2 font-medium"><AlertTriangle className="h-4 w-4" />{m.create}</div>
           <p className="text-sm text-muted-foreground">{m.ownerSelf}</p>
+          <p className="text-xs text-muted-foreground">{m.planOnly}</p>
           <label className="grid gap-1 text-sm"><span>{m.actionType}</span><select aria-label={m.actionType} className="h-10 rounded-md border bg-background px-3" value={actionType} onChange={(event) => setActionType(event.target.value as LearningActionType)}>
             {(['reminder', 'reassignment', 'supplemental_material', 'manual_review'] as const).map((value) => <option key={value} value={value} disabled={target.item.active_action_types.includes(value)}>{m[value]}</option>)}
           </select></label>

@@ -228,6 +228,10 @@ export default function EnrollmentsPage() {
   const [savingReminderRuleIds, setSavingReminderRuleIds] = useState<Set<string>>(new Set());
   const [reminderHistories, setReminderHistories] = useState<Record<string, ReminderHistoryState>>({});
   const searchParams = useSearchParams();
+  const [enrollmentFocus, setEnrollmentFocus] = useState<string | null>(() => {
+    const value = searchParams.get('enrollment_id');
+    return value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? value : null;
+  });
   const preselectionApplied = useRef(false);
   const reminderHistoryControllers = useRef<Record<string, AbortController>>({});
   const token = useAuthStore((s) => s.accessToken);
@@ -547,6 +551,7 @@ export default function EnrollmentsPage() {
   // Назначения обучения фильтруются по статусу и данным сотрудника.
   const filteredEnrollments = useMemo(() => {
     return enrollments
+      .filter((e) => !enrollmentFocus || e.id === enrollmentFocus)
       .filter((e) => statusFilter === 'all' || e.status === statusFilter)
       .filter((e) => {
         const u = usersById.get(e.user_id);
@@ -556,7 +561,7 @@ export default function EnrollmentsPage() {
         if (!u) return false;
         return matchesUserQuery(u, userSearch);
       });
-  }, [enrollments, statusFilter, userSearch, usersById]);
+  }, [enrollments, enrollmentFocus, statusFilter, userSearch, usersById]);
 
   // Сотрудники для правой колонки — фильтруем по userSearch.
   // Исключаем тех, кто уже записан на выбранный курс (чтобы не было дублей).
@@ -933,6 +938,7 @@ export default function EnrollmentsPage() {
               value={selectedCourse}
               onChange={(e) => {
                 setAccessLinks([]);
+                setEnrollmentFocus(null);
                 void fetchEnrollments(e.target.value);
               }}
               className="w-full border rounded-md px-3 py-2 text-sm"
@@ -954,6 +960,10 @@ export default function EnrollmentsPage() {
 
             {selectedCourse && (
               <>
+                {enrollmentFocus && <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm" role="status">
+                  <span>{t('courseAssignments.ui.focusedEnrollment')}</span>
+                  <Button size="sm" variant="outline" onClick={() => setEnrollmentFocus(null)}>{t('courseAssignments.ui.showAllEnrollments')}</Button>
+                </div>}
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <h3 className="font-medium text-sm text-muted-foreground">
                     {t('courses.enrollments')}: {filteredEnrollments.length}

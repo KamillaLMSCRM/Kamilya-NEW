@@ -155,3 +155,7 @@ apps/api/summaries/
 
 # DocumentKZ is a separate project and must not be copied into Kamilya LMS.
 /docs/DocumentKZ/
+
+# Generated browser screenshots and run metadata are not product source.
+# Historical tracked files remain tracked; do not add new run captures.
+/apps/web/test-results/

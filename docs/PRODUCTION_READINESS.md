@@ -9,7 +9,29 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current product-state reconciliation — 2026-09-28
+## Daily learning candidate — 2026-09-30
+
+This is a local implementation candidate on `feature/daily-learning-20260930`,
+not a production release. It adds assessment drill-down, truthful action-plan
+navigation and learner next-step/deadline reads; no migration, provider/billing
+change, customer mutation or delivery-engine replacement occurred.
+
+Local evidence: 58 focused API tests; 87 affected web tests; final full web suite
+131 files / 737 tests; lint and Next production build PASS (66 pages); Python
+quality debt unchanged; 2 synthetic Playwright cases at desktop/mobile widths
+with mocked API and no command side effects, plus visual inspection. Local SQL/SQLite adapters are
+not Supabase DEV/RLS evidence. Exact candidate CI, isolated DEV and production
+user-flow readback remain separate gates; production authorization was not given.
+Baseline `bf858214573387128a20ba03e72d90d13ff6dfab` CI had an SCA failure involving
+PyJWT 2.13.0. Do not silently expand this UX candidate into dependency repair or
+infer the candidate CI result from that older run.
+
+Overlapping current grants are displayed, but continuation is disabled unless
+the existing canonical player resolver selects that exact enrollment. This also
+applies to enrollment-restricted reads. Arbitrary occurrence-aware player
+continuation is still a backlog item, not an implemented claim.
+
+## Historical product-state reconciliation — 2026-09-28
 
 - Published source release `v0.11.13` points to exact commit
   `123718aacd9d4d743fdb87cc6b5d70b84cb3501d`.

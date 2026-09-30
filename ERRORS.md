@@ -31,6 +31,27 @@ Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
 
+## LEARNER-001 - Dashboard resume promised the wrong overlapping enrollment
+
+- Date: 2026-09-30. Confirmed by source review of the learner dashboard and
+  canonical `current_enrollment` resolver.
+- Symptom: a course-only continuation route can select another current grant;
+  restricting the dashboard query to an enrollment does not restrict downstream
+  player/progress resolution to that enrollment.
+- Cause: existing native player services choose open status first, then newest
+  enrolled_at and descending enrollment ID; an exact read guard is not a player
+  occurrence-selection contract.
+- Fix: additive read-side `can_resume`/`resume_href` only admit the same canonical
+  enrollment, including restricted dashboard reads. Other grants remain visible.
+  Player writes/contracts were not changed; arbitrary occurrence launch remains
+  open in the product backlog.
+- Verification: unit tests cover deterministic ordering, restricted matching,
+  mismatch and missing resolver; desktop/mobile mocked browser checks hide the
+  non-canonical continuation. No live DEV/RLS or production proof is claimed.
+- Prevention: compare exact enrollment identity with the downstream resolver
+  before advertising continuation; preserve fail-closed tests and do not claim
+  personal-link access alone selects a player occurrence.
+
 ## API-003 - Source actuality passed ORM rows into an ID-only corpus loader
 
 - Date: 2026-09-28. Confirmed by the first transactional Supabase DEV journey

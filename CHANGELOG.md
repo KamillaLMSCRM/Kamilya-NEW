@@ -9,9 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add methodologist drill-down from failed/exhausted assessment counters to
+  enrollment-scoped journal filters, consistently shared by rows, summary and CSV.
+- Add a learner next-step card with actual assignment deadline, assignment reason
+  and a bounded resume destination. Non-canonical overlapping assignments remain
+  visible but cannot launch misleading continuation.
+
 ### Changed
 
+- Label reminder and reassignment actions as plans rather than delivered work;
+  link to the existing course-assignment workflow without automatic commands.
+- Preserve browser-only action focus when journal filters change; keep that
+  navigation metadata out of reporting and export API contracts.
+- Share the existing cycle/deadline read projection between reporting and learner
+  dashboard reads without database migrations or changes to delivery engines.
+
 ### Fixed
+
+- Resolve pass-after-fail assessment drill-down consistently and count exhausted
+  attempts per quiz rather than combining limits across quizzes.
 
 ### Security
 

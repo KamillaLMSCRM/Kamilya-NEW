@@ -40,6 +40,8 @@ class TrainingLogFilter(BaseModel):
     # Current is the operational default. Retained cancelled/superseded
     # occurrences are visible only through an explicit history read.
     history: bool = False
+    # Unresolved outcome of an individual quiz, scoped to this occurrence.
+    assessment_status: Literal["failed", "exhausted"] | None = None
     delivery_type: Literal["native", "scorm"] | None = None
     date_from: datetime | None = None
     date_to: datetime | None = None

@@ -75,6 +75,24 @@ describe('training-log request and count text', () => {
     expect(buildTrainingLogFilterQuery({}, '').toString()).toBe('');
   });
 
+  it('round-trips validated action focus without leaking browser state into API queries', () => {
+    const state = parseTrainingLogBrowserQuery(new URLSearchParams('action_focus=weak_questions&issue_type=failed_required_quiz&assessment_status=failed'));
+    expect(state.action_focus).toBe('weak_questions');
+    expect(state.issue_type).toBe('failed_required_quiz');
+    expect(buildTrainingLogBrowserHref(state)).toContain('action_focus=weak_questions');
+    expect(buildTrainingLogBrowserHref(state)).toContain('issue_type=failed_required_quiz');
+    expect(buildTrainingLogFilterQuery(state.filters, '').toString()).toBe('assessment_status=failed');
+    expect(buildTrainingLogPageQuery(state.filters, '', 100, 0)).not.toContain('action_focus');
+    expect(buildTrainingLogPageQuery(state.filters, '', 100, 0)).not.toContain('issue_type');
+  });
+
+  it('ignores unsupported action focus, issue type, and assessment status values', () => {
+    const state = parseTrainingLogBrowserQuery(new URLSearchParams('action_focus=bad&issue_type=weak_question&assessment_status=unknown'));
+    expect(state.action_focus).toBeUndefined();
+    expect(state.issue_type).toBeUndefined();
+    expect(state.filters.assessment_status).toBeUndefined();
+  });
+
   it.each([
     [ru, 'Всего записей: 2', 'Показаны 1–2'],
     [kk, 'Барлығы: 2', '1–2 көрсетілді'],
