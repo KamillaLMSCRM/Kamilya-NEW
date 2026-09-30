@@ -9,26 +9,80 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Daily learning candidate — 2026-09-30
+## Daily learning release — 2026-09-30
 
-### Current runtime 0.11.20; bounded mobile/security follow-up 0.11.22 pending
+### Current production runtime 0.11.22 — bounded API and responsive acceptance GO
 
-0.11.21 ea1a8ad50bc3a50481e4eab3bee40613a2c921df was source-published but
-not deployed: CI36746148434 blocked on new PyJWT2.14.0 CVE-2026-101918
-(reported fix2.15.0) and a duplicate new journal ID. Native36746472002 SUCCESS
-does not override failed CI. New0.11.22 pins PyJWT2.15.1 on all three surfaces,
-Poetry-generated lock changes only that package/content hash; no auth policy or
-audit weakening. Independent fresh investigation and candidate review accepted
-the bounded pin; local40auth/SCA/release tests PASS, quality baseline unchanged.
-Seven malformed signed NumericDate cases raised TypeError on2.14, now401 before
-DB; deeply nested inputs and ordinary controls also PASS. Journal ID is unique
-RELEASE-007; complete local release contract189entries PASS. Never rewrite
-published0.11.21 tag. Fresh exact-SHA CI and responsive production readback required.
+Exact production release `0.11.22` / `1af72b19999363885995f5e067fbf05b6b894f14`.
+CI36748097801 all7 SUCCESS: backend3499PASS/2SKIP, coverage74.44%, no-DB1946PASS,
+RLS42PASS, dependency audit with no known vulnerabilities. Native build36748175697
+and artifact11114020032 SUCCESS. Protected backend36749221904 SUCCESS; immutable
+image `ghcr.io/kamillalmscrm/kamilya-api@sha256:fdc6cfc63d3b6734adefdf4c7ee43c0396fed4398cbe63ed19800ad2b12ac190`.
+The release contract has190unique entries PASS. PyJWT2.15.1 and urllib32.8.0 are
+current; focused auth/security suite40PASS and web functional suite738PASS. JWT/auth
+policy is unchanged.
+
+Independent VM126 readback confirms public/private API and all3workers on the
+exact SHA/image, running with0restarts; previous c239de80/image26e46c7a retained.
+Native sole-controller `frontend-execute.json` is RELEASE_OK; CT137 current,
+marker and Nginx, plus public healthz body/header, match the same SHA. Rollback
+359d7cda retained. CT125 revision0168 and fresh encrypted verified backup PASS;
+no migration or fresh restore drill claimed. Watchdog expected release/image
+reconciled against the backup; oneshot exit0 and timer active. No pruning.
+
+Production GET-only synthetic methodologist smoke PASS for retained tenant
+83552ce6-8058-4561-abe3-cfbda14e030a: failed/exhausted0; list, summary and CSV
+agree; own enrollment1, foreign0, unauthenticated401, invalid422; notification
+counters unchanged and no business writes. At390x844, document/body width380;
+visually inspected `prod-assignments-mobile-green.jpg` and
+`prod-recurring-mobile-green.jpg` show lower repeat forms and selects within the
+viewport and internal table horizontal scrolling. At1440x1000, document/body
+width1430, selected course and1of5 focused synthetic row verified. Browser
+business click chain PASS: dashboard0exhausted -> matching journal
+`assessment_status=exhausted` (0 rows) -> actual return-to-dashboard link ->
+0failed -> matching failed journal (0 rows) -> actual first “Open assignment
+operations” link -> exact course `67d782f2-0478-4555-9c19-99d4bc071789` and
+enrollment `da07381b-9346-4c34-a28e-376cb2b1c111`, selected course and focused
+1of5 row. The separate-operations note and synthetic tenant were visible.
+Console errors0. No command buttons clicked and no business writes.
+
+Independent post-release last10m/500line API+3greenworker scan found0 ERROR,
+CRITICAL, FATAL or traceback events; restarts0. Watchdog actual config SHA/image
+matched expected values, retained config backup, oneshot success/exit0 and timer
+active. Repeated GET-only API smoke at17:21:08Z PASS; notification counters
+unchanged and business writes0. VM126 lock absent and rollback image present.
+
+Status is GO for this bounded API/mobile acceptance. Production nonzero assessment,
+learner browser, and real maintenance/mail task remain NOT VERIFIED; worker health
+does not prove a business task. QA and production browser viewports reset;
+desktop/mobile and lower-form screenshots visually inspected. Evidence:
+`.release-evidence/REL-DAILY-MOBILE-PROD-20260930-1AF72B19/`.
+CT137 has888784KiB free after release; this is healthy now. A future native build
+budget of about1.39GB will need an exact recoverable cleanup plan before build;
+no automatic pruning or plan change is implied. This is an operational follow-up,
+not a current release blocker.
+
+### Historical stopped source release 0.11.21 and bounded 0.11.22 repair
+
+0.11.21 `ea1a8ad50bc3a50481e4eab3bee40613a2c921df` was source-published,
+NOT deployed: CI36746148434 failed the refreshed PyJWT2.14.0 audit
+(CVE-2026-101918, reported fix2.15.0) and the release contract's duplicate journal
+ID. Native36746472002 SUCCESS does not override failed CI. The fix pins PyJWT2.15.1
+across all three surfaces and uses a generated lock; JWT/auth policy is unchanged.
+Malformed signed NumericDate inputs that raised TypeError on2.14 return401 before
+DB on2.15.1. Nested payload controls also pass, but already returned401 on2.14 and
+are not a reproduction of the original CVE. RELEASE-007 is unique; published
+0.11.21 is immutable and must never be retagged.
+
+### Historical production runtime 0.11.20 and prior candidate notes
+
+The following 0.11.20 and earlier sections preserve their historical evidence;
+their prior “current” status and pending-release statements are superseded above.
 
 Fresh owner request authorized all bounded release repairs and production rollout.
-Exact `c239de80d7f9d292492fde20601381cdbe6a334f` /0.11.20 is production-deployed.
+Exact `c239de80d7f9d292492fde20601381cdbe6a334f` /0.11.20 was production-deployed.
 CI36738812896 all7 SUCCESS: backend3488PASS/2SKIP, coverage74.44%, RLS42PASS,
-blocking dependency audit no known vulnerabilities. urllib3 is2.8.0 on all three
+blocking dependency audit no known vulnerabilities. urllib3 was2.8.0 on all three
 pin surfaces; focused local16PASS. Native build36738991107 SUCCESS, artifact11109147129.
 Protected backend36740593404 attempt2 SUCCESS; first attempt stopped before any
 runtime mutation on a task-created empty lock (RELEASE-007), independently
@@ -49,17 +103,14 @@ Existing production synthetic tenant83552ce6-8058-4561-abe3-cfbda14e030a only:
 normal methodologist login, failed/exhausted0 -> matching journal/summary/CSV;
 one exact focused enrollment; foreign DEV enrollment0, no-auth401, invalid
 assessment422. Notification counters unchanged, business mutations0, tenant
-retained without recreation/reset/deletion. Browser desktop dashboard -> assessment
-filter -> canonical assignment operations preserves exact course/enrollment,
-selected course and1of5 focused rows, no command click; console errors0.
-However mobile390 rendered page width725: follow-up0.11.22 is required before
-complete responsive acceptance. Never mark that branch PASS based on desktop.
-Nonzero failed/exhausted and learner browser flows were accepted on permanent
-DEV; production nonzero/learner browser NOT VERIFIED (no existing learner
-credential). Real maintenance queue/mail task remains NOT VERIFIED under no-mail
-scope; worker health is not business-task proof.
-Evidence `.release-evidence/REL-DAILY-LEARNING-PROD-20260930-C239DE80/`.
-All following notes are historical; their old release/approval state is superseded.
+retained without recreation/reset/deletion. The bounded desktop dashboard/filter
+acceptance reached the exact selected course and focused1of5 row; it did not claim
+the later complete browser click chain. At mobile390, document/body width725 was a
+reproducible RED before the bounded0.11.22 correction. Nonzero failed/
+exhausted and learner browser flows were accepted on permanent DEV; production
+nonzero/learner browser NOT VERIFIED. Real maintenance queue/mail task remains
+NOT VERIFIED. Evidence `.release-evidence/REL-DAILY-LEARNING-PROD-20260930-C239DE80/`.
+All subsequent notes are historical; their old release/approval state is superseded.
 
 ### Historical blocked production attempt 0.11.19: NO_GO
 

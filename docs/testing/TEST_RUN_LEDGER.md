@@ -849,3 +849,41 @@ Rules:
   Python baseline ruff1010/mypy2200 unchanged. Web functional content unchanged
   from mobile patch accepted by root131files/738PASS. Exact new CI and production
   SHA/image/geometry/business readback still required; no tag rewrite.
+
+### 2026-09-30 — 0.11.22 production closeout `1af72b19`
+
+- Exact release: `0.11.22` / `1af72b19999363885995f5e067fbf05b6b894f14`.
+  CI36748097801 all7 SUCCESS: backend3499PASS/2SKIP, coverage74.44%, no-DB1946PASS,
+  RLS42PASS, dependency audit with no known vulnerabilities; release contract190
+  unique entries PASS; focused auth/security40PASS and web functional738PASS.
+  Native36748175697/artifact11114020032 SUCCESS; protected
+  backend36749221904 SUCCESS; immutable image
+  `ghcr.io/kamillalmscrm/kamilya-api@sha256:fdc6cfc63d3b6734adefdf4c7ee43c0396fed4398cbe63ed19800ad2b12ac190`.
+- Independent VM126 readback: public/private API and all3workers exact SHA/image,
+  running/restarts0; prior c239de80/image26e46c7a retained. Native sole-controller
+  frontend-execute.json RELEASE_OK; CT137 current/marker/Nginx/public healthz
+  body/header exact SHA; rollback359d7cda retained. CT125 revision0168 fresh
+  encrypted verified backup PASS; no migration or fresh restore drill. Watchdog
+  oneshot exit0/timer active; no pruning.
+- Retained synthetic production tenant GET-only smoke PASS: failed/exhausted0,
+  list/summary/CSV agree, own enrollment1, foreign0, unauthenticated401,
+  invalid422, notification counters unchanged, business writes0. Browser chain
+  dashboard0exhausted -> exhausted journal0 -> dashboard -> failed0 -> failed
+  journal0 -> actual first assignment-operations link, course
+  `67d782f2-0478-4555-9c19-99d4bc071789`, enrollment
+  `da07381b-9346-4c34-a28e-376cb2b1c111`, selected course and focused1of5 row;
+  separate-operations note visible; console
+  errors0. No command buttons clicked. Mobile390x844 body380 and desktop1440x1000
+  body1430; supplied production screenshots and lower forms visually inspected,
+  table retains internal horizontal scrolling.
+- Independent post-release API+3greenworker last10m/500line observability scan:
+  ERROR/CRITICAL/FATAL/traceback counts0, restarts0; watchdog config SHA/image
+  matched, retained config backup, oneshot exit0/timer active. Repeated API smoke
+  at17:21:08Z PASS; notification counters unchanged/business writes0. VM126 lock
+  absent and rollback image present.
+- Remaining NOT VERIFIED: production nonzero assessment, learner browser, real
+  maintenance/mail task. No fresh restore drill. Evidence:
+  `.release-evidence/REL-DAILY-MOBILE-PROD-20260930-1AF72B19/`.
+- CT137 free space888784KiB after release, healthy currently. Future native build
+  estimate is ~1.39GB; prepare exact recoverable cleanup before that build. No
+  automatic pruning or provider plan change; operational follow-up only.

@@ -1160,10 +1160,17 @@ production runtime and cross-container readback remain pending release approval.
   generated lock update, including2.15.0 fixes and2.15.1 padding compatibility.
   JWT algorithm/issuer/audience/required-claim/session policy unchanged; no ignore.
 - Verification: pin contract RED on2.14; malformed signed NumericDate regression
- 7FAIL/2PASS TypeError -> all9PASS401 beforeDB on2.15.1. Nested payload controls
- 2PASS on both versions (not a claimed original-CVE reproducer). Full focused
- auth/SCA/release suite40PASS; lock check, local release contract and baseline PASS.
- Fresh exact-SHA CI/audit and production proof remain required.
+  7FAIL/2PASS TypeError -> all9PASS401 beforeDB on2.15.1. Nested payload controls
+  2PASS on both versions (not a claimed original-CVE reproducer). Full focused
+  auth/SCA/release suite40PASS; lock check and Python baseline PASS. The exact
+  0.11.22 release contract passed with190unique entries. CI36748097801 passed all7
+  jobs, including the fresh dependency audit with no known vulnerabilities. Protected
+  backend36749221904 deployed immutable image
+  `ghcr.io/kamillalmscrm/kamilya-api@sha256:fdc6cfc63d3b6734adefdf4c7ee43c0396fed4398cbe63ed19800ad2b12ac190`.
+  Independent public/private API and all3workers read back exact SHA/image,
+  running/restarts0; bounded synthetic production smoke passed without business
+  writes. This supersedes the earlier “fresh CI/audit and production proof required”
+  status; production learner/nonzero assessment and real mail task remain NOT VERIFIED.
 - Prevention: evaluate the exact graph with fresh audit data; publish a new
  immutable version after failure and never move an already-published release tag.
 

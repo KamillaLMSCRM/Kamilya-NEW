@@ -5,13 +5,52 @@
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/daily-learning-20260930`
 
-## Daily learning: production 0.11.20, мобильная/security поправка 0.11.22 в проверке
+## Daily learning: production 0.11.22 — bounded API/mobile acceptance GO
+
+- result: exact production SHA `1af72b19999363885995f5e067fbf05b6b894f14` is live;
+  bounded GET-only synthetic API, mobile/desktop geometry, and browser click chain PASS.
+- changed: immutable `0.11.22`, PyJWT2.15.1 and urllib3 2.8.0 pins; no JWT/auth
+  policy change, migration, business writes, provider/billing change, or pruning.
+- verified: CI36748097801 all7 SUCCESS (backend3499PASS/2SKIP, coverage74.44%,
+  no-DB1946PASS, RLS42PASS, no known audit vulnerabilities); release contract190
+  unique entries PASS; focused auth/security40PASS and web functional738PASS.
+  Native36748175697/artifact11114020032 SUCCESS;
+  protected backend36749221904 SUCCESS, immutable image
+  `ghcr.io/kamillalmscrm/kamilya-api@sha256:fdc6cfc63d3b6734adefdf4c7ee43c0396fed4398cbe63ed19800ad2b12ac190`.
+  VM126 public/private API and3workers exact SHA/image, running/restarts0; CT137
+  sole-controller frontend-execute.json RELEASE_OK and current/marker/Nginx/public
+  healthz exact SHA; rollback359d7cda and c239/image26e46c7a retained. CT125
+  revision0168 fresh encrypted verified backup PASS; no migration/restore drill.
+  Watchdog oneshot exit0/timer active. Production smoke retained tenant only:
+  list/summary/CSV agree, failed/exhausted0, own1/foreign0, unauthenticated401,
+  invalid422; counters unchanged, no business writes. 390x844 body380 and
+  1440x1000 body1430; mobile/desktop screenshots visually inspected. Browser chain
+  dashboard0exhausted -> exhausted journal0 -> dashboard -> failed0 -> failed
+  journal0 -> actual first operations link, course
+  `67d782f2-0478-4555-9c19-99d4bc071789`, enrollment
+  `da07381b-9346-4c34-a28e-376cb2b1c111`, selected course, focused1of5 row;
+  console errors0. No command buttons clicked.
+  Independent last10m/500line API+3worker scan found0 ERROR/CRITICAL/FATAL/
+  traceback events and0restarts; watchdog config SHA/image matched, backup retained,
+  oneshot exit0/timer active. Repeated API smoke17:21:08Z PASS; counters unchanged,
+  business writes0, VM126 lock absent and rollback image present.
+- blockers: production nonzero assessment, learner browser, and real maintenance/mail
+  task remain NOT VERIFIED. No fresh restore drill. Evidence:
+  `.release-evidence/REL-DAILY-MOBILE-PROD-20260930-1AF72B19/`.
+- next: for any future native release, plan exact recoverable artifact cleanup
+  before its ~1.39GB build budget; do not auto-prune or change provider plans. Use
+  the retained synthetic stand without recreation/reset. Keep production nonzero,
+  learner-browser and real mail-task flows NOT VERIFIED until separately evidenced.
+
+### Historical handoff snapshots (superseded by current 0.11.22 status)
+
+#### Historical: production 0.11.20, мобильная/security поправка 0.11.22 в проверке
 
 - result:0.11.21 ea1a8ad5 source-published, NOT deployed; CI36746148434 FAIL.
 - changed:0.11.22 candidate includes PyJWT2.15.1 three-surface pin/Poetry lock,
   malformed/deep JWT auth regressions and unique journal ID RELEASE-007.
 - verified: fresh independent Luna investigation/review READY; local40tests PASS,
-  baseline ruff1010/mypy2200 unchanged; complete release contract189entries PASS.
+  baseline ruff1010/mypy2200 unchanged; complete release contract190entries PASS.
   Seven malformed signed NumericDate cases RED TypeError on2.14 -> GREEN401
   beforeDB; nested payload/ordinary controls PASS. Native36746472002 SUCCESS for
   failed0.11.21 is NOT a deploy gate. Fresh audit found CVE-2026-101918; no ignore.
