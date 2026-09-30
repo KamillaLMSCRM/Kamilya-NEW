@@ -1143,7 +1143,9 @@ production runtime and cross-container readback remain pending release approval.
 - Fix: bounded urllib3-only update to 2.8.0, explicit Poetry/pip security pin,
   resolver-generated lock and a three-surface contract. No ignore or bypass.
 - Verification: lock consistency and release validator PASS; focused dependency
-  and caption-adapter contracts PASS. Fresh exact-SHA CI remains required.
+  and caption-adapter contracts16PASS. Exact c239de80 CI36738812896 all7SUCCESS,
+  production graph audit no known vulnerabilities; production0.11.20 public/private
+  health and API+3worker exact image26e46c7a independently verified.
 - Prevention: re-audit the exact production graph at release time and retain the
   failed attempt. Synchronize Poetry and pip paths; do not rewrite published tags.
 
@@ -4947,3 +4949,37 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   DEV CI36730755381 all7 SUCCESS; post-browser stand verification PASS, no drift.
 - Prevention: actionable navigation tests must validate the URL against the actual
   route registry and preserve the selected resource, not merely assert link presence.
+
+## RELEASE-005 - Advisory flock preflight created the controller's existence lock
+
+- Date: 2026-09-30; protected release36740593404 attempt1.
+- Symptom: build/validation passed; execute stopped before runtime mutation with
+  `release_lock_already_held`. Old API+3workers stayed exact e15dc8dd, running/restarts0.
+- Cause: this task's readiness script used `flock -n <controller-lock> true`.
+  It created an empty root-owned file at15:48Z, while release_plane uses
+  `O_CREAT|O_EXCL` and therefore treats even an unheld empty file as a lock.
+- Fix: readiness now uses `test ! -e` without creating anything. Scoped cleanup
+  removed only the exact empty file after proving size0, root ownership, timestamp,
+  unchanged inode, no open holder/controller, no active release workflow, and old
+  runtime identity. No application/schema/config change in cleanup.
+- Verification: corrected preflight PASS; failed-job-only rerun attempt2 SUCCESS
+  with the same immutable c239de80 image26e46c7a, public/private health and all four
+  blue containers exact, running/restarts0; final lock absent. Regression covers
+  both empty/nonempty existing locks, no runtime command, preserved lock/state/proxy.
+- Prevention: `infra/deploy/README.md` documents existence-lock semantics. Never
+  bypass/delete an unknown lock or rebuild/retry a partially applied release.
+
+## OPS-011 - Watchdog identity config was older than the actual runtime
+
+- Date: 2026-09-30; independent release watchdog reconciliation.
+- Symptom: exact-old guard stopped before any watchdog write; runtime was e15dc8dd
+  but installed `/etc/kamilya/ops-check.conf` still expected b853c161/image0f0e1590.
+- Cause: historical release closeouts had not kept the actual EnvironmentFile
+  aligned; repository example ops.env was not the installed file.
+- Fix: independently read actual EnvironmentFile and its two actual identity keys,
+  then replaced only EXPECTED_RELEASE/EXPECTED_API_IMAGE with verified c239de80/
+  image26e46c7a. Retained root-owned exact config backup and rollback trap.
+- Verification: watchdog oneshot success/exit0 and timer active after four-service,
+  private/public SHA/image acceptance. No watchdog disable or secret/config expansion.
+- Prevention: read installed EnvironmentFile and key values before each release;
+  fail closed on drift, reconcile it explicitly, then verify oneshot and timer.

@@ -41,6 +41,15 @@ general root shell. The deploy job deliberately performs no repository checkout.
 
 ## Operator flow
 
+The backend release lock is an existence lock created atomically with
+`O_CREAT|O_EXCL`, not an advisory `flock` lock. A read-only preflight must use
+`test ! -e /run/lock/kamilya-release-plane.lock`; never run `flock` on that path,
+because it creates an empty file and blocks the controller. On an existing lock,
+stop and reconcile runtime, workflow activity and the exact file identity. Never
+unlink a lock automatically or retry blindly. Cleanup of a task-created empty
+file requires independent proof of no controller/open holder, unchanged runtime,
+the exact owner/size/mtime/inode, and scoped owner authority.
+
 1. Wait for an exact successful `CI` run and record its run ID.
 2. Dispatch `Render-like KZ release` with exact current/next identities.
 3. Leave `deploy_to_production=false` to build and attest the image plus validate

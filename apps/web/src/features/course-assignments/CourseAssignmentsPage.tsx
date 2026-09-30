@@ -921,10 +921,10 @@ export default function EnrollmentsPage() {
         </Card>
       )}
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
         {/* ── LEFT: course selector + enrolled users ─────── */}
-        <Card>
-          <CardContent className="p-4 space-y-4">
+        <Card className="min-w-0">
+          <CardContent className="min-w-0 p-4 space-y-4">
             <h2 className="font-semibold">{t('courses.title')}</h2>
 
             <SearchInput
@@ -941,7 +941,7 @@ export default function EnrollmentsPage() {
                 setEnrollmentFocus(null);
                 void fetchEnrollments(e.target.value);
               }}
-              className="w-full border rounded-md px-3 py-2 text-sm"
+              className="w-full min-w-0 max-w-full border rounded-md px-3 py-2 text-sm"
             >
               <option value="">
                 {t('courses.selectCourseCount', { count: filteredCourses.length })}
@@ -1004,7 +1004,7 @@ export default function EnrollmentsPage() {
                       : t('courseAssignments.ui.noFilteredEnrollments')}
                   </p>
                 ) : (
-                  <Table>
+                  <Table className="min-w-0 max-w-full">
                     <thead>
                       <tr>
                         <th className="text-left p-2">{t('users.name')}</th>
@@ -1144,8 +1144,8 @@ export default function EnrollmentsPage() {
         </Card>
 
         {/* ── RIGHT: available users to enroll ──────────── */}
-        <Card>
-          <CardContent className="p-4 space-y-4">
+        <Card className="min-w-0">
+          <CardContent className="min-w-0 p-4 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold">{t('courseAssignments.ui.learners')}</h2>
               <Button
@@ -1293,8 +1293,8 @@ export default function EnrollmentsPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardContent className="space-y-4 p-4">
+      <Card className="min-w-0">
+        <CardContent className="min-w-0 space-y-4 p-4">
           <div>
             <h2 className="font-semibold">{t('courseAssignments.ui.recurringTitle')}</h2>
             <p className="text-sm text-muted-foreground">
@@ -1302,16 +1302,16 @@ export default function EnrollmentsPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
-            <label className="text-sm">
+            <label className="min-w-0 max-w-full text-sm">
               {t('courseAssignments.ui.course')}
-              <select className="mt-1 block min-w-52 rounded border bg-background px-2 py-1" value={recurringCourseId} onChange={(event) => setRecurringCourseId(event.target.value)}>
+              <select className="mt-1 block w-full min-w-0 max-w-full rounded border bg-background px-2 py-1" value={recurringCourseId} onChange={(event) => setRecurringCourseId(event.target.value)}>
                 <option value="">{t('courseAssignments.ui.selectCourse')}</option>
                 {courses.map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}
               </select>
             </label>
-            <label className="text-sm">
+            <label className="min-w-0 max-w-full text-sm">
               {t('courseAssignments.ui.learner')}
-              <select className="mt-1 block min-w-52 rounded border bg-background px-2 py-1" value={recurringUserId} onChange={(event) => setRecurringUserId(event.target.value)}>
+              <select className="mt-1 block w-full min-w-0 max-w-full rounded border bg-background px-2 py-1" value={recurringUserId} onChange={(event) => setRecurringUserId(event.target.value)}>
                 <option value="">{t('courseAssignments.ui.selectLearner')}</option>
                 {users.map((learner) => <option key={learner.id} value={learner.id}>{learner.first_name} {learner.last_name}</option>)}
               </select>

@@ -5,9 +5,31 @@
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/daily-learning-20260930`
 
-## Daily learning: кандидат с изолированной DEV-приёмкой, не production
+## Daily learning: production 0.11.20, мобильная поправка 0.11.21 в проверке
 
-### Current production attempt — NO_GO (2026-09-30)
+- result: owner-authorized0.11.20 exact c239de80d7f9d292492fde20601381cdbe6a334f
+  is live on VM126 API+3workers and native CT137. Responsive acceptance is incomplete:
+  mobile390 pageWidth725 reproduced; bounded0.11.21 follow-up in progress.
+- changed: urllib3-only2.8.0 pin/lock/compatibility contracts; standard immutable
+  release, no migration, customer mutation, mail/AI or provider/billing change.
+- verified: CI36738812896 all7 SUCCESS; backend3488PASS/2SKIP, RLS42PASS,
+  no known vulnerabilities; native36738991107 artifact11109147129; protected
+  backend36740593404 attempt2 SUCCESS same image26e46c7a. Independent public/private
+  API+all4blue services exact SHA/image, running/restarts0; CT137 native RELEASE_OK
+  exact public body/header+host marker; watchdog oneshot exit0/timer active.
+  Synthetic methodologist read/API+desktop navigation PASS, exact focused1of5row;
+  foreign0/no-auth401/invalid422; enrollment notification counters unchanged.
+- blockers: mobile overflow (new follow-up scope). Production nonzero assessment
+  and learner browser NOT VERIFIED; corresponding DEV permanent-stand evidence
+  retained. Real maintenance task NOT VERIFIED under no-mail scope.
+- next: verify minimal mobile patch, fresh immutable0.11.21 SHA/CI/release gates,
+  then repeat production geometry and bounded business smoke. Retain both stands;
+  never recreate/reset for smoke. Source/archive/script/artifact hashes retained
+  under `.release-evidence/REL-DAILY-LEARNING-PROD-20260930-C239DE80/`.
+
+All subsequent release/approval statements are historical and superseded above.
+
+### Historical production attempt 0.11.19 — NO_GO (2026-09-30)
 
 - result: owner requested production rollout and final test; exact release
   candidate `0.11.19` / `0b69e81ecbad05f0181dfa114bef273cff7d7c45` is published

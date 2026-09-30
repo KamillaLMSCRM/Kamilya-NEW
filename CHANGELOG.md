@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.21] - 2026-09-30
+
+### Fixed
+
+- Keep assignment cards and native course selectors within narrow mobile screens;
+  retain horizontal scrolling inside the enrollment table rather than the page.
+- Document the release controller's existence-lock preflight and preserve both
+  empty/nonempty locks without runtime mutation in regression tests.
+
 ## [0.11.20] - 2026-09-30
 
 ### Security

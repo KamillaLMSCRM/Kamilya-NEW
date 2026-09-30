@@ -118,6 +118,43 @@ describe('contextual course assignment flow', () => {
     expect(screen.getByText('После назначения будет создана ссылка доступа')).toBeInTheDocument();
   });
 
+  it('keeps the mobile assignment cards and selectors shrinkable while the enrollment table owns horizontal scrolling', async () => {
+    const fallback = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (!init?.method && String(input).endsWith('/v1/courses/course-1/enrollments')) {
+        return Promise.resolve(jsonResponse([{
+          id: 'enrollment-1',
+          user_id: 'user-1',
+          course_id: 'course-1',
+          status: 'enrolled',
+          source: 'manual',
+          enrolled_at: '2026-09-01T00:00:00Z',
+        }]));
+      }
+      return fallback(input, init);
+    });
+
+    render(<CourseAssignmentsPage />);
+
+    const courseSelect = await screen.findByRole('combobox', { name: 'Курс для назначения' });
+    const assignmentGrid = courseSelect.closest('.grid');
+    expect(assignmentGrid).toHaveClass('min-w-0', 'grid-cols-[minmax(0,1fr)]');
+    expect(assignmentGrid?.children[0]).toHaveClass('min-w-0');
+    expect(assignmentGrid?.children[1]).toHaveClass('min-w-0');
+    expect(courseSelect).toHaveClass('w-full', 'min-w-0', 'max-w-full');
+    expect(await screen.findAllByText('Алия Садыкова')).toHaveLength(2);
+
+    const table = document.querySelector('table');
+    expect(table?.parentElement).toHaveClass('overflow-x-auto', 'min-w-0', 'max-w-full');
+
+    const recurringSelects = document.querySelectorAll('label select');
+    expect(recurringSelects).toHaveLength(2);
+    for (const select of recurringSelects) {
+      expect(select).toHaveClass('w-full', 'min-w-0', 'max-w-full');
+      expect(select.closest('label')).toHaveClass('min-w-0', 'max-w-full');
+    }
+  });
+
   it('focuses the exact linked enrollment without executing a command and can show all', async () => {
     const target = '10000000-0000-4000-8000-000000000001';
     queryState.value = `course_id=course-1&enrollment_id=${target}`;

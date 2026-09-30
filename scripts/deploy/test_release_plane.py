@@ -253,3 +253,20 @@ def test_previous_identity_and_confirmation_are_fail_closed(tmp_path: Path) -> N
     with pytest.raises(release_plane.ReleasePlaneError, match="expected_previous"):
         plane.execute("REL-20260831-RELEASE-PLANE-001")
     assert runner.calls == []
+
+
+@pytest.mark.parametrize("contents", ["", "active-release"])
+def test_existing_lock_blocks_before_runtime_mutation_and_is_preserved(
+    tmp_path: Path, contents: str
+) -> None:
+    runner = FakeRunner()
+    cfg = config(tmp_path)
+    cfg.lock_file.write_text(contents, encoding="utf-8")
+    old_state = cfg.state_file.read_bytes()
+    plane = release_plane.ReleasePlane(manifest(), cfg, runner, FakeHealth())
+    with pytest.raises(release_plane.ReleasePlaneError, match="release_lock_already_held"):
+        plane.execute("REL-20260831-RELEASE-PLANE-001")
+    assert runner.calls == []
+    assert cfg.state_file.read_bytes() == old_state
+    assert cfg.proxy_upstream_file.read_text(encoding="utf-8") == "old-proxy\n"
+    assert cfg.lock_file.read_text(encoding="utf-8") == contents

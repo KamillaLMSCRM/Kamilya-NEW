@@ -796,3 +796,36 @@ Rules:
 - Independent dev remote SHA matched local at14:39:27Z, account KamillaLMSCRM,
   canonical root-env helper. Sanitized receipt saved in task and owner-required
   persistent memory note. Permanent stand intentionally remains.
+
+### 2026-09-30 — 0.11.20 production and bounded mobile follow-up
+
+- Owner authorized all bounded repairs and production release. urllib3 investigation
+  and independent patch review delegated separately to gpt-6-luna/medium;
+  observed model/effort same, costs/tokens NOT AVAILABLE. First-pass patch review
+  READY, no review rework. Root16focused tests PASS; Poetry lock/version/baseline PASS.
+- Exact0.11.20 c239de80: CI36738812896 all7SUCCESS, backend3488PASS/2SKIP,
+  coverage74.44%, RLS42PASS, audit no known vulnerabilities. Native36738991107
+  artifact11109147129 SUCCESS. Protected36740593404 attempt1 blocked before
+  mutation by task-created empty lock; independently reconciled, exact narrow
+  cleanup and corrected noncreating preflight PASS; failed-only attempt2 SUCCESS.
+- Independent API/private/state/API+3blueworker exact c239de80/image26e46c7a,
+  running/restarts0; native controller RELEASE_OK, public exact body/header/host.
+  CT1250168 fresh encrypted verified backup PASS, no migration/restore drill.
+  Actual watchdog historical identity drift reconciled only in two identity keys;
+  preserved backup, oneshot success/exit0 and timer active.
+- Production existing synthetic tenant only: normal login; failed/exhausted0
+  list/summary/CSV matched, focused1, foreign0, no-auth401, invalid422; counters
+  unchanged/business mutations0. Dashboard -> filtered journal -> exact focused
+  assignment1of5 PASS. No tenant recreation/reset/delete, mail/AI/customer mutation.
+- Responsive production RED: mobile390 document/bodyWidth725 after sidebar closed.
+  Narrow CSS fix delegated gpt-6-luna/medium, root source review accepted. Component
+  regression16PASS; typecheck/focused ESLint PASS. Full root web131files/738PASS;
+  infra/SCA14PASS. No assignment command or role/API change.
+- Local Playwright harness (new and existing daily-learning case) reached login
+  before component and is NOT VERIFIED, not geometric GREEN. Temporary authored
+  e2e test removed; owned generated last-run JSON restored to exact HEAD bytes.
+  Real production geometric GREEN remains mandatory for new0.11.21 release.
+- Production nonzero assessment and learner browser NOT VERIFIED (no existing
+  learner credential); corresponding permanent DEV evidence retained. Actual
+  maintenance/mail task NOT VERIFIED under no-mail scope; worker health is not
+  task evidence. Sanitized0.11.20 packet under ignored REL-C239DE80 directory.

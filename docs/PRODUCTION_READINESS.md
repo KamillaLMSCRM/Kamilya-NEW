@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-09-28 по исходникам и публичному production readback
+**Проверено:** 2026-09-30 по точным CI/artifacts и независимому production readback
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -11,7 +11,45 @@ DB/storage gate и приёмкой клиента
 
 ## Daily learning candidate — 2026-09-30
 
-### Current production attempt: NO_GO
+### Current runtime 0.11.20; bounded mobile follow-up 0.11.21 pending
+
+Fresh owner request authorized all bounded release repairs and production rollout.
+Exact `c239de80d7f9d292492fde20601381cdbe6a334f` /0.11.20 is production-deployed.
+CI36738812896 all7 SUCCESS: backend3488PASS/2SKIP, coverage74.44%, RLS42PASS,
+blocking dependency audit no known vulnerabilities. urllib3 is2.8.0 on all three
+pin surfaces; focused local16PASS. Native build36738991107 SUCCESS, artifact11109147129.
+Protected backend36740593404 attempt2 SUCCESS; first attempt stopped before any
+runtime mutation on a task-created empty lock (RELEASE-005), independently
+reconciled and narrowly cleaned. Same image/artifact retained; no rebuild/bypass.
+
+Independent public/private API, state and all4 blue services read back exact
+c239de80, environment kz-production, running/restarts0, immutable image
+`ghcr.io/kamillalmscrm/kamilya-api@sha256:26e46c7a5b12edba3279785bfa6cef7942eea08199208165dcbe2efeda6d976a`.
+Native controller RELEASE_OK; CT137 current/marker/Nginx, public healthz body/header
+exact c239de80. Previous backend e15dc8dd/image18e39b30 retained; native retained
+rollback359d7cda, previous e15dc8dd also present. CT125 revision0168 and fresh
+encrypted verified backup PASS; no migration/fresh restore drill claimed.
+Actual watchdog EnvironmentFile ops-check.conf had historical identity drift;
+only EXPECTED_RELEASE/EXPECTED_API_IMAGE reconciled, backup retained, oneshot
+success/exit0 and timer active. No monitoring disable or provider/billing change.
+
+Existing production synthetic tenant83552ce6-8058-4561-abe3-cfbda14e030a only:
+normal methodologist login, failed/exhausted0 -> matching journal/summary/CSV;
+one exact focused enrollment; foreign DEV enrollment0, no-auth401, invalid
+assessment422. Notification counters unchanged, business mutations0, tenant
+retained without recreation/reset/deletion. Browser desktop dashboard -> assessment
+filter -> canonical assignment operations preserves exact course/enrollment,
+selected course and1of5 focused rows, no command click; console errors0.
+However mobile390 rendered page width725: follow-up0.11.21 is required before
+complete responsive acceptance. Never mark that branch PASS based on desktop.
+Nonzero failed/exhausted and learner browser flows were accepted on permanent
+DEV; production nonzero/learner browser NOT VERIFIED (no existing learner
+credential). Real maintenance queue/mail task remains NOT VERIFIED under no-mail
+scope; worker health is not business-task proof.
+Evidence `.release-evidence/REL-DAILY-LEARNING-PROD-20260930-C239DE80/`.
+All following notes are historical; their old release/approval state is superseded.
+
+### Historical blocked production attempt 0.11.19: NO_GO
 
 Owner requested production deployment and final test on 2026-09-30. Release
 metadata `0.11.19`, exact `0b69e81ecbad05f0181dfa114bef273cff7d7c45`, was
