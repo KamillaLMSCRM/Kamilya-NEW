@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-09-30 по точным CI/artifacts и независимому production readback
+**Проверено:** 2026-10-01 по точным CI/artifacts и независимому production readback
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -11,27 +11,78 @@ DB/storage gate и приёмкой клиента
 
 ## Daily learning release — 2026-09-30
 
-### Candidate0.11.23 — quiz attempt guard, release NOT READY
+### Current production runtime0.11.23 — quiz guard repair, bounded acceptance GO
 
-The2026-10-01 owner request authorizes the bounded fix and continued release,
-explicitly requiring the persistent Test & Evidence Runner and Release Runner.
-Root reproduced RED before repair. Test Runner independently verified all9quiz
-cases,16assignment cases, lint/typecheck and the local66-page build. Its first
-full web run was interrupted without terminal counts; it is NOT accepted as a
-full-suite pass. Root repaired the async exact-count wait without weakening
-assertions. The second full run completed131files/742tests PASS, lint/typecheck
-PASS; Test Runner owns its append-only ledger evidence. Release contract191unique
-entries and version0.11.23/Poetry lock PASS. Production remains0.11.22 below.
+Exact source/runtime `36826eda76844188b230d22c57935f51e7a130fd` /0.11.23;
+published immutable tag and GitHub Release. Root reproduced RED before repair.
+Exhausted or unavailable attempt history now blocks answer selection, navigation,
+submit, timed submit and retry; confirmed results survive refresh failure.
+Backend attempt limits, deadlines and fixture attempt counts are unchanged.
 
-Candidate0.11.23 gates answers, submit, timed submit and retry on confirmed
-remaining attempts. Missing/unavailable history fails closed; confirmed results
-remain visible after history refresh failure. Backend limit and fixture attempts
-are unchanged. No migration: revision0168. Exact-SHA CI, immutable artifacts,
-DEV original browser reproduction, protected production rollout and independent
-readback are still required. No production access reissue is authorized here.
-Evidence: `.release-evidence/REL-QUIZ-ATTEMPT-GUARD-20261001/`.
+Persistent Test & Evidence Runner (gpt-5.6-luna/medium) independently verified
+9quiz and16assignment cases, lint/typecheck and66-page build. Its interrupted
+first full run is NOT accepted as a full-suite pass. After root's exact-count
+async wait correction, second full run131files/742tests PASS, lint/typecheck PASS.
+Release contract191unique entries and version/Poetry lock PASS. Exact DEV
+CI36803962465 and master CI36804107063 all7 SUCCESS; native36804192290 SUCCESS,
+artifact11137041709, archive SHA256
+`5ed41029460808dd51a1c34c226af1ab8041e4357456250488a7a3ecdd75f89b`.
 
-### Current production runtime 0.11.22 — bounded API and responsive acceptance GO
+DEV canonical controller RELEASE_OK: Vercel
+`dpl_BEiFJ3R2SU1rdxPCLzEtLqkzFbkE` READY, API
+`dep-daus0pp7lnhs739nenn0` and worker `dep-daus1l3ncjis7383s6v0` LIVE,
+same exactSHA, existing hobby/free plans unchanged. Test Runner live learner
+acceptance PASS: exhausted2/2 alert, controls disabled and safe course return,
+desktop/mobile; remaining1/2 client-only selection works, finish never clicked,
+reload clears selection without consuming a try. Console0. Root before/after
+permanent QA verify PASS at02:11:37Z/02:15:02Z; IDs/attempts unchanged, no
+bootstrap/reset/delete. Root independently reloaded and visually verified
+`dev-live/root-exhausted-desktop.png` on the new runtime.
+
+Protected production workflow36805040867 SUCCESS. Actual image
+`ghcr.io/kamillalmscrm/kamilya-api@sha256:cc4646aad09f09ef951c70f4c818b731f5ff3f61c78e87cd2ecdd3c9d73de5d3`.
+Independent public/private API/state/API+3blueworkers exact SHA/image, running,
+restarts0. Sole native controller RELEASE_OK: CT137 current/marker/Nginx/public
+healthz exactSHA, login/APIhealth200. CT125 revision0168 and fresh encrypted
+verified backup PASS; readiness script was rerun unchanged with300s timeout
+after the default30s timed out, reusing the already-created backup. No migration
+or fresh restore drill. Watchdog exact expectedSHA/image reconciled with backup;
+oneshot exit0, timer active. Independent last10m/up to500lines per service:
+ERROR/CRITICAL/FATAL/traceback0; rollback image present, release lock absent.
+
+Production Test Runner bounded browser PASS: methodologist exact retained
+synthetic tenant, dashboard failed/exhausted0, focus1of5, show-all5/completed2/
+in-progress0, actual navigation links; reminder histories accurately show empty
+or pre-existing sent state without sending. Console0. Desktop internal table
+scroll; mobile390x844 doc/body380, no page overflow, lower forms inside page;
+viewport restored. Root independently reloaded the focused production page and
+saved/visually inspected desktop/mobile screenshots. Root GET-only API smoke
+PASS before02:31:47Z and after02:34:56Z: list/summary/CSV matched, own1/foreign0,
+no-auth401/invalid422, notification counters unchanged/business mutations0.
+
+Persistent Release Runner (gpt-5.6-luna/medium) validated prepared packets and
+locally reconciled exact technical+separate product acceptance through the bridge:
+READY FOR ROOT REVIEW. Its outbound socket restriction is EXECUTOR_ACCESS,
+not a token failure. Root executed the same digest-bound canonical controllers
+in its authorized network-enabled executor; the worker did not deploy or
+independently observe providers. Root accepts this bounded release evidence.
+
+Previous backend0.11.22/imagefdc6 retained; frontend previous1af72b19 and
+configured rollbackc239de80, extra359d7cda and unrelated299/staging retained.
+Post-release CT137 free888660KiB exceeds current512MiB reserve but is below the
+next identical build's conservative1.39GB requirement: fresh exact recoverable
+capacity plan is required before another native release. No extra pruning,
+billing/DNS change, customer writes, mail or AI. Permanent stands retained.
+
+Production learner exhausted-attempt browser flow and nonzero production
+assessment remain NOT VERIFIED; learner access reissue needs exact owner approval.
+Worker business/mail task and fresh restore drill are NOT VERIFIED. This is
+bounded release GO, not full learner, mail or first-commercial-tenant sign-off.
+Evidence: `.release-evidence/REL-QUIZ-ATTEMPT-GUARD-20261001/` and native
+`.release-evidence/REL-QUIZ-ATTEMPT-GUARD-PROD-20261001/execute.json`;
+append-only Test Runner entries in `docs/testing/TEST_RUN_LEDGER.md`.
+
+### Historical production runtime0.11.22 — bounded API and responsive acceptance GO
 
 Exact production release `0.11.22` / `1af72b19999363885995f5e067fbf05b6b894f14`.
 CI36748097801 all7 SUCCESS: backend3499PASS/2SKIP, coverage74.44%, no-DB1946PASS,

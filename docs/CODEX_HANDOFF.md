@@ -1,11 +1,44 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-09-30
+**Обновлено:** 2026-10-01
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/daily-learning-20260930`
 
-## Daily learning: production 0.11.22 — bounded API/mobile acceptance GO
+## Daily learning: production0.11.23 — quiz guard repair, bounded acceptance GO
+
+- result: exact `36826eda76844188b230d22c57935f51e7a130fd` /0.11.23 is live
+  on DEV and production. Original DEV exhausted2/2 reproduction now PASS;
+  production methodologist/navigation/mobile and GET-only API acceptance PASS.
+- changed: frontend attempt-history fail-closed guards, RU/KK/EN alert and9quiz
+  regressions; exact-count async assignment assertion stabilized. No backend
+  policy, migration, attempts reset, tenant recreation, customer/mail/AI/billing
+  mutation. Root reconciled watchdog expectedSHA/image with retained config backup.
+- verified: persistent Test Runner local131files/742tests,9quiz/16assignment,
+  lint/typecheck/66-page build PASS; independent live DEV2/2blocked/1/2usable,
+  no submission, console0, permanent stand before/after PASS. Exact DEV/master
+  CI36803962465/36804107063 all7SUCCESS; native36804192290/artifact11137041709;
+  protected36805040867 SUCCESS, actual image
+  `ghcr.io/kamillalmscrm/kamilya-api@sha256:cc4646aad09f09ef951c70f4c818b731f5ff3f61c78e87cd2ecdd3c9d73de5d3`.
+  Root independent API+3blueworkers exactSHA/image running/restarts0; CT137
+  RELEASE_OK exact current/marker/Nginx/public identity. CT1250168 fresh encrypted
+  verified backup; no new restore drill. Watchdog exit0/timeractive; last10m
+  bounded logs errors0. Test Runner live production focused1of5/show-all5/
+  completed2/in-progress0 and truthful reminder histories, console0; mobile
+  doc/body380/internal table scroll, desktop restored. Root API before/after PASS,
+  counters unchanged/business mutations0. Release Runner local deterministic
+  technical+acceptance reconciliation READY; its socket-denied executor did not
+  deploy. Root used the same canonical controllers in the authorized executor.
+- blockers: no defect within accepted scope. Production learner/nonzero assessment,
+  real worker mail/task and fresh restore drill NOT VERIFIED. Exact synthetic
+  access reissue awaits owner approval. CT137 free888660KiB; next conservative
+  ~1.39GB native release requires a fresh scoped recoverable capacity plan.
+- next: preserve retained DEV/production stands and rollback images/releases;
+  no automatic cleanup or plan change. Get exact owner approval before learner
+  access reissue. Current authoritative details: `docs/PRODUCTION_READINESS.md`;
+  ignored evidence `REL-QUIZ-ATTEMPT-GUARD-20261001`, native `REL-QUIZ-ATTEMPT-GUARD-PROD-20261001`.
+
+## Historical: production0.11.22 — bounded API/mobile acceptance GO
 
 - result: exact production SHA `1af72b19999363885995f5e067fbf05b6b894f14` is live;
   bounded GET-only synthetic API, mobile/desktop geometry, and browser click chain PASS.
@@ -42,7 +75,7 @@
   the retained synthetic stand without recreation/reset. Keep production nonzero,
   learner-browser and real mail-task flows NOT VERIFIED until separately evidenced.
 
-### Historical handoff snapshots (superseded by current 0.11.22 status)
+### Historical handoff snapshots (superseded by current0.11.23 status)
 
 #### Historical: production 0.11.20, мобильная/security поправка 0.11.22 в проверке
 
