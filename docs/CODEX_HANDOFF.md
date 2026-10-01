@@ -38,12 +38,25 @@
   ACCEPTED_LOCAL_ONLY, ledger WB-ORG-ISOLATION-LOCAL-20261001-01 plus root C1.
   DEV42 only ROOT_EXECUTOR_REVIEW_ONLY; original reports preserve PENDING and
   later root-acceptance.json records final disposition. No source/test rerun.
-- blockers: feature enablement gated on retention (owner choice pending),
+  Invitation RLS remediation LOCAL + SYNTHETIC DEV12 PASS: original0046 permits
+  foreign pending rows/anonymous enumeration on synthetic data;0170 exact-token
+  policy closes both, token cannot override tenant context, all terminal links
+  readable by exact token, normal own writes preserved/anonymous writes denied.
+  Shared real lookup/view/activation bootstrap and transaction scope cleanup PASS;
+  no OTP acceptance/mail. Focused212 tests/canonical quality PASS; fresh cheap
+  bypass review no findings. Runtime script blobc1421897a23572091a9c9aab4daf4d55ad6cd9f1.
+  Managed security evidence: artifacts/validation_artifacts/invitation-token-rls-dev.json,
+  SHA256c947a5e2abb4d6b9ba3c083749fe6f6b7a4f7a21a309d083c302542729203e0f.
+  Test Runner acceptance pending. Retention durations OWNER-CONFIRMED15min/24h
+  after expiry/90days from success; no cleanup scheduler enabled.
+- blockers: feature enablement gated on retention cleanup implementation,
   full neighbor RLS/FK/trigger equivalence and DEV browser acceptance. Read-only
   DEV catalogs confirm legacy user_invitations_public_pending_lookup is unscoped
   and applies to lms_app; tenants FORCE RLS false. No business rows read, no API
-  exploit proof, no public policy change. Separate impact/compatibility contract
-  needed for remediation; organization checks do not replace full neighbor proof. Notification
+  exploit proof, no public policy change. Local impact0170 fix verified only in
+  owned schema; public rollout requires API-helper BEFORE migration and patched
+  helper retained in rollback;0170 downgrade refuses broad policy restoration.
+  Organization checks do not replace full neighbor proof. Notification
   gate uses accepted enqueue body in owned schema, not public functions or delivery.
   Graphify shrink
   guard preserves old index; source fallback used, no force. Public migration absent.

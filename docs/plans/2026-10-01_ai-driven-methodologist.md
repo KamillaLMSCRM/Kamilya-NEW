@@ -153,6 +153,9 @@ GPU-сервера до измерений. Источник:
   execution contract приняты root для реализации/изолированной проверки;
   public DEV/production migration ещё не выполнена. Retention/TTL metadata и
   scheduled cleanup остаются обязательным gate перед включением функции.
+  OWNER-CONFIRMED2026-10-01:15min validity, ready-plan delete24h after expiry,
+  succeeded receipt90days from execution; [policy V1](../product/contract-modules/methodologist-workbench/contracts/RETENTION_POLICY_V1.md).
+  Scheduled cleanup NOT_IMPLEMENTED; learning history never included.
 - Существующие AI quotas и provider policies не обходятся. Нужен reserve/settle
   usage для новых вызовов с лимитами/retry/cancellation, не unlimited chat.
 - Новая стоимость, внешний маршрут данных, платный ресурс, провайдерный fallback
@@ -343,6 +346,37 @@ capacity failure, расход за пределами лимита. Не «об
    no public migration, browser, mail, AI/audio or flags enablement. Next root task:
    bounded compatibility contract and local negative DB proof for invitation RLS;
    existing token-based anonymous access must remain valid, no silent bypass.
+22. Owner explicitly approved invitation isolation remediation ("делай"); root
+   accepted [impact V1](../product/contract-modules/methodologist-workbench/contracts/INVITATION_TOKEN_RLS_IMPACT_ADDENDUM_V1.md)
+   before users/migration edits. Local0170 drops broad0046 and installs exact-token
+   SELECT TO lms_app with empty tenant guard; no status predicate, preserving intended
+   public terminal reasons. Shared private lookup binds token parameter locally,
+   selects exact equality, clears scope before existing tenant setup; get_db rollback
+   remains SQL-error cleanup. Kiosk0119 precedent/source verified, no new definer/bypass.
+   Root **synthetic DEV12 PASS**, source0042 policy + forced RLS: original foreign
+   pending/anonymous enumeration reproduced, patched absence/wrong/case/space/injection
+   token and cross-tenant negatives PASS, including foreign token in authenticated
+   context; exact token all5statuses, anonymous INSERT/UPDATE/DELETE denied, own UPDATE
+   preserved, same-connection commit/rollback cleanup, actual public view/rejection
+   helper PASS. Owned schema removed/public revision+table inventory neutral.
+   Managed security collection for this target: `artifacts/validation_artifacts/invitation-token-rls-dev.json`,
+   SHA256`c947a5e2abb4d6b9ba3c083749fe6f6b7a4f7a21a309d083c302542729203e0f`.
+   Script blob`c1421897a23572091a9c9aab4daf4d55ad6cd9f1`; app blob`2955002376c37b195a5e4f1acd6d0b04dc12cd3b`;
+   migration blob`30e2026ef8e34f49f9ca6775b3a75578bfb3fc57`. Retained proof follows
+   Codex Security managed artifact storage; no new parallel repository security report.
+23. Root local212 tests PASS/failed0/skipped0/4 existing warnings; canonical quality
+   and scoped Ruff PASS. Three new seam tests RED before implementation; nearest
+   activation mocks initially48passed2failed then49passed1failed; semantic selector
+   typo211passed1failed. Corrected exact test setup/selector, assertions not weakened.
+   Fresh read-only investigator/bypass reviewer no remaining findings. Graphify
+   update21853 vs23077 shrink-guard blocked; source fallback, old index preserved,
+   no force/upgrade. Independent frozen-candidate Test Runner acceptance pending.
+24. Owner selected retention proposal and replied "ок": values OWNER-CONFIRMED,
+   accepted [RETENTION V1](../product/contract-modules/methodologist-workbench/contracts/RETENTION_POLICY_V1.md).
+   No automatic deletion/worker/public migration enabled; must implement bounded
+   cleanup, exact successful execution timestamp and deleted-locator retry proof.
+   Public policy still unpatched. Release ordering is compatible API first,0170
+   second; old API rollback after0170 forbidden, migration downgrade fails closed.
 
 ### Epic-update: ownership и зависимости
 
@@ -356,7 +390,7 @@ capacity failure, расход за пределами лимита. Не «об
 |---|---|---|---|
 | WB-FOUNDATION | DONE | root / root / independent cheap reviewer |76 pure tests и quality PASS; commit5afa42f |
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
-| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |Reload/outbox/manual overlap/invitation/organization DEV42 PASS; full-neighbor pending policy blocked; retention/browser gated |
+| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |Assignment DEV42 + local invitation RLS DEV12 PASS; public migration/full-neighbor/browser/cleanup implementation gated; retention durations approved |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
 | WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
 | WB-RELEASE | NOT_STARTED | root + Release Runner |Exact accepted candidate, all preceding gates; no release authority inferred |
@@ -385,6 +419,9 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 | organization_gate_review / independent exact-delta review |Requested gpt-5.6-luna / medium; independently observed metadata NOT AVAILABLE |Accepted after1 review-scope/contract correction + final hire-delta review; no leaf writes |No remaining findings; cancellation/after-selection semantics explicitly not claimed; time/token/review counters NOT AVAILABLE |
 | root / organization and metadata gates |Parent session; exact metadata NOT AVAILABLE |Owned harness/fixture corrections; corrected DEV42/170 API/quality PASS |Public metadata blocker remains; cleanup/public inventory neutral; time/token/review counters NOT AVAILABLE |
 | Test & Evidence Runner / organization local acceptance |Requested gpt-5.6-luna / medium; independently observed metadata NOT AVAILABLE |Accepted first packet;0 product corrections; later root-disposition receipt only |170 tests/scoped Ruff/no findings;207.559s; root rework/review/token counters NOT AVAILABLE |
+| invitation_security_investigator / independent source tracing |Requested gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted,0 corrections |Found source0119 precedent; no external reads/writes; time/token counters NOT AVAILABLE |
+| invitation_bypass_review / fresh independent candidate review |Requested gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted,0 corrections |No concrete surviving bypass/regression; source-only, no runtime claim; time/token counters NOT AVAILABLE |
+| root / invitation RLS fix and retention policy |Parent session; metadata NOT AVAILABLE |Original synthetic trigger reproduced; patched DEV12/212 API/quality PASS; mock-order/selector corrections preserved |Public not patched; no cleanup enabled; time/review/token counters NOT AVAILABLE |
 
 Точные сроки оценим после вертикального среза и ASR benchmark; обещать голосовой
 production за фиксированное число дней без этих измерений было бы неверно.

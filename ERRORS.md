@@ -5161,7 +5161,17 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   user_invitations_public_pending_lookup applying to lms_app. No SQL/PII emitted.
 - Verification: local metadata guard tests PASS within170 focused API tests;
   corrected actual catalog result preserved in WB-ORG-ISOLATION-20261001/dev.
-- Open: source0046's public pending SELECT remains unscoped; full neighbor RLS
+- 2026-10-01 local remediation: accepted INVITATION_TOKEN_RLS_IMPACT_ADDENDUM_V1,
+  new0170 exact-token SELECT TO lms_app with empty-tenant guard; shared parameterized
+  lookup binds/clears transaction-local scope. Existing0119 kiosk precedent reused,
+  no SECURITY DEFINER/new bypass. Original synthetic foreign-pending/anonymous
+  visibility reproduced, then closed in actual lms_app DEV12; terminal public
+  reasons/activation410/own mutation/anonymous write denial/scope reset PASS.
+  Focused212 tests/quality PASS; fresh independent bypass review no findings.
+- Open: source0046's PUBLIC policy remains unscoped in actual public environments;
+  local0170 was NOT applied there. Deploy compatible helper BEFORE migration;
+  preserve patched helper on API rollback and never restore broad0046 policy.
+  Full neighbor RLS
   acceptance is NOT VERIFIED. No invitation/user rows or API exploit were tested,
   and no public policy was changed. tenants RLS enabled but FORCE false was observed.
 - Prevention: normalize PostgreSQL catalog types explicitly and exercise a known

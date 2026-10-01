@@ -16,6 +16,10 @@ Never-activated learner preparation validation:
 [ASSIGNMENT-INVITATION-VALIDATION addendum V1](contracts/ASSIGNMENT_INVITATION_VALIDATION_ADDENDUM_V1.md).
 Organization interleavings and bounded metadata preflight:
 [ASSIGNMENT-ORGANIZATION-ISOLATION addendum V1](contracts/ASSIGNMENT_ORGANIZATION_ISOLATION_VALIDATION_ADDENDUM_V1.md).
+Invitation isolation remediation:
+[INVITATION-TOKEN-RLS impact V1](contracts/INVITATION_TOKEN_RLS_IMPACT_ADDENDUM_V1.md).
+Owner-confirmed metadata retention durations (cleanup implementation still gated):
+[RETENTION policy V1](contracts/RETENTION_POLICY_V1.md).
 Acceptance: [critical journeys](acceptance/CRITICAL_JOURNEYS_V1.md).
 Execution sequence/progress: [plan](../../../plans/2026-10-01_ai-driven-methodologist.md).
 

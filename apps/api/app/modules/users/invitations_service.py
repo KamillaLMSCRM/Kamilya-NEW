@@ -574,9 +574,23 @@ def _public_invitation_payload(
     }
 
 
-async def _get_pending_invitation(db: AsyncSession, token: str) -> UserInvitation:
+async def _lookup_public_invitation(db: AsyncSession, token: str) -> UserInvitation | None:
+    """Exact public credential scope, cleared before any tenant/business work.
+
+    Like kiosk lookup, use transaction-local context rather than bypassing RLS.
+    On SQL failure the caller must roll back; get_db already enforces that.
+    """
+    await db.execute(
+        text("SELECT set_config('app.invitation_token', :token, true)"), {"token": token}
+    )
     result = await db.execute(select(UserInvitation).where(UserInvitation.token == token))
     inv = result.scalar_one_or_none()
+    await db.execute(text("SELECT set_config('app.invitation_token', '', true)"))
+    return inv
+
+
+async def _get_pending_invitation(db: AsyncSession, token: str) -> UserInvitation:
+    inv = await _lookup_public_invitation(db, token)
     if not inv:
         raise HTTPException(status_code=404, detail="Приглашение не найдено")
     await _set_invitation_tenant_context(db, inv.tenant_id)
@@ -602,8 +616,7 @@ async def _get_pending_invitation(db: AsyncSession, token: str) -> UserInvitatio
 
 async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None) -> dict:
     """Return read-only HR identity and assigned-course context for a token."""
-    result = await db.execute(select(UserInvitation).where(UserInvitation.token == token))
-    inv = result.scalar_one_or_none()
+    inv = await _lookup_public_invitation(db, token)
     if not inv:
         return _public_invitation_payload(
             None,

@@ -52,7 +52,9 @@ async def test_public_invitation_returns_read_only_hr_identity_and_masked_email(
     db = SimpleNamespace(
         execute=AsyncMock(
             side_effect=[
+                tenant_context_result,
                 invitation_result,
+                tenant_context_result,
                 tenant_context_result,
                 tenant_result,
                 course_result,

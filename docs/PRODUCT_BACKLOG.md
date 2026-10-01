@@ -29,14 +29,18 @@ Reload preview/receipt и ограниченный notify=true gate на synthet
 account прошли: atomic outbox/rollback/replay и конфликт с ручным назначением;
 Подготовка приглашения существующему сотруднику без входа также прошла в
 изолированном DEV (atomic rollback/reuse/supersession/replay, notify=false);
-активация/OTP/доставка писем не выполнялись. Retention policy ожидает выбора owner;
+активация/OTP/доставка писем не выполнялись. Owner утвердил retention15min/24h
+после expiry/90days receipt; bounded cleanup implementation ещё не выполнена.
 Organization gates прошли в owned DEV42: explicit placement/fallback, descendants,
 foreign plan GET/confirm, committed user/position/hierarchy/new-hire changes и
 наблюдаемое конкурентное перемещение сотрудника; stale без domain effects.
 Полные neighbor RLS остаются gated: read-only DEV metadata подтвердили старую
 unscoped pending-invitation SELECT policy, действующую для lms_app; это не
-доказательство API exploit. Требуется отдельный bounded auth/RLS compatibility
-contract и отрицательная DB-проверка до любого public изменения. FK/trigger
+доказательство API exploit. Исправление принято отдельным impact contract:
+local0170 + shared exact-token lookup, synthetic2-tenant DEV12 PASS (исходная
+утечка RLS на synthetic rows воспроизведена, patched negatives/terminal states
+и очистка scope проверены). Public policy не менялась; rollout API-helper BEFORE
+migration и запрет unsafe rollback должны пройти release gate. FK/trigger
 equivalence, browser acceptance,
 ASR benchmark, стоимость/маршрут аудио и production release —
 отдельные gates; согласование направления не разрешает платные ресурсы.

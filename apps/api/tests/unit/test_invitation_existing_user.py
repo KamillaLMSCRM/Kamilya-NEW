@@ -1,4 +1,5 @@
 """Unit coverage for invitations attached to imported staff records."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -274,7 +275,14 @@ async def test_acceptance_activates_existing_staff_without_rewriting_hr_identity
     )
     db = SimpleNamespace(
         execute=AsyncMock(
-            side_effect=[token_result, tenant_context_result, learning_path_result, course_result]
+            side_effect=[
+                tenant_context_result,
+                token_result,
+                tenant_context_result,
+                tenant_context_result,
+                learning_path_result,
+                course_result,
+            ]
         ),
         get=AsyncMock(return_value=user),
         commit=AsyncMock(),
@@ -350,7 +358,9 @@ async def test_acceptance_continues_to_learning_paths_for_assignment_scoped_enro
     db = SimpleNamespace(
         execute=AsyncMock(
             side_effect=[
+                tenant_context_result,
                 token_result,
+                tenant_context_result,
                 tenant_context_result,
                 learning_path_result,
                 course_result,
@@ -367,7 +377,9 @@ async def test_acceptance_continues_to_learning_paths_for_assignment_scoped_enro
     )
 
     assert result["next_url"] == "/learning-paths"
-    path_query = str(db.execute.await_args_list[2].args[0])
+    path_query = next(
+        str(call.args[0]) for call in db.execute.await_args_list if "enrollments.learning_path_assignment_id" in str(call.args[0])
+    )
     assert "enrollments.tenant_id" in path_query
     assert "enrollments.user_id" in path_query
     assert "learning_path_assignments.tenant_id" in path_query

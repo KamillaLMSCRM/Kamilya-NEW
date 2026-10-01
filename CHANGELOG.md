@@ -28,6 +28,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in the disposable DEV schema. Add catalog-only RLS preflight; the existing
   unscoped pending-invitation exception remains an enablement blocker, not fixed.
 
+### Fixed
+
+- Replace the broad pending-invitation SELECT policy in the local migration
+  candidate0170 with an exact public-token scope usable only without tenant context.
+  Share the scoped lookup across public view and activation; clear it before
+  tenant reads, preserve terminal link reasons and existing OTP requirements.
+  Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
+
 ## [0.11.25] - 2026-10-01
 
 ### Fixed
