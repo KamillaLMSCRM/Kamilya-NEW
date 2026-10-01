@@ -252,7 +252,7 @@ capacity failure, расход за пределами лимита. Не «об
    Runtime resolution owned, прямой app-role outbox SELECT denied. Нет delivery/
    recovery interfaces/worker dispatch; это не доказательство доставки писем.
    Cleanup/absence/public revision+table inventory neutrality PASS.
-10. До DEV включения: metadata retention/cleanup contract, invitation/activation
+10. На checkpoint второго slice до DEV включения оставались metadata retention/cleanup contract, invitation/activation
    side effect gate, full neighbor RLS/organization mutation interleavings и
    полная browser acceptance постоянного QA-контура. Public DEV migration и
    release packet не выполнялись. Production остаётся отдельным exact gate.
@@ -281,12 +281,25 @@ capacity failure, расход за пределами лимита. Не «об
    Все таблицы разрешаются в owned schema до application mutation; search_path
    `owned,pg_catalog` без public fallback. Cleanup/absence/public metadata neutrality PASS.
    3 guard tests RED→GREEN, focused API69/quality PASS, cheap independent source
-   review без findings. Frozen-candidate Runner acceptance пока pending.
+   review без findings. Runtime artifact root:
+   `.release-evidence/WB-INVITATION-20261001/dev/results.json`, unchanged committed
+   script blob `7d579f7f7c7b8e335d1a726d5c729a74a7a529a6`.
 16. Retention policy: owner question sent, values NOT_APPROVED; automatic deletion
    не включена. Full neighbor RLS/FK/trigger equivalence/org-change/browser и
    public migration всё ещё gated. Invitation gate доказывает preparation,
    НЕ acceptance/OTP/delivery. Graphify update21805 vs23077 stopped by shrink guard;
    old graph preserved, source fallback, no force/upgrade.
+17. Test & Evidence Runner independently accepted local candidate
+   `f547ab804dc8016a407fc113a5d924b14e98b405`:69 tests, failed0/skipped0,
+   scoped Ruff PASS; source review без actionable findings, root review
+   **ACCEPTED_LOCAL_ONLY**. Initial wrong non-unit selector was Runner invocation
+   **HARNESS_FAILURE** (packet path was already correct); corrected command PASS.
+   No source repair or unchanged UI/build rerun. DEV33 reconciled only as
+   ROOT_EXECUTOR_REVIEW_ONLY, not independent runtime execution.
+   Run `WB-INVITATION-LOCAL-20261001-01`; local report/results destination is
+   `.release-evidence/WB-INVITATION-LOCAL-20261001-01/local/` (root accepted bounded
+   destination amendment). Evidence-only C1 clarifies preview persists only plan,
+   not invitations/domain assignments; prior ledger remains append-only.
 
 ### Epic-update: ownership и зависимости
 
@@ -324,6 +337,7 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 | Test & Evidence Runner / local acceptance |Requested gpt-5.6-luna / medium; independently observed model metadata NOT AVAILABLE |Accepted;1 evidence-only correction, no source repair |160 API/18 web/build PASS; primary run240.275s, correction38.008s; token/review counters NOT AVAILABLE |
 | workbench_activation_review / inventory + independent delta review |Requested gpt-5.6-luna / medium; independently observed metadata NOT AVAILABLE |Accepted both handoffs,0 corrections |Exact source review only, no DB/network/writes; time/token counters NOT AVAILABLE |
 | root / invitation gate integration |Parent session; exact metadata NOT AVAILABLE |3 RED guards repaired,10 GREEN;69 focused tests/quality; DEV33 PASS |Cleanup/public metadata neutrality PASS; invitation delivery NOT_RUN; time/token counters NOT AVAILABLE |
+| Test & Evidence Runner / invitation local acceptance |Requested gpt-5.6-luna / medium; independently observed model metadata NOT AVAILABLE |Accepted corrected run;1 invocation correction +1 evidence C1; no product repair |69 tests/scoped Ruff PASS, original run180.738s/C1 37.168s; root rework/token counters NOT AVAILABLE |
 
 Точные сроки оценим после вертикального среза и ASR benchmark; обещать голосовой
 production за фиксированное число дней без этих измерений было бы неверно.

@@ -20,8 +20,10 @@
   candidate7f82abd8 as ACCEPTED_LOCAL_ONLY: same160/18 checks, flags-off production
   build67 pages PASS; ledger WB-RELOAD-LOCAL-20261001-01 plus evidence-only C1.
   Runner did not execute DEV/browser checks. New validation-only delta:69 focused
-  API tests/quality PASS, independent cheap
-  source review no findings; frozen-candidate Runner acceptance pending.
+  API tests/quality PASS, independent cheap source review no findings. Test Runner
+  accepted candidatef547ab80 LOCAL_ONLY:69 tests/scoped Ruff PASS, root DEV33
+  reconciled as ROOT_EXECUTOR_REVIEW_ONLY; initial wrong-selector invocation was
+  HARNESS_FAILURE, corrected subset passed. No unchanged web/build rerun.
   Exact evidence/gaps/ownership: `docs/plans/2026-10-01_ai-driven-methodologist.md`.
   Synthetic owned schema cleanup
   and public revision/table inventory neutrality PASS. No mail/AI/STT calls.
