@@ -34,6 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Add compatible bounded tenant bootstrap reads and server-owned creation context
+  before local migration0172 removes broad tenant access and forces own-ID RLS.
+  Preserve existing login/registration/demo behavior and validated platform access.
+  Two-tenant synthetic DEV isolation proof passed; public migration/deployment
+  and full neighboring FK/trigger/browser acceptance remain gated.
 - Replace the broad pending-invitation SELECT policy in the local migration
   candidate0170 with an exact public-token scope usable only without tenant context.
   Share the scoped lookup across public view and activation; clear it before

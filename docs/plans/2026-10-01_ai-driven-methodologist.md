@@ -470,7 +470,7 @@ capacity failure, расход за пределами лимита. Не «об
    permanent QA stand. UNUSED: all isolation checks must pass first; this is not
    permission for public0172, billing/capacity/provider changes, production or
    bypassing failed gates. Release Runner receives an exact packet only afterward.
-31. Named next scope for owner decision, NOT_APPROVED: compatible tenants RLS
+31. OWNER-CONFIRMED explicit "да",2026-10-01: compatible tenants RLS
    remediation, expected migration0172, local contract/negative tests first and
    public Supabase DEV only after all gates. Replace legacy service_access with
    own-tenant/validated-superadmin access plus explicitly bounded pre-tenant
@@ -478,8 +478,41 @@ capacity failure, расход за пределами лимита. Не «об
    demo and permanent QA behavior. Exact policy/helper/caller impact contract and
    frozen release packet must precede writes/rollout; no bypass role, blanket
    auth flag, customer-row reads, billing or production change. Current approval
-  0169–0171 does not cover public0172. Full neighboring FK/trigger gates remain
+   extended to0172 after all gates; approval UNUSED publicly. Full neighboring FK/trigger gates remain
    required after remediation, not automatically PASS.
+   Root accepted TENANTS_RLS_IMPACT_ADDENDUM_V1 before writes, reconciled fresh
+   cheap investigator/direct callers. Bounded migration-owner SELECT functions
+   reuse0111 precedent, not new runtime/bypass visibility. Staged DEV compatibility
+   procedure must reconcile existing schema gate before any rollout.
+32. Compatible0172 candidate implemented under the accepted impact: fixed-path
+   read-only slug->UUID and legacy eligibility functions, PUBLIC execute revoked,
+   runtime own-ID policy with FORCE RLS, existing platform policy preserved.
+   Three public creation callers allocate server UUID/context BEFORE insert;
+   domain/legacy login, demo resolution and resolved Telegram tenant payload use
+   scoped reads. Root focused85/failed0/skipped0/1 existing warning, scoped Ruff4
+   and canonical quality PASS (ruff1010/mypy2200, no new baseline debt).
+   Actual synthetic DEV20 PASS, empty/populated upgrade and no row rewrite,
+   original foreign/anonymous access reproduced then denied; own CRUD, bounded
+   helper ACL/exact inputs, credential compatibility and ambiguous/wrong/legacy
+   suspended negatives. Inactive-domain rejection is covered locally, not claimed
+   as a live gate. Strengthened third run pins the same physical connection, compares
+   pg_backend_pid and reads cleared GUCs BEFORE any reset; anonymous read remains
+   denied. Exact owned cleanup and public revision/table inventory neutrality PASS.
+   Managed artifacts/validation_artifacts/tenants-rls-dev-pinned-connection.json
+   SHA256`6f887f5226d775465e07d0e956a8b90577deb4a9a9608f8a6a6f49a7a5c60157`.
+   First sanitizer-label HARNESS_FAILURE retained, corrected without weakening
+   guard; label regression added, ERRORS TEST-INFRA-010. Root DEV only, no public
+   migrations/deploy/mail/OTP/AI/STT/customer rows, permanent QA unchanged.
+   One fresh cheap candidate review raised two source hypotheses: domain tenant
+   status check and Telegram initial User visibility. Baseline9313d044 has the
+   same domain semantics and unchanged Telegram candidate query; neither is a
+   regression introduced here. Scope does not authorize sibling auth redesign.
+   Delta Telegram context-before-payload unit PASS with outgoing calls mocked;
+   actual complete Telegram/RLS authentication NOT_VERIFIED. Existing domain
+   semantics explicitly preserved, not claimed as new account eligibility policy.
+   Frozen Test Runner acceptance still pending; local candidate is not release GO.
+   Current AST update21964 vs23077 stopped by shrink guard; old index preserved,
+   no force/rebuild/tool upgrade. Bounded direct source/caller review authoritative.
 
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 

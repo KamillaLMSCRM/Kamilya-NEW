@@ -76,14 +76,27 @@
   `.release-evidence/WB-NEIGHBOR-CATALOG-20261001/catalog-complete-acl.json`.
 - approval: owner explicitly "Да, только DEV после всех проверок": conditional
   public Supabase DEV0169–0171 + existing free-tier DEV API/worker/frontend;
-  preserve production/permanent QA. UNUSED pending isolation gates. Not public0172,
-  provider/billing/capacity change or production authority.
+  preserve production/permanent QA. Later explicit "да" extends compatible
+  tenants isolation and conditional DEV0172; UNUSED pending all isolation gates.
+  No provider/billing/capacity change or production authority.
+- verified: compatible tenants0172 root local85/failed0/skipped0/scoped Ruff4/
+  canonical quality PASS; actual two-tenant owned DEV20 PASS, original broad
+  visibility reproduced and patched, exact helper ACL/own CRUD/cross negatives,
+  empty/populated upgrade, no row rewrite and physical-connection rollback scope
+  reset inspected BEFORE reset. Owned schema absent/public metadata neutral.
+  Managed artifacts/validation_artifacts/tenants-rls-dev-pinned-connection.json
+  SHA2566f887f5226d775465e07d0e956a8b90577deb4a9a9608f8a6a6f49a7a5c60157.
+  Initial sanitizer-label failure retained, regression prevents recurrence;
+  TEST-INFRA-010. Fresh candidate review hypotheses traced to unchanged baseline
+  domain-status semantics and Telegram pre-context User lookup; no sibling auth
+  redesign. Telegram context-before-payload unit only; full bot/RLS NOT_VERIFIED.
+  Frozen Test Runner pending, full neighbor equivalence/public rollout not passed.
 - blockers: feature enablement gated on public migration/cleanup activation,
   full neighbor RLS/FK/trigger equivalence and DEV browser acceptance. Read-only
   DEV catalogs confirm legacy user_invitations_public_pending_lookup is unscoped
   and applies to lms_app; tenants FORCE RLS false and broad ALL service_access
   USING(true), legacy0013e source verified. Auth/login/register pre-tenant reads
-  require compatible contract before any remediation;0045 permissive superadmin
+  now have compatible accepted0172 candidate, not public deployment;0045 permissive superadmin
   policy does not restrict service_access. Three external FK targets not cloned.
   No business rows read, no API
   exploit proof, no public policy change. Local impact0170 fix verified only in

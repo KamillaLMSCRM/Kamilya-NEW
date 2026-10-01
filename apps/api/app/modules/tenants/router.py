@@ -262,11 +262,13 @@ def _build_tenant_registration_message(payload: TenantRegisterRequest) -> str | 
 
 
 async def _unique_slug(db: AsyncSession, company_name: str) -> str:
+    from app.modules.tenants.bootstrap import lookup_tenant_id_by_slug
+
     base = _slugify(company_name)
     candidate = base
     suffix = 1
     while True:
-        exists = (await db.execute(select(Tenant.id).where(Tenant.slug == candidate))).scalar_one_or_none()
+        exists = await lookup_tenant_id_by_slug(db, candidate)
         if exists is None:
             return candidate
         suffix += 1
@@ -498,6 +500,9 @@ async def register_tenant(
         billing_identifier=payload.billing_identifier,
         settings=settings,
     )
+    from app.modules.tenants.bootstrap import bind_new_tenant
+
+    await bind_new_tenant(db, tenant)
     db.add(tenant)
     await db.flush()
 

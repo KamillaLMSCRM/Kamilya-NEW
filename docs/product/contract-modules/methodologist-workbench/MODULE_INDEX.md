@@ -26,6 +26,9 @@ public activation/scheduling still gated:
 Acceptance: [critical journeys](acceptance/CRITICAL_JOURNEYS_V1.md).
 Read-only catalog/source-body bindings, full neighbor equivalence NOT_VERIFIED:
 [NEIGHBOR-CATALOG validation V1](contracts/NEIGHBOR_CATALOG_VALIDATION_ADDENDUM_V1.md).
+Owner-approved compatible tenants isolation; root local85/owned DEV20 PASS,
+independent frozen acceptance pending, public rollout gated:
+[TENANTS-RLS impact V1](contracts/TENANTS_RLS_IMPACT_ADDENDUM_V1.md).
 Execution sequence/progress: [plan](../../../plans/2026-10-01_ai-driven-methodologist.md).
 
 The original foundation remains pure. The accepted assignment addenda add

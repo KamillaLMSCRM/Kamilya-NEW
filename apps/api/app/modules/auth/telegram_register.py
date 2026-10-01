@@ -136,9 +136,9 @@ async def register_by_telegram(
     candidate_slug = base_slug
     suffix = 1
     while True:
-        slug_taken = (
-            await db.execute(select(Tenant).where(Tenant.slug == candidate_slug))
-        ).scalar_one_or_none()
+        from app.modules.tenants.bootstrap import lookup_tenant_id_by_slug
+
+        slug_taken = await lookup_tenant_id_by_slug(db, candidate_slug)
         if slug_taken is None:
             break
         suffix += 1
@@ -162,6 +162,9 @@ async def register_by_telegram(
         status="trial",
         plan="trial",
     )
+    from app.modules.tenants.bootstrap import bind_new_tenant
+
+    await bind_new_tenant(db, tenant)
     db.add(tenant)
     await db.flush()
 

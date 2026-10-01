@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 import argon2
 from fastapi import HTTPException, status
-from sqlalchemy import delete, or_, select, text
+from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import create_access_token, create_refresh_token, decode_token, enforce_refresh_session_age
@@ -12,6 +12,7 @@ from app.models.tenants import Tenant
 from app.models.user_roles import UserRole
 from app.models.user_sessions import UserSession
 from app.models.users import User
+from app.modules.tenants.bootstrap import lookup_tenant_id_by_slug
 
 ph = argon2.PasswordHasher()
 
@@ -266,13 +267,12 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
     """
     # Scope to tenant via email domain to prevent cross-tenant login
     email_domain = email.split("@")[-1] if "@" in email else ""
-    tenant_result = await db.execute(select(Tenant).where(Tenant.slug == email_domain))
-    tenant = tenant_result.scalar_one_or_none()
+    tenant_id = await lookup_tenant_id_by_slug(db, email_domain)
 
-    if tenant:
-        await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant.id)})
+    if tenant_id is not None:
+        await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
         result = await db.execute(
-            select(User).where(User.email == email, User.tenant_id == tenant.id)
+            select(User).where(User.email == email, User.tenant_id == tenant_id)
         )
         user = result.scalar_one_or_none()
     else:
@@ -283,13 +283,12 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
         await db.execute(text("SELECT set_config('app.auth_lookup', 'true', true)"))
         result = await db.execute(
             select(User)
-            .outerjoin(Tenant, User.tenant_id == Tenant.id)
             .where(
                 User.email == email,
                 User.is_active.is_(True),
                 or_(
                     User.tenant_id.is_(None),
-                    Tenant.status.notin_(("archived", "suspended")),
+                    func.tenant_login_eligible(User.tenant_id),
                 ),
             )
         )

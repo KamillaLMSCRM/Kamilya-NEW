@@ -136,6 +136,12 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
         )
         return {"ok": True}
 
+    # Existing resolved identity owns the context before any Tenant payload read.
+    if user.tenant_id is not None:
+        from sqlalchemy import text as sql_text
+
+        await db.execute(sql_text("SELECT set_current_tenant(:tid)"), {"tid": str(user.tenant_id)})
+
     # Get role from user_roles table
     role_result = await db.execute(
         select(UserRole.role)

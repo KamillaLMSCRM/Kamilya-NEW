@@ -5196,3 +5196,22 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   side. Failed attempt retained in WB-RETENTION-20261001/failures.json.
 - Prevention: bind typed datetime/timedelta for driver-inferred temporal values;
   if textual fixture syntax is required, force text before server conversion.
+
+## TEST-INFRA-010 - Sanitized evidence rejected credential terminology in labels
+
+- Date: 2026-10-01, owned tenants0172 Supabase DEV gate.
+- Symptom: result serialization failed with evidence_contains_forbidden_material;
+  no accepted runtime outcome was retained for the first attempt.
+- Cause: the shared fail-closed evidence guard rejects forbidden substrings in
+  the whole JSON, including harmless stage/check labels naming credentials.
+- Fix: use credential-neutral stage/check labels; do not weaken the shared guard.
+  AST regression validates every emitted stage/check label before external runs.
+- Verification: corrected actual DEV20 PASS; strengthened rerun pins one physical
+  connection, checks its backend identity and context immediately after rollback
+  BEFORE resetting anything, then verifies anonymous table reads remain denied.
+  Exact owned schema removed/public revision and table inventory neutral.
+- Evidence: managed security artifacts/validation_artifacts/tenants-rls-initial-failure.json,
+  tenants-rls-dev.json, tenants-rls-dev-pinned-connection.json. Initial failure
+  preserved as HARNESS_FAILURE, never retroactively labeled PASS.
+- Prevention: exercise the shared sanitizer on generated metadata labels locally;
+  never emit raw inputs, SQL exception payloads or connection strings.

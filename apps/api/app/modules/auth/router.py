@@ -744,13 +744,13 @@ async def demo_login(req: DemoLoginRequest, request: Request, response: Response
         # Resolve tenant — superadmin demo binds to an existing operator
         # tenant so the JWT lands in the right org context.
         target_tenant_slug = demo.get("_tenant_slug") or DEMO_TENANT_SLUG
-        result = await db.execute(select(Tenant).where(Tenant.slug == target_tenant_slug))
-        tenant = result.scalar_one_or_none()
+        from app.modules.tenants.bootstrap import bind_new_tenant, get_bootstrap_tenant
+
+        tenant = await get_bootstrap_tenant(db, cast(str, target_tenant_slug))
         if tenant is None:
             # Fallback to the generic demo tenant if the operator-specified
             # one doesn't exist yet.
-            result = await db.execute(select(Tenant).where(Tenant.slug == DEMO_TENANT_SLUG))
-            tenant = result.scalar_one_or_none()
+            tenant = await get_bootstrap_tenant(db, DEMO_TENANT_SLUG)
             if tenant is None:
                 tenant = Tenant(
                     name="Демо-организация",
@@ -758,13 +758,14 @@ async def demo_login(req: DemoLoginRequest, request: Request, response: Response
                     status="active",
                     is_demo=True,
                 )
+                await bind_new_tenant(db, tenant)
                 db.add(tenant)
                 await db.flush()
 
         # The reserved demo slug is always a sandbox. Repair legacy rows that
         # predate the explicit flag so demo limits and cleanup remain active.
         if target_tenant_slug == DEMO_TENANT_SLUG and not tenant.is_demo:
-            tenant.is_demo = True
+            cast(Any, tenant).is_demo = True
             await db.flush()
 
         # The demo tenant may be created or resolved without an authenticated
@@ -816,7 +817,7 @@ async def demo_login(req: DemoLoginRequest, request: Request, response: Response
         if req.role == "student":
             course_id = await ensure_demo_student_course(
                 db,
-                tenant_id=tenant.id,
+                tenant_id=cast(UUID, tenant.id),
                 student_id=user.id,
             )
             if course_id is None:
