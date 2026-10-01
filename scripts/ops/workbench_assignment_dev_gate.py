@@ -1550,9 +1550,17 @@ def main() -> int:
     parser.add_argument("--env-file", type=Path, required=True)
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--metadata-only", action="store_true")
+    parser.add_argument("--catalog-details", action="store_true")
     args = parser.parse_args()
     if not args.execute:
         print(json.dumps({"status": "BLOCKED", "reason": "execute_required"}))
+        return 2
+    if args.catalog_details and not args.metadata_only:
+        print(
+            json.dumps(
+                {"status": "BLOCKED", "reason": "catalog_requires_metadata_only"}
+            )
+        )
         return 2
     config = dotenv_values(args.env_file)
     # Match canonical source-actuality gate: app imports must use this same
@@ -1564,6 +1572,10 @@ def main() -> int:
     ]
     try:
         operation = inspect_neighbor_metadata if args.metadata_only else run_gate
+        if args.catalog_details:
+            from workbench_neighbor_catalog import inspect_neighbor_catalog
+
+            operation = inspect_neighbor_catalog
         result = asyncio.run(operation(*urls, config.get("SUPABASE_URL") or ""))
     except Exception as exc:
         result = {

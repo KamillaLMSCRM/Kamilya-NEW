@@ -65,10 +65,24 @@
   `.release-evidence/WB-RETENTION-20261001/`; DEV64 ROOT_EXECUTOR_REVIEW_ONLY,
   original failures/PENDING reports preserved; later root-acceptance.json/C1.
   No public migration/worker/scheduler/browser/mail/AI/STT operation.
+- verified: new read-only DEV catalog inventory12tables/26policies/27outgoingFK/
+  9trigger bodies bound to latest source, BODY_MATCH_ONLY; not full equivalence.
+  All12tables deny runtime TRUNCATE/REFERENCES/TRIGGER; column ACL hashes recorded.
+  New bounded local180 PASS/scoped Ruff/quality; cheap review ACL finding corrected.
+  Frozen Test Runner acceptance pending. Artifact:
+  `.release-evidence/WB-NEIGHBOR-CATALOG-20261001/catalog-complete-acl.json`.
+- approval: owner explicitly "Да, только DEV после всех проверок": conditional
+  public Supabase DEV0169–0171 + existing free-tier DEV API/worker/frontend;
+  preserve production/permanent QA. UNUSED pending isolation gates. Not public0172,
+  provider/billing/capacity change or production authority.
 - blockers: feature enablement gated on public migration/cleanup activation,
   full neighbor RLS/FK/trigger equivalence and DEV browser acceptance. Read-only
   DEV catalogs confirm legacy user_invitations_public_pending_lookup is unscoped
-  and applies to lms_app; tenants FORCE RLS false. No business rows read, no API
+  and applies to lms_app; tenants FORCE RLS false and broad ALL service_access
+  USING(true), legacy0013e source verified. Auth/login/register pre-tenant reads
+  require compatible contract before any remediation;0045 permissive superadmin
+  policy does not restrict service_access. Three external FK targets not cloned.
+  No business rows read, no API
   exploit proof, no public policy change. Local impact0170 fix verified only in
   owned schema; public rollout requires API-helper BEFORE migration and patched
   helper retained in rollback;0170 downgrade refuses broad policy restoration.

@@ -436,6 +436,35 @@ capacity failure, расход за пределами лимита. Не «об
    public migration/cleanup activation and voice/provider use remain separately gated.
 
 `WB-FOUNDATION -> WB-TEXT-EXEC -> WB-DEV-ACCEPT -> WB-RELEASE`
+29. Root accepted read-only
+   [neighbor catalog V1](../product/contract-modules/methodologist-workbench/contracts/NEIGHBOR_CATALOG_VALIDATION_ADDENDUM_V1.md).
+   Actual canonical DEV READ ONLY snapshot:12 tables/26 policies/27 outgoing FKs/
+   9 user triggers; actual non-super/non-bypass lms_app checked. All9 trigger bodies
+   match latest reviewed migration source: BODY_MATCH_ONLY, not configuration/
+   trigger/policy/FK equivalence. All12 deny runtime TRUNCATE/REFERENCES/TRIGGER;
+   column SELECT/INSERT/UPDATE/REFERENCES captured, raw expressions/bodies omitted.
+   Sanitized `.release-evidence/WB-NEIGHBOR-CATALOG-20261001/catalog-complete-acl.json`.
+   Earlier compact/body-only snapshots retained; initial transport truncation was
+   an output-size issue, not a database failure. No business rows/mutations.
+   Public tenants.service_access is permissive ALL/PUBLIC USING(true), applies to
+   lms_app, FORCE false; source0013e_rls_correct.sql verified. The0045 superadmin
+   policy does not restrict a separate permissive policy. Auth domain/legacy login
+   and registration slug lookup depend on pre-tenant reads; do not simply drop the
+   policy or enable FORCE and break bootstrap. API exploit/customer leak NOT_VERIFIED.
+   Invitation0046 remains public until separately approved0170 rollout. External
+   FK targets documents/learning_path_assignments/recurring_learning_assignments
+   not reconstructed by prior twelve-table clones. Full neighbor gate BLOCKED.
+   Local180/failed0/skipped0/1 existing warning; scoped Ruff/quality baseline PASS.
+   Independent cheap review caught incomplete ACL dimensions; corrected then
+   accepted, one correction. Frozen Test Runner local acceptance pending.
+   Graphify AST update attempted once:21911 vs23077 shrink guard; old graph kept,
+   no force/upgrade; source fallback. Root owns tooling/contracts, reviewer read-only.
+30. OWNER-CONFIRMED: explicit answer "Да, только DEV после всех проверок" grants
+   conditional migration0169–0171 to public Supabase DEV and updates of EXISTING
+   DEV API/worker/frontend at current free tiers, preserving production and
+   permanent QA stand. UNUSED: all isolation checks must pass first; this is not
+   permission for public0172, billing/capacity/provider changes, production or
+   bypassing failed gates. Release Runner receives an exact packet only afterward.
 
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
@@ -445,10 +474,11 @@ capacity failure, расход за пределами лимита. Не «об
 |---|---|---|---|
 | WB-FOUNDATION | DONE | root / root / independent cheap reviewer |76 pure tests и quality PASS; commit5afa42f |
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
-| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |Assignment+retention DEV64/local176 and invitation RLS DEV12 PASS; public migration/full-neighbor/browser/cleanup activation gated |
+| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |Prior owned gates PASS; catalog inventory complete; tenants broad policy/full FK-trigger equivalence/browser unresolved; conditional DEV0169–0171 authority unused |
+| WB-NEIGHBOR-CATALOG | IN_REVIEW | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and local180 PASS; frozen local Runner pending; no equivalence claim |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
 | WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
-| WB-RELEASE | NOT_STARTED | root + Release Runner |Exact accepted candidate, all preceding gates; no release authority inferred |
+| WB-RELEASE | NOT_STARTED | root + Release Runner |Exact accepted candidate/all isolation gates; OWNER-CONFIRMED conditional DEV0169–0171 only, unused; production not approved for this workflow |
 
 Write overlap: root owns migration/config/router/registry/purge/docs and DEV gate;
 parser agent owns parser+owned tests, UI agent owns panel/client+web tests until
@@ -481,6 +511,7 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 | Test Runner / frozen retention acceptance |Persistent configured model/effort NOT AVAILABLE |Independent176/scoped Ruff/no findings; root accepted |139.076s; no DB/browser; token counters NOT AVAILABLE |
 | root / retention migration+owned DEV integration |Parent metadata NOT AVAILABLE |Local176/quality and corrected actualDEV64 PASS |Initial harness string/interval failures preserved; no public cleanup; time/review/token counters NOT AVAILABLE |
 | Test & Evidence Runner / invitation RLS local acceptance |Requested gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted first packet,0 product corrections; later root disposition only |212 tests/scoped Ruff/no findings;185.892s; time/review/token counters NOT AVAILABLE |
+| workbench_neighbor_inventory / source inventory + independent catalog review |Requested gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted after1 ACL correction; root corrected initial misnamed tenants policy origin |Read-only sources; no agent DB/env/network; time/token counters NOT AVAILABLE |
 
 Точные сроки оценим после вертикального среза и ASR benchmark; обещать голосовой
 production за фиксированное число дней без этих измерений было бы неверно.
