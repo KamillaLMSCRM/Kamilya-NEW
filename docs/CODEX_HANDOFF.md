@@ -69,7 +69,10 @@
   9trigger bodies bound to latest source, BODY_MATCH_ONLY; not full equivalence.
   All12tables deny runtime TRUNCATE/REFERENCES/TRIGGER; column ACL hashes recorded.
   New bounded local180 PASS/scoped Ruff/quality; cheap review ACL finding corrected.
-  Frozen Test Runner acceptance pending. Artifact:
+  Test Runner independently180/Ruff3/no findings at frozenf0ff29c2 accepted
+  LOCAL_ONLY;140.269s, ledger run WB-NEIGHBOR-CATALOG-LOCAL-20261001-01 plusC1.
+  Original PENDING reports unchanged; local/root-acceptance.json records disposition.
+  No independent DB/browser/full equivalence. Artifact:
   `.release-evidence/WB-NEIGHBOR-CATALOG-20261001/catalog-complete-acl.json`.
 - approval: owner explicitly "Да, только DEV после всех проверок": conditional
   public Supabase DEV0169–0171 + existing free-tier DEV API/worker/frontend;

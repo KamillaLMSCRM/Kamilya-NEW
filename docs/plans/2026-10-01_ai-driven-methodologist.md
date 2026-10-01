@@ -456,7 +456,12 @@ capacity failure, расход за пределами лимита. Не «об
    not reconstructed by prior twelve-table clones. Full neighbor gate BLOCKED.
    Local180/failed0/skipped0/1 existing warning; scoped Ruff/quality baseline PASS.
    Independent cheap review caught incomplete ACL dimensions; corrected then
-   accepted, one correction. Frozen Test Runner local acceptance pending.
+   accepted, one correction. Frozen Test Runner independently180/scoped Ruff3
+   PASS atf0ff29c296d244166ff4ecdc5563ca871858ed17, no source findings; root
+   inspected reports/blobs/ledger and accepts ACCEPTED_LOCAL_ONLY. Run
+   WB-NEIGHBOR-CATALOG-LOCAL-20261001-01 plus rootC1, Runner140.269s;
+   original PENDING retained, later local/root-acceptance.json records disposition.
+   Catalog ROOT_EXECUTOR_REVIEW_ONLY; no independent runtime/browser/full gate.
    Graphify AST update attempted once:21911 vs23077 shrink guard; old graph kept,
    no force/upgrade; source fallback. Root owns tooling/contracts, reviewer read-only.
 30. OWNER-CONFIRMED: explicit answer "Да, только DEV после всех проверок" grants
@@ -465,6 +470,16 @@ capacity failure, расход за пределами лимита. Не «об
    permanent QA stand. UNUSED: all isolation checks must pass first; this is not
    permission for public0172, billing/capacity/provider changes, production or
    bypassing failed gates. Release Runner receives an exact packet only afterward.
+31. Named next scope for owner decision, NOT_APPROVED: compatible tenants RLS
+   remediation, expected migration0172, local contract/negative tests first and
+   public Supabase DEV only after all gates. Replace legacy service_access with
+   own-tenant/validated-superadmin access plus explicitly bounded pre-tenant
+   bootstrap lookup/creation paths; preserve password/OTP/invitation, registration,
+   demo and permanent QA behavior. Exact policy/helper/caller impact contract and
+   frozen release packet must precede writes/rollout; no bypass role, blanket
+   auth flag, customer-row reads, billing or production change. Current approval
+  0169–0171 does not cover public0172. Full neighboring FK/trigger gates remain
+   required after remediation, not automatically PASS.
 
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
@@ -475,7 +490,7 @@ capacity failure, расход за пределами лимита. Не «об
 | WB-FOUNDATION | DONE | root / root / independent cheap reviewer |76 pure tests и quality PASS; commit5afa42f |
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
 | WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |Prior owned gates PASS; catalog inventory complete; tenants broad policy/full FK-trigger equivalence/browser unresolved; conditional DEV0169–0171 authority unused |
-| WB-NEIGHBOR-CATALOG | IN_REVIEW | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and local180 PASS; frozen local Runner pending; no equivalence claim |
+| WB-NEIGHBOR-CATALOG | DONE | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and independent local180 PASS atf0ff29c2; root ACCEPTED_LOCAL_ONLY; no equivalence claim |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
 | WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
 | WB-RELEASE | NOT_STARTED | root + Release Runner |Exact accepted candidate/all isolation gates; OWNER-CONFIRMED conditional DEV0169–0171 only, unused; production not approved for this workflow |
@@ -512,6 +527,7 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 | root / retention migration+owned DEV integration |Parent metadata NOT AVAILABLE |Local176/quality and corrected actualDEV64 PASS |Initial harness string/interval failures preserved; no public cleanup; time/review/token counters NOT AVAILABLE |
 | Test & Evidence Runner / invitation RLS local acceptance |Requested gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted first packet,0 product corrections; later root disposition only |212 tests/scoped Ruff/no findings;185.892s; time/review/token counters NOT AVAILABLE |
 | workbench_neighbor_inventory / source inventory + independent catalog review |Requested gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted after1 ACL correction; root corrected initial misnamed tenants policy origin |Read-only sources; no agent DB/env/network; time/token counters NOT AVAILABLE |
+| Test & Evidence Runner / bounded catalog local acceptance |Persistent configured model/effort NOT AVAILABLE |Accepted first packet, no repair/findings; root disposition C1 |180/Ruff3 PASS atf0ff29c2;140.269s; runtime not independently executed, token counters NOT AVAILABLE |
 
 Точные сроки оценим после вертикального среза и ASR benchmark; обещать голосовой
 production за фиксированное число дней без этих измерений было бы неверно.
