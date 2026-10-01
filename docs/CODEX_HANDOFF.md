@@ -90,7 +90,10 @@
   TEST-INFRA-010. Fresh candidate review hypotheses traced to unchanged baseline
   domain-status semantics and Telegram pre-context User lookup; no sibling auth
   redesign. Telegram context-before-payload unit only; full bot/RLS NOT_VERIFIED.
-  Frozen Test Runner pending, full neighbor equivalence/public rollout not passed.
+  Frozen Test Runner independently85/Ruff4/quality/no delta finding at5bc7d1a9,
+  root ACCEPTED_LOCAL_ONLY;214.910s. Ledger TENANTS-RLS-LOCAL-20261001-01+C1;
+  managed artifacts/fix_report_tenants_rls.md records later acceptance, original
+  PENDING reports preserved. Full neighbor equivalence/public rollout not passed.
 - blockers: feature enablement gated on public migration/cleanup activation,
   full neighbor RLS/FK/trigger equivalence and DEV browser acceptance. Read-only
   DEV catalogs confirm legacy user_invitations_public_pending_lookup is unscoped
