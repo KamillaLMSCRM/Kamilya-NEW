@@ -248,7 +248,7 @@ async def verify_retention(
         ):
             await db.execute(
                 text(
-                    "UPDATE workbench_assignment_plans SET executed_at=transaction_timestamp()-CAST(:age AS interval) WHERE id=:id"
+                    "UPDATE workbench_assignment_plans SET executed_at=transaction_timestamp()-CAST(:age AS text)::interval WHERE id=:id"
                 ),
                 {"id": ids[name], "age": age},
             )
@@ -270,7 +270,7 @@ async def verify_retention(
         ):
             await db.execute(
                 text(
-                    "UPDATE workbench_assignment_plans SET expires_at=transaction_timestamp()-CAST(:age AS interval) WHERE id=:id"
+                    "UPDATE workbench_assignment_plans SET expires_at=transaction_timestamp()-CAST(:age AS text)::interval WHERE id=:id"
                 ),
                 {"id": ids[name], "age": age},
             )
@@ -297,7 +297,7 @@ async def verify_retention(
                 column = "expires_at" if name.startswith("ready") else "executed_at"
                 await fixture.execute(
                     text(
-                        f"UPDATE workbench_assignment_plans SET {column}=CAST(:clock AS timestamptz)-CAST(:age AS interval) WHERE id=:id"
+                        f"UPDATE workbench_assignment_plans SET {column}=CAST(:clock AS timestamptz)-CAST(:age AS text)::interval WHERE id=:id"
                     ),
                     {"id": ids[name], "clock": boundary_clock, "age": age},
                 )

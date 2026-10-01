@@ -404,6 +404,14 @@ capacity failure, расход за пределами лимита. Не «об
    Actual owned DEV retention+assignment gate IN_PROGRESS, not accepted yet.
    Root owns source/migration/gate/docs; reviewer read-only. Frozen local Test Runner
    acceptance follows after integrated source commit. No new release authority.
+   First owned run:45 preceding checks PASS, retention fixture failed with
+   DBAPIError/22000/DataError/AttributeError; schema cleanup/public inventory neutral.
+   Source diagnosis: asyncpg interval codec needs timedelta, not Python string;
+   fixture now binds text before PostgreSQL interval conversion. Failure retained
+   in `.release-evidence/WB-RETENTION-20261001/failures.json`; corrected176 local
+   tests/scoped Ruff PASS, second actual owned run pending. No product guard weakened.
+   Graphify update attempted once, shrink guard21881 vs23077 preserved old graph;
+   source fallback confirms no new domain/worker/provider edges, no forced overwrite.
 
 `WB-FOUNDATION -> WB-TEXT-EXEC -> WB-DEV-ACCEPT -> WB-RELEASE`
 

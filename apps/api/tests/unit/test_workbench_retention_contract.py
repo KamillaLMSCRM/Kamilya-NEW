@@ -107,3 +107,9 @@ def test_isolated_gate_wires_populated_upgrade_and_actual_retention_checks():
     assert calls["verify_retention_upgrade"] == ["connection", "schema", "migration", "RETENTION_MIGRATION"]
     assert calls["verify_retention"] == ["owner_engine", "runtime_engine", "schema", "actor", "other_tenant", "request"]
     assert "or row.executed_at is not None" in source
+
+
+def test_interval_fixture_binds_text_before_postgres_interval_conversion():
+    source = (ROOT / "scripts/ops/workbench_retention_dev_checks.py").read_text(encoding="utf-8")
+    assert "CAST(:age AS interval)" not in source
+    assert source.count("CAST(:age AS text)::interval") == 3
