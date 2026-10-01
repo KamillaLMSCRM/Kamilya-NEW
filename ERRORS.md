@@ -4852,6 +4852,12 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ## RECURRENCE-012 - Mock-only checks missed PostgreSQL and delivery-history invariants
 
+- 2026-10-01 organization validation: cloned position CHECK constraints rejected
+  a synthetic row missing normalized_name (23514/ck_positions_normalized_name).
+  Populate the fixture's normalized_name; corrected owned DEV42 PASS, failed run
+  cleanup/schema absence/public metadata neutrality PASS. Match real cloned CHECKs
+  before fixtures; do not classify fixture failures as application defects.
+
 - 2026-10-01 recurrence in the default-disabled methodologist workbench:
   `Position.department_obj` eager outer join made an unrestricted position
   `FOR UPDATE` fail with PostgreSQL0A000. Lock only `OF positions`, retaining
@@ -5142,3 +5148,22 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   exact unreferenced images early, preserve current/actual rollback/additional
   recovery, verify registry digests, obtain exact cleanup authority, and use the
   canonical exclusive lease. Never mask critical disk or infer permission to prune.
+
+## TEST-INFRA-008 - Catalog classifier silently missed PostgreSQL internal-char values
+
+- Date: 2026-10-01; catalog-only canonical Supabase DEV check, no business rows.
+- Symptom: initial pending-invitation policy classifier returned false despite
+  accepted0046's exact unscoped policy. Initial metadata PASS is retracted.
+- Cause: pg_policy.polcmd internal-char decoding did not equal the Python string
+  expected by the classifier; explicitly selecting polcmd::text fixes the boundary.
+- Fix: cast in SQL; exact positive/negative and mocked READ ONLY/catalog/output
+  tests. Corrected live metadata returns BLOCKED/unscoped_pending_select for
+  user_invitations_public_pending_lookup applying to lms_app. No SQL/PII emitted.
+- Verification: local metadata guard tests PASS within170 focused API tests;
+  corrected actual catalog result preserved in WB-ORG-ISOLATION-20261001/dev.
+- Open: source0046's public pending SELECT remains unscoped; full neighbor RLS
+  acceptance is NOT VERIFIED. No invitation/user rows or API exploit were tested,
+  and no public policy was changed. tenants RLS enabled but FORCE false was observed.
+- Prevention: normalize PostgreSQL catalog types explicitly and exercise a known
+  positive policy through the adapter; unknown classifications never prove safety.
+  Do not copy stricter synthetic policies and call them equivalent to public.

@@ -12,6 +12,9 @@
   concurrent replay, queued notification and manual-overlap gates PASS.
   Invitation preparation/reuse/expired supersession/replay/rollback and silent
   notify=false on existing never-activated learners also PASS in owned DEV33.
+  Organization extension PASS in DEV42: explicit placement, opt-in descendants,
+  foreign plan GET/confirm, committed user/position/child/hire changes and actual
+  blocked concurrent user move; rejected plans remain ready with no domain effects.
   Primary remains clean, matching its local origin/master reference; no push/deploy.
 - changed: new workbench API/UI/parser/0169; shared deltas only config flag,
   main/registry registration and one exact tenant purge entry. Production unchanged.
@@ -27,8 +30,16 @@
   Exact evidence/gaps/ownership: `docs/plans/2026-10-01_ai-driven-methodologist.md`.
   Synthetic owned schema cleanup
   and public revision/table inventory neutrality PASS. No mail/AI/STT calls.
+- verified: new validation-only delta170 API tests, scoped Ruff/canonical quality
+  baseline PASS; cheap independent review no remaining findings. Root DEV42 and
+  preserved failed attempts: `.release-evidence/WB-ORG-ISOLATION-20261001/dev/`;
+  script blob160f0325d505345355646a5bc7758e830246431d. Runner acceptance pending.
 - blockers: feature enablement gated on retention (owner choice pending),
-  full neighbor RLS/org-change interleavings and DEV browser acceptance. Notification
+  full neighbor RLS/FK/trigger equivalence and DEV browser acceptance. Read-only
+  DEV catalogs confirm legacy user_invitations_public_pending_lookup is unscoped
+  and applies to lms_app; tenants FORCE RLS false. No business rows read, no API
+  exploit proof, no public policy change. Separate impact/compatibility contract
+  needed for remediation; organization checks do not replace full neighbor proof. Notification
   gate uses accepted enqueue body in owned schema, not public functions or delivery.
   Graphify shrink
   guard preserves old index; source fallback used, no force. Public migration absent.

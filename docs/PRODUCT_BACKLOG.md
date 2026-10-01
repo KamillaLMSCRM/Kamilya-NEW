@@ -30,7 +30,14 @@ account прошли: atomic outbox/rollback/replay и конфликт с ру�
 Подготовка приглашения существующему сотруднику без входа также прошла в
 изолированном DEV (atomic rollback/reuse/supersession/replay, notify=false);
 активация/OTP/доставка писем не выполнялись. Retention policy ожидает выбора owner;
-полные neighbor RLS/organization interleavings, browser acceptance,
+Organization gates прошли в owned DEV42: explicit placement/fallback, descendants,
+foreign plan GET/confirm, committed user/position/hierarchy/new-hire changes и
+наблюдаемое конкурентное перемещение сотрудника; stale без domain effects.
+Полные neighbor RLS остаются gated: read-only DEV metadata подтвердили старую
+unscoped pending-invitation SELECT policy, действующую для lms_app; это не
+доказательство API exploit. Требуется отдельный bounded auth/RLS compatibility
+contract и отрицательная DB-проверка до любого public изменения. FK/trigger
+equivalence, browser acceptance,
 ASR benchmark, стоимость/маршрут аудио и production release —
 отдельные gates; согласование направления не разрешает платные ресурсы.
 

@@ -14,6 +14,8 @@ Owned-plan reload and isolated notification validation:
 [ASSIGNMENT-RELOAD-VALIDATION addendum V1](contracts/ASSIGNMENT_RELOAD_VALIDATION_ADDENDUM_V1.md).
 Never-activated learner preparation validation:
 [ASSIGNMENT-INVITATION-VALIDATION addendum V1](contracts/ASSIGNMENT_INVITATION_VALIDATION_ADDENDUM_V1.md).
+Organization interleavings and bounded metadata preflight:
+[ASSIGNMENT-ORGANIZATION-ISOLATION addendum V1](contracts/ASSIGNMENT_ORGANIZATION_ISOLATION_VALIDATION_ADDENDUM_V1.md).
 Acceptance: [critical journeys](acceptance/CRITICAL_JOURNEYS_V1.md).
 Execution sequence/progress: [plan](../../../plans/2026-10-01_ai-driven-methodologist.md).
 

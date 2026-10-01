@@ -300,6 +300,37 @@ capacity failure, расход за пределами лимита. Не «об
    `.release-evidence/WB-INVITATION-LOCAL-20261001-01/local/` (root accepted bounded
    destination amendment). Evidence-only C1 clarifies preview persists only plan,
    not invitations/domain assignments; prior ledger remains append-only.
+18. Organization/isolation slice принят по
+   [organization addendum](../product/contract-modules/methodologist-workbench/contracts/ASSIGNMENT_ORGANIZATION_ISOLATION_VALIDATION_ADDENDUM_V1.md).
+   Application runtime source не менялся. Root **DEV42 PASS**: явный отдел
+   сильнее position fallback; descendants только opt-in; чужой actor/tenant
+   не читает и не подтверждает план; committed user move/position relocation/
+   child reparent/new hire после preview вызывают stale без receipt/enrollment/
+   access policy/invitation/outbox. Два runtime sessions: confirm действительно
+   ожидает lock от конкретного mutator PID, затем committed move отклоняет план.
+   Не заявляется serializable org predicate lock, future autoassign или проверка
+   application cancellation. Owned schema удалена, отсутствие/public revision+
+   table inventory neutrality PASS. Evidence:
+   `.release-evidence/WB-ORG-ISOLATION-20261001/dev/results.json`, script blob
+   `160f0325d505345355646a5bc7758e830246431d`.
+19. Catalog-only DEV metadata **BLOCKED** для full neighbor acceptance:
+   `user_invitations_public_pending_lookup` из0046 — unscoped pending SELECT,
+   применяется к lms_app; tenants RLS enabled/FORCE false. Business rows не читались,
+   API exploit/leak NOT VERIFIED; public policies/roles/migrations не менялись.
+   Это не заменяется более строгой synthetic policy с заявлением equivalence.
+   Требуется root impact amendment и auth/public-invitation compatibility contract
+   перед локальным исправлением; public rollout отдельно gated. Retention owner
+   choice, full FK/trigger proof и browser acceptance остаются открыты.
+20. Root local **170 API tests PASS**, failed0/skipped0/1 existing warning;
+   canonical quality baseline/scoped Ruff PASS; independent cheap review accepted
+   после исправления неверной трактовки preview/guarded selection и coverage hire.
+   Начальные попытки сохранены в `failures.json`: metadata internal-char false
+   negative (retracted, explicit text cast), synthetic Position CHECK23514,
+   root wrong selector/no tests, owned-test import-order issue. Corrected tests и
+   actual DEV gate прошли; failures не переписаны в PASS. Test Runner local frozen
+   candidate acceptance pending; unchanged UI/build не перезапускались.
+   Graphify AST update21822 vs23077 остановлен shrink guard; старый index
+   сохранён, source fallback, без force/upgrade. Это extraction gap, не FAIL gate.
 
 ### Epic-update: ownership и зависимости
 
@@ -313,7 +344,7 @@ capacity failure, расход за пределами лимита. Не «об
 |---|---|---|---|
 | WB-FOUNDATION | DONE | root / root / independent cheap reviewer |76 pure tests и quality PASS; commit5afa42f |
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
-| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |Reload/outbox/manual overlap/invitation preparation PASS; retention/full-neighbor/browser still gated |
+| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |Reload/outbox/manual overlap/invitation/organization DEV42 PASS; full-neighbor pending policy blocked; retention/browser gated |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
 | WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
 | WB-RELEASE | NOT_STARTED | root + Release Runner |Exact accepted candidate, all preceding gates; no release authority inferred |
@@ -338,6 +369,9 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 | workbench_activation_review / inventory + independent delta review |Requested gpt-5.6-luna / medium; independently observed metadata NOT AVAILABLE |Accepted both handoffs,0 corrections |Exact source review only, no DB/network/writes; time/token counters NOT AVAILABLE |
 | root / invitation gate integration |Parent session; exact metadata NOT AVAILABLE |3 RED guards repaired,10 GREEN;69 focused tests/quality; DEV33 PASS |Cleanup/public metadata neutrality PASS; invitation delivery NOT_RUN; time/token counters NOT AVAILABLE |
 | Test & Evidence Runner / invitation local acceptance |Requested gpt-5.6-luna / medium; independently observed model metadata NOT AVAILABLE |Accepted corrected run;1 invocation correction +1 evidence C1; no product repair |69 tests/scoped Ruff PASS, original run180.738s/C1 37.168s; root rework/token counters NOT AVAILABLE |
+| workbench_neighbor_rls_inventory / source-only inventory |Requested gpt-5.6-luna / medium; independently observed metadata NOT AVAILABLE |Accepted,0 corrections |Root verified source/actual catalog exception; no external agent access; time/token counters NOT AVAILABLE |
+| organization_gate_review / independent exact-delta review |Requested gpt-5.6-luna / medium; independently observed metadata NOT AVAILABLE |Accepted after1 review-scope/contract correction + final hire-delta review; no leaf writes |No remaining findings; cancellation/after-selection semantics explicitly not claimed; time/token/review counters NOT AVAILABLE |
+| root / organization and metadata gates |Parent session; exact metadata NOT AVAILABLE |Owned harness/fixture corrections; corrected DEV42/170 API/quality PASS |Public metadata blocker remains; cleanup/public inventory neutral; time/token/review counters NOT AVAILABLE |
 
 Точные сроки оценим после вертикального среза и ASR benchmark; обещать голосовой
 production за фиксированное число дней без этих измерений было бы неверно.

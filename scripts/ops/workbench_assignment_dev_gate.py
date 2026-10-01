@@ -58,6 +58,113 @@ def safe_schema(value: str) -> str:
     return f'"{value}"'
 
 
+def classify_pending_policy(command, permissive, applies_to_app, expression) -> str:
+    """Recognize only the exact accepted0046 exception; never emit raw SQL."""
+    normalized = re.sub(r"[\s()]", "", expression or "").replace("::text", "")
+    if (
+        command == "r"
+        and permissive
+        and applies_to_app
+        and normalized == "status='pending'"
+    ):
+        return "unscoped_pending_select"
+    return "not_classified"
+
+
+async def inspect_neighbor_metadata(owner_url, runtime_url, supabase_url):
+    """Read only flags/privileges/policy classification, never business rows."""
+    if not all(
+        same_supabase_project(url, supabase_url) for url in (owner_url, runtime_url)
+    ):
+        raise GateBlocked("canonical_dev_identity_mismatch")
+    if (make_url(runtime_url).username or "").split(".")[0] != "lms_app":
+        raise GateBlocked("wrong_runtime_role")
+    if any(make_url(url).database != "postgres" for url in (owner_url, runtime_url)):
+        raise GateBlocked("unexpected_database")
+    runtime = create_async_engine(runtime_url, poolclass=NullPool, hide_parameters=True)
+    owner = create_async_engine(owner_url, poolclass=NullPool, hide_parameters=True)
+    try:
+        async with runtime.connect() as connection:
+            await verify_runtime_role(connection)
+        async with owner.begin() as connection:
+            await connection.execute(text("SET TRANSACTION READ ONLY"))
+            tables = (
+                (
+                    await connection.execute(
+                        text(
+                            "SELECT c.relname,c.relrowsecurity,c.relforcerowsecurity,"
+                            "has_table_privilege('lms_app',c.oid,'SELECT') AS can_select,"
+                            "has_table_privilege('lms_app',c.oid,'INSERT') AS can_insert,"
+                            "has_table_privilege('lms_app',c.oid,'UPDATE') AS can_update "
+                            "FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
+                            "WHERE n.nspname='public' AND c.relname=ANY(:tables) ORDER BY c.relname"
+                        ),
+                        {"tables": list(TABLES)},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            policies = (
+                (
+                    await connection.execute(
+                        text(
+                            "SELECT c.relname,p.polname,p.polcmd::text AS polcmd,p.polpermissive,"
+                            "(0=ANY(p.polroles) OR EXISTS(SELECT 1 FROM pg_roles r "
+                            "WHERE r.oid=ANY(p.polroles) AND pg_has_role('lms_app',r.oid,'MEMBER'))) AS app_applies,"
+                            "pg_get_expr(p.polqual,p.polrelid) AS expression "
+                            "FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid "
+                            "JOIN pg_namespace n ON n.oid=c.relnamespace "
+                            "WHERE n.nspname='public' AND c.relname=ANY(:tables) ORDER BY c.relname,p.polname"
+                        ),
+                        {"tables": list(TABLES)},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+        if {row["relname"] for row in tables} != set(TABLES):
+            raise GateBlocked("neighbor_metadata_table_missing")
+        safe_policies = []
+        for row in policies:
+            if not re.fullmatch(r"[a-z_][a-z0-9_]{0,62}", row["polname"]):
+                raise GateBlocked("neighbor_policy_name_unexpected")
+            safe_policies.append(
+                {
+                    "table": row["relname"],
+                    "policy": row["polname"],
+                    "app_applies": row["app_applies"],
+                    "predicate_mentions_tenant_context": "app.tenant_id"
+                    in (row["expression"] or ""),
+                    "classification": classify_pending_policy(
+                        row["polcmd"],
+                        row["polpermissive"],
+                        row["app_applies"],
+                        row["expression"],
+                    ),
+                }
+            )
+        unscoped = any(
+            row["table"] == "user_invitations"
+            and row["classification"] == "unscoped_pending_select"
+            for row in safe_policies
+        )
+        return {
+            "status": "BLOCKED" if unscoped else "PASS",
+            "scope": "read_only_dev_neighbor_metadata",
+            "runtime_non_bypass": True,
+            "tables": [dict(row) for row in tables],
+            "policies": safe_policies,
+            "unscoped_pending_invitation_policy": unscoped,
+            "neighbor_equivalence": "NOT_VERIFIED",
+            "business_rows_read": False,
+            "mutations": False,
+        }
+    finally:
+        await runtime.dispose()
+        await owner.dispose()
+
+
 def safe_failure(exc: Exception) -> str:
     """Expose only code/schema identifiers, never SQL, values or DSNs."""
     if isinstance(exc, GateBlocked):
@@ -726,6 +833,304 @@ async def verify_notification_and_manual_overlap(
     ]
 
 
+async def verify_organization_changes(owner_engine, runtime_engine, schema, actor, now):
+    """Bounded audience contract, not neighbor policy/FK/trigger equivalence."""
+    from app.models.department import Department
+    from app.models.users import User
+    from app.modules.courses.models import Course
+    from app.modules.courses.release_models import ContentRelease
+    from app.modules.methodologist_workbench.assignment_schemas import (
+        AssignmentPreviewRequest,
+    )
+    from app.modules.methodologist_workbench.assignment_service import (
+        WorkbenchConflict,
+        WorkbenchNotFound,
+        confirm_assignment_plan,
+        create_assignment_preview,
+        get_assignment_plan,
+    )
+    from app.modules.methodologist_workbench.plan_contract import (
+        ActorContext,
+        ConfirmationRequest,
+    )
+    from app.modules.positions.models import Position
+
+    root, child, outside, position, direct, fallback, excluded, course_id, hire = (
+        uuid4() for _ in range(9)
+    )
+    async with AsyncSession(owner_engine) as db:
+        await context(db, schema, actor.tenant_id, actor.actor_id)
+        for unit_id, name, parent in (
+            (root, "Organization root", None),
+            (child, "Organization child", root),
+            (outside, "Organization outside", None),
+        ):
+            db.add(
+                Department(
+                    id=unit_id,
+                    tenant_id=actor.tenant_id,
+                    name=name,
+                    normalized_name=name.lower(),
+                    slug=unit_id.hex,
+                    parent_id=parent,
+                )
+            )
+        db.add(
+            Position(
+                id=position,
+                tenant_id=actor.tenant_id,
+                name="Synthetic position",
+                normalized_name="synthetic position",
+                department_id=child,
+            )
+        )
+        for user_id, unit, user_position in (
+            (direct, root, position),
+            (fallback, None, position),
+            (excluded, outside, position),
+        ):
+            db.add(
+                User(
+                    id=user_id,
+                    tenant_id=actor.tenant_id,
+                    role="student",
+                    first_name="Synthetic",
+                    last_name="Organization",
+                    is_active=True,
+                    status="active",
+                    organization_unit_id=unit,
+                    position_id=user_position,
+                    password_hash="synthetic-non-credential",
+                )
+            )
+        course = Course(
+            id=course_id,
+            tenant_id=actor.tenant_id,
+            title="Organization course",
+            status="published",
+        )
+        db.add(course)
+        await db.flush()
+        release_id = uuid4()
+        db.add(
+            ContentRelease(
+                id=release_id,
+                tenant_id=actor.tenant_id,
+                course_id=course_id,
+                version=1,
+                snapshot={},
+                snapshot_sha256="c" * 64,
+            )
+        )
+        await db.flush()
+        course.current_release_id = release_id
+        await db.commit()
+
+    async def preview(descendants=True):
+        async with AsyncSession(runtime_engine, expire_on_commit=False) as db:
+            await context(db, schema, actor.tenant_id, actor.actor_id)
+            result = await create_assignment_preview(
+                db,
+                actor,
+                AssignmentPreviewRequest(
+                    instruction=f'Назначь курс "Organization course" отделу "Organization root" до {(now + timedelta(days=3)).date()}',
+                    timezone_name="UTC",
+                    include_descendants=descendants,
+                    notify=False,
+                ),
+                now=now,
+            )
+            if result.state != "preview_ready":
+                raise GateBlocked("organization_preview_not_ready")
+            expected = {direct, fallback} if descendants else {direct}
+            if {row.user_id for row in result.recipients} != expected:
+                raise GateBlocked("explicit_placement_or_descendants_mismatch")
+            await db.commit()
+            return ConfirmationRequest(
+                plan_id=result.plan_id,
+                revision=result.revision,
+                fingerprint=result.fingerprint,
+            )
+
+    async def rejected(request, caller=actor, missing=False, backend=None):
+        async with AsyncSession(runtime_engine) as db:
+            await context(db, schema, caller.tenant_id, caller.actor_id)
+            if backend is not None:
+                backend.set_result(await db.scalar(text("SELECT pg_backend_pid()")))
+            try:
+                await confirm_assignment_plan(db, caller, request, now=now)
+            except (WorkbenchNotFound, WorkbenchConflict) as exc:
+                expected_type = WorkbenchNotFound if missing else WorkbenchConflict
+                expected_code = "plan_not_found" if missing else "stale"
+                if not isinstance(exc, expected_type) or str(exc) != expected_code:
+                    raise GateBlocked("organization_unexpected_rejection") from None
+                await db.rollback()
+            else:
+                raise GateBlocked("changed_or_foreign_plan_was_accepted")
+
+    async def assert_no_effects(request):
+        async with AsyncSession(owner_engine) as db:
+            await context(db, schema, actor.tenant_id, actor.actor_id)
+            untouched = await db.scalar(
+                text(
+                    "SELECT EXISTS(SELECT 1 FROM workbench_assignment_plans WHERE id=:p "
+                    "AND status='ready' AND receipt IS NULL) "
+                    "AND NOT EXISTS(SELECT 1 FROM enrollments WHERE course_id=:c) "
+                    "AND NOT EXISTS(SELECT 1 FROM enrollment_access_policies WHERE user_id IN (:a,:b,:d,:h)) "
+                    "AND NOT EXISTS(SELECT 1 FROM user_invitations WHERE user_id IN (:a,:b,:d,:h)) "
+                    "AND NOT EXISTS(SELECT 1 FROM course_assignment_notification_outbox o "
+                    "JOIN enrollments e ON e.id=o.enrollment_id WHERE e.course_id=:c)"
+                ),
+                {
+                    "p": request.plan_id,
+                    "c": course_id,
+                    "a": direct,
+                    "b": fallback,
+                    "d": excluded,
+                    "h": hire,
+                },
+            )
+            if untouched is not True:
+                raise GateBlocked("rejected_organization_plan_left_effects")
+
+    await preview(False)
+    request = await preview()
+    for caller in (
+        ActorContext(
+            tenant_id=actor.tenant_id, actor_id=uuid4(), active_role="methodologist"
+        ),
+        ActorContext(
+            tenant_id=uuid4(), actor_id=actor.actor_id, active_role="methodologist"
+        ),
+    ):
+        async with AsyncSession(runtime_engine) as db:
+            await context(db, schema, caller.tenant_id, caller.actor_id)
+            try:
+                await get_assignment_plan(db, caller, request.plan_id)
+            except WorkbenchNotFound as exc:
+                if str(exc) != "plan_not_found":
+                    raise
+            else:
+                raise GateBlocked("foreign_plan_get_allowed")
+        await rejected(request, caller, missing=True)
+        await assert_no_effects(request)
+
+    for mutation, restore, parameters in (
+        (
+            "UPDATE users SET organization_unit_id=:outside WHERE id=:id",
+            "UPDATE users SET organization_unit_id=:root WHERE id=:id",
+            {"id": direct},
+        ),
+        (
+            "UPDATE positions SET department_id=:outside WHERE id=:id",
+            "UPDATE positions SET department_id=:child WHERE id=:id",
+            {"id": position},
+        ),
+        (
+            "UPDATE departments SET parent_id=:outside WHERE id=:id",
+            "UPDATE departments SET parent_id=:root WHERE id=:id",
+            {"id": child},
+        ),
+    ):
+        request = await preview()
+        values = {**parameters, "outside": outside, "root": root, "child": child}
+        async with AsyncSession(runtime_engine) as db:
+            await context(db, schema, actor.tenant_id, actor.actor_id)
+            await db.execute(text(mutation), values)
+            await db.commit()
+        await rejected(request)
+        await assert_no_effects(request)
+        async with AsyncSession(runtime_engine) as db:
+            await context(db, schema, actor.tenant_id, actor.actor_id)
+            await db.execute(text(restore), values)
+            await db.commit()
+
+    # A hire committed after preview but BEFORE guarded selection invalidates it.
+    # This is distinct from a future hire after one-time selection (not a rule).
+    request = await preview()
+    async with AsyncSession(runtime_engine) as db:
+        await context(db, schema, actor.tenant_id, actor.actor_id)
+        db.add(
+            User(
+                id=hire,
+                tenant_id=actor.tenant_id,
+                role="student",
+                first_name="Synthetic",
+                last_name="New hire",
+                is_active=True,
+                status="active",
+                organization_unit_id=root,
+                password_hash="synthetic-non-credential",
+            )
+        )
+        await db.commit()
+    await rejected(request)
+    await assert_no_effects(request)
+    async with AsyncSession(runtime_engine) as db:
+        await context(db, schema, actor.tenant_id, actor.actor_id)
+        await db.execute(
+            text("UPDATE users SET status='inactive',is_active=false WHERE id=:id"),
+            {"id": hire},
+        )
+        await db.commit()
+
+    # Distinct runtime transactions: UPDATE holds the actual learner row lock.
+    # Observe the confirm backend blocked by this exact mutator before commit.
+    request = await preview()
+    backend = asyncio.get_running_loop().create_future()
+    task = None
+    async with AsyncSession(runtime_engine) as mutator:
+        await context(mutator, schema, actor.tenant_id, actor.actor_id)
+        mutator_pid = await mutator.scalar(text("SELECT pg_backend_pid()"))
+        await mutator.execute(
+            text("UPDATE users SET organization_unit_id=:outside WHERE id=:id"),
+            {"outside": outside, "id": direct},
+        )
+        try:
+            task = asyncio.create_task(rejected(request, backend=backend))
+            confirm_pid = await asyncio.wait_for(backend, timeout=10)
+            deadline = asyncio.get_running_loop().time() + 10
+            observed = False
+            async with owner_engine.connect() as inspector:
+                await inspector.execute(text("SET TRANSACTION READ ONLY"))
+                while asyncio.get_running_loop().time() < deadline:
+                    observed = await inspector.scalar(
+                        text(
+                            "SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE pid=:pid "
+                            "AND wait_event_type='Lock' AND :blocker=ANY(pg_blocking_pids(pid)))"
+                        ),
+                        {"pid": confirm_pid, "blocker": mutator_pid},
+                    )
+                    if observed:
+                        break
+                    if task.done():
+                        await task
+                        raise GateBlocked("organization_confirm_did_not_wait_for_edit")
+                    # Polling only: the lock observation, not elapsed time, is the oracle.
+                    await asyncio.sleep(0.05)
+            if not observed:
+                raise GateBlocked("organization_lock_not_observed")
+            await mutator.commit()
+            await asyncio.wait_for(task, timeout=15)
+        finally:
+            await mutator.rollback()
+            if task is not None and not task.done():
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+    await assert_no_effects(request)
+    return [
+        "organization_explicit_placement_wins",
+        "organization_descendants_opt_in_position_fallback",
+        "foreign_actor_plan_get_confirm_denied",
+        "foreign_tenant_plan_get_confirm_denied",
+        "committed_user_move_rejected_no_effects",
+        "committed_position_move_rejected_no_effects",
+        "committed_child_reparent_rejected_no_effects",
+        "committed_post_preview_hire_rejected_no_effects",
+        "observed_concurrent_user_move_rejected_no_effects",
+    ]
+
+
 async def run_gate(owner_url, runtime_url, supabase_url):
     if not all(
         same_supabase_project(url, supabase_url) for url in (owner_url, runtime_url)
@@ -1049,6 +1454,10 @@ async def run_gate(owner_url, runtime_url, supabase_url):
         checks += await verify_invitation_preparation(
             owner_engine, runtime_engine, schema, actor, now
         )
+        stage = "organization_changes"
+        checks += await verify_organization_changes(
+            owner_engine, runtime_engine, schema, actor, now
+        )
         stage = "stale_membership"
         # New preview with existing assignment, then a membership removal.
         async with AsyncSession(runtime_engine, expire_on_commit=False) as db:
@@ -1120,6 +1529,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--env-file", type=Path, required=True)
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--metadata-only", action="store_true")
     args = parser.parse_args()
     if not args.execute:
         print(json.dumps({"status": "BLOCKED", "reason": "execute_required"}))
@@ -1133,7 +1543,8 @@ def main() -> int:
         for name in ("MIGRATION_DATABASE_URL", "DATABASE_URL")
     ]
     try:
-        result = asyncio.run(run_gate(*urls, config.get("SUPABASE_URL") or ""))
+        operation = inspect_neighbor_metadata if args.metadata_only else run_gate
+        result = asyncio.run(operation(*urls, config.get("SUPABASE_URL") or ""))
     except Exception as exc:
         result = {
             "status": "BLOCKED",

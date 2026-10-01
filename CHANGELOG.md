@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Validate atomic activation-link preparation for existing never-activated learners,
   valid invitation reuse/expired supersession and silent assignments in the owned
   DEV schema; exclude public search-path fallback and require owned table resolution.
+- Validate explicit employee placement, opt-in department descendants and stale
+  plans after organization changes, including an observed concurrent employee move,
+  in the disposable DEV schema. Add catalog-only RLS preflight; the existing
+  unscoped pending-invitation exception remains an enablement blocker, not fixed.
 
 ## [0.11.25] - 2026-10-01
 
