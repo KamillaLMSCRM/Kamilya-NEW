@@ -331,6 +331,18 @@ capacity failure, расход за пределами лимита. Не «об
    candidate acceptance pending; unchanged UI/build не перезапускались.
    Graphify AST update21822 vs23077 остановлен shrink guard; старый index
    сохранён, source fallback, без force/upgrade. Это extraction gap, не FAIL gate.
+21. Test & Evidence Runner independently **PASS** on frozen candidate
+   `0355bd626613b0099192667dbf2085ea17ed92b8`:170 passed/failed0/skipped0,
+   scoped Ruff PASS, exact source review no findings. Root inspected report/JSON,
+   append-only ledger delta, unchanged source/blob and accepts **ACCEPTED_LOCAL_ONLY**.
+   Run `WB-ORG-ISOLATION-LOCAL-20261001-01`, duration207.559s, evidence
+   `.release-evidence/WB-ORG-ISOLATION-LOCAL-20261001-01/local/`.
+   Original PENDING reports retained verbatim; later root-acceptance.json and
+   append-only root C1 record disposition without repeated tests or source repair.
+   DEV42 remains ROOT_EXECUTOR_REVIEW_ONLY; metadata neighbor gate BLOCKED;
+   no public migration, browser, mail, AI/audio or flags enablement. Next root task:
+   bounded compatibility contract and local negative DB proof for invitation RLS;
+   existing token-based anonymous access must remain valid, no silent bypass.
 
 ### Epic-update: ownership и зависимости
 
@@ -372,6 +384,7 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 | workbench_neighbor_rls_inventory / source-only inventory |Requested gpt-5.6-luna / medium; independently observed metadata NOT AVAILABLE |Accepted,0 corrections |Root verified source/actual catalog exception; no external agent access; time/token counters NOT AVAILABLE |
 | organization_gate_review / independent exact-delta review |Requested gpt-5.6-luna / medium; independently observed metadata NOT AVAILABLE |Accepted after1 review-scope/contract correction + final hire-delta review; no leaf writes |No remaining findings; cancellation/after-selection semantics explicitly not claimed; time/token/review counters NOT AVAILABLE |
 | root / organization and metadata gates |Parent session; exact metadata NOT AVAILABLE |Owned harness/fixture corrections; corrected DEV42/170 API/quality PASS |Public metadata blocker remains; cleanup/public inventory neutral; time/token/review counters NOT AVAILABLE |
+| Test & Evidence Runner / organization local acceptance |Requested gpt-5.6-luna / medium; independently observed metadata NOT AVAILABLE |Accepted first packet;0 product corrections; later root-disposition receipt only |170 tests/scoped Ruff/no findings;207.559s; root rework/review/token counters NOT AVAILABLE |
 
 Точные сроки оценим после вертикального среза и ASR benchmark; обещать голосовой
 production за фиксированное число дней без этих измерений было бы неверно.

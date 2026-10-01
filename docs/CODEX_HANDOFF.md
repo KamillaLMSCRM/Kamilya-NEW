@@ -30,10 +30,14 @@
   Exact evidence/gaps/ownership: `docs/plans/2026-10-01_ai-driven-methodologist.md`.
   Synthetic owned schema cleanup
   and public revision/table inventory neutrality PASS. No mail/AI/STT calls.
-- verified: new validation-only delta170 API tests, scoped Ruff/canonical quality
+  New validation-only delta170 API tests, scoped Ruff/canonical quality
   baseline PASS; cheap independent review no remaining findings. Root DEV42 and
   preserved failed attempts: `.release-evidence/WB-ORG-ISOLATION-20261001/dev/`;
-  script blob160f0325d505345355646a5bc7758e830246431d. Runner acceptance pending.
+  script blob160f0325d505345355646a5bc7758e830246431d. Test Runner independently
+  accepted frozen0355bd62:170 tests/scoped Ruff, no findings; root disposition
+  ACCEPTED_LOCAL_ONLY, ledger WB-ORG-ISOLATION-LOCAL-20261001-01 plus root C1.
+  DEV42 only ROOT_EXECUTOR_REVIEW_ONLY; original reports preserve PENDING and
+  later root-acceptance.json records final disposition. No source/test rerun.
 - blockers: feature enablement gated on retention (owner choice pending),
   full neighbor RLS/FK/trigger equivalence and DEV browser acceptance. Read-only
   DEV catalogs confirm legacy user_invitations_public_pending_lookup is unscoped
