@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add DB-owned successful execution timestamps and a bounded, tenant-scoped
+  dry-run/apply function for workbench metadata retention (24h after preview expiry,
+  90d after execution). Preserve legacy receipts without reliable timestamps and
+  all learning/assignment history. No scheduler or public migration is enabled.
 - Default-disabled methodologist workbench for a bounded text command assigning
   an existing published course once to the current members of a department:
   server-owned preview, explicit timezone/deadline, confirmation and atomic receipt.

@@ -35,6 +35,9 @@ from sqlalchemy.pool import NullPool
 ROOT = Path(__file__).resolve().parents[2]
 API_ROOT = ROOT / "apps" / "api"
 MIGRATION = API_ROOT / "alembic" / "versions" / "0169_workbench_assignment_plans.py"
+RETENTION_MIGRATION = (
+    API_ROOT / "alembic" / "versions" / "0171_workbench_plan_retention.py"
+)
 SCHEMA_RE = re.compile(r"^workbench_[0-9a-f]{12}$")
 TABLES = (
     "tenants",
@@ -202,11 +205,15 @@ def safe_failure(exc: Exception) -> str:
     return ":".join(identifiers)
 
 
-async def migration(connection, schema: str, operation: str = "upgrade") -> None:
+async def migration(
+    connection, schema: str, operation: str = "upgrade", *, path=MIGRATION
+) -> None:
     safe_schema(schema)
     if operation not in {"upgrade", "downgrade"}:
         raise GateBlocked("invalid_migration_action")
-    spec = importlib.util.spec_from_file_location("workbench_migration0169", MIGRATION)
+    if path not in {MIGRATION, RETENTION_MIGRATION}:
+        raise GateBlocked("invalid_migration_path")
+    spec = importlib.util.spec_from_file_location("workbench_owned_migration", path)
     if spec is None or spec.loader is None:
         raise GateBlocked("migration_unavailable")
     module = importlib.util.module_from_spec(spec)
@@ -1196,6 +1203,11 @@ async def run_gate(owner_url, runtime_url, supabase_url):
                     )
                 )
             await migration(connection, schema)
+            from workbench_retention_dev_checks import verify_retention_upgrade
+
+            checks += await verify_retention_upgrade(
+                connection, schema, migration, RETENTION_MIGRATION
+            )
             await install_isolated_enqueue(connection, schema)
             flags = (
                 await connection.execute(
@@ -1210,6 +1222,7 @@ async def run_gate(owner_url, runtime_url, supabase_url):
                 raise GateBlocked("force_rls_missing")
         checks += [
             "migration_upgrade",
+            "retention_migration_upgrade",
             "enable_force_rls",
             "accepted_enqueue_body_isolated",
         ]
@@ -1405,6 +1418,7 @@ async def run_gate(owner_url, runtime_url, supabase_url):
             if (
                 row.status != "ready"
                 or row.receipt is not None
+                or row.executed_at is not None
                 or count != 0
                 or policy_count != 0
             ):
@@ -1489,6 +1503,12 @@ async def run_gate(owner_url, runtime_url, supabase_url):
             else:
                 raise GateBlocked("stale_membership_was_accepted")
         checks.append("changed_membership_blocks")
+        stage = "retention"
+        from workbench_retention_dev_checks import verify_retention
+
+        checks += await verify_retention(
+            owner_engine, runtime_engine, schema, actor, other_tenant, request
+        )
     except Exception as exc:
         failure = safe_failure(exc)
     finally:

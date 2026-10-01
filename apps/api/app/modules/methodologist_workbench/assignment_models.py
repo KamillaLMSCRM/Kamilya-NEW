@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, func
+from sqlalchemy import CheckConstraint, DateTime, FetchedValue, ForeignKey, Index, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -27,6 +27,7 @@ class AssignmentPlan(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[str] = mapped_column(String(16), default="ready", nullable=False)
     receipt: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_onupdate=FetchedValue())
 
     __table_args__ = (
         CheckConstraint("status IN ('ready','succeeded')", name="ck_workbench_plan_status"),
@@ -34,5 +35,6 @@ class AssignmentPlan(Base):
             "(status='ready' AND receipt IS NULL) OR (status='succeeded' AND receipt IS NOT NULL)",
             name="ck_workbench_plan_receipt",
         ),
+        CheckConstraint("status='succeeded' OR executed_at IS NULL", name="ck_workbench_plan_execution_time"),
         Index("ix_workbench_plan_owner_created", "tenant_id", "actor_id", "created_at"),
     )

@@ -393,6 +393,18 @@ capacity failure, расход за пределами лимита. Не «об
 
 ### Epic-update: ownership и зависимости
 
+26. Retention implementation under root-accepted
+   [implementation V1](../product/contract-modules/methodologist-workbench/contracts/RETENTION_IMPLEMENTATION_ADDENDUM_V1.md):
+   migration0171 DB-owned executed_at/terminal receipt trigger and bounded exact-tenant
+   invoker cleanup (dry-run default, cap500, SKIP LOCKED). Legacy successfulNULL
+   remains protected; no public migration/scheduler/API/worker change. Root local175
+   tests/scoped Ruff/canonical quality PASS; first51PASS/1 formatting-sensitive
+   harness assertion repaired with AST wiring check, then52PASS; invariant not weakened.
+   Cheap independent named-source review found no remaining concrete defect.
+   Actual owned DEV retention+assignment gate IN_PROGRESS, not accepted yet.
+   Root owns source/migration/gate/docs; reviewer read-only. Frozen local Test Runner
+   acceptance follows after integrated source commit. No new release authority.
+
 `WB-FOUNDATION -> WB-TEXT-EXEC -> WB-DEV-ACCEPT -> WB-RELEASE`
 
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
