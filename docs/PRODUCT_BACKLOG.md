@@ -30,7 +30,10 @@ account прошли: atomic outbox/rollback/replay и конфликт с ру�
 Подготовка приглашения существующему сотруднику без входа также прошла в
 изолированном DEV (atomic rollback/reuse/supersession/replay, notify=false);
 активация/OTP/доставка писем не выполнялись. Owner утвердил retention15min/24h
-после expiry/90days receipt; bounded cleanup implementation ещё не выполнена.
+после expiry/90days receipt; bounded cleanup реализована локально: DB-owned время
+исполнения, неизменяемая квитанция, dry-run и exact-tenant партия до500. Root
+owned DEV64 и независимые локальные176 tests PASS; удалённый locator не исполняется
+повторно, domain rows неизменны. Public migration/activation/scheduling не выполнены.
 Organization gates прошли в owned DEV42: explicit placement/fallback, descendants,
 foreign plan GET/confirm, committed user/position/hierarchy/new-hire changes и
 наблюдаемое конкурентное перемещение сотрудника; stale без domain effects.

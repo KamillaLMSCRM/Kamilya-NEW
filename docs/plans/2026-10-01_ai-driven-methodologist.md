@@ -412,6 +412,28 @@ capacity failure, расход за пределами лимита. Не «об
    tests/scoped Ruff PASS, second actual owned run pending. No product guard weakened.
    Graphify update attempted once, shrink guard21881 vs23077 preserved old graph;
    source fallback confirms no new domain/worker/provider edges, no forced overwrite.
+27. Corrected frozen`f12a63374d347768bd9b3fddca14a5dd42393bc2` root actual owned
+   **DEV64 PASS**, schema absent/public revision+table inventory neutral. Real
+   non-bypass lms_app: DB time/replay/rollback, terminal immutable receipt, ordinary
+   and missing-context denial, dry-run, exact inclusive24h/90d plus1microsecond
+   protected side, legacyNULL/future/recent preservation, batch ordering/cap,
+   tenant context isolation, actual locked-receipt skip/replay, concurrent cleanup
+   and repeat0, deleted GET/confirm not-found, every cloned domain row unchanged.
+   No full neighbor RLS/FK/trigger equivalence claim: LIKE clones retain the prior
+   limitation. `.release-evidence/WB-RETENTION-20261001/dev-results.json` SHA256
+   `9d11e345893795456bab32c92318e6713fd9ea006dcb75f5a786f421d24cbea5`.
+   First45check/fixture failure preserved separately, corrected runtime confirms
+   text-before-interval diagnosis. Final canonical Python baseline PASS.
+28. Test & Evidence Runner independently accepted local matrix at frozenf12a6337:
+   **176 passed/0 failed/0 skipped**, scoped Ruff5files, source no findings/drift;
+   duration139.076s. Root reviewed report/results, exact source blobs and append-only
+   ledger; **ACCEPTED_LOCAL_ONLY**. Run `WB-RETENTION-LOCAL-20261001-01` plus rootC1.
+   Report SHA256`dc216f094deac431ed591274b2ee35c6219192dbbd381dbbe1e5d164acb496f2`;
+   results`eca75d3978db7a920aa470cd89a65acad0dda5d319876404a38bb55b3657540f`.
+   Runner DB/browser NOT_RUN; DEV64 remains ROOT_EXECUTOR_REVIEW_ONLY. Original
+   PENDING records kept, later root-acceptance.json records final disposition.
+   Next: full neighbor runtime equivalence + DEV browser release preflight;
+   public migration/cleanup activation and voice/provider use remain separately gated.
 
 `WB-FOUNDATION -> WB-TEXT-EXEC -> WB-DEV-ACCEPT -> WB-RELEASE`
 
@@ -423,7 +445,7 @@ capacity failure, расход за пределами лимита. Не «об
 |---|---|---|---|
 | WB-FOUNDATION | DONE | root / root / independent cheap reviewer |76 pure tests и quality PASS; commit5afa42f |
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
-| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |Assignment DEV42 + local invitation RLS DEV12 PASS; public migration/full-neighbor/browser/cleanup implementation gated; retention durations approved |
+| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |Assignment+retention DEV64/local176 and invitation RLS DEV12 PASS; public migration/full-neighbor/browser/cleanup activation gated |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
 | WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
 | WB-RELEASE | NOT_STARTED | root + Release Runner |Exact accepted candidate, all preceding gates; no release authority inferred |
@@ -455,6 +477,9 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 | invitation_security_investigator / independent source tracing |Requested gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted,0 corrections |Found source0119 precedent; no external reads/writes; time/token counters NOT AVAILABLE |
 | invitation_bypass_review / fresh independent candidate review |Requested gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted,0 corrections |No concrete surviving bypass/regression; source-only, no runtime claim; time/token counters NOT AVAILABLE |
 | root / invitation RLS fix and retention policy |Parent session; metadata NOT AVAILABLE |Original synthetic trigger reproduced; patched DEV12/212 API/quality PASS; mock-order/selector corrections preserved |Public not patched; no cleanup enabled; time/review/token counters NOT AVAILABLE |
+| retention_contract_review / bounded independent contract+delta review |Requested gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |No remaining concrete source finding;0 correction rounds |Read-only named paths; initial pending behavioral-gate gap implemented by root; time/token counters NOT AVAILABLE |
+| Test Runner / frozen retention acceptance |Persistent configured model/effort NOT AVAILABLE |Independent176/scoped Ruff/no findings; root accepted |139.076s; no DB/browser; token counters NOT AVAILABLE |
+| root / retention migration+owned DEV integration |Parent metadata NOT AVAILABLE |Local176/quality and corrected actualDEV64 PASS |Initial harness string/interval failures preserved; no public cleanup; time/review/token counters NOT AVAILABLE |
 | Test & Evidence Runner / invitation RLS local acceptance |Requested gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted first packet,0 product corrections; later root disposition only |212 tests/scoped Ruff/no findings;185.892s; time/review/token counters NOT AVAILABLE |
 
 Точные сроки оценим после вертикального среза и ASR benchmark; обещать голосовой

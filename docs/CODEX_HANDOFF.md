@@ -53,7 +53,19 @@
   later root disposition artifacts/fix_report_invitation_token_rls.md. Original
   PENDING records preserved; no repeated tests or source repair. Retention durations OWNER-CONFIRMED15min/24h
   after expiry/90days from success; no cleanup scheduler enabled.
-- blockers: feature enablement gated on retention cleanup implementation,
+  Retention implementation0171 now ACCEPTED_LOCAL_ONLY at frozenf12a6337:
+  DB-owned executed_at/terminal receipt and invoker tenant-only dry-run/apply,
+  batch1..500/no new DELETE or bypass grant. Root actual owned DEV64 PASS,
+  including inclusive cutoffs/legacyNULL/replay/rollback/ordinary denial/locked
+  skip/concurrent deletion/deleted GET+confirm/domain-row equality; exact owned
+  schema absent/public revision+table inventory neutral. Initial interval string
+  fixture22000 failed and was corrected with text cast, not guard weakening.
+  Test Runner independently176 tests/scoped Ruff/no findings at frozen SHA;
+  root reviewed exact reports/blobs/ledger: ACCEPTED_LOCAL_ONLY. Evidence:
+  `.release-evidence/WB-RETENTION-20261001/`; DEV64 ROOT_EXECUTOR_REVIEW_ONLY,
+  original failures/PENDING reports preserved; later root-acceptance.json/C1.
+  No public migration/worker/scheduler/browser/mail/AI/STT operation.
+- blockers: feature enablement gated on public migration/cleanup activation,
   full neighbor RLS/FK/trigger equivalence and DEV browser acceptance. Read-only
   DEV catalogs confirm legacy user_invitations_public_pending_lookup is unscoped
   and applies to lms_app; tenants FORCE RLS false. No business rows read, no API

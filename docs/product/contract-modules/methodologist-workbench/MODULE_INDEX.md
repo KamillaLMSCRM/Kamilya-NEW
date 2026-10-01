@@ -18,9 +18,10 @@ Organization interleavings and bounded metadata preflight:
 [ASSIGNMENT-ORGANIZATION-ISOLATION addendum V1](contracts/ASSIGNMENT_ORGANIZATION_ISOLATION_VALIDATION_ADDENDUM_V1.md).
 Invitation isolation remediation:
 [INVITATION-TOKEN-RLS impact V1](contracts/INVITATION_TOKEN_RLS_IMPACT_ADDENDUM_V1.md).
-Owner-confirmed metadata retention durations (cleanup implementation still gated):
+Owner-confirmed metadata retention durations:
 [RETENTION policy V1](contracts/RETENTION_POLICY_V1.md).
-Bounded timestamp/cleanup implementation, local + isolated DEV only:
+Bounded timestamp/cleanup implementation, local176 + isolated DEV64 accepted;
+public activation/scheduling still gated:
 [RETENTION implementation V1](contracts/RETENTION_IMPLEMENTATION_ADDENDUM_V1.md).
 Acceptance: [critical journeys](acceptance/CRITICAL_JOURNEYS_V1.md).
 Execution sequence/progress: [plan](../../../plans/2026-10-01_ai-driven-methodologist.md).

@@ -5178,3 +5178,21 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: normalize PostgreSQL catalog types explicitly and exercise a known
   positive policy through the adapter; unknown classifications never prove safety.
   Do not copy stricter synthetic policies and call them equivalent to public.
+
+## TEST-INFRA-009 - asyncpg interval fixture received a string instead of timedelta
+
+- Date: 2026-10-01, bounded workbench retention owned Supabase DEV gate.
+- Symptom:45 preceding checks passed; backdated synthetic fixture failed with
+  DBAPIError/22000/DataError/AttributeError. Exact owned schema cleanup and public
+  revision/table inventory neutrality passed; no customer/public mutation.
+- Cause: CAST(:age AS interval) makes asyncpg infer the interval codec; Python
+  string values cannot satisfy its timedelta attributes. SQL interval text is
+  valid only after passing the driver as text, or using Python timedelta.
+- Fix: explicit CAST(:age AS text)::interval in all three fixture bind sites;
+  database-free regression rejects direct string-to-interval binding. No product
+  trigger, cutoff, role or deletion guard was weakened.
+- Verification: corrected176 local tests/scoped Ruff/quality and actual owned
+  DEV64 PASS, including exact inclusive cutoffs and the one-microsecond protected
+  side. Failed attempt retained in WB-RETENTION-20261001/failures.json.
+- Prevention: bind typed datetime/timedelta for driver-inferred temporal values;
+  if textual fixture syntax is required, force text before server conversion.
