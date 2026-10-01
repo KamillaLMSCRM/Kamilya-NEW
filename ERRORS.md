@@ -4829,6 +4829,27 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   that fields absent from its response DTO exist; verify against the endpoint
   that owns the contract.
 
+### Recurrence 2026-10-01: assignment access dependencies
+
+- Date: 2026-10-01; exact disposable Supabase DEV acceptance tenant only.
+- Symptom: normal superadmin tenant deletion returned500 and rolled back after
+  the bounded assignment-session browser acceptance; no customer/prod cleanup.
+- Cause: rollback-only lms_app diagnostic confirmed PostgreSQL23503,
+  content_releases/fk_enrollments_content_release_id/enrollments. The purge invokes
+  content-release deletion before referencing enrollments; its dependency list
+  also omits assignment_access_credentials/enrollment_access_policies with
+  RESTRICT FKs and no runtime DELETE permission.
+- Recovery: exact guarded owner transaction removed only the disposable tenant's
+  two credentials, one policy and one enrollment; normal app purge then204,
+  GET404 and independent zero-row readback. Permanent DEV QA before/after PASS.
+  No DDL, grant, RLS disable, migration or production/customer mutation.
+- Fix: generic purge ordering/role-scoped dependency cleanup remains OPEN; a
+  migration/ACL repair requires its own bounded DB contract and release gate.
+- Verification: SQLSTATE/constraint confirmed; exact fixture absence verified.
+  This recovery does not prove generic tenant deletion fixed.
+- Prevention: exercise new enrollment dependencies through a disposable DB-backed
+  normal purge, not only source-order mocks; never delete a persistent QA stand.
+
 ## RECURRENCE-012 - Mock-only checks missed PostgreSQL and delivery-history invariants
 
 - Date: 2026-09-29. Found by independent review before release `0.11.16`; no
@@ -5042,3 +5063,35 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: retain regressions for initial exhaustion, failed history reads,
   final failed attempt and post-submit refresh failure; do not treat HTTP200 or
   server-side rejection alone as learner UI acceptance.
+
+## UI-003 - Native course outline squeezed lesson content on narrow screens
+
+- Date: 2026-10-01.
+- Symptom: live production synthetic player at actual503px had scrollWidth515;
+  side-by-side outline reduced the lesson heading to131.94px and clipped words.
+- Cause: unconditionally horizontal flex layout with w-80 outline and p-8 content.
+- Fix: flex-col below md, full-width outline with mobile bottom border, desktop
+  md:flex-row/md:w-80 and min-w-0 content with p-4/md:p-8. No learning rule change.
+- Verification: new class-contract RED then11/11 focused player tests PASS;
+  independent source review accepted. Exact-SHA live mobile GREEN remains a
+  production release gate, not implied by the class-only test.
+- Prevention: validate actual DOM viewport and scroll width plus visual usability;
+  a requested390px override is not evidence of390px if the host actually gives503px.
+
+## AI-SETTINGS-001 - Save raced the provider form lifecycle controller
+
+- Date: 2026-10-01.
+- Symptom: two full-suite runs recorded zero saveTenantAiSetting calls for an
+  enabled Save button; focused random repeats passed and did not explain it.
+- Cause: ProviderForm initialized its controller only in a passive useEffect;
+  immediate submission returned early while the ref was null. Token replacement
+  also aborted an in-flight save without clearing busy, blocking a fresh submit.
+- Fix: synchronous per-token controller allocation, cleanup capturing its own
+  lifecycle controller, retained abort/stale-response guards and transient busy/
+  message reset on token lifecycle change. No saved keys/configuration changed.
+- Verification: controlled deferred child-effect old-code RED0calls, corrected
+  focused7/7 and isolation27/27 PASS, immediate StrictMode submission and old-
+  signal abort/fresh signal/stale-status suppression regressions. Independent
+  source review found no confirmed blocker; full corrected suite747/747 PASS.
+- Prevention: reproduce timing windows deterministically, preserve failure records,
+  and test cancellation with fresh usability; never rerun blindly or weaken mocks.

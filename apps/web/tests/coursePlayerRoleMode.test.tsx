@@ -155,6 +155,24 @@ describe('course player role modes', () => {
     ));
   });
 
+  it('stacks the course outline above lesson content on narrow screens', async () => {
+    useAuthStore.setState({
+      accessToken: 'student-token',
+      user: { id: 'student-1', role: 'student' } as never,
+      initialized: true,
+    });
+
+    render(<CoursePlayerPage />);
+
+    await screen.findByRole('heading', { name: 'Шестой урок' });
+    const root = document.querySelector('div.min-h-screen');
+    const outline = root?.querySelector('div.w-full');
+    const content = root?.querySelector('div.min-w-0');
+    expect(root).toHaveClass('flex-col', 'md:flex-row');
+    expect(outline).toHaveClass('w-full', 'md:w-80');
+    expect(content).toBeInTheDocument();
+  });
+
   it('persists the current lesson before moving to the next lesson without a manual confirmation action', async () => {
     const lessons = [lesson, { ...lesson, id: 'lesson-2', title: 'Следующий урок', order_index: 1 }];
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {

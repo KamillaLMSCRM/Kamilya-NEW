@@ -1,5 +1,22 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { StrictMode } from 'react';
+import type { DependencyList, EffectCallback } from 'react';
+
+const lifecycleHarness = vi.hoisted(() => ({ deferProviderEffect: false }));
+vi.mock('react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react')>();
+  return {
+    ...actual,
+    useEffect: (effect: EffectCallback, deps?: DependencyList) => actual.useEffect(() => {
+      if (lifecycleHarness.deferProviderEffect && (
+        String(effect).includes('lifecycleController')
+        || String(effect).includes('controller.current = new AbortController')
+      )) return;
+      return effect();
+    }, deps),
+  };
+});
 import Page from '@/app/admin/settings/ai/page';
 import { useAuthStore } from '@/store/authStore';
 import { canAccessRoute } from '@/lib/rolePolicy';
@@ -44,6 +61,53 @@ describe('Tenant AI settings', () => {
     expect(payload).not.toHaveProperty('api_key');
     expect(payload.free_only).toBe(true);
     expect(await form.findByRole('status')).toHaveTextContent('прочитаны с сервера');
+  });
+
+  it('can submit before the provider lifecycle effect flushes in StrictMode', async () => {
+    lifecycleHarness.deferProviderEffect = true;
+    try {
+      render(<StrictMode><Page /></StrictMode>);
+      const heading = await screen.findByRole('heading', { name: 'Генерация курса и теста' });
+      const form = within(heading.parentElement!);
+      const save = form.getByRole('button', { name: 'Сохранить' });
+      expect(save).toBeEnabled();
+      fireEvent.click(save);
+      await waitFor(() => expect(api.saveTenantAiSetting).toHaveBeenCalled());
+    } finally {
+      lifecycleHarness.deferProviderEffect = false;
+    }
+  });
+
+  it('aborts an in-flight save on token replacement and accepts a fresh save', async () => {
+    let resolveFirstSave!: () => void;
+    const firstSave = new Promise<void>((resolve) => { resolveFirstSave = resolve; });
+    const saveSignals: AbortSignal[] = [];
+    vi.mocked(api.saveTenantAiSetting)
+      .mockImplementationOnce((_token, _purpose, _body, signal) => {
+        saveSignals.push(signal);
+        return firstSave;
+      })
+      .mockImplementationOnce((_token, _purpose, _body, signal) => {
+        saveSignals.push(signal);
+        return Promise.resolve();
+      });
+
+    render(<Page />);
+    const heading = await screen.findByRole('heading', { name: 'Генерация курса и теста' });
+    const form = within(heading.parentElement!);
+    fireEvent.click(form.getByRole('button', { name: 'Сохранить' }));
+    await waitFor(() => expect(saveSignals).toHaveLength(1));
+
+    useAuthStore.setState({ accessToken: 'replacement-token' });
+    await waitFor(() => expect(saveSignals[0].aborted).toBe(true));
+    resolveFirstSave();
+    await waitFor(() => expect(form.getByRole('button', { name: 'Сохранить' })).toBeEnabled());
+    expect(form.queryByRole('status')).not.toBeInTheDocument();
+
+    fireEvent.click(form.getByRole('button', { name: 'Сохранить' }));
+    await waitFor(() => expect(saveSignals).toHaveLength(2));
+    expect(saveSignals[1].aborted).toBe(false);
+    await waitFor(() => expect(form.getByRole('status')).toHaveTextContent('сохранены'));
   });
 
   it('requires a new key when changing provider and rejects a paid free-mode model', async () => {

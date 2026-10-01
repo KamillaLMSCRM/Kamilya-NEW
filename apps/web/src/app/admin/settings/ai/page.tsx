@@ -55,19 +55,31 @@ function ProviderForm({ purpose, token, initial }: { purpose: AiPurpose; token: 
   const [freeOnly, setFreeOnly] = useState(initial?.free_only ?? true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<'saved' | 'removed' | 'error' | null>(null);
-  const controller = useRef<AbortController | null>(null);
-  useEffect(() => {
+  const controller = useRef(new AbortController());
+  const controllerToken = useRef(token);
+  if (controllerToken.current !== token) {
+    controllerToken.current = token;
     controller.current = new AbortController();
+  }
+  useEffect(() => {
+    const lifecycleController = controller.current;
     setApiKey('');
-    return () => controller.current?.abort();
+    setBusy(false);
+    setMessage(null);
+    return () => {
+      lifecycleController.abort();
+      if (controller.current === lifecycleController) {
+        controller.current = new AbortController();
+      }
+    };
   }, [token]);
   const providers: TenantAiProvider[] = purpose === 'generation' ? ['openrouter', 'deepseek'] : ['voyage', 'cohere', 'openrouter'];
   const hasSavedKey = saved?.has_key && provider === saved.provider;
   const validFreeModel = provider !== 'openrouter' || !freeOnly || model.endsWith(':free') || (purpose === 'generation' && model === 'openrouter/free');
   const canSave = Boolean(model.trim()) && Boolean(apiKey.trim() || hasSavedKey) && validFreeModel;
   async function submit(remove = false) {
-    const signal = controller.current?.signal;
-    if (!signal || signal.aborted) return;
+    const signal = controller.current.signal;
+    if (signal.aborted) return;
     setBusy(true); setMessage(null);
     try {
       if (remove) {

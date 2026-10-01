@@ -678,10 +678,10 @@ export default function CoursePlayerPage() {
   const hasQuiz = lessonQuiz !== null;
 
   return (
-    <div className="min-h-screen bg-muted flex">
+    <div className="min-h-screen bg-muted flex flex-col md:flex-row">
       {kioskSessionNotice}
       {/* Left sidebar — TOC */}
-      <div className="w-80 bg-card border-r flex flex-col">
+      <div className="w-full md:w-80 bg-card border-b md:border-b-0 md:border-r flex flex-col">
         <div className="p-4 border-b">
           <Link href="/courses" className="flex items-center gap-1 text-sm text-primary hover:underline">
             <ChevronLeft className="w-4 h-4" /> {t('courses.title')}
@@ -721,7 +721,7 @@ export default function CoursePlayerPage() {
       </div>
 
       {/* Center — lesson content + quiz */}
-      <div className="flex-1 p-8">
+      <div className="min-w-0 flex-1 p-4 md:p-8">
         {assignmentAccessPolicy && (
           <AssignmentAccessTimer remainingSeconds={assignmentRemainingSeconds} blocked={assignmentAccessBlocked} />
         )}

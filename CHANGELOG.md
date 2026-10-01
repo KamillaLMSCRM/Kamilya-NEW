@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.25] - 2026-10-01
+
+### Fixed
+
+- Stack the native course outline above lesson content on narrow screens instead
+  of squeezing both into desktop columns; protect content from horizontal overflow.
+- Preserve desktop course navigation and all assignment, quiz and completion behavior.
+- Initialize tenant AI form cancellation safely before the first Save click;
+  abort old requests on token changes without leaving the new form stuck busy.
+
 ## [0.11.24] - 2026-10-01
 
 ### Fixed

@@ -11,7 +11,57 @@ DB/storage gate и приёмкой клиента
 
 ## Daily learning release — 2026-09-30
 
-### Current production runtime0.11.23 — quiz guard repair, bounded acceptance GO
+### Current production runtime0.11.24 — bounded assignment session, completion verified
+
+Exact source/runtime1e10d9acda443f57fd2714011e1398d5e2e06e1f /0.11.24;
+published tag/Release. SESSION_V1 restores only the exact bounded student JWT
+and remaining TTL through HttpOnly cookie; invalid/revoked/expired access never
+falls back to old staff refresh. No migration; schema0168 unchanged.
+
+Persistent Test Runner: API2013PASS/15expectedDBskips, Ruff1010/Mypy2200 PASS;
+web first full743/744 retained failure, corrected-run744/744 and lint/type/build
+PASS. AI form race initially NOT VERIFIED, now deterministically diagnosed in
+candidate0.11.25 (AI-SETTINGS-001), not silently called harness-only. Root canonical
+Supabase DEV exact assignment suite32/32PASS, rollback isolation. DEV controller
+RELEASE_OK, Verceldpl_FPxfj9JYFNoccR4iuw54Qgz6DLg1 READY/hobby, API
+dep-dav05ufpn0mc739flbdg and workerdep-dav06se0tbcc73d0daog LIVE/free;
+exact SHA, plans unchanged. Permanent QA before/after PASS. Separate disposable
+browser fixture PIN/reload/student/foreign-course404 PASS and cleanup zero-residue;
+generic purge recurrence OPEN, exact guarded recovery only (TENANT-PURGE-004).
+
+DEV CI36826565709/master36827102079 all7SUCCESS; native36827146258,
+artifact11144664629/archivea750ec25f2dd955f2eedac693ae4b4fc68eb457f9e76396366857439fc4fa877.
+Protected36828819790 SUCCESS; actually deployed image
+ghcr.io/kamillalmscrm/kamilya-api@sha256:318103e6d810f468e33ca9c5d919c1dd37f54737f7ccb133dc7020185eb7a598
+(not automatic-build31c5953d). Independent public/private API and3greenworkers
+same SHA/image, running/restarts0; CT137 canonical controller RELEASE_OK and
+public/current/marker/Nginx exact. Fresh encrypted CT125 backup, no migration or
+fresh restore drill; watchdog expected SHA/image verified, oneshot0/timeractive,
+last10m bounded error summaries0. Backend rollback0.11.23/imagecc4646 retained.
+
+Root actual production browser: exact retained synthetic tenant/course,
+normal reassignment creates9118bc66-7a3e-42c5-ac5b-e78939855856; predecessor
+da07381b remains superseded/history0%, notification attempts0. Personal PIN after
+methodologist cookie -> student-only -> full reload same learner PASS. Five
+quizzes/25questions each100%; normal final completion at07:34:27.903445Z and
+reload retained completed/100%. Certificate219dfbc5-7f48-4402-8ad7-87e28a02e9ba,
+KML-2026-CE0901368E29 active/public verification PASS. Learner evidence PDF200,
+3pages visually inspected; certificate PDF200/46687bytes visually inspected.
+OTP and signed-scan legal confirmation are separate pending states; no mail or
+fabricated signature. Browser download-event adapter timed out; scoped PDF
+network/body and rendered file verify the actual download response instead.
+
+Task release closeout remains NOT COMPLETE: confirmed course-player mobile defect
+(UI-003) is repaired in candidate0.11.25, full747/747 regression PASS, remaining
+static/build/release/live responsive gates pending. Test Runner final independent
+production reconciliation is not inferred from root browser evidence.
+
+Exact owner-approved obsolete frontend0.11.20c239 and0.11.22 1af tree plus matching
+staging pairs removed by canonical guarded helper; off-host hash-verified recovery
+copies retained. Current1e10 and actual configured frontend rollback36826eda
+plus359d7cda/299481ec retained. No customer, mail, AI, billing, DNS or landing change.
+
+### Previous production runtime0.11.23 — accepted quiz guard baseline
 
 Exact source/runtime `36826eda76844188b230d22c57935f51e7a130fd` /0.11.23;
 published immutable tag and GitHub Release. Root reproduced RED before repair.

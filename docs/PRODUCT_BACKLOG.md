@@ -1,6 +1,6 @@
 # Kamilya LMS: актуальный продуктовый backlog
 
-**Дата:** 2026-09-30
+**Дата:** 2026-10-01
 **Область:** открытые продуктовые и UX-задачи. Выполненные эпики здесь не
 хранятся.
 
@@ -19,20 +19,21 @@
 результатов, навигацию к существующим операциям назначения и следующий шаг
 ученика. Контракты:
 [`product/contract-modules/daily-learning/MODULE_INDEX.md`](product/contract-modules/daily-learning/MODULE_INDEX.md).
-Локальная приёмка и границы записаны в `CODEX_HANDOFF.md`; production не менялся.
+Production0.11.24: персональный вход/reload и полное синтетическое прохождение
+5уроков/5тестов, completed100%, реальные PDF и сертификат проверены root.
+Текущие runtime/gates принадлежат PRODUCTION_READINESS.md, не старому кандидату.
 
-CI/isolated DEV gates runtime-кандидата `a838464adda2cff646e6b55bc381c65f4757da7c`
-закрыты: CI `36713494647`, все 7 jobs PASS; DEV 24 reporting + 3 assembled tests,
-effective `lms_app`, RLS negatives, shared deadlines, zero residue, unchanged
-revision `0168`. Final documentation-only PR head CI проверяется отдельно.
-
-1. Пройти отдельный owner-approved release packet и реальный browser readback
-   развёрнутого приложения. Изолированный DEV gate не заменяет этот readback.
-   Планы напоминания/переназначения не представлять как выполненные действия.
+1. Выпустить исправленную мобильную раскладку0.11.25 и завершить независимую
+   production reconciliation Test/Release Runners. Напоминания, отправку писем,
+   OTP, подписанный скан и свежий restore drill не считать проверенными этим flow.
 2. Отдельно спроектировать occurrence-aware continuation всего плеера/прогресса,
    если требуется работа с произвольным перекрывающимся назначением. Текущий
    кандидат безопасно скрывает продолжение для неканонического экземпляра;
    он не решает весь player contract.
+3. Исправить generic tenant purge (TENANT-PURGE-004 recurrence2026-10-01): порядок
+   content releases/enrollments и guarded cleanup credential/policy зависимостей;
+   отдельный bounded migration/ACL contract и disposable DB-backed regression.
+   Временная точечная DEV recovery не исправила общую процедуру удаления.
 
 ## P0: замыкание корпоративного контура
 

@@ -5,7 +5,27 @@
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/daily-learning-20260930`
 
-## Daily learning: production0.11.23 — quiz guard repair, bounded acceptance GO
+## Current: production0.11.24; candidate0.11.25 release closeout in progress
+
+- result: source1e10d9acda443f57fd2714011e1398d5e2e06e1f /0.11.24 live in DEV
+  and production. Root PIN/reload bounded-student and full5lesson/5quiz completion
+  PASS, retained exact occurrence9118bc66-7a3e-42c5-ac5b-e78939855856 completed100%.
+- changed: SESSION_V1 HttpOnly bounded restoration, no migration or TTL extension.
+  Candidate0.11.25 repairs course mobile layout and confirmed AI form lifecycle
+  Save race; permanent QA stand was not mutated/recreated.
+- verified: CI/artifact/protected-image/API+3workers/frontend/watchdog/backup and
+  real learner PDF/certificate evidence in PRODUCTION_READINESS.md. Candidate
+  full web747/747 PASS; final static/build/release gates still pending.
+- blockers: final0.11.25 deployment/responsive readback and independent runners'
+  production reconciliation outstanding. Generic tenant purge remains OPEN,
+  exact disposable DEV recovery/zero residue verified. OTP/signed scans and fresh
+  restore drill not performed. No customer/mail/AI/billing/DNS/landing mutation.
+- next: finish0.11.25 prepared exact release, retain learner result, then update
+  canonical readiness, remove transferred temporary plan and fast-forward the
+  clean primary anchor. Exact obsolete1af frontend cleanup owner-approved and
+  CLEANUP_OK; current1e10/actualrollback368 plus359/299 and off-host copies retained.
+
+## Historical: production0.11.23 — accepted quiz guard baseline
 
 - result: exact `36826eda76844188b230d22c57935f51e7a130fd` /0.11.23 is live
   on DEV and production. Original DEV exhausted2/2 reproduction now PASS;
