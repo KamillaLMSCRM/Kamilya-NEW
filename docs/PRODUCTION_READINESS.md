@@ -11,6 +11,26 @@ DB/storage gate и приёмкой клиента
 
 ## Daily learning release — 2026-09-30
 
+### Candidate0.11.23 — quiz attempt guard, release NOT READY
+
+The2026-10-01 owner request authorizes the bounded fix and continued release,
+explicitly requiring the persistent Test & Evidence Runner and Release Runner.
+Root reproduced RED before repair. Test Runner independently verified all9quiz
+cases,16assignment cases, lint/typecheck and the local66-page build. Its first
+full web run was interrupted without terminal counts; it is NOT accepted as a
+full-suite pass. Root repaired the async exact-count wait without weakening
+assertions. The second full run completed131files/742tests PASS, lint/typecheck
+PASS; Test Runner owns its append-only ledger evidence. Release contract191unique
+entries and version0.11.23/Poetry lock PASS. Production remains0.11.22 below.
+
+Candidate0.11.23 gates answers, submit, timed submit and retry on confirmed
+remaining attempts. Missing/unavailable history fails closed; confirmed results
+remain visible after history refresh failure. Backend limit and fixture attempts
+are unchanged. No migration: revision0168. Exact-SHA CI, immutable artifacts,
+DEV original browser reproduction, protected production rollout and independent
+readback are still required. No production access reissue is authorized here.
+Evidence: `.release-evidence/REL-QUIZ-ATTEMPT-GUARD-20261001/`.
+
 ### Current production runtime 0.11.22 — bounded API and responsive acceptance GO
 
 Exact production release `0.11.22` / `1af72b19999363885995f5e067fbf05b6b894f14`.
@@ -28,7 +48,8 @@ Native sole-controller `frontend-execute.json` is RELEASE_OK; CT137 current,
 marker and Nginx, plus public healthz body/header, match the same SHA. Rollback
 359d7cda retained. CT125 revision0168 and fresh encrypted verified backup PASS;
 no migration or fresh restore drill claimed. Watchdog expected release/image
-reconciled against the backup; oneshot exit0 and timer active. No pruning.
+reconciled against the backup; oneshot exit0 and timer active. No pruning occurred
+within that release; the separately approved maintenance below supersedes this.
 
 Production GET-only synthetic methodologist smoke PASS for retained tenant
 83552ce6-8058-4561-abe3-cfbda14e030a: failed/exhausted0; list, summary and CSV
@@ -57,10 +78,60 @@ learner browser, and real maintenance/mail task remain NOT VERIFIED; worker heal
 does not prove a business task. QA and production browser viewports reset;
 desktop/mobile and lower-form screenshots visually inspected. Evidence:
 `.release-evidence/REL-DAILY-MOBILE-PROD-20260930-1AF72B19/`.
-CT137 has888784KiB free after release; this is healthy now. A future native build
-budget of about1.39GB will need an exact recoverable cleanup plan before build;
-no automatic pruning or plan change is implied. This is an operational follow-up,
-not a current release blocker.
+CT137 had888784KiB free immediately after that release. The separately approved
+maintenance below supersedes that historical capacity snapshot. Every future
+native release must still pass its exact artifact-derived capacity gate; no
+automatic pruning or plan change is implied.
+
+### Scoped CT137 capacity maintenance — 2026-10-01
+
+Owner explicitly approved removal only of obsolete frontend0.11.18 /
+`e15dc8dd8a0d93a451fbf32bc5a453fc28b08687` and its matching staged archive/manifest.
+The canonical cleanup wrapper returned `CLEANUP_OK`; independently verified
+off-host recovery remains under `.release-evidence/MAINT-CT137-CAPACITY-20261001/`.
+Recovery archive SHA256 `f34aabe2b387ec4de3c80e5a107bd22f276fa5f0af64057549fc428a01111b78`;
+SHA-scoped manifest `725acb47c245cddef06a354238442c354f31d4b1f9fca3a7f82f8141dd303ad4`.
+Current1af72b19, actual previousc239de80, extra rollback359d7cda and unrelated299
+were retained. API/workers, database, landing, tenants, DNS and plans did not change.
+Free space after cleanup1617028KiB, reclaimed728280KiB. The helper validated its
+root-owned cleanup receipt; a separate direct receipt readback is NOT VERIFIED.
+No further deletion is authorized by this result.
+
+### Live browser continuation — 2026-10-01: learner acceptance NOT READY
+
+Root executed this continuation; neither persistent Runner owned its ledger.
+Production API identity remained `1af72b19999363885995f5e067fbf05b6b894f14` /
+0.11.22 / kz-production. Retained synthetic methodologist browser PASS:
+dashboard -> exact enrollment journal -> assignment operations, selected course,
+focused1of5; show-all5, completed filter2, in-progress empty0; exhausted/failed
+dashboard links each reach the matching empty journal. Reminder-history loading
+ends in the truthful empty state without sending mail. At390x844, settled body
+and document widths380, table scroll remains internal and reaches action buttons;
+lower recurring forms were visually inspected. Console errors0. GET-only API
+smoke PASS before00:03:49Z and after00:11:36Z: own1/foreign0, no-auth401,
+invalid422, list/summary/CSV matched, notification counters unchanged.
+
+The permanent DEV stand independently verified before00:07:21Z and
+after00:11:52Z on `de37faba938f0dc660fb7de7010d7710d7e9a160` /0.11.18,
+NOT the production0.11.22 runtime. Browser failed2/exhausted1 matched dashboard
+and journal; learner normal login,7October deadline, manual assignment reason,
+actual course/lesson launch and remaining1of2 attempt display PASS. No answer was
+submitted. The exhausted2of2 quiz still allowed selecting an answer and enabled
+"Завершить тест": reproducible UI FAIL. The current source computes `canAttempt`
+but applies it only to retry after a result, not initial question/submit controls.
+Backend source has an attempt-count guard; a third submission was NOT RUN, so no
+live backend bypass is claimed. Client-only selection was cleared. All retained
+fixture identities and attempt IDs remained unchanged; no bootstrap/reset/delete.
+
+Browser CSV download did not return an observable download event within30s;
+file receipt is NOT VERIFIED (harness timeout, not an established product defect).
+Production learner login remains NOT VERIFIED pending exact owner approval for
+reissuing access on synthetic enrollment `da07381b-9346-4c34-a28e-376cb2b1c111`;
+no access was issued. No production commands, mail, AI generation, deployments,
+provider changes or customer-data writes occurred. Earlier bounded production GO
+is unchanged, but full learner acceptance is NOT READY until the UI defect is
+repaired and the original live reproduction is rerun. Evidence remains under
+`.release-evidence/REL-DAILY-MOBILE-PROD-20260930-1AF72B19/live-20261001-*`.
 
 ### Historical stopped source release 0.11.21 and bounded 0.11.22 repair
 

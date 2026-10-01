@@ -887,3 +887,16 @@ Rules:
 - CT137 free space888784KiB after release, healthy currently. Future native build
   estimate is ~1.39GB; prepare exact recoverable cleanup before that build. No
   automatic pruning or provider plan change; operational follow-up only.
+
+### 2026-10-01 — `TEST-QUIZ-ATTEMPT-GUARD-20261001` local bounded verification
+
+- Worktree `feature/daily-learning-20260930`, HEAD `075faad4701fd8fe35afc87c4c07bf35ace84c9b`; web diff fingerprint `c11f0a93a350e7010522974738a29ca46a6cbf16`. Local mocked frontend only; no runtime/provider/network/database/browser/mail/model access and no persistent fixtures.
+- Focused `quizPlayerNavigation.test.tsx` PASS: 9/9, covering five existing navigation cases plus exhausted-history, unreadable-history, failed-final-attempt, and post-submit-refresh-failure guards. Authorized classification rerun `courseAssignmentsFlow.test.tsx` PASS: 16/16.
+- Full `pnpm --dir apps/web test` is NOT VERIFIED as an aggregate: the run observed one failure in the existing course-assignment flow and then remained in a jsdom navigation wait; it was interrupted before final Vitest totals, so exact aggregate counts and assertion details are UNKNOWN. The unchanged single-file rerun passed, supporting a non-deterministic `HARNESS_FAILURE` candidate rather than a confirmed quiz product defect.
+- Sequential quality gates PASS: `pnpm --dir apps/web lint`; `pnpm --dir apps/web typecheck`; `pnpm --dir apps/web build` (66 static pages). No source/test/version/docs edits, commits, pushes, or cleanup residue. Evidence: `.release-evidence/REL-QUIZ-ATTEMPT-GUARD-20261001/local-test/report.md`. Root review required for the incomplete full-suite aggregate.
+
+### 2026-10-01 — `TEST-QUIZ-ATTEMPT-GUARD-20261001-LOCAL-R2` corrected full-suite verification
+
+- Root-owned async-render correction was present before execution; exact worktree HEAD `075faad4701fd8fe35afc87c4c07bf35ace84c9b`, web diff fingerprint `ff5c288aba6c56432341c95c92c5763510023cc1`, version `0.11.23`. Local mocked frontend only; no runtime/provider/network/database/browser/mail/model access and no persistent fixtures.
+- Full `pnpm --dir apps/web test --reporter=verbose` completed PASS: 131 test files / 742 tests. The corrected `courseAssignmentsFlow` wait passed, and all 9 quiz navigation/attempt-guard cases passed. Existing non-failing jsdom navigation, React `act(...)`, duplicate-key, and un-awaited assertion warnings were observed.
+- Sequential `pnpm --dir apps/web lint` PASS and `pnpm --dir apps/web typecheck` PASS. Build was not rerun in R2; prior R1 build PASS (66 static pages) remains separate, and root owns the exact 0.11.23 CI build gate. No source/test/version/docs edits, commits, pushes, or cleanup residue. Evidence: `.release-evidence/REL-QUIZ-ATTEMPT-GUARD-20261001/local-test-r2/report.md`. This entry corrects the prior run's incomplete aggregate without rewriting it.

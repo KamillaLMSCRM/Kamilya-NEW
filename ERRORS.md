@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-30.
+Current as of: 2026-10-01.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -5008,3 +5008,23 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   private/public SHA/image acceptance. No watchdog disable or secret/config expansion.
 - Prevention: read installed EnvironmentFile and key values before each release;
   fail closed on drift, reconcile it explicitly, then verify oneshot and timer.
+
+## LEARNING-005 - Exhausted quiz attempts did not block initial answer submission
+
+- Date: 2026-10-01.
+- Symptom: the retained synthetic DEV learner had used2of2 attempts, yet selecting
+  an answer enabled the finish button. No third answer was submitted.
+- Cause: the quiz page used `canAttempt` only for retry after a result; initial
+  answer controls, submission and timer ignored it. Failed attempt-history reads
+  also left an empty array that looked like permission for a new attempt.
+- Fix: gate selection, navigation, submit, timer and retry on successfully loaded
+  remaining-attempt history; show the exhausted/unavailable reason and course
+  return link. Preserve confirmed results if the subsequent history read fails.
+  Backend attempt policy, fixture attempts and tenant data are unchanged.
+- Verification: original browser reproduction and automated RED missing-alert
+  regression confirmed the defect. Persistent Test Runner independently verified
+  all9quiz cases and the full131file/742test web suite, lint/typecheck and a local
+ 66-page build. Original live exact-SHA reproduction remains a release gate.
+- Prevention: retain regressions for initial exhaustion, failed history reads,
+  final failed attempt and post-submit refresh failure; do not treat HTTP200 or
+  server-side rejection alone as learner UI acceptance.

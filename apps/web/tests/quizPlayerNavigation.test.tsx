@@ -56,6 +56,7 @@ const quiz = {
 
 let quizPayload = quiz;
 let previousAttempts: QuizAttemptFixture[] = [];
+let attemptsStatus = 200;
 let accessWindowPayload: unknown = null;
 let structureLessons = [
   { id: 'lesson-1', title: 'Первый урок', order_index: 0 },
@@ -75,6 +76,7 @@ describe('learner quiz result navigation', () => {
     vi.clearAllMocks();
     quizPayload = quiz;
     previousAttempts = [];
+    attemptsStatus = 200;
     accessWindowPayload = null;
     structureLessons = [
       { id: 'lesson-1', title: 'Первый урок', order_index: 0 },
@@ -88,7 +90,7 @@ describe('learner quiz result navigation', () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.endsWith('/v1/quizzes/quiz-1') && init?.method !== 'POST') return jsonResponse(quizPayload);
-      if (url.endsWith('/v1/quizzes/quiz-1/attempts')) return jsonResponse(previousAttempts);
+      if (url.endsWith('/v1/quizzes/quiz-1/attempts')) return jsonResponse(previousAttempts, attemptsStatus);
       if (url.endsWith('/v1/courses/course-1/structure')) {
         return jsonResponse({ modules: [{ lessons: structureLessons }] });
       }
@@ -203,6 +205,82 @@ describe('learner quiz result navigation', () => {
       expect.stringContaining('/v1/quizzes/quiz-1/submit'),
       expect.objectContaining({ body: expect.stringContaining('choice-b') }),
     ));
+  });
+
+  it('blocks answer selection and submission when all attempts were already used', async () => {
+    previousAttempts = Array.from({ length: quiz.attempt_limit }, (_, index) => ({
+      id: `attempt-${index}`,
+      score_percent: 0,
+      passed: false,
+      started_at: '2026-09-30T00:00:00Z',
+      completed_at: '2026-09-30T00:01:00Z',
+    }));
+    render(<QuizPlayerPage />);
+
+    await screen.findByText('Верный ответ?');
+    expect(screen.getByRole('alert')).toHaveTextContent('quiz.attemptLimit');
+    const answer = screen.getByRole('radio');
+    expect(answer).toBeDisabled();
+    fireEvent.click(answer);
+    const finish = screen.getByRole('button', { name: 'quiz.finish' });
+    expect(finish).toBeDisabled();
+    fireEvent.click(finish);
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/submit'))).toHaveLength(0);
+    expect(screen.getByRole('link', { name: 'Вернуться к курсу' })).toHaveAttribute(
+      'href', '/courses/course-1?lessonId=lesson-1',
+    );
+  });
+
+  it('fails closed when attempt history cannot be read', async () => {
+    attemptsStatus = 503;
+    render(<QuizPlayerPage />);
+    await screen.findByText('Верный ответ?');
+    expect(screen.getByRole('alert')).toHaveTextContent('quiz.attemptHistoryUnavailable');
+    expect(screen.getByRole('radio')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'quiz.finish' })).toBeDisabled();
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/submit'))).toHaveLength(0);
+  });
+
+  it('preserves a failed final result without offering another attempt', async () => {
+    previousAttempts = Array.from({ length: quiz.attempt_limit - 1 }, (_, index) => ({
+      id: `attempt-${index}`, score_percent: 0, passed: false,
+      started_at: '', completed_at: '',
+    }));
+    const defaultFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/submit')) {
+        previousAttempts = [...previousAttempts, { id: 'last', score_percent: 0, passed: false, started_at: '', completed_at: '' }];
+        return jsonResponse({ attempt: { score_percent: 0 }, passed: false, message: 'Последняя попытка не пройдена' });
+      }
+      return defaultFetch(input, init);
+    });
+    render(<QuizPlayerPage />);
+    await screen.findByText('Верный ответ?');
+    expect(screen.getByRole('radio')).toBeEnabled();
+    fireEvent.click(screen.getByRole('radio'));
+    fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
+    await screen.findByText('Последняя попытка не пройдена');
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/attempts'))).toHaveLength(2));
+    expect(screen.queryByRole('button', { name: 'quiz.tryAgain' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Вернуться к курсу' })).toBeInTheDocument();
+  });
+
+  it('does not offer retry when refreshing history after submission fails', async () => {
+    const defaultFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/submit')) {
+        attemptsStatus = 503;
+        return jsonResponse({ attempt: { score_percent: 0 }, passed: false, message: 'Попытка не пройдена' });
+      }
+      return defaultFetch(input, init);
+    });
+    render(<QuizPlayerPage />);
+    await screen.findByText('Верный ответ?');
+    fireEvent.click(screen.getByRole('radio'));
+    fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
+    await screen.findByText('Попытка не пройдена');
+    expect(screen.queryByRole('button', { name: 'quiz.tryAgain' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Вернуться к курсу' })).toBeInTheDocument();
   });
 
 });

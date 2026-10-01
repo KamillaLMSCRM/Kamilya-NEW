@@ -142,7 +142,7 @@ describe('contextual course assignment flow', () => {
     expect(assignmentGrid?.children[0]).toHaveClass('min-w-0');
     expect(assignmentGrid?.children[1]).toHaveClass('min-w-0');
     expect(courseSelect).toHaveClass('w-full', 'min-w-0', 'max-w-full');
-    expect(await screen.findAllByText('Алия Садыкова')).toHaveLength(2);
+    await waitFor(() => expect(screen.getAllByText('Алия Садыкова')).toHaveLength(2));
 
     const table = document.querySelector('table');
     expect(table?.parentElement).toHaveClass('overflow-x-auto', 'min-w-0', 'max-w-full');

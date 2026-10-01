@@ -600,6 +600,7 @@
     "correctAnswer": "Дұрыс жауап",
     "explanation": "Түсіндірме",
     "submissionFailedDescription": "Жауаптарды жіберу мүмкін болмады",
+    "attemptHistoryUnavailable": "Қалған әрекеттерді тексеру мүмкін болмады. Қайта тексеру үшін бетті жаңартыңыз.",
     "assignmentTimeLeft": "Курс пен тестке қалған уақыт",
     "assignmentExpiredDescription": "Курс пен тестке берілген уақыт аяқталды. Әдіскерге хабарласыңыз.",
     "nextStepsTitle": "Келесі қадам",

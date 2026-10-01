@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.23] - 2026-10-01
+
+### Fixed
+
+- Disable learner quiz selection, submission, automatic timed submission and retry
+  when the attempt limit is exhausted or attempt history cannot be verified.
+- Show the exhaustion/unavailable reason and a safe return-to-course link; retain
+  confirmed quiz results when refreshing attempt history fails.
+- Wait for both asynchronously rendered learner occurrences in the existing
+  mobile-assignment regression without weakening its expected count or layout.
+
 ## [0.11.22] - 2026-09-30
 
 ### Security

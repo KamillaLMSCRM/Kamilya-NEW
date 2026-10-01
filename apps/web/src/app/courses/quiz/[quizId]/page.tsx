@@ -99,12 +99,15 @@ export default function QuizPlayerPage() {
   const [result, setResult] = useState<QuizResult | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [attempts, setAttempts] = useState<QuizAttempt[]>([]);
+  const [attemptsLoaded, setAttemptsLoaded] = useState(false);
   const [courseModules, setCourseModules] = useState<CourseModule[]>([]);
   const [assignmentDeadlineMs, setAssignmentDeadlineMs] = useState<number | null>(null);
   const [assignmentRemainingSeconds, setAssignmentRemainingSeconds] = useState<number | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const handleSubmitRef = useRef<() => void>(() => undefined);
   const attemptStartedAtRef = useRef(Date.now());
+  const attemptsUsed = attempts.length;
+  const canAttempt = quiz !== null && attemptsLoaded && attemptsUsed < quiz.attempt_limit;
 
   const getChoiceLabel = (question: Question, choice: QuizChoice, index: number) => {
     if (question.type === 'true_false') {
@@ -115,6 +118,7 @@ export default function QuizPlayerPage() {
 
   const fetchQuiz = useCallback(async () => {
     if (!quizId || !token) return;
+    setAttemptsLoaded(false);
     try {
       const [quizRes, attemptsRes, structureRes, accessWindowRes] = await Promise.all([
         fetch(`${API_URL}/v1/quizzes/${quizId}`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -133,7 +137,13 @@ export default function QuizPlayerPage() {
           setTimeLeft(data.time_limit * 60);
         }
       }
-      if (attemptsRes?.ok) setAttempts(await attemptsRes.json());
+      if (attemptsRes?.ok) {
+        const history = await attemptsRes.json();
+        if (Array.isArray(history)) {
+          setAttempts(history);
+          setAttemptsLoaded(true);
+        }
+      }
       if (structureRes?.ok) {
         const structure = await structureRes.json();
         setCourseModules(structure.modules || []);
@@ -154,6 +164,9 @@ export default function QuizPlayerPage() {
           }
         }
       }
+    } catch {
+      // Unconfirmed attempt history must never grant permission to submit.
+      setAttemptsLoaded(false);
     } finally {
       setLoading(false);
     }
@@ -164,7 +177,7 @@ export default function QuizPlayerPage() {
   }, [fetchQuiz]);
 
   // Timer
-  const timerActive = timeLeft !== null && timeLeft > 0 && !result;
+  const timerActive = timeLeft !== null && timeLeft > 0 && !result && canAttempt;
   useEffect(() => {
     if (!timerActive) return;
     timerRef.current = setInterval(() => {
@@ -193,9 +206,10 @@ export default function QuizPlayerPage() {
   }, [assignmentDeadlineMs]);
 
   const assignmentBlocked = assignmentRemainingSeconds === 0;
+  const attemptBlocked = !canAttempt || assignmentBlocked;
 
   const handleSelect = (questionId: string, choiceId: string, type: string) => {
-    if (assignmentBlocked) return;
+    if (attemptBlocked) return;
     setAnswers((prev) => {
       if (type === 'MCQ' || type === 'true_false') {
         return { ...prev, [questionId]: [choiceId] };
@@ -208,7 +222,7 @@ export default function QuizPlayerPage() {
   };
 
   const handleSubmit = async () => {
-    if (!quizId || !token || submitting || result || assignmentBlocked) return;
+    if (!quizId || !token || submitting || result || attemptBlocked) return;
     setSubmitting(true);
     try {
       const submission = {
@@ -229,8 +243,19 @@ export default function QuizPlayerPage() {
         const data = await res.json();
         setResult(data);
         if (timerRef.current) clearInterval(timerRef.current);
-        const attemptsRes = await fetch(`${API_URL}/v1/quizzes/${quizId}/attempts`, { headers: { Authorization: `Bearer ${token}` } });
-        if (attemptsRes.ok) setAttempts(await attemptsRes.json());
+        setAttemptsLoaded(false);
+        try {
+          const attemptsRes = await fetch(`${API_URL}/v1/quizzes/${quizId}/attempts`, { headers: { Authorization: `Bearer ${token}` } });
+          if (attemptsRes.ok) {
+            const history = await attemptsRes.json();
+            if (Array.isArray(history)) {
+              setAttempts(history);
+              setAttemptsLoaded(true);
+            }
+          }
+        } catch {
+          // Keep the confirmed result, but do not retry with stale attempt data.
+        }
         toast.dismiss();
         const scorePercent = data.attempt.score_percent;
         toast.success(`${data.passed ? t('quiz.passed') : t('quiz.failed')} ${t('quiz.result', { score: scorePercent })}`);
@@ -238,6 +263,8 @@ export default function QuizPlayerPage() {
         const err = await res.json();
         toast.error(t('common.saveFailed'), { description: err.detail || t('quiz.submissionFailedDescription') });
       }
+    } catch {
+      toast.error(t('common.saveFailed'), { description: t('quiz.submissionFailedDescription') });
     } finally {
       setSubmitting(false);
     }
@@ -246,6 +273,7 @@ export default function QuizPlayerPage() {
   handleSubmitRef.current = handleSubmit;
 
   const handleRetry = () => {
+    if (attemptBlocked) return;
     setQuiz(null);
     setResult(null);
     setAnswers({});
@@ -267,8 +295,6 @@ export default function QuizPlayerPage() {
   const currentQ = quiz.questions[currentIdx];
   const totalQuestions = quiz.questions.length;
   const answeredCount = Object.keys(answers).length;
-  const attemptsUsed = attempts.length;
-  const canAttempt = attemptsUsed < quiz.attempt_limit;
   const resultScore = result?.attempt.score_percent ?? 0;
   const lessonId = quiz.lesson_id;
   const orderedLessons = courseModules.flatMap((module) => module.lessons || []);
@@ -325,6 +351,17 @@ export default function QuizPlayerPage() {
           </div>
         )}
 
+        {!canAttempt && !result && (
+          <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive space-y-3">
+            <p>{t(attemptsLoaded ? 'quiz.attemptLimit' : 'quiz.attemptHistoryUnavailable')}</p>
+            {courseHref ? (
+              <Link href={courseHref} className="underline">{t('courses.backToCourse')}</Link>
+            ) : (
+              <Button variant="outline" onClick={() => router.back()}>{t('courses.backToCourse')}</Button>
+            )}
+          </div>
+        )}
+
         {/* Results Summary */}
         {result && (
           <Card className={result.passed ? 'border-success bg-success/10' : 'border-destructive bg-destructive/10'}>
@@ -339,7 +376,7 @@ export default function QuizPlayerPage() {
                 {resultScore}%
               </p>
               <div className="flex gap-3 justify-center mt-4">
-                {canAttempt && !result.passed && (
+                {canAttempt && !assignmentBlocked && !result.passed && (
                   <Button onClick={handleRetry}>{t('quiz.tryAgain')}</Button>
                 )}
                 {courseHref ? (
@@ -389,6 +426,7 @@ export default function QuizPlayerPage() {
                 <button
                   key={q.id}
                   onClick={() => setCurrentIdx(i)}
+                  disabled={attemptBlocked}
                   className={`w-9 h-9 rounded-full text-sm font-medium border transition-colors ${
                     i === currentIdx
                       ? 'bg-primary text-white border-primary'
@@ -432,7 +470,7 @@ export default function QuizPlayerPage() {
                         name={`q-${currentQ.id}`}
                         checked={isSelected}
                         onChange={() => handleSelect(currentQ.id, choice.id, currentQ.type)}
-                        disabled={assignmentBlocked}
+                        disabled={attemptBlocked}
                         className="shrink-0"
                       />
                       <span>{getChoiceLabel(currentQ, choice, choiceIndex)}</span>
@@ -451,7 +489,7 @@ export default function QuizPlayerPage() {
             <Button
               variant="outline"
               onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
-              disabled={currentIdx === 0 || assignmentBlocked}
+              disabled={currentIdx === 0 || attemptBlocked}
             >
               {t('quiz.previous')}
             </Button>
@@ -459,13 +497,13 @@ export default function QuizPlayerPage() {
               {answeredCount}/{totalQuestions}
             </span>
             {currentIdx < totalQuestions - 1 ? (
-              <Button disabled={assignmentBlocked} onClick={() => setCurrentIdx((i) => Math.min(totalQuestions - 1, i + 1))}>
+              <Button disabled={attemptBlocked} onClick={() => setCurrentIdx((i) => Math.min(totalQuestions - 1, i + 1))}>
                 {t('quiz.next')}
               </Button>
             ) : (
               <Button
                 onClick={handleSubmit}
-                disabled={submitting || answeredCount === 0 || assignmentBlocked}
+                disabled={submitting || answeredCount === 0 || attemptBlocked}
               >
                 {submitting ? t('quiz.submitting') : t('quiz.finish')}
               </Button>

@@ -600,6 +600,7 @@
     "correctAnswer": "Correct answer",
     "explanation": "Explanation",
     "submissionFailedDescription": "Could not submit the answers",
+    "attemptHistoryUnavailable": "Could not check the remaining attempts. Reload the page to try again.",
     "assignmentTimeLeft": "Time remaining for the course and quiz",
     "assignmentExpiredDescription": "The time allowed for the course and quiz has expired. Contact your methodologist.",
     "nextStepsTitle": "What to do next",
