@@ -10,7 +10,11 @@ Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 Active shared contract: [COMMAND-PLAN V1](contracts/COMMAND_PLAN_V1.md).
 Bounded local assignment integration:
 [ASSIGNMENT-EXECUTION addendum V1](contracts/ASSIGNMENT_EXECUTION_ADDENDUM_V1.md).
+Owned-plan reload and isolated notification validation:
+[ASSIGNMENT-RELOAD-VALIDATION addendum V1](contracts/ASSIGNMENT_RELOAD_VALIDATION_ADDENDUM_V1.md).
 Acceptance: [critical journeys](acceptance/CRITICAL_JOURNEYS_V1.md).
 Execution sequence/progress: [plan](../../../plans/2026-10-01_ai-driven-methodologist.md).
 
-Neither module is wired into HTTP, DB, queues or frontend by the foundation.
+The original foundation remains pure. The accepted assignment addenda add
+default-disabled API/UI and persistence, validated only in an owned isolated
+Supabase DEV schema so far; public migration/deployment and voice remain gated.

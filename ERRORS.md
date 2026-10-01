@@ -4852,6 +4852,12 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ## RECURRENCE-012 - Mock-only checks missed PostgreSQL and delivery-history invariants
 
+- 2026-10-01 recurrence in the default-disabled methodologist workbench:
+  `Position.department_obj` eager outer join made an unrestricted position
+  `FOR UPDATE` fail with PostgreSQL0A000. Lock only `OF positions`, retaining
+  separately guarded department/user reads. Owned SQL regression and the actual
+  isolated workbench DEV gate PASS; no public schema or production change.
+
 - Date: 2026-09-29. Found by independent review before release `0.11.16`; no
   canonical DEV or production schema had been changed.
 - Symptom: the first recurring-deadline candidate passed focused unit tests,
@@ -5096,6 +5102,22 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   source review found no confirmed blocker; full corrected suite747/747 PASS.
 - Prevention: reproduce timing windows deterministically, preserve failure records,
   and test cancellation with fresh usability; never rerun blindly or weaken mocks.
+
+## UI-004 - Workbench reload remained pending after StrictMode effect replay
+
+- Date: 2026-10-01; local default-disabled candidate, no deployed change.
+- Symptom: owned-plan reload stayed at `Обработка…` and never showed a preview
+  under React StrictMode; ordinary mocked mount passed.
+- Cause: `initialLoad` ref suppressed the second effect setup after cleanup had
+  already canceled the first GET and invalidated its response epoch.
+- Fix: every effect setup owns a fresh abort controller/request; cleanup cancels
+  only its predecessor. Authenticated remount and context epochs still reject
+  stale results. Confirmed receipt retains its plan URL for GET-only reload.
+- Verification: exact StrictMode fixture RED before the fix, then18/18 workbench
+  UI tests GREEN with no automatic POST, preserved server options, session/edit
+  stale guards and receipt remount. Targeted lint/typecheck PASS.
+- Prevention: test setup-cleanup-setup, not only unmount, for initial authenticated
+  loads. A once-only ref must not suppress replacement of canceled work.
 
 ## OPS-012 - Unused API images exhausted host headroom and failed watchdog closeout
 

@@ -233,14 +233,36 @@ capacity failure, расход за пределами лимита. Не «об
 7. Graphify AST update после изменения связей снова остановлен shrink guard:
    21765 против23077 nodes. Старый graph сохранён, force/rebuild не выполнены;
    source fallback подтверждает ожидаемые imports; extraction gap остаётся.
-8. До DEV включения: metadata retention/cleanup contract, notify=true outbox
-   integration без внешней доставки, cross-operation/phantom concurrency и
+8. Второй slice принят по
+   [reload/validation addendum](../product/contract-modules/methodologist-workbench/contracts/ASSIGNMENT_RELOAD_VALIDATION_ADDENDUM_V1.md):
+   `?plan=<UUID>` восстанавливает preview/receipt через authenticated GET, не POST.
+   URL содержит только locator, не authority/PII; сервер повторно проверяет owner.
+   Подтверждение сохраняет URL для восстановления результата; новая команда или
+   редактирование убирают locator. Серверные timezone/notify/scope сохраняются;
+   исходная инструкция не реконструируется. StrictMode RED исправлен,18 UI tests,
+   lint/typecheck PASS. Canonical API matrix160 PASS (добавлены gate safety и
+   существующие outbox neighbors), quality baseline PASS.
+9. Расширенный **RUNTIME-DERIVED DEV gate PASS**,24 checks: notify=true на
+   synthetic активированном account, atomic outbox/receipt rollback и commit;
+   один outbox, attempt_count0/status pending; replay без новых dispatch IDs;
+   receipt GET; два разных плана дают одно исполнение и один stale;
+   конкурирующее ручное назначение оставляет свой deadline и блокирует старый план.
+   Public enqueue НЕ вызывается: body0097+0154 сверяется с live prosrc и только
+   принятый body устанавливается в owned schema с fixed search_path/FORCE RLS.
+   Runtime resolution owned, прямой app-role outbox SELECT denied. Нет delivery/
+   recovery interfaces/worker dispatch; это не доказательство доставки писем.
+   Cleanup/absence/public revision+table inventory neutrality PASS.
+10. До DEV включения: metadata retention/cleanup contract, invitation/activation
+   side effect gate, full neighbor RLS/organization mutation interleavings и
    полная browser acceptance постоянного QA-контура. Public DEV migration и
    release packet не выполнялись. Production остаётся отдельным exact gate.
-9. Следующий кодовый шаг: закрыть эти gates и связать восстановление owned плана
-   с UI; затем bounded LLM intent adapter через существующие provider/usage policy,
+11. Следующий кодовый шаг: закрыть эти gates; затем bounded LLM intent adapter через существующие provider/usage policy,
    после этого document→draft и безопасные corrections. Никаких новых paid resources.
-10. ASR benchmark: NOT VERIFIED, аудиокорпус/выбранная capacity ещё отсутствуют.
+12. ASR benchmark: NOT VERIFIED, аудиокорпус/выбранная capacity ещё отсутствуют.
+13. AST update второго slice также остановлен shrink guard:21789 против23077
+   nodes; старый graph сохранён, force/rebuild/upgrade не выполнены. Независимая
+   локальная приёмка Test & Evidence Runner ожидает frozen candidate packet;
+   root runtime gate не выдаётся за независимое выполнение Runner.
 
 ### Epic-update: ownership и зависимости
 
@@ -254,7 +276,7 @@ capacity failure, расход за пределами лимита. Не «об
 |---|---|---|---|
 | WB-FOUNDATION | DONE | root / root / independent cheap reviewer |76 pure tests и quality PASS; commit5afa42f |
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
-| WB-DEV-ACCEPT | READY | root; Test & Evidence Runner on exact accepted packet |Retention/outbox/cross-operation/reload/browser gates; no public migration yet |
+| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |Reload/activated-account outbox+manual overlap PASS; retention/activation/full-neighbor/browser still gated |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
 | WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
 | WB-RELEASE | NOT_STARTED | root + Release Runner |Exact accepted candidate, all preceding gates; no release authority inferred |
@@ -273,6 +295,8 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 | assignment_text_parser / bounded implementation + review |gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted;0 implementation correction rounds |24 parser tests; ownership transferred root |
 | workbench_assignment_ui / UI+transport fixtures |gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted after2 root correction packets, plus usability refinement |Targeted UI tests, lint/typecheck; no live browser claim |
 | root / contracts+integration+DEV gate |Parent session; exact metadata NOT AVAILABLE |Atomicity/RLS/concurrency checks accepted after owned repairs |138 tests; isolated runtime gate PASS; elapsed/review/token counters NOT AVAILABLE |
+| workbench_plan_reload / URL reload + fixtures |gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted after1 correction packet; root StrictMode repair |16 leaf tests;18 after root regression; elapsed/token counters NOT AVAILABLE |
+| root / second-slice integration |Parent session; observed metadata NOT AVAILABLE |Root review caught StrictMode cancellation bug, deterministic RED/GREEN |160 API /18 web /24 runtime checks PASS; notification delivery NOT VERIFIED |
 
 Точные сроки оценим после вертикального среза и ASR benchmark; обещать голосовой
 production за фиксированное число дней без этих измерений было бы неверно.

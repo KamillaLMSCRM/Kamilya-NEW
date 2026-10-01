@@ -8,16 +8,19 @@
 ## Current development: AI-driven methodologist — first text slice, flags OFF
 
 - result: bounded text→preview→confirm→one-time assignment implemented locally;
-  isolated Supabase DEV migration/RLS/atomic rollback/concurrent replay gate PASS.
+  owned-plan URL reload and isolated Supabase DEV migration/RLS/atomic rollback/
+  concurrent replay, queued notification and manual-overlap gates PASS.
   Primary remains clean, matching its local origin/master reference; no push/deploy.
 - changed: new workbench API/UI/parser/0169; shared deltas only config flag,
   main/registry registration and one exact tenant purge entry. Production unchanged.
-- verified:138 API fixture tests; targeted web tests/lint/typecheck; canonical
+- verified:160 API fixture tests;18 web tests/lint/typecheck; canonical
   Python quality baseline PASS. Exact evidence/gaps and ownership in
   `docs/plans/2026-10-01_ai-driven-methodologist.md`. Synthetic owned schema cleanup
   and public revision/table inventory neutrality PASS. No mail/AI/STT calls.
-- blockers: feature enablement gated on retention, notify=true/cross-operation
-  integration, owned-plan UI reload and DEV browser acceptance. Graphify shrink
+- blockers: feature enablement gated on retention, activation/invitation,
+  full neighbor RLS/org-change interleavings and DEV browser acceptance. Notification
+  gate uses accepted enqueue body in owned schema, not public functions or delivery.
+  Graphify shrink
   guard preserves old index; source fallback used, no force. Public migration absent.
 - next: complete WB-DEV-ACCEPT, then bounded LLM intent/document draft steps;
   use Test & Evidence Runner/Release Runner only for exact accepted packets.

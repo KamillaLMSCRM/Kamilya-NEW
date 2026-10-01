@@ -8,6 +8,7 @@ before connection; failures expose classes/stage only, never DSNs or payloads.
 from __future__ import annotations
 
 import argparse
+import ast
 import asyncio
 import importlib.util
 import json
@@ -45,6 +46,7 @@ TABLES = (
     "content_releases",
     "enrollments",
     "enrollment_access_policies",
+    "course_assignment_notification_outbox",
 )
 
 
@@ -113,6 +115,90 @@ async def migration(connection, schema: str, operation: str = "upgrade") -> None
     await connection.run_sync(apply)
 
 
+async def install_isolated_enqueue(connection, schema: str) -> None:
+    """Use the canonical enqueue body, never the public SECURITY DEFINER target.
+
+    A live body mismatch is a hard gate; do not copy arbitrary database DDL or
+    call public enqueue from the test schema. No delivery/recovery functions
+    are installed, so existing workers cannot discover these synthetic rows.
+    """
+    qualified = safe_schema(schema)
+    source = (
+        API_ROOT
+        / "alembic"
+        / "versions"
+        / "0097_course_assignment_notification_outbox.py"
+    )
+    candidates = [
+        node.value
+        for node in ast.walk(ast.parse(source.read_text(encoding="utf-8")))
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and "CREATE FUNCTION enqueue_course_assignment_notification(" in node.value
+    ]
+    if len(candidates) != 1:
+        raise GateBlocked("enqueue_source_ambiguous")
+    original = candidates[0]
+    old = "IF NOT EXISTS (SELECT 1 FROM users WHERE id=p_assigned_by AND tenant_id=p_tenant_id) THEN"
+    new = "IF p_assigned_by IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users WHERE id=p_assigned_by AND tenant_id=p_tenant_id) THEN"
+    if (
+        original.count(old) != 1
+        or original.count("SET search_path = public, pg_temp") != 1
+    ):
+        raise GateBlocked("enqueue_source_drift")
+    accepted = original.replace(old, new)
+    expected_body = accepted.split("AS $$", 1)[1].rsplit("$$", 1)[0]
+    live = (
+        await connection.execute(
+            text(
+                "SELECT p.prosrc,p.prosecdef,l.lanname FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang "
+                "WHERE p.oid='public.enqueue_course_assignment_notification(uuid,uuid,uuid)'::regprocedure"
+            )
+        )
+    ).one()
+    if (
+        not live.prosecdef
+        or live.lanname != "plpgsql"
+        or " ".join(live.prosrc.split()) != " ".join(expected_body.split())
+    ):
+        raise GateBlocked("live_enqueue_body_not_accepted_source")
+    ddl = accepted.replace(
+        "CREATE FUNCTION enqueue_course_assignment_notification(",
+        f"CREATE FUNCTION {qualified}.enqueue_course_assignment_notification(",
+    )
+    ddl = ddl.replace(
+        "SET search_path = public, pg_temp", f"SET search_path = {qualified}, pg_temp"
+    )
+    await connection.execute(text(ddl))
+    table = f"{qualified}.course_assignment_notification_outbox"
+    await connection.execute(
+        text(f"REVOKE ALL ON {table} FROM PUBLIC,lms_app,lms_recovery")
+    )
+    await connection.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+    await connection.execute(text(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY"))
+    await connection.execute(
+        text(
+            f"CREATE POLICY gate_enqueue_owner ON {table} TO CURRENT_USER "
+            "USING (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid) "
+            "WITH CHECK (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid)"
+        )
+    )
+    signature = f"{qualified}.enqueue_course_assignment_notification(uuid,uuid,uuid)"
+    await connection.execute(
+        text(f"REVOKE ALL ON FUNCTION {signature} FROM PUBLIC,lms_recovery")
+    )
+    await connection.execute(text(f"GRANT EXECUTE ON FUNCTION {signature} TO lms_app"))
+    resolved = await connection.scalar(
+        text(
+            "SELECT n.nspname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "
+            "WHERE p.oid=to_regprocedure(:signature)"
+        ),
+        {"signature": signature},
+    )
+    if resolved != schema:
+        raise GateBlocked("isolated_enqueue_missing")
+
+
 async def context(session, schema: str, tenant_id, actor_id, *, superadmin=False):
     await session.execute(
         text(f"SET LOCAL search_path TO {safe_schema(schema)}, public")
@@ -129,6 +215,226 @@ async def context(session, schema: str, tenant_id, actor_id, *, superadmin=False
             "super": str(superadmin).lower(),
         },
     )
+
+
+async def verify_notification_and_manual_overlap(
+    owner_engine, runtime_engine, schema, actor, course_id, now
+):
+    """Actual transactions with activated synthetic learners; never dispatch."""
+    from app.models.department import Department
+    from app.models.users import User
+    from app.modules.courses.models import Course
+    from app.modules.enrollments.service import enroll_users
+    from app.modules.methodologist_workbench.assignment_schemas import (
+        AssignmentPreviewRequest,
+    )
+    from app.modules.methodologist_workbench.assignment_service import (
+        WorkbenchConflict,
+        confirm_assignment_plan,
+        create_assignment_preview,
+        get_assignment_plan,
+    )
+    from app.modules.methodologist_workbench.plan_contract import ConfirmationRequest
+
+    department_ids, learner_ids = [uuid4(), uuid4()], [uuid4(), uuid4()]
+    async with AsyncSession(owner_engine) as db:
+        await context(db, schema, actor.tenant_id, actor.actor_id)
+        for index, name in enumerate(("Notify department", "Overlap department")):
+            db.add(
+                Department(
+                    id=department_ids[index],
+                    tenant_id=actor.tenant_id,
+                    name=name,
+                    normalized_name=name.lower(),
+                    slug=f"extended-{index}",
+                )
+            )
+            db.add(
+                User(
+                    id=learner_ids[index],
+                    tenant_id=actor.tenant_id,
+                    role="student",
+                    first_name="Synthetic",
+                    last_name=f"Extended{index}",
+                    organization_unit_id=department_ids[index],
+                    password_hash="synthetic-non-credential",
+                    email=f"workbench-{index}@example.invalid",
+                )
+            )
+        await db.commit()
+
+    async def preview(name, *, notify):
+        async with AsyncSession(runtime_engine, expire_on_commit=False) as db:
+            await context(db, schema, actor.tenant_id, actor.actor_id)
+            resolved = await db.scalar(
+                text(
+                    "SELECT to_regprocedure('enqueue_course_assignment_notification(uuid,uuid,uuid)')::oid="
+                    "to_regprocedure(:signature)::oid"
+                ),
+                {
+                    "signature": f"{safe_schema(schema)}.enqueue_course_assignment_notification(uuid,uuid,uuid)"
+                },
+            )
+            if resolved is not True:
+                raise GateBlocked("runtime_enqueue_resolved_public")
+            result = await create_assignment_preview(
+                db,
+                actor,
+                AssignmentPreviewRequest(
+                    instruction=f'Назначь курс "Gate course" отделу "{name}" до {(now + timedelta(days=3)).date()}',
+                    timezone_name="UTC",
+                    notify=notify,
+                ),
+                now=now,
+            )
+            if result.state != "preview_ready" or result.new_count != 1:
+                raise GateBlocked("extended_preview_mismatch")
+            await db.commit()
+            request = ConfirmationRequest(
+                plan_id=result.plan_id,
+                revision=result.revision,
+                fingerprint=result.fingerprint,
+            )
+            return request
+
+    async def confirm(request):
+        async with AsyncSession(runtime_engine, expire_on_commit=False) as db:
+            await context(db, schema, actor.tenant_id, actor.actor_id)
+            try:
+                outcome = await confirm_assignment_plan(db, actor, request, now=now)
+                await db.commit()
+                return outcome
+            except WorkbenchConflict as exc:
+                await db.rollback()
+                if str(exc) != "stale":
+                    raise
+                return None
+
+    first, other = (
+        await preview("Notify department", notify=True),
+        await preview("Notify department", notify=True),
+    )
+    # A simulated post-flush failure must remove the outbox and receipt too.
+    async with AsyncSession(runtime_engine, expire_on_commit=False) as db:
+        await context(db, schema, actor.tenant_id, actor.actor_id)
+        outcome = await confirm_assignment_plan(db, actor, first, now=now)
+        if (
+            len(outcome.dispatch_ids) != 1
+            or outcome.receipt.notification_state != "queued"
+        ):
+            raise GateBlocked("notification_not_queued")
+        await db.rollback()
+    async with AsyncSession(owner_engine) as db:
+        await context(db, schema, actor.tenant_id, actor.actor_id)
+        count = await db.scalar(
+            text("SELECT count(*) FROM course_assignment_notification_outbox")
+        )
+        enrollment_count = await db.scalar(
+            text("SELECT count(*) FROM enrollments WHERE user_id=:id"),
+            {"id": learner_ids[0]},
+        )
+        ready = await db.scalar(
+            text(
+                "SELECT status='ready' AND receipt IS NULL FROM workbench_assignment_plans WHERE id=:id"
+            ),
+            {"id": first.plan_id},
+        )
+        if count != 0 or enrollment_count != 0 or ready is not True:
+            raise GateBlocked("notification_rollback_not_atomic")
+    outcomes = await asyncio.wait_for(
+        asyncio.gather(confirm(first), confirm(other)), timeout=45
+    )
+    if sum(outcome is not None for outcome in outcomes) != 1:
+        raise GateBlocked("distinct_plans_did_not_conflict")
+    winner_index = next(
+        index for index, outcome in enumerate(outcomes) if outcome is not None
+    )
+    request, winner = (first, other)[winner_index], outcomes[winner_index]
+    replay = await confirm(request)
+    if (
+        replay is None
+        or replay.receipt != winner.receipt
+        or replay.dispatch_ids
+        or len(winner.dispatch_ids) != 1
+    ):
+        raise GateBlocked("notification_replay_repeated_dispatch")
+    async with AsyncSession(runtime_engine) as db:
+        await context(db, schema, actor.tenant_id, actor.actor_id)
+        readback = await get_assignment_plan(db, actor, request.plan_id)
+        if readback != winner.receipt:
+            raise GateBlocked("notification_receipt_reload_mismatch")
+        try:
+            async with db.begin_nested():
+                await db.execute(
+                    text("SELECT id FROM course_assignment_notification_outbox")
+                )
+        except DBAPIError as exc:
+            if "42501" not in safe_failure(exc):
+                raise
+        else:
+            raise GateBlocked("runtime_direct_outbox_access_allowed")
+    async with AsyncSession(owner_engine) as db:
+        await context(db, schema, actor.tenant_id, actor.actor_id)
+        rows = (
+            await db.execute(
+                text(
+                    "SELECT id,enrollment_id,status,attempt_count FROM course_assignment_notification_outbox"
+                )
+            )
+        ).all()
+        if (
+            len(rows) != 1
+            or rows[0].id != winner.dispatch_ids[0]
+            or rows[0].status != "pending"
+            or rows[0].attempt_count != 0
+        ):
+            raise GateBlocked("outbox_duplicate_or_delivery_started")
+        if rows[0].enrollment_id != winner.receipt.created[0].enrollment_id:
+            raise GateBlocked("outbox_receipt_identity_mismatch")
+
+    manual_request = await preview("Overlap department", notify=False)
+    manual_due = now + timedelta(days=10)
+    # The established manual path owns the course lock before workbench tries
+    # to confirm; after it commits, workbench must reject its outdated audience.
+    async with AsyncSession(runtime_engine, expire_on_commit=False) as db:
+        await context(db, schema, actor.tenant_id, actor.actor_id)
+        await db.scalar(select(Course).where(Course.id == course_id).with_for_update())
+        pending = asyncio.create_task(confirm(manual_request))
+        try:
+            created = await enroll_users(
+                db, course_id, actor.tenant_id, [learner_ids[1]], due_at=manual_due
+            )
+            await db.commit()
+            overlap = await asyncio.wait_for(pending, timeout=45)
+        finally:
+            if not pending.done():
+                pending.cancel()
+                await asyncio.gather(pending, return_exceptions=True)
+        if len(created) != 1 or overlap is not None:
+            raise GateBlocked("manual_overlap_not_rejected")
+    async with AsyncSession(owner_engine) as db:
+        await context(db, schema, actor.tenant_id, actor.actor_id)
+        policies = (
+            await db.execute(
+                text(
+                    "SELECT p.due_at FROM enrollments e JOIN enrollment_access_policies p ON p.enrollment_id=e.id "
+                    "WHERE e.user_id=:id"
+                ),
+                {"id": learner_ids[1]},
+            )
+        ).all()
+        if len(policies) != 1 or policies[0].due_at != manual_due:
+            raise GateBlocked("manual_deadline_overwritten")
+    return [
+        "notify_true_outbox_receipt_atomic",
+        "notification_rollback_atomic",
+        "distinct_plans_one_success_other_stale",
+        "notification_replay_no_redispatch",
+        "owned_receipt_reload",
+        "runtime_outbox_direct_read_denied",
+        "outbox_not_delivered",
+        "manual_overlap_rejected_deadline_preserved",
+    ]
 
 
 async def run_gate(owner_url, runtime_url, supabase_url):
@@ -196,6 +502,7 @@ async def run_gate(owner_url, runtime_url, supabase_url):
                     )
                 )
             await migration(connection, schema)
+            await install_isolated_enqueue(connection, schema)
             flags = (
                 await connection.execute(
                     text(
@@ -207,7 +514,11 @@ async def run_gate(owner_url, runtime_url, supabase_url):
             ).one()
             if flags != (True, True):
                 raise GateBlocked("force_rls_missing")
-        checks += ["migration_upgrade", "enable_force_rls"]
+        checks += [
+            "migration_upgrade",
+            "enable_force_rls",
+            "accepted_enqueue_body_isolated",
+        ]
         stage = "application_import"
         sys.path.insert(0, str(API_ROOT))
         from app.models.registry import load_all_models
@@ -435,6 +746,10 @@ async def run_gate(owner_url, runtime_url, supabase_url):
             "expired_receipt_replay_no_duplicate",
             "notify_false_no_dispatch",
         ]
+        stage = "notification_and_overlap"
+        checks += await verify_notification_and_manual_overlap(
+            owner_engine, runtime_engine, schema, actor, course_id, now
+        )
         stage = "stale_membership"
         # New preview with existing assignment, then a membership removal.
         async with AsyncSession(runtime_engine, expire_on_commit=False) as db:

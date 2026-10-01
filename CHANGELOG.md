@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   confirmed plan without duplicate enrollments or notification dispatch.
 - Isolated Supabase DEV migration/RLS/rollback/concurrent-confirmation gate.
   General AI interpretation, voice input and production enablement are not included.
+- Restore owned workbench previews and committed receipts by opaque plan URL,
+  without automatic confirmation or browser-stored instructions/employee data.
+- Extend isolated DEV coverage to notification atomicity/replay and overlapping
+  manual assignments without dispatching mail or altering existing deadlines.
 
 ## [0.11.25] - 2026-10-01
 

@@ -116,9 +116,9 @@ export async function requestAssignmentPreview(input: AssignmentInput): Promise<
   return parsePreview(response.data);
 }
 
-export async function loadAssignmentPlan(planId: string): Promise<AssignmentPreview | AssignmentReceipt> {
+export async function loadAssignmentPlan(planId: string, signal?: AbortSignal): Promise<AssignmentPreview | AssignmentReceipt> {
   if (!isUuid(planId)) throw new Error('Invalid plan id');
-  const response = await api.get(`/v1/methodologist-workbench/plans/${encodeURIComponent(planId)}`);
+  const response = await api.get(`/v1/methodologist-workbench/plans/${encodeURIComponent(planId)}`, signal ? { signal } : undefined);
   if (response.data?.state === 'succeeded') return parseReceipt(response.data, planId);
   const parsed = parsePreview(response.data);
   if (parsed.state === 'preview_ready' && parsed.plan_id !== planId) throw new Error('Plan identity mismatch');

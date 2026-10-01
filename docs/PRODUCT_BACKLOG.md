@@ -25,7 +25,10 @@ Public DEV/production migration и browser acceptance ещё не выполне
 текущему составу отдела, не постоянное DepartmentCourse rule.
 [Подробный план](plans/2026-10-01_ai-driven-methodologist.md),
 [контракты и gates](product/contract-modules/methodologist-workbench/MODULE_INDEX.md).
-Retention, notify=true/cross-operation integration, browser acceptance,
+Reload preview/receipt и ограниченный notify=true gate на synthetic активированном
+account прошли: atomic outbox/rollback/replay и конфликт с ручным назначением;
+доставка писем не проверялась. Retention, invitation/activation side effects,
+полные neighbor RLS/organization interleavings, browser acceptance,
 ASR benchmark, стоимость/маршрут аудио и production release —
 отдельные gates; согласование направления не разрешает платные ресурсы.
 
