@@ -4,7 +4,7 @@ Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
 | Module | Responsibility | Active mini-spec | Data owner / writer | Status |
 |---|---|---|---|---|
-| WORKBENCH | Untrusted intent → server-resolved plan → confirmation policy; later execution receipts | [WORKBENCH V1](modules/WORKBENCH_V1.md) | Workbench/root; in-memory only now | Accepted foundation only |
+| WORKBENCH | Untrusted intent → server-resolved plan → confirmation policy; bounded assignment receipts under addenda below | [WORKBENCH V1](modules/WORKBENCH_V1.md) | Workbench/root; pure foundation plus owned persistent assignment plans | Accepted foundation + assignment addenda; default-disabled |
 | SPEECH-INTAKE | Bounded authorized audio → editable transcript, no business execution | [SPEECH-INTAKE V1](modules/SPEECH_INTAKE_V1.md) | Speech/root; no storage now | Draft / benchmark gate |
 
 Active shared contract: [COMMAND-PLAN V1](contracts/COMMAND_PLAN_V1.md).

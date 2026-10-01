@@ -260,9 +260,16 @@ capacity failure, расход за пределами лимита. Не «об
    после этого document→draft и безопасные corrections. Никаких новых paid resources.
 12. ASR benchmark: NOT VERIFIED, аудиокорпус/выбранная capacity ещё отсутствуют.
 13. AST update второго slice также остановлен shrink guard:21789 против23077
-   nodes; старый graph сохранён, force/rebuild/upgrade не выполнены. Независимая
-   локальная приёмка Test & Evidence Runner ожидает frozen candidate packet;
-   root runtime gate не выдаётся за независимое выполнение Runner.
+   nodes; старый graph сохранён, force/rebuild/upgrade не выполнены.
+14. Независимая локальная приёмка **Test & Evidence Runner PASS**, root review
+   **ACCEPTED_LOCAL_ONLY**, candidate `7f82abd87f94e273b01da8b3c6ca1192470de079`.
+   API160/web18 passed, failed0/skipped0; lint/typecheck и flags-off production
+   build PASS (67 static pages). Run `WB-RELOAD-LOCAL-20261001-01`, evidence
+   correction `-C1`: UTC recording time/root-review/counts уточнены append-only,
+   без повторного запуска или source repair. [Ledger](../testing/TEST_RUN_LEDGER.md),
+   sanitized local artifacts `.release-evidence/WB-RELOAD-LOCAL-20261001-01/local/`.
+   Runtime/browser для Runner **NOT_RUN**; root DEV24 не является независимым
+   runtime выполнением. Последующий closeout commit меняет только документацию.
 
 ### Epic-update: ownership и зависимости
 
@@ -297,6 +304,7 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 | root / contracts+integration+DEV gate |Parent session; exact metadata NOT AVAILABLE |Atomicity/RLS/concurrency checks accepted after owned repairs |138 tests; isolated runtime gate PASS; elapsed/review/token counters NOT AVAILABLE |
 | workbench_plan_reload / URL reload + fixtures |gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted after1 correction packet; root StrictMode repair |16 leaf tests;18 after root regression; elapsed/token counters NOT AVAILABLE |
 | root / second-slice integration |Parent session; observed metadata NOT AVAILABLE |Root review caught StrictMode cancellation bug, deterministic RED/GREEN |160 API /18 web /24 runtime checks PASS; notification delivery NOT VERIFIED |
+| Test & Evidence Runner / local acceptance |Requested gpt-5.6-luna / medium; independently observed model metadata NOT AVAILABLE |Accepted;1 evidence-only correction, no source repair |160 API/18 web/build PASS; primary run240.275s, correction38.008s; token/review counters NOT AVAILABLE |
 
 Точные сроки оценим после вертикального среза и ASR benchmark; обещать голосовой
 production за фиксированное число дней без этих измерений было бы неверно.

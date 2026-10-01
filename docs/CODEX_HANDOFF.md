@@ -14,7 +14,10 @@
 - changed: new workbench API/UI/parser/0169; shared deltas only config flag,
   main/registry registration and one exact tenant purge entry. Production unchanged.
 - verified:160 API fixture tests;18 web tests/lint/typecheck; canonical
-  Python quality baseline PASS. Exact evidence/gaps and ownership in
+  Python quality baseline PASS. Independent Test & Evidence Runner accepted
+  candidate7f82abd8 as ACCEPTED_LOCAL_ONLY: same160/18 checks, flags-off production
+  build67 pages PASS; ledger WB-RELOAD-LOCAL-20261001-01 plus evidence-only C1.
+  Runner did not execute DEV/browser checks. Exact evidence/gaps and ownership in
   `docs/plans/2026-10-01_ai-driven-methodologist.md`. Synthetic owned schema cleanup
   and public revision/table inventory neutrality PASS. No mail/AI/STT calls.
 - blockers: feature enablement gated on retention, activation/invitation,
