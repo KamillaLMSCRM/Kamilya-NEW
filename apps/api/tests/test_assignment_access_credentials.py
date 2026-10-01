@@ -158,6 +158,22 @@ async def test_reissue_revokes_history_and_exchange_is_learner_only(
     assert accepted.status_code == 200, accepted.text
     assert accepted.json()["user"]["user_id"] == str(learner.id)
     assert accepted.json()["user"]["role"] == "student"
+    assert accepted.json()["user"]["roles"] == ["student"]
+
+    # A full reload has no in-memory bearer. The exact assignment cookie must
+    # restore the learner even with an older staff cookie and a staff header.
+    assignment_cookie = f"kamilya_assignment={accepted.json()['access_token']}; kamilya_refresh=prior-staff"
+    for _ in range(2):
+        restored = await client.post(
+            "/api/v1/auth/refresh", json={},
+            headers={**auth_headers(manager), "Cookie": assignment_cookie},
+        )
+        assert restored.status_code == 200, restored.text
+        assert restored.json()["access_token"] == accepted.json()["access_token"]
+        assert restored.json()["user"]["user_id"] == str(learner.id)
+        assert restored.json()["user"]["roles"] == ["student"]
+        assert restored.json()["user"]["assignment_access_enrollment_id"] == enrollment_id
+        assert "set-cookie" not in restored.headers
 
     bearer = {"Authorization": f"Bearer {accepted.json()['access_token']}"}
     assert (await client.get("/api/v1/users/me", headers=bearer)).status_code == 200
@@ -178,6 +194,12 @@ async def test_reissue_revokes_history_and_exchange_is_learner_only(
     assert revoked.status_code == 200, revoked.text
     revoked_session = await client.get("/api/v1/users/me", headers=bearer)
     assert revoked_session.status_code == 401
+    for _ in range(2):
+        revoked_restore = await client.post(
+            "/api/v1/auth/refresh", json={}, headers={"Cookie": assignment_cookie},
+        )
+        assert revoked_restore.status_code == 401
+        assert "set-cookie" not in revoked_restore.headers
     audit = await db_session.scalar(
         select(AuditLog).where(
             AuditLog.tenant_id == tenant.id,
@@ -189,6 +211,57 @@ async def test_reissue_revokes_history_and_exchange_is_learner_only(
     )
     assert audit is not None
     assert audit.details == {"reason": "manager ended the remote session"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("state", ["due", "window", "policy_revoked", "cancelled", "inactive", "foreign_tenant"])
+async def test_cookie_restore_rechecks_live_assignment_boundaries(
+    client, db_session, make_tenant, make_user, make_course, auth_headers, set_current_tenant, state,
+):
+    from app.core.auth import create_access_token, decode_token
+    from app.models.enrollment_access_policy import EnrollmentAccessPolicy
+
+    tenant = await make_tenant(name="Session boundary synthetic")
+    manager = await make_user(tenant, role="methodologist")
+    learner = await make_user(tenant, role="student")
+    course = await make_course(tenant, manager, status="published")
+    enrollment_id = await _enrollment(client, course, learner, auth_headers(manager))
+    issued = await _issue_link(client, enrollment_id, auth_headers(manager))
+    assert issued.status_code == 200
+    link_token = issued.json()["access_url"].rsplit("/", 1)[1]
+    entered = await client.post(
+        f"/api/v1/assignment-access/{link_token}/exchange", json={"pin": issued.json()["temporary_pin"]},
+    )
+    assert entered.status_code == 200
+    session_token = entered.json()["access_token"]
+    await set_current_tenant(tenant)
+    policy_row = await db_session.scalar(select(EnrollmentAccessPolicy).where(
+        EnrollmentAccessPolicy.enrollment_id == enrollment_id, EnrollmentAccessPolicy.tenant_id == tenant.id,
+    ))
+    past = datetime.now(UTC) - timedelta(seconds=1)
+    if state == "due":
+        policy_row.due_at = past
+    elif state == "window":
+        policy_row.completion_window_expires_at = past
+    elif state == "policy_revoked":
+        policy_row.revoked_at = past
+        policy_row.revoked_reason = "synthetic test"
+    elif state == "cancelled":
+        enrollment = await db_session.get(Enrollment, enrollment_id)
+        enrollment.status = "cancelled"
+    elif state == "inactive":
+        learner.is_active = False
+    else:
+        foreign = await make_tenant(name="Foreign session synthetic")
+        claims = decode_token(session_token)
+        claims["tenant_id"] = str(foreign.id)
+        session_token = create_access_token(claims)
+    await db_session.flush()
+    cookie = f"kamilya_assignment={session_token}; kamilya_refresh=prior-staff"
+    for _ in range(2):
+        response = await client.post("/api/v1/auth/refresh", json={}, headers={"Cookie": cookie})
+        assert response.status_code == 401, response.text
+        assert "set-cookie" not in response.headers
 
 
 @pytest.mark.asyncio

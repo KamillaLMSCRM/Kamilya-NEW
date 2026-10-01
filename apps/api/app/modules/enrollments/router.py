@@ -1,10 +1,10 @@
 """Enrollments — API router"""
 
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import Annotated, Any, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +12,7 @@ from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
 from app.models.enrollment import Enrollment
 from app.models.users import User
+from app.modules.auth.browser_session import BrowserSessionPolicy, get_browser_session_policy
 from app.modules.enrollments.occurrences import is_current_occurrence
 from app.modules.enrollments.schemas import (
     AssignmentAccessExchangeRequest,
@@ -46,6 +47,12 @@ router = APIRouter(
     dependencies=[Depends(require_tenant_user())],
 )
 public_access_router = APIRouter(prefix="/assignment-access", tags=["assignment-access"])
+
+
+def _require_assignment_browser_request(request: Request) -> BrowserSessionPolicy:
+    policy = get_browser_session_policy()
+    policy.enforce_request(request)
+    return policy
 
 stats_router = APIRouter(prefix="/enrollments", tags=["enrollments"])
 
@@ -533,7 +540,9 @@ async def revoke_enrollment_access_policy(
 
 @public_access_router.post("/{token}/exchange", response_model=AssignmentAccessExchangeResponse)
 async def exchange_access_without_email(
-    token: str, payload: AssignmentAccessExchangeRequest, db: AsyncSession = Depends(get_db)
+    token: str, payload: AssignmentAccessExchangeRequest, response: Response,
+    browser_session: Annotated[BrowserSessionPolicy, Depends(_require_assignment_browser_request)],
+    db: AsyncSession = Depends(get_db),
 ):
     from app.modules.enrollments.access_service import establish_assignment_access_context, exchange_assignment_access
 
@@ -552,6 +561,11 @@ async def exchange_access_without_email(
         raise assignment_window_error(exc) from exc
     if result is None:
         raise HTTPException(status_code=401, detail="Access link or PIN is invalid")
+    # The first-entry/window marker must be durable before the browser can
+    # restore this credential. The existing dependency commit remains harmless.
+    await db.commit()
+    browser_session.set_assignment_cookie(response, result["access_token"])
+    browser_session.clear_impersonation_cookie(response)
     return result
 
 

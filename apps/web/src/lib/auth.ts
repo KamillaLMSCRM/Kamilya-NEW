@@ -5,8 +5,10 @@
 //
 // The access token lives only in module-level JS state (NOT localStorage)
 // so it is reset on full page reload. After reload, the Layout component
-// calls /api/v1/auth/refresh — which reads the httpOnly refresh cookie
-// server-side and returns a fresh access token. The cookie itself is
+// calls /api/v1/auth/refresh — which reads the httpOnly session cookie
+// server-side. Assignment context restores the same fixed-expiry JWT before
+// any ordinary account refresh; an invalid assignment never falls back to staff.
+// Ordinary account sessions return a fresh access token. The cookie itself is
 // never visible to JavaScript.
 //
 import {

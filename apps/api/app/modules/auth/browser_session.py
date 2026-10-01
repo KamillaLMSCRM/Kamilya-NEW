@@ -10,6 +10,7 @@ from app.core.config import get_settings
 
 REFRESH_COOKIE_NAME = "kamilya_refresh"
 IMPERSONATION_COOKIE_NAME = "kamilya_impersonation"
+ASSIGNMENT_COOKIE_NAME = "kamilya_assignment"
 REFRESH_COOKIE_PATH = "/api/v1/auth"
 IMPERSONATION_COOKIE_MAX_AGE_SECONDS = 15 * 60
 CookieProfile = Literal["same_site", "cross_site"]
@@ -157,6 +158,9 @@ class BrowserSessionPolicy:
         )
         if self.cookie_profile == "cross_site":
             self._append_partitioned(response, REFRESH_COOKIE_NAME)
+        # Every successful ordinary account-session issuance explicitly replaces
+        # the bounded assignment context, including OTP/Telegram/demo login.
+        self.clear_assignment_cookie(response)
 
     def clear_refresh_cookie(self, response: Response) -> None:
         response.set_cookie(
@@ -197,6 +201,33 @@ class BrowserSessionPolicy:
         )
         if self.cookie_profile == "cross_site":
             self._append_partitioned(response, IMPERSONATION_COOKIE_NAME)
+
+    def read_assignment_token(self, request: Request) -> str | None:
+        self.enforce_request(request)
+        # Empty is still a present, invalid context; only absence allows the
+        # ordinary refresh path. Never erase this marker on a refresh failure.
+        return request.cookies.get(ASSIGNMENT_COOKIE_NAME)
+
+    def _write_assignment_cookie(self, response: Response, token: str, max_age: int) -> None:
+        response.set_cookie(
+            key=ASSIGNMENT_COOKIE_NAME,
+            value=token,
+            max_age=max_age,
+            path=REFRESH_COOKIE_PATH,
+            httponly=True,
+            secure=self.cookie_secure,
+            samesite="none" if self.cookie_profile == "cross_site" else "lax",
+        )
+        if self.cookie_profile == "cross_site":
+            self._append_partitioned(response, ASSIGNMENT_COOKIE_NAME)
+
+    def set_assignment_cookie(self, response: Response, access_token: str) -> None:
+        # Keep the expired signed token as a fail-closed context marker until
+        # deliberate login/logout. Its JWT exp, NOT cookie age, grants access.
+        self._write_assignment_cookie(response, access_token, self.refresh_max_age_seconds)
+
+    def clear_assignment_cookie(self, response: Response) -> None:
+        self._write_assignment_cookie(response, "", 0)
 
     @staticmethod
     def _append_partitioned(response: Response, cookie_name: str) -> None:

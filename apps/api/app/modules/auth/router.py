@@ -1,9 +1,10 @@
 import logging
 from datetime import UTC, datetime, timezone
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -63,6 +64,64 @@ async def _get_browser_session_current_user(
 ) -> User:
     """Order the browser boundary ahead of access-token user resolution."""
     return current_user
+
+
+async def restore_assignment_session(
+    db: AsyncSession, access_token: str,
+) -> tuple[str, dict[str, Any], int] | None:
+    """Validate the cookie's exact JWT; never mint, extend, or use another bearer."""
+    from app.models.enrollment import Enrollment
+    from app.modules.enrollments.access_service import (
+        AssignmentWindowExpiredError,
+        require_assignment_enrollment_read_access,
+    )
+
+    try:
+        payload = decode_token(access_token)
+        if (
+            payload.get("type") != "access"
+            or payload.get("auth_method") != "assignment_access"
+            or payload.get("active_role") != "student"
+            or payload.get("impersonated_by")
+            or payload.get("impersonated_tenant")
+        ):
+            return None
+        expires_in = int(payload["exp"]) - int(datetime.now(UTC).timestamp())
+        if expires_in <= 0:
+            return None
+        # Call the canonical validator with the COOKIE token explicitly. The
+        # request Authorization header cannot override this credential class.
+        user = await get_current_user(
+            HTTPAuthorizationCredentials(scheme="Bearer", credentials=access_token), db,
+        )
+        if (
+            user.role != "student" or user.status != "active"
+            or str(user.id) != payload.get("sub")
+            or str(user.tenant_id) != payload.get("tenant_id")
+        ):
+            return None
+        enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
+        if enrollment_id is None:
+            return None
+        course_id = await db.scalar(select(Enrollment.course_id).where(
+            Enrollment.id == enrollment_id,
+            Enrollment.user_id == user.id,
+            Enrollment.tenant_id == user.tenant_id,
+        ))
+        if course_id is None:
+            return None
+        await require_assignment_enrollment_read_access(
+            db, user_id=cast(UUID, user.id), tenant_id=cast(UUID, user.tenant_id),
+            course_id=course_id, enrollment_id=enrollment_id,
+        )
+        user_payload = await build_user_payload(db, user, active_role="student")
+        user_payload.update(
+            role="student", roles=["student"], auth_method="assignment_access",
+            assignment_access_enrollment_id=str(enrollment_id),
+        )
+        return access_token, user_payload, expires_in
+    except (HTTPException, AssignmentWindowExpiredError, KeyError, TypeError, ValueError):
+        return None
 
 
 async def restore_impersonation_session(
@@ -165,6 +224,15 @@ async def login(req: LoginRequest, request: Request, response: Response, db=Depe
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(req: RefreshRequest, request: Request, response: Response, db=Depends(get_db)):
     browser_session = get_browser_session_policy()
+    assignment_token = browser_session.read_assignment_token(request)
+    if assignment_token is not None:
+        restored_assignment = await restore_assignment_session(db, assignment_token)
+        if restored_assignment is None:
+            # Keep the marker: both the coordinator's 401 retry and a later
+            # reload must fail closed, not restore a previous staff account.
+            return JSONResponse(status_code=401, content={"detail": "Invalid assignment session"})
+        token, student, expires_in = restored_assignment
+        return TokenResponse(access_token=token, expires_in=expires_in, user=student)
     refresh_token = browser_session.read_refresh_token(request, req.refresh_token)
     impersonation_token = browser_session.read_impersonation_token(request)
     if not refresh_token:
@@ -210,6 +278,8 @@ async def exit_impersonation(
 ) -> TokenResponse | JSONResponse:
     """End bounded impersonation and atomically restore the platform session."""
     browser_session = get_browser_session_policy()
+    if browser_session.read_assignment_token(request) is not None:
+        raise HTTPException(status_code=403, detail="Assignment session cannot exit impersonation")
     refresh_token = browser_session.read_refresh_token(request, req.refresh_token)
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Missing refresh token")
@@ -244,6 +314,11 @@ async def switch_role(
     db=Depends(get_db),
 ):
     """Select one of the roles assigned to the current tenant account."""
+    if (
+        browser_session.read_assignment_token(request) is not None
+        or getattr(current_user, "assignment_access_enrollment_id", None) is not None
+    ):
+        raise HTTPException(status_code=403, detail="Role switching is unavailable for assignment access")
     prior_refresh = browser_session.read_refresh_token(request)
     if getattr(current_user, "is_impersonating", False):
         raise HTTPException(status_code=403, detail="Role switching is unavailable while impersonating")
@@ -330,6 +405,7 @@ async def logout(req: RefreshRequest, request: Request, response: Response, db=D
     await db.commit()
     browser_session.clear_refresh_cookie(response)
     browser_session.clear_impersonation_cookie(response)
+    browser_session.clear_assignment_cookie(response)
     return {"status": "ok"}
 
 

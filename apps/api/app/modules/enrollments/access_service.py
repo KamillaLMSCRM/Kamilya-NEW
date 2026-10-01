@@ -28,7 +28,7 @@ MAX_FAILED_ATTEMPTS = 5
 
 
 def assignment_access_session_ttl() -> timedelta:
-    """Bounded non-refreshable session duration for a PIN exchange."""
+    """Fixed, non-extendable session duration for a PIN exchange."""
     return timedelta(minutes=get_settings().ASSIGNMENT_ACCESS_SESSION_MINUTES)
 
 
@@ -318,10 +318,15 @@ async def exchange_assignment_access(db: AsyncSession, token: str, pin: str) -> 
     )
     from app.modules.auth.service import build_user_payload
 
+    user_payload = await build_user_payload(db, learner, active_role="student")
+    user_payload.update(
+        role="student", roles=["student"], auth_method="assignment_access",
+        assignment_access_enrollment_id=str(credential.enrollment_id),
+    )
     return {
         "access_token": session,
         "token_type": "bearer",
-        "user": await build_user_payload(db, learner, active_role="student"),
+        "user": user_payload,
         "assigned_course_id": enrollment_row.course_id,
         "enrollment_id": enrollment_row.id,
         "access_policy": access_policy_payload(policy),

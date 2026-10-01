@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.24] - 2026-10-01
+
+### Fixed
+
+- Restore the same bounded personal-assignment student after a full page reload,
+  without selecting a previously logged-in methodologist or platform account.
+- Keep assignment JWT expiry, exact enrollment, credential revocation and access
+  deadlines unchanged; an invalid session stays unauthenticated on retry.
+- Persist only a host-scoped HttpOnly browser credential, never a token or PIN in
+  Web Storage; serialize credentialed PIN entry with existing session refresh.
+- Clear limited assignment context on deliberate ordinary account login/logout;
+  prohibit role switching or impersonation exit from limited assignment context.
+
 ## [0.11.23] - 2026-10-01
 
 ### Fixed

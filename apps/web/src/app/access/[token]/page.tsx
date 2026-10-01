@@ -8,6 +8,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/compo
 import { Logo } from '@/components/brand/Logo';
 import { useAuthStore } from '@/store/authStore';
 import type { AuthUser } from '@/lib/auth';
+import { runExclusiveAuthAction } from '@/lib/authRefreshCoordinator';
 import { PublicLegalFooter } from '@/components/legal/PublicLegalFooter';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useT } from '@/i18n/useT';
@@ -33,20 +34,23 @@ export default function AssignmentAccessPage() {
     setBusy(true);
     setError('');
     try {
-      const response = await fetch(`${API_URL}/v1/assignment-access/${encodeURIComponent(params.token)}/exchange`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin }),
+      await runExclusiveAuthAction(async () => {
+        const response = await fetch(`${API_URL}/v1/assignment-access/${encodeURIComponent(params.token)}/exchange`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin }),
+        });
+        if (!response.ok) throw new Error();
+        const data = await response.json() as {
+          access_token: string;
+          user: AuthUser;
+          assigned_course_id: string;
+          enrollment_id: string;
+        };
+        login(data.access_token, data.user);
+        router.replace(`/courses/${encodeURIComponent(data.assigned_course_id)}`);
       });
-      if (!response.ok) throw new Error();
-      const data = await response.json() as {
-        access_token: string;
-        user: AuthUser;
-        assigned_course_id: string;
-        enrollment_id: string;
-      };
-      login(data.access_token, data.user);
-      router.replace(`/courses/${encodeURIComponent(data.assigned_course_id)}`);
     } catch {
       // This intentionally remains generic: the endpoint does not reveal link state.
       setError(t('publicUi.assignmentAccess.invalid'));
