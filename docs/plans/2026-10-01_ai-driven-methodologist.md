@@ -1,8 +1,9 @@
 # AI-driven Камиля: пошаговый план методического рабочего места
 
 Дата: 2026-10-01. Владелец продукта: пользователь; технический владелец: root.
-Статус: выполнение начато, только локальный фундамент; голос и новый workflow
-ещё не доступны пользователям. Ветка: `feature/methodologist-workbench-20261001`.
+Статус: первый текстовый vertical slice реализован за выключенными flags;
+изолированный Supabase DEV gate PASS. Голос и новый workflow ещё не доступны
+пользователям. Ветка: `feature/methodologist-workbench-20261001`.
 
 ## Результат для методиста
 
@@ -101,8 +102,10 @@ GPU-сервера до измерений. Источник:
 
 - Intent содержит только просьбу; сервер ищет курс/отдел внутри активного tenant.
 - При двух совпадениях задаёт выбор. Несуществующий отдел не создаёт сам.
-- «В пятницу», «к концу месяца» переводятся в видимую календарную дату в tenant
-  timezone; недостающий/прошедший/двусмысленный срок уточняется.
+- В текущем bounded slice поддерживается только точная дата DD.MM.YYYY/ISO и
+  явно показанный IANA timezone. «В пятницу», «к концу месяца», отрицания и
+  составные команды пока требуют переформулировки, а не угадываются. Позднее
+  LLM resolver должен показывать интерпретацию относительной даты до подтверждения.
 - Предварительный просмотр показывает версию курса, количество и список
   получателей, уже назначенных/исключённых, срок и режим уведомления.
 - Кнопка подтверждает fingerprint этой версии плана. При изменении состава
@@ -146,8 +149,10 @@ GPU-сервера до измерений. Источник:
 - Raw audio по умолчанию не сохраняется после транскрибации. Если нужна очередь
   временного хранения, до её запуска принять exact TTL/deletion/recovery contract;
   никакого неопределённого хранения. Не логировать аудио/текст/документы/PII.
-- Долговечные plans/receipts принадлежат workbench; migrations/retention ещё не
-  приняты. До этого этапа — только чистые Python-объекты в памяти.
+- Долговечные plans/receipts принадлежат workbench. Migration0169 и ограниченный
+  execution contract приняты root для реализации/изолированной проверки;
+  public DEV/production migration ещё не выполнена. Retention/TTL metadata и
+  scheduled cleanup остаются обязательным gate перед включением функции.
 - Существующие AI quotas и provider policies не обходятся. Нужен reserve/settle
   usage для новых вызовов с лимитами/retry/cancellation, не unlimited chat.
 - Новая стоимость, внешний маршрут данных, платный ресурс, провайдерный fallback
@@ -198,9 +203,76 @@ capacity failure, расход за пределами лимита. Не «об
    старый индекс сохранён. Это навигационный пробел, не PASS графа. Ограниченная
    AST-проверка нового модуля подтвердила только standard library/Pydantic imports,
    без доменных/сетевых зависимостей; expected foundation map соблюдён по source.
-4. Следующий кодовый этап: server resolver + stored plan/receipt contract для
-   первого текстового назначения. Перед этим — impact/migration addendum.
-5. ASR benchmark: NOT VERIFIED, аудиокорпус/выбранная capacity ещё отсутствуют.
+4. Первый execution slice реализован по
+   [assignment addendum](../product/contract-modules/methodologist-workbench/contracts/ASSIGNMENT_EXECUTION_ADDENDUM_V1.md):
+   bounded parser, tenant-local resolver, immutable stored preview, transactional
+   receipt, API и отдельная панель `/methodologist-workbench` без изменения меню.
+   Оба flags выключены; VERSION/runtime0.11.25 не изменён. Это ещё не общий AI/NLU.
+   Canonical pytest: **138 PASS** (123 owned/foundation +15 neighbor fixtures);
+   owned Ruff и canonical Python baseline PASS, новой quality debt нет.
+   Web targeted **10 tests PASS**, lint/typecheck PASS; UI tests не browser acceptance.
+5. `scripts/ops/workbench_assignment_dev_gate.py --env-file <canonical .env> --execute`:
+   **RUNTIME-DERIVED PASS**, non-BYPASS `lms_app`, isolated owned schema only.
+   Upgrade0169 + ENABLE/FORCE RLS; cross-tenant/other-actor reads hidden;
+   immutable snapshot UPDATE и ordinary DELETE denied; rollback совместно
+   отменяет receipt/enrollment/access policy; два конкурентных подтверждения
+   одного плана дают один receipt/назначение; replay после expiry без дублей;
+   notify=false не создаёт dispatch; изменение membership блокирует исполнение.
+   Owned schema удалена и отсутствие независимо прочитано; public revision и
+   table inventory до/после совпали. Это не проверка полного public data digest
+   или production RLS всех соседних таблиц: baseline copies не копируют их RLS.
+   Начальные failures сохранены как результаты проверки: import config без dotenv,
+   невалидный normalized_name fixture, затем PostgreSQL0A000 на eager outer join
+   Position.department_obj. Исправление — `FOR UPDATE OF positions`; SQL regression
+   добавлен, новый реальный gate PASS. Ни один failed run не заменён заявлением PASS;
+   во всех completed gate runs cleanup/public schema inventory checks PASS.
+6. Independent cheap-agent source review: дополнительных high-impact дефектов
+   не найдено; root отдельно исправил повторный notification dispatch, session
+   leakage/stale choices и реальную DB lock ошибку. Reviewer static evidence не
+   подменяет RUNTIME-DERIVED gate выше.
+7. Graphify AST update после изменения связей снова остановлен shrink guard:
+   21765 против23077 nodes. Старый graph сохранён, force/rebuild не выполнены;
+   source fallback подтверждает ожидаемые imports; extraction gap остаётся.
+8. До DEV включения: metadata retention/cleanup contract, notify=true outbox
+   integration без внешней доставки, cross-operation/phantom concurrency и
+   полная browser acceptance постоянного QA-контура. Public DEV migration и
+   release packet не выполнялись. Production остаётся отдельным exact gate.
+9. Следующий кодовый шаг: закрыть эти gates и связать восстановление owned плана
+   с UI; затем bounded LLM intent adapter через существующие provider/usage policy,
+   после этого document→draft и безопасные corrections. Никаких новых paid resources.
+10. ASR benchmark: NOT VERIFIED, аудиокорпус/выбранная capacity ещё отсутствуют.
+
+### Epic-update: ownership и зависимости
+
+`WB-FOUNDATION -> WB-TEXT-EXEC -> WB-DEV-ACCEPT -> WB-RELEASE`
+
+`WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
+
+`WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)
+
+| Node | State | Owner / writer / reviewer | Exit / next gate |
+|---|---|---|---|
+| WB-FOUNDATION | DONE | root / root / independent cheap reviewer |76 pure tests и quality PASS; commit5afa42f |
+| WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
+| WB-DEV-ACCEPT | READY | root; Test & Evidence Runner on exact accepted packet |Retention/outbox/cross-operation/reload/browser gates; no public migration yet |
+| WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
+| WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
+| WB-RELEASE | NOT_STARTED | root + Release Runner |Exact accepted candidate, all preceding gates; no release authority inferred |
+
+Write overlap: root owns migration/config/router/registry/purge/docs and DEV gate;
+parser agent owns parser+owned tests, UI agent owns panel/client+web tests until
+handoff. No concurrent writers to one file; no agents use secrets/external DB.
+DEV mutation scope: one randomly named `workbench_<12hex>` schema with synthetic
+rows; rollback/cleanup drops exactly that validated owned schema, never public.
+
+Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero):
+
+| Task / type | Requested model / effort | Acceptance / correction rounds | Evidence |
+|---|---|---|---|
+| assignment_seam_inventory / read-only inventory + review |gpt-5.6-luna / medium; independently observed metadata NOT AVAILABLE |Accepted;0 correction rounds |Source-only findings, no external writes |
+| assignment_text_parser / bounded implementation + review |gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted;0 implementation correction rounds |24 parser tests; ownership transferred root |
+| workbench_assignment_ui / UI+transport fixtures |gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted after2 root correction packets, plus usability refinement |Targeted UI tests, lint/typecheck; no live browser claim |
+| root / contracts+integration+DEV gate |Parent session; exact metadata NOT AVAILABLE |Atomicity/RLS/concurrency checks accepted after owned repairs |138 tests; isolated runtime gate PASS; elapsed/review/token counters NOT AVAILABLE |
 
 Точные сроки оценим после вертикального среза и ASR benchmark; обещать голосовой
 production за фиксированное число дней без этих измерений было бы неверно.

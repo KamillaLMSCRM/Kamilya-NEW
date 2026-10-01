@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Default-disabled methodologist workbench for a bounded text command assigning
+  an existing published course once to the current members of a department:
+  server-owned preview, explicit timezone/deadline, confirmation and atomic receipt.
+- Reject stale membership/content and preserve existing assignments; replay a
+  confirmed plan without duplicate enrollments or notification dispatch.
+- Isolated Supabase DEV migration/RLS/rollback/concurrent-confirmation gate.
+  General AI interpretation, voice input and production enablement are not included.
+
 ## [0.11.25] - 2026-10-01
 
 ### Fixed

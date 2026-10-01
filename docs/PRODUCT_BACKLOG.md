@@ -17,12 +17,16 @@
 
 Согласованное направление: голос/текст + источник → уточнения → серверный план →
 preview/подтверждение → существующая операция → фактический результат. Начато
-локальное чистое ядро, без HTTP/БД/провайдеров; голосовой runtime ещё не доступен.
+чистое ядро и первый текстовый API/UI slice за выключенными feature flags;
+изолированный Supabase DEV assignment/RLS/rollback/concurrent replay gate PASS.
+Public DEV/production migration и browser acceptance ещё не выполнены;
+голосовой runtime и общий LLM разбор пока не доступны.
 Первый вертикальный срез — текстовое разовое назначение существующего курса
 текущему составу отдела, не постоянное DepartmentCourse rule.
 [Подробный план](plans/2026-10-01_ai-driven-methodologist.md),
 [контракты и gates](product/contract-modules/methodologist-workbench/MODULE_INDEX.md).
-ASR benchmark, integration/RLS, стоимость/маршрут аудио и production release —
+Retention, notify=true/cross-operation integration, browser acceptance,
+ASR benchmark, стоимость/маршрут аудио и production release —
 отдельные gates; согласование направления не разрешает платные ресурсы.
 
 ## P1: daily learning — оставшиеся gates

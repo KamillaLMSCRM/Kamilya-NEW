@@ -65,6 +65,7 @@ from app.modules.learning_insights.router import router as learning_insights_rou
 from app.modules.learning_paths.router import router as learning_paths_router
 from app.modules.lessons.router import router as lessons_router
 from app.modules.mandatory_training.router import router as mandatory_training_router
+from app.modules.methodologist_workbench.assignment_router import router as methodologist_workbench_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.organization_units.router import router as organization_units_router
 from app.modules.positions.admin_router import router as positions_admin_router
@@ -271,6 +272,7 @@ app.include_router(training_log_router, prefix=f"{settings.API_PREFIX}", tags=["
 app.include_router(mandatory_training_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(learning_insights_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(learning_actions_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
+app.include_router(methodologist_workbench_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(training_evidence_router, prefix=f"{settings.API_PREFIX}", tags=["training-evidence"])
 app.include_router(training_evidence_step_up_router, prefix=f"{settings.API_PREFIX}", tags=["training-evidence"])
 app.include_router(training_evidence_export_router, prefix=f"{settings.API_PREFIX}", tags=["training-evidence"])

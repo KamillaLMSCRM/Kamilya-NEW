@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # Disables new approval-workflow requests while retaining immutable
     # revisions and audit history for rollback/forensics.
     COURSE_APPROVAL_WORKFLOW_ENABLED: bool = True
+    METHODOLOGIST_WORKBENCH_ENABLED: bool = False
 
     # Demo-login flags removed in favor of the simpler rule:
     #   - non-production env: admin and superadmin demo-login always work.
