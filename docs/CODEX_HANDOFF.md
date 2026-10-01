@@ -5,25 +5,29 @@
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/daily-learning-20260930`
 
-## Current: production0.11.24; candidate0.11.25 release closeout in progress
+## Current: production0.11.25 — release and learner acceptance PASS
 
-- result: source1e10d9acda443f57fd2714011e1398d5e2e06e1f /0.11.24 live in DEV
-  and production. Root PIN/reload bounded-student and full5lesson/5quiz completion
-  PASS, retained exact occurrence9118bc66-7a3e-42c5-ac5b-e78939855856 completed100%.
-- changed: SESSION_V1 HttpOnly bounded restoration, no migration or TTL extension.
-  Candidate0.11.25 repairs course mobile layout and confirmed AI form lifecycle
-  Save race; permanent QA stand was not mutated/recreated.
-- verified: CI/artifact/protected-image/API+3workers/frontend/watchdog/backup and
-  real learner PDF/certificate evidence in PRODUCTION_READINESS.md. Candidate
-  full web747/747 PASS; final static/build/release gates still pending.
-- blockers: final0.11.25 deployment/responsive readback and independent runners'
-  production reconciliation outstanding. Generic tenant purge remains OPEN,
-  exact disposable DEV recovery/zero residue verified. OTP/signed scans and fresh
-  restore drill not performed. No customer/mail/AI/billing/DNS/landing mutation.
-- next: finish0.11.25 prepared exact release, retain learner result, then update
-  canonical readiness, remove transferred temporary plan and fast-forward the
-  clean primary anchor. Exact obsolete1af frontend cleanup owner-approved and
-  CLEANUP_OK; current1e10/actualrollback368 plus359/299 and off-host copies retained.
+- result: exact source/runtime3d1276443ad8735a5c0bf3dd029be5768c46ca6a /0.11.25
+  live DEV/production. Full synthetic5lesson/5quiz completion, retained student
+  reload/completed100%, real PDF/certificate and actual390px mobile GREEN.
+- changed: bounded SESSION_V1 baseline retained; native player responsive layout
+  and deterministic AI form lifecycle race fixed. No migration, TTL extension,
+  QA stand recreation, customer/mail/AI/billing/DNS/landing mutation.
+- verified: persistent Test Runner747/747 and lint/type/build/version PASS,
+  independent25 API acceptance PASS; root browser execution explicitly separate.
+  Exact CI/native/protected image/API+3workers/frontend evidence, actual rollback
+  24, verified backup and final runner/root closeout in PRODUCTION_READINESS.md.
+  Approved CAP-VM126-20261001 exact23 local image cleanup PASS, preserve3,
+  containers/state unchanged; disk57%/~13GiB free. Watchdog actual25/exit0/timeractive,
+  four-service bounded last10min error0/restarts0.
+- blockers: none for this bounded production release. Generic tenant purge remains
+  OPEN; OTP/signed scan, mail/AI jobs and fresh restore drill not performed.
+  First commercial tenant remains behind its separate KZ DB/storage gate.
+- next: keep primary sync-only/clean and preserve independent remote push receipts.
+  Documentation HEAD is not production runtime SHA; immutable v0.11.25 stays3d127.
+  Next release must freshly verify CT137 capacity and installed watchdog percent
+  threshold, not just absolute free KiB. No further pruning inferred.
+  Source/session contract and durable evidence transferred; temporary plan removed.
 
 ## Historical: production0.11.23 — accepted quiz guard baseline
 

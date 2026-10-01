@@ -5073,8 +5073,9 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Fix: flex-col below md, full-width outline with mobile bottom border, desktop
   md:flex-row/md:w-80 and min-w-0 content with p-4/md:p-8. No learning rule change.
 - Verification: new class-contract RED then11/11 focused player tests PASS;
-  independent source review accepted. Exact-SHA live mobile GREEN remains a
-  production release gate, not implied by the class-only test.
+  independent source review accepted. Exact3d127/0.11.25 production actual390px
+  client/scroll/main390, headings326px, outline above: live GREEN. Desktop
+  requested1280/client1270 scroll1270 and sidebar retained; overrides reset.
 - Prevention: validate actual DOM viewport and scroll width plus visual usability;
   a requested390px override is not evidence of390px if the host actually gives503px.
 
@@ -5095,3 +5096,27 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   source review found no confirmed blocker; full corrected suite747/747 PASS.
 - Prevention: reproduce timing windows deterministically, preserve failure records,
   and test cancellation with fresh usability; never rerun blindly or weaken mocks.
+
+## OPS-012 - Unused API images exhausted host headroom and failed watchdog closeout
+
+- Date: 2026-10-01.
+- Symptom: production25 runtime was healthy but VM126 disk90% made the installed
+  watchdog critical; guarded identity update restored its exact old config.
+- Cause:26 local API images accumulated; absolute free-space release threshold
+  passed while the installed percent-used threshold85 failed. Image virtual-size
+  estimates were not actual reclaimable space and could not authorize pruning.
+- Fix: exact owner-approved CAP-VM126-20261001 removed23 unreferenced local image
+  copies after independent GHCR23/23 matching-digest recovery proof. Atomic
+  exclusive release lease held through preflight/removals/postchecks; per-image
+  fresh container references and unchanged release state checked. No force/prune.
+  Preserved current25/actualrollback24/extra23 and every container/volume/DB/file.
+- Verification: CLEANUP_OK exact23/preserve3, containers/state unchanged, lease
+  released; disk90to57%, available13,682,664KiB. Existing byte-identical monitor
+  config backup reused without overwrite; expected actual25 SHA/image reconciled,
+  oneshot success/exit0/timeractive; allfour services running/restarts0 and last
+  10min bounded error0. Registry/off-host recovery copies remain available.
+- Prevention: before release and final closeout read installed watchdog threshold
+  and actual filesystem used-percent as well as absolute free KiB. Inventory
+  exact unreferenced images early, preserve current/actual rollback/additional
+  recovery, verify registry digests, obtain exact cleanup authority, and use the
+  canonical exclusive lease. Never mask critical disk or infer permission to prune.

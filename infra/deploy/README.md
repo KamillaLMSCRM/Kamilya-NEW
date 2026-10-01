@@ -58,6 +58,22 @@ the exact owner/size/mtime/inode, and scoped owner authority.
    environment approval releases the fixed controller job.
 5. Confirm the separate production-smoke workflow and business acceptance.
 
+Before dispatch and during final closeout, verify both absolute free space and
+the installed watchdog's filesystem used-percent threshold. Passing the release
+controller's free-KiB minimum does not establish watchdog health. Independently
+resolve its actual EnvironmentFile/expected SHA/image, retain an exact config
+backup before reconciliation, and require successful oneshot plus active timer;
+never disable monitoring or raise a threshold to hide capacity failure (OPS-012).
+
+Inventory unused local API images early. Any cleanup requires an exact reviewed
+list, fresh owner approval, matching registry-digest recovery proof, preservation
+of current/actual rollback/additional recovery images, and checks against all
+running or stopped containers. Acquire the canonical existence lock atomically,
+hold it through per-image fresh-reference checks and final unchanged-runtime
+verification, and release only the owned inode. No force or broad prune. Record
+actual post-cleanup disk usage; virtual image sizes are not reclaimable-space
+proof. Retention planning is not permission for automatic deletion.
+
 The first VM126 installation and slot conversion require the production deploy
 skill, exact owner authority, rollback packet and independent readback.
 

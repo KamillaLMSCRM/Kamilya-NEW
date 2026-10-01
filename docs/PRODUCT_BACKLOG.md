@@ -19,18 +19,19 @@
 результатов, навигацию к существующим операциям назначения и следующий шаг
 ученика. Контракты:
 [`product/contract-modules/daily-learning/MODULE_INDEX.md`](product/contract-modules/daily-learning/MODULE_INDEX.md).
-Production0.11.24: персональный вход/reload и полное синтетическое прохождение
-5уроков/5тестов, completed100%, реальные PDF и сертификат проверены root.
+Production0.11.25: персональный вход/reload, полное синтетическое прохождение
+5уроков/5тестов, completed100%, реальные PDF/сертификат и мобильная раскладка390px
+проверены root; независимая API reconciliation Test Runner PASS.
 Текущие runtime/gates принадлежат PRODUCTION_READINESS.md, не старому кандидату.
 
-1. Выпустить исправленную мобильную раскладку0.11.25 и завершить независимую
-   production reconciliation Test/Release Runners. Напоминания, отправку писем,
-   OTP, подписанный скан и свежий restore drill не считать проверенными этим flow.
-2. Отдельно спроектировать occurrence-aware continuation всего плеера/прогресса,
+Напоминания, отправку писем, OTP, подписанный скан и свежий restore drill
+не считать проверенными этим flow.
+
+1. Отдельно спроектировать occurrence-aware continuation всего плеера/прогресса,
    если требуется работа с произвольным перекрывающимся назначением. Текущий
    кандидат безопасно скрывает продолжение для неканонического экземпляра;
    он не решает весь player contract.
-3. Исправить generic tenant purge (TENANT-PURGE-004 recurrence2026-10-01): порядок
+2. Исправить generic tenant purge (TENANT-PURGE-004 recurrence2026-10-01): порядок
    content releases/enrollments и guarded cleanup credential/policy зависимостей;
    отдельный bounded migration/ACL contract и disposable DB-backed regression.
    Временная точечная DEV recovery не исправила общую процедуру удаления.

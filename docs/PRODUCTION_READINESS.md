@@ -11,55 +11,79 @@ DB/storage gate и приёмкой клиента
 
 ## Daily learning release — 2026-09-30
 
-### Current production runtime0.11.24 — bounded assignment session, completion verified
+### Current production runtime0.11.25 — accepted mobile/session/completion closeout
 
-Exact source/runtime1e10d9acda443f57fd2714011e1398d5e2e06e1f /0.11.24;
-published tag/Release. SESSION_V1 restores only the exact bounded student JWT
-and remaining TTL through HttpOnly cookie; invalid/revoked/expired access never
-falls back to old staff refresh. No migration; schema0168 unchanged.
+Exact source/runtime `3d1276443ad8735a5c0bf3dd029be5768c46ca6a` /0.11.25,
+published immutable tag/Release. Narrow native course outline now sits above the
+lesson; desktop sidebar retained. AI settings immediate Save/token replacement
+race repaired without changing keys or generating AI requests. SESSION_V1 exact
+bounded-student reload and remaining TTL unchanged. No migration; schema0168.
 
-Persistent Test Runner: API2013PASS/15expectedDBskips, Ruff1010/Mypy2200 PASS;
-web first full743/744 retained failure, corrected-run744/744 and lint/type/build
-PASS. AI form race initially NOT VERIFIED, now deterministically diagnosed in
-candidate0.11.25 (AI-SETTINGS-001), not silently called harness-only. Root canonical
-Supabase DEV exact assignment suite32/32PASS, rollback isolation. DEV controller
-RELEASE_OK, Verceldpl_FPxfj9JYFNoccR4iuw54Qgz6DLg1 READY/hobby, API
-dep-dav05ufpn0mc739flbdg and workerdep-dav06se0tbcc73d0daog LIVE/free;
-exact SHA, plans unchanged. Permanent QA before/after PASS. Separate disposable
-browser fixture PIN/reload/student/foreign-course404 PASS and cleanup zero-residue;
-generic purge recurrence OPEN, exact guarded recovery only (TENANT-PURGE-004).
+Persistent Test & Evidence Runner corrected full web132files/747tests,
+lint/typecheck/build/version PASS; first failed744/745 run preserved. Controlled
+RED/GREEN lifecycle regressions7/7, isolation27/27 and mobile player11/11 PASS.
+API implementation unchanged from accepted24 baseline:2013PASS/15expectedDBskips,
+Ruff1010/Mypy2200 and canonical Supabase assignment32/32 evidence retained.
+DEV CI36833268224/master36834762406 all7SUCCESS. Native36835180041 exact head/source,
+artifact11149190938/archive SHA256
+`988a3e3e486016f3afab88bb2c4130dd192dab2c83007704e2f1c7627386f70b`.
+Preliminary native run with old workflow-head SHA excluded, not substituted.
 
-DEV CI36826565709/master36827102079 all7SUCCESS; native36827146258,
-artifact11144664629/archivea750ec25f2dd955f2eedac693ae4b4fc68eb457f9e76396366857439fc4fa877.
-Protected36828819790 SUCCESS; actually deployed image
-ghcr.io/kamillalmscrm/kamilya-api@sha256:318103e6d810f468e33ca9c5d919c1dd37f54737f7ccb133dc7020185eb7a598
-(not automatic-build31c5953d). Independent public/private API and3greenworkers
-same SHA/image, running/restarts0; CT137 canonical controller RELEASE_OK and
-public/current/marker/Nginx exact. Fresh encrypted CT125 backup, no migration or
-fresh restore drill; watchdog expected SHA/image verified, oneshot0/timeractive,
-last10m bounded error summaries0. Backend rollback0.11.23/imagecc4646 retained.
+DEV controller RELEASE_OK: Vercel `dpl_GdNQ1Aaxn6JCbNVF4UV87ZXtUV8f`
+READY/hobby; Render API `dep-dav16k8jo6nc73f1lu20` and worker
+`dep-dav17ifpn0mc739kpvng` LIVE/free, exact25. Permanent QA before/after
+browser verify PASS, zero business mutations, retained attempts; actual390px
+course layout GREEN. Stand was not deleted/recreated. Generic tenant purge
+recurrence remains OPEN (TENANT-PURGE-004), exact disposable recovery only.
 
-Root actual production browser: exact retained synthetic tenant/course,
+Protected36835359946 SUCCESS; actual immutable API image
+`ghcr.io/kamillalmscrm/kamilya-api@sha256:fcb47c549dcf1e4447652a30059fdfde94815ee936489616ebef270371b2879b`.
+Root independent public/private API and3blueworkers exactSHA/image, running,
+restarts0, bounded last10min error0. CT137 canonical RELEASE_OK, healthy
+public/current/marker/Nginx exact3d127. Actual configured frontend rollback
+`1e10d9acda443f57fd2714011e1398d5e2e06e1f` /0.11.24 (not technical
+JSON's old preflight368 snapshot); backend rollback318103e6/image24 retained,
+additionalcc4646/image23 retained. Fresh encrypted verified CT125 backup,
+no migration and no new restore drill.
+
+Root live learner full flow on24: exact retained synthetic tenant/course,
 normal reassignment creates9118bc66-7a3e-42c5-ac5b-e78939855856; predecessor
 da07381b remains superseded/history0%, notification attempts0. Personal PIN after
 methodologist cookie -> student-only -> full reload same learner PASS. Five
-quizzes/25questions each100%; normal final completion at07:34:27.903445Z and
-reload retained completed/100%. Certificate219dfbc5-7f48-4402-8ad7-87e28a02e9ba,
-KML-2026-CE0901368E29 active/public verification PASS. Learner evidence PDF200,
-3pages visually inspected; certificate PDF200/46687bytes visually inspected.
-OTP and signed-scan legal confirmation are separate pending states; no mail or
-fabricated signature. Browser download-event adapter timed out; scoped PDF
-network/body and rendered file verify the actual download response instead.
+lessons/five first quizzes/25answers100%; normal completion07:34:27.903445Z.
+On25 reload retains same student/completed100%, no second attempt or reassignment.
+Certificate219dfbc5-7f48-4402-8ad7-87e28a02e9ba / KML-2026-CE0901368E29
+active/public verification PASS. Actual learner PDF200/50603bytes, three rendered
+pages all visually inspected. Certificate PDF200/46687bytes. Browser adapter
+download-event timeout is tooling-only; scoped actual PDF response/body verified.
+Actual production mobile390px: client/scroll/main390, headings326px, outline above;
+desktop requested1280/client1270, scroll1270 and sidebar restored. Overrides reset.
+Methodologist preview0/5 is not a reset of the completed learner occurrence.
+Training-log focused synthetic card completed100%, active certificate confirmed.
 
-Task release closeout remains NOT COMPLETE: confirmed course-player mobile defect
-(UI-003) is repaired in candidate0.11.25, full747/747 regression PASS, remaining
-static/build/release/live responsive gates pending. Test Runner final independent
-production reconciliation is not inferred from root browser evidence.
+Test Runner final independent25 API reconciliation PASS exactSHA/role/tenant,
+completed100%, predecessor retained, notification0, PDF/public certificate valid.
+Root browser evidence explicitly reviewed as ROOT_EXECUTOR, not runner execution.
+Release Runner local canonical handoff exit0 / READY FOR ROOT REVIEW; root final
+reference review accepted technical, product and operational proofs. Its outbound
+EXECUTOR_ACCESS limitation is respected;
+root executed canonical protected controllers, no alternative path or gate bypass.
 
-Exact owner-approved obsolete frontend0.11.20c239 and0.11.22 1af tree plus matching
-staging pairs removed by canonical guarded helper; off-host hash-verified recovery
-copies retained. Current1e10 and actual configured frontend rollback36826eda
-plus359d7cda/299481ec retained. No customer, mail, AI, billing, DNS or landing change.
+Owner-approved CAP-VM126-20261001 removed exactly23 unused local API image copies
+after23/23 registry matching-digest recovery checks. Current25/rollback24/extra23
+preserved; all containers/release state unchanged; exclusive owned lease released.
+Disk90% ->57%, available13,682,664KiB after monitoring. Watchdog expected actual25
+SHA/image reconciled with verified existing backup; oneshot success/exit0,
+timeractive, thresholds unchanged. Independent bounded observability PASS.
+Frontend obsolete0.11.20c239/0.11.22 1af and matching staging pairs already removed
+with hash-verified off-host recovery; retained3d/1e/368/359/299. CT137 free888528KiB
+exceeds current reserve, not enough for another identical release without preflight.
+
+Bounded release/product acceptance PASS. Primary clean fast-forward sync is required
+after the documentation-only closeout commit; runtime/tag remain3d127, not docs HEAD.
+OTP/signed-scan legal confirmation, mail/reminder delivery, AI jobs and a fresh
+restore drill are not claimed by this acceptance. No customer, billing, DNS or
+landing changes. First commercial-tenant/KZ DB-storage gate above remains separate.
 
 ### Previous production runtime0.11.23 — accepted quiz guard baseline
 
