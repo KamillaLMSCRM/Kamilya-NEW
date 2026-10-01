@@ -10,6 +10,8 @@
 - result: bounded text→preview→confirm→one-time assignment implemented locally;
   owned-plan URL reload and isolated Supabase DEV migration/RLS/atomic rollback/
   concurrent replay, queued notification and manual-overlap gates PASS.
+  Invitation preparation/reuse/expired supersession/replay/rollback and silent
+  notify=false on existing never-activated learners also PASS in owned DEV33.
   Primary remains clean, matching its local origin/master reference; no push/deploy.
 - changed: new workbench API/UI/parser/0169; shared deltas only config flag,
   main/registry registration and one exact tenant purge entry. Production unchanged.
@@ -17,10 +19,13 @@
   Python quality baseline PASS. Independent Test & Evidence Runner accepted
   candidate7f82abd8 as ACCEPTED_LOCAL_ONLY: same160/18 checks, flags-off production
   build67 pages PASS; ledger WB-RELOAD-LOCAL-20261001-01 plus evidence-only C1.
-  Runner did not execute DEV/browser checks. Exact evidence/gaps and ownership in
-  `docs/plans/2026-10-01_ai-driven-methodologist.md`. Synthetic owned schema cleanup
+  Runner did not execute DEV/browser checks. New validation-only delta:69 focused
+  API tests/quality PASS, independent cheap
+  source review no findings; frozen-candidate Runner acceptance pending.
+  Exact evidence/gaps/ownership: `docs/plans/2026-10-01_ai-driven-methodologist.md`.
+  Synthetic owned schema cleanup
   and public revision/table inventory neutrality PASS. No mail/AI/STT calls.
-- blockers: feature enablement gated on retention, activation/invitation,
+- blockers: feature enablement gated on retention (owner choice pending),
   full neighbor RLS/org-change interleavings and DEV browser acceptance. Notification
   gate uses accepted enqueue body in owned schema, not public functions or delivery.
   Graphify shrink

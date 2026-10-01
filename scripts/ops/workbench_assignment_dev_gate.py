@@ -40,6 +40,8 @@ TABLES = (
     "tenants",
     "users",
     "user_roles",
+    "user_invitations",
+    "tenant_settings",
     "departments",
     "positions",
     "courses",
@@ -201,7 +203,7 @@ async def install_isolated_enqueue(connection, schema: str) -> None:
 
 async def context(session, schema: str, tenant_id, actor_id, *, superadmin=False):
     await session.execute(
-        text(f"SET LOCAL search_path TO {safe_schema(schema)}, public")
+        text(f"SET LOCAL search_path TO {safe_schema(schema)}, pg_catalog")
     )
     await session.execute(
         text(
@@ -215,6 +217,293 @@ async def context(session, schema: str, tenant_id, actor_id, *, superadmin=False
             "super": str(superadmin).lower(),
         },
     )
+
+
+async def verify_isolated_resolution(connection, schema: str) -> None:
+    """Fail before application mutation if any required table is missing/foreign."""
+    safe_schema(schema)
+    for table in (*TABLES, "workbench_assignment_plans"):
+        resolved = await connection.scalar(
+            text(
+                "SELECT n.nspname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
+                "WHERE c.oid=to_regclass(:table)"
+            ),
+            {"table": table},
+        )
+        if resolved != schema:
+            raise GateBlocked("isolated_table_resolution_mismatch")
+
+
+async def verify_invitation_preparation(
+    owner_engine, runtime_engine, schema, actor, now
+):
+    """Exercise existing invitation preparation without accepting/delivering it."""
+    from app.models.department import Department
+    from app.models.tenant_settings import TenantSettings
+    from app.models.users import User
+    from app.modules.courses.models import Course
+    from app.modules.courses.release_models import ContentRelease
+    from app.modules.methodologist_workbench.assignment_schemas import (
+        AssignmentPreviewRequest,
+    )
+    from app.modules.methodologist_workbench.assignment_service import (
+        confirm_assignment_plan,
+        create_assignment_preview,
+        get_assignment_plan,
+    )
+    from app.modules.methodologist_workbench.plan_contract import ConfirmationRequest
+
+    departments, learners, courses = (
+        [uuid4(), uuid4()],
+        [uuid4(), uuid4()],
+        [uuid4(), uuid4(), uuid4()],
+    )
+    async with AsyncSession(owner_engine, expire_on_commit=False) as db:
+        await context(db, schema, actor.tenant_id, actor.actor_id)
+        db.add(TenantSettings(tenant_id=actor.tenant_id, invite_expiry_days=7))
+        for index in range(2):
+            db.add(
+                Department(
+                    id=departments[index],
+                    tenant_id=actor.tenant_id,
+                    name=f"Activation department {index}",
+                    normalized_name=f"activation department {index}",
+                    slug=f"activation-{index}",
+                )
+            )
+            db.add(
+                User(
+                    id=learners[index],
+                    tenant_id=actor.tenant_id,
+                    role="student",
+                    first_name="Synthetic",
+                    last_name=f"Unactivated{index}",
+                    organization_unit_id=departments[index],
+                    is_active=True,
+                    status="active",
+                    password_hash=None,
+                    telegram_id=None,
+                    email_verified_at=None,
+                    email=f"activation-{index}@example.invalid",
+                )
+            )
+        for index, course_id in enumerate(courses):
+            course = Course(
+                id=course_id,
+                tenant_id=actor.tenant_id,
+                title=f"Activation course {index}",
+                status="published",
+            )
+            db.add(course)
+            await db.flush()
+            release_id = uuid4()
+            db.add(
+                ContentRelease(
+                    id=release_id,
+                    tenant_id=actor.tenant_id,
+                    course_id=course_id,
+                    version=1,
+                    snapshot={},
+                    snapshot_sha256="b" * 64,
+                )
+            )
+            await db.flush()
+            course.current_release_id = release_id
+        await db.commit()
+        await context(db, schema, actor.tenant_id, actor.actor_id)
+        initial_users = await db.scalar(
+            text("SELECT count(*) FROM users WHERE tenant_id=:t"),
+            {"t": actor.tenant_id},
+        )
+
+    async def preview(index, *, silent=False):
+        async with AsyncSession(runtime_engine, expire_on_commit=False) as db:
+            await context(db, schema, actor.tenant_id, actor.actor_id)
+            result = await create_assignment_preview(
+                db,
+                actor,
+                AssignmentPreviewRequest(
+                    instruction=f'Назначь курс "Activation course {index}" отделу "Activation department {int(silent)}" до {(now + timedelta(days=3)).date()}',
+                    timezone_name="UTC",
+                    notify=not silent,
+                ),
+                now=now,
+            )
+            if (
+                result.state != "preview_ready"
+                or result.new_count != 1
+                or not result.recipients[0].access_warning
+            ):
+                raise GateBlocked("activation_preview_warning_missing")
+            await db.commit()
+            return ConfirmationRequest(
+                plan_id=result.plan_id,
+                revision=result.revision,
+                fingerprint=result.fingerprint,
+            )
+
+    async def confirm(request, *, rollback=False):
+        async with AsyncSession(runtime_engine, expire_on_commit=False) as db:
+            await context(db, schema, actor.tenant_id, actor.actor_id)
+            outcome = await confirm_assignment_plan(db, actor, request, now=now)
+            if rollback:
+                await db.rollback()
+            else:
+                await db.commit()
+            return outcome
+
+    async def invitation_rows():
+        async with AsyncSession(owner_engine) as db:
+            await context(db, schema, actor.tenant_id, actor.actor_id)
+            # Never select token/email/activation URL, even for sanitized evidence.
+            return (
+                await db.execute(
+                    text(
+                        "SELECT id,status,user_id,invited_by,expires_at,superseded_by,"
+                        "delivery_attempt_count,delivery_message_id,accepted_at "
+                        "FROM user_invitations WHERE user_id=:id ORDER BY created_at,id"
+                    ),
+                    {"id": learners[0]},
+                )
+            ).all()
+
+    first = await preview(0)
+    if await invitation_rows():
+        raise GateBlocked("preview_prepared_activation")
+    rolled_back = await confirm(first, rollback=True)
+    if len(rolled_back.dispatch_ids) != 1 or await invitation_rows():
+        raise GateBlocked("invitation_rollback_not_atomic")
+    async with AsyncSession(owner_engine) as db:
+        await context(db, schema, actor.tenant_id, actor.actor_id)
+        remaining = await db.scalar(
+            text(
+                "SELECT EXISTS(SELECT 1 FROM enrollments WHERE user_id=:u) "
+                "OR EXISTS(SELECT 1 FROM enrollment_access_policies WHERE user_id=:u) "
+                "OR EXISTS(SELECT 1 FROM course_assignment_notification_outbox WHERE id=:oid) "
+                "OR NOT EXISTS(SELECT 1 FROM workbench_assignment_plans WHERE id=:p "
+                "AND status='ready' AND receipt IS NULL)"
+            ),
+            {"u": learners[0], "p": first.plan_id, "oid": rolled_back.dispatch_ids[0]},
+        )
+        if remaining is not False:
+            raise GateBlocked("activation_rollback_left_domain_state")
+
+    first_outcome = await confirm(first)
+    rows = await invitation_rows()
+    if (
+        len(rows) != 1
+        or rows[0].status != "pending"
+        or rows[0].user_id != learners[0]
+        or rows[0].invited_by != actor.actor_id
+        or rows[0].superseded_by is not None
+        or not now + timedelta(days=6) < rows[0].expires_at < now + timedelta(days=8)
+    ):
+        raise GateBlocked("activation_identity_or_expiry_mismatch")
+    invitation_id, original_expiry = rows[0].id, rows[0].expires_at
+    second = await preview(1)
+    second_outcome = await confirm(second)
+    reused = await invitation_rows()
+    if (
+        len(reused) != 1
+        or reused[0].id != invitation_id
+        or reused[0].expires_at != original_expiry
+    ):
+        raise GateBlocked("valid_invitation_not_reused")
+    async with AsyncSession(owner_engine) as db:
+        await context(db, schema, actor.tenant_id, actor.actor_id)
+        await db.execute(
+            text("UPDATE user_invitations SET expires_at=:expiry WHERE id=:id"),
+            {"expiry": now - timedelta(days=1), "id": invitation_id},
+        )
+        await db.commit()
+    third = await preview(2)
+    third_outcome = await confirm(third)
+    replaced = await invitation_rows()
+    pending = [row for row in replaced if row.status == "pending"]
+    old = next((row for row in replaced if row.id == invitation_id), None)
+    if (
+        len(replaced) != 2
+        or len(pending) != 1
+        or old is None
+        or old.status != "superseded"
+        or old.superseded_by != pending[0].id
+    ):
+        raise GateBlocked("expired_activation_not_superseded")
+
+    outcomes = (first_outcome, second_outcome, third_outcome)
+    for request, outcome in zip((first, second, third), outcomes, strict=True):
+        replay = await confirm(request)
+        if (
+            replay.receipt != outcome.receipt
+            or replay.dispatch_ids
+            or len(outcome.dispatch_ids) != 1
+        ):
+            raise GateBlocked("activation_replay_mutated")
+        async with AsyncSession(runtime_engine) as db:
+            await context(db, schema, actor.tenant_id, actor.actor_id)
+            if await get_assignment_plan(db, actor, request.plan_id) != outcome.receipt:
+                raise GateBlocked("activation_receipt_reload_mismatch")
+    if await invitation_rows() != replaced:
+        raise GateBlocked("activation_replay_changed_invitation")
+
+    silent = await confirm(await preview(0, silent=True))
+    if silent.dispatch_ids or silent.receipt.notification_state != "not_requested":
+        raise GateBlocked("silent_activation_queued")
+    async with AsyncSession(owner_engine) as db:
+        await context(db, schema, actor.tenant_id, actor.actor_id)
+        silent_invites = await db.scalar(
+            text("SELECT count(*) FROM user_invitations WHERE user_id=:u"),
+            {"u": learners[1]},
+        )
+        all_users = await db.scalar(
+            text("SELECT count(*) FROM users WHERE tenant_id=:t"),
+            {"t": actor.tenant_id},
+        )
+        unchanged = await db.scalar(
+            text(
+                "SELECT bool_and(password_hash IS NULL AND telegram_id IS NULL AND email_verified_at IS NULL "
+                "AND role='student' AND status='active' AND is_active) FROM users WHERE id IN (:a,:b)"
+            ),
+            {"a": learners[0], "b": learners[1]},
+        )
+        queued = (
+            await db.execute(
+                text(
+                    "SELECT o.id,o.enrollment_id,o.status,o.attempt_count FROM course_assignment_notification_outbox o "
+                    "JOIN enrollments e ON e.id=o.enrollment_id WHERE e.user_id IN (:a,:b)"
+                ),
+                {"a": learners[0], "b": learners[1]},
+            )
+        ).all()
+        expected_ids = {item.dispatch_ids[0] for item in outcomes}
+        expected_enrollments = {
+            item.receipt.created[0].enrollment_id for item in outcomes
+        }
+        if (
+            silent_invites != 0
+            or all_users != initial_users
+            or unchanged is not True
+            or {row.id for row in queued} != expected_ids
+            or {row.enrollment_id for row in queued} != expected_enrollments
+            or any(row.status != "pending" or row.attempt_count != 0 for row in queued)
+            or any(
+                row.delivery_attempt_count != 0
+                or row.delivery_message_id is not None
+                or row.accepted_at is not None
+                for row in replaced
+            )
+        ):
+            raise GateBlocked("activation_delivered_duplicated_or_identity_changed")
+    return [
+        "activation_preview_warning_no_invitation",
+        "activation_rollback_atomic",
+        "activation_same_user_tenant_expiry",
+        "valid_activation_reused",
+        "expired_activation_superseded",
+        "activation_receipt_replay_no_mutation",
+        "notify_false_no_activation",
+        "activation_no_login_or_delivery",
+    ]
 
 
 async def verify_notification_and_manual_overlap(
@@ -519,6 +808,12 @@ async def run_gate(owner_url, runtime_url, supabase_url):
             "enable_force_rls",
             "accepted_enqueue_body_isolated",
         ]
+        async with runtime_engine.begin() as connection:
+            await connection.execute(
+                text(f"SET LOCAL search_path TO {qualified}, pg_catalog")
+            )
+            await verify_isolated_resolution(connection, schema)
+        checks.append("all_required_tables_resolve_owned")
         stage = "application_import"
         sys.path.insert(0, str(API_ROOT))
         from app.models.registry import load_all_models
@@ -749,6 +1044,10 @@ async def run_gate(owner_url, runtime_url, supabase_url):
         stage = "notification_and_overlap"
         checks += await verify_notification_and_manual_overlap(
             owner_engine, runtime_engine, schema, actor, course_id, now
+        )
+        stage = "invitation_preparation"
+        checks += await verify_invitation_preparation(
+            owner_engine, runtime_engine, schema, actor, now
         )
         stage = "stale_membership"
         # New preview with existing assignment, then a membership removal.

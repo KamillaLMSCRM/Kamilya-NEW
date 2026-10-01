@@ -84,3 +84,29 @@ async def test_live_enqueue_drift_stops_before_fixture_ddl(gate):
 def test_failure_diagnostics_never_echo_sql_or_credentials(gate):
     error = RuntimeError("postgresql://secret-user:private-value@private-host/db with payload")
     assert gate.safe_failure(error) == "RuntimeError"
+
+
+@pytest.mark.asyncio
+async def test_transaction_search_path_never_falls_back_to_public(gate):
+    session = SimpleNamespace(execute=AsyncMock())
+    await gate.context(session, "workbench_123456789abc", "tenant", "actor")
+    path_sql = str(session.execute.call_args_list[0].args[0])
+    assert path_sql == 'SET LOCAL search_path TO "workbench_123456789abc", pg_catalog'
+
+
+@pytest.mark.asyncio
+async def test_required_invitation_tables_resolve_only_to_owned_schema(gate):
+    schema = "workbench_123456789abc"
+    connection = SimpleNamespace(scalar=AsyncMock(return_value=schema))
+    await gate.verify_isolated_resolution(connection, schema)
+    checked = {call.args[1]["table"] for call in connection.scalar.call_args_list}
+    assert {"user_invitations", "tenant_settings", "workbench_assignment_plans"} <= checked
+    assert checked == set(gate.TABLES) | {"workbench_assignment_plans"}
+
+
+@pytest.mark.asyncio
+async def test_missing_or_public_table_resolution_blocks_before_application(gate):
+    connection = SimpleNamespace(scalar=AsyncMock(return_value="public"))
+    with pytest.raises(gate.GateBlocked, match="isolated_table_resolution_mismatch"):
+        await gate.verify_isolated_resolution(connection, "workbench_123456789abc")
+    assert connection.scalar.await_count == 1

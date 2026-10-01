@@ -270,6 +270,23 @@ capacity failure, расход за пределами лимита. Не «об
    sanitized local artifacts `.release-evidence/WB-RELOAD-LOCAL-20261001-01/local/`.
    Runtime/browser для Runner **NOT_RUN**; root DEV24 не является независимым
    runtime выполнением. Последующий closeout commit меняет только документацию.
+15. Следующий bounded validation slice принят по
+   [invitation addendum](../product/contract-modules/methodologist-workbench/contracts/ASSIGNMENT_INVITATION_VALIDATION_ADDENDUM_V1.md).
+   Runtime application source не менялся. Root **RUNTIME-DERIVED DEV33 PASS**:
+   preview warning без приглашения; notify=true готовит приглашение к исходному
+   user_id; rollback атомарный; valid reuse, expired supersession и receipt replay
+   без дублей; notify=false не готовит приглашение/outbox. Нет login activation,
+   OTP/email/worker dispatch или нового пользователя; attempts0/pending.
+   Добавлены только owned definitions user_invitations/tenant_settings, без строк.
+   Все таблицы разрешаются в owned schema до application mutation; search_path
+   `owned,pg_catalog` без public fallback. Cleanup/absence/public metadata neutrality PASS.
+   3 guard tests RED→GREEN, focused API69/quality PASS, cheap independent source
+   review без findings. Frozen-candidate Runner acceptance пока pending.
+16. Retention policy: owner question sent, values NOT_APPROVED; automatic deletion
+   не включена. Full neighbor RLS/FK/trigger equivalence/org-change/browser и
+   public migration всё ещё gated. Invitation gate доказывает preparation,
+   НЕ acceptance/OTP/delivery. Graphify update21805 vs23077 stopped by shrink guard;
+   old graph preserved, source fallback, no force/upgrade.
 
 ### Epic-update: ownership и зависимости
 
@@ -283,7 +300,7 @@ capacity failure, расход за пределами лимита. Не «об
 |---|---|---|---|
 | WB-FOUNDATION | DONE | root / root / independent cheap reviewer |76 pure tests и quality PASS; commit5afa42f |
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
-| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |Reload/activated-account outbox+manual overlap PASS; retention/activation/full-neighbor/browser still gated |
+| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |Reload/outbox/manual overlap/invitation preparation PASS; retention/full-neighbor/browser still gated |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
 | WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
 | WB-RELEASE | NOT_STARTED | root + Release Runner |Exact accepted candidate, all preceding gates; no release authority inferred |
@@ -305,6 +322,8 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 | workbench_plan_reload / URL reload + fixtures |gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted after1 correction packet; root StrictMode repair |16 leaf tests;18 after root regression; elapsed/token counters NOT AVAILABLE |
 | root / second-slice integration |Parent session; observed metadata NOT AVAILABLE |Root review caught StrictMode cancellation bug, deterministic RED/GREEN |160 API /18 web /24 runtime checks PASS; notification delivery NOT VERIFIED |
 | Test & Evidence Runner / local acceptance |Requested gpt-5.6-luna / medium; independently observed model metadata NOT AVAILABLE |Accepted;1 evidence-only correction, no source repair |160 API/18 web/build PASS; primary run240.275s, correction38.008s; token/review counters NOT AVAILABLE |
+| workbench_activation_review / inventory + independent delta review |Requested gpt-5.6-luna / medium; independently observed metadata NOT AVAILABLE |Accepted both handoffs,0 corrections |Exact source review only, no DB/network/writes; time/token counters NOT AVAILABLE |
+| root / invitation gate integration |Parent session; exact metadata NOT AVAILABLE |3 RED guards repaired,10 GREEN;69 focused tests/quality; DEV33 PASS |Cleanup/public metadata neutrality PASS; invitation delivery NOT_RUN; time/token counters NOT AVAILABLE |
 
 Точные сроки оценим после вертикального среза и ASR benchmark; обещать голосовой
 production за фиксированное число дней без этих измерений было бы неверно.

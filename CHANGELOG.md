@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   without automatic confirmation or browser-stored instructions/employee data.
 - Extend isolated DEV coverage to notification atomicity/replay and overlapping
   manual assignments without dispatching mail or altering existing deadlines.
+- Validate atomic activation-link preparation for existing never-activated learners,
+  valid invitation reuse/expired supersession and silent assignments in the owned
+  DEV schema; exclude public search-path fallback and require owned table resolution.
 
 ## [0.11.25] - 2026-10-01
 

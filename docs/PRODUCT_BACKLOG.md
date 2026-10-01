@@ -27,7 +27,9 @@ Public DEV/production migration и browser acceptance ещё не выполне
 [контракты и gates](product/contract-modules/methodologist-workbench/MODULE_INDEX.md).
 Reload preview/receipt и ограниченный notify=true gate на synthetic активированном
 account прошли: atomic outbox/rollback/replay и конфликт с ручным назначением;
-доставка писем не проверялась. Retention, invitation/activation side effects,
+Подготовка приглашения существующему сотруднику без входа также прошла в
+изолированном DEV (atomic rollback/reuse/supersession/replay, notify=false);
+активация/OTP/доставка писем не выполнялись. Retention policy ожидает выбора owner;
 полные neighbor RLS/organization interleavings, browser acceptance,
 ASR benchmark, стоимость/маршрут аудио и production release —
 отдельные gates; согласование направления не разрешает платные ресурсы.
