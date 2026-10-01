@@ -3512,6 +3512,20 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: personal-link flows must test navigation from a browser that also
   contains an unrelated ordinary login cookie, including the last-lesson path.
 
+- Acceptance recurrence,2026-10-01: exact owner-approved synthetic access reissue
+  and PIN entry succeeded on0.11.23; a manually requested full reload restored
+  the old methodologist refresh identity in the same tenant. This does not
+  reproduce the repaired final-action client-navigation bug: ADR0022 intentionally
+  gives assignment sessions no refresh cookie and auth.ts keeps access in memory.
+  The new test packet incorrectly required durable learner reload. Classify that
+  expectation as a contract/harness mismatch, preserve initial ROOT-OBSERVED
+  entry separately from NOT READY reload, and do not invent a learner/mobile PASS.
+  Test Runner also could not access root's task-scoped browser; artifacts are a
+  local evidence review, not independent worker runtime execution. Correct
+  future packets against ADR0022 and each worker's actual browser inventory;
+  assignment-session persistence needs a separate reviewed security contract,
+  not token storage, another access reissue or an ambient credential fallback.
+
 ## AUTH-NAV-002 - Tenant preview profile exposed the platform operator seam and exit revoked the session
 
 - Date: 2026-09-22. Confirmed in the synthetic tenant through the superadmin

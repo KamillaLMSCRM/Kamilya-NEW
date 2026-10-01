@@ -74,9 +74,21 @@ next identical build's conservative1.39GB requirement: fresh exact recoverable
 capacity plan is required before another native release. No extra pruning,
 billing/DNS change, customer writes, mail or AI. Permanent stands retained.
 
-Production learner exhausted-attempt browser flow and nonzero production
-assessment remain NOT VERIFIED; learner access reissue needs exact owner approval.
-Worker business/mail task and fresh restore drill are NOT VERIFIED. This is
+Owner subsequently approved one access reissue for synthetic enrollment
+da07381b-9346-4c34-a28e-376cb2b1c111. Root performed it once and observed normal
+PIN entry as student, exact tenant/course and initial lesson,0of5progress. No
+quiz/lesson/course completion, mail or AI command. Credentials were not persisted.
+Extended learner acceptance is PARTIAL: Test Runner's task-scoped browser could
+not see root tab4 (BLOCKED); root full reload restored the old methodologist
+refresh context, NOT the assignment learner. ADR0022 defines a memory-only
+assignment session without refresh; AUTH-NAV-001 already documents this boundary.
+The packet's persistence expectation was a HARNESS_FAILURE/contract mismatch,
+not proof of a new quiz-guard or cross-tenant defect. No second rotation, token
+storage or auth-policy change. Independent worker browser, mobile learner and
+durable reload remain NOT VERIFIED/NOT READY. Root requests a separate decision
+before changing restricted assignment-session continuity. Exhausted/nonzero
+production assessment, worker business/mail task and fresh restore drill remain
+NOT VERIFIED. This is
 bounded release GO, not full learner, mail or first-commercial-tenant sign-off.
 Evidence: `.release-evidence/REL-QUIZ-ATTEMPT-GUARD-20261001/` and native
 `.release-evidence/REL-QUIZ-ATTEMPT-GUARD-PROD-20261001/execute.json`;

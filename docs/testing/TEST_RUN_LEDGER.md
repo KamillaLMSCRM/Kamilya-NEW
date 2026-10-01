@@ -914,3 +914,15 @@ Rules:
 - Reminder history remained truthful: empty prepared rules displayed `Статусов напоминаний пока нет.`, while one retained rule displayed its existing sent status. No reminder or assignment mutation was activated.
 - Desktop and 390x844 visual/geometry checks PASS: internal table overflow container retained; page/body horizontal overflow false at mobile; lower forms stayed within the page; console errors `0`; viewport restored to desktop. No persistent residue. Evidence: `.release-evidence/REL-QUIZ-ATTEMPT-GUARD-20261001/production-live/report.md` and `production-acceptance.json`.
 - Residual NOT VERIFIED by explicit packet scope: production learner exhausted-attempt flow and production nonzero assessment. Root-owned API/provider/counter evidence remains separate.
+
+### 2026-10-01 — `TEST-PROD-LEARNER-ENTRY-20261001` production learner read-only acceptance blocked
+
+- Exact learner packet was blocked before execution: the permitted IAB inventory returned zero tabs, and the one exact recovery attempt for root-owned browser 2 / tab 4 returned `Tab not found in browser 2`.
+- No new tab, login, credential/PIN access, route substitution, methodologist-tab use, learner action, or business mutation was attempted. No browser or fixture state changed.
+- Learner entry/course read matrix remains NOT VERIFIED, including role/tenant/course, 0/5 progress, reload persistence, responsive layout, and learner console errors. Evidence: `.release-evidence/REL-QUIZ-ATTEMPT-GUARD-20261001/production-learner/report.md`; acceptance JSON status `BLOCKED` at the same directory.
+
+### 2026-10-01 — `TEST-PROD-LEARNER-ENTRY-20261001-LOCAL-RECONCILIATION` artifact-only correction
+
+- Original learner acceptance remains `BLOCKED`; its report and acceptance JSON were preserved. Root-owned artifacts provide a bounded `ROOT-OBSERVED` initial personal-link entry/course read for the exact synthetic fixture: student role, exact course/enrollment, initial lesson rendered, 0/5 lessons, visible test launch and AI form, with no quiz/progress/mail/AI/completion action.
+- ADR-0022 and the exact access/auth sources confirm a limited personal-assignment session without refresh cookie: access page calls in-memory `authStore.login`, auth store keeps token/user in memory, and ordinary reload invokes refresh that can restore the pre-existing methodologist refresh context. Root observed `Synthetic Methodologist / Методист` after learner-tab reload twice. This is a `HARNESS_FAILURE` / contract-mismatch boundary for reload persistence, not a learner PASS or established cross-tenant bypass.
+- `root-desktop.png` was visually inspected and is diagnostic methodologist state, not learner evidence; mobile learner checks remain NOT VERIFIED. Evidence: `.release-evidence/REL-QUIZ-ATTEMPT-GUARD-20261001/production-learner/local-reconciliation.md`. No fixes or external actions performed.

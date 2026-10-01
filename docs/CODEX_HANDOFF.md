@@ -29,13 +29,19 @@
   counters unchanged/business mutations0. Release Runner local deterministic
   technical+acceptance reconciliation READY; its socket-denied executor did not
   deploy. Root used the same canonical controllers in the authorized executor.
-- blockers: no defect within accepted scope. Production learner/nonzero assessment,
-  real worker mail/task and fresh restore drill NOT VERIFIED. Exact synthetic
-  access reissue awaits owner approval. CT137 free888660KiB; next conservative
+- blockers: no defect within the original accepted quiz-guard/methodologist scope.
+  Owner-approved exact synthetic access reissue executed once; root initial
+  learner PIN entry/course view PASS,0of5, no completion/mail/AI. Extended learner
+  acceptance PARTIAL: worker cannot see root's task-scoped browser; root reload
+  restores old methodologist refresh context. ADR0022 memory-only/no-refresh
+  assignment contract and AUTH-NAV-001 explain this boundary; no auth-policy
+  fix or second rotation. Durable learner reload/mobile/nonzero assessment,
+  real worker mail/task and fresh restore drill NOT VERIFIED. CT137 free888660KiB; next conservative
   ~1.39GB native release requires a fresh scoped recoverable capacity plan.
 - next: preserve retained DEV/production stands and rollback images/releases;
-  no automatic cleanup or plan change. Get exact owner approval before learner
-  access reissue. Current authoritative details: `docs/PRODUCTION_READINESS.md`;
+  no automatic cleanup or plan change. Decide separately whether to change the
+  restricted assignment-session persistence contract; never store JWT in localStorage
+  or silently weaken TTL/role/enrollment boundaries. Current authoritative details: `docs/PRODUCTION_READINESS.md`;
   ignored evidence `REL-QUIZ-ATTEMPT-GUARD-20261001`, native `REL-QUIZ-ATTEMPT-GUARD-PROD-20261001`.
 
 ## Historical: production0.11.22 — bounded API/mobile acceptance GO
