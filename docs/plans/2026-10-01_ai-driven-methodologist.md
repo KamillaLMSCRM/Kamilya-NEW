@@ -377,6 +377,19 @@ capacity failure, расход за пределами лимита. Не «об
    cleanup, exact successful execution timestamp and deleted-locator retry proof.
    Public policy still unpatched. Release ordering is compatible API first,0170
    second; old API rollback after0170 forbidden, migration downgrade fails closed.
+25. Test & Evidence Runner **independent local PASS**, frozen
+   `3c23fffa87c86124314f03add0012538ba2b6ab9`:212/failed0/skipped0, scoped Ruff6files,
+   source no drift/no findings, duration185.892s. Root read managed report/JSON,
+   append-only ledger delta and exact blobs; **ACCEPTED_LOCAL_ONLY**.
+   Run `INVITATION-TOKEN-RLS-LOCAL-20261001-01`; managed report
+   `artifacts/local_acceptance/invitation-token-rls-report.md` SHA256
+   `3de4bb1872b84975e4bb6204fe70c592feac4018f0d9840706fac7420cbcc774`, results
+   `3783b1b17f31e05a5284492c255dbd67de36873ae897ee51d0f29750a041e807`.
+   Original PENDING reports preserved; later root disposition in managed
+   `artifacts/fix_report_invitation_token_rls.md` and ledger root C1. No rerun/repair.
+   DEV12 only ROOT_EXECUTOR_REVIEW_ONLY; public rollout/browser/full-neighbor and
+   cleanup implementation remain gated. Next bounded local step: retention cleanup
+   implementation with execution timestamp/ACL/deleted-locator retry regressions.
 
 ### Epic-update: ownership и зависимости
 
@@ -422,6 +435,7 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 | invitation_security_investigator / independent source tracing |Requested gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted,0 corrections |Found source0119 precedent; no external reads/writes; time/token counters NOT AVAILABLE |
 | invitation_bypass_review / fresh independent candidate review |Requested gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted,0 corrections |No concrete surviving bypass/regression; source-only, no runtime claim; time/token counters NOT AVAILABLE |
 | root / invitation RLS fix and retention policy |Parent session; metadata NOT AVAILABLE |Original synthetic trigger reproduced; patched DEV12/212 API/quality PASS; mock-order/selector corrections preserved |Public not patched; no cleanup enabled; time/review/token counters NOT AVAILABLE |
+| Test & Evidence Runner / invitation RLS local acceptance |Requested gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted first packet,0 product corrections; later root disposition only |212 tests/scoped Ruff/no findings;185.892s; time/review/token counters NOT AVAILABLE |
 
 Точные сроки оценим после вертикального среза и ASR benchmark; обещать голосовой
 production за фиксированное число дней без этих измерений было бы неверно.

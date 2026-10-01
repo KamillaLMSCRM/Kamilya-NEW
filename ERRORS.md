@@ -5168,8 +5168,9 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   visibility reproduced, then closed in actual lms_app DEV12; terminal public
   reasons/activation410/own mutation/anonymous write denial/scope reset PASS.
   Focused212 tests/quality PASS; fresh independent bypass review no findings.
-- Open: source0046's PUBLIC policy remains unscoped in actual public environments;
-  local0170 was NOT applied there. Deploy compatible helper BEFORE migration;
+- Open: source0046's PUBLIC policy remains unscoped in observed DEV public schema;
+  production policy was not inspected and local0170 was NOT applied there.
+  Deploy compatible helper BEFORE migration;
   preserve patched helper on API rollback and never restore broad0046 policy.
   Full neighbor RLS
   acceptance is NOT VERIFIED. No invitation/user rows or API exploit were tested,

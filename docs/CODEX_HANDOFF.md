@@ -47,7 +47,11 @@
   bypass review no findings. Runtime script blobc1421897a23572091a9c9aab4daf4d55ad6cd9f1.
   Managed security evidence: artifacts/validation_artifacts/invitation-token-rls-dev.json,
   SHA256c947a5e2abb4d6b9ba3c083749fe6f6b7a4f7a21a309d083c302542729203e0f.
-  Test Runner acceptance pending. Retention durations OWNER-CONFIRMED15min/24h
+  Test Runner independently212/scoped Ruff PASS at frozen3c23fffa, source no drift;
+  root ACCEPTED_LOCAL_ONLY, ledger INVITATION-TOKEN-RLS-LOCAL-20261001-01+C1.
+  Managed artifacts/local_acceptance/invitation-token-rls-report.md and results.json;
+  later root disposition artifacts/fix_report_invitation_token_rls.md. Original
+  PENDING records preserved; no repeated tests or source repair. Retention durations OWNER-CONFIRMED15min/24h
   after expiry/90days from success; no cleanup scheduler enabled.
 - blockers: feature enablement gated on retention cleanup implementation,
   full neighbor RLS/FK/trigger equivalence and DEV browser acceptance. Read-only
