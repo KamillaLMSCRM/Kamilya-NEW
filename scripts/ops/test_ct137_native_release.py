@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import tarfile
 import tempfile
 import unittest
@@ -389,30 +390,139 @@ def test_staged_native_workflow_records_explicit_disabled_workbench() -> None:
     assert "--env NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED=false" in source
     assert 'process.env.NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED!=="false"' in source
     assert "workbench_enabled:false" in source
+    assert '"build-config.json"' in source
+    assert "manifest_sha256" in source
 
 
-def test_artifact_inspection_preserves_additional_flag_manifest_evidence(tmp_path) -> None:
+def test_failed_immutable26_is_rejected_without_manifest_rewrite(tmp_path) -> None:
     _artifact(tmp_path, product_version="0.11.26")
     path = tmp_path / "manifest.json"
     payload = json.loads(path.read_text(encoding="utf-8"))
     payload["workbench_enabled"] = False
     path.write_text(json.dumps(payload), encoding="utf-8")
-    artifact = release.inspect_native_artifact(tmp_path, SHA)
-    assert artifact.manifest_sha256 == hashlib.sha256(path.read_bytes()).hexdigest()
-    assert json.loads(artifact.manifest.read_text(encoding="utf-8"))["workbench_enabled"] is False
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    with unittest.TestCase().assertRaisesRegex(release.ReleaseBlocked, "artifact_sidecar_invalid:sidecar_fields_invalid"):
+        release.inspect_native_artifact(tmp_path, SHA)
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
 
 
-def test_compatibility_artifact_rejects_missing_or_nonfalse_workbench(tmp_path) -> None:
-    _artifact(tmp_path, product_version="0.11.26")
+def test_artifact_inspection_rejects_sidecar_fields_before_host_staging(tmp_path) -> None:
+    _artifact(tmp_path)
     path = tmp_path / "manifest.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["unknown_deployment_switch"] = False
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with unittest.TestCase().assertRaisesRegex(
+        release.ReleaseBlocked, "artifact_sidecar_invalid:sidecar_fields_invalid"
+    ):
+        release.inspect_native_artifact(tmp_path, SHA)
+
+
+def _build_config(root: Path) -> Path:
+    manifest = root / "manifest.json"
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    path = root / "build-config.json"
+    path.write_text(json.dumps({
+        "schema_version": 1, "release_sha": payload["release_sha"],
+        "product_version": payload["product_version"], "sha256": payload["sha256"],
+        "manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        "workbench_enabled": False,
+    }), encoding="utf-8")
+    return path
+
+
+def test_compatibility27_uses_unchanged_host_manifest_and_bound_config(tmp_path) -> None:
+    _artifact(tmp_path, product_version="0.11.27")
+    path = _build_config(tmp_path)
+    artifact = release.inspect_native_artifact(tmp_path, SHA)
+    assert artifact.build_config_sha256 == hashlib.sha256(path.read_bytes()).hexdigest()
+    assert "workbench_enabled" not in json.loads(artifact.manifest.read_text(encoding="utf-8"))
+
+
+def test_compatibility27_config_fails_closed_before_staging(tmp_path) -> None:
+    _artifact(tmp_path, product_version="0.11.27")
+    with unittest.TestCase().assertRaisesRegex(release.ReleaseBlocked, "artifact_build_config_invalid"):
+        release.inspect_native_artifact(tmp_path, SHA)
+    path = _build_config(tmp_path)
     original = json.loads(path.read_text(encoding="utf-8"))
-    for value in (None, True, 0, "false"):
-        payload = dict(original)
-        if value is not None:
-            payload["workbench_enabled"] = value
-        path.write_text(json.dumps(payload), encoding="utf-8")
-        with unittest.TestCase().assertRaisesRegex(release.ReleaseBlocked, "artifact_compatibility_workbench_flag_invalid"):
+    for key, value in (
+        ("schema_version", True), ("release_sha", CURRENT), ("product_version", "0.11.28"),
+        ("sha256", "0" * 64), ("manifest_sha256", "0" * 64),
+        ("workbench_enabled", True), ("workbench_enabled", 0), ("workbench_enabled", "false"),
+        ("unknown", False),
+    ):
+        path.write_text(json.dumps({**original, key: value}), encoding="utf-8")
+        with unittest.TestCase().assertRaisesRegex(release.ReleaseBlocked, "artifact_build_config_invalid"):
             release.inspect_native_artifact(tmp_path, SHA)
+    path.write_text("[]", encoding="utf-8")
+    with unittest.TestCase().assertRaisesRegex(release.ReleaseBlocked, "artifact_build_config_invalid"):
+        release.inspect_native_artifact(tmp_path, SHA)
+
+
+def test_build_config_rejects_duplicate_json_keys(tmp_path) -> None:
+    _artifact(tmp_path, product_version="0.11.27")
+    path = _build_config(tmp_path)
+    text = path.read_text(encoding="utf-8")
+    path.write_text(text[:-1] + ', "workbench_enabled": false}', encoding="utf-8")
+    with unittest.TestCase().assertRaisesRegex(release.ReleaseBlocked, "artifact_build_config_invalid"):
+        release.inspect_native_artifact(tmp_path, SHA)
+
+
+def test_execute_rechecks_config_after_preflight_without_staging(tmp_path) -> None:
+    _artifact(tmp_path, product_version="0.11.27")
+    path = _build_config(tmp_path)
+
+    class MutatingHost(FakeHost):
+        def boundary(self, rollback_sha: str) -> dict[str, object]:
+            result = super().boundary(rollback_sha)
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["workbench_enabled"] = True
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            return result
+
+    host = MutatingHost()
+    orchestrator = release.NativeReleaseOrchestrator(
+        repository=FakeRepository(), github=FakeGithub(), host=host, public=FakePublic(),
+    )
+    with unittest.TestCase().assertRaisesRegex(release.ReleaseBlocked, "artifact_build_config_invalid"):
+        orchestrator.execute(_packet(), tmp_path)
+    assert not any(call[0] in ("stage", "deploy") for call in host.calls)
+
+
+def test_download_never_trusts_nonempty_local_artifact_cache(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(release, "REPO_ROOT", tmp_path)
+    cache = tmp_path / "native-build"
+    cache.mkdir()
+    original = cache / "manifest.json"
+    original.write_text("untrusted", encoding="utf-8")
+    destinations = []
+
+    def download(command, **kwargs):
+        destination = Path(command[-1])
+        assert destination.parent == cache
+        assert not any(destination.iterdir())
+        destinations.append(destination)
+        (destination / "manifest.json").write_text("downloaded", encoding="utf-8")
+        return ""
+
+    monkeypatch.setattr(release, "_run", download)
+    probe = object.__new__(release.GithubActionsProbe)
+    probe.environment = {}
+    assert probe.download(_packet(), cache) == destinations[0]
+    assert probe.download(_packet(), cache) == destinations[1]
+    assert destinations[0] != destinations[1]
+    assert original.read_text(encoding="utf-8") == "untrusted"
+
+
+@unittest.skipUnless(os.name != "nt", "requires Unix symlink semantics")
+def test_build_config_symlink_is_not_accepted(tmp_path) -> None:
+    _artifact(tmp_path, product_version="0.11.27")
+    path = _build_config(tmp_path)
+    renamed = tmp_path / "alternate.json"
+    path.rename(renamed)
+    path.symlink_to(renamed)
+    with unittest.TestCase().assertRaisesRegex(release.ReleaseBlocked, "artifact_build_config_invalid"):
+        release.inspect_native_artifact(tmp_path, SHA)
 
 
 if __name__ == "__main__":

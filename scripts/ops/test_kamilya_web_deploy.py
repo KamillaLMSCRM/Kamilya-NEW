@@ -9,7 +9,6 @@ import sys
 import tarfile
 import tempfile
 import unittest
-from unittest import mock
 from pathlib import Path
 
 
@@ -190,6 +189,32 @@ class IdentityTests(unittest.TestCase):
             with self.assertRaises(deploy.DeployError):
                 deploy.validate_sidecar(path, self.SHA, digest)
 
+    def test_sidecar_preserves_installed_exact_eight_field_contract(self) -> None:
+        digest = "4" * 64
+        legacy = {
+            "release_sha": self.SHA, "product_version": "0.3.1", "node_version": "20.19.0",
+            "platform": "linux", "arch": "x64", "libc": "musl", "api_url": "https://api.kml.kz/api", "sha256": digest,
+        }
+        augmented = {**legacy, "product_version": "0.11.26", "workbench_enabled": False}
+        augmented_legacy = {**legacy, "workbench_enabled": True}
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "manifest.json"
+            for payload in (legacy, {**legacy, "product_version": "0.11.27"}):
+                path.write_text(__import__("json").dumps(payload), encoding="utf-8")
+                deploy.validate_sidecar(path, self.SHA, digest)
+
+            for invalid in (
+                augmented_legacy,
+                augmented,
+                {**augmented, "workbench_enabled": True},
+                {**augmented, "workbench_enabled": 0},
+                {**augmented, "workbench_enabled": "false"},
+                {**legacy, "unexpected": False},
+            ):
+                path.write_text(__import__("json").dumps(invalid), encoding="utf-8")
+                with self.assertRaises(deploy.DeployError):
+                    deploy.validate_sidecar(path, self.SHA, digest)
+
 
 @unittest.skipUnless(os.name != "nt", "requires Unix symlink semantics; run unprivileged on CT137")
 class RollbackTests(unittest.TestCase):
@@ -206,7 +231,8 @@ class RollbackTests(unittest.TestCase):
                 deploy.RELEASES = root / "releases"
                 deploy.RELEASES.mkdir()
                 old_release, new_release = deploy.RELEASES / old, deploy.RELEASES / new
-                old_release.mkdir(); new_release.mkdir()
+                old_release.mkdir()
+                new_release.mkdir()
                 deploy.CURRENT = root / "current"
                 os.symlink(new_release, deploy.CURRENT)
                 deploy.MARKER = root / "marker"

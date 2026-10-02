@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-10-01 по точным CI/artifacts и независимому production readback
+**Проверено:** 2026-10-02 по точным CI/artifacts и независимому production readback
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -11,7 +11,60 @@ DB/storage gate и приёмкой клиента
 
 ## Daily learning release — 2026-09-30
 
-### Current production runtime0.11.25 — accepted mobile/session/completion closeout
+### Current workbench compatibility A — partial rollout, 2026-10-02
+
+Backend0.11.26 is deployed at exact source
+`23630036e353b46d9fcf2870fe25cd08f76d5dff`, CI36972605875 all7 SUCCESS
+(main3767PASS/2SKIP; unit2208PASS). Protected release36975605117 SUCCESS;
+actual immutable image
+`ghcr.io/kamillalmscrm/kamilya-api@sha256:5335396f9eb7b4d821d984ff2a94445540d492edd21ad7741d23e2b1298e2440`.
+Independent public/private health and all four green API/worker containers match,
+running/restarts0/workbench OFF. CT125 is independently0169,
+EXPANDED_NOT_FINAL, plan FORCE RLS/four policies, bounded bootstrap definer
+owner/EXECUTE controls and non-super/non-bypass runtime verified. Backend25
+rollback image retained. Fresh signed restore0168 passed before rollout, disposable
+DB/temp files absent. Candidate-retention and watchdog oneshots success/exit0,
+timers active; watchdog keys updated to verified26/image, config backup retained.
+
+DEV API/worker/Vercel are exact26 on existing free/hobby tiers; public Supabase
+DEV0169, QA verification with zero business writes, authenticated disabled404 and
+actual Celery control/queues/concurrency checks PASS. This is compatibility A,
+not final172/isolation/feature GO. No voice/LLM/STT dispatch or workbench scheduler.
+
+Production frontend remains exact25/`3d1276443ad8735a5c0bf3dd029be5768c46ca6a`.
+REL-WORKBENCH-WEB-A-20261002 execute stopped before switching with
+`command_failed:python.exe:no_stderr`; canonical status/inventory prove old
+current/marker/running and no26 directory. New26 archive+manifest are staged.
+Local original-artifact replay proved `sidecar_fields_invalid`: the generated
+ninth literal workbench flag was incompatible with helper's exact eight fields.
+Initially bounded local backward-compatible helper and pre-staging repair accepted
+by root after independent Test Runner37PASS/19UnixSKIP/9subtests, Ruff4 and
+artifact-digest checks. NOT INSTALLED; no native Unix/runtime repair claim.
+Owner approved only replacement helper SHA256
+`5db503fa835a6bbff18796a730c34ed96b8ca3a1836507b335fbc5b64b6e1060`, backup and
+rollback, without doas/key changes. Canonical administrative Proxmox access is
+BLOCKED at TLS: API SSLError; browser ERR_CERT_AUTHORITY_INVALID. No TLS bypass,
+alternate account/route, guest mutation or helper installation attempted.
+
+Owner then rejected the Proxmox path; root stopped it and restored unchanged host
+helper source. Superseding frontend-only candidate27 preserves exact eight-field
+manifest and requires separate exact six-key build-config evidence bound to
+source/version/archive/manifest hashes with literal OFF. Each controller phase
+downloads a fresh exact-run artifact rather than trusting a local cache. Root
+RED2 then focused57PASS/20UnixSKIP/9subtests and Ruff3 PASS; independent local
+Test Runner C1 independently57PASS/20UnixSKIP/9subtests/Ruff/diff/hashes, root
+ACCEPTED_LOCAL_ONLY after full managed report/results review (3f7dd667/53cc8371).
+Cheap independent correction review has no remaining finding. Exact new
+CI/build/runtime remain pending; no27 deploy and no full-feature GO.
+
+Owner-approved obsolete frontend23/36826 exact tree and staging pair were removed
+with verified off-host recovery. Conditional frontend24/1e10 cleanup NOT_RUN:
+first require actualfrontend26 and actualrollback25. Current25, rollback24 and
+extra359/299 remain. API/DB/tenant/landing/DNS/tier were not affected by cleanup.
+That destructive approval is not silently retargeted to candidate27.
+Full rollout and live bounded workbench acceptance remain incomplete.
+
+### Previous production runtime0.11.25 — accepted mobile/session/completion closeout
 
 Exact source/runtime `3d1276443ad8735a5c0bf3dd029be5768c46ca6a` /0.11.25,
 published immutable tag/Release. Narrow native course outline now sits above the

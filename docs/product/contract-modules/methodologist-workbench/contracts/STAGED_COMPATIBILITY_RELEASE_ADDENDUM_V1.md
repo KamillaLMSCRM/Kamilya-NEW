@@ -66,6 +66,27 @@ and public neutrality. Tenant helper gate also proves expand then restrict.
 
 ## Ready, done and stop conditions
 
+### Native packaging repair, accepted before implementation2026-10-02
+
+Owner asks to repair and finish without returning to Proxmox. Administrative
+helper replacement is stopped; installed helper, doas, keys and TLS stay unchanged.
+Failed immutable native26 artifact and its evidence remain unchanged. A replacement
+frontend-only compatibility A release0.11.27 uses a distinct source/tag/build/packet.
+Backend26/schema169/OFF remain its compatible API target; no migration in this step.
+The ordinary host manifest retains its exact eight-field schema. A separate
+`build-config.json` requires exact schema1, source SHA, product version, archive
+SHA256, original manifest SHA256, and literal `workbench_enabled:false`. The
+release controller validates this evidence before remote staging and retains its
+digest in preflight/readback. It never edits a downloaded immutable manifest.
+The CI build asserts the literal OFF environment and emits this attestation only
+after building and hashing the exact artifact. Unknown/missing/mismatched evidence
+fails closed. Existing archive/runtime/rollback/capacity/host-key gates remain.
+Native26 is explicitly blocked by the old installed contract, not repaired in place.
+Conditional cleanup24 remains NOT_RUN: its exact approval names successful26,
+so no automatic substitution of27 in that destructive approval. After compatibility
+acceptance, B becomes a separately versioned final-head release with compatible
+backend26 rollback. No activation/scheduler/mail/AI/STT in packaging repair.
+
 Ready: root verified exact-mode controller and existing plain-Uvicorn Compose;
 cheap read-only compatibility inventory accepted with no GO claim. Local tests
 prove shared helper invariants,169 additive/no restrictive SQL, repeat0172,

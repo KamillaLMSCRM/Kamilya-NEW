@@ -632,6 +632,50 @@ capacity failure, расход за пределами лимита. Не «об
    restore script and existing postgres signing key; initial root-key absence
    was an executor-identity diagnostic, not an access/credential blocker.
 
+43. Exact23630036 CI36972605875 all7 PASS, main3767/2skip and unit2208.
+   Published tag/Release26 and independent master/dev remote readbacks recorded.
+   DEV A schema169/provider exact26/permanent QA/authenticated disabled404/actual
+   Celery control PASS; no business writes/paid resources. Production protected
+   run36975605117 accepted root A-only gate and fresh signed restore0168, deployed
+   exact23630036/image5335396f9eb7b4d821d984ff2a94445540d492edd21ad7741d23e2b1298e2440.
+   Independent four-service/private/public/catalog readback PASS, schema169;
+   watchdog reconciled26/image; candidate-retention/watchdog oneshots and timers
+   active. Phase EXPANDED_NOT_FINAL, flags OFF, not final172/feature GO.
+
+44. Owner approved two conditional exact frontend cleanups. Obsolete23/36826
+   tree/staging removed with verified off-host recovery; old24/1e10 MUST remain
+   until actualfrontend26/current and actualrollback25. Frontend A execute stopped
+   before switching; actualcurrent/marker25/running/no26dir, pair26 staged,
+   free1464004KiB. Failed original artifact preserved. Root accepted BEFORE repair
+   narrow sidecar mismatch: ninth explicit workbench flag vs eight-field helper.
+   Cheap writer owned helper+unit file; root preflight now invokes the same strict
+   helper before staging, without stripping metadata. Actual original artifact
+   REDsidecar_fields_invalid; preflight regression REDnotraised->GREEN1;
+   independent Test Runner37PASS/19UnixSKIP/9subtests/Ruff4/artifact PASS accepted
+   LOCAL_ONLY, managed report c8186f5f/results9967d28a. Owner approved exact helper
+   5db503fa835a6bbff18796a730c34ed96b8ca3a1836507b335fbc5b64b6e1060 replacement
+   with backup/rollback/no privilege expansion. NOT INSTALLED: canonical Proxmox
+   API TLS SSLError and browser ERR_CERT_AUTHORITY_INVALID; no guest mutation,
+   TLS bypass, alternate credentials, cleanup2 or new deploy attempted.
+   That proposed next administrative branch was subsequently STOPPED by root
+   after owner's objection; no helper installation, TLS bypass or wider access.
+
+45. Owner asks repair/finish without Proxmox. Root accepted native packaging
+   amendment BEFORE implementation: distinct frontend-only27 source/tag/artifact,
+   unchanged installed helper/exact8 manifest, local exact6 build-config attestation
+   schema1/source/version/archive/manifest hashes/literalOFF. Old26 artifact stays
+   unchanged and rejected. Actual RED2 then GREEN57/20UnixSKIP/9subtests/Ruff3;
+   strict duplicates/symlink/missing/unknown/mismatch/drift-before-stage covered.
+   Independent cheap review found old cached-download provenance gap; root repaired
+   fresh unique exact-run download each phase, preserving earlier files, and safe
+   malformed-package mapping. Frozen Test Runner C1 independently57/20skip/9subtests,
+   Ruff/diff/exacthashes PASS; root read full3f7dd667/53cc8371 reports and accepts
+   LOCAL_ONLY. Cheap correction review no remaining finding. No new
+   push/CI/provider/production mutation at this checkpoint. Backend26/schema169/OFF,
+   currentfrontend25/rollback24 remain prior verified state. Cleanup24 remains
+   NOT_RUN; its approved condition is successful26, not an inferred27 substitution.
+   Complete compatible frontend then distinct B/final172/activation/browser gates.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)
@@ -640,11 +684,11 @@ capacity failure, расход за пределами лимита. Не «об
 |---|---|---|---|
 | WB-FOUNDATION | DONE | root / root / independent cheap reviewer |76 pure tests и quality PASS; commit5afa42f |
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
-| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |Compatible0172 accepted local85 + ownedDEV20; public broad policies remain; full FK-trigger equivalence/staged rollout/browser unresolved; conditional DEV0169–0172 authority unused |
+| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |DEV A26/schema169/OFF/provider/QA/worker PASS; finalB172/browser unresolved |
 | WB-NEIGHBOR-CATALOG | DONE | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and independent local180 PASS atf0ff29c2; root ACCEPTED_LOCAL_ONLY; no equivalence claim |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
 | WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
-| WB-RELEASE | NOT_STARTED | root + Release Runner |Exact accepted candidate/all isolation gates; OWNER-CONFIRMED DEV0169–0172 and production2026-10-02, UNUSED; staged compatibility/backup/rollback/readbacks required |
+| WB-RELEASE | IN_PROGRESS | root + Release Runner |Production API A26/schema169/OFF PASS; frontend25 retained, original26 blocked; packaging27/local acceptance pending, then B172 and live gates |
 
 Write overlap: root owns migration/config/router/registry/purge/docs and DEV gate;
 parser agent owns parser+owned tests, UI agent owns panel/client+web tests until

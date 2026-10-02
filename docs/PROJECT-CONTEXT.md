@@ -58,13 +58,23 @@ Render DEV API также работает на Free Web Service. Этот та�
 
 Для кандидата methodologist-workbench с head0172 действует принятый
 [двухэтапный контракт](product/contract-modules/methodologist-workbench/contracts/STAGED_COMPATIBILITY_RELEASE_ADDENDUM_V1.md),
-пока NOT DEPLOYED: `--workbench-phase expand --expected-revision 0169 --apply`
+compatibility A deployed on2026-10-02: `--workbench-phase expand --expected-revision 0169 --apply`
 из0168 выдаёт только `EXPANDED_NOT_FINAL`; затем совместимый API/worker с
 workbench OFF и независимая квитанция. Только после неё
 `--workbench-phase contract --expected-revision 0172 --compatibility-evidence
 <exact-root-receipt> --compatibility-sha <exact-compatible-release-sha> --apply`.
 Default `--apply` не разрешает обойти этап совместимости. Финальный172 обязан
 совпадать с head; промежуточный169 не является feature/isolation GO.
+
+Текущий staged readback2026-10-02: DEV API/worker/frontend и KZ API/3workers
+на exact23630036/0.11.26, оба DB-контура0169, workbench OFF. KZ frontend остаётся
+25/3d127; native26 execute остановлен до переключения из-за sidecar-контракта.
+Попытка административного обновления helper остановлена по замечанию владельца;
+helper не установлен, doas/keys/TLS не изменены. Принят frontend-only кандидат27:
+прежний восьмиполевой manifest плюс отдельный хеш-связанный build-config с
+явным OFF, проверяемый до staging. Штатный путь не требует Proxmox.
+Исходный неудавшийся пакет26 остаётся неизменным. Полный статус —
+`docs/PRODUCTION_READINESS.md`; final172/browser/feature gates не закрыты.
 
 На 2026-09-07 `kml.kz`, `www.kml.kz`, `app.kml.kz` и `api.kml.kz` направлены
 DNS-only A-записями на KZ-IP `92.38.49.167`. Public proxy завершает TLS и по

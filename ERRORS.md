@@ -5057,6 +5057,31 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: actionable navigation tests must validate the URL against the actual
   route registry and preserve the selected resource, not merely assert link presence.
 
+## RELEASE-008 - Native manifest flag drifted from the strict host sidecar contract
+
+- Date: 2026-10-02; REL-WORKBENCH-WEB-A-20261002.
+- Symptom: exact native26 controller preflight passed but execute stopped before
+  switching; old25 current/marker/running stayed intact, new26 pair staged and
+  release directory absent. Generic nested command error was preserved.
+- Cause: build/inspector added ninth `workbench_enabled:false` metadata field,
+  while native helper validate_sidecar required the exact previous eight fields.
+  Inspector validated archive shape but did not invoke the helper sidecar gate.
+  Original immutable manifest locally reproduced `sidecar_fields_invalid`.
+- Fix: superseding27 packaging retains the installed exact eight-field manifest;
+  separate exact-schema build-config binds source/version/archive/manifest digest
+  and literalFalse. Inspector invokes strict sidecar/config gates BEFORE staging;
+  fresh exact-run download each phase never trusts a local artifact cache.
+  Original26 bytes/failure preserved; no helper/privilege change or metadata strip.
+- Verification: helper RED->GREEN; preflight unknown-field REDnotraised->GREEN1;
+  independent37PASS/19UnixSKIP/9subtests, scoped Ruff4 and immutable A artifact PASS.
+  Initial helper candidate NOT INSTALLED; administrative path stopped after owner
+  objection. Replacement actual RED2->GREEN57/20UnixSKIP/9subtests/Ruff3 locally;
+  exact CI/native/runtime still REQUIRED, not claimed by local tests.
+- Prevention: schema changes to native manifest require build/inspector/host
+  validator contract coverage and installed helper compatibility before rollout.
+  Stop/reconcile old current before retry; prefer compatible immutable packaging,
+  not routine Proxmox/bootstrap, broader doas, alternate auth or stripped metadata.
+
 ## RELEASE-007 - Advisory flock preflight created the controller's existence lock
 
 - Date: 2026-09-30; protected release36740593404 attempt1.

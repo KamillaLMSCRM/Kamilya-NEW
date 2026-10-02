@@ -52,6 +52,8 @@ class NativeArtifact:
     manifest_sha256: str
     archive_bytes: int
     expanded_bytes: int
+    build_config_sha256: str | None = None
+    workbench_enabled: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -345,18 +347,60 @@ def inspect_native_artifact(directory: Path, release_sha: str) -> NativeArtifact
         r"\d+\.\d+\.\d+", product_version
     ):
         raise ReleaseBlocked("artifact_product_version_invalid")
-    # Exact staged compatibility A must not carry an enabled workbench bundle.
-    # Older immutable artifacts predate this manifest field and remain readable.
-    if product_version == "0.11.26" and payload.get("workbench_enabled") is not False:
-        raise ReleaseBlocked("artifact_compatibility_workbench_flag_invalid")
+    # The failed immutable26 bundle is not rewritten or accepted with the
+    # deployed eight-field helper. New artifacts separate build configuration
+    # from the privileged host's unchanged manifest contract.
     helper = _deploy_helper()
+    # Use the host helper's strict manifest contract before any remote staging.
+    # Preserve the original metadata and digest; never strip unknown fields.
+    try:
+        helper.validate_sidecar(manifest, release_sha, archive_digest)
+    except helper.DeployError as exc:
+        raise ReleaseBlocked(f"artifact_sidecar_invalid:{exc}") from exc
+    config_digest = None
+    workbench_enabled = None
+    if tuple(map(int, product_version.split("."))) >= (0, 11, 27):
+        config = directory / "build-config.json"
+        try:
+            if config.is_symlink() or not config.is_file() or config.stat().st_size > 4096:
+                raise ValueError("config_shape")
+            config_bytes = config.read_bytes()
+            # Duplicate keys are not an alternate accepted schema.
+            def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+                result: dict[str, Any] = {}
+                for key, value in pairs:
+                    if key in result:
+                        raise ValueError("duplicate_key")
+                    result[key] = value
+                return result
+
+            attestation = json.loads(config_bytes, object_pairs_hook=unique_object)
+            expected = {
+                "schema_version": 1, "release_sha": release_sha,
+                "product_version": product_version, "sha256": archive_digest,
+                "manifest_sha256": _digest(manifest), "workbench_enabled": False,
+            }
+            if (not isinstance(attestation, dict) or attestation != expected
+                    or type(attestation.get("schema_version")) is not int
+                    or attestation.get("workbench_enabled") is not False):
+                raise ValueError("config_binding")
+            config_digest = hashlib.sha256(config_bytes).hexdigest()
+            workbench_enabled = False
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise ReleaseBlocked("artifact_build_config_invalid") from exc
     try:
         with tarfile.open(archive, "r:gz") as tar:
             layout = helper.validate_archive_members(tar.getmembers())
             helper.require_artifact_shape(layout)
             helper.validate_identity(tar, layout, release_sha)
+            package_file = tar.extractfile(layout.members["package.json"])
+            if package_file is None:
+                raise ReleaseBlocked("artifact_package_version_mismatch")
+            package = json.load(package_file)
+            if not isinstance(package, dict) or package.get("version") != product_version:
+                raise ReleaseBlocked("artifact_package_version_mismatch")
             expanded_bytes = helper.expanded_size(layout)
-    except (tarfile.TarError, OSError, helper.DeployError) as exc:
+    except (tarfile.TarError, OSError, ValueError, helper.DeployError) as exc:
         raise ReleaseBlocked(f"artifact_archive_invalid:{exc}") from exc
     return NativeArtifact(
         release_sha=release_sha,
@@ -367,6 +411,8 @@ def inspect_native_artifact(directory: Path, release_sha: str) -> NativeArtifact
         manifest_sha256=_digest(manifest),
         archive_bytes=archive.stat().st_size,
         expanded_bytes=expanded_bytes,
+        build_config_sha256=config_digest,
+        workbench_enabled=workbench_enabled,
     )
 
 
@@ -445,6 +491,8 @@ class NativeReleaseOrchestrator:
             "artifact": {
                 "archive_sha256": artifact.archive_sha256,
                 "manifest_sha256": artifact.manifest_sha256,
+                "build_config_sha256": artifact.build_config_sha256,
+                "workbench_enabled": artifact.workbench_enabled,
                 "archive_bytes": artifact.archive_bytes,
                 "expanded_bytes": artifact.expanded_bytes,
                 "required_capacity_bytes": required_capacity_bytes(artifact),
@@ -657,9 +705,11 @@ class GithubActionsProbe:
         destination = destination.resolve()
         if not destination.is_relative_to(REPO_ROOT):
             raise ReleaseBlocked("artifact_destination_outside_checkout")
-        if destination.exists() and any(destination.iterdir()):
-            return destination
         destination.mkdir(parents=True, exist_ok=True)
+        # Never turn a local cache/--artifact-dir into CI provenance. Each phase
+        # receives a fresh download of the exact uniquely selected run artifact.
+        # Preserve previous downloads for recovery; do not overwrite old bytes.
+        verified_destination = Path(tempfile.mkdtemp(prefix="verified-", dir=destination))
         _run(
             [
                 "gh",
@@ -671,11 +721,11 @@ class GithubActionsProbe:
                 "--name",
                 f"frontend-native-{packet.exact_sha}",
                 "--dir",
-                str(destination),
+                str(verified_destination),
             ],
             env=self.environment,
         )
-        return destination
+        return verified_destination
 
 
 class Ct137HostCli:

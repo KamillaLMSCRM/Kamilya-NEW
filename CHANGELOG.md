@@ -45,6 +45,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.27] - 2026-10-02
+
+### Fixed
+
+- Restore native frontend compatibility with the installed exact eight-field
+  deployment manifest. Keep explicit workbench-OFF build evidence in a separate
+  artifact/manifest digest-bound attestation, checked before staging and recorded
+  in technical evidence. No production helper, privilege or Proxmox change.
+- Reject missing, malformed, duplicate-key, mismatched or enabled compatibility
+  build evidence; repeat validation during execution. Failed immutable0.11.26
+  artifacts and their evidence remain unchanged.
+
 ## [0.11.26] - 2026-10-02
 
 ### Added
