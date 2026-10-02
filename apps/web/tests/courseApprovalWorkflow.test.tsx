@@ -22,9 +22,13 @@ describe('course approval workflow UI', () => {
   beforeEach(() => { configureMock.mockReset().mockResolvedValue({ requires_approval: true, review_enabled: true }); getPolicyMock.mockReset().mockResolvedValue({ requires_approval: false, review_enabled: true }); decisionMock.mockReset().mockResolvedValue({}); progressMock.mockReset().mockResolvedValue({}); testMock.mockReset().mockResolvedValue({ diagnostics: { answered: 1, total: 1, correct: 1, score_percent: 100, complete: true } }); });
 
   it('persists the opt-in policy and gives a clear immutable-snapshot hint', async () => {
+    // Starting the request is not the same as rendering its loaded policy.
+    getPolicyMock.mockImplementationOnce(() => new Promise((resolve) => {
+      setTimeout(() => resolve({ requires_approval: false, review_enabled: true }), 50);
+    }));
     render(<ApprovalPolicyCard courseId="course" />);
     await waitFor(() => expect(getPolicyMock).toHaveBeenCalledWith('course'));
-    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(await screen.findByRole('checkbox'));
     await waitFor(() => expect(configureMock).toHaveBeenCalledWith('course', true));
     expect(screen.getByText(/неизменяемый снимок/i)).toBeInTheDocument();
   });
