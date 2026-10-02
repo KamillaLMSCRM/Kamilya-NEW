@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-02.
+Current as of: 2026-10-03.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -30,6 +30,39 @@ personal data, or raw logs here.
 Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
+
+## ASR-001 - Unbounded PyAV major upgrade broke the isolated STT decoder
+
+- Date: 2026-10-03; ASUS task-owned pilot only, no application dependency change.
+- Symptom: faster-whisper1.2.1 CPU inference stopped before recognition with
+  `TypeError: open() got an unexpected keyword argument 'metadata_errors'`.
+- Cause: its permissive av dependency selected PyAV19.0.0, whose av.open did
+  not accept the argument used by this faster-whisper version.
+- Fix: pin `av==16.0.1`, `faster-whisper==1.2.1` and `ctranslate2==4.8.2` in
+  the isolated `scripts/dev/stt_pilot_requirements.txt`.
+- Verification: unchanged real FLEURS input decoded and all10 original CPU
+  clips completed after replacing only the pilot's PyAV package. Larger-model
+  comparison and product input/queue acceptance are separate gates.
+- Prevention: use the pinned pilot requirements in its own venv and record
+  installed runtime versions. Do not install latest transitive majors into
+  application or other projects' environments as a compatibility workaround.
+
+## ASR-002 - ARM CTranslate2 wheel presence did not prove CUDA support
+
+- Date: 2026-10-03. Status: GPU route OPEN; measured CPU route available.
+- Symptom: actual `device=cuda, compute_type=float16` model construction failed
+  with `This CTranslate2 package was not compiled with CUDA support`.
+- Cause: the installed official `ctranslate2==4.8.2` aarch64 wheel lacks CUDA;
+  NVIDIA GB10 inventory/driver availability does not change that build capability.
+- Fix: GPU remediation remains OPEN; benchmark both models on CPU/int8 in the task-owned
+  environment. No hidden fallback; CUDA probe remains a recorded failure.
+- Verification: exact constructor error observed; CPU small actual inference
+  passed. Dry-run resolved separate aarch64 CUDA libraries but installed none;
+  those libraries alone cannot add CUDA to the CTranslate2 binary.
+- Prevention: require actual GPU inference plus compatible CUDA/cuDNN
+  build evidence before claiming GPU success. Any source-built comparator must
+  live in a separate task-owned environment, use bounded build/resources and
+  preserve host drivers/services/other project venvs; not a production action.
 
 ## MIGRATION-006 - Revision discovery imported application code before migration execution
 

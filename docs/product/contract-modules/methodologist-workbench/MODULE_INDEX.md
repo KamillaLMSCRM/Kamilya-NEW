@@ -43,6 +43,8 @@ Populated cleanup repair and final173/V3 DEV receipt, accepted before implementa
 [POPULATED-TENANT-PURGE-RELEASE V1](contracts/POPULATED_TENANT_PURGE_RELEASE_ADDENDUM_V1.md).
 Non-bypass owner row-lock repair174, without real owner writes or runtime grants:
 [TENANT-PURGE-OWNER-LOCK repair V1](contracts/TENANT_PURGE_OWNER_LOCK_REPAIR_V1.md).
+Isolated public-corpus ASUS benchmark only, no LMS speech runtime authority:
+[ASUS-STT-PILOT V1](contracts/ASUS_STT_PILOT_ADDENDUM_V1.md).
 Execution sequence/progress: [plan](../../../plans/2026-10-01_ai-driven-methodologist.md).
 
 The original foundation remains pure. The accepted assignment addenda add
@@ -51,7 +53,9 @@ A27/frontend were compatible OFF predecessors. Supabase DEV and production
 reached0173/source64/version28/ON on2026-10-02; live text assignment passed.
 DEV cleanup28/permanent QA passed; repair0174/backend29/source32 verified in
 publicDEV with unchanged permanent QA and enabled browser workbench.
-Protected production37032048857 built image96a1 but dockerpull hit900s timeout
-before migration/switch. Production28/64/173 remains healthy, retention timer
-restored/watchdog active, native28 unchanged. Normal synthetic cleanup/final
-acceptance remains gated; voice is not installed or released.
+Protected production37032048857 initially hit900s dockerpull timeout; approved
+delivery recovery/all12 SHA256 checks and failed-job rerun2 succeeded on2026-10-02.
+Backend29/source32/schema174 and native28 retained, four services ON, live text
+checks, normalA/Bcleanup/independentabsence and preserved permanentQA passed.
+These are dated release records, not a fresh runtime assertion. Speech runtime
+is not installed in LMS/production; an isolated ASUS benchmark began2026-10-03.

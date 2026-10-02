@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-10-02.
+> Обновлено: 2026-10-03.
 
 ## Источники правды
 
@@ -57,6 +57,29 @@ Supabase и Render используются только для разработ
 контролируемой демонстрации или явно выбранного rollback. Production frontend,
 API, worker, файловый runtime и PostgreSQL размещены в казахстанском контуре;
 каждый из них сохраняет собственный release/backup/readback gate.
+
+### Изолированный ASUS STT pilot — 2026-10-03
+
+Владелец разрешил отдельный benchmark и указал актуальный источник доступа:
+`C:\Hermes Workspaces\ASUS_LOCAL_ACCESS_STT_HANDOFF.txt`. Использовать именно
+его локальную SSH-конфигурацию/alias, strict host checking; не старый WireGuard
+маршрут, не VM126 executor и не credentials другого проекта. Перед повторным
+запуском проверить текущую доступность/identity/capacity по этому handoff.
+
+Verified на начало пилота: `gx10-d9c0`, `superuser`, aarch64/Python3.12.3,
+NVIDIA GB10/driver580.159.03; available RAM116GiB, disk414GiB. Единственный
+пилотный write root: `/home/superuser/projects/kamilya-stt-pilot-20261003`, свой
+venv/cache/models/public corpus. Существующие проекты/venv/timers/services,
+драйверы и ingress не меняются. No sudo, listening STT service или production link.
+Известный book-service failure существовал до пилота и не относится к его scope.
+
+Public Google FLEURS CC-BY-4.0 и MIT multilingual weights; inference offline,
+внешнему ASR-провайдеру аудио не отправляется. CPU benchmark выполняется с одним
+запросом/4threads. ARM `ctranslate2==4.8.2` wheel не содержит CUDA support; GPU
+inventory не означает GPU execution. Production speech intake, QR microphone,
+private-audio storage/TTL и новые платные ресурсы не включены. Packet/результаты:
+[ASUS pilot](product/contract-modules/methodologist-workbench/contracts/ASUS_STT_PILOT_ADDENDUM_V1.md),
+[текущий план](plans/2026-10-01_ai-driven-methodologist.md).
 
 Render DEV API также работает на Free Web Service. Этот тариф не выполняет
 `preDeployCommand`, поэтому schema-affecting DEV release до API/worker rollout

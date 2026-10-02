@@ -1296,3 +1296,47 @@ Rules:
 - No limiter/configuration change, retry, alternate authentication, cleanup, tenant deletion, browser action, mail, AI, database DML, or deployment occurred. Root retains A/B cleanup and final acceptance ownership.
 - Managed persistent evidence: `artifacts/local_acceptance/workbench174-paced-closeout-report.md` SHA-256 `916532c1a26aefe867b6b4356c00f91c94edf34bceb6d2b9883e1e53f4ae286f`; `artifacts/local_acceptance/workbench174-paced-closeout-results.json` SHA-256 `21f1d4bbe4ed941440bb76a11d70fc372e78c55f0dbbddcd40ead004fc208805`.
 - Result `PASS` for bounded verification only; cleanup remains root-owned; no release GO is implied by this runner receipt.
+
+### 2026-10-03 — `ASUS-STT-PILOT-20261003` isolated public-corpus baseline
+
+- Root used the owner-named local ASUS handoff; fresh gx10-d9c0/superuser/aarch64
+  identity/resources verified. Only standalone pilot tools and a new independent
+  venv/model/corpus directory; no LMS source interface, DB, provider, production,
+  customer audio or billing mutation. Initial pip ordinary user cache preserved;
+  no global package, protected project venv, driver, service or timer changes.
+- Google FLEURS CC-BY-4.0 revision70bb2e84b976b7e960aa89f1c648e09c59f894dd,
+  first5 distinct eligible15–30s sentences per RU/KK; artificial36.12s splice
+  separately diagnostic. Both reports use the exact same11 inputs/manifest
+  764456dc10ec0a8a1cb8d0f13b4ee2b7c517b2ad82ba49dae2cf895b3b71a0f4.
+- Pinned faster-whisper1.2.1/CTranslate2 4.8.2/PyAV16.0.1/HF Hub1.33.0;
+  CPU/int8/4threads/one request/beam5; RU/KK language hints, splice auto-language.
+  Small revision536b0662742c02347bc0e980a01041f333bce120: RU5/138 errors/words,
+  KK49/76. Large-v3 revisionedaa852ec7e145841d8ffdb056a99866b5f0a478: RU0/138,
+  KK16/76. RU median1.91s vs8.43s, KK1.67s vs8.83s; process peak RSS1.23 vs2.97GiB.
+- Root actual inference and final comparison audit PASS: model IDs/artifact/input
+  hashes, clip/reference/language/duration binding, computed errors/aggregates/RTF,
+  identical decode policy and false product-proof flags. Independent PowerShell
+  report-row sums confirm WER; saved report hashes small5472e8d2a0b5bbdea23a31abfd61bc4f16babb42665cb7f099cefb7e5fa0e907,
+  large d14b219b9e461b2c8a6498a62490d1c6b24d2b9d49b3b97b13bb1e8fa2973bc9.
+  Sanitized/local public-corpus reports retained under ignored
+  `.release-evidence/stt-asus-20261003`; no audio copied to Windows.
+- Failures retained: datasets-server500 (cause NOT_VERIFIED), erroneous individual
+  WAV URL404 corrected from actual pinned archive listing; PyAV19 metadata_errors
+  incompatibility repaired by isolated pin (ASR-001); actual CUDA constructor
+  rejects official ARM wheel without CUDA (ASR-002), no hidden fallback. CUDA
+  library dry-run downloaded public wheels but installed none. First journal gate
+  failed on required Fix/Prevention labels, corrected; final gate PASS.
+- Root focused23 unit tests/scopedRuff/quality1010+2200/release-contract PASS.
+  Cheap independent voice_pilot_contract_review requested gpt-5.6-luna/medium,
+  observed model/token/time counters NOT_AVAILABLE; read-only inventory and
+  initial15/corrected20/final21 source tests independently passed. Root accepted
+  identified comparison/duration/audit findings and hardened the verifier with
+  final23 tests; no agent claimed external benchmark execution. No broad suite
+  or product browser/phone test is implied by this standalone tool packet.
+- Postpilot four protected timers active/enabled and listening sockets unchanged;
+  pre-existing book failure persists and was not repaired. Owned footprint4.7GiB,
+  available RAM≈116GiB/disk388GiB; no pilot process/service persists.
+- Result `MEASURED_CPU_ONLY`, not product GO: KK/natural mixed/domain fields,
+  auto-language RU/KK, cold-cache/p95/concurrency/cancellation, actual phone flow,
+  GPU inference and production capacity/route remain NOT_VERIFIED. Detailed next
+  steps belong to the canonical AI-driven plan; production text release unchanged.

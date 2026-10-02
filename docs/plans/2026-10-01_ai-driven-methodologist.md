@@ -1,10 +1,11 @@
 # AI-driven Камиля: пошаговый план методического рабочего места
 
 Дата: 2026-10-01. Владелец продукта: пользователь; технический владелец: root.
-Статус: первый текстовый assignment slice включён в DEV и production28;
-финальная приёмка остановлена на очистке disposable fixtures. Repair29/174
-проверен и выпущен только DEV; production остановлен до переключения на загрузке
-образа. Голос/LLM intent/document drafting ещё не выпущены.
+Статус обновлён 2026-10-03: текстовый assignment slice закрыт выпуском backend29/
+schema174 на2026-10-02, включая живую проверку и штатную очистку A/B; native
+frontend28 сохранён. Это датированное release evidence, не новое runtime readback.
+Начат изолированный ASR-пилот на ASUS по указанному владельцем локальному доступу.
+Голос в продукте/LLM intent/document drafting ещё не выпущены.
 Ветка: `feature/methodologist-workbench-20261001`.
 
 ## Результат для методиста
@@ -47,7 +48,7 @@ GPU-сервера до измерений. Источник:
 
 | Вариант | Выгода | Ограничение | Решение сейчас |
 |---|---|---|---|
-| Local/KZ faster-whisper | Контроль маршрута аудио, нет обязательной платы за минуту | Нужны ресурсы, сопровождение, проверка качества RU/KK | Кандидат для benchmark, не установлен |
+| Local/KZ faster-whisper | Контроль маршрута аудио, нет обязательной платы за минуту | Нужны ресурсы, сопровождение, проверка качества RU/KK | Установлен только изолированный ASUS-пилот; не LMS runtime |
 | Готовый STT API | Не нужно ставить модель; быстрее интеграция | Новая стоимость и передача аудио внешнему провайдеру | Только после отдельного согласования бюджета и данных |
 | Распознавание браузером | Мало backend-работы | Различается по браузерам; обработка может быть внешней | Не canonical путь V1 |
 
@@ -73,6 +74,111 @@ GPU-сервера до измерений. Источник:
    проходит — отдельно выбрать доступное уже оплаченное оборудование либо
    согласовать стоимость нового ресурса/API. Не ставить тяжёлую модель на VM126
    без измеренного capacity gate. Не включать скрытый cloud fallback.
+
+### Уточнённый план голоса и телефона — 2026-10-03
+
+Цель: в существующем чате/рабочем месте напечатать либо надиктовать ту же просьбу,
+проверить расшифровку и продолжить тот же разрешённый сценарий. Это не объединение
+прав трёх помощников: learner chat отвечает по доступному учебному контексту;
+editor assistant сохраняет question-scoped preview/apply; methodologist workbench
+создаёт server-resolved preview и исполняет только явно подтверждённый план.
+
+Docvoice использован только как названный владельцем технический пример:
+MediaRecorder → серверная запись → STT → editable review; QR-телефон доставляет
+аудио через сервер, а не напрямую в ПК. Не переносить пациентские сущности,
+Groq-ключи, согласия либо Supabase Realtime в Kamilya. Историческое наполнение
+полей существовало; текущий проверенный callback лишь логирует результат, поэтому
+копирование последнего UI не равно работающему сценарию. Документ-источник:
+`C:\Docvoice\app\docs\ai\voice-recognition-and-remote-microphone.md`.
+
+| Шаг | Конкретная доработка | Проверка выхода |
+|---|---|---|
+| V0 — текущий | Изолированный ASUS benchmark: small CPU/int8 vs multilingual large-v3; публичные RU/KK записи с эталоном и лицензией; отдельная проба CUDA | Версии/ревизии/хеши, WER/время/RSS, сохранённые ошибки; не выдавать 10 записей за продуктовую приёмку |
+| V1 — качество | Расширить независимый корпус до60–100 записей, включая реальные mixed/noise и вымышленные названия/сроки/отрицания; не подгонять prompt под test set | Критические поля≥95%, исправления и p50/p95; ручная эталонная разметка, запрещённые неверные действия0 |
+| V2 — speech seam | Принять полный API/job/ownership/TTL addendum; отдельная ограниченная очередь/процесс, admission/cancel/timeout, без записи в бизнес-таблицы | Decode/MIME/длина/размер/тишина/повреждение; foreign tenant/actor/job denied; отмена не выдаёт поздний результат; text fallback |
+| V3 — запись в браузере | Микрофон/стоп/отмена/прогресс/ошибка; показ редактируемого текста; отправка текста отдельным действием в тот же существующий помощник | Chrome/Android и Safari/iOS реальные codec/decode; запрет микрофона, уход со страницы, плохая сеть; одинаковые права text/voice |
+| V4 — QR-телефон | Временная capability-сессия одного микрофона; результат видит только авторизованный desktop того же tenant/actor/context | Два изолированных browser contexts; expiry/replay/revoke/foreign-session tests; физический телефон по HTTPS, camera/mic proof |
+| V5 — свободная команда | Existing LLM policy/quota → typed intent → server resolver; уточнить неоднозначные курс/отдел/относительную дату; voice использует тот же путь | «Не назначай», смена срока/отдела, неизвестный курс, две даты, повтор и stale preview; никогда не исполнять ответ модели напрямую |
+| V6 — документ/коррекции | Прикреплённый источник → существующий generation job → draft; source-grounded правки до/после, published→новый draft | Existing AI-course critical journey, ownership/quota/cancel/dedup, review/publish не обходятся |
+| V7 — выпуск | Сначала DEV синтетический QA; production только после отдельного принятого candidate/capacity/route gate | Test & Evidence Runner + Release Runner; exact source/image/schema/workers, browser/телефон, rollback и очистка |
+
+ASUS — лаборатория, не подразумеваемая production-зависимость. На существующей
+production VM отдельно измерить свободные CPU/RAM/disk, очередь и влияние на
+API/генерацию без установки модели до принятого capacity packet. Даже хороший
+результат ASUS не доказывает VM126 latency. Если малый CPU-кандидат не обеспечивает
+RU/KK качество либо реальный ресурсный gate не пройден, feature остаётся в DEV;
+выбор ASUS как production-ресурса/другой GPU/STT API — новое точное решение, без
+скрытого платного fallback и без изменения текущих тарифов.
+
+Предлагаемый QR-контракт (ещё не разрешение на migration/runtime): desktop после
+проверки роли и контекста создаёт случайный одноразовый256-bit token; QR содержит
+только capability, не LMS JWT/пароль/tenant ID. Короткий TTL до обмена, сервер
+хранит только token hash; обмен по POST выдаёт ограниченное право ровно одной
+загрузки, не доступ к курсам/назначениям/истории. Token не попадает в analytics,
+access logs и referrer; использовать fragment и страницу без третьих скриптов.
+Сессия bound к tenant/actor/active role/target context и отзывается при logout,
+смене tenant/роли/контекста или отмене. Состояния issued→paired→uploaded→
+transcribing→transcript/failed/cancelled/expired; каждое повторное upload/redeem
+отклоняется. Desktop получает результат через ограниченный authenticated polling,
+не public realtime channel. Exact TTL/job timeout/poll budget/temporary deletion
+фиксируются в V2 impact addendum до реализации; они не равны workbench15min/90days.
+
+Минимальные отрицательные проверки: silence/corrupt/unsupported/oversize/too-long;
+один запрос при двойном stop; disconnect/retry/cancel/late result; job/QR чужого
+actor/tenant; истёкший/reused/revoked QR; desktop switched context; ученик не
+получает methodologist tools; переполнение существующего text limit не обрезает
+команду молча; только кнопка подтверждает публикацию/массовое назначение.
+
+Изолированный pilot packet принят root по текущему запросу владельца:
+[ASUS-STT-PILOT V1](../product/contract-modules/methodologist-workbench/contracts/ASUS_STT_PILOT_ADDENDUM_V1.md).
+Graphify index в writer отсутствует; карта соседей SOURCE-DERIVED из известных
+schemas/UI, не graph-derived proof. Продуктовые интерфейсы этим пилотом не меняются.
+
+### Измеренный ASUS baseline — 2026-10-03, CPU only
+
+Источник: [Google FLEURS](https://huggingface.co/datasets/google/fleurs), CC-BY-4.0,
+revision`70bb2e84b976b7e960aa89f1c648e09c59f894dd`. По5 разных test-фраз на язык,
+выбранных до inference: RU17.16–24.36s, KK15.36–18.96s. Known-language hint RU/KK;
+только диагностическая splice36.12s использует auto-language. Не benchmark
+естественной mixed speech или автоматического выбора языка RU/KK.
+
+Runtime: faster-whisper1.2.1/CTranslate2.4.8.2/PyAV16.0.1/HF Hub1.33.0,
+CPU int8/4threads/one request, beam5/no context reuse/no VAD. Model revisions:
+small`536b0662742c02347bc0e980a01041f333bce120`,
+large-v3`edaa852ec7e145841d8ffdb056a99866b5f0a478`, обе MIT.
+Одинаковые11 файлов/manifest hash`764456dc10ec0a8a1cb8d0f13b4ee2b7c517b2ad82ba49dae2cf895b3b71a0f4`.
+Verifier повторно проверил artifact/input hashes, реальные durations/эталон,
+ошибки, aggregates/RTF/decode policy и отсутствие product-proof flags.
+
+| Измерение | small CPU/int8 | large-v3 CPU/int8 |
+|---|---|---|
+| RU weighted WER |3.62%, 5 errors/138 reference words |0%, 0/138 |
+| KK weighted WER |64.47%, 49/76 |21.05%, 16/76 |
+| RU median / max processing |1.91s /2.63s |8.43s /10.42s |
+| KK median / max processing |1.67s /2.50s |8.83s /12.83s |
+| Process peak RSS, including splice |1.23GiB |2.97GiB |
+| Model-constructor load / first clip |0.53s /2.07s |2.91s /10.42s |
+| Artificial RU+KK splice WER / processing |49.12% /12.08s |38.60% /24.60s |
+
+Решение: технический ASR baseline работает, small не является достаточным RU/KK
+продуктовым кандидатом. Large-v3 оставляем comparator, не считаем выбранной
+production-моделью: казахский/смешанный сценарий пока требует улучшения и новых
+данных. RU0% на5 записях не означает «безошибочный русский». Domain slots,
+естественная mixed/noise speech, автоязык, p95/cold-cache/concurrency/cancel,
+phone/browser flow и VM126 capacity **NOT VERIFIED**. Открытый GPU gate —
+официальный aarch64 CTranslate2 wheel без CUDA; драйвер/другие окружения не меняли.
+
+Результаты и weights/cache сохранены в task-owned ASUS root; отчёты без аудио
+также в ignored`.release-evidence/stt-asus-20261003` writer. Owned footprint4.7GiB,
+после теста available RAM≈116GiB/disk388GiB; другие операции хоста не исследовались.
+Четыре защищённых timers active/enabled, listening sockets прежние; pre-existing
+book failure сохранён. Первые pip-команды использовали обычный user cache, не
+вычищаем общий cache; следующие installs задают PIP_CACHE_DIR внутри pilot root.
+No new paid resource/provider/billing/production mutation. Следующий V1 шаг:
+исследовать разрешённый RU/KK comparator/адаптацию, собрать domain/mixed corpus,
+отдельно подготовить own CUDA build; не подключать текущий baseline к продовым
+поручениям только из-за скорости. Для GPU build требуется отдельный bounded
+packet, но не повторное согласование уже разрешённого изолированного теста.
 
 ## Этапы и критерии выхода
 
@@ -151,13 +257,12 @@ GPU-сервера до измерений. Источник:
 - Raw audio по умолчанию не сохраняется после транскрибации. Если нужна очередь
   временного хранения, до её запуска принять exact TTL/deletion/recovery contract;
   никакого неопределённого хранения. Не логировать аудио/текст/документы/PII.
-- Долговечные plans/receipts принадлежат workbench. Migration0169 и ограниченный
-  execution contract приняты root для реализации/изолированной проверки;
-  public DEV/production migration ещё не выполнена. Retention/TTL metadata и
-  scheduled cleanup остаются обязательным gate перед включением функции.
+- Долговечные plans/receipts принадлежат workbench. В текстовом slice миграции,
+  retention metadata и scheduled cleanup реализованы; DEV/production29/0174
+  закрыты датированным evidence2026-10-02. Это не срок хранения raw audio/QR.
   OWNER-CONFIRMED2026-10-01:15min validity, ready-plan delete24h after expiry,
   succeeded receipt90days from execution; [policy V1](../product/contract-modules/methodologist-workbench/contracts/RETENTION_POLICY_V1.md).
-  Scheduled cleanup NOT_IMPLEMENTED; learning history never included.
+  Scheduled metadata cleanup реализован; learning history never included.
 - Существующие AI quotas и provider policies не обходятся. Нужен reserve/settle
   usage для новых вызовов с лимитами/retry/cancellation, не unlimited chat.
 - Новая стоимость, внешний маршрут данных, платный ресурс, провайдерный fallback
@@ -846,6 +951,16 @@ capacity failure, расход за пределами лимита. Не «об
     Release closes text slice only. No voice/STT/LLM/mail/AI/customer/ownerDML/
     billing/DNS/Proxmox/landing change. Original transfer cause NOT_VERIFIED.
 
+60. Isolated ASUS STT pilot2026-10-03: owner-local handoff verified, independent
+    venv/public licensed corpus; pinned decoder repair ASR-001 and actual ARM
+    CUDA failure ASR-002 retained. Small and large-v3 CPU/int8 compared on the
+    same11 hashed inputs; comparison binding/aggregate/duration/decode audit PASS.
+    Unit23/scopedRuff/quality1010+2200/release-contract PASS. Cheap reviewer
+    identified comparison/audit gaps; root repaired and accepted actual evidence,
+    no product-proof claims. Protected timers/listening sockets preserved;
+    pre-existing book failure not repaired. ASR quality/production/phone gates
+    remain OPEN; text production unchanged.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)
@@ -857,7 +972,8 @@ capacity failure, расход за пределами лимита. Не «об
 | WB-DEV-ACCEPT | DONE for29 | root; Test & Evidence Runner local freeze; root external |DEV174/32 ON, owner-lock catalog/workercontrol/permanent QA/browser enabled workbench PASS; prior28 full text-flow proof retained |
 | WB-NEIGHBOR-CATALOG | DONE | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and independent local180 PASS atf0ff29c2; root ACCEPTED_LOCAL_ONLY; no equivalence claim |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
-| WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
+| WB-ASR-BENCH | MEASURED_CPU_ONLY; quality gate OPEN | root / root pilot / cheap reviewer |Licensed11-clip CPU comparison verified; KK/mixed quality/domain/capacity/CUDA remain open; no LMS ASR installed |
+| WB-VOICE-INPUT / WB-QR-MIC | NOT_STARTED in LMS | root shared contract; bounded UI/test leafs later |Accepted speech/job/QR impact contract + quality/data/capacity gate, then DEV browser/physical phone proof |
 | WB-RELEASE | DONE for text slice29 | root execution/browser/cleanup + Release Runner local review + Test Runner actual API |Production29/32/174 ON; native28 retained; protected rerun2 SUCCESS, normalA/Bcleanup/independentabsence/permanentQA-after PASS; voice/LLM separate |
 
 Write overlap: root owns migration/config/router/registry/purge/docs and DEV gate;
@@ -870,6 +986,8 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 
 | Task / type | Requested model / effort | Acceptance / correction rounds | Evidence |
 |---|---|---|---|
+| voice_pilot_contract_review / acceptance inventory + independent source review |gpt-5.6-luna /medium; independently observed metadata NOT AVAILABLE |Root accepted after source corrections; audit hardening completed root |Unit23/root actual CPU11permodel/source hashes verified; elapsed/token counters NOT AVAILABLE |
+| root / isolated ASUS pilot and plan |Parent session; observed metadata NOT AVAILABLE |Completed technical baseline; product quality not accepted |Actual CPU/inference/comparison/host checks; runtime failures retained; no production/DB/customer data |
 | assignment_seam_inventory / read-only inventory + review |gpt-5.6-luna / medium; independently observed metadata NOT AVAILABLE |Accepted;0 correction rounds |Source-only findings, no external writes |
 | assignment_text_parser / bounded implementation + review |gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted;0 implementation correction rounds |24 parser tests; ownership transferred root |
 | workbench_assignment_ui / UI+transport fixtures |gpt-5.6-luna / medium; observed metadata NOT AVAILABLE |Accepted after2 root correction packets, plus usability refinement |Targeted UI tests, lint/typecheck; no live browser claim |
