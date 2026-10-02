@@ -4781,6 +4781,14 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: integration assertions must use the same bounded RLS-safe read
   interface as production whenever a table is deliberately hidden from the
   runtime role. A test failure is never authority to broaden table privileges.
+- Recurrence 2026-10-02: source6fb87c3b CI37009048414 confirmed populated
+  tenant DELETE204/freshGET404, then failed a direct runtime outbox SELECT;
+  349PASS/2SKIP/1FAIL and six other jobs SUCCESS. Replace only that assertion
+  with the existing tenant/course-bounded production adapter, proving pending
+  before deletion and empty after. Enrollment RESTRICT FK plus successful
+  deletion precludes an orphan notification. Regression1RED then focused25PASS;
+  exact replacement PostgreSQL CI still required. No grants, RLS changes,
+  owner-role workaround, public DEV173 application or production mutation.
 
 ## DEV-GATE-002 - Explicit DEV env file was not loaded before application imports
 

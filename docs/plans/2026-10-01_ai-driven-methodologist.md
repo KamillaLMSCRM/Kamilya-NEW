@@ -786,6 +786,16 @@ capacity failure, расход за пределами лимита. Не «об
    clearly marked planned/notpublished). Independent Test Runner C1 local24/
    collect1/Ruff5/diff PASS,176810ms; reports a666579e/f79f4db8 read in full byroot.
 
+55. Candidate6fb87c3b CI37009048414 confirmed API DELETE204/freshGET404;
+   protected outbox direct SELECT then failed (349PASS/2SKIP/1FAIL, six other
+   jobs SUCCESS). Canonical TEST-INFRA-007 applies: pending-before/empty-after
+   via existing tenant/course-bound notification adapter, not runtime grants.
+   New guard1RED->GREEN/focused25PASS; runtime/helper/ACL unchanged. Exact new
+   PostgreSQL CI and DEV173/live cleanup remain mandatory; production unchanged.
+   Root2233unit PASS; independent Runner25/collect1/Ruff2 PASS in175050ms,
+   full reports/actualcommands accepted LOCAL_ONLY with ROOT-C1 storage/path/
+   static-versus-runtime metadata corrections. Original report content preserved.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)

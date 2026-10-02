@@ -131,6 +131,13 @@ fresh absence GET, matching existing lifecycle test.1RED->GREEN/focused24PASS;
 no runtime helper/service/ACL change. Replacement exactCI PostgreSQL proof required;
 public DEV173, new provider rollouts and production remain unmodified.
 
+Replacement6fb87c3b CI37009048414 confirmed DELETE204/freshGET404, then failed
+direct lms_app SELECT of protected notification outbox (349PASS/2SKIP/1FAIL,
+six otherjobsSUCCESS). TEST-INFRA-007 correction uses existing bounded adapter
+pending-before/empty-after; enrollment RESTRICT FK retains physical deletion
+proof. Guard1RED->GREEN/focused25PASS. No runtime/ACL/owner-role workaround;
+replacement exact PostgreSQL CI still required before DEV173/provider/prod work.
+
 ### Historical B preparation0.11.28 — DEV0172/OFF before activation
 
 Root canonical public schema contract gate applied DEV0169->0172 after accepted

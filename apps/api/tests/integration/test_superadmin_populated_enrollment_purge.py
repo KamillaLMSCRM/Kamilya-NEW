@@ -14,6 +14,7 @@ from app.models.enrollment_access_policy import EnrollmentAccessPolicy
 from app.models.users import User
 from app.modules.courses.models import Course
 from app.modules.courses.release_models import ContentRelease
+from app.modules.enrollments.notification_outbox import PostgresAssignmentNotificationStore
 from app.modules.methodologist_workbench.assignment_models import AssignmentPlan
 
 
@@ -156,6 +157,7 @@ async def test_superadmin_delete_populated_enrollment_tenant_cleans_restrict_chi
     db_session.add(sentinel_course)
     await db_session.flush()
     target_id, target_slug = target.id, target.slug
+    target_course_id, notified_enrollment_id = course.id, enrollment_b.id
     sentinel_id = sentinel.id
     sentinel_user_id, sentinel_course_id = sentinel_user.id, sentinel_course.id
     await db_session.commit()
@@ -163,7 +165,16 @@ async def test_superadmin_delete_populated_enrollment_tenant_cleans_restrict_chi
     superadmin = await make_superadmin()
     token = await _login(client, superadmin, "SuperPass123!")
     headers = {"Authorization": f"Bearer {token}"}
+    await set_current_tenant(target_id)
     await _set_runtime_role(db_session)
+
+    # TEST-INFRA-007: the runtime role deliberately cannot SELECT this table.
+    # Prove the bounded production projection contains the seeded row first.
+    notifications = await PostgresAssignmentNotificationStore(db_session).statuses(
+        tenant_id=target_id, course_id=target_course_id,
+    )
+    assert set(notifications) == {notified_enrollment_id}
+    assert notifications[notified_enrollment_id].status == "pending"
 
     response = await client.delete(
         f"/api/v1/admin/super/tenants/{target_id}?confirm_slug={target_slug}",
@@ -197,14 +208,10 @@ async def test_superadmin_delete_populated_enrollment_tenant_cleans_restrict_chi
         )
         is None
     )
-    assert (
-        await db_session.scalar(
-            select(CourseAssignmentNotificationOutbox.id).where(
-                CourseAssignmentNotificationOutbox.tenant_id == target_id
-            )
-        )
-        is None
+    notifications = await PostgresAssignmentNotificationStore(db_session).statuses(
+        tenant_id=target_id, course_id=target_course_id,
     )
+    assert notifications == {}
     assert await db_session.scalar(select(AssignmentPlan.id).where(AssignmentPlan.tenant_id == target_id)) is None
 
     sentinel_readback = await client.get(
