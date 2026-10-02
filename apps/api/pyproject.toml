@@ -30,7 +30,7 @@ websockets = "^14.0"
 youtube-transcript-api = { version = ">=1.2.4,<2.0.0", python = ">=3.12,<3.15" }
 openpyxl = "^3.1"
 xlrd = "^2.0.1"
-pypdf = "^6.17.0"
+pypdf = "6.19.0"
 python-docx = "^1.1"
 defusedxml = "^0.7.1"
 json-repair = "^0.63.4"

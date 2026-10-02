@@ -9,12 +9,18 @@ import re
 from sqlalchemy import text
 
 from alembic import op
-from app.core.tenant_bootstrap_migration import install_bootstrap as _install_bootstrap
 
 revision = "0169"
 down_revision = "0168"
 branch_labels = None
 depends_on = None
+
+
+def _install_bootstrap(schema, execute):
+    # Revision discovery must not require the application import path.
+    from app.core.tenant_bootstrap_migration import install_bootstrap
+
+    install_bootstrap(schema, execute)
 
 
 def _schema() -> str:

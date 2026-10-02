@@ -1,6 +1,8 @@
 """Contract tests for the staged 0169/0172 bootstrap-helper seam."""
 
 import importlib.util
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -8,6 +10,25 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[4]
 SCHEMA = "tenants_123456789abc"
+
+
+def test_alembic_catalog_loads_without_application_import_path(tmp_path):
+    script_location = str(ROOT / "apps/api/alembic")
+    code = (
+        "import sys; from alembic.config import Config; "
+        "from alembic.script import ScriptDirectory; c=Config(); "
+        f"c.set_main_option('script_location', {script_location!r}); "
+        "s=ScriptDirectory.from_config(c); assert len(s.get_heads())==1; "
+        "assert s.get_revision('0169').down_revision=='0168'; "
+        "assert s.get_revision('0172').down_revision=='0171'; "
+        "assert 'app' not in sys.modules; print('CATALOG_PASS')"
+    )
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", code], cwd=tmp_path,
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "CATALOG_PASS"
 
 
 def _load(name: str, relative: str):

@@ -345,6 +345,10 @@ def inspect_native_artifact(directory: Path, release_sha: str) -> NativeArtifact
         r"\d+\.\d+\.\d+", product_version
     ):
         raise ReleaseBlocked("artifact_product_version_invalid")
+    # Exact staged compatibility A must not carry an enabled workbench bundle.
+    # Older immutable artifacts predate this manifest field and remain readable.
+    if product_version == "0.11.26" and payload.get("workbench_enabled") is not False:
+        raise ReleaseBlocked("artifact_compatibility_workbench_flag_invalid")
     helper = _deploy_helper()
     try:
         with tarfile.open(archive, "r:gz") as tar:

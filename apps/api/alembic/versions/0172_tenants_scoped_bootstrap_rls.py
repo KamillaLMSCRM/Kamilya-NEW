@@ -7,7 +7,6 @@ Never roll back to broad service_access or an incompatible API.
 import re
 
 from alembic import op
-from app.core.tenant_bootstrap_migration import install_bootstrap as _install_bootstrap
 
 revision = "0172"
 down_revision = "0171"
@@ -24,7 +23,9 @@ def _schema() -> str:
 
 def install_bootstrap() -> None:
     """Expand-only phase; NOT a completed migration or isolation activation."""
-    _install_bootstrap(_schema(), op.execute)
+    from app.core.tenant_bootstrap_migration import install_bootstrap as install
+
+    install(_schema(), op.execute)
 
 
 def upgrade() -> None:

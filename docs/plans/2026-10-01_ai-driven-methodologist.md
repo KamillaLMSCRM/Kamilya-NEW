@@ -574,6 +574,19 @@ capacity failure, расход за пределами лимита. Не «об
    deployment or feature GO. Final169 compatibility receipt, head172, real browser,
    protected migration/backup and CT137 capacity gates remain outstanding.
 
+38. CI36969240393 at9480fe20 failed two hard gates: image-graph pypdf6.17.0
+   7advisories and catalog-load ModuleNotFoundError. Original retained, no public
+   migration/deploy. STAGED_RELEASE_REMEDIATION_ADDENDUM_V1 accepted BEFORE repair.
+   Isolated catalog RED -> lazy execution import GREEN24; PDF/release62 and
+   extraction/export/source81 PASS on explicit6.19.0; only pypdf lock entry/hash
+   changed. Corrected actual owned74 reexecution PASS, cleanup/public-neutral.
+   Independent leaf review accepted lazy imports/native explicitfalse, requested
+   immutable manifest semantic gate. Root accepts this bounded gate BEFORE edit:
+   existing inspect_native_artifact must require literal false for exact
+   compatibility product0.11.26, reject missing/true/numeric/string; older
+   artifacts remain compatible, no new packet/controller/feature activation.
+   Canonical quality1010/2200 PASS; updated error header contract must be rerun.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)

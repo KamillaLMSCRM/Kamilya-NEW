@@ -16,7 +16,7 @@ CURRENT = "2" * 40
 ROLLBACK = "3" * 40
 
 
-def _artifact(root: Path, *, release_sha: str = SHA) -> Path:
+def _artifact(root: Path, *, release_sha: str = SHA, product_version: str = "0.11.1") -> Path:
     archive = root / f"frontend-native-{release_sha}.tar.gz"
     with tarfile.open(archive, "w:gz") as output:
         for directory in (".next", "node_modules", "public"):
@@ -25,7 +25,7 @@ def _artifact(root: Path, *, release_sha: str = SHA) -> Path:
             output.addfile(member)
         files = {
             ".next/BUILD_ID": release_sha.encode("ascii"),
-            "package.json": b'{"name":"web","version":"0.11.1"}',
+            "package.json": json.dumps({"name": "web", "version": product_version}).encode("utf-8"),
             "next.config.js": b"module.exports = {}",
             "security-headers.js": b"module.exports = {}",
         }
@@ -41,7 +41,7 @@ def _artifact(root: Path, *, release_sha: str = SHA) -> Path:
         json.dumps(
             {
                 "release_sha": release_sha,
-                "product_version": "0.11.1",
+                "product_version": product_version,
                 "node_version": "v20.20.2",
                 "platform": "linux",
                 "arch": "x64",
@@ -381,6 +381,38 @@ class OrchestrationTests(unittest.TestCase):
                 release.ReleaseBlocked, "ct137_post_deploy_inventory_mismatch"
             ):
                 orchestrator.execute(_packet(), root)
+
+
+def test_staged_native_workflow_records_explicit_disabled_workbench() -> None:
+    workflow = Path(__file__).resolve().parents[2] / ".github/workflows/build-native-frontend.yml"
+    source = workflow.read_text(encoding="utf-8")
+    assert "--env NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED=false" in source
+    assert 'process.env.NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED!=="false"' in source
+    assert "workbench_enabled:false" in source
+
+
+def test_artifact_inspection_preserves_additional_flag_manifest_evidence(tmp_path) -> None:
+    _artifact(tmp_path, product_version="0.11.26")
+    path = tmp_path / "manifest.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["workbench_enabled"] = False
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    artifact = release.inspect_native_artifact(tmp_path, SHA)
+    assert artifact.manifest_sha256 == hashlib.sha256(path.read_bytes()).hexdigest()
+    assert json.loads(artifact.manifest.read_text(encoding="utf-8"))["workbench_enabled"] is False
+
+
+def test_compatibility_artifact_rejects_missing_or_nonfalse_workbench(tmp_path) -> None:
+    _artifact(tmp_path, product_version="0.11.26")
+    path = tmp_path / "manifest.json"
+    original = json.loads(path.read_text(encoding="utf-8"))
+    for value in (None, True, 0, "false"):
+        payload = dict(original)
+        if value is not None:
+            payload["workbench_enabled"] = value
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        with unittest.TestCase().assertRaisesRegex(release.ReleaseBlocked, "artifact_compatibility_workbench_flag_invalid"):
+            release.inspect_native_artifact(tmp_path, SHA)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-01.
+Current as of: 2026-10-02.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -30,6 +30,41 @@ personal data, or raw logs here.
 Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
+
+## MIGRATION-006 - Revision discovery imported application code before migration execution
+
+- Date: 2026-10-02. Exact CI36969240393 candidate9480fe20; no public schema
+  or production application change.
+- Symptom: KB-RAG schema contract stopped with ModuleNotFoundError after the
+  ordinary Alembic upgrade step had succeeded. Five other CI jobs passed.
+- Cause: unapplied169/172 imported the shared app.core bootstrap installer at
+  module scope. ScriptDirectory.get_heads loads every revision without the API
+  import path; migration metadata discovery unintentionally required app.
+- Fix: import the same shared installer lazily inside execution wrappers. Keep
+  exact SQL, revision chain, safe-schema checks and existing callable seam.
+- Verification: isolated no-app-path subprocess reproduced RED, then GREEN;
+  staged migration plus KB-RAG schema contract tests24 PASS. Original standalone
+  repository_alembic_head invocation now returns0172 without DB access. Actual
+  owned-schema and new exact-SHA CI gates remain separately required.
+- Prevention: retain isolated subprocess regression proving one Alembic head and
+  exact169/172 predecessor metadata without importing app. Do not weaken schema
+  assertions or rely on caller-specific PYTHONPATH for revision discovery.
+
+## SECURITY-018 - pypdf6.17.0 failed the refreshed blocking production dependency audit
+
+- Date: 2026-10-02, exact CI36969240393, original failed run retained.
+- Symptom: image-derived pip-audit reported7 advisories on pypdf6.17.0; maximum
+  patched version among them is6.19.0. Production remained0.11.25.
+- Cause: previously locked PDF dependency was behind new published advisories;
+  local maintained runtime also held older6.14.2, not the image lock's6.17.0.
+- Fix: exact6.19.0 in pyproject, requirements and Poetry lock; only pypdf entry
+  and lock content hash changed. Maintained root runtime upgraded only pypdf.
+- Verification: regression pin contract RED then GREEN; root release/PDF suite
+  62 PASS and extraction/export/source corpus81 PASS on installed6.19.0. New
+  immutable CI must independently rerun the whole production dependency graph.
+- Prevention: keep exact three-representation pin regression, no --ignore-vuln,
+  skip or soft-fail. Verify maintained test runtime version when the dependency
+  changes; current advisories cannot be discharged by an older green CI run.
 
 ## LEARNER-001 - Dashboard resume promised the wrong overlapping enrollment
 
