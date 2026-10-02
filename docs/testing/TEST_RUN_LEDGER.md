@@ -1218,3 +1218,55 @@ Rules:
   identity; no external gate rerun for a documentation-only delta.
 - Graphify AST update attempted once; navigation results never replace source
   review or runtime evidence. No package upgrade or force-shrink authorized.
+
+### 2026-10-02 — `WB-QA174-20261002` staged QA revision selector acceptance
+
+- Frozen linked worktree `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch `feature/methodologist-workbench-20261001`, HEAD `32e1331d9b24621de71213ba1150375a261b0464`. Both supplied file SHA-256 values matched. Local-only and database-free; no source repair, database, network, provider, browser, Git, or runtime action.
+- Exact canonical selector PASS: `8 passed`. `git diff --check` PASS. No full suite rerun.
+- Source review PASS: verify mode supports exact revisions `0168`, `0169`, `0172`, `0173`, and `0174`; bootstrap remains restricted to `0168`; unknown revisions are rejected before engine creation; mismatch rejection and `SET TRANSACTION READ ONLY` behavior remain covered.
+- Prior accepted full-unit/schema counts remain comparison evidence only. Live DEV schema/runtime, provider, network, browser, and production checks were not run by this packet. No runtime fixture was created; temporary test fixtures self-cleaned.
+- Managed persistent evidence: `artifacts/local_acceptance/workbench174-qa-selector-report.md` SHA-256 `9d07dd93013b8e0a92a3e1215ee8d167daa1d3c11096f85cb45309a478a7142b`; `artifacts/local_acceptance/workbench174-qa-selector-results.json` SHA-256 `482eb31451c690c0960930d3b6ccc48308593a89fdc382b567266c2d253f5538`.
+- Result `READY_FOR_ROOT_REVIEW` only; root review `PENDING`; no release GO.
+
+### 2026-10-02 — `REL-WORKBENCH-LOCK174-20261002-ROOT-STOP` external disposition
+
+- Root-only external DEV174/source32/version29 acceptance PASS; managed final
+  bf93a2e4a378cfa86aee5cb606b584b24bbf4cf2346437f35b22644c63c92441.
+  Public catalog, ordinary provider deployment, worker control, permanent QA and
+  browser normal login/enabled workbench verified. No new disposable DEV tenant.
+- Persistent Release Runner local immutable-packet review accepted; known
+  external executor boundary preserved. Cheap native_activation_review accepted
+  exact protected-image/runtime/watchdog/absence script coherence, source-only;
+  populated_tenant_purge_regression prepared retained-QA/absence helpers, root
+  corrected vm126 header and quiet psql transaction output before any execution.
+  Requested gpt-5.6-luna/medium; observed model/token counters NOT_AVAILABLE.
+- Protected37032048857 build PASS, execution FAIL at900s exact-image pull;
+  source32 protected image96a1bc2c never became complete. CT125 remains173,
+  production28/64/a395/blue and native28 unchanged. Independent old health/four
+  services/backup/lock readback PASS; retention restored, watchdog old identity
+  active. Authenticated exact manifest PASS; underlying delay NOT_VERIFIED.
+- Managed root stop/recovery proof
+  c9c3eda8952eddf26ccfcf6cab3669bd1f54567376c9ae99bd62c10b19297c46.
+  Blob diagnostic blocked locally before network by sensitive-material guard;
+  no bypass or blind retry. Reviewed closeout helpers NOT_EXECUTED; A/B preserved.
+  API cleanup/independent absence/new-source live29 and retained-QA29 pending.
+- Final NO_GO. No customer mutation, owner tenant DML, mail/AI/voice, tariff,
+  credentials, DNS, Proxmox or landing change. Root process-local auth cache cleared
+  and acceptance REPL closed. Canonical documentation records the actual stop.
+
+### 2026-10-02 — `WB-QA174-20261002-ROOT-C1` local disposition
+
+- Root accepts the exact eight staged-QA selector checks and diff review only,
+  after reading both managed artifacts and actual execution turn
+  `01a0fd4f-46b5-7371-8c31-df44b9c3717d` (80544ms). Original reports retained.
+  Report Recorded13:45Z is incorrect metadata; actual turn was approximately
+  15:50:26Z–15:51:46Z. No full-suite rerun or external execution by this packet.
+- Persistent Release Runner local packet review turn
+  `01a0fd57-ea83-71d1-a77c-baa9077c2497` (30448ms) accepted source32/version29,
+  CI37029874084 and automatic CI artifact coherence; no external execution.
+  Known runner executor-access boundary is preserved, not treated as a failed
+  project credential. Root owns external execution and independent readback.
+- Protected production build37032048857 uses a distinct immutable image96a1bc2c,
+  not automatic CI digest6d4e4f93. Root independently read both protected records
+  and bound reviewed runtime scripts to the actual protected digest before
+  approving the existing kz-production environment. This is not final GO.

@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-09-07.
+> Обновлено: 2026-10-02.
 
 ## Источники правды
 
@@ -104,13 +104,17 @@ CT137, а API — на VM126. `mail.kml.kz` остаётся отдельным 
 
 ## Карта окружений и доступов
 
-Текущий verified rollout2026-10-02: DEV API/worker/Vercel и KZ API/3workers/native
-frontend на64c8bfebf44a296281d0db3202deaa44bea36e84/version28; обе схемы173,
-workbench ON. Исторические A26/169/OFF и DEV172 snapshots выше не current truth.
-Production text preview/confirm/receipt/student/mobile PASS; normal synthetic
-cleanup500 остаётся открытым. Root read-only EXPLAIN подтверждает owner lock RLS
-defect; кандидат0174/29 пока не применён. Полный gate-status:
-`docs/PRODUCTION_READINESS.md`. Access paths/tariffs не менялись.
+Текущий verified status2026-10-02: DEV API/worker/Vercel на
+32e1331d9b24621de71213ba1150375a261b0464/version29, Supabase174, workbench ON;
+worker/QA/browser gates PASS на существующих Free/Hobby. Production остаётся
+64c8bfebf44a296281d0db3202deaa44bea36e84/version28/schema173/ON, nativefrontend28
+не менялся. Protected37032048857 остановлен на docker pull timeout900s до
+миграции/переключения. Independent old-runtime readback PASS; retention timer
+восстановлен, watchdog old identity active. Authenticated GHCR manifest PASS;
+основная причина задержки NOT_VERIFIED, токен не признан неисправным.
+Normal synthetic A/B cleanup и final production acceptance остаются NO_GO;
+fixtures сохранены, ручного owner DML нет. Исторические snapshots выше не current
+truth. Полные gates — `docs/PRODUCTION_READINESS.md`; access/tariffs не менялись.
 
 Этот раздел — краткий канонический ответ на вопросы «где взять доступ» и
 «через какой узел идёт запрос». Значения токенов, паролей, private keys и DB URL

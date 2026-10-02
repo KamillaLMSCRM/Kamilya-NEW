@@ -90,7 +90,42 @@ maintenance only. Standing authorization is owned by
 API/DB/tenant/landing/DNS/tier maintenance. Full activation and live bounded
 workbench acceptance remain incomplete.
 
-### Current workbench28/64 — production0173/ON; final cleanup blocked
+### Current status — DEV29/0174; production28/0173 preserved, final NO_GO
+
+Immutable29 source/tag/Release: `32e1331d9b24621de71213ba1150375a261b0464`.
+MasterCI37029874084 and devCI37030568443 all7SUCCESS; fullCI3804PASS/2SKIP,
+PG17 isolation42PASS. Test Runner local2244unit/20schema-routing/QA selector8
+accepted; Release Runner local packet review accepted. External execution is
+ROOT_EXECUTOR_ONLY, not independently executed by the runners.
+Actual public DEV173->174/catalog/RLS/owner-lock and API/worker/Vercel29 PASS:
+dep-davtag7lk1mc73cfqvr0, dep-davtbiqjnfac73d391o0,
+dpl_9et2FGR1nfrFWwKLWc54ENdU59ep. Existing Free/Hobby unchanged; workercontrol,
+permanent QA and browser enabled workbench PASS; no QA recreation.
+Managed DEV final proof bf93a2e4a378cfa86aee5cb606b584b24bbf4cf2346437f35b22644c63c92441.
+
+Fresh signed restore173 PASS. Protected37032048857 build SUCCESS, image
+`sha256:96a1bc2c312bab8bb7d70c261642678f37ed771bb22cf9b036c9a7cd461292e2`,
+not automatic CI digest6d4e4f93. Existing environment approved normally.
+Execute FAILED at docker pull after900s, 16:18:58Z–16:33:58Z:
+unexpected_failure:TimeoutExpired. No migration/switch occurred. Independent
+readback: production64/version28/blue/a395, four ON services running/restarts0,
+public/private healthy, CT1250173, backup timer active, release lock absent.
+Paused retention timer restored; old watchdog identity/timer active.
+Disk61%, free12272316KiB; no image cleanup needed.
+
+Read-only registry challenge401 in0.414s and authenticated exact amd64 manifest
+PASS in5.741s (12layers/295903560compressed bytes); complete image absent.
+Underlying transfer/processing cause NOT_VERIFIED, not a proved token failure.
+Blob-range diagnostic rejected locally by sensitive-material guard before network;
+no bypass, alternate credentials/route, timeout expansion or blind rollout retry.
+Managed stop/recovery proof c9c3eda8952eddf26ccfcf6cab3669bd1f54567376c9ae99bd62c10b19297c46.
+Final acceptance NO_GO: production0174/live29/normal A-B cleanup/independent
+absence/QA-after remain pending; disposable fixtures and permanent QA preserved.
+Nativefrontend28/source64 unchanged. No customer/voice/STT/LLM/billing/DNS/
+Proxmox/landing mutation. Next gate: verified exact-image delivery repair before
+new protected execution and the already reviewed closeout sequence.
+
+### Historical workbench28/64 — production0173/ON; cleanup blocked
 
 Actual root execution2026-10-02: source64c8bfebf44a296281d0db3202deaa44bea36e84,
 CI37011061920 all7SUCCESS; tagv0.11.28/GitHub Release published. DEV public173,

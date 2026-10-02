@@ -49,6 +49,9 @@ The original foundation remains pure. The accepted assignment addenda add
 default-disabled API/UI and persistence. Accepted compatibility A26/API and
 A27/frontend were compatible OFF predecessors. Supabase DEV and production
 reached0173/source64/version28/ON on2026-10-02; live text assignment passed.
-DEV cleanup/permanent QA passed; production normal synthetic cleanup is blocked
-by owner lock RLS, with0174/backend29 repair prepared. Final acceptance remains
-gated on that cleanup; voice is not installed or released.
+DEV cleanup28/permanent QA passed; repair0174/backend29/source32 verified in
+publicDEV with unchanged permanent QA and enabled browser workbench.
+Protected production37032048857 built image96a1 but dockerpull hit900s timeout
+before migration/switch. Production28/64/173 remains healthy, retention timer
+restored/watchdog active, native28 unchanged. Normal synthetic cleanup/final
+acceptance remains gated; voice is not installed or released.

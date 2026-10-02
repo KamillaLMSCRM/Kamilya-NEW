@@ -1,9 +1,11 @@
 # AI-driven Камиля: пошаговый план методического рабочего места
 
 Дата: 2026-10-01. Владелец продукта: пользователь; технический владелец: root.
-Статус: первый текстовый vertical slice реализован за выключенными flags;
-изолированный Supabase DEV gate PASS. Голос и новый workflow ещё не доступны
-пользователям. Ветка: `feature/methodologist-workbench-20261001`.
+Статус: первый текстовый assignment slice включён в DEV и production28;
+финальная приёмка остановлена на очистке disposable fixtures. Repair29/174
+проверен и выпущен только DEV; production остановлен до переключения на загрузке
+образа. Голос/LLM intent/document drafting ещё не выпущены.
+Ветка: `feature/methodologist-workbench-20261001`.
 
 ## Результат для методиста
 
@@ -815,9 +817,22 @@ capacity failure, расход за пределами лимита. Не «об
     schema/role/membership absent/publicneutral; managed0887f291. Canonical
     temporary-owner procedure replaces inadmissible SETROLElms_recovery; original
     harness42501 failures preserved. Candidate29 backend-only with native28
-    retained; TestRunner full/local freeze acceptance pending. New exact CI,
-    public DEV174, protected production173->174, normal API A/B cleanup and
-    retained-QA-after still required. No manual owner tenant DML or blind DELETE.
+    retained. Historical preparation snapshot; subsequent disposition below.
+    No manual owner tenant DML or blind DELETE.
+
+58. Root accepted TestRunner2244unit/20schema-routing/quality and QA selector8,
+    with append-only actual-timestamp corrections. Source32/tag29/Release/CI
+    master37029874084 and dev37030568443 verified; fullCI3804PASS/2SKIP,
+    PG17 RLS42PASS. Actual publicDEV174/catalog/ownerlock and existing free
+    provider API/worker/Vercel29 PASS; permanentQA untouched, workercontrol and
+    browser enabledworkbench PASS (managedbf93a2e4). ReleaseRunner local source/
+    packet review accepted; known executor boundary preserved. Fresh signed
+    production173restore passed. Protected37032048857 build96a1 SUCCESS;
+    execution FAILED exact900s dockerpull before migration/switch. Independent
+    production28/64/173/blue/a395/4servicesON readback PASS; retention restored,
+    watchdog old identity active. Authenticated registrymanifest PASS;
+    delaycause NOT_VERIFIED. No blind retry/guardbypass. Managedstopc9c3eda8;
+    production174/live29/normalA-Bcleanup still mandatory.
 
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
@@ -827,11 +842,11 @@ capacity failure, расход за пределами лимита. Не «об
 |---|---|---|---|
 | WB-FOUNDATION | DONE | root / root / independent cheap reviewer |76 pure tests и quality PASS; commit5afa42f |
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
-| WB-DEV-ACCEPT | DONE for28; repair29 pending | root; Test & Evidence Runner on exact accepted packet |DEV173/64 ON, browser/API cleanup/permanent QA PASS; isolated174 non-bypass lock gate PASS, public174 gate pending |
+| WB-DEV-ACCEPT | DONE for29 | root; Test & Evidence Runner local freeze; root external |DEV174/32 ON, owner-lock catalog/workercontrol/permanent QA/browser enabled workbench PASS; prior28 full text-flow proof retained |
 | WB-NEIGHBOR-CATALOG | DONE | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and independent local180 PASS atf0ff29c2; root ACCEPTED_LOCAL_ONLY; no equivalence claim |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
 | WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
-| WB-RELEASE | IN_PROGRESS | root + Release Runner |Production28/64/173 ON, native28, liveflow PASS; final normalcleanup blocked on owner-lock RLS, repair29/174 prepared |
+| WB-RELEASE | BLOCKED at first failed production gate | root + Release Runner local review |Production28/64/173 ON healthy/native28; protected29 dockerpull timeout900s before switch, repairDEV29 accepted; normalcleanup/final acceptance pending |
 
 Write overlap: root owns migration/config/router/registry/purge/docs and DEV gate;
 parser agent owns parser+owned tests, UI agent owns panel/client+web tests until

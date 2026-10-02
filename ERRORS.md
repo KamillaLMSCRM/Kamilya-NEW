@@ -4876,7 +4876,9 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Candidate repair0174 adds only exact-owner UPDATE USING for active superadmin,
   allowed session_user, exact app.tenant_id and non-kamilya target. WITH CHECKfalse
   blocks real UPDATE. No runtime grant, owner, membership, RLS mode or helperbody
-  changes. Production repair/normal cleanup are still pending; not a closed fix.
+  changes. Actual DEV174/29 checks passed on2026-10-02. Protected production
+  37032048857 stopped before migration/switch at image-pull timeout (DEPLOY-012);
+  production remains173/28, so normal cleanup is pending, not a closed fix.
 - Root isolated canonical Supabase DEV policy regression passed10 checks with
   real NOLOGIN/non-bypass temporary owner, red filtered lock, correct lock after
   policy, wrong/empty/ordinary/protected negatives, write denials, unchangedrows,
@@ -5418,3 +5420,32 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   CI remains required and prior failed runs are retained, not relabeled.
 - Prevention: mocks for security-scoped query flows must explicitly model and
   assert context setup, rather than silently consume positional row responses.
+
+## DEPLOY-012 - Exact protected image pull exhausted the release command timeout
+
+- Date: 2026-10-02. Status: OPEN; protected execution stopped safely.
+- Symptom: protected workflow37032048857/job110921281893 at exact source32/version29
+  completed build/provenance/manifest checks, then returned
+  unexpected_failure:TimeoutExpired after900s, before CT125 migration or slot switch.
+- Cause: the installed release command runner bounded docker pull of protected
+  digest96a1bc2c at900s; the complete image remained absent. The underlying blob
+  transfer/Docker-processing cause is NOT_VERIFIED. Bounded daemon categories
+  yielded no diagnostic errors; authenticated exact manifest PASS in5.741s
+  and verified-TLS registry challenge401 in0.414s do not prove layer throughput.
+- Fix: underlying delivery repair pending. Recovery independently verified
+  old64/version28/blue/a395 API/threeworkers
+  running/restarts0/ON and private/public health; CT125 remains0173, backup timer
+  active, release lock absent. Restored only the paused retention timer; old
+  watchdog identity/timer active. No rollout retry, migration, customer DML,
+  credentials/permissions/billing change or cleanup performed.
+- Verification: managed root stop/recovery receipt
+  c9c3eda8952eddf26ccfcf6cab3669bd1f54567376c9ae99bd62c10b19297c46;
+  recovery script9c8b9add1d135b29b497162a84ce4314df43fc1ffb7c9dc6320acc25f4678b98.
+  Blob-range probe was rejected by the existing local sensitive-material guard
+  before network; no bypass. First diagnostic output rejected a timezone plus
+  character; output-only UTC-Z correction passed, no runtime mutation.
+- Prevention: a failed protected gate requires independent current-runtime,
+  exact revision, lock and timer readback. Do not diagnose token expiry from a
+  pull timeout, broaden access, increase timeouts blindly, or declare deployment
+  success from a green image build. Verified exact-image delivery repair and
+  fresh protected execution remain required before schema174/live/cleanup gates.
