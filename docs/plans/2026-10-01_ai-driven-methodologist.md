@@ -562,6 +562,18 @@ capacity failure, расход за пределами лимита. Не «об
    Source fallback verified. Candidate0.11.26 compatibility A; no push/public
    migration/deploy/flag/scheduler/mail/AI/STT/billing/customer mutation yet.
 
+37. Root accepted C2 LOCAL_ONLY at frozen2ce87398 after reading immutable C1/C2
+   reports and exact two-file correction: delayed policy response reproduces RED,
+   await loaded checkbox preserves all assertions, focused7 and full765 PASS,
+   lint/typecheck/build/version PASS. API283/quality1010/2200 remain explicitly
+   PRIOR_IMMUTABLE_EVIDENCE; owned74 proof remains ROOT_EXECUTOR. Original failures
+   retained. Public DEV0168 exact25 API/worker/Vercel reconciled, QA warm verification
+   PASS with zero business mutations. Production read-only exact25/all4 containers
+   running, restart0, current/rollback images and57% disk verified. This accepts
+   source publication/CI and the conditional additive DEV169 gate, NOT production
+   deployment or feature GO. Final169 compatibility receipt, head172, real browser,
+   protected migration/backup and CT137 capacity gates remain outstanding.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)
