@@ -22,7 +22,7 @@ def stand():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("expected,actual,passes", [("0168", "0168", True), ("0169", "0169", True), ("0172", "0172", True), ("0172", "0169", False)])
+@pytest.mark.parametrize("expected,actual,passes", [("0168", "0168", True), ("0169", "0169", True), ("0172", "0172", True), ("0173", "0173", True), ("0174", "0174", True), ("0174", "0173", False), ("0172", "0169", False)])
 async def test_only_exact_packet_revision_is_verified(stand, monkeypatch, expected, actual, passes):
     role = SimpleNamespace(one=lambda: SimpleNamespace(rolsuper=False, rolbypassrls=False))
     revision = SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [actual]))

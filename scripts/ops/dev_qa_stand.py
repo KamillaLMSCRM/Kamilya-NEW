@@ -101,7 +101,7 @@ def validate_manifest(state: dict[str, Any]) -> None:
 async def database_readback(values: dict[str, Any], state: dict[str, Any] | None = None,
                             *, expected_revision: str = "0168") -> None:
     """Canonical Supabase runtime role, one connection, READ ONLY transaction."""
-    require(expected_revision in {"0168", "0169", "0172", "0173"}, "unsupported_qa_schema_revision")
+    require(expected_revision in {"0168", "0169", "0172", "0173", "0174"}, "unsupported_qa_schema_revision")
     from sqlalchemy import text
     from sqlalchemy.engine import make_url
     from sqlalchemy.ext.asyncio import create_async_engine
@@ -278,7 +278,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=["bootstrap", "verify"])
     parser.add_argument("--expected-sha", required=True)
-    parser.add_argument("--expected-revision", choices=["0168", "0169", "0172", "0173"], default="0168")
+    parser.add_argument("--expected-revision", choices=["0168", "0169", "0172", "0173", "0174"], default="0168")
     parser.add_argument("--confirm-bootstrap")
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--evidence", type=Path, required=True)
