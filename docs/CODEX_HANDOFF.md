@@ -7,6 +7,15 @@
 
 ## Current production: text workbench accepted, backend29/schema174
 
+Local development navigation addition,2026-10-03: pinned CodeGraph1.6.1 installed
+only under the candidate's ignored `.release-evidence/codegraph-pilot/runtime`.
+Use `scripts/dev/codegraph.cjs` and [local runbook](runbooks/codegraph-local.md);
+optional caller/callee lookup, not a Graphify replacement or runtime/RLS proof.
+Telemetry/update/watch/daemon OFF; no Git hooks/global MCP/application dependency.
+Five wrapper tests, rename/exclusion canaries and package signatures/attestations
+PASS. Known false ORM-method edge and missing frontend-HTTP→handler edge retained.
+No production/DB/provider/billing change; voice product integration stays pending.
+
 - result: protected37032048857 failed-job rerun attempt2 SUCCESS at immutable
   source32e1331d9b24621de71213ba1150375a261b0464/image96a1bc2c/version29.
   API+3workers green/ON/zero restarts; CT125174 owner lock/RLS/ACL PASS;

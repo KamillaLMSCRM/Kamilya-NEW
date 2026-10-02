@@ -104,6 +104,7 @@ test_demo.json
 # Generated artefacts (don't commit)
 repomix-output*.md
 graphify-out/
+.codegraph/
 .claude/
 .aider*
 

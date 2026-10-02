@@ -1,0 +1,17 @@
+{
+  "exclude": [
+    "**/.env*",
+    "**/*.pem",
+    "**/*.key",
+    "**/*.crt",
+    ".release-evidence/**",
+    "graphify-out/**",
+    "outputs/**",
+    "docs/**",
+    "**/node_modules/**",
+    "**/.venv/**",
+    "**/.next/**",
+    "apps/api/storage/**",
+    "storage/**"
+  ]
+}

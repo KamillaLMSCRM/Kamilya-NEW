@@ -1340,3 +1340,42 @@ Rules:
   auto-language RU/KK, cold-cache/p95/concurrency/cancellation, actual phone flow,
   GPU inference and production capacity/route remain NOT_VERIFIED. Detailed next
   steps belong to the canonical AI-driven plan; production text release unchanged.
+
+### 2026-10-03 — `CODEGRAPH-LOCAL-20261003` scoped navigation adoption
+
+- Owner conditional authorization: investigate CodeGraph and apply if useful.
+  Root accepted optional local navigation, not replacement of Graphify/source/test
+  evidence, production deployment, global agent/MCP config or an automatic hook.
+- Pinned1.6.1 public npm runtime, install scripts disabled and credentials isolated;
+  two package registry signatures and attestations verified. Node24.18.0/Windowsx64.
+  Initial SDK index1602 files/29696nodes/79018edges/520routes/zero parse errors;
+  duration3.815s/index,12.995s init/index/query work. Final local sync1604files/
+  29717nodes/79082edges. Versioned JSON excludes docs/raw evidence/env/dependencies;
+  source core/storage preserved. Resting index≈102MiB/runtime≈253MiB, cache extra.
+- Source-checked directed positives: confirm_plan→confirm_assignment_plan,
+  confirm_assignment_plan→enroll_users/evaluate_confirmation,
+  requestPreview→requestAssignmentPreview. Known false AsyncSession.flush→test fake
+  and absent HTTP-client→FastAPI-handler edge retained as limitations. Counts do
+  not establish quality/speed/token/cost superiority over Graphify's different scope.
+- Root-owned synthetic rename alpha→beta actual incremental sync PASS; old symbol
+  absent/new caller preserved. Synthetic .env.py/docs/private.py canaries absent
+  from file records/search. Absolute wrapper from parent workspace opens fixed
+  linked checkout, SDK effective exclusion preflight matches config before scan.
+- node syntax/scoped5 regression tests/release-contract gate/diff whitespace PASS.
+  Query output valid JSON≤6000characters/12items, truncation explicit, only calls
+  edges and unspecified provenance honestly retained; no full source dumps.
+- Independent read-only codegraph_runner_review requested gpt-5.6-luna/medium;
+  observed model/token/effort/timing NOT_AVAILABLE. First pass raised config/CWD
+  risks; root hardened preflight and supplied SDK path evidence; second pass accepted,
+  withdrawing the unsupported absolute CODEGRAPH_DIR recommendation. Root added
+  Windows-separator regression for the residual post-index audit concern. One
+  correction round; root time/rework counters NOT_AVAILABLE, not zero.
+- Failures retained: graphify query --help was interpreted as a broad query;
+  corrected to top-level help and bounded --context call/--budget600 query.
+  Temporary SDK preflight called a nonexistent export; corrected to actual pinned
+  loadExcludePatterns/loadIncludePatterns/loadIncludeIgnoredPatterns. One atomic
+  documentation patch failed context matching without partial edits; reapplied
+  against exact current source. No hidden fallback, provider/DB/product mutation.
+- Result `LOCAL_NAVIGATION_ADOPTED`; benchmark task speedup, cost/quota savings,
+  affected-test completeness and MCP/watch auto-sync NOT_VERIFIED. Root runbook is
+  the repeatable procedure; production acceptance and voice quality are unchanged.
