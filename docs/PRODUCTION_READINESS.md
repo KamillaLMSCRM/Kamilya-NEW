@@ -90,7 +90,36 @@ maintenance only. Standing authorization is owned by
 API/DB/tenant/landing/DNS/tier maintenance. Full activation and live bounded
 workbench acceptance remain incomplete.
 
-### Current workbench B candidate0.11.28 — DEV0172/ON, cleanup repair pending
+### Current workbench28/64 — production0173/ON; final cleanup blocked
+
+Actual root execution2026-10-02: source64c8bfebf44a296281d0db3202deaa44bea36e84,
+CI37011061920 all7SUCCESS; tagv0.11.28/GitHub Release published. DEV public173,
+API dep-davr09jncjis73feauqg/worker dep-davr1eid0e5s73927en0 LIVE;
+Vercel dpl_8FP4VEPgak9Zuz3duzgubP5NM5eo READY; normal DEV cleanup/readback PASS,
+permanent QA unchanged. Production protected37015602293 SUCCESS, backend28 image
+a395295dc4b8d027258bef0b67aac0ced9227bd8fd0b8efad20b4582a6526d0f;
+API/3workers exact64/running/zero restarts, schema173 and all flags ON.
+Native build37012329022/artifact11228372929 -> bridge RELEASE_OK current/marker64,
+ON build-config, public/private health PASS; no frontend cleanup performed.
+Timers/watchdog exact64/a395 active; workers actual ping/queues/tasks/concurrency PASS.
+
+Root actual browser desktop/mobile390 preview/reload/explicit-confirm/receipt/
+replay/student dashboard/course PASS: created1/skipped1, prior deadline intact,
+no duplicate, foreign404/student403, no notification/voice/STT/LLM. Managed
+workbench28-production-live-before-cleanup-root.json 7fc74455 preserves the live
+proof as PASS_BEFORE_CLEANUP, not final GO. Both owned synthetic tenants retained:
+normal B cleanup500/ProgrammingError, first reminder helper rejects correctslug.
+Read-only catalog/EXPLAIN proves non-bypass owner SELECT visible1 but FOR UPDATE
+constantfalse due missing owner UPDATE policy; no manual tenant DML/retry.
+
+Candidate29/0174 owner-only lock repair prepared; actual isolated non-bypass DEV
+10checks PASS, rows unchanged, schema/temporaryrole/membership absent, public
+neutral. Exact29 CI/DEV public174/production174/API cleanup/retained-QA-after are
+still required. Production acceptance remains NO_GO until cleanup closes.
+Frontend28 is retained for this backend-only repair; rollback app28 on174,
+without schema downgrade. Details: releases/v0.11.29.md and owner-lock addendum.
+
+### Historical workbench B candidate0.11.28 — DEV0172/ON, cleanup repair pending
 
 Exact DEV source `eb427100a53e96f45888203f6b46e8e9c24801a3`:
 master CI36999146155/dev CI36999932574 all7 SUCCESS. Existing API

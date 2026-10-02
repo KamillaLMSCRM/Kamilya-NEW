@@ -29,6 +29,7 @@ from typing import Any, Mapping, Protocol
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MINIMUM_RESERVE_BYTES = 512 * 1024 * 1024
+NATIVE_ARTIFACT_DOWNLOAD_TIMEOUT_SECONDS = 1200
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 RELEASE_ID_RE = re.compile(r"^REL-[A-Z0-9][A-Z0-9-]{7,95}$")
 EXPECTED_API_URL = "https://api.kml.kz/api"
@@ -600,17 +601,24 @@ class NativeReleaseOrchestrator:
 def _run(
     command: list[str], *, env: Mapping[str, str] | None = None, timeout: int = 300
 ) -> str:
-    completed = subprocess.run(
-        command,
-        cwd=REPO_ROOT,
-        env=None if env is None else dict(env),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=timeout,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=REPO_ROOT,
+            env=None if env is None else dict(env),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        # Do not expose subprocess arguments, captured output or environment.
+        # main() must persist the same bounded BLOCKED evidence as other gates.
+        raise ReleaseBlocked(
+            f"command_timeout:{Path(command[0]).name}:seconds_{timeout}"
+        ) from None
     if completed.returncode != 0:
         reason = completed.stderr.strip().splitlines()[-1:] or ["no_stderr"]
         raise ReleaseBlocked(
@@ -761,6 +769,7 @@ class GithubActionsProbe:
                 str(verified_destination),
             ],
             env=self.environment,
+            timeout=NATIVE_ARTIFACT_DOWNLOAD_TIMEOUT_SECONDS,
         )
         return verified_destination
 

@@ -104,6 +104,14 @@ CT137, а API — на VM126. `mail.kml.kz` остаётся отдельным 
 
 ## Карта окружений и доступов
 
+Текущий verified rollout2026-10-02: DEV API/worker/Vercel и KZ API/3workers/native
+frontend на64c8bfebf44a296281d0db3202deaa44bea36e84/version28; обе схемы173,
+workbench ON. Исторические A26/169/OFF и DEV172 snapshots выше не current truth.
+Production text preview/confirm/receipt/student/mobile PASS; normal synthetic
+cleanup500 остаётся открытым. Root read-only EXPLAIN подтверждает owner lock RLS
+defect; кандидат0174/29 пока не применён. Полный gate-status:
+`docs/PRODUCTION_READINESS.md`. Access paths/tariffs не менялись.
+
 Этот раздел — краткий канонический ответ на вопросы «где взять доступ» и
 «через какой узел идёт запрос». Значения токенов, паролей, private keys и DB URL
 здесь не хранятся.

@@ -41,10 +41,14 @@ Existing free DEV provider configuration seam with final172 receipt and observed
 [DEV-ACTIVATION-CONTROLLER V1](contracts/DEV_ACTIVATION_CONTROLLER_ADDENDUM_V1.md).
 Populated cleanup repair and final173/V3 DEV receipt, accepted before implementation:
 [POPULATED-TENANT-PURGE-RELEASE V1](contracts/POPULATED_TENANT_PURGE_RELEASE_ADDENDUM_V1.md).
+Non-bypass owner row-lock repair174, without real owner writes or runtime grants:
+[TENANT-PURGE-OWNER-LOCK repair V1](contracts/TENANT_PURGE_OWNER_LOCK_REPAIR_V1.md).
 Execution sequence/progress: [plan](../../../plans/2026-10-01_ai-driven-methodologist.md).
 
 The original foundation remains pure. The accepted assignment addenda add
 default-disabled API/UI and persistence. Accepted compatibility A26/API and
-A27/frontend stay OFF; Supabase DEV public reached0172 on2026-10-02 while
-production remains169/OFF. DEV public QA/readback after172 and enabled B/live
-acceptance remain gated; voice is not installed or released.
+A27/frontend were compatible OFF predecessors. Supabase DEV and production
+reached0173/source64/version28/ON on2026-10-02; live text assignment passed.
+DEV cleanup/permanent QA passed; production normal synthetic cleanup is blocked
+by owner lock RLS, with0174/backend29 repair prepared. Final acceptance remains
+gated on that cleanup; voice is not installed or released.

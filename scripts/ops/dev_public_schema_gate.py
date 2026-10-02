@@ -4,7 +4,8 @@
 Render Free does not execute pre-deploy commands.  A DEV release that changes
 the schema must therefore run this explicit gate before API and worker rollout.
 The default mode is read-only. ``--apply`` is required for a mutation. Workbench
-Workbench heads0172/0173 require explicit expand169/contract-head phases and compatible readback.
+Heads0172/0173 require explicit expand169/contract-head phases and compatible
+readback. Additive0174 requires repair from an already isolated173 contour.
 No database URL, host, username, or credential is rendered in the report.
 """
 
@@ -81,6 +82,8 @@ def repository_head() -> str:
 def phase_target(head: str, phase: str | None) -> str:
     if phase is None:
         return head
+    if head == "0174" and phase == "repair":
+        return head
     if head not in {"0172", "0173"} or phase not in {"expand", "contract"}:
         raise GateBlocked("unsupported_workbench_phase")
     return "0169" if phase == "expand" else head
@@ -112,6 +115,14 @@ def verify_compatibility_receipt(path: Path | None, sha: str | None) -> None:
 
 
 def verify_phase_path(current: str, head: str, phase: str | None, *, apply: bool) -> None:
+    if head == "0174":
+        if phase not in {None, "repair"}:
+            raise GateBlocked("unsupported_workbench_phase")
+        if phase == "repair" and current not in {"0173", "0174"}:
+            raise GateBlocked("workbench_phase_revision_mismatch")
+        if phase is None and apply and current != head:
+            raise GateBlocked("workbench_repair_phase_required")
+        return
     if head not in {"0172", "0173"}:
         return
     allowed = {"expand": {"0168", "0169"}, "contract": {"0169", "0172", head}}
@@ -195,7 +206,7 @@ def run_upgrade(values: dict[str, str], owner_url: str, target: str = "head") ->
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--env-file", type=Path)
-    parser.add_argument("--workbench-phase", choices=("expand", "contract"))
+    parser.add_argument("--workbench-phase", choices=("expand", "contract", "repair"))
     parser.add_argument("--compatibility-evidence", type=Path)
     parser.add_argument("--compatibility-sha")
     parser.add_argument(
@@ -205,7 +216,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Apply the exact selected target; workbench0172/0173 requires staged phases.",
+        help="Apply the exact selected target; workbench requires its explicit staged/repair phase.",
     )
     return parser.parse_args()
 

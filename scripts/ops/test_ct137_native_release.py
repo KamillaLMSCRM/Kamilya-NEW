@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import os
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -514,6 +515,48 @@ def test_download_never_trusts_nonempty_local_artifact_cache(tmp_path, monkeypat
     assert probe.download(_packet(), cache) == destinations[1]
     assert destinations[0] != destinations[1]
     assert original.read_text(encoding="utf-8") == "untrusted"
+
+
+def test_command_timeout_becomes_sanitized_release_block(monkeypatch) -> None:
+    def timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(args[0], kwargs["timeout"], output=b"synthetic-private-output", stderr=b"synthetic-private-error")
+
+    monkeypatch.setattr(release.subprocess, "run", timeout)
+    with unittest.TestCase().assertRaisesRegex(release.ReleaseBlocked, r"^command_timeout:gh:seconds_300$") as caught:
+        release._run(["gh", "run", "download", "opaque-id"])
+    assert "synthetic-private" not in str(caught.exception)
+
+
+def test_artifact_download_has_separate_bounded_timeout(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(release, "REPO_ROOT", tmp_path)
+    calls = []
+    monkeypatch.setattr(release, "_run", lambda command, **kwargs: calls.append((command, kwargs)) or "")
+    probe = object.__new__(release.GithubActionsProbe)
+    probe.environment = {}
+    destination = probe.download(_packet(), tmp_path / "native-build")
+    assert destination.is_dir() and destination.parent == tmp_path / "native-build"
+    assert calls[0][1]["timeout"] == 1200
+    assert calls[0][0][:3] == ["gh", "run", "download"]
+
+
+def test_cli_timeout_preserves_bounded_blocked_evidence(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(release, "load_release_packet", lambda *args: _packet())
+    probe = object.__new__(release.GithubActionsProbe)
+    probe.environment = {}
+    monkeypatch.setattr(release, "GithubActionsProbe", lambda: probe)
+
+    def timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(args[0], kwargs["timeout"])
+
+    monkeypatch.setattr(release.subprocess, "run", timeout)
+    monkeypatch.setattr(release, "REPO_ROOT", tmp_path)
+    evidence = tmp_path / "blocked.json"
+    with unittest.TestCase().assertRaisesRegex(release.ReleaseBlocked, "command_timeout:gh"):
+        release.main(["preflight", "--packet", str(tmp_path / "packet.json"), "--packet-sha256", "0" * 64, "--evidence", str(evidence)])
+    result = json.loads(evidence.read_text())
+    assert result["status"] == "BLOCKED" and result["mode"] == "preflight"
+    assert result["reason"] == "command_timeout:gh:seconds_1200"
+    assert result["release_sha"] == SHA and result["state_reconciliation_required"] is False
 
 
 @unittest.skipUnless(os.name != "nt", "requires Unix symlink semantics")

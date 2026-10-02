@@ -49,6 +49,22 @@ def test_final173_requires_staged_contract_from169_or172(gate):
         gate.verify_phase_path("0172", "0173", None, apply=True)
 
 
+def test_repair174_accepts_only_existing173_or174_and_cannot_bypass_phase(gate):
+    assert gate.phase_target("0174", "repair") == "0174"
+    for current in ("0173", "0174"):
+        gate.verify_phase_path(current, "0174", "repair", apply=True)
+    for current in ("0169", "0172", "0175"):
+        with pytest.raises(gate.GateBlocked, match="revision_mismatch"):
+            gate.verify_phase_path(current, "0174", "repair", apply=True)
+    with pytest.raises(gate.GateBlocked, match="repair_phase_required"):
+        gate.verify_phase_path("0173", "0174", None, apply=True)
+    gate.verify_phase_path("0174", "0174", None, apply=True)
+    gate.verify_phase_path("0173", "0174", None, apply=False)
+    for phase in ("expand", "contract"):
+        with pytest.raises(gate.GateBlocked, match="unsupported_workbench_phase"):
+            gate.verify_phase_path("0173", "0174", phase, apply=True)
+
+
 @pytest.mark.parametrize("current,phase", [("0167", "expand"), ("0172", "expand"), ("0168", "contract"), ("0171", "contract")])
 def test_skips_backwards_or_unknown_states_are_rejected(gate, current, phase):
     with pytest.raises(gate.GateBlocked, match="workbench_phase_revision_mismatch"):

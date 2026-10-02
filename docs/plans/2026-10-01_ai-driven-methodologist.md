@@ -796,6 +796,29 @@ capacity failure, расход за пределами лимита. Не «об
    full reports/actualcommands accepted LOCAL_ONLY with ROOT-C1 storage/path/
    static-versus-runtime metadata corrections. Original report content preserved.
 
+56. Actual source64/CI37011061920 all7SUCCESS. DEV173 API/worker/Vercel28 ON,
+    owned fixture API cleanup204/fresh404/independent absence and retained QA PASS.
+    Tag28/GitHubRelease published; protected production37015602293 backend28/173
+    exact64/a395 image, controlled4-service ON and native37012329022 exact64/ON
+    RELEASE_OK. Worker ping/queues/tasks/concurrency, timers/watchdog/readback PASS.
+    Root live production preview/reload/confirm/replay/student-course/mobile PASS,
+    created1/skipped1, prior deadline intact, no notifications/AI/voice.
+    Normal owned B cleanup500/ProgrammingError, both synthetic tenants retained.
+    Product final acceptance NO_GO; pre-cleanup live proof7fc74455 preserved.
+
+57. Root read-only production catalogs/logs/EXPLAIN isolate first reminder helper:
+    exact tenant SELECT visible1/rightslug, non-bypass-owner FOR UPDATE false RLS
+    filter, all directDELETE/helperEXECUTE grants present. Accepted owner-lock
+    repair V1 adds0174 owner-only UPDATE USING with WITHCHECKfalse/no grants.
+    Root7 unit RED->GREEN, phase1 RED->GREEN and focused28PASS. Actual frozen
+    Supabase DEV non-bypass transaction-only owner gate10PASS at15:34:01Z,
+    schema/role/membership absent/publicneutral; managed0887f291. Canonical
+    temporary-owner procedure replaces inadmissible SETROLElms_recovery; original
+    harness42501 failures preserved. Candidate29 backend-only with native28
+    retained; TestRunner full/local freeze acceptance pending. New exact CI,
+    public DEV174, protected production173->174, normal API A/B cleanup and
+    retained-QA-after still required. No manual owner tenant DML or blind DELETE.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)
@@ -804,11 +827,11 @@ capacity failure, расход за пределами лимита. Не «об
 |---|---|---|---|
 | WB-FOUNDATION | DONE | root / root / independent cheap reviewer |76 pure tests и quality PASS; commit5afa42f |
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
-| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |DEV172/ON/eb427 browser PASS; populated cleanup blocked; isolated173 repair PASS, new CI/DEV173/APIcleanup required |
+| WB-DEV-ACCEPT | DONE for28; repair29 pending | root; Test & Evidence Runner on exact accepted packet |DEV173/64 ON, browser/API cleanup/permanent QA PASS; isolated174 non-bypass lock gate PASS, public174 gate pending |
 | WB-NEIGHBOR-CATALOG | DONE | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and independent local180 PASS atf0ff29c2; root ACCEPTED_LOCAL_ONLY; no equivalence claim |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
 | WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
-| WB-RELEASE | IN_PROGRESS | root + Release Runner |Production A26/169/OFF +frontend27 PASS; next protectedB173/activation/live after DEVcleanup |
+| WB-RELEASE | IN_PROGRESS | root + Release Runner |Production28/64/173 ON, native28, liveflow PASS; final normalcleanup blocked on owner-lock RLS, repair29/174 prepared |
 
 Write overlap: root owns migration/config/router/registry/purge/docs and DEV gate;
 parser agent owns parser+owned tests, UI agent owns panel/client+web tests until

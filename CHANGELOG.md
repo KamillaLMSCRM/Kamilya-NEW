@@ -45,6 +45,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.29] - 2026-10-02
+
+### Fixed
+
+- Permit exact superadmin tenant row locks by the non-bypass purge-function
+  owner under forced RLS. Keep real owner updates rejected and runtime grants
+  unchanged. Add isolated non-bypass regression and bounded173-to174 DEV gate.
+- Persist sanitized native frontend controller timeouts and bound artifact
+  downloads separately from ordinary commands; preserve exact artifact identity.
+
 ## [0.11.28] - 2026-10-02
 
 ### Added

@@ -1155,3 +1155,66 @@ Rules:
 
 - Root after Runner ownership ended: full reports and actual turn01a0fcb5-88ef-7353-9c1e-2e7f606c544d/175050ms read; local25/collect1/Ruff2 accepted LOCAL_ONLY, root2233unit PASS. Runner wrote ordinary worktree files, not managed storage; root preserved original content in managed standalone artifacts and separate root-disposition receipt. Original local hashes424dc143/dd109d1f preserved; original content not rewritten.
 - Metadata corrections: report plan path is `docs/plans/2026-10-01_ai-driven-methodologist.md` (not underscore). Result notification/delete/get numeric fields represent STATIC expected assertions, not actual runner runtime. Exact new PostgreSQL CI, DEV173, provider/live cleanup and production remain unrun gates. No release GO.
+
+### 2026-10-02 — `WB-WEB28-ARTIFACT-TIMEOUT-20261002` bounded artifact-timeout acceptance
+
+- Frozen linked worktree `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch `feature/methodologist-workbench-20261001`, HEAD `64c8bfebf44a296281d0db3202deaa44bea36e84`. The supplied controller SHA-256 matched `scripts/ops/ct137_native_release.py`: `6058755c6ad2684abdba4a869404447d31fd9d7fd8056fe2f697f1fed9ba8d27`. The two named release files were treated as the root-owned operational delta. No source/test/configuration repair, provider, network, database, browser, deployment, production, commit, or push action.
+- Initial path attempt was a runner `HARNESS_FAILURE`: `scripts/ops/test_ct137_native_workbench.py` does not exist; no tests ran. One safe path correction resolved the canonical neighboring file to `scripts/ops/test_ct137_workbench_activation.py`.
+- Corrected canonical wrapper PASS: `58 passed`, `1` existing Windows symlink skip. `git diff --check` PASS.
+- Source review PASS: ordinary commands retain a 300-second timeout; native artifact download has a separate bounded 1200-second timeout; each download uses a fresh unique destination; cached bytes are not trusted as CI provenance; timeout evidence is sanitized to `BLOCKED` without command/output/environment leakage; no automatic retry path; activation and release-runner bridge gates remain covered.
+- Managed persistent evidence: `artifacts/local_acceptance/workbench28-timeout-test-runner-report.md` SHA-256 `7a76a23a88c1ff78eb2e95aed9cce46470dcda8e8be4c4fcc9c0c9ab429023b2`; `artifacts/local_acceptance/workbench28-timeout-test-runner-results.json` SHA-256 `f627ec62721cba4bccd2fb12f17c340333415f841d35f1a180fc11ea0e459f30`.
+- Actual artifact download, provider/network/database/browser/production behavior, and release execution remain `NOT_RUN`/`NOT_VERIFIED`; test-managed temporary cleanup completed; root review `PENDING`; no release GO.
+
+### 2026-10-02 — `WB-WEB28-ARTIFACT-TIMEOUT-20261002-ROOT-C1` local acceptance
+
+- Root read the full managed report/results and actual Runner turn
+  `01a0fcf3-c196-7120-932e-7d4ffd3a30eb` (160281ms). Accepts LOCAL_ONLY58PASS,
+  1existingWindowsSKIP and diffcheck; root additionally scoped Ruff2PASS.
+  Original zero-test path failure and managed-writer rejected calls remain
+  preserved. Report `Recorded:13:20Z` is unverified metadata, not test-run time.
+- No frozen product/source64/tag28 change. The reviewed operational controller
+  delta only bounds artifact download to1200seconds and serializes sanitized
+  timeout evidence; ordinary commands remain300seconds. Fresh actual native
+  preflightREADY is separate root executor evidence, not Runner runtime proof.
+- Cheap independent `native_activation_review` remains requested
+  gpt-5.6-luna/medium; observed model/effort/token counters NOT_AVAILABLE.
+  Root accepted exact activation script c5791a33 and corrected production fixture
+  gate27de721e after one scope-gate correction; source-only reviews are not runtime
+  approval. Root owns all external changes, browser acceptance and cleanup.
+- Separate Release Runner turn `01a0fd04-7c32-7ed2-97a2-eb114b5cacaa` (56947ms)
+  verified local B28 packet/preflight/ON receipt coherence without external access
+  or edits. Dirty controller/tests/ledger are known reviewed operational scope,
+  not artifact content or an unexplained checkout blocker. Production business
+  acceptance remains separate and pending.
+
+### 2026-10-02 — `WB-OWNER-LOCK174-20261002` owner-lock and phase-routing local acceptance
+
+- Frozen linked worktree `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch `feature/methodologist-workbench-20261001`, HEAD `64c8bfebf44a296281d0db3202deaa44bea36e84`. All six supplied frozen-file SHA-256 values matched. Local-only and database-free; no source repair, database, provider, network, browser, deployment, production, commit, or push action.
+- Canonical API unit suite PASS: `2244 passed`, `5` existing deprecation warnings. Public schema/staged-gate selector PASS: `20 passed`. Canonical Python quality baseline PASS (`ruff=1010`, `mypy=2200`). Scoped Ruff on all six frozen files PASS; `git diff --check` PASS.
+- Source review PASS: migration0174 adds only the owner-specific tenant UPDATE lock policy with exact owner/session/superadmin/tenant/protected guards and `WITH CHECK(false)`; downgrade drops only that policy. No grants, role attributes/memberships, RLS mode, helper body, public route, or business-row mutation changed. Phase routing is fail-closed for 0174 repair from 0173/0174 and preserves explicit older 0172/0173 expand/contract paths.
+- The external non-bypass PostgreSQL owner-lock gate, DEV schema application, provider, runtime, and production cleanup were not run by this packet. No runtime fixture was created; test temporary fixtures self-cleaned. Managed persistent evidence: `artifacts/local_acceptance/workbench174-test-runner-report.md` SHA-256 `ab7ed91e90e695d066e6667e8599d61d514e45094e58f62eb8adceb70da81496`; `artifacts/local_acceptance/workbench174-test-runner-results.json` SHA-256 `65f13acf96d4bea20bdc8302b85f8c6e773b331cd1378a90ec6a7034af356097`.
+- Result `READY_FOR_ROOT_REVIEW` only; root review `PENDING`; no release GO.
+
+### 2026-10-02 — `WB-OWNER-LOCK174-20261002-ROOT-C1` local acceptance
+
+- Root accepts LOCAL_ONLY2244unit/20schema-contracts/quality-baseline/scopedRuff6/diff,
+  after reading managed results and actual Runner turn
+  `01a0fd3f-2e8b-7430-a296-935cacc3e10a` (186767ms). No tests rerun for this
+  disposition; original reports remain unchanged. Report Recorded13:35Z is
+  incorrect metadata, not execution time; actual turn ended approximately15:35:58Z.
+- Frozen external DEV proof is separate ROOT_EXECUTOR_ONLY: managed
+  `artifacts/local_acceptance/workbench174-frozen-isolated-dev-root.json`
+  SHA2560887f291b528dfa0c64277b282fc19f9034283f80cd97ac14861a62422b6218b,
+  ten checks passed; fresh temporary schema/role absence and public neutrality.
+  Policy75004e58 and gate3fa27166 stayed frozen throughout accepted runs.
+- Cheap independent owner-lock/gate source review requested gpt-5.6-luna/medium;
+  observed model/effort/token counters NOT_AVAILABLE. Source review is not runtime
+  execution. Public DEV174, exact new CI/image, production174 and normal cleanup
+  remain mandatory separate gates; no release GO.
+- Subsequent root-only docstring correction removes an inaccurate "no roles"
+  claim from the gate; executable AST is unchanged. Final gate SHA256
+  0da626cea58a13ca827e94a06e28f0152eb4d9c2e4f1e66ca8332b8518e7464c.
+  Focused gate-contract4PASS. Frozen runtime proof retains original3fa27166
+  identity; no external gate rerun for a documentation-only delta.
+- Graphify AST update attempted once; navigation results never replace source
+  review or runtime evidence. No package upgrade or force-shrink authorized.

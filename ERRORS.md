@@ -4493,6 +4493,28 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   subcommands or infer rollback identity. A controller result ending in
   `SEPARATE_TEST_RUNNER_REQUIRED` is technical deployment evidence, not product GO.
 
+### Recurrence 2026-10-02: artifact download timeout escaped structured evidence
+
+- Symptom: two fresh native28 preflights stopped after approximately300seconds
+  with bridge `controller_evidence_missing`; their download destinations stayed
+  empty. The suppressed child failure does not independently prove a network
+  cause. No frontend switch or capacity cleanup occurred.
+- Confirmed source defect: the same300second subprocess limit was used for a
+  155MB GitHub artifact download and ordinary commands; `TimeoutExpired` escaped
+  the controller's `ReleaseBlocked` handler, so no bounded BLOCKED receipt was
+  persisted. Three regression tests were RED before repair.
+- Fix: only artifact download uses a finite1200second limit; ordinary commands
+  stay300seconds. Convert `TimeoutExpired` to sanitized `ReleaseBlocked`, omitting
+  command arguments, captured output and environment. No retry, cache trust,
+  artifact rewrite, permission or host-helper change.
+- Verification: root and independent Test Runner58PASS/1existingWindowsSKIP,
+  diffcheckPASS. Fresh actual native28 preflightREADY verifies the downloaded
+  archive `31f000d5669eecfc29cfae730f4d9cc0e8e642c7ccdeca9fa95b7dcda5161250`
+  and exact CI/artifact/build config. Product/runtime acceptance is separate.
+- Prevention: subprocess timeout must have a sanitized structured failure test;
+  large transfers need a separate bounded budget with outer-controller margin.
+  Preserve failed evidence and reconcile state before any execution retry.
+
 ## TEST-INFRA-005 - Shared DEV cleanup tests selected persistent synthetic tenants
 
 - Date: 2026-09-25. Found while running the superadmin operations integration
@@ -4840,6 +4862,33 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   must remain visible to the operator; generic copy alone is not diagnostic.
 
 ## TENANT-PURGE-004 - Source-actuality records blocked superadmin tenant deletion
+
+### Recurrence2026-10-02: non-bypass definer owner cannot lock a tenant
+
+- Actual production28/source64/schema173 normal synthetic B DELETE returned500,
+  transaction preserved both fixtures. B has no enrollments; all37 direct-table
+  DELETE grants and all5 helper EXECUTE grants were present. PostgreSQL bounded
+  log points to first reminder helper's tenant-confirmation rejection.
+- Cause: forced-RLS tenants has owner bootstrap SELECT only. PostgreSQL applies
+  UPDATE USING policies to SELECT FOR UPDATE too; actual non-bypass owner sees
+  SELECT1/rightslug, but locking EXPLAIN has constantfalse. Do not diagnose this
+  as wrong slug, missing DELETE grant or FK failure from exception class alone.
+- Candidate repair0174 adds only exact-owner UPDATE USING for active superadmin,
+  allowed session_user, exact app.tenant_id and non-kamilya target. WITH CHECKfalse
+  blocks real UPDATE. No runtime grant, owner, membership, RLS mode or helperbody
+  changes. Production repair/normal cleanup are still pending; not a closed fix.
+- Root isolated canonical Supabase DEV policy regression passed10 checks with
+  real NOLOGIN/non-bypass temporary owner, red filtered lock, correct lock after
+  policy, wrong/empty/ordinary/protected negatives, write denials, unchangedrows,
+  downgrade/reapply. Entire role/schema/membership rolled back; fresh absence
+  and unchanged public catalog confirmed. Full arbitrary tenant lifecycle not
+  claimed. Managed owner-lock proofeeadaf11 and DEV proof1cb114fe retained.
+- Harness recurrence: Supabase migration login cannot SET ROLE lms_recovery;
+  MEMBER is not SET permission. Use the already verified temporary-owner
+  transaction procedure (learning_owner_policy_check), not global SET/CREATE
+  grants to shared roles. Seed fixture before FORCE RLS; failed transactions
+  must also prove fresh schema/role absence. Static source-string checks alone
+  did not catch those harness defects; require actual non-bypass runtime proof.
 
 - Date: 2026-09-28. Found during the bounded production acceptance of release
   `0.11.14`; only disposable synthetic tenants and documents were involved.
