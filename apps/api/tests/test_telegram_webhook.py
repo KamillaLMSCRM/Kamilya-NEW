@@ -409,8 +409,38 @@ class TestTelegramWebhook:
             tenant_q = MagicMock()
             tenant_q.scalar_one_or_none.return_value = tenant_row
 
+            executed_statements = []
+            tenant_context_set = False
+
+            async def execute(statement, params=None):
+                """Return the fixture row for each real webhook statement.
+
+                Keep this mapping statement-aware so a changed query order or
+                an unexpected DB call fails loudly instead of consuming the
+                wrong positional mock response.
+                """
+                nonlocal tenant_context_set
+                sql = str(statement)
+                if "set_current_tenant" in sql:
+                    assert params == {"tid": str(tenant_id)}
+                    tenant_context_set = True
+                    executed_statements.append("set_current_tenant")
+                    return MagicMock()
+                if "FROM users" in sql:
+                    executed_statements.append("users")
+                    return user_q
+                if "FROM user_roles" in sql:
+                    assert tenant_context_set
+                    executed_statements.append("user_roles")
+                    return role_q
+                if "FROM tenants" in sql:
+                    assert tenant_context_set
+                    executed_statements.append("tenants")
+                    return tenant_q
+                raise AssertionError(f"Unexpected Telegram webhook SQL: {sql}")
+
             fake_db = AsyncMock()
-            fake_db.execute.side_effect = [user_q, role_q, tenant_q]
+            fake_db.execute = AsyncMock(side_effect=execute)
 
             async def fake_get_db_override():
                 yield fake_db
@@ -456,6 +486,12 @@ class TestTelegramWebhook:
             # session must be a string (UUID-safe encoder), not the
             # literal 'UUID("...")' or omitted.
             assert '"tenant_id"' in stored
+            assert executed_statements == [
+                "users",
+                "set_current_tenant",
+                "user_roles",
+                "tenants",
+            ]
 
         asyncio.run(drive())
 

@@ -5272,3 +5272,22 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: shared-transaction HTTP fixtures must model request context
   boundaries independently from factory scopes. Never loosen bootstrap/RLS
   restrictions to accommodate a leaked test context.
+
+## TEST-INFRA-012 - Telegram webhook mock omitted tenant-context setup
+
+- Date: 2026-10-02.
+- Symptom: CI36971832018 at eb0211c8 reached1449PASS/2SKIP and stopped with
+  StopAsyncIteration in the tenant-admin Telegram UUID serialization test.
+  The same narrow local test reproduced1FAIL; no provider request was sent.
+- Cause: the finite execute response list modeled only User, UserRole and
+  Tenant reads. The compatible runtime also binds the resolved tenant before
+  role/payload reads, consuming a fourth execute call. The mock was stale.
+- Fix: test-only statement-aware dispatcher handles tenant-context setup and
+  the three named reads, rejects unknown SQL, verifies the exact tenant UUID
+  before role/Tenant reads, and asserts the complete statement sequence.
+  Existing HTTP/session/UUID assertions and runtime source are unchanged.
+- Verification: narrow RED1 then GREEN1; full named file15PASS/4 existing
+  warnings, scoped Ruff PASS; root exact-diff review accepted. Full replacement
+  CI remains required and prior failed runs are retained, not relabeled.
+- Prevention: mocks for security-scoped query flows must explicitly model and
+  assert context setup, rather than silently consume positional row responses.

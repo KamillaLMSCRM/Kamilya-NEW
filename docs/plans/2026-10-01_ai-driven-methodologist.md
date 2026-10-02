@@ -612,6 +612,26 @@ capacity failure, расход за пределами лимита. Не «об
    demo login and full integration. No public DEV/production migration, deployment
    or flag mutation has occurred. Current runtime remains25/schema0168.
 
+41. Root accepts frozen HTTP fixture report/results LOCAL_ONLY:28/Ruff2/contract
+   PASS; named boundaries unchanged. CI36971832018 at eb0211c8 reaches1449PASS,
+   2SKIP then Telegram test StopAsyncIteration (finite execute mock exhausted).
+   Exact narrow local RED1 reproduced; original CI retained/no public mutation.
+   Root accepts BEFORE delegated edit statement-aware mock in ONLY
+   tests/test_telegram_webhook.py distinguishing resolved User/UserRole/Tenant
+   queries from set_current_tenant context setup, rejecting unknown statements,
+   asserting exact bound tenant before payload read and preserving original
+   UUID serialization/status/payload assertions. No product change authorized.
+   Full named-file regression and replacement CI required. Leaf cheap writer
+   owns that file only; root owns shared docs/evidence/release.
+
+42. Cheap Telegram test writer delivered exact one-file correction; root reviewed
+   statement mapping and context-before-read assertions against telegram.py.
+   Narrow RED1->GREEN1 and full15/Ruff PASS accepted LOCAL_ONLY. No runtime/API
+   change. TEST-INFRA-012 added; replacement immutable CI remains NO_GO until
+   complete. Canonical CT125 inspection found byte-identical installed signed
+   restore script and existing postgres signing key; initial root-key absence
+   was an executor-identity diagnostic, not an access/credential blocker.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)
