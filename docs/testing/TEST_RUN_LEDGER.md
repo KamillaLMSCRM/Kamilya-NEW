@@ -1379,3 +1379,8 @@ Rules:
 - Result `LOCAL_NAVIGATION_ADOPTED`; benchmark task speedup, cost/quota savings,
   affected-test completeness and MCP/watch auto-sync NOT_VERIFIED. Root runbook is
   the repeatable procedure; production acceptance and voice quality are unchanged.
+- Final existing Graphify AST refresh PASS, no LLM/force/global package change:
+  24222nodes/54919edges; diagnosis zero dangling/missing/duplicate edges,
+  directed=false. Bounded frontend query source-checked; no derived tool-runtime,
+  node_modules or .release-evidence source nodes. Existing SQL parser dependency
+  unavailable for11SQL files, retained as a navigation gap; no shared install.

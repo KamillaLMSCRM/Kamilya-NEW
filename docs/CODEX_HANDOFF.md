@@ -5,7 +5,7 @@
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/methodologist-workbench-20261001`
 
-## Current production: text workbench accepted, backend29/schema174
+## Local navigation: CodeGraph pilot accepted,2026-10-03
 
 Local development navigation addition,2026-10-03: pinned CodeGraph1.6.1 installed
 only under the candidate's ignored `.release-evidence/codegraph-pilot/runtime`.
@@ -15,6 +15,8 @@ Telemetry/update/watch/daemon OFF; no Git hooks/global MCP/application dependenc
 Five wrapper tests, rename/exclusion canaries and package signatures/attestations
 PASS. Known false ORM-method edge and missing frontend-HTTP→handler edge retained.
 No production/DB/provider/billing change; voice product integration stays pending.
+
+## Current production: text workbench accepted, backend29/schema174
 
 - result: protected37032048857 failed-job rerun attempt2 SUCCESS at immutable
   source32e1331d9b24621de71213ba1150375a261b0464/image96a1bc2c/version29.
