@@ -67,12 +67,19 @@ Default `--apply` не разрешает обойти этап совмести
 совпадать с head; промежуточный169 не является feature/isolation GO.
 
 Текущий staged readback2026-10-02: DEV API/worker/frontend и KZ API/3workers
-на exact23630036/0.11.26, оба DB-контура0169, workbench OFF. KZ frontend остаётся
-25/3d127; native26 execute остановлен до переключения из-за sidecar-контракта.
+на exact23630036/0.11.26, оба DB-контура0169, workbench OFF. KZ frontend теперь
+27/`30693e45e1338772bf09577461e3f7615d38a73b`, native CI36980536610;
+независимый current/marker/public health совпадает. Native26 ранее остановлен
+до переключения из-за sidecar-контракта; его исходные evidence сохранены.
 Попытка административного обновления helper остановлена по замечанию владельца;
-helper не установлен, doas/keys/TLS не изменены. Принят frontend-only кандидат27:
+helper не установлен, doas/keys/TLS не изменены. Выпущен frontend-only27:
 прежний восьмиполевой manifest плюс отдельный хеш-связанный build-config с
 явным OFF, проверяемый до staging. Штатный путь не требует Proxmox.
+Actual frontend rollback25/`3d1276443ad8735a5c0bf3dd029be5768c46ca6a` и
+дополнительные359/299 сохранены. По отдельному явному подтверждению владельца
+устаревший24 и его точные staging-дубликаты удалены с сохранением проверенной
+внесерверной копии; свободно1463744KiB. Повторные одинаковые frontend-очистки
+регулируются ограниченным standing rule в существующем native runbook.
 Исходный неудавшийся пакет26 остаётся неизменным. Полный статус —
 `docs/PRODUCTION_READINESS.md`; final172/browser/feature gates не закрыты.
 

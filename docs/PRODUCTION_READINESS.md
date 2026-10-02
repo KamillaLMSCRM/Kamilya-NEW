@@ -11,7 +11,7 @@ DB/storage gate и приёмкой клиента
 
 ## Daily learning release — 2026-09-30
 
-### Current workbench compatibility A — partial rollout, 2026-10-02
+### Current workbench compatibility A — deployed OFF, 2026-10-02
 
 Backend0.11.26 is deployed at exact source
 `23630036e353b46d9fcf2870fe25cd08f76d5dff`, CI36972605875 all7 SUCCESS
@@ -31,7 +31,7 @@ DEV0169, QA verification with zero business writes, authenticated disabled404 an
 actual Celery control/queues/concurrency checks PASS. This is compatibility A,
 not final172/isolation/feature GO. No voice/LLM/STT dispatch or workbench scheduler.
 
-Production frontend remains exact25/`3d1276443ad8735a5c0bf3dd029be5768c46ca6a`.
+Historical failed native26 attempt preserved:
 REL-WORKBENCH-WEB-A-20261002 execute stopped before switching with
 `command_failed:python.exe:no_stderr`; canonical status/inventory prove old
 current/marker/running and no26 directory. New26 archive+manifest are staged.
@@ -54,15 +54,34 @@ downloads a fresh exact-run artifact rather than trusting a local cache. Root
 RED2 then focused57PASS/20UnixSKIP/9subtests and Ruff3 PASS; independent local
 Test Runner C1 independently57PASS/20UnixSKIP/9subtests/Ruff/diff/hashes, root
 ACCEPTED_LOCAL_ONLY after full managed report/results review (3f7dd667/53cc8371).
-Cheap independent correction review has no remaining finding. Exact new
-CI/build/runtime remain pending; no27 deploy and no full-feature GO.
+Cheap independent correction review has no remaining finding. Exact27
+`30693e45e1338772bf09577461e3f7615d38a73b`, CI36980494688 all7 SUCCESS and
+native build36980536610 SUCCESS; tag/release v0.11.27 published. Canonical bridge
+preflight READY, separately reviewed execute RELEASE_OK. Independent current,
+marker and public `/healthz` exact30693, running true/Nginx2; `/login` renders.
+Artifact11215307427 archive SHA256
+`dd91cd9bac6e511c5988c03154db3ff779eae7f78f801f7978326f3064e9766f`,
+strict manifest `180f35b0ac7077f097f230a695bb11e8615c8cfc3ba8133f448d911635563776`,
+build-config `4ecada5ee0673508ca11691b47cfddb409bb111daca1c61246a3b3abb5bce62e`
+binds literal workbench OFF. Installed helper unchanged; no Proxmox or privilege
+change. Actual previous successful frontend/rollback is25/3d127. Backend and DEV
+remain compatible26/OFF. Authenticated product acceptance is separately required;
+no final172/feature GO is claimed by this technical deployment.
 
 Owner-approved obsolete frontend23/36826 exact tree and staging pair were removed
-with verified off-host recovery. Conditional frontend24/1e10 cleanup NOT_RUN:
-first require actualfrontend26 and actualrollback25. Current25, rollback24 and
-extra359/299 remain. API/DB/tenant/landing/DNS/tier were not affected by cleanup.
-That destructive approval is not silently retargeted to candidate27.
-Full rollout and live bounded workbench acceptance remain incomplete.
+with verified off-host recovery. Owner explicitly superseded the conditional24
+cleanup to successful27 and actual rollback25, then requested a standing rule for
+identical bounded frontend cleanup. Exact24/1e10 tree and matching staging pair
+removed through fresh digest-bound cleanup; recovery archive/manifest retained
+off-host, hashes `a750ec25...` / `6b6fedc1...`. Independent current27/rollback25,
+extra359/299 preserved; obsolete24/pair absent; free1463744KiB (was735452KiB).
+Managed `artifacts/release_preflight/workbench-A27-cleanup24-readback.json`
+SHA256 `8c745bd804985b25393afb384cd10f6bebc19c6d41405b9d518efba70b653df2`.
+Historical release packet remains unchanged; newer exact approval governs this
+maintenance only. Standing authorization is owned by
+[`ct137-native-frontend-deploy.md`](runbooks/ct137-native-frontend-deploy.md), not
+API/DB/tenant/landing/DNS/tier maintenance. Full activation and live bounded
+workbench acceptance remain incomplete.
 
 ### Previous production runtime0.11.25 — accepted mobile/session/completion closeout
 

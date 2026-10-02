@@ -676,6 +676,27 @@ capacity failure, расход за пределами лимита. Не «об
    NOT_RUN; its approved condition is successful26, not an inferred27 substitution.
    Complete compatible frontend then distinct B/final172/activation/browser gates.
 
+46. Compatibility frontend27/source30693e45 was committed/pushed with independent
+   remote readback, tag/release published, CI36980494688 all7 and native36980536610
+   SUCCESS. Canonical bridge preflight independently reviewed, same-packet execute
+   RELEASE_OK; public/current/marker exact30693, runningtrue/Nginx2. Installed host
+   helper unchanged, no Proxmox/privilege changes. Backend/DEV remain26/schema169/OFF.
+   Owner explicitly approved exact24 cleanup after27 instead of26, retaining actual
+   rollback25/3d127 and extras359/299. Fresh recovery/cleanup-plan and digest envelope
+   PASS; obsolete24 tree and matching staging pair removed, off-host pair retained.
+   Independent inventory/status/publichealth PASS, free735452->1463744KiB; managed
+   cleanup receipt8c745bd8. Initial stale transcribed rollback/packet-key invocations
+   were rejected before deletion; canonical frozen full identities then succeeded.
+   Owner requested reusable no-repeat-approval rule; bounded oldest-successful
+   frontend-only capacity class added to existing native runbook. Independent cheap
+   review identified class/readback gaps; root corrected them, then its remaining
+   version/success evidence gap with canonical off-host inspector and accepted
+   historical receipt requirements. Root verified the documented invocation on
+   original27 artifact and accepts the bounded rule (no privileged query added).
+   B navigation has local91
+   neighbor tests/lint/typecheck PASS but remains uncommitted; final172/activation
+   and authenticated live acceptance are still unresolved, no full-feature GO.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)
@@ -688,7 +709,7 @@ capacity failure, расход за пределами лимита. Не «об
 | WB-NEIGHBOR-CATALOG | DONE | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and independent local180 PASS atf0ff29c2; root ACCEPTED_LOCAL_ONLY; no equivalence claim |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
 | WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
-| WB-RELEASE | IN_PROGRESS | root + Release Runner |Production API A26/schema169/OFF PASS; frontend25 retained, original26 blocked; packaging27/local acceptance pending, then B172 and live gates |
+| WB-RELEASE | IN_PROGRESS | root + Release Runner |Production API A26/schema169/OFF and compatibilityfrontend27 PASS; rollback25 retained, cleanup24 PASS; next B172/activation and live gates |
 
 Write overlap: root owns migration/config/router/registry/purge/docs and DEV gate;
 parser agent owns parser+owned tests, UI agent owns panel/client+web tests until
@@ -726,6 +747,7 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 | tenant_candidate_review / fresh tenant review then separate neighbor inventory |Requested gpt-5.6-luna/medium; observed metadata NOT AVAILABLE |Root source-disposition2 preexisting auth hypotheses; separate inventory read-only,0 repairs |19 then-current tests PASS; no agent DB/network/writes; full Telegram/RLS NOT_VERIFIED |
 | root / compatible tenants isolation candidate |Parent metadata NOT AVAILABLE |Accepted local85/quality + corrected pinned DEV20; sanitizer-label failure retained |Original broad access reproduced and denied; no public migration; same physical rollback proved; counters NOT AVAILABLE |
 | Test Runner / frozen tenants local acceptance |Persistent configured model/effort NOT AVAILABLE |Accepted local only after1 safe invocation correction, no source repairs |85/Ruff4/quality PASS at5bc7d1a9;214.910s; root DEV20 reviewed only, token counters NOT AVAILABLE |
+| frontend_cleanup_rule_review / independent bounded governance review |Requested gpt-5.6-luna/medium; observed metadata NOT AVAILABLE |Root accepted after2 correction cycles; final evidence-invocation correction verified by root |Read-only exact runbook/helper/controller; reported elapsed approximate3min+2min, exposed counters NOT AVAILABLE; no worker mutation |
 
 Точные сроки оценим после вертикального среза и ASR benchmark; обещать голосовой
 production за фиксированное число дней без этих измерений было бы неверно.

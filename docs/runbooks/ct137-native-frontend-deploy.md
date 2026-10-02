@@ -78,6 +78,94 @@ Infrastructure bootstrap or changing the privilege boundary still needs owner ap
 
 ### Explicit no-console cleanup
 
+#### Standing owner authorization for routine obsolete frontend cleanup
+
+Owner confirmed on 2026-10-02 that repeated, identical frontend cleanup requests
+must be handled by this standing rule, without a new approval each time. This
+authorization applies only to obsolete LMS frontend release directories and their
+exact matching user-owned staging archive/manifest pairs on CT137. It is not an
+automatic scheduled deletion or permission to expand maintenance scope.
+
+Root may select one obsolete release at a time only when all checks below pass.
+For future actions, bind this authorization to a frozen, digest-verified packet for
+one owner-authorized ordinary CT137 frontend release, its freshly inspected native
+artifact and its computed `required_capacity_bytes(artifact)` budget (successful
+controller evidence field `artifact.required_capacity_bytes`). Require live free bytes below
+that exact budget. Only a previously successful frontend release with product
+version strictly older than the actual rollback version is eligible; select the
+oldest eligible version from the live release inventory. A failed candidate,
+staging-only artifact, unknown/unversioned release or arbitrary historical pair is
+not eligible. The exact24 action recorded below has separate explicit approval.
+
+Inventory provides SHAs, not version/success metadata. For each unprotected
+candidate and the actual rollback, inspect its preserved original native artifact
+directory with the existing read-only `inspect_native_artifact(directory, full_sha)`
+function. The directory must retain the SHA-scoped archive/manifest,
+`bundle.sha256`, and any version-required build-config. A canonical local invocation
+(no host action) is:
+
+```powershell
+py -3 -c "import json,sys; from pathlib import Path; from scripts.ops.ct137_native_release import inspect_native_artifact; a=inspect_native_artifact(Path(sys.argv[1]),sys.argv[2]); print(json.dumps({'release_sha':a.release_sha,'product_version':a.product_version,'archive_sha256':a.archive_sha256,'manifest_sha256':a.manifest_sha256}))" <original-artifact-directory> <full-sha>
+```
+
+Compare the validated versions as three integer components, never strings. Bind
+prior success to an existing independently accepted historical technical receipt
+with `status:RELEASE_OK` and this exact `release_sha`; retain its path and digest.
+Inventory presence or a manifest alone does not establish previous success. If
+those original files or the accepted receipt are unavailable, classify that SHA
+as unknown/protected, not eligible. The cleanup receipt must list every considered
+SHA/version/eligibility result plus the successful historical receipt references,
+so the oldest eligible choice and rollback-version predicate are independently
+reviewable. This uses off-host evidence, not a new privileged remote query.
+
+1. Read back the live current release and its actual previous successful release
+   used for rollback; verify both are retained and usable. Never select either,
+   a release named as rollback in an active packet, or another explicitly retained
+   recovery release. Preserve additional recovery releases
+   `359d7cda1fba310a4e2e890fbfc48fef89a3f357` and
+   `299481ec1518729bcec199e8aaa2fdfe5c74c1e3` until separately authorized otherwise.
+2. An accepted release has successfully switched and its independent technical
+   readback passes. Cleanup must not evade a failed release/product gate. If an
+   older packet still names the candidate as rollback, explicitly supersede that
+   retention disposition before selection; do not silently reinterpret it.
+3. Verify an off-host recovery archive and SHA-scoped manifest for the exact
+   selected SHA: both SHA256 digests, manifest/archive identity, safe archive
+   structure and expanded size. Keep that recoverable pair after server deletion.
+4. Obtain a fresh `cleanup-plan` for those exact obsolete/current/rollback SHAs.
+   Require the canonical digest-bound helper envelope and tree fingerprint checks;
+   do not reconstruct a SHA from a short prefix or stale summary.
+5. Delete only the selected obsolete release through `ct137_native_deploy.py
+   --cleanup`. With `--prune-staged-copy`, remove its exact staging pair only after
+   both remote hashes match the verified recovery pair. Never use broad prune,
+   wildcard deletion, direct recursive shell deletion, or whole-directory cleanup.
+6. Independently run canonical `ct137_native_deploy.py --status` and `--inventory`
+   after cleanup, then read `https://app.kml.kz/healthz` and
+   `https://api.kml.kz/health`. Status must show current/marker equal the expected
+   current SHA and `kamilya_web_running:true`; public web must return that SHA,
+   and API identity must match the pre-cleanup readback. Inventory must contain
+   current, rollback and both explicitly preserved extra releases, omit the exact
+   selected release and its staging pair (when pruning), and show increased free
+   space. Preserve a sanitized receipt with `obsolete_sha`, `current_sha`,
+   `rollback_sha`, `preserved_release_shas`, `removed_staging_names`, both recovery
+   digests, envelope/tree digests, `free_kib_before`, `free_kib_after`, status/public
+   identity results and the authorizing packet ID/digest. A helper success alone
+   does not satisfy these separate readback gates. Briefly report recoverability.
+
+For future actions, apply this rule only until the exact packet's required capacity
+is restored; never delete another release after that condition passes. If one
+cleanup is insufficient, repeat the entire selection/recovery/plan/readback sequence
+for the next eligible oldest release under the same packet. Stop and request a new decision
+on any identity/hash/plan/readback mismatch, unavailable recovery, unknown rollback,
+unexpected partial failure, or need to affect a protected release. No Proxmox,
+bootstrap/helper replacement, privilege expansion, API images/containers, volumes,
+database, tenants, landing, DNS, credentials, provider tiers or billing are included.
+
+The exact exception approved on 2026-10-02 permits removal of frontend0.11.24
+`1e10d9acda443f57fd2714011e1398d5e2e06e1f` after successful compatibility0.11.27
+`30693e45e1338772bf09577461e3f7615d38a73b`, preserving actual rollback0.11.25
+`3d1276443ad8735a5c0bf3dd029be5768c46ca6a`. This supersedes the older A27 packet's
+retention of24 for this maintenance action only; the historical packet is unchanged.
+
 The maintenance extension adds read-only `cleanup-plan <obsolete> <current>
 <rollback>` and one destructive `cleanup <envelope-sha256>` command. The
 workstation wrapper independently hashes an off-host recovery archive and its
@@ -124,8 +212,9 @@ explicit `--expected-rollback-sha`.
 The helper retains current, old and failed releases. It does not silently delete
 them. Disk reserve is512MiB in addition to exact required snapshot/extracted
 bytes; archive512MiB, expanded regular content2GiB, maximum100000entries.
-On a capacity stop, inventory exact paths and approve bounded cleanup, preserving
-current and a verified rollback. Never clear the whole releases/incoming directory.
+On a capacity stop, inventory exact paths and apply the standing authorization
+above only when all its conditions hold; otherwise obtain exact bounded approval.
+Preserve current and a verified rollback; never clear releases/incoming wholesale.
 On unexpected failure, inspect status before retrying. For a deployedSHA, continue
 acceptance rather than redeploying. Root console is for exceptional bootstrap or
 recovery, not an ordinary release dependency.
