@@ -26,8 +26,8 @@ rollback image retained. Fresh signed restore0168 passed before rollout, disposa
 DB/temp files absent. Candidate-retention and watchdog oneshots success/exit0,
 timers active; watchdog keys updated to verified26/image, config backup retained.
 
-DEV API/worker/Vercel are exact26 on existing free/hobby tiers; public Supabase
-DEV0169, QA verification with zero business writes, authenticated disabled404 and
+At compatibility A acceptance, DEV API/worker/Vercel were exact26 on existing
+free/hobby tiers; public Supabase DEV0169, QA verification with zero business writes, authenticated disabled404 and
 actual Celery control/queues/concurrency checks PASS. This is compatibility A,
 not final172/isolation/feature GO. No voice/LLM/STT dispatch or workbench scheduler.
 
@@ -89,6 +89,49 @@ maintenance only. Standing authorization is owned by
 [`ct137-native-frontend-deploy.md`](runbooks/ct137-native-frontend-deploy.md), not
 API/DB/tenant/landing/DNS/tier maintenance. Full activation and live bounded
 workbench acceptance remain incomplete.
+
+### Workbench B candidate0.11.28 — DEV0172/OFF, activation pending
+
+Root canonical public schema contract gate applied DEV0169->0172 after accepted
+immutable A26 compatibility receipt1c40b2ab and isolated tenants20 proof6f887f52.
+Fresh exact revision172/project-hash readback PASS. First permanent QA verify
+stopped at cold-start GET/health ReadTimeout before login/business reads; canonical
+read-only provider reconciliation passed exact26 API/worker/Vercel, CI36973166662,
+Free/Hobby and all public health. One QA retry PASS at10:35:03Z, unchanged two
+users/two courses/two assignments and zero business mutations; auth audit only.
+Fresh authenticated disabled404, all three literalOFF flags PASS at10:40:14Z.
+Actual isolated worker control PASS at10:40:41Z: one DB1 consumer, queues
+ai/documents/maintenance, concurrency1, registered required tasks, pools3+1/2+0;
+no task submitted. Public read-only neighbor catalog metadata PASS: all12 tables
+FORCE RLS, non-bypass runtime, no unscoped pending-invitation policy, no business
+rows/DDL. This does not prove full neighbor equivalence or an enabled live flow.
+Managed `artifacts/release_preflight/workbench-B-dev172-compatibility-readback.json`
+SHA256 `3ba51bc43ae36315fc73149b2d4950916d1ec5df13a685f32b8f5af3ba6d0fc4`;
+first migration/QA-stop dispositionb18e1547 retained.
+
+Candidate28 adds versioned typed flag binding for native build/packet/controller
+and the existing DEV configuration prepare seam; navigation remains frozen at
+the previously independently accepted766-tests delta. Root new contract RED6/17
+and DEV RED17/18 precede implementation; root integrated129PASS/2UnixSKIP/9subtests,
+Ruff6 and unchanged Python baseline1010/2200 PASS. Cheap independent review
+corrections (V2 missing flag and configuration provenance; provider-contract gate
+before flag inventory) accepted. Persistent Test Runner frozen local acceptance
+WB-ACTIVATION-LOCAL-20261002-01 independently149PASS/2UnixSKIP/9subtests,
+Ruff6/quality/version-release/diff PASS. Root read full reports and actual execution
+turn; C1 adds exact commands/hashes and preserves original failure/result history.
+Root accepts LOCAL_ONLY; reportcf4d6e93/resultsbb0cafaa/supplement394f21fb,
+managed root decisiond3bd39be. Source/runtime remain separate gates.
+Final staging included both new test files and exposed two extra EOF blank lines;
+root removed only those lines, preserving the original runner evidence. Updated
+two-file49PASS/Ruff/cached-diff PASS; tenant gate335queries/zero violations.
+Managed format-only delta receiptc7986c3a binds both before/after hashes.
+Graph AST update shrink guard refused22247 vs existing23876 nodes; existing index
+preserved, no force/upgrade, new seams checked directly in source/tests.
+
+PRODUCTION UNCHANGED: API26/schema169/OFF and frontend27/OFF. No production
+migration/deploy/flag/resource/billing action in this B step. Enabled exact28 DEV,
+browser preview/confirm/replay, protected production169->172 with compatible A26
+rollback and final live acceptance remain mandatory before feature GO.
 
 ### Previous production runtime0.11.25 — accepted mobile/session/completion closeout
 

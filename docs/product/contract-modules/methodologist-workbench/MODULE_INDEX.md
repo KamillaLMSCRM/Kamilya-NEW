@@ -33,8 +33,16 @@ Source-bound assembled assignment-neighbor validation:
 [NEIGHBOR-RECONSTRUCTION V1](contracts/NEIGHBOR_RECONSTRUCTION_VALIDATION_ADDENDUM_V1.md).
 Two-stage compatible deployment before isolation activation:
 [STAGED-COMPATIBILITY-RELEASE V1](contracts/STAGED_COMPATIBILITY_RELEASE_ADDENDUM_V1.md).
+Private navigation activation, accepted local766 tests; no runtime activation implied:
+[NAVIGATION-ACTIVATION V1](contracts/NAVIGATION_ACTIVATION_ADDENDUM_V1.md).
+Controlled B activation, versioned packet/build flags and compatible A26 rollback:
+[CONTROLLED-ACTIVATION-RELEASE V1](contracts/CONTROLLED_ACTIVATION_RELEASE_ADDENDUM_V1.md).
+Existing free DEV provider configuration seam with final172 receipt and observed flags:
+[DEV-ACTIVATION-CONTROLLER V1](contracts/DEV_ACTIVATION_CONTROLLER_ADDENDUM_V1.md).
 Execution sequence/progress: [plan](../../../plans/2026-10-01_ai-driven-methodologist.md).
 
 The original foundation remains pure. The accepted assignment addenda add
-default-disabled API/UI and persistence, validated only in an owned isolated
-Supabase DEV schema so far; public migration/deployment and voice remain gated.
+default-disabled API/UI and persistence. Accepted compatibility A26/API and
+A27/frontend stay OFF; Supabase DEV public reached0172 on2026-10-02 while
+production remains169/OFF. DEV public QA/readback after172 and enabled B/live
+acceptance remain gated; voice is not installed or released.

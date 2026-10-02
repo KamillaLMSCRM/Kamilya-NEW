@@ -71,6 +71,7 @@ class ReleasePacket:
     migration_scope: str
     owner_approval: str
     smoke_scope: tuple[str, ...]
+    workbench_enabled: bool = False
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> "ReleasePacket":
@@ -89,6 +90,8 @@ class ReleasePacket:
             "owner_approval",
             "smoke_scope",
         }
+        if type(raw.get("schema_version")) is int and raw["schema_version"] == 2:
+            expected.add("workbench_enabled")
         if set(raw) != expected:
             raise ReleaseBlocked("release_packet_fields_invalid")
         try:
@@ -106,6 +109,7 @@ class ReleasePacket:
                 migration_scope=raw["migration_scope"],
                 owner_approval=raw["owner_approval"],
                 smoke_scope=tuple(raw["smoke_scope"]),
+                workbench_enabled=raw.get("workbench_enabled", False),
             )
         except (KeyError, TypeError) as exc:
             raise ReleaseBlocked("release_packet_types_invalid") from exc
@@ -113,8 +117,12 @@ class ReleasePacket:
         return packet
 
     def validate(self) -> None:
-        if self.schema_version != 1:
+        if type(self.schema_version) is not int or self.schema_version not in (1, 2):
             raise ReleaseBlocked("release_packet_schema_invalid")
+        if type(self.workbench_enabled) is not bool:
+            raise ReleaseBlocked("release_packet_workbench_flag_invalid")
+        if self.schema_version == 1 and self.workbench_enabled:
+            raise ReleaseBlocked("legacy_release_packet_must_be_disabled")
         if not isinstance(self.release_id, str) or not RELEASE_ID_RE.fullmatch(
             self.release_id
         ):
@@ -152,6 +160,8 @@ class ReleasePacket:
         result = asdict(self)
         result["target_services"] = list(self.target_services)
         result["smoke_scope"] = list(self.smoke_scope)
+        if self.schema_version == 1:
+            del result["workbench_enabled"]
         return result
 
 
@@ -375,17 +385,19 @@ def inspect_native_artifact(directory: Path, release_sha: str) -> NativeArtifact
                 return result
 
             attestation = json.loads(config_bytes, object_pairs_hook=unique_object)
+            enabled = attestation.get("workbench_enabled") if isinstance(attestation, dict) else None
             expected = {
                 "schema_version": 1, "release_sha": release_sha,
                 "product_version": product_version, "sha256": archive_digest,
-                "manifest_sha256": _digest(manifest), "workbench_enabled": False,
+                "manifest_sha256": _digest(manifest), "workbench_enabled": enabled,
             }
             if (not isinstance(attestation, dict) or attestation != expected
                     or type(attestation.get("schema_version")) is not int
-                    or attestation.get("workbench_enabled") is not False):
+                    or type(enabled) is not bool
+                    or (enabled and tuple(map(int, product_version.split("."))) < (0, 11, 28))):
                 raise ValueError("config_binding")
             config_digest = hashlib.sha256(config_bytes).hexdigest()
-            workbench_enabled = False
+            workbench_enabled = enabled
         except (OSError, UnicodeError, ValueError) as exc:
             raise ReleaseBlocked("artifact_build_config_invalid") from exc
     try:
@@ -414,6 +426,15 @@ def inspect_native_artifact(directory: Path, release_sha: str) -> NativeArtifact
         build_config_sha256=config_digest,
         workbench_enabled=workbench_enabled,
     )
+
+
+def _require_artifact_configuration(packet: ReleasePacket, artifact: NativeArtifact) -> None:
+    """Bind the build-time flag before any host action, including reinspection."""
+    if artifact.workbench_enabled is None:
+        if packet.schema_version != 1:
+            raise ReleaseBlocked("artifact_workbench_configuration_unknown")
+    elif artifact.workbench_enabled is not packet.workbench_enabled:
+        raise ReleaseBlocked("artifact_workbench_configuration_mismatch")
 
 
 def required_capacity_bytes(artifact: NativeArtifact) -> int:
@@ -453,6 +474,7 @@ class NativeReleaseOrchestrator:
     def preflight(self, packet: ReleasePacket, artifact_dir: Path) -> dict[str, Any]:
         packet.validate()
         artifact = inspect_native_artifact(artifact_dir, packet.exact_sha)
+        _require_artifact_configuration(packet, artifact)
         repository = self.repository.verify(packet, artifact.product_version)
         github = self.github.verify(packet)
         status = self.host.status()
@@ -488,6 +510,7 @@ class NativeReleaseOrchestrator:
             "release_sha": packet.exact_sha,
             "previous_release_sha": packet.expected_current_release,
             "rollback_sha": packet.rollback_sha,
+            "workbench_enabled": packet.workbench_enabled,
             "artifact": {
                 "archive_sha256": artifact.archive_sha256,
                 "manifest_sha256": artifact.manifest_sha256,
@@ -510,6 +533,11 @@ class NativeReleaseOrchestrator:
     def execute(self, packet: ReleasePacket, artifact_dir: Path) -> dict[str, Any]:
         preflight = self.preflight(packet, artifact_dir)
         artifact = inspect_native_artifact(artifact_dir, packet.exact_sha)
+        _require_artifact_configuration(packet, artifact)
+        if (artifact.archive_sha256 != preflight["artifact"]["archive_sha256"]
+                or artifact.manifest_sha256 != preflight["artifact"]["manifest_sha256"]
+                or artifact.build_config_sha256 != preflight["artifact"]["build_config_sha256"]):
+            raise ReleaseBlocked("artifact_changed_after_preflight")
         scoped_manifest = (
             artifact.manifest.parent
             / f"frontend-native-{packet.exact_sha}.manifest.json"
@@ -546,12 +574,21 @@ class NativeReleaseOrchestrator:
         technical = self.public.verify(packet.exact_sha)
         if technical.get("release_sha") != packet.exact_sha:
             raise ReleaseBlocked("public_release_identity_mismatch")
+        # The immutable build configuration proves this value; HTTP health alone
+        # does not prove feature availability or user-flow acceptance.
+        technical = {
+            **technical,
+            "workbench_enabled": artifact.workbench_enabled if artifact.workbench_enabled is not None else False,
+            "workbench_flag_evidence": "immutable_build_config" if artifact.workbench_enabled is not None else "legacy_disabled_packet",
+            "runtime_feature_acceptance": "SEPARATE_TEST_RUNNER_REQUIRED",
+        }
         return {
             "status": "RELEASE_OK",
             "release_id": packet.release_id,
             "release_sha": packet.exact_sha,
             "previous_release_sha": packet.expected_current_release,
             "rollback_sha": packet.rollback_sha,
+            "workbench_enabled": packet.workbench_enabled,
             "preflight": preflight,
             "host_readback": after,
             "host_inventory_readback": after_inventory,
@@ -850,6 +887,7 @@ def main(argv: list[str] | None = None) -> int:
                 "mode": args.mode,
                 "release_id": packet.release_id,
                 "release_sha": packet.exact_sha,
+                "workbench_enabled": packet.workbench_enabled,
                 "reason": str(exc),
                 "state_reconciliation_required": args.mode == "execute",
             },

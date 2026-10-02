@@ -189,7 +189,8 @@
     "courseReview": "Курсты тексеру",
     "trainingRules": "Оқу ережелері",
     "candidateAssessments": "Кандидаттарды тестілеу",
-    "assignmentsAndAccess": "Тағайындаулар және қолжетімділік"
+    "assignmentsAndAccess": "Тағайындаулар және қолжетімділік",
+    "methodologistWorkbench": "Әдіскердің жұмыс орны"
   },
   "auth": {
     "login": "Кіру",

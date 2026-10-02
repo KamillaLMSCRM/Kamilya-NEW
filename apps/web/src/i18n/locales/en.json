@@ -189,7 +189,8 @@
     "courseReview": "Course review",
     "trainingRules": "Training rules",
     "candidateAssessments": "Candidate testing",
-    "assignmentsAndAccess": "Assignments and access"
+    "assignmentsAndAccess": "Assignments and access",
+    "methodologistWorkbench": "Methodologist workspace"
   },
   "auth": {
     "login": "Login",

@@ -45,6 +45,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.28] - 2026-10-02
+
+### Added
+
+- Private methodologist-workbench navigation is controlled by the same literal
+  build flag for sidebar, command palette and direct routes; other roles and
+  manual assignment navigation remain unchanged.
+- Explicit native release packet schema2 binds a typed workbench flag to the
+  immutable build configuration, both inspections and bridge evidence. Default
+  OFF/schema1 remains compatible; enabled artifacts require version0.11.28+.
+- Existing DEV release controller adds a bounded prepare phase for exactly the
+  API, worker and frontend flags, gated by final0172 schema evidence, successful
+  exact-source CI and the existing Free/Hobby targets. Provider configuration
+  observations are not runtime or product acceptance.
+
+### Release status
+
+- Candidate only. Supabase DEV public schema0172 and retained QA readback PASS;
+  enabled exact-source DEV rollout/live acceptance and production B remain gated.
+  No voice, general LLM interpretation, new provider resource or billing change.
+
 ## [0.11.27] - 2026-10-02
 
 ### Fixed

@@ -81,7 +81,9 @@ def plan_release(
     return {
         "status": "PLANNED",
         "release_id": packet.release_id,
+        "schema_version": packet.schema_version,
         "release_sha": packet.exact_sha,
+        "workbench_enabled": packet.workbench_enabled,
         "target_environment": packet.target_environment,
         "target_services": list(packet.target_services),
         "packet_sha256": packet_sha256,
@@ -171,6 +173,14 @@ def _bind_technical_evidence(
         raise BridgeBlocked("technical_evidence_release_id_mismatch")
     if technical.get("release_sha") != plan.get("release_sha"):
         raise BridgeBlocked("technical_evidence_release_sha_mismatch")
+    # Historical schema-1 OFF evidence may omit the field, but an enabled
+    # packet always needs an explicit, typed matching controller value.
+    expected = plan.get("workbench_enabled", False)
+    if plan.get("schema_version", 1) == 2 and "workbench_enabled" not in technical:
+        raise BridgeBlocked("technical_evidence_workbench_flag_missing")
+    actual = technical.get("workbench_enabled", False)
+    if type(expected) is not bool or type(actual) is not bool or actual is not expected:
+        raise BridgeBlocked("technical_evidence_workbench_flag_mismatch")
 
 
 def compact_handoff(

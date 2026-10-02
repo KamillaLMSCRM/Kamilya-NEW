@@ -189,7 +189,8 @@
     "courseReview": "Проверка курсов",
     "trainingRules": "Правила обучения",
     "candidateAssessments": "Тестирование кандидатов",
-    "assignmentsAndAccess": "Назначения и доступ"
+    "assignmentsAndAccess": "Назначения и доступ",
+    "methodologistWorkbench": "Рабочее место методиста"
   },
   "auth": {
     "login": "Вход",

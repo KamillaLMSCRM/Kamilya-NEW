@@ -27,6 +27,10 @@ from typing import Any, Mapping, Protocol
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 RELEASE_ID_RE = re.compile(r"^REL-[A-Z0-9][A-Z0-9-]{7,95}$")
 PACKET_SCHEMA = "kamilya-dev-release-v1"
+ACTIVATION_SCHEMA = "kamilya-dev-release-v2"
+API_WORKBENCH_KEY = "METHODOLOGIST_WORKBENCH_ENABLED"
+WEB_WORKBENCH_KEY = "NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED"
+DEV_PROJECT_REF_SHA256 = "5b535773cb7222384bbb54ad3f8c2e741fa6176bec4ce586abcd82d17ee0062e"
 
 
 class DevReleaseBlocked(RuntimeError):
@@ -60,6 +64,8 @@ def _required_secret(values: Mapping[str, str], *names: str) -> str:
 
 
 class ProviderAdapter(Protocol):
+    repo_root: Path
+
     def remote_branch_sha(self, repository: str, branch: str) -> str: ...
 
     def push_exact_sha(
@@ -89,6 +95,12 @@ class ProviderAdapter(Protocol):
     ) -> Mapping[str, Any]: ...
 
     def read_health(self, url: str) -> Any: ...
+
+    def verify_source_ci(self, run_id: int, release_sha: str, repository: str) -> Mapping[str, Any]: ...
+
+    def workbench_flags(self, packet: Mapping[str, Any]) -> Mapping[str, bool]: ...
+
+    def set_workbench_flags(self, packet: Mapping[str, Any], enabled: bool) -> list[str]: ...
 
 
 class LiveProviderAdapter:
@@ -305,6 +317,71 @@ class LiveProviderAdapter:
         result["plan"] = self.vercel_project(project_id, team_id)["plan"]
         return result
 
+    def verify_source_ci(self, run_id: int, release_sha: str, repository: str) -> Mapping[str, Any]:
+        run = self._gh([f"repos/{repository}/actions/runs/{run_id}"])
+        if run.get("name") != "CI":
+            raise DevReleaseBlocked("configuration_source_ci_workflow_mismatch")
+        return {
+            "status": run.get("status"), "conclusion": run.get("conclusion"),
+            "release_sha": run.get("head_sha"), "branch": run.get("head_branch"),
+            "event": run.get("event"), "run_id": run.get("id"),
+        }
+
+    def _render_flag_url(self, service: str) -> str:
+        return f"https://api.render.com/v1/services/{urllib.parse.quote(service, safe='')}/env-vars/{API_WORKBENCH_KEY}"
+
+    def _vercel_flag_url(self, packet: Mapping[str, Any]) -> str:
+        cfg = _require_mapping(packet, "vercel")
+        return f"https://api.vercel.com/v10/projects/{urllib.parse.quote(str(cfg['project_id']), safe='')}/env?teamId={urllib.parse.quote(str(cfg['team_id']), safe='')}"
+
+    def _vercel_workbench_value(self, packet: Mapping[str, Any]) -> bool:
+        result = self._http_json(self._vercel_flag_url(packet), self.vercel_token)
+        rows = result.get("envs") if isinstance(result, Mapping) else None
+        if not isinstance(rows, list):
+            raise DevReleaseBlocked("vercel_flag_inventory_invalid")
+        matches = [row for row in rows if isinstance(row, Mapping) and row.get("key") == WEB_WORKBENCH_KEY and "production" in row.get("target", [])]
+        if (len(matches) != 1 or matches[0].get("target") != ["production"]
+                or matches[0].get("type") != "plain"):
+            raise DevReleaseBlocked("vercel_flag_scope_ambiguous")
+        return _literal_flag(matches[0].get("value"))
+
+    def workbench_flags(self, packet: Mapping[str, Any]) -> Mapping[str, bool]:
+        cfg = _require_mapping(packet, "render")
+        flags = {}
+        for label, field in (("api", "api_service_id"), ("worker", "worker_service_id")):
+            row = self._http_json(self._render_flag_url(str(cfg[field])), self.render_token)
+            flags[label] = _literal_flag(row.get("value") if isinstance(row, Mapping) else None)
+        flags["frontend"] = self._vercel_workbench_value(packet)
+        return flags
+
+    def set_workbench_flags(self, packet: Mapping[str, Any], enabled: bool) -> list[str]:
+        if type(enabled) is not bool:
+            raise DevReleaseBlocked("workbench_enabled_invalid")
+        # Inventory every flag before the first mutation. Each single-key update
+        # is read back immediately; a partial failure stops remaining updates.
+        before = self.workbench_flags(packet)
+        literal = "true" if enabled else "false"
+        cfg = _require_mapping(packet, "render")
+        changed = []
+        for label, field in (("api", "api_service_id"), ("worker", "worker_service_id")):
+            if before[label] is enabled:
+                continue
+            url = self._render_flag_url(str(cfg[field]))
+            self._http_json(url, self.render_token, method="PUT", body={"value": literal})
+            row = self._http_json(url, self.render_token)
+            if not isinstance(row, Mapping) or _literal_flag(row.get("value")) is not enabled:
+                raise DevReleaseBlocked(f"{label}_flag_readback_mismatch")
+            changed.append(label)
+        if before["frontend"] is not enabled:
+            self._http_json(
+                self._vercel_flag_url(packet) + "&upsert=true", self.vercel_token,
+                method="POST", body={"key": WEB_WORKBENCH_KEY, "value": literal, "type": "plain", "target": ["production"]},
+            )
+            if self._vercel_workbench_value(packet) is not enabled:
+                raise DevReleaseBlocked("frontend_flag_readback_mismatch")
+            changed.append("frontend")
+        return changed
+
     def render_service(self, service_id: str) -> Mapping[str, Any]:
         result = self._http_json(
             f"https://api.render.com/v1/services/{urllib.parse.quote(service_id)}",
@@ -438,9 +515,50 @@ def _require_mapping(data: Mapping[str, Any], name: str) -> Mapping[str, Any]:
     return value
 
 
+def _literal_flag(value: Any) -> bool:
+    if value not in ("true", "false"):
+        raise DevReleaseBlocked("provider_workbench_flag_not_literal")
+    return value == "true"
+
+
+def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate_json_key")
+        result[key] = value
+    return result
+
+
+def validate_activation_packet(data: Mapping[str, Any]) -> dict[str, Any]:
+    if data.get("schema") != ACTIVATION_SCHEMA:
+        raise DevReleaseBlocked("activation_packet_v2_schema_required")
+    return validate_packet(data)
+
+
 def validate_packet(data: Mapping[str, Any]) -> dict[str, Any]:
-    if data.get("schema") != PACKET_SCHEMA:
+    schema = data.get("schema")
+    if schema not in (PACKET_SCHEMA, ACTIVATION_SCHEMA):
         raise DevReleaseBlocked("release_packet_schema_invalid")
+    expected = {"schema", "release_id", "release_sha", "expected_previous_sha", "repository", "branch", "migration_scope", "github", "vercel", "render"}
+    if schema == ACTIVATION_SCHEMA:
+        expected.update({"workbench_enabled", "configuration_ci_run_id", "schema_evidence"})
+    if set(data) != expected:
+        raise DevReleaseBlocked("release_packet_unknown_or_missing_fields")
+    if data.get("repository") != "KamillaLMSCRM/Kamilya-NEW":
+        raise DevReleaseBlocked("repository_scope_invalid")
+    if schema == ACTIVATION_SCHEMA:
+        if type(data.get("workbench_enabled")) is not bool:
+            raise DevReleaseBlocked("packet_workbench_enabled_invalid")
+        if type(data.get("configuration_ci_run_id")) is not int or data["configuration_ci_run_id"] <= 0:
+            raise DevReleaseBlocked("configuration_ci_run_id_invalid")
+        evidence = _require_mapping(data, "schema_evidence")
+        if set(evidence) != {"path", "sha256"}:
+            raise DevReleaseBlocked("schema_evidence_fields_invalid")
+        _require_string(evidence, "path")
+        digest = _require_string(evidence, "sha256")
+        if not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise DevReleaseBlocked("schema_evidence_digest_invalid")
 
     release_id = _require_string(data, "release_id")
     release_sha = _require_string(data, "release_sha")
@@ -461,6 +579,8 @@ def validate_packet(data: Mapping[str, Any]) -> dict[str, Any]:
     github = _require_mapping(data, "github")
     vercel = _require_mapping(data, "vercel")
     render = _require_mapping(data, "render")
+    if schema == ACTIVATION_SCHEMA and (vercel.get("expected_plan") != "hobby" or render.get("expected_plan") != "free"):
+        raise DevReleaseBlocked("activation_free_plan_required")
     for name in ("workflow",):
         _require_string(github, name)
     for name in (
@@ -492,8 +612,8 @@ def load_packet(path: Path, expected_sha256: str) -> dict[str, Any]:
     if actual != expected_sha256:
         raise DevReleaseBlocked("release_packet_digest_mismatch")
     try:
-        decoded = json.loads(raw)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        decoded = json.loads(raw, object_pairs_hook=_unique_object)
+    except (UnicodeDecodeError, ValueError) as exc:
         raise DevReleaseBlocked("release_packet_json_invalid") from exc
     if not isinstance(decoded, Mapping):
         raise DevReleaseBlocked("release_packet_root_invalid")
@@ -508,10 +628,84 @@ class DevReleaseController:
     def __post_init__(self) -> None:
         object.__setattr__(self, "packet", validate_packet(self.packet))
 
+    def _schema_gate(self) -> None:
+        if self.packet["schema"] != ACTIVATION_SCHEMA:
+            return
+        evidence = self.packet["schema_evidence"]
+        root = self.providers.repo_root.resolve()
+        original = Path(evidence["path"])
+        if not original.is_absolute():
+            original = root / original
+        path = original.resolve()
+        if (original.is_symlink() or not path.is_relative_to(root / ".release-evidence")
+                or not path.is_file()):
+            raise DevReleaseBlocked("schema_evidence_not_canonical_regular_file")
+        if path.stat().st_size > 4096:
+            raise DevReleaseBlocked("schema_evidence_size_not_bounded")
+        raw = path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != evidence["sha256"]:
+            raise DevReleaseBlocked("schema_evidence_digest_mismatch")
+        try:
+            result = json.loads(raw, object_pairs_hook=_unique_object)
+        except (UnicodeError, ValueError) as exc:
+            raise DevReleaseBlocked("schema_evidence_json_invalid") from exc
+        if (not isinstance(result, Mapping) or result.get("status") != "PASS"
+                or result.get("target") != "canonical_supabase_dev_public_schema"
+                or result.get("current_revision") != "0172" or result.get("expected_revision") != "0172"
+                or result.get("project_ref_sha256") != DEV_PROJECT_REF_SHA256):
+            raise DevReleaseBlocked("schema_evidence_0172_pass_required")
+
+    def _flags(self) -> dict[str, bool]:
+        flags = dict(self.providers.workbench_flags(self.packet))
+        if set(flags) != {"api", "worker", "frontend"} or any(type(value) is not bool for value in flags.values()):
+            raise DevReleaseBlocked("provider_workbench_flag_shape_invalid")
+        return flags
+
+    def _configuration(self) -> dict[str, Any]:
+        if self.packet["schema"] != ACTIVATION_SCHEMA:
+            return {}
+        flags = self._flags()
+        if any(value is not self.packet["workbench_enabled"] for value in flags.values()):
+            raise DevReleaseBlocked("provider_workbench_flag_mismatch_prepare_required")
+        return {
+            "requested_workbench_enabled": self.packet["workbench_enabled"],
+            "observed_flags": flags, "evidence_source": "provider_configuration_not_runtime",
+        }
+
+    def prepare(self, confirm_release_id: str) -> dict[str, Any]:
+        if self.packet["schema"] != ACTIVATION_SCHEMA:
+            raise DevReleaseBlocked("prepare_requires_activation_v2")
+        if confirm_release_id != self.packet["release_id"]:
+            raise DevReleaseBlocked("execute_confirmation_mismatch")
+        self._schema_gate()
+        repository, sha = self.packet["repository"], self.packet["release_sha"]
+        ci = self.providers.verify_source_ci(self.packet["configuration_ci_run_id"], sha, repository)
+        if ci.get("branch") != "master" or ci.get("event") != "push":
+            raise DevReleaseBlocked("configuration_source_master_branch_required")
+        if (ci.get("status") != "completed" or ci.get("conclusion") != "success"
+                or ci.get("release_sha") != sha or ci.get("run_id") != self.packet["configuration_ci_run_id"]):
+            raise DevReleaseBlocked("configuration_source_ci_not_successful")
+        if self.providers.remote_branch_sha(repository, "master") != sha:
+            raise DevReleaseBlocked("configuration_source_master_sha_mismatch")
+        if self.providers.remote_branch_sha(repository, "dev") != self.packet["expected_previous_sha"]:
+            raise DevReleaseBlocked("configuration_dev_previous_sha_mismatch")
+        self._verify_provider_contract()
+        before = self._flags()
+        enabled = self.packet["workbench_enabled"]
+        changed = self.providers.set_workbench_flags(self.packet, enabled) if any(value is not enabled for value in before.values()) else []
+        configuration = self._configuration()
+        return self._bounded({
+            "status": "CONFIGURATION_READY", "release_id": self.packet["release_id"],
+            "release_sha": sha, "before_flags": before, "changed_labels": changed,
+            "configuration": configuration, "schema_evidence_sha256": self.packet["schema_evidence"]["sha256"],
+            "product_go": "NOT_VERIFIED_UNTIL_EXACT_DEPLOY_AND_LIVE_TEST", "billing_changed": False,
+        })
+
     def execute(self, confirm_release_id: str) -> dict[str, Any]:
         release_id = str(self.packet["release_id"])
         if confirm_release_id != release_id:
             raise DevReleaseBlocked("execute_confirmation_mismatch")
+        self._schema_gate()
 
         repository = str(self.packet["repository"])
         branch = str(self.packet["branch"])
@@ -522,6 +716,7 @@ class DevReleaseController:
             raise DevReleaseBlocked("expected_previous_sha_mismatch")
 
         self._verify_provider_contract()
+        self._configuration()
         if current == expected_previous:
             self.providers.push_exact_sha(repository, branch, release_sha)
             if self.providers.remote_branch_sha(repository, branch) != release_sha:
@@ -531,6 +726,7 @@ class DevReleaseController:
         vercel = self._vercel()
         render = self._deploy_render()
         health = self._health()
+        configuration = self._configuration()
         return self._bounded(
             {
                 "status": "RELEASE_OK",
@@ -542,10 +738,12 @@ class DevReleaseController:
                 "vercel": vercel,
                 "render": render,
                 "health": health,
+                **({"configuration": configuration, "product_go": "NOT_VERIFIED_UNTIL_EXACT_DEPLOY_AND_LIVE_TEST"} if configuration else {}),
             }
         )
 
     def reconcile(self) -> dict[str, Any]:
+        self._schema_gate()
         repository = str(self.packet["repository"])
         branch = str(self.packet["branch"])
         release_sha = str(self.packet["release_sha"])
@@ -553,6 +751,7 @@ class DevReleaseController:
             raise DevReleaseBlocked("remote_branch_readback_mismatch")
 
         self._verify_provider_contract()
+        self._configuration()
         github_ci = self._github_ci()
         vercel = self._vercel()
         render_cfg = _require_mapping(self.packet, "render")
@@ -566,6 +765,8 @@ class DevReleaseController:
                 self.providers.wait_render(worker_service, "", release_sha)
             ),
         }
+        health = self._health()
+        configuration = self._configuration()
         return self._bounded(
             {
                 "status": "RECONCILED",
@@ -575,7 +776,8 @@ class DevReleaseController:
                 "github_ci": github_ci,
                 "vercel": vercel,
                 "render": render,
-                "health": self._health(),
+                "health": health,
+                **({"configuration": configuration, "product_go": "NOT_VERIFIED_UNTIL_EXACT_DEPLOY_AND_LIVE_TEST"} if configuration else {}),
             }
         )
 
@@ -744,7 +946,7 @@ def _write_evidence(
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("reconcile", "execute"))
+    parser.add_argument("command", choices=("reconcile", "execute", "prepare"))
     parser.add_argument("--packet", required=True, type=Path)
     parser.add_argument("--packet-sha256", required=True)
     parser.add_argument("--repo-root", required=True, type=Path)
@@ -767,7 +969,9 @@ def main(argv: list[str] | None = None) -> int:
             poll_seconds=args.poll_seconds,
         )
         release = DevReleaseController(packet, adapter)
-        if args.command == "reconcile":
+        if args.command == "prepare":
+            result = release.prepare(args.confirm_release_id)
+        elif args.command == "reconcile":
             result = release.reconcile()
         else:
             result = release.execute(args.confirm_release_id)

@@ -384,12 +384,14 @@ class OrchestrationTests(unittest.TestCase):
                 orchestrator.execute(_packet(), root)
 
 
-def test_staged_native_workflow_records_explicit_disabled_workbench() -> None:
+def test_native_workflow_defaults_off_and_attests_exact_build_flag() -> None:
     workflow = Path(__file__).resolve().parents[2] / ".github/workflows/build-native-frontend.yml"
     source = workflow.read_text(encoding="utf-8")
-    assert "--env NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED=false" in source
-    assert 'process.env.NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED!=="false"' in source
-    assert "workbench_enabled:false" in source
+    assert "default: false" in source
+    assert '--env NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED="${WORKBENCH_ENABLED}"' in source
+    assert 'workbench_enabled:flag==="true"' in source
+    assert "workbench_activation_requires_28" in source
+    assert source.index("workbench_activation_requires_28") < source.index("pnpm run build")
     assert '"build-config.json"' in source
     assert "manifest_sha256" in source
 

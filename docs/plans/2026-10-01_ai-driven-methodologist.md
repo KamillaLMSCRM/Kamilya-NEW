@@ -709,6 +709,38 @@ capacity failure, расход за пределами лимита. Не «об
    final172/provider/new-flow acceptance implied. Next: explicit build/packet flag
    contract, DEV B172/runtime/live acceptance, then production B and real flow.
 
+48. Controlled B/native and DEV-controller versioned addenda accepted BEFORE
+   implementation; immutable27 staysOFF and true allowed only28+. Cheap test
+   writers actual nativeRED6failed/11pass, DEVRED17failed/1pass; root implemented
+   typed V2/legacyOFF, both artifact inspections/digests, bridge binding and explicit
+   artifact-vs-runtime evidence. Unified existing DEV controller prepare gates
+   hashed canonical172 receipt/masterCI/exact source/current DEV/free targets,
+   changes only3 flags with immediate readback/partial-stop; no second controller.
+   Root corrected leaf test fixture receipt shape/error regex (HARNESS_FAILURE),
+   independently found V2missing flag and pre-identity flag reads, then regressions.
+   Root129PASS/2UnixSKIP/9subtests/Ruff6/quality1010+2200/version28 PASS. New checks
+   wired into CI; persistent Test Runner frozen149/2skip/9subtests/quality/Ruff/version
+   PASS,165.055s. Root read full reports+actual commands and C1 metadata correction,
+   accepts LOCAL_ONLY (cf4d6e93/bb0cafaa/394f21fb; rootdecisiond3bd39be).
+
+49. Root applied approved canonical DEV public169->172 using exact A26 accepted
+   compatibility receipt1c40b2ab; no DockerDB/newtenant/resources. Initial QA health
+   ReadTimeout retained; canonical existing-provider read-only reconcile26/Free-Hobby
+   passed, retry permanentQA PASS/zero businessmutations at10:35:03Z. Authenticated
+   OFF404/all3flags false, actual worker1node/DB1/queues/concurrency/pools PASS;
+   read-only publicmetadata12FORCERLS/nonbypass/invitationexceptionremoved PASS.
+   Managed consolidated3ba51bc4 and earlierB dispositionb18e1547. Candidate28 source
+   prepared; production remains API26/schema169/OFF/frontend27. Enabled DEV28/live
+   then protected B production/live gates still required. Graph update refused
+   shrink22247vs23876, old graph preserved/no force; direct source/test coverage.
+
+50. Final staged diff check caught extra EOF blank lines in both newly staged
+   activation test files (earlier unstaged check excluded untracked files).
+   Root removed whitespace only; both updated tests49PASS/Ruff/cached-diff PASS.
+   Original149 runner receipt remains immutable; managed delta c7986c3a binds
+   before/after hashes. Canonical Git-bundled-Bash tenant gate335queries/zero
+   violations PASS. No behavior/interface delta or external mutation.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)
@@ -717,7 +749,7 @@ capacity failure, расход за пределами лимита. Не «об
 |---|---|---|---|
 | WB-FOUNDATION | DONE | root / root / independent cheap reviewer |76 pure tests и quality PASS; commit5afa42f |
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
-| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |DEV A26/schema169/OFF/provider/QA/worker PASS; finalB172/browser unresolved |
+| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |DEV172/OFF +A26 exact providers/QA/worker/public metadata PASS; enabled28/browser unresolved |
 | WB-NEIGHBOR-CATALOG | DONE | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and independent local180 PASS atf0ff29c2; root ACCEPTED_LOCAL_ONLY; no equivalence claim |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
 | WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
@@ -760,6 +792,11 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 | root / compatible tenants isolation candidate |Parent metadata NOT AVAILABLE |Accepted local85/quality + corrected pinned DEV20; sanitizer-label failure retained |Original broad access reproduced and denied; no public migration; same physical rollback proved; counters NOT AVAILABLE |
 | Test Runner / frozen tenants local acceptance |Persistent configured model/effort NOT AVAILABLE |Accepted local only after1 safe invocation correction, no source repairs |85/Ruff4/quality PASS at5bc7d1a9;214.910s; root DEV20 reviewed only, token counters NOT AVAILABLE |
 | frontend_cleanup_rule_review / independent bounded governance review |Requested gpt-5.6-luna/medium; observed metadata NOT AVAILABLE |Root accepted after2 correction cycles; final evidence-invocation correction verified by root |Read-only exact runbook/helper/controller; reported elapsed approximate3min+2min, exposed counters NOT AVAILABLE; no worker mutation |
+| dev_activation_seam_inventory / bounded inventory |gpt-5.6-luna/medium; observed metadata NOT AVAILABLE |Accepted,0 corrections |Existing public schema/provider seams identified; no external access; counters NOT AVAILABLE |
+| native_activation_contract_tests / bounded RED tests |gpt-5.6-luna/medium; observed metadata NOT AVAILABLE |Accepted; root added missing-evidence/type/provenance regressions |Actual6RED/11PASS before root code; no external access; counters NOT AVAILABLE |
+| dev_activation_controller_tests / bounded RED tests |gpt-5.6-luna/medium; observed metadata NOT AVAILABLE |Accepted with root fixture-shape/regex/single-controller correction |Actual17RED/1PASS; root additional adapter/terminal/schema/identity tests; counters NOT AVAILABLE |
+| native_activation_review / independent native then DEV review |gpt-5.6-luna/medium; observed metadata NOT AVAILABLE |Accepted after1 correction packet each; no leaf writes |Native V2missingflag/provenance, DEVidentity-before-flags fixed; direct-source final accepts; counters NOT AVAILABLE |
+| Test & Evidence Runner / activation local acceptance + evidence C1 |Persistent configured metadata NOT AVAILABLE |Root accepted LOCAL_ONLY;1 metadata correction, no source repair |149PASS/2UnixSKIP/9subtests/quality/Ruff/version-release/diff;165.055s; C1 commands/hashes, runtime NOT_RUN; token/rootreview counters NOT AVAILABLE |
 
 Точные сроки оценим после вертикального среза и ASR benchmark; обещать голосовой
 production за фиксированное число дней без этих измерений было бы неверно.

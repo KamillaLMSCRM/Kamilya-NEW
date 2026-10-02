@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   CAPABILITIES,
   ROLE_CAPABILITIES,
@@ -10,6 +10,24 @@ import {
 } from '@/lib/routeRegistry';
 
 describe('route and capability registry', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('uses the same explicit workbench flag and active role for both navigation surfaces and direct access', () => {
+    const pathname = '/methodologist-workbench';
+    const roles = ['methodologist', 'admin', 'student', 'superadmin'] as const;
+    for (const value of ['true', 'false', '', '1', 'TRUE', undefined]) {
+      vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED', value);
+      for (const role of roles) {
+        const expected = value === 'true' && role === 'methodologist';
+        expect(canAccessRegisteredRoute(role, pathname)).toBe(expected);
+        for (const surface of ['sidebar', 'commandPalette'] as const) {
+          expect(getNavigationRoutes(role, surface).some((route) => route.href === pathname)).toBe(expected);
+        }
+      }
+      expect(isPublicRoute(pathname)).toBe(false);
+      expect(canAccessRegisteredRoute('methodologist', '/assignments')).toBe(true);
+    }
+  });
   it('defines every product role against typed capabilities', () => {
       expect(Object.keys(ROLE_CAPABILITIES)).toEqual([
         'admin',
