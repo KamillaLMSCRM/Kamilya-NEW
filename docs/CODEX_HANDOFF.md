@@ -1,11 +1,31 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-10-01
+**Обновлено:** 2026-10-02
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/methodologist-workbench-20261001`
 
-## Current development: AI-driven methodologist — first text slice, flags OFF
+## Current production: text workbench accepted, backend29/schema174
+
+- result: protected37032048857 failed-job rerun attempt2 SUCCESS at immutable
+  source32e1331d9b24621de71213ba1150375a261b0464/image96a1bc2c/version29.
+  API+3workers green/ON/zero restarts; CT125174 owner lock/RLS/ACL PASS;
+  nativefrontend28/source64 intentionally retained, rollback backend28/a395.
+- verified: exact12 image layers SHA256; signed restore173 RPO43s/RTO19s;
+  root live receipt reload/mobile390/student course access; Test Runner exact
+  replay/foreign404/student403/prior deadline; normal A/B API deletion204/fresh404
+  and independent10-table absence. Permanent QA100%/history/PDF preserved before
+  and after. Worker ping/queues/tasks/concurrency2, health/timers/lock PASS.
+- blockers: none for this bounded release. Original GHCR transfer root cause
+  remains NOT_VERIFIED, not a token/daemon defect claim. Auth429 was test-harness
+  pacing:13s normal actor login intervals passed without changing protections.
+- evidence: canonical current facts in PRODUCTION_READINESS.md; managed root
+  workbench174-production-final-root.json SHA25627de3aed8b41a1d254fe81f76af2fc81f477e10b2d9512fe18353e7e2c58edd4;
+  append-only Test Runner ledger retains failed and corrected executions.
+- next: bounded LLM intent adapter under existing provider/usage policy. No
+  voice/STT installation or dispatch; ASR corpus/resource/data gate remains.
+
+## Historical development: AI-driven methodologist — first text slice, flags OFF
 
 - result: bounded text→preview→confirm→one-time assignment implemented locally;
   owned-plan URL reload and isolated Supabase DEV migration/RLS/atomic rollback/

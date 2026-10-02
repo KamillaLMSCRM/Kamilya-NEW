@@ -1270,3 +1270,29 @@ Rules:
   not automatic CI digest6d4e4f93. Root independently read both protected records
   and bound reviewed runtime scripts to the actual protected digest before
   approving the existing kz-production environment. This is not final GO.
+
+### 2026-10-02 — `WB174-CLOSEOUT-POSTRELEASE-20261002` bounded readback stopped
+
+- Root-provided `production29-readback.json` SHA-256 matched `3866e86861cbbbd8739dfb60746bd4a63b586a6305e4debf358bcb3765d37ade`. Worktree HEAD was `f4fa89f3cde0a7069e0a8aebd65197395ad4d758`; no source, runtime, database, provider, browser, or deployment mutation occurred.
+- The approved closeout readback wrapper was invoked once with canonical project Python and scope `run_checked(original_scope(), "readback")`. One local wrapper path-resolution harness error occurred before any request; it was corrected once and the temporary wrapper was removed afterward.
+- The corrected readback reached authentication and returned sanitized `auth_rate_limit_retry_after_seconds:10`. Per packet, execution stopped immediately: no retry, auth loop, retained-QA readback, cleanup, tenant deletion, or browser action.
+- Managed persistent evidence: `artifacts/local_acceptance/workbench174-postrelease-readback-report.md` SHA-256 `e5cd271922ec537f9bfc16694845cec610db363971abe934791937bdb503a990`; `artifacts/local_acceptance/workbench174-postrelease-readback-results.json` SHA-256 `a3a103d867566dcf6b7cd40d6169bd3587a6f984d6165e22b2d83d8310660ba2`.
+- Result `BLOCKED` (`ACCESS_OR_PROVIDER`); retained-QA and cleanup remain unverified/root-owned; no release GO.
+
+### 2026-10-02 — `WB174-CLOSEOUT-POSTRELEASE-SERIAL-20261002` serialized readback stopped
+
+- Root-provided `production29-readback.json` SHA-256 was revalidated as `3866e86861cbbbd8739dfb60746bd4a63b586a6305e4debf358bcb3765d37ade` at HEAD `f4fa89f3cde0a7069e0a8aebd65197395ad4d758`.
+- The reviewed wrapper invoked exactly one serialized `run_checked(original_scope(), "readback")` attempt with canonical project Python. It returned sanitized `auth_rate_limit_retry_after_seconds:10` before readback assertions completed.
+- This is a transient authentication rate-limit block, not an invalid-credential or provider-outage claim. No retry, auth loop, alternate credential, retained-QA readback, cleanup, tenant deletion, browser action, or other production mutation occurred. Temporary wrapper was removed.
+- Managed persistent evidence: `artifacts/local_acceptance/workbench174-postrelease-serial-report.md` SHA-256 `bc0d71d12397c7d3fe86a8389d6e052a642e912b982efff408b2ed5f108a1788`; `artifacts/local_acceptance/workbench174-postrelease-serial-results.json` SHA-256 `9333fc6c86f7240a7882731cab4da7090b840917bc7b2181d5e3c311bcef7795`.
+- Result `BLOCKED`; retained-QA and cleanup remain unverified/root-owned; no release GO.
+
+### 2026-10-02 — `WB174-CLOSEOUT-PACED-20261002` paced postrelease verification
+
+- Root-approved pacing wrapper and all guards revalidated at worktree HEAD `f4fa89f3cde0a7069e0a8aebd65197395ad4d758`: wrapper SHA-256 `c615e7bb90433a8db860436400d845c293f4679f3ae509061bbec5f9ab619424`; closeout helper `97ef06923ef070cbd4535222911e2bffb63c405fb24151d2b764dd55678c0134`; retained-QA helper `0102011b897e70345f96392bd2e1c60424df9f56addac75d414e9f96f1877ac9`; runtime receipt `3866e86861cbbbd8739dfb60746bd4a63b586a6305e4debf358bcb3765d37ade`; original fixture `27de721e05ee1426602c2df07d896a57e8928547f59cdb9c0678a7267e8e3ae9`.
+- One approved execution passed: exactly five distinct normal logins, minimum 13-second monotonic pacing, pacing duration `52.0s`; readback persisted `PASS`; an additional 13-second wait preceded the retained-QA normal-login GET-only check; wrapper printed final `PASS`, total duration `66.094s`.
+- Readback receipt PASS: schema0174/release32, one created and one skipped assignment, idempotent replay `NO_DUPLICATE`, foreign access/confirmation `404`, student denial `403`, baseline preserved, notifications not requested, permanent-QA mutations `0`. Fresh receipt SHA-256 `2c28ac79bef2077259d64ffd64a5e9fe168455c3d685de0daf01b60896eace74`.
+- Retained-QA receipt PASS: predecessor history preserved, progress `100`, existing certificate PDF readback PASS, business mutations `0`, auth-session-audit-only. Fresh receipt SHA-256 `068e8d1b1bffac15adfd88a4a51c21da95957f91d6ab24e18f20c9e6869905ee`.
+- No limiter/configuration change, retry, alternate authentication, cleanup, tenant deletion, browser action, mail, AI, database DML, or deployment occurred. Root retains A/B cleanup and final acceptance ownership.
+- Managed persistent evidence: `artifacts/local_acceptance/workbench174-paced-closeout-report.md` SHA-256 `916532c1a26aefe867b6b4356c00f91c94edf34bceb6d2b9883e1e53f4ae286f`; `artifacts/local_acceptance/workbench174-paced-closeout-results.json` SHA-256 `21f1d4bbe4ed941440bb76a11d70fc372e78c55f0dbbddcd40ead004fc208805`.
+- Result `PASS` for bounded verification only; cleanup remains root-owned; no release GO is implied by this runner receipt.

@@ -133,6 +133,17 @@ is verified. Never put secrets, PII, tenant payloads, or mutable project truth t
 
 ## Failure and escalation
 
+For multi-role live authentication, reuse one process-local client/session cache
+and plan the complete actor count before execution. The current normal login
+contract is burst3/10seconds,5/minute,20/hour (`app/core/rate_limit.py`); five
+distinct actors cannot be logged in back-to-back. A root-approved harness may
+space new actor logins by at least13seconds and pace a following retained-QA
+login likewise. Verify the current contract and hour budget first; cached logins
+make no new request. A429 stops the packet and preserves Retry-After evidence;
+waiting only before an otherwise unpaced packet does not repair the harness.
+Never clear limiter state, mint an alternate token, change routes/limits, or
+reinterpret a pacing failure as invalid credentials/provider outage.
+
 Do not fix product code. Send the first reproducible failure immediately:
 
 ```text

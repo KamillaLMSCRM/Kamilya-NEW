@@ -11,7 +11,7 @@ DB/storage gate и приёмкой клиента
 
 ## Daily learning release — 2026-09-30
 
-### Current workbench compatibility A — deployed OFF, 2026-10-02
+### Historical workbench compatibility A — deployed OFF, 2026-10-02
 
 Backend0.11.26 is deployed at exact source
 `23630036e353b46d9fcf2870fe25cd08f76d5dff`, CI36972605875 all7 SUCCESS
@@ -90,7 +90,7 @@ maintenance only. Standing authorization is owned by
 API/DB/tenant/landing/DNS/tier maintenance. Full activation and live bounded
 workbench acceptance remain incomplete.
 
-### Current status — DEV29/0174; production28/0173 preserved, final NO_GO
+### Current status — production29/0174 accepted; native frontend28 retained
 
 Immutable29 source/tag/Release: `32e1331d9b24621de71213ba1150375a261b0464`.
 MasterCI37029874084 and devCI37030568443 all7SUCCESS; fullCI3804PASS/2SKIP,
@@ -105,25 +105,50 @@ Managed DEV final proof bf93a2e4a378cfa86aee5cb606b584b24bbf4cf2346437f35b22644c
 
 Fresh signed restore173 PASS. Protected37032048857 build SUCCESS, image
 `sha256:96a1bc2c312bab8bb7d70c261642678f37ed771bb22cf9b036c9a7cd461292e2`,
-not automatic CI digest6d4e4f93. Existing environment approved normally.
-Execute FAILED at docker pull after900s, 16:18:58Z–16:33:58Z:
-unexpected_failure:TimeoutExpired. No migration/switch occurred. Independent
-readback: production64/version28/blue/a395, four ON services running/restarts0,
-public/private healthy, CT1250173, backup timer active, release lock absent.
-Paused retention timer restored; old watchdog identity/timer active.
-Disk61%, free12272316KiB; no image cleanup needed.
+not automatic CI digest6d4e4f93. Original attempt stopped safely at900s
+dockerpull, before migration/switch; original stop/recovery proof
+c9c3eda8952eddf26ccfcf6cab3669bd1f54567376c9ae99bd62c10b19297c46 is preserved.
+Root verified Docker29 containerd content store and exact candidate layer, then
+aborted only its stale108003328-byte incomplete ingest with no open writer.
+Committed98 blobs, current/rollback images and old runtime remained unchanged.
+One90s cache pull still timed out; a subsequent in-flight observational pull
+resumed the partial and completed in10.006s. All12 layer SHA256 values, immutable
+digest, linux/amd64 and embedded29 version verified. Original transfer cause is
+NOT_VERIFIED; post-cancellation zero-growth is not proof of an active stall.
+No daemon restart/upgrade, broad prune, credential/route bypass or installed
+900s timeout increase occurred.
 
-Read-only registry challenge401 in0.414s and authenticated exact amd64 manifest
-PASS in5.741s (12layers/295903560compressed bytes); complete image absent.
-Underlying transfer/processing cause NOT_VERIFIED, not a proved token failure.
-Blob-range diagnostic rejected locally by sensitive-material guard before network;
-no bypass, alternate credentials/route, timeout expansion or blind rollout retry.
-Managed stop/recovery proof c9c3eda8952eddf26ccfcf6cab3669bd1f54567376c9ae99bd62c10b19297c46.
-Final acceptance NO_GO: production0174/live29/normal A-B cleanup/independent
-absence/QA-after remain pending; disposable fixtures and permanent QA preserved.
-Nativefrontend28/source64 unchanged. No customer/voice/STT/LLM/billing/DNS/
-Proxmox/landing mutation. Next gate: verified exact-image delivery repair before
-new protected execution and the already reviewed closeout sequence.
+Original protected workflow37032048857 failed-job rerun attempt2 SUCCESS,
+job110957703531, deployment6814632272. Same manifest artifact11237274545/hash
+2a2976cf376e046c85b1ad533ddd481a9180b3f5f7d87363f5c52cab2402457a reused;
+no candidate rebuild. Fresh signed restore173: RPO43s/RTO19s, temporary DB/files
+absent. Independent production32/version29/green/96, API+3workers ON/running/
+restarts0, public/private health and CT1250174 owner-lock/RLS/ACL/invitation
+catalog checks PASS. Actual worker ping/queues/tasks/concurrency2 PASS, no task
+dispatch. Rollback28/a395 retained; watchdog verified29/96, backup/retention/
+watchdog timers active, release lock absent. Final disk62%, free11977468KiB.
+Nativefrontend28/source64 public health and live UI match; intentionally unchanged.
+
+Root live browser normal methodologist login, existing receipt reload,
+desktop/mobile390 and normal student course/lesson access PASS. Test Runner
+WB174-CLOSEOUT-PACED-20261002 independently executed exact API negatives/replay:
+created1/skipped1/no duplicate, foreign GET+confirm404, student403, prior deadline
+preserved/no notifications. Two earlier429 attempts preserved; harness corrected
+to13s between distinct normal logins, not a limiter or credential change.
+Normal API cleanup B then A returned204 and fresh404; independent CT125 read-only
+absence across10 related tables PASS. Permanent retained QA before AND after:
+completed100%, predecessor history and existing PDF certificate PASS, zero
+business mutations. No owner tenant DML, new QA tenant, mail/AI/voice/STT/LLM,
+billing/DNS/Proxmox/landing or frontend mutation.
+
+Managed root runtime/cleanup/browser disposition:
+artifacts/local_acceptance/workbench174-production-final-root.json SHA256
+27de3aed8b41a1d254fe81f76af2fc81f477e10b2d9512fe18353e7e2c58edd4.
+Test Runner managed results21f1d4bbe4ed941440bb76a11d70fc372e78c55f0dbbddcd40ead004fc208805
+accepted after actual command and both artifact/receipt reviews. Persistent
+Release Runner reviewed exact manifest/readback coherence LOCAL_ONLY; root owns
+deployment/browser/cleanup. This closes the bounded text-workbench release,
+not the future LLM/voice slices or commercial-tenant admission gate.
 
 ### Historical workbench28/64 — production0173/ON; cleanup blocked
 

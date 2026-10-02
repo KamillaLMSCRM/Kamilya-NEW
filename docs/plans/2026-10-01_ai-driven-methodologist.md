@@ -834,6 +834,18 @@ capacity failure, расход за пределами лимита. Не «об
     delaycause NOT_VERIFIED. No blind retry/guardbypass. Managedstopc9c3eda8;
     production174/live29/normalA-Bcleanup still mandatory.
 
+59. Root delivery/production closeout2026-10-02 completed. Exact96 protected image
+    delivered/all12 SHA256 verified; original workflow37032048857 failed-job
+    rerun2 SUCCESS without rebuild. Production32/29/green/174/4servicesON,
+    ownerlock/RLS/ACL/invitation catalog, workers/timers/health/rollback28 PASS.
+    Root live existingreceipt reload/mobile390/studentcourse PASS. Test Runner
+    actual API replay/foreign404/student403/baseline preservation and retainedQA
+    PASS after13s login pacing; prior429/harness failures preserved, no limiter
+    changes. Root normal B then A cleanup204/fresh404, independent10-table absence,
+    retainedQA-after100%/history/PDF PASS. Managedroot27de3aed and runner21f1d4bb.
+    Release closes text slice only. No voice/STT/LLM/mail/AI/customer/ownerDML/
+    billing/DNS/Proxmox/landing change. Original transfer cause NOT_VERIFIED.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)
@@ -846,7 +858,7 @@ capacity failure, расход за пределами лимита. Не «об
 | WB-NEIGHBOR-CATALOG | DONE | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and independent local180 PASS atf0ff29c2; root ACCEPTED_LOCAL_ONLY; no equivalence claim |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
 | WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
-| WB-RELEASE | BLOCKED at first failed production gate | root + Release Runner local review |Production28/64/173 ON healthy/native28; protected29 dockerpull timeout900s before switch, repairDEV29 accepted; normalcleanup/final acceptance pending |
+| WB-RELEASE | DONE for text slice29 | root execution/browser/cleanup + Release Runner local review + Test Runner actual API |Production29/32/174 ON; native28 retained; protected rerun2 SUCCESS, normalA/Bcleanup/independentabsence/permanentQA-after PASS; voice/LLM separate |
 
 Write overlap: root owns migration/config/router/registry/purge/docs and DEV gate;
 parser agent owns parser+owned tests, UI agent owns panel/client+web tests until

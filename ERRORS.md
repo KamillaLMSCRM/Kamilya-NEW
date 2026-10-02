@@ -5423,7 +5423,7 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ## DEPLOY-012 - Exact protected image pull exhausted the release command timeout
 
-- Date: 2026-10-02. Status: OPEN; protected execution stopped safely.
+- Date: 2026-10-02. Status: RESOLVED delivery/release; original transfer cause NOT_VERIFIED.
 - Symptom: protected workflow37032048857/job110921281893 at exact source32/version29
   completed build/provenance/manifest checks, then returned
   unexpected_failure:TimeoutExpired after900s, before CT125 migration or slot switch.
@@ -5432,7 +5432,7 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   transfer/Docker-processing cause is NOT_VERIFIED. Bounded daemon categories
   yielded no diagnostic errors; authenticated exact manifest PASS in5.741s
   and verified-TLS registry challenge401 in0.414s do not prove layer throughput.
-- Fix: underlying delivery repair pending. Recovery independently verified
+- Fix: original safe-stop recovery independently verified
   old64/version28/blue/a395 API/threeworkers
   running/restarts0/ON and private/public health; CT125 remains0173, backup timer
   active, release lock absent. Restored only the paused retention timer; old
@@ -5449,3 +5449,36 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   pull timeout, broaden access, increase timeouts blindly, or declare deployment
   success from a green image build. Verified exact-image delivery repair and
   fresh protected execution remain required before schema174/live/cleanup gates.
+- Subsequent verified recovery: reviewed containerd Content.Abort reset only one
+  exact candidate incomplete ingest108003328bytes after no-open-writer/sole-ref
+  checks; all98 committed blobs/current+rollback images/runtime unchanged.
+  Reset alone did not complete delivery. One in-flight observational native pull
+  resumed and completed10.006s; all12 layer hashes/exact96 digest/version29 verified.
+  Original protected37032048857 failed-job rerun2 succeeded with the same manifest,
+  no rebuild/installed timeout increase/daemon change. Independent29/174 runtime,
+  actual live+negative tests, normal A/B API cleanup and10-table absence,
+  permanentQA-after PASS. Managedroot27de3aed8b41a1d254fe81f76af2fc81f477e10b2d9512fe18353e7e2c58edd4.
+  Post-cancellation zero-growth must never be promoted to active-stall evidence.
+
+## AUTH-SMOKE-PACING-001 - Multi-role verification exceeded normal login burst
+
+- Date: 2026-10-02. Status: RESOLVED test harness; production protections unchanged.
+- Symptom: two exact backend29 closeout packets stopped at429/Retry-After10;
+  retained-QA and cleanup dependent gates were not run in either packet.
+- Cause: one helper normally logs in five distinct actors; the unchanged auth
+  contract allows3/10seconds,5/minute,20/hour. Serial packet invocation without
+  spacing its internal logins still exceeds burst. Failure was not necessarily
+  the first underlying login and is not an invalid-credential/provider-outage proof.
+- Fix: root-reviewed wrapper preserves existing process-local token cache and
+  normal credential/route, but spaces each uncached actor login by13seconds;
+  another13seconds precedes the retained-QA login. No retries or limiter reset,
+  exemption, alternate token, credential/config/source-runtime change.
+- Verification: Test Runner WB174-CLOSEOUT-PACED-20261002 actual one-shot PASS:
+  five logins over52seconds, total66.094seconds including retained-QA. Exact API
+  replay/foreign404/student403/baseline and QA history100%/PDF PASS. Managed
+  results21f1d4bbe4ed941440bb76a11d70fc372e78c55f0dbbddcd40ead004fc208805;
+  root actual command/receipt/artifact review accepted. Earlier failures preserved.
+- Prevention: count all actors and failed attempts against burst/minute/hour
+  windows before a live packet, reuse process-local sessions and avoid concurrent
+  root browser/API logins. A429 stops the packet; only a corrected exact packet
+  may resume after the real window. Pacing rule added to Test Runner instructions.

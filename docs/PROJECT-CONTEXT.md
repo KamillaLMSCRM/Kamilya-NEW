@@ -27,6 +27,15 @@
 
 ## Репозиторий и сервисы
 
+Current verified2026-10-02: production backend0.11.29/source
+32e1331d9b24621de71213ba1150375a261b0464, protected image96a1bc2c,
+CT1250174, API+3workers ON; native frontend28/source64 retained and live accepted.
+Protected37032048857 rerun2 SUCCESS; exact owned A/B normal cleanup and independent
+absence PASS, permanent QA history100%/certificate preserved. DEV29/0174 ON on
+unchanged Free/Hobby tiers. Full identity/evidence: PRODUCTION_READINESS.md.
+The compatibility paragraphs below are historical staged-release snapshots,
+not current runtime evidence. No voice/LLM/STT or new paid resources enabled.
+
 | Контур | Текущее размещение |
 |---|---|
 | Monorepo | `KamillaLMSCRM/Kamilya-NEW`, branch `master` |
@@ -83,7 +92,8 @@ Actual frontend rollback25/`3d1276443ad8735a5c0bf3dd029be5768c46ca6a` и
 Исходный неудавшийся пакет26 остаётся неизменным. Полный статус —
 `docs/PRODUCTION_READINESS.md`. Root browser compatibility A: вход и сохранённое
 завершение100%/действующий сертификат после reload PASS, OFF route возвращает в
-обзор; business writes отсутствуют. KZ остаётся на этом A26/169/OFF и frontend27.
+обзор; business writes отсутствуют. Этот исторический snapshot относится к
+A26/169/OFF и frontend27; current identity приведена выше и в readiness.
 
 Последующий DEV readback2026-10-02: API/worker/frontend28 exact
 `eb427100a53e96f45888203f6b46e8e9c24801a3`, public0172, три flags ON,
