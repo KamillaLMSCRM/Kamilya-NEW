@@ -171,13 +171,15 @@ async def test_superadmin_delete_populated_enrollment_tenant_cleans_restrict_chi
     )
     assert response.status_code == 204, response.text
 
+    # Production GET opens a new session; this transactional test client shares
+    # one. Raw SQL DELETE must not leave its pre-delete Tenant in the identity map.
+    db_session.expire_all()
     readback = await client.get(
         f"/api/v1/admin/super/tenants/{target_id}",
         headers=headers,
     )
     assert readback.status_code == 404, readback.text
 
-    db_session.expire_all()
     await set_current_tenant(target_id)
     await _set_runtime_role(db_session)
     assert await db_session.scalar(select(Enrollment.id).where(Enrollment.tenant_id == target_id)) is None

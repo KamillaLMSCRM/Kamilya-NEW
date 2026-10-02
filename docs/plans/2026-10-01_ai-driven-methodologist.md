@@ -776,6 +776,16 @@ capacity failure, расход за пределами лимита. Не «об
    Post-repair Graphify AST update refused shrink22321vs23876, old index retained;
    no force/shared upgrade. Direct source/tests remain decisive navigation fallback.
 
+54. Candidate08faf8db pushed master with exact independent readback/projectaccount.
+   CI37007566259 six jobs SUCCESS, populated integration DELETE204 then staleORM
+   GET200;349PASS/2SKIP/1FAIL. Root source/precedent confirms shared-session cache,
+   not new ACL/FK failure. Preserve failedreceipt; move fixture expire_all before
+   GET, add actual1RED->GREEN guard/focused24PASS. Runtime173/helper unchanged.
+   Exact corrected sourceCI mandatory before DEV173; prod/dev172 unchanged.
+   Root2232unit/quality/version28 PASS (release notes literal tag marker restored,
+   clearly marked planned/notpublished). Independent Test Runner C1 local24/
+   collect1/Ruff5/diff PASS,176810ms; reports a666579e/f79f4db8 read in full byroot.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)

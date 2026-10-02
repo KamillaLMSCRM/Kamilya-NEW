@@ -124,6 +124,13 @@ Production remains API26/169/OFF + frontend27/OFF. Protected B now169->173 with
 fresh signed backup/restore, compatible A26/OFF rollback and exact enabled native
 artifact plus complete live acceptance; no product/production GO yet.
 
+Candidate08faf8db masterCI37007566259 FAILED populated integration (349PASS/2SKIP,
+six otherjobsSUCCESS): normal DELETE204, then cached pre-purge Tenant returned by
+the shared test session's GET. Fixture correction expires identity map BEFORE
+fresh absence GET, matching existing lifecycle test.1RED->GREEN/focused24PASS;
+no runtime helper/service/ACL change. Replacement exactCI PostgreSQL proof required;
+public DEV173, new provider rollouts and production remain unmodified.
+
 ### Historical B preparation0.11.28 — DEV0172/OFF before activation
 
 Root canonical public schema contract gate applied DEV0169->0172 after accepted

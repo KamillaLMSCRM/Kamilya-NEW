@@ -5328,6 +5328,21 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   boundaries independently from factory scopes. Never loosen bootstrap/RLS
   restrictions to accommodate a leaked test context.
 
+### Recurrence2026-10-02: cached pre-purge ORM tenant in absence GET
+
+- Exact CI37007566259/source08faf8db: six other jobs SUCCESS; populated purge
+  DELETE204, then GET200 with old Tenant and zero usage counts. Integration
+  stopped349PASS/2SKIP/1FAIL. No DEV public173/provider/prod mutation.
+- Cause: shared-session test retained factory Tenant in SQLAlchemy identity map
+  after raw SQL DELETE; SuperadminService.get_tenant uses Session.get. Real
+  production GET has a fresh session; canonical lifecycle test already calls
+  expire_all after DELETE/before GET. New populated fixture called it too late.
+- Fix: move expire_all before API absence GET; keep204/404, exact non-bypass
+  role, child counts and foreign sentinel assertions. No runtime/ACL/FK changes.
+- Verification: database-free fresh-boundary regression1RED -> GREEN; focused24
+  PASS/Ruff. New exact CI PostgreSQL execution remains REQUIRED; prior failed
+  receipt preserved. Never replace404 with200 or skip populated cleanup.
+
 ## TEST-INFRA-012 - Telegram webhook mock omitted tenant-context setup
 
 - Date: 2026-10-02.
