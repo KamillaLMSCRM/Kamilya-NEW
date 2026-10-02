@@ -90,7 +90,41 @@ maintenance only. Standing authorization is owned by
 API/DB/tenant/landing/DNS/tier maintenance. Full activation and live bounded
 workbench acceptance remain incomplete.
 
-### Workbench B candidate0.11.28 — DEV0172/OFF, activation pending
+### Current workbench B candidate0.11.28 — DEV0172/ON, cleanup repair pending
+
+Exact DEV source `eb427100a53e96f45888203f6b46e8e9c24801a3`:
+master CI36999146155/dev CI36999932574 all7 SUCCESS. Existing API
+dep-davp6167bikc73eu4a50/worker dep-davp74favr4c73ctej10 LIVE and frontend
+dpl_8iENc75qtgHhRyVQriUYCHQcMCYM READY; literal three flags ON/Free-Hobby.
+Root actual browser preview/reload/confirm/reload-receipt PASS, created1/skipped1,
+prior enrollment/deadline preserved, repeated confirm exact same receipt/no
+duplicate, foreign GET/confirm404 and student403, mobile390 no overflow and
+student dashboard assignment/date PASS. No notification/LLM/STT/voice sent.
+Owned B tenant API204/fresh404; owned populated A cleanup500 reproduced
+fk_enrollments_content_release_id, runtime child DELETE ACL all denied/FORCE RLS.
+Original root evidence410deac8 is NOT_READY_CLEANUP_BLOCKED; no production action.
+
+New accepted purge release addendum precedes additive0173 and DEV packetV3.
+Migration helper deletes only exact tenant's three enrollment-access children,
+requires superadmin/tenant/slug, rejects protected/claimed targets; direct DELETE
+remains denied. Service enrollment dependencies precede immutable release purge;
+failure rolls back and returns finite tenant_delete_failed. No ad-hoc owner data
+recovery, role expansion or weakened immutable guards. Root2231 unit PASS,
+97 focused release/admin contracts PASS, quality1010/2200 PASS. Actual isolated
+Supabase DEV proof12 PASS at12:22:18Z: helper owner/ACL, negatives, rollback,
+sentinel, downgrade/upgrade, exact schema absence and public catalog/ACL neutrality.
+Managed root proof5e2ccc9d; full arbitrary tenant lifecycle NOT_VERIFIED.
+Public DEV remains0172; A fixture retained pending normal API cleanup after exact
+new-source173 release. Independent source review only, local Test Runner/new CI,
+permanent QA after cleanup and actual DEV173 acceptance still required.
+Persistent Test Runner independently2231unit/67controller/1collect-only/quality/
+scopedRuff PASS in187092ms; root full reports+actualcommands accepted LOCAL_ONLY
+(07b698a4/041f6be8), ROOT-C1 preserves scope-selection metadata correction.
+Production remains API26/169/OFF + frontend27/OFF. Protected B now169->173 with
+fresh signed backup/restore, compatible A26/OFF rollback and exact enabled native
+artifact plus complete live acceptance; no product/production GO yet.
+
+### Historical B preparation0.11.28 — DEV0172/OFF before activation
 
 Root canonical public schema contract gate applied DEV0169->0172 after accepted
 immutable A26 compatibility receipt1c40b2ab and isolated tenants20 proof6f887f52.

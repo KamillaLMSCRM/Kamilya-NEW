@@ -34,7 +34,19 @@ def test_default_head_stays_final_and_expand_has_exact_target(gate):
     assert gate.phase_target("0172", "expand") == "0169"
     assert gate.phase_target("0172", "contract") == "0172"
     with pytest.raises(gate.GateBlocked, match="unsupported_workbench_phase"):
-        gate.phase_target("0173", "expand")
+        gate.phase_target("0174", "expand")
+
+
+def test_final173_requires_staged_contract_from169_or172(gate):
+    assert gate.phase_target("0173", "expand") == "0169"
+    assert gate.phase_target("0173", "contract") == "0173"
+    for current in ("0169", "0172", "0173"):
+        gate.verify_phase_path(current, "0173", "contract", apply=True)
+    for current in ("0168", "0170", "0171", "0174"):
+        with pytest.raises(gate.GateBlocked, match="revision_mismatch"):
+            gate.verify_phase_path(current, "0173", "contract", apply=True)
+    with pytest.raises(gate.GateBlocked, match="staged_rollout_required"):
+        gate.verify_phase_path("0172", "0173", None, apply=True)
 
 
 @pytest.mark.parametrize("current,phase", [("0167", "expand"), ("0172", "expand"), ("0168", "contract"), ("0171", "contract")])

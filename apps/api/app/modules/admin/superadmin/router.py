@@ -172,7 +172,7 @@ async def delete_tenant(
     user: User = Depends(require_role("superadmin")),
     svc: SuperadminService = Depends(_service),
 ):
-    """Soft-delete a tenant.
+    """Permanently delete a tenant through the bounded purge service.
 
     P0.2 first-tenant hardening:
       - `confirm_slug` query param must match the tenant's slug (defense
@@ -220,7 +220,15 @@ async def delete_tenant(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         await svc.db.rollback()
-        raise HTTPException(status_code=500, detail=f"Tenant delete failed: {e}") from e
+        # Database exceptions may include query parameters and internal schema
+        # details. Keep the response finite; record only the safe exception type.
+        import logging
+
+        logging.getLogger(__name__).error(
+            "superadmin.tenant.delete_failed tenant_id=%s error_class=%s",
+            tenant_id, type(e).__name__,
+        )
+        raise HTTPException(status_code=500, detail="tenant_delete_failed") from e
 
     import logging
 

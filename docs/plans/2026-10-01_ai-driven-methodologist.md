@@ -753,6 +753,29 @@ capacity failure, расход за пределами лимита. Не «об
    artifacts+actual commands, accepted LOCAL_ONLY; append-only ROOT-C1 corrects
    truncated ledger hash and six-vs-seven selector metadata, no extra rerun.
 
+52. Corrected eb427100 masterCI36999146155/devCI36999932574 all7 SUCCESS;
+   existing DEV providers exact28/0172/ON, workerDB1/queues/pools and permanentQA
+   PASS. Root live text preview/reload/confirm/receipt-replay/student/mobile PASS,
+   created1/skipped1/no duplicate/prior deadline preserved; no notification/AI.
+   Owned B API204/404; populated A cleanup500/fk_enrollments_content_release_id,
+   child runtime DELETE denied/FORCE RLS. Managed410deac8 NOT_READY; prod unchanged.
+
+53. Root accepted populated-purge addendum BEFORE173/controller changes.
+   Initial service-order regression3RED; direct-child SQL was rejected after
+   actual ACL evidence and independent review correction. Added exact-tenant/slug
+   superadmin EXECUTE-only helper, enrollment-before-release ordering, safe500,
+   DEV V3/173 and staged-head173/QA verify extension. Cheap leaf12 contract tests,
+   root97 release/admin +2231 unit +quality PASS; independent source review accepted.
+   Actual owned Supabase DEV proof12 PASS/rollback/sentinel/ACL/downgrade-upgrade,
+   owned namespace absent/public unchanged; managed5e2ccc9d. Newsource/CI/public173,
+   normal API A cleanup, QA and production B173/live still required; no manual
+   owner data-recovery or public/prod mutation in this repair proof. Persistent
+   Test Runner independently2231unit/67controller/1collect-only/quality/scopedRuff
+   PASS,187092ms; root read full reports+actualcommands, accepted LOCAL_ONLY,
+   report07b698a4/results041f6be8 and ROOT-C1 metadata correction. No source repair.
+   Post-repair Graphify AST update refused shrink22321vs23876, old index retained;
+   no force/shared upgrade. Direct source/tests remain decisive navigation fallback.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)
@@ -761,11 +784,11 @@ capacity failure, расход за пределами лимита. Не «об
 |---|---|---|---|
 | WB-FOUNDATION | DONE | root / root / independent cheap reviewer |76 pure tests и quality PASS; commit5afa42f |
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
-| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |DEV172/OFF +A26 exact providers/QA/worker/public metadata PASS; enabled28/browser unresolved |
+| WB-DEV-ACCEPT | IN_PROGRESS | root; Test & Evidence Runner on exact accepted packet |DEV172/ON/eb427 browser PASS; populated cleanup blocked; isolated173 repair PASS, new CI/DEV173/APIcleanup required |
 | WB-NEIGHBOR-CATALOG | DONE | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and independent local180 PASS atf0ff29c2; root ACCEPTED_LOCAL_ONLY; no equivalence claim |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
 | WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
-| WB-RELEASE | IN_PROGRESS | root + Release Runner |Production API A26/schema169/OFF and compatibilityfrontend27 PASS; rollback25 retained, cleanup24 PASS; next B172/activation and live gates |
+| WB-RELEASE | IN_PROGRESS | root + Release Runner |Production A26/169/OFF +frontend27 PASS; next protectedB173/activation/live after DEVcleanup |
 
 Write overlap: root owns migration/config/router/registry/purge/docs and DEV gate;
 parser agent owns parser+owned tests, UI agent owns panel/client+web tests until

@@ -420,3 +420,24 @@ def test_wrong_provider_identity_prevents_flag_inventory(tmp_path, mode):
         release = _activation(packet, providers)
         release.execute(packet["release_id"]) if mode == "execute" else release.reconcile()
     assert not any(call[0] in {"workbench_flags", "set_workbench_flags", "push_exact_sha", "trigger_render"} for call in providers.calls)
+
+
+@pytest.mark.parametrize("schema,revision,allowed", [
+    ("kamilya-dev-release-v2", "0172", True),
+    ("kamilya-dev-release-v2", "0173", False),
+    ("kamilya-dev-release-v3", "0173", True),
+    ("kamilya-dev-release-v3", "0172", False),
+])
+def test_activation_packet_version_binds_exact_schema_receipt(tmp_path, schema, revision, allowed):
+    receipt = json.loads(_receipt())
+    receipt.update(current_revision=revision, expected_revision=revision)
+    packet, _ = _write_packet(tmp_path, mutate=lambda p: p.update(schema=schema),
+                              receipt=json.dumps(receipt).encode())
+    providers = FakeProviders()
+    if allowed:
+        result = _activation(packet, providers).prepare(packet["release_id"])
+        assert result["status"] == "CONFIGURATION_READY"
+    else:
+        with pytest.raises(controller.DevReleaseBlocked, match="schema_evidence_017[23]_pass_required"):
+            _activation(packet, providers).prepare(packet["release_id"])
+        assert providers.calls == []

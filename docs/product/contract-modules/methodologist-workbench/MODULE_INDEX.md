@@ -39,6 +39,8 @@ Controlled B activation, versioned packet/build flags and compatible A26 rollbac
 [CONTROLLED-ACTIVATION-RELEASE V1](contracts/CONTROLLED_ACTIVATION_RELEASE_ADDENDUM_V1.md).
 Existing free DEV provider configuration seam with final172 receipt and observed flags:
 [DEV-ACTIVATION-CONTROLLER V1](contracts/DEV_ACTIVATION_CONTROLLER_ADDENDUM_V1.md).
+Populated cleanup repair and final173/V3 DEV receipt, accepted before implementation:
+[POPULATED-TENANT-PURGE-RELEASE V1](contracts/POPULATED_TENANT_PURGE_RELEASE_ADDENDUM_V1.md).
 Execution sequence/progress: [plan](../../../plans/2026-10-01_ai-driven-methodologist.md).
 
 The original foundation remains pure. The accepted assignment addenda add

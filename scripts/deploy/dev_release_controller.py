@@ -28,6 +28,8 @@ SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 RELEASE_ID_RE = re.compile(r"^REL-[A-Z0-9][A-Z0-9-]{7,95}$")
 PACKET_SCHEMA = "kamilya-dev-release-v1"
 ACTIVATION_SCHEMA = "kamilya-dev-release-v2"
+PURGE_ACTIVATION_SCHEMA = "kamilya-dev-release-v3"
+ACTIVATION_REVISIONS = {ACTIVATION_SCHEMA: "0172", PURGE_ACTIVATION_SCHEMA: "0173"}
 API_WORKBENCH_KEY = "METHODOLOGIST_WORKBENCH_ENABLED"
 WEB_WORKBENCH_KEY = "NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED"
 DEV_PROJECT_REF_SHA256 = "5b535773cb7222384bbb54ad3f8c2e741fa6176bec4ce586abcd82d17ee0062e"
@@ -531,23 +533,23 @@ def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 
 def validate_activation_packet(data: Mapping[str, Any]) -> dict[str, Any]:
-    if data.get("schema") != ACTIVATION_SCHEMA:
+    if data.get("schema") not in ACTIVATION_REVISIONS:
         raise DevReleaseBlocked("activation_packet_v2_schema_required")
     return validate_packet(data)
 
 
 def validate_packet(data: Mapping[str, Any]) -> dict[str, Any]:
     schema = data.get("schema")
-    if schema not in (PACKET_SCHEMA, ACTIVATION_SCHEMA):
+    if schema not in (PACKET_SCHEMA, *ACTIVATION_REVISIONS):
         raise DevReleaseBlocked("release_packet_schema_invalid")
     expected = {"schema", "release_id", "release_sha", "expected_previous_sha", "repository", "branch", "migration_scope", "github", "vercel", "render"}
-    if schema == ACTIVATION_SCHEMA:
+    if schema in ACTIVATION_REVISIONS:
         expected.update({"workbench_enabled", "configuration_ci_run_id", "schema_evidence"})
     if set(data) != expected:
         raise DevReleaseBlocked("release_packet_unknown_or_missing_fields")
     if data.get("repository") != "KamillaLMSCRM/Kamilya-NEW":
         raise DevReleaseBlocked("repository_scope_invalid")
-    if schema == ACTIVATION_SCHEMA:
+    if schema in ACTIVATION_REVISIONS:
         if type(data.get("workbench_enabled")) is not bool:
             raise DevReleaseBlocked("packet_workbench_enabled_invalid")
         if type(data.get("configuration_ci_run_id")) is not int or data["configuration_ci_run_id"] <= 0:
@@ -579,7 +581,7 @@ def validate_packet(data: Mapping[str, Any]) -> dict[str, Any]:
     github = _require_mapping(data, "github")
     vercel = _require_mapping(data, "vercel")
     render = _require_mapping(data, "render")
-    if schema == ACTIVATION_SCHEMA and (vercel.get("expected_plan") != "hobby" or render.get("expected_plan") != "free"):
+    if schema in ACTIVATION_REVISIONS and (vercel.get("expected_plan") != "hobby" or render.get("expected_plan") != "free"):
         raise DevReleaseBlocked("activation_free_plan_required")
     for name in ("workflow",):
         _require_string(github, name)
@@ -629,8 +631,9 @@ class DevReleaseController:
         object.__setattr__(self, "packet", validate_packet(self.packet))
 
     def _schema_gate(self) -> None:
-        if self.packet["schema"] != ACTIVATION_SCHEMA:
+        if self.packet["schema"] not in ACTIVATION_REVISIONS:
             return
+        expected_revision = ACTIVATION_REVISIONS[self.packet["schema"]]
         evidence = self.packet["schema_evidence"]
         root = self.providers.repo_root.resolve()
         original = Path(evidence["path"])
@@ -651,9 +654,9 @@ class DevReleaseController:
             raise DevReleaseBlocked("schema_evidence_json_invalid") from exc
         if (not isinstance(result, Mapping) or result.get("status") != "PASS"
                 or result.get("target") != "canonical_supabase_dev_public_schema"
-                or result.get("current_revision") != "0172" or result.get("expected_revision") != "0172"
+                or result.get("current_revision") != expected_revision or result.get("expected_revision") != expected_revision
                 or result.get("project_ref_sha256") != DEV_PROJECT_REF_SHA256):
-            raise DevReleaseBlocked("schema_evidence_0172_pass_required")
+            raise DevReleaseBlocked(f"schema_evidence_{expected_revision}_pass_required")
 
     def _flags(self) -> dict[str, bool]:
         flags = dict(self.providers.workbench_flags(self.packet))
@@ -662,7 +665,7 @@ class DevReleaseController:
         return flags
 
     def _configuration(self) -> dict[str, Any]:
-        if self.packet["schema"] != ACTIVATION_SCHEMA:
+        if self.packet["schema"] not in ACTIVATION_REVISIONS:
             return {}
         flags = self._flags()
         if any(value is not self.packet["workbench_enabled"] for value in flags.values()):
@@ -673,7 +676,7 @@ class DevReleaseController:
         }
 
     def prepare(self, confirm_release_id: str) -> dict[str, Any]:
-        if self.packet["schema"] != ACTIVATION_SCHEMA:
+        if self.packet["schema"] not in ACTIVATION_REVISIONS:
             raise DevReleaseBlocked("prepare_requires_activation_v2")
         if confirm_release_id != self.packet["release_id"]:
             raise DevReleaseBlocked("execute_confirmation_mismatch")

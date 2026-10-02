@@ -56,17 +56,17 @@ Render DEV API также работает на Free Web Service. Этот та�
 Без точного readback `current_revision == repository head` DEV релиз считается
 смешанным и останавливается.
 
-Для кандидата methodologist-workbench с head0172 действует принятый
+Для кандидата methodologist-workbench с head0173 действует принятый
 [двухэтапный контракт](product/contract-modules/methodologist-workbench/contracts/STAGED_COMPATIBILITY_RELEASE_ADDENDUM_V1.md),
 compatibility A deployed on2026-10-02: `--workbench-phase expand --expected-revision 0169 --apply`
 из0168 выдаёт только `EXPANDED_NOT_FINAL`; затем совместимый API/worker с
 workbench OFF и независимая квитанция. Только после неё
-`--workbench-phase contract --expected-revision 0172 --compatibility-evidence
+`--workbench-phase contract --expected-revision 0173 --compatibility-evidence
 <exact-root-receipt> --compatibility-sha <exact-compatible-release-sha> --apply`.
-Default `--apply` не разрешает обойти этап совместимости. Финальный172 обязан
+Default `--apply` не разрешает обойти этап совместимости. Финальный173 обязан
 совпадать с head; промежуточный169 не является feature/isolation GO.
 
-Текущий staged readback2026-10-02: DEV API/worker/frontend и KZ API/3workers
+Исторический compatibility-A readback2026-10-02: DEV API/worker/frontend и KZ API/3workers
 на exact23630036/0.11.26, оба DB-контура0169, workbench OFF. KZ frontend теперь
 27/`30693e45e1338772bf09577461e3f7615d38a73b`, native CI36980536610;
 независимый current/marker/public health совпадает. Native26 ранее остановлен
@@ -83,8 +83,18 @@ Actual frontend rollback25/`3d1276443ad8735a5c0bf3dd029be5768c46ca6a` и
 Исходный неудавшийся пакет26 остаётся неизменным. Полный статус —
 `docs/PRODUCTION_READINESS.md`. Root browser compatibility A: вход и сохранённое
 завершение100%/действующий сертификат после reload PASS, OFF route возвращает в
-обзор; business writes отсутствуют. Final172/активация/new-workbench browser gates
-не закрыты.
+обзор; business writes отсутствуют. KZ остаётся на этом A26/169/OFF и frontend27.
+
+Последующий DEV readback2026-10-02: API/worker/frontend28 exact
+`eb427100a53e96f45888203f6b46e8e9c24801a3`, public0172, три flags ON,
+существующие Free/Hobby ресурсы. Реальный preview/confirm/replay/student/mobile
+PASS; populated disposable tenant cleanup500 из-за TENANT-PURGE-004.
+Принят [purge addendum](product/contract-modules/methodologist-workbench/contracts/POPULATED_TENANT_PURGE_RELEASE_ADDENDUM_V1.md):
+кандидат0173/helper без новых прямых DELETE grants, DEV packetV3/0173 и
+защищённый production169->173. Изолированный runtime gate
+`scripts/ops/enrollment_purge_dev_gate.py --env-file <canonical-api-env>`
+PASS12/cleanup/public-neutrality; public173 ещё НЕ применена и новый код НЕ
+развёрнут. Normal API cleanup и новые exact-SHA DEV/production gates не закрыты.
 
 На 2026-09-07 `kml.kz`, `www.kml.kz`, `app.kml.kz` и `api.kml.kz` направлены
 DNS-only A-записями на KZ-IP `92.38.49.167`. Public proxy завершает TLS и по
@@ -187,7 +197,8 @@ Supabase DEV как non-super/non-bypass `lms_app`. При missing/partial manif
 автоматического bootstrap/replenishment. После изменения схемы сначала обновить
 контракт проверки, а не обходить gate. Для этого двухэтапного кандидата
 `verify --expected-revision 0169` допустим только на принятом совместимом A,
-`verify --expected-revision 0172` — на финальном B; отсутствие параметра по-прежнему
+`verify --expected-revision 0172` — на предыдущем B, `0173` — только после нового
+purge-addendum B; отсутствие параметра по-прежнему
 требует0168. Bootstrap остаётся0168-only; стенд не пересоздаётся.
 
 Учётные записи: `methodologist@kamilya-dev-qa.example.com` и

@@ -4,7 +4,7 @@
 Render Free does not execute pre-deploy commands.  A DEV release that changes
 the schema must therefore run this explicit gate before API and worker rollout.
 The default mode is read-only. ``--apply`` is required for a mutation. Workbench
-head0172 requires explicit expand169/contract172 phases and compatible readback.
+Workbench heads0172/0173 require explicit expand169/contract-head phases and compatible readback.
 No database URL, host, username, or credential is rendered in the report.
 """
 
@@ -81,9 +81,9 @@ def repository_head() -> str:
 def phase_target(head: str, phase: str | None) -> str:
     if phase is None:
         return head
-    if head != "0172" or phase not in {"expand", "contract"}:
+    if head not in {"0172", "0173"} or phase not in {"expand", "contract"}:
         raise GateBlocked("unsupported_workbench_phase")
-    return "0169" if phase == "expand" else "0172"
+    return "0169" if phase == "expand" else head
 
 
 def verify_compatibility_receipt(path: Path | None, sha: str | None) -> None:
@@ -112,9 +112,9 @@ def verify_compatibility_receipt(path: Path | None, sha: str | None) -> None:
 
 
 def verify_phase_path(current: str, head: str, phase: str | None, *, apply: bool) -> None:
-    if head != "0172":
+    if head not in {"0172", "0173"}:
         return
-    allowed = {"expand": {"0168", "0169"}, "contract": {"0169", "0172"}}
+    allowed = {"expand": {"0168", "0169"}, "contract": {"0169", "0172", head}}
     if phase is not None and current not in allowed[phase]:
         raise GateBlocked("workbench_phase_revision_mismatch")
     if phase is None and apply and current != head:
@@ -205,7 +205,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Apply the exact selected target; workbench0172 requires staged phases.",
+        help="Apply the exact selected target; workbench0172/0173 requires staged phases.",
     )
     return parser.parse_args()
 

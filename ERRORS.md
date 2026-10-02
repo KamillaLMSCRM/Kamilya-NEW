@@ -4895,6 +4895,26 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: exercise new enrollment dependencies through a disposable DB-backed
   normal purge, not only source-order mocks; never delete a persistent QA stand.
 
+### Recurrence 2026-10-02: populated workbench acceptance cleanup
+
+- Actual DEV28/eb427 browser assignment/receipt/replay passed; normal disposable
+  A tenant DELETE500 reproduced fk_enrollments_content_release_id, A remains.
+  Empty B DELETE204/fresh404. No production/customer/persistent QA deletion.
+- Fresh read-only public172 ACL: assignment_access_credentials,
+  enrollment_access_policies and course_assignment_notification_outbox all deny
+  runtime DELETE and retain FORCE RLS. Ordering alone cannot repair cleanup.
+- Accepted bounded purge addendum precedes new0173 SECURITY DEFINER helper,
+  exact session/superadmin/tenant/slug/owner checks, claimed-outbox rejection and
+  EXECUTE-only grant. Service deletes enrollment dependencies before immutable
+  content releases; router rollback emits tenant_delete_failed, not raw SQL.
+- Candidate proof:3 initial RED;12 migration contracts,8 gate guards,97 release/
+  admin contracts,2231 API unit and quality PASS. Actual isolated Supabase DEV
+  helper12 PASS: authority/ACL/rollback/sentinel/downgrade-upgrade; owned schema
+  absent, public revision/catalog/ACL unchanged. Independent source review only.
+- Status: SOURCE_FIX_VERIFIED_ISOLATED; normal populated API cleanup, exact new
+  CI/DEV173 and production release remain OPEN. Do not claim generic historical
+  tenant purge fixed or use a privileged manual data-recovery workaround.
+
 ## RECURRENCE-012 - Mock-only checks missed PostgreSQL and delivery-history invariants
 
 - 2026-10-01 organization validation: cloned position CHECK constraints rejected

@@ -36,6 +36,16 @@ _ph = argon2.PasswordHasher()
 # privilege-escalation guard. Use direct DB access for that.
 GRANTABLE_ROLES = {"admin", "methodologist"}
 
+# Enrollment references deliberately RESTRICT release deletion. Remove the
+# exact tenant's enrollment children and rows before the privileged release
+# purge; never weaken those FKs or immutable-release guards to make it fit.
+TENANT_ENROLLMENT_DELETE_SQL = [
+    "DELETE FROM quiz_attempts WHERE tenant_id = :tenant_id",
+    "DELETE FROM certificates WHERE tenant_id = :tenant_id",
+    "DELETE FROM progress WHERE tenant_id = :tenant_id",
+    "DELETE FROM enrollments WHERE tenant_id = :tenant_id",
+]
+
 TENANT_DELETE_SQL = [
     """
     DELETE FROM quiz_choices
@@ -53,11 +63,7 @@ TENANT_DELETE_SQL = [
     DELETE FROM content_blocks
     WHERE lesson_id IN (SELECT id FROM lessons WHERE tenant_id = :tenant_id)
     """,
-    "DELETE FROM quiz_attempts WHERE tenant_id = :tenant_id",
     "DELETE FROM quiz_assignments WHERE tenant_id = :tenant_id",
-    "DELETE FROM certificates WHERE tenant_id = :tenant_id",
-    "DELETE FROM progress WHERE tenant_id = :tenant_id",
-    "DELETE FROM enrollments WHERE tenant_id = :tenant_id",
     "DELETE FROM position_quizzes WHERE tenant_id = :tenant_id",
     "DELETE FROM position_courses WHERE tenant_id = :tenant_id",
     "DELETE FROM department_courses WHERE tenant_id = :tenant_id",
@@ -356,6 +362,12 @@ class SuperadminService:
             {"tenant_id": str(tenant_id), "confirm_slug": tenant.slug},
         )
         await self.db.execute(
+            text("SELECT public.superadmin_purge_tenant_enrollment_access(:tenant_id, :confirm_slug)"),
+            {"tenant_id": str(tenant_id), "confirm_slug": tenant.slug},
+        )
+        for statement in await self._tenant_delete_statements(TENANT_ENROLLMENT_DELETE_SQL):
+            await self.db.execute(text(statement), {"tenant_id": str(tenant_id)})
+        await self.db.execute(
             text(
                 "SELECT public.superadmin_purge_tenant_content_releases("
                 ":tenant_id, :confirm_slug)"
@@ -383,7 +395,7 @@ class SuperadminService:
         )
         return deleted_snapshot
 
-    async def _tenant_delete_statements(self) -> list[str]:
+    async def _tenant_delete_statements(self, candidates: list[str] | None = None) -> list[str]:
         result = await self.db.execute(
             text(
                 """
@@ -398,7 +410,7 @@ class SuperadminService:
             columns_by_table.setdefault(table_name, set()).add(column_name)
 
         statements: list[str] = []
-        for statement in TENANT_DELETE_SQL:
+        for statement in TENANT_DELETE_SQL if candidates is None else candidates:
             stripped = statement.strip()
             table_name = stripped.split()[2]
             table_columns = columns_by_table.get(table_name)
