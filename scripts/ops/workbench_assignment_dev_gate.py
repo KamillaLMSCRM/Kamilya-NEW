@@ -38,6 +38,8 @@ MIGRATION = API_ROOT / "alembic" / "versions" / "0169_workbench_assignment_plans
 RETENTION_MIGRATION = (
     API_ROOT / "alembic" / "versions" / "0171_workbench_plan_retention.py"
 )
+INVITATION_MIGRATION = API_ROOT / "alembic/versions/0170_invitation_exact_token_rls.py"
+TENANTS_MIGRATION = API_ROOT / "alembic/versions/0172_tenants_scoped_bootstrap_rls.py"
 SCHEMA_RE = re.compile(r"^workbench_[0-9a-f]{12}$")
 TABLES = (
     "tenants",
@@ -211,7 +213,12 @@ async def migration(
     safe_schema(schema)
     if operation not in {"upgrade", "downgrade"}:
         raise GateBlocked("invalid_migration_action")
-    if path not in {MIGRATION, RETENTION_MIGRATION}:
+    if path not in {
+        MIGRATION,
+        RETENTION_MIGRATION,
+        INVITATION_MIGRATION,
+        TENANTS_MIGRATION,
+    }:
         raise GateBlocked("invalid_migration_path")
     spec = importlib.util.spec_from_file_location("workbench_owned_migration", path)
     if spec is None or spec.loader is None:
@@ -882,6 +889,9 @@ async def verify_organization_changes(owner_engine, runtime_engine, schema, acto
                     parent_id=parent,
                 )
             )
+        # Materialize dependency rows before users: the restored database FKs
+        # enforce ordering even where the ORM has no dependency relationship.
+        await db.flush()
         db.add(
             Position(
                 id=position,
@@ -891,6 +901,7 @@ async def verify_organization_changes(owner_engine, runtime_engine, schema, acto
                 department_id=child,
             )
         )
+        await db.flush()
         for user_id, unit, user_position in (
             (direct, root, position),
             (fallback, None, position),
@@ -1138,7 +1149,7 @@ async def verify_organization_changes(owner_engine, runtime_engine, schema, acto
     ]
 
 
-async def run_gate(owner_url, runtime_url, supabase_url):
+async def run_gate(owner_url, runtime_url, supabase_url, *, neighbor_profile=False):
     if not all(
         same_supabase_project(url, supabase_url) for url in (owner_url, runtime_url)
     ):
@@ -1180,6 +1191,10 @@ async def run_gate(owner_url, runtime_url, supabase_url):
             await verify_runtime_role(connection)
         checks.append("runtime_non_bypass")
         async with owner_engine.begin() as connection:
+            if neighbor_profile:
+                await connection.execute(
+                    text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+                )
             before = await public_snapshot(connection)
             stage = "isolated_schema"
             await connection.execute(text(f"CREATE SCHEMA {qualified}"))
@@ -1202,13 +1217,40 @@ async def run_gate(owner_url, runtime_url, supabase_url):
                         f"GRANT SELECT, INSERT, UPDATE ON {qualified}.{table} TO lms_app"
                     )
                 )
+            if neighbor_profile:
+                from workbench_neighbor_reconstruction import REFERENCED_TABLES
+
+                for table in REFERENCED_TABLES:
+                    await connection.execute(
+                        text(
+                            f"CREATE TABLE {qualified}.{table} (LIKE public.{table} INCLUDING ALL)"
+                        )
+                    )
+                    await connection.execute(
+                        text(f"REVOKE ALL ON {qualified}.{table} FROM PUBLIC,lms_app")
+                    )
+            await install_isolated_enqueue(connection, schema)
+            if neighbor_profile:
+                stage = "neighbor_reconstruction"
+                from workbench_neighbor_reconstruction import install_neighbors
+
+                checks += await install_neighbors(connection, schema, TABLES, apply_isolation=False)
             await migration(connection, schema)
+            if neighbor_profile:
+                from workbench_neighbor_reconstruction import verify_compatibility_expansion
+
+                checks += await verify_compatibility_expansion(connection, schema, TABLES)
+                await migration(connection, schema, path=INVITATION_MIGRATION)
             from workbench_retention_dev_checks import verify_retention_upgrade
 
             checks += await verify_retention_upgrade(
                 connection, schema, migration, RETENTION_MIGRATION
             )
-            await install_isolated_enqueue(connection, schema)
+            if neighbor_profile:
+                stage = "neighbor_isolation_upgrade"
+                from workbench_neighbor_reconstruction import apply_neighbor_isolation
+
+                checks += await apply_neighbor_isolation(connection, schema, TABLES, invitation_applied=True)
             flags = (
                 await connection.execute(
                     text(
@@ -1347,6 +1389,21 @@ async def run_gate(owner_url, runtime_url, supabase_url):
             course = await db.get(Course, course_id)
             course.current_release_id = release_id
             await db.commit()
+        if neighbor_profile:
+            stage = "neighbor_negatives"
+            from workbench_neighbor_reconstruction import verify_neighbor_negatives
+
+            checks += await verify_neighbor_negatives(
+                owner_engine,
+                runtime_engine,
+                schema,
+                tenant_id,
+                other_tenant,
+                actor_id,
+                learner_id,
+                course_id,
+                release_id,
+            )
         actor = ActorContext(
             tenant_id=tenant_id, actor_id=actor_id, active_role="methodologist"
         )
@@ -1540,6 +1597,10 @@ async def run_gate(owner_url, runtime_url, supabase_url):
         "cleanup": cleanup_ok,
         "public_schema_neutral": neutral,
         "last_query_kind": last_query if failure else None,
+        "neighbor_profile": neighbor_profile,
+        "neighbor_equivalence": "BOUNDED_ASSIGNMENT"
+        if neighbor_profile and failure is None and cleanup_ok and neutral
+        else "NOT_VERIFIED",
     }
     assert_sanitized_evidence(result)
     return result
@@ -1551,6 +1612,7 @@ def main() -> int:
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--metadata-only", action="store_true")
     parser.add_argument("--catalog-details", action="store_true")
+    parser.add_argument("--neighbor-profile", action="store_true")
     args = parser.parse_args()
     if not args.execute:
         print(json.dumps({"status": "BLOCKED", "reason": "execute_required"}))
@@ -1559,6 +1621,16 @@ def main() -> int:
         print(
             json.dumps(
                 {"status": "BLOCKED", "reason": "catalog_requires_metadata_only"}
+            )
+        )
+        return 2
+    if args.neighbor_profile and (args.metadata_only or args.catalog_details):
+        print(
+            json.dumps(
+                {
+                    "status": "BLOCKED",
+                    "reason": "neighbor_profile_requires_application_gate",
+                }
             )
         )
         return 2
@@ -1576,7 +1648,10 @@ def main() -> int:
             from workbench_neighbor_catalog import inspect_neighbor_catalog
 
             operation = inspect_neighbor_catalog
-        result = asyncio.run(operation(*urls, config.get("SUPABASE_URL") or ""))
+        arguments = {"neighbor_profile": True} if args.neighbor_profile else {}
+        result = asyncio.run(
+            operation(*urls, config.get("SUPABASE_URL") or "", **arguments)
+        )
     except Exception as exc:
         result = {
             "status": "BLOCKED",

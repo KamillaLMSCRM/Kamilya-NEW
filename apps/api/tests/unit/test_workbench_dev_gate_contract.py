@@ -87,6 +87,19 @@ def test_failure_diagnostics_never_echo_sql_or_credentials(gate):
     assert gate.safe_failure(error) == "RuntimeError"
 
 
+def test_organization_fixture_materializes_dependencies_before_users():
+    tree = ast.parse((ROOT / "scripts/ops/workbench_assignment_dev_gate.py").read_text(encoding="utf-8"))
+    function = next(node for node in tree.body if isinstance(node, ast.AsyncFunctionDef)
+                    and node.name == "verify_organization_changes")
+    session = next(node for node in function.body if isinstance(node, ast.AsyncWith))
+    source = ast.unparse(session)
+    department = source.index("Department(")
+    position = source.index("Position(")
+    user = source.index("User(")
+    assert "await db.flush()" in source[department:position]
+    assert "await db.flush()" in source[position:user]
+
+
 @pytest.mark.asyncio
 async def test_transaction_search_path_never_falls_back_to_public(gate):
     session = SimpleNamespace(execute=AsyncMock())

@@ -98,8 +98,10 @@ def validate_manifest(state: dict[str, Any]) -> None:
         require(len(course.get("attempt_ids", [])) == n + 1, "manifest_attempt_count_drift")
 
 
-async def database_readback(values: dict[str, Any], state: dict[str, Any] | None = None) -> None:
+async def database_readback(values: dict[str, Any], state: dict[str, Any] | None = None,
+                            *, expected_revision: str = "0168") -> None:
     """Canonical Supabase runtime role, one connection, READ ONLY transaction."""
+    require(expected_revision in {"0168", "0169", "0172"}, "unsupported_qa_schema_revision")
     from sqlalchemy import text
     from sqlalchemy.engine import make_url
     from sqlalchemy.ext.asyncio import create_async_engine
@@ -117,7 +119,7 @@ async def database_readback(values: dict[str, Any], state: dict[str, Any] | None
             role = (await conn.execute(text("SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname=current_user"))).one()
             require(not role.rolsuper and not role.rolbypassrls, "unsafe_runtime_role")
             revision = (await conn.execute(text("SELECT version_num FROM alembic_version"))).scalars().all()
-            require(revision == ["0168"], "dev_schema_revision_mismatch")
+            require(revision == [expected_revision], "dev_schema_revision_mismatch")
             if state is None:
                 return
             tenant_id = UUID(state["tenant_id"])
@@ -276,29 +278,32 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=["bootstrap", "verify"])
     parser.add_argument("--expected-sha", required=True)
+    parser.add_argument("--expected-revision", choices=["0168", "0169", "0172"], default="0168")
     parser.add_argument("--confirm-bootstrap")
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--evidence", type=Path, required=True)
     args = parser.parse_args()
     require(len(args.expected_sha) == 40 and all(c in "0123456789abcdef" for c in args.expected_sha), "exact_sha_required")
     if args.mode == "bootstrap":
+        require(args.expected_revision == "0168", "bootstrap_schema_contract_unchanged")
         require(args.confirm_bootstrap == APPROVAL_ID, "bootstrap_owner_confirmation_required")
     values = dict(dotenv_values(ENV))
     required = ["DEV_QA_METHODOLOGIST_PASSWORD"]
     if args.mode == "bootstrap":
         required += ["SUPERADMIN_EMAIL", "SUPERADMIN_PASSWORD"]
     require(all(values.get(k) for k in required), "canonical_credentials_missing")
-    result: dict[str, Any] = {"mode": args.mode, "expected_sha": args.expected_sha, "status": "STOP"}
+    result: dict[str, Any] = {"mode": args.mode, "expected_sha": args.expected_sha,
+                              "expected_revision": args.expected_revision, "status": "STOP"}
     try:
         with httpx.Client(timeout=httpx.Timeout(90, connect=30), follow_redirects=False,
                           headers={"Origin": ORIGIN, "User-Agent": "Kamilya-DEV-permanent-QA/1"}) as http:
             client = Client(http, bootstrap=args.mode == "bootstrap")
             health = client.request("GET", "/health")
             require(health.get("deployment_environment") == "render-development" and health.get("release_sha") == args.expected_sha, "runtime_identity_mismatch")
-            asyncio.run(database_readback(values))
+            asyncio.run(database_readback(values, expected_revision=args.expected_revision))
             state = bootstrap(client, values, args.manifest, args.expected_sha) if args.mode == "bootstrap" else json.loads(args.manifest.read_text(encoding="utf-8"))
             validate_manifest(state)
-            asyncio.run(database_readback(values, state))
+            asyncio.run(database_readback(values, state, expected_revision=args.expected_revision))
             # Even bootstrap acceptance now uses the mutation-protected client.
             result.update(verify(Client(http), values, state))
     except Exception as exc:

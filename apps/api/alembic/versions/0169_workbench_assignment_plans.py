@@ -9,6 +9,7 @@ import re
 from sqlalchemy import text
 
 from alembic import op
+from app.core.tenant_bootstrap_migration import install_bootstrap as _install_bootstrap
 
 revision = "0169"
 down_revision = "0168"
@@ -20,12 +21,13 @@ def _schema() -> str:
     schema = op.get_context().opts.get("version_table_schema") or "public"
     if not re.fullmatch(r"[a-z][a-z0-9_]{0,62}", schema):
         raise ValueError("Unsafe workbench schema")
-    return f'"{schema}"'
+    return schema
 
 
 def upgrade() -> None:
+    _install_bootstrap(_schema(), op.execute)
     schema = _schema()
-    table = f"{schema}.workbench_assignment_plans"
+    table = f'"{schema}".workbench_assignment_plans'
     op.execute(f"""
         CREATE TABLE {table} (
             id uuid PRIMARY KEY,
@@ -78,7 +80,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    table = f"{_schema()}.workbench_assignment_plans"
+    table = f'"{_schema()}".workbench_assignment_plans'
     if op.get_bind().execute(text(f"SELECT EXISTS (SELECT 1 FROM {table})")).scalar():
         raise RuntimeError("Workbench downgrade requires empty table; preserve committed receipts")
     op.execute(f"DROP TABLE {table}")

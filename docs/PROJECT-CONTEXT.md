@@ -56,6 +56,16 @@ Render DEV API также работает на Free Web Service. Этот та�
 Без точного readback `current_revision == repository head` DEV релиз считается
 смешанным и останавливается.
 
+Для кандидата methodologist-workbench с head0172 действует принятый
+[двухэтапный контракт](product/contract-modules/methodologist-workbench/contracts/STAGED_COMPATIBILITY_RELEASE_ADDENDUM_V1.md),
+пока NOT DEPLOYED: `--workbench-phase expand --expected-revision 0169 --apply`
+из0168 выдаёт только `EXPANDED_NOT_FINAL`; затем совместимый API/worker с
+workbench OFF и независимая квитанция. Только после неё
+`--workbench-phase contract --expected-revision 0172 --compatibility-evidence
+<exact-root-receipt> --compatibility-sha <exact-compatible-release-sha> --apply`.
+Default `--apply` не разрешает обойти этап совместимости. Финальный172 обязан
+совпадать с head; промежуточный169 не является feature/isolation GO.
+
 На 2026-09-07 `kml.kz`, `www.kml.kz`, `app.kml.kz` и `api.kml.kz` направлены
 DNS-only A-записями на KZ-IP `92.38.49.167`. Public proxy завершает TLS и по
 WireGuard направляет лендинг и LMS frontend на разные внутренние listeners
@@ -153,9 +163,12 @@ personal-link назначения. Первый тест имеет одну н
 попытки, не сбрасывает пароли и не исправляет drift. Допустимы только обычные
 auth/session audit записи входа, GET API reads и одна READ ONLY транзакция
 Supabase DEV как non-super/non-bypass `lms_app`. При missing/partial manifest,
-несовпадении exact SHA, revision `0168`, идентичности или состава — STOP, без
+несовпадении exact SHA, явно заданной revision, идентичности или состава — STOP, без
 автоматического bootstrap/replenishment. После изменения схемы сначала обновить
-контракт проверки, а не обходить gate.
+контракт проверки, а не обходить gate. Для этого двухэтапного кандидата
+`verify --expected-revision 0169` допустим только на принятом совместимом A,
+`verify --expected-revision 0172` — на финальном B; отсутствие параметра по-прежнему
+требует0168. Bootstrap остаётся0168-only; стенд не пересоздаётся.
 
 Учётные записи: `methodologist@kamilya-dev-qa.example.com` и
 `learner@kamilya-dev-qa.example.com`. Для этих двух synthetic QA identities

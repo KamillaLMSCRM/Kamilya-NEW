@@ -29,6 +29,10 @@ Read-only catalog/source-body bindings, full neighbor equivalence NOT_VERIFIED:
 Owner-approved compatible tenants isolation; root local85/owned DEV20 PASS,
 independent frozen85/quality accepted LOCAL_ONLY, public rollout gated:
 [TENANTS-RLS impact V1](contracts/TENANTS_RLS_IMPACT_ADDENDUM_V1.md).
+Source-bound assembled assignment-neighbor validation:
+[NEIGHBOR-RECONSTRUCTION V1](contracts/NEIGHBOR_RECONSTRUCTION_VALIDATION_ADDENDUM_V1.md).
+Two-stage compatible deployment before isolation activation:
+[STAGED-COMPATIBILITY-RELEASE V1](contracts/STAGED_COMPATIBILITY_RELEASE_ADDENDUM_V1.md).
 Execution sequence/progress: [plan](../../../plans/2026-10-01_ai-driven-methodologist.md).
 
 The original foundation remains pure. The accepted assignment addenda add

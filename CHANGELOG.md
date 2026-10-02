@@ -45,6 +45,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.26] - 2026-10-02
+
+### Added
+
+- Prepare the compatible expand phase for the bounded methodologist workbench:
+  migration0169 installs tenant bootstrap helpers before compatible API/worker
+  rollout, with the workbench explicitly disabled until final0172 acceptance.
+- Source-bound isolated Supabase validation of existing policies, foreign keys,
+  triggers and function privileges with assignment/invitation/retention journeys.
+- Fail-closed staged DEV schema gate and exact permanent-QA revision assertions;
+  no stand recreation, notification dispatch or retention scheduler activation.
+
+Public rollout and feature enablement are not yet accepted. General AI intent,
+document generation and voice remain outside this compatibility release.
+
 ## [0.11.25] - 2026-10-01
 
 ### Fixed

@@ -3,7 +3,8 @@
 
 Render Free does not execute pre-deploy commands.  A DEV release that changes
 the schema must therefore run this explicit gate before API and worker rollout.
-The default mode is read-only.  ``--apply`` is required to run ``upgrade head``.
+The default mode is read-only. ``--apply`` is required for a mutation. Workbench
+head0172 requires explicit expand169/contract172 phases and compatible readback.
 No database URL, host, username, or credential is rendered in the report.
 """
 
@@ -14,6 +15,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -76,6 +78,49 @@ def repository_head() -> str:
     return heads[0]
 
 
+def phase_target(head: str, phase: str | None) -> str:
+    if phase is None:
+        return head
+    if head != "0172" or phase not in {"expand", "contract"}:
+        raise GateBlocked("unsupported_workbench_phase")
+    return "0169" if phase == "expand" else "0172"
+
+
+def verify_compatibility_receipt(path: Path | None, sha: str | None) -> None:
+    """Root-owned immutable readback binding; not a substitute for live release gates."""
+    if path is None or sha is None or not re.fullmatch(r"[a-f0-9]{40}", sha):
+        raise GateBlocked("compatibility_receipt_required")
+    try:
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise GateBlocked("compatibility_receipt_unreadable") from None
+    if not isinstance(receipt, dict) or any(
+        receipt.get(key) != value for key, value in {
+            "status": "PASS", "scope": "canonical_supabase_dev_compatibility",
+            "schema_revision": "0169", "release_sha": sha,
+            "api_sha": sha, "worker_sha": sha,
+            "api_workbench_enabled": False, "frontend_workbench_enabled": False,
+            "auth_bootstrap": "PASS", "workers_startup": "PASS",
+        }.items()
+    ):
+        raise GateBlocked("compatibility_receipt_mismatch")
+    # JSON booleans must not be interchangeable with numeric zero.
+    if any(receipt.get(key) is not False for key in (
+        "api_workbench_enabled", "frontend_workbench_enabled"
+    )):
+        raise GateBlocked("compatibility_flags_not_explicitly_off")
+
+
+def verify_phase_path(current: str, head: str, phase: str | None, *, apply: bool) -> None:
+    if head != "0172":
+        return
+    allowed = {"expand": {"0168", "0169"}, "contract": {"0169", "0172"}}
+    if phase is not None and current not in allowed[phase]:
+        raise GateBlocked("workbench_phase_revision_mismatch")
+    if phase is None and apply and current != head:
+        raise GateBlocked("workbench_staged_rollout_required")
+
+
 def resolve_env_file(explicit: Path | None) -> Path:
     if explicit is not None:
         return explicit.resolve()
@@ -95,7 +140,7 @@ def resolve_env_file(explicit: Path | None) -> Path:
 
 
 async def database_revision(database_url: str) -> str:
-    engine = create_async_engine(database_url, poolclass=NullPool)
+    engine = create_async_engine(database_url, poolclass=NullPool, hide_parameters=True)
     try:
         async with engine.connect() as connection:
             revisions = list(
@@ -109,6 +154,8 @@ async def database_revision(database_url: str) -> str:
         await engine.dispose()
     if len(revisions) != 1:
         raise GateBlocked(f"database_must_have_one_revision:{len(revisions)}")
+    if not re.fullmatch(r"[0-9]{4}", str(revisions[0])):
+        raise GateBlocked("database_revision_format_invalid")
     return str(revisions[0])
 
 
@@ -130,31 +177,35 @@ def load_dev_environment(env_file: Path) -> tuple[dict[str, str], str, str]:
     return values, owner_url, supabase_project_ref(supabase_url)
 
 
-def run_upgrade(values: dict[str, str], owner_url: str) -> None:
+def run_upgrade(values: dict[str, str], owner_url: str, target: str = "head") -> None:
     environment = os.environ.copy()
     environment.update(values)
     environment["DATABASE_URL"] = owner_url
     environment["MIGRATION_DATABASE_URL"] = owner_url
     environment["PYTHONPATH"] = "."
     subprocess.run(
-        [sys.executable, "-m", "alembic", "-c", "alembic.ini", "upgrade", "head"],
+        [sys.executable, "-m", "alembic", "-c", "alembic.ini", "upgrade", target],
         cwd=API_ROOT,
         env=environment,
         check=True,
+        capture_output=True,
     )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--env-file", type=Path)
+    parser.add_argument("--workbench-phase", choices=("expand", "contract"))
+    parser.add_argument("--compatibility-evidence", type=Path)
+    parser.add_argument("--compatibility-sha")
     parser.add_argument(
         "--expected-revision",
-        help="Optional exact revision assertion in addition to the repository head.",
+        help="Optional exact assertion of the selected target (head by default).",
     )
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Apply upgrade head when the canonical DEV public schema is behind.",
+        help="Apply the exact selected target; workbench0172 requires staged phases.",
     )
     return parser.parse_args()
 
@@ -162,24 +213,28 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
-        expected = repository_head()
+        head = repository_head()
+        expected = phase_target(head, args.workbench_phase)
+        if args.workbench_phase == "contract":
+            verify_compatibility_receipt(args.compatibility_evidence, args.compatibility_sha)
         if args.expected_revision and args.expected_revision != expected:
             raise GateBlocked(
                 f"expected_revision_does_not_match_repository_head:{args.expected_revision}:{expected}"
             )
         values, owner_url, project_ref = load_dev_environment(resolve_env_file(args.env_file))
         current = asyncio.run(database_revision(owner_url))
+        verify_phase_path(current, head, args.workbench_phase, apply=args.apply)
         action = decide_schema_action(current, expected, apply=args.apply)
         applied = action == "upgrade"
         if applied:
-            run_upgrade(values, owner_url)
+            run_upgrade(values, owner_url, expected)
             current = asyncio.run(database_revision(owner_url))
             if current != expected:
                 raise GateBlocked(f"schema_readback_mismatch:{current}:{expected}")
         print(
             json.dumps(
                 safe_report(
-                    status="PASS",
+                    status="EXPANDED_NOT_FINAL" if args.workbench_phase == "expand" else "PASS",
                     current_revision=current,
                     expected_revision=expected,
                     applied=applied,
@@ -189,13 +244,16 @@ def main() -> int:
             )
         )
         return 0
-    except (GateBlocked, subprocess.CalledProcessError) as error:
+    except Exception as error:
         print(
             json.dumps(
                 {
                     "status": "BLOCKED",
                     "target": "canonical_supabase_dev_public_schema",
-                    "reason": str(error),
+                    "reason": str(error) if isinstance(error, GateBlocked) else (
+                        "migration_subprocess_failed" if isinstance(error, subprocess.CalledProcessError)
+                        else f"schema_gate_failed:{type(error).__name__}"
+                    ),
                 },
                 sort_keys=True,
             ),

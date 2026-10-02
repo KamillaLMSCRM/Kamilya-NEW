@@ -534,6 +534,34 @@ capacity failure, расход за пределами лимита. Не «об
    before helper rollout. Reconcile staged expand/compatible API+worker/restrict
    procedure and QA expected revision before Release Runner dispatch.
 
+35. OWNER-CONFIRMED2026-10-02: "продолжай по плану. выведи в прод" grants
+   production release of the accepted bounded workflow after all applicable
+   local/DEV/release gates, not paid tiers/resources, arbitrary data deletion or
+   a claim of unimplemented LLM/voice capability. Authority UNUSED. Root accepted
+   NEIGHBOR_RECONSTRUCTION_VALIDATION_ADDENDUM_V1 before validation source edits;
+   all26 policy/27FK/9 complete trigger controls must be source-bound and read back
+   in the owned schema. Four referenced targets include learning_path_courses
+   discovered from0145 body; learning_paths is the fifth read-only policy dependency.
+   No target-side lifecycle equivalence claimed.
+
+36. Root assembled source-bound neighbor gate: actual isolated DEV73 PASS after
+   exact0141 purge dependency binding, five target SELECT policies/ACLs and
+   dependency-ordered organization fixture. Earlier partial failures retained;
+   every run cleanup/public-neutral PASS. STAGED_COMPATIBILITY_RELEASE_ADDENDUM_V1
+   accepted before implementation: additive169 helpers/shared installer, compatible
+   API+worker with workbench OFF, then exact169->172; production controller unchanged.
+   Final assembled staged owned DEV74 PASS, including baseline26policies/27FK/
+   9triggers/11functionACL and169 no restriction, then170/171/172 plus all bounded
+   assignment/invitation/organization/retention negatives/concurrency. Managed
+   artifacts/validation_artifacts/workbench-neighbor-staged-pass.json SHA256
+   `595b3104d45d8f9f56925826601cb2e682df92b23a474ee27f5f5e065d0772cd`.
+   Root runtime evidence only; frozen independent acceptance pending. Cheap review
+   found contract-phase no-op receipt gap, repaired BEFORE final packet; regression
+   PASS. Canonical quality1010/2200 PASS; full frozen test count still pending.
+   Graphify update22109vs23077 shrink guard, old index retained/no force or upgrade.
+   Source fallback verified. Candidate0.11.26 compatibility A; no push/public
+   migration/deploy/flag/scheduler/mail/AI/STT/billing/customer mutation yet.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)
@@ -546,7 +574,7 @@ capacity failure, расход за пределами лимита. Не «об
 | WB-NEIGHBOR-CATALOG | DONE | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and independent local180 PASS atf0ff29c2; root ACCEPTED_LOCAL_ONLY; no equivalence claim |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
 | WB-ASR-BENCH | BLOCKED | root |Permitted corpus + measured already-paid capacity; no ASR installed |
-| WB-RELEASE | NOT_STARTED | root + Release Runner |Exact accepted candidate/all isolation gates; OWNER-CONFIRMED conditional DEV0169–0171 only, unused; production not approved for this workflow |
+| WB-RELEASE | NOT_STARTED | root + Release Runner |Exact accepted candidate/all isolation gates; OWNER-CONFIRMED DEV0169–0172 and production2026-10-02, UNUSED; staged compatibility/backup/rollback/readbacks required |
 
 Write overlap: root owns migration/config/router/registry/purge/docs and DEV gate;
 parser agent owns parser+owned tests, UI agent owns panel/client+web tests until
