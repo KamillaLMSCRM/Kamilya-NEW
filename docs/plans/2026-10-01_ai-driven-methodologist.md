@@ -741,6 +741,18 @@ capacity failure, расход за пределами лимита. Не «об
    before/after hashes. Canonical Git-bundled-Bash tenant gate335queries/zero
    violations PASS. No behavior/interface delta or external mutation.
 
+51. Candidate03b64371 pushed to master with independent exact remote readback;
+   primary fast-forwarded clean/aligned. CI36998362296/job110810152408 stopped
+   new activation step at collection (`scripts` import root absent in API-CWD),
+   before DEV preparation. Root preserved failure, added entrypoint regression
+   2RED/1PASS, explicitly bound API+repo PYTHONPATH on that CI step; affected87
+   tests PASS/1WindowsSKIP. No product/controller/flag/provider delta. Corrected
+   exact-SHA CI and enabled DEV/live acceptance remain required.
+   Cheap independent reviewer accepted; persistent Test Runner independently87
+   PASS/1WindowsSKIP/Ruff/diff (109.665s), managed003ac889/7caec4e8. Root read
+   artifacts+actual commands, accepted LOCAL_ONLY; append-only ROOT-C1 corrects
+   truncated ledger hash and six-vs-seven selector metadata, no extra rerun.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)

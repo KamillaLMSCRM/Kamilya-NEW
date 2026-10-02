@@ -203,7 +203,9 @@ jobs:
         run: poetry run python ../../scripts/ops/test_kamilya_web_deploy.py
 
       - name: Controlled workbench activation release contracts
-        run: poetry run pytest -q ../../scripts/ops/test_ct137_native_release.py ../../scripts/ops/test_ct137_workbench_activation.py ../../scripts/ops/test_ct137_native_deploy_cli.py ../../scripts/deploy/test_dev_workbench_activation.py ../../scripts/tests/test_workbench_staged_dev_schema_gate.py
+        env:
+          PYTHONPATH: "${{ github.workspace }}/apps/api:${{ github.workspace }}"
+        run: poetry run pytest -q ../../scripts/ops/test_ct137_native_release.py ../../scripts/ops/test_ct137_workbench_activation.py ../../scripts/ops/test_ct137_native_deploy_cli.py ../../scripts/deploy/test_dev_workbench_activation.py ../../scripts/tests/test_workbench_staged_dev_schema_gate.py ../../scripts/ci/test_workbench_activation_workflow_contract.py
 
       - name: Syntax compile (compileall)
         run: |

@@ -4302,6 +4302,16 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   failing smoke test plus wrapper contract pass four tests; the full API suite
   then passes 2853 tests with 499 contour skips. Do not work around this class
   by switching interpreters or running bare pytest.
+- Recurrence 2026-10-02: new workbench activation CI step ran from `apps/api`
+  without the repository import root. Exact CI run36998362296/job110810152408
+  failed collection of two native release tests with `ModuleNotFoundError:
+  scripts`; local canonical wrapper had correctly provided both paths. Fix only
+  this CI step's explicit `PYTHONPATH` to API plus repository roots and run
+  `test_workbench_activation_workflow_contract.py` in that same step. Its exact
+  entrypoint contract reproduced2RED/1PASS before correction; affected local CI
+  selectors87PASS/1WindowsSKIP after correction. No product/provider change.
+  Prevention: root-script CI tests importing repository packages must bind both
+  roots explicitly and verify the import from the real API working directory.
 - Recurrence 2026-09-25: invoking the wrapper by absolute path from the main
   checkout while editing a managed worktree correctly tested the main checkout,
   not the changed worktree. This produced a false green result with a plausible
