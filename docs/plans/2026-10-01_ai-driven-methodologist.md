@@ -697,6 +697,18 @@ capacity failure, расход за пределами лимита. Не «об
    neighbor tests/lint/typecheck PASS but remains uncommitted; final172/activation
    and authenticated live acceptance are still unresolved, no full-feature GO.
 
+47. Standing bounded frontend cleanup rule/status committed03ecee39, canonical
+   master readback matches; primary fast-forwarded clean/PRIMARY_OK, no source
+   redeployment. ROOT actual browser compatibilityA27 PASS: normal synthetic
+   methodologist login, retained completion100%/active certificate after fullreload,
+   OFF workbench direct route dashboard; no businesswrites/mail/AI/newattempts.
+   Managed root receipt1efe1be5; screenshotFA7552A8. Test Runner independent B
+   navigation local acceptance133files/766tests/typecheck/lint/diff PASS at frozen
+   03ecee39+exact6file delta,244.623s. Root read full managed a6e37e23/5c9903f0 and
+   append-only ledger, ACCEPTED_LOCAL_ONLY root decision2b0a55d4. No activated build,
+   final172/provider/new-flow acceptance implied. Next: explicit build/packet flag
+   contract, DEV B172/runtime/live acceptance, then production B and real flow.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)

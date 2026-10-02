@@ -81,7 +81,10 @@ Actual frontend rollback25/`3d1276443ad8735a5c0bf3dd029be5768c46ca6a` и
 внесерверной копии; свободно1463744KiB. Повторные одинаковые frontend-очистки
 регулируются ограниченным standing rule в существующем native runbook.
 Исходный неудавшийся пакет26 остаётся неизменным. Полный статус —
-`docs/PRODUCTION_READINESS.md`; final172/browser/feature gates не закрыты.
+`docs/PRODUCTION_READINESS.md`. Root browser compatibility A: вход и сохранённое
+завершение100%/действующий сертификат после reload PASS, OFF route возвращает в
+обзор; business writes отсутствуют. Final172/активация/new-workbench browser gates
+не закрыты.
 
 На 2026-09-07 `kml.kz`, `www.kml.kz`, `app.kml.kz` и `api.kml.kz` направлены
 DNS-only A-записями на KZ-IP `92.38.49.167`. Public proxy завершает TLS и по

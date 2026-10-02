@@ -65,8 +65,15 @@ strict manifest `180f35b0ac7077f097f230a695bb11e8615c8cfc3ba8133f448d91163556377
 build-config `4ecada5ee0673508ca11691b47cfddb409bb111daca1c61246a3b3abb5bce62e`
 binds literal workbench OFF. Installed helper unchanged; no Proxmox or privilege
 change. Actual previous successful frontend/rollback is25/3d127. Backend and DEV
-remain compatible26/OFF. Authenticated product acceptance is separately required;
-no final172/feature GO is claimed by this technical deployment.
+remain compatible26/OFF. Root actual browser compatibility smoke now PASS: normal
+existing synthetic methodologist login, retained completed100% occurrence and
+active existing certificate persist after full reload; direct OFF workbench route
+returns dashboard. No business writes, mail, AI, reset or new attempts. Managed
+`artifacts/local_acceptance/workbench-A27-root-live-compatibility.json`
+SHA256 `1efe1be557fb8825f587fb4c11d8ff4f173ebde69888d5b77df141f6d5e16e03`;
+this is root browser evidence, not independent Test Runner browser execution.
+Separate new-workbench activation/preview/confirm acceptance remains required;
+no final172/feature GO is claimed by compatibility smoke.
 
 Owner-approved obsolete frontend23/36826 exact tree and staging pair were removed
 with verified off-host recovery. Owner explicitly superseded the conditional24
