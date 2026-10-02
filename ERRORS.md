@@ -5250,3 +5250,25 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   preserved as HARNESS_FAILURE, never retroactively labeled PASS.
 - Prevention: exercise the shared sanitizer on generated metadata labels locally;
   never emit raw inputs, SQL exception payloads or connection strings.
+
+## TEST-INFRA-011 - HTTP test requests inherited factory tenant context
+
+- Date: 2026-10-02.
+- Symptom: exact CI36970476153 at5369e2e5 passed schema/RLS gates but the demo
+  login integration returned500 with tenants_slug_key duplicate (29 preceding
+  tests passed). Original failure remains preserved; production was unchanged.
+- Cause: factories bind tenant/security context in the shared outer test
+  transaction. The HTTP dependency override yielded that session unchanged,
+  unlike production's fresh request session. The bounded bootstrap correctly
+  rejects an already scoped lookup; demo login then attempted an existing slug.
+- Fix: reset six transaction-local security settings before each test HTTP
+  dependency invocation, without commit/rollback, search-path or row changes.
+  Runtime bootstrap SQL, RLS and production get_db remain unchanged.
+- Verification: actual client fixture regression RED (handler observed0 resets
+  instead of1), then GREEN twice per request; 28 focused tests and canonical
+  quality1010/2200 PASS. Independent read-only review found no actionable defect.
+  Mock-based checks are not PostgreSQL proof; exact replacement CI integration
+  and full suite are still REQUIRED before release acceptance.
+- Prevention: shared-transaction HTTP fixtures must model request context
+  boundaries independently from factory scopes. Never loosen bootstrap/RLS
+  restrictions to accommodate a leaked test context.

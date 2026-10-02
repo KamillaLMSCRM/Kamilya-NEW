@@ -145,6 +145,17 @@ async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
     from app.main import app
 
     async def _override_get_db():
+        # Factory scopes belong to the outer fixture transaction. Production
+        # opens a fresh session per HTTP request; emulate that request boundary
+        # without committing/rolling back the shared savepoint or changing rows.
+        await db_session.execute(text(
+            "SELECT set_config('app.tenant_id', '', true), "
+            "set_config('app.user_id', '', true), "
+            "set_config('app.is_superadmin', 'false', true), "
+            "set_config('app.auth_lookup', 'false', true), "
+            "set_config('app.is_impersonating', 'false', true), "
+            "set_config('app.impersonating_actor_id', '', true)"
+        ))
         yield db_session
 
     app.dependency_overrides[get_db] = _override_get_db

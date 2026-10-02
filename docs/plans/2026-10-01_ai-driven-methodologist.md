@@ -587,6 +587,31 @@ capacity failure, расход за пределами лимита. Не «об
    artifacts remain compatible, no new packet/controller/feature activation.
    Canonical quality1010/2200 PASS; updated error header contract must be rerun.
 
+39. Replacement5369 CI36970476153 dependency audit/catalog/RLS6jobs PASS,
+   full integration stops demo-login500/tenants_slug_key (29 preceding PASS).
+   Factory leaves bound tenant in shared outer transaction; client override
+   yields that session unchanged, unlike production get_db fresh-session
+   request. Bounded bootstrap correctly requires empty/nonplatform context;
+   do NOT relax its SQL or weaken isolation. Root accepts BEFORE test-infra edit
+   exact request-boundary correction: tests/conftest.py client dependency override
+   resets transaction-local tenant/user/platform/auth-lookup/impersonation values
+   BEFORE every HTTP request, retaining rollback-only fixture/savepoint ownership.
+   Named local async regression must invoke actual client fixture with a synthetic
+   FastAPI dependency and mock session, prove before-handler reset every request,
+   no commit/rollback. Full CI demo/integration proves actual path after correction;
+   no public business rows or shared DEV demo factory execution on workstation.
+   Graphify current indexed helper absent/stale; bounded source confirmed instead.
+
+40. Root accepts C3 LOCAL_ONLY after reading immutable report/results:160 named
+   tests/Ruff6/quality1010-2200/release-contract/version PASS at5369e2e5; web
+   C2 unchanged765 remains PRIOR_IMMUTABLE_EVIDENCE and root owned74 remains
+   ROOT_EXECUTOR_REVIEW_ONLY. CI36970476153 FAIL remains NO_GO, not relabeled.
+   Request-boundary fixture correction has actual local RED0vs1 then GREEN28,
+   independent cheap source review accepted, no product/RLS/migration delta.
+   TEST-INFRA-011 records recurrence; replacement immutable CI must prove real
+   demo login and full integration. No public DEV/production migration, deployment
+   or flag mutation has occurred. Current runtime remains25/schema0168.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)
