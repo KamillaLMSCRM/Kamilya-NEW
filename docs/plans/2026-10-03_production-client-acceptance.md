@@ -1,5 +1,12 @@
 # Production client acceptance and tool-efficiency epic
 
+Current34 closeout: exactb25653a2 deployed/CI37111000718/native37111030285 PASS;
+TestRunner34C bounded roles/history/PDF/CSP PASS; Root actual both-preview pixels
+via menu/help/refresh/mobile/desktop PASS. Filehandoff NOT_VERIFIED, fullfresh
+learning-write/token/paid-AI stillPARTIAL. Current34/actualprevious32/extra31/359/299
+retained; obsolete30 removed with original recovery under exact standing rule.
+This completes bounded PDF repair/release, not the all-feature epic completion gate.
+
 Continuation34:33/source4c2f52dc CI/native PASS but protected capacity gate
 stopped before mutation.34 excludes only incompatible GNU SWC/Skia .node files,
 keeping all musl/runtime/metadata/links. No33 deploy/stage/obsolete30 deletion.

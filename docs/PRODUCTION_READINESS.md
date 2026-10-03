@@ -9,7 +9,28 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Candidate34 packaging continuation — 2026-10-03
+## Current frontend34 — technical and bounded PDF/role readback PASS
+
+Production34/sourceb25653a2f30d0afdd3c81d8222ad1a38bf3753d7, CI37111000718 and
+native37111030285 SUCCESS, publishedv0.11.34; protected execute
+d924734b3fc0a7ba5f4dfdebc9c2936fb6e1689ee7ecc785cb6f0e1cee43258c RELEASE_OK.
+Independent Test Runner C report6da3f49c6b1befa9cbfb920c5e869615a120e179d72e1ad85ce464e6faa165f2:
+ordinary QA roles/expected403/retained100%/predecessor/PDF/globalCSP/public identity
+PASS,0businesswrites. Root actual browser: both PDF routes via menu, certificate
+1page+QR and evidence2pages visible, accessible text/help/refresh/mobile390 and
+desktop1440/no horizontal overflow/noCSP or loadingfail PASS. Localworker200 and
+bytes/hash match exact native artifact. Browser download file handoff NOT_VERIFIED
+after15s event timeout; no button defect established. Full fresh learning-write,
+token and paid-AI journeys remain PARTIAL, not full-product GO.
+
+Actual immediate previous32/3f0f retained and fresh restricted-boundary verified;
+extra31/572f and protected359/299 retained. Only successful obsolete30/d8ab and
+exact staging pair removed under standing recovery rule; offhost recovery retained.
+Postrelease free820864KiB, no more cleanup permitted under this packet. API29/source
+32e1331d unchanged; DB174/threeworkers remain2026-10-02 baseline, not freshly proven
+by frontend release. No tenant/progress/PIN/email/helper/access/landing/DNS/tier changes.
+
+## Historical candidate34 packaging continuation — 2026-10-03
 
 33/source4c2f52dc CI37109839905/native37109868895 PASS, published tag;
 protected preflight stopped before mutation. Required1574876234bytes versus
@@ -18,7 +39,7 @@ protected preflight stopped before mutation. Required1574876234bytes versus
 musl/runtime/metadata/links and extracted smoke. Filtered archive validator PASS;
 fresh34 exact gates/live PDF required. Current32/rollback31/30/359/299 unchanged.
 
-## Client32 technical release / candidate33 gate — 2026-10-03
+## Historical client32 technical release / candidate33 gate — 2026-10-03
 
 Frontend32/source3f0f120f1c5f5cd86af1c1e648272ad49a98e99c technically deployed;
 CI37105674665/native37105704341 SUCCESS, protected execute digest
@@ -129,7 +150,7 @@ maintenance only. Standing authorization is owned by
 API/DB/tenant/landing/DNS/tier maintenance. Full activation and live bounded
 workbench acceptance remain incomplete.
 
-### Current frontend31 — technical release passed, final client acceptance PARTIAL
+### Historical frontend31 — technical release passed, final client acceptance PARTIAL
 
 Immutable31/source572f0d9569dfbdce8dc662d5fc6bcf4a52f234a3;
 CI37099443141/native37099447416 SUCCESS; protected REL-CLIENT-WEB31-B-20261003

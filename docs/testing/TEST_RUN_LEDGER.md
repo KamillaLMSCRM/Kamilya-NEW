@@ -1733,3 +1733,43 @@ Rules:
   `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT34-20261003-A/acceptance-report.md`
   SHA-256 `b92e039031d07ed28f22a87a498498422c3bfcaf9029f6b383c964d8ddf1cd1e`.
   Local readiness only; not final CI/native/deployed GO.
+- `TEST-CLIENT34-PROD-20261003-C` bounded production readback PASS after
+  `REL-CLIENT-WEB34-20261003` release execution. Exact frontend HEAD
+  `b25653a2f30d0afdd3c81d8222ad1a38bf3753d7`, branch
+  `feature/methodologist-workbench-20261001`; approved helper
+  `post33-readonly.py` SHA-256
+  `09c2043ec73313f9bb422eb98b7556012ae862203b5b7e86e007d33c78d98d0d`; retained
+  module SHA-256 `0102011b897e70345f96392bd2e1c60424df9f56addac75d414e9f96f1877ac9`.
+  Single helper invocation with the exact SHA passed. Sanitized result: frontend
+  identity PASS at `b25653a2f30d0afdd3c81d8222ad1a38bf3753d7`; API identity PASS at
+  `32e1331d9b24621de71213ba1150375a261b0464`; retained history/PDF PASS;
+  ordinary synthetic admin and student login/read/expected 403 checks PASS;
+  `/login`, `/student`, `/admin/certificates/settings`, and
+  `/admin/training-evidence/settings` PASS with global frame-ancestors/object-src/
+  X-Frame-Options boundaries and exact no-blob frame policy; business mutations 0;
+  auth sessions audit-only. Browser pixels/completion remain separate root-owned
+  evidence. No provisioning, password/PIN/link, impersonation, role, mail,
+  assignment, progress, completion, database, provider, deployment, or source
+  mutation. Report SHA-256
+  `6da3f49c6b1befa9cbfb920c5e869615a120e179d72e1ad85ce464e6faa165f2`; JSON
+  SHA-256 `3beffa884f13388b146b807be09b36320cf5ef1b71f1686492bb0792d109d698`;
+  bridge SHA-256 `c071c9109390fb511e2cd082e72e501010d5465b433a7d5a8297c4839d5dfbad`.
+- `TEST-CLIENT34-BROWSER-20261003-D` Root-owned browser evidence ingestion PASS;
+  no browser replay, screenshot rendering, network call, test rerun, or
+  production action was performed by this runner. Supplied
+  `prod34-browser-readback.json` SHA-256
+  `38334d4360d143fa74e37ab3bc42942892d24808f69868c07316dfb4f29a65a8` matched;
+  linked TEST-CLIENT34-PROD-20261003-C report SHA-256
+  `6da3f49c6b1befa9cbfb920c5e869615a120e179d72e1ad85ce464e6faa165f2` matched;
+  linked execute receipt SHA-256
+  `d924734b3fc0a7ba5f4dfdebc9c2936fb6e1689ee7ecc785cb6f0e1cee43258c` matched.
+  Five supplied screenshots existed and were hash-checked only. Root-observed
+  evidence reports certificate and training-evidence menu/preview/help/refresh,
+  responsive no-overflow, HTTP200/OPTIONS204 preview routes, CSP violations 0,
+  local worker HTTP200/1160323 bytes/exact native asset match, and writes0 PASS.
+  Worker CDP request is NOT_OBSERVED; certificate file handoff is NOT_VERIFIED
+  after a 15-second event timeout, with no product button defect established;
+  full learning-write/token/paid-AI/file-handoff acceptance remains PARTIAL.
+  Evidence report:
+  `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT34-BROWSER-20261003-D/acceptance-report.md`
+  SHA-256 `b104245c730a8f95a3dcab4bb2474e57ba1db8c2d015521edab6cea1dab7ce8f`.

@@ -5,7 +5,20 @@
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/methodologist-workbench-20261001`
 
-## Candidate34 continuation,2026-10-03
+## Current production34,2026-10-03
+
+Frontendb25653a2f30d0afdd3c81d8222ad1a38bf3753d7/version34 deployed, CI37111000718/
+native37111030285 SUCCESS, protected execute d924734b3fc0a7ba5f4dfdebc9c2936fb6e1689ee7ecc785cb6f0e1cee43258c.
+TestRunner34C bounded ordinary roles/retained100%/history/PDF/CSP/readback PASS;
+Root actual menu-entry canvas pixels bothroutes1+2pages/help/refresh/mobile/desktop
+PASS. Filehandoff NOT_VERIFIED after browser15stimeout, no proven product defect;
+fresh learning-write/token/paid-AI remainPARTIAL. API29/source32e/DB-worker baseline
+unchanged. Actualprevious32/3f0f, extra31/572f/protected359/299 retained; obsolete30
+only removed with original recovery/plan/independentreadback. Free820864KiB.
+Do not repeat34execute/30cleanup/provisioning or label full-product GO. Evidence
+prod34-browser-readback.json plus5screenshots and TestRunner34C canonical report.
+
+## Historical candidate34 continuation,2026-10-03
 
 33/source4c2f52dc CI37109839905/native37109868895 PASS, published immutable tag;
 protected capacity preflight253ea49d9d5b00a61819218638dfe51a0aae94e638d126d8016a5d16a0101906 stopped before mutation.
@@ -14,7 +27,7 @@ preserving musl/metadata/links; filtered archive validator and source review PAS
 Fresh34 exact local/CI/native/capacity/live PDF required. Production remains32,
 current3f0f/rollback31/572f/extras30/359/299; no other environment changed.
 
-## Current client acceptance32 / candidate33,2026-10-03
+## Historical client acceptance32 / candidate33,2026-10-03
 
 Production frontend32/source3f0f120f1c5f5cd86af1c1e648272ad49a98e99c is technically
 deployed: CI37105674665/native37105704341 SUCCESS, protected RELEASE_OK,

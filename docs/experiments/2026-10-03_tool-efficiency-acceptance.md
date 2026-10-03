@@ -1,5 +1,27 @@
 # Tool-efficiency acceptance: known-file lookup/consumer discovery pilot
 
+##34 verified closeout measurements,2026-10-03
+
+- Runner34A wall146209ms, fresh9governance/native1/version/contract/quality/frozen12
+  PASS;857web app matrix linked33A, not rerun. Runner34C wall152876ms, independent
+  bounded production roles/history/PDF/CSP PASS,0businesswrites. ReleaseRunner34
+  local plan19330ms and reconciliation21039ms (bridge~2.8s), no network execution.
+- Runner34D evidence-ingestion-only wall166598ms for digest/screenshot-file/receipt
+  checks and ledger append, no browser replay. This is coordination overhead, not
+  a new test or saving. Future equivalent API/browser closeout should combine
+  supplied Root evidence into one complete packet when dependencies permit;
+  do not dispatch a separate worker turn for already verified hashes alone.
+- Root changed packaging after33 exact capacity stop;34 archive193468280→133688906
+  bytes (−59779374), expanded651068459→474530315 (−176538144), computed budget
+ 1574876234→1278779342. These are artifact/capacity reductions, not token/cost gains.
+- Root actual PDF pixels passed onbothroutes1+2pages/mobile/desktop; hidden-menu
+  locator, distinct training-preview title and initial screenshot-before-paint
+  required3bounded harness corrections. Fresh download event15stimeout retained as
+  NOT_VERIFIED. No full-feature GO, subscription savings or first-pass claim.
+- CodeGraph/Graphify earlier navigation timings remain asymmetric/noncausal;
+  exact packaging/config/prose correction KEEP_LOCAL. CodeBurn historical root
+  session totals do not attribute this repair or children; no new savings claim.
+
 ##34 packaging continuation,2026-10-03
 
 -33A/B local evidence stays linked;33B wall134654ms, fresh8governance/version/

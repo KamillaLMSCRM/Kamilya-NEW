@@ -25,7 +25,19 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current client32 boundary / candidate33,2026-10-03
+## Current client34 boundary,2026-10-03
+
+Frontend34/sourceb25653a2f30d0afdd3c81d8222ad1a38bf3753d7 deployed; exact CI37111000718/
+native37111030285/protectedexecute/publicidentity and TestRunner34C ordinary-role/
+retained-history/globalCSP PASS. Root actual canvas PDF bothadminroutes via menu,
+1+2pages/accessibility/help/refresh/mobile/desktop PASS. File handoff NOT_VERIFIED;
+full fresh learning-write/token/paid-AI acceptance stillPARTIAL. API29/source32e,
+DB174/worker baseline unchanged. Actualprevious32/3f0f/extra31/572f/protected359/299
+retained; only obsolete30/exact staged pair removed with verified offhost recovery.
+No helper/Node/runtime/data/access/provider/tier changes. Readiness owns detailed
+current gates; historical paragraphs below are not current runtime identity.
+
+## Historical client32 boundary / candidate33,2026-10-03
 
 Production frontend32/source3f0f120f1c5f5cd86af1c1e648272ad49a98e99c is deployed;
 CI37105674665/native37105704341, exact protected technical and independent bounded

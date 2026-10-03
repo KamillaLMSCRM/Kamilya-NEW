@@ -33,8 +33,9 @@ open, also record status, safe interim path, and review condition.
 
 ## UX-PDF-CSP-001 - Admin PDF preview blocked by parent frame policy
 
-- Date:2026-10-03; status PARTIAL: frame policy repaired in32, visual preview still blank;
-  frontend33 canvas candidate requires actual browser acceptance.
+- Date:2026-10-03; status RESOLVED for visible PDF in production34:1certificate
+  page and2evidence pages render after actual menu entry. Download file handoff
+  remains NOT_VERIFIED; no button defect established from event timeout alone.
 - Symptom: ordinary synthetic QA admin sees blocked iframe on certificate
   template; the preview endpoint returns200application/pdf successfully.
 - Cause: confirmed browser Log.entryAdded reports blob framing violates parent
@@ -58,6 +59,13 @@ open, also record status, safe interim path, and review condition.
   without captured policy/response evidence. Magic bytes are not a security scan.
 
 ### Continuation2026-10-03:32 policy success is not visible PDF success
+
+Production34/sourceb25653a2 bounded visual acceptance completed: both menu routes,
+mobile/desktop, real canvas pixels/accessibility/help/refresh and0CSP/networkfail.
+Local worker public200/hash matches immutable artifact. Root browser evidence
+prod34-browser-readback.json; independent TestRunner34C preserves QA history/roles.
+Original32 blank failure remains historical; no assumption about native viewer
+cause is retroactively promoted to fact.
 
 - Symptom: actual deployed32 iframe remains white; preview200application/pdf,
   validated bytes and no new frame CSP error. Network ERR_ABORTED is observed,
@@ -4605,7 +4613,11 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ### Capacity continuation2026-10-03: optional incompatible native binaries
 
-- Date:2026-10-03; status PARTIAL pending exact34 native/runtime/capacity gates.
+- Date:2026-10-03; status RESOLVED: exact34 native/runtime/capacity/deploy PASS.
+  Archive133688906/expanded474530315/required1278779342bytes; two GNU binaries
+  absent, both musl counterparts present and existing archive validator PASS.
+  Standing oldest-successful30 cleanup/restored capacity and independent readback
+  passed; current34/actualprevious32/extra31/protected359/299 retained afterward.
 - Symptom:33/source4c2f52dc CI/native PASS but preflight stops before staging;
   required1574876234bytes versus733708KiB. Even obsolete30 cleanup insufficient.
 - Cause: production archive includes incompatible optional GNU SWC/Skia binaries,
