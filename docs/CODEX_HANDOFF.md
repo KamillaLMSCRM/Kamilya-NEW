@@ -1,6 +1,6 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-10-02
+**Обновлено:** 2026-10-03
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/methodologist-workbench-20261001`
@@ -15,6 +15,28 @@ Telemetry/update/watch/daemon OFF; no Git hooks/global MCP/application dependenc
 Five wrapper tests, rename/exclusion canaries and package signatures/attestations
 PASS. Known false ORM-method edge and missing frontend-HTTP→handler edge retained.
 No production/DB/provider/billing change; voice product integration stays pending.
+
+## Current isolated speech pilot: decoder comparison,2026-10-03
+
+- result: same licensed11 clips/installed large-v3 tested offline CPU/int8/4threads;
+  15-second multilingual policy REJECTED; 30-second policy exploratory candidate.
+  RU0/138 and KK16/76 unchanged versus hinted baseline; slower13.59s/14.01s
+  medians. Artificial splice3/57 improved, never natural mixed acceptance.
+- changed: standalone stt_quality helper/tests and bounded
+  [pilot V2](product/contract-modules/methodologist-workbench/contracts/ASUS_STT_PILOT_ADDENDUM_V2.md);
+  [12 recording phrases](testing/voice-recording-kit-dev-qa.md) for verified DEV
+  tenant and two existing courses. Department list empty: negative cases only.
+- verified: root27/reviewer4 unit tests, scoped Ruff; both actual remote audits,
+  independent saved-report hashes/row sums. Existing protected timers/listeners
+  intact, no benchmark process remains. DEV health/actor/course labels checked
+  with canonical Origin/header procedure, ordinary auth + GET only.
+- blockers: KK improvement, natural mixed/domain fields, GPU execution, actual
+  phone flow/p95/cancellation/private-audio TTL and VM126 capacity NOT_VERIFIED.
+  Specialized KK Turbo model researched only, not downloaded or installed.
+- next: natural domain recordings on the prepared phrases; record actual ground
+  truth and critical fields, compare30s against baseline. Separate bounded
+  revision/license/dependency packet before installing a KK-adapted comparator.
+  No production/app speech runtime/LLM-intent feature released by this pilot.
 
 ## Current production: text workbench accepted, backend29/schema174
 

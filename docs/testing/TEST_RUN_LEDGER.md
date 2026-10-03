@@ -1384,3 +1384,61 @@ Rules:
   directed=false. Bounded frontend query source-checked; no derived tool-runtime,
   node_modules or .release-evidence source nodes. Existing SQL parser dependency
   unavailable for11SQL files, retained as a navigation gap; no shared install.
+
+### 2026-10-03 — `ASUS-STT-DECODER-20261003` isolated decoder comparison
+
+- Frozen starting source3997cdf485ba2629dbb167c08f3086575c642050 in the existing
+  daily-learning writer. Root owns standalone stt_quality helper/tests/docs;
+  V2 preserves V1 isolation. No new model/package/GPU/service/driver/provider/
+  billing/production/LMS business mutation. Existing FLEURS11/model hashes,
+  runtime pins, CPU/int8/four threads/one worker preserved; runs sequential.
+- Auto15s actual offline inference completed11: RU26/138, KK26/76,
+  artificial splice41/57. Medians RU18.855s/KK17.822s; rejected, not hidden.
+  Auto30s actual11: RU0/138, KK16/76, artificial splice3/57; medians
+  RU13.591s/KK14.010s, splice29.877s; retained exploratory, not product GO.
+  Baseline RU0/138/KK16/76 means no measured KK-only improvement.
+- Actual remote input/weight/reference/duration/policy/metric audits PASS for
+  both reports. Independent Windows SHA256 and row sums PASS:
+  Auto15s08e9b1bc7139297e5587bc66b2521bead3fdc35c4633165bb96085ee6fa321e7,
+  Auto30sd5a2ade4e83d0b7590c7de3f6a9796f040ff25d7b4539ed8b7f4509fc538fd0c.
+  Raw first15s/schema1 preserved; separate audit receipt normalizes schema2,
+  mechanically excluding artificial_splice from language acceptance metrics.
+  false natural_mixed_verified/command_fields_verified required. Reports/audit
+  receipts retained ignored locally and in task-owned ASUS quality directory.
+- Root27 focused unittest tests/scoped Ruff check+format PASS. Cheap independent
+  stt_decoder_policy_review requested gpt-5.6-luna/medium (observed model/effort/
+  token/time counters NOT_AVAILABLE); first source pass found a splice metric
+  classification risk, root added typed schema/runtime checks/regression; second
+  read-only review4 focused tests PASS/no remaining finding. No external benchmark
+  execution is attributed to the reviewer. No full application/browser test claim.
+- Postcheck gx10-d9c0/superuser/aarch64:116GiB available RAM/370GiB disk,
+  pilot4.7GiB; original TCP listeners/four protected active+enabled timers retained,
+  no benchmark process. No unrelated book failure repair or cache cleanup.
+- Existing synthetic DEV label preflight: initial POST login ReadTimeout,
+  cause NOT_VERIFIED; payload-free exact health32e1331d render-development PASS.
+  Next helper login403 lacked canonical Origin; source requires trusted Origin.
+  Corrected only helper to canonical headers/timeout, normal login and exact
+  actor/tenant/two-course GET identity PASS at2026-10-03T01:32:30Z; departments
+  empty. A provisional items-field assumption was corrected against actual
+  DepartmentListResponse before accepting a response; no false empty-read claim.
+  Business mutations0, fixture/history/password unchanged; no auth bypass.
+- Twelve RU/KK/domain-mixed/correction/negation/missing-object recording phrases
+  saved under docs/testing/voice-recording-kit-dev-qa.md. No new department to
+  fabricate a positive case, and no spoken command executed. KK-adapted Turbo
+  revision/license metadata researched only, no weights/runtime installed.
+- Canonical Python quality baseline PASS (Ruff1010/Mypy2200), release-contract
+  and version consistency0.11.29 PASS. Root recording-kit binding check confirms
+  exact fixture tenant/two-course IDs+names and twelve case IDs. Additional cheap
+  document review found K03 generic test-action prohibition was over-described
+  as attempt reset; root split the critical-field table without changing audio
+  instructions. Exact verified methodologist ID/readback hash added; no student
+  auth claimed. One failed atomic documentation patch changed no files, then
+  reapplied against current source.
+- Graphify AST update attempted once, failed shrink guard22508vs24222; no force,
+  reinstall or old-graph replacement. Read-only diagnose of retained24222nodes/
+  54919edges PASS/no dangling/missing/duplicate edges, directed=false. Reason for
+  shrink NOT_VERIFIED; new helper relationships not current in navigation graph.
+  Final source/tests review remains source-derived, not graph-derived proof.
+- Result `MEASURED_DECODER_POLICY_ONLY`; KK/domain/natural mixed quality,
+  private-audio intake/TTL, GPU/p95/phone/cancel and VM126 capacity remain OPEN.
+  Production text release unchanged; voice/LLM integration NOT_RELEASED.

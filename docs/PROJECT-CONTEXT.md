@@ -78,7 +78,7 @@ Public Google FLEURS CC-BY-4.0 и MIT multilingual weights; inference offline,
 запросом/4threads. ARM `ctranslate2==4.8.2` wheel не содержит CUDA support; GPU
 inventory не означает GPU execution. Production speech intake, QR microphone,
 private-audio storage/TTL и новые платные ресурсы не включены. Packet/результаты:
-[ASUS pilot](product/contract-modules/methodologist-workbench/contracts/ASUS_STT_PILOT_ADDENDUM_V1.md),
+[ASUS pilot V2](product/contract-modules/methodologist-workbench/contracts/ASUS_STT_PILOT_ADDENDUM_V2.md),
 [текущий план](plans/2026-10-01_ai-driven-methodologist.md).
 
 Render DEV API также работает на Free Web Service. Этот тариф не выполняет

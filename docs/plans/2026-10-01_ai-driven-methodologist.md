@@ -4,7 +4,9 @@
 Статус обновлён 2026-10-03: текстовый assignment slice закрыт выпуском backend29/
 schema174 на2026-10-02, включая живую проверку и штатную очистку A/B; native
 frontend28 сохранён. Это датированное release evidence, не новое runtime readback.
-Начат изолированный ASR-пилот на ASUS по указанному владельцем локальному доступу.
+Изолированный ASR-пилот на ASUS: CPU baseline и сравнение decoder policies
+проверены; 15s отклонён, 30s оставлен исследовательским кандидатом, качество KK
+ещё не улучшено. Подготовлен набор пользовательских записей под synthetic DEV QA.
 Голос в продукте/LLM intent/document drafting ещё не выпущены.
 Ветка: `feature/methodologist-workbench-20261001`.
 
@@ -130,9 +132,11 @@ actor/tenant; истёкший/reused/revoked QR; desktop switched context; уч
 команду молча; только кнопка подтверждает публикацию/массовое назначение.
 
 Изолированный pilot packet принят root по текущему запросу владельца:
-[ASUS-STT-PILOT V1](../product/contract-modules/methodologist-workbench/contracts/ASUS_STT_PILOT_ADDENDUM_V1.md).
-Graphify index в writer отсутствует; карта соседей SOURCE-DERIVED из известных
-schemas/UI, не graph-derived proof. Продуктовые интерфейсы этим пилотом не меняются.
+[ASUS-STT-PILOT V2](../product/contract-modules/methodologist-workbench/contracts/ASUS_STT_PILOT_ADDENDUM_V2.md),
+с сохранением границ V1.
+Исходная карта соседей для V1 была SOURCE-DERIVED из известных schemas/UI,
+не graph-derived proof. Graphify index появился позднее в writer; это не
+меняет происхождение исходной карты. Продуктовые интерфейсы пилотом не меняются.
 
 ### Измеренный ASUS baseline — 2026-10-03, CPU only
 
@@ -179,6 +183,67 @@ No new paid resource/provider/billing/production mutation. Следующий V1
 отдельно подготовить own CUDA build; не подключать текущий baseline к продовым
 поручениям только из-за скорости. Для GPU build требуется отдельный bounded
 packet, но не повторное согласование уже разрешённого изолированного теста.
+
+### Decoder-policy comparison — 2026-10-03, CPU only
+
+На тех же11 inputs/weights/runtime без установки или скачивания сравнили
+auto-language/multilingual decoding с chunk_length15 и30. В обоих режимах
+language=None/task=transcribe/beam5/condition_on_previous_text=false/VAD=false;
+ни эталон, ни начальный prompt не передаются распознаванию.
+
+| Измерение | Предыдущий hinted baseline | Auto15s | Auto30s |
+|---|---|---|---|
+| RU WER, errors/words |0%, 0/138 |18.84%, 26/138 |0%, 0/138 |
+| KK WER, errors/words |21.05%, 16/76 |34.21%, 26/76 |21.05%, 16/76 |
+| RU median processing |8.43s |18.85s |13.59s |
+| KK median processing |8.83s |17.82s |14.01s |
+| Artificial splice: diagnostic-only WER |38.60%, 22/57 |71.93%, 41/57 |5.26%, 3/57 |
+| Artificial splice processing |24.60s |29.82s |29.88s |
+
+Решение: Auto15s отклонён из-за ухудшения языка и скорости. Auto30s оставлен
+кандидатом для следующего теста: на текущих отдельных RU/KK фразах убирает
+необходимость заранее сообщать язык без роста WER, но медленнее baseline.
+**Качество казахского пока не улучшено.** Искусственная склейка улучшилась,
+но не доказывает качество естественного RU/KK code-switching.
+Small по-прежнему не принят как общий RU/KK-вариант.
+
+Оба remote audits PASS; независимые Windows hashes/row sums совпали.
+Reports Auto15s SHA256`08e9b1bc7139297e5587bc66b2521bead3fdc35c4633165bb96085ee6fa321e7`,
+Auto30s`d5a2ade4e83d0b7590c7de3f6a9796f040ff25d7b4539ed8b7f4509fc538fd0c`.
+Schema2 механически отделяет artificial_splice от RU/KK и запрещает acceptance;
+первый raw Auto15s/schema1 сохранён неизменным, typed audit записан отдельно.
+Root focused27 tests/Ruff и независимые4 tests PASS. Postcheck:116GiB RAM,
+370GiB свободного диска, pilot4.7GiB; те же TCP listeners/четыре active+enabled
+timers, benchmark process отсутствует. Никакой новой service/GPU/production связи.
+
+Исследован, **не скачан и не выбран**, KK-adapted
+[Whisper Turbo](https://huggingface.co/shyngys879/kazakh-whisper-large-v3-turbo),
+revision`dafae810c95496f66184605824be5a0a971d3c09`, declared Apache-2.0,
+Transformers/Safetensors, не готовый CT2 artifact. Автор сам отмечает ограничения
+RU/KK code-switching; его FLEURS-цифры — не наши измерения. Перед пробой нужен
+bounded installation/conversion packet, проверка происхождения/license и
+сопоставимость обучения/holdout; установка в другие окружения не разрешена.
+
+Подготовлены [12 фраз для записи](../testing/voice-recording-kit-dev-qa.md)
+под реально проверенные tenant/course IDs постоянного DEV QA. Отделов нет,
+поэтому отделовые случаи только negative; ничего не создано/назначено/сброшено.
+Первый login завершился ReadTimeout (причина NOT_VERIFIED); payload-free health
+прошёл. Следующий login403 возник в helper без штатного Origin; исправлен сам
+helper по canonical Client procedure, затем actor/course/empty-departments GET
+readback PASS. Защита, пароль и стенд не менялись.
+
+Следующий gate: естественные RU/KK/domain записи без подсказок эталона, ручной
+ground truth и точные критичные поля. Кандидат30s сравнивается с baseline и
+отдельным разрешённым KK comparator, не подбирается по этим пяти примерам.
+До загрузки личного аудио уточнить способ/TTL pilot intake; публичные corpus
+правила не означают бессрочное хранение голоса владельца. Product ASR/LLM intent,
+phone/browser/cancel/p95 и VM126 capacity остаются NOT_VERIFIED.
+
+AST-обновление Graphify попытались один раз после добавления helper: shrink guard
+отклонил22508nodes против прежних24222. Force/reinstall не использованы; причина
+уменьшения NOT_VERIFIED. Сохранённый graph24222/54919 structural diagnose PASS,
+но freshness новых helper-связей отсутствует: финальный review SOURCE-DERIVED,
+не graph-derived. Этот навигационный gap не заменяет/не отменяет unit/runtime proof.
 
 ## Этапы и критерии выхода
 
@@ -961,6 +1026,13 @@ capacity failure, расход за пределами лимита. Не «об
     pre-existing book failure not repaired. ASR quality/production/phone gates
     remain OPEN; text production unchanged.
 
+61. Decoder-policy continuation2026-10-03: same eleven immutable clips/large-v3
+    weights, two offline CPU policies measured. Auto15s rejected; Auto30s
+    exploratory only, KK WER unchanged/natural mixed not verified. Typed metrics
+    separate artificial splice; old raw schema retained; audit/hash/row sums,
+    root27+reviewer4 tests/Ruff PASS. Existing DEV identity/course readback only,
+    empty departments; twelve recording phrases ready, no business changes.
+
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)
@@ -972,7 +1044,7 @@ capacity failure, расход за пределами лимита. Не «об
 | WB-DEV-ACCEPT | DONE for29 | root; Test & Evidence Runner local freeze; root external |DEV174/32 ON, owner-lock catalog/workercontrol/permanent QA/browser enabled workbench PASS; prior28 full text-flow proof retained |
 | WB-NEIGHBOR-CATALOG | DONE | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and independent local180 PASS atf0ff29c2; root ACCEPTED_LOCAL_ONLY; no equivalence claim |
 | WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
-| WB-ASR-BENCH | MEASURED_CPU_ONLY; quality gate OPEN | root / root pilot / cheap reviewer |Licensed11-clip CPU comparison verified; KK/mixed quality/domain/capacity/CUDA remain open; no LMS ASR installed |
+| WB-ASR-BENCH | MEASURED_CPU_ONLY; decoder30s exploratory; quality gate OPEN | root / root pilot / cheap reviewer |Licensed11-clip comparisons verified; 15s rejected; KK WER unchanged, natural mixed/domain/capacity/CUDA open; recording kit ready; no LMS ASR installed |
 | WB-VOICE-INPUT / WB-QR-MIC | NOT_STARTED in LMS | root shared contract; bounded UI/test leafs later |Accepted speech/job/QR impact contract + quality/data/capacity gate, then DEV browser/physical phone proof |
 | WB-RELEASE | DONE for text slice29 | root execution/browser/cleanup + Release Runner local review + Test Runner actual API |Production29/32/174 ON; native28 retained; protected rerun2 SUCCESS, normalA/Bcleanup/independentabsence/permanentQA-after PASS; voice/LLM separate |
 
@@ -986,6 +1058,7 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 
 | Task / type | Requested model / effort | Acceptance / correction rounds | Evidence |
 |---|---|---|---|
+| stt_decoder_policy_review / independent source and metric-boundary review |gpt-5.6-luna /medium; observed metadata NOT AVAILABLE |Source accepted after1 metric hardening; phrase kit corrected after1 semantic/traceability review |Reviewer4/root27 network-free tests; root actual sequential decoder comparisons/audits; elapsed/token counters NOT AVAILABLE |
 | voice_pilot_contract_review / acceptance inventory + independent source review |gpt-5.6-luna /medium; independently observed metadata NOT AVAILABLE |Root accepted after source corrections; audit hardening completed root |Unit23/root actual CPU11permodel/source hashes verified; elapsed/token counters NOT AVAILABLE |
 | root / isolated ASUS pilot and plan |Parent session; observed metadata NOT AVAILABLE |Completed technical baseline; product quality not accepted |Actual CPU/inference/comparison/host checks; runtime failures retained; no production/DB/customer data |
 | assignment_seam_inventory / read-only inventory + review |gpt-5.6-luna / medium; independently observed metadata NOT AVAILABLE |Accepted;0 correction rounds |Source-only findings, no external writes |

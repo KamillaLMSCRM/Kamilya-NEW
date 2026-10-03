@@ -44,7 +44,8 @@ Populated cleanup repair and final173/V3 DEV receipt, accepted before implementa
 Non-bypass owner row-lock repair174, without real owner writes or runtime grants:
 [TENANT-PURGE-OWNER-LOCK repair V1](contracts/TENANT_PURGE_OWNER_LOCK_REPAIR_V1.md).
 Isolated public-corpus ASUS benchmark only, no LMS speech runtime authority:
-[ASUS-STT-PILOT V1](contracts/ASUS_STT_PILOT_ADDENDUM_V1.md).
+[ASUS-STT-PILOT V2](contracts/ASUS_STT_PILOT_ADDENDUM_V2.md), preserving V1;
+decoder-policy comparison only, natural/domain quality and production gates open.
 Execution sequence/progress: [plan](../../../plans/2026-10-01_ai-driven-methodologist.md).
 
 The original foundation remains pure. The accepted assignment addenda add
