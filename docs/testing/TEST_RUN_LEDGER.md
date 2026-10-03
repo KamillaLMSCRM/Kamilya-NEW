@@ -1559,3 +1559,26 @@ Rules:
   `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT31-20261003-C/acceptance-report.md`
   SHA-256 `c133513d56f895222cd7f915add3feb48a8709eb9710fb54077711ccff9dc884`.
   Local acceptance only; no production/deployed-runtime proof.
+- `TEST-CLIENT31-20261003-D` document-only follow-up PASS for the corrected
+  `ERRORS.md` release-contract journal field. Exact writer checkout
+  `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD
+  `7da13c0e6768e23fd785c62fb78915e6ac8c204b`; frozen manifest
+  `frozen-package-31-D.json` SHA-256
+  `491f7a50bee88dd19535f1ae067ed7313404890d2a52e5dd8355c22896e9da29`.
+  Exactly one bound file (`ERRORS.md`) matched before and after; writer diff
+  contained only `ERRORS.md`; primary `C:\Kamilya New\Kamilya-NEW` was clean
+  and not tested. Accepted C report SHA-256
+  `c133513d56f895222cd7f915add3feb48a8709eb9710fb54077711ccff9dc884` and C
+  manifest SHA-256 `253820c488c8a67c216477207e8c7ec04b8b03627ea9610a30da7eadf1520517`
+  were independently confirmed. C-linked web/Node/Python/Poetry outputs were
+  verified reused, not rerun, because only the documented `ERRORS.md` delta was
+  materialized. Fresh `scripts/ci/release-contract-gate.py` PASS: Alembic 172
+  revisions/head 0174, Celery contract, migration ownership, 31 Render direct
+  packages, 210 unique error entries; version validator `0.11.31` PASS; full
+  DB-free unit suite PASS 2244 tests with 5 warnings in 26.98s; `git diff --check`
+  PASS; final one-file hash PASS. No source/test/config/provider/database/network/
+  browser/production/deployment/credential/external-runtime mutation. Evidence:
+  `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT31-20261003-D/acceptance-report.md`
+  SHA-256 `161e6598c69075203e263cb6d56a849d736655b0f3d4f43b6ad871eae5a5fec7`.
+  Local acceptance only; no production/deployed-runtime proof.

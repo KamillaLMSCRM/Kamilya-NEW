@@ -38,7 +38,7 @@ open, also record status, safe interim path, and review condition.
   displays native required-field validation before final Create was clicked;
   first-name field focused, same AX button119 changes from Next to Create.
   Root canceled the form; no account creation or final submit was exercised.
-- Cause hypothesis: React reuses the conditional button node and changes its
+- Cause: hypothesis - React reuses the conditional button node and changes its
   type to submit during the same click, before the browser's default action.
 - Fix: cancel the transition click default before state mutation and use distinct
   Next/Create React keys; preserve explicit final submission and API contracts.
@@ -46,6 +46,10 @@ open, also record status, safe interim path, and review condition.
 - Prevention: step transitions must not retain a submit default; test valid
   advance as well as blank prerequisites, explicit submit once, and browser
   native validation. jsdom click-only mocks are not final native-browser proof.
+  Preserve the canonical `- Cause:` journal field; mark uncertainty in its value,
+  not in the field name. CI37098939887 stopped at this journal contract (1failed,
+  2243passed), before deployment; include release-contract-gate.py in local
+  preflight whenever ERRORS.md changes. This is documentation, not an API defect.
 
 ## RELEASE-LOCAL-TAG-001 - Published GitHub tag absent from local refs
 
