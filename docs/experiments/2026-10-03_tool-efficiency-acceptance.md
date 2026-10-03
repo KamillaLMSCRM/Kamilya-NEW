@@ -1,5 +1,23 @@
 # Tool-efficiency acceptance: known-file lookup/consumer discovery pilot
 
+##35 learner continuation measurements,2026-10-03
+
+- Cheap Luna/medium leaf performed bounded side-effect/source inventory and then
+  four presentation fixes. Initial focused2files/18tests23050ms, typecheck~12300ms,
+  scoped lint~19200ms; additional dashboard1file/11tests1980ms/type~12200ms.
+  Two correction rounds: failed patch context with no changes; initial CTA test
+  matched both resume/card and was narrowed. Independent Luna reviewer accepted
+  source scope and requested an inaccessible-completed CTA regression, added by
+  Root before frozen gates. Exposed per-child token counters unavailable.
+- Root CodeGraph1.6.1 sync after source edits: SDK2141ms, wrapper9458ms,
+ 1623files/29895nodes/79737edges, exclusions PASS. Shared renderer/help consumers
+  source-confirmed by independent review; Graphify not duplicated for answered
+  two-consumer dependencies. No causal speed/token/subscription-savings claim.
+- Root browser overhead retained: exact .env key parser whitespace mismatch
+  before any student login; post-navigation stale selector after public certificate
+  click; one failed multi-file root patch context with no changes. Six proof
+  screenshots saved. Real learner/browser actions are Root work, not agent passes.
+
 ##34 verified closeout measurements,2026-10-03
 
 - Runner34A wall146209ms, fresh9governance/native1/version/contract/quality/frozen12

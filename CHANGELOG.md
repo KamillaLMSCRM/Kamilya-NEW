@@ -45,6 +45,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.35] - 2026-10-03
+
+### Fixed
+
+- Remove an exact duplicate first lesson title only in the learner reader; keep
+  authoring previews, other headings and stored course content unchanged.
+- Name the best saved quiz score explicitly in Russian, Kazakh and English.
+- Show quiz-specific learner help instead of generic course instructions.
+- Label completed dashboard courses as opening the result, not continuing study.
+
 ## [0.11.34] - 2026-10-03
 
 ### Fixed

@@ -1,5 +1,16 @@
 # Production client acceptance and tool-efficiency epic
 
+Continuation35: root production34 ordinary new QA student learning-write PASS:
+enrollmentefb3a087-218f-49c6-8efc-e577fc44cf98,5lessons/5quizzes, first0% failed
+attempt retained then100% retry, progress0/20/40/60/80/100, explicit completion,
+certificatea2da57f3-4579-470b-9639-346589f02696/public KML-2026-ACB5647AD85C,
+final dashboard1course/1completed/100%/1certificate. One silent API fixture
+assignment only; no UI-submit/PIN/mail/AI/old-history change. Retain completed
+record in permanent stand, no deletion. Candidate35 fixes4presentation findings;
+full frozen gates/exactCI/native/release/live recheck pending. Retained old QA
+quiz content has semantic quality failures; this is not a generation-quality pass.
+OTP/signed-copy/package, token, paid-AI and browser file handoff remain unverified.
+
 Current34 closeout: exactb25653a2 deployed/CI37111000718/native37111030285 PASS;
 TestRunner34C bounded roles/history/PDF/CSP PASS; Root actual both-preview pixels
 via menu/help/refresh/mobile/desktop PASS. Filehandoff NOT_VERIFIED, fullfresh

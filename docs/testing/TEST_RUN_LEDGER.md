@@ -1773,3 +1773,22 @@ Rules:
   Evidence report:
   `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT34-BROWSER-20261003-D/acceptance-report.md`
   SHA-256 `b104245c730a8f95a3dcab4bb2474e57ba1db8c2d015521edab6cea1dab7ce8f`.
+- `TEST-CLIENT35-20261003-A` local learner-presentation acceptance PASS. Exact
+  checkout `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD
+  `39dd7e566cf41f5eb0891a610c64096c888149ea`; frozen manifest
+  `frozen-package-35-A.json` SHA-256
+  `fd20bd725a21d539d93b31a7938aa7129028a4a43629e0e937ca1a4e29926ab3`.
+  Corepack pnpm 10.26.1 fresh web PASS: Vitest maxWorkers=2 145/145 files and
+  862/862 tests in 130.70s; strict lint; typecheck; Next 15.5.24 build 67/67
+  pages. Fresh version `0.11.35` PASS; release-contract gate PASS (Alembic
+  172/head 0174, Celery, migration ownership, 31 Render packages, 212 unique
+  error entries); Python quality PASS (Ruff 1010/mypy 2200); Poetry PASS;
+  `git diff --check` PASS; final 18/18 frozen hashes PASS. Prior API/Node
+  results were linked unchanged and not rerun: API unit 2244; selectors 141
+  passed/2 skipped/9 subtests; Node 9/syntax. Primary clean and not tested.
+  No source/test/docs/lock/provider/database/network/browser/production/
+  deployment/credential mutation. Evidence:
+  `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT35-20261003-A/acceptance-report.md`
+  SHA-256 `08d4fef7a3c86e44e0d53a35a8ed0ffe24854198a7d54dbe518fb74cba29f6be`.
+  Local evidence only; no live presentation or release acceptance claim.

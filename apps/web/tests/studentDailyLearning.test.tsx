@@ -146,6 +146,28 @@ describe('student dashboard request state', () => {
     expect(await screen.findByText('student.enrolledCourses')).toBeInTheDocument();
   });
 
+  it('labels completed courses as viewing the result while preserving active CTAs', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        user_id: 'learner', full_name: 'Learner',
+        enrolled_courses: [
+          { course_id: 'completed-course', title: 'Completed', description: '', enrollment_status: 'completed', can_resume: true, progress_percent: 100, total_lessons: 1, completed_lessons: 1 },
+          { course_id: 'active-course', title: 'Active', description: '', enrollment_status: 'in_progress', can_resume: true, progress_percent: 50, total_lessons: 2, completed_lessons: 1 },
+          { course_id: 'new-course', title: 'New', description: '', enrollment_status: 'in_progress', can_resume: true, progress_percent: 0, total_lessons: 2, completed_lessons: 0 },
+        ],
+        total_courses: 3, completed_courses: 1, total_progress_percent: 50, certificates_count: 1,
+      }),
+    }));
+    render(<StudentDashboardPage />);
+
+    expect(await screen.findByText('courses.viewResult')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'courses.viewResult' })).toHaveAttribute('href', '/courses/completed-course');
+    expect(screen.getAllByRole('link', { name: 'courses.continueCourse' }).some((link) => link.getAttribute('href') === '/courses/active-course')).toBe(true);
+    expect(screen.getAllByText('courses.continueCourse').length).toBeGreaterThan(0);
+    expect(screen.getByText('courses.startCourse')).toBeInTheDocument();
+  });
+
   it('keeps a previous occurrence visible without a course link and explains the access boundary', async () => {
     const courseId = '123e4567-e89b-42d3-a456-426614174000';
     const fetchMock = vi.fn().mockResolvedValue({
@@ -181,6 +203,22 @@ describe('student dashboard request state', () => {
     expect(olderCard).toHaveTextContent('Продолжение этого назначения пока недоступно');
     expect(screen.getAllByText('Current assignment').length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link').some((link) => link.getAttribute('href') === `/courses/${courseId}`)).toBe(true);
+  });
+
+  it('keeps the access boundary ahead of the completed result action', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        user_id: 'learner', full_name: 'Learner',
+        enrolled_courses: [{ course_id: 'locked-completed', title: 'Locked completed', description: '', enrollment_status: 'completed', can_resume: false, progress_percent: 100, total_lessons: 1, completed_lessons: 1 }],
+        total_courses: 1, completed_courses: 1, total_progress_percent: 100, certificates_count: 1,
+      }),
+    }));
+    render(<StudentDashboardPage />);
+    expect(await screen.findByText('Locked completed')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Продолжение этого назначения пока недоступно');
+    expect(screen.queryByRole('link', { name: 'courses.viewResult' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'courses.viewCertificate' })).toHaveAttribute('href', '/certificates');
   });
 
   it('aborts and ignores an old identity response after the auth token changes', async () => {

@@ -207,7 +207,11 @@ export default function StudentDashboardPage() {
                     ) : (
                       <Link href={`/courses/${course.course_id}`} className="flex-1">
                         <Button variant="outline" className="w-full" size="sm">
-                          {course.progress_percent === 0 ? t('courses.startCourse') : t('courses.continueCourse')}
+                          {course.enrollment_status === 'completed'
+                            ? t('courses.viewResult')
+                            : course.progress_percent === 0
+                              ? t('courses.startCourse')
+                              : t('courses.continueCourse')}
                         </Button>
                       </Link>
                     )}

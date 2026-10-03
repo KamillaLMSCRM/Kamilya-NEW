@@ -46,6 +46,7 @@ describe('contextual help registry', () => {
       ['/certificates', 'student', 'student-certificates'],
       ['/learning-paths', 'student', 'student-learning-paths'],
       ['/courses/course-1', 'student', 'student-course'],
+      ['/courses/quiz/quiz-1', 'student', 'student-quiz'],
       ['/admin', 'admin', 'admin-dashboard'],
       ['/settings', 'admin', 'admin-settings'],
       ['/admin/settings/integrations', 'admin', 'admin-integrations'],
@@ -74,6 +75,7 @@ describe('contextual help registry', () => {
     expect(getContextualHelp('/admin/settings/ai', 'admin', 'ru')?.id).toBe('admin-ai');
     expect(getContextualHelp('/courses/course-1/edit', 'methodologist', 'ru')?.id).toBe('courses');
     expect(getContextualHelp('/courses/course-1', 'student', 'ru')?.id).toBe('student-course');
+    expect(getContextualHelp('/courses/quiz/quiz-1', 'student', 'ru')?.id).toBe('student-quiz');
   });
 
   it('keeps every topic complete in all supported locales', () => {

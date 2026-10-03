@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 export type LessonContentProps = {
   text: string;
   className?: string;
+  omitFirstHeading?: string;
 };
 
 type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
@@ -173,8 +174,15 @@ function Heading({ level, children }: { level: HeadingLevel; children: ReactNode
   }
 }
 
-export function LessonContent({ text, className }: LessonContentProps) {
-  const blocks = parseBlocks(text);
+export function LessonContent({ text, className, omitFirstHeading }: LessonContentProps) {
+  const parsedBlocks = parseBlocks(text);
+  const firstBlock = parsedBlocks[0];
+  const blocks = omitFirstHeading
+    && firstBlock?.type === 'heading'
+    && firstBlock.level === 1
+    && firstBlock.text.trim() === omitFirstHeading.trim()
+    ? parsedBlocks.slice(1)
+    : parsedBlocks;
 
   return (
     <div className={className}>

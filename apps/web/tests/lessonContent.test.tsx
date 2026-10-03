@@ -12,6 +12,26 @@ describe('LessonContent', () => {
     expect(screen.queryByText(/##/)).not.toBeInTheDocument();
   });
 
+  it('omits only an exact first heading duplicated by the reader chrome', () => {
+    render(<LessonContent text={'# Lesson title\n\nBody\n\n# Lesson title again'} omitFirstHeading="Lesson title" />);
+
+    expect(screen.queryByRole('heading', { level: 1, name: 'Lesson title' })).not.toBeInTheDocument();
+    expect(screen.getByText('Body')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Lesson title again' })).toBeInTheDocument();
+  });
+
+  it('keeps the heading in default authoring previews', () => {
+    render(<LessonContent text={'# Lesson title\n\nBody'} />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Lesson title' })).toBeInTheDocument();
+  });
+
+  it('preserves different titles and lower-level headings even with reader suppression', () => {
+    const { rerender } = render(<LessonContent text={'# Different title\n\nBody'} omitFirstHeading="Lesson title" />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Different title' })).toBeInTheDocument();
+    rerender(<LessonContent text={'## Lesson title\n\nBody'} omitFirstHeading="Lesson title" />);
+    expect(screen.getByRole('heading', { level: 2, name: 'Lesson title' })).toBeInTheDocument();
+  });
+
   it('renders semantic lists and a simple pipe table', () => {
     render(
       <LessonContent

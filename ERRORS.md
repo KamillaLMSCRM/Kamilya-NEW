@@ -31,6 +31,25 @@ Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
 
+## UX-LEARNER-PRESENTATION-001 - Learner title, result and help semantics
+
+- Date:2026-10-03; status LOCAL_FIX_PENDING35_LIVE.
+- Symptom: ordinary synthetic learner sees duplicate lesson H1, an attempts
+  summary reading `1/3 · из0%`, generic course help on the quiz route and
+  a Continue action on a completed dashboard card.
+- Cause: reader chrome and Markdown both render the same first H1; score copy
+  reuses common.of; help lacks the more-specific student quiz route; dashboard
+  CTA branches only on progress rather than completed enrollment status.
+- Fix: opt-in exact first-H1 suppression only in the learner reader, localized
+  best-score label, specific quiz help and a completed-only View result label.
+  Keep stored content, authoring preview, grading, progress and API unchanged.
+- Verification: root production34 browser reproduced all4; cheap local focused
+  tests/typecheck PASS. Final frozen35 gates and production35 retest pending.
+- Prevention: test opt-in/default/mismatched Markdown headings, route specificity
+  and completed/active CTA href semantics. UI gate must read actual labels/help,
+  not merely status200 or full progress. Old QA quiz-content defects are separate
+  data-quality findings, not repaired by presentation changes.
+
 ## UX-PDF-CSP-001 - Admin PDF preview blocked by parent frame policy
 
 - Date:2026-10-03; status RESOLVED for visible PDF in production34:1certificate
