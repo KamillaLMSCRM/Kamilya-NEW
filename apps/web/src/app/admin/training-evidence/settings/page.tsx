@@ -7,6 +7,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/compo
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { isPdfPreview } from '@/lib/pdfPreview';
+import PdfPreview from '@/components/PdfPreview';
 
 interface FormSettings {
   template_version: number;
@@ -44,12 +45,14 @@ export default function TrainingEvidenceFormSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const previewUrlRef = useRef<string | null>(null);
 
-  const replacePreview = useCallback((url: string | null) => {
+  const replacePreview = useCallback((url: string | null, blob: Blob | null = null) => {
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
     previewUrlRef.current = url;
     setPreviewUrl(url);
+    setPreviewBlob(blob);
   }, []);
 
   const renderPreview = useCallback(async (value: FormSettings, signal?: AbortSignal) => {
@@ -59,7 +62,7 @@ export default function TrainingEvidenceFormSettingsPage() {
       if (!await isPdfPreview(response.data)) throw new Error('Invalid PDF preview');
       if (signal?.aborted) return null;
       const url = URL.createObjectURL(response.data);
-      replacePreview(url);
+      replacePreview(url, response.data);
       return url;
     } catch {
       if (signal?.aborted) return null;
@@ -189,8 +192,9 @@ export default function TrainingEvidenceFormSettingsPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            {previewLoading && !previewUrl ? <div className="flex min-h-[620px] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div> : previewUrl ? (
-              <iframe title="Предпросмотр бланка подтверждения" src={previewUrl} className="h-[720px] w-full rounded-md border" />
+            {previewLoading && !previewBlob ? <div className="flex min-h-[620px] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div> : previewBlob ? (
+              <PdfPreview blob={previewBlob} title="Предпросмотр бланка подтверждения"
+                loadingLabel="Загрузка предпросмотра…" errorLabel="Не удалось показать PDF. Попробуйте скачать образец." />
             ) : <div className="flex min-h-[620px] items-center justify-center text-sm text-muted-foreground">Предпросмотр недоступен</div>}
           </CardContent>
         </Card>

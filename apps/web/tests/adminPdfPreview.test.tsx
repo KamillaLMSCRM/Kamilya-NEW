@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/api', () => ({ api: { get: mocks.get, post: mocks.post } }));
 vi.mock('@/i18n/useT', () => ({ useT: () => ({ t: mocks.t }) }));
 vi.mock('@/components/ui/Toast', () => ({ toast: { error: mocks.error, success: vi.fn() } }));
+vi.mock('@/components/PdfPreview', () => ({
+  default: ({ blob, title }: { blob: Blob; title: string }) => <div data-testid="pdf-canvas-preview" data-type={blob.type} aria-label={title} />,
+}));
 import CertificateSettingsPage from '@/app/admin/certificates/settings/page';
 import TrainingEvidenceFormSettingsPage from '@/app/admin/training-evidence/settings/page';
 
@@ -23,10 +26,11 @@ describe.each([
     vi.stubGlobal('URL', { createObjectURL: mocks.create, revokeObjectURL: mocks.revoke });
   });
 
-  it('embeds a valid PDF returned by the actual preview endpoint', async () => {
+  it('passes a validated PDF from the actual endpoint to the canvas preview, never an iframe', async () => {
     const { container } = render(<Page />);
     await waitFor(() => expect(mocks.post.mock.calls.some(([path]) => path === endpoint)).toBe(true));
-    await waitFor(() => expect(container.querySelector('iframe')?.getAttribute('src')).toBe('blob:validated-pdf'));
+    await waitFor(() => expect(screen.getByTestId('pdf-canvas-preview')).toHaveAttribute('data-type', 'application/pdf'));
+    expect(container.querySelector('iframe')).toBeNull();
   });
 
   it('does not create an iframe URL for an HTML response with a PDF MIME type', async () => {

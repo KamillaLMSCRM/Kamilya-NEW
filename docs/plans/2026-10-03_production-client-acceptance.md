@@ -1,5 +1,17 @@
 # Production client acceptance and tool-efficiency epic
 
+Current continuation2026-10-03: frontend32 exact3f0f deployed; independent Test
+Runner C bounded production API/readback PASS; root actual PDF preview remains
+blank. Candidate33 canvas/Blob bytes/local worker is integrated; 5module and
+11consumer/header/sidebar tests PASS, strict type/lint and real Next15.5.24 build
+67pages PASS. Local worker emitted as pdf.worker.min.3114736e.mjs/1160323bytes.
+Fresh dependency gate required Next15.5.24/Axios1.20/Sharp0.35.4; initialPDF5.6.205
+rejected,5.5.207 accepted locally with0known prod vulnerabilities. Independent
+cheap source review has no confirmed P0/P1; full frozen33 matrix/CI/native/release
+and real both-screen pixels/download still required. Preserve32/actualrollback31,
+extra30/protected359/299 pending any separately bound capacity maintenance.
+Full all-feature/write/token/paid-AI acceptance remains PARTIAL.
+
 Owner: root. Date: 2026-10-03, Asia/Qyzylorda (+05).
 Owner request: stronger CodeGraph rules; live all-declared-feature/screen/help/
 control/UX acceptance; accumulate repairs in one release package and deploy;

@@ -33,13 +33,9 @@ function resolveApiOrigin(apiUrl) {
 function buildSecurityHeaders({
   isDevelopment = process.env.NODE_ENV === 'development',
   apiUrl,
-  allowPdfPreview = false,
 } = {}) {
   const apiOrigin = resolveApiOrigin(apiUrl);
   const directives = productionDirectives.map((directive) => {
-    if (allowPdfPreview && directive.startsWith('frame-src')) {
-      return "frame-src 'self' blob: https://scorm.kml.kz";
-    }
     if (directive.startsWith('connect-src')) {
       return `connect-src 'self' ${apiOrigin}`;
     }

@@ -1,5 +1,43 @@
 # Tool-efficiency acceptance: known-file lookup/consumer discovery pilot
 
+##32 closeout /33 PDF continuation measurements,2026-10-03
+
+- Runner32B wall243090ms;852web/144files fresh plus linked prior API/Node.
+  Requested fresh release-contract was NOT_RUN in B; root caught the omission,
+  independently ran exact materialized3f0f contract PASS211journal entries before
+  push. Do not attribute it to Runner. Exact CI later independently passed.
+- Runner32C production readback wall194418ms,0business mutations;2wrapper syntax
+  failures before import/network corrected once. Role/history/PDF/header PASS is
+  not visible browser PDF PASS. Release Runner local handoff wall21677ms/controller
+  about2.9s, technical executor remains root. No duplicate network execution.
+- Native32 protection required3fresh artifact downloads; each2–3minutes, not
+  replaced by local cache. This deliberate overhead is not tool speedup.
+- CodeBurn0.9.23 root-only snapshot ended2026-10-03T07:18:39.48Z:21turns/1651calls,
+  input5436489/output679303/cacheRead223609600/cacheWrite0,duration44318929ms,
+  API-equivalent estimate27.64664836USD. Cumulative history, not bill/plan/quota
+  or exact repair/child usage; reported savingsUSD0 is not a causal savings verdict.
+-33 component initial cheap writer was corrected for real PDF.js types, promise
+  cleanup and a true pending-render sequentiality test; root changed interface
+  URL→Blob bytes to avoid extra blob-fetch/CSP coupling. Strict lint caught an
+  effect-cleanup ref warning; effect-local task set fixed without suppression.
+  Final5module tests PASS. Root consumer/header/sidebar11PASS; header/navigation
+  RED3failed/4passed before removing32exceptions. Mock-only runs are not pixels.
+- Root local dependency preparation had failed no-TTY purge prompts, one frozen
+  lock mismatch, guessed source/glob/CWD/evidence paths and a case-insensitive test
+  filter that also selected an in-flight leaf test. These are recorded overhead,
+  not product regressions or first-pass acceptance. Canonical Corepack10.26.1,
+  verified junction target/exact virtual-store-dir and explicit mechanical lock
+  update resolved install without source/secret/global configuration writes.
+- Fresh audit rejected16advisories and firstPDF5.6.205; safe5.5.207/Next15.5.24/
+  Axios1.20/Sharp0.35.4 whole prod graph0known. Axios typing change required one
+  pagination mock signature correction; not a pre-existing unrelated defect.
+- Stable CodeGraph33 sync SDK2107ms/wrapper8491ms,1623files/29892nodes/79722edges,
+  exclusionsPASS. PdfPreview search17candidates/12returned/truncated/10ms body;
+  callers2heuristic page candidates/untruncated/21ms, both source-confirmed.
+  Prior isPdfPreview query5edges13/19ms narrowed two real consumers plus3testcalls.
+  No Graphify rerun for this answered relation; renderer/build/browser remain
+  source/runtime gates. Exact per-task/child tokens, causal savings NOT_AVAILABLE.
+
 Date: 2026-10-03  
 Checkout: `C:\Kamilya New\.worktrees\daily-learning-20260930`  
 Historical measurement base HEAD: `0a52b99f6d7edfe7b8f1f96d1d17f2bf6cecc47b`,

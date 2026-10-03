@@ -49,9 +49,6 @@ const SECTION_LABELS: Record<NavigationSection, TranslationKey> = {
   platform: 'superadmin.title',
 };
 
-// CSP is bound to a document, not a Next client-side route transition.
-const PDF_PREVIEW_PATHS = ['/admin/certificates/settings', '/admin/training-evidence/settings'];
-
 const ICONS: Record<NavigationIcon, LucideIcon> = {
   dashboard: LayoutDashboard,
   sparkles: Sparkles,
@@ -91,8 +88,6 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const routes = getNavigationRoutes(user?.role, 'sidebar');
-  const leavingPdfPreview = PDF_PREVIEW_PATHS.includes(pathname);
-  const ProfileLink = leavingPdfPreview ? 'a' : Link;
   const sections = [...new Set(routes.map((route) => route.section).filter(Boolean))] as NavigationSection[];
 
   return (
@@ -161,20 +156,16 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
                   );
                   const groupOpen = childRoutes.length > 0
                     && (expandedGroups[route.id] ?? (active || childActive));
-                  const documentNavigation = leavingPdfPreview || PDF_PREVIEW_PATHS.includes(route.href);
-                  const RouteLink = documentNavigation ? 'a' : Link;
 
                   return (
                     <li key={route.id}>
                       <div className="relative flex items-center">
-                        <RouteLink
+                        <Link
                           href={route.href}
                           onClick={onClose}
-                          {...(!documentNavigation ? {
-                            prefetch: false,
-                            onMouseEnter: () => router.prefetch(route.href),
-                            onFocus: () => router.prefetch(route.href),
-                          } : {})}
+                          prefetch={false}
+                          onMouseEnter={() => router.prefetch(route.href)}
+                          onFocus={() => router.prefetch(route.href)}
                           title={label}
                           aria-current={active ? 'page' : undefined}
                           className={cn(
@@ -191,7 +182,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
                           <Icon className="h-5 w-5 shrink-0" aria-hidden />
                           {!collapsed && <span className="ml-3 min-w-0 whitespace-normal break-words leading-5">{label}</span>}
                           {active && <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-primary" aria-hidden />}
-                        </RouteLink>
+                        </Link>
                         {!collapsed && childRoutes.length > 0 && (
                           <button
                             type="button"
@@ -221,18 +212,14 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
                             const ChildIcon = ICONS[child.icon!];
                             const childLabel = t(child.labelKey!);
                             const isChildActive = isNavigationItemActive(child.href, pathname, searchParams);
-                            const childDocumentNavigation = leavingPdfPreview || PDF_PREVIEW_PATHS.includes(child.href);
-                            const ChildLink = childDocumentNavigation ? 'a' : Link;
                             return (
                               <li key={child.id}>
-                                <ChildLink
+                                <Link
                                   href={child.href}
                                   onClick={onClose}
-                                  {...(!childDocumentNavigation ? {
-                                    prefetch: false,
-                                    onMouseEnter: () => router.prefetch(child.href),
-                                    onFocus: () => router.prefetch(child.href),
-                                  } : {})}
+                                  prefetch={false}
+                                  onMouseEnter={() => router.prefetch(child.href)}
+                                  onFocus={() => router.prefetch(child.href)}
                                   aria-current={isChildActive ? 'page' : undefined}
                                   className={cn(
                                     'relative flex min-h-10 items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
@@ -243,7 +230,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
                                 >
                                   <ChildIcon className="h-4 w-4 shrink-0" aria-hidden />
                                   <span className="min-w-0 whitespace-normal break-words leading-4">{childLabel}</span>
-                                </ChildLink>
+                                </Link>
                               </li>
                             );
                           })}
@@ -259,13 +246,11 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
       </nav>
 
       <div className="border-t border-border p-3">
-        <ProfileLink
+        <Link
           href="/profile"
-          {...(!leavingPdfPreview ? {
-            prefetch: false,
-            onMouseEnter: () => router.prefetch('/profile'),
-            onFocus: () => router.prefetch('/profile'),
-          } : {})}
+          prefetch={false}
+          onMouseEnter={() => router.prefetch('/profile')}
+          onFocus={() => router.prefetch('/profile')}
           className={cn(
             'flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-muted',
             collapsed && 'justify-center px-0',
@@ -284,7 +269,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
               </div>
             </div>
           )}
-        </ProfileLink>
+        </Link>
         <button
           type="button"
           onClick={async () => {
@@ -293,8 +278,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
             try {
               await logout();
             } finally {
-              if (leavingPdfPreview) window.location.replace('/login');
-              else router.replace('/login');
+              router.replace('/login');
             }
           }}
           disabled={isLoggingOut}

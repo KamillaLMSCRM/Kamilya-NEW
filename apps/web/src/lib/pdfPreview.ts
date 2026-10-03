@@ -1,4 +1,4 @@
-/** Do not embed an HTML/error blob on the two PDF-preview-enabled admin routes. */
+/** Reject HTML/error blobs before displaying either admin template preview. */
 export async function isPdfPreview(blob: Blob): Promise<boolean> {
   if (blob.type.split(';')[0].trim().toLowerCase() !== 'application/pdf' || blob.size < 5) {
     return false;

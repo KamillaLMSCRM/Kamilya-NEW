@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AxiosRequestConfig } from 'axios';
 
 import MandatoryTrainingPage from '@/app/mandatory-training/page';
 import { api } from '@/lib/api';
@@ -142,7 +143,7 @@ describe('mandatory training matrix', () => {
   });
 
   it('does not hide rows beyond the first server page', async () => {
-    apiMock.get.mockImplementation((path: string, config?: { params?: Record<string, unknown> }) => {
+    apiMock.get.mockImplementation((path: string, config?: AxiosRequestConfig) => {
       if (path.endsWith('/summary')) return Promise.resolve({ data: {
         total: 101, materialized: 101, missing_enrollment: 0,
         protected_assignment: 0, stale_managed_enrollment: 0,

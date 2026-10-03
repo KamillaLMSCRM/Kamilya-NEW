@@ -9,7 +9,22 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Client32 candidate gate — 2026-10-03
+## Client32 technical release / candidate33 gate — 2026-10-03
+
+Frontend32/source3f0f120f1c5f5cd86af1c1e648272ad49a98e99c technically deployed;
+CI37105674665/native37105704341 SUCCESS, protected execute digest
+8672a50ac166a5756959701ae30dd5ecb55e0e8e4ce48ce18353b2a3c65f6e07.
+Independent Test Runner C ordinary QA roles/403/retained100%/history/PDF and exact
+document CSP PASS, report1912445daab780a31ef271f0a813f9dfa2cda881aec36346dcf4371837464086.
+Root-only network execution; Release Runner local reconciliation PASS, not executor.
+Current32/actualprevious31/extra30/protected359/299 retained; obsolete successful28
+and exact staging pair removed with original offhost recovery and fresh plan/readback.
+Actual PDF browser rendering remains blank; no new CSP error does not close UI gate.
+Candidate33 canvas/Blob/local worker and audited dependencies awaits frozen full
+web/CI/native/technical+visible product gates. Fresh learning-write/token/paid-AI
+acceptance remains PARTIAL. API29/schema174/workers remain unchanged baseline.
+
+## Historical Client32 candidate gate — 2026-10-03
 
 Production31 remains technically deployed, not a full-feature acceptance PASS.
 New ordinary QA admin/student read-only browser coverage completed across their

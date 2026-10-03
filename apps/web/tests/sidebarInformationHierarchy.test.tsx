@@ -63,19 +63,19 @@ describe('methodologist sidebar information hierarchy', () => {
     expect(screen.getByRole('link', { name: 'Сотрудники и структура' })).toHaveClass('text-foreground');
   });
 
-  it('loads a new document when entering or leaving either PDF preview policy', () => {
+  it('preserves Next navigation on both canvas PDF preview routes', () => {
     useAuthStore.setState({ user: { ...methodologist, role: 'admin', roles: ['admin'] } });
     navigationState.pathname = '/admin';
     const { container, rerender } = render(<Sidebar collapsed={false} onToggle={() => {}} />);
     for (const href of ['/admin/certificates/settings', '/admin/training-evidence/settings']) {
-      expect(container.querySelector(`a[href="${href}"]`)).not.toHaveAttribute('data-testid', 'next-link');
+      expect(container.querySelector(`a[href="${href}"]`)).toHaveAttribute('data-testid', 'next-link');
     }
     expect(container.querySelector('a[href="/profile"]')).toHaveAttribute('data-testid', 'next-link');
     for (const pathname of ['/admin/certificates/settings', '/admin/training-evidence/settings']) {
       navigationState.pathname = pathname;
       rerender(<Sidebar collapsed={false} onToggle={() => {}} />);
-      expect(container.querySelector('a[href="/admin"]')).not.toHaveAttribute('data-testid', 'next-link');
-      expect(container.querySelector('a[href="/profile"]')).not.toHaveAttribute('data-testid', 'next-link');
+      expect(container.querySelector('a[href="/admin"]')).toHaveAttribute('data-testid', 'next-link');
+      expect(container.querySelector('a[href="/profile"]')).toHaveAttribute('data-testid', 'next-link');
     }
   });
 });

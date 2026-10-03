@@ -33,7 +33,8 @@ open, also record status, safe interim path, and review condition.
 
 ## UX-PDF-CSP-001 - Admin PDF preview blocked by parent frame policy
 
-- Date:2026-10-03; status LOCAL_FIXED, production32 browser gate pending.
+- Date:2026-10-03; status PARTIAL: frame policy repaired in32, visual preview still blank;
+  frontend33 canvas candidate requires actual browser acceptance.
 - Symptom: ordinary synthetic QA admin sees blocked iframe on certificate
   template; the preview endpoint returns200application/pdf successfully.
 - Cause: confirmed browser Log.entryAdded reports blob framing violates parent
@@ -55,6 +56,23 @@ open, also record status, safe interim path, and review condition.
   directive, test invalid MIME/signature and confirm visible PDF after deployment.
   Do not add a global blob frame permission, disable CSP, or blame the browser
   without captured policy/response evidence. Magic bytes are not a security scan.
+
+### Continuation2026-10-03:32 policy success is not visible PDF success
+
+- Symptom: actual deployed32 iframe remains white; preview200application/pdf,
+  validated bytes and no new frame CSP error. Network ERR_ABORTED is observed,
+  but its attribution to native viewer support is NOT VERIFIED. Download event
+  wait timed out; this alone does not prove the button is broken.
+- Cause: the original31 policy cause is fixed; the remaining native-iframe
+  rendering cause is unresolved. HTTP/PDF/header evidence cannot substitute for
+  visible pixels. Do not mark this flow accepted or blame the browser as fact.
+- Fix: candidate33 uses frontend-owned PDF.js canvas with validated Blob bytes,
+  locally bundled worker, no scripting/viewer actions or external fetch, cancellation
+  and generic errors. Remove unneeded32 frame exception/document-link workaround.
+- Verification: cheap module5mocked tests PASS; root11consumer/header/sidebar
+  tests PASS; real build and browser acceptance required separately.
+- Prevention: require real visible PDF on both pages after menu entry; preserve
+  the server-rendered original download and global restrictive frame policy.
 
 ## UX-WIZARD-DEFAULT-001 - Step transition triggers premature form validation
 
@@ -1162,6 +1180,26 @@ production runtime and cross-container readback remain pending release approval.
   enters fail-closed inventory and negative outage tests.
 
 ## SECURITY-007 - Two package managers and vulnerable frontend dependencies
+
+### Recurrence2026-10-03: refreshed registry advisories blocked frontend33
+
+- Date:2026-10-03; status LOCAL_FIXED, exact CI and deployment pending.
+- Symptom: fresh production audit found16advisories, including2critical/9high,
+  on the locked Next15.5.23/Axios1.18.1/Sharp0.35.3 and first PDF.js5.6.205 candidate.
+- Cause: prior green CI is not a current advisory verdict; new PDF.js5.6 branch
+  also fails the refreshed gate. Latest PDF.js6 requires Node22+, while canonical
+  native build/manifest remains Node20. Do not widen helper/build contracts just
+  to bypass an engine mismatch or exempt an affected package.
+- Fix: exact Next/eslint-config-next15.5.24, Axios1.20.0, Sharp0.35.4,
+  PDF.js5.5.207 (Node20-compatible, outside affected range); mechanically update
+  the sole pnpm10.26.1 lock, retain local worker/no viewer scripting.
+- Verification: local corepack pnpm10.26.1 audit --prod --audit-level moderate
+  reports0known vulnerabilities. Full frontend regression and fresh immutable CI
+  remain required. This is dependency evidence, not observed exploit evidence.
+- Prevention: audit exact whole production graph for every candidate; preserve
+  failures, use pinned app package manager and do not trust ambient pnpm11.
+  Maintained node_modules is a verified junction; generated install needed CI=true
+  and exact primary virtual-store-dir, with no source/secret/global config mutation.
 
 - Date: 2026-08-20.
 - Symptom: web had npm and pnpm locks; CI/Vercel used npm; Docker used pnpm and a

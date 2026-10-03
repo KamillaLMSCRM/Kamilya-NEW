@@ -1644,3 +1644,48 @@ Rules:
   `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT32-20261003-B/acceptance-report.md`
   SHA-256 `695708046af6e25431f2eda9fffc3d58383855e0ac4834875a5d59742818fcb5`.
   Local acceptance only; no production/deployed-runtime proof.
+- `TEST-CLIENT32-PROD-20261003-C` bounded production readback PASS after
+  `REL-CLIENT-WEB32-B-20261003` technical RELEASE_OK. Exact frontend HEAD
+  `3f0f120f1c5f5cd86af1c1e648272ad49a98e99c`, branch
+  `feature/methodologist-workbench-20261001`, approved helper
+  `post32-readonly.py` SHA-256
+  `ecb70326314b02979e7060e7189079d1afb8d51a1fd23caf8def6d9d0b0165fe`.
+  Two local wrapper syntax attempts failed before helper import and caused no
+  production request; the corrected invocation with the exact SHA passed, with
+  no further retry. Sanitized result: frontend identity PASS at SHA
+  `3f0f120f1c5f5cd86af1c1e648272ad49a98e99c`; API identity PASS at SHA
+  `32e1331d9b24621de71213ba1150375a261b0464`; retained history/PDF PASS;
+  ordinary synthetic admin and student login/read/expected 403 checks PASS;
+  exact policy routes `/login`, `/student`, `/admin/certificates/settings`,
+  `/admin/training-evidence/settings` PASS; global CSP boundaries
+  `frame-ancestors 'none'`, `object-src 'none'`, and X-Frame-Options DENY PASS;
+  business mutations 0; auth sessions audit-only. Browser rendering/completion
+  remains separate root-owned evidence. No provisioning, password/PIN/link,
+  impersonation, role, mail, assignment, progress, completion, database,
+  provider, deployment, or source mutation. Evidence report SHA-256
+  `1912445daab780a31ef271f0a813f9dfa2cda881aec36346dcf4371837464086`; JSON
+  receipt SHA-256 `eee99d5cb17b81b0a511a3a8dc5709831d0416ad0a94b11ae7c344d5c3c46fa2`;
+  bridge receipt SHA-256
+  `a6346e834e7a479e0b5e34a7e0f6052ef2a21f4bf3a42ecd7040e3267a246084`.
+- `TEST-CLIENT33-20261003-A` local canvas/PDF acceptance PASS. Exact checkout
+  `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD
+  `3f0f120f1c5f5cd86af1c1e648272ad49a98e99c`; frozen manifest
+  `frozen-package-33-A.json` SHA-256
+  `dba7b408d93f7a4bc0b3a7c4d974b579811faf875210d518b2d64004b26a0fdd`.
+  Corepack pnpm 10.26.1 fresh web PASS: 145/145 files and 857/857 tests in
+  52.14s; strict lint; typecheck; Next 15.5.24 build with 67/67 pages. Local
+  PDF worker emitted nonzero `.next/static/media/pdf.worker.min.3114736e.mjs`
+  and server copy, each 1,160,323 bytes; owned PDF sources have no CDN
+  dependency (only the canonical certificate verification URL). Fresh version
+  `0.11.33` PASS; release-contract gate PASS (Alembic 172/head 0174, Celery,
+  migration ownership, 31 Render packages, 211 unique error entries); Python
+  quality PASS (Ruff 1010/mypy 2200); Poetry PASS; `git diff --check` PASS;
+  final 25/25 frozen hashes PASS. Prior B-linked API 2244/unit, selector
+  141 passed/2 skipped/9 subtests, and Node 9/syntax checks were verified
+  byte-identical and linked, not rerun; no fresh claim is made for those checks.
+  Primary was clean and not tested. No network/database/provider/browser/
+  production/deployment/credential/source/test/lock mutation. Evidence:
+  `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT33-20261003-A/acceptance-report.md`
+  SHA-256 `eaf32e290f84954a446fcc4a4b190e97a31128ebe5a68992e8401e0992a71879`.
+  Local evidence only; no live/render/deploy GO.

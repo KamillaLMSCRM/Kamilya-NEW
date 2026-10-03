@@ -8,6 +8,7 @@ import { toast } from '@/components/ui/Toast';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import { isPdfPreview } from '@/lib/pdfPreview';
+import PdfPreview from '@/components/PdfPreview';
 
 const CANONICAL_VERIFICATION_URL = 'https://app.kml.kz/verify/certificate';
 
@@ -52,6 +53,7 @@ export default function CertificateSettingsPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const previewUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -74,10 +76,11 @@ export default function CertificateSettingsPage() {
     };
   }, [t]);
 
-  const replacePreviewUrl = useCallback((nextUrl: string | null) => {
+  const replacePreviewUrl = useCallback((nextUrl: string | null, blob: Blob | null = null) => {
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
     previewUrlRef.current = nextUrl;
     setPreviewUrl(nextUrl);
+    setPreviewBlob(blob);
   }, []);
 
   const generatePreview = useCallback(async (
@@ -97,7 +100,7 @@ export default function CertificateSettingsPage() {
       }
       if (signal?.aborted) return null;
       const nextUrl = URL.createObjectURL(response.data);
-      replacePreviewUrl(nextUrl);
+      replacePreviewUrl(nextUrl, response.data);
       return nextUrl;
     } catch (err) {
       if (signal?.aborted) return null;
@@ -311,9 +314,11 @@ export default function CertificateSettingsPage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="overflow-hidden rounded-md border border-border bg-muted/30" style={{ aspectRatio: '297 / 210' }} aria-busy={previewLoading}>
-              {previewUrl ? (
-                <iframe title={t('certificateSettings.previewTitle')} src={previewUrl} className="h-full w-full border-0" />
+            <div className="min-h-48 overflow-hidden rounded-md border border-border bg-muted/30" aria-busy={previewLoading}>
+              {previewBlob ? (
+                <PdfPreview blob={previewBlob} title={t('certificateSettings.previewTitle')}
+                  loadingLabel={t('certificateSettings.previewLoading')}
+                  errorLabel={t('certificateSettings.previewFailed')} />
               ) : (
                 <div className="flex h-full min-h-48 items-center justify-center p-6 text-center text-sm text-muted-foreground" aria-live="polite">
                   {previewLoading ? (

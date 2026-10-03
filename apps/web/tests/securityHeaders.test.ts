@@ -48,29 +48,14 @@ describe('frontend security header policy', () => {
     const rules = await nextConfig.headers();
 
     expect(rules[0]).toEqual({ source: '/:path*', headers: buildSecurityHeaders({}) });
-    expect(rules.slice(1).map((rule: { source: string }) => rule.source)).toEqual([
-      '/admin/certificates/settings',
-      '/admin/training-evidence/settings',
-    ]);
-    for (const rule of rules.slice(1)) {
-      expect(rule.headers).toHaveLength(1);
-      expect(rule.headers[0].key).toBe('Content-Security-Policy');
-      const baseline = buildSecurityHeaders({})[0].value;
-      expect(rule.headers[0].value).toBe(baseline.replace(
-        "frame-src 'self' https://scorm.kml.kz",
-        "frame-src 'self' blob: https://scorm.kml.kz",
-      ));
-    }
+    expect(rules).toHaveLength(1);
   });
 
-  it('limits the preview exception to frame-src without weakening the baseline', () => {
+  it('does not grant blob frame access for the canvas PDF preview', () => {
     const baseline = buildSecurityHeaders({ isDevelopment: false });
     const preview = buildSecurityHeaders({ isDevelopment: false, allowPdfPreview: true });
     expect(preview.slice(1)).toEqual(baseline.slice(1));
-    expect(preview[0].value).toBe(baseline[0].value.replace(
-      "frame-src 'self' https://scorm.kml.kz",
-      "frame-src 'self' blob: https://scorm.kml.kz",
-    ));
+    expect(preview[0].value).toBe(baseline[0].value);
     expect(preview[0].value).toContain("frame-ancestors 'none'");
     expect(preview[0].value).toContain("object-src 'none'");
     expect(preview[0].value).not.toContain("frame-src 'self' data:");

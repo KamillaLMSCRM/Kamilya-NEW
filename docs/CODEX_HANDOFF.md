@@ -5,7 +5,24 @@
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/methodologist-workbench-20261001`
 
-## Client acceptance32 candidate,2026-10-03
+## Current client acceptance32 / candidate33,2026-10-03
+
+Production frontend32/source3f0f120f1c5f5cd86af1c1e648272ad49a98e99c is technically
+deployed: CI37105674665/native37105704341 SUCCESS, protected RELEASE_OK,
+independent Test Runner C ordinary-role/retained-history/PDF/API/CSP readback PASS.
+Actual previous31/572f, extra30/d8ab and protected359/299 preserved. Only successful
+obsolete28/exact staging pair removed under the standing verified recovery rule.
+API29/source32e unchanged; schema/worker baseline remains2026-10-02, not refreshed.
+Root actual browser32 PDF remains blank despite valid200PDF and no new CSP error.
+No full UI/feature GO. Candidate33 replaces native iframe with locally bundled
+PDF.js canvas/Blob bytes and removes unused CSP/navigation exceptions. Fresh audit
+required Next15.5.24/Axios1.20/Sharp0.35.4; PDF.js5.5.207 safe Node20-compatible pin.
+No known production dependency vulnerabilities at local check; full exact gates,
+visible both-page PDF, responsive/download and independent readback still required.
+Never rerun provisioning32execute/obsolete28cleanup. No customer/business writes,
+backend/helper/access/billing change. Historic paragraphs below are prior snapshots.
+
+## Historical client acceptance32 candidate,2026-10-03
 
 Production remains31/source572 until a new exact32 protected release completes.
 Ordinary QA admin/student live read-only navigation/help/sidebar coverage now

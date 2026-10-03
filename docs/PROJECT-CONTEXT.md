@@ -25,7 +25,19 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Client32 candidate boundary,2026-10-03
+## Current client32 boundary / candidate33,2026-10-03
+
+Production frontend32/source3f0f120f1c5f5cd86af1c1e648272ad49a98e99c is deployed;
+CI37105674665/native37105704341, exact protected technical and independent bounded
+Test Runner C readback PASS. Immediate previous31/572f, extra30/d8ab/protected359/299
+retained. Standing capacity rule removed only successful obsolete28/exact staged
+pair after verified original recovery. Actual32 browser PDF remains blank; no full
+feature GO. Candidate33 renders validated Blob bytes using locally bundled PDF.js,
+restores restrictive global frame policy/Next navigation and updates freshly audited
+frontend dependencies. No API/worker/DB/helper/data/access/billing changes. See
+readiness for current gates; historical31 paragraphs below are not current identity.
+
+## Historical client32 candidate boundary,2026-10-03
 
 Production31 ordinary QA admin/student sidebar/read-only help coverage completed,
 including zero-course learner state and browser admin-route denial. Live preview

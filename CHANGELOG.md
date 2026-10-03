@@ -45,6 +45,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.33] - 2026-10-03
+
+### Fixed
+
+- Render both admin template PDF previews with a locally bundled PDF.js canvas
+  renderer instead of relying on a browser's native PDF iframe. Use the already
+  fetched, MIME/signature-validated bytes; preserve original PDF download, cancel
+  obsolete work and provide visible loading/error states plus accessible text.
+- Restore the global restrictive frame policy and ordinary Next sidebar navigation;
+  the two blob-frame exceptions introduced in32 are no longer needed.
+- Refresh production frontend dependencies after a fresh blocking advisory audit:
+  Next.js15.5.24, Axios1.20.0, Sharp0.35.4; PDF.js5.5.207 is pinned to the audited
+  Node20-compatible, unaffected branch. No audit exemption or native helper change.
+
 ## [0.11.32] - 2026-10-03
 
 ### Fixed
