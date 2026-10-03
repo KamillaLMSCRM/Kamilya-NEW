@@ -27,9 +27,15 @@
 
 ## Репозиторий и сервисы
 
-Current verified2026-10-02: production backend0.11.29/source
+Current frontend technical readback2026-10-03T04:34:32Z:0.11.30/source
+d8ab25d6940eee4d388f3e32c820eb5ee57b169b, CI37095250011/native37095272118
+SUCCESS, public health/header exact. Final client acceptance PARTIAL; live
+tenant-wizard default-action defect requires bounded frontend31 candidate and
+fresh gates. Actual rollback must be freshly verified before the next release.
+API public health remains0.11.29/source32e1331d; no API/worker/DB deployment30.
+Last independently verified2026-10-02: production backend0.11.29/source
 32e1331d9b24621de71213ba1150375a261b0464, protected image96a1bc2c,
-CT1250174, API+3workers ON; native frontend28/source64 retained and live accepted.
+CT1250174, API+3workers ON; native frontend28/source64 was then live accepted.
 Protected37032048857 rerun2 SUCCESS; exact owned A/B normal cleanup and independent
 absence PASS, permanent QA history100%/certificate preserved. DEV29/0174 ON on
 unchanged Free/Hobby tiers. Full identity/evidence: PRODUCTION_READINESS.md.

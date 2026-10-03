@@ -32,6 +32,13 @@ Infrastructure bootstrap or changing the privilege boundary still needs owner ap
 2. With the canonical agent-tools Python (Paramiko already installed), run the
    fail-closed preflight and preserve its evidence:
 
+   Before dispatch, verify the peeled local `refs/tags/v<version>^{}` and remote
+   published release tag both equal the exact packet SHA. `gh release create
+   --target` does not materialize the local tag. If absent, fetch only that exact
+   tag through `with_project_github_token.py` and the canonical project-account
+   credential helper; stop on a mismatched existing tag, never force it. This
+   prevents an avoidable large-artifact download before a local-source gate fails.
+
    ```powershell
    $toolPython = 'C:/Users/user/.codex/tool-envs/kamilya-agent-tools/Scripts/python.exe'
    & $toolPython scripts/ops/ct137_native_release.py preflight `

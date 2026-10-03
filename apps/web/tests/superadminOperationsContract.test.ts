@@ -17,7 +17,14 @@ describe('superadmin operations UI contract', () => {
   });
 
   it('keeps preview, confirmation, stale refresh and aggregate-only contracts in the UI', () => {
+    expect(page).toContain("import { api } from '@/lib/api';");
+    expect(page).toContain("import { apiErrorMessage } from '@/lib/apiErrorMessage';");
+    expect(page).not.toContain('NEXT_PUBLIC_API_URL');
+    expect(page).not.toContain('fetch(');
+    expect(page).not.toContain('Authorization');
     expect(page).toContain('/admin/super/operations/summary');
+    expect(page).toContain('api.get<T>(`/v1${path}`)');
+    expect(page).toContain('api.post<T>(`/v1${path}`, init.body)');
     expect(page).toContain('/admin/super/operations/cleanup-synthetic');
     expect(page).toContain('/admin/super/operations/recover-stale-ai-jobs');
     expect(page).toContain('dry_run: true');

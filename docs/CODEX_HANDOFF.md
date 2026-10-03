@@ -7,13 +7,21 @@
 
 ## Local navigation: CodeGraph pilot accepted,2026-10-03
 
-Current bounded client repair candidate0.11.30 is not deployed. Root production
-read-only methodologist/public/platform pass and explicit coverage gaps are in
-docs/plans/2026-10-03_production-client-acceptance.md. Frozen packet A was stopped
-before its matrix ran after a live platform-session defect; it is superseded.
-Final transport/prerequisite, help, locale, form and keyboard repairs require a
-fresh frozen Test Runner packet and exact-SHA CI/native Release Runner gates.
-Intended frontend-only rollout leaves API29/source32e1331d and schema174 unchanged.
+Client30/source d8ab25d6940eee4d388f3e32c820eb5ee57b169b is technically deployed;
+public health/header independently match. Test Runner C825web/9Node/141Python
+PASS, CI37095250011 and native37095272118 SUCCESS. Root executed the protected
+bridge; Release Runner external executor is unavailable, local reconciliation
+only. Final live acceptance is PARTIAL: valid tenant-wizard Next triggers
+premature native validation on step2. Tiny frontend31 candidate cancels that
+click default and separates Next/Create node identities; fresh frozen gates and
+live retest required, never rewrite published30. Natural-expiry SPA test also
+found operations rawfetch missed;31 replaces it with canonical api and preserves
+v1 paths/dry-run/explicit-confirmation contracts.31A STOPPED; replacement needed.
+Explicit coverage gaps are in
+docs/plans/2026-10-03_production-client-acceptance.md. API29/source32e1331d unchanged;
+schema174/3workers remain last independently verified2026-10-02, not freshly
+verified by the frontend release. Normal admin/student and token/AI journeys
+are NOT_RUN, not full acceptance. No customer writes or new paid resources.
 Tool pilot timings/limits are in docs/experiments/2026-10-03_tool-efficiency-acceptance.md;
 day totals and corrected delegate/harness errors do not prove causal savings.
 

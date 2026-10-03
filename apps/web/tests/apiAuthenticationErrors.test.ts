@@ -64,12 +64,16 @@ describe('API authentication error handling', () => {
   });
 
   it.each([
-    '/v1/admin/super/tenants?limit=10',
-    '/v1/admin/super/tenants/synthetic-tenant',
-    '/v1/admin/provider-keys',
-    '/v1/admin/model-routing',
-    '/v1/admin/super/tenants/synthetic-tenant/impersonate',
-  ])('replays %s once with the refreshed session token after expiry', async (url) => {
+    { url: '/v1/admin/super/tenants?limit=10', method: 'get', data: undefined },
+    { url: '/v1/admin/super/tenants/synthetic-tenant', method: 'get', data: undefined },
+    { url: '/v1/admin/provider-keys', method: 'get', data: undefined },
+    { url: '/v1/admin/model-routing', method: 'get', data: undefined },
+    { url: '/v1/admin/super/operations/summary', method: 'get', data: undefined },
+    { url: '/v1/admin/super/tenants/synthetic-tenant/impersonate', method: 'post', data: { role: 'admin' } },
+    { url: '/v1/admin/super/operations/cleanup-synthetic', method: 'post', data: { dry_run: true, min_age_hours: 24 } },
+    { url: '/v1/admin/super/operations/recover-stale-ai-jobs', method: 'post', data: { dry_run: true, min_age_hours: 24 } },
+    { url: '/v1/admin/super/operations/requeue-failed-crm-leads', method: 'post', data: { dry_run: true, limit: 20 } },
+  ])('replays $url once with the refreshed session token after expiry', async ({ url, method, data }) => {
     const expiredAdapter = api.defaults.adapter as (config: InternalAxiosRequestConfig) => Promise<never>;
     const adapter = vi.fn(async (config: InternalAxiosRequestConfig) => {
       if (adapter.mock.calls.length === 1) return expiredAdapter(config);
@@ -82,16 +86,13 @@ describe('API authentication error handling', () => {
       return true;
     });
 
-    const impersonating = url.endsWith('/impersonate');
-    const method = impersonating ? 'post' : 'get';
-    const data = impersonating ? { role: 'admin' } : undefined;
     await expect(api.request({ url, method, data })).resolves.toMatchObject({ status: 200, data: { ok: true } });
 
     expect(adapter).toHaveBeenCalledTimes(2);
     expect(authMocks.forceRefreshAndStoreSession).toHaveBeenCalledTimes(1);
     expect(adapter.mock.calls[1][0].url).toBe(url);
     expect(adapter.mock.calls[1][0].method).toBe(method);
-    if (impersonating) expect(JSON.parse(adapter.mock.calls[1][0].data)).toEqual({ role: 'admin' });
+    if (data) expect(JSON.parse(adapter.mock.calls[1][0].data)).toEqual(data);
     expect(adapter.mock.calls[1][0].withCredentials).toBe(true);
     expect(adapter.mock.calls[1][0].headers.get('Authorization')).toBe('Bearer refreshed-synthetic-token');
     expect(authMocks.clearStoredAuth).not.toHaveBeenCalled();

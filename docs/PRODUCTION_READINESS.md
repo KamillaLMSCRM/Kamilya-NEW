@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-10-02 по точным CI/artifacts и независимому production readback
+**Проверено:** frontend technical identity2026-10-03; backend/DB/worker baseline2026-10-02
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -90,7 +90,32 @@ maintenance only. Standing authorization is owned by
 API/DB/tenant/landing/DNS/tier maintenance. Full activation and live bounded
 workbench acceptance remain incomplete.
 
-### Current status — production29/0174 accepted; native frontend28 retained
+### Current frontend30 — technical release passed, final client acceptance PARTIAL
+
+Source d8ab25d6940eee4d388f3e32c820eb5ee57b169b, tag/Release v0.11.30;
+CI37095250011 all7 SUCCESS, native37095272118 SUCCESS, workbench ON.
+Frozen Test Runner C825web/139files,9Node,141Python/2platformSKIP/9subtests,
+lint/typecheck/67page build, quality-baseline/Poetry/version/diff PASS. Root
+protected bridge RELEASE_OK; Release Runner local technical reconciliation only,
+external executor unavailable. Public health body/header match at04:34:32Z.
+Exact obsolete25 and its two staging duplicates removed under standing rule;
+verified offhost original recovery retained. Current30, previous28 and protected
+27/359d7cda/299481ec preserved at execution. API public identity29/source32e1331d
+unchanged; no fresh private worker/DB readback by this frontend release.
+
+Live acceptance found premature native required-field validation after valid
+tenant-wizard Next. No Create/account/POST attempted. Candidate31 cancels default
+before changing step and separates Next/Create DOM identity. Fresh full gates
+and native live retest required.31 also needs the missed operations rawfetch
+consumer repair (31A STOPPED). Overview
+recovered same natural-expiry session without reload; revisiting operations then
+loaded.31 preserves v1 paths/preview/confirmation bodies through canonical api.
+Full all-role/write/token/external-AI acceptance
+is NOT complete; exact gaps and per-screen observations are in
+plans/2026-10-03_production-client-acceptance.md. No new resources, billing,
+access, tenant or voice/LLM execution. Published30 evidence remains immutable.
+
+### Backend baseline — production29/0174 accepted2026-10-02
 
 Immutable29 source/tag/Release: `32e1331d9b24621de71213ba1150375a261b0464`.
 MasterCI37029874084 and devCI37030568443 all7SUCCESS; fullCI3804PASS/2SKIP,

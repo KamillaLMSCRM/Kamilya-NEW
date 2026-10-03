@@ -313,7 +313,8 @@ export default function SuperAdminTenants() {
     }
   };
 
-  const advanceCreateStep = () => {
+  const advanceCreateStep = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
     const name = form.name.trim();
     const slug = normalizeSlug(form.slug || slugifyTenantName(name));
     if (!name || name.length < 2 || !SLUG_PATTERN.test(slug) || slug.length < 2) {
@@ -798,11 +799,11 @@ export default function SuperAdminTenants() {
                   </Button>
                 )}
                 {createStep === 1 ? (
-                  <Button type="button" variant="default" onClick={advanceCreateStep}>
+                  <Button key="create-step-next" type="button" variant="default" onClick={advanceCreateStep}>
                     Далее
                   </Button>
                 ) : (
-                  <Button type="submit" variant="default" disabled={submitting}>
+                  <Button key="create-step-submit" type="submit" variant="default" disabled={submitting}>
                     {submitting ? '...' : 'Создать тенанта'}
                   </Button>
                 )}

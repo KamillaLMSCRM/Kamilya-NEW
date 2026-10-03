@@ -21,6 +21,8 @@ import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '
 import { toast } from '@/components/ui/Toast';
 import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/store/authStore';
+import { api } from '@/lib/api';
+import { apiErrorMessage } from '@/lib/apiErrorMessage';
 
 type AgeSeconds = number | null;
 type WorkerHealth = 'healthy' | 'degraded' | 'unavailable';
@@ -90,19 +92,9 @@ function formatBytes(value: number | null | undefined, fallback: string) {
   return `${scaled.toFixed(scaled >= 10 ? 0 : 1)} ${unit}`;
 }
 
-function responseError(response: Response) {
-  return response.json().then((payload) => {
-    const detail = payload?.detail;
-    if (typeof detail === 'string') return detail;
-    if (Array.isArray(detail)) return detail.map((item) => item?.msg || String(item)).join('; ');
-    return `HTTP ${response.status}`;
-  }).catch(() => `HTTP ${response.status}`);
-}
-
 export default function SuperadminOperationsPage() {
   const { t, lang } = useT();
-  const token = useAuthStore((state) => state.accessToken);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const hasSession = useAuthStore((state) => Boolean(state.accessToken));
   const locale = lang === 'en' ? 'en-US' : lang === 'kk' ? 'kk-KZ' : 'ru-KZ';
   const [summary, setSummary] = useState<OperationsSummary | null>(null);
   const [preview, setPreview] = useState<CleanupPreview | null>(null);
@@ -122,26 +114,24 @@ export default function SuperadminOperationsPage() {
   const [requeuingCRM, setRequeuingCRM] = useState(false);
   const hasSuccessfulSummary = useRef(false);
 
-  const apiFetch = useCallback(async (path: string, init?: RequestInit) => {
-    const response = await fetch(`${API_URL}/v1${path}`, {
-      ...init,
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init?.headers || {}) },
-    });
-    if (!response.ok) throw new Error(await responseError(response));
-    return response.json();
-  }, [API_URL, token]);
+  const apiFetch = useCallback(async <T,>(path: string, init?: { method?: 'POST'; body?: unknown }): Promise<T> => {
+    const response = init?.method === 'POST'
+      ? await api.post<T>(`/v1${path}`, init.body)
+      : await api.get<T>(`/v1${path}`);
+    return response.data;
+  }, []);
 
   const loadAll = useCallback(async (manual = false) => {
-    if (!token || !API_URL) return;
+    if (!hasSession) return;
     if (manual) setRefreshing(true); else setLoading(true);
     setError(null);
     try {
       const [nextSummary, nextPreview, nextCRMRequeue] = await Promise.all([
-        apiFetch('/admin/super/operations/summary'),
-        apiFetch('/admin/super/operations/cleanup-synthetic', { method: 'POST', body: JSON.stringify({ dry_run: true, min_age_hours: MIN_AGE_HOURS }) }),
-        apiFetch('/admin/super/operations/requeue-failed-crm-leads', { method: 'POST', body: JSON.stringify({ dry_run: true, limit: CRM_REQUEUE_LIMIT }) }),
+        apiFetch<OperationsSummary>('/admin/super/operations/summary'),
+        apiFetch<CleanupPreview>('/admin/super/operations/cleanup-synthetic', { method: 'POST', body: { dry_run: true, min_age_hours: MIN_AGE_HOURS } }),
+        apiFetch<CRMLeadRequeue>('/admin/super/operations/requeue-failed-crm-leads', { method: 'POST', body: { dry_run: true, limit: CRM_REQUEUE_LIMIT } }),
       ]);
-      const nextStaleRecovery = await apiFetch('/admin/super/operations/recover-stale-ai-jobs', { method: 'POST', body: JSON.stringify({ dry_run: true, min_age_hours: STALE_AI_JOB_MIN_AGE_HOURS }) });
+      const nextStaleRecovery = await apiFetch<StaleAIJobRecovery>('/admin/super/operations/recover-stale-ai-jobs', { method: 'POST', body: { dry_run: true, min_age_hours: STALE_AI_JOB_MIN_AGE_HOURS } });
       setSummary(nextSummary);
       setPreview(nextPreview);
       setStaleRecovery(nextStaleRecovery);
@@ -150,14 +140,14 @@ export default function SuperadminOperationsPage() {
       setLastUpdatedAt(new Date().toISOString());
       setStale(false);
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : t('superadmin.operations.loadError');
+      const message = apiErrorMessage(cause, t('superadmin.operations.loadError'));
       setError(message);
       setStale(hasSuccessfulSummary.current);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [API_URL, apiFetch, t, token]);
+  }, [apiFetch, hasSession, t]);
 
   useEffect(() => { void loadAll(); }, [loadAll]);
 
@@ -201,13 +191,13 @@ export default function SuperadminOperationsPage() {
     if (confirmation !== CONFIRM_TOKEN || !canCleanup) return;
     setCleaning(true);
     try {
-      await apiFetch('/admin/super/operations/cleanup-synthetic', { method: 'POST', body: JSON.stringify({ dry_run: false, min_age_hours: MIN_AGE_HOURS, confirm: true, confirm_token: confirmation }) });
+      await apiFetch('/admin/super/operations/cleanup-synthetic', { method: 'POST', body: { dry_run: false, min_age_hours: MIN_AGE_HOURS, confirm: true, confirm_token: confirmation } });
       toast.success(t('superadmin.operations.cleanup.success'));
       setConfirmOpen(false);
       setConfirmation('');
       await loadAll(true);
     } catch (cause) {
-      toast.error(t('superadmin.operations.cleanup.error'), { description: cause instanceof Error ? cause.message : undefined });
+      toast.error(t('superadmin.operations.cleanup.error'), { description: apiErrorMessage(cause, t('superadmin.operations.cleanup.error')) });
     } finally { setCleaning(false); }
   };
 
@@ -215,12 +205,12 @@ export default function SuperadminOperationsPage() {
     if (recoveryConfirmation !== STALE_AI_JOB_CONFIRM_TOKEN || !staleRecovery || staleRecovery.eligible_count === 0 || staleRecovery.truncated) return;
     setRecovering(true);
     try {
-      await apiFetch('/admin/super/operations/recover-stale-ai-jobs', { method: 'POST', body: JSON.stringify({ dry_run: false, min_age_hours: STALE_AI_JOB_MIN_AGE_HOURS, confirm: true, confirm_token: recoveryConfirmation }) });
+      await apiFetch('/admin/super/operations/recover-stale-ai-jobs', { method: 'POST', body: { dry_run: false, min_age_hours: STALE_AI_JOB_MIN_AGE_HOURS, confirm: true, confirm_token: recoveryConfirmation } });
       toast.success(t('superadmin.operations.staleRecovery.success'));
       setRecoveryConfirmation('');
       await loadAll(true);
     } catch (cause) {
-      toast.error(t('superadmin.operations.staleRecovery.error'), { description: cause instanceof Error ? cause.message : undefined });
+      toast.error(t('superadmin.operations.staleRecovery.error'), { description: apiErrorMessage(cause, t('superadmin.operations.staleRecovery.error')) });
     } finally { setRecovering(false); }
   };
 
@@ -228,12 +218,12 @@ export default function SuperadminOperationsPage() {
     if (crmConfirmation !== CRM_REQUEUE_CONFIRM_TOKEN || !crmRequeue || crmRequeue.eligible_count === 0) return;
     setRequeuingCRM(true);
     try {
-      await apiFetch('/admin/super/operations/requeue-failed-crm-leads', { method: 'POST', body: JSON.stringify({ dry_run: false, limit: CRM_REQUEUE_LIMIT, confirm: true, confirm_token: crmConfirmation }) });
+      await apiFetch('/admin/super/operations/requeue-failed-crm-leads', { method: 'POST', body: { dry_run: false, limit: CRM_REQUEUE_LIMIT, confirm: true, confirm_token: crmConfirmation } });
       toast.success(t('superadmin.operations.crmOutbox.success'));
       setCRMConfirmation('');
       await loadAll(true);
     } catch (cause) {
-      toast.error(t('superadmin.operations.crmOutbox.error'), { description: cause instanceof Error ? cause.message : undefined });
+      toast.error(t('superadmin.operations.crmOutbox.error'), { description: apiErrorMessage(cause, t('superadmin.operations.crmOutbox.error')) });
     } finally { setRequeuingCRM(false); }
   };
 

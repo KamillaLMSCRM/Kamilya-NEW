@@ -2,7 +2,11 @@
 
 Date: 2026-10-03  
 Checkout: `C:\Kamilya New\.worktrees\daily-learning-20260930`  
-HEAD: `0a52b99f6d7edfe7b8f1f96d1d17f2bf6cecc47b`
+Historical measurement base HEAD: `0a52b99f6d7edfe7b8f1f96d1d17f2bf6cecc47b`,
+plus the then-uncommitted bounded client/tool changes. Retained pilot JSON is
+not a run of current31 source and is not retroactively rerun/relabelled.
+Published30/current31 review base HEAD: `d8ab25d6940eee4d388f3e32c820eb5ee57b169b`.
+Later sync, Runner and live-retest rows below carry separate contexts/timings.
 
 ## Scope and procedure
 
@@ -144,6 +148,42 @@ is counted, not hidden as a single first-pass final refresh.
 - Browser setup and CSV-download waits each caused a harness reset. Locator
   mismatches, guessed nonexistent paths/routes and truncated source output
   required corrective reads. No CSV completion or full-role PASS is inferred.
+
+- Test Runner C complete local gate825web/141Python/9Node plus quality/build
+  accepted; C runner wall357195ms includes retrieval, commands and ledger/handoff,
+  not just57.61s Vitest. Prior B wall226288ms stopped at stale source-literal
+  assertion; A matrix unrun. Neither overhead nor stops are erased.
+- Release Runner wrong packet-path attempt22156ms and executor-network block
+  corrected attempt16823ms; later local reconciliation23255ms, not independent
+  remote execution. Root used the same protected bridge in an authorized executor.
+  A missing local published tag caused one avoidable156MB download before source
+  gate failure; exact canonical tag fetch fixed it. Fresh download per phase is
+  deliberate CI provenance, not cache proof. Network permissions were not expanded.
+- Root also assumed a native artifact member_count field, attempted import of a
+  CLI module whose global parser correctly rejected missing operation, and assumed
+  inventory JSON instead of documented text. Corrections used existing dataclass/
+  canonical inventory parser. These are harness costs, not product/provider faults.
+- Technical30 rollout passed, then live browser valid-Next exposed premature native
+  form validation absent from click-only mocks. Tiny31 cancel-default/button-identity
+  correction and a fresh regression/release gate are required; no end-to-end
+  savings or complete product PASS is claimed from the navigation pilot.
+- Final stable31 source batch CodeGraph sync: SDK1964ms/full wrapper10795ms,
+  1615files/29829nodes/79590edges; exclusions PASS. Exact local wizard repair is
+  KEEP_LOCAL, with source and mock default-action/node-identity/final-submit
+  checks; two focused tests PASS. This sync is freshness evidence, not runtime
+  validation or a causal productivity benefit.
+- Later natural-expiry30 live test exposed missed operations rawfetch consumer;
+ 31A intentionally stopped140993ms before matrix completion. This invalidates a
+  claim that the earlier shared-consumer investigation was complete. Exact-file
+  apiFetch graph query found7edges/26ms without truncation, all source-confirmed;
+  further repair and stable-batch sync are required. Do not erase interrupted
+  suite time or label it a passed regression.
+- Root caught missing v1-prefix in leaf operations transport before freeze;
+  restored exact URLs, added component URL/body/no-auto-mutation bindings and
+  GET401 replay alongside3previewPOST cases. Focused19tests/typecheck PASS;
+  final stable sync SDK1497ms/wrapper8001ms,1616files/29837nodes/79603edges,
+  exclusions PASS. Review P2 measurement-revision ambiguity corrected explicitly;
+  these corrections are overhead, not evidence of causal tool savings.
 
 - Startup dominates these short queries; warm query-body latency was not isolated.
 - `rg` was given exact source filenames, whereas graph arms discovered consumer

@@ -1497,3 +1497,65 @@ Rules:
   SHA-256 `20792a2c48c7ecf8ecd5b6ff34eca904827c8a89838a6811468425ba5610dd00`.
   This is local acceptance evidence only and does not establish production
   or deployed-runtime proof.
+- `TEST-CLIENT31-20261003-A` STOPPED before completing the matrix on a root-
+  reproduced live-session defect classified `PRODUCT_DEFECT / MISSING_SHARED_CONSUMER`.
+  Exact writer checkout was `C:\Kamilya New\.worktrees\daily-learning-20260930`,
+  branch `feature/methodologist-workbench-20261001`, HEAD
+  `d8ab25d6940eee4d388f3e32c820eb5ee57b169b`; frozen manifest
+  `frozen-package-31-A.json` SHA-256
+  `005d0c9a325eafae278ae42a69270e622f1471307d73ae25139a4ee69dd3d34a`.
+  Freeze checks matched all 15/15 files before and after the stop; primary
+  `C:\Kamilya New\Kamilya-NEW` was clean and not tested. Full Vitest was started
+  with `pnpm.cmd exec vitest run` but intentionally terminated before completion
+  when root reported that, after natural token expiry at approximately 15 minutes,
+  the operations page failed through a raw fetch path while the canonical API
+  tenant-overview request recovered the same cookie session immediately without
+  reload/login. No Vitest result count is attributed; lint, typecheck, build,
+  Node, version, Python, Poetry, diff-check, and remaining gates are UNRUN. No
+  source, test, configuration, snapshot, repair, network, provider, database,
+  browser, production, deployment, credential, or external-runtime action was
+  performed. Evidence:
+  `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT31-20261003-A/stop-report.md`
+  SHA-256 `9332c0edb5d5acee6acb13e25ea49a8d1233a0a730b4d2b79e25096c7b616902`.
+- `TEST-CLIENT31-20261003-B` STOPPED on the required version/release-contract
+  gate. Exact writer checkout was `C:\Kamilya New\.worktrees\daily-learning-20260930`,
+  branch `feature/methodologist-workbench-20261001`, HEAD
+  `d8ab25d6940eee4d388f3e32c820eb5ee57b169b`; frozen manifest
+  `frozen-package-31-B.json` SHA-256
+  `e58723260b87b19385634c111f8a13b778d4c1b56921e296bfb623be751f1bfd`.
+  Freeze checks matched all 20/20 files before and after the stop; primary
+  `C:\Kamilya New\Kamilya-NEW` was clean and not tested. Completed gates:
+  Vitest 140/140 files and 831/831 tests PASS in 66.64s; lint PASS; typecheck
+  PASS; Next build PASS with 67/67 static pages; Node wrapper tests 9/9 PASS;
+  both Node syntax checks PASS. Canonical version validation for `0.11.31`
+  failed because release notes lack `**Product version:** 0.11.31` and
+  `**Git tag:** \`v0.11.31\``. Classified `PRODUCT_DEFECT / RELEASE_CONTRACT`;
+  no repair or weakening. DB-free Python selectors, Python quality baseline,
+  Poetry, diff-check, and remaining gates are UNRUN. No source, documentation,
+  test, config, snapshot, provider, database, network, browser, production,
+  deployment, credential, or external-runtime action was performed. Evidence:
+  `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT31-20261003-B/stop-report.md`
+  SHA-256 `f0c8be18b16d55cb4e061983531265a8e52bd41f863d591f51dd13417d16c737`.
+- `TEST-CLIENT31-20261003-C` local acceptance PASS with verified reuse of B's
+  completed gates and fresh completion of the previously failed and remaining
+  gates. Exact writer checkout `C:\Kamilya New\.worktrees\daily-learning-20260930`,
+  branch `feature/methodologist-workbench-20261001`, HEAD
+  `d8ab25d6940eee4d388f3e32c820eb5ee57b169b`; frozen manifest
+  `frozen-package-31-C.json` SHA-256
+  `253820c488c8a67c216477207e8c7ec04b8b03627ea9610a30da7eadf1520517`.
+  All 20/20 C files matched before and after. B stop-report SHA-256 was
+  independently verified as `f0c8be18b16d55cb4e061983531265a8e52bd41f863d591f51dd13417d16c737`.
+  B and C share exact worktree/branch/HEAD; the only B-to-C content delta was
+  `docs/releases/v0.11.31.md` plus the authorized B ledger append, so B's
+  completed outputs were safely reused without rerun: Vitest 140/140 files and
+  831/831 tests; lint; typecheck; Next build 67/67 pages; Node wrapper 9/9;
+  both syntax checks. B remains recorded as non-green due to its prior failed
+  version gate; C does not rewrite that outcome. Fresh C version validation
+  PASS for `0.11.31`; DB-free selectors PASS 141 passed/2 skipped/9 subtests;
+  Python quality PASS (Ruff 1010, mypy 2200); Poetry lock PASS (`All set!`);
+  `git diff --check` PASS; primary `C:\Kamilya New\Kamilya-NEW` clean and not
+  tested. No source, test, config, provider, database, network, browser,
+  production, deployment, credential, or external-runtime action. Evidence:
+  `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT31-20261003-C/acceptance-report.md`
+  SHA-256 `c133513d56f895222cd7f915add3feb48a8709eb9710fb54077711ccff9dc884`.
+  Local acceptance only; no production/deployed-runtime proof.

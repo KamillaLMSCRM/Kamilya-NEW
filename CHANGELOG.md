@@ -45,6 +45,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.31] - 2026-10-03
+
+### Fixed
+
+- Cancel tenant-wizard Next's native default action and separate its button from
+  the final submit control. Advancing the company step must not trigger native
+  administrator-field validation; retain explicit final-submit mock regression.
+- Route the missed operations-page consumer through existing cookie-refresh API,
+  preserving `/v1` paths, preview bodies and confirmation-only mutations.
+
 ## [0.11.30] - 2026-10-03
 
 ### Fixed

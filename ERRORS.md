@@ -31,6 +31,36 @@ Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
 
+## UX-WIZARD-DEFAULT-001 - Step transition triggers premature form validation
+
+- Date:2026-10-03; status LOCAL_REPAIR_IN_PROGRESS, source31 candidate.
+- Symptom: production30 valid company Next changes to administrator fields and
+  displays native required-field validation before final Create was clicked;
+  first-name field focused, same AX button119 changes from Next to Create.
+  Root canceled the form; no account creation or final submit was exercised.
+- Cause hypothesis: React reuses the conditional button node and changes its
+  type to submit during the same click, before the browser's default action.
+- Fix: cancel the transition click default before state mutation and use distinct
+  Next/Create React keys; preserve explicit final submission and API contracts.
+- Verification: focused/default-cancel/no-POST regression and final live31 pending.
+- Prevention: step transitions must not retain a submit default; test valid
+  advance as well as blank prerequisites, explicit submit once, and browser
+  native validation. jsdom click-only mocks are not final native-browser proof.
+
+## RELEASE-LOCAL-TAG-001 - Published GitHub tag absent from local refs
+
+- Date:2026-10-03; resolved for30; no deployment mutation on failed gate.
+- Symptom: canonical frontend preflight downloaded the immutable bundle then
+  stopped at LocalRepositoryProbe with missing refs/tags/v0.11.30.
+- Cause: gh release create --target creates a remote tag, not a local Git ref.
+- Fix: canonical project-token exact fetch of only that tag; peeled local ref
+  independently matches remote published exact source SHA before retry.
+- Verification: tagd8ab25d6 match, subsequent protected preflight READY and
+  frontend30 RELEASE_OK. Original block evidence preserved.
+- Prevention: verify peeled local/remote release tag identity before bridge;
+  never force-replace an existing tag, use ambient credentials, or infer local
+  ref existence from successful GitHub Release publication.
+
 ## ASR-001 - Unbounded PyAV major upgrade broke the isolated STT decoder
 
 - Date: 2026-10-03; ASUS task-owned pilot only, no application dependency change.
@@ -5518,7 +5548,7 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ## AUTH-PLATFORM-REFRESH-001 - Platform fetch bypassed expired-session recovery
 
-- Date: 2026-10-03. Status: LOCAL REPAIR IN PROGRESS; production unchanged.
+- Date: 2026-10-03. Status: TRANSPORT REPAIR DEPLOYED30; natural-expiry live retest pending.
 - Symptom: normal superadmin tenant overview and list failed after a long
   session while navigation still showed an authenticated user. Reload restored
   the same cookie-backed session and populated the list without another login.
@@ -5530,9 +5560,22 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   lifetime, authentication policy, key, provider or server change is authorized.
 - Verification: root production UI before/reload-after observation; source
   lib/api.ts, lib/auth.ts and platform pages. Frozen test packet
-  TEST-CLIENT30-20261003-A stopped/superseded; replacement regression and final
-  production long-session acceptance remain required, not claimed passed.
+  TEST-CLIENT30-20261003-A stopped/superseded; replacement C actual adapter401
+  retries PASS and transport deployed30. Final production natural-expiry
+  acceptance remains required, not claimed passed.
 - Prevention: protected requests use the canonical session-aware transport;
   preserve explicit public/capability endpoints and test401 recovery/failed
   refresh. Do not call an expired session a missing tenant or compensate with
   impersonation, alternate tokens, longer TTLs or repeated credential entry.
+
+### Recurrence2026-10-03: operations consumer missed in initial transport repair
+
+- Deployed30 natural-expiry SPA test: operations load failed after15minutes;
+  tenant overview recovered the same cookie session without reload/login;
+  revisiting operations then loaded. Source operations apiFetch still rawfetch.
+- CodeGraph exact-file callers7 independently source-confirmed; initial shared
+  consumer inventory was incomplete, not a new server/auth-policy blocker.
+- Frozen31A STOPPED before matrix completion; no green claim, no repair by Runner.
+  Bounded31 correction uses existing api transport, retains preview bodies and
+  explicit confirmation-only mutations; no operational recovery/tenant deletion
+  executed. Replacement frozen and native-expiry retest required.

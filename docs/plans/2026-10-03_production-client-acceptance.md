@@ -40,18 +40,27 @@ measure actual use of CodeGraph, Graphify, selective ECC and CodeBurn.
 
 | Node | State | Exit gate / evidence |
 |---|---|---|
-| RULES | IN_PROGRESS | Mandatory justified CodeGraph use/fallback, bounded freshness and evidence; versioned workflow checks; rules reach master via reviewed integration |
+| RULES | PASS30 | Useful mandatory CodeGraph rules, freshness/fallback/exclusions and deterministic checks published on masterd8ab25d6 |
 | UI-CATALOG | IN_PROGRESS | Finite declared-feature/role/route/control/help matrix; static != live proof |
 | LIVE-AUDIT | IN_PROGRESS | Fresh exact runtime + role/tenant identity; per-control outcome/help/purpose/accessibility, desktop/mobile, failures retained |
 | REPAIR-BATCH | IN_PROGRESS | Reproduced observations, bounded owned fixes + regression tests; no unrelated feature/voice release |
-| REGRESSION | NOT_STARTED | Frozen packet accepted by Test Runner, affected and full release gates; safe synthetic journeys/cleanup |
-| RELEASE | NOT_STARTED | Exact authorized package, CI/artifact/runtime/rollback/capacity evidence, no tier change |
-| LIVE-RETEST | NOT_STARTED | Original cases fixed + complete coverage disposition, no untested surface labelled PASS |
+| REGRESSION | PASS30;31_PENDING | Frozen C825web/9Node/141Python and all local gates PASS; tiny31 needs fresh frozen matrix |
+| RELEASE | TECHNICAL_PASS30;31_PENDING | Exactd8/CI/native/protected controller/public identity PASS; original receipts retained; no tier change |
+| LIVE-RETEST | PARTIAL | Mobile wizard guards PASS but valid Next premature validation found;31 required; missing role/token/AI journeys not PASS |
 | TOOL-BASELINE | IN_PROGRESS | Version/scope/cold+warm timing/output/usefulness/correction metrics and real token availability |
 | MATCHED-NAVIGATION | PARTIAL | Known-file lookup/consumer discovery pilot complete; presence oracle only, asymmetric rg path knowledge, truncation/freshness disclosed |
 | TOOL-CLOSEOUT | NOT_STARTED | Root+children accounting; no estimated API USD == subscription saving; current-turn PARTIAL until finished |
 
 ## Execution notes
+
+- Natural-expiry30 SPA test at04:50-04:53Z: operations failed, tenant overview
+  then loaded count10 without reload/login, revisit operations loaded. Canonical
+  transport recovery works on overview; operations rawfetch was a missed shared
+  consumer. No cleanup/recovery/requeue mutation. Frozen31A intentionally stopped
+  before matrix completion; all15 source hashes unchanged, ownership released.
+  CodeGraph exact-file apiFetch callers7/26ms/nontruncated:4preview/load and3
+  explicit mutation calls, independently confirmed in source. Extend31 before
+  replacement full gates; no claim of complete long-session acceptance yet.
 
 - Initial browser connection timed out once; fresh reconnect succeeded, created
   production login tab. Browser/tenant sessions are root-owned, never parallelized.
@@ -187,3 +196,22 @@ preserved by Test Runner; all dependent gates unrun. Root replaces the obsolete
 literal check with binding to canonical api POST and actual withCredentials;
 adapter401replay additionally checks impersonation method/body with synthetic
 fixtures only. No production impersonation exercised. Packet C supersedes B.
+
+Production30 technical release completed: source d8ab25d6940eee4d388f3e32c820eb5ee57b169b,
+CI37095250011/native37095272118, archiveba37acc5e839ee527f0f45fd60ab4bbbde06c5d07ccf3a4793b6bec0e3d5770d,
+execute receiptb0c72c6c6a72e21bc1f6229fcd06a9d7d16a80f1c8d6746087f71c4801841dba.
+Root independent public body/header exactsource and API29/source32e unchanged.
+Release Runner wrong-path and executor network failures preserved; same protected
+bridge executed by authorized root, Runner local technical reconciliation only.
+Local published-tag absence corrected with canonical exact fetch before retry.
+Standing exact successful obsolete25 cleanup+staged pair removed with verified
+original recovery; current28/actualrollback27/extras preserved. Cleanup readback
+free1462988KiB; after30 free734240KiB, all five expected releases preserved.
+Primary hygiene fast-forwarded clean to d8ab25d6 with no reset/delete/stash.
+
+Live30 mobile platform: scoped synthetic tenant list loaded with no page overflow,
+named search/fields, blank and whitespace company Next stayed on step1. Valid
+Next reached step2 but triggered native required-field popup without explicit
+Create click (same AX button119 changed to submit; first-name focus). Root
+canceled; no creation/POST/recovery mutation exercised. Final acceptance held;
+small frontend31 correction required rather than rewriting published30 artifacts.
