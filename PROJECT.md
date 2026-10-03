@@ -125,7 +125,7 @@ Kamilya фиксирует технические доказательства �
 
 | Слой | Реализация |
 |---|---|
-| Frontend | Next.js 15.5.23, React, TypeScript |
+| Frontend | Next.js 15.5.24, React, TypeScript |
 | Backend | FastAPI, SQLAlchemy async, Alembic |
 | Database | PostgreSQL + pgvector |
 | Shared dev/test DB and storage | Supabase; не production |

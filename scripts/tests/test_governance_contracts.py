@@ -12,6 +12,15 @@ def read(relative_path: str) -> str:
 
 
 class GovernanceContractTests(unittest.TestCase):
+    def test_test_runner_preserves_prepared_runtime_and_evidence_provenance(self) -> None:
+        contract = read(".codex/agents/test-runner/AGENTS.md")
+        self.assertIn("## Prepared runtime and matrix preflight", contract)
+        self.assertIn("never substitute ambient", contract)
+        self.assertIn("freshly executed, hash-linked, or `NOT_RUN`", contract)
+        self.assertIn("release_id, release_sha and list-valued", contract)
+        self.assertIn("explicitly passed scopes", contract)
+        self.assertIn("final response is the delivery", contract)
+
     def test_persistent_runners_use_one_owner_and_one_handoff_interface(self) -> None:
         project_rules = read("AGENTS.md")
         test_runner = read(".codex/agents/test-runner/AGENTS.md")

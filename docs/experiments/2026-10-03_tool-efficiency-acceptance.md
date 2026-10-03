@@ -1,5 +1,40 @@
 # Tool-efficiency acceptance: known-file lookup/consumer discovery pilot
 
+##35 verified closeout and correction overhead,2026-10-03
+
+- Runner35A wall354939ms, fresh862web/145files in130.70s plus lint/type/build67/
+  version/contracts/quality/Poetry/frozen18 PASS. Runner35B wall278782ms, fresh
+  newlearning GET and Root supplied evidence ingestion; missed exact retained
+  module, invented CSP claim/count and incompatible bridge schema required B2.
+  B2 wall183514ms:one retained-module GET pass and report/ledger corrections;
+  first ambient Python lacked httpx before any network, canonical named Python
+  succeeded. Two failed send-back attempts are coordination overhead, not tests.
+- ReleaseRunner35 local plan23339ms; Root owns three exact native artifact
+  download/inspection cycles (capacity stop, readiness, execution). Standing
+  recovery cleanup31 restored capacity; no causal toolkit speed/savings claim.
+  Root initially described nonexistent handoff flags; corrected to actual
+  --technical/--acceptance parser before final reconciliation. Count this overhead.
+  Local reconciliation wall20364ms, actual command metadata417ms; follow-up Root
+  command-shape clarification/confirmation turn7900ms contained no extra command.
+  Do not label that second turn as another executed test or deployment.
+- CodeBurn metadata-only root snapshot:25turns/2199calls,7494827input/
+  889025output/298871168cache-read/0cache-write,duration64296757ms; matched root
+  workunit has no child IDs. Cumulative history, no turn/repair/child attribution;
+  selected cost fields unavailable, not zero and not invoice/subscription savings.
+- Root measured recovery fixture tests40total/21passed/19Unix-onlyskipped,
+  0.132s; this is local restore-readiness, not a production rollback drill.
+  New prepared-runtime/provenance/schema governance10PASS,0.044s. Rule presence
+  is regression protection, not measured future agent-performance improvement.
+- Root browser corrections:stale credential-parser binding failed before login,
+  unsupported heading-level locator counted H1+quizH3; read-only DOM proved one
+  H1. Initial viewport/modal paint needed subsequent screenshot observations.
+  New CDP download observation confirmed begin/canceled0bytes; no filehandoff PASS.
+  Guessed report/runbook/guard/handoff/test paths and Windows rg glob were bounded
+  retrieval failures, not product failures or first-pass successes.
+- Cheap currentV2 review used bounded CodeGraph/source navigation; no provider
+  execution and no current-model quality proof. No redundant Graphify run for
+  answered dependencies. Root/delegated exact cost and causal savings unavailable.
+
 ##35 learner continuation measurements,2026-10-03
 
 - Cheap Luna/medium leaf performed bounded side-effect/source inventory and then

@@ -25,7 +25,23 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current client34 boundary,2026-10-03
+## Current client35 boundary,2026-10-03
+
+Frontend35/sourcef34eac00e79fcccbf3926627c23faac672c00edd deployed,
+CI37123482507/native37123504506/protectedrelease PASS. TestRunner35A local862/
+145files/build/type/lint PASS; corrected35B2 independent ordinary learning/
+original history100%/certificate/PDF PASS. Root fresh34 real learner5lessons/
+5quizzes/failure+retry/completion/certificate PASS retained; actual35 resultCTA
+RU/KK/EN/click, quizhelp and sharedreader oneH1/mobile/desktop PASS. Active
+bestscore live label/filehandoff/UIassignment/newPIN/token/mail/AI/voice/OTP/legal/
+signed-copy/review/package notverified; legacyQA content semantics notaccepted,
+not current model-quality proof. Full feature PARTIAL, not GO. Immediateprevious34,
+packetfallback32/protected359/299 retained. Only obsolete31/exact staging pair
+removed under conditional standing recovery rule; offhost pair retained. No more
+cleanup; postboundaryfree907968KiB. API29/source32e/DB174/worker baseline unchanged,
+no helper/runtime/access/tier/provider change. Readiness owns detailed current gates.
+
+## Historical client34 boundary,2026-10-03
 
 Frontend34/sourceb25653a2f30d0afdd3c81d8222ad1a38bf3753d7 deployed; exact CI37111000718/
 native37111030285/protectedexecute/publicidentity and TestRunner34C ordinary-role/

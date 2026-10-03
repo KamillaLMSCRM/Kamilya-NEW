@@ -9,7 +9,49 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current frontend34 — technical and bounded PDF/role readback PASS
+## Current frontend35 — bounded learner presentation and learning readback PASS
+
+Frontend0.11.35/sourcef34eac00e79fcccbf3926627c23faac672c00edd deployed;
+CI37123482507/native37123504506 SUCCESS, tagv0.11.35, protected execute
+6f614e4e67eb9f2b0588c74a404f7455a68e63bf022bf0f75d7fedff0eb51ea3 RELEASE_OK.
+Fresh local TestRunner35A:862web/145files/lint/type/build67/version/contracts/
+quality/Poetry/frozen18 PASS. Independent TestRunner35B plus correctedB2:
+new learning record and original retained history100%/oldcertificate/PDF PASS,
+0businesswrites. Corrected report3f4d9aa04a7bebe4d985dad83952fd8f51382a6ad52ef37fff0591a1e4e68927,
+acceptanceJSONc58aec6a1c2a3417c6d812eac1401d3b7c1ec7d08948ce3a1580fa987a196911.
+
+Root actual production34 fresh ordinary QA learning-write:5lessons/5quizzes,
+retained0% failure then100% retry, progress0/20/40/60/80/100, explicit completion,
+one certificate/public verification PASS. New completed enrollment
+efb3a087-218f-49c6-8efc-e577fc44cf98 retained in permanent synthetic tenant,
+no old PIN/progress/course/settings change. API fixture assignment was silent
+personal_link mode without credential issue, not a UI assignment-button pass.
+Root actual35:completed action RU/KK/EN and click to retained result, quiz help
+mobile/desktop, shared-reader methodologist readonly preview oneH1/body/nooverflow
+PASS. Active ordinary learner best-score label live check NOT_VERIFIED; source/
+locales/exact native verified, no completed-record reassignment for that check.
+
+PDF download start/expected filename/50985bytes observed by CDP, then canceled/
+received0:browser file handoff NOT_VERIFIED, cause NOT_CONFIRMED; server PDFs PASS.
+No new zero-CSP observation claimed; unchanged34 security evidence is linked.
+Old retained QA quiz semantics NOT_ACCEPTED; current V2 source review finds
+plausible coverage gaps, not a confirmed current provider regression. Next bounded
+test:replay heading/list, question-like answer, qualifier and raw-table cases.
+UI assignment/newPIN/token, externalmail/AI/voice, OTP/legalconfirmation,
+signed-copy/review/package remain NOT_VERIFIED. Full-feature readiness PARTIAL.
+
+Immediate previous34/b25653a2 retained and restricted boundary checked after35;
+packetfallback32/3f0f and protected359/299 also retained. Only obsolete31/572f and
+exact staging pair removed under standing conditional capacity rule, verified
+offhost recovery kept. Cleanup receipt
+a6ebd757eca7d8b9e57edbfd9291f2270dbd28972b871c3c3b05424a1a390f8e;
+free820800→1549500KiB before release,907984KiB after/907968KiB later boundary.
+No further cleanup under this packet. API29/source32e1331d unchanged; DB174/
+threeworkers remain2026-10-02 baseline, not freshly proven. Helper/runtime/
+rights/keys/landing/DNS/providers/tiers unchanged. Root owns actual network
+execution; Release Runner local plan/reconciliation and Test Runner gates are separate.
+
+## Historical frontend34 — technical and bounded PDF/role readback PASS
 
 Production34/sourceb25653a2f30d0afdd3c81d8222ad1a38bf3753d7, CI37111000718 and
 native37111030285 SUCCESS, publishedv0.11.34; protected execute

@@ -5,7 +5,31 @@
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/methodologist-workbench-20261001`
 
-## Current production34,2026-10-03
+## Current production35,2026-10-03
+
+Frontendf34eac00e79fcccbf3926627c23faac672c00edd/version35 deployed,
+CI37123482507/native37123504506 SUCCESS, protected execute
+6f614e4e67eb9f2b0588c74a404f7455a68e63bf022bf0f75d7fedff0eb51ea3.
+TestRunner35A862web/145files/fulllocal gates PASS. TestRunner35B/B2 ordinary
+learning GET/original history100%/oldcertificate/PDF PASS, report3f4d9aa0,
+corrected acceptancec58aec6a. Root actual fresh34 learning-write5lessons/5quizzes/
+failed0%+successful100%retry/completion/certificate/publicverify PASS; retained
+new enrollmentefb3a087-218f-49c6-8efc-e577fc44cf98, no replay/deletion/reassignment.
+Root actual35 CTA RU/KK/EN/click, specificquizhelp and sharedreader oneH1/body/
+mobile+desktop/nooverflow PASS. Active learner bestscore live label NOT_VERIFIED,
+source/locales/native verified. CDP PDF begin then canceled0bytes means filehandoff
+NOT_VERIFIED, cause unknown; serverPDF PASS. No new globalCSP observation claimed.
+Full feature PARTIAL: UIassignment/newPIN/token/mail/AI/voice/OTP/legal/signed-copy/
+review/package gaps. OldQA quiz content fails semantics; next isolated mocked V2
+replay four shapes, no provider/content rewrite. Do not repeat35execute/31cleanup,
+provisioning or completed QA learning. Immediateprevious34/packetfallback32/
+protected359/299 retained;31 only removed with offhost recovery. Free907968KiB.
+API29/schema174/workers unchanged baseline. Readiness owns current gates.
+TestRunner contract now requires named interpreter/matrix provenance/consumer
+schema and bounded scope; new governance regression10PASS. OriginalB artifacts
+and append-only B2 correction preserved. Primary remains sync-only.
+
+## Historical production34,2026-10-03
 
 Frontendb25653a2f30d0afdd3c81d8222ad1a38bf3753d7/version34 deployed, CI37111000718/
 native37111030285 SUCCESS, protected execute d924734b3fc0a7ba5f4dfdebc9c2936fb6e1689ee7ecc785cb6f0e1cee43258c.

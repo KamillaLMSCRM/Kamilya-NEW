@@ -1792,3 +1792,57 @@ Rules:
   `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT35-20261003-A/acceptance-report.md`
   SHA-256 `08d4fef7a3c86e44e0d53a35a8ed0ffe24854198a7d54dbe518fb74cba29f6be`.
   Local evidence only; no live presentation or release acceptance claim.
+- `TEST-CLIENT35-20261003-B` bounded production readback PASS; full-feature
+  acceptance remains PARTIAL. Exact checkout
+  `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD/frontend SHA
+  `f34eac00e79fcccbf3926627c23faac672c00edd`; API SHA
+  `32e1331d9b24621de71213ba1150375a261b0464`. Approved fresh-learning helper
+  SHA-256 `1f75c786c7940299af759ca498a35824fc2e673bbeaf7663029ef1d571494b04`
+  was imported/called once and returned `status=PASS`; sanitized readback
+  reports business mutations `0`, audit-only ordinary authentication, retained
+  fixture present, completed current learning at `100%`, one current
+  certificate, five completed lessons, one current `100%` training-log entry,
+  evidence confirmation `pending`, retained history/PDF and public verification
+  PASS. Root-owned browser JSON was hash-checked only:
+  `prod35-browser-readback.json` SHA-256
+  `c5220a849694ea21c7d4edddec6cc56afc6216a1f41e785a535787d1266ba375`;
+  six supplied screenshots were present and hash-checked. Root observed
+  completed-action/locales, five quiz passes, quiz help, shared lesson reader,
+  responsive no-overflow, viewport reset, and identity/best-score checks.
+  PDF file handoff remains `NOT_VERIFIED` after download-start then canceled/
+  zero-byte receipt; cause is not confirmed. Content quality remains
+  `NOT_ACCEPTED_SEE_ROOT_BROWSER_FINDINGS`; active learner labeling,
+  provider-quality/AI generation/voice, assignment/new-link, mail/OTP/legal
+  confirmation/signed-copy, and package/review gaps remain not verified or
+  outside this bounded run. No browser replay, extra production call,
+  mutation, provider/database/source/deployment action was performed after the
+  readback. Report:
+  `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT35-20261003-B/production-readback-report.md`.
+- `TEST-CLIENT35-20261003-B2` supersedes the mutable report/JSON fields of B
+  while preserving B history: initial report SHA-256
+  `8e57a2245f8ffa26831ab9fed065e2613b31a1c5e5b3b62ffe9e0b8130922680` and
+  initial JSON SHA-256
+  `f1f46cfe1cec719ed592ee9ebf0939e24476ff36f412350c5df361c29560ddc5` remain
+  preserved as `.initial` files. Exact release scope remains
+  `REL-CLIENT-WEB35-20261003`, release/frontend SHA
+  `f34eac00e79fcccbf3926627c23faac672c00edd`, checkout
+  `C:\Kamilya New\.worktrees\daily-learning-20260930`, and API SHA
+  `32e1331d9b24621de71213ba1150375a261b0464`. The approved retained module
+  SHA-256 `0102011b897e70345f96392bd2e1c60424df9f56addac75d414e9f96f1877ac9`
+  was independently imported and called exactly once through `run()` using the
+  canonical Python environment, ordinary methodologist auth, and documented
+  GET-only path; it returned `status=PASS`, predecessor history `PRESERVED`,
+  `progress_percent=100`, `certificate=EXISTING_PDF_READBACK_PASS`,
+  `business_mutations=0`, and `auth_session_audit_only=true`. No fresh-learning
+  helper rerun, browser/provider/database/deployment/source mutation, or
+  descendant action occurred. Corrected report SHA-256
+  `3f4d9aa04a7bebe4d985dad83952fd8f51382a6ad52ef37fff0591a1e4e68927` and
+  corrected JSON SHA-256
+  `c58aec6a1c2a3417c6d812eac1401d3b7c1ec7d08948ce3a1580fa987a196911`.
+  Corrections remove the unsupported zero-CSP claim, mark active learner
+  best-score labeling `NOT_VERIFIED`, identify seven total screenshots (six
+  packet-named plus one retained full-page), add release ID/SHA and explicit
+  bounded passed scopes to JSON, and keep all residual limitations separate;
+  full-feature acceptance remains `PARTIAL`. Approximate B2 correction
+  duration: 4 minutes wall-clock.

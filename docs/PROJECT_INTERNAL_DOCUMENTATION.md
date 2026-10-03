@@ -37,7 +37,7 @@ Kamilya LMS — multi-tenant LMS для корпоративного обуче�
 
 ```text
 apps/api/       FastAPI backend, SQLAlchemy, Alembic
-apps/web/       Next.js 15.5.23 frontend, React, TypeScript
+apps/web/       Next.js 15.5.24 frontend, React, TypeScript
 docs/           продуктовые, архитектурные и эксплуатационные документы
 ```
 

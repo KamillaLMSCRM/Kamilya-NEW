@@ -1,13 +1,26 @@
 # Production client acceptance and tool-efficiency epic
 
-Continuation35: root production34 ordinary new QA student learning-write PASS:
+Current35 closeout: exactf34eac00 deployed,CI37123482507/native37123504506/
+protectedrelease PASS; TestRunner35A862web/fulllocal PASS, corrected35B2
+ordinarylearning/originalhistory100%/oldPDF/readback PASS. Root actual35 resultCTA
+RU/KK/EN/click, specificquizhelp/sharedreader oneH1/body/responsive PASS.
+Active bestscore learner label live NOT_VERIFIED; CDP correctPDF begin then
+canceled0bytes, filehandoff NOT_VERIFIED (unknown cause), serverPDF PASS. Keep
+full audit PARTIAL and existing unverified boundaries. API29 unchanged; previous34/
+packetfallback32/protected359/299 retained, only obsolete31/exact staged pair
+removed with verified recovery. Do not replay release/cleanup/newcompletedlearning.
+Next bounded source test: four legacy defect shapes replayed against current V2
+guards, before any current-generation repair/provider claim; no immutable course
+rewrite. Remaining full flows stay explicit, not silently promoted by this release.
+
+Linked fresh-learning35 continuation: root production34 ordinary new QA student learning-write PASS:
 enrollmentefb3a087-218f-49c6-8efc-e577fc44cf98,5lessons/5quizzes, first0% failed
 attempt retained then100% retry, progress0/20/40/60/80/100, explicit completion,
 certificatea2da57f3-4579-470b-9639-346589f02696/public KML-2026-ACB5647AD85C,
 final dashboard1course/1completed/100%/1certificate. One silent API fixture
 assignment only; no UI-submit/PIN/mail/AI/old-history change. Retain completed
-record in permanent stand, no deletion. Candidate35 fixes4presentation findings;
-full frozen gates/exactCI/native/release/live recheck pending. Retained old QA
+record in permanent stand, no deletion. Released35 fixes4presentation findings;
+bounded gate/live results above. Retained old QA
 quiz content has semantic quality failures; this is not a generation-quality pass.
 OTP/signed-copy/package, token, paid-AI and browser file handoff remain unverified.
 

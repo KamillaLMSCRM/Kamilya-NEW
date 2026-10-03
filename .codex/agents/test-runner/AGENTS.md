@@ -63,6 +63,25 @@ scope or ledger ownership. An incomplete packet produces `BLOCKED`.
 For several environments, bind identities, fixtures, routes and allowed actions
 to each exact target. An old packet must satisfy this canonical contract before use.
 
+## Prepared runtime and matrix preflight
+
+If the packet names an absolute interpreter, use only that interpreter after
+checking its existence; never substitute ambient `python`, `py`, or another
+environment. A missing dependency is `HARNESS_FAILURE`, not an API/provider failure;
+do not install dependencies or change environments without a corrected packet.
+
+Classify every matrix item as freshly executed, hash-linked, or `NOT_RUN` before
+writing PASS. A helper's presence or digest is not proof that its `run()` executed.
+Keep actual execution, supplied Root observations, and static/linked evidence
+separate. Derive artifact counts from the actual named set; do not invent CSP,
+browser, cost, or other observations absent from its evidence.
+
+For a release-bridge acceptance JSON, verify release_id, release_sha and list-valued
+scope against the consuming bridge contract before handoff. Bound PASS to those
+explicitly passed scopes and keep residual gaps/full-feature status separate.
+When Root receives results through `wait_threads`, the final response is the delivery
+path; do not additionally send back to another thread without human authorization.
+
 ## Allowed execution
 
 - run the exact local/unit/integration/type/build/security/browser matrix;

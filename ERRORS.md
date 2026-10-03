@@ -31,9 +31,29 @@ Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
 
+## AGENT-TEST-EXECUTION-001 - Prepared helper and report provenance drift
+
+- Date:2026-10-03; status RESOLVED for corrected35B2 bounded evidence.
+- Symptom: Test Runner35B omitted an explicitly requested retained-module run,
+  added an unsupported zero-CSP observation, counted seven screenshots as six,
+  and returned a release acceptance shape incompatible with the bridge.
+- Cause: prepared matrix execution, supplied Root observations and inferred
+  report content were not reconciled item-by-item against the consumer contract.
+- Fix: preserve originalB artifacts/ledger, independently execute missing
+  retained GET-only module once, correct report/schema/count/provenance and append
+  B2 supersession. The first B2 ambient interpreter failed before any API call;
+  the explicitly supplied canonical Python succeeded, no install/access change.
+- Verification: corrected report3f4d9aa04a7bebe4d985dad83952fd8f51382a6ad52ef37fff0591a1e4e68927,
+  JSONc58aec6a1c2a3417c6d812eac1401d3b7c1ec7d08948ce3a1580fa987a196911,
+  retained history100%/oldPDF PASS,0businesswrites. Full feature stays PARTIAL.
+- Prevention: Test Runner prepared-runtime/matrix preflight plus governance
+  regression requires exact named interpreter, executed/linked/NOT_RUN rows,
+  source provenance, bridge schema and bounded scopes. Final wait_threads delivery
+  avoids redundant failed send-back attempts. No causal speed/savings claim.
+
 ## UX-LEARNER-PRESENTATION-001 - Learner title, result and help semantics
 
-- Date:2026-10-03; status LOCAL_FIX_PENDING35_LIVE.
+- Date:2026-10-03; status BOUNDED_PRODUCTION35_VERIFIED; active learner score label live check remains NOT_VERIFIED.
 - Symptom: ordinary synthetic learner sees duplicate lesson H1, an attempts
   summary reading `1/3 · из0%`, generic course help on the quiz route and
   a Continue action on a completed dashboard card.
@@ -43,8 +63,12 @@ open, also record status, safe interim path, and review condition.
 - Fix: opt-in exact first-H1 suppression only in the learner reader, localized
   best-score label, specific quiz help and a completed-only View result label.
   Keep stored content, authoring preview, grading, progress and API unchanged.
-- Verification: root production34 browser reproduced all4; cheap local focused
-  tests/typecheck PASS. Final frozen35 gates and production35 retest pending.
+- Verification: root production34 reproduced all4; frozen35 862web/type/lint/build
+  PASS, exactCI/native/protected35 release PASS. Root actual35 completed-action
+  RU/KK/EN/click, quiz help mobile/desktop and shared-reader oneH1/body PASS;
+  TestRunner35B2 independent learning/history/PDF PASS. Best-score source/locales/
+  exact native identity verified; completed fixture preserved, no active-score
+  learner replay or reassignment. Browser PDF handoff canceled, not a download PASS.
 - Prevention: test opt-in/default/mismatched Markdown headings, route specificity
   and completed/active CTA href semantics. UI gate must read actual labels/help,
   not merely status200 or full progress. Old QA quiz-content defects are separate
