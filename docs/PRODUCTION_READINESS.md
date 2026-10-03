@@ -34,9 +34,21 @@ locales/exact native verified, no completed-record reassignment for that check.
 PDF download start/expected filename/50985bytes observed by CDP, then canceled/
 received0:browser file handoff NOT_VERIFIED, cause NOT_CONFIRMED; server PDFs PASS.
 No new zero-CSP observation claimed; unchanged34 security evidence is linked.
-Old retained QA quiz semantics NOT_ACCEPTED; current V2 source review finds
-plausible coverage gaps, not a confirmed current provider regression. Next bounded
-test:replay heading/list, question-like answer, qualifier and raw-table cases.
+Old retained QA quiz semantics NOT_ACCEPTED. A post-extraction synthetic replay
+returned3malformed questions with deliberately permissive model reviews;
+the prohibition control preserved its negative qualifier. This does not prove
+normal pipeline reachability or a current provider regression: the real narrative
+adapter strips Markdown headings and marks normalized table headers/incomplete
+heading fragments confidence0. Legitimate quoted questions and named departments
+must remain assessable. Root real-boundary regressions8PASS: structured and
+narrative table-header paths, adapter-to-axis exclusions, negative independent
+review/bounded repair, valid quoted questions/departments and prohibition qualifier.
+This verifies server contracts with mocks, not real-provider semantic judgement.
+No generator code, immutable course or production runtime changed by this probe.
+Independent TestRunner TEST-ASSESSMENT-SHAPES-20261003-A verified14/14focused
+tests/quality/release contracts/frozen test/no app-source delta PASS;
+report5aa8daa75190347f0242d4b9ecdb91f445e1052dede294e8c5d14e007be18fd9.
+Real-provider judgement and fresh-course semantic acceptance remain separate gates.
 UI assignment/newPIN/token, externalmail/AI/voice, OTP/legalconfirmation,
 signed-copy/review/package remain NOT_VERIFIED. Full-feature readiness PARTIAL.
 

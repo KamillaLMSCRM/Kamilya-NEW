@@ -9,9 +9,19 @@ canceled0bytes, filehandoff NOT_VERIFIED (unknown cause), serverPDF PASS. Keep
 full audit PARTIAL and existing unverified boundaries. API29 unchanged; previous34/
 packetfallback32/protected359/299 retained, only obsolete31/exact staged pair
 removed with verified recovery. Do not replay release/cleanup/newcompletedlearning.
-Next bounded source test: four legacy defect shapes replayed against current V2
-guards, before any current-generation repair/provider claim; no immutable course
-rewrite. Remaining full flows stay explicit, not silently promoted by this release.
+Four-shape post-extraction diagnostic ran:3malformed answers admitted with
+deliberately permissive reviewers; prohibition qualifier preserved. Source
+reachability review invalidates a blanket product-regression claim: normal
+narrative heading/header artifacts are rejected earlier, while a quoted question
+or named department can be a valid key. The intentionally red diagnostic is
+retained outside the suite. Root real-boundary8tests PASS: both structured-table
+and narrative-header adapters, axis exclusions, negative review/bounded repair,
+valid quoted questions/departments and prohibition qualifier. Independent Runner
+verified14/14focused/quality/contracts/frozen hash/no app-source delta PASS.
+Next quality gate is fresh-course semantic acceptance in an explicitly bounded
+approved generation contour; no blanket shape ban, immutable course rewrite or
+current-provider claim from these mocks.
+Remaining full flows stay explicit, not silently promoted by this release.
 
 Linked fresh-learning35 continuation: root production34 ordinary new QA student learning-write PASS:
 enrollmentefb3a087-218f-49c6-8efc-e577fc44cf98,5lessons/5quizzes, first0% failed

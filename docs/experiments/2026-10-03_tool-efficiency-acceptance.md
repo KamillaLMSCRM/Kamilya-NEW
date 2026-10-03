@@ -1,5 +1,46 @@
 # Tool-efficiency acceptance: known-file lookup/consumer discovery pilot
 
+##35 post-closeout source-reachability correction,2026-10-03
+
+- Docs/governance source defd6a494af25e08a1ca37e89d303c94cd1950d4 published with
+  independent project-account remote-SHA readback; CI37126542519 SUCCESS.
+  Primary fast-forwarded clean/aligned. Frontend remains exactf34eac00; no redeploy.
+- Cheap evaluator's post-extraction diagnostic3failed/1passed in0.83s; Root
+  independently reproduced3failed/1passed in0.82s (wrapper wall2980ms). The mocked
+  reviewers deliberately accept everything. Negative qualifier remained intact.
+  Reachability follow-up found upstream Markdown/header/incomplete-fragment guards
+  and legitimate quoted-question/name counterexamples. This is a correction to
+  the harness inference, not proof of a current-provider regression or fixed AI.
+- Root CodeGraph search/callers/callees for derive_assessment_axes14/25/25ms,
+  callers36edges/12returned and callees18/12 truncated; filter_acceptable_questions
+  search12ms/callers20ms,5untruncated edges. _narrative_fact_metadata search9ms/
+  callers20ms,5untruncated edges. Source confirmed the two product adapter paths
+  and assessment/publication consumers. Query-body times exclude process startup;
+  no matched causal speed/cost comparison or new Graphify duplicate traversal.
+- Real overhead in this continuation: guessed documentation/skill paths, one
+  oversized CI-jobs output, repeated unchanged governance/release-contract runs,
+  and replacement of an overreaching diagnostic seam with real-boundary tests.
+  One missing-file read had no mutation; no dependency installation or credential
+  fallback. All original diagnostic assertions preserved outside the suite.
+  Exact evaluator/root per-step tokens and subscription savings NOT_AVAILABLE.
+- Corrected leaf boundary suite7PASS/0.70s followed5PASS/2fixturefailures/0.89s
+  (bundle-field typo and prompt anchor, one leaf correction). Root review found
+  missing narrative-header confidence/axis exclusion assertions and answer-leaking
+  positive prompts. Root strengthened both real adapter paths and non-leaking,
+  source-anchored controls;8PASS/0.68s, wrapper wall3033ms. These are review/rework
+  costs, not first-pass acceptance or proof of improved real-model semantics.
+  Root also corrected one whitespace-contaminated packet hash before dispatch;
+  the Runner received the exact64-character frozen hash, not an ambiguous value.
+- Stable-batch CodeGraph sync after the new test file: SDK update1149ms,
+  whole wrapper6051ms;1624files/29914nodes/79789edges, exclusion auditPASS.
+  No app-source change or graph relationship claimed as runtime evidence.
+- Independent TestRunner shapesA wall142162ms: focused14/14in0.94s, canonical
+  quality/release contracts/frozen hash/no app-source delta PASS, no product or
+  fixture correction during the run. Root accepted report5aa8daa7/JSONc51254b7
+  after exact hash/scope checks. Runner ledger omitted exact UTC; Root appended
+  a labeled timing correction only after Runner became idle, preserving the
+  original entry. This provenance rework is coordination overhead, not a new test.
+
 ##35 verified closeout and correction overhead,2026-10-03
 
 - Runner35A wall354939ms, fresh862web/145files in130.70s plus lint/type/build67/

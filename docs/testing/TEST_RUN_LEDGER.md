@@ -1846,3 +1846,31 @@ Rules:
   bounded passed scopes to JSON, and keep all residual limitations separate;
   full-feature acceptance remains `PARTIAL`. Approximate B2 correction
   duration: 4 minutes wall-clock.
+- `TEST-ASSESSMENT-SHAPES-20261003-A` local synthetic/mock assessment-shape
+  regression PASS; no provider or production semantic claim. Exact checkout
+  `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD
+  `defd6a494af25e08a1ca37e89d303c94cd1950d4`; primary guard `PRIMARY_OK`,
+  primary aligned/clean/on `master`. Frozen new test
+  `apps/api/tests/unit/test_assessment_semantic_replay.py` SHA-256 before and
+  after `41277384b487e146efdbe2a96a7e58f056343331b89e4630b81ed1c6523b4f7f`;
+  no diff under `apps/api/app` or `apps/web/src`. Named focused pytest PASS:
+  14/14 in 0.94s, including the 8 semantic-replay cases and 2 named adapter
+  regressions. Canonical Python quality baseline PASS: Ruff 1010, mypy 2200.
+  Release-contract gate PASS: Alembic 172 revisions/head 0174, Celery contract,
+  migration ownership, 31 Render direct packages, and 213 unique error entries.
+  `git diff --check` PASS. No full application suite, provider/network,
+  browser, database, deployment, or production readback was run. Runner-owned
+  report and JSON:
+  `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-ASSESSMENT-SHAPES-20261003-A/report.md`
+  and `result.json`; root owns the six pre-existing changes and final
+  readiness, which remains `PARTIAL`.
+- Root provenance correction for `TEST-ASSESSMENT-SHAPES-20261003-A` after the
+  Runner became idle; the original entry above is unchanged. Runner turn
+  `01a10208-7993-7e71-8ed4-0b9bcbfbb7ca` began `2026-10-03T13:51:12Z` and
+  completed `2026-10-03T13:53:34Z`, product-supplied duration `142162ms`.
+  Report SHA-256 `5aa8daa75190347f0242d4b9ecdb91f445e1052dede294e8c5d14e007be18fd9`;
+  JSON SHA-256 `c51254b7e46d5323cf1ef3c3b1372ff317471a957f45c0bcc30b125e36adc7f6`.
+  Root independently matched those hashes, frozen test hash and unchanged app
+  source. This corrects missing exact UTC provenance only; no additional tests,
+  provider call, browser replay, production mutation or broader PASS is claimed.

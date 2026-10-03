@@ -318,6 +318,15 @@ cause is retroactively promoted to fact.
   symbols or snapshot sources return. Historical accepted V1 documents remain
   historical; the module index and V2 successor identify the active contract.
 
+**RECURRENCE2026-10-03:** legacy QA shape replay bypassed the real source adapter
+by constructing confidence1 SourceFact values and permissive provider reviews.
+The diagnostic admitted3malformed keys, but normal narrative Markdown headings
+are stripped and table headers/incomplete fragments are confidence0 upstream.
+This is not proof that current generation reproduces legacy content. Preserve
+the red diagnostic separately; verify adapter-to-axis reachability, actual
+independent-review behavior and legitimate quoted-question/name controls before
+repair. Do not introduce blanket punctuation/heading bans from this harness.
+
 ## AI-QUALITY-027 - True source sentences became unrelated answer options
 
 - Date: 2026-09-18. Confirmed against the owner's privacy-question screenshot

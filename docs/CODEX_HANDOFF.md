@@ -20,8 +20,13 @@ mobile+desktop/nooverflow PASS. Active learner bestscore live label NOT_VERIFIED
 source/locales/native verified. CDP PDF begin then canceled0bytes means filehandoff
 NOT_VERIFIED, cause unknown; serverPDF PASS. No new globalCSP observation claimed.
 Full feature PARTIAL: UIassignment/newPIN/token/mail/AI/voice/OTP/legal/signed-copy/
-review/package gaps. OldQA quiz content fails semantics; next isolated mocked V2
-replay four shapes, no provider/content rewrite. Do not repeat35execute/31cleanup,
+review/package gaps. OldQA quiz content fails semantics; isolated post-extraction
+replay3red/1green used permissive reviewers, not a production-regression oracle.
+Real adapter rejects Markdown heading/header/incomplete narrative fragments;
+valid quoted questions/names must remain assessable. Root adapter/reviewer/positive
+controls8PASS, independent TestRunner14/14+quality/contracts PASS; real-provider
+judgement still NOT_VERIFIED. Keep diagnostic separately;
+no generator code/provider/content rewrite. Do not repeat35execute/31cleanup,
 provisioning or completed QA learning. Immediateprevious34/packetfallback32/
 protected359/299 retained;31 only removed with offhost recovery. Free907968KiB.
 API29/schema174/workers unchanged baseline. Readiness owns current gates.
