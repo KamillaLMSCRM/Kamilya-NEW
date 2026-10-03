@@ -80,6 +80,7 @@ describe('mandatory training matrix', () => {
     render(<MandatoryTrainingPage />);
 
     expect(await screen.findByRole('heading', { name: 'Обязательное обучение' })).toBeInTheDocument();
+    expect(screen.getByText('Кому требуется какой курс, почему он нужен и какие назначения ещё не созданы.')).toBeInTheDocument();
     expect(screen.getAllByText('Аида Садыкова')).toHaveLength(2);
     expect(screen.getAllByText('Безопасность')).toHaveLength(2);
     expect(screen.getAllByText('Назначение ещё не создано').length).toBeGreaterThanOrEqual(2);

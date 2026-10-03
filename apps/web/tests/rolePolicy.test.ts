@@ -119,4 +119,20 @@ describe('navigation active state', () => {
       new URLSearchParams('tab=import'),
     )).toBe(true);
   });
+
+  it.each(['/courses/course-1', '/positions/position-1', '/cohorts/cohort-1', '/learning-paths/path-1', '/quizzes/quiz-1'])('keeps resource family active for nested detail %s', (pathname) => {
+    const family = pathname.split('/').slice(0, 2).join('/');
+    expect(isNavigationItemActive(family, pathname, new URLSearchParams())).toBe(true);
+    expect(isNavigationItemActive(`${family}-other`, pathname, new URLSearchParams())).toBe(false);
+  });
+
+  it('keeps nested platform admin routes active without broadening the prefix boundary', () => {
+    expect(isNavigationItemActive('/admin/super', '/admin/super/tenants/tenant-1', new URLSearchParams())).toBe(true);
+    expect(isNavigationItemActive('/admin/super', '/admin/supervisor/tenant-1', new URLSearchParams())).toBe(false);
+  });
+
+  it('does not broaden overview routes or ignore query-specific links', () => {
+    expect(isNavigationItemActive('/dashboard', '/dashboard/detail', new URLSearchParams())).toBe(false);
+    expect(isNavigationItemActive('/staff?tab=structure', '/staff', new URLSearchParams('tab=import'))).toBe(false);
+  });
 });

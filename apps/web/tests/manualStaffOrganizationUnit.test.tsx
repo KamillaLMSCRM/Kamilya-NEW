@@ -78,6 +78,16 @@ afterEach(() => {
 });
 
 describe('manual staff organization unit contract', () => {
+  it('gives free-form new department and position fields distinct accessible names', async () => {
+    render(<AdminStaffPage />);
+    fireEvent.click(screen.getByRole('button', { name: /Добавить сотрудника/i }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новый сотрудник' });
+    expect(within(dialog).getByLabelText('Название нового отдела (необязательно)')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Название новой должности')).toBeInTheDocument();
+    expect(within(dialog).getByRole('combobox', { name: /^Отдел/ })).toBeInTheDocument();
+    expect(within(dialog).getByRole('combobox', { name: /^Должность/ })).toBeInTheDocument();
+  });
+
   it('allows an employee with a required existing position and no organization unit', async () => {
     render(<AdminStaffPage />);
     fireEvent.click(screen.getByRole('button', { name: /Добавить сотрудника/i }));

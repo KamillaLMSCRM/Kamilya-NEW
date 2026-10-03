@@ -318,18 +318,27 @@ export default function CoursesPage() {
       {showCreate && (
         <div className="rounded-2xl border border-border bg-card p-6 shadow-card space-y-4">
           <h3 className="font-bold text-foreground font-display">{t('courses.createCourse')}</h3>
+          <label htmlFor="new-course-title" className="block text-sm font-medium text-foreground">
+            {t('courses.courseTitle')}
+          </label>
           <Input
+            id="new-course-title"
+            required
             placeholder={t('courses.courseTitle')}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
+          <label htmlFor="new-course-description" className="block text-sm font-medium text-foreground">
+            {t('courses.courseDescription')}
+          </label>
           <Input
+            id="new-course-description"
             placeholder={t('courses.courseDescription')}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
           <div className="flex gap-2">
-            <Button onClick={handleCreate}>{t('common.create')}</Button>
+            <Button onClick={handleCreate} disabled={!title.trim()}>{t('common.create')}</Button>
             <Button variant="outline" onClick={() => setShowCreate(false)}>
               {t('common.cancel')}
             </Button>

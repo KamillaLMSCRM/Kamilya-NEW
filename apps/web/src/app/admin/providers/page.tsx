@@ -5,6 +5,8 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, 
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
+import { api } from '@/lib/api';
+import { apiErrorMessage } from '@/lib/apiErrorMessage';
 import {
   GenerationModelRouting,
   ModelRoutingRequestError,
@@ -26,10 +28,13 @@ interface ProviderKey {
   last_error: string | null;
 }
 
+function requestErrorMessage(error: unknown) {
+  return apiErrorMessage(error, error instanceof Error ? error.message : 'Unknown error');
+}
+
 export default function AdminProvidersPage() {
   const { t } = useT();
   const token = useAuthStore((s) => s.accessToken);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const [keys, setKeys] = useState<ProviderKey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,19 +56,14 @@ export default function AdminProvidersPage() {
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/v1/admin/provider-keys`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setKeys(data.providers || []);
+      const response = await api.get<{ providers?: ProviderKey[] }>('/v1/admin/provider-keys');
+      setKeys(response.data.providers || []);
     } catch (e) {
-      console.error(e);
       toast.error(t('providers.loadError'));
     } finally {
       setLoading(false);
     }
-  }, [token, API_URL, t]);
+  }, [token, t]);
 
   useEffect(() => {
     fetchKeys();
@@ -73,31 +73,19 @@ export default function AdminProvidersPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/v1/admin/provider-keys`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      await api.post('/v1/admin/provider-keys', {
           provider: newProvider,
           api_key: newApiKey,
           label: newLabel || null,
           is_active: true,
-        }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
-        throw new Error(err.detail || `HTTP ${res.status}`);
-      }
       toast.success(t('providers.saveOk'));
       setShowCreate(false);
       setNewApiKey('');
       setNewLabel('');
       await fetchKeys();
     } catch (e) {
-      console.error(e);
-      toast.error(`${t('providers.saveError')}: ${(e as Error).message}`);
+      toast.error(`${t('providers.saveError')}: ${requestErrorMessage(e)}`);
     } finally {
       setSubmitting(false);
     }
@@ -105,18 +93,9 @@ export default function AdminProvidersPage() {
 
   const handleToggleActive = async (key: ProviderKey) => {
     try {
-      const res = await fetch(`${API_URL}/v1/admin/provider-keys/${key.id}`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ is_active: !key.is_active }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await api.patch(`/v1/admin/provider-keys/${key.id}`, { is_active: !key.is_active });
       await fetchKeys();
     } catch (e) {
-      console.error(e);
       toast.error(t('providers.saveError'));
     }
   };
@@ -125,15 +104,10 @@ export default function AdminProvidersPage() {
     const label = key.label || key.provider;
     if (!confirm(t('providers.deleteConfirm', { label }))) return;
     try {
-      const res = await fetch(`${API_URL}/v1/admin/provider-keys/${key.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await api.delete(`/v1/admin/provider-keys/${key.id}`);
       toast.success(t('providers.deleteOk'));
       await fetchKeys();
     } catch (e) {
-      console.error(e);
       toast.error(t('providers.deleteError'));
     }
   };
@@ -141,20 +115,16 @@ export default function AdminProvidersPage() {
   const handleTest = async (key: ProviderKey) => {
     setTestingId(key.id);
     try {
-      const res = await fetch(`${API_URL}/v1/admin/provider-keys/${key.id}/test`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
+      const response = await api.post<{ ok: boolean; latency_ms?: number; error?: string }>(`/v1/admin/provider-keys/${key.id}/test`);
+      const data = response.data;
       if (data.ok) {
-        toast.success(t('providers.testOk', { latency: data.latency_ms }));
+        toast.success(t('providers.testOk', { latency: data.latency_ms ?? 0 }));
       } else {
         toast.error(t('providers.testFail', { error: data.error || 'unknown' }));
       }
       await fetchKeys(); // refresh last_used_at + last_error
     } catch (e) {
-      console.error(e);
-      toast.error(t('providers.testFail', { error: (e as Error).message }));
+      toast.error(t('providers.testFail', { error: requestErrorMessage(e) }));
     } finally {
       setTestingId(null);
     }
@@ -164,7 +134,7 @@ export default function AdminProvidersPage() {
     if (!token) return;
     setRoutingLoading(true);
     try {
-      const data = await getGenerationModelRouting(API_URL, token);
+      const data = await getGenerationModelRouting();
       setRouting(data);
       setRoutingOrder(
         data.models
@@ -173,12 +143,11 @@ export default function AdminProvidersPage() {
           .map((model) => model.id),
       );
     } catch (error) {
-      console.error(error);
       toast.error(t('providers.routingLoadError'));
     } finally {
       setRoutingLoading(false);
     }
-  }, [API_URL, t, token]);
+  }, [t, token]);
 
   const openRouting = () => {
     setShowRouting(true);
@@ -208,12 +177,7 @@ export default function AdminProvidersPage() {
     if (!token || !routing) return;
     setRoutingSaving(true);
     try {
-      const saved = await saveGenerationModelRouting(
-        API_URL,
-        token,
-        routing.revision,
-        routingOrder,
-      );
+      const saved = await saveGenerationModelRouting(routing.revision, routingOrder);
       setRouting(saved);
       setRoutingOrder(
         saved.models
@@ -224,7 +188,6 @@ export default function AdminProvidersPage() {
       setShowRouting(false);
       toast.success(t('providers.routingSaveOk'));
     } catch (error) {
-      console.error(error);
       if (error instanceof ModelRoutingRequestError && error.status === 409) {
         toast.error(t('providers.routingConflict'));
         await loadRouting();
@@ -500,10 +463,11 @@ export default function AdminProvidersPage() {
       >
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label htmlFor="provider-key-provider" className="block text-sm font-medium mb-1">
               {t('providers.provider')}
             </label>
             <select
+              id="provider-key-provider"
               className="w-full rounded border border-border bg-bg-primary px-3 py-2 text-sm"
               value={newProvider}
               onChange={(e) => setNewProvider(e.target.value as 'deepseek' | 'voyage' | 'cohere')}
@@ -515,10 +479,11 @@ export default function AdminProvidersPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label htmlFor="provider-key-api-key" className="block text-sm font-medium mb-1">
               {t('providers.apiKey')}
             </label>
             <Input
+              id="provider-key-api-key"
               type="password"
               value={newApiKey}
               onChange={(e) => setNewApiKey(e.target.value)}
@@ -530,10 +495,11 @@ export default function AdminProvidersPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label htmlFor="provider-key-label" className="block text-sm font-medium mb-1">
               {t('providers.label')}
             </label>
             <Input
+              id="provider-key-label"
               type="text"
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}

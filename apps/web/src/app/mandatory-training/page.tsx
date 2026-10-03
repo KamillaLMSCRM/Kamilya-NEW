@@ -22,7 +22,7 @@ import { useLanguageStore } from '@/store/languageStore';
 const copy = {
   ru: {
     title: 'Обязательное обучение',
-    subtitle: 'Кому и какой курс требуется пройти, почему он назначен и где правило ещё не материализовалось.',
+    subtitle: 'Кому требуется какой курс, почему он нужен и какие назначения ещё не созданы.',
     searchPlaceholder: 'Сотрудник, email или табельный номер',
     apply: 'Применить', retry: 'Повторить', allStates: 'Все состояния',
     loading: 'Собираем матрицу обязательного обучения…',
@@ -49,7 +49,7 @@ const copy = {
     actionLabels: { none: 'Действие не требуется', materialize: 'Нужно создать назначение', review_stale: 'Нужно проверить назначение' },
   },
   en: {
-    title: 'Mandatory training', subtitle: 'Who must complete which course, why it is assigned, and where a rule has not materialized yet.',
+    title: 'Mandatory training', subtitle: 'Who needs which course, why, and which assignments have not yet been created.',
     searchPlaceholder: 'Employee, email, or personnel number', apply: 'Apply', retry: 'Retry', allStates: 'All states',
     loading: 'Building the mandatory-training matrix…', loadError: 'Could not load the matrix. Missing data is not shown as zero.',
     empty: 'No rows match the selected filters.', total: 'Total requirements', materialized: 'Assigned', missing: 'Missing assignment', protected: 'Protected', stale: 'Needs review',
@@ -65,7 +65,7 @@ const copy = {
     actionLabels: { none: 'No action required', materialize: 'Create the assignment', review_stale: 'Review the assignment' },
   },
   kk: {
-    title: 'Міндетті оқу', subtitle: 'Кім қандай курстан өтуі тиіс, неге тағайындалған және қай ереже әлі тағайындауға айналмаған.',
+    title: 'Міндетті оқу', subtitle: 'Кімге қандай курс қажет, не үшін қажет және қандай тағайындаулар әлі жасалмаған.',
     searchPlaceholder: 'Қызметкер, email немесе табельдік нөмір', apply: 'Қолдану', retry: 'Қайталау', allStates: 'Барлық күйлер',
     loading: 'Міндетті оқу матрицасы жиналуда…', loadError: 'Матрицаны жүктеу мүмкін болмады. Жоқ дерек нөлмен ауыстырылмайды.',
     empty: 'Таңдалған шарттар бойынша жол жоқ.', total: 'Барлық талап', materialized: 'Тағайындалды', missing: 'Тағайындау жоқ', protected: 'Қорғалған', stale: 'Тексеру қажет',

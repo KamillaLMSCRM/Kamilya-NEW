@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StrictMode } from 'react';
 
@@ -8,11 +8,45 @@ vi.mock('@/store/authStore', () => ({ useAuthStore: (selector: (state: any) => u
 
 import AssignmentWorkbench from '@/features/methodologist-workbench/AssignmentWorkbench';
 import { confirmAssignmentPlan, loadAssignmentPlan, requestAssignmentPreview } from '@/lib/methodologistWorkbench';
+import { useLanguageStore } from '@/store/languageStore';
 
 const ready = { state: 'preview_ready', plan_id: '11111111-1111-4111-8111-111111111111', revision: 2, fingerprint: 'a'.repeat(64), expires_at: '2026-12-31T00:00:00Z', course_id: '22222222-2222-4222-8222-222222222222', course_title: 'Safety', release_id: '33333333-3333-4333-8333-333333333333', department_id: '44444444-4444-4444-8444-444444444444', department_name: 'Operations', timezone_name: 'Asia/Almaty', due_at: '2026-12-31T17:59:59+05:00', notify: false, include_descendants: false, recipients: [{ user_id: '55555555-5555-4555-8555-555555555555', label: 'A', already_assigned: false, access_warning: false }], new_count: 1, skipped_count: 0 };
+const command = 'Назначь курс "Safety" отделу "Operations" до 31.12.2026';
+const enterCommand = () => fireEvent.change(screen.getByLabelText('Команда назначения'), { target: { value: command } });
 
 describe('AssignmentWorkbench', () => {
-  beforeEach(() => { vi.resetAllMocks(); window.history.replaceState(null, '', '/methodologist-workbench'); authState.user = { role: 'methodologist', user_id: 'actor' }; authState.accessToken = 'token'; vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED', 'true'); });
+  beforeEach(() => { vi.resetAllMocks(); useLanguageStore.getState().setLang('ru'); window.history.replaceState(null, '', '/methodologist-workbench'); authState.user = { role: 'methodologist', user_id: 'actor' }; authState.accessToken = 'token'; vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED', 'true'); });
+
+  it('starts blank and keeps preview transport disabled until a real command is entered', () => {
+    render(<AssignmentWorkbench />);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Рабочее место методиста');
+    expect(screen.getByLabelText('Команда назначения')).toHaveAttribute('aria-describedby', 'assignment-command-example assignment-command-parser');
+    expect(screen.getByRole('button', { name: 'Показать предварительный просмотр' })).toBeDisabled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it.each(['ru', 'kk', 'en'] as const)('renders accessible heading and purpose in %s', (locale) => {
+    useLanguageStore.getState().setLang(locale);
+    render(<AssignmentWorkbench />);
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+    expect(screen.getAllByText(/preview|алдын ала|предваритель/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Russian|орысша|русский/i)).toBeInTheDocument();
+  });
+
+  it('preserves a typed draft and accepted preview across locale switch', async () => {
+    post.mockResolvedValueOnce({ data: ready }).mockResolvedValueOnce({ data: { state: 'succeeded', plan_id: ready.plan_id, created: [], skipped: [], notification_state: 'not_requested' } });
+    render(<AssignmentWorkbench />);
+    enterCommand();
+    fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Подтвердить назначение' })).toBeInTheDocument());
+    await act(async () => { useLanguageStore.getState().setLang('en'); });
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Methodologist workbench');
+    expect(screen.getByLabelText('Assignment command')).toHaveValue(command);
+    expect(screen.getByRole('button', { name: 'Confirm assignment' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm assignment' }));
+    await waitFor(() => expect(screen.getByText('Assignment accepted')).toBeInTheDocument());
+    expect(post).toHaveBeenCalledTimes(2);
+  });
 
   it('restores a plan under StrictMode effect replay instead of remaining pending', async () => {
     window.history.replaceState(null, '', `/methodologist-workbench?plan=${ready.plan_id}`);
@@ -97,8 +131,10 @@ describe('AssignmentWorkbench', () => {
   it('uses the explicit defaults and renders a validated preview before confirmation', async () => {
     post.mockResolvedValueOnce({ data: ready });
     render(<AssignmentWorkbench />);
-    expect(screen.getByLabelText('Команда назначения')).toHaveValue('Назначь курс "Название курса" отделу "Название отдела" до 31.12.2026');
+    expect(screen.getByLabelText('Команда назначения')).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Показать предварительный просмотр' })).toBeDisabled();
     expect(screen.getByText('Asia/Almaty')).toBeInTheDocument();
+    enterCommand();
     fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
     await waitFor(() => expect(screen.getByText(/Safety \(22222222-2222-4222-8222-222222222222\)/)).toBeInTheDocument());
     expect(post).toHaveBeenCalledWith('/v1/methodologist-workbench/assignment-preview', expect.objectContaining({ notify: false, include_descendants: false, timezone_name: 'Asia/Almaty' }));
@@ -107,6 +143,7 @@ describe('AssignmentWorkbench', () => {
   it('confirms only after deliberate click and reports queued, not delivered', async () => {
     post.mockResolvedValueOnce({ data: ready }).mockResolvedValueOnce({ data: { state: 'succeeded', plan_id: ready.plan_id, created: [{ user_id: '55555555-5555-4555-8555-555555555555', enrollment_id: '88888888-8888-4888-8888-888888888888', notification_id: null }], skipped: [], notification_state: 'queued' } });
     render(<AssignmentWorkbench />);
+    enterCommand();
     fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Подтвердить назначение' })).toBeInTheDocument());
     expect(post).toHaveBeenCalledTimes(1);
@@ -119,6 +156,7 @@ describe('AssignmentWorkbench', () => {
   it('reloads the succeeded receipt after remount without issuing another confirmation', async () => {
     post.mockResolvedValueOnce({ data: ready }).mockResolvedValueOnce({ data: { state: 'succeeded', plan_id: ready.plan_id, created: [], skipped: [ready.recipients[0].user_id], notification_state: 'not_requested' } });
     render(<AssignmentWorkbench />);
+    enterCommand();
     fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Подтвердить назначение' })).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Подтвердить назначение' }));
@@ -134,10 +172,12 @@ describe('AssignmentWorkbench', () => {
   it('shows server clarification choices and resubmits selected ids', async () => {
     post.mockResolvedValueOnce({ data: { state: 'clarification_needed', code: 'ambiguous', course_choices: [{ id: '66666666-6666-4666-8666-666666666666', label: 'Safety' }], department_choices: [{ id: '77777777-7777-4777-8777-777777777777', label: 'Operations' }] } }).mockResolvedValueOnce({ data: ready });
     render(<AssignmentWorkbench />);
+    enterCommand();
     fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
     await waitFor(() => expect(screen.getByText(/Не удалось однозначно подготовить назначение/)).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText('Курс'), { target: { value: '66666666-6666-4666-8666-666666666666' } });
     fireEvent.change(screen.getByLabelText('Отдел'), { target: { value: '77777777-7777-4777-8777-777777777777' } });
+    enterCommand();
     fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
     await waitFor(() => expect(screen.getByText(/Safety \(22222222-2222-4222-8222-222222222222\)/)).toBeInTheDocument());
     expect(post).toHaveBeenLastCalledWith('/v1/methodologist-workbench/assignment-preview', expect.objectContaining({ course_id: '66666666-6666-4666-8666-666666666666', department_id: '77777777-7777-4777-8777-777777777777' }));
@@ -191,6 +231,7 @@ describe('AssignmentWorkbench', () => {
     let resolvePreview!: (value: { data: typeof ready }) => void;
     post.mockReturnValueOnce(new Promise((resolve) => { resolvePreview = resolve; }));
     render(<AssignmentWorkbench />);
+    enterCommand();
     fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
     fireEvent.change(screen.getByLabelText('Команда назначения'), { target: { value: 'changed' } });
     resolvePreview({ data: ready });
@@ -203,6 +244,7 @@ describe('AssignmentWorkbench', () => {
     let resolveReceipt!: (value: { data: unknown }) => void;
     post.mockReturnValueOnce(new Promise((resolve) => { resolveReceipt = resolve; }));
     render(<AssignmentWorkbench />);
+    enterCommand();
     fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Подтвердить назначение' })).toBeInTheDocument());
     const confirmButton = screen.getByRole('button', { name: 'Подтвердить назначение' });
@@ -215,6 +257,7 @@ describe('AssignmentWorkbench', () => {
   it('clears selected clarification IDs when instruction/context changes', async () => {
     post.mockResolvedValueOnce({ data: { state: 'clarification_needed', code: 'ambiguous', course_choices: [{ id: '66666666-6666-4666-8666-666666666666', label: 'Safety' }], department_choices: [{ id: '77777777-7777-4777-8777-777777777777', label: 'Operations' }] } }).mockResolvedValueOnce({ data: ready });
     render(<AssignmentWorkbench />);
+    enterCommand();
     fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
     await waitFor(() => expect(screen.getByLabelText('Курс')).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText('Курс'), { target: { value: '66666666-6666-4666-8666-666666666666' } });
@@ -228,6 +271,7 @@ describe('AssignmentWorkbench', () => {
   it('removes receipt and pending state when session identity or active role changes', async () => {
     post.mockResolvedValueOnce({ data: ready }).mockResolvedValueOnce({ data: { state: 'succeeded', plan_id: ready.plan_id, created: [], skipped: ['55555555-5555-4555-8555-555555555555'], notification_state: 'not_requested' } });
     const view = render(<AssignmentWorkbench />);
+    enterCommand();
     fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Подтвердить назначение' })).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Подтвердить назначение' }));
@@ -244,6 +288,7 @@ describe('AssignmentWorkbench', () => {
   it('turns unsupported parser codes into actionable Russian guidance without exposing the code', async () => {
     post.mockResolvedValueOnce({ data: { state: 'clarification_needed', code: 'instruction_unsupported', course_choices: [], department_choices: [] } });
     render(<AssignmentWorkbench />);
+    enterCommand();
     fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
     await waitFor(() => expect(screen.getByText(/Команда не распознана/)).toBeInTheDocument());
     expect(screen.queryByText('instruction_unsupported')).not.toBeInTheDocument();

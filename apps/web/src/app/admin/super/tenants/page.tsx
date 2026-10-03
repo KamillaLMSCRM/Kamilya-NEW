@@ -9,6 +9,7 @@ import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/store/authStore';
 import { useDebounce } from '@/lib/useDebounce';
 import { formatUsageCounter, type TenantUsageCounters } from '@/features/superadmin/usage';
+import { api } from '@/lib/api';
 
 interface Tenant {
   id: string;
@@ -152,6 +153,14 @@ function errorMessageFromResponse(payload: unknown) {
   return 'Unknown';
 }
 
+function errorMessageFromError(error: unknown) {
+  const response = (error as { response?: { data?: unknown; status?: number } } | null)?.response;
+  const detail = errorMessageFromResponse(response?.data);
+  if (detail !== 'Unknown') return detail;
+  if (response?.status) return `HTTP ${response.status}`;
+  return error instanceof Error ? error.message : 'Unknown';
+}
+
 function formatDate(value: string | null) {
   if (!value) return '—';
   return new Intl.DateTimeFormat('ru-KZ', {
@@ -195,7 +204,6 @@ function defaultCreateForm() {
 export default function SuperAdminTenants() {
   const { t, tp } = useT();
   const token = useAuthStore((s) => s.accessToken);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -209,6 +217,10 @@ export default function SuperAdminTenants() {
   const [deletingTenantId, setDeletingTenantId] = useState<string | null>(null);
   const [tenantPendingDelete, setTenantPendingDelete] = useState<Tenant | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const planLabel = (plan: string) => {
+    const translated = t(`superadmin.plans.${plan}` as any);
+    return translated === `superadmin.plans.${plan}` ? plan : translated;
+  };
 
   const debouncedSearch = useDebounce(search, 300);
 
@@ -219,19 +231,15 @@ export default function SuperAdminTenants() {
     try {
       const params = new URLSearchParams();
       if (debouncedSearch) params.set('search', debouncedSearch);
-      const res = await fetch(`${API_URL}/v1/admin/super/tenants?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setTenants(data.tenants || []);
+      const response = await api.get<{ tenants?: Tenant[] }>(`/v1/admin/super/tenants?${params}`);
+      setTenants(response.data.tenants || []);
     } catch {
       setLoadFailed(true);
       toast.error(t('superadmin.tenants.loadError'));
     } finally {
       setLoading(false);
     }
-  }, [token, API_URL, debouncedSearch, t]);
+  }, [token, debouncedSearch, t]);
 
   useEffect(() => {
     void fetchTenants();
@@ -248,6 +256,11 @@ export default function SuperAdminTenants() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.name.trim().length < 2) {
+      toast.error('Укажите название компании (минимум 2 символа).');
+      setCreateStep(1);
+      return;
+    }
     const slug = normalizeSlug(form.slug || slugifyTenantName(form.name));
     if (!SLUG_PATTERN.test(slug) || slug.length < 2) {
       toast.error('Slug должен содержать минимум 2 символа: латинские буквы, цифры и дефисы.');
@@ -287,29 +300,27 @@ export default function SuperAdminTenants() {
         body.max_courses_per_month = parseInt(form.max_courses_per_month, 10);
       }
 
-      const res = await fetch(`${API_URL}/v1/admin/super/tenants`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Unknown' }));
-        const message = errorMessageFromResponse(err);
-        throw new Error(message === 'Unknown' ? `HTTP ${res.status}` : message);
-      }
-      const data = (await res.json()) as TenantCreateResult;
+      const response = await api.post<TenantCreateResult>('/v1/admin/super/tenants', body);
+      const data = response.data;
       setCreateResult(data);
       setCreateStep(3);
       toast.success('Тенант и первый администратор созданы.');
       await fetchTenants();
     } catch (e) {
-      toast.error(`${t('superadmin.tenants.saveError')}: ${(e as Error).message}`);
+      toast.error(`${t('superadmin.tenants.saveError')}: ${errorMessageFromError(e)}`);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const advanceCreateStep = () => {
+    const name = form.name.trim();
+    const slug = normalizeSlug(form.slug || slugifyTenantName(name));
+    if (!name || name.length < 2 || !SLUG_PATTERN.test(slug) || slug.length < 2) {
+      toast.error('Укажите название компании и корректный slug (минимум 2 символа: латинские буквы, цифры и дефисы).');
+      return;
+    }
+    setCreateStep(2);
   };
 
   const copyInviteUrl = async () => {
@@ -342,24 +353,13 @@ export default function SuperAdminTenants() {
     try {
       // P0.2: server-side defense in depth — confirm_slug is also required
       // by the backend (DELETE /tenants/{id}?confirm_slug=<slug>).
-      const res = await fetch(
-        `${API_URL}/v1/admin/super/tenants/${tenant.id}?confirm_slug=${encodeURIComponent(tenant.slug)}`,
-        {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Unknown' }));
-        const message = errorMessageFromResponse(err);
-        throw new Error(message === 'Unknown' ? `HTTP ${res.status}` : message);
-      }
+      await api.delete(`/v1/admin/super/tenants/${tenant.id}?confirm_slug=${encodeURIComponent(tenant.slug)}`);
       toast.success(`Тенант ${tenant.name} удален.`);
       setTenantPendingDelete(null);
       setDeleteConfirmation('');
       await fetchTenants();
     } catch (e) {
-      toast.error(`Не удалось удалить тенанта: ${(e as Error).message}`);
+      toast.error(`Не удалось удалить тенанта: ${errorMessageFromError(e)}`);
     } finally {
       setDeletingTenantId(null);
     }
@@ -386,7 +386,9 @@ export default function SuperAdminTenants() {
           <div className="flex items-center justify-between gap-4">
             <CardTitle>{t('superadmin.tenants.title')}</CardTitle>
             <Input
+              id="tenant-search"
               type="search"
+              aria-label={t('superadmin.tenants.search')}
               placeholder={t('superadmin.tenants.search')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -450,7 +452,7 @@ export default function SuperAdminTenants() {
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-1">
-                          <Badge variant="secondary">{t(`superadmin.plans.${tnt.plan}` as any)}</Badge>
+                          <Badge variant="secondary">{planLabel(tnt.plan)}</Badge>
                           <Badge variant={tnt.status === 'active' ? 'default' : 'secondary'}>
                             {t(`superadmin.statuses.${tnt.status}` as any)}
                           </Badge>
@@ -610,8 +612,9 @@ export default function SuperAdminTenants() {
             {createStep === 1 && (
               <>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Название компании</label>
+                  <label htmlFor="tenant-create-name" className="block text-sm font-medium mb-1">Название компании</label>
                   <Input
+                    id="tenant-create-name"
                     value={form.name}
                     onChange={(e) => {
                       const name = e.target.value;
@@ -627,8 +630,9 @@ export default function SuperAdminTenants() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Slug</label>
+                  <label htmlFor="tenant-create-slug" className="block text-sm font-medium mb-1">Slug</label>
                   <Input
+                    id="tenant-create-slug"
                     value={form.slug}
                     onChange={(e) => {
                       setSlugEdited(true);
@@ -646,8 +650,9 @@ export default function SuperAdminTenants() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Тариф</label>
+                    <label htmlFor="tenant-create-plan" className="block text-sm font-medium mb-1">Тариф</label>
                     <select
+                      id="tenant-create-plan"
                       className="w-full rounded border border-border bg-bg-primary px-3 py-2 text-sm"
                       value={form.plan}
                       onChange={(e) => setForm({ ...form, plan: e.target.value as any })}
@@ -660,8 +665,9 @@ export default function SuperAdminTenants() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Статус</label>
+                    <label htmlFor="tenant-create-status" className="block text-sm font-medium mb-1">Статус</label>
                     <select
+                      id="tenant-create-status"
                       className="w-full rounded border border-border bg-bg-primary px-3 py-2 text-sm"
                       value={form.status}
                       onChange={(e) => setForm({ ...form, status: e.target.value as any })}
@@ -684,8 +690,9 @@ export default function SuperAdminTenants() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Пользователи</label>
+                    <label htmlFor="tenant-create-max-users" className="block text-sm font-medium mb-1">Пользователи</label>
                     <Input
+                      id="tenant-create-max-users"
                       type="number"
                       min="1"
                       value={form.max_users}
@@ -693,8 +700,9 @@ export default function SuperAdminTenants() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Курсы/мес.</label>
+                    <label htmlFor="tenant-create-max-courses" className="block text-sm font-medium mb-1">Курсы/мес.</label>
                     <Input
+                      id="tenant-create-max-courses"
                       type="number"
                       min="0"
                       value={form.max_courses_per_month}
@@ -712,8 +720,9 @@ export default function SuperAdminTenants() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Email</label>
+                    <label htmlFor="tenant-create-admin-email" className="block text-sm font-medium mb-1">Email</label>
                     <Input
+                      id="tenant-create-admin-email"
                       type="email"
                       value={form.first_admin_email}
                       onChange={(e) => setForm({ ...form, first_admin_email: e.target.value })}
@@ -721,8 +730,9 @@ export default function SuperAdminTenants() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Telegram ID</label>
+                    <label htmlFor="tenant-create-admin-telegram" className="block text-sm font-medium mb-1">Telegram ID</label>
                     <Input
+                      id="tenant-create-admin-telegram"
                       type="number"
                       min="1"
                       value={form.first_admin_telegram_id}
@@ -733,16 +743,18 @@ export default function SuperAdminTenants() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Имя</label>
+                    <label htmlFor="tenant-create-admin-first-name" className="block text-sm font-medium mb-1">Имя</label>
                     <Input
+                      id="tenant-create-admin-first-name"
                       value={form.first_admin_first_name}
                       onChange={(e) => setForm({ ...form, first_admin_first_name: e.target.value })}
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Фамилия</label>
+                    <label htmlFor="tenant-create-admin-last-name" className="block text-sm font-medium mb-1">Фамилия</label>
                     <Input
+                      id="tenant-create-admin-last-name"
                       value={form.first_admin_last_name}
                       onChange={(e) => setForm({ ...form, first_admin_last_name: e.target.value })}
                       required
@@ -751,8 +763,9 @@ export default function SuperAdminTenants() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Роль</label>
+                    <label htmlFor="tenant-create-admin-role" className="block text-sm font-medium mb-1">Роль</label>
                     <select
+                      id="tenant-create-admin-role"
                       className="w-full rounded border border-border bg-bg-primary px-3 py-2 text-sm"
                       value={form.first_admin_role}
                       onChange={(e) => setForm({ ...form, first_admin_role: e.target.value as any })}
@@ -785,7 +798,7 @@ export default function SuperAdminTenants() {
                   </Button>
                 )}
                 {createStep === 1 ? (
-                  <Button type="button" variant="default" onClick={() => setCreateStep(2)}>
+                  <Button type="button" variant="default" onClick={advanceCreateStep}>
                     Далее
                   </Button>
                 ) : (

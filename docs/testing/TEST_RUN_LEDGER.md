@@ -1442,3 +1442,58 @@ Rules:
 - Result `MEASURED_DECODER_POLICY_ONLY`; KK/domain/natural mixed quality,
   private-audio intake/TTL, GPU/p95/phone/cancel and VM126 capacity remain OPEN.
   Production text release unchanged; voice/LLM integration NOT_RELEASED.
+
+- `TEST-CLIENT30-20261003-A` superseded/stopped: root reproduced the production
+  tenant overview/list failure after access-token expiry while the session remained
+  logged in; raw platform fetch paths appeared to bypass canonical refresh-on-401.
+  A matrix was entirely unrun by this runner; no source repair or overall PASS was
+  claimed. The frozen source was therefore invalidated pending a replacement packet.
+- `TEST-CLIENT30-20261003-B` stopped on the first required gate after exact
+  worktree/branch/HEAD and frozen-package verification. Pre/post checks matched
+  all 56 bound files (mismatches 0); manifest SHA-256
+  `63bbef13dcb90b81ac2540fd995ec3dd884fb91db3cf7129dd7cd157f9a37a23`.
+  `apps/web` `pnpm.cmd test --run`: 138/139 test files passed and 823/824 tests
+  passed; one existing contract test failed at
+  `tests/methodologistInformationArchitecture.test.ts` because it expected the
+  tenant-detail source to contain literal `credentials: 'include'`, while the
+  current path uses the shared API transport. Classified `PRODUCT_DEFECT` pending
+  root reconciliation; no repair, snapshot update, external/runtime action, or
+  dependent gate was run. Lint, typecheck, build, codegraph, version, Python,
+  Poetry, diff-check, and remaining matrix gates are UNRUN. The packet field
+  `NEXT_PUBLIC_WORKBENCH_ENABLED` was corrected to the workflow-canonical
+  `NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED=true` before any build attempt;
+  no build was run. Sanitized evidence:
+  `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT30-20261003-B/stop-report.md`
+  SHA-256 `01f270d2187049f4183ad5a3a5dd948de5a7e21e6b97a887d990d57d5cc7e6b3`.
+- Classification addendum for `TEST-CLIENT30-20261003-B`: root review reclassified
+  the single stopped assertion as `HARNESS_FAILURE`, not `PRODUCT_DEFECT`. The
+  assertion hardcodes a removed fetch-level credentials literal after the intended
+  migration to the canonical API transport; the shared client already uses
+  `withCredentials: true` and the adapter regression covers cookie replay. The run
+  remains STOPPED with no green claim and no rerun/repair. Addendum evidence:
+  `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT30-20261003-B/classification-addendum.md`.
+- `TEST-CLIENT30-20261003-C` local acceptance PASS at `2026-10-03T04:01:19Z`
+  pre-ledger verification, exact worktree
+  `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD
+  `0a52b99f6d7edfe7b8f1f96d1d17f2bf6cecc47b`. Frozen manifest
+  `frozen-package-C.json` SHA-256
+  `2bebfaa09e9eda3fd0f13c260ae52478d5649d36c0b945a7d77d5d17e824d163`;
+  all 58/58 bound files matched before and after the matrix. Web Vitest
+  `pnpm.cmd exec vitest run` PASS: 139/139 files, 825/825 tests, 57.61s;
+  lint PASS; typecheck PASS; process-local production build PASS with
+  `NEXT_PUBLIC_API_URL=https://api.kml.kz/api`,
+  `NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED=true`, and
+  `NEXT_TELEMETRY_DISABLED=1`, generating 67/67 static pages. Node wrapper
+  tests PASS 9/9; both requested Node syntax checks PASS; release version
+  validator PASS for `0.11.30`; exact DB-free Python selectors PASS with
+  141 passed, 2 skipped, 9 subtests; Python quality baseline PASS
+  (Ruff 1010, mypy 2200); `poetry check --lock` PASS; `git diff --check`
+  PASS; primary `C:\Kamilya New\Kamilya-NEW` clean and not tested. No source,
+  test, config, plan, AGENTS, ERRORS, snapshot, lockfile, provider, database,
+  network, browser, production, deployment, credential, or external-runtime
+  mutation/action. Evidence:
+  `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT30-20261003-C/acceptance-report.md`
+  SHA-256 `20792a2c48c7ecf8ecd5b6ff34eca904827c8a89838a6811468425ba5610dd00`.
+  This is local acceptance evidence only and does not establish production
+  or deployed-runtime proof.

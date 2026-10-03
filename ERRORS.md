@@ -5515,3 +5515,24 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   windows before a live packet, reuse process-local sessions and avoid concurrent
   root browser/API logins. A429 stops the packet; only a corrected exact packet
   may resume after the real window. Pacing rule added to Test Runner instructions.
+
+## AUTH-PLATFORM-REFRESH-001 - Platform fetch bypassed expired-session recovery
+
+- Date: 2026-10-03. Status: LOCAL REPAIR IN PROGRESS; production unchanged.
+- Symptom: normal superadmin tenant overview and list failed after a long
+  session while navigation still showed an authenticated user. Reload restored
+  the same cookie-backed session and populated the list without another login.
+- Cause: platform tenant/provider pages and model-routing helper use raw fetch
+  with a captured bearer instead of the existing api refresh-on-401 transport.
+  Canonical access TTL is15minutes; normal refresh stays cookie-bound/in-memory.
+- Fix: reuse the existing api transport for scoped platform requests, preserving
+  paths, methods, payloads, conflict/error handling and role boundaries. No token
+  lifetime, authentication policy, key, provider or server change is authorized.
+- Verification: root production UI before/reload-after observation; source
+  lib/api.ts, lib/auth.ts and platform pages. Frozen test packet
+  TEST-CLIENT30-20261003-A stopped/superseded; replacement regression and final
+  production long-session acceptance remain required, not claimed passed.
+- Prevention: protected requests use the canonical session-aware transport;
+  preserve explicit public/capability endpoints and test401 recovery/failed
+  refresh. Do not call an expired session a missing tenant or compensate with
+  impersonation, alternate tokens, longer TTLs or repeated credential entry.

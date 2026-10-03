@@ -138,6 +138,12 @@ describe('training-log ownership', () => {
     expect(source).toContain("page?.reporting_scope === 'restricted'");
     expect(source).toContain('Показаны только сотрудники из подразделений и групп');
   });
+
+  it('associates the visible search label with the training-log search input', () => {
+    const source = fs.readFileSync(path.join(process.cwd(), 'src/app/admin/training-log/page.tsx'), 'utf8');
+    expect(source).toContain('htmlFor="training-log-search"');
+    expect(source).toContain('id="training-log-search"');
+  });
 });
 
 describe('training-log responsive presentation', () => {

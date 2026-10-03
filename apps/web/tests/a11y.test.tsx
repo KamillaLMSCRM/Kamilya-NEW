@@ -149,6 +149,13 @@ describe("SkipToContent a11y", () => {
     expect(link).not.toBeNull();
     expect(link).toHaveAttribute("href", "#main-content");
   });
+
+  it("keeps one localized skip link for a public page", () => {
+    render(<SkipToContent />);
+    const links = document.querySelectorAll('a[href="#main-content"]');
+    expect(links).toHaveLength(1);
+    expect(links[0]?.textContent).not.toBe("Skip to content");
+  });
 });
 
 describe("Register form a11y", () => {

@@ -1,15 +1,30 @@
 # CodeGraph: bounded local code navigation
 
-Accepted local pilot: 2026-10-03. Runtime pinned to `@colbymchenry/codegraph@1.6.1`.
+Accepted local pilot and mandatory-use routing updated: 2026-10-03.
+Runtime pinned to `@colbymchenry/codegraph@1.6.1`.
 This is a development tool, not an LMS application dependency or production service.
 
 ## When to use
 
-Use `rg` for known files, text and symbols. Retain the project's Graphify workflow
-for cross-module navigation. CodeGraph adds directed caller/callee lookup for
-Python/TypeScript/TSX when that helps narrow a change or find relevant tests.
-Do not query both indexes routinely or import the upstream instruction to trust
-graph output without reading source. Confirm decisive edges in source/tests.
+Use `rg` for exact-file/text/symbol lookup and small local edits. CodeGraph is
+required before broad source reading for non-trivial Python/TypeScript/TSX
+investigation, shared-service/interface/hook/component changes, and affected
+consumer/test discovery. First resolve the exact definition with `search`, then
+bounded `callers`/`callees` with its project-relative file. Record what the query
+actually narrowed or confirmed. Do not run graph queries as a ceremonial gate.
+
+Graphify remains the next route for unresolved architectural/multi-hop/cross-
+language relationships; follow its project skill. Do not ask both graphs the
+same answered question routinely. HTTP→handler, queues, SQL/RLS and dynamic
+dispatch still require source/contract/runtime evidence, not an imagined edge.
+Confirm decisive graph candidates in source/tests before changing their consumers.
+
+Disposition per task: `USED` with query/evidence; `KEEP_LOCAL` for known local
+file/prose/config/status with a reason; or `SOURCE_FALLBACK` with the exact stale,
+missing, ambiguous/false-edge or failure limitation. An unavailable graph is not
+permission to skip tests and is not a reason to block a safe source-based repair.
+Stop repeating materially identical tool failures; preserve the old index and
+fall back rather than forcing a rebuild, weakening exclusions or upgrading tools.
 
 The wrapper returns at most12 results and6000 JSON characters, marks omissions,
 requires a unique definition for caller/callee lookup, and prioritizes product files
@@ -47,7 +62,11 @@ node --liftoff-only scripts/dev/codegraph.cjs callees requestAssignmentPreview a
 node --liftoff-only scripts/dev/codegraph.cjs status
 ```
 
-Sync once after relevant edits/before review. Queries use a read-only manual
+Check freshness of the relevant files before relying on a snapshot. Sync once
+after relevant source edits/before review, not after every line or prose edit.
+Query and verify affected consumers again after a material interface delta.
+Graphify AST update is needed only for changed relationships used in that graph.
+Queries use a read-only manual
 snapshot. No watcher, daemon, hook or scheduler is started. `lastUpdated` is tool
 metadata, not proof that current source matches. Root derives from the wrapper's
 file location, not CWD; an absolute invocation from the parent workspace was
@@ -64,6 +83,17 @@ auditing is supplementary, not a secret scanner; hard-coded sensitive values
 still require the project's normal secret policy.
 
 ## Measured pilot and limitations
+
+For each meaningful navigation task record tool/version/source SHA, task and
+oracle, order/cache condition, total process/startup/query and sync/index elapsed,
+output chars/items/truncation, source reads, confirmed/false/missing useful links,
+final answer correctness, correction rounds and fallback. Count preparation and
+failed calls rather than reporting only the fastest warm query body.
+Root and delegated token counters are separate and recorded only when exposed;
+tool-call count is not model-call count and unavailable usage is not zero.
+Matched tasks and preserved quality are required for a speed/savings claim.
+CodeBurn estimated API-equivalent USD is not subscription spend or quota saving.
+Use the current epic/experiment ledger, not a new global scheduler or telemetry.
 
 - Initial index:1602 files,29696 nodes,79018 edges,520 route nodes; zero file parse
   errors. Index duration3.815s; total SDK init/index/query work12.995s. Different
@@ -90,8 +120,11 @@ still require the project's normal secret policy.
 - Token/cost savings, end-to-end task speedup, affected-test completeness and MCP
   auto-sync NOT MEASURED. Author benchmarks are not Kamilya/subscription evidence.
 
-Decision: adopt as an optional bounded local navigator. Keep Graphify and source/
-test validation; no deployment, global integration or automatic permissions.
+Decision: mandatory bounded navigator for the source-investigation triggers above;
+justified local/source fallback otherwise. Keep source/test/runtime validation and
+Graphify for unresolved relationships; no deployment, global integration or
+automatic permissions. These rules reach primary only through reviewed master
+integration, never a direct edit to the primary checkout.
 
 Primary references: [repository](https://github.com/colbymchenry/codegraph),
 [telemetry](https://github.com/colbymchenry/codegraph/blob/main/TELEMETRY.md),

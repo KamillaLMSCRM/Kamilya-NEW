@@ -1,3 +1,6 @@
+import { api } from '@/lib/api';
+import { apiErrorMessage } from '@/lib/apiErrorMessage';
+
 export interface GenerationModelRoute {
   id: string;
   provider: string;
@@ -24,37 +27,36 @@ export class ModelRoutingRequestError extends Error {
   }
 }
 
-async function parseResponse(response: Response): Promise<GenerationModelRouting> {
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
-    throw new ModelRoutingRequestError(body.detail || `HTTP ${response.status}`, response.status);
-  }
-  return response.json();
+function errorDetail(error: unknown, fallback: string) {
+  const response = (error as { response?: { data?: { detail?: unknown }; status?: number } } | null)?.response;
+  return {
+    message: apiErrorMessage(error, fallback),
+    status: response?.status ?? 0,
+  };
 }
 
-export async function getGenerationModelRouting(
-  apiUrl: string | undefined,
-  token: string,
-): Promise<GenerationModelRouting> {
-  const response = await fetch(`${apiUrl}/v1/admin/model-routing`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return parseResponse(response);
+export async function getGenerationModelRouting(): Promise<GenerationModelRouting> {
+  try {
+    const response = await api.get<GenerationModelRouting>('/v1/admin/model-routing');
+    return response.data;
+  } catch (error) {
+    const detail = errorDetail(error, 'Failed to load model routing');
+    throw new ModelRoutingRequestError(detail.message, detail.status);
+  }
 }
 
 export async function saveGenerationModelRouting(
-  apiUrl: string | undefined,
-  token: string,
   revision: number,
   orderedModelIds: string[],
 ): Promise<GenerationModelRouting> {
-  const response = await fetch(`${apiUrl}/v1/admin/model-routing`, {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ revision, ordered_model_ids: orderedModelIds }),
-  });
-  return parseResponse(response);
+  try {
+    const response = await api.put<GenerationModelRouting>('/v1/admin/model-routing', {
+      revision,
+      ordered_model_ids: orderedModelIds,
+    });
+    return response.data;
+  } catch (error) {
+    const detail = errorDetail(error, 'Failed to save model routing');
+    throw new ModelRoutingRequestError(detail.message, detail.status);
+  }
 }

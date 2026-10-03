@@ -110,6 +110,15 @@ export default function DocumentsPage() {
   const [categoryFilter, setCategoryFilter] = useState<'all' | DocumentCategory>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | DocumentIndexStatus>('all');
   const [lifecycleFilter, setLifecycleFilter] = useState<DocumentLifecycleStatus>('active');
+  const hasCatalogFilters = Boolean(search.trim()) || categoryFilter !== 'all' || statusFilter !== 'all';
+  const emptyTitle = hasCatalogFilters ? t('documents.noMatches')
+    : lifecycleFilter === 'delete_failed' ? t('documents.noAttention')
+    : lifecycleFilter === 'deletion_pending' ? t('documents.noneDeleting')
+    : t('documents.noDocuments');
+  const emptyHint = hasCatalogFilters ? t('documents.noMatchesHint')
+    : lifecycleFilter === 'delete_failed' ? t('documents.noAttentionHint')
+    : lifecycleFilter === 'deletion_pending' ? t('documents.noneDeletingHint')
+    : t('documents.noDocumentsHint');
 
   const [showUpload, setShowUpload] = useState(false);
   const [youtubeEnabled, setYoutubeEnabled] = useState(false);
@@ -665,8 +674,14 @@ export default function DocumentsPage() {
       ) : documents.length === 0 ? (
         <div className="flex min-h-48 flex-col items-center justify-center gap-2 border border-dashed border-border p-6 text-center">
           <FolderOpen className="h-10 w-10 text-muted-foreground" />
-          <p className="text-sm font-medium text-foreground">{t('documents.noDocuments')}</p>
-          <p className="text-xs text-muted-foreground">{t('documents.noDocumentsHint')}</p>
+          <p className="text-sm font-medium text-foreground">{emptyTitle}</p>
+          <p className="text-xs text-muted-foreground">{emptyHint}</p>
+          {(hasCatalogFilters || lifecycleFilter !== 'active') && (
+            <button type="button" className="mt-2 rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted"
+              onClick={() => { setSearch(''); setCategoryFilter('all'); setStatusFilter('all'); setLifecycleFilter('active'); }}>
+              {t('documents.clearFilters')}
+            </button>
+          )}
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-border bg-card">

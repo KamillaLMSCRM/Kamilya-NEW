@@ -119,7 +119,7 @@ const quiz = {
   lesson_id: ids.lesson,
   title: 'Тест урока',
   pass_score: 80,
-  time_limit: null,
+  time_limit: null as number | null,
   attempt_limit: 3,
   deferral_days: 0,
   questions: [initialQuestion],
@@ -184,6 +184,46 @@ describe('quiz question editor', () => {
     });
   });
 
+  it('exposes accessible labels for quiz configuration and AI draft controls', async () => {
+    setupApi(quiz, null as any);
+    render(<QuizzesAdminPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'quiz.create' }));
+
+    expect(screen.getByLabelText('Курс')).toHaveAttribute('id', 'new-quiz-course');
+    expect(screen.getByLabelText('Модуль')).toHaveAttribute('id', 'new-quiz-module');
+    expect(screen.getByLabelText('Урок')).toHaveAttribute('id', 'new-quiz-lesson');
+    expect(screen.getByLabelText('courses.courseTitle')).toHaveAttribute('id', 'new-quiz-title');
+    expect(screen.getByLabelText('quiz.passScore')).toHaveAttribute('id', 'new-quiz-pass-score');
+    expect(screen.getByLabelText(/quiz\.timeLimit/)).toHaveAttribute('id', 'new-quiz-time-limit');
+    expect(screen.queryByLabelText('quiz.timeLeft')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('authenticatedUi.quizUi.attemptLimit')).toHaveAttribute('id', 'new-quiz-attempt-limit');
+
+    fireEvent.change(screen.getByLabelText('Курс'), { target: { value: ids.course } });
+    fireEvent.change(screen.getByLabelText('Модуль'), { target: { value: ids.module } });
+    fireEvent.change(screen.getByLabelText('Урок'), { target: { value: ids.lesson } });
+    expect(screen.getByLabelText('authenticatedUi.quizUi.difficulty')).toHaveAttribute('id', 'ai-quiz-difficulty');
+    expect(screen.getByLabelText('authenticatedUi.quizUi.preferences')).toHaveAttribute('id', 'ai-quiz-preferences');
+  });
+
+  it('uses the configured time-limit label in the static quiz summary', async () => {
+    setupApi({ ...quiz, time_limit: 20 }, { ...quiz, time_limit: 20 });
+    render(<QuizzesAdminPage />);
+    await selectQuiz();
+    expect(screen.getByText('quiz.timeLimit')).toBeInTheDocument();
+    expect(screen.queryByText('quiz.timeLeft')).not.toBeInTheDocument();
+  });
+
+  it('keeps quiz creation disabled for a whitespace-only title', async () => {
+    setupApi(quiz, null as any);
+    render(<QuizzesAdminPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'quiz.create' }));
+    fireEvent.change(screen.getByLabelText('Курс'), { target: { value: ids.course } });
+    fireEvent.change(screen.getByLabelText('Модуль'), { target: { value: ids.module } });
+    fireEvent.change(screen.getByLabelText('Урок'), { target: { value: ids.lesson } });
+    fireEvent.change(screen.getByLabelText('courses.courseTitle'), { target: { value: '   ' } });
+    expect(screen.getByRole('button', { name: 'Создать' })).toBeDisabled();
+  });
+
   it('opens a create modal and POSTs the question with choices', async () => {
     const createdQuestion = {
       ...initialQuestion,
@@ -202,6 +242,8 @@ describe('quiz question editor', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Новый вопрос' });
     expect(dialog.className).toContain('max-w-4xl');
     expect(dialog.className).toContain('overflow-y-auto');
+    expect(within(dialog).getByLabelText('Вариант 1…')).toHaveAttribute('id', 'choice-text-0');
+    expect(within(dialog).getByLabelText('Вариант 2…')).toHaveAttribute('id', 'choice-text-1');
 
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Текст вопроса' }), {
       target: { value: 'Новый вопрос' },

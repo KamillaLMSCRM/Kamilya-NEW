@@ -5,6 +5,15 @@ import AdminProvidersPage from '@/app/admin/providers/page';
 import { useAuthStore } from '@/store/authStore';
 import { useLanguageStore } from '@/store/languageStore';
 
+const apiMock = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  patch: vi.fn(),
+  delete: vi.fn(),
+  put: vi.fn(),
+}));
+vi.mock('@/lib/api', () => ({ api: apiMock }));
+
 const routing = {
   revision: 7,
   updated_at: '2026-09-07T10:00:00Z',
@@ -29,7 +38,22 @@ const routing = {
 
 describe('superadmin generation model routing modal', () => {
   beforeEach(() => {
-    vi.stubEnv('NEXT_PUBLIC_API_URL', 'https://api.example.test/api');
+    vi.clearAllMocks();
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url === '/v1/admin/provider-keys') return { data: { providers: [] } };
+      if (url === '/v1/admin/model-routing') return { data: routing };
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    apiMock.put.mockImplementation(async (_url: string, body: { ordered_model_ids: string[] }) => ({
+      data: {
+        ...routing,
+        revision: 8,
+        models: routing.models.map((model) => ({
+          ...model,
+          position: body.ordered_model_ids.indexOf(model.id) + 1,
+        })),
+      },
+    }));
     useLanguageStore.setState({ lang: 'ru' });
     useAuthStore.setState({
       accessToken: 'superadmin-token',
@@ -39,50 +63,15 @@ describe('superadmin generation model routing modal', () => {
         full_name: 'Platform Admin', email: 'admin@example.test',
       },
     });
-    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
-      if (url.endsWith('/admin/provider-keys')) {
-        return new Response(JSON.stringify({ providers: [] }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-      if (url.endsWith('/admin/model-routing') && init?.method === 'PUT') {
-        const body = JSON.parse(String(init.body));
-        return new Response(JSON.stringify({
-          ...routing,
-          revision: 8,
-          models: routing.models.map((model) => ({
-            ...model,
-            position: body.ordered_model_ids.indexOf(model.id) + 1,
-          })),
-        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      }
-      if (url.endsWith('/admin/model-routing')) {
-        return new Response(JSON.stringify(routing), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-      throw new Error(`Unexpected request: ${url}`);
-    }));
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
 
   it('keeps DeepSeek first and persists an accessible fallback reorder', async () => {
     render(<AdminProvidersPage />);
-    await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith(
-        'https://api.example.test/api/v1/admin/provider-keys',
-        expect.objectContaining({
-          headers: { Authorization: 'Bearer superadmin-token' },
-        }),
-      );
-    });
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/admin/provider-keys'));
     fireEvent.click(await screen.findByRole('button', { name: 'Очередность моделей' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Очередность моделей генерации' });
@@ -93,18 +82,43 @@ describe('superadmin generation model routing modal', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Поднять GLM 5.3 Flash' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
 
-    await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith(
-        'https://api.example.test/api/v1/admin/model-routing',
-        expect.objectContaining({
-          method: 'PUT',
-          body: JSON.stringify({
-            revision: 7,
-            ordered_model_ids: ['deepseek', 'glm53_flash', 'qwen38_flash_next'],
-          }),
-        }),
-      );
-    });
+    await waitFor(() => expect(apiMock.put).toHaveBeenCalledWith(
+      '/v1/admin/model-routing',
+      { revision: 7, ordered_model_ids: ['deepseek', 'glm53_flash', 'qwen38_flash_next'] },
+    ));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('associates add-key labels and keeps save disabled without a key', async () => {
+    render(<AdminProvidersPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Добавить ключ/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новый API-ключ' });
+
+    expect(within(dialog).getByLabelText('Провайдер')).toHaveAttribute(
+      'id',
+      'provider-key-provider',
+    );
+    expect(within(dialog).getByLabelText('API-ключ')).toHaveAttribute(
+      'id',
+      'provider-key-api-key',
+    );
+    expect(within(dialog).getByLabelText('Метка (опционально)')).toHaveAttribute(
+      'id',
+      'provider-key-label',
+    );
+    expect(within(dialog).getByRole('button', { name: 'Сохранить' })).toBeDisabled();
+    expect(apiMock.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the add-key dialog without submitting', async () => {
+    render(<AdminProvidersPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Добавить ключ/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Новый API-ключ' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(apiMock.get).toHaveBeenCalledTimes(1);
   });
 });

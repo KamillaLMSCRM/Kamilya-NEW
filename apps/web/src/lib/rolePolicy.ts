@@ -41,6 +41,8 @@ export function getAuthRedirect({ initialized, accessToken, role, pathname }: Au
   return canAccessRoute(role, pathname) ? null : getRoleHome(role);
 }
 
+const RESOURCE_FAMILY_PREFIXES = new Set(['/courses', '/positions', '/cohorts', '/learning-paths', '/quizzes']);
+
 export function isNavigationItemActive(
   href: string,
   pathname: string,
@@ -51,7 +53,8 @@ export function isNavigationItemActive(
 
   if (pathname !== targetPath) {
     const segmentCount = targetPath.split('/').filter(Boolean).length;
-    return segmentCount > 1 && pathname.startsWith(`${targetPath}/`);
+    const allowsNestedDescendants = segmentCount > 1 || RESOURCE_FAMILY_PREFIXES.has(targetPath);
+    return allowsNestedDescendants && pathname.startsWith(`${targetPath}/`);
   }
 
   for (const [key, value] of target.searchParams) {

@@ -1,9 +1,16 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import Sidebar from '@/components/layout/Sidebar';
 import { useAuthStore } from '@/store/authStore';
 import { useLanguageStore } from '@/store/languageStore';
+
+const navigationState = { pathname: '/' };
+vi.mock('next/navigation', () => ({
+  usePathname: () => navigationState.pathname,
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ prefetch: vi.fn() }),
+}));
 
 const methodologist = {
   user_id: 'methodologist-1',
@@ -18,6 +25,7 @@ const methodologist = {
 
 describe('methodologist sidebar information hierarchy', () => {
   beforeEach(() => {
+    navigationState.pathname = '/';
     useAuthStore.setState({ accessToken: 'test-token', user: methodologist });
     useLanguageStore.setState({ lang: 'ru' });
   });
@@ -46,5 +54,12 @@ describe('methodologist sidebar information hierarchy', () => {
     const nestedList = positionLink.closest('ul');
     expect(nestedList).toHaveClass('ml-8', 'border-l-2', 'border-primary/30');
     expect(container.querySelectorAll('nav h2').length).toBeGreaterThan(2);
+  });
+
+  it('keeps the resource family and staff group open on a child detail route', () => {
+    navigationState.pathname = '/positions/retained-id';
+    render(<Sidebar collapsed={false} onToggle={() => {}} />);
+    expect(screen.getByRole('link', { name: 'Должности' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Сотрудники и структура' })).toHaveClass('text-foreground');
   });
 });

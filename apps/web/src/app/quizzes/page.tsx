@@ -260,11 +260,12 @@ export default function QuizzesAdminPage() {
   );
 
   const handleCreateQuiz = async () => {
-    if (!token || !newQuiz.lesson_id || !newQuiz.title) return;
+    const title = newQuiz.title.trim();
+    if (!token || !newQuiz.lesson_id || !title) return;
     try {
       const res = await api.post<Quiz>('/v1/quizzes', {
         lesson_id: newQuiz.lesson_id,
-        title: newQuiz.title,
+        title,
         pass_score: newQuiz.pass_score,
         time_limit: newQuiz.time_limit ? parseInt(newQuiz.time_limit) : null,
         attempt_limit: newQuiz.attempt_limit,
@@ -620,8 +621,9 @@ export default function QuizzesAdminPage() {
                 accidentally create a second quiz for the same lesson. */}
             <div className="grid md:grid-cols-3 gap-2">
               <div>
-                <label className="text-sm text-muted-foreground">{t('authenticatedUi.quizUi.course')}</label>
+                <label htmlFor="new-quiz-course" className="text-sm text-muted-foreground">{t('authenticatedUi.quizUi.course')}</label>
                 <select
+                  id="new-quiz-course"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={newQuiz.course_id}
                   onChange={(e) => {
@@ -636,8 +638,9 @@ export default function QuizzesAdminPage() {
                 </select>
               </div>
               <div>
-                <label className="text-sm text-muted-foreground">{t('authenticatedUi.quizUi.module')}</label>
+                <label htmlFor="new-quiz-module" className="text-sm text-muted-foreground">{t('authenticatedUi.quizUi.module')}</label>
                 <select
+                  id="new-quiz-module"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={newQuiz.module_id}
                   onChange={(e) => setNewQuiz((p) => ({ ...p, module_id: e.target.value, lesson_id: '' }))}
@@ -650,8 +653,9 @@ export default function QuizzesAdminPage() {
                 </select>
               </div>
               <div>
-                <label className="text-sm text-muted-foreground">{t('authenticatedUi.quizUi.lesson')}</label>
+                <label htmlFor="new-quiz-lesson" className="text-sm text-muted-foreground">{t('authenticatedUi.quizUi.lesson')}</label>
                 <select
+                  id="new-quiz-lesson"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={newQuiz.lesson_id}
                   onChange={(e) => setNewQuiz((p) => ({ ...p, lesson_id: e.target.value }))}
@@ -668,23 +672,27 @@ export default function QuizzesAdminPage() {
                 </select>
               </div>
             </div>
+            <label htmlFor="new-quiz-title" className="sr-only">{t('courses.courseTitle')}</label>
             <Input
+              id="new-quiz-title"
               placeholder={t('courses.courseTitle')}
               value={newQuiz.title}
               onChange={(e) => setNewQuiz((p) => ({ ...p, title: e.target.value }))}
             />
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="text-sm text-muted-foreground">{t('quiz.passScore')}</label>
+                <label htmlFor="new-quiz-pass-score" className="text-sm text-muted-foreground">{t('quiz.passScore')}</label>
                 <Input
+                  id="new-quiz-pass-score"
                   type="number"
                   value={newQuiz.pass_score}
                   onChange={(e) => setNewQuiz((p) => ({ ...p, pass_score: parseInt(e.target.value) || 80 }))}
                 />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground">{t('quiz.timeLeft')} ({t('authenticatedUi.quizUi.minutesShort')})</label>
+                <label htmlFor="new-quiz-time-limit" className="text-sm text-muted-foreground">{t('quiz.timeLimit')} ({t('authenticatedUi.quizUi.minutesShort')})</label>
                 <Input
+                  id="new-quiz-time-limit"
                   type="number"
                   placeholder="∞"
                   value={newQuiz.time_limit}
@@ -692,8 +700,9 @@ export default function QuizzesAdminPage() {
                 />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground">{t('authenticatedUi.quizUi.attemptLimit')}</label>
+                <label htmlFor="new-quiz-attempt-limit" className="text-sm text-muted-foreground">{t('authenticatedUi.quizUi.attemptLimit')}</label>
                 <Input
+                  id="new-quiz-attempt-limit"
                   type="number"
                   value={newQuiz.attempt_limit}
                   onChange={(e) => setNewQuiz((p) => ({ ...p, attempt_limit: parseInt(e.target.value) || 3 }))}
@@ -703,7 +712,7 @@ export default function QuizzesAdminPage() {
             <div className="flex gap-2">
               <Button
                 onClick={handleCreateQuiz}
-                disabled={!newQuiz.lesson_id || !newQuiz.title}
+                disabled={!newQuiz.lesson_id || !newQuiz.title.trim()}
               >
                 {t('common.create')}
               </Button>
@@ -728,8 +737,9 @@ export default function QuizzesAdminPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <div>
-                    <label className="text-xs text-muted-foreground">{t('authenticatedUi.quizUi.difficulty')}</label>
+                    <label htmlFor="ai-quiz-difficulty" className="text-xs text-muted-foreground">{t('authenticatedUi.quizUi.difficulty')}</label>
                     <select
+                      id="ai-quiz-difficulty"
                       className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                       value={aiDifficulty}
                       onChange={(e) => setAiDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
@@ -741,8 +751,9 @@ export default function QuizzesAdminPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground">{t('authenticatedUi.quizUi.preferences')}</label>
+                    <label htmlFor="ai-quiz-preferences" className="text-xs text-muted-foreground">{t('authenticatedUi.quizUi.preferences')}</label>
                     <Input
+                      id="ai-quiz-preferences"
                       placeholder={t('authenticatedUi.quizUi.guidancePlaceholder')}
                       value={aiGuidance}
                       onChange={(e) => setAiGuidance(e.target.value)}
@@ -1142,7 +1153,7 @@ export default function QuizzesAdminPage() {
                         <div className="mt-1 text-lg font-semibold tabular-nums">{selectedQuiz.pass_score}%</div>
                       </div>
                       <div className="rounded-md border border-border/70 bg-muted/30 px-4 py-3">
-                        <div className="text-sm text-muted-foreground">{t('quiz.timeLeft')}</div>
+                        <div className="text-sm text-muted-foreground">{t('quiz.timeLimit')}</div>
                         <div className="mt-1 text-lg font-semibold tabular-nums">{selectedQuiz.time_limit ? `${selectedQuiz.time_limit} ${t('authenticatedUi.quizUi.minutesShort')}` : '∞'}</div>
                       </div>
                       <div className="rounded-md border border-border/70 bg-muted/30 px-4 py-3">
@@ -1383,7 +1394,11 @@ export default function QuizzesAdminPage() {
                     }
                     className="h-4 w-4 accent-primary"
                   />
+                  <label htmlFor={`choice-text-${index}`} className="sr-only">
+                    {t('authenticatedUi.quizUi.choicePlaceholder', { index: index + 1 })}
+                  </label>
                   <Input
+                    id={`choice-text-${index}`}
                     name={`choice-${index + 1}`}
                     autoComplete="off"
                     placeholder={t('authenticatedUi.quizUi.choicePlaceholder', { index: index + 1 })}

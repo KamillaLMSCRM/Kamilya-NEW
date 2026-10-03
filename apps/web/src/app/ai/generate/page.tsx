@@ -1246,8 +1246,9 @@ export default function AIGeneratePage() {
               <p className="mt-1 text-xs text-muted-foreground">{t('ai.courseIntentHint')}</p>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-muted-foreground mb-1">{t('ai.targetAudience')}</label>
+              <label htmlFor="course-target-audience" className="block text-xs font-semibold text-muted-foreground mb-1">{t('ai.targetAudience')}</label>
               <textarea
+                id="course-target-audience"
                 value={targetAudience}
                 onChange={(e) => setTargetAudience(e.target.value)}
                 rows={2}
@@ -1272,8 +1273,9 @@ export default function AIGeneratePage() {
                 <p className="mt-1 text-xs text-muted-foreground">{t('ai.courseFormatHint')}</p>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-muted-foreground mb-1">{t('ai.language')}</label>
+                <label htmlFor="course-output-language" className="block text-xs font-semibold text-muted-foreground mb-1">{t('ai.language')}</label>
                 <select
+                  id="course-output-language"
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
                   className="w-full rounded-xl border border-border px-3 py-2.5 text-sm outline-none focus:border-primary transition-colors"

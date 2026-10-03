@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const authMocks = vi.hoisted(() => ({
   clearStoredAuth: vi.fn(),
-  getAccessToken: vi.fn(() => null),
+  getAccessToken: vi.fn<() => string | null>(() => null),
+  forceRefreshAndStoreSession: vi.fn<() => Promise<boolean>>(),
   setAuth: vi.fn(),
 }));
 
@@ -19,6 +20,7 @@ describe('API authentication error handling', () => {
   beforeEach(() => {
     authMocks.clearStoredAuth.mockReset();
     authMocks.getAccessToken.mockReturnValue(null);
+    authMocks.forceRefreshAndStoreSession.mockReset();
     authMocks.setAuth.mockReset();
     vi.stubGlobal('fetch', vi.fn());
     api.defaults.adapter = async (config) => {
@@ -58,5 +60,41 @@ describe('API authentication error handling', () => {
 
     expect(fetch).not.toHaveBeenCalled();
     expect(authMocks.clearStoredAuth).not.toHaveBeenCalled();
+    expect(authMocks.forceRefreshAndStoreSession).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    '/v1/admin/super/tenants?limit=10',
+    '/v1/admin/super/tenants/synthetic-tenant',
+    '/v1/admin/provider-keys',
+    '/v1/admin/model-routing',
+    '/v1/admin/super/tenants/synthetic-tenant/impersonate',
+  ])('replays %s once with the refreshed session token after expiry', async (url) => {
+    const expiredAdapter = api.defaults.adapter as (config: InternalAxiosRequestConfig) => Promise<never>;
+    const adapter = vi.fn(async (config: InternalAxiosRequestConfig) => {
+      if (adapter.mock.calls.length === 1) return expiredAdapter(config);
+      return { data: { ok: true }, status: 200, statusText: 'OK', headers: {}, config };
+    });
+    api.defaults.adapter = adapter;
+    authMocks.getAccessToken.mockReturnValue('expired-synthetic-token');
+    authMocks.forceRefreshAndStoreSession.mockImplementation(async () => {
+      authMocks.getAccessToken.mockReturnValue('refreshed-synthetic-token');
+      return true;
+    });
+
+    const impersonating = url.endsWith('/impersonate');
+    const method = impersonating ? 'post' : 'get';
+    const data = impersonating ? { role: 'admin' } : undefined;
+    await expect(api.request({ url, method, data })).resolves.toMatchObject({ status: 200, data: { ok: true } });
+
+    expect(adapter).toHaveBeenCalledTimes(2);
+    expect(authMocks.forceRefreshAndStoreSession).toHaveBeenCalledTimes(1);
+    expect(adapter.mock.calls[1][0].url).toBe(url);
+    expect(adapter.mock.calls[1][0].method).toBe(method);
+    if (impersonating) expect(JSON.parse(adapter.mock.calls[1][0].data)).toEqual({ role: 'admin' });
+    expect(adapter.mock.calls[1][0].withCredentials).toBe(true);
+    expect(adapter.mock.calls[1][0].headers.get('Authorization')).toBe('Bearer refreshed-synthetic-token');
+    expect(authMocks.clearStoredAuth).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

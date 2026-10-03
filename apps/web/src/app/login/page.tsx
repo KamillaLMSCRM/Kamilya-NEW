@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Copy, KeyRound, Mail, MessageCircle, RefreshCw } from 'lucide-react';
 
-import SkipLink from '@/components/SkipLink';
 import { Logo } from '@/components/brand/Logo';
 import { Button, Input } from '@/components/ui';
 import { toast } from '@/components/ui/Toast';
@@ -238,7 +237,6 @@ export default function LoginPage() {
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-primary/5 to-background px-4 py-10">
-      <SkipLink />
       <div className="absolute right-4 top-4">
         <LanguageSwitcher />
       </div>

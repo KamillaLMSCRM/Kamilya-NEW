@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@/compo
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
+import { api } from '@/lib/api';
 
 interface TenantSummary {
   id: string;
@@ -19,29 +20,34 @@ interface TenantSummary {
 export default function SuperAdminLanding() {
   const { t } = useT();
   const token = useAuthStore((s) => s.accessToken);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const [tenants, setTenants] = useState<TenantSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const planLabel = (plan: string) => {
+    const translated = t(`superadmin.plans.${plan}` as any);
+    return translated === `superadmin.plans.${plan}` ? plan : translated;
+  };
 
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
+    setLoading(true);
+    setLoadError(false);
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/v1/admin/super/tenants?limit=10`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (!cancelled) setTenants(data.tenants || []);
+        const response = await api.get<{ tenants?: TenantSummary[] }>('/v1/admin/super/tenants?limit=10');
+        if (!cancelled) setTenants(response.data.tenants || []);
       } catch (e) {
-        if (!cancelled) toast.error(t('superadmin.tenants.loadError'));
+        if (!cancelled) {
+          setLoadError(true);
+          toast.error(t('superadmin.tenants.loadError'));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [token, API_URL, t]);
+  }, [token, t]);
 
   return (
     <div className="p-6 space-y-6">
@@ -90,7 +96,7 @@ export default function SuperAdminLanding() {
           </CardContent>
         </Card>
 
-        <Card>
+        {!loading && !loadError && tenants.length === 0 && <Card>
           <CardHeader>
             <CardTitle>{t('superadmin.launch.title')}</CardTitle>
           </CardHeader>
@@ -118,7 +124,7 @@ export default function SuperAdminLanding() {
               </Button>
             </Link>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
 
       {tenants.length > 0 && (
@@ -142,7 +148,7 @@ export default function SuperAdminLanding() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{tnt.plan}</Badge>
+                    <Badge variant="secondary">{planLabel(tnt.plan)}</Badge>
                     <Badge
                       variant={
                         tnt.status === 'active' || tnt.status === 'trial'

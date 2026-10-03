@@ -45,6 +45,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.30] - 2026-10-03
+
+### Fixed
+
+- Make contextual help follow actual role-specific controls and prerequisites,
+  including assignment previews, program recurrence, source actuality,
+  candidate campaigns, competency/rule registries and approval boundaries.
+- Distinguish empty document catalogs from search/filter/lifecycle results and
+  provide an explicit return to active documents.
+- Give course, quiz, AI-generation, staff and training-log fields accessible
+  names; reject blank/whitespace quiz titles and label configured quiz time limits.
+- Localize workbench controls without claiming multilingual command parsing;
+  start with a blank command and retain explicit preview/confirmation semantics.
+- Preserve nested resource navigation, clarify program-cycle prerequisites and
+  separate deadline-change history from learning periods.
+- Name AI-chat controls, contain keyboard focus and support Escape/restore focus;
+  remove the duplicate public login skip link.
+- Reuse session-refresh-aware transport on platform tenant/provider/model screens;
+  validate tenant-wizard prerequisites, label platform forms, and suppress first-
+  tenant onboarding for loading, failed or nonempty organization lists.
+
+### Changed
+
+- Require justified bounded CodeGraph navigation for shared-source investigation,
+  with source-verified relations, explicit stale/unavailable fallbacks and measured
+  startup/index overhead. Preserve Graphify for unresolved relationships.
+
 ## [0.11.29] - 2026-10-02
 
 ### Fixed

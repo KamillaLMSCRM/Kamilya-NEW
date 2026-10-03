@@ -370,6 +370,8 @@ describe('/ai/generate multi-document selection contract', () => {
   it('uses an automatic course format and keeps module count as an advanced override', async () => {
     mockCatalogWith(readyDocuments);
     render(<AIGeneratePage />);
+    expect(await screen.findByRole('textbox', { name: 'Целевая аудитория' })).toHaveAttribute('id', 'course-target-audience');
+    expect(screen.getByRole('combobox', { name: 'Язык' })).toHaveAttribute('id', 'course-output-language');
     expect(await screen.findByRole('combobox', { name: 'Формат курса' })).toHaveValue('automatic');
     expect(screen.queryByRole('spinbutton', { name: 'Количество модулей' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Расширенные настройки структуры'));

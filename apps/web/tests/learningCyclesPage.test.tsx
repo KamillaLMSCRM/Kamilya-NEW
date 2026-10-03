@@ -189,7 +189,7 @@ describe('learning cycles page catalogs', () => {
     mockLearningCycleData();
     render(<LearningCyclesPage />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'learningCycles.historyTitle' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'learningCycles.deadlineHistoryTitle' }));
 
     expect(await screen.findByText('The learner was assigned to an approved field project.')).toBeInTheDocument();
     expect(apiMock.get).toHaveBeenCalledWith('/v1/learning-cycles/occurrences/course/occurrence-1/events');
@@ -203,7 +203,7 @@ describe('learning cycles page catalogs', () => {
     mockLearningCycleData([restoredOccurrence]);
     render(<LearningCyclesPage />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'learningCycles.historyTitle' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'learningCycles.deadlineHistoryTitle' }));
 
     expect(await screen.findByText('The learner was assigned to an approved field project.')).toBeInTheDocument();
     expect(apiMock.get).toHaveBeenCalledWith('/v1/learning-cycles/occurrences/course/occurrence-1/events');
@@ -231,6 +231,66 @@ describe('learning cycles page catalogs', () => {
     ))).toHaveLength(2));
   });
 
+  it('keeps an existing period visible when its deadline-change history is empty', async () => {
+    apiMock.get.mockImplementation(async (url: string, config?: { params?: Record<string, unknown> }) => {
+      if (url === '/v1/learning-cycles/occurrences/course/occurrence-1/events') return { data: [] };
+      if (url === '/v1/learning-cycles/occurrences' && config?.params?.scope === 'history') return { data: [activeHistoryOccurrence] };
+      if (url === '/v1/learning-cycles' || url === '/v1/learning-cycles/occurrences') return { data: [] };
+      if (url === '/v1/learning-paths') return { data: [] };
+      if (url === '/v1/courses') return { data: [{ id: 'course-1', title: 'Safety', status: 'published', delivery_type: 'native' }] };
+      if (url === '/v1/users') return { data: { users: [{ id: 'learner-1', full_name: 'Alex Kim' }] } };
+      throw new Error(`Unexpected GET ${url}`);
+    });
+
+    render(<LearningCyclesPage />);
+    expect(await screen.findByText('learningCycles.sequence')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'learningCycles.deadlineHistoryTitle' }));
+    expect(await screen.findByText('learningCycles.noDeadlineChanges')).toBeInTheDocument();
+    expect(screen.getAllByText('Safety').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Alex Kim').length).toBeGreaterThan(0);
+    expect(apiMock.post).not.toHaveBeenCalled();
+  });
+
+  it('explains why an empty program catalog cannot create a rule', async () => {
+    mockLearningCycleData();
+    render(<LearningCyclesPage />);
+    const selects = await screen.findAllByRole('combobox');
+    fireEvent.change(selects[0], { target: { value: 'learning_path' } });
+    expect(await screen.findByRole('status')).toHaveTextContent('learningCycles.programEligibilityHint');
+    expect(screen.getByRole('link', { name: 'learningCycles.openLearningPrograms' })).toHaveAttribute('href', '/learning-paths');
+    expect(apiMock.post).not.toHaveBeenCalled();
+  });
+
+  it('does not announce an empty program catalog while eligibility is still loading', async () => {
+    let resolvePaths!: (value: { data: unknown[] }) => void;
+    const pathsPending = new Promise<{ data: unknown[] }>((resolve) => { resolvePaths = resolve; });
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url === '/v1/learning-paths') return pathsPending;
+      if (url === '/v1/learning-cycles' || url === '/v1/learning-cycles/occurrences') return { data: [] };
+      if (url === '/v1/courses') return { data: [] };
+      if (url === '/v1/users') return { data: { users: [] } };
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    render(<LearningCyclesPage />);
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'learning_path' } });
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    resolvePaths({ data: [] });
+  });
+
+  it('does not announce an empty program catalog when loading failed', async () => {
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url === '/v1/learning-paths') throw new Error('catalog unavailable');
+      if (url === '/v1/learning-cycles' || url === '/v1/learning-cycles/occurrences') return { data: [] };
+      if (url === '/v1/courses') return { data: [] };
+      if (url === '/v1/users') return { data: { users: [] } };
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    render(<LearningCyclesPage />);
+    await screen.findByText('catalog unavailable');
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'learning_path' } });
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
   it('refreshes an already open deadline event history immediately after saving', async () => {
     let eventLoads = 0;
     mockLearningCycleData();
@@ -252,7 +312,7 @@ describe('learning cycles page catalogs', () => {
     apiMock.post.mockResolvedValue({ data: {} });
     render(<LearningCyclesPage />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'learningCycles.historyTitle' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'learningCycles.deadlineHistoryTitle' }));
     expect(await screen.findByText('The learner was assigned to an approved field project.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'learningCycles.overrideDeadline' }));
     fireEvent.change(screen.getByLabelText('learningCycles.overrideDeadlineLabel'), { target: { value: '2030-01-15T09:45:17' } });

@@ -101,6 +101,11 @@ negative test. Tenant write без установленного tenant context �
   пофайловой классификации остатка и проверки
   `py -3 scripts/dev/check_primary_checkout.py --mode primary-status`.
 - Не выполнять reset, clean, broad stash, слепое staging или unrelated refactor.
+- Делегированный writer перед первой правкой и тестом сверяет абсолютные cwd,
+  Git root и HEAD с packet, выполняет primary guard и использует абсолютные пути
+  patch. Успех теста из другого checkout не принимается. Root сверяет финальный
+  diff именно назначенного writer; случайные собственные правки primary исправляет
+  только точными проверенными hunks, не затрагивая чужой остаток.
 - Использовать существующие domain boundaries и parser/API для структурированных
   данных; string hacks допустимы только как проверенное локальное преобразование.
 - Миграции по умолчанию additive/expand-compatible.
@@ -122,18 +127,36 @@ negative test. Tenant write без установленного tenant context �
 `docs/PROJECT-CONTEXT.md` и профильном skill/runbook. Читать только относящиеся
 разделы, но не заменять их ambient CLI, browser или keyring state.
 
-## Навигация и Graphify
+## Навигация: CodeGraph, Graphify и исходники
 
-Для точного файла, символа или текста использовать `rg`/`rg --files`. Для
-нетривиального cross-module flow, dependency path или blast-radius анализа
-использовать [Graphify skill](.codex/skills/graphify/SKILL.md), затем подтвердить
-решающий вывод в исходниках и тестах. Простая правка, review инструкций или
-известный однофайловый путь не требуют Graphify и обновления индекса.
+Для точного файла, символа или текста использовать `rg`/`rg --files`.
+Для нетривиального Python/TypeScript/TSX source-анализа, изменения общего сервиса,
+интерфейса, hook/component или поиска затронутых потребителей/тестов обязательно
+использовать локальный [CodeGraph wrapper](docs/runbooks/codegraph-local.md)
+до широкого чтения: `search`, затем bounded `callers`/`callees` точного определения.
+Результат должен сузить scope или проверить зависимость, а не служить формальностью.
+Известная однофайловая правка, prose/config-only и чтение текущего статуса —
+`KEEP LOCAL` с краткой причиной, без обязательного обхода обоих графов.
 
-После изменения связей в коде обновить AST-индекс один раз перед итоговым review.
-Для направленного caller/callee поиска Python/TypeScript можно дополнительно
-использовать локальный [CodeGraph wrapper](docs/runbooks/codegraph-local.md).
-Он не заменяет Graphify, исходники и тесты. Не запускать upstream installer,
+Для оставшейся архитектурной/multi-hop/межъязыковой зависимости использовать
+[Graphify skill](.codex/skills/graphify/SKILL.md); не дублировать уже отвеченный
+CodeGraph запрос. HTTP→handler, SQL/RLS, queue и dynamic dispatch проверять
+в соответствующих исходниках/контрактах и runtime: граф не доказывает их полноту.
+Подтвердить каждую решающую связь в исходниках/тестах перед выбором исправления.
+
+В используемом индексе проверить актуальность относящихся к задаче файлов; после
+source-дельты один `sync` CodeGraph перед review, один AST update Graphify только
+если изменились использованные связи этого графа. Не перестраивать граф после
+каждой строки, не считать lastUpdated доказательством freshness. При unavailable,
+stale, ambiguous или false edges записать ограничение и перейти к bounded source
+inspection; повторяющаяся ошибка инструмента не должна задерживать продуктовый gate.
+
+В task evidence фиксировать цель, cold/warm elapsed с учетом startup/sync,
+объём ответа, подтверждённые/ложные/пропущенные связи, полезный результат/fallback,
+correction rounds и доступные token counters. Не считать число узлов, отсутствие
+ребра, tool calls или оценочную API-цену доказательством экономии/права пропустить тест.
+
+CodeGraph не заменяет исходники, тесты или runtime truth. Не запускать upstream installer,
 автоматические Git-hooks, daemon или глобальную MCP-конфигурацию; графовые связи
 остаются кандидатами, а не доказательством runtime/RLS/release.
 Недоступный или устаревший индекс — навигационный пробел, а не blocker: перейти к

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { canAccessRegisteredRoute, getNavigationRoutes } from "@/lib/routeRegistry";
+import { api } from "@/lib/api";
 
 const staffSource = readFileSync(resolve(process.cwd(), "src/app/admin/staff/page.tsx"), "utf8");
 const rulesSource = readFileSync(resolve(process.cwd(), "src/features/training-rules/TrainingRulesPage.tsx"), "utf8");
@@ -98,7 +99,9 @@ describe("methodologist information architecture", () => {
   });
 
   it("includes browser credentials when starting bounded impersonation", () => {
-    expect(tenantDetailSource).toContain("credentials: 'include'");
+    expect(tenantDetailSource).toContain("import { api } from '@/lib/api'");
+    expect(tenantDetailSource).toMatch(/api\.post[^\n]*`\/v1\/admin\/super\/tenants\/\$\{id\}\/impersonate`/);
+    expect(api.defaults.withCredentials).toBe(true);
   });
 
   it("keeps structure free of training progress metrics and requires preview before rules mutations", () => {

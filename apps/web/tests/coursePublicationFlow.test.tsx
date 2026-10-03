@@ -71,6 +71,17 @@ describe('course publication flow', () => {
     expect(apiMock.post).not.toHaveBeenCalled();
   });
 
+  it('labels course creation fields and keeps empty-title creation disabled', async () => {
+    apiMock.get.mockResolvedValue({ data: [] });
+    render(<CoursesPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /courses\.createCourse/ }));
+    expect(screen.getByLabelText('courses.courseTitle')).toBeInTheDocument();
+    expect(screen.getByLabelText('courses.courseDescription')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'common.create' })).toBeDisabled();
+    expect(apiMock.post).not.toHaveBeenCalled();
+  });
+
   it('keeps direct publication available for an approved AI draft', async () => {
     apiMock.get.mockResolvedValue({
       data: [{

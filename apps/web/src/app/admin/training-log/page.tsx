@@ -520,10 +520,11 @@ export default function AdminTrainingLogPage() {
             {t('trainingLog.history.include')}
           </label>
           <div className="md:col-span-2 lg:col-span-1">
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
+            <label htmlFor="training-log-search" className="block text-xs font-medium text-muted-foreground mb-1">
               {t('trainingLog.filter.search.label')}
             </label>
             <Input
+              id="training-log-search"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder={t('trainingLog.filter.search.placeholder')}

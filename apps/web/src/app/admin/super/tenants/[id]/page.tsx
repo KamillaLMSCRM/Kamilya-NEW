@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { formatUsageCounter, type TenantUsageCounters } from '@/features/superadmin/usage';
 import { toast } from '@/components/ui/Toast';
+import { api } from '@/lib/api';
 
 const PLAN_KEYS = ['free', 'trial', 'pro', 'enterprise'] as const;
 const STATUS_KEYS = ['active', 'trial', 'suspended', 'archived'] as const;
@@ -39,6 +40,14 @@ function errorMessageFromResponse(payload: unknown) {
       .join('; ');
   }
   return 'Unknown';
+}
+
+function errorMessageFromError(error: unknown) {
+  const response = (error as { response?: { data?: unknown; status?: number } } | null)?.response;
+  const detail = errorMessageFromResponse(response?.data);
+  if (detail !== 'Unknown') return detail;
+  if (response?.status) return `HTTP ${response.status}`;
+  return error instanceof Error ? error.message : 'Unknown';
 }
 
 interface Tenant {
@@ -115,7 +124,6 @@ export default function TenantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { t, tp } = useT();
   const token = useAuthStore((s) => s.accessToken);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const router = useRouter();
 
   const [tenant, setTenant] = useState<Tenant | null>(null);
@@ -137,6 +145,10 @@ export default function TenantDetailPage() {
     send_invite: false,
   });
   const [addingAdmin, setAddingAdmin] = useState(false);
+  const planLabel = (plan: string) => {
+    const translated = t(`superadmin.plans.${plan}` as any);
+    return translated === `superadmin.plans.${plan}` ? plan : translated;
+  };
 
   const [impersonateRole, setImpersonateRole] = useState<'admin' | 'methodologist'>('admin');
   const [impersonating, setImpersonating] = useState(false);
@@ -146,16 +158,15 @@ export default function TenantDetailPage() {
     setLoading(true);
     setLoadFailed(false);
     try {
-      const [tRes, aRes] = await Promise.all([
-        fetch(`${API_URL}/v1/admin/super/tenants/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_URL}/v1/admin/super/tenants/${id}/admins`, {
-          headers: { Authorization: `Bearer ${token}` },
+      const [tenantResponse, adminsResponse] = await Promise.all([
+        api.get(`/v1/admin/super/tenants/${id}`),
+        api.get(`/v1/admin/super/tenants/${id}/admins`).catch((error: unknown) => {
+          // Preserve optional HTTP-error handling, but never hide network failure.
+          if ((error as { response?: unknown } | null)?.response) return null;
+          throw error;
         }),
       ]);
-      if (!tRes.ok) throw new Error(`HTTP ${tRes.status}`);
-      const tnt = await tRes.json();
+      const tnt = tenantResponse.data;
       setTenant(tnt);
       setIsFinancialOrganization(Boolean(tnt.is_financial_organization));
       setEditForm({
@@ -169,8 +180,8 @@ export default function TenantDetailPage() {
         max_courses_per_month: tnt.max_courses_per_month != null ? String(tnt.max_courses_per_month) : '',
         notes: tnt.notes || '',
       });
-      if (aRes.ok) {
-        const data = await aRes.json();
+      if (adminsResponse) {
+        const data = adminsResponse.data;
         setAdmins(Array.isArray(data) ? data : []);
       }
     } catch (e) {
@@ -179,7 +190,7 @@ export default function TenantDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [id, token, API_URL, t]);
+  }, [id, token, t]);
 
   useEffect(() => {
     fetchAll();
@@ -188,22 +199,11 @@ export default function TenantDetailPage() {
   const patchTenant = async (body: Record<string, unknown>) => {
     setSaving(true);
     try {
-      const res = await fetch(`${API_URL}/v1/admin/super/tenants/${id}`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Unknown' }));
-        throw new Error(errorMessageFromResponse(err) || `HTTP ${res.status}`);
-      }
+      await api.patch(`/v1/admin/super/tenants/${id}`, body);
       toast.success(t('superadmin.tenants.saveOk'));
       await fetchAll();
     } catch (e) {
-      toast.error(`${t('superadmin.tenants.saveError')}: ${(e as Error).message}`);
+      toast.error(`${t('superadmin.tenants.saveError')}: ${errorMessageFromError(e)}`);
     } finally {
       setSaving(false);
     }
@@ -255,24 +255,13 @@ export default function TenantDetailPage() {
       if (adminForm.telegram_id) body.telegram_id = parseInt(adminForm.telegram_id, 10);
       if (adminForm.send_invite && adminForm.email) body.send_invite = true;
 
-      const res = await fetch(`${API_URL}/v1/admin/super/tenants/${id}/admins`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Unknown' }));
-        throw new Error(err.detail || `HTTP ${res.status}`);
-      }
+      await api.post(`/v1/admin/super/tenants/${id}/admins`, body);
       toast.success(t('superadmin.admins.saveOk'));
       setShowAddAdmin(false);
       setAdminForm({ email: '', telegram_id: '', first_name: '', last_name: '', role: 'admin', send_invite: false });
       await fetchAll();
     } catch (e) {
-      toast.error(`${t('superadmin.admins.saveError')}: ${(e as Error).message}`);
+      toast.error(`${t('superadmin.admins.saveError')}: ${errorMessageFromError(e)}`);
     } finally {
       setAddingAdmin(false);
     }
@@ -281,11 +270,7 @@ export default function TenantDetailPage() {
   const handleDeactivate = async (admin: Admin) => {
     if (!confirm(t('superadmin.admins.deactivateConfirm', { name: `${admin.first_name} ${admin.last_name}` }))) return;
     try {
-      const res = await fetch(`${API_URL}/v1/admin/super/tenants/${id}/admins/${admin.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await api.delete(`/v1/admin/super/tenants/${id}/admins/${admin.id}`);
       toast.success(t('superadmin.admins.deactivateOk'));
       await fetchAll();
     } catch (e) {
@@ -297,20 +282,8 @@ export default function TenantDetailPage() {
     if (!token) return;
     setImpersonating(true);
     try {
-      const res = await fetch(`${API_URL}/v1/admin/super/tenants/${id}/impersonate`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ role: impersonateRole }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Unknown' }));
-        throw new Error(err.detail || `HTTP ${res.status}`);
-      }
-      const data = await res.json();
+      const response = await api.post(`/v1/admin/super/tenants/${id}/impersonate`, { role: impersonateRole });
+      const data = response.data;
       // Replace AuthStore with the impersonation session so the next
       // navigation picks up the new token + user payload.
       const { useAuthStore } = await import('@/store/authStore');
@@ -356,7 +329,7 @@ export default function TenantDetailPage() {
             ←
           </Link>
           <h1 className="min-w-0 break-words text-2xl font-semibold">{tenant.name}</h1>
-          <Badge variant="secondary">{t(`superadmin.plans.${tenant.plan}` as any)}</Badge>
+          <Badge variant="secondary">{planLabel(tenant.plan)}</Badge>
           <Badge variant={tenant.status === 'active' ? 'default' : 'secondary'}>
             {t(`superadmin.statuses.${tenant.status}` as any)}
           </Badge>
@@ -375,6 +348,8 @@ export default function TenantDetailPage() {
           </svg>
           <span className="text-xs text-warning/90 font-medium">{t('superadmin.tenants.impersonate.label')}</span>
           <select
+            id="tenant-impersonate-role"
+            aria-label={t('superadmin.tenants.impersonate.label')}
             value={impersonateRole}
             onChange={(e) => setImpersonateRole(e.target.value as typeof impersonateRole)}
             className="min-w-0 flex-1 rounded border border-warning/30 bg-background px-2 py-1 text-xs sm:flex-none"
@@ -546,19 +521,21 @@ export default function TenantDetailPage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label htmlFor="tenant-name" className="block text-sm font-medium mb-1">
                 {t('superadmin.tenants.fields.name')}
               </label>
               <Input
+                id="tenant-name"
                 value={editForm.name || ''}
                 onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label htmlFor="tenant-slug" className="block text-sm font-medium mb-1">
                 {t('superadmin.tenants.fields.slug')}
               </label>
               <Input
+                id="tenant-slug"
                 value={editForm.slug || ''}
                 onChange={(e) => setEditForm({ ...editForm, slug: normalizeSlug(e.target.value) })}
                 inputMode="url"
@@ -568,10 +545,11 @@ export default function TenantDetailPage() {
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label htmlFor="tenant-plan" className="block text-sm font-medium mb-1">
                 {t('superadmin.tenants.subscription.plan')}
               </label>
               <select
+                id="tenant-plan"
                 className="w-full rounded border border-border bg-bg-primary px-3 py-2 text-sm"
                 value={editForm.plan || ''}
                 onChange={(e) => setEditForm({ ...editForm, plan: e.target.value })}
@@ -584,10 +562,11 @@ export default function TenantDetailPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label htmlFor="tenant-status" className="block text-sm font-medium mb-1">
                 {t('superadmin.tenants.subscription.status')}
               </label>
               <select
+                id="tenant-status"
                 className="w-full rounded border border-border bg-bg-primary px-3 py-2 text-sm"
                 value={editForm.status || ''}
                 onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
@@ -600,30 +579,33 @@ export default function TenantDetailPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label htmlFor="tenant-trial-ends" className="block text-sm font-medium mb-1">
                 {t('superadmin.tenants.subscription.trialEndsAt')}
               </label>
               <DateInput
+                id="tenant-trial-ends"
                 value={editForm.trial_ends_at || ''}
                 onChange={(value) => setEditForm({ ...editForm, trial_ends_at: value })}
                 aria-label={t('superadmin.tenants.subscription.trialEndsAt')}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label htmlFor="tenant-paid-until" className="block text-sm font-medium mb-1">
                 {t('superadmin.tenants.subscription.paidUntil')}
               </label>
               <DateInput
+                id="tenant-paid-until"
                 value={editForm.paid_until || ''}
                 onChange={(value) => setEditForm({ ...editForm, paid_until: value })}
                 aria-label={t('superadmin.tenants.subscription.paidUntil')}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label htmlFor="tenant-max-users" className="block text-sm font-medium mb-1">
                 {t('superadmin.tenants.subscription.maxUsers')}
               </label>
               <Input
+                id="tenant-max-users"
                 type="number"
                 min="1"
                 value={editForm.max_users || ''}
@@ -632,10 +614,11 @@ export default function TenantDetailPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label htmlFor="tenant-max-courses" className="block text-sm font-medium mb-1">
                 {t('superadmin.tenants.subscription.maxCourses')}
               </label>
               <Input
+                id="tenant-max-courses"
                 type="number"
                 min="0"
                 value={editForm.max_courses_per_month || ''}
@@ -662,10 +645,11 @@ export default function TenantDetailPage() {
               </label>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">
+              <label htmlFor="tenant-notes" className="block text-sm font-medium mb-1">
                 {t('superadmin.tenants.subscription.notes')}
               </label>
               <textarea
+                id="tenant-notes"
                 className="w-full rounded border border-border bg-bg-primary px-3 py-2 text-sm min-h-[80px]"
                 value={editForm.notes || ''}
                 onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}

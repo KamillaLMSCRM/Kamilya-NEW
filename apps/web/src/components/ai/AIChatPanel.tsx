@@ -68,6 +68,13 @@ export function AIChatPanel({
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   // Reset chat when panel opens; prefill with focus context if provided.
   useEffect(() => {
@@ -98,6 +105,41 @@ export function AIChatPanel({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousActive = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    const focusables = () => panel
+      ? Array.from(panel.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+      : [];
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = focusables();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    const focusTimer = window.setTimeout(() => messageInputRef.current?.focus(), 0);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', onKeyDown);
+      previousActive?.focus?.();
+    };
+  }, [open]);
 
   const sendMessage = async (messageOverride?: string, intent?: 'audience_recommendation') => {
     const userText = (messageOverride ?? input).trim();
@@ -263,16 +305,18 @@ export function AIChatPanel({
       />
       {/* Side panel */}
       <aside
+        ref={panelRef}
         className="fixed right-0 top-0 bottom-0 w-[480px] max-w-[90vw] bg-background border-l border-border shadow-xl z-50 flex flex-col"
         role="dialog"
         aria-label={t('aiAssistant.dialogLabel')}
+        aria-modal="true"
       >
         <header className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
             <h2 className="font-semibold">{t('aiAssistant.title')}</h2>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label={t('common.close')}>
             <X className="w-4 h-4" />
           </Button>
         </header>
@@ -342,6 +386,9 @@ export function AIChatPanel({
             className="flex gap-2"
           >
             <Input
+              ref={messageInputRef}
+              id="ai-chat-message"
+              aria-label={t('aiAssistant.chatPlaceholder')}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={
@@ -350,9 +397,8 @@ export function AIChatPanel({
                   : t('aiAssistant.chatPlaceholder')
               }
               disabled={sending}
-              autoFocus
             />
-            <Button type="submit" disabled={sending || !input.trim()}>
+            <Button type="submit" aria-label={t('aiGeneration.chat.send')} disabled={sending || !input.trim()}>
               <Send className="w-4 h-4" />
             </Button>
           </form>

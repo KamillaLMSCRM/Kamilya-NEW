@@ -7,10 +7,22 @@
 
 ## Local navigation: CodeGraph pilot accepted,2026-10-03
 
+Current bounded client repair candidate0.11.30 is not deployed. Root production
+read-only methodologist/public/platform pass and explicit coverage gaps are in
+docs/plans/2026-10-03_production-client-acceptance.md. Frozen packet A was stopped
+before its matrix ran after a live platform-session defect; it is superseded.
+Final transport/prerequisite, help, locale, form and keyboard repairs require a
+fresh frozen Test Runner packet and exact-SHA CI/native Release Runner gates.
+Intended frontend-only rollout leaves API29/source32e1331d and schema174 unchanged.
+Tool pilot timings/limits are in docs/experiments/2026-10-03_tool-efficiency-acceptance.md;
+day totals and corrected delegate/harness errors do not prove causal savings.
+
 Local development navigation addition,2026-10-03: pinned CodeGraph1.6.1 installed
 only under the candidate's ignored `.release-evidence/codegraph-pilot/runtime`.
 Use `scripts/dev/codegraph.cjs` and [local runbook](runbooks/codegraph-local.md);
-optional caller/callee lookup, not a Graphify replacement or runtime/RLS proof.
+mandatory bounded caller/callee lookup for shared-source/consumer investigation;
+KEEP_LOCAL for exact local work, SOURCE_FALLBACK for an unavailable/stale graph.
+Graphify covers unresolved relationships; neither is runtime/RLS proof.
 Telemetry/update/watch/daemon OFF; no Git hooks/global MCP/application dependency.
 Five wrapper tests, rename/exclusion canaries and package signatures/attestations
 PASS. Known false ORM-method edge and missing frontend-HTTP→handler edge retained.
