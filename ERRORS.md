@@ -1870,6 +1870,27 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: tenant-scoped write endpoints must not depend on post-commit ORM
   refreshes when RLS context is transaction-local. Regression tests must make
   any such refresh fail and assert that the endpoint never calls it.
+### Recurrence2026-10-03: superadmin tenant update committed before response
+
+- Symptom: the exact synthetic QA tenant PATCH for `is_demo:false` returned500,
+  while the independent subsequent GET confirmed the flag persisted. No PATCH
+  replay was performed. Bounded sanitized API logs classified
+  `InvalidRequestError` at `admin/superadmin/router.py:155`.
+- Cause: the same post-commit ORM refresh pattern remained in the superadmin
+  update endpoint. COMMIT ends transaction-local context; the response read was
+  incorrectly placed after the durable write.
+- Fix: refresh and assemble the response inside the original transaction, then
+  commit and return only on successful commit. No RLS/grant or billing change.
+- Verification: three database-free boundary regressions passed; isolated
+  canonical Supabase DEV real ORM/router true-to-false update, independent
+  persisted readback and same-physical-connection context reset passed. Empty
+  context reads remain denied; disposable schema cleanup and public fingerprint
+  neutrality passed. Auxiliary stats/usage/audit are explicitly stubbed in that
+  narrow DB gate; the full endpoint neighbor integration remains a CI gate.
+- Prevention: regression mocks must allow pre-commit refresh and reject only
+  post-commit reads, rather than banning every refresh. Never retry a failed
+  mutation response until an independent read establishes whether it committed.
+
 # 2026-08-27 - FORCE RLS lifecycle tables were created without runtime grants
 
 - Symptom: production course generation failed during verified-embedding retrieval with

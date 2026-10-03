@@ -1,11 +1,11 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
 }));
-vi.mock('@/lib/api', () => ({ api: { get: vi.fn() } }));
+vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), post: vi.fn() } }));
 vi.mock('@/i18n/useT', () => {
   const t = (key: string) => key;
   return { useT: () => ({ lang: 'en', t }) };
@@ -41,6 +41,87 @@ beforeEach(() => {
 });
 
 describe('learning insights journal integration', () => {
+  it('reloads the parent training-log row after signed-copy review so export appears without navigation', async () => {
+    let pageReads = 0;
+    const pendingScan = {
+      id: 'scan-a', original_filename: 'signed.pdf', content_type: 'application/pdf',
+      uploaded_at: '2026-09-16T10:00:00Z', status: 'uploaded_pending_review',
+    };
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url === '/v1/courses') return { data: [] } as never;
+      if (url.includes('/summary')) return { data: { total: 1, assigned: 0, in_progress: 0, completed: 1, overdue: 0 } } as never;
+      if (url.startsWith('/v1/training-evidence/events/event-a/signed-scans')) {
+        return { data: { event_id: 'event-a', status: pageReads > 1 ? 'accepted' : 'uploaded_pending_review', scans: [{ ...pendingScan, status: pageReads > 1 ? 'accepted' : 'uploaded_pending_review' }] } } as never;
+      }
+      if (url.startsWith('/v1/admin/training-log?')) {
+        pageReads += 1;
+        const accepted = pageReads > 1;
+        return { data: { items: [{
+          user_id: 'learner-a', full_name: 'Synthetic learner', email: null, personnel_number: null,
+          department_id: null, department_name: null, position_id: null, position_name: null,
+          course_id: 'course-a', course_title: 'Synthetic course', delivery_type: 'native',
+          enrollment_id: 'enrollment-a', enrollment_status: 'completed', enrollment_source: 'manual',
+          requirement_state: 'materialized', action_required: 'none', assignment_reason: null,
+          enrolled_at: null, completed_at: '2026-09-16T10:00:00Z', cycle_id: null, cycle_type: null, cycle_scheduled_for: null,
+          latest_evidence_event_id: 'event-a', evidence_procedure_type: 'training',
+          evidence_confirmation_status: 'not_required', evidence_signed_copy_status: accepted ? 'accepted' : 'uploaded_pending_review',
+          evidence_state: accepted ? 'ready' : 'incomplete', evidence_events: [],
+          computed_status: 'completed', progress_percent: 100, best_score: 100, quiz_attempts_count: 1,
+          certificate_id: null, certificate_number: null, certificate_issued_at: null, kiosk_last_seen_at: null,
+        }], total: 1, limit: 100, offset: 0 } } as never;
+      }
+      throw new Error(`Unexpected synthetic route: ${url}`);
+    });
+    apiMock.post.mockResolvedValue({ data: { status: 'accepted' } } as never);
+
+    render(<AdminTrainingLogPage />);
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Принять' }))[0]);
+
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith(
+      '/v1/training-evidence/events/event-a/signed-scans/scan-a/review',
+      { action: 'accept', reason: null },
+    ));
+    await waitFor(() => expect(pageReads).toBeGreaterThanOrEqual(2));
+    expect(await screen.findAllByRole('button', { name: 'trainingLog.evidence.pdf' })).not.toHaveLength(0);
+    expect(await screen.findAllByRole('button', { name: 'trainingLog.evidence.zip' })).not.toHaveLength(0);
+  });
+
+  it('keeps the signed-copy review error visible when the review request fails', async () => {
+    const pendingScan = {
+      id: 'scan-a', original_filename: 'signed.pdf', content_type: 'application/pdf',
+      uploaded_at: '2026-09-16T10:00:00Z', status: 'uploaded_pending_review',
+    };
+    const row = {
+      user_id: 'learner-a', full_name: 'Synthetic learner', email: null, personnel_number: null,
+      department_id: null, department_name: null, position_id: null, position_name: null,
+      course_id: 'course-a', course_title: 'Synthetic course', delivery_type: 'native',
+      enrollment_id: 'enrollment-a', enrollment_status: 'completed', enrollment_source: 'manual',
+      requirement_state: 'materialized', action_required: 'none', assignment_reason: null,
+      enrolled_at: null, completed_at: '2026-09-16T10:00:00Z', cycle_id: null, cycle_type: null, cycle_scheduled_for: null,
+      latest_evidence_event_id: 'event-a', evidence_procedure_type: 'training',
+      evidence_confirmation_status: 'not_required', evidence_signed_copy_status: 'uploaded_pending_review',
+      evidence_state: 'incomplete', evidence_events: [], computed_status: 'completed', progress_percent: 100,
+      best_score: 100, quiz_attempts_count: 1, certificate_id: null, certificate_number: null,
+      certificate_issued_at: null, kiosk_last_seen_at: null,
+    };
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url === '/v1/courses') return { data: [] } as never;
+      if (url.includes('/summary')) return { data: { total: 1, assigned: 0, in_progress: 0, completed: 1, overdue: 0 } } as never;
+      if (url.startsWith('/v1/training-evidence/events/event-a/signed-scans')) {
+        return { data: { event_id: 'event-a', status: 'uploaded_pending_review', scans: [pendingScan] } } as never;
+      }
+      if (url.startsWith('/v1/admin/training-log?')) return { data: { items: [row], total: 1, limit: 100, offset: 0 } } as never;
+      throw new Error(`Unexpected synthetic route: ${url}`);
+    });
+    apiMock.post.mockRejectedValue({ response: { data: { detail: 'Synthetic review failure' } } });
+
+    render(<AdminTrainingLogPage />);
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Принять' }))[0]);
+
+    expect(await screen.findAllByRole('alert')).not.toHaveLength(0);
+    expect((await screen.findAllByRole('alert'))[0]).toHaveTextContent('Synthetic review failure');
+  });
+
   it('shows the exact assignment source and scope from the shared read model', async () => {
     const originalGet = apiMock.get.getMockImplementation()!;
     apiMock.get.mockImplementation(async (url: string) => {

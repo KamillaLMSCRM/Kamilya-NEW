@@ -45,6 +45,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.36] - 2026-10-03
+
+### Fixed
+
+- Keep superadmin tenant-update response reads inside the original transaction
+  and return only after a successful commit, avoiding false failures after a
+  durable RLS-scoped update.
+- Reload training-log parent readiness after signed-copy review so PDF/ZIP
+  export controls appear without manual navigation; preserve review errors.
+- Use provider-neutral invitation email status text in Russian, Kazakh and
+  English. Permanent synthetic QA stands are no longer demo-limited; existing
+  provider plans, tenant settings and completed learning history are preserved.
+
+### Added
+
+- Verify the real public invitation request-code/accept endpoints with captured
+  synthetic mail and real OTP creation/consumption. Database, Redis and transport
+  persistence remain explicitly simulated; no production receipt is claimed.
+
 ## [0.11.35] - 2026-10-03
 
 ### Fixed

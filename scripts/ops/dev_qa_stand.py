@@ -77,7 +77,7 @@ def persist(path: Path, state: dict[str, Any]) -> None:
 
 def tenant_identity(tenant: dict[str, Any], state: dict[str, Any]) -> None:
     require(tenant["id"] == state["tenant_id"] and tenant["slug"] == SLUG, "tenant_identity_drift")
-    require(tenant["is_demo"] and not tenant["is_financial_organization"], "tenant_classification_drift")
+    require(tenant["is_demo"] is False and not tenant["is_financial_organization"], "tenant_classification_drift")
     require(tenant["notes"] == MARKER and tenant["status"] == "active", "tenant_marker_or_status_drift")
 
 
@@ -153,7 +153,7 @@ def bootstrap(client: Client, values: dict[str, Any], manifest: Path, sha: str) 
     require(not [t for t in listing["tenants"] if t["slug"] == SLUG], "tenant_exists_without_manifest_stop")
     tenant = client.request("POST", "/admin/super/tenants", super_token, status=201, json={
         "name": "Kamilya DEV QA — синтетические данные", "slug": SLUG, "plan": "free", "status": "active",
-        "is_demo": True, "is_financial_organization": False, "max_users": 2,
+        "is_demo": False, "is_financial_organization": False, "max_users": 2,
         "max_courses_per_month": 2, "notes": MARKER})["tenant"]
     state: dict[str, Any] = {"schema": MARKER, "slug": SLUG, "tenant_id": tenant["id"],
                             "bootstrap_sha": sha, "status": "PARTIAL", "users": {}, "courses": []}

@@ -85,6 +85,16 @@ flow сами по себе.
 - `/admin/enrollments` не является самостоятельным экраном.
 - У каждой функции один canonical route и один data source of truth.
 
+Постоянный synthetic QA-tenant для приёмки продукта — не demo-витрина:
+`is_demo=false`, все заявленные функции доступны для проверки через обычные роли
+и штатные API. Принадлежность QA подтверждать точным ID и fixture marker, а не
+словом «test» в имени. Demo-only negative tests вправе создавать `is_demo=true`,
+но такой fixture не используется как доказательство полной приёмки. Нельзя
+снимать RBAC/RLS, OTP/подтверждение, retention, изоляцию, согласованный лимит AI
+расхода либо ограничения provider tier ради теста. Недоступная entitlement или
+интеграция — явный незакрытый gate; не менять тариф/платёжные ресурсы автоматически.
+Не пересоздавать постоянный стенд и не сбрасывать его завершённые обучения.
+
 Новая tenant-scoped таблица или mutation требует `tenant_id`, ownership checks
 для входящих IDs, RLS, FORCE RLS, runtime role без `BYPASSRLS` и cross-tenant
 negative test. Tenant write без установленного tenant context запрещён.

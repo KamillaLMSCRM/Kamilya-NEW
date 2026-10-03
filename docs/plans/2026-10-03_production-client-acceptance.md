@@ -1,5 +1,41 @@
 # Production client acceptance and tool-efficiency epic
 
+Active continuation: browser file handoff CLOSED by actual Chrome PDF and ZIP
+files; technical watermarked synthetic scan upload/review/package CLOSED, legal
+signature NOT_TESTED. Production QA demo=false persisted after PATCH500, no
+replay; local API response-before-commit fix +3units and isolated Supabase DEV
+real ORM/router/persisted-readback/context-reset/negative/cleanup/public-neutrality
+PASS. Local training-log parent readiness refresh and neutral email-provider
+copy are in the same repair package. Independent Runner QA36A stopped at a Root
+CLI-specification error (word full became filenamefilter),0tests; corrected
+QA36B runs unchanged11frozen hashes. Preserve the failed packet/coordination cost.
+Email/OTP actualreceipt remains NOT_VERIFIED after INBOX+Spam exactrecipient
+search, provider accepted only. Paid fresh generation NOT_RUN until the owner
+approved$1 ceiling is provable;78paid-request worst bound alone is insufficient.
+Permanent DEV stand a7a2c055 full-feature transition now applied15:30:01Z:
+true→false, independent GETfalse, existingfreeplan/settings/counts unchanged.
+API29 again returned500 after persistence; no replay. Helper classification and
+future bootstrap now requirefalse; fresh canonicalverify15:31:52ZPASS preserves
+2users/2courses/2assignments/2failed/1exhausted,0businesswrites. Focused11testsPASS;
+independentQA36D PASS:13frozen hashes/11contracttests/quality/version/contracts/
+diff, reportdbd4321b9291cb2d9b114f99a3c86bdcfc0b0ef487c0c0e703880142fe930443.
+QA36Cquality/contracts/localZIPintegrityPASS, linked
+bulk864web/2336APItests, no runtime release/fullfeature promotion.
+Candidate36 metadata/datednotes prepared; Root release-version/contracts/diff
+PASS after packaging-only delta. No candidate36 Git/CI/runtime/deployment proof
+yet; API29/frontend35 unchanged.
+
+Owner continuation: repeated real-mail receipt is no longer a blocking acceptance
+requirement for this run; simulate delivery at the local invitation request-code
+and accept HTTP seams. Keep actual OTP generation/consumption and obtain the code
+only from captured rendered mail, not server storage. Transport/database/session
+persistence simulation is explicit; do not promote it to production receipt.
+Source review confirms demo=false removes demo gates only: no universal QA override
+for global flags/integration availability exists. Retain ordinary role/RLS gates.
+Independent QA36E PASS:3focused/2380broader noDB/quality/version35/contracts/diff,
+report3708cdc3ca5d3edac818f17f80893794ef7bd8f673dd374a4a7742bee319fd2d.
+Version36 packaging gates are later Root-owned, not QA36E version execution.
+
 Current35 closeout: exactf34eac00 deployed,CI37123482507/native37123504506/
 protectedrelease PASS; TestRunner35A862web/fulllocal PASS, corrected35B2
 ordinarylearning/originalhistory100%/oldPDF/readback PASS. Root actual35 resultCTA

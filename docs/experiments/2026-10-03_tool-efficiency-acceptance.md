@@ -1,5 +1,66 @@
 # Tool-efficiency acceptance: known-file lookup/consumer discovery pilot
 
+## QA36 live closeout and local repair measurements,2026-10-03
+
+- CodeGraph narrowed mailbox_config to its real env loader and update_tenant to
+  service/response/audit calls. Two decisive same-name candidates were false:
+  refresh resolved to auth.refresh and commit to a test fake; bounded source
+  confirmed actual SQLAlchemy semantics instead. Mail _send search returned0
+  generic candidates; exact source path plus callee lookup found6edges,5useful
+  email/config edges and one false hashlib.sha256 edge into an unrelated helper.
+  Two guessed invocation names also returned0. No absence/dead-code conclusion.
+- Stable batch source sync1.6.1: SDK1913ms, wrapper6681ms, shell7267ms;
+  1625files/29954nodes/79908edges, exclusions PASS. Graphify was not duplicated
+  for answered seams. No causal throughput/token/subscription savings claim.
+- Cheap leaf parent-refresh implementation7tests PASS3.21s; Root source review
+  accepted two-file scope. API red3failed1.89s was recorded; initial leaf mock
+  incorrectly rejected precommit refresh too, Root corrected the test model.
+  Focused API3PASS1.04s and later combined84PASS1.56s. Root strengthened the
+  disposable DB gate to pin the physical connection across real commit.
+- Actual Chrome download listener timed out even though file arrived; read-only
+  timestamp/hash/PDF-page and ZIP-manifest checks proved disk handoff. IAB
+  screenshot() failed, getScreenshot worked; these are harness correction cost.
+  No automation-listener PASS or legal-signature claim follows from file proof.
+- Runner QA36A stopped before0tests because Root appended full as a Vitest
+  filenamefilter. Corrected QA36B retains unchanged11frozen hashes. Root failed
+  two combined documentation patches on mismatched anchors; atomic failures left
+  all target documents unchanged, then exact headings were used. Include this
+  coordination/rework overhead, not only successful tool timings.
+- Current-turn/per-child tokens and paid-equivalent attribution NOT_AVAILABLE;
+  existing cumulative CodeBurn metadata is not exact current task spend.
+- DEV full-feature helper seam: CodeGraph tenant_identity search3candidates14ms,
+  callers4edges19ms found the existing contract test and two real helper consumers,
+  preventing a duplicate new test module. All4source-confirmed; no missing consumer
+  conclusion. Post-delta stable syncSDK1156ms/wrapper4398ms/shell5010ms, exclusions
+  PASS. A generic public DEV60shealth check timed out; canonical90s permanentstand
+  verify then passed. No provider restart/tier change or access-blocker claim.
+- Runner QA36B wall501164ms; fullweb864tests/145files247.37s, lint/type/build67
+  PASS; APIunit/remoteexec2336PASS21.22s. Quality stopped on Root-owned surplus
+  blankline in newunit imports (RuffI001). Root exactone-line repair and quality
+  PASS; QA36C hash-links unchanged bulk suites and re-executes the touched unit
+  and remaining quality/contracts. The failed gate/correction stays in cost.
+- Runner QA36C wall204524ms:3boundary tests PASS0.97s, quality/version/contracts/
+  diff and independent local ZIP integrity PASS. QA36D wall120948ms:11stand
+  contract tests PASS0.19s plus quality/version/contracts/diff,13frozen hashes.
+  Full864web/2336API results are hash-linked, not rerun for unchanged sources.
+  Root-owned external readbacks are labeled supplied evidence, not independent
+  Runner network proof. Neither local READY outcome is release/full-feature GO.
+- Mail-simulation Root packet first used unsupported --no-cov,0collected;
+  corrected command then2PASS/1fixtureFAIL (RNG offset) before3PASS0.85s.
+  Root strengthened missing-code/identity/commit/cooldown and transport-capture
+  assertions. Independent QA36E wall186898ms:3focused0.85s/2380broader19.27s,
+  quality/version/contracts/diff PASS. A fresh broader API run checks isolation
+  after new OTP-state tests; unchanged web remains hash-linked, not rerun.
+- Final test-batch CodeGraph sync SDK989ms/wrapper5104ms/shell5727ms,
+  1626files/29990nodes/79993edges, exclusionsPASS. request_invitation_code
+  search9ms/callees20ms returned10edges; accept_invitation15edges/12returned
+  truncated21ms. Real OTP/mail/service edges source-confirmed; fake DB method
+  same-name edges remain false static candidates. No causal savings claim.
+- Root read-only container preflight initially combined4containers; allowlist
+  rejected it before network. One-command-per-container correction passed with
+  no allowlist broadening. All4 image identities/running/restarts0 verified;
+  no service restart or production mutation. These are harness overheads.
+
 ##35 post-closeout source-reachability correction,2026-10-03
 
 - Docs/governance source defd6a494af25e08a1ca37e89d303c94cd1950d4 published with

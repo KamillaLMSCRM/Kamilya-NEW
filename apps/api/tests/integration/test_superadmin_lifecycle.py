@@ -484,6 +484,22 @@ async def test_superadmin_can_mark_existing_tenant_as_demo(
     assert readback.status_code == 200, readback.text
     assert readback.json()["is_demo"] is True
 
+    # Permanent QA stands must be able to leave demo mode through the same
+    # canonical API without a post-commit RLS read causing a false failure.
+    restored = await client.patch(
+        f"/api/v1/admin/super/tenants/{tenant.id}",
+        headers=headers,
+        json={"is_demo": False},
+    )
+    assert restored.status_code == 200, restored.text
+    assert restored.json()["is_demo"] is False
+    regular_readback = await client.get(
+        f"/api/v1/admin/super/tenants/{tenant.id}", headers=headers
+    )
+    assert regular_readback.status_code == 200, regular_readback.text
+    assert regular_readback.json()["is_demo"] is False
+    assert regular_readback.json()["plan"] == readback.json()["plan"]
+
 
 @pytest.mark.asyncio
 async def test_superadmin_get_tenant_surfaces_stats(

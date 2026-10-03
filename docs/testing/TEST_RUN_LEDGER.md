@@ -1865,6 +1865,23 @@ Rules:
   `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-ASSESSMENT-SHAPES-20261003-A/report.md`
   and `result.json`; root owns the six pre-existing changes and final
   readiness, which remains `PARTIAL`.
+- `TEST-CLIENT-QA36-20261003-A` BLOCKED at the first hard gate with
+  `HARNESS_FAILURE`; no product defect classification is made. Exact checkout
+  `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD
+  `263d7653f13cdf3ff1d8b69d2c8de6db35da9cff`; primary guard `PRIMARY_OK`.
+  The packet command `pnpm --dir apps/web test -- --no-file-parallelism full`
+  exited `1` after Vitest `4.1.9` treated `full` as a filename filter and
+  reported `No test files found`; executed test files `0`, tests passed/failed
+  `0/0`, duration `2.028s`. This is a deterministic harness invocation
+  failure, not a web-product result. Per stop condition, web lint/typecheck/
+  build, API unit suite, remote-exec unit test, Python quality, version,
+  release-contract, and diff checks were not run. All 11 packet-frozen file
+  hashes matched before/after; no source repair, dependency, provider,
+  browser, network, database, production, Git, commit, push or deploy action
+  occurred. Evidence:
+  `.release-evidence/TEST-CLIENT-QA36-20261003-A/report.json`. Root correction
+  and final readiness review remain required; current readiness stays `PARTIAL`.
 - Root provenance correction for `TEST-ASSESSMENT-SHAPES-20261003-A` after the
   Runner became idle; the original entry above is unchanged. Runner turn
   `01a10208-7993-7e71-8ed4-0b9bcbfbb7ca` began `2026-10-03T13:51:12Z` and
@@ -1874,3 +1891,99 @@ Rules:
   Root independently matched those hashes, frozen test hash and unchanged app
   source. This corrects missing exact UTC provenance only; no additional tests,
   provider call, browser replay, production mutation or broader PASS is claimed.
+- `TEST-CLIENT-QA36-20261003-B` supersedes A's command-specification
+  `HARNESS_FAILURE` and is BLOCKED at the next hard gate with
+  `PRODUCT_DEFECT`; A remains unchanged. Exact checkout
+  `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD
+  `263d7653f13cdf3ff1d8b69d2c8de6db35da9cff`; primary guard `PRIMARY_OK`.
+  Corrected web command PASS: 145 test files and 864 tests in 247.37s; web
+  lint, typecheck and 67-page build PASS. Canonical API unit plus
+  `scripts/ops/test_kz_remote_exec.py` PASS: 2336 tests, 5 warnings, 21.22s.
+  Canonical Python quality then failed on the newly named root-owned test
+  `apps/api/tests/unit/test_superadmin_tenant_update_commit_boundary.py` with
+  Ruff `I001`, actual `1`, allowed `0`; this is a deterministic quality
+  failure, not an API/runtime failure. Version validation, release-contract
+  gate and `git diff --check` were not run per stop condition. All 11 frozen
+  file hashes matched before/after; no source repair, dependency, provider,
+  browser, network, database, production, Git, commit, push or deploy action
+  occurred. Evidence:
+  `.release-evidence/TEST-CLIENT-QA36-20261003-B/report.json`. Corrective root
+  packet required; readiness remains `PARTIAL`.
+- `TEST-CLIENT-QA36-20261003-D` persistent-QA classification addendum PASS and
+  READY FOR ROOT REVIEW; local readiness only, not full-product acceptance.
+  Exact checkout `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD
+  `263d7653f13cdf3ff1d8b69d2c8de6db35da9cff`; primary guard `PRIMARY_OK`.
+  All 13 frozen hashes matched, including `scripts/ops/dev_qa_stand.py`
+  SHA-256 `9e68a95f27ee949ee85644588b123cad2f2618191525c27c895af64578c332a3`
+  and `apps/api/tests/unit/test_dev_qa_stand_contract.py` SHA-256
+  `8d91a71190d9423685523067b9bf14cb429cb3a28d3648e77e4ad28641989faf`.
+  Fresh stand-contract pytest PASS `11/11` in `0.19s`; Python quality PASS
+  Ruff `1010`/mypy `2200`; version validation PASS `0.11.35`; release-contract
+  gate PASS (Alembic `172`, head `0174`, 31 Render direct packages, 213 unique
+  error entries); `git diff --check` PASS. QA36-C and QA36-B web/API results
+  are hash-linked, not rerun in D.
+  Root-supplied transition evidence was inspected only: exact artifact SHA
+  `1e12c754c5aabcc616aeec5f6b69011bd8ea382aa5b04f98ca2039d0fbab7aae`,
+  status `APPLIED_WITH_RESPONSE_DEFECT`, demo flag true->false, HTTP `500`,
+  replay false, one authorized business mutation, and plan/settings/counts
+  unchanged. Root-supplied stand verification SHA
+  `6f5bbcdcb5ca75b3bfb2d2e14f58b145232e50032462216eaf1b314d0d6a7108` reports
+  PASS with users `2`, courses `2`, assignments `2`, failed `2`, exhausted `1`,
+  and verification business mutations `0`. These are ROOT-OWNED, not fresh
+  runner runtime execution. Persistent QA is retained; full-feature acceptance
+  remains `PARTIAL`; paid AI is `NOT_RUN`, actual mail/OTP receipt
+  `NOT_VERIFIED`, and legal EDS `NOT_TESTED`. Evidence:
+  `.release-evidence/TEST-CLIENT-QA36-20261003-D/report.json`.
+- `TEST-CLIENT-QA36-20261003-C` supersedes B after the authorized one-line
+  frozen test correction and is READY FOR ROOT REVIEW; no release authorization
+  or full-feature PASS. Exact checkout
+  `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD
+  `263d7653f13cdf3ff1d8b69d2c8de6db35da9cff`, primary guard `PRIMARY_OK`.
+  Ten frozen file hashes remained unchanged; the sole authorized test hash is
+  `26f3ccd1d4bb7c1f7b7880db91ad686457205c3e75fd08b54b29652f43d91504`.
+  Narrow commit-boundary regression PASS `3/3` in `0.97s`; Python quality PASS
+  Ruff `1010`/mypy `2200`; version validation PASS `0.11.35`; release-contract
+  gate PASS (Alembic `172`, head `0174`, 31 Render direct packages, 213 unique
+  error entries); `git diff --check` PASS. Prior QA36-B web PASS (`145` files,
+  `864` tests, lint/typecheck/build, 67 pages) and API PASS (`2336` tests,
+  5 warnings) are explicitly hash-linked, not rerun in C.
+  Local evidence ZIP read-only hash/readback PASS: exact ZIP SHA-256
+  `fba7e7bfcea363779ece2c0a7dac506561f842949da6ff6761670be105378a31`,
+  `236308` bytes, four entries, manifest SHA-256
+  `09568450e45636430e6d8e6b792d69d8fe445b615a2d5f80f359628088cf9d64`, one
+  signed-copy artifact SHA-256
+  `63946e6ba0db74307e7fc9dfb446f3b0528ce598efd611cd5c9d42d067f6bb73`, six
+  attempts and manual confirmation metadata. Root-linked signed-copy,
+  QA-flag, and tenant-update JSON were inspected as supplied evidence only,
+  not fresh runner execution; their hashes and provenance are in the report.
+  Mail/OTP actual receipt remains `NOT_VERIFIED`, paid AI `NOT_RUN`, legal EDS
+  `NOT_TESTED`, and full-feature acceptance `PARTIAL`. No external, provider,
+  browser, network, database, production, mail, AI, Git, commit, push, deploy,
+  or source-repair action occurred. Evidence report
+  `.release-evidence/TEST-CLIENT-QA36-20261003-C/report.json` SHA-256
+  `0f78e2da7cf88712908b2c5eecbedde4fa212787a02373b93c31e6eb66746861`.
+- `TEST-CLIENT-QA36-20261003-E` owner-approved local mail-simulated invitation
+  regression PASS; no real mail, provider, network, database, browser,
+  production or AI action. Exact checkout
+  `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD
+  `263d7653f13cdf3ff1d8b69d2c8de6db35da9cff`; primary guard `PRIMARY_OK`.
+  New regression test SHA-256 before/after
+  `09e6e26856d459de3c9d3754def2d79ab7480fa3975569c268ecfdeb3be57f41`.
+  Focused invitation mail simulation PASS `3/3` in `0.85s` with one warning;
+  broad no-DB invitation/RBAC/delivery/expiry matrix PASS `2380/2380` in
+  `19.27s` with 5 warnings. Canonical Python quality PASS Ruff `1010`/mypy
+  `2200`; version validation PASS `0.11.35`; release-contract gate PASS
+  (Alembic `172`, head `0174`, 31 Render direct packages, 213 unique error
+  entries); `git diff --check` PASS. The simulated journey covered missing,
+  malformed, wrong and login-scoped OTP rejection, mail-only code extraction,
+  cooldown single-mail behavior, exact identity/password preservation with one
+  commit, HttpOnly refresh-cookie/no-body-token behavior, terminal replay 410
+  without duplicate commit, and delivery-failure invalidation. QA36-B web and
+  API29/runtime results remain linked, not rerun. Real mail receipt remains
+  `NOT_VERIFIED`; paid AI `NOT_RUN`; legal EDS `NOT_TESTED`; full-feature
+  acceptance `PARTIAL`. Evidence:
+  `.release-evidence/TEST-CLIENT-QA36-20261003-E/report.json`.

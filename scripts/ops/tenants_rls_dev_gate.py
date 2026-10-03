@@ -9,6 +9,7 @@ import importlib.util
 import json
 import re
 import sys
+from types import SimpleNamespace
 from pathlib import Path
 from uuid import uuid4
 
@@ -448,6 +449,86 @@ async def run_gate(owner_url, runtime_url, supabase_url):
                 raise GateBlocked("own_delete_broken")
             await db.rollback()
         checks.append("real_server_id_creation_own_crud_rollback")
+
+        # Exercise the real ORM/router update boundary without importing the
+        # production response fan-out (stats, usage and latest-lead tables are
+        # intentionally outside this isolated three-table schema).  The local
+        # stubs are explicit: they prove ordering and tenant-field handling,
+        # while the independent readback below proves the persisted RLS row.
+        stage = "application_tenant_update_commit_boundary"
+        async with owner.begin() as db:
+            enabled = await db.execute(
+                text(f"UPDATE {qualified}.tenants SET is_demo=true WHERE id=:id"),
+                {"id": tenant_ids[0]},
+            )
+            if enabled.rowcount != 1:
+                raise GateBlocked("demo_update_setup_missing")
+
+        from app.modules.admin.superadmin import router as superadmin_router
+        from app.modules.admin.superadmin.schemas import TenantUpdate
+        from app.modules.admin.superadmin.service import SuperadminService
+
+        async with runtime.connect() as connection, AsyncSession(bind=connection) as db:
+            await context(db, schema, "", platform=True)
+            update_backend_pid = await db.scalar(text("SELECT pg_backend_pid()"))
+            svc = SuperadminService(db)
+            original_response = superadmin_router._tenant_response
+            original_log_action = superadmin_router.log_action
+
+            async def response_stub(_svc, tenant):
+                if tenant.is_demo is not False:
+                    raise GateBlocked("orm_demo_update_not_visible_precommit")
+                return {"id": str(tenant.id), "is_demo": bool(tenant.is_demo)}
+
+            async def audit_stub(*_args, **_kwargs):
+                return None
+
+            superadmin_router._tenant_response = response_stub
+            superadmin_router.log_action = audit_stub
+            try:
+                response = await superadmin_router.update_tenant(
+                    tenant_ids[0],
+                    TenantUpdate(is_demo=False),
+                    SimpleNamespace(client=None),
+                    user=SimpleNamespace(id=user_ids[0]),
+                    svc=svc,
+                )
+            finally:
+                superadmin_router._tenant_response = original_response
+                superadmin_router.log_action = original_log_action
+            if response != {"id": str(tenant_ids[0]), "is_demo": False}:
+                raise GateBlocked("orm_demo_update_response_mismatch")
+            commit_scope = (await db.execute(text(
+                "SELECT pg_backend_pid(), current_setting('app.tenant_id',true), "
+                "current_setting('app.is_superadmin',true)"
+            ))).one()
+            if commit_scope[0] != update_backend_pid:
+                raise GateBlocked("commit_connection_not_pinned")
+            if commit_scope[1] not in (None, "") or commit_scope[2] == "true":
+                raise GateBlocked("tenant_context_leaked_after_commit")
+
+        async with AsyncSession(runtime) as db:
+            await context(db, schema, tenant_ids[0])
+            persisted = await db.scalar(
+                text("SELECT is_demo FROM tenants WHERE id=:id"),
+                {"id": tenant_ids[0]},
+            )
+            if persisted is not False:
+                raise GateBlocked("orm_demo_update_not_persisted_false")
+            await db.rollback()
+        async with AsyncSession(runtime) as db:
+            await context(db, schema)
+            if await db.scalar(text("SELECT count(*) FROM tenants")) != 0:
+                raise GateBlocked("no_platform_read_not_denied_after_update")
+            await db.rollback()
+        checks += [
+            "router_orm_demo_true_to_false_response_before_commit",
+            "router_orm_demo_false_persisted_after_commit",
+            "router_orm_commit_clears_local_tenant_context",
+            "router_orm_no_platform_read_denied",
+            "router_response_auxiliary_reads_explicitly_stubbed",
+        ]
+
         stage = "application_credentials"
         for email, expected in (
             ("domain@example.invalid", user_ids[0]),

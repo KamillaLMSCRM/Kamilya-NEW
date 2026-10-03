@@ -81,6 +81,44 @@ DOCKER_EVIDENCE_CONTAINER_RE = re.compile(
 DOCKER_AI_WORKER_LOG_CONTAINER_RE = re.compile(
     r"(?:kamilya-runtime|kamilya-(?:blue|green))-worker-ai-1"
 )
+DOCKER_API_LOG_CONTAINER_RE = re.compile(
+    r"(?:kamilya-runtime|kamilya-(?:blue|green))-api-1"
+)
+API_LOG_EXCEPTION_CLASSES = frozenset(
+    {
+        "AttributeError",
+        "DBAPIError",
+        "IntegrityError",
+        "InvalidRequestError",
+        "KeyError",
+        "LookupError",
+        "MissingGreenlet",
+        "NotFoundError",
+        "OperationalError",
+        "PermissionError",
+        "ProgrammingError",
+        "ResponseValidationError",
+        "RuntimeError",
+        "TypeError",
+        "ValidationError",
+        "ValueError",
+    }
+)
+API_LOG_EXCEPTION_RE = re.compile(
+    r"(?:^|\s)(?:[A-Za-z_][A-Za-z0-9_]*\.)*"
+    r"(?P<exception>"
+    + "|".join(re.escape(name) for name in sorted(API_LOG_EXCEPTION_CLASSES, key=len, reverse=True))
+    + r")"
+    r"(?::|\s*$)"
+)
+API_LOG_FRAME_RE = re.compile(
+    r"File \"[^\"]*/(?P<path>app/modules/admin/superadmin/(?:router|service)\.py)\","
+    r" line (?P<line>[1-9][0-9]*)"
+)
+API_LOG_COMMAND_RE = re.compile(
+    rb"(?m)^\s*sudo -n docker logs --since 15m --tail 200 "
+    rb"(?:kamilya-runtime|kamilya-(?:blue|green))-api-1\s*$"
+)
 GENERATION_ERROR_LOG_RE = re.compile(
     r"Evidence V2 failed for job "
     r"(?P<job>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}) "
@@ -267,8 +305,13 @@ def _assert_read_only(text: str) -> None:
             and argv[:6] == ["docker", "logs", "--since", "15m", "--tail", "200"]
             and DOCKER_AI_WORKER_LOG_CONTAINER_RE.fullmatch(argv[6]) is not None
         )
+        safe_bounded_api_logs = (
+            len(argv) == 7
+            and argv[:6] == ["docker", "logs", "--since", "15m", "--tail", "200"]
+            and DOCKER_API_LOG_CONTAINER_RE.fullmatch(argv[6]) is not None
+        )
         if SHELL_CONTROL.search(stripped) and not (
-            safe_docker_evidence_format or safe_bounded_ai_worker_logs
+            safe_docker_evidence_format or safe_bounded_ai_worker_logs or safe_bounded_api_logs
         ):
             raise GateBlocked("read_only_shell_construct_not_allowed")
         if not argv or argv[0] not in READ_ONLY_COMMANDS:
@@ -277,7 +320,7 @@ def _assert_read_only(text: str) -> None:
             len(argv) < 2
             or (
                 argv[1] not in {"ps", "stats", "inspect", "version", "info"}
-                and not safe_bounded_ai_worker_logs
+                and not (safe_bounded_ai_worker_logs or safe_bounded_api_logs)
             )
         ):
             raise GateBlocked("read_only_docker_command_not_allowed")
@@ -405,6 +448,33 @@ def evidence_lines(output: bytes) -> list[str]:
     return lines
 
 
+def api_log_evidence_lines(output: bytes) -> list[str]:
+    """Reduce API traceback output to approved class names and source frames only."""
+    try:
+        text = output.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise GateBlocked("remote_evidence_contract_invalid") from exc
+    lines = [
+        f"EVIDENCE|api_exception={exception}"
+        for exception in API_LOG_EXCEPTION_RE.findall(text)
+        if exception in API_LOG_EXCEPTION_CLASSES
+    ]
+    lines.extend(
+        f"EVIDENCE|api_frame={match.group('path')}:{match.group('line')}"
+        for match in API_LOG_FRAME_RE.finditer(text)
+    )
+    lines = list(dict.fromkeys(lines))
+    if not lines or len(lines) > 50 or any(
+        len(line) > 500 or not EVIDENCE_LINE_RE.fullmatch(line) for line in lines
+    ):
+        raise GateBlocked("remote_evidence_contract_invalid")
+    return lines
+
+
+def _uses_api_log_sanitizer(payload: bytes) -> bool:
+    return API_LOG_COMMAND_RE.search(payload) is not None
+
+
 def run_channel(client: Any, command: str, payload: bytes, timeout: int) -> StageResult:
     transport = client.get_transport()
     if transport is None or not transport.is_active():
@@ -484,7 +554,9 @@ def execute_stages(
     execution = runner(profile.command(timeout, *execution_argv), payload)
     if execution.exit_code != 0:
         try:
-            sanitized_evidence = evidence_lines(execution.stdout + b"\n" + execution.stderr)
+            raw_output = execution.stdout + b"\n" + execution.stderr
+            sanitizer = api_log_evidence_lines if _uses_api_log_sanitizer(payload) else evidence_lines
+            sanitized_evidence = sanitizer(raw_output)
         except GateBlocked:
             sanitized_evidence = []
         raise RemoteScriptBlocked("remote_script_failed", sanitized_evidence)
@@ -495,7 +567,9 @@ def execute_stages(
         "remote_execution_privilege": execution_privilege,
         "server_timeout_seconds": timeout,
         "remote_execution_exit_code": execution.exit_code,
-        "evidence": evidence_lines(execution.stdout + b"\n" + execution.stderr),
+        "evidence": (
+            api_log_evidence_lines if _uses_api_log_sanitizer(payload) else evidence_lines
+        )(execution.stdout + b"\n" + execution.stderr),
         "stdout_bytes": len(execution.stdout),
         "stdout_sha256": hashlib.sha256(execution.stdout).hexdigest(),
         "stderr_bytes": len(execution.stderr),

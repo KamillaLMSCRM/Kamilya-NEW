@@ -416,7 +416,10 @@ export default function AdminTrainingLogPage() {
       onRetry={() => void signedScanLedgers.refresh(eventId)}
       onUpload={(file) => signedScanLedgers.upload(eventId, file)}
       reviewingScanIds={signedScanLedgers.reviewingScanIds}
-      onReview={(scanId, action, reason) => signedScanLedgers.review(eventId, scanId, action, reason)}
+      onReview={async (scanId, action, reason) => {
+        await signedScanLedgers.review(eventId, scanId, action, reason);
+        await fetchPage();
+      }}
     />
   );
 

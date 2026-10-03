@@ -96,7 +96,7 @@ def test_tenant_and_user_identity_fail_closed_on_drift():
     tenant = {
         "id": "tenant-1",
         "slug": stand.SLUG,
-        "is_demo": True,
+        "is_demo": False,
         "is_financial_organization": False,
         "notes": stand.MARKER,
         "status": "active",
@@ -112,3 +112,18 @@ def test_tenant_and_user_identity_fail_closed_on_drift():
 
     with pytest.raises(stand.StandError, match="user_identity_drift"):
         stand.user_identity(UserClient(), "token", state, "student")
+
+
+def test_tenant_identity_rejects_demo_classification_for_persistent_qa_stand():
+    state = {"tenant_id": "tenant-1"}
+    tenant = {
+        "id": "tenant-1",
+        "slug": stand.SLUG,
+        "is_demo": True,
+        "is_financial_organization": False,
+        "notes": stand.MARKER,
+        "status": "active",
+    }
+
+    with pytest.raises(stand.StandError, match="tenant_classification_drift"):
+        stand.tenant_identity(tenant, state)

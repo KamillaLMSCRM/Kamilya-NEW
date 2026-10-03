@@ -11,6 +11,67 @@ DB/storage gate и приёмкой клиента
 
 ## Current frontend35 — bounded learner presentation and learning readback PASS
 
+Continuation2026-10-03: Root actual Chrome download of learner completion PDF
+PASS (50985bytes, SHA2563687a3d888f81485f71d431f65e92eae1b462f116804c7ac7952e6b66e528521),
+all3pages rendered/visually checked. A clearly watermarked synthetic QA copy was
+uploaded by the ordinary learner and accepted by the ordinary methodologist on
+event6d5658f5-4589-4f33-8c72-a91163e77c2f. Actual browser ZIP download236308bytes,
+SHA256fba7e7bfcea363779ece2c0a7dac506561f842949da6ff6761670be105378a31;
+manifest/artifact hashes, exacttenant/enrollment/event/release/6attempts and
+accepted copy SHA25663946e6ba0db74307e7fc9dfb446f3b0528ce598efd611cd5c9d42d067f6bb73
+PASS. This closes file handoff and the technical synthetic scan/review/package
+flow, not a real legal signature or EDS. Parent export readiness required reload;
+the local fix refreshes the parent after review. Independent QA36B local matrix
+864web/145files, lint/type/build67pages and2336APIunit/remote-helper tests PASS.
+It stopped on a surplus blank line in the new unit test (RuffI001); Root removed
+that line, corrected QA36C quality/contracts/local ZIP integrity PASS. No runtime deployment
+or complete product acceptance follows from these local results.
+
+Owner requested all-function permanent QA stands. Exact retained production QA
+83552ce6-8058-4561-abe3-cfbda14e030a now has is_demo=false; existing enterprise
+plan/resources preserved. PATCH returned500 after commit; independent GET false
+confirmed persistence, no replay. Local transaction-boundary repair and isolated
+DEV ORM/RLS gate PASS/cleanup/public-neutrality; no new runtime release yet.
+One exact QA invitation was created and purpose-bound OTP requested. Provider
+acceptance is observed, but invitation/OTP receipt is NOT_VERIFIED: exactrecipient
+searches in the controlled mailbox INBOX and Spam found neither. Do not retrieve
+server-stored OTP and call it email delivery. Fresh paid AI has NOT_RUN: approved
+one-course spend ceiling$1 is not yet proven by the current retry/input contract.
+Independent Root GET-only readback15:19:28Z confirms acceptedscan/readyrow,
+manifest/artifact integrity and unchanged original publishedcourse/enrollments;
+OTP remains pending. General full-feature acceptance remains PARTIAL;
+frontend35/API29 still current.
+
+Exact permanent DEV QA a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0 was similarly
+changed to is_demo=false15:30:01Z, preserving existingfreeplan/settings/counts;
+API29 returned500 after commit, independent GETfalse, no replay. Updated
+canonical stand verify15:31:52Z PASS:2users/2courses/2assignments/2failed/
+1exhausted,0verificationbusinesswrites, retained history. Helper futurebootstrap
+and classification now requirefalse;11focused contract tests PASS. Owner rule
+is encoded in AGENTS without disabling role/RLS/OTP/retention/spend gates.
+TestRunner QA36C local quality/contracts and independent local ZIP integrity
+PASS; report0f78e2da7cf88712908b2c5eecbedde4fa212787a02373b93c31e6eb66746861.
+Narrow DEV classification addendum QA36D PASS:13frozen hashes,11contract tests,
+quality/version/release-contract/diff gates; report SHA256
+dbd4321b9291cb2d9b114f99a3c86bdcfc0b0ef487c0c0e703880142fe930443.
+Bulk QA36B/C suites are hash-linked, not rerun in D. These flag changes did not
+deploy the local API/UI repairs, create provider resources or raise budgets.
+
+Owner subsequently accepted local simulated mail delivery instead of repeating
+mailbox receipt as a critical-path gate. Independent QA36E PASS:3focused tests
+plus2380broader database-free tests, Python quality/version/contracts/diff;
+report3708cdc3ca5d3edac818f17f80893794ef7bd8f673dd374a4a7742bee319fd2d.
+Real public endpoints, OTP generation/consumption and captured rendered mail are
+exercised; DB/Redis/transport/session/audit persistence are isolated. Missing,
+malformed, wrong and login-scoped codes fail; cooldown, valid exact identity,
+secure cookie, single commit, terminal replay and delivery-failure invalidation
+PASS. This is not production mail/OTP receipt or DB/session-persistence proof.
+Exact QA demo=false removes demo gates, not global switches/missing integrations.
+Root subsequently prepared version36 metadata/notes and release validation PASS;
+QA36E's version35 check predates this packaging-only delta. CI/runtime36 still
+NOT_DEPLOYED. Fresh Root public API health and4container image parity confirmed
+32e1331d/API29, running/restarts0, image96a1bc2c; no deployment was performed.
+
 Frontend0.11.35/sourcef34eac00e79fcccbf3926627c23faac672c00edd deployed;
 CI37123482507/native37123504506 SUCCESS, tagv0.11.35, protected execute
 6f614e4e67eb9f2b0588c74a404f7455a68e63bf022bf0f75d7fedff0eb51ea3 RELEASE_OK.

@@ -425,12 +425,28 @@ def test_read_only_allows_bounded_ai_worker_logs_for_sanitized_diagnostics(
     assert manifest.mode == "read-only"
 
 
+@pytest.mark.parametrize("slot", ("blue", "green", "runtime"))
+def test_read_only_allows_bounded_api_logs_for_sanitized_diagnostics(
+    monkeypatch, tmp_path, slot
+) -> None:
+    _inside_repo(monkeypatch, tmp_path)
+    path = _script(
+        tmp_path,
+        f"sudo -n docker logs --since 15m --tail 200 kamilya-{slot}-api-1",
+    )
+
+    manifest = remote.load_script(
+        path, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
+    )
+
+    assert manifest.mode == "read-only"
+
+
 @pytest.mark.parametrize(
     "body",
     (
         "sudo -n docker logs kamilya-green-worker-ai-1",
         "sudo -n docker logs --since 15m --tail 201 kamilya-green-worker-ai-1",
-        "sudo -n docker logs --since 15m --tail 200 kamilya-green-api-1",
         "sudo -n docker logs --since 2h --tail 200 kamilya-green-worker-ai-1",
     ),
 )
@@ -442,6 +458,75 @@ def test_read_only_rejects_unbounded_or_non_ai_container_logs(monkeypatch, tmp_p
         remote.load_script(
             path, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
         )
+
+
+@pytest.mark.parametrize(
+    "body",
+    (
+        "sudo -n docker logs kamilya-green-api-1",
+        "sudo -n docker logs --since 15m --tail 201 kamilya-green-api-1",
+        "sudo -n docker logs --since 15m --tail 200 kamilya-yellow-api-1",
+        "sudo -n docker logs --since 2h --tail 200 kamilya-green-api-1",
+        "sudo -n docker logs --since 15m --tail 200 kamilya-yellow-worker-ai-1",
+    ),
+)
+def test_read_only_rejects_unbounded_or_wrong_api_container_logs(monkeypatch, tmp_path, body) -> None:
+    _inside_repo(monkeypatch, tmp_path)
+    path = _script(tmp_path, body)
+
+    with pytest.raises(remote.GateBlocked):
+        remote.load_script(
+            path, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
+        )
+
+
+def test_api_log_sanitizer_keeps_only_allowlisted_exception_and_frames() -> None:
+    raw = (
+        "ValueError: private message with 123e4567-e89b-12d3-a456-426614174000\n"
+        '  File "/opt/app/app/modules/admin/superadmin/router.py", line 123, in handler\n'
+        '  File "/opt/app/app/modules/admin/superadmin/service.py", line 45, in save\n'
+        "sqlalchemy.exc.IntegrityError: token=secret\n"
+        "pydantic.ValidationError: SQL SELECT * FROM users\n"
+        "LookupError: not allowlisted\n"
+        '  File "/opt/app/app/modules/admin/router.py", line 99, in bad\n'
+    ).encode()
+
+    assert remote.api_log_evidence_lines(raw) == [
+        "EVIDENCE|api_exception=ValueError",
+        "EVIDENCE|api_exception=IntegrityError",
+        "EVIDENCE|api_exception=ValidationError",
+        "EVIDENCE|api_exception=LookupError",
+        "EVIDENCE|api_frame=app/modules/admin/superadmin/router.py:123",
+        "EVIDENCE|api_frame=app/modules/admin/superadmin/service.py:45",
+    ]
+    rendered = " ".join(remote.api_log_evidence_lines(raw))
+    assert "private" not in rendered
+    assert "123e4567" not in rendered
+    assert "SQL" not in rendered
+    assert "secret" not in rendered
+
+
+def test_api_log_sanitizer_accepts_missing_greenlet_and_rejects_arbitrary_classes() -> None:
+    raw = (
+        "sqlalchemy.exc.MissingGreenlet: hidden details\n"
+        "sqlalchemy.exc.OperationalError: hidden details\n"
+        "sqlalchemy.exc.InvalidRequestError: private ORM identity and query\n"
+        "SomeOtherError: must not escape\n"
+    ).encode()
+
+    assert remote.api_log_evidence_lines(raw) == [
+        "EVIDENCE|api_exception=MissingGreenlet",
+        "EVIDENCE|api_exception=OperationalError",
+        "EVIDENCE|api_exception=InvalidRequestError",
+    ]
+
+
+def test_api_log_sanitizer_does_not_emit_existing_uuid_evidence_format() -> None:
+    evidence = remote.api_log_evidence_lines(
+        b"ValueError: job 0228597d-dd8f-42fa-aea4-ea5055a096d5 private details\n"
+    )
+    assert evidence == ["EVIDENCE|api_exception=ValueError"]
+    assert "0228597d" not in " ".join(evidence)
 
 
 def test_evidence_lines_extracts_only_sanitized_generation_error_metadata() -> None:
