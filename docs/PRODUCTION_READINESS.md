@@ -9,6 +9,21 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
+## Client32 candidate gate — 2026-10-03
+
+Production31 remains technically deployed, not a full-feature acceptance PASS.
+New ordinary QA admin/student read-only browser coverage completed across their
+visible sidebar/help, zero-course state and student /admin denial. PDF preview
+confirmed200application/pdf with parent frame-src blob violation. Candidate32
+fix is restricted to two exact admin routes, preserves global security directives,
+validates PDF MIME/magic bytes and cancels obsolete auto previews. Role-safe
+navigation, refreshed student API/retry/stale-result guards and truthful help are
+integrated. Focused14PDF/security tests and independent cheap source review PASS.
+Required: frozen full regression, exact CI/native/tag/capacity/protected release,
+visible production PDF rendering and independent retained-QA API readback.
+No API/worker/DB/helper/DNS/key/plan changes; fresh learning-write/token/paid-AI
+journeys remain separately unverified. This section is candidate evidence only.
+
 ## Daily learning release — 2026-09-30
 
 ### Historical workbench compatibility A — deployed OFF, 2026-10-02
@@ -90,7 +105,29 @@ maintenance only. Standing authorization is owned by
 API/DB/tenant/landing/DNS/tier maintenance. Full activation and live bounded
 workbench acceptance remain incomplete.
 
-### Current frontend30 — technical release passed, final client acceptance PARTIAL
+### Current frontend31 — technical release passed, final client acceptance PARTIAL
+
+Immutable31/source572f0d9569dfbdce8dc662d5fc6bcf4a52f234a3;
+CI37099443141/native37099447416 SUCCESS; protected REL-CLIENT-WEB31-B-20261003
+RELEASE_OK, independent public health body/header exact. Previous30/d8ab25d6,
+extra rollback28/64c8bfeb and359d7cda/299481ec retained. Only successful obsolete27
+and exact staging pair removed after exact artifact capacity failure; offhost
+original archive/manifest/build-config/historical receipt verified and retained.
+API29/source32e1331d unchanged, no fresh privateworker/DB proof inferred.
+Test Runner831web/9Node/141focusedPython/2244DB-free unit gates PASS with
+hash-linked C/D doc-only reuse; original7da failedCI/journal contract preserved.
+Root mobile wizard retest: blank/whitespace guards, valid Next without premature
+native submit, keyboard containment, Cancel focus and RU/KK/EN titles PASS.
+Natural-expiry31 SPA operation refresh PASS at06:01Z after16minutes, visible
+summary time advanced/no alert/no reload/login/token manipulation; no operations
+mutation. Publication is not full per-screen/all-role acceptance.
+Two exact new owner-approved ordinary QA actors
+created, random credentials only primary.env; existing11users/course enrollments
+unchanged, no mail/PIN reset/plan change. Test Runner E independently verified
+ordinary actor IDs/roles/tenant and expected denials, retained100/history/PDF,
+public identities,0business writes. Role browser/token/paid-AI gaps remain open.
+
+### Historical frontend30 — technical release passed, live follow-up defects
 
 Source d8ab25d6940eee4d388f3e32c820eb5ee57b169b, tag/Release v0.11.30;
 CI37095250011 all7 SUCCESS, native37095272118 SUCCESS, workbench ON.

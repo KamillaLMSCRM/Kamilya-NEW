@@ -25,14 +25,32 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
+## Client32 candidate boundary,2026-10-03
+
+Production31 ordinary QA admin/student sidebar/read-only help coverage completed,
+including zero-course learner state and browser admin-route denial. Live preview
+returns200PDF but parent CSP blocks blob; exact-two-admin-route32 repair and PDF
+type/signature guards are local only until the protected release. Role-safe links,
+student refreshed API/retry/stale-result cleanup and RU/KK/EN help also integrated.
+No new business/customer/provider/billing/credential writes. Full write/token/
+paid-AI feature acceptance remains PARTIAL. Published31 remains immutable.
+
 ## Репозиторий и сервисы
 
-Current frontend technical readback2026-10-03T04:34:32Z:0.11.30/source
-d8ab25d6940eee4d388f3e32c820eb5ee57b169b, CI37095250011/native37095272118
-SUCCESS, public health/header exact. Final client acceptance PARTIAL; live
-tenant-wizard default-action defect requires bounded frontend31 candidate and
-fresh gates. Actual rollback must be freshly verified before the next release.
-API public health remains0.11.29/source32e1331d; no API/worker/DB deployment30.
+Current frontend technical readback2026-10-03:0.11.31/source
+572f0d9569dfbdce8dc662d5fc6bcf4a52f234a3, CI37099443141/native37099447416
+SUCCESS, protected controller RELEASE_OK and independent public health/header
+exact. Immediate previous30/d8ab25d6, extra rollback28/64c8bfeb and protected
+359d7cda/299481ec retained. Only obsolete successful27/exact staging pair removed
+under standing capacity rule with verified offhost recovery. Final client
+acceptance PARTIAL: mobile wizard and operations natural-expiry31 SPA refresh
+after16minutes PASS; remaining role/token/paid-AI journeys need separate proof.
+API public health remains0.11.29/source32e1331d; no API/worker/DB deployment31.
+Owner approved only two new ordinary QA admin/student accounts in retained
+83552ce6-8058-4561-abe3-cfbda14e030a; random credentials stored only primary.env
+PRODUCTION_SMOKE_ADMIN_*/PRODUCTION_SMOKE_STUDENT_*. Ordinary login and role
+denials independently Test Runner E PASS; old users/enrollments unchanged,
+no mail, existing password/PIN reset, tenant/plan change or new assignment.
 Last independently verified2026-10-02: production backend0.11.29/source
 32e1331d9b24621de71213ba1150375a261b0464, protected image96a1bc2c,
 CT1250174, API+3workers ON; native frontend28/source64 was then live accepted.

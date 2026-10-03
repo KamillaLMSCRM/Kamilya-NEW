@@ -45,6 +45,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.32] - 2026-10-03
+
+### Fixed
+
+- Allow validated local PDF previews only on the two exact admin template routes,
+  retaining the global framing/object/security policy; reject wrong MIME/signature
+  before creating a preview URL and cancel obsolete automatic preview requests.
+- Remove inaccessible student catalog navigation and route quiz-empty guidance to
+  assigned courses; use the canonical refreshed API for My Courses with visible
+  load failure/retry and stale-response guards after session loss.
+- Keep training-log course titles read-only for the active admin role; preserve
+  methodologist navigation in both mobile and desktop layouts.
+- Split mandatory-training/training-log help and correct audit filter guidance
+  in Russian, Kazakh and English to match actual controls and permissions.
+
 ## [0.11.31] - 2026-10-03
 
 ### Fixed

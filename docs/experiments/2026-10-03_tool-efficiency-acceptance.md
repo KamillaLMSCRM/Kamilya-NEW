@@ -5,7 +5,9 @@ Checkout: `C:\Kamilya New\.worktrees\daily-learning-20260930`
 Historical measurement base HEAD: `0a52b99f6d7edfe7b8f1f96d1d17f2bf6cecc47b`,
 plus the then-uncommitted bounded client/tool changes. Retained pilot JSON is
 not a run of current31 source and is not retroactively rerun/relabelled.
-Published30/current31 review base HEAD: `d8ab25d6940eee4d388f3e32c820eb5ee57b169b`.
+Published30/initial31 review base HEAD: `d8ab25d6940eee4d388f3e32c820eb5ee57b169b`.
+Deployed31 source: `572f0d9569dfbdce8dc662d5fc6bcf4a52f234a3`; the retained
+navigation pilot was not rerun against it.
 Later sync, Runner and live-retest rows below carry separate contexts/timings.
 
 ## Scope and procedure
@@ -201,3 +203,71 @@ is counted, not hidden as a single first-pass final refresh.
 - The result measures bounded navigation only, not engineering throughput,
   correctness of implementation, test completeness, runtime behavior, RLS,
   deployment safety, or billing savings.
+
+##32 continuation measurements,2026-10-03
+
+- Static PDF inventory narrowed two actual iframe consumers; source and browser
+  CDP, not graph inference, established the cause:200PDF + parent frame-src block.
+  Inventory leaf's approximate25s is self-reported, not independently timed.
+- Stable-batch CodeGraph1.6.1 sync: SDK2432ms, wrapper10926ms,
+  tool wall about11s;1621files/29866nodes/79665edges, exclusions PASS.
+  New isPdfPreview callers query20ms body/0.87s entire shell action (also included
+  version/diff gates),5edges/untruncated: two real consumer functions and three
+  test-file calls, source-confirmed. No claim that these are five product consumers.
+  Config exact-route edit KEEP_LOCAL; iframe/header/runtime cause SOURCE_FALLBACK.
+- Corrections are counted: one mistaken training-log patch hunk was caught by
+  the red-capable component test and fixed; one leaf help correction removed an
+  invented Why-assigned control. Several guessed Windows glob/source paths and
+  help/audit locator mismatches failed; oversized audit AX output added overhead.
+  A lost browser binding after context transition required one existing-tab rebind.
+- PDF/security red:2failed/2passed; invalid-response component red:2failed/2passed
+  plus missing-helper suite, then14PASS/3files (3.99s Vitest/4.96s shell).
+  Leaf stale-session regression red then4PASS, bounded source integration check
+  found no concrete issue; no independent browser/deployment PASS inferred.
+- Graphify was not rerun for an answered two-consumer problem. ECC compact
+  ownership/runner packets remain routing, not automatically measured speedup.
+  CodeBurn day/session metadata remains cumulative; this repair's exact per-agent
+  token/cost/quality-adjusted savings NOT_AVAILABLE. No global hooks or telemetry.
+-32A wall372761ms, completed851web/144files plus build/lint/type/Node/version/
+  release-contract/2244APIunits/141selectors. Intentionally stopped before quality/
+  Poetry/diff after Root caught document-vs-SPA CSP integration risk. Root also
+  corrected one guessed benchmark filename before its gate; no file delta.
+  Additional Sidebar search19candidates/truncated18ms, callers1Layoutcandidate9ms
+  source-confirmed. New native-document navigation regression red1/2 then17PASS
+  and typecheck; this extra correction/retest is overhead, not claimed savings.
+
+##31 closeout additions,2026-10-03
+
+- Full B commands independently read from Runner outputs: Vitest68549ms,
+  lint10369ms, typecheck4387ms, build49369ms, Node414ms, syntax327ms;
+  total133415ms. These unchanged source/test/config gates were not repeated for
+  hash-linked doc-only C/D deltas. This quantifies previously measured commands
+  not repeated, not causal CodeGraph/ECC speedup or subscription/USD savings.
+- Runner31A wall140993ms (interrupted/uncompleted), B254101ms (release-notes
+  marker stop), C139960ms (linked localPASS), D154783ms (journal contract repair
+  and2244unitPASS), E162215ms (bounded production API readbackPASS).
+  Release Runner local plans21576/19217ms; post31 local technical reconciliation
+  39074ms. Network execution remains Root-owned, not independent Runner proof.
+- Root missed canonical Cause label in journal; original7da CI failed all three
+  dependent gates.572 fixes documentation only; originalfailedCI preserved.
+  Root corrected inherited D packet wording before execution. E had one local
+  wrapper parenthesis error before any import/network/login; corrected once.
+  These are real coordination/harness overhead, not savings.
+- Root QA recipe review used existing CodeGraph1.6.1 snapshot: create_employee
+  search0candidates/504ms (not absence proof); exact create_admin callees16edges,
+  12returned/truncated,44ms query body. bind_tenant_context/_sync_user_role were
+  source-confirmed; AsyncSession.flush/refresh edges again resolved to unrelated
+  same-name methods. Source fallback established no-delivery/password-init and
+  rule-task contracts. No claim of exhaustive consumer discovery or saved reads.
+- Native maintenance accidentally used httpx in agent-tools Python, which lacks
+  it; no installation. Corrected by keeping SSH in agent-tools and public HTTP in
+  canonical API Python. Web health is text, not JSON; parsing assumption corrected.
+  Repeated guessed source paths and the searchbox/textbox locator mismatch remain
+  overhead. No product failure or secret exposure inferred from these stops.
+- Latest bounded CodeBurn0.9.23 metadata snapshot ended2026-10-03T05:55:56.051Z:
+  Root session01a0f16d-e27e-7a43-8d7c-d0e5b07a12bd,17turns/1397calls,
+  input4482462/output592914/cache-read186188544/cache-write0,
+  session duration39355500ms. Root-only filter applied before output; no raw
+  session bodies read. Same-day/session cumulative values include historical
+  work, not exact current-turn/epic usage, child attribution, bill or savings.
+  Current-turn and per-child token savings remain NOT_AVAILABLE.

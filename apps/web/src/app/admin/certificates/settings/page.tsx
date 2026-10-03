@@ -7,6 +7,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/compo
 import { toast } from '@/components/ui/Toast';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
+import { isPdfPreview } from '@/lib/pdfPreview';
 
 const CANONICAL_VERIFICATION_URL = 'https://app.kml.kz/verify/certificate';
 
@@ -91,11 +92,16 @@ export default function CertificateSettingsPage() {
         sample_user_name: t('certificateSettings.sampleUser'),
         sample_course_title: t('certificateSettings.sampleCourse'),
       }, { responseType: 'blob', signal });
+      if (!await isPdfPreview(response.data)) {
+        throw new Error(t('certificateSettings.previewFailed'));
+      }
+      if (signal?.aborted) return null;
       const nextUrl = URL.createObjectURL(response.data);
       replacePreviewUrl(nextUrl);
       return nextUrl;
     } catch (err) {
       if (signal?.aborted) return null;
+      replacePreviewUrl(null);
       setPreviewError(errorMessage(err, t('certificateSettings.previewFailed')));
       return null;
     } finally {

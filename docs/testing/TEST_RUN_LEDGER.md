@@ -1582,3 +1582,65 @@ Rules:
   `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT31-20261003-D/acceptance-report.md`
   SHA-256 `161e6598c69075203e263cb6d56a849d736655b0f3d4f43b6ad871eae5a5fec7`.
   Local acceptance only; no production/deployed-runtime proof.
+- `TEST-CLIENT31-PROD-20261003-E` bounded production readback PASS at exact
+  frontend HEAD `572f0d9569dfbdce8dc662d5fc6bcf4a52f234a3`, branch
+  `feature/methodologist-workbench-20261001`, with approved helper
+  `post31-readonly.py` SHA-256
+  `7223a4965ae8ab17529e01d93fde628bbab69e6b057590bcb24445e2367db67c`.
+  One initial in-memory invocation wrapper syntax error occurred before import
+  and caused no production request; one corrected helper `run()` invocation then
+  passed. Sanitized readback: public frontend identity PASS at SHA
+  `572f0d9569dfbdce8dc662d5fc6bcf4a52f234a3`; API identity PASS at SHA
+  `32e1331d9b24621de71213ba1150375a261b0464`; retained completed
+  successor/predecessor/history/PDF fixture readback PASS; synthetic ordinary
+  admin login/me/allowed users GET/expected positions 403 PASS; synthetic
+  ordinary student login/me/empty dashboard/expected users 403 PASS; business
+  mutations 0; authentication sessions audit-only. No provisioning, password,
+  PIN/link, impersonation, role, mail, assignment, progress, completion,
+  database, provider, deployment, or source mutation. Browser acceptance remains
+  a separate root-owned check and was not performed here. Primary checkout was
+  clean; no other tenant or external/private infrastructure was read. Evidence:
+  `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT31-PROD-20261003-E/production-readback-report.md`
+  SHA-256 `b4202fd00ec5b8dde3bebd70ed2db66e21ddaefaface621605473677bc4ac368`.
+- `TEST-CLIENT32-20261003-A` LOCAL_MATRIX_ONLY and not accepted for release after
+  fresh local gates. Exact checkout `C:\Kamilya New\.worktrees\daily-learning-20260930`,
+  branch `feature/methodologist-workbench-20261001`, HEAD
+  `572f0d9569dfbdce8dc662d5fc6bcf4a52f234a3`; frozen manifest
+  `frozen-package-32-A.json` SHA-256
+  `c0f6389a46b952311e747be3376eef7d0a186622d76938fe4396624dbc8c3f47`.
+  Fresh PASS: web Vitest 144/144 files and 851/851 tests in 54.42s; lint;
+  typecheck; Next build 67/67 pages; Node wrapper tests 9/9 using the corrected
+  actual path `tool_efficiency_navigation_benchmark.test.cjs`; both syntax
+  checks; version `0.11.32`; release-contract gate; full DB-free unit suite
+  2244 passed; focused historical selector matrix 141 passed/2 skipped/9
+  subtests. A root-identified static integration risk remains: Next client
+  navigation can retain the initial document CSP, so exact-route headers alone
+  do not guarantee sidebar entry into PDF preview. No browser failure is claimed;
+  root must repair and issue a new frozen packet. Python quality, Poetry, and
+  `git diff --check` were intentionally stopped; final 28/28 frozen-file hash
+  verification passed with mismatches 0. No source/test/config/provider/database/
+  network/browser/production/deployment/credential mutation. Evidence:
+  `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT32-20261003-A/stop-report.md`
+  SHA-256 `51d1705467ba024b4fda1ce4feb52e899a880eaf9c33e4fc34619f089fad52fd`.
+- `TEST-CLIENT32-20261003-B` integrated local acceptance PASS, superseding the
+  historical A LOCAL_MATRIX_ONLY stop without rewriting A's no-GO result. Exact
+  checkout `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD
+  `572f0d9569dfbdce8dc662d5fc6bcf4a52f234a3`; frozen manifest
+  `frozen-package-32-B.json` SHA-256
+  `c03985985c6ad6f7141f02bc7ebcc61fbe3dc94757beefed1f5ea996b73e44f1`.
+  A stop-report SHA-256 independently verified as
+  `51d1705467ba024b4fda1ce4feb52e899a880eaf9c33e4fc34619f089fad52fd`; A/B
+  share exact worktree/branch/HEAD; delta limited to Sidebar source/test and
+  documented release/plan/experiment/error-journal files. Fresh web PASS:
+  Vitest 144/144 files and 852/852 tests in 52.70s; lint; typecheck; Next
+  build 67/67 pages with canonical process-local API/workbench/telemetry flags.
+  Safely reused byte-identical A-linked Node 9/9 plus syntax, API unit 2244,
+  and selector 141 passed/2 skipped/9 subtests; A remains historical no-GO.
+  Fresh version `0.11.32` PASS; Python quality PASS (Ruff 1010, mypy 2200);
+  Poetry PASS (`All set!`); `git diff --check` PASS; final 30/30 frozen hashes
+  PASS. Primary clean and not tested. No source/test/config/provider/database/
+  network/browser/production/deployment/credential mutation. Evidence:
+  `.release-evidence/CLIENT-ACCEPTANCE-20261003/TEST-CLIENT32-20261003-B/acceptance-report.md`
+  SHA-256 `695708046af6e25431f2eda9fffc3d58383855e0ac4834875a5d59742818fcb5`.
+  Local acceptance only; no production/deployed-runtime proof.

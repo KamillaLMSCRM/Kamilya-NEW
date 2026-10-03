@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { Card, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
-import { CheckCircle2, ChevronRight } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
+import { api } from '@/lib/api';
 
 interface EnrolledCourse {
   course_id: string;
@@ -23,28 +24,41 @@ export default function MyCoursesPage() {
   const { t, tp } = useT();
   const [courses, setCourses] = useState<EnrolledCourse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
   const token = useAuthStore((s) => s.accessToken);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const hasSession = Boolean(token);
 
-  const fetchCourses = useCallback(async () => {
-    if (!token) return;
+  const fetchCourses = useCallback(async (isActive: () => boolean) => {
+    if (!hasSession) {
+      if (isActive()) {
+        setCourses([]);
+        setLoadError(false);
+        setLoading(false);
+      }
+      return;
+    }
+    setLoading(true);
+    setLoadError(false);
     try {
-      const res = await fetch(`${API_URL}/v1/student/dashboard`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCourses(data.enrolled_courses || []);
+      const response = await api.get<{ enrolled_courses?: EnrolledCourse[] }>('/v1/student/dashboard');
+      if (isActive()) setCourses(response.data.enrolled_courses || []);
+    } catch {
+      if (isActive()) {
+        setCourses([]);
+        setLoadError(true);
       }
     } finally {
-      setLoading(false);
+      if (isActive()) setLoading(false);
     }
-  }, [token, API_URL]);
+  }, [hasSession]);
 
   useEffect(() => {
-    fetchCourses();
-  }, [fetchCourses]);
+    let active = true;
+    void fetchCourses(() => active);
+    return () => { active = false; };
+  }, [fetchCourses, retryNonce]);
 
   const filteredCourses = courses.filter((c) => {
     if (filter === 'active') return c.enrollment_status !== 'completed';
@@ -53,6 +67,12 @@ export default function MyCoursesPage() {
   });
 
   if (loading) return <div className="p-6">{t('common.loading')}</div>;
+  if (loadError) return (
+    <div className="space-y-3 p-6" role="alert">
+      <p>{t('common.loadFailed')}</p>
+      <Button type="button" onClick={() => setRetryNonce((value) => value + 1)}>{t('common.retry')}</Button>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -134,12 +154,5 @@ export default function MyCoursesPage() {
         </div>
             )}
 
-      {/* Browse available courses for self-enrollment */}
-      <div className="mt-8 pt-6 border-t">
-        <h2 className="text-lg font-semibold mb-4">{t('courses.browse')} <ChevronRight className="inline w-4 h-4" /></h2>
-        <Link href="/courses">
-          <Button variant="outline">{t('courses.viewAll')}</Button>
-        </Link>
-      </div>
     </div>
   );}

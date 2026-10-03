@@ -28,6 +28,13 @@ const nextConfig = {
         source: '/:path*',
         headers: buildSecurityHeaders({ apiUrl }),
       },
+      // Only these two admin pages embed locally generated, validated PDF blobs.
+      // Next applies the last matching header; all other security headers stay global.
+      ...['/admin/certificates/settings', '/admin/training-evidence/settings'].map((source) => ({
+        source,
+        headers: buildSecurityHeaders({ apiUrl, allowPdfPreview: true })
+          .filter(({ key }) => key === 'Content-Security-Policy'),
+      })),
     ];
   },
   // API calls now go cross-origin directly to the FastAPI backend.

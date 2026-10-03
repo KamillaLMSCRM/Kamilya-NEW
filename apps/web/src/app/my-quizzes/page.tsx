@@ -27,17 +27,39 @@ export default function MyQuizzesPage() {
   const { t, tp } = useT();
   const [quizzes, setQuizzes] = useState<EnrolledQuiz[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
-    api.get('/v1/quizzes/enrolled')
-      .then((res) => setQuizzes(res.data || []))
-      .finally(() => setLoading(false));
-  }, []);
+    let active = true;
+    setLoading(true);
+    setLoadError(false);
+    api.get<EnrolledQuiz[]>('/v1/quizzes/enrolled')
+      .then((res) => {
+        if (active) setQuizzes(res.data || []);
+      })
+      .catch(() => {
+        if (active) {
+          setQuizzes([]);
+          setLoadError(true);
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [retryNonce]);
 
   const pending = quizzes.filter((q) => !q.passed);
   const completed = quizzes.filter((q) => q.passed);
 
   if (loading) return <div className="p-6">{t('common.loading')}</div>;
+  if (loadError) return (
+    <div className="space-y-3 p-6" role="alert">
+      <p>{t('common.loadFailed')}</p>
+      <Button type="button" onClick={() => setRetryNonce((value) => value + 1)}>{t('common.retry')}</Button>
+    </div>
+  );
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -154,7 +176,7 @@ export default function MyQuizzesPage() {
         <Card>
           <CardContent className="p-8 text-center text-muted-foreground">
             <p>{t('student.noQuizzes') || 'У вас пока нет тестов.'}</p>
-            <Link href="/courses" className="text-primary hover:underline text-sm mt-2 inline-block">
+            <Link href="/my-courses" className="text-primary hover:underline text-sm mt-2 inline-block">
               {t('student.browseCourses')}
             </Link>
           </CardContent>

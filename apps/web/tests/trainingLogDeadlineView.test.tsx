@@ -4,10 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const navigation = vi.hoisted(() => ({
   params: new URLSearchParams(),
   replace: vi.fn(),
+  push: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: navigation.replace, push: vi.fn() }),
+  useRouter: () => ({ replace: navigation.replace, push: navigation.push }),
   useSearchParams: () => navigation.params,
 }));
 
@@ -75,6 +76,28 @@ beforeEach(() => {
 });
 
 describe('training log deadline presentation', () => {
+  it('keeps course titles read-only for an active admin, even with a secondary methodologist role', async () => {
+    const user = useAuthStore.getState().user!;
+    useAuthStore.setState({ user: { ...user, role: 'admin', roles: ['admin', 'methodologist'] } });
+    renderTrainingLog({});
+
+    expect(await screen.findAllByText('Deadline course')).toHaveLength(2);
+    expect(screen.queryAllByRole('button', { name: 'Deadline course' })).toHaveLength(0);
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
+  it('preserves the course preview action for an active methodologist in both layouts', async () => {
+    renderTrainingLog({});
+    await screen.findAllByText('Deadline course');
+
+    const courseButtons = screen.getAllByRole('button', { name: 'Deadline course' });
+    expect(courseButtons).toHaveLength(2);
+    for (const button of courseButtons) fireEvent.click(button);
+    expect(navigation.push).toHaveBeenCalledTimes(2);
+    expect(navigation.push).toHaveBeenNthCalledWith(1, '/courses/course-1');
+    expect(navigation.push).toHaveBeenNthCalledWith(2, '/courses/course-1');
+  });
+
   it('restores a dashboard status filter from the URL and exposes a safe return link', async () => {
     navigation.params = new URLSearchParams('status=overdue&return_to=%2Fdashboard');
     renderTrainingLog({ cycle_due_at: '2026-09-10T00:00:00Z', deadline_status: 'overdue' });

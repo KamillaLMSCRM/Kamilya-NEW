@@ -57,8 +57,8 @@ describe('contextual help registry', () => {
       ['/admin/course-approvals', 'admin', 'admin-course-approvals'],
       ['/admin/course-approvals', 'methodologist', 'admin-course-approvals'],
       ['/invitations', 'methodologist', 'invitations'],
-      ['/training-log', 'admin', 'admin-training-reports'],
-      ['/mandatory-training', 'admin', 'admin-training-reports'],
+      ['/training-log', 'admin', 'admin-training-log'],
+      ['/mandatory-training', 'admin', 'admin-mandatory-training'],
       ['/admin/super', 'superadmin', 'superadmin'],
       ['/admin/super/operations', 'superadmin', 'superadmin-operations'],
       ['/admin/providers', 'superadmin', 'superadmin-providers'],
@@ -185,7 +185,27 @@ describe('contextual help registry', () => {
 
     const reports = getContextualHelp('/training-log', 'admin', 'ru');
     expect(reports?.important).toContain('не создаёт курсы и назначения');
-    expect(reports?.example).not.toContain('передачи вопроса');
+    expect(reports?.steps.join(' ')).toContain('CSV');
+    expect(reports?.steps.join(' ')).toContain('статусу');
+
+    const mandatory = getContextualHelp('/mandatory-training', 'admin', 'ru');
+    expect(mandatory?.id).toBe('admin-mandatory-training');
+    expect(mandatory?.steps.join(' ')).toContain('состояние требования');
+    expect(mandatory?.steps.join(' ')).not.toContain('подразделения');
+    expect(mandatory?.steps.join(' ')).not.toContain('Экспорт');
+    expect(mandatory?.important).toContain('не создаёт назначения');
+
+    for (const locale of ['ru', 'kk', 'en'] as const) {
+      const localizedMandatory = getContextualHelp('/mandatory-training', 'admin', locale);
+      const localizedLog = getContextualHelp('/training-log', 'admin', locale);
+      const localizedAudit = getContextualHelp('/admin/audit', 'admin', locale);
+      expect(localizedMandatory?.id).toBe('admin-mandatory-training');
+      expect(localizedLog?.id).toBe('admin-training-log');
+      expect(localizedMandatory?.steps.join(' ')).not.toMatch(/Почему назначено|Неге тағайындалды|Why assigned/);
+      expect(localizedLog?.important).toMatch(/только для чтения|тек оқуға қолжетімді|read-only/);
+      expect(localizedAudit?.example).toMatch(/выбранным фильтрам|таңдалған сүзгілерге|selected filters/);
+      expect(localizedAudit?.example).toMatch(/пустые даты|күндерді бос|dates blank/);
+    }
 
     const operations = getContextualHelp('/admin/super/operations', 'superadmin', 'en');
     expect(operations?.purpose).toContain('background jobs');

@@ -652,7 +652,11 @@ export default function AdminTrainingLogPage() {
                   <article key={`${row.user_id}-${row.course_id}-${idx}`} className="space-y-3 p-4">
                     <div>
                       <h2 className="font-medium text-foreground">{row.full_name}</h2>
-                      <button type="button" className="mt-1 text-left text-sm text-primary hover:underline" onClick={() => router.push(`/courses/${row.course_id}`)}>{row.course_title}</button>
+                      {isMethodologist ? (
+                        <button type="button" className="mt-1 text-left text-sm text-primary hover:underline" onClick={() => router.push(`/courses/${row.course_id}`)}>{row.course_title}</button>
+                      ) : (
+                        <p className="mt-1 text-sm text-muted-foreground">{row.course_title}</p>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant={row.enrollment_status === 'cancelled' || row.enrollment_status === 'superseded' ? 'outline' : row.computed_status === 'completed' ? 'default' : 'secondary'}>
@@ -775,14 +779,18 @@ export default function AdminTrainingLogPage() {
                       <td className={`${columnClass.department} text-sm`}>{row.department_name || '—'}</td>
                       <td className={`${columnClass.position} text-sm`}>{row.position_name || '—'}</td>
                       <td className={columnClass.course}>
-                        <button
-                          type="button"
-                          className="line-clamp-3 text-left text-sm text-primary hover:underline"
-                          title={row.course_title}
-                          onClick={() => router.push(`/courses/${row.course_id}`)}
-                        >
-                          {row.course_title}
-                        </button>
+                        {isMethodologist ? (
+                          <button
+                            type="button"
+                            className="line-clamp-3 text-left text-sm text-primary hover:underline"
+                            title={row.course_title}
+                            onClick={() => router.push(`/courses/${row.course_id}`)}
+                          >
+                            {row.course_title}
+                          </button>
+                        ) : (
+                          <span className="line-clamp-3 text-sm" title={row.course_title}>{row.course_title}</span>
+                        )}
                       </td>
                       <td className={columnClass.type}>
                         <Badge variant={row.delivery_type === 'scorm' ? 'outline' : 'default'}>

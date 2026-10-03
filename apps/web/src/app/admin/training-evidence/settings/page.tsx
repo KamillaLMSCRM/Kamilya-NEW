@@ -6,6 +6,7 @@ import { Download, Loader2, Save } from 'lucide-react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
+import { isPdfPreview } from '@/lib/pdfPreview';
 
 interface FormSettings {
   template_version: number;
@@ -51,18 +52,22 @@ export default function TrainingEvidenceFormSettingsPage() {
     setPreviewUrl(url);
   }, []);
 
-  const renderPreview = useCallback(async (value: FormSettings) => {
+  const renderPreview = useCallback(async (value: FormSettings, signal?: AbortSignal) => {
     setPreviewLoading(true);
     try {
-      const response = await api.post<Blob>('/v1/training-evidence/form-settings/preview', value, { responseType: 'blob' });
+      const response = await api.post<Blob>('/v1/training-evidence/form-settings/preview', value, { responseType: 'blob', signal });
+      if (!await isPdfPreview(response.data)) throw new Error('Invalid PDF preview');
+      if (signal?.aborted) return null;
       const url = URL.createObjectURL(response.data);
       replacePreview(url);
       return url;
     } catch {
+      if (signal?.aborted) return null;
+      replacePreview(null);
       toast.error('Не удалось сформировать предпросмотр бланка.');
       return null;
     } finally {
-      setPreviewLoading(false);
+      if (!signal?.aborted) setPreviewLoading(false);
     }
   }, [replacePreview]);
 
@@ -81,8 +86,9 @@ export default function TrainingEvidenceFormSettingsPage() {
 
   useEffect(() => {
     if (loading) return;
-    const timeout = window.setTimeout(() => { void renderPreview(settings); }, 500);
-    return () => window.clearTimeout(timeout);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => { void renderPreview(settings, controller.signal); }, 500);
+    return () => { window.clearTimeout(timeout); controller.abort(); };
   }, [loading, renderPreview, settings]);
 
   useEffect(() => () => {

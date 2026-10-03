@@ -5,23 +5,49 @@
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/methodologist-workbench-20261001`
 
+## Client acceptance32 candidate,2026-10-03
+
+Production remains31/source572 until a new exact32 protected release completes.
+Ordinary QA admin/student live read-only navigation/help/sidebar coverage now
+completed: admin settings/team/kiosk/audit/results/profile; student zero-course
+dashboard/courses/programs/quizzes/certificates/profile and /admin deny. No Save,
+Send, PIN, account, assignment, progress or completion writes in these UI checks.
+Confirmed200PDF + parent frame-src blob block; local32 exact-two-route fix and
+typed/signature guards, role-safe navigation, retry/stale-request handling and
+truthful RU/KK/EN help are integrated. Focused14PDF/security tests PASS and cheap
+source review PASS. Full32 matrix, exact CI/native/tag/capacity/deploy and visible
+PDF readback are still required. Existing31 API evidence is not full32 acceptance.
+All-role write/token/paid-AI acceptance remains PARTIAL; never recreate QA actors.
+
 ## Local navigation: CodeGraph pilot accepted,2026-10-03
 
-Client30/source d8ab25d6940eee4d388f3e32c820eb5ee57b169b is technically deployed;
-public health/header independently match. Test Runner C825web/9Node/141Python
-PASS, CI37095250011 and native37095272118 SUCCESS. Root executed the protected
-bridge; Release Runner external executor is unavailable, local reconciliation
-only. Final live acceptance is PARTIAL: valid tenant-wizard Next triggers
-premature native validation on step2. Tiny frontend31 candidate cancels that
-click default and separates Next/Create node identities; fresh frozen gates and
-live retest required, never rewrite published30. Natural-expiry SPA test also
-found operations rawfetch missed;31 replaces it with canonical api and preserves
-v1 paths/dry-run/explicit-confirmation contracts.31A STOPPED; replacement needed.
+Frontend31/source572f0d9569dfbdce8dc662d5fc6bcf4a52f234a3 is technically deployed;
+public health body/header independently match. CI37099443141/native37099447416
+SUCCESS; Test Runner831web/9Node/141focusedPython and2244DB-free APIunit PASS,
+with explicitly hash-linked reuse for doc-only C/D deltas. Historical failed
+31A/31B gates and original7da CI failure remain preserved, not relabelled green.
+Root executed the protected bridge; Release Runner external executor remains
+unavailable, LOCAL_ONLY technical reconciliation PASS. Valid mobile wizard Next
+now reaches step2 without premature native submit; empty/whitespace guards,
+keyboard focus containment, Cancel restoration and RU/KK/EN titles PASS.
+No tenant was created by this UI test. Operations uses canonical session-aware
+api with v1 URLs/dry-run/explicit-confirmation contracts; natural-expiry31 SPA
+retest PASS: refresh at06:01Z after16minutes, updated summary/no auth alert,
+no reload/login/token/clock manipulation or operations mutation.
+Full declared-feature acceptance remains PARTIAL.
 Explicit coverage gaps are in
 docs/plans/2026-10-03_production-client-acceptance.md. API29/source32e1331d unchanged;
 schema174/3workers remain last independently verified2026-10-02, not freshly
-verified by the frontend release. Normal admin/student and token/AI journeys
-are NOT_RUN, not full acceptance. No customer writes or new paid resources.
+verified by the frontend release. Owner explicitly approved two new QA accounts;
+root created only admin12475537-3d14-41d7-ac0c-095972d87c3f and
+student7181849f-9cdf-4897-bfad-1502eecacdda in retained tenant83552ce6-8058-4561-abe3-cfbda14e030a.
+Random credentials are saved only in primary.env PRODUCTION_SMOKE_ADMIN_*
+and PRODUCTION_SMOKE_STUDENT_*; no email/PIN reset/old-user role change.
+Test Runner E independently verified ordinary logins/role denials, retained
+completed successor100/history/PDF and unchanged API29 identity with0business
+mutations. Their read-only browser journeys are covered by the32 candidate update;
+fresh learning-write, token and paid-AI journeys remain separate gaps.
+No customer writes or new paid resources.
 Tool pilot timings/limits are in docs/experiments/2026-10-03_tool-efficiency-acceptance.md;
 day totals and corrected delegate/harness errors do not prove causal savings.
 

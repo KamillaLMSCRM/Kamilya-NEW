@@ -31,9 +31,34 @@ Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
 
+## UX-PDF-CSP-001 - Admin PDF preview blocked by parent frame policy
+
+- Date:2026-10-03; status LOCAL_FIXED, production32 browser gate pending.
+- Symptom: ordinary synthetic QA admin sees blocked iframe on certificate
+  template; the preview endpoint returns200application/pdf successfully.
+- Cause: confirmed browser Log.entryAdded reports blob framing violates parent
+  frame-src self/scorm. API success and inline Content-Disposition do not override
+  the parent CSP. This is not evidence of an unavailable browser PDF viewer.
+- Fix: exact-route-only CSP blob exception for the certificate and training-evidence
+  template pages; preserve global XFO DENY/frame-ancestors none/object-src none.
+  Validate application/pdf MIME and %PDF- bytes before embedding; abort obsolete
+  auto previews and clear invalid previews. No API endpoint/body/settings change.
+  Sidebar entry/exit/profile and logout at preview boundaries load a new document;
+  Next client navigation otherwise retains the initial document CSP. Other sidebar
+  routes preserve Next navigation/prefetch. Header exceptions are document-scoped.
+- Verification: live31 failure receipt prod31-pdf-csp-readback.json has200PDF and
+  the exact CSP error; red route/invalid-response tests fail before repair;
+  three focused files14PASS after repair. Actual production rendering not yet PASS.
+  Sidebar integration red1failed/2passed then17focused/4files and typecheck PASS;
+ 32A matrix deliberately LOCAL_MATRIX_ONLY pending this additional source delta.
+- Prevention: cover both consumers and exact header routes, preserve every other
+  directive, test invalid MIME/signature and confirm visible PDF after deployment.
+  Do not add a global blob frame permission, disable CSP, or blame the browser
+  without captured policy/response evidence. Magic bytes are not a security scan.
+
 ## UX-WIZARD-DEFAULT-001 - Step transition triggers premature form validation
 
-- Date:2026-10-03; status LOCAL_REPAIR_IN_PROGRESS, source31 candidate.
+- Date:2026-10-03; status RESOLVED, production31 live guard verified.
 - Symptom: production30 valid company Next changes to administrator fields and
   displays native required-field validation before final Create was clicked;
   first-name field focused, same AX button119 changes from Next to Create.
@@ -42,7 +67,9 @@ open, also record status, safe interim path, and review condition.
   type to submit during the same click, before the browser's default action.
 - Fix: cancel the transition click default before state mutation and use distinct
   Next/Create React keys; preserve explicit final submission and API contracts.
-- Verification: focused/default-cancel/no-POST regression and final live31 pending.
+- Verification: focused/default-cancel/no-POST regression PASS; live31 valid Next
+  reaches step2 without native popup, keyboard containment/Cancel focus PASS.
+  No final Create or tenant-write test was performed.
 - Prevention: step transitions must not retain a submit default; test valid
   advance as well as blank prerequisites, explicit submit once, and browser
   native validation. jsdom click-only mocks are not final native-browser proof.

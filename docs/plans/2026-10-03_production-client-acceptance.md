@@ -44,9 +44,9 @@ measure actual use of CodeGraph, Graphify, selective ECC and CodeBurn.
 | UI-CATALOG | IN_PROGRESS | Finite declared-feature/role/route/control/help matrix; static != live proof |
 | LIVE-AUDIT | IN_PROGRESS | Fresh exact runtime + role/tenant identity; per-control outcome/help/purpose/accessibility, desktop/mobile, failures retained |
 | REPAIR-BATCH | IN_PROGRESS | Reproduced observations, bounded owned fixes + regression tests; no unrelated feature/voice release |
-| REGRESSION | PASS30;31_PENDING | Frozen C825web/9Node/141Python and all local gates PASS; tiny31 needs fresh frozen matrix |
-| RELEASE | TECHNICAL_PASS30;31_PENDING | Exactd8/CI/native/protected controller/public identity PASS; original receipts retained; no tier change |
-| LIVE-RETEST | PARTIAL | Mobile wizard guards PASS but valid Next premature validation found;31 required; missing role/token/AI journeys not PASS |
+| REGRESSION | PASS31 | Frozen831web/9Node/141focusedPython/2244DB-free unit gates, hash-linked doc-only reuse; original failed packets/CI preserved |
+| RELEASE | TECHNICAL_PASS31 | Exact572/CI37099443141/native37099447416/protected controller/public identity PASS; old27 standing cleanup recovery retained; no tier change |
+| LIVE-RETEST | PARTIAL | Wizard31 valid Next/no premature submit/guards/keyboard/locales and16minute SPA operations refresh PASS; ordinary admin/student API+retained history/PDF PASS E; role-browser/token/AI still separate |
 | TOOL-BASELINE | IN_PROGRESS | Version/scope/cold+warm timing/output/usefulness/correction metrics and real token availability |
 | MATCHED-NAVIGATION | PARTIAL | Known-file lookup/consumer discovery pilot complete; presence oracle only, asymmetric rg path knowledge, truncation/freshness disclosed |
 | TOOL-CLOSEOUT | NOT_STARTED | Root+children accounting; no estimated API USD == subscription saving; current-turn PARTIAL until finished |
@@ -215,3 +215,75 @@ Next reached step2 but triggered native required-field popup without explicit
 Create click (same AX button119 changed to submit; first-name focus). Root
 canceled; no creation/POST/recovery mutation exercised. Final acceptance held;
 small frontend31 correction required rather than rewriting published30 artifacts.
+
+##31 production and QA follow-up,2026-10-03
+
+Exact572/CI37099443141/native37099447416/REL-CLIENT-WEB31-B-20261003
+RELEASE_OK; original7da journal-contract CI failure preserved. Protected bridge
+Root executor, Release Runner LOCAL_ONLY reconciliation PASS. Standing capacity
+rule removed only successful obsolete27/exact staging pair after original recovery
+and fresh plan/hash checks; current30/actual28/extras retained. After31 current572,
+immediate previous30d8, extra28/359/299 present; no API/worker/DB/plan changes.
+
+Owner separately approved exactly two new ordinary QA users. Root verified
+retained marker/id/slug/demo/non-financial/access/capacity and absence of identities,
+created admin12475537-3d14-41d7-ac0c-095972d87c3f and
+student7181849f-9cdf-4897-bfad-1502eecacdda, initialized passwords only those newIDs,
+stored random secrets only canonical primary.env PRODUCTION_SMOKE_ADMIN_*/STUDENT_*.
+No email/invitation/PIN/old-password/role/progress mutation. Existing11users and
+existing retained-course enrollments unchanged. Existingposition00f6f7df-f987-4f95-bca8-5a808db8e813,
+ancestor/organization published-course set empty; manual rule-task SUCCESS,
+one new affected user,0added/removed/failed; no new position or department.
+Ignored exact executor SHA4a6dff7f976af4b6bfe7f788e55b009aee3bbea346d0398bd227406116d711ab,
+sanitized qa-actors-provisioning.json retained; independent leaf source review PASS.
+
+Test Runner E independent normal methodologist/admin/student API verification
+PASS; retained successor100%, predecessor history and existing PDF preserved,
+public frontend572/API29source32 exact, expected role denials,0business writes.
+ReportSHA b4202fd00ec5b8dde3bebd70ed2db66e21ddaefaface621605473677bc4ac368.
+Root mobile31 wizard blank/whitespace/validNext/no premature submit PASS,
+Tab remained in dialog, Cancel restored opener; filtered-only QA table and
+RU/KK/EN titles/help/mobile overflow PASS. Final Create never clicked.
+Screenshot: ignored prod31-wizard-step2.jpg. Root super browser reloaded31
+at2026-10-03T05:45:18.694Z; natural-expiry check and new-role browser checks still
+pending at that update. At06:01:28.240Z,969546ms after reload, normal SPA Refresh
+advanced last-successful time10:55->11:01, summary visible, no auth alert,
+button reenabled/mobile overflowfalse. No reload/login/token/clock manipulation,
+no operations mutation. Screenshot prod31-operations-expiry.jpg retained.
+New-role browser checks were next at that historical update. All-role/write/token/
+paid-AI acceptance remains PARTIAL.
+
+##32 ordinary-role findings and repair candidate,2026-10-03
+
+Normal new QA admin login: all displayed destinations checked read-only, help and
+open/cancel forms reviewed; notification provider tabs/AI masked defaults did not
+Save/Test/Send. Existing protected training rows preserved. Audit filter Apply
+and results/help verified. Course-title navigation redirected admin to /admin;
+32 now makes both responsive variants read-only for active admin, preserving
+methodologist links. Mandatory/training-log help split; invented filters/buttons
+and misleading audit empty-period wording removed in RU/KK/EN.
+
+Normal new QA student login: dashboard0courses/0progress/0certificates, assigned
+course filters/programs/quizzes/certificates/profile/help reviewed. Unavailable
+/courses CTAs redirected to /student; removed or redirected to /my-courses in32.
+Direct/admin browser denial PASS; RU/KK/EN profile help and mobile no-overflow
+PASS. No assignment/progress/attempt/completion writes; this does not prove a
+fresh end-to-end learner journey. Screenshot prod31-qa-student.jpg retained.
+
+Certificate preview observed200application/pdf plus actual Log.entryAdded CSP
+frame-src blob violation, not a generic IAB/PDF-viewer hypothesis. Failure screenshot
+prod31-pdf-blocked.jpg and sanitized prod31-pdf-csp-readback.json retained.32 allows
+blob only on two exact admin template routes, keeps all other security policy,
+validates MIME/%PDF- bytes before URL creation, aborts stale auto-preview requests.
+Red route/invalid-content regressions failed before fix;14focused tests pass.
+Student canonical API/retry/stale-session guard covered with real component tests.
+Cheap leaf independently source-checked the complete bounded diff with no finding.
+Full frozen32 regression and actual deployed PDF rendering remain required.
+
+32A completed851web/144files, lint/type/build67pages, Node9, version/contract,
+2244APIunit and focused141/2SKIP/9subtests; stopped LOCAL_MATRIX_ONLY before
+quality/Poetry/diff after Root identified retained initial-document CSP during
+Next sidebar transitions.28frozen hashes unchanged; report51d1705467ba024b4fda1ce4feb52e899a880eaf9c33e4fc34619f089fad52fd,
+wall372761ms. Root added native document links entering/leaving PDF pages/profile
+and document logout there; other routes keep Next/prefetch. Sidebar red1/2 then
+17focusedPASS/typecheck.32B fresh web gates and actual menu-entry PDF proof required.
