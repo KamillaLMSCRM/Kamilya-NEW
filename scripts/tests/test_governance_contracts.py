@@ -95,6 +95,31 @@ class GovernanceContractTests(unittest.TestCase):
         self.assertIn("It is not a skill", archive)
         self.assertIn("graphifyy/Scripts/python.exe", semantic_index)
         self.assertIn("PRODUCTION_READINESS.md", semantic_index)
+    def test_frontend_dependency_audit_is_blocking_in_ci_and_native_build(self) -> None:
+        command = (
+            "pnpm audit --prod --audit-level moderate "
+            "--registry https://registry.npmjs.org"
+        )
+        workflow = read(".github/workflows/ci.yml")
+        frontend = workflow.split("  frontend-checks:", 1)[1].split(
+            "\n  secrets-scan:", 1
+        )[0]
+        self.assertIn(f"run: {command}", frontend)
+        self.assertLess(
+            frontend.index("pnpm install --frozen-lockfile"), frontend.index(command)
+        )
+        self.assertLess(frontend.index(command), frontend.index("pnpm run typecheck"))
+        self.assertNotIn("continue-on-error", frontend)
+        self.assertNotIn(f"{command} ||", frontend)
+
+        native = read(".github/workflows/build-native-frontend.yml")
+        self.assertIn(command, native)
+        self.assertLess(
+            native.index("pnpm install --frozen-lockfile"), native.index(command)
+        )
+        self.assertLess(native.index(command), native.index("pnpm run lint"))
+        self.assertNotIn("continue-on-error", native)
+        self.assertNotIn(f"{command} ||", native)
 
 
 if __name__ == "__main__":

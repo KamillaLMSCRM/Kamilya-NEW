@@ -2,6 +2,12 @@
 
 ##32 closeout /33 PDF continuation measurements,2026-10-03
 
+- Runner33A wall313642ms,857web/145files/67pages/type/lint/fresh version/contract/
+  quality/Poetry/frozen25PASS. Root found frontend advisory audit absent from CI
+  after first source862e publication; adds two workflow audit steps +8governance
+  checks and supersedes pre-release native37108964223/CI37108909909. No app-source
+  delta, no duplicate full-web suite needed for this hash-linked workflow delta.
+  Missed gate discovery/new packet/publication are overhead, not savings.
 - Runner32B wall243090ms;852web/144files fresh plus linked prior API/Node.
   Requested fresh release-contract was NOT_RUN in B; root caught the omission,
   independently ran exact materialized3f0f contract PASS211journal entries before

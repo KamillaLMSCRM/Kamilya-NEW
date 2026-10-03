@@ -1200,6 +1200,10 @@ production runtime and cross-container readback remain pending release approval.
   failures, use pinned app package manager and do not trust ambient pnpm11.
   Maintained node_modules is a verified junction; generated install needed CI=true
   and exact primary virtual-store-dir, with no source/secret/global config mutation.
+  Root found the immutable CI audit covered Python only;33 adds a blocking prod
+  frontend audit after frozen install in CI and before native build. Governance
+  regression requires ordering/no continue-on-error; first862e source/native run
+  superseded before release publication/deployment, not accepted as final identity.
 
 - Date: 2026-08-20.
 - Symptom: web had npm and pnpm locks; CI/Vercel used npm; Docker used pnpm and a
