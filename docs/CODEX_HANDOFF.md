@@ -5,6 +5,15 @@
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/methodologist-workbench-20261001`
 
+## Candidate34 continuation,2026-10-03
+
+33/source4c2f52dc CI37109839905/native37109868895 PASS, published immutable tag;
+protected capacity preflight253ea49d9d5b00a61819218638dfe51a0aae94e638d126d8016a5d16a0101906 stopped before mutation.
+No33 stage/deploy/obsolete30 deletion.34 excludes only GNU SWC/Skia .node binaries,
+preserving musl/metadata/links; filtered archive validator and source review PASS.
+Fresh34 exact local/CI/native/capacity/live PDF required. Production remains32,
+current3f0f/rollback31/572f/extras30/359/299; no other environment changed.
+
 ## Current client acceptance32 / candidate33,2026-10-03
 
 Production frontend32/source3f0f120f1c5f5cd86af1c1e648272ad49a98e99c is technically

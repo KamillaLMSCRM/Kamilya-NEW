@@ -1,5 +1,10 @@
 # Production client acceptance and tool-efficiency epic
 
+Continuation34:33/source4c2f52dc CI/native PASS but protected capacity gate
+stopped before mutation.34 excludes only incompatible GNU SWC/Skia .node files,
+keeping all musl/runtime/metadata/links. No33 deploy/stage/obsolete30 deletion.
+Fresh34 package/runtime/capacity/live gates required;857 app tests hash-linked.
+
 Current continuation2026-10-03: frontend32 exact3f0f deployed; independent Test
 Runner C bounded production API/readback PASS; root actual PDF preview remains
 blank. Candidate33 canvas/Blob bytes/local worker is integrated; 5module and

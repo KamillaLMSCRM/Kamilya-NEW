@@ -4603,6 +4603,25 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ## RELEASE-004 - Routine CT137 releases were manually reassembled from low-level steps
 
+### Capacity continuation2026-10-03: optional incompatible native binaries
+
+- Date:2026-10-03; status PARTIAL pending exact34 native/runtime/capacity gates.
+- Symptom:33/source4c2f52dc CI/native PASS but preflight stops before staging;
+  required1574876234bytes versus733708KiB. Even obsolete30 cleanup insufficient.
+- Cause: production archive includes incompatible optional GNU SWC/Skia binaries,
+  exactly2 files176537928expanded bytes, on the fixed Alpine/musl target.
+- Fix:34 excludes only next-swc.linux-x64-gnu.node and skia.linux-x64-gnu.node
+  from tar. Preserve musl binaries, metadata/directories/links and extracted smoke;
+  no helper/Node-major/runtime/reserve/paid-resource change or broad prune.
+- Verification: original33 filtered members pass unchanged helper path/link
+  validator, leaving474530531expanded bytes. Independent review finds no dangling
+  link or musl removal. Fresh34 immutable runtime/capacity gates still required.
+  No33 deployment or obsolete30 deletion occurred. One assumed layout size-field
+  failed in an evidence print; corrected by summing validated regular members.
+- Prevention: measure exact artifact before cleanup; preserve failed gate and
+  protected rollback. Packaging optimization requires structural and native smoke
+  proof, not deleting more history or weakening the reserve.
+
 - Date: 2026-09-24. Found while reviewing repeated native frontend release
   friction; no new production deployment was performed.
 - Symptom: each release required the operator to rediscover the active checkout,

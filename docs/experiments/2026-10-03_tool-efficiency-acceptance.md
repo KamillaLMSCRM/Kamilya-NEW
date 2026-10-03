@@ -1,5 +1,17 @@
 # Tool-efficiency acceptance: known-file lookup/consumer discovery pilot
 
+##34 packaging continuation,2026-10-03
+
+-33A/B local evidence stays linked;33B wall134654ms, fresh8governance/version/
+  contract/quality PASS. Release Runner local33 plan wall20144ms, no network.
+- Exact33 CI/native PASS but artifact1574876234byte budget exceeded even expected
+  recovery-backed obsolete30 cleanup. No host mutation;34 packaging correction
+  adds a new immutable gate. Independent cheap review corrected initial broad
+  directory proposal to2regular GNU binary basenames; filtered links/layout PASS.
+- One guessed config/helper path, atomic patch-context mismatch and assumed layout
+  size field required bounded corrections; include these overheads, not savings.
+  Source workflow-only correction KEEP_LOCAL; no redundant graph rebuild.
+
 ##32 closeout /33 PDF continuation measurements,2026-10-03
 
 - Runner33A wall313642ms,857web/145files/67pages/type/lint/fresh version/contract/

@@ -77,7 +77,13 @@ jobs:
               test ! -f .env.local
               # Next.js public assets are optional; preserve a stable archive layout.
               mkdir -p public
-              tar --exclude=.next/cache -czf "/out/frontend-native-${RELEASE_SHA}.tar.gz" \
+              # Alpine/musl cannot load these optional GNU binaries. Keep their
+              # package directories/metadata and every musl binary; do not create
+              # dangling pnpm links or remove general runtime dependencies.
+              tar --exclude=.next/cache \
+                --exclude="*/next-swc.linux-x64-gnu.node" \
+                --exclude="*/skia.linux-x64-gnu.node" \
+                -czf "/out/frontend-native-${RELEASE_SHA}.tar.gz" \
                 .next public node_modules package.json next.config.js security-headers.js
               mkdir /verify
               tar -xzf "/out/frontend-native-${RELEASE_SHA}.tar.gz" -C /verify

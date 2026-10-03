@@ -45,6 +45,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.34] - 2026-10-03
+
+### Fixed
+
+- Keep the native Linux/musl frontend bundle within the approved capacity by
+  excluding only incompatible optional GNU SWC/Skia binary files. Preserve musl
+  binaries, package metadata/links, security audits and extracted-bundle smoke.
+- Include the canvas PDF/dependency fixes from33, which was published but stopped
+  before production mutation at the capacity gate. No helper/runtime/plan changes.
+
 ## [0.11.33] - 2026-10-03
 
 ### Fixed

@@ -121,6 +121,17 @@ class GovernanceContractTests(unittest.TestCase):
         self.assertNotIn("continue-on-error", native)
         self.assertNotIn(f"{command} ||", native)
 
+    def test_native_bundle_excludes_only_incompatible_optional_gnu_binaries(self) -> None:
+        native = read(".github/workflows/build-native-frontend.yml")
+        self.assertIn('--exclude="*/next-swc.linux-x64-gnu.node"', native)
+        self.assertIn('--exclude="*/skia.linux-x64-gnu.node"', native)
+        tar_command = native.split("tar --exclude=.next/cache", 1)[1].split("mkdir /verify", 1)[0]
+        self.assertEqual(tar_command.count("--exclude="), 2)
+        self.assertNotIn("musl", tar_command)
+        self.assertIn(".next public node_modules package.json next.config.js security-headers.js", tar_command)
+        self.assertIn('tar -xzf "/out/frontend-native-${RELEASE_SHA}.tar.gz" -C /verify', native)
+        self.assertIn("NATIVE_BUNDLE_RUNTIME_PASS", native)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -9,6 +9,15 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
+## Candidate34 packaging continuation — 2026-10-03
+
+33/source4c2f52dc CI37109839905/native37109868895 PASS, published tag;
+protected preflight stopped before mutation. Required1574876234bytes versus
+733708KiB; even obsolete30 cleanup insufficient. No33 deploy/stage/cleanup.
+34 excludes only incompatible optional GNU SWC/Skia .node files, preserving
+musl/runtime/metadata/links and extracted smoke. Filtered archive validator PASS;
+fresh34 exact gates/live PDF required. Current32/rollback31/30/359/299 unchanged.
+
 ## Client32 technical release / candidate33 gate — 2026-10-03
 
 Frontend32/source3f0f120f1c5f5cd86af1c1e648272ad49a98e99c technically deployed;
