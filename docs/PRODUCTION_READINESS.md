@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** frontend technical identity2026-10-03; backend/DB/worker baseline2026-10-02
+**Проверено:** frontend/API/DB/worker technical identity and bounded QA2026-10-03
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,65 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current frontend35 — bounded learner presentation and learning readback PASS
+## Current production36 — technical rollout and bounded QA acceptance PASS
+
+2026-10-03: frontend, API and all three workers use exact
+`ed349409d3385abdbceb65097bcc47c82fa27f4d`, version0.11.36. CI37135574141 all7
+SUCCESS, native37135758994 SUCCESS, protected backend37137457191 SUCCESS,
+deployment6830214509. Protected image
+`sha256:33b2082acdc09617d0315839bfef52aa6e45aaf4f864e76fa096bc11a61323b6`
+is distinct from automatic build digestb9349f9d; exact source/tag/version,
+nonroot/exclusions/provenance and protected manifest independently verified.
+Public/private health and all4containers blue/running/restarts0/workbenchON PASS;
+worker ping/queues/registered tasks/concurrency2 PASS with no task dispatch.
+CT125 stays0174, runtime role safe/FORCE-RLS PASS; no migration.
+Fresh signed0174 restore RPO43s/RTO19s, report9ff5f639b14e070e9670eb8b3dc412e5cc65b3498e80fb4f7497fe9d2fd0c062;
+independent signature and disposable DB/files absence PASS. Watchdog now expects
+36/33b2, config backup retained; watchdog/retention oneshots success0 and timers
+active. Final VM126 disk64%, free11500408KiB.
+
+Frontend protected execute receipt
+81ba34b9a6242fd458986a99cad73b4286e85da9c04cd70c1fbce014040efc51 RELEASE_OK;
+current/marker/public source36 independently read back. Previous35/f34 and
+packet rollback34/b256 plus extras359/299 retained; final free995112KiB.
+Standing capacity gate required1278808451bytes versus907924KiB free. Only
+successful obsolete32/3f0f and its exact staging pair removed after offhost
+archive/manifest/buildconfig/bundle/RELEASE_OK proof and fresh tree/envelope;
+recovery copies retained. Free grew to1636644KiB before36 staging; no further
+cleanup or unknown staging-only deletion.
+
+Independent TestRunner QA36F ordinary methodologist/student GET readback PASS,
+reportab29b2b231f3667cac989a3ffad1c55f856e8cde36a542618f331cf508b86d16:
+exact roles/tenant, accepted synthetic scan/ready100%, original course/history
+UNCHANGED,0businesswrites, prior localZIP integrity. Root actual36 browser
+shows invitation controls/help and accepted-copy/100%/certificate/PDFZIP actions;
+fresh ZIP download16:58:19Z,236308bytes, byte-identical independently checked
+fba7e7bfcea363779ece2c0a7dac506561f842949da6ff6761670be105378a31.
+Listener timed out; actual disk file, not listener, proves handoff. No fresh
+review mutation claimed; parent refresh behavior is component-tested and deployed.
+Root exact retained productionQA idempotentfalse PATCH200 at16:53Z;
+flag/plan/settings/counts unchanged, unlike prior29 postcommit500.
+
+Owner accepts rendered-mail simulation in lieu of repeating receipt in this run.
+Actual mail/OTP receipt remains NOT_VERIFIED; pending production OTP not consumed.
+Fresh paid AI NOT_RUN until per-job$1 ceiling is enforceable; legal EDS NOT_TESTED.
+Full feature acceptance remains PARTIAL, not product GO. DEV runtime29 unchanged.
+TestRunner H separately corrects the bridge status serialization to PASS only
+for the same four F scopes (receipt95eb048b5cbecd04301c52e2fc0525746168f72294c30d01fb7ae86bc6a97f65).
+Original F receipt is unchanged; Root worker/DB observations remain linked,
+not fresh TestRunner runtime proof. G independently verifies9CLI guard cases,
+quality/version36/contracts and actual temporal-NO_GO exit1. Earlier version35
+validation belongs to local E before packaging, not production F runtime.
+
+Process defect preserved: replacing automatic image evidence with the protected
+manifest left rollback evidence ordered before that build. Pure evaluator returned
+TIME_ORDER NO_GO, but Root's command chain approved because evaluator exit0 means
+successful evaluation, not GO. No retrospective preapprovalGO is claimed. Direct
+rollback/cache/config/runtime readbacks PASS. The fail-closed CLI adapter and
+focused regression now distinguish NO_GO exit1 from GO exit0; use it before any
+next production action. See DEPLOY-013; healthy runtime does not erase the defect.
+
+## Historical frontend35 — bounded learner presentation and learning readback PASS
 
 Continuation2026-10-03: Root actual Chrome download of learner completion PDF
 PASS (50985bytes, SHA2563687a3d888f81485f71d431f65e92eae1b462f116804c7ac7952e6b66e528521),

@@ -1987,3 +1987,85 @@ Rules:
   `NOT_VERIFIED`; paid AI `NOT_RUN`; legal EDS `NOT_TESTED`; full-feature
   acceptance `PARTIAL`. Evidence:
   `.release-evidence/TEST-CLIENT-QA36-20261003-E/report.json`.
+- `TEST-CLIENT-QA36-PROD-20261003-F` bounded production retained-QA readback
+  PASS; overall/full-feature acceptance remains `PARTIAL`. Exact checkout
+  `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD/web/API
+  `ed349409d3385abdbceb65097bcc47c82fa27f4d`; primary guard `PRIMARY_OK`.
+  Prepared script `production-readback36.py` SHA-256
+  `47840df016c1c7e02337dc719e397c6c6de387fc423e4cac52bbe2a2b54544e2` was
+  executed exactly once with canonical primary `.venv` Python. Sanitized result
+  `PASS`: signed-copy status `accepted`, evidence state `ready`, accepted copy
+  SHA-256 `63946e6ba0db74307e7fc9dfb446f3b0528ce598efd611cd5c9d42d067f6bb73`,
+  prior ZIP SHA-256
+  `fba7e7bfcea363779ece2c0a7dac506561f842949da6ff6761670be105378a31`,
+  `236308` bytes, manifest/artifact integrity `PASS`, original course and
+  enrollments `UNCHANGED`, OTP `pending`, legal signature `NOT_TESTED`,
+  business mutations `0`, normal auth audit-only. Root-linked backend/frontend
+  receipts were recorded as linked provenance only, not fresh worker/DB proof:
+  protected CI `37137457191` success, backend source `ed349409...`, image
+  `33b2082a`, four containers/restarts0, schema `0174`, frontend execute
+  `81ba34b9...` release OK. No new learning, assignment, mail, OTP/PIN,
+  provider, DB, Git, deploy or source action occurred. Actual mail/OTP receipt
+  remains `NOT_VERIFIED`, paid AI `NOT_RUN`, legal EDS `NOT_TESTED`, fresh
+  browser download `NOT_RUN`. Report SHA-256
+  `ab29b2b231f3667cac989a3ffad1c55f856e8cde36a542618f331cf508b86d16`;
+  bridge JSON SHA-256
+  `bc81a1656ec2f1e60af11b098eefa30f833ff7c3de5dc3b79c6618ad23968a11`;
+  prepared output SHA-256
+  `7027dd51a5620469d08507aec8ec895520c955b514a73f8176f94dc6f61fddba`.
+  Evidence:
+  `.release-evidence/TEST-CLIENT-QA36-PROD-20261003-F/report.json` and
+  `bridge-acceptance.json`.
+- `TEST-CLIENT-QA36-CLOSEOUT-20261003-G` local release-evidence CLI closeout
+  PASS for the guard contract, with the supplied release envelope correctly
+  remaining `NO_GO`; no deployment or preapproval authority. Exact checkout
+  `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD
+  `ed349409d3385abdbceb65097bcc47c82fa27f4d`; primary guard `PRIMARY_OK`.
+  Adapter `scripts/ops/check_release_evidence_gate.py` SHA-256
+  `85ce0a02a34860ce5b3535c50ba3814946f65247f2fb924e8824bf72df2b4684`,
+  focused test SHA-256
+  `2ed30c672c2d4ad20bbf9be4efce2ccd2a1903a4a63647bab49681dd20268c52`,
+  envelope SHA-256
+  `3df1fed6337228487eb48808e93beb1babc84c71b0129a359bbfdfc02322b827`.
+  Focused CLI-guard pytest PASS `9/9` in `0.14s`; Python quality PASS Ruff
+  `1010`/mypy `2200`; version validation PASS `0.11.36` (separate from prior
+  QA36 production `0.11.35`); release-contract gate PASS (Alembic `172`, head
+  `0174`, 31 Render direct packages, 214 unique error entries); `git diff --check`
+  PASS. Network-free adapter invocation returned exit `1`, verdict `NO_GO`,
+  `actionable=false`, one validation error, and
+  `root_reference_verification_required=true`; original temporal
+  `TIME_ORDER_NO_GO` is preserved and never relabeled as preapproval `GO`.
+  Prior B/C/E/F gates are linked only; runtime/provider observations are not
+  fresh runner proof. Full-feature acceptance remains `PARTIAL`; actual mail
+  receipt `NOT_VERIFIED`, paid AI `NOT_RUN`, legal EDS `NOT_TESTED`. No external,
+  provider, browser, network, database, mail, AI, Git, commit, push, deploy or
+  source action occurred. Evidence:
+  `.release-evidence/TEST-CLIENT-QA36-CLOSEOUT-20261003-G/report.json`.
+- `TEST-CLIENT-QA36-BRIDGE-CONTRACT-20261003-H` evidence-contract correction
+  PASS; no tests or runtime actions rerun. Exact checkout
+  `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD
+  `ed349409d3385abdbceb65097bcc47c82fa27f4d`; primary guard `PRIMARY_OK`.
+  F report SHA-256 `ab29b2b231f3667cac989a3ffad1c55f856e8cde36a542618f331cf508b86d16`
+  and original F bridge SHA-256
+  `bc81a1656ec2f1e60af11b098eefa30f833ff7c3de5dc3b79c6618ad23968a11` were
+  preserved. New H bridge acceptance is bound to release
+  `REL-CLIENT-WEB36-20261003` / SHA
+  `ed349409d3385abdbceb65097bcc47c82fa27f4d`, has exact `status=PASS` for the
+  same four F scopes only, retains `full_feature_acceptance=PARTIAL`,
+  business mutations `0`, limitations and provenance, and is explicitly an
+  evidence-contract-only correction. New bridge SHA-256
+  `95eb048b5cbecd04301c52e2fc0525746168f72294c30d01fb7ae86bc6a97f65`.
+  Existing local bridge handoff was invoked once with the unchanged
+  `execute.json` SHA-256
+  `81ba34b9a6242fd458986a99cad73b4286e85da9c04cd70c1fbce014040efc51` and
+  returned exit `0`, `READY FOR ROOT REVIEW`, blockers `none`; new handoff
+  receipt SHA-256 is recorded in the H report. This does not promote a general
+  GO or create new product evidence. Clarification: prior QA36-E was local
+  version `0.11.35` execution before the QA36 production36 packaging; it was
+  not F production runtime evidence. Full-feature acceptance remains
+  `PARTIAL`; actual mail receipt `NOT_VERIFIED`, paid AI `NOT_RUN`, legal EDS
+  `NOT_TESTED`, fresh browser download `NOT_RUN`. Evidence:
+  `.release-evidence/TEST-CLIENT-QA36-BRIDGE-CONTRACT-20261003-H/report.json`.

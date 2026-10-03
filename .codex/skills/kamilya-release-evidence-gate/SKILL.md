@@ -71,8 +71,18 @@ with no migration stage or migration, reindex, or spend approval. See
 
 ```powershell
 Get-Content -Raw .codex\skills\kamilya-release-evidence-gate\examples\no-go.json |
-  python .codex\skills\kamilya-release-evidence-gate\scripts\evaluate_release_gate.py
+  py -3 scripts\ops\check_release_evidence_gate.py
+if ($LASTEXITCODE -ne 0) { throw 'Release evidence gate is not GO; stop before any action' }
 ```
+
+The pure evaluator exits0 for any valid evaluation, including `NO_GO`; never
+chain its process success to a deployment/approval. Use the network-free adapter
+above for orchestration: GO exits0, valid NO_GO exits1, invalid input/result exits2.
+PowerShell does not automatically stop subsequent commands on a nonzero native
+exit, so the explicit stop is mandatory. A GO remains non-actionable until Root
+independently verifies references and current exact owner authority. Rebinding an
+artifact requires checking all evidence timestamps again before action; preserve
+earlier failed verdicts rather than backdating/relabeling the observations.
 
 Any external call or mutation remains subject to the exact action-time approval
 outside this module.

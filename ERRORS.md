@@ -5756,3 +5756,27 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   Bounded31 correction uses existing api transport, retains preview bodies and
   explicit confirmation-only mutations; no operational recovery/tenant deletion
   executed. Replacement frozen and native-expiry retest required.
+
+## DEPLOY-013 - Pure release evaluation exit0 was mistaken for an actionable GO
+
+- Date: 2026-10-03. Status: PROCEDURAL FAILURE PRESERVED; fail-closed adapter added.
+- Symptom: after rebinding API36 artifact to the separately built protected
+  image, pure gate returned TIME_ORDER NO_GO, but Root's chained PowerShell command
+  continued to approve protected workflow37137457191. No preapproval GO is claimed.
+- Cause: evaluator exit0 means valid JSON evaluation, not verdictGO. The approval
+  command was chained without parsing the verdict/native exit or stopping; older
+  rollback observation preceded the replacement protected artifact.
+- Fix: network-free check_release_evidence_gate.py reuses the canonical evaluator,
+  preserves non-actionable JSON and maps GO/NO_GO/invalid to exit0/1/2. Skill now
+  requires explicit native-exit stop before an external operation. Revalidate
+  timestamps after artifact rebinding; retain original verdict and observations.
+- Verification: original three focused GO/NO_GO/malformed regressions PASS;
+  later Root nine-case adversarial suite PASS0.15s and independent Runner G
+  nine-case suite PASS0.14s. Root actual
+  preserved temporal-NO_GO envelope returns exit1 through the adapter. Actual36
+  backend/frontend health, all4images/running/restarts0, current174 signed restore,
+  workercontrol, rollback29image/config and resumed watchdog/retention PASS. These
+  runtime facts do not retroactively validate the original command ordering.
+- Prevention: never chain pure evaluator process success directly to approval,
+  deployment or cleanup; check semantic verdict and explicit exit before action.
+  No timestamp backdating or replacing failed receipts with later PASS evidence.

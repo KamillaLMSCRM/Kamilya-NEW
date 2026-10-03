@@ -2,6 +2,46 @@
 
 ## QA36 live closeout and local repair measurements,2026-10-03
 
+- Actual36 follow-up: TestRunner F wall185849ms, normal two-role GET readback
+  with zero business writes; ReleaseRunner LOCAL_ONLY plan wall35818ms,
+  deterministic plan approximately16.5s, two commands and zero controller model
+  calls. These are observed execution costs, not measured agent-token savings.
+- Local closeout G wall135510ms, nine guard tests PASS0.14s, quality/version36/
+  contracts/diff and actual temporal-NO_GO exit1 PASS. Root narrow9tests passed
+  0.15s. Root initially repeated unsupported --no-cov, rejected before collection;
+  no dependency installation or test suppression. ReleaseRunner post36 local
+  reconciliation wall27398ms stopped on F receipt's noncanonical status enum,
+  despite matching exact identity and passed bounded scopes. Original F receipt
+  preserved; an explicit evidence-contract-only addendum is required, not an
+  overall product PASS. Count both as coordination/harness correction overhead.
+- TestRunner H contract-only addendum wall122205ms, zero test or runtime reruns;
+  canonical bridge handoff once accepted the same four F scopes. F receipt is
+  preserved; worker/DB are Root-linked observations, not fresh Runner proof.
+  H PASS is explicitly bounded and full-feature PARTIAL remains. Prior E local
+  version35 and actual F production36 are distinct, as H ledger clarifies.
+- Root fresh36 browser ZIP listener again timed out after15s; an actual new
+  downloaded file independently matched the accepted236308-byte ZIP hash.
+  Record this as listener/harness overhead, not a listener PASS or mail proof.
+- Native preflight stopped on capacity before mutation. Cleanup initially stopped
+  locally because the recovery manifest filename was not SHA-scoped; exact
+  byte-preserving copy corrected the naming contract before guarded cleanup32.
+  A read-only rollback inventory stopped on the local transport allowlist; the
+  canonical privileged transport carried the same semantic read-only check.
+- Root rebound protected-artifact evidence without refreshing timestamp ordering;
+  the pure evaluator returned NO_GO but its successful-evaluation exit0 did not
+  stop a chained approval. Preserve this orchestration defect and original NO_GO,
+  not a retrospective GO. New fail-closed CLI adapter and explicit PowerShell
+  stop cover the recurrence. Initial focused3tests passed0.15s; process execution
+  policy first blocked before collection. Later adversarial contract tests are a
+  separate closeout run, not added to that original count.
+- Independent maintenance-script review caught three P1 guard regressions before
+  execution; Root restored file integrity, exact environment-file list and timer
+  inactivity assertions in one correction cycle. Repeated native artifact
+  inspection and fresh signed0174 restore are safety/provenance costs, not
+  optimization evidence. Graphify was not duplicated for answered seams;
+  exact tiny CLI adapter stayed KEEP_LOCAL. Per-child/current-turn token cost and
+  causal CodeGraph/ECC/CodeBurn monetary savings remain NOT_AVAILABLE.
+
 - CodeGraph narrowed mailbox_config to its real env loader and update_tenant to
   service/response/audit calls. Two decisive same-name candidates were false:
   refresh resolved to auth.refresh and commit to a test fake; bounded source

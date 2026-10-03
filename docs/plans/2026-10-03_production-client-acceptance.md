@@ -1,5 +1,18 @@
 # Production client acceptance and tool-efficiency epic
 
+Current closeout36: exacted349409 deployed on frontend/API/3workers; all CI/native/
+protected/runtime/workercontrol/schema174/signed currentrestore/timers PASS.
+Independent QA36F GET readback ordinary roles/retained history/acceptedcopy/localZIP
+PASS; actual36 fresh browser ZIP file verified; exact QA idempotentfalse update
+now200, unrelated fields/counts unchanged. Preserved frontend35/34/extras and
+backend29 rollback; only obsolete32/exact staging pair removed with offhost recovery.
+Owner accepts local rendered-mail/realOTP HTTP simulation for this acceptance;
+no more mailbox receipt retries. Actual receipt NOT_VERIFIED, paidAI NOT_RUN until
+hard per-job$1 guard; EDS NOT_TESTED. Full acceptance remains PARTIAL.
+Gate-chain NO_GO/exit0 failure preserved as DEPLOY-013 with new fail-closed CLI
+regression; runtime health does not retroactively create preapprovalGO.
+Historical paragraphs below describe earlier checkpoints, not current runtime.
+
 Active continuation: browser file handoff CLOSED by actual Chrome PDF and ZIP
 files; technical watermarked synthetic scan upload/review/package CLOSED, legal
 signature NOT_TESTED. Production QA demo=false persisted after PATCH500, no

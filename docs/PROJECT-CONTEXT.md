@@ -25,7 +25,26 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current client35 boundary,2026-10-03
+## Current client36 boundary,2026-10-03
+
+Frontend/API/threeworkers version36/sourceed349409d3385abdbceb65097bcc47c82fa27f4d
+deployed. CI37135574141/native37135758994/protected37137457191 SUCCESS;
+backend image33b2082a, blue4running/restarts0, public/privatehealth/schema0174/
+FORCE-RLS/workercontrol PASS. Fresh signed174 restore and cleanup PASS;
+watchdog36 and retention timers active/oneshots successful. TestRunner QA36F
+ordinary retained learning/copy GET/history/localZIP PASS; Root actual browser
+freshZIP handoff/acceptedcopy/100%/invitation controls/help PASS and exact retained
+QA idempotentfalse PATCH200. Previousfrontend35 and packetrollback34/extras359/299
+preserved; only obsolete successful32/exact staged pair removed, original offhost
+recovery retained. Backendrollback29/96a and config backups preserved. No migration,
+DEV deployment, new provider resource, plan/rights/DNS/landing or old learning reset.
+QA stands are demo=false without global/RBAC/RLS/OTP/spend bypass. Mail simulation
+accepted by owner; actual receipt NOT_VERIFIED, paidAI NOT_RUN pending per-job$1
+guard, legalEDS NOT_TESTED; fullfeaturePARTIAL. Root gate-chain procedural defect
+and fail-closed adapter documented DEPLOY-013; no retrospective preapprovalGO.
+Readiness owns exact evidence and residual gates.
+
+## Historical client35 boundary,2026-10-03
 
 Frontend35/sourcef34eac00e79fcccbf3926627c23faac672c00edd deployed,
 CI37123482507/native37123504506/protectedrelease PASS. TestRunner35A local862/
