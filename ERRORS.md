@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-03.
+Current as of: 2026-10-04.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -30,6 +30,43 @@ personal data, or raw logs here.
 Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
+
+## AI-BUDGET-001 - First monthly reservation bypass and untyped INSERT SELECT
+
+- Date: 2026-10-04; local candidate fixed, production not changed.
+- Symptom: existing first-row INSERT lacked the budget predicate used by the
+  conflict UPDATE. Adding INSERT SELECT with untyped cost/budget parameters
+  passed mock unit tests but failed owned real PostgreSQL with42P08 before
+  any new interpretation check.
+- Cause: initial INSERT did not guard a reservation exceeding a positive limit;
+  the candidate untyped comparison caused inconsistent parameter inference.
+- Fix: apply the first-INSERT predicate and explicitly CAST cost/budget to
+  INTEGER, matching migration0034/model. Preserve conflict UPDATE and historical
+  zero/None ->5000 behavior; no provider/product budget settings change.
+- Verification: corrected owned Supabase DEV gate71PASS, including positive
+  limit first-row denial, one-cent interpretation, exhaustion-before-provider,
+  concurrent reservations and post-commit RLS-bound refund. Exact schema cleanup
+  and public neutrality PASS; prior64-pass/42P08 failure remains preserved.
+- Prevention: use canonical owned DEV with the actual PostgreSQL driver for
+  shared budget SQL. Mock SQL-shape PASS does not prove type inference, atomicity
+  or RLS. Do not change financial zero semantics to repair an INSERT bug.
+
+## WB-TEST-001 - Intent profile duplicated settings and inherited inactive learner
+
+- Date: 2026-10-04; owned harness corrected, permanent QA unchanged.
+- Symptom: intent extension failed23505 because earlier invitation fixtures had
+  already created tenant_settings. Earlier stale-membership checks also left
+  the synthetic learner inactive for the next preview.
+- Cause: sequential test fixture state was treated as a fresh tenant.
+- Fix: qualified UPDATE only the exact owned settings; restore only the passed
+  synthetic learner by id AND tenant_id, require both rowcounts1, never public
+  UPDATE or broad learner reactivation.
+- Verification: database-free guard20PASS, corrected full owned gate71PASS,
+  exact cleanup/public neutrality PASS. Original DATA_FIXTURE failure retained
+  in .release-evidence/TEST-WB-LLM-INTENT-20261004-A/root-dev-failures.json.
+- Prevention: inspect preceding fixture effects before extending a sequential
+  DEV gate. Keep exact identities, owned-only transaction search_path and
+  fail-closed cleanup; do not reset/recreate the permanent QA stand.
 
 ## AGENT-TEST-EXECUTION-001 - Prepared helper and report provenance drift
 

@@ -14,7 +14,14 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.models.users import User
 
-from .assignment_schemas import AssignmentPreviewRequest, AssignmentReceipt, PlanResponse, PreviewResponse
+from .assignment_schemas import (
+    AssignmentInterpretRequest,
+    AssignmentPreviewRequest,
+    AssignmentReceipt,
+    InterpretResponse,
+    PlanResponse,
+    PreviewResponse,
+)
 from .assignment_service import (
     WorkbenchConflict,
     WorkbenchNotFound,
@@ -22,6 +29,7 @@ from .assignment_service import (
     create_assignment_preview,
     get_assignment_plan,
 )
+from .intent_application import interpret_assignment
 from .plan_contract import ActorContext, ConfirmationRequest
 
 router = APIRouter(prefix="/methodologist-workbench", tags=["methodologist-workbench"])
@@ -55,6 +63,23 @@ async def preview_assignment(
         result = await create_assignment_preview(db, actor, body)
         await db.commit()
         return result
+    except (WorkbenchConflict, WorkbenchNotFound, IntegrityError, OperationalError) as exc:
+        await db.rollback()
+        raise _error(exc) from exc
+
+
+@router.post("/interpret-assignment", response_model=InterpretResponse)
+async def interpret_instruction(
+    body: AssignmentInterpretRequest, response: Response, db: DbSession, user: Methodologist
+) -> InterpretResponse:
+    actor = _context(user, response)
+    try:
+        result = await interpret_assignment(db, actor, body)
+        await db.commit()
+        return result
+    except HTTPException:
+        await db.rollback()
+        raise
     except (WorkbenchConflict, WorkbenchNotFound, IntegrityError, OperationalError) as exc:
         await db.rollback()
         raise _error(exc) from exc

@@ -108,6 +108,20 @@ async def test_transaction_search_path_never_falls_back_to_public(gate):
     assert path_sql == 'SET LOCAL search_path TO "workbench_123456789abc", pg_catalog'
 
 
+def test_intent_fixture_reuses_settings_and_restores_only_its_owned_learner():
+    source = (ROOT / "scripts/ops/workbench_intent_dev_checks.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    function = next(node for node in tree.body if isinstance(node, ast.AsyncFunctionDef)
+                    and node.name == "verify_intent")
+    owner_transaction = next(node for node in function.body if isinstance(node, ast.AsyncWith))
+    fixture = ast.unparse(owner_transaction)
+    assert "TenantSettings(" not in source
+    assert ".tenant_settings SET monthly_llm_budget_usd_cents=1 WHERE tenant_id=:tenant" in fixture
+    assert ".users SET status='active' WHERE id=:learner AND tenant_id=:tenant" in fixture
+    assert "updated.rowcount != 1" in fixture and "restored.rowcount != 1" in fixture
+    assert "learner_id" in {argument.arg for argument in function.args.args}
+
+
 @pytest.mark.asyncio
 async def test_required_invitation_tables_resolve_only_to_owned_schema(gate):
     schema = "workbench_123456789abc"

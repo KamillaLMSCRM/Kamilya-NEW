@@ -49,6 +49,7 @@ RATE_LIMITS: dict[str, RateLimitConfig] = {
     "/api/v1/public/leads": RateLimitConfig(requests_per_minute=5, requests_per_hour=20, burst_size=3),
     "/api/v1/ai/generate-course": RateLimitConfig(requests_per_minute=2, requests_per_hour=10, burst_size=2),
     "/api/v1/ai/document-compatibility": RateLimitConfig(requests_per_minute=6, requests_per_hour=60, burst_size=3),
+    "/api/v1/methodologist-workbench/interpret-assignment": RateLimitConfig(requests_per_minute=6, requests_per_hour=60, burst_size=3),
     "/api/v1/quizzes": RateLimitConfig(requests_per_minute=30, requests_per_hour=500, burst_size=10),
     "/api/v1/documents/upload": RateLimitConfig(requests_per_minute=10, requests_per_hour=100, burst_size=5),
     "default": RateLimitConfig(requests_per_minute=60, requests_per_hour=1000, burst_size=20),
@@ -242,7 +243,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         principal_bucket = _verified_principal_bucket(request)
         is_public_auth = _is_public_auth_path(path)
-        requires_limiter = is_public_auth or path.rstrip('/') == '/api/v1/ai/document-compatibility'
+        requires_limiter = is_public_auth or path.rstrip('/') in {
+            '/api/v1/ai/document-compatibility',
+            '/api/v1/methodologist-workbench/interpret-assignment',
+        }
 
         try:
             config = await self.limiter.get_rate_limit_config(path)

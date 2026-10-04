@@ -57,6 +57,22 @@ async def test_original_source_validation_fails_closed_without_limiter():
     assert ':principal:' in middleware.limiter.check_rate_limit.await_args_list[0].args[0]
 
 
+@pytest.mark.asyncio
+async def test_workbench_intent_has_dedicated_fail_closed_admission():
+    path = '/api/v1/methodologist-workbench/interpret-assignment'
+    config = await RateLimiter().get_rate_limit_config(path)
+    assert (config.requests_per_minute, config.requests_per_hour, config.burst_size) == (6, 60, 3)
+    middleware = RateLimitMiddleware(lambda scope, receive, send: None)
+    middleware.limiter.check_rate_limit = AsyncMock(return_value=(False, {'unavailable': True}))
+    downstream = AsyncMock(return_value=Response('must not call provider'))
+    token = create_access_token({'sub': 'synthetic-methodologist', 'tenant_id': 'synthetic-tenant'})
+    with patch('app.core.config.get_settings', return_value=SimpleNamespace(APP_ENV='production')):
+        response = await middleware.dispatch(_request(path, authorization=f'Bearer {token}'), downstream)
+    assert response.status_code == 503
+    downstream.assert_not_awaited()
+    assert ':principal:' in middleware.limiter.check_rate_limit.await_args_list[0].args[0]
+
+
 def test_kiosk_identify_is_public_auth_with_hashed_token_bucket():
     path = "/api/v1/kiosks/private-wall-token/identify"
 

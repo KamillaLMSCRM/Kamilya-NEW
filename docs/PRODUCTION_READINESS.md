@@ -11,6 +11,17 @@ DB/storage gate и приёмкой клиента
 
 ## Current production36 — technical rollout and bounded QA acceptance PASS
 
+2026-10-04 candidate note: free-text assignment intent is implemented only in
+the linked writer, under accepted LLM-ASSIGNMENT-INTENT V2. Root local166/quality
+passed; two original owned DEV failures are retained. Corrected typed-SQL
+candidate passed71 real owned DEV checks, exact cleanup/public neutrality,
+plus budget/parser30/UI34 local tests. Independent B/C1/C2 acceptance is
+ROOT_ACCEPTED_LOCAL_ONLY:310API/25AI-neighbor/34UI/type/lint/build67/quality/
+contracts/version/diff PASS; original SQL/harness/journal failures preserved.
+No new release, migration, live model quality or browser proof
+is implied; production36 records below remain dated evidence. The new candidate
+is NO_GO until real DEV/model/browser/independent/release gates pass.
+
 2026-10-03: frontend, API and all three workers use exact
 `ed349409d3385abdbceb65097bcc47c82fa27f4d`, version0.11.36. CI37135574141 all7
 SUCCESS, native37135758994 SUCCESS, protected backend37137457191 SUCCESS,

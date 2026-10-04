@@ -7,7 +7,7 @@ vi.mock('@/lib/api', () => ({ api: { post, get } }));
 vi.mock('@/store/authStore', () => ({ useAuthStore: (selector: (state: any) => unknown) => selector(authState) }));
 
 import AssignmentWorkbench from '@/features/methodologist-workbench/AssignmentWorkbench';
-import { confirmAssignmentPlan, loadAssignmentPlan, requestAssignmentPreview } from '@/lib/methodologistWorkbench';
+import { confirmAssignmentPlan, interpretAssignment, loadAssignmentPlan, requestAssignmentPreview } from '@/lib/methodologistWorkbench';
 import { useLanguageStore } from '@/store/languageStore';
 
 const ready = { state: 'preview_ready', plan_id: '11111111-1111-4111-8111-111111111111', revision: 2, fingerprint: 'a'.repeat(64), expires_at: '2026-12-31T00:00:00Z', course_id: '22222222-2222-4222-8222-222222222222', course_title: 'Safety', release_id: '33333333-3333-4333-8333-333333333333', department_id: '44444444-4444-4444-8444-444444444444', department_name: 'Operations', timezone_name: 'Asia/Almaty', due_at: '2026-12-31T17:59:59+05:00', notify: false, include_descendants: false, recipients: [{ user_id: '55555555-5555-4555-8555-555555555555', label: 'A', already_assigned: false, access_warning: false }], new_count: 1, skipped_count: 0 };
@@ -293,5 +293,74 @@ describe('AssignmentWorkbench', () => {
     await waitFor(() => expect(screen.getByText(/Команда не распознана/)).toBeInTheDocument());
     expect(screen.queryByText('instruction_unsupported')).not.toBeInTheDocument();
     expect(screen.getByText(/ДД\.ММ\.ГГГГ/)).toBeInTheDocument();
+  });
+
+  it('keeps natural interpretation explicit and sends the edited candidate only at preview', async () => {
+    post.mockResolvedValueOnce({ data: { state: 'interpreted', candidate: { course_query: 'Safety', department_query: 'Operations', due_date: '2026-12-31', due_time: '23:59:59', notify: true, include_descendants: false } } }).mockResolvedValueOnce({ data: ready });
+    render(<AssignmentWorkbench />);
+    fireEvent.click(screen.getByRole('button', { name: 'Свободное описание' }));
+    fireEvent.change(screen.getByLabelText('Команда назначения'), { target: { value: 'Назначить обучение по безопасности операционному отделу к концу года' } });
+    expect(post).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Разобрать поручение' }));
+    await waitFor(() => expect(screen.getByDisplayValue('Safety')).toBeInTheDocument());
+    fireEvent.change(screen.getByDisplayValue('Safety'), { target: { value: 'Safety v2' } });
+    fireEvent.change(screen.getByLabelText('Время'), { target: { value: '09:30' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Подтвердить назначение' })).toBeInTheDocument());
+    expect(post).toHaveBeenLastCalledWith('/v1/methodologist-workbench/assignment-preview', expect.objectContaining({ candidate: expect.objectContaining({ course_query: 'Safety v2', due_time: '09:30:00', notify: true }), notify: true, include_descendants: false }));
+  });
+
+  it('rejects interpretation candidates outside the frozen transport shape', async () => {
+    const actual = await vi.importActual<typeof import('@/lib/methodologistWorkbench')>('@/lib/methodologistWorkbench');
+    post.mockResolvedValueOnce({ data: { state: 'interpreted', candidate: { course_query: 'Safety', department_query: 'Operations', due_date: '2026-12-31', due_time: '23:59:59', notify: false, include_descendants: false, plan_id: ready.plan_id } } });
+    await expect(actual.interpretAssignment('assign safety', 'Asia/Almaty', false, false)).rejects.toThrow(/Invalid assignment/);
+  });
+
+  it.each([
+    { course_query: ' ' }, { department_query: 'x'.repeat(301) },
+    { due_date: '' }, { due_date: '2026-02-30' },
+    { due_time: '' }, { due_time: '24:00:00' }, { due_time: '09:60:00' },
+  ])('rejects an incomplete or invalid editable candidate: %j', async (invalid) => {
+    const actual = await vi.importActual<typeof import('@/lib/methodologistWorkbench')>('@/lib/methodologistWorkbench');
+    expect(actual.isAssignmentCandidate({ course_query: 'Safety', department_query: 'Operations', due_date: '2026-12-31', due_time: '23:59:59', notify: false, include_descendants: false, ...invalid })).toBe(false);
+  });
+
+  it('transitions ready preview into an editable correction before reinterpreting with its owned plan', async () => {
+    const interpreted = { state: 'interpreted', candidate: { course_query: 'Safety', department_query: 'Operations', due_date: '2026-12-31', due_time: '23:59:59', notify: false, include_descendants: false } };
+    post.mockResolvedValueOnce({ data: interpreted }).mockResolvedValueOnce({ data: ready }).mockResolvedValueOnce({ data: interpreted });
+    render(<AssignmentWorkbench />);
+    fireEvent.click(screen.getByRole('button', { name: 'Свободное описание' }));
+    fireEvent.change(screen.getByLabelText('Команда назначения'), { target: { value: 'assign safety' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Разобрать поручение' }));
+    await waitFor(() => expect(screen.getByDisplayValue('Safety')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Уточнить поручение' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Уточнить поручение' }));
+    expect(screen.getByLabelText('Команда назначения')).toHaveValue('');
+    expect(screen.queryByDisplayValue('Safety')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Команда назначения'), { target: { value: 'assign safety by next Friday' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Разобрать поручение' }));
+    await waitFor(() => expect(screen.getAllByDisplayValue('Safety').length).toBeGreaterThan(0));
+    expect(post).toHaveBeenLastCalledWith('/v1/methodologist-workbench/interpret-assignment', expect.objectContaining({ instruction: 'assign safety by next Friday', previous_plan_id: ready.plan_id }), expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  });
+
+  it('clears an interpreted candidate on failure and aborts the superseded request', async () => {
+    let rejectInterpret!: (cause: Error) => void;
+    post.mockReturnValueOnce(Promise.resolve({ data: { state: 'interpreted', candidate: { course_query: 'Safety', department_query: 'Operations', due_date: '2026-12-31', due_time: '23:59:59', notify: true, include_descendants: false } } }));
+    render(<AssignmentWorkbench />);
+    fireEvent.click(screen.getByRole('button', { name: 'Свободное описание' }));
+    fireEvent.change(screen.getByLabelText('Команда назначения'), { target: { value: 'assign safety' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Разобрать поручение' }));
+    await waitFor(() => expect(screen.getByDisplayValue('Safety')).toBeInTheDocument());
+    post.mockReturnValueOnce(new Promise((_resolve, reject) => { rejectInterpret = reject; }));
+    fireEvent.change(screen.getByLabelText('Команда назначения'), { target: { value: 'new request' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Разобрать поручение' }));
+    const signal = post.mock.calls[1][2]?.signal as AbortSignal | undefined;
+    expect(signal).toBeInstanceOf(AbortSignal);
+    fireEvent.change(screen.getByLabelText('Команда назначения'), { target: { value: 'edited request' } });
+    expect(signal?.aborted).toBe(true);
+    rejectInterpret(new Error('provider unavailable'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByDisplayValue('Safety')).not.toBeInTheDocument();
   });
 });

@@ -2120,3 +2120,25 @@ Rules:
   enrollment digests unchanged, offhost source/output preserved. No new mail,
   publication, assignment, model/budget/tier or runtime mutation. Evidence:
   `.release-evidence/AI-FRESH-20261004/run.json` and `cleanup.json`.
+### TEST-WB-LLM-INTENT-20261004-A/B — 2026-10-04 — local bounded acceptance
+
+- A: `INTERRUPTED / NOT_READY`; root-owned DEV gate failed before new intent checks with `ProgrammingError:42P08 AmbiguousParameterError`; cleanup and public-schema-neutrality were true; new intent/local matrix was `NOT_RUN`. Source: `.release-evidence/TEST-WB-LLM-INTENT-20261004-A/root-dev-failures.json`.
+- B: pre-matrix frozen manifest verification passed for 23 files at HEAD `b8fb3a2615210fa7da6cd353afad2b61d9a055d2`.
+- B executed: API workbench/budget/rate-limit unit set `310 passed`; AI-COURSE-01 database-free selectors `25 passed`; frontend workbench `34 passed`; typecheck, scoped ESLint, and web build passed.
+- B stopped at Python quality baseline: PowerShell execution policy prevented script loading (`running scripts is disabled on this system`). Release-contract gate, diff check, and post-matrix hashes were `NOT_RUN`.
+- Root DEV observation: 71 tests, cleanup true, public-schema-neutral true; root-owned and not independent runtime evidence. External runtime/provider/DB/browser checks were `NOT_RUN`. No product or source files changed.
+### TEST-WB-LLM-INTENT-20261004-B-C1 — 2026-10-04 — corrective closure
+
+- Corrected the prior B item-7 classification: the original `powershell.exe` invocation was a harness mismatch, not a machine-wide execution-policy result. No B result was rewritten.
+- Pre/post verification: all 23 B manifest hashes matched at HEAD `b8fb3a2615210fa7da6cd353afad2b61d9a055d2`.
+- Items 1–6 are hash-linked to unchanged B evidence; the web-build duration is corrected to the root-supplied command-marker value `37088ms`.
+- Item 7 freshly passed with the prescribed PowerShell 7 executable: `ruff=1010`, `mypy=2200`.
+- Item 8 freshly failed at the canonical release-contract gate because the Errors journal header date did not equal the latest entry date. Alembic, Celery, migration ownership, and Render runtime dependency checks passed.
+- Item 9 `git diff --check` and optional version validation were `NOT_RUN` after the first fresh hard failure. No source, test, contract, Git, provider, runtime, or deployment repair was performed.
+### TEST-WB-LLM-INTENT-20261004-B-C2 — 2026-10-04 — local closure
+
+- Pre/post verification passed for all 23 C2 manifest files at HEAD `b8fb3a2615210fa7da6cd353afad2b61d9a055d2`; the only B→C2 manifest delta is the authorized `ERRORS.md` change.
+- Items 1–6 remain hash-linked to B; item 7 remains hash-linked to C1. No green matrix item was rerun. The corrected B build duration remains `37088ms` from the supplied command marker.
+- Canonical release-contract gate passed: Alembic, Celery, migration ownership, Render runtime dependencies, and Errors journal (`216` unique entries).
+- `git diff --check` passed. Canonical `validate_version.py` passed for version `0.11.36` across VERSION, API pyproject, and web package metadata.
+- Root DEV71 evidence remains contextual only. Live model, browser, production, provider, database, and external runtime checks were not run. No product/source/test repair was performed.

@@ -1149,7 +1149,7 @@ async def verify_organization_changes(owner_engine, runtime_engine, schema, acto
     ]
 
 
-async def run_gate(owner_url, runtime_url, supabase_url, *, neighbor_profile=False):
+async def run_gate(owner_url, runtime_url, supabase_url, *, neighbor_profile=False, intent_profile=False):
     if not all(
         same_supabase_project(url, supabase_url) for url in (owner_url, runtime_url)
     ):
@@ -1566,6 +1566,11 @@ async def run_gate(owner_url, runtime_url, supabase_url, *, neighbor_profile=Fal
         checks += await verify_retention(
             owner_engine, runtime_engine, schema, actor, other_tenant, request
         )
+        if intent_profile:
+            stage = "intent_interpretation"
+            from workbench_intent_dev_checks import verify_intent
+
+            checks += await verify_intent(owner_engine, runtime_engine, schema, actor, other_tenant, other_actor, learner_id, now)
     except Exception as exc:
         failure = safe_failure(exc)
     finally:
@@ -1598,6 +1603,7 @@ async def run_gate(owner_url, runtime_url, supabase_url, *, neighbor_profile=Fal
         "public_schema_neutral": neutral,
         "last_query_kind": last_query if failure else None,
         "neighbor_profile": neighbor_profile,
+        "intent_profile": intent_profile,
         "neighbor_equivalence": "BOUNDED_ASSIGNMENT"
         if neighbor_profile and failure is None and cleanup_ok and neutral
         else "NOT_VERIFIED",
@@ -1613,6 +1619,7 @@ def main() -> int:
     parser.add_argument("--metadata-only", action="store_true")
     parser.add_argument("--catalog-details", action="store_true")
     parser.add_argument("--neighbor-profile", action="store_true")
+    parser.add_argument("--intent-profile", action="store_true")
     args = parser.parse_args()
     if not args.execute:
         print(json.dumps({"status": "BLOCKED", "reason": "execute_required"}))
@@ -1634,6 +1641,9 @@ def main() -> int:
             )
         )
         return 2
+    if args.intent_profile and (args.metadata_only or args.catalog_details):
+        print(json.dumps({"status": "BLOCKED", "reason": "intent_profile_requires_application_gate"}))
+        return 2
     config = dotenv_values(args.env_file)
     # Match canonical source-actuality gate: app imports must use this same
     # approved contour, never a missing-worktree dotenv/default local config.
@@ -1649,6 +1659,8 @@ def main() -> int:
 
             operation = inspect_neighbor_catalog
         arguments = {"neighbor_profile": True} if args.neighbor_profile else {}
+        if args.intent_profile:
+            arguments["intent_profile"] = True
         result = asyncio.run(
             operation(*urls, config.get("SUPABASE_URL") or "", **arguments)
         )

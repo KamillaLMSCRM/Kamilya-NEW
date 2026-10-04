@@ -38,6 +38,7 @@ from .assignment_schemas import (
     PreviewResponse,
     Recipient,
 )
+from .natural_assignment_intent import candidate_to_parsed
 from .plan_contract import (
     ActorContext,
     AssignCourse,
@@ -242,9 +243,19 @@ async def create_assignment_preview(
     _assert_actor(actor)
     now = now or datetime.now(UTC)
     try:
-        parsed = parse_assignment_instruction(body.instruction, body.timezone_name, now)
+        parsed = (
+            candidate_to_parsed(body.candidate, body.timezone_name, now)
+            if body.candidate is not None
+            else parse_assignment_instruction(body.instruction, body.timezone_name, now)
+        )
     except ValueError as exc:
         return Clarification(code=str(exc))
+    if body.candidate is not None:
+        # Candidate fields are untrusted input, not an authorization or plan.
+        # Resolution and confirmation remain exactly the server-owned path below.
+        body = body.model_copy(
+            update={"notify": body.candidate.notify, "include_descendants": body.candidate.include_descendants}
+        )
     courses = list(
         (
             await db.scalars(

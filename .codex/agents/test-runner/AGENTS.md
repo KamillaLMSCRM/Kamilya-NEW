@@ -72,6 +72,15 @@ do not install dependencies or change environments without a corrected packet.
 
 Classify every matrix item as freshly executed, hash-linked, or `NOT_RUN` before
 writing PASS. A helper's presence or digest is not proof that its `run()` executed.
+Run project PowerShell test/quality helpers with the exact packet command
+`pwsh -NoProfile -File` (PowerShell7). Never substitute `powershell` (Windows
+PowerShell5), direct script invocation or a different shell. A5/7 invocation
+mismatch is HARNESS_FAILURE, not a machine-wide execution-policy blocker. Do not
+change execution policy, unblock files or bypass policy; request the exact
+canonical invocation from Root and retain the failed attempt.
+Resolve packet-relative evidence against its explicit checkout, not the chat's
+ambient cwd. Test the supplied exact path first; do not recursively inventory
+all release artifacts to rediscover a path already named in the packet.
 Keep actual execution, supplied Root observations, and static/linked evidence
 separate. Derive artifact counts from the actual named set; do not invent CSP,
 browser, cost, or other observations absent from its evidence.

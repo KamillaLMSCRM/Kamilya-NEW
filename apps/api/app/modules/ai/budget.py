@@ -83,7 +83,8 @@ async def check_and_charge_llm_budget(
     result = await db.execute(
         text("""
             INSERT INTO tenant_llm_usage (id, tenant_id, month_key, cost_cents, request_count)
-            VALUES (:usage_id, :tenant_id, :month_key, :cost, 1)
+            SELECT :usage_id, :tenant_id, :month_key, CAST(:cost AS INTEGER), 1
+            WHERE CAST(:cost AS INTEGER) <= CAST(:budget AS INTEGER)
             ON CONFLICT (tenant_id, month_key)
             DO UPDATE SET
                 cost_cents = tenant_llm_usage.cost_cents + :cost,

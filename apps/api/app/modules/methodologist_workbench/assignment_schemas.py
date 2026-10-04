@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictBool, StringConstraints
 
+from .natural_assignment_intent import AssignmentCandidate
 from .plan_contract import Fingerprint, Instruction, Revision
 
 
@@ -21,6 +22,20 @@ class AssignmentPreviewRequest(_DTO):
     include_descendants: StrictBool = False
     course_id: UUID | None = None
     department_id: UUID | None = None
+    candidate: AssignmentCandidate | None = None
+
+
+class AssignmentInterpretRequest(_DTO):
+    instruction: Instruction
+    timezone_name: Annotated[str, StringConstraints(strict=True, min_length=1, max_length=80)]
+    notify: StrictBool = False
+    include_descendants: StrictBool = False
+    previous_plan_id: UUID | None = None
+
+
+class InterpretedAssignment(_DTO):
+    state: Literal["interpreted"] = "interpreted"
+    candidate: AssignmentCandidate
 
 
 class Choice(_DTO):
@@ -78,3 +93,4 @@ class AssignmentReceipt(_DTO):
 
 PreviewResponse = AssignmentPreview | Clarification
 PlanResponse = AssignmentPreview | AssignmentReceipt
+InterpretResponse = InterpretedAssignment | Clarification

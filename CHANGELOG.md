@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add explicit free-text assignment interpretation with editable course,
+  department, date/time and notification fields. Reuse the existing tenant-aware
+  provider route, then the server-owned preview and human confirmation path.
+  Owned-plan corrections, cancellation/late-response safeguards and bounded
+  admission are included; no voice, autonomous execution or new provider resource.
+  Local/owned DEV evidence does not imply live-model or production acceptance.
 - Add DB-owned successful execution timestamps and a bounded, tenant-scoped
   dry-run/apply function for workbench metadata retention (24h after preview expiry,
   90d after execution). Preserve legacy receipts without reliable timestamps and
@@ -34,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Enforce the positive monthly budget on the first usage INSERT as well as the
+  conflict UPDATE, with PostgreSQL integer-typed parameters. Preserve historical
+  zero/default behavior and existing provider/settings values.
+- Normalize edited HTML times to HH:MM:SS, disable incomplete assignment
+  candidates and invalidate old confirmation after edits or reinterpretation.
 - Add compatible bounded tenant bootstrap reads and server-owned creation context
   before local migration0172 removes broad tenant access and forces own-ID RLS.
   Preserve existing login/registration/demo behavior and validated platform access.

@@ -8,7 +8,17 @@ export type AssignmentInput = {
   include_descendants: boolean;
   course_id?: string;
   department_id?: string;
+  candidate?: AssignmentCandidate;
 };
+export type AssignmentCandidate = {
+  course_query: string;
+  department_query: string;
+  due_date: string;
+  due_time: string;
+  notify: boolean;
+  include_descendants: boolean;
+};
+export type AssignmentInterpretation = { state: 'interpreted'; candidate: AssignmentCandidate } | ClarificationResponse;
 export type AssignmentRecipient = {
   user_id: string;
   label: string;
@@ -61,6 +71,28 @@ const isRecipient = (value: unknown): value is AssignmentRecipient => {
   return isUuid(item.user_id) && isString(item.label) && typeof item.already_assigned === 'boolean' && typeof item.access_warning === 'boolean';
 };
 const isCount = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0;
+const isBoundedText = (value: unknown): value is string => typeof value === 'string' && value.trim().length >= 1 && value.length <= 300;
+const isCalendarDate = (value: string): boolean => {
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day || month < 1 || month > 12 || day < 1) return false;
+  return new Date(Date.UTC(year, month - 1, day)).getUTCFullYear() === year
+    && new Date(Date.UTC(year, month - 1, day)).getUTCMonth() === month - 1
+    && new Date(Date.UTC(year, month - 1, day)).getUTCDate() === day;
+};
+const isClockTime = (value: string): boolean => {
+  const [hour, minute, second] = value.split(':').map(Number);
+  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 && second >= 0 && second <= 59;
+};
+export const isAssignmentCandidate = (value: unknown): value is AssignmentCandidate => {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  if (Object.keys(candidate).sort().join(',') !== 'course_query,department_query,due_date,due_time,include_descendants,notify') return false;
+  return isBoundedText(candidate.course_query) && isBoundedText(candidate.department_query)
+    && typeof candidate.due_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(candidate.due_date) && isCalendarDate(candidate.due_date)
+    && typeof candidate.due_time === 'string' && /^\d{2}:\d{2}:\d{2}$/.test(candidate.due_time) && isClockTime(candidate.due_time)
+    && typeof candidate.notify === 'boolean' && typeof candidate.include_descendants === 'boolean';
+};
+const isCandidate = isAssignmentCandidate;
 
 function parsePreview(value: unknown): AssignmentPreview {
   if (!value || typeof value !== 'object') throw new Error('Invalid assignment preview response');
@@ -106,14 +138,30 @@ function parseReceipt(value: unknown, planId: string): AssignmentReceipt {
   return data as AssignmentReceipt;
 }
 
-export async function requestAssignmentPreview(input: AssignmentInput): Promise<AssignmentPreview> {
+export async function requestAssignmentPreview(input: AssignmentInput, signal?: AbortSignal): Promise<AssignmentPreview> {
   if (input.instruction.trim().length < 1 || input.instruction.length > 4000
     || !isString(input.timezone_name) || typeof input.notify !== 'boolean'
     || typeof input.include_descendants !== 'boolean'
     || (input.course_id !== undefined && !isUuid(input.course_id))
-    || (input.department_id !== undefined && !isUuid(input.department_id))) throw new Error('Invalid assignment input');
-  const response = await api.post('/v1/methodologist-workbench/assignment-preview', input);
+    || (input.department_id !== undefined && !isUuid(input.department_id))
+    || (input.candidate !== undefined && !isCandidate(input.candidate))) throw new Error('Invalid assignment input');
+  const response = signal ? await api.post('/v1/methodologist-workbench/assignment-preview', input, { signal }) : await api.post('/v1/methodologist-workbench/assignment-preview', input);
   return parsePreview(response.data);
+}
+
+export async function interpretAssignment(instruction: string, timezone_name: string, notify: boolean, include_descendants: boolean, previous_plan_id?: string, signal?: AbortSignal): Promise<AssignmentInterpretation> {
+  if (instruction.trim().length < 1 || instruction.length > 4000 || !isString(timezone_name)
+    || typeof notify !== 'boolean' || typeof include_descendants !== 'boolean'
+    || (previous_plan_id !== undefined && !isUuid(previous_plan_id))) throw new Error('Invalid assignment interpretation input');
+  const response = await api.post('/v1/methodologist-workbench/interpret-assignment', {
+    instruction, timezone_name, notify, include_descendants, ...(previous_plan_id ? { previous_plan_id } : {}),
+  }, signal ? { signal } : undefined);
+  if (!response.data || typeof response.data !== 'object') throw new Error('Invalid assignment interpretation response');
+  const data = response.data as Record<string, unknown>;
+  if (data.state === 'interpreted' && Object.keys(data).sort().join(',') === 'candidate,state' && isCandidate(data.candidate)) return { state: 'interpreted', candidate: data.candidate };
+  const clarification = parsePreview(data);
+  if (clarification.state !== 'clarification_needed') throw new Error('Invalid assignment interpretation response');
+  return clarification;
 }
 
 export async function loadAssignmentPlan(planId: string, signal?: AbortSignal): Promise<AssignmentPreview | AssignmentReceipt> {

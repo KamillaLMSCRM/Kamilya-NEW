@@ -1,13 +1,15 @@
 # AI-driven Камиля: пошаговый план методического рабочего места
 
 Дата: 2026-10-01. Владелец продукта: пользователь; технический владелец: root.
-Статус обновлён 2026-10-03: текстовый assignment slice закрыт выпуском backend29/
+Статус обновлён 2026-10-04: текстовый assignment slice закрыт выпуском backend29/
 schema174 на2026-10-02, включая живую проверку и штатную очистку A/B; native
 frontend28 сохранён. Это датированное release evidence, не новое runtime readback.
 Изолированный ASR-пилот на ASUS: CPU baseline и сравнение decoder policies
 проверены; 15s отклонён, 30s оставлен исследовательским кандидатом, качество KK
 ещё не улучшено. Подготовлен набор пользовательских записей под synthetic DEV QA.
 Голос в продукте/LLM intent/document drafting ещё не выпущены.
+Free-text assignment interpretation реализован локально по принятому V2;
+живой model/DEV/browser/release gate ещё открыт. Это не новый production-выпуск.
 Ветка: `feature/methodologist-workbench-20261001`.
 
 ## Результат для методиста
@@ -246,6 +248,59 @@ AST-обновление Graphify попытались один раз посл�
 не graph-derived. Этот навигационный gap не заменяет/не отменяет unit/runtime proof.
 
 ## Этапы и критерии выхода
+
+### Free-text assignment implementation — 2026-10-04, acceptance in progress
+
+Accepted [intent V2](../product/contract-modules/methodologist-workbench/contracts/LLM_ASSIGNMENT_INTENT_ADDENDUM_V2.md)
+preserves V1 boundaries and historical zero/None monthly-budget default. New
+explicit parse endpoint returns an editable candidate only. Existing tenant-owned
+exact resolution, recipient snapshot, fifteen-minute preview, revision/fingerprint,
+confirmation and replay remain the sole execution path. Correction loads an owned
+unexpired plan before any provider/admission; no IDs/recipients are sent in the
+server-generated prompt. Candidate/source/session edits invalidate confirmation.
+No automatic semantic repair/retry; existing tenant-aware provider chain is reused.
+
+Root focused API166/quality1010+2200 PASS; leaf UI27/type/scoped ESLint PASS with
+time-input normalization, then seven root malformed-candidate cases added for the
+independent34-case packet. Three bounded cheap-agent scopes were used: policy/
+independent review, pure parser+tests, UI/client+tests. Root repaired cancellation/
+post-commit RLS refund and correction context; exposed tokens are NOT AVAILABLE.
+No new $1 test ceiling, provider, paid resource or financial zero-budget meaning.
+
+Real owned DEV attempts retained in
+`.release-evidence/TEST-WB-LLM-INTENT-20261004-A/root-dev-failures.json`:
+first DATA_FIXTURE duplicate settings, then PRODUCT_DEFECT SQL42P08 at first
+budget INSERT. Both preceding64 checks passed; both exact schema cleanup and
+public-schema neutrality passed. Mock tests were insufficient SQL type evidence.
+Corrected real DEV gate71PASS with explicitly typed integer reservation,
+candidate-to-owned-preview, exhaustion-before-provider, foreign previous-plan
+denial, RLS refund, concurrency bounds and foreign usage hidden. Exact cleanup
+and public neutrality PASS; external provider calls zero. Terminal receipt:
+`.release-evidence/TEST-WB-LLM-INTENT-20261004-B/root-dev-pass.json`.
+Independent corrected B/C1/C2 local acceptance is ROOT_ACCEPTED_LOCAL_ONLY:
+310 API,25 AI-neighbor,34 UI cases; type/scoped ESLint/build67pages/quality/
+release contracts/version/diff PASS. Original failures stay unchanged. C1 fixed
+only invocation (pwsh7, not powershell5); C2 fixed only journal Date formatting.
+Successful source/build proofs are hash-linked, not rerun; source is prepared
+for the feature branch, not deployed. Actual model/DEV browser/release remain open.
+
+CodeGraph1.6.1 used for exact parser/provider/budget seam and affected callers.
+Initial missing-symbol query and truncated provider search are retained as
+limitations, not successful navigation. Post-edit sync5599ms total/1301ms update,
+1633files/30169nodes/80551edges, excluded-path audit PASS. Budget callers6 and
+intent callees12 each20ms query body; source confirmed relevant consumers.
+Two `db.commit` edges point to an unrelated fake test session: false dynamic
+dispatch candidates, rejected through source. SQL/RLS/provider runtime is not
+graph proof. Prior sync8500ms total/2466ms update is preparation overhead.
+No Graphify rerun of answered relations; no matched A/B, exposed token or actual
+CodeBurn subscription-saving evidence. ECC/Graphify/CodeBurn benefit is NOT
+MEASURED for this slice; no causal speed/cost claim.
+
+Next gates: corrected real owned DEV proof -> frozen Test Runner local regression/
+build -> existing-free DEV deployment plus bounded actual-provider RU/KK semantics
+and browser edit/correction/preview/confirm/replay -> exact Release Runner packet,
+protected production rollout/readback/live QA. Voice/document drafting stays
+separate; no new speech capability is claimed by this text slice.
 
 Этапы выполняются по зависимости; benchmark голоса может идти параллельно
 текстовому ядру. Каждый этап не означает отдельный production-релиз.
@@ -1043,7 +1098,7 @@ capacity failure, расход за пределами лимита. Не «об
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
 | WB-DEV-ACCEPT | DONE for29 | root; Test & Evidence Runner local freeze; root external |DEV174/32 ON, owner-lock catalog/workercontrol/permanent QA/browser enabled workbench PASS; prior28 full text-flow proof retained |
 | WB-NEIGHBOR-CATALOG | DONE | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and independent local180 PASS atf0ff29c2; root ACCEPTED_LOCAL_ONLY; no equivalence claim |
-| WB-LLM-INTENT | NOT_STARTED | root shared contract; bounded leaf fixtures |Existing policy/quota binding; no new provider/spend authority |
+| WB-LLM-INTENT | ACCEPTED_LOCAL; owned DB PASS; model/browser/release OPEN | root shared contract/application/budget/DEV; cheap validator/UI leafs and independent reviewer; persistent Test Runner |Independent B/C1/C2:310 API/25 AI-neighbor/34 UI/type/lint/build67/quality/contracts/version/diff PASS; root real owned DEV71/cleanup/public-neutrality PASS. Live model/browser/release remain open |
 | WB-ASR-BENCH | MEASURED_CPU_ONLY; decoder30s exploratory; quality gate OPEN | root / root pilot / cheap reviewer |Licensed11-clip comparisons verified; 15s rejected; KK WER unchanged, natural mixed/domain/capacity/CUDA open; recording kit ready; no LMS ASR installed |
 | WB-VOICE-INPUT / WB-QR-MIC | NOT_STARTED in LMS | root shared contract; bounded UI/test leafs later |Accepted speech/job/QR impact contract + quality/data/capacity gate, then DEV browser/physical phone proof |
 | WB-RELEASE | DONE for text slice29 | root execution/browser/cleanup + Release Runner local review + Test Runner actual API |Production29/32/174 ON; native28 retained; protected rerun2 SUCCESS, normalA/Bcleanup/independentabsence/permanentQA-after PASS; voice/LLM separate |
@@ -1058,6 +1113,10 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 
 | Task / type | Requested model / effort | Acceptance / correction rounds | Evidence |
 |---|---|---|---|
+| intent_policy_inventory / independent backend/UI/typed-SQL review |gpt-5.6-luna/medium; observed metadata NOT AVAILABLE |Root cancellation/RLS-context and time-input repairs accepted; runtime proof kept separate |Source-only review; no agent external actions; tokens/time NOT AVAILABLE |
+| natural_intent_validator / pure parser and fixtures |gpt-5.6-luna/medium; observed metadata NOT AVAILABLE |Root bounded-output/duplicate-key/relative-deadline and correction-time hardening |23 leaf cases before root DST/inherited-time cases; no providers/DB; counters NOT AVAILABLE |
+| natural_intent_ui / UI/client fixtures |gpt-5.6-luna/medium; observed metadata NOT AVAILABLE |Root correction/abort/late-response refinement and HH:MM normalization;34 finalcases |27 leaf,34 root/Runner PASS; exact source one writer; counters NOT AVAILABLE |
+| Test Runner / LLM intent local B+C1+C2 |Persistent configured model metadata NOT AVAILABLE |Accepted LOCAL_ONLY after invocation and journal corrections; no source repairs, green matrix not rerun |310/25/34/type/lint/build67; build37.088s, quality5.281s, contract0.487s; turns227.497/75.485/72.709s include context/report overhead; tokens/root-review time NOT AVAILABLE |
 | stt_decoder_policy_review / independent source and metric-boundary review |gpt-5.6-luna /medium; observed metadata NOT AVAILABLE |Source accepted after1 metric hardening; phrase kit corrected after1 semantic/traceability review |Reviewer4/root27 network-free tests; root actual sequential decoder comparisons/audits; elapsed/token counters NOT AVAILABLE |
 | voice_pilot_contract_review / acceptance inventory + independent source review |gpt-5.6-luna /medium; independently observed metadata NOT AVAILABLE |Root accepted after source corrections; audit hardening completed root |Unit23/root actual CPU11permodel/source hashes verified; elapsed/token counters NOT AVAILABLE |
 | root / isolated ASUS pilot and plan |Parent session; observed metadata NOT AVAILABLE |Completed technical baseline; product quality not accepted |Actual CPU/inference/comparison/host checks; runtime failures retained; no production/DB/customer data |
