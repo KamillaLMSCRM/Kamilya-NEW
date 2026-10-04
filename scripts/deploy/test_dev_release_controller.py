@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 
@@ -139,6 +140,31 @@ class FakeProviders:
 
 
 class DevReleaseControllerTests(unittest.TestCase):
+    def test_live_push_uses_project_controlled_git_credential_helper(self) -> None:
+        adapter = object.__new__(controller.LiveProviderAdapter)
+        adapter._project_command = mock.Mock(
+            return_value=SimpleNamespace(returncode=0)
+        )
+
+        adapter.push_exact_sha(
+            "KamillaLMSCRM/Kamilya-NEW", "dev", RELEASE
+        )
+
+        adapter._project_command.assert_called_once_with(
+            [
+                "git",
+                "-c",
+                "credential.helper=",
+                "-c",
+                "credential.helper=!gh auth git-credential",
+                "push",
+                "--porcelain",
+                "origin",
+                f"{RELEASE}:refs/heads/dev",
+            ],
+            timeout=120,
+        )
+
     def _packet(self, root: Path, mutate=None) -> tuple[Path, str]:
         data = packet_data()
         if mutate:

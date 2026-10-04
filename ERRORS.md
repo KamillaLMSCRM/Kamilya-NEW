@@ -1569,6 +1569,15 @@ production runtime and cross-container readback remain pending release approval.
   Do not switch to browser/device login when token-only access is required. Never
   put a token in a command argument, URL, helper file, Git config, log, or document.
 
+- Recurrence, 2026-10-04: the DEV controller loaded the canonical token into
+  its child but still invoked plain `git push`, leaving credential transport
+  dependent on ambient Git helpers. Before any DEV mutation, a mocked exact-argv
+  regression failed (1 failure/13 passes). The controller now clears inherited
+  helpers with `-c credential.helper=` and selects only
+  `-c "credential.helper=!gh auth git-credential"`. Exact SHA/ref and timeout
+  remain unchanged. Canonical prepared-runtime verification passed17 tests;
+  no provider or Git mutation was needed to reproduce or verify the repair.
+
 **STOP / RECURRENCE 2026-08-26:** THE CANONICAL ROOT `GITHUB_TOKEN` IS VALID
 FOR `KamillaLMSCRM`. THE EXACT COMMIT AUTHOR IS
 `Kamilya Codex <kamilla_lms_crm@proton.me>`. A CUSTOM `GIT_ASKPASS` SELECTED

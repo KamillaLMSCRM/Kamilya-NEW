@@ -212,6 +212,10 @@ class LiveProviderAdapter:
             self._project_command(
                 [
                     "git",
+                    "-c",
+                    "credential.helper=",
+                    "-c",
+                    "credential.helper=!gh auth git-credential",
                     "push",
                     "--porcelain",
                     "origin",
