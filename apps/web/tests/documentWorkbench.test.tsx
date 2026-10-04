@@ -71,6 +71,35 @@ describe('DocumentWorkbench', () => {
     window.history.replaceState({}, '', '/methodologist-workbench');
   });
 
+  it('uses the newly selected sources when replacing a restored preview', async () => {
+    const planId = '00000000-0000-4000-8000-000000000002';
+    const oldId = '00000000-0000-4000-8000-000000000001';
+    const newId = '00000000-0000-4000-8000-000000000003';
+    window.history.replaceState({}, '', `/methodologist-workbench?document_plan=${planId}`);
+    const generation = { documents: [oldId], target_audience: 'Сотрудники', course_intent: 'Безопасная работа', course_format: 'standard', language: 'ru', source_strategy: 'single_topic', combination_goal: '', language_confirmed: false };
+    const restored = { state: 'preview_ready', plan_id: planId, revision: 1, fingerprint: 'a'.repeat(64), expires_at: '2026-10-04T12:00:00Z', instruction: 'Сделайте курс', generation, sources: [{ document_id: oldId, title: 'Старый источник', version: 1, content_sha256: 'b'.repeat(64), index_revision: 1 }] };
+    apiMock.get.mockImplementation(async (url: string) => url.includes('/document-plans/')
+      ? { data: restored }
+      : { data: { items: [
+        { id: oldId, title: 'Старый источник', version: 1, lifecycle_status: 'active', index: { status: 'ready' } },
+        { id: newId, title: 'Новый источник', version: 1, lifecycle_status: 'active', index: { status: 'ready' } },
+      ], page: { has_more: false } } });
+    apiMock.post.mockResolvedValue({ data: restored });
+    vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
+    const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
+    render(<DocumentWorkbench />);
+    expect(await screen.findByText(/План готов/)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Старый источник/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Новый источник/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Подготовить план' }));
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith(
+      '/v1/methodologist-workbench/document-preview',
+      expect.objectContaining({ generation: expect.objectContaining({ documents: [newId] }) }),
+      expect.anything(),
+    ));
+    window.history.replaceState({}, '', '/methodologist-workbench');
+  });
+
   it('reports a failed confirm without claiming submission', async () => {
     window.history.replaceState({}, '', '/methodologist-workbench');
     apiMock.get.mockResolvedValue({ data: { items: [{ id: '00000000-0000-4000-8000-000000000001', title: 'Правила', filename: 'rules.pdf', content_type: 'application/pdf', size: 1, description: '', category: 'general', index: { status: 'ready', revision: 1 }, version: 1, is_latest: true, lifecycle_status: 'active' }], page: { has_more: false } } });

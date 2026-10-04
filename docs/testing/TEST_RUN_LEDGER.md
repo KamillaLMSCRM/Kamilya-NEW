@@ -2180,3 +2180,17 @@ Rules:
 - Independent result: `PASS`, 7/7 groups. Exact API/frontend identity, ordinary disposable methodologist role, retained receipt/course/enrollment, cross-tenant course/plan 404s, retained completed successor/history, and retained student workbench 403 all passed. Three cached logins were spaced at least 13 seconds; business mutations 0, model calls 0, mail false.
 - Generated evidence: `.release-evidence/TEST-AI37-PROD-20261004/independent-readback.json` SHA256 `44700716df0912b179f57c40b4eeb6b11e62a872eb368ead20c403d7ed2e7da7`; report and bridge: `.release-evidence/TEST-AI37-PROD-20261004/independent-report.json`, `.release-evidence/TEST-AI37-PROD-20261004/bridge-acceptance.json`.
 - Browser, database, deployment-service, worker, cleanup and other Root-linked receipts remain explicitly `ROOT_EXECUTOR_OBSERVATION_ONLY`; full feature acceptance remains `PARTIAL`. Root exclusively owns cleanup of the disposable fixture. No other tenant or production resource was touched.
+### TEST-WB-DOCUMENT-DRAFT-20261004-A — 2026-10-04 — interrupted local acceptance
+
+- Preflight passed at clean branch `feature/methodologist-workbench-20261001`, HEAD `b7478d3b4320cafe09f0bce4e28fce7cf06b701c`; Root isolated-DEV receipt was reviewed as attribution-only and all 4 supplied source hashes matched current files.
+- The first declared API matrix command stopped before test collection with `HARNESS_FAILURE`: `run_api_pytest.ps1: A positional parameter cannot be found that accepts argument 'tests/unit/test_document_intent.py'`.
+- All dependent API, quality, web, build, diff, and claim-review checks are `NOT_RUN`. No retry, source repair, external access, provider/DB/browser action, or deployment occurred.
+- Report: `.release-evidence/WB-DOCUMENT-DRAFT-20261004/independent-local-report.json`. Root receipt remains `STUB_COUNTER_ONLY` with generator quality and live browser explicitly unverified.
+### TEST-WB-DOCUMENT-DRAFT-20261004-B — 2026-10-04 — corrected local matrix closure
+
+- Corrected packet B supersedes only the A wrapper invocation; A remains preserved unchanged as `HARNESS_FAILURE`.
+- Exact HEAD `b7478d3b4320cafe09f0bce4e28fce7cf06b701c`; only the authorized ledger path was dirty; all 4 Root receipt source hashes matched before and after.
+- API matrix: `121 passed`, one warning. Python quality: `ruff=1010`, `mypy=2201`. Full web suite: `146 files / 885 tests passed`. Web typecheck, feature-flag-on build (67 pages), and `git diff --check` passed.
+- Root receipt remains attribution-only: 14 isolated DEV checks, cleanup/public-schema neutral, dispatch `STUB_COUNTER_ONLY`, generator quality and live browser `NOT_VERIFIED`.
+- Root source-review finding: restoring `loaded.generation` into `candidate` can let `candidate.documents` override a newly selected source because generation spreads `candidate` after `documents:selected`. Classified `ROOT_SOURCE_REVIEW_FINDING`; product acceptance is `NOT_READY` pending Root red→green fix and successor packet. No repair or rerun was performed.
+- Report: `.release-evidence/WB-DOCUMENT-DRAFT-20261004/independent-local-report-B.json`.

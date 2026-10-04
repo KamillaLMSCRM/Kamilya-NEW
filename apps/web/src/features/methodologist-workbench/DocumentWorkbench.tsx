@@ -84,7 +84,18 @@ function DocumentWorkbenchInner() {
       if (!mounted.current || current !== epoch.current) return;
       setPlan(loaded);
       if (loaded.state === 'submitted') setJob(loaded.job);
-      else { setInstruction(loaded.instruction); setCandidate(loaded.generation); setLanguageConfirmed(loaded.generation.language_confirmed); setReuseReason(loaded.generation.reuse_reason ?? null); setSelected(loaded.generation.documents); }
+      else {
+        const restored = loaded.generation;
+        setInstruction(loaded.instruction);
+        setCandidate({
+          target_audience: restored.target_audience, course_intent: restored.course_intent,
+          course_format: restored.course_format, language: restored.language,
+          source_strategy: restored.source_strategy, combination_goal: restored.combination_goal,
+        });
+        setLanguageConfirmed(restored.language_confirmed);
+        setReuseReason(restored.reuse_reason ?? null);
+        setSelected(restored.documents);
+      }
     }).catch((cause) => {
       if (mounted.current && current === epoch.current && !['AbortError', 'CanceledError'].includes(cause?.name)) setError('Не удалось восстановить план документа.');
     }).finally(() => { if (mounted.current && current === epoch.current) setPending(false); });
@@ -146,7 +157,7 @@ function DocumentWorkbenchInner() {
     finally { if (mounted.current && current === epoch.current) setUploading(false); }
   };
 
-  const generation = (): AIGenerateRequest => ({ documents: selected, ...candidate, language_confirmed: languageConfirmed, reuse_reason: reuseReason });
+  const generation = (): AIGenerateRequest => ({ ...candidate, documents: selected, language_confirmed: languageConfirmed, reuse_reason: reuseReason });
   const preview = async () => {
     if (!instruction.trim() || !candidate.course_intent.trim() || selected.length < 1 || selected.length > 5 || pending) return;
     const current = ++epoch.current; const controller = new AbortController(); requestController.current = controller;
