@@ -2162,3 +2162,15 @@ Rules:
 - Recorded original acceptance evidence: focused API suite `65 passed`; PowerShell 7 quality baseline `ruff=1010, mypy=2200`; scoped Ruff passed; canonical release contracts passed with 218 Errors entries; version `0.11.36` passed; `git diff --check` passed.
 - The guessed paths `scripts/check_release_contracts.py` and `scripts/check_version_sync.py` remain `NOT_RUN`; their canonical replacements passed and are recorded in the linked correction JSON.
 - Root DB receipt is attribution-only: 10 checks passed, cleanup true, public-schema neutral, with publication/assignment stubs. No live/public pipeline claim is made.
+### TEST-COURSE-TX-DEV-20261004-B — 2026-10-04 — bounded DEV API readback
+
+- Exact worktree HEAD `41e6849f1d2d7d4a978a88e7063fefb518cc7ea8`; report: `.release-evidence/TEST-COURSE-TX-DEV-20261004-B/report.json`.
+- DEV `/health` returned HTTP 200 with status `ok`, exact release SHA, product version `0.11.36`, and render-development identity. One ordinary methodologist login succeeded; `/users/me` matched the expected ordinary actor, tenant, and role with no impersonation.
+- Read-only course route returned published state and the release recorded by the supplied Root publication receipt. Enrollment readback returned exactly one expected retained assignment. Workbench plan readback returned succeeded, one created assignment, empty skipped list, and `not_requested` notification state.
+- Root publication HTTP/DB receipts were treated as attribution-only; the DB receipt was not independently queried. No production, provider, database, mail, or other-tenant action occurred. No business-data mutation or cleanup was performed.
+### TEST-AI37-PACKAGING-20261004-A — 2026-10-04 — local version-37 packaging acceptance
+
+- Exact frozen worktree HEAD `41e6849f1d2d7d4a978a88e7063fefb518cc7ea8`; all 7 manifest hashes passed before and after. Runtime source/test paths were absent from `git diff --name-only`; allowed untracked release note retained.
+- `validate_version.py --release --expected-version 0.11.37` passed across VERSION, API pyproject, and web package metadata. Release-contract gate passed with Alembic head 0174 and 218 unique Errors entries. `git diff --check` passed.
+- Packaging claims had no finding: the notes distinguish prepared 0.11.37 from tested DEV runtime 0.11.36/41e, keep production/voice/autonomous/mixed-Kazakh gates open, and retain historical publication/harness failures. Root DEV/browser/API/publication/cleanup/QA receipts were reviewed as attribution-only; no green tests or external checks were rerun.
+- Report: `.release-evidence/TEST-AI37-PACKAGING-20261004-A/report.json`. No source, test, provider, database, Git, or deployment mutation occurred.

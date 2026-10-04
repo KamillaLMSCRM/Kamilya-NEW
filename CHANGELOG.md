@@ -65,6 +65,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.37] - 2026-10-04
+
+### Added
+
+- Free-description assignment interpretation, editable proposals and contextual
+  deadline correction, followed by a fresh server preview and explicit human
+  confirmation. No voice input or autonomous action is enabled.
+
+### Fixed
+
+- Resolve one paired outer quote wrapper after an exact catalogue miss, with
+  literal-name priority, tenant isolation and ambiguity preserved.
+- Clarify workbench help in RU/KK/EN and normalize edited HTML time fields.
+- Commit course publish/unpublish and their replay receipts atomically; avoid
+  postcommit tenant-context reads and duplicate transitions on same-key races.
+- Preserve existing positive monthly AI budget enforcement on first insert.
+
+### Verification
+
+- Exact DEV41e6849f CI all7SUCCESS; ordinary browser correction/confirmation/
+  receipt reload, independent ordinary API readback, real publication/replay and
+  scoped persisted-state/deadline checks PASS. Disposable tenant removed by the
+  guarded API, ten-table absence PASS; retained QA remains2users/2courses/
+  2assignments. Version37 packaging and protected production gates remain separate.
+
 ## [0.11.36] - 2026-10-03
 
 ### Fixed

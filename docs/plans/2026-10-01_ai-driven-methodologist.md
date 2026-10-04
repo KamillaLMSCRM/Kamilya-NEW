@@ -1102,10 +1102,13 @@ capacity failure, расход за пределами лимита. Не «об
     PASS, exactly1 enrollment/no notification, help RU/KK/EN inspected. Fixture
     publication500-after-commit retained as COURSE-TX-001; independent source
     review accepted atomic publish/unpublish repair. Root isolated publication
-    gate6PASS then expanded9PASS with cleanup/public neutrality; real snapshot
-    construction and assignment recomputation stubbed, so full HTTP acceptance
-    and protected production37 remain open. Temporary tenant remains owned until
-    exact repair acceptance and normal guarded cleanup; permanent QA unchanged.
+    gate6PASS then final10PASS (concurrent publish/unpublish included), cleanup/
+    public neutrality. Snapshot/assignment helpers stubbed in that gate; separate
+    actual DEV41e6849f ordinary HTTP4PASS and persisted key/audit/release/deadline
+    readback PASS. Independent Test Runner ordinary GET PASS; final browser reload
+    preserved receipt. Normal guarded tenant DELETE204/fresh404 and10-table absence
+    PASS; retained QA-after2users/2courses/2assignments/history PASS. Production37
+    packaging/release remains open; production36 untouched.
 
     Tool measurement (this task, not a comparative benchmark): CodeGraph1.6.1
     status255ms/search24ms/callees43ms returned the exact publication seam; one
@@ -1126,7 +1129,7 @@ capacity failure, расход за пределами лимита. Не «об
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
 | WB-DEV-ACCEPT | DONE for29 | root; Test & Evidence Runner local freeze; root external |DEV174/32 ON, owner-lock catalog/workercontrol/permanent QA/browser enabled workbench PASS; prior28 full text-flow proof retained |
 | WB-NEIGHBOR-CATALOG | DONE | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and independent local180 PASS atf0ff29c2; root ACCEPTED_LOCAL_ONLY; no equivalence claim |
-| WB-LLM-INTENT | DEV_MODEL_BROWSER_PASS; publication repair/release OPEN | root shared contract/application/budget/DEV; cheap validator/UI leafs and independent reviewer; persistent Test Runner |9235a588 actual5-case probe + ordinary browser correction/confirm/reload/help PASS; exact1 enrollment/no mail. Separate COURSE-TX-001 local atomicity repair pending exact deployed HTTP acceptance and protected production37 |
+| WB-LLM-INTENT | DEV_MODEL_BROWSER_API_PASS; production37 OPEN | root shared contract/application/budget/DEV; cheap validator/UI leafs and independent reviewer; persistent Test Runner |9235a588 actual5-case probe + ordinary browser correction/confirm/reload/help PASS; exact1 enrollment/no mail. COURSE-TX-001 repaired DEV41e6849f actualHTTP4/DB/independentGET/freshbrowser/normalcleanup/QA-after PASS. Protected production37 open |
 | WB-ASR-BENCH | MEASURED_CPU_ONLY; decoder30s exploratory; quality gate OPEN | root / root pilot / cheap reviewer |Licensed11-clip comparisons verified; 15s rejected; KK WER unchanged, natural mixed/domain/capacity/CUDA open; recording kit ready; no LMS ASR installed |
 | WB-VOICE-INPUT / WB-QR-MIC | NOT_STARTED in LMS | root shared contract; bounded UI/test leafs later |Accepted speech/job/QR impact contract + quality/data/capacity gate, then DEV browser/physical phone proof |
 | WB-RELEASE | DONE for text slice29 | root execution/browser/cleanup + Release Runner local review + Test Runner actual API |Production29/32/174 ON; native28 retained; protected rerun2 SUCCESS, normalA/Bcleanup/independentabsence/permanentQA-after PASS; voice/LLM separate |

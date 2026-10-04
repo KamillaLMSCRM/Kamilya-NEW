@@ -11,6 +11,17 @@ DB/storage gate и приёмкой клиента
 
 ## Current production36 — technical rollout and bounded QA acceptance PASS
 
+2026-10-04 candidate37 packaging: COURSE-TX-001 closed in DEV41e6849f, not yet in
+production. Exact CI37181805668 all7SUCCESS; Render APIdep-db0url1srm7s73999bsg,
+workerdep-db0uskegekts73bd49gg and Verceldpl_BRCfRCEEj9DjA64gFpFGGERJiCSy match.
+Root ordinary publish/unpublish/replay/conflict HTTP4PASS and read-only persisted
+release/key/audit/deadline counts PASS; independent Test Runner ordinary GET
+acceptance PASS. Browser fresh reload preserved the committed receipt. Temporary
+tenant90cc843c normal guarded DELETE204/freshGET404 and10-table absence PASS.
+Permanent QA-after PASS (2users/2courses/2assignments, existing failure/exhaustion
+history unchanged), schema0174. Protected production version37 packaging/release
+and product smoke remain open. Fresh public production health still36/ed349409.
+
 2026-10-04 updated DEV acceptance:9235a588 deployed to the existing free-tier
 API/worker/frontend; CI37179516636 all7SUCCESS, exact runtime readback PASS.
 Five bounded intent cases PASS (including replay of the original quoted KK
