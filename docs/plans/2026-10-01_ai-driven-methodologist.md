@@ -56,17 +56,29 @@ redispatches. Source hash/version/index/lifecycle and tenant/actor are rechecked
 The UI restores by document_plan, cancels stale responses, resets language
 acknowledgement and displays actual upload indexing, immutable plan and real job.
 
-Root checks: focused API/HTTP/admission/intent/migration/gate43 PASS; broader
-document + assignment matrix115 PASS before final RLS-rebind test; AI-COURSE-01
-25 PASS; Python quality baseline PASS. Full web first883/884 (journal waitFor
-timing under parallel load), journal-only7 PASS, bounded-workers full884/884 PASS;
-latest owned UI9 PASS and typecheck PASS. Build with new flag ON PASS before the
-last upload-error-only correction; final frozen Runner rerun still required.
+Local acceptance: implementation b7478d3b4320cafe09f0bce4e28fce7cf06b701c,
+restored-source correction14acd776eeb849a6f132ace798a9e6c0a1fb3d2d.
+Root focused API/HTTP/admission/intent/migration/gate43 and AI-COURSE-01 25 PASS.
+Independent Test Runner B API121/Python quality(ruff1010/mypy2201)/web885/build
+PASS; A invocation failure and B root-discovered restore finding retained.
+Root reproduced the restore/source defect RED1, fixed candidate field isolation
+and selected-source precedence, then UI10/typecheck PASS. Independent Runner C
+fresh full web146files/886tests, typecheck and flag-ON build67pages PASS; unchanged
+API/quality are Git-blob-linked to B, not claimed freshly rerun. Root reviewed
+source diff, C report and append-only ledger; ACCEPTED_LOCAL_ONLY.
+Earlier web883/884 parallel journal timing failure, isolated7 and bounded884/884
+rerun remain historical evidence, not substituted for the fresh C result.
 Owned Supabase DEV gate12 then13 then final14 groups PASS, cleanup/public neutrality true;
 provider/worker/course quality explicitly NOT_VERIFIED. No public DDL, provider,
 email, existing QA-fixture or production mutation. Final callback-failure gate
-is PASS (real flushed job+plan rollback, no dispatch); independent frozen Test
-Runner is next.
+is PASS (real flushed job+plan rollback, no dispatch). Four receipt source hashes
+match before/after independent B/C runs; runtime receipt is ROOT_EXECUTOR_ONLY,
+not independent provider execution. Reports: ignored
+.release-evidence/WB-DOCUMENT-DRAFT-20261004/isolated-dev14.json and
+independent-local-report-B.json / independent-local-report-C.json.
+Release Runner PREP-A canonical release-contract gate PASS (head0175), version37
+consistent; PREP-B exact successor diff/source review accepts LOCAL_ONLY_READY.
+No push/CI/public migration/DEV deployment/live generation/production run occurred.
 
 Navigation measurement: warm CodeGraph sync2735ms (wrapper8192ms), caller query
 18ms narrowed shared generation command to old endpoint and new confirm path;
@@ -75,8 +87,10 @@ old index retained; no force, hook, install or upgrade. Missing AST JSON nodes a
 CLI0.9.23/skill0.9.58 warning recorded as SOURCE_FALLBACK, not product failure.
 No comparable token A/B counter was supplied, so no token-saving claim is made.
 
-Next release boundary: frozen tests/readiness packet -> separately authorized
-DEV public174->175 and matched API/worker/frontend flags -> one live
+Next release boundary: accepted local tests/readiness packet -> explicit new
+document-flag support in the existing DEV controller (currently old workbench
+keys only), exact-SHA CI and separately authorized DEV public174->175 and matched
+API/worker/frontend flags -> one live
 document/interpret/preview/confirm/result journey. Retention automation,
 production, corrections, publication changes and voice remain excluded here.
 
@@ -1267,6 +1281,10 @@ Delegation task ledger (exposed token/time counters are NOT AVAILABLE, not zero)
 | dev_activation_controller_tests / bounded RED tests |gpt-5.6-luna/medium; observed metadata NOT AVAILABLE |Accepted with root fixture-shape/regex/single-controller correction |Actual17RED/1PASS; root additional adapter/terminal/schema/identity tests; counters NOT AVAILABLE |
 | native_activation_review / independent native then DEV review |gpt-5.6-luna/medium; observed metadata NOT AVAILABLE |Accepted after1 correction packet each; no leaf writes |Native V2missingflag/provenance, DEVidentity-before-flags fixed; direct-source final accepts; counters NOT AVAILABLE |
 | Test & Evidence Runner / activation local acceptance + evidence C1 |Persistent configured metadata NOT AVAILABLE |Root accepted LOCAL_ONLY;1 metadata correction, no source repair |149PASS/2UnixSKIP/9subtests/quality/Ruff/version-release/diff;165.055s; C1 commands/hashes, runtime NOT_RUN; token/rootreview counters NOT AVAILABLE |
+
+| Test Runner / document draft B and successor C |Requested gpt-5.6-luna/medium; observed metadata NOT AVAILABLE |Root accepted C LOCAL_ONLY after1 wrapper correction and1 root source fix; A/B retained |B API121/quality1010+2201/web885; C fresh web886/type/build67pages,257486ms; unchanged API hash-linked; tokens/review counters NOT AVAILABLE |
+| Release Runner / document draft PREP-A/B |Requested gpt-5.6-luna/medium; observed metadata NOT AVAILABLE |Local bounded readiness accepted; deploy readiness remains gated |A contracts/head175/version37; B successor review52074ms; no provider/CI/runtime actions; tokens NOT AVAILABLE |
+| root / document draft integration and restore correction |Parent metadata NOT AVAILABLE |API seams/owned DEV14/cleanup/public neutrality; restore RED1→GREEN10; independent C accepted |Root runtime receipts only, dispatcher stub/no provider quality; root elapsed/review/token counters NOT AVAILABLE |
 
 Точные сроки оценим после вертикального среза и ASR benchmark; обещать голосовой
 production за фиксированное число дней без этих измерений было бы неверно.

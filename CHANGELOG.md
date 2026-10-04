@@ -47,6 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Keep newly selected document sources after restoring an owned draft preview;
+  isolate the six editable candidate fields from persisted generation metadata.
+- Preserve the actual indexing failure message instead of replacing it with an
+  unrelated upload timeout in the new document-draft workbench.
 - Restore transaction-local tenant/user RLS context before recording an AI queue
   dispatch failure after admission commit; preserve the admitted job for replay.
 - Keep course publication/unpublication, assignment recomputation, audit and

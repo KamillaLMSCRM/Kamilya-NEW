@@ -2194,3 +2194,10 @@ Rules:
 - Root receipt remains attribution-only: 14 isolated DEV checks, cleanup/public-schema neutral, dispatch `STUB_COUNTER_ONLY`, generator quality and live browser `NOT_VERIFIED`.
 - Root source-review finding: restoring `loaded.generation` into `candidate` can let `candidate.documents` override a newly selected source because generation spreads `candidate` after `documents:selected`. Classified `ROOT_SOURCE_REVIEW_FINDING`; product acceptance is `NOT_READY` pending Root red→green fix and successor packet. No repair or rerun was performed.
 - Report: `.release-evidence/WB-DOCUMENT-DRAFT-20261004/independent-local-report-B.json`.
+### TEST-WB-DOCUMENT-DRAFT-20261004-C — 2026-10-04 — restored-source correction acceptance
+
+- Exact frozen HEAD `14acd776eeb849a6f132ace798a9e6c0a1fb3d2d`; diff from B contains only `DocumentWorkbench.tsx` and `documentWorkbench.test.tsx` as source/test changes. Other tracked source blobs remained unchanged; all 4 Root receipt source hashes passed before and after.
+- Full web suite passed `146 files / 886 tests`; typecheck passed; feature-flag-on build passed with 67 pages and the process-local flag restored; `git diff --check` passed.
+- Correction review passed: restored candidate now contains only the six editable generation fields, selected source IDs are applied after candidate fields, and the new regression test asserts the newly selected source reaches document preview. DOCUMENT_DRAFT_ADDENDUM_V1 invariants remain bounded.
+- A/B evidence remains preserved. API/DB evidence is linked from B and was not rerun; Root isolated-DEV receipt remains attribution-only with 14 checks, cleanup/public neutrality, `STUB_COUNTER_ONLY`, and generator/browser quality explicitly unverified.
+- Report: `.release-evidence/WB-DOCUMENT-DRAFT-20261004/independent-local-report-C.json`. Local root-review readiness only; no live/provider/production claim.
