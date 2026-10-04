@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Resolve candidate resource names with a single paired outer quote wrapper
+  after an exact miss, preserving literal quoted-name priority, tenant ownership,
+  ambiguity and explicit confirmation. Legacy exact commands stay unchanged.
+- Update workbench contextual help in RU/KK/EN for free-description interpretation,
+  editable proposals, deadline clarification and fresh preview after corrections.
 - Enforce the positive monthly budget on the first usage INSERT as well as the
   conflict UPDATE, with PostgreSQL integer-typed parameters. Preserve historical
   zero/default behavior and existing provider/settings values.

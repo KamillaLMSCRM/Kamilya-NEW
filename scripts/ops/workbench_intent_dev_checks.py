@@ -96,6 +96,16 @@ async def verify_intent(owner_engine, runtime_engine, schema, actor, other_tenan
                 raise GateBlocked("intent_candidate_preview_mismatch")
             await db.commit()
         checks.append("interpretation_candidate_to_owned_preview")
+        async with AsyncSession(isolated, expire_on_commit=False) as db:
+            await context(db, schema, actor.tenant_id, actor.actor_id)
+            quoted = result.candidate.model_copy(update={"course_query": "«Gate course»", "department_query": '"Gate department"'})
+            wrapped_preview = await create_assignment_preview(db, actor, AssignmentPreviewRequest(instruction=body.instruction, timezone_name="UTC", candidate=quoted), now=now)
+            if wrapped_preview.state != "preview_ready" or wrapped_preview.course_id != preview.course_id or wrapped_preview.department_id != preview.department_id:
+                raise GateBlocked("intent_quoted_resource_fallback_mismatch")
+            if quoted.course_query != "«Gate course»" or quoted.department_query != '"Gate department"':
+                raise GateBlocked("intent_candidate_mutated_by_resolution")
+            await db.commit()
+        checks.append("quoted_candidate_exact_fallback_owned_and_immutable")
         async with AsyncSession(isolated) as db:
             await context(db, schema, actor.tenant_id, actor.actor_id)
             try:

@@ -80,6 +80,17 @@ def _choose(rows: list[Any], selected: UUID | None) -> Any | None:
     return rows[0] if len(rows) == 1 else None
 
 
+def _resource_query_spellings(query: str, *, candidate_mode: bool) -> tuple[str, ...]:
+    """Exact original first; one syntactic wrapper only after an exact miss."""
+    raw = query.strip()
+    pairs = (("«", "»"), ("“", "”"), ('"', '"'), ("'", "'"))
+    if candidate_mode and len(raw) > 2 and (raw[0], raw[-1]) in pairs:
+        inner = raw[1:-1].strip()
+        if inner and not any(inner.startswith(left) or inner.endswith(right) for left, right in pairs):
+            return raw, inner
+    return (raw,)
+
+
 async def _bindings(
     db: AsyncSession,
     actor: ActorContext,
@@ -256,35 +267,45 @@ async def create_assignment_preview(
         body = body.model_copy(
             update={"notify": body.candidate.notify, "include_descendants": body.candidate.include_descendants}
         )
-    courses = list(
-        (
-            await db.scalars(
-                select(Course)
-                .where(
-                    Course.tenant_id == actor.tenant_id,
-                    Course.status == "published",
-                    func.lower(func.btrim(Course.title)) == parsed.course_query.strip().lower(),
+    courses = []
+    for course_query in _resource_query_spellings(parsed.course_query, candidate_mode=body.candidate is not None):
+        courses = list(
+            (
+                await db.scalars(
+                    select(Course)
+                    .where(
+                        Course.tenant_id == actor.tenant_id,
+                        Course.status == "published",
+                        func.lower(func.btrim(Course.title)) == course_query.lower(),
+                    )
+                    .order_by(Course.id)
+                    .limit(21)
                 )
-                .order_by(Course.id)
-                .limit(21)
-            )
-        ).all()
-    )
-    departments = list(
-        (
-            await db.scalars(
-                select(Department)
-                .where(
-                    Department.tenant_id == actor.tenant_id,
-                    Department.is_active.is_(True),
-                    Department.archived_at.is_(None),
-                    func.lower(func.btrim(Department.name)) == parsed.department_query.strip().lower(),
+            ).all()
+        )
+        if courses:
+            break
+    departments = []
+    for department_query in _resource_query_spellings(
+        parsed.department_query, candidate_mode=body.candidate is not None
+    ):
+        departments = list(
+            (
+                await db.scalars(
+                    select(Department)
+                    .where(
+                        Department.tenant_id == actor.tenant_id,
+                        Department.is_active.is_(True),
+                        Department.archived_at.is_(None),
+                        func.lower(func.btrim(Department.name)) == department_query.lower(),
+                    )
+                    .order_by(Department.id)
+                    .limit(21)
                 )
-                .order_by(Department.id)
-                .limit(21)
-            )
-        ).all()
-    )
+            ).all()
+        )
+        if departments:
+            break
     if len(courses) > 20 or len(departments) > 20:
         return Clarification(code="too_many_matches")
     course, department = _choose(courses, body.course_id), _choose(departments, body.department_id)

@@ -5826,3 +5826,26 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: never chain pure evaluator process success directly to approval,
   deployment or cleanup; check semantic verdict and explicit exit before action.
   No timestamp backdating or replacing failed receipts with later PASS evidence.
+
+## WB-INTENT-001 - Kazakh intent retained syntactic quotes around an exact course query
+
+- Date: 2026-10-04; ordinary synthetic QA, exact DEV e9f739dd, two provider calls.
+- Symptom: RU extraction matched expected fields; KK returned a guillemet-wrapped
+  course query, which can miss the exact unquoted catalogue title. Probe stopped
+  before remaining calls or any assignment/mail/temporary-tenant creation.
+- Cause: model output can preserve textual delimiters; candidate lookup previously
+  accepted only the original exact spelling. Schema validity is not model-quality
+  or resource-resolution proof.
+- Fix: accepted V3 tries original exact name first, then one unwrapped paired
+  spelling only on zero rows and only in candidate mode. Preserve literal quoted
+  name priority, tenant/published/active/archive predicates,21-row bound, duplicate
+  choices, selected-ID checks, candidate immutability and explicit confirmation.
+  Legacy exact syntax and provider/budget settings are unchanged.
+- Verification: retained service RED1FAIL/1PASS; after implementation and explicit
+  mock-order correction,9 focused tests PASS; source review accepted; quality
+ 1010/2200 PASS. Real isolated Supabase DEV72 PASS including wrapped course/department
+  resolution, exact cleanup and public-schema neutrality. New DEV/browser and
+  production acceptance remain separate gates. Localized contextual help14 PASS.
+- Prevention: retain actual provider outputs as synthetic deterministic replays.
+  Never repair model semantics with repeated paid calls, fuzzy matching or silent
+  confirmation; inspect/edit proposal and confirm the server-resolved preview.

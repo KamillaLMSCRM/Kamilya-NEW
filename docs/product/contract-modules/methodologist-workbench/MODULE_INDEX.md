@@ -8,9 +8,10 @@ Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 | SPEECH-INTAKE | Bounded authorized audio → editable transcript, no business execution | [SPEECH-INTAKE V1](modules/SPEECH_INTAKE_V1.md) | Speech/root; no storage now | Draft / benchmark gate |
 
 Active shared contract: [COMMAND-PLAN V1](contracts/COMMAND_PLAN_V1.md).
-Free-text interpretation and editable candidate, local implementation only:
-[LLM-ASSIGNMENT-INTENT V2](contracts/LLM_ASSIGNMENT_INTENT_ADDENDUM_V2.md),
-preserving V1 and existing financial zero-budget behavior.
+Free-text interpretation and editable candidate, partial DEV acceptance:
+[LLM-ASSIGNMENT-INTENT V3](contracts/LLM_ASSIGNMENT_INTENT_ADDENDUM_V3.md),
+preserving V1/V2 and existing financial zero-budget behavior. Actual RU provider
+extraction passed; KK outer-delimiter repair is pending new DEV/browser acceptance.
 Bounded local assignment integration:
 [ASSIGNMENT-EXECUTION addendum V1](contracts/ASSIGNMENT_EXECUTION_ADDENDUM_V1.md).
 Owned-plan reload and isolated notification validation:

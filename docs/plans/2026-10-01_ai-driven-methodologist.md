@@ -8,8 +8,13 @@ frontend28 сохранён. Это датированное release evidence, �
 проверены; 15s отклонён, 30s оставлен исследовательским кандидатом, качество KK
 ещё не улучшено. Подготовлен набор пользовательских записей под synthetic DEV QA.
 Голос в продукте/LLM intent/document drafting ещё не выпущены.
-Free-text assignment interpretation реализован локально по принятому V2;
-живой model/DEV/browser/release gate ещё открыт. Это не новый production-выпуск.
+Free-text interpretation выпущен в DEV e9f739dd на существующих Free/Hobby
+ресурсах, CI all7 PASS; сохранённый QA/schema174 verify PASS. RU provider PASS;
+KK сохранил внешние кавычки курса, probe остановлен после2 вызовов.
+Принятый V3 fallback и актуальная RU/KK/EN справка исправлены локально:
+9 регрессий/14 help/quality и реальный owned DEV72 PASS, cleanup/public neutrality
+PASS. Следуют frozen Test Runner, повторный exact-SHA DEV и живой полный flow.
+Production/голос/document drafting этим DEV-выпуском не добавлены.
 Ветка: `feature/methodologist-workbench-20261001`.
 
 ## Результат для методиста

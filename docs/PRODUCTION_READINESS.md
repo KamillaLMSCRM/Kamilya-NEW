@@ -11,15 +11,26 @@ DB/storage gate и приёмкой клиента
 
 ## Current production36 — technical rollout and bounded QA acceptance PASS
 
-2026-10-04 candidate note: free-text assignment intent is implemented only in
-the linked writer, under accepted LLM-ASSIGNMENT-INTENT V2. Root local166/quality
+2026-10-04 candidate note: free-text intent DEV rollout e9f739dd completed on
+existing Render Free API/worker and Vercel Hobby, CI37177928705 all7 SUCCESS.
+Exact API/worker/frontend identity and public health PASS; retained QA verify
+PASS on schema0174 with zero business mutations. Actual RU interpretation PASS;
+KK returned a quoted course query and stopped the quality probe after2 requests.
+No assignment/mail or temporary tenant was created. The V3 paired-delimiter
+repair and truthful localized help are local, pending a new frozen acceptance,
+exact-SHA DEV provider/browser proof and later protected production release.
+The browser free-description panel is visible; old open-tab RSC error during
+alias replacement is retained, fresh-load menu navigation subsequently passed.
+This is partial product acceptance, not production GO.
+
+Earlier candidate proof: root local166/quality
 passed; two original owned DEV failures are retained. Corrected typed-SQL
 candidate passed71 real owned DEV checks, exact cleanup/public neutrality,
 plus budget/parser30/UI34 local tests. Independent B/C1/C2 acceptance is
 ROOT_ACCEPTED_LOCAL_ONLY:310API/25AI-neighbor/34UI/type/lint/build67/quality/
 contracts/version/diff PASS; original SQL/harness/journal failures preserved.
-No new release, migration, live model quality or browser proof
-is implied; production36 records below remain dated evidence. The new candidate
+Those original source/owned-DB proofs are not comprehensive live-model/browser
+acceptance; production36 records below remain dated evidence. The new candidate
 is NO_GO until real DEV/model/browser/independent/release gates pass.
 
 2026-10-03: frontend, API and all three workers use exact

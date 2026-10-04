@@ -167,6 +167,24 @@ describe('contextual help registry', () => {
     expect(assignment?.steps[1]).toContain('абсолютный срок');
   });
 
+  it('describes both assignment modes and the explicit preview-confirm boundary in every locale', () => {
+    for (const locale of ['ru', 'kk', 'en'] as const) {
+      const help = getContextualHelp('/methodologist-workbench', 'methodologist', locale);
+      expect(help).not.toBeNull();
+      const topic = [help?.purpose, ...(help?.steps ?? []), help?.example, help?.result, help?.important].join(' ');
+      const required = locale === 'ru'
+        ? ['точн', 'свободн', 'предварительн', 'подтверд', 'квитанц', 'абсолютн', 'часов', 'относительн', 'уточн']
+        : locale === 'kk'
+          ? ['нақты', 'еркін', 'алдын ала', 'раста', 'түбіртек', 'абсолют', 'уақыт белдеуі', 'салыстырмалы', 'нақтыла']
+          : ['exact', 'free', 'preview', 'confirm', 'receipt', 'absolute', 'time zone', 'relative', 'clarif'];
+      for (const marker of required) expect(topic.toLocaleLowerCase()).toContain(marker.toLocaleLowerCase());
+      expect(topic).not.toContain('Введите поддерживаемую русскую команду назначения в поле.');
+      expect(topic).not.toContain('Өріске қолдау көрсетілетін орысша тағайындау командасын енгізіңіз.');
+      expect(topic).not.toContain('Enter a supported Russian assignment command in the field.');
+      expect(topic).toMatch(locale === 'ru' ? /ничего не назначает|не назначает/ : locale === 'kk' ? /ештеңе тағайындамайды/ : /never assigns|nothing.*assign/i);
+    }
+  });
+
   it('keeps invitations truthful and role-scoped', () => {
     const help = getContextualHelp('/invitations', 'methodologist', 'ru');
     expect(help?.title).toBe('Приглашения сотрудников');

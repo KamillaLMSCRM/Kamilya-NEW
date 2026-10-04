@@ -2142,3 +2142,11 @@ Rules:
 - Canonical release-contract gate passed: Alembic, Celery, migration ownership, Render runtime dependencies, and Errors journal (`216` unique entries).
 - `git diff --check` passed. Canonical `validate_version.py` passed for version `0.11.36` across VERSION, API pyproject, and web package metadata.
 - Root DEV71 evidence remains contextual only. Live model, browser, production, provider, database, and external runtime checks were not run. No product/source/test repair was performed.
+### TEST-WB-QUOTED-20261004-A — 2026-10-04 — local V3 quoted-resource acceptance
+
+- Exact worktree HEAD `e9f739ddf96907de2e6a8227d2a3be7f9463c12c`; all 11 frozen manifest hashes matched before and after execution.
+- Focused API selectors passed: 89 tests, one existing deprecation warning. Contextual-help and workbench web suites passed: 48 tests. Web typecheck and scoped contextual-help ESLint passed.
+- Canonical release-contract gate passed with 217 unique Errors entries; version validation `0.11.36` and `git diff --check` passed.
+- Source review found no surviving V3/help finding: candidate-only single bounded outer-wrapper fallback, literal-first priority, legacy exact-mode preservation, tenant/status/archive/active predicates, 21-row bounds, duplicate/forged-ID safety, immutable candidates, explicit confirmation, and RU/KK/EN guidance were verified.
+- Root-supplied DEV receipt is attribution-only: 72 checks, cleanup true, public-schema neutral. Prior provider receipt remains `FAIL` for KK quoted-course extraction; no live KK correction is claimed. Browser, live provider, production, and neighbor-equivalence gates remain open.
+- Historical initial leaf `RED1/FAIL1/PASS1` and mock-order harness correction remain preserved; no prior result was rewritten.
