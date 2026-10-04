@@ -29,6 +29,7 @@ from .assignment_service import (
     create_assignment_preview,
     get_assignment_plan,
 )
+from .document_router import router as document_router
 from .intent_application import interpret_assignment
 from .plan_contract import ActorContext, ConfirmationRequest
 
@@ -117,3 +118,6 @@ async def confirm_plan(
         except Exception:
             pass
     return outcome.receipt
+
+
+router.include_router(document_router)

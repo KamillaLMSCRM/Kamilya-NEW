@@ -8,6 +8,8 @@ Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 | SPEECH-INTAKE | Bounded authorized audio → editable transcript, no business execution | [SPEECH-INTAKE V1](modules/SPEECH_INTAKE_V1.md) | Speech/root; no storage now | Draft / benchmark gate |
 
 Active shared contract: [COMMAND-PLAN V1](contracts/COMMAND_PLAN_V1.md).
+Document-to-draft first slice: [DOCUMENT-DRAFT V1](contracts/DOCUMENT_DRAFT_ADDENDUM_V1.md),
+accepted local implementation2026-10-04; independent flags OFF, runtime NOT_VERIFIED.
 Free-text interpretation and editable candidate, partial DEV acceptance:
 [LLM-ASSIGNMENT-INTENT V3](contracts/LLM_ASSIGNMENT_INTENT_ADDENDUM_V3.md),
 preserving V1/V2 and existing financial zero-budget behavior. Actual RU provider

@@ -5,6 +5,7 @@ import asyncio
 import json
 import logging
 import re
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import Any, cast
 from uuid import UUID, uuid4
@@ -397,6 +398,16 @@ async def generate_course(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_ai_job_access),
 ):
+    return await submit_course_generation(req, db, user)
+
+
+async def submit_course_generation(
+    req: AIGenerateRequest,
+    db: AsyncSession,
+    user: User,
+    *,
+    before_commit: Callable[[AIJob], Awaitable[None]] | None = None,
+) -> AIJobResponse:
     """Start AI course generation (returns job_id for polling/WebSocket)."""
     from app.core.demo_limits import (
         check_ai_generation_quota,
@@ -599,6 +610,7 @@ async def generate_course(
             historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
             generation=True,
             reserve_course_generation=target_course_id is None,
+            **({"before_commit": before_commit} if before_commit is not None else {}),
         )
     except Exception as exc:
         await release_ai_generation_quota(db, user.id, user.tenant_id)

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add a separately default-disabled document-draft workbench: editable text
+  interpretation, owned immutable source/version preview, reload by plan locator,
+  human confirmation and a durable link to exactly one existing evidence_v2 job.
+  Additive schema0175 uses FORCE RLS, actor ownership, immutable terminal state
+  and DB-owned admission time. Existing generation and assignment routes remain.
+  Local/isolated DEV checks do not claim provider/course quality or a deployment.
+
 - Add explicit free-text assignment interpretation with editable course,
   department, date/time and notification fields. Reuse the existing tenant-aware
   provider route, then the server-owned preview and human confirmation path.
@@ -40,6 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Restore transaction-local tenant/user RLS context before recording an AI queue
+  dispatch failure after admission commit; preserve the admitted job for replay.
 - Keep course publication/unpublication, assignment recomputation, audit and
   keyed replay receipt atomic in one transaction. Build the response before
   commit clears tenant context; serialize same-course replay and return409 for

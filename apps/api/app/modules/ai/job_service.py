@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol, cast
@@ -512,6 +512,7 @@ async def submit_ai_job(
     generation: bool = False,
     reserve_course_generation: bool = False,
     dispatcher: AIJobDispatcher | None = None,
+    before_commit: Callable[[AIJob], Awaitable[None]] | None = None,
 ) -> tuple[AIJob, dict[str, int | None]]:
     """Durably admit, commit and dispatch one AI job.
 
@@ -556,6 +557,10 @@ async def submit_ai_job(
         worker_concurrency=worker_concurrency,
         historical_estimate_seconds=historical_estimate_seconds,
     )
+    if before_commit is not None:
+        # Caller-owned receipt joins the job/charges under the caller's lock.
+        # A failure must propagate BEFORE commit and BEFORE remote dispatch.
+        await before_commit(job)
     await db.commit()
 
     try:
@@ -565,6 +570,13 @@ async def submit_ai_job(
             kwargs=task_kwargs(job),
         )
     except AIJobSubmissionUnavailableError as exc:
+        # Admission committed: transaction-local RLS identity has expired.
+        # Bind the original caller before failure state/refund writes.
+        from app.core.auth import _set_tenant_security_context, _set_user_security_context
+
+        if tenant_id is not None:
+            await _set_tenant_security_context(db, str(tenant_id))
+        await _set_user_security_context(db, user_id)
         await update_ai_job(
             db,
             str(job.id),

@@ -28,6 +28,58 @@ production37 boundary описана выше и в шаге63, старые э�
 
 ## Результат для методиста
 
+### Active frontier2026-10-04: WB-DOCUMENT-DRAFT
+
+Owner approved the detailed source-grounded plan and said "делай". Accepted
+DOCUMENT_DRAFT_ADDENDUM_V1 governs the first single-course context/preview/job
+slice; production, audio, corrections and publication changes remain excluded.
+Base28e143765ed7c154c064a16216a62dac80671ccd, clean linked worktree
+daily-learning-20260930. Root owns API/AI seam/migration/contracts/integration;
+cheap leaf inventories UI, then disjoint UI writer; independent reviewer later.
+Graph: DRAFT-CONTRACT -> DRAFT-ADMISSION -> DRAFT-API -> DRAFT-UI -> DRAFT-DEV.
+Nodes CONTRACT DONE; ADMISSION/API/UI implemented and locally verified;
+DRAFT-DEV bounded RLS/admission PASS, full browser/provider/worker NOT_RUN.
+The epic and release remain NOT_DONE. Gates: same-transaction job link,
+source/owner/replay tests, existing AI-COURSE-01, isolated Supabase RLS/cleanup,
+UI/build/independent review and actual DEV flow. No release/version change yet.
+Navigation: CodeGraph callers narrowed submit_ai_job to generation/regeneration
+and three existing dispatcher tests; all decisive transaction links source-read.
+Graphify prior queue path was indirect/stale; source fallback, no runtime claim.
+
+Current implementation: document plan is a single-course context, not a general
+chat/session orchestrator. The new flag is OFF by default. Interpretation returns
+six editable parameters; a reviewed nonempty course_intent prevents raw free text
+being silently ignored. Existing empty-guidance automatic generation is unchanged.
+Plan, AIJob and admission commit are joined before dispatch. Post-commit queue
+failure rebinds the original RLS identity, records failed job and replay never
+redispatches. Source hash/version/index/lifecycle and tenant/actor are rechecked.
+The UI restores by document_plan, cancels stale responses, resets language
+acknowledgement and displays actual upload indexing, immutable plan and real job.
+
+Root checks: focused API/HTTP/admission/intent/migration/gate43 PASS; broader
+document + assignment matrix115 PASS before final RLS-rebind test; AI-COURSE-01
+25 PASS; Python quality baseline PASS. Full web first883/884 (journal waitFor
+timing under parallel load), journal-only7 PASS, bounded-workers full884/884 PASS;
+latest owned UI9 PASS and typecheck PASS. Build with new flag ON PASS before the
+last upload-error-only correction; final frozen Runner rerun still required.
+Owned Supabase DEV gate12 then13 then final14 groups PASS, cleanup/public neutrality true;
+provider/worker/course quality explicitly NOT_VERIFIED. No public DDL, provider,
+email, existing QA-fixture or production mutation. Final callback-failure gate
+is PASS (real flushed job+plan rollback, no dispatch); independent frozen Test
+Runner is next.
+
+Navigation measurement: warm CodeGraph sync2735ms (wrapper8192ms), caller query
+18ms narrowed shared generation command to old endpoint and new confirm path;
+source and tests verified both. Graphify AST update refused shrink24222->23108,
+old index retained; no force, hook, install or upgrade. Missing AST JSON nodes and
+CLI0.9.23/skill0.9.58 warning recorded as SOURCE_FALLBACK, not product failure.
+No comparable token A/B counter was supplied, so no token-saving claim is made.
+
+Next release boundary: frozen tests/readiness packet -> separately authorized
+DEV public174->175 and matched API/worker/frontend flags -> one live
+document/interpret/preview/confirm/result journey. Retention automation,
+production, corrections, publication changes and voice remain excluded here.
+
 Методист прикладывает документ и говорит: «Сделай вводный курс для склада на
 20 минут, включи тест и практические примеры». Камиля показывает понятое
 поручение, задаёт только необходимые вопросы и создаёт **черновик**. Затем:
