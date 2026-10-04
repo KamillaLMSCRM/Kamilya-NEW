@@ -25,7 +25,31 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current client36 boundary,2026-10-03
+## Current client37 boundary,2026-10-04
+
+Frontend/API/threeworkers version0.11.37/source
+`534ce7ef9a881e78a198e071c2cd79a55d39a9e0` deployed; schema0174 unchanged.
+CI37182945835/native37183042764/protected37183317430 SUCCESS; protected imagea6c99741,
+green4running/restarts0, public/private identity, worker control, FORCE RLS PASS.
+Watchdog expects37/imagea6; retention/watchdog timers active, oneshots success0;
+signed current174 restore and disposable drill absence PASS. Previous backend36/
+image33b2/config retained. Frontend current37/previous36 and configured fallback35,
+extras359/299 retained; only eligible obsolete34/exact staging pair removed under
+standing recovery rule with offhost copies verified. No console/Proxmox or rights change.
+
+Ordinary methodologist free-description and contextual deadline correction,
+editable proposal/fresh server preview/human confirmation/receipt reload PASS;
+exact1 assignment/no mail, persisted deadline and confirm replay/no duplicate PASS.
+Atomic keyed publish/unpublish/replay/conflict PASS. Independent Test Runner7/7
+ordinary role/receipt/release/foreign404/student403/retained100% history checks PASS.
+Owned temporary tenant normal cleanup204/404 and ten-table+keys/module/lesson
+absence PASS; retained QA14users/3courses/13enrollments and business fingerprints
+unchanged. Acceptance is bounded to free-text-assignment/publication-idempotency,
+not voice or whole-product AI quality. Existing DEV41e6849f/free tiers preserved;
+no provider budget/tier/resource, DNS/landing/customer-data change. Details and
+current gates belong to PRODUCTION_READINESS.md; docs-only commits are not runtime.
+
+## Historical client36 boundary,2026-10-03
 
 Frontend/API/threeworkers version36/sourceed349409d3385abdbceb65097bcc47c82fa27f4d
 deployed. CI37135574141/native37135758994/protected37137457191 SUCCESS;

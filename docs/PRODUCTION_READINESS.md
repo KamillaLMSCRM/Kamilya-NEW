@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** frontend/API/DB/worker technical identity and bounded QA2026-10-03
+**Проверено:** frontend/API/DB/worker identity and bounded intent/publication QA2026-10-04
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,61 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production36 — technical rollout and bounded QA acceptance PASS
+## Current production37 — bounded free-text assignment acceptance PASS
+
+2026-10-04: frontend, API and all three workers use exact
+`534ce7ef9a881e78a198e071c2cd79a55d39a9e0`, version0.11.37; published tag/release
+v0.11.37. CI37182945835 all7SUCCESS, native37183042764 SUCCESS, protected backend
+37183317430 SUCCESS/deployment6837793704. Protected image
+`sha256:a6c99741d2142228acedceb1fda4bb2bcbfb986bd442553a69ab922c2ae8507e`
+and manifestc0a2b7f5 independently verified. Final public/private health,
+green API+3workers/running/restarts0/workbenchON, worker ping/queues/tasks,
+watchdog exact37/image and retention timers/oneshots PASS. CT125 stays0174 with
+safe runtime role/FORCE RLS; no migration. VM126 final disk65%, free11108188KiB.
+Fresh signed0174 restore RPO43s/RTO19s, report35be4d18fafa1c135215105ccdf916744f05d2e1431bb07b3936958b2b5d1a3f;
+signature and disposable DB/files absence independently verified. Initial30s
+transport timeout retained; the completed remote drill was reconciled read-only,
+not rerun. Previous backend36/image33b2 and watchdog config backup retained.
+
+Root production ordinary methodologist browser: two bounded interpretation calls,
+course/department retained across deadline clarification; real keyboard time edit
+invalidated old preview, fresh preview matched exact deadline; explicit confirmation
+created1/skipped0/no notifications. Reload restored server receipt; RU/KK/EN help
+opened. Persisted policy deadline2026-10-26T13:30Z (18:30 Asia/Almaty) verified
+read-only. Same confirmed plan replay returned identical receipt/no second enrollment.
+Keyed publish/unpublish/replay and different-course conflict409 HTTP4groups PASS,
+persisted publication/release/key/audit state PASS. This closes COURSE-TX-001 for
+the declared production scope; historical DEV500 receipt remains preserved.
+
+Independent Test Runner TEST-AI37-PROD-20261004-INDEPENDENT executed GET matrix7/7
+once: exact web/API identity, ordinary roles, receipt/enrollment/current release,
+cross-tenant course/plan404, student workbench403 and retained completed successor
+100%/predecessor history. Report65501228729aac6fdfa1adda845ea64dbeff02a6d84d53bdaae3fbfa057d0824;
+browser/DB/worker evidence is separately Root-owned, not Runner execution.
+Bridge accepts only scopes free-text-assignment and course-publication-idempotency,
+not whole-product/voice/large-source/multilingual AI acceptance.
+
+Owned tenant776e371e normal guarded DELETE204/fresh404; independent ten-table
+absence plus workflow keys/module/lesson zero PASS. Permanent QA83552ce6 counts
+unchanged (14users/3courses/13enrollments); enrollment/course row fingerprints
+unchanged, completed learning preserved. Browser fixture session logged out and
+temporary mobile viewport reset. Initial cleanup harness nested-stats KeyError
+occurred before DELETE; corrected canonical DTO access, original failure preserved.
+
+Frontend executecf1bcaf4 RELEASE_OK/current-marker-public534. Previous36/ed349 and
+configured fallback35/f34 plus extras359/299 retained. Capacity gate required
+1278840166bytes versus998604KiB free: only obsolete successful34/b256 and exact
+staging archive/manifest removed after fresh plan/hash and offhost recovery proof.
+Free1640096KiB before staging;998528KiB after release. Recovery copies retained;
+no broad prune or unknown staging deletion. Provider plans/budgets/rights/DNS,
+landing, customer data and retained trainings unchanged; no STT runtime added.
+
+Evidence: `.release-evidence/REL-AI37-20261004/`,
+`.release-evidence/REL-AI37-WEB-20261004/`,
+`.release-evidence/TEST-AI37-PROD-20261004/` and append-only Test Runner ledger.
+Documentation-only closeout commits do not change this deployed runtime SHA.
+
+## Historical production36 / DEV37 preparation — superseded by current boundary
 
 2026-10-04 candidate37 packaging: COURSE-TX-001 closed in DEV41e6849f, not yet in
 production. Exact CI37181805668 all7SUCCESS; Render APIdep-db0url1srm7s73999bsg,

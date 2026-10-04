@@ -1,20 +1,29 @@
 # AI-driven Камиля: пошаговый план методического рабочего места
 
 Дата: 2026-10-01. Владелец продукта: пользователь; технический владелец: root.
-Статус обновлён 2026-10-04: текстовый assignment slice закрыт выпуском backend29/
+Статус обновлён 2026-10-04: свободные текстовые поручения и уточнения назначения
+приняты в production0.11.37/source534ce7ef, frontend/API/threeworkers/schema0174.
+Обычный methodologist browser, persisted deadline/receipt/replay, публикация,
+независимые7/7 проверки изоляции/сохранности обучения и штатная очистка PASS.
+Голос, документ-to-draft через рабочее место и source-grounded corrections ещё
+не выпущены. Следующий slice — WB-DOCUMENT-DRAFT, затем WB-CORRECTION;
+ASR/телефон идут отдельно через quality/data/capacity gates.
+
+Историческая подготовка: текстовый assignment slice закрыт выпуском backend29/
 schema174 на2026-10-02, включая живую проверку и штатную очистку A/B; native
 frontend28 сохранён. Это датированное release evidence, не новое runtime readback.
 Изолированный ASR-пилот на ASUS: CPU baseline и сравнение decoder policies
 проверены; 15s отклонён, 30s оставлен исследовательским кандидатом, качество KK
 ещё не улучшено. Подготовлен набор пользовательских записей под synthetic DEV QA.
-Голос в продукте/LLM intent/document drafting ещё не выпущены.
+На этом историческом этапе голос в продукте/LLM intent/document drafting не были выпущены.
 Free-text interpretation выпущен в DEV e9f739dd на существующих Free/Hobby
 ресурсах, CI all7 PASS; сохранённый QA/schema174 verify PASS. RU provider PASS;
 KK сохранил внешние кавычки курса, probe остановлен после2 вызовов.
 Принятый V3 fallback и актуальная RU/KK/EN справка исправлены локально:
 9 регрессий/14 help/quality и реальный owned DEV72 PASS, cleanup/public neutrality
 PASS. Следуют frozen Test Runner, повторный exact-SHA DEV и живой полный flow.
-Production/голос/document drafting этим DEV-выпуском не добавлены.
+Production/голос/document drafting тем DEV-выпуском не добавлялись; текущая
+production37 boundary описана выше и в шаге63, старые этапы не являются runtime truth.
 Ветка: `feature/methodologist-workbench-20261001`.
 
 ## Результат для методиста
@@ -1121,6 +1130,29 @@ capacity failure, расход за пределами лимита. Не «об
     Token/cost savings and comparative efficiency NOT_AVAILABLE; graphs helped
     find neighbors, direct source and actual DB checks proved the defect/repair.
 
+63. Production37 closure2026-10-04: exact534ce7ef/tag/release, CI37182945835,
+    native37183042764 and protected37183317430 SUCCESS. API+3workers imagea6c99741
+    green/running/restarts0, schema174/no migration, worker control/readback,
+    signed restore/rollback/watchdog/retention PASS. Frontend protected bridge
+    RELEASE_OK; obsolete successful34 exact cleanup with offhost recovery only.
+    Actual ordinary browser2 intent calls retained course/department across
+    deadline correction; real keyboard edit invalidated old preview, explicit
+    confirm created1/no mail, reload restored receipt. Persisted exact deadline,
+    same-plan replay/no duplicate and keyed publication4groups PASS. Independent
+    Test Runner7/7/zero business writes, report65501228. Owned temporary tenant
+    DELETE204/GET404, ten-table+keys/module/lesson absence and retained QA counts/
+    fingerprints unchanged. Initial transport timeout/cleanup DTO harness failure
+    preserved and reconciled, no blind destructive retry. Root accepts only declared
+    text/publication scopes; no all-product, voice, physical phone or AI-quality expansion.
+
+    Process measurements: Test Runner production turn200.527s including mandatory
+    context/report and paced3 logins; no source/model/test rerun. Release Runner
+    local validation47.002s plus39.842s correction: wrong approval chronology finding
+    retracted against executable gate contract. Neither agent timing proves speedup;
+    token/cost/root-review counters NOT_AVAILABLE. Final CodeGraph router sync
+    1.177s engine/6.629s wrapper/7.1875s command. Existing measured navigation
+    remains bounded evidence, no fresh ECC/codeburn comparative benchmark claimed.
+
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)
 
 | Node | State | Owner / writer / reviewer | Exit / next gate |
@@ -1129,10 +1161,10 @@ capacity failure, расход за пределами лимита. Не «об
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
 | WB-DEV-ACCEPT | DONE for29 | root; Test & Evidence Runner local freeze; root external |DEV174/32 ON, owner-lock catalog/workercontrol/permanent QA/browser enabled workbench PASS; prior28 full text-flow proof retained |
 | WB-NEIGHBOR-CATALOG | DONE | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and independent local180 PASS atf0ff29c2; root ACCEPTED_LOCAL_ONLY; no equivalence claim |
-| WB-LLM-INTENT | DEV_MODEL_BROWSER_API_PASS; production37 OPEN | root shared contract/application/budget/DEV; cheap validator/UI leafs and independent reviewer; persistent Test Runner |9235a588 actual5-case probe + ordinary browser correction/confirm/reload/help PASS; exact1 enrollment/no mail. COURSE-TX-001 repaired DEV41e6849f actualHTTP4/DB/independentGET/freshbrowser/normalcleanup/QA-after PASS. Protected production37 open |
+| WB-LLM-INTENT | DONE for bounded text scope37 | root shared contract/release/browser/DB; cheap validator/UI leafs and independent reviewer; persistent Test Runner |DEV41e6849f accepted; production534ce7ef ordinary browser/2 intent calls/correction/new preview/confirm/reload/help, persisted receipt/deadline/replay, publication4groups, independentGET7/7, cleanup/retainedQA PASS. Voice/document drafting separate |
 | WB-ASR-BENCH | MEASURED_CPU_ONLY; decoder30s exploratory; quality gate OPEN | root / root pilot / cheap reviewer |Licensed11-clip comparisons verified; 15s rejected; KK WER unchanged, natural mixed/domain/capacity/CUDA open; recording kit ready; no LMS ASR installed |
 | WB-VOICE-INPUT / WB-QR-MIC | NOT_STARTED in LMS | root shared contract; bounded UI/test leafs later |Accepted speech/job/QR impact contract + quality/data/capacity gate, then DEV browser/physical phone proof |
-| WB-RELEASE | DONE for text slice29 | root execution/browser/cleanup + Release Runner local review + Test Runner actual API |Production29/32/174 ON; native28 retained; protected rerun2 SUCCESS, normalA/Bcleanup/independentabsence/permanentQA-after PASS; voice/LLM separate |
+| WB-RELEASE | DONE for bounded text scope37 | root execution/browser/cleanup + Release Runner local review + Test Runner actual API |Production37/534 API+threeworkers+nativefrontend ON/schema174; protectedSUCCESS/normalcleanup/independentabsence/permanentQA-after PASS; voice/document drafting separate |
 
 Write overlap: root owns migration/config/router/registry/purge/docs and DEV gate;
 parser agent owns parser+owned tests, UI agent owns panel/client+web tests until
