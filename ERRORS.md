@@ -5849,3 +5849,31 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: retain actual provider outputs as synthetic deterministic replays.
   Never repair model semantics with repeated paid calls, fuzzy matching or silent
   confirmation; inspect/edit proposal and confirm the server-resolved preview.
+
+## COURSE-TX-001 - Keyed publication committed before its replay receipt
+
+- Date: 2026-10-04; ordinary disposable DEV methodologist on9235a588.
+- Symptom: keyed publish returned HTTP500 although fresh GET showed a published
+  course and one content release. No blind retry was performed. Bounded Render
+  logs confirmed workflow-idempotency RLS failure and MissingGreenlet; this is
+  separate from the successful free-text assignment browser acceptance.
+- Cause: publish committed course/release/audit first, then hydrated reviewer and
+  inserted the replay key in a new transaction after SET LOCAL tenant context had
+  cleared. Broad exception recovery also read an expired ORM user after rollback.
+  Source inspection found the same two-commit pattern in unpublish.
+- Fix: tenant-scoped course lock and exact replay recheck; hydrate and construct
+  CourseResponse before commit; insert/flush the key inside a savepoint in the
+  original transaction. Commit state, assignment refresh/activation, audit and
+  key once. IntegrityError yields409 and the canonical dependency rolls back the
+  complete operation; no context-free recovery query or RLS weakening.
+- Verification: source-only independent review accepted both operations. Initial
+  real owned DEV gate passed6 publication/RLS/replay/final-commit-rollback checks
+  with exact schema cleanup and public-schema neutrality. Snapshot construction
+  and assignment activation were stubbed; this is not complete HTTP acceptance.
+  Two FK-registration harness failures are retained separately, not product
+  failures. Extended unpublish/concurrency and exact deployed HTTP tests remain
+  separate gates until their fresh receipts are accepted.
+- Prevention: keyed business mutation and its replay receipt share one commit;
+  materialize the response before COMMIT clears transaction-local RLS context.
+  Never treat HTTP500 as evidence of rollback; independently read back exact
+  resource state before retry. Test postcommit IO, key races and final rollback.

@@ -2150,3 +2150,15 @@ Rules:
 - Source review found no surviving V3/help finding: candidate-only single bounded outer-wrapper fallback, literal-first priority, legacy exact-mode preservation, tenant/status/archive/active predicates, 21-row bounds, duplicate/forged-ID safety, immutable candidates, explicit confirmation, and RU/KK/EN guidance were verified.
 - Root-supplied DEV receipt is attribution-only: 72 checks, cleanup true, public-schema neutral. Prior provider receipt remains `FAIL` for KK quoted-course extraction; no live KK correction is claimed. Browser, live provider, production, and neighbor-equivalence gates remain open.
 - Historical initial leaf `RED1/FAIL1/PASS1` and mock-order harness correction remain preserved; no prior result was rewritten.
+### TEST-COURSE-TX-20261004-A — canonical-command correction — 2026-10-04
+
+- Root clarified the canonical commands after the initial packet named absent guessed paths. `scripts/ci/release-contract-gate.py` passed with Alembic, Celery, migration ownership, Render dependencies, and Errors journal checks (`218` unique entries). `scripts/validate_version.py` passed for version `0.11.36`.
+- The earlier attempts for `scripts/check_release_contracts.py` and `scripts/check_version_sync.py` remain preserved as `NOT_RUN`; no substitute was used before clarification.
+- Final frozen-hash verification passed for all 8 files at HEAD `9235a588fde802b36df4678a44cf6d1cc123b3ca`. No source/test/docs repair or external mutation occurred.
+### TEST-COURSE-TX-20261004-A-C1 — 2026-10-04 — evidence closure correction
+
+- This closure links the original report at `.release-evidence/TEST-COURSE-TX-20261004-A/report.json` and canonical-command correction at `.release-evidence/TEST-COURSE-TX-20261004-A/command-correction.json`.
+- All 8 frozen manifest hashes remained verified at HEAD `9235a588fde802b36df4678a44cf6d1cc123b3ca`.
+- Recorded original acceptance evidence: focused API suite `65 passed`; PowerShell 7 quality baseline `ruff=1010, mypy=2200`; scoped Ruff passed; canonical release contracts passed with 218 Errors entries; version `0.11.36` passed; `git diff --check` passed.
+- The guessed paths `scripts/check_release_contracts.py` and `scripts/check_version_sync.py` remain `NOT_RUN`; their canonical replacements passed and are recorded in the linked correction JSON.
+- Root DB receipt is attribution-only: 10 checks passed, cleanup true, public-schema neutral, with publication/assignment stubs. No live/public pipeline claim is made.

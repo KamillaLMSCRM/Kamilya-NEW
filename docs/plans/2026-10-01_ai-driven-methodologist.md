@@ -1095,6 +1095,29 @@ capacity failure, расход за пределами лимита. Не «об
 
 `WB-TEXT-EXEC -> WB-LLM-INTENT -> WB-DOCUMENT-DRAFT -> WB-CORRECTION`
 
+62. Intent continuation2026-10-04: corrected DEV9235a588 API/worker/frontend
+    deployed on existing free tiers, CI37179516636 all7SUCCESS. Original RU/KK
+    outputs replayed without paid repetition; remaining3 clarification cases
+    PASS. Ordinary browser proposal/edit/correction/preview/confirm/receipt reload
+    PASS, exactly1 enrollment/no notification, help RU/KK/EN inspected. Fixture
+    publication500-after-commit retained as COURSE-TX-001; independent source
+    review accepted atomic publish/unpublish repair. Root isolated publication
+    gate6PASS then expanded9PASS with cleanup/public neutrality; real snapshot
+    construction and assignment recomputation stubbed, so full HTTP acceptance
+    and protected production37 remain open. Temporary tenant remains owned until
+    exact repair acceptance and normal guarded cleanup; permanent QA unchanged.
+
+    Tool measurement (this task, not a comparative benchmark): CodeGraph1.6.1
+    status255ms/search24ms/callees43ms returned the exact publication seam; one
+    false external get edge and a truncated26-edge result were source-corrected.
+    Combined invocation5.033s includes process/file-read overhead. Graphify0.9.23
+    bounded query5.722s and path+source3.246s exposed a shared-User bridge, not a
+    directed RLS call path; no proof was inferred from that bridge. One CodeGraph
+    sync after router edit2.507s engine/9.687s wrapper, excluded-path audit PASS.
+    No Graphify rebuild, automatic hooks, provider calls or dependency upgrades.
+    Token/cost savings and comparative efficiency NOT_AVAILABLE; graphs helped
+    find neighbors, direct source and actual DB checks proved the defect/repair.
+
 `WB-ASR-BENCH -> WB-VOICE-INPUT` (отдельный resource/data gate)
 
 | Node | State | Owner / writer / reviewer | Exit / next gate |
@@ -1103,7 +1126,7 @@ capacity failure, расход за пределами лимита. Не «об
 | WB-TEXT-EXEC | DONE | root; parser/UI cheap leaf writers; root + independent reviewer |138 API tests, web checks, isolated DB gate PASS; flags off |
 | WB-DEV-ACCEPT | DONE for29 | root; Test & Evidence Runner local freeze; root external |DEV174/32 ON, owner-lock catalog/workercontrol/permanent QA/browser enabled workbench PASS; prior28 full text-flow proof retained |
 | WB-NEIGHBOR-CATALOG | DONE | root / root tooling / cheap reviewer + Test Runner |Read-only DEV12tables/26policies/27FK/9bodies and independent local180 PASS atf0ff29c2; root ACCEPTED_LOCAL_ONLY; no equivalence claim |
-| WB-LLM-INTENT | ACCEPTED_LOCAL; owned DB PASS; model/browser/release OPEN | root shared contract/application/budget/DEV; cheap validator/UI leafs and independent reviewer; persistent Test Runner |Independent B/C1/C2:310 API/25 AI-neighbor/34 UI/type/lint/build67/quality/contracts/version/diff PASS; root real owned DEV71/cleanup/public-neutrality PASS. Live model/browser/release remain open |
+| WB-LLM-INTENT | DEV_MODEL_BROWSER_PASS; publication repair/release OPEN | root shared contract/application/budget/DEV; cheap validator/UI leafs and independent reviewer; persistent Test Runner |9235a588 actual5-case probe + ordinary browser correction/confirm/reload/help PASS; exact1 enrollment/no mail. Separate COURSE-TX-001 local atomicity repair pending exact deployed HTTP acceptance and protected production37 |
 | WB-ASR-BENCH | MEASURED_CPU_ONLY; decoder30s exploratory; quality gate OPEN | root / root pilot / cheap reviewer |Licensed11-clip comparisons verified; 15s rejected; KK WER unchanged, natural mixed/domain/capacity/CUDA open; recording kit ready; no LMS ASR installed |
 | WB-VOICE-INPUT / WB-QR-MIC | NOT_STARTED in LMS | root shared contract; bounded UI/test leafs later |Accepted speech/job/QR impact contract + quality/data/capacity gate, then DEV browser/physical phone proof |
 | WB-RELEASE | DONE for text slice29 | root execution/browser/cleanup + Release Runner local review + Test Runner actual API |Production29/32/174 ON; native28 retained; protected rerun2 SUCCESS, normalA/Bcleanup/independentabsence/permanentQA-after PASS; voice/LLM separate |

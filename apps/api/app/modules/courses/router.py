@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -444,7 +445,7 @@ async def publish_course(
             if existing is None:
                 raise HTTPException(status_code=404, detail="Course not found")
             existing.reviewer = await _hydrate_reviewer(db, existing)  # type: ignore[attr-defined]
-            return existing
+            return CourseResponse.model_validate(existing)
     # Serialize publication against course edits and approval decisions.  The
     # lock must be acquired before reading the approved revision or rebuilding
     # the live snapshot, otherwise a concurrent edit can bypass the hash gate.
@@ -453,6 +454,20 @@ async def publish_course(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     if course.status == "published":
+        if idempotency_key:
+            # Another request may have committed while this request waited for
+            # the course lock. Read its exact replay row before rejecting the
+            # already-published state; never create a second release.
+            prior = await db.scalar(select(WorkflowIdempotencyKey).where(
+                WorkflowIdempotencyKey.tenant_id == user.tenant_id,
+                WorkflowIdempotencyKey.key == idempotency_key,
+                WorkflowIdempotencyKey.operation == "course.publish",
+            ))
+            if prior is not None:
+                if prior.request_fingerprint != publish_fingerprint:
+                    raise HTTPException(status_code=409, detail="idempotency_conflict")
+                course.reviewer = await _hydrate_reviewer(db, course)  # type: ignore[attr-defined]
+                return CourseResponse.model_validate(course)
         raise HTTPException(status_code=409, detail="Course is already published")
     # Optional immutable approval gate.  Existing courses default to off;
     # enabled courses publish only the latest approved frozen snapshot.
@@ -572,28 +587,28 @@ async def publish_course(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
-    await db.commit()
     course.reviewer = await _hydrate_reviewer(db, course)  # type: ignore[attr-defined]
     if idempotency_key:
-        db.add(WorkflowIdempotencyKey(
-            tenant_id=user.tenant_id,
-            key=idempotency_key,
-            operation="course.publish",
-            request_fingerprint=publish_fingerprint,
-            response={"course_id": str(course.id), "release_id": str(release.id)},
-        ))
         try:
-            await db.commit()
-        except Exception:
-            await db.rollback()
-            prior = await db.scalar(select(WorkflowIdempotencyKey).where(
-                WorkflowIdempotencyKey.tenant_id == user.tenant_id,
-                WorkflowIdempotencyKey.key == idempotency_key,
-                WorkflowIdempotencyKey.operation == "course.publish",
-            ))
-            if prior is None or prior.request_fingerprint != publish_fingerprint:
-                raise HTTPException(status_code=409, detail="idempotency_conflict") from None
-    return course
+            async with db.begin_nested():
+                db.add(WorkflowIdempotencyKey(
+                    tenant_id=user.tenant_id,
+                    key=idempotency_key,
+                    operation="course.publish",
+                    request_fingerprint=publish_fingerprint,
+                    response={"course_id": str(course.id), "release_id": str(release.id)},
+                ))
+                await db.flush()
+        except IntegrityError:
+            # get_db rolls back the whole publication on this HTTP error. A
+            # replay-row conflict must not leave a published course committed
+            # without its receipt or issue a context-free post-rollback query.
+            raise HTTPException(status_code=409, detail="idempotency_conflict") from None
+    response = CourseResponse.model_validate(course)
+    # COMMIT clears transaction-local RLS context. Publication, audit and replay
+    # are atomic; return only the detached DTO and perform no subsequent DB read.
+    await db.commit()
+    return response
 
 
 @router.post("/{course_id}/unpublish", response_model=CourseResponse)
@@ -604,9 +619,13 @@ async def unpublish_course(
     user: User = Depends(require_role("superadmin", "methodologist")),
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
 ):
+    if not isinstance(idempotency_key, str):
+        idempotency_key = None
     from app.modules.course_approval.models import WorkflowIdempotencyKey
     unpublish_fingerprint = canonical_json_sha256({"course_id": str(course_id)}) if idempotency_key else None
     if idempotency_key:
+        if len(idempotency_key) > 200:
+            raise HTTPException(status_code=422, detail="Idempotency-Key is too long")
         prior = await db.scalar(select(WorkflowIdempotencyKey).where(WorkflowIdempotencyKey.tenant_id == user.tenant_id, WorkflowIdempotencyKey.key == idempotency_key, WorkflowIdempotencyKey.operation == "course.unpublish"))
         if prior is not None:
             if prior.request_fingerprint != unpublish_fingerprint:
@@ -615,11 +634,20 @@ async def unpublish_course(
             if existing is None:
                 raise HTTPException(status_code=404, detail="Course not found")
             existing.reviewer = await _hydrate_reviewer(db, existing)
-            return existing
-    result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
+            return CourseResponse.model_validate(existing)
+    result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id).with_for_update())
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+    if idempotency_key:
+        # A same-key request may have completed while this one waited for the
+        # course lock. Replay without a second audit or assignment refresh.
+        prior = await db.scalar(select(WorkflowIdempotencyKey).where(WorkflowIdempotencyKey.tenant_id == user.tenant_id, WorkflowIdempotencyKey.key == idempotency_key, WorkflowIdempotencyKey.operation == "course.unpublish"))
+        if prior is not None:
+            if prior.request_fingerprint != unpublish_fingerprint:
+                raise HTTPException(status_code=409, detail="idempotency_conflict")
+            course.reviewer = await _hydrate_reviewer(db, course)  # type: ignore[attr-defined]
+            return CourseResponse.model_validate(course)
     course.status = "draft"
     course.published_at = None
     await db.flush()
@@ -635,12 +663,17 @@ async def unpublish_course(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
-    await db.commit()
     course.reviewer = await _hydrate_reviewer(db, course)
     if idempotency_key:
-        db.add(WorkflowIdempotencyKey(tenant_id=user.tenant_id, key=idempotency_key, operation="course.unpublish", request_fingerprint=unpublish_fingerprint, response={"course_id": str(course.id)}))
-        await db.commit()
-    return course
+        try:
+            async with db.begin_nested():
+                db.add(WorkflowIdempotencyKey(tenant_id=user.tenant_id, key=idempotency_key, operation="course.unpublish", request_fingerprint=unpublish_fingerprint, response={"course_id": str(course.id)}))
+                await db.flush()
+        except IntegrityError:
+            raise HTTPException(status_code=409, detail="idempotency_conflict") from None
+    response = CourseResponse.model_validate(course)
+    await db.commit()
+    return response
 
 
 @router.post("/{course_id}/duplicate", response_model=CourseResponse, status_code=201)

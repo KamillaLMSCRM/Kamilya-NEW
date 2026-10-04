@@ -40,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Keep course publication/unpublication, assignment recomputation, audit and
+  keyed replay receipt atomic in one transaction. Build the response before
+  commit clears tenant context; serialize same-course replay and return409 for
+  conflicting keys without committing partial state.
 - Resolve candidate resource names with a single paired outer quote wrapper
   after an exact miss, preserving literal quoted-name priority, tenant ownership,
   ambiguity and explicit confirmation. Legacy exact commands stay unchanged.

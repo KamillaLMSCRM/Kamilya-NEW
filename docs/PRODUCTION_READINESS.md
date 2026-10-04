@@ -11,6 +11,19 @@ DB/storage gate и приёмкой клиента
 
 ## Current production36 — technical rollout and bounded QA acceptance PASS
 
+2026-10-04 updated DEV acceptance:9235a588 deployed to the existing free-tier
+API/worker/frontend; CI37179516636 all7SUCCESS, exact runtime readback PASS.
+Five bounded intent cases PASS (including replay of the original quoted KK
+provider candidate without another paid call). Ordinary disposable methodologist
+browser flow PASS: editable proposal, fresh preview after correction, explicit
+confirmation created exactly1 enrollment without mail; full reload restored the
+server receipt. Contextual help was opened in RU/KK/EN. No voice input is enabled.
+This does not close production release: initial fixture publication returned500
+after commit. COURSE-TX-001 repair is local pending expanded independent tests,
+exact DEV HTTP publication/replay acceptance and protected production packaging.
+Disposable tenant90cc843c remains owned pending this acceptance and normal guarded
+API cleanup; permanent QA and production have not been mutated in this turn.
+
 2026-10-04 candidate note: free-text intent DEV rollout e9f739dd completed on
 existing Render Free API/worker and Vercel Hobby, CI37177928705 all7 SUCCESS.
 Exact API/worker/frontend identity and public health PASS; retained QA verify

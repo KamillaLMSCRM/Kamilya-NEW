@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -137,11 +138,17 @@ async def test_publish_rejects_unapproved_ai_course():
 
 @pytest.mark.asyncio
 async def test_publish_approved_ai_course_activates_assignments():
+    from app.modules.courses.models import Course
     from app.modules.courses.router import publish_course
 
     tenant_id = uuid4()
     user = _user(role="methodologist", tenant_id=tenant_id)
-    course = _course(tenant_id=tenant_id, review_status="approved", ai_generated=True)
+    course = Course(
+        id=uuid4(), tenant_id=tenant_id, title="Approved AI course", description="",
+        status="draft", delivery_type="native", ai_generated=True, source_document_ids=[],
+        source_strategy="single_topic", source_analysis={}, review_status="approved",
+        created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
+    )
     release = MagicMock()
     release.id = uuid4()
     release.version = 1
@@ -165,7 +172,8 @@ async def test_publish_approved_ai_course_activates_assignments():
     ):
         result = await publish_course(course.id, request=request, db=db, user=user)
 
-    assert result is course
+    assert result.id == course.id
+    assert result.status == "published"
     assert course.status == "published"
     create_release.assert_awaited_once_with(db, course, published_by=user.id)
     activate.assert_awaited_once_with(db, course)
