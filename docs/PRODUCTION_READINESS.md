@@ -50,7 +50,24 @@ flag/plan/settings/counts unchanged, unlike prior29 postcommit500.
 
 Owner accepts rendered-mail simulation in lieu of repeating receipt in this run.
 Actual mail/OTP receipt remains NOT_VERIFIED; pending production OTP not consumed.
-Fresh paid AI NOT_RUN until per-job$1 ceiling is enforceable; legal EDS NOT_TESTED.
+2026-10-04 owner explicitly withdrew the $1 test-run ceiling and authorized
+efficient paid testing. No product/provider budget or tier changed. One short
+synthetic ordinary-methodologist generation completed on actual36 in26.14s:
+jobf9bf3802-8fb8-4193-b190-187ef630442f, source2674ade7ffef3afbc7463c1e7e182a1c5246dd58e20d0d4fc809f71df59ed00a.
+One submission;1module/2lessons/2quizzes/4questions, Russian draft. Durable
+EvidenceV2 diagnostics: deepseek-v4-flash,10chat attempts, zero provider and
+deterministic fallbacks; these counters are not provider billing receipts.
+Root and independent TestRunner I reviewed both full lessons and all4questions:
+source-supported facts/explanations, exactly one correct choice each, no P1.
+Five authored axes became4retained/1omitted after1model-repair attempt; no claim
+that every source rule is assessed. Review report8527c19e675d626f9785e35a2f3deff4a955ba07c2f863acd46f9e4d0da1c3f3.
+Root verifies unchanged original course/history and routing; newly owned draft
+663904bd-96dc-4f26-80e2-23c3ed05efe0 and uploadd181ffc1-2c2a-4d22-9725-59a223851105
+removed by ordinary APIs, cleanup workercompleted and both404; offhost source/
+output preserved. Actual cost/token count is not exposed by this readback.
+Fresh AI bounded functional/source-quality smoke PASS_WITH_OBSERVATIONS, not
+whole-model/large-source/multilingual acceptance. Legal EDS NOT_TESTED; earlier
+$1 references below describe superseded historical approval state.
 Full feature acceptance remains PARTIAL, not product GO. DEV runtime29 unchanged.
 TestRunner H separately corrects the bridge status serialization to PASS only
 for the same four F scopes (receipt95eb048b5cbecd04301c52e2fc0525746168f72294c30d01fb7ae86bc6a97f65).

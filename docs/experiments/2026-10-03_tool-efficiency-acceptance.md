@@ -1,5 +1,31 @@
 # Tool-efficiency acceptance: known-file lookup/consumer discovery pilot
 
+## Fresh AI continuation,2026-10-04
+
+- Owner withdrew the prior $1 test ceiling; no product/provider budget/model/tier
+  setting changed. Root used one2812-byte synthetic TXT, one generation submission,
+  one module/two lessons, no paid resubmission. Terminal interval26.14s; durable
+  pipeline10chat attempts/no provider or deterministic fallback. One rejected
+  candidate had1modelrepair before omission; this is not a zero-retry claim.
+  Public token/billing transport counts and actual USD NOT_AVAILABLE.
+- Independent TestRunner I saved-output source review wall179420ms, zero provider
+  reruns. Both full lessons/all4questions reviewed. Root normal API cleanup of only
+  owned unpublished course/source completed; originals and saved outputs retained.
+- CodeGraph1.6.1 generate_course search17candidates/12returned/truncated127ms;
+  callees17edges/12returned/truncated42ms narrowed real admission/quota/job services.
+  A text call resolved to an unrelated document-passport method, not SQLAlchemy;
+  source fallback verified the dynamic HTTP/DB boundaries. Relevant source files
+  are unchanged between deployeded349 and local9c02; no ceremonial prose-only sync.
+- Provenance review: source_references search3candidates22ms did not resolve the
+  writer, so exact source inspection was used, not absence proof. analyze_document_set
+  callees10edges43ms includes4false fake-DB method candidates; real direct-source
+  branch source-confirmed. _fact_reference callees1edge20ms source-confirmed.
+  Graphify not duplicated for answered seams. Several guessed Windows wildcard/
+  source paths and an overlarge duplicate output dump are retrieval overhead;
+  retain these costs rather than claim first-pass/tool savings. Root used the
+  existing public client/index/poll contracts instead of installing a new harness.
+  Per-agent tokens/subscription savings and causal tool speedup NOT_AVAILABLE.
+
 ## QA36 live closeout and local repair measurements,2026-10-03
 
 - Actual36 follow-up: TestRunner F wall185849ms, normal two-role GET readback

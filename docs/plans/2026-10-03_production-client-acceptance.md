@@ -1,5 +1,22 @@
 # Production client acceptance and tool-efficiency epic
 
+Owner continuation2026-10-04: the prior $1 test ceiling is explicitly withdrawn.
+Run one short fresh synthetic production course on the existing model route,
+retain all source/output for review/replay, then remove only the newly owned
+disposable course/document after verification. No blind retry, assignments,
+invitations, existing course/history change, provider tier/model/budget change.
+The historical $1 gate below is superseded, not a requirement for this run.
+Executed once: jobf9bf3802, course663904bd, sourced181ffc1;26.14s,
+1module/2lessons/2quizzes/4questions, DeepSeek10chat attempts/zero fallbacks.
+Root and TestRunner I source-quality review passed with coverage/provenance
+observations. Root source classification: direct_source compatibility intentionally
+has unverified score/no vector distance; fact references contain source_locator
+and fact_id internally. Do not turn that into forged chunk/vector metadata or a
+proven tenant/security defect. Coverage4of5 authored axes remains a real limitation;
+larger-source and multilingual acceptance are separate, not proven by this run.
+Only newly owned draft/upload removed; cleanup workercompleted/both404/original
+history unchanged; source/output retained offhost. No paid resubmission or deploy.
+
 Current closeout36: exacted349409 deployed on frontend/API/3workers; all CI/native/
 protected/runtime/workercontrol/schema174/signed currentrestore/timers PASS.
 Independent QA36F GET readback ordinary roles/retained history/acceptedcopy/localZIP

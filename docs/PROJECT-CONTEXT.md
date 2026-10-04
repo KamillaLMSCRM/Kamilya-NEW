@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-10-03.
+> Обновлено: 2026-10-04.
 
 ## Источники правды
 
@@ -39,8 +39,14 @@ preserved; only obsolete successful32/exact staged pair removed, original offhos
 recovery retained. Backendrollback29/96a and config backups preserved. No migration,
 DEV deployment, new provider resource, plan/rights/DNS/landing or old learning reset.
 QA stands are demo=false without global/RBAC/RLS/OTP/spend bypass. Mail simulation
-accepted by owner; actual receipt NOT_VERIFIED, paidAI NOT_RUN pending per-job$1
-guard, legalEDS NOT_TESTED; fullfeaturePARTIAL. Root gate-chain procedural defect
+accepted by owner; actual receipt NOT_VERIFIED. On2026-10-04 owner removed the
+$1 test-run ceiling and authorized efficient paid testing. One fresh QA generation
+completed in26.14s,1module/2lessons/2quizzes/4questions; diagnostics DeepSeek,
+10chat attempts/no provider fallback. Root/TestRunner I source review bounded
+PASS_WITH_OBSERVATIONS; not every source rule is assessed, no full-model claim.
+New disposable source/draft cleaned by normal APIs; original history unchanged.
+Existing provider/monthly budget untouched; actual cost/tokens unavailable.
+LegalEDS NOT_TESTED; fullfeaturePARTIAL. Root gate-chain procedural defect
 and fail-closed adapter documented DEPLOY-013; no retrospective preapprovalGO.
 Readiness owns exact evidence and residual gates.
 

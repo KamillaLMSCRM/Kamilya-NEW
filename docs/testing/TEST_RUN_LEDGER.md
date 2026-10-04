@@ -2069,3 +2069,54 @@ Rules:
   `PARTIAL`; actual mail receipt `NOT_VERIFIED`, paid AI `NOT_RUN`, legal EDS
   `NOT_TESTED`, fresh browser download `NOT_RUN`. Evidence:
   `.release-evidence/TEST-CLIENT-QA36-BRIDGE-CONTRACT-20261003-H/report.json`.
+- `TEST-AI-FRESH-20261004-I` local saved-artifact semantic review PASS for
+  bounded structure/source-grounding review; no provider rerun, resubmission,
+  browser, live DB, mail, code repair or production action. Exact checkout
+  `C:\Kamilya New\.worktrees\daily-learning-20260930`, branch
+  `feature/methodologist-workbench-20261001`, HEAD
+  `9c02b8f7c4d2b26772939e881a015ffb3e9a72de`, primary guard `PRIMARY_OK`.
+  Source SHA-256 `2674ade7ffef3afbc7463c1e7e182a1c5246dd58e20d0d4fc809f71df59ed00a`
+  (2812 bytes) and run artifact SHA-256
+  `6ec0e235ed545b3e344845a3c5b9eb6d55903384718939184b15f5a1a97a3c67` matched.
+  One generation submission produced a completed draft: 1 module, 2 lessons,
+  2 quizzes and 4 questions, all Russian; both lessons reference the exact
+  source document/headings and are source-validation `verified`. All four
+  questions have exactly one correct choice, distinct practical distractors,
+  source-grounded explanations and no invented correct rule. Assessment audit
+  retained 4 of 5 authored axes; one candidate was omitted after one model
+  repair attempt, honestly preserved as `completed_with_warnings`; no false
+  semantic PASS was accepted. Original history/configuration unchanged;
+  cost/token counts unavailable, not zero. Two P2 findings remain open for Root:
+  `AI-FRESH-I-P2-001` incomplete assessment coverage of several lesson-only
+  source rules, and `AI-FRESH-I-P2-002` blank chunk/distance provenance plus
+  source-analysis status inconsistency. No P1 finding. Evidence:
+  `.release-evidence/TEST-AI-FRESH-20261004-I/report.json`; Root owns cleanup of
+  the disposable synthetic document/draft course.
+- `TEST-AI-FRESH-20261004-I-ROOT` Root acceptance/classification and cleanup
+  addendum after the Runner released ledger ownership; original I unchanged.
+  Root freshly executed one ordinary-methodologist production job
+  `f9bf3802-8fb8-4193-b190-187ef630442f` on exact `ed349409`/0.11.36, source
+  SHA256 `2674ade7ffef3afbc7463c1e7e182a1c5246dd58e20d0d4fc809f71df59ed00a`.
+  Saved EvidenceV2 metadata exposes `chat_model=deepseek-v4-flash`,
+  `chat_attempt_count=10`, zero provider/deterministic fallbacks. This is a
+  pipeline attempt counter, not the provider's billed transport-call/token total;
+  actual USD/tokens remain unavailable. I's earlier call-count-unavailable wording
+  applies to billing/transport count, not this exposed diagnostic counter.
+  Root source-check classified I-P2-001 as a real bounded assessment coverage
+  limitation:4of5authored axes retained,1omitted after1modelrepair; not every rule
+  needs or receives a quiz item and no complete assessment claim is accepted.
+  I-P2-002's alleged status inconsistency is not a proven generation defect:
+  `source_analysis.py:459` deliberately leaves direct-source admission unverified,
+  separately from generated-lesson validation. `application.py:1237` builds
+  direct fact/source_locator references, not nearest-neighbor vector results;
+  null vector distance must not be fabricated. Public provenance presentation is
+  an enhancement candidate, not a demonstrated RLS/security or grounding failure.
+  Root exact cleanup script SHA256
+  `4221b4a5fa51f33910d374642e146126f4b8ea4d9cecf968521331cab2975745` verified
+  exact IDs, marker/source SHA, draft/no enrollments and terminal generation before
+  deleting only course `663904bd-96dc-4f26-80e2-23c3ed05efe0` and upload
+  `d181ffc1-2c2a-4d22-9725-59a223851105`. Cleanup job
+  `ee7fbf82-a222-47c7-9832-1b0023f569ea` completed; both404, original course and
+  enrollment digests unchanged, offhost source/output preserved. No new mail,
+  publication, assignment, model/budget/tier or runtime mutation. Evidence:
+  `.release-evidence/AI-FRESH-20261004/run.json` and `cleanup.json`.
