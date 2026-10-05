@@ -9,13 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add a separately default-disabled document-draft workbench: editable text
-  interpretation, owned immutable source/version preview, reload by plan locator,
-  human confirmation and a durable link to exactly one existing evidence_v2 job.
-  Additive schema0175 uses FORCE RLS, actor ownership, immutable terminal state
-  and DB-owned admission time. Existing generation and assignment routes remain.
-  Local/isolated DEV checks do not claim provider/course quality or a deployment.
-
 - Add explicit free-text assignment interpretation with editable course,
   department, date/time and notification fields. Reuse the existing tenant-aware
   provider route, then the server-owned preview and human confirmation path.
@@ -77,6 +70,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Share the scoped lookup across public view and activation; clear it before
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
+
+## [0.11.38] - 2026-10-05
+
+### Added
+
+- Document-draft workbench: document upload/indexing, editable text interpretation,
+  reviewed course purpose, immutable source/version preview and human confirmation
+  linked to exactly one existing evidence_v2 generation job. Reload and confirmation
+  replay preserve the original job. Additive schema0175 enforces FORCE RLS, actor
+  ownership, source freshness and DB-owned admission time.
+- Explicit compatible DEV V4 and native schema3 activation packets with two typed
+  feature flags and digest-bound build-config2. The privileged eight-field frontend
+  manifest and existing generation/assignment routes are unchanged.
+
+### Fixed
+
+- Restored document interpretation cannot overwrite the methodologist's current
+  source selection with stale generation parameters.
+- Release checks reject incomplete provider inventories and missing configuration
+  evidence before deployment. Document activation requires workbench activation.
+
+### Scope
+
+- This is a release candidate until exact DEV/provider/worker/browser acceptance
+  and production readback pass. Voice, lesson corrections, autonomous publication
+  and assignment changes are not part of this release.
 
 ## [0.11.37] - 2026-10-04
 

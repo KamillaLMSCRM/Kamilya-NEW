@@ -30,6 +30,32 @@ production37 boundary описана выше и в шаге63, старые э�
 
 ### Active frontier2026-10-04: WB-DOCUMENT-DRAFT
 
+2026-10-05 owner approved DEV migration175/existing services/live acceptance,
+then production after DEV passes. Added rollout section in DOCUMENT_DRAFT_V1;
+no billing/resources/rights/landing/customer-data expansion. Root owns integration,
+schema/production config, exact release38/CI/approvals/browser and acceptance.
+document_dev_flag_inventory now sole writer dev_release_controller.py and new
+test_dev_document_activation.py; document_prod_flag_inventory sole writer native
+workflow/controller/bridge and new test_document_native_activation.py. Root owns
+all other paths; Test Runner later sole ledger writer; Release Runner read-only
+readiness then exact prepared packet only. Writer baseline0519cb21 clean.
+Fresh canonical GitHub master28e14376/dev41e6849f; authenticated project account
+KamillaLMSCRM. Public production API/frontend37/534ce7ef, DEV API36/41e6849f;
+readonly schema gate confirms DEV174->175 required. No external mutation yet.
+Release-controller root integration: RED6/21PASS -> GREEN112PASS/1SKIP; exact
+Node guard extraction, schema3 both-flag evidence and complete last-cursor Render
+inventory corrected. Independent cross-review PASS. Test Runner contracts-A freshly
+125PASS/1SKIP, quality(ruff1010/mypy2201)/release-contract175/diff PASS; six hashes
+unchanged. Partial provider write failure is fail-stop, requires root read-only
+reconciliation before retry, not an automatic rollback. CodeGraph sync PASS,
+2432ms extraction/10908ms wrapper,1655files; static navigation only.
+Root prepares one candidate version38 BEFORE DEV so DEV and production can use
+the same tested SHA and avoid duplicate source/CI transitions. Native/protected
+production operations remain strictly AFTER live DEV acceptance.
+Dependency frontier: release flag contracts DONE -> master exact38 CI -> DEV
+public175/flags/deploy/live acceptance -> native/protected migration+backend/frontend
+of the SAME SHA -> final smoke/cleanup/readbacks.
+
 Owner approved the detailed source-grounded plan and said "делай". Accepted
 DOCUMENT_DRAFT_ADDENDUM_V1 governs the first single-course context/preview/job
 slice; production, audio, corrections and publication changes remain excluded.

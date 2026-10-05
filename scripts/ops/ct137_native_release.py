@@ -55,6 +55,7 @@ class NativeArtifact:
     expanded_bytes: int
     build_config_sha256: str | None = None
     workbench_enabled: bool | None = None
+    document_draft_enabled: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,7 @@ class ReleasePacket:
     owner_approval: str
     smoke_scope: tuple[str, ...]
     workbench_enabled: bool = False
+    document_draft_enabled: bool = False
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> "ReleasePacket":
@@ -91,8 +93,10 @@ class ReleasePacket:
             "owner_approval",
             "smoke_scope",
         }
-        if type(raw.get("schema_version")) is int and raw["schema_version"] == 2:
+        if type(raw.get("schema_version")) is int and raw["schema_version"] in (2, 3):
             expected.add("workbench_enabled")
+        if type(raw.get("schema_version")) is int and raw["schema_version"] == 3:
+            expected.add("document_draft_enabled")
         if set(raw) != expected:
             raise ReleaseBlocked("release_packet_fields_invalid")
         try:
@@ -111,6 +115,7 @@ class ReleasePacket:
                 owner_approval=raw["owner_approval"],
                 smoke_scope=tuple(raw["smoke_scope"]),
                 workbench_enabled=raw.get("workbench_enabled", False),
+                document_draft_enabled=raw.get("document_draft_enabled", False),
             )
         except (KeyError, TypeError) as exc:
             raise ReleaseBlocked("release_packet_types_invalid") from exc
@@ -118,12 +123,18 @@ class ReleasePacket:
         return packet
 
     def validate(self) -> None:
-        if type(self.schema_version) is not int or self.schema_version not in (1, 2):
+        if type(self.schema_version) is not int or self.schema_version not in (1, 2, 3):
             raise ReleaseBlocked("release_packet_schema_invalid")
         if type(self.workbench_enabled) is not bool:
             raise ReleaseBlocked("release_packet_workbench_flag_invalid")
+        if type(self.document_draft_enabled) is not bool:
+            raise ReleaseBlocked("release_packet_document_draft_flag_invalid")
         if self.schema_version == 1 and self.workbench_enabled:
             raise ReleaseBlocked("legacy_release_packet_must_be_disabled")
+        if self.schema_version in (1, 2) and self.document_draft_enabled:
+            raise ReleaseBlocked("legacy_release_packet_document_draft_must_be_disabled")
+        if self.document_draft_enabled and not self.workbench_enabled:
+            raise ReleaseBlocked("document_draft_requires_workbench")
         if not isinstance(self.release_id, str) or not RELEASE_ID_RE.fullmatch(
             self.release_id
         ):
@@ -163,6 +174,8 @@ class ReleasePacket:
         result["smoke_scope"] = list(self.smoke_scope)
         if self.schema_version == 1:
             del result["workbench_enabled"]
+        if self.schema_version < 3:
+            del result["document_draft_enabled"]
         return result
 
 
@@ -370,6 +383,7 @@ def inspect_native_artifact(directory: Path, release_sha: str) -> NativeArtifact
         raise ReleaseBlocked(f"artifact_sidecar_invalid:{exc}") from exc
     config_digest = None
     workbench_enabled = None
+    document_draft_enabled = None
     if tuple(map(int, product_version.split("."))) >= (0, 11, 27):
         config = directory / "build-config.json"
         try:
@@ -387,18 +401,27 @@ def inspect_native_artifact(directory: Path, release_sha: str) -> NativeArtifact
 
             attestation = json.loads(config_bytes, object_pairs_hook=unique_object)
             enabled = attestation.get("workbench_enabled") if isinstance(attestation, dict) else None
+            document_enabled = attestation.get("document_draft_enabled") if isinstance(attestation, dict) else None
+            config_schema = attestation.get("schema_version") if isinstance(attestation, dict) else None
+            requires_document_flag = tuple(map(int, product_version.split("."))) >= (0, 11, 38)
             expected = {
-                "schema_version": 1, "release_sha": release_sha,
+                "schema_version": 2 if requires_document_flag else 1, "release_sha": release_sha,
                 "product_version": product_version, "sha256": archive_digest,
                 "manifest_sha256": _digest(manifest), "workbench_enabled": enabled,
             }
+            if requires_document_flag:
+                expected["document_draft_enabled"] = document_enabled
             if (not isinstance(attestation, dict) or attestation != expected
-                    or type(attestation.get("schema_version")) is not int
+                    or type(config_schema) is not int
+                    or config_schema != expected["schema_version"]
                     or type(enabled) is not bool
+                    or (requires_document_flag and type(document_enabled) is not bool)
+                    or (requires_document_flag and document_enabled and not enabled)
                     or (enabled and tuple(map(int, product_version.split("."))) < (0, 11, 28))):
                 raise ValueError("config_binding")
             config_digest = hashlib.sha256(config_bytes).hexdigest()
             workbench_enabled = enabled
+            document_draft_enabled = document_enabled if requires_document_flag else False
         except (OSError, UnicodeError, ValueError) as exc:
             raise ReleaseBlocked("artifact_build_config_invalid") from exc
     try:
@@ -426,6 +449,7 @@ def inspect_native_artifact(directory: Path, release_sha: str) -> NativeArtifact
         expanded_bytes=expanded_bytes,
         build_config_sha256=config_digest,
         workbench_enabled=workbench_enabled,
+        document_draft_enabled=document_draft_enabled,
     )
 
 
@@ -436,6 +460,11 @@ def _require_artifact_configuration(packet: ReleasePacket, artifact: NativeArtif
             raise ReleaseBlocked("artifact_workbench_configuration_unknown")
     elif artifact.workbench_enabled is not packet.workbench_enabled:
         raise ReleaseBlocked("artifact_workbench_configuration_mismatch")
+    if artifact.document_draft_enabled is None:
+        if packet.schema_version == 3:
+            raise ReleaseBlocked("artifact_document_draft_configuration_unknown")
+    elif artifact.document_draft_enabled is not packet.document_draft_enabled:
+        raise ReleaseBlocked("artifact_document_draft_configuration_mismatch")
 
 
 def required_capacity_bytes(artifact: NativeArtifact) -> int:
@@ -512,11 +541,13 @@ class NativeReleaseOrchestrator:
             "previous_release_sha": packet.expected_current_release,
             "rollback_sha": packet.rollback_sha,
             "workbench_enabled": packet.workbench_enabled,
+            "document_draft_enabled": packet.document_draft_enabled,
             "artifact": {
                 "archive_sha256": artifact.archive_sha256,
                 "manifest_sha256": artifact.manifest_sha256,
                 "build_config_sha256": artifact.build_config_sha256,
                 "workbench_enabled": artifact.workbench_enabled,
+                "document_draft_enabled": artifact.document_draft_enabled,
                 "archive_bytes": artifact.archive_bytes,
                 "expanded_bytes": artifact.expanded_bytes,
                 "required_capacity_bytes": required_capacity_bytes(artifact),
@@ -580,7 +611,9 @@ class NativeReleaseOrchestrator:
         technical = {
             **technical,
             "workbench_enabled": artifact.workbench_enabled if artifact.workbench_enabled is not None else False,
+            "document_draft_enabled": artifact.document_draft_enabled if artifact.document_draft_enabled is not None else False,
             "workbench_flag_evidence": "immutable_build_config" if artifact.workbench_enabled is not None else "legacy_disabled_packet",
+            "document_draft_flag_evidence": "immutable_build_config" if artifact.document_draft_enabled is not None else "legacy_disabled_packet",
             "runtime_feature_acceptance": "SEPARATE_TEST_RUNNER_REQUIRED",
         }
         return {
@@ -590,6 +623,7 @@ class NativeReleaseOrchestrator:
             "previous_release_sha": packet.expected_current_release,
             "rollback_sha": packet.rollback_sha,
             "workbench_enabled": packet.workbench_enabled,
+            "document_draft_enabled": packet.document_draft_enabled,
             "preflight": preflight,
             "host_readback": after,
             "host_inventory_readback": after_inventory,

@@ -87,3 +87,34 @@ seam tests, quality/build, independent review, isolated DEV and complete live DE
 document-to-draft flow. Local tests alone are LOCAL_ONLY, not release GO.
 Rollback disables the new flags, preserves metadata/jobs/courses; do not drop a
 populated table. Production remains unchanged until an exact authorized release.
+
+## Controlled rollout authorization, 2026-10-05
+
+Owner explicitly approved the requested DEV release, then production ("да, а
+потом выводи в прод"). Root owns exact-SHA binding and all external mutations.
+DEV: existing Supabase public174->175, Render API/worker and Vercel frontend,
+unchanged Free/Hobby plans/resources/budgets; preserve permanent QA. Production
+only after live DEV acceptance: exact additive CT125174->175 with signed fresh
+backup/restore and independent DB readback, protected VM126 API/three workers,
+native CT137 frontend, one synthetic document-to-draft smoke and guarded cleanup.
+No production customer, learning, assignments, invitations, landing, DNS, access,
+helper/privilege, tier, resource or spend-limit changes are authorized.
+
+Release interfaces are additive: DEV packet V4 binds old workbench and independent
+document flags to schema175; native packet V3 and build-config V2 bind both flags.
+Legacy packet shapes/semantics remain unchanged. Native privileged manifest keeps
+its exact eight fields; installed helper is untouched. Document ON requires old
+workbench ON and native product version38+. Provider key absence means defaultOFF
+only in a successfully validated inventory, never an access/error fallback.
+Production backend intent/readback is owned by the higher-level root evidence
+packet and a reviewed exact configuration step; protected image manifest remains
+unchanged. Runtime env backups and flag-OFF rollback preserve the175 table/jobs.
+Partial provider/configuration state stops for reconciliation; no blind retry.
+
+Agreed additional release seams: strict packet validation, provider configuration
+inventory/update/readback, prepare/execute/reconcile, native build attestation,
+artifact inspection/pre-staging/technical receipt and bridge identity validation.
+Synthetic red/green, compatibility and independent acceptance precede external use.
+GO requires exact CI/image/native source parity, independent old/new identities,
+worker task/queue proof, owned browser flow, source-grounded course/quiz result,
+cross-tenant/actor denial, replay/no duplicate, cleanup and preserved QA evidence.

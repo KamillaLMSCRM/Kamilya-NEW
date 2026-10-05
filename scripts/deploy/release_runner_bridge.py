@@ -84,6 +84,7 @@ def plan_release(
         "schema_version": packet.schema_version,
         "release_sha": packet.exact_sha,
         "workbench_enabled": packet.workbench_enabled,
+        "document_draft_enabled": packet.document_draft_enabled,
         "target_environment": packet.target_environment,
         "target_services": list(packet.target_services),
         "packet_sha256": packet_sha256,
@@ -176,11 +177,18 @@ def _bind_technical_evidence(
     # Historical schema-1 OFF evidence may omit the field, but an enabled
     # packet always needs an explicit, typed matching controller value.
     expected = plan.get("workbench_enabled", False)
-    if plan.get("schema_version", 1) == 2 and "workbench_enabled" not in technical:
+    if plan.get("schema_version", 1) in (2, 3) and "workbench_enabled" not in technical:
         raise BridgeBlocked("technical_evidence_workbench_flag_missing")
     actual = technical.get("workbench_enabled", False)
     if type(expected) is not bool or type(actual) is not bool or actual is not expected:
         raise BridgeBlocked("technical_evidence_workbench_flag_mismatch")
+    document_expected = plan.get("document_draft_enabled", False)
+    if plan.get("schema_version", 1) == 3 and "document_draft_enabled" not in technical:
+        raise BridgeBlocked("technical_evidence_document_draft_flag_missing")
+    document_actual = technical.get("document_draft_enabled", False)
+    if (type(document_expected) is not bool or type(document_actual) is not bool
+            or document_actual is not document_expected):
+        raise BridgeBlocked("technical_evidence_document_draft_flag_mismatch")
 
 
 def compact_handoff(

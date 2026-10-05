@@ -2201,3 +2201,10 @@ Rules:
 - Correction review passed: restored candidate now contains only the six editable generation fields, selected source IDs are applied after candidate fields, and the new regression test asserts the newly selected source reaches document preview. DOCUMENT_DRAFT_ADDENDUM_V1 invariants remain bounded.
 - A/B evidence remains preserved. API/DB evidence is linked from B and was not rerun; Root isolated-DEV receipt remains attribution-only with 14 checks, cleanup/public neutrality, `STUB_COUNTER_ONLY`, and generator/browser quality explicitly unverified.
 - Report: `.release-evidence/WB-DOCUMENT-DRAFT-20261004/independent-local-report-C.json`. Local root-review readiness only; no live/provider/production claim.
+### TEST-DOCUMENT-RELEASE-CONTRACTS-20261005-A — 2026-10-05 — local V4/native schema3/build-config2 acceptance
+
+- Exact HEAD `0519cb212ec5dd137923a8f30fba8dc2c8c9c7c8`; all 6 frozen source/test hashes passed before and after. No source/test repair or external action occurred.
+- API activation/release matrix passed `125 tests`, `1 skipped`. Python quality passed `ruff=1010`, `mypy=2201`. Canonical release-contract gate passed with Alembic head `0175` and 218 unique Errors entries. `git diff --check` passed.
+- Local contract review passed for additive DEV V4/native schema3/build-config2 compatibility, explicit dual flags, fail-closed provider/config inventory, bounded partial failure, legacy packet preservation, executable guards, and the privileged eight-field manifest.
+- Root’s `112 PASS / 1 SKIP / RED6→GREEN` result remains Root observation only and was not rerun. External release, provider, network, database, browser, and production gates remain unrun.
+- Report: `.release-evidence/REL-DOCUMENT38-20261005/independent-contracts-A.json`.

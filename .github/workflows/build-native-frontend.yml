@@ -12,6 +12,11 @@ on:
         required: true
         type: boolean
         default: false
+      document_draft_enabled:
+        description: Explicit controlled document-draft activation (0.11.38 or newer)
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -27,12 +32,14 @@ jobs:
     env:
       RELEASE_SHA: ${{ inputs.release_sha }}
       WORKBENCH_ENABLED: ${{ inputs.workbench_enabled }}
+      DOCUMENT_DRAFT_ENABLED: ${{ inputs.document_draft_enabled }}
     steps:
       - name: Validate requested identity
         shell: bash
         run: |
           [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]
           [[ "${WORKBENCH_ENABLED}" == true || "${WORKBENCH_ENABLED}" == false ]]
+          [[ "${DOCUMENT_DRAFT_ENABLED}" == true || "${DOCUMENT_DRAFT_ENABLED}" == false ]]
 
       - uses: actions/checkout@v4
         with:
@@ -56,12 +63,13 @@ jobs:
             --env RELEASE_SHA \
             --env NEXT_PUBLIC_API_URL=https://api.kml.kz/api \
             --env NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED="${WORKBENCH_ENABLED}" \
+            --env NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED="${DOCUMENT_DRAFT_ENABLED}" \
             --env NEXT_TELEMETRY_DISABLED=1 \
             node:20-alpine sh -euc '
               mkdir /build
               cp -a /src/. /build/
               cd /build
-              node -e '\''const flag=process.env.NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED;if(!["true","false"].includes(flag))throw Error("workbench_flag_invalid");const version=require("./package.json").version;if(!/^\d+\.\d+\.\d+$/.test(version))throw Error("version_invalid");const [a,b,c]=version.split(".").map(Number);if(flag==="true"&&!(a>0||b>11||(b===11&&c>=28)))throw Error("workbench_activation_requires_28")'\''
+              node -e '\''const flag=process.env.NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED;const doc=process.env.NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED;if(!["true","false"].includes(flag)||!["true","false"].includes(doc))throw Error("feature_flag_invalid");const version=require("./package.json").version;if(!/^\d+\.\d+\.\d+$/.test(version))throw Error("version_invalid");const [a,b,c]=version.split(".").map(Number);if(flag==="true"&&!(a>0||b>11||(b===11&&c>=28)))throw Error("workbench_activation_requires_28");if(doc==="true"&&(flag!=="true"||!(a>0||b>11||(b===11&&c>=38))))throw Error("document_draft_activation_requires_38")'\''
               corepack enable
               corepack prepare pnpm@10.26.1 --activate
               pnpm install --frozen-lockfile
@@ -94,7 +102,7 @@ jobs:
               node -e '\''const paths=["/login","/admin/settings/ai"];(async()=>{for(let i=0;i<30;i++){try{const r=await fetch("http://127.0.0.1:3300/login",{signal:AbortSignal.timeout(2000)});if(r.ok)break}catch{}await new Promise(r=>setTimeout(r,1000))}for(const p of paths){const r=await fetch("http://127.0.0.1:3300"+p,{signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error("native_bundle_http_"+r.status);const t=await r.text();if(!t.includes("<html"))throw Error("native_bundle_not_html")}console.log("NATIVE_BUNDLE_RUNTIME_PASS")})().catch(e=>{console.error(e.message);process.exitCode=1})'\''
               cd /out
               sha256sum "frontend-native-${RELEASE_SHA}.tar.gz" > bundle.sha256
-              node -e '\''const fs=require("fs");const crypto=require("crypto");const p=require("/build/package.json");const flag=process.env.NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED;if(!["true","false"].includes(flag))throw Error("workbench_flag_invalid");const sha256=fs.readFileSync("bundle.sha256","utf8").split(" ")[0];fs.writeFileSync("manifest.json",JSON.stringify({release_sha:process.env.RELEASE_SHA,product_version:p.version,node_version:process.version,platform:process.platform,arch:process.arch,libc:"musl",api_url:process.env.NEXT_PUBLIC_API_URL,sha256},null,2)+"\n");fs.writeFileSync("build-config.json",JSON.stringify({schema_version:1,release_sha:process.env.RELEASE_SHA,product_version:p.version,sha256,manifest_sha256:crypto.createHash("sha256").update(fs.readFileSync("manifest.json")).digest("hex"),workbench_enabled:flag==="true"},null,2)+"\n")'\''
+              node -e '\''const fs=require("fs");const crypto=require("crypto");const p=require("/build/package.json");const flag=process.env.NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED;const doc=process.env.NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED;if(!["true","false"].includes(flag)||!["true","false"].includes(doc))throw Error("feature_flag_invalid");const [a,b,c]=p.version.split(".").map(Number);const documentSchema=doc==="true"||a>0||b>11||(b===11&&c>=38);const sha256=fs.readFileSync("bundle.sha256","utf8").split(" ")[0];fs.writeFileSync("manifest.json",JSON.stringify({release_sha:process.env.RELEASE_SHA,product_version:p.version,node_version:process.version,platform:process.platform,arch:process.arch,libc:"musl",api_url:process.env.NEXT_PUBLIC_API_URL,sha256},null,2)+"\n");const config={schema_version:documentSchema?2:1,release_sha:process.env.RELEASE_SHA,product_version:p.version,sha256,manifest_sha256:crypto.createHash("sha256").update(fs.readFileSync("manifest.json")).digest("hex"),workbench_enabled:flag==="true"};if(documentSchema)config.document_draft_enabled=doc==="true";fs.writeFileSync("build-config.json",JSON.stringify(config,null,2)+"\n")'\''
             '
 
       - uses: actions/upload-artifact@v4
