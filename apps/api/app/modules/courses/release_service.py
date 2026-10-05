@@ -44,6 +44,7 @@ async def build_course_release_snapshot(
     course: Course,
     *,
     version: int,
+    populate_existing: bool = False,
 ) -> dict[str, Any]:
     modules = (
         (
@@ -51,6 +52,7 @@ async def build_course_release_snapshot(
                 select(Module)
                 .where(Module.course_id == course.id, Module.tenant_id == course.tenant_id)
                 .order_by(Module.order_index, Module.id)
+                .execution_options(populate_existing=populate_existing)
             )
         )
         .scalars()
@@ -69,6 +71,7 @@ async def build_course_release_snapshot(
                         Lesson.tenant_id == course.tenant_id,
                     )
                     .order_by(Lesson.module_id, Lesson.order_index, Lesson.id)
+                    .execution_options(populate_existing=populate_existing)
                 )
             )
             .scalars()
@@ -86,6 +89,7 @@ async def build_course_release_snapshot(
                     .join(Lesson, Lesson.id == ContentBlock.lesson_id)
                     .where(ContentBlock.lesson_id.in_(lesson_ids), Lesson.tenant_id == course.tenant_id)
                     .order_by(ContentBlock.lesson_id, ContentBlock.order_index, ContentBlock.id)
+                    .execution_options(populate_existing=populate_existing)
                 )
             )
             .scalars()
@@ -100,6 +104,7 @@ async def build_course_release_snapshot(
                         Quiz.tenant_id == course.tenant_id,
                     )
                     .order_by(Quiz.lesson_id, Quiz.created_at, Quiz.id)
+                    .execution_options(populate_existing=populate_existing)
                 )
             )
             .scalars()
@@ -119,6 +124,7 @@ async def build_course_release_snapshot(
                         Quiz.tenant_id == course.tenant_id,
                     )
                     .order_by(Question.quiz_id, Question.order_index, Question.id)
+                    .execution_options(populate_existing=populate_existing)
                 )
             )
             .scalars()
@@ -134,6 +140,7 @@ async def build_course_release_snapshot(
                     select(QuizChoice)
                     .where(QuizChoice.question_id.in_(question_ids))
                     .order_by(QuizChoice.question_id, QuizChoice.order_index, QuizChoice.id)
+                    .execution_options(populate_existing=populate_existing)
                 )
             )
             .scalars()
@@ -180,6 +187,7 @@ async def build_course_release_snapshot(
                             Document.tenant_id == course.tenant_id,
                         )
                         .order_by(Document.source_family_id, Document.version, Document.id)
+                        .execution_options(populate_existing=populate_existing)
                     )
                 )
                 .scalars()
@@ -195,6 +203,7 @@ async def build_course_release_snapshot(
                     ScormPackage.tenant_id == course.tenant_id,
                 )
                 .order_by(ScormPackage.created_at, ScormPackage.id)
+                .execution_options(populate_existing=populate_existing)
             )
         )
         .scalars()

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add a separately disabled source-grounded draft lesson correction preview:
+  exact original-document fact identity, bounded validated AI proposal, owned
+  immutable reloadable before/after plan and idempotent budget admission.
+  Additive migration0176 remains unapplied to public; no apply executor/UI,
+  publication, learner-history change, voice or production activation is included.
+  Preserve existing release snapshot callers while allowing explicit fresh reads
+  for correction seals; refuse stale context, role loss and wrong-month refunds.
 - Add explicit free-text assignment interpretation with editable course,
   department, date/time and notification fields. Reuse the existing tenant-aware
   provider route, then the server-owned preview and human confirmation path.

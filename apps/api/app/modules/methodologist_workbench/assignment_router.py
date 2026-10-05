@@ -29,6 +29,7 @@ from .assignment_service import (
     create_assignment_preview,
     get_assignment_plan,
 )
+from .correction_router import router as correction_router
 from .document_router import router as document_router
 from .intent_application import interpret_assignment
 from .plan_contract import ActorContext, ConfirmationRequest
@@ -121,3 +122,4 @@ async def confirm_plan(
 
 
 router.include_router(document_router)
+router.include_router(correction_router)

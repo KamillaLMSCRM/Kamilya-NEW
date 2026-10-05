@@ -123,6 +123,76 @@ matched-task speedup NOT_AVAILABLE/NOT_MEASURED. Do not claim savings from these
 query timings or node counts. Cheap inventory/review and persistent test worker
 were used; root retained the shared contract and integration ownership.
 
+### WB-CORRECTION preview2026-10-05 — local integration, runtime gates open
+
+Accepted preview V1 with versioned V1.1 role-loss closure, V1.2 UTC month safety
+and V1.3 complete-course ORM freshness impact. The existing foundation is unchanged.
+Resolver joins owned lesson/module/course, refreshes document identities, verifies
+the original file SHA and reconstructs exact evidence_v2 facts by stable identity.
+Legacy references without fact identity safely refuse; no first-chunk guessing,
+embedding call, index write or automatic regeneration. Aggregate course/approval
+and selected lesson hashes are built from live payloads. Existing release snapshot
+builder gains compatible populate_existing=False; correction opts into fresh
+reads for all eight child/document/SCORM queries, existing callers stay unchanged.
+
+Model returns only content/evidence ordinals or closed clarification. Code owns
+UUID/hash/operation/PASS/provenance, and existing deterministic source quality is
+reused; this is not a semantic entailment guarantee. Source/prompt/call budgets,
+strict duplicate/extra/type checks, no syntax repair and no extra semantic retry
+are enforced. Public request has no client authority IDs beyond selected lesson.
+
+Preview storage has unique tenant/actor/request key, pending -> ready/failed,
+claim+10-cent estimate committed before provider, no repeat call/charge on replay,
+post-model context/role validation and exact reload seal. Failed owned closure can
+refund after role loss; wrong-month refund is refused, interrupted requests remain
+pending without automatic restart. Cross-month/crash reconciliation remains an
+activation gate, not exact provider cost accounting. Table0176 has FORCE RLS,
+limited column ACL/invoker immutable-state/time guards and empty-only downgrade;
+canonical exact-tenant purge is extended. No scheduler, apply, UI, domain writes,
+published revision, learning/mail changes, paid resource or runtime flag change.
+
+Root fresh assembled local matrix421PASS (4 existing warnings), AI-COURSE-01
+local selectors25PASS/one DB test deferred, quality ruff1010/mypy2201 and release
+contract head0176 PASS. Source review found and root repaired stale ORM child
+reads; service regression18PASS/1FAIL found missing internal admission rollback,
+then root source repair19PASS. Agent fixture/SQL fake/import errors were retained,
+not relabeled product failure. Root first quality run failed one source mypy
+no-any-return plus new test style/import findings; fixed without baseline change.
+Second quality sampled an active test writer and found transient test F821/style;
+only the final idle-writer quality result above is accepted. Initial journey
+selector report directory missing and later relative @file invocation failed
+before tests; directory preparation and canonical wrapper array invocation fixed
+the harness; no dependency/timeout/test assertion was weakened. Independent
+Test & Evidence Runner TEST-LESSON-CORRECTION-PREVIEW-20261005-A independently
+executed421+25PASS/quality/release-contract/diff; all22 hashes matched before/after.
+Report independent-A.json SHA256
+1e558fd0aa0f9794a100e852c274114773f0e8a991b6a61ec5c68123cb5c1cee;
+root reviewed its source findings/EOF append and accepts LOCAL_ONLY, not runtime GO.
+Runner turn213640ms includes context/review/report; its own new ledger block was
+moved to actual EOF before final handoff, prior entries unchanged. No test rerun
+or source repair was performed by Runner. Root decision receipt binds the packet's
+exact commands to this report; exposed token/cost/review counters unavailable.
+
+CodeGraph1.6.1 bounded initial navigation found shared validated invocation,
+evidence and snapshot consumers; graph .all pointed to a test fake and an intent
+symbol search was empty, so exact source fallback was used. Final single source
+sync: engine2599ms/wrapper11846ms/process12254ms,1673files/31197nodes/84162edges,
+excluded-path audit PASS. New service callees21ms/query/372ms process returned
+25edges truncated12; resolver/proposal/foundation/admission calls match source.
+One false update edge points at admin model-routing update; actual source imports
+SQLAlchemy update and updates only the preview table. No shared-provider config
+write is inferred. Graphify KEEP_LOCAL: no unresolved multi-hop seam; HTTP/SQL/RLS
+are verified separately. ECC/CodeBurn comparison and exposed root/agent tokens,
+cost, review elapsed or matched-task speedup NOT_AVAILABLE, not zero/savings.
+
+Cheap bounded writers were used for resolver/proposal/service/HTTP/migration and
+freshness tests, plus independent read-only review. Root owns all implementation,
+contracts/shared signature/migration/router/config/purge and review disposition.
+Next: frozen Runner, isolated Supabase DEV migration/RLS/ACL/trigger/concurrency
+and stale-other-child checks, bounded actual provider semantic review, then a
+separate atomic apply/approval/quiz-review addendum and UI. Release Runner has no
+release packet yet. Production38 remains unchanged; no fresh runtime claim here.
+
 ### Historical document-draft DEV preparation2026-10-05
 
 Exact e9509fda technical successor passed master CI37262123649 and DEV

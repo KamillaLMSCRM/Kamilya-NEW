@@ -1,0 +1,33 @@
+"""Owned proposal admission and immutable preview; never an apply receipt."""
+
+from datetime import datetime
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy import DateTime, FetchedValue, ForeignKey, Index, String, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.core.db import Base
+
+
+class LessonCorrectionPlan(Base):
+    __tablename__ = "workbench_lesson_correction_plans"
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"))
+    actor_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True))
+    request_key: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True))
+    request_digest: Mapped[str] = mapped_column(String(64))
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    proposal: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_onupdate=FetchedValue())
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "actor_id", "request_key", name="uq_lesson_correction_request"),
+        Index("ix_lesson_correction_owner", "tenant_id", "actor_id", "created_at"),
+    )

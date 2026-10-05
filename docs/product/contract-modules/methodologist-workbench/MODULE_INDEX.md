@@ -12,9 +12,17 @@ Document-to-draft first slice: [DOCUMENT-DRAFT V1](contracts/DOCUMENT_DRAFT_ADDE
 bounded production0.11.38/source370f56fb/schema0175 acceptance2026-10-05;
 independent live/manual review and normal disposable cleanup passed. This is a
 dated release record, not a fresh runtime assertion.
-Draft lesson correction policy (no provider, persistence, HTTP or UI yet):
+Draft lesson correction foundation:
 [LESSON-CORRECTION-FOUNDATION V1](contracts/LESSON_CORRECTION_FOUNDATION_V1.md),
 accepted local implementation2026-10-05; full correction NOT IMPLEMENTED.
+Source-owned proposal and durable preview integration, local implementation only:
+[PREVIEW V1](contracts/LESSON_CORRECTION_PREVIEW_V1.md),
+[V1.1 lost-role failure closure](contracts/LESSON_CORRECTION_PREVIEW_V1_1.md),
+[V1.2 UTC month safety](contracts/LESSON_CORRECTION_PREVIEW_V1_2.md),
+[V1.3 complete snapshot freshness](contracts/LESSON_CORRECTION_PREVIEW_V1_3.md).
+Independent correction flag defaults OFF; schema0176 is not applied to public.
+Evidence_v2 original facts only; legacy provenance is refused. No apply/UI,
+runtime RLS/concurrency, real-model quality or production correction acceptance.
 Free-text interpretation and editable candidate, production0.11.37 accepted:
 [LLM-ASSIGNMENT-INTENT V3](contracts/LLM_ASSIGNMENT_INTENT_ADDENDUM_V3.md),
 preserving V1/V2 and existing financial zero-budget behavior. RU/KK clarification,

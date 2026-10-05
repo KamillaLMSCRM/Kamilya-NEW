@@ -2259,3 +2259,10 @@ Rules:
 - Executor: Root, after Runner A completed and relinquished ledger ownership. Original A receipt and EOF entry remain unchanged.
 - A receipt's `root_observation_preserved` phrase "later supplied 65-test corrected observation" overstates the supplied Root observation: Root executed62 tests before the final three coverage additions, then supplied expected65, not an independently executed65 result. The actual newly frozen matrix was executed by Runner A and passed160 combined tests. No result is reclassified as Root execution and no tests are rerun for this attribution correction.
 - Original receipt SHA256 `27a51c7a3cfa76a41450afb28832e90835cf678557c028a506cd9fe6e316aaac` is preserved. The correction changes evidence attribution only, not the bounded LOCAL_ONLY disposition.
+
+### TEST-LESSON-CORRECTION-PREVIEW-20261005-A — 2026-10-05 — local preview integration acceptance
+
+- Exact worktree HEAD `a3b968a5fac5b8eae7ece168d1e8405619c2aecd`; all 22 frozen manifest hashes matched before and after. Report: `.release-evidence/WB-CORRECTION-PREVIEW-20261005/independent-A.json`.
+- Exact preview/neighbor API wrapper matrix passed `421 tests` with `4 warnings`. AI-COURSE-01 database-free selector matrix passed `13 selectors / 25 tests`. Canonical quality passed `ruff=1010, mypy=2201`; release-contract gate passed at Alembic head `0176` with `224` unique Errors entries; `git diff --check` passed.
+- Bounded source review found no local finding across authoritative source/evidence/hash identity, draft-only read-only preview/no apply route, ordinary role/body/foreign denial, request-key replay/collision, provider-denial, charge/refund/month-boundary, freshness, and static migration/RLS/ACL/trigger contracts.
+- Runtime RLS/atomicity/concurrency/provider RU/KK/browser/DEV/public/production gates remain `NOT_VERIFIED`; no database, network, provider, model, migration, business, or deployment mutation occurred. Root-supplied prior observations remain attribution-only and historical failures remain preserved. Result is `LOCAL_ONLY`, not release or runtime GO.
