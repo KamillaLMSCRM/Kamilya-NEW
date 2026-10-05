@@ -30,6 +30,15 @@ production37 boundary описана выше и в шаге63, старые э�
 
 ### Active frontier2026-10-05: WB-DOCUMENT-DRAFT
 
+Exact e9509fda technical successor passed master CI37262123649 and DEV
+CI37263148329; API/worker/Vercel all match, existing tiers and175 unchanged.
+Its ordinary browser RU-to-KK upload completed without reload and retained the
+instruction/source; KK/EN controls and contextual help were verified. A remaining
+transient progress label retained its start language. The two-file semantic-state
+repair has actual RED and GREEN13/typecheck; final successor acceptance is pending.
+No new generation has been confirmed in this e950 disposable fixture; retain its
+document/identity instead of resetting data while accepting the UI-only successor.
+
 2026-10-05 DEV technical successor38/59dd0bc6 completed on existing Free/Hobby
 resources: master CI37258354511, DEV CI37258810831, API/worker live and Vercel
 READY; schema175 FORCE RLS retained. Ordinary owned browser confirmed upload

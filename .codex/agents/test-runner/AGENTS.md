@@ -81,6 +81,21 @@ canonical invocation from Root and retain the failed attempt.
 Resolve packet-relative evidence against its explicit checkout, not the chat's
 ambient cwd. Test the supplied exact path first; do not recursively inventory
 all release artifacts to rediscover a path already named in the packet.
+
+For long-running commands, await the tool call and retain both execution layers:
+`functions.exec` may yield a cell to resume with `functions.wait`; the nested
+command may then return a process `session_id` to resume with `write_stdin`.
+Cell completion is not process completion. Startup output without a terminal exit
+code and final test summary is `RUNNING`, never PASS or a terminal test failure.
+Do not end the turn while an owned command is running and its handle is usable.
+When the packet permits an ignored machine-readable report, capture it from the
+test runner so a transport interruption cannot erase the completed verdict.
+If the handle is lost, preserve the command and known PID, report
+`HARNESS_FAILURE / completion NOT VERIFIED`, and ask Root to reconcile that
+specific process. Never kill it or launch a replacement while it remains active.
+An execution correction needs a new packet and must preserve the original result;
+do not increase test timeouts, relax assertions or omit tests to hide a failure.
+
 Keep actual execution, supplied Root observations, and static/linked evidence
 separate. Derive artifact counts from the actual named set; do not invent CSP,
 browser, cost, or other observations absent from its evidence.

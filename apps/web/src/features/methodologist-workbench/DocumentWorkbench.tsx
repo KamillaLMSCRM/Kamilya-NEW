@@ -48,7 +48,8 @@ function DocumentWorkbenchInner() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<'uploading' | 'indexing' | null>(null);
+  const [indexAttempt, setIndexAttempt] = useState<number | null>(null);
   const epoch = useRef(0);
   const requestController = useRef<AbortController | null>(null);
   const uploadEpoch = useRef(0);
@@ -140,7 +141,7 @@ function DocumentWorkbenchInner() {
     const current = ++uploadEpoch.current;
     const controller = new AbortController();
     uploadController.current?.abort(); uploadController.current = controller;
-    setUploading(true); setUploadStatus(uiRef.current.uploading); setError(null);
+    setUploading(true); setUploadStatus('uploading'); setIndexAttempt(null); setError(null);
     const form = new FormData(); form.append('file', file); form.append('title', file.name.replace(/\.[^/.]+$/, ''));
     try {
       const response = await api.post<{ id: string; indexing_job_id?: string | null }>('/v1/documents/upload', form, { headers: { 'Content-Type': 'multipart/form-data' }, signal: controller.signal });
@@ -150,7 +151,7 @@ function DocumentWorkbenchInner() {
         let ready = false;
         let indexingFailed = false;
         for (let attempt = 0; attempt < 20 && !controller.signal.aborted; attempt += 1) {
-          setUploadStatus(`${uiRef.current.indexing} (${attempt + 1}/20)`);
+          setUploadStatus('indexing'); setIndexAttempt(attempt + 1);
           const statusResponse: { data: AIGenerationJob } = await api.get<AIGenerationJob>(`/v1/ai/jobs/${encodeURIComponent(jobId)}`, { signal: controller.signal });
           if (!mounted.current || current !== uploadEpoch.current || controller.signal.aborted) return;
           if (statusResponse.data.id !== jobId) throw new Error('Indexing job identity mismatch');
@@ -165,7 +166,7 @@ function DocumentWorkbenchInner() {
         }
         if (!ready && !indexingFailed && mounted.current && current === uploadEpoch.current && !controller.signal.aborted) setError(uiRef.current.indexingTimeout);
       } else await fetchDocuments(controller.signal);
-      if (mounted.current && current === uploadEpoch.current) setUploadStatus(null);
+      if (mounted.current && current === uploadEpoch.current) { setUploadStatus(null); setIndexAttempt(null); }
     } catch (cause: any) { if (mounted.current && current === uploadEpoch.current && !['AbortError', 'CanceledError'].includes(cause?.name)) setError(uiRef.current.uploadError); }
     finally { if (mounted.current && current === uploadEpoch.current) { uploadController.current = null; setUploading(false); } }
   };
@@ -208,7 +209,7 @@ function DocumentWorkbenchInner() {
   return <Card className="mt-6 border-primary/30">
     <CardHeader><CardTitle>{ui.title}</CardTitle><p className="text-sm text-muted-foreground">{ui.description}</p></CardHeader>
     <CardContent className="space-y-4">
-      <label className="block text-sm font-medium">{ui.upload}<input type="file" className="mt-2 block w-full text-sm" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); event.target.value = ''; }} /></label>{uploadStatus && <p role="status" className="text-sm text-muted-foreground">{uploadStatus}</p>}
+      <label className="block text-sm font-medium">{ui.upload}<input type="file" className="mt-2 block w-full text-sm" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); event.target.value = ''; }} /></label>{uploadStatus && <p role="status" className="text-sm text-muted-foreground">{uploadStatus === 'uploading' ? ui.uploading : `${ui.indexing} (${indexAttempt}/20)`}</p>}
       <div className="space-y-2"><p className="text-sm font-medium">{ui.sources} ({selected.length}/5)</p>{documents.length === 0 ? <p className="text-sm text-muted-foreground">{ui.empty}</p> : documents.map((document) => <label key={document.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={selected.includes(document.id)} onChange={() => toggleDocument(document.id)} disabled={!selected.includes(document.id) && selected.length >= 5} />{document.title} <span className="text-xs text-muted-foreground">v{document.version} · {ui.indexStatus[document.index.status as keyof typeof ui.indexStatus] ?? document.index.status}</span></label>)}</div>
       <label className="block text-sm font-medium">{ui.instruction}<textarea value={instruction} onChange={(event) => { clearStale(); setInstruction(event.target.value); }} maxLength={4000} rows={3} className="mt-2 w-full rounded border p-2" /></label><p className="text-xs text-muted-foreground">{ui.instructionHelp}</p>
       <div className="grid gap-3 sm:grid-cols-2">

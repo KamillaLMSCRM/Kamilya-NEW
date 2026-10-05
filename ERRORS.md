@@ -5944,8 +5944,12 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   aborted upload/command controllers and reset the mounted flag.
 - Fix: stable catalog lifecycle dependencies and latest-copy ref for asynchronous
   errors; locale changes affect labels, not actor/session/request ownership.
+  Store upload/index progress as semantic state and attempt number, rendering
+  through current copy rather than preserving the language from request start.
 - Verification: actual deferred-upload RED (signal aborted), then component13
-  PASS and typecheck PASS. Live successor locale behavior remains pending.
+  PASS and typecheck PASS. Actual e950 DEV RU-to-KK upload completed without
+  reload and preserved instruction/source state, but progress text retained RU.
+  Captured progress regression RED, then13 GREEN/typecheck; final live pending.
 - Prevention: test locale switching during active requests; translated copy must
   never become the dependency controlling ingestion or command cleanup.
 

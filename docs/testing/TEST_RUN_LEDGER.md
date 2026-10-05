@@ -2230,3 +2230,10 @@ Rules:
 - Canonical release-contract gate passed with Alembic head `0175`, Celery, migration ownership, Render dependencies, and Errors journal checks. Release version `0.11.38` and `git diff --check` passed.
 - Focused source/test review found no new finding: quiz-scoped minimum target selection, deterministic unique-longest answer-length handling, bounded one-repair behavior, server-owned source-axis identity, explicit failed-axis omission/review-required states, temporal whole-word handling, and locale lifecycle safeguards were present and covered.
 - This is local database-free evidence only. DEV, production, provider, model, browser, deployment, and live feature acceptance remain unverified; prior foreign-boundary live receipts remain preserved separately.
+
+### TEST-DOCUMENT38-PROGRESS-LOCALE-20261005-C-RECONCILE — 2026-10-05 — root-linked bounded web evidence reconciliation
+
+- Exact worktree HEAD `e9509fdaf427c32280d480db505f6f0876a4857c`; all five frozen progress/locale manifest hashes and the canonical runner-contract hash `17d6b20d58e699e6a75250f744a865f5ffa8f17212f53b1be7c739dd05f861ee` matched after review.
+- Root-executed bounded web evidence is hash-linked, not independently rerun by this Runner: the named JSON report SHA256 `1319639346c0229af827518021152c7790066e416d5df3148e9961e40993fc13` records `146` suites, `889/889` passed, `0` failed, `0` pending, including the previously failing training-log signed-copy review case. Root also records typecheck, release-contract, version `0.11.38`, and `git diff --check` success with definitive exit `0`.
+- Independent source review found the expected semantic upload/indexing progress copy in the current locale, factual indexing counter, stable request lifecycle, preserved raw content/error and API wire enums, and no API/generation change. No source or test edit occurred.
+- Prior A remains `FAIL` at `888/889`; prior B remains completion `NOT_VERIFIED` due the lost execution handle. Root C evidence is `ROOT_EXECUTED_HASH_LINKED`; runtime/DEV/production/provider/browser acceptance remains `NOT_VERIFIED`.

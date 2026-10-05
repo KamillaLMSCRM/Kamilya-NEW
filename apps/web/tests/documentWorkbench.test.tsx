@@ -50,10 +50,13 @@ describe('DocumentWorkbench', () => {
     const file = new File(['pdf'], 'rules.pdf', { type: 'application/pdf' });
     fireEvent.change(screen.getByLabelText('Загрузить документ'), { target: { files: [file] } });
     await waitFor(() => expect(apiMock.post).toHaveBeenCalled());
+    currentLang = 'kk';
+    view.rerender(<DocumentWorkbench />);
+    expect(screen.getByRole('status')).toHaveTextContent('Құжат жүктелуде');
     currentLang = 'en';
     view.rerender(<DocumentWorkbench />);
     expect(apiMock.post.mock.calls[0][2].signal.aborted).toBe(false);
-    expect(screen.getByRole('status')).toHaveTextContent('Загрузка документа');
+    expect(screen.getByRole('status')).toHaveTextContent('Uploading document');
     resolveUpload({ data: { id: document.id, indexing_job_id: null } });
     await waitFor(() => expect(screen.getByText('Rules')).toBeInTheDocument());
     currentLang = 'ru';
