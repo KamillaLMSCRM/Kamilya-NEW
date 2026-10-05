@@ -173,10 +173,10 @@ describe('contextual help registry', () => {
       expect(help).not.toBeNull();
       const topic = [help?.purpose, ...(help?.steps ?? []), help?.example, help?.result, help?.important].join(' ');
       const required = locale === 'ru'
-        ? ['точн', 'свободн', 'предварительн', 'подтверд', 'квитанц', 'абсолютн', 'часов', 'относительн', 'уточн']
+        ? ['точн', 'свободн', 'предварительн', 'подтверд', 'квитанц', 'абсолютн', 'часов', 'относительн', 'уточн', 'документ', 'источник', 'индексац', 'интерпретац', 'аудитори', 'формат', '15 минут', 'неизменяем', 'черновик', 'публикац', 'назначен', 'повтор']
         : locale === 'kk'
-          ? ['нақты', 'еркін', 'алдын ала', 'раста', 'түбіртек', 'абсолют', 'уақыт белдеуі', 'салыстырмалы', 'нақтыла']
-          : ['exact', 'free', 'preview', 'confirm', 'receipt', 'absolute', 'time zone', 'relative', 'clarif'];
+          ? ['нақты', 'еркін', 'алдын ала', 'раста', 'түбіртек', 'абсолют', 'уақыт белдеуі', 'салыстырмалы', 'нақтыла', 'құжат', 'дереккөз', 'индекстеу', 'талдау', 'аудитория', 'формат', '15 минут', 'өзгермейтін', 'черновик', 'жария', 'тағайындау', 'қайта']
+          : ['exact', 'free', 'preview', 'confirm', 'receipt', 'absolute', 'time zone', 'relative', 'clarif', 'document', 'source', 'index', 'interpret', 'audience', 'format', '15 minutes', 'immutable', 'draft', 'publish', 'assign', 'same job', 'repeat'];
       for (const marker of required) expect(topic.toLocaleLowerCase()).toContain(marker.toLocaleLowerCase());
       expect(topic).not.toContain('Введите поддерживаемую русскую команду назначения в поле.');
       expect(topic).not.toContain('Өріске қолдау көрсетілетін орысша тағайындау командасын енгізіңіз.');

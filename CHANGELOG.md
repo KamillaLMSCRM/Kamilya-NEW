@@ -86,6 +86,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Describe the document-to-draft workflow, source indexing, editable parameters,
+  preview expiry and same-job reopening in contextual help for RU/KK/EN.
 - Preserve upload/indexing and the ready source catalogue when a methodologist
   edits the instruction or course parameters during upload.
 - Supply the document interpreter with the exact candidate JSON schema, including
