@@ -88,6 +88,17 @@ open, also record status, safe interim path, and review condition.
   source provenance, bridge schema and bounded scopes. Final wait_threads delivery
   avoids redundant failed send-back attempts. No causal speed/savings claim.
 
+- Recurrence,2026-10-05 correction application review: a leaf reported41 cases
+  from application/new-driver/old-preview-driver as if it were the requested
+  application/router/new-driver matrix. Root preserved the exact41 command and
+  accepted source review only; root53 and persistent Runner187 are separate.
+  The later leaf used ambient Python despite the intended canonical runtime;
+  import failed before execution. Corrected packet supplied the full interpreter
+  path; exact nine-case regression passed0.98s/exit0 without installation.
+  Preserve both mistakes as HARNESS_FAILURE/attribution corrections, never add
+  their counts or claim external verification. Name full executable paths in
+  leaf packets and reconcile actual selected files against requested files.
+
 ## UX-LEARNER-PRESENTATION-001 - Learner title, result and help semantics
 
 - Date:2026-10-03; status BOUNDED_PRODUCTION35_VERIFIED; active learner score label live check remains NOT_VERIFIED.
@@ -6099,3 +6110,69 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: inspect all affected writers' lock orders before coordinating their
   transactions. Use behavioral contention refusal tests plus actual concurrent
   DB proof; source/fake-DB tests alone never certify RLS or phantom protection.
+
+## WB-CORRECTION-003 - Same-plan contention was indistinguishable from other conflicts
+
+- Date: 2026-10-05.
+- Symptom: isolated DEV A failed55P03; diagnostic B drained both callers and
+  proved one completed apply plus a peer timeout at correction_service.py:145.
+  Cleanup/public neutrality passed. HTTP already returned generic409, not500.
+- Cause: the first apply holds the preview row until its domain/receipt/audit
+  transaction commits; the peer may exceed the existing3s lock limit. The first
+  harness also did not drain the peer before propagating a failure.
+- Fix: accepted APPLICATION V1.2 and DEV V1.2 before source changes. Keep3s/15s/100s
+  and all locks/NOWAIT guards. Roll back55P03 caller, expose only fixed busy409/
+  no-store, never retry internally. Drain both callers; read the owned receipt
+  and explicitly replay the exact seal, requiring one audit/receipt/no charge.
+- Verification: service/real-ASGI RED then GREEN; root53 and independent187/
+  quality/source PASS,16/16 hashes. Actual C confirmed apply/read/concurrency,
+  deterministic held-plan rollback/no receipt/resume, lost-ack recovery and
+  approval contention among19 completed checks; full C failed its later FK pause.
+- Prevention: bounded waiting/idempotency do not promise every caller succeeds
+  immediately. Distinguish busy from success; use durable receipts, preserve
+  failed evidence and never enlarge limits to make concurrency tests pass.
+
+## TEST-INFRA-015 - Blocking fixture pause consumed the application lock budget
+
+- Date: 2026-10-05.
+- Symptom: actual correction application DEV C completed19 checks then failed
+  WorkbenchConflict in the FK insert/move stage; cleanup/public neutrality true,
+  peak3. The fixture's advisory-lock pause itself can exceed application3s.
+- Cause: a test-owned BEFORE UPDATE trigger used blocking advisory acquisition;
+  its wait is also governed by the unchanged application lock_timeout. Awaiting
+  the application in finally could mask the original probe failure.
+- Fix: accepted DEV V1.3 before harness edits. A granted readiness key is observed
+  in pg_locks; owned trigger polls pg_try_advisory_xact_lock with bounded sleeps
+  until owner releases it, still under unchanged15s statement limit. Seed movable
+  row before pause, reduce rival context round trips, unlock/drain without masking
+  original failure. No product timeout, lock, owner or migration change.
+- Verification: new cause-SQLSTATE diagnostic tracer RED/GREEN; local9 PASS.
+  Actual successor D must independently prove all FK probes and post-release
+  success/rollback. C remains failed, not reclassified as an accepted run.
+- Prevention: controlled barriers must coexist with product timeout semantics;
+  prove readiness in the DB, retain original errors and separate fixture failures
+  from product defects. Never relax service guards to keep a test pause alive.
+
+## TEST-INFRA-016 - FK probe copied a second active workflow credential
+
+- Date: 2026-10-05.
+- Symptom: isolated correction DEV D completed19 checks then stopped at
+  fk_workflow_access_credentials_wrong_state; cleanup/public neutrality true,
+  peak3. Its original SQLSTATE was not retained, so23505 is not a recorded
+  observation for D. The copied fixture independently violates source0147's
+  uq_workflow_access_active_item WHERE revoked_at IS NULL partial unique index.
+- Cause: a same-work-item credential clone changed token_hash but left revoked_at
+  NULL. A legitimate uniqueness guard can reject it before the intended FK wait.
+  Probes were validated only after the expensive held-parent phase.
+- Fix: accepted DEV V1.4 before writes. Use a revoked historical probe with fresh
+  token_hash; preserve the original active key and every DB index/constraint.
+  Reuse the same11 probe definitions for early one-row/rollback preflight, real
+  held-parent55P03 and post-release one-row/rollback. Preserve original error
+  before application/unlock cleanup errors, and extract sanitized cause/context
+  SQLSTATE. No product, migration, permission, timeout or external activation change.
+- Verification: diagnostic/context and cleanup tracers RED/GREEN, final driver13
+  PASS and full scoped Ruff PASS; independent final source accepted. Actual E
+  is the remaining runtime exit gate, not implied by fixture/source acceptance.
+- Prevention: validate fixtures against cloned real constraints before a long
+  matrix. Distinguish uniqueness/fixture refusal from FK serialization, require
+  actual row counts and rollback, and never disable a product rule for testing.

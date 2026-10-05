@@ -7,6 +7,7 @@ from typing import cast
 from uuid import UUID
 
 from sqlalchemy import select, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document
@@ -301,6 +302,11 @@ async def apply_correction_preview(
             response = CorrectionApplicationResponse.model_validate(applied)
             await db.commit()
             return response
+    except DBAPIError as exc:
+        await db.rollback()
+        if getattr(exc.orig, "sqlstate", None) == "55P03":
+            raise WorkbenchConflict("correction_application_busy") from exc
+        raise
     except BaseException:
         await db.rollback()
         raise

@@ -47,6 +47,7 @@ def _error(exc: Exception) -> HTTPException:
         "correction_confirmation_mismatch",
         "correction_preview_not_ready",
         "correction_clock_unavailable",
+        "correction_application_busy",
     }:
         code = str(exc)
     return HTTPException(status, code, headers={"Cache-Control": "no-store"})

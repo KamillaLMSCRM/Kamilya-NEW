@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Approval NOWAIT prelocks refuse contention before writes. Additive0177 and
   exact-tenant purge ordering are local-only; actual DB/UI/release gates remain
   open. No publication, assignments, learner history or provider calls on apply.
+- Return a fixed, non-cached busy conflict when confirmed draft correction cannot
+  acquire a row lock within its existing limit. The losing caller rolls back;
+  receipt lookup and an explicit same-seal replay recover the durable result
+  without a second correction. No longer waiting or automatic retry is added.
 - Add a separately disabled source-grounded draft lesson correction preview:
   exact original-document fact identity, bounded validated AI proposal, owned
   immutable reloadable before/after plan and idempotent budget admission.

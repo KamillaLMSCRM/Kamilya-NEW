@@ -2302,3 +2302,31 @@ Rules:
 - Root-supplied AI-COURSE-01 `25 PASS` is retained as supplied observation only and is not counted as independent execution. Token counters: NOT AVAILABLE. Precise total elapsed: NOT AVAILABLE; per-command wall timings are recorded in the evidence report.
 - Real transaction/FK/RLS/ACL/concurrency, approval-race, publication/learner/assignment, UI, provider, DEV, production, and runtime gates: NOT VERIFIED by this local-only packet. No external fixtures or cleanup.
 - Evidence: `.release-evidence/WB-CORRECTION-APPLY-20261005/apply-independent-A.json`.
+
+### TEST-WB-CORRECTION-APPLICATION-DEV-C-20261005 — 2026-10-05 — local typed-contention/source acceptance
+
+- Scope: database-free local acceptance of APPLICATION V1/V1.1/V1.2, APPLICATION_DEV V1/V1.1/V1.2, the frozen 0177 application driver/checks, and correction apply/read/router changes at HEAD `687947ed9ba04c8d1fb310346fc23e728e0d72f3`.
+- Preflight: exact worktree/branch, canonical interpreter, and all 16 `dev-freeze-C.json` SHA-256 hashes matched before execution. Final post-run hash readback is required before acceptance handoff.
+- Fresh local matrix: canonical-interpreter pytest PASS, `187 passed in 4.07s`; Python quality baseline PASS (`ruff=1008`, `mypy=2201`); canonical release-contract gate PASS (Alembic head `0177`, `175` revisions, `228` unique Errors entries); `git diff --check` PASS, native exit `0`.
+- Bounded source review: no actionable local findings. Verified typed `55P03` rollback/busy handling, sanitized HTTP 409/no-store mapping, drained same-plan peers, fail-closed owned cleanup/FK rebinding/schema collision behavior, unchanged timeout limits, no-provider apply path, replay/idempotency and receipt/audit atomicity coverage, and synthetic/NOT_VERIFIED labels.
+- Matrix attribution: fresh checks are listed in the evidence report. Deterministic DB-held contention, real FK/RLS/ACL/concurrency, DEV, provider, browser, production and runtime checks are `NOT_RUN`/`NOT_VERIFIED` by scope. Root-supplied DEV A/B observations are not independent execution evidence. Token counters: NOT AVAILABLE; precise total elapsed: NOT AVAILABLE.
+- Evidence: `.release-evidence/WB-CORRECTION-APPLY-20261005/dev-independent-C.json`.
+
+### TEST-WB-CORRECTION-APPLICATION-DEV-E-20261005 — 2026-10-05 — local final harness/source acceptance
+
+- Scope: database-free final successor acceptance of APPLICATION_DEV V1.3/V1.4 driver/check deltas while preserving C product/source acceptance and failed runtime A/B/C/D observations.
+- Preflight: exact worktree/branch/HEAD `687947ed9ba04c8d1fb310346fc23e728e0d72f3`, preserved C report SHA-256 `745bc4a6b5725624029375331ab44219c0cc7c912c6c104f385cd1562d2cefa8`, and all 18 `dev-freeze-E.json` hashes matched before execution. Final post-run hash readback is required before handoff.
+- Fresh E matrix: exact canonical-interpreter driver test PASS, `13 passed in 0.99s`; targeted Ruff PASS, native exit `0`; release-contract gate PASS, native exit `0` (Alembic head `0177`, `175` revisions, `231` unique Errors entries); `git diff --check` PASS, native exit `0`.
+- C linkage: prior `187`-test product/source matrix is hash-linked and intentionally not rerun; it is not added to E fresh counts. Supplied runtime A/B/C/D artifacts remain observations only.
+- Bounded source review: no actionable local findings. Verified readiness-key polling without timeout relaxation, revoked historical credential fixture and 11-probe one-row rollback preflight, held/released 55P03 sequencing, monotonic elapsed capture, bounded SQLSTATE diagnostics, release-and-drain error precedence, and fail-closed cleanup/public-neutrality structure.
+- Runtime/DEV/database/network/provider/browser/production/FK/RLS/ACL/concurrency/semantic equivalence: NOT_RUN or NOT_VERIFIED by scope. Token counters: NOT AVAILABLE; precise total elapsed: NOT AVAILABLE. No external fixtures or cleanup.
+- Evidence: `.release-evidence/WB-CORRECTION-APPLY-20261005/dev-independent-E.json`.
+
+### TEST-WB-CORRECTION-APPLICATION-DEV-E-RUNTIME-READBACK-20261005 — 2026-10-05 — supplied runtime artifact readback
+
+- Scope: artifact-readback-only review of the root-supplied `.release-evidence/WB-CORRECTION-APPLY-20261005/dev-runtime-E.json`; this Runner did not execute DEV, database, network, environment, provider, browser, or tests.
+- Verified exact HEAD `687947ed9ba04c8d1fb310346fc23e728e0d72f3`, all 18 current freeze hashes, and the frozen driver’s exact required set: `24/24` checks.
+- Supplied runtime receipt readback: `status=PASS`, cleanup `true`, public schema neutral `true`, connection peak `3`, failure/readback_failure null, artifact SHA-256 `456837e71fa717c607e443a4436bcd23663b28a9ca22c5377d2ded7adf80ccff`, elapsed `506.656s` including cleanup/disposal.
+- Attribution correction: the initial readback probe looked for a nonexistent top-level receipt SHA field and stopped; the corrected probe verified the artifact SHA-256. No runtime result was changed or reinterpreted. Time/token comparative savings: `NOT_AVAILABLE`.
+- Root runtime execution remains supplied evidence, not independent Runner execution. Source/model/neighbor-policy/learner-history/semantic limitations and failed A-D observations remain preserved; local C187/E13 remain hash-linked/local only.
+- Evidence: `.release-evidence/WB-CORRECTION-APPLY-20261005/dev-runtime-independent-E.json`.

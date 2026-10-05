@@ -43,6 +43,21 @@ NOWAIT repair. Frozen Test Runner independently199/quality/contracts and11/11
 hashes PASS; root accepts LOCAL_ONLY. Actual application DEV,
 FK/concurrent sessions/RLS/SQL guards, UI, retention/reconciliation, model quality
 and production release are NOT VERIFIED. No public migration or activation.
+Application [V1.2 bounded contention](contracts/LESSON_CORRECTION_APPLICATION_V1_2.md)
+and isolated [DEV V1](contracts/LESSON_CORRECTION_APPLICATION_DEV_V1.md),
+[V1.1](contracts/LESSON_CORRECTION_APPLICATION_DEV_V1_1.md),
+[V1.2](contracts/LESSON_CORRECTION_APPLICATION_DEV_V1_2.md),
+[V1.3](contracts/LESSON_CORRECTION_APPLICATION_DEV_V1_3.md),
+[V1.4](contracts/LESSON_CORRECTION_APPLICATION_DEV_V1_4.md) accepted before writes.
+Typed busy rollback/recovery root53/independent187 and16/16 hashes PASS. Actual C
+completed19 checks, peak3, cleanup/public-neutrality PASS but failed the FK fixture
+barrier. D failed the copied active-credential fixture; V1.4 preserves that
+partial-index guard, adds early probe validity/rollback and cleanup error ordering.
+Root driver13/independent source PASS. Actual E all24 required unique checks PASS,
+18/18 frozen hashes, peak3, owned cleanup/fresh absence and public metadata neutrality
+PASS;506.656s including cleanup/disposal. Root execution and independent local/source
+acceptance remain separate. No timeout relaxation, public migration or activation.
+See plan for exact retained failed receipts and E readback.
 Free-text interpretation and editable candidate, production0.11.37 accepted:
 [LLM-ASSIGNMENT-INTENT V3](contracts/LLM_ASSIGNMENT_INTENT_ADDENDUM_V3.md),
 preserving V1/V2 and existing financial zero-budget behavior. RU/KK clarification,

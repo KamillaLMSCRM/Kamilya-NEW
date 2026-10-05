@@ -163,6 +163,81 @@ external-session edges were resolved in source. Source/SQL concurrency uses
 SOURCE_FALLBACK, not a graph completeness claim. ECC/CodeBurn/token/root-review
 counters NOT AVAILABLE; no matched control or speed/cost saving claim.
 
+### WB-CORRECTION application DEV2026-10-05 — isolated runtime accepted, no public rollout
+
+Accepted isolated [DEV V1](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_APPLICATION_DEV_V1.md),
+[V1.1 release-table owner](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_APPLICATION_DEV_V1_1.md),
+[V1.2 drained diagnostics](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_APPLICATION_DEV_V1_2.md)
+and [V1.3 fixture barrier](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_APPLICATION_DEV_V1_3.md).
+Actual catalog-bound immediate FKs and0176/0177 are recreated only in one owned
+random schema; no public rows copied. Ordinary non-BYPASS runtime, peak<=3,
+owned cleanup/fresh absence and public metadata neutrality remain hard gates.
+Neighbor policies, original bytes and model are synthetic; no public-equivalence,
+learner-history or real-provider quality claim.
+
+Failed A/B/C receipts and their freezes are preserved in
+`.release-evidence/WB-CORRECTION-APPLY-20261005/`. A/B completed catalog only;
+B proved one completed apply plus a peer55P03 at the owned preview lock.
+Accepted [APPLICATION V1.2](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_APPLICATION_V1_2.md)
+keeps all3s/15s/100s limits, rolls back only the losing caller and returns fixed
+busy409/no-store, not automatic retry. C completed19 actual checks including
+apply/read/one audit+receipt/exact-seal replay/no charge, deterministic busy
+rollback/no receipt/resume, foreign/sibling/role isolation, DB receipt defenses,
+atomic DB faults/lost acknowledgment and approval/direct-writer contention.
+C failed the later FK fixture pause; peak3, cleanup/public-neutrality PASS.
+V1.3 corrected only that test barrier. D passed19 checks then refused the active
+credential fixture; failed D/cleanup/public-neutrality/peak3 are preserved. Source
+0147's unique active-work-item credential index makes that copied probe invalid.
+Accepted [V1.4](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_APPLICATION_DEV_V1_4.md)
+uses a revoked historical credential, shared11-probe early preflight and one-row/
+rollback checks before/after held-parent proof. It also preserves original probe/
+task/unlock error ordering and records actual monotonic elapsed (not savings).
+Root driver13/scoped Ruff PASS; independent final harness source accepted.
+Product files still match accepted freeze C. Actual E completed all24 required
+unique checks, including all11 held-parent FK inserts and the module move,
+populated downgrade refusal and empty downgrade/reupgrade. Root independently
+read back the exact required set and18/18 freeze hashes. Receipt
+`dev-runtime-E.json` SHA256
+`456837e71fa717c607e443a4436bcd23663b28a9ca22c5377d2ded7adf80ccff`:
+PASS, peak3, owned cleanup/fresh absence and public metadata neutrality PASS,
+elapsed506.656s including cleanup/disposal. No prior failure was relabelled PASS.
+Canonical primary, public DEV schema and production were not changed by the gate.
+UI preflight (source-only, not implementation): course edit page already separates
+savedLessonContent from unsaved editLessonContent; selected-lesson entry must not
+overwrite the latter or refresh it on a late application response. Session/abort/
+locale patterns exist in DocumentWorkbench. CorrectionPreviewResponse currently
+omits revision although ConfirmationRequest requires it and the immutable snapshot
+owns it. The UI successor must add server-derived revision before implementing
+confirmation, not assume revision1. Receipt-first restoration, explicit sealed
+apply and busy/lost-ack reconciliation are separate public client/panel seams.
+
+Root53 PASS; frozen independent Test Runner187/quality/contracts/source PASS and
+16/16 before/after hashes. Root parsed/rechecked finalized `dev-independent-C.json`,
+SHA256 `745bc4a6b5725624029375331ab44219c0cc7c912c6c104f385cd1562d2cefa8`.
+Runner186685ms includes context/report work, not a measured efficiency gain.
+Final independent E fresh13 driver tests/scoped Ruff/contracts/diff PASS,
+18/18 hashes; unchanged C187/quality are explicitly hash-linked, not rerun.
+`dev-independent-E.json` SHA256
+`59c83dc3b3cfb16e01ea06d58df111e1eed771d3a107017df269e8f5e4bea043`;
+Runner194498ms includes context/report work. Root accepted LOCAL_ONLY; actual
+DEV execution belongs to root. Runner separately verified supplied receipt SHA,
+exact24-check set and18/18 hashes without external access or rerunning tests:
+`dev-runtime-independent-E.json` SHA256
+`b8db994df76d7e301e0438fdc9903fe3db92ab093b044d24e1f9af1e2b35d682`.
+Root accepted that artifact-only readback. Runner137769ms includes context/report;
+its initial nonexistent top-level receipt-SHA probe is preserved as a harness
+correction, not a runtime failure or independent DEV execution.
+Cheap source review accepted; its41-case command omitted router and is not the
+root53 matrix. Corrected attribution is preserved. UI, retention/reconciliation,
+model quality, learner history, assembled DEV/browser and production remain open.
+
+CodeGraph1.6.1 search/callers confirmed apply route and test candidates:2 candidates,
+15 edges truncated to12, query8/21ms, combined process932ms. Source confirmed route;
+SQL lock diagnosis SOURCE_FALLBACK. C sync engine1531ms/wrapper9934ms and final E
+sync engine1317ms/wrapper7849ms, excluded-path audits PASS. No unresolved relation
+for Graphify. ECC/CodeBurn/matched savings and
+exposed root/leaf token counters NOT AVAILABLE; no speed/cost saving claim.
+
 ### WB-CORRECTION preview2026-10-05 — local integration, runtime gates open
 
 Accepted preview V1 with versioned V1.1 role-loss closure, V1.2 UTC month safety

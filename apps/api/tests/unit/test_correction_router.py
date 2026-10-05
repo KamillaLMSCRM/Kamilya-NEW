@@ -280,3 +280,29 @@ async def test_real_asgi_apply_mismatched_path_body_never_calls_writer(monkeypat
     assert response.status_code == 409
     assert response.headers["cache-control"] == "no-store"
     call.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_real_asgi_busy_apply_returns_fixed_conflict_and_no_store(monkeypatch):
+    from test_correction_application import fixture
+
+    from app.modules.methodologist_workbench.correction_models import LessonCorrectionPlan
+
+    db, _actor, confirmation = await fixture(monkeypatch)
+    db.busy_model, db.busy_sqlstate = LessonCorrectionPlan, "55P03"
+    monkeypatch.setattr(router, "get_settings", lambda: _settings())
+    app = _asgi_app(None, _user())
+
+    async def db_override():
+        yield db
+
+    app.dependency_overrides[get_db] = db_override
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            f"/api/v1/lesson-correction-previews/{confirmation.plan_id}/apply",
+            json=confirmation.model_dump(mode="json"),
+        )
+    assert response.status_code == 409
+    assert response.json() == {"detail": "correction_application_busy"}
+    assert response.headers["cache-control"] == "no-store"
+    assert db.commits == 0

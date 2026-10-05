@@ -74,6 +74,7 @@ class MemoryDB:
         self.fail_on = None
         self.baseline = None
         self.busy_model = None
+        self.busy_sqlstate = None
 
     def remember(self):
         self.baseline = {
@@ -112,8 +113,11 @@ class MemoryDB:
         descriptions = statement.column_descriptions
         lock = getattr(statement, "_for_update_arg", None)
         if self.busy_model is descriptions[0]["entity"] and lock is not None:
-            assert lock.nowait, "Approval contention must never wait in reversed owner lock order"
-            raise OperationalError("synthetic lock", {}, RuntimeError("busy"))
+            if self.busy_model is not LessonCorrectionPlan:
+                assert lock.nowait, "Approval contention must never wait in reversed owner lock order"
+            origin = RuntimeError("private database parameters")
+            origin.sqlstate = self.busy_sqlstate
+            raise OperationalError("synthetic lock", {}, origin)
         if len(descriptions) == 3:
             return Rows([(self.rows[Lesson][0], self.rows[Module][0], self.rows[Course][0])])
         model = descriptions[0]["entity"]
@@ -404,6 +408,18 @@ async def test_application_read_without_receipt_is_not_found(monkeypatch):
     db, actor, confirmation = await fixture(monkeypatch)
     with pytest.raises(WorkbenchNotFound, match="application_not_found"):
         await application.get_correction_application(db, actor, confirmation.plan_id)
+
+
+@pytest.mark.asyncio
+async def test_busy_application_has_safe_conflict_and_no_partial_write(monkeypatch):
+    db, actor, confirmation = await fixture(monkeypatch)
+    db.busy_model = LessonCorrectionPlan
+    db.busy_sqlstate = "55P03"
+    with pytest.raises(WorkbenchConflict, match="^correction_application_busy$"):
+        await application.apply_correction_preview(db, actor, confirmation)
+    assert db.rows[Lesson][0].content == BEFORE
+    assert not db.rows.get(LessonCorrectionApplication) and not db.rows.get(AuditLog)
+    assert db.commits == 0 and db.rollbacks == 1
 
 
 @pytest.mark.asyncio
