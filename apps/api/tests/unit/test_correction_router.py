@@ -82,6 +82,7 @@ async def test_create_returns_ready_payload_and_no_store_without_domain_write(mo
     monkeypatch.setattr(router, "get_settings", lambda: _settings())
     expected = CorrectionPreviewResponse(
         plan_id=UUID(int=10),
+        revision=1,
         lesson_id=UUID(int=5),
         state="ready",
         expires_at=datetime.now(UTC),
@@ -107,6 +108,7 @@ async def test_get_does_not_call_provider_or_write_and_sets_no_store(monkeypatch
     reader = AsyncMock(
         return_value=CorrectionPreviewResponse(
             plan_id=UUID(int=10),
+            revision=3,
             lesson_id=UUID(int=5),
             state="failed",
             expires_at=datetime.now(UTC),
@@ -118,6 +120,7 @@ async def test_get_does_not_call_provider_or_write_and_sets_no_store(monkeypatch
     response = Response()
     result = await router.read_preview(UUID(int=10), response, db, _user())
     assert result.state == "failed"
+    assert result.revision == 3
     reader.assert_awaited_once()
     provider.assert_not_awaited()
     assert response.headers["Cache-Control"] == "no-store"
@@ -186,6 +189,7 @@ async def test_real_asgi_methodologist_success_is_no_store(monkeypatch):
     monkeypatch.setattr(router, "get_settings", lambda: _settings())
     expected = CorrectionPreviewResponse(
         plan_id=UUID(int=10),
+        revision=7,
         lesson_id=UUID(int=5),
         state="ready",
         expires_at=datetime.now(UTC),
@@ -199,6 +203,7 @@ async def test_real_asgi_methodologist_success_is_no_store(monkeypatch):
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store"
     assert response.json()["state"] == "ready"
+    assert response.json()["revision"] == 7
     service_call.assert_awaited_once()
 
 

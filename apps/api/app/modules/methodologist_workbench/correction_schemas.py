@@ -36,6 +36,7 @@ class CorrectionProposal(BaseModel):
 class CorrectionPreviewResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     plan_id: UUID
+    revision: Revision
     lesson_id: UUID
     state: Literal["pending", "ready", "failed"]
     expires_at: AwareDatetime

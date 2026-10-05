@@ -8,6 +8,15 @@ const toastMock = vi.hoisted(() => ({
 }));
 const confirmMock = vi.hoisted(() => vi.fn().mockResolvedValue(false));
 const routerPushMock = vi.hoisted(() => vi.fn());
+const correctionHarness = vi.hoisted(() => ({ enabled: false, props: null as any }));
+
+vi.mock('@/features/methodologist-workbench/LessonCorrectionPanel', () => ({
+  default: (props: any) => {
+    correctionHarness.props = props;
+    if (!correctionHarness.enabled) return null;
+    return <div><button onClick={() => props.onApplied({ course_id: 'course-1', lesson_id: 'lesson-1' }, '# AI-правка', lesson.content)}>Apply synthetic correction</button><button onClick={() => props.onApplyingChange(true)}>Begin correction</button><button onClick={() => props.onReload()}>Reload synthetic correction</button></div>;
+  },
+}));
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'course-1' }),
@@ -149,6 +158,8 @@ function openLessonEditor() {
 describe('course lesson editor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    correctionHarness.enabled = false; correctionHarness.props = null;
+    window.history.replaceState({}, '', '/courses/course-1/edit');
     useAuthStore.setState({
       accessToken: 'test-token',
       user: null,
@@ -158,6 +169,52 @@ describe('course lesson editor', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('integrates a verified fresh correction without issuing a manual PATCH', async () => {
+    correctionHarness.enabled = true; setupFetch(); render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    fireEvent.click(await screen.findByRole('button', { name: 'Apply synthetic correction' }));
+    expect(screen.getByRole('textbox', { name: 'Содержание урока' })).toHaveValue('# AI-правка');
+    expect(screen.queryByText('Есть несохранённые изменения')).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
+  });
+
+  it('keeps the feature-OFF editor controls in a labeled accessible group', async () => {
+    setupFetch(); render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('textbox', { name: 'Содержание урока' });
+    expect(screen.getByRole('group', { name: 'courses.editCourse' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Apply synthetic correction' })).not.toBeInTheDocument();
+  });
+
+  it('preserves later manual changes even if a correction callback arrives', async () => {
+    correctionHarness.enabled = true; setupFetch(); render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: '# Поздняя ручная правка' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply synthetic correction' }));
+    expect(screen.getByRole('textbox', { name: 'Содержание урока' })).toHaveValue('# Поздняя ручная правка');
+    expect(screen.getByText('Есть несохранённые изменения')).toBeInTheDocument();
+  });
+
+  it('disables editor and lesson navigation during a correction write', async () => {
+    correctionHarness.enabled = true; setupFetch(200, structureWithTwoLessons); render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    fireEvent.click(await screen.findByRole('button', { name: 'Begin correction' }));
+    expect(screen.getByRole('textbox', { name: 'Содержание урока' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Название урока' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Практика' })).toBeDisabled();
+  });
+
+  it('clears only the previous correction pointer on accepted lesson selection', async () => {
+    correctionHarness.enabled = true; setupFetch(200, structureWithTwoLessons); render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Apply synthetic correction' });
+    window.history.replaceState({}, '', '/courses/course-1/edit?correction_plan=opaque-old-plan&other=keep#editor');
+    fireEvent.click(screen.getByRole('button', { name: 'Практика' }));
+    await screen.findByDisplayValue('## Практика');
+    expect(new URL(window.location.href).searchParams.get('correction_plan')).toBeNull();
+    expect(new URL(window.location.href).searchParams.get('other')).toBe('keep'); expect(window.location.hash).toBe('#editor');
   });
 
   it('loads the lesson into the full-page workspace and PATCHes title plus content', async () => {

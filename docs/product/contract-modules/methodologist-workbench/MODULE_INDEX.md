@@ -4,7 +4,7 @@ Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
 | Module | Responsibility | Active mini-spec | Data owner / writer | Status |
 |---|---|---|---|---|
-| WORKBENCH | Untrusted intent → server-resolved plan → confirmation policy; bounded assignment/document receipts and correction policy under addenda below | [WORKBENCH V1](modules/WORKBENCH_V1.md) | Workbench/root; persistent assignment/document plans and correction previews | Production text/document slices accepted; correction isolated DEV31 accepted, apply/UI gated; speech gated |
+| WORKBENCH | Untrusted intent → server-resolved plan → confirmation policy; bounded assignment/document receipts and correction policy under addenda below | [WORKBENCH V1](modules/WORKBENCH_V1.md) | Workbench/root; persistent assignment/document plans and correction previews | Production text/document slices accepted; correction preview DEV31/application DEV24 accepted; UI local, public activation and speech gated |
 | SPEECH-INTAKE | Bounded authorized audio → editable transcript, no business execution | [SPEECH-INTAKE V1](modules/SPEECH_INTAKE_V1.md) | Speech/root; no storage now | Draft / benchmark gate |
 
 Active shared contract: [COMMAND-PLAN V1](contracts/COMMAND_PLAN_V1.md).
@@ -58,6 +58,15 @@ Root driver13/independent source PASS. Actual E all24 required unique checks PAS
 PASS;506.656s including cleanup/disposal. Root execution and independent local/source
 acceptance remain separate. No timeout relaxation, public migration or activation.
 See plan for exact retained failed receipts and E readback.
+Default-disabled local course-editor UI integration and server-owned preview revision:
+[LESSON-CORRECTION UI V1](contracts/LESSON_CORRECTION_UI_V1.md).
+Historical receipt restoration is read-only; explicit receipt-first recovery never
+automatically repeats application. Local/isolated acceptance is not public activation.
+Root focused47/typecheck/build67 PASS; full927 and API67 are preserved A baselines.
+Independent A NOT_READY spacing finding is preserved; corrected B independently
+passed editor13 and all12 hashes, accepted SOURCE_LEVEL/LOCAL_ONLY by root.
+Source references currently show metadata, not a source-file opener; user docs
+state that limitation. Browser visual/responsive and assembled DEV remain open.
 Free-text interpretation and editable candidate, production0.11.37 accepted:
 [LLM-ASSIGNMENT-INTENT V3](contracts/LLM_ASSIGNMENT_INTENT_ADDENDUM_V3.md),
 preserving V1/V2 and existing financial zero-budget behavior. RU/KK clarification,

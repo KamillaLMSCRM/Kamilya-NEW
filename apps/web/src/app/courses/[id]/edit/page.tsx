@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import { useState, useEffect, useCallback, useMemo, type MouseEvent as ReactMouseEvent } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, Button, Input, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
@@ -29,6 +29,8 @@ import { AIChatPanel } from '@/components/ai/AIChatPanel';
 import { ApprovalPolicyCard } from '@/components/course-approval/ApprovalPolicyCard';
 import { coursePublicationError } from '@/lib/coursePublicationError';
 import { LessonContent } from '@/features/course-authoring/LessonContent';
+import LessonCorrectionPanel from '@/features/methodologist-workbench/LessonCorrectionPanel';
+import type { CorrectionApplicationReceipt } from '@/lib/lessonCorrection';
 
 interface Lesson {
   id: string;
@@ -82,6 +84,8 @@ export default function CourseEditPage() {
   const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
   const [savingLesson, setSavingLesson] = useState(false);
   const [releaseAction, setReleaseAction] = useState<'approve' | 'publish' | null>(null);
+  const [correctionBusy, setCorrectionBusy] = useState(false);
+  const correctionBusyRef = useRef(false);
 
   // AI chat panel state — opens as a slide-over from the right.
   const [chatOpen, setChatOpen] = useState(false);
@@ -98,19 +102,33 @@ export default function CourseEditPage() {
   );
   const lessonDirty = Boolean(editingLessonId)
     && (editLessonTitle !== savedLessonTitle || editLessonContent !== savedLessonContent);
+  const editorSnapshot = useRef({ courseId, editingLessonId, token, editLessonTitle, savedLessonTitle, editLessonContent, savedLessonContent, savingLesson, loadingLessonId });
+  editorSnapshot.current = { courseId, editingLessonId, token, editLessonTitle, savedLessonTitle, editLessonContent, savedLessonContent, savingLesson, loadingLessonId };
+  const onCorrectionApplied = (receipt: CorrectionApplicationReceipt, content: string, before: string) => {
+    const current = editorSnapshot.current;
+    if (current.courseId !== receipt.course_id || current.editingLessonId !== receipt.lesson_id
+      || current.token !== useAuthStore.getState().accessToken || current.savingLesson || current.loadingLessonId
+      || current.editLessonTitle !== current.savedLessonTitle || current.editLessonContent !== current.savedLessonContent
+      || current.savedLessonContent !== before) return;
+    setSavedLessonContent(content); setEditLessonContent(content);
+    setCourse((value) => value?.id === receipt.course_id ? { ...value, review_status: 'pending' } : value);
+  };
+  const onCorrectionApplyingChange = (busy: boolean) => {
+    correctionBusyRef.current = busy; setCorrectionBusy(busy);
+  };
 
   useEffect(() => {
-    if (!lessonDirty) return;
+    if (!lessonDirty && !correctionBusy) return;
     const guardUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = '';
     };
     window.addEventListener('beforeunload', guardUnload);
     return () => window.removeEventListener('beforeunload', guardUnload);
-  }, [lessonDirty]);
+  }, [lessonDirty, correctionBusy]);
 
   useEffect(() => {
-    if (!lessonDirty) return;
+    if (!lessonDirty && !correctionBusy) return;
 
     const guardInternalNavigation = (event: MouseEvent) => {
       if (
@@ -135,6 +153,7 @@ export default function CourseEditPage() {
 
       event.preventDefault();
       event.stopPropagation();
+      if (correctionBusyRef.current) return;
       void confirm({
         title: t('authenticatedUi.editor.unsavedTitle'),
         message: t('authenticatedUi.editor.unsavedDescription'),
@@ -149,7 +168,7 @@ export default function CourseEditPage() {
 
     document.addEventListener('click', guardInternalNavigation, true);
     return () => document.removeEventListener('click', guardInternalNavigation, true);
-  }, [confirm, lessonDirty, router, t]);
+  }, [confirm, lessonDirty, correctionBusy, router, t]);
 
   const fetchData = useCallback(async () => {
     if (!courseId || !token) return;
@@ -302,7 +321,7 @@ export default function CourseEditPage() {
   };
 
   const handleEditLessonContent = async (lessonId: string) => {
-    if (!token) return;
+    if (!token || correctionBusyRef.current) return;
     setLoadingLessonId(lessonId);
     try {
       const res = await fetch(`${API_URL}/v1/lessons/${lessonId}`, {
@@ -314,6 +333,13 @@ export default function CourseEditPage() {
         throw new Error(payload?.message || payload?.detail || `HTTP ${res.status}`);
       }
       const data = await res.json();
+      if (editorSnapshot.current.editingLessonId && editorSnapshot.current.editingLessonId !== lessonId) {
+        // The old opaque plan belongs to the previous selected lesson. Clear it
+        // before the new panel mounts, without touching other query/hash state.
+        const url = new URL(window.location.href);
+        url.searchParams.delete('correction_plan');
+        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+      }
       setEditingLessonId(lessonId);
       setEditLessonTitle(data.title || '');
       setEditLessonContent(data.content || '');
@@ -328,7 +354,7 @@ export default function CourseEditPage() {
   };
 
   const handleSaveLessonContent = async () => {
-    if (!editingLessonId || !token || !editLessonTitle.trim()) return;
+    if (!editingLessonId || !token || !editLessonTitle.trim() || correctionBusyRef.current) return;
     setSavingLesson(true);
     try {
       const res = await fetch(`${API_URL}/v1/lessons/${editingLessonId}`, {
@@ -365,6 +391,7 @@ export default function CourseEditPage() {
   };
 
   const handleSelectLesson = async (lessonId: string) => {
+    if (correctionBusyRef.current) return;
     if (lessonId === editingLessonId) return;
     if (lessonDirty) {
       const discard = await confirm({
@@ -378,7 +405,22 @@ export default function CourseEditPage() {
     await handleEditLessonContent(lessonId);
   };
 
+  const handleSelectLessonReload = async () => {
+    if (!editingLessonId || correctionBusyRef.current) return;
+    if (lessonDirty) {
+      const discard = await confirm({
+        title: t('authenticatedUi.editor.unsavedTitle'),
+        message: t('authenticatedUi.editor.unsavedDescription'),
+        confirmLabel: t('authenticatedUi.editor.leaveWithoutSaving'),
+        variant: 'danger',
+      });
+      if (!discard) return;
+    }
+    await handleEditLessonContent(editingLessonId);
+  };
+
   const handleDiscardLessonChanges = async () => {
+    if (correctionBusyRef.current) return;
     if (!lessonDirty) return;
     const discard = await confirm({
       title: t('authenticatedUi.editor.unsavedTitle'),
@@ -392,6 +434,7 @@ export default function CourseEditPage() {
   };
 
   const handleOpenLearnerPreview = async () => {
+    if (correctionBusyRef.current) return;
     if (!activeLesson) return;
     if (lessonDirty) {
       const discard = await confirm({
@@ -406,6 +449,7 @@ export default function CourseEditPage() {
   };
 
   const handleGuardedLink = async (event: ReactMouseEvent<HTMLAnchorElement>, href: string) => {
+    if (correctionBusyRef.current) { event.preventDefault(); return; }
     if (!lessonDirty) return;
     event.preventDefault();
     const discard = await confirm({
@@ -477,6 +521,11 @@ export default function CourseEditPage() {
 
   return (
     <div className="mx-auto max-w-[1800px] space-y-6 px-4 py-5 sm:p-6">
+      <fieldset
+        disabled={correctionBusy || loadingLessonId !== null}
+        aria-label={t('courses.editCourse')}
+        className="min-w-0 space-y-6 border-0 p-0"
+      >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <a
@@ -734,10 +783,17 @@ export default function CourseEditPage() {
           </Card>
         </aside>
       </div>
+      </fieldset>
+      {course.status === 'draft' && activeLesson?.content_type === 'text' && editingLessonId && (
+        <LessonCorrectionPanel courseId={courseId} lessonId={editingLessonId} lessonTitle={savedLessonTitle}
+          savedContent={savedLessonContent} dirty={lessonDirty} editorBusy={savingLesson || loadingLessonId !== null || releaseAction !== null}
+          onApplied={onCorrectionApplied} onApplyingChange={onCorrectionApplyingChange}
+          onReload={() => void handleSelectLessonReload()} />
+      )}
       {dialog}
 
       <AIChatPanel
-        open={chatOpen}
+        open={chatOpen && !correctionBusy}
         onClose={() => setChatOpen(false)}
         courseId={courseId}
         focusLessonId={chatFocus.lessonId}

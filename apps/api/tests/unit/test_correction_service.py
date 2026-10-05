@@ -209,6 +209,7 @@ async def test_claim_and_ten_cent_charge_commit_before_provider(monkeypatch):
 
     result = await service.create_correction_preview(db, actor(), request(), provider_resolver=provider)
     assert result.state == "ready"
+    assert result.revision == 1
     assert len(charges) == 1 and len(provider_calls) == 1
     assert charges[0][1] == {"operation": "lesson_correction_preview", "estimated_cost_cents": 10}
     assert charges[0][0][1] == str(TENANT)
@@ -290,7 +291,7 @@ async def test_same_key_replay_never_recharges_or_calls_provider(monkeypatch, st
     current = datetime.now(UTC)
     snapshot = LessonCorrectionSnapshot(
         plan_id=uuid4(),
-        revision=1,
+        revision=7,
         actor_id=ACTOR,
         created_at=current - timedelta(minutes=1),
         expires_at=current + timedelta(minutes=14),
@@ -337,6 +338,10 @@ async def test_same_key_replay_never_recharges_or_calls_provider(monkeypatch, st
 
     result = await service.create_correction_preview(db, actor(), body, provider_resolver=provider)
     assert result.state == status
+    assert result.revision == 7
+    loaded = await service.get_correction_preview(db, actor(), snapshot.plan_id)
+    assert loaded.revision == 7
+    assert loaded.state == status
     assert charges == [] and providers == []
 
 

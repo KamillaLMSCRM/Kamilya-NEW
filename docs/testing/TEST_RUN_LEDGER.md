@@ -2330,3 +2330,31 @@ Rules:
 - Attribution correction: the initial readback probe looked for a nonexistent top-level receipt SHA field and stopped; the corrected probe verified the artifact SHA-256. No runtime result was changed or reinterpreted. Time/token comparative savings: `NOT_AVAILABLE`.
 - Root runtime execution remains supplied evidence, not independent Runner execution. Source/model/neighbor-policy/learner-history/semantic limitations and failed A-D observations remain preserved; local C187/E13 remain hash-linked/local only.
 - Evidence: `.release-evidence/WB-CORRECTION-APPLY-20261005/dev-runtime-independent-E.json`.
+
+### TEST-WB-CORRECTION-UI-20261005-A — 2026-10-05 — local UI contract acceptance
+
+- Scope: database-free local UI/API contract acceptance at HEAD `fc18cefacc4adb76d9c959cec3eed374533b8b2c`; no browser, DB, network, provider, deployment, source repair, or Git mutation.
+- Preflight: exact worktree/branch, supplied root-A receipt SHA-256 `496bc50f738aee92f86d12db895907083ecec325b617d72620fa6441495c15c3`, and all 12 freeze-A hashes matched. Literal-path hashing was required for the bracketed `[id]` path; the initial wildcard probe is retained as harness-only.
+- Fresh API wrapper: PASS, `67 passed in 3.06s`. Fresh Vitest: PASS, `46 passed` across 3 specified files, Vitest duration `4.19s`. Corrected scoped ESLint: PASS, native exit `0`, six frozen web files. Release-contract gate: PASS, native exit `0`, Alembic head `0177`, `175` revisions, `232` unique Errors entries. Version contract: PASS, `7 passed`, native exit `0`. `git diff --check`: PASS, native exit `0`.
+- Initial ESLint wrong-extension invocation is preserved as `HARNESS_FAILURE`; one permitted method correction used the exact manifest `.ts` path and passed.
+- Root-supplied `root-A.json` remains attribution-only (`PASS_LOCAL_ONLY`, not independent evidence); supplied `927`/`67`/build/type/full-quality observations are not counted as fresh here.
+- Open P2 finding `UI-CORRECTION-P2-001`: `apps/web/src/app/courses/[id]/edit/page.tsx:524` uses `fieldset className="contents"` inside the outer `space-y-6` editor wrapper. The fieldset loses its layout box, so outer vertical rhythm does not apply between its internal header/policy/grid siblings, including feature-OFF rendering. Browser confirmation remains NOT_VERIFIED. No source repair was performed.
+- Residual browser/live API integration, full web suite/typecheck/build/quality, DEV/provider/production/semantic/end-user gates: NOT_VERIFIED. Token counters and precise total elapsed: NOT AVAILABLE.
+- Evidence: `.release-evidence/WB-CORRECTION-UI-20261005/independent-A.json`.
+
+### TEST-WB-CORRECTION-UI-20261005-B — 2026-10-05 — local source-level layout successor
+
+- Scope: local source-level successor for `UI-CORRECTION-P2-001`; A’s `NOT_READY` entry remains unchanged. No browser, database, network, provider, deployment, source repair, or Git mutation was performed by this Runner.
+- Preflight: exact HEAD `fc18cefacc4adb76d9c959cec3eed374533b8b2c`, supplied root-B receipt SHA-256 `87b9008eb2f5cb190183906187e28299ae2ff9ee47547f2583b532de9d5dde6a`, and all 12 freeze-B hashes matched using literal paths. Ten frozen files are unchanged from A; only the course editor page and its test changed.
+- Fresh matrix: course-editor Vitest PASS, `13 passed in 5.07s`; exact two-file ESLint PASS, native exit `0`; release-contract gate PASS, native exit `0` (Alembic head `0177`, `175` revisions, `232` unique Errors entries); version contract PASS, `7 passed`, native exit `0`; `git diff --check` PASS, native exit `0`.
+- Source-level finding closure: `fieldset` now uses `min-w-0 space-y-6 border-0 p-0` with a translated accessible label, preserving internal vertical rhythm; feature-OFF test confirms an enabled labeled group and no correction action. Existing busy/disabled lesson and navigation semantics remain covered.
+- Browser visual/responsive behavior remains `NOT_VERIFIED`; no full web suite/typecheck/build/API rerun or DEV/provider/production claim. Root-B remains supplied attribution-only. Token/cost/precise total elapsed: `NOT_AVAILABLE`.
+- Evidence: `.release-evidence/WB-CORRECTION-UI-20261005/independent-B.json`.
+
+### TEST-WB-CORRECTION-UI-20261005-C — 2026-10-05 — documentation truthfulness readback
+
+- Scope: documentation-only successor after Root updated `docs/USER_DOCUMENTATION_RU.md`; A `NOT_READY` and B source-level acceptance remain unchanged. No tests, build, browser, database, network, provider, deployment, source repair, or Git mutation was performed by this Runner.
+- Preflight: exact HEAD `fc18cefacc4adb76d9c959cec3eed374533b8b2c`; all 11 non-document freeze-B product hashes matched via `Get-FileHash -LiteralPath`; new documentation SHA-256 matched `856b4ae346424d1b9036f0f5e7c566e82bef470e623695ac287477b481694343`; preserved B report SHA-256 matched `ec3dd89a1585e57a2ba0de6a5cc2ec8aeea8e7a0674a0f03b977cee8cbd96259`.
+- Source comparison: PASS. The panel displays document ID, locator and SHA-256 as text and contains no source-file anchor/download action. The new documentation paragraph accurately instructs the methodologist to inspect the original separately.
+- Fresh check: `git diff --check` only, PASS with native exit `0`. B13, A API67/client20/panel14/full927 and other prior evidence remain hash-linked, not fresh in C. Browser visual/source-file UX acceptance remains `NOT_VERIFIED`; token/cost/precise total elapsed: `NOT_AVAILABLE`.
+- Evidence: `.release-evidence/WB-CORRECTION-UI-20261005/independent-C.json`.

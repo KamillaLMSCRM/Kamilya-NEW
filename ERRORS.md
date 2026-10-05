@@ -867,6 +867,15 @@ repair. Do not introduce blanket punctuation/heading bans from this harness.
   completed successfully and the same typecheck passed immediately afterward.
   Run typecheck and Next.js build sequentially because both commands read or
   mutate `.next/types`; parallel execution is not valid release evidence.
+- Recurrence (2026-10-05): `corepack pnpm test -- tests/lessonCorrectionPanel.test.tsx`
+  forwarded a literal `--` and unexpectedly selected unrelated Vitest files. The
+  incomplete broad run was interrupted; its learningInsightsJournal assertion
+  failure remains an observed failure, not a passing matrix. The exact standalone
+  journal successor passed7 without source/assertion/timeout changes. For bounded
+  selectors use `corepack pnpm exec vitest run <exact-files>`, verify reported files
+  and counts, and retain unknown broad-run outcomes. A missing new module produces
+  zero-test setup failure, not behavioral RED; a real public assertion must fail
+  before GREEN. Do not hide such selection/type-harness corrections in final counts.
 
 ## WIN-001 - Frontend build script used POSIX env syntax in PowerShell
 
@@ -6172,7 +6181,27 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   SQLSTATE. No product, migration, permission, timeout or external activation change.
 - Verification: diagnostic/context and cleanup tracers RED/GREEN, final driver13
   PASS and full scoped Ruff PASS; independent final source accepted. Actual E
-  is the remaining runtime exit gate, not implied by fixture/source acceptance.
+  subsequently completed exact24 checks, all11 held FK probes and released
+  inserts/move, cleanup/public neutrality PASS, peak3,506.656s. Independent Runner
+  verified supplied artifact/hash only, not independent DEV execution.
 - Prevention: validate fixtures against cloned real constraints before a long
   matrix. Distinguish uniqueness/fixture refusal from FK serialization, require
   actual row counts and rollback, and never disable a product rule for testing.
+
+## WB-CORRECTION-004 - Preview transport omitted the server-owned confirmation revision
+
+- Date: 2026-10-05.
+- Symptom: public preview create/reload DTO had no revision while immutable
+  ConfirmationRequest requires it. A UI would have to guess revision1 or be unable
+  to confirm. Four public service assertions reproduced the absent field.
+- Cause: response schema and both create/base render constructors omitted the
+  immutable snapshot revision; existing tests checked state/fingerprint only.
+- Fix: accepted UI V1 before writes; add required Revision from validated snapshot
+  in every response state, keep confirmation/DB/provider behavior unchanged.
+  Public replay/read cases use revision7 rather than assuming first-version1.
+- Verification: behavioral4 RED then API service/router/application67 PASS. Web
+  typed narrowing and strict non-string discriminator regressions are local-only;
+  UI/API live integration and public activation remain separate gates.
+- Prevention: complete every public confirmation seal from server-owned output.
+  Never synthesize revision/authority in a client; test non-default revisions and
+  pending/failed reloads, not just a successful first preview.

@@ -9,12 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add an independently disabled, confirmed AI lesson correction panel in the draft
+  course editor: server-owned revision/seal, before/after and source references,
+  explicit review consent, receipt-first uncertain-result recovery and exact-seal
+  retry. Preserve later manual edits and historical receipts; block editor writes
+  during application. RU/KK/EN help explains renewed source/quiz/course review.
+  This is local UI integration, not public activation or semantic-quality proof.
 - Add independently disabled confirmed draft lesson correction application:
   one transaction coordinates lesson/quiz review invalidation, approval
   supersession, course review reset and an immutable digest receipt. Replay
   returns the historical receipt without overwriting later authorized edits.
   Approval NOWAIT prelocks refuse contention before writes. Additive0177 and
-  exact-tenant purge ordering are local-only; actual DB/UI/release gates remain
+  exact-tenant purge ordering remain unactivated in public. Isolated DEV application
+  transactions passed24 checks; public integration/browser/release gates remain
   open. No publication, assignments, learner history or provider calls on apply.
 - Return a fixed, non-cached busy conflict when confirmed draft correction cannot
   acquire a row lock within its existing limit. The losing caller rolls back;
@@ -23,8 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add a separately disabled source-grounded draft lesson correction preview:
   exact original-document fact identity, bounded validated AI proposal, owned
   immutable reloadable before/after plan and idempotent budget admission.
-  Additive migration0176 remains unapplied to public; no apply executor/UI,
-  publication, learner-history change, voice or production activation is included.
+  Additive migration0176 remains unapplied to public; separately validated apply/UI
+  seams do not imply publication, learner-history change, voice or production activation.
   Preserve existing release snapshot callers while allowing explicit fresh reads
   for correction seals; refuse stale context, role loss and wrong-month refunds.
 - Add explicit free-text assignment interpretation with editable course,

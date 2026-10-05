@@ -163,6 +163,98 @@ external-session edges were resolved in source. Source/SQL concurrency uses
 SOURCE_FALLBACK, not a graph completeness claim. ECC/CodeBurn/token/root-review
 counters NOT AVAILABLE; no matched control or speed/cost saving claim.
 
+### WB-CORRECTION UI2026-10-05 — default-disabled local integration
+
+Accepted [UI V1](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_UI_V1.md)
+before writes. Preview DTO now includes server-owned revision in every state;
+public create/replay/read revision7 regressions actual4 RED -> API67 PASS.
+No migration/provider/accounting or application transaction change in this delta.
+
+New typed existing-axios client and course-editor panel show server before/after,
+plain-text proposal, source identity/locator/hash, expiry, review consent and
+explicit sealed application. Only ordinary non-impersonated methodologist and both
+independent build flags can see it; absent flags keep it hidden. The editor locks
+manual writes/selection while applying, preserves dirty/later buffers, and fresh
+receipt updates only the current unchanged saved lesson. Historical restore reads
+receipt first without overwriting text. Same-plan recovery checks receipt before
+explicit retry; pending refresh does not generate again. No raw prompt/storage,
+publication, assignment, voice or automatic approval. RU/KK/EN help and user docs
+explicitly distinguish implemented-but-unactivated from current production.
+
+Root public panel/editor tracers reproduced absent entry, recovery checkbox dead
+end and prior-lesson pointer residue, then corrected without changing assertions.
+Cheap client writer initially returned19 local cases but had TS2322; root found
+non-string discriminant coercion, writer reproduced19PASS/1FAIL then corrected20.
+Missing-module zero-test setup failure is not behavioral RED; ambient first test
+invocation retained, final selectors use canonical corepack pnpm10.26.1.
+Independent cheap reviewer found P2 prior-lesson pointer leakage; root successful
+GET-before-remount cleanup and its RED/GREEN regression accepted on delta review.
+No independent browser/mobile/semantic/public acceptance is inferred.
+
+Frozen A focused web46 PASS (client20/panel14/editor12); adjacent document/publication/
+approval25 and original training-log7 PASS. Full exact Vitest command
+`corepack pnpm exec vitest run --maxWorkers=4`:148 files/927 tests PASS,93.35s.
+Root prior accidental forwarded `--` selected unrelated files and was interrupted;
+its training-log assertion failure remains preserved, not a passing broad run.
+No assertion, timeout or source weakening; bounded fresh successor above passed.
+Full strict web lint and sequential typecheck PASS. Python quality1008/2201 and
+release-contract head0177/175 revisions/232 journal entries PASS. Next15.5.24 build
+PASS,67 pages, compilation27.2s (not total build duration).
+Independent A freshly passed API67/web46/scoped lint/contracts/version/diff and
+12/12 before/after hashes, but returned NOT_READY for UI-CORRECTION-P2-001:
+the display:contents fieldset broke the existing vertical spacing container even
+with the feature OFF. A receipt remains immutable, not relabeled green.
+Root successor B replaces it with a labeled, layout-preserving disabled fieldset;
+public accessibility regression actual1 RED/12 SKIP -> focused47 PASS
+(client20/panel14/editor13),5.15s. Fresh B typecheck/scoped lint and Next build67 pages
+PASS,13.5s compilation; total build elapsed NOT_AVAILABLE. The full927 suite and
+API67 are A baselines, not repeated/current-full928 claims. Independent B freshly
+passed editor13 in5.07s/scoped lint/contracts/version7/diff;12/12 hashes before/after,
+P2 closed SOURCE_LEVEL. Root parsed/read back finalized `independent-B.json`, SHA256
+`ec3dd89a1585e57a2ba0de6a5cc2ec8aeea8e7a0674a0f03b977cee8cbd96259`,
+and accepts LOCAL_ONLY. Runner197175ms includes context/report work. Browser
+visual/responsive spacing remains NOT VERIFIED. Documentation-only C corrects an
+inaccurate instruction to open source links: the panel currently displays metadata,
+not a source-file opener. Original-source inspection usability remains a live gate;
+this prose correction does not justify rerunning green product tests. Independent
+documentation-only C matched11 unchanged product hashes plus corrected doc hash,
+source/document truthfulness and diff PASS; root parsed/read back finalized receipt
+SHA256 `4bad7bb8f978f3e4573908a845a511b15dc4714c7d597af45ddf3a70f5e76010`,
+accepting LOCAL_DOCUMENTATION_ONLY. Runner137009ms includes context/report, no tests
+rerun or source repair. A/B remain unchanged; no browser/public GO implied.
+
+Navigation: CodeGraph create-preview search2 candidates9ms/callers21 edges truncated
+to12 at21ms,994ms combined invocation; source confirmed the route and affected
+public tests. Static edges do not prove HTTP/SQL behavior. First UI sync engine2388ms/
+wrapper10821ms with excluded-path audit PASS; final source-delta sync engine1428ms/
+wrapper9747ms, audit PASS. B final sync engine1600ms/wrapper13029ms, audit PASS.
+Graphify had no remaining multi-hop question. Requested cheap worker/reviewer
+gpt-5.6-luna/medium, observed model/token counters NOT_AVAILABLE. Client correction1
+and reviewer correction1; command timings are not matched savings. ECC/CodeBurn/
+quota/cost/speed comparison NOT_AVAILABLE. Root review/rework elapsed NOT_AVAILABLE.
+Independent A turn330876ms includes context/report overhead, not fresh test duration
+or a speedup. Preserved harness corrections: literal [id] hash lookup and exact
+client .ts lint path. Runner fresh API3.06s/web4.19s are separate measurements.
+
+Next activation gates: durable pending/accounting reconciliation and retention,
+unchanged learner/current-release history evidence, real-provider source/semantic
+quality, assembled existing-free DEV migrations/flags/API+worker+frontend and
+ordinary browser/mobile recovery; only then exact Release Runner packet and protected
+production release/readback. No new billable resource, flag activation or public
+migration was performed by this UI increment.
+
+Next-slice source inventory (cheap read-only leaf, root confirmed): correction
+claim+budget estimate commits before provider resolution; interrupted requests can
+remain pending, and failure refunds refuse a different UTC month. No reconciliation
+task or correction age-cleanup exists. Assignment migration0171 is not reusable:
+it classifies assignment executions, whereas correction application has a separate
+immutable receipt and the parent remains ready. Accept a correction-specific
+reconciliation/retention impact before implementation; preserve15-minute previews,
+unexecuted-ready expiry+24hours and application receipt applied_at+90days. Never
+delete pending blindly, guess a refund month, or remove current lesson/learning
+history through metadata cleanup. Original-source opening and assembled browser
+review remain separate from these source-only inventories.
+
 ### WB-CORRECTION application DEV2026-10-05 — isolated runtime accepted, no public rollout
 
 Accepted isolated [DEV V1](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_APPLICATION_DEV_V1.md),

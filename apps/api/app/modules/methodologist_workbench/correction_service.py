@@ -161,6 +161,7 @@ def _base_response(row: LessonCorrectionPlan) -> CorrectionPreviewResponse:
         raise WorkbenchConflict("correction_record_invalid")
     return CorrectionPreviewResponse(
         plan_id=row.id,
+        revision=snapshot.revision,
         lesson_id=snapshot.context.lesson_id,
         state=row.status,
         expires_at=row.expires_at,
@@ -346,6 +347,7 @@ async def create_correction_preview(
         await db.commit()
         return CorrectionPreviewResponse(
             plan_id=snapshot.plan_id,
+            revision=snapshot.revision,
             lesson_id=body.lesson_id,
             state="ready",
             expires_at=snapshot.expires_at,
