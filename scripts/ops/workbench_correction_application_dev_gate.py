@@ -49,6 +49,14 @@ EXTRA_TABLES = (
     "content_releases",
 )
 TABLES = CLONE_TABLES + EXTRA_TABLES
+HISTORY_TABLES = ("enrollments", "quiz_attempts", "certificates")
+HISTORY_FKS = frozenset({
+    ("courses", "content_releases"), ("enrollments", "content_releases"),
+    ("enrollments", "enrollments"), ("enrollments", "users"),
+    ("quiz_attempts", "quizzes"), ("quiz_attempts", "enrollments"),
+    ("quiz_attempts", "content_releases"), ("certificates", "courses"),
+    ("certificates", "enrollments"),
+})
 MIGRATION = (
     ROOT / "apps/api/alembic/versions/0177_workbench_lesson_correction_applications.py"
 )
@@ -133,6 +141,8 @@ def failure_detail(exc):
         ROOT / "scripts/ops/workbench_correction_application_dev_checks.py",
         ROOT / "scripts/ops/workbench_correction_lifecycle_dev_checks.py",
         ROOT / "scripts/ops/workbench_correction_lifecycle_dev_gate.py",
+        ROOT / "scripts/ops/workbench_correction_history_dev_checks.py",
+        ROOT / "scripts/ops/workbench_correction_history_dev_gate.py",
         ROOT / "apps/api/alembic/versions/0178_workbench_lesson_correction_lifecycle.py",
         MIGRATION,
         ROOT / "apps/api/app/modules/methodologist_workbench/correction_application.py",
@@ -164,17 +174,21 @@ def failure_detail(exc):
     return detail
 
 
-async def clone_application_tables(connection, schema):
+async def clone_application_tables(connection, schema, *, learner_history=False):
+    if type(learner_history) is not bool:
+        raise GateBlocked("learner_history_scope_invalid")
+    extra_tables = EXTRA_TABLES + (HISTORY_TABLES if learner_history else ())
+    tables = CLONE_TABLES + extra_tables
     qualified = safe_schema(schema)
     if await connection.scalar(
         text(
             "SELECT EXISTS (SELECT 1 FROM pg_attrdef a JOIN pg_class t ON t.oid=a.adrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='public' AND t.relname=ANY(:tables) AND pg_get_expr(a.adbin,a.adrelid) ILIKE '%nextval(%')"
         ),
-        {"tables": list(EXTRA_TABLES)},
+        {"tables": list(extra_tables)},
     ):
         raise GateBlocked("sequence_dependent_clone_default")
     await clone_tables(connection, schema)
-    for table in EXTRA_TABLES:
+    for table in extra_tables:
         await connection.execute(
             text(
                 f"CREATE TABLE {qualified}.{table} (LIKE public.{table} INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES)"
@@ -208,14 +222,14 @@ async def clone_application_tables(connection, schema):
         WHERE c.contype='f' AND ns.nspname='public' AND nd.nspname='public'
         AND src.relname=ANY(:tables) AND dst.relname=ANY(:tables)
         ORDER BY src.relname,c.conname"""),
-            {"tables": list(TABLES)},
+            {"tables": list(tables)},
         )
     ).all()
     found = set()
     for source, target, name, definition, deferred, validated in rows:
         if (
-            source not in TABLES
-            or target not in TABLES
+            source not in tables
+            or target not in tables
             or not re.fullmatch(r"[a-z_][a-z0-9_]*", name)
         ):
             raise GateBlocked("unsafe_catalog_foreign_key")
@@ -238,7 +252,8 @@ async def clone_application_tables(connection, schema):
         if actual != rewritten.replace(f"{qualified}.", ""):
             raise GateBlocked("foreign_key_definition_drift")
         found.add((source, target))
-    if not REQUIRED_FKS <= found:
+    required_fks = REQUIRED_FKS | (HISTORY_FKS if learner_history else frozenset())
+    if not required_fks <= found:
         raise GateBlocked("required_foreign_key_missing")
 
 
@@ -270,9 +285,15 @@ async def run_gate(
     owner_url, runtime_url, supabase_url, schema, *,
     extra_migration=None, verifier=None, required_checks=REQUIRED_CHECKS,
     scope="workbench_correction_application_isolated_dev", migration="0177",
+    learner_history=False,
 ):
     started = monotonic()
     safe_schema(schema)
+    history_checks = {"learner_history_fixture", "learner_history_apply", "learner_history_replay", "learner_history_refusal"}
+    if type(learner_history) is not bool or (
+        learner_history and not history_checks <= required_checks
+    ):
+        raise GateBlocked("learner_history_scope_invalid")
     if not all(
         same_supabase_project(url, supabase_url) for url in (owner_url, runtime_url)
     ):
@@ -335,7 +356,10 @@ async def run_gate(
             await connection.commit()
             stage = "catalog_migration"
             await set_context(connection, schema)
-            await clone_application_tables(connection, schema)
+            if learner_history:
+                await clone_application_tables(connection, schema, learner_history=True)
+            else:
+                await clone_application_tables(connection, schema)
             checks.append("catalog_fk_exact_immediate")
             await apply_migration(connection, schema)
             await apply_0177(connection, schema)
@@ -389,7 +413,9 @@ async def run_gate(
         "source_bytes": "SYNTHETIC",
         "model": "BOUNDARY_FAKE",
         "neighbor_policies": "SYNTHETIC",
-        "learner_history": "NOT_VERIFIED",
+        "learner_history": "VERIFIED" if learner_history and failure is None
+        and readback_failure is None and cleaned and neutral
+        and set(checks) == required_checks else "NOT_VERIFIED",
         "semantic_quality": "NOT_VERIFIED",
         "production": "UNCHANGED",
     }

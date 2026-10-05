@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-10-05.
+> Обновлено: 2026-10-06.
 
 ## Источники правды
 
@@ -24,6 +24,19 @@
 
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
+
+## Correction DEV preparation2026-10-06 — no public activation
+
+Canonical read-only DEV public-schema gate freshly found0175 and refused expected
+0178; this is an explicit additive-upgrade gate, not an access failure. New local
+DEV controllerV5 accepts correction flags with exact0178 receipt, complete9-flag
+inventory and unchanged existing Free/Hobby targets. No provider writes or public
+migration were executed. Owned synthetic learner-history proof27/35 source hashes/
+exact cleanup/public-neutrality and independent local149/source16 PASS. Final
+CI-only successor independently3 PASS with47 source bindings; no independent SQL execution or public-policy
+equivalence is claimed. Existing production38 boundary below is a dated
+release record, not fresh production readback. Exact contracts and execution
+state are in the methodologist module index and approved AI-driven plan.
 
 ## Current client38 boundary,2026-10-05 — RELEASED; bounded document acceptance PASS
 

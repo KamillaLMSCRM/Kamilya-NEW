@@ -67,7 +67,7 @@ async def release_and_drain(unlock, task, primary_error=None):
         raise unlock_error
 
 
-async def verify_application(owner_engine, runtime_engine, schema, checks):
+async def verify_application(owner_engine, runtime_engine, schema, checks, *, history_probe=None):
     from app.models.document import Document
     from app.models.registry import load_all_models
     from app.models.tenant_settings import TenantSettings
@@ -356,6 +356,8 @@ async def verify_application(owner_engine, runtime_engine, schema, checks):
                 )
             )
             await db.commit()
+        if history_probe is not None:
+            await history_probe("seed", SimpleNamespace(course=c, quiz=z), sql, actor)
         llm = FakeLLM(content, len(references))
 
         async def resolver(_tenant):
@@ -570,6 +572,8 @@ async def verify_application(owner_engine, runtime_engine, schema, checks):
             "duplicate_application",
         )
         checks += ["apply_read_review_invalidation", "same_plan_concurrent_once"]
+        if history_probe is not None:
+            await history_probe("apply", case, sql, actor)
 
         # Deterministic busy path: a real owner row lock, not transport latency.
         busy_case = await scenario()
@@ -622,11 +626,15 @@ async def verify_application(owner_engine, runtime_engine, schema, checks):
             "replay_overwrote",
         )
         checks.append("replay_after_later_edit")
+        if history_probe is not None:
+            await history_probe("replay", case, sql, actor)
         await expect_refusal(
             case,
             "wrong_seal_refused",
             confirmation=case.confirmation.model_copy(update={"fingerprint": "a" * 64}),
         )
+        if history_probe is not None:
+            await history_probe("refusal", case, sql, actor)
         for identity, label in (
             (actor.model_copy(update={"actor_id": sibling_id}), "sibling_refused"),
             (
@@ -904,6 +912,10 @@ async def verify_application(owner_engine, runtime_engine, schema, checks):
             else:
                 raise GateBlocked("populated_downgrade_accepted")
         checks.append("populated_downgrade_refused")
+        if history_probe is not None:
+            # The opt-in0178 contour retains its receipt policy and evidence.
+            # The original0177 default contour still proves empty down/up below.
+            return
         await sql(f"DELETE FROM {q}.workbench_lesson_correction_applications")
         async with owner_engine.begin() as db:
             await set_context(db, schema)

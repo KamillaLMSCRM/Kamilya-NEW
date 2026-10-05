@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add strict V5 DEV activation packets for lesson correction, exact schema0178
+  evidence and independent workbench/document/correction flags. All nine flag
+  inventories precede writes; new keys use single-key idempotent writes with
+  immediate readback and stop on first failure. Legacy V1-V4 are unchanged.
+  This is deployment tooling, not a new public activation or production release.
+- Add opt-in synthetic learner-history proof around actual correction application:
+  completed release-bound enrollment/attempt and active certificate, all-column
+  preservation across apply/replay/refusal, exact catalog-bound local FKs and35
+  critical source bindings. Original default verifier contours are unchanged;
+  owned synthetic runtime27 and local independent149 are accepted, while public
+  activation/browser/provider semantics remain separately gated.
 - Add correction-owned durable estimate accounting and bounded metadata maintenance
   in additive0178: separate admission/pre-provider/result commits, exact original
   UTC-month refunds, conservative interrupted-outcome reconciliation, unexecuted

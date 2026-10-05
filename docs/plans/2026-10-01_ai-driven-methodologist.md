@@ -10,6 +10,73 @@
 WB-CORRECTION;
 ASR/телефон идут отдельно через quality/data/capacity gates.
 
+### Continuation2026-10-06 — DEV activation and learner-history gates
+
+Accepted correction DEV activationV1 before controller writes. Strict V5 adds
+lesson_correction_enabled and exact public-schema0178 receipt; correction and
+document drafting independently require workbench when true. Inventory all9
+flags before any setter; immediate single-key readback/idempotent skips and
+first-failure stop; no blind rollback or billing/resource changes. LegacyV1-V4
+never invoke correction methods. Three root tracers were RED before the minimal
+implementation; cheap test writer added guards and explicit dependency/order
+proofs. Final controller neighbors97 PASS; source-only independent review found
+no remaining behavior defect. Root scoped lint and quality1008/2201 PASS.
+
+Learner-history inventory correctly found the older fixture did not clone or
+populate enrollments/attempts/certificates. Its old NOT_VERIFIED claim stays.
+Accepted learner-history proofV1 before writes: exact opt-in3-table clone with
+catalog local FKs, one completed release-bound enrollment/attempt and active
+certificate, current release pointer set before preview. Hash all columns and
+release metadata across concurrent apply/replay, later-edit replay and wrong
+seal refusal. Default application/lifecycle contours stay unchanged. Opt-in0178
+matrix is27:23 application checks plus4 history checks, excluding only the old
+empty0177 down/up because it removes0178 receipt policy. No timeout/ACL/guard
+weakening, public rows or provider call. Independent review caught missing
+critical helper hashes before runtime; manifest widened to35 and re-review
+accepted. Root history tracer initially lacked its ops import path (harness),
+fixed scoped test import; root combined119 PASS before cheap expansion, cheap
+history/default/lifecycle selection49 PASS after four fixture KeyErrors were
+corrected. Those fixture failures are not product RED.
+
+Fresh canonical publicDEV schema gate (read-only) refused0175→0178 as an expected
+upgrade requirement, not access failure. No --apply or provider write performed.
+Root owned runtime-A passed exact27 checks in564.188s, peak3, cleanup/fresh schema
+absence/public metadata neutrality and null failures. Root parsed the receipt,
+matched exact required check set and all35 current critical source hashes:
+runtime-A.json SHA256ab65568465a4f6163100c012980bc9ced001a6d0cdc9a6579c13f068df69ae9f.
+This confirms populated synthetic learner-record preservation, not public-policy
+equivalence or a real signed PDF. Original bytes/model/neighbor policies remain
+synthetic. Independent Test & Evidence Runner A freshly149/quality/source16 PASS,
+352872ms completed turn. Report SHA256
+4b1fd409f18159bdd2c58f91a8cd093bf4d66ffd08f921a90fa27f88d95d94c0.
+Its first report readback caught an abbreviated digest; corrected before final
+acceptance, failed command remains in root-local-A-command-readback.json. A used
+abbreviated command labels despite the packet: root additive readback preserves
+all7 actual successful command items from turn01a10e51-158f-7673-902b-2e7b26f6780c,
+no test rerun or original report mutation. Root first runtime metadata readback
+miscounted PSObject.Properties; corrected with array cardinality, no DB/source
+rerun. Final CI history selector tracer1FAIL/2PASS->3PASS; all146 other tests/source
+unchanged and hash-linked. Runner B verifies this CI-only delta and the supplied
+runtime artifact with47 source bindings; finalB passed3 fresh CI cases and all47
+bindings,146 tests hash-linked and35 runtime-source hashes matched. B receipt
+SHA25663b6176cb92fd30758c1ab3e47ddaeda085921f9483e263446bff0ad950d76c9,
+235668ms tool turn; B copied A's report timestamp, so chronology uses the actual
+tool turn1791242148->1791242384, not that field. Root additive acceptance-AB
+preserves this discrepancy, all previous failures and exact source/runtime
+boundaries without rerun. Root accepts LOCAL + OWNED_SYNTHETIC_DEV only.
+Release Runner will receive only a complete immutable source-CI/schema/provider/
+rollback-bound packet. Real-provider semantics/browser/full production remain open.
+
+Navigation: CodeGraph1.6.1 search narrowed DevReleaseController to12 of35
+candidates; class callers refused unique-function resolution (SOURCE_FALLBACK),
+zero validator callers was not dead-code proof. Clone helper search/caller8/8ms
+found run_gate and was confirmed in source. One final relevant source sync
+1669ms engine/9608ms wrapper, excluded-path audit PASS; changed helper's two
+conditional call sites18ms. These are static candidates, not DB/runtime proof.
+Graphify KEEP_LOCAL: no unresolved multi-hop relationship. ECC/CodeBurn and
+token/cost savings, matched speedup NOT_AVAILABLE. Cheap review/test writers used;
+root owns contracts/shared integration/SQL, persistent Runner owns local ledger.
+
 Историческая подготовка: текстовый assignment slice закрыт выпуском backend29/
 schema174 на2026-10-02, включая живую проверку и штатную очистку A/B; native
 frontend28 сохранён. Это датированное release evidence, не новое runtime readback.

@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-05.
+Current as of: 2026-10-06.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -6234,6 +6234,15 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   exit checks after cmdlets, no source/SQL rerun for a metadata-only correction,
   no relabeling partial/failed runs or treating static review as runtime approval.
 
+- Recurrence2026-10-06: activation/history Runner A passed149 but abbreviated
+  command labels; first finalization rejected a manually shortened controller
+  digest, fixed before final acceptance. Root preserved actual7 successful command
+  items plus the failed finalization in additive readback. Successor B passed3
+  fresh CI/47 bindings and inspected root runtime27/35, but copied A's timestamp.
+  Root retains B byte-for-byte and records chronology from its actual tool turn.
+  Do not hand-transcribe hashes or reuse another report's timestamp; derive
+  metadata from the manifest/current clock and capture full executed commands.
+
 ## WB-CORRECTION-005 - Maintenance reported stale action after safe settlement
 
 - Date: 2026-10-05; correction lifecycle0178, owned synthetic DEV only.
@@ -6255,3 +6264,22 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   not a pre-lock candidate. Model the cursor prefetch boundary in a genuine owned
   interleaving, assert state plus returned action, and drain before exact cleanup.
   Fixture failures must never be relabeled as product RED.
+
+## TEST-INFRA-018 - Learner-history gate omitted critical imported source bindings
+
+- Date: 2026-10-06; source-only review before the first owned history runtime.
+- Symptom: the new proof's source_unchanged could remain true if clone, RLS,
+  cleanup or identity helpers changed during execution; older correction
+  fixtures also intentionally left learner-history NOT_VERIFIED.
+- Cause: initial manifest inherited the lifecycle source set without the
+  correction/document/source-actuality helpers defining its execution boundary.
+- Fix: bind35 exact critical gate, migration, model and application-owner sources
+  before/after the run; explicit opt-in real nonempty enrollment/attempt/certificate
+  oracle, preserving old default contours and historical evidence labels.
+- Verification: independent source re-review closed the manifest defect before
+  runtime; source_hashes reads35 unique files, matrix27, scoped Ruff PASS. Actual
+  owned runtime27/35 exact hashes/cleanup/public-neutrality and independent
+  local149/source16 PASS; no public activation/provider-quality equivalence.
+- Prevention: freeze safety/clone/cleanup/identity dependencies, not only the
+  feature file. Require populated historical rows and full-column fingerprints;
+  never turn an empty fixture, supplied receipt or source review into runtime GO.

@@ -125,6 +125,20 @@ Isolated public-corpus ASUS benchmark only, no LMS speech runtime authority:
 decoder-policy comparison only, natural/domain quality and production gates open.
 Execution sequence/progress: [plan](../../../plans/2026-10-01_ai-driven-methodologist.md).
 
+Assembled DEV correction preparation2026-10-06:
+[DEV-ACTIVATION V1](contracts/LESSON_CORRECTION_DEV_ACTIVATION_V1.md) adds strict
+V5/schema0178 and independent correction flags, preserving V1-V4.
+[LEARNER-HISTORY PROOF V1](contracts/LESSON_CORRECTION_LEARNER_HISTORY_PROOF_V1.md)
+adds an opt-in real synthetic completed-history fixture and all-column
+preservation oracle. Local controller97 and scoped quality PASS; independent
+source review accepted after widening the exact critical-source manifest to35.
+Root owned runtime27/35 critical sources/cleanup/public-neutrality PASS; independent
+Runner local149/source16 PASS. Final CI history selector3 PASS; Runner successor
+passed CI-only delta3/47 bindings and supplied runtime artifact. This is not public GO or
+neighbor-policy equivalence; original bytes/model/neighbor policies are synthetic.
+Fresh canonical publicDEV schema inspection returned0175, requiring an explicit
+separate additive schema gate before V5 preparation; production is unchanged.
+
 The original foundation remains pure. The accepted assignment addenda add
 default-disabled API/UI and persistence. Accepted compatibility A26/API and
 A27/frontend were compatible OFF predecessors. Supabase DEV and production

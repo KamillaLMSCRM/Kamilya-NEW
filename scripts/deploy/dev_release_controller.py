@@ -30,15 +30,19 @@ PACKET_SCHEMA = "kamilya-dev-release-v1"
 ACTIVATION_SCHEMA = "kamilya-dev-release-v2"
 PURGE_ACTIVATION_SCHEMA = "kamilya-dev-release-v3"
 DOCUMENT_ACTIVATION_SCHEMA = "kamilya-dev-release-v4"
+CORRECTION_ACTIVATION_SCHEMA = "kamilya-dev-release-v5"
 ACTIVATION_REVISIONS = {
     ACTIVATION_SCHEMA: "0172",
     PURGE_ACTIVATION_SCHEMA: "0173",
     DOCUMENT_ACTIVATION_SCHEMA: "0175",
+    CORRECTION_ACTIVATION_SCHEMA: "0178",
 }
 API_WORKBENCH_KEY = "METHODOLOGIST_WORKBENCH_ENABLED"
 WEB_WORKBENCH_KEY = "NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED"
 API_DOCUMENT_DRAFT_KEY = "METHODOLOGIST_DOCUMENT_DRAFT_ENABLED"
 WEB_DOCUMENT_DRAFT_KEY = "NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED"
+API_CORRECTION_KEY = "METHODOLOGIST_LESSON_CORRECTION_ENABLED"
+WEB_CORRECTION_KEY = "NEXT_PUBLIC_METHODOLOGIST_LESSON_CORRECTION_ENABLED"
 DEV_PROJECT_REF_SHA256 = "5b535773cb7222384bbb54ad3f8c2e741fa6176bec4ce586abcd82d17ee0062e"
 
 
@@ -114,6 +118,10 @@ class ProviderAdapter(Protocol):
     def document_draft_flags(self, packet: Mapping[str, Any]) -> Mapping[str, bool]: ...
 
     def set_document_draft_flags(self, packet: Mapping[str, Any], enabled: bool) -> list[str]: ...
+
+    def correction_flags(self, packet: Mapping[str, Any]) -> Mapping[str, bool]: ...
+
+    def set_correction_flags(self, packet: Mapping[str, Any], enabled: bool) -> list[str]: ...
 
 
 class LiveProviderAdapter:
@@ -403,17 +411,20 @@ class LiveProviderAdapter:
         return changed
 
     def _render_document_value(self, packet: Mapping[str, Any], service: str) -> bool:
+        return self._render_feature_value(service, API_DOCUMENT_DRAFT_KEY, "document")
+
+    def _render_feature_value(self, service: str, key: str, label: str) -> bool:
         result = self._render_document_inventory(service)
         matches = []
         for row in result:
             env = row["envVar"]
-            if env.get("key") == API_DOCUMENT_DRAFT_KEY:
+            if env.get("key") == key:
                 matches.append(env)
         if len(matches) > 1:
-            raise DevReleaseBlocked("render_document_flag_duplicate")
+            raise DevReleaseBlocked(f"render_{label}_flag_duplicate")
         if not matches:
             return False
-        return _literal_flag(matches[0].get("value"), reason="document_flag_not_literal")
+        return _literal_flag(matches[0].get("value"), reason=f"{label}_flag_not_literal")
 
     def _render_document_inventory(self, service: str) -> list[Mapping[str, Any]]:
         rows: list[Mapping[str, Any]] = []
@@ -450,28 +461,31 @@ class LiveProviderAdapter:
         }
 
     def _vercel_document_value(self, packet: Mapping[str, Any]) -> bool:
+        return self._vercel_feature_value(packet, WEB_DOCUMENT_DRAFT_KEY, "document")
+
+    def _vercel_feature_value(self, packet: Mapping[str, Any], key: str, label: str) -> bool:
         result = self._http_json(self._vercel_flag_url(packet), self.vercel_token)
         rows = result.get("envs") if isinstance(result, Mapping) else None
         if not isinstance(rows, list) or len(rows) > 512:
-            raise DevReleaseBlocked("vercel_document_flag_inventory_invalid")
+            raise DevReleaseBlocked(f"vercel_{label}_flag_inventory_invalid")
         if any(not isinstance(row, Mapping) or not isinstance(row.get("key"), str)
                or not isinstance(row.get("target"), list)
                or any(not isinstance(target, str) for target in row["target"])
                for row in rows):
-            raise DevReleaseBlocked("vercel_document_flag_inventory_invalid")
+            raise DevReleaseBlocked(f"vercel_{label}_flag_inventory_invalid")
         matches = [
             row for row in rows
             if isinstance(row, Mapping)
-            and row.get("key") == WEB_DOCUMENT_DRAFT_KEY
+            and row.get("key") == key
             and "production" in row.get("target", [])
         ]
         if len(matches) > 1:
-            raise DevReleaseBlocked("vercel_document_flag_duplicate")
+            raise DevReleaseBlocked(f"vercel_{label}_flag_duplicate")
         if not matches:
             return False
         if matches[0].get("target") != ["production"] or matches[0].get("type") != "plain":
-            raise DevReleaseBlocked("vercel_document_flag_scope_ambiguous")
-        return _literal_flag(matches[0].get("value"), reason="document_flag_not_literal")
+            raise DevReleaseBlocked(f"vercel_{label}_flag_scope_ambiguous")
+        return _literal_flag(matches[0].get("value"), reason=f"{label}_flag_not_literal")
 
     def set_document_draft_flags(self, packet: Mapping[str, Any], enabled: bool) -> list[str]:
         if type(enabled) is not bool:
@@ -495,6 +509,39 @@ class LiveProviderAdapter:
             )
             if self._vercel_document_value(packet) is not enabled:
                 raise DevReleaseBlocked("frontend_document_flag_readback_mismatch")
+            changed.append("frontend")
+        return changed
+
+    def correction_flags(self, packet: Mapping[str, Any]) -> Mapping[str, bool]:
+        cfg = _require_mapping(packet, "render")
+        return {
+            "api": self._render_feature_value(str(cfg["api_service_id"]), API_CORRECTION_KEY, "correction"),
+            "worker": self._render_feature_value(str(cfg["worker_service_id"]), API_CORRECTION_KEY, "correction"),
+            "frontend": self._vercel_feature_value(packet, WEB_CORRECTION_KEY, "correction"),
+        }
+
+    def set_correction_flags(self, packet: Mapping[str, Any], enabled: bool) -> list[str]:
+        if type(enabled) is not bool:
+            raise DevReleaseBlocked("lesson_correction_enabled_invalid")
+        before = self.correction_flags(packet)
+        literal = "true" if enabled else "false"
+        cfg = _require_mapping(packet, "render")
+        changed = []
+        for label, field in (("api", "api_service_id"), ("worker", "worker_service_id")):
+            if before[label] is enabled:
+                continue
+            url = self._render_flag_url(str(cfg[field])).replace(API_WORKBENCH_KEY, API_CORRECTION_KEY)
+            self._http_json(url, self.render_token, method="PUT", body={"value": literal})
+            if self._render_feature_value(str(cfg[field]), API_CORRECTION_KEY, "correction") is not enabled:
+                raise DevReleaseBlocked(f"{label}_correction_flag_readback_mismatch")
+            changed.append(label)
+        if before["frontend"] is not enabled:
+            self._http_json(
+                self._vercel_flag_url(packet) + "&upsert=true", self.vercel_token,
+                method="POST", body={"key": WEB_CORRECTION_KEY, "value": literal, "type": "plain", "target": ["production"]},
+            )
+            if self._vercel_feature_value(packet, WEB_CORRECTION_KEY, "correction") is not enabled:
+                raise DevReleaseBlocked("frontend_correction_flag_readback_mismatch")
             changed.append("frontend")
         return changed
 
@@ -659,8 +706,10 @@ def validate_packet(data: Mapping[str, Any]) -> dict[str, Any]:
     expected = {"schema", "release_id", "release_sha", "expected_previous_sha", "repository", "branch", "migration_scope", "github", "vercel", "render"}
     if schema in ACTIVATION_REVISIONS:
         expected.update({"workbench_enabled", "configuration_ci_run_id", "schema_evidence"})
-    if schema == DOCUMENT_ACTIVATION_SCHEMA:
+    if schema in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA}:
         expected.add("document_draft_enabled")
+    if schema == CORRECTION_ACTIVATION_SCHEMA:
+        expected.add("lesson_correction_enabled")
     if set(data) != expected:
         raise DevReleaseBlocked("release_packet_unknown_or_missing_fields")
     if data.get("repository") != "KamillaLMSCRM/Kamilya-NEW":
@@ -668,11 +717,16 @@ def validate_packet(data: Mapping[str, Any]) -> dict[str, Any]:
     if schema in ACTIVATION_REVISIONS:
         if type(data.get("workbench_enabled")) is not bool:
             raise DevReleaseBlocked("packet_workbench_enabled_invalid")
-        if schema == DOCUMENT_ACTIVATION_SCHEMA:
+        if schema in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA}:
             if type(data.get("document_draft_enabled")) is not bool:
                 raise DevReleaseBlocked("packet_document_draft_enabled_invalid")
             if data["document_draft_enabled"] and not data["workbench_enabled"]:
                 raise DevReleaseBlocked("document_draft_requires_workbench_enabled")
+        if schema == CORRECTION_ACTIVATION_SCHEMA:
+            if type(data.get("lesson_correction_enabled")) is not bool:
+                raise DevReleaseBlocked("packet_lesson_correction_enabled_invalid")
+            if data["lesson_correction_enabled"] and not data["workbench_enabled"]:
+                raise DevReleaseBlocked("lesson_correction_requires_workbench_enabled")
         if type(data.get("configuration_ci_run_id")) is not int or data["configuration_ci_run_id"] <= 0:
             raise DevReleaseBlocked("configuration_ci_run_id_invalid")
         evidence = _require_mapping(data, "schema_evidence")
@@ -793,6 +847,14 @@ class DevReleaseController:
             raise DevReleaseBlocked("provider_document_flag_shape_invalid")
         return flags
 
+    def _correction_flags(self) -> dict[str, bool]:
+        flags = dict(self.providers.correction_flags(self.packet))
+        if set(flags) != {"api", "worker", "frontend"} or any(
+            type(value) is not bool for value in flags.values()
+        ):
+            raise DevReleaseBlocked("provider_correction_flag_shape_invalid")
+        return flags
+
     def _configuration(self) -> dict[str, Any]:
         if self.packet["schema"] not in ACTIVATION_REVISIONS:
             return {}
@@ -803,13 +865,21 @@ class DevReleaseController:
             "requested_workbench_enabled": self.packet["workbench_enabled"],
             "observed_flags": flags, "evidence_source": "provider_configuration_not_runtime",
         }
-        if self.packet["schema"] == DOCUMENT_ACTIVATION_SCHEMA:
+        if self.packet["schema"] in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA}:
             document_flags = self._document_flags()
             if any(value is not self.packet["document_draft_enabled"] for value in document_flags.values()):
                 raise DevReleaseBlocked("provider_document_flag_mismatch_prepare_required")
             result.update({
                 "requested_document_draft_enabled": self.packet["document_draft_enabled"],
                 "observed_document_flags": document_flags,
+            })
+        if self.packet["schema"] == CORRECTION_ACTIVATION_SCHEMA:
+            correction_flags = self._correction_flags()
+            if any(value is not self.packet["lesson_correction_enabled"] for value in correction_flags.values()):
+                raise DevReleaseBlocked("provider_correction_flag_mismatch_prepare_required")
+            result.update({
+                "requested_lesson_correction_enabled": self.packet["lesson_correction_enabled"],
+                "observed_correction_flags": correction_flags,
             })
         return result
 
@@ -831,20 +901,27 @@ class DevReleaseController:
         if self.providers.remote_branch_sha(repository, "dev") != self.packet["expected_previous_sha"]:
             raise DevReleaseBlocked("configuration_dev_previous_sha_mismatch")
         self._verify_provider_contract()
-        document_before = self._document_flags() if self.packet["schema"] == DOCUMENT_ACTIVATION_SCHEMA else {}
+        document_before = self._document_flags() if self.packet["schema"] in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA} else {}
+        correction_before = self._correction_flags() if self.packet["schema"] == CORRECTION_ACTIVATION_SCHEMA else {}
         before = self._flags()
         enabled = self.packet["workbench_enabled"]
         changed = self.providers.set_workbench_flags(self.packet, enabled) if any(value is not enabled for value in before.values()) else []
         document_changed: list[str] = []
-        if self.packet["schema"] == DOCUMENT_ACTIVATION_SCHEMA:
+        if self.packet["schema"] in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA}:
             document_enabled = self.packet["document_draft_enabled"]
             if any(value is not document_enabled for value in document_before.values()):
                 document_changed = self.providers.set_document_draft_flags(self.packet, document_enabled)
+        correction_changed: list[str] = []
+        if self.packet["schema"] == CORRECTION_ACTIVATION_SCHEMA:
+            correction_enabled = self.packet["lesson_correction_enabled"]
+            if any(value is not correction_enabled for value in correction_before.values()):
+                correction_changed = self.providers.set_correction_flags(self.packet, correction_enabled)
         configuration = self._configuration()
         return self._bounded({
             "status": "CONFIGURATION_READY", "release_id": self.packet["release_id"],
             "release_sha": sha, "before_flags": before, "changed_labels": changed,
             **({"before_document_flags": document_before, "document_changed_labels": document_changed} if document_before else {}),
+            **({"before_correction_flags": correction_before, "correction_changed_labels": correction_changed} if correction_before else {}),
             "configuration": configuration, "schema_evidence_sha256": self.packet["schema_evidence"]["sha256"],
             "product_go": "NOT_VERIFIED_UNTIL_EXACT_DEPLOY_AND_LIVE_TEST", "billing_changed": False,
         })
