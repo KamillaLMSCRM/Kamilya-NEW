@@ -129,6 +129,43 @@ def test_selected_deadline_claim_keeps_its_deadline_axis() -> None:
     assert axis.axis_kind == "numeric_value"
 
 
+@pytest.mark.parametrize("claim", [
+    "Сотрудник не должен подменять результат проверки фразой «всё хорошо», если в документах зафиксировано частичное принятие.",
+    "Сотрудник должен зарегистрировать деньги в журнале.",
+    "Сотрудник должен сверить дневник передачи смены.",
+])
+def test_non_temporal_word_prefix_does_not_create_a_deadline_axis(claim: str) -> None:
+    fact = SourceFact("fact-non-time", "Закрытие проверки", "срок", claim,
+                      "doc_id=policy;section=closing;part=1")
+    lesson = LessonDraft("lesson-non-time", "Правила", "Закрытие проверки",
+                         "Применять правило", claim, (fact.fact_id,), (), 2)
+    axis = derive_assessment_axes(lesson, [fact], block_id="block-non-time")[0]
+    assert axis.attribute == "обязанность"
+    assert axis.axis_kind == "rule_value"
+    question = materialize_assessment(axis, AuthoredAssessment(
+        axis_id=axis.axis_id, prompt="Какое правило должен соблюдать сотрудник?",
+        distractors=("Удалить исходную запись из журнала.", "Заменить запись устным сообщением."),
+    ))
+    assert question is not None
+    assert "параметр «срок»" not in question.explanation
+    assert claim in question.explanation
+
+
+@pytest.mark.parametrize("duration", [
+    "тридцати минут", "одной минуты", "минуту", "часа", "двух часов",
+    "рабочего дня", "рабочих дней", "одного месяца", "двух месяцев",
+])
+def test_inflected_temporal_units_remain_deadline_axes(duration: str) -> None:
+    claim = f"Сообщить руководителю в течение {duration}."
+    fact = SourceFact("fact-time", "Эскалация", "положение", claim,
+                      "doc_id=policy;section=escalation;part=1")
+    lesson = LessonDraft("lesson-time", "Правила", "Эскалация", "Сообщать вовремя",
+                         claim, (fact.fact_id,), (), 2)
+    axis = derive_assessment_axes(lesson, [fact], block_id="block-time")[0]
+    assert axis.attribute == "срок"
+    assert axis.axis_kind == "numeric_value"
+
+
 def test_materialization_rejects_a_distractor_equivalent_to_the_server_key() -> None:
     lesson, fact = _fixture()
     axis = derive_assessment_axes(lesson, [fact], block_id="block-1")[0]

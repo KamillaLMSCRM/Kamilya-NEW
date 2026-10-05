@@ -9,6 +9,7 @@ from pathlib import Path
 from openpyxl import load_workbook  # type: ignore[import-untyped]
 
 from .models import SourceDocument, SourceFact, SourceSection
+from .temporal_units import has_temporal_unit
 
 _GENERIC_MATRIX_HEADERS = {
     "поле",
@@ -305,7 +306,7 @@ def narrative_document_from_pages(
 
 def _narrative_attribute(sentence: str) -> str:
     normalized = sentence.casefold().replace("ё", "е")
-    if re.search(r"\b(?:дн|дня|дней|месяц|месяца|месяцев|час|часов|срок)\w*\b", normalized):
+    if has_temporal_unit(normalized) or re.search(r"\bсрок\w*\b", normalized):
         return "срок"
     if re.search(r"\b(?:процент|ставк|вознагражден|тенге|сумм)\w*\b", normalized):
         return "финансовое условие"

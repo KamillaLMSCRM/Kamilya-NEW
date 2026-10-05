@@ -86,6 +86,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Detect lesson-level answer-length shortcuts before assessment acceptance and
+  use the existing single repair pass without changing source-owned keys. Failed
+  repair or a shortcut exposed by final deduplication requires explicit review.
+- Match complete inflected duration units rather than prefixes such as
+  «частичная», «деньги» or «дневник» in source and assessment classifiers.
+- Localize document-workbench controls in RU/KK/EN without aborting in-flight
+  upload or command requests when switching interface language.
 - Describe the document-to-draft workflow, source indexing, editable parameters,
   preview expiry and same-job reopening in contextual help for RU/KK/EN.
 - Preserve upload/indexing and the ready source catalogue when a methodologist

@@ -60,6 +60,7 @@ from .quality import (
 )
 from .semantic_assessment import generate_block_assessment
 from .source_blocks import is_navigation_heading, split_narrative_blocks
+from .temporal_units import has_temporal_unit
 
 ProgressCallback = Callable[[str, int, int, str | None, int | None], Awaitable[None] | None]
 CancellationCallback = Callable[[], Awaitable[None] | None]
@@ -111,6 +112,9 @@ def _finalize_assessment_publishability(
     report: PublishabilityReport, *, question_count: int, audit: dict[str, Any],
 ) -> PublishabilityReport:
     """Do not label a course ready when an assessable block lost every question."""
+    if audit.get("unresolved_quality_signals"):
+        return replace(report, publishable=False,
+                       reasons=("assessment_answer_length_signal_unresolved",))
     if question_count == 0:
         return replace(report, publishable=False, reasons=("assessment_no_valid_questions",))
     coverage = audit.get("coverage")
@@ -184,10 +188,7 @@ def _narrative_section_role(
 
 def _narrative_attribute(value: str) -> str:
     normalized = value.casefold().replace("ё", "е")
-    if re.search(
-        r"\b(?:минут|день|дня|дней|месяц|месяца|месяцев|час|часов|срок)\w*\b",
-        normalized,
-    ):
+    if has_temporal_unit(normalized) or re.search(r"\bсрок\w*\b", normalized):
         return "срок"
     if re.search(r"\b(?:процент|ставк|вознагражден|тенге|сумм)\w*\b", normalized):
         return "финансовое условие"

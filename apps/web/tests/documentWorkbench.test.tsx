@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const apiMock = { get: vi.fn(), post: vi.fn() };
+let currentLang: 'ru' | 'kk' | 'en' = 'ru';
 vi.mock('@/lib/api', () => ({ api: apiMock }));
 
 vi.mock('@/store/authStore', () => ({
@@ -12,10 +13,52 @@ vi.mock('@/store/authStore', () => ({
 }));
 
 vi.mock('@/store/languageStore', () => ({
-  useLanguageStore: (selector: (state: { lang: 'ru' }) => unknown) => selector({ lang: 'ru' }),
+  useLanguageStore: (selector: (state: { lang: 'ru' | 'kk' | 'en' }) => unknown) => selector({ lang: currentLang }),
 }));
 
 describe('DocumentWorkbench', () => {
+  afterEach(() => { currentLang = 'ru'; });
+  it('localizes the document controls and format labels for Kazakh and English while preserving wire values', async () => {
+    vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
+    apiMock.get.mockResolvedValue({ data: { items: [], page: { has_more: false } } });
+    const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
+    currentLang = 'kk';
+    const first = render(<DocumentWorkbench />);
+    expect(screen.getByRole('heading', { name: 'Құжат → курс жобасы' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Құжат жүктеу')).toBeInTheDocument();
+    expect(screen.getByLabelText('Пішім')).toHaveValue('automatic');
+    expect(screen.getByRole('option', { name: 'Қысқа' })).toHaveValue('brief');
+    first.unmount();
+    currentLang = 'en';
+    render(<DocumentWorkbench />);
+    expect(screen.getByRole('heading', { name: 'Document → course draft' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Upload document')).toBeInTheDocument();
+    expect(screen.getByLabelText('Format')).toHaveValue('automatic');
+    expect(screen.getByRole('option', { name: 'Detailed' })).toHaveValue('detailed');
+    currentLang = 'ru';
+  });
+
+  it('keeps an active upload alive when the shell locale changes', async () => {
+    vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
+    const document = { id: '00000000-0000-4000-8000-000000000001', title: 'Rules', filename: 'rules.pdf', content_type: 'application/pdf', size: 1, description: '', category: 'general', index: { status: 'ready', revision: 1 }, version: 1, is_latest: true, lifecycle_status: 'active' };
+    apiMock.get.mockResolvedValue({ data: { items: [document], page: { has_more: false } } });
+    let resolveUpload!: (value: unknown) => void;
+    apiMock.post.mockReturnValue(new Promise((resolve) => { resolveUpload = resolve; }));
+    const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
+    currentLang = 'ru';
+    const view = render(<DocumentWorkbench />);
+    const file = new File(['pdf'], 'rules.pdf', { type: 'application/pdf' });
+    fireEvent.change(screen.getByLabelText('Загрузить документ'), { target: { files: [file] } });
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalled());
+    currentLang = 'en';
+    view.rerender(<DocumentWorkbench />);
+    expect(apiMock.post.mock.calls[0][2].signal.aborted).toBe(false);
+    expect(screen.getByRole('status')).toHaveTextContent('Загрузка документа');
+    resolveUpload({ data: { id: document.id, indexing_job_id: null } });
+    await waitFor(() => expect(screen.getByText('Rules')).toBeInTheDocument());
+    currentLang = 'ru';
+  });
+
   it('starts as a feature-gated document draft surface', async () => {
     vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
     const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');

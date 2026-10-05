@@ -41,3 +41,15 @@ def test_missing_assessment_audit_is_review_required_not_a_crash() -> None:
     )
     assert not report.publishable
     assert report.reasons == ("assessment_audit_incomplete",)
+
+
+def test_length_signal_cannot_escape_by_omitting_one_of_two_questions() -> None:
+    report = _finalize_assessment_publishability(
+        _base_report(), question_count=1,
+        audit={"coverage": {"requires_review": False},
+               "block_outcomes": [{"candidates": 2, "accepted": 1}],
+               "unresolved_quality_signals": [{"lesson_id": "l1",
+                   "reason": "assessment_answer_length_signal", "question_ids": ["q1"]}]},
+    )
+    assert not report.publishable
+    assert report.reasons == ("assessment_answer_length_signal_unresolved",)

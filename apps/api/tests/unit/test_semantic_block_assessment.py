@@ -412,6 +412,97 @@ async def test_single_nonnumeric_paragraph_produces_one_question_without_peer_fa
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("repair_succeeds", [True, False])
+async def test_lesson_length_signal_gets_only_existing_single_repair_and_cannot_escape_by_omission(repair_succeeds):
+    class LengthSignalClient(Client):
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            if request["task"] not in {"assessment_generate", "assessment_repair"}:
+                return await super().ainvoke_validated(messages, parser, **kwargs)
+            self.requests.append(request)
+            repairing = request["task"] == "assessment_repair"
+            rows = []
+            for index, axis in enumerate(request["axes"]):
+                distractors = ["Принять всё сразу.", "Передать устно."]
+                if repairing and repair_succeeds:
+                    distractors = [
+                        "Отметить всю накладную как принятую и передать непринятую единицу следующей смене без отдельного отражения возврата.",
+                        "При передаче смены сотрудник сообщает о результате приемки только устно, оставляя журнал без записи и не передавая сведения о непринятых единицах товара.",
+                    ]
+                rows.append({"axis_id": axis["axis_id"],
+                             "prompt": (request["rejected"][0]["prompt"] if repairing else
+                                        f"Как выполнить обязательное действие {index + 1} при приемке?"),
+                             "distractors": distractors})
+            return SimpleNamespace(value=parser(json.dumps({"questions": rows}, ensure_ascii=False)),
+                                   attempt_count=1)
+
+    claims = [
+        "При частичной приемке нельзя отмечать всю накладную как принятую, если хотя бы одна единица возвращена.",
+        "При передаче смены сотрудник обязан записать результат приемки в журнал и передать следующей смене сведения о непринятых единицах товара.",
+    ]
+    facts = {f"f{index}": SourceFact(f"f{index}", "Приемка", "правило", claim,
+                                      "doc_id=d1;section=acceptance")
+             for index, claim in enumerate(claims)}
+    lesson = LessonDraft("l1", "Работа", "Приемка товара", "Отразить приемку",
+                         " ".join(claims), tuple(facts), (), 1)
+    client = LengthSignalClient()
+    result = await generate_block_assessment([lesson], facts, client)
+    repairs = [request for request in client.requests if request["task"] == "assessment_repair"]
+    assert len(repairs) == 1
+    assert repairs[0]["rejected"][0]["rejection_reasons"] == ["assessment_answer_length_signal"]
+    assert len(client.requests) == 6
+    if repair_succeeds:
+        assert len(result.questions) == 2
+        assert result.audit["unresolved_quality_signals"] == []
+        assert result.audit["repaired"] == 1
+    else:
+        assert len(result.questions) == 1
+        assert result.audit["unresolved_quality_signals"]
+        assert result.audit["unresolved_quality_signals"][0]["lesson_id"] == "l1"
+    assert all(question.correct_answer in claims for question in result.questions)
+
+
+@pytest.mark.asyncio
+async def test_final_deduplication_cannot_expose_an_unreported_length_signal(monkeypatch):
+    class ThreeQuestionClient(Client):
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            if request["task"] != "assessment_generate":
+                return await super().ainvoke_validated(messages, parser, **kwargs)
+            self.requests.append(request)
+            rows = [{"axis_id": axis["axis_id"],
+                     "prompt": f"Как выполнить действие {index + 1} при приемке?",
+                     "distractors": (["Принять всё сразу.", "Передать устно."] if index < 2 else
+                                     ["Ответственный сотрудник отмечает всю накладную как принятую и передает непринятую единицу следующей смене без записи в журнал.",
+                                      "Сообщить о непринятом товаре только устно."])}
+                    for index, axis in enumerate(request["axes"])]
+            assert len(rows) == 3
+            return SimpleNamespace(value=parser(json.dumps({"questions": rows}, ensure_ascii=False)), attempt_count=1)
+
+    claims = [
+        "При частичной приемке нельзя отмечать всю накладную как принятую, если хотя бы одна единица возвращена.",
+        "При передаче смены сотрудник обязан записать результат приемки в журнал и передать следующей смене сведения о непринятых единицах товара.",
+        "Сотрудник обязан записать возврат товара в журнал приемки.",
+    ]
+    facts = {f"f{index}": SourceFact(f"f{index}", "Приемка", "правило", claim,
+                                      "doc_id=d1;section=acceptance")
+             for index, claim in enumerate(claims)}
+    lesson = LessonDraft("l1", "Работа", "Приемка товара", "Отразить приемку",
+                         " ".join(claims), tuple(facts), (), 1)
+    # A deterministic duplicate-identity seam models late removal of the only
+    # non-signalling question; it must not cause another paid repair loop.
+    identities = iter([("first",), ("second",), ("first",)])
+    monkeypatch.setattr("app.modules.ai.evidence_engine.semantic_assessment._course_question_identity",
+                        lambda *_: next(identities))
+    client = ThreeQuestionClient()
+    result = await generate_block_assessment([lesson], facts, client)
+    assert len(result.questions) == 2
+    assert len(client.requests) == 3
+    assert result.audit["unresolved_quality_signals"]
+    assert result.audit["terminal_status"] == "review_required"
+
+
+@pytest.mark.asyncio
 async def test_generation_path_does_not_accept_a_model_selected_correct_key():
     class AdversarialKeyClient(Client):
         async def ainvoke_validated(self, messages, parser, **kwargs):
@@ -566,7 +657,7 @@ async def test_failed_multi_question_review_falls_back_to_isolated_reviews():
                 rows = [{
                     "axis_id": axis["axis_id"],
                     "prompt": f"Как применяется {axis['attribute']}?",
-                    "distractors": ["Другое правило", "Правило не применяется"],
+                    "distractors": OPTIONS[1:],
                 } for axis in request["axes"]]
                 return SimpleNamespace(
                     value=parser(json.dumps({"questions": rows}, ensure_ascii=False)),
@@ -665,7 +756,7 @@ async def test_failed_multi_question_constraints_keep_isolated_successes():
                 rows = [{
                     "axis_id": axis["axis_id"],
                     "prompt": f"Как применяется {axis['attribute']}?",
-                    "distractors": ["Другое правило", "Правило не применяется"],
+                    "distractors": OPTIONS[1:],
                 } for axis in request["axes"]]
                 return SimpleNamespace(
                     value=parser(json.dumps({"questions": rows}, ensure_ascii=False)),

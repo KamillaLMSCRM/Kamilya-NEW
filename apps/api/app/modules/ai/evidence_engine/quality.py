@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections import defaultdict
 
 from app.modules.ai.lesson_quality import has_unprofessional_learner_language
 
 from .models import AssessmentDraft, CourseDraft, EvidenceCourseResult, QuestionDraft
 from .provider_models import GroundedBlock, PublishabilityReport
 
-EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v3"
+EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v4"
 
 _GENERIC_QUESTION_RE = re.compile(
     r"(?:о\s+ч[её]м\s+(?:этот\s+)?(?:урок|курс|раздел|модуль)|"
@@ -225,6 +226,46 @@ def filter_acceptable_questions(questions: list[QuestionDraft]) -> list[Question
         and not question_has_ambiguous_options(question)
         and not question_has_blocked_learner_language(question)
     ]
+
+
+def answer_length_repair_targets(
+    questions: list[QuestionDraft], *, repairable_ids: set[str] | None = None,
+) -> tuple[str, ...]:
+    """Find minimal repairs when uniquely-longest choices pass a lesson quiz.
+
+    This is a quiz-level signal, not a prohibition on natural long answers.
+    Ties, including equal-length numeric choices, do not establish the signal. Never
+    change the source-owned key or manufacture words to defeat the diagnostic.
+    The default quiz pass threshold is 80 percent, including exact 80 percent.
+    """
+    by_lesson: dict[str, list[QuestionDraft]] = defaultdict(list)
+    for question in questions:
+        if (question.kind == "single_choice" and len(question.options) >= 2
+                and question.options.count(question.correct_answer) == 1):
+            by_lesson[question.lesson_id].append(question)
+    targets: list[str] = []
+    for lesson_id in sorted(by_lesson):
+        quiz = by_lesson[lesson_id]
+        if len(quiz) < 2:
+            continue
+        longest_correct: list[tuple[int, str]] = []
+        for question in quiz:
+            correct_length = len(question.correct_answer.split())
+            other_length = max(len(option.split()) for option in question.options
+                               if option != question.correct_answer)
+            if correct_length > other_length:
+                longest_correct.append((correct_length - other_length, question.question_id))
+        # Maximum hits strictly below the existing passing score.
+        needed = len(longest_correct) - (80 * len(quiz) - 1) // 100
+        if needed <= 0:
+            continue
+        eligible = sorted(
+            ((gap, identity) for gap, identity in longest_correct
+             if repairable_ids is None or identity in repairable_ids),
+            key=lambda item: (-item[0], item[1]),
+        )
+        targets.extend(identity for _, identity in eligible[:needed])
+    return tuple(targets)
 
 
 def evaluate_plan_preflight(result: EvidenceCourseResult) -> tuple[str, ...]:

@@ -21,6 +21,7 @@ from .models import (
     SourceFact,
     is_tabular_locator,
 )
+from .temporal_units import has_temporal_unit
 
 
 def _norm(text: str) -> str:
@@ -187,14 +188,10 @@ _AUTO_NARRATIVE_ATTRIBUTES = {
     "положение",
 }
 
-
 def _claim_attribute(value: str) -> str:
     """Classify the exact claim selected from a larger narrative evidence unit."""
     normalized = _norm(value)
-    if re.search(
-        r"\b(?:минут|день|дня|дней|месяц|месяца|месяцев|час|часов|срок)\w*\b",
-        normalized,
-    ):
+    if has_temporal_unit(normalized) or re.search(r"\bсрок\w*\b", normalized):
         return "срок"
     if re.search(r"\b(?:процент|ставк|вознагражден|тенге|сумм)\w*\b", normalized):
         return "финансовое условие"
@@ -219,7 +216,7 @@ def _axis_attribute(fact: SourceFact, correct_value: str) -> str:
 
 def _axis_kind(attribute: str, value: str) -> AssessmentAxisKind:
     value = _norm(value)
-    if re.search(r"\d|%|\b(?:минут|час|дн|день|месяц)", value):
+    if re.search(r"\d|%", value) or has_temporal_unit(value):
         return "numeric_value"
     if re.search(
         r"\b(?:правил|требован|запрещ|нельзя|долж|разреш|обязат)",

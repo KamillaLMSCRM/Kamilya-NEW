@@ -30,6 +30,7 @@ from .models import (
     is_tabular_locator,
 )
 from .quality import (
+    answer_length_repair_targets,
     contains_internal_generation_instruction,
     filter_acceptable_questions,
     question_has_incomplete_correct_answer,
@@ -66,6 +67,11 @@ include conditions/exceptions relevant to the question, never invent policy.
 Explain the content of each misconception; never refer to an answer by its
 option/variant number or position because the server may reorder options.
 Avoid answer-length giveaways and nearly identical alternatives.
+When rejection_reasons contains assessment_answer_length_signal, repair the
+plausible misconceptions so their informative detail is comparable to the
+immutable source_claim. At least one wrong option should be naturally longer
+than the source_claim without filler, cosmetic padding, irrelevant details,
+invented policy or repeated justifications. Never shorten or change the key.
 Each wrong option must represent a DISTINCT misconception, not the same wrong
 action with three cosmetic justifications. Prefer 3 strong options over 4 weak.
 Use 3 options by default. Each wrong option must contradict this block, not merely
@@ -877,6 +883,7 @@ async def generate_block_assessment(
                     break
 
     accepted: list[QuestionDraft] = []
+    length_signal_targets: dict[str, str] = {}
     audit: dict[str, Any] = {"policy": "semantic-block-v1", "blocks": len(prepared_groups),
                            "candidates": 0, "accepted": 0, "repaired": 0,
                            "dropped": 0, "removed_distractors": 0,
@@ -1312,6 +1319,14 @@ async def generate_block_assessment(
                     rejection_reasons[question.question_id].append("unsupported_replacement_advice")
                     continue
                 good.append(question)
+            length_targets = set(answer_length_repair_targets(
+                [*accepted, *good], repairable_ids={q.question_id for q in good},
+            ))
+            for question in good:
+                if question.question_id in length_targets:
+                    rejection_reasons[question.question_id].append("assessment_answer_length_signal")
+                    length_signal_targets[question.question_id] = question.lesson_id
+            good = [q for q in good if q.question_id not in length_targets]
             accepted.extend(good)
             if round_index:
                 audit["repaired"] += len(good)
@@ -1433,6 +1448,20 @@ async def generate_block_assessment(
         unique[identity] = replace(q, options=shuffled)
         if axis_id is not None:
             axis_records[axis_id].update(state="retained", reason="")
+    final_questions = list(unique.values())
+    final_ids = {q.question_id for q in final_questions}
+    unresolved_ids = {identity for identity in length_signal_targets if identity not in final_ids}
+    unresolved_ids.update(answer_length_repair_targets(final_questions))
+    lesson_by_question = {**length_signal_targets,
+                          **{q.question_id: q.lesson_id for q in final_questions}}
+    unresolved_by_lesson: dict[str, list[str]] = defaultdict(list)
+    for unresolved_id in sorted(unresolved_ids):
+        unresolved_by_lesson[lesson_by_question[unresolved_id]].append(unresolved_id)
+    audit["unresolved_quality_signals"] = [
+        {"lesson_id": lesson_id, "reason": "assessment_answer_length_signal",
+         "question_ids": unresolved_by_lesson[lesson_id]}
+        for lesson_id in sorted(unresolved_by_lesson)
+    ]
     audit["accepted"] = len(unique)
     audit["dropped"] = max(0, audit["candidates"] - len(unique))
     audit["questions_per_lesson"] = {
@@ -1502,7 +1531,8 @@ async def generate_block_assessment(
         "uncovered_contract_count": audit["uncovered_count"],
         "audit_incomplete": bool(audit["uncovered_count"]),
     }
-    if audit["uncovered_count"] or audit["coverage"]["audit_incomplete"]:
+    if (audit["unresolved_quality_signals"] or audit["uncovered_count"]
+            or audit["coverage"]["audit_incomplete"]):
         audit["terminal_status"] = "review_required"
     elif audit["omitted_count"] or audit["unassessable_count"]:
         audit["terminal_status"] = "completed_with_warnings"

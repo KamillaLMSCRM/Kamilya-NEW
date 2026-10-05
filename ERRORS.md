@@ -5915,3 +5915,54 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: provider prompts must carry typed machine constraints, not only
   field names. Capture one synthetic failure and replay locally before a bounded
   fresh provider check; do not iterate paid generation calls to debug enum parsing.
+
+## AI-QUALITY-040 - Source-owned answers leaked quiz keys through length
+
+- Date: 2026-10-05; owned synthetic DEV document draft on release38/59dd0bc6.
+- Symptom: completed generated draft preserved the source but one lesson quiz
+  scored100 percent by choosing the longest answer. A partial-receipt rule was
+  also explained as a deadline.
+- Cause: model-only length review missed the quiz-level pattern; temporal stems
+  matched unrelated words (частичная, деньги, дневник) in multiple classifiers.
+- Fix: lesson-scoped unique-longest signal at the existing80 percent threshold,
+  minimal targets in the existing one-repair cycle, immutable source keys and
+  final-dedup check. Unresolved targets remain review_required even after omission.
+  Share a whole-inflected-duration-unit matcher across source and axis paths.
+- Verification: captured output retained; successful/failed bounded-repair,
+  denominator escape, final dedup, ties/numeric and source-key regressions PASS.
+  Whole-unit regressions RED5/14 then GREEN14; axis neighbors44 PASS. Local
+  quality baseline remains ruff1010/mypy2201. Successor live acceptance is pending.
+- Prevention: assess visible quiz shortcuts deterministically, preserve failed
+  targets in audit and never shorten truth, pad distractors, loosen acceptance or
+  repeat paid generation until lucky output passes. Unit-match words, not stems.
+
+## UI-006 - Localization dependency aborted workbench lifecycle
+
+- Date: 2026-10-05; local document-workbench localization review.
+- Symptom: changing interface locale aborted a deferred upload.
+- Cause: changing copy-object dependency reran catalog lifecycle cleanup, which
+  aborted upload/command controllers and reset the mounted flag.
+- Fix: stable catalog lifecycle dependencies and latest-copy ref for asynchronous
+  errors; locale changes affect labels, not actor/session/request ownership.
+- Verification: actual deferred-upload RED (signal aborted), then component13
+  PASS and typecheck PASS. Live successor locale behavior remains pending.
+- Prevention: test locale switching during active requests; translated copy must
+  never become the dependency controlling ingestion or command cleanup.
+
+## TEST-INFRA-013 - Denial envelope and login timestamp caused false boundary failures
+
+- Date: 2026-10-05; exact synthetic DEV foreign-document acceptance helper.
+- Symptom:404 denials were classified FAIL; corrected requests then failed QA
+  preservation despite unchanged user/course/document/enrollment counts.
+- Cause: helper assumed top-level detail, then omitted dedicated404 handler's
+  message prefix. Full stats included max(User.last_login), advanced by its own
+  ordinary QA login. Source handlers and two read-only diagnostics proved both.
+- Fix: evidence-only denial assertion requires404/not_found and exact known
+  resource_not_found message forms. Separate stable business counts from login
+  observability, retain raw before/after and all original failed receipts.
+- Verification: independent runner observed all3 denied requests404; exact owned
+  QA readback confirmed all7 business counts unchanged and only last_activity_at
+  advanced. Feature quality remains independently rejected, not a harness PASS.
+- Prevention: derive HTTP assertions from registered handlers; capture a sanitized
+  denial before retrying. Never claim normal authentication makes no DB writes,
+  and never compare auth timestamps as unchanged business-history invariants.

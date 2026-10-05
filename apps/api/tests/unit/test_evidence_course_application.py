@@ -1079,6 +1079,20 @@ class _TransientGenerationFailure(_GenerationClient):
         self.calls += 1
         if self.calls == 1:
             raise AllProvidersFailedError("first chain attempt rejected")
+        request = json.loads(args[0][-1]["content"])
+        if request.get("task") == "assessment_generate":
+            # This test measures writer retry, not answer-length repair. Keep
+            # its two deadline counterfactuals naturally comparable to the key.
+            payload = {"questions": [{
+                "axis_id": axis["axis_id"],
+                "prompt": f"Как применять правило для «{axis['subject']}»?",
+                "distractors": [
+                    axis["source_claim"].replace("15", "45").replace("30", "60"),
+                    axis["source_claim"].replace("15", "75").replace("30", "90"),
+                ],
+            } for axis in request["axes"]]}
+            return ValidatedLLMResult(provider="test-generation", model_id="test-model",
+                value=kwargs["parser"](json.dumps(payload, ensure_ascii=False)), attempt_count=1, failure_reasons=())
         return await super().ainvoke_validated(*args, **kwargs)
 
 
@@ -1093,7 +1107,7 @@ async def test_generation_contract_gets_one_bounded_retry_before_failing_job() -
         embedding_client=_EmbeddingClient(),
     )
 
-    assert generated.result.publishability.publishable is True
+    assert generated.result.publishability.publishable is True, generated.result.assessment_review
     # Writer retry plus one bounded author/review/constraint batch for the lesson.
     assert generation.calls == 5
 

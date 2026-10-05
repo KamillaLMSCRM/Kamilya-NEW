@@ -28,19 +28,34 @@ production37 boundary описана выше и в шаге63, старые э�
 
 ## Результат для методиста
 
-### Active frontier2026-10-04: WB-DOCUMENT-DRAFT
+### Active frontier2026-10-05: WB-DOCUMENT-DRAFT
 
-2026-10-05 successor preparation: repair commit5d62d550/master CI37257483772
-passed; DEV remains f4e09aa9. Packet B was not prepared/executed: root invocation
-omitted the required confirmation ID and stopped before provider/Git writes.
-Live help inspection then found assignment-only guidance. Cheap leaf added the
-missing document workflow in RU/KK/EN, RED1/13 -> GREEN14; root independently
-reviewed content and ran help+document UI25 PASS. This known local prose change
-is KEEP_LOCAL; prior CodeGraph caller lookup identified ContextualHelpButton.
-No API contract or controller change; previous API28/quality and independent B/C
-checks remain hash-linked, not freshly rerun. Next: exact successor CI -> correctly
-confirmed same-resource DEV packet -> retained disposable fixture live acceptance
--> production of that exact accepted SHA. No production mutation yet.
+2026-10-05 DEV technical successor38/59dd0bc6 completed on existing Free/Hobby
+resources: master CI37258354511, DEV CI37258810831, API/worker live and Vercel
+READY; schema175 FORCE RLS retained. Ordinary owned browser confirmed upload
+while editing, legal interpreted parameters, editable fields, immutable preview,
+reload and one explicit confirmation. The real completed draft had3 lessons and5
+questions, but quality rejected a quiz passable by choosing longest answers.
+Production remains37/534ce7ef; no production mutation or feature GO.
+
+The captured synthetic output is the local regression oracle. Successor repairs
+add lesson-scoped deterministic length detection inside the existing one-repair
+cycle, preserve server-owned truth and record unresolved/late-dedup signals as
+review_required rather than hiding them by omission. Shared whole-unit duration
+classification fixes the false «частичная»/«деньги»/«дневник» deadline explanations.
+Cheap leaf localized document controls RU/KK/EN; root review caught locale-switch
+cleanup aborting active upload, then actual RED -> GREEN13/typecheck.
+CodeGraph USED: bounded callers confirmed the generation seam and four temporal
+classifiers; source/behavioral tests remain the oracle, no speed/cost saving claim.
+
+Independent DEV negative requests returned404 for foreign plan read/confirm and
+source preview. Earlier harness reports remain FAIL: expected error envelopes
+were wrong, then strict full-stat comparison included last_activity_at updated by
+normal QA login. One read-only readback confirmed all7 business counts unchanged;
+login timestamp alone advanced. Do not rewrite those failed receipts as PASS.
+Next: frozen independent successor tests -> exact CI -> same-resource DEV/live
+quality acceptance -> protected production of the same accepted SHA. No extra
+provider generation for debugging, no permanent QA reset or budget/tier changes.
 
 2026-10-05 live DEV technical release38/f4e09aa9 completed: CI37255703963,
 Vercel READY/API+worker live, public175 FORCE RLS and provider flags true.

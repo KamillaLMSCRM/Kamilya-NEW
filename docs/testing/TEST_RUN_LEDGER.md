@@ -2222,3 +2222,11 @@ Rules:
 - B green evidence remains hash-linked and was not rerun: API `28 passed`, React `11 passed`, typecheck passed, and quality `ruff=1010/mypy=2201`.
 - External DEV/provider/database/browser/production checks remain unrun; Root UI/prompt/provider observations remain attribution-only.
 - Report: `.release-evidence/REL-DOCUMENT38-20261005/independent-live-repairs-C.json`.
+
+### TEST-DOCUMENT38-QUALITY-LOCALE-20261005-A — 2026-10-05 — frozen local quality/locale successor acceptance
+
+- Exact base HEAD `59dd0bc6228de9898a17c00af6aef17b86670bac`; all 18 frozen manifest hashes matched before and after execution. No source, fixture, external, or runtime mutation occurred.
+- Focused API matrix passed `547 tests` with `1874 deselected`; full web matrix passed `146 files / 889 tests`; web typecheck passed. Python quality baseline passed `ruff=1010, mypy=2201`.
+- Canonical release-contract gate passed with Alembic head `0175`, Celery, migration ownership, Render dependencies, and Errors journal checks. Release version `0.11.38` and `git diff --check` passed.
+- Focused source/test review found no new finding: quiz-scoped minimum target selection, deterministic unique-longest answer-length handling, bounded one-repair behavior, server-owned source-axis identity, explicit failed-axis omission/review-required states, temporal whole-word handling, and locale lifecycle safeguards were present and covered.
+- This is local database-free evidence only. DEV, production, provider, model, browser, deployment, and live feature acceptance remain unverified; prior foreign-boundary live receipts remain preserved separately.
