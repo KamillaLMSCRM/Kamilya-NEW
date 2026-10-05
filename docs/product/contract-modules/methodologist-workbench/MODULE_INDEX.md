@@ -4,16 +4,22 @@ Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
 | Module | Responsibility | Active mini-spec | Data owner / writer | Status |
 |---|---|---|---|---|
-| WORKBENCH | Untrusted intent → server-resolved plan → confirmation policy; bounded assignment receipts under addenda below | [WORKBENCH V1](modules/WORKBENCH_V1.md) | Workbench/root; pure foundation plus owned persistent assignment plans | Accepted foundation + assignment addenda; default-disabled |
+| WORKBENCH | Untrusted intent → server-resolved plan → confirmation policy; bounded assignment/document receipts and correction policy under addenda below | [WORKBENCH V1](modules/WORKBENCH_V1.md) | Workbench/root; persistent assignment/document plans and pure correction foundation | Production text/document slices accepted; correction LOCAL_ONLY; speech gated |
 | SPEECH-INTAKE | Bounded authorized audio → editable transcript, no business execution | [SPEECH-INTAKE V1](modules/SPEECH_INTAKE_V1.md) | Speech/root; no storage now | Draft / benchmark gate |
 
 Active shared contract: [COMMAND-PLAN V1](contracts/COMMAND_PLAN_V1.md).
 Document-to-draft first slice: [DOCUMENT-DRAFT V1](contracts/DOCUMENT_DRAFT_ADDENDUM_V1.md),
-accepted local implementation2026-10-04; independent flags OFF, runtime NOT_VERIFIED.
-Free-text interpretation and editable candidate, partial DEV acceptance:
+bounded production0.11.38/source370f56fb/schema0175 acceptance2026-10-05;
+independent live/manual review and normal disposable cleanup passed. This is a
+dated release record, not a fresh runtime assertion.
+Draft lesson correction policy (no provider, persistence, HTTP or UI yet):
+[LESSON-CORRECTION-FOUNDATION V1](contracts/LESSON_CORRECTION_FOUNDATION_V1.md),
+accepted local implementation2026-10-05; full correction NOT IMPLEMENTED.
+Free-text interpretation and editable candidate, production0.11.37 accepted:
 [LLM-ASSIGNMENT-INTENT V3](contracts/LLM_ASSIGNMENT_INTENT_ADDENDUM_V3.md),
-preserving V1/V2 and existing financial zero-budget behavior. Actual RU provider
-extraction passed; KK outer-delimiter repair is pending new DEV/browser acceptance.
+preserving V1/V2 and existing financial zero-budget behavior. RU/KK clarification,
+editable deadline, confirmation/replay and bounded isolation were accepted in the
+dated release37 record; see the execution plan for exact evidence boundaries.
 Bounded local assignment integration:
 [ASSIGNMENT-EXECUTION addendum V1](contracts/ASSIGNMENT_EXECUTION_ADDENDUM_V1.md).
 Owned-plan reload and isolated notification validation:

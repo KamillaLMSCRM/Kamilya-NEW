@@ -2246,3 +2246,16 @@ Rules:
 - Root cleanup receipt `.release-evidence/REL-DOCUMENT38-20261005/live/cleanup.json` SHA256 `1174028824da32ee39342f96d3b43d3dc312d28b8f1f463308a1ab47318a5428` is `PASS`: guarded DELETE `204`, fresh GET `404`, permanent QA unchanged. Root-linked DB before/after receipts are both `PASS`; owned fixture rows changed `14 -> 0`, workflow keys stayed `0`, and retained QA stayed at `13` enrollments / `3` courses with identical fingerprints. Cleanup is recorded as Root-executed/hash-linked, not a new Runner mutation.
 - Historical harness/evidence boundaries remain explicit: A used the wrong email/destination; B required a nonexistent DTO field; C’s initial lexical checker receipt was rewritten once, and Root separately preserved the observed initial lexical failure; no failure was concealed, while the subsequent manual semantic review passed. Root-executed `47 passed / 1 skipped` operations regression and DEV370 same-SHA acceptance/cleanup remain hash-linked observations, not rerun here.
 - Residual frontier: `WB-CORRECTION` remains separate from this bounded acceptance. No source repair, Git, provider, database, deployment, billing, or additional runtime action was performed by this closeout Runner.
+
+### TEST-LESSON-CORRECTION-FOUNDATION-20261005-A — 2026-10-05 — local correction-policy foundation acceptance
+
+- Exact worktree HEAD `6889ea7f64fac6b38ee399ef64095a40cedf528a`; all three frozen source/test/contract hashes matched before and after. Report: `.release-evidence/WB-CORRECTION-20261005/independent-A.json`.
+- Exact API wrapper matrix passed `160 tests` across lesson-correction, editor-assistant patch, and methodologist-workbench plan contracts. Canonical Python quality baseline passed `ruff=1010, mypy=2201`; `git diff --check` passed.
+- Independent scope covered exact draft lesson/content replacement, source/evidence/hash identity, changed/foreign/expired/role/tampered preview refusal, pure repeat behavior, and unchanged generic editor/workbench neighbor contracts. No source/test/config repair, external request, database access, or business write occurred.
+- Root’s initial quality observation had one import-order failure and was later mechanically corrected with additional review-requested cases; that supplied observation is retained as Root evidence and is not counted as this Runner’s execution or failure. This result is `LOCAL_ONLY`; no DEV, production, end-user, AI-course, or release GO is claimed.
+
+### TEST-LESSON-CORRECTION-FOUNDATION-20261005-A-ATTRIBUTION — 2026-10-05 — Root evidence correction
+
+- Executor: Root, after Runner A completed and relinquished ledger ownership. Original A receipt and EOF entry remain unchanged.
+- A receipt's `root_observation_preserved` phrase "later supplied 65-test corrected observation" overstates the supplied Root observation: Root executed62 tests before the final three coverage additions, then supplied expected65, not an independently executed65 result. The actual newly frozen matrix was executed by Runner A and passed160 combined tests. No result is reclassified as Root execution and no tests are rerun for this attribution correction.
+- Original receipt SHA256 `27a51c7a3cfa76a41450afb28832e90835cf678557c028a506cd9fe6e316aaac` is preserved. The correction changes evidence attribution only, not the bounded LOCAL_ONLY disposition.

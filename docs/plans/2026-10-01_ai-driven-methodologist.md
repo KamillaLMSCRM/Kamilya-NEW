@@ -47,6 +47,82 @@ and temporary viewport reset. This is bounded document-draft acceptance only;
 exact-release sign-off belongs to the verified final root decision, and
 voice/whole-product acceptance remain outside scope.
 
+### WB-CORRECTION foundation2026-10-05 — LOCAL_ONLY, not an end-user release
+
+Accepted local contract:
+[LESSON-CORRECTION-FOUNDATION V1](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_FOUNDATION_V1.md).
+New `correction_contract.py` reuses the editor assistant's structured patch and
+non-mutating application-plan interfaces; existing generic types/operation union
+and endpoints are unchanged. One `lesson.content` replacement binds exact
+before/after hashes, tenant/actor, course/module/lesson, course/lesson versions,
+source version/content hash/index revision and admitted evidence locator/hash.
+The full preview seal includes instruction, locale and proposal/provenance.
+Published content is refused before provider work until a new-draft contract
+exists; no current release or learner history can be written by this slice.
+
+Source investigation confirmed why existing actions cannot be reused as-is:
+`_regenerate_lesson_job` writes immediately and can replace quizzes; direct
+`update_lesson` lacks correction replay/version/audit/approval-supersession guards.
+Neither path is called by the new policy. Existing direct editing remains
+unchanged, not newly certified by these policy tests. Source-reference membership
+is structural identity, not a semantic proof that every proposed fact is true.
+
+Root initial focused62 PASS. First root quality run failed one new I001 import
+ordering violation; exact import order was mechanically corrected, with no
+baseline relaxation. Two cheap read-only reviewers found no foundation blocker;
+their multi-source and confirmation-applicability coverage suggestions were added,
+along with a global evidence-budget regression. Independent Test & Evidence
+Runner `TEST-LESSON-CORRECTION-FOUNDATION-20261005-A` freshly passed160 tests across
+correction/editor/workbench confirmation, quality ruff1010/mypy2201 and diff
+check, with all three frozen hashes matching before/after. Receipt:
+`.release-evidence/WB-CORRECTION-20261005/independent-A.json`, SHA256
+`27a51c7a3cfa76a41450afb28832e90835cf678557c028a506cd9fe6e316aaac`.
+Root accepts the bounded foundation only. DB/RLS/provider/DEV/browser/production
+correction and full AI-COURSE-01 remain NOT VERIFIED, not blocked by a new access
+or billing claim. Release Runner was not invoked: no release packet exists yet.
+
+Next dependency sequence, each with a versioned impact addendum before writes:
+
+1. Authoritative resolver + proposal adapter: tenant-owned course/module/lesson,
+   aggregate course/approval version token, active original source/hash and
+   exact indexed/retrieved evidence. Strict validated-provider output, explicit
+   RU/KK/EN, bounded context/calls and existing budget charge/refund semantics;
+   deterministic replay first, then a bounded real-provider quality acceptance.
+2. Durable preview/receipt: owned tenant AND actor, immutable reviewed content,
+   15-minute validity, reload and exact seal; additive migration with RLS/FORCE
+   RLS, non-BYPASS runtime and isolated Supabase DEV negatives/concurrency.
+   Retention extends the accepted policy only under an explicit owning addendum.
+3. Atomic application: lock receipt/course/lesson, re-resolve context in the same
+   transaction, stale refusal, exact replay/collision, content write + receipt +
+   audit digests; supersede stale approvals and course review, set affected quiz
+   `needs_review` without deletion, preserve release/enrollment/attempt bindings.
+   Published content needs a separate new-draft-revision path, never overwrite.
+4. UI: selected lesson -> instruction -> loading/clarification/error -> exact
+   before/after diff + evidence -> explicit apply -> receipt; edit/retry creates
+   a new proposal, locale change preserves the instruction. Help, mobile and
+   accessible action labels are part of browser acceptance, not later polish.
+5. Assembled DEV flow and independent Test Runner -> exact candidate release
+   gates + Release Runner -> production readback/ordinary browser acceptance and
+   guarded synthetic cleanup. Publication and assignment remain separate
+   confirmed actions; voice uses the same reviewed command path later.
+
+Navigation evidence, this task (not a matched efficiency benchmark): CodeGraph
+1.6.1 narrowed the unsafe regeneration job and reusable editor seams before
+broad reads. Source-confirmed `preview_edit`/`prepare_patch_application` calls
+were decisive. The regeneration query also yielded two false AsyncSession edges
+to same-named test fakes (`scalars`/`flush`); a24-edge query was truncated to12.
+No SQL/HTTP/queue/runtime property was inferred from the graph. Relevant reused
+source files had no diff from released370 to base6889. One post-delta sync passed
+excluded-path audit: update2496ms, complete process11595ms. Three final bounded
+queries took1112ms including startup; body times9/19/20ms, two search candidates,
+five preview callees and five confirmation callees, no truncation. All ten call
+edges match source and accepted consumer direction; no new existing-module write.
+Graphify KEEP LOCAL: no unresolved multi-hop/cross-language seam in this pure
+slice. ECC/CodeBurn comparison not run; root/delegated token/cost counters and
+matched-task speedup NOT_AVAILABLE/NOT_MEASURED. Do not claim savings from these
+query timings or node counts. Cheap inventory/review and persistent test worker
+were used; root retained the shared contract and integration ownership.
+
 ### Historical document-draft DEV preparation2026-10-05
 
 Exact e9509fda technical successor passed master CI37262123649 and DEV
