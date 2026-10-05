@@ -5970,3 +5970,50 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: derive HTTP assertions from registered handlers; capture a sanitized
   denial before retrying. Never claim normal authentication makes no DB writes,
   and never compare auth timestamps as unchanged business-history invariants.
+
+## DOCUMENT38-CLOSEOUT-001 - Release38 closure required bounded product and harness facts
+
+- Date: 2026-10-05; release38 successor 370f56fb9e9ce9cdb173b7193e91dbd0f49675f1.
+- Symptom: closure crossed several independently scoped checks: upload/locale
+  behavior, generated-draft quality, native release evidence, and Test Runner
+  harness failures. A single PASS claim would have mixed verified and pending
+  boundaries.
+- Cause: UI, AI-quality, release-controller, and Test Runner evidence have
+  different acceptance contracts. Runner A used the wrong permanent-QA email or
+  destination; Runner B expected `UserResponse.is_impersonating`, although the
+  source schema omits that field. Runner C's lexical checker rejected
+  inflected/paraphrased source-grounded text; it is not a semantic oracle. The
+  original initial Runner C receipt was preserved separately after one rewrite.
+  A normalized LF payload hash also differs from the Windows-CRLF file-byte
+  hash; this is a harness identity distinction, not a reason to rewrite
+  artifacts or retry AI generation.
+- Fix: retain separate bounded facts. UI006 was confirmed in DEV for KK+EN and
+  in PROD for KK while upload was running: no abort, instruction preserved,
+  catalog source became ready; PROD EN was observed only after ready and is not
+  claimed as EN-in-progress. Root semantic review and verify evidence passed
+  source-grounded review of 3 lessons and 5 questions, with no publication or
+  assignment. Native blocked receipts now preserve typed
+  `document_draft_enabled` alongside `workbench_enabled`; schema3-enabled and
+  legacy compatibility tests are retained. Do not change the source schema or
+  impersonation contract for Runner B: `UserResponse` omits
+  `is_impersonating`, and `/users/me` intentionally returns 403 while
+  impersonating; ordinary fresh login with exact actor/tenant/role and GET
+  `/users/me` 200 is the valid contract.
+- Verification: PROD browser receipt records upload/edit RU→KK→EN→RU with
+  ready source and no abort, and explicitly limits localized-progress evidence
+  to PROD KK plus DEV EN. `live/root-semantic-review.json` records PASS for all
+  3 lessons and 5 questions; `live/verify.json` records 3 lessons and 5
+  questions with zero listed quality failures. Native closure reports fresh
+  `47 passed, 1 skipped` in the root handoff. Independent Runner C manual
+  review records `PASS_BOUNDED_MANUAL_REVIEW` for 3 lessons and 5 questions;
+  the separate current lexical receipt remains FAILED mechanically and the
+  preserved initial lexical receipt remains a harness failure. Independent
+  runtime readback C is PASS with zero business writes. Fresh PROD cleanup is
+  PASS: DELETE204/fresh GET404, zero owned rows across 16 checked tables, 0 workflow
+  keys, and retained QA 13 enrollments/3 courses with identical fingerprints.
+  These are bounded receipts, not a final whole-product PASS.
+- Prevention: keep UI, semantic quality, provider/controller, and Test Runner
+  receipts separate; record exact environment/language/timing limits; validate
+  harness fixtures against the deployed source contract before rerunning. Keep
+  both normalized-payload and file-byte hashes when line endings differ, and
+  never modify release artifacts or spend another AI call to make hashes match.

@@ -931,6 +931,7 @@ def main(argv: list[str] | None = None) -> int:
                 "release_id": packet.release_id,
                 "release_sha": packet.exact_sha,
                 "workbench_enabled": packet.workbench_enabled,
+                "document_draft_enabled": packet.document_draft_enabled,
                 "reason": str(exc),
                 "state_reconciliation_required": args.mode == "execute",
             },

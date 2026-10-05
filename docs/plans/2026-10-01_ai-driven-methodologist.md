@@ -1,12 +1,13 @@
 # AI-driven Камиля: пошаговый план методического рабочего места
 
 Дата: 2026-10-01. Владелец продукта: пользователь; технический владелец: root.
-Статус обновлён 2026-10-04: свободные текстовые поручения и уточнения назначения
-приняты в production0.11.37/source534ce7ef, frontend/API/threeworkers/schema0174.
+Статус обновлён 2026-10-05: свободные текстовые поручения и уточнения назначения
+приняты в production0.11.37/source534ce7ef, а bounded document-to-draft slice
+выпущен в production0.11.38/source370f56fb, frontend/API/threeworkers/schema0175.
 Обычный methodologist browser, persisted deadline/receipt/replay, публикация,
 независимые7/7 проверки изоляции/сохранности обучения и штатная очистка PASS.
-Голос, документ-to-draft через рабочее место и source-grounded corrections ещё
-не выпущены. Следующий slice — WB-DOCUMENT-DRAFT, затем WB-CORRECTION;
+Голос и source-grounded corrections ещё не выпущены. Следующий frontier —
+WB-CORRECTION;
 ASR/телефон идут отдельно через quality/data/capacity gates.
 
 Историческая подготовка: текстовый assignment slice закрыт выпуском backend29/
@@ -28,7 +29,25 @@ production37 boundary описана выше и в шаге63, старые э�
 
 ## Результат для методиста
 
-### Active frontier2026-10-05: WB-DOCUMENT-DRAFT
+### Current release2026-10-05: WB-DOCUMENT-DRAFT RELEASED; bounded acceptance PASS
+
+Production exact370f56fb9e9ce9cdb173b7193e91dbd0f49675f1 / version0.11.38 is
+released with schema0175 and synchronized workbench/document-draft flags ON.
+Protected workflow37268909670 and deployment6852170372 succeeded with image
+`sha256:258acfa01d7441aacf2afdd67f17f8e2011b393850e60f4c218c9f9700e54685`.
+API, three workers and native frontend parity, public/private health, blue-slot
+identity, timers/oneshots, signed restore175 and bounded live draft/browser
+readback are PASS. Root reviewed three lessons/five questions, source fidelity,
+same-job replay and foreign 404 boundaries. Independent Runner C readback and
+manual semantic review PASS; frozen acceptance SHA256 is
+`3b2b503ef7e6925440e2ce7a3493de68feac87ca2c779c3186e0c8ccf2c70e09`.
+Normal guarded disposable cleanup returned204/fresh404 and independent DB
+absence/readback preserved retained QA fingerprints. Browser session logged out
+and temporary viewport reset. This is bounded document-draft acceptance only;
+exact-release sign-off belongs to the verified final root decision, and
+voice/whole-product acceptance remain outside scope.
+
+### Historical document-draft DEV preparation2026-10-05
 
 Exact e9509fda technical successor passed master CI37262123649 and DEV
 CI37263148329; API/worker/Vercel all match, existing tiers and175 unchanged.

@@ -557,6 +557,7 @@ def test_cli_timeout_preserves_bounded_blocked_evidence(tmp_path, monkeypatch) -
     assert result["status"] == "BLOCKED" and result["mode"] == "preflight"
     assert result["reason"] == "command_timeout:gh:seconds_1200"
     assert result["release_sha"] == SHA and result["state_reconciliation_required"] is False
+    assert result["document_draft_enabled"] is False
 
 
 @unittest.skipUnless(os.name != "nt", "requires Unix symlink semantics")

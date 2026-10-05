@@ -39,6 +39,54 @@ def _packet(schema: int = 3, *, workbench: bool = True, document: bool = True) -
 
 
 class DocumentNativeActivationTests(unittest.TestCase):
+    def test_schema3_blocked_main_receipt_preserves_both_flags_for_bridge(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            packet = release.ReleasePacket.from_mapping(_packet())
+
+            class FakeProbe:
+                environment = {}
+
+                def download(self, _packet, _destination):
+                    return root
+
+            class BlockedOrchestrator:
+                def __init__(self, **_kwargs):
+                    pass
+
+                def preflight(self, _packet, _artifact_dir):
+                    raise release.ReleaseBlocked("insufficient_ct137_capacity")
+
+            original_loader = release.load_release_packet
+            original_probe = release.GithubActionsProbe
+            original_orchestrator = release.NativeReleaseOrchestrator
+            original_root = release.REPO_ROOT
+            evidence = root / "blocked.json"
+            try:
+                release.load_release_packet = lambda *_args: packet
+                release.GithubActionsProbe = FakeProbe
+                release.NativeReleaseOrchestrator = BlockedOrchestrator
+                release.REPO_ROOT = root
+                with self.assertRaisesRegex(release.ReleaseBlocked, "insufficient_ct137_capacity"):
+                    release.main(["preflight", "--packet", str(root / "packet.json"), "--packet-sha256", "0" * 64, "--evidence", str(evidence)])
+            finally:
+                release.load_release_packet = original_loader
+                release.GithubActionsProbe = original_probe
+                release.NativeReleaseOrchestrator = original_orchestrator
+                release.REPO_ROOT = original_root
+
+            technical = json.loads(evidence.read_text(encoding="utf-8"))
+            self.assertEqual(technical["status"], "BLOCKED")
+            self.assertEqual(technical["reason"], "insufficient_ct137_capacity")
+            self.assertIs(technical["workbench_enabled"], True)
+            self.assertIs(technical["document_draft_enabled"], True)
+            bridge._bind_technical_evidence(
+                {"schema_version": 3, "release_id": packet.release_id, "release_sha": packet.exact_sha,
+                 "workbench_enabled": True, "document_draft_enabled": True}, technical,
+            )
+            handoff = bridge.compact_handoff(technical=technical, acceptance=None)
+            self.assertEqual(handoff["blockers"], "insufficient_ct137_capacity")
+
     def test_schema3_requires_document_flag_and_workbench(self) -> None:
         packet = release.ReleasePacket.from_mapping(_packet())
         self.assertTrue(packet.workbench_enabled)

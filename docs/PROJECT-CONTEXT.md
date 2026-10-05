@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-10-04.
+> Обновлено: 2026-10-05.
 
 ## Источники правды
 
@@ -25,7 +25,28 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current client37 boundary,2026-10-04
+## Current client38 boundary,2026-10-05 — RELEASED; bounded document acceptance PASS
+
+Frontend/API/threeworkers version0.11.38/source
+`370f56fb9e9ce9cdb173b7193e91dbd0f49675f1` deployed; schema0175 and both
+workbench/document-draft flags are ON. Protected workflow37268909670,
+deployment6852170372, image258acfa0...e54685; API+3workers/native frontend
+blue/running/restarts0, public/private health, watchdog identity, timers and
+oneshots PASS. Signed restore175 PASS (RPO44/RTO19), disposable restore DB/temp
+cleanup PASS. Root bounded live draft/browser/source/replay/foreign404 checks
+PASS. Independent Runner C readback/manual review PASS; frozen acceptance SHA256
+`3b2b503ef7e6925440e2ce7a3493de68feac87ca2c779c3186e0c8ccf2c70e09`.
+Normal disposable cleanup returned204/fresh404 and DB-after-cleanup confirmed
+sixteen owned tables/workflow keys absent; retained QA history/course
+fingerprints are unchanged. Browser session logged out and temporary viewport
+reset. This is bounded document-draft acceptance, not whole-product or voice
+acceptance. Exact-release sign-off belongs to the verified final root decision,
+not this context summary. No rights, billing,
+topology, landing or customer-data changes.
+Detailed evidence belongs to `docs/PRODUCTION_READINESS.md` and the exact
+`REL-DOCUMENT38-20261005` / `REL-DOCUMENT38-WEBB-20261005` evidence packets.
+
+## Historical client37 boundary,2026-10-04
 
 Frontend/API/threeworkers version0.11.37/source
 `534ce7ef9a881e78a198e071c2cd79a55d39a9e0` deployed; schema0174 unchanged.

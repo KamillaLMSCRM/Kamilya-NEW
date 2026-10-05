@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** frontend/API/DB/worker identity and bounded intent/publication QA2026-10-04
+**Проверено:** frontend/API/DB/worker identity and bounded document-draft QA2026-10-05
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,40 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production37 — bounded free-text assignment acceptance PASS
+## Current production38 — RELEASED, bounded document-draft acceptance PASS
+
+2026-10-05: exact `370f56fb9e9ce9cdb173b7193e91dbd0f49675f1`, version0.11.38,
+tag `v0.11.38`, CI/native/protected workflows successful; protected workflow
+`37268909670`, deployment `6852170372`, image
+`sha256:258acfa01d7441aacf2afdd67f17f8e2011b393850e60f4c218c9f9700e54685`.
+API plus three workers and the native frontend are live on the existing approved
+resources. Schema0175, workbench and document-draft flags are ON; blue runtime,
+four-service image/SHA parity, restarts0, public/private health and watchdog
+identity were independently read back. Technical final readback, timers and
+oneshots PASS; signed schema0175 restore PASS with RPO44s/RTO19s and disposable
+restore database/temp-file absence. Evidence is in
+`.release-evidence/REL-DOCUMENT38-20261005/final-readback38.json`,
+`timers38.json`, `restore175.json`, and
+`.release-evidence/REL-DOCUMENT38-WEBB-20261005/execute.json`.
+
+Root’s bounded live production flow read back three lessons/five questions,
+source-faithful content, replay without a new generation job, three foreign
+plan/source requests denied404, draft/unpublished state, and browser editor
+review. Independent Runner C readback and full manual semantic review both
+PASS; frozen acceptance receipt SHA256 is
+`3b2b503ef7e6925440e2ce7a3493de68feac87ca2c779c3186e0c8ccf2c70e09`.
+The owned disposable tenant was deleted through the normal guarded API
+(204/fresh404); independent DB-after-cleanup confirms all sixteen owned tables
+and workflow keys at zero, while retained QA enrollment fingerprint
+`d485aa827ca023b97cdecd90c46e495b` and three-course fingerprint
+`2453402b13cefa45ec6662eb4a5db976` remain unchanged. Browser session was
+logged out and temporary viewport reset. This closes bounded document-draft
+acceptance only, not whole-product or voice acceptance. Final exact-release
+sign-off is bound to `REL-DOCUMENT38-20261005/final-root-decision.json`, not to
+this prose or a Runner handoff. No rights, billing, topology, landing,
+customer-data, publication or assignment changes are included.
+
+## Historical production37 — bounded free-text assignment acceptance PASS
 
 2026-10-04: frontend, API and all three workers use exact
 `534ce7ef9a881e78a198e071c2cd79a55d39a9e0`, version0.11.37; published tag/release
