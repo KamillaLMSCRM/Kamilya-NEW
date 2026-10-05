@@ -123,6 +123,46 @@ matched-task speedup NOT_AVAILABLE/NOT_MEASURED. Do not claim savings from these
 query timings or node counts. Cheap inventory/review and persistent test worker
 were used; root retained the shared contract and integration ownership.
 
+### WB-CORRECTION application2026-10-05 — local implementation, runtime/UI gated
+
+Accepted [APPLICATION V1](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_APPLICATION_V1.md)
+and [V1.1](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_APPLICATION_V1_1.md)
+before their respective source changes. POST confirmation and GET historical
+receipt use ordinary methodologist identity and the existing independent OFF flag.
+Application re-resolves the sealed source/course context under locks, calls the
+existing lesson and approval owners, resets course review, stores digest receipt
+and audit, then commits once. Published content/releases, learner records and
+assignments are untouched; no model or budget call during apply. Same-seal replay
+after expiry or later authorized edits returns the receipt without overwriting.
+Lost commit acknowledgment requires owned receipt recovery, not a false rollback
+claim. Additive0177 and child-first canonical tenant purge remain local source only.
+
+Independent cheap review found reversed approval lock order. Accepted V1.1 fixes
+the application boundary with NOWAIT prelocks; contention regression RED4/16PASS
+then GREEN42. Fresh final root focused/neighbor199PASS, AI-COURSE selectors25PASS,
+quality Ruff1008/Mypy2201 baseline PASS without relaxation, release-contract head177
+and diff whitespace PASS. Independent source re-review found no additional local
+defect. Frozen Test Runner independently199/quality/contracts PASS and11/11
+hashes before/after. Root freshly parsed the finalized report and accepted LOCAL_ONLY:
+`.release-evidence/WB-CORRECTION-APPLY-20261005/apply-independent-A.json`, SHA256
+`68d86ac2f2c7c2e6527a8609fdf9b88272130ad224a0221e1e6e1bd6a386d4d7`.
+Runner's190557ms completed turn includes mandatory context/report finalization,
+not a matched speedup benchmark. Ledger append preserved; final report resolves
+its earlier pending-readback wording. SQL-shaped boundary tests do not
+prove PostgreSQL RLS, transactions, NOWAIT/FK insert/move behavior or commit recovery.
+
+Next: isolated application DEV driver with real immediate-FK and concurrent-owner
+proof, receipt retention/reconciliation, current model semantic validation, selected
+lesson before/after/confirmation/recovery UI, assembled DEV browser, exact release
+through Release Runner and bounded production smoke. No public/production activation
+or end-user correction release occurred in this local application slice.
+
+Tool measurement: CodeGraph1.6.1 sync engine2256ms/wrapper14937ms, excluded-path
+audit PASS. Earlier bounded navigation confirmed lesson/approval seams; false
+external-session edges were resolved in source. Source/SQL concurrency uses
+SOURCE_FALLBACK, not a graph completeness claim. ECC/CodeBurn/token/root-review
+counters NOT AVAILABLE; no matched control or speed/cost saving claim.
+
 ### WB-CORRECTION preview2026-10-05 — local integration, runtime gates open
 
 Accepted preview V1 with versioned V1.1 role-loss closure, V1.2 UTC month safety

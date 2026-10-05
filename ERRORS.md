@@ -6080,3 +6080,22 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   native commands; do not mix their success channels. Verify actual final tool
   result before claiming acceptance. A failing readback is an open evidence gate
   until its exact successor passes, even when earlier tests are green.
+
+## WB-CORRECTION-002 - Application approval locks inverted existing cancellation order
+
+- Date: 2026-10-05.
+- Symptom: independent source review found application revision-to-request waits
+  opposite to existing cancellation/resend request-to-revision locks. No actual
+  production or DEV deadlock was observed in this local-only implementation.
+- Cause: locking approval revisions alone before delegating supersession omitted
+  the existing request/work-item/credential writer lock orders.
+- Fix: accepted APPLICATION V1.1 before editing; prelock all owned approval
+  policy/revision/request/work-item/credential rows NOWAIT before business writes.
+  Busy rows refuse rather than wait; existing owner implementations are unchanged.
+- Verification: contention boundary regressions RED4/16PASS then GREEN42;
+  final focused/neighbor199 and critical-journey25 PASS, unchanged quality baseline.
+  Independent source re-review accepted the local correction. Actual PostgreSQL
+  contention, immediate FK and concurrent-owner behavior remain a DEV activation gate.
+- Prevention: inspect all affected writers' lock orders before coordinating their
+  transactions. Use behavioral contention refusal tests plus actual concurrent
+  DB proof; source/fake-DB tests alone never certify RLS or phantom protection.

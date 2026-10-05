@@ -31,3 +31,21 @@ class LessonCorrectionPlan(Base):
         UniqueConstraint("tenant_id", "actor_id", "request_key", name="uq_lesson_correction_request"),
         Index("ix_lesson_correction_owner", "tenant_id", "actor_id", "created_at"),
     )
+
+
+class LessonCorrectionApplication(Base):
+    """Immutable application digests; the reviewed text stays in the parent."""
+
+    __tablename__ = "workbench_lesson_correction_applications"
+    plan_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("workbench_lesson_correction_plans.id", ondelete="CASCADE"), primary_key=True
+    )
+    tenant_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"))
+    actor_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True))
+    course_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True))
+    lesson_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True))
+    revision: Mapped[int] = mapped_column()
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    before_sha256: Mapped[str] = mapped_column(String(64))
+    after_sha256: Mapped[str] = mapped_column(String(64))
+    applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

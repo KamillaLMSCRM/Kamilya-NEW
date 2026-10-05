@@ -1,4 +1,4 @@
-"""Preview/read only, behind independent OFF-by-default correction flag."""
+"""Explicit preview/application, behind independent OFF-by-default flag."""
 
 from typing import Annotated, cast
 from uuid import UUID
@@ -14,10 +14,11 @@ from app.core.db import get_db
 from app.models.users import User
 
 from .assignment_service import WorkbenchConflict, WorkbenchNotFound
+from .correction_application import apply_correction_preview, get_correction_application
 from .correction_contract import CorrectionError
-from .correction_schemas import CorrectionPreviewRequest, CorrectionPreviewResponse
+from .correction_schemas import CorrectionApplicationResponse, CorrectionPreviewRequest, CorrectionPreviewResponse
 from .correction_service import SAFE_FAILURES, create_correction_preview, get_correction_preview
-from .plan_contract import ActorContext
+from .plan_contract import ActorContext, ConfirmationRequest
 
 router = APIRouter()
 DbSession = Annotated[AsyncSession, Depends(get_db)]
@@ -41,8 +42,13 @@ def _error(exc: Exception) -> HTTPException:
         status, code = 404, "resource_not_found"
     elif isinstance(exc, CorrectionError) and str(exc) in SAFE_FAILURES:
         code = str(exc)
-    elif isinstance(exc, WorkbenchConflict) and str(exc) == "request_key_collision":
-        code = "request_key_collision"
+    elif isinstance(exc, WorkbenchConflict) and str(exc) in {
+        "request_key_collision",
+        "correction_confirmation_mismatch",
+        "correction_preview_not_ready",
+        "correction_clock_unavailable",
+    }:
+        code = str(exc)
     return HTTPException(status, code, headers={"Cache-Control": "no-store"})
 
 
@@ -71,3 +77,39 @@ async def read_preview(
     except (CorrectionError, WorkbenchConflict, WorkbenchNotFound, SQLAlchemyError, ValidationError) as exc:
         await db.rollback()
         raise _error(exc) from exc
+
+
+@router.post("/lesson-correction-previews/{plan_id}/apply", response_model=CorrectionApplicationResponse)
+async def apply_preview(
+    plan_id: UUID, body: ConfirmationRequest, response: Response, db: DbSession, user: Methodologist
+) -> CorrectionApplicationResponse:
+    actor = _context(user, response)
+    if body.plan_id != plan_id:
+        raise HTTPException(409, "correction_confirmation_mismatch", headers={"Cache-Control": "no-store"})
+    try:
+        return await apply_correction_preview(db, actor, body)
+    except HTTPException:
+        await db.rollback()
+        raise
+    except (
+        CorrectionError,
+        WorkbenchConflict,
+        WorkbenchNotFound,
+        SQLAlchemyError,
+        ValidationError,
+        TimeoutError,
+    ) as exc:
+        await db.rollback()
+        raise _error(exc) from None
+
+
+@router.get("/lesson-correction-previews/{plan_id}/application", response_model=CorrectionApplicationResponse)
+async def read_application(
+    plan_id: UUID, response: Response, db: DbSession, user: Methodologist
+) -> CorrectionApplicationResponse:
+    actor = _context(user, response)
+    try:
+        return await get_correction_application(db, actor, plan_id)
+    except (CorrectionError, WorkbenchConflict, WorkbenchNotFound, SQLAlchemyError, ValidationError) as exc:
+        await db.rollback()
+        raise _error(exc) from None

@@ -33,6 +33,16 @@ Independent correction flag defaults OFF; schema0176 is not applied to public.
 Evidence_v2 original facts only; legacy provenance is refused. No apply/UI,
 crash/cross-month reconciliation, real-model quality or production correction
 acceptance. Runtime replay overlap is not a precommit simultaneous-insert race proof.
+Confirmed application successor, implemented locally under
+[APPLICATION V1](contracts/LESSON_CORRECTION_APPLICATION_V1.md) and
+[V1.1 approval contention / uncertain commit](contracts/LESSON_CORRECTION_APPLICATION_V1_1.md):
+owned confirmation/receipt endpoints, additive0177, existing draft/review owners
+and exact-tenant child purge. Root199 focused/neighbor and25 AI-COURSE selectors,
+canonical quality and release contracts PASS; independent source review accepted
+NOWAIT repair. Frozen Test Runner independently199/quality/contracts and11/11
+hashes PASS; root accepts LOCAL_ONLY. Actual application DEV,
+FK/concurrent sessions/RLS/SQL guards, UI, retention/reconciliation, model quality
+and production release are NOT VERIFIED. No public migration or activation.
 Free-text interpretation and editable candidate, production0.11.37 accepted:
 [LLM-ASSIGNMENT-INTENT V3](contracts/LLM_ASSIGNMENT_INTENT_ADDENDUM_V3.md),
 preserving V1/V2 and existing financial zero-budget behavior. RU/KK clarification,

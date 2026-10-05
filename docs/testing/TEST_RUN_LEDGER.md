@@ -2292,3 +2292,13 @@ Rules:
 - A no-rerun successor readback parsed the preserved C JSON with terminating errors, verified the exact HEAD `db910249376270bb5520ed4e853412eb88647ef6`, matched all 15 `dev-freeze-E.json` hashes, and captured `git diff --check` native exit `0` immediately after the command.
 - No tests were rerun. No source, database, network, environment, provider, browser, deployment, or descendant action occurred.
 - Finalization evidence: `.release-evidence/WB-CORRECTION-PREVIEW-20261005/dev-independent-C-finalization.json`.
+
+### WB-CORRECTION-APPLY-LOCAL-20261005-A — 2026-10-05 — local application acceptance
+
+- Scope: database-free local acceptance of correction application V1/V1.1, additive migration 0177, route contracts, neighboring preview/foundation/approval/purge contracts, and the named local release gate at worktree HEAD `c3fbfd7b208aabccc483f7b943e17f12ebccdf65`.
+- Preflight: exact worktree/branch, canonical interpreter, and all 11 `freeze-A.json` SHA-256 hashes matched before execution. Final post-run hash readback is required before acceptance handoff.
+- Focused matrix: PASS, `199 passed`, `4 warnings`. Python quality baseline: PASS (`ruff=1008`, `mypy=2201`). Canonical release-contract gate: PASS (`175` revisions, Alembic head `0177`, `228` unique Errors entries). `git diff --check`: PASS, native exit `0`.
+- Bounded source review: no actionable local findings. Verified no-provider apply, exact seal/revision/body/path replay protection, one transaction with rollback/lost-ack receipt recovery, deterministic parent-before-child and approval NOWAIT locks, route/context/error controls, receipt FORCE-RLS/ACL/immutable DB guard, and canonical purge order.
+- Root-supplied AI-COURSE-01 `25 PASS` is retained as supplied observation only and is not counted as independent execution. Token counters: NOT AVAILABLE. Precise total elapsed: NOT AVAILABLE; per-command wall timings are recorded in the evidence report.
+- Real transaction/FK/RLS/ACL/concurrency, approval-race, publication/learner/assignment, UI, provider, DEV, production, and runtime gates: NOT VERIFIED by this local-only packet. No external fixtures or cleanup.
+- Evidence: `.release-evidence/WB-CORRECTION-APPLY-20261005/apply-independent-A.json`.

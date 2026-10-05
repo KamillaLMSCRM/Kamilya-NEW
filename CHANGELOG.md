@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add independently disabled confirmed draft lesson correction application:
+  one transaction coordinates lesson/quiz review invalidation, approval
+  supersession, course review reset and an immutable digest receipt. Replay
+  returns the historical receipt without overwriting later authorized edits.
+  Approval NOWAIT prelocks refuse contention before writes. Additive0177 and
+  exact-tenant purge ordering are local-only; actual DB/UI/release gates remain
+  open. No publication, assignments, learner history or provider calls on apply.
 - Add a separately disabled source-grounded draft lesson correction preview:
   exact original-document fact identity, bounded validated AI proposal, owned
   immutable reloadable before/after plan and idempotent budget admission.

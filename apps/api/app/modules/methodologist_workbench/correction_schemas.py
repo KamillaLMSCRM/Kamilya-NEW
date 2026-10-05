@@ -8,7 +8,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 from app.modules.editor_assistant.patch_contract import ProviderProvenance
 
 from .correction_contract import CorrectionEvidence, LessonCorrectionSnapshot, Text
-from .plan_contract import Fingerprint, Instruction
+from .plan_contract import Fingerprint, Instruction, Revision
 
 
 class CorrectionPreviewRequest(BaseModel):
@@ -51,3 +51,18 @@ class StoredCorrection(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     snapshot: LessonCorrectionSnapshot
     proposal: CorrectionProposal
+
+
+class CorrectionApplicationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
+    plan_id: UUID
+    lesson_id: UUID
+    course_id: UUID
+    revision: Revision
+    fingerprint: Fingerprint
+    before_sha256: Fingerprint
+    after_sha256: Fingerprint
+    applied_at: AwareDatetime
+    state: Literal["applied"] = "applied"
+    source_review: Literal["needs_review"] = "needs_review"
+    quiz_review: Literal["needs_review"] = "needs_review"
