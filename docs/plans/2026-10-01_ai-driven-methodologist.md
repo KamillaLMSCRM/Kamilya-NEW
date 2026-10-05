@@ -193,6 +193,76 @@ and stale-other-child checks, bounded actual provider semantic review, then a
 separate atomic apply/approval/quiz-review addendum and UI. Release Runner has no
 release packet yet. Production38 remains unchanged; no fresh runtime claim here.
 
+### WB-CORRECTION isolated DEV2026-10-05 — transaction gate, not activation
+
+Accepted [DEV validation V1](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_DEV_VALIDATION_V1.md),
+[V1.1 metadata impact](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_DEV_VALIDATION_V1_1.md)
+and [preview V1.4 DB clock authority](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_PREVIEW_V1_4.md)
+before their owning writes. Root created a disposable `workbench_<12hex>` schema
+on the existing canonical Supabase DEV project, cloned structure without public
+rows, and applied exact0176 only inside that owned schema. Runtime credentials
+were the actual nonsuper/non-BYPASS `lms_app`; neighbor fixture policies were
+explicitly synthetic, not proof of operational equivalence to public policies.
+Only original synthetic source bytes and the validated model boundary were fake;
+actual resolver, MD converter/evidence, quality policy, release snapshot,
+foundation, migration/SQL/RLS/ACL/triggers, accounting and transactions ran.
+
+Preserved failures A/B exposed a real ORM contract mismatch: physical metadata
+is JSONB but the model bound Text, including NULL; response ORM lookup collided
+with declarative Base.metadata. Root repaired JSONB binding and explicit response
+alias/legacy JSON normalization without changing the optional-string wire/input
+contract or rewriting data. RED6FAIL/1PASS -> GREEN7. Runtime C proved actual
+NULL/string/object roundtrips, then exposed host-clock admission23514: host time
+was0.745..1.048s ahead of PostgreSQL while the immutable15-minute guard uses DB
+time. Root now samples DB time for admission/ready/read; no TTL relaxation or
+machine-clock change. Ahead-host regression RED1FAIL/19PASS -> GREEN20. Independent
+review found unnormalized clock-query exceptions; create/read RED2FAIL/20PASS ->
+GREEN22 after narrow SQLAlchemyError-to-fixed-conflict handling, before any charge
+or provider call. That reviewer accepted the successor source read-only.
+
+Runtime D passed all31 required checks with cleanup and public-schema neutrality,
+but predates the final exception-mapping/style successor. Final E is a separate
+frozen exact-source rerun, not a relabeling of D; E passed31 checks, fresh owned
+schema absence/public neutrality and all15 source hashes after execution.
+E receipt SHA256:56eb6125f2122e51a3366d94ea7f19850544f2c0820370a783f3c76d99abf80e.
+Root's final local matrix passed
+276 correction/gate/snapshot/source/confirmation tests plus170 quiz/source-wiring/
+editor neighbors (2 existing warnings); quality ruff1008/mypy2201 and release
+contract chain0176 passed (errors226 before finalization recurrence227).
+Independent C freshly passed89 tests/quality/source review, all15 hashes; report
+SHA256:ad518c438e7e13e8775d640e13f444052ccfce1415910f42d3d333e90c96974b.
+Its finalization command exited3 due to stale native exit state after a PowerShell
+cmdlet; root rejected that finalization, preserved C, and required an independent
+successor readback, not another test run. Successor parsed C, verified15 hashes and
+captured actual diff-check exit0; SHA256:f215fa951359636626f421683b3f97050e29de91952590601a3e1dc66831602d.
+Root reviewed both receipts and accepts bounded isolated preview DEV only.
+
+The runtime matrix includes request replay/collision, one overlapping same-key
+pending replay and charge, zero-budget rollback, exactly-once failed refund,
+sibling/foreign/absent-context refusals, column ACL/terminal/time triggers, revoked
+role refusal and owned failed closure, freshness for eight other course/source
+children, original-file replacement refusal, month-boundary post-charge rollback
+and post-refund rollback retaining pending reservation, plus populated downgrade
+refusal/empty downgrade/reupgrade. This is not a precommit simultaneous INSERT
+race proof or crash/cross-month reconciliation implementation. No paid model,
+browser flow, semantic entailment, public-neighbor equivalence, apply/UI, public
+migration0176, activation, QA fixture or production change is claimed.
+
+Tool measurement: CodeGraph1.6.1 narrowed ContentBlock consumers; callers lookup
+for that class returned no unique definition, so source fallback was used.
+Same-named fake DB-method edges remain false candidates. Final source sync update
+1265ms/wrapper8234ms,1677files/31323nodes/84798edges, exclusions PASS. DB-clock search
+16ms and four caller edges18ms all match source (admission/post-provider and two
+render checks). Body timings exclude process startup. Graphify KEEP_LOCAL: no
+unresolved multi-hop seam; SQL/RLS proof comes from actual transactions, not graph
+edges. ECC/CodeBurn and exposed root/delegated token/cost counters NOT_AVAILABLE;
+no matched speedup/savings claim. Cheap writer required root replacement of the
+runtime checks, so delegation is not counted as a demonstrated saving. Persistent
+Runner A's compaction/scope drift was rejected; B local acceptance predates repairs
+and C is the final-source successor (127051ms plus39909ms finalization correction,
+including reads/review/report, not a matched benchmark). No release packet exists for Release Runner
+until atomic application, reconciliation, real-model quality and UI gates close.
+
 ### Historical document-draft DEV preparation2026-10-05
 
 Exact e9509fda technical successor passed master CI37262123649 and DEV

@@ -7,12 +7,14 @@ import hashlib
 import json
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
+from datetime import datetime as database_timestamp
 from typing import cast
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
-from sqlalchemy import exists, or_, select, update
+from sqlalchemy import exists, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import _set_tenant_security_context, _set_user_security_context
@@ -79,6 +81,16 @@ def request_digest(body: CorrectionPreviewRequest) -> str:
 async def _security_context(db: AsyncSession, actor: ActorContext) -> None:
     await _set_tenant_security_context(db, str(actor.tenant_id))
     await _set_user_security_context(db, actor.actor_id)
+
+
+async def _database_now(db: AsyncSession) -> datetime:
+    try:
+        value = await db.scalar(select(func.clock_timestamp()))
+    except SQLAlchemyError:
+        raise WorkbenchConflict("correction_clock_unavailable") from None
+    if not isinstance(value, database_timestamp) or value.tzinfo is None or value.utcoffset() is None:
+        raise WorkbenchConflict("correction_clock_unavailable")
+    return value.astimezone(UTC)
 
 
 async def _assert_live_actor(db: AsyncSession, actor: ActorContext) -> None:
@@ -161,7 +173,7 @@ async def _render(db: AsyncSession, actor: ActorContext, row: LessonCorrectionPl
     if row.status != "ready":
         return base
     snapshot = LessonCorrectionSnapshot.model_validate(row.snapshot)
-    if datetime.now(UTC) >= snapshot.expires_at:
+    if await _database_now(db) >= snapshot.expires_at:
         raise CorrectionError("expired")
     proposal = CorrectionProposal.model_validate(row.proposal)
     resolved = await resolve_lesson_correction(db, actor, snapshot.context.lesson_id)
@@ -170,7 +182,7 @@ async def _render(db: AsyncSession, actor: ActorContext, row: LessonCorrectionPl
         actor=actor,
         current=resolved.context,
         provider=CorrectionPatchAdapter(snapshot.context.content, proposal),
-        now=datetime.now(UTC),
+        now=await _database_now(db),
     )
     if preview.fingerprint != row.fingerprint:
         raise WorkbenchConflict("correction_record_invalid")
@@ -260,7 +272,7 @@ async def create_correction_preview(
             raise WorkbenchConflict("request_key_collision")
         return await _render(db, actor, existing)
     resolved = await resolve_lesson_correction(db, actor, body.lesson_id)
-    now = datetime.now(UTC)
+    now = await _database_now(db)
     snapshot = LessonCorrectionSnapshot(
         plan_id=uuid4(),
         revision=1,
@@ -319,7 +331,7 @@ async def create_correction_preview(
             actor=actor,
             current=current.context,
             provider=CorrectionPatchAdapter(snapshot.context.content, proposal),
-            now=datetime.now(UTC),
+            now=await _database_now(db),
         )
         await db.execute(
             update(LessonCorrectionPlan)

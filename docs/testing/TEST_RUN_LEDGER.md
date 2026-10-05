@@ -2266,3 +2266,29 @@ Rules:
 - Exact preview/neighbor API wrapper matrix passed `421 tests` with `4 warnings`. AI-COURSE-01 database-free selector matrix passed `13 selectors / 25 tests`. Canonical quality passed `ruff=1010, mypy=2201`; release-contract gate passed at Alembic head `0176` with `224` unique Errors entries; `git diff --check` passed.
 - Bounded source review found no local finding across authoritative source/evidence/hash identity, draft-only read-only preview/no apply route, ordinary role/body/foreign denial, request-key replay/collision, provider-denial, charge/refund/month-boundary, freshness, and static migration/RLS/ACL/trigger contracts.
 - Runtime RLS/atomicity/concurrency/provider RU/KK/browser/DEV/public/production gates remain `NOT_VERIFIED`; no database, network, provider, model, migration, business, or deployment mutation occurred. Root-supplied prior observations remain attribution-only and historical failures remain preserved. Result is `LOCAL_ONLY`, not release or runtime GO.
+### WB-CORRECTION-DEV-GATE-LOCAL-B-20261005 — 2026-10-05 — independent local safety validation
+
+- Scope: database-free local validation of the isolated 0176 lesson-correction preview DEV driver at worktree HEAD `db910249376270bb5520ed4e853412eb88647ef6`.
+- Harness note: the immediately preceding response was rejected for frontend scope drift; this successor run restarted from the required packet and did not reuse that result as evidence.
+- Preflight: exact worktree, HEAD, canonical interpreter, and all nine freeze-manifest SHA-256 hashes passed before execution; all nine hashes passed again afterward.
+- Focused API matrix: PASS, 84 tests passed. Canonical Ruff check: PASS. Python quality baseline: PASS (`ruff=1010`, `mypy=2201`). `git diff --check`: PASS.
+- Bounded source review: PASS for owned-schema allowlist, collision refusal, required-check completeness/duplicate rejection, fail-closed cleanup/readback, actual converter fixture, synthetic boundary labels, and absence of public-runtime fallback.
+- Runtime/provider/browser/DB/DEV/public/live-model equivalence: NOT VERIFIED by scope; no external execution was performed. Fake model and synthetic neighbor policies remain boundary evidence only.
+- Evidence: `.release-evidence/WB-CORRECTION-PREVIEW-20261005/dev-independent-B.json`.
+
+### WB-CORRECTION-DEV-GATE-LOCAL-C-20261005 — 2026-10-05 — independent local/source acceptance
+
+- Scope: database-free local/source acceptance of the isolated 0176 correction DEV gate plus metadata ORM/wire and database-clock repairs at worktree HEAD `db910249376270bb5520ed4e853412eb88647ef6`.
+- Preflight: exact worktree/branch, canonical interpreter, and all 15 `dev-freeze-E.json` SHA-256 hashes passed before execution; all 15 hashes passed again afterward.
+- Focused matrix: PASS, 89 tests passed. Canonical Python quality baseline: PASS (`ruff=1008`, `mypy=2201`). Targeted Ruff: PASS. `git diff --check`: PASS.
+- Bounded source review: no actionable local findings. Verified owned-schema collision/cleanup/readback fail-closed behavior, required-check completeness/duplicate rejection, actual converter and synthetic-boundary labeling, JSONB metadata ORM mapping with optional-string wire normalization, and PostgreSQL `clock_timestamp()` authority with fixed conflict on unavailable/invalid clock and no host-clock fallback for preview timestamps.
+- Contract boundary: host UTC month guards remain the separately specified shared-accounting guard. No shared budget semantics changed.
+- Runtime/DEV/production/provider/browser/live-model/RLS equivalence: NOT VERIFIED by scope. Root-supplied prior runtime-D evidence remains attribution-only, not independent final-E proof. No external execution or fixture cleanup occurred.
+- Evidence: `.release-evidence/WB-CORRECTION-PREVIEW-20261005/dev-independent-C.json`.
+
+### WB-CORRECTION-DEV-GATE-LOCAL-C-FINALIZATION-20261005 — 2026-10-05 — evidence attribution correction
+
+- The original C finalization command is preserved as `HARNESS_FAILURE`: it returned exit 3 because PowerShell `$LASTEXITCODE` was checked after `ConvertFrom-Json`, which is a PowerShell cmdlet rather than a native process exit producer. The underlying prior matrix result and C report remain unchanged and are not reinterpreted by this correction.
+- A no-rerun successor readback parsed the preserved C JSON with terminating errors, verified the exact HEAD `db910249376270bb5520ed4e853412eb88647ef6`, matched all 15 `dev-freeze-E.json` hashes, and captured `git diff --check` native exit `0` immediately after the command.
+- No tests were rerun. No source, database, network, environment, provider, browser, deployment, or descendant action occurred.
+- Finalization evidence: `.release-evidence/WB-CORRECTION-PREVIEW-20261005/dev-independent-C-finalization.json`.

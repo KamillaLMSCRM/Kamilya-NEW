@@ -6017,3 +6017,66 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   harness fixtures against the deployed source contract before rerunning. Keep
   both normalized-payload and file-byte hashes when line endings differ, and
   never modify release artifacts or spend another AI call to make hashes match.
+
+## LESSON-BLOCK-001 - ORM metadata type and declarative response collision
+
+- Date: 2026-10-05. Found in isolated lesson-correction DEV validation, no public
+  data or provider mutation. Failed runtime A/B receipts are preserved.
+- Symptom: ORM block insertion failed with SQLSTATE42804; B reached the seeded
+  content-block flush after proving model column presence.
+- Cause: migration0002 and canonical read-only publicDEV0175 probe both define
+  content_blocks.metadata as JSONB, but the ORM declared Text. Even a bound NULL
+  was cast as VARCHAR. Separately the response field read Base.metadata instead
+  of the mapped metadata_ attribute.
+- Fix: JSONB(none_as_null=True) binding, explicit response validation aliases,
+  deterministic JSON text for legacy JSON values; unchanged optional-string
+  create/update/public response contract. No DB migration/data rewrite.
+- Verification: RED6 failures/1 pass; GREEN7 focused tests. Runtime C freshly
+  passed actual NULL/string/object ORM and response roundtrips before the separate
+  preview clock gate failed. Snapshot/source-actuality/quiz neighbors passed36
+  local tests including gate safety (one existing warning).
+- Prevention: test the physical dialect bind and ORM response alias, not only
+  field presence or mock snapshots. Never replace ORM fixtures with raw SQL to
+  suppress a reproducible model mismatch. Keep owned cleanup/public neutrality
+  and legacy response normalization as explicit successor gates.
+
+## WB-CORRECTION-001 - Application clock exceeded the DB preview lifetime bound
+
+- Date: 2026-10-05, isolated runtime C, public/production unchanged.
+- Symptom: initial preview admission failed SQLSTATE23514 after source/metadata
+  fixture checks. The immutable DB guard bounds expires_at to DB-created_at+15min.
+- Cause: expiry came from host time, while the trigger overwrote created_at with
+  DB clock. Canonical read-only probe measured host ahead by0.745..1.048seconds;
+  client expiry can exceed the server's maximum lifetime despite a valid intent.
+- Fix: sample PostgreSQL clock_timestamp() for admission and ready/read expiry
+  checks, refuse unavailable/naive clock without host fallback. Keep all existing
+  0176 time/state guards and shared UTC-month accounting/uncertainty behavior.
+- Verification: ahead-host20minute regression RED1/19PASS then GREEN20service
+  tests (36combined). Query-error create/read RED2FAIL/20PASS then GREEN22;
+  final frozen isolated runtime E passed31 checks including real month-boundary
+  rollback/reservation, cleanup and public neutrality. No public migration or
+  production acceptance is implied here.
+- Prevention: one authoritative DB clock for persistent lifetimes; never add a
+  guessed clock-skew allowance, extend TTL, disable the constraint or adjust
+  system clocks to make a preview pass. Preserve failed receipts and prove real
+  month-boundary rollback/reservation before activation.
+
+## TEST-INFRA-014 - Evidence finalization checked a stale native exit code after a cmdlet
+
+- Date: 2026-10-05, independent correction DEV local packet C.
+- Symptom: focused89, quality and Ruff commands exited0, but the report-finalization
+  command exited3; final handoff nevertheless described a complete PASS.
+- Cause: ConvertFrom-Json is a PowerShell cmdlet and does not set LASTEXITCODE.
+  Checking that variable afterward consumed stale native-process state and falsely
+  failed a valid JSON readback. Command failure must not be omitted from acceptance.
+- Fix: preserve original C report and failure; use a successor readback with
+  ErrorActionPreference=Stop and ConvertFrom-Json -ErrorAction Stop, throw on any
+  frozen-hash mismatch, and capture LASTEXITCODE immediately after git diff --check.
+  No test/source change or rerun is needed for an evidence attribution repair.
+- Verification: root freshly parsed C report and checked15/15 hashes; the Runner
+  successor independently records finalization in dev-independent-C-finalization.json.
+  Original failed finalization remains HARNESS_FAILURE, never a product failure.
+- Prevention: use terminating errors for cmdlets and immediate exit capture for
+  native commands; do not mix their success channels. Verify actual final tool
+  result before claiming acceptance. A failing readback is an open evidence gate
+  until its exact successor passes, even when earlier tests are green.

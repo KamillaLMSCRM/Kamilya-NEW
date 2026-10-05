@@ -1,8 +1,11 @@
 """Lessons module — schemas"""
-from pydantic import BaseModel, Field
-from uuid import UUID
+import json
 from datetime import datetime
-from typing import Optional, List
+from typing import Any, List, Optional
+from uuid import UUID
+
+from pydantic import AliasChoices, BaseModel, Field, field_validator
+
 
 class ModuleCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
@@ -74,9 +77,16 @@ class ContentBlockResponse(BaseModel):
     block_type: str
     content: Optional[str] = None
     order_index: int
-    metadata: Optional[str] = None
+    metadata: Optional[str] = Field(default=None, validation_alias=AliasChoices("metadata_", "metadata"))
     created_at: datetime
     model_config = {"from_attributes": True}
+
+    @field_validator("metadata", mode="before")
+    @classmethod
+    def serialize_legacy_metadata(cls, value: Any) -> Any:
+        if isinstance(value, dict | list | bool | int | float):
+            return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+        return value
 
 class CourseStructureResponse(BaseModel):
     id: UUID

@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.modules.editor_assistant.patch_contract import ProviderProvenance
 from app.modules.methodologist_workbench import correction_service as service
@@ -109,9 +110,12 @@ class Storage:
         self.rollbacks = 0
         self.statements = []
         self.events = []
+        self.db_clock = None
 
     async def scalar(self, statement):
         text = str(statement)
+        if "clock_timestamp" in text:
+            return self.db_clock or service.datetime.now(UTC)
         if "monthly_llm_budget_usd_cents" in text:
             return self.budget
         if "workbench_lesson_correction_plans" in text:
@@ -210,6 +214,58 @@ async def test_claim_and_ten_cent_charge_commit_before_provider(monkeypatch):
     assert charges[0][0][1] == str(TENANT)
     assert db.commits == 2
     assert db.statements[0].is_insert
+
+
+@pytest.mark.asyncio
+async def test_create_and_read_use_database_time_despite_ahead_host_clock(monkeypatch):
+    db = Storage()
+    db.db_clock = datetime.now(UTC)
+    install_clock(monkeypatch, db.db_clock + timedelta(minutes=20))
+    patch_service(monkeypatch)
+    monkeypatch.setattr(service, "check_and_charge_llm_budget", _noop)
+
+    async def provider(_tenant):
+        return object()
+
+    result = await service.create_correction_preview(db, actor(), request(), provider_resolver=provider)
+    snapshot = LessonCorrectionSnapshot.model_validate(db.rows[result.plan_id].snapshot)
+    assert snapshot.created_at == db.db_clock
+    assert result.expires_at == db.db_clock + timedelta(minutes=15)
+    loaded = await service.get_correction_preview(db, actor(), result.plan_id)
+    assert loaded.fingerprint == result.fingerprint
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["create", "read"])
+async def test_database_clock_query_failure_is_fixed_conflict_without_charge(monkeypatch, operation):
+    db = Storage()
+    patch_service(monkeypatch)
+    monkeypatch.setattr(service, "check_and_charge_llm_budget", _noop)
+
+    async def provider(_tenant):
+        return object()
+
+    if operation == "read":
+        result = await service.create_correction_preview(db, actor(), request(), provider_resolver=provider)
+    original_scalar = db.scalar
+    events_before = list(db.events)
+
+    async def broken_clock(statement):
+        if "clock_timestamp" in str(statement):
+            raise SQLAlchemyError("private database diagnostics")
+        return await original_scalar(statement)
+
+    async def forbidden_call(*args, **kwargs):
+        pytest.fail("clock failure must precede charge and provider")
+
+    monkeypatch.setattr(db, "scalar", broken_clock)
+    monkeypatch.setattr(service, "check_and_charge_llm_budget", forbidden_call)
+    with pytest.raises(service.WorkbenchConflict, match="^correction_clock_unavailable$"):
+        if operation == "create":
+            await service.create_correction_preview(db, actor(), request(), provider_resolver=forbidden_call)
+        else:
+            await service.get_correction_preview(db, actor(), result.plan_id)
+    assert db.events == events_before
 
 
 class Clock:

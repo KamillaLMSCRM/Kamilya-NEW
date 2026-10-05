@@ -1,7 +1,9 @@
 from uuid import uuid4
-from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, Integer, Text, TIMESTAMP, func
+
+from sqlalchemy import TIMESTAMP, Boolean, CheckConstraint, Column, ForeignKey, Integer, Text, func
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+
 from app.core.db import Base
 
 
@@ -64,5 +66,5 @@ class ContentBlock(Base):
     block_type = Column(Text, nullable=False)
     content = Column(Text, nullable=True)
     order_index = Column(Integer, nullable=False, default=0)
-    metadata_ = Column("metadata", Text, nullable=True)
+    metadata_ = Column("metadata", JSONB(none_as_null=True), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())

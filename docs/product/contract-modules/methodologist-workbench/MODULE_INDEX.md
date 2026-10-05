@@ -4,7 +4,7 @@ Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
 | Module | Responsibility | Active mini-spec | Data owner / writer | Status |
 |---|---|---|---|---|
-| WORKBENCH | Untrusted intent → server-resolved plan → confirmation policy; bounded assignment/document receipts and correction policy under addenda below | [WORKBENCH V1](modules/WORKBENCH_V1.md) | Workbench/root; persistent assignment/document plans and pure correction foundation | Production text/document slices accepted; correction LOCAL_ONLY; speech gated |
+| WORKBENCH | Untrusted intent → server-resolved plan → confirmation policy; bounded assignment/document receipts and correction policy under addenda below | [WORKBENCH V1](modules/WORKBENCH_V1.md) | Workbench/root; persistent assignment/document plans and correction previews | Production text/document slices accepted; correction isolated DEV31 accepted, apply/UI gated; speech gated |
 | SPEECH-INTAKE | Bounded authorized audio → editable transcript, no business execution | [SPEECH-INTAKE V1](modules/SPEECH_INTAKE_V1.md) | Speech/root; no storage now | Draft / benchmark gate |
 
 Active shared contract: [COMMAND-PLAN V1](contracts/COMMAND_PLAN_V1.md).
@@ -15,14 +15,24 @@ dated release record, not a fresh runtime assertion.
 Draft lesson correction foundation:
 [LESSON-CORRECTION-FOUNDATION V1](contracts/LESSON_CORRECTION_FOUNDATION_V1.md),
 accepted local implementation2026-10-05; full correction NOT IMPLEMENTED.
-Source-owned proposal and durable preview integration, local implementation only:
+Source-owned proposal and durable preview integration, bounded isolated DEV accepted:
 [PREVIEW V1](contracts/LESSON_CORRECTION_PREVIEW_V1.md),
 [V1.1 lost-role failure closure](contracts/LESSON_CORRECTION_PREVIEW_V1_1.md),
 [V1.2 UTC month safety](contracts/LESSON_CORRECTION_PREVIEW_V1_2.md),
-[V1.3 complete snapshot freshness](contracts/LESSON_CORRECTION_PREVIEW_V1_3.md).
+[V1.3 complete snapshot freshness](contracts/LESSON_CORRECTION_PREVIEW_V1_3.md),
+[V1.4 authoritative DB clock](contracts/LESSON_CORRECTION_PREVIEW_V1_4.md).
+Owned runtime validation:
+[DEV validation V1](contracts/LESSON_CORRECTION_DEV_VALIDATION_V1.md),
+[V1.1 compatible metadata repair](contracts/LESSON_CORRECTION_DEV_VALIDATION_V1_1.md).
+Root final frozen E passed31 actual non-BYPASS runtime checks, cleanup and public
+schema neutrality; independent C passed89 local tests/quality/source review,
+15/15 hashes with a separate preserved finalization correction. Original-source
+bytes/model boundary and neighbor policies are synthetic, not real-provider or
+public-neighbor-policy equivalence. See plan for exact receipts and limitations.
 Independent correction flag defaults OFF; schema0176 is not applied to public.
 Evidence_v2 original facts only; legacy provenance is refused. No apply/UI,
-runtime RLS/concurrency, real-model quality or production correction acceptance.
+crash/cross-month reconciliation, real-model quality or production correction
+acceptance. Runtime replay overlap is not a precommit simultaneous-insert race proof.
 Free-text interpretation and editable candidate, production0.11.37 accepted:
 [LLM-ASSIGNMENT-INTENT V3](contracts/LLM_ASSIGNMENT_INTENT_ADDENDUM_V3.md),
 preserving V1/V2 and existing financial zero-budget behavior. RU/KK clarification,
