@@ -111,3 +111,34 @@ def test_default_language_is_selected_and_prompt_is_bounded():
     assert result.language == "kk"
     messages = application.build_document_intent_messages("x", "kk")
     assert "tenant" in messages[0]["content"] and "x" in messages[1]["content"]
+
+
+def test_provider_prompt_supplies_exact_document_candidate_schema():
+    """The external model needs legal values, not just names of enum fields."""
+    messages = application.build_document_intent_messages("Краткий курс для склада", "ru")
+    marker = "Document draft JSON schema: "
+    system = messages[0]["content"]
+    assert marker in system
+    schema = json.loads(system.split(marker, 1)[1])
+    assert schema["additionalProperties"] is False
+    properties = schema["properties"]
+    assert set(properties) == {"action", "target_audience", "course_intent", "course_format", "language", "source_strategy", "combination_goal"}
+    assert properties["action"]["const"] == "document_draft"
+    assert properties["course_format"]["enum"] == ["automatic", "brief", "standard", "detailed"]
+    assert properties["source_strategy"]["enum"] == ["single_topic", "intentional_combination"]
+    assert properties["language"]["enum"] == ["ru", "kk", "en"]
+    assert properties["course_intent"]["maxLength"] == 2000
+
+
+async def test_captured_prose_enums_remain_rejected_and_refunded(monkeypatch):
+    """Replay the DEV provider failure without a new provider request."""
+    db, charge, refund, provider, resolver = setup(monkeypatch)
+    payload = json.loads(CONTENT)
+    payload.update(
+        course_format="краткий вводный курс с практическими примерами и проверочными вопросами",
+        source_strategy="только правила загруженного регламента",
+    )
+    provider.ainvoke.return_value.content = json.dumps(payload, ensure_ascii=False)
+    result = await application.interpret_document(db, ACTOR, BODY, provider_resolver=resolver)
+    assert result.state == "clarification_needed" and result.code == "intent_clarification"
+    refund.assert_awaited_once()

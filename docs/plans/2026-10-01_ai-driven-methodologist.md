@@ -30,6 +30,23 @@ production37 boundary описана выше и в шаге63, старые э�
 
 ### Active frontier2026-10-04: WB-DOCUMENT-DRAFT
 
+2026-10-05 live DEV technical release38/f4e09aa9 completed: CI37255703963,
+Vercel READY/API+worker live, public175 FORCE RLS and provider flags true.
+Product gate rejected that candidate: instruction editing while upload unresolved
+cancelled the shared request lifecycle, leaving a server-ready document absent
+until reload. Cheap leaf RED1/10 -> GREEN11/typecheck; root reviewed separation
+of uploadEpoch/controller. Two ordinary browser interpretation responses requested
+clarification; one exact-runtime-config admitted synthetic capture proved prose
+course_format/source_strategy literal errors. Root prompt-schema RED1/10 ->
+GREEN12 including deterministic captured-output rejection, API neighbors28 PASS.
+One admitted corrected-source provider capture returned interpreted with legal
+values; this is source/provider proof, not a deployed successor/browser pass.
+Independent four-file review found no release-blocking defect. No generation,
+publication, assignment or production mutation. Disposable DEV fixture
+da0bff72-b7f6-483f-8406-29ce07c53bd1 retained for the next exact-SHA acceptance;
+permanent QA untouched. Dependency: independent repair matrix -> successor CI/
+same-resource DEV -> full owned browser flow -> protected production gates.
+
 2026-10-05 owner approved DEV migration175/existing services/live acceptance,
 then production after DEV passes. Added rollout section in DOCUMENT_DRAFT_V1;
 no billing/resources/rights/landing/customer-data expansion. Root owns integration,

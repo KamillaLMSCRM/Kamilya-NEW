@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-04.
+Current as of: 2026-10-05.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -5877,3 +5877,41 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   materialize the response before COMMIT clears transaction-local RLS context.
   Never treat HTTP500 as evidence of rollback; independently read back exact
   resource state before retry. Test postcommit IO, key races and final rollback.
+
+## UI-005 - Editing a document instruction interrupted an in-flight upload
+
+- Date: 2026-10-05; owned disposable DEV methodologist on release38/f4e09aa9.
+- Symptom: after typing an instruction during upload, the workbench showed no
+  ready source although ordinary catalog readback confirmed one active ready
+  v1 document. Reload displayed that same source; no upload retry was needed.
+- Cause: upload/indexing and command interpretation/preview shared one epoch and
+  AbortController. Every form edit called clearStale, aborting upload observation
+  and clearing status before the server-side operation completed.
+- Fix: independent upload epoch/controller; command edits invalidate command
+  results only. Session/unmount still abort catalog, command and upload requests.
+- Verification: behavioral component RED1/10 then GREEN11; root focused11 PASS,
+  typecheck PASS and independent source review. Deployed successor/browser
+  confirmation remains a separate gate, not implied by the local result.
+- Prevention: test unresolved upload, instruction edit, completed indexing and
+  visible ready source together. Never retry an upload before reconciling its
+  catalog/job state, and never couple source ingestion to editable command state.
+
+## WB-INTENT-002 - Document intent prompt omitted legal enum values
+
+- Date: 2026-10-05; owned synthetic DEV document instruction on release38.
+- Symptom: a clear Russian course instruction returned clarification instead
+  of editable parameters. Two browser requests were followed by one bounded
+  admitted capture using the same DEV runtime configuration; no course generated.
+- Cause: the prompt named course_format/source_strategy but omitted their legal
+  enum values. The captured model reply used Russian prose for both; strict
+  candidate validation correctly reported two literal errors.
+- Fix: include JSON schema derived from the authoritative DocumentCandidate
+  model, exact enum/length constraints and explicit clarification response shape.
+  Preserve strict parsing; do not translate or repair invalid model output.
+- Verification: prompt contract RED1/10, focused intent GREEN12 including
+  deterministic captured-prose rejection/refund; affected API neighbors28 PASS.
+  One corrected-source admitted provider capture returned interpreted. This is
+  local/provider evidence, not a successor deployment or final live acceptance.
+- Prevention: provider prompts must carry typed machine constraints, not only
+  field names. Capture one synthetic failure and replay locally before a bounded
+  fresh provider check; do not iterate paid generation calls to debug enum parsing.

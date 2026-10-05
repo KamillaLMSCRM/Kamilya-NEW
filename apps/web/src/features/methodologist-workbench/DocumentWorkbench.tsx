@@ -38,6 +38,8 @@ function DocumentWorkbenchInner() {
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const epoch = useRef(0);
   const requestController = useRef<AbortController | null>(null);
+  const uploadEpoch = useRef(0);
+  const uploadController = useRef<AbortController | null>(null);
   const mounted = useRef(true);
   const catalogController = useRef<AbortController | null>(null);
   const polling = useRef(false);
@@ -47,8 +49,6 @@ function DocumentWorkbenchInner() {
     requestController.current = null;
     epoch.current += 1;
     setPending(false);
-    setUploading(false);
-    setUploadStatus(null);
     setError(null);
     setLanguageConfirmed(false);
     setPlan(null);
@@ -70,7 +70,7 @@ function DocumentWorkbenchInner() {
     const controller = new AbortController();
     catalogController.current = controller;
     void fetchDocuments(controller.signal).catch((cause) => { if (mounted.current && !['AbortError', 'CanceledError'].includes(cause?.name)) setError('Не удалось загрузить каталог документов.'); });
-    return () => { mounted.current = false; controller.abort(); catalogController.current?.abort(); requestController.current?.abort(); };
+    return () => { mounted.current = false; controller.abort(); catalogController.current?.abort(); requestController.current?.abort(); uploadController.current?.abort(); };
   }, [fetchDocuments]);
 
   useEffect(() => {
@@ -124,14 +124,14 @@ function DocumentWorkbenchInner() {
   };
 
   const upload = async (file: File) => {
-    const current = ++epoch.current;
+    const current = ++uploadEpoch.current;
     const controller = new AbortController();
-    requestController.current?.abort(); requestController.current = controller;
+    uploadController.current?.abort(); uploadController.current = controller;
     setUploading(true); setUploadStatus('Загрузка документа…'); setError(null);
     const form = new FormData(); form.append('file', file); form.append('title', file.name.replace(/\.[^/.]+$/, ''));
     try {
       const response = await api.post<{ id: string; indexing_job_id?: string | null }>('/v1/documents/upload', form, { headers: { 'Content-Type': 'multipart/form-data' }, signal: controller.signal });
-      if (!mounted.current || current !== epoch.current) return;
+      if (!mounted.current || current !== uploadEpoch.current) return;
       const jobId = response.data.indexing_job_id;
       if (jobId) {
         let ready = false;
@@ -139,10 +139,10 @@ function DocumentWorkbenchInner() {
         for (let attempt = 0; attempt < 20 && !controller.signal.aborted; attempt += 1) {
           setUploadStatus(`Индексация документа… (${attempt + 1}/20)`);
           const statusResponse: { data: AIGenerationJob } = await api.get<AIGenerationJob>(`/v1/ai/jobs/${encodeURIComponent(jobId)}`, { signal: controller.signal });
-          if (!mounted.current || current !== epoch.current || controller.signal.aborted) return;
+          if (!mounted.current || current !== uploadEpoch.current || controller.signal.aborted) return;
           if (statusResponse.data.id !== jobId) throw new Error('Indexing job identity mismatch');
           await fetchDocuments(controller.signal);
-          if (!mounted.current || current !== epoch.current || controller.signal.aborted) return;
+          if (!mounted.current || current !== uploadEpoch.current || controller.signal.aborted) return;
           if (['completed', 'failed', 'cancelled', 'interrupted'].includes(statusResponse.data.status)) {
             ready = statusResponse.data.status === 'completed';
             if (!ready) { indexingFailed = true; setError(statusResponse.data.message || 'Индексация документа завершилась с ошибкой.'); }
@@ -150,11 +150,11 @@ function DocumentWorkbenchInner() {
           }
           await new Promise<void>((resolve) => window.setTimeout(resolve, 3000));
         }
-        if (!ready && !indexingFailed && mounted.current && current === epoch.current && !controller.signal.aborted) setError('Индексация не завершилась в допустимое время.');
+        if (!ready && !indexingFailed && mounted.current && current === uploadEpoch.current && !controller.signal.aborted) setError('Индексация не завершилась в допустимое время.');
       } else await fetchDocuments(controller.signal);
-      if (mounted.current && current === epoch.current) setUploadStatus(null);
-    } catch (cause: any) { if (mounted.current && current === epoch.current && !['AbortError', 'CanceledError'].includes(cause?.name)) setError('Не удалось загрузить документ.'); }
-    finally { if (mounted.current && current === epoch.current) setUploading(false); }
+      if (mounted.current && current === uploadEpoch.current) setUploadStatus(null);
+    } catch (cause: any) { if (mounted.current && current === uploadEpoch.current && !['AbortError', 'CanceledError'].includes(cause?.name)) setError('Не удалось загрузить документ.'); }
+    finally { if (mounted.current && current === uploadEpoch.current) { uploadController.current = null; setUploading(false); } }
   };
 
   const generation = (): AIGenerateRequest => ({ ...candidate, documents: selected, language_confirmed: languageConfirmed, reuse_reason: reuseReason });

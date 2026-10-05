@@ -175,4 +175,22 @@ describe('DocumentWorkbench', () => {
     expect(await screen.findByText('Новый документ')).toBeInTheDocument();
     timeout.mockRestore();
   });
+
+  it('keeps an upload and ready catalog item alive when instruction changes during indexing', async () => {
+    window.history.replaceState({}, '', '/methodologist-workbench');
+    const ready = { id: '00000000-0000-4000-8000-000000000004', title: 'Документ после изменения', filename: 'ready.pdf', content_type: 'application/pdf', size: 1, description: '', category: 'general', index: { status: 'ready', revision: 1 }, version: 1, is_latest: true, lifecycle_status: 'active' };
+    let resolveUpload!: (value: unknown) => void;
+    let catalogCalls = 0;
+    apiMock.get.mockImplementation(async (url: string) => url.includes('/ai/jobs/')
+      ? { data: { id: 'index-job', status: 'completed', job_type: 'document_indexing', course_id: null, progress: 100, stage: 'indexing', message: '' } }
+      : { data: { items: catalogCalls++ > 0 ? [ready] : [], page: { has_more: false } } });
+    apiMock.post.mockReturnValue(new Promise((resolve) => { resolveUpload = resolve; }));
+    vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
+    const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
+    render(<DocumentWorkbench />);
+    fireEvent.change(screen.getByLabelText('Загрузить документ'), { target: { files: [new File(['content'], 'ready.pdf')] } });
+    fireEvent.change(screen.getByLabelText('Инструкция'), { target: { value: 'Новая команда' } });
+    resolveUpload({ data: { id: ready.id, indexing_job_id: 'index-job' } });
+    expect(await screen.findByText('Документ после изменения')).toBeInTheDocument();
+  });
 });

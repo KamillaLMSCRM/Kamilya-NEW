@@ -86,6 +86,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserve upload/indexing and the ready source catalogue when a methodologist
+  edits the instruction or course parameters during upload.
+- Supply the document interpreter with the exact candidate JSON schema, including
+  enum and length constraints; keep strict rejection of prose/translated enum values.
 - Restored document interpretation cannot overwrite the methodologist's current
   source selection with stale generation parameters.
 - Release checks reject incomplete provider inventories and missing configuration

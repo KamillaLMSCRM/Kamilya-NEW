@@ -2208,3 +2208,17 @@ Rules:
 - Local contract review passed for additive DEV V4/native schema3/build-config2 compatibility, explicit dual flags, fail-closed provider/config inventory, bounded partial failure, legacy packet preservation, executable guards, and the privileged eight-field manifest.
 - Root’s `112 PASS / 1 SKIP / RED6→GREEN` result remains Root observation only and was not rerun. External release, provider, network, database, browser, and production gates remain unrun.
 - Report: `.release-evidence/REL-DOCUMENT38-20261005/independent-contracts-A.json`.
+### TEST-DOCUMENT38-LIVE-REPAIRS-20261005-B — 2026-10-05 — interrupted local verification
+
+- Exact HEAD `f4e09aa9195ebb97430a6ab051fe34cfc987f43f`; all 4 frozen product/test hashes passed before execution.
+- Focused API matrix passed `28 tests`; document workbench React suite passed `11 tests`; web typecheck passed; Python quality passed `ruff=1010, mypy=2201`.
+- First hard failure: canonical release-contract gate reported `Errors journal contract error: header date must equal the latest entry date`. Alembic, Celery, migration ownership, and Render runtime dependency checks passed.
+- `git diff --check` and post-hash verification were `NOT_RUN` after the first hard failure. No source/test/contract repair or external action occurred.
+- Report: `.release-evidence/REL-DOCUMENT38-20261005/independent-live-repairs-B.json`. Root UI/prompt/DEV observations remain attribution-only.
+### TEST-DOCUMENT38-LIVE-REPAIRS-20261005-C — 2026-10-05 — contract-gate closure correction
+
+- B remains preserved with its original Errors-journal contract failure. C verified the four frozen product/test hashes before and after with zero mismatches at HEAD `f4e09aa9195ebb97430a6ab051fe34cfc987f43f`.
+- Fresh canonical release-contract gate passed: Alembic head `0175`, Celery, migration ownership, Render dependencies, and Errors journal with 220 unique entries. `git diff --check` passed.
+- B green evidence remains hash-linked and was not rerun: API `28 passed`, React `11 passed`, typecheck passed, and quality `ruff=1010/mypy=2201`.
+- External DEV/provider/database/browser/production checks remain unrun; Root UI/prompt/provider observations remain attribution-only.
+- Report: `.release-evidence/REL-DOCUMENT38-20261005/independent-live-repairs-C.json`.
