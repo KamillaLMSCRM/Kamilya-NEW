@@ -131,6 +131,9 @@ def failure_detail(exc):
     allowed = {
         Path(__file__).resolve(),
         ROOT / "scripts/ops/workbench_correction_application_dev_checks.py",
+        ROOT / "scripts/ops/workbench_correction_lifecycle_dev_checks.py",
+        ROOT / "scripts/ops/workbench_correction_lifecycle_dev_gate.py",
+        ROOT / "apps/api/alembic/versions/0178_workbench_lesson_correction_lifecycle.py",
         MIGRATION,
         ROOT / "apps/api/app/modules/methodologist_workbench/correction_application.py",
         ROOT / "apps/api/app/modules/methodologist_workbench/correction_service.py",
@@ -263,7 +266,11 @@ async def apply_0177(connection, schema, operation="upgrade"):
     await connection.run_sync(apply)
 
 
-async def run_gate(owner_url, runtime_url, supabase_url, schema):
+async def run_gate(
+    owner_url, runtime_url, supabase_url, schema, *,
+    extra_migration=None, verifier=None, required_checks=REQUIRED_CHECKS,
+    scope="workbench_correction_application_isolated_dev", migration="0177",
+):
     started = monotonic()
     safe_schema(schema)
     if not all(
@@ -332,16 +339,19 @@ async def run_gate(owner_url, runtime_url, supabase_url, schema):
             checks.append("catalog_fk_exact_immediate")
             await apply_migration(connection, schema)
             await apply_0177(connection, schema)
+            if extra_migration is not None:
+                await extra_migration(connection, schema)
             await connection.commit()
         stage = "application_transactions"
         from workbench_correction_application_dev_checks import verify_application
 
         async with asyncio.timeout(600):
-            await verify_application(owner_engine, runtime_engine, schema, checks)
+            await (verifier or verify_application)(owner_engine, runtime_engine, schema, checks)
         if connection_peak > 3:
             raise GateBlocked("connection_cap_exceeded")
         checks.append("bounded_connection_peak")
-        validate_checks(checks)
+        if set(checks) != required_checks or len(checks) != len(set(checks)):
+            raise GateBlocked("required_checks_missing")
     except Exception as exc:
         failure = sanitize_failure(exc)
         detail = failure_detail(exc)
@@ -363,10 +373,10 @@ async def run_gate(owner_url, runtime_url, supabase_url, schema):
         and readback_failure is None
         and cleaned
         and neutral
-        and set(checks) == REQUIRED_CHECKS
+        and set(checks) == required_checks
         else "BLOCKED",
-        "scope": "workbench_correction_application_isolated_dev",
-        "migration": "0177",
+        "scope": scope,
+        "migration": migration,
         "checks": checks,
         "cleanup": cleaned,
         "public_schema_neutral": neutral,

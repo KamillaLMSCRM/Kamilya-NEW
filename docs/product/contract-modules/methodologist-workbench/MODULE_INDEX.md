@@ -67,6 +67,19 @@ Independent A NOT_READY spacing finding is preserved; corrected B independently
 passed editor13 and all12 hashes, accepted SOURCE_LEVEL/LOCAL_ONLY by root.
 Source references currently show metadata, not a source-file opener; user docs
 state that limitation. Browser visual/responsive and assembled DEV remain open.
+Durable estimate/reconciliation and metadata retention successor:
+[LIFECYCLE V1](contracts/LESSON_CORRECTION_LIFECYCLE_V1.md), accepted before writes.
+Additive0178 and correction-owned DB-month accounting are implemented locally;
+root final isolated DEV33/cleanup/public-neutrality/9frozen source hashes PASS;
+locked returned-action provenance follows accepted
+[LIFECYCLE V1.1](contracts/LESSON_CORRECTION_LIFECYCLE_V1_1.md).
+Root and independent Runner final192/quality/source22 PASS, artifacts read back;
+root accepts LOCAL + OWNED_SYNTHETIC_DEV only, not public rollout.
+Original bytes/model/neighbor policies are
+synthetic, learner history/semantic quality/public/browser NOT_VERIFIED.
+Pre-provider start marker
+is not evidence of an invocation or actual spend. No public cleanup/scheduler,
+shared-budget limit, business-history deletion or activation is introduced.
 Free-text interpretation and editable candidate, production0.11.37 accepted:
 [LLM-ASSIGNMENT-INTENT V3](contracts/LLM_ASSIGNMENT_INTENT_ADDENDUM_V3.md),
 preserving V1/V2 and existing financial zero-budget behavior. RU/KK clarification,

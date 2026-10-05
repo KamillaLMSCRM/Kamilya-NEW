@@ -6205,3 +6205,53 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: complete every public confirmation seal from server-owned output.
   Never synthesize revision/authority in a client; test non-default revisions and
   pending/failed reloads, not just a successful first preview.
+
+## TEST-INFRA-017 - Runner acceptance drift and malformed evidence linkage
+
+- Date: 2026-10-05; correction lifecycle local acceptance only.
+- Symptom: Runner C read136373 characters through broad error-journal matching,
+  compacted context, then returned an unrelated frontend/31-test report without
+  a lifecycle receipt. C1 passed178 API tests but interpreted an ambiguous root
+  command as PowerShell -File on a Python file (exit64). Its handoff claimed an
+  after-hash check while JSON correctly recorded NOT_RUN. C2 passed the remaining
+  driver13/quality/source gates but recorded a63-character C1 digest in JSON.
+- Cause: oversized retrieval and stale-context restoration are observed together;
+  their internal causal mechanism is not proven. Root command wording and manual
+  digest transcription introduced separate execution/provenance defects.
+- Fix: reject wrong RUN_ID/scope or missing receipts; bounded named error slices
+  and complete paged instructions, never broad journal contexts. Supply complete
+  absolute PowerShell7 -File wrapper.ps1 and Python test argument as separate paths.
+  Preserve C/C1 failures; hash-link green178 rather than rerun them. Use successor
+  metadata-only readback for the truncated digest, never edit a historical receipt.
+- Verification: root runtimeC32/source9/cleanup/public-neutrality PASS remains
+  separate. C1 actual178 and C2 actual13/source/quality with21 frozen hashes are
+  independent historical local evidence. Root validated C3 JSON with actual64-
+  character C1/C2 digests and21 frozen hashes; C3 ran0 tests. Its final chat digest
+  typo is not authoritative. Later product/source changes require a successor cut.
+- Prevention: compare final handoff with parsed JSON, current frozen source hashes,
+  exact run identity and freshly computed artifact digests. Every SHA256 must match
+  ^[a-f0-9]{64}$ and the actual file, not just a pasted summary. No stale native
+  exit checks after cmdlets, no source/SQL rerun for a metadata-only correction,
+  no relabeling partial/failed runs or treating static review as runtime approval.
+
+## WB-CORRECTION-005 - Maintenance reported stale action after safe settlement
+
+- Date: 2026-10-05; correction lifecycle0178, owned synthetic DEV only.
+- Symptom: an expired correction was correctly settled started-to-retained but
+  maintenance returned reconcile_refund from its earlier joined selection snapshot.
+- Cause: parent-first SKIP LOCKED protects mutation, not provenance of the joined
+  accounting state. A marker can commit between cursor snapshot and unlocked
+  visitation; the fresh accounting lock was used for settlement but not output.
+- Fix: accepted lifecycleV1.1 before repair; recompute selected_action from FOUND
+  and the freshly locked accounting state before parent mutation. No refund,
+  authority, budget, retention or timeout predicate changed.
+- Verification: static tracer1FAIL/6PASS then local192PASS. First actual D failed
+  the cursor-prefetch fixture and is not product RED. Corrected D2 proved retained
+  then wrong_action,21 preceding checks,source9 unchanged,clean public-neutral
+  cleanup. Final E33PASS in362.829s,peak3,exact frozen sources,cleanup and public
+  neutrality. D/D2/E artifacts are preserved; independent narrow source review
+  found no remaining concrete P1/P2. Provider/learner-history/public not verified.
+- Prevention: mutation receipts must describe the locked state actually acted on,
+  not a pre-lock candidate. Model the cursor prefetch boundary in a genuine owned
+  interleaving, assert state plus returned action, and drain before exact cleanup.
+  Fixture failures must never be relabeled as product RED.

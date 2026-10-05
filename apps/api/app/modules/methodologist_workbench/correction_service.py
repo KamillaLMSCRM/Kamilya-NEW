@@ -11,20 +11,18 @@ from datetime import datetime as database_timestamp
 from typing import cast
 from uuid import UUID, uuid4
 
-from fastapi import HTTPException
 from sqlalchemy import exists, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import _set_tenant_security_context, _set_user_security_context
-from app.models.tenant_settings import TenantSettings
 from app.models.user_roles import UserRole
 from app.models.users import User
-from app.modules.ai.budget import check_and_charge_llm_budget, refund_llm_budget
 from app.modules.ai.llm_client import ResilientLLMClient
 
 from .assignment_service import WorkbenchConflict, WorkbenchNotFound, _assert_actor
+from .correction_accounting import reserve_correction_estimate, transition_correction_estimate
 from .correction_context import resolve_lesson_correction
 from .correction_contract import CorrectionError, LessonCorrectionSnapshot, preview_lesson_correction
 from .correction_models import LessonCorrectionPlan
@@ -197,30 +195,6 @@ async def get_correction_preview(db: AsyncSession, actor: ActorContext, plan_id:
     return await _render(db, actor, await _owned(db, actor, plan_id))
 
 
-async def _charge(db: AsyncSession, actor: ActorContext, admission_month: str) -> None:
-    # Lock the override through admission commit so zero cannot become the
-    # existing shared helper's truthy default. Never change configured budgets.
-    budget = await db.scalar(
-        select(TenantSettings.monthly_llm_budget_usd_cents)
-        .where(
-            TenantSettings.tenant_id == actor.tenant_id,
-        )
-        .with_for_update()
-    )
-    if budget is not None and budget <= 0:
-        raise HTTPException(429, "llm_budget_exceeded")
-    if datetime.now(UTC).strftime("%Y-%m") != admission_month:
-        raise WorkbenchConflict("correction_accounting_pending")
-    await check_and_charge_llm_budget(
-        db,
-        str(actor.tenant_id),
-        operation=OPERATION,
-        estimated_cost_cents=ESTIMATED_COST_CENTS,
-    )
-    if datetime.now(UTC).strftime("%Y-%m") != admission_month:
-        raise WorkbenchConflict("correction_accounting_pending")
-
-
 async def _finish_failure(db: AsyncSession, actor: ActorContext, plan_id: UUID, code: str) -> CorrectionPreviewResponse:
     # Roll back any failed revalidation/ready transition before restoring RLS
     # context. V1.1 permits owned failure closure even after role revocation.
@@ -228,9 +202,6 @@ async def _finish_failure(db: AsyncSession, actor: ActorContext, plan_id: UUID, 
     await _security_context(db, actor)
     row = await _owned(db, actor, plan_id, lock=True)
     if row.status == "pending":
-        snapshot = LessonCorrectionSnapshot.model_validate(row.snapshot)
-        if datetime.now(UTC).strftime("%Y-%m") != snapshot.created_at.astimezone(UTC).strftime("%Y-%m"):
-            raise WorkbenchConflict("correction_accounting_pending")
         await db.execute(
             update(LessonCorrectionPlan)
             .where(
@@ -241,15 +212,13 @@ async def _finish_failure(db: AsyncSession, actor: ActorContext, plan_id: UUID, 
             )
             .values(status="failed", error_code=code if code in SAFE_FAILURES else "proposal_unavailable")
         )
-        await refund_llm_budget(
-            db, str(actor.tenant_id), operation=OPERATION, estimated_cost_cents=ESTIMATED_COST_CENTS
-        )
-        if datetime.now(UTC).strftime("%Y-%m") != snapshot.created_at.astimezone(UTC).strftime("%Y-%m"):
-            await db.rollback()
-            raise WorkbenchConflict("correction_accounting_pending")
+        await transition_correction_estimate(db, actor, plan_id, "refunded")
         await db.commit()
         await _security_context(db, actor)
         row = await _owned(db, actor, plan_id)
+    if row.status == "ready":
+        await _assert_live_actor(db, actor)
+        return await _render(db, actor, row)
     return _base_response(row)
 
 
@@ -307,8 +276,18 @@ async def create_correction_preview(
             raise WorkbenchConflict("request_key_collision")
         return await _render(db, actor, existing)
     try:
-        await _charge(db, actor, snapshot.created_at.astimezone(UTC).strftime("%Y-%m"))
+        await reserve_correction_estimate(db, actor, snapshot)
         await db.commit()  # unique claim + charge, before any provider resolution
+    except BaseException:
+        await db.rollback()
+        raise
+    # T2 is separate from admission. A failed/lost acknowledgement must NEVER
+    # enter the provider failure/refund path or authorize a provider invocation.
+    try:
+        await _security_context(db, actor)
+        await _owned(db, actor, snapshot.plan_id, lock=True)
+        await transition_correction_estimate(db, actor, snapshot.plan_id, "started")
+        await db.commit()
     except BaseException:
         await db.rollback()
         raise
@@ -344,6 +323,7 @@ async def create_correction_preview(
             )
             .values(status="ready", proposal=proposal.model_dump(mode="json"), fingerprint=preview.fingerprint)
         )
+        await transition_correction_estimate(db, actor, snapshot.plan_id, "charged")
         await db.commit()
         return CorrectionPreviewResponse(
             plan_id=snapshot.plan_id,

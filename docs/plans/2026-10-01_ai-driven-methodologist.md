@@ -255,6 +255,116 @@ delete pending blindly, guess a refund month, or remove current lesson/learning
 history through metadata cleanup. Original-source opening and assembled browser
 review remain separate from these source-only inventories.
 
+### WB-CORRECTION lifecycle2026-10-05 — final local and isolated runtime accepted, public rollout gated
+
+Accepted [LIFECYCLE V1](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_LIFECYCLE_V1.md)
+before product writes after independent cheap review closed3 contract P1s and
+clarified the pre-provider marker as authorization, not invocation/spend evidence.
+Root owns0178, accounting/service/purge/gate integration; cheap leaf writers own
+public service/migration/gate tests until handoff. Requested modelgpt-5.6-luna,
+effortmedium; observed token/cost/model/time metadata NOT_AVAILABLE.
+
+Three commits separate unique claim+charge+reserved, started marker, and terminal
+ready+charged or failed+refunded. T1/T2 uncertain acknowledgements never authorize
+a provider call. Ledger retains immutable DB-snapshot UTC month and fixed10cent
+estimate. One trigger owns routine/maintenance exact-month sufficient-aggregate
+refund. Shared budget helpers/defaults/other consumers and provider limits unchanged.
+Expired reserved refunds, started retains unknown estimate, legacy retains without
+fabricated backfill. Metadata cleanup is exact-tenant, dry-run default, batch1..500,
+DB transaction clock, SKIP LOCKED; failed/ready unexecuted expiry+24h versus applied
+receipt+90days. Exact-tenant purge removes ledger before receipt/parent. No scheduler,
+public schema, permanent QA, role/billing/limit change or production activation.
+
+Root initial focused service/migration/gate+correction neighbors178 PASS;
+quality1008Ruff/2201Mypy PASS. Initial leaf service run17 obsolete generic-helper
+AttributeErrors/6PASS is setup migration, not behavioral RED. Durable-marker
+tracer actual1RED→GREEN and final public service22PASS include T2 ack failure/no
+provider, month rollover, cancellation, replay, live actor and clock refusal.
+Static migration6 and gate5 cover only database-free contracts, not SQL/RLS proof.
+Compatible predecessor application driver13 freshly PASS (0.88s); initial wrong
+unittest invocation ran0/exit1 and is NOT_RUN, not a failing product test.
+Root retained first quality failure (two import-order findings), corrected exact
+test imports and reran quality. Scoped ops lint E741 closed by exact variable rename;
+final named10-file scoped Ruff PASS, no assertion/guard/timeout relaxation.
+
+Isolated runtimeA:6checks then HARNESS_FAILURE at real apply because synthetic
+storage seam was not bound there. Owned cleanup/fresh absence/public metadata
+neutrality PASS, peak1,136.735s. Receipt runtime-A.json is preserved under
+.release-evidence/WB-CORRECTION-LIFECYCLE-20261005. Corrected B passed30 checks,
+peak2,297.328s, cleanup/public neutrality; B SHA256
+1680310bcf6a6d0752bd8d12752957a7a96a02bbe219feb7218c9806d9c98ffd.
+Independent driver review identified3 P2 verification gaps (forged INSERT,
+malformed pending ledger, actual late-provider finalization); root added exact
+probes and independent delta review closed all3 before stronger successorC.
+Frozen C runtime passed32 unique/exact required checks, peak2,348.000s including
+cleanup/disposal. Cleanup/fresh schema absence, public metadata neutrality,
+failure/readback_failure null and9 source hashes unchanged PASS. Root separately
+parsed receipt and matched every source hash to current files and21-file freeze;
+runtime-C.json SHA2568e41f80c57fe8cfa7315ac69c9f5e8c49c3feb2d988d8a4e932a0e45346011a3.
+Actual late validated fake response never revives failed plan or refunds retained
+estimate. Historical synthetic fixtures disable only owned setup triggers in one
+owner transaction and re-enable them before every runtime probe; no runtime guard
+weakened. Original bytes/model/neighbor policies synthetic; learner-history and
+real-model semantic quality NOT_VERIFIED. No public migration or release.
+
+Persistent Runner C was rejected: after a136373-character broad error-journal
+read/context compaction it returned an unrelated six-frontend-file/31-test report.
+No lifecycle receipt or ledger entry existed; no lifecycle test executed by that
+turn. Preserve as HARNESS_FAILURE/CONTEXT_DRIFT, not accepted evidence. Corrected
+C1 bounded the context and freshly passed178 API tests, but a wrong root command
+interpretation (-File on .py) stopped the driver; its claimed after-hash check was
+NOT_RUN in the authoritative JSON. C2 used the exact PowerShell7 test wrapper and
+freshly passed driver13/quality/scoped lint/release/version/source gates with21
+frozen hashes before/after; its manually copied prior digest had63 characters.
+C3 corrected only metadata, ran0 tests and bound actual64-character C1/C2 digests
+and21 source hashes. Root accepts that historical local evidence from JSON, not
+the final chat digest typo. C/C1 failures stay preserved; no DB rerun for these
+runner issues. A later source P2 found by root requires a fresh successor cut.
+
+Navigation: bounded CodeGraph charge search6 candidates118ms/refund4 at14ms,
+callers5refund42ms/8charge40ms; source confirmed correction-only replacement and
+unchanged other consumers. SQL/RLS SOURCE_FALLBACK; Graphify had no unresolved
+multi-hop question. Final source sync remains required before frozen review.
+Final one source sync engine2748ms/wrapper11732ms, excluded-path audit PASS;
+new reserve caller1 at9ms and transitions3edges at20ms source-confirmed. Graphify
+had no unresolved cross-language question. ECC/CodeBurn, token/cost savings and
+matched cold/warm speedup NOT_AVAILABLE. Cheap contract review2 initial cycles,
+runtime source review3 P2 then clean delta; root adds no paid provider call.
+
+Final root review found a further P2: the maintenance candidate's joined state
+could be stale although fresh locked accounting settled started->retained safely,
+returning an incorrect reconcile_refund action. Accepted immutable
+[LIFECYCLE V1.1](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_LIFECYCLE_V1_1.md)
+before the repair. Static tracer1FAIL/6PASS preceded the product edit. First actual
+D failed the interleaving fixture (marker_interleaving_wrong_state), not product
+RED; the corrected cursor-prefetch barrier D2 genuinely reached retained then
+failed marker_interleaving_wrong_action. D2:21 preceding checks,286.266s,peak3,
+source9 unchanged, cleanup/fresh absence/public neutrality PASS. Both are preserved.
+Root recomputes returned action after the fresh accounting lock/refusal and before
+parent mutation; no refund/authority/budget/retention/timeouts changed. Final
+local192 (179 API plus13 predecessor-driver cases) PASS in3.53s, quality1008/2201,
+scoped Ruff10 PASS; independent cheap source delta found no remaining P1/P2.
+Stronger actual E passed33 exact unique checks in362.829s, peak3. Root parsed the
+receipt, matched all9 current source hashes against the22-file E freeze, required
+exact check-set equality, cleanup/fresh absence/public-neutrality and null failures.
+runtime-E.json SHA2562b572404508776b47fe7f1504e4cc6bf2a2f88d223fbc9bd791acac6c2ed6872.
+Root accepts only synthetic owned DEV SQL/service lifecycle scope; actual provider
+quality, learner-history equivalence and assembled public/browser/release remain
+gated. Persistent Runner E independently passed fresh192 in3.55s,quality1008/2201,
+scoped Ruff10,release head0178/version38/diff and exact source review with no P1/P2.
+Root parsed independent-E.json, verified its actual SHA256
+db696ef38940fc09300bb0153f963a657f2d78d284d1b1f6242f20812d69ade6,
+and matched22 before/after source bindings. E omitted full command strings from
+the artifact; root preserved E and added root-E-command-readback.json from the
+actual7 successful runner command items, no test rerun. Runner turn278.887s
+includes context/review/report, not a speedup comparison. Root acceptance is
+LOCAL + OWNED_SYNTHETIC_DEV only. Final journal append initially placed the previous
+Prevention field below the new heading; gate refused. Root restored field ownership;
+final release-contract234 entries PASS, source22 unchanged; no product/test repair.
+Final current CodeGraph sync1.188s engine/7.807s reported wrapper/8.360s command,
+excluded-path audit PASS;
+transition callers3 at19ms confirmed against source. No comparative savings claimed.
+
 ### WB-CORRECTION application DEV2026-10-05 — isolated runtime accepted, no public rollout
 
 Accepted isolated [DEV V1](../product/contract-modules/methodologist-workbench/contracts/LESSON_CORRECTION_APPLICATION_DEV_V1.md),

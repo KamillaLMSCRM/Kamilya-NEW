@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add correction-owned durable estimate accounting and bounded metadata maintenance
+  in additive0178: separate admission/pre-provider/result commits, exact original
+  UTC-month refunds, conservative interrupted-outcome reconciliation, unexecuted
+  preview retention24h after expiry and application-receipt retention90days.
+  The pre-provider marker is not actual invocation or spend evidence. Local
+  implementation remains default-disabled; no public migration or activation.
+  Derive interrupted-outcome receipts from freshly locked accounting state,
+  rather than the maintenance candidate snapshot, including concurrent start markers.
 - Add an independently disabled, confirmed AI lesson correction panel in the draft
   course editor: server-owned revision/seal, before/after and source references,
   explicit review consent, receipt-first uncertain-result recovery and exact-seal

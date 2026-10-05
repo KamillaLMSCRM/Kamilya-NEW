@@ -2358,3 +2358,45 @@ Rules:
 - Source comparison: PASS. The panel displays document ID, locator and SHA-256 as text and contains no source-file anchor/download action. The new documentation paragraph accurately instructs the methodologist to inspect the original separately.
 - Fresh check: `git diff --check` only, PASS with native exit `0`. B13, A API67/client20/panel14/full927 and other prior evidence remain hash-linked, not fresh in C. Browser visual/source-file UX acceptance remains `NOT_VERIFIED`; token/cost/precise total elapsed: `NOT_AVAILABLE`.
 - Evidence: `.release-evidence/WB-CORRECTION-UI-20261005/independent-C.json`.
+
+### TEST-WB-CORRECTION-LIFECYCLE-20261005-C1 — 2026-10-05 — correction of rejected C context
+
+- Scope: independent frozen local lifecycle acceptance at HEAD `3d26e80754326cca9e8e411437504dda406047fd`, linked worktree `C:\Kamilya New\.worktrees\daily-learning-20260930`; database-free, no source repair, no external access.
+- Correction: prior C response is retained as `HARNESS_FAILURE / CONTEXT_DRIFT` because it reported unrelated frontend files and did not execute lifecycle tests. It is not relabeled PASS.
+- Preflight: exact C1 scope, lifecycle contract, required bounded ERRORS entries and ledger tail read; primary write guard `LINKED_WORKTREE_OK` native exit `0`; canonical Python and bundled PowerShell7 present; frozen manifest `21/21` before-hash matches.
+- Fresh matrix: focused API selection `178 passed in 3.50s`, native exit `0`. The exact mandated driver command `bundled pwsh -NoProfile -File scripts/tests/test_workbench_correction_application_dev_gate.py -q` failed before test execution, native exit `64`, because PowerShell `-File` rejects the supplied `.py` path and requires `.ps1`; classification `HARNESS_FAILURE`.
+- Stop rule: quality baseline, scoped Ruff, release/version/diff checks, source review, and after-hash readback were not run after the first failed gate. No product defect or lifecycle readiness conclusion is asserted. Runtime/DEV/DB/provider/browser/semantic evidence remains `NOT_VERIFIED`.
+- Evidence: `.release-evidence/WB-CORRECTION-LIFECYCLE-20261005/independent-C1.json`. This is an append-only correction referencing rejected C; no prior ledger entry was modified.
+
+### TEST-WB-CORRECTION-LIFECYCLE-20261005-C2 — 2026-10-05 — corrected driver execution and lifecycle source review
+
+- Scope: independent frozen local lifecycle acceptance at HEAD `3d26e80754326cca9e8e411437504dda406047fd`, linked worktree `C:\Kamilya New\.worktrees\daily-learning-20260930`; database-free, no source repair or external access. C and C1 remain immutable; C1 was `BLOCKED` after its fresh API pass and exact SHA-256 `6cbed194ac912a53bd5cef3d052c19cc6ab30d74bea1040b1ea1a0e4e7d165e1` was independently read back.
+- Preflight: canonical primary guard `LINKED_WORKTREE_OK`, native exit `0`; C1 status/hash matched; frozen manifest `21/21` literal-path hashes matched before and after. C1's contradictory `hashes_after` attribution is recorded in the C2 report; it is not relabeled.
+- Matrix: API `178 passed` is `HASH_LINKED` from C1 and was not rerun. Fresh corrected driver `13 passed in 0.87s`, native exit `0`; quality baseline passed (`ruff=1008`, `mypy=2201`); scoped Ruff passed for 10 files; release-contract gate passed at Alembic head `0178` with 176 revisions; version `0.11.38` consistent; `git diff --check` native exit `0`.
+- Source review: bounded lifecycle-delta review found no surviving P1/P2. Static checks covered T2/lost-ack no-provider/no-blind-refund, DB-derived original month and trigger-owned refund, no provider under locks, 24-hour/90-day maintenance retention, and exact-tenant child-before-parent purge ordering. Static review is not DB/runtime proof.
+- Runtime/provider/browser/learner-history/semantic/production evidence remains `NOT_VERIFIED`; no release or production conclusion. Evidence: `.release-evidence/WB-CORRECTION-LIFECYCLE-20261005/independent-C2.json`.
+
+### TEST-WB-CORRECTION-LIFECYCLE-20261005-C3 — 2026-10-05 — metadata digest correction
+
+- Scope: metadata-only correction for C2; no tests, source review, database, network, provider, browser, or production action. Worktree `C:\Kamilya New\.worktrees\daily-learning-20260930`, HEAD `3d26e80754326cca9e8e411437504dda406047fd`.
+- Independent literal-path readback: C1 is `BLOCKED`, SHA-256 `6cbed194ac912a53bd5cef3d052c19cc6ab30d74bea1040b1ea1a0e4e7d165e1`; C2 is `READY_FOR_ROOT_REVIEW`, SHA-256 `2b59585663616fe91ccab81df4a57ef3693a787b374082180a552c05d5803445`. Both are exact 64-character lowercase hexadecimal digests.
+- Correction: C2's `prior_correction.sha256` field was 63 characters. C3 records the complete independently read C1 digest and preserves C2 byte-for-byte. C1/C2 test, quality, release, version, diff, and source-review results are prior hash-linked evidence, not fresh C3 execution.
+- Frozen manifest: all 21 literal-path hashes matched before and after. C3 fresh scope is artifact/hash/JSON readback only; tests run `0`; external runtime remains `NOT_VERIFIED`.
+- Evidence: `.release-evidence/WB-CORRECTION-LIFECYCLE-20261005/independent-C3.json`.
+
+### TEST-WB-CORRECTION-LIFECYCLE-20261005-E — 2026-10-05 — final local acceptance after locked-action provenance repair
+
+- Scope: fresh final local acceptance at HEAD `3d26e80754326cca9e8e411437504dda406047fd`, linked worktree `C:\Kamilya New\.worktrees\daily-learning-20260930`; database-free, no external runtime evidence. C/C1/C2/C3 and supplied root runtime evidence remain historical/separate.
+- Preflight: exact frozen-E manifest matched `22/22` literal-path hashes before execution; canonical Python and bundled PowerShell7 existed; primary checkout check returned `LINKED_WORKTREE_OK`, native exit `0`.
+- Fresh matrix: exact selected API/application set `192 passed in 3.55s`, native exit `0`; quality baseline passed (`ruff=1008`, `mypy=2201`); scoped Ruff passed for 10 files; release-contract gate passed at Alembic head `0178` with 176 revisions and 233 unique Errors entries; version `0.11.38` consistent; `git diff --check` native exit `0`.
+- Fresh source review: no concrete P1/P2 found. Review confirmed T1/T2 acknowledgement boundaries, trigger-owned original-month refund, fresh accounting-lock action provenance, 24-hour/90-day retention and receipt protection, exact-tenant purge ordering, and the beyond-first-50 locked-action interleaving/final drain coverage. Static/source evidence is not SQL/runtime equivalence or production proof.
+- Finalization: frozen-E `22/22` hashes matched after the authorized ignored report and ledger append. Evidence: `.release-evidence/WB-CORRECTION-LIFECYCLE-20261005/independent-E.json`.
+- Runtime/DEV/database/provider/browser/learner-history/semantic/production evidence remains `NOT_VERIFIED`; this entry is local acceptance only and not release authorization.
+
+### TEST-WB-CORRECTION-LIFECYCLE-20261005-ROOT-E — root acceptance and command provenance correction
+
+- Executor: root, after Runner E completed and released ledger ownership; no concurrent ledger writer. Original independent E bytes and all earlier failures remain unchanged.
+- Root independently parsed E and matched actual report digest `db696ef38940fc09300bb0153f963a657f2d78d284d1b1f6242f20812d69ade6`, actual fresh192/native exits and22 frozen bindings. E omitted full command strings; additive `.release-evidence/WB-CORRECTION-LIFECYCLE-20261005/root-E-command-readback.json` records all7 actual successful runner command items from exact turn `01a10d53-83f2-77d0-a3c9-31a4ac78c6ec`, no test rerun or E relabeling. Runner elapsed278887ms includes context/review/report.
+- Separate root owned-runtime E passed33 exact unique checks,source9 unchanged and matched freeze22,peak3,362.829s,clean exact-schema removal/public neutrality,failures null. Receipt `runtime-E.json` digest `2b572404508776b47fe7f1504e4cc6bf2a2f88d223fbc9bd791acac6c2ed6872`. D fixture failure and genuine D2 wrong-action RED are preserved.
+- Root final documentation gate: initial misplaced journal Prevention field refused; field restored to its original entry, final canonical release contract PASS with234 entries. No product/test change and no assertions/limits weakened.
+- Disposition: ROOT_ACCEPTED_LOCAL_AND_OWNED_SYNTHETIC_DEV. Shared original bytes/model/neighbor policies are synthetic; real-provider semantics, learner-history equivalence, assembled DEV/browser/public activation and production release remain NOT_VERIFIED and separately gated.

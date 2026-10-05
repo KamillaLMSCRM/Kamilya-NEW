@@ -91,10 +91,17 @@ def proposal() -> CorrectionProposal:
 
 
 class Result:
-    def __init__(self, value=None):
+    def __init__(self, value=None, row=None):
         self.value = value
+        self.row = row
 
     def scalar_one_or_none(self):
+        return self.value
+
+    def fetchone(self):
+        return self.row
+
+    def scalar(self):
         return self.value
 
 
@@ -109,8 +116,12 @@ class Storage:
         self.commits = 0
         self.rollbacks = 0
         self.statements = []
+        self.accounting_rows = {}
+        self.accounting_commit_states = []
+        self.budget_statements = []
         self.events = []
         self.db_clock = None
+        self.fail_commit_number = None
 
     async def scalar(self, statement):
         text = str(statement)
@@ -118,14 +129,29 @@ class Storage:
             return self.db_clock or service.datetime.now(UTC)
         if "monthly_llm_budget_usd_cents" in text:
             return self.budget
+        if "workbench_lesson_correction_accounting" in text:
+            plan_id = next((plan_id for plan_id in self.accounting_rows if str(plan_id) in text), None)
+            return self.accounting_rows.get(plan_id) or next(iter(self.accounting_rows.values()), None)
         if "workbench_lesson_correction_plans" in text:
             return next(iter(self.rows.values()), None)
         if "users" in text:
             return ACTOR if self.live_actor else None
         return None
 
-    async def execute(self, statement):
+    async def execute(self, statement, parameters=None):
         self.statements.append(statement)
+        table = getattr(getattr(statement, "table", None), "name", None)
+        text = str(statement)
+        if "tenant_llm_usage" in text:
+            params = dict(parameters or getattr(statement, "params", {}) or {})
+            bindparams = getattr(statement, "_bindparams", {})
+            params.update({name: bind.value for name, bind in bindparams.items() if name not in params})
+            self.budget_statements.append((text, params))
+            if text.lstrip().upper().startswith("INSERT"):
+                return Result(value=10, row=(10, 1))
+            return Result(0)
+        if table == "tenants" or "FROM tenants" in text:
+            return Result(ACTOR)
         if getattr(statement, "is_insert", False):
             if self.conflict_row is not None:
                 self.rows[self.conflict_row.id] = self.conflict_row
@@ -136,25 +162,42 @@ class Storage:
                 for key, value in statement._values.items()
             }
             row = SimpleNamespace(**values, proposal=None, fingerprint=None, error_code=None, finished_at=None)
-            self.rows[row.id] = row
+            if table == "workbench_lesson_correction_accounting":
+                self.accounting_rows[row.plan_id] = row
+                return Result(row.plan_id)
+            else:
+                self.rows[row.id] = row
             return Result(row.id)
         if getattr(statement, "is_update", False):
             values = {
                 getattr(key, "name", str(key).rsplit(".", 1)[-1]): getattr(value, "value", value)
                 for key, value in statement._values.items()
             }
-            row_id = next((value for value in self.rows if str(value) in str(statement)), None)
-            if row_id is None and self.rows:
-                row_id = next(reversed(self.rows))
+            target = self.accounting_rows if table == "workbench_lesson_correction_accounting" else self.rows
+            row_id = next((value for value in target if str(value) in str(statement)), None)
+            if row_id is None and target:
+                row_id = next(reversed(target))
             if row_id is not None:
                 for key, value in values.items():
-                    setattr(self.rows[row_id], key.rsplit(".", 1)[-1], value)
+                    setattr(target[row_id], key.rsplit(".", 1)[-1], value)
+                if table == "workbench_lesson_correction_accounting" and values.get("state") == "started":
+                    target[row_id].provider_boundary_at = self.db_clock or service.datetime.now(UTC)
+                if table == "workbench_lesson_correction_accounting":
+                    return Result(value=getattr(target[row_id], "state", None))
             return Result()
         return Result()
 
     async def commit(self):
         self.commits += 1
         self.events.append("commit")
+        self.accounting_commit_states.append(
+            tuple(
+                (row.plan_id, row.state, row.tenant_id, row.actor_id, row.month_key, row.estimated_cost_cents)
+                for row in self.accounting_rows.values()
+            )
+        )
+        if self.fail_commit_number == self.commits:
+            raise SQLAlchemyError("commit acknowledgement unavailable")
 
     async def rollback(self):
         self.rollbacks += 1
@@ -192,29 +235,39 @@ def _generate(value):
 @pytest.mark.asyncio
 async def test_claim_and_ten_cent_charge_commit_before_provider(monkeypatch):
     db = Storage()
-    charges = []
     provider_calls = []
     patch_service(monkeypatch)
 
-    async def charge(*args, **kwargs):
-        charges.append((args, kwargs))
-        db.events.append("charge")
-
-    monkeypatch.setattr(service, "check_and_charge_llm_budget", charge)
-
     async def provider(_tenant):
         provider_calls.append(1)
-        assert db.events == ["charge", "commit"]
+        assert len(db.accounting_commit_states) == 2
         return object()
 
     result = await service.create_correction_preview(db, actor(), request(), provider_resolver=provider)
     assert result.state == "ready"
     assert result.revision == 1
-    assert len(charges) == 1 and len(provider_calls) == 1
-    assert charges[0][1] == {"operation": "lesson_correction_preview", "estimated_cost_cents": 10}
-    assert charges[0][0][1] == str(TENANT)
-    assert db.commits == 2
+    assert len(provider_calls) == 1
+    assert db.commits == 3
     assert db.statements[0].is_insert
+
+
+@pytest.mark.asyncio
+async def test_create_preview_commits_reserved_and_started_accounting_before_provider(monkeypatch):
+    db = Storage()
+    db.db_clock = NOW
+    patch_service(monkeypatch)
+
+    async def provider(_tenant):
+        assert len(db.accounting_commit_states) == 2
+        assert db.accounting_commit_states[0][0][1] == "reserved"
+        assert db.accounting_commit_states[1][0][1] == "started"
+        row = db.accounting_commit_states[1][0]
+        assert row[2:] == (TENANT, ACTOR, "2026-10", 10)
+        assert any(params.get("cost") == 10 for _, params in db.budget_statements)
+        return object()
+
+    result = await service.create_correction_preview(db, actor(), request(), provider_resolver=provider)
+    assert result.state == "ready"
 
 
 @pytest.mark.asyncio
@@ -223,7 +276,6 @@ async def test_create_and_read_use_database_time_despite_ahead_host_clock(monkey
     db.db_clock = datetime.now(UTC)
     install_clock(monkeypatch, db.db_clock + timedelta(minutes=20))
     patch_service(monkeypatch)
-    monkeypatch.setattr(service, "check_and_charge_llm_budget", _noop)
 
     async def provider(_tenant):
         return object()
@@ -241,7 +293,6 @@ async def test_create_and_read_use_database_time_despite_ahead_host_clock(monkey
 async def test_database_clock_query_failure_is_fixed_conflict_without_charge(monkeypatch, operation):
     db = Storage()
     patch_service(monkeypatch)
-    monkeypatch.setattr(service, "check_and_charge_llm_budget", _noop)
 
     async def provider(_tenant):
         return object()
@@ -260,7 +311,6 @@ async def test_database_clock_query_failure_is_fixed_conflict_without_charge(mon
         pytest.fail("clock failure must precede charge and provider")
 
     monkeypatch.setattr(db, "scalar", broken_clock)
-    monkeypatch.setattr(service, "check_and_charge_llm_budget", forbidden_call)
     with pytest.raises(service.WorkbenchConflict, match="^correction_clock_unavailable$"):
         if operation == "create":
             await service.create_correction_preview(db, actor(), request(), provider_resolver=forbidden_call)
@@ -325,12 +375,7 @@ async def test_same_key_replay_never_recharges_or_calls_provider(monkeypatch, st
         ).fingerprint
     db.rows[row.id] = row
     patch_service(monkeypatch)
-    charges, providers = [], []
-
-    async def charge(*args, **kwargs):
-        charges.append(1)
-
-    monkeypatch.setattr(service, "check_and_charge_llm_budget", charge)
+    providers = []
 
     async def provider(_tenant):
         providers.append(1)
@@ -342,7 +387,7 @@ async def test_same_key_replay_never_recharges_or_calls_provider(monkeypatch, st
     loaded = await service.get_correction_preview(db, actor(), snapshot.plan_id)
     assert loaded.revision == 7
     assert loaded.state == status
-    assert charges == [] and providers == []
+    assert providers == [] and db.budget_statements == []
 
 
 @pytest.mark.asyncio
@@ -408,12 +453,7 @@ async def test_insert_conflict_same_body_returns_winner_without_charge_or_provid
     )
     db = Storage(conflict_row=winner)
     patch_service(monkeypatch)
-    charges, providers = [], []
-
-    async def charge(*args, **kwargs):
-        charges.append(1)
-
-    monkeypatch.setattr(service, "check_and_charge_llm_budget", charge)
+    providers = []
 
     async def provider(_tenant):
         providers.append(1)
@@ -421,7 +461,7 @@ async def test_insert_conflict_same_body_returns_winner_without_charge_or_provid
 
     result = await service.create_correction_preview(db, actor(), body, provider_resolver=provider)
     assert result.state == "pending"
-    assert charges == [] and providers == []
+    assert providers == [] and db.budget_statements == []
 
 
 @pytest.mark.asyncio
@@ -451,12 +491,7 @@ async def test_insert_conflict_changed_body_is_collision_without_charge_or_provi
 async def test_zero_budget_denied_before_shared_helper_and_provider(monkeypatch):
     db = Storage(budget=0)
     patch_service(monkeypatch)
-    helper_calls, provider_calls = [], []
-
-    async def charge(*args, **kwargs):
-        helper_calls.append(1)
-
-    monkeypatch.setattr(service, "check_and_charge_llm_budget", charge)
+    provider_calls = []
 
     async def provider(_tenant):
         provider_calls.append(1)
@@ -464,31 +499,28 @@ async def test_zero_budget_denied_before_shared_helper_and_provider(monkeypatch)
 
     with pytest.raises(HTTPException, match="llm_budget_exceeded"):
         await service.create_correction_preview(db, actor(), request(), provider_resolver=provider)
-    assert helper_calls == [] and provider_calls == []
+    assert db.budget_statements == [] and provider_calls == []
 
 
 @pytest.mark.asyncio
-async def test_admission_month_mismatch_rolls_back_before_provider(monkeypatch):
+async def test_old_snapshot_month_is_refunded_from_immutable_ledger_month(monkeypatch):
     db = Storage()
     admission = datetime(2026, 1, 31, 23, 50, tzinfo=UTC)
-    after_charge = datetime(2026, 2, 1, 0, 1, tzinfo=UTC)
-    install_clock(monkeypatch, admission, admission, after_charge)
+    db.db_clock = admission
     patch_service(monkeypatch)
-    charges, providers = [], []
-
-    async def charge(*args, **kwargs):
-        charges.append(1)
-
-    monkeypatch.setattr(service, "check_and_charge_llm_budget", charge)
 
     async def provider(_tenant):
-        providers.append(1)
+        db.db_clock = datetime(2026, 2, 1, 0, 1, tzinfo=UTC)
         return object()
 
-    with pytest.raises(service.WorkbenchConflict, match="correction_accounting_pending"):
-        await service.create_correction_preview(db, actor(), request(), provider_resolver=provider)
-    assert charges == [1] and providers == []
-    assert db.rollbacks >= 1
+    async def broken(_tenant):
+        db.db_clock = datetime(2026, 2, 1, 0, 1, tzinfo=UTC)
+        raise RuntimeError("provider-failure")
+
+    result = await service.create_correction_preview(db, actor(), request(), provider_resolver=broken)
+    assert result.state == "failed" and result.error_code == "proposal_unavailable"
+    row = next(iter(db.accounting_rows.values()))
+    assert row.month_key == "2026-01" and row.state == "refunded"
 
 
 @pytest.mark.asyncio
@@ -512,17 +544,6 @@ async def test_real_live_actor_denial_happens_before_claim_or_provider(monkeypat
 async def test_post_provider_failure_closes_owned_pending_and_refunds_once(monkeypatch, failure):
     db = Storage()
     patch_service(monkeypatch, resolve=resolved())
-    charges, refunds = [], []
-
-    async def charge(*args, **kwargs):
-        charges.append(1)
-
-    monkeypatch.setattr(service, "check_and_charge_llm_budget", charge)
-
-    async def refund(*args, **kwargs):
-        refunds.append(1)
-
-    monkeypatch.setattr(service, "refund_llm_budget", refund)
     original_assert = service._assert_live_actor
     calls = 0
 
@@ -546,90 +567,43 @@ async def test_post_provider_failure_closes_owned_pending_and_refunds_once(monke
 
     result = await service.create_correction_preview(db, actor(), body, provider_resolver=provider)
     assert result.state == "failed" and result.error_code == failure
-    assert len(charges) == 1 and len(refunds) == 1
+    assert next(iter(db.accounting_rows.values())).state == "refunded"
     if failure == "stale":
         replay = await service.create_correction_preview(db, actor(), body, provider_resolver=provider)
         assert replay.state == "failed"
-        assert len(refunds) == 1 and len(charges) == 1 and len(provider_calls) == 1
+        assert next(iter(db.accounting_rows.values())).state == "refunded" and len(provider_calls) == 1
 
 
 @pytest.mark.asyncio
-async def test_failure_from_old_admission_month_stays_pending_without_refund(monkeypatch):
+async def test_t2_commit_ack_failure_does_not_call_provider(monkeypatch):
     db = Storage()
-    admission = datetime(2026, 1, 31, 23, 50, tzinfo=UTC)
-    rollover = datetime(2026, 2, 1, 0, 1, tzinfo=UTC)
-    install_clock(monkeypatch, admission, admission, admission, rollover)
+    db.db_clock = NOW
+    db.fail_commit_number = 2
     patch_service(monkeypatch)
-    refunds, providers = [], []
-
-    async def charge(*args, **kwargs):
-        return None
-
-    async def refund(*args, **kwargs):
-        refunds.append(1)
-
-    monkeypatch.setattr(service, "check_and_charge_llm_budget", charge)
-    monkeypatch.setattr(service, "refund_llm_budget", refund)
+    providers = []
 
     async def provider(_tenant):
         providers.append(1)
-        raise RuntimeError("provider-failure")
+        return object()
 
-    with pytest.raises(service.WorkbenchConflict, match="correction_accounting_pending"):
+    with pytest.raises(SQLAlchemyError, match="commit acknowledgement unavailable"):
         await service.create_correction_preview(db, actor(), request(), provider_resolver=provider)
-    assert providers == [1] and refunds == [] and db.commits == 1 and db.rollbacks >= 1
-
-
-@pytest.mark.asyncio
-async def test_rollover_during_refund_rolls_back_without_commit(monkeypatch):
-    db = Storage()
-    admission = datetime(2026, 1, 31, 23, 50, tzinfo=UTC)
-    rollover = datetime(2026, 2, 1, 0, 1, tzinfo=UTC)
-    install_clock(monkeypatch, admission, admission, admission, admission, rollover)
-    patch_service(monkeypatch)
-    refunds = []
-
-    async def charge(*args, **kwargs):
-        return None
-
-    async def refund(*args, **kwargs):
-        refunds.append(1)
-
-    monkeypatch.setattr(service, "check_and_charge_llm_budget", charge)
-    monkeypatch.setattr(service, "refund_llm_budget", refund)
-
-    async def provider(_tenant):
-        raise RuntimeError("provider-failure")
-
-    with pytest.raises(service.WorkbenchConflict, match="correction_accounting_pending"):
-        await service.create_correction_preview(db, actor(), request(), provider_resolver=provider)
-    assert refunds == [1] and db.commits == 1 and db.rollbacks >= 2
+    assert providers == []
+    assert next(iter(db.accounting_rows.values())).state == "started"
 
 
 @pytest.mark.asyncio
 async def test_cancellation_remains_cancelled_when_failure_closure_cannot_refund(monkeypatch):
     db = Storage()
-    admission = datetime(2026, 1, 31, 23, 50, tzinfo=UTC)
-    rollover = datetime(2026, 2, 1, 0, 1, tzinfo=UTC)
-    install_clock(monkeypatch, admission, admission, admission, rollover)
+    db.db_clock = NOW
     patch_service(monkeypatch)
-    refunds = []
-
-    async def charge(*args, **kwargs):
-        return None
-
-    async def refund(*args, **kwargs):
-        refunds.append(1)
-
-    monkeypatch.setattr(service, "check_and_charge_llm_budget", charge)
-    monkeypatch.setattr(service, "refund_llm_budget", refund)
 
     async def provider(_tenant):
         raise asyncio.CancelledError
 
     with pytest.raises(asyncio.CancelledError):
         await service.create_correction_preview(db, actor(), request(), provider_resolver=provider)
-    assert refunds == [] and db.rollbacks >= 1
+    assert next(iter(db.accounting_rows.values())).state == "refunded"
 
 
 async def _provider():
@@ -641,23 +615,12 @@ async def test_provider_cancellation_closes_once_then_preserves_cancelled_error(
     db = Storage()
     patch_service(monkeypatch)
 
-    async def charge(*args, **kwargs):
-        return None
-
-    monkeypatch.setattr(service, "check_and_charge_llm_budget", charge)
-    refunds = []
-
-    async def refund(*args, **kwargs):
-        refunds.append(1)
-
-    monkeypatch.setattr(service, "refund_llm_budget", refund)
-
     async def cancelled(_tenant):
         raise asyncio.CancelledError
 
     with pytest.raises(asyncio.CancelledError):
         await service.create_correction_preview(db, actor(), request(), provider_resolver=cancelled)
-    assert len(refunds) == 1
+    assert next(iter(db.accounting_rows.values())).state == "refunded"
 
 
 @pytest.mark.asyncio
@@ -755,21 +718,10 @@ async def test_unknown_provider_error_is_sanitized_and_refunded(monkeypatch):
     db = Storage()
     patch_service(monkeypatch)
 
-    async def charge(*args, **kwargs):
-        return None
-
-    monkeypatch.setattr(service, "check_and_charge_llm_budget", charge)
-    refunds = []
-
-    async def refund(*args, **kwargs):
-        refunds.append(1)
-
-    monkeypatch.setattr(service, "refund_llm_budget", refund)
-
     async def broken(_tenant):
         raise RuntimeError("secret provider payload")
 
     result = await service.create_correction_preview(db, actor(), request(), provider_resolver=broken)
     assert result.state == "failed" and result.error_code == "proposal_unavailable"
     assert "secret" not in str(result)
-    assert len(refunds) == 1
+    assert next(iter(db.accounting_rows.values())).state == "refunded"
