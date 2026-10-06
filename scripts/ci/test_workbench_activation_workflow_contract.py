@@ -50,3 +50,20 @@ def test_ci_activation_step_keeps_exact_release_contract_selectors() -> None:
         "tests/test_workbench_correction_history_dev_gate.py",
     ):
         assert f"../../scripts/{path}" in step
+
+
+def test_backend_activation_contracts_resolve_from_actual_ci_api_cwd() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    marker = "      - name: Render-like release-plane contract tests\n"
+    assert text.count(marker) == 1
+    step = text.split(marker, 1)[1].split("      - name:", 1)[0]
+    value = re.search(r'^\s+PYTHONPATH: "([^"\n]+)"$', step, re.MULTILINE)
+    assert value is not None, "Backend activation CI must explicitly bind PYTHONPATH"
+    assert value.group(1) == "${{ github.workspace }}/apps/api:${{ github.workspace }}"
+    child_env = dict(os.environ)
+    child_env["PYTHONPATH"] = os.pathsep.join((str(ROOT / "apps/api"), str(ROOT)))
+    result = subprocess.run(
+        [sys.executable, "-c", "from scripts.deploy import test_correction_backend_activation, test_correction_backend_runtime_contract"],
+        cwd=ROOT / "apps/api", env=child_env, capture_output=True, text=True, timeout=15,
+    )
+    assert result.returncode == 0, result.stderr

@@ -4622,6 +4622,12 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   selectors87PASS/1WindowsSKIP after correction. No product/provider change.
   Prevention: root-script CI tests importing repository packages must bind both
   roots explicitly and verify the import from the real API working directory.
+- Recurrence 2026-10-06: exact correction39 CI37408304618/job112090750207
+  hit the same missing `scripts` import root in the neighboring release-plane
+  contract step. Local root-CWD matrix was green. Add the same explicit two-root
+  PYTHONPATH only to that step and an actual API-CWD import regression for both
+  new backend test modules. Regression1RED/3PASS, corrected affected matrix123PASS.
+  Runtime source, provider configuration and production remain unchanged.
 - Recurrence 2026-09-25: invoking the wrapper by absolute path from the main
   checkout while editing a managed worktree correctly tested the main checkout,
   not the changed worktree. This produced a false green result with a plausible

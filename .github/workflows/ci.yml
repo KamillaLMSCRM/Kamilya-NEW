@@ -194,6 +194,8 @@ jobs:
         run: poetry run pytest -q ../../scripts/tests/test_primary_checkout_guard.py ../../scripts/tests/test_governance_contracts.py
 
       - name: Render-like release-plane contract tests
+        env:
+          PYTHONPATH: "${{ github.workspace }}/apps/api:${{ github.workspace }}"
         run: poetry run pytest -q ../../scripts/deploy/test_release_plane.py ../../scripts/deploy/test_correction_backend_activation.py ../../scripts/deploy/test_correction_backend_runtime_contract.py ../../scripts/deploy/test_release_workflow_contract.py ../../scripts/deploy/test_release_plane_bundle.py ../../scripts/deploy/test_release_plane_upgrade_workflow_contract.py ../../scripts/deploy/test_release_runner_bridge.py ../../scripts/deploy/test_dev_release_controller.py
 
       - name: Fail-closed KZ remote executor contract tests
