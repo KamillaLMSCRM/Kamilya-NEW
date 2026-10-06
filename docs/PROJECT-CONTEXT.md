@@ -25,7 +25,22 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Correction DEV source promotion2026-10-06 — no public activation
+## Current correction DEV2026-10-06 — bounded live acceptance PASS
+
+Existing Render API/worker and Vercel DEV frontend exact27a682ae9e38b7d4615dc00e7796cc670fd07c27
+deployed after successful master/dev CI; public DEV schema0178 and all9 flags
+verified. No provider plan/resource changes. Actual ordinary-methodologist source-
+grounded proposal, explicit apply, same-receipt replays, later manual-edit
+preservation/reload and draft/review markers PASS. Normal disposable cleanup204/
+fresh404 plus independent17-table absence and9 unchanged permanent-QA fingerprints
+PASS; browser logged out. Bounded acceptance hashbad3b4dd...a3e87; independent
+Runner E reviewed supplied artifacts only. Speech/whole-product not accepted.
+Protected native/backend flag contracts are local preparation. Fresh root
+read-only production preflight confirms38/source370f56fb/image258acfa0/blue four
+processes/schema0175/workbench+documentON/correction unsupportedOFF; no production
+mutation. Exact contract links/evidence/frontier belong to the module index/plan.
+
+## Historical correction DEV source promotion earlier2026-10-06
 
 Exact e0bf8e65a1821cb1cc406bb0dc26bb4ef8b163a9 fast-forwarded to master;
 independent remote readback/account record preserved. CI37399182927 completed

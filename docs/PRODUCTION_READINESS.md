@@ -9,6 +9,39 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
+## Correction39 preparation2026-10-06 — DEV accepted, production NO_GO pending gates
+
+Exact DEV27a682ae API/worker/frontend/public0178/all9flags accepted with one live
+source-grounded draft correction. Explicit apply, stable preview/receipt replay,
+manual edit preservation/reload, source/quiz review markers and unpublished course
+PASS. Independent Runner E artifact reconciliation is not independent runtime
+execution. Guarded disposable cleanup204/fresh404 and independent17-table absence/
+9retained-QA fingerprints PASS. Runtime historyC27/all38 bound sources/cleanup/
+public-neutrality PASS, with synthetic model/source/neighbor-policy limitation.
+Frozen bounded browser acceptance hashbad3b4dd...a3e87; no whole-product/voice GO.
+
+Fresh semantic-read-only production preflight C confirms actual38/source370f56fb,
+image258acfa0, four blue containers running/restarts0, public/private health,
+schema0175/runtime role safe/backup timer active/lock absent/disk68%. Workbench and
+document flags ON; old image has no correction setting, effective OFF. Controller
+SHA25679d8a058831715077a3d22718b198602cac5bbd6baf0ca20858601995a9fc341.
+No production mutation occurred. Local native packet4/build-config3 and backend
+manifest2/effective flags contracts preserve legacy paths and existing protected
+bundle boundary. Version39 exact CI/tag/image/native artifacts, installed bundle
+hashes, backup/restore175->178, rollback compatibility, protected deployment and
+bounded production correction/cleanup remain NO_GO until independently proven.
+See active methodologist plan/module index; earlier runtime evidence below stays
+historical and cannot substitute for this candidate's gates.
+
+Final frozen local Runner F:171PASS/1SKIP backend/native contracts,2624PASS API
+units, Ruff1008/Mypy2201 and exact39version PASS; postflight53/53 source bindings
+unchanged. Runner did not capture per-file preflight, so that limitation remains
+in its append-only receipt; root's prior freeze and current independent hash
+readback bind the same source. Installed bundle inventory confirms all five
+unchanged upgrader/gate/wrapper/service files match source; only controller and
+slot Compose are intended changes. No installed bundle or production mutation
+has yet occurred.
+
 ## Current production38 — RELEASED, bounded document-draft acceptance PASS
 
 2026-10-05: exact `370f56fb9e9ce9cdb173b7193e91dbd0f49675f1`, version0.11.38,

@@ -126,6 +126,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.39] - 2026-10-06
+
+### Added
+
+- Source-grounded AI correction of one draft lesson: editable instruction,
+  reloadable before/after proposal, original-source references, explicit human
+  confirmation and immutable application receipt. Applying marks the lesson,
+  related quiz and course for renewed review; it never publishes or assigns them.
+- Conservative same-request and same-seal recovery preserves later manual edits
+  and does not add a second admission charge. Correction metadata retention and
+  accounting are tenant-owned in additive schema0176–0178; learner history stays.
+- Protected backend schema2 and native packet4/build-config3 bind explicit
+  workbench/document/correction flags to the exact image/artifact. Four-process
+  effective settings readback, compatible old-image OFF behavior, and rollback
+  preserve existing workbench/document capabilities without editing runtime.env.
+
+### Fixed
+
+- Reconstruct generated source references through the shared admission and
+  normalization seam, not raw fact IDs; retain source ownership/hash/locator and
+  uniqueness checks. Structured authoritative4xx refusals allow deliberate new
+  submission; uncertain transport/server outcomes retain same-key recovery.
+
+### Security
+
+- Refresh blocking security pins source-map-js1.2.2 and multidict6.9.1 without
+  advisory exemptions, plan/resource changes or framework upgrades.
+
+Release candidate only until exact CI/artifact/protected deployment and bounded
+production acceptance are recorded in PRODUCTION_READINESS. DEV27a bounded live
+correction is accepted; voice, autonomous execution and whole-product quality are
+not included. Earlier Unreleased foundation entries retain implementation-time
+boundaries and do not override the current release verdict.
+
 ## [0.11.38] - 2026-10-05
 
 ### Added

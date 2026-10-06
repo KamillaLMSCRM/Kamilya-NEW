@@ -4,17 +4,36 @@ Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
 | Module | Responsibility | Active mini-spec | Data owner / writer | Status |
 |---|---|---|---|---|
-| WORKBENCH | Untrusted intent → server-resolved plan → confirmation policy; bounded assignment/document receipts and correction policy under addenda below | [WORKBENCH V1](modules/WORKBENCH_V1.md) | Workbench/root; persistent assignment/document plans and correction previews | Production text/document slices accepted; correction preview DEV31/application DEV24 accepted; UI local, public activation and speech gated |
+| WORKBENCH | Untrusted intent → server-resolved plan → confirmation policy; bounded assignment/document receipts and correction policy under addenda below | [WORKBENCH V1](modules/WORKBENCH_V1.md) | Workbench/root; persistent assignment/document plans and correction previews | Production text/document slices accepted; exact27a live DEV correction accepted; correction production and speech gated |
 | SPEECH-INTAKE | Bounded authorized audio → editable transcript, no business execution | [SPEECH-INTAKE V1](modules/SPEECH_INTAKE_V1.md) | Speech/root; no storage now | Draft / benchmark gate |
 
 Active shared contract: [COMMAND-PLAN V1](contracts/COMMAND_PLAN_V1.md).
+Current frontier2026-10-06: exact27a682ae API/worker/frontend DEV deployment,
+public0178/all9flags, one actual source-grounded correction/explicit apply,
+same-receipt replays/manual-edit preservation/reload and draft/review markers PASS.
+Normal disposable cleanup and independent17-table absence/9retained-QA fingerprints
+PASS; browser logged out. Bounded acceptance hashbad3b4dd...a3e87, not whole-product
+or voice acceptance. Owned learner-history C27/all38 hashes PASS; model/source and
+neighbor policies in that isolated contour remain synthetic. Production remains
+38/source370f56fb/schema0175, freshly read back with correction unsupported/OFF.
+Local release impact contracts:
+[NATIVE ACTIVATION V1](contracts/LESSON_CORRECTION_NATIVE_ACTIVATION_V1.md),
+[BACKEND ACTIVATION V1](contracts/LESSON_CORRECTION_BACKEND_ACTIVATION_V1.md),
+[V1.1 effective legacy flags](contracts/LESSON_CORRECTION_BACKEND_ACTIVATION_V1_1.md),
+[V1.2 neutral host defaults](contracts/LESSON_CORRECTION_BACKEND_ACTIVATION_V1_2.md).
+Exact version39 CI/controller bundle/backup+restore/migration/protected releases
+and live production correction remain hard gates. The dated paragraphs below
+preserve earlier evidence boundaries; their old NOT_VERIFIED statements are not
+the current DEV verdict. Exact artifacts and execution state belong to the plan.
+
 Document-to-draft first slice: [DOCUMENT-DRAFT V1](contracts/DOCUMENT_DRAFT_ADDENDUM_V1.md),
 bounded production0.11.38/source370f56fb/schema0175 acceptance2026-10-05;
 independent live/manual review and normal disposable cleanup passed. This is a
 dated release record, not a fresh runtime assertion.
 Draft lesson correction foundation:
 [LESSON-CORRECTION-FOUNDATION V1](contracts/LESSON_CORRECTION_FOUNDATION_V1.md),
-accepted local implementation2026-10-05; full correction NOT IMPLEMENTED.
+accepted local implementation2026-10-05; full correction was NOT IMPLEMENTED at
+that historical foundation boundary, superseded by current DEV acceptance above.
 Source-owned proposal and durable preview integration, bounded isolated DEV accepted:
 [PREVIEW V1](contracts/LESSON_CORRECTION_PREVIEW_V1.md),
 [V1.1 lost-role failure closure](contracts/LESSON_CORRECTION_PREVIEW_V1_1.md),

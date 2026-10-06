@@ -45,6 +45,7 @@ def test_ci_activation_step_keeps_exact_release_contract_selectors() -> None:
         "ops/test_ct137_native_release.py", "ops/test_ct137_workbench_activation.py",
         "ops/test_ct137_native_deploy_cli.py", "deploy/test_dev_workbench_activation.py",
         "deploy/test_dev_correction_activation.py",
+        "deploy/test_correction_native_activation.py",
         "tests/test_workbench_staged_dev_schema_gate.py",
         "tests/test_workbench_correction_history_dev_gate.py",
     ):

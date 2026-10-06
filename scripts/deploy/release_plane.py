@@ -33,6 +33,53 @@ TOKEN_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_-]{0,63}$")
 SLOTS = ("blue", "green")
 SERVICES = ("api", "worker-ai", "worker-documents", "worker-ops")
 WORKERS = SERVICES[1:]
+FEATURE_ENV = {
+    "workbench": "METHODOLOGIST_WORKBENCH_ENABLED",
+    "document_draft": "METHODOLOGIST_DOCUMENT_DRAFT_ENABLED",
+    "lesson_correction": "METHODOLOGIST_LESSON_CORRECTION_ENABLED",
+}
+# Effective settings, including old image defaults; no raw environment is emitted.
+FEATURE_READBACK = (
+    "import json; from app.core.config import get_settings; s=get_settings(); "
+    f"names={FEATURE_ENV!r}; "
+    "print(json.dumps({k:{'supported':hasattr(s,n),'enabled':getattr(s,n,False)} "
+    "for k,n in names.items()}))"
+)
+
+
+def _feature_flags(data: Any, label: str) -> dict[str, bool]:
+    if not isinstance(data, dict):
+        raise ReleasePlaneError(f"{label}_must_be_object")
+    _exact_keys(data, set(FEATURE_ENV), label)
+    if any(type(value) is not bool for value in data.values()):
+        raise ReleasePlaneError(f"{label}_must_be_literal_booleans")
+    if (data["document_draft"] or data["lesson_correction"]) and not data["workbench"]:
+        raise ReleasePlaneError(f"{label}_requires_workbench")
+    return dict(data)
+
+
+def _unique_json_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ReleasePlaneError("json_duplicate_key")
+        result[key] = value
+    return result
+
+
+def feature_manifest_fields(candidate: str, previous: str, version: str) -> dict[str, Any]:
+    """Workflow producer crosses the same strict flag seam as the host consumer."""
+    candidate, previous = candidate.strip(), previous.strip()
+    if not candidate and not previous:
+        return {"schema_version": 1}
+    if not candidate or not previous:
+        raise ReleasePlaneError("feature_flags_require_both_objects")
+    try:
+        return {"schema_version": 2, "product_version": version,
+                "feature_flags": _feature_flags(json.loads(candidate, object_pairs_hook=_unique_json_pairs), "feature_flags"),
+                "previous_feature_flags": _feature_flags(json.loads(previous, object_pairs_hook=_unique_json_pairs), "previous_feature_flags")}
+    except json.JSONDecodeError as error:
+        raise ReleasePlaneError("feature_flags_json_invalid") from error
 
 
 def _utc_now_iso() -> str:
@@ -116,11 +163,17 @@ class ReleaseManifest:
     previous_image: str
     expected_environment: str
     migration: Migration
+    product_version: str | None = None
+    feature_flags: dict[str, bool] | None = None
+    previous_feature_flags: dict[str, bool] | None = None
 
     @classmethod
     def parse(cls, data: Any) -> ReleaseManifest:
         if not isinstance(data, dict):
             raise ReleasePlaneError("manifest_must_be_object")
+        schema = data.get("schema_version")
+        if type(schema) is not int or schema not in (1, 2):
+            raise ReleasePlaneError("manifest_schema_version_invalid")
         _exact_keys(
             data,
             {
@@ -132,7 +185,7 @@ class ReleaseManifest:
                 "previous_image",
                 "expected_environment",
                 "migration",
-            },
+            } | ({"product_version", "feature_flags", "previous_feature_flags"} if schema == 2 else set()),
             "manifest",
         )
         manifest = cls(
@@ -144,9 +197,21 @@ class ReleaseManifest:
             previous_image=data["previous_image"],
             expected_environment=data["expected_environment"],
             migration=Migration.parse(data["migration"]),
+            product_version=data.get("product_version"),
+            feature_flags=_feature_flags(data["feature_flags"], "feature_flags") if schema == 2 else None,
+            previous_feature_flags=_feature_flags(data["previous_feature_flags"], "previous_feature_flags") if schema == 2 else None,
         )
-        if manifest.schema_version != 1:
-            raise ReleasePlaneError("manifest_schema_version_invalid")
+        if schema == 2:
+            if not isinstance(manifest.product_version, str) or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", manifest.product_version):
+                raise ReleasePlaneError("product_version_invalid")
+            version = tuple(int(part) for part in manifest.product_version.split("."))
+            if manifest.feature_flags and manifest.feature_flags["lesson_correction"]:
+                if version < (0, 11, 39):
+                    raise ReleasePlaneError("correction_requires_version39")
+                if manifest.migration.mode == "exact" and (
+                    manifest.migration.from_revision != "0175" or manifest.migration.to_revision != "0178"
+                ):
+                    raise ReleasePlaneError("correction_migration_revision_invalid")
         if not isinstance(manifest.release_id, str) or not RELEASE_ID_RE.fullmatch(
             manifest.release_id
         ):
@@ -288,6 +353,10 @@ class Runner(Protocol):
 class SubprocessRunner:
     def run(self, args: Sequence[str], *, env: Mapping[str, str] | None = None) -> str:
         process_env = os.environ.copy()
+        # Legacy Compose interpolation must use its explicit CLI dotenv file,
+        # not ambient host feature flags. Schema2 overlays all three below.
+        for name in FEATURE_ENV.values():
+            process_env.pop(name, None)
         if env:
             process_env.update(env)
         completed = subprocess.run(
@@ -327,7 +396,7 @@ class UrlHealthReader:
 
 def _read_json(path: Path) -> Any:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique_json_pairs)
     except (OSError, json.JSONDecodeError) as error:
         raise ReleasePlaneError(f"json_read_failed:{path.name}") from error
 
@@ -378,14 +447,24 @@ class ReleasePlane:
             *args,
         ]
 
-    def _slot_env(self, slot: str, image: str, release_sha: str) -> dict[str, str]:
-        return {
+    def _slot_env(self, slot: str, image: str, release_sha: str, flags: Mapping[str, bool] | None = None) -> dict[str, str]:
+        result = {
             "KAMILYA_API_IMAGE": image,
             "KAMILYA_RELEASE_SHA": release_sha,
             "KAMILYA_SLOT_PORT": str(self.config.slot_ports[slot]),
         }
+        if flags is not None:
+            result.update({FEATURE_ENV[key]: str(value).lower() for key, value in flags.items()})
+        return result
 
-    def _wait_health(self, url: str, release_sha: str) -> None:
+    def _feature_evidence(self) -> dict[str, Any]:
+        if self.manifest.schema_version == 1:
+            return {}
+        return {"product_version": self.manifest.product_version,
+                "feature_flags": self.manifest.feature_flags,
+                "previous_feature_flags": self.manifest.previous_feature_flags}
+
+    def _wait_health(self, url: str, release_sha: str, product_version: str | None = None) -> None:
         deadline = time.monotonic() + self.config.health_timeout_seconds
         while True:
             try:
@@ -394,6 +473,7 @@ class ReleasePlane:
                     payload.get("release_sha") == release_sha
                     and payload.get("deployment_environment") == self.config.environment
                     and payload.get("status") == "ok"
+                    and (product_version is None or payload.get("product_version") == product_version)
                 ):
                     return
             except (OSError, ReleasePlaneError):
@@ -402,9 +482,9 @@ class ReleasePlane:
                 raise ReleasePlaneError("health_identity_timeout")
             time.sleep(2)
 
-    def _verify_services(self, slot: str, image: str, release_sha: str) -> None:
-        env = self._slot_env(slot, image, release_sha)
-        for service in SERVICES:
+    def _verify_services(self, slot: str, image: str, release_sha: str, flags: Mapping[str, bool] | None = None, services: Sequence[str] = SERVICES, *, allow_unsupported_disabled: bool = False) -> None:
+        env = self._slot_env(slot, image, release_sha, flags)
+        for service in services:
             container = self.runner.run(self._compose(slot, "ps", "-q", service), env=env)
             if not container or "\n" in container:
                 raise ReleasePlaneError(f"container_identity_invalid:{service}")
@@ -419,6 +499,27 @@ class ReleasePlane:
             )
             if facts != f"{image}|running|0":
                 raise ReleasePlaneError(f"container_readback_mismatch:{service}")
+            if flags is not None:
+                selected = self.runner.run([str(self.config.docker_binary), "exec", container,
+                    "/app/.venv/bin/python", "-c", FEATURE_READBACK])
+                try:
+                    effective = json.loads(selected, object_pairs_hook=_unique_json_pairs)
+                    if not isinstance(effective, dict) or set(effective) != set(FEATURE_ENV):
+                        raise ValueError("shape")
+                    for key, expected in flags.items():
+                        item = effective[key]
+                        if (not isinstance(item, dict) or set(item) != {"supported", "enabled"}
+                            or type(item["supported"]) is not bool or type(item["enabled"]) is not bool
+                            or item["enabled"] is not expected
+                            or (not item["supported"] and (expected or not allow_unsupported_disabled))):
+                            raise ValueError("flag")
+                except (ValueError, ReleasePlaneError) as error:
+                    raise ReleasePlaneError(f"container_feature_flag_mismatch:{service}") from error
+
+    def _revision_matches(self, current: str, revision: str | None) -> bool:
+        if self.manifest.schema_version == 1:
+            return current.startswith(revision or "")
+        return bool(re.fullmatch(re.escape(revision or "") + r"(?: \(head\))?", current.strip()))
 
     def _proxy_content(self, slot: str) -> str:
         port = self.config.slot_ports[slot]
@@ -489,6 +590,7 @@ class ReleasePlane:
             raise ReleasePlaneError("manifest_host_environment_mismatch")
         inactive = "green" if state.active_slot == "blue" else "blue"
         return {
+            **self._feature_evidence(),
             "status": "READY",
             "release_id": self.manifest.release_id,
             "release_sha": self.manifest.release_sha,
@@ -524,7 +626,11 @@ class ReleasePlane:
                 state.release_sha == self.manifest.release_sha
                 and state.image == self.manifest.image
             ):
+                if self.manifest.schema_version == 2:
+                    self._verify_services(state.active_slot, state.image, state.release_sha, self.manifest.feature_flags)
+                    self._wait_health(self.config.public_health_url, state.release_sha, self.manifest.product_version)
                 result = {
+                    **self._feature_evidence(),
                     "run_id": run_id,
                     "release_id": self.manifest.release_id,
                     "release_sha": self.manifest.release_sha,
@@ -542,8 +648,11 @@ class ReleasePlane:
             ):
                 raise ReleasePlaneError("expected_previous_release_mismatch")
 
+            if self.manifest.schema_version == 2:
+                self._verify_services(state.active_slot, state.image, state.release_sha, self.manifest.previous_feature_flags, allow_unsupported_disabled=True)
+
             self.runner.run([str(self.config.docker_binary), "pull", self.manifest.image])
-            candidate_env = self._slot_env(inactive, self.manifest.image, self.manifest.release_sha)
+            candidate_env = self._slot_env(inactive, self.manifest.image, self.manifest.release_sha, self.manifest.feature_flags)
             if self.manifest.migration.mode == "exact":
                 current = self.runner.run(
                     self._compose(
@@ -558,7 +667,7 @@ class ReleasePlane:
                     ),
                     env=candidate_env,
                 )
-                if current.startswith(self.manifest.migration.from_revision or ""):
+                if self._revision_matches(current, self.manifest.migration.from_revision):
                     self.runner.run(
                         [
                             str(self.config.backup_gate),
@@ -596,12 +705,17 @@ class ReleasePlane:
                         ),
                         env=candidate_env,
                     )
-                    if not current.startswith(self.manifest.migration.to_revision or ""):
+                    if not self._revision_matches(current, self.manifest.migration.to_revision):
                         raise ReleasePlaneError("migration_revision_after_mismatch")
-                elif current.startswith(self.manifest.migration.to_revision or ""):
+                elif self._revision_matches(current, self.manifest.migration.to_revision):
                     self._require_migration_receipt()
                 else:
                     raise ReleasePlaneError("migration_revision_before_mismatch")
+            elif self.manifest.feature_flags and self.manifest.feature_flags["lesson_correction"]:
+                current = self.runner.run(self._compose(inactive, "run", "--rm", "--no-deps",
+                    "--entrypoint", "/app/.venv/bin/alembic", "api", "current"), env=candidate_env)
+                if not self._revision_matches(current, "0178"):
+                    raise ReleasePlaneError("correction_schema_revision_mismatch")
 
             self.runner.run(self._compose(inactive, "down", "--remove-orphans"), env=candidate_env)
             candidate_started = True
@@ -609,15 +723,17 @@ class ReleasePlane:
                 self._compose(inactive, "up", "-d", "--no-deps", "api"), env=candidate_env
             )
             private_url = f"http://127.0.0.1:{self.config.slot_ports[inactive]}/health"
-            self._wait_health(private_url, self.manifest.release_sha)
+            self._wait_health(private_url, self.manifest.release_sha, self.manifest.product_version)
+            if self.manifest.schema_version == 2:
+                self._verify_services(inactive, self.manifest.image, self.manifest.release_sha, self.manifest.feature_flags, ("api",))
 
-            active_env = self._slot_env(state.active_slot, state.image, state.release_sha)
+            active_env = self._slot_env(state.active_slot, state.image, state.release_sha, self.manifest.previous_feature_flags)
             self.runner.run(self._compose(state.active_slot, "stop", *WORKERS), env=active_env)
             old_workers_stopped = True
             self.runner.run(
                 self._compose(inactive, "up", "-d", "--no-deps", *WORKERS), env=candidate_env
             )
-            self._verify_services(inactive, self.manifest.image, self.manifest.release_sha)
+            self._verify_services(inactive, self.manifest.image, self.manifest.release_sha, self.manifest.feature_flags)
 
             old_proxy = self.config.proxy_upstream_file.read_text(encoding="utf-8")
             _atomic_write(self.config.proxy_upstream_file, self._proxy_content(inactive), 0o644)
@@ -628,7 +744,7 @@ class ReleasePlane:
                 self._reload_proxy()
                 raise
             proxy_switched = True
-            self._wait_health(self.config.public_health_url, self.manifest.release_sha)
+            self._wait_health(self.config.public_health_url, self.manifest.release_sha, self.manifest.product_version)
 
             new_state = {
                 "schema_version": 1,
@@ -641,6 +757,7 @@ class ReleasePlane:
                 json.dumps(new_state, indent=2, sort_keys=True) + "\n",
             )
             result = {
+                **self._feature_evidence(),
                 "run_id": run_id,
                 "release_id": self.manifest.release_id,
                 "release_sha": self.manifest.release_sha,
@@ -666,14 +783,14 @@ class ReleasePlane:
                     if proxy_switched:
                         _atomic_write(self.config.proxy_upstream_file, old_proxy, 0o644)
                         self._reload_proxy()
-                    active_env = self._slot_env(state.active_slot, state.image, state.release_sha)
+                    active_env = self._slot_env(state.active_slot, state.image, state.release_sha, self.manifest.previous_feature_flags)
                     if old_workers_stopped:
                         self.runner.run(
                             self._compose(state.active_slot, "up", "-d", "--no-deps", *WORKERS),
                             env=active_env,
                         )
                     candidate_env = self._slot_env(
-                        inactive, self.manifest.image, self.manifest.release_sha
+                        inactive, self.manifest.image, self.manifest.release_sha, self.manifest.feature_flags
                     )
                     self.runner.run(
                         self._compose(inactive, "down", "--remove-orphans"), env=candidate_env
@@ -682,10 +799,13 @@ class ReleasePlane:
                         f"http://127.0.0.1:{self.config.slot_ports[state.active_slot]}/health",
                         state.release_sha,
                     )
+                    if self.manifest.schema_version == 2:
+                        self._verify_services(state.active_slot, state.image, state.release_sha, self.manifest.previous_feature_flags, allow_unsupported_disabled=True)
                     rollback_status = "completed"
                 except Exception:
                     rollback_status = "failed"
             failure = {
+                **self._feature_evidence(),
                 "run_id": run_id,
                 "release_id": self.manifest.release_id,
                 "release_sha": self.manifest.release_sha,

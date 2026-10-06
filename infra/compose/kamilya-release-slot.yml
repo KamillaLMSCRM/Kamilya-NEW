@@ -5,6 +5,9 @@ x-app-runtime: &app-runtime
   environment:
     DEPLOYMENT_ENVIRONMENT: kz-production
     RELEASE_SHA: ${KAMILYA_RELEASE_SHA:?set exact 40-character release SHA}
+    METHODOLOGIST_WORKBENCH_ENABLED: ${METHODOLOGIST_WORKBENCH_ENABLED:-false}
+    METHODOLOGIST_DOCUMENT_DRAFT_ENABLED: ${METHODOLOGIST_DOCUMENT_DRAFT_ENABLED:-false}
+    METHODOLOGIST_LESSON_CORRECTION_ENABLED: ${METHODOLOGIST_LESSON_CORRECTION_ENABLED:-false}
   volumes:
     - ${KAMILYA_BLOB_STORAGE_DIR:-/opt/kamilya-runtime/blob-storage}:/app/storage/certificates
     - type: bind

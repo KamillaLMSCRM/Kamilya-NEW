@@ -184,7 +184,8 @@ class DocumentNativeActivationTests(unittest.TestCase):
             ):
                 (directory / "package.json").write_text(json.dumps({"version": version}))
                 env = {**os.environ, "NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED": workbench,
-                       "NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED": document}
+                       "NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED": document,
+                       "NEXT_PUBLIC_METHODOLOGIST_LESSON_CORRECTION_ENABLED": "false"}
                 result = subprocess.run(["node", "-e", guard], cwd=directory, env=env,
                                         capture_output=True, check=False)
                 self.assertEqual(result.returncode == 0, accepted, (version, workbench, document))
@@ -230,7 +231,7 @@ class DocumentNativeActivationTests(unittest.TestCase):
         helper = (Path(__file__).resolve().parents[2] / "infra" / "deploy" / "kamilya-web-deploy.py").read_text()
         self.assertIn("document_draft_enabled:", workflow)
         self.assertIn("NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED", workflow)
-        self.assertIn('schema_version:documentSchema?2:1', workflow)
+        self.assertIn('schema_version:correctionSchema?3:documentSchema?2:1', workflow)
         self.assertIn('"release_sha", "product_version", "node_version", "platform", "arch", "libc", "api_url", "sha256"', helper)
 
 

@@ -10,7 +10,54 @@
 WB-CORRECTION;
 ASR/телефон идут отдельно через quality/data/capacity gates.
 
-### Continuation2026-10-06 — DEV activation and learner-history gates
+### Current continuation2026-10-06 — live DEV correction accepted; production gated
+
+Exact DEV source27a682ae9e38b7d4615dc00e7796cc670fd07c27, existing Render API/
+worker and Vercel frontend deployed after CI37403894691/master and37404671176/dev
+SUCCESS. Public DEV schema0178 and all9 flags verified; prepare made no flag
+changes. Controller execute RELEASE_OK; existing Free/Hobby plans/resources
+unchanged. Owned synthetic learner-history runtime-C passed27 actual checks,
+all38 source hashes, cleanup and public metadata neutrality (565.469s/peak3).
+Runtime artifact hash d60d2209b3939451a416643fa00d6cf2624d4b85d9448aa3281dfc598458c034;
+its provider/original-byte/neighbor-policy boundary remains synthetic.
+
+Actual ordinary-methodologist browser proposal was generated once from the
+existing accepted document/course fixture. Root and independent artifact reviewer
+checked source fidelity: expected12/received10/shortage2, 20minutes for act creation,
+shift-lead decision and no invented rule/deadline. Preview preserved original;
+explicit apply marked source/quiz needs_review and course review pending, kept
+draft/unpublished with no enrollments. Same-key preview/apply replays returned the
+same plan/receipt with no new accounting. Later manual edit survived replay and
+page reload; historical receipt was restored read-only. Accounting estimate10cents
+is not a provider invoice or whole-course quality proof. Bounded live acceptance
+hash bad3b4dd38f6afff2da7bf019725f204b89fd89912595f6fe984a44485ea3e87;
+Runner E independently reconciled supplied artifacts, did not execute live UI.
+Runner D freshly API2624, frontend935, critical25 and quality passed; preserved
+C executor-attribution failure is not relabeled. Normal guarded disposable cleanup
+204/fresh404 plus independent nonBYPASS DB absence across17 tables PASS; all9
+permanent QA fingerprints equal before/after. Browser session logged out.
+
+Accepted local native activationV1 adds strict packet4/config3 at product39 while
+preserving the8-field privileged manifest and schema1-3 compatibility. Root/cheap
+leaf integration82PASS/1platformSKIP; production helper is not changed. Separate
+protected backend activationV1/V1.1 owns strict manifest2, typed candidate/previous
+flags, four-process effective settings readback, API-before-worker-stop and
+rollback/replay guards. Fresh root semantic-read-only production C confirms actual
+38/source370f56fb/image258acfa0, blue four containers running/restarts0, schema0175,
+workbench/documentON, absent correction capability/OFF, backup timer active, lock
+absent and disk68%. Controller hash79d8a058...9fc341; no production mutation.
+Earlier A/B probe imports were harness failures, preserved and fixed with the
+canonical get_settings(), not credential/route changes. Local source/quality/
+independent review and exact version39 CI/bundle upgrade, backup/restore175->178,
+protected backend/native release and bounded production acceptance remain gates.
+
+Navigation: CodeGraph1.6.1 native sync1358ms SDK/7045ms wrapper, excluded-path PASS;
+ReleaseManifest class-callers unavailable (SOURCE_FALLBACK), _slot_env search8ms/
+5boundedcaller edges18ms all confirmed in source. This narrowed current, candidate
+and rollback consumers; workflow/Compose/DB links confirmed separately. No matched
+end-to-end speedup or token saving measured; ECC/CodeBurn counters NOT_AVAILABLE.
+
+### Historical preparation earlier2026-10-06 — DEV activation and learner-history gates
 
 Source e0bf8e65 promoted to master with independent exact readback. Fresh
 CI37399182927 completed5SUCCESS/2dependency audit failures, retained unchanged.

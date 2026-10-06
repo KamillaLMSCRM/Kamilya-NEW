@@ -6341,3 +6341,12 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   fixture_facts regression RED1 then GREEN33 after adding only the ArticleA100
   heading to the shared synthetic bytes; factual value steel is unchanged.
   Source review accepted the fixture repair; successor runtime remains required.
+- Completed successor: exact27a owned historyC passed27 checks, all38 frozen
+  source hashes, cleanup/public metadata neutrality (565.469s/peak3). Actual DEV
+  API/worker/frontend27a/public0178 then passed one ordinary-methodologist
+  source-grounded preview/apply/replay/manual-edit/reload acceptance. One charged
+  accounting plan, no new charge on replay, draft/review markers preserved; root
+  and independent artifact source-fidelity review PASS. Guarded temporary tenant
+  cleanup204/fresh404 and independent17-table absence/9retained-QA fingerprints
+  PASS. Production acceptance is still separate; these results do not turn the
+  synthetic history provider/policy contour into real-model equivalence.
