@@ -17,7 +17,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 from workbench_document_dev_gate import safe_schema
 
-BLOB = b"| Article | Material |\n| --- | --- |\n| A100 | steel |\n"
+BLOB = b"# Article A100\n\n| Article | Material |\n| --- | --- |\n| A100 | steel |\n"
 
 
 def require(condition, label):

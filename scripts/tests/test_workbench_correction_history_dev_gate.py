@@ -3,6 +3,8 @@
 import importlib.util
 from copy import deepcopy
 from pathlib import Path
+from types import SimpleNamespace
+from uuid import UUID
 
 import pytest
 
@@ -50,6 +52,27 @@ def test_history_source_manifest_binds_generation_fact_contract(monkeypatch):
     hashes = module.source_hashes()
     assert len(hashes) == len(module.SOURCE_FILES)
     assert all(len(value) == 64 for value in hashes.values())
+
+
+@pytest.mark.asyncio
+async def test_runtime_correction_fixture_has_generation_admitted_facts(monkeypatch):
+    import hashlib
+
+    root = Path(__file__).resolve().parents[2]
+    monkeypatch.syspath_prepend(str(root / "scripts/ops"))
+    monkeypatch.syspath_prepend(str(root / "apps/api"))
+    from workbench_correction_dev_checks import BLOB, fixture_facts
+
+    document = SimpleNamespace(
+        id=UUID(int=6), tenant_id=UUID(int=1), title="Source", filename="source.md",
+        category="general", lifecycle_status="active", size=len(BLOB),
+        content_sha256=hashlib.sha256(BLOB).hexdigest(), s3_key="synthetic.md",
+    )
+    storage = SimpleNamespace(get_bytes=lambda key: BLOB if key == "synthetic.md" else None)
+    content, references = await fixture_facts(document, storage)
+    assert "steel" in content
+    assert references and all(ref["fact_id"].startswith("fact-") for ref in references)
+    assert all(ref["doc_id"] == str(document.id) for ref in references)
 
 
 def test_nonempty_all_column_history_snapshot_is_stable(history):

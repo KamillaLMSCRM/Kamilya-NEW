@@ -6335,3 +6335,9 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   not matching hand-seeded identifiers; bind generation source helpers in the
   learner-history runtime manifest. Raw source-actuality diff identities remain
   unchanged. Never bypass provenance or spend another generation to hide a mismatch.
+- Runtime fixture follow-up: owned historyB stopped fixture_source_missing before
+  learner-history checks; cleanup/public neutrality/source freeze38 PASS. Its
+  title-less synthetic table yielded no generation-admitted facts. Narrow actual
+  fixture_facts regression RED1 then GREEN33 after adding only the ArticleA100
+  heading to the shared synthetic bytes; factual value steel is unchanged.
+  Source review accepted the fixture repair; successor runtime remains required.
