@@ -2497,3 +2497,11 @@ Rules:
 - Fresh readback: health, ordinary login, `users/me`, historical application receipt, lesson, course, enrollments, quiz, AI jobs, active catalog, and owned source download all returned `200`. Helper assertions passed exact release `e355fdc6da82b1d276fbf182d37cc7f69ef30335`, version `0.11.39`, ordinary non-impersonating methodologist identity, historical receipt/manual text/source digest, draft/pending review state, quiz review state, empty enrollments, and exact completed two-job inventory.
 - Safety: business mutations `0`, new AI requests `0`, mail requested `false`. Acceptance artifact reports `PASS` with receipt report SHA-256 `4440ee9518c0b1a85391b1fc716c8f0cd9d5ccbb1c316bac2ff48bcec8222f0d`.
 - Limits: this is bounded API evidence, not browser re-execution, whole-product acceptance, provider-invoice proof, voice proof, or production release GO. Evidence: `.release-evidence/REL-CORRECTION39-20261006/report-J.json` and `live/runner-runtime-j.json` / `live/runner-acceptance-j.json`.
+
+### TEST-CORRECTION39-CLOSEOUT-20261006-K — 2026-10-06 — local contract and unit closeout after documentation correction
+
+- Scope: local-only closeout at HEAD `2b12ab95f4ee0e3e250800cf2567feddf7a12783`; no production/runtime reread, network, provider, database, browser, authentication, installation, source repair, Git mutation, deployment, or descendant action. Root production39/e355 runtime and acceptance/cleanup GO remain supplied prior evidence.
+- ERRORS freeze: `ERRORS.md` SHA-256 before and after was `6a081225cb4f2e4840206eeaa85082d135bfe3e42855acae41e24c6a3a81f888`; unchanged. Pre-existing root `TEST-INFRA-019` correction was preserved without Runner edits.
+- Fresh matrix: exact release-contract gate passed with Alembic 176 revisions/head `0178`, Celery contract, migration ownership, 32 direct dependencies, and 238 unique Errors entries; native exit `0`. Exact API unit wrapper passed `2624` tests with 5 warnings in `20.72s`; native exit `0`.
+- Historical context: CI `37413384269` failure and duplicate `TEST-INFRA-014` episode remain historical and were not relabeled or rerun. No independent production claim is made by K.
+- Evidence: `.release-evidence/REL-CORRECTION39-20261006/report-K.json`, `release-gate-K.log`, and `api-unit-K.log`. Existing F/J entries remain unchanged and precede K.
