@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** frontend/API/DB/worker identity and bounded document-draft QA2026-10-05
+**Проверено:** frontend/API/DB/worker identity and bounded lesson-correction QA2026-10-06
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,60 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Correction39 preparation2026-10-06 — DEV accepted, production NO_GO pending gates
+## Current production39 — RELEASED; bounded lesson-correction acceptance PASS
+
+2026-10-06: exact runtime `e355fdc6da82b1d276fbf182d37cc7f69ef30335`,
+version0.11.39/tagv0.11.39, CI37408581002 all7SUCCESS, native37408601763 SUCCESS,
+protected backend37409462508/deployment6875008426 SUCCESS. Image
+`sha256:0f741d440fb29a2ad491e5bb803d53397dd2010910d2579b7642b7a51f26f555`.
+API and three workers green/running/restarts0, native frontend exact SHA,
+schema0178 and all three workbench/document/correction flags independently PASS.
+New3 tables FORCE RLS,13policies/4safe-invoker functions; lms_app remains nonBYPASS.
+Protected controller/Compose bundle upgrade changed only the two verified files;
+helper permissions, providers, resources and runtime.env remain unchanged.
+
+Root actual ordinary-methodologist browser: one source-grounded proposal,
+preview without mutation, explicit apply, renewed source/quiz/course review,
+same-receipt replays/no extra accounting, later manual edit and reload preservation
+PASS. Course stayed draft/unpublished/no enrollments. Root reviewed synthetic
+source numbers12/10/2,20min act creation and shift-lead decision; no new rule.
+Wrong seal409 and foreign plan/receipt/lesson/source/proposal404 PASS. Retained
+QA usage fingerprint unchanged; foreign proposal admitted no plan/accounting.
+Independent Test Runner J executed11 ordinary read-only requests200 and bound all
+frozen inputs. Release Runner LOCAL_ONLY handoff reconciled unchanged technical/
+acceptance hashes; it did not independently execute production or browser actions.
+
+Timers/oneshots and exact watchdog39 PASS. Fresh signed current0178 restore
+RPO43s/RTO19s, signature/hash and disposable restore DB/temp absence independently
+PASS. Previous38 backend image/API/four containers/effective flags and native38
+retained; readiness checked read-only, actual rollback switch NOT_RUN. Additional
+native37/359/299 retained. Only obsolete36/exact staging pair were removed under
+the standing verified offhost recovery rule; its recoverable copy remains.
+VM126 disk69%; frontend free about0.95GiB after release, so the next release must
+repeat the capacity/eligible-cleanup gate, not silently broaden deletion.
+
+Root acceptance is frozen at
+`REL-CORRECTION39-20261006/live/acceptance.json`, SHA256
+`a908e0d2d1de6f9bd37fae874730a7db786314df68832c5d049ba2849145a667`.
+Exact final sign-off belongs to the hash-bound final root decision after guarded
+fixture cleanup/readback, not this prose or a Runner handoff. Scope is one Russian
+synthetic draft lesson correction, not whole-product, voice, all-course quality,
+actual provider invoice, autonomous publication or assignment acceptance.
+
+Fixture cleanup completed: normal dedicated operator login, exact guarded
+DELETE204/fresh404; fresh read-only DB inventory substituted for a redundant
+methodologist login after the unchanged hourly20 tenant-login quota was exhausted.
+No limiter reset/token forging/impersonation or network identity change. Local
+cleanup helper refuses optimized Python and pins canonical target/evidence/digests.
+Independent nineteen-table/workflow/usage absence and all9retained-QA fingerprints
+PASS; permanentQA14users/3courses/13enrollments and completed history unchanged.
+Browser logged out, no temporary viewport override. Post-cleanup runtime39 PASS.
+Evidence root `.release-evidence/REL-CORRECTION39-20261006/` contains immutable
+acceptance, `cleanup-inventory39.json`, `qa-after-cleanup.json`, signed restore,
+timers, rollback readiness, Runner J and final root decision. All original harness
+failures remain retained, not relabeled product failures or green executions.
+
+## Historical correction39 preparation2026-10-06 — superseded by release above
 
 Exact DEV27a682ae API/worker/frontend/public0178/all9flags accepted with one live
 source-grounded draft correction. Explicit apply, stable preview/receipt replay,
@@ -42,7 +95,7 @@ unchanged upgrader/gate/wrapper/service files match source; only controller and
 slot Compose are intended changes. No installed bundle or production mutation
 has yet occurred.
 
-## Current production38 — RELEASED, bounded document-draft acceptance PASS
+## Historical production38 — RELEASED, bounded document-draft acceptance PASS
 
 2026-10-05: exact `370f56fb9e9ce9cdb173b7193e91dbd0f49675f1`, version0.11.38,
 tag `v0.11.38`, CI/native/protected workflows successful; protected workflow

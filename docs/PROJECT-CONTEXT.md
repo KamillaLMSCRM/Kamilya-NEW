@@ -25,7 +25,29 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current correction DEV2026-10-06 — bounded live acceptance PASS
+## Current production39,2026-10-06 — bounded draft lesson correction accepted
+
+Frontend/API/threeworkers exact `e355fdc6da82b1d276fbf182d37cc7f69ef30335`,
+version0.11.39, schema0178 and all3flags ON independently read back. Protected
+backend37409462508/deployment6875008426 and native REL-CORRECTION39-WEBB-20261006
+passed; exact image0f741d44...f555. Ordinary methodologist browser proposal/apply/
+receipt replay/manual edit/reload and review resets PASS; draft/no enrollment.
+Wrong seal409, foreign resource/proposal404 and unchanged permanent-QA usage PASS.
+Independent Test Runner J executed11 API readbacks; Release Runner reconciled
+immutable supplied receipts locally, not independent external execution.
+Timers/oneshots/watchdog39 and signed0178 restore RPO43/RTO19/cleanup PASS;
+backend/native previous38 retained, actual rollback NOT_RUN. Obsolete frontend36
+alone removed with verified offhost recovery, other releases/staging preserved.
+No billing/resource/permission/topology/DNS/landing/customer-data changes.
+Production decisions/fixture cleanup evidence are owned by PRODUCTION_READINESS;
+this closes only the bounded Russian synthetic correction, not voice/whole product.
+Documentation-only closeout commits do not replace the deployed source SHA.
+Owned disposable tenant deleted204/fresh404; independent19-table/workflow/usage
+absence and9unchanged permanentQA fingerprints PASS. Browser logged out. Tenant
+login hourly20 was left intact; normal dedicated operator auth plus fresh exact
+read-only owned inventory completed cleanup without an auth bypass.
+
+## Historical correction DEV2026-10-06 — bounded live acceptance PASS
 
 Existing Render API/worker and Vercel DEV frontend exact27a682ae9e38b7d4615dc00e7796cc670fd07c27
 deployed after successful master/dev CI; public DEV schema0178 and all9 flags
@@ -64,7 +86,7 @@ equivalence is claimed. Existing production38 boundary below is a dated
 release record, not fresh production readback. Exact contracts and execution
 state are in the methodologist module index and approved AI-driven plan.
 
-## Current client38 boundary,2026-10-05 — RELEASED; bounded document acceptance PASS
+## Historical client38 boundary,2026-10-05 — RELEASED; bounded document acceptance PASS
 
 Frontend/API/threeworkers version0.11.38/source
 `370f56fb9e9ce9cdb173b7193e91dbd0f49675f1` deployed; schema0175 and both

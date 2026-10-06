@@ -4,11 +4,23 @@ Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
 | Module | Responsibility | Active mini-spec | Data owner / writer | Status |
 |---|---|---|---|---|
-| WORKBENCH | Untrusted intent → server-resolved plan → confirmation policy; bounded assignment/document receipts and correction policy under addenda below | [WORKBENCH V1](modules/WORKBENCH_V1.md) | Workbench/root; persistent assignment/document plans and correction previews | Production text/document slices accepted; exact27a live DEV correction accepted; correction production and speech gated |
+| WORKBENCH | Untrusted intent → server-resolved plan → confirmation policy; bounded assignment/document receipts and correction policy under addenda below | [WORKBENCH V1](modules/WORKBENCH_V1.md) | Workbench/root; persistent assignment/document plans and correction previews | Production text/document/correction slices accepted through0.11.39/e355; speech gated |
 | SPEECH-INTAKE | Bounded authorized audio → editable transcript, no business execution | [SPEECH-INTAKE V1](modules/SPEECH_INTAKE_V1.md) | Speech/root; no storage now | Draft / benchmark gate |
 
 Active shared contract: [COMMAND-PLAN V1](contracts/COMMAND_PLAN_V1.md).
-Current frontier2026-10-06: exact27a682ae API/worker/frontend DEV deployment,
+Current frontier2026-10-06: production0.11.39/exacte355fdc6/API/threeworkers/native
+frontend/schema0178/all3flags verified. Real ordinary-methodologist proposal,
+explicit apply, same receipt/no-accounting replay/manual-edit/reload and review
+resets/draft/noenrollments PASS. Wrong seal409 and foreign resource/proposal404;
+TestRunnerJ11readbacks and ReleaseRunner LOCAL_ONLY handoff PASS. Signed178restore,
+timers/watchdog39 and previous38 readiness PASS, actual rollback NOT_RUN. Exact
+fixture cleanup204/404 and independent19-table/workflow/usage absence/9retainedQA
+fingerprints PASS. This closes only one bounded Russian synthetic correction, not
+whole-product/universal model quality/voice. Source refs remain metadata, not file
+navigation. Current gates/evidence are owned by PRODUCTION_READINESS and the plan;
+all paragraphs below are dated historical slices, not remaining release39 gates.
+
+Historical DEV frontier earlier2026-10-06: exact27a682ae API/worker/frontend DEV deployment,
 public0178/all9flags, one actual source-grounded correction/explicit apply,
 same-receipt replays/manual-edit preservation/reload and draft/review markers PASS.
 Normal disposable cleanup and independent17-table absence/9retained-QA fingerprints
@@ -24,7 +36,7 @@ Local release impact contracts:
 Exact version39 CI/controller bundle/backup+restore/migration/protected releases
 and live production correction remain hard gates. The dated paragraphs below
 preserve earlier evidence boundaries; their old NOT_VERIFIED statements are not
-the current DEV verdict. Exact artifacts and execution state belong to the plan.
+the current production verdict. Exact artifacts and execution state belong to the plan.
 
 Document-to-draft first slice: [DOCUMENT-DRAFT V1](contracts/DOCUMENT_DRAFT_ADDENDUM_V1.md),
 bounded production0.11.38/source370f56fb/schema0175 acceptance2026-10-05;

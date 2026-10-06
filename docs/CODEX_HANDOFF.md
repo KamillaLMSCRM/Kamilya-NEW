@@ -1,11 +1,42 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-10-03
+**Обновлено:** 2026-10-06
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/methodologist-workbench-20261001`
 
-## Current production35,2026-10-03
+## Current production39,2026-10-06
+
+Runtime source e355fdc6da82b1d276fbf182d37cc7f69ef30335/version0.11.39 is deployed
+to frontend/API/threeworkers; schema0178/all3flags ON, green running/restarts0.
+Protected37409462508/deployment6875008426/image0f741d44...f555; nativeWEBB technical
+receipt4f46960d...1db3. One real ordinary methodologist browser proposal/apply,
+review resets, same receipt/no-accounting replay, later manual edit/reload PASS.
+Root negative wrong seal409/foreign resources+proposal404 PASS; QA usage unchanged.
+Independent TestRunnerJ 11readbacks PASS/acceptanceadfc665f...de58. ReleaseRunner
+LOCAL_ONLY immutable handoff PASS; known external executor block not retried.
+Root final sign-off and cleanup proof live under REL-CORRECTION39-20261006;
+read PRODUCTION_READINESS first, never repeat deploy/apply/generation blindly.
+Exact disposable fixturef37d5922 deleted204/fresh404, independent19-table/workflow/
+usage absence and9unchanged retainedQA fingerprints PASS; browser logged out.
+Normal dedicated platform-operator login/fresh exact DB inventory completed the
+cleanup after tenant login429, without limiter changes/impersonation/token forging.
+Timers/oneshots/watchdog exact39 and signed current178 restore43/19 PASS.
+Previous backend/native38, extra native37/359/299 preserved; actual rollback NOT_RUN.
+Eligible obsolete frontend36/exact staging pair removed with offhost recovery.
+No provider/model/billing/resources/rights/topology/DNS/landing/customer changes.
+Full voice and universal AI quality remain unaccepted. Next product frontier is
+speech intake quality/capacity and user-readable source navigation, not another
+deployment of this immutable39. Primary stays sync-only. Docs-only commits may be
+ahead of runtime/tag, which must remain e355.
+
+Root harness failures are retained: Windows UTF8, obsolete active preview vs
+historical receipt, error/message404 prefix, tenant-only users/me vs operator
+identity. Repeated short-lived logins exhausted hourly20; never reset the limiter,
+forge credentials or claim an access outage. Reuse one bounded authenticated
+session and preflight consumer/error-envelope contracts before execution.
+
+## Historical production35,2026-10-03
 
 Frontendf34eac00e79fcccbf3926627c23faac672c00edd/version35 deployed,
 CI37123482507/native37123504506 SUCCESS, protected execute

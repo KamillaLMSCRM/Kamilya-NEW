@@ -1,16 +1,46 @@
 # AI-driven Камиля: пошаговый план методического рабочего места
 
 Дата: 2026-10-01. Владелец продукта: пользователь; технический владелец: root.
-Статус обновлён 2026-10-05: свободные текстовые поручения и уточнения назначения
-приняты в production0.11.37/source534ce7ef, а bounded document-to-draft slice
-выпущен в production0.11.38/source370f56fb, frontend/API/threeworkers/schema0175.
-Обычный methodologist browser, persisted deadline/receipt/replay, публикация,
-независимые7/7 проверки изоляции/сохранности обучения и штатная очистка PASS.
-Голос и source-grounded corrections ещё не выпущены. Следующий frontier —
-WB-CORRECTION;
+Статус обновлён 2026-10-06: текстовое назначение принято в0.11.37, документ→
+черновик в0.11.38, source-grounded correction в0.11.39/sourcee355fdc6,
+frontend/API/threeworkers/schema0178. Живой bounded methodologist proposal/apply/
+receipt replay/manual-edit/reload, review resets, чужой tenant404, неверный seal409,
+независимый API readback и точная очистка PASS. Голос ещё не выпущен;
 ASR/телефон идут отдельно через quality/data/capacity gates.
 
-### Current continuation2026-10-06 — live DEV correction accepted; production gated
+### Current release2026-10-06 — source-grounded lesson correction accepted
+
+Exact production runtime `e355fdc6da82b1d276fbf182d37cc7f69ef30335`,0.11.39,
+protected workflow37409462508/deployment6875008426/image0f741d44...f555 and native
+REL-CORRECTION39-WEBB-20261006 PASS after exact CI37408581002 all7/native37408601763.
+Root final readback confirms green4running/restarts0/schema0178/all3flags,
+FORCE RLS3/policies13/invoker4, timers/oneshots/watchdog exact39 and lock absent.
+Fresh signed0178 restore43/19/signature/temp DB/files absence PASS. Previous38
+backend/privateAPI/flags and native38 retained; actual rollback NOT_RUN.
+
+Root actual ordinary-methodologist browser generated one proposal from the
+synthetic Orbita source and confirmed it once. Semantic12/10/2/20min/authority,
+preview no mutation, review resets, same receipt/no second accounting, later
+manual edit/replay/reload and draft/no enrollments PASS. Wrong seal409 and foreign
+plan/receipt/lesson/source/proposal404 PASS; permanentQAusage unchanged. Test
+Runner J freshly executed11readbacks/all200 with exact frozen-input hashes;
+Release Runner immutable LOCAL_ONLY handoff PASS, not independent deployment/UI.
+Root acceptance hash a908e0d2d1de6f9bd37fae874730a7db786314df68832c5d049ba2849145a667.
+Guarded exact fixture cleanup204/fresh404 and independent19-table/workflow/usage
+absence/9unchanged permanent-QA fingerprints PASS; browser logged out. Tenant
+login20/hour remained intact; normal dedicated operator auth and fresh exact DB
+inventory completed cleanup, no token forging/impersonation/identity change.
+Source locator/hash metadata is not a source-file opener. One Russian source
+sample is not universal quality, voice or actual provider invoice verification.
+
+Remaining product frontier: useful human-readable source navigation and
+SPEECH-INTAKE benchmark/intake integration on existing approved resources; no
+speech deployment/capacity purchase inferred from this release. Root final gate
+and actual evidence are in PRODUCTION_READINESS and REL-CORRECTION39-20261006.
+No repeated generation/apply/provisioning or deploy39 is required. Docs-only Git
+preservation does not change the immutable runtime/tag source.
+
+### Historical DEV correction continuation2026-10-06 — superseded by release above
 
 Exact DEV source27a682ae9e38b7d4615dc00e7796cc670fd07c27, existing Render API/
 worker and Vercel frontend deployed after CI37403894691/master and37404671176/dev
@@ -158,7 +188,7 @@ production37 boundary описана выше и в шаге63, старые э�
 
 ## Результат для методиста
 
-### Current release2026-10-05: WB-DOCUMENT-DRAFT RELEASED; bounded acceptance PASS
+### Historical release2026-10-05: WB-DOCUMENT-DRAFT RELEASED; bounded acceptance PASS
 
 Production exact370f56fb9e9ce9cdb173b7193e91dbd0f49675f1 / version0.11.38 is
 released with schema0175 and synchronized workbench/document-draft flags ON.

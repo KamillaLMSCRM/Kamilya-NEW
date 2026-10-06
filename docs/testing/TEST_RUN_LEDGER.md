@@ -2466,3 +2466,34 @@ Rules:
 - Fresh matrix: exact backend/native activation set `171 passed, 1 skipped in 3.80s`, native exit `0`; exact API unit wrapper `2624 passed` with 5 warnings in `20.78s`, native exit `0`; Python quality baseline passed `ruff=1008, mypy=2201`, native exit `0`; release version gate passed with `0.11.39` consistent across `VERSION`, API `pyproject.toml`, and web `package.json`, native exit `0`.
 - Attribution: supplied C38 history source hashes and SQL/runtime receipt remain supplied and were not rerun. This packet is local regression evidence only and makes no DEV/production or production-GO claim.
 - Evidence: `.release-evidence/REL-CORRECTION39-20261006/report-F.json` and its four command logs. Existing C/D/E ledger entries remain unchanged and precede F.
+
+### TEST-CORRECTION39-CI-SUCCESSOR-20261006-G — 2026-10-06 — CI successor workflow/import contract verification
+
+- Scope: local database-free read-only successor at HEAD `e355fdc6da82b1d276fbf182d37cc7f69ef30335`, no `.env`, network, provider, authentication, database, browser, installation, source repair, Git mutation, deployment, or descendant action.
+- Manifest: `.release-evidence/REL-CORRECTION39-20261006/local-source-manifest-G.json` SHA-256 `1fd2991eb0dd32d287e6666c63ba9a420ce6cbdc2714c8ae2b4d0026011ab972`; 53/53 literal-path actual file hashes matched before the gate and 53/53 matched after, with zero missing or mismatched paths.
+- Successor delta: root-supplied CI-only `PYTHONPATH`/actual API-CWD import correction and one trailing-EOF test blank line; application/deployment runtime sources are supplied byte-identical to the F baseline.
+- Fresh gate: exact bundled PowerShell7 selector set `123 passed in 2.38s`, native exit `0`. F’s backend/native, API-unit, frontend, history, and SQL/runtime matrices were not rerun.
+- Supplied root evidence: root selector result `123 PASS` and GitHub CI run `37408581002 SUCCESS`; CI status was not network-verified by this Runner. F pre-run evidence limitation and failed b26 CI history remain preserved; no result was relabeled. Production runtime remains `NOT_VERIFIED`.
+- Evidence: `.release-evidence/REL-CORRECTION39-20261006/report-G.json` and `gate-G.log`. Existing F entry remains unchanged and precedes G.
+
+### TEST-CORRECTION39-PRODUCTION-20261006-H — 2026-10-06 — ordinary-actor production readback blocked before HTTP
+
+- Scope: exact production helper attempt from checkout HEAD `e355fdc6da82b1d276fbf182d37cc7f69ef30335`; no browser, SSH, database, provider, mail, cleanup, other tenant, source, Git, or deployment action. Existing G ledger addition was preserved.
+- Preflight: canonical environment map confirms production API ingress `https://api.kml.kz/api`; helper SHA-256 `58e2b850d096259599cad56577ef0f4294ac0a68523e4a259db3452c2a91780f`; all six named frozen input hashes matched the packet values.
+- Stop: exact canonical Python helper exited `1` before entering its HTTP try block while reading `generation.json` with the host default CP1251 codec. Error: `UnicodeDecodeError: cp1251 codec cannot decode byte 0x98`. No HTTP request, login, production identity readback, business mutation, mail request, or helper report write occurred. Classification: `HARNESS_FAILURE / UNICODE_DECODE_ERROR_BEFORE_HTTP`.
+- Evidence: `.release-evidence/REL-CORRECTION39-20261006/report-H.json`. Runtime, actor, release, lesson, receipt, source, course, quiz, job, and enrollment invariants remain `NOT_VERIFIED`; root-supplied browser and prior ledger observations remain supplied, not independently executed.
+
+### TEST-CORRECTION39-PRODUCTION-20261006-I — 2026-10-06 — UTF-8 helper production readback stopped at owned preview conflict
+
+- Scope: exact ordinary-actor production helper retry using process-local canonical Python `-X utf8`; no helper/source/OS encoding repair, browser, SSH, database, provider, mail, cleanup, other tenant, Git, or deployment action. H and all prior ledger entries remain unchanged.
+- Frozen inputs: helper SHA and all seven named fixture/generation/preview/application/replay/manual hashes matched before execution; all seven remained unchanged after the stop. No acceptance report was created by the helper.
+- Readback sequence: public health `200`; ordinary methodologist login `200`; `users/me` `200`; exact owned lesson-correction-preview GET returned `409`, causing the helper assertion and native exit `1`. Business mutations remained `0`.
+- Classification: `PRODUCTION_READBACK_CONFLICT`; no retry was attempted. Exact receipt, manual-marker, source, course, quiz, job, enrollment, and no-new-AI invariants remain `NOT_VERIFIED`. Evidence: `.release-evidence/REL-CORRECTION39-20261006/report-I.json` and helper-generated `live/runner-runtime-h.json`.
+
+### TEST-CORRECTION39-PRODUCTION-20261006-J — 2026-10-06 — bounded ordinary-actor historical receipt readback
+
+- Scope: corrected successor to H/I using the exact UTF-8 process-local helper and existing production API only; no browser re-execution, whole-product GO, provider invoice, voice, business mutation, mail, cleanup, database, SSH, source, Git, or deployment action. H/I remain immutable.
+- Preflight/postflight: helper SHA-256 `fc6f8957b0a1d1c214167593b7eb919b3386e5d2eb84792350476efa14997aee`; all six named frozen input hashes matched before and remained unchanged after. H/I report and prior frozen artifacts were preserved.
+- Fresh readback: health, ordinary login, `users/me`, historical application receipt, lesson, course, enrollments, quiz, AI jobs, active catalog, and owned source download all returned `200`. Helper assertions passed exact release `e355fdc6da82b1d276fbf182d37cc7f69ef30335`, version `0.11.39`, ordinary non-impersonating methodologist identity, historical receipt/manual text/source digest, draft/pending review state, quiz review state, empty enrollments, and exact completed two-job inventory.
+- Safety: business mutations `0`, new AI requests `0`, mail requested `false`. Acceptance artifact reports `PASS` with receipt report SHA-256 `4440ee9518c0b1a85391b1fc716c8f0cd9d5ccbb1c316bac2ff48bcec8222f0d`.
+- Limits: this is bounded API evidence, not browser re-execution, whole-product acceptance, provider-invoice proof, voice proof, or production release GO. Evidence: `.release-evidence/REL-CORRECTION39-20261006/report-J.json` and `live/runner-runtime-j.json` / `live/runner-acceptance-j.json`.

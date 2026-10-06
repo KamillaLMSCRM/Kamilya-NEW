@@ -6356,3 +6356,31 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   cleanup204/fresh404 and independent17-table absence/9retained-QA fingerprints
   PASS. Production acceptance is still separate; these results do not turn the
   synthetic history provider/policy contour into real-model equivalence.
+
+## TEST-INFRA-014 - Stateless production39 acceptance harness exhausted login quota
+
+- Date:2026-10-06; ignored root acceptance/cleanup helpers, not product code.
+- Cause: repeated short-lived helpers re-authenticated instead of reusing one
+  bounded session. Tenant login correctly returned429/hourly20. Earlier helper
+  assumptions repeated TEST-INFRA-013: detail vs error/message/404 prefix; another
+  helper requested tenant-only users/me with a valid platform-operator token.
+  Active previews revalidate current content; historical application receipts,
+  not obsolete previews, are the replay oracle after apply/manual editing.
+- Recovery: preserve every failed receipt, diagnose source contracts first,
+  reconcile six actual negative probes without repeating generation or apply.
+  Normal dedicated superadmin authentication plus fresh exact read-only owned
+  inventory completed only the marked disposable cleanup204/fresh404. Independent
+  nineteen-table/workflow/usage absence and nine retained-QA fingerprints PASS.
+  No limiter reset, forged token, impersonation, alternate network identity,
+  provider change, business-history modification or source release was needed.
+- Guard review caught Python assert optimization risk before DELETE. The helper
+  now refuses optimized Python before any external action and pins exact fresh
+  canonical target/identity/process exit/evidence-label/script+receipt digests.
+  Actual -O negative test refused; normal interpreter cleanup succeeded.
+- Prevention: read matching error-journal procedures before writing a harness;
+  use explicit UTF8, source-backed consumer DTO/envelope/receipt contracts, one
+  short-lived authenticated session per bounded contour, and stage/refusal
+  receipts on first failure. Do not turn harness errors into product RED or alter
+  auth safeguards to obtain a green report. Transport mode mutation on the
+  canonical root-owned-state route is not a claim of semantic SQL mutation;
+  these inventory probes use BEGIN READ ONLY/ROLLBACK.
