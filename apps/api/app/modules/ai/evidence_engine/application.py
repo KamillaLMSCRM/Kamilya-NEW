@@ -33,7 +33,7 @@ from app.modules.ai.lesson_quality import neutralize_unprofessional_source_langu
 from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFailureReason
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 
-from .engine import EvidenceCourseEngine
+from .engine import EvidenceCourseEngine, admit_document_facts
 from .models import (
     AssessmentDraft,
     CourseDraft,
@@ -92,6 +92,12 @@ class EvidenceSourceBundle:
     @property
     def all_facts(self) -> tuple[SourceFact, ...]:
         return tuple(fact for section in self.document.sections for fact in section.facts)
+
+    @property
+    def generation_facts(self) -> tuple[SourceFact, ...]:
+        """Only admitted facts, with the IDs and locators persisted by generation."""
+        admitted, supporting, _duplicates = admit_document_facts(self.document)
+        return (*admitted, *supporting)
 
 
 @dataclass(frozen=True, slots=True)

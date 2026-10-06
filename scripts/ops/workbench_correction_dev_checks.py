@@ -32,7 +32,7 @@ async def fixture_facts(document, storage):
     corpus = await build_direct_source_corpus(
         [document], tenant_id=document.tenant_id, storage=storage
     )
-    facts = build_evidence_source(corpus).all_facts
+    facts = build_evidence_source(corpus).generation_facts
     require(bool(facts) and len(facts) <= 64, "fixture_source_missing")
     content = "\n\n".join(
         f"{fact.subject}\n{fact.attribute}: {fact.value}" for fact in facts

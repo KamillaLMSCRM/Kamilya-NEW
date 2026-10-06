@@ -31,7 +31,7 @@ const COPY = {
     until: 'Предпросмотр действителен до', expired: 'Предпросмотр истёк. Подготовьте новую правку.',
     pending: 'Предложение ещё готовится. Проверка статуса не запускает генерацию повторно.', refresh: 'Проверить предпросмотр',
     failed: 'Предложение не подготовлено. Уточните поручение или проверьте источники.', unavailable: 'Правка недоступна или данные изменились. Подготовьте новый предпросмотр.',
-    previewUnknown: 'Ответ на запрос не получен. Проверяйте тот же запрос, чтобы не запускать новую генерацию.', retryPreview: 'Проверить тот же запрос',
+    previewUnknown: 'Ответ на запрос не получен. Проверяйте тот же запрос, чтобы не запускать новую генерацию.', previewRejected: 'Запрос отклонён. Проверьте источники и уточните поручение, затем отправьте исправленный запрос.', retryPreview: 'Проверить тот же запрос',
     uncertain: 'Результат пока не подтверждён. Не создавайте новую правку: сначала проверьте результат этого подтверждения.',
     check: 'Проверить результат', retry: 'Повторить это подтверждение', applied: 'Правка применена',
     review: 'Источники и тест требуют проверки; согласование курса нужно пройти заново.',
@@ -46,7 +46,7 @@ const COPY = {
     until: 'Алдын ала қарау мерзімі', expired: 'Алдын ала қарау мерзімі аяқталды. Жаңа түзету дайындаңыз.',
     pending: 'Ұсыныс әлі дайындалуда. Күйді тексеру генерацияны қайта бастамайды.', refresh: 'Алдын ала қарауды тексеру',
     failed: 'Ұсыныс дайындалмады. Тапсырманы нақтылаңыз немесе дереккөздерді тексеріңіз.', unavailable: 'Түзету қолжетімсіз немесе деректер өзгерді. Жаңа алдын ала қарау дайындаңыз.',
-    previewUnknown: 'Сұрауға жауап алынбады. Жаңа генерацияны бастамай, сол сұрауды тексеріңіз.', retryPreview: 'Сол сұрауды тексеру',
+    previewUnknown: 'Сұрауға жауап алынбады. Жаңа генерацияны бастамай, сол сұрауды тексеріңіз.', previewRejected: 'Сұрау қабылданбады. Дереккөздерді тексеріп, тапсырманы нақтылап, түзетілген сұрауды жіберіңіз.', retryPreview: 'Сол сұрауды тексеру',
     uncertain: 'Нәтиже әлі расталмаған. Жаңа түзету жасамай, алдымен осы растаудың нәтижесін тексеріңіз.',
     check: 'Нәтижені тексеру', retry: 'Осы растауды қайталау', applied: 'Түзету қолданылды',
     review: 'Дереккөздер мен тестті тексеріп, курсты қайта келісу керек.',
@@ -61,7 +61,7 @@ const COPY = {
     until: 'Preview valid until', expired: 'The preview expired. Prepare a new correction.',
     pending: 'The proposal is still pending. Checking status does not generate it again.', refresh: 'Check preview',
     failed: 'No proposal is ready. Clarify the instruction or check the sources.', unavailable: 'The correction is unavailable or its context changed. Prepare a new preview.',
-    previewUnknown: 'The request response was lost. Check the same request instead of starting a new generation.', retryPreview: 'Check the same request',
+    previewUnknown: 'The request response was lost. Check the same request instead of starting a new generation.', previewRejected: 'The request was refused. Check the sources and clarify the instruction, then submit a corrected request.', retryPreview: 'Check the same request',
     uncertain: 'The result is not confirmed yet. Check this confirmation before creating a new correction.',
     check: 'Check result', retry: 'Retry this confirmation', applied: 'Correction applied',
     review: 'Sources and the quiz require review; course approval must be renewed.',
@@ -72,8 +72,14 @@ const COPY = {
 
 const localeOf = (lang: string): Locale => lang === 'kk' || lang === 'en' ? lang : 'ru';
 const cancelled = (cause: unknown) => cause instanceof Error && ['AbortError', 'CanceledError'].includes(cause.name);
-const httpFailure = (cause: unknown): { response?: { status?: number; data?: { detail?: unknown } } } =>
+const httpFailure = (cause: unknown): { response?: { status?: number; data?: { detail?: unknown; error?: unknown; message?: unknown } } } =>
   cause && typeof cause === 'object' ? cause : {};
+const structuredPreviewRefusal = (cause: unknown) => {
+  const response = httpFailure(cause).response;
+  const data = response?.data;
+  return Boolean(response && typeof response.status === 'number' && response.status >= 400 && response.status < 500
+    && data && [data.detail, data.error, data.message].some((value) => typeof value === 'string' && value.trim().length > 0));
+};
 
 function rememberPlan(id: string | null) {
   const url = new URL(window.location.href);
@@ -193,7 +199,12 @@ function Panel(props: LessonCorrectionPanelProps) {
       const result = await createLessonCorrection(request, operation.signal);
       if (currentOperation(operation.current)) verifyPreview(result);
     } catch (cause) {
-      if (currentOperation(operation.current) && !cancelled(cause)) setError(uiRef.current.previewUnknown);
+      if (currentOperation(operation.current) && !cancelled(cause)) {
+        if (structuredPreviewRefusal(cause)) {
+          setAttempt(null);
+          setError(uiRef.current.previewRejected);
+        } else setError(uiRef.current.previewUnknown);
+      }
     } finally { finish(operation.current); }
   };
 

@@ -36,6 +36,22 @@ def application_gate(monkeypatch):
     return module
 
 
+def test_history_source_manifest_binds_generation_fact_contract(monkeypatch):
+    path = Path(__file__).resolve().parents[2] / "scripts/ops/workbench_correction_history_dev_gate.py"
+    monkeypatch.syspath_prepend(str(path.parent))
+    spec = importlib.util.spec_from_file_location("history_source_manifest_test", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert {
+        "apps/api/app/modules/ai/direct_source.py",
+        "apps/api/app/modules/ai/evidence_engine/application.py",
+        "apps/api/app/modules/ai/evidence_engine/engine.py",
+    } <= set(module.SOURCE_FILES)
+    hashes = module.source_hashes()
+    assert len(hashes) == len(module.SOURCE_FILES)
+    assert all(len(value) == 64 for value in hashes.values())
+
+
 def test_nonempty_all_column_history_snapshot_is_stable(history):
     value = rows()
     sealed = history.history_fingerprint(value)

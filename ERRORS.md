@@ -6310,3 +6310,28 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: freeze safety/clone/cleanup/identity dependencies, not only the
   feature file. Require populated historical rows and full-column fingerprints;
   never turn an empty fixture, supplied receipt or source review into runtime GO.
+
+## WB-CORRECTION-006 - Generated fact identities differed from correction reconstruction
+
+- Date: 2026-10-06; disposable ordinary-methodologist DEV browser acceptance.
+- Symptom: a freshly generated verified draft returned HTTP409
+  lesson_source_provenance_unavailable before preview admission. UI called the
+  structured refusal a lost response and retained a same-key retry indefinitely.
+- Cause: generation persisted normalized fact-* identities after admission and
+  deduplication, while correction compared references to raw source-fact-* IDs.
+  Synthetic earlier fixtures repeated the raw-ID assumption on both sides.
+- Fix: share the unchanged primary/supporting admission, confidence/uncertainty/
+  OCR filtering and first-winner normalization seam; correction reconstructs only
+  generation-admitted facts. Keep document, locator, content-hash and uniqueness
+  guards. Structured4xx refusal releases deliberate corrected submission; network,
+  malformed and5xx outcomes retain same-key recovery, without automatic requests.
+- Verification: initial test fixture could not generate a plan and was corrected
+  as a harness issue. Actual generation/artifact/resolver regression then RED1/
+  4PASS, GREEN5; focused169 tests PASS including valid second-document provenance
+  swaps and canonical collisions. UI regression RED1/14PASS, focused41PASS after
+  RU/KK/EN refusal and network/503/unstructured409 same-key cases. Live DEV repeat
+  and production acceptance remain separate gates, not inferred from local tests.
+- Prevention: test real persisted generator artifacts at the consuming boundary,
+  not matching hand-seeded identifiers; bind generation source helpers in the
+  learner-history runtime manifest. Raw source-actuality diff identities remain
+  unchanged. Never bypass provenance or spend another generation to hide a mismatch.

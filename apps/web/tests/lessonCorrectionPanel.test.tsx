@@ -73,6 +73,51 @@ describe('LessonCorrectionPanel', () => {
     expect(wire.receipt).toHaveBeenCalledWith(planId, expect.any(AbortSignal)); expect(wire.apply).toHaveBeenCalledTimes(1);
   });
 
+  it('shows an actionable refusal and releases the instruction after a structured preview 409', async () => {
+    wire.create.mockRejectedValueOnce({ response: { status: 409, data: { error: 'conflict', message: 'lesson_source_provenance_unavailable' } } });
+    render(<LessonCorrectionPanel {...props} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Что изменить в уроке' }), { target: { value: 'Уточни объяснение по исходному документу' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Предложить правку' }));
+    await screen.findByText(/Проверьте источники и уточните поручение/);
+    expect(screen.queryByRole('button', { name: 'Проверить тот же запрос' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Предложить правку' })).toBeEnabled();
+    expect(wire.create).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['network loss', new Error('lost')],
+    ['structured HTTP 503', { response: { status: 503, data: { error: 'temporary_failure', message: 'retry later' } } }],
+    ['unstructured HTTP 409', { response: { status: 409, data: 'conflict' } }],
+  ])('retains the same request for explicit retry after %s', async (_label, failure) => {
+    wire.create.mockRejectedValueOnce(failure).mockResolvedValueOnce(preview);
+    render(<LessonCorrectionPanel {...props} />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Уточни объяснение по исходному документу' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Предложить правку' }));
+    await screen.findByText(/Ответ на запрос не получен/);
+    const request = wire.create.mock.calls[0][0];
+    expect(screen.getByRole('button', { name: 'Проверить тот же запрос' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить тот же запрос' }));
+    await screen.findByText('Предложенный вариант');
+    expect(wire.create).toHaveBeenCalledTimes(2);
+    expect(wire.create.mock.calls[1][0]).toEqual(request);
+  });
+
+  it.each([
+    ['ru', 'Запрос отклонён. Проверьте источники и уточните поручение'],
+    ['kk', 'Сұрау қабылданбады. Дереккөздерді тексеріп, тапсырманы нақтылап'],
+    ['en', 'The request was refused. Check the sources and clarify the instruction'],
+  ])('localizes an authoritative preview 409 refusal for %s', async (locale, message) => {
+    lang = locale;
+    wire.create.mockRejectedValueOnce({ response: { status: 409, data: { error: 'conflict', message: 'lesson_source_provenance_unavailable' } } });
+    render(<LessonCorrectionPanel {...props} />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Clarify the source-backed explanation' } });
+    fireEvent.click(screen.getByRole('button', { name: /Предложить правку|Түзету ұсыну|Propose correction/ }));
+    await screen.findByText(new RegExp(message));
+    expect(screen.queryByRole('button', { name: /Проверить тот же запрос|Сол сұрауды тексеру|Check the same request/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Предложить правку|Түзету ұсыну|Propose correction/ })).toBeEnabled();
+    expect(wire.create).toHaveBeenCalledTimes(1);
+  });
+
   it('does not interpret missing or unavailable receipt as success; retry is explicit', async () => {
     wire.apply.mockRejectedValueOnce(new Error('lost'));
     render(<LessonCorrectionPanel {...props} />); await prepare(); consent();

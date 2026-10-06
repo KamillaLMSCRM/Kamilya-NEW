@@ -13,7 +13,13 @@ from app.models.document import Document
 from app.models.user_roles import UserRole
 from app.models.users import User
 from app.modules.ai.direct_source import build_direct_source_corpus
-from app.modules.ai.evidence_engine.application import build_evidence_source
+from app.modules.ai.evidence_engine.application import (
+    build_evidence_source,
+    generate_evidence_course,
+    to_generation_artifacts,
+)
+from app.modules.ai.evidence_engine.models import CourseIntent
+from app.modules.ai.llm_client import AllProvidersFailedError
 from app.modules.audit.models import AuditLog
 from app.modules.course_approval.models import (
     CourseApprovalPolicy,
@@ -197,7 +203,7 @@ async def fixture(monkeypatch):
         lifecycle_status="active",
         category="general",
     )
-    facts = build_evidence_source(await build_direct_source_corpus([document], tenant_id=TENANT)).all_facts
+    facts = build_evidence_source(await build_direct_source_corpus([document], tenant_id=TENANT)).generation_facts
     course = Course(
         id=COURSE,
         tenant_id=TENANT,
@@ -300,6 +306,70 @@ async def fixture(monkeypatch):
     ]
     db.remember()
     return db, actor, ConfirmationRequest(plan_id=snapshot.plan_id, revision=1, fingerprint=preview.fingerprint)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tamper", [None, "fact_id", "source_locator", "doc_id", "source_revision"])
+async def test_real_generation_artifact_resolves_exact_correction_provenance(monkeypatch, tamper):
+    """Exercise generation -> persistence artifact -> correction, without a provider."""
+    db, actor, _ = await fixture(monkeypatch)
+    from app.core import storage
+
+    source = (
+        b"# Warehouse receiving rules\n\n"
+        b"If the invoice lists 12 boxes but only 10 arrive, record a shortage of 2 boxes.\n\n"
+        b"Complete the shortage report within 20 minutes of discovery.\n\n"
+        b"Isolate a damaged box and notify the shift supervisor. Only the supervisor decides whether to use it."
+    )
+
+    class GeneratedStorage:
+        def get_bytes(self, key):
+            assert key == "synthetic.md"
+            return source
+
+    monkeypatch.setattr(storage, "get_storage", lambda: GeneratedStorage())
+    document = db.rows[Document][0]
+    document.content_sha256 = sha256(source).hexdigest()
+    document.size = len(source)
+    document.category = "training_material"
+
+    class UnavailableProvider:
+        async def ainvoke_validated(self, *_args, **_kwargs):
+            raise AllProvidersFailedError("synthetic generation unavailable")
+
+        async def embed_documents_with_provenance(self, *_args, **_kwargs):
+            raise AllProvidersFailedError("synthetic embedding unavailable")
+
+    corpus = await build_direct_source_corpus(db.rows[Document], tenant_id=TENANT)
+    output = await generate_evidence_course(
+        corpus,
+        intent=CourseIntent(),
+        generation_client=UnavailableProvider(),
+        embedding_client=UnavailableProvider(),
+        max_lessons=1,
+    )
+    artifact = to_generation_artifacts(output).content.modules[0].lessons[0]
+    lesson = db.rows[Lesson][0]
+    lesson.content = artifact.content
+    lesson.source_references = copy.deepcopy(artifact.source_references)
+    assert lesson.source_references
+    assert all(ref["fact_id"].startswith("fact-") for ref in lesson.source_references)
+    if tamper == "source_revision":
+        lesson.source_references[0]["source_locator"] = lesson.source_references[0]["source_locator"].replace(
+            sha256(source).hexdigest(), "0" * 64
+        )
+    elif tamper:
+        lesson.source_references[0][tamper] = str(uuid4()) if tamper == "doc_id" else "forged"
+    if tamper:
+        with pytest.raises(CorrectionError, match="^lesson_source_provenance_unavailable$"):
+            await resolve_lesson_correction(db, actor, LESSON)
+    else:
+        resolved = await resolve_lesson_correction(db, actor, LESSON)
+        assert {item.citation.locator for item in resolved.excerpts} == {
+            f"fact:{ref['fact_id']}" for ref in lesson.source_references
+        }
+        assert all(item.citation.document_id == DOCUMENT for item in resolved.excerpts)
+    assert db.commits == 0
 
 
 @pytest.mark.asyncio

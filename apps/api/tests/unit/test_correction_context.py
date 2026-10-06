@@ -6,7 +6,8 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.modules.ai.evidence_engine.models import SourceFact
+from app.modules.ai.evidence_engine.application import EvidenceSourceBundle
+from app.modules.ai.evidence_engine.models import SourceDocument, SourceFact, SourceSection
 from app.modules.methodologist_workbench import correction_context as subject
 from app.modules.methodologist_workbench.correction_contract import CorrectionError
 from app.modules.methodologist_workbench.document_schemas import DocumentSource
@@ -54,7 +55,7 @@ class _DB:
         # later scalar query loads approval revisions.
         self.scalars_calls += 1
         if self.scalars_calls % 2 == 1:
-            return _Result([self.document])
+            return _Result(self.document if isinstance(self.document, list) else [self.document])
         return _Result(self.revisions)
 
     async def scalar(self, _query):
@@ -178,7 +179,7 @@ def _patch(monkeypatch, facts=None, sources=None):
 
     monkeypatch.setattr(subject, "resolve_document_sources", resolve_sources)
     monkeypatch.setattr(subject, "build_direct_source_corpus", build_corpus)
-    bundle = SimpleNamespace(all_facts=tuple(facts or _facts()))
+    bundle = SimpleNamespace(generation_facts=tuple(facts or _facts()))
     monkeypatch.setattr(subject, "build_evidence_source", lambda _corpus: bundle)
 
     async def build_release(*_args, **_kwargs):
@@ -246,6 +247,53 @@ async def test_resolver_rejects_published_and_unsupported_lessons(
 )
 async def test_resolver_rejects_missing_or_changed_fact_identity(monkeypatch, bad_fact):
     db, lesson, module, course, document = _patch(monkeypatch, facts=bad_fact)
+    with pytest.raises(CorrectionError, match="^lesson_source_provenance_unavailable$"):
+        await subject.resolve_lesson_correction(db, _actor(), LESSON)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tamper", ["doc_id", "source_locator", "canonical_collision"])
+async def test_two_owned_documents_cannot_swap_fact_provenance(monkeypatch, tamper):
+    db, lesson, _module, course, document = _patch(monkeypatch)
+    second_id, second_sha = UUID(int=7), "d" * 64
+    second = SimpleNamespace(**{**vars(document), "id": second_id, "content_sha256": second_sha})
+    lesson.source_document_ids = course.source_document_ids = [str(DOCUMENT), str(second_id)]
+    db.document = [document, second]
+    first_fact = _facts()[0]
+    second_fact = SourceFact(
+        "raw-second", "Equipment" if tamper == "canonical_collision" else "Other equipment",
+        "rule", "Check it",
+        f"doc_id={second_id};source_revision=document:{second_sha};section=Rules",
+    )
+    bundle = EvidenceSourceBundle(SourceDocument(
+        source_id="two-owned-documents", title="Rules", kind="narrative",
+        sections=(
+            SourceSection("first", "Rules", "primary", (first_fact,)),
+            SourceSection("second", "Rules", "supporting", (second_fact,)),
+        ),
+    ))
+    facts = bundle.generation_facts
+    lesson.source_references = [
+        {"fact_id": fact.fact_id, "doc_id": str(doc.id), "source_locator": fact.source_locator}
+        for fact, doc in zip(facts, db.document, strict=True)
+    ]
+    monkeypatch.setattr(subject, "build_evidence_source", lambda _corpus: bundle)
+
+    async def sources(*_args, **_kwargs):
+        return tuple(DocumentSource(
+            document_id=doc.id, title=doc.title, version=doc.version,
+            content_sha256=doc.content_sha256, index_revision=doc.index_revision,
+        ) for doc in db.document)
+
+    monkeypatch.setattr(subject, "resolve_document_sources", sources)
+    if tamper != "canonical_collision":
+        valid = await subject.resolve_lesson_correction(db, _actor(), LESSON)
+        assert {item.citation.document_id for item in valid.excerpts} == {DOCUMENT, second_id}
+        lesson.source_references[0][tamper] = (
+            str(second_id) if tamper == "doc_id" else second_fact.source_locator
+        )
+    else:
+        assert facts[0].fact_id == facts[1].fact_id
     with pytest.raises(CorrectionError, match="^lesson_source_provenance_unavailable$"):
         await subject.resolve_lesson_correction(db, _actor(), LESSON)
 

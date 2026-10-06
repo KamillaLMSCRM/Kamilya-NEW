@@ -105,7 +105,7 @@ async def resolve_lesson_correction(
     try:
         async with asyncio.timeout(90):
             corpus = await build_direct_source_corpus(documents, tenant_id=actor.tenant_id)
-        facts = build_evidence_source(corpus).all_facts
+        facts = build_evidence_source(corpus).generation_facts
     except Exception:
         raise CorrectionError("lesson_source_unavailable") from None
     by_id = {fact.fact_id: fact for fact in facts}

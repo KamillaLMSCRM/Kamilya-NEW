@@ -90,6 +90,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reconstruct lesson-correction provenance through the generator's shared fact
+  admission and canonical identity contract, retaining exact source/locator/hash
+  checks. Structured preview refusals now differ from lost responses in RU/KK/EN;
+  uncertain outcomes still retry only the same request after explicit action.
+
 - Keep newly selected document sources after restoring an owned draft preview;
   isolate the six editable candidate fields from persisted generation metadata.
 - Preserve the actual indexing failure message instead of replacing it with an

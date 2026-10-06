@@ -53,6 +53,9 @@ SOURCE_FILES = LIFECYCLE_SOURCES + (
     "apps/api/app/modules/course_approval/service.py",
     "apps/api/app/modules/audit/service.py",
     "apps/api/app/core/auth.py",
+    "apps/api/app/modules/ai/direct_source.py",
+    "apps/api/app/modules/ai/evidence_engine/application.py",
+    "apps/api/app/modules/ai/evidence_engine/engine.py",
 )
 
 

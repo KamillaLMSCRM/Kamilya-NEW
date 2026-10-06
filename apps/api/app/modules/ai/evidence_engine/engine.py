@@ -137,6 +137,30 @@ def _deduplicate_facts(facts: list[SourceFact]) -> tuple[list[SourceFact], int]:
     return unique, duplicate_count
 
 
+def admit_document_facts(document: SourceDocument) -> tuple[list[SourceFact], list[SourceFact], int]:
+    """Canonical generation identities, admission filters and first-locator winners.
+
+    Reconstruct persisted lesson references through this same pure seam, rather
+    than comparing normalized generation IDs against raw adapter IDs.
+    """
+    groups = []
+    duplicate_count = 0
+    for role in ("primary", "supporting"):
+        facts, duplicates = _deduplicate_facts(
+            [
+                fact
+                for section in document.sections
+                if section.role == role
+                for fact in section.facts
+                if fact.confidence >= 0.8 and fact.uncertainty in {"", "local_ocr"}
+                and not contains_ocr_artifact(fact.value)
+            ]
+        )
+        groups.append(facts)
+        duplicate_count += duplicates
+    return groups[0], groups[1], duplicate_count
+
+
 def _bucket_name(attribute: str) -> str:
     for title, pattern in _BUCKETS:
         if pattern.search(attribute):
@@ -604,24 +628,7 @@ class EvidenceCourseEngine:
         started = perf_counter()
         primary_sections = [section for section in document.sections if section.role == "primary"]
         supporting_sections = [section for section in document.sections if section.role == "supporting"]
-        admitted, duplicate_count = _deduplicate_facts(
-            [
-                fact
-                for section in primary_sections
-                for fact in section.facts
-                if fact.confidence >= 0.8 and fact.uncertainty in {"", "local_ocr"}
-                and not contains_ocr_artifact(fact.value)
-            ]
-        )
-        supporting, supporting_duplicates = _deduplicate_facts(
-            [
-                fact
-                for section in supporting_sections
-                for fact in section.facts
-                if fact.confidence >= 0.8 and fact.uncertainty in {"", "local_ocr"}
-                and not contains_ocr_artifact(fact.value)
-            ]
-        )
+        admitted, supporting, duplicate_count = admit_document_facts(document)
         timings.append(StageTiming(stage="document_plan", seconds=perf_counter() - started))
 
         started = perf_counter()
@@ -658,7 +665,7 @@ class EvidenceCourseEngine:
             admitted,
             evidence,
             assessment,
-            duplicate_fact_count=duplicate_count + supporting_duplicates,
+            duplicate_fact_count=duplicate_count,
         )
         lesson_count = len(evidence)
         evaluation = replace(
@@ -693,7 +700,7 @@ class EvidenceCourseEngine:
             supporting_sections=tuple(section.title for section in supporting_sections),
             admitted_fact_count=len(admitted),
             supporting_fact_count=len(supporting),
-            duplicate_fact_count=duplicate_count + supporting_duplicates,
+            duplicate_fact_count=duplicate_count,
             teachable_units=document.teachable_units,
         )
         fingerprint = self._fingerprint(evidence, assessment)
