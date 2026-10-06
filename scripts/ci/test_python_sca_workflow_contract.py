@@ -54,3 +54,13 @@ def test_pypdf_runtime_requirements_and_lock_pin_the_verified_security_release()
     package = next(item for item in lock["package"] if item["name"] == "pypdf")
     assert package["version"] == "6.19.0"
     assert "pypdf==6.19.0" in (api / "requirements.txt").read_text(encoding="utf-8").splitlines()
+
+
+def test_multidict_runtime_requirements_and_lock_pin_the_verified_security_release() -> None:
+    api = WORKFLOW.parents[2] / "apps" / "api"
+    project = tomllib.loads((api / "pyproject.toml").read_text(encoding="utf-8"))
+    lock = tomllib.loads((api / "poetry.lock").read_text(encoding="utf-8"))
+    assert project["tool"]["poetry"]["dependencies"]["multidict"] == "6.9.1"
+    package = next(item for item in lock["package"] if item["name"] == "multidict")
+    assert package["version"] == "6.9.1"
+    assert "multidict==6.9.1" in (api / "requirements.txt").read_text(encoding="utf-8").splitlines()

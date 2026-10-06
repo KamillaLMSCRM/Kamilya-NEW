@@ -12,6 +12,21 @@ ASR/телефон идут отдельно через quality/data/capacity ga
 
 ### Continuation2026-10-06 — DEV activation and learner-history gates
 
+Source e0bf8e65 promoted to master with independent exact readback. Fresh
+CI37399182927 completed5SUCCESS/2dependency audit failures, retained unchanged.
+Root narrow successor repairs source-map-js1.2.2 and multidict6.9.1; pinned
+frontend frozen install/audit/typecheck/lint/928tests PASS. Independent cheap
+review confirms only those lock packages change. Multidict installed C-extension
+20-element union/subtraction leak probes20->0 each; three-pin regression RED then
+GREEN5. Persistent Test Runner owns fresh noDB backend verification. New immutable
+CI must pass before canonical public0178/flags/deployment. Fresh providerpreflight
+retains RenderFree/VercelHobby and exact370f56fb/current flags; actual Render
+start commands are uvicorn/Celery, no Alembic. Initial QA snapshot omitted module/
+release tables under wrong names; preserved A, corrected fail-closed B captures
+all9table hashes with2release rows/2enrollments/3attempts. No public migration or
+provider write yet. Future productionDocker rollback cannot be assumed from this
+Render DEV command proof.
+
 Accepted correction DEV activationV1 before controller writes. Strict V5 adds
 lesson_correction_enabled and exact public-schema0178 receipt; correction and
 document drafting independently require workbench when true. Inventory all9

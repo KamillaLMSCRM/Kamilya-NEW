@@ -25,7 +25,18 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Correction DEV preparation2026-10-06 — no public activation
+## Correction DEV source promotion2026-10-06 — no public activation
+
+Exact e0bf8e65a1821cb1cc406bb0dc26bb4ef8b163a9 fast-forwarded to master;
+independent remote readback/account record preserved. CI37399182927 completed
+5SUCCESS/2failed dependency audits: source-map-js1.2.1 and multidict6.7.1.
+Narrow successor pins1.2.2/6.9.1; frontend frozen install/audit/typecheck/lint and
+928tests PASS, C-extension reference leaks20->0 per operator. Fresh successorCI
+remains required before migration/activation. Existing Free/Hobby targets and
+previous370f56fb API/worker exact identities were freshly verified; live Render
+commands contain no Alembic. NonBYPASS READ_ONLY QA-before-B fingerprints cover
+9 existing tables including2content releases,2enrollments and3attempts. This is
+preflight, not an exercised rollback or public0178 proof. Production unchanged.
 
 Canonical read-only DEV public-schema gate freshly found0175 and refused expected
 0178; this is an explicit additive-upgrade gate, not an access failure. New local

@@ -261,6 +261,21 @@ cause is retroactively promoted to fact.
   exact169/172 predecessor metadata without importing app. Do not weaken schema
   assertions or rely on caller-specific PYTHONPATH for revision discovery.
 
+## SECURITY-019 - multidict6.7.1 failed refreshed image dependency audit
+
+- Date:2026-10-06; original master CI37399182927 retained; no public migration
+  or deployment executed before repair.
+- Symptom: image-derived audit reported CVE-2026-104874, fixed6.9.1. Maintained
+  C-extension6.7.1 union/subtraction probes each leaked20strong references.
+- Cause: transitive Poetry lock held affected6.7.1; previous green CI is dated.
+- Fix: exact6.9.1 in pyproject/requirements and Poetry1.8.5 lock; only multidict
+  package changed. Maintained canonical test runtime upgraded only multidict.
+- Verification: new three-representation pin regression RED then GREEN; full
+  pin/workflow file5PASS; same C-extension probes now leak0references each;
+  Poetry check/export PASS. Fresh full image-graph CI audit remains required.
+- Prevention: verify installed test version and exact exported graph, preserve
+  failed CI, never exempt advisories or confuse optional pure-Python with C path.
+
 ## SECURITY-018 - pypdf6.17.0 failed the refreshed blocking production dependency audit
 
 - Date: 2026-10-02, exact CI36969240393, original failed run retained.
@@ -1297,6 +1312,18 @@ production runtime and cross-container readback remain pending release approval.
   enters fail-closed inventory and negative outage tests.
 
 ## SECURITY-007 - Two package managers and vulnerable frontend dependencies
+
+### Recurrence2026-10-06: source-map-js advisory blocked correction candidate
+
+- Date:2026-10-06; original master CI37399182927 retained; no DEV deployment.
+- Symptom: blocking pnpm production audit found source-map-js1.2.1 HIGH
+  GHSA-68fv-2mgg-jv7q through Next/PostCSS; local pinned-pnpm audit reproduced it.
+- Cause: refreshed advisory data invalidated the prior green dependency verdict.
+- Fix: exact source-map-js1.2.2 override and mechanical pnpm10.26.1 lock update;
+  only that package and its two references changed, not Next/build/node contracts.
+- Verification: local audit0known vulnerabilities, frozen install/typecheck/lint
+  PASS and148frontend files/928tests PASS. Fresh exact-SHA CI remains required.
+- Prevention: audit exact lock graph at each release; no ignore, skip or soft-fail.
 
 ### Recurrence2026-10-03: refreshed registry advisories blocked frontend33
 

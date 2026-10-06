@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Refresh exact security pins after blocking release-time audits: source-map-js
+  1.2.2 and multidict6.9.1. Preserve whole-graph blocking audits and existing
+  application/framework versions; no advisory exemptions or provider changes.
+
 ### Added
 
 - Add strict V5 DEV activation packets for lesson correction, exact schema0178
