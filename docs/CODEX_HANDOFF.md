@@ -18,6 +18,17 @@ isolated Supabase DEV7checks/cleanup/public-neutral PASS, local2656+16 PASS;
 CI/exact immutable artifact, protected backend40,
 then one replacement capacity fixture50→100→500 and normal cleanup/DB absence.
 The original dirty daily-learning checkout and failed receipt remain preserved.
+Source e7d048abd6ee097e905467dc110dc01e7ef1ae0d is pushed/remote master equal.
+CI37630748818 failed and remains preserved. Owner approved only Sharp0.35.5
+override/mechanical lock update in the repository, not frontend publication.
+Fresh frozen install/audit/typecheck/lint and valid raster/SVG controls PASS;
+independent cheap static review found no concrete patch regression. Full web B
+failed1/935; unchanged journal7 and B2 maxWorkers2 all148files/935tests/build67
+PASS. Cause of B failure is unproven; no test/timeout change or audit exemption.
+Final CI backend test failure was an outdated test-double execute signature;
+root's exact test-only correction passes hierarchy+capacity13 locally. Shell
+gate18scripts now passes locally. These corrections are not pushed yet; corrected
+exact-SHA CI/artifact/tag/protected rollout and load acceptance remain required.
 
 Runtime source e355fdc6da82b1d276fbf182d37cc7f69ef30335/version0.11.39 is deployed
 to frontend/API/threeworkers; schema0178/all3flags ON, green running/restarts0.

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
+from sqlalchemy.sql.elements import TextClause
 
 from app.models.department import Department
 from app.models.users import User
@@ -68,8 +69,15 @@ class _MemorySession:
         self.users = list(users or [])
         self.departments = list(departments or [])
         self.positions = list(positions or [])
+        self.restored_contexts = []
 
-    async def execute(self, statement):
+    async def execute(self, statement, params=None):
+        if isinstance(statement, TextClause):
+            assert str(statement) == "SELECT set_current_tenant(:tid)"
+            assert params is not None and set(params) == {"tid"}
+            self.restored_contexts.append(UUID(params["tid"]))
+            return _ScalarResult([])
+        assert params is None
         entity = statement.column_descriptions[0]["entity"]
         if entity is User:
             return _ScalarResult(self.users)
@@ -163,6 +171,7 @@ async def test_preview_commit_repeat_and_manual_add_share_normalization():
     }
 
     result = await _commit(db, tenant_id, _parsed(first))
+    assert db.restored_contexts == [tenant_id]
     assert result["created"] == 1
     assert result["positions_created"] == 1
     assert len(db.departments) == 1

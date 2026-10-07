@@ -2521,6 +2521,20 @@ Rules:
 - Result: `2656 passed, 5 warnings in 35.87s`, native exit `0`.
 - Evidence: exact wrapper terminal result; prior `CAPACITY-HOTFIX-LOCAL-20261007` focused `35 passed` remains a separate accepted run. Runtime identity and cleanup are not applicable to this database-free packet; root review remains required.
 
+### CAPACITY40-SHARP-LOCAL-20261007-B — 2026-10-07 — local web compatibility stopped at Vitest failure
+
+- Scope: local-only web compatibility check at HEAD `e7d048abd6ee097e905467dc110dc01e7ef1ae0d`, with the owner-approved Sharp `0.35.5` dependency override and mechanical lock changes; no source/test/lock edits, install, network, provider, database, browser, Git, or deployment action.
+- Preflight/postflight freeze: Node `v24.18.0`, pnpm `10.26.1`, version `0.11.40`; `apps/web/package.json` SHA-256 `f8711e916c3b4049492535c47f46361427daa70c87b45fe7dd2dbb93d0c66f51` and `apps/web/pnpm-lock.yaml` SHA-256 `4b95c3c1a6e5a71499a1a768c2b28af506b3e34e6cca3ae3554e4dfc3d4f5e8a` remained unchanged.
+- Fresh checks: `pnpm run typecheck` native exit `0`; `pnpm run lint` native exit `0`; exact Vitest command failed with `1 failed, 147 passed` files and `1 failed, 934 passed` tests. Failing test: `tests/learningInsightsJournal.test.tsx`, unable to find role button `Принять`. The command then emitted pnpm’s recursive-exec failure and native exit `1`.
+- Stop rule: build was not run after the first dependent product test failure. No repair, assertion change, bypass, or retry was performed. Evidence is the terminal result; no raw log was persisted.
+
+### CAPACITY40-SHARP-LOCAL-20261007-B2 — 2026-10-07 — reduced-contention web compatibility successor
+
+- Scope: corrected local-only successor to B at HEAD `e7d048abd6ee097e905467dc110dc01e7ef1ae0d`; no source/test/lock edits, install, provider, network, database, browser, Git, or deployment action. B’s failure remains historical and unchanged.
+- Freeze: `apps/web/package.json` SHA-256 `f8711e916c3b4049492535c47f46361427daa70c87b45fe7dd2dbb93d0c66f51` and `apps/web/pnpm-lock.yaml` SHA-256 `4b95c3c1a6e5a71499a1a768c2b28af506b3e34e6cca3ae3554e4dfc3d4f5e8a` matched before and after.
+- Fresh checks: exact Vitest `--reporter=dot --maxWorkers=2` passed `148` files and `935` tests, native exit `0`; exact build with process-local `NEXT_PUBLIC_API_URL`, `NEXT_TELEMETRY_DISABLED=1`, and `NODE_OPTIONS=--max-old-space-size=2048` passed compilation/type validation and generated 67 static pages, native exit `0`. Prior B typecheck/lint passes were not rerun.
+- Interpretation: reduced worker contention removed the B-only observed journal test failure without assertion, timeout, or test changes. The B failure remains an observed result with cause not proven; no production publication or GO claim follows.
+
 ### CAPACITY-HOTFIX-DEV-20261007-D — 2026-10-07 — real isolated import and purge statement proof
 
 - Scope: canonical Supabase DEV only, one generated disposable schema per run;
@@ -2546,3 +2560,43 @@ Rules:
 - Production orphan cleanup is separate: exact approved position removed once;
   independent25table absence and9unchanged permanentQA fingerprints PASS.
   Production deployment and distinct50/100/500 measurements are not proved here.
+
+### CAPACITY-HOTFIX-CI-20261007-A — 2026-10-07 — exact-source release NO_GO
+
+- Source e7d048abd6ee097e905467dc110dc01e7ef1ae0d pushed through canonical
+  project credential/account KamillaLMSCRM; independent remote master equals
+  localSHA. Sanitized push readback is retained under CAPACITY-HOTFIX-20261007.
+- Exact CI37630748818 has completed failures: shell gate requires100755 for
+  newly tracked orphan script (root staged exact mode correction); frontend
+  production audit finds high sharp/librsvg advisory GHSA-wq5f-xc86-pv6w,
+  pinned0.35.4 affected, fixed0.35.5. Backend unit/quality/dependency audit and
+  secret scan completed success. Final broader backend pytest:1failed/1303passed/
+  2skipped; old `_MemorySession.execute(statement)` did not support the actual
+  SQLAlchemy execute(statement, params) call required by the import fix.
+- Root reproduced the double mismatch locally9failed/1passed, then repaired
+  only that test double with exact SQL/parameter guards and an importing-tenant
+  assertion. Hierarchy plus capacity boundaries13PASS/1.13s. Corrected shell
+  gate18tracked scripts PASS. No corrected all-greenCI exists yet.
+- No SCA bypass or dependency expansion, tag, release, production mutation or
+  replacement fixture. Production39 remains current. Fresh exact dependency
+  direction is required beyond the approved two-fix backend packet; release
+  worker received a read-only NO_GO reconciliation packet, no execution order.
+
+### CAPACITY40-SHARP-ROOT-20261007-C — 2026-10-07 — source-only remediation review
+
+- Owner approved only Sharp0.35.5 and its matching lock graph, without frontend
+  publication. Canonical pnpm10.26.1 frozen install and fresh production audit
+  passed; audit reports0known vulnerabilities. Next15.5.24/Node contract unchanged.
+- Root valid raster PNG and valid SVG decoding controls both passed via the
+  Next-resolved Sharp0.35.5 runtime (rsvg2.63.2). This is legitimate-input runtime
+  compatibility evidence, not an exploit reproduction or production exposure proof.
+- Persistent Runner B/B2 outcomes above retained. Root unchanged focused journal
+  successor7PASS/3.07s. B2 passes every148file/935test with maxWorkers2 and local
+  build67pages, no test exclusion/assertion/timeout edits. Cause of B is unproven.
+- Independent low-cost investigation and separate patch review are STATIC ONLY:
+  Next/Image's two current QR consumers are unoptimized; no concrete regression
+  in exact package/platform/libvips delta was found. Production optimizer reachability
+  and exploit conditions NOT VERIFIED. No causal savings/token-cost claim.
+- Root accepts local compatibility evidence only. Original e7d048 CI failure
+  remains historical; corrected exact Linux CI/artifact, protected backend40,
+  ordinary fixture smoke/load and independent cleanup are still open gates.

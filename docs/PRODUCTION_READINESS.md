@@ -27,6 +27,21 @@ Owner-approved maintenance removed only the exact orphan position; independent
 Actual isolatedDEV import/rules/no-commit/two-tenant RLS/purge-order/absence
 proof passes all7checks, schema cleanup and public catalog neutrality. ExactCI/
 artifact, protected rollout and replacement-fixture load/cleanup remain gates.
+Candidate source e7d048abd6ee097e905467dc110dc01e7ef1ae0d is pushed and remote
+master independently matches. ExactCI37630748818 is NO_GO: new maintenance
+script mode100644 violates executable policy (root staged100755 correction);
+frontend SCA found sharp0.35.4/GHSA-wq5f-xc86-pv6w, patched0.35.5. Its audit was
+not bypassed. Owner now approved only the Sharp0.35.5 source override/mechanical
+lock update; no frontend publication. Fresh frozen install/audit/typecheck/lint
+and legitimate raster/SVG controls PASS. Full web B failed1/935; unchanged journal7
+and reduced-contention B2 all148files/935tests plus67-page local build PASS.
+The B failure's cause remains unproven; no assertions/timeouts/exclusions changed.
+Independent cheap patch review is STATIC ONLY. No tag, immutable release artifact,
+production deploy or replacement fixture was made; deployed frontend39 remains
+unpatched by this source-only dependency change.
+FinalCI backend test also found an obsolete session-double signature; exact
+test-only correction passes hierarchy+capacity13 locally, shell gate18PASS.
+No corrected all-greenCI or deployment is claimed.
 Current API/four-container image and flags, retained rollback38/private health,
 signed0178 restore report and active backup/watchdog/retention timers were freshly
 read back without mutations. No antivirus or500-user capacity GO is claimed.

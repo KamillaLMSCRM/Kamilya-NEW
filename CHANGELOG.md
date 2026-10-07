@@ -137,6 +137,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dependent users/rules and before departments. No broader deletion authority,
   database migration, antivirus activation or frontend functionality is added.
 
+### Security
+
+- Update the repository's Sharp override and matching frozen dependency graph
+  to0.35.5 after GHSA-wq5f-xc86-pv6w blocked CI. This release targets backend
+  services only; the existing production frontend is not republished or patched.
+
 ## [0.11.39] - 2026-10-06
 
 ### Added

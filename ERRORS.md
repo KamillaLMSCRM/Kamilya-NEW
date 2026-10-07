@@ -1313,6 +1313,25 @@ production runtime and cross-container readback remain pending release approval.
 
 ## SECURITY-007 - Two package managers and vulnerable frontend dependencies
 
+### Recurrence2026-10-07: refreshed Sharp advisory blocked backend40 source CI
+
+- Date:2026-10-07; original CI37630748818 retained; production remains39.
+- Symptom: pinned production audit found high GHSA-wq5f-xc86-pv6w through
+  Next -> sharp0.35.4. No production exploit was attempted or demonstrated.
+- Cause: refreshed advisory data made the existing lock graph fail the gate;
+  affected Sharp versions are below0.35.5.
+- Fix: owner-approved exact sharp0.35.5 override and mechanical pnpm10.26.1
+  lock update, including matching platform binaries/libvips1.3.4. No Next,
+  Node, package-manager, infrastructure or frontend publication change.
+- Verification: frozen install, fresh production audit (0known vulnerabilities),
+  valid raster/SVG decoding controls, typecheck and lint PASS. Full Vitest B
+  failed1/935; unchanged isolated journal7PASS and B2 with maxWorkers2 passed
+  all148files/935tests, followed by local67-page build. Failure is preserved;
+  worker contention is a hypothesis, not a proven cause. Exact Linux CI remains
+  required. This source fix does not patch the still-deployed frontend39.
+- Prevention: audit the exact graph before release, keep failures, never bypass
+  SCA or relabel source-only remediation as deployed remediation.
+
 ### Recurrence2026-10-06: source-map-js advisory blocked correction candidate
 
 - Date:2026-10-06; original master CI37399182927 retained; no DEV deployment.
