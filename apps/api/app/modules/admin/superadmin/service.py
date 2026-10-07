@@ -93,6 +93,9 @@ TENANT_DELETE_SQL = [
     "DELETE FROM workbench_assignment_plans WHERE tenant_id = :tenant_id",
     "DELETE FROM registration_legal_acceptances WHERE tenant_id = :tenant_id",
     "DELETE FROM users WHERE tenant_id = :tenant_id",
+    # positions.tenant_id has no cascading tenant FK. Remove the exact owned
+    # rows explicitly after their user/rule children, before the hierarchy.
+    "DELETE FROM positions WHERE tenant_id = :tenant_id",
     "DELETE FROM departments WHERE tenant_id = :tenant_id",
     "DELETE FROM tenant_usage WHERE tenant_id = :tenant_id",
     "DELETE FROM tenant_leads WHERE tenant_id = :tenant_id",

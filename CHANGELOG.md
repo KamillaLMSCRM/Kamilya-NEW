@@ -126,6 +126,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.40] - 2026-10-07
+
+### Fixed
+
+- Restore the importing tenant's transaction-local context after a durable staff
+  import commit, before the ordinary inline assignment-rule recalculation. The
+  caller-controlled no-commit path is unchanged.
+- Include tenant-owned positions in ordinary superadmin tenant deletion, after
+  dependent users/rules and before departments. No broader deletion authority,
+  database migration, antivirus activation or frontend functionality is added.
+
 ## [0.11.39] - 2026-10-06
 
 ### Added

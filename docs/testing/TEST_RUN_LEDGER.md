@@ -2505,3 +2505,44 @@ Rules:
 - Fresh matrix: exact release-contract gate passed with Alembic 176 revisions/head `0178`, Celery contract, migration ownership, 32 direct dependencies, and 238 unique Errors entries; native exit `0`. Exact API unit wrapper passed `2624` tests with 5 warnings in `20.72s`; native exit `0`.
 - Historical context: CI `37413384269` failure and duplicate `TEST-INFRA-014` episode remain historical and were not relabeled or rerun. No independent production claim is made by K.
 - Evidence: `.release-evidence/REL-CORRECTION39-20261006/report-K.json`, `release-gate-K.log`, and `api-unit-K.log`. Existing F/J entries remain unchanged and precede K.
+
+### CAPACITY-HOTFIX-LOCAL-20261007 — 2026-10-07 — focused import transaction and tenant purge regression
+
+- Scope: local database-free focused regression at `C:\Kamilya New\.worktrees\capacity-hotfix-20261007`, HEAD `1b47fd04de30eac81d4cfd075d400cc3c7d8d67e`; no API, external, provider, database, production, deployment, Git, source, or test mutation.
+- Command: canonical PowerShell7 wrapper `scripts/dev/run_api_pytest.ps1` with `apps/api/tests/test_capacity_fixture_boundaries.py`, `apps/api/tests/test_staff_import_apply_rules_inline.py`, `apps/api/tests/test_staff_import_status_router.py`, `apps/api/tests/unit/test_superadmin_enrollment_purge_order.py`, and `apps/api/tests/test_superadmin_operations_contract.py`, `-q`.
+- Result: `35 passed, 3 warnings in 12.40s`, native exit `0`.
+- Invariants: synthetic import transaction/commit-vs-no-commit controls and tenant purge user-to-position-to-department ordering are covered by the named focused matrix. Runtime identity and cleanup are not applicable to this database-free run.
+- Evidence: local wrapper terminal result only; no raw logs or secrets persisted. Root review remains required; this is not production authorization.
+
+### CAPACITY-HOTFIX-REGRESSION-20261007 — 2026-10-07 — full local backend-unit regression
+
+- Scope: database-free focused successor in `C:\Kamilya New\.worktrees\capacity-hotfix-20261007`, HEAD `1b47fd04de30eac81d4cfd075d400cc3c7d8d67e`; no external, environment, secret, database, provider, production, deployment, Git, source, or test mutation.
+- Command: canonical PowerShell7 `scripts/dev/run_api_pytest.ps1` over `apps/api/tests/unit` plus the capacity fixture, staff-import apply/status, and superadmin operations contract selectors, `-q`.
+- Result: `2656 passed, 5 warnings in 35.87s`, native exit `0`.
+- Evidence: exact wrapper terminal result; prior `CAPACITY-HOTFIX-LOCAL-20261007` focused `35 passed` remains a separate accepted run. Runtime identity and cleanup are not applicable to this database-free packet; root review remains required.
+
+### CAPACITY-HOTFIX-DEV-20261007-D — 2026-10-07 — real isolated import and purge statement proof
+
+- Scope: canonical Supabase DEV only, one generated disposable schema per run;
+  real engine-owned commits, runtime non-bypass `lms_app`, FORCE RLS on15owned
+  tables, actual import/batch/rules/resolver and actual application purge list.
+  Redis progress only is stubbed. Full privileged `delete_tenant()` is not
+  executed here and remains ordinary-production-smoke scope.
+- Result D: seven required proofs PASS: commit expires transaction-local context,
+  same-tenant import/rules success, no-commit rollback, foreign reads/writes denied,
+  real owned FK actions, application purge ordering, owned rows zero and foreign
+  fixture unchanged. Generated schema absent after cleanup, public catalog and
+  source hashes unchanged. Receipt: `.release-evidence/CAPACITY-HOTFIX-20261007/dev-D.json`.
+- A/B/C failed receipts are preserved: actual catalog user-position FK uses
+  NO ACTION rather than assumed SET NULL; LIKE omits identity-normalization
+  triggers and produced `23514/ck_departments_normalized_name`. Only harness
+  fidelity was repaired, not public constraints/RLS/application semantics.
+  Two independently inspected trigger definitions are hash-pinned and rebound
+  only to the generated schema with owned/pg_catalog resolution.
+- Root guard regression: canonical pytest wrapper16PASS/0.57s; independent cheap
+  reviewer final-delta STATIC ONLY found no high/medium issue. Writer first pass
+  was not accepted; root corrected its commit ownership, FK/trigger fidelity,
+  progress mocks and result-shape proof. No agent-cost/savings claim is made.
+- Production orphan cleanup is separate: exact approved position removed once;
+  independent25table absence and9unchanged permanentQA fingerprints PASS.
+  Production deployment and distinct50/100/500 measurements are not proved here.

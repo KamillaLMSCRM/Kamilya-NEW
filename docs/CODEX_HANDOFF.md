@@ -1,11 +1,23 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-10-06
+**Обновлено:** 2026-10-07
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/methodologist-workbench-20261001`
 
 ## Current production39,2026-10-06
+
+2026-10-07 frontier: owner-approved narrow capacity hotfix in separate linked
+checkout `C:\Kamilya New\.worktrees\capacity-hotfix-20261007`, branch
+`fix/capacity-import-purge-20261007`. Production remains39/e355. Only two app
+fixes: restore importing tenant context after commit, delete tenant positions
+before departments. No migration/antivirus/source-opening/frontend release.
+Exact orphan cd94db33…3cb3 was removed under new owner approval; independent
+25-table zero inventory and9unchanged retainedQA fingerprints passed. Gates:
+isolated Supabase DEV7checks/cleanup/public-neutral PASS, local2656+16 PASS;
+CI/exact immutable artifact, protected backend40,
+then one replacement capacity fixture50→100→500 and normal cleanup/DB absence.
+The original dirty daily-learning checkout and failed receipt remain preserved.
 
 Runtime source e355fdc6da82b1d276fbf182d37cc7f69ef30335/version0.11.39 is deployed
 to frontend/API/threeworkers; schema0178/all3flags ON, green running/restarts0.

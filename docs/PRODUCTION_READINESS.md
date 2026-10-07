@@ -11,6 +11,26 @@ DB/storage gate и приёмкой клиента
 
 ## Current production39 — RELEASED; bounded lesson-correction acceptance PASS
 
+### Capacity hotfix candidate40 — NOT DEPLOYED, 2026-10-07
+
+Production39 remains exact e355fdc6. An owner-approved small capacity fixture
+failed inline rule recalculation after CSV commit and left one position after
+normal tenant deletion. The original failed load receipt is preserved; no
+distinct50/100/500 stage ran. Narrow import-context and purge-order fixes are
+isolated in `capacity-hotfix-20261007`; antivirus and all other dirty work remain
+outside this candidate. No migration:0178 unchanged; backend-only compatibility
+with existing native frontend39, no CT137 release.
+
+Owner-approved maintenance removed only the exact orphan position; independent
+25-table zero rows and9unchanged permanentQA hashes passed. Independent focused
+35tests PASS; expanded backend-unit regression2656 and gate guards16 PASS.
+Actual isolatedDEV import/rules/no-commit/two-tenant RLS/purge-order/absence
+proof passes all7checks, schema cleanup and public catalog neutrality. ExactCI/
+artifact, protected rollout and replacement-fixture load/cleanup remain gates.
+Current API/four-container image and flags, retained rollback38/private health,
+signed0178 restore report and active backup/watchdog/retention timers were freshly
+read back without mutations. No antivirus or500-user capacity GO is claimed.
+
 2026-10-06: exact runtime `e355fdc6da82b1d276fbf182d37cc7f69ef30335`,
 version0.11.39/tagv0.11.39, CI37408581002 all7SUCCESS, native37408601763 SUCCESS,
 protected backend37409462508/deployment6875008426 SUCCESS. Image

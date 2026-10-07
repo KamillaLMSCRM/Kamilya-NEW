@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-06.
+Current as of: 2026-10-07.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -6386,3 +6386,38 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   auth safeguards to obtain a green report. Transport mode mutation on the
   canonical root-owned-state route is not a claim of semantic SQL mutation;
   these inventory probes use BEGIN READ ONLY/ROLLBACK.
+
+## STAFF-IMPORT-001 - Inline rules lost tenant context after durable CSV commit
+
+- Date: 2026-10-07; production39, owned synthetic capacity fixture only.
+- Symptom: CSV created two learners but its inline rule task failed with
+  organization_unit_not_found. Dependent load stages were not run.
+- Cause: durable commit cleared transaction-local RLS tenant context. Cached
+  ORM objects survived, but the hierarchy resolver could no longer see the
+  department. Earlier mock-only tests bypassed the real rule kernel.
+- Fix: restore only the importing tenant before inline rules when the import
+  committed. Preserve the no-commit caller's enclosing transaction.
+- Verification: actual import/batch/kernel/resolver context fake RED to GREEN;
+  independent focused35 PASS, expanded unit2656 PASS, real isolatedDEV commit/
+  no-commit/two-tenant RLS proof PASS with cleanup. Deployed fix remains open.
+- Prevention: created counts do not prove rule-task success; require explicit
+  terminal SUCCESS/counters and a real post-commit RLS proof before load.
+
+## TENANT-PURGE-005 - Ordinary tenant purge omitted imported positions
+
+- Date: 2026-10-07; exact temporary capacity-qa-20261007 tenant.
+- Symptom: DELETE204 and fresh GET404, but independent25-table readback found
+  one position; the other24 were empty. PermanentQA9fingerprints unchanged.
+- Cause: positions.tenant_id has no cascading tenant FK and TENANT_DELETE_SQL
+  omitted positions. Earlier populated fixtures did not create a position.
+- Fix: delete exact tenant-owned positions after user/rule children and before
+  departments. Separately owner-approved orphan maintenance removed only
+  cd94db33-6968-4198-bf9e-406af0713cb3 for absent tenant34aeb387…1b64, with exact
+  name/count/reference guards in one transaction.
+- Verification: independent25-table zero-row readback and unchanged9QA hashes
+  after maintenance; static review PASS; focused35 tests PASS. Deployed ordinary
+  purge fix and replacement-fixture cleanup remain unverified. Real isolatedDEV
+  application statement-order/owned-zero/foreign-unchanged proof PASS.
+- Prevention: inventory every fixture-created table and dependencies; HTTP404
+  alone is not complete cleanup proof. Direct maintenance requires exact owner
+  authority and must never become a generic production prune.

@@ -40,7 +40,7 @@ from uuid import UUID, uuid4
 
 import xlrd  # type: ignore[import-untyped]
 from openpyxl import load_workbook
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.department import Department
@@ -1426,6 +1426,11 @@ async def commit_import(
     # retroactive retries (see staff_import_router).
     apply_rules_task_id: str | None = None
     if affected_user_ids and apply_rules:
+        if commit_changes:
+            # Auth establishes transaction-local tenant context. The durable
+            # import commit above clears it; restore only this tenant before
+            # the separate inline rule transaction reads its hierarchy.
+            await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
         from app.core import redis_progress
         from app.modules.positions.batch_service import apply_rules_for_users
 
