@@ -221,8 +221,11 @@ export default function QuizPlayerPage() {
     });
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (timerExpired = false) => {
     if (!quizId || !token || submitting || result || attemptBlocked) return;
+    // Only timer expiry may consume an incomplete attempt. Manual submission
+    // must match the visible progress count, including deselected multi-selects.
+    if (!timerExpired && (!quiz?.questions.length || quiz.questions.some((q) => !answers[q.id]?.length))) return;
     setSubmitting(true);
     try {
       const submission = {
@@ -270,7 +273,7 @@ export default function QuizPlayerPage() {
     }
   };
 
-  handleSubmitRef.current = handleSubmit;
+  handleSubmitRef.current = () => { void handleSubmit(true); };
 
   const handleRetry = () => {
     if (attemptBlocked) return;
@@ -294,7 +297,7 @@ export default function QuizPlayerPage() {
 
   const currentQ = quiz.questions[currentIdx];
   const totalQuestions = quiz.questions.length;
-  const answeredCount = Object.keys(answers).length;
+  const answeredCount = quiz.questions.filter((q) => answers[q.id]?.length > 0).length;
   const resultScore = result?.attempt.score_percent ?? 0;
   const lessonId = quiz.lesson_id;
   const orderedLessons = courseModules.flatMap((module) => module.lessons || []);
@@ -502,13 +505,16 @@ export default function QuizPlayerPage() {
               </Button>
             ) : (
               <Button
-                onClick={handleSubmit}
-                disabled={submitting || answeredCount === 0 || attemptBlocked}
+                onClick={() => { void handleSubmit(); }}
+                disabled={submitting || answeredCount < totalQuestions || totalQuestions === 0 || attemptBlocked}
               >
                 {submitting ? t('quiz.submitting') : t('quiz.finish')}
               </Button>
             )}
           </div>
+        )}
+        {!result && currentIdx === totalQuestions - 1 && answeredCount < totalQuestions && !attemptBlocked && (
+          <p className="text-sm text-muted-foreground" role="status">{t('quiz.answerAllBeforeFinish')}</p>
         )}
 
         {/* Previous Attempts */}

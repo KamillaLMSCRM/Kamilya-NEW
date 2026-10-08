@@ -1,12 +1,13 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchMock = vi.hoisted(() => vi.fn());
 const routerPushMock = vi.hoisted(() => vi.fn());
+const routeState = vi.hoisted(() => ({ search: 'courseId=course-1&lessonId=lesson-1' }));
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ quizId: 'quiz-1' }),
-  useSearchParams: () => new URLSearchParams('courseId=course-1&lessonId=lesson-1'),
+  useSearchParams: () => new URLSearchParams(routeState.search),
   useRouter: () => ({ back: vi.fn(), push: routerPushMock, replace: vi.fn() }),
 }));
 
@@ -74,6 +75,7 @@ interface QuizAttemptFixture {
 describe('learner quiz result navigation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    routeState.search = 'courseId=course-1&lessonId=lesson-1';
     quizPayload = quiz;
     previousAttempts = [];
     attemptsStatus = 200;
@@ -109,6 +111,7 @@ describe('learner quiz result navigation', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
   });
+  afterEach(() => vi.useRealTimers());
 
   it('returns to the parent course and offers the next lesson after a passed quiz', async () => {
     render(<QuizPlayerPage />);
@@ -138,6 +141,57 @@ describe('learner quiz result navigation', () => {
       expect.stringContaining('/v1/progress/lessons/lesson-1'),
       expect.anything(),
     );
+  });
+
+  it('does not spend a manual attempt while a question is unanswered', async () => {
+    quizPayload = {
+      ...quiz,
+      questions: [quiz.questions[0], {
+        ...quiz.questions[0], id: 'question-2', text: 'Второй вопрос?', order_index: 1,
+        choices: [{ id: 'choice-2', text: 'Второй ответ', order_index: 0 }],
+      }],
+    };
+    render(<QuizPlayerPage />);
+    await screen.findByText('Верный ответ?');
+    fireEvent.click(screen.getByRole('radio'));
+    fireEvent.click(screen.getByRole('button', { name: 'quiz.next' }));
+    await screen.findByText('Второй вопрос?');
+    const finish = screen.getByRole('button', { name: 'quiz.finish' });
+    expect(finish).toBeDisabled();
+    fireEvent.click(finish);
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/submit'))).toHaveLength(0);
+    fireEvent.click(screen.getByRole('radio'));
+    expect(finish).toBeEnabled();
+    fireEvent.click(finish);
+    await screen.findByText('Тест пройден');
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/submit'))).toHaveLength(1);
+  });
+
+  it('does not count a multi-select answer after its last choice is deselected', async () => {
+    quizPayload = { ...quiz, questions: [{ ...quiz.questions[0], type: 'matching' }] };
+    render(<QuizPlayerPage />);
+    await screen.findByText('Верный ответ?');
+    const choice = screen.getByRole('checkbox');
+    fireEvent.click(choice);
+    expect(screen.getByRole('button', { name: 'quiz.finish' })).toBeEnabled();
+    fireEvent.click(choice);
+    expect(screen.getByText('0/1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'quiz.finish' })).toBeDisabled();
+  });
+
+  it('still submits unanswered questions automatically when a standalone timer expires', async () => {
+    routeState.search = '';
+    quizPayload = { ...quiz, time_limit: 1 / 60 };
+    vi.useFakeTimers();
+    await act(async () => { render(<QuizPlayerPage />); });
+    expect(screen.getByRole('button', { name: 'quiz.finish' })).toBeDisabled();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/submit'))).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/quizzes/quiz-1/submit'),
+      expect.objectContaining({ body: expect.stringContaining('"selected_choice_ids":[]') }),
+    );
+    expect(screen.getByText('Тест пройден')).toBeInTheDocument();
   });
 
   it('uses the one assignment timer for the course and its quiz', async () => {

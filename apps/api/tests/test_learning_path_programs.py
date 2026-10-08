@@ -899,12 +899,71 @@ async def test_learner_query_is_assignment_scoped_not_tenant_catalog_scoped():
     completed = _result(all_rows=[])
     db = AsyncMock()
     db.execute.side_effect = [assignments, completed]
-    with patch("app.modules.learning_paths.router.sync_assignment_enrollments", new=AsyncMock()):
+    with patch("app.modules.learning_paths.router.sync_assignment_enrollments", new=AsyncMock()) as sync:
         response = await list_my_paths(db=db, user=learner)
     statement = str(db.execute.await_args_list[0].args[0])
     assert "learning_path_assignments" in statement
     assert len(response) == 1
     assert response[0].current_course_id == course_id
+    assert response[0].access_scope == "account"
+    assert response[0].steps[0].can_open is True
+    sync.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("own_state", ["available", "completed", "locked"])
+async def test_course_pin_mixed_program_preserves_states_and_blocks_foreign_actions(own_state):
+    from app.modules.learning_paths import router
+
+    learner = _user(role="student")
+    learner.assignment_access_enrollment_id = uuid4()
+    course_ids = [uuid4() for _ in range(4)]
+    state_names = ["completed", "available", "locked", own_state]
+    steps = [SimpleNamespace(course_id=cid, course=SimpleNamespace(title=f"Course {i}"), order_index=i, required=True) for i, cid in enumerate(course_ids)]
+    path = _path(tenant_id=learner.tenant_id, status="published", courses=steps)
+    assignment = SimpleNamespace(id=uuid4(), path=path, starts_at=None, due_at=None)
+    db = AsyncMock()
+    db.execute.side_effect = [_result(one=course_ids[-1]), _result(all_rows=[assignment]), _result(all_rows=[])]
+    states = [SimpleNamespace(course_id=cid, state=state) for cid, state in zip(course_ids, state_names, strict=True)]
+    with patch.object(router, "sync_assignment_enrollments", new=AsyncMock()) as sync, patch.object(router, "path_step_states", return_value=states):
+        response = await router.list_my_paths(db=db, user=learner)
+    assert [step.state for step in response[0].steps] == state_names
+    assert [step.can_open for step in response[0].steps] == [False, False, False, own_state != "locked"]
+    assert response[0].current_course_id == (course_ids[-1] if own_state == "available" else None)
+    sync.assert_not_awaited()
+    db.add.assert_not_called()
+    db.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scope_matches", [True, False, None])
+async def test_course_pin_program_actions_never_exceed_its_enrollment_scope(scope_matches):
+    from app.modules.learning_paths import router
+
+    learner = _user(role="student")
+    learner.assignment_access_enrollment_id = uuid4()
+    course_id = uuid4()
+    scope_course = course_id if scope_matches else (uuid4() if scope_matches is False else None)
+    step = SimpleNamespace(course_id=course_id, course=SimpleNamespace(title="First course"), order_index=0, required=True)
+    path = _path(tenant_id=learner.tenant_id, status="published", courses=[step])
+    assignment = SimpleNamespace(id=uuid4(), path=path, starts_at=None, due_at=None)
+    db = AsyncMock()
+    db.execute.side_effect = [_result(one=scope_course), _result(all_rows=[assignment]), _result(all_rows=[])]
+    with patch.object(router, "sync_assignment_enrollments", new=AsyncMock()) as sync:
+        response = await router.list_my_paths(db=db, user=learner)
+    assert len(response) == 1
+    assert response[0].access_scope == "course"
+    assert response[0].steps[0].can_open is (scope_matches is True)
+    assert response[0].current_course_id == (course_id if scope_matches is True else None)
+    sync.assert_not_awaited()
+    scope_query = db.execute.await_args_list[0].args[0]
+    scope_sql = str(scope_query)
+    assert "enrollments.id" in scope_sql
+    assert "enrollments.tenant_id" in scope_sql
+    assert "enrollments.user_id" in scope_sql
+    assert learner.tenant_id in scope_query.compile().params.values()
+    assert learner.id in scope_query.compile().params.values()
+    assert learner.assignment_access_enrollment_id in scope_query.compile().params.values()
 
 
 @pytest.mark.asyncio

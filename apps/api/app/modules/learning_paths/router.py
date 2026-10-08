@@ -274,6 +274,17 @@ async def list_my_paths(
     user=Depends(get_current_user),
 ):
     now = datetime.now(UTC)
+    enrollment_scope = getattr(user, "assignment_access_enrollment_id", None)
+    scoped_course_id = None
+    if enrollment_scope is not None:
+        scope_result = await db.execute(
+            select(Enrollment.course_id).where(
+                Enrollment.id == enrollment_scope,
+                Enrollment.tenant_id == user.tenant_id,
+                Enrollment.user_id == user.id,
+            )
+        )
+        scoped_course_id = scope_result.scalar_one_or_none()
     result = await db.execute(
         select(LearningPathAssignment)
         .join(LearningPath, LearningPath.id == LearningPathAssignment.path_id)
@@ -295,8 +306,11 @@ async def list_my_paths(
     # Future-dated assignments intentionally do not create a course enrollment
     # at assignment time. The learner's first program read on or after its
     # start date materializes the initial available step in this transaction.
-    for assignment in assignments:
-        await sync_assignment_enrollments(db, assignment, now=now)
+    # A course-bound credential may read program context, but must not
+    # materialize enrollments for courses outside its existing scope.
+    if enrollment_scope is None:
+        for assignment in assignments:
+            await sync_assignment_enrollments(db, assignment, now=now)
     await db.flush()
     course_ids = {
         step.course_id
@@ -323,7 +337,14 @@ async def list_my_paths(
         states = {state.course_id: state.state for state in path_step_states(steps, completed, path.sequencing_mode)}
         required_steps = [step for step in steps if step.required]
         completed_required = sum(step.course_id in completed for step in required_steps)
-        current = next((step.course_id for step in steps if states[step.course_id] == "available"), None)
+        open_course_ids = {
+            course_id for course_id, state in states.items()
+            if state in ("available", "completed") and (
+                enrollment_scope is None or course_id == scoped_course_id
+            )
+        }
+
+        current = next((step.course_id for step in steps if states[step.course_id] == "available" and step.course_id in open_course_ids), None)
         response.append(
             LearnerPathItem(
                 id=path.id,
@@ -339,6 +360,7 @@ async def list_my_paths(
                 completed_required_courses=completed_required,
                 progress_percent=round(completed_required / len(required_steps) * 100) if required_steps else 100,
                 current_course_id=current,
+                access_scope="course" if enrollment_scope is not None else "account",
                 steps=[
                     LearnerPathStep(
                         course_id=step.course_id,
@@ -346,6 +368,7 @@ async def list_my_paths(
                         order_index=step.order_index,
                         required=step.required,
                         state=states[step.course_id],
+                        can_open=step.course_id in open_course_ids,
                     )
                     for step in steps
                 ],

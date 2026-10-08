@@ -76,9 +76,9 @@ export default function MyCoursesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{t('student.enrolledCourses')}</h1>
-        <div className="flex gap-2">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <h1 className="min-w-0 text-2xl font-bold">{t('student.enrolledCourses')}</h1>
+        <div className="flex min-w-0 flex-wrap gap-2">
           {(['all', 'active', 'completed'] as const).map((f) => (
             <button
               key={f}

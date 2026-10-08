@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-07.
+Current as of: 2026-10-08.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -6440,3 +6440,23 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: inventory every fixture-created table and dependencies; HTTP404
   alone is not complete cleanup proof. Direct maintenance requires exact owner
   authority and must never become a generic production prune.
+
+## CLIENT-DEMO-001 - Programme actions exceeded a course-PIN session's scope
+
+- Date: 2026-10-08; retained synthetic QA, no customer data.
+- Symptom: a personal course-PIN learner saw Start on another programme course;
+  the existing course guard correctly returned404 when the learner clicked it.
+- Cause: programme progress state was treated as course authorization. The
+  learner response omitted the assignment-session enrollment boundary and its
+  normal-account synchronization could materialize courses outside that boundary.
+- Fix: resolve the scoped course from enrollment ID plus tenant/user predicates;
+  skip programme enrollment synchronization for PIN sessions and expose additive
+  access_scope/can_open fields. UI renders only authorized actions and explains
+  account sign-in without changing course/PIN guards or programme sequencing.
+- Verification: focused API64PASS/15DB-skips; mixed-state negatives and ordinary
+  account control PASS; full web942PASS, typecheck/lint/build PASS; Python quality
+  baseline PASS. Fresh DB-backed PIN/cross-tenant regression is included but its
+  execution, exact CI and production acceptance are still pending.
+- Prevention: available/completed describes progress, not bearer authority.
+  Test course-bound and account sessions separately, including absence of unintended
+  enrollment creation and missing/foreign scope fail-closed controls.

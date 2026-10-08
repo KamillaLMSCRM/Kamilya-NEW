@@ -10,6 +10,70 @@ from app.models.enrollment import Enrollment
 from app.modules.learning_paths.models import LearningPath, LearningPathAssignment
 
 
+async def test_course_pin_program_read_has_exact_scope_and_no_materialization(
+    client, db_session, auth_headers, make_tenant, make_user, make_course, set_current_tenant,
+):
+    from app.core.auth import create_access_token, decode_token
+
+    tenant = await make_tenant(name="Synthetic PIN programme owner")
+    manager = await make_user(tenant, role="methodologist")
+    learner = await make_user(tenant, role="student")
+    learner.email = None
+    await db_session.flush()
+    foreign_course = await make_course(tenant, manager, status="published", title="Account-only course")
+    own_course = await make_course(tenant, manager, status="published", title="PIN course")
+    staff = auth_headers(manager)
+    created = await client.post("/api/v1/learning-paths", headers=staff, json={"title": "PIN boundary", "sequencing_mode": "open"})
+    assert created.status_code == 201, created.text
+    path_id = created.json()["id"]
+    curriculum = await client.put(f"/api/v1/learning-paths/{path_id}/curriculum", headers=staff, json={"steps": [{"course_id": str(foreign_course.id), "required": True}, {"course_id": str(own_course.id), "required": True}]})
+    assert curriculum.status_code == 200, curriculum.text
+    assert (await client.post(f"/api/v1/learning-paths/{path_id}/publish", headers=staff)).status_code == 200
+    enrolled = await client.post(f"/api/v1/courses/{own_course.id}/enroll", headers=staff, json={"user_ids": [str(learner.id)]})
+    assert enrolled.status_code == 201, enrolled.text
+    enrollment_id = enrolled.json()[0]["id"]
+    # Seed an active assignment without materializing other courses. The endpoint
+    # under test must not acquire normal-account side effects through a PIN read.
+    await set_current_tenant(tenant)
+    db_session.add(LearningPathAssignment(tenant_id=tenant.id, path_id=path_id, user_id=learner.id, assigned_by=manager.id))
+    await db_session.flush()
+    issued = await client.post(f"/api/v1/courses/enrollments/{enrollment_id}/access-without-email", headers=staff)
+    assert issued.status_code == 200, issued.text
+    link = issued.json()["access_url"].rsplit("/", 1)[1]
+    entered = await client.post(f"/api/v1/assignment-access/{link}/exchange", json={"pin": issued.json()["temporary_pin"]})
+    assert entered.status_code == 200, entered.text
+    bearer = {"Authorization": f"Bearer {entered.json()['access_token']}"}
+    for _ in range(2):
+        programs = await client.get("/api/v1/learning-paths/my", headers=bearer)
+        assert programs.status_code == 200, programs.text
+        item = programs.json()[0]
+        assert item["access_scope"] == "course"
+        assert item["current_course_id"] == str(own_course.id)
+        assert [step["can_open"] for step in item["steps"]] == [False, True]
+        assert [step["state"] for step in item["steps"]] == ["available", "available"]
+    await set_current_tenant(tenant)
+    rows = (await db_session.scalars(select(Enrollment.course_id).where(Enrollment.tenant_id == tenant.id, Enrollment.user_id == learner.id))).all()
+    assert rows == [own_course.id]
+    assert (await client.get(f"/api/v1/courses/{own_course.id}", headers=bearer)).status_code == 200
+    assert (await client.get(f"/api/v1/courses/{foreign_course.id}", headers=bearer)).status_code == 404
+    # A normal account retains the existing programme materialization contract.
+    account = await client.get("/api/v1/learning-paths/my", headers=auth_headers(learner))
+    assert account.status_code == 200, account.text
+    assert account.json()[0]["access_scope"] == "account"
+    assert all(step["can_open"] for step in account.json()[0]["steps"])
+    await set_current_tenant(tenant)
+    rows = set((await db_session.scalars(select(Enrollment.course_id).where(Enrollment.tenant_id == tenant.id, Enrollment.user_id == learner.id))).all())
+    assert rows == {own_course.id, foreign_course.id}
+    other_tenant = await make_tenant(name="Synthetic PIN programme outsider")
+    outsider = await make_user(other_tenant, role="student")
+    outside = await client.get("/api/v1/learning-paths/my", headers=auth_headers(outsider))
+    assert outside.status_code == 200 and outside.json() == []
+    claims = decode_token(entered.json()["access_token"])
+    claims["tenant_id"] = str(other_tenant.id)
+    wrong_tenant = await client.get("/api/v1/learning-paths/my", headers={"Authorization": f"Bearer {create_access_token(claims)}"})
+    assert wrong_tenant.status_code == 401
+
+
 async def test_learning_program_assignment_and_linear_release(
     client,
     db_session,

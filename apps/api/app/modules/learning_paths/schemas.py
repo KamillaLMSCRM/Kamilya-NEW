@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Self
+from typing import Any, Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -166,6 +166,7 @@ class LearnerPathStep(BaseModel):
     order_index: int
     required: bool
     state: str = Field(pattern="^(locked|available|completed)$")
+    can_open: bool = True
 
 
 class LearnerPathItem(BaseModel):
@@ -182,4 +183,5 @@ class LearnerPathItem(BaseModel):
     completed_required_courses: int
     progress_percent: int
     current_course_id: UUID | None = None
+    access_scope: Literal["account", "course"] = "account"
     steps: list[LearnerPathStep]

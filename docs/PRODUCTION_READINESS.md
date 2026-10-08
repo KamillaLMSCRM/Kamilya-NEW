@@ -9,7 +9,28 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production39 — RELEASED; bounded lesson-correction acceptance PASS
+## Current production40 — fresh exact runtime readback, 2026-10-08
+
+Root preflight for the owner-approved four-fix demo release freshly confirms
+API/threeworkers0.11.40/8e22e8a76ac76c487e9c4212896a786021c66f4b, immutable
+imagef3719099c615c2a34f59aef804761a3b9d67773b7419e2003ca572e4e31771b0,
+blue/running/restarts0, public/private health and all three feature flags ON.
+CT125 remains0178, safe lms_app role and backup timer active. CT137 current
+frontend39/e355fdc6da82b1d276fbf182d37cc7f69ef30335 remains running; fresh
+inventory free1269112KiB. This is readback, not a new rollout or full-product GO.
+
+### Demo fixes candidate41 — NOT DEPLOYED
+
+Four bounded corrections: course-PIN programme actions, incomplete manual quiz
+submission, mobile My courses filters and programme audience readback count.
+Clean baseline master8e22; local focused API64PASS/15DB-skips, web942PASS,
+typecheck/lint/67-page build and Python quality baseline PASS. Additive response
+only; no migration/activation/AV/voice/landing/billing/resource changes. Exact CI,
+DB-backed scope integration, immutable artifacts, rollback/capacity, protected
+backend/native publication and changed-flow browser acceptance remain gates.
+Plan: docs/plans/2026-10-08_live-demo-fixes-release.md.
+
+## Historical production39 — bounded lesson-correction acceptance PASS
 
 ### Capacity hotfix candidate40 — NOT DEPLOYED, 2026-10-07
 

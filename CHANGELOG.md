@@ -126,6 +126,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.41] - 2026-10-08
+
+### Fixed
+
+- Keep course-PIN programme actions within the exact enrollment scope; explain
+  account sign-in for other courses instead of offering links that return404.
+  Programme reads in personal-link sessions no longer materialize other courses.
+- Prevent accidental manual submission of incomplete quizzes while retaining
+  timed automatic submission and accurate answered counts after deselection.
+- Wrap My courses filters on narrow screens and update programme audience counts
+  from authoritative assignment readback, excluding cancelled assignments.
+
+### Release boundary
+
+- API and three workers plus native frontend; no migration from existing0178,
+  no feature-flag activation, voice, antivirus, landing or provider/billing change.
+
 ## [0.11.40] - 2026-10-07
 
 ### Fixed

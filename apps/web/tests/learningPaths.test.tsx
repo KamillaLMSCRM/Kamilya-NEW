@@ -186,6 +186,43 @@ describe('learning programs UI', () => {
     });
   });
 
+  it('synchronizes non-cancelled sidebar and header assignment counts after readback', async () => {
+    let assignmentReads = 0;
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/v1/learning-paths') {
+        return Promise.resolve({ data: [{ id: 'program-1', title: 'Onboarding', status: 'published', course_count: 1, assignment_count: 0 }] });
+      }
+      if (url === '/v1/learning-paths/program-1') {
+        return Promise.resolve({ data: { id: 'program-1', title: 'Onboarding', status: 'published', course_count: 1, assignment_count: 0, courses: [courseA] } });
+      }
+      if (url === '/v1/learning-paths/program-1/assignments') {
+        assignmentReads += 1;
+        return Promise.resolve({ data: assignmentReads === 1 ? [] : [
+          { id: 'assignment-1', user_id: 'learner-1', user_name: 'Learner One', status: 'active' },
+          { id: 'assignment-2', user_id: 'learner-2', user_name: 'Learner Two', status: 'completed' },
+          { id: 'assignment-3', user_id: 'learner-3', user_name: 'Learner Three', status: 'cancelled' },
+        ] });
+      }
+      if (url.startsWith('/v1/users')) {
+        return Promise.resolve({ data: { users: [{ id: 'learner-1', first_name: 'Learner', last_name: 'One', email: 'learner@example.kz' }] } });
+      }
+      return Promise.resolve({ data: [] });
+    });
+    apiMock.post.mockResolvedValue({ data: { created: 1 } });
+
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /Onboarding/ }));
+    fireEvent.click(await screen.findByRole('tab', { name: /learningPaths\.stage\.audience/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Learner One/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'learningPaths.assign' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Onboarding.*2 common\.counts\.learner/ })).toBeInTheDocument();
+      expect(screen.getByText(/v1 · 1 common\.counts\.course · 2 common\.counts\.learner/)).toBeInTheDocument();
+    });
+    expect(screen.queryAllByText('0 common.counts.learner')).toHaveLength(0);
+  });
+
   it('keeps publish disabled until the draft has a name and a required course', async () => {
     setupManager();
     render(<LearningPathsPage />);
@@ -220,6 +257,33 @@ describe('learning programs UI', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'learningPaths.required' }));
     fireEvent.click(screen.getByRole('tab', { name: /learningPaths\.stage\.review/ }));
     expect(screen.getByRole('button', { name: /learningPaths\.publish/ })).toBeEnabled();
+  });
+
+  it('does not offer a different course from a course-bound personal session', async () => {
+    auth.role = 'student';
+    apiMock.get.mockResolvedValue({ data: [{
+      id: 'program-1', title: 'Onboarding', access_scope: 'course',
+      steps: [
+        { course_id: 'other', title: 'Other course', required: true, state: 'available', can_open: false },
+        { course_id: 'own', title: 'Own course', required: true, state: 'completed', can_open: true },
+      ],
+    }] });
+    render(<LearningPathsPage />);
+    expect(await screen.findByText('learningPaths.courseAccessNotice')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'learningPaths.startCourse' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'learningPaths.reviewCourse' })).toHaveAttribute('href', '/courses/own');
+    expect(screen.getByRole('link', { name: 'learningPaths.openPersonalCourse' })).toHaveAttribute('href', '/my-courses');
+  });
+
+  it('fails closed when a course-scoped step has no explicit open permission', async () => {
+    auth.role = 'student';
+    apiMock.get.mockResolvedValue({ data: [{
+      id: 'program-1', title: 'Onboarding', access_scope: 'course',
+      steps: [{ course_id: 'other', title: 'Other course', required: true, state: 'available' }],
+    }] });
+    render(<LearningPathsPage />);
+    expect(await screen.findByText('learningPaths.courseAccessNotice')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'learningPaths.startCourse' })).not.toBeInTheDocument();
   });
 
   it('renders only assigned learner programs and links available or completed steps', async () => {

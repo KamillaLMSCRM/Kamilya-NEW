@@ -64,6 +64,18 @@ describe('my courses student role contract', () => {
     expect(screen.queryByText('Available courses')).not.toBeInTheDocument();
   });
 
+  it('wraps the mobile header filters instead of allowing horizontal overflow', async () => {
+    render(<MyCoursesPage />);
+
+    const heading = await screen.findByRole('heading', { name: 'My courses' });
+    const header = heading.parentElement;
+    const filters = screen.getByRole('button', { name: 'All' }).parentElement;
+
+    expect(header).toHaveClass('flex-wrap');
+    expect(filters).toHaveClass('flex-wrap');
+    expect(header).toHaveClass('min-w-0');
+  });
+
   it('shows a localized error and retries successfully after an API failure', async () => {
     apiMock.get
       .mockRejectedValueOnce(new Error('request failed'))
