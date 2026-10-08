@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** frontend/API/DB/worker identity and bounded lesson-correction QA2026-10-06
+**Проверено:** frontend/API/DB/worker identity and four bounded demo fixes2026-10-08
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,72 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production40 — fresh exact runtime readback, 2026-10-08
+## Current production42 — deployed and bounded acceptance PASS, 2026-10-08
+
+Exact release0.11.42/tagv0.11.42/source
+`d415fd39f6bb41524d294b8528589ea337d49118`; CI37780905461 all7SUCCESS,
+4194PASS/2SKIP, coverage75.61%; fresh actual database-backed course-PIN isolation
+and no-materialization regression included. Local full web B942PASS/0FAIL/0SKIP,
+types/lint/67-page Next15.5.27 build and Python quality/release-contract PASS.
+Full web A941PASS/1FAIL remains historical; cause NOT_PROVEN, no weakened tests.
+
+Protected backend37781702081 SUCCESS, immutable image
+`ghcr.io/kamillalmscrm/kamilya-api@sha256:efed7a7e37a7d517ea0bace0441c7070ee745c29d1cdda6e0ffe748197dba4b7`.
+API/threeworkers green/running/restarts0, private/public health exact42 and all
+three workbench/document/correction flagsON independently verified. CT1250178,
+safe lms_app role,3FORCE-RLS tables/4safe-invoker functions/13policies and backup
+timer unchanged. Watchdog expectation rebound to exact42/image, only two keys;
+watchdog/retention oneshots success and both timers active. Final readback13:39UTC
+VM126disk74%, free8364416KiB, no release lock, no business/DB mutation.
+
+Native artifact37780996010 SUCCESS; archive SHA256
+`5d0cf98bbbdac12da302beb590ac89bf8be764f395cb26072b638ac1e8baccbb`.
+PacketREL-DEMO42-WEB-20261008 SHA256
+`4b92f15342e8febb28ff4994a2d1f63c55c655396b1a72b723d36035e122e764`.
+The Release Runner's executor stopped at local WinError5 before mutation; Root
+used the same canonical digest-bound bridge, without access-policy changes.
+PreflightREADY, technicalRELEASE_OK; app health exact42/login200. No cleanup was
+required: free1269100KiB before release/625420KiB after. Landing unchanged.
+
+Root actual browser in retained synthetic QA83552ce6… PASS:
+
+- Existing course PIN opens its own two-lesson course. Foreign programme course
+  has no broken Start/Review link and explains ordinary-account access; My courses
+  opens the authorized course. Programme sequencing and course guards unchanged.
+- Quiz manual Finish disabled with1/2answers, enabled with2/2. No final submission,
+  existing completed learning unchanged; live timer-expiry wait NOT_RUN.
+- My courses390x844 RU/KK: width390, filters within viewport and course visible.
+- Fresh synthetic programme789327ce-c07c-466e-a233-768c8b72a04d, one course/one
+  no-email learner: list and selected-card audience0->1 without reload, count1 and
+  active learner persisted after reload. Fixture retained as release evidence.
+
+Independent Test Runner ordinary-account controls PASS: completed student courses
+100%/2of2and5of5 lessons retained, RU/KK completed filters; methodologist programme
+list/detail audience1 and active Synthetic Position Modal062 assignment retained
+after reload. Prior saved-credential misselection is preserved as partial receipt;
+Root prepared the correct ordinary methodologist session, and the runner's new
+read-only continuation passed without authentication retries/privilege changes.
+Runner390x844 NOT_RUN (backend capability unavailable); Root mobile proof separate.
+Both roles logged out. Bridge compact handoff matches exact42 and runner's actual
+methodologist acceptance scope. Ledger: docs/testing/TEST_RUN_LEDGER.md.
+Release Runner independently reviewed immutable receipts; it did not execute
+deployment or browser acceptance. Root observations remain explicitly attributed.
+Backend rollback40/exact8e22/imagef371… retained (API healthy, workers stopped);
+native previous39/e355… and additional38/370f… retained. Actual rollback switch
+NOT_RUN. Signed0178 restore report signature/hash/readiness verified; RPO43s/RTO19s
+belongs to the earlier drill, not a new restore created in this release.
+
+Bounded release only: no migration, new tenant, real customer mutation, email,
+PIN reset, voice, antivirus activation, landing, DNS, privileges, resource or
+billing change. Full-product/500-user capacity GO is not implied.
+Canonical release notes: docs/releases/v0.11.42.md; completed phases:
+docs/plans/2026-10-08_live-demo-fixes-release.md.
+Final no_migration_final structural gate GO11/11evidence,2/2approvals, no blockers;
+Root independently accepted references and only the four changed flows. The pure
+gate is not deployment authority. Documentation closeout is a docs-only followup;
+deployed runtime/tag/artifacts remain d415fd39f6bb41524d294b8528589ea337d49118.
+
+## Historical production40 — fresh pre42 runtime readback, 2026-10-08
 
 Root preflight for the owner-approved four-fix demo release freshly confirms
 API/threeworkers0.11.40/8e22e8a76ac76c487e9c4212896a786021c66f4b, immutable
@@ -19,7 +84,7 @@ CT125 remains0178, safe lms_app role and backup timer active. CT137 current
 frontend39/e355fdc6da82b1d276fbf182d37cc7f69ef30335 remains running; fresh
 inventory free1269112KiB. This is readback, not a new rollout or full-product GO.
 
-### Demo fixes candidate42 — NOT DEPLOYED
+### Historical demo fixes candidate42 — pre-publication evidence
 
 Four bounded corrections: course-PIN programme actions, incomplete manual quiz
 submission, mobile My courses filters and programme audience readback count.

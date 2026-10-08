@@ -2647,3 +2647,70 @@ Rules:
 - Supported Vitest exec full B with maxWorkers2 and no concurrent build PASS:
   148files,942tests,0failed/0pending. Machine report web42-tests-B.json.
   No test exclusion, assertion relaxation or timeout change. Exact CI still required.
+
+### DEMO42-LIVE-INDEPENDENT-20261008 — 2026-10-08 — bounded production UI acceptance
+
+- Release identity supplied for this packet: `0.11.42`, SHA
+  `d415fd39f6bb41524d294b8528589ea337d49118`. Actual scope was limited to the
+  synthetic student My Courses surface and logout; no methodologist mutation or
+  other tenant navigation was performed.
+- Russian read-only check: completed-course filter was active; existing completed
+  courses remained visible at `100%` with `2/2` and `5/5` lesson progress and
+  result/certificate links. Kazakh read-only check showed the localized completed
+  filter and controls with the same completion state. Course descriptions remained
+  Russian in the Kazakh shell; retained as a low-severity localization observation.
+- Available live viewport was `1280x720`; document and body scroll widths were
+  `1280`, so no desktop horizontal overflow was observed. The requested `390x844`
+  viewport was `NOT_RUN` because this IAB backend did not advertise a viewport
+  capability. Root-supplied mobile proof remains separate and is not claimed as
+  runner evidence.
+- Methodologist program/counter/list/detail and audience-modal checks were
+  `NOT_RUN`: saved-credential selection returned the synthetic student account,
+  and no further credential discovery or login attempt was made. Root-supplied
+  methodologist proof remains separate and is not claimed as independently
+  executed.
+- No progress, quiz, assignment, program, learner, email, notification, or other
+  product state was changed. Browser was left logged out. Sanitized machine-readable
+  evidence: `.release-evidence/DEMO-FIX-20261008/live-runner42.json`.
+
+### DEMO42-LIVE-METHODIST-B-20261008 — 2026-10-08 — methodologist counter continuation
+
+- Release identity supplied for this packet: `0.11.42`, SHA
+  `d415fd39f6bb41524d294b8528589ea337d49118`. Ordinary authenticated
+  methodologist navigation selected only `DEMO-142 проверка счётчика назначений`.
+- Program list and selected detail both showed `Опубликована`, `v1`, `1 курс`,
+  and `1 обучающийся`. The Audience tab showed one current active assignment for
+  the clearly synthetic `Synthetic Position Modal 062`; the Assign button was
+  disabled and no mutation control was submitted.
+- A full browser reload preserved the selected program, learner count `1`, and
+  active assignment state. Language remained/reset to Russian. The session was
+  logged out and the IAB tab was handed back to Root.
+- This continuation did not repeat the prior student/mobile scope. Mobile
+  `390x844` evidence remains Root-owned. No credentials, provider, DB, Git,
+  deploy, email, other tenant, or product mutation was used. Sanitized
+  machine-readable evidence: `.release-evidence/DEMO-FIX-20261008/live-runner42-methodist-B.json`.
+
+### DEMO42-ROOT-ACCEPTANCE-20261008 — 2026-10-08 — bounded release closeout
+
+- Root independently reconciled exact release/tagd415fd39f6bb41524d294b8528589ea337d49118,
+  CI37780905461(all7SUCCESS/4194PASS/2SKIP), native37780996010 and protected
+  backend37781702081 SUCCESS. API/threeworkers/native frontend42 match; schema0178,
+  three flagsON, backups/timers/rollback readiness preserved. Root executed the
+  same digest-bound native bridge after Release Runner WinError5; no ACL/privilege
+  workaround. Release Runner's subsequent receipt review is independent local
+  review only, not a deployment/browser run.
+- Root actual browser: existing PIN own-course opens; foreign programme actions
+  replaced by account-access explanation; quizFinish1/2disabled and2/2enabled
+  without submitting; stable390x844 RU/KK filters fit; synthetic audience0->1
+  list/detail without reload, then persisted1. Independent runner ordinary student
+  and methodologist continuation accepted as their actual scopes only.
+- Retained failures: optional login tenant metadata null (principal tenant/user/
+  role matched; tenant label visible after normal reload), methodologist detail
+  harnessGET /users/{id}403 because admin-only (abandoned, no privilege workaround),
+  transition-timing browser click and runner saved-account misselection. No failure
+  erased or generalized into an unproven product/security cause.
+- No old release deletion, migration, real customer mutation, email, PIN reset,
+  completed-history reset, voice/AV activation, provider/resource/billing/DNS/rights
+  change. One synthetic programme and one no-email assignment retained for evidence.
+  Actual rollback switch and live quiz timer-expiry NOT_RUN. Full-product/500-user
+  load acceptance not implied. Root accepting only the requested four-fix package.

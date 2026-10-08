@@ -1343,6 +1343,10 @@ production runtime and cross-container readback remain pending release approval.
 - Verification: frozen install and production audit report0known vulnerabilities;
   successor42 exact CI, native artifact and runtime readback remain mandatory.
 - Prevention: audit every exact release graph; preserve the failed immutable tag.
+- Final42 evidence: CI37780905461 all7SUCCESS, native37780996010 and protected
+  backend37781702081 SUCCESS; runtime API/threeworkers/native frontend exact
+  d415fd39f6bb41524d294b8528589ea337d49118/0.11.42 independently read back.
+  The audit exemption was not changed; failed candidate41 remains historical.
 
 ### Recurrence2026-10-06: source-map-js advisory blocked correction candidate
 
@@ -6476,3 +6480,8 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   response[0], before scope assertions: /enroll self-enrolls the manager. Use the
   canonical /enrollments manager-assignment route with personal_link and assert
   the exact learner/course before testing the PIN boundary. No assertion removed.
+- Final42 verification: actual isolated CI database-backed regression included
+  in4194PASS/2SKIP; the new scoped integration has no skip marker. Existing PIN
+  production browser opens its own course and suppresses the foreign programme
+  Start link with account-access explanation; normal-account control is separate.
+  No PIN reissue, course guard relaxation or completed-history reset.
