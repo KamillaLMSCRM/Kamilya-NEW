@@ -126,7 +126,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.42] - 2026-10-08
+
+### Security
+
+- Update Next.js and its matching ESLint config15.5.24 ->15.5.27 to clear
+  GHSA-4jqv-mc3x-m676 and GHSA-mcj8-r9mp-w47p reported by the native release
+  audit. Keep the15.5 branch, blocking audit and existing Node/React versions.
+
+### Verification
+
+- Use the manager's enrollment-assignment endpoint, not self-enrollment, in the
+  database-backed PIN boundary test; assert the exact learner and course first.
+- Supersede the undeployed0.11.41 candidate without changing its immutable tag.
+
 ## [0.11.41] - 2026-10-08
+
+Status: blocked before deployment by dependency audit and a test-harness route
+error; immutable tag retained. Superseded by0.11.42.
 
 ### Fixed
 

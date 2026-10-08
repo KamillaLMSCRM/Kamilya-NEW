@@ -2600,3 +2600,50 @@ Rules:
 - Root accepts local compatibility evidence only. Original e7d048 CI failure
   remains historical; corrected exact Linux CI/artifact, protected backend40,
   ordinary fixture smoke/load and independent cleanup are still open gates.
+
+### DEMO41-LOCAL-A-C1 — 2026-10-08 — destination correction and runner evidence
+
+- Correction to the prior handoff: the earlier ledger append was written to
+  `C:\Kamilya New\.worktrees\capacity-hotfix-20261007\docs\testing\TEST_RUN_LEDGER.md`,
+  outside this packet's granted destination. That historical entry is preserved
+  but marked `NOT_ACCEPTED_DESTINATION_ERROR` and is not the authoritative
+  packet record.
+- The actual prior API command ran from
+  `C:\Kamilya New\.worktrees\live-demo-fixes-20261008` and exited `0` with
+  `2688 passed`, `19 skipped` (`NOT_RUN`), and `5 warnings` in `32.28s`.
+  The actual prior web command ran from
+  `C:\Kamilya New\.worktrees\live-demo-fixes-20261008\apps\web` and the final
+  amended run exited `0` with `3 files` and `36 passed`.
+- All 11 frozen source hashes matched before and after the accepted final run.
+  Root's `learning-paths/page.tsx` delta was included transparently; the final
+  amended hash was checked through the frozen manifest.
+- Sanitized machine-readable evidence is now stored at
+  `.release-evidence/DEMO-FIX-20261008/runner-local-A.json` in this checkout.
+  Runtime, CI database, browser, provider, and production acceptance remain
+  Root-owned and were not claimed.
+
+### DEMO-FIX-42 — 2026-10-08 — API local test-only rebind
+
+- Exact checkout: `C:\Kamilya New\.worktrees\live-demo-fixes-20261008`, HEAD
+  `7f3c489afb80819a874547999d0f0edacca37e8f`.
+- Canonical command ran from that checkout and exited `0`: `64 passed`, `19
+  skipped`, in `2.59s`. The skips are DB/integration-dependent and classified
+  `NOT_RUN`; exact CI owns that execution. No Docker PostgreSQL was used.
+- All 11 frozen `source-hashes.json` entries matched before and after the run,
+  including the successor integration harness hash. Prior `2688 passed`, `19
+  skipped`, `5 warnings`, `32.28s` unit evidence is linked without rerun because
+  all API source hashes remained unchanged.
+- Web tests, runtime, provider, browser, production, Git, and database actions
+  were `NOT_RUN`. Sanitized machine-readable evidence is at
+  `.release-evidence/DEMO-FIX-20261008/runner-local-42.json`.
+
+### DEMO-FIX-42-WEB — 2026-10-08 — Root successor dependency regression
+
+- Next/eslint-config-next15.5.27 frozen install and fresh production audit0known
+  vulnerabilities PASS. Sequential typecheck/lint/67-page build PASS.
+- Full A941PASS/1FAIL in unchanged learningInsightsJournal line78 retained;
+  cause NOT_PROVEN. Package forwarded literal --, so JSON flags were not honored.
+  Raw result sanitized in web42-A-failed.json; concurrent tooling noted, not proven.
+- Supported Vitest exec full B with maxWorkers2 and no concurrent build PASS:
+  148files,942tests,0failed/0pending. Machine report web42-tests-B.json.
+  No test exclusion, assertion relaxation or timeout change. Exact CI still required.

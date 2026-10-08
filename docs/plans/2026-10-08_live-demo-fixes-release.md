@@ -1,4 +1,4 @@
-# Live demo fixes — release 0.11.41
+# Live demo fixes — release 0.11.42
 
 Owner request2026-10-08: fix course-PIN programme Start/404 mismatch and publish
 with three existing demo corrections. Root owns shared contracts, source/Git,
@@ -21,3 +21,7 @@ Stop on identity/hash drift, missing rollback, capacity/CI/test failure, unknown
 mutation outcome or scope expansion. Retained QA83552ce6-8058-4561-abe3-cfbda14e030a
 only for business smoke; no customer data, new tenants, email or credential reset.
 Current authorised release scope does not include voice or antivirus.
+
+Candidate41/7f3c489a is retained as BLOCKED, not deployed: fresh Next.js audit
+and a test-only self-enrollment route error. Successor42 keeps the same bounded
+product scope, updates Next.js15.5.27 and fixes the synthetic assignment test.

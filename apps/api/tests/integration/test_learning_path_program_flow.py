@@ -29,8 +29,11 @@ async def test_course_pin_program_read_has_exact_scope_and_no_materialization(
     curriculum = await client.put(f"/api/v1/learning-paths/{path_id}/curriculum", headers=staff, json={"steps": [{"course_id": str(foreign_course.id), "required": True}, {"course_id": str(own_course.id), "required": True}]})
     assert curriculum.status_code == 200, curriculum.text
     assert (await client.post(f"/api/v1/learning-paths/{path_id}/publish", headers=staff)).status_code == 200
-    enrolled = await client.post(f"/api/v1/courses/{own_course.id}/enroll", headers=staff, json={"user_ids": [str(learner.id)]})
+    enrolled = await client.post(f"/api/v1/courses/{own_course.id}/enrollments", headers=staff, json={"user_ids": [str(learner.id)], "delivery_mode": "personal_link"})
     assert enrolled.status_code == 201, enrolled.text
+    assert len(enrolled.json()) == 1
+    assert enrolled.json()[0]["user_id"] == str(learner.id)
+    assert enrolled.json()[0]["course_id"] == str(own_course.id)
     enrollment_id = enrolled.json()[0]["id"]
     # Seed an active assignment without materializing other courses. The endpoint
     # under test must not acquire normal-account side effects through a PIN read.

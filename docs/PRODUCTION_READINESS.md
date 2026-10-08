@@ -19,7 +19,7 @@ CT125 remains0178, safe lms_app role and backup timer active. CT137 current
 frontend39/e355fdc6da82b1d276fbf182d37cc7f69ef30335 remains running; fresh
 inventory free1269112KiB. This is readback, not a new rollout or full-product GO.
 
-### Demo fixes candidate41 — NOT DEPLOYED
+### Demo fixes candidate42 — NOT DEPLOYED
 
 Four bounded corrections: course-PIN programme actions, incomplete manual quiz
 submission, mobile My courses filters and programme audience readback count.
@@ -29,6 +29,19 @@ only; no migration/activation/AV/voice/landing/billing/resource changes. Exact C
 DB-backed scope integration, immutable artifacts, rollback/capacity, protected
 backend/native publication and changed-flow browser acceptance remain gates.
 Plan: docs/plans/2026-10-08_live-demo-fixes-release.md.
+
+Candidate41/7f3c489afb80819a874547999d0f0edacca37e8f is BLOCKED and never
+deployed. ExactCI37778910403 failed fresh Next.js SCA and the synthetic test's
+wrong self-enrollment route; native37778968881 failed SCA. Immutable tag retained.
+Successor42 uses Next.js/eslint-config-next15.5.27 and the manager-assignment
+test with exact learner/course assertions. Fresh local frozen install/audit PASS;
+remaining exact-SHA CI/artifact/runtime/browser gates are not implied passed.
+
+Final local successor42: frozen install/audit0known vulnerabilities, full web B
+942PASS/0FAIL/0SKIP at maxWorkers2, sequential types/lint/67-page build and Python
+quality/release-contract PASS. Full A941PASS/1FAIL in unchanged journal test is
+retained; cause NOT_PROVEN, no assertions/timeouts changed. Independent API64PASS/
+19DB-skips and unchanged-source prior unit2688PASS remain local, not actual DB proof.
 
 ## Historical production39 — bounded lesson-correction acceptance PASS
 

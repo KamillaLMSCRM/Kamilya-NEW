@@ -1332,6 +1332,18 @@ production runtime and cross-container readback remain pending release approval.
 - Prevention: audit the exact graph before release, keep failures, never bypass
   SCA or relabel source-only remediation as deployed remediation.
 
+### Recurrence2026-10-08: Next.js advisories blocked demo candidate41
+
+- Date:2026-10-08; CI37778910403/native37778968881 retained, no deployment.
+- Symptom: refreshed production audit blocks Next15.5.24 with
+  GHSA-4jqv-mc3x-m676 and GHSA-mcj8-r9mp-w47p.
+- Cause: fresh advisory data invalidates a prior green locked dependency graph.
+- Fix: exact Next/eslint-config-next15.5.27 and mechanical pinned-pnpm lock update,
+  without audit exemption, Next/Node/React major upgrade or provider changes.
+- Verification: frozen install and production audit report0known vulnerabilities;
+  successor42 exact CI, native artifact and runtime readback remain mandatory.
+- Prevention: audit every exact release graph; preserve the failed immutable tag.
+
 ### Recurrence2026-10-06: source-map-js advisory blocked correction candidate
 
 - Date:2026-10-06; original master CI37399182927 retained; no DEV deployment.
@@ -6460,3 +6472,7 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: available/completed describes progress, not bearer authority.
   Test course-bound and account sessions separately, including absence of unintended
   enrollment creation and missing/foreign scope fail-closed controls.
+- Verification correction: initial CI37778910403 fails the new test harness at
+  response[0], before scope assertions: /enroll self-enrolls the manager. Use the
+  canonical /enrollments manager-assignment route with personal_link and assert
+  the exact learner/course before testing the PIN boundary. No assertion removed.
