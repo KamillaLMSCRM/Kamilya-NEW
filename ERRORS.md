@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-08.
+Current as of: 2026-10-09.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -30,6 +30,31 @@ personal data, or raw logs here.
 Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
+
+## TOOL-012 - New linked checkout lacked its local navigation runtime and indexes
+
+- Date: 2026-10-09; local developer tooling only.
+- Symptom: CodeGraph/Graphify were reported unavailable in the current checkout
+  although another worktree had the CodeGraph SDK and a Graphify CLI was installed.
+- Cause: ignored SDK/cache/index directories are per-checkout and are not copied
+  by Git worktree creation. CLI presence and an old timestamp do not prove a
+  current, correctly rooted index. Graphify package/skill metadata also differ.
+- Fix: install CodeGraph1.6.1 with repository-owned public npm config and verify
+  registry signatures/attestations; build both local indexes using AST-only
+  extraction. `scripts/dev/prepare_navigation.cjs` defaults to read-only readiness
+  checks and requires explicit `--prepare` for index mutation. Its receipt binds
+  exact root, runtime identity, source content hashes and index hashes.
+- Verification: pinned install/signature audit PASS; real CodeGraph budget callers
+  and Graphify workbench neighbors checked against source; Graphify integrity and
+  excluded-path audits PASS, AST input/output LLM tokens0. Source edits actually
+  returned `NOT_READY`;17 Node regressions,11 governance contracts and5 primary
+  guard pytest checks PASS. A real read-only query exposed an empty SQLite WAL
+  false-positive; readiness ignores empty WAL/SHM but retains nonempty WAL hashes.
+- Prevention: run the readiness gate when preparing a new linked checkout and
+  before its first graph-dependent task. Use the existing-path-first runbook;
+  do not copy another branch's index, install hooks/watchers, force a rebuild,
+  upgrade globally or silently fall back without recording the exact limitation.
+  An accepted graph is navigation only, not runtime or complete dependency proof.
 
 ## AI-BUDGET-001 - First monthly reservation bypass and untyped INSERT SELECT
 

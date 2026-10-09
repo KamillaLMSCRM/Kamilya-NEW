@@ -17,6 +17,14 @@ path, not executable bytes. `.graphify_root` must name the actual repository.
 
 ## Diagnose or update
 
+- For a new linked checkout use the combined readiness gate
+  `node scripts/dev/prepare_navigation.cjs` before graph-dependent work. Missing
+  runtime/index/receipt is a checkout-local setup gap, not proof that the machine
+  lacks the tool. Follow `docs/runbooks/codegraph-local.md`, then run explicit
+  `--prepare` and read-only preflight. Never copy another branch's index.
+- The combined helper supplies `codegraph.json` exclusions to AST extraction,
+  checks source/index content hashes, the root marker and zero LLM tokens. Its
+  receipt is ignored local evidence; it is not runtime or graph-completeness proof.
 - For an ordinary CLI failure, try the documented Python with `-m graphify`.
 - Validate integrity with
   `graphify diagnose multigraph --json --max-examples 1`; do not run it before

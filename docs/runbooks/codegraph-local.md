@@ -54,6 +54,59 @@ local data; never commit them. Upgrades need a scoped compatibility/privacy chec
 
 ## Navigation and freshness
 
+### New-checkout readiness gate
+
+Runtime and indexes are ignored, per-checkout data: an installation/index in the
+primary or another linked worktree does not prepare a new checkout. Run from the
+actual linked checkout, before its first graph-dependent task:
+
+```powershell
+node scripts/dev/prepare_navigation.cjs
+```
+
+The default is read-only and exits nonzero with `NOT_READY` for a missing runtime,
+index or receipt, a different root/tool identity, changed source content, or an
+altered index. A timestamp or successful CLI launch does not replace this gate.
+For missing CodeGraph runtime, first complete the pinned install and signature
+audit above. Use the existing Graphify interpreter from the project skill; do not
+install/upgrade globally. Then explicitly prepare both local AST snapshots:
+
+```powershell
+node --test scripts/dev/test_codegraph.cjs scripts/dev/test_prepare_navigation.cjs
+node scripts/dev/prepare_navigation.cjs --prepare
+node scripts/dev/prepare_navigation.cjs
+```
+
+The helper runs the primary-write guard before mutation, performs CodeGraph
+`index`/`sync`, and Graphify incremental `extract . --code-only --max-workers 2`
+with the same required exclusions. It never installs packages, starts hooks or
+watchers, merges repositories, uses provider credentials, or forces a rebuild.
+It rejects junctions/symlinks in artifact paths and foreign Graphify root markers.
+Graphify acceptance requires nonempty graph data, existing in-checkout source
+paths, the exclusion audit and zero input/output LLM tokens. JSON/config files
+with no AST nodes may be omitted by Graphify; the graph is not complete coverage.
+
+An ignored `.release-evidence/navigation/receipt.json` binds tool identity, root,
+source SHA256 and index SHA256 to that preparation. The source fingerprint uses
+Git-tracked/nonignored source-language files (including tracked deletions), not
+mtime or HEAD alone. Its scope is deliberately conservative across both tools;
+it can request a refresh for a file not represented by every extractor. Source
+edits during preparation abort receipt creation. Serialize preparation; do not
+run it concurrently with graph writers or source edits.
+Empty SQLite WAL and transient SHM files created by a read-only CodeGraph query
+do not invalidate readiness; nonempty WAL content remains part of the snapshot.
+
+If the interpreter path differs, pass `--graphify-python ABSOLUTE_PATH`. On the
+2026-10-09 workstation Graphify reports package0.9.23 versus skill metadata0.9.58;
+its actual installed AST extract/query/diagnose capabilities were verified.
+This warning does not authorize an upgrade or skill downgrade. The current
+graph is undirected: query neighbors do not establish call direction.
+
+This is an explicit checkout-preparation step, not a shared Git hook. After a
+material source delta, run `--prepare` once before review if both snapshots are
+needed. A CodeGraph-only `sync` still works for narrowly scoped navigation, but
+does not certify the combined receipt; retain source freshness checks/fallback.
+
 ```powershell
 node --liftoff-only scripts/dev/codegraph.cjs sync
 node --liftoff-only scripts/dev/codegraph.cjs search confirm_assignment_plan

@@ -139,6 +139,17 @@ negative test. Tenant write без установленного tenant context �
 
 ## Навигация: CodeGraph, Graphify и исходники
 
+При подготовке нового linked checkout и перед первой graph-dependent задачей
+в нём выполнить `node scripts/dev/prepare_navigation.cjs`: это read-only preflight
+SDK, привязки к worktree и контрольных сумм исходников/индексов. `NOT_READY` не
+означает, что инструмент не установлен на машине: runtime и derived indexes
+локальны для каждого checkout и не переносятся из другой ветки. Подготовка —
+по [runbook](docs/runbooks/codegraph-local.md), затем явный `--prepare` один раз
+после значимой source-дельты перед graph-dependent review. Не устанавливать
+hooks/watchers, не копировать чужой индекс и не менять глобальные пакеты.
+Prose/config-only работа не требует подготовки обоих графов. При неисправности
+зафиксировать точную причину и использовать bounded source fallback.
+
 Для точного файла, символа или текста использовать `rg`/`rg --files`.
 Для нетривиального Python/TypeScript/TSX source-анализа, изменения общего сервиса,
 интерфейса, hook/component или поиска затронутых потребителей/тестов обязательно

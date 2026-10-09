@@ -12,6 +12,20 @@ def read(relative_path: str) -> str:
 
 
 class GovernanceContractTests(unittest.TestCase):
+    def test_new_checkout_requires_local_navigation_readiness_without_global_hooks(self) -> None:
+        rules = read("AGENTS.md")
+        runbook = read("docs/runbooks/codegraph-local.md")
+        graphify_ops = read(".codex/skills/graphify/references/local-operations.md")
+
+        command = "node scripts/dev/prepare_navigation.cjs"
+        for contract in (rules, runbook, graphify_ops):
+            self.assertIn(command, contract)
+        self.assertIn("linked checkout", rules)
+        self.assertIn("read-only preflight", rules)
+        self.assertIn("--prepare", runbook)
+        self.assertIn("never installs packages", runbook)
+        self.assertIn("never copy another branch's index", graphify_ops.lower())
+
     def test_test_runner_preserves_prepared_runtime_and_evidence_provenance(self) -> None:
         contract = read(".codex/agents/test-runner/AGENTS.md")
         self.assertIn("## Prepared runtime and matrix preflight", contract)
