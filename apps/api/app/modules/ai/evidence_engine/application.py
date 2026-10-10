@@ -44,6 +44,7 @@ from .models import (
     SourceFact,
     SourceSection,
     StageTiming,
+    is_tabular_locator,
 )
 from .provider_engine import ProviderBackedEvidenceEngine, _normalize, coalesce_grounded_blocks
 from .provider_models import (
@@ -57,6 +58,7 @@ from .quality import (
     EVIDENCE_QUALITY_POLICY_VERSION,
     evaluate_plan_preflight,
     evaluate_publishability,
+    is_acceptable_title,
 )
 from .semantic_assessment import generate_block_assessment
 from .source_blocks import is_navigation_heading, split_narrative_blocks
@@ -218,9 +220,55 @@ _FORMULA_DEFINITION_RE = re.compile(
 )
 
 
+_SOURCE_AUTHORING_METADATA_RE = re.compile(
+    r"^(?:"
+    r"(?:урок|курс)\s+должен\s+учить\b[^.!?]{0,160}\bа\s+не\s+пересказу\s+заголовков\b"
+    r"|(?:the\s+)?(?:lesson|course)\s+(?:must|should)\s+teach\b[^.!?]{0,160}"
+    r"\brather\s+than\s+(?:retelling|copying)\s+headings\b"
+    r"|все\s+названия\s+и\s+ситуации\s+синтетические\b"
+    r"|(?:этот\s+)?документ\s+нужен\s+только\s+для\s+проверки\s+LMS\b"
+    r")", re.IGNORECASE,
+)
+
+
+def _separate_source_authoring_metadata(value: str) -> list[str]:
+    """Keep author instructions traceable but separate from employee rules.
+
+    This is not a general sentence splitter: consecutive operational sentences,
+    including their exceptions, remain one evidence unit.
+    """
+    sentences = re.split(r"(?<=[.!?])\s+(?=[A-ZА-ЯЁ])", value)
+    # An explicit synthetic QA cover is retained intact, not taught as a rule.
+    if (
+        len(sentences) <= 3
+        and sentences[0].casefold().startswith("учебный регламент вымышленного")
+        and any(sentence.casefold().startswith("версия ") for sentence in sentences)
+        and _SOURCE_AUTHORING_METADATA_RE.match(sentences[-1])
+    ):
+        return [value]
+    parts: list[str] = []
+    operational: list[str] = []
+    for sentence in sentences:
+        if _SOURCE_AUTHORING_METADATA_RE.match(sentence):
+            if operational:
+                parts.append(" ".join(operational))
+                operational = []
+            parts.append(sentence)
+        else:
+            operational.append(sentence)
+    if operational:
+        parts.append(" ".join(operational))
+    return parts
+
+
 def _narrative_fact_metadata(value: str) -> dict[str, float | str]:
     """Mark source-boundary and formula OCR risk without guessing repairs."""
     stripped = value.strip()
+    if _SOURCE_AUTHORING_METADATA_RE.match(stripped) or (
+        stripped.casefold().startswith("учебный регламент вымышленного")
+        and "документ нужен только для проверки LMS".casefold() in stripped.casefold()
+    ):
+        return {"confidence": 0.0, "uncertainty": "source_authoring_metadata"}
     if _FORMULA_DEFINITION_RE.match(stripped):
         return {"confidence": 0.6, "uncertainty": "ambiguous_formula_symbol"}
     if re.match(r"^\d{1,3}:\s+", stripped):
@@ -287,7 +335,7 @@ def _split_narrative_chunk(text: str) -> list[str]:
             and not _APPENDIX_MARKER_RE.search(cleaned)
         )
         if cleaned and letter_count >= 8 and not page_footer:
-            cleaned_parts.append(cleaned)
+            cleaned_parts.extend(_separate_source_authoring_metadata(cleaned))
     return cleaned_parts
 
 
@@ -487,6 +535,39 @@ def _plain_numbered_sections(text: str, fallback_title: str) -> list[tuple[str, 
     return sections
 
 
+def _plain_nominal_sections(text: str, fallback_title: str) -> list[tuple[str, str]]:
+    """Recover corroborated standalone TXT headings, not short action clauses."""
+    text = re.sub(r"(?m)^[ \t]+$", "", text.replace("\r\n", "\n"))
+    matches = []
+    for match in re.finditer(r"(?m)^(?P<title>[^\n]{3,80})\n(?=\S)", text):
+        title = match.group("title").strip()
+        # A heading starts a paragraph, has no sentence/list punctuation, and
+        # must not be an imperative or an ordinary subject/verb statement.
+        if match.start() and not text[:match.start()].endswith("\n\n"):
+            continue
+        if (
+            not title
+            or len(title.split()) > 8
+            or re.search(r"[.!?:;|#]", title)
+            or not title[0].isalpha()
+            or is_sentence_like_ordinal_heading(f"1. {title}")
+        ):
+            continue
+        matches.append(match)
+    if len(matches) < 2:
+        return []
+    sections: list[tuple[str, str]] = []
+    prefix = text[:matches[0].start()].strip()
+    if prefix:
+        sections.append((fallback_title, prefix))
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        body = text[match.end():end].strip()
+        if body:
+            sections.append((match.group("title").strip(), body))
+    return sections
+
+
 def _narrative_section(
     *,
     document: Any,
@@ -672,6 +753,8 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
         if ordered_chunks and all(not chunk.headings for chunk in ordered_chunks):
             reconstructed = _merge_overlapping_chunks(ordered_chunks)
             plain_sections = _plain_numbered_sections(reconstructed, document.title)
+            if not plain_sections:
+                plain_sections = _plain_nominal_sections(reconstructed, document.title)
             if plain_sections:
                 for section_index, (section_name, text) in enumerate(plain_sections, start=1):
                     role = _narrative_section_role(
@@ -853,8 +936,11 @@ def _grounded_fallback(
     rendered: list[str] = []
     for fact_id in plan_fact_ids:
         fact = facts_by_id[fact_id]
+        label = fact.attribute
+        if not is_tabular_locator(fact.source_locator) and is_acceptable_title(fact.subject):
+            label = fact.subject
         heading = neutralize_unprofessional_source_language(
-            " ".join(fact.attribute.strip().rstrip(".:").split())
+            " ".join(label.strip().rstrip(".:").split())
         ) or "Подтверждённые сведения"
         text = neutralize_unprofessional_source_language(fact.value.strip())
         blocks.append(

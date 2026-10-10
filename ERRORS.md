@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-09.
+Current as of: 2026-10-10.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -6048,6 +6048,33 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: assess visible quiz shortcuts deterministically, preserve failed
   targets in audit and never shorten truth, pad distractors, loosen acceptance or
   repeat paid generation until lucky output passes. Unit-match words, not stems.
+
+## AI-QUALITY-041 - Accurate source rules leaked authoring presentation into lessons
+
+- Date: 2026-10-10; retained synthetic Orbita API export and current local V2 seam.
+- Symptom: truthful rules had concatenated TXT headings and an author instruction;
+  explanations described source/key checking instead of learner guidance.
+- Cause: plain unnumbered headings were flattened into paragraphs, authoring
+  sentences were admitted and restored as facts, and server explanation templates
+  exposed document/assessment metadata. Degraded renderers used generic attributes
+  as headings instead of source topics.
+- Fix: corroborated nominal section recovery; narrow authoring/QA segmentation
+  with original revision/locator retained and admission disabled for metadata;
+  exact repeated-subject cleanup; source-owned narrative headings in both fallback
+  paths; localized immutable-claim explanations without invented consequences.
+- Verification: actual heading and metadata admission regressions RED then GREEN;
+  active application replay covers unavailable, leaking and unsupported writers.
+  Original three source-supported keys/distractors are frozen and independently
+  compared to the retained export. All eight source operational clusters retained.
+  During review, broad normative filtering, financial-as-deadline labeling,
+  single-word imperative loss, noun `-ость` misclassification and descriptive-as-
+  action guidance were reproduced and corrected with negative controls.
+- Prevention: do not drop entire mixed operational paragraphs, reinterpret every
+  course/question requirement as generator instructions, infer grammar from a
+  one-word infinitive suffix, invent explanatory causation, or shorten truth to
+  improve presentation. Keep source hashes, exceptions, role/number distinctions,
+  answer ownership and no-padding checks. Offline replay is not a new model run,
+  persisted course or release acceptance; unavailable assessment stays nonpublishable.
 
 ## UI-006 - Localization dependency aborted workbench lifecycle
 

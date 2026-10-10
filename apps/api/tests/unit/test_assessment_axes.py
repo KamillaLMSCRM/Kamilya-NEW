@@ -50,12 +50,119 @@ def test_server_owned_axis_materializes_the_same_key_regardless_of_model_key_fie
     assert question is not None
     assert question.correct_answer == fact.value
     assert question.explanation != question.correct_answer
-    assert "правило передачи" in question.explanation.casefold()
+    assert question.explanation.startswith("Как действовать: ")
     assert fact.value in question.explanation
     assert question.fact_id == fact.fact_id
     assert question.evidence_fact_ids == (fact.fact_id,)
     assert question.options[0] == fact.value
     assert set(question.options[1:]) == set(authored.distractors)
+
+
+@pytest.mark.parametrize(
+    ("subject", "attribute", "claim", "prompt", "distractors", "forbidden"),
+    [
+        (
+            "Контроль качества",
+            "порядок передачи",
+            "Передавать данные следует только по защищённому каналу.",
+            "Как передавать данные?",
+            ("Через любой канал.", "Устно без записи."),
+            ("вопрос проверяет", "положение из источника", "ответ должен", "источник"),
+        ),
+        (
+            "Срок ответа",
+            "срок",
+            "Если обращение критическое, ответить нужно не позднее 15 минут.",
+            "Когда нужно ответить на критическое обращение?",
+            ("В течение часа.", "В конце рабочего дня."),
+            ("вопрос проверяет", "источник", "ответ должен", "параметр"),
+        ),
+        (
+            "Статус заявки",
+            "статус",
+            "Активна",
+            "Каков статус заявки?",
+            ("Закрыта", "Отменена"),
+            ("вопрос проверяет", "источник", "ответ должен", "характеристика"),
+        ),
+        (
+            "Сапаны бақылау",
+            "беру тәртібі",
+            "Деректерді тек қорғалған арна арқылы беру керек.",
+            "Деректерді қалай беру керек?",
+            ("Кез келген арна арқылы.", "Жазбай ауызша."),
+            ("сұрақ тексереді", "дереккөзде", "жауап сәйкес", "параметр"),
+        ),
+        (
+            "Quality control",
+            "transfer rule",
+            "Data must be transferred only through a protected channel.",
+            "How must data be transferred?",
+            ("Through any channel.", "Verbally without a record."),
+            ("this question checks", "the source", "the answer must", "characteristic"),
+        ),
+    ],
+)
+def test_materialized_explanation_is_learner_facing_and_source_bound(
+    subject: str,
+    attribute: str,
+    claim: str,
+    prompt: str,
+    distractors: tuple[str, str],
+    forbidden: tuple[str, ...],
+) -> None:
+    fact = SourceFact("fact-localized", subject, attribute, claim, "doc_id=policy;section=transfer")
+    lesson = LessonDraft(
+        "lesson-localized", subject, "Learner lesson", "Apply the rule", claim,
+        (fact.fact_id,), (), 2,
+    )
+    axis = derive_assessment_axes(lesson, [fact], block_id="block-localized")[0]
+    question = materialize_assessment(
+        axis,
+        AuthoredAssessment(axis_id=axis.axis_id, prompt=prompt, distractors=distractors),
+    )
+
+    assert question is not None
+    assert question.correct_answer == axis.correct_value == claim
+    assert question.explanation != claim
+    assert claim in question.explanation
+    assert question.fact_id == fact.fact_id
+    assert question.evidence_fact_ids == (fact.fact_id,)
+    assert question.options == (claim, *distractors)
+    explanation = question.explanation.casefold()
+    assert all(term not in explanation for term in forbidden)
+
+
+@pytest.mark.parametrize(("attribute", "claim", "forbidden"), [
+    ("ставка", "5%", "Срок"),
+    ("сомасы", "500 теңге", "Мерзім"),
+    ("price", "500 USD", "Deadline"),
+])
+def test_numeric_financial_explanation_does_not_invent_a_deadline(
+    attribute: str, claim: str, forbidden: str,
+) -> None:
+    fact = SourceFact("number", "Product", attribute, claim, "doc_id=d;row=2;column=2")
+    lesson = LessonDraft("l", "Product", "Terms", "Know terms", "", ("number",), (), 1)
+    axis = derive_assessment_axes(lesson, [fact], block_id="numeric")[0]
+    question = materialize_assessment(axis, AuthoredAssessment(
+        axis_id=axis.axis_id, prompt="Каково значение?", distractors=("100", "200"),
+    ))
+    assert question is not None
+    assert forbidden not in question.explanation
+    assert attribute in question.explanation
+    assert claim in question.explanation
+
+
+def test_descriptive_fact_does_not_invent_action_instruction() -> None:
+    fact = SourceFact("definition", "Луна", "положение", "Луна является спутником Земли.", "doc_id=d;part=1")
+    lesson = LessonDraft("l", "Астрономия", "Луна", "Знать определение", "", ("definition",), (), 1)
+    axis = derive_assessment_axes(lesson, [fact], block_id="definition")[0]
+    question = materialize_assessment(axis, AuthoredAssessment(
+        axis_id=axis.axis_id, prompt="Чем является Луна?", distractors=("Звездой.", "Планетой."),
+    ))
+    assert question is not None
+    assert "Как действовать" not in question.explanation
+    assert fact.value in question.explanation
 
 
 def test_selected_claim_does_not_inherit_an_unrelated_paragraph_deadline_label() -> None:
@@ -100,8 +207,9 @@ def test_selected_claim_does_not_inherit_an_unrelated_paragraph_deadline_label()
     )
 
     assert question is not None
-    assert "положение из источника" in question.explanation.casefold()
-    assert "характеристика «положение»" not in question.explanation.casefold()
+    assert question.explanation.startswith("Запомните: ")
+    assert "положение из источника" not in question.explanation.casefold()
+    assert "источн" not in question.explanation.casefold()
 
 
 def test_selected_deadline_claim_keeps_its_deadline_axis() -> None:

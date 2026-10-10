@@ -124,7 +124,7 @@ async def test_author_ordinal_explanations_are_replaced_by_grounded_teaching_exp
     assert len(result.questions) == 1
     assert all(question.explanation != question.correct_answer for question in result.questions)
     assert all(first.value in question.explanation for question in result.questions)
-    assert all("The source" in question.explanation for question in result.questions)
+    assert all("Value “operation”:" in question.explanation for question in result.questions)
     assert all(
         not _has_position_dependent_explanation(question.explanation)
         for question in result.questions

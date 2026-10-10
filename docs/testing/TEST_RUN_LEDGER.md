@@ -2714,3 +2714,66 @@ Rules:
   change. One synthetic programme and one no-email assignment retained for evidence.
   Actual rollback switch and live quiz timer-expiry NOT_RUN. Full-product/500-user
   load acceptance not implied. Root accepting only the requested four-fix package.
+### AI-LEARNER-PRESENTATION-20261010 — Generator repair accepted offline
+
+- Baseline `2ee652d5f4a8ce221949be324ab82ed88b93dd2f`, task worktree
+  `pocock-evalite-20261010`, branch `chore/pocock-evalite-20261010`; primary
+  checkout preserved. Source fixture SHA256
+  `3eda7adafa730ee29460a1e633dbd8f94673b1611b2180aebfe6a169e482c8d6` matches
+  the original frozen source; retained three prompts/distractors match the
+  historical sanitized API export. Source quotes, not answer flags, bind keys.
+- Executed RED/GREEN: original heading concatenation1 failure; authoring
+  admission1 failure; adversarial writer repeated heading1 failure; financial
+  labels3 failures; normative course/question false positives2 failures; degraded
+  headings1 failure each in unavailable/restoration paths; one-word commands and
+  descriptive-prefix review5 failures; nominal `-ость`/conditional control2
+  failures; CRLF/whitespace-only-line root controls2 failures. All corrected
+  without weakening grounding, immutable answers or
+  no-padding gates. Earlier full candidate run1 failed/2654 passed on a legacy
+  five-source-word heading expectation; updated to the verified source subject,
+  preserving body/no-internal-label assertions. Subsequent documentation gate
+  caught the new entry/header date mismatch (1 failed/2657 passed); journal
+  header advanced to the latest recorded date, without weakening the gate.
+  No failures concealed as passes.
+- Canonical saved replay19 PASS; final source regressions21 PASS and final
+  source/application/provider neighbors118 PASS; explanation/provider set100 PASS;
+  full API unit + existing-course MCQ projection + schema-snapshot contract
+  **2658 PASS / 5 existing deprecation warnings**. This includes local
+  AI-COURSE-01 required selectors; its DB and live DEV/provider/runtime gates
+  NOT RUN. Python quality baseline PASS, ruff1008/mypy2201 unchanged.
+  Initial I001 new-test import ordering corrected mechanically, not baseline-raised.
+- Independent read-only Spec/Standards review initially NOT_READY, identified
+  single-word action loss, descriptive-as-action framing, generic degraded
+  headings and follow-up nominal noun regression. Final current-source/candidate
+  review READY FOR ROOT REVIEW; root accepted against the complete final suite.
+  All eight operational clusters preserved; source role, deadline distinction,
+  conditional journal data,12 vs10/two-box shortage unchanged. Final retained
+  materializations preserve original prompts/keys and remove QA/source/position
+  framing without adding explanations absent from evidence.
+- Final ignored snapshots under
+  `.release-evidence/learner-presentation-20261010/replay-run-3/`:
+  unavailable writer `test_active_application_and_fa0/candidate.json`, SHA256
+  `8724f0f40ebe85b60022e50013e061852dd0650471c03d7104cdea6ff176b78a`;
+  leaking writer `...fa1/candidate.json`, SHA256
+  `1b1b88a712f692c2b107a77113fbf0d3320dbda38e30c8ac630cd5a4af70b623`;
+  unsupported writer `...fa2/candidate.json`, SHA256
+  `d81c30590cbd9cce3038b60b101ff43f7fe758a3db2822ae76f29b6c5115f7b5`;
+  `test_retained_three_source_sup0/explanations.json`, SHA256
+  `6fa9ef9f6595f66a0cf6ae1d8df4acd306564a84407182fcb8868d7622aae766`.
+  Explicit OFFLINE application replay/materialization labels; all three
+  applications refuse publication because no valid assessment is provided.
+  These are not fresh model runs, persisted-course repairs or production outputs.
+- Tool evidence: CodeGraph1.6.1 bounded application/explanation lookup, source
+  confirmed; wrong initial module path found0 and three built-in-call false edges
+  discarded. Combined navigation receipt NOT_READY; bounded source fallback.
+  Incremental sync after meaningful implementation/review deltas:10.401s,
+  6.665s,6.339s,6.320s including startup; exclusions PASS. Reviewer observed missing
+  visible explanation caller and verified it in source. No Graphify rebuild,
+  inferred savings, API-price equivalence or missing-token-as-zero claim.
+  One cheap bounded writer completed explanation changes in two rounds; root
+  corrected numerical/generic framing and accepted independent review separately.
+- Result **OFFLINE_REPAIR_ACCEPTED**. Stable plan/results transferred to the
+  existing EVALITE_PILOT owner; task-only temporary plan removed. ERRORS
+  AI-QUALITY-041 and Unreleased changelog updated. No secrets, network/provider
+  calls, paid generation, DB/Docker, original capture/source mutation, tenant
+  changes, assignment/invitation, push, release or global memory/config mutation.

@@ -350,12 +350,16 @@ def is_sentence_like_ordinal_heading(value: str) -> bool:
     body = " ".join(match.group("body").split())
     normalized = body.casefold().replace("ё", "е")
     words = re.findall(r"[^\W\d_]+", normalized, re.UNICODE)
-    if len(words) < 2:
+    if not words:
         return False
 
-    if words[0].endswith(_RUSSIAN_INFINITIVE_SUFFIXES):
+    if words[0].endswith(("йте", "ьте", "ите", "йтесь", "ьтесь", "итесь")):
         return True
-    if words[0].endswith(("йте", "ьте", "ите")):
+    if words[0] in _ENGLISH_IMPERATIVE_ACTIONS:
+        return True
+    if len(words) < 2:
+        return False
+    if words[0].endswith(_RUSSIAN_INFINITIVE_SUFFIXES):
         return True
     if (
         words[0] in _RUSSIAN_ACTION_PREFIXES or body.endswith((".", "!", "?", ";"))
@@ -373,8 +377,6 @@ def is_sentence_like_ordinal_heading(value: str) -> bool:
     ):
         return True
 
-    if words[0] in _ENGLISH_IMPERATIVE_ACTIONS:
-        return True
     if words[0] in _ENGLISH_SUBJECT_STARTS and any(
         word.endswith(("s", "ed")) for word in words[1:]
     ):

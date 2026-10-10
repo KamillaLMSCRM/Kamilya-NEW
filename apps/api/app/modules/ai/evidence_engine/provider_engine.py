@@ -212,6 +212,17 @@ def _is_covered_sentence(value: str, previous: list[set[str]]) -> bool:
 
 def _grounded_teaching_text(text: str, facts: list[SourceFact]) -> str:
     """Keep supported prose and restore every omitted sentence of cited facts."""
+    # A writer can reintroduce a plain heading ahead of the actual source rule.
+    # Remove only an exact repeated subject followed by the verified first
+    # source clause; never trim an arbitrary short/action-bearing prefix.
+    for fact in facts:
+        prefix = f"{_clean_output_text(fact.subject)} "
+        first_clause = re.split(r"[.!?]", _clean_output_text(fact.value), maxsplit=1)[0]
+        if len(first_clause) >= 12 and text.startswith(prefix):
+            remainder = text[len(prefix):]
+            if remainder.startswith(first_clause):
+                text = remainder
+                break
     sources = [
         " ".join((fact.subject, fact.attribute, _clean_output_text(fact.value)))
         for fact in facts
@@ -796,8 +807,11 @@ class ProviderBackedEvidenceEngine:
                 subject = _clean_output_text(fact.subject)
                 attribute = _clean_output_text(fact.attribute)
                 text = f"{subject} — {attribute}: {text}."
+            label = fact.attribute
+            if not is_tabular_locator(fact.source_locator) and is_acceptable_title(fact.subject):
+                label = fact.subject
             heading = neutralize_unprofessional_source_language(
-                " ".join(fact.attribute.strip().rstrip(".:").split())
+                " ".join(label.strip().rstrip(".:").split())
             ) or "Подтверждённые сведения"
             if heading.casefold() == "положение":
                 # Conversion labels like "положение" are not useful headings.

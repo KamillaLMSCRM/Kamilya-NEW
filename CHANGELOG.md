@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.43] - 2026-10-10
+
+### Fixed
+
+- Preserve plain-text source headings and operational facts while excluding
+  narrowly identified authoring/QA metadata from learner material. Use
+  source-owned lesson headings and answer explanations rather than internal
+  document/answer-position language. Preserve immutable assessment keys,
+  source grounding and fail-closed publication gates. No schema change.
+
+## Historical unreleased engineering work
+
 ### Security
 
 - Refresh exact security pins after blocking release-time audits: source-map-js
@@ -89,6 +101,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unscoped pending-invitation exception remains an enablement blocker, not fixed.
 
 ### Fixed
+
+- Repair Evidence V2 learner presentation: recover corroborated plain-text
+  section headings without losing one-word commands, keep explicit source
+  authoring/QA metadata traceable but outside teaching evidence, and preserve
+  narrative topics in both grounded restoration and provider-outage fallback.
+  Server-owned explanations use localized learner guidance while retaining
+  exact selected claims, answer keys, choices and evidence references; numerical
+  amounts are not mislabeled as deadlines and definitions are not called actions.
+  Local offline regressions are separate from provider/runtime release gates.
 
 - Reconstruct lesson-correction provenance through the generator's shared fact
   admission and canonical identity contract, retaining exact source/locator/hash

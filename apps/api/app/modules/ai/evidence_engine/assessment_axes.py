@@ -827,75 +827,27 @@ def materialize_assessment(
 
 
 def _teaching_explanation(axis: AssessmentAxis) -> str:
-    """Explain the server-owned key without trusting provider prose."""
-    sample = f"{axis.subject} {axis.attribute} {axis.correct_value}".casefold()
-    generic_attribute = _norm(axis.attribute) == "положение"
-    if any(character in sample for character in "әғқңөұүһі"):
-        if axis.axis_kind == "numeric_value":
-            return (
-                f"«{axis.subject}» үшін дереккөзде «{axis.attribute}» параметрі "
-                f"«{axis.correct_value}» деп көрсетілген. Басқа мән көрсетілген "
-                "параметрді өзгертер еді."
-            )
-        if axis.axis_kind == "rule_value":
-            return (
-                f"Сұрақ «{axis.subject}» үшін «{axis.attribute}» ережесін тексереді. "
-                f"Дереккөзде тікелей «{axis.correct_value}» деп көрсетілген; осы "
-                "ережені қолдану қажет."
-            )
-        if generic_attribute:
-            return (
-                f"«{axis.subject}» бойынша дереккөздегі тұжырым тексеріледі. "
-                f"Дереккөзде: «{axis.correct_value}» деп көрсетілген; жауап осы "
-                "тұжырымға сәйкес келуі керек."
-            )
-        return (
-            f"«{axis.subject}» үшін «{axis.attribute}» сипаттамасы тексеріледі. "
-            f"Дереккөзде оған «{axis.correct_value}» мәні сәйкес келеді, сондықтан "
-            "басқа мән бұл сипаттаманы білдірмейді."
-        )
-    if not re.search(r"[а-яё]", sample):
-        if axis.axis_kind == "numeric_value":
-            return (
-                f"For “{axis.subject}”, the source sets “{axis.attribute}” to "
-                f"“{axis.correct_value}”. A different value would change the stated parameter."
-            )
-        if axis.axis_kind == "rule_value":
-            return (
-                f"This question checks the “{axis.attribute}” rule for “{axis.subject}”. "
-                f"The source states: “{axis.correct_value}”; this is the rule to apply."
-            )
-        if generic_attribute:
-            return (
-                f"This question checks the source statement for “{axis.subject}”. "
-                f"The source states: “{axis.correct_value}”; the answer must match "
-                "that statement."
-            )
-        return (
-            f"This question checks the “{axis.attribute}” characteristic for "
-            f"“{axis.subject}”. The source gives “{axis.correct_value}”, so a different "
-            "value does not describe that characteristic."
-        )
-    if axis.axis_kind == "numeric_value":
-        return (
-            f"Для «{axis.subject}» параметр «{axis.attribute}» в источнике "
-            f"задан так: «{axis.correct_value}». Другое значение изменило бы "
-            "указанный параметр."
-        )
-    if axis.axis_kind == "rule_value":
-        return (
-            f"Вопрос проверяет правило «{axis.attribute}» для «{axis.subject}». "
-            f"Источник прямо устанавливает: «{axis.correct_value}»; именно это "
-            "правило следует применить."
-        )
-    if generic_attribute:
-        return (
-            f"Для «{axis.subject}» проверяется положение из источника. "
-            f"В источнике указано: «{axis.correct_value}»; ответ должен "
-            "соответствовать этому положению."
-        )
-    return (
-        f"Для «{axis.subject}» проверяется характеристика «{axis.attribute}». "
-        f"В источнике ей соответствует значение «{axis.correct_value}», поэтому "
-        "вариант с другим значением не описывает эту характеристику."
+    """Give learners the selected claim without exposing authoring metadata."""
+    sample = f"{axis.attribute} {axis.correct_value}".casefold()
+    neutral_claim = (
+        _norm(axis.attribute) == "положение"
+        or axis.correct_value.casefold().startswith(("если ", "if ", "егер "))
     )
+    is_action = axis.axis_kind == "rule_value"
+    if any(character in sample for character in "әғқңөұүһі"):
+        if is_action:
+            return f"Әрекет ету тәртібі: «{axis.correct_value}»."
+        if neutral_claim:
+            return f"Есте сақтаңыз: «{axis.correct_value}»."
+        return f"«{axis.attribute}» мәні: «{axis.correct_value}»."
+    if re.search(r"[а-яё]", sample):
+        if is_action:
+            return f"Как действовать: «{axis.correct_value}»."
+        if neutral_claim:
+            return f"Запомните: «{axis.correct_value}»."
+        return f"Значение «{axis.attribute}»: «{axis.correct_value}»."
+    if is_action:
+        return f"How to act: “{axis.correct_value}”."
+    if neutral_claim:
+        return f"Remember: “{axis.correct_value}”."
+    return f"Value “{axis.attribute}”: “{axis.correct_value}”."

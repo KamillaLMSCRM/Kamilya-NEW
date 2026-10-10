@@ -246,7 +246,7 @@ def test_generic_fallback_heading_uses_source_words_not_internal_label() -> None
         facts_by_id={fact.fact_id: fact}, seeds=[],
     )
     assert len(blocks) == 1
-    assert blocks[0].heading == "После сверки документов сотрудник осматривает"
+    assert blocks[0].heading == fact.subject
     assert "### положение" not in lesson.content
     assert fact.value in lesson.content
 
