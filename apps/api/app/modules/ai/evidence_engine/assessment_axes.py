@@ -76,6 +76,14 @@ _DEPENDENT_LEADING_FRAGMENT = re.compile(
     flags=re.IGNORECASE,
 )
 
+# One complete infinitive action followed by a categorical prohibition. Do not
+# invert arbitrary paragraphs, quoted claims or mixed permission/prohibition rules.
+_POSTFIX_ACTION_PROHIBITION = re.compile(
+    r"(?!.*\b(?:не|можно|нельзя|разрешен\w*)\b)"
+    r'(?P<action>[А-Яа-яЁё]+(?:ть|ти|чь)\s+[^.!?;,«»"“”]+?)\s+запрещено\.?',
+    flags=re.IGNORECASE,
+)
+
 
 def _has_ambiguous_formula_symbol(fact: SourceFact) -> bool:
     """Do not assess symbols whose identity can be changed by PDF OCR.
@@ -284,6 +292,10 @@ def _is_dependent_source_fragment(value: str) -> bool:
 
 
 def _required_prompt(correct_value: str) -> str:
+    postfix_prohibition = _POSTFIX_ACTION_PROHIBITION.fullmatch(correct_value.strip())
+    if postfix_prohibition is not None:
+        action = postfix_prohibition.group("action").strip()
+        return f"Допустимо ли {action[:1].lower()}{action[1:]}?"
     after_action = re.fullmatch(
         r"После\s+(?P<condition>[^.!?]{5,100}?)\s+"
         r"(?P<actor>сотрудник|работник|оператор)\s+(?P<action>[^.!?]{5,160})\.?",
@@ -410,6 +422,9 @@ def _server_owned_inverse(correct_value: str) -> str | None:
     and negation are unambiguous, the server owns both choices and emits a
     true/false assessment instead.
     """
+    postfix_prohibition = _POSTFIX_ACTION_PROHIBITION.fullmatch(correct_value.strip())
+    if postfix_prohibition is not None:
+        return f"{postfix_prohibition.group('action').strip()} разрешено."
     optional = re.fullmatch(
         r"(?P<subject>.+?)\s+не\s+(?:требуется|обязательн[оаы]?|нужно)\.?",
         correct_value.strip(),
@@ -833,7 +848,8 @@ def _teaching_explanation(axis: AssessmentAxis) -> str:
         _norm(axis.attribute) == "положение"
         or axis.correct_value.casefold().startswith(("если ", "if ", "егер "))
     )
-    is_action = axis.axis_kind == "rule_value"
+    # Numbers inside a prohibition are context, not a numeric teaching target.
+    is_action = axis.axis_kind == "rule_value" or _norm(axis.attribute) == "запрет"
     if any(character in sample for character in "әғқңөұүһі"):
         if is_action:
             return f"Әрекет ету тәртібі: «{axis.correct_value}»."

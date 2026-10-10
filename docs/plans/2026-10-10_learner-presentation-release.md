@@ -7,11 +7,16 @@ owns its immutable controller packet only.
 
 1. Integrate d1bc9257 repair only onto current master d94de258. Pilot tooling and
    unrelated worktrees remain preserved. DONE; candidate version 0.11.43.
-2. Full canonical API suite, Python quality and exact CI. PENDING.
+2. Initial candidate 5f4b890b: full canonical suite2682, quality and CI38055340228
+   PASS. Corrected candidate regression/review/CI PENDING.
 3. Existing free DEV controller rollout, preserving all enabled flags; one real
    synthetic Orbita upload/preview/confirm/generation and persisted readback.
    Review source-first: eight operational clusters, QA metadata absent, meaningful
-   headings, grounded explanations, unique source-owned keys. PENDING.
+   headings, grounded explanations, unique source-owned keys. Initial real DEV
+   generation REJECT: all eight clusters retained but journal-entry stem keyed
+   to a prohibition. Exact public-seam replay RED/GREEN and negative controls
+   implemented; original rejected disposable tenant cleanup204/fresh404 with
+   permanent QA business inventory unchanged. Corrected real DEV gate PENDING.
 4. Confirm cleanup/retained-QA preservation, exact immutable release/CI/image,
    capacity, backup/rollback and no-migration gates. Protected API/threeworker
    rollout only; unchanged native frontend must remain compatible. PENDING.

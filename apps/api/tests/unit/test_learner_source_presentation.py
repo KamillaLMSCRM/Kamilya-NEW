@@ -156,6 +156,50 @@ def test_retained_three_source_supported_keys_receive_clean_server_explanations(
     }, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def test_real_dev_prohibition_question_cannot_ask_for_a_positive_journal_entry() -> None:
+    # Replay the rejected real DEV question at the production assessment seam.
+    # The source specifies a prohibition, not a fully defined journal-entry format.
+    claim = "Вносить фиктивные сведения о принятии всех 12 коробок при наличии 10 запрещено."
+    assert claim in (Path(__file__).parents[1] / "fixtures/ai/orbita_warehouse_policy.txt").read_text(encoding="utf-8")
+    fact = SourceFact("dev-ban", "Завершение", "запрет", claim, "doc_id=orbita;part=1")
+    lesson = LessonDraft("dev-final", "Приёмка", "Завершение приёмки", "Соблюдать правила", "", (fact.fact_id,), (), 1)
+    axis = derive_assessment_axes(lesson, [fact], block_id="dev-final")[0]
+    question = materialize_assessment(axis, AuthoredAssessment(
+        axis_id=axis.axis_id,
+        prompt="Сотрудник сверил поставку и обнаружил 10 коробок вместо 12. Какая запись в журнале приёмки соответствует правилам?",
+        distractors=(
+            "Отметить в журнале принятие 12 коробок, чтобы скрыть недостачу до конца смены.",
+            "Внести запись о принятии 12 коробок, так как недостачу можно уточнить при следующей поставке.",
+            "Отметить в журнале только 10 фактически принятых коробок, а недостающие 2 коробки записать как принятые после устранения недостачи.",
+        ),
+    ))
+    assert question is not None
+    assert question.prompt == "Допустимо ли вносить фиктивные сведения о принятии всех 12 коробок при наличии 10?"
+    assert question.correct_answer == claim
+    assert question.kind == "true_false"
+    assert question.options == (claim, "Вносить фиктивные сведения о принятии всех 12 коробок при наличии 10 разрешено.")
+    assert question.explanation == f"Как действовать: «{claim}»."
+
+
+@pytest.mark.parametrize("claim", [
+    "Вносить сведения в журнал не запрещено.",
+    "Вносить сведения разрешено, но выдумывать их запрещено.",
+    "Вносить сведения можно и выдумывать их запрещено.",
+    "Вносить слово «запрещено» в журнал запрещено.",
+])
+def test_non_categorical_and_quoted_prohibitions_are_not_blindly_inverted(claim: str) -> None:
+    fact = SourceFact("mixed", "Журнал", "положение", claim, "doc_id=synthetic;part=1")
+    lesson = LessonDraft("mixed", "Журнал", "Журнал", "Понимать правило", "", (fact.fact_id,), (), 1)
+    axis = derive_assessment_axes(lesson, [fact], block_id="mixed")[0]
+    question = materialize_assessment(axis, AuthoredAssessment(
+        axis_id=axis.axis_id, prompt="Какое правило действует для журнала?",
+        distractors=("Журнал следует уничтожить.", "Сведения нужно передать покупателю."),
+    ))
+    assert question is not None
+    assert question.kind == "single_choice"
+    assert question.correct_answer == claim
+
+
 class UnavailableProvider:
     async def ainvoke_validated(self, *_args, **_kwargs):
         raise AllProvidersFailedError("offline provider unavailable")

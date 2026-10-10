@@ -6076,6 +6076,28 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   answer ownership and no-padding checks. Offline replay is not a new model run,
   persisted course or release acceptance; unavailable assessment stays nonpublishable.
 
+## AI-QUALITY-042 - A prohibition key answered a positive-action question
+
+- Date: 2026-10-10; actual DEV generation at 5f4b890b.
+- Symptom: a question asked for a compliant journal entry, while its immutable
+  keyed answer stated that a fictitious entry was prohibited; a proposed wrong
+  answer added an unsupported future action. Independent semantic review REJECT.
+- Cause: postfix infinitive-action «запрещено» was classified as a prohibition
+  but had neither a server-owned question nor a binary opposite. Lexical topic
+  overlap admitted the provider's mismatched positive-action stem. Numbers in
+  the source rule also selected an inappropriate numeric explanation label.
+- Fix: narrowly recognize complete categorical postfix action prohibitions;
+  own the admissibility question and binary opposite without changing source
+  truth. Prohibition explanations remain action guidance with numeric context.
+- Verification: exact rejected DEV question replay RED then GREEN through
+  derive_assessment_axes/materialize_assessment; negative controls for negated,
+  mixed permission/prohibition and quoted rules RED then GREEN. Failed draft was
+  removed through exact guarded API cleanup; quality rejection stays preserved.
+- Prevention: topic overlap is not answer-category compatibility. Do not repair
+  source truth to fit a provider's question or treat automatic review as a
+  semantic oracle. Repeat real DEV acceptance on the corrected exact candidate
+  before release; local replay is not runtime quality acceptance.
+
 ## UI-006 - Localization dependency aborted workbench lifecycle
 
 - Date: 2026-10-05; local document-workbench localization review.

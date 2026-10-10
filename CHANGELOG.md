@@ -7,18 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.11.43] - 2026-10-10
-
-### Fixed
-
-- Preserve plain-text source headings and operational facts while excluding
-  narrowly identified authoring/QA metadata from learner material. Use
-  source-owned lesson headings and answer explanations rather than internal
-  document/answer-position language. Preserve immutable assessment keys,
-  source grounding and fail-closed publication gates. No schema change.
-
-## Historical unreleased engineering work
-
 ### Security
 
 - Refresh exact security pins after blocking release-time audits: source-map-js
@@ -146,6 +134,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Share the scoped lookup across public view and activation; clear it before
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
+
+## [0.11.43] - 2026-10-10
+
+### Fixed
+
+- Preserve plain-text source headings and operational facts while excluding
+  narrowly identified authoring/QA metadata from learner material. Use
+  source-owned lesson headings and answer explanations rather than internal
+  document/answer-position language. Preserve immutable assessment keys,
+  source grounding and fail-closed publication gates. No schema change.
+- Keep complete categorical action prohibitions ending in «запрещено» aligned
+  with a source-owned admissibility question and binary opposite. Do not recast
+  a prohibition as a positive-action answer or blindly invert negated, mixed or
+  quoted rules; numeric context does not make prohibition guidance a value label.
 
 ## [0.11.42] - 2026-10-08
 
