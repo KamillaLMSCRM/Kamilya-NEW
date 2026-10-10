@@ -2777,3 +2777,194 @@ Rules:
   AI-QUALITY-041 and Unreleased changelog updated. No secrets, network/provider
   calls, paid generation, DB/Docker, original capture/source mutation, tenant
   changes, assignment/invitation, push, release or global memory/config mutation.
+
+### LEARNER43-LIVE-INTERMEDIATE-20261010 — 2026-10-10 — bounded release closeout
+
+- Exact checkout `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`,
+  HEAD `c453658aa30b1826d9395f976c6355d3bc760de9`; primary guard
+  `LINKED_WORKTREE_OK`. This entry is an append-only partial closeout from the
+  named receipts plus root-supplied runtime/browser observations. No new tests,
+  cleanup, provider, DB, Git, mail, or secret action was performed by this run.
+- Local matrix `AI-LEARNER43-LOCAL-CORRECTED-20261010`: canonical API pytest
+  command exited 0 with **2687 passed / 0 failed / 0 skipped / 5 pre-existing
+  deprecation warnings**; Python quality baseline exited 0 (`ruff=1008`,
+  `mypy=2201`); release version validator exited 0 for `0.11.43`. Evidence:
+  `.release-evidence/REL-LEARNER43-20261010/local-tests-corrected.json`.
+- CI pre-approval `38056844068` completed success at the supplied SHA. Protected
+  production workflow `38058235447` completed success; build and protected jobs
+  succeeded. Runtime receipt reports API plus all three workers running with
+  matched images, public API43/native frontend42 compatibility, both timers
+  active, and zero bounded error markers. These are supplied runtime receipts,
+  not a new execution by this ledger writer.
+- Fresh real DEV generation `dev-live-r2` and PRODUCTION generation `prod-live`
+  are both bound to SHA `c453658aa30b1826d9395f976c6355d3bc760de9`, source SHA
+  `3eda7adafa730ee29460a1e633dbd8f94673b1611b2180aebfe6a169e482c8d6`, one
+  source document, two completed terminal jobs, draft/unpublished/no-enrollment
+  state before browser work. Independent source-first semantic reviews are
+  **PASS** for both environments, covering all eight operational clusters and
+  all four saved questions; the prohibition-category regression is explicitly
+  repaired. Receipts: `dev-live-r2/semantic-review.json` and
+  `prod-live/semantic-review.json`.
+- Root-supplied DEV browser/cleanup evidence reports the learner journey and
+  bounded tenant cleanup `204` followed by `404`; production browser evidence
+  reports ordinary learner login, intentional first-quiz wrong answer `50`,
+  retry `100`, second quiz `100`, `2/2` lessons, completion, and certificate.
+  Production receipts are `prod-live/browser-final.json` and
+  `prod-live/learner-setup.json`; the learner setup records the prior harness
+  correction without repeating student creation. The production disposable
+  tenant cleanup remains **PENDING** because the read-only auth quota snapshot
+  reported hourly count `21` and approximately `2537s` until the next permitted
+  login window; retained-QA-after-cleanup is consequently **PENDING**.
+- Explicit residual scope: OTP/signature upload, provider/billing behavior,
+  UI-rendered answer explanations, full-product acceptance, load/500-user
+  acceptance, rollback switch, and timer-expiry behavior are **NOT RUN** or
+  **NOT CLAIMED**. Persisted explanations were independently semantic-reviewed;
+  no UI explanation claim is made. The original rejected DEV review at the old
+  `5f4b890b20ef878edbc0a5d2ce5d72d7b642084e` state and earlier setup-harness
+  failures remain preserved and are not rewritten. Cheap-model/effort,
+  token, elapsed-cost, and savings data are **NOT AVAILABLE**.
+- Verdict: **PARTIAL CLOSEOUT — NOT FINAL GO**. Root owns production disposable
+  cleanup, retained-QA post-cleanup readback, and final release decision.
+
+### LEARNER43-LIVE-INTERMEDIATE-CORRECTION-20261010 — 2026-10-10
+
+- Correction to `LEARNER43-LIVE-INTERMEDIATE-20261010`: the DEV
+  `dev-live-r2/browser.json` receipt records ordinary methodologist inspection
+  of both lessons/previews/quizzes only; DEV learner wrong-answer, retry,
+  completion, and certificate journey were **NOT RUN**. The bounded DEV cleanup
+  receipt is separate and does not imply learner browser acceptance.
+- The intentional wrong-answer `50` → retry `100`, second quiz `100`, `2/2`
+  lessons, completion, and certificate evidence belongs exclusively to the
+  PRODUCTION `prod-live/browser-final.json` root-supplied receipt.
+- The local corrected suite evidence remains linked to its recorded execution
+  worktree/HEAD; this correction does not claim the suite was re-executed after
+  the later c453 working-tree binding. No prior ledger entry was edited.
+
+### LEARNER43-PROD-CLEANUP-DIAGNOSIS-20261010 — 2026-10-10 — cleanup blocked
+
+- Root-supplied read-only receipts for disposable production tenant
+  `e3d7e9d5-27bc-411d-a8d5-554a469e4160` record an ordinary guarded tenant
+  DELETE HTTP 500 classified as `IntegrityError`; the transaction rolled back.
+  Exact emitted PostgreSQL constraint/error text was **NOT CAPTURED**. This is
+  a cleanup failure, not a product-pass or successful-delete receipt.
+- Post-failure inventory checked all 116 tenant-scoped tables without further
+  mutation: 79 tenant rows remained, including one enrollment, one certificate,
+  three quiz attempts, two lesson-progress rows, and four
+  `training_evidence_events` linked to the completed enrollment. The receipt
+  identifies the relevant enrollment FK dependency as
+  `training_evidence_events_enrollment_id_fkey` (`ON DELETE RESTRICT`), while
+  the exact failing constraint remains unconfirmed.
+- Nine retained-QA fingerprints (courses, modules, lessons, quizzes,
+  quiz_attempts, enrollments, certificates, content_releases, documents) were
+  identical before and after the failed cleanup; QA identity/non-demo status
+  remained matched. Runtime receipt reports API and all three workers healthy
+  with matched images and zero bounded error markers; those markers do not erase
+  the captured cleanup IntegrityError.
+- Evidence: `.release-evidence/REL-LEARNER43-20261010/prod-cleanup-diagnosis43.json`,
+  `prod-qa-before.json`, `prod-qa-after-cleanup-failure43.json`, and
+  `prod-runtime-after-cleanup-failure43.json`. Cleanup and retained-QA-after-
+  cleanup are **BLOCKED/PENDING**; no source repair or database mutation was
+  authorized.
+
+### LEARNER43-FOUR-CLEANUP-20261010 — 2026-10-10 — partial correction/closeout
+
+- Canonical DEV receipt `four-cleanup-dev.json` passed 14 bounded checks for
+  the exact four approved synthetic training-evidence records, including
+  wrong/extra/missing/invalid-payload rejection, legal-hold rejection, owned
+  deletion, foreign-event preservation, forced-RLS/ACL preservation, and
+  rollback restoration. No public business mutation occurred; public catalog
+  remained unchanged.
+- Root-supplied production receipt `four-evidence-production.json` records a
+  committed owner-authorized transaction deleting exactly four owned events,
+  leaving zero owned events, preserving foreign events and the security
+  catalog, with temporary policies absent. This is a distinct bounded evidence
+  purge receipt; it is not the ordinary tenant-delete result.
+- The subsequent ordinary learner cleanup remains `ATTEMPTING_DELETE` in
+  `prod-live/learner-cleanup-after-four.json`; no 204/404 result is claimed.
+  The service rollback probe reproduced `IntegrityError` SQLSTATE `23514` at
+  stage `quiz_attempts` under the `quiz_attempt_evidence_immutable` guard,
+  with constraint/table text **NOT_CAPTURED**, commit false, tenant and
+  enrollment preserved, and zero permanent mutations. The earlier evidence-FK
+  inventory was an inference and does not establish the first observed error.
+- `prod-qa-after-four43.json` matches all nine QA counts/fingerprints from
+  `prod-qa-after-cleanup-failure43.json`; QA identity/non-demo status remains
+  matched. Runtime remains healthy (API and three workers, matched images,
+  zero bounded markers). These facts do not erase the captured rollback
+  failure. Cleanup remains **BLOCKED**, tenant remains present, and this is not
+  a fresh generation/UI rerun or final GO.
+- Evidence: `.release-evidence/REL-LEARNER43-20261010/four-cleanup-dev.json`,
+  `four-evidence-production.json`, `prod-live/learner-cleanup-after-four.json`,
+  `prod-service-rollback-diagnosis43-r2.json`, `prod-qa-after-four43.json`, and
+  `prod-runtime-after-four43.json`.
+
+### LEARNER43-THREE-CLEANUP-20261010 — 2026-10-10 — partial closeout correction
+
+- Canonical DEV receipt `three-cleanup-dev-r7.json` passed 15 bounded checks
+  for the exact three approved synthetic training-evidence records, including
+  wrong-marker/status/hash/tenant rejection, immutable ordinary-control
+  failures, exact-three owned deletion, foreign-row preservation, forced-RLS
+  and trigger/ACL preservation, and rollback restoration. The six earlier
+  failed DEV receipts remain historical and are not rewritten.
+- Root-supplied production receipt `three-attempt-production43.json` records a
+  committed exact-three owned-attempt purge with foreign rows and security
+  catalog unchanged. This is distinct from the historical three browser
+  attempts and does not claim a generic purge fix.
+- The ordinary production learner cleanup receipt
+  `prod-live/learner-cleanup-after-three.json` records `CLEANUP_PASS`, DELETE
+  `204`, and fresh GET `404` for tenant
+  `e3d7e9d5-27bc-411d-a8d5-554a469e4160`; the pre-delete inventory had zero
+  quiz attempts after the approved exact-three purge. The tenant is absent.
+- The follow-up absence checker itself is **BLOCKED** (`remote_script_failed`,
+  post-delete all-table-absence stage, details `NOT_CAPTURED`), but the bounded
+  residual inventory independently checked 116 tenant-scoped tables and found
+  only two `document_embeddings` rows. Both rows bind to document
+  `60d49dda-a6ae-4740-b4cd-26987dd6862f`; the source document and tenant are
+  absent. Full data cleanup therefore remains **BLOCKED** on these two
+  unapproved index-orphan rows; no direct index cleanup is claimed.
+- `prod-qa-before.json` and `prod-qa-after-final-cleanup43.json` have identical
+  nine QA fingerprints, matched QA identity, and non-demo status. Final runtime
+  reports healthy API/three workers, matched release images, zero restarts,
+  native42/public API43 compatibility, active timers, and disk use 76%.
+  Historical cleanup failures, OTP/signature/result-explanation UI gaps, and
+  no fresh generation/UI rerun remain explicitly **NOT FIXED/NOT RUN**.
+- Evidence: `.release-evidence/REL-LEARNER43-20261010/three-cleanup-dev-r7.json`,
+  `three-attempt-production43.json`, `prod-live/learner-cleanup-after-three.json`,
+  `prod-disposable-absence43-failed.json`, `prod-disposable-residual43.json`,
+  `prod-two-embedding-inventory43.json`, `prod-qa-before.json`,
+  `prod-qa-after-final-cleanup43.json`, and `prod-runtime-final43.json`.
+
+### LEARNER43-TWO-CLEANUP-20261011 — 2026-10-11 — bounded final cleanup correction
+
+- `two-embedding-dev-r4.json` is a local artifact review PASS with template
+  SHA256 `8f31a1e3de23c67a4dcce3913863097f5945108a02cdb897726591c3c417843b`:
+  14 checks passed, public business mutations were false, and exact-two
+  synthetic embedding deletion was covered with foreign rows, policies, ACL,
+  force-RLS, safe-role restoration, and catalog preservation.
+- The corrected production receipt `two-embedding-production43-r2.json` is
+  hash-bound by `cleanup-final-status43.json` and records a committed exact-two
+  maintenance transaction: all 116 tenant-scoped tables checked, zero rows
+  remaining, foreign rows/security catalog unchanged, force-RLS true, and
+  runtime role non-bypass. `two-embedding-rollback-diagnostic43-r2.json`
+  separately records the corrected rollback probe with zero persisted
+  mutations. The original `two-embedding-production43-failed.json` and
+  `two-embedding-rollback-diagnostic43.json` (SQLSTATE `54000`) remain
+  preserved; neither is rewritten or treated as a fresh PASS.
+- Independent production absence receipt `prod-disposable-absence43.json`
+  confirms the exact tenant absent after checking 116 tables with zero rows.
+  QA before/after receipts have identical nine fingerprints and matched
+  non-demo identity. Final runtime is healthy with API/three workers,
+  matched images, zero restarts, native42/API43 compatibility, active timers,
+  and 76% disk use. No new generation or UI rerun was performed.
+- `cleanup-final-status43.json` binds the release SHA
+  `c453658aa30b1826d9395f976c6355d3bc760de9` and preserves earlier cleanup
+  500s/rollback history. Generic purge remains **NOT IMPLEMENTED**; object
+  storage absence is **NOT VERIFIED**; OTP/signature/result-explanation UI and
+  paid regeneration are **NOT RUN**. This is bounded cleanup PASS, not full
+  product acceptance or final GO.
+- Evidence: `.release-evidence/REL-LEARNER43-20261010/cleanup-final-status43.json`,
+  `two-embedding-dev-r4.json`, `two-embedding-production43-r2.json`,
+  `two-embedding-rollback-diagnostic43-r2.json`,
+  `two-embedding-production43-failed.json`,
+  `two-embedding-rollback-diagnostic43.json`,
+  `prod-disposable-absence43.json`, `prod-qa-before.json`,
+  `prod-qa-after-two43.json`, and `prod-runtime-after-two43.json`.

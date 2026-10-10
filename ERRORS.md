@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-10.
+Current as of: 2026-10-11.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -6093,6 +6093,11 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   derive_assessment_axes/materialize_assessment; negative controls for negated,
   mixed permission/prohibition and quoted rules RED then GREEN. Failed draft was
   removed through exact guarded API cleanup; quality rejection stays preserved.
+- Runtime verification2026-10-10: corrected c453658a DEV and production real
+  generations independently source-reviewed PASS8/8operational clusters and all
+  four questions. Root production ordinary learner answered the categorical
+  prohibition correctly, passed both tests and completed2of2/100%. Protected
+  production38058235447/image2ad1133e deployed; no historical course rewrite.
 - Prevention: topic overlap is not answer-category compatibility. Do not repair
   source truth to fit a provider's question or treat automatic review as a
   semantic oracle. Repeat real DEV acceptance on the corrected exact candidate
@@ -6495,6 +6500,17 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   auth safeguards to obtain a green report. Transport mode mutation on the
   canonical root-owned-state route is not a claim of semantic SQL mutation;
   these inventory probes use BEGIN READ ONLY/ROLLBACK.
+- Recurrence2026-10-10: production43 setup checked an incorrect null manual-staff
+  apply-rules task ID and a non-auth-valid example.invalid fixture address;
+  optional TokenResponse user tenant metadata was treated as mandatory instead
+  of reading ordinary /users/me. Existing synthetic student/course were reconciled,
+  not recreated; only its synthetic email was corrected and missing assignment
+  resumed. The browser journey completed, but later cleanup login429/hourly20
+  repeated the stateless-helper quota failure (read-only count21). No protection
+  changed. Preserve the interrupted receipts and complete cleanup only after the
+  actual window; future bounded orchestration must reuse a process-local client
+  across setup, readback and cleanup, budget all browser/API logins, validate
+  fixture emails through LoginRequest, and consume the actual response DTO.
 
 ## STAFF-IMPORT-001 - Inline rules lost tenant context after durable CSV commit
 
@@ -6530,6 +6546,95 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: inventory every fixture-created table and dependencies; HTTP404
   alone is not complete cleanup proof. Direct maintenance requires exact owner
   authority and must never become a generic production prune.
+
+## TENANT-PURGE-006 - Completed learning evidence blocks disposable tenant cleanup
+
+- Date: 2026-10-10; release43 disposable learner fixture only.
+- Symptom: exact-slug guarded ordinary tenant DELETE returned500 after successful
+  learner completion. Read-only log records IntegrityError; deletion rolled back.
+- Cause: source/catalog establish an unhandled protected-evidence dependency;
+  exact emitted constraint remains NOT CAPTURED. Exact tenant still present;
+  independent116-table tenant_id inventory
+  finds79owned rows, including4training_evidence_events referring to the completed
+  enrollment. Application purge deletes enrollments before content releases but
+  has no training-evidence cleanup. Runtime enrollment FK is RESTRICT; migrations
+ 0083/0088 preserve append-only events and policy-governed retention. The precise
+  PostgreSQL exception constraint was not captured; do not invent it from static
+  inference. Pending OTP is not the cause needed for this dependency.
+- Fix: owner-authorized one-shot maintenance removed exactly the four approved
+  synthetic training-evidence events after canonical DEV rehearsal14PASS. No
+  trigger/function replacement, lasting ACL/RLS/retention change or migration.
+  Generic completed-learning tenant purge remains NOT FIXED. The approved
+  evidence maintenance is complete; full116-table fixture absence subsequently
+  PASSed after separately approved index maintenance (TENANT-PURGE-007).
+- Verification: exact-four production transaction COMMITTED, foreign events and
+  security catalog unchanged, temporary exact-ID policies absent before commit.
+  Subsequent ordinary DELETE500 rolled back. Actual deployed-service rollback-
+  only probe independently reproduced23514 at DELETE quiz_attempts, with the
+  evidentiary-attempt immutable guard; it did not reach enrollment deletion.
+  This corrects the earlier FK inventory inference about the first stop: the
+  training-evidence dependency was real, but was not the observed first error.
+  Fresh exact-three owner approval then permitted only those synthetic attempts.
+  Canonical DEV15PASS (owned schema/role rolled back; DEV owner BYPASSRLS honestly
+  distinguished from independently verified production non-bypass owner)
+  preceded one committed exact-three production transaction. Ordinary tenant
+  DELETE204/fresh404 then succeeded. Foreign attempts, policies/ACL/FORCE RLS,
+  triggers and role flags unchanged. Full116-table readback found only two
+  document_embeddings rows; permanentQA9full-row fingerprints and current43
+  runtime/ordinary learner flow remain PASS. Historical500s are retained.
+- Prevention: completed-learning acceptance creates protected evidence even
+  without OTP/signature. Before creating a disposable completed-course fixture,
+  prove its authorized full cleanup path. Import-only/enrollment-only purge
+  tests do not cover this case. New privileged cleanup needs exact owner scope;
+  never weaken real training retention or legal holds to make QA deletion pass.
+
+## TENANT-PURGE-007 - Tenant DELETE left document search-index fragments
+
+- Date: 2026-10-10; exact disposable learner43 tenant e3d7e9d5…4160 only.
+- Symptom: normal guarded tenant DELETE204/fresh404, but full116-table readback
+  found two document_embeddings rows. All other115 tenant-scoped tables empty.
+- Cause: TENANT_DELETE_SQL removes documents but omits document_embeddings.
+  Document cleanup owns a separate explicit tenant_id/doc_id DELETE, but cannot
+  operate through the normal document lifecycle after document/tenant removal.
+- Fix: generic tenant-purge omission NOT IMPLEMENTED. Fresh exact-two owner
+  authority permitted only the frozen orphan inventory. Canonical isolated DEV
+  rehearsal14PASS and production rollback-only proof preceded one committed
+  exact-two maintenance transaction; no grants/RLS/trigger/retention changes.
+- Verification: prod-disposable-residual43.json reports116 tables/two rows;
+  prod-two-embedding-inventory43.json binds both full-row hashes to source
+  60d49dda-a6ae-4740-b4cd-26987dd6862f and the absent exact disposable tenant.
+  First maintenance fingerprint failed54000 before deletion and rolled back;
+  exact IDs/full hashes unchanged. Corrected full-row hash-of-hashes avoided
+  oversized raw-JSON aggregation; both original failures remain preserved.
+  two-embedding-production43-r2.json records COMMITTED/exact2/foreign-security
+  unchanged. Independent prod-disposable-absence43.json verifies all116 tables
+  empty, tenant absent and revision0178; permanentQA9full-row fingerprints
+  unchanged, runtime43/native42/API+3workers healthy. Bounded DB cleanup PASS,
+  not a generic purge repair or object-storage absence proof.
+- Prevention: verify every public tenant_id table after ordinary tenant cleanup,
+  not just tenant404 or listed application tables. Prove derived-index cleanup
+  in the isolated DEV purge regression; exact orphan maintenance needs owner
+  authority and must not become a generic production prune.
+
+## TENANT-PURGE-008 - Maintenance fingerprint exceeded PostgreSQL aggregation limit
+
+- Date: 2026-10-11; exact release43 two-fragment maintenance only.
+- Symptom: first production maintenance aborted before confirmed COMMIT;
+  rollback-only diagnostic reproduced SQLSTATE54000 before CREATE TEMP completed.
+- Cause: foreign-row fingerprint concatenated complete embedding JSON rows into
+  one unbounded string_agg value. Small synthetic DEV controls did not exercise
+  the aggregate size of the actual index. SQLSTATE54000/stage are captured;
+  raw error text and payload were deliberately not persisted.
+- Fix: hash each complete row to SHA256, aggregate fixed64hex hashes in stable ID
+  order, then hash the aggregate. Apply the identical expression before/after;
+  keep exact ID/full-row binding, non-bypass role, FORCE RLS and all116 zero sweep.
+- Verification: revised canonical DEV14PASS; actual production rollback-only
+  probe PASS/2rows retained/security unchanged, fresh exact ID/full-hash inventory
+  matched; corrected production transaction COMMITTED2 and independent116-table
+  zero readback PASS. Earlier failed scripts/receipts retained unchanged.
+- Prevention: use bounded per-row digests for full-data invariance; do not
+  concatenate large raw vectors/documents. Verify the guarded procedure with
+  rollback on the actual target scale before an irreversible maintenance commit.
 
 ## CLIENT-DEMO-001 - Programme actions exceeded a course-PIN session's scope
 

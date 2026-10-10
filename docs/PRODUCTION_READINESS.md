@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** frontend/API/DB/worker identity and four bounded demo fixes2026-10-08
+**Проверено:** backend43/native frontend42; bounded learner flow and116-table DB cleanup closed2026-10-11
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,183 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production42 — deployed and bounded acceptance PASS, 2026-10-08
+## Current production43 — deployed; bounded learner acceptance and DB cleanup PASS, 2026-10-11
+
+Release0.11.43/tagv0.11.43/runtime source
+`c453658aa30b1826d9395f976c6355d3bc760de9`; GitHub Release408987262.
+Corrected canonical local API suite2687PASS/0FAIL/0SKIP; Python quality baseline
+ruff1008/mypy2201 unchanged. Exact CI38056844068 all7SUCCESS; DB-backed
+4229PASS/2SKIP, coverage75.66%; AI-COURSE-01 26PASS and PostgreSQL17/pgvector
+RLS42PASS. Initial5f4b890b real DEV acceptance REJECT is preserved, not relabeled.
+Its positive-action question keyed to a prohibition was reduced to exact
+public-seam RED/GREEN and four negative controls before corrected acceptance.
+
+Corrected real DEV: Render API dep-db5442tckfvc738t51b0/worker
+dep-db544svavr4c73fd6cqg LIVE on existing free tier; Vercel
+dpl_Ag5rtMhiky4XKm55JSdMGqrdPQ23 READY/Hobby. All nine existing DEV flags
+preserved, schema0178. One synthetic Orbita generation produced2lessons/2quizzes/
+4questions; generation receipt SHA256
+`253a43ae10b9ee4ef118c942684a7bc501155cffbb7ab73f3f05854c9e7ffbb1`.
+Independent source-first review and Root readback PASS all8 operational clusters,
+source-owned keys, meaningful headings, no authoring/QA leakage. Root ordinary
+methodologist browser inspected both rendered lessons and corrected prohibition
+question. DEV student completion NOT_RUN. Both rejected and corrected disposable
+DEV fixtures removed by exact ordinary API204/fresh404; retained DEV QA nine
+all-column fingerprints unchanged after corrected cleanup.
+
+Protected production workflow38058235447 SUCCESS, deployment6981963266,
+immutable image
+`ghcr.io/kamillalmscrm/kamilya-api@sha256:2ad1133e0985b676589937d44e36aa83d7896532a85f5d51f9505946f94396ea`.
+Root verified manifest/image/CI/attestation subject and Git commit before approval.
+API and all3workers blue/running/restarts0; private/public health exact43 and
+three workbench/document/correction flagsON. CT1250178 and safe lms_app unchanged;
+3FORCE-RLS tables/4safe-invoker functions/13policies/backup timer intact.
+Watchdog rebound only EXPECTED_RELEASE/EXPECTED_API_IMAGE, ownership/mode and
+other keys preserved; both watchdog/retention oneshots success and timers active.
+Root14:34:29UTC readback: no release lock, bounded error markers0 across all4
+containers, disk76%/free7527480KiB. Green rollback42/efed7a7e… API healthy,
+all3oldworkers stopped. Actual rollback switch NOT_RUN. Existing signed0178
+restore drill revalidated; its RPO43s/RTO19s are historical drill results, not
+a new restore during this rollout.
+
+Native frontend remains0.11.42/source
+`d415fd39f6bb41524d294b8528589ea337d49118`; no frontend runtime source delta
+other than package version. Fresh public /healthz200, body/header exact42 and
+actual learner journey prove bounded split compatibility. No CT137 rebuild,
+cleanup or Proxmox access.
+
+Production disposable e3d7e9d5-27bc-411d-a8d5-554a469e4160 with exact
+DISPOSABLE_LEARNER43_20261010_PRODUCTION_c45365 marker: one synthetic source,
+one real generation,2terminal jobs,2users,1published course,1no-email assignment.
+Generation receipt SHA256
+`97132e18d5ba88b541e1deefce255f5af44cdb6be36d4bfd3915098b3a43968b`.
+Independent semantic PASS8/8clusters and4questions; Root same sealed-receipt
+replay returns existing job, saved content and job inventory unchanged.
+Ordinary Root browser learner: assigned course from dashboard, both lessons,
+first test intentional wrong50%/not-passed then retry100%/passed, second test100%,
+corrected categorical prohibition visible, final course completion clicked;
+2of2/100% persisted and certificate issued. Exactly3owned completed quiz attempts
+confirmed through read-only API after UI submissions; no API grading/progress
+mutation. Unchanged learner result page does not expose per-answer explanations:
+their saved content was source-reviewed, not claimed as visible learner feedback.
+Email OTP, signed confirmation upload and confirmation delivery NOT_RUN.
+
+Setup harness failures preserved: wrongly required null apply-rules task ID,
+example.invalid fixture rejected by auth EmailStr, optional login tenant metadata
+absent. Root reconciled existing student/publication before resuming only missing
+steps; no duplicate user, regeneration, old-account/password/PIN reset or email.
+Initial cleanup stopped on auth/login429 after repeated stateless helpers.
+Root waited for the unchanged normal quota window; fresh count15 permitted the
+three ordinary logins. All receipt/identity/inventory/completion guards passed,
+but the single exact-slug DELETE returned500. No blind retry. Read-only runtime
+log records one IntegrityError; CT125 reconciliation finds exact tenant present,
+79owned rows across116tenant_id tables, including4training_evidence_events linked
+to the exact completed enrollment. Current application purge removes enrollment
+children then enrollments without an evidence purge. Runtime catalog confirms
+training_evidence_events_enrollment_id_fkey is RESTRICT. Exact server constraint
+not captured; source and catalog establish a blocking evidence dependency, not
+a new runtime assertion about which error PostgreSQL emitted first.
+Evidence remains append-only and governed by the existing retention function;
+no ordinary DELETE grant, owner bypass, retention/policy change or migration.
+Fresh owner approval then authorized only four exact synthetic evidence records.
+Canonical isolated Supabase DEV rehearsal14PASS: count/marker/hash/legal-hold
+negatives rejected atomically, exact-four deletion/foreign preservation and
+security invariants PASS; owned schema/NOLOGIN role rolled back, public catalog
+unchanged. Production one-shot transaction COMMITTED, owned events now0, foreign
+events/security catalog unchanged. Two exact-ID owner policies existed solely
+inside that transaction and were dropped before COMMIT; no grants, trigger/
+function replacements, lasting RLS/retention changes or migration.
+Frozen production script SHA256
+`d1dcb90bf2a472aae5f4b8db52a9faf2e44e7ec79b32fae4b6310778ecb67584`;
+DEV receipt SHA256
+`9917619cef8c124e4ba0c4111aa74229d03f355ab94a6f96ecef3005d5e62fee`.
+Subsequent ordinary API DELETE500/rollback preserved separately. Actual deployed
+service under lms_app, commit overridden to reject and finally rollback, proves
+SQLSTATE23514 at DELETE quiz_attempts / quiz_attempt_evidence_immutable guard.
+No permanent mutation in this diagnostic; tenant/enrollment still present.
+The prior evidence-FK inventory was a real dependency, not proof of the first
+emitted error. At that observation three protected attempts remained outside the
+exact-four approval; the116-table inventory still held79rows. Fresh exact-three
+approval and the subsequent closeout below supersede that residual inventory,
+not the two historical failed operations. Generic purge remains not fixed.
+Root15:29UTC runtime snapshot: public API43/native frontend42 healthy, four blue
+containers running/restarts0, green42 rollback healthy, both timers active, no
+release lock, disk76%/free7526368KiB. Bounded generic error-marker count0 is not
+an assertion of no product errors: the separately captured cleanup500 remains.
+Independent post-failure CT125 readback confirms all nine permanent production
+QA full-row fingerprints equal their before-test values. Fresh after-maintenance/
+rollback diagnostics readback repeats nine unchanged fingerprints, exact43/native42
+health, all4blue containers running/restarts0, green42 readiness, active timers,
+absent release lock, disk76%. Separate cleanup500s remain recorded despite zero
+generic bounded error markers. Final snapshots: prod-qa-stopped-final43.json and
+prod-runtime-stopped-final43.json in the same ignored evidence packet.
+
+Latest exact-three continuation: DEV one-shot15PASS receipt SHA256
+`d6d401e1f1f703447abc3ae2d9f6258734c91d0c2f574aa45df379267b1b70ce`.
+Actual public authorization/immutable-trigger definitions cloned into an owned
+rolled-back schema; ordinary DELETE/UPDATE, spoofed and wrong-tenant flag controls
+23514. Earlier harness failures preserved: polcmd bytes, unavailable SET existing
+lms_app, and unqualified pg_get_triggerdef fallback to public. The latter was
+caught by immutable-trigger identity guard and corrected to explicit owned binding.
+DEV database owner is non-super but BYPASSRLS=true, not production-equivalent;
+ordinary controls use a transaction-only NOLOGIN/NOSUPER/NOBYPASS/NOINHERIT role.
+Independent production read-only proof verifies existing kamilya_migrator is the
+actual database owner, NOSUPER/NOBYPASS, FORCE RLS true, exact3 visible attempts,
+no incoming FKs and zero training events. No existing rights are changed.
+Production script SHA256
+`4a19c04eddff65e9bd229d4b8a1f36743d154be690f33bee3631815ff2cc0f22`:
+one SERIALIZABLE transaction COMMITTED/exact3attempts removed/remaining0;
+foreign full rows and security catalog unchanged. No trigger/function/policy/
+ACL/retention change. Guarded normal tenant DELETE204/fresh404 after three paced
+ordinary logins PASS. Cleanup receipt SHA256
+`ab236fb4ecc7b59dfb83a635065dce51a152469690059d07b9cbb075bc5c2225`.
+
+Full independent CT125116-table verification then found two document_embeddings
+rows only; other115 tables empty, tenant and source document absent. Normal purge
+omits this separate derived index. Exact two-row/full-hash inventory frozen in
+prod-two-embedding-inventory43.json; no direct additional delete performed under
+the exact-three scope. At that historical snapshot cleanup was BLOCKED on two rows.
+Fresh prod-qa-after-final-cleanup43.json has all9fingerprints unchanged;
+prod-runtime-final43.json public43/native42 healthy, all4blue containers running/
+restarts0, rollback42 ready, timers active, no release lock, disk76%/7515468KiB free.
+No fresh paid generation or browser grading rerun during maintenance. Existing
+bounded generation/ordinary learner evidence remains hash-linked; earlier500s
+and failed full-absence assertion retained rather than relabeled PASS.
+
+Final fresh exact-two continuation2026-10-11: owner approved only the frozen two
+embedding IDs/full-row hashes, inventory SHA256
+`37f669a0368d648cfdf61ea3b544208735b83bf79c9b34c12e5974128690b954`.
+Initial maintenance failed before deletion: actual rollback diagnostic54000 at
+the foreign-row aggregate; exact rows/hashes unchanged. Replaced only the
+fingerprint with SHA256(full row) -> ordered fixed-size digest aggregate -> SHA256,
+without weakening any identity, non-bypass, RLS, foreign-data or116-table guard.
+Corrected canonical DEV14PASS and actual target rollback-only rehearsal PASS;
+owned DEV schema/role/grants rolled back and public table inventory unchanged.
+Production corrected script SHA256
+`5217cd70c7ac05e816f140a9bf3ef8a846864ea256f4e1ed3c3eb084cbda32c6`;
+one SERIALIZABLE transaction COMMITTED/exact2deleted/foreign-security unchanged.
+Production receipt SHA256
+`14353031e4e63010a8f7a85d6308069db9b5b7a8ac91cbcb7f318991affe7d7a`.
+Independent read-only prod-disposable-absence43.json now verifies all116 physical
+public tenant_id tables empty, tenant absent, revision0178. Fresh permanentQA
+prod-qa-after-two43.json matches all9before-test counts/full-row fingerprints.
+Fresh prod-runtime-after-two43.json: immutable API43/3workers matched/running/
+restarts0, native42/public43 healthy, rollback42 ready, timers active, no lock,
+disk76%/7509208KiB free. Bounded markers0 do not erase historical500s/54000.
+cleanup-final-status43.json binds original real-generation/ordinary browser
+receipts to the cumulative approved4/3/2 cleanup, normal204/404 and final116zero
+readback. Bounded learner presentation acceptance and DB fixture cleanup are
+closed; no new paid generation or browser grading rerun during maintenance.
+Generic completed-learning purge/index omission remains NOT FIXED, and physical
+object-storage absence is NOT VERIFIED; neither is misrepresented as covered by
+the exact-two approval. OTP/signature and UI explanation gaps remain outside this
+bounded release, as above. No new application release or migration was needed.
+Evidence: .release-evidence/REL-LEARNER43-20261010/; canonical release notes
+docs/releases/v0.11.43.md. No migration, voice, AV activation, landing, DNS,
+provider/model, resource, entitlement or billing change. Bounded synthetic
+acceptance is not full-product/500-user capacity GO or a guarantee for all sources.
+
+## Historical production42 — deployed and bounded acceptance PASS, 2026-10-08
 
 Exact release0.11.42/tagv0.11.42/source
 `d415fd39f6bb41524d294b8528589ea337d49118`; CI37780905461 all7SUCCESS,
