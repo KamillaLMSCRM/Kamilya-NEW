@@ -896,7 +896,7 @@ the generic tenant purge was fixed.
 Sanitized append-only raw receipts: `.release-evidence/REL-COURSE44-20261012/`,
 generation receipt SHA256b1bf179af3279e7d00b07c2246fb0367afcdc7e5e69528cc52ea697276d50f1a.
 Test & Evidence Runner independently reconciled Root's artifacts and corrected
-two reviewer labels to the actual production questions without changing outputs;
+reviewer labels to the actual production questions without changing outputs;
 its verdict is local artifact review, not a second runtime execution. Release
 Runner's protected-workflow receipt and Root's independent live readbacks are
 separate. Browser harness corrections (AX diff/race, field-order comparison and
