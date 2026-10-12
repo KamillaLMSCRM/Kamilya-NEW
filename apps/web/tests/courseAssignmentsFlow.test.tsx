@@ -144,7 +144,9 @@ describe('contextual course assignment flow', () => {
     expect(courseSelect).toHaveClass('w-full', 'min-w-0', 'max-w-full');
     await waitFor(() => expect(screen.getAllByText('Алия Садыкова')).toHaveLength(2));
 
-    const table = document.querySelector('table');
+    // The staff card may render before the separate enrollment request settles.
+    // Wait for the actual table rather than inferring readiness from staff names.
+    const table = await screen.findByRole('table');
     expect(table?.parentElement).toHaveClass('overflow-x-auto', 'min-w-0', 'max-w-full');
 
     const recurringSelects = document.querySelectorAll('label select');

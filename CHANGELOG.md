@@ -149,6 +149,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Let methodologists start a new course from a saved assessment-review draft
   without cancelling that job or changing the retained draft. Other active,
   resumable and failed-generation cancellation behavior is unchanged.
+- Download certificates through the already-authorized API with `direct=true`,
+  including Supabase-backed DEV. Preserve legacy signed-URL redirects by default
+  and the existing integrity/tenant/learner checks; do not widen browser CSP.
+- Validate the canonical DEV evidence root before constructing provider access or
+  executing a release. A receipt-path error must never follow provider mutations.
 
 ### Verification boundary
 

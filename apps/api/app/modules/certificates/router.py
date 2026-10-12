@@ -212,6 +212,7 @@ async def download_certificate_pdf(
     cert_id: UUID,
     db: Database,
     user: CurrentUser,
+    direct: bool = False,
 ):
     """Download certificate as PDF.
 
@@ -226,15 +227,20 @@ async def download_certificate_pdf(
     storage = get_storage()
     backend_name = storage.name
 
-    if backend_name.startswith("supabase"):
+    if backend_name.startswith("supabase") and not direct:
         # Redirect to signed URL
         signed_url = await get_pdf_url(db, cert_id, user.tenant_id, expires_in=300)
         if not signed_url:
             raise HTTPException(status_code=500, detail="Could not generate download URL")
         return RedirectResponse(url=signed_url, status_code=302)
 
-    # Local: stream bytes
-    pdf_bytes = await read_pdf_bytes(db, cert_id, user.tenant_id)
+    # Stream bytes for local storage and for direct browser downloads.  The
+    # service performs the storage read/integrity check; convert missing or
+    # unreadable artifacts into the endpoint's stable 500 contract.
+    try:
+        pdf_bytes = await read_pdf_bytes(db, cert_id, user.tenant_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="PDF generation failed") from exc
     if not pdf_bytes:
         raise HTTPException(status_code=500, detail="PDF generation failed")
 

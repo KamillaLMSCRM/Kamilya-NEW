@@ -51,7 +51,7 @@ export default function CertificatesPage() {
     if (downloadingId) return;
     setDownloadingId(cert.id);
     try {
-      const res = await fetch(`${API_URL}/v1/certificates/${cert.id}/download`, {
+      const res = await fetch(`${API_URL}/v1/certificates/${cert.id}/download?direct=true`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {

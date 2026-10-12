@@ -1148,6 +1148,13 @@ def _evidence_path(evidence_root: Path, packet: Mapping[str, Any], mode: str) ->
     return evidence_root / "dev" / str(packet["release_id"]) / f"{mode}.json"
 
 
+def _validated_evidence_root(evidence_root: Path, repo_root: Path) -> Path:
+    canonical = (repo_root.resolve() / ".release-evidence").resolve()
+    if evidence_root.resolve() != canonical:
+        raise DevReleaseBlocked("evidence_root_not_canonical")
+    return canonical
+
+
 def _write_evidence(
     evidence_root: Path,
     repo_root: Path,
@@ -1155,9 +1162,7 @@ def _write_evidence(
     mode: str,
     result: Mapping[str, Any],
 ) -> Path:
-    canonical = (repo_root.resolve() / ".release-evidence").resolve()
-    if evidence_root.resolve() != canonical:
-        raise DevReleaseBlocked("evidence_root_not_canonical")
+    canonical = _validated_evidence_root(evidence_root, repo_root)
     path = _evidence_path(canonical, packet, mode)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
@@ -1187,6 +1192,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         packet = load_packet(args.packet, args.packet_sha256)
+        _validated_evidence_root(args.evidence_root, args.repo_root)
         adapter = LiveProviderAdapter(
             repo_root=args.repo_root,
             env_file=args.env_file,

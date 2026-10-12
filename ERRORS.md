@@ -2,6 +2,64 @@
 
 Current as of: 2026-10-12.
 
+## DEV-WORKER-SLEEP-001 - Free web-hosted worker stopped while QA reviewed content
+
+- Date:2026-10-12; existing Render DEV Free service, not KZ production.
+- Symptom: after a successful PDF generation, new indexing/generation remained
+  queued. Service metadata was live/not_suspended and its HTTP health had passed,
+  but bounded worker logs recorded warm shutdown at16:47:15UTC,15 minutes after
+  the last readiness HTTP request. A later ordinary health GET woke the same
+  existing Free service; both queued tasks then completed without resubmission.
+- Cause: the Free web-hosted DEV worker can spin down on HTTP inactivity even
+  when its external broker has queued tasks. Contract live/Free alone is not
+  proof that the Celery consumer is awake. This is not a production-worker fault.
+- Fix: before a long DEV mutation journey, verify exact existing Free/
+  not_suspended identity and issue the canonical worker health GET. If queued
+  work stalls, inspect bounded existing logs and reconcile that original job
+  before any retry. Do not resubmit, upgrade, create resources, install a keepalive
+  service or wake a billable/suspended resource under this procedure.
+- Verification: one health GET returnedok; original negative generation job
+ 75351b3d-a014-4b69-9533-028fa7c5314e completed. Keep its473.568843s total job
+  clock, including queue delay, rather than silently counting only active work.
+- Prevention: distinguish provider deployment status, HTTP readiness, consumer
+  liveness and business completion. Human review time can exceed Free idle time.
+
+## CERTIFICATE-DOWNLOAD-002 - Storage redirect violated the browser connection policy
+
+- Date:2026-10-12; candidate46 DEV, repair acceptance pending.
+- Symptom: ordinary QA learner completes the PDF course and receives an active
+  certificate, but Download reports Failed to fetch. Browser network diagnostics
+  prove blockedReason=csp. Authenticated API returns302; signed storage GET returns
+ 200/PDF45217bytes, so neither issuance nor the stored PDF is the failure.
+- Cause: Supabase-backed download redirects a fetch away from the sole allowed
+  API origin. Production local-storage downloads passed; this is a distinct
+  environment-dependent integration contract, not proof of a general outage.
+- Fix: optional direct=true streams the existing integrity-checked PDF through
+  the authorized API. UI requests that mode. Preserve default Supabase302 and
+  local streaming, all existing ownership/RLS checks and unchanged CSP.
+- Verification: direct contract RED before repair,9 API and2 UI regressions
+  GREEN. Fresh actual DEV/browser download and production acceptance remain gates.
+- Prevention: test both storage backends through real browser download, not just
+  active certificate status or a signed-URL200. Never store raw signed URLs/tokens.
+
+## DEV-RELEASE-EVIDENCE-001 - Evidence path was checked after provider execution
+
+- Date:2026-10-12; local repair, next DEV execution acceptance pending.
+- Symptom: canonical DEV execution reports evidence_root_not_canonical, but both
+  Render deployments are already live. Two invocations lacked final receipts.
+  Initial no-mutation interpretation was withdrawn after independent provider reads.
+- Cause: main called the operation before _write_evidence checked the required
+  repo-root/.release-evidence path. An invalid receipt argument was not a preflight.
+- Fix: shared canonical-root validation precedes provider construction for
+  prepare/execute/reconcile; retain the same check at write time. Packet/provider
+  semantics are unchanged. Canonical read-only reconcile captured existing state.
+- Verification: fake-provider ordering regression RED;16 focused tests and6
+  command subtests GREEN. A temporary test-class placement error caused5 failures,
+  corrected by restoring the original fake methods; it was not pre-existing debt.
+- Prevention: bind the exact canonical evidence-root argument in handoffs; inspect
+  actual external identities after any uncertain failure, never infer no mutation
+  from an exit code. Preserve failed attempts and reconcile before another execute.
+
 ## AI-QUALITY-047 - Digital PDF flattened a verified table into inadmissible fragments
 
 - Date: 2026-10-12; local candidate, DEV/production repair acceptance pending.

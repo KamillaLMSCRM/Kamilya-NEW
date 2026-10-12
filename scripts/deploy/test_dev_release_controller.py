@@ -139,6 +139,105 @@ class FakeProviders:
         return self.health[url]
 
 
+class MainFakeAdapter:
+    constructed = 0
+
+    def __init__(self, **_kwargs) -> None:
+        type(self).constructed += 1
+
+
+def _main_argv(
+    tmp_path: Path, command: str, evidence_root: Path
+) -> list[str]:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    packet_path = tmp_path / "packet.json"
+    packet_path.write_text(json.dumps(packet_data()), encoding="utf-8")
+    digest = hashlib.sha256(packet_path.read_bytes()).hexdigest()
+    return [
+        command,
+        "--packet",
+        str(packet_path),
+        "--packet-sha256",
+        digest,
+        "--repo-root",
+        str(tmp_path / "repo"),
+        "--env-file",
+        str(tmp_path / ".env"),
+        "--evidence-root",
+        str(evidence_root),
+        "--confirm-release-id",
+        packet_data()["release_id"],
+    ]
+
+
+class MainControllerTests(unittest.TestCase):
+    def setUp(self) -> None:
+        MainFakeAdapter.constructed = 0
+
+    def test_main_rejects_noncanonical_evidence_root_before_adapter_for_every_command(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            tmp_path = Path(raw)
+            wrong_root = tmp_path / "wrong-evidence"
+            with mock.patch.object(controller, "LiveProviderAdapter", MainFakeAdapter):
+                with mock.patch.object(
+                    controller.DevReleaseController,
+                    "prepare",
+                    return_value={"status": "PREPARED"},
+                ), mock.patch.object(
+                    controller.DevReleaseController,
+                    "execute",
+                    return_value={"status": "EXECUTED"},
+                ), mock.patch.object(
+                    controller.DevReleaseController,
+                    "reconcile",
+                    return_value={"status": "RECONCILED"},
+                ):
+                    for command in ("prepare", "execute", "reconcile"):
+                        with self.subTest(command=command):
+                            result = controller.main(
+                                _main_argv(tmp_path / command, command, wrong_root)
+                            )
+                            self.assertEqual(result, 1)
+                            self.assertEqual(MainFakeAdapter.constructed, 0)
+
+    def test_main_accepts_canonical_evidence_root_and_writes_for_every_command(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            tmp_path = Path(raw)
+            with mock.patch.object(controller, "LiveProviderAdapter", MainFakeAdapter):
+                with mock.patch.object(
+                    controller.DevReleaseController,
+                    "prepare",
+                    return_value={"status": "PREPARED"},
+                ), mock.patch.object(
+                    controller.DevReleaseController,
+                    "execute",
+                    return_value={"status": "EXECUTED"},
+                ), mock.patch.object(
+                    controller.DevReleaseController,
+                    "reconcile",
+                    return_value={"status": "RECONCILED"},
+                ):
+                    for index, command in enumerate(
+                        ("prepare", "execute", "reconcile"), start=1
+                    ):
+                        with self.subTest(command=command):
+                            command_tmp = tmp_path / command
+                            repo_root = command_tmp / "repo"
+                            evidence_root = repo_root / ".release-evidence"
+                            result = controller.main(
+                                _main_argv(command_tmp, command, evidence_root)
+                            )
+                            self.assertEqual(result, 0)
+                            self.assertEqual(MainFakeAdapter.constructed, index)
+                            evidence_path = (
+                                evidence_root
+                                / "dev"
+                                / packet_data()["release_id"]
+                                / f"{command}.json"
+                            )
+                            self.assertTrue(evidence_path.is_file())
+
+
 class DevReleaseControllerTests(unittest.TestCase):
     def test_live_push_uses_project_controlled_git_credential_helper(self) -> None:
         adapter = object.__new__(controller.LiveProviderAdapter)
