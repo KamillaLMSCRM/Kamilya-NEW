@@ -135,6 +135,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.45] - 2026-10-12
+
+### Fixed
+
+- Preserve dashboard enrollment scope while computing lesson resume links.
+  Ordinary students see certificate totals across all own assignments;
+  personal-link sessions remain restricted to the exact enrollment. Add a
+  regression and an isolated Supabase DEV service/SQL gate with tenant/user
+  negatives and owned-schema cleanup. No migration or frontend rebuild.
+
 ## [0.11.44] - 2026-10-12
 
 ### Changed

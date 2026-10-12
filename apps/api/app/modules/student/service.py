@@ -179,15 +179,15 @@ async def get_student_dashboard(
             .order_by(Module.order_index, Lesson.order_index, Module.id, Lesson.id)
         )
         candidates_by_enrollment: dict[UUID, list[tuple[UUID, datetime | None]]] = {}
-        for enrollment_id, lesson_id, completed, last_accessed_at in (await db.execute(resume_query)).all():
+        for resume_enrollment_id, lesson_id, completed, last_accessed_at in (await db.execute(resume_query)).all():
             if not completed:
-                candidates_by_enrollment.setdefault(enrollment_id, []).append((lesson_id, last_accessed_at))
+                candidates_by_enrollment.setdefault(resume_enrollment_id, []).append((lesson_id, last_accessed_at))
         delivery_by_enrollment = {
             enrollment.id: getattr(course, "delivery_type", "native")
             for enrollment, course, _due_at in resumable_enrollments
         }
-        for enrollment_id, candidates in candidates_by_enrollment.items():
-            if delivery_by_enrollment.get(enrollment_id) == "scorm" or not candidates:
+        for resume_enrollment_id, candidates in candidates_by_enrollment.items():
+            if delivery_by_enrollment.get(resume_enrollment_id) == "scorm" or not candidates:
                 continue
             recent: list[tuple[UUID, datetime]] = [
                 (lesson_id, last_accessed_at)
@@ -195,7 +195,7 @@ async def get_student_dashboard(
                 if last_accessed_at is not None
             ]
             chosen = max(recent, key=lambda candidate: candidate[1].timestamp()) if recent else candidates[0]
-            resume_by_enrollment[enrollment_id] = f"?lessonId={chosen[0]}"
+            resume_by_enrollment[resume_enrollment_id] = f"?lessonId={chosen[0]}"
 
     enrolled_courses = []
     total_lessons_all = 0

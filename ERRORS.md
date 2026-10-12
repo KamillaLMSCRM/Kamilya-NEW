@@ -1,6 +1,25 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-11.
+Current as of: 2026-10-12.
+
+## STUDENT-DASHBOARD-001 - Resume loop overwrote certificate-count scope
+
+- Date: 2026-10-12.
+- Symptom: ordinary synthetic student dashboard showed1 certificate while the
+  same user's certificate list showed3 after the full production course cycle.
+- Cause: two resume-selection loops reused the optional `enrollment_id` parameter;
+  the later count incorrectly applied the last resume row's assignment predicate.
+- Fix: use distinct `resume_enrollment_id` loop bindings. Preserve explicit
+  personal-link scope and existing tenant/user predicates; no response change.
+- Verification: regression RED2/PASS1 before repair, focused canonical GREEN22,
+  full database-free GREEN2769. Real Supabase DEV service/SQL gate passes ordinary
+  3certificates/3assignments, two exact1/1 counts, cross-tenant0/0 and empty-context
+  denial, with exact owned-schema absence and unchanged public revision/table
+  inventory. Its first invalid duplicate-certificate fixture was rejected and
+  cleaned up; R2 uses separate assignments. Production repair/readback pending.
+- Prevention: optional authorization/read scope must not be reused as a loop
+  binding. Keep ordinary and exact-assignment total regressions; do not remove
+  the restriction to mask a count error.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product

@@ -343,6 +343,63 @@ async def test_empty_student_dashboard_uses_only_enrollment_and_certificate_read
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("assignment_scoped,progress_completed", [(False, True), (False, False), (True, True)])
+async def test_dashboard_certificate_count_keeps_requested_scope_after_resume_reads(assignment_scoped, progress_completed):
+    """Ordinary login counts all own certificates; personal access counts its occurrence only."""
+    from app.modules.student.service import get_student_dashboard
+
+    tenant, user, foreign_tenant, foreign_user = (uuid4() for _ in range(4))
+    enrollment_ids, course_ids = (uuid4(), uuid4()), (uuid4(), uuid4())
+    requested = enrollment_ids[0] if assignment_scoped else None
+    courses = [SimpleNamespace(
+        id=course_id, title="Synthetic", description="", status="published", delivery_type="native",
+        thumbnail_url=None, tenant_id=tenant,
+    ) for course_id in course_ids]
+    enrollments = [SimpleNamespace(
+        id=enrollment_id, course_id=course_id, user_id=user, tenant_id=tenant, status="completed",
+        source="manual", enrolled_at=datetime(2026, 10, 12, tzinfo=UTC), recurring_assignment_id=None,
+        learning_path_assignment_id=None, previous_enrollment_id=uuid4(),
+    ) for enrollment_id, course_id in zip(enrollment_ids, course_ids, strict=True)]
+    selected = [0] if assignment_scoped else [0, 1]
+
+    # Execute the real count query against independent, minimal synthetic rows.
+    # No PostgreSQL or external database is used by this unit seam.
+    metadata = MetaData()
+    certificates = Table("certificates", metadata,
+        Column("id", Uuid(as_uuid=True), primary_key=True),
+        Column("user_id", Uuid(as_uuid=True)), Column("tenant_id", Uuid(as_uuid=True)),
+        Column("enrollment_id", Uuid(as_uuid=True)),
+    )
+    engine = create_engine("sqlite:///:memory:")
+    metadata.create_all(engine)
+    with engine.begin() as connection:
+        connection.execute(certificates.insert(), [
+            {"id": uuid4(), "user_id": owner, "tenant_id": owner_tenant, "enrollment_id": occurrence}
+            for owner, owner_tenant, occurrence in (
+                (user, tenant, enrollment_ids[0]), (user, tenant, enrollment_ids[0]),
+                (user, tenant, enrollment_ids[1]), (foreign_user, tenant, enrollment_ids[0]),
+                (user, foreign_tenant, enrollment_ids[0]),
+            )
+        ])
+
+        class DB:
+            def __init__(self):
+                self.results = [
+                    Rows([(enrollments[i], courses[i], None) for i in selected]), Rows([]), Rows([]),
+                    Rows([(enrollment_ids[i], uuid4(), progress_completed, None) for i in selected]),
+                ]
+
+            async def execute(self, statement):
+                return self.results.pop(0) if self.results else Scalar(connection.execute(statement).scalar())
+
+            async def scalar(self, _statement):
+                return SimpleNamespace(id=requested)
+
+        result = await get_student_dashboard(DB(), user, tenant, enrollment_id=requested)
+    assert result["certificates_count"] == (2 if assignment_scoped else 3)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("matches", [True, False, None])
 async def test_exact_assignment_read_does_not_resume_against_another_occurrence(matches):
     from app.modules.student.service import get_student_dashboard
