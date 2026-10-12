@@ -2,8 +2,8 @@
 
 ## Decision
 
-**Canonical DEV acceptance CLOSED; engineering candidate READY for release
-preparation. NOT marketing proof, NOT production acceptance.**
+**DEV and bounded production0.11.44 engineering acceptance CLOSED.
+NOT marketing proof or measured human-efficiency evidence.**
 Runtime candidate97f4efd2834c9d6bb0056f848b79cb7ecbf85816 passed actual DEV
 generation and ordinary-methodologist editor/every-quiz acceptance on the frozen
 866-word source:10 lessons/20 questions,23/23 meanings,27/27 labelled table
@@ -11,8 +11,9 @@ relationships. The new fixture is absent from all116 tenant-scoped tables;
 permanent QA9-table fingerprints are unchanged. Following the owner's exact
 approval,11 old orphan embeddings were removed under the non-bypass runtime
 role after rollback proof; old tenant also has0 rows across all116 tables.
-No production action occurred. Final cleanup closure and limits are in the last
-section; earlier sections preserve their historical runs, including blocked states.
+That DEV phase did not change production. The separately authorized production44
+rollout and bounded real-generation acceptance are recorded in the final section;
+earlier sections preserve historical runs, including blocked and rejected states.
 
 Initial algorithm phase:
 Eight real first-attempt generations exposed source-loss and teaching defects.
@@ -846,3 +847,66 @@ absence proofs and final readback. This closes this candidate's owned fixture
 cleanup; generic tenant-purge omission remains a separate open defect. It does
 not prove old object-store absence, full-product quality, paired human speedup,
 production release execution, version/tag publication or commercial readiness.
+
+## Production0.11.44 — separate real-generation and browser closure, 2026-10-12
+
+Runtime source `2f333c414854c7f54be3c4d8c34d78472c652581`, immutable image
+`sha256:5acc4539cea194cba886cc2e8c7a30816b297e0da23685d5aaeb13d6fd9081d8`.
+CI38235382186 all7SUCCESS:4337PASS/2SKIP,75.81% coverage, overlapping
+AI-COURSE-01 28PASS and RLS42PASS. Protected workflow38236208832 SUCCESS,
+deployment7011811718. Root verified actual attestation source/subject and remote
+tag; the separate automatic build image was not used as deployed-image proof.
+Four green containers use this exact image/restarts0, schema0178 unchanged,
+native frontend42 retained and live-browser compatible. Watchdog identity,
+oneshots/timers, backup and rollback43 readiness independently read back.
+Actual rollback switch and a new restore drill were NOT_RUN.
+
+One actual production queued generation used the already consumed complex
+regression source, not a newly unseen holdout. Source8 sections/2 tables/866words;
+source bytes SHA2568d67d813ec5800b00fbeacee3e27a50224b22a7e4f71b374697cf6a4403d1171.
+No repeat paid generation or model/repair-budget change during this acceptance.
+
+| Production measurement | Actual result | Boundary |
+|---|---:|---|
+| Upload and indexing | 3.187s | Normal API path; text source, not OCR/converter benchmark |
+| Queued generation | 135.734s | Includes network/polling; excludes human review/publication |
+| Harness total | 139.937s | Upload through captured draft; excludes browser acceptance |
+| Lessons / quizzes / questions | 10 / 10 / 18 | DEV had20 questions; no padding or full-axis claim |
+| Source meanings retained and reviewed | 23 / 23 | One synthetic source; not universal accuracy |
+| Labelled table relationships retained | 27 / 27 | Row/column values rendered as labelled prose |
+| Grounded unique keys / wrong options reviewed | 18 / 35 | Source-first review, not measured learner effectiveness |
+
+Root ordinary-methodologist browser inspected all10 rendered lesson previews
+and all18 question forms, including the higher-level conflict rule. Each visible
+question/choice/key matched the captured API output; source file downloaded
+through the actual browser and matched the uploaded bytes. Reload retained10
+quizzes; console errors0; ordinary logout returned login. The generation was
+started using normal API helpers, so this is a hybrid end-to-end draft workflow,
+not an exclusively UI-driven upload journey. Same sealed confirmation replayed
+the original job. Draft remained unpublished and all quizzes require review;
+no save/approval/publication/assignment/invitation/learner attempt was performed.
+
+Normal draft204/fresh404 → document202/completed cleanup worker/fresh404 →
+tenant204/fresh404. Independent READ ONLY116-table sweep:0rows, tenant absent;
+physical local-storage prefix0files. Permanent QA9 full-row fingerprints and
+business counts unchanged. No privileged residual deletion. Generic
+TENANT-PURGE-007/008 remains open; successful source-first cleanup does not imply
+the generic tenant purge was fixed.
+
+Sanitized append-only raw receipts: `.release-evidence/REL-COURSE44-20261012/`,
+generation receipt SHA256b1bf179af3279e7d00b07c2246fb0367afcdc7e5e69528cc52ea697276d50f1a.
+Test & Evidence Runner independently reconciled Root's artifacts and corrected
+two reviewer labels to the actual production questions without changing outputs;
+its verdict is local artifact review, not a second runtime execution. Release
+Runner's protected-workflow receipt and Root's independent live readbacks are
+separate. Browser harness corrections (AX diff/race, field-order comparison and
+AX pressed-button representation) are retained as harness observations, not
+product failures or silently discarded generations.
+
+This closes the bounded production package. Earlier failed/blocked measurements
+and algorithm usage totals remain unchanged. Production provider call/token
+counts and actual billed USD are UNKNOWN; do not add this run to algorithm
+usage totals. No paired real-methodologist baseline, accepted-course editor time,
+same-version stability, long/scanned/binary-source coverage or human speedup is
+established. A truthful future case study may report the exact synthetic result
+and timing with these bounds; a comparison “faster than a person” is not supported.

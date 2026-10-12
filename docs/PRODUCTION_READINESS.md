@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** backend43/native frontend42; bounded learner flow and116-table DB cleanup closed2026-10-11
+**Проверено:** backend44/native frontend42; bounded course-generation browser acceptance and116-table/physical cleanup closed2026-10-12
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,61 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## DEV course-quality candidate — accepted2026-10-12, NOT production deployed
+## Current production44 — deployed; bounded generation acceptance and cleanup PASS, 2026-10-12
+
+Release0.11.44/tagv0.11.44/runtime source
+`2f333c414854c7f54be3c4d8c34d78472c652581`; GitHub Release410480273.
+Exact CI38235382186 all7SUCCESS:4337PASS/2SKIP, coverage75.81%,
+AI-COURSE-01 28PASS, RLS42PASS. Accepted DEV runtime97f4efd retains2766
+database-free local passes/27 overlapping journey selectors; these are linked
+results, not newly rerun or added to CI counts. Root fresh release-version and
+canonical release-contract checks PASS; baseline ruff1008/mypy2201 unchanged.
+
+Protected workflow38236208832 SUCCESS/deployment7011811718; controller
+REL-COURSE44-20261012-196f0b24a8a7402990828c103ee4b10b DEPLOYED at
+2026-10-12T10:28:54.483960Z. Root independently verified exact artifact,
+attestation subject/source, Git tag and remote SHA before protected approval.
+Actual immutable deployment image:
+`ghcr.io/kamillalmscrm/kamilya-api@sha256:5acc4539cea194cba886cc2e8c7a30816b297e0da23685d5aaeb13d6fd9081d8`.
+Do not substitute the separate automatic build's digest. API and all3workers
+green/running/restarts0, private/public health44, existing3flags ON; CT1250178
+unchanged. Only watchdog EXPECTED_RELEASE/EXPECTED_API_IMAGE changed, with
+mode/owner/other keys preserved; both oneshots succeed and timers are active.
+Final independent readback: no release lock, disk78%/free7086128KiB, backup timer
+active/last success and existing signed0178 restore-report hash matched. No new
+restore or actual rollback switch: blue43/c453658/image2ad1133 API healthy,
+old3workers stopped. Native frontend42/d415fd39 is retained without CT137 build,
+cleanup or Proxmox; actual ordinary-methodologist compatibility PASS below.
+
+One real production generation on the consumed866-word synthetic regression
+source: upload/index3.187s, queued generation135.734s, harness total139.937s
+(includes polling/network, not human review or publication time).10 lessons,
+10 quizzes,18 questions; independent source-first review and Root adjudication
+retain23/23 source meanings and27/27 labelled table relationships. All18 keys
+and35 wrong options reviewed; no quota padding.18 differs from DEV20 and does
+not demonstrate full assessment-axis coverage or same-version stability.
+Ordinary methodologist browser: actual source download SHA256 matches uploaded
+bytes, all10 rendered lesson previews and18 question/key forms inspected,
+all visible fields match API, reload retains10 quizzes, console errors0, logout
+returns login. Upload/queue used normal API, not an exclusively UI-only journey.
+Same sealed confirmation returns the original job. Draft remained unpublished,
+all tests need review; no saved edit, approval, assignment, invitation or attempt.
+
+Disposable87241b8a-6c33-4758-a492-6a677efe71e1: normal draft204/fresh404,
+document202/completed cleanup-worker/fresh404, then tenant204/fresh404.
+Independent READ ONLY sweep: all116 tenant-scoped tables0rows, tenant absent;
+independent local-storage prefix0files. Permanent production QA9 all-column
+fingerprints and business counts unchanged. No privileged residual deletion.
+Source/generation/UI/cleanup/readback receipts retained sanitized under
+`.release-evidence/REL-COURSE44-20261012/`; durable measurements and limitations in
+[`testing/2026-10-12-course-quality-benchmark.md`](testing/2026-10-12-course-quality-benchmark.md).
+Generic TENANT-PURGE-007/008 remains open, not repaired or globally proved by
+successful source-first cleanup. No migration, model/repair budget, provider
+tier/resources, billing, voice, AV activation, landing, DNS or pricing changes.
+This closes this package's bounded engineering acceptance, not commercial
+personal-data onboarding, universal accuracy or measured human speedup.
+
+## DEV course-quality baseline — accepted2026-10-12; historical source for production44
 
 Candidate97f4efd2834c9d6bb0056f848b79cb7ecbf85816 changes conflict repair feedback,
 source-owned lesson/table order and public automatic source-capacity wiring.
@@ -36,13 +90,13 @@ Root receipt `.release-evidence/COURSE-BENCH-20261012/release-readiness.json`:
 DEV_ACCEPTANCE_CLOSED_RELEASE_CANDIDATE_READY. Details/limits are in
 [`testing/2026-10-12-course-quality-benchmark.md`](testing/2026-10-12-course-quality-benchmark.md).
 
-Engineering DEV acceptance and owned cleanup are closed. Production version/tag,
-protected packet approval, deployment and production readback remain separate;
-current production state below was not changed. Generic tenant purge omission
+Engineering DEV acceptance and owned cleanup are closed. The production44
+version/tag, protected approval and deployment were separately verified above;
+the following production43 section is retained as historical acceptance. Generic tenant purge omission
 (TENANT-PURGE-007), old storage absence and paired real-methodologist effectiveness
 are not resolved by this bounded candidate.
 
-## Current production43 — deployed; bounded learner acceptance and DB cleanup PASS, 2026-10-11
+## Previous production43 — historical bounded learner acceptance and DB cleanup PASS, 2026-10-11
 
 Release0.11.43/tagv0.11.43/runtime source
 `c453658aa30b1826d9395f976c6355d3bc760de9`; GitHub Release408987262.
