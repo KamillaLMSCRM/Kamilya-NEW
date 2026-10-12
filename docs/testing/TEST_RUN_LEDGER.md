@@ -3360,3 +3360,18 @@ Rules:
   removed after durable benchmark/backlog/ledger handoff; recoverable in Git.
 - Release cleanup gate unchanged: exactly11 old DEV orphan embeddings require
   new exact owner authority. Do not rerun paid generation to close that gate.
+
+### COURSE-QUALITY-EXACT-ELEVEN-CLOSEOUT-20261012 — artifact reconciliation
+
+- Local static reconciliation only at HEAD `368fb4504746d02b188de9129abef7902f9a07ef`,
+  runtime release SHA `97f4efd2834c9d6bb0056f848b79cb7ecbf85816`; no external access or
+  runtime operation by this runner. All9 release-readiness evidence links and hashes
+  verified. Original rehearsal `BLOCKED_ROLLED_BACK` with0 committed rows preserved;
+  R2 rollback restored11 exact hashes; R2 commit records `COMMITTED_EXACT_ELEVEN`,
+  `lms_app`,11 rows, unchanged foreign/security state and0 grants/DDL/RLS changes.
+- Root-captured independent read-only sweeps report old fixture116 tables/0 rows and
+  new fixture116 tables/0 rows; retained QA nine-table fingerprints are identical.
+  Runtime observations remain Root-reported artifact evidence, not this runner's live
+  DB proof. Canonical release-contract gate PASS (head0178 and all checks); `git diff
+  --check` PASS. New sanitized receipt:
+  `.release-evidence/COURSE-BENCH-20261012/exact-eleven-closeout-gates.json`.

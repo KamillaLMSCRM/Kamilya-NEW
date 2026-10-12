@@ -255,12 +255,12 @@
     "actual_cost_usd": null,
     "local_r3_passed": 533,
     "local_journey_passed_overlapping": 27,
-    "dev_full_scenario": "NEW_FIXTURE_CANONICAL_FLOW_PASS_OLD_FIXTURE_CLEANUP_BLOCKED",
+    "dev_full_scenario": "PASS_CANONICAL_AI_COURSE_01_AND_OWNED_CLEANUP",
     "production_changed": false,
     "human_comparison": "NOT_MEASURED"
   },
   "dev_acceptance": {
-    "status": "PRODUCT_FLOW_PASS_RELEASE_CLEANUP_BLOCKED",
+    "status": "DEV_ACCEPTANCE_CLOSED_RELEASE_CANDIDATE_READY",
     "release_sha": "97f4efd2834c9d6bb0056f848b79cb7ecbf85816",
     "ci_run": 38225806750,
     "ci_status": "SUCCESS",
@@ -301,13 +301,19 @@
     "new_fixture_remaining_rows": 0,
     "permanent_qa_nine_table_fingerprints": "UNCHANGED",
     "old_fixture_cleanup": {
-      "status": "NEW_EXACT_AUTHORITY_REQUIRED",
+      "status": "COMMITTED_EXACT_ELEVEN_AND_INDEPENDENT_ABSENCE_PASS",
       "tenant": "e31c3a08-e61e-4450-b0ba-ac97c0d457df",
       "document": "39a99b98-e8af-449e-b4c9-5121a688d8eb",
       "table": "document_embeddings",
       "rows": 11,
       "inventory_sha256": "b091c3d18834dfda11bc10feae25ac291fc9fe7fdb5d639954463d11adf1efdc",
-      "direct_deletion_performed": false,
+      "direct_deletion_performed": true,
+      "delete_role": "lms_app_non_super_non_bypass",
+      "rollback_exact_rows_restored": 11,
+      "tables_checked_after_commit": 116,
+      "remaining_rows_after_commit": 0,
+      "foreign_rows_and_security_unchanged": true,
+      "new_grants_roles_ddl_rls_changes": 0,
       "procedure": "TENANT-PURGE-007"
     },
     "dev_actual_generation_jobs_total": 2,
@@ -317,6 +323,7 @@
     "local_journey_parametrizations_passed_overlapping": 27,
     "after_annotation_correction_focused_tests_passed_overlapping": 31,
     "production_changed": false,
-    "evidence": ".release-evidence/COURSE-BENCH-20261012/final-acceptance.json"
+    "previous_acceptance_preserved": ".release-evidence/COURSE-BENCH-20261012/final-acceptance.json",
+    "evidence": ".release-evidence/COURSE-BENCH-20261012/release-readiness.json"
   }
 }

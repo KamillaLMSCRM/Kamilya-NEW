@@ -21,7 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prose/table coverage claims and retain labelled cells in source order. Actual
   DEV exposed this discrepancy; corrected actual queue/editor/every-quiz acceptance
   passes on97f4efd, including same-section multi-table identity/order. Release
-  closure still requires exact orphan cleanup from the previous failed DEV run.
+  closure includes independently verified exact11-orphan DEV cleanup after owner
+  approval and rollback proof; generic tenant purge is not repaired by this change.
 - Preserve source order for ordinary prose/table lessons and numbered operational
   sections even when they mention a list. Feed answer-length feedback into the
   existing single semantic repair, keep current terminal rejection reasons, and

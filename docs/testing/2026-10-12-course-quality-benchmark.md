@@ -2,16 +2,17 @@
 
 ## Decision
 
-**Canonical DEV product flow PASS; release closure blocked by exact old fixture
-cleanup. NOT marketing proof, NOT production acceptance.**
+**Canonical DEV acceptance CLOSED; engineering candidate READY for release
+preparation. NOT marketing proof, NOT production acceptance.**
 Runtime candidate97f4efd2834c9d6bb0056f848b79cb7ecbf85816 passed actual DEV
 generation and ordinary-methodologist editor/every-quiz acceptance on the frozen
 866-word source:10 lessons/20 questions,23/23 meanings,27/27 labelled table
 relationships. The new fixture is absent from all116 tenant-scoped tables;
-permanent QA9-table fingerprints are unchanged. Eleven owned orphan embeddings
-from the rejected previous run require new exact owner authority under
-TENANT-PURGE-007. No production action occurred. Final evidence and remaining
-limits are in the last section; earlier sections preserve their historical runs.
+permanent QA9-table fingerprints are unchanged. Following the owner's exact
+approval,11 old orphan embeddings were removed under the non-bypass runtime
+role after rollback proof; old tenant also has0 rows across all116 tables.
+No production action occurred. Final cleanup closure and limits are in the last
+section; earlier sections preserve their historical runs, including blocked states.
 
 Initial algorithm phase:
 Eight real first-attempt generations exposed source-loss and teaching defects.
@@ -809,3 +810,39 @@ These synthetic results do not establish general accuracy, human methodologist
 speedup, accepted-course total time, OCR/RU-KK quality or marketing readiness.
 Remaining broader quality work: FAQ stability, long/binary/scanned sources and
 paired real-methodologist comparison. Production remains unchanged.
+
+## Exact cleanup closure — 2026-10-12
+
+Owner's current approval covered only the frozen11 DEV embeddings inventory.
+Original inventory and PRODUCT_FLOW_PASS_RELEASE_CLEANUP_BLOCKED acceptance are
+preserved, not rewritten as historical successes. Independent Test & Evidence
+Runner static review preceded execution. First rehearsal failed42501 before
+DELETE and rolled back: Supabase migration postgres is MEMBER(lms_app) but
+pg_has_role(...,'SET') is false. This was an already documented managed-role
+restriction; importing the production SET ROLE step into DEV was a harness
+mistake. Metadata reads confirmed canonical runtime SELECT/DELETE privileges.
+No new grants, roles, membership, policies, DDL or RLS changes were used.
+
+Corrected procedure uses the existing canonical lms_app connection for table
+lock/tenant-bound exact-ID/document/full-row-hash DELETE. Owner connection stays
+READ ONLY for all116-table inventory, revision/absence guards, unknown-trigger/
+incoming-FK negatives and foreign full-row hash-of-hashes/security invariance.
+Rehearsal R2 PASS restored all11 exact rows and hashes after rollback. Its exact
+script SHA256be1e53ffbbc8e6be3cd72fc6f1212fd637c38cd3c756b281b6512d94cb12f269
+was independently reviewed and bound into the single commit receipt.
+
+COMMITTED_EXACT_ELEVEN:11 rows removed, lms_app non-super/non-bypass, all foreign
+embedding rows and owner/ACL/policy/FORCE-RLS fingerprints unchanged. Independent
+fresh READ ONLY sweep of the old tenant: absent,116 tables checked,0 rows total.
+The new tenant's separate116-table zero proof remains hash-linked. Final DEV
+provider/API/schema readback PASS; all9 existing flags ON, Render Free/Free and
+Vercel Hobby unchanged, API/worker exact97f4efd, schema0178. Permanent QA9-table
+full-row fingerprints before/after cleanup identical. No extra generation.
+
+Current root receipt `.release-evidence/COURSE-BENCH-20261012/release-readiness.json`
+is DEV_ACCEPTANCE_CLOSED_RELEASE_CANDIDATE_READY and binds the previous acceptance,
+failed first rehearsal, permission diagnosis, successful rollback/commit, both
+absence proofs and final readback. This closes this candidate's owned fixture
+cleanup; generic tenant-purge omission remains a separate open defect. It does
+not prove old object-store absence, full-product quality, paired human speedup,
+production release execution, version/tag publication or commercial readiness.

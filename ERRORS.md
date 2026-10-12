@@ -6616,6 +6616,21 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   in the isolated DEV purge regression; exact orphan maintenance needs owner
   authority and must not become a generic production prune.
 
+- DEV recurrence2026-10-12: rejected course-quality fixture left11 exact owned
+  embeddings; new fixture's document-first normal cleanup already passed116-table
+  zero proof. Owner approved only the frozen eleven-row inventory. First rollback
+  rehearsal failed42501 before DELETE: managed postgres MEMBER(lms_app) did not
+  grant SET ROLE. This restriction was already documented; production maintenance
+  role-switch steps must not be copied into Supabase without SET permission.
+  Read-only pg_has_role(...,'SET') and existing SELECT/DELETE metadata identified
+  the boundary. Corrected helper uses canonical non-bypass lms_app directly for
+  guarded DELETE; migration owner remains READ ONLY for foreign/security checks.
+  Independent static review, actual rollback restoration11/full hashes, one
+  COMMITTED_EXACT_ELEVEN and independent116-table zero readback PASS. Retained
+  QA9-table fingerprints/schema0178/DEV97f4efd unchanged; zero new grants/DDL/RLS,
+  production actions or extra generation. Original failure/inventory preserved
+  in `.release-evidence/COURSE-BENCH-20261012/`; generic purge still NOT IMPLEMENTED.
+
 ## TENANT-PURGE-008 - Maintenance fingerprint exceeded PostgreSQL aggregation limit
 
 - Date: 2026-10-11; exact release43 two-fragment maintenance only.
@@ -6818,8 +6833,10 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   source review23/23 meanings/27/27 labelled table cells, browser all10 lessons/
   10 quizzes/20 keys PASS. New fixture normal document-first cleanup and116-table
   zero readback PASS; permanent QA9-table fingerprints unchanged. Rejected R2's
-  11 orphan embeddings still require separate TENANT-PURGE-007 authority; release
-  closure is blocked, production unchanged. See benchmark report/JSON/ledger.
+  11 orphan embeddings initially blocked closure; subsequent exact owner-approved
+  maintenance passes rollback, COMMITTED11 and independent116-table zero proof
+  under TENANT-PURGE-007. DEV acceptance is closed, production unchanged.
+  See benchmark report/JSON/ledger.
 - Prevention: benchmark the public admission parameters, actual queued worker
   and final persisted lesson text. Algorithm-only uncapped PASS cannot stand in
   for the deployed capped path. Never infer table relationship coverage from

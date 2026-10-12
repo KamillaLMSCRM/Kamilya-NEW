@@ -9,6 +9,39 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
+## DEV course-quality candidate — accepted2026-10-12, NOT production deployed
+
+Candidate97f4efd2834c9d6bb0056f848b79cb7ecbf85816 changes conflict repair feedback,
+source-owned lesson/table order and public automatic source-capacity wiring.
+Exact CI38225806750 all7SUCCESS;2766 local unit/27 overlapping AI-COURSE-01
+parametrizations PASS, correction31 focused/baseline/release-contract PASS.
+Render Free API/worker and Vercel Hobby DEV deployment accepted, schema0178,
+existing9 flags preserved. No provider model, repair budget, resources or tier change.
+
+Actual866-word source generation:10 lessons/10 quizzes/20 questions in135.750s
+queue time,13.516s upload/index. Independent source review23/23 meanings,
+27/27 labelled table relationships,20/20 grounded keys and all wrong options;
+persisted14/14 topics, no unresolved quality signals. Ordinary methodologist
+browser source download/all10 lesson previews/all10 quizzes/all20 key forms/
+reload PASS. Hybrid normal API upload/queue plus browser acceptance; not UI-only,
+publication, assignments or learner completion. Density omits21 of41 axes; no
+full-source exam or universal/human-quality claim.
+
+New fixture normal cleanup and old owner-approved exact11-embedding maintenance
+both have independent116-table zero readback. Exact old-row rollback proof,
+non-bypass runtime DELETE and foreign/security invariance PASS; permanent DEV
+QA9-table fingerprints unchanged. First managed SET ROLE42501 failure retained;
+direct canonical runtime connection corrected it without rights changes.
+Root receipt `.release-evidence/COURSE-BENCH-20261012/release-readiness.json`:
+DEV_ACCEPTANCE_CLOSED_RELEASE_CANDIDATE_READY. Details/limits are in
+[`testing/2026-10-12-course-quality-benchmark.md`](testing/2026-10-12-course-quality-benchmark.md).
+
+Engineering DEV acceptance and owned cleanup are closed. Production version/tag,
+protected packet approval, deployment and production readback remain separate;
+current production state below was not changed. Generic tenant purge omission
+(TENANT-PURGE-007), old storage absence and paired real-methodologist effectiveness
+are not resolved by this bounded candidate.
+
 ## Current production43 — deployed; bounded learner acceptance and DB cleanup PASS, 2026-10-11
 
 Release0.11.43/tagv0.11.43/runtime source
