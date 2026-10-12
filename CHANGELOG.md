@@ -183,6 +183,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.44] - 2026-10-12
+
+### Changed
+
+- Preserve complete FAQ answers, numbered procedures, prose/table source order
+  and labelled values across chunk boundaries. Keep table-question alternatives
+  bound to the exact source identity and both independent review gates.
+- Correct conflict/prohibition questions only for unambiguous source rules;
+  retain conditional exceptions. Use the existing one semantic repair for
+  answer-length feedback and stop unchanged repairs without another paid judgement.
+- Keep automatic course density source-adaptive rather than cap it at the
+  lightweight storage estimate; persist the bounded ceiling for resumed jobs.
+  No model, repair-budget, billing, schema or historical-course changes.
+- Accepted real DEV draft has10 lessons/20 questions with23/23 reviewed source
+  meanings and27/27 labelled table cells. Production rollout and native browser
+  acceptance are separate gates recorded in PRODUCTION_READINESS.md. No universal
+  quality or human-efficiency claim is made from this bounded fixture.
+
 ## [0.11.43] - 2026-10-10
 
 ### Fixed
