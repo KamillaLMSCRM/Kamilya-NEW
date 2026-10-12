@@ -19,13 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a storage-chunk estimate; persist its bounded ceiling for resume without
   changing explicit/manual formats, quotas or provider settings. Reject mixed
   prose/table coverage claims and retain labelled cells in source order. Actual
-  DEV exposed this discrepancy; corrected live acceptance remains required.
+  DEV exposed this discrepancy; corrected actual queue/editor/every-quiz acceptance
+  passes on97f4efd, including same-section multi-table identity/order. Release
+  closure still requires exact orphan cleanup from the previous failed DEV run.
 - Preserve source order for ordinary prose/table lessons and numbered operational
   sections even when they mention a list. Feed answer-length feedback into the
   existing single semantic repair, keep current terminal rejection reasons, and
   use exact server-owned binary opposites for two unambiguous prohibition forms.
-  Fresh bounded conflict/complex-source reviews pass; full DEV acceptance is
-  still required before release. No model, repair-budget or billing change.
+  Fresh bounded conflict/complex-source reviews and the canonical DEV draft journey
+  pass:10 lessons/20 questions,23/23 source meanings and27/27 labelled table cells.
+  Production is unchanged; no model, repair-budget or billing change.
 - Restore ordinary table rows across consecutive same-section storage chunks
   and stop cross-heading overlap from invalidating complete prose. Reuse the
   existing source-role fallback; supporting catalogs/appendices stay bounded.

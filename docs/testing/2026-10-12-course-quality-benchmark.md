@@ -2,7 +2,18 @@
 
 ## Decision
 
-**Measured algorithm pilot; NOT marketing proof, NOT production acceptance.**
+**Canonical DEV product flow PASS; release closure blocked by exact old fixture
+cleanup. NOT marketing proof, NOT production acceptance.**
+Runtime candidate97f4efd2834c9d6bb0056f848b79cb7ecbf85816 passed actual DEV
+generation and ordinary-methodologist editor/every-quiz acceptance on the frozen
+866-word source:10 lessons/20 questions,23/23 meanings,27/27 labelled table
+relationships. The new fixture is absent from all116 tenant-scoped tables;
+permanent QA9-table fingerprints are unchanged. Eleven owned orphan embeddings
+from the rejected previous run require new exact owner authority under
+TENANT-PURGE-007. No production action occurred. Final evidence and remaining
+limits are in the last section; earlier sections preserve their historical runs.
+
+Initial algorithm phase:
 Eight real first-attempt generations exposed source-loss and teaching defects.
 The first correction cycle and its failures remain below. A subsequent ten-run
 FAQ/matrix cycle corrected FAQ answer ownership, stopped unchanged repairs and
@@ -11,7 +22,8 @@ cover each lesson. A further bounded source-peer correction restores reporting:
 two fresh matrix attempts retain all four selected questions, the second on the
 final hardened code. FAQ first-pass acceptance remains variable (two/three);
 full source assessment and same-version stability are not established.
-No deployment, tenant, provider-plan or landing-page mutation occurred.
+No deployment, tenant, provider-plan or landing-page mutation occurred during
+that initial algorithm phase. Later DEV-only deployment/fixtures are recorded below.
 
 Source baseline: `07b70b4440f5266a5a47faa453edd642aba5add3` in
 `.worktrees/learner-presentation-release-20261010`. This is NOT a new runtime SHA.
@@ -714,3 +726,86 @@ explicit annotations corrected it without logic changes. Correction31 focused
 PASS/0.60s, baseline PASS, release contract PASS and diff check PASS. Original
 failure retained. Final renderer hash
 `463fd50118e34095512870cb95b5c1c3e8c0e4859c127eb5c3fa442319621225`.
+
+## Final DEV acceptance — candidate97f4efd, 2026-10-12
+
+Exact CI38225806750 SUCCESS across all seven jobs. Release Runner executed
+REL-DEV-COURSE-QUALITY-R3-20261012 on existing Render Free API/worker and Vercel
+Hobby only: APIdep-db69vm7lk1mc73cfnon0, workerdep-db6a0odckfvc73cmo93g,
+frontenddpl_EM9pR2Pgy7u1UqZa8ApmUJgRu9ht, all bound to
+97f4efd2834c9d6bb0056f848b79cb7ecbf85816. Root independently read back provider
+identities, enabled workbench/document/correction flags, public schema0178 and
+unchanged9-table QA fingerprints at09:20:17UTC after cleanup. No migration,
+provider-plan/resource/budget/model change, master push, tag or production release.
+
+One disposable tenant05e2e2c7-91c6-4037-9410-6c91ebcaf16d and one ordinary
+methodologist submitted the frozen synthetic Russian source through normal API:
+source upload/index13.516s; confirmed queue generation135.750s, including polling
+and network. Job36c1b021-eaca-47f5-a361-2fa355ab86ae completed with no errors;
+course4d1f95c0-d015-4ebb-befa-784065921418 remained draft, with one module,
+10 lessons,10 quizzes and20 questions. Reconfirming the same sealed plan returned
+the same job; exactly the ingest and generation jobs existed, both completed.
+This is idempotent submission proof, not a second paid-generation repeat.
+
+Independent AI review plus root source adjudication preserved23/23 frozen
+meanings and27/27 row/column relationships; all20 accepted keys are grounded,
+and every retained wrong option is false or source-unsupported. Lesson order is
+sections1,2,3a,3b,4,5a,5b,6,7,8, not row-number interleaving across tables.
+The multiple-basis classification question now retains the explicit source rule
+to select the higher impact level. The unresolved-priority negative control still
+does not authorize inventing a precedence rule absent from the source.
+
+Persisted audit covers14/14 topics with no unresolved quality signal, missing
+assessed lesson or incomplete audit. One existing semantic repair occurred.
+Of41 derived assessment axes,20 were retained and21 omitted by density/selection;
+that is not21 missing taught meanings or a complete exam of every source fact.
+The lightweight preview estimated3 lessons; the source-owned worker derived10
+within the unchanged automatic ceiling40. Preview is not an exact final-count
+guarantee. No gate, threshold, provider retry budget or quota was relaxed.
+
+Browser acceptance used ordinary login, no impersonation: source download bytes
+match SHA2568d67d813ec5800b00fbeacee3e27a50224b22a7e4f71b374697cf6a4403d1171;
+all10 lesson previews and10 quizzes were opened; every visible question/choice
+matched persistence, and all20 edit forms showed matching correct-answer keys.
+Forms were cancelled, no edits saved. Reload retained all10 quizzes. This is a
+hybrid normal-API upload/queue plus browser source/editor/quiz scenario, not a
+UI-only upload/start or full-LMS/student-completion test. No quiz approval,
+publication, assignment, invitation or learner completion was emitted.
+
+Test-harness mistakes remain recorded, not misreported as product bugs: an
+assignment-plan query used for a document plan returned404; normal course/quiz
+navigation corrected the check. Lesson selection resets editor mode, so Preview
+was explicitly selected for each lesson. Quiz selectors expose a misleading AX
+checkbox role; their actual DOM button role was used. Cleanup attempts1/2 stopped
+before deletions at superadmin users/me403 and preview max_chars validation422.
+
+New fixture cleanup then passed through the normal lifecycles in this order:
+draft DELETE204/fresh404; document DELETE202, completed document_cleanup worker,
+fresh404; tenant DELETE204/fresh404. Independent read-only sweep: tenant0,
+all116 tenant-scoped tables0, remaining0. Ordinary browser logout was verified
+and the temporary tab closed. The worker proves its document cleanup completed;
+no independent object-store bucket inventory was collected.
+
+**Remaining release gate:** rejected R2 tenant
+e31c3a08-e61e-4450-b0ba-ac97c0d457df/doc39a99b98-e8af-449e-b4c9-5121a688d8eb
+are absent, but11 exact document_embeddings rows remain. No privileged cleanup
+was performed. Frozen ID/full-row-hash inventory SHA256
+b091c3d18834dfda11bc10feae25ac291fc9fe7fdb5d639954463d11adf1efdc;
+new exact owner approval, rollback-only rehearsal and116-table final absence
+readback are required by TENANT-PURGE-007. No generic tenant purge repair or
+automatic production data cleanup is included in this package.
+
+Sanitized evidence under `.release-evidence/COURSE-BENCH-20261012/`:
+`final-acceptance.json` status PRODUCT_FLOW_PASS_RELEASE_CLEANUP_BLOCKED,
+`dev-final-readback.json`, `dev-live-r3/{generation-readonly,job-diagnostics,
+semantic-review,ui-browser,cleanup-source-first-r3,absence-owner}.json`,
+`dev-live-r3/conflict-question-browser.png`, and
+`dev-live/residual-eleven-inventory.json`. The root receipt binds proof hashes.
+
+Algorithm usage totals32 attempts/460 HTTP/642606 input/164080 output tokens
+exclude both actual DEV generation jobs. DEV token counts/call counts and actual
+USD charges are UNKNOWN; do not relabel algorithm totals as the complete spend.
+These synthetic results do not establish general accuracy, human methodologist
+speedup, accepted-course total time, OCR/RU-KK quality or marketing readiness.
+Remaining broader quality work: FAQ stability, long/binary/scanned sources and
+paired real-methodologist comparison. Production remains unchanged.

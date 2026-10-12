@@ -3313,3 +3313,50 @@ Rules:
   checks), and `git diff --check` PASS. Full suite was not rerun; original R7 Mypy
   failure and its 2766/27 functional results remain preserved. Evidence:
   `.release-evidence/COURSE-BENCH-20261012/rc-local-r7/`.
+
+### COURSE-QUALITY-DEV-R3-20261012 — root actual queue, semantic and browser acceptance
+
+- Exact runtime97f4efd2834c9d6bb0056f848b79cb7ecbf85816; CI38225806750 SUCCESS,
+  seven jobs. Release Runner packet REL-DEV-COURSE-QUALITY-R3-20261012 RELEASE_OK;
+  root independently confirmed APIdep-db69vm7lk1mc73cfnon0, workerdep-db6a0odckfvc73cmo93g,
+  frontenddpl_EM9pR2Pgy7u1UqZa8ApmUJgRu9ht on existing Free/Free/Hobby tiers.
+- Ordinary disposable methodologist, frozen866-word Russian source. Normal API
+  upload/index13.516s, real queued generation135.750s; completed job36c1b021-eaca-47f5-a361-2fa355ab86ae,
+  draft10 lessons/10 quizzes/20 questions, same sealed confirmation returns same job.
+  Independent AI plus root review23/23 meanings,27/27 labelled relationships,
+  20/20 keys and every wrong option.14/14 source topics, no unresolved signals;
+  21/41 axes omitted by density, not missing lesson facts. One bounded repair.
+- Browser normal login/source download hash/every10 lesson preview/every10 quiz/
+  all20 key-edit forms/reload PASS. Cancelled forms only, no publish, approval,
+  assignments, invitations or learner completion. Hybrid API/browser, not UI-only.
+  Wrong document-vs-assignment plan query and AX checkbox-vs-DOM button targeting
+  were harness errors, not inferred product defects; corrected normal navigation.
+- Cleanup attempts1/2 failed before deletion: wrong superadmin endpoint403 then
+  invalid preview max_chars422. Corrected exact attempt3 normal lifecycles PASS:
+  draft204/fresh404, document202/completed worker/fresh404, tenant204/fresh404.
+  Owner read-only116-table sweep tenant0/remaining0; no direct DB mutations.
+  Final root readback09:20:17UTC PASS/schema0178/permanent QA9-table fingerprints
+  unchanged. Browser ordinary logout verified and temporary tab closed.
+- Overall PRODUCT_FLOW_PASS_RELEASE_CLEANUP_BLOCKED: previous rejected R2 left
+  11 owned document_embeddings despite normal tenant DELETE. Read-only inventory
+  SHA256b091c3d18834dfda11bc10feae25ac291fc9fe7fdb5d639954463d11adf1efdc is frozen;
+  no exact deletion authority or direct mutation. TENANT-PURGE-007 requires fresh
+  owner approval/rehearsal/final116-table zero readback. Production unchanged.
+- Root proof `.release-evidence/COURSE-BENCH-20261012/final-acceptance.json` binds
+  capture, UI, independent semantic review, cleanup, absence, provider and old
+  residual inventory hashes. DEV calls/tokens/USD UNKNOWN; algorithm totals32/
+  460/642606/164080 exclude both real DEV jobs. No human or marketing claim.
+
+### COURSE-QUALITY-FINAL-DOC-GATE-20261012 — documentation-only closure review
+
+- Test & Evidence Runner independently reviewed current documentation diff and
+  final-acceptance.json: truthful product/cleanup status,23/23 meanings,27/27 cells,
+  14/14 topics,20+21=41 axes, all10 evidence SHA256 bindings PASS. JSON validity,
+  canonical release-contract gate and git diff --check PASS. No source/runtime,
+  DB, provider, browser, pytest or publishing action by this runner.
+- Root final receipt SHA25612ab86a499ec29b338f968df570cb74f830018a13fe9bf50afb3cce4b0b746b9;
+  runtime remains97f4efd2834c9d6bb0056f848b79cb7ecbf85816. Documentation-only local
+  handoff is not a newer DEV runtime or production release. Own temporary plan
+  removed after durable benchmark/backlog/ledger handoff; recoverable in Git.
+- Release cleanup gate unchanged: exactly11 old DEV orphan embeddings require
+  new exact owner authority. Do not rerun paid generation to close that gate.

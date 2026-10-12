@@ -6811,7 +6811,15 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   policy assertion now checks cap40 plus unchanged recommendation1/persistence,
   26 focused PASS. Same-section two-table regression reproduced a2,b2,a3,b3
   interleaving; corrected table identity/order yields8 procedure checks PASS.
-  Final broader gates and corrected live DEV acceptance pending.
+  Final R7 functional gates2766 unit/27 overlapping journey PASS; explicit dict
+  annotations corrected a new Mypy baseline failure, then31 focused/baseline/
+  contract/diff gates PASS. Exact CI38225806750 and DEV97f4efd API/worker/frontend
+  pass. Actual queued generation135.750s yields10 lessons/20 questions; independent
+  source review23/23 meanings/27/27 labelled table cells, browser all10 lessons/
+  10 quizzes/20 keys PASS. New fixture normal document-first cleanup and116-table
+  zero readback PASS; permanent QA9-table fingerprints unchanged. Rejected R2's
+  11 orphan embeddings still require separate TENANT-PURGE-007 authority; release
+  closure is blocked, production unchanged. See benchmark report/JSON/ledger.
 - Prevention: benchmark the public admission parameters, actual queued worker
   and final persisted lesson text. Algorithm-only uncapped PASS cannot stand in
   for the deployed capped path. Never infer table relationship coverage from
