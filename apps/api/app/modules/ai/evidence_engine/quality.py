@@ -272,6 +272,18 @@ def evaluate_plan_preflight(result: EvidenceCourseResult) -> tuple[str, ...]:
     """Reject deterministic plan defects before any external provider call."""
 
     reasons: list[str] = []
+    for fact in result.admitted_facts:
+        normalized = " ".join(fact.value.casefold().split())
+        if re.search(r"\bприоритет\b[^.!?]{0,100}\bне\s+определ[её]н\b", normalized) and re.search(
+            r"(?:^|[.!?]\s+)(?:поэтому\s+)?(?:этот|данный)\s+документ\s+"
+            r"нельзя\s+использовать\s+для\s+автоматическ\w+\s+(?:решени\w+|обработк\w+)",
+            normalized,
+        ):
+            # An explicitly unresolved source cannot authorize one of its
+            # competing rules as an immutable quiz key. Stop before paid work;
+            # this is a narrow source notice, not universal conflict detection.
+            reasons.append("source_rule_priority_requires_confirmation")
+            break
     if any(not is_acceptable_title(lesson.title) for lesson in result.course.lessons):
         reasons.append("invalid_lesson_titles")
     planned = [fact_id for lesson in result.evidence_plan for fact_id in lesson.fact_ids]

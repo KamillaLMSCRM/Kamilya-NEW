@@ -15,6 +15,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Preserve source order for ordinary prose/table lessons and numbered operational
+  sections even when they mention a list. Feed answer-length feedback into the
+  existing single semantic repair, keep current terminal rejection reasons, and
+  use exact server-owned binary opposites for two unambiguous prohibition forms.
+  Fresh bounded conflict/complex-source reviews pass; full DEV acceptance is
+  still required before release. No model, repair-budget or billing change.
+- Restore ordinary table rows across consecutive same-section storage chunks
+  and stop cross-heading overlap from invalidating complete prose. Reuse the
+  existing source-role fallback; supporting catalogs/appendices stay bounded.
+  Revalidate table values after sentence deduplication before claiming citation
+  coverage. Three longer frozen sources have admission regressions; a captured
+  real-provider replay restores the missed two-day value without extra API calls.
+  Assessment quality still requires review; this package is not released.
+- Bind structured assessment repair reasons to the original failed option text
+  after pruning, preserving realistic source-contradicted misconceptions and
+  excluding freeform reviewer prose. Freeze custom benchmark-suite identity
+  throughout execution; no additional provider repair loop or billing change.
+- Seed simple table-field assessment alternatives from distinct rows of the
+  same document/revision/table/column, keeping the exact source key and both
+  independent review gates. Reject sheet-only identity, row aliases, uncertain
+  cells and conditional values. Two bounded fresh matrix generations retain
+  all four selected questions; this is not universal coverage or release proof.
+- Preserve complete source-owned FAQ answers and original question context;
+  stop unchanged/reordered failed repairs before paying for another judgment.
+  Diversify table assessment attributes while retaining entity coverage and
+  bounded lesson density. Fresh synthetic repeats retain model omissions and
+  all call/token/time receipts; selected-axis acceptance, human efficiency and
+  production readiness are not claimed.
+- Add a frozen eight-source synthetic course/test benchmark with independent
+  source gold, real-provider call/token/timing receipts, offline planning and
+  captured replay, searchable PDF source variants and an explicit paired-human
+  evaluation protocol. Algorithm-only results are not marketing, human-speedup,
+  full course acceptance or production evidence.
+- Preserve source-owned numbered procedure order and ordinary Markdown table
+  cells/adjacent prose, including consecutive tables; reject ragged tables and
+  an explicit unresolved rule-priority notice before provider calls. Do not
+  infer financial context from a bare percentage. Local regression and bounded
+  generation evidence only; deployment and remaining assessment gaps are gated.
+
 - Add strict V5 DEV activation packets for lesson correction, exact schema0178
   evidence and independent workbench/document/correction flags. All nine flag
   inventories precede writes; new keys use single-key idempotent writes with

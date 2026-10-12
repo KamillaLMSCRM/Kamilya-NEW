@@ -123,6 +123,44 @@ def coalesce_grounded_blocks(
     return result
 
 
+def _source_ordered_procedure_blocks(
+    lesson: LessonDraft,
+    facts: list[SourceFact],
+) -> list[GroundedBlock] | None:
+    """Keep a complete explicit numbered procedure in its original step order.
+
+    Hash-sorted citations and writer grouping are not sequencing authority. This
+    narrow projection applies only to a contiguous 1..N sequence in one verified
+    document revision/section. Unnumbered prose, tables and unrelated sections
+    retain their existing teaching path; no action or exception is invented.
+    """
+    if len(facts) < 2 or any(is_tabular_locator(fact.source_locator) for fact in facts):
+        return None
+    positioned: list[tuple[int, int, SourceFact]] = []
+    scopes: set[tuple[str, str, str]] = set()
+    for fact in facts:
+        locator = dict(parse_qsl(fact.source_locator.replace(";", "&")))
+        scope = (locator.get("doc_id", ""), locator.get("source_revision", ""),
+                 locator.get("section", ""))
+        part = locator.get("part", "")
+        marker = re.match(r"^\s*(\d+)[.)]\s+\S", fact.value)
+        if not all(scope) or not part.isdigit() or marker is None:
+            return None
+        scopes.add(scope)
+        positioned.append((int(part), int(marker.group(1)), fact))
+    positioned.sort(key=lambda item: item[0])
+    if len(scopes) != 1 or len({part for part, _, _ in positioned}) != len(facts):
+        return None
+    if [ordinal for _, ordinal, _ in positioned] != list(range(1, len(facts) + 1)):
+        return None
+    return [GroundedBlock(
+        lesson_id=lesson.lesson_id,
+        heading=f"Шаг {ordinal}",
+        text=_clean_output_text(neutralize_unprofessional_source_language(fact.value)),
+        fact_ids=(fact.fact_id,),
+    ) for _, ordinal, fact in positioned]
+
+
 _SPOKEN_NUMBER_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"ноль\s+цел\w*\s+три\s+десят\w*", re.IGNORECASE), "0.3"),
     (re.compile(r"ноль\s+цел\w*\s+пять\s+десят\w*", re.IGNORECASE), "0.5"),
@@ -764,6 +802,14 @@ class ProviderBackedEvidenceEngine:
                     prior_tokens_by_fact[fact_id].update(sentence_tokens)
                 fresh_sentences.append(sentence)
             text = _clean_output_text(" ".join(fresh_sentences))
+            if (
+                all(is_tabular_locator(fact.source_locator) for fact in cited_facts)
+                and not _tabular_block_covers_labelled_facts(text, cited_facts)
+            ):
+                # Deduplication can erase a different row's numeric value or
+                # identical cell text. Validate the final visible text again;
+                # cited IDs alone cannot suppress the labelled-cell fallback.
+                continue
             if not text:
                 # The same grounded sentence was already rendered by an
                 # earlier block; only this duplicate can claim coverage.
@@ -841,7 +887,12 @@ class ProviderBackedEvidenceEngine:
             grounded_blocks.sort(
                 key=lambda block: min(source_rows[fact_id] or 0 for fact_id in block.fact_ids)
             )
-        grounded_blocks = coalesce_grounded_blocks(grounded_blocks, facts_by_id)
+        ordered_procedure = _source_ordered_procedure_blocks(
+            base_lesson,
+            [facts_by_id[fact_id] for fact_id in base_lesson.fact_ids
+             if fact_id in plan_fact_ids],
+        ) if set(base_lesson.fact_ids) == plan_fact_ids else None
+        grounded_blocks = ordered_procedure or coalesce_grounded_blocks(grounded_blocks, facts_by_id)
         rendered = [
             part
             for block in grounded_blocks

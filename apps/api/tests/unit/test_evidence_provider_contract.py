@@ -24,6 +24,36 @@ def _short_catalog_lesson():
     return facts, lesson
 
 
+def test_sentence_deduplication_cannot_erase_distinct_table_row_deadlines() -> None:
+    facts = {
+        "system": SourceFact(
+            fact_id="system", subject="Недоступность системы", attribute="Максимальная отсрочка",
+            value="3 рабочих дня", source_locator="doc_id=policy;section=Исключения;table=1;row=2;column=2",
+        ),
+        "error": SourceFact(
+            fact_id="error", subject="Ошибка владельца процесса", attribute="Максимальная отсрочка",
+            value="2 рабочих дня", source_locator="doc_id=policy;section=Исключения;table=1;row=3;column=2",
+        ),
+    }
+    base = LessonDraft(
+        lesson_id="deadlines", module_title="Правила", title="Исключения",
+        objective="Различать сроки", content="", fact_ids=tuple(facts),
+        supporting_fact_ids=(), duration_minutes=2,
+    )
+    payload = {"title": base.title, "objective": base.objective, "questions": [], "blocks": [
+        {"heading": "Недоступность системы", "text": "Максимальная отсрочка составляет 3 рабочих дня.",
+         "fact_ids": ["system"]},
+        {"heading": "Ошибка владельца процесса", "text": "Максимальная отсрочка составляет 2 рабочих дня.",
+         "fact_ids": ["error"]},
+    ]}
+    lesson, _questions, blocks = ProviderBackedEvidenceEngine._validate_and_render(
+        payload, base_lesson=base, plan_fact_ids=set(facts), facts_by_id=facts, seeds=[],
+    )
+    assert "3 рабочих дня" in lesson.content
+    assert "2 рабочих дня" in lesson.content
+    assert any("2 рабочих дня" in block.text and "error" in block.fact_ids for block in blocks)
+
+
 def test_realizer_drops_unsupported_advice_without_repeating_already_covered_short_facts() -> None:
     facts, base = _short_catalog_lesson()
     payload = {

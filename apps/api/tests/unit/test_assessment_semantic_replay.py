@@ -130,8 +130,10 @@ async def test_correct_independent_review_omits_bad_candidates_after_bounded_rep
     assert result.questions == ()
     assert result.audit["dropped"] == 1
     assert [request["task"] for request in client.requests] == [
-        "assessment_generate", "assessment_review", "assessment_repair", "assessment_review",
+        "assessment_generate", "assessment_review", "assessment_repair",
     ]
+    assert any("assessment_repair_no_progress" in row["reason"]
+               for row in result.audit["axis_outcomes"])
 
 
 @pytest.mark.asyncio

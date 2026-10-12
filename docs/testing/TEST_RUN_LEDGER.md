@@ -2968,3 +2968,234 @@ Rules:
   `two-embedding-rollback-diagnostic43.json`,
   `prod-disposable-absence43.json`, `prod-qa-before.json`,
   `prod-qa-after-two43.json`, and `prod-runtime-after-two43.json`.
+
+### COURSE-BENCH-20261012 — source-first course/assessment algorithm pilot
+
+- Scope: eight frozen synthetic RU sources (81–122 words, three logical
+  complexity levels, eight document types); fourTXT/fourMarkdown/eightPDF
+  variants; no production/DEV database, deployment, tenant, provider billing,
+  landing publication or human baseline. Gold suite SHA256 `36dac564b70439907869cc752ef6abed02d1314c6b366fe06afec54f30dde0e9`.
+- First real generation batch retained all eight attempts:51 HTTP calls,
+  70,015 input/20,215 output tokens,9.143–29.027s, all-case median15.912s.
+  Root/source review found lost table rows, reordered procedure, misleading
+  percentage label, unsafe competing-rule key and insufficient assessment.
+- Implemented bounded fixes: source-order projection, ordinary-table facts
+  with adjacent prose and ragged-table rejection, explicit unresolved-priority
+  preflight, percentage context label. Independent review prompted a further
+  adjacent-table layout regression: RED1FAIL/6PASS, corrected61 focused PASS.
+  Initial duplicate-emission finding was not reproduced and was withdrawn;
+  only the adjacent-table loss was accepted as a proved defect.
+- Fresh affected cases:37 HTTP calls,47,629 input/11,736 output tokens.
+  SOP21.103s, matrix52.560s, conditions11.520s; conflict expected stop0.004s
+  with0 HTTP. Matrix preserves12 cells plus five narrative rules but remains
+  NOT publishable because its narrative lesson lacks a retained assessment.
+  Candidate independent AI/root review:31 generated semantic clusters preserved,
+  six keys inspected/correct,18 distractors inspected/clear; these bounded counts
+  are not universal accuracy or independent human review.
+- Final-code captured candidate replay:37 captured calls,0 HTTP/fallback,
+  three positive outputs plus expected conflict stop. Separate holdout FAQ
+  replay cannot reproduce its captured validation-failure branch and is NOT
+  counted PASS; escalation/sparse holdout replay succeeded without new calls.
+- Latest gates:424 broad selected PASS6.31s,25 canonical journey parametrized
+  PASS3.50s, baseline quality PASSruff1008/mypy2201. Counts overlap. No DB/CI/UI
+  release claim. CodeGraph1.6.1 final sync1.088s body/7.939s reported total,
+  exclusion audit PASS; no measured token or agent-cost saving.
+- Delegation: independent source author/bounded table writer and independent
+  reviewer, requested `gpt-5.6-luna/medium`, leaf scopes and English handoffs.
+  Source-table implementation required root-requested edge-case corrections;
+  semantic review corrected a false omission and exclusion of refusal from
+  preservation totals. Observed per-agent token/elapsed/root-rework counters
+  were not exposed or instrumented: UNKNOWN, never zero. Root integration,
+  diagnostics and final adjudication are included qualitatively, not invented
+  efficiency multipliers.
+- Actual provider cost and human time/speedup remain UNKNOWN/NOT MEASURED.
+  Whole pilot88 HTTP calls,117,644 input/31,951 output tokens. First outputs and
+  failures retained. Report and machine-readable qualified counters:
+  `docs/testing/2026-10-12-course-quality-benchmark.md`,
+  `docs/testing/course-quality-benchmark-20261012.json`; detailed sanitized
+  synthetic evidence `.release-evidence/COURSE-BENCH-20261012/`.
+
+### COURSE-BENCH-20261012 follow-up — FAQ/repair/table selection
+
+- Local-only continuation; suite gold unchanged, primary preserved; no DB,
+  release, provider-plan/billing configuration or public-page change.
+- Fixed FAQ Q/A ownership (RED6FAIL), unchanged/reordered repair judgment
+  amplification (RED1FAIL), and table attribute diversity (RED2FAIL/1PASS).
+  Bare FAQ/no-answer, quoted/multiple/truncated pairs, legitimate explicit
+  question-valued attributes, changed repairs and single-column fallback remain
+  regression controls. Mixed reporting/practice/retention rejection is preserved.
+- All ten actual intermediate/final attempts retained:93 HTTP,130043 input/
+  30306 output tokens,204.555 summed algorithm seconds. v2-repeat FAQ retained
+  only one question after invented prerequisites; it is not hidden. Full pilot
+  including earlier cycle181 HTTP/247687 input/62257 output; actual USD UNKNOWN.
+- Final-source fingerprint `c1447127d4dcdb35ce8f9000700616c17d05140cf7f16933c8c781913f514358`.
+  FAQ final runs26.869s/7 calls/2 questions and12.534s/4 calls/3 questions.
+  Matrix final runs22.495s and21.530s,12 calls/3 questions each. Requested axes
+  diversify participant/reporting/practice; reporting remains inadmissible.
+  Composition differs from older outputs: no matched-output efficiency claim.
+- Independent `gpt-5.6-luna/medium` read-only review plus root/source adjudication:
+  both final runs preserve five FAQ clusters and12 cells/five narrative rules;
+  44 source clusters inspected/preserved,11 grounded keys,26 wrong options
+  inspected without established ambiguity. These are bounded AI review counts,
+  not complete assessment coverage, learner learning or independent human proof.
+  Initial reviewer hypotheses confusing quote/question counts with content loss
+  and a planning model with persisted quizzes were withdrawn after source checks.
+- Final-source replay35 captured responses; unaffected SOP/conditions11 captured;
+  conflict expected pre-provider stop. All0 HTTP/fallback. Live generation traces
+  validate prompt behavior; offline replay timing is not a provider measurement.
+- Final selected gates438PASS; canonical13 journey selectors27 parametrized PASS;
+  overlapping counts. Quality baseline PASSruff1008/mypy2201; diff whitespace
+  gate and machine-readable JSON verified. No DB/CI/UI/release acceptance.
+- CodeGraph1.6.1 final sync1.095s body/7.846s reported total, exclusion audit PASS.
+  Source remains oracle. Token/cost savings and cheap-agent cost are UNKNOWN;
+  returned token counters were not exposed. No Graphify expansion needed for
+  this resolved Python-only seam. Report/machine-readable companion remain the
+  current owners; raw synthetic traces under the existing evidence directory.
+
+### COURSE-BENCH-20261012 follow-up — source-peer table candidates
+
+- Local-only continuation after workstation power interruption; preserved task
+  changes/previous receipts and primary checkout. No DB, production, Git push,
+  provider-plan/billing configuration or public-content mutation.
+- Source-owned reporting alternatives use only certain simple cells in the same
+  document/revision/table/column and lesson primary facts. Key/prompt/evidence
+  stay exact; both blind review and constraint audit remain. Mixed groups and
+  numeric/rule/uncertain/predicate cases retain model authoring. No new loop.
+- Focused positive/reviewer tests RED2FAIL/14PASS then16PASS. Independent reviewer
+  found sheet-only identity insufficient; sheet-only/row-alias RED2FAIL/16PASS,
+  then18PASS. Root required explicit table and normalized numeric row identity.
+- Fresh matrix v5:28.017s,13 HTTP,16415 input/3230 output tokens; v6 final:
+  30.155s,13 HTTP,16445 input/3257 output. Four selected/accepted questions each,
+  source-peer reporting candidate1 per run, all12 cells/five narrative rules
+  preserved. Different source versions; not same-code pass-squared reliability.
+  Prior omitted outputs are retained, not replaced.26 HTTP/32860 input/6487
+  output added; whole pilot207 HTTP/280547 input/68744 output. Actual USD UNKNOWN.
+- Independent read-only AI review and root checked34 source-semantic clusters,
+  eight grounded keys/16 distractors, no established ambiguity. Requested cheap
+  reviewer `gpt-5.6-luna/medium` reused; observed model/tokens/root rework timers
+  UNKNOWN. Review prompted one bounded table/row hardening, not broader design.
+  Literal recall5/8 per run is not semantic recall; longest-answer heuristic
+  v5=1/4, v6=0/4. Nine table axes per run density-omitted; no human evaluation.
+- Final source fingerprint
+  `bb307ae54b72cb7496c5b3e839ca5742db2be1c0a8ed2ebd71f3da59f8d8cfe6`.
+  Broad selected456PASS/8.00s, canonical13 journey selectors27PASS/4.41s;
+  counts overlap. Quality baseline PASSruff1008/mypy2201, debt unchanged.
+  v5 and v6 replay13 captures each; FAQ replay4. All0 HTTP/fallback. Matrix
+  course/assessment/publishability/audit exact; FAQ exact except additive
+  `source_peer_candidates=0` audit counter. Offline latency is not provider time.
+- CodeGraph combined-receipt preflight NOT_READY; SDK/index usable. Bounded
+  search/callers missed a dynamic `partial` binding; decisive consumer confirmed
+  in source. Final sync2.401s body/13.205s reported total, exclusion audit PASS.
+  No Graphify expansion needed, no tool-saving or subscription-cost claim.
+- Canonical report/JSON updated; raw sanitized synthetic receipts remain in
+  `.release-evidence/COURSE-BENCH-20261012/`. FAQ first-pass variability,
+  long/OCR/mixed-language sources, conversion/DEV/editor, paired human time
+  and release gates remain open. No unqualified landing claims.
+
+### COURSE-BENCH-20261012 follow-up — source boundaries and visible-cell restoration
+
+- Continued local task-owned package, primary checkout preserved clean at
+  `28e143765ed7c154c064a16216a62dac80671ccd`; active worktree base remains
+  `07b70b4440f5266a5a47faa453edd642aba5add3`. No commit/push/deployment/DB/provider
+  billing, credentials/accounts or public-content mutation.
+- Repair feedback binds closed option reasons to exact original text after
+  pruning. Freeform model review prose excluded; no extra retry. Custom suite
+  SHA mutation test RED1FAIL then12 benchmark PASS. The initial blanket wrong-
+  option invented-constraint rejection was falsified by the existing realistic
+  explicit-counterfactual test (1FAIL/462PASS); restored intended contract.
+- Cheap author `gpt-5.6-luna/medium`, English-only, created three independent
+  fictional sources/gold before any output:628/599/517 words,15/14/15 gold,
+ 48 table cells. Root required explicit below-threshold/no-round-up source
+  clarification before freezing SHA256
+  `7e9354b682355d8bedffeecb8bb7fe2ea3abdc6159c46d624a3366c36299ac3a`.
+  Initial author test path and root tuple-shaped table harness corrected.
+- Fresh FAQ v7 (nonfinal gate):15.050s/4 HTTP/7059 input/2420 output/3 questions;
+  v8 (corrected contract):19.532s/5 HTTP/9174 input/2607 output/2 of3 selected.
+  Five FAQ clusters taught; one unchanged repair omitted. Better feedback is not
+  proven to improve acceptance. No previous failed receipt replaced.
+- Fresh long v1:99.198s/26 HTTP/34966 input/10972 output,8 admitted/five lessons/
+  eight questions. Eligibility prose and all table rows missing; two rows not
+  parsed. Genuine heading overlap plus per-chunk table parsing/role mismatch
+  confirmed. After harness correction, three source-loss regressions RED3FAIL,
+  bounded ingestion/section-reassembly repair GREEN. Offline final plans:
+ 22/30/20 admitted facts and6/8/6 lessons; no generation claim for the first two.
+- Fresh long v2:89.372s/34 HTTP/46001 input/12025 output,20 admitted/six lessons/
+  ten of11 selected questions. Actual visible relationships11/12: owner-error
+  maximum2 working days missing after sentence deduplication. Independent AI
+  reviewer overclaimed12/12; root falsified it and reviewer withdrew it.
+- Numeric-row restoration RED1FAIL then35 focused PASS. Recheck labelled-cell
+  coverage after deduplication restores exact fallback. Final v3 capture replay
+  consumes34 responses/0 HTTP/fallback and renders12/12 table relationships,
+ 15/15 gold meanings. Ten keys/23 wrong options independently source-reviewed;
+  no established ambiguity, not human accuracy. Only course text intentionally
+  changes versus live v2; assessment/publishability/audit exact. Long generator
+  stays `publishable=false`: unresolved length-quality signal on dropped conflict
+  question.20 derived axes:10 retained/10 omitted (nine density omissions).
+- Final FAQ5-capture and matrix13-capture controls match course/assessment/
+  publishability/audit exactly. Final replay set52 captures,0 HTTP/fallback;
+  no live-latency claim from0.136s long replay. First long source is consumed
+  regression now, despite preserved fixture split label. All original gold kept.
+- Four fresh attempts add69 HTTP/97200 input/28024 output/223.152s summed time.
+  Original eight-source pilot216 HTTP/296780 input/73771 output. Both suites,
+  every28 raw fresh attempts:276 HTTP/377747 input/96768 output. Actual USD
+  UNKNOWN. Existing DeepSeek route/settings and provider billing unchanged.
+- Final runtime SHA256
+  `710206ae4c9fbe93ee06a411081d38e49e0a135fc7fb5dfebf82bad045120859`;
+  last fresh v2 `fb3904e23fef0722185aae26a765c774e9e87851170373d325babd2fd7f849b8`.
+  Broader selected578PASS/7.85s,13 canonical selectors27PASS/3.73s, counts overlap;
+  quality baseline PASSruff1008/mypy2201 unchanged. Import-format fixes mechanical.
+- CodeGraph1.6.1 final renderer sync1.262s body/8.188s reported total,
+  exclusion audit PASS. Combined preparation receipt NOT_READY, SDK/index usable.
+  Source/tests, not graph edges, established source/renderer defects. No Graphify
+  expansion needed. Agent/token/cost/rework timing and causal tool savings UNKNOWN.
+- Report/JSON/ERRORS045/backlog updated. No stored document reindex, DEV, browser,
+  CI/release or human comparison. Remaining: first-pass question repair, lesson
+  order/pedagogy, untouched complex sources and canonical end-to-end DEV journey.
+
+### COURSE-QUALITY-20261012-RC-LOCAL — 2026-10-12 — local quality runner evidence
+
+- Executor: Test & Evidence Runner; exact worktree `learner-presentation-release-20261010`,
+  HEAD `07b70b4440f5266a5a47faa453edd642aba5add3`; local database-free run, no
+  external reads, runtime identity N/A. Diff SHA256 before and after:
+  `c8649165e3fec054d7cfd2216893f2d1884dbe07e9c864390c3e65a349699871` (unchanged).
+- Broad named unit matrix: 34 files, 518 passed in 7.57s, exact wrapper
+  `pwsh -NoProfile -File scripts/dev/run_api_pytest.ps1`; exact AI-COURSE-01
+  contract: 13 required selectors / 27 parametrized passed in 3.82s, same wrapper.
+- Canonical quality baseline exact wrapper failed: one new Ruff `I001` violation,
+  `tests/unit/test_course_benchmark_holdout.py`, actual 1 allowed 0. No repair,
+  retry, source edit or gate relaxation performed. `git diff --check` passed.
+- Evidence files: `.release-evidence/COURSE-BENCH-20261012/rc-local/`.
+  No DB/provider/deployment/production/browser claim; readiness is ROOT REVIEW ONLY.
+
+### COURSE-QUALITY-20261012-RC-LOCAL-R2 — 2026-10-12 — corrected local quality runner evidence
+
+- Correction run after the prior R1 quality-gate failure; executor: Test & Evidence
+  Runner. Exact worktree `learner-presentation-release-20261010`, HEAD
+  `07b70b4440f5266a5a47faa453edd642aba5add3`; local database-free run, no external
+  reads, runtime identity N/A. Diff SHA256 before and after test execution:
+  `dc28d4845e4a8032a5980f035372e570e32f08094d82459a9a35947d5cea57de` (unchanged).
+- Broad named unit matrix: 34 files, 526 passed in 8.17s, exact wrapper
+  `pwsh -NoProfile -File scripts/dev/run_api_pytest.ps1`; exact AI-COURSE-01
+  contract: 13 required selectors / 27 parametrized passed in 3.78s, same wrapper.
+- Canonical Python quality baseline passed: Ruff 1008, Mypy 2201, exact wrapper
+  `pwsh -NoProfile -File scripts/dev/run_python_quality_baseline.ps1`. `git diff --check`
+  passed. No repair, retry, source edit or gate relaxation performed during R2.
+- Evidence files: `.release-evidence/COURSE-BENCH-20261012/rc-local-r2/`.
+  No DB/provider/deployment/production/browser claim; readiness remains ROOT REVIEW ONLY.
+
+### COURSE-QUALITY-RC-20261012-R3 — 2026-10-12 — final local regression after binary inverse extension
+
+- Executor: Test & Evidence Runner; exact worktree `learner-presentation-release-20261010`,
+  HEAD `07b70b4440f5266a5a47faa453edd642aba5add3`; local database-free run, no
+  external reads, runtime identity N/A. Diff and source hashes exclude this ledger:
+  task diff SHA256 before/after `d0f412dd71e48c0846e33249631f595c76d780577b2f50f748114c326bd41f84`;
+  `assessment_axes.py` SHA256 before/after
+  `55d57ff706bd39ff0c08264061ead19c864c7e7b28edaa9e0c7ccf774736ce57`.
+- Broad named unit matrix: 34 files, 533 passed in 7.62s, exact wrapper
+  `pwsh -NoProfile -File scripts/dev/run_api_pytest.ps1`; exact AI-COURSE-01
+  contract: 13 required selectors / 27 parametrized passed in 4.03s, same wrapper.
+- Canonical Python quality baseline passed: Ruff 1008, Mypy 2201, exact wrapper
+  `pwsh -NoProfile -File scripts/dev/run_python_quality_baseline.ps1`. `git diff --check`
+  passed. No repair, retry, source edit or gate relaxation performed.
+- Evidence files: `.release-evidence/COURSE-BENCH-20261012/rc-local-r3/`.
+  No DB/provider/deployment/production/browser claim; readiness is ROOT REVIEW ONLY.

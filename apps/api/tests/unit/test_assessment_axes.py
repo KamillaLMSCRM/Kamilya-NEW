@@ -5,6 +5,7 @@ import json
 import pytest
 
 from app.modules.ai.evidence_engine.assessment_axes import (
+    _direct_binary_prohibition,
     derive_assessment_axes,
     materialize_assessment,
 )
@@ -344,6 +345,27 @@ def test_feature_question_rejects_other_true_catalog_attributes_as_distractors()
     ))
 
     assert question is None
+
+
+def test_reporting_axis_rejects_distractors_mixing_practice_and_retention() -> None:
+    facts = [
+        SourceFact("report", "Пакет Б", "Отчётность", "статус и прогресс",
+                   "doc_id=matrix;section=Пакеты;row=3;column=3"),
+        SourceFact("practice", "Пакет Б", "Практика", "3 задания",
+                   "doc_id=matrix;section=Пакеты;row=3;column=4"),
+        SourceFact("retention", "Пакет Б", "Срок хранения отчётов", "180 дней",
+                   "doc_id=matrix;section=Пакеты;row=3;column=5"),
+    ]
+    lesson = LessonDraft("matrix-lesson", "Пакеты", "Сравнение", "Выбирать пакет", "",
+                         tuple(fact.fact_id for fact in facts), (), 2)
+    axis = next(axis for axis in derive_assessment_axes(lesson, facts, block_id="matrix")
+                if axis.primary_fact_id == "report")
+    assert axis.correct_value == "статус и прогресс"
+    assert materialize_assessment(axis, AuthoredAssessment(
+        axis.axis_id, axis.required_prompt,
+        ("только статус без прогресса", "прогресс и срок хранения отчётов",
+         "статус, прогресс и практика из 3 заданий"),
+    )) is None
 
 
 def test_spreadsheet_question_cannot_recast_collection_as_product_type() -> None:
@@ -841,6 +863,14 @@ def test_open_information_rule_cannot_be_expanded_with_an_uncited_obligation() -
             "Отказ в приеме обращений не допускается.",
             "Отказ в приеме обращений допускается.",
         ),
+        (
+            "Нельзя публиковать проект, который имеет статус «на доработку» или «отклонено».",
+            "Можно публиковать проект, который имеет статус «на доработку» или «отклонено».",
+        ),
+        (
+            "Инициатор не может одновременно утверждать собственное изменение и закрывать его проверку.",
+            "Инициатор может одновременно утверждать собственное изменение и закрывать его проверку.",
+        ),
     ],
 )
 def test_direct_normative_yes_no_axis_uses_server_owned_binary_inverse(
@@ -860,6 +890,17 @@ def test_direct_normative_yes_no_axis_uses_server_owned_binary_inverse(
     assert question is not None
     assert question.kind == "true_false"
     assert question.options == (value, expected_inverse)
+
+
+@pytest.mark.parametrize("value", [
+    "Нельзя публиковать проект, кроме согласованных исключений.",
+    "Нельзя публиковать проект, который не прошел проверку.",
+    "Инициатор не может одновременно утверждать проект и закрывать проверку, но есть исключения.",
+    "Инициатор не может утверждать проект.",
+    "«Нельзя публиковать проект» — неверное утверждение.",
+])
+def test_direct_binary_prohibition_does_not_guess_qualified_or_quoted_truth(value: str) -> None:
+    assert _direct_binary_prohibition(value) is None
 
 
 def test_prohibition_gets_a_neutral_server_owned_question_without_invented_scenario() -> None:

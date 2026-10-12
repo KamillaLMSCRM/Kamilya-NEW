@@ -20,6 +20,11 @@ _NUMBERED_SECTION_HEADING_RE = re.compile(
 )
 _TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
 _TABLE_SEPARATOR_RE = re.compile(r"^\|?(?:\s*:?-{3,}:?\s*\|)+\s*$")
+_OPERATIONAL_RULE_RE = re.compile(
+    r"\b(?:нельзя|запрещен\w*|обязан\w*|должен|должна|должны|"
+    r"разрешен\w*|не\s+допускается|не\s+считается)\b",
+    re.IGNORECASE,
+)
 _REFERENCE_MARKERS = frozenset(
     {
         "sku",
@@ -275,6 +280,14 @@ def build_document_passport(corpus: _Corpus) -> DocumentPassport:
             much_larger = section.distinct_rows >= smallest_rows * 3
             has_strong_primary_peer = section.document_id in strong_primary_documents
             catalog_named = bool(_tokens(section.name) & _STRONG_REFERENCE_MARKERS)
+            numbered_operational_rule = bool(
+                _NUMBERED_SECTION_HEADING_RE.match(section.name)
+                and not catalog_named
+                and section.chars >= 60
+                and _OPERATIONAL_RULE_RE.search(" ".join(
+                    aggregates[(section.document_id, section.name)].rows[:25]
+                ))
+            )
             reference_dominates = strong_reference_signals >= 1 and reference_signals - primary_signals >= 2
             named_reference_beside_primary = (
                 has_strong_primary_peer
@@ -285,6 +298,7 @@ def build_document_passport(corpus: _Corpus) -> DocumentPassport:
             balanced_large_reference = (
                 has_strong_primary_peer
                 and much_larger
+                and not numbered_operational_rule
                 and strong_reference_signals >= 1
                 and reference_signals >= primary_signals
                 and (strong_primary_signals == 0 or catalog_named)
@@ -297,13 +311,15 @@ def build_document_passport(corpus: _Corpus) -> DocumentPassport:
             ) and primary_signals >= 1:
                 roles.append(SectionRole.PRIMARY)
             elif (
-                reference_signals == 0
+                (reference_signals == 0 or numbered_operational_rule)
                 and _NUMBERED_SECTION_HEADING_RE.match(section.name)
                 and section.distinct_rows >= 1
                 and section.chars >= 60
             ):
                 # Substantive, explicitly headed prose is a teachable section
-                # even when its vocabulary has no policy/course marker.
+                # even when its vocabulary has no policy/course marker. A
+                # procedural rule mentioning a list is not itself a catalog;
+                # explicit reference classifiers above still take precedence.
                 roles.append(SectionRole.PRIMARY)
             else:
                 roles.append(SectionRole.UNKNOWN)

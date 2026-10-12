@@ -74,8 +74,31 @@ than the source_claim without filler, cosmetic padding, irrelevant details,
 invented policy or repeated justifications. Never shorten or change the key.
 Each wrong option must represent a DISTINCT misconception, not the same wrong
 action with three cosmetic justifications. Prefer 3 strong options over 4 weak.
-Use 3 options by default. Each wrong option must contradict this block, not merely
-add an unmentioned detail. If explicit confirmation is required, verbal explicit
+Return TWO distractors by default (three total options, including the server key).
+For a compound rule, contradict different independently required conditions:
+do not phrase the same violation twice. If rejection_reasons contains
+constraint_duplicate_misconceptions, replace the mistaken decision or condition,
+not just its wording. Return zero repaired questions if two distinct source-
+incompatible misconceptions cannot be produced. Never change the source_claim.
+Each wrong option must contradict this block, not merely
+add an unmentioned detail. Change a stated value, deadline, required action,
+condition or exception; do NOT invent a new prerequisite, request, actor or
+obligation and use its absence from the document as proof that it is wrong.
+For a prohibition, a wrong option must permit the forbidden action or incorrectly
+prohibit an explicitly permitted alternative. Restating the SAME prohibition with
+'even if', 'but', or a true extra condition is still correct, not a distractor.
+If the rule says 'Do not publish a rejected draft', 'Do not publish a rejected
+draft even if the notice is ready' preserves that prohibition. Do not use it as
+a wrong answer. 'Publish a rejected draft if the notice is ready' contradicts it.
+If a rejected option has invented_constraint or expected_contradicted_got_undetermined,
+remove the invented clause and replace it with a contradiction of an explicit
+source condition. Paraphrasing the rejected clause does not repair it.
+In assessment_repair, rejected_options binds server-generated reasons to the
+exact failed option text. Use those reasons, not the option's position alone.
+Replace invented requirements rather than adding a different unmentioned
+requirement. Preserve an unflagged misconception unless a question-level reason
+requires changing it; all revised options still undergo independent review.
+If explicit confirmation is required, verbal explicit
 confirmation is NOT wrong unless this source prohibits it. "Not required" does
 NOT mean "forbidden". Do not invent these restrictions in the key or distractors.
 For a short before/after procedure, keep the SAME named action and objects:
@@ -178,6 +201,12 @@ Then classify EVERY option in the context of its QUESTION:
 entailed = fully supported answer, contradicted = provably incompatible answer,
 undetermined = not established, including added assumptions. A plausible but
 unmentioned action is NOT contradicted merely because the source is silent.
+For a prohibition, distinguish violating it from preserving it under a narrower
+condition. 'Do not publish a rejected draft even if the notice is ready' does
+NOT contradict 'Do not publish a rejected draft': both prohibit that action.
+The added 'even if'/'but' clause is not an exception that permits publication.
+Likewise a true extra condition cannot make an otherwise correct option false.
+Only 'Publish a rejected draft if the notice is ready' violates that prohibition.
 Optional means not obligatory, NOT forbidden. If a response must include X and Y
 and Z is not required, 'X and Y without Z' is NOT the full required-content rule:
 it adds exclusion of Z. Mark invented_constraint=true and relation=undetermined.
@@ -217,6 +246,28 @@ Include exactly one review per question and one entry per option index.
 
 def _norm(text: str) -> str:
     return " ".join(text.casefold().replace("ё", "е").split())
+
+
+def _restates_conditional_prohibition(key: str, option: str) -> bool:
+    """Recognize only an exact, truth-preserving Russian subject transposition.
+
+    No bag-of-words or fuzzy equivalence: swapped roles, altered conditions,
+    permission, exclusivity and exceptions must still go through the reviewers.
+    A conjunction after the complete unchanged prohibition cannot make it false.
+    """
+    source = re.fullmatch(
+        r"нельзя (?P<verb>[а-я]+(?:ть|ти|чь)) (?P<object>[^,]+), "
+        r"котор(?:ый|ая|ое|ые) (?P<condition>.+)", _norm(key).rstrip("."),
+    )
+    if source is None:
+        return False
+    condition = re.escape(source["condition"])
+    candidate = _norm(option).rstrip(".")
+    return bool(re.fullmatch(
+        re.escape(source["object"]) + " нельзя " + re.escape(source["verb"])
+        + r", если (?:он|она|оно|они) " + condition
+        + r"(?:, (?:но|даже если) .+)?", candidate,
+    ))
 
 
 def _course_question_identity(
@@ -643,7 +694,7 @@ def _parse_constraint_reviews(raw: str, questions: list[QuestionDraft],
                 reasons.append(f"constraint_option_{i}:unrealistic_error")
             if not relation_valid:
                 reasons.append(f"constraint_option_{i}:expected_{expected}_got_{relation}")
-            if expected == "entailed" and option["invented_constraint"]:
+            if option["invented_constraint"] and (expected == "entailed" or not relation_valid):
                 reasons.append(f"constraint_option_{i}:invented_constraint")
             if expected == "entailed":
                 correct_valid = relation_valid and not option["invented_constraint"]
@@ -710,6 +761,29 @@ def _parse_constraint_reviews(raw: str, questions: list[QuestionDraft],
     return result
 
 
+def _original_option_reasons(
+    reviewed: QuestionDraft, original: QuestionDraft, reasons: list[str],
+) -> list[str]:
+    """Keep closed reason codes bound to original options after safe trimming."""
+    result: list[str] = []
+    for reason in reasons:
+        match = re.fullmatch(r"((?:constraint_)?option_)(\d+)(:.*)", reason)
+        if match:
+            index = int(match[2])
+            original_index = original.options.index(reviewed.options[index])
+            reason = f"{match[1]}{original_index}{match[3]}"
+        result.append(reason)
+    return result
+
+
+def _rejected_option_feedback(question: QuestionDraft, reasons: list[str]) -> list[dict[str, Any]]:
+    """Only trusted closed option reasons, never free-form reviewer rationale."""
+    return [{"index": index, "text": text, "reasons": issues}
+            for index, text in enumerate(question.options)
+            if (issues := [reason for reason in reasons
+                           if reason.startswith((f"option_{index}:", f"constraint_option_{index}:"))])]
+
+
 def _constraint_request(request: dict[str, Any], questions: list[QuestionDraft]) -> dict[str, Any]:
     return {"task": "assessment_constraints", "block_id": request["block_id"],
             "facts": request["facts"], "questions": [
@@ -730,6 +804,85 @@ def _review_request(block_id: str, questions: list[QuestionDraft],
                            "attribute": by_id[fid].attribute, "value": by_id[fid].value}
                           for fid in q.evidence_fact_ids]}
         for q in questions]}
+
+
+def _table_attribute_key(axis: AssessmentAxis, facts_by_id: dict[str, SourceFact]) -> tuple[str, str, str, str]:
+    fact = facts_by_id[axis.primary_fact_id]
+    locator = dict(parse_qsl(fact.source_locator.replace(";", "&")))
+    return (
+        locator.get("doc_id", ""),
+        locator.get("source_revision", ""),
+        locator.get("section", locator.get("sheet", "")),
+        _norm(axis.attribute),
+    )
+
+
+def _source_peer_table_candidate(
+    axis: AssessmentAxis, lesson: LessonDraft, facts_by_id: dict[str, SourceFact],
+) -> QuestionDraft | None:
+    """Seed a literal table-field MCQ, never accept it without both reviewers.
+
+    Only certain, revision-bound same-column cells from this lesson qualify.
+    Narrative, numeric/rule/predicate fields and ambiguous entity rows retain
+    the provider path. Peer facts are alternatives, never evidence for the key.
+    """
+    primary = facts_by_id[axis.primary_fact_id]
+    if (
+        axis.axis_kind != "attribute"
+        or axis.correct_value != primary.value.strip()
+        or axis.required_prompt != (
+            f"Что указано в характеристике «{primary.attribute.strip()}» "
+            f"для «{primary.subject.strip()}»?"
+        )
+        or re.search(r"\b(?:правил|процедур|действ|услов|требован|обязан)\w*", _norm(primary.attribute))
+    ):
+        return None
+
+    def frame(fact: SourceFact) -> tuple[str, ...] | None:
+        locator = dict(parse_qsl(fact.source_locator.replace(";", "&")))
+        if (
+            not is_tabular_locator(fact.source_locator)
+            or "part" in locator
+            or not all(locator.get(key) for key in ("doc_id", "source_revision", "column"))
+            or not (locator.get("section") or locator.get("sheet"))
+            or not locator.get("table")
+            or not locator.get("row", "").isdecimal()
+            or int(locator["row"]) < 1
+        ):
+            return None
+        return tuple(locator.get(key, "") for key in (
+            "doc_id", "source_revision", "section", "sheet", "table", "column",
+        )) + (_norm(fact.attribute),)
+
+    target_frame = frame(primary)
+    if target_frame is None:
+        return None
+    cells = [facts_by_id[fid] for fid in lesson.fact_ids
+             if frame(facts_by_id[fid]) == target_frame]
+    subjects: set[str] = set()
+    rows: set[int] = set()
+    alternatives: list[str] = []
+    for cell in cells:
+        subject = _norm(cell.subject)
+        row = int(dict(parse_qsl(cell.source_locator.replace(";", "&")))["row"])
+        value = cell.value.strip()
+        if (
+            not subject or subject in subjects or row in rows
+            or cell.confidence != 1.0 or cell.uncertainty
+            or not value or len(value) > 120
+            or re.search(r"[.!?;:=\n]|\b(?:если|когда|при|if|when|егер)\b", value.casefold())
+        ):
+            return None
+        subjects.add(subject)
+        rows.add(row)
+        if cell.fact_id != primary.fact_id and _norm(value) != axis.normalized_correct_value:
+            if _norm(value) not in {_norm(item) for item in alternatives}:
+                alternatives.append(value)
+    if len(alternatives) < 2:
+        return None
+    return materialize_assessment(axis, AuthoredAssessment(
+        axis.axis_id, axis.required_prompt, tuple(alternatives[:2]),
+    ))
 
 
 async def generate_block_assessment(
@@ -822,8 +975,15 @@ async def generate_block_assessment(
         # commonly contains the same attributes for several products; choosing
         # attributes globally before subjects made the first product consume the
         # whole three-question budget while later products disappeared.
+        # Within each entity prefer an as-yet untested table attribute. Stable
+        # ordering keeps source order as the tie-breaker, and permits repeated
+        # attributes when no new one exists instead of inventing diversity.
         for group_index in group_indexes:
-            for axis in prepared_groups[group_index][3]:
+            group_axes = sorted(prepared_groups[group_index][3], key=lambda axis: (
+                is_tabular_locator(facts_by_id[axis.primary_fact_id].source_locator)
+                and _table_attribute_key(axis, facts_by_id) in selected_attributes
+            ))
+            for axis in group_axes:
                 if lesson_selected >= _MAX_QUESTIONS_PER_LESSON:
                     break
                 subject_key = _norm(axis.subject)
@@ -833,13 +993,7 @@ async def generate_block_assessment(
                 selected_subjects.add(subject_key)
                 primary_fact = facts_by_id[axis.primary_fact_id]
                 if is_tabular_locator(primary_fact.source_locator):
-                    locator = dict(parse_qsl(primary_fact.source_locator.replace(";", "&")))
-                    selected_attributes.add((
-                        locator.get("doc_id", ""),
-                        locator.get("source_revision", ""),
-                        locator.get("section", locator.get("sheet", "")),
-                        _norm(axis.attribute),
-                    ))
+                    selected_attributes.add(_table_attribute_key(axis, facts_by_id))
                 lesson_selected += 1
                 break
             if lesson_selected >= _MAX_QUESTIONS_PER_LESSON:
@@ -862,13 +1016,7 @@ async def generate_block_assessment(
                     continue
                 primary_fact = facts_by_id[axis.primary_fact_id]
                 is_tabular_axis = is_tabular_locator(primary_fact.source_locator)
-                locator = dict(parse_qsl(primary_fact.source_locator.replace(";", "&")))
-                attribute_key = (
-                    locator.get("doc_id", ""),
-                    locator.get("source_revision", ""),
-                    locator.get("section", locator.get("sheet", "")),
-                    _norm(axis.attribute),
-                )
+                attribute_key = _table_attribute_key(axis, facts_by_id)
                 if is_tabular_axis and attribute_key in selected_attributes:
                     axis_omission_reasons.setdefault(
                         selected_axis_id,
@@ -886,7 +1034,7 @@ async def generate_block_assessment(
     length_signal_targets: dict[str, str] = {}
     audit: dict[str, Any] = {"policy": "semantic-block-v1", "blocks": len(prepared_groups),
                            "candidates": 0, "accepted": 0, "repaired": 0,
-                           "dropped": 0, "removed_distractors": 0,
+                           "dropped": 0, "removed_distractors": 0, "source_peer_candidates": 0,
                            "failures": [], "block_outcomes": [], "axis_outcomes": [],
                            "derived_axes": 0, "requested_axes": 0, "authored_axes": 0,
                            "attempt_counts": {"authored": 0, "deterministic_repair": 0,
@@ -1057,13 +1205,21 @@ async def generate_block_assessment(
 
         parser = partial(_parse_axis_questions, axes=request_axes,
                          maximum=request["max_questions"])
-        generated = await invoke(
-            AUTHOR_PROMPT,
-            request,
-            parser,
-            record_failure=len(request_axes) == 1,
-            failure_axis_ids=tuple(axis.axis_id for axis in request_axes),
-        )
+        peer_candidates = [_source_peer_table_candidate(axis, lesson, facts_by_id)
+                           for axis in request_axes]
+        if all(question is not None for question in peer_candidates):
+            generated = [question for question in peer_candidates if question is not None]
+            audit["source_peer_candidates"] += len(generated)
+            for axis in request_axes:
+                axis_records[axis.axis_id]["candidate_origin"] = "source_peer_table"
+        else:
+            generated = await invoke(
+                AUTHOR_PROMPT,
+                request,
+                parser,
+                record_failure=len(request_axes) == 1,
+                failure_axis_ids=tuple(axis.axis_id for axis in request_axes),
+            )
         if generated is None and len(request_axes) > 1:
             isolated: list[QuestionDraft] = []
             for axis in request_axes:
@@ -1210,6 +1366,7 @@ async def generate_block_assessment(
                 )
                 for question in candidates
             }
+            original_candidates = {question.question_id: question for question in candidates}
             reviewed_candidates: list[QuestionDraft] = []
             for question in candidates:
                 if question.question_id not in reviews or not reviews[question.question_id]:
@@ -1280,7 +1437,9 @@ async def generate_block_assessment(
                             continue
                         if not constraints[question.question_id]:
                             rejection_reasons[question.question_id].extend(
-                                constraints.reasons[question.question_id])
+                                _original_option_reasons(
+                                    question, original_candidates[question.question_id],
+                                    constraints.reasons[question.question_id]))
                             continue
                         removals = set(constraints.option_removals[question.question_id])
                         audit["removed_distractors"] += len(removals)
@@ -1299,6 +1458,10 @@ async def generate_block_assessment(
                     reviewed_candidates = []
             good: list[QuestionDraft] = []
             for question in reviewed_candidates:
+                if any(_restates_conditional_prohibition(question.correct_answer, option)
+                       for option in question.options if option != question.correct_answer):
+                    rejection_reasons[question.question_id].append("assessment_key_restatement")
+                    continue
                 if question_has_incomplete_correct_answer(question):
                     rejection_reasons[question.question_id].append(
                         "incomplete_correct_answer"
@@ -1319,6 +1482,24 @@ async def generate_block_assessment(
                     rejection_reasons[question.question_id].append("unsupported_replacement_advice")
                     continue
                 good.append(question)
+            # A semantically rejected candidate still owns its immutable source
+            # key. Anticipate the lesson-level signal before spending its only
+            # repair; otherwise a successful semantic correction can discover
+            # this second defect too late. Prefer reviewed/pruned options where
+            # available, without accepting any unreviewed question.
+            quality_candidates = {q.question_id: q for q in candidates}
+            quality_candidates.update({q.question_id: q for q in good})
+            good_before_length = {q.question_id for q in good}
+            for question in candidates:
+                if (question.question_id in good_before_length
+                        or question_has_incomplete_correct_answer(question)):
+                    continue
+                if answer_length_repair_targets(
+                    [*accepted, *quality_candidates.values()],
+                    repairable_ids={question.question_id},
+                ):
+                    rejection_reasons[question.question_id].append("assessment_answer_length_signal")
+                    length_signal_targets[question.question_id] = question.lesson_id
             length_targets = set(answer_length_repair_targets(
                 [*accepted, *good], repairable_ids={q.question_id for q in good},
             ))
@@ -1332,6 +1513,13 @@ async def generate_block_assessment(
                 audit["repaired"] += len(good)
             good_ids = {q.question_id for q in good}
             rejected = [q for q in candidates if q.question_id not in good_ids]
+            if round_index:
+                for question in rejected:
+                    axis_id = axis_by_question_id.get(question.question_id)
+                    if axis_id is not None:
+                        axis_records[axis_id]["reason"] = ";".join(
+                            rejection_reasons[question.question_id]
+                        ) or "semantic_rejection"
             if round_index or not rejected:
                 break
             repaired: list[QuestionDraft] = []
@@ -1372,11 +1560,31 @@ async def generate_block_assessment(
                                                 "primary_fact_id": rejected_question.fact_id,
                                                 "fact_ids": rejected_question.evidence_fact_ids,
                                                 "rejection_reasons": rejection_reasons[
-                                                    rejected_question.question_id]}]}
-                repaired.extend(await invoke(AUTHOR_PROMPT, repair_request,
+                                                    rejected_question.question_id],
+                                                "rejected_options": _rejected_option_feedback(
+                                                    rejected_question, rejection_reasons[
+                                                        rejected_question.question_id])}]}
+                repair_results = await invoke(AUTHOR_PROMPT, repair_request,
                     partial(_parse_axis_questions, axes=repair_axes[:1], maximum=1,
                             repair_targets={rejected_question.question_id: rejected_question}),
-                    failure_axis_ids=(repair_axes[0].axis_id,)) or [])
+                    failure_axis_ids=(repair_axes[0].axis_id,)) or []
+                for repaired_question in repair_results:
+                    unchanged = (
+                        _norm(repaired_question.prompt) == _norm(rejected_question.prompt)
+                        and _norm(repaired_question.correct_answer) == _norm(rejected_question.correct_answer)
+                        and sorted(_norm(option) for option in repaired_question.options)
+                        == sorted(_norm(option) for option in rejected_question.options)
+                        and _norm(repaired_question.explanation) == _norm(rejected_question.explanation)
+                    )
+                    if unchanged:
+                        # The same failed candidate (even reordered) cannot
+                        # improve by paying for a second semantic/constraint
+                        # judgment. Keep the omission and its original reasons.
+                        record = axis_records[repair_axes[0].axis_id]
+                        record["state"] = "omitted"
+                        record["reason"] += ";assessment_repair_no_progress"
+                        continue
+                    repaired.append(repaired_question)
             candidates = repaired
         block_failures = [
             failure for failure in audit["failures"][block_failures_at_start:]

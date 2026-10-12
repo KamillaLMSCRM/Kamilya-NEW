@@ -201,7 +201,7 @@ def _claim_attribute(value: str) -> str:
     normalized = _norm(value)
     if has_temporal_unit(normalized) or re.search(r"\bсрок\w*\b", normalized):
         return "срок"
-    if re.search(r"\b(?:процент|ставк|вознагражден|тенге|сумм)\w*\b", normalized):
+    if re.search(r"\b(?:ставк|вознагражден|тенге|сумм)\w*\b", normalized):
         return "финансовое условие"
     if re.search(
         r"(?:\bнельзя\b|\bзапрещен\w*\b|\bне допускается\b|\bне вправе\b)",
@@ -234,6 +234,25 @@ def _axis_kind(attribute: str, value: str) -> AssessmentAxisKind:
     return "attribute"
 
 
+def _source_owned_faq_pair(value: str) -> tuple[str, str] | None:
+    """Keep a leading unquoted FAQ question with its complete exact answer.
+
+    Do not interpret quoted questions, multiple question/answer pairs or an
+    unanswered question as an assertion. Answer conditions stay verbatim;
+    the source question supplies context, never the answer key.
+    """
+    match = re.fullmatch(
+        r'(?P<prompt>[^.!?«»“”"\n]{5,200}\?)\s+(?P<answer>[^?]+)',
+        value.strip(), flags=re.DOTALL,
+    )
+    if match is None:
+        return None
+    answer = match.group("answer").strip()
+    if len(answer) < 12 or not re.search(r"[^\W\d_]", answer):
+        return None
+    return match.group("prompt").strip(), answer
+
+
 def _source_owned_correct_value(fact: SourceFact) -> str:
     """Select one exact actionable sentence from a narrative paragraph.
 
@@ -241,6 +260,9 @@ def _source_owned_correct_value(fact: SourceFact) -> str:
     narrative paragraph must not become an obvious long answer key. The axis is
     one atomic source claim; the lesson still retains the complete fact.
     """
+    faq_pair = _source_owned_faq_pair(fact.value)
+    if faq_pair is not None:
+        return faq_pair[1]
     structured_clauses = _structured_list_clauses(fact.value)
     sentences = structured_clauses or [
         match.group(0).strip()
@@ -250,9 +272,22 @@ def _source_owned_correct_value(fact: SourceFact) -> str:
     if len(sentences) <= 1:
         return _concise_source_span(fact.value.strip())
 
+    has_scope_context = bool(re.search(
+        r"\b(?:применяется|применяются)\b|\b(?:он|она|оно)\s+(?:нужен|нужна|нужно)\b",
+        _norm(fact.value),
+    ))
+
     def score(sentence: str, index: int) -> tuple[int, int, int]:
         normalized = _norm(sentence)
         points = 0
+        if has_scope_context and _norm(fact.attribute) in _AUTO_NARRATIVE_ATTRIBUTES and re.search(
+            r"\b(?:нельзя|запрещен\w*|обязан\w*|не\s+может|не\s+могут|"
+            r"must|shall|must\s+not)\b", normalized,
+        ):
+            # An operational paragraph may lead with broad OR-scope/context.
+            # Prefer its explicit required/forbidden action for one atomic
+            # assessment; the full scope stays intact in the lesson evidence.
+            points += 12
         if re.search(r"\b(?:если|когда|при|unless|when|if)\b", normalized):
             points += 8
         points += 3 * len(re.findall(
@@ -291,7 +326,46 @@ def _is_dependent_source_fragment(value: str) -> bool:
     return bool(_DEPENDENT_LEADING_FRAGMENT.match(stripped)) and "," not in stripped
 
 
+def _direct_binary_prohibition(correct_value: str) -> tuple[str, str] | None:
+    """Preserve the entire action/condition when negating two explicit grammars.
+
+    Do not distribute a joint prohibition across its individual actions or
+    infer exceptions. Complex qualifications remain model-reviewed MCQ axes.
+    """
+    value = correct_value.strip()
+    if re.search(
+        r"[;!?]|\b(?:кроме|исключени\w*|но|однако|только|лишь|не)\b",
+        re.sub(r"\bне\s+может\s+одновременно\b", "", value, count=1,
+               flags=re.IGNORECASE), flags=re.IGNORECASE,
+    ):
+        return None
+    leading = re.fullmatch(
+        r"Нельзя\s+(?P<action>[А-Яа-яЁё]+(?:ть|ти|чь)\s+[^.!?]+)\.?",
+        value, flags=re.IGNORECASE,
+    )
+    if leading is not None:
+        action = leading.group("action").strip()
+        return f"Допустимо ли {action}?", f"Можно {action}."
+    joint = re.fullmatch(
+        r"(?P<actor>[А-Яа-яЁё][А-Яа-яЁё -]{1,60})\s+не\s+может\s+одновременно\s+"
+        r"(?P<action>[А-Яа-яЁё]+(?:ть|ти|чь)\s+[^.!?]+\s+и\s+"
+        r"[А-Яа-яЁё]+(?:ть|ти|чь)\s+[^.!?]+)\.?",
+        value, flags=re.IGNORECASE,
+    )
+    if joint is not None:
+        actor = joint.group("actor").strip()
+        action = joint.group("action").strip()
+        return (
+            f"Может ли {actor[:1].lower()}{actor[1:]} одновременно {action}?",
+            f"{actor} может одновременно {action}.",
+        )
+    return None
+
+
 def _required_prompt(correct_value: str) -> str:
+    direct = _direct_binary_prohibition(correct_value)
+    if direct is not None:
+        return direct[0]
     postfix_prohibition = _POSTFIX_ACTION_PROHIBITION.fullmatch(correct_value.strip())
     if postfix_prohibition is not None:
         action = postfix_prohibition.group("action").strip()
@@ -422,6 +496,9 @@ def _server_owned_inverse(correct_value: str) -> str | None:
     and negation are unambiguous, the server owns both choices and emits a
     true/false assessment instead.
     """
+    direct = _direct_binary_prohibition(correct_value)
+    if direct is not None:
+        return direct[1]
     postfix_prohibition = _POSTFIX_ACTION_PROHIBITION.fullmatch(correct_value.strip())
     if postfix_prohibition is not None:
         return f"{postfix_prohibition.group('action').strip()} разрешено."
@@ -732,12 +809,20 @@ def derive_assessment_axes(
     source_order = {fact_id: index for index, fact_id in enumerate(lesson.fact_ids)}
     eligible.sort(key=lambda item: (source_order.get(item.fact_id, len(source_order)), item.fact_id))
     for fact in eligible:
+        if _norm(fact.attribute) in _AUTO_NARRATIVE_ATTRIBUTES and re.fullmatch(
+            r'[^.!?«»“”"]+\?', fact.value.strip(),
+        ):
+            # A bare FAQ question carries no answer. Explicit source attributes
+            # such as "вопрос для знакомства" may legitimately quote a question.
+            continue
         source_value = _source_owned_correct_value(fact)
-        if _is_dependent_source_fragment(source_value):
+        if not source_value or _is_dependent_source_fragment(source_value):
             continue
         correct_value, required_prompt = _contextualized_list_axis(fact, source_value)
         axis_attribute = _axis_attribute(fact, correct_value)
-        required_prompt = required_prompt or _required_prompt(correct_value)
+        faq_pair = _source_owned_faq_pair(fact.value)
+        required_prompt = (faq_pair[0] if faq_pair else
+                           required_prompt or _required_prompt(correct_value))
         if not required_prompt and is_tabular_locator(fact.source_locator):
             # Keep the source-owned table subject and attribute in the stem;
             # a provider may propose alternatives, not recast a collection as

@@ -463,12 +463,12 @@ class DocumentChunker:
             if para.startswith("#") and not sentence_like_ordinal_heading:
                 # A heading belongs to the content that follows it. Flush the
                 # previous section before changing metadata so its final chunk
-                # cannot be relabelled. Worksheet boundaries are hard source
-                # boundaries: do not carry overlap from one sheet into another.
+                # cannot be relabelled. All genuine heading boundaries are
+                # hard source boundaries: overlap from the previous section
+                # can start mid-word and invalidate the next complete rule.
                 if current_chunk.strip() and (current_headings or not promoted_ordinal):
-                    current_chunk = emit_current()
-                    if para.startswith("# [Worksheet] ") or promoted_ordinal:
-                        current_chunk = ""
+                    emit_current()
+                    current_chunk = ""
                 level = len(para.split(" ")[0])
                 title = para.lstrip("#").strip()
                 if level <= len(current_headings):

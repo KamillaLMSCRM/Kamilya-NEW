@@ -6664,3 +6664,123 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   production browser opens its own course and suppresses the foreign programme
   Start link with account-access explanation; normal-account control is separate.
   No PIN reissue, course guard relaxation or completed-history reset.
+
+## AI-QUALITY-043 - A publishable short draft hid source loss and procedural defects
+
+- Date:2026-10-12; frozen synthetic algorithm pilot, no customer/tenant data.
+- Symptoms: ordinary Markdown package matrix disappeared while publishable was
+  true; numbered procedure began with step5; a70-percent exam threshold received
+  a financial label; a quiz selected one rule from an explicitly unresolved
+  priority document. A new adjacent-table test also proved loss of the second
+  table when no narrative paragraph separated the header/separator pairs.
+- Causes: source adapters favored worksheet tables; hash/group ordering was used
+  as presentation sequence; a bare percent token implied financial context;
+  preflight did not honor the explicit unresolved-priority source notice. The
+  new ordinary-table scanner initially consumed the next table's line range.
+- Fix: source-owned ordinary-table cells/locators plus adjacent prose, ragged
+  rejection before provider use, contiguous one-scope source1..N projection,
+  explicit priority-notice stop, contextual percentage classification; adjacent
+  table boundaries and same-heading equal-value deduplication corrected.
+- Verification: procedure RED1FAIL/4PASS then5PASS; priority RED2FAIL/3PASS then
+  5PASS; percentage RED4FAIL/2PASS then6PASS; adjacent table RED1FAIL/6PASS then
+  focused61PASS. Latest broad424PASS, canonical journey25PASS, unchanged quality
+  baseline. Actual baseline8 plus affected candidate4 runs retained; final-code
+  replay uses37 captured responses,0 HTTP/fallback. No CI/DEV/browser/release.
+- Prevention: freeze source-owned gold independently of outputs; audit meaning,
+  exceptions and action order separately from literal quotes and publishability.
+  Include ordinary/worksheet tables, adjacent tables without prose, ragged rows,
+  negative input, percentage contexts and unassessed lesson blocks. Preserve
+  first failures and provider call/token amplification; never use safe refusal
+  as generated-content preservation or algorithm seconds as human speedup.
+- Remaining: FAQ no retained questions; matrix narrative assessment incomplete
+  and26 calls on122 words; explicit guard is not universal conflict detection;
+  long documents/OCR/production conversion/human comparison NOT MEASURED.
+  Evidence/report: `docs/testing/2026-10-12-course-quality-benchmark.md` and
+  `.release-evidence/COURSE-BENCH-20261012/`.
+
+## AI-QUALITY-044 - FAQ questions became keys and unchanged repairs bought repeated judgments
+
+- Date:2026-10-12; synthetic algorithm continuation, no DB/deployment changes.
+- Causes: narrative sentence scoring selected the leading FAQ question instead
+  of its answer. A model repair could return the same failed candidate, after
+  which semantic/constraint judgments were bought again. Entity-first table
+  selection chose the first attribute for every entity, limiting test diversity.
+- Fix: bounded exact FAQ Q/A splitting, source question as prompt and complete
+  answer as key; auto-narrative bare questions omitted without rejecting explicit
+  question-valued attributes. Unchanged/reordered repairs keep original rejection
+  and a no-progress reason without another judgment. Table entity-first selection
+  prefers an unseen attribute, falls back when absent, keeps the original cap.
+  Prompts reject invented prerequisites and cosmetic misconception repairs.
+- Verification: FAQ RED6FAIL; repair RED1FAIL; diversity RED2FAIL/1PASS, then
+  targeted PASS with unchanged rejection gates. Ten fresh attempts retained93
+  calls/130043 input/30306 output tokens. Final repeats: FAQ2/3 questions,
+  matrix3/3; matrix12 calls21.530–22.495s, not a matched-output speedup proof.
+  Final44 inspected source clusters preserved,11 keys grounded,26 wrong options
+  inspected; AI/root review, not human. Final replay35 captured/0 HTTP; unaffected
+  replay11 captured plus expected conflict stop. Canonical gates in benchmark
+  companion/ledger; no CI/DEV/browser/release.
+- Prevention: compare semantic content, selected axes and accepted questions as
+  separate denominators; preserve failed first/repeat attempts and all costs.
+  Do not call literal reformulation source loss or deterministic planning fields
+  a second persisted quiz without checking the actual persistence consumer.
+- Follow-up: selected reporting authoring mixed reporting/practice/retention,
+  causing materialization to omit it before blind review. Certain simple table
+  fields now obtain alternatives from the same document/revision/table/column
+  within lesson primary facts; key/evidence stay immutable and both independent
+  review gates remain. Numeric/rule/predicate/uncertain/ambiguous cells retain
+  provider authoring. Independent review required explicit table identity
+  (sheet is not a table) and numeric row deduplication (`2` equals `02`):
+  RED2FAIL/16PASS, then18PASS. Two fresh matrix runs28.017/30.155s,
+  13 calls each,4/4 selected questions; final-source fingerprint and456/27
+  overlapping local gates recorded in benchmark companion/ledger. All previous
+  failures remain; no full source assessment or same-version stability claim.
+- Remaining: FAQ acceptance varies and may invent prerequisites. Long/OCR/RU-KK/DEV/editor and
+  paired human effectiveness remain unmeasured. No universal accuracy or landing
+  claim is authorized by these small synthetic repeats.
+
+## AI-QUALITY-045 - Chunk overlap and post-grounding deduplication silently lost policy facts
+
+- Date:2026-10-12; local synthetic algorithm run, no DB/deployment changes.
+- Symptoms: first517-word policy produced8 admitted facts/five lessons, omitting
+  its eligibility paragraph and all concrete table rows. A later fresh run
+  admitted20 facts but rendered only11/12 table relationships; the two-day
+  owner-error deadline disappeared despite cited fact IDs. `coverage_ratio=1`
+  measured admitted/cited facts, not complete source text.
+- Causes: overlap crossed true headings and prefixed the next section with
+  mid-word source text; ordinary tables were parsed per chunk and lost their
+  headerless continuation; their role fallback differed from prose. Later,
+  sentence-similarity deduplication removed a different numeric table value
+  after the table block had passed grounding, then still claimed all IDs covered.
+- Fix: true headings clear overlap, ordinary tables reconstruct consecutive
+  same-heading/revision chunks with all contributing IDs, and reuse the existing
+  narrative role fallback. Gaps, duplicate indices, worksheets and explicit
+  supporting roles stay bounded. Recheck labelled table values AFTER sentence
+  deduplication; incomplete visible blocks cannot suppress exact-cell fallback.
+- Verification: corrected test harness first, then3 source-loss FAIL regressions;
+  source repair GREEN. Numeric-row renderer RED1FAIL, then35 focused PASS.
+  Final broad578PASS/7.85s; canonical13 journey selectors27PASS/3.73s; quality
+  baseline PASS with unchanged debt. Frozen extended source SHA and all calls/
+  timings are in the benchmark report/JSON. No DEV/CI/browser/release evidence.
+- Review correction: independent AI reviewer initially claimed12/12 visible
+  table relationships on fresh v2; root text readback disproved it. Claim
+  explicitly withdrawn. Final34-response zero-HTTP replay restores12/12 and
+  preserves15 gold meanings; no fresh final-code latency is inferred from replay.
+- Prevention: source-only gold must include operational table relationships,
+  not merely ID/citation coverage or abstract rules. Check final visible text
+  after every destructive rendering transformation. Distinguish source admission,
+  lesson rendering, selected/accepted questions and publication quality. A consumed
+  holdout becomes a regression case; keep failures and inaccurate review claims.
+- Remaining: long course still `review_required`, conflict question omitted
+  after bounded repair; no gate relaxation. Source order/pedagogy, fresh untouched
+  complex source, actual conversion/reindex/DEV/editor and human comparison remain
+  open. Existing stored chunks were not reindexed; no automatic production repair.
+- Continuation2026-10-12: ordinary table/prose sections now follow original chunk
+  order. A frozen866-word source exposed numbered operational rules demoted by
+  incidental list markers; normative numbered headings retain primary admission.
+  All23 meanings/27 table cells are preserved in independently reviewed complex
+  v3; first failed captures remain. Existing exact binary inverse support now
+  covers leading action prohibition and joint simultaneous-role prohibition,
+  keeping complete conditions and rejecting exceptions/quoted/negated clauses.
+  Late answer-length feedback reaches the existing one repair; conflict v3 retains
+  its previously omitted question and all15 meanings/12 cells. Local R3 533PASS
+  plus27 overlapping journey checks; full DEV remains required. No gate weakening.

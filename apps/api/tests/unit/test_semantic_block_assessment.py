@@ -291,6 +291,29 @@ def test_constraint_parser_ignores_extra_bad_rule_when_primary_evidence_is_exact
     assert result == {"q": True}
 
 
+@pytest.mark.parametrize("invented_index", [0, 1, 2])
+def test_constraint_parser_reports_invented_key_or_undetermined_requirements(invented_index):
+    from app.modules.ai.evidence_engine.semantic_assessment import _parse_constraint_reviews
+
+    lesson, facts = fixture()
+    question = QuestionDraft(
+        "q", lesson.lesson_id, "single_choice", "Как передавать данные?",
+        (ATOMIC_RULE, OPTIONS[1], OPTIONS[2]), ATOMIC_RULE, ATOMIC_RULE, "f1",
+        evidence_fact_ids=("f1",), semantic_reviewed=True,
+    )
+    payload = {
+        "rules": [{"fact_id": "f1", "quote": ATOMIC_RULE, "kind": "forbidden"}],
+        "reviews": [{"question_id": "q", "distinct_errors": True, "reason": "untrusted prose",
+                     "options": [{"index": i, "relation": ("entailed" if i == 0 else
+                                                            "undetermined" if i == invented_index else "contradicted"),
+                                  "invented_constraint": i == invented_index,
+                                  "realistic_error": i > 0} for i in range(3)]}],
+    }
+    verdicts = _parse_constraint_reviews(json.dumps(payload), [question], list(facts.values()))
+    assert not verdicts["q"]
+    assert f"constraint_option_{invented_index}:invented_constraint" in verdicts.reasons["q"]
+
+
 def test_constraint_parser_rejects_when_primary_fact_has_no_exact_rule() -> None:
     from app.modules.ai.evidence_engine.semantic_assessment import _parse_constraint_reviews
 
@@ -323,6 +346,25 @@ def test_constraint_parser_rejects_when_primary_fact_has_no_exact_rule() -> None
         _parse_constraint_reviews(
             json.dumps(payload, ensure_ascii=False), [question], list(facts.values()),
         )
+
+
+def test_repair_feedback_uses_original_option_identity_after_review_pruning():
+    from app.modules.ai.evidence_engine.semantic_assessment import (
+        _original_option_reasons,
+        _rejected_option_feedback,
+    )
+
+    original = QuestionDraft("q", "l", "single_choice", "Вопрос?",
+                             ("Ключ", "Снят при первой проверке", "Допустимая ошибка", "Новое условие"),
+                             "Ключ", "Пояснение", "f1")
+    reviewed = replace(original, options=(original.options[0], *original.options[2:]))
+    reasons = _original_option_reasons(reviewed, original, [
+        "constraint_option_2:invented_constraint", "constraint_duplicate_misconceptions",
+    ])
+    assert reasons == ["constraint_option_3:invented_constraint", "constraint_duplicate_misconceptions"]
+    feedback = _rejected_option_feedback(original, reasons)
+    assert feedback == [{"index": 3, "text": "Новое условие",
+                         "reasons": ["constraint_option_3:invented_constraint"]}]
 
 
 def fixture():
@@ -450,7 +492,7 @@ async def test_lesson_length_signal_gets_only_existing_single_repair_and_cannot_
     repairs = [request for request in client.requests if request["task"] == "assessment_repair"]
     assert len(repairs) == 1
     assert repairs[0]["rejected"][0]["rejection_reasons"] == ["assessment_answer_length_signal"]
-    assert len(client.requests) == 6
+    assert len(client.requests) == (6 if repair_succeeds else 4)
     if repair_succeeds:
         assert len(result.questions) == 2
         assert result.audit["unresolved_quality_signals"] == []
@@ -460,6 +502,69 @@ async def test_lesson_length_signal_gets_only_existing_single_repair_and_cannot_
         assert result.audit["unresolved_quality_signals"]
         assert result.audit["unresolved_quality_signals"][0]["lesson_id"] == "l1"
     assert all(question.correct_answer in claims for question in result.questions)
+
+
+@pytest.mark.asyncio
+async def test_semantic_repair_receives_length_feedback_before_its_only_retry():
+    class CombinedFeedbackClient(Client):
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            if request["task"] in {"assessment_generate", "assessment_repair"}:
+                self.requests.append(request)
+                repairing = request["task"] == "assessment_repair"
+                if repairing:
+                    reasons = request["rejected"][0]["rejection_reasons"]
+                    assert "assessment_answer_length_signal" in reasons
+                    assert any(reason != "assessment_answer_length_signal" for reason in reasons)
+                rows = [{"axis_id": axis["axis_id"],
+                         "prompt": (request["rejected"][0]["prompt"] if repairing else
+                                    f"Как выполнить обязательное действие {index + 1} при приемке?"),
+                         "distractors": ([
+                             "При передаче смены сотрудник сообщает о результате приемки только устно, оставляя журнал без записи и не передавая сведения о непринятых единицах товара.",
+                             "Отметить всю накладную как принятую и передать непринятую единицу следующей смене без отдельного отражения возврата.",
+                         ] if repairing else ["Принять всё сразу.", "Передать устно."])}
+                        for index, axis in enumerate(request["axes"])]
+                return SimpleNamespace(value=parser(json.dumps({"questions": rows}, ensure_ascii=False)),
+                                       attempt_count=1)
+            if request["task"] == "assessment_review" and not any(
+                prior["task"] == "assessment_repair" for prior in self.requests
+            ):
+                self.requests.append(request)
+                payload = verdict(request, reject=True)
+                return SimpleNamespace(value=parser(json.dumps(payload, ensure_ascii=False)), attempt_count=1)
+            return await super().ainvoke_validated(messages, parser, **kwargs)
+
+    claims = [
+        "При частичной приемке нельзя отмечать всю накладную как принятую, если хотя бы одна единица возвращена.",
+        "При передаче смены сотрудник обязан записать результат приемки в журнал и передать следующей смене сведения о непринятых единицах товара.",
+    ]
+    facts = {f"f{index}": SourceFact(f"f{index}", "Приемка", "правило", claim,
+                                   "doc_id=d1;section=acceptance")
+             for index, claim in enumerate(claims)}
+    lesson = LessonDraft("l1", "Работа", "Приемка товара", "Отразить приемку",
+                         " ".join(claims), tuple(facts), (), 1)
+    client = CombinedFeedbackClient()
+    result = await generate_block_assessment([lesson], facts, client)
+    assert len(result.questions) == 2
+    assert result.audit["unresolved_quality_signals"] == []
+    repairs = [request for request in client.requests if request["task"] == "assessment_repair"]
+    assert len(repairs) == 2  # exactly one repair per rejected question, never a second round
+    assert all(question.correct_answer in claims for question in result.questions)
+
+
+@pytest.mark.parametrize(("option", "restates"), [
+    ("Проект нельзя публиковать, если он имеет статус «на доработку» или «отклонено», но уведомление подготовлено.", True),
+    ("Проект нельзя публиковать, если он имеет статус «на доработку» или «отклонено».", True),
+    ("Проект можно публиковать, если он имеет статус «на доработку» или «отклонено».", False),
+    ("Проект нельзя публиковать только если он имеет статус «на доработку» или «отклонено».", False),
+    ("Проект нельзя публиковать, если он имеет статус «одобрено».", False),
+    ("Уведомление нельзя публиковать, если оно имеет статус «на доработку» или «отклонено».", False),
+])
+def test_truth_preserving_prohibition_is_not_a_wrong_answer(option, restates):
+    from app.modules.ai.evidence_engine.semantic_assessment import _restates_conditional_prohibition
+
+    key = "Нельзя публиковать проект, который имеет статус «на доработку» или «отклонено»."
+    assert _restates_conditional_prohibition(key, option) is restates
 
 
 @pytest.mark.asyncio
@@ -567,6 +672,7 @@ async def test_constraint_rejection_supplies_trusted_structured_repair_reason():
                                    for q in request["questions"]]}
             return SimpleNamespace(value=parser(json.dumps(payload, ensure_ascii=False)), attempt_count=1)
 
+
     lesson, facts = fixture()
     client = ConstraintRejectingClient()
     result = await generate_block_assessment([lesson], facts, client)
@@ -576,7 +682,48 @@ async def test_constraint_rejection_supplies_trusted_structured_repair_reason():
         "constraint_option_1:expected_contradicted_got_undetermined",
         "constraint_option_2:expected_contradicted_got_undetermined",
     ]
+    assert repair["rejected"][0]["rejected_options"] == [
+        {"index": 1, "text": repair["rejected"][0]["options"][1],
+         "reasons": ["constraint_option_1:expected_contradicted_got_undetermined"]},
+        {"index": 2, "text": repair["rejected"][0]["options"][2],
+         "reasons": ["constraint_option_2:expected_contradicted_got_undetermined"]},
+    ]
+    assert "untrusted model prose" not in json.dumps(repair)
 
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reorder", [False, True])
+async def test_unchanged_rejected_repair_is_not_reviewed_and_audited_again(reorder):
+    class NoProgressClient(Client):
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            if request["task"] != "assessment_constraints":
+                result = await super().ainvoke_validated(messages, parser, **kwargs)
+                if reorder and request["task"] == "assessment_repair":
+                    return SimpleNamespace(value=[replace(question, options=tuple(reversed(question.options)))
+                                                  for question in result.value], attempt_count=1)
+                return result
+            self.requests.append(request)
+            facts = {fact["fact_id"]: fact for fact in request["facts"]}
+            payload = {"rules": [{"fact_id": fid, "quote": fact["value"], "kind": "required"}
+                                 for fid, fact in facts.items()],
+                       "reviews": [{"question_id": q["question_id"], "reason": "same misconception",
+                                    "distinct_errors": False,
+                                    "options": [{"index": i, "relation": "entailed" if i == 0 else "contradicted",
+                                                 "invented_constraint": False, "realistic_error": True}
+                                                for i in range(len(q["options"]))]}
+                                   for q in request["questions"]]}
+            return SimpleNamespace(value=parser(json.dumps(payload)), attempt_count=1)
+
+    lesson, facts = fixture()
+    client = NoProgressClient()
+    result = await generate_block_assessment([lesson], facts, client)
+    assert result.questions == ()
+    assert [request["task"] for request in client.requests] == [
+        "assessment_generate", "assessment_review", "assessment_constraints", "assessment_repair",
+    ]
+    assert any("assessment_repair_no_progress" in row["reason"]
+               for row in result.audit["axis_outcomes"])
 
 @pytest.mark.asyncio
 async def test_failed_repair_drops_question_without_quota_padding():
@@ -584,7 +731,7 @@ async def test_failed_repair_drops_question_without_quota_padding():
     client = Client(bad=True, repair=False)
     result = await generate_block_assessment([lesson], facts, client)
     assert result.questions == ()
-    assert len(client.requests) == 4
+    assert len(client.requests) == 3
     assert result.audit["dropped"] == 1
 
 
@@ -788,7 +935,8 @@ async def test_no_teachable_question_is_not_padded():
 
 
 @pytest.mark.asyncio
-async def test_spreadsheet_question_budget_covers_distinct_entities_before_more_attributes():
+@pytest.mark.parametrize("extra_attributes", [0, 1, 2])
+async def test_spreadsheet_question_budget_covers_distinct_entities_before_more_attributes(extra_attributes):
     facts: dict[str, SourceFact] = {}
     ordered_ids: list[str] = []
     for row, subject, warranty, purpose in (
@@ -796,10 +944,12 @@ async def test_spreadsheet_question_budget_covers_distinct_entities_before_more_
         (3, "Берег", "18 месяцев", "Для спальни"),
         (4, "Риф", "24 месяца", "Для гостиной"),
     ):
-        for suffix, attribute, value in (
-            ("warranty", "Гарантия", warranty),
-            ("purpose", "Назначение", purpose),
-        ):
+        row_values = [("warranty", "Гарантия", warranty)]
+        if extra_attributes >= 1:
+            row_values.append(("purpose", "Назначение", purpose))
+        if extra_attributes >= 2:
+            row_values.append(("material", "Материал", "Массив сосны"))
+        for suffix, attribute, value in row_values:
             fact_id = f"{row}-{suffix}"
             facts[fact_id] = SourceFact(
                 fact_id, subject, attribute, value,
@@ -822,7 +972,93 @@ async def test_spreadsheet_question_budget_covers_distinct_entities_before_more_
     ]
     assert result.audit["requested_axes"] == 3
     assert {axis["subject"] for axis in requested_axes} == {"Север", "Берег", "Риф"}
+    assert len({axis["attribute"] for axis in requested_axes}) == extra_attributes + 1
     assert result.questions == ()
+
+
+def _reporting_peer_fixture():
+    facts = {}
+    for row, subject, value in (
+        (2, "Старт", "итоговый статус"),
+        (3, "Команда", "статус и прогресс"),
+        (4, "Организация", "статус, прогресс и экспорт"),
+    ):
+        fact_id = f"report-{row}"
+        facts[fact_id] = SourceFact(
+            fact_id, subject, "Отчётность", value,
+            f"doc_id=matrix;source_revision=revision1;section=Пакеты;table=1;row={row};column=3",
+        )
+    lesson = LessonDraft("reporting", "Пакеты", "Отчётность", "Сравнивать отчётность", "",
+                         tuple(facts), (), 2)
+    return lesson, facts
+
+
+@pytest.mark.asyncio
+async def test_exact_table_peer_candidates_still_need_blind_review_and_constraint_audit():
+    lesson, facts = _reporting_peer_fixture()
+    client = Client(empty=True)
+    result = await generate_block_assessment([lesson], facts, client)
+    assert len(result.questions) == 3
+    assert result.audit["source_peer_candidates"] == 3
+    assert [request["task"] for request in client.requests] == [
+        "assessment_review", "assessment_constraints",
+    ] * 3
+    for question in result.questions:
+        primary = facts[question.fact_id]
+        assert question.correct_answer == primary.value
+        assert question.evidence_fact_ids == (primary.fact_id,)
+        assert set(question.options) == {fact.value for fact in facts.values()}
+        assert question.semantic_reviewed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mutation", [
+    "document", "revision", "section", "table", "column", "missing_revision", "missing_row",
+    "merged_row", "duplicate_subject", "duplicate_value", "uncertainty", "low_confidence",
+    "predicate", "supporting_only", "sheet_without_table", "row_alias",
+])
+async def test_table_peer_shortcut_does_not_cross_uncertain_or_ambiguous_source_scope(mutation):
+    lesson, facts = _reporting_peer_fixture()
+    peer = facts["report-3"]
+    tokens = {"document": ("doc_id=matrix", "doc_id=elsewhere"),
+              "revision": ("source_revision=revision1", "source_revision=revision2"),
+              "section": ("section=Пакеты", "section=Иное"),
+              "table": ("table=1", "table=2"), "column": ("column=3", "column=4"),
+              "missing_revision": ("source_revision=revision1;", ""),
+              "missing_row": ("row=3;", ""), "merged_row": ("row=3", "row=3-4"),
+              "row_alias": ("row=3", "row=02")}
+    if mutation in tokens:
+        before, after = tokens[mutation]
+        peer = replace(peer, source_locator=peer.source_locator.replace(before, after))
+    elif mutation == "duplicate_subject":
+        peer = replace(peer, subject=facts["report-2"].subject)
+    elif mutation == "duplicate_value":
+        peer = replace(peer, value=facts["report-2"].value)
+    elif mutation == "uncertainty":
+        peer = replace(peer, uncertainty="local_ocr")
+    elif mutation == "low_confidence":
+        peer = replace(peer, confidence=0.9)
+    elif mutation == "predicate":
+        peer = replace(peer, value="статус и прогресс, если запрос подтверждён")
+    elif mutation == "supporting_only":
+        lesson = replace(lesson, fact_ids=("report-2", "report-4"), supporting_fact_ids=("report-3",))
+    elif mutation == "sheet_without_table":
+        facts = {fid: replace(fact, source_locator=fact.source_locator.replace(
+            "table=1;", "sheet=Пакеты;")) for fid, fact in facts.items()}
+        peer = facts["report-3"]
+    facts["report-3"] = peer
+    result = await generate_block_assessment([lesson], facts, Client(empty=True))
+    assert result.questions == ()
+    assert result.audit.get("source_peer_candidates", 0) == 0
+
+
+@pytest.mark.asyncio
+async def test_table_peer_candidates_are_not_accepted_without_independent_review():
+    lesson, facts = _reporting_peer_fixture()
+    result = await generate_block_assessment([lesson], facts, Client(empty=True, outage=True))
+    assert result.questions == ()
+    assert result.audit.get("source_peer_candidates", 0) == 3
+    assert result.audit["failures"]
 
 
 @pytest.mark.asyncio

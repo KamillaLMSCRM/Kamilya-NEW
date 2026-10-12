@@ -24,6 +24,7 @@ from app.modules.ai.assessment_schema import (
     MCQQuestion,
 )
 from app.modules.ai.direct_source import (
+    DirectSourceChunk,
     DirectSourceCorpus,
     merged_direct_source_worksheet_tables,
 )
@@ -31,6 +32,7 @@ from app.modules.ai.document_passport import SectionRole, build_document_passpor
 from app.modules.ai.ingestion import is_sentence_like_ordinal_heading
 from app.modules.ai.lesson_quality import neutralize_unprofessional_source_language
 from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFailureReason
+from app.modules.ai.source_tables import markdown_table_cells, markdown_tables
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 
 from .engine import EvidenceCourseEngine, admit_document_facts
@@ -198,7 +200,7 @@ def _narrative_attribute(value: str) -> str:
     normalized = value.casefold().replace("ё", "е")
     if has_temporal_unit(normalized) or re.search(r"\bсрок\w*\b", normalized):
         return "срок"
-    if re.search(r"\b(?:процент|ставк|вознагражден|тенге|сумм)\w*\b", normalized):
+    if re.search(r"\b(?:ставк|вознагражден|тенге|сумм)\w*\b", normalized):
         return "финансовое условие"
     if re.search(r"\b(?:вправе|право)\w*\b", normalized):
         return "право"
@@ -456,6 +458,104 @@ def _trim_to_first_numbered_markdown_heading(text: str) -> str:
     return text[match.start() :] if match is not None else text
 
 
+def _ordinary_markdown_tables(
+    text: str,
+) -> tuple[list[tuple[list[str], list[tuple[list[str], str]]]], set[int]]:
+    """Parse valid ordinary Markdown tables and return their source line indexes."""
+
+    parsed = markdown_tables(text)
+    if not parsed:
+        return [], set()
+    lines = text.splitlines()
+    accepted: list[tuple[list[str], list[tuple[list[str], str]]]] = []
+    table_lines: set[int] = set()
+    search_from = 0
+    for headers, rows in parsed:
+        header_index = next(
+            (
+                index
+                for index in range(search_from, len(lines))
+                if markdown_table_cells(lines[index]) == headers
+            ),
+            None,
+        )
+        if header_index is None:
+            continue
+        separator_index = header_index + 1
+        while separator_index < len(lines) and not lines[separator_index].strip():
+            separator_index += 1
+        cursor = separator_index + 1
+        current_lines = {header_index, separator_index}
+        malformed = False
+        while cursor < len(lines):
+            if not lines[cursor].strip():
+                cursor += 1
+                continue
+            cells = markdown_table_cells(lines[cursor])
+            if not cells:
+                break
+            following = cursor + 1
+            while following < len(lines) and not lines[following].strip():
+                following += 1
+            following_cells = (
+                markdown_table_cells(lines[following]) if following < len(lines) else []
+            )
+            if len(cells) == len(headers) and len(following_cells) == len(cells) and all(
+                re.fullmatch(r":?-{3,}:?", cell) for cell in following_cells
+            ):
+                # A new header/separator pair belongs to the next table, not
+                # this table's line-removal range. Match markdown_tables().
+                break
+            if len(cells) != len(headers):
+                malformed = True
+                break
+            current_lines.add(cursor)
+            cursor += 1
+        if malformed:
+            search_from = cursor + 1
+            continue
+        accepted.append((headers, rows))
+        table_lines.update(current_lines)
+        search_from = cursor
+    return accepted, table_lines
+
+
+def _contains_malformed_markdown_table(text: str) -> bool:
+    """Detect a ragged row after a valid Markdown table header/separator pair."""
+
+    lines = text.splitlines()
+    for index, line in enumerate(lines[:-1]):
+        headers = markdown_table_cells(line)
+        if len(headers) < 2:
+            continue
+        separator_index = index + 1
+        while separator_index < len(lines) and not lines[separator_index].strip():
+            separator_index += 1
+        if separator_index >= len(lines):
+            continue
+        separator = markdown_table_cells(lines[separator_index])
+        if len(separator) != len(headers) or not all(
+            re.fullmatch(r":?-{3,}:?", cell) for cell in separator
+        ):
+            continue
+        cursor = separator_index + 1
+        while cursor < len(lines):
+            if not lines[cursor].strip():
+                cursor += 1
+                continue
+            cells = markdown_table_cells(lines[cursor])
+            if not cells:
+                break
+            if len(cells) == len(headers) and all(
+                re.fullmatch(r":?-{3,}:?", cell) for cell in cells
+            ):
+                break
+            if len(cells) != len(headers):
+                return True
+            cursor += 1
+    return False
+
+
 def _chunk_section_name(chunk: Any, fallback_title: str) -> str:
     """Return a section heading, rejoining one Docling split Markdown heading."""
 
@@ -506,6 +606,29 @@ def _merge_overlapping_chunks(chunks: list[Any]) -> str:
         else:
             merged = f"{merged}\n\n{text}"
     return merged.strip()
+
+
+def _reassemble_section_chunks(chunks: tuple[DirectSourceChunk, ...]) -> tuple[DirectSourceChunk, ...]:
+    """Parse ordinary tables only after rebuilding consecutive section text.
+
+    Storage boundaries may cut the table header or its rows. Do not merge across
+    headings, missing chunk indices or worksheets; keep every contributing ID.
+    """
+    groups: list[list[DirectSourceChunk]] = []
+    for chunk in sorted(chunks, key=lambda item: item.chunk_index):
+        worksheet = any(heading.casefold().startswith("[worksheet]") for heading in chunk.headings)
+        if (groups and not worksheet and groups[-1][-1].headings == chunk.headings
+                and groups[-1][-1].chunk_index + 1 == chunk.chunk_index
+                and groups[-1][-1].source_revision == chunk.source_revision):
+            groups[-1].append(chunk)
+        else:
+            groups.append([chunk])
+    return tuple(
+        replace(group[0], text=_merge_overlapping_chunks(group),
+                chunk_id=",".join(chunk.chunk_id for chunk in group))
+        if len(group) > 1 else group[0]
+        for group in groups
+    )
 
 
 def _plain_numbered_sections(text: str, fallback_title: str) -> list[tuple[str, str]]:
@@ -672,9 +795,24 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
         (section.document_id, section.name.casefold().strip()): section.role
         for section in passport.sections
     }
+    corpus = replace(corpus, documents=tuple(
+        replace(document, chunks=_reassemble_section_chunks(document.chunks))
+        for document in corpus.documents
+    ))
     document_by_id = {document.doc_id: document for document in corpus.documents}
     sections: list[SourceSection] = []
-    tables = merged_direct_source_worksheet_tables(corpus)
+    worksheet_keys = {
+        (document.doc_id, heading.casefold().removeprefix("[worksheet] ").strip())
+        for document in corpus.documents
+        for chunk in document.chunks
+        for heading in chunk.headings
+        if heading.casefold().startswith("[worksheet]")
+    }
+    tables = [
+        table
+        for table in merged_direct_source_worksheet_tables(corpus)
+        if (table[0], table[1]) in worksheet_keys
+    ]
     table_keys: set[tuple[str, str]] = set()
     for doc_id, normalized_heading, heading, headers, rows in tables:
         table_keys.add((doc_id, normalized_heading))
@@ -734,9 +872,102 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
                 facts=tuple(sheet_facts),
             ))
 
+    ordinary_tables: list[tuple[
+        str, DirectSourceChunk, str, int, list[str], list[tuple[list[str], str]]
+    ]] = []
+    ordinary_table_lines: dict[tuple[str, str], set[int]] = {}
+    table_number_by_document: dict[str, int] = defaultdict(int)
+    for document in corpus.documents:
+        for chunk in document.chunks:
+            if any(heading.casefold().startswith("[worksheet]") for heading in chunk.headings):
+                continue
+            if _contains_malformed_markdown_table(chunk.text):
+                raise ValueError(
+                    "evidence_source_malformed_markdown_table:" + chunk.chunk_id
+                )
+            parsed, line_indexes = _ordinary_markdown_tables(chunk.text)
+            if not parsed:
+                if markdown_tables(chunk.text):
+                    title = next(reversed(chunk.headings), document.title).strip()
+                    sections.append(SourceSection(
+                        section_id=f"{document.doc_id}:malformed-table:{chunk.chunk_id}",
+                        title=title,
+                        role="supporting",
+                        facts=(SourceFact(
+                            fact_id=_stable_id("source-fact", document.doc_id, chunk.chunk_id, "malformed-table"),
+                            subject=title,
+                            attribute="непроверенная таблица",
+                            value=chunk.text,
+                            source_locator=_locator(
+                                doc_id=document.doc_id,
+                                source_revision=document.source_revision,
+                                chunk_ids=chunk.chunk_id,
+                                section=title,
+                            ),
+                            confidence=0.0,
+                            uncertainty="malformed_markdown_table",
+                        ),),
+                    ))
+                continue
+            title = next(reversed(chunk.headings), document.title).strip()
+            ordinary_table_lines[(document.doc_id, chunk.chunk_id)] = line_indexes
+            for headers, rows in parsed:
+                table_number_by_document[document.doc_id] += 1
+                ordinary_tables.append(
+                    (document.doc_id, chunk, title, table_number_by_document[document.doc_id], headers, rows)
+                )
+    seen_ordinary_facts: set[tuple[str, str, str, str, str]] = set()
+    for doc_id, chunk, title, table_number, headers, rows in ordinary_tables:
+        document = document_by_id[doc_id]
+        role = _narrative_section_role(
+            document_id=doc_id, section_name=title, role_by_section=role_by_section,
+        )
+        table_facts: list[SourceFact] = []
+        for row_index, (cells, _raw) in enumerate(rows, start=2):
+            subject = cells[0].strip() if cells else ""
+            if not subject or len(cells) != len(headers):
+                continue
+            for column_index, header in enumerate(headers[1:], start=2):
+                value = cells[column_index - 1].strip()
+                if not header.strip() or not value:
+                    continue
+                fact_key = (doc_id, title, subject, header.strip(), value)
+                if fact_key in seen_ordinary_facts:
+                    continue
+                seen_ordinary_facts.add(fact_key)
+                table_facts.append(SourceFact(
+                    fact_id=_stable_id("source-fact", doc_id, title, subject, header, value),
+                    subject=subject,
+                    attribute=header.strip(),
+                    value=value,
+                    source_locator=_locator(
+                        doc_id=doc_id,
+                        source_revision=document.source_revision,
+                        chunk_ids=chunk.chunk_id,
+                        section=title,
+                        table=table_number,
+                        row=row_index,
+                        column=column_index,
+                    ),
+                ))
+        if table_facts:
+            sections.append(SourceSection(
+                section_id=f"{doc_id}:table:{_slug(title)}:{table_number}",
+                title=title,
+                role=_section_role(role),  # type: ignore[arg-type]
+                facts=tuple(table_facts),
+            ))
+
     for document in corpus.documents:
         ordered_chunks = [
-            chunk
+            replace(
+                chunk,
+                text="\n".join(
+                    line
+                    for index, line in enumerate(chunk.text.splitlines())
+                    if index not in ordinary_table_lines.get((document.doc_id, chunk.chunk_id), set())
+                ),
+            )
             for chunk in sorted(document.chunks, key=lambda item: item.chunk_index)
             if (
                 document.doc_id,
@@ -846,6 +1077,30 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
                     role=_section_role(role),  # type: ignore[arg-type]
                     facts=tuple(narrative_facts),
                 ))
+
+    # Extraction passes collect tables and prose independently. Their pass order
+    # is not the teaching order: use original document/chunk positions, placing
+    # a section's explanatory prose before its ordinary table. Fact IDs and
+    # locators remain unchanged; worksheets keep their existing stable order.
+    if not tables:
+        document_positions = {doc.doc_id: index for index, doc in enumerate(corpus.documents)}
+        chunk_positions = {
+            (doc.doc_id, chunk_id): chunk.chunk_index
+            for doc in corpus.documents for chunk in doc.chunks
+            for chunk_id in chunk.chunk_id.split(",")
+        }
+
+        def source_position(section: SourceSection) -> tuple[int, int, int]:
+            fields = _locator_values(section.facts[0].source_locator)
+            doc_id = fields.get("doc_id", "")
+            indexes = [chunk_positions[(doc_id, chunk_id)]
+                       for chunk_id in fields.get("chunk_ids", "").split(",")
+                       if (doc_id, chunk_id) in chunk_positions]
+            return (document_positions.get(doc_id, len(document_positions)),
+                    min(indexes) if indexes else 0,
+                    int(":table:" in section.section_id))
+
+        sections.sort(key=source_position)
 
     revisions = sorted(document.source_revision for document in corpus.documents)
     digest = hashlib.sha256("\x1f".join(revisions).encode("utf-8")).hexdigest()
