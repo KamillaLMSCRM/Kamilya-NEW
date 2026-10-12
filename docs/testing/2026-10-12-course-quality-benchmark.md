@@ -639,3 +639,25 @@ DEV before-state freshly verified:c453658aa30b1826d9395f976c6355d3bc760de9
 on API/worker/frontend, schema0178; permanent QA9-table counts/fingerprints saved.
 New candidate deployment, public queue generation, editor/learner/browser and
 exact cleanup are still OPEN. Production is out of scope and unchanged.
+
+### DEV release gates, first prepared candidate
+
+Committed candidate422588f01b8835f727d2f18228757d4e990e5f0c was pushed only to
+`dev`; independent project-account remote SHA readback retained. Exact CI38220959608
+failed three jobs at the same ERRORS journal contract: new entries used plural
+`Symptoms`/`Causes`, and044 lacked `Symptom`. Release Runner stopped at that hard
+gate, before its explicit provider deployment. Singular fields and the missing
+factual symptom were corrected; release-contract gate now PASS with250 entries.
+No application source change, extra paid generation or CI exemption followed.
+
+Canonical Supabase DEV application gate HBR-DEV-APP-20261012T075838Z passes20
+checks with exact cleanup, active-only retrieval, tenant/no-context negatives,
+rollback and public0178 metadata unchanged. The named reindex/idempotency selector
+first failed at fixture bootstrap under non-bypass lms_app (tenant context absent).
+It now sets only its allocated synthetic tenant context before creation and passes
+in9.38s under the same role/outer-transaction rollback; no owner-role or RLS bypass.
+These are runtime DB checks, not public queue/browser acceptance.
+Final R4 complete database-free unit suite2760PASS/28.76s, release contractPASS,
+baselinePASS; root's concurrent changes affected documentation/integration fixture,
+not the tested AI runtime source. Permanent QA9-table fingerprints unchanged after
+both isolated DB gates. The failed CI and initial RLS fixture failure remain recorded.

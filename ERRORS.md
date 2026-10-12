@@ -6668,12 +6668,12 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 ## AI-QUALITY-043 - A publishable short draft hid source loss and procedural defects
 
 - Date:2026-10-12; frozen synthetic algorithm pilot, no customer/tenant data.
-- Symptoms: ordinary Markdown package matrix disappeared while publishable was
+- Symptom: ordinary Markdown package matrix disappeared while publishable was
   true; numbered procedure began with step5; a70-percent exam threshold received
   a financial label; a quiz selected one rule from an explicitly unresolved
   priority document. A new adjacent-table test also proved loss of the second
   table when no narrative paragraph separated the header/separator pairs.
-- Causes: source adapters favored worksheet tables; hash/group ordering was used
+- Cause: source adapters favored worksheet tables; hash/group ordering was used
   as presentation sequence; a bare percent token implied financial context;
   preflight did not honor the explicit unresolved-priority source notice. The
   new ordinary-table scanner initially consumed the next table's line range.
@@ -6701,7 +6701,9 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 ## AI-QUALITY-044 - FAQ questions became keys and unchanged repairs bought repeated judgments
 
 - Date:2026-10-12; synthetic algorithm continuation, no DB/deployment changes.
-- Causes: narrative sentence scoring selected the leading FAQ question instead
+- Symptom: FAQ assessment lost its answer and repeated unchanged failed repairs
+  paid for redundant review; table questions lacked attribute diversity.
+- Cause: narrative sentence scoring selected the leading FAQ question instead
   of its answer. A model repair could return the same failed candidate, after
   which semantic/constraint judgments were bought again. Entity-first table
   selection chose the first attribute for every entity, limiting test diversity.
@@ -6741,12 +6743,12 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 ## AI-QUALITY-045 - Chunk overlap and post-grounding deduplication silently lost policy facts
 
 - Date:2026-10-12; local synthetic algorithm run, no DB/deployment changes.
-- Symptoms: first517-word policy produced8 admitted facts/five lessons, omitting
+- Symptom: first517-word policy produced8 admitted facts/five lessons, omitting
   its eligibility paragraph and all concrete table rows. A later fresh run
   admitted20 facts but rendered only11/12 table relationships; the two-day
   owner-error deadline disappeared despite cited fact IDs. `coverage_ratio=1`
   measured admitted/cited facts, not complete source text.
-- Causes: overlap crossed true headings and prefixed the next section with
+- Cause: overlap crossed true headings and prefixed the next section with
   mid-word source text; ordinary tables were parsed per chunk and lost their
   headerless continuation; their role fallback differed from prose. Later,
   sentence-similarity deduplication removed a different numeric table value

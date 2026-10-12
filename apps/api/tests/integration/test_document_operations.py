@@ -15,6 +15,7 @@ async def test_document_reindex_worker_completes_and_is_idempotent(
     make_tenant,
     make_user,
     make_document,
+    set_current_tenant,
 ):
     from app.models.ai_job import AIJob
     from app.models.document import Document
@@ -55,7 +56,11 @@ async def test_document_reindex_worker_completes_and_is_idempotent(
     monkeypatch.setattr(operations, "get_storage", lambda: StorageStub())
     monkeypatch.setattr(ingestion, "DocumentIngestion", IngestionStub)
 
-    tenant = await make_tenant()
+    # The workstation DEV contour is non-bypass: bootstrap only this exact
+    # synthetic tenant under its own context, never widen the tenants policy.
+    tenant_id = uuid4()
+    await set_current_tenant(tenant_id)
+    tenant = await make_tenant(id=tenant_id)
     methodologist = await make_user(tenant, role="methodologist")
     document = await make_document(
         tenant,

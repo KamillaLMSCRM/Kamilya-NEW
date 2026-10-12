@@ -3199,3 +3199,24 @@ Rules:
   passed. No repair, retry, source edit or gate relaxation performed.
 - Evidence files: `.release-evidence/COURSE-BENCH-20261012/rc-local-r3/`.
   No DB/provider/deployment/production/browser claim; readiness is ROOT REVIEW ONLY.
+
+### COURSE-QUALITY-RC-20261012-R4 — 2026-10-12 — full local unit and release-contract regression
+
+- Executor: Test & Evidence Runner; exact worktree `learner-presentation-release-20261010`,
+  HEAD `422588f01b8835f727d2f18228757d4e990e5f0c`; local database-free run, no
+  external reads, runtime identity N/A. Excluding this ledger, diff SHA256 was
+  `af00fa9b913f348f30dce363554bd45e5d65b2832a791d1bf9ef04eb6add31b7` before
+  execution and `985324b9758fb11c86fb79d6cc215432fed6a58465999290d494e0b387ccca36`
+  after execution. The change reflects concurrent root-owned updates to `ERRORS.md`,
+  `apps/api/tests/integration/test_document_operations.py` and the benchmark report;
+  `assessment_axes.py` remained SHA256
+  `55d57ff706bd39ff0c08264061ead19c864c7e7b28edaa9e0c7ccf774736ce57` before/after.
+- Full database-free unit suite: 2760 passed, 5 existing deprecation warnings, 28.76s;
+  exact wrapper `pwsh -NoProfile -File scripts/dev/run_api_pytest.ps1 apps/api/tests/unit -q`.
+  Explicit release reliability contract: 2 passed in 0.88s, same wrapper.
+- Canonical release-contract gate passed with root `.venv`: Alembic 176 revisions/head
+  0178, Celery contract, migration ownership, Render dependencies (32), and errors
+  journal (250 unique entries). Python quality baseline passed: Ruff 1008, Mypy 2201.
+  `git diff --check` passed. No repair, retry, waiver or source edit performed.
+- Evidence files: `.release-evidence/COURSE-BENCH-20261012/rc-local-r4/`.
+  No DB/provider/deployment/production/browser claim; readiness is ROOT REVIEW ONLY.
