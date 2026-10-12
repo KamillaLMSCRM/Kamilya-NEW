@@ -913,9 +913,9 @@ and timing with these bounds; a comparison “faster than a person” is not sup
 
 ## Multiformat live lifecycle continuation — production45 baseline
 
-Status: RUNNING. This section does not reopen or relabel the bounded44 result
-above. Source code candidate46 is not yet released; DEV real generation and
-production repair/readback remain pending.
+Status: CLOSED for the bounded matrix after production46 release and ordinary
+PDF lifecycle. This section preserves the original production45 failures below;
+it does not reopen or relabel the bounded44 result or imply a whole-product audit.
 
 Frozen independent corpus `course_benchmark_multiformat_v3.json`, SHA256
 `dd54026ac529312b47456cc2a89b00adb9084076c513a5295ebc85c995d470d2`.
@@ -951,8 +951,10 @@ job; its pre-cancel receipt remains immutable, final status must be read separat
 
 Permanent production QA tenant `83552ce6-8058-4561-abe3-cfbda14e030a` and ordinary
 role boundaries were verified. All new rows are owned synthetic fixtures; existing
-completed history is retained. Learner completion and final all-column preservation
-are pending, not inferred from successful assignments.
+completed history is retained. TXT/MD/complex learner cycles are complete, including
+all9 passed lesson tests across those three courses and one intentional failed
+TXT attempt/retry. Each issued PDF was actually downloaded, visually inspected
+and publicly verified. All149 original rows in nine tables remained identical.
 
 PDF visual/source gate: one generated Cyrillic page, readable grid and prose,
 actual source SHA256 `e3f11b35a4b64dbe778e37060e08555b5b5b184ebee06b417ba87b341080335b`.
@@ -960,12 +962,14 @@ Authenticated canonical production converter returned MarkItDown text with the
 cell words but no row/column structure. Exact no-model/no-DB replay failed on all
 six deadline/approver cells, then passed after same-blob geometry/text recovery.
 No remote converter replacement or resource change. Original first failure is
-retained; do not rerun paid generation until the candidate passes local gates.
+retained. Only after local gates did one DEV and one production PDF repeat run;
+no blind paid retries or source reindex were used.
 
-Two additional UI defects are locally repaired: ordered-step numbering across
+Two additional UI defects were locally repaired: ordered-step numbering across
 headings, and New course from a retained assessment-review draft without a cancel
 write. Full web945 and API unit2787 tests pass; lint/typecheck/build and Python
-debt gate pass. These are local tests, not DEV or production release proof.
+debt gate pass. These initial local checks are not themselves release proof;
+the separate revised-candidate and live results follow below.
 
 Raw sanitized append-only stage receipts: `.release-evidence/MULTIFORMAT45-20261012/`.
 DOCX, spreadsheets, image-only scans, borderless/merged tables, long manuals,
@@ -973,3 +977,89 @@ repeatability and paired human authoring/learner-effectiveness studies are not
 covered by this matrix. DOCX is not claimed visually tested: the maintained
 artifact runtime lacked its supported Word renderer. No landing-page human
 speedup claim is authorized by these numbers.
+
+### Revised46 DEV and production closure
+
+Immutable accepted source `f1f65c3de98ac2a6886a60498a3107c1c22218dc`, version46,
+tagv0.11.46/GitHub Release410861519. Exact master CI38285485208 all7SUCCESS;
+protected backend38286173518/deployment7019877523 SUCCESS. Signed provenance
+matches that exact protected run, source commit and OCI subject:
+`sha256:a668b3a78a750d2ec8dbd00c4dd270ceceb08510b2235cac410e5e84a4fa9406`.
+Green API/threeworkers and native frontend all match46; schema0178 and all3flags
+unchanged. Watchdog/oneshots/timers, existing signed restore/backup and backend45
+rollback readiness pass. Native build38284281979/bridge RELEASE_OK, current42
+retained as verified rollback; all older protected releases remain. No cleanup,
+on-host build, Proxmox, tier/resources/billing/model/flag/DNS/landing changes.
+
+The first real DEV PDF run onb06ee33 retained all19 enumerated source meanings
+and three complete table mappings,2lessons/4questions in39.084498s. Ordinary
+methodologist review/publish/assign and ordinary learner2x100%/reload/completion
+issued certificate41482FABAE33. Actual download exposed a CSP-blocked storage
+redirect. The minimal repair adds authorized integrity-checked API streaming,
+keeps legacy redirects/default behavior and leaves CSP unchanged. Revisedf1f65
+DEV API/worker/frontend all exact on existing Free/Free/Hobby; the same retained
+certificate actually downloaded45217bytes/hashf220d756…7ffe7, one-page visual
+review and unauthenticated verification PASS. Actual Git objects prove the entire
+AI/document paths, shared lesson feature and generation page unchanged b06→f1f65;
+no extra paid PDF generation was needed just for the download fix. The first
+provider timeout/evidence-path failures remain, as do the corrected early
+evidence-root validation regression and its16tests/6subtests.
+
+| Accepted comparison | Lessons / questions | Job created-to-updated | Source meanings / complete table relationships | Ordinary learner result |
+|---|---:|---:|---|---|
+| Simple TXT,126words; production45 |1 /3|16.687451s|10/10 primary; no table|100%, certificate downloaded/verified |
+| Medium Markdown,247words; production45 |2 /4|34.788171s|15/15 primary +4/4 supplemental;3/3 mappings|2x100%, certificate downloaded/verified |
+| Same medium PDF,247words; repaired production46 |2 /4|42.428793s|15/15 primary +4/4 supplemental;3/3 mappings|2x100%, certificate downloaded/verified |
+| Complex Markdown,513words; production45 |6 /11|95.286510s|23/23 primary +7/7 supplemental; both matrices/hierarchy/exceptions|6x100%, certificate downloaded/verified |
+
+Current production PDF course `265a6e45-d3fb-47eb-8d99-7213ca15b29f`, job
+`404ccb4c-33af-4c80-bc0b-5af8e89f2012`, reused the exact existing synthetic PDF
+blob134fd230…: normal reuse confirmation created an independent draft, without
+changing the rejected original. Root inspected both previews and all4 real
+question forms/options/keys; independent source-only reviewer agrees. Both tests
+and course explicitly approved, published, assigned to the single existing QA
+student with personal-link/PIN delivery and no email. Learner empty/incomplete
+submit disabled, Back retained choice, both100%, reload2/2, explicit course
+completion and active certificate `KML-2026-10963E179AAE` PASS. Actual downloaded
+PDF46182bytes/SHA256 `61289713fc12dd56074a214b2753dd42c8b454a0e52ea95ea87710a656a08fdd`,
+one-page visual and public verification after logout PASS. Dashboard7courses/
+7completed/7certificates,100%. Core completion is not formal OTP/signature proof:
+the separate confirmation remains pending and no OTP/email/signed upload was sent.
+
+Created17:56:43.469520Z → updated17:57:25.898313Z =42.428793s. Started17:56:43.590455Z
+→ updated =42.307858s active interval; queue0.120935s. Initial reviewer used the
+active clock; the original receipt is retained and an append-only timing addendum
+standardizes the table above. Neither clock is provider-only or human authoring
+time. PDF/MD comparison crosses45/46 and each has one production sample; no
+statistical format penalty, universal accuracy or speedup over a person follows.
+
+The negative DEV source retained both unresolved deadlines and no authorized
+resolution, but this run completed with one source-grounded recollection question.
+It remains unapproved/unassigned, not an automatic-conflict-rejection proof.
+473.568843s total included457.925726s Free-worker queue and15.643117s active work;
+one readiness GET resumed the original queued jobs, without resubmission or paid
+resource changes. This DEV delay is not silently removed or mixed into production
+generation latency. The saved-assessment New course predicate was NOT_HIT in this
+live run;26 regression tests cover that exit/no-cancel contract. Ordered-step
+preservation has9 renderer regressions; this PDF's live content has no numbered
+list, so ordinal-specific live acceptance is not asserted.
+
+Revised local gates:2796 database-free API unit tests,947 full web tests,25 focused
+web tests and fresh7-path before/after hash stability. Current CI verifies all7
+jobs, and native CI build/lint/typecheck/audit passed. Initial default-parallel
+web945/947 failure, isolated23PASS, undefined unit selector0tests, temporary fake
+class placement failures and reconstructed R4 prehash remain separate harness
+conditions, not hidden successful runs or relaxed gates. R5 actual fresh hashes
+are authoritative. Windows261-character artifact path and wrong prepared service
+name stopped local preflight without production writes; corrected exact packet
+and canonical agent-tools interpreter were used, no controller bypass.
+
+Independent READ ONLY all-column hashes: all149 pre-multiformat and all204 pre46
+rows in nine QA tables unchanged;215 current =11 additive owned lifecycle rows.
+Existing documents, rejected PDF and negative drafts are unchanged. Completed
+fixtures deliberately retained, not purged. Raw append-only receipts are in
+`.release-evidence/REL-MULTIFORMAT46-20261012/` and the sole Test Runner ledger.
+Its final review is local artifact reconciliation of Root-executed browser/runtime
+evidence, not a second live execution. Actual rollback switching/restore rerun,
+broader document formats, human authoring baseline and learner effectiveness
+remain NOT_RUN. No real-customer corpus or personal data was used for generation.

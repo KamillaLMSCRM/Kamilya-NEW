@@ -3425,3 +3425,76 @@ Rules:
   was not run. Completed synthetic QA evidence is retained; no customer deletion.
 - Evidence receipt: `.release-evidence/REL-DASHBOARD45-20261012/final-review.json`.
   Result: READY FOR ROOT REVIEW; Root retains final release authority.
+
+### MULTIFORMAT46-FINAL-20261012 — 2026-10-12 — final local artifact reconciliation
+
+- Executor: Test & Evidence Runner; exact linked worktree
+  `learner-presentation-release-20261010`, immutable source/runtime SHA
+  `f1f65c3de98ac2a6886a60498a3107c1c22218dc`; local artifact review only. No
+  external access, new tests, database, browser, provider, Git, deployment,
+  fixture or cleanup action was performed by this runner. Root-executed runtime
+  and browser observations remain supplied artifacts, not a second runtime proof.
+- Named production receipts exist and were reconciled at their exact paths. The
+  terminal workflow/controller receipt is PASS for workflow `38286173518`, CI
+  artifact proof binds CI `38285485208`, release `REL-MULTIFORMAT46-20261012`,
+  product `0.11.46`, no migration, unchanged feature flags and image
+  `ghcr.io/kamillalmscrm/kamilya-api@sha256:a668b3a78a750d2ec8dbd00c4dd270ceceb08510b2235cac410e5e84a4fa9406`.
+  Native web receipt is `RELEASE_OK` for `REL-MULTIFORMAT46-WEB-20261012` on
+  the same SHA; previous release/rollback targets remain separate evidence.
+- Root browser acceptance receipt is `PASS_BOUNDED_FULL_LIFECYCLE`: two lesson
+  previews, four question forms, ordinary methodologist and learner flows,
+  learner back-answer retention, reload `2/2` at `100%`, explicit finish,
+  certificate `KML-2026-10963E179AAE`, public verification after logout, and
+  final dashboard `7/7/7`. Direct grading API writes and notification email
+  sends were zero. Signed confirmation/OTP was **NOT REQUESTED**.
+- Production PDF generation/review receipts bind case `warehouse-dispatch-02-pdf`,
+  course `265a6e45-d3fb-47eb-8d99-7213ca15b29f`, source SHA
+  `e3f11b35a4b64dbe778e37060e08555b5b5b184ebee06b417ba87b341080335b`, two
+  lessons, two quizzes and four questions. Independent review is
+  `PASS_WITH_ASSESSMENT_COVERAGE_NOTE`; 15 primary and 4 supplemental claims
+  were reviewed. Corrected timing is created-to-updated `42.428793s`, with
+  active processing `42.307858s` and queue delay `0.120935s`; the earlier
+  started-to-updated `42.307858s` remains preserved and is not relabeled.
+  Certificate file evidence records 46,182 bytes, one page and SHA-256
+  `61289713fc12dd56074a214b2753dd42c8b454a0e52ea95ea87710a656a08fdd`.
+  File-level visual status remains `TEXT_HASH_PASS_VISUAL_PENDING`; the browser
+  receipt separately records readable one-page visual acceptance.
+- Preservation receipt is PASS with zero DB mutations, zero rows removed and
+  zero retained-row changes. Original count `149`, all pre-46 count `204`, and
+  current count `215` are retained as artifact facts; old rows are identical and
+  the current increase is additive. Native postflight is PASS with actual
+  rollback switch **NOT RUN**; rollback readiness is a separate boundary.
+- Local gates are linked from `local-gates-current.json`: API unit `2796/2796`
+  with zero errors/failures/skips, bounded full web `947/947`, focused web
+  `25/25`, and fresh seven-path R5 source/test hashes stable before/after.
+  R2 default-parallel web failure (`945/947`) and R3 isolated proof (`23/23`)
+  remain preserved as distinct historical conditions; R4 reconstructed prehash
+  is explicitly not actual preflight. No current lint/typecheck/build/quality
+  receipt was manufactured where a dedicated saved artifact was absent.
+- Baseline MULTIFORMAT45 three positive full lifecycles remain retained; the
+  rejected first PDF and negative source remain held. No deletion, paid repeat,
+  universal-quality, human-efficiency, or publication claim is inferred. Final
+  reconciliation receipt with artifact SHA-256 bindings:
+  `.release-evidence/REL-MULTIFORMAT46-20261012/final-review.json`.
+  Result: READY FOR ROOT REVIEW; Root retains final GO authority.
+
+### MULTIFORMAT46-FINAL-20261012 — visual closeout addendum
+
+- Root supplied and the Test & Evidence Runner reconciled
+  `.release-evidence/REL-MULTIFORMAT46-20261012/certificate-visual-closeout.json`,
+  SHA-256 `064e2514f15dbe97d48ed560607ec09a1b9dcefef30d61d9ca9f45f69b93f15a`.
+  Root inspected the actual one-page DEV and production certificate renders;
+  both are recorded PASS for readable Cyrillic, correct synthetic identity/course,
+  no clipping/overlap and visible verification QR. The original file receipts'
+  `TEXT_HASH_PASS_VISUAL_PENDING` status remains unchanged; this receipt completes
+  that separate visual gate without a file rewrite or second download.
+- Corrected boundary: the reviewer made no extra model or paid calls. Root's
+  documented original PDF, one DEV repair repeat, one production repair repeat
+  and one DEV negative remain Root-executed evidence; no blind retry is inferred.
+  Root's actual publication is documented in the supplied browser acceptance; the
+  reviewer did not independently execute or authorize publication.
+- The final-review manifest contains **16 current** and **4 baseline** hashes,
+  **20 total**; earlier prose saying 19 paths is corrected by this addendum.
+  Addendum receipt binding the original final review and visual receipt:
+  `.release-evidence/REL-MULTIFORMAT46-20261012/final-review-addendum.json`.
+  Result: READY FOR ROOT REVIEW; Root retains final GO authority.

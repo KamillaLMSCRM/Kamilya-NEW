@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** backend45/native frontend42; full synthetic browser course lifecycle and dashboard repair accepted2026-10-12
+**Проверено:** backend46/native frontend46; bounded multiformat synthetic browser lifecycles accepted2026-10-12
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,59 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production45 — deployed; full synthetic course lifecycle PASS, 2026-10-12
+## Current production46 — deployed; bounded multiformat lifecycle PASS, 2026-10-12
+
+Version0.11.46/runtime/tag source `f1f65c3de98ac2a6886a60498a3107c1c22218dc`,
+GitHub Release410861519. Master CI38285485208 all7SUCCESS. Protected backend
+workflow38286173518/deployment7019877523 SUCCESS; official signed provenance
+matches exact protected run/source/OCI subject. Deployed image:
+`ghcr.io/kamillalmscrm/kamilya-api@sha256:a668b3a78a750d2ec8dbd00c4dd270ceceb08510b2235cac410e5e84a4fa9406`.
+Green API/worker-ai/worker-documents/worker-ops running/restarts0, all3flags ON.
+Public/private exact health, lock absence, watchdog expected2keys, both successful
+oneshots/active timers, disk81%/free6196696KiB freshly read. Blue45 API healthy,
+old3workers stopped; rollback readiness PASS, actual switch NOT_RUN. CT125
+revision0178, active backup/last success and existing signed178 restore verified;
+no migration/new restore drill. Existing converter/model/resources unchanged.
+
+Native frontend build38284281979/bridge REL-MULTIFORMAT46-WEB-20261012
+RELEASE_OK. Root independently verifies current/symlink/marker/public exactf1f65,
+running/nginx2, all3 immutable flags. Previous successful42/d415fd39 is retained
+and passes rollback-boundary check;39/e355fdc,38/370f56fb and protected359/299
+also retained. Conservative pre-staging budget1281353717bytes passed, no deletion;
+postrelease622968KiB free, above512MiB reserve. No on-host build or Proxmox.
+
+Four positive selected cases have full ordinary generation/review/publish/assign/
+learner/PDF/public-verification cycles: TXT126words1lesson/3questions, medium
+MD247words2/4, complexMD513words6/11 on45, repaired same-source PDF2/4 on46.
+The rejected first PDF retains its original omission and remains unapproved/
+unassigned; negative sources remain held. Source gold is a declared inventory,
+not universal quality or complete assessment. Canonical measurements/limits:
+[`course-quality benchmark`](testing/2026-10-12-course-quality-benchmark.md).
+
+Current PDF course265a6e45-d3fb-47eb-8d99-7213ca15b29f/job404ccb4c…:
+42.428793s created→updated,19/19 enumerated meanings,3/3 complete mappings,
+Root2previews/4realforms plus independent source review PASS. Explicit approval/
+publication, single existing QAstudent assignment without mail,2x100%tests,
+Backanswer/reload2of2/explicit course completion PASS. Actual downloaded active
+certificate KML-2026-10963E179AAE:46182bytes/onepage, full visual and public
+verification after logout PASS. Student dashboard7courses/7completed/7certs.
+Formal OTP/signed confirmation was NOT_SENT/NOT_ASSERTED and remains pending.
+
+All149 original and all204 pre46 nine-table full-row hashes unchanged;215 rows
+current =11 additive owned lifecycle rows. All completed fixtures retained,
+no production business deletion/reset/customer writes. Current DEV API/worker/
+frontend exactf1f65 on existing Free/Free/Hobby with all9flags; same retained
+certificate download/publicverify closes the first DEV CSP failure. AI/document/
+generation/renderer Git objects unchanged from actual faithful b06 generation;
+no extra paid generation for this transport-only revision. Local2796 API unit/
+947 fullweb/25 focusedweb/16controller+6subtests PASS; debt1008/2201 unchanged,
+not fully clean typing. Test Runner independently reconciles Root artifacts;
+Release Runner executes exact DEV/native packets. Initial failures and corrected
+clock/packet/harness evidence retained. No billing/tier/resource/flag/permission/
+DNS/landing/voice/antivirus changes. Numbered-list and saved-assessment-specific
+live branches are not claimed by this PDF matrix; their9/26 regressions pass.
+
+## Historical production45 — full synthetic course lifecycle PASS, 2026-10-12
 
 Release0.11.45/tagv0.11.45/runtime source
 `8ad06921d7b21671cd9a23669f3de67864e50290`; GitHub Release410567320.

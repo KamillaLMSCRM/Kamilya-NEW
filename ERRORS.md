@@ -26,7 +26,7 @@ Current as of: 2026-10-12.
 
 ## CERTIFICATE-DOWNLOAD-002 - Storage redirect violated the browser connection policy
 
-- Date:2026-10-12; candidate46 DEV, repair acceptance pending.
+- Date:2026-10-12; repair deployed46; DEV and production download acceptance PASS.
 - Symptom: ordinary QA learner completes the PDF course and receives an active
   certificate, but Download reports Failed to fetch. Browser network diagnostics
   prove blockedReason=csp. Authenticated API returns302; signed storage GET returns
@@ -38,13 +38,16 @@ Current as of: 2026-10-12.
   the authorized API. UI requests that mode. Preserve default Supabase302 and
   local streaming, all existing ownership/RLS checks and unchanged CSP.
 - Verification: direct contract RED before repair,9 API and2 UI regressions
-  GREEN. Fresh actual DEV/browser download and production acceptance remain gates.
+  GREEN. Revisedf1f65 DEV ordinary browser download45217bytes/hashf220d756…7ffe7
+  and production download46182bytes/hash61289713…08fdd PASS; both PDFs rendered/
+  visually reviewed, both active certificates publicly verified after logout.
+  Browser CSP and storage backends/permissions remain unchanged.
 - Prevention: test both storage backends through real browser download, not just
   active certificate status or a signed-URL200. Never store raw signed URLs/tokens.
 
 ## DEV-RELEASE-EVIDENCE-001 - Evidence path was checked after provider execution
 
-- Date:2026-10-12; local repair, next DEV execution acceptance pending.
+- Date:2026-10-12; repair deployed46; canonical DEV execution/readback PASS.
 - Symptom: canonical DEV execution reports evidence_root_not_canonical, but both
   Render deployments are already live. Two invocations lacked final receipts.
   Initial no-mutation interpretation was withdrawn after independent provider reads.
@@ -56,13 +59,16 @@ Current as of: 2026-10-12.
 - Verification: fake-provider ordering regression RED;16 focused tests and6
   command subtests GREEN. A temporary test-class placement error caused5 failures,
   corrected by restoring the original fake methods; it was not pre-existing debt.
+  Revised canonical-root DEV execution REL-DEV-MULTIFORMAT46-R2-20261012 produced
+  RELEASE_OK; Root independently read exactf1f65 API/worker/frontend and all9flags,
+  unchanged existing Free/Free/Hobby. Initial failed invocations remain preserved.
 - Prevention: bind the exact canonical evidence-root argument in handoffs; inspect
   actual external identities after any uncertain failure, never infer no mutation
   from an exit code. Preserve failed attempts and reconcile before another execute.
 
 ## AI-QUALITY-047 - Digital PDF flattened a verified table into inadmissible fragments
 
-- Date: 2026-10-12; local candidate, DEV/production repair acceptance pending.
+- Date: 2026-10-12; repair deployed46; bounded DEV/production PDF acceptance PASS.
 - Symptom: identical synthetic warehouse Markdown/PDF sources produced2/1 lessons
   and4/1 questions. PDF draft was labelled publishable but omitted all3 priority,
   deadline and approver mappings. Root held publication and assignment.
@@ -77,6 +83,10 @@ Current as of: 2026-10-12.
 - Verification: exact remote capture replay missing cells6 to0, admitted facts2
   to8;18 new database-free PDF/converter/evidence regressions; full2787 API unit
   tests and existing Python debt gate PASS. Frozen original failure retained.
+  Real DEV and production repeat from identical stored PDF each yields2lessons/
+  4questions, all15primary+4supplemental and3complete table mappings. Ordinary
+  review/publish/assign/student100%/reload/completion/PDF/public verify PASS.
+  Production job total42.428793s; original first20.953193s omission is not removed.
 - Prevention: compare representations of the same synthetic source, review table
   meanings independently, and require source completeness before publication.
   Recovery is bounded to proven ruled digital grids, not universal OCR/table fidelity.
@@ -87,7 +97,7 @@ Current as of: 2026-10-12.
 
 ## UX-LESSON-001 - Shared renderer restarted numbered steps after headings
 
-- Date: 2026-10-12; local candidate, live acceptance pending.
+- Date: 2026-10-12; fix deployed46; ordinal-specific live branch not in this matrix.
 - Symptom: source steps1 through10 rendered as repeated1 when headings split lists.
 - Cause: parser discarded explicit source ordinals and each new ordered list
   used the browser default start value.
@@ -100,7 +110,7 @@ Current as of: 2026-10-12.
 
 ## UX-AI-NEW-COURSE-001 - Saved assessment-review draft required needless cancellation
 
-- Date: 2026-10-12; local candidate, live acceptance pending.
+- Date: 2026-10-12; fix deployed46; predicate-specific live branch NOT_HIT.
 - Symptom: reentering generation restored an interrupted assessment-review draft
   with only Open draft/Cancel, preventing a fresh source workflow without job mutation.
 - Cause: terminal review outcomes reused the active-job cancel action.

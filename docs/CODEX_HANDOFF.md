@@ -1,11 +1,45 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-10-07
+**Обновлено:** 2026-10-12
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
-**Кандидат:** `C:\Kamilya New\.worktrees\daily-learning-20260930`
-**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `feature/methodologist-workbench-20261001`
+**Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`
+**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `fix/learner-presentation-release-20261010`; source published to `master`
 
-## Current production39,2026-10-06
+## Current production46,2026-10-12 — bounded multiformat cycle closed
+
+Immutable runtime/tag0.11.46 sourcef1f65c3de98ac2a6886a60498a3107c1c22218dc.
+Production API/3workers imagea668b3a7…fa9406 and native frontend exact match;
+protected workflow38286173518/masterCI38285485208/nativebuild38284281979 pass.
+Backend45 and native42 rollback readiness verified, actual switch NOT_RUN;
+DB0178, backup/signedrestore, watchdog/oneshots/timers/all3flags unchanged.
+Native release used off-host build and canonical bridge, no cleanup/Proxmox.
+
+TXT/mediumMD/complexMD full ordinary cycles on45 retained; fixedPDF on46 creates
+independent course265a6e45-d3fb-47eb-8d99-7213ca15b29f,2lessons/4questions,
+42.428793s job clock,19/19 declared meanings/3complete table mappings. Ordinary
+Root review/all4forms/approve/publish/single QAstudent assignment/noemail,
+2x100%/Backanswer/reload2of2/explicitcompletion/download/publicverify pass.
+Certificate KML-2026-10963E179AAE, student dashboard7/7/7. All149 original/all204
+pre46 rows unchanged;215 current,11 additions, no deletion/reset. BadfirstPDF
+and unresolvednegative remain unapproved/unassigned. OTP/signed confirmation
+notrequested; no human-speedup/universal-format/assessment claim.
+
+DEV exactf1f65 on existing Free/Free/Hobby/all9flags. Faithful generation b06
+AI/document/generation/renderer Git objects unchanged in R2; same retained DEV
+certificate download fixed without extra paid regeneration. Canonical fixture
+identities, not drifted env email. Free worker readiness/reconcile-original jobs
+documented in ERRORS, no keepalive/new resource. Local2796API/947web/25focused/
+16controller+6subtests and exactCI pass. Initial failures/timing corrections retained.
+
+Current durable evidence lives in PRODUCTION_READINESS, the canonical
+2026-10-12 course-quality benchmark, release46 notes, ERRORS and sole Test Runner
+ledger. Root browser/runtime plus independent local artifact review are distinct.
+Raw append-only receipts `.release-evidence/REL-MULTIFORMAT46-20261012/`;
+runtime/tag remainsf1f65 after documentation-only closeout. Primary still clean
+but stale28e143; preserve as coordination anchor, never reset it or write there.
+Old daily-learning/capacity/pricing worktrees and landing are unrelated/preserved.
+
+## Historical production39,2026-10-06
 
 2026-10-07 frontier: owner-approved narrow capacity hotfix in separate linked
 checkout `C:\Kamilya New\.worktrees\capacity-hotfix-20261007`, branch

@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-10-06.
+> Обновлено: 2026-10-12.
 
 ## Источники правды
 
@@ -25,7 +25,31 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current production39,2026-10-06 — bounded draft lesson correction accepted
+## Current environment correction — production/DEV46,2026-10-12
+
+Production API/threeworkers and native frontend exact
+`f1f65c3de98ac2a6886a60498a3107c1c22218dc`/version0.11.46; schema0178 and existing
+3flags ON unchanged. Protected backend38286173518 and native38284281979/ordinary
+bridge pass. Runtime/backup/rollback and bounded multiformat acceptance are owned
+by PRODUCTION_READINESS and the canonical course-quality benchmark, not by a
+historical environment snapshot below. Backend previous45/8ad06921 and native
+previous42/d415fd39 retained and independently ready; no actual rollback switch.
+Existing older protected native releases also preserved; no cleanup or Proxmox.
+
+DEV API/worker/Vercel exactf1f65, existing Free/Free/Hobby and all9flags unchanged.
+Ordinary faithful PDF generation occurred onb06; actual unchanged AI/document/
+generation/renderer Git objects and repaired certificate download/public verify
+bind revised acceptance. Fixed DEV identity remains the persistent fixture
+a7a2c055…/methodologist@kamilya-dev-qa.example.com and learner@kamilya-dev-qa.example.com,
+using the existing documented password variable; similarly named env-email drift
+must not silently select another tenant. No credentials/role/tier changes.
+Free web-worker may sleep during long review: use readiness/reconcile-original
+procedure DEV-WORKER-SLEEP-001, not keepalive resources or paid reactivation.
+Existing completed production/DEV QA retained with unchanged nine-table old-row
+hashes. No mail/OTP/signature or other project mutation. Documentation-only child
+commits do not replace the deployed/tagged source SHA.
+
+## Historical production39,2026-10-06 — bounded draft lesson correction accepted
 
 Frontend/API/threeworkers exact `e355fdc6da82b1d276fbf182d37cc7f69ef30335`,
 version0.11.39, schema0178 and all3flags ON independently read back. Protected
