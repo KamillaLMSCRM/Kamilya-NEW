@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Keep automatic generation source-adaptive when lightweight admission has only
+  a storage-chunk estimate; persist its bounded ceiling for resume without
+  changing explicit/manual formats, quotas or provider settings. Reject mixed
+  prose/table coverage claims and retain labelled cells in source order. Actual
+  DEV exposed this discrepancy; corrected live acceptance remains required.
 - Preserve source order for ordinary prose/table lessons and numbered operational
   sections even when they mention a list. Feed answer-length feedback into the
   existing single semantic repair, keep current terminal rejection reasons, and

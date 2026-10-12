@@ -273,6 +273,29 @@ def recommend_course_structure(
     )
 
 
+def generation_lesson_ceiling(
+    plan: CourseStructurePlan,
+    *,
+    manual_modules: int | None = None,
+) -> int:
+    """Return the lesson ceiling used by generation for a structure plan.
+
+    Chunk counts are only a capacity proxy when no document passport is
+    available.  For automatic generation, that proxy must not turn the
+    storage-chunk estimate into a low pipeline hard cap; retain the existing
+    largest standard automatic-source bound instead.  Explicit formats,
+    manual module overrides, and passport-derived plans keep their planned
+    recommendation unchanged.
+    """
+    if (
+        plan.requested_format == "automatic"
+        and manual_modules is None
+        and "source_capacity_proxy_chunks" in plan.reason_codes
+    ):
+        return 40
+    return plan.recommended_total_lessons
+
+
 def cosine_similarity(left: list[float], right: list[float]) -> float:
     if len(left) != len(right) or not left:
         return 0.0

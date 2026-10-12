@@ -418,6 +418,7 @@ async def submit_course_generation(
         analyze_document_set,
         document_chunk_totals,
         document_script_languages,
+        generation_lesson_ceiling,
         recommend_course_structure,
     )
 
@@ -453,6 +454,7 @@ async def submit_course_generation(
         source_passport=getattr(analysis, "source_passport", None),
     )
     resolved_modules = structure.module_count
+    generation_ceiling = generation_lesson_ceiling(structure, manual_modules=req.num_modules)
     budget_limit = get_settings().AI_MULTI_DOC_MAX_TOTAL_CHUNKS
     if len(req.documents) >= 2 and total_chunks > budget_limit:
         raise HTTPException(
@@ -574,6 +576,7 @@ async def submit_course_generation(
                     "resolved_format": structure.resolved_format,
                     "lessons_per_module": structure.lessons_per_module,
                     "recommended_total_lessons": structure.recommended_total_lessons,
+                    "generation_max_total_lessons": generation_ceiling,
                     "hard_max_total_lessons": structure.hard_max_total_lessons,
                     "duration_min_minutes": structure.duration_min_minutes,
                     "duration_max_minutes": structure.duration_max_minutes,
@@ -595,7 +598,7 @@ async def submit_course_generation(
                 "guidance": req.course_intent.strip(),
                 "num_modules": resolved_modules,
                 "lessons_per_module": structure.lessons_per_module,
-                "max_total_lessons": structure.recommended_total_lessons,
+                "max_total_lessons": generation_ceiling,
                 "language": req.language,
                 "course_id": str(target_course_id) if target_course_id else None,
                 "tenant_id": str(user.tenant_id) if user.tenant_id else None,
@@ -813,7 +816,8 @@ async def resume_generation(
         "guidance": str(params.get("course_intent") or ""),
         "num_modules": int(params.get("num_modules") or 1),
         "lessons_per_module": int(course_structure.get("lessons_per_module") or 1),
-        "max_total_lessons": int(course_structure.get("recommended_total_lessons") or 1),
+        "max_total_lessons": int(course_structure.get("generation_max_total_lessons")
+                                 or course_structure.get("recommended_total_lessons") or 1),
         "language": str(params.get("language") or "ru"),
         "course_id": str(job.course_id) if job.course_id else None,
         "tenant_id": str(tenant_id),

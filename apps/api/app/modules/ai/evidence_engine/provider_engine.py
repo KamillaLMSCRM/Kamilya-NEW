@@ -74,6 +74,7 @@ def coalesce_grounded_blocks(
                 locator.get("doc_id", ""),
                 locator.get("source_revision", ""),
                 locator.get("section", locator.get("sheet", "")),
+                locator.get("table", ""),
                 " ".join(fact.attribute.casefold().replace("ё", "е").split()),
             )
             for fact in cited
@@ -712,6 +713,13 @@ class ProviderBackedEvidenceEngine:
                 raise ValueError("block heading, text and fact_ids are required")
             if not fact_ids <= plan_fact_ids:
                 raise ValueError("block cites a fact outside the lesson plan")
+            cited_facts = [facts_by_id[fact_id] for fact_id in fact_ids]
+            if (any(is_tabular_locator(fact.source_locator) for fact in cited_facts)
+                    and not all(is_tabular_locator(fact.source_locator) for fact in cited_facts)):
+                # A prose/table mixture can restore bare cell values without
+                # their row and column labels. Retain the valid homogeneous
+                # blocks; render these uncovered facts with attribution below.
+                continue
             if contains_ocr_artifact(heading) or contains_ocr_artifact(text):
                 raise ValueError("block exposes unresolved OCR artifacts")
             if has_unprofessional_learner_language(heading) or has_unprofessional_learner_language(text):
@@ -876,6 +884,9 @@ class ProviderBackedEvidenceEngine:
         if covered != plan_fact_ids:
             raise ValueError("realizer did not cover every planned fact")
 
+        source_positions = {fact_id: index for index, fact_id in enumerate(base_lesson.fact_ids)}
+        grounded_blocks.sort(key=lambda block: min(source_positions[fact_id] for fact_id in block.fact_ids))
+
         source_rows = {
             fact_id: _tabular_source_row(facts_by_id[fact_id])
             for fact_id in plan_fact_ids
@@ -884,9 +895,19 @@ class ProviderBackedEvidenceEngine:
             # A model may mention warranty before purpose, and the plan may
             # rank facts by assessment value. Present a workbook lesson in
             # the source's row order regardless of either incidental order.
-            grounded_blocks.sort(
-                key=lambda block: min(source_rows[fact_id] or 0 for fact_id in block.fact_ids)
-            )
+            table_scopes: dict[str, tuple[str, ...]] = {}
+            table_positions: dict[tuple[str, ...], int] = {}
+            for fact_id in base_lesson.fact_ids:
+                locator = dict(parse_qsl(facts_by_id[fact_id].source_locator.replace(";", "&")))
+                scope = tuple(locator.get(key, "") for key in (
+                    "doc_id", "source_revision", "section", "sheet", "table",
+                ))
+                table_scopes[fact_id] = scope
+                table_positions.setdefault(scope, source_positions[fact_id])
+            grounded_blocks.sort(key=lambda block: min(
+                (table_positions[table_scopes[fact_id]], source_rows[fact_id] or 0)
+                for fact_id in block.fact_ids
+            ))
         ordered_procedure = _source_ordered_procedure_blocks(
             base_lesson,
             [facts_by_id[fact_id] for fact_id in base_lesson.fact_ids

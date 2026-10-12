@@ -59,3 +59,49 @@ def test_unrelated_numbered_facts_are_not_blindly_reconstructed(alter):
     _, _, blocks = render(facts, mixed_writer(facts))
     assert len(blocks) == 1
     assert blocks[0].heading == "Загрузка"
+
+
+def test_mixed_writer_cannot_detach_table_cells_or_move_them_after_later_section():
+    facts = [
+        SourceFact("intro", "3. Классификация", "положение", "Сначала определяют уровень изменения.",
+                   "doc_id=d;source_revision=r;section=classification;part=1"),
+        SourceFact("z-cell", "Локальный", "Признак", "Одна группа, дата не меняется",
+                   "doc_id=d;source_revision=r;section=classification;table=1;row=2;column=2"),
+        SourceFact("a-cell", "Срочный", "Признак", "Риск срыва занятия в ближайшие 24 часа",
+                   "doc_id=d;source_revision=r;section=classification;table=1;row=3;column=2"),
+        SourceFact("later", "4. Проектирование", "положение", "После классификации инициатор готовит проект.",
+                   "doc_id=d;source_revision=r;section=design;part=1"),
+    ]
+    payload = {"title": "Изменения", "objective": "Применять порядок", "blocks": [
+        {"heading": "Проектирование", "text": facts[3].value, "fact_ids": ["later"]},
+        {"heading": "Классификация", "text": facts[0].value, "fact_ids": ["intro", "a-cell", "z-cell"]},
+    ], "questions": []}
+    lesson, _, _ = render(facts, payload)
+    assert "Локальный — Признак: Одна группа, дата не меняется." in lesson.content
+    assert "Срочный — Признак: Риск срыва занятия в ближайшие 24 часа." in lesson.content
+    assert lesson.content.index(facts[0].value) < lesson.content.index("Локальный —")
+    assert lesson.content.index("Локальный —") < lesson.content.index("Срочный —")
+    assert lesson.content.index("Срочный —") < lesson.content.index(facts[3].value)
+
+
+@pytest.mark.parametrize("same_section", [False, True])
+def test_two_tables_with_overlapping_rows_keep_source_table_order(same_section):
+    facts = [
+        SourceFact("a2", "Локальный", "Срок", "один день",
+                   "doc_id=d;source_revision=r;section=classification;table=1;row=2;column=2"),
+        SourceFact("a3", "Системный", "Срок", "три дня",
+                   "doc_id=d;source_revision=r;section=classification;table=1;row=3;column=2"),
+        SourceFact("b2", "Согласование", "Ответственный", "методист",
+                   "doc_id=d;source_revision=r;section=approval;table=2;row=2;column=2"),
+        SourceFact("b3", "Публикация", "Ответственный", "администратор",
+                   "doc_id=d;source_revision=r;section=approval;table=2;row=3;column=2"),
+    ]
+    if same_section:
+        facts[2:] = [replace(fact, attribute="Срок", source_locator=fact.source_locator.replace(
+            "section=approval", "section=classification")) for fact in facts[2:]]
+    lesson, _, blocks = render(facts, {"blocks": [{
+        "heading": "Локальный", "text": "Локальный — Срок: один день.", "fact_ids": ["a2"],
+    }], "questions": []})
+    assert [fact_id for block in blocks for fact_id in block.fact_ids] == ["a2", "a3", "b2", "b3"]
+    assert len(blocks) == 2
+    assert lesson.content.index("Системный — Срок:") < lesson.content.index("Согласование —")

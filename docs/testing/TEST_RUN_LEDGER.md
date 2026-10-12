@@ -3220,3 +3220,96 @@ Rules:
   `git diff --check` passed. No repair, retry, waiver or source edit performed.
 - Evidence files: `.release-evidence/COURSE-BENCH-20261012/rc-local-r4/`.
   No DB/provider/deployment/production/browser claim; readiness is ROOT REVIEW ONLY.
+
+### COURSE-QUALITY-RC-20261012-R5 — 2026-10-12 — local regression blocked by router admission assertion
+
+- Executor: Test & Evidence Runner; exact worktree `learner-presentation-release-20261010`,
+  HEAD `1a5d8bb800cebc2edb04c8680558ae9214247cea`; local database-free run, no
+  external reads, runtime identity N/A. Runtime source/test hashes were stable
+  before and after: provider engine
+  `d4d3e3a5d3a5aff4a50bf238c7e62e76870d408ed1fe06ac15711100c28a56e4`, AI router
+  `9223257ac4b62965465dec9e15e2a01ba8d55fb770e5774bbfa164e4f8deed47`, source
+  analysis `c634c0f3304b10023b69d14607dc4d552e6bc61b339dbff813022c9c0978adde`,
+  course-structure unit test
+  `7a0cbbb8dcaa209d9ff0ad4ef20d9fefdfd49d42a95f5cda37edfab7927b7dfe`, procedure
+  source-order unit test
+  `ff9c99ad66819a6a78ab7a66ec19920f37493cf05fd718d144f3c3588d42a3a1`.
+- Full database-free unit suite via exact `pwsh -NoProfile -File
+  scripts/dev/run_api_pytest.ps1 apps/api/tests/unit -q`: **2763 passed, 1 failed,
+  5 warnings, 23.66s**. First failure: `tests/unit/test_ai_router_admission.py::
+  test_reuse_reason_is_persisted_and_starts_an_independent_draft`; expected
+  `task_kwargs["max_total_lessons"] == 1`, observed `40`. Classification:
+  `PRODUCT_DEFECT` / `NOT READY`; no repair or retry.
+- Per stop conditions, dependent AI-COURSE-01 selectors, release-contract gate,
+  Python quality baseline and `git diff --check` were `NOT_RUN` after the first
+  hard failure. Root-reported Supabase DEV submission selector `1 PASS / 9.42s`
+  is separate evidence and was not executed by this runner.
+- Evidence files: `.release-evidence/COURSE-BENCH-20261012/rc-local-r5/`.
+  No DB/provider/deployment/production/browser claim; readiness is NOT READY.
+
+### COURSE-QUALITY-RC-20261012-R6 — 2026-10-12 — corrected admission contract and final local gates
+
+- Executor: Test & Evidence Runner; exact worktree `learner-presentation-release-20261010`,
+  HEAD `1a5d8bb800cebc2edb04c8680558ae9214247cea`; local database-free run, no
+  external reads, runtime identity N/A. Runtime source hashes were stable before
+  and after: provider engine
+  `d4d3e3a5d3a5aff4a50bf238c7e62e76870d408ed1fe06ac15711100c28a56e4`, AI router
+  `9223257ac4b62965465dec9e15e2a01ba8d55fb770e5774bbfa164e4f8deed47`, source
+  analysis `c634c0f3304b10023b69d14607dc4d552e6bc61b339dbff813022c9c0978adde`.
+- Full database-free unit suite via exact `pwsh -NoProfile -File
+  scripts/dev/run_api_pytest.ps1 apps/api/tests/unit -q`: 2764 passed, 5 warnings,
+  23.48s. Exact AI-COURSE-01 contract: 13 required selectors / 27 parametrized
+  passed in 3.98s, same wrapper.
+- Canonical release-contract gate passed: Alembic 176 revisions/head 0178, Celery
+  contract, migration ownership, Render dependencies (32), errors journal (251
+  unique entries). Python quality baseline passed: Ruff 1008, Mypy 2201.
+- Final `git diff --check` failed with trailing whitespace on newly added lines in
+  `apps/api/tests/integration/test_multi_document_generation_api.py` (the new
+  automatic-submission capacity test). Classification `PRODUCT_DEFECT` / `NOT READY`;
+  no cleanup, repair, retry, waiver or source/test edit performed.
+- Root-reported Supabase DEV submission selector `1 PASS / 9.42s` is separate evidence
+  and was not executed by this runner. Evidence files:
+  `.release-evidence/COURSE-BENCH-20261012/rc-local-r6/`.
+
+### COURSE-QUALITY-RC-20261012-R6-CORRECTION — 2026-10-12 — post-R6 whitespace gate correction
+
+- Root normalized CRLF to LF in `apps/api/tests/integration/test_multi_document_generation_api.py`;
+  no runtime source changed. Runtime SHA256 remained identical to R6: provider engine
+  `d4d3e3a5d3a5aff4a50bf238c7e62e76870d408ed1fe06ac15711100c28a56e4`, AI router
+  `9223257ac4b62965465dec9e15e2a01ba8d55fb770e5774bbfa164e4f8deed47`, source analysis
+  `c634c0f3304b10023b69d14607dc4d552e6bc61b339dbff813022c9c0978adde`.
+- Requested correction gates only: Python quality baseline PASS (Ruff 1008, Mypy 2201),
+  release-contract gate PASS (Alembic head 0178, Celery/migration/Render/errors checks),
+  and `git diff --check` PASS. No unit suite or DB tests rerun; R6 functional evidence
+  and its prior whitespace failure remain preserved. Receipts are in
+  `.release-evidence/COURSE-BENCH-20261012/rc-local-r6/`.
+
+### COURSE-QUALITY-RC-20261012-R7 — 2026-10-12 — multi-table source-order regression run
+
+- Executor: Test & Evidence Runner; exact worktree `learner-presentation-release-20261010`,
+  HEAD `1a5d8bb800cebc2edb04c8680558ae9214247cea`; local database-free run, no external
+  reads, runtime identity N/A. Runtime source hashes stable before/after: provider engine
+  `f6a326063eb09e1f66fd15b2759ee10a68575b200248f142a6547e2959e35848`, AI router
+  `9223257ac4b62965465dec9e15e2a01ba8d55fb770e5774bbfa164e4f8deed47`, source analysis
+  `c634c0f3304b10023b69d14607dc4d552e6bc61b339dbff813022c9c0978adde`.
+- Full database-free unit suite via exact wrapper: 2766 passed, 5 warnings, 22.81s.
+  Exact AI-COURSE-01 contract: 13 required selectors / 27 parametrized passed in 4.79s.
+- Python quality baseline failed: new Mypy `var-annotated` violation in
+  `app/modules/ai/evidence_engine/provider_engine.py` (actual 1, allowed 0).
+  Classification `PRODUCT_DEFECT` / `NOT READY`; no repair, retry, waiver or gate
+  relaxation. Per stop conditions, release-contract gate and `git diff --check` were
+  `NOT_RUN`. Evidence: `.release-evidence/COURSE-BENCH-20261012/rc-local-r7/`.
+
+### COURSE-QUALITY-RC-20261012-R7-CORRECTION — 2026-10-12 — focused correction gates
+
+- Root added explicit dict type annotations for `table_scopes`/`table_positions`;
+  no executable logic change. Runtime hashes were stable before/after: provider engine
+  `463fd50118e34095512870cb95b5c1c3e8c0e4859c127eb5c3fa442319621225`, AI router
+  `9223257ac4b62965465dec9e15e2a01ba8d55fb770e5774bbfa164e4f8deed47`, source analysis
+  `c634c0f3304b10023b69d14607dc4d552e6bc61b339dbff813022c9c0978adde`.
+- Focused procedure/source-order and evidence-provider-contract tests: 31 passed in
+  0.60s through the canonical API pytest wrapper. Python quality baseline PASS (Ruff
+  1008, Mypy 2201), release-contract gate PASS (Alembic head 0178 and all contract
+  checks), and `git diff --check` PASS. Full suite was not rerun; original R7 Mypy
+  failure and its 2766/27 functional results remain preserved. Evidence:
+  `.release-evidence/COURSE-BENCH-20261012/rc-local-r7/`.

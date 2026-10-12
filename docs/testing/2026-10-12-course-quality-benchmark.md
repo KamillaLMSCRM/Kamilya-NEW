@@ -637,7 +637,7 @@ mechanically before R2/R3; focused inverse regressions were RED then GREEN.
 
 DEV before-state freshly verified:c453658aa30b1826d9395f976c6355d3bc760de9
 on API/worker/frontend, schema0178; permanent QA9-table counts/fingerprints saved.
-New candidate deployment, public queue generation, editor/learner/browser and
+New candidate deployment, public queue generation, editor/browser and
 exact cleanup are still OPEN. Production is out of scope and unchanged.
 
 ### DEV release gates, first prepared candidate
@@ -661,3 +661,56 @@ Final R4 complete database-free unit suite2760PASS/28.76s, release contractPASS,
 baselinePASS; root's concurrent changes affected documentation/integration fixture,
 not the tested AI runtime source. Permanent QA9-table fingerprints unchanged after
 both isolated DB gates. The failed CI and initial RLS fixture failure remain recorded.
+
+### Actual DEV R2 uncovered a public-submission mismatch
+
+Exact1a5d8bb800cebc2edb04c8680558ae9214247cea passed CI38221848922 and
+API/worker/frontend release identity, Free/Free/Hobby contracts and public0178.
+One ordinary-methodologist source upload indexed in11.485s; queued generation
+62ac1763-31af-4666-90df-a047f556987d ran08:20:08–08:21:05UTC, saved a draft
+with3 lessons/3 quizzes/6 questions, and returned interrupted with
+assessment_coverage_incomplete. NOT_ACCEPTED: all23 meanings/cell values existed,
+but classification row associations were visibly detached and moved behind later
+sections. Local v3 PASS was not substituted for this DEV failure.
+
+Root read-only, non-bypass tenant-bound job diagnostics proved that the public
+submission uses inspect_content=false and source_capacity_proxy_chunks; its
+3-lesson recommendation was passed as a hard generation cap. Runtime correction
+keeps lightweight admission and existing explicit/manual/passport recommendations,
+but automatic proxy-only jobs now use the existing40 lesson ceiling while the
+evidence engine derives actual lessons from source. The exact ceiling is persisted
+for resume; old jobs retain their stored recommendation fallback. Mixed prose/table
+writer blocks cannot suppress attributed cell fallback; valid blocks follow source
+fact order. No provider retry, model, quota, quality threshold or billing changes.
+Renderer regression RED then62 focused PASS; ordinary Supabase DEV submission
+regression1PASS/9.42s, outer rollback. Full R5 unit run2763PASS/1FAIL: the pre-existing
+admission test pinned the superseded proxy cap1 rather than source-adaptive bound.
+Its outcome is retained; update that exact policy expectation, not quality gates.
+
+The rejected fixture e31c3a08-e61e-4450-b0ba-ac97c0d457df was removed through
+normal guarded API DELETE204/fresh404; permanent QA business stats unchanged.
+Independent owner read-only sweep checked all116 public tenant-scoped tables:
+tenant absent,115 tables empty,11 residual document_embeddings rows for the owned
+source only. API deletion is not complete cleanup. Exact residual maintenance
+requires new owner authority under TENANT-PURGE-007; none was performed.
+Final corrected DEV acceptance remains pending.
+The canonical AI-COURSE-01 flow ends at a reviewed draft and every quiz; no
+publication, assignments, invitations or irreversible learner completion is emitted.
+
+Final R6 local gates:2764 unit PASS/23.48s,27 AI-COURSE-01 parametrizations
+PASS/3.98s, release contract PASS(head0178/176 revisions/32 dependencies/251
+journal entries), baseline PASS(Ruff1008/Mypy2201). Initial R6 diff whitespace
+failure was corrected by line-ending normalization of the named integration
+test only; independent correction gates PASS with unchanged runtime hashes.
+
+Independent review then identified a same-section/shared-column two-table edge.
+The executable regression reproduced row interleaving; table identity now scopes
+coalescing and row sorting. Distinct-section and same-section variants pass with
+separate blocks and source table order. Final R7 gates are required on this delta.
+
+Final R7 functional gates:2766 unit PASS/22.81s,27 journey parametrizations
+PASS/4.79s. One new missing dictionary type annotation failed the Mypy baseline;
+explicit annotations corrected it without logic changes. Correction31 focused
+PASS/0.60s, baseline PASS, release contract PASS and diff check PASS. Original
+failure retained. Final renderer hash
+`463fd50118e34095512870cb95b5c1c3e8c0e4859c127eb5c3fa442319621225`.

@@ -207,7 +207,9 @@ async def test_reuse_reason_is_persisted_and_starts_an_independent_draft(monkeyp
     assert task_kwargs["reuse_reason"] == "different_audience"
     assert task_kwargs["num_modules"] == 1
     assert task_kwargs["lessons_per_module"] == 1
-    assert task_kwargs["max_total_lessons"] == 1
+    assert task_kwargs["max_total_lessons"] == 40
+    assert submit.await_args.kwargs["params"]["course_structure"]["recommended_total_lessons"] == 1
+    assert submit.await_args.kwargs["params"]["course_structure"]["generation_max_total_lessons"] == 40
 
 
 @pytest.mark.asyncio

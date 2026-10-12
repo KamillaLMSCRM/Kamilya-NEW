@@ -6786,3 +6786,33 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   Late answer-length feedback reaches the existing one repair; conflict v3 retains
   its previously omitted question and all15 meanings/12 cells. Local R3 533PASS
   plus27 overlapping journey checks; full DEV remains required. No gate weakening.
+
+## AI-QUALITY-046 - Public automatic submission hard-capped source sections by storage chunks
+
+- Date:2026-10-12; one disposable DEV document-generation journey.
+- Symptom: local full-source evaluation produced10 lessons, but the actual DEV
+  queue produced3 lessons/6 questions and assessment_coverage_incomplete. A mixed
+  prose/table block appended classification values without row labels, behind
+  later design/approval prose. The saved draft was rejected, not published.
+- Cause: lightweight admission intentionally skips content conversion. Its
+  source_capacity_proxy_chunks recommendation3 was passed as a hard generation
+  cap, although the source-owned engine knew10 distinct lesson units. Rendering
+  checked attribution only for pure table blocks; mixed blocks bypassed it.
+- Fix: automatic proxy-only generation uses the existing40 lesson ceiling, with
+  actual lesson allocation still derived from admitted source facts. Persist the
+  ceiling for resume, retaining legacy fallback and explicit/manual/passport
+  recommendations. Mixed prose/table blocks leave facts for labelled fallback;
+  valid blocks follow source fact order. Same-section tables retain their table
+  identity during coalescing and table-first/row ordering, not row-number-only
+  ordering. No retry, quality or quota relaxation.
+- Verification: labelled mixed-block regression RED then62 focused PASS; exact
+  Supabase DEV submission wiring selector1PASS/9.42s under allocated tenant context
+  and outer rollback. R5 whole-unit run2763PASS/1FAIL pinned the old automatic cap;
+  policy assertion now checks cap40 plus unchanged recommendation1/persistence,
+  26 focused PASS. Same-section two-table regression reproduced a2,b2,a3,b3
+  interleaving; corrected table identity/order yields8 procedure checks PASS.
+  Final broader gates and corrected live DEV acceptance pending.
+- Prevention: benchmark the public admission parameters, actual queued worker
+  and final persisted lesson text. Algorithm-only uncapped PASS cannot stand in
+  for the deployed capped path. Never infer table relationship coverage from
+  value presence or citation IDs without row/column labels and presentation order.

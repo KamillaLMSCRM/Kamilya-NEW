@@ -27,6 +27,45 @@ def _source_text(title: str, chunk_count: int = 1) -> str:
 
 
 @pytest.mark.asyncio
+async def test_automatic_submission_does_not_hard_cap_a_complex_source_by_chunk_proxy(
+    client, db_session, auth_headers, make_tenant, make_user, make_document,
+    set_current_tenant, monkeypatch,
+):
+    tenant_id = uuid4()
+    await set_current_tenant(tenant_id)
+    tenant = await make_tenant(id=tenant_id, slug=f"capacity-{uuid4().hex[:8]}")
+    methodologist = await make_user(tenant, role="methodologist")
+    document = await make_document(tenant, methodologist, index_status="ready", index_chunks_total=14)
+    await seed_direct_source_documents(db_session, monkeypatch, [document])
+    captured = {}
+
+    class StubJob:
+        id = "owned-submission-no-dispatch"
+        status = "pending"
+        course_id = started_at = errors = None
+        created_at = updated_at = datetime.now(UTC)
+        progress = 0
+        stage = "queued"
+        message = ""
+
+    async def capture_submission(db, **kwargs):
+        captured.update(kwargs)
+        return StubJob(), {"queue_position": 1, "estimated_wait_seconds": 0,
+                           "tenant_active_jobs": 0, "tenant_active_limit": 2}
+
+    from app.modules.ai import router as ai_router
+    monkeypatch.setattr(ai_router, "submit_ai_job", capture_submission)
+    response = await client.post("/api/v1/ai/generate-course",
+                                 json={"documents": [str(document.id)], "course_format": "automatic"},
+                                 headers=auth_headers(methodologist))
+    assert response.status_code == 202, response.text
+    structure = captured["params"]["course_structure"]
+    assert "source_capacity_proxy_chunks" in structure["reason_codes"]
+    assert structure["generation_max_total_lessons"] == 40
+    assert captured["task_kwargs"](StubJob())["max_total_lessons"] == 40
+
+
+@pytest.mark.asyncio
 async def test_failed_index_document_is_accepted_when_original_source_is_valid(
     client, db_session, auth_headers, make_tenant, make_user, make_document, monkeypatch
 ):

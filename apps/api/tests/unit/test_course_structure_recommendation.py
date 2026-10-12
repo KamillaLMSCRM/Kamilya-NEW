@@ -1,4 +1,5 @@
-from app.modules.ai.source_analysis import recommend_course_structure
+from app.modules.ai.document_passport import DocumentPassport
+from app.modules.ai.source_analysis import generation_lesson_ceiling, recommend_course_structure
 
 
 def test_automatic_structure_scales_with_source_volume():
@@ -88,3 +89,33 @@ def test_quizzes_follow_the_one_per_lesson_contract():
     for course_format in ("brief", "standard", "detailed"):
         plan = recommend_course_structure(total_chunks=100, document_count=1, course_format=course_format)
         assert plan.quiz_count == plan.recommended_total_lessons
+
+
+def test_automatic_chunk_proxy_uses_existing_standard_source_bound_for_generation():
+    plan = recommend_course_structure(total_chunks=14, document_count=1)
+
+    assert generation_lesson_ceiling(plan) == 40
+
+
+def test_generation_lesson_ceiling_preserves_explicit_and_passport_recommendations():
+    explicit = recommend_course_structure(total_chunks=14, document_count=1, course_format="brief")
+    manual = recommend_course_structure(total_chunks=14, document_count=1, manual_modules=2)
+
+    assert generation_lesson_ceiling(explicit) == explicit.recommended_total_lessons
+    assert generation_lesson_ceiling(manual, manual_modules=2) == manual.recommended_total_lessons
+
+
+def test_passport_capacity_retains_recommended_generation_ceiling():
+    passport = DocumentPassport(
+        sections=(),
+        primary_sections=(),
+        supporting_sections=(),
+        unknown_sections=(),
+        teachable_units=10,
+        confidence="high",
+        warnings=(),
+    )
+    plan = recommend_course_structure(total_chunks=14, document_count=1, source_passport=passport)
+
+    assert "source_capacity_passport" in plan.reason_codes
+    assert generation_lesson_ceiling(plan) == plan.recommended_total_lessons
