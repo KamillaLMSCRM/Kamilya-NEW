@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** backend44/native frontend42; bounded course-generation browser acceptance and116-table/physical cleanup closed2026-10-12
+**Проверено:** backend45/native frontend42; full synthetic browser course lifecycle and dashboard repair accepted2026-10-12
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,75 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production44 — deployed; bounded generation acceptance and cleanup PASS, 2026-10-12
+## Current production45 — deployed; full synthetic course lifecycle PASS, 2026-10-12
+
+Release0.11.45/tagv0.11.45/runtime source
+`8ad06921d7b21671cd9a23669f3de67864e50290`; GitHub Release410567320.
+Exact CI38246998899 all7SUCCESS. Local focused22/full database-free2769 PASS;
+ruff1008/mypy2201 baseline unchanged. Actual service/SQL isolation on Supabase
+DEV passes ordinary3/3, two exact-assignment1/1 counts, foreign-tenant0/0 and
+empty-context0/0; gate-owned schema removed, shared public revision/table
+inventory unchanged. Initial invalid duplicate-certificate fixture rejection
+and cleanup preserved; corrected legal fixture R2 passes.
+
+Protected workflow38247661972 SUCCESS/deployment7013778300, controller
+REL-DASHBOARD45-20261012-6fae293714614e8fbcf99394414a4409 DEPLOYED
+2026-10-12T12:19:44.472210Z. Exact attestation subject/source and remote tag
+verified before approval. Actual protected image:
+`ghcr.io/kamillalmscrm/kamilya-api@sha256:15b16e5bcf2d69b22338f2bea171ece6b0e88964503e95bc15637d0672a78926`.
+Root independent public/private runtime readback preceded watchdog updates.
+Blue API and all3workers running/restarts0, existing3flags ON; rollback green44
+API healthy, old3workers stopped. No actual rollback switch. Watchdog only2
+expected-identity keys updated with backup; both maintenance oneshots succeed
+and timers active. Disk79%/free6647228KiB, release lock absent. CT125 revision
+0178, backup timer/last success and existing signed restore report verified.
+Native frontend42/d415fd39 unchanged; no CT137 build, cleanup or Proxmox.
+
+Root executed the following normal human browser stages exclusively in permanent
+synthetic QA83552ce6-8058-4561-abe3-cfbda14e030a, without impersonation or grading
+API writes. Generation/publication/learning occurred on44; persisted lifecycle
+and repaired counter were rechecked through ordinary browser/API on45.
+
+| Stage | Result / evidence |
+| --- | --- |
+| Source upload and real generation | One866-word synthetic source,8sections/2tables; one job produces10lessons/10quizzes/19questions |
+| Source and question review | All10lesson previews/19key forms inspected; independent23/23meaning and27/27labelled-relationship review,19keys/41wrong options grounded |
+| Approval and publication | Explicit approval of all10quizzes and course, then publication; immutable content release version1 |
+| Assignment | One ordinary QA student, browser-created individual assignment; no email or existing PIN reset |
+| Learner behavior | Unanswered submit disabled; intentional0% failure then100% retry; back retains answer; reload retains progress; all10tests pass |
+| Completion and certificate | Explicit completion100%,11attempts (10pass/1intentional fail); one active certificate |
+| Download and verification | Actual browser PDF download, one-page parse/full visual review and public certificate verification PASS |
+| Methodologist journal | Published release and completed learner row100%; all11attempts visible in answer review |
+| Defect and production repair | Dashboard certificate count1vs3 reproduced; minimal resume-loop-binding fix preserves exact-assignment authorization;45API/browser/reload now3vs3 |
+| Preservation | All previous rows in9QA business tables unchanged; all post-cycle rows identical after45deployment |
+
+Course `1e584948-8530-484a-8f15-817cd07181bd`:
+`QA FULL44 2026-10-12 — Управление сложными изменениями`;
+enrollment `84a54bc7-87f2-49c1-9a96-933db059ae6f`;
+certificate `30981e63-4e75-4027-8dc9-970b106e56a1` / `KML-2026-8F515788F28A`;
+content release `2de7c576-c520-4a58-b588-787402505bd7` version1.
+Actual one-page PDF SHA256
+`a3c77f81e0ff10cf3bc6e58c838d7b1e1b0328f9f1c666c2ebbb5ab8234fcaac`.
+Completed evidence is intentionally retained in permanent QA; no production
+business deletion or modification of historical learning/customer data.
+
+UI generation elapsed175.659s; backend job created-to-completed-update elapsed
+141.876984s. These are different clocks, not provider-only duration, human
+review time or a measured human speedup. This one source proves bounded factual
+and workflow correctness, not full41assessment-axis coverage, universal
+accuracy or same-version generation stability. Separate OTP/signed training
+confirmation was not sent or asserted; it is distinct from course completion
+and certificate issuance. No new generation was purchased for the45readback.
+
+Sanitized14-stage receipts under `.release-evidence/FULL-CYCLE44-20261012/` and
+release provenance/runtime receipts under `.release-evidence/REL-DASHBOARD45-20261012/`;
+durable independent review in [`testing/TEST_RUN_LEDGER.md`](testing/TEST_RUN_LEDGER.md).
+No migration, model/budget/flags, provider tier/resources/billing, voice,
+AV activation, landing, DNS or pricing change. This closes the requested
+synthetic course lifecycle and its reproduced defect, not all product features,
+commercial personal-data onboarding or generic tenant-purge defects.
+
+## Previous production44 — historical bounded generation acceptance and cleanup PASS, 2026-10-12
 
 Release0.11.44/tagv0.11.44/runtime source
 `2f333c414854c7f54be3c4d8c34d78472c652581`; GitHub Release410480273.

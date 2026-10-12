@@ -16,7 +16,10 @@ Current as of: 2026-10-12.
   3certificates/3assignments, two exact1/1 counts, cross-tenant0/0 and empty-context
   denial, with exact owned-schema absence and unchanged public revision/table
   inventory. Its first invalid duplicate-certificate fixture was rejected and
-  cleaned up; R2 uses separate assignments. Production repair/readback pending.
+  cleaned up; R2 uses separate assignments. Protected production0.11.45/source
+  8ad06921d7b21671cd9a23669f3de67864e50290 deployed; ordinary student API and
+  browser/reload show3 certificates matching list3. Completed progress,11attempts,
+  certificate and all9QA post-cycle business-table fingerprints unchanged.
 - Prevention: optional authorization/read scope must not be reused as a loop
   binding. Keep ordinary and exact-assignment total regressions; do not remove
   the restriction to mask a count error.
