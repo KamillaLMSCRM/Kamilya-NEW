@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -15,6 +16,7 @@ from app.modules.ai.embedding_provenance import (
     VerifiedEmbeddingProvenance,
     serialize_embedding_provenance,
 )
+from app.modules.ai.pdf_table_layout import PDFTableLayoutError, preserve_pdf_tables
 from app.modules.documents.archive_preflight import preflight_ooxml
 
 if TYPE_CHECKING:
@@ -99,21 +101,34 @@ class DocumentConverter:
                     )
                     resp.raise_for_status()
                     data = resp.json()
+                    recovered_tables = 0
+                    if ext == ".pdf" and data.get("engine") == "markitdown":
+                        data["markdown"], recovered_tables = await asyncio.to_thread(
+                            preserve_pdf_tables, file_path, data["markdown"],
+                        )
                     return {
                         "markdown": data["markdown"],
                         "metadata": {
                             "filename": filename,
                             "size": os.path.getsize(file_path),
                             "pages": data.get("pages", 0),
-                            "tables": data.get("tables", 0),
+                            "tables": max(data.get("tables", 0), recovered_tables),
                             "engine": data.get("engine", "docling"),
                             "engine_version": data.get("engine_version"),
                             "fallback_used": bool(data.get("fallback_used", False)),
-                            "warnings": list(data.get("warnings") or []),
+                            "warnings": list(data.get("warnings") or []) + (
+                                ["Ruled PDF tables restored from verified source geometry."]
+                                if recovered_tables else []
+                            ),
                             "profile": data.get("profile"),
                             "routing_reason": data.get("routing_reason"),
                         },
                     }
+        except PDFTableLayoutError as exc:
+            # A text-only fallback would silently discard the same table again.
+            raise DocumentIndexingTerminalError(
+                "PDF table relationships could not be verified from the source."
+            ) from exc
         except Exception as e:
             response = getattr(e, "response", None)
             status_code = getattr(response, "status_code", "unknown")

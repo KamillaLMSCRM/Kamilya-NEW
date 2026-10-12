@@ -1371,7 +1371,7 @@ export default function AIGeneratePage() {
             labels={{ queued: t('asyncOperation.queued'), running: t('asyncOperation.running'), completed: t('asyncOperation.completed'), failed: t('asyncOperation.failed'), cancelled: t('asyncOperation.cancelled'), interrupted: savedAssessmentDraftId ? t('ai.assessmentNeedsReview') : t('asyncOperation.interrupted'), stalled: t('asyncOperation.stalled') }}
             retryLabel={savedAssessmentDraftId ? t('ai.openSavedDraft') : currentJob.status === 'interrupted' ? t('asyncOperation.continue') : resolveAsyncOperationState(currentJob) === 'failed' ? t('ai.newCourse') : t('asyncOperation.retry')}
             checkAgainLabel={t('asyncOperation.checkAgain')}
-            cancelLabel={t('asyncOperation.cancel')}
+            cancelLabel={savedAssessmentDraftId ? t('ai.newCourse') : t('asyncOperation.cancel')}
             cancelQueuedLabel={t('asyncOperation.cancelQueued')}
             queueTitle={t('ai.queueTitle')}
             activeJobs={t('ai.activeJobs', { active: currentJob.tenant_active_jobs ?? 0, limit: currentJob.tenant_active_limit ?? 0 })}
@@ -1380,7 +1380,7 @@ export default function AIGeneratePage() {
             queueEstimateHint={t('ai.queueEstimateHint')}
             completedUnitsLabel={t('ai.savedLessonsProgress')}
             onRetry={savedAssessmentDraftId ? () => router.push(`/courses/${savedAssessmentDraftId}/edit`) : currentJob.status === 'interrupted' ? () => void resumeJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : resolveAsyncOperationState(currentJob) === 'stalled' ? () => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : retryGeneration}
-            onCancel={() => void cancelJob().catch((error) => console.error('Cancel failed', error))}
+            onCancel={savedAssessmentDraftId ? createNewCourse : () => void cancelJob().catch((error) => console.error('Cancel failed', error))}
           />
 
           {currentJob.status === 'completed' && currentJob.course_id && (

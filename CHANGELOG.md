@@ -135,6 +135,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.46] - 2026-10-12
+
+### Fixed
+
+- Preserve ruled digital-PDF table relationships after lightweight conversion.
+  Cross-check each cell against the same original PDF's stroked grid and unique
+  converted text; restore only verified tables, preserve surrounding prose and
+  fail closed on ambiguous or incomplete recovery instead of text-only fallback.
+  No converter-service deployment, dependency, model, budget or schema change.
+- Preserve source list numbers in the shared author/learner lesson renderer,
+  including headings between steps and non-consecutive markers.
+- Let methodologists start a new course from a saved assessment-review draft
+  without cancelling that job or changing the retained draft. Other active,
+  resumable and failed-generation cancellation behavior is unchanged.
+
+### Verification boundary
+
+- Multiformat production baseline retains TXT, Markdown and complex-rule source
+  meanings, but its identical-source PDF loses all three table mappings. That
+  original PDF draft remains unpublished and unassigned. Local exact-converter
+  replay restores all six missing table cells; DEV and production acceptance of
+  the candidate remain pending until recorded in the release notes.
+- Synthetic timing is not a measured comparison with a human methodologist.
+
 ## [0.11.45] - 2026-10-12
 
 ### Fixed

@@ -50,6 +50,34 @@ describe('LessonContent', () => {
     expect(within(table).getByRole('cell', { name: '1' })).toBeInTheDocument();
   });
 
+  it('preserves source ordinals for ordered steps, including marker styles and heading-separated lists', () => {
+    const { container } = render(
+      <LessonContent
+        text={'### Шаг 2\n\n2. Start here\n3) Continue\n\n### Шаг 10\n\n10. Final step'}
+      />,
+    );
+
+    const lists = screen.getAllByRole('list');
+    expect(lists).toHaveLength(2);
+    expect(lists[0]).toHaveAttribute('start', '2');
+    expect(lists[0].querySelectorAll('li')[0]).not.toHaveAttribute('value');
+    expect(lists[1]).toHaveAttribute('start', '10');
+    expect(container.querySelectorAll('li')[0]).toHaveTextContent('Start here');
+    expect(container.querySelectorAll('li')[1]).toHaveTextContent('Continue');
+    expect(container.querySelectorAll('li')[2]).toHaveTextContent('Final step');
+  });
+
+  it('preserves explicit nonconsecutive ordered values', () => {
+    render(<LessonContent text={'0) Zero\n2. Two\n10) Ten'} />);
+
+    const list = screen.getByRole('list');
+    expect(list).toHaveAttribute('start', '0');
+    const items = within(list).getAllByRole('listitem');
+    expect(items[0]).toHaveAttribute('value', '0');
+    expect(items[1]).toHaveAttribute('value', '2');
+    expect(items[2]).toHaveAttribute('value', '10');
+  });
+
   it('renders paragraphs, blockquotes, bold, italic, and inline code semantically', () => {
     const { container } = render(
       <LessonContent text={'A **bold** and *italic* paragraph with `code`.\n\n> A quoted idea'} />,

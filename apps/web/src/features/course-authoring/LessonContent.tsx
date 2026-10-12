@@ -7,17 +7,18 @@ export type LessonContentProps = {
 };
 
 type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+type ListItem = { text: string; value?: number };
 
 type Block =
   | { type: 'heading'; level: HeadingLevel; text: string }
   | { type: 'paragraph'; text: string }
   | { type: 'quote'; text: string }
-  | { type: 'list'; ordered: boolean; items: string[] }
+  | { type: 'list'; ordered: boolean; items: ListItem[] }
   | { type: 'table'; rows: string[][] };
 
 const headingPattern = /^(#{1,6})\s+(.+?)\s*$/;
 const unorderedPattern = /^\s*[-+*]\s+(.+)$/;
-const orderedPattern = /^\s*\d+[.)]\s+(.+)$/;
+const orderedPattern = /^\s*(\d+)[.)]\s+(.+)$/;
 
 function splitTableRow(line: string): string[] | null {
   const trimmed = line.trim();
@@ -91,13 +92,15 @@ function parseBlocks(text: string): Block[] {
     const firstOrdered = lines[index].match(orderedPattern);
     if (firstUnordered || firstOrdered) {
       const ordered = Boolean(firstOrdered);
-      const items: string[] = [];
+      const items: ListItem[] = [];
 
       while (index < lines.length) {
         const match = lines[index].match(ordered ? orderedPattern : unorderedPattern);
         if (!match) break;
 
-        items.push(match[1]);
+        items.push(ordered
+          ? { text: match[2], value: Number(match[1]) }
+          : { text: match[1] });
         index += 1;
       }
 
@@ -203,10 +206,18 @@ export function LessonContent({ text, className, omitFirstHeading }: LessonConte
 
         if (block.type === 'list') {
           const List = block.ordered ? 'ol' : 'ul';
+          const start = block.ordered ? block.items[0]?.value : undefined;
+          const usesExplicitValues = block.ordered
+            && block.items.some((item, itemIndex) => item.value !== (start ?? 1) + itemIndex);
           return (
-            <List key={key}>
+            <List key={key} {...(start !== undefined ? { start } : {})}>
               {block.items.map((item, itemIndex) => (
-                <li key={`${key}-${itemIndex}`}>{renderInline(item, `${key}-${itemIndex}`)}</li>
+                <li
+                  key={`${key}-${itemIndex}`}
+                  {...(usesExplicitValues ? { value: item.value } : {})}
+                >
+                  {renderInline(item.text, `${key}-${itemIndex}`)}
+                </li>
               ))}
             </List>
           );

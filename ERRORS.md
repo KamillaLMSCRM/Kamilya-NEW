@@ -2,6 +2,57 @@
 
 Current as of: 2026-10-12.
 
+## AI-QUALITY-047 - Digital PDF flattened a verified table into inadmissible fragments
+
+- Date: 2026-10-12; local candidate, DEV/production repair acceptance pending.
+- Symptom: identical synthetic warehouse Markdown/PDF sources produced2/1 lessons
+  and4/1 questions. PDF draft was labelled publishable but omitted all3 priority,
+  deadline and approver mappings. Root held publication and assignment.
+- Cause: authenticated production MarkItDown conversion retained cell words but
+  flattened row/column relationships into isolated paragraphs. Evidence admission
+  correctly refused fragments; completeness relative to the original table was
+  not verified before generation. Local plain-text extraction alone is not proof.
+- Fix: bounded same-blob ruled-grid geometry and exact unique text cross-check
+  restore only verified Markdown rows before chunking. Refuse ambiguous, incomplete
+  or unsupported recovery terminally; do not silently take text-only fallback.
+  Existing remote converter, models, authentication and dependencies are unchanged.
+- Verification: exact remote capture replay missing cells6 to0, admitted facts2
+  to8;18 new database-free PDF/converter/evidence regressions; full2787 API unit
+  tests and existing Python debt gate PASS. Frozen original failure retained.
+- Prevention: compare representations of the same synthetic source, review table
+  meanings independently, and require source completeness before publication.
+  Recovery is bounded to proven ruled digital grids, not universal OCR/table fidelity.
+- Independent review also reproduced a duplicate-identical-source-table omission:
+  consume each original converted Markdown occurrence once, never use a repaired
+  occurrence as proof that a second source table was retained. New negative and
+  exact-two-table regressions pass; later-page and translated/scaled grids pass.
+
+## UX-LESSON-001 - Shared renderer restarted numbered steps after headings
+
+- Date: 2026-10-12; local candidate, live acceptance pending.
+- Symptom: source steps1 through10 rendered as repeated1 when headings split lists.
+- Cause: parser discarded explicit source ordinals and each new ordered list
+  used the browser default start value.
+- Fix: retain source ordinals, set list start and non-consecutive item values;
+  preserve inert raw HTML and existing unordered/table rendering.
+- Verification: focused RED2 then GREEN9; full web945 tests, lint, typecheck and
+  build PASS. Shared renderer callers are author preview and learner player.
+- Prevention: test heading-separated and non-consecutive numbers through the
+  public renderer, then verify actual author and learner output after deployment.
+
+## UX-AI-NEW-COURSE-001 - Saved assessment-review draft required needless cancellation
+
+- Date: 2026-10-12; local candidate, live acceptance pending.
+- Symptom: reentering generation restored an interrupted assessment-review draft
+  with only Open draft/Cancel, preventing a fresh source workflow without job mutation.
+- Cause: terminal review outcomes reused the active-job cancel action.
+- Fix: only the existing saved-assessment predicate uses local New course/reset;
+  it preserves the draft/job and retains Open draft. Other states are unchanged.
+- Verification: focused RED3 then GREEN26; full web945 tests, lint, typecheck and
+  build PASS. Regressions assert no cancellation/resume write for the new action.
+- Prevention: terminal draft exit must be separate from job cancellation; verify
+  retained job and draft identity across reentry and New course in ordinary UI.
+
 ## STUDENT-DASHBOARD-001 - Resume loop overwrote certificate-count scope
 
 - Date: 2026-10-12.

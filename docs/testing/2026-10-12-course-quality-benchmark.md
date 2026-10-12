@@ -910,3 +910,66 @@ usage totals. No paired real-methodologist baseline, accepted-course editor time
 same-version stability, long/scanned/binary-source coverage or human speedup is
 established. A truthful future case study may report the exact synthetic result
 and timing with these bounds; a comparison “faster than a person” is not supported.
+
+## Multiformat live lifecycle continuation — production45 baseline
+
+Status: RUNNING. This section does not reopen or relabel the bounded44 result
+above. Source code candidate46 is not yet released; DEV real generation and
+production repair/readback remain pending.
+
+Frozen independent corpus `course_benchmark_multiformat_v3.json`, SHA256
+`dd54026ac529312b47456cc2a89b00adb9084076c513a5295ebc85c995d470d2`.
+Five synthetic cases, including four positive source representations. Gold was
+frozen before outputs and never sent to the model. The first source review
+under-counted supplemental clauses; an append-only addendum records four medium
+and seven complex clauses. Primary claims are not advertised as every source fact.
+All positive runs used identical intent/audience, automatic structure and Russian.
+
+| Source | Whitespace words | Lessons / questions | Backend job elapsed | Source review |
+|---|---:|---:|---:|---|
+| Simple TXT procedure |126|1 /3|16.687451s|10/10 primary claims retained |
+| Medium Markdown, procedure and table |247|2 /4|34.788171s|15/15 primary and4/4 supplemental retained |
+| Identical medium PDF |247|1 /1|20.953193s|REJECT:12/15 primary; all3 table mappings missing;4/4 supplemental retained |
+| Complex Markdown, hierarchy/two matrices/exceptions |513|6 /11|95.286510s|23/23 primary and7/7 supplemental retained |
+| Negative TXT, unresolved competing deadlines |69|1 /0|16.573260s|Both alternatives retained; interrupted review draft, not published |
+
+Elapsed time is server `job.updated_at - job.created_at`, excluding upload/index,
+ordinary browser review, publication, assignment and learning. It is not provider
+call duration or measured human work. PDF and MD share the same canonical source,
+but one run each is not a format-wide statistical estimate. Actual production
+provider token/call totals and billed cost are UNKNOWN. Question coverage is a
+bounded sample, not one question per fact or complete knowledge assessment.
+
+Ordinary methodologist inspected every accepted lesson preview and all3/4/11
+question forms/keys for TXT/MD/complex, explicitly approved each quiz/course,
+published each course and assigned one existing synthetic student with no email.
+The flawed PDF remains an unapproved draft with no assignment. Negative source
+also remains unpublished/unassigned; its review outcome proves safe retained
+draft behavior, not a universal explicit conflict-detection algorithm. Starting
+another source on the old UI required one normal cancellation of that terminal
+job; its pre-cancel receipt remains immutable, final status must be read separately.
+
+Permanent production QA tenant `83552ce6-8058-4561-abe3-cfbda14e030a` and ordinary
+role boundaries were verified. All new rows are owned synthetic fixtures; existing
+completed history is retained. Learner completion and final all-column preservation
+are pending, not inferred from successful assignments.
+
+PDF visual/source gate: one generated Cyrillic page, readable grid and prose,
+actual source SHA256 `e3f11b35a4b64dbe778e37060e08555b5b5b184ebee06b417ba87b341080335b`.
+Authenticated canonical production converter returned MarkItDown text with the
+cell words but no row/column structure. Exact no-model/no-DB replay failed on all
+six deadline/approver cells, then passed after same-blob geometry/text recovery.
+No remote converter replacement or resource change. Original first failure is
+retained; do not rerun paid generation until the candidate passes local gates.
+
+Two additional UI defects are locally repaired: ordered-step numbering across
+headings, and New course from a retained assessment-review draft without a cancel
+write. Full web945 and API unit2787 tests pass; lint/typecheck/build and Python
+debt gate pass. These are local tests, not DEV or production release proof.
+
+Raw sanitized append-only stage receipts: `.release-evidence/MULTIFORMAT45-20261012/`.
+DOCX, spreadsheets, image-only scans, borderless/merged tables, long manuals,
+repeatability and paired human authoring/learner-effectiveness studies are not
+covered by this matrix. DOCX is not claimed visually tested: the maintained
+artifact runtime lacked its supported Word renderer. No landing-page human
+speedup claim is authorized by these numbers.
