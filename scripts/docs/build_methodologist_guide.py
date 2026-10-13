@@ -131,10 +131,10 @@ parts.append('<section class="faq" id="questions"><h2>Если не получа
 
 output = args.output.resolve()
 output.parent.mkdir(parents=True, exist_ok=True)
-output.write_text(''.join(parts),encoding='utf-8')
+output.write_text(''.join(parts),encoding='utf-8',newline='\n')
 (ROOT/'guide.js').write_text(SCRIPT,encoding='utf-8')
 (ROOT/'normalized-marks.json').write_text(json.dumps(NORMALIZED,ensure_ascii=False,indent=2),encoding='utf-8')
-# Native SVG compositions for QA. Original JPEGs remain byte-for-byte unchanged.
+# QA overlays preserve the stored frame bytes; full raw captures remain separate.
 qa = ROOT/'qa'
 qa.mkdir(exist_ok=True)
 for name, spec in NORMALIZED.items():
