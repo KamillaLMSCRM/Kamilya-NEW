@@ -105,6 +105,35 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
         </div>
       </div>
 
+      {user?.role === 'methodologist' && (
+        <div className="border-b border-border px-3 py-3">
+          <a
+            href="/guides/methodologist.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={onClose}
+            title={t('sidebar.methodologistGuide')}
+            aria-label={t('sidebar.methodologistGuide')}
+            className={cn(
+              'flex min-h-11 items-center gap-3 rounded-xl bg-primary/10 px-3 py-2 text-primary transition-colors hover:bg-primary/15',
+              collapsed && 'justify-center px-0',
+            )}
+          >
+            <BookOpen className="h-5 w-5 shrink-0" aria-hidden />
+            {!collapsed && (
+              <span className="min-w-0">
+                <span className="block whitespace-normal break-words text-sm font-semibold leading-5">
+                  {t('sidebar.methodologistGuide')}
+                </span>
+                <span className="block whitespace-normal break-words text-xs leading-4 text-muted-foreground">
+                  {t('sidebar.methodologistGuideDescription')}
+                </span>
+              </span>
+            )}
+          </a>
+        </div>
+      )}
+
       <button
         type="button"
         onClick={onToggle}

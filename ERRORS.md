@@ -7063,3 +7063,25 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   and final persisted lesson text. Algorithm-only uncapped PASS cannot stand in
   for the deployed capped path. Never infer table relationship coverage from
   value presence or citation IDs without row/column labels and presentation order.
+
+## GUIDE-SCREENSHOT-001 - Guide annotations and sticky controls needed real visual checks
+
+- Date: 2026-10-13.
+- Symptom: initially cropped browser captures showed misplaced numbered marks;
+  desktop guide download/reset controls were below a tall sticky navigation panel.
+- Cause: screenshot provider ignored clip offsets while returning the requested
+  dimensions; DOM-only structural checks did not prove pixel alignment. A sticky
+  panel had no viewport height bound or internal scroll.
+- Fix: retain full original browser captures and deterministically crop verified
+  regions, align marks to the retained frame and inspect every annotated image.
+  Bound desktop navigation height and allow internal scrolling; remove that bound
+  in mobile single-column layout. Keep progress fallback text equal to its value.
+- Verification: Root inspected24 corrected frames, desktop/mobile390x844 guide
+  layout, highlight/zoom/Escape/focus with network blocked, and actual HTML
+  download. New regression first failed2 assertions, then passed; final focused
+ 13 tests, full974 web tests, type/lint/build67 pages passed. Downloaded HTML is
+  standalone; actual file-protocol browser preview is NOT VERIFIED because the
+  supported browser rejects that protocol. No policy workaround or business write.
+- Prevention: compare actual screenshot pixels with numbered targets and test
+  bottom navigation controls in the real viewport. Screenshot provider success,
+  declared image dimensions and JSDOM structure are not visual acceptance.

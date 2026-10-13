@@ -135,6 +135,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.48] - 2026-10-13
+
+### Added
+
+- Add a standalone Russian methodologist guide with 24 production screenshots,
+  numbered interactive highlights, offline HTML download, print and eight steps
+  from source upload through lesson/test review, publication, assignment and
+  results. Only synthetic QA data; no administrator actions or external rendering
+  dependencies. Pin its link below the cabinet logo for the active methodologist
+  role; preserve other roles and existing navigation.
+- Bound desktop guide navigation to the viewport so download/reset controls stay
+  reachable; keep mobile layout single-column and progress text accessible.
+
+### Release boundary
+
+- Frontend-only candidate. Production API/workers remain on accepted 0.11.47;
+  no runtime backend, database migration, flags, customer-data or provider changes.
+
 ## [0.11.47] - 2026-10-13
 
 ### Fixed

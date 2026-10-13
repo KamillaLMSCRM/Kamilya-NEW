@@ -3660,3 +3660,26 @@ Rules:
   and DOM measure verify viewport390×844/body390/dialog16..374/no overflow.
   Browser-only request blocks removed and viewport reset. Canonical prose owns
   current state; temporary release plan removed with Git-history recovery.
+
+## GUIDE48-ROOT-LOCAL-20261013 — Root local guide/menu acceptance
+
+- Executor Root; no Test Runner owns this append. Linked checkout
+  learner-presentation-release-20261010, baseline56eea210, dirty guide48 package.
+- Full web151 files/974 tests PASS141.96s. Type-only JSDOM harness correction
+  followed by focused13 PASS4.08s; type/lint0warnings/build67pages, version and
+  release-contract gates PASS. No runtime API-code delta or migration.
+- Root real browser: desktop highlight, zoom/Escape/focus; mobile390x844 settled
+  layout and zoom; HTTP/HTTPS blocked during interaction, zero request events.
+  Tall sticky panel initially hid download; regression2 failures retained and
+  repaired. Actual download to owner Downloads passed after repair. file://
+  preview explicitly NOT VERIFIED: browser policy rejects protocol, no workaround.
+- Corrected24 production47 frames visually inspected across six sheets; SVG
+  marks verified against actual UI. Source copy independently reviewed; goal and
+  audience optional-field mismatch corrected and rechecked. 77 highlights,
+ 24 zoom/focus cases, eight progress checks and print expansion PASS in JSDOM.
+- Evidence: .release-evidence/GUIDE48-20261013/final-local48.json and independent-
+  review.json; guide final SHAe7e55fa5…af46b6. CodeGraph initial Sidebar search/
+  caller narrowed source; final sync excluded-path audit4 rejected. No queries
+  from rejected index; bounded direct source/tests used. Graphify unnecessary.
+- No new fixture, generation, save, publication, assignment, mail/PIN or learner
+  submission; existing QA captured only. DEV/production48 NOT DEPLOYED here.
