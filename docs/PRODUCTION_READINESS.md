@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** backend46/native frontend46; bounded multiformat synthetic browser lifecycles accepted2026-10-12
+**Проверено:** backend47/native frontend47; bounded contextual-help acceptance closed2026-10-13; previous multiformat lifecycles retained
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,67 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production46 — deployed; bounded multiformat lifecycle PASS, 2026-10-12
+## Current production47 — deployed; contextual-help acceptance PASS, 2026-10-13
+
+Version0.11.47/runtime/tag source `75d61a3857838f420d8ef8f4a7e3eb1bb270fac1`.
+Master CI38374146427 and DEV CI38371509134 all7SUCCESS; native build38371583217
+SUCCESS. Protected backend38375015813/deployment7034657242 SUCCESS, official
+signed provenance binds that exact protected source/run/OCI subject. Current image:
+`ghcr.io/kamillalmscrm/kamilya-api@sha256:9f98e355b14e463a3685f25d39eda9ab7614ad48de1bc4113523155b085d8c8f`.
+Blue API/worker-ai/worker-documents/worker-ops running/restarts0, all3flags ON.
+Fresh public/private47 health, watchdog's two expected identities, successful
+oneshot/active timers, no release lock, disk82%/free5801856KiB verified after live
+acceptance. Green46 API healthy, old3workers stopped; rollback ready, NOT_SWITCHED.
+DB0178, backup timer/last success and existing signed178 restore remain verified.
+
+Native bridge REL-HELP47-WEB-20261013 RELEASE_OK; Root independently reads
+current/symlink/marker/public75d, nginx2/service running, exact API parity.
+Actual immediate native rollback46/f1f65 passes the rollback boundary; extra
+42/d415 and protected359/299 remain. Postrelease1128928KiB exceeds512MiB reserve.
+Standing oldest-eligible cleanup removed only installed obsolete38/370f56fb,
+then39/e355fdc and its exact staging pair; verified offhost original recovery
+archives/manifests and successful receipts remain. No other release deletion,
+on-host build, broad prune or Proxmox. Packet42 is an additional fallback, not
+the actual immediate rollback46.
+
+DEV Render API/worker and Vercel exact75d on existing Free/Free/Hobby, flags
+unchanged. API dep-db6v1jaj9qps73alassg, worker dep-db6v2ic9v7es739u1so0,
+frontend dpl_AvBH2PA47Eo8gbv2rWK4siw4QRYS independently reconciled. Real isolated
+Supabase DEV proof10 labelled checks/two tenants PASS, random schema removed,
+public neutral/non-bypass forced RLS. Synthetic principal seam is not deployed
+JWT evidence; ordinary DEV admin lacked saved login and was not created/reset.
+
+Root ordinary browser acceptance: DEV37 unique role-page help views (28methodist,
+9student), production50 (13admin,28methodist,9student). Correct URL/topic/three
+instruction sections checked. Ordinary production admin metadata/history loads
+without requester controls; methodist requester remains available. Browser-only
+approval-history failure shows unknown rather than false empty, prevents requester
+creation; unblocked explicit refresh recovers both roles. RU matrix plus live KK/EN
+quiz-preview/editor wording, Escape/trigger-focus return and settled390×844 help
+dialog without horizontal overflow PASS. Survey immediate submission and actual
+certificate status wording match source/control semantics. No new generation,
+answers, course finalization, request/policy writes, mail or fixture creation.
+Template/reviewer instantiated workflows and global superadmin not run live;
+their route/locale coverage is static/unit, not substituted for a real user flow.
+
+All215 rows in nine QA tables are identical across every column before/after;
+added/removed/changed0. Existing active certificate KML-2026-10963E179AAE and
+seven learner certificates retained. Local2817 API units, final964 web tests
+(150files/320 nested suites), TypeScript/lint0warnings/build67pages PASS. Exact CI
+adds actual PostgreSQL contracts. Test Runner independently reviews source and
+Root runtime artifacts; Release Runner executes DEV/native packets. Browser
+executor and independent reviewer remain distinct. Initial hard-refresh429,
+pre-navigation and unsettled mobile captures retained as harness failures, not
+hidden product repairs. No limiter/token bypass or additional paid AI generation.
+
+Durable evidence: release47 notes, ERRORS APPROVAL-002/HELP-001, Test Runner ledger;
+raw immutable receipts `.release-evidence/REL-HELP47-20261013/` and native bridge
+folder. Documentation-only closeout does not retag/redeploy runtime75d. No migration,
+new provider tier/resource/billing/flag/permission/DNS/landing/voice/antivirus change.
+Previous quality/certificate lifecycle evidence below remains historical46,
+not a new47 generation or universal product acceptance.
+
+## Historical production46 — deployed; bounded multiformat lifecycle PASS, 2026-10-12
 
 Version0.11.46/runtime/tag source `f1f65c3de98ac2a6886a60498a3107c1c22218dc`,
 GitHub Release410861519. Master CI38285485208 all7SUCCESS. Protected backend

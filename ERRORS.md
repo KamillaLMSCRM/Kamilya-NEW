@@ -894,13 +894,18 @@ repair. Do not introduce blanket punctuation/heading bans from this harness.
   DEV also exposed an unavailable request read presented as empty history.
   The candidate now shows unknown history, hides requester creation during the
   error and supports an explicit refresh; role-boundary regressions cover both
-  ordinary consumers. This UI error-state repair remains unreleased.
+  ordinary consumers. UI error-state repair deployed in0.11.47/75d61a38.
 - Verification: HTTP-seam red403 and missing-catalog404 reproduced, then21 tests
   passed; API-client UI red5/green6, retained methodologist creation/confirmation
   flows. Full2817 API unit/960 web tests, typecheck/lint/build and Python baseline
   passed. Database fake verifies permission/query contracts, not PostgreSQL/RLS.
-  Real isolated DEV cross-tenant/ordinary browser acceptance and production
-  readback are NOT_RUN for this local candidate. No DB/provider/deployment writes.
+  Final964web and exact seven-job CI pass. Real isolated Supabase DEV10 labelled
+  checks/two tenants pass with gate schema cleanup/public neutrality/non-bypass
+  forcedRLS; synthetic principal seam is not deployed JWT proof. Root ordinary
+  production admin catalog/history loads, requester absent; ordinary methodist
+  requester available. Browser-only blocked GET -> unknown/no falseempty/no
+  creation -> unblock/Refresh recovery PASS in DEV and production. Production
+  API/threeworkers/native exact75d independently read back; QA215 rows unchanged.
 - Prevention: test each consumer's active role through the real client/HTTP seam,
   not only mocked helpers; require API-first rollout before the metadata consumer.
 
@@ -920,15 +925,19 @@ repair. Do not introduce blanket punctuation/heading bans from this harness.
 - Verification:19 help tests include all canonical registered role pages/locales,
   dynamic/legacy/invalid paths and semantic negative assertions. Independent
   reviewer caught two copy errors; Root corrected both and reviewer accepted the
-  exact corrections. Full web suite960 passed. Audit of deployed46 remains
-  historical evidence, not live proof of these unshipped corrections.
+  exact corrections. Final964web tests pass. Release47 exact DEV/prod source75d
+  verified live: DEV37 and prod50 unique help views, RU plus selected KK/EN,
+  Escape/focus and settled390×844 help dialog PASS. Initial46 audit remains
+  historical, not retroactively relabelled. Root executed browser matrix;
+  Test Runner independently reviewed source and retained runtime artifacts.
 - Prevention: require source-backed visible controls and decisive navigation in
   copy, plus semantic tests; broad dashboard fallback is not topic coverage.
   DEV follow-up: survey creation requires fields first, learner rating immediately
   submits, passing score belongs to the quiz editor, and certificate status copy
   must match actual locale labels. R3 semantic tests bind these controls, not
-  merely the existence of help text. Corrections are pending final DEV/production
-  acceptance, not retroactively attributed to release46.
+  merely the existence of help text. Corrections accepted in DEV/production47,
+  not retroactively attributed to46. Template/reviewer instantiated live flows
+  and global superadmin were not run; source/unit route/locale coverage is distinct.
 
 ## TOOL-001 - Screenshot or browser context was mistaken for project scope
 
@@ -5797,6 +5806,15 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: read installed EnvironmentFile and key values before each release;
   fail closed on drift, reconcile it explicitly, then verify oneshot and timer.
 
+### Recurrence2026-10-13: release47 postdeploy reconciliation
+
+Protected47 completed with four correct images/private/public identity; extra
+readback stopped because watchdog still expected46. Existing transactional
+finalization updated only EXPECTED_RELEASE/EXPECTED_API_IMAGE, retained backup
+`/etc/kamilya/ops-check.conf.pre-REL-HELP47-20261013`, no config/rights expansion.
+Fresh exact47 readback, watchdog oneshot/status0 and both active timers PASS.
+Do not treat missing final reconciliation as failed deployment or blindly redeploy.
+
 ## LEARNING-005 - Exhausted quiz attempts did not block initial answer submission
 
 - Date: 2026-10-01.
@@ -6074,6 +6092,17 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   windows before a live packet, reuse process-local sessions and avoid concurrent
   root browser/API logins. A429 stops the packet; only a corrected exact packet
   may resume after the real window. Pacing rule added to Test Runner instructions.
+
+### Recurrence2026-10-13: hard navigation exhausted auth refresh rather than login
+
+Root help harness repeatedly hard-navigated pages, causing observed auth/refresh
+429 with Retry-After60 and return to login. Refresh has its separate10/minute,
+100/hour, burst5 contract; login limits above do not describe it. Corrected harness
+uses visible SPA links and paces required hard navigation at least8seconds,
+awaits exact URL/fresh DOM and settled responsive layout before capture. DEV37/
+production50 help views complete with normal existing accounts. Failed captures
+retained; no limiter reset, exemption, token/session or runtime change. Count
+refresh traffic separately and preserve the ordinary session across UI navigation.
 
 ## AUTH-PLATFORM-REFRESH-001 - Platform fetch bypassed expired-session recovery
 

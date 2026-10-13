@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-10-12.
+> Обновлено: 2026-10-13.
 
 ## Источники правды
 
@@ -25,7 +25,27 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current environment correction — production/DEV46,2026-10-12
+## Current environment correction — production/DEV47,2026-10-13
+
+Production/DEV source `75d61a3857838f420d8ef8f4a7e3eb1bb270fac1`/0.11.47.
+KZ API/threeworkers image9f98e355…d8c8f, native frontend exact75d; protected
+38375015813 and native38371583217/canonical bridge verified. Existing schema0178,
+backup/signedrestore and all3production flags unchanged. Immediate backend/native
+rollback46f1f65 ready, actual switch NOT_RUN; native extra42/protected359/299
+retained. Only exact obsolete38/39 and39staging removed with verified offhost
+recovery under standing procedure. No topology/DNS/Proxmox/on-host build.
+
+Existing DEV API/worker/Vercel exact75d, Free/Free/Hobby and all9 flags unchanged.
+Render API dep-db6v1jaj9qps73alassg/worker dep-db6v2ic9v7es739u1so0 live;
+Vercel dpl_AvBH2PA47Eo8gbv2rWK4siw4QRYS READY. Permanent DEV identities below
+unchanged. No DEV admin credential created/reset; ordinary production QA admin
+was tested. Browser help DEV37/prod50 PASS; source/role/error-recovery details and
+limits owned by PRODUCTION_READINESS. All215 production QA rows/nine tables
+unchanged; no new learning, mail/OTP, generation, policy or customer-data mutation.
+Documentation-only closeout leaves runtime/tag75d unchanged; current statements
+supersede historical46 snapshot below, not its retained quality measurements.
+
+## Historical environment correction — production/DEV46,2026-10-12
 
 Production API/threeworkers and native frontend exact
 `f1f65c3de98ac2a6886a60498a3107c1c22218dc`/version0.11.46; schema0178 and existing

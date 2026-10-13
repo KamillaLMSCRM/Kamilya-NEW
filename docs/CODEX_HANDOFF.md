@@ -1,11 +1,44 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-10-12
+**Обновлено:** 2026-10-13
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `fix/learner-presentation-release-20261010`; source published to `master`
 
-## Current production46,2026-10-12 — bounded multiformat cycle closed
+## Current production47,2026-10-13 — contextual-help package closed
+
+Runtime/tag75d61a3857838f420d8ef8f4a7e3eb1bb270fac1/version0.11.47, DEV and KZ
+API/3workers/native frontend exact match. Protected backend38375015813/
+deployment7034657242/image9f98e355…d8c8f; masterCI38374146427/all7,
+DEV CI38371509134/all7, nativebuild38371583217 and canonical bridge pass.
+Backend/native immediate rollback46f1f65 retained and independently ready;
+native42 plus359/299 protected. Only verified obsolete38 then39/exact39staging
+removed under standing cleanup; offhost originals retained. No Proxmox/on-hostbuild.
+Watchdog only two identity keys reconciled with root backup, oneshot/timers PASS;
+DB0178/backup/existing signedrestore/all3productionflags unchanged.
+
+Root ordinary-role live help matrix DEV37/prod50 (13admin+28methodist+9student),
+RU topics/route identity, liveKK/EN quiz wording, mobile390×844, Escape/focus PASS.
+Admin approval reads are metadata/audit only, no requester controls; methodist
+creation available. Client-only failure shows unknown history, closes creation,
+explicit refresh recovers. Nine production QA tables/all215 full-row hashes exact;
+no answers, fixture creation, request/policy writes, mail or new paid generation.
+Actual DEV admin login unavailable; ordinary production admin tested. Dynamic
+template/reviewer objects/global superadmin/actual rollback NOT_RUN live.
+Local2817API/964web/type/lint/build67 and real isolated Supabase DEV10 labelled
+checks pass, cleanup/public-neutral/non-bypass forcedRLS. ExactCI includes real
+PostgreSQL contracts. Test Runner reviews source and Root runtime artifacts;
+Release Runner executes exact DEV/native packets, not the human browser matrix.
+
+Evidence `.release-evidence/REL-HELP47-20261013/`, canonical current readiness,
+release47/ERRORS/Test Runner ledger. Preserve failed harness receipts: repeated
+hard navigation caused auth-refresh429; use visible SPA links and paced required
+hard navigation, never relax auth. Await URL/settled layout before capture.
+Documentation-only child commits leave tagged/runtime75d intact. Next product
+work needs a new owner-scoped package; no repeat deploy/generation for47.
+Primary and unrelated worktrees/landing remain untouched.
+
+## Historical production46,2026-10-12 — bounded multiformat cycle closed
 
 Immutable runtime/tag0.11.46 sourcef1f65c3de98ac2a6886a60498a3107c1c22218dc.
 Production API/3workers imagea668b3a7…fa9406 and native frontend exact match;

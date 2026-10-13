@@ -3613,3 +3613,50 @@ Rules:
 - No external reads/mutations, fixture creation, cleanup, or application edits.
   Local frontend evidence only; no DEV, production, CI, browser, push, or
   deployment claim. Root review pending.
+
+## HELP47-PRODUCTION-ACCEPTANCE-20261013 — bounded release acceptance review
+
+- Timestamp: 2026-10-13T10:01:53Z; executor: independent Test & Evidence Runner
+  artifact/source reviewer. Checkout
+  `C:/Kamilya New/Kamilya-NEW/.worktrees/learner-presentation-release-20261010`,
+  HEAD/release SHA `75d61a3857838f420d8ef8f4a7e3eb1bb270fac1`.
+- Checks: parsed all nine packet-named release/runtime receipts and local Vitest
+  report; SHA256-checked those artifacts; compared all four frontend source/test
+  hashes and local gate digest against `frozen-source-binding.json`; inspected
+  approval page, contextual help source and boundary/locale tests. No tests or
+  browser sessions were executed by this runner.
+- Root-observed receipts: DEV help37 views (28 methodologist,9 student); production
+  help50 views (13 admin,28 methodologist,9 student), all recorded PASS and exact
+  production origin. Production admin catalog/requester/unknown-history/refresh
+  assertions PASS. RU recorded for all50; KK and EN checks cover quiz-preview copy.
+  Production QA preservation215 rows/nine tables/all columns identical, zero
+  added/removed/changed rows. Exact SHA bindings match frozen release source.
+- Local/static review: admin controls are methodologist-only; failed history reads
+  remain unknown, suppress request actions and recover after explicit refresh.
+  Source and tests distinguish policy/history access from requester actions.
+- Acceptance receipt:
+  `.release-evidence/REL-HELP47-20261013/test-runner-acceptance47.json`;
+  evidence digests and scope are recorded there. Limits: no ordinary DEV admin,
+  live template/reviewer object, new learning journey or actual rollback switch;
+  browser evidence is Root-executed and not runner-executed. Root review pending.
+
+## HELP47-ROOT-CLOSEOUT-20261013 — Root acceptance of bounded final evidence
+
+- Root reviewed and hash-verified the independent acceptance receipt and its ten
+  artifacts against exact runtime75d61a3857838f420d8ef8f4a7e3eb1bb270fac1;
+  Test Runner's pending Root review is now accepted for its seven bounded scopes.
+  Clarification of the preceding shorthand: requester mutation controls are
+  methodologist-only; admin policy configuration remains authorized, and admin
+  status controls are read-only. No authorization union or capability widening.
+- Canonical native bridge handoff with that acceptance returns READY FOR ROOT
+  REVIEW/no blockers. Packet-retained42 is an extra fallback; Root's actual
+  postflight independently proves immediate successful native rollback46f1f65.
+- Fresh backend readback2026-10-13T10:00:06Z verifies exact47 API/3workers,
+  restarts0/flags, watchdog identities/timers, rollback46 ready, DB0178/backup/
+  signed178 restore, no lock. QA all215 rows/nine tables/every column unchanged.
+  No actual rollback, additional generation or learning submission performed.
+- Initial mobile capture was taken before responsive layout settled; retained
+  rather than relabelled PASS. Separate settled capture prod-mobile-help47-r2.jpg
+  and DOM measure verify viewport390×844/body390/dialog16..374/no overflow.
+  Browser-only request blocks removed and viewport reset. Canonical prose owns
+  current state; temporary release plan removed with Git-history recovery.
