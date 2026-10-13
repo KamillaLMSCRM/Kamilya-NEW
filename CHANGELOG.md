@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Bind editor AI chat to its open course/lesson/module, actor/tenant/role/session
+  and language. Abort client requests on invalidation; discard late replies,
+  errors/loading updates and apply notifications even when transport ignores abort.
+  Guard one pending explicit lesson apply. No new API contract, automatic retry,
+  business operation or claim of rolling back already committed server work.
+
 ### Security
 
 - Refresh exact security pins after blocking release-time audits: source-map-js

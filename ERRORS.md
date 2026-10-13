@@ -7093,3 +7093,23 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   images decoded with external network blocked; actual HTML download verified.
   Final canonical HTML SHA0bdc2abe…d1023f47 is LF-only normalization of earlier
   approvede7e55fa5…af46b6; embedded image bytes/content unchanged.
+
+## AI-CHAT-001 - Late editor-chat responses crossed course and session boundaries
+
+- Date: 2026-10-13; local candidate, not deployed.
+- Symptom: chat retained old-course conversation/input, remained busy after focus
+  changes, and admitted late replies/errors or editor refresh callbacks after
+  close/reopen, course change or authentication change. Double Apply issued two PATCHes.
+- Cause: reset effect omitted course and actor/session identity; async send/apply
+  continuations updated state unconditionally, without request ownership or cancellation.
+- Fix: committed-context lifecycle owns an active session and AbortControllers;
+  cleanup invalidates it before paint. Success/error/finally recheck identity,
+  including after JSON decoding; one synchronous pending apply guard and disabled
+  controls prevent duplicate requests. API payloads and server owners unchanged.
+- Verification: original12 RED; final17 lifecycle regressions,5 accessibility,
+ 21 correction-panel neighbors PASS. Full web152files/993tests PASS134.16s;
+  typecheck/changed-file lint PASS. Independent source review accepted. StrictMode,
+  abort-resistant transport, old-finally overlap and async JSON races covered.
+- Prevention: test context replacement and close/reopen, not just successful fetch.
+  Client abort does not prove server cancellation/rollback; use server-owned
+  sealed confirmation/receipts for future command orchestration and unknown writes.

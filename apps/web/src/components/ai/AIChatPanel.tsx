@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Button, Input, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
@@ -50,6 +50,13 @@ interface AIChatPanelProps {
   onLessonApplied?: () => void;
 }
 
+interface ChatSession {
+  active: boolean;
+  sending: boolean;
+  applying: boolean;
+  requests: Set<AbortController>;
+}
+
 export function AIChatPanel({
   open,
   onClose,
@@ -62,11 +69,14 @@ export function AIChatPanel({
 }: AIChatPanelProps) {
   const { t, lang } = useT();
   const token = useAuthStore((s) => s.accessToken);
+  const user = useAuthStore((s) => s.user);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const sessionRef = useRef<ChatSession | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
@@ -76,8 +86,15 @@ export function AIChatPanel({
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  // Reset chat when panel opens; prefill with focus context if provided.
-  useEffect(() => {
+  // Each committed context owns its requests. Closing/reopening also starts a
+  // new session: an abort-resistant late response must not cross that boundary.
+  useLayoutEffect(() => {
+    const session: ChatSession = { active: open, sending: false, applying: false, requests: new Set() };
+    sessionRef.current = session;
+    setInput('');
+    setSending(false);
+    setApplying(false);
+    setMessages([]);
     if (open) {
       const focused: ChatMessage[] = [];
       if (focusLessonId && focusLessonTitle) {
@@ -98,7 +115,12 @@ export function AIChatPanel({
       }
       setMessages(focused);
     }
-  }, [open, focusLessonId, focusLessonTitle, focusModuleId, focusModuleTitle, t]);
+    return () => {
+      session.active = false;
+      session.requests.forEach((request) => request.abort());
+      session.requests.clear();
+    };
+  }, [open, courseId, focusLessonId, focusLessonTitle, focusModuleId, focusModuleTitle, token, user?.user_id, user?.tenant_id, user?.role, lang, t]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -142,8 +164,13 @@ export function AIChatPanel({
   }, [open]);
 
   const sendMessage = async (messageOverride?: string, intent?: 'audience_recommendation') => {
+    const session = sessionRef.current;
     const userText = (messageOverride ?? input).trim();
-    if (!userText || !token) return;
+    if (!userText || !token || !session?.active || session.sending) return;
+    const controller = new AbortController();
+    session.sending = true;
+    session.requests.add(controller);
+    const isCurrent = () => session.active && sessionRef.current === session && !controller.signal.aborted;
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: userText }]);
     setSending(true);
@@ -160,6 +187,7 @@ export function AIChatPanel({
 
       const res = await fetch(`${API_URL}/v1/ai/chat`, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -175,6 +203,7 @@ export function AIChatPanel({
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      if (!isCurrent()) return;
       setMessages((prev) => [
         ...prev,
         {
@@ -187,13 +216,16 @@ export function AIChatPanel({
         },
       ]);
     } catch (e) {
+      if (!isCurrent()) return;
       toast.error(t('aiAssistant.errorToast'));
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: t('aiAssistant.errorReply') },
       ]);
     } finally {
-      setSending(false);
+      session.requests.delete(controller);
+      session.sending = false;
+      if (isCurrent()) setSending(false);
     }
   };
 
@@ -269,10 +301,17 @@ export function AIChatPanel({
   };
 
   const applySuggestion = async (msg: ChatMessage) => {
-    if (!msg.apply_lesson_id || !msg.apply_lesson_content || !token) return;
+    const session = sessionRef.current;
+    if (!msg.apply_lesson_id || !msg.apply_lesson_content || !token || !session?.active || session.applying || !messages.includes(msg)) return;
+    const controller = new AbortController();
+    session.applying = true;
+    session.requests.add(controller);
+    setApplying(true);
+    const isCurrent = () => session.active && sessionRef.current === session && !controller.signal.aborted;
     try {
       const res = await fetch(`${API_URL}/v1/lessons/${msg.apply_lesson_id}`, {
         method: 'PATCH',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -280,6 +319,7 @@ export function AIChatPanel({
         body: JSON.stringify({ content: msg.apply_lesson_content }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!isCurrent()) return;
       // Mark as applied in chat
       setMessages((prev) =>
         prev.map((m, i) =>
@@ -289,7 +329,12 @@ export function AIChatPanel({
       toast.success(t('aiAssistant.lessonUpdated'));
       onLessonApplied?.();
     } catch (e) {
+      if (!isCurrent()) return;
       toast.error(t('aiAssistant.applyError'));
+    } finally {
+      session.requests.delete(controller);
+      session.applying = false;
+      if (isCurrent()) setApplying(false);
     }
   };
 
@@ -363,7 +408,7 @@ export function AIChatPanel({
                   {m.applied_lesson_id === m.apply_lesson_id ? (
                     <Badge variant="secondary">{t('aiAssistant.applied')}</Badge>
                   ) : (
-                    <Button size="sm" variant="default" onClick={() => applySuggestion(m)}>
+                    <Button size="sm" variant="default" disabled={applying} onClick={() => applySuggestion(m)}>
                       {t('aiAssistant.applyLesson')}
                     </Button>
                   )}

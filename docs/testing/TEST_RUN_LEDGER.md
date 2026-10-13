@@ -3713,3 +3713,33 @@ Rules:
   `.release-evidence/GUIDE48-20261013/test-runner-acceptance48.json`.
 - Root prior local-only record was accurate at its timestamp; this entry records
   the later bounded release acceptance without rewriting history.
+
+## ASSISTANT-CONTEXT-20261013 — local editor-chat lifecycle correction
+
+- Root executor; baselinefa39b060 in linked learner-presentation-release-20261010.
+  No ledger writer delegated for this run. Initial12 regressions actually RED;
+  corrected43 focused (final17 lifecycle +5 accessibility +21 correction neighbors)
+  PASS4.42s. Full152files/993tests PASS134.16s; no failed/pending tests.
+  Reports: `.release-evidence/assistant-context-20261013-focused.json` and
+  `assistant-context-20261013-full.json`. Original test warnings retained in output,
+  not described as product failures or suppressed through test changes.
+- Typecheck/changed-file ESLint0warnings and Next production build67pages PASS,
+  terminal sessions46785/88402 exit0. Existing version48 unchanged, changes are
+  Unreleased. No API/DB/worker/provider configuration or paid inference performed.
+- Independent Test Runner reviewed exact component/test/accessibility/sole-caller
+  source hashes and found no scoped defect; Root accepted review. Reviewer did
+  not execute the full suite or browser. Evidence:
+  `.release-evidence/assistant-context-20261013-review.json`.
+- Context replacement, close/reopen, actor/tenant/role/token/language, StrictMode,
+  abort-resistant responses, delayed JSON, old-finally and duplicate pending
+  PATCH covered. Abort is client-side only: server generation or a committed PATCH
+  may finish; no server rollback or backend idempotency claim.
+- CodeGraph readiness stale; attempted search and one actual post-change root
+  sync rejected excluded-path audit4; no rejected index query accepted. Initial
+  sync from wrong apps/web cwd failed before opening index; corrected root sync
+  also rejected audit, retained as separate harness/tool failure. Exact-source
+  fallback; no Graphify/CodeBurn/ECC savings or token counters available.
+- No DEV/production deployment, browser acceptance, source-file opener or
+  conversation history implemented in this slice. Active continuation plan and
+  backlog retain those distinct gates. Independent review requested/observed
+  cheap runner; exact model/effort/time/token usage not independently exposed.
