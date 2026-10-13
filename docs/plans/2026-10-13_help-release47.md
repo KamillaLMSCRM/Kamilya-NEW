@@ -1,7 +1,8 @@
 # HELP47: checked help and admin approval release
 
 Owner: Root. Approval: owner2026-10-13 requests continue and release to production
-after verification. Scope only Kamilya-NEW, current linked checkout HEAD2412060,
+after verification; renewed2026-10-13 after the methodologist HTML guide delivery.
+Scope only Kamilya-NEW, current linked checkout HEAD1da41f4 plus reviewed R3 delta,
 owned help repair delta. No migrations, new paid resources, flag/billing changes,
 customer data, email/OTP, landing, DNS, Proxmox or unrelated checkout changes.
 
@@ -17,18 +18,23 @@ an explicit packet transfers it. English-only worker packets, five-field handoff
 
 Dependency graph: ISOLATE -> FREEZE -> DEV -> BROWSER -> PROD-API -> PROD-WEB -> CLOSE.
 
-- ISOLATE IN_PROGRESS: real HTTP+SQL reads in fresh owned Supabase DEV schema,
+- ISOLATE PASS: real HTTP+SQL reads in fresh owned Supabase DEV schema,
   same canonical clone/FORCE-RLS/runtime-role/search-path/cleanup helper as prior45.
   Public GET metadata/history are seams; bound synthetic principals deliberately
   replace JWT only, database is real lms_app. Two synthetic tenants, roles,
   empty/foreign context and metadata-only response. No public business writes.
-  Root owns harness. Cleanup only exact random schema and public-neutral proof.
-- FREEZE NOT_STARTED: new47 version, dated changelog/release notes, task-only
+  Root owns harness. Exact publish_db12cadb2d84 removed; ten checks PASS and
+  public-neutral proof. This does not claim deployed JWT/admin browser proof.
+- FREEZE IN_PROGRESS_R3: version47, dated changelog/release notes, task-only
   commit with exact project author, local critical gates and current remote refs.
   Canonical token helper only; independent SHA readback and sanitized push notes.
-- DEV NOT_STARTED: exact no-migration packet on existing Free/Free/Hobby, all
+- DEV R2_PASS_R3_PENDING: exact1da41f4 API/worker/frontend on Free/Free/Hobby;
+  CI38358059293 and technical controller PASS. R3 requires a new exact packet, all
   existing flags retained, controller sequencing, exact API/worker/frontend SHA.
-- BROWSER NOT_STARTED: ordinary persistent synthetic roles and retained courses;
+- BROWSER R2_OBSERVED_R3_PENDING: methodologist/student ordinary DEV paths and
+  real screens observed; R3 fixes unknown approval history and four semantic topics.
+  Existing DEV ordinary admin unavailable, no account/role reset authorized.
+  Ordinary persistent synthetic roles and retained courses;
   no PIN reset, request/email/attempt/AI writes. Verify help, admin catalog/history,
   methodologist retained controls, student finalization/download instructions.
 - PROD-API NOT_STARTED: immutable CI/image/provenance, fresh current/rollback,

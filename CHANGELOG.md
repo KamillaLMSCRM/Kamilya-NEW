@@ -144,6 +144,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   topics; retain legacy-page owners with exact dynamic-route matching. Explain
   campaign launch, program audience, explicit course completion, certificate
   download/statuses and distinct platform operation consequences.
+- Follow actual DEV controls: fill survey fields before Create, warn that selecting
+  a learner rating submits immediately, place passing-score verification in the
+  quiz editor and use displayed certificate status labels. Failed approval reads
+  no longer appear as an empty successful history or permit request creation.
 - Fix tenant-admin approval loading without granting course authoring or
   requester writes: dedicated tenant-scoped metadata catalog, existing audit-read
   permission for request history, read-only status actions and active-context

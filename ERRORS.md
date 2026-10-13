@@ -891,6 +891,10 @@ repair. Do not introduce blanket punctuation/heading bans from this harness.
   uses AUDIT_READ. Admin status controls are read-only; CONFIGURE remains allowed,
   ordinary course authoring and all REQUEST writes remain unchanged. Workspace
   remounts on principal/tenant/role change; stale load results are discarded.
+  DEV also exposed an unavailable request read presented as empty history.
+  The candidate now shows unknown history, hides requester creation during the
+  error and supports an explicit refresh; role-boundary regressions cover both
+  ordinary consumers. This UI error-state repair remains unreleased.
 - Verification: HTTP-seam red403 and missing-catalog404 reproduced, then21 tests
   passed; API-client UI red5/green6, retained methodologist creation/confirmation
   flows. Full2817 API unit/960 web tests, typecheck/lint/build and Python baseline
@@ -920,6 +924,11 @@ repair. Do not introduce blanket punctuation/heading bans from this harness.
   historical evidence, not live proof of these unshipped corrections.
 - Prevention: require source-backed visible controls and decisive navigation in
   copy, plus semantic tests; broad dashboard fallback is not topic coverage.
+  DEV follow-up: survey creation requires fields first, learner rating immediately
+  submits, passing score belongs to the quiz editor, and certificate status copy
+  must match actual locale labels. R3 semantic tests bind these controls, not
+  merely the existence of help text. Corrections are pending final DEV/production
+  acceptance, not retroactively attributed to release46.
 
 ## TOOL-001 - Screenshot or browser context was mistaken for project scope
 

@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const get = vi.hoisted(() => vi.fn());
@@ -51,6 +51,29 @@ describe('approval page through the actual API client', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Создать снимок и запрос' })).toBeInTheDocument());
     expect(get).toHaveBeenCalledWith('/v1/courses?page=1&per_page=100');
     expect(screen.getByRole('button', { name: 'Отменить запрос' })).toBeInTheDocument();
+  });
+
+  it.each(['admin', 'methodologist'])('does not present unavailable history as an empty success for %s', async (role) => {
+    useAuthStore.setState({ user: principal(role) });
+    let failed = true;
+    let resolveHistory!: (value: unknown) => void;
+    get.mockImplementation(async (url: string) => {
+      if (failed) throw new Error('Synthetic unavailable read');
+      if (url === '/v1/course-approval-requests') return new Promise((resolve) => { resolveHistory = resolve; });
+      return responseFor(url);
+    });
+    render(<CourseApprovalsPage />);
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Не удалось загрузить'));
+    expect(screen.queryByText('Активных запросов на согласование нет.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Создать снимок и запрос' })).not.toBeInTheDocument();
+    failed = false;
+    fireEvent.click(screen.getByRole('button', { name: /^Обновить$/ }));
+    expect(screen.queryByText('Активных запросов на согласование нет.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Создать снимок и запрос' })).not.toBeInTheDocument();
+    await act(async () => resolveHistory(responseFor('/v1/course-approval-requests')));
+    await waitFor(() => expect(screen.getByRole('combobox')).toHaveValue('course-a'));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Запрос request-' })).toBeInTheDocument();
   });
 
   it('discards a pending response from the previous tenant', async () => {

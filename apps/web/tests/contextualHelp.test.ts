@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { CONTEXTUAL_HELP_TOPIC_IDS, getContextualHelp } from '@/lib/contextualHelp';
 import { APP_ROLES, hasCapability, ROUTES } from '@/lib/routeRegistry';
+import ru from '@/i18n/locales/ru.json';
+import kk from '@/i18n/locales/kk.json';
+import en from '@/i18n/locales/en.json';
 
 const METHODOLOGIST_PATHS = [
   '/dashboard',
@@ -326,6 +329,25 @@ describe('contextual help registry', () => {
       expect(help?.steps[0]).toMatch(/вопрос|сұрақ|question/i);
       expect(help?.steps[1]).toMatch(/Создать опрос|Сауалнама жасау|Create survey/);
       expect(help?.purpose).not.toMatch(/просмотр ответов|жауаптарды көру|review responses|view responses/i);
+    }
+  });
+
+  it('describes preview controls and immediate survey submission without invented buttons', () => {
+    for (const locale of ['ru', 'kk', 'en'] as const) {
+      const preview = getContextualHelp('/courses/quiz/quiz-1/preview', 'methodologist', locale);
+      expect(preview?.steps[1]).toMatch(/редактор|editor/i);
+      const survey = getContextualHelp('/surveys', 'student', locale);
+      expect(survey?.steps[0]).toMatch(/списк|тізім|list/i);
+      expect(survey?.steps[1]).toMatch(/сразу|бірден|immediately/i);
+      expect(survey?.steps[2]).not.toMatch(/^Отправьте|^Бір жауап жіберіңіз|^Submit one response/i);
+      const certificate = getContextualHelp('/certificates', 'student', locale);
+      const labels = { ru, kk, en }[locale].certificateVerification;
+      for (const status of ['active', 'expired', 'revoked'] as const) {
+        expect(certificate?.steps[1]).toContain(labels[status]);
+      }
+      if (locale !== 'en') expect(certificate?.steps[1]).not.toMatch(/\bactive\b|\bexpired\b|\brevoked\b/);
+      const approval = getContextualHelp('/admin/course-approvals', 'methodologist', locale);
+      expect(approval?.example).not.toMatch(/требования к рецензентам|рецензент талаптарын|reviewer requirements/i);
     }
   });
 

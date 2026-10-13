@@ -33,13 +33,13 @@ function ApprovalWorkspace({ role }: { role: 'admin' | 'methodologist' }) {
   const load = useCallback(async () => {
     const current = ++generation.current;
     if (!loadedRef.current) setLoading(true);
-    setError('');
     try {
       const [courseRows, requestRows] = await Promise.all([
         listApprovalCourses(canRequest ? 'authoring' : 'approval-audit'),
         listApprovalRequests(),
       ]);
       if (current !== generation.current) return;
+      setError('');
       setCourses(courseRows);
       setRequests(requestRows);
       setCourseId((selected) => selected || searchParams.get('courseId') || courseRows[0]?.id || '');
@@ -59,8 +59,8 @@ function ApprovalWorkspace({ role }: { role: 'admin' | 'methodologist' }) {
     {error && <p role="alert" className="break-words rounded-lg border border-destructive/40 p-4 text-sm text-destructive">{error}</p>}
     <Card><CardContent className="space-y-3 p-5"><label className="block space-y-2 text-sm font-medium">Курс<select className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm" value={courseId} onChange={(event) => { setOpen(false); setCourseId(event.target.value); }}><option value="">Выберите курс</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}</select></label>{canRequest && !selectedCourse && <Input aria-label="Идентификатор курса" placeholder="Идентификатор курса (UUID)" value={courseId} onChange={(event) => setCourseId(event.target.value)} />}</CardContent></Card>
     {selectedCourse && <ApprovalPolicyCard key={`policy:${selectedCourse.id}`} courseId={selectedCourse.id} initialRequiresApproval={Boolean(selectedCourse.requires_approval)} />}
-    {canRequest && selectedCourse && <div className="flex flex-wrap gap-2"><Button type="button" onClick={() => setOpen(true)}>{t('courseApproval.createRequest')}</Button></div>}
-    <section className="space-y-3"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Статусы запросов</h2><Button type="button" size="sm" variant="outline" onClick={() => void load()}>Обновить</Button></div><ApprovalStatusPanel requests={requests} readOnly={!canRequest} onRefresh={() => void load()} /></section>
-    {canRequest && courseId && <ApprovalRequestModal key={`request:${courseId}`} open={open} courseId={courseId} onClose={() => setOpen(false)} onCreated={() => void load()} />}
+    {canRequest && selectedCourse && !error && <div className="flex flex-wrap gap-2"><Button type="button" onClick={() => setOpen(true)}>{t('courseApproval.createRequest')}</Button></div>}
+    <section className="space-y-3"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Статусы запросов</h2><Button type="button" size="sm" variant="outline" onClick={() => void load()}>Обновить</Button></div>{error ? <p role="status" className="text-sm text-muted-foreground">Статусы запросов не загружены. Повторите обновление.</p> : <ApprovalStatusPanel requests={requests} readOnly={!canRequest} onRefresh={() => void load()} />}</section>
+    {canRequest && courseId && !error && <ApprovalRequestModal key={`request:${courseId}`} open={open} courseId={courseId} onClose={() => setOpen(false)} onCreated={() => void load()} />}
   </div>;
 }
