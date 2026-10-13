@@ -319,6 +319,16 @@ describe('contextual help registry', () => {
     expect(getContextualHelp('/surveys', 'methodologist', 'en')?.steps.join(' ')).not.toMatch(/publish|audience|mandatory/i);
   });
 
+  it('asks for required survey fields before the disabled create action', () => {
+    for (const locale of ['ru', 'kk', 'en']) {
+      const help = getContextualHelp('/surveys', 'methodologist', locale);
+      expect(help?.steps[0]).toMatch(/название|атауын|title/i);
+      expect(help?.steps[0]).toMatch(/вопрос|сұрақ|question/i);
+      expect(help?.steps[1]).toMatch(/Создать опрос|Сауалнама жасау|Create survey/);
+      expect(help?.purpose).not.toMatch(/просмотр ответов|жауаптарды көру|review responses|view responses/i);
+    }
+  });
+
   it('keeps audited copy boundaries explicit', () => {
     const campaign = getContextualHelp('/candidate-assessments', 'methodologist', 'ru');
     expect(campaign?.steps.join(' ')).toContain('Запустите кампанию');
