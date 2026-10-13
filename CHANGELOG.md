@@ -135,6 +135,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.47] - 2026-10-13
+
+### Fixed
+
+- Align contextual help with actual role/page workflows in RU/KK/EN: add
+  announcements, surveys, reviewer and course reader/editor/template/quiz-preview
+  topics; retain legacy-page owners with exact dynamic-route matching. Explain
+  campaign launch, program audience, explicit course completion, certificate
+  download/statuses and distinct platform operation consequences.
+- Fix tenant-admin approval loading without granting course authoring or
+  requester writes: dedicated tenant-scoped metadata catalog, existing audit-read
+  permission for request history, read-only status actions and active-context
+  stale-response isolation. API-first rollout, no migration or permission-table
+  change. Real owned Supabase DEV route/SQL/RLS proof includes two tenants,
+  empty/foreign context, denied active roles and cleanup/public-neutral readback.
+
 ## [0.11.46] - 2026-10-12
 
 ### Fixed

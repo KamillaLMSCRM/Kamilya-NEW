@@ -107,6 +107,13 @@ describe('auth redirect policy', () => {
 });
 
 describe('navigation active state', () => {
+  it('allows contextual reviewer details only for the canonical methodologist role', () => {
+    for (const role of ['admin', 'student', 'superadmin', 'org_admin', 'teacher']) {
+      expect(canAccessRoute(role, '/course-review-requests/review-1')).toBe(false);
+    }
+    expect(canAccessRoute('methodologist', '/course-review-requests/review-1')).toBe(true);
+    expect(canAccessRoute('methodologist', '/course-review-requestsuffix/review-1')).toBe(false);
+  });
   it('keeps the canonical staff item active across its URL-backed tabs', () => {
     expect(isNavigationItemActive(
       '/staff',

@@ -9,10 +9,11 @@ const APPROVAL_COURSE_PAGE_SIZE = 100;
 const APPROVAL_COURSE_MAX_PAGES = 50;
 
 /** Load the bounded course catalog using the API's `per_page <= 100` contract. */
-export async function listApprovalCourses(): Promise<ApprovalCourseOption[]> {
+export async function listApprovalCourses(mode: 'authoring' | 'approval-audit' = 'authoring'): Promise<ApprovalCourseOption[]> {
   const courses: ApprovalCourseOption[] = [];
+  const catalog = mode === 'approval-audit' ? '/v1/course-approval-courses' : '/v1/courses';
   for (let page = 1; page <= APPROVAL_COURSE_MAX_PAGES; page += 1) {
-    const response = await api.get<ApprovalCourseOption[] | { items?: ApprovalCourseOption[] }>(`/v1/courses?page=${page}&per_page=${APPROVAL_COURSE_PAGE_SIZE}`);
+    const response = await api.get<ApprovalCourseOption[] | { items?: ApprovalCourseOption[] }>(`${catalog}?page=${page}&per_page=${APPROVAL_COURSE_PAGE_SIZE}`);
     const rows = Array.isArray(response.data) ? response.data : response.data.items || [];
     courses.push(...rows);
     if (rows.length < APPROVAL_COURSE_PAGE_SIZE) break;

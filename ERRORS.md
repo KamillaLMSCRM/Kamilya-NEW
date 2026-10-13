@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-12.
+Current as of: 2026-10-13.
 
 ## DEV-WORKER-SLEEP-001 - Free web-hosted worker stopped while QA reviewed content
 
@@ -877,6 +877,49 @@ repair. Do not introduce blanket punctuation/heading bans from this harness.
   production readback remain pending; the customer recovery is not release proof.
 - Prevention: never infer persisted workflow state from an omitted response field.
   Test reload, course switch and rejected publication; deploy API before frontend.
+
+## APPROVAL-002 - Admin approval page called requester-only read contracts
+
+- Date: 2026-10-13.
+- Symptom: ordinary tenant admin saw a course-approval loading error and requester
+  buttons that the API did not authorize.
+- Cause: page called the methodologist authoring catalog and request-list endpoint
+  protected by REQUEST instead of the already granted AUDIT_READ; shared status
+  component displayed mutation controls irrespective of its consumer role.
+- Fix: additive GET `/v1/course-approval-courses` exposes only ID/title/policy,
+  bounded pagination and explicit tenant/same-tenant-policy join. Request history
+  uses AUDIT_READ. Admin status controls are read-only; CONFIGURE remains allowed,
+  ordinary course authoring and all REQUEST writes remain unchanged. Workspace
+  remounts on principal/tenant/role change; stale load results are discarded.
+- Verification: HTTP-seam red403 and missing-catalog404 reproduced, then21 tests
+  passed; API-client UI red5/green6, retained methodologist creation/confirmation
+  flows. Full2817 API unit/960 web tests, typecheck/lint/build and Python baseline
+  passed. Database fake verifies permission/query contracts, not PostgreSQL/RLS.
+  Real isolated DEV cross-tenant/ordinary browser acceptance and production
+  readback are NOT_RUN for this local candidate. No DB/provider/deployment writes.
+- Prevention: test each consumer's active role through the real client/HTTP seam,
+  not only mocked helpers; require API-first rollout before the metadata consumer.
+
+## HELP-001 - Generic and missing topics concealed page-specific workflows
+
+- Date: 2026-10-13.
+- Symptom: production audit observed52 ordinary role-page views, including four
+  without help. Generic course and shared approval text omitted decisive steps
+  or instructed actions unavailable to the active role/screen.
+- Cause: route-prefix help had no exact dynamic-segment matching or complete
+  role-page coverage; text existence tests did not verify workflow semantics.
+- Fix: source-backed RU/KK/EN topics for missing screens and nested course/review
+  pages; declared legacy aliases, exact overview roots and most-specific matched
+  path ranking. Separate admin configuration/audit from requester operations;
+  clarify campaign launch, cohort audience limits, finalization/download and
+  platform side effects. Reader and template text never invent save/review actions.
+- Verification:19 help tests include all canonical registered role pages/locales,
+  dynamic/legacy/invalid paths and semantic negative assertions. Independent
+  reviewer caught two copy errors; Root corrected both and reviewer accepted the
+  exact corrections. Full web suite960 passed. Audit of deployed46 remains
+  historical evidence, not live proof of these unshipped corrections.
+- Prevention: require source-backed visible controls and decisive navigation in
+  copy, plus semantic tests; broad dashboard fallback is not topic coverage.
 
 ## TOOL-001 - Screenshot or browser context was mistaken for project scope
 

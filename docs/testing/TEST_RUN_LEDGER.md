@@ -3498,3 +3498,101 @@ Rules:
   Addendum receipt binding the original final review and visual receipt:
   `.release-evidence/REL-MULTIFORMAT46-20261012/final-review-addendum.json`.
   Result: READY FOR ROOT REVIEW; Root retains final GO authority.
+
+## HELP-REPAIR-20261013 — local candidate, not deployed
+
+- Timestamp: `2026-10-13T05:54:59Z`; executor: Root, with bounded copy writer
+  and separate read-only reviewer. Checkout:
+  `C:/Kamilya New/Kamilya-NEW/.worktrees/learner-presentation-release-20261010`.
+  Immutable base HEAD `2412060cdcdd3f042c4b8ea7766a10098007e954`; changes are
+  uncommitted task-owned working-tree files, not evidence of a released SHA.
+- Scope: resolve prior contextual-help audit findings, preserve active-role
+  boundaries, fix ordinary admin approval loading. New metadata GET returns only
+  course ID/title/approval requirement, bounded1..100 and explicit tenant/policy
+  predicates. Admin retains CONFIGURE/AUDIT_READ, not REQUEST or authoring.
+  No schema/migration, providers, accounts, QA rows or release resources changed.
+- Red/green: admin HTTP history403 and catalog404 reproduced before fixes;
+  focused HTTP-seam21 PASS. UI actual-client/API-boundary6 cases initially5
+  failures, finally6 PASS; methodologist3 creation/confirmation cases retained.
+  Root found faulty reader/template copy and overly broad admin help; semantic
+  regressions reproduced2 failures, then all19 help tests passed. Copy worker's
+  original15/16 help result was partial, not an accepted completion.
+- Final checks: API `tests/unit`2817 PASS/5 existing deprecation warnings in
+  37.15s via canonical wrapper; web150 files/960 PASS in292.36s, one worker.
+  Typecheck PASS (synthetic test principal initially had invalid null telegram ID;
+  corrected fixture, no application typing workaround). ESLint zero-warning
+  gate PASS; Next15.5.27 build PASS/67 generated pages; Python quality baseline
+  PASS, existing counts Ruff1008/Mypy2201. Final diff whitespace gate PASS.
+  jsdom's document-navigation warning remains a harness limitation, not a
+  proven browser journey failure or a browser acceptance receipt.
+- Independent reviewer inspected source/UI contracts without running tests;
+  found reader save/manual-pending and template review-action inaccuracies.
+  Root corrected both; separate reviewer recheck accepted the exact changes.
+  Writer and reviewer requested `gpt-5.6-luna/medium`; independently exposed
+  execution-model identity, total elapsed/token usage and Root rework timing
+  NOT_CAPTURED. First copy pass was not accepted. No API-cost saving inferred.
+- Navigation: initial combined preflight NOT_READY from missing local receipt;
+  bounded CodeGraph still worked and narrowed catalog consumers to the page and
+  pagination tests. After final source delta, canonical preparation passed:
+  CodeGraph1725 files/12262ms; Graphify18797 nodes/53338 edges/1757 source files,
+  exclusion audit PASS/161913ms, AST-only zero LLM tokens. Read-only preflight
+  READY with source fingerprint
+  `860c865887d9e74babdbbbf921226c67be8250c0af50a08a4603b5c36a74300e`.
+  Current CodeGraph caller query19ms/4 edges, all page/test calls source-confirmed.
+  CLI0.9.23/skill metadata mismatch recorded, no global upgrade. Graphs are
+  navigation only; no HTTP/RLS/runtime proof inferred.
+- Candidate file SHA256 bindings:
+  - `apps/api/app/modules/course_approval/router.py`:
+    `ef96319994e18936a90b6a1e789681384aa8188f057b9aa3c698134d85f41291`.
+  - `apps/api/tests/unit/test_course_approval_audit_reads.py`:
+    `adcfbcd577c3a20696ae70455ac1d4ada4f4a7e3c10619f7cb5121b40e6f7a53`.
+  - `apps/web/src/lib/contextualHelp.ts`:
+    `6bab233cd56e7bce5197d8bc4f31ccc3ffc3039fd8fb9612358e3a091947b55d`.
+  - `apps/web/src/app/admin/course-approvals/page.tsx`:
+    `93968e23c4c6a67895408fafb08a561eae10c2d61324966afd08a33a58816b39`.
+  - `apps/web/tests/courseApprovalAdminBoundary.test.tsx`:
+    `8ca0d65332e3d8bb6d97d781fc81c3a74ce4f8481d66de025e4bc52581de7813`.
+- NOT_RUN: real isolated Supabase DEV cross-tenant/RLS integration, deployed
+  ordinary-role/responsive browser acceptance, CI, push or deployment of this
+  candidate. The HTTP fake is expressly not a PostgreSQL/RLS proof. No unsafe
+  public-schema or local Docker PostgreSQL substitute used. No new generic
+  approved isolation profile exists for this metadata route in the inspected
+  domain-specific DEV gates; extending one requires a separately reviewed packet.
+- Retained deployed baseline:0.11.46/f1f65c3de98ac2a6886a60498a3107c1c22218dc.
+  Release sequencing: isolated DEV tenant/role gate, API first, then frontend,
+  ordinary-role browser readback; no DB migration. Local implementation accepted,
+  production release GO not issued. Durable facts transferred to ERRORS.md,
+  USER_DOCUMENTATION_RU.md and Unreleased changelog; temporary plan removed.
+
+## HELP47-ISOLATION-20261013 — closes local repair's real-DB gate only
+
+- Root executor, owner now authorizes verification followed by production
+  release. Base2412060/task-owned47 delta, no public-schema or production writes.
+- Canonical owned Supabase DEV isolation setup, cloned eleven explicit tables,
+  lms_app non-super/non-bypass, forced tenant RLS, no public search-path fallback.
+  Actual ASGI GET routes/dependencies/SQL executed20 requests: two tenants with
+  admin+methodologist, exact metadata keys, configured/unconfigured policy,
+  own-only history, empty/foreign context and four unsupported active roles.
+  Synthetic principal overrides replace JWT only, not route permissions or DB.
+- Runtime10 labelled checks PASS; exact schema publish_db12cadb2d84 removed,
+  independent namespace absence/public revision-table inventory unchanged.
+  `scripts/ops/course_approval_audit_dev_gate.py`; sanitized Root receipt
+  `.release-evidence/REL-HELP47-20261013/isolation.json`. No business writes in
+  public and no permanently retained QA changes. Real public policy/JWT/browser
+  acceptance remains separate. No local Docker PostgreSQL used.
+- Independent cheap source reviewer accepted isolation/search-path/assertions/
+  cleanup, no external execution or test claim. Credential guard red from missing
+  harness then green;22 focused guard/API tests PASS. Quality baseline1008/2201
+  unchanged. Release contract initially rejected stale ERRORS header date12;
+  Root updates header13 to latest entry date, then contract PASS/260 uniqueIDs.
+  Version47 consistency PASS. One attempted nonexistent Python tenant-gate path
+  was a command-selection error, not product evidence; actual shell gate/CI owns
+  the check and is executed separately. Prior full2817/960 source regressions
+  remain linked to unchanged application/test files, not relabelled fresh47 runs.
+- Fresh pre-release Root VM126/CT125 semantic read-only proof PASS: current46
+  exact image/API+3workers/running/restarts0/three flags; public/private46, healthy
+  rollback45, lock absent/watchdog/timers, disk80%/6256392KiB free; CT1250178,
+  backup active/last success, existing signed restore178 report hash verified.
+  `.release-evidence/REL-HELP47-20261013/current46.json` and immutable current46.sh
+  digest6c2d72011c4affa574d49cdc0a597d555b90e06b76c90f94cfa2550b107ac786.
+  No restart/configuration/data/provider mutation. It is not deployment47 proof.

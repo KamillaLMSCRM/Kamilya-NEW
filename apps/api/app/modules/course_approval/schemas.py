@@ -7,6 +7,14 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
+class ApprovalCourseOptionResponse(BaseModel):
+    """Approval configuration catalog; never authoring or snapshot content."""
+
+    id: UUID
+    title: str
+    requires_approval: bool
+
+
 class ApprovalPolicyRequest(BaseModel):
     requires_approval: bool
     review_enabled: bool = True

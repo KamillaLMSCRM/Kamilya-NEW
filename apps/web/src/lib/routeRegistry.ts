@@ -162,6 +162,7 @@ export const ROUTES: readonly AppRoute[] = [
   // Review assignments are contextual (notifications, deep links, or scoped
   // credentials), not a permanent global navigation item.
   { id: 'course-review', href: '/course-review', capability: 'review_course_approval', match: 'prefix', labelKey: 'nav.courseReview', section: 'results', icon: 'clipboard', order: 140, sidebar: false, commandPalette: false },
+  { id: 'course-review-detail', href: '/course-review-requests', capability: 'review_course_approval', match: 'prefix', sidebar: false, commandPalette: false },
   { id: 'platform-operations', href: '/admin/super/operations', capability: 'manage_platform', match: 'prefix', labelKey: 'superadmin.operations.navLabel', section: 'platform', icon: 'activity', order: 15, sidebar: true, commandPalette: true },
   { id: 'providers', href: '/admin/providers', capability: 'manage_platform', match: 'prefix', labelKey: 'providers.title', section: 'platform', icon: 'settings', order: 20, sidebar: true, commandPalette: true },
 ];

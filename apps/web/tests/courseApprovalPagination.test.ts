@@ -22,4 +22,10 @@ describe('course approval course catalog pagination', () => {
     expect(rows).toHaveLength(101);
     expect(getMock).toHaveBeenNthCalledWith(2, '/v1/courses?page=2&per_page=100');
   });
+
+  it('loads approval audit metadata without requesting the authoring catalog', async () => {
+    getMock.mockResolvedValueOnce({ data: [{ id: 'course-1', title: 'Policy course', requires_approval: false }] });
+    await expect(listApprovalCourses('approval-audit')).resolves.toEqual([{ id: 'course-1', title: 'Policy course', requires_approval: false }]);
+    expect(getMock).toHaveBeenCalledWith('/v1/course-approval-courses?page=1&per_page=100');
+  });
 });

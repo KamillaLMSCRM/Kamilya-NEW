@@ -10,9 +10,9 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,6 +36,7 @@ from .models import (
     WorkflowWorkItem,
 )
 from .schemas import (
+    ApprovalCourseOptionResponse,
     ApprovalPolicyRequest,
     ApprovalPolicyResponse,
     ApprovalRequestCreate,
@@ -419,8 +420,31 @@ async def request_review(revision_id: UUID, req: ApprovalRequestCreate, request:
     return response
 
 
+@router.get("/course-approval-courses", response_model=list[ApprovalCourseOptionResponse], dependencies=tenant)
+async def list_approval_courses(
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=100, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.AUDIT_READ)),
+):
+    # Admin's existing configuration/audit permission exposes metadata only;
+    # the ordinary authoring catalog and all course/request writes stay denied.
+    rows = (await db.execute(
+        select(Course.id, Course.title, func.coalesce(CourseApprovalPolicy.requires_approval, False).label("requires_approval"))
+        .outerjoin(CourseApprovalPolicy, and_(
+            CourseApprovalPolicy.course_id == Course.id,
+            CourseApprovalPolicy.tenant_id == Course.tenant_id,
+        ))
+        .where(Course.tenant_id == user.tenant_id)
+        .order_by(Course.created_at.desc(), Course.id)
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    )).all()
+    return [ApprovalCourseOptionResponse(id=row.id, title=row.title, requires_approval=row.requires_approval) for row in rows]
+
+
 @router.get("/course-approval-requests", dependencies=tenant)
-async def list_requests(db: AsyncSession = Depends(get_db), user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.REQUEST))):
+async def list_requests(db: AsyncSession = Depends(get_db), user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.AUDIT_READ))):
     rows = await db.scalars(select(CourseApprovalRequest).where(CourseApprovalRequest.tenant_id == user.tenant_id).order_by(CourseApprovalRequest.created_at.desc()))
     return [await _request_projection(db, row, user.tenant_id) for row in rows.all()]
 

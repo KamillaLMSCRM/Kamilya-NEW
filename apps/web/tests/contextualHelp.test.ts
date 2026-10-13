@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CONTEXTUAL_HELP_TOPIC_IDS, getContextualHelp } from '@/lib/contextualHelp';
+import { APP_ROLES, hasCapability, ROUTES } from '@/lib/routeRegistry';
 
 const METHODOLOGIST_PATHS = [
   '/dashboard',
@@ -21,6 +22,49 @@ const METHODOLOGIST_PATHS = [
 ];
 
 describe('contextual help registry', () => {
+  it('covers every canonical registered role page in every locale', () => {
+    for (const role of APP_ROLES) for (const route of ROUTES) {
+      if (!hasCapability(role, route.capability) || route.id === 'users-legacy-surface') continue;
+      const path = route.id === 'course-review-detail' ? '/course-review-requests/review-1'
+        : route.match === 'learner-course' ? '/courses/course-1' : route.href.split('?')[0];
+      for (const locale of ['ru', 'kk', 'en']) {
+        const help = getContextualHelp(path, role, locale);
+        expect(help, `${role} ${path} ${locale}`).not.toBeNull();
+        expect(help?.steps).toHaveLength(3);
+        expect(help?.steps.every(Boolean)).toBe(true);
+        expect(help?.important).toBeTruthy();
+      }
+    }
+  });
+
+  it('matches exact dynamic segments and canonical legacy topic owners', () => {
+    const paths = [
+      ['/courses/course-1', 'methodologist-course-detail'],
+      ['/courses/course-1/edit', 'methodologist-course-editor'],
+      ['/courses/templates/blueprint-1', 'methodologist-course-template'],
+      ['/courses/quiz/quiz-1/preview', 'methodologist-quiz-preview'],
+      ['/course-review-requests/review-1', 'methodologist-course-review-detail'],
+      ['/admin/staff', 'staff'], ['/admin/invitations', 'invitations'], ['/admin/training-log', 'training-log'],
+    ];
+    for (const [path, id] of paths) for (const locale of ['ru', 'kk', 'en']) {
+      const help = getContextualHelp(path, 'methodologist', locale);
+      expect(help?.id).toBe(id);
+      expect([help?.title, help?.purpose, ...(help?.steps ?? []), help?.example, help?.result, help?.important].every(Boolean)).toBe(true);
+    }
+    expect(getContextualHelp('/courses//edit', 'methodologist', 'ru')?.id).not.toBe('methodologist-course-editor');
+    expect(getContextualHelp('/courses/course-1/edit/extra', 'methodologist', 'ru')?.id).not.toBe('methodologist-course-editor');
+    expect(getContextualHelp('/course-review-requests/review-1', 'admin', 'ru')).toBeNull();
+    expect(getContextualHelp('/admin/staff', 'admin', 'ru')).toBeNull();
+  });
+
+  it('does not tell a course reader to save or manually return a workflow status', () => {
+    for (const locale of ['ru', 'kk', 'en']) {
+      const reader = getContextualHelp('/courses/course-1', 'methodologist', locale);
+      expect(reader?.steps.join(' ')).not.toMatch(/Сохраните изменения|Өзгерістерді сақтап|Save changes|pending/);
+      const template = getContextualHelp('/courses/templates/blueprint-1', 'methodologist', locale);
+      expect(template?.steps[2]).toMatch(/редактор|editor/i);
+    }
+  });
   it('covers every primary methodologist menu section', () => {
     for (const path of METHODOLOGIST_PATHS) {
       const help = getContextualHelp(path, 'methodologist', 'ru');
@@ -56,7 +100,7 @@ describe('contextual help registry', () => {
       ['/admin/audit', 'admin', 'admin-audit'],
       ['/admin/kiosks', 'admin', 'admin-kiosks'],
       ['/admin/course-approvals', 'admin', 'admin-course-approvals'],
-      ['/admin/course-approvals', 'methodologist', 'admin-course-approvals'],
+      ['/admin/course-approvals', 'methodologist', 'methodologist-course-approvals'],
       ['/invitations', 'methodologist', 'invitations'],
       ['/training-log', 'admin', 'admin-training-log'],
       ['/mandatory-training', 'admin', 'admin-mandatory-training'],
@@ -73,7 +117,7 @@ describe('contextual help registry', () => {
   it('prefers the most-specific topic and keeps student courses separate', () => {
     expect(getContextualHelp('/admin/course-approvals/course-1', 'admin', 'ru')?.id).toBe('admin-course-approvals');
     expect(getContextualHelp('/admin/settings/ai', 'admin', 'ru')?.id).toBe('admin-ai');
-    expect(getContextualHelp('/courses/course-1/edit', 'methodologist', 'ru')?.id).toBe('courses');
+    expect(getContextualHelp('/courses/course-1/edit', 'methodologist', 'ru')?.id).toBe('methodologist-course-editor');
     expect(getContextualHelp('/courses/course-1', 'student', 'ru')?.id).toBe('student-course');
     expect(getContextualHelp('/courses/quiz/quiz-1', 'student', 'ru')?.id).toBe('student-quiz');
   });
@@ -113,7 +157,7 @@ describe('contextual help registry', () => {
   });
 
   it('resolves nested pages and localized content', () => {
-    expect(getContextualHelp('/courses/course-123/edit', 'methodologist', 'kk')?.title).toBe('Курстар');
+    expect(getContextualHelp('/courses/course-123/edit', 'methodologist', 'kk')?.title).toBe('Курс редакторы');
     expect(getContextualHelp('/learning-paths/path-123', 'methodologist', 'en')?.title).toBe('Learning programs');
     expect(getContextualHelp('/ai/generate', 'methodologist', 'ru')?.title).toBe('Создать курс из материалов');
     expect(getContextualHelp('/quizzes', 'methodologist', 'ru')?.title).toBe('Тесты и вопросы');
@@ -154,7 +198,7 @@ describe('contextual help registry', () => {
     expect(candidate?.steps.join(' ')).not.toContain('Выберите должность');
 
     const approvals = getContextualHelp('/admin/course-approvals', 'admin', 'ru');
-    expect(approvals?.steps[2]).toContain('статусы запросов');
+    expect(approvals?.steps.join(' ')).toContain('статусы');
     expect(approvals?.example).not.toContain('предпросмотр');
     expect(getContextualHelp('/admin/course-approvals', 'methodologist', 'ru')?.example).toContain('администратор тенанта');
 
@@ -263,5 +307,35 @@ describe('contextual help registry', () => {
     expect(help?.steps.join(' ')).toContain('обратитесь к администратору Kamilya');
     expect(help?.important).toContain('не изменяет политики');
     expect(help?.steps.join(' ')).not.toContain('Активируйте');
+  });
+
+  it('covers role-specific announcement, survey, and review topics', () => {
+    expect(getContextualHelp('/announcements', 'methodologist', 'ru')?.id).toBe('methodologist-announcements');
+    expect(getContextualHelp('/surveys', 'methodologist', 'ru')?.id).toBe('methodologist-surveys');
+    expect(getContextualHelp('/surveys', 'student', 'ru')?.id).toBe('student-surveys');
+    expect(getContextualHelp('/course-review', 'methodologist', 'ru')?.id).toBe('methodologist-course-review');
+    expect(getContextualHelp('/announcements', 'student', 'ru')).toBeNull();
+    expect(getContextualHelp('/surveys', 'admin', 'ru')).toBeNull();
+    expect(getContextualHelp('/surveys', 'methodologist', 'en')?.steps.join(' ')).not.toMatch(/publish|audience|mandatory/i);
+  });
+
+  it('keeps audited copy boundaries explicit', () => {
+    const campaign = getContextualHelp('/candidate-assessments', 'methodologist', 'ru');
+    expect(campaign?.steps.join(' ')).toContain('Запустите кампанию');
+    const cohort = getContextualHelp('/cohorts', 'methodologist', 'ru');
+    expect(cohort?.steps.join(' ')).toContain('только как аудиторию программы');
+    const learner = getContextualHelp('/courses', 'student', 'ru');
+    expect(learner?.steps.join(' ')).toContain('Завершить курс');
+    const certificates = getContextualHelp('/certificates', 'student', 'ru');
+    expect(certificates?.steps.join(' ')).toContain('Скачать');
+    const operations = getContextualHelp('/admin/super/operations', 'superadmin', 'ru');
+    expect(operations?.steps.join(' ')).toContain('тестовых организаций');
+    const providers = getContextualHelp('/admin/providers', 'superadmin', 'ru');
+    expect(providers?.important).toContain('Деактивация');
+    expect(getContextualHelp('/admin/course-approvals', 'admin', 'ru')?.steps.join(' ')).not.toContain('Создайте снимок');
+    expect(getContextualHelp('/admin/course-approvals', 'methodologist', 'ru')?.steps.join(' ')).toContain('Создайте снимок');
+    expect(getContextualHelp('/courses/course-1', 'methodologist', 'ru')?.purpose).not.toMatch(/сохран|pending|опубликован/i);
+    expect(getContextualHelp('/courses/course-1/edit', 'methodologist', 'ru')?.steps.join(' ')).not.toMatch(/верните.*pending|return.*pending/i);
+    expect(getContextualHelp('/admin/course-approvals', 'admin', 'ru')?.important).not.toMatch(/только чтени|read-only/i);
   });
 });
