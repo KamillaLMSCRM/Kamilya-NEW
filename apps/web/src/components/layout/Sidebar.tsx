@@ -137,7 +137,10 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
       <button
         type="button"
         onClick={onToggle}
-        className="absolute -right-3 top-20 z-40 hidden h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:text-foreground md:flex"
+        className={cn(
+          'absolute -right-3 z-40 hidden h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:text-foreground md:flex',
+          user?.role === 'methodologist' ? 'top-12' : 'top-20',
+        )}
         title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
         aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
         aria-expanded={!collapsed}

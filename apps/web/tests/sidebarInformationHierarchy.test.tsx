@@ -96,6 +96,13 @@ describe('methodologist sidebar information hierarchy', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it.each([false, true])('keeps the desktop toggle above the guide content when collapsed=%s', (collapsed) => {
+    render(<Sidebar collapsed={collapsed} onToggle={() => {}} />);
+    const toggle = screen.getByRole('button', { name: collapsed ? 'Развернуть сайдбар (Ctrl+B)' : 'Свернуть сайдбар (Ctrl+B)' });
+    expect(toggle).toHaveClass('top-12');
+    expect(toggle).not.toHaveClass('top-20');
+  });
+
   it.each([
     ['kk', 'Әдіскерге арналған нұсқаулық', 'Нұсқаулық орыс тілінде'],
     ['en', 'Methodologist guide', 'Guide is in Russian'],
