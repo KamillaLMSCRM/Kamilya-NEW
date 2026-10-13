@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** backend47/native frontend47; bounded contextual-help acceptance closed2026-10-13; previous multiformat lifecycles retained
+**Проверено:** backend47/native frontend48; bounded methodologist-guide acceptance closed2026-10-13; previous help/quality lifecycles retained
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,65 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production47 — deployed; contextual-help acceptance PASS, 2026-10-13
+## Current production48 frontend — methodologist guide acceptance PASS, 2026-10-13
+
+Native frontend/tag `v0.11.48` source
+`3609c8b31a506b1eb244ad62f335b2faf1544424`, GitHub Release411644314.
+Master CI38395990168/all7SUCCESS; DEV CI38394885013/all7SUCCESS; native
+build38394888733/artifact11811426044 SUCCESS. Canonical bridge
+REL-GUIDE48-WEB-20261013 RELEASE_OK. Root independently verifies current/marker,
+healthz/header, nginx2/service, public guide body SHA256
+`0bdc2abe1064125e18d7e35f3ac2edb8ca277911e0faf529e8b6b163d1023f47`.
+Static guide URL has no release header; identity is exact body plus verified
+current/healthz, not an invented per-static-file header requirement.
+
+Production API/threeworkers intentionally remain accepted47/source75d61a38,
+image9f98e355…d8c8f. Fresh public API47 health verified; this release does not
+claim a new private-worker/DB scan. No backend deployment, watchdog update,
+migration/schema0178, flag, tenant, landing, DNS, permission, tier or billing change.
+Immediate native rollback is now47/75d61a38, independently boundary-ready;
+46/f1f65 and protected359/299 retained. Actual rollback NOT_RUN.
+
+Standing-rule cleanup removed only oldest eligible successful42/d415 release
+and matching staging pair, after original offhost artifact/digests/success receipt,
+fresh shortfall1287437408bytes and guarded cleanup-plan. Free1128756→1772392KiB;
+post48 free1124644KiB above512MiB reserve. Offhost42 recovery retained. No broad
+prune, additional deletion, Proxmox or on-host build.
+
+DEV exact3609 on existing Vercel Hobby/Render Free/Free: frontend
+dpl_DTB3TaxwfubucUqUyGKfxiPdCDZ4, API dep-db71v93l550s73agn45g, worker
+dep-db720arl550s73agptp0; all9 flags unchanged. Root provider and ordinary
+methodologist guide/menu acceptance PASS, RU/KK/EN labels/mobile390×844.
+First428 DEV API provider transition update_failed/public-health mismatch was
+retained; one canonical resume reconciled it. Underlying provider cause remains
+NOT_VERIFIED; layout3609 execution then passed. Wrong evidence-root/UTF8/selector
+attempts retained as harness failures, not provider failures or successful checks.
+
+Public `/guides/methodologist.html`: 24 actual production47 screenshots captured
+2026-10-13, 77 numbered hotspots, eight methodologist workflows, no admin procedure.
+48 adds guide/menu only; working form contracts unchanged. Root live production
+ordinary QA methodologist/admin/student: pinned/collapsed/mobile link, real new
+guide tab, all24 decoded images, highlight/progress/zoom/Escape/focus and actual
+HTML download PASS; admin/student link absent, seven learner certificates visible.
+No generation, save, publication, assignment, mail/PIN or learning-result write.
+No fresh full-row DB preservation comparison is claimed.
+
+Actual downloaded and isolated single-file copies verify24 images/8flows/no
+companion files/no network requests. Live web-guide interactions with HTTP/HTTPS
+blocked PASS. Actual file:// browser visual navigation NOT_VERIFIED: supported
+browser policy rejects protocol; no workaround. This limit is not relabelled PASS.
+Local151files/974tests plus final focused15/type/lint0warnings/build67pages PASS;
+independent Test Runner hash/source review accepted. CodeGraph initial Sidebar
+query source-confirmed; final sync excluded-path audit4 rejected, no later graph
+queries. Bounded exact-source fallback; no efficiency gain invented.
+
+Canonical evidence: release48 notes and Test Runner ledger; immutable technical/
+browser/artifact receipts `.release-evidence/GUIDE48-20261013/` and
+`.release-evidence/REL-GUIDE48-WEB-20261013/`. Documentation-only closeout corrects
+release-note markers without retag/redeploy or advancing DEV. Acceptance is guide/
+menu only, not a new generation/lifecycle or universal whole-product acceptance.
+
+## Historical production47 — contextual-help acceptance PASS, 2026-10-13
 
 Version0.11.47/runtime/tag source `75d61a3857838f420d8ef8f4a7e3eb1bb270fac1`.
 Master CI38374146427 and DEV CI38371509134 all7SUCCESS; native build38371583217

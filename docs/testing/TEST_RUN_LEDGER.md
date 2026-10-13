@@ -3683,3 +3683,33 @@ Rules:
   from rejected index; bounded direct source/tests used. Graphify unnecessary.
 - No new fixture, generation, save, publication, assignment, mail/PIN or learner
   submission; existing QA captured only. DEV/production48 NOT DEPLOYED here.
+
+## GUIDE48-PRODUCTION-ACCEPTANCE-20261013 — scoped guide/menu acceptance
+
+- Executor: Independent Test & Evidence Runner for receipt/source review; all DEV,
+  production-browser and native UI/runtime actions in cited receipts were executed
+  by Root. Checkout `learner-presentation-release-20261010`, exact HEAD and
+  release SHA `3609c8b31a506b1eb244ad62f335b2faf1544424`; release ID
+  `REL-GUIDE48-WEB-20261013`. This append supersedes the prior local-only note:
+  the later Root receipts record scoped DEV and existing-tenant production
+  guide/menu acceptance; production API remains `75d61a3857838f420d8ef8f4a7e3eb1bb270fac1`.
+- Root-linked local evidence: full Vitest 151 files/974 tests and typecheck/lint/
+  build/version/release checks PASS before the final menu geometry correction.
+  Root's exact final correction rerun reports focused RED2 then GREEN15,
+  typecheck, zero-warning changed-file lint and 67-page build PASS. This runner
+  did not re-execute the matrix. Initial harness/contract/capacity failures remain
+  retained, not relabelled PASS, in `retained-harness48.json`.
+- Bounded scope PASS: methodologist guide/menu on DEV and production, role-based
+  link visibility for methodologist vs admin/student, desktop/mobile menu access,
+  guide interactions and downloaded/isolated single-file copy checks. Guide body
+  SHA-256 `0bdc2abe1064125e18d7e35f3ac2edb8ca277911e0faf529e8b6b163d1023f47`;
+  24 embedded images and 8 flows. Root performed browser work; this runner
+  independently matched all final-local source hashes and reviewed named receipts.
+- Production is frontend48/API47 intentionally. Actual rollback switch NOT_RUN;
+  no new lifecycle, whole-product generation, learner journey, DB hash/full-row
+  preservation or rollback claim. `file://` browser visual check NOT VERIFIED
+  because browser policy blocks it. No runner browser/provider/DB/business action.
+- Evidence manifest and scope limitations:
+  `.release-evidence/GUIDE48-20261013/test-runner-acceptance48.json`.
+- Root prior local-only record was accurate at its timestamp; this entry records
+  the later bounded release acceptance without rewriting history.

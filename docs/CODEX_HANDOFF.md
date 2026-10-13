@@ -5,7 +5,41 @@
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `fix/learner-presentation-release-20261010`; source published to `master`
 
-## Current production47,2026-10-13 — contextual-help package closed
+## Current native48/API47,2026-10-13 — methodologist guide package closed
+
+Native/tag48 source3609c8b31a506b1eb244ad62f335b2faf1544424, masterCI38395990168,
+DEV CI38394885013, native38394888733/artifact11811426044, GitHubRelease411644314.
+REL-GUIDE48-WEB-20261013 RELEASE_OK; Root current/marker/healthz/guide body checks
+and independent Test Runner source/hash review accepted. Production API/three
+workers remain47/75d/image9f98e355…d8c8f; no protected backend action or watchdog
+update. Schema0178/flags/tiers/landing/DNS/rights unchanged. Immediate native
+rollback47/75d ready; extra46/f1f65/359/299 retained, actual switch NOT_RUN.
+Standing capacity cleanup removed only obsolete42/exact staging, original offhost
+recovery intact; free after48 1124644KiB. No Proxmox or on-host build.
+
+Existing DEV exact3609 on Free/Free/Hobby, all9flags unchanged; Root ordinary QA
+methodologist menu/link/guide RU/KK/EN/mobile PASS. Production ordinary QA
+methodologist/admin/student visibility, actual new guide tab, all24 images,
+network-blocked interaction and actual HTML download PASS. Seven learner
+certificates remain visible, no course/staff/assignment/learning writes. No fresh
+DB all-column preservation scan claimed. Actual file:// visual navigation remains
+NOT_VERIFIED due browser policy; single-file DOM/copy and live blocked-network
+web checks PASS. Do not relabel that limitation or claim whole-product acceptance.
+
+Guide `/guides/methodologist.html`, SHA0bdc2abe…d1023f47, contains24 fresh actual
+production47 screenshots dated2026-10-13/77hotspots/8flows/no admin procedure.
+48 changes guide/menu only. Local974/full plus15/focused/type/lint/build67 PASS.
+Source review corrected optional goal/audience; live DEV fixed desktop toggle
+overlap. Candidate notes' strict identity markers corrected in documentation-only
+closeout, no tag replacement. Preserve failed provider/selector/UTF8/capacity/
+unsupported header assumptions, and CodeGraph final excluded-path audit4 rejection.
+
+Evidence GUIDE48-20261013 and REL-GUIDE48-WEB-20261013 ignored folders; durable
+readiness/release48/ERRORS/Test Runner ledger. Temporary plan removed after transfer;
+Git history recovers it. Documentation-only child stays separate from deployed3609,
+DEV unchanged. Leave user-owned browser tab and unrelated checkouts untouched.
+
+## Historical production47,2026-10-13 — contextual-help package closed
 
 Runtime/tag75d61a3857838f420d8ef8f4a7e3eb1bb270fac1/version0.11.47, DEV and KZ
 API/3workers/native frontend exact match. Protected backend38375015813/

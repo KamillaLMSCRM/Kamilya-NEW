@@ -25,7 +25,29 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current environment correction — production/DEV47,2026-10-13
+## Current environment correction — native48/API47 and DEV48,2026-10-13
+
+Production native frontend48/tag `v0.11.48` exact
+`3609c8b31a506b1eb244ad62f335b2faf1544424`; canonical bridge
+REL-GUIDE48-WEB-20261013, masterCI38395990168 and nativebuild38394888733 pass.
+Production API/threeworkers stay47/source75d61a3857838f420d8ef8f4a7e3eb1bb270fac1,
+image9f98e355…d8c8f; API47 public health independently checked. Intentional
+frontend-only compatibility, no backend/DB0178/watchdog/flag/resource changes.
+Native immediate rollback47/75d boundary-ready,46/f1f65 and359/299 preserved.
+Only obsolete42 release/exact staging pair removed under standing rule; original
+offhost recovery retained. No Proxmox, on-host build, topology/DNS or tier change.
+
+Existing DEV frontend/API/worker exact3609/48, Hobby/Free/Free and9flags unchanged.
+Vercel dpl_DTB3TaxwfubucUqUyGKfxiPdCDZ4; API dep-db71v93l550s73agn45g;
+worker dep-db720arl550s73agptp0. Ordinary DEV QA identities below unchanged.
+Guide/menu DEV and production live acceptance, scoped limits, initial failed
+attempts and source identity owned by PRODUCTION_READINESS and Test Runner ledger.
+Public Russian methodologist instruction `/guides/methodologist.html` is pinned
+below logo only for active methodologist; public artifact contains synthetic
+screenshots, no credentials/customer data. Documentation child does not retag or
+redeploy native3609 and leaves DEV3609 intact. Older snapshots are historical.
+
+## Historical environment correction — production/DEV47,2026-10-13
 
 Production/DEV source `75d61a3857838f420d8ef8f4a7e3eb1bb270fac1`/0.11.47.
 KZ API/threeworkers image9f98e355…d8c8f, native frontend exact75d; protected

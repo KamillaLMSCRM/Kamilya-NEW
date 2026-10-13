@@ -7085,3 +7085,11 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Prevention: compare actual screenshot pixels with numbered targets and test
   bottom navigation controls in the real viewport. Screenshot provider success,
   declared image dimensions and JSDOM structure are not visual acceptance.
+- Follow-up2026-10-13: live DEV48 revealed the old `top-20` desktop collapse
+  toggle overlapped the new pinned guide title. Methodologist-only `top-12`
+  geometry preserves other-role positions and the mobile-hidden toggle. Two
+  RED assertions followed by focused15 GREEN/type/lint/build67 and actual
+  DEV/production expanded/collapsed/mobile checks PASS. All24 production guide
+  images decoded with external network blocked; actual HTML download verified.
+  Final canonical HTML SHA0bdc2abe…d1023f47 is LF-only normalization of earlier
+  approvede7e55fa5…af46b6; embedded image bytes/content unchanged.
