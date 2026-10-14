@@ -1,11 +1,35 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-10-13
+**Обновлено:** 2026-10-14
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `fix/learner-presentation-release-20261010`; source published to `master`
 
-## Current native48/API47,2026-10-13 — methodologist guide package closed
+## Current production/DEV49,2026-10-14 — bounded assistant package closed
+
+Runtime/tagsource3fe3c39acbd256d7e4fa65b91a0c22ce429c295f; exact DEV and master
+CI all7SUCCESS, protected38527015529/deployment7059236386, actual imagec3c35fb…bef6b;
+native38523095859/artifact11874571615/canonical bridge49 RELEASE_OK. Root actual
+synthetic source download923bytes/hash matches original, real previous-proposal
+“make this version simpler”, precise follow-up, refusal recovery and RU/KK/EN
+resets PASS with explicit quality caveats. No apply/publish/assign/learning edits;
+saved lesson equals baseline after reload. One prod/two DEV plans retained normal
+TTL; no full-row scan/zero-row cleanup claim. Current file≠archival byte version;
+history ephemeral4exchanges, not command receipt/durable memory/voice.
+
+All4 services/source/public identities, schema0178/backup, exact watchdog49 and
+both timers/checks pass; actual rollback API47/native48 ready, switchNOT_RUN.
+Finalizer order failure restored config/timers and was repaired by starting
+retention BEFORE watchdog check; no threshold/rights waiver or duplicate rollout.
+Standing rule removed only obsolete46/exact staging after original offhost proof;
+native48/47/protected359/299 retained. No Proxmox/on-host build/provider changes.
+Canonical current acceptance: PRODUCTION_READINESS/release49/TestRunnerledger.
+Ignored receipts ASSISTANT49-20261014 and REL-ASSISTANT49-WEB-20261014.
+Next assistant frontier: explicit server-owned preview/confirmation/receipt seam,
+requires accepted impact matrix/tests before integration; voice remains deferred.
+Documentation child does not retag/redeploy runtime; older snapshots historical.
+
+## Historical native48/API47,2026-10-13 — methodologist guide package closed
 
 Native/tag48 source3609c8b31a506b1eb244ad62f335b2faf1544424, masterCI38395990168,
 DEV CI38394885013, native38394888733/artifact11811426044, GitHubRelease411644314.

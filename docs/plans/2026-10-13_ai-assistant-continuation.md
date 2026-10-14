@@ -122,3 +122,33 @@ than a formatter guarantee. Complete marker-only replies displayed a misleading
 empty label; accepted V1.5 repairs this after unchanged output/target screening.
 Root75 focused tests and quality baseline pass; successor exact DEV/live and
 production gates remain open. Evidence: ASSISTANT49-20261014/dev-live49-r2.json.
+
+## Released49 bounded closeout,2026-10-14
+
+Steps1–3 above are now released at immutable3fe3c39acbd256d7e4fa65b91a0c22ce429c295f,
+not merely local candidates. DEV R3/CI38522969545/provider/9flags and actual
+download/model follow-up passed before master CI38524173989/protected38527015529/
+native38523095859/bridge49. RuntimeAPI+threeworkers+native49, schema0178/no migration,
+current identities/rollback readiness/backup/timers verified. Documentation-only
+closeout preserves runtime/tagsource; no retag/redeploy.
+
+Root actual production ordinary synthetic methodologist downloaded923-byte source
+matching independent original hash; real previous-proposal history and simpler
+follow-up, precise correction, refusal→normal recovery and KK/EN resets passed.
+Saved488-character lesson equal after reload, no apply/publish/assign/source/
+learning edits. Seven real model calls plus one local-policy refusal. One prod/two
+DEV unexecuted previews retained normal TTL; no zero-row or all-column scan claim.
+
+Preserved quality caveats: simplifying omitted a distinct no-auto/publication
+clause, corrected by explicit follow-up; that follow-up returned prose without a
+new apply marker. KK exceeded requested two-sentence format. Review remains
+mandatory, no universal semantic/count/format guarantee or human-speedup claim.
+Current library file is not historical cited byte proof, ephemeral4exchanges are
+not durable memory or command authority. Voice deferred.
+
+Release-order repair and exact recoverable46 capacity cleanup are documented in
+ERRORS/PRODUCTION_READINESS. Original CI/oracle/journal/selector/finalizer failures
+remain retained, no threshold/test waiver. Current evidence belongs to release49
+notes/TestRunner ledger/ignored ASSISTANT49 receipts; no whole-assistant completion.
+Step4 remains open: accept a specific impact matrix and seam tests before joining
+dialogue to server-owned preview/confirmation/receipt.

@@ -2,15 +2,17 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
-Local unreleased frontier2026-10-14: current-source download consumer and bounded
-editor dialogue history are implemented and locally tested; no new deployment.
+Current released frontier2026-10-14: source download/context lifecycle/bounded
+editor dialogue accepted in DEV and production49/source3fe3c39a. Actual download
+bytes and real context-dependent follow-up/reset behavior passed; scope and model
+quality caveats are owned by PRODUCTION_READINESS/release49/Test Runner ledger.
 Active additive contracts:
 [source download V1](contracts/LESSON_CORRECTION_SOURCE_DOWNLOAD_V1.md),
 [editor history V1](contracts/EDITOR_CHAT_HISTORY_V1.md),
 [refusal admission V1.1](contracts/EDITOR_CHAT_HISTORY_V1_1.md),
 [quoted-instruction admission V1.2](contracts/EDITOR_CHAT_HISTORY_V1_2.md).
 [requested language V1.3](contracts/EDITOR_CHAT_HISTORY_V1_3.md) repairs the
-pre-release audited Russian-only prompt; real DEV language acceptance pending.
+pre-release audited Russian-only prompt; actual DEV/production RU/KK/EN accepted.
 [exact public oracle V1.4](contracts/EDITOR_CHAT_HISTORY_V1_4.md) preserves full
 response equality after the compatible admission field, with fresh CI required.
 [marker-only acknowledgement V1.5](contracts/EDITOR_CHAT_HISTORY_V1_5.md) repairs
@@ -18,6 +20,9 @@ the misleading empty-response label reproduced in real DEV acceptance.
 Current-file download is not historical byte equivalence; ephemeral dialogue is
 not durable memory or command authority. Local tests versus DEV/model/browser/
 release gates are tracked in the active continuation plan and test ledger.
+Simplification can omit an important clause; explicit follow-up restored it in
+the live example. Exact formatting/counts are not guaranteed. Next unimplemented
+slice is joining editor dialogue to owned server preview/confirmation/receipt.
 The dated release39 frontier below is historical, not current runtime evidence.
 
 | Module | Responsibility | Active mini-spec | Data owner / writer | Status |

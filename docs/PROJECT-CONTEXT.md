@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-10-13.
+> Обновлено: 2026-10-14.
 
 ## Источники правды
 
@@ -25,7 +25,31 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current environment correction — native48/API47 and DEV48,2026-10-13
+## Current environment correction — production/DEV49,2026-10-14
+
+Production API/threeworkers/native frontend49 and DEV API/worker/Vercel exact
+`3fe3c39acbd256d7e4fa65b91a0c22ce429c295f`, immutable tagv0.11.49.
+Protected38527015529/deployment7059236386; actual imagec3c35fb…bef6b;
+native38523095859/REL-ASSISTANT49-WEB-20261014. All4 production services running/
+restarts0, current/marker/public identities and flags verified. Schema0178,
+backup success/active timer unchanged; watchdog expects exact49/image, both ops
+timers/checks success. Actual immediate rollback: API47/75d, native48/3609;
+additional native47/protected359/299 retained. Actual rollback switch NOT_RUN.
+Only obsolete successful46/exact staging capacity cleanup, original offhost
+recovery retained; no Proxmox/on-host build/topology/DNS/rights/tier change.
+
+Existing DEV remains Hobby/Free/Free,9flags unchanged:
+Vercel dpl_5qnMYTaphXPzJPPYxT7iJ9FHZVRd READY;
+API dep-db7i70mq1p3s73cjolhg; worker dep-db7i83t9fdbs73ebp1d0.
+Permanent QA identities below unchanged. Root actual DEV/production ordinary-role
+current-source download, real context-dependent dialogue and language/refusal
+resets accepted with model-quality caveats owned by PRODUCTION_READINESS.
+No apply/publish/assign/learning/source edits, no fresh full-row DB snapshot claim.
+One prod/two DEV unexecuted synthetic previews retained existing TTL. Current file
+is not historical byte proof; session history is not durable memory/command
+authority/voice. Documentation closeout does not retag or redeploy3fe.
+
+## Historical environment correction — native48/API47 and DEV48,2026-10-13
 
 Production native frontend48/tag `v0.11.48` exact
 `3609c8b31a506b1eb244ad62f335b2faf1544424`; canonical bridge

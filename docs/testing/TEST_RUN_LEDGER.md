@@ -3842,3 +3842,37 @@ Rules:
 - Evidence ASSISTANT49-20261014/dev-root-readback49.json/dev-live49-r2.json,
   dev-source-download49.png/api-marker-final.xml and original failed artifacts.
   Successor exact DEV and production live gates remain open; production unchanged.
+
+## ASSISTANT49-FINAL-LIVE-REVIEW-20261014 — Root production evidence review
+
+- Runner review at2026-10-14 07:53 UTC; exact linked checkout release SHA
+  3fe3c39acbd256d7e4fa65b91a0c22ce429c295f. Static/hash/semantic checks only;
+  no browser, provider, model, DB, runtime or deployment execution by Runner.
+- Root-reported protected CI38527015529/native bridge49 and production live evidence
+  are scoped to release3fe3c39; production API image
+  c3c35fb844b8ab818384cd8b8fa315c65df6e6aaf37f0c6900eb6769f36bef6b, API49,
+  schema0178; backend47 release75d61a3857838f420d8ef8f4a7e3eb1bb270fac1 and
+  native48 release3609c8b31a506b1eb244ad62f335b2faf1544424 reported rollback
+  health/readiness. Actual rollback switch NOT_RUN.
+  Runner did not independently execute/verify CI or bridge.
+- Root DEV R3 and production receipts/screenshots were consistent on the bounded
+  story: session-only history includes two prior turns, unique prior proposal label
+  retained without being repeated in follow-up; refusal and locale changes are
+  reported with history absent. Seven Root-reported live model calls plus one local
+  policy refusal; no automatic apply. Download TXT923 bytes matches the independent
+  fixture SHA256 374670eb28d1264cf660a9bc56528aa431bf7f4b0eb7479db17f885a5004e6bf.
+  Current-file warning visible; historical cited revision is NOT proven.
+- Semantic review retained caveats: simplified PROD reply omitted distinct
+  no-automation/publication prohibition; precise follow-up restored it but returned
+  no new apply marker/card; KK answer exceeded requested sentence count. No universal
+  semantic/format guarantee, durable memory, efficiency or cost claim. Screenshot
+  and receipts report saved lesson unchanged/manual apply only; full DB all-column
+  snapshot NOT_RUN. One PROD and two DEV synthetic plans plus downloads retained
+  under normal TTL; no zero-residue claim.
+- Technical closeout receipt preserves first finalizer-order failure; Root reports
+  corrected v2 ordering (retention timer resumed before watchdog check). No threshold
+  skip or role/provider change claimed. Evidence:
+  `.release-evidence/ASSISTANT49-20261014/assistant49-prod-live-review.json`,
+  `prod-live49.json`, `dev-live49-r3.json`, screenshots, final/backend readbacks.
+  Download and named fixture SHA match as recorded in review receipt. Root review
+  only; this ledger entry does not independently authorize release.

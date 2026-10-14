@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-13.
+Current as of: 2026-10-14.
 
 ## DEV-WORKER-SLEEP-001 - Free web-hosted worker stopped while QA reviewed content
 
@@ -5814,6 +5814,27 @@ finalization updated only EXPECTED_RELEASE/EXPECTED_API_IMAGE, retained backup
 `/etc/kamilya/ops-check.conf.pre-REL-HELP47-20261013`, no config/rights expansion.
 Fresh exact47 readback, watchdog oneshot/status0 and both active timers PASS.
 Do not treat missing final reconciliation as failed deployment or blindly redeploy.
+
+### Recurrence2026-10-14: release49 finalizer checked a deliberately paused timer
+
+- Symptom: healthy protected49 rollout completed, but transactional watchdog
+  reconciliation failed and restored old expected identity/timers. Structured
+  repeat reproduced `check=retention_timer actual=inactive expected=active`.
+- Cause: finalizer ran the watchdog oneshot before resuming the retention timer,
+  although timer activity is itself an invariant checked by that watchdog.
+  This establishes the postdeploy finalizer-order cause, not the separate first
+  predeploy failed-oneshot cause (NOT_VERIFIED).
+- Fix: exact49/all4images/public health/old-backup guard; change only expected
+  SHA/image; retention oneshot success → restart/verify retention timer ACTIVE →
+  watchdog oneshot success → restart/verify watchdog timer ACTIVE. Original failed
+  script/result retained, existing root-owned backup reused/verified, no threshold
+  skip or privileges/config scope expansion. Corrected script8f1651ec… PASS.
+- Verification: independent final readback exact49/current/rollback47/all4restarts0,
+  both timers active/oneshots success0/schema0178/backup success/disk83%<85 PASS.
+- Prevention: quiesce watchdog timer and await any current oneshot before pausing
+  retention, preferably after immutable image/provenance readiness. Always resume
+  retention BEFORE running the final watchdog check. A closeout-order failure is
+  not authority for a second rollout. Preserve each failure and exact identity.
 
 ## LEARNING-005 - Exhausted quiz attempts did not block initial answer submission
 

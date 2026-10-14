@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** backend47/native frontend48; bounded methodologist-guide acceptance closed2026-10-13; previous help/quality lifecycles retained
+**Проверено:** backend/three workers/native frontend49; bounded assistant/source-download live acceptance closed2026-10-14; previous help/guide/quality lifecycles retained
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,44 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production48 frontend — methodologist guide acceptance PASS, 2026-10-13
+## Current production49 — source download and bounded dialogue accepted, 2026-10-14
+
+Runtime/tag49 exact `3fe3c39acbd256d7e4fa65b91a0c22ce429c295f`.
+Master CI38524173989/all7SUCCESS, native38523095859/artifact11874571615;
+protected backend38527015529/deployment7059236386 SUCCESS, signed source/OCI
+provenance verified. Actual imagec3c35fb…bef6b (full digest in release49 notes),
+all4 green services running/restarts0/all3flags unchanged. Native canonical
+REL-ASSISTANT49-WEB-20261014 RELEASE_OK; Root exact current/marker/public identities
+and independent final runtime readback PASS. Schema0178/backup/signed prior restore
+unchanged. Healthy backend47 and native48 immediate rollback retained; actual
+rollback switch NOT_RUN. No tiers/resources/flags/permissions/DNS/landing changes.
+
+Existing DEV3fe49 on Hobby/Free/Free/all9flags passed actual download and real
+model follow-up before production. Root ordinary synthetic production methodologist
+then passed actual prepare/manual browser download923bytes/hash equal original,
+previous-proposal history and simpler follow-up, precise correction, refusal→normal
+question and real RU/KK/EN/reset behavior. Saved488-character lesson unchanged
+after reload; no apply/approval/publish/assign/learning or source edits. One prod
+and two DEV previews plus ordinary usage accounting intentionally retained;
+no fresh all-table/all-column preservation scan or zero-row cleanup claim.
+
+Current library download may differ from the historical cited version. Fragment
+hash is not file-version proof. History holds4 session-local completed exchanges,
+not durable memory, grounding or an execution receipt. Simplification omitted a
+distinct no-auto/publication clause, restored by explicit follow-up; that reply
+had no new apply marker. KK exceeded requested sentence count. Review is required;
+no universal quality/count/format or human-efficiency guarantee.
+
+Postdeploy watchdog-order failure retained and repaired transactionally: resume
+retention before watchdog oneshot, then both timers/checks verified active/success.
+Expected release/image only changed, exact backup retained; no threshold bypass.
+Only obsolete successful46/exact staging removed under standing capacity rule,
+verified original offhost recovery retained. Final VM disk83%/<85%; native free
+1119992KiB. Protected359/299 and additional47 retained. No broad prune/Proxmox/
+on-host build. Canonical evidence: release49 notes, Test Runner ledger and ignored
+ASSISTANT49/REL-ASSISTANT49-WEB receipts. Documentation child does not retag/redeploy.
+
+## Historical production48 frontend — methodologist guide acceptance PASS, 2026-10-13
 
 Native frontend/tag `v0.11.48` source
 `3609c8b31a506b1eb244ad62f335b2faf1544424`, GitHub Release411644314.
