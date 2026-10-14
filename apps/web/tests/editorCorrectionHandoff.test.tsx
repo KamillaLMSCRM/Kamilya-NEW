@@ -18,6 +18,7 @@ import { buildCorrectionHandoffInstruction } from '@/lib/lessonCorrection';
 import { AIChatPanel } from '@/components/ai/AIChatPanel';
 import LessonCorrectionPanel, { type LessonCorrectionPanelHandle } from '@/features/methodologist-workbench/LessonCorrectionPanel';
 import CourseEditPage from '@/app/courses/[id]/edit/page';
+import actualFollowup from './fixtures/editor-followup-dev50.json';
 const lessonId = '00000000-0000-4000-8000-000000000002';
 const courseId = '00000000-0000-4000-8000-000000000003';
 const planId = '00000000-0000-4000-8000-000000000001';
@@ -41,6 +42,72 @@ describe('editor correction handoff V1', () => {
     Element.prototype.scrollIntoView = vi.fn();
   });
   afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+
+  it('replays the real DEV plain-text simplification and stages that reply, not the earlier card', async () => {
+    const handoff = vi.fn().mockReturnValue(true); const onClose = vi.fn();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ...actualFollowup.first, apply_lesson_id: lessonId }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => actualFollowup.followup });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<AIChatPanel open onClose={onClose} courseId={courseId} focusLessonId={lessonId} onReviewLessonSuggestion={handoff} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Предложи вариант' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByText(actualFollowup.first.reply);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Сделай этот вариант проще' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByText((_, element) => element?.children.length === 0 && element.textContent === actualFollowup.followup.reply);
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить этот ответ по источникам' }));
+    expect(handoff).toHaveBeenCalledWith(lessonId, buildCorrectionHandoffInstruction('Сделай этот вариант проще', actualFollowup.followup.reply, 'ru'));
+    expect(onClose).toHaveBeenCalledTimes(1); expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(wire.create).not.toHaveBeenCalled(); expect(wire.apply).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.every(([, request]) => request.method === 'POST')).toBe(true);
+  });
+
+  it.each(['refusal', 'unknown-eligibility', 'initial-advice', 'wrong-prior-target', 'audience', 'no-owner', 'course', 'module', 'partial-id', 'partial-title', 'empty-content', 'empty-id'] as const)('does not admit a plain reply for %s', async boundary => {
+    const handoff = vi.fn();
+    const first = boundary === 'initial-advice' ? { reply: actualFollowup.first.reply, history_eligible: true }
+      : { ...actualFollowup.first, apply_lesson_id: boundary === 'wrong-prior-target' ? planId : lessonId };
+    const second = { ...actualFollowup.followup, history_eligible: boundary === 'refusal' ? false : boundary === 'unknown-eligibility' ? undefined : true,
+      apply_lesson_id: boundary === 'partial-id' ? planId : boundary === 'empty-id' ? '' : null,
+      apply_lesson_title_hint: boundary === 'partial-title' ? 'Unmatched metadata' : null,
+      apply_lesson_content: boundary === 'empty-content' ? '' : null,
+      audience_recommendation: boundary === 'audience' ? { course_status: 'draft', recommended_scopes: [], matched_employee_count: 0, already_enrolled_count: 0, data_warnings: [] } : null };
+    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => first }).mockResolvedValueOnce({ ok: true, json: async () => second }); vi.stubGlobal('fetch', fetchMock);
+    render(<AIChatPanel open onClose={vi.fn()} courseId={courseId} focusLessonId={boundary === 'course' || boundary === 'module' ? undefined : lessonId} focusModuleId={boundary === 'module' ? 'module-1' : undefined} onReviewLessonSuggestion={boundary === 'no-owner' ? undefined : handoff} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Предложи вариант' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' })); await screen.findByText(first.reply);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Сделай этот вариант проще' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByText((_, element) => element?.children.length === 0 && element.textContent === second.reply);
+    expect(screen.queryByRole('button', { name: 'Проверить этот ответ по источникам' })).toBeNull(); expect(handoff).not.toHaveBeenCalled(); expect(fetchMock).toHaveBeenCalledTimes(2); expect(wire.create).not.toHaveBeenCalled(); expect(wire.apply).not.toHaveBeenCalled();
+  });
+
+  it.each(['ru', 'kk', 'en'] as const)('localizes the explicit plain-reply review action in %s', async locale => {
+    lang = locale; const handoff = vi.fn().mockReturnValue(true);
+    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ ...actualFollowup.first, apply_lesson_id: lessonId }) }).mockResolvedValueOnce({ ok: true, json: async () => actualFollowup.followup }); vi.stubGlobal('fetch', fetchMock);
+    render(<AIChatPanel open onClose={vi.fn()} courseId={courseId} focusLessonId={lessonId} onReviewLessonSuggestion={handoff} />);
+    for (const message of ['Предложи вариант', 'Сделай проще']) {
+      fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: message } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+      await screen.findByText((_, element) => element?.children.length === 0 && element.textContent === (message === 'Предложи вариант' ? actualFollowup.first.reply : actualFollowup.followup.reply));
+    }
+    fireEvent.click(screen.getByRole('button', { name: { ru: 'Проверить этот ответ по источникам', kk: 'Осы жауапты дереккөздермен тексеру', en: 'Review this reply against sources' }[locale] }));
+    expect(handoff).toHaveBeenCalledWith(lessonId, buildCorrectionHandoffInstruction('Сделай проще', actualFollowup.followup.reply, locale)); expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['oversize', 'refused-staging', 'pending'] as const)('never silently executes or replaces intent for a %s plain reply', async boundary => {
+    const handoff = vi.fn().mockReturnValue(boundary !== 'refused-staging'); const onClose = vi.fn(); const pending = defer<{ ok: boolean; json: () => Promise<typeof actualFollowup.followup> }>();
+    const second = { ...actualFollowup.followup, reply: boundary === 'oversize' ? 'a'.repeat(4000) : actualFollowup.followup.reply };
+    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ ...actualFollowup.first, apply_lesson_id: lessonId }) }).mockResolvedValueOnce({ ok: true, json: async () => second }).mockReturnValueOnce(pending.promise); vi.stubGlobal('fetch', fetchMock);
+    render(<AIChatPanel open onClose={onClose} courseId={courseId} focusLessonId={lessonId} onReviewLessonSuggestion={handoff} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Предложи вариант' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' })); await screen.findByText(actualFollowup.first.reply);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Сделай проще' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByText((_, element) => element?.children.length === 0 && element.textContent === second.reply);
+    if (boundary === 'pending') {
+      fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Ещё уточнение' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+      expect(screen.getByRole('button', { name: 'Проверить этот ответ по источникам' })).toBeDisabled();
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить этот ответ по источникам' }));
+    expect(onClose).not.toHaveBeenCalled(); expect(fetchMock).toHaveBeenCalledTimes(boundary === 'pending' ? 3 : 2); expect(wire.create).not.toHaveBeenCalled(); expect(wire.apply).not.toHaveBeenCalled();
+    if (boundary === 'refused-staging') expect(handoff).toHaveBeenCalledWith(lessonId, buildCorrectionHandoffInstruction('Сделай проще', second.reply, 'ru'));
+    else expect(handoff).not.toHaveBeenCalled();
+    if (boundary === 'pending') await act(async () => pending.resolve({ ok: true, json: async () => actualFollowup.followup }));
+  });
 
   it.each(['ru', 'kk', 'en'] as const)('composes a bounded unverified candidate without truncation in %s', locale => {
     const value = buildCorrectionHandoffInstruction('Сделай этот вариант проще', 'Оба срока сохраняются. Нужен владелец.', locale);

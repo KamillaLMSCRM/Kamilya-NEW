@@ -137,6 +137,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.11.50] - 2026-10-14
 
+- Explicitly send an eligible plain-text assistant follow-up for source review
+  after a selected-lesson proposal; never silently reuse the earlier card or
+  automatically apply a dialogue answer.
+
 ### Added
 
 - Stage a selected lesson's unverified chat proposal in the existing source-owned

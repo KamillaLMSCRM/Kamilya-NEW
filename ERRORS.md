@@ -2,6 +2,26 @@
 
 Current as of: 2026-10-14.
 
+## WB-CORRECTION-008 - Plain-text follow-up had no source-review handoff
+
+- Date: 2026-10-14; actual synthetic DEV50-R2 finding, frontend-only repair.
+- Symptom: real model first returned a selected-lesson replacement, then a
+  source-faithful simplification as ordinary reply text. The first card remained,
+  but the methodologist could not hand the latest answer to source review.
+- Cause: the UI admitted only structured replacement payloads. A valid ordinary
+  reply is allowed by the existing chat protocol and does not promise a marker.
+- Fix: V1.2 admits deliberate source-review staging of a bounded plain follow-up
+  only after a same-session same-target replacement, strict server eligibility
+  and current lesson request. Existing owner guards, seal and consent remain.
+  No prose-to-PATCH parsing, inference retry, automatic apply or server change.
+- Verification: exact sanitized model output replay RED for missing action,
+  then GREEN; independent review found partial metadata admission, four more RED
+  regressions preceded strict null/undefined exclusion. Final focused115 and
+  full1087/155 files passed; type/lint/build67 passed and25 review hashes matched.
+  RU/KK/EN, oversize, pending and refused staging covered. Live successor required.
+- Prevention: test both structured and plain-text model follow-ups; transfer the
+  explicitly selected answer, never silently substitute an earlier proposal.
+
 ## JOURNAL-DATE-001 - Noncanonical date field blocked release CI
 
 - Date: 2026-10-14; frontend50 candidate, no runtime change.

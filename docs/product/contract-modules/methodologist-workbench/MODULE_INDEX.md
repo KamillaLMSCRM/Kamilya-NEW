@@ -15,6 +15,10 @@ review PASS; no DEV/production activation. No new command owner.
 [recovery V1.1](contracts/EDITOR_CORRECTION_HANDOFF_V1_1.md) preserves unknown
 request keys/pending locators across locale/source/instruction changes and adds
 explicit same-ID restore reads. Server/HTTP contracts remain unchanged.
+[plain follow-up V1.2](contracts/EDITOR_CORRECTION_HANDOFF_V1_2.md) covers the real
+DEV case where simplification arrives as an ordinary reply after a replacement.
+Its separate explicit review action stages unverified text only; no inference or
+application at handoff and no model marker or new server owner is fabricated.
 [source download V1](contracts/LESSON_CORRECTION_SOURCE_DOWNLOAD_V1.md),
 [editor history V1](contracts/EDITOR_CHAT_HISTORY_V1.md),
 [refusal admission V1.1](contracts/EDITOR_CHAT_HISTORY_V1_1.md),

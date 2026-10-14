@@ -17,6 +17,7 @@ interface ChatMessage {
   applied_lesson_id?: string;
   audience_recommendation?: AudienceRecommendation;
   source_instruction?: string;
+  reviewable_reply?: boolean;
 }
 
 interface AudienceScope {
@@ -232,6 +233,9 @@ export function AIChatPanel({
           apply_lesson_title_hint: data.apply_lesson_title_hint,
           audience_recommendation: data.audience_recommendation,
           source_instruction: userText,
+          reviewable_reply: requestContext === 'lesson' && target_id === focusLessonId
+            && !isAudienceIntent && data.history_eligible === true && typeof data.reply === 'string'
+            && Boolean(data.reply.trim()) && Array.from(data.reply).length <= 12000,
         },
       ]);
     } catch (e) {
@@ -357,17 +361,27 @@ export function AIChatPanel({
     }
   };
 
+  const isReviewableReply = (msg: ChatMessage) => Boolean(
+    onReviewLessonSuggestion && focusLessonId && msg.role === 'assistant' && msg.reviewable_reply
+    && msg.content.trim() && msg.apply_lesson_id == null && msg.apply_lesson_content == null
+    && msg.apply_lesson_title_hint == null && msg.audience_recommendation == null
+    && messages.slice(0, messages.indexOf(msg)).some((prior) => prior.role === 'assistant'
+      && prior.apply_lesson_id === focusLessonId && prior.apply_lesson_content)
+  );
+
   const reviewSuggestion = (msg: ChatMessage) => {
     const session = sessionRef.current;
+    const candidate = msg.apply_lesson_id === focusLessonId && msg.apply_lesson_content ? msg.apply_lesson_content
+      : isReviewableReply(msg) ? msg.content : undefined;
     if (!session?.active || session.sending || session.applying || !messages.includes(msg) || !focusLessonId
-      || msg.apply_lesson_id !== focusLessonId || !msg.apply_lesson_content || !msg.source_instruction || !onReviewLessonSuggestion) return;
+      || !candidate || !msg.source_instruction || !onReviewLessonSuggestion) return;
     const ui = {
       ru: { large: 'Вариант слишком большой для проверки. Попросите ассистента сократить его и поручение.', blocked: 'Проверка сейчас недоступна. Нужен сохранённый текстовый урок в черновике; сначала завершите текущую проверку или подтверждение.' },
       kk: { large: 'Нұсқа тексеру үшін тым үлкен. Көмекшіден нұсқа мен тапсырманы қысқартуды сұраңыз.', blocked: 'Тексеру қазір қолжетімсіз. Сақталған мәтіндік сабақ жобасы қажет; алдымен ағымдағы тексеруді не растауды аяқтаңыз.' },
       en: { large: 'The candidate is too large to review. Ask the assistant to shorten it and the instruction.', blocked: 'Review is unavailable now. Select a saved draft text lesson and resolve the current request or confirmation first.' },
     }[lang];
     let instruction: string;
-    try { instruction = buildCorrectionHandoffInstruction(msg.source_instruction, msg.apply_lesson_content, lang); }
+    try { instruction = buildCorrectionHandoffInstruction(msg.source_instruction, candidate, lang); }
     catch { toast.error(ui.large); return; }
     if (!onReviewLessonSuggestion(focusLessonId, instruction)) { toast.error(ui.blocked); return; }
     onClose();
@@ -450,6 +464,16 @@ export function AIChatPanel({
                   {onReviewLessonSuggestion && focusLessonId && <p className="text-xs text-muted-foreground">{({ ru: 'Откроется поручение для ИИ-правки. Новый предпросмотр проверяется по документам и может отличаться от этого варианта. Переход не изменяет урок.', kk: 'AI түзету тапсырмасы ашылады. Жаңа ұсыныс құжаттармен тексеріледі және бұл нұсқадан өзгеше болуы мүмкін. Ауысу сабақты өзгертпейді.', en: 'This opens a correction instruction. The new preview is checked against documents and may differ from this candidate. Transferring it does not change the lesson.' }[lang])}</p>}
                 </div>
               )}
+              {isReviewableReply(m) && <div className="max-w-[90%] space-y-2">
+                <Button size="sm" variant="outline" disabled={sending || applying} onClick={() => reviewSuggestion(m)}>
+                  {({ ru: 'Проверить этот ответ по источникам', kk: 'Осы жауапты дереккөздермен тексеру', en: 'Review this reply against sources' }[lang])}
+                </Button>
+                <p className="text-xs text-muted-foreground">{({
+                  ru: 'Это ответ диалога, а не готовая правка. Передать его можно только на проверку по документам; новый предпросмотр может отличаться. Урок не изменится до отдельного подтверждения.',
+                  kk: 'Бұл дайын түзету емес, диалог жауабы. Оны тек құжаттармен тексеруге жіберуге болады; жаңа ұсыныс өзгеше болуы мүмкін. Сабақ бөлек растауға дейін өзгермейді.',
+                  en: 'This is a dialogue reply, not an approved edit. It can only be sent for document review; the new preview may differ. The lesson stays unchanged until separate confirmation.',
+                }[lang])}</p>
+              </div>}
               {m.role === 'assistant' && m.audience_recommendation && renderAudienceRecommendation(m.audience_recommendation)}
             </div>
           ))}
