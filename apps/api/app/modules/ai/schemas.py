@@ -202,9 +202,15 @@ class AIChatRequest(BaseModel):
     language: Literal["ru", "kk", "en"] = "ru"
     intent: Literal["course_review", "content_revision", "audience_recommendation"] | None = None
     history: AIChatHistory | None = None
+    durable_request_id: UUID | None = None
 
     @model_validator(mode="after")
     def validate_history_scope(self) -> Self:
+        if self.durable_request_id is not None and (
+            self.context != "lesson" or self.target_id is None or self.history is not None
+            or self.intent == "audience_recommendation"
+        ):
+            raise ValueError("Durable dialogue requires a lesson and server-owned history")
         if self.history and (self.history.course_id, self.history.context, self.history.target_id, self.history.language) != (self.course_id, self.context, self.target_id, self.language):
             raise ValueError("History belongs to a different chat context")
         return self
@@ -253,6 +259,21 @@ class AIChatResponse(BaseModel):
     apply_lesson_title_hint: Optional[str] = Field(default=None, max_length=240)
     audience_recommendation: AudienceRecommendation | None = None
     model_config = ConfigDict(protected_namespaces=())
+
+
+class AILessonDialogueExchangeResponse(BaseModel):
+    id: UUID
+    message: str = Field(min_length=1, max_length=2000)
+    response: AIChatResponse
+    created_at: datetime
+
+
+class AILessonDialogueHistoryResponse(BaseModel):
+    exchanges: list[AILessonDialogueExchangeResponse] = Field(max_length=20)
+    has_more: bool
+    next_before: UUID | None = None
+    pending_request_id: UUID | None = None
+    interrupted_request_id: UUID | None = None
 
 
 # ── Regenerate module / lesson ────────────────────────────────────────

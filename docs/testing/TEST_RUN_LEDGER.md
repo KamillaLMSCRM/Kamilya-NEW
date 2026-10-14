@@ -3976,3 +3976,46 @@ Rules:
   canonical DEV/native release-ID directories. Durable current facts transferred to
   PRODUCTION_READINESS/PROJECT-CONTEXT/CODEX_HANDOFF/USER_DOCUMENTATION/release50/
   backlog/active plan/module index; documentation child does not retag/redeploy6d2.
+
+## ASSISTANT51-LOCAL-R1-20261014 — durable lesson dialogue independent local review
+
+- Scope: exact linked worktree
+  `C:/Kamilya New/Kamilya-NEW/.worktrees/learner-presentation-release-20261010`,
+  base HEAD `7ddece3419449cb6048ee40adf0a915974a837fc` plus the uncommitted
+  durable-dialogue V1/V1.1 delta. Primary guard returned `LINKED_WORKTREE_OK`.
+  Runner changed no source or tests and performed no database, provider, browser,
+  deployed-runtime, secret, Git, billing, or production action.
+- Independent review initially found two P1 race/readback defects: inference could
+  proceed without a durable lesson target or finish after a lesson ownership move,
+  and an expired pending reservation disappeared from history without an explicit
+  interrupted state. Current V1.1 source resolves both with pre-inference target
+  validation, post-provider locked authorization in the terminal transaction,
+  interrupted terminalization, and explicit no-auto-retry UI/readback. Final static
+  review plus scoped regressions found no remaining P1/P2. Root later executed the
+  separate isolated Supabase DEV R5 gate; Runner only read back its immutable receipt.
+- Full web R1 is retained failed: 154/156 files and 1076/1101 tests passed;
+  editor-correction fixtures accounted for 24 failures and the journal suite for one.
+  The unchanged journal test then passed 7/7 focused. After Root's fixture repair,
+  bounded-concurrency full web R2 passed 156/156 files and 1102/1102 tests. Final
+  TypeScript, exact changed-file ESLint with `--max-warnings=0`, Python quality
+  baseline (`ruff=1008`, `mypy=2200`), and `git diff --check` all passed.
+- Two initial full-API attempts were harness failures before collection because the
+  absolute Windows JUnit argument was split; the exact generated zero-test
+  `apps/api/C` file was removed. The corrected wrapper packet passed 2874 tests with
+  five warnings on the predecessor source. After the final V1.1 delta, Root directed
+  no whole-suite repeat; the two new race/missing-target regressions passed 2/2.
+  The predecessor full suite is therefore not represented as final-source coverage.
+- Retained evidence:
+  `.release-evidence/ASSISTANT51-20261014/source-review-r1.json`,
+  `web-full-r1.xml`, `web-learning-journal-focused-r2.xml`, `web-full-r2.xml`,
+  `api-unit-r2.xml`, and `api-v11-focused-r3.xml`. The report separates executed
+  checks from static inspection and binds exact source/report SHA-256 values. Root's
+  immutable `.release-evidence/LESSON-DIALOGUE-DEV-20261014/isolated-r5.json`
+  (`863bbd077b8823b99e892e2b81c5da736ba484b311ab6198542c5e83bb6564e7`)
+  reports PASS for 27 checks, cleanup, public-schema neutrality, source unchanged,
+  and peak two connections; Runner verified all 14 bound source hashes. It was
+  FAKE_ONLY, used a deterministic application clock plus 11 minutes, and did not
+  verify a physical ten-minute wait, semantic quality, live DEV, or production.
+- Result: `READY_FOR_ROOT_REVIEW_LOCAL_AND_ISOLATED_DB_PASS_LIVE_GATES_OPEN`, not
+  release authorization. No full API run exists at the final V1.1 hashes by explicit
+  Root no-repeat instruction; live provider/model and production remain NOT_VERIFIED.

@@ -7,7 +7,7 @@ import logging
 import re
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import Annotated, Any, cast
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
@@ -55,6 +55,7 @@ from app.modules.ai.schemas import (
     AIChatResponse,
     AIGenerateRequest,
     AIJobResponse,
+    AILessonDialogueHistoryResponse,
     AIRegenerateLessonRequest,
     AIRegenerateModuleRequest,
     CompatibilityCluster,
@@ -1028,7 +1029,31 @@ async def chat(
     req: AIChatRequest,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_ai_job_access),
-):
+) -> AIChatResponse:
+    if req.durable_request_id is not None:
+        from app.modules.ai.lesson_dialogue import send_durable
+
+        async def generate(current: AIChatRequest) -> AIChatResponse:
+            return await _chat_once(current, db=db, user=user, release_reads=True)
+
+        return await send_durable(req, db, user, generate)
+    return await _chat_once(req, db=db, user=user)
+
+
+@tenant_router.get("/chat/lesson-history", response_model=AILessonDialogueHistoryResponse)
+async def lesson_chat_history(
+    course_id: UUID,
+    lesson_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_ai_job_access)],
+    language: Annotated[str, Query(pattern="^(ru|kk|en)$")] = "ru",
+    before: UUID | None = None,
+) -> dict[str, Any]:
+    from app.modules.ai.lesson_dialogue import history_page
+    return await history_page(db, user, course_id, lesson_id, language, before)
+
+
+async def _chat_once(req: AIChatRequest, db: AsyncSession, user: User, release_reads: bool = False) -> AIChatResponse:
     """Methodologist assistant — short LLM reply grounded in the course.
 
     NOT a streaming endpoint — we await the full reply and return it.
@@ -1102,6 +1127,8 @@ async def chat(
         target_block = await _fetch_target_context(
             db, req.course_id, req.context, req.target_id, tenant_id
         )
+    if release_reads and req.context == "lesson" and not target_block:
+        raise HTTPException(404, "Lesson not found")
 
     system_prompt = get_renderer().render("router/system_methodology_review.md")
     response_language = {"ru": "русский", "kk": "қазақша", "en": "English"}[req.language]
@@ -1121,6 +1148,10 @@ async def chat(
     user_block_parts.append(f"\nСообщение методолога:\n{safe_message}")
     user_block = "\n".join(user_block_parts)
 
+    if release_reads:
+        # Durable reservation is already committed. Release this read-only
+        # transaction before external inference; persistence rebinds RLS later.
+        await db.commit()
     llm = await ResilientLLMClient.from_settings_async(
         tenant_id=tenant_id,
         temperature=0.4,

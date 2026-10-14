@@ -135,6 +135,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.51] - 2026-10-14
+
+- Save private selected-lesson assistant dialogue and restore it after reload.
+  Separate actor/tenant/course/lesson/language archives, paged reads and bounded
+  server-owned recall; archived proposals are passive, unverified text.
+- Reconcile lost responses through read-only history without another model call;
+  return completed same-key replies, block pending requests, report interruption.
+- Add compatible schema0179 with FORCE RLS, current ownership checks and terminal
+  exchange guards. Revalidate and briefly lock ownership after inference; preserve
+  connection release during inference and existing guarded tenant cleanup.
+- Keep source preview/consent/application independent; no automatic lesson edits,
+  provider/model/tier changes, voice, assignments or learning-history rewrites.
+
 ## [0.11.50] - 2026-10-14
 
 - Keep lesson save/discard controls reachable on laptop-width screens with

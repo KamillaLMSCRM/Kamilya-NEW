@@ -2,6 +2,14 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
+New owner-authorized durable lesson history slice, implementation in progress:
+[durable lesson dialogue V1](contracts/EDITOR_DURABLE_LESSON_DIALOGUE_V1.md),
+[populated purge impact V1](contracts/EDITOR_DURABLE_LESSON_DIALOGUE_PURGE_V1.md).
+[ownership/interruption V1.1](contracts/EDITOR_DURABLE_LESSON_DIALOGUE_V1_1.md)
+adds final relation locking and explicit interrupted readback before rollout.
+Additive schema0179, actor-private archive, read-only resume and bounded server
+recall. DEV/runtime/production acceptance not yet executed; voice excluded.
+
 Current released frontier2026-10-14: frontend50/DEV50 source6d2a0435, unchanged
 production API/threeworkers49. Real dialogue/plain follow-up→unverified handoff→
 source preview/download→explicit sealed apply→full reload/later manual preservation

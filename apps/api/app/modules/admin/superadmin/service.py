@@ -71,6 +71,7 @@ TENANT_DELETE_SQL = [
     "DELETE FROM document_change_reviews WHERE tenant_id = :tenant_id",
     "DELETE FROM document_source_policies WHERE tenant_id = :tenant_id",
     "DELETE FROM quizzes WHERE tenant_id = :tenant_id",
+    "DELETE FROM ai_lesson_dialogue_exchanges WHERE tenant_id = :tenant_id",
     "DELETE FROM lessons WHERE tenant_id = :tenant_id",
     "DELETE FROM modules WHERE tenant_id = :tenant_id",
     "DELETE FROM courses WHERE tenant_id = :tenant_id",

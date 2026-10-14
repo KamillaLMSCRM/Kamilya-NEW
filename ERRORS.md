@@ -7307,3 +7307,23 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Prevention: test a response that ignores client abort, then attempt replacement
   via every input/reset path. Unknown operation is not a safe blank state. Preserve
   its opaque locator or exact request key; never start a new key as recovery.
+
+## AI-CHAT-005 - Durable dialogue lost RLS context and accepted a moved lesson
+
+- Date: 2026-10-14, local and isolated Supabase DEV candidate only.
+- Symptom: same-session replay after commit returned404; independent review
+  found that a lesson moved during inference could be archived under its prior
+  course and an expired pending result silently disappeared from the UI.
+- Cause: transaction-local context was assumed to survive commit; legacy chat
+  tolerated empty target data; terminal persistence did not recheck ownership.
+- Fix: rebind authenticated tenant/actor before every owner read; durable-only
+  empty target fails before inference. Reauthorize and FOR SHARE-lock relation
+  only in final transaction, close invalidated request interrupted. Explicit GET
+  interruption banner, no automatic resend. No connection held across inference.
+- Verification: deterministic unit/UI regressions, full web1102, isolated
+  runtime27 with actor/tenant writes, ownership races, replay/paging/purge,
+  cleanup and public neutrality PASS. Physical expiry wait/real model/release
+  remain separately gated. No RLS or guard disabled for the clock fixture.
+- Prevention: test same-key replay after actual commit and a relation move while
+  provider waits. Context must be rebound per transaction; expired unknown state
+  must remain explicit, not turn into a silently blank/new request.

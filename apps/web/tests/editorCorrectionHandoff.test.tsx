@@ -1,5 +1,5 @@
 import { createRef, StrictMode, useRef, useState } from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 
 const wire = vi.hoisted(() => ({ create: vi.fn(), load: vi.fn(), apply: vi.fn(), receipt: vi.fn(), file: vi.fn() }));
@@ -31,6 +31,11 @@ function stage(ref: ReturnType<typeof createRef<LessonCorrectionPanelHandle>>, i
   act(() => { accepted = ref.current?.stageInstruction({ lessonId, locale: lang as 'ru', instruction }) ?? false; });
   return accepted;
 }
+function installFetch(mock: (input: RequestInfo | URL, init?: RequestInit) => unknown) {
+  vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => String(input).includes('/lesson-history')
+    ? Promise.resolve({ ok: true, json: async () => ({ exchanges: [], has_more: false, next_before: null, pending_request_id: null }) })
+    : mock(input, init));
+}
 async function prepare() { fireEvent.change(screen.getByRole('textbox', { name: 'Что изменить в уроке' }), { target: { value: 'Объясни проще' } }); fireEvent.click(screen.getByRole('button', { name: 'Предложить правку' })); await screen.findByText('Предложенный вариант'); }
 
 describe('editor correction handoff V1', () => {
@@ -48,11 +53,11 @@ describe('editor correction handoff V1', () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ ...actualFollowup.first, apply_lesson_id: lessonId }) })
       .mockResolvedValueOnce({ ok: true, json: async () => actualFollowup.followup });
-    vi.stubGlobal('fetch', fetchMock);
+    installFetch(fetchMock);
     render(<AIChatPanel open onClose={onClose} courseId={courseId} focusLessonId={lessonId} onReviewLessonSuggestion={handoff} />);
-    fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Предложи вариант' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Ask AI' })).toBeEnabled()); fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Предложи вариант' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByText(actualFollowup.first.reply);
-    fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Сделай этот вариант проще' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Ask AI' })).toBeEnabled()); fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Сделай этот вариант проще' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByText((_, element) => element?.children.length === 0 && element.textContent === actualFollowup.followup.reply);
     fireEvent.click(screen.getByRole('button', { name: 'Проверить этот ответ по источникам' }));
     expect(handoff).toHaveBeenCalledWith(lessonId, buildCorrectionHandoffInstruction('Сделай этот вариант проще', actualFollowup.followup.reply, 'ru'));
@@ -70,20 +75,20 @@ describe('editor correction handoff V1', () => {
       apply_lesson_title_hint: boundary === 'partial-title' ? 'Unmatched metadata' : null,
       apply_lesson_content: boundary === 'empty-content' ? '' : null,
       audience_recommendation: boundary === 'audience' ? { course_status: 'draft', recommended_scopes: [], matched_employee_count: 0, already_enrolled_count: 0, data_warnings: [] } : null };
-    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => first }).mockResolvedValueOnce({ ok: true, json: async () => second }); vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => first }).mockResolvedValueOnce({ ok: true, json: async () => second }); installFetch(fetchMock);
     render(<AIChatPanel open onClose={vi.fn()} courseId={courseId} focusLessonId={boundary === 'course' || boundary === 'module' ? undefined : lessonId} focusModuleId={boundary === 'module' ? 'module-1' : undefined} onReviewLessonSuggestion={boundary === 'no-owner' ? undefined : handoff} />);
-    fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Предложи вариант' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' })); await screen.findByText(first.reply);
-    fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Сделай этот вариант проще' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Ask AI' })).toBeEnabled()); fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Предложи вариант' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' })); await screen.findByText(first.reply);
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Ask AI' })).toBeEnabled()); fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Сделай этот вариант проще' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByText((_, element) => element?.children.length === 0 && element.textContent === second.reply);
     expect(screen.queryByRole('button', { name: 'Проверить этот ответ по источникам' })).toBeNull(); expect(handoff).not.toHaveBeenCalled(); expect(fetchMock).toHaveBeenCalledTimes(2); expect(wire.create).not.toHaveBeenCalled(); expect(wire.apply).not.toHaveBeenCalled();
   });
 
   it.each(['ru', 'kk', 'en'] as const)('localizes the explicit plain-reply review action in %s', async locale => {
     lang = locale; const handoff = vi.fn().mockReturnValue(true);
-    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ ...actualFollowup.first, apply_lesson_id: lessonId }) }).mockResolvedValueOnce({ ok: true, json: async () => actualFollowup.followup }); vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ ...actualFollowup.first, apply_lesson_id: lessonId }) }).mockResolvedValueOnce({ ok: true, json: async () => actualFollowup.followup }); installFetch(fetchMock);
     render(<AIChatPanel open onClose={vi.fn()} courseId={courseId} focusLessonId={lessonId} onReviewLessonSuggestion={handoff} />);
     for (const message of ['Предложи вариант', 'Сделай проще']) {
-      fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: message } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+      await waitFor(() => expect(screen.getByRole('textbox', { name: 'Ask AI' })).toBeEnabled()); fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: message } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
       await screen.findByText((_, element) => element?.children.length === 0 && element.textContent === (message === 'Предложи вариант' ? actualFollowup.first.reply : actualFollowup.followup.reply));
     }
     fireEvent.click(screen.getByRole('button', { name: { ru: 'Проверить этот ответ по источникам', kk: 'Осы жауапты дереккөздермен тексеру', en: 'Review this reply against sources' }[locale] }));
@@ -93,13 +98,13 @@ describe('editor correction handoff V1', () => {
   it.each(['oversize', 'refused-staging', 'pending'] as const)('never silently executes or replaces intent for a %s plain reply', async boundary => {
     const handoff = vi.fn().mockReturnValue(boundary !== 'refused-staging'); const onClose = vi.fn(); const pending = defer<{ ok: boolean; json: () => Promise<typeof actualFollowup.followup> }>();
     const second = { ...actualFollowup.followup, reply: boundary === 'oversize' ? 'a'.repeat(4000) : actualFollowup.followup.reply };
-    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ ...actualFollowup.first, apply_lesson_id: lessonId }) }).mockResolvedValueOnce({ ok: true, json: async () => second }).mockReturnValueOnce(pending.promise); vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ ...actualFollowup.first, apply_lesson_id: lessonId }) }).mockResolvedValueOnce({ ok: true, json: async () => second }).mockReturnValueOnce(pending.promise); installFetch(fetchMock);
     render(<AIChatPanel open onClose={onClose} courseId={courseId} focusLessonId={lessonId} onReviewLessonSuggestion={handoff} />);
-    fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Предложи вариант' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' })); await screen.findByText(actualFollowup.first.reply);
-    fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Сделай проще' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Ask AI' })).toBeEnabled()); fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Предложи вариант' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' })); await screen.findByText(actualFollowup.first.reply);
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Ask AI' })).toBeEnabled()); fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Сделай проще' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByText((_, element) => element?.children.length === 0 && element.textContent === second.reply);
     if (boundary === 'pending') {
-      fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Ещё уточнение' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+      await waitFor(() => expect(screen.getByRole('textbox', { name: 'Ask AI' })).toBeEnabled()); fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Ещё уточнение' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
       expect(screen.getByRole('button', { name: 'Проверить этот ответ по источникам' })).toBeDisabled();
     }
     fireEvent.click(screen.getByRole('button', { name: 'Проверить этот ответ по источникам' }));
@@ -156,13 +161,13 @@ describe('editor correction handoff V1', () => {
   });
   it('keeps the chat open and never PATCHes when local staging is refused or candidate is oversized', async () => {
     const callback = vi.fn(() => false); const close = vi.fn();
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ reply: 'Предложение', apply_lesson_id: lessonId, apply_lesson_content: 'Короткий вариант' }) }); vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ reply: 'Предложение', apply_lesson_id: lessonId, apply_lesson_content: 'Короткий вариант' }) }); installFetch(fetchMock);
     render(<AIChatPanel open onClose={close} courseId={courseId} focusLessonId={lessonId} onReviewLessonSuggestion={callback} />);
-    fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Уточни' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Ask AI' })).toBeEnabled()); fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Уточни' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByText('Предложение'); fireEvent.click(screen.getByRole('button', { name: 'Проверить вариант по источникам' }));
     expect(callback).toHaveBeenCalledTimes(1); expect(close).not.toHaveBeenCalled(); expect(fetchMock).toHaveBeenCalledTimes(1);
     fetchMock.mockResolvedValue({ ok: true, json: async () => ({ reply: 'Большой вариант', apply_lesson_id: lessonId, apply_lesson_content: 'a'.repeat(4000) }) });
-    fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Уточни ещё' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' })); await screen.findByText('Большой вариант');
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Ask AI' })).toBeEnabled()); fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Уточни ещё' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' })); await screen.findByText('Большой вариант');
     fireEvent.click(screen.getAllByRole('button', { name: 'Проверить вариант по источникам' })[1]);
     expect(callback).toHaveBeenCalledTimes(1); expect(close).not.toHaveBeenCalled(); expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -242,12 +247,12 @@ describe('editor correction handoff V1', () => {
     expect(wire.apply).toHaveBeenCalledWith({ plan_id: planId, revision: 3, fingerprint: preview.fingerprint }, expect.any(AbortSignal));
   });
   it('connects actual chat and actual correction owner, then applies only its reviewed seal', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ reply: 'Есть вариант', apply_lesson_id: lessonId, apply_lesson_content: 'Черновой вариант из чата' }) }); vi.stubGlobal('fetch', fetchMock);
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ reply: 'Есть вариант', apply_lesson_id: lessonId, apply_lesson_content: 'Черновой вариант из чата' }) }); installFetch(fetchMock);
     function Journey() {
       const ref = useRef<LessonCorrectionPanelHandle>(null); const [open, setOpen] = useState(true);
       return <><LessonCorrectionPanel ref={ref} {...props} /><AIChatPanel open={open} onClose={() => setOpen(false)} courseId={courseId} focusLessonId={lessonId} onReviewLessonSuggestion={(id, instruction) => ref.current?.stageInstruction({ lessonId: id, instruction, locale: 'ru' }) ?? false} /></>;
     }
-    render(<Journey />); fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Упрости урок' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    render(<Journey />); await waitFor(() => expect(screen.getByRole('textbox', { name: 'Ask AI' })).toBeEnabled()); fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Упрости урок' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByText('Есть вариант'); fireEvent.click(screen.getByRole('button', { name: 'Проверить вариант по источникам' }));
     expect(screen.queryByRole('dialog')).toBeNull(); expect(fetchMock).toHaveBeenCalledTimes(1); expect(wire.create).not.toHaveBeenCalled(); expect(wire.apply).not.toHaveBeenCalled();
     expect((screen.getByRole('textbox', { name: 'Что изменить в уроке' }) as HTMLTextAreaElement).value).toContain('Черновой вариант из чата');
@@ -265,12 +270,12 @@ describe('editor correction handoff V1', () => {
         : url.includes('/lessons/') ? { id: lessonId, title: 'Синтетический урок', content: props.savedContent, content_type: contentType }
         : { id: courseId, title: 'Синтетический курс', status: context === 'published' ? 'published' : 'draft', ai_generated: false, review_status: 'pending' };
       return { ok: true, json: async () => body };
-    }); vi.stubGlobal('fetch', fetchMock);
+    }); installFetch(fetchMock);
     render(<CourseEditPage />); fireEvent.click(await screen.findByRole('button', { name: 'Синтетический урок' }));
     const lessonContent = await screen.findByRole('textbox', { name: 'authenticatedUi.editor.lessonContent' });
     if (context === 'dirty') fireEvent.change(lessonContent, { target: { value: 'Ручная несохранённая правка' } });
     fireEvent.click(screen.getByRole('button', { name: 'authenticatedUi.editor.lessonAssistantTitle' }));
-    fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Упрости' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Ask AI' })).toBeEnabled()); fireEvent.change(screen.getByRole('textbox', { name: 'Ask AI' }), { target: { value: 'Упрости' } }); fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByText('Вариант редактора'); fireEvent.click(screen.getByRole('button', { name: 'Проверить вариант по источникам' }));
     expect(wire.create).not.toHaveBeenCalled(); expect(wire.apply).not.toHaveBeenCalled();
     expect(fetchMock.mock.calls.some((call: unknown[]) => (call[1] as RequestInit | undefined)?.method === 'PATCH')).toBe(false);

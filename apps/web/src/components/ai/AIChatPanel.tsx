@@ -18,6 +18,14 @@ interface ChatMessage {
   audience_recommendation?: AudienceRecommendation;
   source_instruction?: string;
   reviewable_reply?: boolean;
+  archived?: boolean;
+}
+
+interface DurableHistoryExchange {
+  id: string;
+  message: string;
+  response: { reply?: string; apply_lesson_content?: string };
+  created_at: string;
 }
 
 interface AudienceScope {
@@ -61,6 +69,10 @@ interface ChatSession {
   applying: boolean;
   requests: Set<AbortController>;
   history: { role: 'user' | 'assistant'; content: string }[];
+  durableHistoryBlocked: boolean;
+  durablePending: boolean;
+  durableLoading: boolean;
+  introMessage?: ChatMessage;
 }
 
 export function AIChatPanel({
@@ -83,6 +95,12 @@ export function AIChatPanel({
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyBefore, setHistoryBefore] = useState<string | null>(null);
+  const [durablePending, setDurablePending] = useState(false);
+  const [durableInterrupted, setDurableInterrupted] = useState(false);
   const sessionRef = useRef<ChatSession | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
@@ -96,12 +114,13 @@ export function AIChatPanel({
   // Each committed context owns its requests. Closing/reopening also starts a
   // new session: an abort-resistant late response must not cross that boundary.
   useLayoutEffect(() => {
-    const session: ChatSession = { active: open, sending: false, applying: false, requests: new Set(), history: [] };
+    const session: ChatSession = { active: open, sending: false, applying: false, requests: new Set(), history: [], durableHistoryBlocked: Boolean(open && focusLessonId && user?.role === 'methodologist'), durablePending: false, durableLoading: false };
     sessionRef.current = session;
     setInput('');
     setSending(false);
     setApplying(false);
     setMessages([]);
+    setHistoryLoading(false); setHistoryError(false); setHistoryHasMore(false); setHistoryBefore(null); setDurablePending(false); setDurableInterrupted(false);
     if (open) {
       const focused: ChatMessage[] = [];
       if (focusLessonId && focusLessonTitle) {
@@ -121,6 +140,7 @@ export function AIChatPanel({
         });
       }
       setMessages(focused);
+      session.introMessage = focused[0];
     }
     return () => {
       session.active = false;
@@ -128,6 +148,74 @@ export function AIChatPanel({
       session.requests.clear();
     };
   }, [open, courseId, focusLessonId, focusLessonTitle, focusModuleId, focusModuleTitle, token, user?.user_id, user?.tenant_id, user?.role, lang, t]);
+
+  const durableEnabled = Boolean(focusLessonId && user?.role === 'methodologist');
+  const durableArchiveMessages = (exchanges: DurableHistoryExchange[]): ChatMessage[] => exchanges.flatMap((exchange) => {
+    const reply = typeof exchange.response?.reply === 'string' ? exchange.response.reply : '';
+    if (!exchange.message || !reply) return [];
+    const proposal = typeof exchange.response?.apply_lesson_content === 'string' && exchange.response.apply_lesson_content.trim()
+      ? `\n\n${({ ru: 'Текст предложения (непроверенный архив):', kk: 'Ұсынылған мәтін (тексерілмеген мұрағат):', en: 'Proposed lesson text (unverified archive):' }[lang])}\n${exchange.response.apply_lesson_content}` : '';
+    return [
+      { role: 'user' as const, content: exchange.message, archived: true },
+      { role: 'assistant' as const, content: reply + proposal, archived: true },
+    ];
+  });
+
+  const loadDurableHistory = async (before?: string | null) => {
+    const session = sessionRef.current;
+    if (!durableEnabled || !focusLessonId || !token || !session?.active || session.durableLoading) return;
+    const controller = new AbortController();
+    session.requests.add(controller);
+    const isCurrent = () => session.active && sessionRef.current === session && !controller.signal.aborted;
+    if (!before) session.durableHistoryBlocked = true;
+    session.durableLoading = true;
+    setHistoryLoading(true);
+    if (!before) setHistoryError(false);
+    try {
+      const params = new URLSearchParams({ course_id: courseId, lesson_id: focusLessonId, language: lang });
+      if (before) params.set('before', before);
+      const res = await fetch(`${API_URL}/v1/ai/chat/lesson-history?${params.toString()}`, { method: 'GET', signal: controller.signal, headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!isCurrent()) return;
+      if (!data || !Array.isArray(data.exchanges) || typeof data.has_more !== 'boolean'
+        || !(data.next_before === null || typeof data.next_before === 'string')
+        || !(data.pending_request_id === null || typeof data.pending_request_id === 'string')
+        || !(data.interrupted_request_id == null || typeof data.interrupted_request_id === 'string')
+        || data.exchanges.some((exchange: unknown) => {
+          const item = exchange as Partial<DurableHistoryExchange>;
+          return !item || typeof item.id !== 'string' || typeof item.message !== 'string' || !item.message.trim()
+            || !item.response || typeof item.response !== 'object' || typeof item.response.reply !== 'string' || !item.response.reply.trim()
+            || typeof item.created_at !== 'string';
+        })) throw new Error('Malformed lesson history');
+      const archived = durableArchiveMessages(data.exchanges as DurableHistoryExchange[]);
+      setMessages((prev) => {
+        if (before) return [...archived, ...prev];
+        const intro = session.introMessage;
+        return [...(intro ? [intro] : []), ...archived];
+      });
+      setHistoryHasMore(data.has_more === true);
+      setHistoryBefore(typeof data.next_before === 'string' ? data.next_before : null);
+      const pending = typeof data.pending_request_id === 'string' && data.pending_request_id.length > 0;
+      session.durablePending = pending;
+      setDurablePending(pending);
+      setDurableInterrupted(typeof data.interrupted_request_id === 'string');
+      session.durableHistoryBlocked = false;
+      setHistoryError(false);
+    } catch {
+      if (isCurrent()) { session.durableHistoryBlocked = true; setHistoryError(true); }
+    } finally {
+      session.requests.delete(controller);
+      session.durableLoading = false;
+      if (isCurrent()) setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open && durableEnabled) void loadDurableHistory();
+    // Context/session changes intentionally trigger a fresh server-owned read.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, courseId, focusLessonId, focusLessonTitle, focusModuleId, focusModuleTitle, token, user?.user_id, user?.tenant_id, user?.role, lang, t, durableEnabled]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -173,7 +261,7 @@ export function AIChatPanel({
   const sendMessage = async (messageOverride?: string, intent?: 'audience_recommendation') => {
     const session = sessionRef.current;
     const userText = (messageOverride ?? input).trim();
-    if (!userText || !token || !session?.active || session.sending) return;
+    if (!userText || !token || !session?.active || session.sending || session.durableHistoryBlocked || session.durablePending) return;
     const controller = new AbortController();
     session.sending = true;
     session.requests.add(controller);
@@ -191,6 +279,7 @@ export function AIChatPanel({
       const isAudienceIntent = intent === 'audience_recommendation';
       const requestContext = isAudienceIntent ? 'course' : context;
       const target_id = isAudienceIntent ? null : focusLessonId || focusModuleId || null;
+      const durableLesson = Boolean(durableEnabled && !isAudienceIntent);
 
       const res = await fetch(`${API_URL}/v1/ai/chat`, {
         method: 'POST',
@@ -206,7 +295,8 @@ export function AIChatPanel({
           message: userText,
           language: lang,
           intent,
-          ...(session.history.length && !isAudienceIntent ? {
+          ...(durableLesson ? { durable_request_id: crypto.randomUUID() } : {}),
+          ...(!durableLesson && session.history.length && !isAudienceIntent ? {
             history: { version: 1, course_id: courseId, context: requestContext, target_id, language: lang, turns: session.history },
           } : {}),
         }),
@@ -214,6 +304,7 @@ export function AIChatPanel({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (!isCurrent()) return;
+      if (durableLesson) setDurableInterrupted(false);
       // Only completed exchanges, never UI copy, errors, IDs or apply receipts.
       // A forced course recommendation must not contaminate a lesson/module chat.
       if (data.history_eligible !== false && requestContext === context && typeof data.reply === 'string' && data.reply.trim()
@@ -241,9 +332,13 @@ export function AIChatPanel({
     } catch (e) {
       if (!isCurrent()) return;
       toast.error(t('aiAssistant.errorToast'));
+      if (durableEnabled && !intent) {
+        session.durableHistoryBlocked = true;
+        setHistoryError(true);
+      }
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: t('aiAssistant.errorReply') },
+        { role: 'assistant', content: durableEnabled && !intent ? ({ ru: 'Запрос не подтверждён. Обновите историю урока, чтобы проверить результат; новый запрос автоматически не отправляется.', kk: 'Сұрау расталмады. Нәтижені тексеру үшін сабақ тарихын жаңартыңыз; жаңа сұрау автоматты түрде жіберілмейді.', en: 'The request outcome is unknown. Reload the lesson history to reconcile it; no new request was sent automatically.' }[lang]) : t('aiAssistant.errorReply') },
       ]);
     } finally {
       session.requests.delete(controller);
@@ -416,12 +511,22 @@ export function AIChatPanel({
         </header>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+          {durableEnabled && durableInterrupted && <p className="text-sm text-muted-foreground" role="status">{{ ru: 'Предыдущий запрос прерван или не завершён. Сохранённая история ниже; повтор автоматически не выполнялся. Можно задать новый вопрос.', kk: 'Алдыңғы сұрау үзілді немесе аяқталмады. Сақталған тарих төменде; автоматты қайталау болған жоқ. Жаңа сұрақ қоюға болады.', en: 'The previous request was interrupted or did not complete. Saved history is below; it was not retried automatically. You may enter a new question.' }[lang]}</p>}
+          {durableEnabled && historyLoading && <p className="text-sm text-muted-foreground" role="status">{{ ru: 'Загружаем историю урока…', kk: 'Сабақ тарихы жүктелуде…', en: 'Loading lesson history…' }[lang]}</p>}
+          {durableEnabled && historyError && (
+            <div className="rounded-md border border-destructive/40 p-3 space-y-2" role="alert">
+              <p className="text-sm">{{ ru: 'Историю урока не удалось загрузить. Отправка заблокирована до успешного обновления.', kk: 'Сабақ тарихын жүктеу мүмкін болмады. Сәтті жаңартылғанша жіберу бұғатталды.', en: 'Lesson history could not be loaded. Sending is blocked until a successful reload.' }[lang]}</p>
+              <Button type="button" size="sm" variant="outline" disabled={historyLoading} onClick={() => void loadDurableHistory()}>{{ ru: 'Обновить историю', kk: 'Тарихты жаңарту', en: 'Reload history' }[lang]}</Button>
+            </div>
+          )}
+          {durableEnabled && durablePending && !historyError && <div className="space-y-2"><p className="text-sm text-muted-foreground" role="status">{{ ru: 'Предыдущий запрос ещё обрабатывается. Обновите историю перед продолжением.', kk: 'Алдыңғы сұрау әлі өңделуде. Жалғастырмас бұрын тарихты жаңартыңыз.', en: 'A previous request is still pending. Reload history before continuing.' }[lang]}</p><Button type="button" size="sm" variant="outline" disabled={historyLoading} onClick={() => void loadDurableHistory()}>{{ ru: 'Обновить историю', kk: 'Тарихты жаңарту', en: 'Reload history' }[lang]}</Button></div>}
+          {durableEnabled && historyHasMore && historyBefore && !historyError && <Button type="button" size="sm" variant="outline" disabled={historyLoading} onClick={() => void loadDurableHistory(historyBefore)}>{{ ru: 'Загрузить более ранние сообщения', kk: 'Ескі хабарламаларды жүктеу', en: 'Load earlier messages' }[lang]}</Button>}
           {messages.length <= 1 && (
             <button
               type="button"
               className="w-full text-left rounded-lg border border-primary/30 px-3 py-2 text-sm hover:bg-muted"
               onClick={() => sendMessage(t('aiAssistant.audienceQuestion'), 'audience_recommendation')}
-              disabled={sending}
+              disabled={sending || historyLoading || durablePending || Boolean(durableEnabled && historyError)}
             >
               {t('aiAssistant.audienceQuestion')}
             </button>
@@ -444,7 +549,7 @@ export function AIChatPanel({
               >
                 {m.content}
               </div>
-              {m.role === 'assistant' && m.apply_lesson_id && m.apply_lesson_content && (
+              {!m.archived && m.role === 'assistant' && m.apply_lesson_id && m.apply_lesson_content && (
                 <div className="bg-background border border-primary/40 rounded-lg p-3 max-w-[90%] space-y-2">
                   <div className="text-xs font-medium text-primary">
                     {m.apply_lesson_title_hint
@@ -464,7 +569,7 @@ export function AIChatPanel({
                   {onReviewLessonSuggestion && focusLessonId && <p className="text-xs text-muted-foreground">{({ ru: 'Откроется поручение для ИИ-правки. Новый предпросмотр проверяется по документам и может отличаться от этого варианта. Переход не изменяет урок.', kk: 'AI түзету тапсырмасы ашылады. Жаңа ұсыныс құжаттармен тексеріледі және бұл нұсқадан өзгеше болуы мүмкін. Ауысу сабақты өзгертпейді.', en: 'This opens a correction instruction. The new preview is checked against documents and may differ from this candidate. Transferring it does not change the lesson.' }[lang])}</p>}
                 </div>
               )}
-              {isReviewableReply(m) && <div className="max-w-[90%] space-y-2">
+              {!m.archived && isReviewableReply(m) && <div className="max-w-[90%] space-y-2">
                 <Button size="sm" variant="outline" disabled={sending || applying} onClick={() => reviewSuggestion(m)}>
                   {({ ru: 'Проверить этот ответ по источникам', kk: 'Осы жауапты дереккөздермен тексеру', en: 'Review this reply against sources' }[lang])}
                 </Button>
@@ -474,7 +579,7 @@ export function AIChatPanel({
                   en: 'This is a dialogue reply, not an approved edit. It can only be sent for document review; the new preview may differ. The lesson stays unchanged until separate confirmation.',
                 }[lang])}</p>
               </div>}
-              {m.role === 'assistant' && m.audience_recommendation && renderAudienceRecommendation(m.audience_recommendation)}
+              {!m.archived && m.role === 'assistant' && m.audience_recommendation && renderAudienceRecommendation(m.audience_recommendation)}
             </div>
           ))}
           {sending && (
@@ -483,11 +588,15 @@ export function AIChatPanel({
         </div>
 
         <footer className="border-t border-border p-3">
-          <p className="mb-2 text-xs text-muted-foreground">{({
+          <p className="mb-2 text-xs text-muted-foreground">{(durableEnabled ? ({
+            ru: 'История диалога урока сохраняется на сервере для этого курса, урока и языка. Предложения из архива не применяются автоматически.',
+            kk: 'Сабақ диалогының тарихы осы курс, сабақ және тіл үшін серверде сақталады. Мұрағаттағы ұсыныстар автоматты түрде қолданылмайды.',
+            en: 'This lesson dialogue is saved on the server for this course, lesson, and language. Archived proposals are never applied automatically.',
+          }) : ({
             ru: 'Ассистент учитывает последние сообщения этого диалога. При закрытии панели или смене курса, урока либо языка история сбрасывается. Предложения не применяются автоматически.',
             kk: 'Көмекші осы диалогтың соңғы хабарламаларын ескереді. Панель жабылғанда немесе курс, сабақ не тіл өзгергенде тарих өшеді. Ұсыныстар автоматты түрде қолданылмайды.',
             en: 'The assistant uses recent messages in this dialogue. Closing the panel or changing course, lesson or language resets history. Suggestions are not applied automatically.',
-          } as Record<string, string>)[lang]}</p>
+          }))[lang]}</p>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -507,9 +616,9 @@ export function AIChatPanel({
                   ? t('aiAssistant.lessonPlaceholder')
                   : t('aiAssistant.chatPlaceholder')
               }
-              disabled={sending}
+              disabled={sending || historyLoading || durablePending || Boolean(durableEnabled && historyError)}
             />
-            <Button type="submit" aria-label={t('aiGeneration.chat.send')} disabled={sending || !input.trim()}>
+            <Button type="submit" aria-label={t('aiGeneration.chat.send')} disabled={sending || historyLoading || durablePending || Boolean(durableEnabled && historyError) || !input.trim()}>
               <Send className="w-4 h-4" />
             </Button>
           </form>

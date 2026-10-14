@@ -28,6 +28,7 @@ MODEL_MODULES = (
     "app.modules.admin.model_routing.models",
     "app.modules.admin.tenant_ai_providers.models",
     "app.modules.announcements.models",
+    "app.modules.ai.dialogue_models",
     "app.modules.audit.models",
     "app.modules.candidate_assessments.models",
     "app.modules.certificates.models",

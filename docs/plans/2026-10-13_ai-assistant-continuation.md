@@ -1,6 +1,32 @@
 # AI assistant continuation — text-first
 
 Status: active overall; editor→source-correction handoff released50/accepted.
+
+Current next slice2026-10-14: owner explicitly requests durable lesson dialogue,
+DEV real model/reload then production/live acceptance, voice deferred. Accepted
+EDITOR_DURABLE_LESSON_DIALOGUE_V1/V1.1 and PURGE_V1. Root owns API/migration/
+integration/release; bounded UI and DEV-verifier writers completed, fresh Test
+Runner independently reviews. Initial UI leaf correction remained failing; Root
+repaired fixtures/session integration without assertion/timeouts waiver. API87,
+durable+handoff61 focused, type/lint/Python baseline PASS. Isolated-r4 previous21
+PASS with cleanup/public neutrality; expanded final-r5 running27 ownership/race/
+clock/purge checks. Full webR1 failed24 old handoff fixtures+1 journal; repaired
+handoff47 PASS, unchanged journal7 focused PASS; full R2 bounded2 workers pending.
+Final expanded isolated-r5 PASS27/207.469sec/peak2/14 unchanged hashes, cleanup
+and exact public neutrality; expiry uses deterministic app-clock+11min, not a
+physical wait. Full webR2 156files/1102PASS with2 workers, unchanged assertions/
+timeouts; full API2874 is predecessor, final race tests2 and rootfocused87 PASS.
+Final reviewer0 P1/P2, schema/service guards accepted. Root build67 PASS/version51
+consistent, independent current remote master7dde/dev6d2/project account verified.
+No public schema/provider/deployment/production changes yet. Existing source50
+remains runtime; version51 is candidate metadata only.
+
+Evidence integrity incident: reuse of historical help47 reviewer returned old50
+scope and rewrote its ignored review artifact (current hash4b6edb… versus previously
+accepted81ed15…). Result rejected for51, old50 review must not be used as fresh
+evidence or silently rebound. New fresh-context assistant51_test_runner owns only
+51 reports/ledger. Root retains actual50 runtime/source/backup observations but
+does not use the modified review in the new release gate. No runtime mutation.
 Current frontend50/DEV50 source6d2a043520044db01dd74f36d89a72ead9fe8d62,
 production API/threeworkers49 unchanged. Final actual DEV and production model,
 source download, deliberate handoff, same-seal apply, full reload and later manual

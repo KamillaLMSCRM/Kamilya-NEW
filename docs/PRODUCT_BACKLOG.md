@@ -76,7 +76,10 @@ source3fe3c39a2026-10-14. Поздние ответы не переносятс�
 старую карточку и не выполняет PATCH. Full1088/type/lint/build67 и независимые
 архитектурная/раскладочная/смысловая проверки приняты; реальная модель, download,
 source review, consent/seal/apply/reload/manual preservation подтверждены.
-Открыто: долговременная история диалога, интеграция назначения/документов и
+Долговременная история выбранного урока реализована в кандидате0.11.51/schema179:
+private actor/scope archive,27 isolatedDEV checks/cleanup/public neutrality,
+fullweb1102/source review PASS; живые DEV/provider/production gates ещё открыты.
+Открыто: выпуск/приёмка этой истории, интеграция назначения/документов и
 дальнейшие семантические benchmark. Legacy PATCH не является квитанцией sealed
 операции. Приоритеты/границы:
 [активный план](plans/2026-10-13_ai-assistant-continuation.md).
