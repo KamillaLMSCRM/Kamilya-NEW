@@ -2,6 +2,19 @@
 
 Current as of: 2026-10-14.
 
+## JOURNAL-DATE-001 - Noncanonical date field blocked release CI
+
+- Date: 2026-10-14; frontend50 candidate, no runtime change.
+- Symptom: exact candidate1a16 CI38539428449 failed the release-contract check
+  because the header date did not equal the latest recognized entry date.
+- Cause: four October14 entries used `Date:2026-10-14` without the required space;
+  the existing date parser recognized October13 as the latest entry instead.
+- Fix: normalize those four date fields; preserve the current header and parser.
+- Verification: canonical workstation wrapper ran
+  `tests/unit/test_release_reliability_contracts.py`: two tests passed.
+- Prevention: use `- Date: YYYY-MM-DD` and run the existing release-contract test
+  before pushing journal/header edits. Never bypass the gate or backdate the header.
+
 ## DEV-WORKER-SLEEP-001 - Free web-hosted worker stopped while QA reviewed content
 
 - Date:2026-10-12; existing Render DEV Free service, not KZ production.
@@ -7137,7 +7150,7 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 
 ## AI-CHAT-002 - Historical refusal screening poisoned follow-up dialogue
 
-- Date:2026-10-14; local history candidate, not deployed.
+- Date: 2026-10-14; local history candidate, not deployed.
 - Symptom: a returned refusal or an otherwise-safe answer quoting a denied
   instruction could make every later legitimate follow-up return a scope refusal.
 - Cause: completed visible replies entered history indiscriminately, but historical
@@ -7163,7 +7176,7 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 
 ## AI-CHAT-003 - Chat prompt ignored the validated response language
 
-- Date:2026-10-14; pre-release architecture audit, local repair.
+- Date: 2026-10-14; pre-release architecture audit, local repair.
 - Symptom: API accepts ru/kk/en but the normal methodology prompt mandates Russian.
 - Cause: a fixed legacy language directive contradicted the validated request locale;
   frontend scope reset and schema admission alone did not select response language.
@@ -7177,7 +7190,7 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 
 ## AI-CHAT-004 - Complete marker-only proposal displayed as an empty answer
 
-- Date:2026-10-14; real DEV49 at0d186cd3, normal synthetic methodologist session.
+- Date: 2026-10-14; real DEV49 at0d186cd3, normal synthetic methodologist session.
 - Symptom: useful lesson proposal and context-dependent follow-up were visible,
   but the acknowledgement misleadingly displayed `(пустой ответ)`.
 - Cause: the router extracted all response text into the selected-lesson proposal
@@ -7193,7 +7206,7 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 
 ## WB-CORRECTION-007 - UI reset discarded an unresolved correction request
 
-- Date:2026-10-14; local handoff candidate, not deployed.
+- Date: 2026-10-14; local handoff candidate, not deployed.
 - Symptom: independent review reproduced replacement staging after changing
   locale/saved content while create was unresolved, or editing instruction after
   a lost create response. A known server-pending plan could also be replaced.
