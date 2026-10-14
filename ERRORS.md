@@ -7153,3 +7153,19 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   Real DEV/provider language behavior remains a separate pending acceptance gate.
 - Prevention: verify the actual provider prompt for every advertised locale,
   not only request parsing or UI translations; preserve all scope/output guards.
+
+## AI-CHAT-004 - Complete marker-only proposal displayed as an empty answer
+
+- Date:2026-10-14; real DEV49 at0d186cd3, normal synthetic methodologist session.
+- Symptom: useful lesson proposal and context-dependent follow-up were visible,
+  but the acknowledgement misleadingly displayed `(пустой ответ)`.
+- Cause: the router extracted all response text into the selected-lesson proposal
+  and used the generic empty-prose fallback for the remaining visible reply.
+- Fix: V1.5 adds a localized non-execution acknowledgement only after all original
+  output fields pass screening and the marker passes selected-target/bounds guards.
+  No extra inference, automatic apply or authority expansion.
+- Verification: marker-only RU/KK/EN cases RED before repair; root independently
+  passed75 history/policy/tenant tests and the unchanged Python baseline. Exact
+  successor DEV/production live tests remain required before release acceptance.
+- Prevention: cover valid proposal-only output as well as prose-plus-proposal,
+  and distinguish safe invalid-target fallback from fail-closed empty/unsafe fields.

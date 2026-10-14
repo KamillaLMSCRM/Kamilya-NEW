@@ -1191,6 +1191,20 @@ async def chat(
         apply_content = None
         apply_title_hint = None
 
+    # A marker-only response is still a valid proposal when it targets the
+    # explicitly selected lesson. Acknowledge that payload locally, without
+    # implying it was applied or asking the model for another response.
+    if apply_id is not None and not reply:
+        public_reply = {
+            "ru": "Предложение подготовлено, но не применено. Проверьте его и нажмите «Применить», чтобы внести изменение.",
+            "kk": "Ұсыныс дайын, бірақ қолданылған жоқ. Өзгерісті енгізу үшін оны тексеріп, «Қолдану» түймесін басыңыз.",
+            "en": "The proposal is ready but has not been applied. Review it and select Apply to make the change.",
+        }[req.language]
+        if not assistant_reply_is_safe(public_reply):
+            logger.warning("AI chat acknowledgement blocked by public response policy")
+            return AIChatResponse(reply=assistant_scope_refusal(req.language), history_eligible=False)
+        reply_parts.append(public_reply)
+
     return AIChatResponse(
         reply=public_reply,
         history_eligible=all(assistant_request_refusal(part, req.language) is None for part in reply_parts),

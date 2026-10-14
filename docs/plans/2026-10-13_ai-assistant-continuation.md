@@ -111,3 +111,14 @@ apply/publication/assignment. Addendum V1.3 fixes audited Russian-only prompt;
 language3 RED before repair, new replay and real DEV language checks required.
 Current/rollback/artifact/capacity/health and final changed-capability/live gates
 remain mandatory. Earlier local-only paragraphs are historical authority boundaries.
+
+DEV49 R2 exact0d186cd3/CI38520501058/provider/9flags accepted technically. Root
+ordinary-methodologist live source preparation/download succeeded;923bytes and
+SHA256374670eb… match the independent original synthetic fixture. Two-turn real
+RU chat retained the previous unique label and both conflicting deadlines without
+applying edits; KK/EN real replies and empty-history scope resets passed. A strict
+three-sentence request produced four sentences, retained as a quality caveat rather
+than a formatter guarantee. Complete marker-only replies displayed a misleading
+empty label; accepted V1.5 repairs this after unchanged output/target screening.
+Root75 focused tests and quality baseline pass; successor exact DEV/live and
+production gates remain open. Evidence: ASSISTANT49-20261014/dev-live49-r2.json.

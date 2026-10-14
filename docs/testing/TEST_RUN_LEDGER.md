@@ -3817,3 +3817,28 @@ Rules:
   Root reconciles each service separately before successor execution.
 - Original packet/failed controller outcome and sanitized git-dev49.json retained.
   Source auth proof uses canonical process-local project token; no values recorded.
+
+## ASSISTANT49-DEV-R2-LIVE-20261014 — actual source and model acceptance
+
+- CI38520501058 SUCCESS/exact0d186cd3; Root independent Hobby/Free/Free identities,
+  API49 and all9 unchanged flags PASS. Native build38521234346 SUCCESS at sameSHA.
+- Ordinary synthetic methodologist CUA tab4: one source-grounded preview, current
+  source preparation/manual download/browser event and actual file hash/read PASS.
+  TXT923bytes/SHA256374670eb… equals independent original synthetic fixture.
+  Current-file/historical-version warning visible; no historical byte claim.
+- Five real calls: RU initial/follow-up, correction preview, KK and EN. Follow-up
+  retained unique previous label, both conflicting deadlines and no-owner/no-choice
+  guard; text shorter, but requested3 sentences became4. Semantic quality is
+  manually reviewed for these examples, not a general formatting guarantee.
+  KK/EN200 and new language requests without history observed in sanitized CDP;
+  network response intervals2.761s/2.288s, not human-efficiency benchmarks.
+- Lesson/source/course unchanged; no Apply/publication/assignment. One preview
+  retained under existing TTL and downloaded synthetic TXT retained as evidence.
+  Defect: complete marker-only proposal displayed `(пустой ответ)`. V1.5 scoped
+  local repair by Test Runner,3 RED, expanded negatives/Root75 PASS/quality baseline
+  PASS. Source review preserves all output screening/selected-target bounds.
+  Runner follow-up corrected a vacuous negative oracle, no policy change.
+  Agent actual cost/token counters NOT_AVAILABLE; no invented savings.
+- Evidence ASSISTANT49-20261014/dev-root-readback49.json/dev-live49-r2.json,
+  dev-source-download49.png/api-marker-final.xml and original failed artifacts.
+  Successor exact DEV and production live gates remain open; production unchanged.

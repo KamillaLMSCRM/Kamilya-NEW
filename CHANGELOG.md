@@ -150,6 +150,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Exclude refusals and replay-ineligible quoted-instruction prose from history
   so they do not poison later legitimate questions. Honor validated RU/KK/EN language.
+- Acknowledge complete selected-lesson proposals without a misleading empty-answer
+  label; localized review/manual-apply wording, unchanged fail-closed guards.
 - Cancel source preparation on context replacement, clean owned Blob URLs and
   retain only one lazy prepared file; no embedded file execution or automatic download.
 - Bind editor chat to course/focus/actor/tenant/session/language; discard stale

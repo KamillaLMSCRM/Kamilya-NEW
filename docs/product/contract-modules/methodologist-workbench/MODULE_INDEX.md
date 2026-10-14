@@ -13,6 +13,8 @@ Active additive contracts:
 pre-release audited Russian-only prompt; real DEV language acceptance pending.
 [exact public oracle V1.4](contracts/EDITOR_CHAT_HISTORY_V1_4.md) preserves full
 response equality after the compatible admission field, with fresh CI required.
+[marker-only acknowledgement V1.5](contracts/EDITOR_CHAT_HISTORY_V1_5.md) repairs
+the misleading empty-response label reproduced in real DEV acceptance.
 Current-file download is not historical byte equivalence; ephemeral dialogue is
 not durable memory or command authority. Local tests versus DEV/model/browser/
 release gates are tracked in the active continuation plan and test ledger.

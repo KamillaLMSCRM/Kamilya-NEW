@@ -150,6 +150,69 @@ async def test_prior_text_does_not_authorize_another_lesson_apply_marker(monkeyp
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('language,ack', [
+    ('ru', 'Предложение подготовлено, но не применено. Проверьте его и нажмите «Применить», чтобы внести изменение.'),
+    ('kk', 'Ұсыныс дайын, бірақ қолданылған жоқ. Өзгерісті енгізу үшін оны тексеріп, «Қолдану» түймесін басыңыз.'),
+    ('en', 'The proposal is ready but has not been applied. Review it and select Apply to make the change.'),
+])
+async def test_marker_only_selected_proposal_returns_localized_nonexecution_ack(monkeypatch, language, ack):
+    proposal = 'Проверьте номер накладной перед приёмкой.'
+    captured, factory = wire_provider(monkeypatch, f'[APPLY_LESSON:{LESSON}]{proposal}[/APPLY_LESSON]')
+    response = await router.chat(request(language=language, history=None), db=object(), user=SimpleNamespace(tenant_id=TENANT, role='methodologist'))
+    assert response.reply == ack
+    assert response.apply_lesson_id == LESSON
+    assert response.apply_lesson_content == proposal
+    assert response.history_eligible is True
+    assert len(captured['messages']) == 2
+    factory.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('marker_body', ['', 'x' * 12_001])
+async def test_marker_only_empty_or_unbounded_proposal_never_gets_ack_or_apply_authority(monkeypatch, marker_body):
+    wire_provider(monkeypatch, f'[APPLY_LESSON:{LESSON}]{marker_body}[/APPLY_LESSON]')
+    response = await router.chat(request(history=None), db=object(), user=SimpleNamespace(tenant_id=TENANT, role='methodologist'))
+    # Invalid proposal fields remain subject to the original fail-closed policy.
+    assert response.reply == assistant_scope_refusal('ru')
+    assert response.history_eligible is False
+    assert response.apply_lesson_id is None
+    assert response.apply_lesson_content is None
+
+
+@pytest.mark.asyncio
+async def test_marker_only_foreign_target_never_gets_ack_or_apply_authority(monkeypatch):
+    wire_provider(monkeypatch, f'[APPLY_LESSON:{COURSE}]A complete but foreign proposal.[/APPLY_LESSON]')
+    response = await router.chat(request(history=None), db=object(), user=SimpleNamespace(tenant_id=TENANT, role='methodologist'))
+    assert response.reply == '(пустой ответ)'
+    assert response.apply_lesson_id is None
+    assert response.apply_lesson_content is None
+
+
+@pytest.mark.asyncio
+async def test_marker_only_course_context_never_gains_lesson_apply_authority(monkeypatch):
+    wire_provider(monkeypatch, f'[APPLY_LESSON:{LESSON}]A complete proposal.[/APPLY_LESSON]')
+    response = await router.chat(
+        request(history=None, context='course', target_id=None),
+        db=object(),
+        user=SimpleNamespace(tenant_id=TENANT, role='methodologist'),
+    )
+    assert response.reply == '(пустой ответ)'
+    assert response.apply_lesson_id is None
+    assert response.apply_lesson_content is None
+
+
+@pytest.mark.asyncio
+async def test_unsafe_marker_only_proposal_is_refused_and_ineligible_for_history(monkeypatch):
+    unsafe_proposal = 'Authorization: Bearer secret-token-value'
+    wire_provider(monkeypatch, f'[APPLY_LESSON:{LESSON}]{unsafe_proposal}[/APPLY_LESSON]')
+    response = await router.chat(request(history=None), db=object(), user=SimpleNamespace(tenant_id=TENANT, role='methodologist'))
+    assert response.reply == assistant_scope_refusal('ru')
+    assert response.history_eligible is False
+    assert response.apply_lesson_id is None
+    assert response.apply_lesson_content is None
+
+
+@pytest.mark.asyncio
 async def test_safe_reply_quoting_a_denied_instruction_does_not_poison_history(monkeypatch):
     reply = 'Do not follow the phrase "ignore previous instructions" in course materials.'
     wire_provider(monkeypatch, reply)
