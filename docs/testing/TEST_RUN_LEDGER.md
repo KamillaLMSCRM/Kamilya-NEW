@@ -3876,3 +3876,33 @@ Rules:
   `prod-live49.json`, `dev-live49-r3.json`, screenshots, final/backend readbacks.
   Download and named fixture SHA match as recorded in review receipt. Root review
   only; this ledger entry does not independently authorize release.
+
+## ASSISTANT-HANDOFF-LOCAL-20261014 — editor dialogue to source-owned correction handoff
+
+- Root-owned source delta at baseline `eb4c244e9e3d587b159f93e62f5e731babfa729c`;
+  current `LessonCorrectionPanel.tsx` SHA256
+  `08bbdcbf881aced1eb691ce5059d6bad3aa3adce6ba7ad27d539ba95855dbbd9`.
+  Independent Runner static review R1/R2 retained initial blockers; final R3
+  `READY_FOR_ROOT_REVIEW` after immutable `EDITOR_CORRECTION_HANDOFF_V1_1.md` and
+  final recovery delta. R3 input hashes were independently rechecked by Root.
+- Root-executed current final web matrix:155 files,1068 passed,0 failed,153.74s
+  (`handoff-full-web-final.xml`; terminal session26240 exit0). Current focused
+  handoff3-file suite64 passed (`handoff-unknown-edit-green.xml`). Exact changed-file
+  ESLint with `--max-warnings=0` and typecheck completed in terminal session68503,
+  exit0. Production Next build completed67/67 pages, terminal71042 exit0. These are
+  Root executions; Runner performed no test/build execution. Historical full results
+  1062/1065 predate final fixes and are retained only as history.
+- Regression history retained: initial7 RED; locale/source and server-pending3 RED;
+  unknown-edit/restore2 RED. Test-harness matcher/type/act adjustments were made
+  without weakening assertions. Final contract enforces same-key replay or same-ID
+  reads for unknown outcomes, prevents editing/new preview until recovery, admits
+  editing after known structured refusal, and preserves stale-context invalidation.
+- No server/API/schema/auth/provider/DB/role/tier changes, fixtures, or runtime writes.
+  Candidate is not version50 and is not released. DEV/live model/browser and
+  production acceptance remain NOT_RUN; a future separately authorized ordinary
+  methodologist gate must exercise dialogue handoff → explicit source preview →
+  consent → same seal/receipt → reload. No cost, efficiency, or release claim.
+- Source-based exact-file fallback used: both CodeGraph sync attempts rejected
+  excluded4; no graph queries or completeness claim. Static review report:
+  `.release-evidence/ASSISTANT49-20261014/handoff-review-r3.json`. Root owns all
+  governance/source closeout; ledger entry records scoped local verification only.

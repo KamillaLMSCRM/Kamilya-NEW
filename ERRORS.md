@@ -7190,3 +7190,26 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   successor DEV/production live tests remain required before release acceptance.
 - Prevention: cover valid proposal-only output as well as prose-plus-proposal,
   and distinguish safe invalid-target fallback from fail-closed empty/unsafe fields.
+
+## WB-CORRECTION-007 - UI reset discarded an unresolved correction request
+
+- Date:2026-10-14; local handoff candidate, not deployed.
+- Symptom: independent review reproduced replacement staging after changing
+  locale/saved content while create was unresolved, or editing instruction after
+  a lost create response. A known server-pending plan could also be replaced.
+  Offline restored receipt lookup lacked a safe explicit read-recovery path.
+- Cause: client reset assumed AbortController proved server cancellation;
+  instruction onChange cleared attempt/request key and URL regardless of outcome.
+  Transport completion and known terminal plan state were not distinguished.
+- Fix: accepted handoff V1.1 keeps unknown request/body/locale and pending plan
+  locator until same-key replay or same-ID GET resolves it. Block new staging,
+  instruction editing and new preview while outcome unknown/pending. Known
+  structured rejection permits editing. Ready old-locale/before-content proposal
+  is invalidated for application. Explicit restore retry uses existing reads only.
+  Ordinary manual lesson editor and server/API/schema/idempotency unchanged.
+- Verification: locale/source/server-pending3RED, unknown-edit/restore2RED before
+  repairs; focused3files64PASS. Independent R3 source review accepted after R1/R2
+  failures; all input hashes checked. Final release/live evidence remains separate.
+- Prevention: test a response that ignores client abort, then attempt replacement
+  via every input/reset path. Unknown operation is not a safe blank state. Preserve
+  its opaque locator or exact request key; never start a new key as recovery.

@@ -7,6 +7,14 @@ editor dialogue accepted in DEV and production49/source3fe3c39a. Actual download
 bytes and real context-dependent follow-up/reset behavior passed; scope and model
 quality caveats are owned by PRODUCTION_READINESS/release49/Test Runner ledger.
 Active additive contracts:
+[editor→correction handoff V1](contracts/EDITOR_CORRECTION_HANDOFF_V1.md) defines
+the next frontend-only local slice: explicitly stage an unverified chat candidate,
+then use the existing source preview/consent/seal/receipt owner. Local implementation
+accepted: focused64/full web1068/types/lint/build67 and independent R3 source
+review PASS; no DEV/production activation. No new command owner.
+[recovery V1.1](contracts/EDITOR_CORRECTION_HANDOFF_V1_1.md) preserves unknown
+request keys/pending locators across locale/source/instruction changes and adds
+explicit same-ID restore reads. Server/HTTP contracts remain unchanged.
 [source download V1](contracts/LESSON_CORRECTION_SOURCE_DOWNLOAD_V1.md),
 [editor history V1](contracts/EDITOR_CHAT_HISTORY_V1.md),
 [refusal admission V1.1](contracts/EDITOR_CHAT_HISTORY_V1_1.md),
@@ -21,8 +29,9 @@ Current-file download is not historical byte equivalence; ephemeral dialogue is
 not durable memory or command authority. Local tests versus DEV/model/browser/
 release gates are tracked in the active continuation plan and test ledger.
 Simplification can omit an important clause; explicit follow-up restored it in
-the live example. Exact formatting/counts are not guaranteed. Next unimplemented
-slice is joining editor dialogue to owned server preview/confirmation/receipt.
+the live example. Exact formatting/counts are not guaranteed. The handoff slice
+above is not a direct chat executor or full command orchestration. Assignment and
+document command integration remains future work; voice deferred.
 The dated release39 frontier below is historical, not current runtime evidence.
 
 | Module | Responsibility | Active mini-spec | Data owner / writer | Status |

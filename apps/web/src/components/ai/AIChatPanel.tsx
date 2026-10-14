@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
 import { X, Send, Sparkles } from 'lucide-react';
+import { buildCorrectionHandoffInstruction } from '@/lib/lessonCorrection';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -15,6 +16,7 @@ interface ChatMessage {
   apply_lesson_title_hint?: string;
   applied_lesson_id?: string;
   audience_recommendation?: AudienceRecommendation;
+  source_instruction?: string;
 }
 
 interface AudienceScope {
@@ -48,6 +50,8 @@ interface AIChatPanelProps {
   focusModuleTitle?: string;
   // Triggered when AI suggests a lesson edit and user clicks Apply
   onLessonApplied?: () => void;
+  // Local staging only; the correction owner generates, validates and applies separately.
+  onReviewLessonSuggestion?: (lessonId: string, instruction: string) => boolean;
 }
 
 interface ChatSession {
@@ -67,6 +71,7 @@ export function AIChatPanel({
   focusModuleId,
   focusModuleTitle,
   onLessonApplied,
+  onReviewLessonSuggestion,
 }: AIChatPanelProps) {
   const { t, lang } = useT();
   const token = useAuthStore((s) => s.accessToken);
@@ -226,6 +231,7 @@ export function AIChatPanel({
           apply_lesson_content: data.apply_lesson_content,
           apply_lesson_title_hint: data.apply_lesson_title_hint,
           audience_recommendation: data.audience_recommendation,
+          source_instruction: userText,
         },
       ]);
     } catch (e) {
@@ -351,6 +357,22 @@ export function AIChatPanel({
     }
   };
 
+  const reviewSuggestion = (msg: ChatMessage) => {
+    const session = sessionRef.current;
+    if (!session?.active || session.sending || session.applying || !messages.includes(msg) || !focusLessonId
+      || msg.apply_lesson_id !== focusLessonId || !msg.apply_lesson_content || !msg.source_instruction || !onReviewLessonSuggestion) return;
+    const ui = {
+      ru: { large: 'Вариант слишком большой для проверки. Попросите ассистента сократить его и поручение.', blocked: 'Проверка сейчас недоступна. Нужен сохранённый текстовый урок в черновике; сначала завершите текущую проверку или подтверждение.' },
+      kk: { large: 'Нұсқа тексеру үшін тым үлкен. Көмекшіден нұсқа мен тапсырманы қысқартуды сұраңыз.', blocked: 'Тексеру қазір қолжетімсіз. Сақталған мәтіндік сабақ жобасы қажет; алдымен ағымдағы тексеруді не растауды аяқтаңыз.' },
+      en: { large: 'The candidate is too large to review. Ask the assistant to shorten it and the instruction.', blocked: 'Review is unavailable now. Select a saved draft text lesson and resolve the current request or confirmation first.' },
+    }[lang];
+    let instruction: string;
+    try { instruction = buildCorrectionHandoffInstruction(msg.source_instruction, msg.apply_lesson_content, lang); }
+    catch { toast.error(ui.large); return; }
+    if (!onReviewLessonSuggestion(focusLessonId, instruction)) { toast.error(ui.blocked); return; }
+    onClose();
+  };
+
   if (!open) return null;
 
   return (
@@ -421,10 +443,11 @@ export function AIChatPanel({
                   {m.applied_lesson_id === m.apply_lesson_id ? (
                     <Badge variant="secondary">{t('aiAssistant.applied')}</Badge>
                   ) : (
-                    <Button size="sm" variant="default" disabled={applying} onClick={() => applySuggestion(m)}>
-                      {t('aiAssistant.applyLesson')}
+                    <Button size="sm" variant="default" disabled={applying || (Boolean(onReviewLessonSuggestion && focusLessonId) && sending)} onClick={() => onReviewLessonSuggestion && focusLessonId ? reviewSuggestion(m) : void applySuggestion(m)}>
+                      {onReviewLessonSuggestion && focusLessonId ? ({ ru: 'Проверить вариант по источникам', kk: 'Нұсқаны дереккөздермен тексеру', en: 'Review candidate against sources' }[lang]) : t('aiAssistant.applyLesson')}
                     </Button>
                   )}
+                  {onReviewLessonSuggestion && focusLessonId && <p className="text-xs text-muted-foreground">{({ ru: 'Откроется поручение для ИИ-правки. Новый предпросмотр проверяется по документам и может отличаться от этого варианта. Переход не изменяет урок.', kk: 'AI түзету тапсырмасы ашылады. Жаңа ұсыныс құжаттармен тексеріледі және бұл нұсқадан өзгеше болуы мүмкін. Ауысу сабақты өзгертпейді.', en: 'This opens a correction instruction. The new preview is checked against documents and may differ from this candidate. Transferring it does not change the lesson.' }[lang])}</p>}
                 </div>
               )}
               {m.role === 'assistant' && m.audience_recommendation && renderAudienceRecommendation(m.audience_recommendation)}

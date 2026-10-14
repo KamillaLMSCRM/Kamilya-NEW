@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ForwardedRef } from 'react';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useLanguageStore } from '@/store/languageStore';
@@ -22,6 +22,10 @@ export interface LessonCorrectionPanelProps {
   onReload: () => void;
 }
 
+export interface LessonCorrectionPanelHandle {
+  stageInstruction: (request: { lessonId: string; locale: 'ru' | 'kk' | 'en'; instruction: string }) => boolean;
+}
+
 type Locale = 'ru' | 'kk' | 'en';
 const COPY = {
   ru: {
@@ -38,6 +42,7 @@ const COPY = {
     review: 'Источники и тест требуют проверки; согласование курса нужно пройти заново.',
     historical: 'Это квитанция выполненной правки, а не текущий текст урока. Последующие ручные изменения сохранены.',
     reload: 'Обновить сохранённый урок', working: 'Проверка…', identity: 'Этот план относится к другому уроку или курсу.',
+    retryRestore: 'Повторить загрузку правки', restoreUnknown: 'Не удалось проверить сохранённую правку. Повторите загрузку этого же плана, прежде чем создавать новый.',
   },
   kk: {
     title: 'AI көмегімен сабақты түзету', instruction: 'Сабақта нені өзгерту керек', prepare: 'Түзету ұсыну',
@@ -53,6 +58,7 @@ const COPY = {
     review: 'Дереккөздер мен тестті тексеріп, курсты қайта келісу керек.',
     historical: 'Бұл — орындалған түзетудің түбіртегі, сабақтың ағымдағы мәтіні емес. Кейінгі қолмен жасалған өзгерістер сақталған.',
     reload: 'Сақталған сабақты жаңарту', working: 'Тексерілуде…', identity: 'Бұл жоспар басқа сабаққа немесе курсқа тиесілі.',
+    retryRestore: 'Түзетуді қайта жүктеу', restoreUnknown: 'Сақталған түзетуді тексеру мүмкін болмады. Жаңасын жасамас бұрын осы жоспарды қайта жүктеңіз.',
   },
   en: {
     title: 'AI lesson correction', instruction: 'What to change in the lesson', prepare: 'Propose correction',
@@ -68,6 +74,7 @@ const COPY = {
     review: 'Sources and the quiz require review; course approval must be renewed.',
     historical: 'This is a receipt for a past correction, not the current lesson text. Later manual changes are preserved.',
     reload: 'Reload saved lesson', working: 'Checking…', identity: 'This plan belongs to a different lesson or course.',
+    retryRestore: 'Retry loading correction', restoreUnknown: 'The saved correction could not be checked. Reload this same plan before creating another.',
   },
 } as const;
 
@@ -88,17 +95,18 @@ function rememberPlan(id: string | null) {
   window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
 }
 
-export default function LessonCorrectionPanel(props: LessonCorrectionPanelProps) {
+export default forwardRef<LessonCorrectionPanelHandle, LessonCorrectionPanelProps>(function LessonCorrectionPanel(props, ref) {
   const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.accessToken);
   if (process.env.NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED !== 'true'
     || process.env.NEXT_PUBLIC_METHODOLOGIST_LESSON_CORRECTION_ENABLED !== 'true'
     || user?.role !== 'methodologist' || user.impersonated_by || !token) return null;
-  return <Panel key={`${token}:${user.user_id}:${user.tenant_id}:${props.courseId}:${props.lessonId}`} {...props} />;
-}
+  return <Panel key={`${token}:${user.user_id}:${user.tenant_id}:${props.courseId}:${props.lessonId}`} {...props} handleRef={ref} />;
+});
 
-function Panel(props: LessonCorrectionPanelProps) {
+function Panel(props: LessonCorrectionPanelProps & { handleRef: ForwardedRef<LessonCorrectionPanelHandle> }) {
   const locale = localeOf(useLanguageStore((state) => state.lang));
+  const localeRef = useRef(locale); localeRef.current = locale;
   const ui = COPY[locale];
   const propsRef = useRef(props); propsRef.current = props;
   const uiRef = useRef(ui); uiRef.current = ui;
@@ -116,26 +124,38 @@ function Panel(props: LessonCorrectionPanelProps) {
   const controller = useRef<AbortController | null>(null);
   const mounted = useRef(false);
   const activeWrite = useRef(false);
+  const operationPending = useRef(false);
+  const unresolvedPreview = useRef(false);
+  const unresolvedApplication = useRef(false);
+  const previewContext = useRef<{ state: LessonCorrectionPreview['state']; locale: Locale } | null>(null);
+  const instructionRef = useRef<HTMLTextAreaElement>(null);
 
   const begin = () => {
     controller.current?.abort();
     const signal = new AbortController(); controller.current = signal;
-    const current = ++epoch.current; setPending(true); setError(null);
+    const current = ++epoch.current; operationPending.current = true; setPending(true); setError(null);
     return { signal: signal.signal, current };
   };
   const currentOperation = (current: number) => mounted.current && current === epoch.current;
   const finish = (current: number) => {
     if (!currentOperation(current)) return;
+    operationPending.current = false;
     setPending(false);
     if (activeWrite.current) { activeWrite.current = false; propsRef.current.onApplyingChange(false); }
   };
-  const verifyPreview = (value: LessonCorrectionPreview) => {
+  const verifyPreview = (value: LessonCorrectionPreview, preparedLocale = localeRef.current) => {
     if (value.lesson_id !== propsRef.current.lessonId) throw new Error('Correction target mismatch');
-    setPreview(value); setReviewed(false); setInvalidated(false); setAttempt(null); rememberPlan(value.plan_id);
+    unresolvedPreview.current = false;
+    previewContext.current = { state: value.state, locale: preparedLocale };
+    const stale = value.state === 'ready' && (preparedLocale !== localeRef.current || value.before_content !== propsRef.current.savedContent);
+    setPreview(value); setReviewed(false); setInvalidated(stale); setAttempt(null); rememberPlan(value.plan_id);
+    if (stale) setError(uiRef.current.unavailable);
   };
   const acceptReceipt = (value: CorrectionApplicationReceipt, confirmed?: LessonCorrectionPreview) => {
     if (value.lesson_id !== propsRef.current.lessonId || value.course_id !== propsRef.current.courseId) throw new Error('Correction target mismatch');
     if (confirmed && (value.plan_id !== confirmed.plan_id || value.revision !== confirmed.revision || value.fingerprint !== confirmed.fingerprint)) throw new Error('Correction seal mismatch');
+    unresolvedPreview.current = false; unresolvedApplication.current = false;
+    previewContext.current = null;
     setReceipt(value); setUncertain(false); setError(null); setAttempt(null); rememberPlan(value.plan_id);
     const latest = propsRef.current;
     if (confirmed?.proposal && confirmed.before_content !== null && !latest.dirty
@@ -145,27 +165,50 @@ function Panel(props: LessonCorrectionPanelProps) {
     setPreview(null);
   };
 
+  useImperativeHandle(props.handleRef, () => ({
+    stageInstruction(request) {
+      const latest = propsRef.current;
+      if (!mounted.current || operationPending.current || activeWrite.current || unresolvedPreview.current || unresolvedApplication.current
+        || previewContext.current?.state === 'pending'
+        || latest.dirty || latest.editorBusy || request.lessonId !== latest.lessonId || request.locale !== localeRef.current || locale !== localeRef.current
+        || typeof request.instruction !== 'string' || !request.instruction.trim() || Array.from(request.instruction).length > 4000) return false;
+      controller.current?.abort(); const stagedEpoch = ++epoch.current;
+      previewContext.current = null;
+      setInstruction(request.instruction); setPreview(null); setReceipt(null); setAttempt(null);
+      setReviewed(false); setInvalidated(false); setError(null); setUncertain(false); rememberPlan(null);
+      // Defer focus until the chat dialog has closed/restored its prior focus.
+      window.setTimeout(() => {
+        if (!currentOperation(stagedEpoch) || locale !== localeRef.current) return;
+        instructionRef.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+        instructionRef.current?.focus();
+      }, 0);
+      return true;
+    },
+  }), [locale]);
+
+  const restore = async (id: string) => {
+    if (operationPending.current) return;
+    unresolvedApplication.current = true;
+    const operation = begin();
+    try {
+      const applied = await loadLessonCorrectionApplication(id, operation.signal);
+      if (!currentOperation(operation.current)) return;
+      if (applied) acceptReceipt(applied);
+      else {
+        const loaded = await loadLessonCorrection(id, operation.signal);
+        if (currentOperation(operation.current)) { verifyPreview(loaded); unresolvedApplication.current = false; }
+      }
+    } catch (cause) {
+      if (currentOperation(operation.current) && !cancelled(cause)) setError(uiRef.current.restoreUnknown);
+    } finally { finish(operation.current); }
+  };
+
   useEffect(() => {
     mounted.current = true;
     const id = new URLSearchParams(window.location.search).get('correction_plan');
-    if (id) {
-      const operation = begin();
-      void (async () => {
-        try {
-          const applied = await loadLessonCorrectionApplication(id, operation.signal);
-          if (!currentOperation(operation.current)) return;
-          if (applied) acceptReceipt(applied);
-          else {
-            const loaded = await loadLessonCorrection(id, operation.signal);
-            if (currentOperation(operation.current)) verifyPreview(loaded);
-          }
-        } catch (cause) {
-          if (currentOperation(operation.current) && !cancelled(cause)) setError(uiRef.current.identity);
-        } finally { finish(operation.current); }
-      })();
-    }
+    if (id) void restore(id);
     return () => {
-      mounted.current = false; controller.current?.abort(); epoch.current += 1;
+      mounted.current = false; controller.current?.abort(); epoch.current += 1; operationPending.current = false;
       if (activeWrite.current) { activeWrite.current = false; propsRef.current.onApplyingChange(false); }
     };
     // Identity changes remount Panel. This mount-only restore is also StrictMode-safe.
@@ -186,22 +229,25 @@ function Panel(props: LessonCorrectionPanelProps) {
     previous.current = { locale, dirty: props.dirty, savedContent: props.savedContent };
     if (!changed && !dirtyChanged) return;
     setReviewed(false);
-    if (activeWrite.current || uncertain || receipt) return;
+    if (activeWrite.current || uncertain || receipt || unresolvedApplication.current || unresolvedPreview.current || previewContext.current?.state === 'pending') return;
     if (props.dirty) { setInvalidated(true); return; }
-    controller.current?.abort(); epoch.current += 1; setPending(false);
+    controller.current?.abort(); epoch.current += 1; operationPending.current = false; unresolvedPreview.current = false; setPending(false);
+    previewContext.current = null;
     setPreview(null); setAttempt(null); setError(null); setInvalidated(false); rememberPlan(null);
   }, [locale, props.dirty, props.savedContent, uncertain, receipt]);
 
   const create = async (body?: LessonCorrectionRequest) => {
     if (pending || uncertain || props.dirty || props.editorBusy || (!body && !instruction.trim())) return;
+    if (!body && (unresolvedPreview.current || unresolvedApplication.current || previewContext.current?.state === 'pending')) return;
     const request = body ?? { request_key: crypto.randomUUID(), lesson_id: props.lessonId, instruction, locale };
-    const operation = begin(); setReceipt(null); setPreview(null); setReviewed(false); setAttempt(request);
+    const operation = begin(); unresolvedPreview.current = true; previewContext.current = null; setReceipt(null); setPreview(null); setReviewed(false); setAttempt(request);
     try {
       const result = await createLessonCorrection(request, operation.signal);
-      if (currentOperation(operation.current)) verifyPreview(result);
+      if (currentOperation(operation.current)) verifyPreview(result, request.locale);
     } catch (cause) {
       if (currentOperation(operation.current) && !cancelled(cause)) {
         if (structuredPreviewRefusal(cause)) {
+          unresolvedPreview.current = false;
           setAttempt(null);
           setError(uiRef.current.previewRejected);
         } else setError(uiRef.current.previewUnknown);
@@ -211,10 +257,11 @@ function Panel(props: LessonCorrectionPanelProps) {
 
   const refreshPreview = async () => {
     if (!preview || pending) return;
+    const preparedLocale = previewContext.current?.locale ?? localeRef.current;
     const operation = begin();
     try {
       const result = await loadLessonCorrection(preview.plan_id, operation.signal);
-      if (currentOperation(operation.current)) verifyPreview(result);
+      if (currentOperation(operation.current)) verifyPreview(result, preparedLocale);
     } catch (cause) {
       if (currentOperation(operation.current) && !cancelled(cause)) { setInvalidated(true); setError(uiRef.current.unavailable); }
     } finally { finish(operation.current); }
@@ -247,7 +294,7 @@ function Panel(props: LessonCorrectionPanelProps) {
       if (currentOperation(operation.current)) acceptReceipt(applied, confirmed);
     } catch (cause) {
       if (!currentOperation(operation.current) || cancelled(cause)) return;
-      setUncertain(true);
+      unresolvedApplication.current = true; setUncertain(true);
       try {
         const applied = await loadLessonCorrectionApplication(confirmed.plan_id, operation.signal);
         if (!currentOperation(operation.current)) return;
@@ -255,6 +302,7 @@ function Panel(props: LessonCorrectionPanelProps) {
         else {
           const failed = httpFailure(cause).response;
           if (failed && failed.status && failed.status < 500 && failed.data?.detail !== 'correction_application_busy') {
+            unresolvedApplication.current = false;
             setUncertain(false); setInvalidated(true); setReviewed(false); setError(uiRef.current.unavailable);
           } else setError(uiRef.current.uncertain);
         }
@@ -262,15 +310,22 @@ function Panel(props: LessonCorrectionPanelProps) {
     } finally { finish(operation.current); }
   };
 
+  const recoveryBlocked = Boolean(attempt || preview?.state === 'pending' || unresolvedApplication.current);
   return <Card className="min-w-0 border-primary/30">
     <CardHeader><CardTitle>{ui.title}</CardTitle><p className="text-sm">{props.lessonTitle}</p><p className="text-sm text-muted-foreground">{ui.help}</p></CardHeader>
     <CardContent className="min-w-0 space-y-4">
       {props.dirty && <p role="status" className="text-sm text-amber-700">{ui.dirty}</p>}
-      <label className="block text-sm font-medium">{ui.instruction}<textarea className="mt-2 w-full rounded border p-2" rows={3} maxLength={4000} value={instruction} disabled={pending || uncertain} onChange={(event) => {
-        controller.current?.abort(); epoch.current += 1; setPending(false); setInstruction(event.target.value);
+      <label className="block text-sm font-medium">{ui.instruction}<textarea ref={instructionRef} className="mt-2 w-full rounded border p-2" rows={3} maxLength={4000} value={instruction} disabled={pending || uncertain || recoveryBlocked} onChange={(event) => {
+        if (operationPending.current || unresolvedPreview.current || unresolvedApplication.current || previewContext.current?.state === 'pending' || uncertain) return;
+        controller.current?.abort(); epoch.current += 1; operationPending.current = false; unresolvedPreview.current = false; setPending(false); setInstruction(event.target.value);
+        previewContext.current = null;
         setPreview(null); setReceipt(null); setAttempt(null); setReviewed(false); setInvalidated(false); setError(null); rememberPlan(null);
       }} /></label>
-      <Button type="button" onClick={() => void create()} disabled={pending || uncertain || !!attempt || props.dirty || props.editorBusy || !instruction.trim()}>{ui.prepare}</Button>
+      <Button type="button" onClick={() => void create()} disabled={pending || uncertain || recoveryBlocked || props.dirty || props.editorBusy || !instruction.trim()}>{ui.prepare}</Button>
+      {unresolvedApplication.current && !uncertain && <Button type="button" variant="outline" disabled={pending} onClick={() => {
+        const id = new URLSearchParams(window.location.search).get('correction_plan');
+        if (id) void restore(id);
+      }}>{ui.retryRestore}</Button>}
       {attempt && !preview && !receipt && <Button type="button" variant="outline" disabled={pending || props.dirty || props.editorBusy} onClick={() => void create(attempt)}>{ui.retryPreview}</Button>}
       {pending && <p role="status" aria-live="polite" className="text-sm">{ui.working}</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}

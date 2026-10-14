@@ -10,13 +10,15 @@ const confirmMock = vi.hoisted(() => vi.fn().mockResolvedValue(false));
 const routerPushMock = vi.hoisted(() => vi.fn());
 const correctionHarness = vi.hoisted(() => ({ enabled: false, props: null as any }));
 
-vi.mock('@/features/methodologist-workbench/LessonCorrectionPanel', () => ({
-  default: (props: any) => {
+vi.mock('@/features/methodologist-workbench/LessonCorrectionPanel', async () => {
+  const { forwardRef } = await import('react');
+  return { default: forwardRef(function CorrectionHarness(props: any, _ref) {
+    void _ref;
     correctionHarness.props = props;
     if (!correctionHarness.enabled) return null;
     return <div><button onClick={() => props.onApplied({ course_id: 'course-1', lesson_id: 'lesson-1' }, '# AI-правка', lesson.content)}>Apply synthetic correction</button><button onClick={() => props.onApplyingChange(true)}>Begin correction</button><button onClick={() => props.onReload()}>Reload synthetic correction</button></div>;
-  },
-}));
+  }) };
+});
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'course-1' }),

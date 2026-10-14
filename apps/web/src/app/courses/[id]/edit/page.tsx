@@ -29,7 +29,7 @@ import { AIChatPanel } from '@/components/ai/AIChatPanel';
 import { ApprovalPolicyCard } from '@/components/course-approval/ApprovalPolicyCard';
 import { coursePublicationError } from '@/lib/coursePublicationError';
 import { LessonContent } from '@/features/course-authoring/LessonContent';
-import LessonCorrectionPanel from '@/features/methodologist-workbench/LessonCorrectionPanel';
+import LessonCorrectionPanel, { type LessonCorrectionPanelHandle } from '@/features/methodologist-workbench/LessonCorrectionPanel';
 import type { CorrectionApplicationReceipt } from '@/lib/lessonCorrection';
 
 interface Lesson {
@@ -62,7 +62,7 @@ export default function CourseEditPage() {
   const params = useParams();
   const router = useRouter();
   const courseId = params?.id as string;
-  const { t } = useT();
+  const { t, lang } = useT();
   const { confirm, dialog } = useConfirm();
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -86,6 +86,7 @@ export default function CourseEditPage() {
   const [releaseAction, setReleaseAction] = useState<'approve' | 'publish' | null>(null);
   const [correctionBusy, setCorrectionBusy] = useState(false);
   const correctionBusyRef = useRef(false);
+  const correctionPanelRef = useRef<LessonCorrectionPanelHandle>(null);
 
   // AI chat panel state — opens as a slide-over from the right.
   const [chatOpen, setChatOpen] = useState(false);
@@ -785,7 +786,7 @@ export default function CourseEditPage() {
       </div>
       </fieldset>
       {course.status === 'draft' && activeLesson?.content_type === 'text' && editingLessonId && (
-        <LessonCorrectionPanel courseId={courseId} lessonId={editingLessonId} lessonTitle={savedLessonTitle}
+        <LessonCorrectionPanel ref={correctionPanelRef} courseId={courseId} lessonId={editingLessonId} lessonTitle={savedLessonTitle}
           savedContent={savedLessonContent} dirty={lessonDirty} editorBusy={savingLesson || loadingLessonId !== null || releaseAction !== null}
           onApplied={onCorrectionApplied} onApplyingChange={onCorrectionApplyingChange}
           onReload={() => void handleSelectLessonReload()} />
@@ -801,6 +802,12 @@ export default function CourseEditPage() {
         focusModuleId={chatFocus.moduleId}
         focusModuleTitle={chatFocus.moduleTitle}
         onLessonApplied={() => fetchData()}
+        onReviewLessonSuggestion={(lessonId, instruction) => {
+          if (course.status !== 'draft' || activeLesson?.content_type !== 'text' || activeLesson.id !== lessonId
+            || editingLessonId !== lessonId || chatFocus.lessonId !== lessonId || correctionBusyRef.current
+            || lessonDirty || savingLesson || loadingLessonId || releaseAction) return false;
+          return correctionPanelRef.current?.stageInstruction({ lessonId, instruction, locale: lang }) ?? false;
+        }}
       />
     </div>
   );

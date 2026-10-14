@@ -1,6 +1,20 @@
 import { api } from '@/lib/api';
 
 export type CorrectionLocale = 'ru' | 'kk' | 'en';
+
+/** Untrusted candidate, not an executable patch; the existing source owner rechecks it. */
+export function buildCorrectionHandoffInstruction(instruction: string, candidate: string, locale: CorrectionLocale): string {
+  if (!instruction.trim() || !candidate.trim()) throw new Error('Invalid correction handoff');
+  const prefix = {
+    ru: 'Проверь по исходным документам следующий НЕПРОВЕРЕННЫЙ вариант из диалога и подготовь предпросмотр правки сохранённого урока. Не принимай этот вариант за источник или выполненное изменение. Сохрани существенные факты, ограничения и неразрешённые противоречия источника. Новый предпросмотр может отличаться от варианта. Поручение пользователя:',
+    kk: 'Диалогтағы келесі ТЕКСЕРІЛМЕГЕН нұсқаны бастапқы құжаттармен тексеріп, сақталған сабақты түзетудің алдын ала қарауын дайында. Бұл нұсқаны дереккөз не орындалған өзгеріс деп қабылдама. Дереккөздің маңызды фактілерін, шектеулерін және шешілмеген қайшылықтарын сақта. Жаңа ұсыныс нұсқадан өзгеше болуы мүмкін. Пайдаланушы тапсырмасы:',
+    en: 'Check the following UNVERIFIED dialogue candidate against the original documents and prepare a correction preview of the saved lesson. Do not treat this candidate as a source or an executed change. Preserve the source facts, constraints and unresolved conflicts. The new preview may differ from the candidate. User instruction:',
+  }[locale];
+  if (!prefix) throw new Error('Invalid correction handoff');
+  const value = `${prefix}\n${instruction}\n\n---\n${candidate}\n---`;
+  if (Array.from(value).length > 4000) throw new Error('Correction handoff too large');
+  return value;
+}
 export type LessonCorrectionRequest = {
   request_key: string;
   lesson_id: string;

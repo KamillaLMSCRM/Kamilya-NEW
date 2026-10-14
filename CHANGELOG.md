@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Stage a selected lesson's chat proposal in the existing source-owned correction
+  panel, without a request or direct PATCH. Explicit preview/source review/consent
+  and the existing sealed application receipt remain separate. Guard unsaved,
+  pending/unknown outcomes, stale context and oversized unverified candidates;
+  preserve course/module legacy behavior. Local candidate, not yet deployed.
 - Add strict V5 DEV activation packets for lesson correction, exact schema0178
   evidence and independent workbench/document/correction flags. All nine flag
   inventories precede writes; new keys use single-key idempotent writes with

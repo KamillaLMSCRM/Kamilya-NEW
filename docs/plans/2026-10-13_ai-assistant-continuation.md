@@ -1,6 +1,6 @@
 # AI assistant continuation — text-first
 
-Status: active; local slices verified; owner authorized DEV then production49 on2026-10-14.
+Status: active; released49 accepted; next editor→correction handoff is local only.
 Product owner: human owner, request2026-10-13 to continue the in-product assistant.
 Technical/root owner: Root. Reviewer: independent Test & Evidence Runner.
 Baseline: fa39b060, released native48/API47. Runtime truth remains in
@@ -152,3 +152,49 @@ remain retained, no threshold/test waiver. Current evidence belongs to release49
 notes/TestRunner ledger/ignored ASSISTANT49 receipts; no whole-assistant completion.
 Step4 remains open: accept a specific impact matrix and seam tests before joining
 dialogue to server-owned preview/confirmation/receipt.
+
+## Step4 first slice — explicit local handoff,2026-10-14
+
+Owner requests continued in-product assistant work. Root accepts
+EDITOR_CORRECTION_HANDOFF_V1 before implementation: selected draft/text lesson
+chat candidate→bounded unverified instruction staging→existing explicit preview/
+source consent→unchanged sealed application/receipt. Staging itself makes no
+request. Sole page consumer validates selection/draft/type/dirty/load/save/release;
+existing correction module hides request/unknown-result/auth/flags/locale guards.
+Course/module chat legacy behavior, server schemas/owners/budgets/providers and
+normal manual lesson editing unchanged. Optional compatible local handle only,
+no durable store or new endpoint. Candidate may differ from source-checked preview.
+
+Initial ten new seam cases7RED/3PASS; helper/handle/button unavailable at baseline.
+First implemented60PASS after fixing a test matcher, then actual page consumer
+happy path and dirty/published/nontext/flags negatives plus actor/locale/stale/
+lost-request guards added. A restore edge was included: an offline receipt lookup
+must keep its exact URL locator across locale reset and refuse staging.
+Final source/full suite/types/lint/build/independent review remains the local gate.
+DEV/browser/model and production49 runtime remain unchanged; no release implied.
+Original RED/type/matcher attempts retained as evidence with failure classification.
+CodeGraph read-only preflight stale, canonical pre-change sync rejected excluded4;
+bounded named-source fallback used, no rejected query or efficiency claim.
+
+Independent R1/R2 found unresolved-result reset/edit paths. Root reproduced
+locale/source/server-pending3RED and unknown-edit/restore2RED, accepted V1.1 before
+recovery UI expansion, and repaired at the owning correction panel. Same key/body/
+locale and same-ID GETs now survive unknown outcomes; no new generation as recovery.
+Known old-context result is invalid for application, not silently applied. New
+structured-refusal admission/explicit restore recovery regressions pass; focused
+3files64PASS and R3 independent source review accepted, with Root hash verification.
+Earlier full1062/1065PASS are predecessor runs, not current acceptance; final exact
+source full/type/lint/build result follows. Post-change CodeGraph sync again rejects
+excluded4; no third identical rebuild/query, bounded source fallback retained.
+
+Local final gate: source unchanged after R3; Root compared all11 reviewed input
+hashes and accepted the module/seam. Final web155files/1068PASS153.74s,
+typecheck/changed-file ESLint maxWarnings0 and Next production build67/67 pages PASS.
+No assertion/timeouts relaxed, no extra model/provider/test fixture operations.
+Existing warning debt in unrelated tests retained, not a zero-warning whole-suite
+claim. Independent reviewer did source review, not Root's executed tests.
+This completes the first local step4 slice, not live activation or the whole
+assistant. Next gate: ordinary synthetic DEV dialogue→handoff→source-owned preview
+→source download/check→explicit same-seal application/receipt/reload/unknown-result
+recovery, after exact existing-contour deployment authority. Production49 remains
+outside this candidate; no release/version/tag/provider changes in this iteration.
