@@ -1,6 +1,14 @@
 # AI assistant continuation — text-first
 
-Status: active; released49 accepted; next editor→correction handoff is local only.
+Status: active overall; editor→source-correction handoff released50/accepted.
+Current frontend50/DEV50 source6d2a043520044db01dd74f36d89a72ead9fe8d62,
+production API/threeworkers49 unchanged. Final actual DEV and production model,
+source download, deliberate handoff, same-seal apply, full reload and later manual
+preservation PASS. Original QA text restored; normal audit/receipt retained.
+This closes the bounded handoff slice, not durable dialogue/full assistant/voice.
+Durable facts transferred to PRODUCTION_READINESS/release50/USER_DOCUMENTATION/
+TEST_RUN_LEDGER; remaining epic order below stays active, historical local gates
+are not current release blockers. Voice stays deferred; no future rollout authority.
 Current owner2026-10-14 now authorizes DEV→real model/source/application/reload,
 fixes, then production/native50 and final live acceptance. Root binds the
 frontend-only payload after901320e9; production API/threeworkers49 stay unchanged.

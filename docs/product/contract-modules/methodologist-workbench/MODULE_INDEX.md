@@ -2,16 +2,18 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
-Current released frontier2026-10-14: source download/context lifecycle/bounded
-editor dialogue accepted in DEV and production49/source3fe3c39a. Actual download
-bytes and real context-dependent follow-up/reset behavior passed; scope and model
-quality caveats are owned by PRODUCTION_READINESS/release49/Test Runner ledger.
+Current released frontier2026-10-14: frontend50/DEV50 source6d2a0435, unchanged
+production API/threeworkers49. Real dialogue/plain follow-up→unverified handoff→
+source preview/download→explicit sealed apply→full reload/later manual preservation
+accepted on existing synthetic QA drafts. Source review may require refinement;
+no universal quality guarantee. Scope/limits: PRODUCTION_READINESS/release50/ledger.
 Active additive contracts:
 [editor→correction handoff V1](contracts/EDITOR_CORRECTION_HANDOFF_V1.md) defines
-the next frontend-only local slice: explicitly stage an unverified chat candidate,
+the accepted frontend-only slice: explicitly stage an unverified chat candidate,
 then use the existing source preview/consent/seal/receipt owner. Local implementation
-accepted: focused64/full web1068/types/lint/build67 and independent R3 source
-review PASS; no DEV/production activation. No new command owner.
+accepted through final full1088/types/lint/build67 and independent architecture/
+rendering/semantic reviews; actual DEV/production activated and accepted. No new
+server/command owner; history remains ephemeral and voice remains deferred.
 [recovery V1.1](contracts/EDITOR_CORRECTION_HANDOFF_V1_1.md) preserves unknown
 request keys/pending locators across locale/source/instruction changes and adds
 explicit same-ID restore reads. Server/HTTP contracts remain unchanged.

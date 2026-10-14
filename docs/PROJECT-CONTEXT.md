@@ -25,7 +25,27 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current environment correction — production/DEV49,2026-10-14
+## Current environment — frontend50/API49, DEV50,2026-10-14
+
+Production native frontend50/tagv0.11.50 source
+`6d2a043520044db01dd74f36d89a72ead9fe8d62` accepted through canonical
+REL-ASSISTANT50-WEB-20261014, masterCI38554065318/native38551594406.
+API/threeworkers intentionally remain49/source3fe/imagec3c; schema0178, backups,
+flags, watchdog49 and ops timers unchanged/healthy. Immediate native rollback49/
+3fe, additional48/3609 and protected359/299 retained; backend rollback47 unchanged.
+Only obsolete native47 and exact staging pair cleaned recoverably under frozen50
+standing capacity rule. No Proxmox, bootstrap, billing/resource/role/flag change.
+
+DEV exact6d2/0.11.50, unchanged Hobby/Free/Free:
+Vercel dpl_AWGhYXA9ji7trLi8tqYyrUx4QpyQ READY;
+API dep-db7ls0ivcj2c73e4an30 and worker dep-db7lt0qvcj2c73e4dtgg live,
+all9 existing flags verified. Ordinary QA actual model→source handoff/download→
+sealed apply→reload/manual preservation passed in both contours; original QA text
+restored, no publication/assignment/completed-learning/customer writes. Normal
+audit/receipt/review timestamps retained, not an all-column or zero-row rollback.
+Canonical current gate/limits: PRODUCTION_READINESS/release50/TEST_RUN_LEDGER.
+
+## Historical environment correction — production/DEV49,2026-10-14
 
 Production API/threeworkers/native frontend49 and DEV API/worker/Vercel exact
 `3fe3c39acbd256d7e4fa65b91a0c22ce429c295f`, immutable tagv0.11.49.

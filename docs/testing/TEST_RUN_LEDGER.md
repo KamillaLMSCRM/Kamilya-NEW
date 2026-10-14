@@ -3906,3 +3906,73 @@ Rules:
   excluded4; no graph queries or completeness claim. Static review report:
   `.release-evidence/ASSISTANT49-20261014/handoff-review-r3.json`. Root owns all
   governance/source closeout; ledger entry records scoped local verification only.
+
+## ASSISTANT50 — final DEV and production acceptance,2026-10-14
+
+- Scope: saved text lesson in existing synthetic QA draft only; voice deferred.
+  Frontend50/tag6d2a043520044db01dd74f36d89a72ead9fe8d62; API/threeworkers49/source3fe/
+  imagec3c unchanged/schema0178. No publication/assignment/completed-learning/
+  customer/role/flags/billing/resource change. Runtime/tag differs from docs child.
+- Retained findings: Date-space CI failure fixed without gate bypass; captured
+  real plain simplification output had no source-review handoff, RED→GREEN and
+  partial-metadata negatives; Save was covered by ASIDE at1270 (keyboard worked),
+  CSS two/three-column/wrapping repaired; mobile intrinsic outline minimum fixed.
+  Journal fake accepted a scan on second GET before POST; now exact review POST
+  controls fake state, post-click reread assertion stronger, timeouts unchanged.
+- Final Root local1088/155 PASS149.474s, type/changed lint/build67 PASS; independent
+  architecture/rendering/fixture review hashes checked. Failed/interrupted/harness
+  attempts retained, not relabelled green. Actual fresh DEV tab7 mobile380/scroll380
+  and wide1590/scroll1590 mouse PATCH200 passed. Wrong-tab/raw emulation attempts
+  NOT_ACCEPTED; overrides cleared. Not real-phone touch proof or JSDOM geometry.
+- DEV exact6d2: CI38551566543; Vercel dpl_AWGhYXA9ji7trLi8tqYyrUx4QpyQ/Hobby,
+  API dep-db7ls0ivcj2c73e4an30/Free, worker dep-db7lt0qvcj2c73e4dtgg/Free,
+  all9flags unchanged. Root2chat/2preview/1apply HTTP200; unique label retained
+  without repeat in follow-up. Latest plain reply staged with0writes. Human source
+  check refined compressed deadline; old preview invalid/not applied. Actual923B
+  source download/original hash equal, consent/seal/apply/full reload, manual Save
+  and second reload preserving later text. Original QA lesson bytes restored.
+- Production masterCI38554065318/all7SUCCESS, native38551594406/artifact11887097004,
+  frozen REL-ASSISTANT50-WEB-20261014. Capacity BLOCKED receipt preserved; exact
+  successful native47/staging pair cleaned under standing rule with original
+  offhost recovery retained and independent readback. Free1119884→1763592KiB;
+  current49/rollback48/protected359/299/API unchanged. Fresh preflight READY;
+  pure6-evidence/2approval GO/actionablefalse, Root13 binding hashes/authority
+  checked; canonical execute RELEASE_OK, Root exact current/marker/public6d2 PASS.
+- Root ordinary production QA methodologist tenant83552ce6…/course54e13f71…/
+  lessondc13fa24…:2chat/1preview/1sealed apply,0writes at latest-reply handoff.
+  Actual source download923B/SHA374670eb…6bf equals original. Four bullets retained
+  both exact deadlines, missing owner/active edition, prohibitions and preservation;
+  preview removed service commentary. Apply disabled before consent/enabled after;
+  plan283afe55-d876-4841-b9e9-34b3d16b9977/revision1/seal sent once.
+- Full reload preserved text/receipt; same-ID /application GET200 recovered receipt
+  after original response body was evicted, no apply replay. Source/quiz needs_review.
+  Ordinary mouse Save/PATCH200 restored original488chars/hash1e09ee56…5dee; second
+  reload retained historical receipt without overwriting manual text. Both reloads
+ 0business writes, ordinary auth-refresh POST allowed. Fresh API readback11:29:52Z
+  confirmed draft/unpublished/0enrollments/source/originalbytes. Normal timestamps,
+  review invalidation/audit/usage/90dreceipt and abandoned DEV preview retained;
+  not all-column/all-table/zero-row rollback; no accounts/courses/enrollments created.
+- Independent Runner verified five source/receipt hashes and semantic coherence,
+  not another actual browser/model run. Root owns final GO. Reporting corrections
+  bind exact phase receipt path and distinguish preflight48 from immediate native
+  previous-current49 rollback;48 remains extra, protected359/299 intact, backend47
+  rollback unchanged. Switch/new restore drill NOT_RUN, prior restore proof reused.
+- Final API+3workers49 healthy/restarts0/flags3, schema0178/backup/ops timers/checks
+  success; VM disk83%, native50 free1115588KiB/current and four preserved releases
+  present, exact47 absent. No further cleanup/Proxmox/onhost build/rights change.
+- HTTP request→response seconds: DEV3.565/1.803/5.257/2.886; production2.358/2.108/
+ 1.990 (initial/follow-up/source preview). Not provider attempts, end-to-end human
+  time, SLA, dollar cost or human-efficiency comparison. Preview provenance reports
+  DeepSeek/deepseek-v4-flash/lesson-correction-v1/correction-preview-v1/lesson-quality-v20;
+  no provider/model configuration change. History4completed exchanges remains
+  session-only; currentfile download is not historical cited-byte equivalence;
+  formatting/title/semantics still require review, no universal first-pass claim.
+- Existing persistent runner lanes used without model/config switches; actual
+  Root/leaf elapsed/token/model-effort counters unavailable, not zero; no inferred
+  subscription/API savings. CodeGraph excluded4 fallback retained; no third identical
+  rebuild/query or graph-efficiency claim. Root owns canonical docs/cleanup/GO;
+  full assistant/durable dialogue/voice remain beyond this accepted handoff slice.
+- Sanitized receipts/screenshots: `.release-evidence/ASSISTANT50-20261014` and
+  canonical DEV/native release-ID directories. Durable current facts transferred to
+  PRODUCTION_READINESS/PROJECT-CONTEXT/CODEX_HANDOFF/USER_DOCUMENTATION/release50/
+  backlog/active plan/module index; documentation child does not retag/redeploy6d2.

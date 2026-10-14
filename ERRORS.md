@@ -2,6 +2,22 @@
 
 Current as of: 2026-10-14.
 
+## RELEASE-REPORT-001 - Missing-path and rollback labels inferred from packet
+
+- Date: 2026-10-14; native50 runner reporting, not deploy-helper failure.
+- Symptom: BLOCKED stdout omitted path; runner searched packet-directory guesses
+  and claimed no receipt although canonical evidence-root/release-ID/preflight.json
+  existed. Postdeploy report called old preflight48 the immediate rollback of50.
+- Cause: reporting inferred paths/rollback roles instead of using bridge-derived
+  phase path and actual former-current deploy argument.
+- Fix: runner instructions require exact canonical phase path on BLOCKED and
+  distinguish old preflight retention48 from new previous-successful49 rollback.
+  Root preserved original BLOCKED receipt before fresh-capacity preflight.
+- Verification: actual receipt/path/hash read back; fresh READY/execute RELEASE_OK;
+  native50 marker/public exact, boundary against49 PASS;48 retained extra. Actual
+  rollback switch NOT_RUN. This is a reporting fix, not new deployment authority.
+- Prevention: absence requires checking exact path; readiness is not a drill.
+
 ## TEST-JOURNAL-001 - Fixture accepted a signed scan on a second read
 
 - Date: 2026-10-14; repeated local full-suite failure, focused21 passed.
@@ -40,6 +56,12 @@ Current as of: 2026-10-14.
   single grid track still used intrinsic outline minimum. R5 adds explicit
   grid-cols-1/min-w-0 and shrinkable wrapping add-module input; no handler change.
   Added declarations RED before repair. Real final mobile/flow acceptance pending.
+- Final R5: documented fresh visible DEV tab7 actual mobile380/scroll380 enabled
+  Save center hits BUTTON, ordinary mouse PATCH200; wide1590/scroll1590 also PASS.
+  Root final DEV and production sealed cycle/reload/manual preservation PASS;
+  production1270 manual Save center hit BUTTON/PATCH200. Earlier wrong-tab/raw
+  emulation attempts were NOT_ACCEPTED and overrides cleared; no real-phone touch
+  or universal responsive-device claim. Final local1088/type/lint/build67 PASS.
 
 ## WB-CORRECTION-008 - Plain-text follow-up had no source-review handoff
 

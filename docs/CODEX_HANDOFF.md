@@ -5,7 +5,32 @@
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `fix/learner-presentation-release-20261010`; source published to `master`
 
-## Current production/DEV49,2026-10-14 — bounded assistant package closed
+## Current production frontend50/API49 and DEV50 — bounded handoff closed
+
+Runtime/tag50 source6d2a043520044db01dd74f36d89a72ead9fe8d62; exact masterCI
+38554065318/native38551594406/artifact11887097004. Canonical native50 RELEASE_OK;
+Root final UI/model/source/download/sealed apply/full reload/later-manual-text
+preservation and API readback passed, independently reviewed exact evidence hashes.
+Production API/threeworkers49/source3fe/imagec3c, schema0178/timers/backup unchanged.
+Native previous49/3fe is immediate rollback; preflight48/3609 is retained extra,
+protected359/299 present; backend47 rollback unchanged. Switch NOT_RUN.
+
+Only exact obsolete native47/staging pair cleaned recoverably under frozen50;
+free1115588KiB, VM disk83%. No Proxmox/onhost build/provider/rights/flag/resource/
+billing change. Existing QA draft bytes restored, no publication/assignments or
+completed-learning/customer mutation; normal audit/90d receipt remains.
+Current source page layout and test-fixture fixes accepted, full1088/type/lint/
+build67 PASS. Actual DEV source review refined one compressed deadline phrase;
+product requires human review, no first-pass universal quality guarantee.
+
+Release Runner routine now must inspect evidence-root/release-ID exact path on
+BLOCKED stdout and distinguish old preflight rollback from new previous-current
+rollback. These are reporting fixes only. Documentation child does not replace
+immutable tag/runtime6d2; never retag/redeploy it merely for documentation.
+Next product frontier: durable dialogue and broader command integration under
+the still-active continuation plan; voice deferred. Full assistant epic not closed.
+
+## Historical production/DEV49,2026-10-14 — bounded assistant package closed
 
 Runtime/tagsource3fe3c39acbd256d7e4fa65b91a0c22ce429c295f; exact DEV and master
 CI all7SUCCESS, protected38527015529/deployment7059236386, actual imagec3c35fb…bef6b;

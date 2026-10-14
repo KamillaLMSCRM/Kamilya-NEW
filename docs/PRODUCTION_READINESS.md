@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** backend/three workers/native frontend49; bounded assistant/source-download live acceptance closed2026-10-14; previous help/guide/quality lifecycles retained
+**Проверено:** frontend50/API+three workers49; actual assistant→source review→apply→reload accepted2026-10-14; previous help/guide/quality lifecycles retained
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,48 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production49 — source download and bounded dialogue accepted, 2026-10-14
+## Current production — frontend50, unchanged backend49, 2026-10-14
+
+Immutable source/tag `v0.11.50`:
+`6d2a043520044db01dd74f36d89a72ead9fe8d62`. Master CI38554065318/all7SUCCESS;
+native38551594406/artifact11887097004, all3 existing build flags unchanged.
+Canonical REL-ASSISTANT50-WEB-20261014 RELEASE_OK; Root current/marker/public
+identity and actual authenticated synthetic lifecycle passed. API/three workers
+remain49/source3fe/imagec3c, running/restarts0/health ok; schema0178/backup/timers
+unchanged. Frontend-only delta requires no backend deployment/watchdog change.
+
+Final local1088/155 files, types/changed lint/build67 PASS. Exact DEV6d2 on existing
+Hobby/Free/Free passed actual dialogue→plain simpler reply→explicit unverified
+handoff with0 writes→source preview/download923B→consent/sealed apply→full reload.
+Human source review refined compressed deadline wording; no universal first-pass
+quality claim. Actual default1270/mobile380/wide1590 layout checked, mobile/wide
+mouse PATCH200 passed; initial wrong-tab emulation attempts were NOT_ACCEPTED.
+
+Production ordinary QA methodologist:2 chat/1 preview/1 apply HTTP200, source file
+923B/original SHA equal; exact last reply handed off with0 writes. Four bullets
+retained all facts/constraints; source preview removed chat service commentary.
+Applied text/receipt persisted after full reload. Later ordinary mouse Save and
+second full reload preserved manual text despite historical receipt. Original
+488-character lesson bytes restored, course remains unpublished/zero enrollments.
+Auth-refresh POST is not business execution. Receipt/audit/usage/review timestamps
+remain under normal retention; no all-column/all-table/zero-row cleanup claim.
+Root observed actual UI/model; independent Runner reviewed exact receipt/source
+hashes and semantic coherence, not a second browser execution.
+
+Only obsolete successful native47/exact staging pair removed under frozen50
+capacity rule; offhost recovery retained. Immediate native rollback is former
+current49/3fe; preflight48/3609 remains additional recovery, protected359/299 intact.
+Backend rollback47 is separate and unchanged. Actual rollback switch NOT_RUN.
+Native free1115588KiB after final readback, VM disk83%; no further cleanup needed
+for this completed release. No Proxmox/onhost build, billing/resources/flags/roles,
+provider/model, DB, landing or DNS changes. Runtime/tag6d2 is distinct from later
+documentation-only master child. Durable dialogue/full command integration and
+voice are not delivered by this slice; voice remains deferred.
+
+Evidence: release50 notes and TEST_RUN_LEDGER; sanitized raw receipts in
+`.release-evidence/ASSISTANT50-20261014` and canonical native release-ID directory.
+
+## Historical production49 — source download and bounded dialogue accepted, 2026-10-14
 
 Runtime/tag49 exact `3fe3c39acbd256d7e4fa65b91a0c22ce429c295f`.
 Master CI38524173989/all7SUCCESS, native38523095859/artifact11874571615;

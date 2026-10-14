@@ -87,6 +87,17 @@ same blocked release or use ambient/keyring credentials. Root must execute the
 protected gate in an authorized environment or provide a new executor; its
 evidence does not grant this runner access or deployment authority.
 
+For native frontend output, derive the receipt path from the bridge plan:
+`<repo-root>/.release-evidence/<release-id>/<mode>.json`. A BLOCKED stdout may
+omit this path; inspect that exact location before claiming absence. Do not search
+packet-directory guesses or invent a missing receipt. Preserve a failed receipt
+before a Root-authorized fresh-state retry can replace the canonical phase file.
+Distinguish `packet.rollback_sha` (preflight retained rollback) from the former
+current SHA passed to deploy: after successful switch the previous successful
+current release is the immediate native rollback, while older retained releases
+are additional recovery. A presence/boundary check is readiness, not a performed
+rollback switch. Root owns final current-state interpretation.
+
 ## Turn completion invariant
 
 Every received packet must produce a visible response in the same turn. Start
