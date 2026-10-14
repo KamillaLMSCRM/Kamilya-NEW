@@ -2,6 +2,27 @@
 
 Current as of: 2026-10-14.
 
+## RELEASE-009 - Correction-enabled controller pinned the previous schema epoch
+
+- Date: 2026-10-14; assistant51 protected release preparation, before production mutation.
+- Symptom: candidate51 exact0178->0179 manifest fails correction_migration_revision_invalid;
+  a no-migration51 candidate incorrectly accepts0178 and rejects0179.
+- Cause: schema2 controller hardcoded the initial correction175->178 transition and
+  runtime178 check independently of product version. DEV deployment does not use
+  this privileged production consumer, so DEV success cannot prove its compatibility.
+- Fix: local controller derives one known version-bound epoch:39..50 retains175->178,
+  version51+ accepts178->179 or exact179 for no-migration. Unknown/skipped/reverse
+  transitions remain rejected; backup receipt, explicit flags and rollback gates remain.
+- Verification:5 intended RED regressions;94 controller/runtime/bundle/workflow
+  tests PASS, including actual workflow producer51, backup-before179 ordering,
+  missing-receipt retry refusal and failure-before-old-worker-stop. Independent
+  VM126 readback confirms installed e0eaaac4... still has the old guard; local
+  repair is not an installed-controller or production acceptance claim.
+- Prevention: before schema-bearing release, cross the actual workflow producer
+  and privileged consumer with exact version/from/to/flags. Use the separate
+  protected release-plane upgrade workflow for reviewed controller bytes;
+  never omit feature flags, downgrade manifest schema or bypass the installed helper.
+
 ## RELEASE-REPORT-001 - Missing-path and rollback labels inferred from packet
 
 - Date: 2026-10-14; native50 runner reporting, not deploy-helper failure.

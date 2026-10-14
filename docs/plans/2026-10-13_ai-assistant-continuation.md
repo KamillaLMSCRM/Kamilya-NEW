@@ -2,6 +2,25 @@
 
 Status: active overall; editor→source-correction handoff released50/accepted.
 
+Latest verified frontier2026-10-14: durable dialogue92a deployed to canonicalDEV
+Free/Free/Hobby with public schema0179. CI38567681786 all7jobs SUCCESS; independent
+provider9flags/SHA/version51 readback PASS. Ordinary QA methodologist real2 replies,
+full2 reloads, simpler follow-up recalling the earlier unique marker, passive archive,
+RU/KK isolation and unchanged source lesson SHA e251f781... PASS. Desktop/mobile
+visually checked, viewport reset; exactly2 private QA exchanges retained. Root
+receipt observed_at metadata correction and JPEG suffix caveat are explicit in
+dev-live51-provenance.json; original receipt remains immutable. Model quality
+claim is bounded to this example. Voice unchanged.
+
+Production blocker RELEASE-009 confirmed independently on VM126: installed
+controller e0eaaac4b865f2dbcc020712762ed2270bee20caa3401ceaf6d4e5c858cf6a57
+still hardpins correction exact175->178/no-migration178. Local version-bound
+known epoch179 repair:5 RED/94 final focused PASS, real workflow producer included.
+No privileged-controller update, production migration or application switch yet.
+Separate protected release-plane upgrade is required; do not reinterpret old
+DEV92a as proof of installed-helper compatibility. Earlier paragraphs below are
+historical preparation snapshots, superseded by this verified frontier.
+
 Current next slice2026-10-14: owner explicitly requests durable lesson dialogue,
 DEV real model/reload then production/live acceptance, voice deferred. Accepted
 EDITOR_DURABLE_LESSON_DIALOGUE_V1/V1.1 and PURGE_V1. Root owns API/migration/

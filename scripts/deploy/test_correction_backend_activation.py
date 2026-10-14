@@ -202,18 +202,20 @@ def test_legacy_manifest_has_no_explicit_flag_claim(tmp_path):
     assert not any("get_settings" in " ".join(c) for c, _ in runner.calls)
 
 
-@pytest.mark.parametrize("schema", [1, 2])
-def test_real_workflow_manifest_producer_crosses_same_consumer(tmp_path, monkeypatch, schema):
+@pytest.mark.parametrize("schema,version", [(1, "0.11.39"), (2, "0.11.39"), (2, "0.11.51")])
+def test_real_workflow_manifest_producer_crosses_same_consumer(tmp_path, monkeypatch, schema, version):
     root = Path(__file__).resolve().parents[2]
     workflow = (root / ".github/workflows/release-kz-production.yml").read_text()
     block = workflow.split("      - name: Create strict release manifest\n", 1)[1]
     producer = dedent(block.split("python - <<'PY'\n", 1)[1].split("\n          PY", 1)[0])
+    previous = CANDIDATE if version == "0.11.51" else PREVIOUS
+    source, target = ("0178", "0179") if version == "0.11.51" else ("0175", "0178")
     env = {"RELEASE_ID": payload()["release_id"], "RELEASE_SHA": legacy.NEW_SHA,
            "IMAGE": legacy.NEW_IMAGE, "PREVIOUS_RELEASE_SHA": legacy.OLD_SHA,
            "PREVIOUS_IMAGE": legacy.OLD_IMAGE, "MIGRATION_MODE": "exact",
-           "MIGRATION_FROM": "0175", "MIGRATION_TO": "0178", "ROLLBACK_COMPATIBLE": "true",
-           "RELEASE_VERSION": "0.11.39", "FEATURE_FLAGS": json.dumps(CANDIDATE) if schema == 2 else "",
-           "PREVIOUS_FEATURE_FLAGS": json.dumps(PREVIOUS) if schema == 2 else ""}
+           "MIGRATION_FROM": source, "MIGRATION_TO": target, "ROLLBACK_COMPATIBLE": "true",
+           "RELEASE_VERSION": version, "FEATURE_FLAGS": json.dumps(CANDIDATE) if schema == 2 else "",
+           "PREVIOUS_FEATURE_FLAGS": json.dumps(previous) if schema == 2 else ""}
     for key, value in env.items():
         monkeypatch.setenv(key, value)
     monkeypatch.chdir(tmp_path)
@@ -222,7 +224,7 @@ def test_real_workflow_manifest_producer_crosses_same_consumer(tmp_path, monkeyp
     parsed = plane.ReleaseManifest.parse(output)
     assert parsed.schema_version == schema
     if schema == 2:
-        assert parsed.feature_flags == CANDIDATE and parsed.previous_feature_flags == PREVIOUS
+        assert parsed.feature_flags == CANDIDATE and parsed.previous_feature_flags == previous
     else:
         assert "feature_flags" not in output and parsed.feature_flags is None
 
@@ -261,3 +263,98 @@ def test_real_health_producer_uses_product_version_not_invented_alias():
     dictionaries = [node for node in ast.walk(health) if isinstance(node, ast.Dict)]
     keys = {key.value for dictionary in dictionaries for key in dictionary.keys if isinstance(key, ast.Constant)}
     assert "product_version" in keys and "version" not in keys
+
+
+def dialogue_payload(*, migration=True):
+    data = payload(migration=migration)
+    data.update(product_version="0.11.51", previous_feature_flags=CANDIDATE.copy())
+    if migration:
+        data["migration"].update(from_revision="0178", to_revision="0179")
+    return data
+
+
+@pytest.mark.parametrize("version,source,target,accepted", [
+    ("0.11.39", "0175", "0178", True),
+    ("0.11.50", "0175", "0178", True),
+    ("0.11.50", "0178", "0179", False),
+    ("0.11.51", "0178", "0179", True),
+    ("0.11.51", "0175", "0178", False),
+    ("0.11.51", "0178", "0180", False),
+    ("0.11.51", "0179", "0178", False),
+])
+def test_correction_migration_is_version_bound(version, source, target, accepted):
+    data = dialogue_payload()
+    data["product_version"] = version
+    data["migration"].update(from_revision=source, to_revision=target)
+    if accepted:
+        assert plane.ReleaseManifest.parse(data).migration.to_revision == target
+    else:
+        with pytest.raises(plane.ReleasePlaneError, match="correction_migration_revision_invalid"):
+            plane.ReleaseManifest.parse(data)
+
+
+class DialogueRunner(FeatureRunner):
+    def run(self, args, *, env=None):
+        call = tuple(args)
+        if "current" in call:
+            self.calls.append((call, dict(env or {})))
+            return "0179 (head)" if any("upgrade" in c and "0179" in c for c, _ in self.calls) else self.initial_revision
+        if "exec" in call:
+            self.calls.append((call, dict(env or {})))
+            return json.dumps({key: {"supported": True, "enabled": True} for key in KEYS})
+        return super().run(args, env=env)
+
+
+class DialogueHealth(FeatureHealth):
+    def read(self, url):
+        return {**super().read(url), "product_version": "0.11.49" if ":18000/" in url else "0.11.51"}
+
+
+def test_dialogue_migration_preserves_flags_and_backup_before_upgrade(tmp_path):
+    runner = DialogueRunner(revision="0178")
+    controller = plane.ReleasePlane(plane.ReleaseManifest.parse(dialogue_payload()), legacy.config(tmp_path), runner, DialogueHealth())
+    assert controller.execute(controller.manifest.release_id)["status"] == "DEPLOYED"
+    commands = [c for c, _ in runner.calls]
+    backup = next(i for i, c in enumerate(commands) if "--expected-revision" in c)
+    upgrade = next(i for i, c in enumerate(commands) if "upgrade" in c)
+    assert commands[backup][commands[backup].index("--expected-revision") + 1] == "0178"
+    assert commands[upgrade][-1] == "0179" and backup < upgrade
+    assert all(all(env[KEYS[k]] == "true" for k in KEYS) for c, env in runner.calls if "kamilya-blue" in c or "kamilya-green" in c)
+
+
+@pytest.mark.parametrize("revision,accepted", [("0179", True), ("0178", False), ("0180", False), ("01790", False)])
+def test_no_migration_dialogue_requires_exact_schema179(tmp_path, revision, accepted):
+    runner = DialogueRunner(revision=revision)
+    controller = plane.ReleasePlane(plane.ReleaseManifest.parse(dialogue_payload(migration=False)), legacy.config(tmp_path), runner, DialogueHealth())
+    if accepted:
+        assert controller.execute(controller.manifest.release_id)["status"] == "DEPLOYED"
+        assert not any("upgrade" in c or "--expected-revision" in c for c, _ in runner.calls)
+    else:
+        with pytest.raises(plane.ReleasePlaneError, match="correction_schema_revision_mismatch"):
+            controller.execute(controller.manifest.release_id)
+        assert not any("up" in c or "stop" in c for c, _ in runner.calls)
+
+
+def test_dialogue_existing_target_requires_exact_backup_receipt(tmp_path):
+    runner = DialogueRunner(revision="0179")
+    controller = plane.ReleasePlane(plane.ReleaseManifest.parse(dialogue_payload()), legacy.config(tmp_path), runner, DialogueHealth())
+    with pytest.raises(plane.ReleasePlaneError, match="matching_backup_receipt"):
+        controller.execute(controller.manifest.release_id)
+    assert not any("up" in c or "stop" in c for c, _ in runner.calls)
+    controller._write_migration_receipt()
+    assert controller.execute(controller.manifest.release_id)["status"] == "DEPLOYED"
+    assert not any("upgrade" in c or "--expected-revision" in c for c, _ in runner.calls)
+
+
+def test_dialogue_upgrade_failure_keeps_current_workers_and_flags(tmp_path):
+    runner = DialogueRunner(revision="0178", fail_token="upgrade 0179")
+    cfg = legacy.config(tmp_path)
+    controller = plane.ReleasePlane(plane.ReleaseManifest.parse(dialogue_payload()), cfg, runner, DialogueHealth())
+    with pytest.raises(plane.ReleasePlaneError, match="synthetic_command_failure"):
+        controller.execute(controller.manifest.release_id)
+    assert not any("stop" in c for c, _ in runner.calls)
+    assert json.loads(cfg.state_file.read_text())["release_sha"] == legacy.OLD_SHA
+    assert cfg.proxy_upstream_file.read_text() == "old-proxy\n"
+    record = json.loads((cfg.evidence_dir / "release-ledger.jsonl").read_text())
+    assert record["status"] == "FAILED"
+    assert record["previous_feature_flags"] == CANDIDATE

@@ -208,8 +208,9 @@ class ReleaseManifest:
             if manifest.feature_flags and manifest.feature_flags["lesson_correction"]:
                 if version < (0, 11, 39):
                     raise ReleasePlaneError("correction_requires_version39")
+                expected_from, expected_to = manifest.correction_revisions
                 if manifest.migration.mode == "exact" and (
-                    manifest.migration.from_revision != "0175" or manifest.migration.to_revision != "0178"
+                    manifest.migration.from_revision != expected_from or manifest.migration.to_revision != expected_to
                 ):
                     raise ReleasePlaneError("correction_migration_revision_invalid")
         if not isinstance(manifest.release_id, str) or not RELEASE_ID_RE.fullmatch(
@@ -232,6 +233,14 @@ class ReleaseManifest:
         if manifest.expected_environment != "kz-production":
             raise ReleasePlaneError("expected_environment_invalid")
         return manifest
+
+    @property
+    def correction_revisions(self) -> tuple[str, str]:
+        """Known additive schema epochs, never an arbitrary revision range."""
+        if self.product_version is None:
+            raise ReleasePlaneError("correction_requires_product_version")
+        version = tuple(int(part) for part in self.product_version.split("."))
+        return ("0178", "0179") if version >= (0, 11, 51) else ("0175", "0178")
 
 
 @dataclass(frozen=True)
@@ -714,7 +723,7 @@ class ReleasePlane:
             elif self.manifest.feature_flags and self.manifest.feature_flags["lesson_correction"]:
                 current = self.runner.run(self._compose(inactive, "run", "--rm", "--no-deps",
                     "--entrypoint", "/app/.venv/bin/alembic", "api", "current"), env=candidate_env)
-                if not self._revision_matches(current, "0178"):
+                if not self._revision_matches(current, self.manifest.correction_revisions[1]):
                     raise ReleasePlaneError("correction_schema_revision_mismatch")
 
             self.runner.run(self._compose(inactive, "down", "--remove-orphans"), env=candidate_env)

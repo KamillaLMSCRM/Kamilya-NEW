@@ -4019,3 +4019,46 @@ Rules:
 - Result: `READY_FOR_ROOT_REVIEW_LOCAL_AND_ISOLATED_DB_PASS_LIVE_GATES_OPEN`, not
   release authorization. No full API run exists at the final V1.1 hashes by explicit
   Root no-repeat instruction; live provider/model and production remain NOT_VERIFIED.
+
+## ASSISTANT51-DEV-LIVE-REVIEW-20261014 — bounded live DEV dialogue review
+
+- Read-only review of Root's immutable
+  `.release-evidence/ASSISTANT51-20261014/dev-live51.json`, SHA-256
+  `b3c1372e79f3c5662f0b1c393d002d6315f612d578b9cfd84ead50661bf8a1aa`,
+  for candidate `92a32fefec1f9d6ac431d2c983f5d744e2fcf785`/version0.11.51.
+  Exact worktree HEAD and remote `dev` matched. Independent canonical-account query
+  confirmed CI38567681786 completed successfully for exact92a with all seven jobs
+  successful. API and worker public health independently returned exact92a/0.11.51
+  and healthy; Root's deployment readback bound web/API/worker to the same SHA.
+- The bounded ordinary-methodologist DEV scenario passed for one pre-existing
+  unpublished synthetic QA lesson: two application chat POSTs returned200 and two
+  durable IDs; the follow-up did not restate the unique marker but the second reply
+  retained `Ландыш-Альфа-51`, both conflicting deadlines, all three prohibitions,
+  and no invented resolution in exactly three sentences. Two full reloads restored
+  one then two pairs; Root recorded zero model POSTs on reload or language switch,
+  Kazakh history0 and restored Russian history2. Baseline lesson hashes were equal;
+  Root recorded zero lesson PATCH, correction preview/apply, publication, or
+  assignment calls. These zero-call counts are sanitized Root attestations, not an
+  independently replayable raw network trace.
+- Desktop and mobile captures were visually accepted: retained discussion, passive
+  archive notice, composer and no archived actions were visible without horizontal
+  clipping. Both `.png` filenames contain decodable JPEG payloads. Original receipt
+  metadata incorrectly stated observed_at13:16Z after its13:13:54Z creation;
+  Root preserved the original and issued
+  `dev-live51-provenance.json`, SHA-256
+  `421e0114e104aad23651425a85d22080dfafb18fead33c9cad173bbb3b8ae59d`,
+  binding the actual13:08:55Z–13:13:54Z observation interval and MIME correction.
+- Production is blocked at candidate92a: `scripts/deploy/release_plane.py` hard-pins
+  correction-enabled exact migration/current schema to0175→0178/current0178, while
+  version0.11.51 requires0178→0179/current0179. DEV schema0179 was applied separately,
+  so this does not invalidate the bounded DEV observation, but92a is not production
+  release-ready. Root's uncommitted prospective repair and tests are outside this
+  review and require successor commit/CI/release-plane verification.
+- Independent review artifact:
+  `.release-evidence/ASSISTANT51-20261014/assistant51-dev-live-review.json`,
+  SHA-256 `21f5f1bf31fae45efb06560ae35552cf4d409747946519505dd30f942f72d955`.
+  Result: `PASS_FOR_BOUNDED_DEV_SCENARIO_PRODUCTION_RELEASE_BLOCKED`; Root owns GO.
+  Provider/model identity, provider retry/attempt count, token/cost evidence,
+  universal semantic quality, old-session reconstruction, voice, physical ten-minute
+  expiry and production acceptance remain NOT_VERIFIED. Runner made no source, test,
+  external, database, Git, provider, billing, or business mutation.

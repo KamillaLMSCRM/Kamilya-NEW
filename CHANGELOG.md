@@ -147,6 +147,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   connection release during inference and existing guarded tenant cleanup.
 - Keep source preview/consent/application independent; no automatic lesson edits,
   provider/model/tier changes, voice, assignments or learning-history rewrites.
+- Bind protected correction-enabled releases to the known version51 schema179
+  epoch, preserving legacy39..50 schema178, exact backup/rollback and explicit flags.
+  Installation uses the separate protected release-plane upgrade, not an app bypass.
 
 ## [0.11.50] - 2026-10-14
 
