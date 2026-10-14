@@ -161,6 +161,36 @@ class AIJobProgress(BaseModel):
 
 # ── Chat with AI assistant (methodologist review) ─────────────────────
 
+class AIChatHistoryTurn(BaseModel):
+    """Untrusted text only; never a tool receipt or execution authority."""
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=24500)
+
+
+class AIChatHistory(BaseModel):
+    """Ephemeral, whole exchanges bound to the current editor focus."""
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    version: Literal[1] = 1
+    course_id: UUID
+    context: Literal["course", "module", "lesson"]
+    target_id: UUID | None = None
+    language: Literal["ru", "kk", "en"]
+    turns: list[AIChatHistoryTurn] = Field(min_length=2, max_length=8)
+
+    @model_validator(mode="after")
+    def validate_exchanges(self) -> Self:
+        if len(self.turns) % 2:
+            raise ValueError("History must contain completed exchanges")
+        for index, turn in enumerate(self.turns):
+            expected = "user" if index % 2 == 0 else "assistant"
+            if turn.role != expected or not turn.content.strip() or turn.role == "user" and len(turn.content) > 2000:
+                raise ValueError("Invalid history exchange")
+        if sum(len(turn.content) for turn in self.turns) > 32000 or sum(len(turn.content.encode("utf-8")) for turn in self.turns) > 128000:
+            raise ValueError("History context budget exceeded")
+        return self
+
+
 class AIChatRequest(BaseModel):
     """Body for POST /ai/chat — assistant that helps review and refine
     AI-generated course content. Scoped to a course (and optionally a
@@ -171,6 +201,13 @@ class AIChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     language: Literal["ru", "kk", "en"] = "ru"
     intent: Literal["course_review", "content_revision", "audience_recommendation"] | None = None
+    history: AIChatHistory | None = None
+
+    @model_validator(mode="after")
+    def validate_history_scope(self) -> Self:
+        if self.history and (self.history.course_id, self.history.context, self.history.target_id, self.history.language) != (self.course_id, self.context, self.target_id, self.language):
+            raise ValueError("History belongs to a different chat context")
+        return self
 
 
 class AudienceRecommendationScope(BaseModel):
@@ -209,6 +246,8 @@ class AIChatResponse(BaseModel):
     here for the UI's one-click apply button.
     """
     reply: str = Field(min_length=1, max_length=12_000)
+    # Admission to ephemeral dialogue context, not a grounding or execution certificate.
+    history_eligible: bool = True
     apply_lesson_id: Optional[UUID] = None
     apply_lesson_content: Optional[str] = Field(default=None, max_length=12_000)
     apply_lesson_title_hint: Optional[str] = Field(default=None, max_length=240)

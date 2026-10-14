@@ -7113,3 +7113,24 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Prevention: test context replacement and close/reopen, not just successful fetch.
   Client abort does not prove server cancellation/rollback; use server-owned
   sealed confirmation/receipts for future command orchestration and unknown writes.
+
+## AI-CHAT-002 - Historical refusal screening poisoned follow-up dialogue
+
+- Date:2026-10-14; local history candidate, not deployed.
+- Symptom: a returned refusal or an otherwise-safe answer quoting a denied
+  instruction could make every later legitimate follow-up return a scope refusal.
+- Cause: completed visible replies entered history indiscriminately, but historical
+  screening applies the request policy to each past turn. A rejected user turn or
+  a safe quoted-instruction reply therefore remains a permanent replay trigger.
+- Fix: compatible history_eligible response metadata excludes request/output
+  refusals and replay-ineligible reply/proposal/title/audience prose. Client leaves
+  them visible but does not record their exchange in future model context.
+  Eligibility is not a fact/grounding/application certificate; all server guards remain.
+- Verification: refusal API/UI and independent quoted-reply finding each reproduced
+  RED before repair; final focused web110/API64 PASS. Independent V2 review accepted
+  after Root source-hash comparison. Full initial web1039/1 journal failure retained;
+  unchanged isolated journal7 and full successor1040 PASS; no timeouts relaxed.
+- Prevention: test the next legitimate turn after both an explicit refusal and
+  safe prose that quotes a denied instruction. Never assume output safety implies
+  eligibility under a different replay admission policy. No universal prompt-
+  injection robustness or real-model semantic-quality claim from mocked tests.

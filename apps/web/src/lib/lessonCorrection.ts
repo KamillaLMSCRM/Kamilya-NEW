@@ -140,3 +140,26 @@ export async function loadLessonCorrectionApplication(planId: string, signal?: A
     throw error;
   }
 }
+
+/** Current document bytes only: citation evidence_hash hashes a fragment, not this file. */
+export async function loadCorrectionSourceFile(documentId: string, signal?: AbortSignal): Promise<{ blob: Blob; filename: string; title: string }> {
+  if (!uuid(documentId)) throw new Error('Invalid source file');
+  const checkAbort = () => { if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError'); };
+  checkAbort();
+  const response = await api.get(`/v1/documents/${encodeURIComponent(documentId)}`, { signal });
+  checkAbort();
+  const metadata: unknown = response.data;
+  if (!object(metadata) || metadata.id !== documentId || !nonBlank(metadata.filename, 1024)
+    || !nonBlank(metadata.title, 1024) || !nonBlank(metadata.content_type, 255)
+    || typeof metadata.size !== 'number' || !Number.isSafeInteger(metadata.size) || metadata.size <= 0) throw new Error('Invalid source file');
+  const filename = metadata.filename.split(/[\\/]/).pop()!
+    .replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, '')
+    .replace(/[:*?"<>|]/g, '_').trim();
+  if (!filename || filename === '.' || filename === '..') throw new Error('Invalid source file');
+  const bytes = await api.get(`/v1/documents/${encodeURIComponent(documentId)}/download`, { signal, responseType: 'blob' });
+  checkAbort();
+  const blob: unknown = bytes.data;
+  const mime = (value: string) => value.split(';')[0].trim().toLowerCase();
+  if (!(blob instanceof Blob) || blob.size <= 0 || blob.size !== metadata.size || mime(blob.type) !== mime(metadata.content_type)) throw new Error('Invalid source file');
+  return { blob, filename, title: metadata.title };
+}

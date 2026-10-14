@@ -2,10 +2,10 @@ import { StrictMode } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const wire = vi.hoisted(() => ({ create: vi.fn(), load: vi.fn(), apply: vi.fn(), receipt: vi.fn() }));
+const wire = vi.hoisted(() => ({ create: vi.fn(), load: vi.fn(), apply: vi.fn(), receipt: vi.fn(), file: vi.fn() }));
 let lang = 'ru';
 let session = { accessToken: 'token-1', user: { role: 'methodologist', user_id: 'actor-1', impersonated_by: undefined as string | undefined } };
-vi.mock('@/lib/lessonCorrection', () => ({ createLessonCorrection: wire.create, loadLessonCorrection: wire.load, applyLessonCorrection: wire.apply, loadLessonCorrectionApplication: wire.receipt }));
+vi.mock('@/lib/lessonCorrection', () => ({ createLessonCorrection: wire.create, loadLessonCorrection: wire.load, applyLessonCorrection: wire.apply, loadLessonCorrectionApplication: wire.receipt, loadCorrectionSourceFile: wire.file }));
 vi.mock('@/store/authStore', () => ({ useAuthStore: (selector: (s: typeof session) => unknown) => selector(session) }));
 vi.mock('@/store/languageStore', () => ({ useLanguageStore: (selector: (s: { lang: string }) => unknown) => selector({ lang }) }));
 import LessonCorrectionPanel from '@/features/methodologist-workbench/LessonCorrectionPanel';
@@ -62,6 +62,30 @@ describe('LessonCorrectionPanel', () => {
     await prepare(); consent();
     fireEvent.change(screen.getByRole('textbox', { name: 'Что изменить в уроке' }), { target: { value: 'Новая инструкция' } });
     expect(screen.queryByText('Предложенный вариант')).not.toBeInTheDocument(); expect(wire.apply).not.toHaveBeenCalled();
+  });
+
+  it('exposes source preparation without consent, inference or application side effects', async () => {
+    wire.file.mockRejectedValueOnce({ response: { status: 404 } });
+    render(<LessonCorrectionPanel {...props} />); await prepare();
+    fireEvent.click(screen.getByText('Ссылки на источники (1)'));
+    fireEvent.click(screen.getByRole('button', { name: 'Подготовить скачивание документа 1' }));
+    await screen.findByText(/Документ или файл недоступен/);
+    expect(wire.file).toHaveBeenCalledWith(courseId, expect.any(AbortSignal));
+    expect(wire.create).toHaveBeenCalledTimes(1); expect(wire.apply).not.toHaveBeenCalled();
+    expect(screen.getByRole('checkbox', { name: 'Я проверил правку и источники' })).not.toBeChecked();
+  });
+
+  it('aborts source work on lesson change even when the file transport ignores cancellation', async () => {
+    let resolve!: (value: unknown) => void; wire.file.mockReturnValueOnce(new Promise((r) => { resolve = r; }));
+    const view = render(<LessonCorrectionPanel {...props} />); await prepare();
+    fireEvent.click(screen.getByText('Ссылки на источники (1)'));
+    fireEvent.click(screen.getByRole('button', { name: 'Подготовить скачивание документа 1' }));
+    const signal = wire.file.mock.calls[0][1];
+    view.rerender(<LessonCorrectionPanel {...props} lessonId={courseId} />);
+    expect(signal.aborted).toBe(true);
+    await act(async () => resolve({ blob: new Blob(['%PDF']), filename: 'old.pdf', title: 'Old document' }));
+    expect(screen.queryByRole('link', { name: /old.pdf/ })).not.toBeInTheDocument();
+    expect(props.onApplied).not.toHaveBeenCalled();
   });
 
   it.each(['busy', 'lost-response'])('checks receipt first after %s without a second POST', async (failure) => {

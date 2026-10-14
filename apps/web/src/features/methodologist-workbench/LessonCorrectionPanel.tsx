@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useLanguageStore } from '@/store/languageStore';
+import CorrectionSources from './CorrectionSources';
 import {
   applyLessonCorrection, createLessonCorrection, loadLessonCorrection, loadLessonCorrectionApplication,
   type LessonCorrectionPreview, type LessonCorrectionRequest, type CorrectionApplicationReceipt,
@@ -93,7 +94,7 @@ export default function LessonCorrectionPanel(props: LessonCorrectionPanelProps)
   if (process.env.NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED !== 'true'
     || process.env.NEXT_PUBLIC_METHODOLOGIST_LESSON_CORRECTION_ENABLED !== 'true'
     || user?.role !== 'methodologist' || user.impersonated_by || !token) return null;
-  return <Panel key={`${token}:${user.user_id}:${props.courseId}:${props.lessonId}`} {...props} />;
+  return <Panel key={`${token}:${user.user_id}:${user.tenant_id}:${props.courseId}:${props.lessonId}`} {...props} />;
 }
 
 function Panel(props: LessonCorrectionPanelProps) {
@@ -277,7 +278,7 @@ function Panel(props: LessonCorrectionPanelProps) {
       {preview?.state === 'failed' && <p role="status">{ui.failed}</p>}
       {preview?.state === 'ready' && preview.proposal && <div className="min-w-0 space-y-3">
         <div className="grid min-w-0 gap-3 xl:grid-cols-2">{[[ui.before, preview.before_content], [ui.after, preview.proposal.content]].map(([title, content]) => <section key={title!} className="min-w-0"><h3 className="mb-2 font-medium">{title}</h3><pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded border p-3 font-sans text-sm">{content}</pre></section>)}</div>
-        <details className="min-w-0 text-sm"><summary className="cursor-pointer font-medium">{ui.sources} ({preview.proposal.citations.length})</summary><ul className="mt-2 space-y-2 break-all">{preview.proposal.citations.map((citation, index) => <li key={`${citation.document_id}:${citation.locator}:${index}`}><span>{citation.document_id} · {citation.locator}</span><span className="block text-xs text-muted-foreground">SHA256 {citation.evidence_hash}</span></li>)}</ul></details>
+        <details className="min-w-0 text-sm"><summary className="cursor-pointer font-medium">{ui.sources} ({preview.proposal.citations.length})</summary><CorrectionSources key={`${preview.plan_id}:${preview.revision}:${preview.fingerprint}:${locale}`} citations={preview.proposal.citations} locale={locale} /></details>
         <p className="text-sm">{ui.until}: {new Date(preview.expires_at).toLocaleString({ ru: 'ru-RU', kk: 'kk-KZ', en: 'en-US' }[locale])}</p>
         {expired && <p role="status" className="text-sm text-amber-700">{ui.expired}</p>}
         <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={reviewed} disabled={pending || invalidated || props.dirty} onChange={(event) => setReviewed(event.target.checked)} />{ui.consent}</label>

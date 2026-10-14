@@ -2,6 +2,18 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
+Local unreleased frontier2026-10-14: current-source download consumer and bounded
+editor dialogue history are implemented and locally tested; no new deployment.
+Active additive contracts:
+[source download V1](contracts/LESSON_CORRECTION_SOURCE_DOWNLOAD_V1.md),
+[editor history V1](contracts/EDITOR_CHAT_HISTORY_V1.md),
+[refusal admission V1.1](contracts/EDITOR_CHAT_HISTORY_V1_1.md),
+[quoted-instruction admission V1.2](contracts/EDITOR_CHAT_HISTORY_V1_2.md).
+Current-file download is not historical byte equivalence; ephemeral dialogue is
+not durable memory or command authority. Local tests versus DEV/model/browser/
+release gates are tracked in the active continuation plan and test ledger.
+The dated release39 frontier below is historical, not current runtime evidence.
+
 | Module | Responsibility | Active mini-spec | Data owner / writer | Status |
 |---|---|---|---|---|
 | WORKBENCH | Untrusted intent → server-resolved plan → confirmation policy; bounded assignment/document receipts and correction policy under addenda below | [WORKBENCH V1](modules/WORKBENCH_V1.md) | Workbench/root; persistent assignment/document plans and correction previews | Production text/document/correction slices accepted through0.11.39/e355; speech gated |

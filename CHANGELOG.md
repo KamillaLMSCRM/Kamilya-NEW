@@ -7,8 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Prepare authenticated current-source document downloads from AI lesson correction:
+  readable filenames, per-document actions, localized errors and explicit current
+  versus cited-version warning. Fragment hashes are not file revision proofs;
+  files are downloaded manually, never embedded or executed in the editor.
+- Pass bounded completed dialogue exchanges, including proposed lesson text, to
+  the editor assistant. History is ephemeral, focus/language-bound, redacted and
+  untrusted; current server course context stays authoritative. Keep at most four
+  whole exchanges within32000 code points; no UI intros/errors/authority metadata.
+
 ### Fixed
 
+- Exclude refused or otherwise-safe instruction-quoting answers from future AI
+  history so one rejected exchange does not block later legitimate questions.
+- Abort source preparation on context replacement and revoke owned Blob URLs;
+  retain only one prepared file, with no eager fetch or automatic download.
 - Bind editor AI chat to its open course/lesson/module, actor/tenant/role/session
   and language. Abort client requests on invalidation; discard late replies,
   errors/loading updates and apply notifications even when transport ignores abort.

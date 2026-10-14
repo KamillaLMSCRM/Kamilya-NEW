@@ -3743,3 +3743,50 @@ Rules:
   conversation history implemented in this slice. Active continuation plan and
   backlog retain those distinct gates. Independent review requested/observed
   cheap runner; exact model/effort/time/token usage not independently exposed.
+
+## ASSISTANT-DIALOGUE-20261014 — current-source download and bounded editor history
+
+- Root executor/writer; exact linked learner-presentation-release-20261010,
+  baseline87f1b36f. Root owns this append; Runner only ignored static-review JSON.
+  No new runtime deployment, real model call, provider/resource/flag change or DB.
+- Added35 source-client/UI cases,2 correction integration cases and10 chat-history
+  cases:47 new web tests. Final focused110 PASS; full web initial1039PASS/1failed
+  retained in assistant-dialogue-20261014-full.json. Existing journal signed-copy
+  button wait failed; unchanged exact isolated journal7 PASS. Same web source
+  full successor maxWorkers2 passed1040/154files in169.55s, zero failed/skipped,
+  report assistant-dialogue-20261014-full-v2.json. No timeout/assertion/source
+  change to the journal; lower parallelism does not prove the original failure's
+  cause. Existing navigation/React fixture warnings retained. Original source
+  setup RED includes missing-module import, not all-case behavioral RED. One
+  focused harness assertion incorrectly matched warning text as a fragment hash;
+  narrowed its oracle to the exact hash prefix; failed report retained.
+- API28 new history cases plus existing policy/routing neighbors64 PASS2.21s
+  via pwsh -NoProfile -File scripts/dev/run_api_pytest.ps1; XML
+  assistant-dialogue-20261014-api-v3.xml. Original history21 failures/3passes,
+  explicit-refusal API/UI RED, independently found quoted-reply RED all preserved.
+  Fake provider outputs only; no physical DB/real semantic-model-quality claim.
+- Type/changed-file lint PASS. Python baseline first failed4newE702 in owned
+  tests; exact multiline repair, no baseline change; successor ruff1008/mypy2201
+  baseline PASS (not zero-repository-debt). Version48 consistency/release contracts
+  (0178/head176revisions/263uniqueerrors) PASS. Next production build67pages,
+  terminal15496 exit0; typecheck/build executed sequentially.
+- Current source GET/download, UUID/metadata/file identity/MIME/size checks,
+  sanitized name, one retained Blob URL, manual link, localized errors, lazy
+  grouped document actions and cleanup/StrictMode/stale guards tested. No embedded
+  file execution. Current file may differ from cited revision; fragment hash is
+  not whole-file integrity. Actual browser download/historical version equivalence
+  NOT VERIFIED. Both existing APIs retain server role/tenant ownership unchanged.
+- Completed current-session history includes proposed text, not authority IDs;
+  strict current-focus envelope, whole-pair limits, errors/refusals excluded,
+  redacted JSON under user data, legacy prompt/tenant404/selected-target and separate
+  audience owner covered. No durable memory or automatic execution. Actual DEV
+  model follow-up/browser, production release/readback NOT VERIFIED.
+- Independent Runner V1 found ASSISTANT-HISTORY-POISON-001; Root reproduced and
+  repaired under frozen V1.2. V2 READY_FOR_ROOT_REVIEW accepted by Root after
+  exact sha256 field/source checks; initial mistaken source_sha256-field read
+  produced no certification and was corrected. Artifacts assistant-dialogue-
+ 20261014-review.json and -review-v2.json preserve separate static vs executed facts.
+- CodeGraph preflight stale; search and one sync rejected excluded-path audit4,
+  no queries accepted; exact source fallback, no Graphify rebuild. Root/worker
+  efficiency, actual worker model/effort/token counters and correction-time metrics
+  unavailable, not zero; no CodeBurn/ECC or subscription savings claim.

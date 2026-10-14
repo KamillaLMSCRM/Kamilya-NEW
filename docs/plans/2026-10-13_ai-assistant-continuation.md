@@ -1,6 +1,6 @@
 # AI assistant continuation — text-first
 
-Status: active, local first slice verified; no new deployment.
+Status: active; local context/source-download/dialogue slices verified; no new deployment.
 Product owner: human owner, request2026-10-13 to continue the in-product assistant.
 Technical/root owner: Root. Reviewer: independent Test & Evidence Runner.
 Baseline: fa39b060, released native48/API47. Runtime truth remains in
@@ -27,25 +27,27 @@ paid resource, budget change, tenant provisioning or production mutation.
    by Root. Current ignored receipts bind the results. DEV/production acceptance
    not performed. This local slice is complete, not the overall assistant.
 
-2. **Source navigation in correction.** Current LessonCorrectionPanel still renders
-   citation document UUID/locator/evidence hash, not an original-file opener.
-   Consume the existing authenticated `/v1/documents/{id}/download` owner,
-   preserving tenant checks and deleted/unavailable states. Before implementation,
-   accept an impact addendum covering current file versus cited revision, MIME/name,
-   cleanup of Blob URLs, abort/session guards and source-version mismatch. Fragment
-   evidence hash is not a whole-file hash and does not prove original-byte equivalence.
-   Never fabricate a quoted excerpt or assume that the latest file is the cited revision.
+2. **Current-source download in correction: implemented locally2026-10-14.**
+   Accepted SOURCE_DOWNLOAD_V1 consumes authenticated document metadata and bytes,
+   validates identity/MIME/size and sanitizes filenames. One lazy preparation, one
+   retained Blob URL, manual download link, per-document RU/KK/EN errors, remount/
+   abort-resistant/StrictMode guards and explicit current-file warning. Nothing
+   embedded or executed. Metadata/citations do not expose historical byte revision:
+   no equivalence or mismatch-detection claim; fragment hash is not a file hash.
+   Real browser download/DEV acceptance and historical byte retrieval NOT VERIFIED.
 
-3. **Real bounded dialogue, not a visual-only history.** Current AIChatRequest has
-   only `message`/course/context/target/language/intent. The router sends current
-   outline/focus and the latest user message; it does not send prior UI turns.
-   Define a versioned conversation-context contract before backend/client edits:
-   actor/tenant/course/source binding, bounded turns/bytes, retention or explicit
-   ephemeral state, reset behavior, redaction and untrusted-history admission.
-   Previous assistant prose is neither a verified fact nor a tool receipt.
-   Test "make that simpler" after a proposal, topic changes and adversarial history;
-   old clients without history retain current behavior. Replay recorded provider
-   outputs first, one final bounded real DEV inference only after local gates.
+3. **Real bounded dialogue: implemented locally2026-10-14.** EDITOR_CHAT_HISTORY
+   V1/V1.1/V1.2 govern optional compatible history. Current ChatSession retains
+   completed exchanges only, with the actual proposed lesson text, never IDs or
+   receipts. Last4 whole exchanges/32000 code points/128000 UTF8 bytes, strict
+   alternating roles and current course/focus/language envelope. All old reset
+   boundaries preserved; no storage or across-close/reload persistence.
+   Router passes redacted JSON history inside user data, not system/tool roles;
+   existing request/output/tenant/selected-target owners remain. Refused and
+   otherwise-safe denied-instruction-quoting exchanges are ineligible for replay.
+   Audience owner receives no history. Previous prose is not grounding or receipt.
+   Local mocked follow-up/proposal/adversarial/legacy/limits proof, not real-model
+   semantic quality. One final real DEV inference/browser is a separate gate.
 
 4. **Join dialogue to existing command owners.** Use interpretation → clarification
    → typed server preview → explicit confirmation → receipt/status/reload.
@@ -60,8 +62,9 @@ paid resource, budget change, tenant provisioning or production mutation.
 
 Named read scope: editor chat/sole edit-page consumer, workbench module contracts,
 AIChatRequest/chat handler, existing document-download owner and their focused tests.
-Current write scope: AIChatPanel, lifecycle test, changelog/error journal/backlog
-and this temporary plan. Later slices require explicit root-accepted scope addenda.
+Current write scope is expanded by accepted source/history addenda: named correction
+source UI/client/tests and chat schema/router/prompt/tests, plus canonical docs.
+Later command integration requires a new root-accepted impact addendum.
 Pure/local mocks first; then compatible API contracts, RBAC/RLS negatives if any
 server/data seam changes, existing Supabase DEV procedure, ordinary-role browser
 acceptance, immutable release gates and exact owner-scoped production authority.
@@ -76,3 +79,16 @@ Preserve original RED and failed harness results, distinguish actual tests from
 independent source review and live runtime. Remove this plan only after all owned
 facts transfer to canonical docs; do not mark the whole assistant completed after
 this context fix or infer any new deployment from a source checkpoint.
+
+## Local candidate verification2026-10-14
+
+Focused web110 PASS (47 new web cases), API64 PASS (28 new history cases) through
+canonical root interpreter, type/changed-file lint and unchanged Python baseline
+PASS. Full web initial1039/1 failure retained; existing journal diagnostic7 PASS
+unchanged; same web source full successor with maxWorkers2 passed1040/154files
+169.55s, no assertion/timeout changes. Independent review found history poison,
+Root reproduced RED and repaired; V2 review accepted after source hash readback.
+Source navigation audit still rejects excluded4; no rejected graph query accepted.
+Next production build67pages PASS, terminal session15496 exit0. Exact source
+checkpoint/readback receipt follows in ignored evidence after commit; no master/
+DEV/tag promotion. No DEV/production, DB, provider resources or real inference.

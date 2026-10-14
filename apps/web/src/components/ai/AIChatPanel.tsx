@@ -55,6 +55,7 @@ interface ChatSession {
   sending: boolean;
   applying: boolean;
   requests: Set<AbortController>;
+  history: { role: 'user' | 'assistant'; content: string }[];
 }
 
 export function AIChatPanel({
@@ -89,7 +90,7 @@ export function AIChatPanel({
   // Each committed context owns its requests. Closing/reopening also starts a
   // new session: an abort-resistant late response must not cross that boundary.
   useLayoutEffect(() => {
-    const session: ChatSession = { active: open, sending: false, applying: false, requests: new Set() };
+    const session: ChatSession = { active: open, sending: false, applying: false, requests: new Set(), history: [] };
     sessionRef.current = session;
     setInput('');
     setSending(false);
@@ -199,11 +200,23 @@ export function AIChatPanel({
           message: userText,
           language: lang,
           intent,
+          ...(session.history.length && !isAudienceIntent ? {
+            history: { version: 1, course_id: courseId, context: requestContext, target_id, language: lang, turns: session.history },
+          } : {}),
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (!isCurrent()) return;
+      // Only completed exchanges, never UI copy, errors, IDs or apply receipts.
+      // A forced course recommendation must not contaminate a lesson/module chat.
+      if (data.history_eligible !== false && requestContext === context && typeof data.reply === 'string' && data.reply.trim()
+        && Array.from(data.reply).length <= 12000 && Array.from(userText).length <= 2000) {
+        const suggestion = typeof data.apply_lesson_content === 'string' && Array.from(data.apply_lesson_content).length <= 12000
+          ? `\n\nProposed lesson text (unverified, not an execution receipt):\n${data.apply_lesson_content}` : '';
+        session.history = [...session.history, { role: 'user', content: userText }, { role: 'assistant', content: data.reply + suggestion }].slice(-8) as ChatSession['history'];
+        while (session.history.reduce((sum, turn) => sum + Array.from(turn.content).length, 0) > 32000) session.history.splice(0, 2);
+      }
       setMessages((prev) => [
         ...prev,
         {
@@ -423,6 +436,11 @@ export function AIChatPanel({
         </div>
 
         <footer className="border-t border-border p-3">
+          <p className="mb-2 text-xs text-muted-foreground">{({
+            ru: 'Ассистент учитывает последние сообщения этого диалога. При закрытии панели или смене курса, урока либо языка история сбрасывается. Предложения не применяются автоматически.',
+            kk: 'Көмекші осы диалогтың соңғы хабарламаларын ескереді. Панель жабылғанда немесе курс, сабақ не тіл өзгергенде тарих өшеді. Ұсыныстар автоматты түрде қолданылмайды.',
+            en: 'The assistant uses recent messages in this dialogue. Closing the panel or changing course, lesson or language resets history. Suggestions are not applied automatically.',
+          } as Record<string, string>)[lang]}</p>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -435,6 +453,7 @@ export function AIChatPanel({
               id="ai-chat-message"
               aria-label={t('aiAssistant.chatPlaceholder')}
               value={input}
+              maxLength={2000}
               onChange={(e) => setInput(e.target.value)}
               placeholder={
                 focusLessonId
