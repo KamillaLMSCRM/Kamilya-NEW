@@ -221,3 +221,9 @@ independent rendering-delta review; require actual1270/wide/mobile hit testing,
 mouse Save and final DEV cycle before release. Existing receipt/audit/usage and
 review invalidation remain under normal retention; original QA lesson bytes are
 restored, not all columns or completed-learning state. No current production write.
+
+R4 actual pointer save/restoration passed at1270 and1590. Mobile380 overflowed
+because the default implicit track retained outline intrinsic minimum. Root accepts
+R5 only explicit default grid-cols-1/min-w-0, outline min-w-0 and flexible wrapping
+add-module input; existing handlers and all source/model/apply owners unchanged.
+Preventive class test RED; real geometry and final cycle remain mandatory.

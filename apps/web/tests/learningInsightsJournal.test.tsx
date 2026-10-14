@@ -43,6 +43,7 @@ beforeEach(() => {
 describe('learning insights journal integration', () => {
   it('reloads the parent training-log row after signed-copy review so export appears without navigation', async () => {
     let pageReads = 0;
+    let reviewAccepted = false;
     const pendingScan = {
       id: 'scan-a', original_filename: 'signed.pdf', content_type: 'application/pdf',
       uploaded_at: '2026-09-16T10:00:00Z', status: 'uploaded_pending_review',
@@ -51,11 +52,11 @@ describe('learning insights journal integration', () => {
       if (url === '/v1/courses') return { data: [] } as never;
       if (url.includes('/summary')) return { data: { total: 1, assigned: 0, in_progress: 0, completed: 1, overdue: 0 } } as never;
       if (url.startsWith('/v1/training-evidence/events/event-a/signed-scans')) {
-        return { data: { event_id: 'event-a', status: pageReads > 1 ? 'accepted' : 'uploaded_pending_review', scans: [{ ...pendingScan, status: pageReads > 1 ? 'accepted' : 'uploaded_pending_review' }] } } as never;
+        return { data: { event_id: 'event-a', status: reviewAccepted ? 'accepted' : 'uploaded_pending_review', scans: [{ ...pendingScan, status: reviewAccepted ? 'accepted' : 'uploaded_pending_review' }] } } as never;
       }
       if (url.startsWith('/v1/admin/training-log?')) {
         pageReads += 1;
-        const accepted = pageReads > 1;
+        const accepted = reviewAccepted;
         return { data: { items: [{
           user_id: 'learner-a', full_name: 'Synthetic learner', email: null, personnel_number: null,
           department_id: null, department_name: null, position_id: null, position_name: null,
@@ -72,16 +73,25 @@ describe('learning insights journal integration', () => {
       }
       throw new Error(`Unexpected synthetic route: ${url}`);
     });
-    apiMock.post.mockResolvedValue({ data: { status: 'accepted' } } as never);
+    apiMock.post.mockImplementation(async (url, body) => {
+      expect(url).toBe('/v1/training-evidence/events/event-a/signed-scans/scan-a/review');
+      expect(body).toEqual({ action: 'accept', reason: null });
+      reviewAccepted = true;
+      return { data: { status: 'accepted' } } as never;
+    });
 
     render(<AdminTrainingLogPage />);
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Принять' }))[0]);
+    const accept = (await screen.findAllByRole('button', { name: 'Принять' }))[0];
+    expect(reviewAccepted).toBe(false);
+    expect(apiMock.post).not.toHaveBeenCalled();
+    const pageReadsBeforeReview = pageReads;
+    fireEvent.click(accept);
 
     await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith(
       '/v1/training-evidence/events/event-a/signed-scans/scan-a/review',
       { action: 'accept', reason: null },
     ));
-    await waitFor(() => expect(pageReads).toBeGreaterThanOrEqual(2));
+    await waitFor(() => expect(pageReads).toBeGreaterThan(pageReadsBeforeReview));
     expect(await screen.findAllByRole('button', { name: 'trainingLog.evidence.pdf' })).not.toHaveLength(0);
     expect(await screen.findAllByRole('button', { name: 'trainingLog.evidence.zip' })).not.toHaveLength(0);
   });

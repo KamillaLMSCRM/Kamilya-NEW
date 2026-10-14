@@ -182,7 +182,9 @@ describe('course lesson editor', () => {
     expect(save.parentElement?.parentElement).toHaveClass('flex-wrap', 'min-w-0');
     expect(screen.getByRole('group', { name: 'Режим просмотра урока' })).toHaveClass('flex-wrap');
     const grid = save.closest('.grid');
-    expect(grid).toHaveClass('xl:grid-cols-[280px_minmax(0,1fr)]', '2xl:grid-cols-[minmax(280px,340px)_minmax(0,1fr)_280px]');
+    expect(grid).toHaveClass('min-w-0', 'grid-cols-1', 'xl:grid-cols-[280px_minmax(0,1fr)]', '2xl:grid-cols-[minmax(280px,340px)_minmax(0,1fr)_280px]');
+    expect(screen.getByRole('heading', { name: 'Структура курса' }).closest('.rounded-lg')).toHaveClass('min-w-0');
+    expect(screen.getByRole('textbox', { name: 'courses.addModule' }).parentElement).toHaveClass('min-w-0', 'flex-wrap');
     expect(screen.getByRole('heading', { name: /^Урок$/ }).closest('aside')).toHaveClass('xl:col-span-2', '2xl:col-span-1');
   });
 

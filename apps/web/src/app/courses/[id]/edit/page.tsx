@@ -602,15 +602,16 @@ export default function CourseEditPage() {
         </div>
       )}
 
-      <div className="grid min-h-[680px] gap-4 xl:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[minmax(280px,340px)_minmax(0,1fr)_280px]">
-        <Card className="min-h-0 xl:sticky xl:top-4 xl:h-[calc(100dvh-2rem)]">
+      <div className="grid min-h-[680px] min-w-0 grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[minmax(280px,340px)_minmax(0,1fr)_280px]">
+        <Card className="min-h-0 min-w-0 xl:sticky xl:top-4 xl:h-[calc(100dvh-2rem)]">
           <CardContent className="flex h-full min-h-0 flex-col gap-4 p-4">
             <div className="flex items-center gap-2">
               <ListTree className="h-5 w-5 text-primary" aria-hidden="true" />
               <h2 className="font-semibold">{t('authenticatedUi.editor.outline')}</h2>
             </div>
-            <div className="flex gap-2">
+            <div className="flex min-w-0 flex-wrap gap-2">
               <Input
+                className="min-w-0 flex-1 basis-32"
                 aria-label={t('courses.addModule')}
                 placeholder={t('courses.addModule') + '...'}
                 value={newModuleTitle}

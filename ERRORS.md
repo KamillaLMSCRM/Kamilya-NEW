@@ -2,6 +2,21 @@
 
 Current as of: 2026-10-14.
 
+## TEST-JOURNAL-001 - Fixture accepted a signed scan on a second read
+
+- Date: 2026-10-14; repeated local full-suite failure, focused21 passed.
+- Symptom: initial signed-copy Accept button absent in learningInsightsJournal
+  first test. No runtime implementation delta; precise failing GET order unobserved.
+- Cause: fixture used pageReads>1 as accepted state without a review POST. Any
+  extra initial GET could hide the pending action; this is not evidence of a
+  production acceptance defect or proof that CPU contention caused it.
+- Fix: fixture advances only after the exact review URL/body POST, asserts no
+  POST before click and parent GET count strictly increases after the click.
+  Same timeouts and export checks retained; runtime code unchanged.
+- Verification: original two full failures retained; corrected full1088/155 files
+  PASS, typecheck/changed lint PASS. No runtime change or timeout relaxation.
+- Prevention: model fake server state by semantic writes, not arbitrary read count.
+
 ## COURSE-EDITOR-001 - Save overflow was covered by the properties column
 
 - Date: 2026-10-14; real synthetic DEV50-R3 mouse acceptance, no customer data.
@@ -20,6 +35,11 @@ Current as of: 2026-10-14.
 - Prevention: test actual enabled-control hit targets at laptop/mobile widths,
   not only accessible-tree visibility or keyboard/HTTP success. Preserve later
   manual text when loading historical correction receipts.
+- R4 live successor: default1270 and wide1590 hit targets PASS; ordinary mouse
+  saved and restored synthetic text. Mobile380 had scrollWidth487: the implicit
+  single grid track still used intrinsic outline minimum. R5 adds explicit
+  grid-cols-1/min-w-0 and shrinkable wrapping add-module input; no handler change.
+  Added declarations RED before repair. Real final mobile/flow acceptance pending.
 
 ## WB-CORRECTION-008 - Plain-text follow-up had no source-review handoff
 
