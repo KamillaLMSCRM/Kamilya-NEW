@@ -173,6 +173,19 @@ describe('course lesson editor', () => {
     vi.unstubAllGlobals();
   });
 
+  it('keeps lesson actions wrapped and reserves a wide editor before placing properties beside it', async () => {
+    setupFetch(); render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('textbox', { name: 'Содержание урока' });
+    const save = screen.getByRole('button', { name: 'common.save' });
+    expect(save.parentElement).toHaveClass('flex-wrap', 'max-w-full');
+    expect(save.parentElement?.parentElement).toHaveClass('flex-wrap', 'min-w-0');
+    expect(screen.getByRole('group', { name: 'Режим просмотра урока' })).toHaveClass('flex-wrap');
+    const grid = save.closest('.grid');
+    expect(grid).toHaveClass('xl:grid-cols-[280px_minmax(0,1fr)]', '2xl:grid-cols-[minmax(280px,340px)_minmax(0,1fr)_280px]');
+    expect(screen.getByRole('heading', { name: /^Урок$/ }).closest('aside')).toHaveClass('xl:col-span-2', '2xl:col-span-1');
+  });
+
   it('integrates a verified fresh correction without issuing a manual PATCH', async () => {
     correctionHarness.enabled = true; setupFetch(); render(<CourseEditPage />);
     await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();

@@ -205,3 +205,19 @@ assistant. Next gate: ordinary synthetic DEV dialogue→handoff→source-owned p
 →source download/check→explicit same-seal application/receipt/reload/unknown-result
 recovery, after exact existing-contour deployment authority. Production49 remains
 outside this candidate; no release/version/tag/provider changes in this iteration.
+
+## Root impact acceptance after live DEV50 findings,2026-10-14
+
+Latest owner request authorizes repairs and existing-contour DEV→production.
+V1.2 added explicit staging of an eligible plain follow-up; final source replay
+and strict partial-metadata guards are reviewed, no server/policy expansion.
+R3 real model/source/download/application/full-reload/historical-manual cycle
+passed logically, but the enabled manual Save pointer hit an overlapping ASIDE.
+Root accepts a bounded neighboring page CSS repair: only grid breakpoints,
+properties span and wrapping/height classes in the existing course editor, one
+preventive CSS-contract test and canonical docs. No event/state/handler/callback,
+HTTP/role/source/model/worker/DB change. Keep R3 audit for unchanged owners and
+independent rendering-delta review; require actual1270/wide/mobile hit testing,
+mouse Save and final DEV cycle before release. Existing receipt/audit/usage and
+review invalidation remain under normal retention; original QA lesson bytes are
+restored, not all columns or completed-learning state. No current production write.

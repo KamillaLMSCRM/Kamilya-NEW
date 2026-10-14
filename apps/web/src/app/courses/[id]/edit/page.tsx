@@ -602,7 +602,7 @@ export default function CourseEditPage() {
         </div>
       )}
 
-      <div className="grid min-h-[680px] gap-4 xl:grid-cols-[minmax(280px,340px)_minmax(0,1fr)_280px]">
+      <div className="grid min-h-[680px] gap-4 xl:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[minmax(280px,340px)_minmax(0,1fr)_280px]">
         <Card className="min-h-0 xl:sticky xl:top-4 xl:h-[calc(100dvh-2rem)]">
           <CardContent className="flex h-full min-h-0 flex-col gap-4 p-4">
             <div className="flex items-center gap-2">
@@ -687,12 +687,12 @@ export default function CourseEditPage() {
           <CardContent className="flex min-h-[680px] flex-col p-0">
             {editingLessonId && activeLesson ? (
               <>
-                <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-border p-4">
+                  <div className="min-w-0 flex-1 basis-48">
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('authenticatedUi.editor.workspaceTitle')}</p>
                     <p className="truncate text-sm text-muted-foreground">{activeLesson.title}</p>
                   </div>
-                  <div className="flex rounded-md border border-border p-1" role="group" aria-label={t('authenticatedUi.editor.viewMode')}>
+                  <div className="flex min-w-0 max-w-full flex-wrap rounded-md border border-border p-1" role="group" aria-label={t('authenticatedUi.editor.viewMode')}>
                     <Button type="button" size="sm" variant={lessonView === 'edit' ? 'secondary' : 'ghost'} onClick={() => setLessonView('edit')}><Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />{t('authenticatedUi.editor.editMode')}</Button>
                     <Button type="button" size="sm" variant={lessonView === 'preview' ? 'secondary' : 'ghost'} onClick={() => setLessonView('preview')}><Eye className="mr-1.5 h-4 w-4" aria-hidden="true" />{t('authenticatedUi.editor.previewMode')}</Button>
                   </div>
@@ -724,13 +724,13 @@ export default function CourseEditPage() {
                     />
                   </article>
                 )}
-                <div className="flex flex-col gap-3 border-t border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-border p-4">
                   <p role="status" className={`text-sm ${lessonDirty ? 'text-amber-700' : 'text-muted-foreground'}`}>
                     {lessonDirty ? t('authenticatedUi.editor.unsavedChanges') : t('common.saved')}
                   </p>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => void handleDiscardLessonChanges()} disabled={!lessonDirty || savingLesson}>{t('authenticatedUi.editor.discard')}</Button>
-                    <Button onClick={handleSaveLessonContent} disabled={!lessonDirty || savingLesson || !editLessonTitle.trim()}>
+                  <div className="flex min-w-0 max-w-full flex-wrap gap-2">
+                    <Button className="h-auto min-h-10 whitespace-normal" variant="outline" onClick={() => void handleDiscardLessonChanges()} disabled={!lessonDirty || savingLesson}>{t('authenticatedUi.editor.discard')}</Button>
+                    <Button className="h-auto min-h-10 whitespace-normal" onClick={handleSaveLessonContent} disabled={!lessonDirty || savingLesson || !editLessonTitle.trim()}>
                       {savingLesson && <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
                       {savingLesson ? t('common.saving') : t('common.save')}
                     </Button>
@@ -747,7 +747,7 @@ export default function CourseEditPage() {
           </CardContent>
         </Card>
 
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4 xl:col-span-2 2xl:col-span-1">
           <Card>
             <CardContent className="space-y-4 p-4">
               <h2 className="font-semibold">{t('authenticatedUi.editor.lessonProperties')}</h2>

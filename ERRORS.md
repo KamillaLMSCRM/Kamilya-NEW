@@ -2,6 +2,25 @@
 
 Current as of: 2026-10-14.
 
+## COURSE-EDITOR-001 - Save overflow was covered by the properties column
+
+- Date: 2026-10-14; real synthetic DEV50-R3 mouse acceptance, no customer data.
+- Symptom: enabled Save looked visible but two pointer attempts made no PATCH;
+  keyboard Enter saved successfully. Original QA lesson bytes restored normally.
+- Cause: client width1270 left a934px grid with340/282/280px columns. The fixed
+  horizontal footer controls overflowed the282px editor; elementFromPoint at
+  Save center returned the adjacent ASIDE, not the button. No handler fault found.
+- Fix: two columns at xl, properties below; three columns only at2xl. Header,
+  view-mode group and footer/actions wrap; save/discard labels may grow vertically.
+  This changes CSS only, not state, source/apply owners, auth or HTTP handlers.
+- Verification: live pointer/keyboard differential and geometry established the
+  cause; one CSS declaration regression RED then GREEN, final focused116 and
+  full1088/155 files, type/lint/build67 PASS. Real successor widths/mouse pending;
+  jsdom class assertions alone do not establish pointer geometry.
+- Prevention: test actual enabled-control hit targets at laptop/mobile widths,
+  not only accessible-tree visibility or keyboard/HTTP success. Preserve later
+  manual text when loading historical correction receipts.
+
 ## WB-CORRECTION-008 - Plain-text follow-up had no source-review handoff
 
 - Date: 2026-10-14; actual synthetic DEV50-R2 finding, frontend-only repair.
