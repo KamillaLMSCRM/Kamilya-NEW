@@ -179,3 +179,13 @@ async def test_audience_owner_does_not_consume_dialogue_history(monkeypatch, rep
     assert set(recommend.await_args.kwargs) == {'llm'}
     assert captured == {}
     assert factory.await_args.kwargs['max_tokens'] == 900
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('language,label', [('ru', 'русский'), ('kk', 'қазақша'), ('en', 'English')])
+async def test_normal_chat_obeys_requested_language(monkeypatch, language, label):
+    captured, _ = wire_provider(monkeypatch)
+    await router.chat(request(language=language, history=None), db=object(), user=SimpleNamespace(tenant_id=TENANT, role='methodologist'))
+    system = captured['messages'][0]['content']
+    assert f'Язык текущего ответа: {label}.' in system
+    assert 'на русском.' not in system

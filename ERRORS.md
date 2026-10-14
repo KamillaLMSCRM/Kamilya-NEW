@@ -7134,3 +7134,17 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   safe prose that quotes a denied instruction. Never assume output safety implies
   eligibility under a different replay admission policy. No universal prompt-
   injection robustness or real-model semantic-quality claim from mocked tests.
+
+## AI-CHAT-003 - Chat prompt ignored the validated response language
+
+- Date:2026-10-14; pre-release architecture audit, local repair.
+- Symptom: API accepts ru/kk/en but the normal methodology prompt mandates Russian.
+- Cause: a fixed legacy language directive contradicted the validated request locale;
+  frontend scope reset and schema admission alone did not select response language.
+- Fix: generic prompt wording plus a server-controlled system suffix from the
+  validated ru/kk/en mapping; user/history text cannot supply this suffix.
+- Verification: three real prompt-assembly regressions RED before repair;67 focused
+  chat policy/history/tenant-routing tests and unchanged Python baseline PASS.
+  Real DEV/provider language behavior remains a separate pending acceptance gate.
+- Prevention: verify the actual provider prompt for every advertised locale,
+  not only request parsing or UI translations; preserve all scope/output guards.

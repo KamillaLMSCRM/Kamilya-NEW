@@ -1,6 +1,6 @@
 # AI assistant continuation — text-first
 
-Status: active; local context/source-download/dialogue slices verified; no new deployment.
+Status: active; local slices verified; owner authorized DEV then production49 on2026-10-14.
 Product owner: human owner, request2026-10-13 to continue the in-product assistant.
 Technical/root owner: Root. Reviewer: independent Test & Evidence Runner.
 Baseline: fa39b060, released native48/API47. Runtime truth remains in
@@ -92,3 +92,22 @@ Source navigation audit still rejects excluded4; no rejected graph query accepte
 Next production build67pages PASS, terminal session15496 exit0. Exact source
 checkpoint/readback receipt follows in ignored evidence after commit; no master/
 DEV/tag promotion. No DEV/production, DB, provider resources or real inference.
+
+## Owner-authorized release49,2026-10-14
+
+Owner explicitly requests existing DEV live downloads and true model follow-up
+including "make this version simpler", corrections, then production/live acceptance.
+Root binds version49 to this package only: existing DEV API/worker/Vercel, then
+VM126 API/three workers and CT137 native frontend. No migrations, flag/role/plan/
+capacity changes, voice, landing/DNS/Proxmox/privilege changes or real tenant writes.
+Preserve permanent QA identities/completed rows; use only bounded synthetic
+course/document tests with owned cleanup or intentional test-artifact retention.
+
+Root owns source, decisions, live browser/data fixture and documentation. Release
+Runner executes immutable DEV/native/protected-backend packets; Test Runner audits
+and checks evidence independently. Exact DEV ordinary-role download bytes and
+context-dependent follow-up quality must pass before production, with no automatic
+apply/publication/assignment. Addendum V1.3 fixes audited Russian-only prompt;
+language3 RED before repair, new replay and real DEV language checks required.
+Current/rollback/artifact/capacity/health and final changed-capability/live gates
+remain mandatory. Earlier local-only paragraphs are historical authority boundaries.

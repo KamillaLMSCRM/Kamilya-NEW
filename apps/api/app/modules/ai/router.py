@@ -1104,6 +1104,8 @@ async def chat(
         )
 
     system_prompt = get_renderer().render("router/system_methodology_review.md")
+    response_language = {"ru": "русский", "kk": "қазақша", "en": "English"}[req.language]
+    system_prompt += f"\nЯзык текущего ответа: {response_language}."
 
     safe_summary = redact_sensitive_text(summary)
     safe_target_block = redact_sensitive_text(target_block)

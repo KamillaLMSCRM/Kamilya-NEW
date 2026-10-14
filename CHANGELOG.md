@@ -7,29 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- Prepare authenticated current-source document downloads from AI lesson correction:
-  readable filenames, per-document actions, localized errors and explicit current
-  versus cited-version warning. Fragment hashes are not file revision proofs;
-  files are downloaded manually, never embedded or executed in the editor.
-- Pass bounded completed dialogue exchanges, including proposed lesson text, to
-  the editor assistant. History is ephemeral, focus/language-bound, redacted and
-  untrusted; current server course context stays authoritative. Keep at most four
-  whole exchanges within32000 code points; no UI intros/errors/authority metadata.
-
-### Fixed
-
-- Exclude refused or otherwise-safe instruction-quoting answers from future AI
-  history so one rejected exchange does not block later legitimate questions.
-- Abort source preparation on context replacement and revoke owned Blob URLs;
-  retain only one prepared file, with no eager fetch or automatic download.
-- Bind editor AI chat to its open course/lesson/module, actor/tenant/role/session
-  and language. Abort client requests on invalidation; discard late replies,
-  errors/loading updates and apply notifications even when transport ignores abort.
-  Guard one pending explicit lesson apply. No new API contract, automatic retry,
-  business operation or claim of rolling back already committed server work.
-
 ### Security
 
 - Refresh exact security pins after blocking release-time audits: source-map-js
@@ -157,6 +134,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Share the scoped lookup across public view and activation; clear it before
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
+
+## [0.11.49] - 2026-10-14
+
+### Added
+
+- Authenticated current-source document downloads from AI lesson correction,
+  readable filenames, per-document actions, localized errors and explicit warning:
+  fragment hashes do not prove historical file version. Manual download only.
+- Bounded completed editor dialogue, including proposed lesson text. Ephemeral,
+  scope/language-bound untrusted history; current server context stays authoritative.
+  Last4 whole exchanges/32000 code points; no intros/errors/authority metadata.
+
+### Fixed
+
+- Exclude refusals and replay-ineligible quoted-instruction prose from history
+  so they do not poison later legitimate questions. Honor validated RU/KK/EN language.
+- Cancel source preparation on context replacement, clean owned Blob URLs and
+  retain only one lazy prepared file; no embedded file execution or automatic download.
+- Bind editor chat to course/focus/actor/tenant/session/language; discard stale
+  replies, errors, busy changes and apply callbacks. Guard one pending Apply;
+  client abort is not server rollback.
 
 ## [0.11.48] - 2026-10-13
 

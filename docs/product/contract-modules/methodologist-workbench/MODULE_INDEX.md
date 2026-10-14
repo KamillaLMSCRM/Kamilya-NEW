@@ -9,6 +9,8 @@ Active additive contracts:
 [editor history V1](contracts/EDITOR_CHAT_HISTORY_V1.md),
 [refusal admission V1.1](contracts/EDITOR_CHAT_HISTORY_V1_1.md),
 [quoted-instruction admission V1.2](contracts/EDITOR_CHAT_HISTORY_V1_2.md).
+[requested language V1.3](contracts/EDITOR_CHAT_HISTORY_V1_3.md) repairs the
+pre-release audited Russian-only prompt; real DEV language acceptance pending.
 Current-file download is not historical byte equivalence; ephemeral dialogue is
 not durable memory or command authority. Local tests versus DEV/model/browser/
 release gates are tracked in the active continuation plan and test ledger.

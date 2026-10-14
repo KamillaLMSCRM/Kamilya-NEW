@@ -3790,3 +3790,17 @@ Rules:
   no queries accepted; exact source fallback, no Graphify rebuild. Root/worker
   efficiency, actual worker model/effort/token counters and correction-time metrics
   unavailable, not zero; no CodeBurn/ECC or subscription savings claim.
+
+## ASSISTANT49-LOCAL-20261014 — audited requested-language repair and release staging
+
+- Root executor/writer, baseline5e400ac3 in exact linked checkout. Owner now requests
+  DEV/live real model then production/live acceptance; previous local-only scope
+  remains historical. Root stages product49 with no migration/flags/resources change.
+- Audit Runner first stopped on unlisted audience_advisor read (procedure deviation);
+  corrected bounded scope completed12layers and identified Russian-only prompt.
+  Root language3 RED then API67 PASS1.71s, unchanged Python baseline PASS,
+  version49/release contracts PASS. Source code/guards remain otherwise unchanged;
+  full web1040 accepted by prior source hashes; exact release CI remains mandatory.
+- Evidence .release-evidence/ASSISTANT49-20261014/language-red.xml/api-final.xml
+  and architecture-audit.json/-v2.json; final repaired audit/readback pending.
+  No actual DEV model/browser/production acceptance claimed by this local record.
