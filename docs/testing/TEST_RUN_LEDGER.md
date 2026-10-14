@@ -3804,3 +3804,16 @@ Rules:
 - Evidence .release-evidence/ASSISTANT49-20261014/language-red.xml/api-final.xml
   and architecture-audit.json/-v2.json; final repaired audit/readback pending.
   No actual DEV model/browser/production acceptance claimed by this local record.
+
+## ASSISTANT49-DEV-CI-R1-20261014 — retained public contract failure
+
+- Release Runner executed canonical DEV controller for8a0677fc/49. Source push
+  dev verified independently/accountKamillaLMSCRM; CI38519657164 stopped at
+  public-policy integration exact-JSON response missing new history_eligible=False.
+  First DB suite3PASS/1failed; remaining jobs6SUCCESS. No waiver or deployment GO.
+- Root accepted V1.4 test-only oracle repair: retains full equality/status/no-provider
+  checks. Runtime bytes unchanged. Fresh exact CI required. Provider automatic
+  builds after source push are not inferred absent from missing controller receipt;
+  Root reconciles each service separately before successor execution.
+- Original packet/failed controller outcome and sanitized git-dev49.json retained.
+  Source auth proof uses canonical process-local project token; no values recorded.

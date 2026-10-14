@@ -7135,6 +7135,11 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   eligibility under a different replay admission policy. No universal prompt-
   injection robustness or real-model semantic-quality claim from mocked tests.
 
+- Release recurrence2026-10-14: exact DEV CI38519657164 found the public integration
+  oracle omitted the compatible history_eligible=False field. V1.4 adds this field
+  to full JSON equality and retains200/no-provider assertions; no subset comparison,
+  skipped test or policy relaxation. Original failure retained; new exact CI required.
+
 ## AI-CHAT-003 - Chat prompt ignored the validated response language
 
 - Date:2026-10-14; pre-release architecture audit, local repair.

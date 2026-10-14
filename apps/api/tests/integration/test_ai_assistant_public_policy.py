@@ -97,6 +97,7 @@ async def test_general_chat_refuses_runtime_metadata_without_provider_call(
     assert response.status_code == 200, response.text
     assert response.json() == {
         "reply": assistant_scope_refusal("ru"),
+        "history_eligible": False,
         "apply_lesson_id": None,
         "apply_lesson_content": None,
         "apply_lesson_title_hint": None,
