@@ -1,6 +1,13 @@
 # AI assistant continuation — text-first
 
 Status: active; released49 accepted; next editor→correction handoff is local only.
+Current owner2026-10-14 now authorizes DEV→real model/source/application/reload,
+fixes, then production/native50 and final live acceptance. Root binds the
+frontend-only payload after901320e9; production API/threeworkers49 stay unchanged.
+Existing DEV controller updates API/worker/frontend on their existing Free/Free/
+Hobby resources only. No migration/flags/role/tier/billing/capacity/provider change.
+Only synthetic QA data; disposable source-backed drafts or exact safe draft
+application with visible retained audit/receipt, no completed-learning writes.
 Product owner: human owner, request2026-10-13 to continue the in-product assistant.
 Technical/root owner: Root. Reviewer: independent Test & Evidence Runner.
 Baseline: fa39b060, released native48/API47. Runtime truth remains in
