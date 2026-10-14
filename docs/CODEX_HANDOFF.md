@@ -5,7 +5,39 @@
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `fix/learner-presentation-release-20261010`; source published to `master`
 
-## Current production frontend50/API49 and DEV50 — bounded handoff closed
+## Current production/DEV51 — durable selected-lesson dialogue accepted
+
+Runtime/tagv0.11.51 source85933da4b2bb48a43da4a380dfd36a73c5b195b7;
+masterCI38574563481/native38574699131/protected38575499511 SUCCESS.
+Native REL-ASSISTANT51-WEB-20261014 and independent all4blue/image7505949a…71e9/
+public51/schema0179/FORCE-RLS/nonbypass/backup PASS. Protected controller upgrade
+38572755549 separately approved/installed cfe727c8… with verified old backup;
+no rights/resources/Proxmox. Fresh signed179 restore includes2newQA pairs,
+124tables/120force/RPO45/RTO20, disposable cleanup independently confirmed.
+
+Root ordinary QA real2 replies/2full reloads/close-reopen/KK0→RU2 PASS;
+same request/archive IDs and exact reply text, source lesson SHA/draft/unpublished/
+zeroenrollments retained. DB owner2/sibling0/foreign0; archive passive, no Apply.
+6historyGET/0POSTonreads are sanitized Root-attested counts, not raw trace replay.
+Desktop/mobile inspected; strict3-total-sentence format is not established.
+History private to actor/tenant/course/lesson/language, owner-cascading; no voice.
+
+Watchdog51/timers2active/oneshots success0; fresh critical0/warning0. Exact owner
+approved8-image CAP-ASSISTANT51-20261014 cleanup closed capacity85→72% under owned
+lease after GHCR8index/amd64/71blob checks/fresh all-container references. Current
+51/rollback49/extra47/ALLcontainers/state preserved; independent8absent/11remaining
+images/protected3present PASS, actual3910396KiB reclaimed. Original Rootextra<85
+failed assertion retained; same exact verifier nowPASS72<85, no threshold change.
+Native immediate rollback50/6d2, extra49/3fe+359/299 present;
+backend rollback49/c3c healthy, additional47 kept; actual switch NOT_RUN.
+Only obsolete native48/exact staging pair cleaned with verified offhost recovery.
+Sources/contracts/full1102/isolated27/controller94/CI accepted; current truth
+belongs to PRODUCTION_READINESS/release51/TEST_RUN_LEDGER. Do not reuse old50
+overwritten review as fresh evidence. Runtime/tag859 must not be retagged or
+redeployed for a documentation child. Broader document/assignment command seam
+and semantic benchmarks remain future work under active plan; voice deferred.
+
+## Historical production frontend50/API49 and DEV50 — bounded handoff closed
 
 Runtime/tag50 source6d2a043520044db01dd74f36d89a72ead9fe8d62; exact masterCI
 38554065318/native38551594406/artifact11887097004. Canonical native50 RELEASE_OK;

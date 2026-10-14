@@ -1,6 +1,22 @@
 # AI assistant continuation — text-first
 
-Status: active overall; editor→source-correction handoff released50/accepted.
+Status: active overall; selected-lesson durable dialogue released51/accepted;
+voice deferred. The completed slice is owned by canonical release51/readiness/
+backlog/module index/user docs/TestRunner ledger, not this historical task log.
+
+Current frontier2026-10-14: runtime/tag85933da4b2bb48a43da4a380dfd36a73c5b195b7,
+DEV51/prod51/schema0179 real2replies/2reloads/simpler follow-up/privateRU-KK history
+and unchangedQA lesson accepted; fresh signed179restore includes2newQA pairs.
+Protected controller upgrade38572755549 and backend38575499511/native51 verified.
+Independent new51 reviewer accepted boundedfeature; Root owns finalGO. Separate
+exact owner-approved8image cleanup after fullregistry/reference/lease proof closed
+capacity85→72%, watchdog0CRITICAL/0WARNING/timers active/oneshots success0; no
+threshold relaxation. Future work:
+accepted narrow integration into existing document/assignment command owners and
+broader semantic benchmarks, not voice or automatic command execution. Completed
+51 implementation/release evidence is no longer an open task in this plan.
+
+## Historical preparation snapshots — not current release blockers
 
 Latest verified frontier2026-10-14: durable dialogue92a deployed to canonicalDEV
 Free/Free/Hobby with public schema0179. CI38567681786 all7jobs SUCCESS; independent

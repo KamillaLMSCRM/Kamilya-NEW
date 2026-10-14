@@ -16,8 +16,12 @@ Current as of: 2026-10-14.
 - Verification:5 intended RED regressions;94 controller/runtime/bundle/workflow
   tests PASS, including actual workflow producer51, backup-before179 ordering,
   missing-receipt retry refusal and failure-before-old-worker-stop. Independent
-  VM126 readback confirms installed e0eaaac4... still has the old guard; local
-  repair is not an installed-controller or production acceptance claim.
+  Pre-upgrade VM126 readback confirmed installed e0eaaac4... had the old guard.
+  Owner-approved protected upgrade38572755549 installed exact cfe727c8... with
+  verified old backup/all6 other bytes unchanged; Root independent installed
+  receipt/hash PASS. Protected38575499511 exact859/image750 now deployed51/schema179;
+  native51 and real private-history/model/reload acceptance passed. No rights,
+  keys/config/tier/resource expansion or Proxmox. Original rejection retained.
 - Prevention: before schema-bearing release, cross the actual workflow producer
   and privileged consumer with exact version/from/to/flags. Use the separate
   protected release-plane upgrade workflow for reviewed controller bytes;
@@ -38,6 +42,10 @@ Current as of: 2026-10-14.
   native50 marker/public exact, boundary against49 PASS;48 retained extra. Actual
   rollback switch NOT_RUN. This is a reporting fix, not new deployment authority.
 - Prevention: absence requires checking exact path; readiness is not a drill.
+- Native51 reporting successor: packet49/3fe is retained extra, not immediate
+  post-switch rollback. Root checked canonical execute former-current50/6d2,
+  fresh boundary and installed50 directory. Immediate native rollback is50;
+  backend rollback49 is separate. Never infer either from the packet field alone.
 
 ## TEST-JOURNAL-001 - Fixture accepted a signed scan on a second read
 
@@ -6043,6 +6051,19 @@ Do not treat missing final reconciliation as failed deployment or blindly redepl
   exact unreferenced images early, preserve current/actual rollback/additional
   recovery, verify registry digests, obtain exact cleanup authority, and use the
   canonical exclusive lease. Never mask critical disk or infer permission to prune.
+- 2026-10-14 successor51: fresh exact owner-approved CAP-ASSISTANT51-20261014
+  removed8only, GHCR parent/index/amd64/body-digest/71blob checks passed first.
+  All-container refs/current51/rollback49/extra47 and state bytes preserved;
+  independent8absent/11remaining/protected3present PASS. Actual disk85→72%,
+  reclaimed3910396KiB; fresh watchdogcritical0/warning0/timers2active/success0,
+  original stricter<85 verifier also passed unchanged. No threshold waiver.
+  The initial no-tag guard removed0 and released its owned lease; containerd
+  repeats the EXACT immutable digest in RepoTags, so successor accepts only
+  []or[exactref], rejecting mutable/unknown aliases. Original attempts retained.
+  Registry readers must negotiate OCI image indexes/Docker manifest lists as well
+  as single manifests; old manifest-only404 was not actual absence proof. Failed
+  Sigstore init and mistyped digests are not registry recovery evidence. New
+  executed script enforces index/body/child/blob bindings before scoped deletion.
 
 ## TEST-INFRA-008 - Catalog classifier silently missed PostgreSQL internal-char values
 

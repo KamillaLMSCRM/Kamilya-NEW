@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** frontend50/API+three workers49; actual assistant→source review→apply→reload accepted2026-10-14; previous help/guide/quality lifecycles retained
+**Проверено:** frontend/API/three workers51; durable lesson dialogue DEV/production accepted2026-10-14; exact8 cleanup closed VM126 capacity warning, disk72%/watchdog0-0
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,59 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production — frontend50, unchanged backend49, 2026-10-14
+## Current production51 — private durable lesson dialogue, 2026-10-14
+
+Immutable runtime/tag `v0.11.51` source
+`85933da4b2bb48a43da4a380dfd36a73c5b195b7`; masterCI38574563481/all7SUCCESS,
+native38574699131/canonical REL-ASSISTANT51-WEB-20261014 RELEASE_OK, protected
+backend38575499511 SUCCESS. Public native marker/API and all4 blue services exact51,
+image7505949a…71e9/running/restarts0/flags3ON. Schema0179/FORCE-RLS/policies4/guard1,
+non-super/non-BYPASS lms_app and denied external roles independently verified.
+Separately owner-approved protected controller upgrade38572755549 installed cfe727c8…
+with verified e0eaaac4… backup; six other payloads/runner rights/config unchanged.
+
+Final DEV859 on existing Hobby/Free/Free/all9flags: two real replies first tested
+on unchanged feature source92a, then exact859 reload/readback; selected-lesson
+history and simpler follow-up/RU-KK isolation/unchanged draft PASS. Root production
+ordinary synthetic methodologist:2 real replies,2 full reloads, close/reopen and
+KK0→RU2 private history PASS. Exact submitted/archive UUIDs and reply bytes equal;
+6 history GETs/0 new chat POST on reads, no lesson/correction/publish/assign writes.
+Saved488-character QA lesson SHA unchanged, draft/unpublished/zero enrollments.
+Fresh DB lms_app checks: owner2/sibling0/foreign0. Correct desktop1270×714/mobile
+390×844 JPEGs inspected; initial undersampled mobile attempt explicitly rejected.
+Filtered network counts are Root-attested, not a replayable auth-bearing trace.
+
+Fresh encrypted schema179 backup/signature and actual private restore PASS:
+124 public/120 FORCE-RLS tables, both new QA dialogue pairs restored, RPO45s/RTO20s;
+disposable target/files independently absent. Pre-migration178 proof remains separate.
+Native immediate rollback50/6d2, additional49/3fe and protected359/299 present;
+backend immediate rollback49/c3c healthy, old3workers stopped; additional image47
+retained. Actual rollback switch NOT_RUN; populated179 downgrade is forbidden.
+Watchdog expected SHA/image51, both timers active/oneshots success0; thresholds
+byte unchanged. Initial VM126 disk85% was WARNING1/CRITICAL0; original failed
+Rootextra<85 assertion retained, not relabelled. Later exact owner-approved
+CAP-ASSISTANT51-20261014 removed ONLY8 local unused API images after matching
+GHCR8parent/index/amd64/71config-layer recovery checks and fresh all-container
+references under owned exclusive lease. Current51/rollback49/additional47 and
+ALL containers/release-state bytes preserved. Disk85→72%, free4931236→8841632KiB,
+actual reclaim3910396KiB; independent8absence/protected3presence/11remaining images
+and unchanged QA/schema/service readback PASS. Fresh watchdog0CRITICAL/0WARNING,
+both timers active/oneshots success0; original stricter verifier nowPASS72<85.
+Capacity warning CLOSED. Native free1115456KiB; recoverable obsolete48/exact staging
+cleanup remains separate. Registry/DB/volumes/files/backups/rights/resources intact.
+
+Full web1102/156files, owned isolatedDEV27/cleanup/neutrality, controller94,
+types/lint/build67 and exact CI/API/RLS/journey gates PASS. Broader paging/expiry/
+lost-POST/action-payload cases are source/isolated tests, not this real browser run.
+Two teaching examples retain all factual constraints, but exact short-sentence
+format and universal quality are not guaranteed: second reply has3 teaching
+sentences plus a service sentence. History is actor-private and owner-cascading,
+not execution authority or full command orchestration. Voice remains deferred.
+No Proxmox/onhost build/tiers/resources/rights/keys/model/DNS/landing changes.
+Current evidence owners: release51 notes/TEST_RUN_LEDGER and ignored ASSISTANT51
+receipts. Documentation-only successor does not change immutable runtime/tag859.
+
+## Historical production50 — frontend50, unchanged backend49, 2026-10-14
 
 Immutable source/tag `v0.11.50`:
 `6d2a043520044db01dd74f36d89a72ead9fe8d62`. Master CI38554065318/all7SUCCESS;

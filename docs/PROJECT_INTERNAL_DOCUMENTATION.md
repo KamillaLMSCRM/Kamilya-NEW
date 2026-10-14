@@ -6,6 +6,28 @@
 
 ## 1. Назначение продукта
 
+### Durable selected-lesson dialogue — accepted0.11.51,2026-10-14
+
+`ai_lesson_dialogue_exchanges` additive0179 is the sole archive owner. Scope:
+tenant/authenticated actor/course/selected lesson/language. FORCE-RLS and non-bypass
+`lms_app`; immutable UUID/fingerprint/scope/terminal response, guard before owner
+relations, owner-cascade purge and denied external roles. POST `/api/v1/ai/chat`
+uses optional `durable_request_id` only for ordinary methodologist selected lesson;
+GET `/api/v1/ai/chat/lesson-history` returns20whole pairs/cursor and explicit
+pending/interrupted projection without inference. Server recalls up to4 eligible
+pairs/32000 characters as untrusted context; it releases DB connection during
+inference, reauthorizes/locks current relation, commits completion before response.
+Lost replies are reconciled by read, never hidden model retry. Archived responses
+render passively and do not restore source-review/Apply authority. Existing sealed
+correction owner/confirmation/receipts remain separate; course/module legacy chat
+is temporary. History retained until owning lesson/course/actor/tenant is normally
+deleted; this is not correction receipt90-day TTL. Populated schema downgrade denied.
+Contracts: EDITOR_DURABLE_LESSON_DIALOGUE_V1/V1.1/PURGE_V1; actual live DEV/production
+and signed179restore accepted, wider race/clock/negative seams isolated/CI-tested.
+Current runtime/capacity/rollback truth: PRODUCTION_READINESS, not this
+architecture section. Voice and direct document/assignment command orchestration
+remain outside this slice.
+
 ### Learning insights — implementation candidate, 2026-09-06
 
 `learning_insights` is a read-only projection of `QuizAttempt.evidence_snapshot`

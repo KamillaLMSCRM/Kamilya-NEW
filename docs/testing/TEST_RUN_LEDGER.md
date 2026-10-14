@@ -4062,3 +4062,87 @@ Rules:
   universal semantic quality, old-session reconstruction, voice, physical ten-minute
   expiry and production acceptance remain NOT_VERIFIED. Runner made no source, test,
   external, database, Git, provider, billing, or business mutation.
+
+## ASSISTANT51-PROD-LIVE-REVIEW-20261014 — bounded production durable dialogue acceptance
+
+- Read-only independent review of Root's actual CUA production scenario at exact
+  source `85933da4b2bb48a43da4a380dfd36a73c5b195b7`/version0.11.51. Runner
+  performed no browser, model, provider, runtime, database, Git or business action.
+  All supplied sealed hashes matched. Current feature source remained equal to the
+  independently reviewed18/18 manifest.
+- Existing ordinary synthetic methodologist began with0 scoped RU pairs. Two chat
+  POSTs returned200 and durable IDs `e944f9d9-d3f4-4f53-960d-196643482d74` and
+  `c52ea6c6-5768-4542-bf0c-7d2e8ebe70f9`. Two full reloads restored1 then2 exact
+  pairs with no new chat POST; close/reopen retained2. KK history returned0 and RU
+  returned the same2 IDs, without generation. Root-attested sanitized network totals
+  were2 chat POST/6 history GET/0 action mutations; raw auth-bearing trace was not
+  retained and counts are not independently replayable.
+- The follow-up did not repeat `Ландыш-Бета-51`, deadlines or prohibitions. Its reply
+  retained the marker, both conflicting deadlines, all three prohibitions, unknown
+  active edition/owner and no invented winning deadline. It contains three teaching
+  sentences plus a separate service sentence; strict three-total/short-sentence and
+  universal semantic-quality guarantees remain NOT_ESTABLISHED.
+- Both live responses carried null action payloads. Desktop and accepted CDP mobile
+  captures showed restored passive history, archive notice, composer and no archived
+  Apply/source-review/audience controls without horizontal clipping. Exact source
+  additionally gates all such controls behind `!archived`; populated-action stripping
+  is source/unit proof, not demonstrated by these action-free live replies. Desktop
+  `fb22703d...c6da` (1270x714 JPEG) and mobile-r3 `f20fdd88...34fb`
+  (390x844 JPEG) passed visual review. Initial380x214 mobile capture remains
+  NOT_ACCEPTED; failed full-page r2 was not substituted.
+- Saved lesson content stayed488 characters with identical SHA-256
+  `1e09ee5652ca7754258274ae2bca8f2cfd6c14df40b8cb2c65b7619a049c5dee`;
+  course remained draft/unpublished with0 enrollments. No lesson, correction,
+  publication, assignment, source, customer/account or learning mutation was issued.
+  Expected writes are only the two private dialogue pairs, ordinary usage accounting
+  and two existing-session authentication refreshes.
+- Native receipt `b320460f...f2e8b` is `RELEASE_OK` with public marker/current exact859.
+  Immediate previous current50/`6d2a043...` and additional rollback49/`3fe3c39...`
+  remain present with protected359/299; no rollback switch was run. Backend protected
+  workflow38575499511 has API+3workers on exact image `7505949a...f71e9`, restarts0,
+  flags3ON. Final readback reports schema0179, FORCE RLS, policies4, guard1,
+  non-BYPASS runtime, denied external DML, owner2/sibling0/foreign0 and exact QA IDs.
+- Fresh signed179 isolated restore used encrypted archive
+  `kamilya_20261014T144144Z.dump.gpg` SHA-256 `762fda5c...a7212`; signature/hash,
+  revision179,124 tables/120 FORCE-RLS tables and restored2 private pairs passed.
+  RPO45s/RTO20s were observed; disposable DB/files were removed and production stayed
+  at179. No production restore/switch or customer content output occurred.
+- Review artifact:
+  `.release-evidence/ASSISTANT51-20261014/assistant51-prod-live-review.json`,
+  SHA-256 `143566882345e9a3c132ed425b77362786cf42b89c4533dfc28c1e43bb420937`.
+  Result: `ACCEPT_BOUNDED_PRODUCTION51_FEATURE_WITH_OPEN_CAPACITY_WARNING`; Root owns
+  final GO. Disk85 remains installed-monitor WARNING1/critical0 with thresholds
+  unchanged. Conditional cleanup authority is pending and separate; capacity is not
+  resolved. Pagination20, lost-response replay, physical10-minute expiry, non-null
+  live archived actions, provider attempts/cost, voice and whole-assistant completion
+  remain outside this bounded acceptance.
+
+### CAP8-ASSISTANT51-CLOSEOUT-20261014 — Root executed, independently reviewed
+
+- Subsequent direct owner approval covers ONLY frozen8local API image copies,
+  contingent on exact fresh GHCR recovery and all-container reference checks.
+  CAPinventory SHA a4fbb5fd…9338f; current51/750, rollback49/c3c, extra47/9f98 excluded.
+- Root canonical process-local project account verified8parent/index HEAD/GET/body
+  digests, linux-amd64 children and71unique config/layer HEADs. No credentials to
+  CDN/signed URLs recorded; original typo/manifest-only404/Sigstore-init/timeout
+  attempts retained and not used as recovery proof. New proof SHA b3369c2c…fa97.
+- Initial stricter no-tag guard removed0 and released owned lease. Read-only check
+  proved containerd repeats ONLY the exact immutable ref in RepoTags; successor
+  permits []or[exactref], rejects every other alias. Reviewed script8568c41d…8c2c
+  held canonical O_CREAT_EXCL lease through fresh8/all-container preflight,
+  per-image checks/removals and final identical container/state verification.
+  Removed exactly8 only; no force/prune/registry/DB/volumes/files/backups deletion.
+- Actual disk85→72%, free4931236→8841632KiB, reclaimed3910396KiB. Independent
+  inventory11/exact8absent/protected3present PASS; all4runtime51/image750/flagsON/
+  restarts0/schema179/backup/private2QA pairs/sourceSHA/draftzeroenrollments PASS.
+  Fresh watchdogcritical0/warning0/timers2active/oneshots success0, thresholds
+  byte unchanged. Original strict<85 verifier repeated unchanged and now PASS72<85;
+  prior failure/early OPEN-warning receipts remain immutable historical evidence.
+- Root cap8-closeout51.json SHA32279531…ea4e and independent read-only ReleaseRunner
+  cap8-independent-review51.json SHAa1d0be06…bffd accepted. Capacity warning CLOSED;
+  this grants no further cleanup/deployment authority and is separate from the
+  already accepted bounded durable-dialogue feature.
+- Root post-cleanup normal browser full reload/read retained same2IDs/reply bytes,
+  source488-character SHA unchanged,0newchatPOST. Final1280×720 JPEG
+  prod-history-final51-r2.jpg SHA098e5030…3212 inspected; wrapper intermediate-frame
+  r1 NOT_ACCEPTED, preserved. No new inference, apply, publication or assignment.

@@ -76,10 +76,16 @@ source3fe3c39a2026-10-14. Поздние ответы не переносятс�
 старую карточку и не выполняет PATCH. Full1088/type/lint/build67 и независимые
 архитектурная/раскладочная/смысловая проверки приняты; реальная модель, download,
 source review, consent/seal/apply/reload/manual preservation подтверждены.
-Долговременная история выбранного урока реализована в кандидате0.11.51/schema179:
-private actor/scope archive,27 isolatedDEV checks/cleanup/public neutrality,
-fullweb1102/source review PASS; живые DEV/provider/production gates ещё открыты.
-Открыто: выпуск/приёмка этой истории, интеграция назначения/документов и
+Долговременная история выбранного урока выпущена и принята0.11.51/schema179/
+source85933da42026-10-14: private actor/scope archive,27 isolatedDEV checks/
+cleanup/public neutrality, fullweb1102/controller94/exactCI7 PASS. Real DEV и
+production2replies/2reloads/simpler follow-up/privateRU-KK history и сохранность
+урока подтверждены; signed179 restore включает обе новые QA пары. Архив пассивен,
+не квитанция применения. Отдельный VM12685% WARNING закрыт точной owner-approved
+очисткой8 локальных образов после registry/reference/lease gates:72%, мониторинг
+0CRITICAL/0WARNING; пороги не ослаблялись. Feature acceptance
+не означает весь AI-driven epic или универсальную смысловую/форматную точность.
+Открыто: интеграция назначения/документов и
 дальнейшие семантические benchmark. Legacy PATCH не является квитанцией sealed
 операции. Приоритеты/границы:
 [активный план](plans/2026-10-13_ai-assistant-continuation.md).

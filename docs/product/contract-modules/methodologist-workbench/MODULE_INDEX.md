@@ -2,15 +2,20 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
-New owner-authorized durable lesson history slice, implementation in progress:
+Durable lesson history slice released/accepted0.11.51/source85933da4,2026-10-14:
 [durable lesson dialogue V1](contracts/EDITOR_DURABLE_LESSON_DIALOGUE_V1.md),
 [populated purge impact V1](contracts/EDITOR_DURABLE_LESSON_DIALOGUE_PURGE_V1.md).
 [ownership/interruption V1.1](contracts/EDITOR_DURABLE_LESSON_DIALOGUE_V1_1.md)
 adds final relation locking and explicit interrupted readback before rollout.
 Additive schema0179, actor-private archive, read-only resume and bounded server
-recall. DEV/runtime/production acceptance not yet executed; voice excluded.
+recall. Actual DEV and production2real replies/2reloads/private RU-KK history,
+same opaque IDs/reply bytes and unchanged QA lesson/draft PASS. Signed179restore
+includes2newQA pairs; actual ownerRLS2/sibling0/foreign0 confirmed. Source/isolated
+27/CI cover wider negatives, not all browser scenarios. Separate exact owner-
+approved8-image cleanup resolved capacity85→72%; watchdog0CRITICAL/0WARNING,
+timers active/success0/no threshold change. Voice excluded.
 
-Current released frontier2026-10-14: frontend50/DEV50 source6d2a0435, unchanged
+Historical released handoff frontier2026-10-14: frontend50/DEV50 source6d2a0435, unchanged
 production API/threeworkers49. Real dialogue/plain follow-up→unverified handoff→
 source preview/download→explicit sealed apply→full reload/later manual preservation
 accepted on existing synthetic QA drafts. Source review may require refinement;
@@ -21,7 +26,9 @@ the accepted frontend-only slice: explicitly stage an unverified chat candidate,
 then use the existing source preview/consent/seal/receipt owner. Local implementation
 accepted through final full1088/types/lint/build67 and independent architecture/
 rendering/semantic reviews; actual DEV/production activated and accepted. No new
-server/command owner; history remains ephemeral and voice remains deferred.
+server/command owner in50; its history was ephemeral. Selected-lesson51 private
+archive above supersedes that limit; course/module legacy history remains temporary.
+Voice remains deferred.
 [recovery V1.1](contracts/EDITOR_CORRECTION_HANDOFF_V1_1.md) preserves unknown
 request keys/pending locators across locale/source/instruction changes and adds
 explicit same-ID restore reads. Server/HTTP contracts remain unchanged.
@@ -39,8 +46,8 @@ pre-release audited Russian-only prompt; actual DEV/production RU/KK/EN accepted
 response equality after the compatible admission field, with fresh CI required.
 [marker-only acknowledgement V1.5](contracts/EDITOR_CHAT_HISTORY_V1_5.md) repairs
 the misleading empty-response label reproduced in real DEV acceptance.
-Current-file download is not historical byte equivalence; ephemeral dialogue is
-not durable memory or command authority. Local tests versus DEV/model/browser/
+Current-file download is not historical byte equivalence; archived dialogue is
+not verified source or command authority. Local tests versus DEV/model/browser/
 release gates are tracked in the active continuation plan and test ledger.
 Simplification can omit an important clause; explicit follow-up restored it in
 the live example. Exact formatting/counts are not guaranteed. The handoff slice

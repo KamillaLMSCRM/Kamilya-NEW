@@ -25,7 +25,36 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current environment — frontend50/API49, DEV50,2026-10-14
+## Current environment — production51/DEV51,2026-10-14
+
+Runtime/tagv0.11.51 source85933da4b2bb48a43da4a380dfd36a73c5b195b7,
+masterCI38574563481/native38574699131/protected38575499511 SUCCESS;
+canonical REL-ASSISTANT51-WEB-20261014 RELEASE_OK. API+3workers blue/image7505949a…
+71e9/native/public identities exact51/all3flagsON/restarts0. CT125schema0179 and
+private actor-owned dialogue FORCE-RLS verified; signed179 restore124tables/
+120force/RPO45/RTO20 and restored2QA pairs/temporary cleanup PASS. Current watchdog
+51/timers2active/oneshots success0. Fresh watchdog0CRITICAL/0WARNING; disk72% after
+exact owner-approved8 local image copies removed under owned lease, GHCR8manifest/
+amd64/71blob recovery proof and all-container reference/preservation checks.
+Actual3910396KiB reclaimed; protected51/49/47 and11remaining images independently
+present, exact8absent. No threshold change/Proxmox/rights/tiers/resources.
+Immediate native rollback50/6d2, additional49/3fe/protected359/299 retained;
+backend rollback49/c3c healthy/oldworkers stopped, additional47 retained.
+Obsolete native48/exact staging recovery cleanup is separate from the exact8 API
+image cleanup; no broad prune, registry/DB/volume/file/backup deletion.
+
+Existing DEV51 exact859, Hobby/Free/Free unchanged:
+Vercel dpl_r7Rb5gmuFBcDwc8dAWDVBDXsLJrX,
+API dep-db7o8pad0e5s73eiog70, worker dep-db7o9ps9v7es73cop9s0 live/all9flagsON.
+Actual QA dialogue→reload→simpler follow-up→reload/private RU-KK history accepted
+in DEV and production, no lesson/publish/assignment writes. Original QA bytes,
+draft and zeroenrollments retained. History owner/context/limits and current
+operational state: PRODUCTION_READINESS/release51/TestRunnerledger. Six other
+release-plane files unchanged; separate approved controller upgrade38572755549
+installed cfe727c8… with verified e0eaaac4… backup, no rights/config expansion.
+Runtime859 is distinct from any later documentation-only master successor.
+
+## Historical environment — frontend50/API49, DEV50,2026-10-14
 
 Production native frontend50/tagv0.11.50 source
 `6d2a043520044db01dd74f36d89a72ead9fe8d62` accepted through canonical

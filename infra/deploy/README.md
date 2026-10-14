@@ -74,6 +74,17 @@ verification, and release only the owned inode. No force or broad prune. Record
 actual post-cleanup disk usage; virtual image sizes are not reclaimable-space
 proof. Retention planning is not permission for automatic deletion.
 
+For GHCR recovery reads, include OCI image-index and Docker manifest-list media
+types alongside single OCI/Docker manifests in `Accept`. Verify exact parent
+HEAD/GET/body digest and the required linux-amd64 child/config/layer availability;
+do not infer absence from a manifest-only negotiation404 or Sigstore-init failure.
+Load exact candidates from a hash-bound inventory rather than retyping digests.
+Containerd may repeat the exact immutable `repo@sha256:digest` in `RepoTags`; an
+empty-only guard is not portable. Permit only empty tags or that same exact ref;
+any mutable/unknown alias still blocks automatic scoped cleanup. Redirected CDN
+reads must not forward registry authorization or log signed URLs. These checks
+do not replace fresh exact owner authority or the canonical owned existence lock.
+
 The first VM126 installation and slot conversion require the production deploy
 skill, exact owner authority, rollback packet and independent readback.
 
