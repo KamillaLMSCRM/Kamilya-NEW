@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Resolve exact Russian and Kazakh course/department names consistently under
+  PostgreSQL C locale during dialog-driven assignment preview. Both comparison
+  operands use the installed explicit Unicode collation; tenant scope, publication,
+  duplicate choices, bounded lookup and explicit confirmation remain unchanged.
+
 ### Security
 
 - Refresh exact security pins after blocking release-time audits: source-map-js
@@ -142,6 +149,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Share the scoped lookup across public view and activation; clear it before
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
+
+## [0.11.54] - 2026-10-15
+
+### Fixed
+
+- Repair production-only Cyrillic name lookup in assignment previews: expression-
+  local ICU lowercase on both bound operands replaces mixed SQL/Python lowercase.
+  No schema/global locale/provider change. Add C-collated actual service regressions
+  on owned Supabase DEV tables, alongside RU/KK/quoted-name SQL-contract checks.
+  ChatGPT reserve remains OFF; voice and completed learning are untouched.
 
 ## [0.11.53] - 2026-10-15
 

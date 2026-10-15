@@ -1,5 +1,30 @@
 # AI assistant continuation — text-first
 
+## Active assignment acceptance repair — 2026-10-15
+
+Owner: full live DEV then production synthetic assignment dialogue, repair found
+defects; ChatGPT OFF and no voice. Runtime53/18cc, docs-onlyHEADcd449 at start.
+DEV real model4calls1.35–1.93s, preview2, correction25→27Oct17:30, explicitconfirm1,
+same receiptGET after reload, studentlesson0%, zerooutbox, old completed1/projection
+unchanged and owned temporary position department restored PASS. Exact retained
+fixture348616a4…/plan07a3b3b6…/enrollment0ac199d7… in ASSIGNMENT54-20261015 receipts.
+An extra direct outbox SQL probe correctly denied lms_app; corrected harness uses
+the canonical readonly SECURITY DEFINER statuses adapter, no permission change.
+
+Production real model clarification/follow-up PASS; preview resource_not_found.
+Independent read: published synthetic course e6665da3-63c2-4064-b95e-040e5b49d959
+exists/current release/exact literal title equal; datcollate=C and SQLlower differs
+from Pythonlower. Department28b14c08… resolves; no assignment created. Temporary
+ordinary QA position00f6f7df… is currently bound to this owned QA DIALOGUE54 department
+and MUST be restored to empty/NULL after acceptance (original course_ids=[]).
+Root V1.5 expression-local ICU repair, installed ICU/RU-KKprobe PASS; unitRED2 then
+focused61PASS. Owned actual C-collation DEV, broader tests/CI, liveDEV, protected
+backend-only54/schema180/no-migration and finalprod cycle remain required.
+Current source change intentionally leaves native53/connector53/routeOFF intact.
+CodeGraph preflight stale and search rejected4 excludedfiles; SOURCE_FALLBACK,
+no unsafe graph query/index rebuild/global install. Cheap worker owns only new
+UnicodeDEVhelper+its offline tests; Root owns integration/core/docs/release.
+
 ## Closed installation slice — 2026-10-15
 
 Version53 exact18cc41e3a8f9a72be85a0977e82bad11e484f6f3 is deployed to DEV and

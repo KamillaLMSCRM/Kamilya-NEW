@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.department import Department
@@ -276,7 +276,8 @@ async def create_assignment_preview(
                     .where(
                         Course.tenant_id == actor.tenant_id,
                         Course.status == "published",
-                        func.lower(func.btrim(Course.title)) == course_query.lower(),
+                        func.lower(func.btrim(Course.title).collate("und-x-icu"))
+                        == func.lower(literal(course_query).collate("und-x-icu")),
                     )
                     .order_by(Course.id)
                     .limit(21)
@@ -297,7 +298,8 @@ async def create_assignment_preview(
                         Department.tenant_id == actor.tenant_id,
                         Department.is_active.is_(True),
                         Department.archived_at.is_(None),
-                        func.lower(func.btrim(Department.name)) == department_query.lower(),
+                        func.lower(func.btrim(Department.name).collate("und-x-icu"))
+                        == func.lower(literal(department_query).collate("und-x-icu")),
                     )
                     .order_by(Department.id)
                     .limit(21)

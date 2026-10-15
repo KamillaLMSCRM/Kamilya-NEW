@@ -47,6 +47,34 @@ def _fixtures() -> tuple[ActorContext, AssignmentPreviewRequest, tuple[object, .
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("query", ["ПРОВЕРКА НАЗНАЧЕНИЯ", "ӘҚҢҒҰҮҺӨІ БӨЛІМІ"])
+async def test_unicode_resolution_uses_same_explicit_collation_on_both_operands(
+    monkeypatch: pytest.MonkeyPatch, query: str,
+) -> None:
+    actor, body, binding = _fixtures()
+    course, department, _, _, _ = binding
+    assert body.candidate is not None
+    body = body.model_copy(update={"candidate": body.candidate.model_copy(update={
+        "course_query": query, "department_query": query,
+    })})
+    db = SimpleNamespace(
+        scalars=AsyncMock(side_effect=[_rows([course]), _rows([department])]),
+        scalar=AsyncMock(return_value=None), add=Mock(), flush=AsyncMock(),
+    )
+    monkeypatch.setattr(service, "_bindings", AsyncMock(return_value=binding))
+    result = await service.create_assignment_preview(db, actor, body, now=NOW)
+    assert result.state == "preview_ready"
+    for call in db.scalars.await_args_list:
+        statement = call.args[0].compile(dialect=postgresql.dialect())
+        # Database-default C lower differs from Python lower for Cyrillic.
+        # Both operands must use the existing explicit Unicode collation.
+        assert str(statement).count('COLLATE "und-x-icu"') == 2
+        assert query in statement.params.values()
+        assert query.lower() not in statement.params.values()
+        assert 21 in statement.params.values()
+
+
+@pytest.mark.asyncio
 async def test_candidate_mode_falls_back_once_for_paired_outer_quotes(monkeypatch: pytest.MonkeyPatch) -> None:
     actor, body, binding = _fixtures()
     course, department, _, _, _ = binding

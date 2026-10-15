@@ -62,8 +62,10 @@ async def verify_intent(owner_engine, runtime_engine, schema, actor, other_tenan
     due = (now + timedelta(days=4)).date().isoformat()
     content = json.dumps({"action": "assignment_preview", "course_query": "Gate course", "department_query": "Gate department", "due_date": due, "notify": False, "include_descendants": False})
 
-    async def invoke(_messages):
+    async def invoke(_messages, *, provider_deadline_seconds):
         nonlocal provider_calls
+        if provider_deadline_seconds != 8:
+            raise GateBlocked("intent_transport_deadline_missing")
         provider_calls += 1
         return SimpleNamespace(content=content)
 
@@ -170,6 +172,11 @@ async def verify_intent(owner_engine, runtime_engine, schema, actor, other_tenan
             if await db.scalar(text("SELECT count(*) FROM tenant_llm_usage")) != 0:
                 raise GateBlocked("intent_foreign_usage_visible")
         checks.append("usage_force_rls_foreign_hidden")
+        from workbench_unicode_dev_checks import verify_unicode_resolution
+
+        checks += await verify_unicode_resolution(
+            owner_engine, isolated, schema, actor, preview.course_id, preview.department_id, learner_id, now,
+        )
         return checks
     finally:
         await isolated.dispose()

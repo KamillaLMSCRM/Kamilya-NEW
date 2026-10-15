@@ -13,6 +13,10 @@ failover accepted separately from production release/auth and hosted-use eligibi
 the latter remain NOT VERIFIED. No voice, paid API or automatic activation.
 
 Current assignment dialogue slice, accepted for implementation2026-10-15:
+[Unicode comparison V1.5](contracts/ASSIGNMENT_DIALOGUE_V1_5.md) repairs the live
+production C-collation/Python-lower mismatch for exact RU/KK resource lookup;
+no global locale/schema/provider change. DEV/production acceptance is separately
+recorded; reserve remains OFF and voice deferred.
 [ASSIGNMENT_DIALOGUE_V1](contracts/ASSIGNMENT_DIALOGUE_V1.md). Existing intent ->
 bounded previous user requests -> candidate -> owned preview -> explicit confirm
 -> receipt/reload/result navigation. No new assignment owner/table/migration,

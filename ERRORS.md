@@ -2,6 +2,29 @@
 
 Current as of: 2026-10-15.
 
+## SQL-NAME-001 - C locale disagreed with Python Unicode lowercase during assignment lookup
+
+- Date: 2026-10-15; full live assignment-dialogue DEV53/production53 acceptance.
+- Symptom: model clarification/follow-up returned the exact course/department,
+  but production preview returned resource_not_found; equivalent DEV flow passed.
+- Cause: SQL lower(btrim(title/name)) used production datcollate=C while the
+  comparison parameter was lowercased in Python. Independent READ ONLY runtime
+  probe proved exact existing/published/title equality and current release, but
+  SQL/Python Cyrillic lowercase differed. Department ASCII name still resolved.
+- Fix: expression-local existing ICU und-x-icu collation on BOTH lower operands;
+  bound literals, no global locale/schema/provider change. Preserve tenant/status/
+  archive/21limit/duplicate/selectedID/quoted-literal guards and explicit confirm.
+- Verification: actual failed production receipt retained; installed ICU/RU-KK
+  probe PASS; deterministic RED2 then focused61PASS/full unit2960PASS. Actual owned
+  C-collation Supabase DEV gate PASS including RU/KK case/space/quote variants,
+  RLS/atomicity/replay, cleanup and public neutrality. Initial harness oracle
+  failure retained; normalized DTO comparison repaired without removing variants.
+  Exact release and final production journey remain pending until recorded.
+- Prevention: exercise real C-collated cloned text columns in the owned Supabase
+  DEV gate, not only mocked resolver rows or the DEV database's default locale.
+  Do not use a new model call, fuzzy matching, global DB rebuild or wider grants
+  to work around deterministic resource-name equality.
+
 ## AI-PROVIDER-005 - Direct API denial is not a Codex CLI capability test
 
 - Date:2026-10-15; local diagnostic only, no production mutation.
