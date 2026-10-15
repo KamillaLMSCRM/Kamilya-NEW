@@ -281,6 +281,13 @@ def dialogue_payload(*, migration=True):
     ("0.11.51", "0175", "0178", False),
     ("0.11.51", "0178", "0180", False),
     ("0.11.51", "0179", "0178", False),
+    ("0.11.52", "0178", "0179", True),
+    ("0.11.52", "0179", "0180", False),
+    ("0.11.53", "0179", "0180", True),
+    ("0.11.53", "0178", "0179", False),
+    ("0.11.53", "0178", "0180", False),
+    ("0.11.53", "0180", "0179", False),
+    ("0.11.53", "0180", "0181", False),
 ])
 def test_correction_migration_is_version_bound(version, source, target, accepted):
     data = dialogue_payload()
@@ -358,3 +365,50 @@ def test_dialogue_upgrade_failure_keeps_current_workers_and_flags(tmp_path):
     record = json.loads((cfg.evidence_dir / "release-ledger.jsonl").read_text())
     assert record["status"] == "FAILED"
     assert record["previous_feature_flags"] == CANDIDATE
+
+
+def reserve_payload(*, migration=True):
+    data = dialogue_payload(migration=migration)
+    data["product_version"] = "0.11.53"
+    if migration:
+        data["migration"].update(from_revision="0179", to_revision="0180")
+    return data
+
+
+class ReserveRunner(DialogueRunner):
+    def run(self, args, *, env=None):
+        call = tuple(args)
+        if "current" in call:
+            self.calls.append((call, dict(env or {})))
+            return "0180 (head)" if any("upgrade" in c and "0180" in c for c, _ in self.calls) else self.initial_revision
+        return super().run(args, env=env)
+
+
+class ReserveHealth(DialogueHealth):
+    def read(self, url):
+        return {**super().read(url), "product_version": "0.11.51" if ":18000/" in url else "0.11.53"}
+
+
+def test_reserve_migration180_preserves_all_flags_and_backup_before_upgrade(tmp_path):
+    runner = ReserveRunner(revision="0179")
+    controller = plane.ReleasePlane(plane.ReleaseManifest.parse(reserve_payload()), legacy.config(tmp_path), runner, ReserveHealth())
+    assert controller.execute(controller.manifest.release_id)["status"] == "DEPLOYED"
+    commands = [c for c, _ in runner.calls]
+    backup = next(i for i, c in enumerate(commands) if "--expected-revision" in c)
+    upgrade = next(i for i, c in enumerate(commands) if "upgrade" in c)
+    assert commands[backup][commands[backup].index("--expected-revision") + 1] == "0179"
+    assert commands[upgrade][-1] == "0180" and backup < upgrade
+    assert all(all(env[KEYS[k]] == "true" for k in KEYS) for c, env in runner.calls if "kamilya-blue" in c or "kamilya-green" in c)
+
+
+@pytest.mark.parametrize("revision,accepted", [("0180", True), ("0179", False), ("0181", False), ("01800", False)])
+def test_no_migration_reserve_requires_exact_schema180(tmp_path, revision, accepted):
+    runner = ReserveRunner(revision=revision)
+    controller = plane.ReleasePlane(plane.ReleaseManifest.parse(reserve_payload(migration=False)), legacy.config(tmp_path), runner, ReserveHealth())
+    if accepted:
+        assert controller.execute(controller.manifest.release_id)["status"] == "DEPLOYED"
+        assert not any("upgrade" in c or "--expected-revision" in c for c, _ in runner.calls)
+    else:
+        with pytest.raises(plane.ReleasePlaneError, match="correction_schema_revision_mismatch"):
+            controller.execute(controller.manifest.release_id)
+        assert not any("up" in c or "stop" in c for c, _ in runner.calls)

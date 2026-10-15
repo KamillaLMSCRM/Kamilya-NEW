@@ -1,0 +1,70 @@
+name: kamilya-codex-reserve
+
+services:
+  connector:
+    image: ${CODEX_RESERVE_IMAGE:?CODEX_RESERVE_IMAGE must be set}
+    profiles: [manual-reserve]
+    restart: unless-stopped
+    init: true
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 512m
+    cpus: 0.5
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m
+    environment:
+      CODEX_CLI_BINARY: /usr/local/bin/codex
+      CODEX_CLI_HOME: /codex-home
+      CODEX_CLI_SHA256_FILE: /opt/codex-reserve/cli.sha256
+      CODEX_CONNECTOR_TOKEN_FILE: /run/secrets/connector-token
+      CODEX_CONNECTOR_BIND: 0.0.0.0
+      CODEX_CONNECTOR_PORT: "18999"
+      CODEX_CONNECTOR_ISOLATED: "1"
+      HTTP_PROXY: http://egress:18888
+      HTTPS_PROXY: http://egress:18888
+      NO_PROXY: ""
+    volumes:
+      - type: bind
+        source: ${CODEX_AUTH_HOME:?CODEX_AUTH_HOME must be set}
+        target: /codex-home
+        read_only: false
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CODEX_CONNECTOR_TOKEN_FILE:?CODEX_CONNECTOR_TOKEN_FILE must be set}
+        target: /run/secrets/connector-token
+        read_only: true
+        bind:
+          create_host_path: false
+    expose: ["18999"]
+    networks: [codex-private]
+
+  egress:
+    image: ${CODEX_RESERVE_IMAGE:?CODEX_RESERVE_IMAGE must be set}
+    profiles: [manual-reserve]
+    restart: unless-stopped
+    init: true
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 32
+    mem_limit: 128m
+    cpus: 0.25
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m
+    entrypoint: ["python", "/opt/codex-reserve/egress.py"]
+    ports:
+      - "${CODEX_BIND_IP:-127.0.0.1}:18999:18999"
+    networks:
+      codex-private:
+        aliases: [egress]
+      egress: {}
+
+networks:
+  codex-private:
+    internal: true
+  egress:

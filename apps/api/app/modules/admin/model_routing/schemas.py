@@ -18,6 +18,7 @@ class GenerationModelRouteItem(BaseModel):
     position: int | None
     is_required: bool
     is_configured: bool
+    activation_blocker: str | None = None
 
 
 class GenerationModelRoutingResponse(BaseModel):
@@ -28,7 +29,7 @@ class GenerationModelRoutingResponse(BaseModel):
 
 class GenerationModelRoutingUpdate(BaseModel):
     revision: int = Field(..., ge=1)
-    ordered_model_ids: list[str] = Field(..., min_length=1, max_length=3)
+    ordered_model_ids: list[str] = Field(..., min_length=1, max_length=4)
 
     @field_validator("ordered_model_ids")
     @classmethod

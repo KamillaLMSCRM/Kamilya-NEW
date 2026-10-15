@@ -1,0 +1,171 @@
+name: Build Codex reserve image
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Exact 40-character source commit SHA"
+        required: true
+        type: string
+      ci_run_id:
+        description: "Successful CI workflow run ID for this exact SHA"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  attestations: write
+  contents: read
+  id-token: write
+  packages: write
+
+concurrency:
+  group: kamilya-codex-reserve-image
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build immutable Codex reserve image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Validate exact CI run and source SHA
+        id: source
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          CI_RUN_ID: ${{ inputs.ci_run_id }}
+          REPOSITORY: ${{ github.repository }}
+          DISPATCH_REF: ${{ github.ref }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${CI_RUN_ID}" =~ ^[0-9]+$ ]]
+          [[ "${DISPATCH_REF}" == "refs/heads/master" ]]
+          run_json="$(gh api "repos/${REPOSITORY}/actions/runs/${CI_RUN_ID}")"
+          run_name="$(jq -r '.name // empty' <<<"${run_json}")"
+          run_status="$(jq -r '.status // empty' <<<"${run_json}")"
+          run_conclusion="$(jq -r '.conclusion // empty' <<<"${run_json}")"
+          run_sha="$(jq -r '.head_sha // empty' <<<"${run_json}")"
+          run_workflow_id="$(jq -r '.workflow_id // empty' <<<"${run_json}")"
+          run_path="$(jq -r '.path // empty' <<<"${run_json}")"
+          run_repository="$(jq -r '.head_repository.full_name // empty' <<<"${run_json}")"
+          run_event="$(jq -r '.event // empty' <<<"${run_json}")"
+          run_branch="$(jq -r '.head_branch // empty' <<<"${run_json}")"
+          workflow_json="$(gh api "repos/${REPOSITORY}/actions/workflows/ci.yml")"
+          expected_workflow_id="$(jq -r '.id // empty' <<<"${workflow_json}")"
+          expected_workflow_path="$(jq -r '.path // empty' <<<"${workflow_json}")"
+          [[ "${run_name}" == "CI" ]]
+          [[ "${run_status}" == "completed" ]]
+          [[ "${run_conclusion}" == "success" ]]
+          [[ "${run_sha}" == "${RELEASE_SHA}" ]]
+          [[ "${expected_workflow_path}" == ".github/workflows/ci.yml" ]]
+          [[ "${expected_workflow_id}" =~ ^[0-9]+$ ]]
+          [[ "${run_workflow_id}" == "${expected_workflow_id}" ]]
+          [[ "${run_path}" == "${expected_workflow_path}" ]]
+          [[ "${run_repository,,}" == "${REPOSITORY,,}" ]]
+          [[ "${run_event}" == "push" ]]
+          [[ "${run_branch}" == "master" ]]
+          branch_json="$(gh api "repos/${REPOSITORY}/branches/${run_branch}")"
+          branch_sha="$(jq -r '.commit.sha // empty' <<<"${branch_json}")"
+          [[ "${branch_sha}" == "${RELEASE_SHA}" ]]
+          printf 'release_sha=%s\nci_run_id=%s\n' "${RELEASE_SHA}" "${CI_RUN_ID}" >>"${GITHUB_OUTPUT}"
+
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ steps.source.outputs.release_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify checked-out SHA
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ steps.source.outputs.release_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "${RELEASE_SHA}" ]]
+
+      - name: Resolve immutable image name
+        id: image
+        shell: bash
+        env:
+          OWNER: ${{ github.repository_owner }}
+          RELEASE_SHA: ${{ steps.source.outputs.release_sha }}
+        run: |
+          set -euo pipefail
+          owner="${OWNER,,}"
+          image="ghcr.io/${owner}/kamilya-codex-reserve"
+          printf 'name=%s\ntag=%s\n' "${image}" "${RELEASE_SHA}" >>"${GITHUB_OUTPUT}"
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push immutable reserve image
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: infra/codex-reserve
+          file: infra/codex-reserve/Dockerfile
+          push: true
+          provenance: false
+          tags: ${{ steps.image.outputs.name }}:${{ steps.image.outputs.tag }}
+
+      - name: Verify image identity and reserve hardening
+        shell: bash
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          docker pull "${IMAGE}"
+          docker run --rm --network none --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=128m \
+            --entrypoint sh "${IMAGE}" -c '
+              test "$(id -u)" != 0
+              test "$(codex --version)" = "codex-cli 0.146.1"
+              test -x /usr/local/bin/codex
+              test ! -e /root/.codex
+              test ! -e /root/.cache
+              ! env | grep -E "(DATABASE_URL|JWT_SECRET|OPENAI_API_KEY|CODEX_API_KEY|CODEX_ACCESS_TOKEN|CHATGPT_RESERVE_TOKEN)="
+            '
+
+      - name: Attest image provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-name: ${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Create sanitized reserve image record
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ steps.source.outputs.release_sha }}
+          CI_RUN_ID: ${{ steps.source.outputs.ci_run_id }}
+          IMAGE: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          product_version="$(tr -d '[:space:]' < VERSION)"
+          [[ "${product_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          jq -n \
+            --arg release_sha "${RELEASE_SHA}" \
+            --arg product_version "${product_version}" \
+            --arg image "${IMAGE}" \
+            --arg cli_version "codex-cli 0.146.1" \
+            --arg ci_run_id "${CI_RUN_ID}" \
+            '{release_sha:$release_sha,product_version:$product_version,image:$image,cli_version:$cli_version,ci_run_id:$ci_run_id}' \
+            > codex-reserve-image.json
+
+      - name: Upload sanitized reserve image record
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: codex-reserve-image-${{ steps.source.outputs.release_sha }}
+          path: codex-reserve-image.json
+          if-no-files-found: error
+          retention-days: 14

@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Implement an optional manual ChatGPT reserve using the official pinned Codex CLI
+  and managed ChatGPT login, with superadmin readiness/confirmation/revision-checked
+  activation and emergency disable. Add an authenticated bounded private connector,
+  isolated runtime and fixed-destination network edge; no default or migration
+  enables the reserve. Synthetic local container failover passed with the current
+  subscription. This is not a production deployment or vendor hosted-use approval;
+  no paid API, raw subscription-token form or automatic activation is introduced.
+
 - Add strict V5 DEV activation packets for lesson correction, exact schema0178
   evidence and independent workbench/document/correction flags. All nine flag
   inventories precede writes; new keys use single-key idempotent writes with
@@ -134,6 +142,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Share the scoped lookup across public view and activation; clear it before
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
+
+## [0.11.53] - 2026-10-15
+
+### Added
+
+- Optional manual ChatGPT reserve through the pinned official Codex CLI and
+  managed ChatGPT login. Superadmin readiness, explicit activation confirmation,
+  revision-checked routing and emergency disable; default and installed route OFF.
+- Credential-free connector image build/provenance and isolated private runtime,
+  fixed-destination ingress/egress, bounded subprocess lifecycle and sanitized
+  failures. No paid API, voice or automatic fallback activation is introduced.
+- Additive schema0180 expands the routing catalog without changing its saved row.
+  Release controller binds version53 to exact179->180; existing51/52 contracts
+  remain179. Isolated DEV migration/RLS and exact runtime acceptance are separate
+  deployment gates; local CLI success is not a production or vendor entitlement claim.
+
+### Included
+
+- The previously DEV-tested, not production-released0.11.52 assignment-dialogue
+  package below, including bounded provider failover and same-plan recovery.
 
 ## [0.11.52] - 2026-10-15
 

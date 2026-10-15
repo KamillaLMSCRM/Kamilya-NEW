@@ -12,6 +12,7 @@ from dataclasses import dataclass
 DEEPSEEK_ROUTE_ID = "deepseek"
 QWEN38_ROUTE_ID = "qwen38_flash_next"
 GLM53_ROUTE_ID = "glm53_flash"
+CHATGPT_RESERVE_ROUTE_ID = "chatgpt_reserve"
 
 DEFAULT_GENERATION_MODEL_ORDER = (
     DEEPSEEK_ROUTE_ID,
@@ -44,6 +45,11 @@ GENERATION_MODEL_CATALOG = {
         id=GLM53_ROUTE_ID,
         provider="glm53-flash-asus",
         display_name="GLM 5.3 Flash",
+    ),
+    CHATGPT_RESERVE_ROUTE_ID: GenerationModelCatalogEntry(
+        id=CHATGPT_RESERVE_ROUTE_ID,
+        provider="chatgpt-reserve",
+        display_name="ChatGPT Luna (manual reserve)",
     ),
 }
 

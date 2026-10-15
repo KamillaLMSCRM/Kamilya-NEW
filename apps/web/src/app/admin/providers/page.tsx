@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
@@ -8,11 +8,15 @@ import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { apiErrorMessage } from '@/lib/apiErrorMessage';
 import {
+  ChatGPTReadiness,
   GenerationModelRouting,
   ModelRoutingRequestError,
   getGenerationModelRouting,
   saveGenerationModelRouting,
+  checkChatGPTReadiness,
+  buildChatGPTReserveOrder,
 } from '@/lib/adminModelRouting';
+import { ChatGPTReserveControl } from '@/components/admin/ChatGPTReserveControl';
 
 interface ProviderKey {
   id: string;
@@ -27,6 +31,8 @@ interface ProviderKey {
   last_used_at: string | null;
   last_error: string | null;
 }
+
+const CHATGPT_READINESS_REASONS = new Set(['not_configured', 'authorization_required', 'unavailable', 'protocol_mismatch', 'ready']);
 
 function requestErrorMessage(error: unknown) {
   return apiErrorMessage(error, error instanceof Error ? error.message : 'Unknown error');
@@ -43,8 +49,24 @@ export default function AdminProvidersPage() {
   const [routing, setRouting] = useState<GenerationModelRouting | null>(null);
   const [routingOrder, setRoutingOrder] = useState<string[]>([]);
   const [routingLoading, setRoutingLoading] = useState(false);
+  const [routingLoadError, setRoutingLoadError] = useState(false);
   const [routingSaving, setRoutingSaving] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [showChatGPTReserve, setShowChatGPTReserve] = useState(false);
+  const [chatGPTReadiness, setChatGPTReadiness] = useState<ChatGPTReadiness | null>(null);
+  const [chatGPTChecking, setChatGPTChecking] = useState(false);
+  const [chatGPTSaving, setChatGPTSaving] = useState(false);
+  const readinessGeneration = useRef(0);
+  const invalidateReadiness = useCallback(() => {
+    readinessGeneration.current += 1;
+    setChatGPTReadiness(null);
+    setChatGPTChecking(false);
+  }, []);
+
+  useEffect(() => {
+    invalidateReadiness();
+    return () => { readinessGeneration.current += 1; };
+  }, [token, invalidateReadiness]);
 
   // New-key form state
   const [newProvider, setNewProvider] = useState<'deepseek' | 'voyage' | 'cohere'>('deepseek');
@@ -132,6 +154,9 @@ export default function AdminProvidersPage() {
 
   const loadRouting = useCallback(async () => {
     if (!token) return;
+    setRouting(null);
+    invalidateReadiness();
+    setRoutingLoadError(false);
     setRoutingLoading(true);
     try {
       const data = await getGenerationModelRouting();
@@ -139,19 +164,69 @@ export default function AdminProvidersPage() {
       setRoutingOrder(
         data.models
           .filter((model) => model.is_enabled)
-          .sort((left, right) => (left.position || 999) - (right.position || 999))
+          .sort((left, right) => (left.position ?? 999) - (right.position ?? 999))
           .map((model) => model.id),
       );
     } catch (error) {
+      setRoutingLoadError(true);
       toast.error(t('providers.routingLoadError'));
     } finally {
       setRoutingLoading(false);
     }
-  }, [t, token]);
+  }, [t, token, invalidateReadiness]);
 
   const openRouting = () => {
     setShowRouting(true);
     void loadRouting();
+  };
+
+  const chatGPTRoute = routing?.models.find((model) => model.id === 'chatgpt_reserve');
+  const openChatGPTReserve = () => {
+    setShowChatGPTReserve(true);
+    void loadRouting();
+  };
+  const checkChatGPT = async () => {
+    const generation = ++readinessGeneration.current;
+    setChatGPTReadiness(null);
+    setChatGPTChecking(true);
+    try {
+      const result = await checkChatGPTReadiness();
+      if (generation === readinessGeneration.current) setChatGPTReadiness(result);
+    } catch (error) {
+      if (generation !== readinessGeneration.current) return;
+      const reason = error instanceof ModelRoutingRequestError ? error.reason : undefined;
+      const reasonText = reason
+        ? (t as any)(`providers.chatgptReserve.reasons.${reason}`)
+        : undefined;
+      toast.error(reasonText || t('providers.chatgptReserve.readinessError'));
+      setChatGPTReadiness(null);
+    } finally {
+      if (generation === readinessGeneration.current) setChatGPTChecking(false);
+    }
+  };
+  const saveChatGPTReserve = async (enabled: boolean) => {
+    if (!routing || chatGPTSaving) return;
+    invalidateReadiness();
+    setChatGPTSaving(true);
+    try {
+      const nextOrder = buildChatGPTReserveOrder(routing, enabled);
+      const saved = await saveGenerationModelRouting(routing.revision, nextOrder);
+      setRouting(saved);
+      setRoutingOrder(saved.models.filter((model) => model.is_enabled).sort((a, b) => (a.position ?? 999) - (b.position ?? 999)).map((model) => model.id));
+      setChatGPTReadiness(null);
+      toast.success(t('providers.routingSaveOk'));
+    } catch (error) {
+      const reason = error instanceof ModelRoutingRequestError ? error.reason : undefined;
+      if (error instanceof ModelRoutingRequestError && error.status === 409) {
+        const reasonText = reason ? (t as any)(`providers.chatgptReserve.reasons.${reason}`) : undefined;
+        toast.error(reasonText || t('providers.routingConflict'));
+        await loadRouting();
+      } else {
+        toast.error(t('providers.chatgptReserve.saveError'));
+      }
+    } finally {
+      setChatGPTSaving(false);
+    }
   };
 
   const moveRoutingModel = (modelId: string, direction: -1 | 1) => {
@@ -173,8 +248,18 @@ export default function AdminProvidersPage() {
     );
   };
 
+  const handleRoutingModelToggle = (modelId: string) => {
+    const model = routing?.models.find((candidate) => candidate.id === modelId);
+    if (modelId === 'chatgpt_reserve' && !routingOrder.includes(modelId)) {
+      if (!confirm(t('providers.chatgptReserve.confirmEnable'))) return;
+    }
+    if (model?.activation_blocker) return;
+    toggleRoutingModel(modelId);
+  };
+
   const handleRoutingSave = async () => {
     if (!token || !routing) return;
+    invalidateReadiness();
     setRoutingSaving(true);
     try {
       const saved = await saveGenerationModelRouting(routing.revision, routingOrder);
@@ -182,14 +267,16 @@ export default function AdminProvidersPage() {
       setRoutingOrder(
         saved.models
           .filter((model) => model.is_enabled)
-          .sort((left, right) => (left.position || 999) - (right.position || 999))
+          .sort((left, right) => (left.position ?? 999) - (right.position ?? 999))
           .map((model) => model.id),
       );
       setShowRouting(false);
       toast.success(t('providers.routingSaveOk'));
     } catch (error) {
       if (error instanceof ModelRoutingRequestError && error.status === 409) {
-        toast.error(t('providers.routingConflict'));
+        toast.error(error.reason
+          ? (t as any)(`providers.chatgptReserve.reasons.${error.reason}`)
+          : t('providers.routingConflict'));
         await loadRouting();
       } else {
         toast.error(t('providers.routingSaveError'));
@@ -220,6 +307,21 @@ export default function AdminProvidersPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{t('providers.title')}</CardTitle>
           <div className="flex flex-wrap gap-2 justify-end">
+            <ChatGPTReserveControl
+              route={chatGPTRoute}
+              readiness={chatGPTReadiness}
+              loading={routingLoading}
+              loadError={routingLoadError}
+              checking={chatGPTChecking}
+              saving={chatGPTSaving}
+              open={showChatGPTReserve}
+              onOpen={openChatGPTReserve}
+              onClose={() => setShowChatGPTReserve(false)}
+              onCheck={() => void checkChatGPT()}
+              onRetry={() => void loadRouting()}
+              onEnable={() => void saveChatGPTReserve(true)}
+              onDisable={() => void saveChatGPTReserve(false)}
+            />
             <Button onClick={openRouting} variant="secondary">
               {t('providers.manageRouting')}
             </Button>
@@ -382,7 +484,7 @@ export default function AdminProvidersPage() {
                           type="button"
                           size="sm"
                           variant="secondary"
-                          onClick={() => toggleRoutingModel(model.id)}
+                          onClick={() => handleRoutingModelToggle(model.id)}
                           disabled={routingSaving}
                         >
                           {t('providers.routingDisable')}
@@ -413,11 +515,18 @@ export default function AdminProvidersPage() {
                         <Button
                           type="button"
                           size="sm"
-                          onClick={() => toggleRoutingModel(model.id)}
-                          disabled={routingSaving}
+                          onClick={() => handleRoutingModelToggle(model.id)}
+                          disabled={routingSaving || Boolean(model.activation_blocker)}
                         >
                           + {t('providers.routingAdd')}
                         </Button>
+                        {model.activation_blocker && (
+                          <p className="mt-1 text-xs text-text-tertiary">
+                            {model.activation_blocker && CHATGPT_READINESS_REASONS.has(model.activation_blocker)
+                              ? (t as any)(`providers.chatgptReserve.reasons.${model.activation_blocker}`)
+                              : t('providers.chatgptReserve.reasonUnknown')}
+                          </p>
+                        )}
                       </div>
                     ))}
                 </div>

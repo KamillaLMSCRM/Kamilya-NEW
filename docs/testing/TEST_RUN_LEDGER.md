@@ -4146,3 +4146,303 @@ Rules:
   source488-character SHA unchanged,0newchatPOST. Final1280×720 JPEG
   prod-history-final51-r2.jpg SHA098e5030…3212 inspected; wrapper intermediate-frame
   r1 NOT_ACCEPTED, preserved. No new inference, apply, publication or assignment.
+
+## ASSIGNMENT52-DEV-LIVE-REVIEW-20261015 — partial DEV assignment acceptance; real dialogue blocked
+
+- Independent bounded review of DEV candidate
+  `77f0b06516917426b0f5983787f803c9e4c575c4`/version0.11.52. The technical
+  receipt SHA-256 `dd6e4a5e9ac6ace6455f75925ca7ac195e84c40685b119a27ce760bbd648a73e`
+  binds successful CI38676320710 and web/API/worker DEV deployment identity to
+  exact77f0; API/worker health passed, web was READY, all nine named feature flags
+  were enabled, and existing free/free/hobby plans were unchanged. The health
+  payload's generic `app_environment=production` is not production evidence;
+  `deployment_environment=render-development` and project `kamilya-lms-dev`/dev
+  identify this as DEV.
+- The four V1.4 source/contract SHA-256 values exactly match the accepted local R4
+  manifest. No tests were repeated. The real interpretation remained BLOCKED:
+  the captured request returned `clarification_needed`/
+  `intent_provider_unavailable` after14.49244s. ADR-0007 explicitly states that
+  Render has no confirmed route to the private ASUS fallback pool; Root reported
+  official DeepSeek incident7116348214287 still ongoing at read time. The reviewer
+  made no external incident query, inference or provider call.
+- The separate strict-mode cycle passed its bounded scope: one preview, one explicit
+  confirmation POST, one created enrollment
+  `a934fe85-b171-4c9b-90db-f8a74c497b9d` for plan
+  `91afe789-15ef-45f5-abed-b3db049aded6`, zero skipped, no notification requested
+  or attempted, reload through GET only with the same plan/counts, course navigation,
+  and ordinary-student lesson access. Read-only policy evidence recorded a
+  non-BYPASS runtime role and due time `2026-10-20T18:59:59+00:00`; the temporary
+  position department was restored through the ordinary API. The prior enrollment
+  projection, including the named completed enrollment, was recorded unchanged.
+- Screenshot `dev-student-course52.png` SHA-256
+  `194f674ad71f5b8ba5062f97991fd23d5a0b342cb0de327001cc4e8804210652`
+  was independently inspected and visibly shows the synthetic QA student on the
+  assigned course lesson. Response bodies were evicted after navigation, so exact
+  confirmation-POST/reload-GET byte equality is NOT_VERIFIED. The unchanged
+  enrollment statement is projection-bounded; no all-column or cross-project
+  invariance is claimed.
+- Review receipt `.release-evidence/ASSIGNMENT52-20261015/dev-live-review52.json`
+  records `PARTIAL_DEV_PASS_REAL_DIALOGUE_BLOCKED`. Strict preview/confirmation/
+  reload/student access is PASS, but it is not dialogue GO. Production0.11.52 is
+  not authorized or verified; Root-supplied production remains0.11.51. No browser,
+  provider, credential, database, test, Git, deployment or production action was
+  performed by the reviewer. Root owns any successor DEV dialogue and production
+  decision.
+- Scope clarification from the Root packet and reconciliation receipt: three old
+  enrollment projections, including completed enrollment
+  `c225be70-ca07-4d35-837c-10ecda13afde`, were recorded unchanged. This remains a
+  projection-only claim, not an all-column or cross-project comparison.
+- Root authority clarification: the owner has already authorized production
+  promotion after successful DEV acceptance. The wording "not authorized" above
+  means the reviewer issued no actionable release GO, not that owner approval is
+  missing. Promotion is blocked by the unmet real-model dialogue acceptance gate;
+  no further identical production approval is required after that gate passes.
+
+## ASSIGNMENT52-MODEL-RECHECK-20261015T0404Z — Root executed; provider blocked
+
+- Executor Root; no runner owns this append. Unchanged candidate77f0b065/0.11.52.
+- Fresh exact DEV API/worker live/free and canonical health PASS. One normal-browser
+  interpretation returned clarification_needed/intent_provider_unavailable after
+  14.775479s; HTTP200 is not a successful model interpretation. Preview/confirm0.
+- Current official DeepSeek incident7116348214287 remains Identified/Full Outage.
+  This corroborates failure, but does not prove individual internal route attempts.
+- Public production API/native readback PASS: unchanged51/85933da4. No production,
+  fixture, assignment, provider configuration, billing, voice or cleanup mutation.
+  Normal authentication/intent operational records are not claimed write-free.
+- Receipt .release-evidence/ASSIGNMENT52-20261015/model-recheck52.json; screenshot
+  dev-model-recheck52.png SHA38ce62d3c9d6812f9955078ea9b79db82711f68016f8abbff5d66364f1802859
+  visually inspected. Harness corrections are retained in the receipt; no repeated
+  model send. Full dialogue and production52 gates remain BLOCKED, not completed.
+
+## FALLBACK52-RESTORE-20261015T0447Z — Root investigation; restoration blocked
+
+- Executor Root; no runner owns this append. API/native production51 unchanged;
+  DEV candidate77 unchanged. No source tests repeated for diagnostic-only work.
+- Existing project SSH identified connector gx10-a721/10.77.77.4; Qwen upstream
+  model discovery200/exact model. Existing enabled socket inactive. Hash-bound
+  normal start authorization denied; no service, route, privilege or config change.
+- Actual production resolved DeepSeek provider: balance200/is_availabletrue;
+  legacy/current aliases both failed to complete within25s. Independent workstation
+  nonstream200headers875ms/0body/28.907s timeout; streaming200headers984ms/2lines/
+  no content by25.015s. Provider inference NOT_PASS, no repeated blind retries.
+- Owner-requested Hermes question answered in atprojects session20261015_094425_7f8a77:
+  GLM runtime EXL3 known, Kamilya admin procedure unknown. Current profile endpoint
+ 8888/models200/exact EXL3 independently verified;64-token diagnostic200 with empty
+  content is NOT a quality pass or production fallback acceptance. No model swap.
+- Failed env-only-key harness preserved and corrected to the canonical provider
+  resolver; first ASUS details receipt rejected timestamp characters, corrected
+  without remote mutation. Failure records retained. Receipt restore-frontier52.json
+  binds observed facts, hashes and scope. No release52 GO, OpenAI paid activation,
+  new resources, billing changes, customer data, cleanup or voice work.
+
+## PRIMARY52-RECOVERED-20261015T0505Z — Root runtime and ordinary browser
+
+- Owner target priority DeepSeek -> ChatGPT -> GLM recorded, not silently applied
+  as a runtime change. No infrastructure/rights/model/key/plan change or release.
+- After official incident moved to Monitoring, exact installed production51
+  application client returned synthetic JSON from API962ms and AI-worker851ms,
+  zero retries. Script SHA93fabdf171bb467516b559eaab4c1258e8382c72d14804ab3788f71d6b0a7c8f;
+  stdout SHAbda0dae1afd257e2b7d9c1e19c418e381f427e92141219d5242fe32b10a359b3.
+- Ordinary production synthetic-QA methodologist: incomplete interpretation safely
+  clarified; two real lesson-chat turns preserved three source rules, then
+  simplified them. HTTP200/header latency1302.046ms and1413.88ms (not total wall
+  time). Both turns restored after reload; lesson textarea value unchanged.
+  No apply, course edit, publication, preview or assignment was performed.
+  Chat response has no provider-provenance field; no provider-serving attribution
+  is inferred from browser200 alone. Screenshot prod-deepseek-recovered-chat52.png
+  visually inspected. Normal authentication/history/audit records may be written.
+- GLM current EXL3/8888 JSON locally1484ms/6completiontokens; production API/worker
+  ConnectTimeout3029/3026ms. Exact ASUS sudo command query needs password; group
+  membership is not start authority. No reserve/failover acceptance.
+- Official OpenAI docs correct earlier categorical subscription/API claim: Sign
+  in with ChatGPT plan usage exists; paid/remote apps need separate eligibility.
+  No Codex credential extraction/transfer, paid activation or new account/resource.
+- DEV existing free API/worker live77/not_suspended; first interpretation reached
+  clarification after observed preflight69.343s/POST6.578s. Later navigation to
+  login remains unexplained. Canonical/api/v1/health200/exact77; the initial wrong
+  /health timeout is not health evidence. Full DEV dialogue/production52 remain
+  unaccepted. Evidence recovery52-20261015T0505Z.json includes harness corrections.
+- Independent read-only reviewer found no recovery overclaim in the bounded
+  packet and explicitly retained no production52/reserve/sustained-availability
+  GO. Root owns subsequent acceptance; source code tests not repeated for these
+  runtime diagnostics and documentation-only updates.
+- Subsequent Root browser follow-up: corrected exact QA login from dev_qa_stand
+  fixed email (not the different DEV_QA_METHODOLOGIST_EMAIL account). Two real
+  interpretations200/1276.218ms and200/2473.586ms proposed exact course/department,
+  then changed only deadline22Oct18:00 ->23Oct17:30; both flags remained false.
+  No preview/confirm/assignment. Screenshot dev-real-interpretation-recovered52.png
+  visually inspected. Full fresh-fixture business acceptance remains open; this
+  follow-up was Root observed, not part of the earlier independent review.
+
+## CHATGPT53-SUBSCRIPTION-CAPABILITY-20261015T0515Z — Root read-only gate
+
+- Owner clarified current-subscription-only use after asking for an official API
+  reserve; earlier separate OPENAI_API_KEY request withdrawn. No paid activation.
+- Official OpenAI SIWC documentation fetched: direct-plan OAuth scope and separate
+  paid/remotely-hosted application eligibility. App-server/VM docs do not prove
+  commercial Kamilya entitlement or authorize treating Codex token as API key.
+- Owner-authorized local exact Codex auth metadata: subscription token present,
+  no Platform API key, no direct-plan/resource.invoke scope in decoded claims;
+  local claims not signature verified. No token/subject/account printed or saved.
+- One GET https://api.openai.com/v1/models with existing token: HTTP403/750ms,
+  no inference/retry/redirect, no credentials exported or credential file changed.
+  Denial-body shape was not classified/preserved, so exact403 cause is unknown.
+- Receipts read-codex-plan-capability53.json/probe-codex-public-models53.json in
+  Assignment52 evidence; source/runtime/schema/order/rights/billing unchanged.
+  Subscription-backed app auth, real DEV failover and production gate NOT_PASS.
+- Read-only Luna inventory identified exact route/provider DB constraints and
+  payload seams for any later authorized implementation. No changes/tests by
+  inventory agent. CodeGraph prepare stopped on node--liftoff-only exit1; bounded
+  source fallback used, no package/hook/global configuration change.
+
+## CODEX53-OFFICIAL-CLI-APPSERVER-20261015T0523Z — Root local capability gate
+
+- Owner explicitly requested official CLI/app-server existing subscription path.
+  No direct token/API substitution in these checks. Root kept this small local
+  capability investigation local; no worker or external mutation delegated.
+- Official CLI0.146.1 help/features and generated protocol schema inspected.
+  Stdio app-server initialize/account-read(false)/model-list PASS: chatgpt/Pro,
+  three catalog entries, economical candidate gpt-5.6-luna. Child terminated.
+- Initial gpt-6-luna exec exit1/turn.failed/no agent response, diagnostic category
+  unsupported; preserved receipt. Actual catalog-selected gpt-5.6-luna exec
+  exit0/turn.completed/expectedJSONtrue/7281ms,8911input/15outputtokens. Observed
+  tool execution events0. Forced chatgpt auth, inherited API-key env removed only
+  from child, existing auth managed by official CLI. No credential extraction.
+- Exec isolated with ignored user config, ephemeral/read-only, per-process disabled
+  hooks/apps/plugins/shell/browser/memory/multiagent. No global settings rewritten.
+  Do not infer a universal no-tools security boundary from one benign prompt.
+- Official app-server Auth endpoints explicitly excludes commercial/hosted
+  services. This fails Kamilya production applicability even though local CLI
+  inference works. Trusted developer/CI automation is a different use case.
+- Receipts read-codex-appserver53.json, probe-codex-cli53.json,
+  probe-codex-cli53-luna56.json; generated codex53-schema is ignored local evidence.
+  No runtime dependency, bridge/listener, billing/schema/order/provider change,
+  DEV failover or production release. Conditional implementation not activated.
+
+## CHATGPT53-DORMANT-MANUAL-RESERVE-20261015T0600Z — Local candidate only
+
+- Owner requested connection preparation with reserve OFF and superadmin manual
+  control; later explicitly requested a separate current-subscription token file
+  and token entry. Root implemented only a DPAPI-encrypted owner-ACL local backup
+  of the access token, verified via decrypt roundtrip/ACL. No raw token in reports,
+  no plaintext file, refresh token, credential transfer, login or auth modification.
+  File is ignored task-private evidence and not part of the release package.
+- Current-subscription production connection/token entry is NOT implemented:
+  workstation Codex auth does not establish supported hosted authorization.
+  A future authorized private gateway is a separate missing dependency. No gateway,
+  service, provider resource, billing or paid API created. No DEV/prod mutation.
+- Source baseline77f0b06516917426b0f5983787f803c9e4c575c4 plus uncommitted candidate.
+  Existing dirty documentation preserved. Optional catalog ID, configuration-only
+  status and explicit readiness/activation/removal use the existing locked,
+  revision-checked singleton. Migration0180 only expands its closed constraint,
+  never seeds/reorders/enables a route. Tenant BYOK returns before global routing.
+- Root API regression:117passed in2.11s, database-free via canonical wrapper:
+  test_chatgpt_manual_reserve, test_generation_model_routing, test_llm_failover,
+  test_assignment_intent_transport_deadline. Includes OFF/no-I/O, closed private
+  destinations, no proxy/redirect, bounded readiness/slow stream/cancellation,
+  three ordinary-role403 matrices, failed activation/no commit, revision/actor,
+  disable without gateway/primary key, removed settings, BYOK and synthetic actual
+  HTTP seam DeepSeek503 -> reserve success or reserve503 -> GLM success.
+- First focused API attempt110passed/3failed: RBAC harness lacked active-user
+  fixture fields, not a product denial failure. Corrected the fake dependency at
+  the active-user seam, retained real role checker; subsequent113passed, then
+ 117passed after additional cases. No integration/DB gate was substituted.
+- Web final:3files/21testsPASS3.21s, typecheckPASS, focusedESLintPASS. Root added
+  page-level explicit check/confirm/cancel, authoritative saved-order, disable,
+  server refusal/reload and late-response invalidation tests. Initial UI worker
+  transport-only proof was not accepted as complete UI evidence.
+- Python baselinePASS ruff1008/mypy2200 (legacy counts, no new debt). Initial I001
+  router import ordering was fixed; baseline not weakened. Final diff checkPASS.
+- Independent gpt-5.6-luna/medium backend review47testsPASS/no blocking findings.
+  Frontend review found P2 stale readiness after route mutation; root added a
+  monotonically increasing generation guard and regression. Independent correction
+  review accepted. UI worker gpt-5.6-luna/medium had one root correction round;
+  final root integration added exact error-reason classification and wiring tests.
+  Requested model/effort are tool-verified; separate provider-observed model,
+  elapsed agent time, tokens and subscription savings unavailable, not zero.
+- Navigation SOURCE_FALLBACK: earlier CodeGraph prepare failed node--liftoff-only;
+  old derived indexes not treated as current and identical failed prep not repeated.
+  Bounded source/import/SQL contract inspection used, no invented graph evidence.
+- NOT VERIFIED: live gateway/provider, real subscription failover, DEV DB migration
+  execution/RLS readback, production build/CI/release and browser acceptance. No
+  production button is claimed published. Voice and current provider order unchanged.
+
+### CODEX54-FINAL-LOCAL-20261015 — 2026-10-15 — local optional CLI reserve regression
+
+- Exact worktree: `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`; HEAD `77f0b06516917426b0f5983787f803c9e4c575c4` with the pre-existing dirty candidate preserved. Named V2 contract was present only as an untracked candidate in this worktree; base-contract availability is not independently verified.
+- API command was attempted with the canonical PowerShell 7 wrapper twice. Both attempts stopped before collection because pytest reported the absolute JUnit path without its drive prefix (`/Kamilya New/.../final-api54.xml`); first attempt used backslash path syntax, the one permitted path correction used forward slashes. API matrix is `NOT_RUN`/`HARNESS_FAILURE`; report was not produced.
+- Web command completed from `apps/web`: `338` suites, `1141` tests, `1140` passed, `1` failed, JSON report `.release-evidence/ASSIGNMENT52-20261015/final-web54.json`. The failed test is `learningInsightsJournal.test.tsx` waiting for role `button` name `Принять` during signed-copy review; no reserve-specific failure was isolated. Vitest summary marked `2` failed suites and `1` failed test.
+- No source, test, configuration, environment, Git, provider, database, Docker, browser, credential, or fixture mutations. Only the named web report and this append-only ledger entry were written. Root-supplied `probe-container-codex54-ingress.json` remains hash-linked attribution-only and is not this runner's execution.
+- Reserve invariants (OFF by default, no autoenable, BYOK/RBAC/revision/process/network boundaries) are not fully verified by this run. Live gateway/provider, release/vendor eligibility, DB migration/RLS, production, and browser acceptance remain `NOT VERIFIED`.
+
+### CODEX54-FINAL-LOCAL-B — 2026-10-15 — corrected local optional CLI reserve regression
+
+- Correction to `CODEX54-FINAL-LOCAL-20261015`; the prior entry is preserved. Exact worktree and HEAD remain `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010` / `77f0b06516917426b0f5983787f803c9e4c575c4`, with the dirty candidate unchanged.
+- Corrected API command used the packet-approved relative JUnit path and collected successfully through the canonical PowerShell 7 wrapper. Result: `3062 passed, 1 failed, 5 warnings` in `36.91s`; JUnit report `.release-evidence/ASSIGNMENT52-20261015/final-api54b.xml`, SHA-256 `708652CF3C06315B57E98EAC13619B8C3B43D221A482A916971CD96F170AF9E4`.
+- API failure fingerprint: `tests/unit/test_release_reliability_contracts.py::test_release_contract_has_one_migration_owner_and_all_worker_tasks`; `scripts/ci/release-contract-gate.py::check_errors_journal()` rejected `ERRORS.md` entry `AI-PROVIDER-005` because required `Fix` and `Verification` fields were missing. Classified `PRODUCT_DEFECT`/release-contract documentation gate; no repair performed.
+- Isolated web rerun completed only `tests/learningInsightsJournal.test.tsx`: `2` suites, `7` tests, `7` passed, `0` failed. JSON report `.release-evidence/ASSIGNMENT52-20261015/final-web54-isolated.json`, SHA-256 `B1D07B46E32354780F4C6A994D93B34D00455A67EA627E48AC0C8A7458F11B43`.
+- No source, test, configuration, environment, Git, provider, database, Docker, browser, credential, or fixture mutations. Reserve-specific invariants are not fully accepted because the broad API matrix is failed; live gateway/provider, release/vendor eligibility, DB/RLS, production, and browser acceptance remain `NOT VERIFIED`.
+
+### CODEX54-FINAL-LOCAL-C — 2026-10-15 — final local optional CLI reserve API regression
+
+- Correction to `CODEX54-FINAL-LOCAL-B`; all prior entries and failures remain preserved. Exact worktree and HEAD: `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010` / `77f0b06516917426b0f5983787f803c9e4c575c4`; dirty candidate unchanged.
+- Exact packet-approved API command completed through the canonical PowerShell 7 wrapper: `3066 passed, 5 warnings` in `30.15s`; JUnit report `.release-evidence/ASSIGNMENT52-20261015/final-api54c.xml`, SHA-256 `0CC06F9172312C93C0804F593178EA4DA826485F8BF991071420D8A36316F9B9`.
+- Prior broad web receipt remains hash-linked only: `1140 passed, 1 failed` in `338` suites from `final-web54.json` (SHA-256 `321D4ECD1EC271D943300578F3A18256908DCC4BEE22AFB2751D00F8C115317C`); the isolated rerun remains `7/7` passed in `final-web54-isolated.json` (SHA-256 `B1D07B46E32354780F4C6A994D93B34D00455A67EA627E48AC0C8A7458F11B43`). Neither web lane was rerun in packet C. Root-attributed focused UI25/typecheck/ESLint and final readiness/isolation receipts are not this runner's execution.
+- No source, test, configuration, environment, Git, provider, database, Docker, browser, credential, or fixture mutations. Local API matrix is ready for Root review; live gateway/provider, final image runtime timing (prior `6609ms` is hash-linked only), release/vendor eligibility, DB/RLS, production, and browser acceptance remain `NOT VERIFIED`.
+
+### CODEX54-WEB-BOUNDED-D — 2026-10-15 — bounded whole-web retry
+
+- Corrective retry of the preserved failed broad-web receipt `CODEX54-FINAL-LOCAL-20261015`; exact worktree/HEAD unchanged: `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010` / `77f0b06516917426b0f5983787f803c9e4c575c4`.
+- Exact command used from `apps/web`: `pnpm exec vitest run --maxWorkers=2 --reporter=json --outputFile="C:/Kamilya New/Kamilya-NEW/.worktrees/learner-presentation-release-20261010/.release-evidence/ASSIGNMENT52-20261015/final-web54d.json"`. Result: `338` suites, `1141` tests, `1141` passed, `0` failed; report SHA-256 `64A1EC7C8794FB394F6961DC26ED8FA038EE8924412C4DFE36A9716E87CA731B`.
+- The earlier broad parallel receipt (`1140 passed, 1 failed`) and isolated `7/7` receipt remain preserved and were not rewritten. The bounded pass supports classifying the earlier failure as intermittent under the prior broad parallel run conditions; no root cause is established and no product fix is claimed. Runtime emitted repeated `Not implemented: navigation to another Document` messages, but no test failed and no additional inference is made.
+- No source, test, configuration, environment, Git, provider, database, Docker, browser, credential, or fixture mutations. Production, provider/vendor eligibility, DB/RLS, and release authorization remain `NOT VERIFIED`.
+
+### CODEX54-ROOT-TECHNICAL-ACCEPTANCE — 2026-10-15 — local connection only
+
+- Executor Root; appended after Test Runner C/D relinquished ledger ownership.
+  Worktree/HEAD77f0b065 plus dirty candidate unchanged in source. This entry supplies
+  Root's own live evidence, not additional worker execution or production GO.
+- Implemented actual official CLI0.146.1/gpt-5.6-luna/current managed ChatGPT login
+  through authenticated private connector and Kamilya ResilientLLMClient. Native
+  real synthetic fallback6968ms and simplification7610ms; hardened native7969ms.
+  Actual isolated Linux connector through controlled local primary404 returned
+  exact synthetic JSON6609ms. No real DeepSeek outage was induced or claimed.
+- Production writes0, persisted routing writes0, default/OFF inference calls0.
+  Existing auth.json mounted read-only only for local proof, never exported to
+  production or embedded in image. Paid API/billing/resource changes0. No voice.
+- Runtime found and repaired unpublished internal-only connector port; fixed
+  mount-free ingress publishes onlyloopback18999, upstream fixedconnector:18999.
+  CONNECT18888 unpublished; direct/arbitrary/private/metadata egress denied.
+  UID10001/read-onlyroot/capdrop/no-new-privileges/limits/noapp/noDB/noDocker socket
+  and exact two-network membership independently read back. Proof containers and
+  networks removed using only the exact proof compose project; no prune.
+- Final timer-only image manifestlist
+  bfa2d459a51542a32b300726d8e1a49bc4d53662ed9a3a20b392102ffbf93567 has its own
+  readiness/isolation/cleanup proof; real inference is hash-linked from the prior
+  b4536f1c image, not relabelled as a final-image model call. Receipts:
+  probe-container-codex54-ingress.json SHA256b9cd9e547b6948ad20acd8c7cfa82f224ac7e6788f2d2348d31205b72c1562a8;
+  probe-container-codex54-final-readiness.json SHA256e88d7834740bc5fbc3679f26004b86d1dd431e34d5ba2dbd932e6256bab2acc7.
+- Focused final100PASS5.08s and infraRuffPASS; actualTCP ingress->connector
+  disconnect cancellation and timeout503 delivery PASS. Independent Sol/high
+  reviewer CLOSED timeout-margin P2, no executable source blocker. Root web25PASS,
+  typecheck/focusedESLintPASS; Pythonbaseline1008/2200PASS; finaldiffcheckPASS.
+  Test Runner independently executed broadAPI3066PASS and boundedweb1141PASS;
+  earlier API journal-format and intermittent broad-web failures remain preserved.
+- Twelve-layer architecture audit in ignored audit-codex-reserve54.json. No new
+  hidden model retries, repair, session memory or model-granted mutation authority.
+  max_tokens remains an after-inference measured rejection, not a hard cost quota.
+- NOT VERIFIED / not performed: hosted commercial entitlement, protected persistent
+  production managed-login refresh, DEV0180 execution/RLS, immutable CI/app release,
+  production connector/control deployment and browser acceptance. Source is an
+  uncommitted local candidate. Reserve remains unactivated; production unchanged.
+
+### CODEX54-ROOT-ARTIFACT-CORRECTION — 2026-10-15 — cleanup/readback
+
+- Final status found a new241-byte `apps/api/C`, absent from the initial status.
+  Its XML declares tests0/errors0/failures0 and comes from the failed drive-qualified
+  JUnit argument. Corrects the worker's statement that no API report was produced:
+  the intended report was absent, but this unintended empty report existed.
+- Root verified the exact non-directory absolute path and moved only this file,
+  without overwrite, to ignored task evidence `failed-junit-arg-C.xml`. No user
+  source/data was removed; original failed-run evidence is preserved, not deleted.
+  This is not a passed test or additional provider operation. Final diff checkPASS.

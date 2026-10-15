@@ -2,6 +2,16 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
+Optional manual official Codex CLI reserve candidate,2026-10-15:
+[dormant installation V3](contracts/CHATGPT_MANUAL_RESERVE_V3.md) authorizes DEV
+then production installation on existing resources with the saved route OFF;
+it does not authorize activation or establish hosted-use entitlement.
+[CHATGPT_MANUAL_RESERVE_V2](contracts/CHATGPT_MANUAL_RESERVE_V2.md) supersedes the
+absent-gateway V1 boundary. Real pinned CLI/current managed login, isolated private
+connector, manual superadmin control and default OFF. Local synthetic container
+failover accepted separately from production release/auth and hosted-use eligibility;
+the latter remain NOT VERIFIED. No voice, paid API or automatic activation.
+
 Current assignment dialogue slice, accepted for implementation2026-10-15:
 [ASSIGNMENT_DIALOGUE_V1](contracts/ASSIGNMENT_DIALOGUE_V1.md). Existing intent ->
 bounded previous user requests -> candidate -> owned preview -> explicit confirm

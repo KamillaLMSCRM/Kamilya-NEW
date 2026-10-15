@@ -132,6 +132,14 @@ class Settings(BaseSettings):
     GLM53_FLASH_URL: str = "http://10.66.66.28:8000/v1"
     GLM53_FLASH_MODEL: str = "LibertAIDAI/GLM-5.3-Flash-NVFP4"
 
+    # Dormant optional reserve. Never seeded into the saved route. This is a
+    # private, separately authorized gateway credential, NOT a Codex login token.
+    CHATGPT_RESERVE_URL: str = ""
+    CHATGPT_RESERVE_TOKEN: str = ""
+    CHATGPT_RESERVE_MODEL: Literal["gpt-5.6-luna"] = "gpt-5.6-luna"
+    CHATGPT_RESERVE_AUTH_MODE: Literal["unconfigured", "codex_cli"] = "unconfigured"
+    CHATGPT_RESERVE_TIMEOUT_SECONDS: float = Field(default=60.0, ge=5.0, le=120.0)
+
     EMBEDDING_DIMENSIONS: int = 4096
 
     # LLM

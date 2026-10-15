@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import require_role
 from app.core.db import get_db
 from app.models.users import User
+from app.modules.admin.model_routing.chatgpt_reserve import ChatGPTReserveReadiness, check_readiness
 from app.modules.admin.model_routing.schemas import (
     GenerationModelRoutingResponse,
     GenerationModelRoutingUpdate,
@@ -19,6 +20,7 @@ from app.modules.admin.model_routing.service import (
     GenerationModelRoutingService,
     RoutingConfigurationMissingError,
     RoutingPrimaryNotConfiguredError,
+    RoutingReserveNotReadyError,
     RoutingRevisionConflictError,
 )
 
@@ -34,6 +36,11 @@ def _service(db: DbSession) -> GenerationModelRoutingService:
 
 
 RoutingService = Annotated[GenerationModelRoutingService, Depends(_service)]
+
+
+@router.post("/chatgpt-readiness", response_model=ChatGPTReserveReadiness)
+async def get_chatgpt_reserve_readiness(user: SuperadminUser) -> ChatGPTReserveReadiness:
+    return await check_readiness()
 
 
 @router.get("", response_model=GenerationModelRoutingResponse)
@@ -56,6 +63,8 @@ async def update_generation_model_routing(
     try:
         return await svc.update(payload, user_id=cast(uuid.UUID, user.id))
     except RoutingRevisionConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except RoutingReserveNotReadyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except RoutingPrimaryNotConfiguredError as exc:
         raise HTTPException(

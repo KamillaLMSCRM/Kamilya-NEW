@@ -44,11 +44,13 @@ import httpx
 
 from app.core.config import get_settings
 from app.modules.admin.model_routing.catalog import (
+    CHATGPT_RESERVE_ROUTE_ID,
     DEEPSEEK_ROUTE_ID,
     DEFAULT_GENERATION_MODEL_ORDER,
     GLM53_ROUTE_ID,
     QWEN38_ROUTE_ID,
 )
+from app.modules.admin.model_routing.chatgpt_reserve import configuration_blocker
 from app.modules.admin.model_routing.runtime import resolve_runtime_generation_model_order
 from app.modules.ai.embedding_space import EmbeddingSpace
 
@@ -183,6 +185,7 @@ class LLMProviderConfig:
     # HTTP 4xx/5xx — every ingestion silently fell back to the
     # hash-based embedding and was effectively non-semantic.
     endpoint: str = "/chat/completions"
+    trust_env: bool = True
     # Embedding-only bounds and provenance. They are intentionally provider
     # config, rather than chat-Qwen settings, so semantic spaces cannot drift.
     embedding_max_input_bytes: int | None = None
@@ -268,7 +271,24 @@ def _generation_fallback_providers(
         QWEN38_ROUTE_ID: _qwen38_flash_llm_provider,
         GLM53_ROUTE_ID: _glm53_flash_llm_provider,
     }
-    return [factories[route_id]() for route_id in route_ids if route_id in factories]
+    providers: list[LLMProviderConfig] = []
+    for route_id in route_ids:
+        if route_id in factories:
+            providers.append(factories[route_id]())
+        elif route_id == CHATGPT_RESERVE_ROUTE_ID:
+            s = get_settings()
+            if configuration_blocker(s) is None:
+                providers.append(LLMProviderConfig(
+                    name="chatgpt-reserve",
+                    base_url=_openai_base_url(s.CHATGPT_RESERVE_URL),
+                    api_key=s.CHATGPT_RESERVE_TOKEN,
+                    model=s.CHATGPT_RESERVE_MODEL,
+                    timeout=s.CHATGPT_RESERVE_TIMEOUT_SECONDS,
+                    connect_timeout=3.0,
+                    max_retries=0,
+                    trust_env=False,
+                ))
+    return providers
 
 
 def _deepseek_llm_provider() -> LLMProviderConfig | None:
@@ -520,7 +540,10 @@ class _BaseProviderClient:
                     self.config.timeout,
                     connect=self.config.connect_timeout,
                 )
-                async with httpx.AsyncClient(timeout=timeout) as client:
+                client_options: dict[str, Any] = {"timeout": timeout}
+                if not self.config.trust_env:
+                    client_options["trust_env"] = False
+                async with httpx.AsyncClient(**client_options) as client:
                     resp = await client.post(
                         f"{self.config.base_url}{self.config.endpoint}",
                         json=payload,

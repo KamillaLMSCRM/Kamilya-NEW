@@ -75,14 +75,19 @@ async def test_superadmin_response_is_secret_free_and_reports_configuration(monk
             QWEN38_FLASH_MODEL="qwen3.8-flash-next",
             GLM53_FLASH_URL="http://private-glm.test/v1",
             GLM53_FLASH_MODEL="GLM-5.3-Flash",
+            CHATGPT_RESERVE_URL="",
+            CHATGPT_RESERVE_TOKEN="",
+            CHATGPT_RESERVE_MODEL="gpt-5.6-luna",
         ),
     )
 
     response = await GenerationModelRoutingService(_FakeSession()).get()
     payload = response.model_dump()
 
-    assert [item.position for item in response.models] == [1, 2, 3]
-    assert all(item.is_configured for item in response.models)
+    assert [item.position for item in response.models] == [1, 2, 3, None]
+    assert all(item.is_configured for item in response.models[:3])
+    assert response.models[3].activation_blocker == "not_configured"
+    assert response.models[3].is_enabled is False
     assert "api_key" not in str(payload).lower()
     assert "private-qwen.test" not in str(payload)
     assert "private-glm.test" not in str(payload)
@@ -112,6 +117,9 @@ async def test_update_is_atomic_and_rejects_stale_revision(monkeypatch):
             QWEN38_FLASH_MODEL="qwen3.8-flash-next",
             GLM53_FLASH_URL="http://glm.test/v1",
             GLM53_FLASH_MODEL="GLM-5.3-Flash",
+            CHATGPT_RESERVE_URL="",
+            CHATGPT_RESERVE_TOKEN="",
+            CHATGPT_RESERVE_MODEL="gpt-5.6-luna",
         ),
     )
 
@@ -144,10 +152,14 @@ async def test_update_is_atomic_and_rejects_stale_revision(monkeypatch):
 async def test_update_rejects_unconfigured_mandatory_primary(monkeypatch):
     db = _FakeSession()
 
+    async def get_routing(session, *, for_update=False):
+        return _routing_row()
+
     async def get_key(session, provider):
         return None
 
     monkeypatch.setattr(service_module, "get_active_global_key", get_key)
+    monkeypatch.setattr(service_module.repo, "get_routing", get_routing)
     monkeypatch.setattr(
         service_module,
         "get_settings",
@@ -205,7 +217,9 @@ def test_migration_enforces_rls_closed_catalog_and_seeded_owner_order():
 def test_router_is_superadmin_only():
     from app.modules.admin.model_routing.router import router
 
-    assert {route.path for route in router.routes} == {"/admin/model-routing"}
+    assert {route.path for route in router.routes} == {
+        "/admin/model-routing", "/admin/model-routing/chatgpt-readiness",
+    }
     for route in router.routes:
         dependency_names = {
             dependency.call.__name__ for dependency in route.dependant.dependencies

@@ -2,6 +2,45 @@
 
 Current as of: 2026-10-15.
 
+## AI-PROVIDER-005 - Direct API denial is not a Codex CLI capability test
+
+- Date:2026-10-15; local diagnostic only, no production mutation.
+- Symptom: subscription token public/models403 risked being generalized to all
+  supported subscription mechanisms; that request did not exercise official CLI.
+- Cause: distinct direct-API, managed Codex auth and app-specific SIWC mechanisms
+  have different contracts and applicability. Model catalog is also not completed
+  inference proof; technical success is not commercial hosted-use authorization.
+- Fix: distinguish the requested official CLI mechanism from direct API denial;
+  preserve explicit hosted-use and production gates independently of local proof.
+- Verification: owner-requested official app-server account/model RPCs showed
+  managed chatgpt/Pro and gpt-5.6-luna candidate. Exact local CLI exec returned
+  schema-valid synthetic JSON/turn.completed/exit0 in7281ms, observed tools0.
+  Earlier gpt-6-luna failure preserved. Existing auth handled by CLI, not exported.
+- Applicability: official app-server Auth endpoints explicitly excludes commercial
+  or hosted services; no customer-serving Kamilya adapter implemented. Local
+  developer/CI subscription use must not be substituted for SaaS backend access.
+- Prevention: test the mechanism actually requested and name model/runtime/auth
+  and purpose. Require both successful inference and applicable vendor access
+  before activating a production reserve; never bypass a hosted-app gate with a
+  CLI wrapper. Evidence: CODEX53 entry in TEST_RUN_LEDGER and named JSON receipts.
+- Owner correction / technical follow-up2026-10-15T0636Z: implemented the actual
+  optional CLI connector, not the earlier absent-gateway placeholder. Existing
+  managed login produced the expected synthetic JSON through Kamilya HTTP fallback
+  and an isolated Linux container in6609ms. No auth exported to a server, persisted
+  route write, production mutation or activation. App-server's documented hosted
+  limitation is not evidence that CLI cannot run; successful CLI execution also
+  does not independently establish hosted/commercial entitlement. Keep the latter
+  separate from technical readiness and do not claim production completion.
+- Runtime integration regression: Docker29.8.2 did not publish18999 on an
+  internal-only connector (actual Ports=[]); unit tests missed application access.
+  Move private ingress to the mount-free network edge with one fixed upstream
+  connector:18999, leaving CONNECT18888 unpublished and CLI internal-only. Added
+  a red publication regression, real TCP relay test and full container readback:
+  loopback binding, UID10001/read-only/capdrop, denied direct/arbitrary/private/
+  metadata egress and successful authenticated inference. Wrong connector bearer
+  is403/configuration, managed ChatGPT login missing is401/authorization. Evidence:
+  probe-container-codex54-ingress.json; earlier failed receipts remain intact.
+
 ## WB-DIALOGUE-003 - Slow primary starved assignment-intent transport fallback
 
 - Date: 2026-10-15; live DEV52 acceptance, before any production52 mutation.
@@ -21,10 +60,42 @@ Current as of: 2026-10-15.
   focused116PASS, full unit+LLM2961PASS35.94s, Python baseline1008/2200PASS.
   New malformed-prose test oracle corrected to the existing clarification code;
   no old assertion or parser behavior changed. Real repaired DEV/production pending.
+- Live follow-up: exact repaired77 DEV CI/provider/flags passed; interpretation
+  returned unavailable14.49244s during ongoing DeepSeek incident7116348214287.
+  ADR0007 has no confirmed Render-private-ASUS route. Strict-mode browser
+  preview/confirm1/reloadGET-only/studentaccess/duepolicy/old-state preservation
+  passed independently; this does not close real-model dialogue or production GO.
 - Prevention: replay a hanging primary at the actual resilient/application seams,
   assert existing fallback gets time, and test429/503/BYOK/no-sleep/cancellation.
   Retain failed live evidence; do not hide an outage with unbounded retries,
   a longer whole-operation timeout or a provider/routing configuration change.
+- Direct API diagnosis2026-10-15T04:26Z: production51 API+AI-worker resolve all3
+  providers despite legacy_pool_flag=false. Qwen models/completion502 on both;
+  GLM ConnectTimeout~3s on both. Qwen connector port givesConnectError25ms,
+  host routewg0; GLM direct routeens18. No runtime/network repair performed.
+  Complete Render service and linked-group inventory0/0 confirms private default
+  fallback endpoints, not verified Render reachability. FREE_LLM_POOL_ENABLED
+  gates the obsolete helper, not active generation factories; do not claim
+  changing that flag repairs or disables current fallback. Source review and
+  exact runtime/script hashes: fallback-diagnosis52.json in Assignment52 evidence.
+- Recovery investigation2026-10-15: connector identity and live WG confirmed;
+  underlying Qwen exact model available, but enabled kamilya-qwen38-chat.socket
+  inactive. Existing unprivileged SSH start denied; no service/rights changed.
+  Hermes uses GLM EXL3 on8888, unlike old NVFP4 on8000; discovery alone does not
+  qualify a different served model. DeepSeek valid balance and HTTP200 headers
+  still produced no completion from both production and workstation; retain
+  header/body/stream distinction instead of marking HTTP200 as successful AI.
+  Root receipts restore-frontier52.json and named immutable predecessor scripts.
+- Recovery follow-up2026-10-15T0505Z: vendor incident Monitoring; exact installed
+  production client returned valid JSON API962ms/worker851ms without key/model
+  changes. Ordinary synthetic QA chat and simplification passed, history restored
+  after reload, lesson unchanged. This closes primary inference availability at
+  that instant only; reserve failover/full DEV dialogue/production52 remain open.
+  Current GLM EXL3/8888 local JSON1484ms is not production connectivity: API and
+  worker still ConnectTimeout~3s. Exact ASUS sudo command query requires password.
+  Official ChatGPT plan usage exists but hosted paid app eligibility is separate;
+  do not copy Codex tokens or call a subscription categorically API-incompatible.
+  Receipt recovery52-20261015T0505Z.json; no runtime/privilege/provider mutation.
 
 ## WB-DIALOGUE-001 - Unknown assignment confirmation lost its recovery ownership
 
@@ -83,6 +154,11 @@ Current as of: 2026-10-15.
   receipt/hash PASS. Protected38575499511 exact859/image750 now deployed51/schema179;
   native51 and real private-history/model/reload acceptance passed. No rights,
   keys/config/tier/resource expansion or Proxmox. Original rejection retained.
+- Follow-up2026-10-15, dormant reserve53: reproduced five RED cases for the new
+  exact179->180/schema180 epoch. Added only version>=53 mapping;51/52 retain
+  exact179, older39..50 retain178. Expanded controller/bundle/workflow suite95PASS.
+  Public/migration receipts and protected installed-controller update remain
+  separate runtime gates; this source fix alone does not claim a live upgrade.
 - Prevention: before schema-bearing release, cross the actual workflow producer
   and privileged consumer with exact version/from/to/flags. Use the separate
   protected release-plane upgrade workflow for reviewed controller bytes;

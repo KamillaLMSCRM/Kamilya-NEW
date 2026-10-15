@@ -417,6 +417,86 @@ fallback. Недоступные ASUS endpoint-ы имеют короткий co
 production-availability evidence. Полный
 контракт закреплён в [ADR-0007](adr/0007-ai-pipeline-failover.md).
 
+**Manual Codex CLI reserve — technically tested locally, NOT deployed.**
+Optional `chatgpt_reserve` is absent from the default and migration-seeded route.
+The existing `/admin/providers` page adds a separate manual reserve control;
+GET status is configuration-only and performs no gateway calls. Explicit
+POST `/admin/model-routing/chatgpt-readiness` is non-generative and never enables
+the reserve. PUT uses the existing singleton lock/revision/updated_by audit;
+enabling requires fresh readiness, disabling does not require a healthy gateway
+or primary key. No separate activation flag or tenant override is created.
+
+Required server settings are `CHATGPT_RESERVE_URL`, `CHATGPT_RESERVE_TOKEN`,
+`CHATGPT_RESERVE_AUTH_MODE=codex_cli`, `CHATGPT_RESERVE_MODEL=gpt-5.6-luna` and optional
+`CHATGPT_RESERVE_TIMEOUT_SECONDS` (default60, range5–120). URL must use literal
+RFC1918/ULA/loopback HTTP(S), no DNS/userinfo/query/fragment; gateway token is
+separate from the workstation subscription token. Proxy environment and redirects
+are not used. GET `<base>/v1/readiness` must return protocol
+`kamilya-chatgpt-reserve-v1`, `authorization=codex_cli`, expected model and `ready=true`.
+Implemented `infra/codex-reserve/server.py` runs the pinned official CLI0.146.1
+through `runner.py`, with the CLI owning its managed login/refresh. This is an
+actual connector, not a dependency on an absent gateway. Its readiness confirms
+version/login only, not successful fresh inference or vendor hosted-use approval.
+Chat completions use the existing bounded HTTP
+transport, no internal retries, and only when the operator saved the route ID.
+Tenant BYOK does not consult the global reserve. Schema0180 expands only the
+closed catalog constraint; rollback requires explicitly disabling the new ID
+before schema downgrade. No operator route is silently rewritten.
+
+Local container proof2026-10-15: current managed auth was mounted read-only,
+never copied/exported; a controlled local primary404 fell back through the actual
+Kamilya client to gpt-5.6-luna and returned exact synthetic JSON in6609ms. No
+persisted route write, production mutation or default-reserve inference occurred.
+This does not verify production persistent authentication/refresh or deployment.
+Official [CLI automation](https://learn.chatgpt.com/docs/non-interactive-mode) and
+[managed login](https://learn.chatgpt.com/docs/auth) document the technical mechanism.
+The separate [app-server hosted-use limitation](https://learn.chatgpt.com/docs/app-server#auth-endpoints)
+must not be erased or generalized into an untested claim of CLI failure. Commercial
+hosted eligibility for this Kamilya use remains NOT VERIFIED. Accepted installation
+addendum `CHATGPT_MANUAL_RESERVE_V3.md` permits the owner-authorized dormant
+DEV/production installation and synthetic acceptance, not customer-serving activation
+or a claim that the subscription grants commercial hosted-service entitlement.
+
+**Packaging and operational boundary.** Build only the credential-free
+`infra/codex-reserve/Dockerfile` context; base digest, CLI0.146.1 npm SHA512 and
+native binary SHA256 are pinned/verified. Never install a global floating CLI or
+put a user profile/auth cache in the build context. `compose.yml` is an explicit
+`manual-reserve` profile, not part of app startup. Both services use the same
+immutable image. CLI connector is internal-network-only, UID10001, read-only root,
+capabilities dropped, no-new-privileges,512MiB/0.5CPU/64PIDs; no app/DB/Docker mounts.
+Its only mounts are a dedicated managed CLI home and the separate application
+bearer file. Request messages go on stdin, never shell/args/environment/logs.
+Child processes and descendants terminate on timeout/cancel/output overflow.
+The connector accepts one active operation and rejects excess calls, with no
+hidden queue, session resume, repair pass or inference retry. CLI max_tokens is
+post-inference rejection using measured usage, not a hard upstream cost/quota cap.
+
+The mount-free128MiB/0.25CPU/32PID edge has the external route. Its unpublished
+CONNECT18888 permits only public-resolved chatgpt.com/auth.openai.com TLS443, no
+metadata/private/arbitrary destination. Its separate18999 listener blindly relays
+only to connector:18999. Publish that edge listener, not the internal-only CLI:
+Docker29.8.2 ignored port publication on the latter. Default host bind is127.0.0.1;
+a production private IP and firewall/app route must be independently checked before
+installation, never changed to0.0.0.0 for convenience. CLI cannot directly reach
+the Internet. Egress and ingress have finite connection/time/byte limits.
+
+**Installation is not activation approval.** Before a separately approved deployment:
+confirm exact source/CI/image, existing host capacity and
+private transport, then use normal release gates including schema0180. Provision
+only a dedicated official CLI managed login using the documented headless login
+procedure, not a raw token form or the encrypted access-token snapshot. Do not
+mount the workstation's whole .codex directory or clone refresh caches blindly.
+Provide CODEX_RESERVE_IMAGE, CODEX_AUTH_HOME, CODEX_CONNECTOR_TOKEN_FILE and the
+approved CODEX_BIND_IP process-locally, never token values in command arguments.
+Run `docker compose -f infra/codex-reserve/compose.yml --profile manual-reserve up -d`
+only on the exact approved runner; verify actual image, mounts, networks, limits,
+private bind, no direct egress and real synthetic application completion. Preserve
+the stored route OFF throughout; readiness must not activate it. A loopback bind
+in a separate container is not automatically reachable from API/workers. Rollback:
+remove only this exact compose project after confirming OFF, preserve the existing
+app/provider route, revoke/retain dedicated auth by the approved secret procedure.
+No global prune, Proxmox, new rights or paid capacity is part of this implementation.
+
 При создании ещё одного курса backend ищет tenant-scoped курсы, уже связанные
 с выбранными `source_document_ids` или `source_instruction_id`. Без
 `reuse_reason` запрос останавливается до trial/LLM charging и возвращает

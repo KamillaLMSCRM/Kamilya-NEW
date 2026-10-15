@@ -11,12 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.modules.admin.model_routing import repository as repo
 from app.modules.admin.model_routing.catalog import (
+    CHATGPT_RESERVE_ROUTE_ID,
     DEEPSEEK_ROUTE_ID,
     GENERATION_MODEL_CATALOG,
     GLM53_ROUTE_ID,
     QWEN38_ROUTE_ID,
     validate_generation_model_order,
 )
+from app.modules.admin.model_routing.chatgpt_reserve import check_readiness, configuration_blocker
 from app.modules.admin.model_routing.models import GenerationModelRouting
 from app.modules.admin.model_routing.schemas import (
     GenerationModelRouteItem,
@@ -40,6 +42,10 @@ class RoutingPrimaryNotConfiguredError(Exception):
     """The mandatory DeepSeek primary has no active key."""
 
 
+class RoutingReserveNotReadyError(Exception):
+    """The optional reserve cannot be explicitly enabled yet."""
+
+
 class GenerationModelRoutingService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -57,15 +63,25 @@ class GenerationModelRoutingService:
         user_id: uuid.UUID,
     ) -> GenerationModelRoutingResponse:
         order = validate_generation_model_order(payload.ordered_model_ids)
-        if not await self._deepseek_is_configured():
-            raise RoutingPrimaryNotConfiguredError(
-                "generation_model_routing_deepseek_not_configured"
-            )
         row = await repo.get_routing(self.db, for_update=True)
         if row is None:
             raise RoutingConfigurationMissingError("generation_model_routing_missing")
         if row.revision != payload.revision:
             raise RoutingRevisionConflictError("generation_model_routing_revision_conflict")
+
+        removal_only = (
+            CHATGPT_RESERVE_ROUTE_ID in row.ordered_model_ids
+            and order == tuple(value for value in row.ordered_model_ids if value != CHATGPT_RESERVE_ROUTE_ID)
+        )
+        if not removal_only and not await self._deepseek_is_configured():
+            raise RoutingPrimaryNotConfiguredError(
+                "generation_model_routing_deepseek_not_configured"
+            )
+
+        if CHATGPT_RESERVE_ROUTE_ID in order and CHATGPT_RESERVE_ROUTE_ID not in row.ordered_model_ids:
+            readiness = await check_readiness()
+            if not readiness.ready:
+                raise RoutingReserveNotReadyError(readiness.reason)
 
         row.ordered_model_ids = list(order)
         row.revision += 1
@@ -88,12 +104,15 @@ class GenerationModelRoutingService:
         settings = get_settings()
         order = validate_generation_model_order(row.ordered_model_ids)
         positions = {route_id: index + 1 for index, route_id in enumerate(order)}
+        reserve_blocker = configuration_blocker(settings)
         configured = {
+            CHATGPT_RESERVE_ROUTE_ID: reserve_blocker is None,
             DEEPSEEK_ROUTE_ID: await self._deepseek_is_configured(),
             QWEN38_ROUTE_ID: bool(settings.QWEN38_FLASH_URL and settings.QWEN38_FLASH_MODEL),
             GLM53_ROUTE_ID: bool(settings.GLM53_FLASH_URL and settings.GLM53_FLASH_MODEL),
         }
         model_names = {
+            CHATGPT_RESERVE_ROUTE_ID: settings.CHATGPT_RESERVE_MODEL,
             DEEPSEEK_ROUTE_ID: settings.DEEPSEEK_MODEL,
             QWEN38_ROUTE_ID: settings.QWEN38_FLASH_MODEL,
             GLM53_ROUTE_ID: settings.GLM53_FLASH_MODEL,
@@ -108,6 +127,7 @@ class GenerationModelRoutingService:
                 position=positions.get(entry.id),
                 is_required=entry.is_required,
                 is_configured=configured[entry.id],
+                activation_blocker=(reserve_blocker if entry.id == CHATGPT_RESERVE_ROUTE_ID else None),
             )
             for entry in GENERATION_MODEL_CATALOG.values()
         ]

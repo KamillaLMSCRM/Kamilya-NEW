@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import AdminProvidersPage from '@/app/admin/providers/page';
@@ -37,6 +37,30 @@ const routing = {
 };
 
 describe('superadmin generation model routing modal', () => {
+  function reserveScenario(enabled = false) {
+    let current = {
+      ...routing,
+      models: [...routing.models, {
+        id: 'chatgpt_reserve', provider: 'chatgpt-reserve', display_name: 'ChatGPT Luna (manual reserve)',
+        model: 'gpt-5.6-luna', is_enabled: enabled, position: enabled ? 4 : null,
+        is_required: false, is_configured: true,
+      }],
+    };
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url === '/v1/admin/provider-keys') return { data: { providers: [] } };
+      if (url === '/v1/admin/model-routing') return { data: current };
+      throw new Error('Unexpected request');
+    });
+    apiMock.post.mockResolvedValue({ data: { ready: true, reason: 'ready', checked_at: '2026-10-15T06:00:00Z' } });
+    apiMock.put.mockImplementation(async (_url: string, body: { ordered_model_ids: string[] }) => {
+      current = { ...current, revision: current.revision + 1, models: current.models.map((model) => ({
+        ...model, is_enabled: body.ordered_model_ids.includes(model.id),
+        position: body.ordered_model_ids.includes(model.id) ? body.ordered_model_ids.indexOf(model.id) + 1 : null,
+      })) };
+      return { data: current };
+    });
+  }
+
   beforeEach(() => {
     vi.clearAllMocks();
     apiMock.get.mockImplementation(async (url: string) => {
@@ -67,6 +91,86 @@ describe('superadmin generation model routing modal', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it('opening the reserve only reads state and never probes or enables', async () => {
+    reserveScenario();
+    render(<AdminProvidersPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Резерв ChatGPT' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Резерв ChatGPT' });
+    expect(await within(dialog).findByText('Отключён')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Включить резерв' })).toBeDisabled();
+    expect(apiMock.post).not.toHaveBeenCalled();
+    expect(apiMock.put).not.toHaveBeenCalled();
+  });
+
+  it('requires explicit readiness and confirmation without carrying a canceled reorder', async () => {
+    reserveScenario();
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal('confirm', confirm);
+    render(<AdminProvidersPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Очередность моделей' }));
+    const routingDialog = await screen.findByRole('dialog', { name: 'Очередность моделей генерации' });
+    fireEvent.click(await within(routingDialog).findByRole('button', { name: 'Поднять GLM 5.3 Flash' }));
+    fireEvent.click(within(routingDialog).getByRole('button', { name: 'Отмена' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Резерв ChatGPT' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Резерв ChatGPT' });
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Проверить готовность' }));
+    const enable = within(dialog).getByRole('button', { name: 'Включить резерв' });
+    await waitFor(() => expect(enable).toBeEnabled());
+    fireEvent.click(enable);
+    expect(apiMock.put).not.toHaveBeenCalled();
+    confirm.mockReturnValue(true);
+    fireEvent.click(enable);
+    await waitFor(() => expect(apiMock.put).toHaveBeenCalledWith('/v1/admin/model-routing', {
+      revision: 7, ordered_model_ids: ['deepseek', 'chatgpt_reserve', 'qwen38_flash_next', 'glm53_flash'],
+    }));
+    expect(await within(dialog).findByText('Включён')).toBeInTheDocument();
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables through the real page handlers without probing', async () => {
+    reserveScenario(true);
+    render(<AdminProvidersPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Резерв ChatGPT' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Резерв ChatGPT' });
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Отключить резерв' }));
+    await waitFor(() => expect(apiMock.put).toHaveBeenCalledWith('/v1/admin/model-routing', {
+      revision: 7, ordered_model_ids: ['deepseek', 'qwen38_flash_next', 'glm53_flash'],
+    }));
+    expect(apiMock.post).not.toHaveBeenCalled();
+    expect(await within(dialog).findByText('Отключён')).toBeInTheDocument();
+  });
+
+  it('a server activation refusal reloads state and clears old readiness', async () => {
+    reserveScenario();
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    apiMock.put.mockRejectedValue({ response: { status: 409, data: { detail: 'unavailable' } } });
+    render(<AdminProvidersPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Резерв ChatGPT' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Резерв ChatGPT' });
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Проверить готовность' }));
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Включить резерв' })).toBeEnabled());
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Включить резерв' }));
+    await waitFor(() => expect(apiMock.get.mock.calls.filter(([url]) => url === '/v1/admin/model-routing')).toHaveLength(2));
+    expect(await within(dialog).findByText('Готовность ещё не проверялась.')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Включить резерв' })).toBeDisabled();
+  });
+
+  it('a late readiness response cannot repopulate status after disabling', async () => {
+    reserveScenario(true);
+    let resolveProbe!: (value: { data: { ready: boolean; reason: string; checked_at: string } }) => void;
+    apiMock.post.mockReturnValue(new Promise((resolve) => { resolveProbe = resolve; }));
+    render(<AdminProvidersPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Резерв ChatGPT' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Резерв ChatGPT' });
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Проверить готовность' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Отключить резерв' }));
+    expect(await within(dialog).findByText('Отключён')).toBeInTheDocument();
+    await act(async () => resolveProbe({ data: { ready: true, reason: 'ready', checked_at: 'old-snapshot' } }));
+    expect(within(dialog).getByText('Готовность ещё не проверялась.')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Включить резерв' })).toBeDisabled();
   });
 
   it('keeps DeepSeek first and persists an accessible fallback reorder', async () => {

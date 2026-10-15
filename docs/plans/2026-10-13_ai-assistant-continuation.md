@@ -1,5 +1,274 @@
 # AI assistant continuation — text-first
 
+Owner2026-10-15 current authority: complete DEV then install connector/control in
+production with the saved reserve OFF. Active installation addendumV3 extendsV2;
+vendor hosted-use entitlement is not claimed and remains separate before later
+customer-serving activation. No new paid/public/privilege/voice scope inferred.
+Version53 packages unreleased assignment52 and the manual reserve, schema0180.
+Root external VM126 preflight: current51/all4 blue containers exact7505949a…,
+running/restarts0, available9868103680bytes, diskfree8813880KiB/72%. No capacity
+upgrade required. Canonical isolated SupabaseDEV gate14checksPASS, owned schema
+absent/publicschema+savedroute neutral. Receiptdev-isolated-reserve55.json.
+Controller53 epoch new5RED ->95suitePASS; CI reserveimage workflow+test source
+added; actualCI/GHCR pending. PublicDEV0180 canonical apply/readback PASS at
+2026-10-15T07:11:53Z; all saved routing columns unchanged/reserveOFF. Independent
+review requires exact source hashes/project identity in the isolated receipt and
+canonical CI workflow/repository/ref binding before image publication. Root is
+closing these provenance gates; no production rollout or connector install yet.
+Root corrected verifier after two bounded writer passes: genuine before/after
+migration, exact canonicalDEVpath, closedcatalognegative, schema-qualifiedruntime
+queries, creation-ownedcleanup. CI writer's WindowsPowerShell/-ExecutionPolicy
+Bypass test attribution rejected; root canonicalpwsh7 rerun12testsPASS. No global
+executionpolicy change inferred or performed by Root. These are procedure
+corrections, not changes to tests/roles/limits to conceal a failure.
+
+Current owner correction2026-10-15, final local acceptance: finish real official Codex CLI/current
+subscription connection, not a placeholder SIWC gateway; preserve route OFF and
+manual superadmin activation. V2 contract supersedes V1 at
+`../product/contract-modules/methodologist-workbench/contracts/CHATGPT_MANUAL_RESERVE_V2.md`.
+Root implemented actual `infra/codex-reserve/{runner,server,egress}.py`; UI copy
+updated to CLI. Auth mode now `codex_cli`. Real current-login local HTTP connector
+through Kamilya ResilientLLMClient: syntheticprimary404 -> expected JSON in6968ms,
+follow-up simplification7610ms (`probe-codex-connector54.json`). Hardened candidate
+with named read-deny/network-deny permissions and Windows kill-on-close process
+job: fresh same JSON7969ms (`probe-codex-connector54-hardened.json`), OFF calls0,
+persisted route writes0/production0. First receipt omitted per-process counters
+due probe-local variable scope; not invented afterward. Hardened receipt includes
+safe process latencies/hashes; unclassified missing_field diagnostic needs classification,
+not assumed a permissions failure or ignored as runtime proof.
+
+Root focused suite168PASS6.97s initially covered CLI process/env/output/timeout/
+cancel/busy, parent-exited Windows descendant termination, egress destination/DNS,
+installer integrity/archive, compose topology, existing routing/BYOK/intent tests.
+401 now means managed CLI login required; bad connector bearer403 means server
+configuration, not login. CLI max_tokens is a measured postcondition, not pre-
+inference quota/cost cap; absent usage fails closed. Ingress idle135/total150 now
+covers maxCLI120+cleanup5+delivery; actual TCP disconnect->cancel and timeout->503
+tests passed. Final focused100PASS5.08s, infraRuffPASS, web25/typecheck/ESLintPASS,
+Pythonbaseline1008/2200PASS. Independent reviewer CLOSED P2/no executable blocker.
+Test Runner C: fullAPI3066PASS/5warnings30.15s. Earlier journal required separate
+Fix/Verification fields; root repaired document, not gate. Web broadparallel first
+1140PASS/1FAIL learningInsightsJournal; isolated7PASS, final bounded wholeweb
+maxWorkers2:1141PASS/0FAIL. All old failures preserved, root cause of intermittent
+web failure NOT ESTABLISHED; no test/timeout/snapshot weakened. Ledger C/D and
+final-api54c.xml/final-web54d.json. No production deployment is claimed.
+
+Docker Desktop was initially down, started hidden for database-free checks only.
+Pinned npm0.146.1-linux-x64 archive SHA512 verified from registry. Initial build
+stopped at128MiB size gate; metadata366619458unpackedbytes/8files justified finite
+384MiB corrected bound. Corrected isolated image built:
+`kamilya-codex-reserve:0.146.1-local54`, proof configb30ef2e6…;
+manifestlistb4536f1c8d9ae4547760ccaca32842693d535cfb3b7c1ea477de594663afcd93,
+base python3.12-slim@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea.
+Internal-only connector network + mount-free fixed OpenAI CONNECT egress,
+UID10001/read-onlyroot/capdrop/resources verified live. Initial config-ID reference
+was not a local image reference in containerd; corrected to actual manifestlist.
+Docker29.8.2 internal-only publication failed (Ports=[]), so added fixed ingress
+on the mount-free edge; red regression and real TCP test lock it. Only edge18999
+is published onloopback; CONNECT18888 remains private. Actual Kamilya transport
+through container/CLI/current auth returned exact synthetic JSON6609ms.
+Readinessready, badbearer403, direct/arbitrary/private/metadata egressdenied,
+noapp/DB/Dockersocket, tmpfs and readonlyauthmount confirmed. Original receipts
+retained; final probe-container-codex54-ingress.json. Exact proof project removed.
+Final timer-only image rebuilt, manifestlist
+bfa2d459a51542a32b300726d8e1a49bc4d53662ed9a3a20b392102ffbf93567,
+configb6d5d519040c1fc8e36bef386c4493952c33fd1dbab7b8d78b842874a4956551.
+probe-container-codex54-final-readiness.json separately proves final-image ready/
+mounts/network/negative isolation/cleanup with OFFcalls0/routes0/prod0; it hash-links
+prior real inference6609ms, not relabelled as a fresh final-image inference. No
+extra model call for a relay-timer-only change. Local test uses read-only existing
+auth.json mount + tmpfs; persistent production auth-refresh NOT VERIFIED.
+No official CLI auth exported to a server or embedded in the image.
+
+Local technical implementation accepted; source remains an uncommitted candidate
+on77f0b065, no remote push/release. Audit12-layer scope recorded in ignored
+audit-codex-reserve54.json. Next external gates: supported hosted-use eligibility,
+protected dedicated managed-login lifecycle and exact approved runner/private
+capacity/route, then immutable release/DEV migration0180 and deployment gates.
+Do not temporarily enable production reserve, ad-hoc install on VM126, use Proxmox,
+or substitute local response for production button/route acceptance. Normal
+release authorization/schema/helper/capacity gates remain required. Commercial
+hosted-use eligibility is still a separate unverified vendor limitation, not
+something technical CLI success grants.
+
+Historical superseded V1 boundary (history, not current architecture):
+Owner request2026-10-15: prepare reserve but leave it disabled; add manual
+superadmin control. Root clarified before implementation that current Codex
+managed login is NOT exported/connected, and a separately authorized gateway
+remains a dependency. Accepted boundary:
+`../product/contract-modules/methodologist-workbench/contracts/CHATGPT_MANUAL_RESERVE_V1.md`.
+Implementation candidate adds an optional closed catalog ID, configuration-only
+status, explicit non-generative readiness, guarded activation/removal in the
+existing revisioned route, and an HTTP connector to a future authorized private
+gateway. Migration0180 only expands constraint; no UPDATE/INSERT or autoenable.
+No CLI runner, gateway, auth session, paid API, production configuration or
+deployment is created. This is disabled integration preparation, NOT completion
+of the requested current-subscription connection. DEV migration/live gateway and
+production acceptance remain NOT VERIFIED. Voice excluded.
+
+Local gate2026-10-15T0600Z:117API/21web testsPASS, typecheck/focusedESLint/Python
+qualitybaseline/diffcheckPASS. Independent backend review and stale-readiness UI
+correction review accepted. New owner token-file request fulfilled only as an
+ignored owner-only Windows DPAPI encrypted access-token backup with verified
+roundtrip; no raw value/refresh token/current auth mutation. No token-entry form
+pretends to connect a hosted service through workstation subscription auth.
+The runtime dependency remains missing, so current-subscription connection,
+DEV migration and production deployment/acceptance are still NOT DONE.
+
+CLI/app-server investigation2026-10-15T0523Z, owner explicitly requested this
+distinct mechanism rather than direct token/API reuse. Installed official CLI
+0.146.1; stdio app-server initialize/account-read/model-list succeeded with managed
+chatgpt/Pro auth, refreshTokenfalse. Catalog3models included gpt-5.6-luna; catalog
+alone not entitlement proof. First isolated gpt-6-luna exec failed, no completion.
+One corrected catalog-selected gpt-5.6-luna exec succeeded: expected JSONtrue,
+turn.completed/exit0,7281ms,8911input/15outputtokens, observed tool events0. Existing
+managed subscription auth used by CLI; no token extraction or API billing enabled.
+Local user config ignored for exec, ephemeral/read-only, hooks/apps/plugins/shell/
+browser/memory/multiagent disabled per invocation. No public listener or proxy.
+Crucial applicability gate fails independently of technical success: official
+https://learn.chatgpt.com/docs/app-server#auth-endpoints explicitly says app-server
+authentication has never been permitted for commercial or hosted services. Local
+developer/CI use must not be relabeled customer-serving SaaS inference. Therefore
+no subscription CLI/app-server backend adapter, schema/order change, DEV failover,
+production deployment or paid alternative was implemented. Official SIWC hosted
+eligibility or an independently approved provider path remains necessary.
+Receipts read-codex-appserver53.json, probe-codex-cli53.json and
+probe-codex-cli53-luna56.json. All child processes finished/terminated. Generated
+protocol schemas stay ignored task evidence, not runtime dependencies. Earlier
+public API403 does NOT establish that CLI authentication or inference is broken.
+
+Owner update2026-10-15T0515Z: requested DeepSeek -> ChatGPT -> GLM, DEV induced
+failure -> production -> live acceptance. Clarified ChatGPT must use the current
+subscription, not a separately paid Platform API key. Earlier request to add
+OPENAI_API_KEY is withdrawn; do not activate paid inference under the superseded
+interpretation. No source/runtime/order/schema/service change has been made.
+Official SIWC path requires an authorized app registration and direct-plan scope;
+paid/remotely hosted eligibility for Kamilya is not verified. Current owner-
+authorized local Codex auth metadata has subscription token, no Platform API key,
+no chatgpt.tokens.use.direct/resource.invoke scope in decoded claims. Claims were
+not signature verified. One official public/models GET returned403/750ms; no
+inference, retries, credential export/file mutation. The response classifier did
+not preserve a server denial reason; do not infer the exact403 cause. Current
+token is NOT accepted as a working app API credential. Receipts
+read-codex-plan-capability53.json and probe-codex-public-models53.json.
+GPT6Luna is a possible low-cost model, not an accepted subscription entitlement.
+Need official app-specific authorization/hosted eligibility before implementing
+and accepting this subscription-backed production chain. No backend-api/CLI
+subscription proxy or alternate credential route created. DeepSeek recovery
+evidence below is historical observed success, not a new current health claim.
+
+Recovery update2026-10-15T0505Z: owner target priority is now DeepSeek -> ChatGPT
+-> GLM; this is not yet an implemented runtime-order change. Official DeepSeek
+incident moved to Monitoring. Installed production51 application client returned
+exact synthetic JSON from API962ms and AI-worker851ms, no retries or key/model
+changes. Ordinary production QA browser chat on synthetic draft ab18cb31… passed
+two source-faithful turns, including simplification; header latency1302/1414ms.
+Both turns restored after reload; lesson value unchanged. No apply/publish/assign.
+This is recovered primary inference, not sustained-availability/failover proof.
+Current GLM EXL3/8888 returned valid JSON locally1484ms with thinking disabled;
+actual production API/worker still cannot connect (~3s each). No model swap.
+Exact existing ASUS sudo command query requires password; canonical project env
+has no matching administrative credential. No service or privilege changed.
+Correction to earlier OpenAI wording: official Sign in with ChatGPT permits plan
+usage for eligible apps; paid/remotely hosted apps require separate commercial
+eligibility. No Codex credentials extracted, no OpenAI API/billing activated.
+DEV first incomplete interpretation eventually clarified (OPTIONS header delay
+69.343s, POST6.578s); follow-up navigated to login, cause not established. Existing
+free services report live77/not_suspended; canonical/api/v1/health200/exact77.
+Earlier/noncanonical/health timeout was a harness error, not DEV health evidence.
+Fresh exact QA login using dev_qa_stand fixed email subsequently passed two real
+interpretations1276/2474ms: complete instruction -> change only date/time;
+course/department/falseflags preserved. No preview/confirmation/new assignment.
+Full DEV business dialogue and production52 remain unaccepted: still need a fresh
+positive fixture through confirmation/reload/student, not reuse prior strict flow
+as if it were this two-turn model flow. Receipt recovery52-20261015T0505Z.json.
+
+Restore frontier2026-10-15T04:47Z: owner authorized existing Qwen/GLM recovery,
+requested another DeepSeek check, directed a question to Hermes, then asked about
+using Codex credentials/cheap API models. No new paid-provider activation approved.
+Existing project SSH gx10-4 verified gx10-a721/connector10.77.77.4. Actual Qwen
+upstream10.66.66.30:8888 models200/exact ID; existing enabled socket inactive,
+WG dependency active. One hash-bound normal start denied authorization; no service
+changed, no alternate credential/root bypass attempted. Required existing admin
+procedure remains unknown; Hermes atprojects session20261015_094425_7f8a77 did not
+know it. Hermes's current GLM route is10.66.66.28:8888/GLM-5.3-Flash-EXL3, not old
+8000/NVFP4. Models200 verified; tiny64-token probe returned200 but empty content,
+not a quality pass. Production route/model not replaced; proper private route and
+JSON/latency/quality qualification remain required.
+DeepSeek actual resolved production key: balance200/is_availabletrue; both aliases
+timed out25s. Independent workstation nonstream headers200/875ms but0body bytes
+after28.907s; official streaming request headers200/984ms,2lines but no content
+within25.015s. Not solely production egress, not fixed by changing balance/keys.
+Codex local login status is ChatGPT subscription, no API key name in Kamilya env;
+no OAuth credentials extracted or OpenAI inference activated. Fresh official docs
+candidate GPT6Luna standard0.10in/0.50out per1M; suitability NOT_TESTED.
+Full bounded receipts/hashes and remaining gates: restore-frontier52.json.
+
+Fallback diagnosis2026-10-15T04:26Z (owner requested diagnosis/proposal, no repair):
+direct actual production51 API+AI-worker resolve3providers. Qwen models/completion
+HTTP502 from both; GLM connect timeout~3s from both. API DeepSeek models200 but
+tiny completionReadTimeout7.574s. Qwen hub/connector host routes usewg0; connector
+port18002 givesConnectError25ms from API. GLM direct route usesens18, notwg0.
+Exact relay/service/firewall cause remains unverified; no restarts/routes changed.
+Render complete API58/worker60keys plus owner-filtered linked-group inventory0/0
+confirms inherited private endpoint defaults, not a Render-accessible reserve.
+No raw endpoint execution from Render host is claimed. FREE_LLM_POOL_ENABLED=false
+does not gate the active Qwen/GLM generation factories (independent source review).
+DeepSeek /models lists deepseek-flash/pro; official docs accept configured legacy
+deepseek-v4-flash alias, so omission from discovery is not a wrong-model finding.
+Receipt fallback-diagnosis52.json binds scripts/observations/proposed repair order.
+Next decision: restore existing private Qwen path, qualify GLM and choose explicit
+isolated DEV connectivity without new paid resources; then repeat actual failover
+and dialogue acceptance. This diagnosis does not implement those changes or issueGO.
+
+Owner-requested fresh model recheck2026-10-15T04:04Z: exact DEV77 API/worker
+still live/free and health52/77 PASS. One ordinary-browser interpretation returned
+clarification_needed/intent_provider_unavailable in14.775479s; preview/confirm0.
+Official DeepSeek incident7116348214287 still Identified/Full Outage at read.
+No new fixture/assignment/config/voice writes. Production public API/native health
+still51/85933da4 PASS. Receipt model-recheck52.json; prior blocked evidence retained.
+Conditional production authority already exists, but real-model DEV gate is unmet.
+
+Current frontier2026-10-15: candidate77f0b06516917426b0f5983787f803c9e4c575c4
+is committed/pushed toDEV only. Exact CI38676320710/all7jobs PASS; technical
+DEV R4 release dd6e4a5e…a73e and Root9flags/Hobby-Free-Free readback PASS.
+Native build38676775095/source77 PASS; no production52 packet, tag, master push,
+switch, cleanup or provider configuration change. Runtime production remains51.
+
+Real DEV interpretation still BLOCKED: first beb3 requests twice~30s, repaired77
+request14.49244s returned safe intent_provider_unavailable. DeepSeek incident
+7116348214287 remained identified/ongoing on official read; ADR0007 explicitly
+does not confirm Render access to private ASUS fallback. Service's complete58-key
+inventory has no direct Qwen/GLM endpoint overrides; environment groups were not
+inventoried, so do not claim exact effective server configuration. Earlier20-key
+factory probe plus canonical local defaults is not exact server-phase proof.
+Local-workstation model discovery also failed ConnectTimeout/ConnectError; that
+is not Render or production-host network evidence. No repeated live inference,
+new public ingress, paid capacity, model/order change or ad-hoc tunnel was added.
+
+Verified separately, STRICT-MODE-ONLY real DEV browser cycle:
+preview1/new1 -> explicitconfirm1 -> receipt1/noemail -> reloadGETsameplan/counts,
+no duplicatePOST -> course assignment list1 -> normalQAlearneropenednewlesson0%.
+Plan91afe789-15ef-45f5-abed-b3db049aded6; enrollment
+a934fe85-b171-4c9b-90db-f8a74c497b9d; course6c52b06e-c029-420b-a317-e4777b59d015.
+Read-only non-bypass Supabase policy confirms20Oct2026 18:59:59UTC (=23:59:59
+Asia/Almaty), no notification attempts. Existing3enrollment API projections,
+including completedPDF, unchanged; temporary position's original emptydepartment
+restored. Retained marked synthetic course/department/assignment/receipt, no
+destructive cleanup or learner completion. Evidence dev-reconciliation52.json
+SHA3bc5619e…64a9 and dev-exact-network52.json SHA d44ddc8e…13b3; screenshot
+dev-student-course52.png visually inspected. POST/GET response bodies were evicted
+after navigation; byte equality NOT VERIFIED, UI/GET counts/API reconciliation are.
+
+Next: restore model availability in the existing approved DEV contour, then
+restore the same temporary QA department placement explicitly and use a fresh
+synthetic course for positive new_count1 dialogue acceptance (do not reset this
+assignment or completed learning). Real incomplete request -> follow-up -> owned
+plan correction -> preview -> explicitconfirm -> reload -> student. Only after
+that, bind master/tag/CI/backend no-migration179/native packet and live prod QA.
+Recheck all current/rollback/capacity facts at that time; cached artifacts and
+standing cleanup rules alone never authorize deleting a release. Voice deferred.
+
 DEV52 frontier2026-10-15: exact beb3d39b deployed CI38674047991/Vercel/API/
 worker; Root independently verified Hobby/Free/Free,9flagsON and public schema0179
 without migration. Live incomplete assignment twice returned safe provider
