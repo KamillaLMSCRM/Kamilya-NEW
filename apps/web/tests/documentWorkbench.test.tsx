@@ -66,7 +66,7 @@ describe('DocumentWorkbench', () => {
     vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
     const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
     render(<DocumentWorkbench />);
-    expect(screen.getByRole('heading', { name: 'Документ → черновик курса', exact: true })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Документ → черновик курса' })).toBeInTheDocument();
   });
 
   it('does not render when the independent flag is disabled', async () => {
