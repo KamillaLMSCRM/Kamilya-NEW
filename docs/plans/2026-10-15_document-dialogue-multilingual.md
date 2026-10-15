@@ -104,6 +104,14 @@
   summary ambiguity. R10 isolated source gate running; do not count this as final
   semantic acceptance. Actual DEV learning baseline is5course groups/4enrollments/
   1completed; production is11groups/7completed enrollments, notseveninDEV.
+  Raw isolated R10 passed44checks/42base-source bindings on65f59f00, cleanup,
+  public before=afterecc6b997...40c4c0,528.172seconds. Final wording-only delta
+  changes one system-policy literal to preserve source-attributed roles instead
+  of a shared authority summary. Verify canonical source/check sets,41unchanged
+  source files and whole-module bytes+AST outside that literal. This is derived
+  application-equivalent isolation evidence, not a fresh SQL run on final prompt
+  bytes. Focused final3model probes now preserve conditional/appointing authority/
+  true conflict; actual full DEV/browser/production semantics remain unverified.
 - D57-RELEASE NOT_STARTED: exact-source release gate, signed backup/restore,
   rollback/capacity, protected backend/native release only if there is an accepted
   application change; current56 not redeployed merely for evaluation documentation.

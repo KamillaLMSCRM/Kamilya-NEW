@@ -62,6 +62,8 @@ def test_comparisons_preserve_conditional_polarity_and_each_sources_authority():
     assert "Do not merge similar role titles" in system
     assert "Status describes agreement of the requested source rules" in system
     assert "Faithfully listing two opposing values is still conflict" in system
+    assert "Do not append a shared role or authority summary" in system
+    assert "without turning communication into authorization" in system
 
 
 def test_immediate_previous_turn_is_separate_without_history_duplication():

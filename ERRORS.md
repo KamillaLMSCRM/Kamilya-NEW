@@ -7785,6 +7785,16 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   V1.7 preserves logical conditions and source-specific role qualifiers. No
   additional model pass or runtime/public-contract change. Full live gates remain.
 
+- The V1.7 focused module restored D12's conditional and H03's distinct appointing
+  authorities but its closing shared-role summary still blurred technical
+  confirmation and communicating a decision. After R10 completed44checks on
+  exact65f59f00/42sources, tighten only the system-policy literal: source-attributed
+  roles, no shared-role summary, no communication-as-authorization. Prove41/42
+  current source bytes unchanged and the entire changed module AST AND bytes
+  outside that one literal identical; do not call this a fresh SQL run on final
+  prompt bytes. New focused/model, full final CI, ordinary DEV/browser and prod
+  semantics remain mandatory. R10 cleanup/public before=afterecc6b997...40c4c0.
+
 ## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
 
 - Date: 2026-10-15, DOCUMENT57.
