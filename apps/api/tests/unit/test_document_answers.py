@@ -116,14 +116,78 @@ async def test_retrieval_is_bounded_current_revision_and_integrity_checked(monke
         await answers.retrieve((SOURCE,), ACTOR, "What should I verify?", [])
 
 
+def retrieval_chunk(source, index, body):
+    return body, {"doc_id": str(source.document_id), "chunk_id": f"{source.document_id.int * 100 + index:064x}",
+        "embedding_source_revision": f"document:{source.content_sha256}",
+        "embedding_content_sha256": hashlib.sha256(body.encode()).hexdigest()}
+
+
+def retrieval_hit(chunk):
+    body, metadata = chunk
+    return SimpleNamespace(text=body, doc_id=metadata["doc_id"], chunk_id=metadata["chunk_id"],
+        source_revision=metadata["embedding_source_revision"], content_sha256=metadata["embedding_content_sha256"])
+
+
+async def test_multilingual_fallback_uses_opening_body_not_heading_only(monkeypatch):
+    russian = SOURCE.model_copy(update={"document_id": UUID(int=4), "title": "Russian regulation"})
+    openings = {str(SOURCE.document_id): [retrieval_chunk(SOURCE, 0, TEXT)],
+        str(russian.document_id): [retrieval_chunk(russian, 0, "Heading"),
+            retrieval_chunk(russian, 1, "The L-2 procedure applies to line incidents, not handheld C-8 tools.")]}
+    store = SimpleNamespace(get_context_window=AsyncMock(side_effect=lambda **kw: openings[kw["doc_id"]][:kw["radius"] + 1]))
+    monkeypatch.setattr(answers, "VectorStore", lambda: store)
+    monkeypatch.setattr(answers, "retrieve_lexical_hits", AsyncMock(return_value=[retrieval_hit(openings[str(SOURCE.document_id)][0])]))
+
+    result = await answers.retrieve((SOURCE, russian), ACTOR, "C-8 пен L-2 санаты бірдей ме?", [])
+
+    assert any(e["source"] == russian and "L-2 procedure" in e["text"] for e in result)
+    assert all(call.kwargs["radius"] == 1 for call in store.get_context_window.call_args_list)
+
+
+async def test_five_sources_keep_second_ranked_fact_before_third_same_source_hit(monkeypatch):
+    sources = tuple(SOURCE.model_copy(update={"document_id": UUID(int=i), "title": f"Policy {i}"}) for i in range(3, 8))
+    openings = {str(s.document_id): [retrieval_chunk(s, 0, f"Heading {s.title}")] for s in sources}
+    # Global rank favors one document; the second source's second hit carries
+    # the actual deadline required to compare it with the first source's four.
+    chunks = [retrieval_chunk(sources[0], 1, "Notify within four hours."),
+        retrieval_chunk(sources[1], 1, "This document specifies a deadline above."),
+        retrieval_chunk(sources[0], 2, "No precedence established."),
+        retrieval_chunk(sources[0], 3, "Additional matching background."),
+        retrieval_chunk(sources[1], 2, "Notify within two hours."),
+        retrieval_chunk(sources[2], 1, "Safety roles and handoff."),
+        retrieval_chunk(sources[3], 1, "Inspection records."),
+        retrieval_chunk(sources[4], 1, "Incident records.")]
+    store = SimpleNamespace(get_context_window=AsyncMock(side_effect=lambda **kw: openings[kw["doc_id"]]))
+    monkeypatch.setattr(answers, "VectorStore", lambda: store)
+    monkeypatch.setattr(answers, "retrieve_lexical_hits", AsyncMock(return_value=[retrieval_hit(c) for c in chunks]))
+
+    result = await answers.retrieve(sources, ACTOR, "Compare notification deadlines across all documents", [])
+
+    assert {e["source"].document_id for e in result} == {s.document_id for s in sources}
+    assert any("two hours" in e["text"] for e in result)
+    assert any("four hours" in e["text"] for e in result)
+    assert len({e["chunk_id"] for e in result}) <= 8
+    assert sum(len(e["text"]) for e in result) <= 24000
+
+
+def test_model_knows_selected_scope_and_negative_comparison_status():
+    other = SOURCE.model_copy(update={"document_id": UUID(int=4), "title": "Selected but no excerpt"})
+    prompt = answers.messages("Compare scopes", "kk", [], EXCERPTS, sources=(SOURCE, other))
+    data = json.loads(prompt[1]["content"])
+    assert data["selected_sources"] == [{"title": SOURCE.title, "available_handles": [1]},
+        {"title": other.title, "available_handles": []}]
+    assert "negative comparison" in prompt[0]["content"]
+    assert "not a conflicting value" in prompt[0]["content"]
+    assert "Selected but no excerpt" not in prompt[0]["content"]
+
+
 async def test_retrieval_keeps_tail_and_exposes_sixteen_nonoverlapping_handles(monkeypatch):
     bodies = [str(index) * 3000 for index in range(8)]
     chunks = [(body, {"doc_id": str(SOURCE.document_id), "chunk_id": f"{index + 1:064x}",
         "embedding_source_revision": f"document:{SOURCE.content_sha256}",
         "embedding_content_sha256": hashlib.sha256(body.encode()).hexdigest()}) for index, body in enumerate(bodies)]
-    store = SimpleNamespace(get_context_window=AsyncMock(return_value=chunks))
+    store = SimpleNamespace(get_context_window=AsyncMock(return_value=chunks[:2]))
     monkeypatch.setattr(answers, "VectorStore", lambda: store)
-    monkeypatch.setattr(answers, "retrieve_lexical_hits", AsyncMock(return_value=[]))
+    monkeypatch.setattr(answers, "retrieve_lexical_hits", AsyncMock(return_value=[retrieval_hit(c) for c in chunks]))
 
     excerpts = await answers.retrieve((SOURCE,), ACTOR, "Find conflicting rules", [])
 

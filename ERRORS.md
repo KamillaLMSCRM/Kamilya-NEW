@@ -7670,3 +7670,27 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Prevention: let models select bounded evidence, not reproduce authority-bearing
   strings. A syntactically valid handle still does not prove semantic entailment;
   check facts, conflict coverage and abstention in human-readable live answers.
+
+## AI-CHAT-008 - Multi-source evidence slots were consumed by headings and one source
+
+- Date: 2026-10-15, DOCUMENT57 frozen RU/KK DEV matrix.
+- Symptom: five-source comparison omitted the selected Russian source's two-hour
+  deadline; a Kazakh question claimed that selected Russian L-2 material was not
+  provided. A separate correct negative comparison carried not_found status.
+- Cause: one chunk-zero anchor per source preceded the global ranked hits.
+  A DOCX's first chunk was only a112-character heading; five anchors left only
+  three ranked slots, allowing repeated hits from one source to crowd out another
+  source's actual deadline. A Kazakh query with no Russian lexical hit retained
+  only the Russian title. Status policy did not explicitly cover negative comparison.
+- Fix: substantive chunk-zero/one fallback, ranked depth-wise allocation across
+  selected documents, untrusted selected-source inventory and explicit supported
+  negative-comparison policy. No post-hoc status rewriting, added model retry,
+  change to public answer shape, source validation, routing or evidence limits.
+- Verification: actual DEV retrieval RED19/22 then GREEN14/19/22 without model
+  calls; focused RED3/GREEN32, full backend3023 PASS. Initial matrix remains
+  19PASS/2PARTIAL/1FAIL. Corrected real-model DEV, fresh holdout and production
+  semantics require their own evidence; context coverage alone is not acceptance.
+- Prevention: freeze independent RU/KK multi-format oracles before inference;
+  test heading-only openings, five-source competition, cross-language queries,
+  true versus apparent conflicts and missing facts. Preserve failed answers and
+  evaluate a new holdout after tuning rather than claiming the consumed set is new.

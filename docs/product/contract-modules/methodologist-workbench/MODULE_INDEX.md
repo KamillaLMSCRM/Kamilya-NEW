@@ -2,11 +2,18 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
-Current implementation candidate: [document content dialogue V1](contracts/DOCUMENT_CONTENT_DIALOGUE_V1.md),
-2026-10-15. Source-grounded Q&A shares the private archive but never mutates the
+Current implementation candidate: [retrieval addendum V1](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1.md),
+2026-10-15. Balanced multi-source context and substantive opening fallback;
+RU/KK real-model acceptance/release57 NOT YET VERIFIED. No public shape/migration,
+voice or reserve change. Root also owns the isolated-gate evidence-root allowance
+for DOCUMENT57 and its immutable source-manifest inclusion; no gate is weakened.
+
+Previous released slice: [document content dialogue V1](contracts/DOCUMENT_CONTENT_DIALOGUE_V1.md),
+accepted0.11.56/source8a612c19,2026-10-15. Source-grounded Q&A shares the private archive but never mutates the
 course brief or executes commands. Server-owned citations/current-source opening
-and original download. DEV/production release and real-model acceptance NOT YET
-VERIFIED. No migration; old55 cannot render new answered exchanges on rollback,
+and original download. Bounded DEV/production acceptance: PRODUCTION_READINESS,
+release56 and TEST_RUN_LEDGER. No universal semantic guarantee. No migration;
+old55 cannot render new answered exchanges on rollback,
 so retain history and roll forward for that capability. Voice untouched/reserveOFF.
 
 Previous bounded package: [Durable document dialogue V1](contracts/DOCUMENT_DIALOGUE_V1.md),

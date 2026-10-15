@@ -49,7 +49,9 @@ SOURCES = (
         "tenants", "users", "user_roles", "document", "ai_job", "tenant_settings", "tenant_llm_usage")),
     ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_DIALOGUE_V1.md",
     ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_DIALOGUE_V1.md",
+    ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1.md",
 )
+EVIDENCE_RUNS = ("DOCUMENT55-20261015", "DOCUMENT56-20261015", "DOCUMENT57-20261015")
 REQUIRED_CHECKS = frozenset({
     "empty_upgrade_downgrade_reupgrade", "table_acl_force_rls", "owner_reload_no_inference",
     "foreign_tenant_denied", "sibling_actor_denied", "role_denied", "no_context_denied",
@@ -312,8 +314,7 @@ def main():
         if args.env_file.resolve() != (Path(common).parent / ".env").resolve():
             raise GateBlocked("noncanonical_env_file")
         target = args.evidence.resolve()
-        allowed_roots = {(ROOT / f".release-evidence/{name}").resolve() for name in
-                         ("DOCUMENT55-20261015", "DOCUMENT56-20261015")}
+        allowed_roots = {(ROOT / f".release-evidence/{name}").resolve() for name in EVIDENCE_RUNS}
         if target.parent not in allowed_roots or target.suffix != ".json" or target.exists():
             raise GateBlocked("invalid_evidence_target")
         config = canonical_config(args.env_file)

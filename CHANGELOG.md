@@ -143,6 +143,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.57] - 2026-10-15
+
+### Fixed
+
+- Balance document-dialogue retrieval across selected sources and use substantive
+  opening text instead of a heading-only fallback. Preserve eight-chunk evidence
+  bounds and all source/tenant/revision/hash checks. Clarify source selection and
+  supported negative comparisons without rewriting model statuses after the fact.
+  No public response shape, migration, voice, reserve or provider-routing change.
+
 ## [0.11.56] - 2026-10-15
 
 ### Added

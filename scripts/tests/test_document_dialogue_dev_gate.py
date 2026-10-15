@@ -39,6 +39,11 @@ def test_source_contract_is_present_and_manifest_is_workspace_bound(gate):
     assert any(name.endswith("document_dialogue.py") for name in manifest)
     assert any(name.endswith("document_dialogue_dev_gate.py") for name in manifest)
     assert any(name.endswith("document_service.py") for name in manifest)
+    assert any(name.endswith("DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1.md") for name in manifest)
+
+
+def test_evidence_runs_are_explicit_not_arbitrary(gate):
+    assert gate.EVIDENCE_RUNS == ("DOCUMENT55-20261015", "DOCUMENT56-20261015", "DOCUMENT57-20261015")
 
 
 def test_runtime_role_requires_lms_app(gate):
