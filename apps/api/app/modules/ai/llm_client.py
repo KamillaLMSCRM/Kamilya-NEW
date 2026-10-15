@@ -38,7 +38,7 @@ import math
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import asdict, dataclass, field, replace
 from enum import StrEnum
-from typing import Any, Generic, TypeVar, cast
+from typing import Any, Generic, Literal, TypeVar, cast
 
 import httpx
 
@@ -196,6 +196,9 @@ class LLMProviderConfig:
     embedding_space_model: str | None = None
     embedding_query_prefix: str | None = None
     embedding_l2_normalize: bool = False
+    # Capability set only by the global managed DeepSeek builders. Tenant
+    # overrides with the same display name retain their own inference policy.
+    managed_evidence_profile: bool = False
 
 
 def _openai_base_url(value: str) -> str:
@@ -309,6 +312,7 @@ def _deepseek_llm_provider() -> LLMProviderConfig | None:
         model=s.DEEPSEEK_MODEL,
         timeout=120.0,  # DeepSeek p95 ~30s, but cold start can be longer
         extra_body=extra,
+        managed_evidence_profile=True,
     )
 
 
@@ -878,6 +882,7 @@ class ResilientLLMClient:
                         model=s.DEEPSEEK_MODEL,
                         timeout=120.0,
                         extra_body={"thinking": {"type": "disabled"}},
+                        managed_evidence_profile=True,
                     )
                 else:
                     cfg = replace(cfg, api_key=deepseek_key)
@@ -903,10 +908,13 @@ class ResilientLLMClient:
         response_format: dict | None = None,
         *,
         provider_deadline_seconds: float | None = None,
+        request_profile: Literal["evidence_low"] | None = None,
     ) -> _LLMResponse:
         # Opt-in only: short interactive operations must leave time for the
         # already configured fallback even when a primary streams keepalives.
         # Other callers retain their provider-specific retry/timeout settings.
+        if request_profile not in (None, "evidence_low"):
+            raise ValueError("request_profile_invalid")
         if provider_deadline_seconds is not None and (
             isinstance(provider_deadline_seconds, bool)
             or not isinstance(provider_deadline_seconds, int | float)
@@ -918,18 +926,30 @@ class ResilientLLMClient:
         for client in self._clients:
             try:
                 provider_response_format = _response_format_for_provider(client.name, response_format)
-                if provider_deadline_seconds is None:
+                attempt_config = client.config
+                attempt_max_tokens = self.max_tokens
+                attempt_deadline = provider_deadline_seconds
+                if (request_profile == "evidence_low" and client.name == "deepseek"
+                        and client.config.managed_evidence_profile):
+                    # Request-local opt-in; no saved model/order/key change and
+                    # no mutation of shared clients. Existing fallbacks retain
+                    # their original output and caller-supplied deadline caps.
+                    attempt_config = replace(attempt_config, extra_body={
+                        **attempt_config.extra_body, "thinking": {"type": "enabled"}, "reasoning_effort": "low"})
+                    attempt_max_tokens = 8192
+                    attempt_deadline = 45
+                if attempt_deadline is None:
                     return await client.ainvoke(messages, config=config, response_format=provider_response_format)
                 # Never mutate shared provider objects or inherit a configured
                 # retry override into this one-attempt wall-clock budget.
                 attempt = LLMClient(
-                    replace(client.config, max_retries=0),
+                    replace(attempt_config, max_retries=0),
                     temperature=self.temperature,
-                    max_tokens=self.max_tokens,
+                    max_tokens=attempt_max_tokens,
                     max_retries=0,
                 )
                 try:
-                    async with asyncio.timeout(provider_deadline_seconds):
+                    async with asyncio.timeout(attempt_deadline):
                         return await attempt.ainvoke(messages, config=config, response_format=provider_response_format)
                 except TimeoutError as exc:
                     raise ProviderFailedError(client.name, exc) from exc

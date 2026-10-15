@@ -293,7 +293,7 @@ async def settle_refund(db: AsyncSession, actor: ActorContext) -> None:
 async def answer_document(db: AsyncSession, actor: ActorContext, sources: tuple[DocumentSource, ...],
                           question: str, language: str, recall: list[dict[str, Any]]) -> AnswerEvidence:
     try:
-        async with asyncio.timeout(30):
+        async with asyncio.timeout(60):
             return await _answer_document(db, actor, sources, question, language, recall)
     except TimeoutError as exc:
         raise HTTPException(503, "dialogue_provider_unavailable") from exc
@@ -329,11 +329,11 @@ async def _answer_document(db: AsyncSession, actor: ActorContext, sources: tuple
             await settle_refund(db, actor)
         raise
     try:
-        async with asyncio.timeout(30):
+        async with asyncio.timeout(60):
             provider = await ResilientLLMClient.from_settings_async(tenant_id=actor.tenant_id,
                 temperature=0, max_tokens=2000, max_retries_per_provider=0)
             response = await provider.ainvoke(messages(question, language, recall, excerpts, sources=sources),
-                response_format={"type": "json_object"}, provider_deadline_seconds=8)
+                response_format={"type": "json_object"}, provider_deadline_seconds=8, request_profile="evidence_low")
         return AnswerEvidence(parse_answer(response.content, excerpts), indexes, witnesses)
     except asyncio.CancelledError:
         await settle_refund(db, actor)

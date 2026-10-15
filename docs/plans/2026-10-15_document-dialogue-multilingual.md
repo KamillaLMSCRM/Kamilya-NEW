@@ -143,6 +143,33 @@
   API/driver3038PASS and quality baseline PASS; source review confirms unchanged
   public/persisted shapes and single inference. Fresh isolated gate remains
   required; this is not live Render/HTTP/browser or production acceptance.
+- R11/3dc full42 actual DEV exchanges yielded41PASS/1PARTIAL after append-only
+  correction of two independent-review misreads. D16's status wrongly treats a
+  selected card's reference to an unavailable opposing value as proved conflict.
+  R11 browser23 turns preserved prior20, passed KK hazard/retreat/two-point and
+  full reload checks. It is not final acceptance; fresh downloads/reopen not run.
+- Local R12–R18 failed experiments retained: scope spill survived policy/schema
+  changes and an explicit two-call reviewer. Fact filtering fixed the one-card
+  classification in a probe but missed the actual3/5-day opposing-rule case and
+  later returned502. No successful status alone promoted to semantic acceptance.
+  R17/R18 source snapshots archived; rejected runtime/tests/fixture/index were
+  restored exactly to3dc before the next hypothesis. The rejected fact-selection
+  V1.9 draft is archived, not the active contract.
+- D57-DIAG: current DeepSeek client disables thinking. Local low-thinking on
+  unchanged3dc and original2000-token/8-second bounds timed out; saved trace shows
+  primary cancellation and ordinary Qwen/GLM failures, no reserve activation.
+  At45seconds,2000/4000 generated-token ceilings ended with finish_reason length;
+ 8192 completed three independently source-reviewed probes. New request-local
+  evidence_low profile retains the same DeepSeek model/route and one call, enables
+  low thinking with8192generatedtokens/45seconds and document-only overall60seconds.
+  Other requests/fallback limits remain unchanged. Actual new-code module probes
+  (no local parameter override) cover context/priority/missing facts; statuses
+  match and all three passed independent source-faithfulness review. R24 also
+  confines opt-in to explicit global-managed provider capability, preserving
+  tenant BYOK policy even when its display name is deepseek. RED2/GREEN76;
+  final API/driver3048PASS, quality baseline PASS, independent delta no P1/P2.
+  Fresh canonical44check/expanded45source SQL gate running;
+  no simultaneous ordinary DEV writes. DEV still deployed3dc; production56/8a.
 - D57-RELEASE NOT_STARTED: exact-source release gate, signed backup/restore,
   rollback/capacity, protected backend/native release only if there is an accepted
   application change; current56 not redeployed merely for evaluation documentation.

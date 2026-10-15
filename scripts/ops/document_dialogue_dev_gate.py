@@ -40,7 +40,7 @@ SOURCES = (
     *(API / f"app/modules/methodologist_workbench/{name}.py" for name in (
         "document_dialogue", "document_dialogue_models", "document_dialogue_schemas",
         "document_service", "document_models", "document_schemas", "document_intent", "document_router", "document_answers")),
-    API / "app/modules/ai/ingestion.py", API / "app/modules/ai/lexical_retrieval.py",
+    API / "app/modules/ai/ingestion.py", API / "app/modules/ai/lexical_retrieval.py", API / "app/modules/ai/llm_client.py",
     API / "app/modules/documents/router.py",
     API / "app/modules/admin/superadmin/service.py", API / "app/models/registry.py",
     API / "app/modules/ai/budget.py", API / "app/core/auth.py",
@@ -57,6 +57,8 @@ SOURCES = (
     ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_5.md",
     ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_6.md",
     ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_7.md",
+    ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_8.md",
+    ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_9.md",
 )
 EVIDENCE_RUNS = ("DOCUMENT55-20261015", "DOCUMENT56-20261015", "DOCUMENT57-20261015")
 REQUIRED_CHECKS = frozenset({

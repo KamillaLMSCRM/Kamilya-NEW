@@ -2,7 +2,8 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
-Current implementation candidate: [private requested scope V1.8](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_8.md)
+Current implementation candidate: [request-local evidence reasoning V1.9](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_9.md)
+extends [private requested scope V1.8](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_8.md), which
 extends [two-evidenced-positions V1.6](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_6.md),
 [immediate previous turn V1.5](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_5.md),
 [answer-first schema V1.4](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_4.md), and

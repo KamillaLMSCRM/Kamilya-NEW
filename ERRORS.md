@@ -7831,6 +7831,48 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   This is not semantic validation or authority. Its parser/fake-fixture delta
   requires a fresh isolated DEV gate, not earlier prompt-only equivalence.
 
+- R11/3dc exact DEV42 completed with zero execution errors. Initial independent
+  review40PASS/2PARTIAL had two factual-review mistakes: both atelier sources
+  contain the18/48-day retention rules, and D16 did not state an unseen2-hour
+  rival. Append-only correction yields41PASS/1PARTIAL: D16 still used conflict
+  for a single card's reference to an unavailable competing value. Browser23-turn
+  KK safety/topic-switch/two-point/reload check passed; production57 did not run.
+  Preserve the mistaken review and its correction rather than overwrite them.
+- Rejected local R12–R18 probes: appended examples, compact policy, private
+  source-assessment enums, exact-substring opposing positions, bounded two-call
+  review, and per-dimension fact filtering did not establish reliable semantics.
+  In R18, actor-tagged prose still carried unasked3/5-day durations; splitting
+  those durations into two separately supported facts also hid a real conflict.
+  A later malformed response failed502. All failed probes/reviews and R17/R18
+  source snapshots remain in DOCUMENT57 evidence; experiments were not deployed.
+  Current runtime/test/fixture/index bytes restored exactly to committed3dc.
+- Prevention: model-produced scope tags and quote membership are not semantic
+  proof. Test both the motivating case and its true-conflict counterexample;
+  do not turn a matching status into acceptance or add a second call without
+  measured improvement. After repeated prompt-only failures, change the tested
+  hypothesis rather than append more overlapping clauses. The DeepSeek client
+  explicitly disables thinking; a local low-thinking test exceeded the8-second
+  deadline, which proves latency incompatibility, not better or worse quality.
+  No model/provider/routing/reserve/voice change was installed by these probes.
+- R23 hypothesis/test: the same managed DeepSeek low-thinking call needed a
+  larger *generated-token* ceiling, not merely more wall-clock. With45seconds,
+  caps2000/4000 ended `finish_reason=length`;8192 completed normally. Three
+  independently reviewed probes preserve distinct RU/KK authorities, separate
+  retention categories, single-card unknown rival and actual3/5-day conflict.
+  Three further probes through the actual opt-in application path returned the
+  expected context/priority/missing-fact statuses; independent source review of
+  all three passed. The new `evidence_low` profile is request-local to managed DeepSeek:
+  low thinking/8192/45seconds, unchanged other-provider caps/default requests,
+  one inference, document-only overall60seconds, existing budget control. Unit
+  R24 adds an explicit managed-provider capability: tenant overrides named
+  deepseek retain their own policy. RED2/GREEN76 includes both global key paths,
+  the actual tenant-override factory path and default/fallback isolation. Final
+  API/driver3048PASS; quality baseline PASS; independent delta review no P1/P2.
+  Fresh isolated44checks/45sources running; ordinary DEV/browser/production NOT VERIFIED.
+  Provider metadata confirmed officialhost/api alias; source models can change
+  upstream even while a legacy model ID stays configured. Do not claim a frozen
+  upstream snapshot, zero cost, SLA, or general accuracy from these six probes.
+
 ## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
 
 - Date: 2026-10-15, DOCUMENT57.

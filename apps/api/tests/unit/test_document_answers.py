@@ -449,6 +449,7 @@ async def test_answer_requests_provider_json_mode_and_preserves_abstention(monke
     assert result.response.status == "not_found" and result.response.citations == []
     assert provider.ainvoke.call_args.kwargs["response_format"] == {"type": "json_object"}
     assert provider.ainvoke.call_args.kwargs["provider_deadline_seconds"] == 8
+    assert provider.ainvoke.call_args.kwargs["request_profile"] == "evidence_low"
 
 
 @pytest.mark.parametrize("status", ["supported", "not_found", "conflict"])
