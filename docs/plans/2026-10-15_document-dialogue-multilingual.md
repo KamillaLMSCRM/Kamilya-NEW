@@ -54,9 +54,13 @@
   before altering minimal owning layer; preserve contracts/isolation/source checks,
   budgets and request recovery. No change just to overfit consumed questions.
   Retain previous failures. Focused RED3/GREEN32 and actual retrieval replay
-  after-r1 PASS14/19/22. Independent source review in progress; new holdout owned
-  by corpus leaf only under ignored holdout paths, Root will audit/freeze first.
-- D57-DEV NOT_STARTED: proportional regression, isolated canonical DEV gates
+  after-r1 PASS14/19/22. Exact DEV a11b17b4 failed acceptance: original fixes
+  passed, but28-case review corrected23PASS/2PARTIAL/3FAIL. V1.1 verified prefix coverage
+  restores later KK5day/60day facts; current-evidence follow-up policy tightened.
+  New focused RED2/GREEN41/full3025 and actual holdout replay GREEN3/3. Independent
+  delta review and isolated R3 in progress. A second fresh holdout is being prepared
+  blind by corpus leaf, only ignored holdout2 paths; Root audits/freezes before calls.
+- D57-DEV IN_PROGRESS: proportional regression, isolated canonical DEV gates
   when source/SQL boundaries change, independent source review, exact CI/artifact,
   actual ordinary-role browser/model multilingual/multisource/source/download/
   reload checks and semantic review on final unchanged candidate. Existing free

@@ -109,8 +109,8 @@ async def retrieve(sources: tuple[DocumentSource, ...], actor: ActorContext,
                                        tenant_id=tenant, doc_ids=ids, limit=8)
     candidates = [(hit.text, {"doc_id": hit.doc_id, "chunk_id": hit.chunk_id,
         "embedding_source_revision": hit.source_revision, "embedding_content_sha256": hit.content_sha256}) for hit in hits]
-    # A heading-only chunk is not meaningful coverage. Use the longer of the
-    # first two chunks as fallback, after that document's ranked evidence.
+    # A substantive introduction alone is still not coverage of later rules.
+    # Bounded prefix candidates supplement, never enlarge, the evidence budget.
     # Depth-wise allocation prevents one source monopolizing the spare slots.
     queues: dict[str, list[tuple[int, tuple[str, dict[str, Any]]]]] = {doc_id: [] for doc_id in ids}
     for rank, candidate in enumerate(candidates):
@@ -119,12 +119,13 @@ async def retrieve(sources: tuple[DocumentSource, ...], actor: ActorContext,
             queues[doc_id].append((rank, candidate))
     for index, source in enumerate(sources):
         opening = await store.get_context_window(doc_id=str(source.document_id),
-            source_revision=f"document:{source.content_sha256}", chunk_index=0, radius=1, tenant_id=tenant)
+            source_revision=f"document:{source.content_sha256}", chunk_index=3, radius=3, tenant_id=tenant)
         if opening:
-            anchor = max(opening, key=lambda item: len(item[0].strip()))
+            anchor = max(opening[:2], key=lambda item: len(item[0].strip()))
             queue = queues[str(source.document_id)]
-            if not any(item[1][1].get("chunk_id") == anchor[1].get("chunk_id") for item in queue):
-                queue.append((len(candidates) + index, anchor))
+            for candidate in [anchor, *opening]:
+                if not any(item[1][1].get("chunk_id") == candidate[1].get("chunk_id") for item in queue):
+                    queue.append((len(candidates) + index, candidate))
     balanced = [candidate for depth in range(max((len(q) for q in queues.values()), default=0))
         for _, candidate in sorted((q[depth] for q in queues.values() if len(q) > depth), key=lambda item: item[0])]
     result: list[dict[str, Any]] = []
@@ -188,10 +189,15 @@ def messages(question: str, language: str, recall: list[dict[str, Any]], excerpt
         "Select each handle at most once. "
         "The selected_sources inventory describes selection and available handles, NOT factual evidence. "
         "Do not claim a selected document was not provided when its detail is absent from the excerpts. "
+        "Absence from excerpts alone does not prove a document omits a rule: say it was not located in the "
+        "available excerpts. Do not declare consistency or precedence if a selected comparison source's decisive "
+        "detail is unavailable. Answer the requested points, avoiding claims about unrelated sources. "
         "Status supported also includes an evidence-grounded negative comparison, such as different scopes "
         "or no conflicting value. A source not specifying a value is not a conflicting value. "
         "If evidence conflicts, status conflict: explain both positions, select their excerpt handles, "
         "and do not invent precedence. "
+        "For a follow-up about priority, retain status conflict while contradictory values remain in newly retrieved "
+        "evidence: briefly restate both values and the lack of a precedence rule. History alone cannot establish this. "
         "If evidence is missing or insufficient, status not_found; select only excerpt handles explaining the checked "
         "scope or an explicit limitation when useful, otherwise citations is an empty array. Say what is missing and ask "
         "a focused clarification when helpful. Do not turn lack of evidence into a definitive real-world claim. "

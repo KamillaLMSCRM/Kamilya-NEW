@@ -140,7 +140,7 @@ async def test_multilingual_fallback_uses_opening_body_not_heading_only(monkeypa
     result = await answers.retrieve((SOURCE, russian), ACTOR, "C-8 пен L-2 санаты бірдей ме?", [])
 
     assert any(e["source"] == russian and "L-2 procedure" in e["text"] for e in result)
-    assert all(call.kwargs["radius"] == 1 for call in store.get_context_window.call_args_list)
+    assert all((call.kwargs["chunk_index"], call.kwargs["radius"]) == (3, 3) for call in store.get_context_window.call_args_list)
 
 
 async def test_five_sources_keep_second_ranked_fact_before_third_same_source_hit(monkeypatch):
@@ -178,6 +178,32 @@ def test_model_knows_selected_scope_and_negative_comparison_status():
     assert "negative comparison" in prompt[0]["content"]
     assert "not a conflicting value" in prompt[0]["content"]
     assert "Selected but no excerpt" not in prompt[0]["content"]
+
+
+async def test_unmatched_script_retains_later_rules_not_only_substantive_intro(monkeypatch):
+    other = SOURCE.model_copy(update={"document_id": UUID(int=4), "title": "Other language"})
+    openings = {str(SOURCE.document_id): [retrieval_chunk(SOURCE, i, f"Ranked body {i}") for i in range(7)],
+        str(other.document_id): [retrieval_chunk(other, 0, "Substantive introduction. " * 30),
+            retrieval_chunk(other, 1, "Approval: five working days from full package."),
+            retrieval_chunk(other, 2, "Signed protocol: sixty days after approval."),
+            retrieval_chunk(other, 3, "Different final rule.")]}
+    store = SimpleNamespace(get_context_window=AsyncMock(side_effect=lambda **kw: openings[kw["doc_id"]][max(0,kw["chunk_index"]-kw["radius"]):kw["chunk_index"]+kw["radius"]+1]))
+    monkeypatch.setattr(answers, "VectorStore", lambda: store)
+    monkeypatch.setattr(answers, "retrieve_lexical_hits", AsyncMock(return_value=[retrieval_hit(c) for c in openings[str(SOURCE.document_id)]]))
+
+    result = await answers.retrieve((SOURCE, other), ACTOR, "Compare approval and retention rules", [])
+
+    assert any("five working days" in e["text"] for e in result)
+    assert any("sixty days" in e["text"] for e in result)
+    assert len({e["chunk_id"] for e in result}) <= 8
+    assert len(result) <= 16 and sum(len(e["text"]) for e in result) <= 24000
+
+
+def test_conflict_followup_policy_requires_current_evidence_not_history_authority():
+    system = answers.messages("Which one takes priority?", "en", [], EXCERPTS)[0]["content"]
+    assert "retain status conflict" in system
+    assert "newly retrieved evidence" in system
+    assert "Absence from excerpts alone" in system
 
 
 async def test_retrieval_keeps_tail_and_exposes_sixteen_nonoverlapping_handles(monkeypatch):

@@ -6035,6 +6035,10 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: reuse the canonical environment's browser-session contract, not an
   old production provisioning example. Classify missing request metadata as a
   harness failure; never disable Origin checks or guess other credentials.
+- Recurrence2026-10-15: Root's ignored DOCUMENT57 baseline helper omitted Origin
+  and received403 before credential admission. R3 used the same canonical Origin
+  and passed without credential/config changes. Preserve R2 as HARNESS_FAILURE;
+  new QA helpers must copy the existing trusted-Origin client, not only its URL.
 
 ## LEARNING-004 - Action-center operation links targeted an unregistered route
 
@@ -7694,3 +7698,38 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   test heading-only openings, five-source competition, cross-language queries,
   true versus apparent conflicts and missing facts. Preserve failed answers and
   evaluate a new holdout after tuning rather than claiming the consumed set is new.
+- Follow-on2026-10-15: exact DEV a11b17b4 fixed initial14/19/22 but a fresh
+  two-source holdout exposed later Kazakh rules lost behind a substantive intro.
+  H03 omitted a60-day record period, H04 missed the5-day conflict, H05 invented
+  priority. D18 also lost conflict status on a priority follow-up. Independent
+  28-case review initially24PASS/1PARTIAL/3FAIL; append-only correction for D19's
+  extra source count yields23PASS/2PARTIAL/3FAIL. No production rollout occurred.
+- Follow-on cause/proof: actual no-model DEV replay found five-day and60-day
+  rules in indexed chunks1/2, but neither was retained in all three requests.
+  Conflict follow-up D18 already had both numerical rules in current evidence,
+  separating that prompt/status defect from the retrieval omission.
+- Follow-on fix: bounded prefix0..6 coverage candidates, preserving lexical-first
+  per-source balance and the previous8chunk/24000char/16handle/8citation caps.
+  Explicitly prohibit inferring document absence or priority from absent excerpts;
+  retain unresolved conflict on follow-up using current evidence, not history alone.
+- Follow-on verification: actual holdout retrieval RED then GREEN3/3, focused
+  RED2/GREEN41 including7script tests, full backend3025PASS. Isolated R3 and
+  corrected real-model/regression/new holdout/production acceptance still pending.
+
+## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
+
+- Date: 2026-10-15, DOCUMENT57.
+- Symptom: isolated DEV R1 completed44checks and owned cleanup but reported
+  public_schema_neutral=false, changed tables ai_jobs/documents/users.
+- Cause: Root concurrently ran ordinary QA login and synthetic upload/index jobs
+  inside the gate's before/after public snapshot interval. Their authorized writes
+  made that global neutrality measurement invalid; it is not a product RLS failure.
+- Fix: retain R1 BLOCKED, await all owned public QA writes/index jobs, then run
+  the entire isolated gate during a quiet window without login/upload/model/deploy
+  operations against public DEV. Never filter changed rows or relax equality.
+- Verification: R2 passed44checks, cleanup/source/catalog true, all35critical
+  hashes matched and exact before/after public hash643be49e...6efc7b unchanged.
+  Further source repair uses a fresh quiet-window R3, not reused R2 evidence.
+- Prevention: serialize global public-neutrality gates with public QA mutation
+  phases; only disjoint local work or another explicitly separate environment may
+  run in parallel. A successful subtest count alone never overrides failed neutrality.
