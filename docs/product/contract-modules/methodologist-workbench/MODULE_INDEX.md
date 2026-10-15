@@ -3,11 +3,15 @@
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
 Current bounded package: [Durable document dialogue V1](contracts/DOCUMENT_DIALOGUE_V1.md),
-accepted2026-10-15 for implementation and synthetic DEV→production acceptance.
+released/accepted0.11.55/source381692f9,2026-10-15 after synthetic DEV→production acceptance.
 Private source-bound task/draft/history and read-only resume, existing document
-plan/generation owner preserved. Implemented locally; actual isolated DEV32checks
-PASS, source-bound cleanup/public-state neutrality true. DEV deployment/live model
-and production remain pending, not inferred from local implementation. Voice and reserveOFF.
+plan/generation owner preserved. Actual isolated DEV32checks PASS, source-bound
+cleanup/public-state neutrality true. Root real-model DEV/production3messages,
+manualsave, reload/reopen/recent task, oneconfirm/samejob/draft PASS; independent
+production32API checks including student denials/old completed projections PASS.
+Schema0181 and signed restore of actual synthetic history verified; protected
+backend/native55 exact. Evidence/limits: PRODUCTION_READINESS/release55/ledger.
+General document Q&A excluded; voice untouched and reserveOFF.
 
 Optional manual official Codex CLI reserve candidate,2026-10-15:
 [dormant installation V3](contracts/CHATGPT_MANUAL_RESERVE_V3.md) authorizes DEV
@@ -93,7 +97,9 @@ release gates are tracked in the active continuation plan and test ledger.
 Simplification can omit an important clause; explicit follow-up restored it in
 the live example. Exact formatting/counts are not guaranteed. The handoff slice
 above is not a direct chat executor or full command orchestration. Assignment and
-document command integration remains future work; voice deferred.
+document command integration was future work at that historical frontier; the
+bounded assignment54 and saved document55 packages above supersede that limit.
+Voice remains deferred.
 The dated release39 frontier below is historical, not current runtime evidence.
 
 | Module | Responsibility | Active mini-spec | Data owner / writer | Status |

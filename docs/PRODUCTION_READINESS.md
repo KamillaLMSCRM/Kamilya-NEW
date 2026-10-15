@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** API/three workers54 + unchanged native frontend53; live DEV/prod assignment dialogue accepted2026-10-15; ChatGPT reserve OFF; VM126disk77%, ops timers/last checks healthy
+**Проверено:** API/three workers/native frontend55; live DEV/prod saved document preparation accepted2026-10-15; schema0181; ChatGPT reserve OFF; VM126disk78%, ops timers/last checks healthy
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,80 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production54 — live assignment dialogue accepted, 2026-10-15
+## Current production55 — saved document preparation accepted, 2026-10-15
+
+Bounded DOCUMENT_DIALOGUE_V1 accepted, not general document Q&A or the full
+assistant epic. Runtime/tagv0.11.55 exact381692f9c6e8781a795c3542c19d649ffbc28f09;
+masterCI38728397645 and DEV CI38729390192 all7SUCCESS, native38729003184/
+artifact11968902851, protected38731305223 SUCCESS/deployment7091942947.
+API+three green workers exact image5c3a61ae4b76321e6c450f3a358b3180bba070343969cf73356501610957fada,
+running/restarts0. Independent public/private API55, CT137 current/marker/public55,
+login200 and all3immutable frontend flags PASS. CT125 independent0181/new2tables
+FORCE-RLS and non-BYPASS lms_app verified. Saved routing ENTIRE row SHA7834c8c3…5da3f
+unchanged, revision3/order unchanged, reserveOFF; voice and connector untouched.
+
+Actor-private source-bound tasks/drafts/exchanges persist server-side; recent-task
+reopen and GET resume do not infer or execute. Explicit manual save and separate
+preview/confirm retain the existing generation owner. Bounded100tasks/actor,
+40exchanges/task/latest4completed instructions recalled. Source change is stale,
+same-key replay cannot repeat inference, submitted/unknown outcomes require read
+recovery. History retained until normal actor/tenant purge, no new scheduler.
+Additive0181 remains compatible with application54 rollback; never drop populated
+history to roll back the application. Existing aggregate budget accounting remains
+best-effort, not exact provider billing.
+
+Actual isolated Supabase DEV R3:32 SQL/service checks,334.344s, connectionpeak2,
+all28frozen source hashes unchanged; owned schema cleanup/public row+catalog
+neutrality true. Fake provider/dispatcher only, real isolated budget charge/refund,
+concurrency/cancellation/context/RLS/immutable/purge/single-job paths. R1/R2 harness
+failures retained. Initial exact master CI d1 failed a unit pending-fixture clock
+collected more than2minutes before execution; deterministic RED/GREEN fixture
+correction only, no runtime timeout relaxation; corrected381 CI all7SUCCESS.
+
+Existing DEV Free/Free/Hobby exact381: API dep-db8br6psrm7s73e3u7l0, worker
+dep-db8bs71srm7s73e4140g, Vercel dpl_3qrXEQsEYZDDeU5m5xsrSuyJ27do, all9flagsON.
+Public0181 explicit apply and independent readback before release. Root actual
+ordinary methodologist DEV and production:3real-model messages including simplification,
+manual parameters, two early full reloads, close/reopen through recent tasks,
+preview/oneconfirm, submitted-job reload and same completed draft after reload PASS.
+Both draft editors opened:1module/2lessons, unapproved/unpublished; no assignments
+or emails created. DEV independent23checks PASS; separate Test Runner actual
+production32checks PASS including ordinary student403 history list/detail,
+exact source snapshot/draft/3exchanges/same receipt+job, recent job inventory bound20,
+new course0enrollments and11old selected enrollment projections/7completed unchanged.
+This is not an all-column tenant/database equality snapshot.
+
+Production synthetic task73dc16f3…/plan4e397294…/job435cf687…/course8ef1eb55… retained
+in permanent QA83552ce6… for reproducibility; DEV ce007a8b…/c816067d…/655023bc…/
+cea56c8a… retained. No tenant recreation, learning reset or test-history deletion.
+Production3message UI roundtrips1681/1471/1353ms; job persisted started→final update
+45.663322s, created→started0.139657s. Small synthetic sample, not SLA, semantic quality,
+capacity, provider comparison or human-efficiency benchmark. DEV first message not
+timed; later UI replies1792/1922ms, generation observed upper bound71.823s.
+
+Normal protected controller upgrade38731073421 installed25fa90f7…a3d2e from6dfb51bf…,
+backup retained; only0180→0181 product-version validation addition, seven other
+bundle payloads unchanged, no new privileges/config/resources. Fresh signed180
+restore acb9f782…e156d/124tables/120FORCE-RLS/RPO42/RTO19 before migration; fresh
+181 restore b9715cae…e08a62/126tables/122FORCE-RLS/RPO43/RTO20 additionally restored
+the exact synthetic private task and3completed exchanges. Both exact temporary
+DBs/work dirs absent, production not restored or downgraded, saved reserveOFF.
+
+Initial native preflight blocked on capacity, preserved. Standing rule selected only
+successful native50/6d2 older than actual rollback51 after original artifact/hash/
+historical-success/live tree checks. Exact release+staging pair removed recoverably;
+free1115056→1763020KiB, all unknown staging/protected359/299/current53/rollback51
+retained. Cleanup stopped at restored1287606354-byte budget. Fresh native R2
+REL-DOCUMENT55-WEB-R2-20261015 RELEASE_OK. Final free1114920KiB; immediate native
+rollback53/18cc independently boundary-verified, extra51 retained. Backend immediate
+rollback54/6f healthy, old3workers stopped; actual rollback switch NOT_RUN.
+Watchdog55/image5c, thresholds byte-unchanged, both timersactive/oneshots success0;
+VM12678%/6868164KiB free. No API-image prune, Proxmox/DNS/tier/rights/resource changes.
+Exact receipts/screenshots: .release-evidence/DOCUMENT55-20261015 and native R2;
+release55 notes and append-only TEST_RUN_LEDGER. Reserve hosted-use/auth-refresh
+eligibility gaps from53 remain separate; reserve was not activated or used here.
+
+## Historical production54 — live assignment dialogue accepted, 2026-10-15
 
 Root accepted the bounded text assignment journey, not the whole assistant epic.
 Runtime/tagv0.11.54 `af5e9957a165dbdfb36f342afeb17a8f1ed3b15b`; masterCI38712412481

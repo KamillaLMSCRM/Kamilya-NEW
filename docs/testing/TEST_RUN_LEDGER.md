@@ -4518,3 +4518,36 @@ Rules:
   in2.06s. No TTL/runtime/schema/guard change; R3's28runtime-source hashes remain
   eligible for exact linkage to the corrective commit. FailedCI/native non-dispatch
   receipt retained; final replacement CI and all deployment/live gates still pending.
+
+### RUN-DOCUMENT55-PROD-READBACK-20261015 — 2026-10-15 — independent production API readback
+
+- Test & Evidence Runner execution; checkout `learner-presentation-release-20261010`,
+  exact HEAD/release SHA `381692f9c6e8781a795c3542c19d649ffbc28f09`, clean before
+  run. Canonical interpreter `C:\Kamilya New\Kamilya-NEW\.venv\Scripts\python.exe`;
+  helper `readback55.py` SHA-256
+  `1f29ef9f742ab7a917b1e4a1a7a8df5359f9cbf4caece5997e15e6bc4d963066`.
+  Exact command: `& 'C:\Kamilya New\Kamilya-NEW\.venv\Scripts\python.exe'
+  '.release-evidence\DOCUMENT55-20261015\readback55.py' prod --receipt
+  prod-acceptance55.json --student-negative`.
+- Production public API independently returned exact release `0.11.55`/SHA above;
+  ordinary methodologist identity matched the fixed synthetic actor/tenant. Readback
+  passed `32/32` checks at `2026-10-15T12:18:06.734061Z`: task/no-store, exact source
+  IDs and immutable snapshots, 3 completed exchanges/messages, exact saved draft,
+  linked submitted plan, same exact completed course-generation job and one matching
+  current-user job in the bounded recent-20 inventory, draft-only/no release, zero
+  enrollments on the new course, 11 selected prior learner projections unchanged
+  (including 7 completed records), and ordinary student identity with list/detail
+  dialogue denials `403`. Two normal authentication logins only; helper enforces at
+  least13 seconds between them. Elapsed wall time NOT MEASURED.
+- API receipt `.release-evidence/DOCUMENT55-20261015/prod-acceptance55.json`,
+  SHA-256 `d298355eb7aa0c02f2d23e6f187b5de52b67e76ccd6a29d0c5e12d8d1715e7e3`;
+  bounded bridge artifact `.release-evidence/DOCUMENT55-20261015/product-acceptance55.json`,
+  SHA-256 `5c8e3482e8c083f6d845ef2f70f17e36090ba8ac238afa83ad18b70e4a056ee9`.
+  Both are ignored evidence. No business/model/assignment/enrollment/cleanup/Git/
+  provider/database/source mutation. Synthetic QA fixtures are deliberately retained.
+- Root-supplied, not this Runner's execution: `dev-browser55.json`,
+  `prod-browser55.json`, `preview55.json`, `backend-readback55.json`, and restored0181
+  receipts; Root reports actual three-model-message/manual-save/reload/reopen/one-
+  confirm UI flow and production reserve OFF with whole-row hash unchanged. This API
+  receipt independently verifies only its listed readback scope; Root owns overall
+  product acceptance and GO. No secrets or personal data recorded.

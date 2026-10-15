@@ -25,7 +25,41 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current environment — backend54/native53/DEV54,2026-10-15
+## Current environment — backend/native/DEV55,2026-10-15
+
+Runtime/tagv0.11.55 exact381692f9c6e8781a795c3542c19d649ffbc28f09. MasterCI38728397645,
+DEV38729390192, native38729003184/artifact11968902851, protected38731305223 SUCCESS;
+deployment7091942947. API+3green workers image5c3a61ae…57fada/running/restarts0,
+public/private/native/current/marker exact55, all3existing flagsON. CT125 schema0181,
+new task/exchange tables FORCE-RLS2, runtime lms_app non-BYPASS independently verified.
+Saved routing entire row SHA7834c8c3…5da3f/order/revision3 unchanged/reserveOFF;
+voice/connector/provider resources unchanged.
+
+Durable source-bound document preparation, not general document Q&A. Root live
+DEV and production3real-model messages/manualsave/fullreload/close-reopen/recent
+task/explicitpreview/oneconfirm/samejob/draft result PASS. Separate ordinary-role
+production API32checks including student403 list/detail PASS;7old selected completed
+records unchanged, new draft0enrollments. Retained marked QA task/history/job/course;
+no tenant recreation, customer writes, email, publication or learning reset.
+Production3UI replies1.353–1.681s, persisted generation45.663s; synthetic sample only,
+not SLA/human benchmark. Actual isolated DEV32 SQL/service checks/cleanup/public
+neutrality/frozen28source hashes PASS; model mocked only in that isolated gate.
+
+Existing DEV Free API dep-db8br6psrm7s73e3u7l0, Free worker dep-db8bs71srm7s73e4140g,
+Hobby Vercel dpl_3qrXEQsEYZDDeU5m5xsrSuyJ27do exact381/all9flagsON; public181
+explicit migration/readback PASS before rollout. Protected controller25fa90f7…a3d2e
+upgrade38731073421 changes version-validation epoch only; backup/rights unchanged.
+Fresh signed180/181 disposable restore reports acb9f782…/b9715cae… verified;181
+126tables/122FORCE-RLS/RPO43/RTO20 plus actual synthetic task/3exchanges restored,
+temporary DBs/work dirs absent. Backend immediate rollback54/image6f healthy/old3workers
+stopped, native immediate rollback53/18cc independently boundary verified; extra51,
+protected359/299 retained. Native R1 capacity BLOCKED preserved; standing-rule exact
+obsolete50/recovery-verified cleanup only, then native R2 RELEASE_OK/free1114920KiB.
+Watchdog55/image5c/thresholds unchanged, both timersactive/oneshots success0;
+VM12678%/6868164KiB free. No Proxmox, DNS, paid tier/resource or reserve activation.
+Scope/identity/limits: PRODUCTION_READINESS/release55/TEST_RUN_LEDGER.
+
+## Historical environment — backend54/native53/DEV54,2026-10-15
 
 API/threeworkers54/tagv0.11.54 exactaf5e9957a165dbdfb36f342afeb17a8f1ed3b15b,
 masterCI38712412481/DEV38713165732/protected38714758072 SUCCESS; deployment7089185948.
