@@ -32,6 +32,20 @@ def payload(**updates):
         "citations": [{"handle": 1}], **updates})
 
 
+def test_private_schema_requests_grounded_answer_before_status():
+    # Classify the requested answer after grounding it, rather than committing
+    # to a status before identifying the answer's actual factual scope.
+    assert list(answers.ModelAnswer.model_json_schema()["properties"]) == ["answer", "citations", "status"]
+    assert list(answers.DocumentAnswer.model_json_schema()["properties"]) == ["state", "status", "answer", "citations"]
+
+
+def test_current_question_is_last_after_untrusted_context():
+    user = json.loads(answers.messages("Which records are retained?", "en", [], EXCERPTS)[1]["content"])
+    assert list(user)[-2:] == ["language", "question"]
+    assert user["question"] == "Which records are retained?"
+    assert "Finish when the requested points are covered" in answers.messages("Why?", "en", [], EXCERPTS)[0]["content"]
+
+
 def test_server_assigns_source_identity_and_quote():
     result = answers.parse_answer(payload(), EXCERPTS)
     assert result.state == "answered" and result.citations[0].document_id == SOURCE.document_id

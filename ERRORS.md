@@ -7738,6 +7738,17 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   normalized-identical prior questions from model recall, preserving other turns
   and the complete archive. RED2/GREEN45/full3029/qualityPASS; new isolated,
   live-regression/fresh-holdout and production acceptance remain separate gates.
+- Fourth DEV b53c77ca recovered all requested H03 facts but still reported an
+  unasked approval conflict. Normal-budget local module evaluation reproduced
+  it; private status-last ordering alone returned correct statuses but two
+  reviewed answers still added unrelated deadlines (PARTIAL). Keep both records.
+- V1.4 assembly: grounded answer/citations precede private status, current
+  language/question follow untrusted context, and the answer ends after requested
+  points without unasked discrepancy disclaimers. Two corrected module answers
+  are source-faithful and scoped; this controlled comparison is not proof that
+  one ordering factor is the sole cause or a universal accuracy guarantee.
+  Public shape, archive/RLS/evidence validation, routing, model calls/budget and
+  deadlines unchanged. Full exact-source DEV/holdout/production gates still apply.
 
 ## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
 
