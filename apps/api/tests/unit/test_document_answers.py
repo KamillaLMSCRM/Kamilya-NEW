@@ -28,15 +28,27 @@ EXCERPTS = [{"handle": 1, "source": SOURCE, "chunk_id": CHUNK_ID, "text": TEXT}]
 
 
 def payload(**updates):
-    return json.dumps({"status": "supported", "answer": "Verify the order number before dispatch.",
+    return json.dumps({"requested_dimensions": ["actions"], "status": "supported", "answer": "Verify the order number before dispatch.",
         "citations": [{"handle": 1}], **updates})
 
 
 def test_private_schema_requests_grounded_answer_before_status():
     # Classify the requested answer after grounding it, rather than committing
     # to a status before identifying the answer's actual factual scope.
-    assert list(answers.ModelAnswer.model_json_schema()["properties"]) == ["answer", "citations", "status"]
+    assert list(answers.ModelAnswer.model_json_schema()["properties"]) == ["requested_dimensions", "answer", "citations", "status"]
     assert list(answers.DocumentAnswer.model_json_schema()["properties"]) == ["state", "status", "answer", "citations"]
+
+
+def test_private_dimensions_are_required_bounded_and_never_persisted_in_public_answer():
+    response = answers.parse_answer(payload(requested_dimensions=["actor", "record_retention"]), EXCERPTS)
+    assert "requested_dimensions" not in response.model_dump()
+    for dimensions in ([], ["unsupported_dimension"], ["actions"] * 9):
+        with pytest.raises(ValidationError):
+            answers.parse_answer(payload(requested_dimensions=dimensions), EXCERPTS)
+    missing = json.loads(payload())
+    del missing["requested_dimensions"]
+    with pytest.raises(ValidationError):
+        answers.parse_answer(json.dumps(missing), EXCERPTS)
 
 
 def test_current_question_is_last_after_untrusted_context():
@@ -54,6 +66,18 @@ def test_final_scope_check_keeps_abstentions_short_and_omits_unasked_caveats():
     assert system.index("Final response check") > system.index("Every factual statement")
     assert "For a requested fact with two evidenced opposing rules, always explain whether dates or precedence" in system
     assert "name the evidenced decision owner as well as the permission boundary" in system
+
+
+def test_scope_and_specific_condition_are_resolved_before_drafting_and_classifying():
+    system = answers.messages("For smoke, what must the operator do?", "en", [], EXCERPTS)[0]["content"]
+    scope = system.index("First resolve the current question's requested dimensions and scenario")
+    condition = system.index("Use the specific conditional row instead of a generic workflow")
+    answer = system.index("Write the requested answer first")
+    assert scope < condition < answer
+    assert "Leaving a hazard, stopping work and isolating equipment are distinct actions" in system
+    assert "Unrequested dimensions must not enter either the answer or its status" in system
+    assert "NOT how long approval takes" in system
+    assert "Translate the complete action prose into that language" in system
 
 
 def test_conflict_requires_two_evidenced_positions_not_an_unavailable_reference():

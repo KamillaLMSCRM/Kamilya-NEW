@@ -7815,6 +7815,22 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   unresolved precedence for two evidenced opposing rules. Two module probes
   pass source/question-faithful review; final exact live gates remain pending.
 
+- R10/1903 DEV completed42 exchanges with no execution errors, but H57-03 and
+  H57B-03 imported unasked numerical durations and incorrectly returned conflict.
+  Root's Kazakh browser topic switch also substituted generic stopping for the
+  smoke/electric-risk row's explicit retreat. Its later two separated paragraphs
+  restored retreat; lack of numbering was not itself a format defect. Preserve
+  all actual answers and failed acceptance. Before drafting, resolve requested
+  dimensions and scenario, select the specific conditional row, and retain its
+  complete mandatory actions/restrictions. Stopping, withdrawing and isolating
+  are not synonyms. Focused policy-wiring RED1/GREEN46 is not an answer-quality
+  proof; targeted real-model, full exact DEV and production remain separate gates.
+  Two later policy-only probes still spilled approval duration into authority/
+  retention. V1.8 adds a required bounded private requested-dimension enum before
+  answer/citations/status in the same inference, discarded before public output.
+  This is not semantic validation or authority. Its parser/fake-fixture delta
+  requires a fresh isolated DEV gate, not earlier prompt-only equivalence.
+
 ## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
 
 - Date: 2026-10-15, DOCUMENT57.

@@ -127,6 +127,22 @@
   correction records this interpretation. Final policy preserves requested
   responsibility/conflict qualification while removing only unrelated caveats;
   focused RED1/GREEN45 and two actual module probes independently PASS.
+- R10/1903 actual DEV42 completed, zero execution errors/two status mismatches:
+  H57-03 and H57B-03 added unasked durations. Browser20turns retained old17,
+  but its L2 conditional answer omitted retreat; follow-up restored it in two
+  paragraphs and is not a format failure. Candidate rejected; no57tag/production
+  rollout. Explicit scope/scenario and full matching conditional-row selection
+  now precede drafting/classification; policy wiring RED1/GREEN46. Three targeted
+  module cases ran; H03 still spilled duration, so neither policy-only probe
+  accepted. V1.8 now emits bounded private requested dimensions before answer,
+  then discards them at the unchanged public boundary. RED2/GREEN47 (an earlier
+  focused failure was a capitalized policy-test string, fixed separately).
+  Typed scope alone still retained unasked durations; retain that probe. Reduced
+  redundant policy then passed independent3-case module review on exact89301443:
+  H03 authority/record-retention, focused abstention and KK conditional retreat.
+  API/driver3038PASS and quality baseline PASS; source review confirms unchanged
+  public/persisted shapes and single inference. Fresh isolated gate remains
+  required; this is not live Render/HTTP/browser or production acceptance.
 - D57-RELEASE NOT_STARTED: exact-source release gate, signed backup/restore,
   rollback/capacity, protected backend/native release only if there is an accepted
   application change; current56 not redeployed merely for evaluation documentation.

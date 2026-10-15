@@ -54,17 +54,17 @@ async def verify_content(*, owner, runtime, schema, actor, foreign_actor, siblin
         if payload["question"] == "Provider outage":
             raise RuntimeError("synthetic")
         if payload["question"] == "Missing with scope":
-            return SimpleNamespace(content=json.dumps({"status": "not_found", "answer": "Срок не указан.",
+            return SimpleNamespace(content=json.dumps({"requested_dimensions": ["duration"], "status": "not_found", "answer": "Срок не указан.",
                 "citations": [{"handle": 1}]}))
         if payload["question"] == "Malformed evidence":
-            return SimpleNamespace(content=json.dumps({"status": "not_found", "answer": "Срок не указан.",
+            return SimpleNamespace(content=json.dumps({"requested_dimensions": ["duration"], "status": "not_found", "answer": "Срок не указан.",
                 "citations": [{"handle": 1, "quote": "PRIVATE_UNVERIFIED_PROVIDER_OUTPUT"}]}))
         if payload["question"] in {"Pointer flip", "Pointer flip not found"}:
             await sql("UPDATE embedding_active_revisions SET active_revision_id='other',generation=generation+1 WHERE tenant_id=:tenant AND document_id=:doc",
                 {"tenant": actor.tenant_id, "doc": str(doc_id)})
         if payload["question"] == "Pointer flip not found":
-            return SimpleNamespace(content=json.dumps({"status": "not_found", "answer": "В доступных фрагментах срок не указан.", "citations": []}))
-        return SimpleNamespace(content=json.dumps({"status": "supported", "answer": "Проверьте номер заказа.",
+            return SimpleNamespace(content=json.dumps({"requested_dimensions": ["duration"], "status": "not_found", "answer": "В доступных фрагментах срок не указан.", "citations": []}))
+        return SimpleNamespace(content=json.dumps({"requested_dimensions": ["actions"], "status": "supported", "answer": "Проверьте номер заказа.",
             "citations": [{"handle": 1}]}))
 
     with patch.object(core_db, "async_session_factory", async_sessionmaker(runtime, expire_on_commit=False)), \
