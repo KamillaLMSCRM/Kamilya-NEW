@@ -2,6 +2,13 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
+Current bounded package: [Durable document dialogue V1](contracts/DOCUMENT_DIALOGUE_V1.md),
+accepted2026-10-15 for implementation and synthetic DEV→production acceptance.
+Private source-bound task/draft/history and read-only resume, existing document
+plan/generation owner preserved. Implemented locally; actual isolated DEV32checks
+PASS, source-bound cleanup/public-state neutrality true. DEV deployment/live model
+and production remain pending, not inferred from local implementation. Voice and reserveOFF.
+
 Optional manual official Codex CLI reserve candidate,2026-10-15:
 [dormant installation V3](contracts/CHATGPT_MANUAL_RESERVE_V3.md) authorizes DEV
 then production installation on existing resources with the saved route OFF;

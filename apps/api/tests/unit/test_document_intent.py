@@ -142,3 +142,39 @@ async def test_captured_prose_enums_remain_rejected_and_refunded(monkeypatch):
     result = await application.interpret_document(db, ACTOR, BODY, provider_resolver=resolver)
     assert result.state == "clarification_needed" and result.code == "intent_clarification"
     refund.assert_awaited_once()
+
+
+async def test_cancellation_during_admission_settles_then_refunds_without_provider(monkeypatch):
+    db, charge, refund, provider, resolver = setup(monkeypatch)
+    entered, release = asyncio.Event(), asyncio.Event()
+    commits = 0
+
+    async def commit():
+        nonlocal commits
+        commits += 1
+        if commits == 1:
+            entered.set()
+            await release.wait()
+
+    db.commit.side_effect = commit
+    task = asyncio.create_task(application.interpret_document(db, ACTOR, BODY, provider_resolver=resolver))
+    await entered.wait()
+    task.cancel()
+    await asyncio.sleep(0)
+    assert not task.done()
+    release.set()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert commits == 2
+    refund.assert_awaited_once()
+    resolver.assert_not_awaited()
+    provider.ainvoke.assert_not_awaited()
+
+
+async def test_unknown_admission_commit_never_invokes_or_blindly_refunds(monkeypatch):
+    db, charge, refund, provider, resolver = setup(monkeypatch)
+    db.commit.side_effect = RuntimeError("Synthetic lost commit acknowledgement")
+    with pytest.raises(RuntimeError):
+        await application.interpret_document(db, ACTOR, BODY, provider_resolver=resolver)
+    refund.assert_not_awaited()
+    provider.ainvoke.assert_not_awaited()

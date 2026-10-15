@@ -205,7 +205,9 @@ describe('DocumentWorkbench', () => {
     window.history.replaceState({}, '', '/methodologist-workbench');
     const ready = { id: '00000000-0000-4000-8000-000000000003', title: 'Новый документ', filename: 'new.pdf', content_type: 'application/pdf', size: 1, description: '', category: 'general', index: { status: 'ready', revision: 1 }, version: 1, is_latest: true, lifecycle_status: 'active' };
     let catalogCalls = 0;
-    apiMock.get.mockImplementation(async (url: string) => url.includes('/ai/jobs/')
+    apiMock.get.mockImplementation(async (url: string) => url.includes('/document-dialogues')
+      ? { data: { tasks: [], has_more: false, next_before: null } }
+      : url.includes('/ai/jobs/')
       ? { data: { id: 'index-job', status: catalogCalls > 1 ? 'completed' : 'running', job_type: 'document_indexing', course_id: null, progress: 100, stage: 'indexing', message: '' } }
       : { data: { items: catalogCalls++ > 0 ? [ready] : [], page: { has_more: false } } });
     apiMock.post.mockResolvedValue({ data: { id: ready.id, indexing_job_id: 'index-job' } });

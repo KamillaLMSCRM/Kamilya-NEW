@@ -143,6 +143,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.55] - 2026-10-15
+
+### Added
+
+- Save private, source-bound document-preparation dialogues for methodologists:
+  recent tasks, explicit parameter saving, bounded conversation history and
+  read-only restoration after reload/reopening. Contextual follow-ups refine
+  the current course brief without automatically starting generation.
+- Add additive0181 actor/tenant-isolated task and exchange archives with FORCE
+  RLS, durable request keys, pending/interrupted recovery and immutable terminal
+  exchanges. Existing document plans and generation jobs remain the sole
+  execution/receipt owners; changed drafts invalidate old ready previews.
+
+### Fixed
+
+- Restore a linked generation job when reopening its saved document task; retain
+  opaque recovery locators after ambiguous responses. Settle cancelled admission
+  commits before compensation and distinguish source, budget, storage and provider
+  failures. Legacy document fingerprints remain unchanged.
+
+Voice and reserve activation are excluded. Deployment and real-provider acceptance
+are separate gates recorded in the release notes, not inferred from this entry.
+
 ## [0.11.54] - 2026-10-15
 
 ### Fixed

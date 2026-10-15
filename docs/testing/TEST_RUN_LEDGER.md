@@ -4474,3 +4474,38 @@ Rules:
 - Correction/addendum R2: the original cp1251 `HARNESS_FAILURE` entry above is preserved unchanged. The corrected immutable script `verify-prod54-r2.py` (SHA-256 `bc4d8ce204ac3998d6a0a596254585bda012e86303ce5e6b21e27a50eccd7bed`) was then executed exactly once with the prescribed `.venv` interpreter. Independent ordinary-role production API readback completed `PASS`, `21/21` checks: exact API54 health/release identity; methodologist identity and all `12` retained enrollment projections; seven old completed records retained; exact published course; exactly one synthetic enrollment `aadeb68c-097d-478a-8a3a-a386c0b53960`; zero notification attempts; same receipt via GET; original department restored; ordinary student identity and exact course access. `inference_calls=0`, `assignment_writes=0`, `fixture_writes=0`, `notification_requests=0`; no route, fixture, or business mutation was performed by this readback. Artifact: `.release-evidence/ASSIGNMENT54-20261015/prod-api-acceptance54-r2.json`, SHA-256 `79c30decd03951e71447d87942815cbad33307a6f65c586f9850f312d79f3b52`. Root-attested browser/backend/ops receipts remain separately labeled; production acceptance/governance remains Root-owned.
 
 - Closeout correction/decision: local recount of the immutable R2 artifact confirms `checks.length=21`, with `11` (not `12`) `retained_projection_*` checks; `retained_completed_count=7` and the artifact remains `PASS` with `21/21` total checks. The prior `12` projection wording is inaccurate and is corrected here without changing the artifact, script, or assertions. Root `ACCEPTED_ASSIGNMENT_DIALOGUE_54` based on Root’s actual DEV/production model, UI and learner flows plus the independently executed `21`-check API readback and canonical runtime/public/restore/ops receipts: reserve remains OFF, native53/schema180/voice unchanged, positions restored, and no email/outbox activity. No new test execution or external/Git/data mutation occurred.
+
+### DOCUMENT55-LOCAL-20261015 — durable document preparation candidate
+
+- Root owns backend/schema/integration/release. Baseline06f9f3e7, linked checkout
+  learner-presentation-release-20261010; source remains candidate until exact CI/
+  DEV/provider/browser/production gates. Voice and reserve activation excluded.
+- Independent source review corrected cancellation commit gaps, misleading failed
+  reasons and insufficient public-neutrality evidence. Strong reviewer requested
+  gpt-5.6-sol/high; observed model/effort and token counters unavailable. Cheap
+  inventory gpt-5.6-luna/medium required Root rewrite of insufficient gate scaffold;
+  not first-pass accepted. Frontend worker requested gpt-6-luna/medium as supported
+  terra substitute, two focused correction rounds; observed runtime model/tokens
+  unavailable. Root integration/review elapsed and tokens NOT MEASURED; no inferred
+  API/subscription price or quota multiplier.
+- Worker independently executed full web160files/1152PASS189.73s, typecheckPASS4.74s,
+  selected controller/API123PASS2.53s, exact AI-COURSE-01 local selectors27PASS6.87s.
+  Root separately executed API unit2974PASS34.88s before later cancellation delta;
+  later focused56PASS2.41s and frontend26PASS3.20s, typecheck/lint/version55 and
+  Python baseline1008/2200PASS. These runs are not fabricated final-SHA/CI proof.
+- R1 isolated gate failed harness context before direct legacy confirm; R2 failed
+  synthetic job parameters lacking existing0175 evidence_v2 guard and also changed
+  source hashes. Both retained, cleanup/public inventory true; no guard disabled.
+- R3 actual isolated Supabase DEV32PASS334.344s, connection peak2/non-BYPASS lms_app,
+  owner/tenant/role/private writes, create/message replay/concurrency, provider DB
+  connection release, actual isolated budget refund, cancelled committed/rolled-back
+  reservation, accurate failed reasons, late result, source drift/move/delete,
+  ready/expired/stale/submitted/unknown previews, single admitted job, immutable
+  terminal rows, authorized purge and actor/tenant cascades. Owned schema absent;
+  affected public rows/catalog unchanged;28critical sources frozen unchanged.
+  Fake model/dispatcher, real budget SQL; no mail or production changes.
+  Receipt .release-evidence/DOCUMENT55-20261015/isolated-dev-r3.json SHA256
+  b2e99efd596f49acf0c8c79a5e56017ba422df08ae8cd16b74bb6b5bdc8b6aa1.
+- CodeGraph stale/excluded4 index: SOURCE_FALLBACK, no unsafe index query/rebuild.
+  Root decision: local/isolated candidate ACCEPTED; full DEV/live/provider and
+  production acceptance remain NOT VERIFIED. No shipping claim from unit tests.

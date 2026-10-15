@@ -46,6 +46,7 @@ MODEL_MODULES = (
     "app.modules.learning_actions.models",
     "app.modules.methodologist_workbench.assignment_models",
     "app.modules.methodologist_workbench.document_models",
+    "app.modules.methodologist_workbench.document_dialogue_models",
     "app.modules.methodologist_workbench.correction_models",
     "app.modules.notifications.models",
     "app.modules.lessons.models",

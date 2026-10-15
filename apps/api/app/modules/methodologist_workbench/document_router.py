@@ -1,6 +1,7 @@
 """Human-confirmed document draft commands; independently disabled by default."""
 
-from typing import Annotated, Literal, cast
+from collections.abc import Awaitable
+from typing import Annotated, Literal, TypeVar, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -13,7 +14,16 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.models.users import User
 
+from . import document_dialogue as dialogue
 from .assignment_service import WorkbenchConflict, WorkbenchNotFound
+from .document_dialogue_schemas import (
+    CreateDialogue,
+    DocumentDialogue,
+    DocumentDialogueList,
+    PreviewDialogue,
+    SaveDialogue,
+    SendDocumentMessage,
+)
 from .document_intent import DocumentCandidate, DocumentClarification, DocumentInterpretRequest, interpret_document
 from .document_schemas import DocumentExecution, DocumentPlanResponse, DocumentPreview, DocumentPreviewRequest
 from .document_service import confirm_document_plan, create_document_preview, get_document_plan
@@ -22,6 +32,52 @@ from .plan_contract import ActorContext, ConfirmationRequest
 router = APIRouter()
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 Methodologist = Annotated[User, Depends(require_role("methodologist"))]
+DialogueResult = TypeVar("DialogueResult")
+
+
+async def _dialogue_call(db: AsyncSession, operation: Awaitable[DialogueResult]) -> DialogueResult:
+    try:
+        result = await operation
+        await db.commit()
+        return result
+    except HTTPException as exc:
+        await db.rollback()
+        exc.headers = {**(exc.headers or {}), "Cache-Control": "no-store"}
+        raise
+    except (WorkbenchConflict, WorkbenchNotFound, IntegrityError, OperationalError) as exc:
+        await db.rollback()
+        raise _error(exc) from exc
+
+
+@router.post("/document-dialogues", response_model=DocumentDialogue)
+async def create_dialogue(body: CreateDialogue, response: Response, db: DbSession, user: Methodologist) -> DocumentDialogue:
+    return await _dialogue_call(db, dialogue.create_task(db, _context(user, response), body))
+
+
+@router.get("/document-dialogues", response_model=DocumentDialogueList)
+async def recent_dialogues(response: Response, db: DbSession, user: Methodologist, before: UUID | None = None) -> DocumentDialogueList:
+    return await _dialogue_call(db, dialogue.list_tasks(db, _context(user, response), before))
+
+
+@router.get("/document-dialogues/{task_id}", response_model=DocumentDialogue)
+async def read_dialogue(task_id: UUID, response: Response, db: DbSession, user: Methodologist) -> DocumentDialogue:
+    return await _dialogue_call(db, dialogue.read_task(db, _context(user, response), task_id))
+
+
+@router.patch("/document-dialogues/{task_id}", response_model=DocumentDialogue)
+async def save_dialogue(task_id: UUID, body: SaveDialogue, response: Response, db: DbSession, user: Methodologist) -> DocumentDialogue:
+    return await _dialogue_call(db, dialogue.save_task(db, _context(user, response), task_id, body))
+
+
+@router.post("/document-dialogues/{task_id}/messages", response_model=DocumentDialogue)
+async def send_dialogue_message(task_id: UUID, body: SendDocumentMessage, response: Response,
+                                db: DbSession, user: Methodologist) -> DocumentDialogue:
+    return await _dialogue_call(db, dialogue.send_message(db, _context(user, response), task_id, body))
+
+
+@router.post("/document-dialogues/{task_id}/preview", response_model=DocumentPlanResponse)
+async def preview_dialogue(task_id: UUID, body: PreviewDialogue, response: Response, db: DbSession, user: Methodologist) -> DocumentPlanResponse:
+    return await _dialogue_call(db, dialogue.preview_task(db, _context(user, response), task_id, body))
 
 
 class InterpretedDocument(BaseModel):
@@ -42,10 +98,10 @@ def _context(user: User, response: Response) -> ActorContext:
 
 def _error(exc: Exception) -> HTTPException:
     if isinstance(exc, WorkbenchNotFound):
-        return HTTPException(404, "resource_not_found")
+        return HTTPException(404, "resource_not_found", headers={"Cache-Control": "no-store"})
     if isinstance(exc, IntegrityError | OperationalError):
-        return HTTPException(409, "document_conflict")
-    return HTTPException(409, str(exc))
+        return HTTPException(409, "document_conflict", headers={"Cache-Control": "no-store"})
+    return HTTPException(409, str(exc), headers={"Cache-Control": "no-store"})
 
 
 @router.post("/document-preview", response_model=DocumentPreview)

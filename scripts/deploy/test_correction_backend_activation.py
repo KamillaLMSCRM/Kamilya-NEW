@@ -288,6 +288,12 @@ def dialogue_payload(*, migration=True):
     ("0.11.53", "0178", "0180", False),
     ("0.11.53", "0180", "0179", False),
     ("0.11.53", "0180", "0181", False),
+    ("0.11.54", "0179", "0180", True),
+    ("0.11.54", "0180", "0181", False),
+    ("0.11.55", "0180", "0181", True),
+    ("0.11.55", "0179", "0180", False),
+    ("0.11.55", "0180", "0182", False),
+    ("0.11.55", "0181", "0180", False),
 ])
 def test_correction_migration_is_version_bound(version, source, target, accepted):
     data = dialogue_payload()

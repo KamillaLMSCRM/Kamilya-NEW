@@ -3,7 +3,7 @@
 import hashlib
 import json
 from datetime import UTC, datetime, timedelta
-from typing import cast
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
@@ -27,8 +27,14 @@ from .plan_contract import ActorContext, ConfirmationRequest
 
 
 def document_fingerprint(snapshot: DocumentSnapshot) -> str:
-    return hashlib.sha256(json.dumps(snapshot.model_dump(mode="json"), sort_keys=True,
+    return hashlib.sha256(json.dumps(document_snapshot_payload(snapshot), sort_keys=True,
                                     separators=(",", ":"), ensure_ascii=True).encode()).hexdigest()
+
+
+def document_snapshot_payload(snapshot: DocumentSnapshot) -> dict[str, Any]:
+    # Preserve every legacy null, omitting only the newly introduced absent scope.
+    exclude = {"dialogue_task_id", "dialogue_revision"} if snapshot.dialogue_task_id is None else set()
+    return snapshot.model_dump(mode="json", exclude=exclude)
 
 
 async def resolve_document_sources(
@@ -57,6 +63,7 @@ def _preview(snapshot: DocumentSnapshot, fingerprint: str) -> DocumentPreview:
 
 async def create_document_preview(
     db: AsyncSession, actor: ActorContext, body: DocumentPreviewRequest, *, now: datetime | None = None,
+    dialogue_context: tuple[UUID, int] | None = None,
 ) -> DocumentPreview:
     _assert_actor(actor)
     now = now or datetime.now(UTC)
@@ -69,10 +76,12 @@ async def create_document_preview(
         raise WorkbenchConflict("preview_limit")
     snapshot = DocumentSnapshot(plan_id=uuid4(), revision=1, tenant_id=actor.tenant_id,
                                 actor_id=actor.actor_id, expires_at=now + timedelta(minutes=15),
-                                instruction=body.instruction, generation=body.generation, sources=sources)
+                                instruction=body.instruction, generation=body.generation, sources=sources,
+                                dialogue_task_id=dialogue_context[0] if dialogue_context else None,
+                                dialogue_revision=dialogue_context[1] if dialogue_context else None)
     fingerprint = document_fingerprint(snapshot)
     db.add(DocumentPlan(id=snapshot.plan_id, tenant_id=actor.tenant_id, actor_id=actor.actor_id,
-                        snapshot=snapshot.model_dump(mode="json"), fingerprint=fingerprint,
+                        snapshot=document_snapshot_payload(snapshot), fingerprint=fingerprint,
                         expires_at=snapshot.expires_at, status="ready"))
     await db.flush()
     return _preview(snapshot, fingerprint)
@@ -106,7 +115,14 @@ async def get_document_plan(db: AsyncSession, actor: ActorContext, plan_id: UUID
         return await _execution(db, actor, row)
     if datetime.now(UTC) >= row.expires_at:
         raise WorkbenchConflict("expired")
-    return _preview(DocumentSnapshot.model_validate(row.snapshot), row.fingerprint)
+    snapshot = DocumentSnapshot.model_validate(row.snapshot)
+    if snapshot.dialogue_task_id is not None:
+        from .document_dialogue import owned_task
+
+        task = await owned_task(db, actor, snapshot.dialogue_task_id)
+        if task.plan_id != row.id or task.revision != snapshot.dialogue_revision:
+            raise WorkbenchConflict("dialogue_preview_stale")
+    return _preview(snapshot, row.fingerprint)
 
 
 async def confirm_document_plan(
@@ -114,6 +130,17 @@ async def confirm_document_plan(
     *, now: datetime | None = None,
 ) -> DocumentExecution:
     from app.modules.ai.router import submit_course_generation
+
+    # Task->plan is the common lock order with save/preview. Resolve the opaque
+    # scope without a plan lock first, then acquire task before the plan lock.
+    first = await _owned(db, actor, request.plan_id, lock=False)
+    initial = DocumentSnapshot.model_validate(first.snapshot)
+    if initial.dialogue_task_id is not None and first.status != "submitted":
+        from .document_dialogue import owned_task
+
+        task = await owned_task(db, actor, initial.dialogue_task_id, lock=True)
+        if task.plan_id != request.plan_id or task.revision != initial.dialogue_revision:
+            raise WorkbenchConflict("dialogue_preview_stale")
 
     row = await _owned(db, actor, request.plan_id, lock=True)
     snapshot = DocumentSnapshot.model_validate(row.snapshot)

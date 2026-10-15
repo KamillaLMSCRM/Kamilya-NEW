@@ -49,6 +49,14 @@ class DocumentSnapshot(BaseModel):
     instruction: Instruction
     generation: DocumentGenerationRequest
     sources: tuple[DocumentSource, ...] = Field(min_length=1, max_length=5)
+    dialogue_task_id: UUID | None = None
+    dialogue_revision: Revision | None = None
+
+    @model_validator(mode="after")
+    def dialogue_scope_pair(self) -> Self:
+        if (self.dialogue_task_id is None) != (self.dialogue_revision is None):
+            raise ValueError("document_dialogue_scope_incomplete")
+        return self
 
 
 class DocumentPreview(BaseModel):
@@ -61,6 +69,8 @@ class DocumentPreview(BaseModel):
     instruction: Instruction
     generation: DocumentGenerationRequest
     sources: tuple[DocumentSource, ...] = Field(min_length=1, max_length=5)
+    dialogue_task_id: UUID | None = None
+    dialogue_revision: Revision | None = None
 
 
 class DocumentExecution(BaseModel):
