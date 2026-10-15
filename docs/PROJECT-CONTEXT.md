@@ -25,7 +25,35 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current environment — production53/DEV53,2026-10-15
+## Current environment — backend54/native53/DEV54,2026-10-15
+
+API/threeworkers54/tagv0.11.54 exactaf5e9957a165dbdfb36f342afeb17a8f1ed3b15b,
+masterCI38712412481/DEV38713165732/protected38714758072 SUCCESS; deployment7089185948.
+Blue services running/restarts0, image6f542e2c…2cea6. Public/private API exact54,
+native/public marker53/18cc unchanged and compatible. Schema0180 unchanged,
+no controller/permissions/topology update. Existing three feature flags unchanged.
+Saved ChatGPT reserve OFF; complete routing-row SHA7834c8c3…5da3f/order/revision3
+unchanged. Connector53 remains installed/dormant, no voice change.
+
+Existing DEV Free/Free/Hobby exactaf5: API dep-db89rpavcj2c738o6pgg, worker
+dep-db89so8u01pc73f297vg, Vercel dpl_3agtJPZ2uiehMf1bsRHWnfUdeF62, all9flagsON.
+Root full normal-role real-model dialogue/clarification/contextual correction/
+preview/explicitconfirm/GET reload/learner access accepted in both environments.
+Production found and repaired C-locale Unicode comparison at the two SQL
+predicates; actual C-collated owned DEV/RLS/cleanup gate PASS. Production created1
+synthetic assignment, DEV postfix created0/skipped1 and kept prior deadline.
+No email/outbox/attempt, prior selected completed-learning projections preserved
+(DEV1/prod7 completed). Both temporary QA position department fields restored;
+retained QA courses/assignments remain for reproducible acceptance, no deletion/reset.
+
+Signed fresh180 restore32df6c94…6da26/124tables/120FORCE-RLS/RPO43/RTO19 verified;
+owned restore DB/temp absent. Backend immediate rollback53/image5771fe19… healthy,
+oldworkers stopped; native rollback51 unchanged. Watchdog expects54/image6f,
+thresholds unchanged, both timers active/oneshots success0. VM12677%/7313624KiB free.
+No CT137 deployment/cleanup, Proxmox, DNS, provider tier/resource or reserve activation.
+Actual source/runtime/limits: PRODUCTION_READINESS/release54/TEST_RUN_LEDGER.
+
+## Historical environment — production53/DEV53,2026-10-15
 
 Runtime/tagv0.11.53 exact `18cc41e3a8f9a72be85a0977e82bad11e484f6f3`:
 CI38699232647/native38699262419/protected38702195538 attempt2 SUCCESS;

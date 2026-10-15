@@ -19,7 +19,12 @@ Current as of: 2026-10-15.
   C-collation Supabase DEV gate PASS including RU/KK case/space/quote variants,
   RLS/atomicity/replay, cleanup and public neutrality. Initial harness oracle
   failure retained; normalized DTO comparison repaired without removing variants.
-  Exact release and final production journey remain pending until recorded.
+  Exact54/af5e9957 master+DEV CI and protected38714758072 PASS. Actual DEV54
+  clarification/follow-up/correction/preview/dedup/GET reload/student PASS; production
+  lowercase Russian lookup now resolves same exact published fixture, real dialogue
+  and corrected27Oct17:30 plan confirm1/reload/learner PASS. No email/outbox/attempt,
+  old selected learning projections retained, both temporary QA departments restored.
+  Native53/schema180/complete routing row unchanged, ChatGPT OFF; see release54.
 - Prevention: exercise real C-collated cloned text columns in the owned Supabase
   DEV gate, not only mocked resolver rows or the DEV database's default locale.
   Do not use a new model call, fuzzy matching, global DB rebuild or wider grants
@@ -88,6 +93,12 @@ Current as of: 2026-10-15.
   ADR0007 has no confirmed Render-private-ASUS route. Strict-mode browser
   preview/confirm1/reloadGET-only/studentaccess/duepolicy/old-state preservation
   passed independently; this does not close real-model dialogue or production GO.
+- Final live54 follow-up2026-10-15: normal-route real-model interpretation now
+  passes in DEV and production with reserveOFF. Clarification, history follow-up,
+  owned previous-plan correction, preview/explicitconfirm/GET reload/student
+  access accepted on exactaf5e9957. Production model replies1345/1246/1019ms;
+  former outage receipts remain historical, not relabelled or used as a promise
+  of future primary availability. No fallback/routing change or activation.
 - Prevention: replay a hanging primary at the actual resilient/application seams,
   assert existing fallback gets time, and test429/503/BYOK/no-sleep/cancellation.
   Retain failed live evidence; do not hide an outage with unbounded retries,

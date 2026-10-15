@@ -1,10 +1,29 @@
 # Kamilya LMS: внутренняя документация проекта
 
 **Статус:** рабочая документация проекта
-**Дата актуализации:** 2026-07-31
+**Дата актуализации:** 2026-10-15
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`
 
 ## 1. Назначение продукта
+
+### Text assignment dialogue — accepted0.11.54,2026-10-15
+
+Ordinary methodologist `/methodologist-workbench`: free instruction → up to
+bounded prior user instructions OR one actor/tenant-owned previous plan → model
+candidate → user-reviewed exact fields → authoritative immutable preview → explicit
+confirmation → atomic enrollment/policy/outbox receipt → GET-only reload and canonical
+course assignments. Model output never grants assignment authority. Existing
+assignment service owns all writes/idempotency/RLS; no second executor or table.
+Assignment discussion before plan creation is temporary; reload restores the server
+plan/terminal receipt, not chat prose. This is distinct from durable lesson history.
+V1.4 bounds each transport attempt to8s within existing30s total; semantic rejection
+is not a fallback trigger. V1.5 compares resource names using the existing und-x-icu
+collation on both bound SQL operands, independent of database C locale. No fuzzy
+matching, global collation/schema migration or auto-expanded recipient scope.
+Existing enrollment duplicates are skipped without overwriting their deadlines;
+notify=false creates no notification outbox. Live normal-role DEV/production accepted,
+including correction/reload/student access; current release/rollback facts live only
+in PROJECT-CONTEXT/PRODUCTION_READINESS. Voice and reserve activation remain deferred.
 
 ### Durable selected-lesson dialogue — accepted0.11.51,2026-10-14
 

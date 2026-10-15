@@ -1,6 +1,19 @@
 # AI assistant continuation — text-first
 
-## Active assignment acceptance repair — 2026-10-15
+## Closed assignment acceptance repair — 2026-10-15
+
+Root accepted54/af5e9957 real DEV/production dialogue, explicit execution, GET-only
+plan/receipt reload and student lesson access. C-locale Unicode defect repaired;
+focused61/full unit2960/helper4/quality1008-2200/actual owned C/RLS/cleanup and exact
+master+DEV CI PASS; protected38714758072 SUCCESS. DEV reused original assignment
+without duplicate/deadline overwrite; production created1 synthetic enrollment,
+outbox0/attempts0, old selected completed projections1/7 retained. BOTH temporary
+QA position department values restored to empty/NULL/course_ids[]. Stable release,
+runtime, rollback, fixture and operational facts transferred to release54,
+PROJECT-CONTEXT/PRODUCTION_READINESS/TEST_RUN_LEDGER. Voice remains deferred,
+reserve OFF. The dated account below is historical, not an active blocker.
+
+### Historical pre-repair observations
 
 Owner: full live DEV then production synthetic assignment dialogue, repair found
 defects; ChatGPT OFF and no voice. Runtime53/18cc, docs-onlyHEADcd449 at start.

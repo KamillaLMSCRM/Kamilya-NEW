@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** frontend/API/three workers53; DEV/prod dormant Codex connector and superadmin OFF/readiness/reload accepted2026-10-15; VM126disk76%, ops timers/last checks healthy
+**Проверено:** API/three workers54 + unchanged native frontend53; live DEV/prod assignment dialogue accepted2026-10-15; ChatGPT reserve OFF; VM126disk77%, ops timers/last checks healthy
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,73 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production53 — dormant manual ChatGPT reserve, 2026-10-15
+## Current production54 — live assignment dialogue accepted, 2026-10-15
+
+Root accepted the bounded text assignment journey, not the whole assistant epic.
+Runtime/tagv0.11.54 `af5e9957a165dbdfb36f342afeb17a8f1ed3b15b`; masterCI38712412481
+and DEV CI38713165732 all7SUCCESS, protected38714758072 attempt1SUCCESS/deployment
+7089185948. API+three blue workers exact immutable image
+`6f542e2c23c7cc6d725f86fce1ccf154200e5d8c99b71eda4747efa6cde2cea6`, running/restarts0.
+Independent private/public API54 and unchanged public native53/18cc health marker,
+login200 readback PASS. CT1250180 unchanged, no migration/controller upgrade.
+Native53 and connector53 were not rebuilt/reinstalled. All existing flags unchanged;
+DeepSeek/Qwen/GLM saved order/revision3 and ENTIRE row SHA7834c8c3…5da3f unchanged;
+ChatGPT OFF. No voice, Proxmox, DNS, permissions, tier or resource change.
+
+Defect SQL-NAME-001: production C locale lower(column) disagreed with Python
+Unicode lower(query). Real model had correct fields; preview missed published
+Russian course. V1.5 changes only two equality predicates to existing und-x-icu
+on both operands, preserving exact tenant/status/duplicate/quoted-name guards.
+Unit2RED→focused61PASS, full API unit2960PASS, helper4PASS, baseline1008/2200PASS.
+Actual owned C-collated Supabase DEV service checks RU/KK case/space/quotes,
+RLS/atomicity/concurrency/notification/retention PASS, cleanup/public neutrality true.
+First harness normalization failure retained, not relabelled as product failure.
+
+Existing DEV Free/Hobby resources: API dep-db89rpavcj2c738o6pgg, worker
+dep-db89so8u01pc73f297vg, Vercel dpl_3agtJPZ2uiehMf1bsRHWnfUdeF62 exactaf5;
+all9flags stillON. Root actual normal-role model clarification→history follow-up→
+previous-plan correction→authoritative preview→oneconfirm→GET-only reload→learner
+access PASS. Earlier53 DEV fresh assignment created1; postfix54 reused it and
+created0/skipped1, preserved original27Oct12:30UTC deadline despite new29Oct plan.
+
+Production ordinary QA methodologist repeated the same journey with real model,
+including lowercase course query formerly failing in C locale. Model replies
+1345/1246/1019ms; previews53/29ms; confirm66ms (three-call synthetic sample,
+not latency SLA/capacity/provider-comparison evidence). Initial25Oct18:00 plan
+corrected to27Oct17:30 Asia/Almaty, both plan and receipt restored byte-equal via
+GET-only full reload, no model/confirmation replay. Before confirm enrollment0;
+after exactly1, plan6bbda146…/enrollmentaadeb68c…/coursee6665da3… in permanent QA
+83552ce6…. Normal student dashboard showed due27Oct, 7old completed courses and
+new0% course; actual lesson opened through Start. Completion was not submitted.
+Independent runtime READ ONLY non-BYPASS policy due27Oct12:30UTC; canonical statuses
+adapter outbox0/attempts0. Old selected enrollment projection SHA50a96c32…0fae
+unchanged; not an all-column database snapshot. Both exact temporary QA position
+departments restored to empty/NULL/course_ids[] through normal API. Retain synthetic
+course/department/enrollment/receipt; no tenant recreation, learning reset or emails.
+
+Separate Test & Evidence Runner independently EXECUTED normal-role production API
+readback21/21PASS: exact54, both ordinary identities, 11retained selected enrollment
+projections/7completed, published course, enrollment1, no attempts, same GET receipt,
+restored position and student course access. Inference/assignment/fixture writes0.
+Initial local Windows decoding HARNESS_FAILURE before HTTP retained; R2 changed
+only explicit UTF-8 input decoding/output artifact name, not checks or runtime.
+
+Fresh encrypted180 backup/disposable restore signed report32df6c94…6da26,
+124tables/120FORCE-RLS/RPO43s/RTO19s; separate readback proves signature/revision,
+owned DB and temporary directory absent. Original transport timeout retained;
+mutation not retried. Exact protected image differed from automatic CI image:
+references rebound, time-order NO_GO retained, fresh restore/rollback readchecks
+then final-image predeployGO. Root verified references before protected approval.
+Immediate backend rollback53/image5771fe19… healthy, old3workers stopped;
+actual rollback switch NOT_RUN. Native immediate rollback51 unchanged.
+Watchdog two identity keys54/image6f only, thresholds byte unchanged, saved backup;
+retention and ops timers active/oneshots success0. Final disk77%/7313624KiB free;
+no capacity cleanup required. Detailed immutable receipts/screenshots under
+`.release-evidence/ASSIGNMENT54-20261015`, append-only TEST_RUN_LEDGER and release54.
+Vendor hosted-use eligibility/forced reserve auth refresh/quota remain NOT VERIFIED
+as in53; the reserve remains dormant and was not used to close this journey.
+
+## Historical production53 — dormant manual ChatGPT reserve, 2026-10-15
 
 Accepted scope: installed private official CLI connector and superadmin control,
 saved reserve OFF. Immutable runtime/tagv0.11.53 exact18cc41e3a8f9a72be85a0977e82bad11e484f6f3;

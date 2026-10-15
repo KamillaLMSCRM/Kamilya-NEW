@@ -15,13 +15,16 @@ the latter remain NOT VERIFIED. No voice, paid API or automatic activation.
 Current assignment dialogue slice, accepted for implementation2026-10-15:
 [Unicode comparison V1.5](contracts/ASSIGNMENT_DIALOGUE_V1_5.md) repairs the live
 production C-collation/Python-lower mismatch for exact RU/KK resource lookup;
-no global locale/schema/provider change. DEV/production acceptance is separately
-recorded; reserve remains OFF and voice deferred.
+no global locale/schema/provider change. Root accepted real DEV54 and production54
+dialogue→clarification→correction→preview→explicitconfirm→GET reload→learner access;
+postfix DEV dedup preserved the old deadline, production created one synthetic
+assignment. Exact bounded evidence: PRODUCTION_READINESS/release54/TEST_RUN_LEDGER.
+Native53/schema180 unchanged; reserve remains OFF and voice deferred.
 [ASSIGNMENT_DIALOGUE_V1](contracts/ASSIGNMENT_DIALOGUE_V1.md). Existing intent ->
 bounded previous user requests -> candidate -> owned preview -> explicit confirm
 -> receipt/reload/result navigation. No new assignment owner/table/migration,
 no automatic execution, unsupported subgroup widening or voice. Local/DEV/live/
-production gates remain distinct and pending until recorded by Root.
+production gates remain distinct; release54 closes this bounded journey, not the epic.
 [Recovery V1.1](contracts/ASSIGNMENT_DIALOGUE_V1_1.md) separates typed known409
 rejection from unknown outcomes and retains opaque confirmation locator on reload.
 [Clarification limits V1.2](contracts/ASSIGNMENT_DIALOGUE_V1_2.md) preserves4000-char

@@ -7,13 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- Resolve exact Russian and Kazakh course/department names consistently under
-  PostgreSQL C locale during dialog-driven assignment preview. Both comparison
-  operands use the installed explicit Unicode collation; tenant scope, publication,
-  duplicate choices, bounded lookup and explicit confirmation remain unchanged.
-
 ### Security
 
 - Refresh exact security pins after blocking release-time audits: source-map-js
