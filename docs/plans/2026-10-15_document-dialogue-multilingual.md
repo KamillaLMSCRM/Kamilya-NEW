@@ -92,6 +92,18 @@
   they are not live acceptance and predate the final plain-language sentence.
   Current isolated R9 is running in a quiet window;3034unit/script tests passed.
   Production remains56, tag57/protected workflow absent. No oracle weakening.
+  V1.6 exact f56a571f DEV R7 completed42matchingstatuses and browser11-turn
+  reload/DOCX/PDF download; technical audit280checks/12sources/downloads passed.
+  Actual semantic review37PASS/3PARTIAL/2FAIL after H04 reviewer wording correction:
+  D12 lost conditional polarity; H03 merged distinct appointing authorities.
+  Keep the erroneous frozen H03 oracle and append a stronger source correction.
+  V1.7 preserves conditions/authority and differentiates agreement-of-source-rules
+  from whether the prose faithfully lists each value. Controlled first probe's
+  H57B04 wrong supported status remains preserved; subsequent conflict corrected.
+  Current D12 probe preserves the conditional but still has a P2 shared-role
+  summary ambiguity. R10 isolated source gate running; do not count this as final
+  semantic acceptance. Actual DEV learning baseline is5course groups/4enrollments/
+  1completed; production is11groups/7completed enrollments, notseveninDEV.
 - D57-RELEASE NOT_STARTED: exact-source release gate, signed backup/restore,
   rollback/capacity, protected backend/native release only if there is an accepted
   application change; current56 not redeployed merely for evaluation documentation.

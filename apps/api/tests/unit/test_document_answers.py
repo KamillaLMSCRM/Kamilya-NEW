@@ -55,6 +55,15 @@ def test_conflict_requires_two_evidenced_positions_not_an_unavailable_reference(
     assert "unless asked about it or explaining two opposing positions on a requested fact" in system
 
 
+def test_comparisons_preserve_conditional_polarity_and_each_sources_authority():
+    system = answers.messages("Compare who authorizes restart", "en", [], EXCERPTS)[0]["content"]
+    assert "Preserve the logical force of until, unless, only and if" in system
+    assert "Keep each source's distinct appointing or approving authority" in system
+    assert "Do not merge similar role titles" in system
+    assert "Status describes agreement of the requested source rules" in system
+    assert "Faithfully listing two opposing values is still conflict" in system
+
+
 def test_immediate_previous_turn_is_separate_without_history_duplication():
     history = [{"question": f"Topic {n}", "answer": f"Answer {n}"} for n in range(5)]
     data = json.loads(answers.messages("Make this answer simpler", "en", history, EXCERPTS)[1]["content"])

@@ -7776,6 +7776,15 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   numbers/priority discussion, the two grounded but unfocused partial answers.
   No post-hoc status rewrite, extra inference, routing/schema/authority change.
 
+- Seventh DEV f56a571f reached42matchingstatuses and actual browser11-turn
+  reload/download PASS, but Root text review found two source-fidelity defects:
+  D57-12 dropped the 'until' conditional in translation; H57-03 collapsed RU
+  workshop head and KK laboratory head into one appointing authority. Frozen
+  H03 oracle itself missed that distinction; retain it and append a stronger
+  source-grounded correction, never count the matching wrong expectation as GO.
+  V1.7 preserves logical conditions and source-specific role qualifiers. No
+  additional model pass or runtime/public-contract change. Full live gates remain.
+
 ## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
 
 - Date: 2026-10-15, DOCUMENT57.
