@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-10-14.
+> Обновлено: 2026-10-15.
 
 ## Источники правды
 
@@ -25,7 +25,48 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current environment — production51/DEV51,2026-10-14
+## Current environment — production53/DEV53,2026-10-15
+
+Runtime/tagv0.11.53 exact `18cc41e3a8f9a72be85a0977e82bad11e484f6f3`:
+CI38699232647/native38699262419/protected38702195538 attempt2 SUCCESS;
+canonical REL-RESERVE53-WEB-20261015 RELEASE_OK plus separate Test Runner acceptance.
+API+3workers green/image5771fe19…9952e exact53/running/restarts0; CT137 current,
+marker, public API/native identities match. CT125schema0180 independently verified,
+generation routing FORCE RLS and non-super/non-BYPASS lms_app unchanged.
+
+Private official CLI0.146.1/gpt-5.6-luna connector installed on existing VM126,
+immutable imageed5b65da…4981a9; fixed private edge10.77.77.2:18999/v1, no public
+ingress. Protected dedicated managed-auth home/separate application bearer; no
+auth in images/Git/reports or raw subscription-token/API-key substitution.
+Runtime configuration is shared by API+3workers, private readiness true from all.
+Superadmin AI providers → Reserve ChatGPT: configured/OFF, explicit readiness
+ready, reload preserves OFF. Test Runner API20/20 and Root live browser PASS;
+zero saved-route/business writes. Existing DeepSeek/Qwen/GLM order revision3 and
+entire routing-row SHA7834c8c3…5da3f unchanged. No activation performed.
+Database-free private acceptance with exact final API image returned real synthetic
+model JSON5666ms after controlledprimary404; not an actual provider outage.
+Managed auth readiness after restart PASS; forced refresh/quota/commercial hosted
+eligibility NOT VERIFIED. Readiness is not an inference or entitlement guarantee.
+
+DEV exact18cc, Hobby/Free/Free unchanged: API dep-db881a2j9qps73c0qdr0, worker
+dep-db88295g1s2s739d6abg, Vercel dpl_7Vc3GqCwBaXbFbXm2t6yjnrC3jZ3; schema0180,
+isolated14checks/owned cleanup/public neutrality PASS. Public Render intentionally
+not connected to private VM126 relay; DEV UI OFF/not-configured, no public bridge.
+
+Fresh179 encrypted backup/signature/disposable restore124tables/120FORCE-RLS,
+RPO179/RTO19 and owned DB/plaintext-work cleanup PASS before0180. Controller
+upgrade38700815356 installed6dfb51bf… with previouscfe727c8… backup; six other
+payloads/rights/config unchanged. Backend/native immediate rollback51/85933,
+old APIimage7505949a… healthy/old3workers stopped; native50/6d2 and protected359/299
+additional recovery retained. Actual rollback switch NOT_RUN. Only qualified
+obsolete native49/exact staging pair cleaned recoverably; no API-image prune.
+Watchdog exact53/thresholds unchanged, both timers active/oneshots success0;
+final VM126disk76%/7754832KiB free, CT1371115100KiB free. Failed attempt1 caused by
+Root-owned empty advisory lock is preserved under RELEASE-007, not hidden as a
+provider failure. No Proxmox/DNS/tiers/resources/voice/landing changes.
+Evidence and limits: release53 notes/PRODUCTION_READINESS/TEST_RUN_LEDGER.
+
+## Historical environment — production51/DEV51,2026-10-14
 
 Runtime/tagv0.11.51 source85933da4b2bb48a43da4a380dfd36a73c5b195b7,
 masterCI38574563481/native38574699131/protected38575499511 SUCCESS;

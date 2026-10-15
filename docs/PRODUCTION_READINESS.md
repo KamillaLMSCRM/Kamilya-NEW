@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** frontend/API/three workers51; durable lesson dialogue DEV/production accepted2026-10-14; exact8 cleanup closed VM126 capacity warning, disk72%/watchdog0-0
+**Проверено:** frontend/API/three workers53; DEV/prod dormant Codex connector and superadmin OFF/readiness/reload accepted2026-10-15; VM126disk76%, ops timers/last checks healthy
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,61 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production51 — private durable lesson dialogue, 2026-10-14
+## Current production53 — dormant manual ChatGPT reserve, 2026-10-15
+
+Accepted scope: installed private official CLI connector and superadmin control,
+saved reserve OFF. Immutable runtime/tagv0.11.53 exact18cc41e3a8f9a72be85a0977e82bad11e484f6f3;
+CI38699232647/all7SUCCESS, native38699262419, protected38702195538 attempt2SUCCESS,
+canonical REL-RESERVE53-WEB-20261015 RELEASE_OK and separate Test Runner product
+acceptance/bridge READY FOR ROOT REVIEW accepted by Root. API+3greenworkers exact
+image5771fe19…9952e/running/restarts0; public/native/marker exact, schema0180
+independent owner readback/routing FORCE-RLS/non-BYPASS runtime PASS. Flags3ON unchanged.
+
+Existing publicDEV exact18cc/Hobby/Free/Free, schema0180 apply/readback PASS.
+Isolated actualSupabase14checks genuine upgrade/downgrade/re-upgrade/negative
+constraints/FORCE-RLS/runtime-role/owned cleanup/public neutrality PASS. Public
+Render intentionally not configured to private relay; UI says OFF/not-configured.
+Actual private DB-free DEV proof through Kamilya fallback and final production
+image returned synthetic real-model JSON5666ms, zero DB connections/routewrites;
+controlled404 primary, wrong bearer403. Not a public Render connectivity proof,
+actual DeepSeek outage, sustained capacity or full live activation test.
+
+Production API20/20 independently executed: anon401/methodologist403/exact QA role
+and tenant/superadmin ready/configured/OFF/secret-free response/unchanged route.
+Root browser normal superadmin new-tab login, OFF→ready, reload/reopen OFF retained,
+transient readiness reset→ready again, enable available but never clicked. Original
+course tab not navigated/edited/logged out. Full routing row SHA7834c8c3…5da3f,
+DeepSeek/Qwen/GLM order and revision3 unchanged. API+3workers each reach private
+connector. No business writes, generation calls by the production API packet, or
+saved-route writes. Screenshot and exact receipts in release53/TestRunnerledger.
+
+Fresh pre-migration179 backup/signature/disposable restore PASS124tables/120FORCE-RLS,
+RPO179s/RTO19s; restored routingOFF; owned DB/plaintext-work absent. Controller
+upgrade38700815356 installed6dfb51bf… with cfe727c8… backup; other6payloads/rights
+unchanged. Root recreated an empty O_EXCL release lock with an advisory flock
+probe: attempt1 stopped before mutation. Exact ownership/inode/noholder/oldruntime
+checks preceded single-file cleanup; failed-job-only attempt2 sameimage5771 PASS.
+RELEASE-007 recurrence retained, empty/nonempty-existing-lock regression2PASS.
+
+Immediate backend/native rollback previous51/85933, old APIimage7505949a… healthy,
+old3workers stopped. Native50/6d2/protected359/299 additional recovery retained.
+Actual rollback switch NOT_RUN; application rollback distinct from0180 schema
+downgrade (requires savedOFF). Standing bounded cleanup removed only qualified
+obsolete native49/3fe/exactstagingpair after offhost SHA/structure proof; no API
+images/volumes/DB/backups pruned. Final VM126disk76%/7754832KiB free, CT1371115100KiB.
+Watchdog exact53/image5771; thresholds byte unchanged, both timers active and last
+oneshots success0. No new paid capacity/plan/API billing/public ingress/DNS/Proxmox.
+
+Connector CLI0.146.1/gpt-5.6-luna pinnedimageed5b65da…4981a9, private edge only;
+nonroot/readonly/capdrop/limits/noLMS/DB/Docker mounts/allowlisted TLS egress verified.
+Dedicated protected writable persistent managed auth; readiness after restart PASS.
+NOT VERIFIED: forced token refresh, remaining subscription quota, vendor commercial
+hosted-use eligibility. These remain activation/operational limitations, not reasons
+to relabel the authorized dormant installation as absent. No activation performed.
+Voice remains deferred. Durable lesson history51 remains included; assignment52
+source is packaged, prior failed real-model DEV receipts are not relabelled.
+
+## Historical production51 — private durable lesson dialogue, 2026-10-14
 
 Immutable runtime/tag `v0.11.51` source
 `85933da4b2bb48a43da4a380dfd36a73c5b195b7`; masterCI38574563481/all7SUCCESS,

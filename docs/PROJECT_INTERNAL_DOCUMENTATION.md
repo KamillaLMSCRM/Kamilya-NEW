@@ -457,7 +457,18 @@ addendum `CHATGPT_MANUAL_RESERVE_V3.md` permits the owner-authorized dormant
 DEV/production installation and synthetic acceptance, not customer-serving activation
 or a claim that the subscription grants commercial hosted-service entitlement.
 
-**Packaging and operational boundary.** Build only the credential-free
+  **Installed state2026-10-15.** DEV and KZ production53 exact18cc41e3… accepted
+  for dormant operation, not activation. Private VM126 connector imageed5b65da…,
+  API image5771fe19…; all three workers also configured/reachable. Superadmin
+  `/admin/providers` → Reserve ChatGPT → check readiness shows ready; savedOFF
+  survives reload and readiness checks. No raw managed-auth/token entry in the UI.
+  Enable is deliberately not exercised in production: owner retains that action.
+  Real synthetic final-image fallback5666ms is separate from non-generative
+  readiness. Managed-login restart readiness PASS; forced refresh/quota/hosted
+  commercial entitlement NOT VERIFIED. Runtime/rollback/cleanup IDs and current
+  gates belong to PROJECT-CONTEXT/PRODUCTION_READINESS/release53, not this paragraph.
+
+  **Packaging and operational boundary.** Build only the credential-free
 `infra/codex-reserve/Dockerfile` context; base digest, CLI0.146.1 npm SHA512 and
 native binary SHA256 are pinned/verified. Never install a global floating CLI or
 put a user profile/auth cache in the build context. `compose.yml` is an explicit

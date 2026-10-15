@@ -6054,6 +6054,24 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   both empty/nonempty existing locks, no runtime command, preserved lock/state/proxy.
 - Prevention: `infra/deploy/README.md` documents existence-lock semantics. Never
   bypass/delete an unknown lock or rebuild/retry a partially applied release.
+- Recurrence2026-10-15: Root's ignored runtime-env promotion helper again used
+  `exec 9> /run/lock/kamilya-release-plane.lock; flock -n 9`, creating the empty
+  root-owned sentinel despite the existing procedure. Protected38702195538 attempt1
+  stopped before migration/switch; all old51 services/schema179 unchanged. This
+  was an operator/procedure regression, not an OpenAI/GHCR/Proxmox failure.
+- Recurrence fix: independently proved exact root0644/size0/inode177/mtime1792050788,
+  no FD/controller owner and exact unchanged51 state; reviewed immutable cleanup
+  removed ONLY that own file. No signals, unknown-lock deletion, rights or lock
+  semantics changes. Failed-job-only attempt2 used the same manifest/image5771
+  and succeeded; independent final lock absence/rollback51 health verified.
+- Recurrence verification: canonical wrapper reran
+  `scripts/deploy/test_release_plane.py::test_existing_lock_blocks_before_runtime_mutation_and_is_preserved`:
+  2PASS (empty/nonempty), no controller command/state/proxy mutation, lock preserved.
+  Executed failed helper and failure receipts are retained. Future preflight must
+  read the actual O_EXCL protocol and use non-creating existence inspection; a
+  generic advisory flock probe is not a compatible health check. Existing safety
+  guard worked; this documentation does not claim to prevent arbitrary operator
+  scripts from recreating the mistake automatically.
 
 ## OPS-011 - Watchdog identity config was older than the actual runtime
 

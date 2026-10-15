@@ -1,5 +1,18 @@
 # AI assistant continuation — text-first
 
+## Closed installation slice — 2026-10-15
+
+Version53 exact18cc41e3a8f9a72be85a0977e82bad11e484f6f3 is deployed to DEV and
+production API/3workers/native frontend. Private official CLI connector and actual
+superadmin OFF/readiness/reload accepted; reserve remains OFF. Independent API20/20
+and private exact-final-image realmodel5666ms PASS. Stable release/runtime/rollback/
+cleanup facts and limitations transferred to release53 notes, PROJECT-CONTEXT,
+PRODUCTION_READINESS and append-only TEST_RUN_LEDGER. Previous sections below are
+historical execution context, not current blockers or authority. Voice deferred;
+activation, forced auth refresh/quota and commercial hosted entitlement not claimed.
+
+## Historical execution context
+
 Owner2026-10-15 current authority: complete DEV then install connector/control in
 production with the saved reserve OFF. Active installation addendumV3 extendsV2;
 vendor hosted-use entitlement is not claimed and remains separate before later
