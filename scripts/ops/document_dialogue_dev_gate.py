@@ -69,6 +69,8 @@ REQUIRED_CHECKS = frozenset({
     "content_real_budget_refund", "content_preserves_frozen_preview",
     "content_active_pointer_race_denied",
     "content_not_found_pointer_race_denied",
+    "content_not_found_scope_quote_persistence",
+    "content_invalid_response_private_refund",
 })
 PUBLIC_GUARDED_TABLES = (
     "tenants", "users", "user_roles", "documents", "ai_jobs", "workbench_document_plans",

@@ -7605,3 +7605,27 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   earlier two invalid responses or substitute for a corrected live DEV run.
 - Prevention: test failure after reservation, not only pre-write validation;
   reconcile committed state before allowing another revision-checked command.
+
+## AI-CHAT-006 - Abstention rejected valid scope citations and exposed model validation input
+
+- Date: 2026-10-15, DOCUMENT56 actual synthetic DEV dialogue.
+- Symptom: a safe refusal to publish/assign became a failed exchange and422.
+  A direct normal-role diagnostic proved answer_evidence_required: not_found
+  included exact source quotes explaining the document's limits. The general
+  validation handler also returned the internal model answer as validation input.
+- Cause: the initial contract required zero citations for not_found, even when
+  the model quoted an explicit limitation. Internal Pydantic output errors were
+  allowed to escape as request-validation errors. JSON syntax mode alone did not
+  resolve this semantic evidence-shape mismatch; earlier receipts remain failed.
+- Fix: abstention permits zero or fully validated scope-limiting citations;
+  supported/conflict still require evidence. Never drop citations, relabel a
+  refusal, accept invented quotes or weaken source/tenant/index checks. Invalid
+  model output now refunds the admission and returns a generic502 with durable
+  invalid_response and no internal validation input.
+- Verification: exact valid-quote abstention regression RED then GREEN; malformed
+  quote refusal remains rejected for all three statuses. Actual SQL persistence,
+  replay, source opening and refund/privacy checks added to the isolated DEV gate;
+  final isolated/live DEV and production acceptance remain separately gated.
+- Prevention: test verified evidence explaining absence as well as positive
+  answers and empty abstention; external request validation and internal provider
+  output validation must have distinct safe error boundaries.

@@ -60,6 +60,8 @@ def failure_code(error: Exception) -> str:
             return "budget_denied"
         if error.status_code == 503 and error.detail == "dialogue_provider_unavailable":
             return "provider_unavailable"
+        if error.status_code == 502 and error.detail == "dialogue_invalid_response":
+            return "invalid_response"
     if isinstance(error, SQLAlchemyError):
         return "persistence_unavailable"
     if isinstance(error, ValidationError):

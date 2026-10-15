@@ -91,6 +91,27 @@ describe('document dialogue transport', () => {
     expect(apiMock.get).toHaveBeenLastCalledWith(`/v1/methodologist-workbench/document-dialogues/${id}/sources/${planId}/1/download`, { responseType: 'blob' });
   });
 
+  it('allows verified citations on not-found answers while enforcing citation validation for every status', async () => {
+    const { parseDocumentDialogueTask } = await import('@/lib/documentDialogue');
+    const citation = { number: 1, document_id: requestId, title: 'Safety guide', version: 3, content_sha256: 'a'.repeat(64), index_revision: 4, chunk_id: 'd'.repeat(64), quote: 'Wear protective equipment.' };
+    const parseAnswer = (status: 'supported' | 'not_found' | 'conflict', citations: unknown[]) => parseDocumentDialogueTask({
+      ...task,
+      exchanges: [{ id: planId, instruction: 'What equipment?', state: 'completed', response: { state: 'answered', status, answer: 'No complete answer was found.', citations }, error_code: null, created_at: task.updated_at }],
+    }).exchanges[0].response;
+
+    expect(parseAnswer('not_found', [])).toMatchObject({ state: 'answered', status: 'not_found', citations: [] });
+    expect(parseAnswer('not_found', [citation])).toMatchObject({ state: 'answered', status: 'not_found', citations: [citation] });
+    expect(parseAnswer('supported', [citation])).toMatchObject({ state: 'answered', status: 'supported', citations: [citation] });
+    expect(parseAnswer('conflict', [citation])).toMatchObject({ state: 'answered', status: 'conflict', citations: [citation] });
+    expect(() => parseAnswer('supported', [])).toThrow(/citation set/);
+    expect(() => parseAnswer('conflict', [])).toThrow(/citation set/);
+
+    for (const status of ['supported', 'not_found', 'conflict'] as const) {
+      expect(() => parseAnswer(status, [{ ...citation, quote: '' }])).toThrow(/Invalid document content citation/);
+      expect(() => parseAnswer(status, [{ ...citation, document_id: id }])).toThrow(/does not match task sources/);
+    }
+  });
+
   it('defaults to content questions, keeps linked plans immutable, and renders citation text without HTML', async () => {
     vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
     window.history.replaceState({}, '', `/methodologist-workbench?document_task=${id}`);

@@ -57,11 +57,10 @@ def test_rejects_fabricated_or_untraceable_citations(citations):
         answers.parse_answer(payload(citations=citations), EXCERPTS)
 
 
-def test_abstention_has_no_citations_and_conflict_requires_evidence():
+def test_abstention_allows_verified_scope_quotes_and_conflict_requires_evidence():
     result = answers.parse_answer(payload(status="not_found", answer="The source does not specify a deadline.", citations=[]), EXCERPTS)
     assert not result.citations
-    with pytest.raises(ValueError):
-        answers.parse_answer(payload(status="not_found"), EXCERPTS)
+    assert len(answers.parse_answer(payload(status="not_found", answer="The source does not specify a deadline."), EXCERPTS).citations) == 1
     assert answers.parse_answer(payload(status="conflict"), EXCERPTS).status == "conflict"
     with pytest.raises(ValueError):
         answers.parse_answer(payload(status="conflict", citations=[]), EXCERPTS)
@@ -185,6 +184,26 @@ async def test_answer_requests_provider_json_mode_and_preserves_abstention(monke
     assert result.response.status == "not_found" and result.response.citations == []
     assert provider.ainvoke.call_args.kwargs["response_format"] == {"type": "json_object"}
     assert provider.ainvoke.call_args.kwargs["provider_deadline_seconds"] == 8
+
+
+@pytest.mark.parametrize("status", ["supported", "not_found", "conflict"])
+async def test_invalid_model_evidence_is_refunded_and_never_exposed_as_request_validation(monkeypatch, status):
+    monkeypatch.setattr(answers, "index_snapshot", AsyncMock(return_value={}))
+    monkeypatch.setattr(answers, "retrieve", AsyncMock(return_value=EXCERPTS))
+    monkeypatch.setattr(answers, "_set_tenant_security_context", AsyncMock())
+    monkeypatch.setattr(answers, "_set_user_security_context", AsyncMock())
+    monkeypatch.setattr(answers, "check_and_charge_llm_budget", AsyncMock())
+    provider = SimpleNamespace(ainvoke=AsyncMock(return_value=SimpleNamespace(content=payload(
+        status=status, citations=[{"handle": 1, "quote": "RAW_UNVERIFIED_MODEL_CONTENT"}]))))
+    monkeypatch.setattr(answers.ResilientLLMClient, "from_settings_async", AsyncMock(return_value=provider))
+    refund = AsyncMock()
+    monkeypatch.setattr(answers, "settle_refund", refund)
+    db = SimpleNamespace(commit=AsyncMock())
+    with pytest.raises(HTTPException) as error:
+        await answers.answer_document(db, ACTOR, (SOURCE,), "Question", "en", [])
+    assert error.value.status_code == 502 and error.value.detail == "dialogue_invalid_response"
+    assert service.failure_code(error.value) == "invalid_response"
+    refund.assert_awaited_once_with(db, ACTOR)
 
 
 async def test_deadline_during_admission_settles_same_commit_then_refunds(monkeypatch):

@@ -30,7 +30,7 @@ async def verify_content(*, owner, runtime, schema, actor, foreign_actor, siblin
             await connection.execute(text(f'ALTER TABLE "{schema}".{table} FORCE ROW LEVEL SECURITY'))
             predicate = "tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid"
             await connection.execute(text(f'CREATE POLICY gate_content_tenant ON "{schema}".{table} FOR ALL TO lms_app USING({predicate}) WITH CHECK({predicate})'))
-    body = "Перед отгрузкой проверьте номер заказа. Повреждённый товар отгружать запрещено."
+    body = "Перед отгрузкой проверьте номер заказа. Повреждённый товар отгружать запрещено. Срок согласования возврата здесь не указан."
     async with owner.connect() as connection:
         dimensions = await connection.scalar(text("SELECT atttypmod FROM pg_attribute WHERE attrelid='public.document_embeddings'::regclass AND attname='embedding'"))
         require(type(dimensions) is int and 1 <= dimensions <= 4096, "content_embedding_type_unknown")
@@ -53,6 +53,12 @@ async def verify_content(*, owner, runtime, schema, actor, foreign_actor, siblin
         require(payload["excerpts"][0]["text"] == body, "content_retrieval_wrong_text")
         if payload["question"] == "Provider outage":
             raise RuntimeError("synthetic")
+        if payload["question"] == "Missing with scope":
+            return SimpleNamespace(content=json.dumps({"status": "not_found", "answer": "Срок не указан.",
+                "citations": [{"handle": 1, "quote": "Срок согласования возврата здесь не указан."}]}))
+        if payload["question"] == "Malformed evidence":
+            return SimpleNamespace(content=json.dumps({"status": "not_found", "answer": "Срок не указан.",
+                "citations": [{"handle": 1, "quote": "PRIVATE_UNVERIFIED_PROVIDER_OUTPUT"}]}))
         if payload["question"] in {"Pointer flip", "Pointer flip not found"}:
             await sql("UPDATE embedding_active_revisions SET active_revision_id='other',generation=generation+1 WHERE tenant_id=:tenant AND document_id=:doc",
                 {"tenant": actor.tenant_id, "doc": str(doc_id)})
@@ -86,7 +92,25 @@ async def verify_content(*, owner, runtime, schema, actor, foreign_actor, siblin
         task = await call(lambda db, a: service.send_message(db, a, task.id, second, content_question=True))
         require(len(provider_calls[-1]["untrusted_history"]) == 1 and task.draft == initial_draft, "content_followup_lost")
         checks.append("content_recall_separate_from_draft")
+        missing_scope = SendDocumentMessage(request_id=uuid4(), expected_revision=task.revision, instruction="Missing with scope")
+        task = await call(lambda db, a: service.send_message(db, a, task.id, missing_scope, content_question=True))
+        response = task.exchanges[-1].response
+        require(response.status == "not_found" and len(response.citations) == 1 and task.draft == initial_draft
+            and task.plan_id is None, "content_missing_scope_not_persisted")
+        count = len(provider_calls)
+        require(await call(lambda db, a: service.send_message(db, a, task.id, missing_scope, content_question=True)) == task
+            and len(provider_calls) == count, "content_missing_scope_replay_reinferred")
+        excerpt = await call(lambda db, a: service.citation_source(db, a, task.id, missing_scope.request_id, 1))
+        require(response.citations[0].quote in excerpt.excerpt, "content_missing_scope_quote_lost")
+        checks.append("content_not_found_scope_quote_persistence")
         usage = tuple((await sql("SELECT cost_cents,request_count FROM tenant_llm_usage WHERE tenant_id=:tenant", {"tenant": actor.tenant_id})).one())
+        malformed = SendDocumentMessage(request_id=uuid4(), expected_revision=task.revision, instruction="Malformed evidence")
+        await reject(call(lambda db, a: service.send_message(db, a, task.id, malformed, content_question=True)), HTTPException, 502)
+        require(tuple((await sql("SELECT cost_cents,request_count FROM tenant_llm_usage WHERE tenant_id=:tenant", {"tenant": actor.tenant_id})).one()) == usage, "content_invalid_refund_not_durable")
+        task = await read(task.id)
+        require(task.exchanges[-1].error_code == "invalid_response" and task.exchanges[-1].response is None,
+            "content_invalid_response_not_private")
+        checks.append("content_invalid_response_private_refund")
         failed = SendDocumentMessage(request_id=uuid4(), expected_revision=task.revision, instruction="Provider outage")
         await reject(call(lambda db, a: service.send_message(db, a, task.id, failed, content_question=True)), HTTPException, 503)
         require(tuple((await sql("SELECT cost_cents,request_count FROM tenant_llm_usage WHERE tenant_id=:tenant", {"tenant": actor.tenant_id})).one()) == usage, "content_budget_refund_not_durable")

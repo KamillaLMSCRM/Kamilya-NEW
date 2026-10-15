@@ -53,7 +53,7 @@ class DocumentAnswer(Contract):
 
     @model_validator(mode="after")
     def evidence(self) -> "DocumentAnswer":
-        if bool(self.citations) != (self.status != "not_found"):
+        if self.status != "not_found" and not self.citations:
             raise ValueError("answer_evidence_required")
         if [c.number for c in self.citations] != list(range(1, len(self.citations) + 1)):
             raise ValueError("answer_citation_order")
@@ -165,7 +165,8 @@ def messages(question: str, language: str, recall: list[dict[str, Any]], excerpt
         "Respond in the requested language in useful plain text, no HTML, Markdown links or citation markers. "
         "For supported answers cite exact nonempty verbatim quotes from the provided text using integer handles. "
         "If evidence conflicts, status conflict: explain both positions with quotes and do not invent precedence. "
-        "If evidence is missing or insufficient, status not_found with no citations; say what is missing and ask "
+        "If evidence is missing or insufficient, status not_found; cite only exact quotes explaining the checked "
+        "scope or an explicit limitation when useful, otherwise citations is an empty array. Say what is missing and ask "
         "a focused clarification when helpful. Do not turn lack of evidence into a definitive real-world claim. "
         "Every factual statement must be supported by the cited excerpts. Schema: "
         + json.dumps(ModelAnswer.model_json_schema(), ensure_ascii=False))},
@@ -234,9 +235,12 @@ async def _answer_document(db: AsyncSession, actor: ActorContext, sources: tuple
             response = await provider.ainvoke(messages(question, language, recall, excerpts),
                 response_format={"type": "json_object"}, provider_deadline_seconds=8)
         return AnswerEvidence(parse_answer(response.content, excerpts), indexes, witnesses)
-    except (asyncio.CancelledError, ValueError):
+    except asyncio.CancelledError:
         await settle_refund(db, actor)
         raise
+    except ValueError as exc:
+        await settle_refund(db, actor)
+        raise HTTPException(502, "dialogue_invalid_response") from exc
     except Exception as exc:
         await settle_refund(db, actor)
         raise HTTPException(503, "dialogue_provider_unavailable") from exc

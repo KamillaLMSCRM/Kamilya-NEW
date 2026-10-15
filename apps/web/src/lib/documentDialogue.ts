@@ -72,7 +72,7 @@ function parseContentAnswer(v: any, sources: DocumentDialogueTask['sources']): D
     || !isText(v.answer, 8000) || !Array.isArray(v.citations) || v.citations.length > 8) throw new Error('Invalid document content answer');
   const citations = v.citations.map((citation: unknown) => parseCitation(citation, sources));
   if (new Set(citations.map((citation: DocumentContentCitation) => citation.number)).size !== citations.length
-    || (v.status === 'not_found' ? citations.length !== 0 : citations.length === 0)) throw new Error('Invalid document content citation set');
+    || (v.status !== 'not_found' && citations.length === 0)) throw new Error('Invalid document content citation set');
   return { ...v, citations } as DocumentContentAnswer;
 }
 function parseDialogueResponse(v: any, language: DocumentLanguage, sources: DocumentDialogueTask['sources']) {
