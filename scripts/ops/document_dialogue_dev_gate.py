@@ -52,6 +52,7 @@ SOURCES = (
     ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1.md",
     ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_1.md",
     ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_2.md",
+    ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_3.md",
 )
 EVIDENCE_RUNS = ("DOCUMENT55-20261015", "DOCUMENT56-20261015", "DOCUMENT57-20261015")
 REQUIRED_CHECKS = frozenset({

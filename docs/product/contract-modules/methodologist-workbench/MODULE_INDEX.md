@@ -2,7 +2,8 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
-Current implementation candidate: [window-budget/requested-scope V1.2](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_2.md)
+Current implementation candidate: [repeat-context/fact-dimension V1.3](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_3.md)
+extends [window-budget/requested-scope V1.2](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_2.md), which
 extends [coverage/follow-up V1.1](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_1.md), which
 extends [retrieval addendum V1](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1.md),
 2026-10-15. Balanced multi-source context and substantive opening fallback;

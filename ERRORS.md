@@ -7726,6 +7726,18 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   retry. Deterministic RED2/GREEN43 and actual no-model replay recover RU30day,
   KK60day and3/5day facts. Earlier failures remain recorded; fresh live semantic,
   isolated, exact CI/DEV and protected production acceptance are separate gates.
+- Third DEV a754ff12: independent35-case review33PASS/1PARTIAL/1FAIL and92/92
+  exact quotes. Repeated H03 echoed an old false absence; a new-task diagnostic
+  found the RU30day rule but still added an unasked approval-duration conflict.
+  New warehouse H03 likewise answered the requested start event but classified
+  an unasked length. These are observed context/focus failures, not missing-index
+  proof; model causality is not established by citation integrity alone.
+- V1.3: replace the later generic 'any conflict' policy that contradicted the
+  earlier requested-scope instruction. Require disagreement on the requested
+  dimension, with a signer/start-event-versus-duration contrast. Exclude only
+  normalized-identical prior questions from model recall, preserving other turns
+  and the complete archive. RED2/GREEN45/full3029/qualityPASS; new isolated,
+  live-regression/fresh-holdout and production acceptance remain separate gates.
 
 ## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
 

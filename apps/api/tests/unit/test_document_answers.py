@@ -231,6 +231,23 @@ def test_conflict_policy_is_requested_scope_not_assumed_enforceability():
     assert "both rules are in force" in system
 
 
+def test_repeated_question_does_not_feed_its_old_answer_back_as_context():
+    history = [{"question": "Who signs and what starts the review period?", "answer": "Incorrect old assertion"},
+        {"question": "Which options did you list?", "answer": "Option A and option B"}]
+    result = answers.messages("  WHO signs and what starts the review period?  ", "en", history, EXCERPTS)
+    data = json.loads(result[1]["content"])
+    assert data["untrusted_history"] == history[1:]
+    assert "Incorrect old assertion" not in result[1]["content"]
+    assert history[0]["answer"] == "Incorrect old assertion"
+
+
+def test_conflict_rule_requires_requested_dimension_not_incidental_duration():
+    system = answers.messages("Who signs?", "en", [], EXCERPTS)[0]["content"]
+    assert "If evidence conflicts, status conflict" not in system
+    assert "ONLY when" in system and "requested fact" in system
+    assert "start event is not its duration" in system
+
+
 async def test_retrieval_keeps_tail_and_exposes_sixteen_nonoverlapping_handles(monkeypatch):
     bodies = [str(index) * 3000 for index in range(8)]
     chunks = [(body, {"doc_id": str(SOURCE.document_id), "chunk_id": f"{index + 1:064x}",

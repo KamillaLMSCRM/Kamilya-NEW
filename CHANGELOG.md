@@ -155,6 +155,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Keep conflict status scoped to the requested facts and distinguish unresolved
   contradictory text from proof that both rules are in force. No public response
   shape, migration, voice, reserve or provider-routing change.
+- Re-evaluate repeated document questions against fresh source evidence without
+  feeding their own earlier answer back into model recall; preserve the visible
+  archive and other contextual turns. Distinguish a period's start event or the
+  responsible role from an unasked duration when classifying conflicts.
 
 ## [0.11.56] - 2026-10-15
 

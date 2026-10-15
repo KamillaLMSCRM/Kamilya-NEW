@@ -4705,3 +4705,27 @@ Rules:
 - Exact packet scope was local/offline only for `feature/document-multilingual57-20261015` at supplied baseline `2bbea62b2864ddcc8fc6c1ec3dbebb97cab16f16` plus Root-owned current diff. No source/test edits, Git mutation, network, provider, database, credential, production, or model activity. Frontend `pnpm typecheck` and `pnpm lint` both exited 0. Vitest exited 0: `.release-evidence/DOCUMENT57-20261015/web-full57-r1.json` SHA-256 `E77FBBDBA47A9247D16E52D659F0A9152060C8E2F1C3754DC7232652CEFA493F`, `1163/1163` passed tests, `340/340` suites, `0` failed and `0` pending. pnpm emitted the non-failing warning that the package `pnpm` field and `pnpm.overrides` are ignored by this pnpm version.
 - `py -3 scripts/validate_version.py --release --expected-version 0.11.57` exited 0: VERSION, API `pyproject.toml`, and web `package.json` agree on `0.11.57`. Exact requested journal regression `apps/api/tests/unit/test_error_journal_contract.py` was absent, so `NOT_RUN`; no substitute was run. API full report was supplied by Root, not executed here: `api-full57-r2.xml` SHA-256 `0C9C1D6265DBEB62AD1E18A41E6714309D7832F15B861E16A7EDEE7741BBE0E8`, reports `3023` tests, `0` failures/errors/skipped. Root-supplied Python quality PASS has no independently inspected artifact hash in this packet.
 - Holdout corpus/oracle were inspected as synthetic static materials only; no live answer was read or produced. Holdout semantic expectations were not exhaustively audited. This offline packet does not establish retrieval/model quality, runtime acceptance, or feature GO. Root review state: `PENDING`.
+
+### RUN-DOCUMENT57-REPAIR-20261015 — 2026-10-15 — offline evidence consolidation
+
+- Timestamp: `2026-10-15T17:56:54Z`.
+- Offline JSON/XML and SHA-256 review only at packet-supplied checkout SHA
+  `a754ff12e6f73239164cfcbb85c58bda06335aaf`; Git was not used. No tests or live
+  calls were performed by this reviewer. Consolidated report:
+  `.release-evidence/DOCUMENT57-20261015/runner-evidence57-r4.json`.
+- Supplied reports record API `3027/3027` passed (`api-full57-r4.xml`);
+  focused red evidence remains preserved (`focused57-r4-red.xml`, 2 failures in
+  36), and focused green records `43/43` passed (`focused57-r4-green.xml`). These
+  are Root-attributed reports, not this runner's test execution.
+- Candidate252 final/holdout matrices report 22+6 cases at exact SHA
+  `2522bfdf5d0999b90a8779cbd1dea4c467c28348`. Latest supplied semantic review
+  and append-only citation-count correction yield 28 cases: 26 pass, 1 partial,
+  1 fail; 74/74 citation exact-quote checks true. Semantic acceptance remains
+  pending and the review says `not_go`; retrieval cause is not proven. The
+  supplied R4 retrieval replay passes its three named cases, but does not close
+  the outstanding semantic case or prove broad completeness.
+- Root-supplied DEV holdout2 reconciliation reports both frozen sources indexed;
+  original BLOCKED receipts remain preserved. No model evaluation is claimed for
+  holdout2. No network, database, model, provider, deployment, or Git activity by
+  this reviewer. Elapsed time, token usage, and cost are `UNKNOWN`, not zero.
+  Root review state: `PENDING`.

@@ -64,6 +64,18 @@
   24000characters and scopes conflict/enforceability claims; RED2/GREEN43 and
   actual no-model replay PASS. Second fresh blind warehouse holdout7cases is
   Root-audited/frozen before calls, still unseen. Current delta review noP1/P2.
+  Current application candidate a754ff12e6f73239164cfcbb85c58bda06335aaf:
+  full3027/focused43/quality PASS; isolated R4 actual44/44 and37source hashes,
+  public guarded projections/catalog neutral and cleanup true,522.015seconds.
+  Current-SHA no-model main4/holdout3 replays PASS, including RU30day retention.
+  MasterCI38780786690 and DEV CI38782245270 all7SUCCESS. Exact DEV R3 controller
+  RELEASE_OK and independentRECONCILED. Actual35cases33PASS/1PARTIAL/1FAIL;
+  current retained H03 echoed an old false omission, fresh H03 had correct30/60
+  but unasked conflict. Warehouse H03 had unasked-duration status drift too.
+  V1.3 requested-dimension/identical-question context fix RED2/GREEN45/full3029/
+  qualityPASS; isolated R5 running, source frozen. New blind holdout3 four cases
+  Root-audited/frozen18:17 before calls. Next final matrix39 across12sources.
+  Production remains56; no57 tag or protected dispatch yet.
 - D57-DEV IN_PROGRESS: proportional regression, isolated canonical DEV gates
   when source/SQL boundaries change, independent source review, exact CI/artifact,
   actual ordinary-role browser/model multilingual/multisource/source/download/
