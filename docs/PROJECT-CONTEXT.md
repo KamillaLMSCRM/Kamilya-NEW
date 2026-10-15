@@ -25,7 +25,48 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current environment — backend/native/DEV55,2026-10-15
+## Current environment — backend/native/DEV56,2026-10-15
+
+Runtime/tagv0.11.56 exact8a612c199423bb4839e03cfae3d8ce7f201ca332; masterCI38757324407,
+DEVCI38758238172, native38757356879/artifact11983638875 and protected38759477177
+SUCCESS. Native REL-DOCUMENT56-WEB-R3-20261015 RELEASE_OK. API+three blue workers
+image74b95aa9…552b3/running/restarts0, public/private/native current/marker/body
+exact8a. CT1250181 unchanged/two dialogue tablesFORCE-RLS, non-BYPASS lms_app,
+all flags/controller25fa90f7…a3d2e unchanged. Saved routing entire row SHA
+7834c8c373ade40508574aeac2ed69d2592fa63cc41d95196f73ba8f5165da3f unchanged,
+revision3/order unchanged/reserveOFF. No voice/connector/provider tier change.
+
+Bounded document-content Q&A now accepted, including contextual follow-up,
+supported/not_found/conflict statuses, server-derived exact citation windows,
+authenticated excerpt/original download and durable private reopen after reload.
+Questions do not modify a course brief or execute an operation. Generation remains
+a separate preparation/preview/confirm flow. Actual Supabase DEV44/44 isolated
+checks/owned cleanup/guarded-public neutrality and full API3013/web1163 pass.
+Six final real-model DEV questions on c78; apps/scripts/workflows/product-contract
+tree equivalence to8a and fresh final8a browser/111 assertions separately accepted.
+Existing DEV Free API dep-db8esblg1s2s73a1v7r0, Free worker dep-db8et9g473hc739h0tng,
+Hobby Vercel dpl_DkEBKHKJviZVuHYxdazKEj1WfVB4; no resource/billing changes.
+
+Production Root actual browser six replies/zero failures, conflict/abstention,
+two-point simplification, no execution, original download exact SHA, full reload
+and recent-task reopen passed. Separate Test Runner43 assertions passed:6 exchanges,
+7 citations/excerpts, student403 four routes, old dialogue and seven selected
+completed projections unchanged, empty brief/planNULL/no new course-generation job.
+Bounded20 recent-job inventory has1 new job of unverified provenance; no all-row
+equality or human-efficiency/latency guarantee. Retained QA documentae6b5de0…/
+task81abbe1d…/revision13; originalSHA9ec7fb5e…a3638c. No real-tenant/business cleanup.
+
+Signed0181 restore3d560730…9581f/RPO43/RTO19/126tables/122FORCE-RLS plus old private
+task/3 exchanges restored; owned temporary DB/directories0 independently confirmed.
+API immediate rollback55/green5c3a… healthy/oldworkers stopped, native actual55/381…
+marker/boundary verified, extra53/18cc/protected359/299 retained; switchNOT_RUN.
+Old55 cannot render56 answered history; preserve it and roll forward for new Q&A.
+Standing-rule obsolete native51/exact staging cleanup only, recoverable offhost;
+native postdeployfree1114716KiB. Watchdog56/image74b/thresholds unchanged, both timers
+active/oneshots success; VM12680%/6412204KiB free. No Proxmox/rights/DNS/tier changes.
+Detailed current proof/limits: PRODUCTION_READINESS/release56/TEST_RUN_LEDGER.
+
+## Historical environment — backend/native/DEV55,2026-10-15
 
 Runtime/tagv0.11.55 exact381692f9c6e8781a795c3542c19d649ffbc28f09. MasterCI38728397645,
 DEV38729390192, native38729003184/artifact11968902851, protected38731305223 SUCCESS;

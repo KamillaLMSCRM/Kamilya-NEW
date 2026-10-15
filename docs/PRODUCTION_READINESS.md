@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** API/three workers/native frontend55; live DEV/prod saved document preparation accepted2026-10-15; schema0181; ChatGPT reserve OFF; VM126disk78%, ops timers/last checks healthy
+**Проверено:** API/three workers/native frontend56; live DEV/prod document-content dialogue accepted2026-10-15; schema0181 unchanged; ChatGPT reserve OFF; VM126disk80%, ops timers/last checks healthy
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,94 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production55 — saved document preparation accepted, 2026-10-15
+## Current production56 — document-content dialogue accepted, 2026-10-15
+
+Root accepted the bounded DOCUMENT_CONTENT_DIALOGUE_V1 journey, not exhaustive
+retrieval, universal factual accuracy or the entire assistant epic. Runtime/tag
+v0.11.56 exact8a612c199423bb4839e03cfae3d8ce7f201ca332. Master CI38757324407,
+DEV CI38758238172, native38757356879/artifact11983638875 and protected backend
+38759477177 SUCCESS. Native REL-DOCUMENT56-WEB-R3-20261015 RELEASE_OK, followed
+by independent technical readback and separate actual product acceptance.
+
+API+three blue workers run immutable image
+74b95aa942bc668e75b7764e52e24ac0709fb3a5a55de774d7d76a91e77552b3,
+exact8a/restarts0/all existing flags unchanged. Public/private API and native
+current/marker/public header/body exact56. CT1250181 and both dialogue tables
+FORCE-RLS, runtime lms_app non-super/non-BYPASS unchanged. No migration, reindex
+or controller update. Entire routing-row SHA
+7834c8c373ade40508574aeac2ed69d2592fa63cc41d95196f73ba8f5165da3f unchanged;
+saved order/revision3 unchanged, reserveOFF. Voice/connector untouched.
+
+Methodologists choose1–5 ready sources, start a private task without a course
+brief, ask factual questions and contextual follow-ups, open verified citations
+and excerpts, download the current authorized original, and reopen history after
+reload. Questions cannot prepare/confirm a plan or execute an assignment. Course
+preparation remains a separate mode/confirmation path. Model selects only bounded
+server-owned evidence-window handles; citation text/identity are server-derived.
+Up to8 verified chunks/24000 characters become at most16 windows; at most8 public
+citations. Missing evidence and conflicts are explicit statuses, not permission
+to invent missing facts. Every retained source is rechecked, not only cited ones.
+Malformed model output returns generic502 with settled/refunded reservation and
+private failed receipt; uncertain POST outcomes require explicit GET recovery.
+
+Final application-equivalent c78 full API3013/web1163 tests and isolated actual
+Supabase DEV R7 44/44 passed; frozen34 source hashes match8a. R7 elapsed647.688s,
+connection peak2, owned schema cleanup/public catalog and ten guarded public-table
+projections unchanged. Fake provider only in isolated SQL/service gate, not semantic
+proof. Web report340 suites/160 file-results. Final8a CI independently green.
+Only release-note/journal metadata changed c78→8a; tree/hash equivalence and
+independent local receipt review passed. Earlier failed receipts remain preserved.
+
+DEV Free/Free/Hobby exact8a: API dep-db8esblg1s2s73a1v7r0, worker
+dep-db8et9g473hc739h0tng, Vercel dpl_DkEBKHKJviZVuHYxdazKEj1WfVB4;
+REL-DEV-DOCUMENT56-R5-20261015 RELEASE_OK, existing flags unchanged. Six final
+actual model questions on identical c78 app passed; fresh8a browser restoration
+and111 API assertions passed without unnecessary paid reinference. DEV history
+retains24 exchanges including6 historical failed pre-fix/earlier-version exchanges.
+The failed raw capture with8996 replacement characters was a Windows PTY harness
+encoding artifact, preserved and excluded from semantic acceptance.
+
+Production Root actual browser: uploaded synthetic qa-source56, started task with
+empty brief, six real-model replies/zero failed: dispatch facts, two-point contextual
+simplification, unresolved2-versus3-day conflict, absent bonus, non-executing action
+request, and separate-invoice answer after full reload. Source modal/excerpt,
+browser original download/hash, Escape/focus, recent-task close/reopen all passed.
+Independent Test Runner43 assertions verified6 exchanges/7 citations/7 excerpts,
+immutable sources/private no-store/download headers, ordinary student403 on list,
+task, excerpt and download, unchanged old55 dialogue and seven selected completed
+enrollment projections, empty brief/planNULL and no new course-generation job.
+Recent jobs bounded20 included1 newly observed job; its provenance was not
+determined by that readback. Authentication may update login audit fields. No
+claim of all-column tenant/database equality, latency SLA or human speedup.
+
+Production QA tenant83552ce6… retains sourceae6b5de0-32ec-46e2-b435-3abd99059ccb,
+task81abbe1d-14a6-4a73-9626-3064f3aaa6cc/revision13/six replies. DEV retains source
+ee9206b6…/taskd980876d…/revision49. Original file SHA
+9ec7fb5eff82c87c206ff8fddf615c3587dc0a56b374d29dc269630e27a3638c verified in
+both environments. Old marked QA history/learning remains; no tenant recreation,
+publication, assignment, email, learning reset or business-data cleanup in this flow.
+
+Fresh signed0181 restore report3d560730…9581f before rollout:126 public tables/
+122FORCE-RLS, RPO43s/RTO19s, old QA private task and3 exchanges restored; independent
+signature/readback and owned disposable DB/temp counts0. Production never restored.
+Backend immediate rollback55/green image5c3a61ae…57fada healthy, old3workers stopped;
+native actual immediate rollback55/381692f9… independently latest-marker/boundary
+verified. Retained53/18cc and protected359/299 remain. Actual rollback switch NOT_RUN.
+IMPORTANT: old55 app cannot render new56 answered history despite unchanged schema;
+retain it and roll forward for that feature, never delete exchanges to downgrade.
+
+Native preflights preserved: superseded read-only download canceled, then capacity
+BLOCKED; no transport/config defect was proven. Standing rule removed ONLY obsolete
+native51/85933da4… and exact staging pair after original offhost hashes/tree/success
+proof. Free1114876→1762856KiB, then native56 installed; final1114716KiB. Recovery
+archive3cf20925…3e8 and manifeste1c9ab7e…f0e6 retained offhost. No further cleanup
+authorized. Watchdog56/image74b, only2 identity keys changed with backup, thresholds
+byte-unchanged, both timersactive/oneshots success0; VM12680%/6412204KiB free.
+No API-image prune, Proxmox, DNS, privileges, provider billing/tier/resource changes.
+Receipts/screenshots .release-evidence/DOCUMENT56-20261015 and native R3; release56
+notes and append-only TEST_RUN_LEDGER. Old55 section below is historical, not current.
+
+## Historical production55 — saved document preparation accepted, 2026-10-15
 
 Bounded DOCUMENT_DIALOGUE_V1 accepted, not general document Q&A or the full
 assistant epic. Runtime/tagv0.11.55 exact381692f9c6e8781a795c3542c19d649ffbc28f09;

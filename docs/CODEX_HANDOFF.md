@@ -1,11 +1,39 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-10-14
+**Обновлено:** 2026-10-15
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`
-**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `fix/learner-presentation-release-20261010`; source published to `master`
+**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `feature/document-content56-20261015`; runtime source published to `master`/`dev`
 
-## Current production/DEV51 — durable selected-lesson dialogue accepted
+## Current production/DEV56 — document-content dialogue accepted
+
+Runtime/tagv0.11.56 exact8a612c199423bb4839e03cfae3d8ce7f201ca332; CI38757324407,
+DEV38758238172/native38757356879/protected38759477177 SUCCESS. BackendAPI+3blue
+workers/image74b95aa9…552b3/native current/marker/public exact8a. Schema0181,
+controller25fa90f7…a3d2e/RLS/routing-row7834c8c3…5da3f unchanged; reserveOFF,
+voice deferred. No provider billing/resources/rights/DNS/Proxmox changes.
+
+Root real production QA six replies/zero failed, contextual simplification,
+conflict/abstention/no-action, full reload/recent reopen/source/download/hash/Escape
+passed. Independent Test Runner43 assertions,7citations/excerpts/student403four
+routes/old dialogue+7selected completed projections unchanged. Task81abbe1d…rev13,
+sourceae6b5de0… retained in permanent QA83552ce6…. Empty brief/planNULL/no new course
+job; bounded20jobs include1 of unverified provenance. No all-row equality/SLA claim.
+DEV final8a restoration/111 assertions, six semantics on identicalc78app; source
+equivalence explicit. API3013/web1163/actualisolated44 checks+cleanup passed.
+
+Signed181 restore3d560730…9581f/RPO43/RTO19/disposable absence verified. Actual
+backend/native immediate rollback55 retained, extra native53/protected359/299 kept;
+old55 cannot render new56 answered exchanges: retain history/rollforward, not purge.
+Obsolete native51/exact staging only removed with verified recovery. Nativefree
+1114716KiB, VM12680%, watchdog56/timers/checks healthy/thresholdsunchanged.
+Final canonical facts: PRODUCTION_READINESS/release56/TEST_RUN_LEDGER/user docs;
+ignored evidence DOCUMENT56-20261015/nativeREL-DOCUMENT56-WEB-R3-20261015.
+Never retag/redeploy8a for a documentation-only final child. Broader semantic
+benchmark, cross-document completeness and UX refinement remain future work;
+voice/reserve activation are not authorized by continuation of this package.
+
+## Historical production/DEV51 — durable selected-lesson dialogue accepted
 
 Runtime/tagv0.11.51 source85933da4b2bb48a43da4a380dfd36a73c5b195b7;
 masterCI38574563481/native38574699131/protected38575499511 SUCCESS.

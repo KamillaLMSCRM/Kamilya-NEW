@@ -4632,3 +4632,70 @@ Rules:
   DEV product acceptance, runtime deployment and production acceptance remain
   `NOT VERIFIED`. Synthetic fixture cleanup is receipt-attested; no feature GO
   is implied. Root review state: `PENDING`.
+
+### RUN-DOCUMENT56-LOCAL-R6-20261015 — 2026-10-15 — offline final local artifact receipt review
+
+- Test & Evidence Runner offline artifact review. Packet-designated checkout SHA
+  `d72e0470e1a20e042695f0119f569446a035f568` (Git access was prohibited, so SHA
+  was not independently queried). No tests rerun and no network, runtime, provider,
+  database, browser, fixture, or Git mutation. R6 `isolated-dev-r6.json` (SHA-256
+  `e109f80fb6081b4582985630db26fcd1ee60f62e2babf0e795380f44611bc0d0`) reports
+  `PASS`, `44/44` unique checks; all `34/34` source-manifest hashes matched current
+  files. The two named not-found scope/quote persistence and invalid-response
+  private-refund checks are present. Receipt attests cleanup/source unchanged,
+  public-schema-neutral, catalog unchanged, zero changed public tables, matching
+  before/after public snapshots, fake provider only and connection peak `2`.
+  Semantic quality remains `NOT_VERIFIED`.
+- Local reports: `api-full56-r3.xml` (SHA-256
+  `a5569929dd6b36d424682e77dcec6440ecea1d06b130c861a9f48b60e7ccc94c`),
+  `3011` tests, `0` failures/errors, `0` skipped; `web-full56-r5.json` (SHA-256
+  `f4592be94983d2cdf0f41b6f4521ed77c563f5f2b25e67d5a67dcbf72c82f18e`),
+  `1163` tests across `160` suites, `0` failed, `0` pending. These report counts
+  are not runtime or semantic acceptance. Previous R1-R5 blocked receipts remain
+  preserved and unmodified; real DEV and production remain `NOT VERIFIED`.
+- Scoped review receipt `.release-evidence/DOCUMENT56-20261015/local-acceptance56-final.json`
+  SHA-256 `e19369a9a7e1be0ba7765f287f6a201c7bd051ba8e42cdabc3e4292e359b3c95`;
+  status `PASS_SCOPED_LOCAL_RECEIPT_REVIEW`. Receipt review only; cleanup for this
+  runner was not applicable. No overall feature GO is implied. Root review state:
+  `PENDING`.
+
+### RUN-DOCUMENT56-LOCAL-R6-20261015-CORRECTION-1 — 2026-10-15 — web report count labeling correction
+
+- Append-only correction to `RUN-DOCUMENT56-LOCAL-R6-20261015`; the original
+  ledger entry and `.release-evidence/DOCUMENT56-20261015/local-acceptance56-final.json`
+  remain unchanged. The web JSON `numTotalTestSuites` and `numPassedTestSuites`
+  are both `340`; `testResults.length` is `160` file results, not suites. The
+  report still records `1163` tests, `0` failed and `0` pending. API counts,
+  R6 receipt findings, source hashes, scope, limitations and status are unchanged.
+- Corrected receipt `.release-evidence/DOCUMENT56-20261015/local-acceptance56-final-r2.json`
+  SHA-256 `999b59459bf24e081195f2085c5ea8240fc7f170107169b15b3894751a4a559c`;
+  status `PASS_SCOPED_LOCAL_RECEIPT_REVIEW`, same scope/input hashes/source hashes
+  as the superseded receipt, with explicit `numTotalTestSuites: 340` and
+  `test_file_results: 160`. Offline correction only; no tests, runtime, network,
+  database, provider, browser, or source edits. Root review state: `PENDING`.
+
+### RUN-DOCUMENT56-LOCAL-R7-20261015 — 2026-10-15 — final isolated receipt review
+
+- Offline artifact review only at exact SHA `c78cec19fd9e8682db41cf38c802bcb1cd1dc292` as supplied in the Root packet; Git was not used. The isolated R7 receipt `.release-evidence/DOCUMENT56-20261015/isolated-dev-r7.json` (SHA-256 `b15b18ea953ec5f74cdf2d8990a428813c7c7c3e607bdc3a5feac79bf8d31a46`) reports `PASS`, `44/44` unique checks, and all `34/34` source hashes matched the current checkout. Required not-found scope/quote persistence and invalid-response private-refund checks are present. The receipt attests cleanup and source unchanged, public-schema-neutral, public catalog unchanged, zero changed public tables, matching before/after public snapshots, fake provider only, connection peak `2`, and elapsed `647.688` seconds. Semantic quality remains `NOT_VERIFIED`.
+- API report `.release-evidence/DOCUMENT56-20261015/api-full56-r5.xml` (SHA-256 `2897923c0a2204c80b82488b6432a97ea2f8ea8f64862eab6cfa2a3a355dc18f`) records `3013` tests, `0` failures/errors, and `0` skipped. Web report `.release-evidence/DOCUMENT56-20261015/web-full56-r6.json` (SHA-256 `4b75c895a1be9b1c6a8bc187fe41427b165248fcae8c3772b91a886bd498c806`) records `1163` tests, `0` failed, `0` pending, `340/340` suites, and `160` file results. No tests were rerun. No network, runtime, provider, database, browser, credentials, model, or Git activity.
+- New scoped receipt `.release-evidence/DOCUMENT56-20261015/local-acceptance56-final-r3.json` status `PASS_SCOPED_LOCAL_RECEIPT_REVIEW`; this is local evidence review only. Prior R1-R5 blocked receipts remain preserved and unmodified. Live DEV acceptance, production acceptance, runtime deployment, and real-model semantic quality remain `NOT VERIFIED`; no overall feature GO is implied. Root review state: `PENDING`.
+
+### RUN-DOCUMENT56-LOCAL-METADATA-R4-20261015 — 2026-10-15 — metadata-only release equivalence review
+
+- Offline metadata review for exact release SHA `8a612c199423bb4839e03cfae3d8ce7f201ca332`; Git, network, credentials, tests, runtime, provider, and database were not used. Metadata-equivalence receipt `.release-evidence/DOCUMENT56-20261015/metadata-equivalence56.json` (SHA-256 `69916794aeae711b7fef596e88e51e0a42cba0b22150b138352850b6c50f1971`) reports `PASS_SOURCE_EQUIVALENCE_ONLY`: release-mode validation passes; the `apps`, `scripts`, `.github`, and `docs/product` trees are unchanged from accepted semantic SHA `c78cec19fd9e8682db41cf38c802bcb1cd1dc292`; only `ERRORS.md` and `docs/releases/v0.11.56.md` are named as changed paths. The R7 manifest's `34/34` hashes still match current files. This is a source-equivalence claim, not fresh runtime or semantic acceptance for `8a612c199423bb4839e03cfae3d8ce7f201ca332`.
+- Reused exact R7/API/web artifacts from R7 review without reruns: `isolated-dev-r7.json` SHA-256 `b15b18ea953ec5f74cdf2d8990a428813c7c7c3e607bdc3a5feac79bf8d31a46` (`44/44` unique checks, cleanup/source/public-neutral/catalog claims pass); `api-full56-r5.xml` SHA-256 `2897923c0a2204c80b82488b6432a97ea2f8ea8f64862eab6cfa2a3a355dc18f` (`3013` tests, `0` failed/errored, `0` skipped); `web-full56-r6.json` SHA-256 `4b75c895a1be9b1c6a8bc187fe41427b165248fcae8c3772b91a886bd498c806` (`1163` tests, `0` failed/pending, `340/340` suites, `160` file results). Root supplied CI run `38757324407` and native build `38757356879` as successful; not independently verified here.
+- New scoped receipt `.release-evidence/DOCUMENT56-20261015/local-acceptance56-final-r4.json` status `PASS_SCOPED_LOCAL_RECEIPT_REVIEW`; receipt SHA-256 `c7ac98f60154808638b842bbd096142899cc6efc50f4962b1b19cb8688caac1c`. Prior live six-question DEV/browser and 111 readback checks remain attributed to `c78cec19fd9e8682db41cf38c802bcb1cd1dc292`, not relabeled to `8a612c199423bb4839e03cfae3d8ce7f201ca332`. Fresh runtime verification on `8a612c199423bb4839e03cfae3d8ce7f201ca332` remains required; no production acceptance or overall feature GO implied. Root review state: `PENDING`.
+
+### RUN-DOCUMENT56-PROD-READBACK-8A-20261015 — 2026-10-15 — production ordinary-role readback
+
+- Fresh production readback on runtime SHA `8a612c199423bb4839e03cfae3d8ce7f201ca332` for QA tenant `83552ce6-8058-4561-abe3-cfbda14e030a`, task `81abbe1d-14a6-4a73-9626-3064f3aaa6cc`. The runner first made one ordinary methodologist login and read the exact task sources; one source matched the expected title `qa-source56`, version `1`, index revision `1`, and content SHA-256 `9ec7fb5eff82c87c206ff8fddf615c3587dc0a56b374d29dc269630e27a3638c`. Sanitized identity evidence: `.release-evidence/DOCUMENT56-20261015/prod-source-identity56.json` (SHA-256 `90dd43ebfe11225a14f58a99fd61092ee351b69ab11b8b1bb42ee79024d99620`).
+- Executed exactly `C:\Kamilya New\Kamilya-NEW\.venv\Scripts\python.exe .release-evidence/DOCUMENT56-20261015/readback56.py prod --expected prod-expected56-final.json --receipt prod-acceptance56-final.json --student-negative`; helper SHA-256 `cc48b94e33258e68b14845dfb6b3f821cb69f3da3362f5986bcd3f444898a1bc`. At `2026-10-15T15:46:25.385957Z`, result `PASS`, `43/43` checks, six ordered exchanges with expected statuses and `0` failed, `7` source citations and `7` excerpt readbacks, exact original-download hash and exposed filename header, ordinary student denied on list/task/excerpt/download, legacy dialogue unchanged, all seven selected completed enrollments unchanged, exact task/source/draft recovery checks pass, and no new course-generation job. Recent-job inventory returned `20`; one job ID was newly observed versus the baseline, with no course-generation type. Its provenance was not determined by this readback.
+- Helper receipt `.release-evidence/DOCUMENT56-20261015/prod-acceptance56-final.json` SHA-256 `a31b7b6e76b6e92b9cd2f60edc9a3b49991a89c82b6424a75107213716213089`. Three ordinary logins total were used for this packet (initial methodologist identity readback, then methodologist/student in the helper); authentication may update login audit fields. Helper reports `business_writes: 0`, `inference_calls: 0`; no business/model write or cleanup was performed. Root's production browser six-message matrix/revision `13` is a supplied observation, separate from this independently executed API readback. Runtime and identity are verified only for the exact scope above; no broader release or feature GO is implied. Root review state: `PENDING`.
+
+### RUN-DOCUMENT56-ROOT-FINAL-20261015 — 2026-10-15 — bounded live acceptance
+
+- Root accepted the preceding independent local R7/metadata and production readback scopes after checking the actual artifacts and source boundaries. Runtime/tag exact `8a612c199423bb4839e03cfae3d8ce7f201ca332`; CI38757324407, DEV38758238172, native38757356879/artifact11983638875 and protected38759477177 SUCCESS. API+3blue workers exact immutable image74b95aa9…552b3, native current/marker/public exact8a. No migration;0181/two dialogue tables FORCE-RLS/runtime role/controller/routing unchanged, reserveOFF/voice untouched. Fresh backend-final56/final-ops56/native-root-readback56 receipts PASS. Actual backend/native immediate rollback55 retained; old55 cannot render new answered history, so preserve it and roll forward for that feature. Actual rollback switch NOT_RUN.
+- Root actual IAB production QA task `81abbe1d-14a6-4a73-9626-3064f3aaa6cc`/revision13, source `ae6b5de0-32ec-46e2-b435-3abd99059ccb`: six real-model replies, zero failed, manually compared to the already-read synthetic fixture. Dispatch facts, exactly two simplified points, explicit two-versus-three-day conflict/no invented priority, absent bonus/no invented amount, no action claim, separate invoice after full reload all passed. Source modal/excerpt, original actual browser download/hash, Escape/focus and reset/recent-task reopen passed. Evidence `prod-browser56-final.json`; actual screenshots `prod-source56-final.png`, `prod-dialogue56-final.png`, `prod-dialogue56-result.png` saved and viewed. Independent API43 assertions separately passed as above. No course/publication/assignment/email/learning-reset operation was requested or performed through this Q&A flow. One newly observed job in the bounded20-job readback has unverified provenance; no course-generation job was new.
+- Final DEV controller R5 exact8a/API dep-db8esblg1s2s73a1v7r0/worker dep-db8et9g473hc739h0tng/Vercel dpl_DkEBKHKJviZVuHYxdazKEj1WfVB4 passed. Six final real-model semantic answers remain attributed to byte-identical c78 app source;8a fresh browser restoration and111 API assertions separately passed. Prior failed exchanges and frozen failed receipts retained, not overwritten or relabelled. This is one synthetic source, not exhaustive semantic accuracy, retrieval completeness, latency/capacity, provider comparison or a human-efficiency benchmark.
+- Signed0181 restore report3d560730…9581f/RPO43/RTO19/126tables/122FORCE-RLS and owned DB/temp absence verified before release. Standing-rule cleanup removed only recoverable obsolete native51/exact staging pair; independent cleanup51-readback56 PASS, recovery hashes retained offhost. Current56/actual55/extra53/protected359/299 preserved; final native free1114716KiB, VM12680%, watchdog56/thresholds unchanged/both timers and oneshots healthy. No further cleanup, Proxmox, billing/tier/resource/DNS/rights mutation. Canonical readiness/context/release56/user documentation/handoff/backlog updated. The final pure `no_migration_final` gate is a separate structural check, not a substitute for these Root observations.
+- Delegation used the existing bounded Release Runner and Test Runner, with English packets and separate evidence ownership; model/effort and per-task token counters were not exposed and are UNKNOWN, not zero. No new external resources. Root final review accepted the bounded feature, not the whole assistant epic. Cosmetic preparation-label debt and broader RU/KK/multidocument evaluation remain explicit backlog items.
