@@ -7767,6 +7767,15 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   previous question/answer equality plus empty older history and unchanged draft;
   rerun the full owned gate rather than counting the old receipt as PASS.
 
+- Sixth DEV c5bfe776 completed42 real-model exchanges, no execution failures;
+  independent semantic review found39PASS/2PARTIAL/1FAIL. D57-16 selected one
+  archival card and correctly rejected its injected example, but treated the
+  reference to another unavailable rule as an evidenced competing value. Keep
+  the failure and frozen oracle. V1.6 requires two evidenced opposing positions;
+  uncertain precedence by itself is not conflict. Also exclude unasked duration
+  numbers/priority discussion, the two grounded but unfocused partial answers.
+  No post-hoc status rewrite, extra inference, routing/schema/authority change.
+
 ## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
 
 - Date: 2026-10-15, DOCUMENT57.

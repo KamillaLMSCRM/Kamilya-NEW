@@ -81,6 +81,17 @@
   actual ordinary-role browser/model multilingual/multisource/source/download/
   reload checks and semantic review on final unchanged candidate. Existing free
   contours only, no migration unless separately designed and verified.
+  Subsequent V1.4/V1.5 candidates preserved every failed/partial receipt. Exact
+  c5bfe776 DEV R6 completed42 exchanges over12sources: independent semantic
+  review39PASS/2PARTIAL/1FAIL. Its actual Kazakh browser C-8→L-2→simplify chain
+  passed and all8articles restored exactly, first5unchanged; DOCX bytes matched.
+  D57-16 still inferred conflict from a card referring to unavailable material;
+  two other replies added grounded but unasked durations/priority. V1.6 requires
+  two evidenced opposing positions, excludes those additions and avoids internal
+  classification narration. Controlled probes correct the two targeted questions;
+  they are not live acceptance and predate the final plain-language sentence.
+  Current isolated R9 is running in a quiet window;3034unit/script tests passed.
+  Production remains56, tag57/protected workflow absent. No oracle weakening.
 - D57-RELEASE NOT_STARTED: exact-source release gate, signed backup/restore,
   rollback/capacity, protected backend/native release only if there is an accepted
   application change; current56 not redeployed merely for evaluation documentation.

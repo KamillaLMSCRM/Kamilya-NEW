@@ -46,6 +46,15 @@ def test_current_question_is_last_after_untrusted_context():
     assert "Finish when the requested points are covered" in answers.messages("Why?", "en", [], EXCERPTS)[0]["content"]
 
 
+def test_conflict_requires_two_evidenced_positions_not_an_unavailable_reference():
+    system = answers.messages("Is this card's deadline conclusively applicable?", "en", [], EXCERPTS)[0]["content"]
+    assert "two evidenced opposing positions" in system
+    assert "reference to another unavailable rule" in system
+    assert "uncertain precedence alone is not conflict" in system
+    assert "Do not include unasked numerical durations even as parenthetical context" in system
+    assert "unless asked about it or explaining two opposing positions on a requested fact" in system
+
+
 def test_immediate_previous_turn_is_separate_without_history_duplication():
     history = [{"question": f"Topic {n}", "answer": f"Answer {n}"} for n in range(5)]
     data = json.loads(answers.messages("Make this answer simpler", "en", history, EXCERPTS)[1]["content"])
