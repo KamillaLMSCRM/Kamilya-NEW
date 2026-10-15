@@ -4944,6 +4944,17 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   hard gate before Git authentication and push, not a later production-only
   check.
 
+### Recurrence 2026-10-15 (DOCUMENT56)
+
+- The first56 candidate notes had a prose heading without the three canonical
+  release identity markers. Development-mode CI and real DEV passed, but the
+  existing release-mode preflight stopped before creating a local or remote tag.
+- Restored only the note identity/status and this recurrence record. Application,
+  migrations, tests, workflows and deployment helpers remain byte-identical to
+  the accepted c78cec19 feature candidate. Release-mode validation must pass
+  before the replacement metadata SHA is pushed; bind the existing semantic
+  evidence by source hashes and independently reverify the final runtime SHA.
+
 ## AI-QUALITY-029 - A title-matching sole section or small catalog distorted source density
 
 - Date: 2026-09-23. Local candidate only; no DEV or production deployment.
