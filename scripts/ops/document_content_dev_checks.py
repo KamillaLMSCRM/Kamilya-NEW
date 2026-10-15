@@ -55,7 +55,7 @@ async def verify_content(*, owner, runtime, schema, actor, foreign_actor, siblin
             raise RuntimeError("synthetic")
         if payload["question"] == "Missing with scope":
             return SimpleNamespace(content=json.dumps({"status": "not_found", "answer": "Срок не указан.",
-                "citations": [{"handle": 1, "quote": "Срок согласования возврата здесь не указан."}]}))
+                "citations": [{"handle": 1}]}))
         if payload["question"] == "Malformed evidence":
             return SimpleNamespace(content=json.dumps({"status": "not_found", "answer": "Срок не указан.",
                 "citations": [{"handle": 1, "quote": "PRIVATE_UNVERIFIED_PROVIDER_OUTPUT"}]}))
@@ -65,14 +65,15 @@ async def verify_content(*, owner, runtime, schema, actor, foreign_actor, siblin
         if payload["question"] == "Pointer flip not found":
             return SimpleNamespace(content=json.dumps({"status": "not_found", "answer": "В доступных фрагментах срок не указан.", "citations": []}))
         return SimpleNamespace(content=json.dumps({"status": "supported", "answer": "Проверьте номер заказа.",
-            "citations": [{"handle": 1, "quote": "Перед отгрузкой проверьте номер заказа."}]}))
+            "citations": [{"handle": 1}]}))
 
     with patch.object(core_db, "async_session_factory", async_sessionmaker(runtime, expire_on_commit=False)), \
          patch.object(answers.ResilientLLMClient, "from_settings_async", AsyncMock(return_value=SimpleNamespace(ainvoke=invoke))):
         request = SendDocumentMessage(request_id=uuid4(), expected_revision=task.revision, instruction="Что проверить перед отгрузкой?")
         task = await call(lambda db, a: service.send_message(db, a, task.id, request, content_question=True))
         require(task.draft == initial_draft and task.plan_id is None and task.exchanges[-1].response.state == "answered", "content_changed_preparation")
-        require(task.exchanges[-1].response.citations[0].chunk_id == chunk_id, "content_real_chunk_identity")
+        require(task.exchanges[-1].response.citations[0].chunk_id == chunk_id
+            and task.exchanges[-1].response.citations[0].quote == body, "content_real_chunk_identity")
         require(await read(task.id) == task, "content_reload_changed")
         require(await call(lambda db, a: service.send_message(db, a, task.id, request, content_question=True)) == task
             and len(provider_calls) == 1, "content_replay_reinferred")
@@ -101,7 +102,8 @@ async def verify_content(*, owner, runtime, schema, actor, foreign_actor, siblin
         require(await call(lambda db, a: service.send_message(db, a, task.id, missing_scope, content_question=True)) == task
             and len(provider_calls) == count, "content_missing_scope_replay_reinferred")
         excerpt = await call(lambda db, a: service.citation_source(db, a, task.id, missing_scope.request_id, 1))
-        require(response.citations[0].quote in excerpt.excerpt, "content_missing_scope_quote_lost")
+        require(response.citations[0].quote == body and response.citations[0].quote in excerpt.excerpt,
+            "content_missing_scope_quote_lost")
         checks.append("content_not_found_scope_quote_persistence")
         usage = tuple((await sql("SELECT cost_cents,request_count FROM tenant_llm_usage WHERE tenant_id=:tenant", {"tenant": actor.tenant_id})).one())
         malformed = SendDocumentMessage(request_id=uuid4(), expected_revision=task.revision, instruction="Malformed evidence")

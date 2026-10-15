@@ -29,38 +29,59 @@ EXCERPTS = [{"handle": 1, "source": SOURCE, "chunk_id": CHUNK_ID, "text": TEXT}]
 
 def payload(**updates):
     return json.dumps({"status": "supported", "answer": "Verify the order number before dispatch.",
-        "citations": [{"handle": 1, "quote": "Before dispatch, verify the order number."}], **updates})
+        "citations": [{"handle": 1}], **updates})
 
 
 def test_server_assigns_source_identity_and_quote():
     result = answers.parse_answer(payload(), EXCERPTS)
     assert result.state == "answered" and result.citations[0].document_id == SOURCE.document_id
     assert result.citations[0].number == 1 and result.citations[0].version == 1
-    assert result.citations[0].quote in TEXT
+    assert result.citations[0].title == SOURCE.title
+    assert result.citations[0].content_sha256 == SOURCE.content_sha256
+    assert result.citations[0].index_revision == SOURCE.index_revision
+    assert result.citations[0].chunk_id == CHUNK_ID
+    assert result.citations[0].quote == TEXT
 
 
-def test_two_distinct_quotes_may_reference_same_chunk():
-    result = answers.parse_answer(payload(citations=[
-        {"handle": 1, "quote": "Before dispatch, verify the order number."},
-        {"handle": 1, "quote": "Damaged goods must not be shipped."},
-    ]), EXCERPTS)
+def test_two_conflicting_windows_from_same_chunk_are_server_copied():
+    windows = [
+        {"handle": 1, "source": SOURCE, "chunk_id": CHUNK_ID, "text": "Records must be retained for two working days."},
+        {"handle": 2, "source": SOURCE, "chunk_id": CHUNK_ID, "text": "Records must be retained for three working days."},
+    ]
+    result = answers.parse_answer(payload(status="conflict", citations=[{"handle": 1}, {"handle": 2}]), windows)
     assert [citation.number for citation in result.citations] == [1, 2]
     assert result.citations[0].chunk_id == result.citations[1].chunk_id
+    assert [citation.quote for citation in result.citations] == [window["text"] for window in windows]
 
 
-@pytest.mark.parametrize("citations", [[{"handle": 2, "quote": "Before dispatch"}],
-    [{"handle": True, "quote": "Before dispatch"}], [{"handle": 1, "quote": "Ship damaged goods"}],
-    [{"handle": 1, "quote": ""}], [{"handle": 1, "quote": "Before dispatch", "document_id": str(UUID(int=99))}],
-    [{"handle": 1, "quote": "Before dispatch"}] * 2, []])
-def test_rejects_fabricated_or_untraceable_citations(citations):
+@pytest.mark.parametrize("citations", [[{"handle": 2}], [{"handle": 17}], [{"handle": True}], [{"handle": 0}],
+    [{"handle": "1"}], [{"handle": 1}, {"handle": 1}]])
+def test_rejects_unknown_boolean_or_duplicate_handles(citations):
     with pytest.raises((ValueError, ValidationError)):
         answers.parse_answer(payload(citations=citations), EXCERPTS)
 
 
-def test_abstention_allows_verified_scope_quotes_and_conflict_requires_evidence():
+def test_model_cannot_generate_quote_or_source_identity_fields():
+    with pytest.raises(ValidationError):
+        answers.parse_answer(payload(citations=[{"handle": 1, "quote": "rewrite"}]), EXCERPTS)
+    with pytest.raises(ValidationError):
+        answers.parse_answer(payload(citations=[{"handle": 1, "document_id": str(SOURCE.document_id)}]), EXCERPTS)
+
+
+def test_model_cannot_select_more_than_eight_handles():
+    excerpts = [{"handle": handle, "source": SOURCE, "chunk_id": CHUNK_ID, "text": f"Verified window {handle}."}
+        for handle in range(1, 10)]
+    with pytest.raises(ValidationError):
+        answers.parse_answer(payload(citations=[{"handle": handle} for handle in range(1, 10)]), excerpts)
+
+
+def test_not_found_allows_optional_verified_scope_handles_and_conflict_requires_evidence():
     result = answers.parse_answer(payload(status="not_found", answer="The source does not specify a deadline.", citations=[]), EXCERPTS)
     assert not result.citations
-    assert len(answers.parse_answer(payload(status="not_found", answer="The source does not specify a deadline."), EXCERPTS).citations) == 1
+    scoped = answers.parse_answer(payload(status="not_found", answer="The source does not specify a deadline."), EXCERPTS)
+    assert len(scoped.citations) == 1 and scoped.citations[0].quote == TEXT
+    with pytest.raises(ValueError, match="answer_evidence_required"):
+        answers.parse_answer(payload(status="supported", citations=[]), EXCERPTS)
     assert answers.parse_answer(payload(status="conflict"), EXCERPTS).status == "conflict"
     with pytest.raises(ValueError):
         answers.parse_answer(payload(status="conflict", citations=[]), EXCERPTS)
@@ -95,13 +116,40 @@ async def test_retrieval_is_bounded_current_revision_and_integrity_checked(monke
         await answers.retrieve((SOURCE,), ACTOR, "What should I verify?", [])
 
 
+async def test_retrieval_keeps_tail_and_exposes_sixteen_nonoverlapping_handles(monkeypatch):
+    bodies = [str(index) * 3000 for index in range(8)]
+    chunks = [(body, {"doc_id": str(SOURCE.document_id), "chunk_id": f"{index + 1:064x}",
+        "embedding_source_revision": f"document:{SOURCE.content_sha256}",
+        "embedding_content_sha256": hashlib.sha256(body.encode()).hexdigest()}) for index, body in enumerate(bodies)]
+    store = SimpleNamespace(get_context_window=AsyncMock(return_value=chunks))
+    monkeypatch.setattr(answers, "VectorStore", lambda: store)
+    monkeypatch.setattr(answers, "retrieve_lexical_hits", AsyncMock(return_value=[]))
+
+    excerpts = await answers.retrieve((SOURCE,), ACTOR, "Find conflicting rules", [])
+
+    assert [excerpt["handle"] for excerpt in excerpts] == list(range(1, 17))
+    assert [len(excerpt["text"]) for excerpt in excerpts] == [1500] * 16
+    assert excerpts[0]["text"] + excerpts[1]["text"] == bodies[0]
+    assert excerpts[-2]["text"] + excerpts[-1]["text"] == bodies[-1]
+    result = answers.parse_answer(payload(status="conflict", citations=[{"handle": 1}, {"handle": 16}]), excerpts)
+    assert [citation.quote for citation in result.citations] == [excerpts[0]["text"], excerpts[15]["text"]]
+    assert result.citations[0].chunk_id == excerpts[0]["chunk_id"]
+    assert result.citations[1].chunk_id == excerpts[15]["chunk_id"]
+    model_schema = answers.ModelAnswer.model_json_schema()
+    citation_properties = model_schema["$defs"]["SelectedQuote"]["properties"]
+    assert list(citation_properties) == ["handle"]
+    prompt_payload = json.loads(answers.messages("Q", "en", [], excerpts)[1]["content"])
+    assert set(prompt_payload["excerpts"][0]) == {"handle", "title", "text"}
+    assert "quote" not in citation_properties
+
+
 async def test_source_excerpt_checks_hash_quote_and_current_chunk(monkeypatch):
     citation = answers.parse_answer(payload(), EXCERPTS).citations[0]
     result = Mock()
     result.one_or_none.return_value = (TEXT, hashlib.sha256(TEXT.encode()).hexdigest())
     db = SimpleNamespace(execute=AsyncMock(return_value=result))
     source = await answers.read_excerpt(db, ACTOR, citation)
-    assert citation.quote in source.excerpt
+    assert citation.quote == TEXT and source.excerpt == TEXT
     params = db.execute.call_args.args[1]
     assert params["tenant"] == ACTOR.tenant_id and params["doc"] == str(SOURCE.document_id)
     assert params["chunk"] == CHUNK_ID
@@ -266,7 +314,7 @@ async def test_terminal_pointer_absence_change_is_fail_closed(monkeypatch):
 @pytest.mark.parametrize("status", ["supported", "not_found", "conflict"])
 async def test_all_selected_index_states_are_rechecked_even_when_uncited(monkeypatch, status):
     response = answers.parse_answer(payload(status=status, citations=[] if status == "not_found" else
-        [{"handle": 1, "quote": "Before dispatch"}]), EXCERPTS)
+        [{"handle": 1}]), EXCERPTS)
     indexes = {str(SOURCE.document_id): None, str(UUID(int=9)): ("old", 1)}
     evidence = answers.AnswerEvidence(response, indexes, ())
     snapshot = AsyncMock(return_value={**indexes, str(UUID(int=9)): ("new", 2)})

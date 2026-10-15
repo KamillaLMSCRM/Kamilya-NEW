@@ -7629,3 +7629,33 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Prevention: test verified evidence explaining absence as well as positive
   answers and empty abstention; external request validation and internal provider
   output validation must have distinct safe error boundaries.
+
+## AI-CHAT-007 - Model-authored citation text makes grounded dialogue fragile
+
+- Date: 2026-10-15, DOCUMENT56 real DEV acceptance after AI-CHAT-006.
+- Symptom: additional action-refusal and ordinary conflict questions produced
+  durable invalid_response on the exact final DEV runtime. Supported follow-ups
+  and a quoted abstention succeeded; this was not a persistent provider outage.
+- Cause: the internal protocol delegated exact quote reproduction to a generative
+  model even though the server already held the verified evidence text. This
+  unnecessary contract-fragility class is removed; the raw subtype of each
+  observed rejected completion is not recoverable from the sanitized API.
+- Evidence boundary: the sanitized API deliberately does not expose the raw
+  rejected model output. The exact validation subtype of these two exchanges is
+  not proven. A full-source direct provider diagnostic passed and is not a
+  reproduction of bounded retrieval. Do not invent a precise malformed quote.
+- Fix: remove model-authored quote strings from the internal output protocol.
+  The model selects only server-owned integer evidence-window handles. The server
+  copies the exact window and derives document identity, version, hash and chunk.
+  Unknown/bool/duplicate handles, generated quote fields and invented identities
+  remain rejected. Public citations and archived histories retain the same shape.
+- Coverage: retain the existing eight verified chunks and3000-character per-chunk
+  budget, partitioned without tail loss into at most sixteen1500-character windows;
+  select at most eight citations. Keep all selected-source snapshots and every
+  retained evidence witness through terminal locking, including uncited windows.
+- Verification: parser/long-window/SQL regressions, final isolated DEV and real
+  DEV/production acceptance are separate required gates; earlier failures remain
+  failed in append-only evidence and are not relabeled by this change.
+- Prevention: let models select bounded evidence, not reproduce authority-bearing
+  strings. A syntactically valid handle still does not prove semantic entailment;
+  check facts, conflict coverage and abstention in human-readable live answers.
