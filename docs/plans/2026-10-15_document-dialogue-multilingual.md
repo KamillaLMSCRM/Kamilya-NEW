@@ -118,6 +118,15 @@
   Final response-scope refinement removes unasked precedence/other-rule caveats;
   two actual module probes independently PASS, focused RED1/GREEN45. Keep old
   outputs and frozen oracles; final exact DEV42/prod42 still required.
+  R9/3bb DEV release resumed after a transient local GitHub TCP outage;
+  API/worker/Vercel and both CIs exact. Actual42matchingstatuses/audit PASS;
+  initial42PASS semantic review is superseded by append-only Root follow-up.
+  H04 needs explicit unresolved precedence. B01's extra reviewer-name requirement
+  overextends the source's intact-seal scope; independent triage preserves source-
+  safe restraint. Original oracle/reports remain; separate source-faithfulness
+  correction records this interpretation. Final policy preserves requested
+  responsibility/conflict qualification while removing only unrelated caveats;
+  focused RED1/GREEN45 and two actual module probes independently PASS.
 - D57-RELEASE NOT_STARTED: exact-source release gate, signed backup/restore,
   rollback/capacity, protected backend/native release only if there is an accepted
   application change; current56 not redeployed merely for evaluation documentation.

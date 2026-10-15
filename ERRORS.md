@@ -7804,6 +7804,17 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   classification, public shapes, retries or routing. Full exact DEV/prod gates
   remain required; do not run the unexecuted remaining17 cases on rejected ef7.
 
+- R9/3bb completed42matchingstatuses and technical readback. Root follow-up
+  challenged the initial42PASS semantic tally: H04 omitted explicit unresolved
+  precedence and B01 omitted a purported damaged-disposition owner. Independent
+  source triage established that B01's oracle extends the intact-seal reviewer
+  rule beyond its explicit scope; the question asks opening permission and
+  whether the receiver may decide. Preserve the oracle and all reviews, record
+  this correction separately, and never force an unsupported role assignment.
+  Final focus guidance preserves requested responsibility and always explains
+  unresolved precedence for two evidenced opposing rules. Two module probes
+  pass source/question-faithful review; final exact live gates remain pending.
+
 ## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
 
 - Date: 2026-10-15, DOCUMENT57.

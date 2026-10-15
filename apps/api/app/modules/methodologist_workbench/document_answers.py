@@ -254,9 +254,13 @@ def messages(question: str, language: str, recall: list[dict[str, Any]], excerpt
         "or distracting details from the excerpts. "
         "Finish when the requested points are covered. Do not append other discrepancies, warnings or disclaimers "
         "about unasked dimensions, not even to say that you are not discussing them. "
-        "Final response check: keep only sentences needed to answer the current requested facts. "
+        "Final response check: keep all facts needed to answer the current requested points. "
+        "When asked whether a role may make a decision, name the evidenced decision owner as well as the permission boundary. "
+        "For a requested fact with two evidenced opposing rules, always explain whether dates or precedence "
+        "resolve the disagreement; if neither is evidenced, explicitly say both are unavailable and no priority can be chosen. "
         "Delete unrequested caveats about other rules, missing periods or precedence, even when the excerpts "
-        "explicitly contain them. For not_found, use one or two short sentences naming the missing requested "
+        "explicitly contain them, but never delete the preceding conflict qualification or requested responsibility. "
+        "For not_found, use one or two short sentences naming the missing requested "
         "facts; do not enumerate nearby deadlines, retention rules or other missing facts. Schema: "
         + json.dumps(ModelAnswer.model_json_schema(), ensure_ascii=False))},
         {"role": "user", "content": json.dumps({

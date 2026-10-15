@@ -52,6 +52,8 @@ def test_final_scope_check_keeps_abstentions_short_and_omits_unasked_caveats():
     assert "one or two short sentences" in system
     assert "Delete unrequested caveats about other rules, missing periods or precedence" in system
     assert system.index("Final response check") > system.index("Every factual statement")
+    assert "For a requested fact with two evidenced opposing rules, always explain whether dates or precedence" in system
+    assert "name the evidenced decision owner as well as the permission boundary" in system
 
 
 def test_conflict_requires_two_evidenced_positions_not_an_unavailable_reference():
