@@ -147,6 +147,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Bound each assignment-intent provider attempt to8seconds within the existing
+  whole30second deadline so a slow primary cannot starve configured fallback.
+  One transport attempt per enabled provider, no semantic retry; other AI callers,
+  provider/model order, BYOK isolation and shared configuration are unchanged.
+
 - Preserve unknown confirmation ownership and opaque plan locator across reload,
   recover by same-ID reads/reconfirmation only, and distinguish typed known409
   rejection from a network-unknown result. No automatic repeat or assignment.

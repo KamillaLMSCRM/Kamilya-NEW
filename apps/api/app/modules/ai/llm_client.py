@@ -878,12 +878,38 @@ class ResilientLLMClient:
         messages: str | list[dict],
         config: dict | None = None,
         response_format: dict | None = None,
+        *,
+        provider_deadline_seconds: float | None = None,
     ) -> _LLMResponse:
+        # Opt-in only: short interactive operations must leave time for the
+        # already configured fallback even when a primary streams keepalives.
+        # Other callers retain their provider-specific retry/timeout settings.
+        if provider_deadline_seconds is not None and (
+            isinstance(provider_deadline_seconds, bool)
+            or not isinstance(provider_deadline_seconds, int | float)
+            or not math.isfinite(provider_deadline_seconds)
+            or provider_deadline_seconds <= 0
+        ):
+            raise ValueError("provider_deadline_invalid")
         last_exc: BaseException | None = None
         for client in self._clients:
             try:
                 provider_response_format = _response_format_for_provider(client.name, response_format)
-                return await client.ainvoke(messages, config=config, response_format=provider_response_format)
+                if provider_deadline_seconds is None:
+                    return await client.ainvoke(messages, config=config, response_format=provider_response_format)
+                # Never mutate shared provider objects or inherit a configured
+                # retry override into this one-attempt wall-clock budget.
+                attempt = LLMClient(
+                    replace(client.config, max_retries=0),
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                    max_retries=0,
+                )
+                try:
+                    async with asyncio.timeout(provider_deadline_seconds):
+                        return await attempt.ainvoke(messages, config=config, response_format=provider_response_format)
+                except TimeoutError as exc:
+                    raise ProviderFailedError(client.name, exc) from exc
             except ProviderFailedError as e:
                 logger.warning(
                     f"[LLM_FAILOVER] {e.provider_name} failed "

@@ -1,5 +1,18 @@
 # AI assistant continuation — text-first
 
+DEV52 frontier2026-10-15: exact beb3d39b deployed CI38674047991/Vercel/API/
+worker; Root independently verified Hobby/Free/Free,9flagsON and public schema0179
+without migration. Live incomplete assignment twice returned safe provider
+unavailability at~30s during official DeepSeek partial outage. No assignment was
+created. Immutable V1.4 fixes wall-clock transport starvation within the same30s
+budget and same route; focused116PASS/full unit+LLM2961PASS35.94s, qualitybaseline
+1008/2200PASS. Independent repaired-code review and exact replacement DEV pending.
+Synthetic DEV course6c52b06e-c029-420b-a317-e4777b59d015 published; temporary QA
+position department QA DIALOGUE52 has no autoassignment rules. Before fingerprint
+confirmed all3existing learner enrollments unchanged, including completed PDF.
+Restore the position's original empty department after acceptance; do not reset
+learning. Voice excluded; production is still51 and has not been mutated by52.
+
 Local52 frontier: independent R1/R2 findings repaired through immutable V1.1/V1.2/
 V1.3 addenda; fresh R3 review fe12b421… accepted by Root after checking17 hashes.
 Full web158files/1122PASS167.11s, focused API99PASS, isolated intent/assignment

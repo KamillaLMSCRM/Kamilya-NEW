@@ -15,6 +15,9 @@ one-shot admission, rejects known subgroup widening and clears locale-local text
 without losing same-plan recovery. This is not universal language understanding.
 [Effective context V1.3](contracts/ASSIGNMENT_DIALOGUE_V1_3.md) enforces owned-plan
 exclusivity on the server and rejects unresolved historical relative deadlines.
+[Transport deadline V1.4](contracts/ASSIGNMENT_DIALOGUE_V1_4.md) prevents an
+unresponsive primary from starving existing fallback within the same30second
+intent deadline. DEV52's failed live receipts remain part of the release evidence.
 
 Durable lesson history slice released/accepted0.11.51/source85933da4,2026-10-14:
 [durable lesson dialogue V1](contracts/EDITOR_DURABLE_LESSON_DIALOGUE_V1.md),

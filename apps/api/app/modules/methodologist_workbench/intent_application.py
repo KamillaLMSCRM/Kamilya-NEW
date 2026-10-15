@@ -35,6 +35,7 @@ from .plan_contract import ActorContext
 
 ProviderResolver = Callable[[UUID], Awaitable[ResilientLLMClient]]
 INTENT_TIMEOUT_SECONDS = 30
+INTENT_PROVIDER_DEADLINE_SECONDS = 8
 INTENT_ESTIMATED_COST_CENTS = 1
 INTENT_OPERATION = "assignment_intent_parse"
 
@@ -107,7 +108,7 @@ async def interpret_assignment(
     try:
         async with asyncio.timeout(INTENT_TIMEOUT_SECONDS):
             provider = await provider_resolver(actor.tenant_id)
-            response = await provider.ainvoke(messages)
+            response = await provider.ainvoke(messages, provider_deadline_seconds=INTENT_PROVIDER_DEADLINE_SECONDS)
         # Parse AFTER transport failover. Invalid semantic/JSON output does not
         # spend more calls on repair or another model.
         candidate = parse_model_candidate(

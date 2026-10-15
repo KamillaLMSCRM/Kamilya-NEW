@@ -2,6 +2,30 @@
 
 Current as of: 2026-10-15.
 
+## WB-DIALOGUE-003 - Slow primary starved assignment-intent transport fallback
+
+- Date: 2026-10-15; live DEV52 acceptance, before any production52 mutation.
+- Symptom: two explicit browser requests returned intent_provider_unavailable
+  after approximately30seconds; HTTP200 carried a safe non-executable result.
+  No assignment/preview was created. Failed browser/server receipts are retained.
+- Cause: first-provider HTTP timeout120seconds exceeded intent's whole-chain30s
+  deadline. DeepSeek official status reported partial API unavailability; a
+  keepalive/queued request cannot be bounded by HTTP inactivity timeout alone.
+  A separate canonical DEV read-only factory probe resolved the existing route
+  in2.907s; exact server phase latency was not instrumented or inferred.
+- Fix: only assignment intent opts into8second wall-clock provider attempts in
+  the existing ordered chain. Each ephemeral attempt has zero retries, including
+  configuration overrides; shared clients, model order, BYOK and outer30s remain.
+  External cancellation propagates; semantic/JSON rejection never triggers failover.
+- Verification: revised public-seam regression13RED/1defaultPASS before repair;
+  focused116PASS, full unit+LLM2961PASS35.94s, Python baseline1008/2200PASS.
+  New malformed-prose test oracle corrected to the existing clarification code;
+  no old assertion or parser behavior changed. Real repaired DEV/production pending.
+- Prevention: replay a hanging primary at the actual resilient/application seams,
+  assert existing fallback gets time, and test429/503/BYOK/no-sleep/cancellation.
+  Retain failed live evidence; do not hide an outage with unbounded retries,
+  a longer whole-operation timeout or a provider/routing configuration change.
+
 ## WB-DIALOGUE-001 - Unknown assignment confirmation lost its recovery ownership
 
 - Date: 2026-10-15; local candidate, not yet deployed.
