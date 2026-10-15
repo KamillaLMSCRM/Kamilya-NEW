@@ -1,5 +1,43 @@
 # AI assistant continuation — text-first
 
+## Active document content package56 — 2026-10-15
+
+Owner explicitly requests source-grounded content Q&A, actual DEV then production
+acceptance; no voice/reserve activation. Root owns backend/contract/data/rollout,
+bounded frontend worker owns UI/transport/tests, independent reviewer owns no code.
+Accepted DOCUMENT_CONTENT_DIALOGUE_V1 extends immutable preparation55 contract.
+Reuses0181 actor-private JSONB archive, no migration, adds content-messages and
+owned citation excerpt/original download routes. New-mode exchanges are not readable
+by old55 after rollback; retain them, roll forward for this new capability.
+
+Latest focused50 PASS/quality1008-2200 PASS; full API unit3006 PASS with XML
+receipt. Earlier full web1158 PASS; final Modal/lifecycle/wording delta focused33,
+lint0warnings/types/build67pages PASS; final full web rerun in progress. Actual
+isolated DEV R1 blocked on synthetic fixture missing non-null embedding, with
+source frozen/cleanup/public neutrality alltrue. R2 reached7content checks then
+paired index/run fixture CHECK rejection; cleanup/neutral/freeze true. R3 completed
+all42 SQL/service checks/cleanup/freeze but full public neutralityfalse: Root's
+overlapping ordinary DEV baseline login updates last_login (TEST-INFRA-013).
+Keep BLOCKED, no partial relabel. R4 is frozen/no concurrent public API or provider
+jobs, with before/after hashes and changed-component diagnostics. Fake model only,
+real retrieval/source SQL/budget. No production mutation or DEV rollout yet.
+
+Review caught and fixed real ingestion64hex IDs versus UUID, whole-operation
+deadline, shielded budget compensation, source-stale error classification, terminal
+active-pointer/chunk revalidation/locking. Independent final source review found no
+critical/high defect;30s answer-production scope clarified (not HTTP/SLA). Distinct
+quotes from one chunk fixed after deterministic RED; exact duplicates still rejected.
+CodeGraph preflight stale/excluded4, prepare failed exit1; bounded source fallback.
+No graph savings claimed. Runtime remains55/381692f9 until exact later readback.
+Root fresh private API/all4containers55/green/image5c/current181/FORCE-RLS/runtime
+non-BYPASS/reserveOFF hash7834 and rollback54 healthy/no lock verified13:03Z;
+free7023144960bytes. Normal QA baselines DEV1/prod7 old completed rows and previous
+55 dialogue hashes PASS. Next: accept frozen isolated R4/final web, source/CI, existing Free/Hobby
+DEV rollout and live questions/follow-up/abstention/conflict/citation/download/reload,
+then protected no-migration backend/native rollout and separate synthetic acceptance.
+Evidence: ignored .release-evidence/DOCUMENT56-20261015. No tenant recreation or
+completed-learning edits; preserve task55 and customer data.
+
 ## Closed assignment acceptance repair — 2026-10-15
 
 Root accepted54/af5e9957 real DEV/production dialogue, explicit execution, GET-only

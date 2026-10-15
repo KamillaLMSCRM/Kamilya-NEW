@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useLanguageStore } from '@/store/languageStore';
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, Modal } from '@/components/ui';
 import type { AIGenerationJob } from '@/lib/aiGenerationJobs';
 import type { DocumentCatalogItem, DocumentCatalogResponse } from '@/lib/documentCatalog';
 import {
@@ -12,9 +12,10 @@ import {
   type AIGenerateRequest, type DocumentCandidate, type DocumentPlan, type DocumentPreview,
 } from '@/lib/documentWorkbench';
 import {
-  createDocumentDialogue, getDocumentDialogue, listDocumentDialogues, messageDocumentDialogue,
+  createDocumentDialogue, downloadDocumentContentSource, getDocumentContentSourceExcerpt,
+  getDocumentDialogue, listDocumentDialogues, messageDocumentContentDialogue, messageDocumentDialogue,
   previewDocumentDialogue, saveDocumentDialogue,
-  type DocumentDialogueDraft, type DocumentDialogueTask,
+  type DocumentContentCitation, type DocumentDialogueDraft, type DocumentDialogueTask,
 } from '@/lib/documentDialogue';
 
 const enabled = () => process.env.NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED === 'true';
@@ -32,9 +33,44 @@ const localeOf = (lang: string): DocumentLocale => lang === 'kk' || lang === 'en
 const stableJson = (value: unknown): string => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item)
   ? Object.fromEntries(Object.entries(item).sort(([left], [right]) => left.localeCompare(right))) : item);
 const RECOVERY_COPY = {
-  ru: { missing: 'Задача не найдена. Можно явно начать новую подготовку.', unknownPlan: 'Результат плана пока не подтверждён. Сначала восстановите его или начните новую подготовку.', confirmUnknown: 'Подтверждение могло завершиться. Восстановите план, чтобы проверить результат.', recoverPlan: 'Восстановить план', newTask: 'Начать новую подготовку' },
-  kk: { missing: 'Тапсырма табылмады. Жаңа дайындықты бастауға болады.', unknownPlan: 'Жоспар нәтижесі әлі расталмады. Алдымен қалпына келтіріңіз немесе жаңа дайындықты бастаңыз.', confirmUnknown: 'Растау аяқталған болуы мүмкін. Нәтижені тексеру үшін жоспарды қалпына келтіріңіз.', recoverPlan: 'Жоспарды қалпына келтіру', newTask: 'Жаңа дайындықты бастау' },
-  en: { missing: 'The task was not found. You can explicitly start a new preparation.', unknownPlan: 'The plan outcome is not confirmed. Recover it first or start a new preparation.', confirmUnknown: 'Confirmation may have completed. Recover the plan to check its result.', recoverPlan: 'Recover plan', newTask: 'Start new preparation' },
+  ru: { missing: 'Задача не найдена. Можно явно начать новую подготовку.', unknownPlan: 'Результат плана пока не подтверждён. Сначала восстановите его или начните новую подготовку.', confirmUnknown: 'Подтверждение могло завершиться. Восстановите план, чтобы проверить результат.', recoverPlan: 'Восстановить план', newTask: 'Начать новую подготовку', interruptedRequest: 'Предыдущий запрос прерван. После обновления можно явно отправить новое сообщение.' },
+  kk: { missing: 'Тапсырма табылмады. Жаңа дайындықты бастауға болады.', unknownPlan: 'Жоспар нәтижесі әлі расталмады. Алдымен қалпына келтіріңіз немесе жаңа дайындықты бастаңыз.', confirmUnknown: 'Растау аяқталған болуы мүмкін. Нәтижені тексеру үшін жоспарды қалпына келтіріңіз.', recoverPlan: 'Жоспарды қалпына келтіру', newTask: 'Жаңа дайындықты бастау', interruptedRequest: 'Алдыңғы сұрау үзілді. Жаңартқаннан кейін жаңа хабарламаны өзіңіз жібере аласыз.' },
+  en: { missing: 'The task was not found. You can explicitly start a new preparation.', unknownPlan: 'The plan outcome is not confirmed. Recover it first or start a new preparation.', confirmUnknown: 'Confirmation may have completed. Recover the plan to check its result.', recoverPlan: 'Recover plan', newTask: 'Start new preparation', interruptedRequest: 'The previous request was interrupted. After reload, you can explicitly send a new message.' },
+} as const;
+const CONTENT_COPY = {
+  ru: {
+    questionTitle: 'Диалог с документами', startQuestionTask: 'Начать диалог', taskHint: 'Выберите от 1 до 5 документов и начните диалог. Поля брифа курса для вопросов не нужны; генерация курса по-прежнему требует отдельной проверки и подтверждения плана.',
+    mode: 'Режим диалога', questionMode: 'Вопрос о содержимом документов', preparationMode: 'Подготовка курса',
+    questionPlaceholder: 'Задайте вопрос по выбранным документам', preparationPlaceholder: 'Обсудите параметр курса',
+    askQuestion: 'Задать вопрос', sendPreparation: 'Отправить сообщение', questionRecovery: 'Результат вопроса не подтверждён. Обновите задачу, прежде чем продолжать; запрос автоматически не повторяется.',
+    planExists: 'В этой задаче уже есть план. Для новых вопросов начните новую задачу, чтобы не менять неизменяемый план.',
+    supported: 'Подтверждено источниками', not_found: 'В проверенных фрагментах ответ не найден', conflict: 'В источниках есть противоречие',
+    openSource: 'Открыть цитату источника', sourceTitle: 'Фрагмент источника', sourceQuote: 'Цитата из ответа', sourceExcerpt: 'Фрагмент документа',
+    sourceLoading: 'Загрузка фрагмента…', downloadSource: 'Скачать исходный документ', downloadLoading: 'Подготовка скачивания…', closeSource: 'Закрыть',
+    sourceUnavailable: 'Источник изменился или недоступен; цитату открыть нельзя.', sourceError: 'Не удалось открыть фрагмент источника.', downloadError: 'Не удалось скачать исходный документ.',
+  },
+  kk: {
+    questionTitle: 'Құжаттармен диалог', startQuestionTask: 'Диалогты бастау', taskHint: '1–5 құжатты таңдап, диалогты бастаңыз. Сұрақтар үшін курс брифінің өрістері қажет емес; курсты генерациялау үшін жоспарды бөлек қарап, растау керек.',
+    mode: 'Диалог режимі', questionMode: 'Құжат мазмұны туралы сұрақ', preparationMode: 'Курсты дайындау',
+    questionPlaceholder: 'Таңдалған құжаттар бойынша сұрақ қойыңыз', preparationPlaceholder: 'Курс параметрін талқылаңыз',
+    askQuestion: 'Сұрақ қою', sendPreparation: 'Хабарлама жіберу', questionRecovery: 'Сұрақ нәтижесі расталмады. Жалғастырмас бұрын тапсырманы жаңартыңыз; сұрау автоматты түрде қайталанбайды.',
+    planExists: 'Бұл тапсырмада жоспар бар. Өзгермейтін жоспарды өзгертпеу үшін жаңа сұрақтарға жаңа тапсырма бастаңыз.',
+    supported: 'Дереккөздер растайды', not_found: 'Тексерілген үзінділерден жауап табылмады', conflict: 'Дереккөздерде қайшылық бар',
+    openSource: 'Дереккөз дәйексөзін ашу', sourceTitle: 'Дереккөз үзіндісі', sourceQuote: 'Жауаптағы дәйексөз', sourceExcerpt: 'Құжат үзіндісі',
+    sourceLoading: 'Үзінді жүктелуде…', downloadSource: 'Бастапқы құжатты жүктеу', downloadLoading: 'Жүктеу дайындалуда…', closeSource: 'Жабу',
+    sourceUnavailable: 'Дереккөз өзгерген немесе қолжетімсіз; дәйексөзді ашу мүмкін емес.', sourceError: 'Дереккөз үзіндісін ашу мүмкін болмады.', downloadError: 'Бастапқы құжатты жүктеу мүмкін болмады.',
+  },
+  en: {
+    questionTitle: 'Dialogue with documents', startQuestionTask: 'Start dialogue', taskHint: 'Select 1–5 documents to start a dialogue. Course brief fields are not needed for questions; generating a course still requires a separate plan review and confirmation.',
+    mode: 'Dialogue mode', questionMode: 'Question about document content', preparationMode: 'Course preparation',
+    questionPlaceholder: 'Ask about the selected documents', preparationPlaceholder: 'Discuss a course parameter',
+    askQuestion: 'Ask question', sendPreparation: 'Send preparation message', questionRecovery: 'The question outcome is not confirmed. Reload the task before continuing; the request will not be retried automatically.',
+    planExists: 'This task already has a plan. Start a new task for more questions so the immutable plan is not changed.',
+    supported: 'Supported by sources', not_found: 'No answer found in the checked excerpts', conflict: 'Sources contain a conflict',
+    openSource: 'Open source citation', sourceTitle: 'Source excerpt', sourceQuote: 'Quote in answer', sourceExcerpt: 'Document excerpt',
+    sourceLoading: 'Loading excerpt…', downloadSource: 'Download original document', downloadLoading: 'Preparing download…', closeSource: 'Close',
+    sourceUnavailable: 'The source changed or is unavailable; this citation cannot be opened.', sourceError: 'Could not open the source excerpt.', downloadError: 'Could not download the original document.',
+  },
 } as const;
 
 export default function DocumentWorkbench() {
@@ -59,6 +95,12 @@ function DocumentWorkbenchInner() {
   const [plan, setPlan] = useState<DocumentPlan | null>(null);
   const [dialogue, setDialogue] = useState<DocumentDialogueTask | null>(null);
   const [dialogueMessage, setDialogueMessage] = useState('');
+  const [dialogueMode, setDialogueMode] = useState<'question' | 'preparation'>('question');
+  const [contentMessageRecoveryRequired, setContentMessageRecoveryRequired] = useState(false);
+  const [citationDialog, setCitationDialog] = useState<{ exchangeId: string; citation: DocumentContentCitation; excerpt: string | null } | null>(null);
+  const [citationLoading, setCitationLoading] = useState(false);
+  const [citationDownloading, setCitationDownloading] = useState(false);
+  const [citationError, setCitationError] = useState<string | null>(null);
   const [dialogueTasks, setDialogueTasks] = useState<Array<{ id: string; title: string; updated_at: string; plan_id: string | null }>>([]);
   const [dialogueNextBefore, setDialogueNextBefore] = useState<string | null>(null);
   const [dialogueSaving, setDialogueSaving] = useState(false);
@@ -80,6 +122,15 @@ function DocumentWorkbenchInner() {
   const polling = useRef(false);
   const dialogueEpoch = useRef(0);
   const dialoguePaginationController = useRef<AbortController | null>(null);
+  const citationController = useRef<AbortController | null>(null);
+  const citationDownloadController = useRef<AbortController | null>(null);
+  const objectUrls = useRef(new Set<string>());
+
+  const closeCitationDialog = useCallback(() => {
+    citationController.current?.abort(); citationController.current = null;
+    citationDownloadController.current?.abort(); citationDownloadController.current = null;
+    setCitationDialog(null); setCitationLoading(false); setCitationDownloading(false); setCitationError(null);
+  }, []);
 
   const clearStale = useCallback(() => {
     requestController.current?.abort();
@@ -95,9 +146,10 @@ function DocumentWorkbenchInner() {
     window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
   }, []);
 
-  const applyDialogueTask = async (task: DocumentDialogueTask, isCurrent: () => boolean, signal?: AbortSignal) => {
+  const applyDialogueTask = useCallback(async (task: DocumentDialogueTask, isCurrent: () => boolean, signal?: AbortSignal) => {
     if (!isCurrent()) return;
     setDialogueMessage('');
+    setContentMessageRecoveryRequired(false); closeCitationDialog();
     setDialogue(task); setSelected(task.sources.map((source) => source.document_id));
     setInstruction(task.draft.instruction); setCandidate(task.draft.candidate);
     setLanguageConfirmed(task.draft.language_confirmed); setReuseReason(task.draft.reuse_reason);
@@ -116,7 +168,7 @@ function DocumentWorkbenchInner() {
         } else setPlanRecoveryRequired(true);
       }
     }
-  };
+  }, [closeCitationDialog]);
 
   const fetchDocuments = useCallback(async (signal?: AbortSignal) => {
     const response = await api.get<DocumentCatalogResponse>('/v1/documents/catalog?lifecycle_status=active&limit=100', signal ? { signal } : undefined);
@@ -128,9 +180,10 @@ function DocumentWorkbenchInner() {
   useEffect(() => {
     mounted.current = true;
     const controller = new AbortController();
+    const activeObjectUrls = objectUrls.current;
     catalogController.current = controller;
     void fetchDocuments(controller.signal).catch((cause) => { if (mounted.current && !['AbortError', 'CanceledError'].includes(cause?.name)) setError(uiRef.current.catalogError); });
-    return () => { mounted.current = false; controller.abort(); catalogController.current?.abort(); requestController.current?.abort(); uploadController.current?.abort(); };
+    return () => { mounted.current = false; controller.abort(); catalogController.current?.abort(); requestController.current?.abort(); uploadController.current?.abort(); citationController.current?.abort(); citationDownloadController.current?.abort(); activeObjectUrls.forEach((url) => URL.revokeObjectURL(url)); activeObjectUrls.clear(); };
   }, [fetchDocuments]);
 
   useEffect(() => {
@@ -149,7 +202,7 @@ function DocumentWorkbenchInner() {
         if (task) void applyDialogueTask(task, () => mounted.current && current === dialogueEpoch.current && !controller.signal.aborted, controller.signal);
       }).catch((cause) => { if (mounted.current && current === dialogueEpoch.current && !['AbortError', 'CanceledError'].includes(cause?.name)) setError(uiRef.current.taskError); });
     return () => { controller.abort(); dialoguePaginationController.current?.abort(); dialogueEpoch.current += 1; };
-  }, []);
+  }, [applyDialogueTask]);
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).has('document_task')) return;
@@ -286,20 +339,54 @@ function DocumentWorkbenchInner() {
     finally { if (mounted.current && current === dialogueEpoch.current) setDialogueSaving(false); }
   };
   const sendDialogueMessage = async () => {
-    if (!dialogue || !dialogueMessage.trim() || pending || dialogueSaving || dialogue.pending_request_id || planRecoveryRequired || confirmRecoveryRequired || plan?.state === 'submitted') return;
+    const askingQuestion = dialogueMode === 'question';
+    if (!dialogue || !dialogueMessage.trim() || pending || dialogueSaving || dialogue.pending_request_id || planRecoveryRequired || confirmRecoveryRequired || contentMessageRecoveryRequired || plan?.state === 'submitted' || dialogue.source_stale || (askingQuestion && Boolean(dialogue.plan_id))) return;
     const current = ++dialogueEpoch.current; const controller = new AbortController(); setDialogueSaving(true); setError(null);
     try {
-      const task = await messageDocumentDialogue(dialogue.id, crypto.randomUUID(), dialogue.revision, dialogueMessage, controller.signal);
+      const task = askingQuestion
+        ? await messageDocumentContentDialogue(dialogue, crypto.randomUUID(), dialogueMessage, controller.signal)
+        : await messageDocumentDialogue(dialogue.id, crypto.randomUUID(), dialogue.revision, dialogueMessage, controller.signal);
       if (!mounted.current || current !== dialogueEpoch.current) return;
       setDialogue(task); setDialogueMessage('');
-      if (task.draft) { setCandidate(task.draft.candidate); setLanguageConfirmed(task.draft.language_confirmed); setReuseReason(task.draft.reuse_reason); setInstruction(task.draft.instruction); }
+      if (askingQuestion) setContentMessageRecoveryRequired(false);
+      else if (task.draft) { setCandidate(task.draft.candidate); setLanguageConfirmed(task.draft.language_confirmed); setReuseReason(task.draft.reuse_reason); setInstruction(task.draft.instruction); }
       if (task.plan_id === null) {
         setPlan(null); setJob(null);
         const url = new URL(window.location.href); url.searchParams.delete('document_plan');
         window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
       }
-    } catch { if (mounted.current && current === dialogueEpoch.current) setError(uiRef.current.taskError); }
+    } catch (cause: any) { if (mounted.current && current === dialogueEpoch.current) {
+      const status = cause?.response?.status;
+      if (askingQuestion && (status === undefined || status >= 500)) setContentMessageRecoveryRequired(true);
+      else setError(uiRef.current.taskError);
+    } }
     finally { if (mounted.current && current === dialogueEpoch.current) setDialogueSaving(false); }
+  };
+  const openCitation = async (exchangeId: string, citation: DocumentContentCitation) => {
+    if (!dialogue || dialogue.source_stale) return;
+    citationController.current?.abort();
+    const controller = new AbortController(); citationController.current = controller;
+    setCitationDialog({ exchangeId, citation, excerpt: null }); setCitationLoading(true); setCitationError(null);
+    try {
+      const source = await getDocumentContentSourceExcerpt(dialogue, exchangeId, citation, controller.signal);
+      if (!controller.signal.aborted && mounted.current) setCitationDialog({ exchangeId, citation: source.citation, excerpt: source.excerpt });
+    } catch { if (!controller.signal.aborted && mounted.current) setCitationError(CONTENT_COPY[locale].sourceError); }
+    finally { if (!controller.signal.aborted && mounted.current) setCitationLoading(false); }
+  };
+  const downloadCitation = async () => {
+    if (!dialogue || !citationDialog || dialogue.source_stale) return;
+    citationDownloadController.current?.abort();
+    const controller = new AbortController(); citationDownloadController.current = controller;
+    setCitationDownloading(true); setCitationError(null);
+    try {
+      const file = await downloadDocumentContentSource(dialogue, citationDialog.exchangeId, citationDialog.citation, controller.signal);
+      if (controller.signal.aborted || !mounted.current) return;
+      const url = URL.createObjectURL(file.blob); objectUrls.current.add(url);
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = file.filename; anchor.hidden = true;
+      document.body.appendChild(anchor); anchor.click(); anchor.remove();
+      window.setTimeout(() => { URL.revokeObjectURL(url); objectUrls.current.delete(url); }, 30000);
+    } catch { if (!controller.signal.aborted && mounted.current) setCitationError(CONTENT_COPY[locale].downloadError); }
+    finally { if (!controller.signal.aborted && mounted.current) setCitationDownloading(false); }
   };
   const previewSavedDialogue = async () => {
     if (!dialogue || pending || dialogueSaving || planRecoveryRequired || confirmRecoveryRequired) return;
@@ -348,7 +435,7 @@ function DocumentWorkbenchInner() {
   const resetDialogue = () => {
     dialoguePaginationController.current?.abort(); dialogueEpoch.current += 1;
     setDialogue(null); setDialogueMessage(''); setDialogueUrl(null); setPlan(null); setJob(null);
-    setPlanRecoveryRequired(false); setConfirmRecoveryRequired(false); setTaskNotFound(false); setError(null);
+    setPlanRecoveryRequired(false); setConfirmRecoveryRequired(false); setContentMessageRecoveryRequired(false); setDialogueMode('question'); closeCitationDialog(); setTaskNotFound(false); setError(null);
   };
   const loadMoreDialogues = async () => {
     if (!dialogueNextBefore || dialogueSaving) return;
@@ -420,22 +507,35 @@ function DocumentWorkbenchInner() {
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={languageConfirmed} onChange={(event) => { clearStale(); setLanguageConfirmed(event.target.checked); }} />{ui.confirmLanguage}</label>
       <label className="text-sm">{ui.reuse}<select value={reuseReason ?? ''} onChange={(event) => { clearStale(); setReuseReason((event.target.value || null) as AIGenerateRequest['reuse_reason']); }} className="mt-1 w-full rounded border p-2">{Object.entries(ui.reuseOptions).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <section aria-label={ui.dialogue} className="space-y-3 rounded border p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-medium">{ui.dialogue}</h3><div className="flex flex-wrap gap-2">
-          {!dialogue && <Button type="button" variant="outline" onClick={() => dialogueLocator ? void openDialogue(dialogueLocator) : void startDialogue()} disabled={dialogueSaving || pending || (!dialogueLocator && selected.length < 1)}>{dialogueLocator ? ui.reloadTask : ui.startDialogue}</Button>}
+        <div className="flex flex-wrap items-center justify-between gap-2"><h3 aria-label={ui.dialogue} className="font-medium">{CONTENT_COPY[locale].questionTitle}</h3><div className="flex flex-wrap gap-2">
+          {!dialogue && <Button type="button" variant="outline" aria-label={dialogueLocator ? ui.reloadTask : ui.startDialogue} onClick={() => dialogueLocator ? void openDialogue(dialogueLocator) : void startDialogue()} disabled={dialogueSaving || pending || (!dialogueLocator && selected.length < 1)}>{dialogueLocator ? ui.reloadTask : CONTENT_COPY[locale].startQuestionTask}</Button>}
           {dialogue && <><Button type="button" variant="outline" onClick={() => void saveDialogue()} disabled={dialogueSaving || pending || Boolean(dialogue.pending_request_id) || planRecoveryRequired || confirmRecoveryRequired || plan?.state === 'submitted' || !dialogueDraftDirty}>{ui.saveDraft}</Button><Button type="button" variant="outline" onClick={() => void reloadDialogue()} disabled={dialogueSaving}>{ui.reloadTask}</Button>{dialogue.plan_id && (planRecoveryRequired || confirmRecoveryRequired) && <Button type="button" variant="outline" onClick={() => void recoverLinkedPlan()} disabled={dialogueSaving}>{recoveryCopy.recoverPlan}</Button>}<Button type="button" onClick={() => void previewSavedDialogue()} disabled={dialogueSaving || pending || dialogueDraftDirty || planRecoveryRequired || confirmRecoveryRequired || plan?.state === 'submitted' || Boolean(dialogue.pending_request_id) || dialogue.source_stale || Boolean(dialogue.interrupted_request_id)}>{ui.prepare}</Button><Button type="button" variant="outline" onClick={resetDialogue}>{recoveryCopy.newTask}</Button></>}
         </div></div>
+        <p className="text-sm text-muted-foreground">{CONTENT_COPY[locale].taskHint}</p>
         {dialogueTasks.length > 0 && <><label className="block text-sm">{ui.recentTasks}<select aria-label={ui.recentTasks} value={dialogue?.id ?? ''} onChange={(event) => { if (event.target.value) void openDialogue(event.target.value); }} className="mt-1 w-full rounded border p-2"><option value="">—</option>{dialogueTasks.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>{dialogueNextBefore && <Button type="button" variant="outline" onClick={() => void loadMoreDialogues()} disabled={dialogueSaving}>{ui.moreTasks}</Button>}</>}
         {taskNotFound && dialogueLocator && <><p role="alert" className="text-sm text-destructive">{recoveryCopy.missing}</p><Button type="button" variant="outline" onClick={resetDialogue}>{recoveryCopy.newTask}</Button></>}
         {dialogue && <>
           <p className="text-xs text-muted-foreground">{ui.task} {dialogue.id} · revision {dialogue.revision}</p>
           {dialogue.source_stale && <p role="alert" className="text-sm text-destructive">{ui.sourceStale}</p>}
           {dialogue.pending_request_id && <p role="status" className="text-sm">{ui.pendingRequest}</p>}
-          {dialogue.interrupted_request_id && <p role="alert" className="text-sm text-destructive">{ui.interruptedRequest}</p>}
+          {dialogue.interrupted_request_id && <p role="status" className="text-sm text-muted-foreground">{recoveryCopy.interruptedRequest}</p>}
           {planRecoveryRequired && <p role="alert" className="text-sm text-destructive">{recoveryCopy.unknownPlan}</p>}
           {confirmRecoveryRequired && <p role="alert" className="text-sm text-destructive">{recoveryCopy.confirmUnknown}</p>}
-          <div aria-label={ui.exchanges} className="space-y-2"><p className="text-sm font-medium">{ui.exchanges}</p>{dialogue.exchanges.length === 0 ? <p className="text-sm text-muted-foreground">{ui.noMessages}</p> : dialogue.exchanges.map((exchange) => <article key={exchange.id} className="rounded bg-muted/40 p-2 text-sm"><p>{exchange.instruction}</p><p className="text-xs text-muted-foreground">{exchange.state}</p>{exchange.response?.state === 'interpreted' && <p>{exchange.response.candidate.course_intent || exchange.response.candidate.target_audience}</p>}{exchange.response?.state === 'clarification_needed' && <p>{ui.clarify}</p>}</article>)}</div>
-          <label className="block text-sm">{ui.dialogue}<textarea aria-label={ui.messagePlaceholder} value={dialogueMessage} onChange={(event) => setDialogueMessage(event.target.value)} maxLength={4000} rows={2} className="mt-1 w-full rounded border p-2" /></label>
-          <Button type="button" variant="outline" onClick={() => void sendDialogueMessage()} disabled={dialogueSaving || pending || !dialogueMessage.trim() || Boolean(dialogue.pending_request_id)}>{ui.sendMessage}</Button>
+          {contentMessageRecoveryRequired && <p role="alert" className="text-sm text-destructive">{CONTENT_COPY[locale].questionRecovery}</p>}
+          <label className="block text-sm">{CONTENT_COPY[locale].mode}<select aria-label={CONTENT_COPY[locale].mode} value={dialogueMode} onChange={(event) => setDialogueMode(event.target.value as 'question' | 'preparation')} className="mt-1 w-full rounded border p-2"><option value="question">{CONTENT_COPY[locale].questionMode}</option><option value="preparation">{CONTENT_COPY[locale].preparationMode}</option></select></label>
+          {dialogueMode === 'question' && dialogue.plan_id && <p role="status" className="text-sm text-muted-foreground">{CONTENT_COPY[locale].planExists}</p>}
+          <div aria-label={ui.exchanges} className="space-y-2"><p className="text-sm font-medium">{ui.exchanges}</p>{dialogue.exchanges.length === 0 ? <p className="text-sm text-muted-foreground">{ui.noMessages}</p> : dialogue.exchanges.map((exchange) => <article key={exchange.id} className="rounded bg-muted/40 p-2 text-sm"><p>{exchange.instruction}</p><p className="text-xs text-muted-foreground">{exchange.state}</p>{exchange.response?.state === 'interpreted' && <p>{exchange.response.candidate.course_intent || exchange.response.candidate.target_audience}</p>}{exchange.response?.state === 'clarification_needed' && <p>{ui.clarify}</p>}{exchange.response?.state === 'answered' && <div className="mt-2 space-y-2"><p className="font-medium">{CONTENT_COPY[locale][exchange.response.status]}</p><p className="whitespace-pre-wrap">{exchange.response.answer}</p>{exchange.response.citations.map((citation) => <div key={`${exchange.id}-${citation.number}`} className="rounded border p-2"><p className="font-medium">[{citation.number}] {citation.title} · v{citation.version}</p><p className="whitespace-pre-wrap">{citation.quote}</p><Button type="button" variant="outline" onClick={() => void openCitation(exchange.id, citation)} disabled={dialogue.source_stale}>{CONTENT_COPY[locale].openSource}</Button></div>)}</div>}</article>)}</div>
+          <label className="block text-sm">{ui.dialogue}<textarea aria-label={dialogueMode === 'question' ? CONTENT_COPY[locale].questionPlaceholder : CONTENT_COPY[locale].preparationPlaceholder} value={dialogueMessage} onChange={(event) => setDialogueMessage(event.target.value)} maxLength={4000} rows={2} className="mt-1 w-full rounded border p-2" /></label>
+          <Button type="button" variant="outline" onClick={() => void sendDialogueMessage()} disabled={dialogueSaving || pending || !dialogueMessage.trim() || Boolean(dialogue.pending_request_id) || dialogue.source_stale || contentMessageRecoveryRequired || (dialogueMode === 'question' && (Boolean(dialogue.plan_id) || planRecoveryRequired || confirmRecoveryRequired))}>{dialogueMode === 'question' ? CONTENT_COPY[locale].askQuestion : CONTENT_COPY[locale].sendPreparation}</Button>
+          {citationDialog && <Modal open onClose={closeCitationDialog} title={CONTENT_COPY[locale].sourceTitle} className="max-w-2xl">
+            <p className="mt-1 text-sm font-medium">{citationDialog.citation.title} · v{citationDialog.citation.version}</p>
+            <h4 className="mt-3 text-sm font-medium">{CONTENT_COPY[locale].sourceQuote}</h4>
+            <p className="whitespace-pre-wrap rounded bg-muted/40 p-2 text-sm">{citationDialog.citation.quote}</p>
+            <h4 className="mt-3 text-sm font-medium">{CONTENT_COPY[locale].sourceExcerpt}</h4>
+            {citationLoading ? <p role="status">{CONTENT_COPY[locale].sourceLoading}</p> : <p className="whitespace-pre-wrap rounded bg-muted/40 p-2 text-sm">{citationDialog.excerpt ?? CONTENT_COPY[locale].sourceUnavailable}</p>}
+            {citationError && <p role="alert" className="text-sm text-destructive">{citationError}</p>}
+            <div className="mt-4 flex gap-2"><Button type="button" onClick={() => void downloadCitation()} disabled={citationDownloading || citationLoading || !citationDialog.excerpt || dialogue.source_stale}>{citationDownloading ? CONTENT_COPY[locale].downloadLoading : CONTENT_COPY[locale].downloadSource}</Button><Button type="button" variant="outline" onClick={closeCitationDialog}>{CONTENT_COPY[locale].closeSource}</Button></div>
+          </Modal>}
         </>}
       </section>
       <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => void interpret()} disabled={pending || Boolean(dialogue) || !instruction.trim()}>{ui.interpret}</Button><Button type="button" onClick={() => void preview()} disabled={pending || Boolean(dialogue) || !instruction.trim() || !candidate.course_intent.trim() || selected.length < 1}>{ui.prepare}</Button></div>

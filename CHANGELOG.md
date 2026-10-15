@@ -143,6 +143,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.56] - 2026-10-15
+
+### Added
+
+- Add separate content-question mode to saved document dialogues: grounded answers,
+  contextual follow-ups, missing/conflicting evidence, verified source quotes,
+  excerpt opening and authenticated original download. Questions never edit the
+  course brief or execute generation/publication/assignment. Preserve private
+  history, exact request recovery and source/index reauthorization. No migration,
+  voice change, reserve activation or provider-resource change. Runtime acceptance
+  remains separately gated; old55 cannot render new answered histories on rollback.
+
 ## [0.11.55] - 2026-10-15
 
 ### Added

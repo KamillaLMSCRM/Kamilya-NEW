@@ -6710,6 +6710,16 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   denial before retrying. Never claim normal authentication makes no DB writes,
   and never compare auth timestamps as unchanged business-history invariants.
 
+- Recurrence, 2026-10-15: document-content isolated R3 completed42 SQL/service
+  checks and exact cleanup/source freeze, but public full-row neutrality failed.
+  Root's ordinary public DEV baseline login overlapped the gate; auth/service.py
+  explicitly updates User.last_login. The receipt does not identify every changed
+  column, so this is contaminated evidence, not proof that only that field changed.
+  Preserve R3 as BLOCKED. Serialize public logins/provider jobs outside the entire
+  neutral-snapshot window; do not weaken or exclude authentication columns from
+  the guard. The next gate reports changed table names/catalog equality plus both
+  aggregate hashes for diagnosis without exposing row contents.
+
 ## DOCUMENT38-CLOSEOUT-001 - Release38 closure required bounded product and harness facts
 
 - Date: 2026-10-05; release38 successor 370f56fb9e9ce9cdb173b7193e91dbd0f49675f1.

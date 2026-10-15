@@ -68,6 +68,139 @@ describe('document dialogue transport', () => {
     await expect(getDocumentDialogue(id)).rejects.toThrow(/identity/);
   });
 
+  it('validates content answers and retrieves only matching source citations and authenticated blobs', async () => {
+    const citation = { number: 1, document_id: requestId, title: 'Safety guide', version: 3, content_sha256: 'a'.repeat(64), index_revision: 4, chunk_id: 'd'.repeat(64), quote: 'Wear protective equipment.' };
+    const answered = { state: 'answered', status: 'supported', answer: 'Wear protective equipment.', citations: [citation] };
+    const answerTask = { ...task, exchanges: [{ id: planId, instruction: 'What equipment?', state: 'completed', response: answered, error_code: null, created_at: task.updated_at }] };
+    const { parseDocumentDialogueTask, messageDocumentContentDialogue, getDocumentContentSourceExcerpt, downloadDocumentContentSource } = await import('@/lib/documentDialogue');
+    expect(parseDocumentDialogueTask(answerTask).exchanges[0].response).toEqual(answered);
+    expect(() => parseDocumentDialogueTask({ ...answerTask, exchanges: [{ ...answerTask.exchanges[0], response: { ...answered, citations: [{ ...citation, version: 2 }] } }] })).toThrow(/does not match/);
+    expect(() => parseDocumentDialogueTask({ ...answerTask, exchanges: [{ ...answerTask.exchanges[0], response: { ...answered, answer: 'x'.repeat(8001) } }] })).toThrow();
+    apiMock.post.mockResolvedValue({ data: answerTask });
+    await messageDocumentContentDialogue(task as any, requestId, ' What equipment? ');
+    expect(apiMock.post).toHaveBeenCalledWith(`/v1/methodologist-workbench/document-dialogues/${id}/content-messages`, { request_id: requestId, expected_revision: 2, instruction: 'What equipment?' }, undefined);
+    await expect(messageDocumentContentDialogue({ ...task, plan_id: planId } as any, requestId, 'question')).rejects.toThrow(/without a linked plan/);
+    apiMock.get.mockResolvedValueOnce({ data: { citation, excerpt: 'Wear protective equipment before entry.' } });
+    expect(await getDocumentContentSourceExcerpt(task as any, planId, citation)).toEqual({ citation, excerpt: 'Wear protective equipment before entry.' });
+    expect(apiMock.get).toHaveBeenLastCalledWith(`/v1/methodologist-workbench/document-dialogues/${id}/sources/${planId}/1`, undefined);
+    const blob = new Blob(['private source bytes'], { type: 'application/pdf' });
+    apiMock.get.mockResolvedValueOnce({ data: blob, headers: { 'content-disposition': 'attachment; filename="..\\unsafe.pdf"' } });
+    const downloaded = await downloadDocumentContentSource(task as any, planId, citation);
+    expect(downloaded.blob).toBe(blob);
+    expect(downloaded.filename).toBe('unsafe.pdf');
+    expect(apiMock.get).toHaveBeenLastCalledWith(`/v1/methodologist-workbench/document-dialogues/${id}/sources/${planId}/1/download`, { responseType: 'blob' });
+  });
+
+  it('defaults to content questions, keeps linked plans immutable, and renders citation text without HTML', async () => {
+    vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
+    window.history.replaceState({}, '', `/methodologist-workbench?document_task=${id}`);
+    const citation = { number: 1, document_id: requestId, title: 'Safety guide', version: 3, content_sha256: 'a'.repeat(64), index_revision: 4, chunk_id: 'd'.repeat(64), quote: '<script>quoted text</script>' };
+    const answerTask = { ...task, exchanges: [{ id: planId, instruction: 'What is required?', state: 'completed', response: { state: 'answered', status: 'supported', answer: 'Use eye protection.', citations: [citation] }, error_code: null, created_at: task.updated_at }] };
+    apiMock.get.mockImplementation(async (url: string) => url.includes('/sources/') ? { data: { citation, excerpt: 'Eye protection is required before entering the area.' } }
+      : url.includes('/document-dialogues/') ? { data: answerTask } : { data: { tasks: [], has_more: false, next_before: null } });
+    apiMock.post.mockResolvedValue({ data: answerTask });
+    const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
+    render(<DocumentWorkbench />);
+    const questionBox = await screen.findByLabelText('Ask about the selected documents');
+    expect(screen.getByLabelText('Dialogue mode')).toHaveValue('question');
+    expect(screen.getByText('<script>quoted text</script>')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open source citation' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(await screen.findByText('Eye protection is required before entering the area.')).toBeInTheDocument();
+    expect(apiMock.get).toHaveBeenCalledWith(`/v1/methodologist-workbench/document-dialogues/${id}/sources/${planId}/1`, expect.anything());
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    fireEvent.change(questionBox, { target: { value: 'What is required?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask question' }));
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith(`/v1/methodologist-workbench/document-dialogues/${id}/content-messages`, expect.objectContaining({ instruction: 'What is required?' }), expect.anything()));
+  });
+
+  it('keeps archived citation text visible but blocks opening when the source is stale', async () => {
+    vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
+    window.history.replaceState({}, '', `/methodologist-workbench?document_task=${id}`);
+    const citation = { number: 1, document_id: requestId, title: 'Safety guide', version: 3, content_sha256: 'a'.repeat(64), index_revision: 4, chunk_id: 'd'.repeat(64), quote: 'Archived quote.' };
+    apiMock.get.mockImplementation(async (url: string) => url.includes('/document-dialogues/')
+      ? { data: { ...task, source_stale: true, exchanges: [{ id: planId, instruction: 'Question', state: 'completed', response: { state: 'answered', status: 'supported', answer: 'Archived answer.', citations: [citation] }, error_code: null, created_at: task.updated_at }] } }
+      : { data: { tasks: [], has_more: false, next_before: null } });
+    const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
+    render(<DocumentWorkbench />);
+    expect(await screen.findByText('Archived answer.')).toBeInTheDocument();
+    expect(screen.getByText('Archived quote.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open source citation' })).toBeDisabled();
+    expect(apiMock.get).not.toHaveBeenCalledWith(expect.stringContaining('/sources/'), expect.anything());
+  });
+
+  it('allows an explicit new-key message after reload projects an interrupted request', async () => {
+    vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
+    window.history.replaceState({}, '', `/methodologist-workbench?document_task=${id}`);
+    let reloadCount = 0;
+    apiMock.get.mockImplementation(async (url: string) => url.includes('/document-dialogues/')
+      ? { data: reloadCount++ === 0 ? task : { ...task, interrupted_request_id: requestId } }
+      : { data: { tasks: [], has_more: false, next_before: null } });
+    const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
+    render(<DocumentWorkbench />);
+    await screen.findByLabelText('Ask about the selected documents');
+    fireEvent.click(screen.getByRole('button', { name: 'Reload saved task' }));
+    expect(await screen.findByText(/previous request was interrupted/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ask question' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Ask about the selected documents'), { target: { value: 'Try again explicitly' } });
+    expect(screen.getByRole('button', { name: 'Ask question' })).toBeEnabled();
+    apiMock.post.mockResolvedValue({ data: task });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask question' }));
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith(`/v1/methodologist-workbench/document-dialogues/${id}/content-messages`, expect.objectContaining({ instruction: 'Try again explicitly' }), expect.anything()));
+    expect(apiMock.post.mock.calls.at(-1)?.[1].request_id).not.toBe(requestId);
+  });
+
+  it('does not send a content question for an existing plan and explains that a new task is required', async () => {
+    vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
+    window.history.replaceState({}, '', `/methodologist-workbench?document_task=${id}`);
+    apiMock.get.mockImplementation(async (url: string) => url.includes('/document-dialogues/') ? { data: { ...task, plan_id: planId } }
+      : url.includes('/document-plans/') ? { data: previewPlan }
+        : { data: { tasks: [], has_more: false, next_before: null } });
+    const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
+    render(<DocumentWorkbench />);
+    expect(await screen.findByText(/This task already has a plan/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ask question' })).toBeDisabled();
+    expect(apiMock.post).not.toHaveBeenCalled();
+  });
+
+  it('requires a selected source to start a content dialogue but not course audience or goal', async () => {
+    vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
+    apiMock.get.mockImplementation(async (url: string) => url.includes('/document-dialogues')
+      ? { data: { tasks: [], has_more: false, next_before: null } }
+      : { data: { items: [{ id: requestId, title: 'Safety guide', filename: 'guide.pdf', content_type: 'application/pdf', size: 10, description: '', category: 'general', index: { status: 'ready', revision: 4 }, version: 3, is_latest: true, lifecycle_status: 'active' }], page: { has_more: false } } });
+    apiMock.post.mockImplementation(async (_url: string, body: any) => ({ data: { ...task, id: body.task_id, language: body.language, sources: task.sources, draft: body.draft } }));
+    const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
+    render(<DocumentWorkbench />);
+    expect(await screen.findByText(/Course brief fields are not needed for questions/)).toBeInTheDocument();
+    const start = screen.getByRole('button', { name: 'Start saved preparation' });
+    expect(start).toBeDisabled();
+    expect(screen.getByLabelText('Audience')).toHaveValue('');
+    expect(screen.getByLabelText('Course goal')).toHaveValue('');
+    fireEvent.click(screen.getByRole('checkbox', { name: /Safety guide/ }));
+    expect(start).toBeEnabled();
+    fireEvent.click(start);
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/v1/methodologist-workbench/document-dialogues', expect.objectContaining({ document_ids: [requestId], draft: expect.objectContaining({ candidate: expect.objectContaining({ target_audience: '', course_intent: '' }) }) }), expect.anything()));
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires explicit GET reconciliation after an ambiguous content-message outcome', async () => {
+    vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
+    window.history.replaceState({}, '', `/methodologist-workbench?document_task=${id}`);
+    apiMock.get.mockImplementation(async (url: string) => url.includes('/document-dialogues/') ? { data: task } : { data: { tasks: [], has_more: false, next_before: null } });
+    apiMock.post.mockRejectedValue(new Error('connection lost'));
+    const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
+    render(<DocumentWorkbench />);
+    fireEvent.change(await screen.findByLabelText('Ask about the selected documents'), { target: { value: 'What equipment?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask question' }));
+    expect(await screen.findByText(/The question outcome is not confirmed/)).toBeInTheDocument();
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Reload saved task' }));
+    await waitFor(() => expect(screen.queryByText(/The question outcome is not confirmed/)).not.toBeInTheDocument());
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+    expect(apiMock.get).toHaveBeenCalledWith(`/v1/methodologist-workbench/document-dialogues/${id}`, expect.anything());
+  });
+
   it('keeps task creation out of effects and requires an explicit save before preview', async () => {
     vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
     const catalogItem = { id: requestId, title: 'Safety guide', filename: 'guide.pdf', content_type: 'application/pdf', size: 10, description: '', category: 'general', index: { status: 'ready', revision: 4 }, version: 3, is_latest: true, lifecycle_status: 'active' };

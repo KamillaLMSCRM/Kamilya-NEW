@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictBool, StringConstraints, model_validator
 
+from .document_answers import DocumentAnswer
 from .document_intent import DocumentCandidate, DocumentClarification, Language
 from .document_schemas import DocumentSource
 from .plan_contract import Instruction, Revision
@@ -63,7 +64,7 @@ class DocumentExchange(Contract):
     id: UUID
     instruction: Instruction
     state: Literal["pending", "completed", "failed"]
-    response: InterpretedDocument | DocumentClarification | None = None
+    response: InterpretedDocument | DocumentClarification | DocumentAnswer | None = None
     error_code: str | None = None
     created_at: AwareDatetime
 

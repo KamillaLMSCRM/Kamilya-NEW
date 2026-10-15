@@ -328,6 +328,13 @@ async def verify_dialogue(owner, runtime, schema, checks, *, runtime_connections
     await sql("UPDATE documents SET version=1 WHERE id=:id", {"id": doc_id})
     checks.append("source_drift_stale")
 
+    from document_content_dev_checks import verify_content
+    await verify_content(owner=owner, runtime=runtime, schema=schema, actor=actor,
+        foreign_actor=ActorContext(tenant_id=foreign, actor_id=foreign_actor, active_role="methodologist"),
+        sibling=ActorContext(tenant_id=tenant, actor_id=sibling, active_role="methodologist"), doc_id=doc_id,
+        create=create, call=call, read=read, sql=sql, reject=reject, require=require, checks=checks,
+        runtime_connections=runtime_connections)
+
     preview = await call(lambda db, a: service.preview_task(db, a, current.id, PreviewDialogue(expected_revision=current.revision)))
     require((await read(current.id)).plan_id == preview.plan_id, "preview_link_missing")
     again = await call(lambda db, a: service.preview_task(db, a, current.id, PreviewDialogue(expected_revision=current.revision)))

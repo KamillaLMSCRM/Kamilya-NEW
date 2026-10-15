@@ -16,6 +16,7 @@ from app.models.users import User
 
 from . import document_dialogue as dialogue
 from .assignment_service import WorkbenchConflict, WorkbenchNotFound
+from .document_answers import SourceExcerpt
 from .document_dialogue_schemas import (
     CreateDialogue,
     DocumentDialogue,
@@ -78,6 +79,39 @@ async def send_dialogue_message(task_id: UUID, body: SendDocumentMessage, respon
 @router.post("/document-dialogues/{task_id}/preview", response_model=DocumentPlanResponse)
 async def preview_dialogue(task_id: UUID, body: PreviewDialogue, response: Response, db: DbSession, user: Methodologist) -> DocumentPlanResponse:
     return await _dialogue_call(db, dialogue.preview_task(db, _context(user, response), task_id, body))
+
+
+@router.post("/document-dialogues/{task_id}/content-messages", response_model=DocumentDialogue)
+async def send_content_message(task_id: UUID, body: SendDocumentMessage, response: Response,
+                                db: DbSession, user: Methodologist) -> DocumentDialogue:
+    return await _dialogue_call(db, dialogue.send_message(db, _context(user, response), task_id, body, content_question=True))
+
+
+@router.get("/document-dialogues/{task_id}/sources/{exchange_id}/{number}", response_model=SourceExcerpt)
+async def source_excerpt(task_id: UUID, exchange_id: UUID, number: int, response: Response,
+                           db: DbSession, user: Methodologist) -> SourceExcerpt:
+    return await _dialogue_call(db, dialogue.citation_source(db, _context(user, response), task_id, exchange_id, number))
+
+
+@router.get("/document-dialogues/{task_id}/sources/{exchange_id}/{number}/download")
+async def source_download(task_id: UUID, exchange_id: UUID, number: int, response: Response,
+                           db: DbSession, user: Methodologist) -> Response:
+    from app.modules.documents.router import download_document
+
+    try:
+        source = await dialogue.citation_source(db, _context(user, response), task_id, exchange_id, number)
+        # Keep the current document row locked through the existing original-file read.
+        result = cast(Response, await download_document(source.citation.document_id, db, user))
+        result.headers["Cache-Control"] = "no-store"
+        await db.commit()
+        return result
+    except HTTPException as exc:
+        await db.rollback()
+        exc.headers = {**(exc.headers or {}), "Cache-Control": "no-store"}
+        raise
+    except (WorkbenchConflict, WorkbenchNotFound, IntegrityError, OperationalError) as exc:
+        await db.rollback()
+        raise _error(exc) from exc
 
 
 class InterpretedDocument(BaseModel):

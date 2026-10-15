@@ -34,18 +34,21 @@ from workbench_document_dev_gate import (  # noqa: E402
 
 MIGRATION = API / "alembic/versions/0181_document_preparation_dialogue.py"
 SOURCES = (
-    Path(__file__).resolve(), OPS / "document_dialogue_dev_checks.py", MIGRATION,
+    Path(__file__).resolve(), OPS / "document_dialogue_dev_checks.py", OPS / "document_content_dev_checks.py", MIGRATION,
     OPS / "workbench_document_dev_gate.py", OPS / "source_actuality_dev_gate.py",
     API / "alembic/versions/0175_workbench_document_plans.py",
     *(API / f"app/modules/methodologist_workbench/{name}.py" for name in (
         "document_dialogue", "document_dialogue_models", "document_dialogue_schemas",
-        "document_service", "document_models", "document_schemas", "document_intent", "document_router")),
+        "document_service", "document_models", "document_schemas", "document_intent", "document_router", "document_answers")),
+    API / "app/modules/ai/ingestion.py", API / "app/modules/ai/lexical_retrieval.py",
+    API / "app/modules/documents/router.py",
     API / "app/modules/admin/superadmin/service.py", API / "app/models/registry.py",
     API / "app/modules/ai/budget.py", API / "app/core/auth.py",
     API / "app/modules/ai/job_service.py", API / "app/modules/ai/router.py",
     *(API / f"app/models/{name}.py" for name in (
         "tenants", "users", "user_roles", "document", "ai_job", "tenant_settings", "tenant_llm_usage")),
     ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_DIALOGUE_V1.md",
+    ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_DIALOGUE_V1.md",
 )
 REQUIRED_CHECKS = frozenset({
     "empty_upgrade_downgrade_reupgrade", "table_acl_force_rls", "owner_reload_no_inference",
@@ -60,6 +63,12 @@ REQUIRED_CHECKS = frozenset({
     "reservation_commit_cancellation",
     "budget_denial_no_inference",
     "cross_owner_writes_denied", "authorized_purge_exact_rows",
+    "content_real_retrieval_persistence_replay", "content_provider_connection_released",
+    "content_source_sql_types_quote_hash", "content_foreign_actor_tenant_denied",
+    "content_stale_citation_denied", "content_recall_separate_from_draft",
+    "content_real_budget_refund", "content_preserves_frozen_preview",
+    "content_active_pointer_race_denied",
+    "content_not_found_pointer_race_denied",
 })
 PUBLIC_GUARDED_TABLES = (
     "tenants", "users", "user_roles", "documents", "ai_jobs", "workbench_document_plans",
@@ -209,7 +218,7 @@ async def run_gate(owner_url, runtime_url, supabase_url, schema):
         connection.exec_driver_sql(f"SET LOCAL search_path TO {safe_schema(schema)}, pg_catalog")
 
     owned = cleaned = neutral = unchanged = False
-    before = None
+    before = after = None
     checks = []
     failure = readback_failure = None
     detail = {}
@@ -265,7 +274,8 @@ async def run_gate(owner_url, runtime_url, supabase_url, schema):
                 cleaned = await cleanup(owner, schema)
             if before is not None:
                 async with owner.connect() as connection:
-                    neutral = before == await public_state_snapshot(connection)
+                    after = await public_state_snapshot(connection)
+                    neutral = before == after
             unchanged = source_manifest() == frozen
         except Exception as exc:
             readback_failure = sanitize_failure(exc)
@@ -279,6 +289,10 @@ async def run_gate(owner_url, runtime_url, supabase_url, schema):
         provider="FAKE_ONLY", email="NOT_USED", production="UNCHANGED",
         public_guarded_tables=list(PUBLIC_GUARDED_TABLES),
         public_before_sha256=hashlib.sha256(json.dumps(before, sort_keys=True).encode()).hexdigest() if before else None,
+        public_after_sha256=hashlib.sha256(json.dumps(after, sort_keys=True).encode()).hexdigest() if after else None,
+        public_changed_tables=sorted(table for table in PUBLIC_GUARDED_TABLES
+            if before and after and before["rows"].get(table) != after["rows"].get(table)),
+        public_catalog_unchanged=bool(before and after and before["catalog"] == after["catalog"]),
         semantic_quality="NOT_VERIFIED", expired_pending_clock="DETERMINISTIC_APP_CLOCK_PLUS_3_MINUTES")
     assert_sanitized_evidence(result)
     return result
@@ -296,7 +310,9 @@ def main():
         if args.env_file.resolve() != (Path(common).parent / ".env").resolve():
             raise GateBlocked("noncanonical_env_file")
         target = args.evidence.resolve()
-        if target.parent != (ROOT / ".release-evidence/DOCUMENT55-20261015").resolve() or target.suffix != ".json" or target.exists():
+        allowed_roots = {(ROOT / f".release-evidence/{name}").resolve() for name in
+                         ("DOCUMENT55-20261015", "DOCUMENT56-20261015")}
+        if target.parent not in allowed_roots or target.suffix != ".json" or target.exists():
             raise GateBlocked("invalid_evidence_target")
         config = canonical_config(args.env_file)
         load_dotenv(args.env_file, override=True)

@@ -18,6 +18,14 @@ from app.core.log_redaction import redact_sensitive_text
 from app.models.users import User
 
 from .assignment_service import WorkbenchConflict, WorkbenchNotFound, _assert_actor
+from .document_answers import (
+    DocumentAnswer,
+    SourceExcerpt,
+    answer_document,
+    read_excerpt,
+    validate_citations,
+    validate_evidence,
+)
 from .document_dialogue_models import DocumentDialogueExchange as Exchange
 from .document_dialogue_models import DocumentDialogueTask as Task
 from .document_dialogue_schemas import (
@@ -55,6 +63,8 @@ def failure_code(error: Exception) -> str:
     if isinstance(error, SQLAlchemyError):
         return "persistence_unavailable"
     if isinstance(error, ValidationError):
+        return "invalid_response"
+    if isinstance(error, ValueError) and not isinstance(error, WorkbenchConflict):
         return "invalid_response"
     return "interrupted"
 
@@ -242,9 +252,10 @@ async def fail_request(db: AsyncSession, actor: ActorContext, task_id: UUID, req
 
 
 async def send_message(db: AsyncSession, actor: ActorContext, task_id: UUID,
-                       body: SendDocumentMessage) -> DocumentDialogue:
+                       body: SendDocumentMessage, *, content_question: bool = False) -> DocumentDialogue:
     task = await owned_task(db, actor, task_id, lock=True)
-    fingerprint = digest({"task_id": str(task_id), **body.model_dump(mode="json")})
+    fingerprint = digest({"task_id": str(task_id), **body.model_dump(mode="json"),
+                          **({"purpose": "content_question"} if content_question else {})})
     existing = await db.scalar(select(Exchange).where(Exchange.id == body.request_id,
         Exchange.task_id == task.id, Exchange.tenant_id == actor.tenant_id, Exchange.actor_id == actor.actor_id))
     if existing:
@@ -255,6 +266,8 @@ async def send_message(db: AsyncSession, actor: ActorContext, task_id: UUID,
         raise HTTPException(409 if existing.state == "pending" else 503,
                             "dialogue_request_pending" if existing.state == "pending" else "dialogue_request_failed")
     rows = await mutable(db, actor, task, body.expected_revision)
+    if content_question and task.plan_id:
+        raise WorkbenchConflict("dialogue_content_requires_new_task")
     if len(rows) >= 40:
         raise WorkbenchConflict("dialogue_exchange_limit")
     now = datetime.now(UTC)
@@ -266,11 +279,17 @@ async def send_message(db: AsyncSession, actor: ActorContext, task_id: UUID,
     if not instruction.strip() or len(instruction) > 4000:
         raise HTTPException(422, "dialogue_redacted_instruction_invalid")
     draft = DialogueDraft.model_validate(task.draft).model_copy(update={"instruction": instruction})
-    recall = [row.instruction for row in rows if row.state == "completed"][-4:]
+    recall = [row.instruction for row in rows if row.state == "completed"
+              and row.response and row.response.get("state") != "answered"][-4:]
     model_context = {"prior_instructions": recall, "current_candidate": draft.candidate.model_dump(),
                      "source_titles": [redact_sensitive_text(source["title"])[:1000] for source in task.sources]}
     language = task.language
-    task.draft, task.plan_id, task.revision = draft.model_dump(mode="json"), None, task.revision + 1
+    sources = tuple(DocumentSource.model_validate(source) for source in task.sources)
+    content_recall = [{"question": row.instruction, "answer": row.response["answer"][:2000]}
+        for row in rows if row.state == "completed" and row.response and row.response.get("state") == "answered"][-4:]
+    if not content_question:
+        task.draft, task.plan_id = draft.model_dump(mode="json"), None
+    task.revision += 1
     await db.flush()  # Task revision must exist before the exchange scope trigger.
     db.add(Exchange(id=body.request_id, task_id=task.id, tenant_id=actor.tenant_id, actor_id=actor.actor_id,
         base_revision=body.expected_revision, fingerprint=fingerprint, instruction=instruction, state="pending"))
@@ -286,12 +305,20 @@ async def send_message(db: AsyncSession, actor: ActorContext, task_id: UUID,
             await reservation
             raise
         await context(db, actor)
-        result = await interpret_document(db, actor, DocumentInterpretRequest(instruction=instruction, language=language),
-            dialogue_context=model_context, provider_deadline_seconds=8)
+        result: DocumentCandidate | DocumentClarification | DocumentAnswer
+        evidence = None
+        if content_question:
+            evidence = await answer_document(db, actor, sources, instruction, language, content_recall)
+            result = evidence.response
+        else:
+            result = await interpret_document(db, actor, DocumentInterpretRequest(instruction=instruction, language=language),
+                dialogue_context=model_context, provider_deadline_seconds=8)
         await db.commit()
         task = await owned_task(db, actor, task_id, lock=True)
         if not await current_sources(db, actor, task, lock=True):
             raise WorkbenchConflict("dialogue_source_stale")
+        if evidence is not None:
+            await validate_evidence(db, actor, evidence)
         completed_row = await db.scalar(select(Exchange).where(Exchange.id == body.request_id,
             Exchange.task_id == task.id, Exchange.tenant_id == actor.tenant_id, Exchange.actor_id == actor.actor_id))
         if completed_row is None or completed_row.state != "pending" or completed_row.created_at <= datetime.now(UTC) - LEASE:
@@ -303,7 +330,7 @@ async def send_message(db: AsyncSession, actor: ActorContext, task_id: UUID,
         if isinstance(result, DocumentCandidate):
             updated = safe_draft(DialogueDraft.model_validate(task.draft).model_copy(update={"candidate": result}), language)
             task.draft = updated.model_dump(mode="json")
-            response: InterpretedDocument | DocumentClarification = InterpretedDocument(candidate=updated.candidate)
+            response: InterpretedDocument | DocumentClarification | DocumentAnswer = InterpretedDocument(candidate=updated.candidate)
         else:
             response = result
         completed_row.state, completed_row.response = "completed", response.model_dump(mode="json")
@@ -319,3 +346,23 @@ async def send_message(db: AsyncSession, actor: ActorContext, task_id: UUID,
     except Exception as exc:
         await fail_request(db, actor, task_id, body.request_id, failure_code(exc))
         raise
+
+
+async def citation_source(db: AsyncSession, actor: ActorContext, task_id: UUID,
+                          exchange_id: UUID, number: int) -> SourceExcerpt:
+    task = await owned_task(db, actor, task_id, lock=True)
+    if not await current_sources(db, actor, task, lock=True):
+        raise WorkbenchConflict("dialogue_source_stale")
+    row = await db.scalar(select(Exchange).where(Exchange.id == exchange_id, Exchange.task_id == task.id,
+        Exchange.tenant_id == actor.tenant_id, Exchange.actor_id == actor.actor_id, Exchange.state == "completed"))
+    if row is None or not row.response or row.response.get("state") != "answered":
+        raise WorkbenchNotFound("dialogue_citation_not_found")
+    answer = DocumentAnswer.model_validate(row.response)
+    await validate_citations(db, actor, answer)
+    citation = next((item for item in answer.citations if item.number == number), None)
+    if citation is None:
+        raise WorkbenchNotFound("dialogue_citation_not_found")
+    source = next((item for item in task.sources if item["document_id"] == str(citation.document_id)), None)
+    if source is None or any(source[key] != getattr(citation, key) for key in ("version", "content_sha256", "index_revision")):
+        raise WorkbenchConflict("dialogue_source_stale")
+    return await read_excerpt(db, actor, citation)

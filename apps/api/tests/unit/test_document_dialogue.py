@@ -116,7 +116,7 @@ async def test_message_is_reserved_before_model_and_context_rebound(monkeypatch)
     db = SimpleNamespace(scalar=AsyncMock(side_effect=[None, row]), commit=AsyncMock(),
                          flush=AsyncMock(), refresh=AsyncMock(), add=Mock())
     monkeypatch.setattr(service, "owned_task", AsyncMock(return_value=current))
-    previous = [SimpleNamespace(instruction=f"Earlier {index}", state="completed") for index in range(6)]
+    previous = [SimpleNamespace(instruction=f"Earlier {index}", state="completed", response={"state": "interpreted"}) for index in range(6)]
     monkeypatch.setattr(service, "mutable", AsyncMock(return_value=previous))
     monkeypatch.setattr(service, "context", AsyncMock())
     monkeypatch.setattr(service, "current_sources", AsyncMock(return_value=True))

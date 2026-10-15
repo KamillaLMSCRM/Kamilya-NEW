@@ -2,7 +2,14 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
-Current bounded package: [Durable document dialogue V1](contracts/DOCUMENT_DIALOGUE_V1.md),
+Current implementation candidate: [document content dialogue V1](contracts/DOCUMENT_CONTENT_DIALOGUE_V1.md),
+2026-10-15. Source-grounded Q&A shares the private archive but never mutates the
+course brief or executes commands. Server-owned citations/current-source opening
+and original download. DEV/production release and real-model acceptance NOT YET
+VERIFIED. No migration; old55 cannot render new answered exchanges on rollback,
+so retain history and roll forward for that capability. Voice untouched/reserveOFF.
+
+Previous bounded package: [Durable document dialogue V1](contracts/DOCUMENT_DIALOGUE_V1.md),
 released/accepted0.11.55/source381692f9,2026-10-15 after synthetic DEV→production acceptance.
 Private source-bound task/draft/history and read-only resume, existing document
 plan/generation owner preserved. Actual isolated DEV32checks PASS, source-bound
