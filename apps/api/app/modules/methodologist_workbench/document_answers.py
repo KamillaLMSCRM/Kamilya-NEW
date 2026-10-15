@@ -253,7 +253,11 @@ def messages(question: str, language: str, recall: list[dict[str, Any]], excerpt
         "For a missing fact, give the relevant absence or limit without cataloguing other rules, numerical periods "
         "or distracting details from the excerpts. "
         "Finish when the requested points are covered. Do not append other discrepancies, warnings or disclaimers "
-        "about unasked dimensions, not even to say that you are not discussing them. Schema: "
+        "about unasked dimensions, not even to say that you are not discussing them. "
+        "Final response check: keep only sentences needed to answer the current requested facts. "
+        "Delete unrequested caveats about other rules, missing periods or precedence, even when the excerpts "
+        "explicitly contain them. For not_found, use one or two short sentences naming the missing requested "
+        "facts; do not enumerate nearby deadlines, retention rules or other missing facts. Schema: "
         + json.dumps(ModelAnswer.model_json_schema(), ensure_ascii=False))},
         {"role": "user", "content": json.dumps({
             "selected_sources": [{"title": redact_sensitive_text(source.title),

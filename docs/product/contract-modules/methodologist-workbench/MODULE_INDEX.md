@@ -2,7 +2,11 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
-Current implementation candidate: [repeat-context/fact-dimension V1.3](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_3.md)
+Current implementation candidate: [conditions/source authority/focus V1.7](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_7.md)
+extends [two-evidenced-positions V1.6](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_6.md),
+[immediate previous turn V1.5](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_5.md),
+[answer-first schema V1.4](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_4.md), and
+[repeat-context/fact-dimension V1.3](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_3.md), which
 extends [window-budget/requested-scope V1.2](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_2.md), which
 extends [coverage/follow-up V1.1](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_1.md), which
 extends [retrieval addendum V1](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1.md),

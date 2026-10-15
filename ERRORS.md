@@ -7795,6 +7795,15 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   prompt bytes. New focused/model, full final CI, ordinary DEV/browser and prod
   semantics remain mandatory. R10 cleanup/public before=afterecc6b997...40c4c0.
 
+- Eighth DEV ef7b207f passed its new browser14-turn reload and original DOCX/PDF
+  downloads, but independent first25 semantic review found23PASS/2PARTIAL:
+  D57-06 and D57-17 appended an unrelated source caveat about another deadline.
+  Preserve those outputs. A final requested-fact response check and short
+  not_found response guidance remove that distraction in two targeted module
+  probes independently accepted PASS. This refines V1.7 focus, not source truth,
+  classification, public shapes, retries or routing. Full exact DEV/prod gates
+  remain required; do not run the unexecuted remaining17 cases on rejected ef7.
+
 ## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
 
 - Date: 2026-10-15, DOCUMENT57.

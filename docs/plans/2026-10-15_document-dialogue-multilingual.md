@@ -112,6 +112,12 @@
   application-equivalent isolation evidence, not a fresh SQL run on final prompt
   bytes. Focused final3model probes now preserve conditional/appointing authority/
   true conflict; actual full DEV/browser/production semantics remain unverified.
+  R8 exactef7 independently reconciled existing Free API/worker/Hobby and both
+  CI runs passed. Browser14messages/reload/reopen/original DOCX+PDF hashes passed;
+  first25 semantic23PASS/2PARTIAL/0FAIL. Remaining17 not run on rejected candidate.
+  Final response-scope refinement removes unasked precedence/other-rule caveats;
+  two actual module probes independently PASS, focused RED1/GREEN45. Keep old
+  outputs and frozen oracles; final exact DEV42/prod42 still required.
 - D57-RELEASE NOT_STARTED: exact-source release gate, signed backup/restore,
   rollback/capacity, protected backend/native release only if there is an accepted
   application change; current56 not redeployed merely for evaluation documentation.

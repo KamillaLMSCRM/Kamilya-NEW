@@ -46,6 +46,14 @@ def test_current_question_is_last_after_untrusted_context():
     assert "Finish when the requested points are covered" in answers.messages("Why?", "en", [], EXCERPTS)[0]["content"]
 
 
+def test_final_scope_check_keeps_abstentions_short_and_omits_unasked_caveats():
+    system = answers.messages("Is a repair deadline or penalty stated?", "en", [], EXCERPTS)[0]["content"]
+    assert "Final response check" in system
+    assert "one or two short sentences" in system
+    assert "Delete unrequested caveats about other rules, missing periods or precedence" in system
+    assert system.index("Final response check") > system.index("Every factual statement")
+
+
 def test_conflict_requires_two_evidenced_positions_not_an_unavailable_reference():
     system = answers.messages("Is this card's deadline conclusively applicable?", "en", [], EXCERPTS)[0]["content"]
     assert "two evidenced opposing positions" in system
