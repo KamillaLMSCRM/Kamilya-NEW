@@ -112,7 +112,7 @@ async def test_unresolved_key_is_not_retried(monkeypatch, state, status):
 async def test_message_is_reserved_before_model_and_context_rebound(monkeypatch):
     current = task()
     body = SendDocumentMessage(request_id=UUID(int=5), expected_revision=1, instruction="Simplify")
-    row = SimpleNamespace(state="pending", created_at=NOW)
+    row = SimpleNamespace(state="pending", created_at=datetime.now(UTC))
     db = SimpleNamespace(scalar=AsyncMock(side_effect=[None, row]), commit=AsyncMock(),
                          flush=AsyncMock(), refresh=AsyncMock(), add=Mock())
     monkeypatch.setattr(service, "owned_task", AsyncMock(return_value=current))
@@ -134,6 +134,15 @@ async def test_message_is_reserved_before_model_and_context_rebound(monkeypatch)
     assert current.revision == 3 and row.state == "completed"
     assert row.response["candidate"]["course_format"] == "brief"
     assert db.commit.await_count == 3
+
+
+async def test_pending_reservation_clock_is_fresh_after_slow_test_collection(monkeypatch):
+    import sys
+
+    # Reproduce the long CI ordering in milliseconds, not a physical two-minute
+    # sleep. Collection timestamps are not timestamps of a newly reserved row.
+    monkeypatch.setattr(sys.modules[__name__], "NOW", datetime.now(UTC) - timedelta(minutes=3))
+    await test_message_is_reserved_before_model_and_context_rebound(monkeypatch)
 
 
 async def test_unknown_execution_plan_blocks_new_work(monkeypatch):

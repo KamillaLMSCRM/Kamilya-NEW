@@ -4509,3 +4509,12 @@ Rules:
 - CodeGraph stale/excluded4 index: SOURCE_FALLBACK, no unsafe index query/rebuild.
   Root decision: local/isolated candidate ACCEPTED; full DEV/live/provider and
   production acceptance remain NOT VERIFIED. No shipping claim from unit tests.
+
+- CI correction: exact d1aee437 run38727493135 failed only the full backend suite
+  (2628PASS/1FAIL/2SKIP at169.45s); other6jobs passed. New unit pending fixture used
+  module-import NOW and therefore exceeded the real2minute lease after lengthy
+  earlier tests. Deterministic3minute collection-offset regression reproducedRED
+  in1.82s, then changed ONLY fixture created_at to test-execution UTC. Focused57PASS
+  in2.06s. No TTL/runtime/schema/guard change; R3's28runtime-source hashes remain
+  eligible for exact linkage to the corrective commit. FailedCI/native non-dispatch
+  receipt retained; final replacement CI and all deployment/live gates still pending.
