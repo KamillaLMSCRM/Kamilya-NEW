@@ -231,7 +231,8 @@ async def _answer_document(db: AsyncSession, actor: ActorContext, sources: tuple
         async with asyncio.timeout(30):
             provider = await ResilientLLMClient.from_settings_async(tenant_id=actor.tenant_id,
                 temperature=0, max_tokens=2000, max_retries_per_provider=0)
-            response = await provider.ainvoke(messages(question, language, recall, excerpts), provider_deadline_seconds=8)
+            response = await provider.ainvoke(messages(question, language, recall, excerpts),
+                response_format={"type": "json_object"}, provider_deadline_seconds=8)
         return AnswerEvidence(parse_answer(response.content, excerpts), indexes, witnesses)
     except (asyncio.CancelledError, ValueError):
         await settle_refund(db, actor)

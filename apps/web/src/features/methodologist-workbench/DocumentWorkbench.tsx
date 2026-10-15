@@ -355,9 +355,8 @@ function DocumentWorkbenchInner() {
         const url = new URL(window.location.href); url.searchParams.delete('document_plan');
         window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
       }
-    } catch (cause: any) { if (mounted.current && current === dialogueEpoch.current) {
-      const status = cause?.response?.status;
-      if (askingQuestion && (status === undefined || status >= 500)) setContentMessageRecoveryRequired(true);
+    } catch { if (mounted.current && current === dialogueEpoch.current) {
+      if (askingQuestion) setContentMessageRecoveryRequired(true);
       else setError(uiRef.current.taskError);
     } }
     finally { if (mounted.current && current === dialogueEpoch.current) setDialogueSaving(false); }
@@ -506,9 +505,9 @@ function DocumentWorkbenchInner() {
       {candidate.source_strategy === 'intentional_combination' && <textarea value={candidate.combination_goal} onChange={(event) => { clearStale(); setCandidate({ ...candidate, combination_goal: event.target.value }); }} maxLength={2000} rows={2} placeholder={ui.combinationPlaceholder} className="w-full rounded border p-2 text-sm" />}
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={languageConfirmed} onChange={(event) => { clearStale(); setLanguageConfirmed(event.target.checked); }} />{ui.confirmLanguage}</label>
       <label className="text-sm">{ui.reuse}<select value={reuseReason ?? ''} onChange={(event) => { clearStale(); setReuseReason((event.target.value || null) as AIGenerateRequest['reuse_reason']); }} className="mt-1 w-full rounded border p-2">{Object.entries(ui.reuseOptions).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-      <section aria-label={ui.dialogue} className="space-y-3 rounded border p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2"><h3 aria-label={ui.dialogue} className="font-medium">{CONTENT_COPY[locale].questionTitle}</h3><div className="flex flex-wrap gap-2">
-          {!dialogue && <Button type="button" variant="outline" aria-label={dialogueLocator ? ui.reloadTask : ui.startDialogue} onClick={() => dialogueLocator ? void openDialogue(dialogueLocator) : void startDialogue()} disabled={dialogueSaving || pending || (!dialogueLocator && selected.length < 1)}>{dialogueLocator ? ui.reloadTask : CONTENT_COPY[locale].startQuestionTask}</Button>}
+      <section aria-label={CONTENT_COPY[locale].questionTitle} className="space-y-3 rounded border p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-medium">{CONTENT_COPY[locale].questionTitle}</h3><div className="flex flex-wrap gap-2">
+          {!dialogue && <Button type="button" variant="outline" aria-label={dialogueLocator ? ui.reloadTask : CONTENT_COPY[locale].startQuestionTask} onClick={() => dialogueLocator ? void openDialogue(dialogueLocator) : void startDialogue()} disabled={dialogueSaving || pending || (!dialogueLocator && selected.length < 1)}>{dialogueLocator ? ui.reloadTask : CONTENT_COPY[locale].startQuestionTask}</Button>}
           {dialogue && <><Button type="button" variant="outline" onClick={() => void saveDialogue()} disabled={dialogueSaving || pending || Boolean(dialogue.pending_request_id) || planRecoveryRequired || confirmRecoveryRequired || plan?.state === 'submitted' || !dialogueDraftDirty}>{ui.saveDraft}</Button><Button type="button" variant="outline" onClick={() => void reloadDialogue()} disabled={dialogueSaving}>{ui.reloadTask}</Button>{dialogue.plan_id && (planRecoveryRequired || confirmRecoveryRequired) && <Button type="button" variant="outline" onClick={() => void recoverLinkedPlan()} disabled={dialogueSaving}>{recoveryCopy.recoverPlan}</Button>}<Button type="button" onClick={() => void previewSavedDialogue()} disabled={dialogueSaving || pending || dialogueDraftDirty || planRecoveryRequired || confirmRecoveryRequired || plan?.state === 'submitted' || Boolean(dialogue.pending_request_id) || dialogue.source_stale || Boolean(dialogue.interrupted_request_id)}>{ui.prepare}</Button><Button type="button" variant="outline" onClick={resetDialogue}>{recoveryCopy.newTask}</Button></>}
         </div></div>
         <p className="text-sm text-muted-foreground">{CONTENT_COPY[locale].taskHint}</p>

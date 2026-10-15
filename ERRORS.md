@@ -7572,3 +7572,36 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Prevention: test same-key replay after actual commit and a relation move while
   provider waits. Context must be rebound per transaction; expired unknown state
   must remain explicit, not turn into a silently blank/new request.
+
+## UI-007 - Cross-origin source downloads lost the original filename
+
+- Date: 2026-10-15, DOCUMENT56 live DEV acceptance.
+- Symptom: source bytes matched the original SHA256, but a browser download was
+  named `qa-source56.download` instead of `qa-source56.txt`.
+- Cause: the API returned Content-Disposition, but CORS did not expose that
+  response header to the authenticated frontend; its safe fallback was used.
+- Fix: expose only Content-Disposition. Preserve the exact allowed origins,
+  request headers, credentials, authentication and source ownership checks.
+- Verification: live DEV response200/original filename header and absent exposed
+  headers confirmed; configured-middleware regression RED then GREEN. Final
+  corrected DEV/prod browser download remains a separate acceptance gate.
+- Prevention: test browser-readable response headers at the configured CORS seam,
+  not only a mocked transport containing a filename header.
+
+## UI-008 - Failed document question left a stale task revision in the composer
+
+- Date: 2026-10-15, DOCUMENT56 live DEV acceptance.
+- Symptom: an invalid model response produced a durable failed exchange, but
+  a4xx only showed a generic error and retained the pre-reservation UI revision.
+- Cause: explicit GET recovery was required for network/5xx only, although a
+  definitive model-validation4xx can follow a committed exchange reservation.
+- Fix: every failed content-question POST requires explicit task readback before
+  a new message; no automatic retry or invented successful answer. Also request
+  provider JSON-object mode, retaining strict answer/citation validation.
+- Verification: 4xx recovery regression uses the updated revision and a new
+  request ID; existing5xx coverage retained. Missing JSON-mode request reproduced
+  by a separate RED/GREEN provider-call assertion. Two direct synthetic provider
+  probes parsed successfully; they do not establish the exact raw cause of the
+  earlier two invalid responses or substitute for a corrected live DEV run.
+- Prevention: test failure after reservation, not only pre-write validation;
+  reconcile committed state before allowing another revision-checked command.

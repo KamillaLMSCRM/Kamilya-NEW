@@ -205,6 +205,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Idempotency-Key"],
+    expose_headers=["Content-Disposition"],
 )
 
 register_error_handlers(app)

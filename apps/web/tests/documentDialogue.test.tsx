@@ -102,6 +102,7 @@ describe('document dialogue transport', () => {
     const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
     render(<DocumentWorkbench />);
     const questionBox = await screen.findByLabelText('Ask about the selected documents');
+    expect(screen.getByRole('heading', { level: 3, name: 'Dialogue with documents' })).toBeInTheDocument();
     expect(screen.getByLabelText('Dialogue mode')).toHaveValue('question');
     expect(screen.getByText('<script>quoted text</script>')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Open source citation' }));
@@ -173,7 +174,7 @@ describe('document dialogue transport', () => {
     const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
     render(<DocumentWorkbench />);
     expect(await screen.findByText(/Course brief fields are not needed for questions/)).toBeInTheDocument();
-    const start = screen.getByRole('button', { name: 'Start saved preparation' });
+    const start = screen.getByRole('button', { name: 'Start dialogue' });
     expect(start).toBeDisabled();
     expect(screen.getByLabelText('Audience')).toHaveValue('');
     expect(screen.getByLabelText('Course goal')).toHaveValue('');
@@ -201,6 +202,33 @@ describe('document dialogue transport', () => {
     expect(apiMock.get).toHaveBeenCalledWith(`/v1/methodologist-workbench/document-dialogues/${id}`, expect.anything());
   });
 
+  it('requires GET reconciliation after a definitive 4xx question failure before using the updated revision', async () => {
+    vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
+    window.history.replaceState({}, '', `/methodologist-workbench?document_task=${id}`);
+    const failedTask = { ...task, revision: 4, exchanges: [{ id: requestId, instruction: 'What equipment?', state: 'failed', response: null, error_code: 'invalid_response', created_at: task.updated_at }] };
+    let detailReads = 0;
+    apiMock.get.mockImplementation(async (url: string) => url.includes('/document-dialogues/')
+      ? { data: detailReads++ === 0 ? task : failedTask }
+      : { data: { tasks: [], has_more: false, next_before: null } });
+    apiMock.post.mockRejectedValueOnce({ response: { status: 422, data: { detail: 'invalid_response' } } }).mockResolvedValueOnce({ data: failedTask });
+    const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
+    render(<DocumentWorkbench />);
+    const composer = await screen.findByLabelText('Ask about the selected documents');
+    fireEvent.change(composer, { target: { value: 'What equipment?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask question' }));
+    expect(await screen.findByText(/The question outcome is not confirmed/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ask question' })).toBeDisabled();
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Reload saved task' }));
+    await waitFor(() => expect(screen.queryByText(/The question outcome is not confirmed/)).not.toBeInTheDocument());
+    expect(screen.getByText('failed')).toBeInTheDocument();
+    fireEvent.change(composer, { target: { value: 'Try a new question' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask question' }));
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledTimes(2));
+    expect(apiMock.post.mock.calls[1][1].expected_revision).toBe(4);
+    expect(apiMock.post.mock.calls[1][1].request_id).not.toBe(apiMock.post.mock.calls[0][1].request_id);
+  });
+
   it('keeps task creation out of effects and requires an explicit save before preview', async () => {
     vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
     const catalogItem = { id: requestId, title: 'Safety guide', filename: 'guide.pdf', content_type: 'application/pdf', size: 10, description: '', category: 'general', index: { status: 'ready', revision: 4 }, version: 3, is_latest: true, lifecycle_status: 'active' };
@@ -219,7 +247,7 @@ describe('document dialogue transport', () => {
     expect(apiMock.post).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('checkbox', { name: /Safety guide/ }));
     fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'en' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Start saved preparation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start dialogue' }));
     await screen.findByText(/Task:/);
     expect(apiMock.post).toHaveBeenCalledTimes(1);
     fireEvent.change(screen.getByLabelText('Course goal'), { target: { value: 'Teach safe work' } });
@@ -286,7 +314,7 @@ describe('document dialogue transport', () => {
     expect(screen.getAllByRole('button', { name: 'Prepare plan' })[0]).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Start new preparation' }));
     expect(new URLSearchParams(window.location.search).has('document_task')).toBe(false);
-    expect(screen.getByRole('button', { name: 'Start saved preparation' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start dialogue' })).toBeInTheDocument();
   });
 
   it('treats a lost confirm response as ambiguous and reconciles with an explicit plan GET', async () => {
@@ -320,7 +348,7 @@ describe('document dialogue transport', () => {
     const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
     render(<DocumentWorkbench />);
     fireEvent.click(await screen.findByRole('checkbox', { name: /Safety guide/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Start saved preparation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start dialogue' }));
     await screen.findByRole('alert');
     const provisionalId = new URLSearchParams(window.location.search).get('document_task');
     expect(provisionalId).toMatch(/^[0-9a-f-]{36}$/i);
@@ -365,7 +393,7 @@ describe('document dialogue transport', () => {
     const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');
     render(<DocumentWorkbench />);
     await screen.findByText(/Plan ready/);
-    fireEvent.click(screen.getByRole('button', { name: 'Start saved preparation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start dialogue' }));
     await screen.findByText(/Task:/);
     expect(screen.queryByText(/Plan ready/)).not.toBeInTheDocument();
     expect(new URLSearchParams(window.location.search).has('document_plan')).toBe(false);

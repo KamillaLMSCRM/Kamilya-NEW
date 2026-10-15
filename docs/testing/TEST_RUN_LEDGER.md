@@ -4551,3 +4551,57 @@ Rules:
   confirm UI flow and production reserve OFF with whole-row hash unchanged. This API
   receipt independently verifies only its listed readback scope; Root owns overall
   product acceptance and GO. No secrets or personal data recorded.
+
+### RUN-DOCUMENT56-LOCAL-20261015 — local document content dialogue evidence review
+
+- Test & Evidence Runner read-only review at exact clean checkout SHA
+  `87d5d0c5cd69131c4484d9e04bd916c111c95aa1`; no tests rerun. The locally
+  inspected full-suite artifacts report API `3006 passed, 0 failed, 0 errors,
+  0 skipped` (`api-full56.xml`, SHA-256
+  `313cd12eda3d55547df74e7773a53d8dea68a66492a5d2539b0b2cd60025069d`) and web
+  `1161 passed, 0 failed, 0 pending` across `340` suites (`web-full56.json`,
+  SHA-256 `eaae2eb193f02b8fac54330d1b98e1aeb0d0369c34d0a3ce65ee73125bf7d495`).
+  Root separately attested focused `50`, lint `0`, typecheck PASS and build `67`;
+  those observations were not independently machine-linked in this review.
+- Isolated DEV receipts R1, R2 and R3 are all `BLOCKED`, not PASS. R1 reports
+  IntegrityError SQLSTATE `23502`; R2 reports IntegrityError SQLSTATE `23514`;
+  both report cleanup/source unchanged/public schema neutral. R3 reports
+  `public_schema_neutral=false` and semantic quality `NOT_VERIFIED`, despite
+  cleanup/source unchanged. Exact receipt hashes and summarized outcomes are in
+  `.release-evidence/DOCUMENT56-20261015/local-acceptance56.json` (SHA-256
+  `cabda12118bf103cdc5c2835fe129ec4a1f22fa35181e6c8afd9c8bbd0fca2ee`). R4 was
+  reported running and was not read; no verdict is inferred.
+- Overall local evidence review is `BLOCKED` on the isolated DEV gate receipts;
+  full local API/web green results do not establish semantic quality, runtime,
+  CI, live DEV acceptance or production acceptance. Root-attested focused/lint/
+  type/build observations remain distinct from inspected artifacts. No test
+  execution, external read, fixture mutation, cleanup or Git mutation occurred.
+  Ignored acceptance artifact was created and failed receipts retained. Root
+  review state: `PENDING`.
+
+### RUN-DOCUMENT56-ISOLATED-R4-20261015 — R4 isolated receipt correction
+
+- Append-only follow-up to `RUN-DOCUMENT56-LOCAL-20261015`; its original
+  `local-acceptance56.json` and blocked R1/R2/R3 receipts remain preserved. At
+  exact checkout SHA `87d5d0c5cd69131c4484d9e04bd916c111c95aa1`, the completed
+  R4 receipt `.release-evidence/DOCUMENT56-20261015/isolated-dev-r4.json`
+  (SHA-256 `dd3e67c810a74f938b803ef966b5d8a5798299cbfd0ef872c85ed280ae40f72a`)
+  reports PASS. Offline source-manifest comparison matched all `34/34` hashes
+  against current files. R4 lists exactly `42/42` gate-required checks from
+  `document_dialogue_dev_gate.py`: `10` content-dialogue and `32` legacy
+  preparation checks; no missing, extra or duplicate check names. Receipt reports
+  cleanup/source unchanged, peak `2`, elapsed `460.735s`, fake provider only,
+  public-schema-neutral and catalog unchanged; before/after public snapshot hashes
+  match and changed public-table count is `0`. Semantic answer quality remains
+  `NOT_VERIFIED`.
+- The already inspected local API/web artifacts remain hash-linked and report
+  `3006/3006` API tests and `1161/1161` web tests passing across `340` suites;
+  no tests were rerun for this follow-up. R4 artifact review is bounded to the
+  isolated synthetic gate and is not runtime deployment, real-model semantic
+  evidence, live DEV product acceptance or production acceptance.
+- Scoped review artifact `.release-evidence/DOCUMENT56-20261015/isolated-acceptance56.json`
+  SHA-256 `e0350cdace92f5378e1a94ee306f26b7bd9cd1c99800688a982336d7625b77c9`
+  records `PASS_SCOPED_ISOLATED_DEV_RECEIPT_REVIEW`; overall feature acceptance
+  remains `NOT_VERIFIED`. No tests, external services, runtime or database were
+  accessed by this Runner; R4's fixture cleanup is receipt-attested. Root review
+  state: `PENDING`.

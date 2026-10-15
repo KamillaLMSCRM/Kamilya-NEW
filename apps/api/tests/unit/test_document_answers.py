@@ -172,6 +172,21 @@ async def test_overall_deadline_includes_slow_retrieval_before_budget(monkeypatc
     charge.assert_not_awaited()
 
 
+async def test_answer_requests_provider_json_mode_and_preserves_abstention(monkeypatch):
+    monkeypatch.setattr(answers, "index_snapshot", AsyncMock(return_value={}))
+    monkeypatch.setattr(answers, "retrieve", AsyncMock(return_value=EXCERPTS))
+    monkeypatch.setattr(answers, "_set_tenant_security_context", AsyncMock())
+    monkeypatch.setattr(answers, "_set_user_security_context", AsyncMock())
+    monkeypatch.setattr(answers, "check_and_charge_llm_budget", AsyncMock())
+    provider = SimpleNamespace(ainvoke=AsyncMock(return_value=SimpleNamespace(
+        content=payload(status="not_found", answer="The source does not specify a bonus.", citations=[]))))
+    monkeypatch.setattr(answers.ResilientLLMClient, "from_settings_async", AsyncMock(return_value=provider))
+    result = await answers.answer_document(SimpleNamespace(commit=AsyncMock()), ACTOR, (SOURCE,), "Bonus?", "en", [])
+    assert result.response.status == "not_found" and result.response.citations == []
+    assert provider.ainvoke.call_args.kwargs["response_format"] == {"type": "json_object"}
+    assert provider.ainvoke.call_args.kwargs["provider_deadline_seconds"] == 8
+
+
 async def test_deadline_during_admission_settles_same_commit_then_refunds(monkeypatch):
     monkeypatch.setattr(answers, "index_snapshot", AsyncMock(return_value={}))
     original_timeout = asyncio.timeout
