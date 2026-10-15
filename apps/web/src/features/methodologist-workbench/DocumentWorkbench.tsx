@@ -533,7 +533,7 @@ function DocumentWorkbenchInner() {
             <h4 className="mt-3 text-sm font-medium">{CONTENT_COPY[locale].sourceExcerpt}</h4>
             {citationLoading ? <p role="status">{CONTENT_COPY[locale].sourceLoading}</p> : <p className="whitespace-pre-wrap rounded bg-muted/40 p-2 text-sm">{citationDialog.excerpt ?? CONTENT_COPY[locale].sourceUnavailable}</p>}
             {citationError && <p role="alert" className="text-sm text-destructive">{citationError}</p>}
-            <div className="mt-4 flex gap-2"><Button type="button" onClick={() => void downloadCitation()} disabled={citationDownloading || citationLoading || !citationDialog.excerpt || dialogue.source_stale}>{citationDownloading ? CONTENT_COPY[locale].downloadLoading : CONTENT_COPY[locale].downloadSource}</Button><Button type="button" variant="outline" onClick={closeCitationDialog}>{CONTENT_COPY[locale].closeSource}</Button></div>
+            <div className="mt-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center"><Button type="button" className="h-auto min-h-10 w-full whitespace-normal sm:w-auto" onClick={() => void downloadCitation()} disabled={citationDownloading || citationLoading || !citationDialog.excerpt || dialogue.source_stale}>{citationDownloading ? CONTENT_COPY[locale].downloadLoading : CONTENT_COPY[locale].downloadSource}</Button><Button type="button" variant="outline" className="h-auto min-h-10 w-full whitespace-normal sm:w-auto" onClick={closeCitationDialog}>{CONTENT_COPY[locale].closeSource}</Button></div>
           </Modal>}
         </>}
       </section>

@@ -4605,3 +4605,30 @@ Rules:
   remains `NOT_VERIFIED`. No tests, external services, runtime or database were
   accessed by this Runner; R4's fixture cleanup is receipt-attested. Root review
   state: `PENDING`.
+
+### RUN-DOCUMENT56-LOCAL-R5-20261015 — 2026-10-15 — offline local artifact receipt review
+
+- Test & Evidence Runner artifact review at exact checkout SHA
+  `d8ec554cc9aeb819f8f01e5a9190c6c306d50134`; no tests rerun and no network,
+  runtime, provider, database, browser, fixture, or Git mutation. The isolated
+  DEV receipt `isolated-dev-r5.json` (SHA-256
+  `8337e6a2b493ee98a29f6f037ccc2770439382647efdbba45739c03a420b6c38`) reports
+  `PASS`, `42` checks and `34` source hashes; all `34/34` matched current file
+  hashes. Receipt-attested cleanup/source unchanged, public-schema-neutral,
+  catalog unchanged, zero changed public tables, matching before/after public
+  snapshot hashes, fake provider only and connection peak `2`. Semantic quality
+  remains `NOT_VERIFIED`.
+- Inspected local reports: `api-full56-r2.xml` (SHA-256
+  `c2e2c5331af07c98501afa0866a91fe8356b48521e0b11ba8a393ded37bc629d`),
+  `3008` tests, `0` failures/errors, `0` skipped; `web-full56-r3.json` (SHA-256
+  `f502a3838275c474ff76b5acf5d1aebbb615a6bd2c071bee02f89cdaa861307d`),
+  `1162` tests across `340` suites, `0` failed, `0` pending. These are local
+  report observations, not runtime or semantic acceptance. Root's packet states
+  prior DEV browser receipt R1 remains `BLOCKED`; this runner did not inspect or
+  relabel that receipt.
+- Scoped offline review receipt `.release-evidence/DOCUMENT56-20261015/local-acceptance56-r2.json`
+  SHA-256 `9f5ec1ccef5114299be64aacf1a83a9fb32494ca4de7bd6046f72b0143fb7535`;
+  status `PASS_SCOPED_LOCAL_RECEIPT_REVIEW`. Real-model semantic quality, live
+  DEV product acceptance, runtime deployment and production acceptance remain
+  `NOT VERIFIED`. Synthetic fixture cleanup is receipt-attested; no feature GO
+  is implied. Root review state: `PENDING`.

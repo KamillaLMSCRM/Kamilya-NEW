@@ -109,6 +109,9 @@ describe('document dialogue transport', () => {
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     expect(await screen.findByText('Eye protection is required before entering the area.')).toBeInTheDocument();
     expect(apiMock.get).toHaveBeenCalledWith(`/v1/methodologist-workbench/document-dialogues/${id}/sources/${planId}/1`, expect.anything());
+    const downloadButton = screen.getByRole('button', { name: 'Download original document' });
+    expect(downloadButton).toHaveClass('h-auto', 'min-h-10', 'w-full', 'whitespace-normal', 'sm:w-auto');
+    expect(downloadButton.parentElement).toHaveClass('flex', 'flex-col', 'sm:flex-row');
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     fireEvent.change(questionBox, { target: { value: 'What is required?' } });
