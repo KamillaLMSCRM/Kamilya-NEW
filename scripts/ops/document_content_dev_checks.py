@@ -91,7 +91,10 @@ async def verify_content(*, owner, runtime, schema, actor, foreign_actor, siblin
         checks.append("content_stale_citation_denied")
         second = SendDocumentMessage(request_id=uuid4(), expected_revision=task.revision, instruction="Объясни проще")
         task = await call(lambda db, a: service.send_message(db, a, task.id, second, content_question=True))
-        require(len(provider_calls[-1]["untrusted_history"]) == 1 and task.draft == initial_draft, "content_followup_lost")
+        require(provider_calls[-1]["untrusted_history"] == []
+            and provider_calls[-1]["untrusted_previous_turn"] == {
+                "question": request.instruction, "answer": "Проверьте номер заказа."}
+            and task.draft == initial_draft, "content_followup_lost")
         checks.append("content_recall_separate_from_draft")
         missing_scope = SendDocumentMessage(request_id=uuid4(), expected_revision=task.revision, instruction="Missing with scope")
         task = await call(lambda db, a: service.send_message(db, a, task.id, missing_scope, content_question=True))

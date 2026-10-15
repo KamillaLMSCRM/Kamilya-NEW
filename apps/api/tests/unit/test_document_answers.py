@@ -46,6 +46,23 @@ def test_current_question_is_last_after_untrusted_context():
     assert "Finish when the requested points are covered" in answers.messages("Why?", "en", [], EXCERPTS)[0]["content"]
 
 
+def test_immediate_previous_turn_is_separate_without_history_duplication():
+    history = [{"question": f"Topic {n}", "answer": f"Answer {n}"} for n in range(5)]
+    data = json.loads(answers.messages("Make this answer simpler", "en", history, EXCERPTS)[1]["content"])
+    assert data["untrusted_history"] == history[-4:-1]
+    assert data["untrusted_previous_turn"] == history[-1]
+    assert list(data)[-3:] == ["untrusted_previous_turn", "language", "question"]
+    assert history == [{"question": f"Topic {n}", "answer": f"Answer {n}"} for n in range(5)]
+
+
+def test_filtered_repetition_does_not_promote_an_older_turn_to_previous():
+    history = [{"question": "Old topic", "answer": "Old answer"}, {"question": "Repeat", "answer": "Bad old answer"}]
+    data = json.loads(answers.messages(" repeat ", "en", history, EXCERPTS)[1]["content"])
+    assert data["untrusted_previous_turn"] is None
+    assert data["untrusted_history"] == history[:1]
+    assert "Bad old answer" not in json.dumps(data)
+
+
 def test_server_assigns_source_identity_and_quote():
     result = answers.parse_answer(payload(), EXCERPTS)
     assert result.state == "answered" and result.citations[0].document_id == SOURCE.document_id
@@ -250,7 +267,7 @@ def test_repeated_question_does_not_feed_its_old_answer_back_as_context():
         {"question": "Which options did you list?", "answer": "Option A and option B"}]
     result = answers.messages("  WHO signs and what starts the review period?  ", "en", history, EXCERPTS)
     data = json.loads(result[1]["content"])
-    assert data["untrusted_history"] == history[1:]
+    assert data["untrusted_history"] == [] and data["untrusted_previous_turn"] == history[1]
     assert "Incorrect old assertion" not in result[1]["content"]
     assert history[0]["answer"] == "Incorrect old assertion"
 

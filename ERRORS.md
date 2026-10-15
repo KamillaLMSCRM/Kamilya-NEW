@@ -7749,6 +7749,23 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   one ordering factor is the sole cause or a universal accuracy guarantee.
   Public shape, archive/RLS/evidence validation, routing, model calls/budget and
   deadlines unchanged. Full exact-source DEV/holdout/production gates still apply.
+- Fifth DEV0cf7cd11 passed17 holdout statuses, including the four unseen atelier
+  questions. Actual browser simplification kept safety facts but reintroduced an
+  older C-8 topic after the current L-2 answer. Browser history restored exactly;
+  this is a semantic antecedent/focus failure, not lost persistence. Receipt stays
+  PARTIAL and production57 was not dispatched. No ignored failure or oracle change.
+- V1.5 partitions the same bounded recall into explicitly untrusted older history
+  and the actual immediate prior turn after excerpts. Do not duplicate context or
+  promote older history when the latest turn was filtered as a repeated question.
+  Controlled exact pre-failure four-turn module probe now returns two focused
+  L-2 points with the prohibition; source-grounded priority conflict still retained.
+  New RED3/GREEN49 and independent/full/live gates remain separately attributable.
+- Isolated R7 correctly remained BLOCKED at content_followup_lost: its old
+  assertion counted the latest answer inside untrusted_history instead of the
+  new explicit previous-turn field.28 checks/cleanup/source stability/public
+  neutrality passed. Preserve R7. Replace the stale length assertion with exact
+  previous question/answer equality plus empty older history and unchanged draft;
+  rerun the full owned gate rather than counting the old receipt as PASS.
 
 ## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
 
