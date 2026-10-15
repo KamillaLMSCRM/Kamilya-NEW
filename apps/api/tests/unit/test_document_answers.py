@@ -165,7 +165,7 @@ async def test_five_sources_keep_second_ranked_fact_before_third_same_source_hit
     assert {e["source"].document_id for e in result} == {s.document_id for s in sources}
     assert any("two hours" in e["text"] for e in result)
     assert any("four hours" in e["text"] for e in result)
-    assert len({e["chunk_id"] for e in result}) <= 8
+    assert len({e["chunk_id"] for e in result}) <= 16
     assert sum(len(e["text"]) for e in result) <= 24000
 
 
@@ -195,7 +195,7 @@ async def test_unmatched_script_retains_later_rules_not_only_substantive_intro(m
 
     assert any("five working days" in e["text"] for e in result)
     assert any("sixty days" in e["text"] for e in result)
-    assert len({e["chunk_id"] for e in result}) <= 8
+    assert len({e["chunk_id"] for e in result}) <= 16
     assert len(result) <= 16 and sum(len(e["text"]) for e in result) <= 24000
 
 
@@ -204,6 +204,31 @@ def test_conflict_followup_policy_requires_current_evidence_not_history_authorit
     assert "retain status conflict" in system
     assert "newly retrieved evidence" in system
     assert "Absence from excerpts alone" in system
+
+
+async def test_short_chunks_use_available_window_budget_for_later_requested_rule(monkeypatch):
+    other = SOURCE.model_copy(update={"document_id": UUID(int=4), "title": "Second language"})
+    chunks = {str(s.document_id): [retrieval_chunk(s, i,
+        "Raw observations: retain thirty days after calibration." if s == SOURCE and i == 5
+        else f"Distinct background section {i} for {s.title}.") for i in range(7)] for s in (SOURCE, other)}
+    store = SimpleNamespace(get_context_window=AsyncMock(side_effect=lambda **kw: chunks[kw["doc_id"]]))
+    monkeypatch.setattr(answers, "VectorStore", lambda: store)
+    ranked = [chunks[str(SOURCE.document_id)][i] for i in (2, 0, 1, 4)]
+    monkeypatch.setattr(answers, "retrieve_lexical_hits", AsyncMock(return_value=[retrieval_hit(c) for c in ranked]))
+
+    result = await answers.retrieve((SOURCE, other), ACTOR, "Who approves, and which records are retained?", [])
+
+    assert any("thirty days" in e["text"] for e in result)
+    assert len(result) == 14
+    assert len({e["chunk_id"] for e in result}) == 14
+    assert sum(len(e["text"]) for e in result) <= 24000
+
+
+def test_conflict_policy_is_requested_scope_not_assumed_enforceability():
+    system = answers.messages("Compare record retention", "en", [], EXCERPTS)[0]["content"]
+    assert "requested facts" in system
+    assert "unrelated topic" in system
+    assert "both rules are in force" in system
 
 
 async def test_retrieval_keeps_tail_and_exposes_sixteen_nonoverlapping_handles(monkeypatch):

@@ -41,6 +41,7 @@ def test_source_contract_is_present_and_manifest_is_workspace_bound(gate):
     assert any(name.endswith("document_service.py") for name in manifest)
     assert any(name.endswith("DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1.md") for name in manifest)
     assert any(name.endswith("DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_1.md") for name in manifest)
+    assert any(name.endswith("DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_2.md") for name in manifest)
 
 
 def test_evidence_runs_are_explicit_not_arbitrary(gate):

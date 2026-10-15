@@ -132,9 +132,11 @@ async def retrieve(sources: tuple[DocumentSource, ...], actor: ActorContext,
     seen: set[str] = set()
     by_id = {str(source.document_id): source for source in sources}
     for body, metadata in balanced:
+        if len(result) >= 16:
+            break
         selected_source = by_id.get(str(metadata.get("doc_id")))
         chunk_id = str(metadata.get("chunk_id"))
-        if selected_source is None or chunk_id in seen or len(seen) >= 8:
+        if selected_source is None or chunk_id in seen:
             continue
         if metadata.get("embedding_source_revision") != f"document:{selected_source.content_sha256}":
             raise WorkbenchConflict("dialogue_source_stale")
@@ -142,12 +144,14 @@ async def retrieve(sources: tuple[DocumentSource, ...], actor: ActorContext,
             raise WorkbenchConflict("dialogue_source_stale")
         if re.fullmatch(r"[0-9a-f]{64}", chunk_id) is None:
             raise WorkbenchConflict("dialogue_source_stale")
-        # Preserve the previous 8 * 3000 character evidence budget. Splitting
-        # rather than truncating keeps the tail available for conflict answers.
-        # The model selects immutable windows; it never generates citation text.
+        # Budget actual windows rather than eight chunks of arbitrary size:
+        # sixteen * 1500 still caps evidence at 24000 characters. Short chunks
+        # must not waste capacity and hide later rules. Citation text stays exact.
         excerpt = redact_sensitive_text(body)[:3000].strip()
         if excerpt:
             for start in range(0, len(excerpt), 1500):
+                if len(result) >= 16:
+                    break
                 window = excerpt[start:start + 1500].strip()
                 if window:
                     result.append({"handle": len(result) + 1, "source": selected_source, "chunk_id": chunk_id, "text": window})
@@ -192,12 +196,15 @@ def messages(question: str, language: str, recall: list[dict[str, Any]], excerpt
         "Absence from excerpts alone does not prove a document omits a rule: say it was not located in the "
         "available excerpts. Do not declare consistency or precedence if a selected comparison source's decisive "
         "detail is unavailable. Answer the requested points, avoiding claims about unrelated sources. "
+        "Classify status using the requested facts only; a disagreement on an unrelated topic must not turn "
+        "an otherwise supported comparison into conflict. Omit that unrelated topic. "
         "Status supported also includes an evidence-grounded negative comparison, such as different scopes "
         "or no conflicting value. A source not specifying a value is not a conflicting value. "
         "If evidence conflicts, status conflict: explain both positions, select their excerpt handles, "
         "and do not invent precedence. "
         "For a follow-up about priority, retain status conflict while contradictory values remain in newly retrieved "
         "evidence: briefly restate both values and the lack of a precedence rule. History alone cannot establish this. "
+        "An unresolved contradiction does not prove both rules are in force, valid or enforceable; do not assert that. "
         "If evidence is missing or insufficient, status not_found; select only excerpt handles explaining the checked "
         "scope or an explicit limitation when useful, otherwise citations is an empty array. Say what is missing and ask "
         "a focused clarification when helpful. Do not turn lack of evidence into a definitive real-world claim. "

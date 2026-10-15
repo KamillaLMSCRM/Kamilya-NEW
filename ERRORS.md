@@ -7715,6 +7715,17 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Follow-on verification: actual holdout retrieval RED then GREEN3/3, focused
   RED2/GREEN41 including7script tests, full backend3025PASS. Isolated R3 and
   corrected real-model/regression/new holdout/production acceptance still pending.
+- Second DEV2522bfdf: independent26PASS/1PARTIAL/1FAIL. Requested RU30day
+  retention at verified prefix chunk5 was excluded: eight short retained chunks
+  used only5797of24000allowed characters. Distinguish this confirmed retrieval
+  cause from model scope drift (unasked approval conflict) and unsupported
+  enforceability wording. The latter must not imply both contradictory rules
+  are currently in force.
+- V1.2 fix/proof: allocate the existing16immutable1500-character windows directly,
+  preserving24000maximum and8public citations, with no additional query/model
+  retry. Deterministic RED2/GREEN43 and actual no-model replay recover RU30day,
+  KK60day and3/5day facts. Earlier failures remain recorded; fresh live semantic,
+  isolated, exact CI/DEV and protected production acceptance are separate gates.
 
 ## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
 

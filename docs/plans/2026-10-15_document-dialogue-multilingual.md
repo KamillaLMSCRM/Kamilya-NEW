@@ -58,8 +58,12 @@
   passed, but28-case review corrected23PASS/2PARTIAL/3FAIL. V1.1 verified prefix coverage
   restores later KK5day/60day facts; current-evidence follow-up policy tightened.
   New focused RED2/GREEN41/full3025 and actual holdout replay GREEN3/3. Independent
-  delta review and isolated R3 in progress. A second fresh holdout is being prepared
-  blind by corpus leaf, only ignored holdout2 paths; Root audits/freezes before calls.
+  delta review and isolated R3 passed44/44 with public neutrality. Exact252 DEV
+  independent26PASS/1PARTIAL/1FAIL; RU30day retention at chunk5 still excluded by
+  eight-short-chunk cap using only5797characters. V1.2 allocates existing16windows/
+  24000characters and scopes conflict/enforceability claims; RED2/GREEN43 and
+  actual no-model replay PASS. Second fresh blind warehouse holdout7cases is
+  Root-audited/frozen before calls, still unseen. Current delta review noP1/P2.
 - D57-DEV IN_PROGRESS: proportional regression, isolated canonical DEV gates
   when source/SQL boundaries change, independent source review, exact CI/artifact,
   actual ordinary-role browser/model multilingual/multisource/source/download/
