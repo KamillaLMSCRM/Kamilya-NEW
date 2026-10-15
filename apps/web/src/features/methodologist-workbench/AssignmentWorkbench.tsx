@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { appendAssignmentInstruction } from '@/lib/assignmentDialogue';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useLanguageStore } from '@/store/languageStore';
@@ -9,6 +10,26 @@ import { confirmAssignmentPlan, interpretAssignment, isAssignmentCandidate, load
 const EXAMPLE = 'Назначь курс "Название курса" отделу "Название отдела" до 31.12.2026';
 const TIMEZONES = ['Asia/Almaty', 'Asia/Aqtau', 'Asia/Atyrau', 'Asia/Oral', 'Asia/Qostanay', 'Asia/Qyzylorda'];
 const normalizeCandidateTime = (value: string): string => /^\d{2}:\d{2}$/.test(value) ? `${value}:00` : value;
+const UNSUPPORTED_AUDIENCE = {
+  ru: 'Этот вариант выбирает целый отдел, не подгруппу по стажу или результатам. Уточните: «Назначь всему отделу», либо начните новую команду. Для отдельных сотрудников используйте обычное назначение.',
+  kk: 'Бұл нұсқа өтілі не нәтижесі бойынша топты емес, толық бөлімді таңдайды. «Бүкіл бөлімге тағайында» деп нақтылаңыз немесе жаңа пәрмен бастаңыз. Жеке қызметкерлерге қалыпты тағайындауды пайдаланыңыз.',
+  en: 'This flow selects a whole department, not a tenure/results subgroup. Clarify: “Assign the entire department”, or start a new command. Use ordinary assignment for individual employees.',
+};
+const LONG_DIALOGUE_MESSAGE = {
+  ru: 'Поручение длиннее 2000 символов принято целиком, но не сохраняется в контексте следующего сообщения. Создайте предварительный план и уточняйте его, либо начните новую полную команду.',
+  kk: '2000 таңбадан ұзын тапсырма толық қабылданды, бірақ келесі хабарлама контекстінде сақталмайды. Алдын ала жоспар жасап нақтылаңыз немесе жаңа толық пәрмен бастаңыз.',
+  en: 'The instruction longer than 2000 characters was accepted in full, but is not retained for follow-up context. Create a preview and refine that plan, or start a new complete command.',
+};
+const DEFINITIVE_CONFLICTS = new Set(['expired', 'deadline_passed', 'stale', 'confirmation_mismatch', 'context_mismatch', 'plan_mismatch', 'revision_mismatch', 'fingerprint_mismatch', 'audience_changed_during_execution', 'operation_unsupported']);
+function isDefinitiveConflict(cause: unknown): boolean {
+  const response = (cause as { response?: { status?: unknown; data?: { detail?: unknown } } } | null)?.response;
+  return response?.status === 409 && typeof response.data?.detail === 'string' && DEFINITIVE_CONFLICTS.has(response.data.detail);
+}
+const DIALOGUE_MESSAGES = {
+  ru: { title: 'Диалог назначения', note: 'Дополняйте поручение следующими сообщениями. До создания плана переписка временная; после перезагрузки восстанавливается план или результат, не эта переписка.', limit: 'Достигнут предел диалога: до 4 сообщений по 2000 символов, всего 6000. Начните новую команду и укажите полное поручение.', review: 'Проверьте предложенные поля, затем запросите предварительный просмотр. Назначение ещё не выполнено.', unknown: 'Результат подтверждения пока неизвестен. Не создавайте новое назначение: проверьте результат этого плана или повторите подтверждение того же плана.', read: 'Проверить результат', open: 'Открыть назначения курса' },
+  kk: { title: 'Тағайындау диалогы', note: 'Тапсырманы келесі хабарламалармен толықтырыңыз. Диалог уақытша; қайта жүктегенде диалог емес, жоспар немесе нәтиже қалпына келеді.', limit: 'Диалог шегі: әрқайсысы 2000 таңбадан 4 хабарлама, барлығы 6000. Толық тапсырмамен жаңа пәрмен бастаңыз.', review: 'Ұсынылған өрістерді тексеріп, алдын ала қарауды сұраңыз. Тағайындау әлі орындалмады.', unknown: 'Растау нәтижесі белгісіз. Жаңа тағайындау жасамаңыз: осы жоспар нәтижесін тексеріңіз немесе сол жоспарды қайта растаңыз.', read: 'Нәтижені тексеру', open: 'Курс тағайындауларын ашу' },
+  en: { title: 'Assignment dialogue', note: 'Add details in follow-up messages. This conversation is temporary; reload restores the plan or receipt, not this conversation.', limit: 'Dialogue limit: 4 messages of up to 2000 characters, 6000 total. Start a new command with the full instruction.', review: 'Check the proposed fields, then request a preview. No assignment has been made.', unknown: 'The confirmation outcome is unknown. Do not create a new assignment: read this plan’s result or explicitly confirm the same plan again.', read: 'Check result', open: 'Open course assignments' },
+};
 const NATURAL_MESSAGES = {
   ru: { mode: 'Свободное описание', exact: 'Точная команда', description: 'Можно описать одно назначение свободным текстом. Проверьте предложенные поля; интерпретация ничего не назначает.', correction: 'Уточните поручение в новом описании; предыдущий план используется только как контекст.', interpret: 'Разобрать поручение', course: 'Курс', department: 'Отдел', date: 'Дата', time: 'Время', warning: 'Не вводите секреты и персональные данные. Свободный текст не даёт разрешения на назначение.', clarify: 'Уточнить поручение', relative: 'Укажите точную дату и время.', provider: 'Интерпретация временно недоступна. Повторите действие явно.', invalid: 'Не удалось проверить ответ интерпретации. Уточните поручение.', ambiguous: 'Уточните курс, отдел, дату и время.', previous: 'Предыдущий план нельзя уточнить: он истёк или ещё не готов.' },
   kk: { mode: 'Еркін сипаттама', exact: 'Нақты команда', description: 'Бір тағайындауды еркін мәтінмен сипаттауға болады. Ұсынылған өрістерді тексеріңіз; талдау ештеңе тағайындамайды.', correction: 'Тапсырманы жаңа сипаттамамен нақтылаңыз; алдыңғы жоспар тек контекст ретінде қолданылады.', interpret: 'Тапсырманы талдау', course: 'Курс', department: 'Бөлім', date: 'Күн', time: 'Уақыт', warning: 'Құпияларды және жеке деректерді енгізбеңіз. Еркін мәтін тағайындауға рұқсат бермейді.', clarify: 'Тапсырманы нақтылау', relative: 'Нақты күн мен уақытты көрсетіңіз.', provider: 'Талдау уақытша қолжетімсіз. Әрекетті нақты қайталаңыз.', invalid: 'Талдау жауабын тексеру мүмкін болмады. Тапсырманы нақтылаңыз.', ambiguous: 'Курс, бөлім, күн және уақытты нақтылаңыз.', previous: 'Алдыңғы тапсырманы нақтылау мүмкін емес: жоспар мерзімі өткен немесе дайын емес.' },
@@ -29,7 +50,7 @@ export default function AssignmentWorkbench() {
   const role = useAuthStore((state) => state.user?.role);
   const lang = useLanguageStore((state) => state.lang);
   const accessUi = MESSAGES[lang] ?? MESSAGES.ru;
-  const sessionKey = useAuthStore((state) => `${state.accessToken ?? ''}:${state.user?.user_id ?? ''}`);
+  const sessionKey = useAuthStore((state) => `${state.accessToken ?? ''}:${state.user?.user_id ?? ''}:${state.user?.tenant_id ?? ''}`);
   if (process.env.NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED !== 'true') return null;
   if (role !== 'methodologist') return <Card><CardContent className="p-6"><p>{accessUi.accessDenied}</p></CardContent></Card>;
   return <AssignmentWorkbenchInner key={`${sessionKey}:${role}`} />;
@@ -39,6 +60,15 @@ function AssignmentWorkbenchInner() {
   const lang = useLanguageStore((state) => state.lang);
   const ui = MESSAGES[lang] ?? MESSAGES.ru;
   const naturalUi = NATURAL_MESSAGES[lang] ?? NATURAL_MESSAGES.ru;
+  const dialogueUi = DIALOGUE_MESSAGES[lang] ?? DIALOGUE_MESSAGES.ru;
+  const [instructionHistory, setInstructionHistory] = useState<string[]>([]);
+  const [dialogue, setDialogue] = useState<{ instruction: string; response: string }[]>([]);
+  const [confirmationPlan, setConfirmationPlan] = useState<PreviewReady | null>(null);
+  const [restoreConfirmationId, setRestoreConfirmationId] = useState<string | null>(null);
+  const [historyBlocked, setHistoryBlocked] = useState(false);
+  const confirmationOwner = useRef<PreviewReady | null>(null);
+  const requestOwner = useRef(false);
+  const previousLang = useRef(lang);
   const [instruction, setInstruction] = useState('');
   const [naturalMode, setNaturalMode] = useState(false);
   const [candidate, setCandidate] = useState<AssignmentCandidate | null>(null);
@@ -60,16 +90,28 @@ function AssignmentWorkbenchInner() {
 
   const contextKey = `${naturalMode}\u0000${instruction}\u0000${timezone}\u0000${notify}\u0000${includeDescendants}\u0000${candidate ? JSON.stringify(candidate) : ''}`;
   const visiblePreview = previewContext.current === contextKey ? preview : null;
-  const replacePlanUrl = (planId?: string) => {
+  const replacePlanUrl = (planId?: string, confirming = false) => {
     if (typeof window === 'undefined') return;
-    window.history.replaceState(window.history.state, '', planId ? `${window.location.pathname}?plan=${encodeURIComponent(planId)}` : window.location.pathname);
+    window.history.replaceState(window.history.state, '', planId ? `${window.location.pathname}?plan=${encodeURIComponent(planId)}${confirming ? '&confirming=1' : ''}` : window.location.pathname);
   };
-  const clearContext = (resetChoices = true) => { interpretationController.current?.abort(); interpretationController.current = null; epoch.current += 1; previewContext.current = null; setPreview(null); setReceipt(null); setError(null); setPending(false); setRestoredPlan(false); replacePlanUrl(); if (resetChoices) { setCourseId(''); setDepartmentId(''); } };
+  const clearContext = (resetChoices = true) => { if (confirmationOwner.current) return; requestOwner.current = false; interpretationController.current?.abort(); interpretationController.current = null; epoch.current += 1; previewContext.current = null; setPreview(null); setReceipt(null); setError(null); setPending(false); setRestoredPlan(false); replacePlanUrl(); if (resetChoices) { setCourseId(''); setDepartmentId(''); } };
+  useLayoutEffect(() => {
+    if (previousLang.current !== lang && naturalMode) {
+      if (!confirmationOwner.current && !restoreConfirmationId) clearContext();
+      setInstruction(''); setInstructionHistory([]); setDialogue([]); setHistoryBlocked(false);
+      setCandidate(null); setPreviousPlanId(undefined); setCorrectionContext(false);
+    }
+    previousLang.current = lang;
+    // Locale is a dialogue-context change, not a new request or authority.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
   useEffect(() => () => { interpretationController.current?.abort(); }, []);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const planId = new URLSearchParams(window.location.search).get('plan');
     if (!planId) return;
+    const wasConfirming = new URLSearchParams(window.location.search).get('confirming') === '1';
+    if (wasConfirming) setRestoreConfirmationId(planId);
     const current = ++epoch.current;
     const controller = new AbortController();
     setPending(true);
@@ -82,15 +124,16 @@ function AssignmentWorkbenchInner() {
         setIncludeDescendants(result.include_descendants);
         previewContext.current = `${naturalMode}\u0000${instruction}\u0000${result.timezone_name}\u0000${result.notify}\u0000${result.include_descendants}\u0000`;
         setPreview(result);
+        if (wasConfirming) { confirmationOwner.current = result; setConfirmationPlan(result); setRestoreConfirmationId(null); }
       } else if (result.state === 'clarification_needed') {
         previewContext.current = null;
         setPreview(result);
       }
-      if (result.state === 'succeeded') setReceipt(result);
+      if (result.state === 'succeeded') { setReceipt(result); setRestoreConfirmationId(null); replacePlanUrl(result.plan_id); }
     }).catch((cause) => {
       if (current === epoch.current && cause instanceof Error && cause.name !== 'CanceledError' && cause.name !== 'AbortError') {
         setError(cause.message);
-        replacePlanUrl();
+        if (!wasConfirming) replacePlanUrl();
       }
     }).finally(() => { if (current === epoch.current) setPending(false); });
     return () => { controller.abort(); epoch.current += 1; };
@@ -103,56 +146,90 @@ function AssignmentWorkbenchInner() {
   );
 
   const requestPreview = async () => {
+    if (requestOwner.current || confirmationOwner.current || restoreConfirmationId) return;
+    requestOwner.current = true;
     const current = ++epoch.current;
     setPending(true); setError(null); setPreview(null); setReceipt(null);
     try {
       const result = await requestAssignmentPreview({ instruction, timezone_name: timezone, notify: candidate?.notify ?? notify, include_descendants: candidate?.include_descendants ?? includeDescendants, ...(courseId ? { course_id: courseId } : {}), ...(departmentId ? { department_id: departmentId } : {}), ...(candidate ? { candidate } : {}) });
       if (current === epoch.current) { previewContext.current = contextKey; setPreview(result); setRestoredPlan(false); if (result.state === 'preview_ready') replacePlanUrl(result.plan_id); else replacePlanUrl(); }
     } catch (cause) { if (current === epoch.current) setError(cause instanceof Error ? cause.message : ui.newPlan); }
-    finally { if (current === epoch.current) setPending(false); }
+    finally { if (current === epoch.current) { requestOwner.current = false; setPending(false); } }
   };
   const interpret = async (requestedPreviousPlanId?: string) => {
+    if (requestOwner.current || confirmationOwner.current || restoreConfirmationId) return;
     const planForRequest = requestedPreviousPlanId ?? previousPlanId;
+    if (historyBlocked && !planForRequest) { setError(LONG_DIALOGUE_MESSAGE[lang]); return; }
+    const historyForRequest = planForRequest ? [] : instructionHistory;
+    let nextHistory: string[];
+    try { nextHistory = instruction.length > 2000 ? [] : appendAssignmentInstruction(historyForRequest, instruction); }
+    catch { setError(dialogueUi.limit); return; }
     clearContext();
+    requestOwner.current = true;
     const current = ++epoch.current;
     const controller = new AbortController();
     interpretationController.current = controller;
     setCandidate(null);
     setPending(true); setError(null); setPreview(null); setReceipt(null);
     try {
-      const result = await interpretAssignment(instruction, timezone, notify, includeDescendants, planForRequest, controller.signal);
+      const result = await interpretAssignment(instruction, timezone, notify, includeDescendants, planForRequest, controller.signal, historyForRequest);
       if (current !== epoch.current) return;
       setRestoredPlan(false);
+      setInstructionHistory(nextHistory);
+      setHistoryBlocked(instruction.length > 2000);
+      setDialogue((items) => [...items, { instruction, response: result.state === 'interpreted' ? dialogueUi.review : result.code === 'intent_unsupported_audience' ? UNSUPPORTED_AUDIENCE[lang] : clarificationMessage(result.code, ui, naturalUi) }]);
       if (result.state === 'interpreted') { setPreviousPlanId(undefined); setCorrectionContext(false); setCandidate(result.candidate); setNotify(result.candidate.notify); setIncludeDescendants(result.candidate.include_descendants); previewContext.current = null; }
       else { setCandidate(null); previewContext.current = `${naturalMode}\u0000${instruction}\u0000${timezone}\u0000${notify}\u0000${includeDescendants}\u0000`; setPreview(result); }
     } catch (cause) { if (current === epoch.current && cause instanceof Error && cause.name !== 'AbortError' && cause.name !== 'CanceledError') { setCandidate(null); setError(cause.message); } }
-    finally { if (current === epoch.current) setPending(false); }
+    finally { if (current === epoch.current) { requestOwner.current = false; setPending(false); } }
   };
   const confirm = async () => {
-    if (!visiblePreview || visiblePreview.state !== 'preview_ready' || pending) return;
+    const target = confirmationOwner.current ?? (visiblePreview?.state === 'preview_ready' ? visiblePreview : null);
+    if (!target || requestOwner.current || pending) return;
+    requestOwner.current = true; confirmationOwner.current = target; setConfirmationPlan(target);
+    replacePlanUrl(target.plan_id, true);
     const current = ++epoch.current; setPending(true); setError(null);
-    try { const result = await confirmAssignmentPlan(visiblePreview); if (current === epoch.current) { setReceipt(result); previewContext.current = null; setPreview(null); } }
-    catch (cause) { if (current === epoch.current) { setPreview(null); setError(cause instanceof Error ? cause.message : ui.confirm); } }
-    finally { if (current === epoch.current) setPending(false); }
+    try { const result = await confirmAssignmentPlan(target); if (current === epoch.current) { confirmationOwner.current = null; setConfirmationPlan(null); setReceipt(result); previewContext.current = null; setPreview(null); replacePlanUrl(result.plan_id); } }
+    catch (cause) { if (current === epoch.current) { setError(cause instanceof Error ? cause.message : ui.confirm); if (isDefinitiveConflict(cause)) { confirmationOwner.current = null; setConfirmationPlan(null); setPreview(null); setRestoredPlan(true); previewContext.current = null; replacePlanUrl(); } } }
+    finally { if (current === epoch.current) { requestOwner.current = false; setPending(false); } }
+  };
+  const recoverConfirmation = async () => {
+    const targetId = confirmationOwner.current?.plan_id ?? restoreConfirmationId;
+    if (!targetId || requestOwner.current) return;
+    requestOwner.current = true; setPending(true); setError(null);
+    const current = ++epoch.current;
+    try {
+      const result = await loadAssignmentPlan(targetId);
+      if (current !== epoch.current) return;
+      if (result.state === 'succeeded') { setReceipt(result); setPreview(null); confirmationOwner.current = null; setConfirmationPlan(null); setRestoreConfirmationId(null); replacePlanUrl(result.plan_id); }
+      else if (result.state === 'preview_ready') { confirmationOwner.current = result; setConfirmationPlan(result); setRestoreConfirmationId(null); }
+      // A ready read may race an in-flight commit: retain the same confirmation owner.
+    } catch (cause) { if (current === epoch.current) setError(cause instanceof Error ? cause.message : dialogueUi.unknown); }
+    finally { if (current === epoch.current) { requestOwner.current = false; setPending(false); } }
   };
   return <div className="mx-auto max-w-4xl space-y-6">
     <Card><CardHeader><h1 className="text-2xl font-semibold leading-none tracking-tight">{WORKSPACE_TITLES[lang]}</h1><CardTitle>{ui.title}</CardTitle><p className="text-sm text-muted-foreground">{ui.purpose}</p></CardHeader><CardContent className="space-y-4">
-      <div className="flex gap-2"><Button type="button" variant={naturalMode ? 'default' : 'outline'} onClick={() => { setNaturalMode(true); setPreviousPlanId(undefined); setCorrectionContext(false); setCandidate(null); clearContext(); }}>{naturalUi.mode}</Button><Button type="button" variant={!naturalMode ? 'default' : 'outline'} onClick={() => { setNaturalMode(false); setPreviousPlanId(undefined); setCorrectionContext(false); setCandidate(null); clearContext(); }}>{naturalUi.exact}</Button></div>
+      {naturalMode && <section className="space-y-2"><h2 className="font-semibold">{dialogueUi.title}</h2><p className="text-sm text-muted-foreground">{dialogueUi.note}</p><ol role="log" aria-label={dialogueUi.title} aria-live="polite" className="max-h-64 space-y-3 overflow-y-auto break-words">{dialogue.map((turn, index) => <li key={index} className="rounded-md border p-3"><p className="whitespace-pre-wrap">{turn.instruction}</p><p className="mt-2 text-sm text-muted-foreground">{turn.response}</p></li>)}</ol></section>}
+      {historyBlocked && <p className="text-sm text-amber-700" role="status">{LONG_DIALOGUE_MESSAGE[lang]}</p>}
+      <fieldset disabled={Boolean(confirmationPlan || restoreConfirmationId)} className="min-w-0 space-y-4">
+      <div className="flex flex-wrap gap-2"><Button type="button" variant={naturalMode ? 'default' : 'outline'} onClick={() => { setHistoryBlocked(false); setInstructionHistory([]); setDialogue([]); setNaturalMode(true); setPreviousPlanId(undefined); setCorrectionContext(false); setCandidate(null); clearContext(); }}>{naturalUi.mode}</Button><Button type="button" variant={!naturalMode ? 'default' : 'outline'} onClick={() => { setHistoryBlocked(false); setInstructionHistory([]); setDialogue([]); setNaturalMode(false); setPreviousPlanId(undefined); setCorrectionContext(false); setCandidate(null); clearContext(); }}>{naturalUi.exact}</Button></div>
       {correctionContext && <div className="rounded-md border border-blue-300 p-3 text-sm" role="status">{naturalUi.correction}</div>}
       <label className="block space-y-1"><span className="text-sm font-medium">{ui.command}</span><textarea className="min-h-28 w-full rounded-md border bg-background px-3 py-2" value={instruction} placeholder={EXAMPLE} onChange={(event) => { setInstruction(event.target.value); setCandidate(null); clearContext(); }} aria-label={ui.commandAria} aria-describedby="assignment-command-example assignment-command-parser" /><span id="assignment-command-example" className="text-xs text-muted-foreground">{naturalMode ? naturalUi.description : ui.example}</span><span id="assignment-command-parser" className="block text-xs text-muted-foreground">{naturalMode ? naturalUi.warning : ui.parser}</span></label>
       {restoredPlan && <div className="rounded-md border border-blue-300 p-3 text-sm" role="status">{ui.restored}</div>}
       <div className="grid gap-4 sm:grid-cols-2"><label className="block space-y-1"><span className="text-sm font-medium">{ui.timezone}</span><select className="w-full rounded-md border bg-background px-3 py-2" value={timezone} aria-label={ui.timezone} onChange={(event) => { setTimezone(event.target.value); clearContext(); }}>{(TIMEZONES.includes(timezone) ? TIMEZONES : [timezone, ...TIMEZONES]).map((item) => <option key={item}>{item}</option>)}</select></label>{(!naturalMode || !candidate) && <label className="flex items-center gap-2 pt-6"><input type="checkbox" checked={notify} onChange={(event) => { setNotify(event.target.checked); clearContext(); }} /> {ui.notify}</label>}</div>
       {(!naturalMode || !candidate) && <label className="flex items-center gap-2"><input type="checkbox" checked={includeDescendants} onChange={(event) => { setIncludeDescendants(event.target.checked); clearContext(); }} /> {ui.descendants}</label>}
-      {visiblePreview?.state === 'clarification_needed' && <div className="space-y-3 rounded-md border border-amber-300 p-4" role="status"><p>{clarificationMessage(visiblePreview.code, ui, naturalUi)}</p>{choices(visiblePreview.course_choices, courseId, setCourseId, ui.course)}{choices(visiblePreview.department_choices, departmentId, setDepartmentId, ui.department)}</div>}
+      {visiblePreview?.state === 'clarification_needed' && <div className="space-y-3 rounded-md border border-amber-300 p-4" role="status"><p>{visiblePreview.code === 'intent_unsupported_audience' ? UNSUPPORTED_AUDIENCE[lang] : clarificationMessage(visiblePreview.code, ui, naturalUi)}</p>{choices(visiblePreview.course_choices, courseId, setCourseId, ui.course)}{choices(visiblePreview.department_choices, departmentId, setDepartmentId, ui.department)}</div>}
       {naturalMode && candidate && <div className="space-y-3 rounded-md border p-4"><label className="block space-y-1"><span className="text-sm font-medium">{naturalUi.course}</span><input className="w-full rounded-md border bg-background px-3 py-2" value={candidate.course_query} onChange={(event) => { setCandidate({ ...candidate, course_query: event.target.value }); clearContext(); }} /></label><label className="block space-y-1"><span className="text-sm font-medium">{naturalUi.department}</span><input className="w-full rounded-md border bg-background px-3 py-2" value={candidate.department_query} onChange={(event) => { setCandidate({ ...candidate, department_query: event.target.value }); clearContext(); }} /></label><div className="grid gap-3 sm:grid-cols-2"><label className="block space-y-1"><span className="text-sm font-medium">{naturalUi.date}</span><input type="date" className="w-full rounded-md border bg-background px-3 py-2" value={candidate.due_date} onChange={(event) => { setCandidate({ ...candidate, due_date: event.target.value }); clearContext(); }} /></label><label className="block space-y-1"><span className="text-sm font-medium">{naturalUi.time}</span><input type="time" step="1" className="w-full rounded-md border bg-background px-3 py-2" value={candidate.due_time} onChange={(event) => { setCandidate({ ...candidate, due_time: normalizeCandidateTime(event.target.value) }); clearContext(); }} /></label></div><label className="flex items-center gap-2"><input type="checkbox" checked={candidate.notify} onChange={(event) => { const value = event.target.checked; setCandidate({ ...candidate, notify: value }); setNotify(value); clearContext(); }} />{ui.notify}</label><label className="flex items-center gap-2"><input type="checkbox" checked={candidate.include_descendants} onChange={(event) => { const value = event.target.checked; setCandidate({ ...candidate, include_descendants: value }); setIncludeDescendants(value); clearContext(); }} />{ui.descendants}</label></div>}
       {naturalMode && <Button type="button" onClick={() => void interpret()} disabled={pending || restoredPlan || instruction.trim().length < 1 || instruction.length > 4000}>{pending ? ui.processing : naturalUi.interpret}</Button>}
       <Button type="button" onClick={() => void requestPreview()} disabled={pending || restoredPlan || instruction.trim().length < 1 || instruction.length > 4000 || (naturalMode && (!candidate || !isAssignmentCandidate(candidate)))}>{pending ? ui.processing : ui.preview}</Button>
       {naturalMode && visiblePreview?.state === 'preview_ready' && <Button type="button" variant="outline" onClick={() => { setPreviousPlanId(visiblePreview.plan_id); setCorrectionContext(true); setInstruction(''); setCandidate(null); clearContext(); }} disabled={pending}>{naturalUi.clarify}</Button>}
-      {(restoredPlan || receipt) && <Button type="button" variant="outline" disabled={pending} onClick={() => { setInstruction(''); setTimezone('Asia/Almaty'); setNotify(false); setIncludeDescendants(false); setCandidate(null); setPreviousPlanId(undefined); setCorrectionContext(false); clearContext(); }}>{ui.newCommand}</Button>}
+      {(restoredPlan || receipt || confirmationPlan || restoreConfirmationId || dialogue.length > 0) && <Button type="button" variant="outline" disabled={pending} onClick={() => { setInstruction(''); setInstructionHistory([]); setDialogue([]); setHistoryBlocked(false); setTimezone('Asia/Almaty'); setNotify(false); setIncludeDescendants(false); setCandidate(null); setPreviousPlanId(undefined); setCorrectionContext(false); clearContext(); }}>{ui.newCommand}</Button>}
+      </fieldset>
     </CardContent></Card>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-    {visiblePreview?.state === 'preview_ready' && <PreviewCard preview={visiblePreview} pending={pending} onConfirm={() => void confirm()} ui={ui} lang={lang} />}
-    {receipt && <Card><CardHeader><CardTitle>{ui.receipt}</CardTitle></CardHeader><CardContent><p>{ui.created}: {receipt.created.length}; {ui.skipped}: {receipt.skipped.length}.</p><p>{ui.notifications}: {receipt.notification_state === 'queued' ? ui.queued : ui.notRequested}.</p></CardContent></Card>}
+    {(confirmationPlan || restoreConfirmationId) && !pending && <div role="status" className="space-y-3 rounded-md border border-amber-300 p-4"><p>{dialogueUi.unknown}</p><Button type="button" onClick={() => void recoverConfirmation()}>{dialogueUi.read}</Button></div>}
+    {(confirmationPlan || (!restoreConfirmationId && visiblePreview?.state === 'preview_ready' && visiblePreview)) && <PreviewCard preview={confirmationPlan ?? visiblePreview as PreviewReady} pending={pending} onConfirm={() => void confirm()} ui={ui} lang={lang} />}
+    {receipt && <Card><CardHeader><CardTitle>{ui.receipt}</CardTitle></CardHeader><CardContent><p>{ui.created}: {receipt.created.length}; {ui.skipped}: {receipt.skipped.length}.</p><p>{ui.notifications}: {receipt.notification_state === 'queued' ? ui.queued : ui.notRequested}.</p>{receipt.course_id && <a className="inline-block break-words py-3 text-primary underline" href={`/assignments?course_id=${encodeURIComponent(receipt.course_id)}`}>{dialogueUi.open}</a>}</CardContent></Card>}
   </div>;
 }
 

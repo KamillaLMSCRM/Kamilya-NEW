@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictBool, StringConstraints
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictBool, StringConstraints, field_validator
 
 from .natural_assignment_intent import AssignmentCandidate
 from .plan_contract import Fingerprint, Instruction, Revision
@@ -31,6 +31,17 @@ class AssignmentInterpretRequest(_DTO):
     notify: StrictBool = False
     include_descendants: StrictBool = False
     previous_plan_id: UUID | None = None
+    instruction_history: Annotated[
+        tuple[Annotated[str, StringConstraints(strict=True, min_length=1, max_length=2000)], ...],
+        Field(max_length=4),
+    ] = ()
+
+    @field_validator("instruction_history")
+    @classmethod
+    def bounded_user_history(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not item.strip() for item in value) or sum(map(len, value)) > 6000:
+            raise ValueError("instruction_history_invalid")
+        return value
 
 
 class InterpretedAssignment(_DTO):
@@ -89,6 +100,7 @@ class AssignmentReceipt(_DTO):
     created: tuple[CreatedAssignment, ...] = Field(max_length=5000)
     skipped: tuple[UUID, ...] = Field(max_length=5000)
     notification_state: Literal["queued", "not_requested"]
+    course_id: UUID | None = None
 
 
 PreviewResponse = AssignmentPreview | Clarification

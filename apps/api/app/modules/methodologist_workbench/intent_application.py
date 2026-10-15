@@ -28,6 +28,8 @@ from .natural_assignment_intent import (
     candidate_to_parsed,
     parse_model_candidate,
     requires_absolute_deadline,
+    requires_audience_clarification,
+    unresolved_relative_history,
 )
 from .plan_contract import ActorContext
 
@@ -74,8 +76,11 @@ async def interpret_assignment(
         zone = ZoneInfo(body.timezone_name)
     except (ValueError, ZoneInfoNotFoundError):
         return Clarification(code="timezone_invalid")
-    if requires_absolute_deadline(body.instruction):
+    effective_history = () if body.previous_plan_id is not None else body.instruction_history
+    if requires_absolute_deadline(body.instruction) or unresolved_relative_history(body.instruction, effective_history):
         return Clarification(code="intent_relative_deadline")
+    if requires_audience_clarification((*effective_history, body.instruction)):
+        return Clarification(code="intent_unsupported_audience")
     previous = None
     if body.previous_plan_id is not None:
         plan = await get_assignment_plan(db, actor, body.previous_plan_id)
@@ -90,7 +95,9 @@ async def interpret_assignment(
             notify=plan.notify,
             include_descendants=plan.include_descendants,
         )
-    messages = build_intent_messages(body.instruction, body.timezone_name, previous)
+    messages = build_intent_messages(
+        body.instruction, body.timezone_name, previous, instruction_history=effective_history
+    )
     await check_and_charge_llm_budget(
         db, str(actor.tenant_id), operation=INTENT_OPERATION, estimated_cost_cents=INTENT_ESTIMATED_COST_CENTS
     )

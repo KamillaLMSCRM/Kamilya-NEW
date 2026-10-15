@@ -1,5 +1,34 @@
 # AI assistant continuation — text-first
 
+Local52 frontier: independent R1/R2 findings repaired through immutable V1.1/V1.2/
+V1.3 addenda; fresh R3 review fe12b421… accepted by Root after checking17 hashes.
+Full web158files/1122PASS167.11s, focused API99PASS, isolated intent/assignment
+R2 72PASS280.219s/cleanup/publicneutrality, canonical Python baseline1008/2200,
+build67pages PASS and sequential type/lint PASS. Parallel typecheck/build attempt
+was HARNESS_FAILURE TS6053; repeated only typecheck after stable successful build,
+no code/assertion change. Build child exited0 and receipt/logs sealed; outer log
+tail hit Windows cp1251 UnicodeEncodeError AFTER receipt creation, not a build
+failure and not an outer-wrapper success. Source graph preparation again stopped
+at rejectedCodeGraph; no force. Voice excluded. Version52 is candidate only;
+exact DEV CI/provider/browser and production rollout/readback remain pending.
+DEV read-only inventory confirmed ordinary QA actor/tenant and existing courses;
+there is no department fixture, so bounded synthetic setup must precede live
+assignment. No real customers/completed learning or public migration changed.
+
+Current task2026-10-15: owner authorizes assignment through dialogue, complete
+synthetic DEV journey, repairs, production release and live acceptance; voice
+excluded. Accepted ASSIGNMENT_DIALOGUE_V1 consumes existing interpretation and
+assignment owners. Root owns API/UI integration and release; cheap helper writer
+owns only pure bounded-history helper/tests; fresh assistant52 Test Runner owns
+independent review. Initial API4RED ->84focusedGREEN; UI4RED ->47focusedGREEN.
+Remaining: independent findings/repair, exact candidate full gates, owned Supabase
+intent/assignment isolation, real DEV and production journey, readback/retention
+and canonical documentation. No deployment or production assignment performed yet.
+Graph navigation: CodeGraph preflight stale and query rejected excluded4; do not
+query rejected index. Graphify partial undirected AssignmentWorkbench query76/
+shown20 narrowed UI/lib/test/page candidates, decisive relationships source-checked.
+No graph freshness, completeness, performance or savings claim.
+
 Status: active overall; selected-lesson durable dialogue released51/accepted;
 voice deferred. The completed slice is owned by canonical release51/readiness/
 backlog/module index/user docs/TestRunner ledger, not this historical task log.

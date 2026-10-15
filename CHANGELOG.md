@@ -135,6 +135,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.52] - 2026-10-15
+
+### Added
+
+- Continue one department assignment through bounded user-only dialogue: supply
+  missing details, edit the candidate, inspect the existing authoritative preview,
+  then explicitly confirm. Owned ready plans exclude stale client drafts.
+- Open course assignments from a server receipt, including after reload; existing
+  receipts gain computed course metadata without a storage rewrite or migration.
+
+### Fixed
+
+- Preserve unknown confirmation ownership and opaque plan locator across reload,
+  recover by same-ID reads/reconfirmation only, and distinguish typed known409
+  rejection from a network-unknown result. No automatic repeat or assignment.
+- Keep rejected subgroup/relative-date drafts from silently widening or guessing
+  a later proposal; support bounded explicit whole-department corrections. Long
+  current requests remain accepted without silently truncating follow-up context.
+- Clear local dialogue on language/session/tenant changes without discarding an
+  unresolved confirmation. Voice, roles, providers, billing, schema and enrollment
+  ownership are unchanged. Release/real-provider acceptance is tracked separately.
+
 ## [0.11.51] - 2026-10-14
 
 - Save private selected-lesson assistant dialogue and restore it after reload.

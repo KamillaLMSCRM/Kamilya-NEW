@@ -1,6 +1,43 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-14.
+Current as of: 2026-10-15.
+
+## WB-DIALOGUE-001 - Unknown assignment confirmation lost its recovery ownership
+
+- Date: 2026-10-15; local candidate, not yet deployed.
+- Symptom: lost confirm response hid its plan, while known409 rejection was
+  mislabeled unknown; reload of an unresolved plan could allow replacement.
+- Cause: UI had no synchronous confirmation owner or persistent opaque recovery
+  marker, and treated all transport/server failures alike. A ready GET can race
+  an in-flight commit and is not proof of cancellation.
+- Fix: retain the same plan/fingerprint, pre-POST URL confirming marker, read or
+  explicitly re-confirm the same plan only. Typed known409 conflict releases a
+  rejected plan; unknown codes/network preserve lock. Locale clears dialogue
+  prose without clearing recovery ownership. No server assignment policy change.
+- Verification: independent R1 findings, three recovery regressions RED before
+  repair; extended focused web54 PASS including GET-only reload/recovery, known
+  rejection, unknown409, locale and no duplicate POST. DEV/production still gated.
+- Prevention: test delayed/lost confirmation across reload/context and a ready
+  read during an unresolved commit; never equate abort or a ready read to rollback.
+
+## WB-DIALOGUE-002 - Historical draft instructions bypassed clarification guards
+
+- Date: 2026-10-15; local assignment dialogue candidate.
+- Symptom: old subgroup wording poisoned a valid whole-department correction;
+  other subgroup/relative-date forms could reach extraction and widen/guess a
+  proposal. An owned previous plan could be mixed with stale client drafts.
+- Cause: prior user text was not normalized against the owned-plan context;
+  current-only relative screening and narrow subgroup patterns were asymmetric.
+- Fix: server-owned previous plan excludes old client history; unresolved
+  historical relative wording needs an explicit absolute replacement. Known
+  RU/KK/EN subgroup classes clarify before admission/provider; explicit non-negated
+  full-department corrections can resolve denied history. Preview/confirmation
+  remain mandatory; no universal language-recognition guarantee is claimed.
+- Verification: independent R1/R2 findings, subgroup/history8RED and remaining
+  seam5RED before repair; focused API99 PASS, no provider/admission for denied
+  cases, exact USER JSON prompt and legacy receipt enrichment tests.
+- Prevention: test the next turn after a denied instruction and forged mixed
+  previous-plan/history requests; prompt instructions alone do not prove safety.
 
 ## RELEASE-009 - Correction-enabled controller pinned the previous schema epoch
 
@@ -2484,6 +2521,10 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: never run `next build` and `tsc --noEmit` concurrently in the same
   checkout. Parallelize lint or tests instead, then run typecheck after the build
   has finished or use isolated output directories.
+
+- Recurrence2026-10-15, assignment52: Root repeated this harness mistake; initial
+  TS6053 retained as HARNESS_FAILURE. Build child completed0/67pages, then sequential
+  typecheck and scoped lint exited0. No source/test expectation was changed.
 
 ## TOOL-006 - Repository-relative paths were staged from the API subdirectory
 

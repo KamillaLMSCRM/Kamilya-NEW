@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import { isAssignmentDialogueHistory } from '@/lib/assignmentDialogue';
 
 export type Choice = { id: string; label: string };
 export type AssignmentInput = {
@@ -57,6 +58,7 @@ export type AssignmentReceipt = {
   created: { user_id: string; enrollment_id: string; notification_id: string | null }[];
   skipped: string[];
   notification_state: 'queued' | 'not_requested';
+  course_id?: string | null;
 };
 
 const isString = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
@@ -124,6 +126,7 @@ function parseReceipt(value: unknown, planId: string): AssignmentReceipt {
   if (!value || typeof value !== 'object') throw new Error('Invalid assignment receipt response');
   const data = value as Partial<AssignmentReceipt>;
   if (data.state !== 'succeeded' || data.plan_id !== planId || !Array.isArray(data.created) || data.created.length > 5000
+    || (data.course_id !== undefined && data.course_id !== null && !isUuid(data.course_id))
     || !data.created.every((item) => Boolean(item && isUuid(item.user_id) && isUuid(item.enrollment_id)
       && (item.notification_id === null || isUuid(item.notification_id))))
     || !Array.isArray(data.skipped) || data.skipped.length > 5000 || !data.skipped.every(isUuid)
@@ -149,12 +152,14 @@ export async function requestAssignmentPreview(input: AssignmentInput, signal?: 
   return parsePreview(response.data);
 }
 
-export async function interpretAssignment(instruction: string, timezone_name: string, notify: boolean, include_descendants: boolean, previous_plan_id?: string, signal?: AbortSignal): Promise<AssignmentInterpretation> {
+export async function interpretAssignment(instruction: string, timezone_name: string, notify: boolean, include_descendants: boolean, previous_plan_id?: string, signal?: AbortSignal, instruction_history: string[] = []): Promise<AssignmentInterpretation> {
   if (instruction.trim().length < 1 || instruction.length > 4000 || !isString(timezone_name)
     || typeof notify !== 'boolean' || typeof include_descendants !== 'boolean'
+    || !isAssignmentDialogueHistory(instruction_history)
     || (previous_plan_id !== undefined && !isUuid(previous_plan_id))) throw new Error('Invalid assignment interpretation input');
   const response = await api.post('/v1/methodologist-workbench/interpret-assignment', {
     instruction, timezone_name, notify, include_descendants, ...(previous_plan_id ? { previous_plan_id } : {}),
+    ...(instruction_history.length ? { instruction_history } : {}),
   }, signal ? { signal } : undefined);
   if (!response.data || typeof response.data !== 'object') throw new Error('Invalid assignment interpretation response');
   const data = response.data as Record<string, unknown>;

@@ -2,6 +2,20 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
+Current assignment dialogue slice, accepted for implementation2026-10-15:
+[ASSIGNMENT_DIALOGUE_V1](contracts/ASSIGNMENT_DIALOGUE_V1.md). Existing intent ->
+bounded previous user requests -> candidate -> owned preview -> explicit confirm
+-> receipt/reload/result navigation. No new assignment owner/table/migration,
+no automatic execution, unsupported subgroup widening or voice. Local/DEV/live/
+production gates remain distinct and pending until recorded by Root.
+[Recovery V1.1](contracts/ASSIGNMENT_DIALOGUE_V1_1.md) separates typed known409
+rejection from unknown outcomes and retains opaque confirmation locator on reload.
+[Clarification limits V1.2](contracts/ASSIGNMENT_DIALOGUE_V1_2.md) preserves4000-char
+one-shot admission, rejects known subgroup widening and clears locale-local text
+without losing same-plan recovery. This is not universal language understanding.
+[Effective context V1.3](contracts/ASSIGNMENT_DIALOGUE_V1_3.md) enforces owned-plan
+exclusivity on the server and rejects unresolved historical relative deadlines.
+
 Durable lesson history slice released/accepted0.11.51/source85933da4,2026-10-14:
 [durable lesson dialogue V1](contracts/EDITOR_DURABLE_LESSON_DIALOGUE_V1.md),
 [populated purge impact V1](contracts/EDITOR_DURABLE_LESSON_DIALOGUE_PURGE_V1.md).

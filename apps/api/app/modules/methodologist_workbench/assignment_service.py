@@ -395,10 +395,17 @@ async def _owned_plan(db: AsyncSession, actor: ActorContext, plan_id: UUID, *, l
     return row
 
 
+def _receipt_with_course(row: AssignmentPlan) -> AssignmentReceipt:
+    # Frozen owned preview, not client/model metadata; old receipts are not rewritten.
+    receipt = AssignmentReceipt.model_validate(row.receipt)
+    course_id = UUID(str(row.preview["course_id"]))
+    return receipt.model_copy(update={"course_id": course_id})
+
+
 async def get_assignment_plan(db: AsyncSession, actor: ActorContext, plan_id: UUID) -> PlanResponse:
     row = await _owned_plan(db, actor, plan_id, lock=False)
     if row.status == "succeeded":
-        return AssignmentReceipt.model_validate(row.receipt)
+        return _receipt_with_course(row)
     if datetime.now(UTC) >= row.expires_at:
         raise WorkbenchConflict("expired")
     return AssignmentPreview.model_validate(row.preview)
@@ -416,7 +423,7 @@ async def confirm_assignment_plan(
     if request.revision != plan.revision or request.fingerprint != row.fingerprint:
         raise WorkbenchConflict("confirmation_mismatch")
     if row.status == "succeeded":
-        return ConfirmationOutcome(AssignmentReceipt.model_validate(row.receipt), ())
+        return ConfirmationOutcome(_receipt_with_course(row), ())
     preview = AssignmentPreview.model_validate(row.preview)
     if not isinstance(plan.operation, AssignCourse):
         raise WorkbenchConflict("operation_unsupported")
@@ -468,6 +475,7 @@ async def confirm_assignment_plan(
         created=created,
         skipped=skipped,
         notification_state="queued" if any(item.notification_id for item in created) else "not_requested",
+        course_id=preview.course_id,
     )
     row.status = "succeeded"
     row.receipt = receipt.model_dump(mode="json")
