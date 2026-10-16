@@ -62,3 +62,15 @@ def test_partial_transport_chain_cannot_contact_asus_even_if_both_providers_fail
     clients = [SimpleNamespace(config=name) for name in ("deepseek", "chatgpt", "glm-asus")]
     assert acceptance.permitted_provider_configs(clients, partial=True) == ["deepseek", "chatgpt"]
     assert acceptance.permitted_provider_configs(clients, partial=False) == ["deepseek", "chatgpt", "glm-asus"]
+
+
+def test_assignment_intent_optin_is_api_only_and_expires():
+    now = datetime(2026, 10, 16, 9, tzinfo=UTC)
+    config = {"DEPLOYMENT_ENVIRONMENT": "render-development", "DEV_MODEL_ACCEPTANCE_ROLE": "api",
+        "DEV_MODEL_ACCEPTANCE_ID": "DEV-PRIVATE-20261016-A1", "DEV_MODEL_ACCEPTANCE_SCOPE": "assignment_intent",
+        "DEV_MODEL_ACCEPTANCE_UNTIL": (now + timedelta(minutes=10)).isoformat()}
+    assert acceptance.enabled(config, now)
+    assert not acceptance.enabled({**config, "DEPLOYMENT_ENVIRONMENT": "kz-production"}, now)
+    assert not acceptance.enabled({**config, "DEPLOYMENT_ENVIRONMENT": "render-development-worker",
+                                   "DEV_MODEL_ACCEPTANCE_ROLE": "worker"}, now)
+    assert not acceptance.enabled(config, now + timedelta(minutes=11))

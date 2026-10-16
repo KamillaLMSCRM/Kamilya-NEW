@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Bound assignment-intent fallback by provider: retain8s default attempts while
+  allowing the existing ChatGPT reserve40s within a60s overall request. Preserve
+  route/BYOK isolation, zero retries, editable preview and explicit confirmation;
+  DEV validation only, not a production activation.
+
 ### Security
 
 - Refresh exact security pins after blocking release-time audits: source-map-js

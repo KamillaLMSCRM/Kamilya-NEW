@@ -24,7 +24,8 @@ def enabled(env: dict[str, str], now: datetime) -> bool:
         return False
     expected_env = {"api": "render-development", "worker": "render-development-worker"}
     return (env.get("DEPLOYMENT_ENVIRONMENT") == expected_env.get(env.get("DEV_MODEL_ACCEPTANCE_ROLE"), "DENIED")
-        and env.get("DEV_MODEL_ACCEPTANCE_SCOPE", "full_chain") in {"full_chain", "primary_chatgpt"}
+        and env.get("DEV_MODEL_ACCEPTANCE_SCOPE", "full_chain") in {"full_chain", "primary_chatgpt", "assignment_intent"}
+        and (env.get("DEV_MODEL_ACCEPTANCE_SCOPE") != "assignment_intent" or env.get("DEV_MODEL_ACCEPTANCE_ROLE") == "api")
         and env.get("DEV_MODEL_ACCEPTANCE_ROLE") in {"api", "worker"}
         and re.fullmatch(r"DEV-PRIVATE-20261016-[A-Z0-9]{1,12}", env.get("DEV_MODEL_ACCEPTANCE_ID", "")) is not None
         and 0 < remaining <= 1200)
@@ -55,6 +56,9 @@ async def unavailable(reader: asyncio.StreamReader, writer: asyncio.StreamWriter
 
 
 async def run() -> dict:
+    if os.environ.get("DEV_MODEL_ACCEPTANCE_SCOPE") == "assignment_intent":
+        from dev_assignment_intent_acceptance import run_assignment
+        return await run_assignment()
     # Imported only after the explicit DEV-only opt-in/time gate.
     from redis.asyncio import Redis
     from app.core.config import get_settings

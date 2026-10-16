@@ -18,6 +18,50 @@ CONTENT = json.dumps({"action": "assignment_preview", "course_query": "Course", 
                       "due_date": "2026-12-20", "due_time": "18:00:00", "notify": False, "include_descendants": False})
 
 
+async def test_application_reserve_gets_time_for_observed_dev_latency(monkeypatch):
+    """Virtual wall clock replays primary8s + reserve26s, without real sleeps."""
+    scopes, calls = [], []
+    elapsed = 0
+
+    class Deadline:
+        def __init__(self, seconds):
+            self.ends = elapsed + seconds
+
+        async def __aenter__(self):
+            scopes.append(self.ends)
+
+        async def __aexit__(self, *args):
+            scopes.pop()
+
+    async def invoke(self, *args, **kwargs):
+        nonlocal elapsed
+        calls.append(self.name)
+        duration = 120 if self.name == "deepseek" else 26
+        end = min(scopes)
+        if elapsed + duration > end:
+            elapsed = end
+            raise TimeoutError()
+        elapsed += duration
+        return SimpleNamespace(content=CONTENT)
+
+    monkeypatch.setattr(asyncio, "timeout", Deadline)
+    monkeypatch.setattr(llm.LLMClient, "ainvoke", invoke)
+    for name in ("check_and_charge_llm_budget", "refund_llm_budget", "_set_tenant_security_context", "_set_user_security_context"):
+        monkeypatch.setattr(application, name, AsyncMock())
+    provider = llm.ResilientLLMClient([
+        llm.LLMProviderConfig("deepseek", "https://primary.invalid", "synthetic", "first"),
+        llm.LLMProviderConfig("chatgpt-reserve", "https://fallback.invalid", "synthetic", "second"),
+    ], temperature=0, max_tokens=1200, max_retries_per_provider=0)
+    result = await application.interpret_assignment(
+        SimpleNamespace(commit=AsyncMock()),
+        ActorContext(tenant_id=UUID(int=2), actor_id=UUID(int=3), active_role="methodologist"),
+        AssignmentInterpretRequest(instruction="Assign Course to QA on20December2026", timezone_name="Asia/Almaty"),
+        provider_resolver=AsyncMock(return_value=provider), now=datetime(2026, 10, 16, tzinfo=UTC))
+    assert result.state == "interpreted", f"reserve cancelled at virtual second {elapsed}"
+    assert calls == ["deepseek", "chatgpt-reserve"] and elapsed == 34
+    application.refund_llm_budget.assert_not_awaited()
+
+
 def chain():
     return llm.ResilientLLMClient([
         llm.LLMProviderConfig("primary", "https://primary.invalid", "synthetic", "first", timeout=120, max_retries=2),
@@ -113,7 +157,7 @@ async def test_application_admits_once_and_does_not_semantically_retry(monkeypat
         refund.assert_awaited_once()
 
 
-async def test_application_passes_eight_second_budget_to_actual_provider_seam(monkeypatch):
+async def test_application_passes_provider_specific_budget_to_actual_provider_seam(monkeypatch):
     for name in ("check_and_charge_llm_budget", "refund_llm_budget", "_set_tenant_security_context", "_set_user_security_context"):
         monkeypatch.setattr(application, name, AsyncMock())
     provider = SimpleNamespace(ainvoke=AsyncMock(return_value=SimpleNamespace(content=CONTENT)))
@@ -123,7 +167,55 @@ async def test_application_passes_eight_second_budget_to_actual_provider_seam(mo
         AssignmentInterpretRequest(instruction="Assign Course to QA on20December2026", timezone_name="Asia/Almaty"),
         provider_resolver=AsyncMock(return_value=provider), now=datetime(2026, 10, 15, tzinfo=UTC))
     assert result.state == "interpreted"
-    assert provider.ainvoke.call_args.kwargs == {"provider_deadline_seconds": 8}
+    assert provider.ainvoke.call_args.kwargs == {
+        "provider_deadline_seconds": 8, "provider_deadline_overrides": {"chatgpt-reserve": 40}}
+    assert application.INTENT_TIMEOUT_SECONDS == 60
+
+
+@pytest.mark.parametrize("overrides", [True, [], {"fallback": 0}, {"fallback": True},
+                                     {"fallback": float("nan")}, {"fallback": float("inf")},
+                                     {"": 8}, {1: 8}, {"fallback": "40"}])
+async def test_invalid_provider_overrides_reject_before_calls(monkeypatch, overrides):
+    call = AsyncMock()
+    monkeypatch.setattr(llm.LLMClient, "ainvoke", call)
+    with pytest.raises(ValueError, match="provider_deadline_invalid"):
+        await chain().ainvoke("synthetic", provider_deadline_seconds=8, provider_deadline_overrides=overrides)
+    call.assert_not_awaited()
+
+
+async def test_override_requires_default_bound():
+    with pytest.raises(ValueError, match="provider_deadline_invalid"):
+        await chain().ainvoke("synthetic", provider_deadline_overrides={"fallback": 40})
+
+
+async def test_named_override_keeps_order_cancellation_and_shared_configuration(monkeypatch):
+    original = chain()
+    calls = []
+    async def invoke(self, *args, **kwargs):
+        calls.append((self.name, self.max_retries))
+        await asyncio.sleep(0.02)
+        return SimpleNamespace(content=CONTENT)
+    monkeypatch.setattr(llm.LLMClient, "ainvoke", invoke)
+    result = await original.ainvoke("synthetic", provider_deadline_seconds=0.001,
+                                    provider_deadline_overrides={"fallback": 1})
+    assert result.content == CONTENT and calls == [("primary", 0), ("fallback", 0)]
+    assert [client.config for client in original._clients] == [client.config for client in chain()._clients]
+    calls.clear()
+    entered = asyncio.Event()
+    async def cancellable(self, *args, **kwargs):
+        calls.append((self.name, self.max_retries))
+        if self.name == "primary":
+            raise llm.ProviderFailedError(self.name, TimeoutError())
+        entered.set()
+        await asyncio.Event().wait()
+    monkeypatch.setattr(llm.LLMClient, "ainvoke", cancellable)
+    task = asyncio.create_task(original.ainvoke("synthetic", provider_deadline_seconds=0.1,
+                                              provider_deadline_overrides={"fallback": 1}))
+    await entered.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert calls == [("primary", 0), ("fallback", 0)]
 
 
 @pytest.mark.parametrize("status", [429, 503])

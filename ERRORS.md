@@ -137,6 +137,16 @@ Current as of: 2026-10-16.
   assert existing fallback gets time, and test429/503/BYOK/no-sleep/cancellation.
   Retain failed live evidence; do not hide an outage with unbounded retries,
   a longer whole-operation timeout or a provider/routing configuration change.
+- Reserve timing follow-up2026-10-16: actual private DEV ChatGPT transport took
+  16.349s/25.538s, exceeding the old uniform8s cap. Exact application virtual-clock
+  replay failed at16s with primary8s + required reserve26s. V1.6 narrows the repair
+  to assignment: default8s, exact existing chatgpt-reserve40s, outer60s including
+  resolution, zero retries and unchanged route/BYOK/default callers. This bounded
+  evidence-based exception supersedes the earlier no-outer-change prevention only
+  for this operation. Focused72PASS and risk4173PASS/526offline skips; Python debt
+  baseline1008/2200 unchanged. Real DEV failover and browser acceptance pending;
+  production/ASUS/voice remain untouched. A new sub-tick Windows cancellation-test
+  race was corrected with event synchronization, not a product deadline change.
 - Direct API diagnosis2026-10-15T04:26Z: production51 API+AI-worker resolve all3
   providers despite legacy_pool_flag=false. Qwen models/completion502 on both;
   GLM ConnectTimeout~3s on both. Qwen connector port givesConnectError25ms,

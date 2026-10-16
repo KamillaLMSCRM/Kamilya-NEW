@@ -35,7 +35,7 @@ import hashlib
 import json
 import logging
 import math
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from dataclasses import asdict, dataclass, field, replace
 from enum import StrEnum
 from typing import Any, Generic, Literal, TypeVar, cast
@@ -908,6 +908,7 @@ class ResilientLLMClient:
         response_format: dict | None = None,
         *,
         provider_deadline_seconds: float | None = None,
+        provider_deadline_overrides: Mapping[str, float] | None = None,
         request_profile: Literal["evidence_low"] | None = None,
     ) -> _LLMResponse:
         # Opt-in only: short interactive operations must leave time for the
@@ -922,13 +923,25 @@ class ResilientLLMClient:
             or provider_deadline_seconds <= 0
         ):
             raise ValueError("provider_deadline_invalid")
+        if provider_deadline_overrides is not None and (
+            provider_deadline_seconds is None
+            or not isinstance(provider_deadline_overrides, Mapping)
+            or any(not isinstance(name, str) or not name
+                   or isinstance(value, bool) or not isinstance(value, int | float)
+                   or not math.isfinite(value) or value <= 0
+                   for name, value in provider_deadline_overrides.items())
+        ):
+            raise ValueError("provider_deadline_invalid")
+        # Snapshot request-local caps before awaiting; never modify shared clients
+        # or widen providers absent from the tenant's resolved route (e.g. BYOK).
+        deadline_overrides = dict(provider_deadline_overrides or {})
         last_exc: BaseException | None = None
         for client in self._clients:
             try:
                 provider_response_format = _response_format_for_provider(client.name, response_format)
                 attempt_config = client.config
                 attempt_max_tokens = self.max_tokens
-                attempt_deadline = provider_deadline_seconds
+                attempt_deadline = deadline_overrides.get(client.name, provider_deadline_seconds)
                 if (request_profile == "evidence_low" and client.name == "deepseek"
                         and client.config.managed_evidence_profile):
                     # Request-local opt-in; no saved model/order/key change and

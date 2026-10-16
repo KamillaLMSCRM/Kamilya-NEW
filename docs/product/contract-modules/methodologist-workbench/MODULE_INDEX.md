@@ -2,6 +2,13 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
+Assignment-only reserve timing repair, DEV candidate2026-10-16:
+[V1.6](contracts/ASSIGNMENT_DIALOGUE_V1_6.md) keeps default8s attempts but permits
+40s for the existing ChatGPT reserve within a60s whole interpretation cap.
+Local virtual replayRED→GREEN, focused72PASS, risk suite4173PASS/526offline
+skips and unchanged Python quality baseline passed. Real DEV/browser acceptance
+is still required; no production or ASUS change is authorized.
+
 Accepted successor implementation, not release acceptance:
 [answer completeness V1.10](contracts/DOCUMENT_CONTENT_COMPLETENESS_ADDENDUM_V1_10.md),
 2026-10-16. One private part per requested dimension, server coverage/assembly,
