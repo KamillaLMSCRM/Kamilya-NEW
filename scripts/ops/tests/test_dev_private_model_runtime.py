@@ -88,6 +88,25 @@ def test_startup_diagnostics_are_fixed_codes_not_raw_data(error, expected):
         runtime.await_forward(Dead(), seconds=0.1)
 
 
+def test_diagnostic_pipe_is_continuously_drained_and_memory_bounded():
+    process = subprocess.Popen([sys.executable, "-c", "import sys; sys.stderr.write('x'*200000)"],
+        stderr=subprocess.PIPE)
+    runtime.drain_diagnostics(process)
+    process.wait(timeout=5)
+    process._kamilya_diagnostic_pump.join(timeout=1)
+    assert len(process._kamilya_diagnostic_tail) == 65536
+    assert "exit_0_diagnostic_bytes_65536" in runtime.ssh_failure(process)
+    runtime.stop(process)
+
+
+def test_empty_stderr_keeps_actual_exit_status_without_raw_output():
+    class Dead:
+        stderr = io.BytesIO()
+        def poll(self):
+            return -9
+    assert runtime.ssh_failure(Dead()) == "ssh_start_failed_exit_-9_diagnostic_bytes_0"
+
+
 def test_unrelated_listener_never_establishes_ssh_ownership(monkeypatch):
     class Live:
         pid = 123

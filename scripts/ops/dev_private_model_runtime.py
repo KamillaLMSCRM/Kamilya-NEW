@@ -10,6 +10,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -97,8 +98,13 @@ def await_forward(process: subprocess.Popen, seconds: float = 12) -> None:
 
 def ssh_failure(process: subprocess.Popen) -> str:
     """Classify bounded private diagnostics; never emit raw SSH output."""
-    stream = getattr(process, "stderr", None)
-    raw = b"" if stream is None else stream.read(65537).lower()
+    pump = getattr(process, "_kamilya_diagnostic_pump", None)
+    if pump is not None:
+        pump.join(timeout=0.5)
+        raw = bytes(process._kamilya_diagnostic_tail).lower()
+    else:
+        stream = getattr(process, "stderr", None)
+        raw = b"" if stream is None else stream.read(65537).lower()
     for fragment, code in (
         (b"error in libcrypto", "identity_crypto_error"),
         (b"openssl version mismatch", "system_openssl_mismatch"),
@@ -110,10 +116,35 @@ def ssh_failure(process: subprocess.Popen) -> str:
         (b"bad configuration option", "unsupported_ssh_option"),
         (b"cannot assign requested address", "local_bind_unavailable"),
         (b"no hostkeys available", "host_key_algorithm_unavailable"),
+        (b"connection reset", "network_connection_reset"),
+        (b"connection closed", "network_connection_closed"),
+        (b"kex_exchange_identification", "key_exchange_failed"),
+        (b"invalid format", "identity_invalid_format"),
+        (b"bad permissions", "identity_bad_permissions"),
+        (b"network is unreachable", "network_unreachable"),
     ):
         if fragment in raw:
             return "ssh_start_failed_" + code
-    return "ssh_start_failed"
+    return "ssh_start_failed_exit_" + str(process.poll()) + "_diagnostic_bytes_" + str(len(raw))
+
+
+def drain_diagnostics(process: subprocess.Popen) -> None:
+    """Drain continuously so SSH cannot block on a full private stderr pipe."""
+    tail = bytearray()
+    process._kamilya_diagnostic_tail = tail
+
+    def pump():
+        try:
+            while chunk := process.stderr.read(1024):
+                tail.extend(chunk)
+                if len(tail) > 65536:
+                    del tail[:-65536]
+        except (OSError, ValueError):
+            pass
+
+    thread = threading.Thread(target=pump, daemon=True, name="dev-ssh-diagnostics")
+    process._kamilya_diagnostic_pump = thread
+    thread.start()
 
 
 def stop(process: subprocess.Popen | None) -> None:
@@ -148,6 +179,9 @@ def stop(process: subprocess.Popen | None) -> None:
         stream = getattr(process, "stderr", None)
         if stream is not None:
             stream.close()
+        pump = getattr(process, "_kamilya_diagnostic_pump", None)
+        if pump is not None:
+            pump.join(timeout=1)
 
 
 def spawn(argv: list[str], **kwargs) -> subprocess.Popen:
@@ -195,6 +229,7 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
             key = b""
             ssh = spawn(ssh_command(identity, hosts), stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, env=ssh_environment(source))
+            drain_diagnostics(ssh)
             await_forward(ssh)
             if terminating:
                 return 143
