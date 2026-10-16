@@ -80,6 +80,14 @@ def test_scope_and_specific_condition_are_resolved_before_drafting_and_classifyi
     assert "Translate the complete action prose into that language" in system
 
 
+def test_requested_deadline_keeps_trigger_but_trigger_only_does_not_add_duration():
+    system = answers.messages("What notice deadline does this source state?", "en", [], EXCERPTS)[0]["content"]
+    assert "A requested deadline or retention period includes its source-stated unit, start event and applicability conditions" in system
+    assert "retain them as parts of that requested fact, not unrelated dimensions" in system
+    assert "Asking only for a start event does not request the numerical duration" in system
+    assert "NOT how long approval takes" in system
+
+
 def test_conflict_requires_two_evidenced_positions_not_an_unavailable_reference():
     system = answers.messages("Is this card's deadline conclusively applicable?", "en", [], EXCERPTS)[0]["content"]
     assert "two evidenced opposing positions" in system

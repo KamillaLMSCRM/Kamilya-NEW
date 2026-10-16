@@ -168,8 +168,19 @@
   confines opt-in to explicit global-managed provider capability, preserving
   tenant BYOK policy even when its display name is deepseek. RED2/GREEN76;
   final API/driver3048PASS, quality baseline PASS, independent delta no P1/P2.
-  Fresh canonical44check/expanded45source SQL gate running;
-  no simultaneous ordinary DEV writes. DEV still deployed3dc; production56/8a.
+  Fresh canonical44check/expanded45source SQL gate PASS, cleanup/public neutrality
+  and all committed hashes matched. Exacta5e CI/master/dev/controller release
+  passed; live DEV42 all completed with matchingstatuses. Independent41PASS/1PARTIAL:
+  D16 omitted the discovery trigger for its4-hour deadline. Browser4new KK
+  questions/downloadDOCX+PDF/reload/recentreopen/old23history exact passed, but
+  this does not accept the incomplete42-case candidate. Two post-read protocol
+  errors were GET-only recovered with no repeated inference; captured prior
+  projections and uncaptured prefix/timestamp limits are explicitly separated.
+  Remaining17 cases passed through bounded fresh-connection GET transport with
+  zero retries. R25 clarifies complete requested intervals versus start-only
+  questions; RED1/GREEN58, API3049PASS and quality baseline PASS. Three real local
+  counterexamples independently PASS, source delta no P1/P2; fresh45-source isolated
+  gate running with no ordinary DEV writes. Production stays56/8a, no57tag.
 - D57-RELEASE NOT_STARTED: exact-source release gate, signed backup/restore,
   rollback/capacity, protected backend/native release only if there is an accepted
   application change; current56 not redeployed merely for evaluation documentation.

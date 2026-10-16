@@ -7872,6 +7872,24 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   Provider metadata confirmed officialhost/api alias; source models can change
   upstream even while a legacy model ID stays configured. Do not claim a frozen
   upstream snapshot, zero cost, SLA, or general accuracy from these six probes.
+- R24/a5e exact DEV42 all completed with matching statuses; independent semantic
+  review41PASS/1PARTIAL. D16 stated4hours but omitted its discovery trigger.
+  Retain that partial result: a requested deadline needs its source-stated unit,
+  start event and applicability conditions. These qualify the requested interval,
+  not an unrelated dimension; conversely a start-only question need not add a
+  numerical duration. R25 adds this bounded policy clarification (no schema,
+  parser, routing or client delta), wiring RED1/GREEN58 and full3049PASS/quality
+  baseline PASS. Three actual local-module counterexamples independently PASS;
+  independent source delta review no P1/P2. Fresh isolated45-source gate running.
+  This is not final HTTP/prod.
+  Two R24 HTTP200 post-reads hit RemoteProtocolError; GET-only recovery proved
+  completed exchanges without another model call. Do not retry the POST. One
+  original timestamp comparison and one whole8-row prior-prefix comparison were
+  not captured; keep those limits explicit, not invented equality. A separate
+  opt-in test client disables pooled keepalive and retries only a failed GET once
+  on that exact transport exception; six mock tests passed, remaining17 live
+  cases completed with zero GET retries. This mitigates the observed harness
+  failure; it does not identify a particular failing network/server component.
 
 ## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
 
