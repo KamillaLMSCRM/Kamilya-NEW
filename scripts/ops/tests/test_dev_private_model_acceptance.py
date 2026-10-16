@@ -1,6 +1,7 @@
 import importlib.util
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -55,3 +56,9 @@ def test_owner_deferred_scope_is_explicitly_bounded():
         "DEV_MODEL_ACCEPTANCE_UNTIL": (now + timedelta(minutes=10)).isoformat()}
     assert acceptance.enabled(config, now)
     assert acceptance.call_deadline(config, now) == 35
+
+
+def test_partial_transport_chain_cannot_contact_asus_even_if_both_providers_fail():
+    clients = [SimpleNamespace(config=name) for name in ("deepseek", "chatgpt", "glm-asus")]
+    assert acceptance.permitted_provider_configs(clients, partial=True) == ["deepseek", "chatgpt"]
+    assert acceptance.permitted_provider_configs(clients, partial=False) == ["deepseek", "chatgpt", "glm-asus"]

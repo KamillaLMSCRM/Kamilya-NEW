@@ -36,6 +36,11 @@ def call_deadline(env: dict[str, str], now: datetime) -> float:
     return min(35.0, (datetime.fromisoformat(env["DEV_MODEL_ACCEPTANCE_UNTIL"]) - now).total_seconds())
 
 
+def permitted_provider_configs(clients: list, partial: bool) -> list:
+    # Even an unexpected double failure in partial mode must not contact ASUS.
+    return [client.config for client in clients[:2 if partial else 3]]
+
+
 async def unavailable(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
     try:
         async with asyncio.timeout(2):
@@ -112,7 +117,7 @@ async def run() -> dict:
                     temperature=0, max_tokens=512, max_retries_per_provider=0)
                 if source.provider_names != ["deepseek", "chatgpt-reserve", "glm53-flash-asus"]:
                     raise ValueError("runtime_route_mismatch")
-                providers = [client.config for client in source._clients]
+                providers = permitted_provider_configs(source._clients, partial)
                 for failed in range(index):
                     providers[failed] = replace(providers[failed],
                         base_url=f"http://127.0.0.1:{port}/v1", api_key="synthetic-control",

@@ -86,3 +86,10 @@ relax trust or repeat model calls. Actual inference remains independently claime
 once. Deterministic tests cover successful recovery, strict-failure no-retry and
 the two-reset terminal boundary. This changes transport resilience, not model
 order, production or billing authority.
+
+In partial acceptance, the ephemeral invocation chain itself is restricted to
+the first two provider configurations, not just the case list. An unexpected
+double failure therefore cannot contact the owner-deferred ASUS. Persisted route
+validation still requires the normal three-provider target. The earlier API
+receipt actually attempted only DeepSeek and ChatGPT, so no past GLM call is
+inferred; this regression locks down the negative case before final acceptance.
