@@ -191,6 +191,29 @@ def spawn(argv: list[str], **kwargs) -> subprocess.Popen:
     return process
 
 
+def start_forward(identity: Path, hosts: Path, source: dict[str, str]) -> subprocess.Popen:
+    """One bounded startup recovery for an observed pre-auth transport reset.
+
+    Never retry identity/host-pin/policy failures or reconnect a live application.
+    """
+    transient = {"ssh_start_failed_network_connection_reset", "ssh_start_failed_network_connection_closed"}
+    for attempt in range(2):
+        process = spawn(ssh_command(identity, hosts), stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, env=ssh_environment(source))
+        try:
+            drain_diagnostics(process)
+            await_forward(process)
+            return process
+        except BaseException as exc:
+            stop(process)
+            if isinstance(exc, RuntimeBlocked) and str(exc) in transient and attempt == 0:
+                print("EVIDENCE|dev_private_models=startup_retry_once|reason=" + str(exc), flush=True)
+                time.sleep(1)
+            else:
+                raise
+    raise RuntimeBlocked("ssh_start_attempts_exhausted")
+
+
 def run(argv: list[str], env: dict[str, str] | None = None) -> int:
     source = dict(os.environ if env is None else env)
     if not argv:
@@ -227,10 +250,7 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
                 with os.fdopen(descriptor, "wb") as stream:
                     stream.write(contents)
             key = b""
-            ssh = spawn(ssh_command(identity, hosts), stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, env=ssh_environment(source))
-            drain_diagnostics(ssh)
-            await_forward(ssh)
+            ssh = start_forward(identity, hosts, source)
             if terminating:
                 return 143
             safe_env = child_environment(source)

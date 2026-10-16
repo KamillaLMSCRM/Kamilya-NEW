@@ -107,6 +107,55 @@ def test_empty_stderr_keeps_actual_exit_status_without_raw_output():
     assert runtime.ssh_failure(Dead()) == "ssh_start_failed_exit_-9_diagnostic_bytes_0"
 
 
+@pytest.mark.parametrize("failure,retry", [
+    ("ssh_start_failed_network_connection_reset", True),
+    ("ssh_start_failed_network_connection_closed", True),
+    ("ssh_start_failed_authentication_denied", False),
+    ("ssh_start_failed_host_pin_rejected", False),
+])
+def test_only_one_pre_auth_transport_recovery_preserves_strict_failures(monkeypatch, failure, retry):
+    processes = []
+    stopped = []
+    def spawn(*_args, **_kwargs):
+        process = object()
+        processes.append(process)
+        return process
+    def ready(_process):
+        if len(processes) == 1:
+            raise runtime.RuntimeBlocked(failure)
+    monkeypatch.setattr(runtime, "spawn", spawn)
+    monkeypatch.setattr(runtime, "stop", stopped.append)
+    monkeypatch.setattr(runtime, "drain_diagnostics", lambda _process: None)
+    monkeypatch.setattr(runtime, "await_forward", ready)
+    monkeypatch.setattr(runtime.time, "sleep", lambda _seconds: None)
+    if retry:
+        assert runtime.start_forward(Path("identity"), Path("hosts"), {}) is processes[1]
+        assert stopped == [processes[0]]
+    else:
+        with pytest.raises(runtime.RuntimeBlocked, match=failure):
+            runtime.start_forward(Path("identity"), Path("hosts"), {})
+        assert len(processes) == 1 and stopped == processes
+
+
+def test_second_transport_reset_stops_without_unbounded_reconnect(monkeypatch):
+    processes = []
+    stopped = []
+    def spawn(*_args, **_kwargs):
+        process = object()
+        processes.append(process)
+        return process
+    def failed(_process):
+        raise runtime.RuntimeBlocked("ssh_start_failed_network_connection_reset")
+    monkeypatch.setattr(runtime, "spawn", spawn)
+    monkeypatch.setattr(runtime, "stop", stopped.append)
+    monkeypatch.setattr(runtime, "drain_diagnostics", lambda _process: None)
+    monkeypatch.setattr(runtime, "await_forward", failed)
+    monkeypatch.setattr(runtime.time, "sleep", lambda _seconds: None)
+    with pytest.raises(runtime.RuntimeBlocked, match="network_connection_reset"):
+        runtime.start_forward(Path("identity"), Path("hosts"), {})
+    assert len(processes) == 2 and stopped == processes
+
+
 def test_unrelated_listener_never_establishes_ssh_ownership(monkeypatch):
     class Live:
         pid = 123

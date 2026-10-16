@@ -68,3 +68,21 @@ temporarily disabled with readback, then restored to its original value after
 the controlled deployment. Existing API/worker start commands are preserved as
 children of the opt-in launcher. No plan, resource, environment identity, public
 listener, production setting, or worker queue changes are permitted.
+
+## Observed DEV transport reset, root technical disposition
+
+Actual worker candidate1ec2e98 classifies the startup failure as TCP connection
+reset, before application start. Exact server policy has no per-source startup
+limit or unused-connection timeout, and no credential denial/MaxStartups drop was
+observed. The resetting network node is NOT localized; do not attribute it to
+ASUS or infer a key problem. Render documents public outbound TCP routing resets
+at https://render.com/docs/outbound-connection-resets.
+
+Permit exactly one bounded startup recovery after a classified connection
+reset/close, with the same destination, pinned host and credential. Stop/reap the
+first process, wait1second, attempt once more; a second failure stops. Never retry
+host-key/authentication/policy failures, add a live reconnect loop, change ports,
+relax trust or repeat model calls. Actual inference remains independently claimed
+once. Deterministic tests cover successful recovery, strict-failure no-retry and
+the two-reset terminal boundary. This changes transport resilience, not model
+order, production or billing authority.
