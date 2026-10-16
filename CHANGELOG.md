@@ -9,8 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Bound assignment-intent fallback by provider: retain8s default attempts while
-  allowing the existing ChatGPT reserve40s within a60s overall request. Preserve
+- Retain draft assignment course/department on a date-only follow-up. Distinguish
+  current instruction, draft user history and an owned saved plan; a new absolute
+  date replaces older relative wording without granting execution authority.
+- Bound assignment-intent fallback by provider: DeepSeek30s, existing ChatGPT
+  reserve40s, other providers8s within a90s overall provider-chain budget. Preserve
   route/BYOK isolation, zero retries, editable preview and explicit confirmation;
   DEV validation only, not a production activation.
 

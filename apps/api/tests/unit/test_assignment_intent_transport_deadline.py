@@ -18,8 +18,15 @@ CONTENT = json.dumps({"action": "assignment_preview", "course_query": "Course", 
                       "due_date": "2026-12-20", "due_time": "18:00:00", "notify": False, "include_descendants": False})
 
 
-async def test_application_reserve_gets_time_for_observed_dev_latency(monkeypatch):
-    """Virtual wall clock replays primary8s + reserve26s, without real sleeps."""
+@pytest.mark.parametrize("primary_latency,reserve_latency,expected_calls,expected_elapsed", [
+    (120, 26, ["deepseek", "chatgpt-reserve"], 56),
+    (20, 26, ["deepseek"], 20),
+    (120, 39, ["deepseek", "chatgpt-reserve"], 69),
+])
+async def test_application_reserve_gets_time_for_observed_dev_latency(
+    monkeypatch, primary_latency, reserve_latency, expected_calls, expected_elapsed,
+):
+    """Virtual wall clock proves primary30s and an unstarved reserve, no sleeps."""
     scopes, calls = [], []
     elapsed = 0
 
@@ -36,7 +43,7 @@ async def test_application_reserve_gets_time_for_observed_dev_latency(monkeypatc
     async def invoke(self, *args, **kwargs):
         nonlocal elapsed
         calls.append(self.name)
-        duration = 120 if self.name == "deepseek" else 26
+        duration = primary_latency if self.name == "deepseek" else reserve_latency
         end = min(scopes)
         if elapsed + duration > end:
             elapsed = end
@@ -58,7 +65,7 @@ async def test_application_reserve_gets_time_for_observed_dev_latency(monkeypatc
         AssignmentInterpretRequest(instruction="Assign Course to QA on20December2026", timezone_name="Asia/Almaty"),
         provider_resolver=AsyncMock(return_value=provider), now=datetime(2026, 10, 16, tzinfo=UTC))
     assert result.state == "interpreted", f"reserve cancelled at virtual second {elapsed}"
-    assert calls == ["deepseek", "chatgpt-reserve"] and elapsed == 34
+    assert calls == expected_calls and elapsed == expected_elapsed
     application.refund_llm_budget.assert_not_awaited()
 
 
@@ -168,8 +175,8 @@ async def test_application_passes_provider_specific_budget_to_actual_provider_se
         provider_resolver=AsyncMock(return_value=provider), now=datetime(2026, 10, 15, tzinfo=UTC))
     assert result.state == "interpreted"
     assert provider.ainvoke.call_args.kwargs == {
-        "provider_deadline_seconds": 8, "provider_deadline_overrides": {"chatgpt-reserve": 40}}
-    assert application.INTENT_TIMEOUT_SECONDS == 60
+        "provider_deadline_seconds": 8, "provider_deadline_overrides": {"deepseek": 30, "chatgpt-reserve": 40}}
+    assert application.INTENT_TIMEOUT_SECONDS == 90
 
 
 @pytest.mark.parametrize("overrides", [True, [], {"fallback": 0}, {"fallback": True},

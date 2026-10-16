@@ -23,9 +23,9 @@ def receipt_key(run_id: str) -> str:
 
 async def hanging(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
     try:
-        async with asyncio.timeout(10):
+        async with asyncio.timeout(35):
             await reader.readuntil(b"\r\n\r\n")
-            # Deliberate local no-response, longer than the actual primary8s cap.
+            # Deliberate local no-response, longer than the actual primary30s cap.
             await reader.read()
     except (OSError, TimeoutError, asyncio.IncompleteReadError, asyncio.LimitOverrunError):
         pass
@@ -120,10 +120,11 @@ async def run_assignment() -> dict:
                             return tuple(values)
                         before = await snapshot()
                         body = AssignmentInterpretRequest(
-                            instruction='Назначь курс "QA TIMEOUT58" всему отделу "QA DIALOGUE52" до 20 декабря 2026 года, 18:00. Без уведомлений, без вложенных отделов.',
+                            instruction='Срок — 20 декабря 2026 года в 18:00. Назначаем всему отделу, без дочерних подразделений и без уведомлений.',
+                            instruction_history=['Назначь курс "QA TIMEOUT58" всему отделу "QA DIALOGUE52" завтра, без уведомлений.'],
                             timezone_name="Asia/Almaty", notify=False, include_descendants=False)
                         remaining = (datetime.fromisoformat(env["DEV_MODEL_ACCEPTANCE_UNTIL"]) - datetime.now(UTC)).total_seconds()
-                        async with asyncio.timeout(min(65, remaining)):
+                        async with asyncio.timeout(min(95, remaining)):
                             answer = await interpret_assignment(db, ActorContext(tenant_id=TENANT, actor_id=ACTOR,
                                 active_role="methodologist"), body, provider_resolver=resolver)
                         await db.commit()

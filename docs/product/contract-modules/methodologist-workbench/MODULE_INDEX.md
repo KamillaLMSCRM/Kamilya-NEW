@@ -2,6 +2,14 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
+Latest DEV candidate,2026-10-16: [draft date context V1.7](contracts/ASSIGNMENT_DIALOGUE_V1_7.md)
+separates current/history/owned-plan prompt contexts so a date-only follow-up can
+retain named resources. Owner also requests assignment DeepSeek30s/ChatGPT40s/
+other8s/overall90s. Fresh old-DEV c7 original RU case reproduced clarification
+in1875ms with unchanged enrollments. Local prompt matrix4177PASS/526offline skips
+preceded timing extension; combined focused126PASS and quality baseline unchanged.
+Exact combined CI/DEV acceptance pending; no production/ASUS authority.
+
 Assignment-only reserve timing repair, DEV candidate2026-10-16:
 [V1.6](contracts/ASSIGNMENT_DIALOGUE_V1_6.md) keeps default8s attempts but permits
 40s for the existing ChatGPT reserve within a60s whole interpretation cap.

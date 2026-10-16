@@ -34,8 +34,9 @@ from .natural_assignment_intent import (
 from .plan_contract import ActorContext
 
 ProviderResolver = Callable[[UUID], Awaitable[ResilientLLMClient]]
-INTENT_TIMEOUT_SECONDS = 60
+INTENT_TIMEOUT_SECONDS = 90
 INTENT_PROVIDER_DEADLINE_SECONDS = 8
+INTENT_DEEPSEEK_DEADLINE_SECONDS = 30
 INTENT_CHATGPT_DEADLINE_SECONDS = 40
 INTENT_ESTIMATED_COST_CENTS = 1
 INTENT_OPERATION = "assignment_intent_parse"
@@ -112,7 +113,10 @@ async def interpret_assignment(
             response = await provider.ainvoke(
                 messages,
                 provider_deadline_seconds=INTENT_PROVIDER_DEADLINE_SECONDS,
-                provider_deadline_overrides={"chatgpt-reserve": INTENT_CHATGPT_DEADLINE_SECONDS},
+                provider_deadline_overrides={
+                    "deepseek": INTENT_DEEPSEEK_DEADLINE_SECONDS,
+                    "chatgpt-reserve": INTENT_CHATGPT_DEADLINE_SECONDS,
+                },
             )
         # Parse AFTER transport failover. Invalid semantic/JSON output does not
         # spend more calls on repair or another model.

@@ -103,6 +103,31 @@ Current as of: 2026-10-16.
   is403/configuration, managed ChatGPT login missing is401/authorization. Evidence:
   probe-container-codex54-ingress.json; earlier failed receipts remain intact.
 
+## WB-DIALOGUE-004 - Date-only draft follow-up redundantly requested known resources
+
+- Date: 2026-10-16; original and freshly repeated ordinary DEV QA request on c7d4cf3a.
+- Symptom: user history explicitly names course/department with a relative date;
+  supplying only an absolute date/time returns intent_clarification. Fresh exact
+  original RU replay failed in1875ms, enrollment response unchanged; not a timeout.
+- Cause: prompt mixed draft-history completion with a blanket restriction that
+  corrections may modify only a previous candidate. A saved candidate does not
+  exist during pre-preview clarification; old relative wording also competed
+  with the latest absolute deadline. Browser already supplied the user history.
+- Fix: V1.7 internal context_source distinguishes current/history/owned-plan and
+  supplies a textual absolute-date hint. Explicit policy retains known names for
+  date-only messages and replaces older relative wording, without guessing that
+  relative date. No semantic repair/retry/output patch, parser/API/schema change.
+- Verification: prompt-contract3RED→GREEN, focused111PASS; date-only local risk
+  4177PASS/526offline skips/quality baseline1008/2200 before subsequent timing
+  extension. Owner requested DeepSeek30s; bounded assignment overall90s preserves
+  ChatGPT40s/default8s. Timing virtual-clock3RED→GREEN; combined focused126PASS and
+  quality unchanged. Combined exact CI/live DEV acceptance pending. Independent
+  source review found no blocker; production and ASUS forbidden.
+- Prevention: explicitly test draft follow-up without an owned plan, current-only
+  omissions, stale-history exclusion for owned plans, newer absolute dates and
+  retained subgroup guards. Deterministic prompt tests are not model-comprehension
+  proof; require real-model original/RU/KK replay before closing this defect.
+
 ## WB-DIALOGUE-003 - Slow primary starved assignment-intent transport fallback
 
 - Date: 2026-10-15; live DEV52 acceptance, before any production52 mutation.
