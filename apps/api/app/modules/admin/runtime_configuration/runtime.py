@@ -33,6 +33,7 @@ async def resolve_runtime_settings() -> RuntimeSnapshot:
     if scoped is not None:
         return scoped
     from app.core.db import async_session_factory
+
     from .models import RuntimeSettings
 
     try:
