@@ -28,7 +28,9 @@ for (const video of qa.videos) {
   assert.equal(video.sha256, approved[video.id]);
   for (const suffix of ['.mp4', '-poster.jpg', '.srt', '.vtt']) {
     const name = video.id + suffix;
-    const bytes = fs.readFileSync(path.join(source, name));
+    let bytes = fs.readFileSync(path.join(source, name));
+    // Portable caption text, with unchanged cue content/timing and MP4 bytes.
+    if (suffix === '.srt' || suffix === '.vtt') bytes = Buffer.from(bytes.toString('utf8').replace(/\r\n/g, '\n'));
     if (suffix === '.mp4') assert.equal(digest(bytes), approved[video.id]);
     assets.push({ name, bytes, sha256: digest(bytes) });
   }

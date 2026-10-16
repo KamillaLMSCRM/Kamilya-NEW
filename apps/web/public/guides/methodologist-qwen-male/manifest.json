@@ -67,13 +67,13 @@
     },
     {
       "name": "01-sources.srt",
-      "bytes": 3624,
-      "sha256": "c5e3a75e7a9c6ff80f1656f9c73e533ad33f8927879c7a9c962d308faf275cbe"
+      "bytes": 3577,
+      "sha256": "80875e51f8f38497aa460148e05d4be29d13c82a209700d6e723c90970bbb2a6"
     },
     {
       "name": "01-sources.vtt",
-      "bytes": 3595,
-      "sha256": "3ca0a052348b46cf5d8590c0a999513a5fc54ba530775e47f0e01a14c7ced144"
+      "bytes": 3558,
+      "sha256": "9ba5a08e4c1acb78dffb440e3096dd966e0518aa4664d9edbae6d9d3e602e311"
     },
     {
       "name": "02-generation.mp4",
@@ -87,13 +87,13 @@
     },
     {
       "name": "02-generation.srt",
-      "bytes": 1359,
-      "sha256": "883e28d9a53965005ec0029f8b1846d034814daea317d695148136d1bcf4dfd4"
+      "bytes": 1328,
+      "sha256": "1652ea9abd0b8226b8f9d91a4fd5171149210dc65b9e4f521eea73332c2250dc"
     },
     {
       "name": "02-generation.vtt",
-      "bytes": 1345,
-      "sha256": "02d51408656dcdc3e2144bc90b04897a50ce62ed4cf8637d2a79dcb16130aea3"
+      "bytes": 1320,
+      "sha256": "d107da112e1d8fffb9bd605b5460046a177d5da681a1870ea6f50ecbdca326c8"
     },
     {
       "name": "03-lessons.mp4",
@@ -107,13 +107,13 @@
     },
     {
       "name": "03-lessons.srt",
-      "bytes": 1265,
-      "sha256": "75fb71c8695496e6fc2c3f42ddcc1363a43d6c07288a26e597e54c56f7e5c4f9"
+      "bytes": 1238,
+      "sha256": "20743788ff3d5a7cddb4642835b54b70d3d367dce68607c3131c5caf3a8e55a5"
     },
     {
       "name": "03-lessons.vtt",
-      "bytes": 1254,
-      "sha256": "bc68e81d301ee686293b3c5b468dfe289407c603006cf24486737132a107d742"
+      "bytes": 1232,
+      "sha256": "429359802a88d79d3782eea0d8fbfead89b9533749c6bc37192a5698dcd12844"
     },
     {
       "name": "04-tests.mp4",
@@ -127,13 +127,13 @@
     },
     {
       "name": "04-tests.srt",
-      "bytes": 1577,
-      "sha256": "1139b72b48fc23c439e8d31c44276131238322054693c6745acead0fc7da69b9"
+      "bytes": 1542,
+      "sha256": "9837c38e27ea6a24564a64ef5d9023ce3c9f44a9117e55433007cbce8d8c47e6"
     },
     {
       "name": "04-tests.vtt",
-      "bytes": 1560,
-      "sha256": "5d55716a44365594455a30af3bbedbf9b0f45d1e51b81a2d542e3c0aba7deb4d"
+      "bytes": 1532,
+      "sha256": "f7ad8318e5d0197c0e280dc887e81731c01597dcb64982003650ce5be3e15a6f"
     },
     {
       "name": "05-publication.mp4",
@@ -147,13 +147,13 @@
     },
     {
       "name": "05-publication.srt",
-      "bytes": 1138,
-      "sha256": "975ab85c0037d2b71e5d16e733b658f6f3c7c74958732d50e5aa99e052e724ca"
+      "bytes": 1111,
+      "sha256": "f97db5510d94adbd5fa803d38741019319d9e1300914eda24f43274258f29bce"
     },
     {
       "name": "05-publication.vtt",
-      "bytes": 1127,
-      "sha256": "7eb0a38f2cb269c2b5bbd056b2c70e15b83938a4171683a499cc07eb07e99e9e"
+      "bytes": 1105,
+      "sha256": "86de44f20092eddbe102dada429bc987db88121ff08456c89626476e0f9b16e4"
     },
     {
       "name": "06-staff.mp4",
@@ -167,13 +167,13 @@
     },
     {
       "name": "06-staff.srt",
-      "bytes": 1735,
-      "sha256": "7de2fabce69c3c71c39a9736870af90118c7382235f12694b1dd2dc9bd2489e9"
+      "bytes": 1696,
+      "sha256": "04834558eb03f737cf69450eb31592856ac097ad98038310035208131d242aa2"
     },
     {
       "name": "06-staff.vtt",
-      "bytes": 1714,
-      "sha256": "80e32c4bbb2417c87fdb60c7763780eb3a62e2152f90a66e2bc3aa7a5812e313"
+      "bytes": 1683,
+      "sha256": "3dae5a252cd975114a165e6f50324b41da3b41412213a1b42b950c3a2880f8cf"
     },
     {
       "name": "07-assignment.mp4",
@@ -187,13 +187,13 @@
     },
     {
       "name": "07-assignment.srt",
-      "bytes": 1480,
-      "sha256": "283ded6aeffffd645db1b71960aa04c59c92321a946ba2cc336813279300e6b4"
+      "bytes": 1445,
+      "sha256": "657bdff9924d015f1c0a6b3d1d5c111e139264a42a8b4856c37ddfd7fa3dcd49"
     },
     {
       "name": "07-assignment.vtt",
-      "bytes": 1463,
-      "sha256": "3bdff9010f03521b7aedcc7df927fcb3056c483df10c73d04c336ac23596a749"
+      "bytes": 1435,
+      "sha256": "263423f291b3ae6d8c3f30f19499dbea747e2c4b2e733229e2c65306bba49e50"
     },
     {
       "name": "08-results.mp4",
@@ -207,13 +207,13 @@
     },
     {
       "name": "08-results.srt",
-      "bytes": 1213,
-      "sha256": "4102e03a9c8522a475d7bd0d39cd48992d2a7fb227df96c52efeaefd84e6177c"
+      "bytes": 1186,
+      "sha256": "d1bf05e6e31a71e71f58499670172b8e94e068718993e8f19ab1aa494560738d"
     },
     {
       "name": "08-results.vtt",
-      "bytes": 1202,
-      "sha256": "c9fae12f1e838cd77a6378c3674a8894c571d08a57b7fbb34ae5b60d46f53672"
+      "bytes": 1180,
+      "sha256": "d9ba8da857e4aabf900301bb7a333aeabec345e08d1f57dc67685741cfa4c1d7"
     }
   ]
 }
