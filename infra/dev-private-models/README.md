@@ -67,6 +67,21 @@ correction or a separately documented acceptance run, not automatic retries.
 
 ## Rollback and verification
 
+Assignment-only extension2026-10-16: scope `assignment_intent` is API-only and
+requires the same explicit DEV/expiry/NX gate. It calls the actual intent
+application as the fixed canonical QA actor with tenant/user RLS and marker
+validation. Normal DeepSeek case then invocation-local primary8s hang→ChatGPT;
+the ephemeral route has at most2providers, never owner-deferred ASUS. No preview
+or confirmation is executed by this probe. Before/after counts and budget
+estimate/request deltas are independently read back. Content-free receipt is also
+durable at `qa:dev-private-models:<id>:api:receipt`, not stdout alone.
+
+After copying terminal proof, remove opt-in env keys. Preserve the NX claim until
+the immutable opt-in expiry; exact3API-marker TTLs may be capped to that expiry
+(round up, never early). This is safe automatic test-marker expiry, not a global
+Redis cleanup. Remove exact expired keys only if still present. Missing durable
+receipt is NOT acceptance; never repeat inference to replace absent telemetry.
+
 Restore the original DEV start commands and owned environment snapshots; verify
 the original API/worker health and queues. Restore automatic deployment if it was
 temporarily disabled for the exact-SHA CI gate. Remove only this operation's

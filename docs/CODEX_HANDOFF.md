@@ -3,9 +3,27 @@
 **Обновлено:** 2026-10-16
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`
-**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `feature/document-completeness58-20261016`; candidate b73 published to `master`/`dev`
+**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `feature/document-completeness58-20261016`; DEV runtime/source `c7d4cf3a6aea8cfacc5edee9514358ccc8819e62`, final local documentation may be ahead; production unchanged57
 
-## Current58 — DEV deployed but NOT accepted; production stays57
+## Current assignment timing58 — DEV accepted, production unchanged
+
+Exact DEV API/worker c7d4cf3a6aea8cfacc5edee9514358ccc8819e62,
+CI38884277554 SUCCESS; APIdep-db8vehss728c73b7rnqg/workerdb8vdjcs728c73b7ojq0 live.
+Assignment default8s/ChatGPT40s/overall60s, no retry/order/BYOK/schema change.
+Real application primary4902ms; primary8s hang→ChatGPT16503ms total, exact
+candidate/accounting/no-assignment deltas. Full browser preview/correction/
+confirm/reload/dedup/learner access passed on synthetic QA. Current route7
+DeepSeek→ChatGPT→GLM, ASUS deferred. Complete receipts/limits in PROJECT-CONTEXT.
+Production remains57/f6f1bc94/routing4, owner-enabled reserve; no production writes.
+Initial DEV SSH-reset deployment failed then exact retry succeeded. Opt-in env
+removed, autoDeploy restored, exact markers expire automatically10:22:50UTC.
+One short date-only follow-up requested redundant clarification; record UX, do
+not claim perfect context comprehension. Actual owned-plan correction passed.
+DOCUMENT58 semantic acceptance and production release remain separate open gates.
+Root's final evidence-only commit can be ahead of deployed c7d4cf3a; do not infer
+another runtime release from local HEAD. No voice or ASUS work until authorized.
+
+## Historical58 document-Q&A candidate — not accepted; production stays57
 
 DEV exactb73d08a1942f590c0dee1a2f9aeaf12e1da24d9e API/worker/frontend reconciled
 on unchanged Free/Free/Hobby. Main CI38857267029 and DEVCI38857681134 SUCCESS.

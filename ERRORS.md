@@ -147,6 +147,14 @@ Current as of: 2026-10-16.
   baseline1008/2200 unchanged. Real DEV failover and browser acceptance pending;
   production/ASUS/voice remain untouched. A new sub-tick Windows cancellation-test
   race was corrected with event synchronization, not a product deadline change.
+- Live V1.6 acceptance2026-10-16: exactc7d4cf3a, CI38884277554 SUCCESS; DEV API
+  and worker live on unchanged Free plans. Real intent DeepSeek4902ms; ephemeral
+  primary8s hang→ChatGPT16503ms total, exact candidate and accounting deltas,
+  zero plans/enrollments before confirmation. Full synthetic browser correction/
+  confirm1/reload/dedup0/learner access passed; original deadline preserved after
+  repeat. Production remained57/f6f1bc94; ASUS not probed. Date-only history
+  follow-up once safely clarified again; do not equate transport success with
+  perfect conversational quality. Failed startup SSH-reset deployment retained.
 - Direct API diagnosis2026-10-15T04:26Z: production51 API+AI-worker resolve all3
   providers despite legacy_pool_flag=false. Qwen models/completion502 on both;
   GLM ConnectTimeout~3s on both. Qwen connector port givesConnectError25ms,

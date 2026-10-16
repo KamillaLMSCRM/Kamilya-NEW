@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** API/three workers57, compatible native56; DEV58 deployed but NOT accepted; production57 PARTIAL (41/42 API answers, H57-03 provider timeout); schema0181 unchanged; reserve OFF; existing ops last verified2026-10-16
+**Проверено:** production API/three workers57, compatible native56; DEV58 assignment timing/flow accepted, document-Q&A quality not accepted; production57 PARTIAL (41/42 API answers, H57-03 provider timeout); schema0181 unchanged; reserve owner-enabled (routing4, readback2026-10-16T10:16UTC)
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,18 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Candidate58 — DEV deployed, new repair local only, production NO_GO
+## DEV-only assignment timing58 accepted — not a production release
+
+Owner's current request forbids production/ASUS changes. Exact DEV API/worker
+c7d4cf3a6aea8cfacc5edee9514358ccc8819e62 passed CI38884277554 and real two-provider
+assignment interpretation plus full synthetic browser assignment/correction/
+confirmation/reload/dedup/learner access. See PROJECT-CONTEXT and V1.6 contract.
+Production readback2026-10-16T10:16UTC remains0.11.57/f6f1bc94/routingrevision4,
+reserve enabled by owner; historical reserveOFF text below is not current state.
+DEV58 assignment timing acceptance does not close DOCUMENT58 semantic quality or
+authorize production58. ASUS/GLM remains deferred; no billing/resources change.
+
+## Historical candidate58 — document-Q&A acceptance still open, production NO_GO
 
 Current DEV b73d08a1942f590c0dee1a2f9aeaf12e1da24d9e exact API/worker/frontend on
 unchanged Free/Free/Hobby. Earlier3069tests/45isolated checks bind b73. Actual DEV
