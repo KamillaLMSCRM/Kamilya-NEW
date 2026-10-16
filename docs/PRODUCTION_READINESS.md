@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** API/three workers57, compatible native56; DEV57 accepted; production57 PARTIAL (41/42 API answers, H57-03 provider timeout); schema0181 unchanged; reserve OFF; VM126disk81%, existing ops healthy2026-10-16
+**Проверено:** API/three workers57, compatible native56; DEV58 deployed but NOT accepted; production57 PARTIAL (41/42 API answers, H57-03 provider timeout); schema0181 unchanged; reserve OFF; existing ops last verified2026-10-16
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -8,6 +8,25 @@ DB/storage gate и приёмкой клиента
 **Назначение:** единственный актуальный реестр production-gates. История изменений
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
+
+## Candidate58 — DEV deployed, new repair local only, production NO_GO
+
+Current DEV b73d08a1942f590c0dee1a2f9aeaf12e1da24d9e exact API/worker/frontend on
+unchanged Free/Free/Hobby. Earlier3069tests/45isolated checks bind b73. Actual DEV
+H03 includes requested retention but erroneously marks conditional deputy
+appointment conflict; retain failed browser receipt. New private question-bound
+conflict proof and narrowed authority scope passed3076local tests/quality baseline
+plus independent real-model H03/H04/D16 semantics. This new source delta remains
+local: no HTTP/browser acceptance, production58 tag/release/deploy or finalGO.
+Fresh isolated46-check gate is running; publicDEV operations paused in its interval.
+
+One temporary ordinary DEV QA methodologist owner-approved/created without mail,
+user86054d41-47e3-44da-ae73-b1db7edd60e9; existing original-actor100task history/limits
+preserved. Exact temporary account/history cleanup PENDING. C58-01 original oracle
+status mismatch retained; source-based adjudication accepts the explicit deputy
+eligibility conflict but excludes it from untouched-oracle metrics. All remaining
+fresh DEV matrix/history/download/access/browser, protected release and actual
+production gates remain open. No migration/client/route/reserve/voice change.
 
 ## Current production57 — deployed, live acceptance PARTIAL, 2026-10-16
 

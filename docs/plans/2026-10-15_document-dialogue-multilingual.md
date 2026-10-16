@@ -233,7 +233,38 @@ fake call; cleanup/source/public/catalog equality true, publichashdd3af70e…74e
 unchanged. Public DEV QA phases may now proceed. Root final source diff reviewed;
 new version58 metadata consistent. No source delta after this gate.
 
-### Current Root state2026-10-16T05:04UTC (supersedes historical snapshots)
+### Current DOCUMENT58 follow-up2026-10-16T06:30UTC
+
+DEV58 b73d08a1942f590c0dee1a2f9aeaf12e1da24d9e deployed on unchanged Free/Free/
+Hobby: APIdep-db8rndui0phs738pki9g, workerdep-db8roi6q1p3s7395j5vg,
+frontenddpl_9MFrvXEpH5Y6pUT6mAHGHGdYjdiF; exact runtime readback. Earlier local
+3069/isolated45 PASS binds b73, not later source. Production remains57/f6.
+Actual DEV first4controls completed;5th create409/GET404, count100 dialogues for
+permanent actor. No retry/limit change/history deletion. Browser H03 completed
+all requested facts but incorrectly conflict on unasked deputy appointments;
+partial receipt retained. DEV58 not accepted and production58 NO_GO.
+
+Owner approved one temporary ordinary DEV QA methodologist, no mail, same exact
+permanent tenant, eventual only owned account/history cleanup. Canonical no-mail
+superadmin create + exact temporary-password reset + ordinary login/me verified;
+actor86054d41-47e3-44da-ae73-b1db7edd60e9. Credentials only main.env
+DEV_DOCUMENT58_METHODOLOGIST_EMAIL/PASSWORD. Never delete old95legacy/5new original
+actor tasks. Temporary cleanup PENDING, exact parent FK cascade inventory required;
+ordinary DELETE only deactivates. Harness preflight mistakes retained separately,
+no business fixtures until accepted identity checks; original user/role hashes saved.
+
+Private conflict-proof delta18e9fd88…9509 requires a literal question span/two
+different exact rule quotes within cited handles; invalid proof follows502/refund,
+not status rewrite or retry. Prompt authority requirement narrowed to requested
+scope. Missing-proof RED, combined75focused PASS. Full/isolated gates must rerun
+for new delta. Local actual H03/H04/D16 completed28.078/28.625/34.797seconds and
+independently semantic PASS, not HTTP acceptance. Separate explicit deputy C58-01
+remains conflict41.141seconds: root source adjudication accepts conflict because
+question asks replacement and sources specify differing exclusive appointment
+conditions. Original supported oracle/mismatch retained, no untouched-oracle
+pass-rate claim. Native56/history/schema/routing/reserveOFF/voice unchanged.
+
+### Historical Root state2026-10-16T05:04UTC (superseded)
 
 Exact57/f6 already deployed; native56 remains unchanged/compatible, DEV42semantic
 PASS. Fresh owner approval for exact54proxy.deb fulfilled after every offhost

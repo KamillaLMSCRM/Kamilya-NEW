@@ -35,11 +35,23 @@ def payload(**updates):
                        "parts": [{"dimension": dimension, **value} for dimension in dimensions]})
 
 
+def conflict_payload(question, left_handle, left_quote, right_handle, right_quote, **updates):
+    return payload(status="conflict", conflict_evidence={
+        "question_quote": question,
+        "left": {"handle": left_handle, "quote": left_quote},
+        "right": {"handle": right_handle, "quote": right_quote},
+    }, **updates)
+
+
 def test_private_schema_requests_grounded_answer_before_status():
     # Classify the requested answer after grounding it, rather than committing
     # to a status before identifying the answer's actual factual scope.
     assert list(answers.ModelAnswer.model_json_schema()["properties"]) == ["requested_dimensions", "parts"]
-    assert list(answers.AnswerPart.model_json_schema()["properties"]) == ["dimension", "answer", "citations", "status"]
+    part_schema = answers.AnswerPart.model_json_schema()
+    assert list(part_schema["properties"]) == ["dimension", "conflict_evidence", "answer", "citations", "status"]
+    conflict_schema = part_schema["$defs"]["ConflictEvidence"]["properties"]
+    assert list(conflict_schema) == ["question_quote", "left", "right"]
+    assert list(part_schema["$defs"]["ConflictPosition"]["properties"]) == ["handle", "quote"]
     assert list(answers.DocumentAnswer.model_json_schema()["properties"]) == ["state", "status", "answer", "citations"]
 
 
@@ -104,7 +116,7 @@ def test_conflict_requires_two_evidenced_positions_not_an_unavailable_reference(
 def test_comparisons_preserve_conditional_polarity_and_each_sources_authority():
     system = answers.messages("Compare who authorizes restart", "en", [], EXCERPTS)[0]["content"]
     assert "Preserve the logical force of until, unless, only and if" in system
-    assert "Keep each source's distinct appointing or approving authority" in system
+    assert "When a requested fact requires an appointing or approving authority" in system
     assert "Do not merge similar role titles" in system
     assert "Status describes agreement of the requested source rules" in system
     assert "Faithfully listing two opposing values is still conflict" in system
@@ -145,7 +157,10 @@ def test_two_conflicting_windows_from_same_chunk_are_server_copied():
         {"handle": 1, "source": SOURCE, "chunk_id": CHUNK_ID, "text": "Records must be retained for two working days."},
         {"handle": 2, "source": SOURCE, "chunk_id": CHUNK_ID, "text": "Records must be retained for three working days."},
     ]
-    result = answers.parse_answer(payload(status="conflict", citations=[{"handle": 1}, {"handle": 2}]), windows)
+    question = "How long must records be retained?"
+    result = answers.parse_answer(conflict_payload(question, 1, windows[0]["text"], 2, windows[1]["text"],
+        requested_dimensions=["record_retention"], citations=[{"handle": 1}, {"handle": 2}]), windows,
+        question=question)
     assert [citation.number for citation in result.citations] == [1, 2]
     assert result.citations[0].chunk_id == result.citations[1].chunk_id
     assert [citation.quote for citation in result.citations] == [window["text"] for window in windows]
@@ -179,7 +194,8 @@ def test_not_found_allows_optional_verified_scope_handles_and_conflict_requires_
     assert len(scoped.citations) == 1 and scoped.citations[0].quote == TEXT
     with pytest.raises(ValueError, match="answer_part_evidence_required"):
         answers.parse_answer(payload(status="supported", citations=[]), EXCERPTS)
-    assert answers.parse_answer(payload(status="conflict"), EXCERPTS).status == "conflict"
+    with pytest.raises(ValueError, match="answer_conflict_evidence_required"):
+        answers.parse_answer(payload(status="conflict"), EXCERPTS, question="What must happen?")
     with pytest.raises(ValueError):
         answers.parse_answer(payload(status="conflict", citations=[]), EXCERPTS)
 
@@ -360,8 +376,14 @@ async def test_retrieval_keeps_tail_and_exposes_sixteen_nonoverlapping_handles(m
     assert [len(excerpt["text"]) for excerpt in excerpts] == [1500] * 16
     assert excerpts[0]["text"] + excerpts[1]["text"] == bodies[0]
     assert excerpts[-2]["text"] + excerpts[-1]["text"] == bodies[-1]
-    result = answers.parse_answer(payload(status="conflict", citations=[{"handle": 1}, {"handle": 16}]), excerpts)
-    assert [citation.quote for citation in result.citations] == [excerpts[0]["text"], excerpts[15]["text"]]
+    conflict_windows = [dict(excerpts[0], text="Records must be retained for two working days."),
+        *excerpts[1:-1], dict(excerpts[-1], text="Records must be retained for three working days.")]
+    question = "How long must records be retained?"
+    result = answers.parse_answer(conflict_payload(question, 1, conflict_windows[0]["text"],
+        16, conflict_windows[-1]["text"], requested_dimensions=["record_retention"],
+        citations=[{"handle": 1}, {"handle": 16}]),
+        conflict_windows, question=question)
+    assert [citation.quote for citation in result.citations] == [conflict_windows[0]["text"], conflict_windows[-1]["text"]]
     assert result.citations[0].chunk_id == excerpts[0]["chunk_id"]
     assert result.citations[1].chunk_id == excerpts[15]["chunk_id"]
     model_schema = answers.ModelAnswer.model_json_schema()
@@ -543,8 +565,12 @@ async def test_terminal_pointer_absence_change_is_fail_closed(monkeypatch):
 
 @pytest.mark.parametrize("status", ["supported", "not_found", "conflict"])
 async def test_all_selected_index_states_are_rechecked_even_when_uncited(monkeypatch, status):
-    response = answers.parse_answer(payload(status=status, citations=[] if status == "not_found" else
-        [{"handle": 1}]), EXCERPTS)
+    if status == "conflict":
+        response = answers.DocumentAnswer(status="conflict", answer="Conflicting answer.",
+            citations=answers.parse_answer(payload(), EXCERPTS).citations)
+    else:
+        response = answers.parse_answer(payload(status=status, citations=[] if status == "not_found" else
+            [{"handle": 1}]), EXCERPTS)
     indexes = {str(SOURCE.document_id): None, str(UUID(int=9)): ("old", 1)}
     evidence = answers.AnswerEvidence(response, indexes, ())
     snapshot = AsyncMock(return_value={**indexes, str(UUID(int=9)): ("new", 2)})

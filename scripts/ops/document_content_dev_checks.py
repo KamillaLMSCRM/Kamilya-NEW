@@ -63,6 +63,8 @@ async def verify_content(*, owner, runtime, schema, actor, foreign_actor, siblin
         if payload["question"] == "Malformed evidence":
             return answer("duration", "Срок не указан.", status="not_found",
                           citations=[{"handle": 1, "quote": "PRIVATE_UNVERIFIED_PROVIDER_OUTPUT"}])
+        if payload["question"] == "Invalid conflict evidence":
+            return answer("actions", "Проверьте номер заказа.", status="conflict")
         if payload["question"] == "Missing answer part":
             return SimpleNamespace(content=json.dumps({"requested_dimensions": ["actions", "record_retention"],
                 "parts": [{"dimension": "actions", "answer": "Проверьте номер заказа.",
@@ -123,6 +125,24 @@ async def verify_content(*, owner, runtime, schema, actor, foreign_actor, siblin
         require(task.exchanges[-1].error_code == "invalid_response" and task.exchanges[-1].response is None,
             "content_invalid_response_not_private")
         checks.append("content_invalid_response_private_refund")
+        conflict = SendDocumentMessage(request_id=uuid4(), expected_revision=task.revision,
+            instruction="Invalid conflict evidence")
+        before_conflict = len(provider_calls)
+        conflict_draft, conflict_plan = task.draft, task.plan_id
+        await reject(call(lambda db, a: service.send_message(db, a, task.id, conflict, content_question=True)),
+            HTTPException, 502)
+        require(len(provider_calls) == before_conflict + 1, "content_conflict_invalid_response_retried")
+        require(tuple((await sql("SELECT cost_cents,request_count FROM tenant_llm_usage WHERE tenant_id=:tenant",
+            {"tenant": actor.tenant_id})).one()) == usage, "content_conflict_invalid_refund_not_durable")
+        task = await read(task.id)
+        require(task.exchanges[-1].error_code == "invalid_response" and task.exchanges[-1].response is None
+            and task.draft == conflict_draft and task.plan_id == conflict_plan,
+            "content_conflict_invalid_response_not_private")
+        calls_after_conflict = len(provider_calls)
+        await reject(call(lambda db, a: service.send_message(db, a, task.id, conflict, content_question=True)),
+            HTTPException, 503)
+        require(len(provider_calls) == calls_after_conflict, "content_conflict_failed_replay_reinferred")
+        checks.append("content_conflict_invalid_response_private_refund_no_retry")
         count = len(provider_calls)
         incomplete = SendDocumentMessage(request_id=uuid4(), expected_revision=task.revision, instruction="Missing answer part")
         await reject(call(lambda db, a: service.send_message(db, a, task.id, incomplete, content_question=True)), HTTPException, 502)

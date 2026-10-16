@@ -3,7 +3,34 @@
 **Обновлено:** 2026-10-16
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`
-**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `feature/document-multilingual57-20261015`; runtime source published to `master`/`dev`
+**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `feature/document-completeness58-20261016`; candidate b73 published to `master`/`dev`
+
+## Current58 — DEV deployed but NOT accepted; production stays57
+
+DEV exactb73d08a1942f590c0dee1a2f9aeaf12e1da24d9e API/worker/frontend reconciled
+on unchanged Free/Free/Hobby. Main CI38857267029 and DEVCI38857681134 SUCCESS.
+Local3069/isolated45 binds b73 only. Actual DEV4controls completed, fifth create
+hit original actor100task cap (409/GET404); no request retry or quota change.
+Browser H03 contains both retention facts but incorrectly labels unasked deputy
+appointment difference conflict. Preserve dev-browser58-partial.json, DEV NOT_GO.
+
+Owner approved one temporary DEV QA methodologist in permanent tenanta7a2c055…;
+created via canonical no-mail API, ordinary identity86054d41-47e3-44da-ae73-b1db7edd60e9
+verified. Credentials ONLY canonical main.env DEV_DOCUMENT58_METHODOLOGIST_*.
+Cleanup exact account/own history PENDING; do not delete old original-actor history
+or raise100cap. Receipt dev-temp-actor58-r5.json; earlier harness/preflight errors
+retained, no unknown creation retry. Ordinary user DELETE only deactivates; exact
+parent-row cascade cleanup needs inventory/readback, not blanket tenant deletion.
+
+Uncommitted conflict-proof follow-up18e9fd88…9509 adds private question-bound exact
+opposing rule quotes, no semantic proof/extra call/status relabel/provider change.
+RED missing-proof and75focused PASS; local actual H03/H04/D16 semantic PASS, explicit
+deputyC58-01 conflict preserved/root-adjudicated original oracle error, excluded
+from untouched-oracle accuracy claims. New delta still requires full/isolated,
+fresh ordinary DEV/browser, protected production and live acceptance. Root owns
+critical bug/release; voice/reserveOFF/native56/schema0181 unchanged.
+
+## Previous production57 snapshot (runtime unchanged; development section above supersedes)
 
 ## Current57 — deployed, DEV accepted; production H57-03 provider timeout BLOCKED
 

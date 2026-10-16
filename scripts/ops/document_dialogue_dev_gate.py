@@ -85,6 +85,7 @@ REQUIRED_CHECKS = frozenset({
     "content_not_found_pointer_race_denied",
     "content_not_found_scope_quote_persistence",
     "content_invalid_response_private_refund",
+    "content_conflict_invalid_response_private_refund_no_retry",
     "content_incomplete_answer_private_refund_no_retry",
 })
 PUBLIC_GUARDED_TABLES = (

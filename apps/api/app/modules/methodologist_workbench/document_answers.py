@@ -93,8 +93,20 @@ AnswerDimension = Literal["actor", "permission", "actions", "start_trigger",
     "duration", "record_retention", "precedence", "other"]
 
 
+class ConflictPosition(Contract):
+    handle: int = Field(strict=True, ge=1, le=16)
+    quote: Quote
+
+
+class ConflictEvidence(Contract):
+    question_quote: str = Field(min_length=1, max_length=4000)
+    left: ConflictPosition
+    right: ConflictPosition
+
+
 class AnswerPart(Contract):
     dimension: AnswerDimension
+    conflict_evidence: ConflictEvidence | None = None
     answer: str = Field(min_length=1, max_length=8000)
     citations: list[SelectedQuote] = Field(max_length=8)
     status: Literal["supported", "not_found", "conflict"]
@@ -210,6 +222,22 @@ def parse_answer(content: object, excerpts: list[dict[str, Any]], *, question: s
     parts = {part.dimension: part for part in proposed.parts}
     ordered = [parts[dimension] for dimension in proposed.requested_dimensions]
     for part in ordered:
+        proof = part.conflict_evidence
+        if (part.status == "conflict") != (proof is not None):
+            raise ValueError("answer_conflict_evidence_required")
+        if proof is not None:
+            # Exact question/evidence binding is structural, NOT entailment.
+            # Never silently downgrade an invalid conflict into supported.
+            if not proof.question_quote.strip() or proof.question_quote not in question:
+                raise ValueError("answer_conflict_question_invalid")
+            selected_handles = {citation.handle for citation in part.citations}
+            if proof.left.quote == proof.right.quote:
+                raise ValueError("answer_conflict_positions_identical")
+            for position in (proof.left, proof.right):
+                window = next((item for item in excerpts if item["handle"] == position.handle), None)
+                if (position.handle not in selected_handles or window is None
+                        or position.quote not in window["text"]):
+                    raise ValueError("answer_conflict_position_invalid")
         part_seen = set()
         for selected in part.citations:
             excerpt = next((item for item in excerpts if item["handle"] == selected.handle), None)
@@ -271,7 +299,7 @@ def messages(question: str, language: str, recall: list[dict[str, Any]], excerpt
         "Use natural reader-facing language, not internal policy terms or narration of your classification process. "
         "Preserve the logical force of until, unless, only and if when translating or simplifying: "
         "not permitted until approval does not mean the approver never approves. State the full condition clearly. "
-        "Keep each source's distinct appointing or approving authority, including role qualifiers and organizational unit. "
+        "When a requested fact requires an appointing or approving authority, preserve each source's exact role qualifiers and unit. "
         "Do not merge similar role titles or transfer exceptions between sources. "
         "Do not append a shared role or authority summary. "
         "Describe each source's technical confirmation, communication and final checks separately, "
@@ -293,6 +321,14 @@ def messages(question: str, language: str, recall: list[dict[str, Any]], excerpt
         "or no conflicting value. A source not specifying a value is not a conflicting value. "
         "Use status conflict ONLY when excerpts disagree about a requested fact for the same entity, action, "
         "conditions and trigger. Explain both positions, cite both and do not invent precedence. "
+        "Before writing a conflict part, supply conflict_evidence: question_quote is a verbatim span of the current question "
+        "requesting the disputed fact; left and right each name a cited handle and copy the minimal complete opposing rule "
+        "verbatim from that excerpt. The two rules must be incompatible answers to THAT requested fact, not merely different "
+        "wording or different conditions in the same broad dimension. For all other statuses conflict_evidence is null. "
+        "An ordinary question about who approves does not ask who appoints an absent approver's deputy: do not introduce "
+        "that conditional appointment comparison or classify it as conflict unless the question or immediate context asks "
+        "about replacement, absence or appointment. If replacement eligibility IS requested, include its exact appointment "
+        "conditions and compare the source rules; do not suppress a genuine incompatibility. "
         "Conflict requires two evidenced opposing positions, not a reference to another unavailable rule; "
         "uncertain precedence alone is not conflict. Do not invent an unavailable competing value. "
         "Match the requested dimension: who performs an action is not its deadline; a period's start event is not its duration. "

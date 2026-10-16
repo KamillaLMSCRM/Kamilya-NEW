@@ -94,9 +94,14 @@ def test_record_category_before_elliptical_storage_quantity():
 
 
 def test_actual_conflict_stays_one_cross_source_dimension():
+    windows = [{**EXCERPTS[0], "text": "Approval takes three working days after complete receipt."},
+               {**EXCERPTS[1], "text": "Approval takes five working days after complete receipt."}]
+    conflict = part("duration", "RU says three working days, KK five. No dates or precedence resolve the disagreement.", (1, 2), "conflict")
+    conflict["conflict_evidence"] = {"question_quote": "approval deadline", "left": {"handle": 1, "quote": windows[0]["text"]},
+                                     "right": {"handle": 2, "quote": windows[1]["text"]}}
     value = json.dumps({"requested_dimensions": ["duration"], "parts": [
-        part("duration", "RU says three working days, KK five. No dates or precedence resolve the disagreement.", (1, 2), "conflict")]})
-    result = answers.parse_answer(value, EXCERPTS)
+        conflict]})
+    result = answers.parse_answer(value, windows, question="What is the approval deadline?")
     assert result.status == "conflict" and "three" in result.answer and "five" in result.answer
 
 
@@ -116,3 +121,44 @@ def test_merged_answer_limit_applies_to_all_parts_not_individually():
     value = complete(parts=[part("actor", "a" * 4100), part("record_retention", "b" * 4100)])
     with pytest.raises(ValueError):
         answers.parse_answer(value, EXCERPTS)
+
+
+def test_conflict_without_question_bound_opposing_positions_is_rejected():
+    # Captured DEV58 pattern: accurate coordinator/deputy/retention prose was
+    # marked conflict for a conditional appointing difference not requested.
+    # This protocol gate rejects an unsubstantiated conflict, not its semantics.
+    value = complete(parts=[part("actor", "Coordinator approves in both sources; deputy appointers differ.", (1, 2), "conflict"),
+                            part("record_retention", "Raw 30; signed 60.", (1, 2))])
+    with pytest.raises(ValueError):
+        answers.parse_answer(value, EXCERPTS, question=QUESTION)
+
+
+@pytest.mark.parametrize("change", ["unasked", "invented_quote", "uncited", "identical", "wrong_status"])
+def test_conflict_binding_rejects_invalid_private_proof(change):
+    item = part("actor", "Opposing rules.", (1, 2), "conflict")
+    item["conflict_evidence"] = {"question_quote": "кто утверждает возврат", "left": {"handle": 1, "quote": EXCERPTS[0]["text"]},
+                                 "right": {"handle": 2, "quote": EXCERPTS[1]["text"]}}
+    if change == "unasked":
+        item["conflict_evidence"]["question_quote"] = "who appoints the deputy"
+    elif change == "invented_quote":
+        item["conflict_evidence"]["right"]["quote"] = "Invented opposing authority."
+    elif change == "uncited":
+        item["citations"] = [{"handle": 1}]
+    elif change == "identical":
+        item["conflict_evidence"]["right"] = item["conflict_evidence"]["left"]
+    else:
+        item["status"] = "supported"
+    value = complete(parts=[item, part("record_retention", "Raw 30; signed 60.", (1, 2))])
+    with pytest.raises(ValueError):
+        answers.parse_answer(value, EXCERPTS, question=QUESTION)
+
+
+def test_private_proof_does_not_pretend_to_prove_semantic_incompatibility():
+    # Exact grounding alone cannot decide whether role names are incompatible.
+    # This remains an explicit real-model acceptance responsibility.
+    item = part("actor", "Different appointers.", (1, 2), "conflict")
+    item["conflict_evidence"] = {"question_quote": "кто утверждает возврат", "left": {"handle": 1, "quote": EXCERPTS[0]["text"]},
+                                 "right": {"handle": 2, "quote": EXCERPTS[1]["text"]}}
+    response = answers.parse_answer(complete(parts=[item, part("record_retention", "Raw 30; signed 60.", (1, 2))]), EXCERPTS, question=QUESTION)
+    assert response.status == "conflict"  # Never relabel unreviewed semantics.
+    assert "conflict_evidence" not in response.model_dump()

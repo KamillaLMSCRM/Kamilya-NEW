@@ -79,3 +79,31 @@ failed; no status-only acceptance, oracle relaxation or repeated unchanged calls
 Stop identical provider failures and choose a new measured hypothesis, not more
 budget. Facts transfer to canonical owners; execution plan closes only after live
 acceptance. No universal accuracy, long-document/OCR or SLA claim.
+
+## DEV58 follow-up: question-bound conflict evidence
+
+Root decision2026-10-16, after actual b73 DEV browser H57-03: completeness is
+restored, but conditional deputy appointers were promoted into an unrequested
+conflict. Retain that failed receipt. C58-01 explicitly asks deputy eligibility;
+its differing exclusive appointment rules may legitimately conflict, so neither
+global conflict suppression nor an expected-status rewrite is an acceptable fix.
+
+Extend only the private AnswerPart with nullable conflict_evidence. A conflict
+requires a literal current-question span and two distinct exact rule quotations
+bound to this part's selected excerpt handles. Non-conflicts must omit/null it.
+Server rejects missing, invented, identical, uncited or question-unbound evidence
+through the existing invalid-response/refund path; it never relabels the answer.
+Both positions may occur within one document or even one window. Exact binding
+is NOT proof that the rules are semantically incompatible or responsive; retain
+an explicit regression demonstrating that limitation and independent adjudication.
+No proof text is persisted in the public answer or interpreted as instructions.
+
+Narrow the existing authority policy to requested authorities, with ordinary
+approval versus expressly requested replacement eligibility distinguished. No
+extra inference, hidden repair, provider/routing/timeout/budget/schema change.
+Required new gates: missing-proof RED, positive/negative bindings GREEN, H03/H04/
+D16 actual managed-profile contrast plus explicit conditional eligibility control,
+then the same fresh DEV/production acceptance; earlier gates do not prove the new
+source delta. Owner also approved one temporary DEV QA methodologist2026-10-16,
+no mail/existing-role changes, eventual exact account/own-history cleanup. Do not
+delete legacy histories or raise the100-discussion limit to unblock evaluation.

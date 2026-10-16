@@ -25,7 +25,27 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current environment — backend/DEV57, compatible native56,2026-10-16
+## Current DEV candidate58 — production remains57,2026-10-16
+
+DEV58 b73d08a1942f590c0dee1a2f9aeaf12e1da24d9e is deployed/reconciled:
+Render APIdep-db8rndui0phs738pki9g, workerdep-db8roi6q1p3s7395j5vg,
+Verceldpl_9MFrvXEpH5Y6pUT6mAHGHGdYjdiF, unchanged Free/Free/Hobby. It is NOT
+accepted: actual multipart browser answer restores retention but misclassifies
+an unrequested conditional authority difference. Further private conflict-proof
+source delta is local only, not the current DEV or production runtime.
+
+Owner-approved temporary ordinary methodologist for this DEV QA run only:
+tenant a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0, user86054d41-47e3-44da-ae73-b1db7edd60e9.
+Canonical no-mail superadmin creation/reset and ordinary login/me passed. Secret
+only main.env DEV_DOCUMENT58_METHODOLOGIST_EMAIL/PASSWORD; do not print values.
+Exact account/own-history cleanup remains PENDING after acceptance. Permanent
+original methodologist has100tasks; do not raise cap/delete its history. Normal
+DELETE only deactivates, so cleanup needs exact parent-row/cascade inventory and
+independent absence; no blanket tenant cleanup or customer data. Voice/reserveOFF,
+schema0181/native56/provider configuration unchanged. Active plan/CODEX_HANDOFF own
+the candidate's still-open checks; production57 below has not been replaced.
+
+## Current production — backend57, compatible native56,2026-10-16
 
 Runtime/tag57 exactf6f1bc945e627287f8d5a9cf9040bcae1f73ea4a;
 masterCI38827828941/DEVCI38828641350/protected38831182689 SUCCESS.
@@ -37,7 +57,7 @@ FORCE-RLS/runtime non-BYPASS/controller25fa90f7…a3d2e/routing-row7834c8c3…5d
 unchanged, revision3/reserveOFF/voice unchanged. Existing ops57 identity/threshold
 bytes/two timers active/checksuccess0; VM12681%/5953152KiBfree.
 
-DEV57 accepted42/42 actual-model semantic cases,95exact citations,280ordinary
+Historical DEV57 accepted42/42 actual-model semantic cases,95exact citations,280ordinary
 audit checks/12downloads and Root4new browser replies/download/reload/reopen.
 Existing free contours only: Render APIdep-db8msjmq1p3s738l2jh0,
 workerdep-db8mtp2vcj2c73b1sp2g; Verceldpl_64D8gMPwgJ8fmJ7fuddWvHGNiFZgReady

@@ -52,6 +52,7 @@ def test_source_contract_is_present_and_manifest_is_workspace_bound(gate):
     assert any(name.endswith("DOCUMENT_CONTENT_COMPLETENESS_ADDENDUM_V1_10.md") for name in manifest)
     assert any(name.endswith("test_document_completeness.py") for name in manifest)
     assert "content_incomplete_answer_private_refund_no_retry" in gate.REQUIRED_CHECKS
+    assert "content_conflict_invalid_response_private_refund_no_retry" in gate.REQUIRED_CHECKS
     assert any(name.endswith("app/modules/ai/llm_client.py") for name in manifest)
 
 

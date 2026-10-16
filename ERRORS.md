@@ -7972,6 +7972,44 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   H04 preserves real3/5conflict; D16 does not invent a second value. Full DEV/
   production acceptance remains pending and is not established by these probes.
 
+- DOCUMENT58 DEV follow-up2026-10-16: all requested H03 retention facts appeared,
+  but coarse actor classification still promoted a conditional deputy-appointer
+  discrepancy into conflict for an ordinary approver question. Current private
+  parts alone are not semantic scope proof. A separate explicit deputy question
+  C58-01 genuinely requests appointment eligibility: its original supported oracle
+  is disputed/source-adjudicated separately, not silently overwritten or counted
+  as an untouched-oracle PASS. Root kept actual failures and distinguished the two.
+  New private conflict_evidence binds a literal question span and two distinct
+  exact source-rule quotations to that part's selected handles; invalid proof
+  follows existing502/private failure/refund, not status downgrade/reinference.
+  Narrowed authority policy to requested scope. Missing-proof RED,3076local tests/
+  quality baseline PASS, actual managed H03/H04/D16 module probes independently
+  semantic PASS. Fresh HTTP/browser/production still NOT VERIFIED. Exact binding
+  cannot prove incompatibility; the explicit semantic-limit test prevents that
+  claim. Never replace source adjudication with status/string matching.
+
+## TEST-INFRA-021 - Repeated synthetic dialogue runs exhausted the actor task cap
+
+- Date:2026-10-16, DOCUMENT58.
+- Symptom: after four completed fresh DEV controls, fifth create409 and GET404;
+  no task/request/model call created for that case. Historical actor count100.
+- Cause: fresh-task testing accumulated durable preparations under the permanent
+  methodologist; harness checked runtime/source identity but not remaining actor
+  capacity before starting a paid multi-case matrix. Quota is functioning as coded.
+- Fix: stop without POST retry, history deletion or cap increase. Owner approved
+  exactly one temporary ordinary DEV QA methodologist/no mail, canonical no-mail
+  superadmin create/reset + ordinary identity readback passed. Account/own-history
+  cleanup remains PENDING with exact parent/cascade inventory; ordinary user
+  DELETE only deactivates. Original users/roles/history are preserved.
+- Verification: read-only nonbypass reconciliation confirms100original tasks and
+  failed task absent. Temporary ordinary identity86054d41…60e9 verified. New live
+  harness enumerates bounded recent-task pages before running and requires enough
+  capacity for41matrix tasks plus one browser task; live continuation NOT_RUN yet.
+- Prevention: budget durable actor-task capacity as well as LLM calls, keep
+  actor-private old-history readback on its original session, and prove exact
+  temporary cleanup before claiming acceptance. Fresh synthetic actor permission
+  does not authorize resetting old history or bypassing RBAC/RLS/retention.
+
 ## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
 
 - Date: 2026-10-15, DOCUMENT57.
