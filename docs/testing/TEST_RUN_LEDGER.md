@@ -4797,3 +4797,63 @@ Rules:
   methodologist-only safe sidebar link, and publisher count/hash checks.
 - No browser/runtime/API/provider/DB/Git/deploy/source mutation occurred.
   Sanitized receipt: `.release-evidence/VIDEO59-LOCAL-R2-20261016/runner-local-video59-r2.json`.
+
+### VIDEO59-DEV-MEDIA-20261016 — 2026-10-16 — DEV public static-media delivery
+
+- Canonical DEV public reads were limited to
+  `https://kamilya-lms-dev.vercel.app/guides/methodologist.html`, its manifest,
+  named guide assets, and the retained `methodologist-text.html`. The first
+  helper attempt stopped before any request on a PowerShell parser error and was
+  classified `HARNESS_FAILURE`; it was corrected without changing scope or
+  assertions.
+- Corrected readback passed: guide and manifest exact byte/hash matches; all 32
+  named assets returned `200` with exact local byte lengths and SHA-256 values;
+  all 8 MP4 range probes returned `206`, `video/mp4`, correct
+  `Content-Range: bytes 0-1023/total`, and matching first 1024 bytes.
+- All 8 VTT files returned `200` with `text/vtt` and expected cue counts; the
+  retained text guide returned `200` with an exact local byte/hash match. No
+  mixed-origin or parent-relative HTML references were found.
+- Combined HTTP-header and HTML-meta CSP checks retained `media-src 'self'`,
+  inline script allowance, and `connect-src 'none'`; all combined constraints
+  passed. Browser playback, application/API, provider, DB, Git, and deployment
+  checks were `NOT_RUN`.
+- Sanitized receipt: `.release-evidence/VIDEO59-DEV-MEDIA-20261016/receipt.json`.
+
+### VIDEO59-PROD-MEDIA-20261016 — 2026-10-16 — production public static-media delivery
+
+- Production scope was limited to public GETs on `https://app.kml.kz` guide,
+  manifest, named media/caption paths, retained text guide, and `/healthz`.
+  `/healthz` returned HTTP `200`, body `ok b0c612bfe4bfaf22346ef8763825512ce0de642e`,
+  and `X-Kamilya-Release` exactly `b0c612bfe4bfaf22346ef8763825512ce0de642e`.
+- Guide, manifest, and retained text guide matched local bytes and SHA-256.
+  All `32` named assets returned `200` with exact byte lengths and SHA-256.
+  All `8` MP4 range probes returned `206`, `video/mp4`, correct
+  `Content-Range: bytes 0-1023/total`, and matching first 1024 bytes.
+- All `8` VTT files returned `200` with `text/vtt` and expected cue counts.
+  Same-origin/relative-path and combined HTTP-header/HTML-meta CSP checks
+  passed, including `media-src 'self'`, inline-script allowance, and
+  `connect-src 'none'`.
+- Browser playback, authenticated UI, application/API, provider, DB, Git, and
+  deployment actions were `NOT_RUN`. Sanitized receipt:
+  `.release-evidence/VIDEO59-PROD-MEDIA-20261016/receipt.json`.
+
+### VIDEO59-ROOT-BROWSER-CLOSEOUT — 2026-10-16 — DEV and production live guide
+
+- Root, separately from the public-media Runner, used ordinary synthetic QA
+  methodologist sessions through Chrome tab controls only. Both environments:
+  prominent menu link below logo, real new tab and collapsed-menu accessibility
+  PASS;8 videos ready/no errors;69/69 chapter seek-and-pause checks and8/8 actual
+  playback/single-audio checks PASS. Results video reached ended42.416667s.
+- Russian caption track loaded and actual text displayed. Browser downloads:
+  DEV07-assignment and production01-sources match the approved SHA256 values.
+  Screenshot proof and sanitized receipts: VIDEO59-DEV-BROWSER and
+  VIDEO59-PROD-BROWSER under ignored .release-evidence. No learning/customer data,
+  fixture, role, model or database mutation. No fresh expert listening or mobile
+  viewport run claimed; approved male Qwen media bytes retained unchanged.
+- Protected production bridge RELEASE_OK at exactb0c612bf…; public exact identity
+  independently confirmed. API57 unchanged. Immediate frontend rollback56/8a and
+  additional55/359/299 retained; actual rollback switch NOT_RUN, operation readiness
+  verified. Old53 only removed after verified offhost recovery; postfree1092360KiB.
+- Pure no_migration_final gate11evidence/2approvals GO, non-actionable until Root
+  reference verification; Root read deployment/static/browser/cleanup/readiness
+  sources and accepts only guide59 scope. AI58 semantic acceptance stays open.

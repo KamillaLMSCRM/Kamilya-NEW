@@ -5614,6 +5614,14 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ## RELEASE-005 - Persistent runner used stale checkout policy and produced a false DEV access block
 
+- Recurrence,2026-10-16: guide59 Release Runner's executor twice failed GitHub
+  network access, while Root's canonical project-account helper reached the same
+  provider. Preserve both failures, stop that executor after two identical results,
+  and use the same digest-bound protected bridge from the working authorized
+  executor; do not infer expired credentials or expand privileges. Root completed
+  exactb0c612bf… guide59 release and separate browser/media acceptance. This was
+  an executor exception, not a new deployment path or evidence of product failure.
+
 - Date: 2026-09-27. Found during the owner-approved ECC DEV token-efficiency
   experiment; production and customer data were not touched.
 - Symptom: read-only reconciliation of an already successful exact-SHA DEV

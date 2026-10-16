@@ -25,7 +25,20 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current DEV candidate58 — production remains57,2026-10-16
+## Current guide59 snapshot,2026-10-16
+
+Production frontend59 b0c612bfe4bfaf22346ef8763825512ce0de642e is deployed and live
+guide/menu acceptance PASS; API/three workers remain57/schema0181 unchanged.
+Visible methodologist link below logo: /guides/methodologist.html; eight approved
+male Qwen MP4s/69steps/captions/downloads, old text guide retained. DEV and production
+ordinary-role browser and independent32asset hash/range/VTT checks passed.
+DEV now b35d11a2eb215c1468e1f1a090be3fda9d2432ad, preserving all14 prior DEV commits;
+Vercel dpl_EpXhjs8iw7kYDF5Lca9DfknsFHry and existing Render API/worker live,
+Free/Free/Hobby unchanged. AI58 semantics remain unaccepted; guide release did not
+change production model settings/reserve/voice. Immediate frontend rollback56
+8a612c19…; additional55/protected359+299 retained. Release59 notes/readiness own proof.
+
+## Historical DEV candidate58 snapshot — production backend remains57,2026-10-16
 
 DEV58 b73d08a1942f590c0dee1a2f9aeaf12e1da24d9e is deployed/reconciled:
 Render APIdep-db8rndui0phs738pki9g, workerdep-db8roi6q1p3s7395j5vg,

@@ -5,7 +5,21 @@
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `feature/document-completeness58-20261016`; candidate b73 published to `master`/`dev`
 
-## Current58 — DEV deployed but NOT accepted; production stays57
+## Current guide59 — complete; AI58 acceptance remains open
+
+Frontend59 b0c612bfe4bfaf22346ef8763825512ce0de642e deployed/accepted in production;
+API/workers57 unchanged. Prominent methodologist video link,8approved male Qwen
+videos/69steps; DEV+production authenticated browser and independent media PASS.
+DEV preserving merge b35d11a2eb215c1468e1f1a090be3fda9d2432ad retained14oldDEV commits.
+Production immediate rollback56 8a612c19… retained; extra55/359/299 retained.
+Old53 removed only with offhost verified recovery. No Proxmox/security/billing
+changes. Root used canonical bridge after Runner executor's two GitHub network
+failures. Exact receipts/local1167 tests/CI/native IDs in release59/readiness/ledger.
+Active guide worktree: .worktrees/methodologist-video-guide-20261016. The header's
+older AI worktree is preserved for separate unaccepted AI58 work, not guide follow-up.
+No further guide release required; do not reinterpret this as AI58 acceptance.
+
+## Historical58 snapshot — DEV not accepted; production backend stays57
 
 DEV exactb73d08a1942f590c0dee1a2f9aeaf12e1da24d9e API/worker/frontend reconciled
 on unchanged Free/Free/Hobby. Main CI38857267029 and DEVCI38857681134 SUCCESS.

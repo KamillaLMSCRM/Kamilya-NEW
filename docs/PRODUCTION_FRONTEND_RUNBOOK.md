@@ -10,11 +10,21 @@
 
 ## Текущий контур
 
-### Isolated DEV preview for a frontend-only package
+### DEV verification for a frontend-only package — current verified route
 
-When DEV contains unrelated API/worker work, do not push the production candidate
-to `dev` or invoke the full DEV controller solely to check static frontend media.
-Use `scripts/deploy/vercel_frontend_preview.py` with its digest-bound
+Do not replace existing DEV work with a production candidate. For guide59 the
+verified route was an isolated preserving merge from current dev, with prior
+commits retained, reviewed server delta and the existing canonical DEV controller.
+Verify unchanged tiers and real stable-DEV browser/media behavior before production.
+
+The manual isolated-preview controller below is EXPERIMENTAL / NOT READY for the
+current project: its existing branch-only ignore-build policy canceled the actual
+preview, and preview SSO prevented anonymous browser acceptance. Do not repeat this
+path, change security/build policy, or claim local unit tests prove provider support.
+Use the preserving DEV route above until a separately reviewed provider preflight
+can fail closed on these policies before any create request.
+
+Prototype `scripts/deploy/vercel_frontend_preview.py` has a digest-bound
 `kamilya-vercel-frontend-preview-v1` packet and the canonical root `.env`.
 Its closed packet binds the exact candidate SHA/successful CI, existing DEV
 project/team/repository/root/Hobby tier, stable DEV alias deployment and current

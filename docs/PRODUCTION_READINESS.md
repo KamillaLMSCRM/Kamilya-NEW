@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** API/three workers57, compatible native56; DEV58 deployed but NOT accepted; production57 PARTIAL (41/42 API answers, H57-03 provider timeout); schema0181 unchanged; reserve OFF; existing ops last verified2026-10-16
+**Проверено:** API/three workers57, native59 guide accepted; DEV59 guide accepted (AI58 semantic acceptance remains open); production57 AI PARTIAL (41/42 API answers, H57-03 provider timeout); schema0181 unchanged; model configuration untouched by guide release; existing ops last verified2026-10-16
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,24 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Candidate58 — DEV deployed, new repair local only, production NO_GO
+## Current frontend59 — methodologist video guide accepted,2026-10-16
+
+Exact b0c612bfe4bfaf22346ef8763825512ce0de642e; protected frontend-only release
+REL-METHODGUIDE59-WEB-20261016 RELEASE_OK, public release header/body exact.
+CI38923577547/native38923653398/artifact12055103689 successful. API/workers remain57.
+Prominent methodologist-only link below logo opens eight approved male Qwen videos,
+69 chapter controls, RU captions/downloads and retained text guide. DEV and production
+ordinary-role browser: visible/new-tab/collapsed link,69seeks/8playback-autopause,
+real ended playback, visible captions and actual MP4 download hashes PASS.
+Separate Test Runner: all32 assets exact,8range206/8VTT/CSP PASS in both contours.
+Local web1167/type/lint/build/audit PASS. No new synthesis or API/model/DB change.
+DEV is now preserving merge b35d11a2eb215c1468e1f1a090be3fda9d2432ad on existing
+Free/Free/Hobby; previous14DEV commits preserved. This static-guide acceptance does
+NOT accept earlier AI58 work. Native rollback56 8a612c19… verified; additional55
+381692f9…/protected359+299 retained. Old53 only removed with verified offhost copy;
+post-release1092360KiB free, actual rollback switch NOT_RUN. See release59 notes.
+
+## Historical candidate58 snapshot — AI acceptance still open, production backend57
 
 Current DEV b73d08a1942f590c0dee1a2f9aeaf12e1da24d9e exact API/worker/frontend on
 unchanged Free/Free/Hobby. Earlier3069tests/45isolated checks bind b73. Actual DEV
