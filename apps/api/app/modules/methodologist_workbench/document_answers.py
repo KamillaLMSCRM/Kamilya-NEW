@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import _set_tenant_security_context, _set_user_security_context
 from app.core.log_redaction import redact_sensitive_text
+from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings, runtime_settings_scope
 from app.modules.ai.budget import check_and_charge_llm_budget, refund_llm_budget
 from app.modules.ai.ingestion import VectorStore
 from app.modules.ai.lexical_retrieval import retrieve_lexical_hits
@@ -384,9 +385,11 @@ async def settle_refund(db: AsyncSession, actor: ActorContext) -> None:
 
 async def answer_document(db: AsyncSession, actor: ActorContext, sources: tuple[DocumentSource, ...],
                           question: str, language: str, recall: list[dict[str, Any]]) -> AnswerEvidence:
+    policy = await resolve_runtime_settings()
     try:
-        async with asyncio.timeout(60):
-            return await _answer_document(db, actor, sources, question, language, recall)
+        with runtime_settings_scope(policy):
+            async with asyncio.timeout(policy.number("document_answer.total_seconds")):
+                return await _answer_document(db, actor, sources, question, language, recall)
     except TimeoutError as exc:
         raise HTTPException(503, "dialogue_provider_unavailable") from exc
 
@@ -421,11 +424,12 @@ async def _answer_document(db: AsyncSession, actor: ActorContext, sources: tuple
             await settle_refund(db, actor)
         raise
     try:
-        async with asyncio.timeout(60):
+        policy = await resolve_runtime_settings()
+        async with asyncio.timeout(policy.number("document_answer.total_seconds")):
             provider = await ResilientLLMClient.from_settings_async(tenant_id=actor.tenant_id,
-                temperature=0, max_tokens=2000, max_retries_per_provider=0)
+                temperature=0, max_tokens=policy.integer("document_answer.max_tokens"), max_retries_per_provider=0)
             response = await provider.ainvoke(messages(question, language, recall, excerpts, sources=sources),
-                response_format={"type": "json_object"}, provider_deadline_seconds=8, request_profile="evidence_low")
+                response_format={"type": "json_object"}, provider_deadline_seconds=policy.number("document_answer.provider_seconds"), request_profile="evidence_low")
         return AnswerEvidence(parse_answer(response.content, excerpts, question=question), indexes, witnesses)
     except asyncio.CancelledError:
         await settle_refund(db, actor)

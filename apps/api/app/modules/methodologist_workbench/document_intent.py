@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, Validation
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import _set_tenant_security_context, _set_user_security_context
+from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings, runtime_settings_scope
 from app.modules.ai.budget import check_and_charge_llm_budget, refund_llm_budget
 from app.modules.ai.llm_client import ResilientLLMClient
 
@@ -186,8 +187,9 @@ def build_document_intent_messages(instruction: str, language: str, *, dialogue_
 
 
 async def resolve_document_intent_provider(tenant_id: UUID) -> ResilientLLMClient:
+    policy = await resolve_runtime_settings()
     return await ResilientLLMClient.from_settings_async(
-        tenant_id=tenant_id, temperature=0, max_tokens=1200, max_retries_per_provider=0
+        tenant_id=tenant_id, temperature=0, max_tokens=policy.integer("document_intent.max_tokens"), max_retries_per_provider=0
     )
 
 
@@ -213,6 +215,7 @@ async def interpret_document(
 
     del now  # Kept as a compatible seam for deterministic callers; no date inference occurs here.
     _assert_actor(actor)
+    policy = await resolve_runtime_settings()
     messages = build_document_intent_messages(body.instruction, body.language, dialogue_context=dialogue_context)
     if dialogue_context:
         messages[0]["content"] += (
@@ -241,12 +244,13 @@ async def interpret_document(
             await db.commit()
         raise
     try:
-        async with asyncio.timeout(INTENT_TIMEOUT_SECONDS):
-            provider = await provider_resolver(actor.tenant_id)
-            if provider_deadline_seconds is None:
-                response = await provider.ainvoke(messages)
-            else:
-                response = await provider.ainvoke(messages, provider_deadline_seconds=provider_deadline_seconds)
+        with runtime_settings_scope(policy):
+            async with asyncio.timeout(policy.number("document_intent.total_seconds")):
+                provider = await provider_resolver(actor.tenant_id)
+                if provider_deadline_seconds is None:
+                    response = await provider.ainvoke(messages)
+                else:
+                    response = await provider.ainvoke(messages, provider_deadline_seconds=provider_deadline_seconds)
         result = parse_model_candidate(response.content, default_language=body.language)
         if isinstance(result, DocumentClarification):
             await _refund_admission(db, actor)

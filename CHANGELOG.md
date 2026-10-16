@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Typed non-secret runtime settings for29 allowlisted operation/provider/recovery
+  parameters: database constraints, immutable per-operation snapshots, audited
+  revision/conflict handling and revert, superadmin editor on Providers. Existing
+  enabled route, tenant BYOK, secrets/endpoints, embedding identity, security,
+  retention and billing controls keep separate ownership. DEV qualification only;
+  production deployment is not authorized.
+
 ### Fixed
 
 - Retain draft assignment course/department on a date-only follow-up. Distinguish

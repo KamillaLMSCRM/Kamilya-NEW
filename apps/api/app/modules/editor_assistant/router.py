@@ -157,11 +157,15 @@ async def _resolve_question_preview_provider(tenant_id: UUID) -> ResilientLLMCli
 
     if not isinstance(tenant_id, UUID):
         raise RuntimeError("tenant_context_required")
-    return await ResilientLLMClient.from_settings_async(
-        tenant_id=tenant_id,
-        temperature=0.2,
-        max_tokens=4_096,
-    )
+    from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings, runtime_settings_scope
+
+    policy = await resolve_runtime_settings()
+    with runtime_settings_scope(policy):
+        return await ResilientLLMClient.from_settings_async(
+            tenant_id=tenant_id,
+            temperature=policy.number("editor.temperature"),
+            max_tokens=policy.integer("editor.max_tokens"),
+        )
 
 
 def get_question_preview_provider_resolver() -> QuestionPreviewProviderResolver:

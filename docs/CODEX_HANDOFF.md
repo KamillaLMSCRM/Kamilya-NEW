@@ -3,7 +3,35 @@
 **Обновлено:** 2026-10-16
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`
-**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `feature/document-completeness58-20261016`; DEV runtime/source `c7d4cf3a6aea8cfacc5edee9514358ccc8819e62`, final local documentation may be ahead; production unchanged57
+**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `feature/document-completeness58-20261016`; DEV runtime/source `580c200c5dbfef3b60489e66ed2ae891a188a4ec`, runtime-settings delta local; production unchanged57
+
+## Runtime settings — local implementation / DEV gate pending
+
+Owner requested DB hot settings across the codebase; production/ASUS still forbidden.
+29 typed operation/provider/recovery parameters plus audited store/0182/FORCE-RLS,
+superadmin providers-page lazy editor/history/revert. Existing model routing, BYOK,
+secrets/URLs/embedding identities/security/billing/retention remain separately owned.
+Inventory704source files/800heuristic occurrences/no parse gaps, not800 hot switches.
+Contracts: docs/product/contract-modules/runtime-configuration; temporary coordination
+docs/plans/2026-10-16_runtime-configuration.md. Independent source review no blockers;
+isolated Supabase gate16checks PASS, owned schema removed, public schema unchanged.
+Full local4207PASS/526offline skips; later focused32PASS covers additional role/consumer
+checks. Quality1008Ruff/2200Mypy; web21focusedPASS/typecheck. Fresh CI/live DEV not yet
+claimed. CodeGraph prepare refused excluded paths; bounded SOURCE_FALLBACK; Graphify
+update reconciliation pending. No production publish/migration permission.
+
+## Date-followup + DeepSeek30 — DEV accepted
+
+Exact580c200c, CI38892508630SUCCESS, APIdep-db90hr7f3r2c73fm68ng and
+workerdep-db90hs7f3r2c73fm6cdg live. Six normal real-model cases PASS including
+RU/KK date-only history, latest explicit course override, missing names and subgroup
+negative cases; no assignments/plans/enrollment changes. Actual primary6494ms;
+30s primary hang -> real ChatGPT38568ms total, exact candidate and usage readback.
+Browser relative-date clarification -> only date20Dec2026/18:00 restored course
+QA TIMEOUT58 and deptQA DIALOGUE52; screenshot date-followup-browser580.png verified.
+One-shot env removed, originalAPIautoDeployyes/workerno restored; exact three Redis
+markers bounded to immutable11:40:06UTC automatic expiry. No production/ASUS work.
+Prior historicalc7 timing below is superseded, not current effective30/40/8/90.
 
 ## Current assignment timing58 — DEV accepted, production unchanged
 

@@ -5,6 +5,25 @@
 
 ## Источники правды
 
+### DEV update2026-10-16: date follow-up / runtime settings candidate
+
+Current DEV API/worker580c200c5dbfef3b60489e66ed2ae891a188a4ec,
+CI38892508630SUCCESS, exact deploysdb90hr7f3r2c73fm68ng/db90hs7f3r2c73fm6cdg.
+Assignment DeepSeek30s/ChatGPT40s/other8s/overall90s. Six real-model RU/KK/history
+and negative API cases PASS; browser only-date follow-up retained QA TIMEOUT58 /
+QA DIALOGUE52 /2026-12-20 /18:00. Invocation-local primary30s hang -> real reserve
+38568ms total; exact candidate/usage deltas, no plans/assignments. Opt-in env removed,
+APIyes/workerno auto-deploy restored, markers expire11:40:06UTC. These supersede
+older c7/8s descriptions, not production57. Production and ASUS unchanged.
+
+Owner-approved local hot-settings candidate:29 non-secret bounded keys,
+new0182/store/audit/revert and superadmin editor; inventory/constraints in
+`product/contract-modules/runtime-configuration/INVENTORY_V1.md`. Existing routes,
+provider keys and tenant settings retain their owners. Actual isolated Supabase
+gate16checks PASS including raw-SQL invalid/unaudited rejection, non-BYPASS/FORCE
+RLS, cross-session reload/revert and owned cleanup. Public schema migration/live
+hot edit still NOT VERIFIED at this checkpoint; no production approval.
+
 | Область | Документ |
 |---|---|
 | Продукт и функциональные границы | [`PROJECT.md`](../PROJECT.md) |

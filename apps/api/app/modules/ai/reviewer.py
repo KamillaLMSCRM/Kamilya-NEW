@@ -46,9 +46,12 @@ Content:
 {lesson_content[:6000]}
 """
         try:
+            from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
+
+            policy = await resolve_runtime_settings()
             response = await asyncio.wait_for(
                 self.llm.ainvoke([{"role": "user", "content": prompt}]),
-                timeout=45,
+                timeout=policy.number("reviewer.timeout_seconds"),
             )
             text = response.content.strip()
             # Extract JSON from response

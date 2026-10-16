@@ -8,7 +8,11 @@ retain named resources. Owner also requests assignment DeepSeek30s/ChatGPT40s/
 other8s/overall90s. Fresh old-DEV c7 original RU case reproduced clarification
 in1875ms with unchanged enrollments. Local prompt matrix4177PASS/526offline skips
 preceded timing extension; combined focused126PASS and quality baseline unchanged.
-Exact combined CI/DEV acceptance pending; no production/ASUS authority.
+Exact580c200c CI38892508630/DEV API+worker acceptance PASS: six real-model
+cases (RU/KK/date-only/latest correction/missing names/subgroup) and browser
+date-only context retained;30s primary hang -> real reserve38568ms. No domain
+writes or production/ASUS authority. Runtime-settings compatibility addenda are
+owned by ../runtime-configuration/EPIC_V1.md; hot-settings live acceptance separate.
 
 Assignment-only reserve timing repair, DEV candidate2026-10-16:
 [V1.6](contracts/ASSIGNMENT_DIALOGUE_V1_6.md) keeps default8s attempts but permits

@@ -20,7 +20,7 @@ from app.core.celery_app import celery_app
 from app.core.config import get_settings
 from app.core.email import EmailDeliveryError, EmailService
 
-from .store import RECOVERY_BATCH_SIZE, ClaimedLearningReminder, LearningReminderPayload, PostgresLearningReminderStore
+from .store import ClaimedLearningReminder, LearningReminderPayload, PostgresLearningReminderStore
 
 logger = logging.getLogger(__name__)
 TRANSIENT_EMAIL_CATEGORIES = frozenset({"provider_timeout", "provider_unreachable", "provider_rate_limited", "provider_unavailable"})
@@ -178,7 +178,7 @@ async def deliver(
 
 
 async def recover_due_reminders(
-    limit: int = RECOVERY_BATCH_SIZE,
+    limit: int | None = None,
     *,
     settings_factory: Callable[[], Any] = get_settings,
     recovery_session_factory: Callable[[], Any] | None = None,
@@ -188,6 +188,10 @@ async def recover_due_reminders(
     settings = settings_factory()
     if not _enabled(settings):
         return {"status": "disabled", "due": 0, "processed": 0, "succeeded": 0, "failed": 0}
+    if limit is None:
+        from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
+
+        limit = (await resolve_runtime_settings()).integer("outbox.reminders.batch_size")
     bounded = max(1, min(limit, 100))
     if recovery_session_factory is None:
         recovery_url = settings.ASSIGNMENT_RECOVERY_DATABASE_URL

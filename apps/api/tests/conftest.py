@@ -134,6 +134,23 @@ async def db_session() -> AsyncIterator[AsyncSession]:
         await connection.rollback()
 
 
+@pytest_asyncio.fixture(autouse=True)
+async def runtime_settings_unit_adapter(request: pytest.FixtureRequest):
+    """Offline tests bind the same immutable operation scope as real consumers.
+
+    DB integration/isolated gates use the actual store. Defined at the common
+    ancestor so interleaved root/unit test selectors cannot lose the fixture.
+    """
+    if "db_session" in request.fixturenames or "require_database_test_contour" in request.fixturenames:
+        yield None
+        return
+    from app.modules.admin.runtime_configuration.catalog import default_snapshot
+    from app.modules.admin.runtime_configuration.runtime import runtime_settings_scope
+
+    with runtime_settings_scope(default_snapshot()) as snapshot:
+        yield snapshot
+
+
 @pytest_asyncio.fixture(scope="function")
 async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
     """FastAPI AsyncClient wired to the same transactional session.

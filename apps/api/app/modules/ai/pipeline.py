@@ -327,10 +327,14 @@ async def _run_evidence_v2_generation(
     # Evidence V2 asks the model to faithfully reorganize supplied facts. A
     # low temperature makes the strict evidence contract reproducible and
     # avoids needless failover caused by creative paraphrases.
-    generation_client = await ResilientLLMClient.from_settings_async(
-        tenant_id=tenant_id,
-        temperature=0.2,
-    )
+    from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings, runtime_settings_scope
+
+    policy = await resolve_runtime_settings()
+    with runtime_settings_scope(policy):
+        generation_client = await ResilientLLMClient.from_settings_async(
+            tenant_id=tenant_id,
+            temperature=policy.number("generation.temperature"),
+        )
     embedding_client = await ResilientEmbeddingsClient.from_settings_async(
         tenant_id=tenant_id
     )

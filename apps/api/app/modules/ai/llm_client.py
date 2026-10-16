@@ -52,6 +52,7 @@ from app.modules.admin.model_routing.catalog import (
 )
 from app.modules.admin.model_routing.chatgpt_reserve import configuration_blocker
 from app.modules.admin.model_routing.runtime import resolve_runtime_generation_model_order
+from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
 from app.modules.ai.embedding_space import EmbeddingSpace
 
 EmbeddingProviderProgressCallback = Callable[[int, int, str], Awaitable[None]]
@@ -866,6 +867,7 @@ class ResilientLLMClient:
 
         s = get_settings()
         route_ids = await resolve_runtime_generation_model_order()
+        policy = await resolve_runtime_settings()
         providers: list[LLMProviderConfig] = []
 
         for route_id in route_ids:
@@ -889,6 +891,14 @@ class ResilientLLMClient:
                 providers.append(cfg)
             else:
                 providers.extend(_generation_fallback_providers((route_id,)))
+
+        # Only managed global providers: BYOK returned above, and endpoint,
+        # credentials, activation order, options and retry policy are untouched.
+        policy_names = {"deepseek": "deepseek", "custom:qwen38-flash-next": "qwen",
+                        "glm53-flash-asus": "glm", "chatgpt-reserve": "chatgpt"}
+        providers = [replace(cfg, model=policy.text(f"provider.{policy_names[cfg.name]}.model"),
+            timeout=policy.number(f"provider.{policy_names[cfg.name]}.timeout_seconds"))
+            if cfg.name in policy_names else cfg for cfg in providers]
 
         return cls(
             providers,
