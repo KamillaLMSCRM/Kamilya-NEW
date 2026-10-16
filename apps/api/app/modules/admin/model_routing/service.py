@@ -103,7 +103,7 @@ class GenerationModelRoutingService:
         row: GenerationModelRouting,
     ) -> GenerationModelRoutingResponse:
         settings = get_settings()
-        policy = await resolve_runtime_settings()
+        policy = await resolve_runtime_settings(self.db)
         order = validate_generation_model_order(row.ordered_model_ids)
         positions = {route_id: index + 1 for index, route_id in enumerate(order)}
         reserve_blocker = configuration_blocker(settings)

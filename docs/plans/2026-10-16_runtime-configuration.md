@@ -23,7 +23,7 @@ Root is sole writer of contracts/schema/shared runtime/integration/provider oper
 | CONTRACT | DONE | Versioned epic/module/impact matrix and review/consumer addenda | root docs/product/contract-modules/runtime-configuration |
 | STORE | DONE | Isolated Supabase16checks PASS including SQL audit and value guards | root new runtime_configuration module and0182 |
 | CONSUMERS | DONE |29keys wired; local4207PASS/526skips + focused32; independent review no blockers | root named impact matrix |
-| TESTS | IN_PROGRESS | CI38896742587 caught import-time DB/settings dependency in standalone correction-fixture contract; move DB model import to actual runtime read, rerun exact failed gate; do not add JWT env or weaken test | root, delegated bounded checks |
+| TESTS | IN_PROGRESS | Standalone200PASS/1skip,31-key/profile43PASS then same-session88PASS; quality1008/2200; R6SQL17checksPASS; web1169PASS/build. Fresh exact CI required after session reuse | root, delegated bounded checks |
 | DEV-ACCEPT | NOT_STARTED | Exact revision, live update/readback/rollback and real dialogue; public schema0181 read-only verified,0182 pending CI | root existing DEV only |
 | DATE-ACCEPT | DONE | Exact580 normal/fallback/API6cases/browser PASS; probe keys disarmed/original auto restored | root existing operator packet |
 
@@ -34,3 +34,4 @@ Root is sole writer of contracts/schema/shared runtime/integration/provider oper
 - No production migration/deploy without fresh owner agreement. DEV migration only after isolated schema gate; no Docker PostgreSQL.
 - Configuration updates have no model invocation side effect. Revert values in an audited new revision, never delete history. Remove temporary one-shot probe keys separately after date acceptance.
 - Runtime candidate24cf9aef pushed todev with independent SHA/account receipt; no Render rollout. CI import-boundary failure owned/root fix in progress. API auto-deploy temporarilyno under runtime-settings-start-snapshot.json, worker originalno; restore after accepted rollout or cancellation. Graphify AST update completed21208nodes/57289edges, but source exclusions/freshness are not certified after combined prepare failure: no trusted graph claim.
+- Final local session reuse avoids second pool checkout while auth holds caller connection; raw connection savepoint/autoflushfalse/populate_existingtrue, no caller commit. Accepted IMPACT_SESSION_REUSE_V1. Independent reviewer verified source, retracted one stale migration finding after exact root/SHA/hash readback. No source change was made for that false finding. Initial schema31-key SQL frozen parity and R6 remain authoritative, public migration not yet run.

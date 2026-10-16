@@ -240,6 +240,29 @@ async def test_runtime_reader_does_not_hide_outage_or_invalid_row(monkeypatch):
         runtime._scope.reset(token)
 
 
+async def test_existing_session_reader_never_acquires_another_pool_slot_or_commits(monkeypatch):
+    from app.core import db as db_module
+    class Savepoint:
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            return False
+    connection = SimpleNamespace(begin_nested=lambda: Savepoint())
+    db = SimpleNamespace(connection=AsyncMock(return_value=connection),
+        scalar=AsyncMock(return_value=RuntimeSettings(id=1, revision=2, overrides={"assignment.deepseek_seconds": 20})))
+    def forbidden():
+        pytest.fail("caller session already owns a pool slot")
+    monkeypatch.setattr(db_module, "async_session_factory", forbidden)
+    token = runtime._scope.set(None)
+    try:
+        snapshot = await real_resolve(db)
+    finally:
+        runtime._scope.reset(token)
+    assert snapshot.revision == 2 and snapshot.integer("assignment.deepseek_seconds") == 20
+    assert db.scalar.await_args.args[0].get_execution_options()["autoflush"] is False
+    assert db.connection.await_count == db.scalar.await_count == 1
+
+
 async def test_managed_provider_policy_changes_names_not_endpoints_or_route(monkeypatch):
     from app.modules.ai import llm_client as llm
     policy = RuntimeSnapshot(2, effective_values({"provider.deepseek.model": "deepseek-synthetic", "provider.deepseek.timeout_seconds": 90}))

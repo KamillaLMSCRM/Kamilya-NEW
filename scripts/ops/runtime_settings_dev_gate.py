@@ -132,6 +132,9 @@ async def run(owner_url, runtime_url, supabase_url):
                     raise GateBlocked("atomic_revision_wrong")
                 await context(db, platform=True)
                 history = await service.history()
+                same_session = await resolve_runtime_settings(db)
+                if same_session.revision != 2 or not db.in_transaction():
+                    raise GateBlocked("existing_session_snapshot_lost_caller_transaction")
                 if len(history) != 1 or history[0]["before"] != {} or history[0]["after"] != {"assignment.deepseek_seconds": 20}:
                     raise GateBlocked("atomic_audit_wrong")
                 for invalid in ({"unknown.option": 5}, {"assignment.deepseek_seconds": True},
@@ -186,7 +189,7 @@ async def run(owner_url, runtime_url, supabase_url):
                         raise
                 else:
                     raise GateBlocked("runtime_history_delete_permitted")
-        checks += ["atomic_state_and_audit", "raw_invalid_sql_overrides_denied", "raw_sql_edit_requires_matching_audit", "stale_revision_conflict", "fresh_cross_session_runtime_snapshot", "inflight_snapshot_unchanged", "invalid_bundle_no_write", "audited_revert_new_revision", "history_delete_denied_even_platform"]
+        checks += ["atomic_state_and_audit", "existing_session_snapshot_preserves_transaction", "raw_invalid_sql_overrides_denied", "raw_sql_edit_requires_matching_audit", "stale_revision_conflict", "fresh_cross_session_runtime_snapshot", "inflight_snapshot_unchanged", "invalid_bundle_no_write", "audited_revert_new_revision", "history_delete_denied_even_platform"]
         stage = "owned_downgrade_reexpand"
         async with owner.begin() as db:
             await migration(db, schema, downgrade=True)

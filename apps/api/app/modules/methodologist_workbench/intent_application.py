@@ -103,7 +103,7 @@ async def interpret_assignment(
     messages = build_intent_messages(
         body.instruction, body.timezone_name, previous, instruction_history=effective_history
     )
-    policy = await resolve_runtime_settings()
+    policy = await resolve_runtime_settings(db)
     await check_and_charge_llm_budget(
         db, str(actor.tenant_id), operation=INTENT_OPERATION, estimated_cost_cents=INTENT_ESTIMATED_COST_CENTS
     )

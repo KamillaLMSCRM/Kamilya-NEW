@@ -315,7 +315,7 @@ async def send_message(db: AsyncSession, actor: ActorContext, task_id: UUID,
         else:
             from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings, runtime_settings_scope
 
-            policy = await resolve_runtime_settings()
+            policy = await resolve_runtime_settings(db)
             with runtime_settings_scope(policy):
                 result = await interpret_document(db, actor, DocumentInterpretRequest(instruction=instruction, language=language),
                     dialogue_context=model_context, provider_deadline_seconds=policy.number("document_dialogue.provider_seconds"))

@@ -385,7 +385,7 @@ async def settle_refund(db: AsyncSession, actor: ActorContext) -> None:
 
 async def answer_document(db: AsyncSession, actor: ActorContext, sources: tuple[DocumentSource, ...],
                           question: str, language: str, recall: list[dict[str, Any]]) -> AnswerEvidence:
-    policy = await resolve_runtime_settings()
+    policy = await resolve_runtime_settings(db)
     try:
         with runtime_settings_scope(policy):
             async with asyncio.timeout(policy.number("document_answer.total_seconds")):

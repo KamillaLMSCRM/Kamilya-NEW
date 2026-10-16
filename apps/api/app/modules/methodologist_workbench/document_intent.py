@@ -215,7 +215,7 @@ async def interpret_document(
 
     del now  # Kept as a compatible seam for deterministic callers; no date inference occurs here.
     _assert_actor(actor)
-    policy = await resolve_runtime_settings()
+    policy = await resolve_runtime_settings(db)
     messages = build_document_intent_messages(body.instruction, body.language, dialogue_context=dialogue_context)
     if dialogue_context:
         messages[0]["content"] += (
