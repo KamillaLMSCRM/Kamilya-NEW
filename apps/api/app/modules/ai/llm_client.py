@@ -945,6 +945,9 @@ class ResilientLLMClient:
         # Snapshot request-local caps before awaiting; never modify shared clients
         # or widen providers absent from the tenant's resolved route (e.g. BYOK).
         deadline_overrides = dict(provider_deadline_overrides or {})
+        evidence_policy = await resolve_runtime_settings() if request_profile == "evidence_low" and any(
+            client.name == "deepseek" and client.config.managed_evidence_profile for client in self._clients
+        ) else None
         last_exc: BaseException | None = None
         for client in self._clients:
             try:
@@ -959,8 +962,9 @@ class ResilientLLMClient:
                     # their original output and caller-supplied deadline caps.
                     attempt_config = replace(attempt_config, extra_body={
                         **attempt_config.extra_body, "thinking": {"type": "enabled"}, "reasoning_effort": "low"})
-                    attempt_max_tokens = 8192
-                    attempt_deadline = 45
+                    assert evidence_policy is not None
+                    attempt_max_tokens = evidence_policy.integer("evidence_low.max_tokens")
+                    attempt_deadline = evidence_policy.number("evidence_low.deepseek_seconds")
                 if attempt_deadline is None:
                     return await client.ainvoke(messages, config=config, response_format=provider_response_format)
                 # Never mutate shared provider objects or inherit a configured

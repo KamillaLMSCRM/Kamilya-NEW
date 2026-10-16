@@ -40,6 +40,8 @@ CATALOG = (
     Setting("document_answer.total_seconds", "Ответ по документам: общий таймаут, с", "integer", 60, 15, 90),
     Setting("document_answer.provider_seconds", "Ответ по документам: попытка провайдера, с", "integer", 8, 2, 30),
     Setting("document_answer.max_tokens", "Ответ по документам: максимум токенов", "integer", 2000, 512, 2000),
+    Setting("evidence_low.deepseek_seconds", "Ответ DeepSeek по документам: попытка, с", "integer", 45, 5, 60),
+    Setting("evidence_low.max_tokens", "Ответ DeepSeek по документам: токены с рассуждением", "integer", 8192, 4096, 8192),
     Setting("editor.temperature", "ИИ-правка теста: температура", "number", 0.2, 0, 0.5),
     Setting("editor.max_tokens", "ИИ-правка теста: максимум токенов", "integer", 4096, 512, 4096),
     Setting("writer.retrieval_count", "Поиск для урока: кандидаты на запрос", "integer", 15, 5, 15),
@@ -94,6 +96,8 @@ def effective_values(overrides: Mapping[str, Any], *, settings: Any = None) -> M
         raise InvalidSettings("runtime_settings_document_deadline_budget")
     if float(values["document_answer.provider_seconds"]) + 5 > float(values["document_answer.total_seconds"]):
         raise InvalidSettings("runtime_settings_answer_deadline_budget")
+    if float(values["evidence_low.deepseek_seconds"]) + float(values["document_answer.provider_seconds"]) + 5 > float(values["document_answer.total_seconds"]):
+        raise InvalidSettings("runtime_settings_evidence_deadline_budget")
     if int(values["writer.result_count"]) > int(values["writer.retrieval_count"]):
         raise InvalidSettings("runtime_settings_retrieval_count_budget")
     return MappingProxyType(values)

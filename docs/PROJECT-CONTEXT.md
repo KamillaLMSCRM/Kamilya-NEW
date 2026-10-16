@@ -16,9 +16,9 @@ QA DIALOGUE52 /2026-12-20 /18:00. Invocation-local primary30s hang -> real reser
 APIyes/workerno auto-deploy restored, markers expire11:40:06UTC. These supersede
 older c7/8s descriptions, not production57. Production and ASUS unchanged.
 
-Owner-approved local hot-settings candidate:29 non-secret bounded keys,
+Owner-approved local hot-settings candidate:31 non-secret bounded keys,
 new0182/store/audit/revert and superadmin editor; inventory/constraints in
-`product/contract-modules/runtime-configuration/INVENTORY_V1.md`. Existing routes,
+`product/contract-modules/runtime-configuration/INVENTORY_V2.md`. Existing routes,
 provider keys and tenant settings retain their owners. Actual isolated Supabase
 gate16checks PASS including raw-SQL invalid/unaudited rejection, non-BYPASS/FORCE
 RLS, cross-session reload/revert and owned cleanup. Public schema migration/live

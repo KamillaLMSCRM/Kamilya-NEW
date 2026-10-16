@@ -22,8 +22,8 @@ be released once. This document is not production release approval.
    displays prior changes. Choose a revision and a reason to revert; the revert
    itself creates a new revision. Initial revision1 means no overrides.
 
-See [the inventory](../product/contract-modules/runtime-configuration/INVENTORY_V1.md)
-for all29 keys and excluded categories. Existing model route activation/order is
+See [the inventory](../product/contract-modules/runtime-configuration/INVENTORY_V2.md)
+for all31 keys and excluded categories. Existing model route activation/order is
 still edited separately; a model-name override does not enable a disabled route.
 DeepSeek/Qwen/GLM names must exist at the configured provider, which is not checked
 by save. A wrong name can cause provider error/failover; restore the old revision.

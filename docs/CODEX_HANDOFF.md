@@ -8,17 +8,19 @@
 ## Runtime settings — local implementation / DEV gate pending
 
 Owner requested DB hot settings across the codebase; production/ASUS still forbidden.
-29 typed operation/provider/recovery parameters plus audited store/0182/FORCE-RLS,
+31 typed operation/provider/recovery parameters plus audited store/0182/FORCE-RLS,
 superadmin providers-page lazy editor/history/revert. Existing model routing, BYOK,
 secrets/URLs/embedding identities/security/billing/retention remain separately owned.
 Inventory704source files/800heuristic occurrences/no parse gaps, not800 hot switches.
 Contracts: docs/product/contract-modules/runtime-configuration; temporary coordination
 docs/plans/2026-10-16_runtime-configuration.md. Independent source review no blockers;
 isolated Supabase gate16checks PASS, owned schema removed, public schema unchanged.
-Full local4207PASS/526offline skips; later focused32PASS covers additional role/consumer
-checks. Quality1008Ruff/2200Mypy; web21focusedPASS/typecheck. Fresh CI/live DEV not yet
+Full local4207PASS/526offline skips; later focused43PASS covers actual evidence-profile
+transport caps/role/consumer/parity checks, isolated31-keyR5PASS. Quality1008Ruff/2200Mypy;
+web1169PASS/161files/typecheck/optimized buildPASS. Fresh CI/live DEV not yet
 claimed. CodeGraph prepare refused excluded paths; bounded SOURCE_FALLBACK; Graphify
-update reconciliation pending. No production publish/migration permission.
+AST updated21208nodes/57289edges but exclusion/freshness certification failed, not
+trusted architecture proof. No production publish/migration permission.
 
 ## Date-followup + DeepSeek30 — DEV accepted
 

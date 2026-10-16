@@ -27,6 +27,8 @@ NUMBERS = {
     "document_answer.total_seconds": (60, 15, 90, True),
     "document_answer.provider_seconds": (8, 2, 30, True),
     "document_answer.max_tokens": (2000, 512, 2000, True),
+    "evidence_low.deepseek_seconds": (45, 5, 60, True),
+    "evidence_low.max_tokens": (8192, 4096, 8192, True),
     "editor.temperature": (0.2, 0, 0.5, False),
     "editor.max_tokens": (4096, 512, 4096, True),
     "writer.retrieval_count": (15, 5, 15, True),
@@ -89,6 +91,7 @@ def upgrade() -> None:
         "assignment_budget": " + ".join(value(f"assignment.{name}_seconds") for name in ("deepseek", "chatgpt", "fallback")) + f" + 5 <= {value('assignment.total_seconds')}",
         "document_budget": f"{value('document_dialogue.provider_seconds')} <= {value('document_intent.total_seconds')}",
         "answer_budget": f"{value('document_answer.provider_seconds')}+5 <= {value('document_answer.total_seconds')}",
+        "evidence_budget": f"{value('evidence_low.deepseek_seconds')}+{value('document_answer.provider_seconds')}+5 <= {value('document_answer.total_seconds')}",
         "retrieval_budget": f"{value('writer.result_count')} <= {value('writer.retrieval_count')}",
     }.items():
         op.execute(f"ALTER TABLE {schema}.runtime_settings ADD CONSTRAINT ck_runtime_settings_{name} CHECK({expression})")

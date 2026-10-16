@@ -68,6 +68,26 @@ async def test_assignment_consumer_uses_changed_runtime_deadlines_without_mutati
     assert default_snapshot().integer("assignment.deepseek_seconds") == 30
 
 
+async def test_evidence_profile_uses_actual_hot_caps_not_hidden_literals(monkeypatch):
+    from app.modules.ai import llm_client as llm
+    policy = RuntimeSnapshot(2, effective_values({"evidence_low.deepseek_seconds": 20, "evidence_low.max_tokens": 4096}))
+    provider = llm.ResilientLLMClient([llm.LLMProviderConfig("deepseek", "https://example.invalid/v1", "synthetic", "same-model", managed_evidence_profile=True)], max_tokens=2000)
+    seen, deadlines = [], []
+    timeout = asyncio.timeout
+    def capture_timeout(seconds):
+        deadlines.append(seconds)
+        return timeout(seconds)
+    async def request(client, payload):
+        seen.append(payload)
+        return {"choices": [{"message": {"content": "synthetic"}}]}
+    monkeypatch.setattr(llm.asyncio, "timeout", capture_timeout)
+    monkeypatch.setattr(llm.LLMClient, "_request", request)
+    with runtime.runtime_settings_scope(policy):
+        await provider.ainvoke("synthetic", request_profile="evidence_low", provider_deadline_seconds=8)
+    assert seen[0]["max_tokens"] == 4096 and deadlines == [20]
+    assert default_snapshot().integer("evidence_low.max_tokens") == 8192
+
+
 def test_frozen_sql_catalog_matches_runtime_types_and_bounds():
     path = Path(__file__).parents[2] / "alembic/versions/0182_runtime_settings.py"
     spec = importlib.util.spec_from_file_location("runtime_migration_contract", path)
@@ -108,7 +128,7 @@ def test_closed_catalog_rejects_unsafe_types_values_and_keys(key, bad):
 
 def test_default_catalog_preserves_existing_policies_and_names():
     snapshot = default_snapshot()
-    assert len(CATALOG) == len(BY_KEY) == 29
+    assert len(CATALOG) == len(BY_KEY) == 31
     assert snapshot.integer("assignment.deepseek_seconds") == 30
     assert snapshot.integer("assignment.chatgpt_seconds") == 40
     assert snapshot.integer("assignment.total_seconds") == 90
