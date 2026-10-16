@@ -2,6 +2,12 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
+Accepted successor implementation, not release acceptance:
+[answer completeness V1.10](contracts/DOCUMENT_CONTENT_COMPLETENESS_ADDENDUM_V1_10.md),
+2026-10-16. One private part per requested dimension, server coverage/assembly,
+same public answer/history/limits/provider/budget, no additional inference or
+voice/reserve change. Fresh exact-source DEV and production gates required.
+
 Current deployed57, DEV accepted / production PARTIAL2026-10-16:
 [request-local evidence reasoning V1.9](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_9.md)
 extends [private requested scope V1.8](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_8.md), which

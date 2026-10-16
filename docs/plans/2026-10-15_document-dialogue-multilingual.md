@@ -193,6 +193,46 @@
 
 ## Completion gate
 
+### Current successor DOCUMENT58 —2026-10-16, IN_PROGRESS
+
+Owner explicitly authorizes completeness repair→DEV→production→live acceptance,
+voice/reserve unchanged. Baseline docs243559e8/runtime57f6, linked worktree reused
+on feature/document-completeness58-20261016; unrelated primary files untouched.
+Accepted V1.10 internal answer-parts contract: Root owns critical implementation,
+tests/integration/release/current docs; independent leaf reviews/source fixtures
+and persistent Runner own only exact packets. No shared-file concurrent writers.
+Directed path: question/evidence→private dimension parts→validated assembly→same
+public answer→same durable owner. No new inference/provider/schema/UI.
+Navigation read-only preflight NOT_READY/source snapshot changed; existing same-
+checkout preparation failed twice with liftoff exit1. Do not repeat that repair;
+SOURCE_FALLBACK to exact parser/caller/tests/fixture sources; no graph claims.
+
+Nodes: replay RED→parts+mandatory-coverage GREEN→local real counterexamples→full
+unit/isolated exact-source DEV→fresh ordinary DEV/browser/regressions/new controls→
+protected58→live production/readback. Earlier partial57 and failed probes retained;
+none is new58 acceptance. Stop on public-contract/tenant/source/route/budget drift.
+
+Root implementation currentmodulec416c069…4f89. Legacy incomplete envelope RED;
+single-part-per-dimension assembly/evidence/explicit hints GREEN. Independent
+review found physical-storage false-positive risk; narrowed generic storage cues
+to record categories and added4negative/1elliptical positives. Full3069API+driver
+and quality PASS. H03 local actual managed call30.5provider/42.687module seconds
+includes both30/60category-trigger pairs/distinct deputy authorities; independent
+PASS, pre-matcher-only narrowing. Current-module H04/D16 actual probes PASS
+(D16 wording caveat retained). No settings/transport deadline change or retry.
+New controls6over2independent fictional RU/KK sources frozen before any output,
+oracle2149bf1e…d185; offline42+6case inventory12existing sources verified. Quiet
+isolated45-check/48-source gate running; no publicQA writes in its interval.
+Test Runner two command/report HARNESS_FAILUREs preserved separately; corrected
+packets3069PASS/qualityPASS. Root verified own accidental241byte zero-test XML
+and moved it from apps/api/C into ignored zero-test-harness-failure58.xml with
+same4d3330d9…352e hash; no deletion of unrelated data. Public58NOT_DEPLOYED.
+Quiet isolated58-r2 terminated PASS504.735s:45unique checks/48critical source
+hashes, connection peak2, incomplete-answer502/private failure/refund/exactly one
+fake call; cleanup/source/public/catalog equality true, publichashdd3af70e…74ef
+unchanged. Public DEV QA phases may now proceed. Root final source diff reviewed;
+new version58 metadata consistent. No source delta after this gate.
+
 ### Current Root state2026-10-16T05:04UTC (supersedes historical snapshots)
 
 Exact57/f6 already deployed; native56 remains unchanged/compatible, DEV42semantic

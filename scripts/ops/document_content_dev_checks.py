@@ -46,6 +46,11 @@ async def verify_content(*, owner, runtime, schema, actor, foreign_actor, siblin
     initial_draft = task.draft
     provider_calls = []
 
+    def answer(dimension, body, *, status="supported", citations=None):
+        handles = [{"handle": 1}] if citations is None else citations
+        return SimpleNamespace(content=json.dumps({"requested_dimensions": [dimension], "parts": [
+            {"dimension": dimension, "answer": body, "citations": handles, "status": status}]}))
+
     async def invoke(messages, **kwargs):
         require(runtime_connections() == 0, "content_provider_holds_connection")
         payload = json.loads(messages[1]["content"])
@@ -54,18 +59,20 @@ async def verify_content(*, owner, runtime, schema, actor, foreign_actor, siblin
         if payload["question"] == "Provider outage":
             raise RuntimeError("synthetic")
         if payload["question"] == "Missing with scope":
-            return SimpleNamespace(content=json.dumps({"requested_dimensions": ["duration"], "status": "not_found", "answer": "Срок не указан.",
-                "citations": [{"handle": 1}]}))
+            return answer("duration", "Срок не указан.", status="not_found")
         if payload["question"] == "Malformed evidence":
-            return SimpleNamespace(content=json.dumps({"requested_dimensions": ["duration"], "status": "not_found", "answer": "Срок не указан.",
-                "citations": [{"handle": 1, "quote": "PRIVATE_UNVERIFIED_PROVIDER_OUTPUT"}]}))
+            return answer("duration", "Срок не указан.", status="not_found",
+                          citations=[{"handle": 1, "quote": "PRIVATE_UNVERIFIED_PROVIDER_OUTPUT"}])
+        if payload["question"] == "Missing answer part":
+            return SimpleNamespace(content=json.dumps({"requested_dimensions": ["actions", "record_retention"],
+                "parts": [{"dimension": "actions", "answer": "Проверьте номер заказа.",
+                           "citations": [{"handle": 1}], "status": "supported"}]}))
         if payload["question"] in {"Pointer flip", "Pointer flip not found"}:
             await sql("UPDATE embedding_active_revisions SET active_revision_id='other',generation=generation+1 WHERE tenant_id=:tenant AND document_id=:doc",
                 {"tenant": actor.tenant_id, "doc": str(doc_id)})
         if payload["question"] == "Pointer flip not found":
-            return SimpleNamespace(content=json.dumps({"requested_dimensions": ["duration"], "status": "not_found", "answer": "В доступных фрагментах срок не указан.", "citations": []}))
-        return SimpleNamespace(content=json.dumps({"requested_dimensions": ["actions"], "status": "supported", "answer": "Проверьте номер заказа.",
-            "citations": [{"handle": 1}]}))
+            return answer("duration", "В доступных фрагментах срок не указан.", status="not_found", citations=[])
+        return answer("actions", "Проверьте номер заказа.")
 
     with patch.object(core_db, "async_session_factory", async_sessionmaker(runtime, expire_on_commit=False)), \
          patch.object(answers.ResilientLLMClient, "from_settings_async", AsyncMock(return_value=SimpleNamespace(ainvoke=invoke))):
@@ -116,6 +123,16 @@ async def verify_content(*, owner, runtime, schema, actor, foreign_actor, siblin
         require(task.exchanges[-1].error_code == "invalid_response" and task.exchanges[-1].response is None,
             "content_invalid_response_not_private")
         checks.append("content_invalid_response_private_refund")
+        count = len(provider_calls)
+        incomplete = SendDocumentMessage(request_id=uuid4(), expected_revision=task.revision, instruction="Missing answer part")
+        await reject(call(lambda db, a: service.send_message(db, a, task.id, incomplete, content_question=True)), HTTPException, 502)
+        require(len(provider_calls) == count + 1, "content_incomplete_answer_retried")
+        require(tuple((await sql("SELECT cost_cents,request_count FROM tenant_llm_usage WHERE tenant_id=:tenant", {"tenant": actor.tenant_id})).one()) == usage,
+                "content_incomplete_refund_not_durable")
+        task = await read(task.id)
+        require(task.exchanges[-1].error_code == "invalid_response" and task.exchanges[-1].response is None
+                and task.draft == initial_draft and task.plan_id is None, "content_incomplete_answer_not_private")
+        checks.append("content_incomplete_answer_private_refund_no_retry")
         failed = SendDocumentMessage(request_id=uuid4(), expected_revision=task.revision, instruction="Provider outage")
         await reject(call(lambda db, a: service.send_message(db, a, task.id, failed, content_question=True)), HTTPException, 503)
         require(tuple((await sql("SELECT cost_cents,request_count FROM tenant_llm_usage WHERE tenant_id=:tenant", {"tenant": actor.tenant_id})).one()) == usage, "content_budget_refund_not_durable")

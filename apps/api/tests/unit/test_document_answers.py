@@ -28,14 +28,18 @@ EXCERPTS = [{"handle": 1, "source": SOURCE, "chunk_id": CHUNK_ID, "text": TEXT}]
 
 
 def payload(**updates):
-    return json.dumps({"requested_dimensions": ["actions"], "status": "supported", "answer": "Verify the order number before dispatch.",
-        "citations": [{"handle": 1}], **updates})
+    value = {"status": "supported", "answer": "Verify the order number before dispatch.",
+        "citations": [{"handle": 1}], **updates}
+    dimensions = value.pop("requested_dimensions", ["actions"])
+    return json.dumps({"requested_dimensions": dimensions,
+                       "parts": [{"dimension": dimension, **value} for dimension in dimensions]})
 
 
 def test_private_schema_requests_grounded_answer_before_status():
     # Classify the requested answer after grounding it, rather than committing
     # to a status before identifying the answer's actual factual scope.
-    assert list(answers.ModelAnswer.model_json_schema()["properties"]) == ["requested_dimensions", "answer", "citations", "status"]
+    assert list(answers.ModelAnswer.model_json_schema()["properties"]) == ["requested_dimensions", "parts"]
+    assert list(answers.AnswerPart.model_json_schema()["properties"]) == ["dimension", "answer", "citations", "status"]
     assert list(answers.DocumentAnswer.model_json_schema()["properties"]) == ["state", "status", "answer", "citations"]
 
 
@@ -173,7 +177,7 @@ def test_not_found_allows_optional_verified_scope_handles_and_conflict_requires_
     assert not result.citations
     scoped = answers.parse_answer(payload(status="not_found", answer="The source does not specify a deadline."), EXCERPTS)
     assert len(scoped.citations) == 1 and scoped.citations[0].quote == TEXT
-    with pytest.raises(ValueError, match="answer_evidence_required"):
+    with pytest.raises(ValueError, match="answer_part_evidence_required"):
         answers.parse_answer(payload(status="supported", citations=[]), EXCERPTS)
     assert answers.parse_answer(payload(status="conflict"), EXCERPTS).status == "conflict"
     with pytest.raises(ValueError):

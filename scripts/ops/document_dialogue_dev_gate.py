@@ -59,8 +59,11 @@ SOURCES = (
     ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_7.md",
     ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_8.md",
     ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_9.md",
+    ROOT / "docs/product/contract-modules/methodologist-workbench/contracts/DOCUMENT_CONTENT_COMPLETENESS_ADDENDUM_V1_10.md",
+    API / "tests/unit/test_document_completeness.py",
+    API / "tests/unit/test_document_answers.py",
 )
-EVIDENCE_RUNS = ("DOCUMENT55-20261015", "DOCUMENT56-20261015", "DOCUMENT57-20261015")
+EVIDENCE_RUNS = ("DOCUMENT55-20261015", "DOCUMENT56-20261015", "DOCUMENT57-20261015", "DOCUMENT58-20261016")
 REQUIRED_CHECKS = frozenset({
     "empty_upgrade_downgrade_reupgrade", "table_acl_force_rls", "owner_reload_no_inference",
     "foreign_tenant_denied", "sibling_actor_denied", "role_denied", "no_context_denied",
@@ -82,6 +85,7 @@ REQUIRED_CHECKS = frozenset({
     "content_not_found_pointer_race_denied",
     "content_not_found_scope_quote_persistence",
     "content_invalid_response_private_refund",
+    "content_incomplete_answer_private_refund_no_retry",
 })
 PUBLIC_GUARDED_TABLES = (
     "tenants", "users", "user_roles", "documents", "ai_jobs", "workbench_document_plans",

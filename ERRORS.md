@@ -7957,6 +7957,21 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   prompt tokens, reasoning/output ceiling, wall-clock deadline and final text.
   Reject partial answers and stop unmeasured prompt/timeout escalation.
 
+- DOCUMENT58 completeness repair2026-10-16: a private dimension declaration plus
+  citations did not require the flat answer to render each requested dimension.
+  Replace that internal envelope with exactly one bounded answer part per
+  requested dimension, compare all source positions within that part, require
+  its own evidence, and assemble only validated parts on the server. Missing or
+  duplicate parts fail through existing502/private-failure/refund, with no repair
+  inference. This is structural coverage, not semantic entailment; a model can
+  still omit facts inside a nonblank part. Independent source review and fresh
+  no-history live regression remain mandatory. Conservative retention hints must
+  distinguish record storage from keeping a room/equipment in an action state.
+  Local3069tests and quality PASS; H03 actual module answer restores both
+  retention categories/values/triggers and distinct appointing authorities;
+  H04 preserves real3/5conflict; D16 does not invent a second value. Full DEV/
+  production acceptance remains pending and is not established by these probes.
+
 ## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
 
 - Date: 2026-10-15, DOCUMENT57.

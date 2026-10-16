@@ -143,6 +143,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.58] - 2026-10-16
+
+### Fixed
+
+- Preserve all requested dimensions in document-content answers through validated
+  private answer parts, server-owned assembly and per-part evidence. A missing
+  part is rejected rather than silently accepted as a complete answer. Compare
+  opposing source positions within the same part; preserve explicit missing facts
+  and genuine conflicts without changing the public answer/history contract.
+  Conservative RU/KK/EN actor/record-retention hints do not infer an action
+  duration from a record-retention question. No extra inference, retry, provider
+  configuration, schema, voice or reserve activation is introduced.
+
 ## [0.11.57] - 2026-10-15
 
 ### Fixed
