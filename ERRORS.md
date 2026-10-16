@@ -2,6 +2,24 @@
 
 Current as of: 2026-10-16.
 
+## DEV-SSH-001 - A startup TCP reset aborted the optional DEV transport
+
+- Date:2026-10-16; existing Render Free DEV API/worker private connection only.
+- Symptom: first native SSH attempt exited before application start; the old
+  live deployment was retained. Initial quiet diagnostics hid the failure type.
+- Cause: observed startup TCP connection reset, not a denied credential or
+  model response. Resetting network node is NOT localized. Existing server policy
+  showed no per-source startup limit/unused timeout and no MaxStartups drop.
+- Fix: bounded private stderr drain with fixed-code diagnostics; exactly one
+  startup recovery for reset/close only, same key/pinned host/destination. A second
+  failure stops; no auth/pin retry, live reconnect loop or repeated model request.
+- Verification: focused44PASS and exactCI38880222311 SUCCESS. Final worker log
+  shows reset→one retry→connected on4f7de9e6, live provider readback, actual model
+  prefix receipt and ordinary DEV queue-control ping. Production/ASUS untouched.
+- Prevention: preserve attempt exit identity without raw stderr/secrets and test
+  transient recovery, strict failures and the terminal two-reset boundary. Do not
+  weaken host trust, open a public gateway or add paid capacity to hide a reset.
+
 ## TEST-INFRA-022 - Privacy assertion matched the checkout path in a traceback
 
 - Date:2026-10-16; database-free private DEV transport regression run.

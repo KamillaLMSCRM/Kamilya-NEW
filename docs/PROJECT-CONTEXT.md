@@ -33,32 +33,47 @@ ChatGPT; connector readiness is true. Readiness is not an inference/failover
 acceptance. This overrides historical reserve-OFF statements below. No production
 route or provider configuration was changed by this task.
 
-Owner requested DEV alignment to DeepSeek → ChatGPT → GLM. DEV0.11.58/5cf7dcb4
-ChatGPT readiness returns `not_configured`; fresh read-only Render inventory at
-07:52UTC found no CHATGPT_RESERVE configuration on either API or worker. The
-existing VM126 connector is private; Render intentionally has no configured
-bridge. Do not copy a private URL into Render and treat configuration as reachability.
+DEV private transport is now deployed on existing Render Free API and worker,
+both exact0.11.58/4f7de9e63d20e8a67bb91cacdc6bb21dc6e45d84,
+CI38880222311 SUCCESS. APIdep-db8uts8n74is73cu6di0 and
+workerdep-db8uul2vcj2c73baokpg are live. Normal superadmin readiness and two GETs
+confirm revision7, DeepSeek → ChatGPT → GLM, Qwen absent. No readiness bypass or
+persisted failure endpoint. The earlier revision5→6 removal and blocked readiness
+receipts are historical, not current availability.
 
-The independent allowed subset was saved through the normal superadmin API:
-DEV revision5 →6, DeepSeek → GLM, Qwen removed, confirmed by two GET readbacks.
-The complete three-provider target remains BLOCKED_PENDING_PRIVATE_DEV_CONNECTOR.
-This was the pre-install snapshot. At08:36UTC the existing proxy received a locked,
-no-session `kamilya-dev-models` principal with separate API/worker credentials and
-only fixed local forwarding to the existing private ChatGPT connector and the
-reserved ASUS GLM relay slot. Both credentials passed authenticated ChatGPT
-readiness and actual denied shell/arbitrary-destination/remote-forward probes;
-existing users' effective SSH policies are unchanged. Settings are staged and read
-back on the two existing Render Free services, NOT YET deployed. No public port or
-HTTP gateway was added. All ASUS are owner-confirmed down: no relay was installed,
-and GLM checks are owner-deferred until recovery. See
-[the DEV connection contract](product/contract-modules/methodologist-workbench/contracts/DEV_PRIVATE_MODEL_CONNECTION_V2.md).
-No production, voice, billing/resource change or inference was performed. Local sanitized receipts:
-`.release-evidence/requirements-20261016/dev-model-route-alignment-20261016.json`,
-`dev-qwen-removal-20261016.json`, `dev-reserve-config-inventory-20261016.json`.
-Private access receipt: `dev-private-access-chatgpt-install-r2-20261016.json` in
-the same ignored evidence directory. Runtime/failover acceptance remains open.
+The existing proxy has a locked, no-session `kamilya-dev-models` principal with
+separate API/worker keys and fixed forwarding destinations only. Both keys passed
+authenticated ChatGPT readiness and denied session/arbitrary-live-destination/
+reverse-forward checks; existing users' effective policies stayed unchanged.
+No public port or HTTP model gateway was added. Launcher/rollback instructions:
+[`infra/dev-private-models`](../infra/dev-private-models/README.md); ownership and
+acceptance limits: [V2 contract](product/contract-modules/methodologist-workbench/contracts/DEV_PRIVATE_MODEL_CONNECTION_V2.md).
 
-## Current DEV candidate58 — production remains57,2026-10-16
+Final synthetic runDEV-PRIVATE-20261016-AA28B5CE0BEC: API terminalPARTIAL_PASS
+was read directly from its unique DEV Redis claim; detailed final API stdout was
+not returned by Render logs, so final API per-case latency is NOT_AVAILABLE.
+Worker detailed receipt confirms real DeepSeek4294ms and an ephemeral primary503
+→ real ChatGPT25538ms, exact attempt order and expected JSON. Earlier API parent
+a611 detailed proof was1254/16349ms. These are tiny synthetic JSON connectivity
+measurements, not course generation benchmarks or SLA. Existing DEV worker control
+ping and queuesai/documents/maintenance passed. Startup TCP reset recovered on
+the single allowed retry; authentication/host-pin failures are never retried.
+
+All three one-shot run namespaces were reconciled/cleaned by exact keys after
+expiry. Acceptance env keys are absent, original API autoDeploy=yes and worker=no
+are restored. Credentials remain only in existing provider secrets and ephemeral
+0600 launcher files. Sanitized evidence is under
+`.release-evidence/requirements-20261016/`; failed deploys are preserved there.
+
+ASUS remains owner-confirmed down: no relay was installed and no GLM probe or
+inference was performed after the deferral. This is partial two-provider transport
+acceptance, not full-chain or all-feature acceptance. Assignment intent's8s
+per-provider deadline is shorter than observed ChatGPT responses and needs its
+own application-level test/design; no application/production timeout changed.
+Production API/worker/frontend/routing, voice, plans and capacity are unchanged.
+This does not accept DOCUMENT58 semantic quality or authorize release58 to prod.
+
+## Historical DEV candidate58 — earlier completeness run,2026-10-16
 
 DEV58 b73d08a1942f590c0dee1a2f9aeaf12e1da24d9e is deployed/reconciled:
 Render APIdep-db8rndui0phs738pki9g, workerdep-db8roi6q1p3s7395j5vg,
