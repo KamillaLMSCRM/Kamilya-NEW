@@ -1,11 +1,86 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-10-15
+**Обновлено:** 2026-10-16
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`
-**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `feature/document-content56-20261015`; runtime source published to `master`/`dev`
+**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `feature/document-multilingual57-20261015`; runtime source published to `master`/`dev`
 
-## Current production/DEV56 — document-content dialogue accepted
+## Current57 — deployed, DEV accepted; production H57-03 provider timeout BLOCKED
+
+Runtime/dev/tagv0.11.57 exactf6f1bc945e627287f8d5a9cf9040bcae1f73ea4a.
+Master may advance to a documentation-only child recording this partial state;
+that is not a runtime release, a new tag, or product acceptance.
+MasterCI38827828941/DEVCI38828641350/protected38831182689 SUCCESS; release414413369,
+tagobject74911333960512c1753998b678c1a6b2234ad8f2. Production API+3green workers
+imageb6d4bfecdd59c384705bc48a0a914780a289da1211938e2a6b7a7104b420674c exact57,
+running/restarts0/private+public health PASS. Native56/8a612c19 unchanged/compatible;
+blue56 rollback API healthy/workers stopped, actual rollback switch NOT_RUN.
+CT1250181/two dialogue FORCE-RLS/runtime non-BYPASS/controller/routing entire row
+7834c8c3…5da3f unchanged, reserveOFF/voice unchanged. No billing/resources/rights/DNS/
+Proxmox changes. Request-local managed DeepSeek evidence_low profile is8192/45s,
+document overall60s; other defaults/BYOK/fallback caps unchanged.
+
+Final R25 DEV42/42 independently semantic PASS,95exact citation checks;280ordinary
+audit checks/12original downloads/old histories and exact5coursekeys4enrollments
+(1completed) preserved. Root browser4new replies, DOCX/PDFdownloads, prefix4/full8
+reload/recent reopen and old23 unchanged PASS. Local3049API/58focused; web1163
+hash-linked unchanged; actual isolated44checks/45committed sources/cleanup and
+public neutrality PASS. Minor P3 B03 language/country wording retained, no material
+authority/trigger error. All12sources consumed small174–530word regressions, not
+unseen-source/general accuracy/OCR/long-document/SLA/human-speedup proof.
+
+Fresh signed restore5f51f375…3bbe passed126tables/122FORCE-RLS/RPO43/RTO19,
+owned temporary DB/directories absent. First readback output-key failure retained;
+corrected image= keys passed without widening sanitizer. First ops closeout
+repeated documented retention-timer order error; independent read proved it,
+R2 watchdog-only recovery PASS, final ops57/current+rollback/threshold byte equality/
+timers2active/success0/VM126free5958976KiB PASS. No second rollout or cleanup.
+
+Fresh owner authority2026-10-16 allowed ONLY54existing regular.deb files after
+verified offhost recovery. Every remote/local SHA matched; exact locked cleanup
+removed447214984bytes, preserved lock/partial/non-deb metadata and changed no
+service/config/package/rights/DB/DNS/tier. Free0→440451072bytes; independent
+read0deb/440410112free/Nginx+WireGuardactive. Recovery copies retained under
+DOCUMENT57/proxy-deb-recovery57, inventorySHA56a26d8d…07f and manifest08ed3268…6a08.
+Original500/BLOCKED receipts immutable. Two TXT reconciled/reused, not duplicated;
+same DOCX now201/indexed and all12source uploads/index jobs completed. Differential
+evidence supports disk blocker; exact original nginx traceback remains NOT_PROVEN.
+
+Original resumed production42:41completed source-faithful answers; H57-03 failed
+503/provider_unavailable48.151s. One explicit new request on SAME task failed
+503/48.193s; both private failure records retained, no pending/draft/plan mutation.
+Stop identical request retries. Independent main22/context3/extra16 PASS; remaining
+one is execution-unavailable NONPASS, not an incorrect/accepted answer. Evidence:
+prod-matrix57-resumed-r2-{final,context,holdout,holdout2,holdout3}.json plus
+prod-matrix57-recovered-r3-holdout.json and three prod-semantic57-*-r25.json.
+Bounded log interval shows DeepSeek TimeoutError and GLM ConnectTimeout;
+requestIDnotlogged, so time-correlated not exact request trace. Routing/reserveOFF
+unchanged. Diagnostic local primary-only60s measurement is separate from actual
+managed45s path; no production timeout/code change or broader availability claim.
+Its actual response returned47.750s but used all8192completion tokens with
+finishlength/content0→parse502. Separate compact-policy probe returned37.875s/
+6187completion/statussupported, but omitted both requested retention periods and
+record mappings despite relevant citations; independent verdictPARTIAL. Frozen
+probe receipts/reviews retained, neither experiment accepted or deployed. Root
+root-partial57.json explicitly NOT_ACCEPTED_PRODUCT_GATE; final GO outputs absent.
+
+Root actual prod browser4completed Kazakh replies, hazard actions/exacttwo-point
+simplification/distinct90/120-day retention/real2/4-hour conflict PASS. New task
+1c217eb5…rev9, four-article hash6dd7a13b…2cb3 unchanged across fullreload/close/
+recentreopen/old56visit/return; old56six-article hash4974279a…fdc1 unchanged. Actual
+DOCX/PDF download SHA matches PASS; prod-browser57-final.json/screenshot retained.
+Runner prod-audit57-partial-provider.json:293recorded checks,12originaldownloads,
+two old histories/11coursekeys7completed rows unchanged, student403threeGET+onePOST,
+both known H03 failures preserved/no pending. Status PARTIAL_KNOWN_PROVIDER_FAILURE,
+NOT final acceptance. No inference/businesswrites by Runner, login audit may change.
+
+Production57 already deployed: do not retag/redeploy/retry upload driver merely to
+close documentation. Final production acceptance and final GO remain NOT_DONE;
+do not run accept-live57.py/make-final57.py or create PASS outputs while H03 fails.
+Finish diagnosis with a changed falsifiable hypothesis, then verify any repair
+on fresh DEV and production before acceptance. Voice/reserve remain untouched.
+
+## Previous accepted production/DEV56 — document-content dialogue accepted
 
 Runtime/tagv0.11.56 exact8a612c199423bb4839e03cfae3d8ce7f201ca332; CI38757324407,
 DEV38758238172/native38757356879/protected38759477177 SUCCESS. BackendAPI+3blue

@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-10-15.
+> Обновлено: 2026-10-16.
 
 ## Источники правды
 
@@ -25,7 +25,46 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current environment — backend/native/DEV56,2026-10-15
+## Current environment — backend/DEV57, compatible native56,2026-10-16
+
+Runtime/tag57 exactf6f1bc945e627287f8d5a9cf9040bcae1f73ea4a;
+masterCI38827828941/DEVCI38828641350/protected38831182689 SUCCESS.
+API+three GREEN workers imageb6d4bfec…674c/running/restarts0/flags unchanged;
+native56/exact8a612c19 intentionally unchanged/compatible. BLUE56 API remains
+healthy rollback, oldworkers stopped; actual switch/history service read NOT_RUN.
+Fresh04:59UTC private/public/native checks passed. Schema0181/two dialogue
+FORCE-RLS/runtime non-BYPASS/controller25fa90f7…a3d2e/routing-row7834c8c3…5da3f
+unchanged, revision3/reserveOFF/voice unchanged. Existing ops57 identity/threshold
+bytes/two timers active/checksuccess0; VM12681%/5953152KiBfree.
+
+DEV57 accepted42/42 actual-model semantic cases,95exact citations,280ordinary
+audit checks/12downloads and Root4new browser replies/download/reload/reopen.
+Existing free contours only: Render APIdep-db8msjmq1p3s738l2jh0,
+workerdep-db8mtp2vcj2c73b1sp2g; Verceldpl_64D8gMPwgJ8fmJ7fuddWvHGNiFZgReady
+(Free/Free/Hobby). Local3049API/58focused/web1163hash-linked unchanged; fresh
+actual isolatedDEV44checks/45sources/cleanup/public-neutrality PASS.
+
+Production acceptance PARTIAL:41/42 API questions source-faithful, H57-03 twice
+terminal503/provider_unavailable. Root browser4completed KK replies/source DOCX+
+PDF hashes/history reload/reopen passed; independent293-check preservation/access
+audit retained both failed records/no pending,12downloads/oldhistories/11coursekeys
+7completed rows unchanged/student403. Separate local60s probe found DeepSeek
+completion8192/finishlength/content0; no runtime parameter change installed.
+Compact-policy local probe returned37.875s/statussupported but missed both
+requested retention periods/categories; independentPARTIAL/not deployed.
+Request-local evidence_low remains low/8192/45s; overall60s, same model/key/order.
+Final product GO remains open; never treat HTTP/deployment success as acceptance.
+
+Fresh exact owner approval covered54regular proxy.deb cache files only after
+offhost SHA256 recovery verification. Removed447214984bytes, preserved lock/partial/
+othermetadata/services/config/packages, recovered~420MiB; Nginx+WireGuardactive.
+All12synthetic uploads/indexes then ready; originals/failure receipts retained.
+Recovery files intentionally retained offhost under DOCUMENT57/proxy-deb-recovery57;
+no standing broad proxy-cleanup permission. No DB/customer/learning cleanup,
+Proxmox/rights/DNS/billing/resources/nativebuild changes. Canonical detailed state:
+PRODUCTION_READINESS/release57/CODEX_HANDOFF/TEST_RUN_LEDGER.
+
+## Historical environment — backend/native/DEV56,2026-10-15
 
 Runtime/tagv0.11.56 exact8a612c199423bb4839e03cfae3d8ce7f201ca332; masterCI38757324407,
 DEVCI38758238172, native38757356879/artifact11983638875 and protected38759477177

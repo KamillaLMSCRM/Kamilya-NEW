@@ -193,6 +193,63 @@
 
 ## Completion gate
 
+### Current Root state2026-10-16T05:04UTC (supersedes historical snapshots)
+
+Exact57/f6 already deployed; native56 remains unchanged/compatible, DEV42semantic
+PASS. Fresh owner approval for exact54proxy.deb fulfilled after every offhost
+SHA256 reverified:447214984bytes removed/free0→440451072; lock/partial/othermetadata/
+services/config/packages preserved. Independent0deb/~420MiBfree/activeNginx+WG.
+Recovery copies retained. Original two TXT reused; DOCX201/indexed and all12sources
+ready. Original500/BLOCKED receipts preserved, exact nginx tracebackNOT_PROVEN.
+
+Fullproduction42 executed:41source-faithful completed answers and H57-03 terminal
+503/provider_unavailable48.151s; one explicit new request on SAMEtask503/48.193s,
+both failure records retained/pendingNULL/no draft/plan change. Stop identical
+requests; independent22+3+16semanticPASS, one execution-unavailableNONPASS.
+Root4actual-browser KK answers/DOCX+PDFhashes/reload/close/reopen/new4+old6history
+PASS; Runner293checks/12downloads/old55+56/11coursekeys7completed rows preserved/
+student403threeGET+onePOST. Audit PARTIAL_KNOWN_PROVIDER_FAILURE, not final GO.
+
+Bounded providerlog interval DeepSeekTimeoutError/GLMConnectTimeout; requestIDnot
+logged. Local60s single-primary diagnostic returned47.750s/8192completion/content0/
+finishlength→parse502. Frozen compact policy returned37.875s/statussupported but
+omitted both requested retention periods/categories; independentPARTIAL. Neither
+experiment is accepted/deployed. Do not solve by silent retries, more tokens or
+status-only success; next algorithm repair must prove completeness plus bounded
+reasoning on fresh no-history DEV then production. Runtime code/voice/reserveOFF
+unchanged; no provider/resource/tier/rights/DNS/Proxmox change.
+
+Fresh04:59UTC backend4services/restarts0/flags/schema0181/RLS/routingOFF/current+
+healthy56rollback/native56/ops2timers/thresholdsbyteequal/checksuccess0 PASS.
+Root root-partial57.json validates retained54recovery files and completed QA,
+status NOT_ACCEPTED_PRODUCT_GATE; fullproductionacceptancefalse, finalGO outputs
+absent. Plan remains OPEN until accepted repair and final DEV/production gates.
+Do not rerun exclusive drivers, retag or redeploy unchanged57 to close paperwork.
+
+### Historical Root state2026-10-16T01:02UTC — superseded, not current authority
+
+R25 exactf6f1bc945e627287f8d5a9cf9040bcae1f73ea4a local3049/58/web1163unchanged/
+actualisolated44/45 PASS; finalDEV42semanticPASS/95citations/280audit/browser4+
+downloads/reload/oldhistories PASS. Tag/release57/protected38831182689 succeeded;
+API+3green exactf6/imageb6d4…674c running/restarts0, native56unchanged/compatible,
+blue56healthy rollback, schema0181/routing/reserveOFF/voice unchanged. Signed181
+restore5f51…3bbe/RPO43/RTO19/ownedabsence PASS. Two harness failures preserved:
+invalid noncanonical image output keys corrected without sanitizer expansion;
+known retention-before-watchdog ordering failure reconciled by exact guarded R2
+watchdog-only operation; final monitoring/timers/headroomVM126 PASS.
+
+PROD evaluation BLOCKED at firstDOCX HTTP500 after2TXT ready; no inference/retry.
+Reconcile confirms twoTXT IDs/jobs intact and no matching active DOCX. Canonical
+proxy read:0free bytes, apt directory502318472bytes,54regular.deb447214984bytes,
+no symlinks/active package managers. API logs no matching500; exact nginx error
+cause NOT_PROVEN (time-window filtered records0). No proxy cleanup authority or
+operation. Owner decision needed for only54downloaded apt-cache files after
+offhost recoverable hash-verified copy; other cache/partial/lock/log/config/data/
+services/DB/DNS/plans preserved. Future resume must preserve2TXT/failed receipts,
+not rerun exclusive driver/unknown POST. Then complete remaining uploads,42prod
+answers/independent semantics/browser/audit/final docs. Root current handoff owns
+exact evidence pointers. Minor DEV P3 wording disclosed; no general accuracy claim.
+
 - Required cases pass independently reviewed facts, citation provenance and
   language/condition/conflict expectations. Earlier failures remain recorded.
 - Fresh source/runtime/provider evidence is separated. Final Root acceptance

@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-15.
+Current as of: 2026-10-16.
 
 ## SQL-NAME-001 - C locale disagreed with Python Unicode lowercase during assignment lookup
 
@@ -3061,6 +3061,36 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Prevention: frontend release packets name pnpm lint separately from build and
   typecheck. Preserve reference stability and tenant cancellation when fixing hooks.
 ## INFRA-009 - Proxy disk exhaustion blocked multipart document uploads
+
+- Date: 2026-10-16; recurrence and bounded owner-approved recovery below.
+- Approved recurrence recovery2026-10-16/DOCUMENT57: owner authorized only the
+  exact54regular.deb inventory after recoverable offhost verification. All54
+  files (447214984bytes) were copied offhost and every remote/local SHA256 matched;
+  manifest08ed326873ee14481b9bec6cb0e6390477421ecbcdf3fd9fc23572f031136a08.
+  Exclusive package-cache locking and pre-unlink content/identity checks preserved
+  lock/partial and all non-deb metadata. Exact cleanup removed54files, freed
+  440451072bytes from zero; independent read found0deb,440410112bytes free and
+  active Nginx/WireGuard. No service/config/package/rights/billing change, broad
+  prune, log removal or restart. Offhost copies remain recoverable in ignored
+  DOCUMENT57/proxy-deb-recovery57; backup/cleanup/post-read receipts retained.
+  The previously failing39581-byte DOCX then returned201 and indexed; text-layer
+  PDF and all12synthetic source uploads/index jobs also completed. This differential
+  supports disk exhaustion as the upload blocker, not a newly proven nginx log
+  traceback. Original500/BLOCKED receipts remain unchanged; two original TXT were
+  reconciled/reused, never duplicated. About420MiB recovered is not a long-term
+  proxy capacity guarantee; retain byte/inode/temp-path monitoring as a gate.
+
+- Recurrence inspection2026-10-16/DOCUMENT57: two synthetic TXTuploads succeeded;
+  first39581-byteDOCX returned500, no matching API500/exception in the bounded
+  interval. Canonical proxy read confirmed rootfree0/inodes187756 and apt archive
+  directory502318472bytes (54regular.deb447214984bytes/no symlinks/no active package
+  manager). Exact nginx error cause is not yet proven: time-filtered error logs0.
+  No automatic upload retry, provider change or cleanup. GET reconciled two TXT
+  documents/jobs and no active DOCX with that synthetic title; this is not all-row/
+  storage absence proof. Proxy cache cleanup needs its own exact owner authority;
+  prior CT137/LMS cleanup does not cover it. Production57/runtime is deployed but
+  final multi-format acceptance remains blocked. Add proxy byte/inode/temp-path
+  readiness before a large-body smoke, not only VM126 image-space readiness.
 
 - Date: 2026-09-07.
 - Symptom: a 281596-byte PDF upload returned an nginx HTTP 500 before reaching
@@ -6148,6 +6178,19 @@ Do not treat missing final reconciliation as failed deployment or blindly redepl
 
 ### Recurrence2026-10-14: release49 finalizer checked a deliberately paused timer
 
+- Recurrence2026-10-16/DOCUMENT57: Root's ignored finalizer repeated the same
+  ordering defect despite this existing procedure. Protected release57 succeeded;
+  two watchdog identity keys changed with exact56backup/otherbytes preserved,
+  then oneshot failed while retention was paused. EXIT resumed both timers.
+  Separate read proved current57/backup56/bothactive and journal
+  retention_timer actualinactive expectedactive. Reviewed exact R2 script
+  327176ae…6bdc2 guarded four57services/config/backup and retained active retention,
+  ran watchdog only, restored watchdog timer; R2/final independent read passed.
+  No second rollout, threshold relaxation, retention cleanup, privilege expansion
+  or DB write. Preserve original BLOCKED result. This is Root procedural rework,
+  not a new product failure; never copy an old finalizer without checking this
+  causal order against the installed watchdog invariants.
+
 - Symptom: healthy protected49 rollout completed, but transactional watchdog
   reconciliation failed and restored old expected identity/timers. Structured
   repeat reproduced `check=retention_timer actual=inactive expected=active`.
@@ -7890,6 +7933,29 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   on that exact transport exception; six mock tests passed, remaining17 live
   cases completed with zero GET retries. This mitigates the observed harness
   failure; it does not identify a particular failing network/server component.
+
+- Production R25/f6 follow-up2026-10-16: all12synthetic sources ready after exact
+  approved proxy-cache recovery. Initial42questions produced41source-faithful
+  completed answers; H57-03 terminal503/provider_unavailable48.151s. One explicit
+  new request on the same task also503/48.193s; both failed rows/no pending and
+  old histories/draft/plan/7completed learning rows preserved. Stop the repeated
+  method; preserve NONPASS, no blind retry/reserve activation. Bounded log interval
+  records DeepSeekTimeoutError/GLMConnectTimeout but lacks requestID: no exact
+  per-request provider trace claim.
+  A local normal-budget60s primary-only measurement of the fresh frozen H03
+  returned47.750s/finishlength/8192completion/content0→parse502. That diagnostic
+  varies only the local deadline wrapper, not production, and is not the managed
+  path proof. Merely extending time cannot create the missing final answer.
+  Frozen compact-policy local probe used the actual managed45s/8192 path and
+  returned37.875s/finishstop/6187completion, but omitted both requested retention
+  periods and record categories despite citing their excerpts. IndependentPARTIAL;
+  status supported and declared record_retention did not prove completeness.
+  Both hypotheses/failed outputs are retained, no runtime prompt/client changes
+  installed. Full production run executed, acceptance remains NOT_ACCEPTED.
+  Prevention: fresh no-history complex cases and complete answer dimensions are
+  mandatory, not only repeated DEV tasks/HTTPstatus/citation membership; distinguish
+  prompt tokens, reasoning/output ceiling, wall-clock deadline and final text.
+  Reject partial answers and stop unmeasured prompt/timeout escalation.
 
 ## TEST-INFRA-020 - Concurrent QA writes invalidated an isolated DEV neutrality gate
 

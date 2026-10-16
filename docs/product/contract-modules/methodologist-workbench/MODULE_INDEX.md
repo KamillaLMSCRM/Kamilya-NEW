@@ -2,7 +2,8 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
-Current implementation candidate: [request-local evidence reasoning V1.9](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_9.md)
+Current deployed57, DEV accepted / production PARTIAL2026-10-16:
+[request-local evidence reasoning V1.9](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_9.md)
 extends [private requested scope V1.8](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_8.md), which
 extends [two-evidenced-positions V1.6](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_6.md),
 [immediate previous turn V1.5](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_5.md),
@@ -12,7 +13,15 @@ extends [window-budget/requested-scope V1.2](contracts/DOCUMENT_CONTENT_RETRIEVA
 extends [coverage/follow-up V1.1](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1_1.md), which
 extends [retrieval addendum V1](contracts/DOCUMENT_CONTENT_RETRIEVAL_ADDENDUM_V1.md),
 2026-10-15. Balanced multi-source context and substantive opening fallback;
-RU/KK real-model acceptance/release57 NOT YET VERIFIED. No public shape/migration,
+Runtime/tagf6f1bc94; DEV42semanticPASS/95citations/280audit checks; production
+41source-faithful completed answers plus H57-03 twice503/provider_unavailable.
+Local60s duration diagnostic returned DeepSeek finishlength/8192tokens/content0;
+no runtime deadline change installed. Local compact-policy probe37.875s returned
+supported but omitted both requested retention periods/categories; independent
+PARTIAL/not deployed. Root4browser answers/DOCX+PDF hashes/history PASS and the
+independent293-check preservation/access audit are not full acceptance.
+Keep final GO open; detailed current state: PRODUCTION_READINESS/release57/ledger.
+No public shape/migration,
 voice or reserve change. Root also owns the isolated-gate evidence-root allowance
 for DOCUMENT57 and its immutable source-manifest inclusion; no gate is weakened.
 

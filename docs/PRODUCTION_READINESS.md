@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** API/three workers/native frontend56; live DEV/prod document-content dialogue accepted2026-10-15; schema0181 unchanged; ChatGPT reserve OFF; VM126disk80%, ops timers/last checks healthy
+**Проверено:** API/three workers57, compatible native56; DEV57 accepted; production57 PARTIAL (41/42 API answers, H57-03 provider timeout); schema0181 unchanged; reserve OFF; VM126disk81%, existing ops healthy2026-10-16
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,73 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production56 — document-content dialogue accepted, 2026-10-15
+## Current production57 — deployed, live acceptance PARTIAL, 2026-10-16
+
+Runtime/tag57 exactf6f1bc945e627287f8d5a9cf9040bcae1f73ea4a. MasterCI38827828941,
+DEVCI38828641350/protected38831182689 SUCCESS, release414413369. API+three GREEN
+workers immutable imageb6d4bfecdd59c384705bc48a0a914780a289da1211938e2a6b7a7104b420674c,
+running/restarts0/flags unchanged. Fresh04:59UTC read confirms private/public57,
+schema0181/two dialogueFORCE-RLS/runtime non-BYPASS/controller25fa90f7…a3d2e and
+entire routing row7834c8c3…5da3f unchanged/reserveOFF. Native56/exact8a612c19
+unchanged/compatible/header+body/login200. Healthy BLUE56 rollback image retained,
+oldworkers stopped; actual switch/rollback history service read NOT_RUN.
+Existing watchdog57/thresholds byte unchanged/two timers active/last checksuccess0;
+VM12681%/5953152KiB free. No migration/reindex/native build/Proxmox/billing change.
+
+Balanced multi-source verified windows and stricter requested-fact/condition/
+context policies extend the existing private document Q&A contract. Public
+answer/history/schema unchanged; at most16windows/24000source characters/8citations,
+up to5selected sources. Managed DeepSeek evidence_low request only: low-thinking,
+8192output-token ceiling/45seconds; overall document60seconds. Same model/key/saved
+route; unrelated defaults/BYOK/fallback caps unchanged. Neither the ceiling nor
+the optimistic2-cent admission estimate is a hard provider-invoice guarantee.
+
+Final R25 DEV42/42 independent semantic PASS,95exact citation checks,
+Runner280checks/12original downloads/history and exact learning projections
+preserved; Root4new actual-browser replies/reload/reopen/DOCX+PDF hashes PASS.
+Local3049API/58focused, web1163 hash-linked unchanged, fresh actual isolated
+SupabaseDEV44checks/45committed sources/cleanup/guarded public neutrality PASS.
+
+Production12small fictional RU/KK TXT/MD/DOCX-table/text-layerPDF uploaded/indexed.
+Independent reviews:41completed answers source-faithful; H57-03 no answer after
+two terminal503/provider_unavailable48.151/48.193s. Original failed record and
+explicit new-request failure preserved, pending cleared; no blind/automatic retry.
+Bounded provider log interval: DeepSeek TimeoutError/GLM ConnectTimeout,
+requestIDnotlogged. Separate local60s duration diagnostic returned47.750s but
+finish_reason=length/completion8192/content0 → parse502: merely lifting wall-clock
+does not establish a valid answer. This diagnostic is not deployed managed-path
+proof. No larger production limit, provider change or reserve activation installed.
+Frozen compact-policy diagnostic returned37.875s/6187completion/statussupported
+but omitted both requested retention periods/categories; independent PARTIAL,
+not a fix and not deployed. Root root-partial57.json records completed production
+run with an unresolved product gate; no final GO output is created.
+
+Root production browser4new completed Kazakh answers, exacttwo-point follow-up,
+hazard actions, distinct retention and real conflict status PASS; actual DOCX/PDF
+download hashes match. Fullreload/close/recentreopen/old56visit/return preserves
+new4 and old6 article hashes. Runner293recorded checks/12downloads/36tasks:
+old55/56histories and11coursekeys7completed rows unchanged; student403threeGET+
+onequestionPOST. Status PARTIAL_KNOWN_PROVIDER_FAILURE, not final acceptance.
+Bounded20recent jobs include12new ingestion jobs/no new course-generation job.
+Auth may update audit fields; no all-column tenant equality claim.
+
+Owner-approved exact54.deb proxy cleanup after all offhost hashes verified removed
+447214984bytes; free0→440451072, independent440410112/0deb/Nginx+WireGuardactive.
+Lock/partial/nondeb metadata/services/config/packages preserved. Same DOCX then
+201/indexed; original two TXT reused, failed upload/BLOCKED receipts retained.
+Offhost recovery copies retained, manifest08ed3268…6a08. No broad prune/log removal/
+restart or inference of standing proxy cleanup permission. About420MiB is not a
+long-term capacity guarantee; monitor proxy bytes/inodes/temp paths.
+
+Final product gate is NOT GO until H57-03 succeeds under an accepted repair and
+fresh affected DEV/production verification. No PASS final acceptance/envelope was
+created. Source details, limitations and immutable failed candidates:
+[release57](releases/v0.11.57.md), [ledger](testing/TEST_RUN_LEDGER.md), ignored
+DOCUMENT57 evidence. This bounded consumed174–530word corpus is not unseen/OCR/
+long-document/universal accuracy/availability SLA/human-speedup proof. Voice and
+reserve remain untouched; real tenants/completed learning were not changed.
+
+## Historical production56 — document-content dialogue accepted, 2026-10-15
 
 Root accepted the bounded DOCUMENT_CONTENT_DIALOGUE_V1 journey, not exhaustive
 retrieval, universal factual accuracy or the entire assistant epic. Runtime/tag
