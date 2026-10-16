@@ -20,12 +20,12 @@ Root is sole writer of contracts/schema/shared runtime/integration/provider oper
 | Node | State | Exit gate | Owner / scope |
 |---|---|---|---|
 | INVENTORY | DONE | Existing DB routes/tenant policy distinguished from hot candidates/security/startup constants | root + read-only inventories |
-| CONTRACT | IN_PROGRESS | Versioned epic/module/impact matrix | root docs/product/contract-modules/runtime-configuration |
-| STORE | NOT_STARTED | Typed registry, snapshot read, atomic revision/audit/rollback; FORCE RLS | root new runtime_configuration module and0182 |
-| CONSUMERS | NOT_STARTED | Real consumers use operation snapshots; preserve routing/BYOK and security | root named impact matrix |
-| TESTS | NOT_STARTED | Focused/contracts/SQL isolation and cleanup/full candidate gates | root, delegated bounded checks |
-| DEV-ACCEPT | NOT_STARTED | Exact revision, live update/readback/rollback and real dialogue | root existing DEV only |
-| DATE-ACCEPT | IN_PROGRESS | Exact580 runtime; normal + forced real ChatGPT, original follow-up, negative cases and browser | root existing operator packet |
+| CONTRACT | DONE | Versioned epic/module/impact matrix and review/consumer addenda | root docs/product/contract-modules/runtime-configuration |
+| STORE | DONE | Isolated Supabase16checks PASS including SQL audit and value guards | root new runtime_configuration module and0182 |
+| CONSUMERS | DONE |29keys wired; local4207PASS/526skips + focused32; independent review no blockers | root named impact matrix |
+| TESTS | IN_PROGRESS | CI38896742587 caught import-time DB/settings dependency in standalone correction-fixture contract; move DB model import to actual runtime read, rerun exact failed gate; do not add JWT env or weaken test | root, delegated bounded checks |
+| DEV-ACCEPT | NOT_STARTED | Exact revision, live update/readback/rollback and real dialogue; public schema0181 read-only verified,0182 pending CI | root existing DEV only |
+| DATE-ACCEPT | DONE | Exact580 normal/fallback/API6cases/browser PASS; probe keys disarmed/original auto restored | root existing operator packet |
 
 ## Decisions and cleanup
 
@@ -33,3 +33,4 @@ Root is sole writer of contracts/schema/shared runtime/integration/provider oper
 - Model route order remains owned by generation_model_routing; names are currently env-backed, not DB-backed. New names affect only approved existing managed provider adapters, never endpoints/keys or reserve enablement.
 - No production migration/deploy without fresh owner agreement. DEV migration only after isolated schema gate; no Docker PostgreSQL.
 - Configuration updates have no model invocation side effect. Revert values in an audited new revision, never delete history. Remove temporary one-shot probe keys separately after date acceptance.
+- Runtime candidate24cf9aef pushed todev with independent SHA/account receipt; no Render rollout. CI import-boundary failure owned/root fix in progress. API auto-deploy temporarilyno under runtime-settings-start-snapshot.json, worker originalno; restore after accepted rollout or cancellation. Graphify AST update completed21208nodes/57289edges, but source exclusions/freshness are not certified after combined prepare failure: no trusted graph claim.

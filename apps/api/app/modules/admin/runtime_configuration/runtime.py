@@ -9,7 +9,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import ProgrammingError
 
 from .catalog import RuntimeSnapshot, default_snapshot, effective_values
-from .models import RuntimeSettings
 
 logger = logging.getLogger(__name__)
 _scope: ContextVar[RuntimeSnapshot | None] = ContextVar("runtime_settings_snapshot", default=None)
@@ -34,6 +33,7 @@ async def resolve_runtime_settings() -> RuntimeSnapshot:
     if scoped is not None:
         return scoped
     from app.core.db import async_session_factory
+    from .models import RuntimeSettings
 
     try:
         async with async_session_factory() as db:
