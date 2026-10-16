@@ -1,6 +1,7 @@
 """Database-free tests of the exact native DEV launcher seam."""
 import base64
 import importlib.util
+import io
 import os
 import subprocess
 import sys
@@ -69,6 +70,21 @@ def test_dead_ssh_is_not_ready():
         def poll(self):
             return 255
     with pytest.raises(runtime.RuntimeBlocked, match="ssh_start_failed"):
+        runtime.await_forward(Dead(), seconds=0.1)
+
+
+@pytest.mark.parametrize("error,expected", [
+    (b"Load key '/private/sensitive': error in libcrypto", "identity_crypto_error"),
+    (b"kamilya-dev-models@host: Permission denied (publickey).", "authentication_denied"),
+    (b"bind [127.0.0.1]:18999: Address already in use", "local_bind_conflict"),
+    (b"connect to host host port 22: Connection timed out", "network_connect_timeout"),
+])
+def test_startup_diagnostics_are_fixed_codes_not_raw_data(error, expected):
+    class Dead:
+        stderr = io.BytesIO(error)
+        def poll(self):
+            return 255
+    with pytest.raises(runtime.RuntimeBlocked, match="ssh_start_failed_" + expected):
         runtime.await_forward(Dead(), seconds=0.1)
 
 

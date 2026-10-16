@@ -49,7 +49,7 @@ def ssh_command(key_path: Path, known_path: Path) -> list[str]:
         "-o", "KbdInteractiveAuthentication=no", "-o", "ExitOnForwardFailure=yes",
         "-o", "ConnectTimeout=8", "-o", "ConnectionAttempts=1",
         "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=2",
-        "-o", "LogLevel=QUIET", "-o", "ForwardAgent=no"]
+        "-o", "LogLevel=ERROR", "-o", "ForwardAgent=no"]
     for local, destination, port in FORWARDS:
         command += ["-L", f"127.0.0.1:{local}:{destination}:{port}"]
     return command + [f"{USER}@{HOST}"]
@@ -88,11 +88,32 @@ def await_forward(process: subprocess.Popen, seconds: float = 12) -> None:
     until = time.monotonic() + seconds
     while time.monotonic() < until:
         if process.poll() is not None:
-            raise RuntimeBlocked("ssh_start_failed")
+            raise RuntimeBlocked(ssh_failure(process))
         if owns_listeners(process.pid) and process.poll() is None:
             return
         time.sleep(0.1)
     raise RuntimeBlocked("ssh_start_timeout")
+
+
+def ssh_failure(process: subprocess.Popen) -> str:
+    """Classify bounded private diagnostics; never emit raw SSH output."""
+    stream = getattr(process, "stderr", None)
+    raw = b"" if stream is None else stream.read(65537).lower()
+    for fragment, code in (
+        (b"error in libcrypto", "identity_crypto_error"),
+        (b"openssl version mismatch", "system_openssl_mismatch"),
+        (b"permission denied", "authentication_denied"),
+        (b"host key verification failed", "host_pin_rejected"),
+        (b"address already in use", "local_bind_conflict"),
+        (b"connection timed out", "network_connect_timeout"),
+        (b"connection refused", "network_connect_refused"),
+        (b"bad configuration option", "unsupported_ssh_option"),
+        (b"cannot assign requested address", "local_bind_unavailable"),
+        (b"no hostkeys available", "host_key_algorithm_unavailable"),
+    ):
+        if fragment in raw:
+            return "ssh_start_failed_" + code
+    return "ssh_start_failed"
 
 
 def stop(process: subprocess.Popen | None) -> None:
@@ -124,6 +145,9 @@ def stop(process: subprocess.Popen | None) -> None:
                 os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
+        stream = getattr(process, "stderr", None)
+        if stream is not None:
+            stream.close()
 
 
 def spawn(argv: list[str], **kwargs) -> subprocess.Popen:
@@ -170,7 +194,7 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
                     stream.write(contents)
             key = b""
             ssh = spawn(ssh_command(identity, hosts), stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=ssh_environment(source))
+                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, env=ssh_environment(source))
             await_forward(ssh)
             if terminating:
                 return 143
