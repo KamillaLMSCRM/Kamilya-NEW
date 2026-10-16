@@ -7,7 +7,7 @@ const { JSDOM, VirtualConsole } = require(path.resolve(taskDir, '../../apps/web/
 const sharp = require('C:/Users/user/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/sharp');
 
 async function main() {
-  const htmlPath = path.resolve(__dirname, '../../apps/web/public/guides/methodologist.html');
+  const htmlPath = path.resolve(__dirname, '../../apps/web/public/guides/methodologist-text.html');
   const html = fs.readFileSync(htmlPath, 'utf8');
   const errors = [];
   const virtualConsole = new VirtualConsole();

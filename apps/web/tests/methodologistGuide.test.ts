@@ -14,7 +14,7 @@ const { JSDOM } = createRequire(import.meta.url)('jsdom') as {
   }) => { window: GuideWindow };
 };
 
-const guidePath = path.resolve(process.cwd(), 'public/guides/methodologist.html');
+const guidePath = path.resolve(process.cwd(), 'public/guides/methodologist-text.html');
 const html = fs.readFileSync(guidePath, 'utf8');
 
 describe('standalone methodologist instruction', () => {

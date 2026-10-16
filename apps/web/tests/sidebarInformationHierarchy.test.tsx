@@ -66,11 +66,11 @@ describe('methodologist sidebar information hierarchy', () => {
   it('shows the Russian methodologist guide below the logo and opens it safely in a new tab', () => {
     const { container } = render(<Sidebar collapsed={false} onToggle={() => {}} />);
 
-    const guide = screen.getByRole('link', { name: /Инструкция методиста/ });
+    const guide = screen.getByRole('link', { name: /Видеоинструкция методиста/ });
     expect(guide).toHaveAttribute('href', '/guides/methodologist.html');
     expect(guide).toHaveAttribute('target', '_blank');
     expect(guide).toHaveAttribute('rel', 'noopener noreferrer');
-    expect(guide).toHaveTextContent('От документа до результатов');
+    expect(guide).toHaveTextContent('8 процессов: от документа до результатов');
     expect(guide.compareDocumentPosition(container.querySelector('#sidebar-nav')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
@@ -82,16 +82,16 @@ describe('methodologist sidebar information hierarchy', () => {
   ])('does not show the guide for active role %s even when assigned roles are %j', (role, roles) => {
     useAuthStore.setState({ user: { ...methodologist, role, roles } as typeof methodologist });
     render(<Sidebar collapsed={false} onToggle={() => {}} />);
-    expect(screen.queryByRole('link', { name: /Инструкция методиста/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Видеоинструкция методиста/ })).not.toBeInTheDocument();
   });
 
   it('keeps the guide accessible when collapsed and closes the mobile drawer when selected', () => {
     const onClose = vi.fn();
     render(<Sidebar collapsed mobileOpen onToggle={() => {}} onClose={onClose} />);
 
-    const guide = screen.getByRole('link', { name: 'Инструкция методиста' });
-    expect(guide).toHaveAttribute('aria-label', 'Инструкция методиста');
-    expect(guide).toHaveAttribute('title', 'Инструкция методиста');
+    const guide = screen.getByRole('link', { name: 'Видеоинструкция методиста' });
+    expect(guide).toHaveAttribute('aria-label', 'Видеоинструкция методиста');
+    expect(guide).toHaveAttribute('title', 'Видеоинструкция методиста');
     fireEvent.click(guide);
     expect(onClose).toHaveBeenCalledOnce();
   });
@@ -104,8 +104,8 @@ describe('methodologist sidebar information hierarchy', () => {
   });
 
   it.each([
-    ['kk', 'Әдіскерге арналған нұсқаулық', 'Нұсқаулық орыс тілінде'],
-    ['en', 'Methodologist guide', 'Guide is in Russian'],
+    ['kk', 'Әдіскерге арналған бейненұсқаулық', 'Нұсқаулық орыс тілінде'],
+    ['en', 'Methodologist video guide', 'Guide is in Russian'],
   ] as const)('labels the %s guide link and discloses that the guide is in Russian', (lang, label, disclosure) => {
     useLanguageStore.setState({ lang });
     render(<Sidebar collapsed={false} onToggle={() => {}} />);

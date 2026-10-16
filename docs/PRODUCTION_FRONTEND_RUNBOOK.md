@@ -10,6 +10,28 @@
 
 ## Текущий контур
 
+### Isolated DEV preview for a frontend-only package
+
+When DEV contains unrelated API/worker work, do not push the production candidate
+to `dev` or invoke the full DEV controller solely to check static frontend media.
+Use `scripts/deploy/vercel_frontend_preview.py` with its digest-bound
+`kamilya-vercel-frontend-preview-v1` packet and the canonical root `.env`.
+Its closed packet binds the exact candidate SHA/successful CI, existing DEV
+project/team/repository/root/Hobby tier, stable DEV alias deployment and current
+DEV Git/Render identities. Run `preflight`, then owner-authorized `create` with
+the matching release ID, then `wait`. The state file must be inside the target
+checkout's `.release-evidence`; it records the deployment ID before further reads.
+An unknown POST result requires `reconcile`, never a second create request.
+
+This creates only an isolated Preview inside the existing free DEV project. It
+does not promote/modify the stable DEV alias, move `dev`, change project settings,
+environment variables, build-machine capacity, billing or Render deployments.
+Preview API URL and the source DEV-origin guard must both match the canonical
+DEV API; protected identities are read back unchanged. Use the returned unique
+URL only. Static guide/player QA does not prove authenticated application flows
+on a preview origin: CORS/login policy remains unchanged and must not be weakened.
+Production still uses the ordinary CT137 exact-SHA/native-bundle release below.
+
 ```text
 app.kml.kz
   -> Cloudflare DNS-only A 92.38.49.167

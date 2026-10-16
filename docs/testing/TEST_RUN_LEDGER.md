@@ -4836,3 +4836,42 @@ Rules:
 
 - Existing RLS sessions now reuse their own connection for config reads; raw connection savepoint plus autoflushfalse/populate_existingtrue avoids second pool-slot contention and ORM flushing pending work. No pool/resource changes or caller transaction commit. Focused88PASS/1.84s, quality1008/2200PASS; actual R6Supabase17checksPASS includes same-session transaction preservation and owned cleanup/public schema neutrality.
 - Independent review no remaining blockers. One stale missing-evidence-key claim was rejected by Root current-source lines30/31/94 and frozen parity test, then reviewer retracted after exact61ae049c/hashEDB199CA…90463 readback. No spurious migration edits. Final CI/deploy/readback still required; no production/ASUS actions.
+### VIDEO59-LOCAL-20261016 — 2026-10-16 — local methodologist video-guide integration
+
+- Static inspection in the assigned worktree confirmed the methodologist-only
+  sidebar link, Russian/Kazakh/English locale keys, same-origin relative media,
+  eight MP4s, 32 media/caption assets, 69 step buttons, eight Russian caption
+  tracks, and retention of `methodologist-text.html`. No browser/runtime/API,
+  provider, Git, deployment, database, or secret action was performed.
+- Required full web command exited `1`: `159` test files passed, `2` failed;
+  `1163` tests passed, `3` failed; duration `108.18s`. The first preserved
+  failure was the unrelated `tests/learningInsightsJournal.test.tsx` missing
+  the `Принять` button, with jsdom navigation-not-implemented output. The two
+  `tests/methodologistGuide.test.ts` failures were classified
+  `HARNESS_FAILURE`: the legacy test expects `.flow` sections and a completion
+  checkbox in `methodologist.html`, while the new published video guide uses
+  the video structure and retains the old text guide at `methodologist-text.html`.
+- The requested npm audit command was `NOT_RUN` under the packet stop rule after
+  the first full-suite failure. No retry or test weakening was performed.
+- Sanitized machine-readable evidence:
+  `.release-evidence/VIDEO59-LOCAL-20261016/runner-local-video59.json`.
+
+### VIDEO59-LOCAL-R2-20261016 — 2026-10-16 — corrected local verification
+
+- The original `VIDEO59-LOCAL-20261016` failure remains preserved and was not
+  rewritten. Root's scoped correction changed only
+  `tests/methodologistGuide.test.ts` to read the retained
+  `public/guides/methodologist-text.html`; its assertions were unchanged.
+- Isolated `tests/learningInsightsJournal.test.tsx` passed with exit `0`; report:
+  `.release-evidence/VIDEO59-LOCAL-R2-20261016/journal.json`.
+- Bounded full suite passed with exit `0`: `161` test files, `1167` tests,
+  `0` failed, `0` pending, `--maxWorkers=2`; report:
+  `.release-evidence/VIDEO59-LOCAL-R2-20261016/full-web.json`.
+- Production-registry audit passed with exit `0`: `No known vulnerabilities
+  found` using `--prod --audit-level moderate`.
+- Final static readback confirmed `8` videos, `69` steps, `32` assets, exact
+  asset byte lengths and SHA-256 values, caption interval counts, `8` Russian
+  caption tracks, no external HTML runtime references, retained legacy guide,
+  methodologist-only safe sidebar link, and publisher count/hash checks.
+- No browser/runtime/API/provider/DB/Git/deploy/source mutation occurred.
+  Sanitized receipt: `.release-evidence/VIDEO59-LOCAL-R2-20261016/runner-local-video59-r2.json`.
