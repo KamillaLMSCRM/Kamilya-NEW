@@ -2,6 +2,22 @@
 
 Current as of: 2026-10-16.
 
+## TEST-INFRA-022 - Privacy assertion matched the checkout path in a traceback
+
+- Date:2026-10-16; database-free private DEV transport regression run.
+- Symptom: the learning-path dispatch failure test rejected `learner` in the
+  formatted log because the checkout directory itself contains that word.
+- Cause: `caplog.text` includes exception traceback source paths, not just emitted
+  application messages. The synthetic broker failure did not log learner data.
+- Fix: retain the forbidden-label check on `LogRecord.getMessage()` and check the
+  actual synthetic learner UUID against the entire formatted log. No application
+  logger behavior, notification handling or privacy boundary changes.
+- Verification: original full run4145PASS/1FAIL retained; corrected exact test
+  plus private transport contracts33PASS. Full rerun is recorded separately in
+  TEST_RUN_LEDGER, not inferred from this focused result.
+- Prevention: distinguish emitted content from traceback paths in logging tests;
+  assert actual sensitive fixture identifiers across the full log as well.
+
 ## SQL-NAME-001 - C locale disagreed with Python Unicode lowercase during assignment lookup
 
 - Date: 2026-10-15; full live assignment-dialogue DEV53/production53 acceptance.

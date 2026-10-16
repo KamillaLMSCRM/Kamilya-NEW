@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add opt-in private DEV SSH supervision and expiring, Redis-claimed synthetic
+  API/worker failover probes on existing free resources, with fixed destinations,
+  pinned host trust and no public model gateway. ASUS/GLM acceptance is deferred
+  while the owner reports the ASUS nodes down; this tooling is not a production
+  release or proof of full-chain acceptance.
+
 - Implement an optional manual ChatGPT reserve using the official pinned Codex CLI
   and managed ChatGPT login, with superadmin readiness/confirmation/revision-checked
   activation and emergency disable. Add an authenticated bounded private connector,

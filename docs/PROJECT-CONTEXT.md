@@ -25,6 +25,39 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
+## Routing override — owner-enabled production reserve,2026-10-16
+
+Fresh normal superadmin API readback at07:44UTC: production0.11.57/f6f1bc94
+routing revision4 is DeepSeek → ChatGPT → Qwen → GLM. The owner confirms enabling
+ChatGPT; connector readiness is true. Readiness is not an inference/failover
+acceptance. This overrides historical reserve-OFF statements below. No production
+route or provider configuration was changed by this task.
+
+Owner requested DEV alignment to DeepSeek → ChatGPT → GLM. DEV0.11.58/5cf7dcb4
+ChatGPT readiness returns `not_configured`; fresh read-only Render inventory at
+07:52UTC found no CHATGPT_RESERVE configuration on either API or worker. The
+existing VM126 connector is private; Render intentionally has no configured
+bridge. Do not copy a private URL into Render and treat configuration as reachability.
+
+The independent allowed subset was saved through the normal superadmin API:
+DEV revision5 →6, DeepSeek → GLM, Qwen removed, confirmed by two GET readbacks.
+The complete three-provider target remains BLOCKED_PENDING_PRIVATE_DEV_CONNECTOR.
+This was the pre-install snapshot. At08:36UTC the existing proxy received a locked,
+no-session `kamilya-dev-models` principal with separate API/worker credentials and
+only fixed local forwarding to the existing private ChatGPT connector and the
+reserved ASUS GLM relay slot. Both credentials passed authenticated ChatGPT
+readiness and actual denied shell/arbitrary-destination/remote-forward probes;
+existing users' effective SSH policies are unchanged. Settings are staged and read
+back on the two existing Render Free services, NOT YET deployed. No public port or
+HTTP gateway was added. All ASUS are owner-confirmed down: no relay was installed,
+and GLM checks are owner-deferred until recovery. See
+[the DEV connection contract](product/contract-modules/methodologist-workbench/contracts/DEV_PRIVATE_MODEL_CONNECTION_V2.md).
+No production, voice, billing/resource change or inference was performed. Local sanitized receipts:
+`.release-evidence/requirements-20261016/dev-model-route-alignment-20261016.json`,
+`dev-qwen-removal-20261016.json`, `dev-reserve-config-inventory-20261016.json`.
+Private access receipt: `dev-private-access-chatgpt-install-r2-20261016.json` in
+the same ignored evidence directory. Runtime/failover acceptance remains open.
+
 ## Current DEV candidate58 — production remains57,2026-10-16
 
 DEV58 b73d08a1942f590c0dee1a2f9aeaf12e1da24d9e is deployed/reconciled:

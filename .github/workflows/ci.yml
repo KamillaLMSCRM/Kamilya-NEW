@@ -201,6 +201,9 @@ jobs:
       - name: Fail-closed KZ remote executor contract tests
         run: poetry run pytest -q ../../scripts/ops/test_kz_remote_exec.py
 
+      - name: Private DEV model transport and bounded acceptance contracts
+        run: poetry run pytest -q ../../scripts/ops/tests/test_dev_private_model_runtime.py ../../scripts/ops/tests/test_dev_private_model_acceptance.py ../../scripts/ops/tests/test_dev_glm_relay.py
+
       - name: Native CT137 frontend helper safety and rollback state
         run: poetry run python ../../scripts/ops/test_kamilya_web_deploy.py
 

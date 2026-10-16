@@ -1,0 +1,23 @@
+[Unit]
+Description=Kamilya DEV-only fixed private GLM TCP relay
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/gx10-4/.local/share/kamilya-dev-glm-relay-20261016/glm_relay.py
+WorkingDirectory=/home/gx10-4/.local/share/kamilya-dev-glm-relay-20261016
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=5
+NoNewPrivileges=yes
+UMask=0077
+MemoryMax=48M
+TasksMax=16
+CPUQuota=20%
+LimitNOFILE=64
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=default.target

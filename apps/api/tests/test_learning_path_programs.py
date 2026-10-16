@@ -868,8 +868,13 @@ async def test_dispatch_failure_keeps_successful_assignment_response_and_does_no
     assert result.skipped == 0
     assert db.commit.await_count == 1
     db.rollback.assert_not_awaited()
-    assert "durable outbox recovery will retry" in caplog.text
-    assert "learner" not in caplog.text.lower()
+    # Tracebacks contain checkout paths (which may legitimately include
+    # "learner"). Check emitted messages separately, while still checking the
+    # complete formatted log for the actual synthetic learner identifier.
+    messages = "\n".join(record.getMessage() for record in caplog.records)
+    assert "durable outbox recovery will retry" in messages
+    assert "learner" not in messages.lower()
+    assert str(learner_id) not in caplog.text
 
 
 @pytest.mark.asyncio
