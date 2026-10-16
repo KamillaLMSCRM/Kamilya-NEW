@@ -204,6 +204,9 @@ jobs:
       - name: Native CT137 frontend helper safety and rollback state
         run: poetry run python ../../scripts/ops/test_kamilya_web_deploy.py
 
+      - name: Isolated frontend DEV preview safety
+        run: poetry run python -m unittest discover -s ../../scripts/deploy -p test_vercel_frontend_preview.py -q
+
       - name: Controlled workbench activation release contracts
         env:
           PYTHONPATH: "${{ github.workspace }}/apps/api:${{ github.workspace }}"
@@ -422,6 +425,9 @@ jobs:
 
       - name: ESLint
         run: pnpm run lint
+
+      - name: Methodologist video guide and visible menu contracts
+        run: pnpm exec vitest run tests/methodologistVideoGuide.test.ts tests/methodologistGuide.test.ts tests/sidebarInformationHierarchy.test.tsx
 
   # ---------------------------------------------------------------------------
   # Secret scanning

@@ -1,0 +1,219 @@
+{
+  "schema": "kamilya-methodologist-video-guide-v1",
+  "language": "ru",
+  "voice": "Qwen3-TTS synthetic male",
+  "release_date": "2026-10-16",
+  "steps": 69,
+  "videos": [
+    {
+      "id": "01-sources",
+      "steps": 12,
+      "duration_seconds": 111,
+      "sha256": "b73f3388076978d8040c9f5056f0ba9ced0007d56de939add43a5a22016296fc"
+    },
+    {
+      "id": "02-generation",
+      "steps": 8,
+      "duration_seconds": 48.416667,
+      "sha256": "854b7ae0403a89c3264f61e6c54deb36820d5b5256efea2bf37747dc500f6f0f"
+    },
+    {
+      "id": "03-lessons",
+      "steps": 7,
+      "duration_seconds": 42.416667,
+      "sha256": "a6c7890306cef81d8aeaecb4f04230b38e5db2551b0d9d31c1904f73b30d6689"
+    },
+    {
+      "id": "04-tests",
+      "steps": 9,
+      "duration_seconds": 55,
+      "sha256": "bf75b1d82b6843cfb5831ba172de545de88183b39de99fdae84d9f3eebeced29"
+    },
+    {
+      "id": "05-publication",
+      "steps": 7,
+      "duration_seconds": 42.708333,
+      "sha256": "b0250b564bf95b11a26885debae843264fe7f40a796940344c9a50037d1ff889"
+    },
+    {
+      "id": "06-staff",
+      "steps": 10,
+      "duration_seconds": 60.666667,
+      "sha256": "060b9457639b4a7f4f5484b9b365afab1ca492320c66443f6f2f498c8ff6b0e1"
+    },
+    {
+      "id": "07-assignment",
+      "steps": 9,
+      "duration_seconds": 54.416667,
+      "sha256": "1df0a52eaae88963ab7a796aa0b62967baaefa4cf6bb582f027bb1b78a080489"
+    },
+    {
+      "id": "08-results",
+      "steps": 7,
+      "duration_seconds": 42.416667,
+      "sha256": "2e7fd97686b4d952b927fc3363e83b5e7a5cf48f3c9d5d180b8a008dce26d0ad"
+    }
+  ],
+  "assets": [
+    {
+      "name": "01-sources.mp4",
+      "bytes": 2594363,
+      "sha256": "b73f3388076978d8040c9f5056f0ba9ced0007d56de939add43a5a22016296fc"
+    },
+    {
+      "name": "01-sources-poster.jpg",
+      "bytes": 76541,
+      "sha256": "6553b5afa3a64e921a4eae58f03946d9f6d0a4fb0802f5b7d0643b23ef7ff101"
+    },
+    {
+      "name": "01-sources.srt",
+      "bytes": 3624,
+      "sha256": "c5e3a75e7a9c6ff80f1656f9c73e533ad33f8927879c7a9c962d308faf275cbe"
+    },
+    {
+      "name": "01-sources.vtt",
+      "bytes": 3595,
+      "sha256": "3ca0a052348b46cf5d8590c0a999513a5fc54ba530775e47f0e01a14c7ced144"
+    },
+    {
+      "name": "02-generation.mp4",
+      "bytes": 1103747,
+      "sha256": "854b7ae0403a89c3264f61e6c54deb36820d5b5256efea2bf37747dc500f6f0f"
+    },
+    {
+      "name": "02-generation-poster.jpg",
+      "bytes": 64204,
+      "sha256": "e3c5489060704a666e9bdb17ffa2bde96e89fe04338286b217404d79a19ce2e6"
+    },
+    {
+      "name": "02-generation.srt",
+      "bytes": 1359,
+      "sha256": "883e28d9a53965005ec0029f8b1846d034814daea317d695148136d1bcf4dfd4"
+    },
+    {
+      "name": "02-generation.vtt",
+      "bytes": 1345,
+      "sha256": "02d51408656dcdc3e2144bc90b04897a50ce62ed4cf8637d2a79dcb16130aea3"
+    },
+    {
+      "name": "03-lessons.mp4",
+      "bytes": 1151182,
+      "sha256": "a6c7890306cef81d8aeaecb4f04230b38e5db2551b0d9d31c1904f73b30d6689"
+    },
+    {
+      "name": "03-lessons-poster.jpg",
+      "bytes": 76210,
+      "sha256": "72f268294ffc47d43afd5f7a898976d9f03727310b239af0373919b575bf7fcd"
+    },
+    {
+      "name": "03-lessons.srt",
+      "bytes": 1265,
+      "sha256": "75fb71c8695496e6fc2c3f42ddcc1363a43d6c07288a26e597e54c56f7e5c4f9"
+    },
+    {
+      "name": "03-lessons.vtt",
+      "bytes": 1254,
+      "sha256": "bc68e81d301ee686293b3c5b468dfe289407c603006cf24486737132a107d742"
+    },
+    {
+      "name": "04-tests.mp4",
+      "bytes": 1412807,
+      "sha256": "bf75b1d82b6843cfb5831ba172de545de88183b39de99fdae84d9f3eebeced29"
+    },
+    {
+      "name": "04-tests-poster.jpg",
+      "bytes": 82522,
+      "sha256": "0dbb6215afe3870a7fe46bbb72d723bde99c133e763a3e556ff1e86452859694"
+    },
+    {
+      "name": "04-tests.srt",
+      "bytes": 1577,
+      "sha256": "1139b72b48fc23c439e8d31c44276131238322054693c6745acead0fc7da69b9"
+    },
+    {
+      "name": "04-tests.vtt",
+      "bytes": 1560,
+      "sha256": "5d55716a44365594455a30af3bbedbf9b0f45d1e51b81a2d542e3c0aba7deb4d"
+    },
+    {
+      "name": "05-publication.mp4",
+      "bytes": 995333,
+      "sha256": "b0250b564bf95b11a26885debae843264fe7f40a796940344c9a50037d1ff889"
+    },
+    {
+      "name": "05-publication-poster.jpg",
+      "bytes": 76230,
+      "sha256": "4a1966f05d15d7456d06640b3f52dd7a7967ca5d9029457c6d4c1ff42c8a6ea5"
+    },
+    {
+      "name": "05-publication.srt",
+      "bytes": 1138,
+      "sha256": "975ab85c0037d2b71e5d16e733b658f6f3c7c74958732d50e5aa99e052e724ca"
+    },
+    {
+      "name": "05-publication.vtt",
+      "bytes": 1127,
+      "sha256": "7eb0a38f2cb269c2b5bbd056b2c70e15b83938a4171683a499cc07eb07e99e9e"
+    },
+    {
+      "name": "06-staff.mp4",
+      "bytes": 1430404,
+      "sha256": "060b9457639b4a7f4f5484b9b365afab1ca492320c66443f6f2f498c8ff6b0e1"
+    },
+    {
+      "name": "06-staff-poster.jpg",
+      "bytes": 69763,
+      "sha256": "c29abc7608bfd7c55b78ca83df67e9a4fc3725ae016b020aa085b975962bb547"
+    },
+    {
+      "name": "06-staff.srt",
+      "bytes": 1735,
+      "sha256": "7de2fabce69c3c71c39a9736870af90118c7382235f12694b1dd2dc9bd2489e9"
+    },
+    {
+      "name": "06-staff.vtt",
+      "bytes": 1714,
+      "sha256": "80e32c4bbb2417c87fdb60c7763780eb3a62e2152f90a66e2bc3aa7a5812e313"
+    },
+    {
+      "name": "07-assignment.mp4",
+      "bytes": 1246967,
+      "sha256": "1df0a52eaae88963ab7a796aa0b62967baaefa4cf6bb582f027bb1b78a080489"
+    },
+    {
+      "name": "07-assignment-poster.jpg",
+      "bytes": 86301,
+      "sha256": "0d8fe74d932054854969ac37435b4d77cd67cb33ae57eea4f7ac76da449fa058"
+    },
+    {
+      "name": "07-assignment.srt",
+      "bytes": 1480,
+      "sha256": "283ded6aeffffd645db1b71960aa04c59c92321a946ba2cc336813279300e6b4"
+    },
+    {
+      "name": "07-assignment.vtt",
+      "bytes": 1463,
+      "sha256": "3bdff9010f03521b7aedcc7df927fcb3056c483df10c73d04c336ac23596a749"
+    },
+    {
+      "name": "08-results.mp4",
+      "bytes": 1117038,
+      "sha256": "2e7fd97686b4d952b927fc3363e83b5e7a5cf48f3c9d5d180b8a008dce26d0ad"
+    },
+    {
+      "name": "08-results-poster.jpg",
+      "bytes": 95150,
+      "sha256": "0694120f4132c18f72f345f1c408e2c8903b11194c270595fc77a7e4cb84893e"
+    },
+    {
+      "name": "08-results.srt",
+      "bytes": 1213,
+      "sha256": "4102e03a9c8522a475d7bd0d39cd48992d2a7fb227df96c52efeaefd84e6177c"
+    },
+    {
+      "name": "08-results.vtt",
+      "bytes": 1202,
+      "sha256": "c9fae12f1e838cd77a6378c3674a8894c571d08a57b7fbb34ae5b60d46f53672"
+    }
+  ]
+}

@@ -143,6 +143,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.59] - 2026-10-16
+
+### Added
+
+- Publish the approved male-Qwen methodologist video guide: eight processes,
+  69 step controls, Russian subtitles and downloadable MP4s. Keep the link directly
+  below the methodologist menu logo and retain the screenshot/text guide.
+  Frontend-only release; API, database, voice input and reserve settings unchanged.
+
 ## [0.11.58] - 2026-10-16
 
 ### Fixed

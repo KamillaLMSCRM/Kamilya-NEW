@@ -25,6 +25,7 @@ import {
   Sparkles,
   Target,
   Users,
+  Video,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -119,7 +120,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
               collapsed && 'justify-center px-0',
             )}
           >
-            <BookOpen className="h-5 w-5 shrink-0" aria-hidden />
+            <Video className="h-5 w-5 shrink-0" aria-hidden />
             {!collapsed && (
               <span className="min-w-0">
                 <span className="block whitespace-normal break-words text-sm font-semibold leading-5">

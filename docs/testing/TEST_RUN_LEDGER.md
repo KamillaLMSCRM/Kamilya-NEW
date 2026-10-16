@@ -4758,3 +4758,42 @@ Rules:
 - Exact Python quality command: `pwsh -NoProfile -File scripts/dev/run_python_quality_baseline.ps1`; exit `0`, baseline passed, Ruff `1008`, Mypy `2200`. These are baseline check counts, not zero-issue claims.
 - Earlier narrow adaptation run for `tests/unit/test_document_answers.py` had `47 passed`, `1` failure in a prompt wording assertion after Root's implementation wording changed; this was not classified as a product defect. Root later updated the conditional-authority assertion and reports the focused combined check `75 passed`. This prior result is retained as context, not relabeled as a failure of the final combined run.
 - Runner-local receipt `.release-evidence/DOCUMENT58-20261016/runner-local58-r3.json` records the above. Requested/observed agent model and token counters were unavailable (`UNKNOWN`). Root review counters are `UNKNOWN`. The separate isolated DEV gate was still `RUNNING` per Root at handoff; no runtime acceptance, production GO, or overall release acceptance is implied. No DB gate, model/browser/provider/network call, external action, or tests were run during this documentation-only receipt turn. Root review remains pending.
+### VIDEO59-LOCAL-20261016 — 2026-10-16 — local methodologist video-guide integration
+
+- Static inspection in the assigned worktree confirmed the methodologist-only
+  sidebar link, Russian/Kazakh/English locale keys, same-origin relative media,
+  eight MP4s, 32 media/caption assets, 69 step buttons, eight Russian caption
+  tracks, and retention of `methodologist-text.html`. No browser/runtime/API,
+  provider, Git, deployment, database, or secret action was performed.
+- Required full web command exited `1`: `159` test files passed, `2` failed;
+  `1163` tests passed, `3` failed; duration `108.18s`. The first preserved
+  failure was the unrelated `tests/learningInsightsJournal.test.tsx` missing
+  the `Принять` button, with jsdom navigation-not-implemented output. The two
+  `tests/methodologistGuide.test.ts` failures were classified
+  `HARNESS_FAILURE`: the legacy test expects `.flow` sections and a completion
+  checkbox in `methodologist.html`, while the new published video guide uses
+  the video structure and retains the old text guide at `methodologist-text.html`.
+- The requested npm audit command was `NOT_RUN` under the packet stop rule after
+  the first full-suite failure. No retry or test weakening was performed.
+- Sanitized machine-readable evidence:
+  `.release-evidence/VIDEO59-LOCAL-20261016/runner-local-video59.json`.
+
+### VIDEO59-LOCAL-R2-20261016 — 2026-10-16 — corrected local verification
+
+- The original `VIDEO59-LOCAL-20261016` failure remains preserved and was not
+  rewritten. Root's scoped correction changed only
+  `tests/methodologistGuide.test.ts` to read the retained
+  `public/guides/methodologist-text.html`; its assertions were unchanged.
+- Isolated `tests/learningInsightsJournal.test.tsx` passed with exit `0`; report:
+  `.release-evidence/VIDEO59-LOCAL-R2-20261016/journal.json`.
+- Bounded full suite passed with exit `0`: `161` test files, `1167` tests,
+  `0` failed, `0` pending, `--maxWorkers=2`; report:
+  `.release-evidence/VIDEO59-LOCAL-R2-20261016/full-web.json`.
+- Production-registry audit passed with exit `0`: `No known vulnerabilities
+  found` using `--prod --audit-level moderate`.
+- Final static readback confirmed `8` videos, `69` steps, `32` assets, exact
+  asset byte lengths and SHA-256 values, caption interval counts, `8` Russian
+  caption tracks, no external HTML runtime references, retained legacy guide,
+  methodologist-only safe sidebar link, and publisher count/hash checks.
+- No browser/runtime/API/provider/DB/Git/deploy/source mutation occurred.
+  Sanitized receipt: `.release-evidence/VIDEO59-LOCAL-R2-20261016/runner-local-video59-r2.json`.
