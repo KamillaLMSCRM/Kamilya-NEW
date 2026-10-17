@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased DEV learner continuation — 2026-10-17
+
+- Keep single-answer controls/state consistent for MCQ, true_false and legacy
+  single_choice in learner and methodologist preview; preserve actual answer labels.
+- Return students directly to My courses from the course reader, including the
+  completion evidence card. Label history-back actions accurately when no course
+  context exists. Role guards and API/scoring/progress contracts unchanged.
+- Previous DEV007 exact3dd69a07 accepted on all three services; these follow-up
+  changes require their own final regression/release/live checks. No production.
+
 ## Unreleased DEV cabinet follow-up — 2026-10-17
 
 - Correct announcement instructions in RU/KK/EN: choose recipients before saving,

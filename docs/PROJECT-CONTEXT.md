@@ -5,7 +5,21 @@
 
 ## Источники правды
 
-### DEV latest2026-10-17: partial player rollout, no full-release PASS
+### DEV current2026-10-17: exact cabinet follow-up007 accepted
+
+Exact3dd69a070bea835284244321ae42269dd9dfbc06 LIVE on existing DEV web/API/worker.
+CI39019328345 SUCCESS; Verceldpl_HBR8mBBwwtAZwMoSom1BFZcAmMZh READY/Hobby;
+APIdep-db9jjkmq1p3s738gfk1g/workerdep-db9jki8m7kps73dl1i6g LIVE/Free.
+REL-DEV-CABINET-COPY-20261017-007 RELEASE_OK; root receipt and API health accepted.
+Schema0183 and configuration unchanged; failed006 retained below as history.
+True-false radios/single selection and actual zero-enrollment copy visible in
+ordinary browser. Own new zero-audience coursec3e05cad… content/publish verified,
+then normally archived with no learners. Own survey1633cdf4… answered once by
+existing QA learner, reload acknowledges submitted; no retained learning reset.
+Legacy single_choice/preview-label/course-return follow-up is local candidate,
+not already released. Whole-cabinet remains PARTIAL. Production unchanged.
+
+### Historical failed006: partial player rollout, no full-release PASS
 
 Packet006/c4705cfb50679e070e9663844c8abacbfb0ebef9 stopped: API deployment
 dep-db9jcrvbtjjs73buna0g update_failed on private SSH startup exit255 with no

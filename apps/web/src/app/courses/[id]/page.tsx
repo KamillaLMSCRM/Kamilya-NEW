@@ -115,6 +115,7 @@ export default function CoursePlayerPage() {
   const [assignmentRemainingSeconds, setAssignmentRemainingSeconds] = useState<number | null>(null);
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
+  const courseListHref = user?.role === 'student' ? '/my-courses' : '/courses';
   const isPrivilegedPreview = user?.role === 'admin'
     || user?.role === 'superadmin'
     || user?.role === 'methodologist';
@@ -457,7 +458,7 @@ export default function CoursePlayerPage() {
       if (completedCountAfterSave >= total && total > 0 && token && courseId) {
         await finalizeCourseCompletion();
       } else {
-        router.push('/courses');
+        router.push(courseListHref);
       }
     }
   };
@@ -467,11 +468,11 @@ export default function CoursePlayerPage() {
   const finalizeCourseCompletion = async () => {
     if (isPrivilegedPreview) {
       toast.success(t('toast.coursePreviewCompleted'));
-      router.push('/courses');
+      router.push(courseListHref);
       return;
     }
     if (!token || !courseId) {
-      router.push('/courses');
+      router.push(courseListHref);
       return;
     }
     try {
@@ -522,7 +523,7 @@ export default function CoursePlayerPage() {
         setCompletionEvidenceEventId(data.training_evidence_event_id);
         setCourseCompleted(true);
       } else {
-        router.push('/courses');
+        router.push(courseListHref);
       }
     } catch (e) {
       console.error('Course completion failed', e);
@@ -589,7 +590,7 @@ export default function CoursePlayerPage() {
           <button onClick={handleEnroll} disabled={enrolling} className="bg-primary text-white px-6 py-2 rounded hover:bg-primary disabled:opacity-50">
             {enrolling ? t('common.saving' as any) : t('courses.enrollButton')}
           </button>
-          <Link href="/courses" className="block mt-4 flex items-center gap-1 text-sm text-primary hover:underline justify-center">
+          <Link href={courseListHref} className="block mt-4 flex items-center gap-1 text-sm text-primary hover:underline justify-center">
             <ChevronLeft className="w-4 h-4" /> {t('courses.backToCourses')}
           </Link>
         </div>
@@ -611,14 +612,14 @@ export default function CoursePlayerPage() {
               eventId={completionEvidenceEventId}
               activityTitle={course.title}
               activityKind="course"
-              continueHref="/courses"
+              continueHref={courseListHref}
               continueLabel={t('courses.backToCourses')}
               resultHref="/certificates"
               resultLabel={t('courses.viewCertificate')}
             />
           ) : (
             <div className="text-center">
-              <Link href="/courses" className="bg-primary text-white px-6 py-2 rounded hover:bg-primary inline-block">
+              <Link href={courseListHref} className="bg-primary text-white px-6 py-2 rounded hover:bg-primary inline-block">
                 {t('courses.backToCourses')}
               </Link>
             </div>
@@ -633,7 +634,7 @@ export default function CoursePlayerPage() {
       <div className="min-h-screen bg-muted flex flex-col">
         <div className="flex h-14 items-center justify-between border-b bg-card px-4">
           <div className="min-w-0">
-            <Link href="/courses" className="flex items-center gap-1 text-sm text-primary hover:underline">
+            <Link href={courseListHref} className="flex items-center gap-1 text-sm text-primary hover:underline">
               <ChevronLeft className="w-4 h-4" /> {t('courses.title')}
             </Link>
             <h1 className="truncate text-sm font-semibold">{course.title}</h1>
@@ -683,7 +684,7 @@ export default function CoursePlayerPage() {
       {/* Left sidebar — TOC */}
       <div className="w-full md:w-80 bg-card border-b md:border-b-0 md:border-r flex flex-col">
         <div className="p-4 border-b">
-          <Link href="/courses" className="flex items-center gap-1 text-sm text-primary hover:underline">
+          <Link href={courseListHref} className="flex items-center gap-1 text-sm text-primary hover:underline">
             <ChevronLeft className="w-4 h-4" /> {t('courses.title')}
           </Link>
           <h2 className="font-bold mt-2">{course.title}</h2>

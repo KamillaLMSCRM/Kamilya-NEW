@@ -5249,3 +5249,52 @@ Rules:
   provider readback, not exit status, establishes partial external state.
 - next: one separate reviewed copy-correction DEV packet after bounded diagnosis;
   stop at a repeated transport failure, no production or infrastructure repair.
+
+## CABINET-ACTIONS-20261017-007 — exact DEV recovered, learner/contextual follow-up
+
+- executor: root; no Test Runner owns this append destination. Timestamp2026-10-17.
+- result: exact3dd69a07 RELEASE_OK; root receipt/API health accepted. Full cabinet
+  still PARTIAL; no production release/data/config change.
+- verified: CI39019328345 SUCCESS; Verceldpl_HBR8mBBwwtAZwMoSom1BFZcAmMZh;
+  APIdep-db9jjkmq1p3s738gfk1g/workerdep-db9jki8m7kps73dl1i6g sameSHA/LIVE,
+  Free/Free/Hobby/schema0183 unchanged. Root fresh true-false2radios/0checkboxes/
+  one selected/noSubmit; separately published own0audience course guidance PASS,
+  then normal archive/reload. Ordinary API owner/datesNULL, bothcompetencies0links,
+  owncompletedcourse/notificationattempts0, recurrencedraft/nextnull/remindersoff,
+  announcementdraft/0sent. Survey create/oneQAlearner rating/reload PASS; invitation
+  blank/invalid/refresh/help/no-send PASS. Source IDs/screenshots in acceptance plan.
+- changed: only existing DEV deployment and identified synthetic fixture actions;
+  only zero-audience course archived, no hard deletion, protected old learning
+  not reset. Normal existing learner/password login and logout, no credentials
+  changed/exported/injected. Voice/reserve/routing/ASUS remain unchanged.
+- candidate: legacy single_choice/shared preview labels plus truthful fallback
+  and student course-list destination. Semantic tests RED/GREEN, root three href
+  regressions RED plus one existing async completion failure in initial RED;
+  final3files36PASS, two extra preservation tests post-fix only. Full gates pending.
+- harness: custom readback initially used ambient and worktree-poetry runtimes,
+  both lacked httpx before any auth/API request; no dependency installed. Canonical
+  primary .venv explicit path then succeeded; no environment/access blocker claim.
+- next: finish exact candidate008 full gates/live acceptance; keep broad NOT_RUN
+  states explicit. Root owns docs/integration/browser, leaf choice writer and
+  independent root navigation review; Release Runner canonical provider execution.
+
+## CABINET-ACTIONS-20261017-008-LOCAL — choice parity and accurate learner returns
+
+- executor: root; no Test Runner owns this append destination. Timestamp2026-10-17.
+- result: local final gates PASS, fresh DEV release/acceptance still required.
+- changed: exact shared MCQ/true_false/single_choice semantics for native/preview;
+  preview source labels retained, unknown/multiple unchanged; generic history-back
+  caption and student /my-courses links/imperative fallbacks. No API/scoring/schema.
+- verified: leaf semantic and preview label RED/GREEN; root3new href RED cases.
+  First RED4FAIL/10PASS included an existing completion race. First full candidate
+  1FAIL/1238PASS183.34s; preserves original evidence. Test captured pre-quiz transient
+  Finish element; now waits passed-quiz text before locating/clicking, no longer
+  timeout or weakened POST assertion. Completion evidence/no-evidence both covered.
+  Final focused3files37PASS; full168files1240PASS182.73s, standalone typecheck and
+  final build67/67 PASS, contracts0183/296PASS. API hash-linked4228/526 unchanged.
+  Root reviewed leaf source, leaf independently reviewed root nav/harness delta.
+- runtime: current accepted007 owner list has actual other methodologist; fresh
+  announcement helper/audience RU/KK/EN PASS, no send and RU restored. This does
+  not claim008 runtime. No provider, model, reserved fallback or production changes.
+- next: one exact canonical DEV008 deployment, fresh native/preview/back and
+  saved-state/fixture-preservation readback. All broad NOT_RUN remains explicit.

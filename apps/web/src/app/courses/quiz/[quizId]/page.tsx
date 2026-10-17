@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Card, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { isSingleAnswerQuestionType } from '@/lib/quizChoice';
 import { toast } from '@/components/ui/Toast';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { getRoleHome } from '@/lib/rolePolicy';
@@ -206,7 +207,7 @@ export default function QuizPlayerPage() {
   const handleSelect = (questionId: string, choiceId: string, type: string) => {
     if (attemptBlocked) return;
     setAnswers((prev) => {
-      if (type === 'MCQ' || type === 'true_false') {
+      if (isSingleAnswerQuestionType(type)) {
         return { ...prev, [questionId]: [choiceId] };
       }
       // Multi-select for matching/other types
@@ -355,7 +356,7 @@ export default function QuizPlayerPage() {
             {courseHref ? (
               <Link href={courseHref} className="underline">{t('courses.backToCourse')}</Link>
             ) : (
-              <Button variant="outline" onClick={() => router.back()}>{t('courses.backToCourse')}</Button>
+              <Button variant="outline" onClick={() => router.back()}>{t('common.back')}</Button>
             )}
           </div>
         )}
@@ -383,7 +384,7 @@ export default function QuizPlayerPage() {
                   </Link>
                 ) : (
                   <Button variant="outline" onClick={() => router.back()}>
-                    {t('courses.backToCourse')}
+                    {t('common.back')}
                   </Button>
                 )}
                 {result.passed && nextLessonHref && (
@@ -464,7 +465,7 @@ export default function QuizPlayerPage() {
                       }`}
                     >
                       <input
-                        type={currentQ.type === 'MCQ' || currentQ.type === 'true_false' ? 'radio' : 'checkbox'}
+                        type={isSingleAnswerQuestionType(currentQ.type) ? 'radio' : 'checkbox'}
                         name={`q-${currentQ.id}`}
                         checked={isSelected}
                         onChange={() => handleSelect(currentQ.id, choice.id, currentQ.type)}

@@ -89,6 +89,64 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 
 ## Gates and next
 
+### Candidate008 final local gates
+
+Final source full web168files/1240PASS182.73s; focused3files/37PASS, standalone
+typecheck and final build67/67 including lint/types PASS. API unchanged from
+4228PASS/526SKIP/quality1008/2201, hash-linked rather than newly rerun. Release
+contracts0183/296PASS. First full run1FAIL/1238PASS preserved: completion test
+clicked an intermediate detached control before quiz state settled. Fixed the
+test's observable readiness, retained POST assertions/timeouts, then reran full.
+Independent leaf review accepted root link/fallback delta and synchronization.
+
+Additional actual007 proof: announcement audience/help sequence and inbox-delivery
+non-claim checked in RU/KK/EN, Russian restored. Owner dialog freshly loads
+Not assigned / DOCUMENT58 Temporary QA / QA Methodologist; no new owner write.
+Candidate008 exact release and new native/preview/student navigation still gates.
+
+### Accepted007 and learner continuation candidate008
+
+REL-DEV-CABINET-COPY-20261017-007 RELEASE_OK exact3dd69a070bea835284244321ae42269dd9dfbc06.
+CI39019328345 SUCCESS; Verceldpl_HBR8mBBwwtAZwMoSom1BFZcAmMZh READY;
+APIdep-db9jjkmq1p3s738gfk1g/workerdep-db9jki8m7kps73dl1i6g exact/LIVE.
+Root read receipt and current API health. Existing Free/Free/Hobby/schema0183
+unchanged. Earlier006 failed state is superseded, not removed or reclassified.
+
+Fresh ordinary browser follow-up:
+
+- True-false question in own quiz:2radios/0checkboxes, selecting second unchecks
+  first; persisted labels retained; no Submit/new attempt. Screenshot saved.
+- A separate QA coursec3e05cad-a240-4cb9-9559-994c5b8b9706 with actual text lesson
+  was published without assignments. New empty-enrollment guidance visible for
+  genuinely0audience, not a transient load. Then normal archive removed only this
+  course from working catalogue; reload still absent. No hard delete/history loss.
+- Recurring draft50932aee… independently confirmed draft/next_run null/reminder
+  disabled. Announcement6cc349a9-3174-42ed-bfdf-926f4e73c8b9 draft/0recipients/
+  0sent/0failed. Competencies42b6ccb9… anddc278793-1633-405e-9431-5586745f306a
+  both0positions/0courses. Source policy owner/datesNULL. Own completed enrollment
+  42fcca76… remains completed, notification_attempt_count0. Read-only API proof
+  owned-readback-007.json; one normal login audit, no business writes in collector.
+- Survey1633cdf4-61dd-49b6-bb7a-7d9e6fcf9d84 created for own course; existing QA
+  student ordinary password login, single rating4, submitted acknowledgement and
+  reload/no repeat controls PASS. Screenshot dev-survey-response-007.png.
+- Invitations blank-create disabled, invalid non-email rejected locally, refresh/
+  empty history/help open-close PASS. No invitation/access account/mail created.
+- Student program-empty/help, My tests/attempt counts/exhausted state/history back
+  checked without submitting protected old quizzes. Own completed result remains
+  completed on current DEV; confirmation remains unsigned (no OTP/upload).
+
+Confirmed continuation defects: legacy single_choice uses multi-select; preview
+overwrites true/false labels; history-back falsely says Return to course; completed
+learner list link goes /courses then /student rather than /my-courses. Bounded
+shared-choice and student-only target fixes prepared/reviewed. New semantic tests
+RED/GREEN; root three href cases RED, initial RED also had one existing completion
+async failure; final3files/36PASS without assertion weakening. Two multi/unknown
+preservation tests were post-fix GREEN only. Full final web/build pending.
+
+Whole cabinet stays PARTIAL. Actual media/import/model processing, activated
+automation/program delivery, external sends/OTP/signed records/purge and separate
+admin/superadmin role acceptance are not implied by these ordinary QA checks.
+
 ### Follow-up006 and announcement candidate007
 
 Packet006/c4705cfb is BLOCKED, not RELEASE_OK. CI39018439587 SUCCESS,

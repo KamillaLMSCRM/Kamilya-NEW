@@ -128,6 +128,55 @@ describe('methodologist quiz preview', () => {
     expect(screen.queryByText('Правильный ответ')).not.toBeInTheDocument();
   });
 
+  it('keeps persisted true/false labels and single-choice semantics in preview', async () => {
+    const previewQuiz = {
+      ...quiz,
+      questions: [{
+        ...quiz.questions[0],
+        type: 'true_false',
+        choices: [
+          { id: 'choice-false', text: 'No', order_index: 0 },
+          { id: 'choice-true', text: 'Yes', order_index: 1 },
+        ],
+      }],
+    };
+    fetchMock.mockImplementationOnce(async () => jsonResponse(previewQuiz));
+    render(<QuizMethodologistPreviewPage />);
+
+    await screen.findByText('Как следует поступить?');
+    expect(screen.getByText('No')).toBeInTheDocument();
+    expect(screen.getByText('Yes')).toBeInTheDocument();
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+  });
+
+  it('submits one choice for single-choice preview questions', async () => {
+    const previewQuiz = {
+      ...quiz,
+      questions: [{
+        ...quiz.questions[0],
+        type: 'single_choice',
+        choices: [
+          { id: 'choice-one', text: 'Первый', order_index: 0 },
+          { id: 'choice-two', text: 'Второй', order_index: 1 },
+        ],
+      }],
+    };
+    fetchMock.mockImplementationOnce(async () => jsonResponse(previewQuiz));
+    render(<QuizMethodologistPreviewPage />);
+
+    await screen.findByText('Как следует поступить?');
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole('radio')[0]);
+    fireEvent.click(screen.getAllByRole('radio')[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить ответы без сохранения' }));
+
+    await screen.findByText('Предпросмотр не пройден');
+    const submitCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/preview-submit'));
+    expect(submitCall).toBeDefined();
+    expect(JSON.parse(String((submitCall?.[1] as RequestInit).body)).answers[0].selected_choice_ids).toEqual(['choice-two']);
+  });
+
   it('blocks the separate route for learner roles before any quiz request', async () => {
     useAuthStore.setState({
       accessToken: 'student-token',

@@ -2,6 +2,26 @@
 
 Current as of: 2026-10-17.
 
+## COURSE-RETURN-001 - Learner course-list links redirected to the dashboard
+
+- Date: 2026-10-17; ordinary synthetic DEV completed-course browser check.
+- Symptom: Back to courses linked to the manager-only /courses; student role
+  guard redirected to /student instead of the student's assigned-course list.
+- Cause: course reader reused the manager catalogue URL in all role states.
+- Fix: compute student /my-courses, retain /courses for other roles; reuse for
+  enrolled-empty/completion/evidence continuation and native/SCORM header links.
+  No role guard, API, progress, evidence or certificate behavior changes.
+- Verification: three new state regressions failed expected href assertions;
+  initial RED also had one existing completion-async failure, not attributed to
+  this fix. First full run1FAIL/1238PASS captured a detached intermediate Finish
+  control before quiz results loaded. Test now awaits actual passed-quiz state,
+  not a longer timeout; original completion POST assertion retained. Completion
+  with/without evidence covered. Final focused3files/37PASS; full168files/1240PASS,
+  standalone typecheck/build67/67 PASS. Independent review accepted; fresh live
+  destination remains a DEV gate.
+- Prevention: verify the actual terminal destination after a button click, not
+  just its caption or an intermediate route that the role guard will reject.
+
 ## ANNOUNCEMENT-HELP-001 - Help reversed audience selection and overstated delivery
 
 - Date: 2026-10-17; ordinary synthetic DEV cabinet action audit.
@@ -20,6 +40,16 @@ Current as of: 2026-10-17.
   successful provider send is not an independently verified mailbox delivery.
 
 ## QUIZ-BOOLEAN-001 - True-false player used misleading controls and positional labels
+
+- Follow-up2026-10-17: existing persisted single_choice also used checkboxes and
+  accumulated multiple IDs; methodologist preview still overwrote true/false
+  labels by position. Shared exact predicate MCQ/true_false/single_choice now
+  controls both input role and state replacement in both surfaces. Preview keeps
+  source choice text/IDs. multiple_choice and unknown types retain prior behavior,
+  MCQ attempt rotation unchanged. No-course router.back now says generic Back,
+  not a course destination it cannot guarantee. New semantic and label tests ran
+  RED/GREEN; final focused3files/36PASS includes two post-fix multi/unknown
+  preservation tests. No additional learner submission or scoring migration.
 
 - Date: 2026-10-17; ordinary synthetic DEV learner action audit.
 - Symptom: true_false choices appeared as checkboxes despite single-answer

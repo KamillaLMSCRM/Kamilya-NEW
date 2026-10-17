@@ -120,7 +120,24 @@ describe('course player role modes', () => {
     setupFetch();
   });
 
-  it('shows a terminal completion action instead of a no-op next lesson button', async () => {
+  it.each(['completed', 'in_progress', 'unassigned'])('returns the %s learner to their assigned-course list', async (state) => {
+    setupFetch(null, lesson.content, { ...course, status: 'published' });
+    const baseFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/v1/student/dashboard')) {
+        return Promise.resolve(jsonResponse({ enrolled_courses: state === 'unassigned' ? [] : [{ course_id: 'course-1', enrollment_status: state }] }));
+      }
+      return baseFetch(input, init);
+    });
+    useAuthStore.setState({ accessToken: 'student-token', user: { id: 'student-1', role: 'student' } as never, initialized: true });
+    render(<CoursePlayerPage />);
+
+    const label = state === 'in_progress' ? 'courses.title' : 'courses.backToCourses';
+    expect(await screen.findByRole('link', { name: label })).toHaveAttribute('href', '/my-courses');
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST' || init?.method === 'PUT')).toHaveLength(0);
+  });
+
+  it.each([true, false])('shows a terminal completion action with evidence=%s instead of a no-op next lesson button', async (hasEvidence) => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.endsWith('/v1/courses/course-1')) return jsonResponse({ ...course, status: 'published' });
@@ -131,7 +148,7 @@ describe('course player role modes', () => {
       if (url.endsWith('/v1/quizzes/by-lesson/lesson-1')) return jsonResponse({ id: 'quiz-1', title: 'Проверка урока', pass_score: 80, time_limit: null, attempt_limit: 3, deferral_days: 0 });
       if (url.endsWith('/v1/quizzes/quiz-1/attempts')) return jsonResponse([{ id: 'attempt-1', score_percent: 100, passed: true }]);
       if (url.endsWith('/v1/progress/lessons/lesson-1') && init?.method === 'PUT') return jsonResponse({ completed: true });
-      if (url.endsWith('/v1/courses/course-1/complete') && init?.method === 'POST') return jsonResponse({ status: 'completed', certificate_id: 'certificate-1', training_evidence_event_id: 'event-1' });
+      if (url.endsWith('/v1/courses/course-1/complete') && init?.method === 'POST') return jsonResponse({ status: 'completed', certificate_id: 'certificate-1', ...(hasEvidence ? { training_evidence_event_id: 'event-1' } : {}) });
       if (url.includes('/v1/learner/assistant/messages')) return jsonResponse([]);
       return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
     });
@@ -143,6 +160,7 @@ describe('course player role modes', () => {
 
     render(<CoursePlayerPage />);
 
+    await screen.findByText('quiz.passed (100%)');
     const finish = await screen.findByRole('button', { name: 'Завершить курс' });
     expect(screen.queryByRole('button', { name: 'Следующий урок' })).not.toBeInTheDocument();
     await act(async () => {
@@ -153,6 +171,7 @@ describe('course player role modes', () => {
       expect.stringContaining('/v1/courses/course-1/complete'),
       expect.objectContaining({ method: 'POST' }),
     ));
+    if (!hasEvidence) await waitFor(() => expect(routerPush).toHaveBeenCalledWith('/my-courses'));
   });
 
   it('stacks the course outline above lesson content on narrow screens', async () => {
