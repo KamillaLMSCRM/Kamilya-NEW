@@ -6,9 +6,13 @@
   is already named in the URL. Preserve local preview completion across lesson
   navigation without writing learner progress, and isolate delayed reads between
   courses and signed-in identities. Exact DEV/browser acceptance passed.
-- DEV025 candidate: synchronize the mandatory-training action filter on client
+- DEV025 accepted: synchronize the mandatory-training action filter on client
   navigation; show its active constraint and allow clearing it without losing
   other form or URL parameters, including when data is loading or unavailable.
+  Actual menu/Back-Forward/Clear/reload and RU/KK/EN checks passed in DEV only.
+- Real synthetic generation completes and saves a draft; manual Needs changes
+  feedback persists. Its quiz misses critical business-step coverage, so the
+  quality gap remains explicitly open in the existing backlog, not a PASS claim.
 
 ## DEV023 bounded live acceptance — 2026-10-17
 

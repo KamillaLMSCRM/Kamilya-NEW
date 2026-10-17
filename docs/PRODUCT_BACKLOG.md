@@ -15,11 +15,11 @@
 
 ## P1: структура сотрудников — закрыть DEV rollout и UX перед production
 
-DEV-only candidate source and ordinary-role synthetic browser flows accepted;
-current API/webda21, worker32ff. Final worker update twice timed out in existing
-private SSH startup; exact provider parity remains BLOCKED. No third blind retry,
-production/ASUS/configuration/resource/billing change. Read PROJECT-CONTEXT and
-the staff plan before a fresh connectivity diagnostic or deployment.
+DEV-only source and ordinary-role synthetic browser flows accepted. Current exact
+frontend/API/worker parity and readback are recorded in PROJECT-CONTEXT (DEV025),
+superseding the old da21/32ff mismatch. The owner explicitly deferred Render/reset
+diagnosis; do not resume it from historical BLOCKED notes. This does not authorize
+production or close the remaining product/large-company acceptance items below.
 
 - Restore discoverable archive controls in the new workspace using the existing
   guarded archive API; currently transfer/add/edit work, but archive requires the

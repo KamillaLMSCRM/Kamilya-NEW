@@ -5,6 +5,30 @@
 
 ## Источники правды
 
+### Current accepted DEV025 — 2026-10-17
+
+Exact506de2778ee9f00cdd6925fa2cb92b02d60e1659/CI39047517113 all7jobsSUCCESS;
+controller RELEASE_OK and independent root RECONCILED. Webdpl_9rKNtB2e9p9VSPHLqgjniAQGmcFB
+READY/Hobby, APIdep-db9ppf6q1p3s73959ao0/workerdep-db9pqigm7kps73e9snhg LIVE/Free,
+sameSHA/schema0183/no migration. Actual DB1/equalAPI-worker/onepong/hashd5c996aab210/
+ai-documents-maintenance PASS. Fullweb1300PASS169files179.64s, focused12PASS/tsc/
+Next67of67/contracts314IDs. No production publication authorized or performed.
+
+Live materialize/review-stale visible-filter0, clean-menu8withoutApply,
+Back/Forward, Clear+retained fields/query/hash, restore8/finalreload and RU-KK-EN
+visual accepted. Reader024 correction remains source-identical; ordinary API
+confirms preview completed_ids[] and all protected fixture identities/learning
+unchanged. New generationb850179c completed20.894s;6dee453b draft/needs_changes/
+qualitycomment/0audience/no release. Inline Cancel preserves exact content.
+Functional creation works, but quiz business coverage1/4/preamble question is not
+quality acceptance; saved fixture and existing backlog hold the next task.
+
+Full cabinet stays PARTIAL: external sends, signed confirmation/export, security
+grants/protected resets and quiz educational coverage unclosed. Reset/Render
+diagnosis explicitly DEFERRED by owner: do not restart from older snapshots.
+ASUS/model/voice/reserve/config/security/tiers/resources/billing unchanged. Current
+DEV tab remains handed off; final local docs successor is not a new deployment.
+
 ### Current DEV024 follow-up scope — 2026-10-17
 
 Owner explicitly deferred Render/network reset investigation; do not resume it

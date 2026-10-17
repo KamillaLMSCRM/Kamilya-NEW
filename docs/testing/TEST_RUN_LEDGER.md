@@ -6129,3 +6129,45 @@ Rules:
   and broad tests included. No efficiency or quality extrapolation from one source.
 - Exact DEV025/runtime Back-Forward/filter/visual gates pending. Full cabinet
   PARTIAL; Render reset investigation explicitly deferred; production unchanged.
+
+### DEV025 exact live acceptance and protected readback — 2026-10-17
+
+- Exact506de2778ee9f00cdd6925fa2cb92b02d60e1659/dev pushed+remoteSHA16:00:25Z,
+  KamillaLMSCRM/canonical process-local repo credential/task+authorizedmemory note.
+  Packet3ca426b1…94f0da1, CI39047517113 all7jobsSUCCESS. Singleexecute RELEASE_OK,
+  independent root RECONCILED. Verceldpl_9rKNtB2e9p9VSPHLqgjniAQGmcFB READY/Hobby,
+  APIdep-db9ppf6q1p3s73959ao0/workerdep-db9pqigm7kps73e9snhg LIVE/Free, sameSHA,
+  schema0183/migrationnone. Actual DB1/equalAPI-worker/onepong/hashd5c996aab210/
+  ai-documents-maintenance PASS, no business/modeltask from control verification.
+- Actual materialize card0/banner visible whileloading; clean main-menu route8
+  withoutApply. BrowserBack shows old action/banner, Forwardclean8. Review-stale
+  card0/distinctlabel; Clearauto8. Controlled qa=025#main-content plus applied
+  no-matchsearch/protectedstate: Clear removes onlyaction/keepsqueryhash/fields/
+  result0; restorefields→8, finalcleannav+reload8. RU-KK-EN active-filter screenshots
+  1280x720 visually readable; finalclean1270x714. Faulted-load/stale ordering guards
+  tested automatically, not claimed as live injected failures. DEVtab handedoff.
+- Generation result review lifecycle: actual source disclosure correct file;
+  Approve-Cancel, needs_changes+qualitycomment submit, inlineedit-Cancel/reopen
+  exactoriginal, New clearsform/defaults/Generate0disabled while saved course
+  persists in catalog/editor PASS. Summary-role locator mismatch corrected by
+  nativeAX target; ambiguousSend narrowed to dialog. Harness failures do not mark
+  product buttons broken and no blind submission retry occurred.
+- Fresh ordinary final checker025 invocation reuses reviewed final023 GET-only
+  implementation; scope labels remain023 but execution is after025 deployment.
+  Exact original2modules2lessons/zeroaudience/3approvedrequestIDs/protectedattempts
+  1+2/own2/completed08:34:13.194326Z/submittedsurvey/sourcepolicy/inactiveadmin/
+  importedplacement/program0assignments/ruleinactive/announcement0sent allPASS.
+  Separate preview-job025 GET proves previewcompleted_ids[], firstjobcancelled/
+  no result, active0, fresh6dee course draft/needs_changes/exactreviewactor/comment/
+  no publication/currentrelease/0audience; lesson IDs/order/text and quizquestions
+  exactly equal structured values after UI Cancel. Normal auth audit only.
+- Independent synthetic evaluator confirms lesson4of4steps, quiz1of4businesssteps
+  plus1preamble, keys2of2supported and criticalstopuntested. One consumed fixture,
+  not benchmark/general model measurement; provider/fallback NOT_VERIFIED despite
+  embedded model-name metadata. Product-quality backlog open; no false approval.
+- Bounded024/025 product acceptance PASS. Full matrix PARTIAL with explicit unrun
+  externalmail/OTP/support/signedevidence/grants/protectedresets and AIquizquality
+  concern. Production/ASUS/voice/reserve/secrets/security/resources/config/tiers/
+  billing unchanged; network diagnosis deferred, not localized by this release.
+  Derivedacceptance025-summary.json and screenshots/receipts retained. Final docs
+  local-only commit is separate from deployed source; no extra release triggered.

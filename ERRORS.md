@@ -19,8 +19,12 @@ Current as of: 2026-10-17.
   observed. Narrow route-sync RED3of9→9PASS; correction RED4of12 included2real
   loading/error Clear defects and2test-oracle errors, separately identified.
   Final focused12PASS/tsc, independent ACCEPT, fullweb1300PASS169files179.64s/
-  Next67of67/contracts314IDs/diffcheck PASS. Exact025 DEV/live acceptance pending;
-  do not infer browser PASS from mocked router calls.
+  Next67of67/contracts314IDs/diffcheck PASS. Exact025506de277/CI39047517113/all7
+  SUCCESS/controller RELEASE_OK/root RECONCILED and actual DB1/onepong/3queues PASS.
+  Live materialize0/banner→clean8withoutApply, Back/Forward, review-stale0/Clear8,
+  retained applied fields/query/hash, restore8/reload and RU-KK-EN visual PASS.
+  Loading banner observed live; error/stale faults are automated, not claimed as
+  browser fault injection. No production change.
 - Prevention: test client transitions between both action links and the clean
   route, clear with retained form fields, browser history and delayed responses.
   A filter must remain visible and clearable even if its request fails.

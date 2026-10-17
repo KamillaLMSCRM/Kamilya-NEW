@@ -1,7 +1,50 @@
 # Cabinet actions and source ownership acceptance
 
-Status: DEV024 reader accepted; DEV025 route-filter correction in review; cabinet PARTIAL.
+Status: DEV024 reader + DEV025 filter ACCEPTED; full cabinet PARTIAL; reset diagnosis DEFERRED.
 Owner request2026-10-17. Production publication NOT AUTHORIZED.
+
+## Final bounded DEV025 acceptance — 2026-10-17
+
+- Exact506de2778ee9f00cdd6925fa2cb92b02d60e1659/dev pushed/readback16:00:25Z,
+  KamillaLMSCRM/canonical process-local credential/task+authorizedmemory receipt.
+  CI39047517113 all7jobsSUCCESS. Packet3ca426b1…94f0da1/controller RELEASE_OK/
+  independent root RECONCILED. Verceldpl_9rKNtB2e9p9VSPHLqgjniAQGmcFB READY/Hobby,
+  APIdep-db9ppf6q1p3s73959ao0/workerdep-db9pqigm7kps73e9snhg LIVE/Free, sameSHA.
+  Schema0183/no migration/config/tier change. Actual DB1/API-worker equality/
+  onepong/hashd5c996aab210/ai-documents-maintenance PASS; no control business task.
+- Actual materialize card shows active-filter banner even while loading, then0;
+  sidebar clean-route automatically restores8 without Apply. Browser Back restores
+  action/banner, Forward clean8. Review-stale card shows its distinct label/0;
+  Clear automatically restores8. Applied no-match search+protected state survives
+  clearing only action, stays0; URL retains qa=025#main-content. Restoring form
+  fields returns8; final clean-route reload again8/no active action banner.
+- Visual active-filter/Clear RU/KK/EN1280x720 PASS; no overlap/truncation. Final
+  clean1270x714 screenshot dev-mandatory-final-025.png. Loading banner was observed
+  live; failed-load Clear/stale-response faults are automated regressions, not
+  claimed as injected browser failures. Current ordinary DEV tab handed off.
+- Fresh generation review: source disclosure opens correct filename; Approve
+  dialog Cancel does not approve. Needs changes with owned quality comment saves;
+  inline lesson edit/Cancel/reopen restores exact text. Create new course clears
+  selection/intent/audience/default format and disables Generate0 while prior
+  saved course remains in catalog/editor. Native AX click opens HTML summary;
+  prior role/text locators missed it (harness, not product failure). A duplicated
+  Send locator was safely narrowed to the dialog before submission.
+- Final ordinary API readback independently proves new course draft/needs_changes,
+  exact methodologist/comment prefix, published_at/current_releaseNULL,0audience,
+  lesson text/order/IDs and questions unchanged after Cancel. Original0428 job
+  cancelled/no start/no course; active0; preview completed_ids[]. Existing combined
+  checker again preserves approved requests, original modules/lessons, exact
+  protected/owned attempts, completed timestamp/survey, source policy, inactive
+  admin, imported placement, program0audiences, inactive rules/draft announcements.
+- No source/runtime product claim of full cabinet PASS: fresh quiz quality is
+  NOT_ACCEPTED (lesson4/4business steps, quiz1/4 plus preamble, keys2/2supported),
+  independently evaluated from the saved fixture and queued in existing backlog.
+  Mail/OTP/support, signed-copy confirmation/export, admin grants and retained
+  resets remain unrun/restricted. Render diagnosis stays deferred. Production,
+  ASUS/models/reserve/voice/secrets/security/resources/billing unchanged.
+- Local gates1300PASS/169files179.64s/focused12PASS/tsc/build67of67/contracts314IDs;
+  exact CI and actual product readback separate. Derived acceptance025-summary.json
+  links sanitized evidence; final docs-only local successor is not another release.
 
 ## DEV024 accepted; DEV025 discovered during remaining navigation checks
 
@@ -676,7 +719,7 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 |---|---|---|
 | Methodologist /dashboard | Refresh, filters, action cards, destination context, help | PARTIAL: exhausted1/reset/return;024 completed2/in-progress0/failed2 and return/clear-result8 PASS; mandatory-card→clean sticky-filter defect confirmed,025 correction pending; other combinations unrun |
 | /documents | Upload/open/cancel/validation; YouTube; search/status/purpose filters; download; new version; reindex; delete preview; actuality ownership/dates/review decisions; help | OWNER FLOW PASS: other/self/save/clear/reload/date refusal; other actions PARTIAL, named delete cancelled |
-| /ai/generate | Source selection/compatibility; options; generation/resume/cancel; preview; edit/review/publish; help | PARTIAL: preflight/options/default restore;024 one normal generation stayed queued, Check again/cancel/return and independent cancelled/no-course/active0 readback PASS; fresh generated output NOT VERIFIED, resume NOT_RUN |
+| /ai/generate | Source selection/compatibility; options; generation/resume/cancel; preview; edit/review/publish; help | PARTIAL: preflight/options/default restore;024 queued Check again/cancel/no-course/active0 PASS; readiness-justified repeat completed20.894s/1module1lesson1quiz2Qs, source tree/Approve-Cancel/needs_changes+comment/inlineedit-Cancel/exactrestore/New-defaults/persistedcatalog PASS; quiz educational coverage NOT_ACCEPTED; resume/fresh publish NOT_RUN |
 | /courses and /courses/[id]/edit | Create/edit/preview; lessons/reorder/media; quizzes; review/publish/archive/delete; help | PARTIAL: own save/reload/preview/discard; empty refusal/nonempty publish/archive PASS; template approval/fresh reviewer/resume/revision2 publish/limited decision Close PASS;018 module and lesson reorder/reload, module rename/reload, temporary module/lesson create/cancel/save/reload PASS;019 exact approved temporary lesson then empty module delete/reload/API preservation PASS; selected-course approval2/1/0/empty/refresh/reload PASS; image Markdown literal, file-media NOT_RUN |
 | /quizzes | Select/create quiz; question/answer types/edit/delete/reorder; learner preview; save/reload; help | PARTIAL: own3types/options/settings/edit/reload, failed/retry/success learner attempts PASS; fresh008 legacy preview/no-save scoring, single selection and exhausted radios PASS |
 | /learning-paths | Create/edit/version/publish; sequence; assignments/cancel; learner view; help | PARTIAL: create/reorder/required/save/reload/publish0audience/v2draft;023 sameA four-kind retention/differentB four-kind+date reset, invalid-date guard/same-day/New-Close and RU-KK-EN readable tabs PASS; actual assignment NOT RUN |
@@ -687,7 +730,7 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 | /positions and /positions/[id] | Create/edit; JD attach/analyze; qualification/instruction/tests; versions/restore; help | PARTIAL: forms/chooser/refresh/tabs; profile save/reload/restore empty level PASS;018 actual version1 Restore/reload/version6 keeps current linked unit label; rule/JD-model mutations NOT_RUN |
 | /cohorts | Create/edit; search/select/save members; reload; help | PARTIAL: owned group create/member/save/reload/remove/reset, final0members |
 | /candidate-assessments | Create/edit campaign; preview/activate/close; invite/copy link; CSV; help | PARTIAL: course guard/create/start/close/CSV; no candidate/link/mail |
-| /mandatory-training | Search/filters/scope/status/paging; learner/course destination; help | PARTIAL: search/apply/empty/restore7, single-page guards; no retained writes |
+| /mandatory-training | Search/filters/scope/status/paging; learner/course destination; help | PARTIAL:025 materialize/review-stale0/active banner, clean-menu8withoutApply, Back/Forward, Clear+retained fields/query/hash, restore8/reload and RU/KK/EN visual PASS; loading live and fault/stale automation PASS; no retained writes |
 | /training-log | Filters/history; current occurrence; CSV/PDF/ZIP; signed-copy review; restricted share/revoke; help | PARTIAL: filter/reset/history/answer details/disclosure/CSV; no retained-record edits |
 | /training-procedures | Draft/edit/validation; activate/version; delete preview; help | PARTIAL: owned draft/edit/cancel/activation422; no irreversible delete |
 | /training-retention | View policies; empty state; help; admin policy/dry-run/purge/legal-hold variants | READ-ONLY methodologist notice/empty policy/help PASS; no policy editing or evidence deletion controls for this role; admin mutations NOT_RUN, purge forbidden |
