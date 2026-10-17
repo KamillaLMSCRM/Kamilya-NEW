@@ -93,6 +93,26 @@ const PENDING_CONFIRMATION_PREFIX = 'staff-structure:pending-confirmation';
 
 const inputClassName = 'min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
+const staffChangeErrorMessages: Record<string, string> = {
+  staff_workspace_disabled: 'Рабочее пространство пока не включено в этой среде.',
+  preview_stale: 'Данные изменились после предпросмотра. Получите новый предпросмотр.',
+  preview_expired: 'Срок предпросмотра истёк. Получите новый предпросмотр.',
+  hr_managed: 'Запись управляется HR-системой и не может быть изменена вручную.',
+  serialization_conflict: 'Параллельное изменение не позволило выполнить перевод. Получите новый предпросмотр.',
+  impact_snapshot_too_large: 'Изменение слишком велико для безопасного предпросмотра.',
+  course_release_missing: 'Один из обязательных курсов не имеет опубликованной версии. Изменение не выполнено.',
+  preview_limit: 'Достигнут лимит активных предпросмотров. Завершите текущие изменения или повторите позже.',
+  inactive_target: 'Выбранное подразделение или сотрудник неактивны; ручное изменение недоступно.',
+  inactive_position: 'Выбранная должность неактивна; ручное изменение недоступно.',
+  hierarchy_cycle: 'Такое перемещение создаст цикл в структуре. Выберите другого родителя.',
+  maximum_depth_exceeded: 'Перемещение превысит допустимую глубину структуры.',
+  head_office_must_be_root: 'Головной офис должен оставаться корневым подразделением.',
+  duplicate_sibling: 'На этом уровне уже есть подразделение с таким названием и типом.',
+  student_only: 'Безопасный перевод доступен только для сотрудников с учебной ролью.',
+  resource_not_found: 'Выбранная запись больше недоступна. Обновите рабочее пространство.',
+  plan_not_found: 'Сохранённый план больше недоступен.',
+};
+
 function validView(value: string | null): WorkspaceView {
   return value === 'people' ? 'people' : 'schema';
 }
@@ -165,27 +185,21 @@ function employeeIdentity(employee: StaffWorkspaceEmployee): string {
 }
 
 function humanizeError(error: unknown, fallback: string): string {
+  const responseCode = responseErrorCode(error);
+  if (responseCode) return staffChangeErrorMessages[responseCode];
   const message = apiErrorMessage(error, fallback);
-  const known: Record<string, string> = {
-    staff_workspace_disabled: 'Рабочее пространство пока не включено в этой среде.',
-    preview_stale: 'Данные изменились после предпросмотра. Получите новый предпросмотр.',
-    preview_expired: 'Срок предпросмотра истёк. Получите новый предпросмотр.',
-    hr_managed: 'Запись управляется HR-системой и не может быть изменена вручную.',
-    serialization_conflict: 'Параллельное изменение не позволило выполнить перевод. Получите новый предпросмотр.',
-    impact_snapshot_too_large: 'Изменение слишком велико для безопасного предпросмотра.',
-    course_release_missing: 'Один из обязательных курсов не имеет опубликованной версии. Изменение не выполнено.',
-    preview_limit: 'Достигнут лимит активных предпросмотров. Завершите текущие изменения или повторите позже.',
-    inactive_target: 'Выбранное подразделение или сотрудник неактивны; ручное изменение недоступно.',
-    hierarchy_cycle: 'Такое перемещение создаст цикл в структуре. Выберите другого родителя.',
-  };
-  if (known[message]) return known[message];
+  if (Object.hasOwn(staffChangeErrorMessages, message)) return staffChangeErrorMessages[message];
   if (message === fallback || /^HTTP \d{3}$/.test(message)) return message;
   return fallback;
 }
 
 function responseErrorCode(error: unknown): string | null {
-  const detail = (error as { response?: { data?: { detail?: unknown } } } | null)?.response?.data?.detail;
-  return typeof detail === 'string' ? detail : null;
+  const data = (error as { response?: { data?: { detail?: unknown; message?: unknown } } } | null)?.response?.data;
+  const candidates = [data?.detail, data?.message];
+  const code = candidates.find((candidate): candidate is string => (
+    typeof candidate === 'string' && Object.hasOwn(staffChangeErrorMessages, candidate)
+  ));
+  return code || null;
 }
 
 function hasHttpResponse(error: unknown): boolean {
@@ -774,21 +788,27 @@ export function StaffWorkspace({
         {items.map((employee) => {
           const effectiveUnit = employee.effective_unit_id ? unitsById.get(employee.effective_unit_id) : undefined;
           return (
-            <article key={employee.id} className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] sm:items-start">
+            <article
+              key={employee.id}
+              data-roster-layout={compact ? 'compact' : 'full'}
+              className={compact
+                ? 'grid min-w-0 gap-3 py-4'
+                : 'grid min-w-0 gap-3 py-4 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] sm:items-start'}
+            >
               <div className="min-w-0">
-                <p className="font-semibold text-foreground">{employee.full_name}</p>
-                <p className="text-xs text-muted-foreground">{employeeIdentity(employee)}</p>
+                <p className="break-words font-semibold text-foreground [overflow-wrap:anywhere]">{employee.full_name}</p>
+                <p className="break-all text-xs text-muted-foreground">{employeeIdentity(employee)}</p>
                 <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${employee.is_active ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground'}`}>
                   {accountLabel(employee.is_active)}
                 </span>
                 {employee.hr_managed && <p className="mt-2 text-xs font-medium text-amber-700">Управляется HR-системой: ручной перевод заблокирован.</p>}
               </div>
-              <div className="min-w-0 text-sm">
+              <div className="min-w-0 break-words text-sm [overflow-wrap:anywhere]">
                 <p>{employee.position_name || 'Должность не указана'}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{effectiveUnit ? unitLabel(effectiveUnit) : 'Без подразделения'}</p>
                 <p className="mt-1 text-xs text-muted-foreground">Источник размещения: {placementSourceLabel(employee.placement_source)}</p>
               </div>
-              <div className="flex flex-wrap gap-2 sm:justify-end">
+              <div className={`flex min-w-0 flex-wrap gap-2 ${compact ? '' : 'sm:justify-end'}`}>
                 <Button type="button" variant="ghost" size="sm" onClick={() => onEditEmployee({
                   id: employee.id,
                   full_name: employee.full_name,
@@ -851,7 +871,7 @@ export function StaffWorkspace({
           )}
           {detailView === 'training' && (
             <div className="space-y-3 text-sm">
-              <p>Обязательное обучение может приходить из правил компании, подразделения и должности. Здесь не показана фиктивная оценка готовности или соответствия.</p>
+              <p>Правила обучения показывают обязательные курсы для компании, подразделения и должности. Откройте правила, чтобы изменить требования, или назначения, чтобы проверить обучение сотрудников.</p>
               <div className="flex flex-wrap gap-2">
                 <Link href="/training-rules" className="inline-flex min-h-10 items-center rounded-md border border-input px-3 font-medium hover:bg-accent">
                   <BookOpenCheck className="mr-2 h-4 w-4" aria-hidden="true" />Правила обучения
@@ -904,15 +924,9 @@ export function StaffWorkspace({
 
   return (
     <section aria-label="Рабочее пространство сотрудников" className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Сотрудники и структура</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Структура компании и список сотрудников с фильтрами по подразделению и должности.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => onAddUnit(selectedUnit?.id || null)}><Building2 className="mr-2 h-4 w-4" aria-hidden="true" />Добавить подразделение</Button>
           <Button type="button" onClick={() => onAddEmployee(selectedUnit?.id || null)}><Plus className="mr-2 h-4 w-4" aria-hidden="true" />Добавить сотрудника</Button>
-        </div>
       </div>
 
       {pendingConfirmationId && (
@@ -1041,7 +1055,7 @@ export function StaffWorkspace({
           <Card className="min-w-0 overflow-hidden">
             <CardHeader>
               <div className="flex flex-wrap items-center gap-2"><CardTitle>Сотрудники</CardTitle><span className="rounded-full bg-muted px-2 py-0.5 text-xs">{roster?.total ?? 0} в выборке</span></div>
-              <p className="text-sm text-muted-foreground">Серверная страница по 20 записей; кадровый статус не выводится из состояния аккаунта.</p>
+              <p className="text-sm text-muted-foreground">Фильтр «Доступ к кабинету» показывает, может ли сотрудник войти в систему. Это не кадровый статус и не признак трудоустройства.</p>
               <form className="mt-3 grid gap-3 sm:grid-cols-2" onSubmit={(event) => { event.preventDefault(); setQuery(queryDraft); navigate({ page: 1 }); }}>
                 <label className="grid gap-1.5 text-sm">Поиск
                   <div className="flex gap-2"><input className={inputClassName} type="search" value={queryDraft} onChange={(event) => setQueryDraft(event.target.value)} placeholder="Имя или табельный номер" /><Button type="submit" variant="outline">Найти</Button></div>
@@ -1090,7 +1104,7 @@ export function StaffWorkspace({
           <div className="space-y-4">
             <div className="rounded-lg bg-muted/50 p-3 text-sm">
               <strong>{changeDraft.kind === 'unit' ? (changeDraft.target as StaffWorkspaceUnit).name : (changeDraft.target as StaffWorkspaceEmployee).full_name}</strong>
-              <p className="mt-1 text-xs text-muted-foreground">Сначала сервер фиксирует снимок последствий. Подтверждение использует только его идентификатор и не заменяет команду.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Проверьте последствия изменения, затем подтвердите его отдельным действием. До подтверждения данные не изменятся.</p>
             </div>
             {!receipt && (
               <>

@@ -133,6 +133,8 @@ describe('StaffWorkspace', () => {
     const schemaTab = screen.getByRole('tab', { name: 'Схема' });
     fireEvent.keyDown(schemaTab, { key: 'ArrowRight' });
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Сотрудники' })).toHaveAttribute('aria-selected', 'true'));
+    expect(screen.getByText(/Фильтр «Доступ к кабинету» показывает, может ли сотрудник войти в систему/)).toBeInTheDocument();
+    expect(screen.getByText(/Это не кадровый статус и не признак трудоустройства/)).toBeInTheDocument();
     expect(new URLSearchParams(window.location.search).get('staff_view')).toBe('people');
     expect(new URLSearchParams(window.location.search).get('tab')).toBe('structure');
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Сотрудники' })));
@@ -205,6 +207,8 @@ describe('StaffWorkspace', () => {
     render(<StaffWorkspace {...defaultProps} />);
     fireEvent.click(await screen.findByRole('button', { name: /Перевести/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Безопасный перевод сотрудника' });
+    expect(within(dialog).getByText(/Проверьте последствия изменения, затем подтвердите его отдельным действием/)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/идентификатор|снимок сервера/i)).not.toBeInTheDocument();
     fireEvent.change(within(dialog).getByLabelText('Новое подразделение'), { target: { value: '' } });
     fireEvent.change(within(dialog).getByLabelText('Причина изменения'), { target: { value: 'Смена команды' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Получить предпросмотр' }));
@@ -225,12 +229,17 @@ describe('StaffWorkspace', () => {
     await waitFor(() => expect(getMock.mock.calls.filter(([url]) => url === '/v1/organization-units/workspace').length).toBeGreaterThan(1));
   });
 
-  it('requires a fresh preview after confirmation fails', async () => {
+  it.each([
+    ['preview_stale', /Данные изменились/],
+    ['preview_expired', /Срок предпросмотра истёк/],
+    ['hr_managed', /управляется HR-системой/],
+  ])('uses safe copy for the canonical %s confirmation envelope', async (code, expectedCopy) => {
     window.history.replaceState({}, '', '/admin/staff?tab=structure&staff_view=people&staff_unit=unit-1&staff_scope=direct&staff_access=active&staff_page=1');
+    const planId = `plan-${code}`;
     postMock.mockImplementation(async (url: string) => {
       if (url === '/v1/organization-units/changes/preview') return {
         data: {
-          id: 'plan-stale',
+          id: planId,
           expires_at: new Date(Date.now() + 60_000).toISOString(),
           kind: 'employee',
           target_id: 'employee-1',
@@ -242,8 +251,8 @@ describe('StaffWorkspace', () => {
           warnings: [],
         },
       } as any;
-      if (url === '/v1/organization-units/changes/plan-stale/confirm') {
-        throw { response: { data: { detail: 'preview_stale' }, status: 409 } };
+      if (url === `/v1/organization-units/changes/${planId}/confirm`) {
+        throw { response: { data: { error: 'conflict', message: code }, status: 409 } };
       }
       throw new Error(`Unexpected POST ${url}`);
     });
@@ -255,9 +264,60 @@ describe('StaffWorkspace', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Получить предпросмотр' }));
     fireEvent.click(await within(dialog).findByRole('button', { name: 'Подтвердить этот предпросмотр' }));
 
-    expect(await within(dialog).findByText(/Данные изменились/)).toBeInTheDocument();
+    expect(await within(dialog).findByText(expectedCopy)).toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'Подтвердить этот предпросмотр' })).not.toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Получить предпросмотр' })).toBeEnabled();
+  });
+
+  it.each([
+    ['canonical', { error: 'unprocessable_entity', message: 'hierarchy_cycle' }],
+    ['legacy', { detail: 'hierarchy_cycle' }],
+  ])('shows safe hierarchy-cycle guidance from the %s API error envelope', async (_envelope, data) => {
+    window.history.replaceState({}, '', '/admin/staff?tab=structure&staff_view=schema&staff_unit=unit-1&staff_scope=direct&staff_access=active&staff_page=1');
+    postMock.mockImplementation(async (url: string) => {
+      if (url === '/v1/organization-units/changes/preview') {
+        throw {
+          response: {
+            status: 422,
+            data,
+          },
+        };
+      }
+      throw new Error(`Unexpected POST ${url}`);
+    });
+
+    render(<StaffWorkspace {...defaultProps} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Переместить' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Безопасное перемещение подразделения' });
+    fireEvent.change(within(dialog).getByLabelText('Причина изменения'), { target: { value: 'Проверка цикла' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Получить предпросмотр' }));
+
+    expect(await within(dialog).findByText('Такое перемещение создаст цикл в структуре. Выберите другого родителя.')).toBeInTheDocument();
+    expect(within(dialog).queryByText('unprocessable_entity')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('Не удалось получить безопасный предпросмотр.')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['canonical unknown message', { error: 'unprocessable_entity', message: 'private_backend_diagnostic' }, 'private_backend_diagnostic'],
+    ['legacy inherited key', { detail: 'constructor' }, 'constructor'],
+    ['legacy prototype key', { detail: '__proto__' }, '__proto__'],
+  ])('keeps %s private and renders only the generic preview error', async (_case, data, privateText) => {
+    window.history.replaceState({}, '', '/admin/staff?tab=structure&staff_view=schema&staff_unit=unit-1&staff_scope=direct&staff_access=active&staff_page=1');
+    postMock.mockImplementation(async (url: string) => {
+      if (url === '/v1/organization-units/changes/preview') {
+        throw { response: { status: 422, data } };
+      }
+      throw new Error(`Unexpected POST ${url}`);
+    });
+
+    render(<StaffWorkspace {...defaultProps} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Переместить' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Безопасное перемещение подразделения' });
+    fireEvent.change(within(dialog).getByLabelText('Причина изменения'), { target: { value: 'Проверка безопасной ошибки' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Получить предпросмотр' }));
+
+    expect(await within(dialog).findByText('Не удалось получить безопасный предпросмотр.')).toBeInTheDocument();
+    expect(within(dialog).queryByText(privateText)).not.toBeInTheDocument();
   });
 
   it('blocks explicitly HR-managed records without calling a mutation route', async () => {
@@ -340,6 +400,48 @@ describe('StaffWorkspace', () => {
     expect(screen.getByText('Общий HR-специалист')).toBeInTheDocument();
     expect(screen.getByText(/В выбранном составе: 1.*Во всей компании.*: 3/)).toBeInTheDocument();
     expect(screen.getByText(/Общая должность используется в нескольких подразделениях/)).toBeInTheDocument();
+  });
+
+  it('explains where methodologists manage training requirements and assignments', async () => {
+    window.history.replaceState({}, '', '/admin/staff?tab=structure&staff_view=schema&staff_unit=unit-1&staff_scope=direct&staff_access=active&staff_page=1');
+
+    render(<StaffWorkspace {...defaultProps} />);
+    const detailTabs = await screen.findByRole('tablist', { name: 'Содержимое подразделения' });
+    fireEvent.click(within(detailTabs).getByRole('tab', { name: 'Обучение' }));
+
+    expect(screen.getByText(/Откройте правила, чтобы изменить требования, или назначения, чтобы проверить обучение сотрудников/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Правила обучения/ })).toHaveAttribute('href', '/training-rules');
+    expect(screen.getByRole('link', { name: /Назначения/ })).toHaveAttribute('href', '/assignments');
+  });
+
+  it('stacks the compact detail roster independently of viewport width and wraps long identity text', async () => {
+    window.history.replaceState({}, '', '/admin/staff?tab=structure&staff_view=schema&staff_unit=unit-1&staff_scope=direct&staff_access=active&staff_page=1');
+    const longEmployee = {
+      ...employee,
+      full_name: 'Сотрудник С Очень Длинным Составным Именем Без Риска Наложения Колонок',
+      personnel_number: 'PERSONNEL-IDENTIFIER-WITHOUT-SAFE-SHORT-BREAKPOINTS-0000000001',
+      position_name: 'Старший специалист по особенно длинным организационным процессам',
+    };
+    getMock.mockImplementation(async (url: string) => {
+      if (url === '/v1/organization-units/workspace') return { data: overview } as any;
+      if (url === '/v1/organization-units/employees') return {
+        data: { ...roster, items: [longEmployee] },
+      } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+
+    render(<StaffWorkspace {...defaultProps} />);
+
+    const article = await waitFor(() => {
+      const element = document.querySelector<HTMLElement>('[data-roster-layout="compact"]');
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    expect(article).toHaveAttribute('data-roster-layout', 'compact');
+    expect(article.className).not.toContain('sm:grid-cols');
+    expect(within(article).getByText(longEmployee.full_name).className).toContain('[overflow-wrap:anywhere]');
+    expect(within(article).getByText(`Табельный № ${longEmployee.personnel_number}`)).toHaveClass('break-all');
+    expect(within(article).getByText(longEmployee.position_name).closest('div')?.className).toContain('[overflow-wrap:anywhere]');
   });
 
   it('normalizes an unknown URL unit before the first roster request', async () => {

@@ -4967,3 +4967,40 @@ Rules:
   CLI now requires supplied APP_ENV allowlist AND pinned DEV project fingerprint
   before connection, covered by7 offline negatives/positive. Frontend recovery
   follow-up in progress. No DEV deployment or production acceptance claimed.
+
+## STAFF-STRUCTURE-DEV-20261017 — merged candidate and first live acceptance
+
+- Exact candidate32ff120f47d385b58a0cc5cbf20dae6083404fe2 preserves both current
+  master50d3 and priorDEVb35d histories. Canonical offline API3334PASS; web1191PASS
+  across164files; feature-on build67/67; Python quality PASS without baseline
+  relaxation. Initial journal1s timeout under concurrent build load was retained;
+  focused7 and full two-worker rerun PASS, no assertion/timeout changes.
+- Actual0183 isolated gate10 PASS25; exact current source hashes match, owned
+  schema cleanup=true, public catalog neutral=true. Preserved runtime0182 isolated
+  dependency PASS17/cleanup/public schema neutral. Independent final source-GO.
+- PR17 CI39006967348 SUCCESS and DEV pushCI39007554649 SUCCESS exact32ff.
+  Canonical public gate applied DEV0182->0183 with pinned project fingerprint.
+  No runtime settings values or production schema changed.
+- V6 REL-DEV-STAFF-STRUCTURE-20261017-001 RELEASE_OK: Vercel
+  dpl_DZYiLj7sxMzVWTakaU6gPxRUeUX3; Render APIdep-db9gpmnavr4c73e15u1g and
+  workerdep-db9gqnbrjlhs73epe4bg live exact32ff. API contour render-development,
+  secure APP_ENVproduction retained. Free/Free/Hobby and existing feature flags
+  preserved; only new staff flags enabled. Public health PASS.
+- Ordinary existing methodologist browser login in permanent DEV QA verified.
+  Created only QA ORG61 unitsA32651982-dd42-49bc-9623-5af8e47b463c and
+  B41b9c1a2-9fa8-4c06-88d6-811f66839f80, plus one employee identified by unique
+  personnelQA-ORG61-20261017, no email/phone/credential or new position. Existing
+  QA no-auto-assignment position reused; creation reported0added/0removed.
+- EmployeeA->B plan cbdce06d-715c-4806-bade-a8d3a694ab67 and unitB-under-A plan
+  ee636742-abf7-431c-a129-98cb9ad4fe59 returned success receipts; reload preserved
+  placement/breadcrumbs. Each affected1, training0added/0preserved; nonzero training
+  preservation is proved by the separate real isolated gate, not this browser case.
+- DirectA roster0 vs subtreeA roster1; schema/list selection and URL reload;
+  keyboardLeft switches people->schema. Shared position displays local1/company3
+  and cross-unit warning; no position-catalog move. Training links resolve to the
+  canonical rules/assignments routes. Search text itself is not URL-persisted.
+- CycleA-under-B rejected without confirmation, but generic error copy and compact
+  roster overlap found. STAFF-UI-004 records source cause. Follow-up focused28 tests,
+  typecheck/scopedlint PASS; Root full web/build and corrected DEV readback pending.
+- Owned fixture retirement/archive pending after follow-up. No permanent QA reset,
+  existing learner progress, production, voice, reserve or HR connector activation.

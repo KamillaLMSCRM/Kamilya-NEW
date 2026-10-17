@@ -16,10 +16,10 @@ Graphify graph absent. Bounded source fallback, not runtime proof.
 |---|---|---|---|
 | S1 inventory | Root + two read-only workers | DONE | exact source seams and current checkout |
 | S2 contract | Root | DONE | accepted V1, additive training, no auth-policy mutation, 1C exclusions |
-| S3 backend | Root | DONE_LOCAL | policy/service73 + real isolated Supabase25; public DEV not changed |
-| S4 frontend | bounded worker / Root | IN_REVIEW | schema/roster/preview; final ambiguous-confirmation reload recovery underway |
-| S5 integration | Root / independent reviewer | IN_PROGRESS | final full suite/build/review; DEV controller V6 local tests |
-| S6 DEV | Root | NOT_STARTED | existing-tier deployment, exact readback, ordinary-role live flow, cleanup |
+| S3 backend | Root | DONE | full API3334; real isolated Supabase25; public0183 applied |
+| S4 frontend | bounded worker / Root | DONE_LOCAL | web1191; feature-on build67/67; explicit ambiguous-confirm recovery |
+| S5 integration | Root / independent reviewer | DONE | source-GO32ff120f, quality/build/PR CI PASS; preserved DEV/runtime0182 |
+| S6 DEV | Root | IN_PROGRESS | strict V6 executing; ordinary-role live flow and cleanup remain required |
 
 One writer per path. Root owns routes/migration/shared auth/legacy guard and staff
 page integration. Frontend worker owns new StaffWorkspace* files and named tests
@@ -50,3 +50,33 @@ run3148PASS/1FAIL missing canonical model registration, corrected and focused2PA
 final full rerun pending. Feature-on web page integration found unauthorized mappings
 and session-restore fetches; guarded by active methodologist role, four-file27PASS.
 First feature-on build found nullable selected-unit copy bug, fixed; rebuild pending.
+
+2026-10-17 current checkpoint supersedes pending local gates above:
+- Preserving merge32ff120f47d385b58a0cc5cbf20dae6083404fe2 retains both50d3 master
+  and b35d11a2 DEV histories. Staff revision0183 follows existing runtime0182;
+  SCHEMA_COORDINATION_ADDENDUM_V1 is the accepted correction, not rewritten history.
+- Canonical offline API3334PASS, full web1191PASS across164files, feature-on build
+  67/67, Python quality PASS with no debt allowances. Initial unrelated1s journal
+  timeout under concurrent load passed focused and full two-worker rerun; assertions
+  and timeout unchanged. Release contract linear181 revisions, head0183.
+- Current isolated-10-0183 PASS25 with exact source hashes, cleanup and public
+  catalog neutrality; runtime0182 isolated dependency PASS17/cleanup/neutrality.
+  Independent reviewer recomputed current hashes and confirmed SOURCE-GO after merge.
+- Draft PR17 targets dev, CI39006967348 SUCCESS exact32ff. Both project-account
+  feature and dev pushes independently read back32ff; sanitized receipts retained.
+- Public DEV gate applied only0182->0183, exact pinned DEV project hash verified.
+  V6 prepare CONFIGURATION_READY: only staff api/worker/frontend flags false->true;
+  old workbench/document/correction flags preserved true. Free/Free/Hobby unchanged.
+- Exact V6 REL-DEV-STAFF-STRUCTURE-20261017-001 execute in progress; push CI39007554649
+  pending at this checkpoint. No claim of exact provider rollout or live acceptance.
+- Existing ordinary QA methodologist login and baseline staff screen verified;
+  no public business fixture writes yet. Production/master/voice/reserve unchanged.
+
+Subsequent live checkpoint: V6 exact32ff RELEASE_OK; see TEST_RUN_LEDGER for
+provider IDs and two owned success plans. Employee/unit moves, reload, direct/
+subtree, keyboard tabs and shared-position counts PASS. Only one owned employee
+and two owned units created, no email/phone/credential/new position. Cleanup open.
+Live1280x720 found compact side-card overlap and generic cycle error copy;
+STAFF-UI-004 records both. Bounded frontend repair reviewed by Root, focused28 /
+typecheck/scopedlint and full web1201PASS. Build and no-config DEV follow-up pending;
+API/schema/policy unchanged, so current source-bound isolated25 evidence retained.

@@ -568,14 +568,16 @@ export default function AdminStaffPage() {
         </Card>
       ) : (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm text-muted-foreground">
-              {ui("authenticatedUi.adminStaff.manual.intro")}
+          {(!STAFF_WORKSPACE_ENABLED || tab !== "structure") && (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-sm text-muted-foreground">
+                {ui("authenticatedUi.adminStaff.manual.intro")}
+              </div>
+              <Button type="button" onClick={() => setManualOpen(true)}>
+                {ui("authenticatedUi.adminStaff.manual.addEmployee")}
+              </Button>
             </div>
-            <Button type="button" onClick={() => setManualOpen(true)}>
-              {ui("authenticatedUi.adminStaff.manual.addEmployee")}
-            </Button>
-          </div>
+          )}
 
           {manualOpen && (
             <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:items-center">

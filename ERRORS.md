@@ -8112,3 +8112,29 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Prevention: serialize global public-neutrality gates with public QA mutation
   phases; only disjoint local work or another explicitly separate environment may
   run in parallel. A successful subtest count alone never overrides failed neutrality.
+
+## STAFF-UI-004 - Live workspace exposed narrow-card overlap and hidden rejection reasons
+
+- Date:2026-10-17, DEV-only staff structure integration; production unchanged.
+- Symptom: ordinary methodologist employee/unit transfers and reload succeeded,
+  but at1280x720 the selected-unit detail card squeezed three employee columns
+  into approximately334px and long identity/placement text overlapped. A cyclic
+  unit move was rejected, but the dialog showed only a generic preview failure.
+- Cause: viewport `sm:` grid columns were reused inside a narrow side panel;
+  viewport width does not imply adequate container width. Local error handling
+  recognized legacy `detail`, not the canonical `{error,message}` response from
+  app.core.errors. This repeats the envelope class documented in ENROLLMENT-011.
+- Fix scope: stack compact roster sections independently of viewport breakpoints,
+  wrap long values, remove duplicate workspace title/employee CTA, and recognize
+  only allowlisted machine codes from canonical message or legacy detail. Never
+  render arbitrary response text, inherited object properties, credentials or
+  payloads; preserve ambiguous5xx confirmation recovery.
+- Verification: initial live32ff positive employeeA->B and unitB-under-A receipts,
+  reload/breadcrumb/direct-vs-subtree/shared-position checks PASS. Cycle refusal
+  safe but copy failed. Corrected focused28, typecheck/scopedlint and full web1201
+  tests across164files PASS, including canonical/legacy allowlist and unknown/
+  prototype-key privacy cases. Corrected DEV/browser readback remains required
+  before accepting the follow-up; no production result claimed.
+- Prevention: test errors using the real public envelope and independently test
+  compact containers, not just viewport breakpoints. Keep one canonical page h1
+  and one primary add-employee action on the feature-on structure view.
