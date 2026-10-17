@@ -6089,3 +6089,43 @@ Rules:
   standalone tsc PASS, optimized Next build67of67 PASS, release contracts0183/
   313uniquejournalIDs PASS, version0.11.59/diffcheck PASS. Exact DEV and live gates
   are separate and still pending at this source checkpoint.
+
+### DEV024 accepted and DEV025 route-filter candidate — 2026-10-17
+
+- Exactbf537fb9/dev push/readback15:42:14Z/projectKamillaLMSCRM/canonicalprocess
+  credential/task+authorizedmemory receipt. CI39046210768 SUCCESS; packetda957ab9…
+  e27bcf74/controller RELEASE_OK/root RECONCILED. Webdpl_EN1Snmnnnkpbr5ix4jUvjYvsptVk
+  READY/Hobby, APIdep-db9ph2rbc2fs73cp0i5g/workerdep-db9pi3gm7kps73e8ugv0 LIVE/Free,
+  sameSHA/schema0183. Actual API-worker DB1 equality/onepong/hash4ab3cc832b2b/
+  ai-documents-maintenance PASS; no business/modeltask dispatched by control check.
+- Actual fixed deep-link2→sidebar1→Next renders2/1of2; normal1→query2 keeps1of2
+  after data load; Finish preview toast/catalog; fresh reload0of2. Separate ordinary
+  progress GET confirms methodologist completed_ids[]. Reused final023 GET-only
+  checker passes completed timestamp/survey/approval IDs/attempts1+2/own2/editor
+  originals/zeroaudiences/placement/inactiveadmin/sourcepolicy/rules/draftnotices.
+- Additional dashboard actual completed2/in-progress0/failed2/Return/resultClear8,
+  analytics3questions/Reset PASS. Main-menu mandatory route exposes a new sticky
+  hidden action filter: clean URL0 until Apply→8. Actual screenshot retained.
+- DEV025 bounded writer owns only mandatory-training page/test; root owns docs/
+  integration. Narrow route-sync RED3of9→9PASS. Independent correction1 found
+  success-only banner hidden on load error and missing direct action-switch oracle.
+  Correction RED4of12 contains2real loading/error Clear failures and2test-oracle
+  errors, not4product failures. Final12PASS/tsc/final independent ACCEPT; root
+  fullweb1300PASS169files179.64s/Next67of67/contracts0183-314IDs/diffcheck PASS.
+  Initial journal gate rejected the label 'Fix candidate:'; corrected canonical
+  'Fix:' and reran PASS. That was a documentation-gate failure, not product runtime.
+- Root justified one further normal generation only after changed ready runtime
+  evidence. Jobb850179c… completed20.894s (queue2.107s) from the exact1042byte
+  synthetic source, course6dee453b… draft/zeroaudience,1module/1lesson/1quiz/2Qs.
+  Actual UI shows completion/review controls; saved source/result read independently.
+  Lesson4of4numbered steps/stopOR/escalation preserved/no invented deadline observed;
+  quiz keys2of2faithful but one question is boilerplate and business-step coverage
+  only1of4. Functional generation PASS, instructional quality NOT ACCEPTED; existing
+  backlog updated, draft intentionally retained/unapproved for regression. No
+  provider/fallback identity claim from null progress metadata. Both jobs terminal,
+  active0; no business task running before025 deployment.
+- Agent effort/model/counters and exact delegation duration unavailable, not zero;
+  writer025 first-pass false/one correction; root independent source/data review
+  and broad tests included. No efficiency or quality extrapolation from one source.
+- Exact DEV025/runtime Back-Forward/filter/visual gates pending. Full cabinet
+  PARTIAL; Render reset investigation explicitly deferred; production unchanged.

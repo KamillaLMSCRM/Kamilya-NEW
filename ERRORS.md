@@ -2,6 +2,29 @@
 
 Current as of: 2026-10-17.
 
+## LEARNING-UX-004 - Mandatory-training deep-link action remained hidden after clean-route navigation
+
+- Date:2026-10-17, ordinary synthetic DEV024 cabinet navigation.
+- Symptom: dashboard Missing assignment card correctly shows an empty filtered
+  matrix. Clicking Mandatory training in the main menu removes the URL action
+  parameter, but still shows0 rows/All states. Only Apply restores8 actual rows.
+- Cause: action_required was copied from search parameters only into the initial
+  filters state. Client navigation reused the page without synchronizing that
+  state, and there was no visible action-filter disclosure or clear control.
+- Fix: candidate synchronizes normalized URL action changes/reset pagination while
+  preserving applied fields; disclose and clear the filter independently of data
+  loading/errors. Clear removes only action_required and keeps other query/hash.
+  Existing AbortController cleanup prevents obsolete responses replacing results.
+- Verification: actual clean-route sticky-filter reproduction and post-Apply8
+  observed. Narrow route-sync RED3of9→9PASS; correction RED4of12 included2real
+  loading/error Clear defects and2test-oracle errors, separately identified.
+  Final focused12PASS/tsc, independent ACCEPT, fullweb1300PASS169files179.64s/
+  Next67of67/contracts314IDs/diffcheck PASS. Exact025 DEV/live acceptance pending;
+  do not infer browser PASS from mocked router calls.
+- Prevention: test client transitions between both action links and the clean
+  route, clear with retained form fields, browser history and delayed responses.
+  A filter must remain visible and clearable even if its request fails.
+
 ## COURSE-PLAYER-NAV-001 - Next lesson targeted the already-current URL and left the old lesson visible
 
 - Date:2026-10-17, ordinary synthetic DEV023 course-reader preview.
@@ -23,7 +46,11 @@ Current as of: 2026-10-17.
   a deferred-progress resolver that accidentally targeted the third/new request,
   then proved a delayed evidence-body leak with20PASS1FAIL (expected evidence-new,
   received evidence-old); the post-body guard produces21PASS and standalone tsc
-  PASS. Full web gates, exact DEV rollout and actual reader acceptance are pending.
+  PASS. Full web1293PASS/169files183.59s/tsc/build67of67/contracts313IDs PASS;
+  exact DEV024 bf537fb9/CI39046210768/controller RELEASE_OK/root RECONCILED PASS.
+  Actual deep-link2→sidebar1→Next renders2; normal lesson1→query2 retains1/2,
+  Finish returns to courses with preview-completed toast. ActualDEVDB1/onepong/
+  threequeues and ordinary protected fixture readback PASS. No production change.
 - Prevention: assert the rendered next lesson, not merely router.push. Resolve
   the exact obsolete request in race tests; assert the new scope is loaded before
   releasing the old response. Preview must never issue progress PUT/completion POST.

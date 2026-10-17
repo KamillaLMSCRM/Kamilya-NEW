@@ -1,7 +1,50 @@
 # Cabinet actions and source ownership acceptance
 
-Status: DEV024 reader correction in review; DEV023 accepted; full cabinet PARTIAL.
+Status: DEV024 reader accepted; DEV025 route-filter correction in review; cabinet PARTIAL.
 Owner request2026-10-17. Production publication NOT AUTHORIZED.
+
+## DEV024 accepted; DEV025 discovered during remaining navigation checks
+
+- Exactbf537fb9a696147593b6805ce83c9b8ec135d061/dev pushed/readback15:42:14Z,
+  projectKamillaLMSCRM/canonicalcredential; task+authorizedmemory sanitizedreceipts.
+  CI39046210768 SUCCESS. Packetda957ab9…e27bcf74, controller RELEASE_OK and root
+  independent RECONCILED; Verceldpl_EN1Snmnnnkpbr5ix4jUvjYvsptVk READY/Hobby,
+  APIdep-db9ph2rbc2fs73cp0i5g/workerdep-db9pi3gm7kps73e8ugv0 LIVE/Free, sameSHA,
+  schema0183/no migration. Actual DB1/API-workerbroker equality, onepong hash
+  4ab3cc832b2b/ai-documents-maintenance PASS; no business/modeltask was dispatched.
+- Actual reader: deep-link lesson2→sidebar1→Next now renders lesson2 at1/2; normal
+  fresh lesson1→query2 retains local1/2 after load; Finish returns to catalog with
+  preview-completed toast. Reused ordinary GET-only QA checker passes original
+  two modules/two lessons/zeroaudience, protected attempts1+2 and own2attempts,
+  completed timestamp08:34:13.194326Z/survey/threeapprovedrequests/sourcepolicy/
+  inactiveadmin/importedplacement/program0assignments/rule-and-announcement guards.
+  Source/tests separately assert no privileged progress PUT/completion POST.
+- Dashboard completion2/in-progress0/failed2 cards route to matching visible
+  filters and actual counts, Return link works; Clear-result restores all8. Owned
+  analytics Reset also clears selected course/results. No durable learning writes.
+- New actual P2: dashboard materialize deep link correctly returns0; main sidebar
+  clean URL still returns0 with All states until Apply finally restores8. The page
+  initialized action_required once instead of synchronizing URL changes. DEV025
+  candidate syncs route changes, visibly discloses/clears the active action filter,
+  retains unrelated query/hash/form fields and guards obsolete reads. Its source
+  review/broad gates/exact DEV/live verification are separate and still pending.
+- After normal024 rollout and actual DB1/onepong/threequeue readiness, one bounded
+  repeat generation was justified by changed runtime evidence, not a blind retry.
+  Same exact source, brief/RU/explicit no-invention intent. Jobb850179c… submitted
+  15:56:26.029166Z, started15:56:28.136219Z, completed15:56:46.923284Z:
+  20.894s end-to-end, active0/2, errors[]. Draft6dee453b… has1module/1lesson/
+  1quiz/2questions, zeroaudience/currentpublication absent. UI result/review gates
+  visible. Ordinary API confirms lesson4/4source steps and no invented deadline;
+  quiz2/2keys source-consistent, but1question tests boilerplate and only1/4business
+  steps is covered. Functional generation PASS; educational coverage NOT ACCEPTED,
+  recorded in existing product backlog with saved result. No approval/publication
+  or assignment; no provider/model/fallback identity claim from null metadata.
+- Reader reload shows0/2 preview progress; separate ordinary GET proves persisted
+  methodologist completed_ids=[], original cancelled0428job still cancelled/
+  no started_at/no course, active0. No generation remains running before025.
+- Frozen025 root gates: focused12PASS/standalone tsc PASS; fullweb1300PASS/169files/
+  179.64s, Next67of67 PASS, contracts0183/314uniquejournalIDs PASS, diffcheck PASS.
+  Independent final two-file source review ACCEPT. Exact025 rollout/live pending.
 
 ## DEV024 follow-up — 2026-10-17
 
@@ -631,7 +674,7 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 
 | Role / route | Actions / acceptance | Current live status |
 |---|---|---|
-| Methodologist /dashboard | Refresh, filters, action cards, destination context, help | PARTIAL: exhausted1row/reset/return; other destination combinations pending |
+| Methodologist /dashboard | Refresh, filters, action cards, destination context, help | PARTIAL: exhausted1/reset/return;024 completed2/in-progress0/failed2 and return/clear-result8 PASS; mandatory-card→clean sticky-filter defect confirmed,025 correction pending; other combinations unrun |
 | /documents | Upload/open/cancel/validation; YouTube; search/status/purpose filters; download; new version; reindex; delete preview; actuality ownership/dates/review decisions; help | OWNER FLOW PASS: other/self/save/clear/reload/date refusal; other actions PARTIAL, named delete cancelled |
 | /ai/generate | Source selection/compatibility; options; generation/resume/cancel; preview; edit/review/publish; help | PARTIAL: preflight/options/default restore;024 one normal generation stayed queued, Check again/cancel/return and independent cancelled/no-course/active0 readback PASS; fresh generated output NOT VERIFIED, resume NOT_RUN |
 | /courses and /courses/[id]/edit | Create/edit/preview; lessons/reorder/media; quizzes; review/publish/archive/delete; help | PARTIAL: own save/reload/preview/discard; empty refusal/nonempty publish/archive PASS; template approval/fresh reviewer/resume/revision2 publish/limited decision Close PASS;018 module and lesson reorder/reload, module rename/reload, temporary module/lesson create/cancel/save/reload PASS;019 exact approved temporary lesson then empty module delete/reload/API preservation PASS; selected-course approval2/1/0/empty/refresh/reload PASS; image Markdown literal, file-media NOT_RUN |

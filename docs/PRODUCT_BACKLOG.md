@@ -39,6 +39,22 @@ the staff plan before a fresh connectivity diagnostic or deployment.
 
 ## P1: качество генерации и доказанное сокращение работы методиста
 
+-2026-10-17, ordinary DEV024 UI acceptance: readiness-justified repeat job
+  b850179c-c1c6-49be-a1cc-c0da0f4f6c91 completed in20.894s end-to-end
+  (started after2.107s); course6dee453b-7e12-470a-b0a8-a62fd258c922 remains draft,
+  zeroaudience/no publication. Exact existing1042-byte synthetic equipment source
+  SHA256c7091e2c…c9957 gives1module/1lesson/1quiz/2questions. The lesson retains
+  all4numbered business steps, both stop conditions and supervisor escalation;
+  no invented deadline/form number observed. However1of2questions tests the
+  synthetic-material preamble; only1of4business steps is tested, not the critical
+  stop/escalation or return step. This is a concrete educational-coverage concern,
+  not a functional generation failure or universal model-quality measurement.
+  Prioritize boilerplate exclusion and risk-weighted question coverage against
+  this saved result before another paid generation. Do not publish/approve this
+  fixture as a quality exemplar; provider/fallback identity is not exposed by its
+  completed job metadata and must not be inferred from phrasing. Evidence lives
+  with the cabinet acceptance packet, not a separate benchmark claim.
+
 Открыто после синтетического пилота2026-10-12. Текущий кандидат97f4efd принят
 по каноническому DEV-сценарию генерации/редактора/всех тестов; production не менялся.
 Owned cleanup закрыт: новый набор штатно удалён,11 старых orphan embeddings

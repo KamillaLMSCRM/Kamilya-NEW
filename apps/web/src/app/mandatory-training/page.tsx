@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type FormEvent } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertTriangle, BookOpenCheck, RefreshCw, Search } from 'lucide-react';
 
 import { Badge, Button, Card, CardContent, Input, Table } from '@/components/ui';
@@ -24,7 +24,7 @@ const copy = {
     title: 'Обязательное обучение',
     subtitle: 'Кому требуется какой курс, почему он нужен и какие назначения ещё не созданы.',
     searchPlaceholder: 'Сотрудник, email или табельный номер',
-    apply: 'Применить', retry: 'Повторить', allStates: 'Все состояния',
+    apply: 'Применить', retry: 'Повторить', allStates: 'Все состояния', activeFilter: 'Фильтр действия:', clearFilter: 'Сбросить фильтр',
     loading: 'Собираем матрицу обязательного обучения…',
     loadError: 'Не удалось загрузить матрицу. Данные не заменены нулями — повторите попытку.',
     empty: 'По выбранным условиям строк нет.', total: 'Всего требований',
@@ -50,7 +50,7 @@ const copy = {
   },
   en: {
     title: 'Mandatory training', subtitle: 'Who needs which course, why, and which assignments have not yet been created.',
-    searchPlaceholder: 'Employee, email, or personnel number', apply: 'Apply', retry: 'Retry', allStates: 'All states',
+    searchPlaceholder: 'Employee, email, or personnel number', apply: 'Apply', retry: 'Retry', allStates: 'All states', activeFilter: 'Action filter:', clearFilter: 'Clear filter',
     loading: 'Building the mandatory-training matrix…', loadError: 'Could not load the matrix. Missing data is not shown as zero.',
     empty: 'No rows match the selected filters.', total: 'Total requirements', materialized: 'Assigned', missing: 'Missing assignment', protected: 'Protected', stale: 'Needs review',
     employee: 'Employee', structure: 'Structure', course: 'Course', state: 'State', reason: 'Why assigned', action: 'Next action',
@@ -66,7 +66,7 @@ const copy = {
   },
   kk: {
     title: 'Міндетті оқу', subtitle: 'Кімге қандай курс қажет, не үшін қажет және қандай тағайындаулар әлі жасалмаған.',
-    searchPlaceholder: 'Қызметкер, email немесе табельдік нөмір', apply: 'Қолдану', retry: 'Қайталау', allStates: 'Барлық күйлер',
+    searchPlaceholder: 'Қызметкер, email немесе табельдік нөмір', apply: 'Қолдану', retry: 'Қайталау', allStates: 'Барлық күйлер', activeFilter: 'Әрекет сүзгісі:', clearFilter: 'Сүзгіні тазалау',
     loading: 'Міндетті оқу матрицасы жиналуда…', loadError: 'Матрицаны жүктеу мүмкін болмады. Жоқ дерек нөлмен ауыстырылмайды.',
     empty: 'Таңдалған шарттар бойынша жол жоқ.', total: 'Барлық талап', materialized: 'Тағайындалды', missing: 'Тағайындау жоқ', protected: 'Қорғалған', stale: 'Тексеру қажет',
     employee: 'Қызметкер', structure: 'Құрылым', course: 'Курс', state: 'Күйі', reason: 'Неге тағайындалды', action: 'Не істеу керек',
@@ -86,6 +86,7 @@ export default function MandatoryTrainingPage() {
   const user = useAuthStore((state) => state.user);
   const lang = useLanguageStore((state) => state.lang);
   const searchParams = useSearchParams();
+  const router = useRouter();
   const m = copy[lang as keyof typeof copy] ?? copy.ru;
   const allowed = Boolean(user?.tenant_id && (user.role === 'methodologist' || user.role === 'admin'));
   const initialAction = normalizeAction(searchParams.get('action_required'));
@@ -96,6 +97,12 @@ export default function MandatoryTrainingPage() {
   const [summary, setSummary] = useState<MandatoryTrainingSummary | null>(null);
   const [error, setError] = useState(false);
   const [reload, setReload] = useState(0);
+
+  useEffect(() => {
+    setFilters((current) => current.action_required === initialAction
+      ? current
+      : { ...current, action_required: initialAction, offset: 0 });
+  }, [initialAction]);
 
   useEffect(() => {
     if (!allowed) return;
@@ -119,12 +126,21 @@ export default function MandatoryTrainingPage() {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     setFilters({
-      action_required: initialAction,
+      action_required: filters.action_required,
       search: search.trim() || undefined,
       requirement_state: state || undefined,
       limit: 100,
       offset: 0,
     });
+  };
+
+  const clearActionFilter = () => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete('action_required');
+    const query = nextParams.toString();
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    router.replace(`/mandatory-training${query ? `?${query}` : ''}${hash}`, { scroll: false });
+    setFilters((current) => ({ ...current, action_required: undefined, offset: 0 }));
   };
 
   return <div className="space-y-6" data-testid="mandatory-training-page">
@@ -135,6 +151,7 @@ export default function MandatoryTrainingPage() {
 
     {error && <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-950"><span className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" />{m.loadError}</span><Button variant="outline" size="sm" onClick={() => setReload((value) => value + 1)}><RefreshCw className="mr-2 h-4 w-4" />{m.retry}</Button></div>}
     {!error && (!page || !summary) && <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">{m.loading}</div>}
+    {filters.action_required && <div data-testid="mandatory-training-active-filter" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground"><span>{m.activeFilter} {m.actionLabels[filters.action_required]}</span><Button type="button" variant="outline" size="sm" onClick={clearActionFilter}>{m.clearFilter}</Button></div>}
 
     {page && summary && <>
       {page.reporting_scope === 'restricted' && <div role="status" className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">{m.restrictedScope}</div>}

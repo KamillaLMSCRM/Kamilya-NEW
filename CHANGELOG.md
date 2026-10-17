@@ -2,10 +2,13 @@
 
 ## [Unreleased]
 
-- DEV024 candidate: fix Next lesson after sidebar selection when the next lesson
+- DEV024 accepted: fix Next lesson after sidebar selection when the next lesson
   is already named in the URL. Preserve local preview completion across lesson
   navigation without writing learner progress, and isolate delayed reads between
-  courses and signed-in identities. Exact DEV/browser acceptance remains pending.
+  courses and signed-in identities. Exact DEV/browser acceptance passed.
+- DEV025 candidate: synchronize the mandatory-training action filter on client
+  navigation; show its active constraint and allow clearing it without losing
+  other form or URL parameters, including when data is loading or unavailable.
 
 ## DEV023 bounded live acceptance — 2026-10-17
 

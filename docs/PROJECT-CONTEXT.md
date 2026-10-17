@@ -10,11 +10,17 @@
 Owner explicitly deferred Render/network reset investigation; do not resume it
 from the historical notes below. Continue synthetic DEV cabinet acceptance and
 ordinary existing-tier DEV releases only; production remains excluded. Runtime
-is still the accepted DEV023 until exact024 reconciliation proves otherwise.
+is exact DEV024 bf537fb9a696147593b6805ce83c9b8ec135d061: CI39046210768 SUCCESS,
+controller RELEASE_OK/root RECONCILED, Verceldpl_EN1Snmnnnkpbr5ix4jUvjYvsptVk,
+APIdep-db9ph2rbc2fs73cp0i5g/workerdep-db9pi3gm7kps73e8ugv0 READY/LIVE/sameSHA.
+Existing Hobby/Free tiers/schema0183 retained. Actual DB1/onepong/threequeues PASS.
 
 Reader same-URL Next defect reproduced twice; candidate preserves scope-local
 preview progress and rejects stale identity/body reads. Focused21PASS/typecheck
-and independent source review ACCEPT; broad gates/deployed browser checks pending.
+and independent source review ACCEPT; fullweb1293PASS169files183.59s/build67of67/
+contracts313IDs PASS. Live same-URL Next and query navigation/preview finish PASS;
+ordinary final protected QA readback PASS. Separate DEV025 fixes the newly found
+mandatory-training sticky action filter after clean-route navigation; not deployed.
 One normal synthetic generation0428dfb7… remained queued, then UI cancellation and
 ordinary API prove cancelled/no started_at/no course/active0. Fresh generated
 output is NOT VERIFIED, not silently retried or used as a reason for infra work.
