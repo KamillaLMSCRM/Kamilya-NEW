@@ -206,7 +206,7 @@ export default function LearningPathsPage() {
           api.get<Course[]>('/v1/courses?status=published&per_page=100'),
           api.get<AudienceOption[]>('/v1/users?role=student&is_active=true&per_page=500'),
           api.get<AudienceOption[]>('/v1/cohorts'),
-          api.get<AudienceOption[]>('/v1/departments'),
+          api.get<AudienceOption[]>('/v1/departments?active_only=true'),
           api.get<AudienceOption[]>('/v1/positions'),
           api.get<AudienceOption[]>('/v1/users?role=methodologist&is_active=true&per_page=500'),
         ]);

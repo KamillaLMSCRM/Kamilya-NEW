@@ -999,3 +999,29 @@ async def test_department_audience_uses_recursive_scope_and_authoritative_unit()
     statement = str(db.execute.await_args_list[1].args[0])
     assert "organization_unit_id" in statement
     assert "department_id" in statement
+    validation_statement = str(db.execute.await_args_list[0].args[0])
+    assert "departments.is_active IS true" in validation_statement
+
+
+@pytest.mark.asyncio
+async def test_department_audience_rejects_archived_unit_before_resolution():
+    from app.modules.learning_paths import router
+
+    tenant_id = uuid4()
+    archived_department_id = uuid4()
+    db = AsyncMock()
+    db.execute.return_value = _result(all_rows=[])
+    with patch.object(router, "resolve_descendant_memberships", new=AsyncMock()) as resolve:
+        with pytest.raises(HTTPException) as exc_info:
+            await router._resolve_audience(
+                db,
+                LearningPathAssignmentAudience(department_ids=[archived_department_id]),
+                tenant_id,
+            )
+
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail["code"] == "departments_outside_tenant"
+    resolve.assert_not_awaited()
+    db.add.assert_not_called()
+    db.flush.assert_not_awaited()
+    db.commit.assert_not_awaited()

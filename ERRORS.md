@@ -1,6 +1,24 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-16.
+Current as of: 2026-10-17.
+
+## PROGRAM-AUDIENCE-001 - Archived units were offered as assignment targets
+
+- Date: 2026-10-17; ordinary synthetic DEV cabinet action audit.
+- Symptom: the program wizard offered archived QA units as department audience,
+  although effective hierarchy resolution excludes archived units.
+- Cause: the shared department-list endpoint intentionally includes all rows;
+  the wizard did not request active-only options, and assignment validation
+  checked tenant ownership but not active state.
+- Fix: add optional active_only query defaulting false, opt in only from the
+  program wizard, and reject inactive IDs before audience resolution with the
+  existing safe422 contract. Preserve aggregate consumers, tenant/RLS and archives.
+- Verification: focused API54PASS and web19PASS; full API4206PASS/526SKIP,
+  web167files/1214PASS before final test-proof strengthening. Exact SQL predicates,
+  no-write rejection and all-row versus active-option fixture covered; real
+  deployed row semantics remain a separate DEV live gate, not inferred from mocks.
+- Prevention: test selector inventory and execution eligibility together. Do not
+  hide archives globally or treat an empty-recipient result as a successful target.
 
 ## DEV-SSH-001 - A startup TCP reset aborted the optional DEV transport
 

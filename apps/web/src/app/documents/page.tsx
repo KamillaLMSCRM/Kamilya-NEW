@@ -487,6 +487,7 @@ export default function DocumentsPage() {
   const handleDelete = async (document: DocumentCatalogItem) => {
     const ok = await confirm({
       title: t('dialogs.confirmDeleteDocument'),
+      message: document.title,
       variant: 'danger',
       confirmLabel: t('dialogs.delete'),
     });

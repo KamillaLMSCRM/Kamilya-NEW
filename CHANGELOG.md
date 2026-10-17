@@ -18,13 +18,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Learning-program audience selection requests active departments only; an
+  archived department ID is rejected before recipient resolution. The default
+  department list still includes archives for existing aggregate consumers.
+  Quiz creation labels its own title rather than a course title. Document
+  deletion confirmation names the selected source; cancellation makes no write.
+  DEV candidate only; production publication is not authorized.
+
 - Source actuality owner selection and review-date saving: choose another active
   company methodologist, omit platform self-assignment during tenant preview,
   preserve invalid-input/error context, and ignore stale dialog completions.
   Refresh server-owned policy timestamps before serializing updates/owner removal.
   Tenant-preview focus checks no longer request the forbidden operator profile.
   Manual employee validation no longer demands the optional department (RU/KK/EN).
-  Local/isolated DEV qualification only; not yet published.
+  Exact DEV deployment and live owner select/save/reload/clear accepted2026-10-17;
+  production publication is not authorized.
 
 - Retain draft assignment course/department on a date-only follow-up. Distinguish
   current instruction, draft user history and an owned saved plan; a new absolute

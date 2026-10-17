@@ -5083,3 +5083,34 @@ Rules:
   missing, Graphify graph absent; bounded rg/source fallback, no installs/rebuilds.
   Detailed scope matrix: docs/plans/2026-10-17_cabinet-action-acceptance.md;
   ignored screenshots/navigation receipt: .release-evidence/cabinet-actions-20261017/.
+
+## CABINET-ACTIONS-20261017-DEV — root live acceptance and follow-up candidate
+
+- result: OWNER_FLOW_PASS; whole-cabinet acceptance PARTIAL. Production unchanged.
+- changed: canonical DEV controller delivered exact bacc4d0ad0731b2b7de3a3e515dd0a565f8f3dd3,
+  no migration/settings/tier/voice/routing/reserve/ASUS changes. Normal QA policy
+  restored to owner/datesNULL. Created only marked synthetic group/program/draft
+  procedure; member returned0, no program recipients or mail, learning retained.
+- verified: CI39013191234 SUCCESS; Verceldpl_F1bU3tr1RG51uJQCq4mnKPhffxBf READY;
+  RenderAPIdep-db9i52uq1p3s738bbmpg/workerdep-db9i5v61egvs73fc8p0g LIVE sameSHA,
+  all health PASS. Independent remote ref receipt saved immediately2026-10-17T07:19:36Z
+  using project account KamillaLMSCRM/canonical process-local helper; no token retained.
+  Root browser other-owner/save/reload/self/clear/reload and inverted-date refusal
+  PASS; independent ordinary API actor/tenant and exact baseline readback PASS.
+  Group create/member/edit/reload/remove; program reorder/required/save/reload/
+  publish0audience/newversion; procedure draft/edit/refused activation422; journal
+  actual CSV3616bytes/7rows/completed filter/history and document controls checked.
+  Follow-up source regressions RED/GREEN: archived-target54API/19web, quiz16web,
+  named delete confirmation5web. Full candidate API4206PASS/526SKIP, frontend
+  167files/1214PASS before final assertion strengthening and named-confirmation
+  line; final focused5files/52web and54API PASS; build67/67 with lint/types PASS,
+  release contracts PASS (0183/290journal entries). Python quality1008/2201 and
+  typecheck PASS. Independent reviewer accepted final proof corrections and real
+  confirmation test. Real API active/default/archived422 pending next deployment.
+- blockers: broad matrix remains PARTIAL; no destructive purge/mail/paid generation
+  or retained completed-learning writes. No fabricated all-buttons or production GO.
+- next: finish review/build/contracts, exact follow-up DEV rollout and real archive
+  eligibility/confirmation QA; continue unrun cabinet actions with fixture ledger.
+- delegation: canonical release-runner and bounded implementation/review leafs,
+  requested gpt-5.6-luna/medium; accepted minimal fixes after one test-proof correction.
+  Actual usage/token/model counters unavailable; no invented cost or savings.

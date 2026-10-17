@@ -192,7 +192,7 @@ describe('quiz question editor', () => {
     expect(screen.getByLabelText('Курс')).toHaveAttribute('id', 'new-quiz-course');
     expect(screen.getByLabelText('Модуль')).toHaveAttribute('id', 'new-quiz-module');
     expect(screen.getByLabelText('Урок')).toHaveAttribute('id', 'new-quiz-lesson');
-    expect(screen.getByLabelText('courses.courseTitle')).toHaveAttribute('id', 'new-quiz-title');
+    expect(screen.getByLabelText('Тест')).toHaveAttribute('id', 'new-quiz-title');
     expect(screen.getByLabelText('quiz.passScore')).toHaveAttribute('id', 'new-quiz-pass-score');
     expect(screen.getByLabelText(/quiz\.timeLimit/)).toHaveAttribute('id', 'new-quiz-time-limit');
     expect(screen.queryByLabelText('quiz.timeLeft')).not.toBeInTheDocument();
@@ -220,7 +220,7 @@ describe('quiz question editor', () => {
     fireEvent.change(screen.getByLabelText('Курс'), { target: { value: ids.course } });
     fireEvent.change(screen.getByLabelText('Модуль'), { target: { value: ids.module } });
     fireEvent.change(screen.getByLabelText('Урок'), { target: { value: ids.lesson } });
-    fireEvent.change(screen.getByLabelText('courses.courseTitle'), { target: { value: '   ' } });
+    fireEvent.change(screen.getByLabelText('Тест'), { target: { value: '   ' } });
     expect(screen.getByRole('button', { name: 'Создать' })).toBeDisabled();
   });
 

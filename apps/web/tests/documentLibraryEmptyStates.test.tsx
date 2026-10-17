@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import DocumentsPage from '@/app/documents/page';
@@ -8,7 +8,6 @@ import { useLanguageStore } from '@/store/languageStore';
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() } }));
 vi.mock('@/store/authStore', () => ({ useAuthStore: (select: (state: unknown) => unknown) => select({ user: { role: 'methodologist' } }) }));
-vi.mock('@/components/ui/ConfirmDialog', () => ({ useConfirm: () => ({ confirm: vi.fn(), dialog: null }) }));
 vi.mock('@/features/source-actuality/SourceActualityPanel', () => ({ SourceActualityPanel: () => null }));
 
 beforeEach(() => {
@@ -20,6 +19,28 @@ beforeEach(() => {
 });
 
 describe('document library empty-state intent', () => {
+  it('names the selected source in the real delete confirmation and cancels without a write', async () => {
+    const title = 'QA BUTTONS — selected synthetic source';
+    vi.mocked(api.get).mockImplementation(async (url) => ({ data: String(url).startsWith('/v1/documents/catalog')
+      ? { items: [{
+        id: 'qa-confirm-source', source_family_id: 'qa-confirm-family', title,
+        filename: 'qa-confirm.md', content_type: 'text/markdown', size: 128,
+        description: '', category: 'general', version: 1, is_latest: true,
+        lifecycle_status: 'active', created_at: '2026-10-17T07:00:00Z', updated_at: '2026-10-17T07:00:00Z',
+        index: { status: 'ready', error_code: null, message: null, chunks_total: 1, chunks_indexed: 1, indexed_at: null, revision: 1 },
+        usages_summary: { total: 0, courses: 0, positions: 0, lessons: 0, active_jobs: 0 },
+      }], page: { next_cursor: null, has_more: false } }
+      : { enabled: false } }) as never);
+    render(<DocumentsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: `Удалить: ${title}` }));
+    const dialog = await screen.findByRole('dialog', { name: 'Удалить документ?' });
+    expect(within(dialog).getByText(title)).toBeInTheDocument();
+    expect(api.delete).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(api.delete).not.toHaveBeenCalled();
+  });
+
   it('offers an upload hint only for an unfiltered empty active library', async () => {
     render(<DocumentsPage />);
     expect(await screen.findByText('Документов пока нет')).toBeInTheDocument();

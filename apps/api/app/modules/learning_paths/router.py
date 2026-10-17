@@ -622,7 +622,7 @@ async def _resolve_audience(
     )
     await _require_audience_records(
         db, ids=payload.department_ids, entity=Department, tenant_id=tenant_id,
-        code="departments_outside_tenant",
+        code="departments_outside_tenant", extra_filter=Department.is_active.is_(True),
     )
     await _require_audience_records(
         db, ids=payload.position_ids, entity=Position, tenant_id=tenant_id,

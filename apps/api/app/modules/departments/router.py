@@ -479,17 +479,16 @@ class DepartmentListResponse(BaseModel):
 
 
 async def _list_tenant_departments(
-    db: AsyncSession, tenant_id: UUID
+    db: AsyncSession, tenant_id: UUID, *, active_only: bool = False
 ) -> list[Department]:
     """Return every Department row for the given tenant. No
     pagination — the count is small (tens, not thousands) and
     this endpoint is the rare batch operation.
     """
-    result = await db.execute(
-        select(Department)
-        .where(Department.tenant_id == tenant_id)
-        .order_by(func.lower(Department.name), Department.id)
-    )
+    statement = select(Department).where(Department.tenant_id == tenant_id)
+    if active_only:
+        statement = statement.where(Department.is_active.is_(True))
+    result = await db.execute(statement.order_by(func.lower(Department.name), Department.id))
     return list(result.scalars().all())
 
 
@@ -497,6 +496,7 @@ async def _list_tenant_departments(
 async def list_departments(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("methodologist")),
+    active_only: bool = False,
 ):
     """List all departments in the caller's tenant with their
     course_ids. Used by the «Курсы компании» tab to compute the
@@ -512,7 +512,7 @@ async def list_departments(
         # case for platform admins is out of v1.0 scope.
         return DepartmentListResponse(departments=[])
 
-    depts = await _list_tenant_departments(db, user.tenant_id)
+    depts = await _list_tenant_departments(db, user.tenant_id, active_only=active_only)
     if not depts:
         return DepartmentListResponse(departments=[])
 

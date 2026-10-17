@@ -5,7 +5,23 @@
 
 ## Источники правды
 
-### DEV current2026-10-17: staff structure, partial delivery
+### DEV current2026-10-17: source ownership repair
+
+DEV frontend/API/worker are exact bacc4d0ad0731b2b7de3a3e515dd0a565f8f3dd3.
+CI39013191234 SUCCESS; Verceldpl_F1bU3tr1RG51uJQCq4mnKPhffxBf READY;
+RenderAPIdep-db9i52uq1p3s738bbmpg and workerdep-db9i5v61egvs73fc8p0g LIVE.
+Canonical controller REL-DEV-SOURCE-OWNER-20261017-001 RELEASE_OK, health PASS,
+no migration/configuration/tier change. Prior worker parity blocker below is
+historical: the separately diagnosed new exact release completed, not a waiver.
+
+Ordinary persistent DEV QA browser: select other methodologist/save/reload,
+self-assign, clear/reload and inverted-date rejection PASS. Exact D57 family
+b86f3431-02ad-4579-9e99-684a668da063 restored to owner/dates NULL, independently
+read back through normal tenant API. Whole-cabinet button acceptance remains
+PARTIAL; per-action evidence/owned fixtures are in the cabinet acceptance plan.
+Production unchanged; voice, model routing/reserve, ASUS and paid resources untouched.
+
+### Historical staff structure checkpoint, superseded by the exact DEV release above
 
 DEV frontend/API are exactda21bb3b60869174a6756edc155454277588ce06; successful
 CI39008984682, Verceldpl_DGSwTje2HZvDH7yoyWHG7x4Sr3zm, RenderAPI

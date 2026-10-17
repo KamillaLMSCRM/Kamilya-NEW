@@ -9,7 +9,8 @@ Status: IN PROGRESS. Owner request2026-10-17. Production publication NOT AUTHORI
 - Writes only to identified synthetic QA data. No real employee/course changes,
   mail sends, paid generation, provider settings, destructive purge or credentials.
 - Root owns diagnosis, integration and final acceptance. One read-only independent
-  inventory/review worker; no delegated external access.
+  inventory/review worker plus a bounded delta writer/reviewer and the canonical
+  DEV release runner. Root owns all browser/data acceptance and source integration.
 - Baseline linked checkout HEAD3fa090eef781b6e7d893cf0a292b1781eccfe571;
   unrelated interactive-authoring work preserved. CodeGraph preflight NOT_READY
   (checkout-local runtime missing); Graphify graph absent. Bounded source fallback.
@@ -87,6 +88,49 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 | Superadmin /admin/super,/admin/super/tenants,/admin/super/operations,/admin/providers | Tenant navigation/preview; forms/validation/readback; operations/provider controls | NOT RUN; no tenant deletion/plan/billing/reserve changes |
 
 ## Gates and next
+
+### Live DEV update2026-10-17
+
+Owner repair bacc4d0ad0731b2b7de3a3e515dd0a565f8f3dd3 is deployed to all three
+existing DEV services. CI39013191234, Verceldpl_F1bU3tr1RG51uJQCq4mnKPhffxBf,
+APIdep-db9i52uq1p3s738bbmpg and workerdep-db9i5v61egvs73fc8p0g exact/LIVE.
+Controller RELEASE_OK; Free/Free/Hobby unchanged, no schema/configuration change.
+Previous da21 worker failures are retained, not retried in a blind loop. Separate
+bounded provider/proxy read-only diagnosis found connect timeouts, no observed
+auth/host-pin/OOM/MaxStartups denial; failing network node remains unlocalized.
+New bacc rollout succeeded with the same transport, without a policy/key change.
+
+Root normal QA browser passed owner removal (old500 repaired), selection of
+DOCUMENT58 Temporary QA, Save, reload retention, self-assignment, final clear and
+reload. Inverted dates are rejected. Browser calendar fill needed native keyboard
+change events before React accepted the date; initial fill-only run did not prove
+date validation and is not counted as PASS. Independent normal API exact actor/
+tenant readback proves owner_id/reviewed_at/next_review_at all NULL at baseline.
+Screenshot: ignored dev-owner-selector-accepted.png. No production writes.
+
+Additional actual action results (not whole-route PASS):
+
+| Area | Actual actions/result | Retained synthetic fixture |
+|---|---|---|
+| Documents | Search exact source; three lifecycle tabs; YouTube empty/check disabled/cancel; new-version no-file upload disabled/cancel; delete confirmation/cancel, no DELETE | Original sources preserved |
+| Groups | New/reset/empty create disabled; create; edit description; select QA learner; save; reload same member/description; remove member/save; reset form | 770984bb-b606-4ab6-9ed9-f0b359afd07b, QA BUTTONS20261017, final0members/no owner/no assignment |
+| Programs | Four wizard stages; add2/reorder both directions/change required; save/reload; remove course; audience tabs; publish0audience; create next version | 27336ade-3110-41ef-ad4e-8aa4ea4ea191 publishedv1/1course/0learners; next draft under same QA title; no notifications |
+| Cycles | Empty create/repeat disabled; course/program type switch and explanatory program-link state | No rule, period or notification created |
+| Procedures | New form; type/retention selectors; expand settings; save draft; edit/cancel; activation without approval/commission metadata422 | cbb79362-f7ce-4cb3-9ac5-d300418808b9, QA BUTTONS20261017 draft, not a real attestation |
+| Journal | Actual CSV file; completed filter1row; history checked; open answer analytics | CSV3616bytes/7data rows; retained learning unchanged |
+
+CSV local Downloads training-log-2026-10-17-07-37-34.csv SHA256
+6ed922a980b526cfc8970a1ec16d25cabc5650b1a6ec4e820fec450d298e28c5.
+Owned QA group/program/procedure intentionally retained for continuation; no
+irreversible deletion attempted. Marker KAMILYA_CABINET_ACTIONS_20261017.
+
+New findings repaired locally: archived program audience (PROGRAM-AUDIENCE-001),
+course-title label in quiz form, and unnamed document deletion confirmation.
+Independent review accepted source and strengthened tests; final focused5files/
+52webtests PASS, focused54API PASS, build67/67 PASS including lint/types, release
+contracts PASS (schema0183,290journal entries). Next exact DEV rollout pending. Remaining
+matrix actions/roles, external sends, paid generation, purge and protected retained
+learning mutations remain NOT RUN; this update does not convert them to PASS.
 
 Local verification so far: final owner/session focused21PASS; full frontend
 166files/1212tests PASS (before the final copy-only change, separately18tests PASS);

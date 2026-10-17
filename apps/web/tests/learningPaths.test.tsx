@@ -79,6 +79,9 @@ describe('learning programs UI', () => {
       if (url === '/v1/learning-paths') return Promise.resolve({ data: [] });
       if (url.startsWith('/v1/courses')) return Promise.resolve({ data: [courseA] });
       if (url === '/v1/departments') {
+        return Promise.resolve({ data: { departments: [{ id: 'department-1', name: 'HR' }, { id: 'archived-department-1', name: 'Archived HR' }], total: 2 } });
+      }
+      if (url === '/v1/departments?active_only=true') {
         return Promise.resolve({ data: { departments: [{ id: 'department-1', name: 'HR' }], total: 1 } });
       }
       return Promise.resolve({ data: [] });
@@ -90,7 +93,10 @@ describe('learning programs UI', () => {
     fireEvent.click(screen.getByRole('tab', { name: /learningPaths\.stage\.audience/ }));
     fireEvent.click(screen.getByRole('tab', { name: 'learningPaths.audience.departments' }));
 
+    expect(apiMock.get).toHaveBeenCalledWith('/v1/departments?active_only=true');
+    expect(apiMock.get).not.toHaveBeenCalledWith('/v1/departments');
     expect(screen.getByText('HR')).toBeInTheDocument();
+    expect(screen.queryByText('Archived HR')).not.toBeInTheDocument();
     const departmentCheckbox = screen.getByRole('checkbox', { name: 'HR' });
     expect(departmentCheckbox).toBeEnabled();
     fireEvent.click(departmentCheckbox);
