@@ -56,6 +56,7 @@ interface Course {
   review_status: 'pending' | 'approved' | 'needs_changes';
   requires_approval?: boolean;
   source_instruction_id?: string | null;
+  source_analysis?: { blueprint?: Record<string, unknown> | null } | null;
 }
 
 export default function CourseEditPage() {
@@ -520,6 +521,9 @@ export default function CourseEditPage() {
   if (loading) return <div className="p-6">{t('common.loading')}</div>;
   if (!course) return <div className="p-6">{t('common.error')}</div>;
 
+  const hasBlueprintMarker = Boolean(course.source_analysis?.blueprint && Object.keys(course.source_analysis.blueprint).length > 0);
+  const requiresCourseReview = course.ai_generated || hasBlueprintMarker;
+
   return (
     <div className="mx-auto max-w-[1800px] space-y-6 px-4 py-5 sm:p-6">
       <fieldset
@@ -550,13 +554,13 @@ export default function CourseEditPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2 sm:justify-end">
-          {course.status !== 'published' && course.ai_generated && course.review_status !== 'approved' && (
+          {course.status !== 'published' && requiresCourseReview && course.review_status !== 'approved' && (
             <Button size="sm" variant="outline" onClick={handleApprove} disabled={releaseAction !== null || lessonDirty}>
               <CheckCircle2 className="mr-1.5 h-4 w-4" />
               {releaseAction === 'approve' ? t('authenticatedUi.editor.approving') : t('authenticatedUi.editor.approveCourse')}
             </Button>
           )}
-          {course.status !== 'published' && (!course.ai_generated || course.review_status === 'approved') && (
+          {course.status !== 'published' && (!requiresCourseReview || course.review_status === 'approved') && (
             <Button size="sm" onClick={handlePublish} disabled={releaseAction !== null || lessonDirty}>
               <Rocket className="mr-1.5 h-4 w-4" />
               {releaseAction === 'publish'

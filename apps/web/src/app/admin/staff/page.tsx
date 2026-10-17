@@ -828,6 +828,8 @@ function rowAction(row: ImportProposalRow, translate: (key: string) => string) {
   const labels: Record<string, string> = {
     create: "actionCreate",
     update: "actionUpdate",
+    unchanged: "actionUnchanged",
+    rename: "actionRename",
     move: "actionMove",
     skip: "actionSkip",
     conflict: "actionConflict",

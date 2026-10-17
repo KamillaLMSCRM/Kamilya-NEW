@@ -241,7 +241,7 @@ async def reconcile_proposal_with_database(
             "branches": [apply_action(item, ImportEntityType.BRANCH) for item in proposal.branches],
             "departments": [apply_action(item, ImportEntityType.DEPARTMENT) for item in proposal.departments],
             "positions": [apply_action(item, ImportEntityType.POSITION) for item in proposal.positions],
-            "staff": [apply_action(item, ImportEntityType.STAFF, item.personnel_number) for item in proposal.staff],
+            "staff": [apply_action(item, ImportEntityType.STAFF) for item in proposal.staff],
             "conflicts": [*proposal.conflicts, *conflicts],
         }
     )

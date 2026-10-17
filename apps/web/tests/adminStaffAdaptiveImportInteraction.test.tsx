@@ -33,6 +33,8 @@ vi.mock('@/i18n/useT', () => {
     'authenticatedUi.adminStaff.import.employeePositionAria': 'Должность сотрудника {index}',
     'authenticatedUi.adminStaff.import.saveCorrections': 'Сохранить исправления',
     'authenticatedUi.adminStaff.import.actionCreate': 'Создать',
+    'authenticatedUi.adminStaff.import.actionUnchanged': 'Без изменений',
+    'authenticatedUi.adminStaff.import.actionRename': 'Переименовать',
     'authenticatedUi.adminStaff.import.confidenceHigh': 'Высокая',
     'authenticatedUi.adminStaff.import.whyProposed': 'Почему предложено / технические сведения',
     'authenticatedUi.adminStaff.structure.branches': 'Филиалы',
@@ -108,8 +110,14 @@ const user = {
 };
 
 const proposal = {
-  branches: [{ branch_id: 'branch-1', branch_name: 'Филиал Павлодар', external_key: 'branch-1', action: 'create', confidence: 'high', evidence: [{ claim: 'Строка филиала' }] }],
-  departments: [{ department_id: 'dept-1', department_name: 'Бухгалтерия', external_key: 'dept-1', branch_external_key: 'branch-1', action: 'create', confidence: 'high', evidence: [] }],
+  branches: [
+    { branch_id: 'branch-1', branch_name: 'Филиал Павлодар', external_key: 'branch-1', action: 'create', confidence: 'high', evidence: [{ claim: 'Строка филиала' }] },
+    { branch_id: 'branch-2', branch_name: 'Филиал Алматы', external_key: 'branch-2', action: 'unchanged', confidence: 'high', evidence: [] },
+  ],
+  departments: [
+    { department_id: 'dept-1', department_name: 'Бухгалтерия', external_key: 'dept-1', branch_external_key: 'branch-1', action: 'create', confidence: 'high', evidence: [] },
+    { department_id: 'dept-2', department_name: 'Продажи', external_key: 'dept-2', branch_external_key: 'branch-2', action: 'rename', confidence: 'high', evidence: [] },
+  ],
   positions: [{ position_id: 'position-1', position_name: 'Кассир', external_key: 'position-1', branch_external_key: 'branch-1', department_external_key: 'dept-1', action: 'create', confidence: 'high', evidence: [] }],
   staff: [{ external_key: 'staff-101', personnel_number: '101', first_name: 'Айдана', last_name: 'Сейтова', position_external_key: 'position-1', branch_external_key: 'branch-1', department_external_key: 'dept-1', action: 'create', confidence: 'high', evidence: [] }],
   conflicts: [],
@@ -271,6 +279,8 @@ describe('adaptive staff import interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: /Сохранить сопоставление и продолжить/i }));
     await waitFor(() => expect(postMock).toHaveBeenCalledWith('/v1/admin/staff/import/sessions/session-1/mapping', expect.anything()));
     expect((await screen.findAllByText(/Создать/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Без изменений/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Переименовать/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Высокая/).length).toBeGreaterThan(0);
     const details = screen.getAllByText('Почему предложено / технические сведения')[0].closest('details');
     expect(details).toBeInTheDocument();

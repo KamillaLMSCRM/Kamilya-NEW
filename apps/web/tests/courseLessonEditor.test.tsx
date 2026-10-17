@@ -83,7 +83,13 @@ const course = {
   description: '',
   status: 'draft',
   ai_generated: false,
-  review_status: 'approved' as const,
+  review_status: 'approved' as 'approved' | 'pending' | 'needs_changes',
+  source_analysis: {},
+};
+const blueprintPendingCourse = {
+  ...course,
+  review_status: 'pending' as const,
+  source_analysis: { blueprint: { id: 'blueprint-1' } },
 };
 
 const structure = {
@@ -131,11 +137,13 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function setupFetch(patchStatus = 200, courseStructure = structure, lessonOverride = lesson) {
+function setupFetch(patchStatus = 200, courseStructure = structure, lessonOverride = lesson, courseOverride = course) {
   fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.includes('/v1/courses/course-1/structure')) return jsonResponse(courseStructure);
-    if (url.endsWith('/v1/courses/course-1')) return jsonResponse(course);
+    if (url.endsWith('/v1/courses/course-1/review')) return jsonResponse({ ...courseOverride, review_status: 'approved' });
+    if (url.endsWith('/v1/courses/course-1/publish')) return jsonResponse({ ...courseOverride, status: 'published', review_status: 'approved' });
+    if (url.endsWith('/v1/courses/course-1')) return jsonResponse(courseOverride);
     if (url.includes('/v1/lessons/lesson-1') && init?.method !== 'PATCH') {
       return jsonResponse(lessonOverride);
     }
@@ -193,6 +201,35 @@ describe('course lesson editor', () => {
     expect(screen.getByRole('heading', { name: 'Структура курса' }).closest('.rounded-lg')).toHaveClass('min-w-0');
     expect(screen.getByRole('textbox', { name: 'courses.addModule' }).parentElement).toHaveClass('min-w-0', 'flex-wrap');
     expect(screen.getByRole('heading', { name: /^Урок$/ }).closest('aside')).toHaveClass('xl:col-span-2', '2xl:col-span-1');
+  });
+
+  it('offers explicit approval before publishing a blueprint-backed non-AI course', async () => {
+    setupFetch(200, structure, lesson, blueprintPendingCourse); render(<CourseEditPage />);
+    expect(await screen.findByRole('button', { name: 'authenticatedUi.editor.approveCourse' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Опубликовать' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'authenticatedUi.editor.approveCourse' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/courses/course-1/review'),
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ review_status: 'approved' }) }),
+    ));
+    expect(await screen.findByRole('button', { name: 'Опубликовать' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Опубликовать' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/courses/course-1/publish'),
+      expect.objectContaining({ method: 'POST' }),
+    ));
+  });
+
+  it('keeps ordinary manual drafts publishable without a blueprint marker', async () => {
+    setupFetch(200, structure, lesson, { ...course, review_status: 'pending', source_analysis: {} }); render(<CourseEditPage />);
+    expect(await screen.findByRole('button', { name: 'Опубликовать' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'authenticatedUi.editor.approveCourse' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the existing approval gate for AI-generated drafts', async () => {
+    setupFetch(200, structure, lesson, { ...course, ai_generated: true, review_status: 'pending' }); render(<CourseEditPage />);
+    expect(await screen.findByRole('button', { name: 'authenticatedUi.editor.approveCourse' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Опубликовать' })).not.toBeInTheDocument();
   });
 
   it('integrates a verified fresh correction without issuing a manual PATCH', async () => {

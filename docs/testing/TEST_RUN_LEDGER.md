@@ -5539,3 +5539,25 @@ Rules:
   approved admin already inactive; original users/learning protected.
 - next: exact013 release then actual reviewer reload/next/decision and fresh
   distinct import same owned IDs; old committed import is not blindly replayed.
+
+## CABINET-ACTIONS-20261017-013-LIVE-014-GATES
+
+- executor: root browser/API/integration; bounded writer and independent reviewer;
+  no Test Runner owns this append destination. Production explicitly excluded.
+- live013: exact4aa70f7110e86295134ca1c959642d92690d8789 all3DEV, CI39026614684,
+  Verceldpl_2jPHL73CJ36YPZpMY59TL3gKxuwM, APIdep-db9l988m7kps73dqno0g,
+  workerdep-db9la7e1egvs73fmtj20. Root exact receipt/public health PASS. Actual
+  lesson2/reload/repeatedreload/next3–5/Markdown/Finish/reviewer approval PASS.
+  Author publication remains draft: missing explicit author-review action for
+  blueprint-backed template. Fresh013 import stopped before approve/commit:
+  existing employee falsely CREATE, rename retained UNCHANGED. No replay/DML.
+- temporary admin: final inactive normal-methodologist readback and ordinary
+  login401 PASS. Support/palette/admin-route redirect checks performed without
+  send or permission changes. Owned course and import identities preserved.
+- repair014: real-path API RED2→GREEN13, editor RED1→19PASS, localized action
+  focused15PASS. Full API4240PASS/526environmentSKIP70.51s; web169files1259PASS
+  197.92s; build67/67 incllint/types; quality1008/2201 unchanged; contracts0183/
+  304entries/diff-check PASS. Independent bounded final diff review ACCEPT.
+- next: exact DEV014 only; fresh same-identity import/corrected-name persistence;
+  explicit author approval then fresh immutable review request and publication.
+  No voice/reserve/ASUS/config/plan/key/production changes. Whole cabinet PARTIAL.

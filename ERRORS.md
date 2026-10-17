@@ -2,6 +2,32 @@
 
 Current as of: 2026-10-17.
 
+## COURSE-TEMPLATE-REVIEW-001 - Blueprint template hid required author approval
+
+- Date: 2026-10-17; actual DEV013 synthetic template publication.
+- Symptom: all required reviewer decisions approved, publish refused author
+  review pending, but editor exposed no explicit author Approve button.
+- Cause: server requires review for AI or nonempty blueprint; editor only AI.
+- Fix: same bounded blueprint marker enables explicit author action in editor;
+  manual courses unchanged. No autoapproval or server/snapshot relaxation.
+- Verification: focused editor RED1 then19PASS/typecheck; independent and exact
+  DEV014 full author approval/new snapshot/reviewer/publication gates pending.
+- Prevention: cover non-AI blueprint drafts; author metadata changes invalidate
+  prior frozen snapshots and require ordinary renewed reviewer approval.
+
+## STAFF-IMPORT-PREVIEW-001 - Existing staff preview action lost matcher result
+
+- Date: 2026-10-17; fresh distinct DEV013 synthetic same-identity import.
+- Symptom: existing employee shown CREATE; editing unchanged name kept UNCHANGED.
+- Cause: matcher result keyed by stable external_key, repository used personnel
+  number; correction reused unchanged action despite actual field delta.
+- Fix: reconcile staff with external_key; implicit unchanged action becomes
+  update only on differing explicit fields. Explicit action/noop/create intact.
+- Verification: two real-path tests RED then13PASS; quality1008/2201 PASS;
+  fresh DEV014 preview/correction/commit exact-ID readback still required.
+- Prevention: test actual adapter/matcher projection and persisted identity,
+  not merely commit deduplication; stop misleading previews before approval.
+
 ## COURSE-REVIEW-RESUME-001 - Reviewer reload lost lesson position and checkpoint sequence
 
 - Date: 2026-10-17; actual DEV012 personal-link/PIN reviewer, owned QA course.

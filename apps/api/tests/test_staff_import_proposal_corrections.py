@@ -230,3 +230,12 @@ def test_position_name_only_correction_preserves_existing_organization_unit() ->
     )
     assert corrected.positions[0].position_name == "Senior manager"
     assert corrected.positions[0].organization_unit_external_key == original_department
+
+
+def test_editing_an_unchanged_proposal_marks_actual_change_as_update_not_unchanged() -> None:
+    original = _proposal()
+    proposal = original.model_copy(update={"departments": [original.departments[0].model_copy(update={"action": MatchAction.UNCHANGED})]})
+    renamed = apply_proposal_corrections(proposal, [ProposalCorrection(kind=ProposalItemKind.DEPARTMENT, external_key="d1", name="New name")])
+    assert renamed.departments[0].action is MatchAction.UPDATE
+    same = apply_proposal_corrections(proposal, [ProposalCorrection(kind=ProposalItemKind.DEPARTMENT, external_key="d1", name="Старое имя")])
+    assert same.departments[0].action is MatchAction.UNCHANGED

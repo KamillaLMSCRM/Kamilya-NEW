@@ -5,6 +5,20 @@
 
 ## Источники правды
 
+### DEV current2026-10-17: exact013 accepted; bounded014 local
+
+Exact4aa70f7110e86295134ca1c959642d92690d8789 accepted all3 existing DEV services.
+CI39026614684 SUCCESS; Verceldpl_2jPHL73CJ36YPZpMY59TL3gKxuwM READY/Hobby;
+APIdep-db9l988m7kps73dqno0g/workerdep-db9la7e1egvs73fmtj20 LIVE/Free.
+Root independently read receipt/API exact SHA. Actual reviewer position/reload,
+subsequent checkpoints, Markdown, finish and explicit reviewer approval PASS.
+Separate author-review action is missing for blueprint-backed non-AI templates;
+014 local editor repair does not bypass immutable reviewer snapshot checks.
+Fresh013 same-identity staff import stopped before apply: preview falsely CREATE
+and corrected unchanged-name action stale.014 local matcher-key/action repair
+has RED2→GREEN13; full gates/runtime pending. Temporary approved admin inactive
+and normal login rejected401. Full cabinet PARTIAL; production unchanged.
+
 ### DEV current2026-10-17: exact012 accepted; resume/import follow-up local
 
 Exact0160634ccc228b48846aeb522e478857f83191f3 LIVE on existing DEV web/API/worker.

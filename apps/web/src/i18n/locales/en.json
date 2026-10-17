@@ -2241,6 +2241,8 @@
         "analyzed": "File analyzed. Nothing has been changed yet.",
         "actionCreate": "Create",
         "actionUpdate": "Update",
+        "actionUnchanged": "No changes",
+        "actionRename": "Rename",
         "actionMove": "Move",
         "actionSkip": "Skip",
         "actionConflict": "Needs review",

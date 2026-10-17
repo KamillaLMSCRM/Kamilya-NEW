@@ -2285,6 +2285,8 @@
         "analyzed": "Файл разобран. Ничего ещё не изменено.",
         "actionCreate": "Создать",
         "actionUpdate": "Обновить",
+        "actionUnchanged": "Без изменений",
+        "actionRename": "Переименовать",
         "actionMove": "Переместить",
         "actionSkip": "Пропустить",
         "actionConflict": "Требует проверки",

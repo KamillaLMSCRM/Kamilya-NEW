@@ -2,6 +2,40 @@
 
 Status: IN PROGRESS. Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
+## Live013 and bounded014 follow-up — 2026-10-17
+
+- Exact0134aa70f7110e86295134ca1c959642d92690d8789 accepted all3 existing DEV
+  services: CI39026614684 SUCCESS, Verceldpl_2jPHL73CJ36YPZpMY59TL3gKxuwM
+  READY/Hobby, APIdep-db9l988m7kps73dqno0g and workerdep-db9la7e1egvs73fmtj20
+  LIVE/Free. Root independently read receipt and public API exact SHA.
+- Actual reviewer reload retains lesson2; repeated reload and next checkpoints
+  through lesson5 work. Markdown renders; Finish completes; early-approval
+  checkbox absent. Explicit reviewer approval persisted and author view shows
+  required reviewers approved. Answer selections/global diagnostic semantics
+  were not repaired or accepted as restored by013.
+- Publication then refused separate author review: non-AI template has a
+  blueprint and pending review, but editor hid explicit Approve.014 aligns
+  editor availability with that existing server requirement. No autoapproval or
+  snapshot bypass: author approval changes the frozen hash, so acceptance must
+  create a new reviewer revision before publication.
+- Fresh distinct013 import stopped BEFORE approval/commit: same existing staff
+  was wrongly shown CREATE because repository looked up matcher external-key
+  results using personnel number. An actual rename also retained UNCHANGED.
+  Two real-path regressions RED2/11PASS, minimal correction GREEN13; existing
+  explicit action/create/no-op policy and commit identity remain intact.
+- Temporary admin8109d1f1 final normal login rejected401; independent ordinary
+  methodologist readback inactive. No second account/reactivation. Shared shell:
+  methodologist admin-route redirect, support open/empty-disabled/cancel,
+  command palette no-match then Documents actual navigation PASS; no send.
+- Full cabinet remains PARTIAL. External sends, credentials/kiosk issuance,
+  paid generation, integration/model writes, purge and old-learning resets stay
+  NOT_RUN.014 local full gates and exact DEV acceptance pending. Production,
+  plans/configuration/keys/ASUS/voice/reserve unchanged.
+- Final014 gates: API4240PASS/526environmentSKIP70.51s, web169files1259PASS
+  197.92s, build67/67 incllint/types, qualityRuff1008/Mypy2201 unchanged baseline,
+  contracts0183/304unique entries, diff-check PASS. Independent final014 scoped
+  review ACCEPT. This is candidate readiness, not a claim of live014 success.
+
 ## Live012 and follow-up013 — 2026-10-17
 
 Final integrated013 gates: API4238PASS/526environmentSKIP56.80s, web169files/
@@ -149,7 +183,7 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 | /assignments | Course/audience selection; due date/access; preview/confirm; link/PIN; copy; revoke/repeat; rules/reminders; help | PARTIAL: own individual PIN assignment/copy/wrong+correct PIN/learner completion PASS; recurring draft and reminder save/reload/disable PASS; no mail/revoke/reset |
 | /methodologist-workbench | Document dialog/history/source download; assignment preview/confirm; correction/apply/reload; help | PARTIAL: preview/reload/new-command/history/citation/download and localized audience_empty refusal PASS; no model call/confirm/apply |
 | /learning-cycles | Create/edit/version/schedule/activate/deactivate; filters/pagination; help | PARTIAL: empty guards/target switch, own recurring draft only; no rule activation or periods |
-| /staff | Import stages/file validation/mapping/preview/confirm; schema/roster/filters; create/edit/move/terminate; unit preview/confirm; help | PARTIAL: help; unit form/cancel/empty create disabled; employee form/empty validation/cancel; import tab/no-file analysis disabled |
+| /staff | Import stages/file validation/mapping/preview/confirm; schema/roster/filters; create/edit/move/terminate; unit preview/confirm; help | PARTIAL: real one-row import/identity linkage; corrected-name failure then013 preview stopped;014 retest required; schema/roster/forms/help checked, moves/termination NOT RUN |
 | /positions and /positions/[id] | Create/edit; JD attach/analyze; qualification/instruction/tests; versions/restore; help | PARTIAL: form validation/cancel, actual multi-file chooser, refresh and card tabs; no profile/rule/version writes |
 | /cohorts | Create/edit; search/select/save members; reload; help | PARTIAL: owned group create/member/save/reload/remove/reset, final0members |
 | /candidate-assessments | Create/edit campaign; preview/activate/close; invite/copy link; CSV; help | PARTIAL: course guard/create/start/close/CSV; no candidate/link/mail |
@@ -159,10 +193,10 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 | /training-retention | Policy form/save; dry-run; purge/legal-hold; help | READ-ONLY methodologist state PASS; admin mutations NOT RUN, purge forbidden |
 | Contextual /competencies,/training-rules,/invitations,/surveys,/announcements,/course-review | Context links; forms/validation/preview/submit/readback; help | PARTIAL: competency create/select/save/reload/clear PASS; training-rule preview/cancel/tabs, survey create/learner response/reload/no duplicate PASS, announcement draft/reload/RU-KK-EN help, review choose/refresh/help; no external communication |
 | Shared /profile + shell | Profile form; help/support; notifications/read; language; palette; sidebar; guide; logout | PARTIAL: profile save/reload/restore,17help, support validate/cancel, notifications/palette/sidebar/languages/guide and ordinary logout/login PASS; no support send |
-| Admin /admin,/admin/team | Navigation/onboarding; create/role/activate/deactivate; validation; help | NOT RUN; security-sensitive grants separate approval |
-| Admin /admin/kiosks,/settings | Kiosk/create/print/link/PIN/delete; tenant settings/save; help | NOT RUN |
-| Admin /admin/settings/integrations,/admin/settings/ai | Forms/status/test/save; provider/model routing | NOT RUN; external settings unchanged |
-| Admin /admin/certificates/settings,/admin/training-evidence/settings,/admin/audit,/admin/course-approvals | Templates/preview/download/save; audit filters; approval configuration | NOT RUN |
+| Admin /admin,/admin/team | Navigation/onboarding; create/role/activate/deactivate; validation; help | PARTIAL: approved temporary admin normal login, routes/help, search/reset/form/cancel; final deactivated/login401; other grants NOT RUN |
+| Admin /admin/kiosks,/settings | Kiosk/create/print/link/PIN/delete; tenant settings/save; help | PARTIAL: form/cancel/no-employee PIN disabled/settings destinations/help; issuance and settings saves NOT RUN |
+| Admin /admin/settings/integrations,/admin/settings/ai | Forms/status/test/save; provider/model routing | PARTIAL:3integration tabs/AI read/help; external test/save NOT RUN; existing settings unchanged |
+| Admin /admin/certificates/settings,/admin/training-evidence/settings,/admin/audit,/admin/course-approvals | Templates/preview/download/save; audit filters; approval configuration | PARTIAL: actual certificate/evidence sample download/all3pages visually checked, preview refresh/audit actor+login filter2rows/help; template/approval saves NOT RUN |
 | Student /student,/my-courses,/my-quizzes,/learning-paths,/certificates,/courses/[id],/surveys | Open assigned course, progress/reload, failed/successful quiz, completion, PDF/certificate, survey | PARTIAL: exact own PIN course/fail67/retry100/completion/reload/course filters/confirmationPDF/certificate/public verify/survey submitted PASS; fresh008 actual returns and exhausted guard PASS; no retained learning reset |
 | Superadmin /admin/super,/admin/super/tenants,/admin/super/operations,/admin/providers | Tenant navigation/preview; forms/validation/readback; operations/provider controls | NOT RUN; no tenant deletion/plan/billing/reserve changes |
 

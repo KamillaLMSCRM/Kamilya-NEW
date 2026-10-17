@@ -2241,6 +2241,8 @@
         "analyzed": "Файл талданды. Әзірге ештеңе өзгертілген жоқ.",
         "actionCreate": "Жасау",
         "actionUpdate": "Жаңарту",
+        "actionUnchanged": "Өзгеріссіз",
+        "actionRename": "Атын өзгерту",
         "actionMove": "Жылжыту",
         "actionSkip": "Өткізіп жіберу",
         "actionConflict": "Тексеруді қажет етеді",

@@ -1,5 +1,15 @@
 # Changelog
 
+## DEV template approval and truthful import preview candidate — 2026-10-17
+
+- Show explicit author approval for blueprint-backed templates as well as AI
+  courses; preserve ordinary manual-course flow and server snapshot guards.
+- Use stable matcher external keys for staff preview actions; classify actual
+  edits of unchanged proposals as updates, preserving explicit actions/no-ops.
+- Complete recognized import labels for unchanged/rename in RU/KK/EN; unknown
+  values retain safe fallback.013 live reviewer resume/completion accepted;
+  this014 follow-up requires exact DEV acceptance. No production changes.
+
 ## DEV review-resume and import-correction candidate — 2026-10-17
 
 - Restore reviewer lesson position and next persisted checkpoint sequence after
