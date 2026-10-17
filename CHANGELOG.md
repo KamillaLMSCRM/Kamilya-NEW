@@ -1,5 +1,12 @@
 # Changelog
 
+## DEV021 diagnostic-format correction — 2026-10-17
+
+- Match native OpenSSH CRLF diagnostics without treating bare carriage returns
+  as new evidence lines. Preserve stage privacy and all transport behavior.
+-020 halted before runner provider commands; automatic DEV frontend updated,
+  API/worker retain019. Corrected exact021 acceptance remains required.
+
 ## DEV020 candidate — 2026-10-17
 
 - Explain inverted learning-program assignment dates inline before sending a

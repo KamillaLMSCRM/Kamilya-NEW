@@ -420,6 +420,16 @@ Current as of: 2026-10-17.
 
 ## DEV-SSH-001 - A startup TCP reset aborted the optional DEV transport
 
+-021 correction2026-10-17: root cross-check of upstream OpenSSH log.c/do_log
+  revealed CRLF diagnostics;020 LF-only stage regexes would silently returnunknown.
+  Genuine5RED39PASS, normalize onlyCRLF; bareCRnegative and LF/CRLF recovery/privacy
+  pipeline now finalruntime46+acceptance13PASS. Controller16PASS6subtests/quality
+  PASS/independentreviewACCEPT.020 stopped duringCI before runner provider commands;
+  automatic Vercel020READY exists, API/worker019 retained. Preserve mixed-state
+  record, never call stopped020 successful. Actual021 phase evidence still needed.
+  Prevention: diagnostic parsers must replay native upstream line endings, not
+  only hand-authored LF strings; logging-source truth precedes attribution.
+
 -020 preparation2026-10-17: official API/worker outbound metadata identical,
   excluding wrong-service ranges as a reason for019's missing firstflow. Root
   adds privateDEBUG1 fixed-stage/operation diagnostics only; genuine7RED/30PASS,

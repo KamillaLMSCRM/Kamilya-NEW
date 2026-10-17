@@ -5,6 +5,20 @@
 
 ## Источники правды
 
+### DEV021 corrected candidate; halted020 is not accepted — 2026-10-17
+
+020 sourcec59a8b06/CI39039631484 succeeded, but root stopped the local controller
+while CI was pending after detecting native OpenSSH CRLF format incompatibility.
+No runner provider command/execute receipt. Independent GET: automatic frontend
+dpl_6T7RbyZc6bUSZZSrsruihZTL41eg READY020; API/worker019LIVE/c0 retained. This is
+mixed DEV, not a completed020 release. No blind rollback or020 retry.
+Corrected021 normalizes onlyCRLF; bareCR cannot forge a stage. Real5RED39PASS
+againstc59; final runtime46+acceptance13PASS, controller16PASS6subtests, quality
+1008/2201PASS, independentreviewACCEPT. Fresh frozen API4318PASS528environmentSKIP
+68.50s. Exact gitdiff confirms no frontend byte change fromc59, retaining its
+1283web/typecheck/build67of67 evidence without wasteful rerun. Exact021CI/provider/
+phase and browser acceptance remain gates. No actual reset-cause claim yet.
+
 ### DEV020 candidate prepared; runtime remains019 — 2026-10-17
 
 Owner renews DEV-only remaining cabinet scenarios/repair and concrete workerreset

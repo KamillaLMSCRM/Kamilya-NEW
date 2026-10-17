@@ -82,8 +82,9 @@ def test_dead_ssh_is_not_ready():
     (b"Authenticated to private ([private]:22) using publickey.\n", "authenticated", "unknown"),
     (b"remote banner says debug1: Connection established.\n", "unknown", "unknown"),
 ])
-def test_private_ssh_progress_is_fixed_code_only(diagnostic, stage, operation):
-    assert runtime.ssh_progress(diagnostic) == (stage, operation)
+@pytest.mark.parametrize("newline", [b"\n", b"\r\n"])
+def test_private_ssh_progress_is_fixed_code_only(diagnostic, stage, operation, newline):
+    assert runtime.ssh_progress(diagnostic.replace(b"\n", newline)) == (stage, operation)
 
 
 def test_private_ssh_diagnostics_are_enabled_but_not_forwarded():
@@ -91,12 +92,13 @@ def test_private_ssh_diagnostics_are_enabled_but_not_forwarded():
     assert "LogLevel=ERROR" not in runtime.ssh_command(Path("identity"), Path("hosts"))
 
 
-def test_failed_real_wait_emits_only_private_stage_codes_and_retains_one_retry(monkeypatch, capsys):
+@pytest.mark.parametrize("newline", [b"\n", b"\r\n"])
+def test_failed_real_wait_emits_only_private_stage_codes_and_retains_one_retry(monkeypatch, capsys, newline):
     from types import SimpleNamespace
 
     raw = (b"debug1: Connection established.\n"
            b"debug1: identity file /private/never-publish-this-path type 3\n"
-           b"kex_exchange_identification: read: Connection reset by peer\n")
+           b"kex_exchange_identification: read: Connection reset by peer\n").replace(b"\n", newline)
     failed = SimpleNamespace(pid=123, stderr=io.BytesIO(raw), poll=lambda: 255,
                              _kamilya_diagnostic_tail=bytearray(raw))
     live = SimpleNamespace(pid=124, poll=lambda: None)
@@ -114,6 +116,10 @@ def test_failed_real_wait_emits_only_private_stage_codes_and_retains_one_retry(m
     assert output.count("dev_private_models=startup_retry_once|") == 1
     assert "never-publish-this-path" not in output
     assert "Connection established" not in output and "kex_exchange_identification" not in output
+
+
+def test_bare_carriage_return_does_not_forge_a_private_stage():
+    assert runtime.ssh_progress(b"untrusted\rdebug1: Connection established.\n") == ("unknown", "unknown")
 
 
 @pytest.mark.parametrize("error,expected", [

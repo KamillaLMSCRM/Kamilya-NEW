@@ -5,6 +5,22 @@ Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
 ## Follow-up020 in progress — 2026-10-17
 
+-020 exactc59a8b06 source pushed/readback14:10:41Z/accountKamillaLMSCRM;
+  CI39039631484. Root found official OpenSSH do_log emitsCRLF whereas stage
+  regexes expectedLF. Controller stopped while waitingCI, session65878 exit1;
+  no runner provider writes/execute receipt, packet020 not retried. Independent
+  GET confirms API/worker remain019, while automatic Vercel deployment
+  dpl_6T7RbyZc6bUSZZSrsruihZTL41eg alreadyREADY020. Thus mixed DEV state, not019
+  fullparity or020releasePASS. No production/provider config/rollback mutation.
+- Corrected021 normalizes CRLF only, not bareCR. Actual5RED39PASS againstc59,
+  final runtime+acceptance59PASS (runtime46,acceptance13), controller16PASS6subtests,
+  quality1008/2201PASS; independent correction reviewACCEPT. Initial guessed
+  controller test path ran no tests, notRED. Frozen API rerun in progress; web
+ 1283/typecheck/build evidence retained for identical unchanged frontend bytes.
+- Fresh frozen021 API4318PASS528environmentSKIP68.50s; source unchanged after
+  review. Webdiff againstc59 empty, so prior1283/typecheck/build67of67 remains
+  applicable. Exact new021 CI/provider/live still required, no020retry.
+
 - Owner renewed remaining DEV scenarios/fixes and concrete reset diagnosis.
   Existing runtime019 independently read LIVE again; API/worker official outbound
   metadata has identical2shared range hashes1103c1180f9f/4c094ec9238f. No provider

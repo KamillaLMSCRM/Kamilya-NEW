@@ -142,6 +142,9 @@ def ssh_failure(process: subprocess.Popen) -> str:
 
 def ssh_progress(raw: bytes) -> tuple[str, str]:
     """Map private OpenSSH diagnostics to fixed stages, never raw text or addresses."""
+    # OpenSSH do_log writes CRLF even on Linux. Normalize only that terminator,
+    # not arbitrary control bytes or embedded carriage returns from peer content.
+    raw = raw.replace(b"\r\n", b"\n")
     stage = "unknown"
     for pattern, candidate in (
         (rb"^debug1: Connection established\.$", "tcp_established"),
