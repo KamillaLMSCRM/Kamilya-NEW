@@ -18,6 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Source actuality owner selection and review-date saving: choose another active
+  company methodologist, omit platform self-assignment during tenant preview,
+  preserve invalid-input/error context, and ignore stale dialog completions.
+  Refresh server-owned policy timestamps before serializing updates/owner removal.
+  Tenant-preview focus checks no longer request the forbidden operator profile.
+  Manual employee validation no longer demands the optional department (RU/KK/EN).
+  Local/isolated DEV qualification only; not yet published.
+
 - Retain draft assignment course/department on a date-only follow-up. Distinguish
   current instruction, draft user history and an owned saved plan; a new absolute
   date replaces older relative wording without granting execution authority.

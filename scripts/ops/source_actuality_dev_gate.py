@@ -195,6 +195,64 @@ async def expect_rls_rejection(connection: AsyncConnection, statement: Any, para
     await expect_sqlstate_rejection(connection, statement, parameters, code, "42501")
 
 
+async def verify_policy_response_updates(
+    connection: AsyncConnection, schema: str, tenant_id: uuid.UUID,
+    family_id: uuid.UUID, policy_id: uuid.UUID, actor_id: uuid.UUID,
+) -> None:
+    """Cross the real ORM update/response seam inside the owned schema only.
+
+    The minimal migration fixture has no full document/user/audit tables. Replace
+    only the lookup/audit adapters, retaining the production handler, mapped
+    policy, real UPDATE, RLS and timestamp serialization. No public writes.
+    """
+    import sys
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from starlette.requests import Request
+    from starlette.responses import Response
+
+    if str(API_ROOT) not in sys.path:
+        sys.path.insert(0, str(API_ROOT))
+    from app.models.registry import load_all_models
+
+    load_all_models()
+    from app.modules.source_actuality import router
+    from app.modules.source_actuality.models import DocumentSourcePolicy
+    from app.modules.source_actuality.schemas import SourcePolicyUpdate
+
+    safe_schema_name(schema)
+    await connection.execute(text(f'SET LOCAL search_path TO "{schema}", public'))
+    async with AsyncSession(bind=connection, expire_on_commit=False, join_transaction_mode="create_savepoint") as db:
+        policy = await db.get(DocumentSourcePolicy, policy_id)
+        if policy is None or policy.tenant_id != tenant_id:
+            raise GateBlocked("policy_response_fixture_missing")
+
+        async def upsert(_db: Any, **values: Any) -> Any:
+            if values["tenant_id"] != tenant_id or values["source_family_id"] != family_id:
+                raise GateBlocked("policy_response_scope_drift")
+            policy.owner_id = values["owner_id"]
+            policy.reviewed_at = values["reviewed_at"]
+            policy.next_review_at = values["next_review_at"]
+            policy.updated_by = values["actor_id"]
+            await _db.flush()
+            return policy
+
+        async def audit(*_args: Any, **_kwargs: Any) -> None:
+            return None
+
+        request = Request({"type": "http", "method": "PUT", "path": "/policy", "headers": []})
+        user = SimpleNamespace(id=actor_id, tenant_id=tenant_id, role="methodologist", is_impersonating=False)
+        with patch.object(router, "upsert_policy", upsert), patch.object(router, "log_action", audit):
+            for owner in (None, actor_id):
+                record = await router.put_source_policy(
+                    family_id, SourcePolicyUpdate(owner_id=owner), request, Response(), db=db, user=user,
+                )
+                if record.owner_id != owner or record.updated_at is None:
+                    raise GateBlocked("policy_response_update_mismatch")
+
+
 async def expect_sqlstate_rejection(
     connection: AsyncConnection,
     statement: Any,
@@ -395,6 +453,8 @@ async def run_gate(owner_url: str, runtime_url: str, supabase_url: str, schema: 
                 "resolved_review_mutation",
                 "23514",
             )
+            stage = "runtime_policy_update_response_serialization"
+            await verify_policy_response_updates(connection, schema, tenant_a, family, policy_id, owner_a)
             await connection.commit()
 
             stage = "runtime_tenant_b_visibility_negative"
@@ -557,6 +617,7 @@ async def run_gate(owner_url: str, runtime_url: str, supabase_url: str, schema: 
                 "tenant_a_visibility": True,
                 "tenant_b_invisibility": True,
                 "valid_active_methodologist_owner": True,
+                "policy_clear_and_reassign_response_serialization": True,
                 "cross_tenant_owner_rejected": True,
                 "inactive_owner_rejected": True,
                 "non_methodologist_owner_rejected": True,

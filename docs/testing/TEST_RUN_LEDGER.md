@@ -5041,3 +5041,45 @@ Rules:
 - Sanitized receipts/screenshots under ignored .release-evidence/staff-structure-dev:
   final-readback.json, browser-functional.json, cleanup.json,
   browser-roster-fixed-detail.png, ux002-blocked.json and first worker failure.
+
+## CABINET-ACTIONS-20261017 — source ownership and cabinet inventory (PARTIAL)
+
+- result: LOCAL_AND_ISOLATED_FIX_VERIFIED; live whole-cabinet acceptance PARTIAL,
+  production publication NOT AUTHORIZED. Baseline linked HEAD3fa090eef781b6e7d893cf0a292b1781eccfe571.
+- changed: source owner selector via existing paginated tenant team API; no
+  platform self-owner during preview; local date/error handling and dialog identity
+  guards; Layout skips forbidden preview profile heartbeat; policy PUT explicitly
+  refreshes server timestamp before serialization; optional-department copy fixed.
+  No new table/migration/permissions/model/reserve/voice/provider configuration.
+- verified: owner-choice/preview regression RED then GREEN; layout focus/visibility
+  RED then GREEN with normal revalidation and unchanged deadline expiry; deferred
+  close/reopen race RED then GREEN; separate schema422/owner422; copy RED/GREEN.
+  Full web166files/1212PASS, plus final copy18focusedPASS; lint/typecheck and
+  build67/67 PASS. Initial unconstrained full run had one journal timeout; its
+  focused rerun and bounded maxWorkers2 full rerun passed unchanged.
+  API4204PASS/526SKIP; focused API+ops21PASS; quality ruff1008/mypy2201 PASS.
+  Real isolated Supabase model/router update reproduced MissingGreenlet and then
+  passed22checks including clear/reassign, RLS negatives, upgrade/downgrade,
+  owned-schema removal and public-neutrality; DEV project digest5b535773… matches.
+  Initial harness NoReferencedTableError repaired by model-registry initialization;
+  both failed gates retained in task context with cleanup/public-readback PASS.
+  Actual ordinary DEV browser17menu routes/help-open/help-close PASS; staff/unit/
+  upload form-open/empty/cancel checked, import no-file analysis disabled. D57
+  source download saved6404bytes, SHA25619df7c3b…; original-byte oracle NOT VERIFIED.
+  Ordinary production QA methodologist API profile/actuality/team200; no product
+  mutations there. Current production API health f6f1bc945e627287f8d5a9cf9040bcae1f73ea4a.
+- blockers: public DEV still da21bb3… old handler; actual D57 source owner self-
+  assignment succeeded but removal500. One retained synthetic QA owner assignment
+  awaits normal-API restoration after release; no direct owner DML or hard purge.
+  Other business button completions, all other roles and production browser QA
+  remain open. Chrome session expired; nonblocking ordinary QA login requested.
+- next: review/integrate isolated fix commit and agree DEV rollout; verify actual
+  selection of another methodologist/save/clear/reload and restore exact fixture;
+  complete action matrix before any separately authorized production release.
+- delegation/navigation: one READ_ONLY worker, requested gpt-5.6-luna/medium,
+  independent inventory and successive UI/backend reviews accepted; no delegated
+  writes/external access. Independently observed model/usage/elapsed counters not
+  exposed; no subscription/cost savings inferred. CodeGraph checkout-local runtime
+  missing, Graphify graph absent; bounded rg/source fallback, no installs/rebuilds.
+  Detailed scope matrix: docs/plans/2026-10-17_cabinet-action-acceptance.md;
+  ignored screenshots/navigation receipt: .release-evidence/cabinet-actions-20261017/.

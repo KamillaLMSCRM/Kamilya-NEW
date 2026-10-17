@@ -899,6 +899,18 @@ cause is retroactively promoted to fact.
 - Prevention: use each model's declared status vocabulary; any trigger/onupdate
   field needed in an async response must be refreshed explicitly before sync
   serialization. Keep the integration assertion on the persisted quiz state.
+- Recurrence2026-10-17: live ordinary DEV source-policy self-assignment worked on
+  INSERT, but clearing/updating the existing policy returned500. The policy PUT
+  serialized `updated_at` after `onupdate=func.now()` expired it, without the
+  refresh already present in the review-decision endpoint. A deterministic
+  expired-attribute regression and the real isolated Supabase ORM/router seam
+  reproduced MissingGreenlet. Refresh the policy before response materialization.
+  Focused21PASS and isolated22checks PASS, including clear/reassign serialization,
+  RLS negatives, downgrade/reupgrade, owned-schema cleanup and public neutrality.
+  The first isolated harness failed NoReferencedTableError because the full model
+  registry was not loaded; preserved separately, cleanup/public readback PASS.
+  Published DEV still needs rollout and normal-API fixture restoration; no
+  production repair or whole-cabinet acceptance is claimed.
 
 ## AI-ARCH-001 - Retired assessment code was mistaken for the production engine
 
@@ -4583,6 +4595,18 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   forbidden. Focused auth tests, the full API suite, full web suite, lint,
   typecheck and production build pass locally; deployment is not part of this
   candidate.
+- Recurrence2026-10-17: shared Layout called the intentionally forbidden profile
+  on focus/visibility return, creating repeated users/me403 in tenant preview.
+  Skip only this heartbeat for `impersonated_by`; retain ordinary revalidation,
+  absolute session expiry, stale-token logout guard and central401 handling.
+  Focus/visibility RED/GREEN plus ordinary profile and preview-deadline tests pass.
+  Source-actuality also exposed self-assignment with the platform actor, causing
+  owner422. Its selector now uses the existing tenant-scoped paginated team API;
+  preview cannot offer the operator as owner. Backend/RLS owner eligibility is
+  unchanged: active tenant methodologist, not arbitrary staff or platform actor.
+  A new Save action supports another owner/dates; localized validation retains
+  input, and dialog generations reject stale save/analyze/decision completions.
+  Publication and the full live button matrix remain separate gates.
 
 ## TEST-INFRA-001 - Unit runs inherited an invented localhost PostgreSQL target
 

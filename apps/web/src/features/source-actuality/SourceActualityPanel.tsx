@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, Clock3, Loader2, RefreshCw, ShieldAlert } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { DocumentCatalogItem } from '@/lib/documentCatalog';
@@ -9,6 +9,7 @@ import { useT } from '@/i18n/useT';
 type State = 'unassigned' | 'current' | 'due_soon' | 'overdue';
 type ReviewStatus = 'pending' | 'processing' | 'ready' | 'resolved' | 'failed';
 type Decision = 'no_learning_impact' | 'update_future' | 'update_and_retrain' | 'suspend_old_assignments';
+type Owner = { id: string; first_name: string; last_name: string; email?: string | null; role: string; is_active: boolean };
 type FactChange = {
   subject: string;
   attribute: string;
@@ -67,7 +68,7 @@ const localDateTime = (value: string | null) => {
 };
 const toAwareIso = (value: string) => value ? new Date(value).toISOString() : null;
 
-export function SourceActualityPanel({ userId, catalogDocuments }: { userId?: string; catalogDocuments: DocumentCatalogItem[] }) {
+export function SourceActualityPanel({ userId, isImpersonating = false, catalogDocuments }: { userId?: string; isImpersonating?: boolean; catalogDocuments: DocumentCatalogItem[] }) {
   const { t } = useT();
   const [families, setFamilies] = useState<Family[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,11 +77,19 @@ export function SourceActualityPanel({ userId, catalogDocuments }: { userId?: st
   const [review, setReview] = useState<Review | null>(null);
   const [dialogBusy, setDialogBusy] = useState(false);
   const [dialogError, setDialogError] = useState(false);
+  const [policyError, setPolicyError] = useState<string | null>(null);
+  const [owners, setOwners] = useState<Owner[]>([]);
+  const [ownersLoading, setOwnersLoading] = useState(false);
+  const [ownersError, setOwnersError] = useState(false);
+  const [ownerReload, setOwnerReload] = useState(0);
+  const [ownerId, setOwnerId] = useState('');
   const [reviewedAt, setReviewedAt] = useState('');
   const [nextReviewAt, setNextReviewAt] = useState('');
   const [reason, setReason] = useState('');
   const [decision, setDecision] = useState<Decision | ''>('');
   const [retrainingDueAt, setRetrainingDueAt] = useState('');
+  const dialogGeneration = useRef(0);
+  const activeFamilyId = active?.source_family_id;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -97,10 +106,53 @@ export function SourceActualityPanel({ userId, catalogDocuments }: { userId?: st
 
   useEffect(() => { void load(); }, [load]);
 
+  // Reuse the tenant-scoped team API, never the platform operator's profile.
+  // Read every page so a larger team is not silently restricted to page one.
+  useEffect(() => {
+    if (!activeFamilyId) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    setOwners([]);
+    setOwnersLoading(true);
+    setOwnersError(false);
+    const loadOwners = async () => {
+      const all: Owner[] = [];
+      try {
+        for (let page = 1; ; page += 1) {
+          const response = await api.get<{ users: Owner[]; total: number }>(
+            `/v1/users?role=methodologist&is_active=true&per_page=100&page=${page}`,
+            { signal: controller.signal },
+          );
+          if (cancelled) return;
+          all.push(...response.data.users);
+          if (all.length >= response.data.total) break;
+          if (!response.data.users.length || page >= 100) throw new Error('Incomplete owner list');
+        }
+        if (!cancelled) setOwners(all.filter((owner) => owner.role === 'methodologist' && owner.is_active));
+      } catch {
+        if (!cancelled) setOwnersError(true);
+      } finally {
+        if (!cancelled) setOwnersLoading(false);
+      }
+    };
+    void loadOwners();
+    return () => { cancelled = true; controller.abort(); };
+  }, [activeFamilyId, ownerReload]);
+
+  const closeFamily = () => {
+    dialogGeneration.current += 1;
+    setActive(null);
+    setDialogBusy(false);
+  };
+
   const openFamily = async (family: Family) => {
+    const generation = ++dialogGeneration.current;
     setActive(family);
+    setDialogBusy(false);
     setReview(null);
     setDialogError(false);
+    setPolicyError(null);
+    setOwnerId(family.owner_id || '');
     setReviewedAt(localDateTime(family.reviewed_at));
     setNextReviewAt(localDateTime(family.next_review_at));
     setReason('');
@@ -110,11 +162,11 @@ export function SourceActualityPanel({ userId, catalogDocuments }: { userId?: st
     setDialogBusy(true);
     try {
       const result = await api.get<Review>(`/v1/admin/source-actuality/reviews/${family.pending_review_id}`);
-      setReview(result.data);
+      if (dialogGeneration.current === generation) setReview(result.data);
     } catch {
-      setDialogError(true);
+      if (dialogGeneration.current === generation) setDialogError(true);
     } finally {
-      setDialogBusy(false);
+      if (dialogGeneration.current === generation) setDialogBusy(false);
     }
   };
 
@@ -136,6 +188,20 @@ export function SourceActualityPanel({ userId, catalogDocuments }: { userId?: st
 
   const savePolicy = async (owner: string | null) => {
     if (!active) return;
+    const generation = dialogGeneration.current;
+    setPolicyError(null);
+    if ((reviewedAt && Number.isNaN(new Date(reviewedAt).getTime())) || (nextReviewAt && Number.isNaN(new Date(nextReviewAt).getTime()))) {
+      setPolicyError(t('documents.sourceActuality.invalidDate'));
+      return;
+    }
+    if (reviewedAt && nextReviewAt && new Date(nextReviewAt) < new Date(reviewedAt)) {
+      setPolicyError(t('documents.sourceActuality.invalidWindow'));
+      return;
+    }
+    if (owner && !owners.some((candidate) => candidate.id === owner)) {
+      setPolicyError(t('documents.sourceActuality.ownerUnavailable'));
+      return;
+    }
     setDialogBusy(true);
     setDialogError(false);
     try {
@@ -145,34 +211,42 @@ export function SourceActualityPanel({ userId, catalogDocuments }: { userId?: st
         next_review_at: toAwareIso(nextReviewAt),
       });
       await load();
-      setActive(null);
-    } catch {
-      setDialogError(true);
+      if (dialogGeneration.current === generation) closeFamily();
+    } catch (error) {
+      if (dialogGeneration.current !== generation) return;
+      const response = (error as { response?: { status?: number; data?: { detail?: unknown; message?: unknown } } }).response;
+      const ownerError = 'Policy owner must be an active tenant methodologist';
+      const ownerRejected = response?.data?.detail === ownerError || response?.data?.message === ownerError;
+      setPolicyError(t(ownerRejected ? 'documents.sourceActuality.ownerUnavailable' : response?.status === 422 ? 'documents.sourceActuality.policyValidationError' : 'documents.sourceActuality.policySaveError'));
     } finally {
-      setDialogBusy(false);
+      if (dialogGeneration.current === generation) setDialogBusy(false);
     }
   };
 
   const analyze = async () => {
     if (!active) return;
+    const generation = dialogGeneration.current;
     setDialogBusy(true);
     setDialogError(false);
     try {
       const result = await api.post<Review>(`/v1/admin/source-actuality/documents/${active.latest_document_id}/analyze`);
-      setReview(result.data);
       setFamilies((items) => items.map((item) => item.source_family_id === active.source_family_id
         ? { ...item, pending_review_id: result.data.id, pending_review_status: result.data.status }
         : item));
-      setActive({ ...active, pending_review_id: result.data.id, pending_review_status: result.data.status });
+      if (dialogGeneration.current === generation) {
+        setReview(result.data);
+        setActive({ ...active, pending_review_id: result.data.id, pending_review_status: result.data.status });
+      }
     } catch {
-      setDialogError(true);
+      if (dialogGeneration.current === generation) setDialogError(true);
     } finally {
-      setDialogBusy(false);
+      if (dialogGeneration.current === generation) setDialogBusy(false);
     }
   };
 
   const submitDecision = async () => {
     if (!active?.pending_review_id || !decision || reason.trim().length < 20) return;
+    const generation = dialogGeneration.current;
     setDialogBusy(true);
     setDialogError(false);
     try {
@@ -182,11 +256,11 @@ export function SourceActualityPanel({ userId, catalogDocuments }: { userId?: st
         ...(decision === 'update_and_retrain' && retrainingDueAt ? { retraining_due_at: toAwareIso(retrainingDueAt) } : {}),
       });
       await load();
-      setActive(null);
+      if (dialogGeneration.current === generation) closeFamily();
     } catch {
-      setDialogError(true);
+      if (dialogGeneration.current === generation) setDialogError(true);
     } finally {
-      setDialogBusy(false);
+      if (dialogGeneration.current === generation) setDialogBusy(false);
     }
   };
 
@@ -228,14 +302,32 @@ export function SourceActualityPanel({ userId, catalogDocuments }: { userId?: st
             ); })}</div>}
 
       {active && <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4" role="presentation">
-        <button className="absolute inset-0 bg-black/50" aria-label={t('common.close')} onClick={() => setActive(null)} />
+        <button className="absolute inset-0 bg-black/50" aria-label={t('common.close')} onClick={closeFamily} />
         <section role="dialog" aria-modal="true" aria-labelledby="actuality-dialog-title" className="relative z-10 max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl bg-card p-4 shadow-card-lg sm:rounded-2xl sm:p-6">
-          <div className="flex items-start justify-between gap-4"><div className="min-w-0"><h2 id="actuality-dialog-title" className="text-lg font-bold">{active.title}</h2><p className="mt-1 text-sm text-muted-foreground">{t('documents.sourceActuality.dialogDescription')}</p></div><button type="button" onClick={() => setActive(null)} className="min-h-10 shrink-0 rounded-lg border border-border px-3 text-sm">{t('common.close')}</button></div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="flex items-start justify-between gap-4"><div className="min-w-0"><h2 id="actuality-dialog-title" className="text-lg font-bold">{active.title}</h2><p className="mt-1 text-sm text-muted-foreground">{t('documents.sourceActuality.dialogDescription')}</p></div><button type="button" onClick={closeFamily} className="min-h-10 shrink-0 rounded-lg border border-border px-3 text-sm">{t('common.close')}</button></div>
+          <div className="mt-5">
+            <label className="block text-sm">{t('documents.sourceActuality.ownerLabel')}
+              <select value={ownerId} disabled={dialogBusy || ownersLoading || ownersError} onChange={(event) => { setOwnerId(event.target.value); setPolicyError(null); }} className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3">
+                <option value="">{t('documents.sourceActuality.ownerUnassigned')}</option>
+                {ownerId && !owners.some((owner) => owner.id === ownerId) && <option value={ownerId} disabled>{active.owner_name || t('documents.sourceActuality.ownerAssigned')}</option>}
+                {owners.map((owner) => <option key={owner.id} value={owner.id}>{[owner.first_name, owner.last_name].filter(Boolean).join(' ') || owner.email || t('documents.sourceActuality.ownerAssigned')}</option>)}
+              </select>
+            </label>
+            <p className="mt-1 text-xs text-muted-foreground">{t('documents.sourceActuality.ownerHint')}</p>
+            {isImpersonating && <p className="mt-2 text-sm text-muted-foreground">{t('documents.sourceActuality.previewOwnerHint')}</p>}
+            {ownersLoading && <p role="status" className="mt-2 text-sm">{t('documents.sourceActuality.ownersLoading')}</p>}
+            {ownersError && <p role="alert" className="mt-2 text-sm text-destructive">{t('documents.sourceActuality.ownersError')} <button type="button" className="underline" onClick={() => setOwnerReload((value) => value + 1)}>{t('documents.sourceActuality.retry')}</button></p>}
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="text-sm">{t('documents.sourceActuality.reviewedAt')}<input type="datetime-local" value={reviewedAt} onChange={(e) => setReviewedAt(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3" /></label>
             <label className="text-sm">{t('documents.sourceActuality.nextReview')}<input type="datetime-local" value={nextReviewAt} onChange={(e) => setNextReviewAt(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3" /></label>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2"><button disabled={dialogBusy || !userId} onClick={() => void savePolicy(userId || null)} className="min-h-10 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-50">{t('documents.sourceActuality.assignMe')}</button><button disabled={dialogBusy} onClick={() => void savePolicy(null)} className="min-h-10 rounded-lg border border-border px-3 text-sm disabled:opacity-50">{t('documents.sourceActuality.clearOwner')}</button></div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" disabled={dialogBusy || ownersLoading || ownersError} onClick={() => void savePolicy(ownerId || null)} className="min-h-10 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-50">{t('common.save')}</button>
+            {!isImpersonating && <button type="button" disabled={dialogBusy || ownersLoading || !userId || !owners.some((owner) => owner.id === userId)} onClick={() => void savePolicy(userId || null)} className="min-h-10 rounded-lg border border-border px-3 text-sm disabled:opacity-50">{t('documents.sourceActuality.assignMe')}</button>}
+            <button type="button" disabled={dialogBusy} onClick={() => void savePolicy(null)} className="min-h-10 rounded-lg border border-border px-3 text-sm disabled:opacity-50">{t('documents.sourceActuality.clearOwner')}</button>
+          </div>
+          {policyError && <p role="alert" className="mt-3 text-sm text-destructive">{policyError} <button type="button" className="underline" onClick={() => setOwnerReload((value) => value + 1)}>{t('documents.sourceActuality.refresh')}</button></p>}
           <div className="mt-6 border-t border-border pt-5"><h3 className="font-semibold">{t('documents.sourceActuality.analysisTitle')}</h3><p className="mt-1 text-sm text-muted-foreground">{t('documents.sourceActuality.analysisDescription')}</p>
             {!active.pending_review_id && active.latest_version <= 1 && <p className="mt-3 text-sm text-muted-foreground">{t('documents.sourceActuality.noPreviousVersion')}</p>}
             {!active.pending_review_id && active.latest_version > 1 && <button type="button" disabled={dialogBusy} onClick={() => void analyze()} className="mt-3 min-h-10 rounded-lg border border-primary px-3 text-sm font-medium text-primary disabled:opacity-50">{dialogBusy ? t('documents.sourceActuality.working') : t('documents.sourceActuality.startAnalysis')}</button>}

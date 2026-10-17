@@ -936,6 +936,13 @@
   },
   "documents": {
     "sourceActuality": {
+      "ownerLabel": "Source owner", "ownerHint": "Choose an active methodologist in your company. Assigning ownership does not change their permissions.",
+      "policyValidationError": "Check the owner, dates and time. The server rejected these values; your input is still in the form.",
+      "previewOwnerHint": "You are previewing the company as a platform administrator. Choose a company methodologist: the platform account cannot own its source.",
+      "ownersLoading": "Loading methodologists…", "ownersError": "Could not load the company's methodologists.",
+      "ownerUnavailable": "Could not assign the owner. Refresh the list and choose an active company methodologist.",
+      "invalidDate": "Enter a valid date and time.", "invalidWindow": "The next review cannot precede the completed review.",
+      "policySaveError": "Could not save the owner and dates. Check the connection and retry; your input is still in the form.",
       "title": "Source actuality",
       "description": "Review source ownership and schedule checks. Compare newer indexed revisions before deciding what happens to affected learning.",
       "refresh": "Refresh", "loading": "Loading source families…", "loadError": "Could not load source actuality.", "retry": "Retry", "empty": "No source families to review yet.",
@@ -2320,7 +2327,7 @@
         "intro": "Employees can be imported from a file or added manually.",
         "newEmployee": "New employee",
         "personnelNumberPlaceholder": "For example, 0001",
-        "required": "Enter the personnel number, first name, last name, department, and position"
+        "required": "Fill in the personnel number, first name, last name, and position"
       },
       "structure": {
         "addBranch": "+ Add branch",

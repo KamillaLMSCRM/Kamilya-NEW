@@ -11,6 +11,9 @@ from app.modules.source_actuality.schemas import SourcePolicyUpdate
 
 
 class _Db:
+    async def refresh(self, _row) -> None:
+        return None
+
     async def commit(self) -> None:
         return None
 
@@ -123,3 +126,49 @@ async def test_policy_update_by_methodologist_uses_same_domain_and_audit_actor(m
         "domain_actor_id": methodologist_id,
         "audit_actor_id": methodologist_id,
     }
+
+
+@pytest.mark.asyncio
+async def test_policy_response_refreshes_server_updated_timestamp_before_serialization(monkeypatch) -> None:
+    from sqlalchemy.exc import MissingGreenlet
+
+    now = datetime.now(UTC)
+    tenant_id, family_id, actor_id = uuid4(), uuid4(), uuid4()
+
+    class ExpiredPolicy:
+        id = uuid4()
+        source_family_id = family_id
+        owner_id = None
+        reviewed_at = None
+        next_review_at = None
+        created_at = now
+        refreshed = False
+
+        @property
+        def updated_at(self):
+            if not self.refreshed:
+                raise MissingGreenlet("server onupdate timestamp requires explicit async refresh")
+            return now
+
+    policy = ExpiredPolicy()
+    policy.tenant_id = tenant_id
+
+    class Db(_Db):
+        async def refresh(self, row) -> None:
+            assert row is policy
+            row.refreshed = True
+
+    async def upsert(_db, **_kwargs):
+        return policy
+
+    async def audit(*_args, **_kwargs):
+        assert policy.refreshed
+
+    monkeypatch.setattr(router, "upsert_policy", upsert)
+    monkeypatch.setattr(router, "log_action", audit)
+    result = await router.put_source_policy(
+        family_id, SourcePolicyUpdate(owner_id=None), _request(), Response(), db=Db(),
+        user=SimpleNamespace(id=actor_id, tenant_id=tenant_id, role="methodologist", is_impersonating=False),
+    )
+    assert result.owner_id is None
+    assert result.updated_at == now
