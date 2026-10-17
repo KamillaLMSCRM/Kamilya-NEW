@@ -232,10 +232,58 @@ def test_position_name_only_correction_preserves_existing_organization_unit() ->
     assert corrected.positions[0].organization_unit_external_key == original_department
 
 
-def test_editing_an_unchanged_proposal_marks_actual_change_as_update_not_unchanged() -> None:
+def test_editing_only_an_unchanged_name_is_rename_not_placement_update() -> None:
     original = _proposal()
     proposal = original.model_copy(update={"departments": [original.departments[0].model_copy(update={"action": MatchAction.UNCHANGED})]})
     renamed = apply_proposal_corrections(proposal, [ProposalCorrection(kind=ProposalItemKind.DEPARTMENT, external_key="d1", name="New name")])
-    assert renamed.departments[0].action is MatchAction.UPDATE
+    assert renamed.departments[0].action is MatchAction.RENAME
     same = apply_proposal_corrections(proposal, [ProposalCorrection(kind=ProposalItemKind.DEPARTMENT, external_key="d1", name="Старое имя")])
     assert same.departments[0].action is MatchAction.UNCHANGED
+
+
+def test_name_correction_preserves_explicit_update_and_placement_changes_remain_updates() -> None:
+    original = _dual_branch_proposal()
+    department = original.departments[0].model_copy(update={"action": MatchAction.UNCHANGED})
+    proposal = original.model_copy(update={"departments": [department, *original.departments[1:]]})
+    explicit = apply_proposal_corrections(proposal, [ProposalCorrection(kind=ProposalItemKind.DEPARTMENT, external_key=department.external_key, name="Renamed", action=MatchAction.UPDATE)])
+    assert explicit.departments[0].action is MatchAction.UPDATE
+    target = original.branches[1].external_key
+    moved = apply_proposal_corrections(proposal, [ProposalCorrection(kind=ProposalItemKind.DEPARTMENT, external_key=department.external_key, name="Renamed", branch_external_key=target)])
+    assert moved.departments[0].action is MatchAction.UPDATE
+
+
+def test_pure_rename_reaches_commit_planning_but_placement_still_requires_transfer(monkeypatch) -> None:
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    import pytest
+
+    from app.modules.organization_units import workspace_config
+    from app.modules.staff_import_sessions import commit_service
+    from app.modules.staff_import_sessions.schemas import ImportSessionState
+    from app.modules.staff_import_sessions.state_machine import compute_proposal_hash
+
+    original = _dual_branch_proposal()
+    department = original.departments[0].model_copy(update={"action": MatchAction.UNCHANGED})
+    proposal = original.model_copy(update={"departments": [department, *original.departments[1:]]})
+    monkeypatch.setattr(workspace_config, "staff_workspace_enabled", lambda: True)
+    record = SimpleNamespace(state="approved")
+    monkeypatch.setattr(commit_service, "get_import_session", AsyncMock(return_value=record))
+
+    class ReachedPlanningError(Exception):
+        pass
+
+    tenant_units = AsyncMock(side_effect=ReachedPlanningError)
+    monkeypatch.setattr(commit_service, "_tenant_units", tenant_units)
+    for is_move in (False, True):
+        correction = ProposalCorrection(kind=ProposalItemKind.DEPARTMENT, external_key=department.external_key, name="Renamed", **({"branch_external_key": original.branches[1].external_key} if is_move else {}))
+        corrected = apply_proposal_corrections(proposal, [correction])
+        corrected = corrected.model_copy(update={"revision": "rev-qa", "revision_hash": compute_proposal_hash(corrected)})
+        domain = SimpleNamespace(state=ImportSessionState.APPROVED, proposal=corrected, approved_revision="rev-qa")
+        monkeypatch.setattr(commit_service, "record_to_domain", lambda _, current=domain: current)
+        tenant_units.reset_mock()
+        expected = commit_service.ImportCommitConflictError if is_move else ReachedPlanningError
+        with pytest.raises(expected, match="placement_requires_reviewed_transfer" if is_move else None):
+            asyncio.run(commit_service.commit_approved_import_session(SimpleNamespace(), tenant_id=uuid4(), session_id=uuid4(), actor_id=uuid4(), revision="rev-qa"))
+        assert tenant_units.await_count == (0 if is_move else 1)

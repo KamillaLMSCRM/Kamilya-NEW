@@ -2,6 +2,31 @@
 
 Status: IN PROGRESS. Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
+## Live014 and name-only action015 — 2026-10-17
+
+- Exact01430f5700ce9c2a6ac2446e9a89d1eef3cefee79fe all3DEV RELEASE_OK;
+  CI39027860572, Verceldpl_VRSguKbpHTrDoJARHhujvEtyyAEn,
+  APIdep-db9lj57avr4c73ehmd10/workerdep-db9lk2jbc2fs73cc2lag. Root exact receipt/
+  public health independently read. Plans remain Hobby/Free/Free.
+- Fresh staff-correction-014.csv: original existing employee/position/department
+  all localized UNCHANGED. Rename showed UPDATE, revisionrev-1d691136d1d417d8
+  approved; apply stayed approved, not committed. Source preflight explicitly
+  rejects UPDATE/MOVE under staff workspace. Normal API confirms old name and
+  exact unit/position/user IDs, temp admin still inactive. No repeated commit.
+-015 makes only actual name deltas RENAME, relationship delta UPDATE. True
+  correction→commit preflight RED2/10PASS then focused19PASS; fullAPI4242PASS/
+  526environmentSKIP57.10s, quality1008/2201, independent ACCEPT. Initial2test
+  lint violations corrected, baseline not changed. Web source identical014,
+  prior final169files1259PASS/build67/67 remains applicable; no redundant rerun.
+- Actual014 editor explicit author Approve succeeded; created fresh snapshot/
+  reviewer request without email. New URL correct client origin, actual PIN
+  entry PASS. Completion/publication underway; old approval not silently reused.
+- Positions read actions on013: Refresh3/3, known filter1/3, unknown0/3, clear3/3,
+  card exactposition/department/1employee, history empty/Refresh and training
+  empty state PASS. No profile/version/rule/automatic-assignment writes.
+- Next fresh distinct015 import using same IDs; preserve earlier failed sessions.
+  Whole cabinet PARTIAL; external/credential/retained-learning gates NOT_RUN.
+
 ## Live013 and bounded014 follow-up — 2026-10-17
 
 - Exact0134aa70f7110e86295134ca1c959642d92690d8789 accepted all3 existing DEV

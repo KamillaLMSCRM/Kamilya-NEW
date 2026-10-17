@@ -1,5 +1,13 @@
 # Changelog
 
+## DEV name-only import classification follow-up — 2026-10-17
+
+- Classify implicit edits of unchanged names as Rename, not placement Update.
+  Keep actual relationship changes gated by reviewed transfers and preserve
+  per-row HR/placement protection, explicit actions, no-ops and new identities.
+-014 live preview/approval passed but name-only apply safely refused; no partial
+  DML.015 requires fresh exact DEV import acceptance; production unchanged.
+
 ## DEV template approval and truthful import preview candidate — 2026-10-17
 
 - Show explicit author approval for blueprint-backed templates as well as AI

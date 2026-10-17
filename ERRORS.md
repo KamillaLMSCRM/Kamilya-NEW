@@ -27,6 +27,14 @@ Current as of: 2026-10-17.
   fresh DEV014 preview/correction/commit exact-ID readback still required.
 - Prevention: test actual adapter/matcher projection and persisted identity,
   not merely commit deduplication; stop misleading previews before approval.
+- Recurrence014: truthful UPDATE classification for a name-only correction hit
+  the existing workspace reviewed-transfer preflight. Actual apply remained
+  approved; normal API confirms old name and exact IDs, no partial change.
+  Follow-up015 classifies only differing name fields as RENAME; relationship
+  deltas stay UPDATE, explicit actions/noops/CREATE unchanged. Real correction
+  to commit-preflight regression RED2 then focused19PASS/full4242PASS526SKIP;
+  quality1008/2201 and independent ACCEPT. Per-row HR/actual-placement guards
+  are not modified. Fresh015 committed-name readback remains mandatory.
 
 ## COURSE-REVIEW-RESUME-001 - Reviewer reload lost lesson position and checkpoint sequence
 

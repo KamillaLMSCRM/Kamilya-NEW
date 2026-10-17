@@ -5,6 +5,19 @@
 
 ## Источники правды
 
+### DEV current2026-10-17: exact014 accepted; name-only action015 local
+
+Exact30f5700ce9c2a6ac2446e9a89d1eef3cefee79fe all3DEV, CI39027860572 SUCCESS,
+Verceldpl_VRSguKbpHTrDoJARHhujvEtyyAEn READY/Hobby, APIdep-db9lj57avr4c73ehmd10
+and workerdep-db9lk2jbc2fs73cc2lag LIVE/Free. Root receipt/health exact PASS.
+Actual existing staff preview UNCHANGED, department correction UPDATE, approval
+PASS; apply refused reviewed-transfer guard, exact existing data unchanged.
+015 bounded name-only RENAME classification preserves real transfer/HR guards;
+API4242PASS526SKIP57.10s, focused19PASS, quality1008/2201, independent ACCEPT.
+Web unchanged from014 169files1259PASS/build67/67. No schema/provider-config
+change.014 explicit author approval and fresh correct-origin review PIN PASS;
+review completion/publication still underway. No production changes.
+
 ### DEV current2026-10-17: exact013 accepted; bounded014 local
 
 Exact4aa70f7110e86295134ca1c959642d92690d8789 accepted all3 existing DEV services.

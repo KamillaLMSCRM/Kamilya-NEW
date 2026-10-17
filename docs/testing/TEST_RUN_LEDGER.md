@@ -5561,3 +5561,25 @@ Rules:
 - next: exact DEV014 only; fresh same-identity import/corrected-name persistence;
   explicit author approval then fresh immutable review request and publication.
   No voice/reserve/ASUS/config/plan/key/production changes. Whole cabinet PARTIAL.
+
+## CABINET-ACTIONS-20261017-014-LIVE-015-GATES
+
+- executor: root critical diagnosis/API/browser/integration; independent reviewer;
+  no Test Runner owns this append destination. Production excluded.
+- release014: exact30f5700ce9c2a6ac2446e9a89d1eef3cefee79fe all3DEV; CI39027860572,
+  Verceldpl_VRSguKbpHTrDoJARHhujvEtyyAEn, APIdep-db9lj57avr4c73ehmd10,
+  workerdep-db9lk2jbc2fs73cc2lag. Root independent receipt/public health PASS.
+- live: staff/position/unit UNCHANGED preview PASS; rename UPDATE/approval PASS;
+  apply refused existing reviewed-transfer guard, not committed. Ordinary API
+  exact IDs and old name prove no partial change. No blind retry. Screenshot
+  ignored dev-import-corrected-preview-014.png records preview, NOT commit PASS.
+-015 repair: implicit name-only RENAME; placement UPDATE still rejected before
+  planning. Real correction→commit-preflight RED2/10PASS→focused19PASS;
+  fullAPI4242PASS526environmentSKIP57.10s, quality1008/2201, independent ACCEPT.
+  Explicit/noop/CREATE/HR/hash/tenant/per-row actual placement policy unchanged.
+  Initial test lint2 corrected, baseline not raised. Web identical014 with prior
+  full169files1259PASS/build67/67; no repeated whole web suite without delta.
+- course014: explicit author Approve PASS; fresh configured-origin personal
+  link/PIN PASS; new immutable reviewer completion/publication still open.
+- next: exact DEV015 only, fresh same-ID import persistence; protected readback
+  and queue-control check. No production/config/billing/models/ASUS/voice/reserve.

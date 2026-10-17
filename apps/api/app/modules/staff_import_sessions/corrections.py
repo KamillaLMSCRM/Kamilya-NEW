@@ -40,10 +40,13 @@ def _replace(items: Iterable, correction: ProposalCorrection, updates: dict):
             raise ValueError(f"duplicate proposal external key: {correction.external_key}")
         found = True
         action = correction.action or item.action
-        if correction.action is None and action is MatchAction.UNCHANGED and any(
-            getattr(item, field) != value for field, value in updates.items()
-        ):
-            action = MatchAction.UPDATE
+        changed_fields = {field for field, value in updates.items() if getattr(item, field) != value}
+        if correction.action is None and action is MatchAction.UNCHANGED and changed_fields:
+            action = (
+                MatchAction.RENAME
+                if changed_fields <= {"name", "branch_name", "department_name", "position_name"}
+                else MatchAction.UPDATE
+            )
         if action is MatchAction.CONFLICT:
             action = MatchAction.CREATE
         evidence = [
