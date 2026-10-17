@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const routerPush = vi.hoisted(() => vi.fn());
 const fetchMock = vi.hoisted(() => vi.fn());
+const toastSuccess = vi.hoisted(() => vi.fn());
+const searchParamsState = vi.hoisted(() => ({ current: new URLSearchParams() }));
+const courseRouteState = vi.hoisted(() => ({ current: 'course-1' }));
 const translateMock = vi.hoisted(() => (key: string) => ({
   'courses.nextLesson': 'Следующий урок',
   'courses.finishCourse': 'Завершить курс',
@@ -20,8 +23,8 @@ const translateMock = vi.hoisted(() => (key: string) => ({
 const translatePluralMock = vi.hoisted(() => (key: string, count: number) => `${count} ${key}`);
 
 vi.mock('next/navigation', () => ({
-  useParams: () => ({ id: 'course-1' }),
-  useSearchParams: () => new URLSearchParams(),
+  useParams: () => ({ id: courseRouteState.current }),
+  useSearchParams: () => searchParamsState.current,
   useRouter: () => ({ back: vi.fn(), push: routerPush, replace: vi.fn(), prefetch: vi.fn() }),
 }));
 
@@ -33,11 +36,17 @@ vi.mock('@/i18n/useT', () => ({
 }));
 
 vi.mock('@/components/ui/Toast', () => ({
-  toast: { dismiss: vi.fn(), success: vi.fn(), error: vi.fn() },
+  toast: { dismiss: vi.fn(), success: toastSuccess, error: vi.fn() },
 }));
 
 vi.mock('@/lib/useIdleTimeout', () => ({
   useIdleTimeout: () => ({ warningSeconds: null }),
+}));
+
+vi.mock('@/features/training-evidence/EvidenceConfirmationPanel', () => ({
+  EvidenceConfirmationPanel: ({ eventId }: { eventId: string }) => (
+    <div data-testid="completion-evidence-event">{eventId}</div>
+  ),
 }));
 
 import CoursePlayerPage from '@/app/courses/[id]/page';
@@ -116,6 +125,9 @@ describe('course player role modes', () => {
     vi.clearAllMocks();
     fetchMock.mockReset();
     routerPush.mockReset();
+    toastSuccess.mockReset();
+    searchParamsState.current = new URLSearchParams();
+    courseRouteState.current = 'course-1';
     useAuthStore.setState({ accessToken: null, user: null, initialized: true });
     setupFetch();
   });
@@ -272,6 +284,207 @@ describe('course player role modes', () => {
       expect.stringContaining('/v1/courses/course-1/complete'),
       expect.objectContaining({ method: 'POST' }),
     );
+  });
+
+  it('renders the next preview lesson when the URL already names that lesson', async () => {
+    const lessons = [lesson, { ...lesson, id: 'lesson-2', title: 'Следующий урок', order_index: 1 }];
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/v1/courses/course-1')) return jsonResponse(course);
+      if (url.endsWith('/v1/courses/course-1/structure')) return jsonResponse({ modules: [{ id: 'module-1', title: 'Модуль', description: '', order_index: 0, lessons }] });
+      if (url.endsWith('/v1/progress/courses/course-1/completed-ids')) return jsonResponse({ completed_lesson_ids: [] });
+      if (url.endsWith('/v1/courses/course-1/access-window')) return jsonResponse(null);
+      if (url.includes('/v1/quizzes/by-lesson/')) return jsonResponse({ detail: 'No quiz' }, 404);
+      if (url.includes('/v1/learner/assistant/messages')) return jsonResponse([]);
+      if (url.includes('/v1/progress/lessons/') || url.includes('/v1/courses/course-1/complete')) {
+        throw new Error(`Unexpected preview mutation: ${url}`);
+      }
+      return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
+    });
+    useAuthStore.setState({ accessToken: 'methodologist-token', user: { user_id: 'methodologist-1', role: 'methodologist' } as never, initialized: true });
+    searchParamsState.current = new URLSearchParams('lessonId=lesson-2');
+
+    render(<CoursePlayerPage />);
+    expect(await screen.findByRole('heading', { name: 'Следующий урок' })).toBeInTheDocument();
+    fireEvent.click(screen.getAllByText('Шестой урок')[0]);
+    expect(await screen.findByRole('heading', { name: 'Шестой урок' })).toBeInTheDocument();
+
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Следующий урок' })));
+
+    expect(routerPush).not.toHaveBeenCalledWith('/courses/course-1?lessonId=lesson-2');
+    expect(screen.getByRole('heading', { name: 'Следующий урок' })).toBeInTheDocument();
+  });
+
+  it('keeps privileged preview progress local while following URL lesson changes and finishing', async () => {
+    const lessons = [lesson, { ...lesson, id: 'lesson-2', title: 'Следующий урок', order_index: 1 }];
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/v1/courses/course-1')) return jsonResponse(course);
+      if (url.endsWith('/v1/courses/course-1/structure')) return jsonResponse({ modules: [{ id: 'module-1', title: 'Модуль', description: '', order_index: 0, lessons }] });
+      if (url.endsWith('/v1/progress/courses/course-1/completed-ids')) return jsonResponse({ completed_lesson_ids: [] });
+      if (url.endsWith('/v1/courses/course-1/access-window')) return jsonResponse(null);
+      if (url.includes('/v1/quizzes/by-lesson/')) return jsonResponse({ detail: 'No quiz' }, 404);
+      if (url.includes('/v1/learner/assistant/messages')) return jsonResponse([]);
+      if (url.includes('/v1/progress/lessons/') || url.includes('/v1/courses/course-1/complete')) {
+        throw new Error(`Unexpected preview mutation: ${url}`);
+      }
+      return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
+    });
+    useAuthStore.setState({ accessToken: 'methodologist-token', user: { id: 'methodologist-1', role: 'methodologist' } as never, initialized: true });
+
+    const view = render(<CoursePlayerPage />);
+    expect(await screen.findByRole('heading', { name: 'Шестой урок' })).toBeInTheDocument();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Следующий урок' })));
+    expect(routerPush).toHaveBeenCalledWith('/courses/course-1?lessonId=lesson-2');
+
+    searchParamsState.current = new URLSearchParams('lessonId=lesson-2');
+    await act(async () => {
+      view.rerender(<CoursePlayerPage />);
+    });
+    expect(await screen.findByRole('heading', { name: 'Следующий урок' })).toBeInTheDocument();
+    expect(screen.getAllByText('Шестой урок')[0].parentElement?.querySelector('.bg-success')).toBeInTheDocument();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Завершить курс' })));
+    expect(routerPush).toHaveBeenCalledWith('/courses');
+    expect(toastSuccess).toHaveBeenCalledWith('Предпросмотр курса завершён');
+    expect(fetchMock.mock.calls.some(([, request]) => request?.method === 'PUT' || request?.method === 'POST')).toBe(false);
+  });
+
+  it('isolates privileged preview progress by course and actor identity', async () => {
+    const courseOneLessons = [lesson, { ...lesson, id: 'lesson-2', title: 'Следующий урок', order_index: 1 }];
+    const courseTwoLesson = { ...lesson, id: 'course-two-lesson', title: 'Курс два', order_index: 0 };
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const currentCourse = courseRouteState.current;
+      if (url.endsWith(`/v1/courses/${currentCourse}`)) return jsonResponse({ ...course, id: currentCourse });
+      if (url.endsWith(`/v1/courses/${currentCourse}/structure`)) {
+        return jsonResponse({ modules: [{ id: `module-${currentCourse}`, title: 'Модуль', description: '', order_index: 0, lessons: currentCourse === 'course-1' ? courseOneLessons : [courseTwoLesson] }] });
+      }
+      if (url.endsWith(`/v1/progress/courses/${currentCourse}/completed-ids`)) return jsonResponse({ completed_lesson_ids: [] });
+      if (url.endsWith(`/v1/courses/${currentCourse}/access-window`)) return jsonResponse(null);
+      if (url.includes('/v1/quizzes/by-lesson/')) return jsonResponse({ detail: 'No quiz' }, 404);
+      if (url.includes('/v1/learner/assistant/messages')) return jsonResponse([]);
+      return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
+    });
+    useAuthStore.setState({ accessToken: 'methodologist-token', user: { user_id: 'methodologist-1', role: 'methodologist' } as never, initialized: true });
+
+    const view = render(<CoursePlayerPage />);
+    expect(await screen.findByRole('heading', { name: 'Шестой урок' })).toBeInTheDocument();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Следующий урок' })));
+    expect(screen.getAllByText('Шестой урок')[0].parentElement?.querySelector('.bg-success')).toBeInTheDocument();
+
+    courseRouteState.current = 'course-2';
+    searchParamsState.current = new URLSearchParams();
+    await act(async () => view.rerender(<CoursePlayerPage />));
+    expect(await screen.findByRole('heading', { name: 'Курс два' })).toBeInTheDocument();
+    expect(screen.getAllByText('Курс два')[0].parentElement?.querySelector('.bg-success')).not.toBeInTheDocument();
+
+    courseRouteState.current = 'course-1';
+    useAuthStore.setState({ accessToken: 'methodologist-token-2', user: { user_id: 'methodologist-2', role: 'methodologist' } as never, initialized: true });
+    await act(async () => view.rerender(<CoursePlayerPage />));
+    expect(await screen.findByRole('heading', { name: 'Шестой урок' })).toBeInTheDocument();
+    expect(screen.getAllByText('Шестой урок')[0].parentElement?.querySelector('.bg-success')).not.toBeInTheDocument();
+  });
+
+  it('ignores a delayed student progress response after entering preview mode', async () => {
+    let resolveStudentProgress!: (value: Response) => void;
+    let progressRequestCount = 0;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/v1/courses/course-1')) return jsonResponse(course);
+      if (url.endsWith('/v1/courses/course-1/structure')) return jsonResponse({ modules: [{ id: 'module-1', title: 'Модуль', description: '', order_index: 0, lessons: [lesson] }] });
+      if (url.endsWith('/v1/progress/courses/course-1/completed-ids')) {
+        progressRequestCount += 1;
+        return progressRequestCount === 2
+          ? new Promise((resolve) => { resolveStudentProgress = resolve; })
+          : jsonResponse({ completed_lesson_ids: [] });
+      }
+      if (url.endsWith('/v1/courses/course-1/access-window')) return jsonResponse(null);
+      if (url.includes('/v1/quizzes/by-lesson/')) return jsonResponse({ detail: 'No quiz' }, 404);
+      if (url.includes('/v1/student/dashboard')) return jsonResponse({ enrolled_courses: [{ course_id: 'course-1', enrollment_status: 'in_progress' }] });
+      if (url.includes('/v1/learner/assistant/messages')) return jsonResponse([]);
+      return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
+    });
+    useAuthStore.setState({ accessToken: 'student-token', user: { user_id: 'student-1', role: 'student' } as never, initialized: true });
+    const view = render(<CoursePlayerPage />);
+    await screen.findByRole('heading', { name: 'Шестой урок' });
+
+    searchParamsState.current = new URLSearchParams('lessonId=lesson-1');
+    await act(async () => view.rerender(<CoursePlayerPage />));
+    await waitFor(() => expect(progressRequestCount).toBe(2));
+    useAuthStore.setState({ accessToken: 'methodologist-token', user: { user_id: 'methodologist-1', role: 'methodologist' } as never, initialized: true });
+    await act(async () => view.rerender(<CoursePlayerPage />));
+    await screen.findByRole('heading', { name: 'Шестой урок' });
+    await waitFor(() => expect(progressRequestCount).toBe(3));
+    await act(async () => resolveStudentProgress(jsonResponse({ completed_lesson_ids: ['lesson-1'] })));
+    expect(screen.getAllByText('Шестой урок')[0].parentElement?.querySelector('.bg-success')).not.toBeInTheDocument();
+  });
+
+  it('ignores a delayed evidence response body after the learner identity changes', async () => {
+    let resolveOldEvidence!: (value: Array<{ id: string }>) => void;
+    let oldEvidenceBodyStarted = false;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const oldActor = (init?.headers as Record<string, string>)?.Authorization === 'Bearer student-old-token';
+      if (url.endsWith('/v1/courses/course-1')) return jsonResponse({ ...course, status: 'published' });
+      if (url.endsWith('/v1/courses/course-1/structure')) return jsonResponse({ modules: [{ id: 'module-1', title: 'Модуль', description: '', order_index: 0, lessons: [lesson] }] });
+      if (url.endsWith('/v1/progress/courses/course-1/completed-ids')) return jsonResponse({ completed_lesson_ids: ['lesson-1'] });
+      if (url.endsWith('/v1/courses/course-1/access-window')) return jsonResponse(null);
+      if (url.endsWith('/v1/student/dashboard')) return jsonResponse({ enrolled_courses: [{ course_id: 'course-1', enrollment_id: oldActor ? 'enrollment-old' : 'enrollment-new', enrollment_status: 'completed' }] });
+      if (url.includes('/v1/training-evidence/events/mine?')) {
+        if (oldActor) return {
+          ok: true,
+          json: () => {
+            oldEvidenceBodyStarted = true;
+            return new Promise((resolve) => { resolveOldEvidence = resolve; });
+          },
+        } as Response;
+        return jsonResponse([{ id: 'evidence-new' }]);
+      }
+      if (url.includes('/v1/quizzes/by-lesson/')) return jsonResponse({ detail: 'No quiz' }, 404);
+      if (url.includes('/v1/learner/assistant/messages')) return jsonResponse([]);
+      return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
+    });
+    useAuthStore.setState({ accessToken: 'student-old-token', user: { user_id: 'student-old', role: 'student' } as never, initialized: true });
+    const view = render(<CoursePlayerPage />);
+    await waitFor(() => expect(oldEvidenceBodyStarted).toBe(true));
+
+    useAuthStore.setState({ accessToken: 'student-new-token', user: { user_id: 'student-new', role: 'student' } as never, initialized: true });
+    await act(async () => view.rerender(<CoursePlayerPage />));
+    expect(await screen.findByTestId('completion-evidence-event')).toHaveTextContent('evidence-new');
+    await act(async () => resolveOldEvidence([{ id: 'evidence-old' }]));
+    expect(screen.getByTestId('completion-evidence-event')).toHaveTextContent('evidence-new');
+    expect(screen.queryByText('evidence-old')).not.toBeInTheDocument();
+  });
+
+  it('clears preview progress before a student progress read settles or fails', async () => {
+    let rejectStudentProgress!: (reason?: unknown) => void;
+    let progressRequestCount = 0;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/v1/courses/course-1')) return jsonResponse(course);
+      if (url.endsWith('/v1/courses/course-1/structure')) return jsonResponse({ modules: [{ id: 'module-1', title: 'Модуль', description: '', order_index: 0, lessons: [lesson, { ...lesson, id: 'lesson-2', title: 'Следующий урок', order_index: 1 }] }] });
+      if (url.endsWith('/v1/progress/courses/course-1/completed-ids')) {
+        progressRequestCount += 1;
+        return progressRequestCount === 1
+          ? jsonResponse({ completed_lesson_ids: [] })
+          : new Promise((_, reject) => { rejectStudentProgress = reject; });
+      }
+      if (url.endsWith('/v1/courses/course-1/access-window')) return jsonResponse(null);
+      if (url.includes('/v1/quizzes/by-lesson/')) return jsonResponse({ detail: 'No quiz' }, 404);
+      if (url.includes('/v1/learner/assistant/messages')) return jsonResponse([]);
+      return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
+    });
+    useAuthStore.setState({ accessToken: 'methodologist-token', user: { user_id: 'methodologist-1', role: 'methodologist' } as never, initialized: true });
+    const view = render(<CoursePlayerPage />);
+    await screen.findByRole('heading', { name: 'Шестой урок' });
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Следующий урок' })));
+    expect(screen.getAllByText('Шестой урок')[0].parentElement?.querySelector('.bg-success')).toBeInTheDocument();
+
+    useAuthStore.setState({ accessToken: 'student-token', user: { user_id: 'student-1', role: 'student' } as never, initialized: true });
+    await act(async () => view.rerender(<CoursePlayerPage />));
+    expect(screen.getAllByText('Шестой урок')[0].parentElement?.querySelector('.bg-success')).not.toBeInTheDocument();
+    await act(async () => rejectStudentProgress(new Error('progress unavailable')));
+    expect(screen.getAllByText('Шестой урок')[0].parentElement?.querySelector('.bg-success')).not.toBeInTheDocument();
   });
 
   it('does not let a learner skip an unpassed required quiz', async () => {

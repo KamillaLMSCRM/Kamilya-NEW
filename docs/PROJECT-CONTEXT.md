@@ -5,6 +5,20 @@
 
 ## Источники правды
 
+### Current DEV024 follow-up scope — 2026-10-17
+
+Owner explicitly deferred Render/network reset investigation; do not resume it
+from the historical notes below. Continue synthetic DEV cabinet acceptance and
+ordinary existing-tier DEV releases only; production remains excluded. Runtime
+is still the accepted DEV023 until exact024 reconciliation proves otherwise.
+
+Reader same-URL Next defect reproduced twice; candidate preserves scope-local
+preview progress and rejects stale identity/body reads. Focused21PASS/typecheck
+and independent source review ACCEPT; broad gates/deployed browser checks pending.
+One normal synthetic generation0428dfb7… remained queued, then UI cancellation and
+ordinary API prove cancelled/no started_at/no course/active0. Fresh generated
+output is NOT VERIFIED, not silently retried or used as a reason for infra work.
+
 ### Current DEV023 bounded acceptance — 2026-10-17
 
 Exactb6cd67b7e42266b701ede09a819409c01f88bf0f/CI39042607528 SUCCESS;

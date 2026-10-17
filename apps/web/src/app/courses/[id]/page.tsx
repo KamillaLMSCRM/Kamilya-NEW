@@ -105,6 +105,8 @@ export default function CoursePlayerPage() {
   const [scormLaunchError, setScormLaunchError] = useState('');
   const [scormLaunchLoading, setScormLaunchLoading] = useState(false);
   const scormFrameRef = useRef<HTMLIFrameElement>(null);
+  const previewProgressScopeRef = useRef<{ key: string; preview: boolean } | null>(null);
+  const dataLoadGenerationRef = useRef(0);
   const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([]);
   const [assistantInput, setAssistantInput] = useState('');
   const [assistantLoading, setAssistantLoading] = useState(false);
@@ -122,6 +124,16 @@ export default function CoursePlayerPage() {
   const canPreviewQuiz = user?.role === 'superadmin' || user?.role === 'methodologist';
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const selectedLessonId = selectedLesson?.id;
+  const previewProgressScope = `${courseId}:${user?.user_id || ''}:${user?.role || ''}:${token || ''}`;
+
+  useEffect(() => {
+    const previous = previewProgressScopeRef.current;
+    if (previous && (previous.key !== previewProgressScope || previous.preview !== isPrivilegedPreview)) {
+      setCompletedLessons(new Set());
+      dataLoadGenerationRef.current += 1;
+    }
+    previewProgressScopeRef.current = { key: previewProgressScope, preview: isPrivilegedPreview };
+  }, [isPrivilegedPreview, previewProgressScope]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -288,6 +300,14 @@ export default function CoursePlayerPage() {
   }, [scormLaunchSession]);
 
   const fetchData = useCallback(async () => {
+    const requestGeneration = ++dataLoadGenerationRef.current;
+    const requestScope = previewProgressScope;
+    const requestPreview = isPrivilegedPreview;
+    const isCurrentRequest = () => (
+      dataLoadGenerationRef.current === requestGeneration
+      && previewProgressScopeRef.current?.key === requestScope
+      && previewProgressScopeRef.current?.preview === requestPreview
+    );
     try {
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
@@ -298,9 +318,11 @@ export default function CoursePlayerPage() {
         fetch(`${API_URL}/v1/progress/courses/${courseId}/completed-ids`, { headers }),
         fetch(`${API_URL}/v1/courses/${courseId}/access-window`, { headers }),
       ]);
+      if (!isCurrentRequest()) return;
 
       if (accessWindowRes.ok) {
         const accessWindow: AssignmentAccessWindow | null = await accessWindowRes.json();
+        if (!isCurrentRequest()) return;
         if (accessWindow) {
           const policy = accessWindow.access_policy;
           setAssignmentAccessPolicy(policy);
@@ -321,7 +343,11 @@ export default function CoursePlayerPage() {
         }
       }
 
-      if (courseRes.ok) setCourse(await courseRes.json());
+      if (courseRes.ok) {
+        const courseData = await courseRes.json();
+        if (!isCurrentRequest()) return;
+        setCourse(courseData);
+      }
 
       const userRole = user?.role;
       const bypass = userRole === 'admin' || userRole === 'superadmin' || userRole === 'methodologist';
@@ -329,8 +355,10 @@ export default function CoursePlayerPage() {
         setEnrolled(true);
       } else if (userRole === 'student') {
         const dashboardRes = await fetch(`${API_URL}/v1/student/dashboard`, { headers });
+        if (!isCurrentRequest()) return;
         if (dashboardRes.ok) {
           const dashboard = await dashboardRes.json();
+          if (!isCurrentRequest()) return;
           const enrolledCourse = (dashboard.enrolled_courses || []).find(
             (item: { course_id: string; enrollment_id?: string; enrollment_status?: string }) => item.course_id === courseId
           );
@@ -347,8 +375,10 @@ export default function CoursePlayerPage() {
               `${API_URL}/v1/training-evidence/events/mine?${evidenceParams.toString()}`,
               { headers },
             );
+            if (!isCurrentRequest()) return;
             if (evidenceRes.ok) {
               const evidenceEvents: Array<{ id: string }> = await evidenceRes.json();
+              if (!isCurrentRequest()) return;
               setCompletionEvidenceEventId(evidenceEvents[0]?.id || null);
             }
           }
@@ -362,6 +392,7 @@ export default function CoursePlayerPage() {
       let allLessons: Lesson[] = [];
       if (structRes.ok) {
         const data = await structRes.json();
+        if (!isCurrentRequest()) return;
         setModules(data.modules || []);
         allLessons = (data.modules || []).flatMap((m: Module) => m.lessons || []);
       }
@@ -369,11 +400,13 @@ export default function CoursePlayerPage() {
       let completedIds: Set<string> = new Set();
       if (progressRes.ok) {
         const d = await progressRes.json();
+        if (!isCurrentRequest()) return;
         completedIds = new Set(d.completed_lesson_ids || []);
-        setCompletedLessons(completedIds);
+        if (!isPrivilegedPreview) setCompletedLessons(completedIds);
       }
 
       if (allLessons.length > 0) {
+        if (!isCurrentRequest()) return;
         const requestedLesson = requestedLessonId
           ? allLessons.find((lesson) => lesson.id === requestedLessonId)
           : undefined;
@@ -383,9 +416,9 @@ export default function CoursePlayerPage() {
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      if (isCurrentRequest()) setLoading(false);
     }
-  }, [API_URL, courseId, requestedLessonId, token, user]);
+  }, [API_URL, courseId, isPrivilegedPreview, previewProgressScope, requestedLessonId, token, user]);
 
   useEffect(() => {
     if (courseId) fetchData();
@@ -451,7 +484,12 @@ export default function CoursePlayerPage() {
     if (!await persistLessonProgress(selectedLesson.id)) return;
     const next = findNextLesson(selectedLesson.id);
     if (next) {
-      router.push(`/courses/${courseId}?lessonId=${encodeURIComponent(next.id)}`);
+      const nextPath = `/courses/${courseId}?lessonId=${encodeURIComponent(next.id)}`;
+      if (requestedLessonId === next.id) {
+        setSelectedLesson(next);
+      } else {
+        router.push(nextPath);
+      }
     } else {
       const total = modules.reduce((acc, m) => acc + m.lessons.length, 0);
       const completedCountAfterSave = new Set(completedLessons).add(selectedLesson.id).size;

@@ -1,7 +1,46 @@
 # Cabinet actions and source ownership acceptance
 
-Status: BOUNDED DEV023 ACCEPTED; full cabinet remains PARTIAL; reset node NOT_LOCALIZED.
+Status: DEV024 reader correction in review; DEV023 accepted; full cabinet PARTIAL.
 Owner request2026-10-17. Production publication NOT AUTHORIZED.
+
+## DEV024 follow-up — 2026-10-17
+
+- Current owner instruction explicitly defers Render/reset diagnosis. Keep the
+  existing observations as history; no new trace, support message, network or
+  infrastructure repair is part of this follow-up. Ordinary exact DEV deployment
+  remains within the approved product-testing scope; production is excluded.
+- Original QA editor af5a2cdb…: unsaved text triggers the leave warning; Cancel
+  retains it; Preview renders it; confirmed Discard restores the exact original
+  text and disables Save. Selecting lesson2 opens that exact reader lesson.
+  Existing image Markdown remains literal; no image/file upload toolbar is exposed
+  by this editor. This is not a successful media-rendering test or a new feature.
+- Actual reader defect reproduced twice: open lesson2 via its deep link, select
+  lesson1 in the sidebar, then Next. Progress changes but the heading remains
+  lesson1 because router.push targets the already-current lesson2 URL. Screenshot
+  dev-next-lesson-stuck-024-before.png retained. Candidate updates local selection
+  for this same-URL case and keeps preview progress local across lesson queries.
+  Scope/stale-response isolation is separately reviewed; broad gates and deployed
+  browser acceptance are pending, not inferred from focused tests.
+- One real brief generation was requested through the normal UI from the exact
+  existing synthetic equipment instruction19b0f461…, source1042bytes/SHA256
+  c7091e2c455520117e66108aac0e74e5765b5e134dbe7cffe858b6ee0d6c9957.
+  Job0428dfb7-c99c-4e98-a7e7-5288291a60fe remained queued from15:27:13.101634Z;
+  Check again did not start it. UI Cancel returned to the generation form; ordinary
+  GET independently confirms cancelled15:33:47.709830Z, started_atNULL,
+  course_idNULL, tenant_active_jobs0/2. No retry/resume, generated course,
+  publication or assignment. Cancel/admission-slot release PASS; fresh generation
+  content/quality remains NOT VERIFIED. This is not a localized worker-cause claim.
+- Training log: selecting the owned manual QA course loads its actual three
+  question analytics. The failed-first/passed-last question shows1/1→0/1 and
+  improvement1, with the explicit small-sample warning. No review decision was
+  changed. PDF/ZIP evidence export is correctly unavailable while the signed copy
+  remains awaiting confirmation; do not mark those downloads PASS without a
+  suitable confirmed fixture or bypass the evidence requirement.
+- Frozen candidate gates: focused reader21PASS, full web1293PASS/169files/183.59s,
+  standalone tsc PASS, Next build67/67 PASS, contracts schema0183/313unique journal
+  IDs PASS, version0.11.59 consistent, diffcheck PASS. Independent final source
+  review ACCEPT after root proved and fixed the delayed evidence body regression.
+  Exact DEV024 deployment and real reader acceptance remain pending.
 
 ## Final bounded023 live acceptance — 2026-10-17
 
@@ -594,7 +633,7 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 |---|---|---|
 | Methodologist /dashboard | Refresh, filters, action cards, destination context, help | PARTIAL: exhausted1row/reset/return; other destination combinations pending |
 | /documents | Upload/open/cancel/validation; YouTube; search/status/purpose filters; download; new version; reindex; delete preview; actuality ownership/dates/review decisions; help | OWNER FLOW PASS: other/self/save/clear/reload/date refusal; other actions PARTIAL, named delete cancelled |
-| /ai/generate | Source selection/compatibility; options; generation/resume/cancel; preview; edit/review/publish; help | PARTIAL: source preflight/options/default restore; actual generation NOT RUN |
+| /ai/generate | Source selection/compatibility; options; generation/resume/cancel; preview; edit/review/publish; help | PARTIAL: preflight/options/default restore;024 one normal generation stayed queued, Check again/cancel/return and independent cancelled/no-course/active0 readback PASS; fresh generated output NOT VERIFIED, resume NOT_RUN |
 | /courses and /courses/[id]/edit | Create/edit/preview; lessons/reorder/media; quizzes; review/publish/archive/delete; help | PARTIAL: own save/reload/preview/discard; empty refusal/nonempty publish/archive PASS; template approval/fresh reviewer/resume/revision2 publish/limited decision Close PASS;018 module and lesson reorder/reload, module rename/reload, temporary module/lesson create/cancel/save/reload PASS;019 exact approved temporary lesson then empty module delete/reload/API preservation PASS; selected-course approval2/1/0/empty/refresh/reload PASS; image Markdown literal, file-media NOT_RUN |
 | /quizzes | Select/create quiz; question/answer types/edit/delete/reorder; learner preview; save/reload; help | PARTIAL: own3types/options/settings/edit/reload, failed/retry/success learner attempts PASS; fresh008 legacy preview/no-save scoring, single selection and exhausted radios PASS |
 | /learning-paths | Create/edit/version/publish; sequence; assignments/cancel; learner view; help | PARTIAL: create/reorder/required/save/reload/publish0audience/v2draft;023 sameA four-kind retention/differentB four-kind+date reset, invalid-date guard/same-day/New-Close and RU-KK-EN readable tabs PASS; actual assignment NOT RUN |
@@ -608,8 +647,7 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 | /mandatory-training | Search/filters/scope/status/paging; learner/course destination; help | PARTIAL: search/apply/empty/restore7, single-page guards; no retained writes |
 | /training-log | Filters/history; current occurrence; CSV/PDF/ZIP; signed-copy review; restricted share/revoke; help | PARTIAL: filter/reset/history/answer details/disclosure/CSV; no retained-record edits |
 | /training-procedures | Draft/edit/validation; activate/version; delete preview; help | PARTIAL: owned draft/edit/cancel/activation422; no irreversible delete |
-| /training-retention | View policies; empty state; help | READ-ONLY PASS: methodologist notice/empty policy/help agree; no policy editing or evidence deletion controls |
-| /training-retention | Policy form/save; dry-run; purge/legal-hold; help | READ-ONLY methodologist state PASS; admin mutations NOT RUN, purge forbidden |
+| /training-retention | View policies; empty state; help; admin policy/dry-run/purge/legal-hold variants | READ-ONLY methodologist notice/empty policy/help PASS; no policy editing or evidence deletion controls for this role; admin mutations NOT_RUN, purge forbidden |
 | Contextual /competencies,/training-rules,/invitations,/surveys,/announcements,/course-review | Context links; forms/validation/preview/submit/readback; help | PARTIAL: competency create/select/save/reload/clear PASS; training-rule preview/cancel/tabs, survey create/learner response/reload/no duplicate PASS, announcement draft/reload/RU-KK-EN help, review choose/refresh/help; no external communication |
 | Shared /profile + shell | Profile form; help/support; notifications/read; language; palette; sidebar; guide; logout | PARTIAL: profile save/reload/restore,17help, support validate/cancel, notifications/palette/sidebar/languages/guide and ordinary logout/login PASS; no support send |
 | Admin /admin,/admin/team | Navigation/onboarding; create/role/activate/deactivate; validation; help | PARTIAL: approved temporary admin normal login, routes/help, search/reset/form/cancel; final deactivated/login401; other grants NOT RUN |

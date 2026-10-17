@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+- DEV024 candidate: fix Next lesson after sidebar selection when the next lesson
+  is already named in the URL. Preserve local preview completion across lesson
+  navigation without writing learner progress, and isolate delayed reads between
+  courses and signed-in identities. Exact DEV/browser acceptance remains pending.
+
 ## DEV023 bounded live acceptance — 2026-10-17
 
 - Exact DEV frontend/API/worker reconciled; readable audience tabs visually

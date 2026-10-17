@@ -2,6 +2,32 @@
 
 Current as of: 2026-10-17.
 
+## COURSE-PLAYER-NAV-001 - Next lesson targeted the already-current URL and left the old lesson visible
+
+- Date:2026-10-17, ordinary synthetic DEV023 course-reader preview.
+- Symptom: open lesson2 from the editor, select lesson1 in the reader sidebar,
+  then click Next. Local progress becomes1/2 but lesson1 remains visible. Reproduced
+  twice without learner progress or completion writes.
+- Cause: sidebar selection is local state; Next only pushed the lesson2 URL,
+  which was already current. A query-triggered data reload also replaced local
+  preview completion with persisted learner progress.
+- Fix: select the next lesson locally when its URL is already current. Keep
+  privileged preview completion local for the same course/actor/role/token;
+  clear it on scope or mode transitions and reject stale asynchronous read
+  commits, including after response-body parsing. Student progress/completion,
+  required quizzes and deadline checks remain server-backed and unchanged.
+- Verification: original same-URL test1FAIL16PASS; independent review found scope
+  and stale-read gaps. The first correction had one genuine course-scope failure
+  and one overly-specific toast oracle failure, not two product failures. Later
+  preview-to-student pending-read regression failed before correction. Root fixed
+  a deferred-progress resolver that accidentally targeted the third/new request,
+  then proved a delayed evidence-body leak with20PASS1FAIL (expected evidence-new,
+  received evidence-old); the post-body guard produces21PASS and standalone tsc
+  PASS. Full web gates, exact DEV rollout and actual reader acceptance are pending.
+- Prevention: assert the rendered next lesson, not merely router.push. Resolve
+  the exact obsolete request in race tests; assert the new scope is loaded before
+  releasing the old response. Preview must never issue progress PUT/completion POST.
+
 ## LEARNING-UX-003 - Program switching retained another program's assignment draft
 
 - Date:2026-10-17, ordinary synthetic DEV021 learning-path workspace.

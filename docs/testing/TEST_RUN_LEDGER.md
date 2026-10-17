@@ -6048,3 +6048,44 @@ Rules:
   reset variants. Production/ASUS/models/reserve/voice/keys/trust/ports/config/
   billing/resources unchanged. Final documentation is localdocs-only successor,
   not an extra deployment. Existing unrelated authoring files remain untouched.
+
+### DEV024 reader correction and remaining safe cabinet actions — 2026-10-17
+
+- Scope: continue ordinary synthetic DEV QA button/scenario acceptance; explicit
+  owner deferral of Render/reset investigation. No production or infrastructure
+  changes, credentials/roles/security/tiers/resources/mail/voice/reserve changes.
+- Real af5a2cdb… editor: unsaved warning/Cancel/Preview/confirmed Discard/exact
+  original restored, selected lesson2 reader deep link PASS. Repeated reader
+  defect: deep link lesson2→sidebar lesson1→Next retains lesson1 heading despite
+  local progress1/2. Candidate fixes the same-current-URL local selection and
+  preserves only same-scope privileged preview progress across lesson queries.
+- Delegation: bounded writer cabinet_delta_review owned the two reader/test
+  files; native_publish_guard independently reviewed requirements/correctness/
+  standards/complexity. Two correction rounds exposed missing scope/stale-read
+  guards and an overwritten deferred resolver. Root then assumed both files,
+  corrected the exact resolver and post-body evidence guard, and added the delayed
+  evidence identity test. Genuine root RED20PASS1FAIL showed evidence-old replacing
+  evidence-new; GREEN21PASS/standalone tsc PASS; final independent ACCEPT. Agent
+  actual model/effort/token counters and exact root/worker elapsed times unavailable,
+  not zero; first-pass acceptance false, two writer correction rounds plus root
+  integration. No model-price or token-saving claim is made.
+- One real normal-UI short generation from the1042-byte synthetic equipment source
+  was queued at15:27:13.101634Z (0428dfb7-c99c-4e98-a7e7-5288291a60fe), never started.
+  Check again left it queued. UI Cancel/return and separate ordinary API readback
+  PASS: cancelled15:33:47.709830Z, no started_at/course_id, active0/2. No resubmission,
+  resume/publication/assignment or output-quality PASS. Generation remains a
+  visible unclosed business branch; network root cause is deliberately deferred.
+- Owned manual-course question analytics loads all3questions, actual first-error
+  1/1→last-error0/1/improved1 and small-sample warning PASS, no decision changed.
+  Signed-copy pending correctly gates PDF/ZIP exports; those download branches
+  remain NOT_RUN, no evidence/security bypass. Image Markdown is literal in the
+  current text editor, not a proved file-media feature.
+- Source fallback: navigation preflight reports exact worktree CodeGraph runtime
+  missing; no graph/install claim. Bounded exact-file/source/test review used for
+  this isolated reader delta; unrelated authoring untracked files preserved.
+- Fresh full-web/build/contracts, exact DEV024 deployment and live fixed-reader
+  acceptance pending. Full role/button matrix remains PARTIAL.
+- Frozen root gates completed: fullweb1293PASS0FAIL/169files183.59s, focused21PASS,
+  standalone tsc PASS, optimized Next build67of67 PASS, release contracts0183/
+  313uniquejournalIDs PASS, version0.11.59/diffcheck PASS. Exact DEV and live gates
+  are separate and still pending at this source checkpoint.
