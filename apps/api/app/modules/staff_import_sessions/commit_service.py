@@ -15,6 +15,11 @@ from app.models.department import Department
 from app.models.staff_import_session import StaffImportSession, StaffImportSessionEvent
 from app.models.users import User
 from app.modules.organization_units.service import normalize_unit_name
+from app.modules.organization_units.workspace_config import (
+    reject_hr_employee_write,
+    reject_hr_record_write,
+    reject_unreviewed_placement,
+)
 from app.modules.positions.batch_service import apply_rules_for_users
 from app.modules.positions.models import Position
 from app.modules.staff_import_legacy_adapter import LEGACY_ROOT_EXTERNAL_KEY
@@ -198,6 +203,12 @@ async def commit_approved_import_session(
         raise ImportCommitConflictError("approved proposal revision mismatch")
     if domain.proposal.revision_hash != compute_proposal_hash(domain.proposal):
         raise ImportCommitConflictError("approved proposal hash mismatch")
+    from app.modules.organization_units.workspace_config import staff_workspace_enabled
+
+    if staff_workspace_enabled():
+        for rows in (domain.proposal.organization_units, domain.proposal.branches, domain.proposal.departments, domain.proposal.positions):
+            if any(str(row.action) in {"update", "move"} for row in rows):
+                raise ImportCommitConflictError("placement_requires_reviewed_transfer")
 
     # Validate and resolve the complete generic graph while the proposal is
     # still approved. Invalid parent references and cycles therefore cannot
@@ -288,6 +299,9 @@ async def commit_approved_import_session(
                     or unit.legacy_root != _is_legacy_compatibility_root(unit_proposal.external_key)
                 )
                 writable_unit = cast(Any, unit)
+                reject_hr_record_write(unit)
+                reject_unreviewed_placement(bool(unit.parent_id != (parent.id if parent is not None else None)
+                                           or unit.is_head_office != unit_proposal.is_head_office or not unit.is_active))
                 writable_unit.name = unit_proposal.name
                 writable_unit.normalized_name = normalize_unit_name(unit_proposal.name)
                 writable_unit.unit_type = unit_proposal.unit_type.value
@@ -347,6 +361,8 @@ async def commit_approved_import_session(
                 or unit.parent_id is not None
                 or unit.legacy_root
             )
+            reject_hr_record_write(unit)
+            reject_unreviewed_placement(unit.parent_id is not None or not unit.is_active)
             unit.name = branch_proposal.branch_name
             unit.normalized_name = normalize_unit_name(branch_proposal.branch_name)
             unit.unit_type = "branch"
@@ -417,6 +433,8 @@ async def commit_approved_import_session(
                 or unit.parent_id != (parent.id if parent else None)
                 or unit.external_key != department_proposal.external_key
             )
+            reject_hr_record_write(unit)
+            reject_unreviewed_placement(bool(unit.parent_id != (parent.id if parent else None) or not unit.is_active))
             unit.name = department_proposal.department_name
             unit.normalized_name = normalize_unit_name(department_proposal.department_name)
             unit.unit_type = "department"
@@ -491,6 +509,8 @@ async def commit_approved_import_session(
                 or position.department_id != (unit.id if unit is not None else None)
                 or position.external_key != position_proposal.external_key
             )
+            reject_hr_record_write(position)
+            reject_unreviewed_placement(position.department_id != (unit.id if unit is not None else None) or not position.is_active)
             position.name = position_proposal.position_name
             position.normalized_name = normalize_unit_name(position_proposal.position_name)
             position.external_key = position_proposal.external_key
@@ -581,6 +601,12 @@ async def commit_approved_import_session(
             affected_user_ids.add(user.id)
         else:
             desired_organization_unit_id = organization_unit.id if organization_unit is not None else None
+            await reject_hr_employee_write(db, tenant_id, user.id)
+            if staff_workspace_enabled() and (
+                user.role != "student" or not user.is_active or user.status != "active"
+                or user.position_id != position.id or user.organization_unit_id != desired_organization_unit_id
+            ):
+                raise ImportCommitConflictError("placement_requires_reviewed_transfer")
             staff_changed = (
                 user.first_name != staff_proposal.first_name
                 or user.last_name != staff_proposal.last_name

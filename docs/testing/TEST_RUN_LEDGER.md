@@ -4857,3 +4857,35 @@ Rules:
 - Pure no_migration_final gate11evidence/2approvals GO, non-actionable until Root
   reference verification; Root read deployment/static/browser/cleanup/readiness
   sources and accepts only guide59 scope. AI58 semantic acceptance stays open.
+
+## STAFF-STRUCTURE-DEV-20261017 — local and isolated integration checkpoint
+
+- Executor: Root with bounded frontend writer and independent source reviewer;
+  exact baseline50d3a426482ca08a5a5b003337752251eb02c375 plus owned dirty staff candidate.
+  DEV-only owner scope; production, voice, reserve and live1C excluded.
+- API wrapper focused73PASS; new maintenance boundary7PASS; Python quality baseline
+  PASS without new debt allowances. Full offline first run3148PASS/1FAIL identified
+  missing app.models.registry registration for the new model module. Root added
+  canonical registration; exact release-reliability regression2PASS. Full rerun open.
+- Real isolated Supabase DEV gate08 PASS25 at2026-10-17T05:21:12Z, source SHA256s
+  recorded in ignored .release-evidence/staff-structure-dev/isolated-08.json.
+  Real0182 upgrade/down/up; actor/tenant FORCE-RLS; placement/training addition;
+  stale/replay; owner-only retention/batch/dryrun/rollback; marker survives receipt
+  purge and later source recompute; late-flush atomic rollback; concurrent confirm
+  commits once; competing assignment insertion leaves no partial transfer;
+  completed/manual/cohort/program enrollment rows unchanged; fallback unit move.
+  Exact owned schema cleanup=true; public catalog neutral=true. Neighbor table
+  policies are synthetic; no public-data hash or live browser result claimed.
+- Earlier gate failures retained: seed normalized-position constraint, missing
+  model FK registration, harness position-course ID assumption and clone-generated
+  unique-index name. Final gate uses exact canonical occurrence-index identity;
+  transport classifier remains restricted, not broadened to arbitrary23505.
+- Frontend initial combined39PASS; actual-page feature-on regression found legacy
+  mappings and session-restore requests before role denial. Root guards both by
+  active methodologist role; corrected four-file27PASS. Feature-on build caught
+  nullable selected-unit text, corrected; final build/recovery tests still open.
+- Independent review repaired narrow conflict/retention issues and identified
+  destructive CLI environment proof and ambiguous-confirmation reload recovery.
+  CLI now requires supplied APP_ENV allowlist AND pinned DEV project fingerprint
+  before connection, covered by7 offline negatives/positive. Frontend recovery
+  follow-up in progress. No DEV deployment or production acceptance claimed.

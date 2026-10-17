@@ -220,6 +220,7 @@ async def _upsert_employee(
     assert payload.employee is not None
     employee = payload.employee
     identity, user = await _identity_and_user(db, context, payload)
+    was_created = False
     position = await _resolve_position(
         db,
         context.tenant_id,
@@ -293,6 +294,10 @@ async def _upsert_employee(
     )
     changed = _apply_employee_fields(user, employee)
     if position is not None and user.position_id != position.id:
+        from app.modules.organization_units.workspace_config import staff_workspace_enabled
+
+        if staff_workspace_enabled() and not was_created:
+            raise StaffSyncConflictError("placement_requires_reviewed_transfer", "Use a reviewed placement change")
         user.position_id = position.id
         changed.append("position_id")
     if allow_reactivate and not user.is_active:

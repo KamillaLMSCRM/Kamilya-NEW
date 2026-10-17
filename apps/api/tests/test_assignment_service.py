@@ -82,6 +82,9 @@ def _setup_db_with_position(
     # (recompute only calls execute() for delete when there are rows
     # to remove). Tests that expect no remove won't reach this.
     delete_result = MagicMock()
+    expected_courses = {row[0] for row in position_rules_rows} | {row[0] for row in (organization_rules_rows or [])}
+    delete_result.rowcount = sum(source in {"position", "department", "organization"} and status != "completed"
+                                and course_id not in expected_courses for course_id, source, status in current_rows)
 
     if department_id is not None:
         dept_rows = MagicMock()

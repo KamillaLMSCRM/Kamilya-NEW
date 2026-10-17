@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add DEV-only opt-in staff schema and server-paginated roster, with actor-owned
+  transfer preview/confirmation, stale-plan rejection and additive learning
+  preservation. Durable markers prevent later automatic recompute from deleting
+  or relabelling retained assignments. HR-owned placement fails closed; optional
+  1C compatibility is a design constraint, not an activated connector. Production
+  activation remains excluded.
+- Add strict V6 DEV staff activation with0182 schema evidence and same-repository
+  dev-targeted feature PR CI; preserve existing assistant flags and all previous
+  packet behavior without requiring master/production promotion.
+
 - Implement an optional manual ChatGPT reserve using the official pinned Codex CLI
   and managed ChatGPT login, with superadmin readiness/confirmation/revision-checked
   activation and emergency disable. Add an authenticated bounded private connector,

@@ -37,7 +37,7 @@ def _db_for_user(*, user, organization_rows, current_rows, position_rows=None, d
         sequence.append(_result(position_rows))
         if department_rows is not None:
             sequence.append(_result(department_rows))
-    sequence.extend([_result(organization_rows), _result(current_rows), MagicMock(), MagicMock()])
+    sequence.extend([_result(organization_rows), _result(current_rows), MagicMock(rowcount=1), MagicMock(rowcount=1)])
     db.execute = AsyncMock(side_effect=sequence)
     db.add = MagicMock()
     db.flush = AsyncMock()

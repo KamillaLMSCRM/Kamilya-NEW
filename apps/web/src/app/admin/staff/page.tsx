@@ -13,6 +13,7 @@ import { formatKzPhone, isCompleteKzPhone } from "@/lib/kzPhone";
 import { ApplyRulesProgress } from "@/components/ui/ApplyRulesProgress";
 import { OrganizationUnitPicker } from "@/features/staff-structure/OrganizationUnitPicker";
 import { OrganizationUnitTree } from "@/features/staff-structure/OrganizationUnitTree";
+import { StaffWorkspace } from "@/features/staff-structure/StaffWorkspace";
 import { EmployeeStatusBadge } from "@/features/staff-structure/EmployeeStatusBadge";
 import {
   collectOrganizationUnitSubtreeIds,
@@ -27,6 +28,8 @@ interface DepartmentOption {
   name: string;
   legacy?: boolean;
 }
+
+const STAFF_WORKSPACE_ENABLED = process.env.NEXT_PUBLIC_STAFF_STRUCTURE_V3_ENABLED === "true";
 
 interface PositionOption {
   id: string;
@@ -222,9 +225,8 @@ export default function AdminStaffPage() {
   }, []);
 
   useEffect(() => {
-    fetchSavedMappings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (isStaffOwnersRole) void fetchSavedMappings();
+  }, [isStaffOwnersRole, fetchSavedMappings]);
 
   const adaptiveBase = (id: string) => `/v1/admin/staff/import/sessions/${id}`;
 
@@ -379,6 +381,7 @@ export default function AdminStaffPage() {
   };
 
   useEffect(() => {
+    if (!isStaffOwnersRole) return;
     const sessionId = window.sessionStorage.getItem("kamilya-adaptive-import-session-id");
     if (!sessionId || adaptiveSession) return;
     let active = true;
@@ -398,7 +401,7 @@ export default function AdminStaffPage() {
     return () => {
       active = false;
     };
-  }, [adaptiveSession]);
+  }, [adaptiveSession, isStaffOwnersRole]);
 
   useEffect(() => {
     if (!manualOpen || !isStaffOwnersRole) return;
@@ -791,7 +794,11 @@ export default function AdminStaffPage() {
             </div>
           )}
 
-          {tab === "structure" && <StructureTab refreshKey={structureRefreshKey} />}
+          {tab === "structure" && <StructureTab refreshKey={structureRefreshKey} onAddEmployee={(unitId) => {
+            resetManualForm();
+            setManualForm((current) => ({ ...current, organization_unit_id: unitId || "", department_id: unitId || "" }));
+            setManualOpen(true);
+          }} />}
         </>
       )}
     </div>
@@ -1272,7 +1279,7 @@ function normaliseStructureResponse(raw: any): StructureResponse {
   };
 }
 
-function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
+function StructureTab({ refreshKey = 0, onAddEmployee = () => undefined }: { refreshKey?: number; onAddEmployee?: (unitId: string | null) => void }) {
   const { t, tp } = useT();
   const ui = (key: string, params?: Record<string, string | number>) => t(key as TranslationKey, params);
   const [data, setData] = useState<StructureResponse | null>(null);
@@ -1335,6 +1342,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
 
   useEffect(() => {
     let cancelled = false;
+    if (STAFF_WORKSPACE_ENABLED) { setLoading(false); return; }
     setLoading(true);
     setLoadError(false);
     (async () => {
@@ -1363,6 +1371,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
 
   useEffect(() => {
     let cancelled = false;
+    if (STAFF_WORKSPACE_ENABLED) return;
     void api.get("/v1/users?per_page=500&role=methodologist&is_active=true")
       .then((response) => {
         if (cancelled) return;
@@ -1626,10 +1635,10 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       .filter((branch) => branch.name.toLocaleLowerCase().includes(needle) || branch.positions.length > 0 || branch.departments.length > 0);
   }, [data, query]);
 
-  if (loading) {
+  if (!STAFF_WORKSPACE_ENABLED && loading) {
     return <div className="p-6 text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.loading")}</div>;
   }
-  if (loadError) {
+  if (!STAFF_WORKSPACE_ENABLED && loadError) {
     return (
       <div
         role="alert"
@@ -1645,7 +1654,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       </div>
     );
   }
-  if (!data || (data.roots.length === 0 && data.legacyRoots.length === 0 && data.unassignedPositions.length === 0)) {
+  if (!STAFF_WORKSPACE_ENABLED && (!data || (data.roots.length === 0 && data.legacyRoots.length === 0 && data.unassignedPositions.length === 0))) {
     return (
       <div className="p-6 text-center text-muted-foreground">
         <p>{t("staffPage.structureEmpty")}</p>
@@ -1656,6 +1665,13 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
 
   return (
     <div className="space-y-4">
+      {STAFF_WORKSPACE_ENABLED && <StaffWorkspace refreshKey={refreshKey + retryKey}
+        onAddEmployee={onAddEmployee}
+        onEditEmployee={(employee) => { void openEmployeeEditor(employee.id); }}
+        onEditUnit={openUnitEditor}
+        onAddUnit={(parentId) => setUnitModal({ type: "department", parentId })}
+      />}
+      {!STAFF_WORKSPACE_ENABLED && data && <>
       {/* Summary cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
         <div className="rounded-lg bg-primary/10 p-3 text-center">
@@ -1964,20 +1980,24 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
         </Card>
       )}
 
+      </>}
       {unitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div role="dialog" aria-modal="true" aria-labelledby="unit-dialog-title" className="w-full max-w-md rounded-xl bg-card p-6 shadow-xl">
             <div className="flex items-start justify-between gap-3"><div><h2 id="unit-dialog-title" className="text-lg font-bold">{unitModal.unitId ? ui("authenticatedUi.adminStaff.structure.editUnit") : unitModal.type === "branch" ? ui("authenticatedUi.adminStaff.structure.newBranch") : unitModal.type === "department" ? ui("authenticatedUi.adminStaff.structure.newDepartment") : ui("authenticatedUi.adminStaff.structure.newUnit")}</h2><p className="mt-1 text-sm text-muted-foreground">{unitModal.parentName ? ui("authenticatedUi.adminStaff.structure.inUnit", { name: unitModal.parentName }) : ui("authenticatedUi.adminStaff.structure.rootUnit")}</p></div><button type="button" aria-label={ui("authenticatedUi.adminStaff.actions.close")} onClick={closeUnitModal} disabled={unitSaving}><X className="h-5 w-5" /></button></div>
             {!unitModal.unitId && <label className="mt-5 block space-y-1 text-sm"><span className="font-medium">{ui("authenticatedUi.adminStaff.structure.unitType")}</span><select aria-label={ui("authenticatedUi.adminStaff.structure.unitType")} value={unitModal.type} onChange={(event) => setUnitModal((current) => current ? { ...current, type: event.target.value } : current)} className="w-full rounded-md border border-border bg-background px-3 py-2"><option value="organization">{ui("authenticatedUi.adminStaff.structure.types.organization")}</option><option value="branch">{ui("authenticatedUi.adminStaff.structure.types.branch")}</option><option value="management">{ui("authenticatedUi.adminStaff.structure.types.management")}</option><option value="division">{ui("authenticatedUi.adminStaff.structure.types.division")}</option><option value="department">{ui("authenticatedUi.adminStaff.structure.types.department")}</option><option value="sector">{ui("authenticatedUi.adminStaff.structure.types.sector")}</option><option value="team">{ui("authenticatedUi.adminStaff.structure.types.team")}</option><option value="other">{ui("authenticatedUi.adminStaff.structure.types.other")}</option></select></label>}
             <label className="mt-5 block space-y-1 text-sm"><span className="font-medium">{ui("authenticatedUi.adminStaff.structure.name")}</span><input autoFocus value={unitName} onChange={(event) => setUnitName(event.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2" placeholder={unitModal.type === "branch" ? ui("authenticatedUi.adminStaff.structure.branchPlaceholder") : ui("authenticatedUi.adminStaff.structure.departmentPlaceholder")} /></label>
-            <label className="mt-5 block space-y-1 text-sm">
+            {STAFF_WORKSPACE_ENABLED ? <div className="mt-5 rounded-md bg-muted/40 p-3 text-sm">
+              <p className="font-medium">{ui("authenticatedUi.adminStaff.structure.trainingOwner")}</p>
+              <p className="mt-1 text-muted-foreground">{unitModal.headUserId ? "Текущий ответственный сохраняется. Перевод подразделения не меняет его назначение." : "Ответственный не назначен. Управление ответственными выполняется отдельно от перемещения структуры."}</p>
+            </div> : <label className="mt-5 block space-y-1 text-sm">
               <span className="font-medium">{ui("authenticatedUi.adminStaff.structure.trainingOwner")}</span>
-              <select value={unitModal.headUserId || ""} onChange={(event) => setUnitModal((current) => current ? { ...current, headUserId: event.target.value || null } : current)} className="w-full rounded-md border border-border bg-background px-3 py-2" disabled={unitSaving}>
+              <select value={unitModal.headUserId || ""} onChange={(event) => setUnitModal((current) => current ? { ...current, headUserId: event.target.value || null } : current)} className="w-full rounded-md border border-border bg-background px-3 py-2" disabled={unitSaving || STAFF_WORKSPACE_ENABLED}>
                 <option value="">{ui("authenticatedUi.adminStaff.structure.trainingOwnerNone")}</option>
                 {trainingOwners.map((owner) => <option key={owner.id} value={owner.id}>{owner.name}</option>)}
               </select>
               <span className="block text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.trainingOwnerHint")}</span>
-            </label>
+            </label>}
             {unitModal.unitId && data && (
               <div className="mt-5 space-y-2 text-sm">
                 <span className="font-medium">{ui("authenticatedUi.adminStaff.structure.parentUnit")}</span>
@@ -2137,7 +2157,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
         </CardContent>
       </Card>}
 
-      {data.unassignedPositions.length > 0 && <Card>
+      {!STAFF_WORKSPACE_ENABLED && data && data.unassignedPositions.length > 0 && <Card>
         <CardHeader><CardTitle>{ui("authenticatedUi.adminStaff.structure.unassignedTitle")}</CardTitle><p className="text-sm text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.unassignedDescription")}</p></CardHeader>
         <CardContent className="space-y-2">{data.unassignedPositions.map((position) => <div key={position.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-warning/30 bg-warning/5 p-3"><div><span className="block text-sm font-medium">{position.name}</span><span className="text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.sourceUnit", { name: position.department || ui("authenticatedUi.adminStaff.structure.notSpecified") })}</span></div><span className="text-xs text-muted-foreground">{tp('common.counts.employee', position.employee_count)}</span></div>)}</CardContent>
       </Card>}

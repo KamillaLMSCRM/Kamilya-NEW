@@ -51,6 +51,7 @@ MODEL_MODULES = (
     "app.modules.notifications.models",
     "app.modules.lessons.models",
     "app.modules.positions.models",
+    "app.modules.organization_units.change_models",
     "app.modules.positions.qualification_models",
     "app.modules.quizzes.assignment_models",
     "app.modules.quizzes.models",

@@ -380,6 +380,7 @@ class Settings(BaseSettings):
     KAMILYA_BACKEND_SECRET: str = ""
 
     # YouTube transcript import: bounded worker flow, disabled by default.
+    STAFF_STRUCTURE_V3_ENABLED: bool = False
     YOUTUBE_IMPORT_ENABLED: bool = False
     YOUTUBE_INLINE_EXECUTION: bool = False
     YOUTUBE_MAX_VIDEO_DURATION_SECONDS: int = Field(default=7200, ge=60, le=7200)
