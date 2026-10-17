@@ -17,7 +17,11 @@ Current as of: 2026-10-17.
   1RED22PASS then24PASS; independent review found pending New/Close gaps and an
   insufficiently settled late-response test. Two actual failing regressions fixed,
   deferred responses awaited with act; final26PASS/typecheck, independent ACCEPT.
-  Frozen full web/build/exact022 DEV/browser gates remain pending.
+  Frozen022 fullweb1287/typecheck/build67of67 and exactDEV/root reconciliation PASS.
+  Actual A→sameA retains selections/dates; A→B clears them PASS. No assignment.
+  Root screenshot1270 visually rejected four narrow tabs splitting words despite
+  no overlap.023 removes sm:grid-cols-4 only; genuine1FAIL25PASS→26PASS; final
+  fullweb/build/exactDEV visual gate remains pending. Structural PASS is not visual GO.
 - Prevention: test identity changes, same-identity draft retention and completed
   stale continuations, including Close/New. Async read loading is not mutation state.
 
@@ -34,7 +38,9 @@ Current as of: 2026-10-17.
 - Verification: real direct-case1RED19PASS→20PASS. Independent review requested
   actual draft-handler/no-write and zero-audience bypass coverage; added post-fix
   (not claimedRED), focused22PASS/typecheckPASS; independent final ACCEPT. Full
-  frozen web/build, exact CI/DEV and browser date acceptance remain pending.
+  frozen web/build and exact021/022 CI/DEV PASS. Actual021 screenshot shows inline
+  error/disabled Assign. Identical frontendbytes checked RU/KK/EN, same-day valid,
+  input retained and shared draft guard before persistence; no positive assignment.
 - Prevention: validate compound UI operations before their first durable write;
   test both guarded combined operation and irrelevant-input bypass separately.
 

@@ -5968,3 +5968,42 @@ Rules:
 - Ordinary methodologist /training-retention empty policy/read-only notice/help
   open-close consistent: no controls to change policy or delete evidence. No writes.
   Exact022 source/CI/provider/browser gates pending; full matrix remains PARTIAL.
+
+### DEV022 live logic and rejected visual gate;023 correction — 2026-10-17
+
+-022 sourcee950feebf8a54b689389cd090c5812631b7430b3 pushed/readback14:36:10.021Z,
+  dev/KamillaLMSCRM/canonicalprocesslocalcredential; sanitized task+authorizedmemory
+  receipts saved. CI39041448784 SUCCESS: backend4779PASS2SKIP227.83s/76%rounded;
+  unit-noDB3150PASS36.81s/all7jobsPASS. Packet836df75c…00b82d1; execute RELEASE_OK
+  and independent root reconcile RECONCILED. Verceldpl_HHoMX4s1pPt1m251bGvCKKGt8Xdj
+  READY/Hobby, APIdep-db9oi9bbc2fs73clp0kg and workerdep-db9oj9navr4c73ergrmg
+  LIVE/Free. Schema0183/migrationnone/config unchanged. Actual workerDB1 equalAPI/
+  onepong/hashba39ac8efc59/ai-documents-maintenance PASS, zero business/modeltasks.
+- Live022 reload transient firstheading locator detached during hydration; fresh
+  AX showed expected page, no repeat action before observation. PublishedA learner
+  +27/28Oct→Close→sameA retains selection/bothdates PASS; Close→draftB clears
+  selection/bothdates/selected0 PASS. No assignment or publication write. Screenshot
+  dev-program-state-isolation-022.png at1270 reveals four narrow tabs split words
+  across3lines. Root visualREJECT, not complete022UI PASS.
+-023 oneclass fix removes sm:grid-cols-4 from tablist, keeps grid-cols-2/roles/labels/
+  state. Writer's initial 'wouldfail' was not accepted asRED; root requested actual
+  baseline replay. Exact022 class+neworacle genuine1FAIL25PASS, final26PASS; typecheck
+  unchangedclass-only evidence/diffcheckPASS. Fresh root fullweb/build pending.
+- Safe ordinaryDEV documents: combinedsearch+purpose/status no matches and reset;
+  attention/deleting empty states and returnactive PASS. Newversion dialog shows
+  originaltitle/v2, unsavedtitlechange/Cancel/reopen restoresoriginal, no file sent.
+  Trainingretention methodologist notice/empty policy/help consistent, no writes.
+- Independent network review: no missed launcher/parser/filter cause found; retained
+  full sanitized71-event TSV/fixedstats/journalcorrelation/startmarkers transcribed
+  from completedtooloutput. Reviewer recomputes71monotonic, exact and±0.5s first
+  windows0events, successful secondflow/authmatches. Transcription is not nativepcap;
+  provider/hostsubsecondskew remainsuncertain. Exactsender NOT_LOCALIZED, client/
+  Render-side trace required, no externalcoordination performed. OfficialRender
+  docs describe routing resets but do not prove thisincident; Freeshell/SSH absent,
+  no paidupgrade workaround. Detailed diagnostic report saved.
+-022 workerstartup8a051411323c firstbannerreset14:44:52.936212Z, retry2connected
+  14:44:55.698409Z. No proxycapture overlaps thissample; do not reuse021packetproof.
+- Frozen023 root fullweb1287PASS169files191.26s, standalone tsc PASS/build67of67
+  PASS; contracts0183/312uniqueIDs/diffcheck PASS. Independent oneclass source review
+  ACCEPT, no logic/RBAC/API changes; allAPI/runtime bytes retained from accepted021/022.
+  Exact023 source/CI/provider/live visual gates next. Production unchanged.

@@ -1,7 +1,33 @@
 # Cabinet actions and source ownership acceptance
 
-Status: BOUNDED DEV021 ACCEPTED; DEV022 UI correction under verification; full cabinet remains PARTIAL; reset node NOT_LOCALIZED.
+Status: DEV022 logic accepted, visual gate rejected; DEV023 correction under verification; full cabinet remains PARTIAL; reset node NOT_LOCALIZED.
 Owner request2026-10-17. Production publication NOT AUTHORIZED.
+
+## Follow-up023 after actual022 visual gate — 2026-10-17
+
+-022 e950feebf8a54b689389cd090c5812631b7430b3 pushed/readback14:36:10.021Z.
+  CI39041448784 SUCCESS/backend4779PASS2SKIP227.83s/unit-noDB3150PASS36.81s.
+  Execute RELEASE_OK/root RECONCILED; Verceldpl_HHoMX4s1pPt1m251bGvCKKGt8Xdj,
+  APIdep-db9oi9bbc2fs73clp0kg and workerdep-db9oj9navr4c73ergrmg READY/LIVE.
+  ActualDEVDB1/onepong/threequeues PASS; free tiers/schema0183 unchanged.
+- Live reload022: publishedA learner+27/28Oct→Close→A retains its own selection
+  and dates; Close→draftB clears learner/bothdates/selected0 PASS. No assignment,
+  publication, mail or durable audience write. Screenshotdev-program-state-isolation-022.png
+  exposed visually poor three-line word splitting: four narrow tabs remain at1270.
+  Root rejected the visual gate despite passing logical/source tests.
+-023 removes only sm:grid-cols-4 from the audience tablist, preserving two readable
+  columns, semantic roles and all state logic. Genuine structuralRED1FAIL25PASS
+  against022→26PASS final. Fresh fullweb1287PASS169files191.26s/tsc/build67of67/
+  contracts0183-312IDs PASS; independent source ACCEPT. ExactDEV/browser pending.
+- Remaining safe live checks: document search+purpose/status empty/reset, attention
+  and deleting empty states/returnactive PASS. New-version form for D57-RU-CONFLICT-05
+  preselects v2; changing title then Cancel/reopen restores original title, no upload.
+  Training-retention read-only empty policy and help agree. No delete/reindex/model.
+- Independent network challenge recomputed complete sanitized71-event transcription,
+  fixed capture stats, exact start windows and widened±0.5s negatives. Positive retry
+  flow/auth matches; exact sender still NOT_LOCALIZED. DEV022 firstbannerreset then
+  retry2ready is another phase sample, not covered by ended021 packet observation.
+  Detailed diagnosis: docs/testing/2026-10-17_dev-worker-network-reset-diagnosis.md.
 
 ## Current021 evidence and follow-up022 — 2026-10-17
 

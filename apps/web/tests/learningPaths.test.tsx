@@ -204,6 +204,8 @@ describe('learning programs UI', () => {
     const audienceTabs = within(screen.getByRole('tablist')).getAllByRole('tab');
     expect(audienceTabs).toHaveLength(4);
     expect(audienceTabs.every((tab) => tab.className.includes('whitespace-normal'))).toBe(true);
+    expect(screen.getByRole('tablist')).toHaveClass('grid-cols-2');
+    expect(screen.getByRole('tablist')).not.toHaveClass('sm:grid-cols-4');
     fireEvent.click(screen.getByRole('tab', { name: 'learningPaths.audience.departments' }));
 
     expect(apiMock.get).toHaveBeenCalledWith('/v1/departments?active_only=true');

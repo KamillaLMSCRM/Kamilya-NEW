@@ -698,7 +698,7 @@ function AudienceStage({ selected, audienceTab, setAudienceTab, options, selecte
       )}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0">
-          <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4" role="tablist">
+          <div className="mb-4 grid grid-cols-2 gap-2" role="tablist">
             {AUDIENCE_TABS.map((tab) => (
               <button
                 key={tab}

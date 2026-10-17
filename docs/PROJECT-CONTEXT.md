@@ -5,6 +5,20 @@
 
 ## Источники правды
 
+### DEV022 live logic accepted; visual023 correction pending — 2026-10-17
+
+Exacte950feebf8a54b689389cd090c5812631b7430b3/CI39041448784 SUCCESS;
+backend4779PASS2SKIP227.83s/unit-noDB3150PASS36.81s. Execute RELEASE_OK/root
+RECONCILED: Verceldpl_HHoMX4s1pPt1m251bGvCKKGt8Xdj READY,
+APIdep-db9oi9bbc2fs73clp0kg/workerdep-db9oj9navr4c73ergrmg LIVE. ActualDB1/
+onepong/threequeues PASS, existingtiers/schema0183 retained. Browser A→sameA
+selection/dates retained and A→B selected0/blankdates PASS, no assignment writes.
+Root visual rejected four narrow tabs splitting words at1270 despite no overlap.
+023 removes only the tablist's four-column breakpoint; actual1FAIL25PASS→26PASS.
+Fresh fullweb/build/exactDEV/visual gate pending. No production authority/change.
+Full matrix PARTIAL; detailed reset diagnosis and remaining provider-side evidence
+boundary recorded in docs/testing/2026-10-17_dev-worker-network-reset-diagnosis.md.
+
 ### DEV021 accepted; DEV022 program-state repair being verified — 2026-10-17
 
 Exact7425daea181bdee67c92478196a843cfe3ae2a69/CI39040047110 SUCCESS;

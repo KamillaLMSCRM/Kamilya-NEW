@@ -1,5 +1,12 @@
 # Changelog
 
+## DEV023 visual follow-up candidate — 2026-10-17
+
+- Keep audience tabs in two columns inside the narrow card; root's actual022
+  screenshot rejected four-column word splitting despite no overlapping labels.
+-022 live program identity isolation and same-program draft retention passed;
+  no assignment/publication was performed. Exact023 visual acceptance still pending.
+
 ## DEV022 program-state correction candidate — 2026-10-17
 
 - Clear audience and assignment dates when switching to a different program;
