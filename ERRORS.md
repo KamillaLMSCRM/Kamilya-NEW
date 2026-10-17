@@ -1847,6 +1847,13 @@ repair. Do not introduce blanket punctuation/heading bans from this harness.
 ## TEST-008 - A Jest-only flag prevented the Vitest suite from starting
 
 - Date: 2026-08-31.
+- Recurrence (2026-10-17): CI39030674253 failed TS2769 because a new Testing
+  Library getByRole call used Playwright-only `exact`. Vitest15 and Next build
+  had passed, but Next excludes test compilation. Root standalone typecheck
+  reproduced the failure; removing only `exact` restored standalone typecheck
+  and focused15PASS. String ByRole name already matches exactly. Always run
+  standalone typecheck after the final test-source delta, not only Next build.
+  Preserve blocked016; a separately bound017 CI/release is required.
 - Symptom: `pnpm test -- --runInBand` stopped with
   `CACError: Unknown option --runInBand`; no frontend test had executed.
 - Cause: `--runInBand` is a Jest flag, while the repository package script runs

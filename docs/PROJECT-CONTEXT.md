@@ -5,6 +5,17 @@
 
 ## Источники правды
 
+### DEV016 CI blocked; bounded017 successor pending — 2026-10-17
+
+Exact2aa59dec2858533e4dd6de2bb53c1bb5f0114637 CI39030674253 failed frontend
+standalone tsc: unsupported Playwright `exact` in Testing Library test options.
+Root reproduced TS2769, removed that single test option, standalone typecheck and
+focused15PASS. Runtime code unchanged from independently reviewed016. No016
+success receipt; read-only reconcile separately provider_http_failed. Last full
+accepted identity remains014, not inferred from newer source/provider partials.
+017 exact CI, synchronized release, import/publication/limited-review live gates
+remain. No production, billing, model/reserve/voice/ASUS changes.
+
 ### DEV partial015; final016 source gates — 2026-10-17
 
 015 is NOT accepted: API02d3ce2253e390db3ff2e9014b19fbf6606f4f6c LIVE

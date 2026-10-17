@@ -5630,3 +5630,19 @@ Rules:
 - next: one materially corrected exact016 candidate after review, no15retry;
   actual persisted import/publication/shortreview and protected-fixture proof.
   Production/billing/providerconfig/model/ASUS/reserve/voice unchanged.
+
+## CABINET-ACTIONS-20261017-016-CI-BLOCKED-017-TYPECHECK
+
+- executor: root; CI39030674253 exact2aa59dec failed only frontend tsc TS2769
+  in courseApprovalWorkflow.test.tsx line172. Unsupported Playwright `exact`
+  was used with Testing Library. No successful016 release receipt.
+- root reproduced same standalone typecheck failure; single option removed;
+  standalone typecheck PASS, focused15PASS3.68s. Exact string name matching
+  retained. Product/runtime delta zero; prior016 full suites remain applicable.
+- root read-only016 reconcile separately stopped provider_http_failed; unknown
+  partial provider state not converted into success. No retry016/no prod writes.
+- initial primary guard from apps/web failed relative-path lookup; canonical
+  root guard LINKED_WORKTREE_OK before mutation. Primary/unrelated work preserved.
+- next: separately bound017 exact CI and canonical release; actual persisted
+  name-only import, publication revision2, limited review success/Close and final
+  protected fixture/worker readback. No model/voice/reserve/ASUS/billing changes.

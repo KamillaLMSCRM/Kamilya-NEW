@@ -169,7 +169,7 @@ describe('course approval workflow UI', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Решение сохранено');
     expect(sessionStorage.getItem('course_review_token')).toBeNull();
     expect(replaceMock).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Закрыть', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
     expect(replaceMock).toHaveBeenCalledExactlyOnceWith('/login');
   });
 

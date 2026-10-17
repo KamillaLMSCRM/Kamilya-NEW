@@ -1,5 +1,11 @@
 # Changelog
 
+## DEV017 standalone test-type correction — 2026-10-17
+
+- Remove an unsupported Playwright-only option from a Testing Library regression;
+  standalone typecheck and15focused tests PASS. Product code remains016.
+- Preserve CI016 failure; exact017 deployment and live acceptance remain pending.
+
 ## DEV repeated approval publication and reviewer completion — 2026-10-17
 
 - Compare current/frozen approval content in the same canonical snapshot form;

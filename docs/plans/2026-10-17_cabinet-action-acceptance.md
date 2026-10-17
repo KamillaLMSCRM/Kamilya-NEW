@@ -2,6 +2,22 @@
 
 Status: IN PROGRESS. Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
+## CI016 blocked; bounded test-type correction017 — 2026-10-17
+
+- Exact016 SHA2aa59dec2858533e4dd6de2bb53c1bb5f0114637 CI39030674253
+  failed only frontend standalone typecheck: TS2769 at courseApprovalWorkflow
+  line172. Playwright `exact` was mistakenly passed to Testing Library ByRoleOptions.
+  Local build/Vitest success did not prove standalone test-source compilation.
+- Root reproduced the exact compiler failure, removed only the unsupported option
+  (string role-name matching remains exact by default), then standalone typecheck
+  and focused15tests PASS. Existing final016 full suites remain applicable: no
+  product/runtime source delta. Exact017 CI and DEV/live gates still required.
+-016 controller stopped github_ci_not_successful; no success receipt. A root
+  read-only reconcile separately stopped provider_http_failed; no deployment
+  success or current provider parity inferred. Do not retry016. Preserve015/016.
+- Primary guard initially invoked from apps/web had a wrong relative path; root
+  canonical invocation then LINKED_WORKTREE_OK before edits. No primary writes.
+
 ## Failed015 preserved; final016 diagnostic gate — 2026-10-17
 
 -015 terminal BLOCKED render_deployment_not_live. Root exact API02d3 LIVE,
