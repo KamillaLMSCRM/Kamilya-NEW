@@ -158,6 +158,13 @@ function openLessonEditor() {
 }
 
 describe('course lesson editor', () => {
+  it('describes an empty module outline without claiming the course itself is missing', async () => {
+    setupFetch(200, { modules: [] });
+    render(<CourseEditPage />);
+    expect(await screen.findByText('courses.noModules')).toBeInTheDocument();
+    expect(screen.queryByText('courses.noCourses')).not.toBeInTheDocument();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     correctionHarness.enabled = false; correctionHarness.props = null;

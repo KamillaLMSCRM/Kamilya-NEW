@@ -18,12 +18,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reject publication of an empty native course before creating a release or
+  activating assignments, including frozen approval snapshots. Legacy snapshot
+  backfill and SCORM retain their existing behavior. Show an actionable RU/KK/EN
+  publication error and a module-specific empty-state label in the editor.
+  DEV candidate; live negative/positive acceptance pending, production excluded.
+
 - Learning-program audience selection requests active departments only; an
   archived department ID is rejected before recipient resolution. The default
   department list still includes archives for existing aggregate consumers.
   Quiz creation labels its own title rather than a course title. Document
   deletion confirmation names the selected source; cancellation makes no write.
-  DEV candidate only; production publication is not authorized.
+  Exact DEV9557d137 deployment and live active-audience, archived-target rejection,
+  quiz title and named cancellation checks accepted; production is not authorized.
 
 - Source actuality owner selection and review-date saving: choose another active
   company methodologist, omit platform self-assignment during tenant preview,

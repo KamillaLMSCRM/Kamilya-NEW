@@ -624,7 +624,7 @@ export default function CourseEditPage() {
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               {modules.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">{t('courses.noCourses')}</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">{t('courses.noModules')}</p>
               ) : modules.map((mod, modIdx) => (
                 <section key={mod.id} aria-labelledby={`module-${mod.id}`} className="space-y-2 rounded-lg border border-border/70 p-2">
                   {editingModuleId === mod.id ? (

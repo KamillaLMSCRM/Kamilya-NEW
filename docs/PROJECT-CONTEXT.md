@@ -5,7 +5,19 @@
 
 ## Источники правды
 
-### DEV current2026-10-17: source ownership repair
+### DEV current2026-10-17: cabinet actions follow-up
+
+DEV frontend/API/worker are exact9557d137364bd456be0550a59e04ebc789c72d2c.
+CI39014500919 SUCCESS; Verceldpl_GTcCQ97NPaPX78dTYmcaoWRhGuB1 READY;
+APIdep-db9ieh61egvs73fd86vg and workerdep-db9ifgdg1s2s738rbi3g LIVE.
+REL-DEV-CABINET-ACTIONS-20261017-002 RELEASE_OK, health PASS, Free/Free/Hobby
+unchanged. Real active-only audience/default aggregate compatibility/archived422
+and zero-recipient readback PASS. Browser named document cancellation and quiz
+title PASS. Native empty-course publication defect found during the wider audit;
+local guard candidate tested, deployed acceptance pending. Whole-cabinet remains
+PARTIAL; production, voice/reserve/ASUS, billing and schema unchanged.
+
+### Previous DEV2026-10-17: source ownership repair
 
 DEV frontend/API/worker are exact bacc4d0ad0731b2b7de3a3e515dd0a565f8f3dd3.
 CI39013191234 SUCCESS; Verceldpl_F1bU3tr1RG51uJQCq4mnKPhffxBf READY;

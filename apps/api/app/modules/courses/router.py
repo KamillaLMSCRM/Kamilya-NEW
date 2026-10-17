@@ -556,13 +556,31 @@ async def publish_course(
                 "message": ("Генерация курса по должностной инструкции ещё не завершена"),
             },
         )
-    from app.modules.courses.release_service import create_course_release, create_course_release_from_snapshot
-
-    release = (
-        await create_course_release_from_snapshot(db, course, approved_revision.snapshot, published_by=user.id)
-        if approved_revision is not None
-        else await create_course_release(db, course, published_by=user.id)
+    from app.modules.courses.release_service import (
+        CourseContentRequiredError,
+        create_course_release,
+        create_course_release_from_snapshot,
     )
+
+    try:
+        release = (
+            await create_course_release_from_snapshot(
+                db,
+                course,
+                approved_revision.snapshot,
+                published_by=user.id,
+                require_usable_content=True,
+            )
+            if approved_revision is not None
+            else await create_course_release(
+                db,
+                course,
+                published_by=user.id,
+                require_usable_content=True,
+            )
+        )
+    except CourseContentRequiredError as error:
+        raise HTTPException(status_code=409, detail={"code": "course_content_required"}) from error
     course.status = "published"  # type: ignore[assignment]
     course.published_at = release.published_at or datetime.now(UTC)
     if approved_revision is not None:

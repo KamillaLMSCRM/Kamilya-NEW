@@ -2,6 +2,23 @@
 
 Current as of: 2026-10-17.
 
+## COURSE-CONTENT-001 - Empty native course could be published
+
+- Date: 2026-10-17; ordinary synthetic DEV cabinet action audit.
+- Symptom: a manual course with no modules or lessons became published.
+- Cause: the publication route checked review and quiz policy, but snapshot
+  creation did not require any learner-usable lesson content.
+- Fix: opt in to a content guard only on publication, for live and frozen
+  approval snapshots, before release/status/assignment/audit writes. Determine
+  delivery type from the persisted course, not mutable snapshot metadata.
+  Preserve legacy backfill and SCORM. Map refusal to actionable localized copy.
+- Verification: regression RED/GREEN; API4223PASS/526SKIP, web167files/1219PASS,
+  build67/67 including lint/types, quality ruff1008/mypy2201 PASS. Owned empty
+  course97cad6b2-3e70-474f-b1b6-ba38c869d234 returned to draft through normal UI;
+  zero modules independently read back. Deployed negative/positive proof pending.
+- Prevention: test empty and usable snapshot publication, both approval paths,
+  no-write rejection, metadata-only negatives and legacy compatibility separately.
+
 ## PROGRAM-AUDIENCE-001 - Archived units were offered as assignment targets
 
 - Date: 2026-10-17; ordinary synthetic DEV cabinet action audit.
@@ -16,7 +33,9 @@ Current as of: 2026-10-17.
 - Verification: focused API54PASS and web19PASS; full API4206PASS/526SKIP,
   web167files/1214PASS before final test-proof strengthening. Exact SQL predicates,
   no-write rejection and all-row versus active-option fixture covered; real
-  deployed row semantics remain a separate DEV live gate, not inferred from mocks.
+  DEV9557d137 ordinary API verified default5 rows versus active3, with both archived
+  IDs excluded. Archived target returned422 and program assignments stayed empty;
+  ordinary browser offered only3 active units. Production unchanged.
 - Prevention: test selector inventory and execution eligibility together. Do not
   hide archives globally or treat an empty-recipient result as a successful target.
 

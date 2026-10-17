@@ -89,6 +89,49 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 
 ## Gates and next
 
+### Live follow-up9557 and publication candidate
+
+REL-DEV-CABINET-ACTIONS-20261017-002 RELEASE_OK: exact9557d137 all three services,
+CI39014500919, Verceldpl_GTcCQ97NPaPX78dTYmcaoWRhGuB1,
+APIdep-db9ieh61egvs73fd86vg/workerdep-db9ifgdg1s2s738rbi3g; unchanged tiers/schema.
+Root normal API exact actor/tenant: all departments5 versus active3, both archived
+excluded; assignment with archived ID422/departments_outside_tenant and before/
+after assignments empty. Browser program v2 offered3 active units, named document
+deletion confirmation/cancel and quiz title PASS. No DELETE or retained PIN reset.
+
+Additional real actions, not whole-route acceptance:
+
+| Area | Result and boundary |
+|---|---|
+| Mandatory learning | Impossible search/apply0, clear/apply7; one-page navigation disabled; no retained writes |
+| Retention | Methodologist read-only/empty policy state, no purge |
+| Positions | Empty create disabled/cancel; JD actual multi-file chooser opened, no file/AI submission; refresh |
+| Candidates | Empty/non-approved-course guard; create approved-course draft9350957d-52ce-4d30-9944-59c918a3a627; CSV0rows; start/close; no invite/mail |
+| Journal | Open completed answer details, collapse/close and reset filters; no grade/signed-record mutation |
+| Shared shell | Support validation/category/cancel without send; empty notifications; palette destination; collapse/expand; RU/KK/EN then RU restored |
+| Staff | Schema/unit1employee, breadcrumb3active, list/schema; import no-file disabled; no real HR write |
+| AI form | Source preflight; brief/KK/manual-count controls then defaults restored; no generation or provider call |
+| Assignments | Published course picker, email/PIN form switch, empty assignment/repeat disabled; no existing PIN reset or notifications |
+| Manual course | Created97cad6b2-3e70-474f-b1b6-ba38c869d234, empty publication incorrectly succeeded; ordinary UI unpublished, API confirms draft/0modules |
+
+Candidate CSV69bytes/0rows SHA256
+e9eb578bd8dbeb8347610ac2e12ba48a5fb5720dec8c118247204612290381ae.
+Candidate and course use QA BUTTONS20261017 / KAMILYA_CABINET_ACTIONS_20261017.
+All owned fixtures retained visibly marked; immutable publication audit preserved.
+Empty course retained current_release_id9c03f50d-3a90-4e65-83db-bef4212e6822 after
+unpublishing; fresh rejection must leave it unchanged before adding actual content.
+
+COURSE-CONTENT-001 local guard covers live and frozen snapshots before writes;
+legacy/backfill default remains off, persisted native type cannot be bypassed by
+snapshot metadata. Decorative metadata is not content. RED/GREEN retained;
+API4223PASS/526SKIP, web167files/1219PASS, build67/67 and quality1008/2201 PASS.
+Independent review accepted after withdrawing an unsupported literal canonical_url
+field hypothesis: no such field contract exists in the persisted/renderer source;
+no speculative field expansion made. Real DEV empty-refusal/nonempty-success
+remain acceptance gates.
+Admin/student/contextual actions and remaining matrix completions are NOT RUN,
+not implicitly accepted by navigation. No production writes or deployment.
+
 ### Live DEV update2026-10-17
 
 Owner repair bacc4d0ad0731b2b7de3a3e515dd0a565f8f3dd3 is deployed to all three

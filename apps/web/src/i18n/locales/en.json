@@ -362,6 +362,8 @@
     "archive": "Archive",
     "archiveHint": "The course is hidden from the working list. Publication, assignment, and result history is preserved.",
     "noCourses": "No courses yet",
+    "noModules": "No modules yet. Add your first module.",
+    "contentRequired": "Add at least one lesson with learning content or quiz questions, then try publishing again.",
     "startCourse": "Start",
     "viewResult": "View result",
     "continueCourse": "Continue",

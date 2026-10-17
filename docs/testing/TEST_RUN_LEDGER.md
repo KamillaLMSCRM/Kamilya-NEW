@@ -5114,3 +5114,31 @@ Rules:
 - delegation: canonical release-runner and bounded implementation/review leafs,
   requested gpt-5.6-luna/medium; accepted minimal fixes after one test-proof correction.
   Actual usage/token/model counters unavailable; no invented cost or savings.
+
+## CABINET-ACTIONS-20261017-002 — live follow-up and empty publication finding
+
+- result: DEV9557d137 RELEASE_OK; active-audience and named confirmation live PASS.
+  Whole-cabinet PARTIAL. Native empty publication reproduced, fix candidate ready
+  for independent review and deployed negative/positive proof. Production unchanged.
+- changed: exact existing DEV API/worker/frontend rollout, no migrations/settings/
+  paid resources. Retained only marked synthetic candidate campaign9350957d…
+  (closed, no invites) and course97cad6b2… (draft,0modules, no assignments).
+- verified: CI39014500919, Verceldpl_GTcCQ97NPaPX78dTYmcaoWRhGuB1 READY,
+  APIdep-db9ieh61egvs73fd86vg/workerdep-db9ifgdg1s2s738rbi3g LIVE exact9557;
+  normal API health sameSHA and ordinary tenant/actor assertions. Default5 versus
+  active3 departments; archived422 and empty assignments unchanged. Browser3units,
+  named document cancellation, quiz title, mandatory filters, candidate draft/start/
+  close/CSV, positions form/chooser, shared shell, AI options and assignment modes.
+  Real candidate CSV69bytes/0rows, journal CSV3616bytes/7rows; hashes in plan.
+  Empty native manual course published, then safely unpublished; API draft/0modules
+  current_release_id9c03f50d… retained. New guard RED/GREEN; full API4223PASS/526SKIP,
+  full frontend167files/1219PASS, build67/67, quality1008/2201 PASS. No local Docker DB.
+- blockers: fresh guarded DEV publication not yet verified. Model generation,
+  external messaging, irreversible deletes, protected learning/PIN and other role
+  completions not performed; no broad all-buttons PASS or production GO.
+- next: accept independent delta review, exact DEV guard rollout, fresh empty409
+  with unchanged state and nonempty publish/save/reload; continue action matrix.
+- delegation: bounded Sol/high API writer; first root review corrected decorative
+  metadata and persisted-type bypass, regression4RED/then51focusedPASS; final full
+  API4223PASS. Root owns UI/integration/browser/docs. Luna/medium independent review;
+  measured elapsed/usage counters unavailable, no invented token/cost savings.
