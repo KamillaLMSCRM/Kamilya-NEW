@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import os
 import re
 import shutil
@@ -12,6 +13,7 @@ import sys
 import tempfile
 import threading
 import time
+import uuid
 from pathlib import Path
 
 HOST = "92.38.49.167"
@@ -21,6 +23,16 @@ FORWARDS = ((18999, "10.77.77.2", 18999), (18889, "10.77.77.4", 18005))
 
 class RuntimeBlocked(Exception):
     """Carries a fixed safe code, never raw library/subprocess errors."""
+
+
+def diagnostic_context(source: dict[str, str]) -> str:
+    """Correlate startup markers without publishing provider metadata or secrets."""
+    startup_id = source.get("DEV_MODEL_SSH_RUN_ID", "")
+    if not re.fullmatch(r"[0-9a-f]{12}", startup_id):
+        startup_id = "unknown"
+    instance = source.get("RENDER_INSTANCE_ID", "")
+    instance_hash = hashlib.sha256(instance.encode()).hexdigest()[:12] if instance else "unknown"
+    return "|startup_id=" + startup_id + "|instance_hash=" + instance_hash
 
 
 def credentials(env: dict[str, str]) -> tuple[bytes, str]:
@@ -135,7 +147,9 @@ def drain_diagnostics(process: subprocess.Popen) -> None:
 
     def pump():
         try:
-            while chunk := process.stderr.read(1024):
+            # read() may wait for 1024 bytes even after a short SSH error was
+            # flushed. read1() exposes available bytes without requiring EOF.
+            while chunk := process.stderr.read1(1024):
                 tail.extend(chunk)
                 if len(tail) > 65536:
                     del tail[:-65536]
@@ -207,7 +221,8 @@ def start_forward(identity: Path, hosts: Path, source: dict[str, str]) -> subpro
         except BaseException as exc:
             stop(process)
             if isinstance(exc, RuntimeBlocked) and str(exc) in transient and attempt == 0:
-                print("EVIDENCE|dev_private_models=startup_retry_once|reason=" + str(exc), flush=True)
+                print("EVIDENCE|dev_private_models=startup_retry_once|reason=" + str(exc)
+                    + diagnostic_context(source), flush=True)
                 time.sleep(1)
             else:
                 raise
@@ -261,7 +276,8 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
                     "DB_POOL_SIZE": "1", "DB_MAX_OVERFLOW": "0"}
                 probe = spawn([sys.executable, str(probe_path)], env=probe_env,
                     stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print("EVIDENCE|dev_private_models=connected|role=" + source["DEV_MODEL_SSH_ROLE"], flush=True)
+            print("EVIDENCE|dev_private_models=connected|role=" + source["DEV_MODEL_SSH_ROLE"]
+                + diagnostic_context(source), flush=True)
             while not terminating:
                 if ssh.poll() is not None:
                     raise RuntimeBlocked("ssh_connection_lost")
@@ -288,13 +304,19 @@ def main() -> int:
     argv = sys.argv[1:]
     if argv[:1] == ["--"]:
         argv = argv[1:]
+    source = dict(os.environ)
+    # Native process identity is fresh for every invocation, never supplied by
+    # a provider setting and never inherited by the application child.
+    source["DEV_MODEL_SSH_RUN_ID"] = uuid.uuid4().hex[:12]
     try:
-        return run(argv)
+        return run(argv, source)
     except RuntimeBlocked as exc:
-        print("EVIDENCE|dev_private_models=blocked|reason=" + str(exc), flush=True)
+        print("EVIDENCE|dev_private_models=blocked|reason=" + str(exc)
+            + diagnostic_context(source), flush=True)
         return 78
     except Exception:
-        print("EVIDENCE|dev_private_models=blocked|reason=internal_failure", flush=True)
+        print("EVIDENCE|dev_private_models=blocked|reason=internal_failure"
+            + diagnostic_context(source), flush=True)
         return 78
 
 

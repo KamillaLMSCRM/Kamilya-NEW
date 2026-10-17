@@ -89,6 +89,35 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 
 ## Gates and next
 
+### Owner-authorized DEV startup repair010 — local diagnostic seam
+
+Owner explicitly authorized bounded DEV-worker startup repair and continuation
+of the cabinet matrix, without new keys/rights/public ports/paid resources or
+production changes. Root keeps critical diagnosis, source, integration and QA;
+Release Runner performs exact read-only provider reconciliation, then an immutable
+root-authorized packet only. Independent reviewer owns no source paths.
+
+Fresh provider read confirms008 worker failed/007 worker live; API4695373e healthy.
+Connected and reset markers in old service logs cannot be assigned to the same
+invocation. Strict canonical proxy SSH read of both ssh/sshd units in explicit
+UTC008 window:2rows,1accepted restricted-principal auth, no observed denial.
+No server command writes/config changes. Primary API .venv lacks paramiko before
+auth; canonical remote tool's normal py-3 runtime succeeded, no package installed.
+
+Root deterministic pipe test reproduced exact exit255/diagnostic_bytes0 despite
+a flushed short reset message: buffered read(1024) waits for size/EOF. Initial
+RED1FAIL/26PASS; read1 fix plus startup correlation and strict-retry regressions
+now59PASS/6subtests1.14s. A second identity test was separately RED before repair.
+Quality1008/2201PASS. Web unchanged from1242PASS/build67; API hash-linked unchanged
+4228PASS/526SKIP. CodeGraph preflight NOT_READY (checkout-local runtime missing),
+known one-file seam and direct tests used; no graph savings claimed.
+
+Cause of external reset remains unknown, distinct from confirmed diagnostic
+bug. Repair does not change retry categories/counts, SSH deadlines, trust, keys,
+routes, application model selection or reserve state. One fresh reviewed DEV
+candidate must prove exact all-service identities and correlated connected worker
+startup; no full cabinet PASS inferred from it. Production remains excluded.
+
 ### Latest DEV008 reconciliation and live check2026-10-17
 
 Status PARTIAL/BLOCKED, not RELEASE_OK. Exact4695373e80a57be361ad322e5b21db3035439c43:

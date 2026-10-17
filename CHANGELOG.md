@@ -1,5 +1,14 @@
 # Changelog
 
+## DEV private startup repair candidate — 2026-10-17
+
+- Drain short SSH diagnostics immediately with read1 while retaining bounded
+  private buffering and fixed-code output. Add generated startup correlation and
+  hashed instance identity to avoid combining unrelated restarts in reports.
+- Preserve strict host pinning, existing keys/loopback forwards and exactly one
+  reset/close recovery; unknown failures, timeouts, denied auth and host pins do
+  not retry. Fresh DEV runtime verification required; no production changes.
+
 ## Local DEV preview caption follow-up — 2026-10-17
 
 - Without a course context, label the existing methodologist preview role-home

@@ -3,6 +3,7 @@ import base64
 import importlib.util
 import io
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -107,13 +108,60 @@ def test_empty_stderr_keeps_actual_exit_status_without_raw_output():
     assert runtime.ssh_failure(Dead()) == "ssh_start_failed_exit_-9_diagnostic_bytes_0"
 
 
+def test_short_reset_diagnostic_is_classified_without_waiting_for_pipe_eof():
+    """A flushed short SSH error must not disappear behind buffered read(1024)."""
+    read_fd, write_fd = os.pipe()
+    stream = os.fdopen(read_fd, "rb")
+    writer = os.fdopen(write_fd, "wb")
+
+    class Dead:
+        stderr = stream
+
+        def poll(self):
+            return 255
+
+    process = Dead()
+    try:
+        runtime.drain_diagnostics(process)
+        writer.write(b"kex_exchange_identification: read: Connection reset by peer\n")
+        writer.flush()
+        assert runtime.ssh_failure(process) == "ssh_start_failed_network_connection_reset"
+    finally:
+        writer.close()
+        process._kamilya_diagnostic_pump.join(timeout=1)
+        stream.close()
+
+
+def test_main_failure_has_one_safe_startup_identity(monkeypatch, capsys):
+    seen = []
+    monkeypatch.setattr(runtime.sys, "argv", [str(PATH), "--", "synthetic-child"])
+    monkeypatch.setenv("RENDER_INSTANCE_ID", "synthetic-instance")
+    monkeypatch.setenv("DEV_MODEL_SSH_RUN_ID", "foreign-untrusted-value")
+    monkeypatch.setenv("CHATGPT_RESERVE_TOKEN", "never-log-this-value")
+
+    def fail(_argv, source):
+        seen.append(source["DEV_MODEL_SSH_RUN_ID"])
+        raise runtime.RuntimeBlocked("ssh_start_failed_network_connection_reset")
+
+    monkeypatch.setattr(runtime, "run", fail)
+    assert runtime.main() == 78
+    line = capsys.readouterr().out
+    assert len(seen) == 1 and re.fullmatch(r"[0-9a-f]{12}", seen[0])
+    assert "|startup_id=" + seen[0] in line
+    assert re.search(r"\|instance_hash=[0-9a-f]{12}(?:\n|$)", line)
+    assert "synthetic-instance" not in line
+    assert "foreign-untrusted-value" not in line and "never-log-this-value" not in line
+
+
 @pytest.mark.parametrize("failure,retry", [
     ("ssh_start_failed_network_connection_reset", True),
     ("ssh_start_failed_network_connection_closed", True),
     ("ssh_start_failed_authentication_denied", False),
     ("ssh_start_failed_host_pin_rejected", False),
+    ("ssh_start_failed_exit_255_diagnostic_bytes_0", False),
+    ("ssh_start_failed_network_connect_timeout", False),
 ])
-def test_only_one_pre_auth_transport_recovery_preserves_strict_failures(monkeypatch, failure, retry):
+def test_only_one_pre_auth_transport_recovery_preserves_strict_failures(monkeypatch, capsys, failure, retry):
     processes = []
     stopped = []
     def spawn(*_args, **_kwargs):
@@ -128,13 +176,16 @@ def test_only_one_pre_auth_transport_recovery_preserves_strict_failures(monkeypa
     monkeypatch.setattr(runtime, "drain_diagnostics", lambda _process: None)
     monkeypatch.setattr(runtime, "await_forward", ready)
     monkeypatch.setattr(runtime.time, "sleep", lambda _seconds: None)
+    source = {"DEV_MODEL_SSH_RUN_ID": "a" * 12, "RENDER_INSTANCE_ID": "synthetic-instance"}
     if retry:
-        assert runtime.start_forward(Path("identity"), Path("hosts"), {}) is processes[1]
+        assert runtime.start_forward(Path("identity"), Path("hosts"), source) is processes[1]
         assert stopped == [processes[0]]
+        assert "|startup_id=" + "a" * 12 in capsys.readouterr().out
     else:
         with pytest.raises(runtime.RuntimeBlocked, match=failure):
-            runtime.start_forward(Path("identity"), Path("hosts"), {})
+            runtime.start_forward(Path("identity"), Path("hosts"), source)
         assert len(processes) == 1 and stopped == processes
+        assert capsys.readouterr().out == ""
 
 
 def test_second_transport_reset_stops_without_unbounded_reconnect(monkeypatch):

@@ -35,6 +35,13 @@ The role/environment pairs are exactly `api/render-development` and
 from the application child environment and its temporary private file is0600.
 Loss of the owned SSH process stops the consumer; the supervisor reaps children.
 
+Short startup errors are drained with buffered read1, not a size-filling read;
+the private tail remains bounded64KiB and only fixed error codes are published.
+Native connected/retry/blocked markers carry one generated startup_id and a
+one-way hash of the optional provider instance ID. Group by startup_id before
+inferring retry continuity; historical uncorrelated service logs may contain
+different process invocations. This adds no reconnect loop or retry category.
+
 The loopback URL is `http://127.0.0.1:18999/v1`. Pin the existing approved model and
 CLI auth mode; do not export subscription authentication. The application bearer
 does not replace managed CLI login or establish commercial hosted-use entitlement.

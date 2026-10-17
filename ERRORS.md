@@ -162,6 +162,21 @@ Current as of: 2026-10-17.
 
 ## DEV-SSH-001 - A startup TCP reset aborted the optional DEV transport
 
+- Bounded repair2026-10-17, freshly owner-authorized after008: deterministic
+  pipe regression reproduced the exact opaque exit255/diagnostic_bytes0 marker
+  when a short flushed SSH error was held behind BufferedReader.read(1024) and
+  the pipe remained open. Use read1(1024), retaining bounded64KiB private tail.
+  This repairs diagnostic availability and reset/close classification, not proof
+  of the external reset's network origin. New generated startup_id and hashed
+  instance marker disambiguate invocations without raw stderr/provider metadata.
+  RED1/26PASS, then focused runtime/acceptance/controller59PASS/6subtests; quality
+  baseline1008/2201PASS. Explicit unknown255, timeout, auth and pin failures still
+  do not retry; reset/close still have at most one retry. No trust/key/rights,
+  forwarding, timeouts, model order, reserve, ASUS, production or paid-resource
+  change. Exact UTC proxy ssh/sshd journal window008 contains2rows/1accepted
+  restricted-principal auth, no observed denial; no network-cause inference.
+  Fresh reviewed DEV deployment and correlated runtime acceptance remain gates.
+
 - Recurrence2026-10-17 packet008: API4695373e deploymentdep-db9jtmgm7kps73dm02g0
   live and exact web READY, but workerdep-db9juk6q1p3s738hmr6g update_failed.
   Canonical bounded official logs200/100records at09:26:35Z–09:27:55Z expose

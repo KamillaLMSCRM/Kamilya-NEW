@@ -5345,3 +5345,24 @@ Rules:
   production, ASUS, voice or reserve mutation. No paid inference or email send.
 - next: resolve separately scoped DEV private-startup failure and then qualify
   one reviewed new candidate; continue exact remaining button matrix, no full PASS.
+
+## CABINET-ACTIONS-20261017-010-LOCAL — bounded DEV startup repair
+
+- executor: root; provider read-only Release Runner and independent reviewer are
+  bounded leaf workers. Owner newly authorized this repair, production excluded.
+- result: diagnostic blind spot reproduced and locally repaired, runtime pending.
+- changed: runtime bufferedread→read1, generated invocation ID and hashed instance
+  context; strict retry count/categories/trust/forwards/keys/deadlines unchanged.
+- verified: exact red-capable pipe test1FAIL/26PASS reproduces opaque255 despite
+  short flushed reset stderr; identity test separately RED; final59PASS/6subtests
+  runtime/acceptance/controller1.14s, quality1008/2201PASS. Web1242/build67 and API
+  4228/526 unchanged/hash-linked, not fresh runs. Root accepted source/test diff.
+  Canonical provider receipt worker-startup-010-diagnosis.json confirms008failed,
+  prior007live; service-log process continuityUNKNOWN. Exact UTC ssh-unit2rows/
+  restrictedprincipal accepted1, no observed denial. No network-origin conclusion.
+- harness: primary APIvenv missing paramiko before auth; existing normal py-3
+  remote-tool runtime succeeded, no dependencies installed/no credential probing.
+- review: independent read-only Sol/high accepted bounded two-file delta; separate
+  runtime30PASS0.99s, no code blocker. Root accepted review, no network-origin claim.
+- blockers: exact fresh DEV runtime/queue acceptance.
+- next: one exact reviewed DEV-only packet, then remaining human browser matrix.
