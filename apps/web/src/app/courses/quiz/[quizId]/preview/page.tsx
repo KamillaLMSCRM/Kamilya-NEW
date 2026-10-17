@@ -203,7 +203,7 @@ export default function QuizMethodologistPreviewPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-bold">{quiz.title}</h2>
-          <Link href={courseHref}><Button variant="outline">{t('courses.backToCourse')}</Button></Link>
+          <Link href={courseHref}><Button variant="outline">{t(courseId ? 'courses.backToCourse' : 'nav.dashboard')}</Button></Link>
         </div>
 
         {result && (

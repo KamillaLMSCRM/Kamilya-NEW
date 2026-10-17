@@ -5,6 +5,28 @@
 
 ## Источники правды
 
+### DEV current2026-10-17: packet008 partial; worker deployment blocked
+
+Exact4695373e80a57be361ad322e5b21db3035439c43 is READY on Vercel and LIVE on API,
+not a complete DEV release. CI39020666183 SUCCESS; webdpl_GVNnZPDnGJKYf91adMpLGwFiStsK,
+APIdep-db9jtmgm7kps73dm02g0; workerdep-db9juk6q1p3s738hmr6g update_failed.
+REL-DEV-CABINET-LEARNER-20261017-008 stopped at render_deployment_not_live;
+no blind retry. Root public API health independently confirms exact4695373e/ok/
+render-development/0.11.59. Worker publicok is not exact-SHA parity; last accepted
+complete release remains007/3dd69a07 below. Bounded official worker logs show
+exit255/no diagnostics and an observed reset/startup-retry marker; exact network
+node remains unlocalized. No production, provider settings, keys, rights, ASUS,
+voice, reserve or billing changes; ordinary existing DEV deployment only.
+
+Fresh web/API008 owner-other/save/reload/clear/reload PASS; source policy restored
+to NULL owner/dates. Legacy single_choice preview correct/wrong/retry and learner
+exhausted guard PASS; completed-course return actually reaches /my-courses.
+Normal API readback preserves exact protected old attempt IDs, owned2attempts,
+completed enrollment, draft recurrence/no reminders, draft announcement/0sent,
+submitted survey and archived zero-audience owned course. A separate truthful
+no-course preview caption repair is LOCAL ONLY, not deployed. Whole-cabinet
+acceptance remains PARTIAL; detailed NOT_RUN branches stay in the acceptance plan.
+
 ### DEV current2026-10-17: exact cabinet follow-up007 accepted
 
 Exact3dd69a070bea835284244321ae42269dd9dfbc06 LIVE on existing DEV web/API/worker.

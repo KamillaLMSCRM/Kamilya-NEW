@@ -5298,3 +5298,50 @@ Rules:
   not claim008 runtime. No provider, model, reserved fallback or production changes.
 - next: one exact canonical DEV008 deployment, fresh native/preview/back and
   saved-state/fixture-preservation readback. All broad NOT_RUN remains explicit.
+
+## CABINET-ACTIONS-20261017-008-BLOCKED — reconciled deployment and real UI readback
+
+- executor: root; no Test Runner owns this append destination. Timestamp2026-10-17.
+- result: PARTIAL/BLOCKED, not RELEASE_OK. Exact4695373e web/API live; worker
+  update_failed. No production changes or blind packet retry.
+- verified: CI39020666183 SUCCESS; Verceldpl_GVNnZPDnGJKYf91adMpLGwFiStsK READY,
+  APIdep-db9jtmgm7kps73dm02g0 LIVE, workerdep-db9juk6q1p3s738hmr6g update_failed.
+  Root independently read sanitized receipt and API health exactSHA/ok/0.11.59.
+  Worker publicok is not parity. Canonical bounded worker logs200/100records show
+  exit255/diagnostic_bytes0 and reset/startup_retry_once; network node unlocalized.
+- live: normal owner-other/Save/reload/clear/reload PASS. Legacy single_choice
+  preview correct100/wrong0/retry, second selection replaces first PASS. Learner
+  exhausted2radios/0checkboxes/Submitdisabled/Back→my-quizzes PASS, no Submit.
+  Own completed-course actual Back→my-courses PASS. Screenshot paths in plan.
+- preserved: canonical primary .venv readback exit0; protected old quiz IDs/counts
+  unchanged1/2, owned2attempts, own completed enrollment/0notificationattempts,
+  owner/datesNULL,2competencies0links, draftrecurrence/nextNULL/remindersoff,
+  draftannouncement0sent, own survey submitted, archivedowncourse0enrollments.
+  Ignored owned-readback-008.json retains sanitized assertions and exact IDs.
+- changed: only normal synthetic policy cycle in this fresh check; restored
+  baseline, no protected PIN/learning reset, no model/mail/OTP/signed-upload/purge.
+  Ordinary methodologist session restored; no browser auth-storage injection.
+- local follow-up: QUIZ-PREVIEW-NAV-001 no-course preview caption says course but
+  targetsdashboard. Leaf RED/GREEN context tests6PASS/typecheckPASS, root diff
+  review accepted. Full168files1242PASS170.35s; build final verification pending.
+  No deployment of this caption follow-up, no provider config/trust/rights changes.
+- blockers: private startup transport prevents fresh worker parity; full action
+  matrix/admin roles/model processing/external branches remain NOT_RUN/PARTIAL.
+- next: separately scoped transport diagnosis/repair before another full DEV
+  candidate; never waive worker gate or push a docs-only deployment to hide it.
+
+## CABINET-ACTIONS-20261017-009-LOCAL — final caption gates, no deployment
+
+- executor: root; no Test Runner owns this append destination. Timestamp2026-10-17.
+- result: local source gates PASS; not released, full cabinet still PARTIAL.
+- changed: no additional runtime/data action after008 reconciliation. Root reviewed
+  leaf's minimal preview caption and two context regressions, preserving fallback.
+- verified: full web168files1242PASS170.35s; build67/67 including lint/types PASS,
+  standalone typecheck PASS; release contracts0183/297PASS and diff-check PASS.
+  API unchanged/hash-linked4228PASS/526SKIP/quality1008/2201, not a fresh rerun.
+  Earlier008-LOCAL1240 and009 intermediate build-pending state remain history.
+- blockers: worker008 update_failed; repeated deployment is not a diagnosis.
+  No further provider/Git push, transport config/rights/trust, paid resources,
+  production, ASUS, voice or reserve mutation. No paid inference or email send.
+- next: resolve separately scoped DEV private-startup failure and then qualify
+  one reviewed new candidate; continue exact remaining button matrix, no full PASS.

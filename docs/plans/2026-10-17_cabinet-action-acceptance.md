@@ -65,7 +65,7 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 | /documents | Upload/open/cancel/validation; YouTube; search/status/purpose filters; download; new version; reindex; delete preview; actuality ownership/dates/review decisions; help | OWNER FLOW PASS: other/self/save/clear/reload/date refusal; other actions PARTIAL, named delete cancelled |
 | /ai/generate | Source selection/compatibility; options; generation/resume/cancel; preview; edit/review/publish; help | PARTIAL: source preflight/options/default restore; actual generation NOT RUN |
 | /courses and /courses/[id]/edit | Create/edit/preview; lessons/reorder/media; quizzes; review/publish/archive/delete; help | PARTIAL: own course/module/lesson/save/reload/preview/discard; empty refusal and nonempty publish PASS; archive/media/approval completions pending |
-| /quizzes | Select/create quiz; question/answer types/edit/delete/reorder; learner preview; save/reload; help | PARTIAL: own3types/options/settings/edit/reload, failed/retry/success learner attempts PASS; fresh radio rendering gate pending |
+| /quizzes | Select/create quiz; question/answer types/edit/delete/reorder; learner preview; save/reload; help | PARTIAL: own3types/options/settings/edit/reload, failed/retry/success learner attempts PASS; fresh008 legacy preview/no-save scoring, single selection and exhausted radios PASS |
 | /learning-paths | Create/edit/version/publish; sequence; assignments/cancel; learner view; help | PARTIAL: create/reorder/required/save/reload/publish0audience/v2draft; active audience PASS; actual assignment NOT RUN |
 | /assignments | Course/audience selection; due date/access; preview/confirm; link/PIN; copy; revoke/repeat; rules/reminders; help | PARTIAL: own individual PIN assignment/copy/wrong+correct PIN/learner completion PASS; recurring draft and reminder save/reload/disable PASS; no mail/revoke/reset |
 | /methodologist-workbench | Document dialog/history/source download; assignment preview/confirm; correction/apply/reload; help | PARTIAL: preview/reload/new-command/history/citation/download and localized audience_empty refusal PASS; no model call/confirm/apply |
@@ -78,16 +78,67 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 | /training-log | Filters/history; current occurrence; CSV/PDF/ZIP; signed-copy review; restricted share/revoke; help | PARTIAL: filter/reset/history/answer details/disclosure/CSV; no retained-record edits |
 | /training-procedures | Draft/edit/validation; activate/version; delete preview; help | PARTIAL: owned draft/edit/cancel/activation422; no irreversible delete |
 | /training-retention | Policy form/save; dry-run; purge/legal-hold; help | READ-ONLY methodologist state PASS; admin mutations NOT RUN, purge forbidden |
-| Contextual /competencies,/training-rules,/invitations,/surveys,/announcements,/course-review | Context links; forms/validation/preview/submit/readback; help | PARTIAL: competency create/select/save/reload/clear PASS; training-rule preview/cancel/tabs, survey create/reload, announcement draft/reload, review choose/refresh/help; no external communication |
+| Contextual /competencies,/training-rules,/invitations,/surveys,/announcements,/course-review | Context links; forms/validation/preview/submit/readback; help | PARTIAL: competency create/select/save/reload/clear PASS; training-rule preview/cancel/tabs, survey create/learner response/reload/no duplicate PASS, announcement draft/reload/RU-KK-EN help, review choose/refresh/help; no external communication |
 | Shared /profile + shell | Profile form; help/support; notifications/read; language; palette; sidebar; guide; logout | PARTIAL: profile save/reload/restore,17help, support validate/cancel, notifications/palette/sidebar/languages/guide and ordinary logout/login PASS; no support send |
 | Admin /admin,/admin/team | Navigation/onboarding; create/role/activate/deactivate; validation; help | NOT RUN; security-sensitive grants separate approval |
 | Admin /admin/kiosks,/settings | Kiosk/create/print/link/PIN/delete; tenant settings/save; help | NOT RUN |
 | Admin /admin/settings/integrations,/admin/settings/ai | Forms/status/test/save; provider/model routing | NOT RUN; external settings unchanged |
 | Admin /admin/certificates/settings,/admin/training-evidence/settings,/admin/audit,/admin/course-approvals | Templates/preview/download/save; audit filters; approval configuration | NOT RUN |
-| Student /student,/my-courses,/my-quizzes,/learning-paths,/certificates,/courses/[id],/surveys | Open assigned course, progress/reload, failed/successful quiz, completion, PDF/certificate, survey | PARTIAL: exact own PIN course/fail67/retry100/completion/reload/course filters/confirmationPDF/certificate/public verify PASS; no retained learning reset; survey pending |
+| Student /student,/my-courses,/my-quizzes,/learning-paths,/certificates,/courses/[id],/surveys | Open assigned course, progress/reload, failed/successful quiz, completion, PDF/certificate, survey | PARTIAL: exact own PIN course/fail67/retry100/completion/reload/course filters/confirmationPDF/certificate/public verify/survey submitted PASS; fresh008 actual returns and exhausted guard PASS; no retained learning reset |
 | Superadmin /admin/super,/admin/super/tenants,/admin/super/operations,/admin/providers | Tenant navigation/preview; forms/validation/readback; operations/provider controls | NOT RUN; no tenant deletion/plan/billing/reserve changes |
 
 ## Gates and next
+
+### Latest DEV008 reconciliation and live check2026-10-17
+
+Status PARTIAL/BLOCKED, not RELEASE_OK. Exact4695373e80a57be361ad322e5b21db3035439c43:
+CI39020666183 SUCCESS, Verceldpl_GVNnZPDnGJKYf91adMpLGwFiStsK READY and
+APIdep-db9jtmgm7kps73dm02g0 LIVE; workerdep-db9juk6q1p3s738hmr6g update_failed.
+Controller stopped at render_deployment_not_live. Root independently read the
+sanitized provider receipt and public API exactSHA/ok/render-development/0.11.59.
+Worker publicok is not exact-SHA parity. Last complete accepted runtime007 remains
+the worker reference, not a claim that failed008 made no provider changes.
+
+Official Render GET /v1/logs returned200/100records in the bounded worker window
+09:26:35Z–09:27:55Z, with exit255/no diagnostic bytes and a reset/startup-retry
+marker. Distinguish these observations from006's API failure. Exact failing node
+and root cause remain unlocalized; no auth/pin denial is proven. No blind retry,
+provider command/config, rights, key, host trust, ASUS or production changes.
+Evidence: ignored release-learner-008-blocked.json. Full worker gate is not waived.
+
+Fresh ordinary web/API008 actual actions:
+
+- Owner: other methodologist DOCUMENT58 Temporary QA selected, Save, reload
+  retained; clear through the button, reload baseline; normal API owner/datesNULL.
+  Screenshots dev-owner-other-reloaded-008.png and dev-owner-clear-008.png.
+- Legacy single_choice preview:2radios; correct answer100%, wrong0%; reset/retry
+  clears state; selecting second unchecks first; actual no-save grading endpoint.
+  Normal learner protected attempt IDs unchanged afterward, not just UI notice.
+- Learner exhausted fixture:2disabledradios/0checkboxes, Submitdisabled,2old
+  attempts; active Back actually returns /my-quizzes. No learner Submit.
+- Own completed course: Back to courses actual href and click reach /my-courses,
+  not the guarded manager catalogue. Completion/evidence stays unchanged.
+- Fresh normal API readback asserts both protected quiz attempt ID sets exact,
+  owned quiz still2attempts, owned enrollment completed08:34:13Z/0notification
+  attempts, both competencies0links, recurrence draft/nextNULL/remindersoff,
+  announcement draft/0sent, own survey submitted, owned zero-audience course
+  archived/0enrollments. No protected PIN reset or completed-learning rewrite.
+
+Additional confirmed UI issue QUIZ-PREVIEW-NAV-001: preview with no course context
+actually navigates /dashboard but says Back to course. Minimal local caption fix
+and two context tests RED/GREEN, focused6PASS/typecheckPASS; not deployed. Root
+reviewed the two-path delta. Final full168files1242PASS170.35s, build67/67 including
+lint/types PASS; release contracts0183/297PASS. API unchanged/hash-linked4228PASS/
+526SKIP/quality1008/2201, not newly rerun or disguised as integration coverage.
+Failed008 is not retried merely to ship this caption change. Ordinary QA methodist
+session restored; no credentials printed/exported/injected. No paid model call,
+outbound email, OTP, signed-upload, purge or automation activation in this run.
+
+Remaining whole-cabinet action/role branches remain PARTIAL/NOT_RUN. In particular,
+actual new material processing, model generation/correction, program/automation
+delivery, admin/superadmin controls and external communication are not proven by
+opening their forms. Resolve the private startup transport in a separately scoped
+repair before calling a full fresh DEV release accepted; production stays excluded.
 
 ### Candidate008 final local gates
 

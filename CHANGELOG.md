@@ -1,5 +1,14 @@
 # Changelog
 
+## Local DEV preview caption follow-up — 2026-10-17
+
+- Without a course context, label the existing methodologist preview role-home
+  destination as the dashboard rather than Back to course. Destination, access,
+  scoring and nonpersistent preview API unchanged. RED/GREEN, typecheck, full
+  web1242tests and build67/67 PASS; this small follow-up is not deployed.
+- DEV0084695373e is live on web/API but worker update failed; not a full release.
+  Fresh owner and learner UI checks passed; production remains unchanged.
+
 ## Unreleased DEV learner continuation — 2026-10-17
 
 - Keep single-answer controls/state consistent for MCQ, true_false and legacy

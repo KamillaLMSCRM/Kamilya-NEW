@@ -2,6 +2,19 @@
 
 Current as of: 2026-10-17.
 
+## QUIZ-PREVIEW-NAV-001 - Course caption pointed to the dashboard without context
+
+- Date:2026-10-17; ordinary DEV methodologist nonpersistent quiz preview.
+- Symptom: preview without courseId labeled /dashboard as Back to course.
+- Cause: course-context caption reused for the existing role-home fallback.
+- Fix: retain the destination; choose nav.dashboard when no courseId exists,
+  courses.backToCourse otherwise. No access, API, grading or progress change.
+- Verification: new no-context label assertion RED before source edit; focused
+  preview6PASS/typecheck PASS. Browser observation belongs to deployed008; this
+  caption repair is local only and must not be claimed as already visible there.
+- Prevention: test captions together with actual destination in both contexts;
+  preserve preview no-attempt/no-progress contracts and learner access denial.
+
 ## COURSE-RETURN-001 - Learner course-list links redirected to the dashboard
 
 - Date: 2026-10-17; ordinary synthetic DEV completed-course browser check.
@@ -148,6 +161,17 @@ Current as of: 2026-10-17.
   hide archives globally or treat an empty-recipient result as a successful target.
 
 ## DEV-SSH-001 - A startup TCP reset aborted the optional DEV transport
+
+- Recurrence2026-10-17 packet008: API4695373e deploymentdep-db9jtmgm7kps73dm02g0
+  live and exact web READY, but workerdep-db9juk6q1p3s738hmr6g update_failed.
+  Canonical bounded official logs200/100records at09:26:35Z–09:27:55Z expose
+  ssh_start_failed_exit_255_diagnostic_bytes_0 and separately
+  startup_retry_once/ssh_start_failed_network_connection_reset. These markers
+  do not localize the failing network node or prove auth/host-pin rejection.
+  Public workerok is not release parity. Stop at render_deployment_not_live,
+  retain partial-state receipt; no packet retry or broader transport repair.
+  Last accepted complete007 succeeded between006 and008 without a policy change.
+  Voice/reserve/routing/ASUS/production and provider settings remain untouched.
 
 - Recurrence2026-10-17 packet006: exactc4705cfb API deployment
   dep-db9jcrvbtjjs73buna0g update_failed; fixed startup fingerprint at08:49:54UTC
