@@ -19,7 +19,7 @@ Graphify graph absent. Bounded source fallback, not runtime proof.
 | S3 backend | Root | DONE | full API3334; real isolated Supabase25; public0183 applied |
 | S4 frontend | bounded worker / Root | DONE_LOCAL | web1191; feature-on build67/67; explicit ambiguous-confirm recovery |
 | S5 integration | Root / independent reviewer | DONE | source-GO32ff120f, quality/build/PR CI PASS; preserved DEV/runtime0182 |
-| S6 DEV | Root | IN_PROGRESS | strict V6 executing; ordinary-role live flow and cleanup remain required |
+| S6 DEV | Root | PARTIAL_INFRA_BLOCKED | functional browser/cleanup PASS; final worker parity blocked after two network timeouts |
 
 One writer per path. Root owns routes/migration/shared auth/legacy guard and staff
 page integration. Frontend worker owns new StaffWorkspace* files and named tests
@@ -27,8 +27,9 @@ only. Reviewers read only. No subagent external access or nested workers.
 
 Approval: current owner request authorizes this DEV integration and synthetic tests;
 never production. No provider plan/resource additions. Fresh actual provider identity
-and unchanged tier gate before deployment; rollback previous DEV revision and disable
-new feature, retain additive schema. Existing DEV branch has unrelated commits and
+and unchanged tier gate before deployment; disable new UI/writes but retain the
+marker-aware enrollment kernel and additive schema while preservation facts exist.
+Do not blindly revert to the older b35 kernel. Existing DEV branch has unrelated commits and
 must be preserved, not reset to master. No completion claim until S6 passes.
 
 2026-10-17 owner adds optional1C HR compatibility. Accepted design addendum:
@@ -80,3 +81,26 @@ Live1280x720 found compact side-card overlap and generic cycle error copy;
 STAFF-UI-004 records both. Bounded frontend repair reviewed by Root, focused28 /
 typecheck/scopedlint and full web1201PASS. Build and no-config DEV follow-up pending;
 API/schema/policy unchanged, so current source-bound isolated25 evidence retained.
+
+Final checkpoint2026-10-17:
+- UXab4a6d7e/full web1201/build67 passed. CI39008666487 exposed Root's invalid
+  journal field label, not API behavior: changed Fix scope->Fix, exact contract
+  gate/reliability2PASS; new docs-onlyda21bb3b preserves identical tested UI/API.
+- FinalCI39008984682 SUCCESS. API/webda21 live/READY; public schema0183; existing
+  Free/Free/Hobby and four feature-flag inventories verified unchanged after opt-in.
+- Workerda21 dep-db9h6mvavr4c73e2do3g then one exact retrydep-db9h85jbc2fs73dpc2j0
+  both update_failed, fixed logcode ssh_start_failed_network_connect_timeout.
+  Old32ff worker retainedlive/healthok. No third retry, no key/SSH/port/model/tier
+  mutation. Final release BLOCKED_WORKER_PARITY; source/functional PASS is separate.
+- Live repaired narrow card/single heading and primaryCTA/canonical cycle error,
+  import access PASS. Rename ownedA->A2 in second tab invalidated old employee plan
+  024d6813-c6e3-4d3a-b3ac-074ce6f9fb9e; rejection made no transfer. Fresh plan
+  00fcbd34-4228-4546-a46d-c148e1baf31d succeeded B->A2; reload retained placement.
+- Ordinary UI terminated only personnelQA-ORG61-20261017. Ordinary API soft-archived
+  B thenA2 after exact identity/empty/no-head/no-active-position checks. Archive
+  readback PASS, old units/position catalog equal, original active roster3.
+  Audit and one inactive employee/two archived units remain, no hard purge claim.
+- Before production: restore discoverable archive controls in the new workspace,
+  distinguish/filter archived units on cards, deduplicate stale-message copy;
+  assess bounded large-company performance. Production and live1C remain excluded.
+  Deterministic receipts/screenshots: .release-evidence/staff-structure-dev.

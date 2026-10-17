@@ -4,6 +4,17 @@ Current as of: 2026-10-16.
 
 ## DEV-SSH-001 - A startup TCP reset aborted the optional DEV transport
 
+- Recurrence2026-10-17: staff DEV rollout first32ff completed, but frontend-only
+  follow-upda21 worker startupsdep-db9h6mvavr4c73e2do3g and exact operator retry
+  dep-db9h85jbc2fs73dpc2j0 both failed with fixed code
+  ssh_start_failed_network_connect_timeout. This is connect timeout, NOT an observed
+  reset or credential denial. Old32ff worker remains live/healthok; API/webda21 live,
+  CI39008984682SUCCESS, public0183. Final packet remains BLOCKED_WORKER_PARITY.
+  Root stops after two; no transport policy, credentials, ports, resources, billing,
+  production or ASUS changed. No extension of the application's reset-only retry
+  policy is implied. Network node is not localized; a separate bounded diagnostic
+  must precede another attempt, not another unverified deployment loop.
+
 - Date:2026-10-16; existing Render Free DEV API/worker private connection only.
 - Symptom: first native SSH attempt exited before application start; the old
   live deployment was retained. Initial quiet diagnostics hid the failure type.

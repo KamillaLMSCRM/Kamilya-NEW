@@ -5004,3 +5004,40 @@ Rules:
   typecheck/scopedlint PASS; Root full web/build and corrected DEV readback pending.
 - Owned fixture retirement/archive pending after follow-up. No permanent QA reset,
   existing learner progress, production, voice, reserve or HR connector activation.
+
+## STAFF-STRUCTURE-DEV-20261017 — final functional check, operationally blocked
+
+- UX follow-upab4: focused28/typecheck/scopedlint and full web1201/164files PASS;
+  feature-on build67/67 PASS. Full backend/ops3334, isolated25 and runtime0182
+  dependency17 from32ff retained: all declared backend hashes still match.
+- Initial follow-upCI39008666487 failed two jobs on one Root metadata error:
+  STAFF-UI-004 field Fix scope must be Fix. No waiver: corrected label, canonical
+  release-contract/reliability2PASS, docs-onlyda21bb3b60869174a6756edc155454277588ce06.
+  FinalCI39008984682SUCCESS. Failed packet/evidence remain intact, not relabelled.
+- Current APIdep-db9h5l6q1p3s7387slc0 and Verceldpl_DGSwTje2HZvDH7yoyWHG7x4Sr3zm
+  are exactda21 live/READY. Worker firstdep-db9h6mvavr4c73e2do3g and one exact retry
+  dep-db9h85jbc2fs73dpc2j0 both update_failed; bounded logs classify
+  ssh_start_failed_network_connect_timeout, not observed auth denial/OOM. Worker
+  old32ff dep-db9gqnbrjlhs73epe4bg retainedlive. Public API/worker/frontend health
+  PASS, four flags alltrue, existing Free/Free/Hobby. Exact parity NOT VERIFIED;
+  final release BLOCKED_WORKER_PARITY, no third retry/configuration change.
+- Corrected ordinary browser confirms readable compact side panel, one page h1/
+  primary employeeCTA, import/manual controls retained and friendly cycle error.
+  Source-compatible rolling DEV readback is distinguished from final provider parity.
+- Two-tab stale case: after old preview, rename ownedA->A2 via normal UI; plan
+  024d6813-c6e3-4d3a-b3ac-074ce6f9fb9e refused, no employee move. Fresh preview
+  00fcbd34-4228-4546-a46d-c148e1baf31d confirmed B->A2,1affected/0added/0preserved,
+  receipt and reload PASS. No real model/voice/reserve calls or customer data.
+- Cleanup: ordinary UI closed access for only QA-ORG61-20261017. Dedicated exact
+  ordinary-API helper checked canonical actor/tenant, owned unit IDs/name marker,
+  no head/HR authority, zero active people/positions; archived B thenA2 and read
+  both inactive. Protected unit objects and position catalog equal; original active
+  roster3 restored. No DELETE/hard purge. One inactive synthetic employee, two
+  archived units and retained plans/audit remain intentionally under normal history.
+- Open before production: worker connectivity/parity, new-workspace archive action
+  and inactive card clarity, duplicate stale refresh sentence, bounded large-company
+  measurement. Actual1C connector, multi-employment, production and ASUS NOT RUN.
+  Current docs/PRODUCT_BACKLOG owns these; no production readiness/acceptance claim.
+- Sanitized receipts/screenshots under ignored .release-evidence/staff-structure-dev:
+  final-readback.json, browser-functional.json, cleanup.json,
+  browser-roster-fixed-detail.png, ux002-blocked.json and first worker failure.

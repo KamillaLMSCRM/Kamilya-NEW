@@ -1,11 +1,42 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-10-16.
+> Обновлено: 2026-10-17.
 
 ## Источники правды
 
-### DEV update2026-10-16: date follow-up / runtime settings candidate
+### DEV current2026-10-17: staff structure, partial delivery
+
+DEV frontend/API are exactda21bb3b60869174a6756edc155454277588ce06; successful
+CI39008984682, Verceldpl_DGSwTje2HZvDH7yoyWHG7x4Sr3zm, RenderAPI
+dep-db9h5l6q1p3s7387slc0. Public Supabase DEV0183 follows preserved runtime0182.
+Staff/workbench/document/correction flags alltrue across existing API/worker/web;
+Free/Free/Hobby unchanged. APP_ENVproduction remains the secure DEV runtime mode;
+deployment contour, not APP_ENV alone, gates staff workspace writes.
+
+Current live worker remains32ff120f47d385b58a0cc5cbf20dae6083404fe2 /
+dep-db9gqnbrjlhs73epe4bg. Two exactda21 startup attempts failed with
+ssh_start_failed_network_connect_timeout before consumer start; no auth denial or
+OOM observed in bounded logs. No third attempt or transport/configuration change.
+All three public health endpoints respond normally, but exact worker parity is
+NOT VERIFIED: final DEV release remains BLOCKED, not RELEASE_OK. Node causing
+network timeout is not localized. No production, ASUS, voice or reserve change.
+
+Ordinary methodologist live employee/unit preview-confirm-reload, cycle rejection,
+stale-two-tab refusal and fresh-confirm recovery PASS on synthetic data. Frontend
+overlap/canonical-error handling repaired; full web1201/build67/67 PASS, API/ops3334
+and real isolated25 retained with unchanged backend hashes. First32ff whole DEV
+release passed; later UI-only rollout is operationally partial as described above.
+Owned QA employee access closed, two exact owned units soft-archived, active roster
+restored3; protected units and positions equal before/after archive. Audit/receipts
+remain under retention; no hard deletion or permanent QA reset.
+
+Optional1C design only: [HR compatibility](product/contract-modules/staff-structure/HR_COMPATIBILITY_ADDENDUM_V1.md).
+No live connector, HR employment-status field or multi-employment model delivered.
+Outstanding rollout/UX work belongs to PRODUCT_BACKLOG and the current staff plan.
+Older DEV SHA/provider snapshots below are historical, not current availability.
+
+### Historical DEV update2026-10-16: date follow-up / runtime settings candidate
 
 Current DEV API/worker580c200c5dbfef3b60489e66ed2ae891a188a4ec,
 CI38892508630SUCCESS, exact deploysdb90hr7f3r2c73fm68ng/db90hs7f3r2c73fm6cdg.

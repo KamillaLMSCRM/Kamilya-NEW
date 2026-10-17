@@ -1,6 +1,6 @@
 # Kamilya LMS: актуальный продуктовый backlog
 
-**Дата:** 2026-10-16
+**Дата:** 2026-10-17
 **Область:** открытые продуктовые и UX-задачи. Выполненные эпики здесь не
 хранятся.
 
@@ -12,6 +12,30 @@
 [`product/CORPORATE_STAGE1_RESULT_2026-09-26.md`](product/CORPORATE_STAGE1_RESULT_2026-09-26.md).
 Работа по актуальности источников остаётся отдельным кандидатом; её предыдущий
 план не является описанием новой задачи daily learning.
+
+## P1: структура сотрудников — закрыть DEV rollout и UX перед production
+
+DEV-only candidate source and ordinary-role synthetic browser flows accepted;
+current API/webda21, worker32ff. Final worker update twice timed out in existing
+private SSH startup; exact provider parity remains BLOCKED. No third blind retry,
+production/ASUS/configuration/resource/billing change. Read PROJECT-CONTEXT and
+the staff plan before a fresh connectivity diagnostic or deployment.
+
+- Restore discoverable archive controls in the new workspace using the existing
+  guarded archive API; currently transfer/add/edit work, but archive requires the
+  ordinary API. Clearly badge/filter archived units in cards, not only the selector.
+- Remove repeated refresh sentence after stale preview rejection; preserve the
+  actual mandatory fresh-preview gate and explicit confirm/recovery semantics.
+- Measure public DEV server pagination and bounded impact snapshots for a controlled
+  larger-company fixture before production; local1000-person mock is not a public
+  load/SLA measurement. Do not remove the fail-closed snapshot-size bound.
+- Optional future1C: supported configuration/version/export, source identity for
+  units/positions, employment vs LMS access, source-version/idempotency, staged bulk
+  consequences, manual-override policy and connector-wide ownership guards. Reuse
+  existing StaffSyncIdentity/Event/credential and reviewed placement writer, not
+  generic import bypass. Actual connector and multi-employment are NOT delivered;
+  clients without HR integration retain simple manual/import controls. Accepted
+  contract: product/contract-modules/staff-structure/HR_COMPATIBILITY_ADDENDUM_V1.md.
 
 ## P1: качество генерации и доказанное сокращение работы методиста
 
