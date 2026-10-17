@@ -5223,3 +5223,29 @@ Rules:
   independently reviewed root copy/locale/test delta. No fabricated RED for first
   radio test (post-fix GREEN only); reversal test did run RED/GREEN. Root browser/
   PDF/integration/docs; exposed token counters unavailable, no cost claims.
+
+## CABINET-ACTIONS-20261017-006 — failed release, bounded diagnosis, safe contextual actions
+
+- executor: root; no Test Runner owns this append destination. Timestamp2026-10-17.
+- result: exactc4705cfb packet006 BLOCKED/render_deployment_not_live, NOT a full
+  release. Initial evidence-root harness typo stopped before providers, corrected
+  once; actual execution APIdep-db9jcrvbtjjs73buna0g update_failed. Preserve both.
+- changed: Vercel exactc470 READY; no matching worker. API/worker retain6961.
+  No migration/settings/tier/keys/proxy/ASUS/production mutation. Root created only
+  owned recurring draft50932aee…, announcement draft and one-course survey in QA.
+- verified: CI39018439587 SUCCESS/Verceldpl_BGW7vPdNfdQDTY2vXd2PMvNVjGrd;
+  canonical log API200:08:49:54UTC ssh_start_failed_exit_255_diagnostic_bytes_0.
+  Bounded proxy read-only pinned SSH succeeded; no matching auth/reset/OOM denial
+  in the window. Global daemon policy is not user-specific policy proof. No blind
+  packet retry or unknown-failure retry-policy widening. Root workbench localized
+  refusal retained command/no plan; recurring draft enable-save-reload-disable/
+  empty reminder history; announcement draft-reload; survey create-reload; rule
+  preview3affected/2new/1protected then cancel/tabs/position destination PASS.
+- candidate: announcement help/audience copy correction, independent review PASS;
+  focused1RED/21PASS then22PASS; full168files/1230PASS184.74s, standalone typecheck
+  and build67/67 PASS. API unchanged from4228PASS/526SKIP/quality1008/2201.
+- blockers: fresh exact full DEV rollout, radio check and remaining matrix items.
+  Failed packet006 receipt is ignored release-player-006-blocked.json; direct
+  provider readback, not exit status, establishes partial external state.
+- next: one separate reviewed copy-correction DEV packet after bounded diagnosis;
+  stop at a repeated transport failure, no production or infrastructure repair.

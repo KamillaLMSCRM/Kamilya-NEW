@@ -2,6 +2,23 @@
 
 Current as of: 2026-10-17.
 
+## ANNOUNCEMENT-HELP-001 - Help reversed audience selection and overstated delivery
+
+- Date: 2026-10-17; ordinary synthetic DEV cabinet action audit.
+- Symptom: help told the user to save a draft before selecting its course, but
+  the single create action persists that selection and clears the form. It also
+  called the send counter inbox delivery, which the API does not establish.
+- Cause: help described an imagined editable draft flow and inferred external
+  delivery from the provider-send counter instead of the current form/API seam.
+- Fix: RU/KK/EN help now follows select audience/content, Save draft, Send from
+  the saved card. Result explicitly separates sending from inbox delivery; the
+  all-recipient option says All employees rather than technical tenant jargon.
+- Verification: existing source/API independently reviewed; new help regression
+  1RED/21PASS, then22PASS; full web168files/1230PASS, standalone typecheck and
+  build67/67 PASS. Fresh live wording remains a separate DEV gate. No mail sent.
+- Prevention: verify instruction sequence against actual persistence controls;
+  successful provider send is not an independently verified mailbox delivery.
+
 ## QUIZ-BOOLEAN-001 - True-false player used misleading controls and positional labels
 
 - Date: 2026-10-17; ordinary synthetic DEV learner action audit.
@@ -101,6 +118,17 @@ Current as of: 2026-10-17.
   hide archives globally or treat an empty-recipient result as a successful target.
 
 ## DEV-SSH-001 - A startup TCP reset aborted the optional DEV transport
+
+- Recurrence2026-10-17 packet006: exactc4705cfb API deployment
+  dep-db9jcrvbtjjs73buna0g update_failed; fixed startup fingerprint at08:49:54UTC
+  ssh_start_failed_exit_255_diagnostic_bytes_0. This unknown exit is NOT a
+  classified reset/auth/pin failure. Vercel exactc470 READY, API/worker retained
+  accepted6961; no full-release PASS. Canonical logs endpoint HTTP200 and bounded
+  proxy SSH/auth window found no matching rejection/OOM/MaxStartups; global policy
+  read is not user-specific policy evidence. Failure remains unlocalized before
+  useful SSH diagnostics. No retry-policy/host-trust/key/config/resource change.
+  Failed packet is preserved and never blindly rerun; a separate reviewed copy
+  correction candidate may receive one exact DEV attempt after this diagnosis.
 
 - Recurrence2026-10-17: staff DEV rollout first32ff completed, but frontend-only
   follow-upda21 worker startupsdep-db9h6mvavr4c73e2do3g and exact operator retry

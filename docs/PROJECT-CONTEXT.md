@@ -5,7 +5,18 @@
 
 ## Источники правды
 
-### DEV current2026-10-17: competency transaction responses
+### DEV latest2026-10-17: partial player rollout, no full-release PASS
+
+Packet006/c4705cfb50679e070e9663844c8abacbfb0ebef9 stopped: API deployment
+dep-db9jcrvbtjjs73buna0g update_failed on private SSH startup exit255 with no
+diagnostic bytes; no matching worker deployment. CI39018439587 SUCCESS and
+Verceldpl_BGW7vPdNfdQDTY2vXd2PMvNVjGrd READY do not establish whole-release PASS.
+Public API and worker retain accepted6961 below. Exact failure receipt and bounded
+read-only diagnosis are retained in cabinet acceptance evidence. No retry of006,
+provider settings/rights/keys/ASUS/production changes. Separate announcement-help
+copy candidate is locally tested; its future release is not implied by this note.
+
+### Previous accepted DEV2026-10-17: competency transaction responses
 
 Exact6961e5ee97b5504776c98acdb9120065664e7f76 live on DEV web/API/worker.
 CI39017177515 SUCCESS; Verceldpl_A85fPmSgnafzrVWrsYc7ETewhFr6 READY;

@@ -64,12 +64,12 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 | Methodologist /dashboard | Refresh, filters, action cards, destination context, help | PARTIAL: exhausted1row/reset/return; other destination combinations pending |
 | /documents | Upload/open/cancel/validation; YouTube; search/status/purpose filters; download; new version; reindex; delete preview; actuality ownership/dates/review decisions; help | OWNER FLOW PASS: other/self/save/clear/reload/date refusal; other actions PARTIAL, named delete cancelled |
 | /ai/generate | Source selection/compatibility; options; generation/resume/cancel; preview; edit/review/publish; help | PARTIAL: source preflight/options/default restore; actual generation NOT RUN |
-| /courses and /courses/[id]/edit | Create/edit/preview; lessons/reorder/media; quizzes; review/publish/archive/delete; help | PARTIAL: create; empty publication defect/unpublish; guard live pending; search/status/menu/import-empty/cancel; assistant open/close |
-| /quizzes | Select/create quiz; question/answer types/edit/delete/reorder; learner preview; save/reload; help | NOT RUN |
+| /courses and /courses/[id]/edit | Create/edit/preview; lessons/reorder/media; quizzes; review/publish/archive/delete; help | PARTIAL: own course/module/lesson/save/reload/preview/discard; empty refusal and nonempty publish PASS; archive/media/approval completions pending |
+| /quizzes | Select/create quiz; question/answer types/edit/delete/reorder; learner preview; save/reload; help | PARTIAL: own3types/options/settings/edit/reload, failed/retry/success learner attempts PASS; fresh radio rendering gate pending |
 | /learning-paths | Create/edit/version/publish; sequence; assignments/cancel; learner view; help | PARTIAL: create/reorder/required/save/reload/publish0audience/v2draft; active audience PASS; actual assignment NOT RUN |
-| /assignments | Course/audience selection; due date/access; preview/confirm; link/PIN; copy; revoke/repeat; rules/reminders; help | PARTIAL: course/email/PIN form/empty guards; no new assignments or outbound messages |
-| /methodologist-workbench | Document dialog/history/source download; assignment preview/confirm; correction/apply/reload; help | PARTIAL: preview/reload/new-command/history/citation/download; error fix candidate; no model call/confirm/apply |
-| /learning-cycles | Create/edit/version/schedule/activate/deactivate; filters/pagination; help | PARTIAL: empty create/repeat disabled, target course/program switch; no rule activation |
+| /assignments | Course/audience selection; due date/access; preview/confirm; link/PIN; copy; revoke/repeat; rules/reminders; help | PARTIAL: own individual PIN assignment/copy/wrong+correct PIN/learner completion PASS; recurring draft and reminder save/reload/disable PASS; no mail/revoke/reset |
+| /methodologist-workbench | Document dialog/history/source download; assignment preview/confirm; correction/apply/reload; help | PARTIAL: preview/reload/new-command/history/citation/download and localized audience_empty refusal PASS; no model call/confirm/apply |
+| /learning-cycles | Create/edit/version/schedule/activate/deactivate; filters/pagination; help | PARTIAL: empty guards/target switch, own recurring draft only; no rule activation or periods |
 | /staff | Import stages/file validation/mapping/preview/confirm; schema/roster/filters; create/edit/move/terminate; unit preview/confirm; help | PARTIAL: help; unit form/cancel/empty create disabled; employee form/empty validation/cancel; import tab/no-file analysis disabled |
 | /positions and /positions/[id] | Create/edit; JD attach/analyze; qualification/instruction/tests; versions/restore; help | PARTIAL: form validation/cancel, actual multi-file chooser, refresh and card tabs; no profile/rule/version writes |
 | /cohorts | Create/edit; search/select/save members; reload; help | PARTIAL: owned group create/member/save/reload/remove/reset, final0members |
@@ -78,16 +78,50 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 | /training-log | Filters/history; current occurrence; CSV/PDF/ZIP; signed-copy review; restricted share/revoke; help | PARTIAL: filter/reset/history/answer details/disclosure/CSV; no retained-record edits |
 | /training-procedures | Draft/edit/validation; activate/version; delete preview; help | PARTIAL: owned draft/edit/cancel/activation422; no irreversible delete |
 | /training-retention | Policy form/save; dry-run; purge/legal-hold; help | READ-ONLY methodologist state PASS; admin mutations NOT RUN, purge forbidden |
-| Contextual /competencies,/training-rules,/invitations,/surveys,/announcements,/course-review | Context links; forms/validation/preview/submit/readback; help | NOT RUN; no external communication |
-| Shared /profile + shell | Profile form; help/support; notifications/read; language; palette; sidebar; guide; logout | PARTIAL: profile save/reload/restore,17help, support validate/cancel, notifications/palette/sidebar/languages/guide; no support send, logout pending |
+| Contextual /competencies,/training-rules,/invitations,/surveys,/announcements,/course-review | Context links; forms/validation/preview/submit/readback; help | PARTIAL: competency create/select/save/reload/clear PASS; training-rule preview/cancel/tabs, survey create/reload, announcement draft/reload, review choose/refresh/help; no external communication |
+| Shared /profile + shell | Profile form; help/support; notifications/read; language; palette; sidebar; guide; logout | PARTIAL: profile save/reload/restore,17help, support validate/cancel, notifications/palette/sidebar/languages/guide and ordinary logout/login PASS; no support send |
 | Admin /admin,/admin/team | Navigation/onboarding; create/role/activate/deactivate; validation; help | NOT RUN; security-sensitive grants separate approval |
 | Admin /admin/kiosks,/settings | Kiosk/create/print/link/PIN/delete; tenant settings/save; help | NOT RUN |
 | Admin /admin/settings/integrations,/admin/settings/ai | Forms/status/test/save; provider/model routing | NOT RUN; external settings unchanged |
 | Admin /admin/certificates/settings,/admin/training-evidence/settings,/admin/audit,/admin/course-approvals | Templates/preview/download/save; audit filters; approval configuration | NOT RUN |
-| Student /student,/my-courses,/my-quizzes,/learning-paths,/certificates,/courses/[id],/surveys | Open assigned course, progress/reload, failed/successful quiz, completion, PDF/certificate, survey | NOT RUN; do not reset retained completed learning |
+| Student /student,/my-courses,/my-quizzes,/learning-paths,/certificates,/courses/[id],/surveys | Open assigned course, progress/reload, failed/successful quiz, completion, PDF/certificate, survey | PARTIAL: exact own PIN course/fail67/retry100/completion/reload/course filters/confirmationPDF/certificate/public verify PASS; no retained learning reset; survey pending |
 | Superadmin /admin/super,/admin/super/tenants,/admin/super/operations,/admin/providers | Tenant navigation/preview; forms/validation/readback; operations/provider controls | NOT RUN; no tenant deletion/plan/billing/reserve changes |
 
 ## Gates and next
+
+### Follow-up006 and announcement candidate007
+
+Packet006/c4705cfb is BLOCKED, not RELEASE_OK. CI39018439587 SUCCESS,
+Verceldpl_BGW7vPdNfdQDTY2vXd2PMvNVjGrd READY; APIdep-db9jcrvbtjjs73buna0g
+update_failed, no matching worker. Public API/worker remain accepted6961. Canonical
+bounded logs HTTP200 identify ssh_start_failed_exit_255_diagnostic_bytes_0 at
+08:49:54UTC. Proxy read-only diagnostics found no matching rejection; global SSH
+policy is not per-source/per-user proof. No key/pin/policy/ASUS/production change.
+Receipt: ignored release-player-006-blocked.json. No failed packet retry.
+
+New ordinary QA action evidence, separately from release acceptance:
+
+- Workbench empty-department preview now gives localized audience_empty guidance,
+  retains the full command and creates no plan/assignment. Screenshot saved.
+- Own course/student recurring rule50932aee-1f8a-4cb5-9bed-4962bc4ccd32 created
+  as draft; reminder enable/save/reload and disable/save PASS, status list empty.
+  It was never activated, next run remains null, no recurring period/mail started.
+- Announcement QA BUTTONS20261017 — черновик объявления saved/reloaded as draft
+  for own course; Send NOT RUN. Help's reversed sequence/inbox claim reproduced;
+  minimal RU/KK/EN correction plus regression1RED/21PASS then22PASS.
+- Survey QA BUTTONS20261017 — обратная связь created for own course, one fictional
+  rating question, reload published state PASS. Learner response pending.
+- Organization-rule preview reports3affected/2new/1protected completed/0removed;
+  Cancel PASS and no rule applied. Organization/department/position tabs and exact
+  position training destination PASS. Archived departments remain visible here;
+  this is a separate historical-rule inventory UX observation, NOT evidence that
+  attaching to an archived department is allowed or that a new rule was applied.
+- Final copy candidate full web168files/1230PASS184.74s, standalone typecheck,
+  build67/67 including lint/types PASS. API unchanged from4228PASS/526SKIP.
+  Candidate007 requires exact CI/provider/readback before a release PASS.
+
+Whole-cabinet remains PARTIAL. Screens/forms/preview are distinguished from actual
+mutations; external sends/OTP/signed copies/purge and paid model calls not run.
 
 ### Latest actual synthetic acceptance005
 

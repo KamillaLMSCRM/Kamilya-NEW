@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased DEV cabinet follow-up — 2026-10-17
+
+- Correct announcement instructions in RU/KK/EN: choose recipients before saving,
+  send from the persisted draft, and distinguish send results from inbox delivery.
+  Replace tenant jargon in the all-recipient selector with All employees.
+- DEV only; production publication is not authorized. Previous player candidate
+  c4705cfb has READY web but failed API startup and no matching worker; it is not
+  a successful complete release. Existing API/worker6961 remain healthy.
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
