@@ -36,7 +36,7 @@ TABLES = ("tenants", "users", "user_roles", "departments", "positions", "courses
 
 def candidate_hashes():
     paths = [ROOT / "scripts/ops/staff_structure_dev_gate.py", ROOT / "scripts/ops/staff_structure_dev_checks.py",
-             ROOT / "apps/api/alembic/versions/0182_staff_structure_changes.py",
+             ROOT / "apps/api/alembic/versions/0183_staff_structure_changes.py",
              ROOT / "apps/api/app/modules/positions/assignment_service.py"]
     paths.extend((ROOT / "apps/api/app/modules/organization_units").glob("*.py"))
     return {p.relative_to(ROOT).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
@@ -49,7 +49,7 @@ def quoted_schema(value):
 
 
 async def migrate(connection, schema, action):
-    spec = importlib.util.spec_from_file_location("staff_changes_0182", ROOT / "apps/api/alembic/versions/0182_staff_structure_changes.py")
+    spec = importlib.util.spec_from_file_location("staff_changes_0183", ROOT / "apps/api/alembic/versions/0183_staff_structure_changes.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     def apply(sync):
@@ -118,7 +118,7 @@ async def run(config):
             await migrate(db, schema, "upgrade")
             await migrate(db, schema, "downgrade")
             await migrate(db, schema, "upgrade")
-            checks.append("0182_empty_upgrade_downgrade_reupgrade")
+            checks.append("0183_empty_upgrade_downgrade_reupgrade")
         stage = "synthetic_seed"
         async with owner.begin() as db:
             await context(db, schema)
@@ -253,7 +253,7 @@ async def run(config):
     return {"at": datetime.now(UTC).isoformat(), "result": "PASS" if not failure and cleaned and neutral else "NOT_READY",
             "checks": checks, "failure": failure, "cleanup": cleaned, "public_catalog_neutral": neutral,
             "source_sha256": hashes,
-            "scope": "Owned synthetic Supabase DEV schema; real0182 and service; neighbor RLS policies are synthetic, not copied production policies"}
+            "scope": "Owned synthetic Supabase DEV schema; real0183 and service; neighbor RLS policies are synthetic, not copied production policies"}
 
 
 def main():

@@ -3,7 +3,7 @@
 **Обновлено:** 2026-10-16
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`
-**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `feature/document-completeness58-20261016`; candidate b73 published to `master`/`dev`
+**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `feature/document-completeness58-20261016`; DEV runtime/source `580c200c5dbfef3b60489e66ed2ae891a188a4ec`, runtime-settings delta local; production unchanged57
 
 ## Current guide59 — complete; AI58 acceptance remains open
 
@@ -19,7 +19,56 @@ Active guide worktree: .worktrees/methodologist-video-guide-20261016. The header
 older AI worktree is preserved for separate unaccepted AI58 work, not guide follow-up.
 No further guide release required; do not reinterpret this as AI58 acceptance.
 
-## Historical58 snapshot — DEV not accepted; production backend stays57
+## Preserved DEV-side development history (not current release identity)
+## Runtime settings — local implementation / DEV gate pending
+
+Owner requested DB hot settings across the codebase; production/ASUS still forbidden.
+31 typed operation/provider/recovery parameters plus audited store/0182/FORCE-RLS,
+superadmin providers-page lazy editor/history/revert. Existing model routing, BYOK,
+secrets/URLs/embedding identities/security/billing/retention remain separately owned.
+Inventory704source files/800heuristic occurrences/no parse gaps, not800 hot switches.
+Contracts: docs/product/contract-modules/runtime-configuration; temporary coordination
+docs/plans/2026-10-16_runtime-configuration.md. Independent source review no blockers;
+isolated Supabase gate16checks PASS, owned schema removed, public schema unchanged.
+Full local4207PASS/526offline skips; later focused43PASS covers actual evidence-profile
+transport caps/role/consumer/parity checks, isolated31-keyR5PASS. Quality1008Ruff/2200Mypy;
+web1169PASS/161files/typecheck/optimized buildPASS. Fresh CI/live DEV not yet
+claimed. CodeGraph prepare refused excluded paths; bounded SOURCE_FALLBACK; Graphify
+AST updated21208nodes/57289edges but exclusion/freshness certification failed, not
+trusted architecture proof. No production publish/migration permission.
+
+## Date-followup + DeepSeek30 — DEV accepted
+
+Exact580c200c, CI38892508630SUCCESS, APIdep-db90hr7f3r2c73fm68ng and
+workerdep-db90hs7f3r2c73fm6cdg live. Six normal real-model cases PASS including
+RU/KK date-only history, latest explicit course override, missing names and subgroup
+negative cases; no assignments/plans/enrollment changes. Actual primary6494ms;
+30s primary hang -> real ChatGPT38568ms total, exact candidate and usage readback.
+Browser relative-date clarification -> only date20Dec2026/18:00 restored course
+QA TIMEOUT58 and deptQA DIALOGUE52; screenshot date-followup-browser580.png verified.
+One-shot env removed, originalAPIautoDeployyes/workerno restored; exact three Redis
+markers bounded to immutable11:40:06UTC automatic expiry. No production/ASUS work.
+Prior historicalc7 timing below is superseded, not current effective30/40/8/90.
+
+## Current assignment timing58 — DEV accepted, production unchanged
+
+Exact DEV API/worker c7d4cf3a6aea8cfacc5edee9514358ccc8819e62,
+CI38884277554 SUCCESS; APIdep-db8vehss728c73b7rnqg/workerdb8vdjcs728c73b7ojq0 live.
+Assignment default8s/ChatGPT40s/overall60s, no retry/order/BYOK/schema change.
+Real application primary4902ms; primary8s hang→ChatGPT16503ms total, exact
+candidate/accounting/no-assignment deltas. Full browser preview/correction/
+confirm/reload/dedup/learner access passed on synthetic QA. Current route7
+DeepSeek→ChatGPT→GLM, ASUS deferred. Complete receipts/limits in PROJECT-CONTEXT.
+Production remains57/f6f1bc94/routing4, owner-enabled reserve; no production writes.
+Initial DEV SSH-reset deployment failed then exact retry succeeded. Opt-in env
+removed, autoDeploy restored, exact markers expire automatically10:22:50UTC.
+One short date-only follow-up requested redundant clarification; record UX, do
+not claim perfect context comprehension. Actual owned-plan correction passed.
+DOCUMENT58 semantic acceptance and production release remain separate open gates.
+Root's final evidence-only commit can be ahead of deployed c7d4cf3a; do not infer
+another runtime release from local HEAD. No voice or ASUS work until authorized.
+
+## Historical58 document-Q&A candidate — not accepted; production stays57
 
 DEV exactb73d08a1942f590c0dee1a2f9aeaf12e1da24d9e API/worker/frontend reconciled
 on unchanged Free/Free/Hobby. Main CI38857267029 and DEVCI38857681134 SUCCESS.

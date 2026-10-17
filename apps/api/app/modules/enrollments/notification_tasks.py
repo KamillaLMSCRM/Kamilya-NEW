@@ -21,7 +21,6 @@ from app.models.enrollment import Enrollment
 from app.models.tenants import Tenant
 from app.models.users import User, UserInvitation
 from app.modules.enrollments.notification_outbox import (
-    RECOVERY_BATCH_SIZE,
     PostgresAssignmentNotificationStore,
     PostgresLearningPathAssignmentNotificationStore,
 )
@@ -271,13 +270,17 @@ async def _deliver_learning_path(*, tenant_id: UUID, notification_id: UUID) -> d
         return {"status": "sent"}
 
 
-async def recover_due_notifications(limit: int = RECOVERY_BATCH_SIZE) -> dict[str, int]:
+async def recover_due_notifications(limit: int | None = None) -> dict[str, int]:
     """Attempt one fair, globally bounded batch across both durable outboxes.
 
     ``succeeded`` counts items whose delivery handler completed and persisted
     its outcome, including terminal/deferred outcomes. ``failed`` counts only
     unhandled poison-item exceptions. One failed item never stops the batch.
     """
+    if limit is None:
+        from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
+
+        limit = (await resolve_runtime_settings()).integer("outbox.assignment.batch_size")
     bounded = max(1, min(limit, 100))
     recovery_url = get_settings().ASSIGNMENT_RECOVERY_DATABASE_URL
     if not recovery_url:

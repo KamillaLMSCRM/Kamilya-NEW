@@ -33,7 +33,7 @@ def packet_data(tmp_path: Path, *, enabled: bool = True) -> dict:
     )
     path = Path(packet["schema_evidence"]["path"])
     receipt = json.loads(path.read_bytes())
-    receipt.update(current_revision="0182", expected_revision="0182")
+    receipt.update(current_revision="0183", expected_revision="0183")
     raw = json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode()
     path.write_bytes(raw)
     packet["schema_evidence"]["sha256"] = hashlib.sha256(raw).hexdigest()
@@ -91,7 +91,7 @@ def activation(packet: dict, providers) -> controller.DevReleaseController:
     return controller.DevReleaseController(packet, providers)
 
 
-def test_v6_exact_packet_binds_0182_and_feature_source_branch(tmp_path: Path) -> None:
+def test_v6_exact_packet_binds_0183_and_feature_source_branch(tmp_path: Path) -> None:
     packet = packet_data(tmp_path)
     validated = controller.validate_activation_packet(packet)
     assert validated["schema"] == "kamilya-dev-release-v6"

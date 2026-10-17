@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import _set_tenant_security_context, _set_user_security_context
+from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings, runtime_settings_scope
 from app.modules.ai.budget import check_and_charge_llm_budget, refund_llm_budget
 from app.modules.ai.llm_client import ResilientLLMClient
 
@@ -34,15 +35,18 @@ from .natural_assignment_intent import (
 from .plan_contract import ActorContext
 
 ProviderResolver = Callable[[UUID], Awaitable[ResilientLLMClient]]
-INTENT_TIMEOUT_SECONDS = 30
+INTENT_TIMEOUT_SECONDS = 90
 INTENT_PROVIDER_DEADLINE_SECONDS = 8
+INTENT_DEEPSEEK_DEADLINE_SECONDS = 30
+INTENT_CHATGPT_DEADLINE_SECONDS = 40
 INTENT_ESTIMATED_COST_CENTS = 1
 INTENT_OPERATION = "assignment_intent_parse"
 
 
 async def resolve_intent_provider(tenant_id: UUID) -> ResilientLLMClient:
+    policy = await resolve_runtime_settings()
     return await ResilientLLMClient.from_settings_async(
-        tenant_id=tenant_id, temperature=0, max_tokens=1200, max_retries_per_provider=0
+        tenant_id=tenant_id, temperature=0, max_tokens=policy.integer("assignment.max_tokens"), max_retries_per_provider=0
     )
 
 
@@ -99,6 +103,7 @@ async def interpret_assignment(
     messages = build_intent_messages(
         body.instruction, body.timezone_name, previous, instruction_history=effective_history
     )
+    policy = await resolve_runtime_settings(db)
     await check_and_charge_llm_budget(
         db, str(actor.tenant_id), operation=INTENT_OPERATION, estimated_cost_cents=INTENT_ESTIMATED_COST_CENTS
     )
@@ -106,9 +111,17 @@ async def interpret_assignment(
     # the provider is running. No workbench/domain rows are written in this route.
     await db.commit()
     try:
-        async with asyncio.timeout(INTENT_TIMEOUT_SECONDS):
-            provider = await provider_resolver(actor.tenant_id)
-            response = await provider.ainvoke(messages, provider_deadline_seconds=INTENT_PROVIDER_DEADLINE_SECONDS)
+        with runtime_settings_scope(policy):
+            async with asyncio.timeout(policy.number("assignment.total_seconds")):
+                provider = await provider_resolver(actor.tenant_id)
+                response = await provider.ainvoke(
+                    messages,
+                    provider_deadline_seconds=policy.number("assignment.fallback_seconds"),
+                    provider_deadline_overrides={
+                        "deepseek": policy.number("assignment.deepseek_seconds"),
+                        "chatgpt-reserve": policy.number("assignment.chatgpt_seconds"),
+                    },
+                )
         # Parse AFTER transport failover. Invalid semantic/JSON output does not
         # spend more calls on repair or another model.
         candidate = parse_model_candidate(

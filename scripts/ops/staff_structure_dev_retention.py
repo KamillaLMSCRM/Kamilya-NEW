@@ -42,8 +42,8 @@ async def run(config, tenant_id, batch_size, execute):
         async with AsyncSession(owner) as db:
             await db.execute(text("SET LOCAL search_path TO public,pg_catalog"))
             revisions = (await db.execute(text("SELECT version_num FROM public.alembic_version"))).scalars().all()
-            if revisions != ["0182"]:
-                raise ValueError("expected_dev_schema_0182")
+            if revisions != ["0183"]:
+                raise ValueError("expected_dev_schema_0183")
             if not await db.scalar(text("SELECT EXISTS(SELECT 1 FROM public.tenants WHERE id=:id)"), {"id": tenant_id}):
                 raise ValueError("tenant_not_found")
             count = await purge_change_plans(db, tenant_id, dry_run=not execute, batch_size=batch_size)

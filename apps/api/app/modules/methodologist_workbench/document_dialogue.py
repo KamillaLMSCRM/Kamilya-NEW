@@ -313,8 +313,12 @@ async def send_message(db: AsyncSession, actor: ActorContext, task_id: UUID,
             evidence = await answer_document(db, actor, sources, instruction, language, content_recall)
             result = evidence.response
         else:
-            result = await interpret_document(db, actor, DocumentInterpretRequest(instruction=instruction, language=language),
-                dialogue_context=model_context, provider_deadline_seconds=8)
+            from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings, runtime_settings_scope
+
+            policy = await resolve_runtime_settings(db)
+            with runtime_settings_scope(policy):
+                result = await interpret_document(db, actor, DocumentInterpretRequest(instruction=instruction, language=language),
+                    dialogue_context=model_context, provider_deadline_seconds=policy.number("document_dialogue.provider_seconds"))
         await db.commit()
         task = await owned_task(db, actor, task_id, lock=True)
         if not await current_sources(db, actor, task, lock=True):

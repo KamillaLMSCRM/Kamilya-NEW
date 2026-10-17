@@ -35,7 +35,7 @@ import hashlib
 import json
 import logging
 import math
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from dataclasses import asdict, dataclass, field, replace
 from enum import StrEnum
 from typing import Any, Generic, Literal, TypeVar, cast
@@ -52,6 +52,7 @@ from app.modules.admin.model_routing.catalog import (
 )
 from app.modules.admin.model_routing.chatgpt_reserve import configuration_blocker
 from app.modules.admin.model_routing.runtime import resolve_runtime_generation_model_order
+from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
 from app.modules.ai.embedding_space import EmbeddingSpace
 
 EmbeddingProviderProgressCallback = Callable[[int, int, str], Awaitable[None]]
@@ -866,6 +867,7 @@ class ResilientLLMClient:
 
         s = get_settings()
         route_ids = await resolve_runtime_generation_model_order()
+        policy = await resolve_runtime_settings()
         providers: list[LLMProviderConfig] = []
 
         for route_id in route_ids:
@@ -890,6 +892,14 @@ class ResilientLLMClient:
             else:
                 providers.extend(_generation_fallback_providers((route_id,)))
 
+        # Only managed global providers: BYOK returned above, and endpoint,
+        # credentials, activation order, options and retry policy are untouched.
+        policy_names = {"deepseek": "deepseek", "custom:qwen38-flash-next": "qwen",
+                        "glm53-flash-asus": "glm", "chatgpt-reserve": "chatgpt"}
+        providers = [replace(cfg, model=policy.text(f"provider.{policy_names[cfg.name]}.model"),
+            timeout=policy.number(f"provider.{policy_names[cfg.name]}.timeout_seconds"))
+            if cfg.name in policy_names else cfg for cfg in providers]
+
         return cls(
             providers,
             temperature=temperature,
@@ -908,6 +918,7 @@ class ResilientLLMClient:
         response_format: dict | None = None,
         *,
         provider_deadline_seconds: float | None = None,
+        provider_deadline_overrides: Mapping[str, float] | None = None,
         request_profile: Literal["evidence_low"] | None = None,
     ) -> _LLMResponse:
         # Opt-in only: short interactive operations must leave time for the
@@ -922,13 +933,28 @@ class ResilientLLMClient:
             or provider_deadline_seconds <= 0
         ):
             raise ValueError("provider_deadline_invalid")
+        if provider_deadline_overrides is not None and (
+            provider_deadline_seconds is None
+            or not isinstance(provider_deadline_overrides, Mapping)
+            or any(not isinstance(name, str) or not name
+                   or isinstance(value, bool) or not isinstance(value, int | float)
+                   or not math.isfinite(value) or value <= 0
+                   for name, value in provider_deadline_overrides.items())
+        ):
+            raise ValueError("provider_deadline_invalid")
+        # Snapshot request-local caps before awaiting; never modify shared clients
+        # or widen providers absent from the tenant's resolved route (e.g. BYOK).
+        deadline_overrides = dict(provider_deadline_overrides or {})
+        evidence_policy = await resolve_runtime_settings() if request_profile == "evidence_low" and any(
+            client.name == "deepseek" and client.config.managed_evidence_profile for client in self._clients
+        ) else None
         last_exc: BaseException | None = None
         for client in self._clients:
             try:
                 provider_response_format = _response_format_for_provider(client.name, response_format)
                 attempt_config = client.config
                 attempt_max_tokens = self.max_tokens
-                attempt_deadline = provider_deadline_seconds
+                attempt_deadline = deadline_overrides.get(client.name, provider_deadline_seconds)
                 if (request_profile == "evidence_low" and client.name == "deepseek"
                         and client.config.managed_evidence_profile):
                     # Request-local opt-in; no saved model/order/key change and
@@ -936,8 +962,9 @@ class ResilientLLMClient:
                     # their original output and caller-supplied deadline caps.
                     attempt_config = replace(attempt_config, extra_body={
                         **attempt_config.extra_body, "thinking": {"type": "enabled"}, "reasoning_effort": "low"})
-                    attempt_max_tokens = 8192
-                    attempt_deadline = 45
+                    assert evidence_policy is not None
+                    attempt_max_tokens = evidence_policy.integer("evidence_low.max_tokens")
+                    attempt_deadline = evidence_policy.number("evidence_low.deepseek_seconds")
                 if attempt_deadline is None:
                     return await client.ainvoke(messages, config=config, response_format=provider_response_format)
                 # Never mutate shared provider objects or inherit a configured

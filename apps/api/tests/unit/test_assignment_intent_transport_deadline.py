@@ -18,6 +18,57 @@ CONTENT = json.dumps({"action": "assignment_preview", "course_query": "Course", 
                       "due_date": "2026-12-20", "due_time": "18:00:00", "notify": False, "include_descendants": False})
 
 
+@pytest.mark.parametrize("primary_latency,reserve_latency,expected_calls,expected_elapsed", [
+    (120, 26, ["deepseek", "chatgpt-reserve"], 56),
+    (20, 26, ["deepseek"], 20),
+    (120, 39, ["deepseek", "chatgpt-reserve"], 69),
+])
+async def test_application_reserve_gets_time_for_observed_dev_latency(
+    monkeypatch, primary_latency, reserve_latency, expected_calls, expected_elapsed,
+):
+    """Virtual wall clock proves primary30s and an unstarved reserve, no sleeps."""
+    scopes, calls = [], []
+    elapsed = 0
+
+    class Deadline:
+        def __init__(self, seconds):
+            self.ends = elapsed + seconds
+
+        async def __aenter__(self):
+            scopes.append(self.ends)
+
+        async def __aexit__(self, *args):
+            scopes.pop()
+
+    async def invoke(self, *args, **kwargs):
+        nonlocal elapsed
+        calls.append(self.name)
+        duration = primary_latency if self.name == "deepseek" else reserve_latency
+        end = min(scopes)
+        if elapsed + duration > end:
+            elapsed = end
+            raise TimeoutError()
+        elapsed += duration
+        return SimpleNamespace(content=CONTENT)
+
+    monkeypatch.setattr(asyncio, "timeout", Deadline)
+    monkeypatch.setattr(llm.LLMClient, "ainvoke", invoke)
+    for name in ("check_and_charge_llm_budget", "refund_llm_budget", "_set_tenant_security_context", "_set_user_security_context"):
+        monkeypatch.setattr(application, name, AsyncMock())
+    provider = llm.ResilientLLMClient([
+        llm.LLMProviderConfig("deepseek", "https://primary.invalid", "synthetic", "first"),
+        llm.LLMProviderConfig("chatgpt-reserve", "https://fallback.invalid", "synthetic", "second"),
+    ], temperature=0, max_tokens=1200, max_retries_per_provider=0)
+    result = await application.interpret_assignment(
+        SimpleNamespace(commit=AsyncMock()),
+        ActorContext(tenant_id=UUID(int=2), actor_id=UUID(int=3), active_role="methodologist"),
+        AssignmentInterpretRequest(instruction="Assign Course to QA on20December2026", timezone_name="Asia/Almaty"),
+        provider_resolver=AsyncMock(return_value=provider), now=datetime(2026, 10, 16, tzinfo=UTC))
+    assert result.state == "interpreted", f"reserve cancelled at virtual second {elapsed}"
+    assert calls == expected_calls and elapsed == expected_elapsed
+    application.refund_llm_budget.assert_not_awaited()
+
+
 def chain():
     return llm.ResilientLLMClient([
         llm.LLMProviderConfig("primary", "https://primary.invalid", "synthetic", "first", timeout=120, max_retries=2),
@@ -113,7 +164,7 @@ async def test_application_admits_once_and_does_not_semantically_retry(monkeypat
         refund.assert_awaited_once()
 
 
-async def test_application_passes_eight_second_budget_to_actual_provider_seam(monkeypatch):
+async def test_application_passes_provider_specific_budget_to_actual_provider_seam(monkeypatch):
     for name in ("check_and_charge_llm_budget", "refund_llm_budget", "_set_tenant_security_context", "_set_user_security_context"):
         monkeypatch.setattr(application, name, AsyncMock())
     provider = SimpleNamespace(ainvoke=AsyncMock(return_value=SimpleNamespace(content=CONTENT)))
@@ -123,7 +174,55 @@ async def test_application_passes_eight_second_budget_to_actual_provider_seam(mo
         AssignmentInterpretRequest(instruction="Assign Course to QA on20December2026", timezone_name="Asia/Almaty"),
         provider_resolver=AsyncMock(return_value=provider), now=datetime(2026, 10, 15, tzinfo=UTC))
     assert result.state == "interpreted"
-    assert provider.ainvoke.call_args.kwargs == {"provider_deadline_seconds": 8}
+    assert provider.ainvoke.call_args.kwargs == {
+        "provider_deadline_seconds": 8, "provider_deadline_overrides": {"deepseek": 30, "chatgpt-reserve": 40}}
+    assert application.INTENT_TIMEOUT_SECONDS == 90
+
+
+@pytest.mark.parametrize("overrides", [True, [], {"fallback": 0}, {"fallback": True},
+                                     {"fallback": float("nan")}, {"fallback": float("inf")},
+                                     {"": 8}, {1: 8}, {"fallback": "40"}])
+async def test_invalid_provider_overrides_reject_before_calls(monkeypatch, overrides):
+    call = AsyncMock()
+    monkeypatch.setattr(llm.LLMClient, "ainvoke", call)
+    with pytest.raises(ValueError, match="provider_deadline_invalid"):
+        await chain().ainvoke("synthetic", provider_deadline_seconds=8, provider_deadline_overrides=overrides)
+    call.assert_not_awaited()
+
+
+async def test_override_requires_default_bound():
+    with pytest.raises(ValueError, match="provider_deadline_invalid"):
+        await chain().ainvoke("synthetic", provider_deadline_overrides={"fallback": 40})
+
+
+async def test_named_override_keeps_order_cancellation_and_shared_configuration(monkeypatch):
+    original = chain()
+    calls = []
+    async def invoke(self, *args, **kwargs):
+        calls.append((self.name, self.max_retries))
+        await asyncio.sleep(0.02)
+        return SimpleNamespace(content=CONTENT)
+    monkeypatch.setattr(llm.LLMClient, "ainvoke", invoke)
+    result = await original.ainvoke("synthetic", provider_deadline_seconds=0.001,
+                                    provider_deadline_overrides={"fallback": 1})
+    assert result.content == CONTENT and calls == [("primary", 0), ("fallback", 0)]
+    assert [client.config for client in original._clients] == [client.config for client in chain()._clients]
+    calls.clear()
+    entered = asyncio.Event()
+    async def cancellable(self, *args, **kwargs):
+        calls.append((self.name, self.max_retries))
+        if self.name == "primary":
+            raise llm.ProviderFailedError(self.name, TimeoutError())
+        entered.set()
+        await asyncio.Event().wait()
+    monkeypatch.setattr(llm.LLMClient, "ainvoke", cancellable)
+    task = asyncio.create_task(original.ainvoke("synthetic", provider_deadline_seconds=0.1,
+                                              provider_deadline_overrides={"fallback": 1}))
+    await entered.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert calls == [("primary", 0), ("fallback", 0)]
 
 
 @pytest.mark.parametrize("status", [429, 503])

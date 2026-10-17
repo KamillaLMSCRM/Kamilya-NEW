@@ -5,6 +5,25 @@
 
 ## Источники правды
 
+### DEV update2026-10-16: date follow-up / runtime settings candidate
+
+Current DEV API/worker580c200c5dbfef3b60489e66ed2ae891a188a4ec,
+CI38892508630SUCCESS, exact deploysdb90hr7f3r2c73fm68ng/db90hs7f3r2c73fm6cdg.
+Assignment DeepSeek30s/ChatGPT40s/other8s/overall90s. Six real-model RU/KK/history
+and negative API cases PASS; browser only-date follow-up retained QA TIMEOUT58 /
+QA DIALOGUE52 /2026-12-20 /18:00. Invocation-local primary30s hang -> real reserve
+38568ms total; exact candidate/usage deltas, no plans/assignments. Opt-in env removed,
+APIyes/workerno auto-deploy restored, markers expire11:40:06UTC. These supersede
+older c7/8s descriptions, not production57. Production and ASUS unchanged.
+
+Owner-approved local hot-settings candidate:31 non-secret bounded keys,
+new0182/store/audit/revert and superadmin editor; inventory/constraints in
+`product/contract-modules/runtime-configuration/INVENTORY_V2.md`. Existing routes,
+provider keys and tenant settings retain their owners. Actual isolated Supabase
+gate16checks PASS including raw-SQL invalid/unaudited rejection, non-BYPASS/FORCE
+RLS, cross-session reload/revert and owned cleanup. Public schema migration/live
+hot edit still NOT VERIFIED at this checkpoint; no production approval.
+
 | Область | Документ |
 |---|---|
 | Продукт и функциональные границы | [`PROJECT.md`](../PROJECT.md) |
@@ -38,7 +57,101 @@ Free/Free/Hobby unchanged. AI58 semantics remain unaccepted; guide release did n
 change production model settings/reserve/voice. Immediate frontend rollback56
 8a612c19…; additional55/protected359+299 retained. Release59 notes/readiness own proof.
 
-## Historical DEV candidate58 snapshot — production backend remains57,2026-10-16
+## Preserved DEV-side development history (not current release identity)
+## Routing override — owner-enabled production reserve,2026-10-16
+
+Latest DEV-only assignment timing acceptance,2026-10-16T10:16UTC:
+APIdep-db8vehss728c73b7rnqg and workerdep-db8vdjcs728c73b7ojq0 are live on exact
+`c7d4cf3a6aea8cfacc5edee9514358ccc8819e62`/0.11.58, CI38884277554 SUCCESS.
+This supersedes the4f7 runtime identity below, not the retained earlier evidence.
+Only assignment intent uses default8s / existing ChatGPT40s / whole60s; no retries,
+provider order, tenant BYOK, voice, schema, tier or capacity change. V1.6 contract:
+[`ASSIGNMENT_DIALOGUE_V1_6`](product/contract-modules/methodologist-workbench/contracts/ASSIGNMENT_DIALOGUE_V1_6.md).
+
+Actual API application runDEV-PRIVATE-20261016-99AD2ED4264C durably records real
+DeepSeek4902ms and invocation-local hanging primary8s → actual ChatGPT16503ms
+total. Exact six candidate fields and ordered transport attempts passed. Each
+case created0plans/0enrollments and charged exactly1request/1estimated cent,
+verified by ordinary tenant/user RLS readback. Estimates are not provider bills.
+Both available-provider cases passed; PARTIAL_PASS means ASUS/GLM deferred, not
+a failed two-provider case. No public fault endpoint or saved bad URL exists.
+
+Full ordinary DEV QA browser journey passed: relative-date clarification, actual
+model interpretation, editable preview, owned-plan correction20→21December18:00,
+explicitconfirm1, GET-only reload, duplicateconfirm0/skipped1, ordinary learner
+course/lesson access and reload. Course70711a69-7d2a-43ad-891c-e852cdcaf129;
+enrollmentfbbceed4-7a91-43bf-8095-b34bb5195a66; plan14278e30-dea5-4131-b4b2-111e8d72c323.
+Final non-BYPASS READ_ONLY policy check proves due_at2026-12-21T13:00:00Z retained
+after duplicate22December request. Zero notification attempts; seven older course
+enrollment identity/status/completion projections unchanged. This is not a full
+old-progress/attempt-table snapshot. Temporary position department restored.
+Probe actor5187fa5f…; browser/plan owner existing temporary methodologist86054d41…;
+no account/role/credential was created or changed. Browser restored to that actor.
+
+Known UX observation: one date-only history follow-up safely requested another
+clarification; full explicit instruction and owned-plan correction succeeded.
+No model/semantic repair loop was added. Browser network timing receipt is partial
+across reload (truncated events), not a complete latency benchmark. Initial API
+deploydb8vdi failed on startup SSH TCP resets before inference; exact retrydb8veh
+is live. Retain the failure, do not attribute it to ASUS or the intent timeout.
+
+Acceptance env keys removed; APIautoDeploy=yes/worker=no restored. Exact3
+content-free Redis markers retain NX protection only until immutable expiry
+2026-10-16T10:22:50.770027Z, bounded TTL readback330s at10:17:18UTC; they expire
+automatically, not a pending destructive cleanup. No test calls can be re-released
+before expiry. Ignored receipts/screenshots: `.release-evidence/requirements-20261016/`.
+Production readback10:16UTC remains57/f6f1bc94 and routingrevision4 with the owner's
+enabled reserve; DEVrevision7 is DeepSeek→ChatGPT→GLM. No production mutation or
+ASUS probe. This accepts assignment timing/flow only, NOT DOCUMENT58 semantic
+quality, all-three-provider availability, production58 or a production rollout.
+
+Fresh normal superadmin API readback at07:44UTC: production0.11.57/f6f1bc94
+routing revision4 is DeepSeek → ChatGPT → Qwen → GLM. The owner confirms enabling
+ChatGPT; connector readiness is true. Readiness is not an inference/failover
+acceptance. This overrides historical reserve-OFF statements below. No production
+route or provider configuration was changed by this task.
+
+DEV private transport is now deployed on existing Render Free API and worker,
+both exact0.11.58/4f7de9e63d20e8a67bb91cacdc6bb21dc6e45d84,
+CI38880222311 SUCCESS. APIdep-db8uts8n74is73cu6di0 and
+workerdep-db8uul2vcj2c73baokpg are live. Normal superadmin readiness and two GETs
+confirm revision7, DeepSeek → ChatGPT → GLM, Qwen absent. No readiness bypass or
+persisted failure endpoint. The earlier revision5→6 removal and blocked readiness
+receipts are historical, not current availability.
+
+The existing proxy has a locked, no-session `kamilya-dev-models` principal with
+separate API/worker keys and fixed forwarding destinations only. Both keys passed
+authenticated ChatGPT readiness and denied session/arbitrary-live-destination/
+reverse-forward checks; existing users' effective policies stayed unchanged.
+No public port or HTTP model gateway was added. Launcher/rollback instructions:
+[`infra/dev-private-models`](../infra/dev-private-models/README.md); ownership and
+acceptance limits: [V2 contract](product/contract-modules/methodologist-workbench/contracts/DEV_PRIVATE_MODEL_CONNECTION_V2.md).
+
+Final synthetic runDEV-PRIVATE-20261016-AA28B5CE0BEC: API terminalPARTIAL_PASS
+was read directly from its unique DEV Redis claim; detailed final API stdout was
+not returned by Render logs, so final API per-case latency is NOT_AVAILABLE.
+Worker detailed receipt confirms real DeepSeek4294ms and an ephemeral primary503
+→ real ChatGPT25538ms, exact attempt order and expected JSON. Earlier API parent
+a611 detailed proof was1254/16349ms. These are tiny synthetic JSON connectivity
+measurements, not course generation benchmarks or SLA. Existing DEV worker control
+ping and queuesai/documents/maintenance passed. Startup TCP reset recovered on
+the single allowed retry; authentication/host-pin failures are never retried.
+
+All three one-shot run namespaces were reconciled/cleaned by exact keys after
+expiry. Acceptance env keys are absent, original API autoDeploy=yes and worker=no
+are restored. Credentials remain only in existing provider secrets and ephemeral
+0600 launcher files. Sanitized evidence is under
+`.release-evidence/requirements-20261016/`; failed deploys are preserved there.
+
+ASUS remains owner-confirmed down: no relay was installed and no GLM probe or
+inference was performed after the deferral. This is partial two-provider transport
+acceptance, not full-chain or all-feature acceptance. Assignment intent's8s
+per-provider deadline is shorter than observed ChatGPT responses and needs its
+own application-level test/design; no application/production timeout changed.
+Production API/worker/frontend/routing, voice, plans and capacity are unchanged.
+This does not accept DOCUMENT58 semantic quality or authorize release58 to prod.
+
+## Historical DEV candidate58 — earlier completeness run,2026-10-16
 
 DEV58 b73d08a1942f590c0dee1a2f9aeaf12e1da24d9e is deployed/reconciled:
 Render APIdep-db8rndui0phs738pki9g, workerdep-db8roi6q1p3s7395j5vg,

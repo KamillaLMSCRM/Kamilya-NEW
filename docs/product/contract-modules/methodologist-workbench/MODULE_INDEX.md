@@ -2,6 +2,27 @@
 
 Active epic: [EPIC V1](EPIC_V1.md), Draft overall.
 
+Latest DEV candidate,2026-10-16: [draft date context V1.7](contracts/ASSIGNMENT_DIALOGUE_V1_7.md)
+separates current/history/owned-plan prompt contexts so a date-only follow-up can
+retain named resources. Owner also requests assignment DeepSeek30s/ChatGPT40s/
+other8s/overall90s. Fresh old-DEV c7 original RU case reproduced clarification
+in1875ms with unchanged enrollments. Local prompt matrix4177PASS/526offline skips
+preceded timing extension; combined focused126PASS and quality baseline unchanged.
+Exact580c200c CI38892508630/DEV API+worker acceptance PASS: six real-model
+cases (RU/KK/date-only/latest correction/missing names/subgroup) and browser
+date-only context retained;30s primary hang -> real reserve38568ms. No domain
+writes or production/ASUS authority. Runtime-settings compatibility addenda are
+owned by ../runtime-configuration/EPIC_V1.md; hot-settings live acceptance separate.
+
+Assignment-only reserve timing repair, DEV candidate2026-10-16:
+[V1.6](contracts/ASSIGNMENT_DIALOGUE_V1_6.md) keeps default8s attempts but permits
+40s for the existing ChatGPT reserve within a60s whole interpretation cap.
+Local virtual replayRED→GREEN, focused72PASS, risk suite4173PASS/526offline
+skips and unchanged Python quality baseline passed. Exact c7d4cf3a DEV
+CI38884277554/API/worker and actual intent/fallback+browser assignment journey
+accepted; see PROJECT-CONTEXT for timing, scope and one redundant clarification.
+No production or ASUS change is authorized; DOCUMENT58 acceptance is separate.
+
 Accepted successor implementation, not release acceptance:
 [answer completeness V1.10](contracts/DOCUMENT_CONTENT_COMPLETENESS_ADDENDUM_V1_10.md),
 2026-10-16. One private part per requested dimension, server coverage/assembly,

@@ -1,6 +1,7 @@
 # Kamilya LMS: готовность первого production-тенанта
 
 **Проверено:** API/three workers57, native59 guide accepted; DEV59 guide accepted (AI58 semantic acceptance remains open); production57 AI PARTIAL (41/42 API answers, H57-03 provider timeout); schema0181 unchanged; model configuration untouched by guide release; existing ops last verified2026-10-16
+**Сохранённая более ранняя проверка DEV:** DEV58 assignment timing/flow accepted, document-Q&A quality not accepted; production reserve owner-enabled (routing4, readback2026-10-16T10:16UTC). Это не новая проверка production и не изменение конфигурации.
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -26,7 +27,19 @@ NOT accept earlier AI58 work. Native rollback56 8a612c19… verified; additional
 381692f9…/protected359+299 retained. Old53 only removed with verified offhost copy;
 post-release1092360KiB free, actual rollback switch NOT_RUN. See release59 notes.
 
-## Historical candidate58 snapshot — AI acceptance still open, production backend57
+## Preserved earlier DEV acceptance (not current release identity)
+## DEV-only assignment timing58 accepted — not a production release
+
+Owner's current request forbids production/ASUS changes. Exact DEV API/worker
+c7d4cf3a6aea8cfacc5edee9514358ccc8819e62 passed CI38884277554 and real two-provider
+assignment interpretation plus full synthetic browser assignment/correction/
+confirmation/reload/dedup/learner access. See PROJECT-CONTEXT and V1.6 contract.
+Production readback2026-10-16T10:16UTC remains0.11.57/f6f1bc94/routingrevision4,
+reserve enabled by owner; historical reserveOFF text below is not current state.
+DEV58 assignment timing acceptance does not close DOCUMENT58 semantic quality or
+authorize production58. ASUS/GLM remains deferred; no billing/resources change.
+
+## Historical candidate58 — document-Q&A acceptance still open, production NO_GO
 
 Current DEV b73d08a1942f590c0dee1a2f9aeaf12e1da24d9e exact API/worker/frontend on
 unchanged Free/Free/Hobby. Earlier3069tests/45isolated checks bind b73. Actual DEV

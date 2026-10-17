@@ -264,10 +264,14 @@ async def deliver_event(
         )
 
 
-async def recover_due_events(limit: int = RECOVERY_BATCH_SIZE) -> dict[str, str | int]:
+async def recover_due_events(limit: int | None = None) -> dict[str, str | int]:
     settings = get_settings()
     if not settings.CRM_WEBHOOK_URL or not settings.CRM_WEBHOOK_SECRET:
         return {"status": "disabled", "due": 0, "processed": 0}
+    if limit is None:
+        from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
+
+        limit = (await resolve_runtime_settings()).integer("outbox.crm.batch_size")
     bounded_limit = max(1, min(limit, 100))
     async with async_session_factory() as db:
         due_ids = await PostgresCRMOutboxStore(db).due_ids(bounded_limit)

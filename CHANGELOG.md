@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Typed non-secret runtime settings for31 allowlisted operation/provider/recovery
+  parameters: database constraints, immutable per-operation snapshots, audited
+  revision/conflict handling and revert, superadmin editor on Providers. Existing
+  enabled route, tenant BYOK, secrets/endpoints, embedding identity, security,
+  retention and billing controls keep separate ownership. DEV qualification only;
+  production deployment is not authorized.
+
+### Fixed
+
+- Retain draft assignment course/department on a date-only follow-up. Distinguish
+  current instruction, draft user history and an owned saved plan; a new absolute
+  date replaces older relative wording without granting execution authority.
+- Bound assignment-intent fallback by provider: DeepSeek30s, existing ChatGPT
+  reserve40s, other providers8s within a90s overall provider-chain budget. Preserve
+  route/BYOK isolation, zero retries, editable preview and explicit confirmation;
+  DEV validation only, not a production activation.
+
 ### Security
 
 - Refresh exact security pins after blocking release-time audits: source-map-js
@@ -24,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add strict V6 DEV staff activation with0182 schema evidence and same-repository
   dev-targeted feature PR CI; preserve existing assistant flags and all previous
   packet behavior without requiring master/production promotion.
+- Add opt-in private DEV SSH supervision and expiring, Redis-claimed synthetic
+  API/worker failover probes on existing free resources, with fixed destinations,
+  pinned host trust and no public model gateway. ASUS/GLM acceptance is deferred
+  while the owner reports the ASUS nodes down; this tooling is not a production
+  release or proof of full-chain acceptance.
 
 - Implement an optional manual ChatGPT reserve using the official pinned Codex CLI
   and managed ChatGPT login, with superadmin readiness/confirmation/revision-checked

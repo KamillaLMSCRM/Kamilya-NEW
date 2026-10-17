@@ -17,6 +17,7 @@ import {
   buildChatGPTReserveOrder,
 } from '@/lib/adminModelRouting';
 import { ChatGPTReserveControl } from '@/components/admin/ChatGPTReserveControl';
+import { RuntimeSettingsControl } from '@/components/admin/RuntimeSettingsControl';
 
 interface ProviderKey {
   id: string;
@@ -39,12 +40,13 @@ function requestErrorMessage(error: unknown) {
 }
 
 export default function AdminProvidersPage() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const token = useAuthStore((s) => s.accessToken);
 
   const [keys, setKeys] = useState<ProviderKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [showRuntimeSettings, setShowRuntimeSettings] = useState(false);
   const [showRouting, setShowRouting] = useState(false);
   const [routing, setRouting] = useState<GenerationModelRouting | null>(null);
   const [routingOrder, setRoutingOrder] = useState<string[]>([]);
@@ -307,6 +309,9 @@ export default function AdminProvidersPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{t('providers.title')}</CardTitle>
           <div className="flex flex-wrap gap-2 justify-end">
+            <Button variant="secondary" onClick={() => setShowRuntimeSettings((open) => !open)} aria-expanded={showRuntimeSettings}>
+              {lang === 'ru' ? 'Параметры выполнения' : lang === 'kk' ? 'Орындау параметрлері' : 'Runtime settings'}
+            </Button>
             <ChatGPTReserveControl
               route={chatGPTRoute}
               readiness={chatGPTReadiness}
@@ -414,6 +419,8 @@ export default function AdminProvidersPage() {
           )}
         </CardContent>
       </Card>
+
+      {showRuntimeSettings && <RuntimeSettingsControl />}
 
       <Modal
         open={showRouting}

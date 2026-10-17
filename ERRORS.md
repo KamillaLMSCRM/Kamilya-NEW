@@ -2,6 +2,40 @@
 
 Current as of: 2026-10-16.
 
+## DEV-SSH-001 - A startup TCP reset aborted the optional DEV transport
+
+- Date:2026-10-16; existing Render Free DEV API/worker private connection only.
+- Symptom: first native SSH attempt exited before application start; the old
+  live deployment was retained. Initial quiet diagnostics hid the failure type.
+- Cause: observed startup TCP connection reset, not a denied credential or
+  model response. Resetting network node is NOT localized. Existing server policy
+  showed no per-source startup limit/unused timeout and no MaxStartups drop.
+- Fix: bounded private stderr drain with fixed-code diagnostics; exactly one
+  startup recovery for reset/close only, same key/pinned host/destination. A second
+  failure stops; no auth/pin retry, live reconnect loop or repeated model request.
+- Verification: focused44PASS and exactCI38880222311 SUCCESS. Final worker log
+  shows reset→one retry→connected on4f7de9e6, live provider readback, actual model
+  prefix receipt and ordinary DEV queue-control ping. Production/ASUS untouched.
+- Prevention: preserve attempt exit identity without raw stderr/secrets and test
+  transient recovery, strict failures and the terminal two-reset boundary. Do not
+  weaken host trust, open a public gateway or add paid capacity to hide a reset.
+
+## TEST-INFRA-022 - Privacy assertion matched the checkout path in a traceback
+
+- Date:2026-10-16; database-free private DEV transport regression run.
+- Symptom: the learning-path dispatch failure test rejected `learner` in the
+  formatted log because the checkout directory itself contains that word.
+- Cause: `caplog.text` includes exception traceback source paths, not just emitted
+  application messages. The synthetic broker failure did not log learner data.
+- Fix: retain the forbidden-label check on `LogRecord.getMessage()` and check the
+  actual synthetic learner UUID against the entire formatted log. No application
+  logger behavior, notification handling or privacy boundary changes.
+- Verification: original full run4145PASS/1FAIL retained; corrected exact test
+  plus private transport contracts33PASS. Full rerun is recorded separately in
+  TEST_RUN_LEDGER, not inferred from this focused result.
+- Prevention: distinguish emitted content from traceback paths in logging tests;
+  assert actual sensitive fixture identifiers across the full log as well.
+
 ## SQL-NAME-001 - C locale disagreed with Python Unicode lowercase during assignment lookup
 
 - Date: 2026-10-15; full live assignment-dialogue DEV53/production53 acceptance.
@@ -69,6 +103,31 @@ Current as of: 2026-10-16.
   is403/configuration, managed ChatGPT login missing is401/authorization. Evidence:
   probe-container-codex54-ingress.json; earlier failed receipts remain intact.
 
+## WB-DIALOGUE-004 - Date-only draft follow-up redundantly requested known resources
+
+- Date: 2026-10-16; original and freshly repeated ordinary DEV QA request on c7d4cf3a.
+- Symptom: user history explicitly names course/department with a relative date;
+  supplying only an absolute date/time returns intent_clarification. Fresh exact
+  original RU replay failed in1875ms, enrollment response unchanged; not a timeout.
+- Cause: prompt mixed draft-history completion with a blanket restriction that
+  corrections may modify only a previous candidate. A saved candidate does not
+  exist during pre-preview clarification; old relative wording also competed
+  with the latest absolute deadline. Browser already supplied the user history.
+- Fix: V1.7 internal context_source distinguishes current/history/owned-plan and
+  supplies a textual absolute-date hint. Explicit policy retains known names for
+  date-only messages and replaces older relative wording, without guessing that
+  relative date. No semantic repair/retry/output patch, parser/API/schema change.
+- Verification: prompt-contract3RED→GREEN, focused111PASS; date-only local risk
+  4177PASS/526offline skips/quality baseline1008/2200 before subsequent timing
+  extension. Owner requested DeepSeek30s; bounded assignment overall90s preserves
+  ChatGPT40s/default8s. Timing virtual-clock3RED→GREEN; combined focused126PASS and
+  quality unchanged. Combined exact CI/live DEV acceptance pending. Independent
+  source review found no blocker; production and ASUS forbidden.
+- Prevention: explicitly test draft follow-up without an owned plan, current-only
+  omissions, stale-history exclusion for owned plans, newer absolute dates and
+  retained subgroup guards. Deterministic prompt tests are not model-comprehension
+  proof; require real-model original/RU/KK replay before closing this defect.
+
 ## WB-DIALOGUE-003 - Slow primary starved assignment-intent transport fallback
 
 - Date: 2026-10-15; live DEV52 acceptance, before any production52 mutation.
@@ -103,6 +162,24 @@ Current as of: 2026-10-16.
   assert existing fallback gets time, and test429/503/BYOK/no-sleep/cancellation.
   Retain failed live evidence; do not hide an outage with unbounded retries,
   a longer whole-operation timeout or a provider/routing configuration change.
+- Reserve timing follow-up2026-10-16: actual private DEV ChatGPT transport took
+  16.349s/25.538s, exceeding the old uniform8s cap. Exact application virtual-clock
+  replay failed at16s with primary8s + required reserve26s. V1.6 narrows the repair
+  to assignment: default8s, exact existing chatgpt-reserve40s, outer60s including
+  resolution, zero retries and unchanged route/BYOK/default callers. This bounded
+  evidence-based exception supersedes the earlier no-outer-change prevention only
+  for this operation. Focused72PASS and risk4173PASS/526offline skips; Python debt
+  baseline1008/2200 unchanged. Real DEV failover and browser acceptance pending;
+  production/ASUS/voice remain untouched. A new sub-tick Windows cancellation-test
+  race was corrected with event synchronization, not a product deadline change.
+- Live V1.6 acceptance2026-10-16: exactc7d4cf3a, CI38884277554 SUCCESS; DEV API
+  and worker live on unchanged Free plans. Real intent DeepSeek4902ms; ephemeral
+  primary8s hang→ChatGPT16503ms total, exact candidate and accounting deltas,
+  zero plans/enrollments before confirmation. Full synthetic browser correction/
+  confirm1/reload/dedup0/learner access passed; original deadline preserved after
+  repeat. Production remained57/f6f1bc94; ASUS not probed. Date-only history
+  follow-up once safely clarified again; do not equate transport success with
+  perfect conversational quality. Failed startup SSH-reset deployment retained.
 - Direct API diagnosis2026-10-15T04:26Z: production51 API+AI-worker resolve all3
   providers despite legacy_pool_flag=false. Qwen models/completion502 on both;
   GLM ConnectTimeout~3s on both. Qwen connector port givesConnectError25ms,

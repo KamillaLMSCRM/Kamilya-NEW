@@ -1,14 +1,14 @@
 """Actor-owned organization changes and durable learning preservation.
 
-Revision ID: 0182
-Revises: 0181
+Revision ID: 0183
+Revises: 0182
 """
 import re
 
 from alembic import op
 
-revision = "0182"
-down_revision = "0181"
+revision = "0183"
+down_revision = "0182"
 branch_labels = None
 depends_on = None
 

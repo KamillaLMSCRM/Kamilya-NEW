@@ -2,7 +2,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 # Structured JSON logging — emit machine-parseable lines in production so
@@ -33,6 +33,8 @@ from app.modules.admin.model_routing.router import router as model_routing_route
 from app.modules.admin.onboarding.router import router as onboarding_router
 from app.modules.admin.provider_keys.router import router as provider_keys_router
 from app.modules.admin.router import router as admin_router
+from app.modules.admin.runtime_configuration.router import router as runtime_settings_router
+from app.modules.admin.runtime_configuration.runtime import RuntimeSettingsUnavailable
 from app.modules.admin.superadmin.router import router as superadmin_router
 from app.modules.admin.tenant_ai_providers.router import router as tenant_ai_providers_router
 from app.modules.ai.router import router as ai_router
@@ -210,6 +212,13 @@ app.add_middleware(
 
 register_error_handlers(app)
 
+
+@app.exception_handler(RuntimeSettingsUnavailable)
+async def runtime_settings_unavailable_handler(request: Request, exc: RuntimeSettingsUnavailable) -> Response:
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(status_code=503, content={"error": "service_unavailable", "message": "runtime_settings_unavailable"})
+
 app.include_router(auth_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(courses_router, prefix=f"{settings.API_PREFIX}", tags=["courses"])
 app.include_router(course_approval_router, prefix=f"{settings.API_PREFIX}")
@@ -241,6 +250,7 @@ app.include_router(cohorts_router, prefix=f"{settings.API_PREFIX}", tags=["cohor
 app.include_router(audit_router, prefix=f"{settings.API_PREFIX}", tags=["audit"])
 app.include_router(admin_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(model_routing_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
+app.include_router(runtime_settings_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(provider_keys_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(tenant_ai_providers_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(superadmin_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
