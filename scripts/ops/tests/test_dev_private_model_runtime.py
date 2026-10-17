@@ -180,12 +180,18 @@ def test_only_one_pre_auth_transport_recovery_preserves_strict_failures(monkeypa
     if retry:
         assert runtime.start_forward(Path("identity"), Path("hosts"), source) is processes[1]
         assert stopped == [processes[0]]
-        assert "|startup_id=" + "a" * 12 in capsys.readouterr().out
+        output = capsys.readouterr().out
+        assert "|startup_id=" + "a" * 12 in output
+        phases = [line.split('|')[1] for line in output.splitlines()]
+        assert phases == ['dev_private_models=forward_starting', 'dev_private_models=forward_cleanup', 'dev_private_models=forward_stopped', 'dev_private_models=startup_retry_once', 'dev_private_models=forward_starting', 'dev_private_models=forward_ready']
     else:
         with pytest.raises(runtime.RuntimeBlocked, match=failure):
             runtime.start_forward(Path("identity"), Path("hosts"), source)
         assert len(processes) == 1 and stopped == processes
-        assert capsys.readouterr().out == ""
+        output = capsys.readouterr().out
+        assert 'startup_retry_once' not in output
+        assert [line.split('|')[1] for line in output.splitlines()] == ['dev_private_models=forward_starting', 'dev_private_models=forward_cleanup', 'dev_private_models=forward_stopped']
+    assert 'synthetic-instance' not in output
 
 
 def test_second_transport_reset_stops_without_unbounded_reconnect(monkeypatch):

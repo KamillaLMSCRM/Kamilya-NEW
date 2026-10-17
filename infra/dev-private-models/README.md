@@ -41,6 +41,11 @@ Native connected/retry/blocked markers carry one generated startup_id and a
 one-way hash of the optional provider instance ID. Group by startup_id before
 inferring retry continuity; historical uncorrelated service logs may contain
 different process invocations. This adds no reconnect loop or retry category.
+Bounded fixed phase markers distinguish forward_starting, forward_ready,
+forward_cleanup, forward_stopped and consumer_starting. Attempt is1or2 with
+the same generated startup identity/hash; no destination, raw stderr, key or
+application input is logged. A later rollback/restart's connected marker does
+not accept an earlier failed deployment.
 
 The loopback URL is `http://127.0.0.1:18999/v1`. Pin the existing approved model and
 CLI auth mode; do not export subscription authentication. The application bearer

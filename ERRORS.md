@@ -2,6 +2,41 @@
 
 Current as of: 2026-10-17.
 
+## COURSE-APPROVAL-HASH-001 - Later approved revisions could never publish
+
+- Date: 2026-10-17; real DEV014 second approved template revision.
+- Symptom: explicit author approval and fresh reviewer completion persisted,
+  publication refused409; course remains draft/current_release_idNULL. Normal
+  API confirms latest revision2 approved, previous revision1 superseded.
+- Cause: freeze_revision canonicalizes snapshot release_version=1; publication
+  rebuilt hash using the independent revision_number. Revision2+ always differs
+  even when the course content is unchanged. Actual release version is already
+  independently allocated in create_course_release_from_snapshot.
+- Fix: compare current content using the same canonical version1 as freeze;
+  preserve complete hash/state/tenant locks and publish the approved snapshot.
+- Verification: real publication handler regression revisions1/2/7, unchanged
+  and changed content; RED2 then20PASS. Changed content still409 before release
+  creation or commit. Quality1008/2201 PASS after removing now-unused ignore.
+  Full gates and exact DEV acceptance remain required.
+- Prevention: exercise second/later revision publication and changed-content
+  refusal; approval revision count is not a course publication version.
+
+## COURSE-REVIEW-CLOSE-001 - Successful scoped decision ended in invalid-link screen
+
+- Date: 2026-10-17; real DEV014 completed scoped reviewer decision.
+- Symptom: author confirms approved, but reviewer redirects to invalid-link inbox.
+- Cause: limited token was correctly cleared, then the inbox required it again.
+- Fix: request-keyed localized success acknowledgement after successful submit;
+  no re-fetch of that completed identity after token removal. Different request
+  must load independently. Limited-session Exit/Close clears token and opens
+  ordinary login, not the token-required inbox. No session/approval relaxation.
+- Verification: completion RED then focused13PASS; root token-change review
+  correction focused14PASS; independent page-close finding RED1/14PASS then
+  GREEN15PASS with real page/component seam. Full final web1262PASS169files,
+  build67/67 incllint/types; independent ACCEPT. Exact DEV live gate remains.
+- Prevention: verify complete click outcome including Close and token cleanup,
+  not only decision POST or component-only success state.
+
 ## COURSE-TEMPLATE-REVIEW-001 - Blueprint template hid required author approval
 
 - Date: 2026-10-17; actual DEV013 synthetic template publication.
@@ -278,6 +313,19 @@ Current as of: 2026-10-17.
   hide archives globally or treat an empty-recipient result as a successful target.
 
 ## DEV-SSH-001 - A startup TCP reset aborted the optional DEV transport
+
+- Recurrence2026-10-17 packet015: API02d3 live, targetworkerdep-db9lr73rjlhs73fa9np0
+  update_failed11:54:29Z after no-open-ports/healthtimeout. Failed startup
+  af2260608a02/fdd37b2267b8 emitted one classified reset retry, no connected marker.
+  Later different startupdf833428c0c9/dfc71095d5dd reset→connected in2.88s is NOT
+  proof of15parity. Provider retains accepted14workerdep-db9lk2jbc2fs73cc2lag LIVE,
+  publicok. Failed15 root record preserved; canonical controller produced no
+  successful execute receipt. Do not retry15.016 bounded diagnostic extension
+  marks forward start/ready/cleanup/stopped and consumer start with only attempt/
+  startup_id/instancehash; control flow/retry categories/timeouts/keys/pins/ports
+  unchanged. RED6/24PASS→focused59PASS6subtests, quality1008/2201PASS. No external
+  reset origin inferred. Separate materially corrected016 candidate may receive
+  one authorized exact DEV attempt after independent review; stop on failure.
 
 - Bounded repair2026-10-17, freshly owner-authorized after008: deterministic
   pipe regression reproduced the exact opaque exit255/diagnostic_bytes0 marker

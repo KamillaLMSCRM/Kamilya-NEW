@@ -5,6 +5,24 @@
 
 ## Источники правды
 
+### DEV partial015; final016 source gates — 2026-10-17
+
+015 is NOT accepted: API02d3ce2253e390db3ff2e9014b19fbf6606f4f6c LIVE
+dep-db9lq5bncjis739qlmog, CI39028821507 SUCCESS; worker target
+dep-db9lr73rjlhs73fa9np0 update_failed11:54:29Z. Root independently confirmed
+retained worker14/30f5700c dep-db9lk2jbc2fs73cc2lag LIVE/publicok. Last complete
+accepted release remains014. Failed startupaf2260608a02 reset retry/no connected;
+later distinctdf833428c0c9 connected is not15parity. No blind15retry or network,
+key, pin, timeout, plan/resource/configuration change. Root sanitized failed
+record retained; controller has no successful015 execute receipt.
+
+Final016 source fixes repeated-approval hash normalization and scoped reviewer
+completion/Close to/login without session weakening. API4248PASS526SKIP60.40s,
+web169files1262PASS186.71s/build67/67incllint/types, quality1008/2201, contracts
+0183/306 and independent product review ACCEPT. Additional fixed startup phase
+markers RED6→focused59PASS6subtests/qualityPASS; independent add-on review ACCEPT.
+Exact16DEV/live gates remain. Production/model/voice/reserve/ASUS unchanged.
+
 ### DEV current2026-10-17: exact014 accepted; name-only action015 local
 
 Exact30f5700ce9c2a6ac2446e9a89d1eef3cefee79fe all3DEV, CI39027860572 SUCCESS,

@@ -212,14 +212,22 @@ def start_forward(identity: Path, hosts: Path, source: dict[str, str]) -> subpro
     """
     transient = {"ssh_start_failed_network_connection_reset", "ssh_start_failed_network_connection_closed"}
     for attempt in range(2):
+        print("EVIDENCE|dev_private_models=forward_starting|attempt=" + str(attempt + 1)
+            + diagnostic_context(source), flush=True)
         process = spawn(ssh_command(identity, hosts), stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, env=ssh_environment(source))
         try:
             drain_diagnostics(process)
             await_forward(process)
+            print("EVIDENCE|dev_private_models=forward_ready|attempt=" + str(attempt + 1)
+                + diagnostic_context(source), flush=True)
             return process
         except BaseException as exc:
+            print("EVIDENCE|dev_private_models=forward_cleanup|attempt=" + str(attempt + 1)
+                + diagnostic_context(source), flush=True)
             stop(process)
+            print("EVIDENCE|dev_private_models=forward_stopped|attempt=" + str(attempt + 1)
+                + diagnostic_context(source), flush=True)
             if isinstance(exc, RuntimeBlocked) and str(exc) in transient and attempt == 0:
                 print("EVIDENCE|dev_private_models=startup_retry_once|reason=" + str(exc)
                     + diagnostic_context(source), flush=True)
@@ -269,6 +277,8 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
             if terminating:
                 return 143
             safe_env = child_environment(source)
+            print("EVIDENCE|dev_private_models=consumer_starting|role=" + source["DEV_MODEL_SSH_ROLE"]
+                + diagnostic_context(source), flush=True)
             child = spawn(argv, env=safe_env, stdin=subprocess.DEVNULL)
             if source.get("DEV_MODEL_ACCEPTANCE_ID"):
                 probe_path = Path(__file__).with_name("dev_private_model_acceptance.py")

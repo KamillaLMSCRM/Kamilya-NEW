@@ -1,11 +1,21 @@
 # Changelog
 
+## DEV repeated approval publication and reviewer completion — 2026-10-17
+
+- Compare current/frozen approval content in the same canonical snapshot form;
+  second/later approval revision counters no longer block unchanged approved
+  content. Real changes still fail full-hash checks before any release/commit.
+- Confirm a successful reviewer decision on screen; keep token cleanup and
+  close limited review to ordinary login instead of an invalid-link inbox.
+- Final API4248PASS526SKIP, web169files1262PASS/build67/67 and independent review
+  accepted locally; exact DEV016 runtime acceptance still required. No production.
+
 ## DEV name-only import classification follow-up — 2026-10-17
 
 - Classify implicit edits of unchanged names as Rename, not placement Update.
   Keep actual relationship changes gated by reviewed transfers and preserve
   per-row HR/placement protection, explicit actions, no-ops and new identities.
--014 live preview/approval passed but name-only apply safely refused; no partial
+- 014 live preview/approval passed but name-only apply safely refused; no partial
   DML.015 requires fresh exact DEV import acceptance; production unchanged.
 
 ## DEV template approval and truthful import preview candidate — 2026-10-17

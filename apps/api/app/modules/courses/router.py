@@ -496,7 +496,10 @@ async def publish_course(
             code = "approval_pending" if approved_revision.state == "pending" else "approval_changes_requested" if approved_revision.state == "changes_requested" else "approval_superseded"
             raise HTTPException(status_code=409, detail={"code": code})
         from app.modules.courses.release_service import build_course_release_snapshot
-        current_snapshot = await build_course_release_snapshot(db, course, version=approved_revision.revision_number)  # type: ignore[arg-type]
+        # freeze_revision canonicalizes content with release_version=1. Approval
+        # counters are independent of publication versions and cannot enter this
+        # hash comparison; the release factory allocates its version separately.
+        current_snapshot = await build_course_release_snapshot(db, course, version=1)
         if canonical_json_sha256(current_snapshot) != approved_revision.snapshot_sha256:
             raise HTTPException(status_code=409, detail={"code": "approval_revision_mismatch"})
     blueprint_marker = (course.source_analysis or {}).get("blueprint") or {}

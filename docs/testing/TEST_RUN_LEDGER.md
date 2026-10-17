@@ -5583,3 +5583,50 @@ Rules:
   link/PIN PASS; new immutable reviewer completion/publication still open.
 - next: exact DEV015 only, fresh same-ID import persistence; protected readback
   and queue-control check. No production/config/billing/models/ASUS/voice/reserve.
+
+## CABINET-ACTIONS-20261017-016-GATES — repeated approval and reviewer completion
+
+- executor: root API diagnosis/integration/browser; bounded UI writer and separate
+  independent reviewer. No Test Runner owns this append destination.
+- live014: author approve, fresh correct-client-origin requeste7de95ff/revision
+  0e58cc7e, all5lessons/questions/checkpoints/lesson2reload/Finish/explicit final
+  approve PASS. Author UI and ordinary API independently show revision2approved,
+  previous1superseded. Publication409; course remainsdraft/current_releaseNULL/
+  0audience. One diagnostic normalAPI retry409; detail.code extractor returned
+  null (normalized error envelope), not an exact machine-code capture.
+- repair: freeze version1 vs publication revisioncounter regression RED2 then
+  20PASS; actual changed content stays409/no release/no commit for1/2/7. Final
+  fullAPI4248PASS526environmentSKIP60.40s, quality1008/2201 unchanged. Unused
+  ignore removed after initial quality failure, baseline not raised.
+- UI: success confirmation keyed to completed request; same-request tokenclear
+  skips reload, different request independent. Token stillcleared. Independent
+  Close finding corrected scoped exit to/login. Real page regression RED1/14PASS
+  thenGREEN15PASS. Final web169files1262PASS186.71s/build67/67 incllint/types;
+  independent finalreview ACCEPT. Earlier1260PASS superseded after source delta.
+- fixture: one extra manual QA courseaf2e47d1-99c0-4651-8b10-31e0fb1192ba,
+  one module/one plain lesson/0audience; review policy true, no model/email.
+  Module diagnostic guard detected existing and performed no POST; checkbox
+  pending-state tooling error reconciled UI true, no repeat. No role/PIN reset.
+- next: exact DEV016, publish unchanged approvedrevision2; fresh limited review
+  on new ownedfixture through actual success/Close; readback protected fixtures.
+  Production/models/voice/reserve/ASUS/config/billing remain unchanged.
+
+## CABINET-ACTIONS-20261017-015-BLOCKED-016-STARTUP-DIAGNOSTICS
+
+- executor: canonical Release Runner15; root independent failure readback/source
+  diagnosis. No Test Runner owns this append destination.
+- result:15BLOCKED render_deployment_not_live, not full release. CI39028821507
+  SUCCESS; API02d3 dep-db9lq5bncjis739qlmog LIVE, worker15dep-db9lr73rjlhs73fa9np0
+  update_failed11:54:29Z. Root retained14worker30f5700c/dep-db9lk2jbc2fs73cc2lag
+  LIVE/publicok. No15success receipt; ignored failed-015-root-readback.json.
+- logs: failedstartupaf2260608a02/fdd37b2267b8 resetretry, no connectedmarker;
+  afterfailure distinctdf833428c0c9/dfc71095d5dd reset→connected2.88s, not15proof.
+  No-open-ports/healthtimeout observed; exact failing internal phase unproven.
+-016 diagnostics: fixed forward_starting/ready/cleanup/stopped +consumer_starting
+  markers with attempt/startupid/hash only. Retrycount/categories/timeouts/keys/
+  trust/ports/controlflow unchanged. RED6/24PASS→focused59PASS6subtests, quality
+  1008/2201PASS. Initial combined path typo ran0tests, corrected thenPASS. No
+  network origin claim. Additional independent review ACCEPT.
+- next: one materially corrected exact016 candidate after review, no15retry;
+  actual persisted import/publication/shortreview and protected-fixture proof.
+  Production/billing/providerconfig/model/ASUS/reserve/voice unchanged.

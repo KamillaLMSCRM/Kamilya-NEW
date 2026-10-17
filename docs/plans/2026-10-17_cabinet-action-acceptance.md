@@ -2,6 +2,58 @@
 
 Status: IN PROGRESS. Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
+## Failed015 preserved; final016 diagnostic gate — 2026-10-17
+
+-015 terminal BLOCKED render_deployment_not_live. Root exact API02d3 LIVE,
+  targetworkerdep-db9lr73rjlhs73fa9np0 update_failed11:54:29Z; retained14worker
+  dep-db9lk2jbc2fs73cc2lag LIVE/publicok independently confirmed. Last fully
+  accepted release014, not015. Canonical success receipt absent; ignored
+  failed-015-root-readback.json preserves partial state, CI39028821507 and logs.
+- Failed startupaf2260608a02/instancefdd37b2267b8 has resetretry but no connected;
+  later differentdf833428c0c9/dfc71095d5dd reset→connected2.88s cannot be combined.
+  Root adds fixed launch phase markers to distinguish forward/cleanup/consumer
+  without changing control flow, retry policy/timeouts/keys/pins/ports. RED6/
+  24PASS→focused runtime/acceptance/controller59PASS6subtests/quality1008/2201.
+  First combined selector typo ran0tests; corrected exact path thenPASS.
+- Final016 source includes materially reproduced publication/UI fixes, not a
+  re-labelled retry15. One new exact DEV attempt may proceed after add-on review;
+  no automatic retry if its hard gate fails. Reset origin NOT_LOCALIZED.
+
+## Second-revision publication follow-up016 — 2026-10-17
+
+- Actual014 explicit author approval then fresh personal-link/no-mail request
+  e7de95ff-b758-4393-a483-2d5442e96922, revision0e58cc7e-37a8-40cd-9032-b429dee462b1,
+  snapshot7adb304cf5efbaed94e784f393d6d0f1cb4a1656ad66b74e787f8c2ccd104926.
+  Actual PIN/client origin, all5lesson questions/checkpoints, lesson2reload,
+  Finish, early-ack absence and explicit final reviewer approval PASS. Author
+  readback shows approved; ordinary API confirms revision2approved/1superseded.
+- Publication refused409; ordinary API course stilldraft/review_statusapproved/
+  current_release_idNULL/0audience. One scoped diagnostic API retry also409;
+  its sanitized error extractor found no detail.code in the normalized response,
+  so do not claim that output itself captured an exact machine error code.
+  Source + real-handler regression prove version1 frozen vs revision2 current
+  hash mismatch.016 canonicalizes comparison to version1 like freeze; release
+  version allocation unchanged. RED2→20PASS includes actual-content mismatch
+  refusal on revisions1/2/7 and no release/commit on rejection.
+- After scoped reviewer decision the closed inbox shows invalid/revoked-link
+  wording, although decision persisted. Bounded UI acknowledgement follow-up
+  delegated; no access/session relaxation or audit rewrite allowed.
+-015 release is separately in flight; no blind retry or runtime claim.016 full
+  gates and final exact DEV readback required. Production unchanged.
+- Final016 gates: API4248PASS526environmentSKIP60.40s, quality1008/2201 unchanged,
+  web169files1262PASS186.71s, build67/67 incllint/types; independent ACCEPT after
+  close-destination finding corrected RED1→GREEN15. Initial1260PASS whole-web
+  run is preserved but superseded: UI changed during that run; only final
+  web-016-final-* logs bind the candidate. No new dependency/schema/config.
+- Added one clearly marked zero-audience manual QA courseaf2e47d1-99c0-4651-8b10-
+  31e0fb1192ba solely for final reviewer confirmation/Close live acceptance;
+  one module2e818e11-4c9e-4f9c-b304-79dc6fa0601e, one plain-text lesson, no quiz/
+  model/email/assignments. Initial module click did not visibly persist; reload
+  showed empty, later normal click succeeded. Guarded API diagnostic then saw
+  existing module and stopped BEFORE POST; no duplicated module was created.
+  Policy click briefly returned tool checked-state error while server pending;
+  fresh UI shows enabled true, no repeated click. Setup is not final016 PASS.
+
 ## Live014 and name-only action015 — 2026-10-17
 
 - Exact01430f5700ce9c2a6ac2446e9a89d1eef3cefee79fe all3DEV RELEASE_OK;

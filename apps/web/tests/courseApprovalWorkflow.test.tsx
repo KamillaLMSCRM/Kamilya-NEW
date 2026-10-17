@@ -7,10 +7,13 @@ const decisionMock = vi.hoisted(() => vi.fn());
 const progressMock = vi.hoisted(() => vi.fn());
 const testMock = vi.hoisted(() => vi.fn());
 const getRequestMock = vi.hoisted(() => vi.fn());
+const getScopedRequestMock = vi.hoisted(() => vi.fn());
 const startAttemptMock = vi.hoisted(() => vi.fn());
+const replaceMock = vi.hoisted(() => vi.fn());
+vi.mock('next/navigation', () => ({ useParams: () => ({ requestId: 'request' }), useRouter: () => ({ replace: replaceMock }) }));
 vi.mock('@/lib/courseApproval', async () => {
   const actual = await vi.importActual<typeof import('@/lib/courseApproval')>('@/lib/courseApproval');
-  return { ...actual, configureApprovalPolicy: configureMock, getApprovalPolicy: getPolicyMock, submitReviewDecision: decisionMock, saveReviewProgress: progressMock, submitReviewTest: testMock, getApprovalRequest: getRequestMock, startReviewAttempt: startAttemptMock };
+  return { ...actual, configureApprovalPolicy: configureMock, getApprovalPolicy: getPolicyMock, submitReviewDecision: decisionMock, saveReviewProgress: progressMock, submitReviewTest: testMock, getApprovalRequest: getRequestMock, getScopedReviewRequest: getScopedRequestMock, startReviewAttempt: startAttemptMock };
 });
 vi.mock('@/components/ui/Toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
@@ -18,12 +21,13 @@ import { ApprovalPolicyCard } from '@/components/course-approval/ApprovalPolicyC
 import { ReviewerDecisionPanel } from '@/components/course-approval/ReviewerDecisionPanel';
 import { ReviewCoursePlayer } from '@/components/course-approval/ReviewCoursePlayer';
 import { ReviewRequestScreen } from '@/components/course-approval/ReviewRequestScreen';
+import ScopedReviewRequestPage from '@/app/course-review-access/review/requests/[requestId]/page';
 
 const snapshot = { schema_version: 1, release_version: 3, course: { id: 'course', title: 'Курс' }, modules: [{ id: 'module', title: 'Модуль', order_index: 0, lessons: [{ id: 'lesson', title: 'Урок', content_type: 'text', content: 'Текст', order_index: 0, quizzes: [{ id: 'quiz', title: 'Тест', pass_score: 80, questions: [{ id: 'question', text: 'Вопрос', type: 'single_choice', points: 1, order_index: 0, choices: [{ id: 'choice-1', text: 'Правильный текст', order_index: 0 }] }] }] }] }] };
 const resumeSnapshot = { ...snapshot, release_version: 4, modules: [{ ...snapshot.modules[0], lessons: [snapshot.modules[0].lessons[0], { id: 'lesson-2', title: 'Второй урок', content_type: 'text', content: '# Второй урок\n\nТекст второго урока', order_index: 1, quizzes: [] }] }] };
 
 describe('course approval workflow UI', () => {
-  beforeEach(() => { configureMock.mockReset().mockResolvedValue({ requires_approval: true, review_enabled: true }); getPolicyMock.mockReset().mockResolvedValue({ requires_approval: false, review_enabled: true }); decisionMock.mockReset().mockResolvedValue({}); progressMock.mockReset().mockResolvedValue({}); testMock.mockReset().mockResolvedValue({ diagnostics: { answered: 1, total: 1, correct: 1, score_percent: 100, complete: true } }); getRequestMock.mockReset(); startAttemptMock.mockReset(); });
+  beforeEach(() => { configureMock.mockReset().mockResolvedValue({ requires_approval: true, review_enabled: true }); getPolicyMock.mockReset().mockResolvedValue({ requires_approval: false, review_enabled: true }); decisionMock.mockReset().mockResolvedValue({}); progressMock.mockReset().mockResolvedValue({}); testMock.mockReset().mockResolvedValue({ diagnostics: { answered: 1, total: 1, correct: 1, score_percent: 100, complete: true } }); getRequestMock.mockReset(); getScopedRequestMock.mockReset(); startAttemptMock.mockReset(); });
 
   it('persists the opt-in policy and gives a clear immutable-snapshot hint', async () => {
     // Starting the request is not the same as rendering its loaded policy.
@@ -135,5 +139,50 @@ describe('course approval workflow UI', () => {
     expect(await screen.findByRole('button', { name: '2. Второй урок' })).toHaveAttribute('aria-current', 'step');
     fireEvent.click(screen.getByRole('button', { name: 'Завершить проверку' }));
     await waitFor(() => expect(progressMock).toHaveBeenCalledWith('attempt-resume', 7, 1, 'in_progress', expect.objectContaining({ activity: 'review_completed' }), undefined, 'checkpoint'));
+  });
+
+  it('shows an accessible completion confirmation after a successful decision', async () => {
+    const onCompleted = vi.fn();
+    getScopedRequestMock.mockResolvedValue({ request_id: 'request', revision_id: 'revision', outcome: 'pending', delivery_mode: 'personal_link', reviewer: { id: 'reviewer' } });
+    startAttemptMock.mockResolvedValue({ attempt_id: 'attempt-decision', revision_id: 'revision', snapshot_sha256: 'sha-decision', activity_state: 'completed', snapshot });
+    const view = render(<ReviewRequestScreen requestId="request" token="scoped-token" onCompleted={onCompleted} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Согласовать версию' }));
+    await waitFor(() => expect(decisionMock).toHaveBeenCalledWith('attempt-decision', 'approve', null, false, 'scoped-token'));
+    expect(await screen.findByRole('status')).toHaveTextContent('Решение сохранено');
+    expect(screen.getByText(/Проверка завершена/i)).toBeInTheDocument();
+    expect(onCompleted).toHaveBeenCalledTimes(1);
+
+    view.rerender(<ReviewRequestScreen requestId="request" onCompleted={onCompleted} />);
+    expect(await screen.findByRole('status')).toHaveTextContent('Решение сохранено');
+    expect(getScopedRequestMock).toHaveBeenCalledTimes(1);
+    expect(getRequestMock).not.toHaveBeenCalled();
+  });
+
+  it('clears limited access and closes successful scoped review to ordinary login', async () => {
+    replaceMock.mockReset();
+    sessionStorage.setItem('course_review_token', 'test-scoped-token');
+    getScopedRequestMock.mockResolvedValue({ request_id: 'request', revision_id: 'revision', outcome: 'pending', delivery_mode: 'personal_link', reviewer: { id: 'reviewer' } });
+    startAttemptMock.mockResolvedValue({ attempt_id: 'attempt-close', revision_id: 'revision', snapshot_sha256: 'sha-close', activity_state: 'completed', snapshot });
+    render(<ScopedReviewRequestPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Согласовать версию' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Решение сохранено');
+    expect(sessionStorage.getItem('course_review_token')).toBeNull();
+    expect(replaceMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть', exact: true }));
+    expect(replaceMock).toHaveBeenCalledExactlyOnceWith('/login');
+  });
+
+  it('does not carry completion confirmation to a different request', async () => {
+    getRequestMock.mockResolvedValue({ request_id: 'request', revision_id: 'revision', outcome: 'pending', delivery_mode: 'personal_link', reviewer_ids: ['reviewer'] });
+    startAttemptMock.mockResolvedValue({ attempt_id: 'attempt-other', revision_id: 'revision', snapshot_sha256: 'sha-other', activity_state: 'completed', snapshot });
+    const view = render(<ReviewRequestScreen requestId="request" onCompleted={() => undefined} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Согласовать версию' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Решение сохранено'));
+
+    getRequestMock.mockResolvedValue({ request_id: 'request-2', revision_id: 'revision-2', outcome: 'pending', delivery_mode: 'personal_link', reviewer_ids: ['reviewer'] });
+    view.rerender(<ReviewRequestScreen requestId="request-2" onCompleted={() => undefined} />);
+    expect(await screen.findByText('Проверка версии курса')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });
