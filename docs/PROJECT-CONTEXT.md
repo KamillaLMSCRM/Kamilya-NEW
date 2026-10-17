@@ -5,6 +5,34 @@
 
 ## Источники правды
 
+### DEV current2026-10-17: exact012 accepted; resume/import follow-up local
+
+Exact0160634ccc228b48846aeb522e478857f83191f3 LIVE on existing DEV web/API/worker.
+CI39025017365 SUCCESS; Verceldpl_Gr8QrvTg69oHdkcV4vpE98tcGniC READY/Hobby;
+APIdep-db9ku2navr4c73effsu0/workerdep-db9kv1m1egvs73flnegg LIVE/Free.
+Canonical012 RELEASE_OK; root independent receipt/public API exact SHA PASS.
+Rotated only owned requestceb31ce3-bbff-4099-8941-bc61498b9748: private URL-origin
+check now correct DEV client; actual link/PIN opens immutable reviewer snapshot.
+First answer and next lesson succeed; reload incorrectly returns to lesson1.
+Local follow-up adds tenant-scoped persisted position/next checkpoint sequence
+and shared Markdown rendering; not yet deployed. No answer-key/role change.
+
+Owner explicitly approved one temporary DEV QA administrator:8109d1f1-8e3d-4384-
+94c5-f284a7e4c159. Created once via canonical superadmin no-mail path, ordinary
+login/me verified, browser admin screens visited; profile save/reload/restore and
+RU/KK/EN switches verified. After logout normally deactivated and independently
+read back inactive. Credentials only primary.env DEV_CABINET_BUTTONS_ADMIN_EMAIL/
+PASSWORD. Existing roles unchanged; no production administrator login.
+
+Actual one-row QA import committed: employee09218d6c-7a37-49a8-bf08-2e52b04a4f96,
+position7a160cf7-6590-4a44-9d1c-f1141524cd56, unitb289fb4c-e08e-459f-805b-ba2e43aaadb1.
+Employee QA-BUTTONS-010, no email/course rules. Normal API confirms position/unit
+link. Corrected proposal name was NOT applied: unit remains QA BUTTONS 010 отдел,
+not its approved correction suffix. Dual legacy/generic projection mismatch
+diagnosed; local repair/review/fresh distinct import acceptance still required.
+No automatic replay or manual renaming used to conceal this failure. Cabinet
+remains PARTIAL; production/config/plans/models/voice/reserve/ASUS unchanged.
+
 ### DEV current2026-10-17: reviewer011 accepted; link-origin012 candidate
 
 Exact96b8489e4cb15ca1929a2dff14985517014f3278 LIVE on existing DEV web/API/worker.

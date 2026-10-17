@@ -1,5 +1,16 @@
 # Changelog
 
+## DEV review-resume and import-correction candidate — 2026-10-17
+
+- Restore reviewer lesson position and next persisted checkpoint sequence after
+  reload, validate resume metadata, render Markdown consistently with the editor.
+  Keep reviewer scope, immutable snapshots, scoring and completion policy intact.
+- Keep legacy import corrections synchronized with existing generic structure
+  mirrors; persist the approved name instead of silently committing its old value.
+  Preserve external identities and approval/conflict/commit boundaries.
+- Exact012 is accepted in DEV; new failures reproduced in the real browser/API.
+  Follow-up still requires exact DEV acceptance. Production remains unchanged.
+
 ## DEV review-link and presentation candidate — 2026-10-17
 
 - Build new/rotated review access links from the configured learning-client URL,

@@ -2,6 +2,56 @@
 
 Status: IN PROGRESS. Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
+## Live012 and follow-up013 — 2026-10-17
+
+Final integrated013 gates: API4238PASS/526environmentSKIP56.80s, web169files/
+1256PASS192.87s, build67/67 incllint/types, quality1008/2201, contracts0183/302.
+Both independent bounded reviews ACCEPT; no runtime013 claim until exact release
+and root live readback. Initial typing/format failures were fixed without raising
+baseline. Mirror parent preserved unless explicitly corrected; placement derives
+from merged effective fields, not only sparse correction fields.
+
+- Exact0120160634c accepted all3: CI39025017365, Vercel
+  dpl_Gr8QrvTg69oHdkcV4vpE98tcGniC, APIdep-db9ku2navr4c73effsu0,
+  workerdep-db9kv1m1egvs73flnegg. Root independently read exact receipt/health.
+- Rotated only owned ceb31ce3-bbff-4099-8941-bc61498b9748: correct client origin,
+  actual PIN entry/immutable snapshot/first answer20%/next lesson PASS. Reload
+  returns to lesson1 instead of savedlesson2: NOT accepted. Follow-up013 API
+  metadata RED2→GREEN34/full4231PASS526SKIP59.07s, quality1008/2201PASS; frontend
+  RED4→focused16PASS/typecheck; independent source review ACCEPT. Runtime open.
+- Actual template editor preview now has one title, no raw initial H1 and retained
+  local policy; screenshot dev-template-preview-012.png. Import metadata shows
+  localized labels,3closed disclosures; open/close retains unchanged raw reasons.
+- One-row approved import applied ONCE and restored committed after reload:
+  1newunit/position/employee, original3employees retained. Employee
+  09218d6c-7a37-49a8-bf08-2e52b04a4f96 QA-BUTTONS-010, position7a160cf7-6590-
+  4a44-9d1c-f1141524cd56, unitb289fb4c-e08e-459f-805b-ba2e43aaadb1.
+  Normal API exact identity/link PASS, BUT approved department rename ignored:
+  actual QA BUTTONS 010 отдел, not QA BUTTONS 010 отдел — проверка. Not counted
+  as correct import PASS. No replay/manual rename. Follow-up dual-projection fix.
+- Owner-approved temporary admin8109d1f1-8e3d-4384-94c5-f284a7e4c159 created via
+  canonical no-mail path, normal login/me + browser role verified. Existing
+  admin/methodologist IDs/roles/active flags unchanged. After testing logout and
+  normal deactivation PASS; independent methodologist readback confirms inactive.
+- Admin live: all11sidebar routes loaded;10section help open/close plus profile.
+  Team search no-match→0/reset→3; new form open/empty-submit/cancel only, no extra
+  account. Empty-submit rejection text NOT captured, not claimed as validation
+  PASS. Kiosk form/cancel/no-employee PIN disabled, no kiosk/PIN issued. General
+  settings links; integrations3tabs/no save/send/test-token; AI page/no save.
+  Audit filtered temporary actor+login→exact2rows. Mandatory Apply and journal
+  reset/CSV download. Profile own name save/reload/restore and3language switches.
+- Certificate preview refresh rendered canvas436x308; first img-role wait timed
+  out in browser tooling, not a download/product failure. Actual sample download
+  43473bytes SHA978d8085f8688bcc81a0528893982acc707d0a48904545e8dd5e89de07ec163e,
+  independent Poppler1page visual PASS. Evidence sample46714bytes SHA
+  d4188bbc585a050722a4e9b81db3d4d510281bff6ace8494f3c2167ef65762bd,2pages rendered
+  and visually inspected. No template save or issued-document mutation. Sample
+  verification uses existing canonical app.kml.kz contract, not live DEV record.
+  Admin journal CSV4051bytes SHA66b38ef693a6034459148fa5644660255921f1f370c870c3a179a398690775f3.
+- NOT_RUN remains explicit: new credential/public kiosk issuance, external sends,
+  integration/model saves, paid generation, hard purge, actual old-learning reset.
+  Raw reviewer state labels/work-item ID presentation remains separate backlog.
+
 ## Current continuation012 — 2026-10-17
 
 - DEV011 exact96b8489e accepted on all three existing services, CI39023880266;

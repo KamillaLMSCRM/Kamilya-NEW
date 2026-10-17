@@ -141,6 +141,7 @@ export interface ReviewAttempt {
   snapshot_sha256: string;
   activity_state: ReviewActivityState;
   lesson_position?: number | null;
+  next_sequence?: number;
   snapshot: ReviewSnapshot;
 }
 
@@ -318,7 +319,8 @@ export async function startReviewAttempt(requestId: string, token?: string): Pro
     revision_id: body.revision_id,
     snapshot_sha256: body.snapshot_sha256,
     activity_state: activity,
-    lesson_position: typeof body.lesson_position === 'number' ? body.lesson_position : null,
+    lesson_position: typeof body.lesson_position === 'number' && Number.isSafeInteger(body.lesson_position) && body.lesson_position >= 0 ? body.lesson_position : null,
+    next_sequence: typeof body.next_sequence === 'number' && Number.isSafeInteger(body.next_sequence) && body.next_sequence > 0 ? body.next_sequence : 1,
     snapshot: projectReviewSnapshot(body.snapshot),
   };
 }

@@ -5470,3 +5470,72 @@ Rules:
   voice/reserve/ASUS/production changes. Full cabinet acceptance stays PARTIAL.
 - next: exact DEV012, privately verify rotated/new client-origin access and
   normal reviewer continuation; preview/import presentation live checks.
+
+## CABINET-ACTIONS-20261017-012-LIVE — release, admin and actual import
+
+- executor: root browser/API/integration, canonical release leaf; append-only.
+- result: exact012 RELEASE_OK accepted all3, link rotation/client PIN entry PASS;
+  preview/import labels PASS. Full cabinet PARTIAL; two new workflow failures.
+- verified: CI39025017365, Verceldpl_Gr8QrvTg69oHdkcV4vpE98tcGniC READY,
+  APIdep-db9ku2navr4c73effsu0/workerdep-db9kv1m1egvs73flnegg LIVE exact0160634c.
+  Root receipt/public API readback, normal existing tiers/schema0183 unchanged.
+  Review requestceb31ce3… rotated correct origin; actual PIN/first answer/lesson2
+  succeeds but reload incorrectly displayslesson1. Secrets never recorded.
+- admin: fresh owner approval8109d1f1… canonical no-mail create+random canonical
+  env password, ordinary login/me/browser. Eleven sidebar routes visited,10help
+  open/close plus profile, search/reset, kiosk form/cancel,3integration tabs,
+  audit actor+login2rows, profile save/reload/restore/3languages, PDF/CSV downloads.
+  No provider/model/integration/template saves, emails or public kiosk issuance.
+  Logout→normal deactivate→independent inactive readback PASS. Original roles
+  preserved; initial helper platform /users/me403 was a preflight misuse, no
+  user/env write occurred until corrected canonical superadmin endpoint used.
+- artifacts: certificate-preview(1).pdf43473bytes/SHA978d8085…/1page and
+  training-completion-form-preview(1).pdf46714bytes/SHAd4188bbc…/2pages; all pages
+  Poppler-rendered/viewed. Admin CSV4051bytes/SHA66b38ef6…. Full hashes in plan.
+  Browser img-role wait timeout retained, actual downloads subsequently verified.
+- import: exact owned approved row committed once, employee09218d6c…,position
+  7a160cf7…,unitb289fb4c…; normal API proves exact user/position/unit linkage.
+  Actual unit name ignores approved correction suffix. This failure is NOT a
+  correct-import PASS. No replay/manual data patch; local dual-projection fix
+  under review. Original3employees remain, one new synthetic student/no mail.
+- next: finish bounded review-resume/import correction gates then one exact DEV
+  follow-up; preserve prior failed receipts and all protected original learning.
+
+## CABINET-ACTIONS-20261017-013-LOCAL — resume and actual import contract
+
+- executor: root critical diagnosis/API/integration; bounded writer, independent
+  read-only reviewer. No Test Runner owns this append destination.
+- result: review resume/render repair independently ACCEPT; import projection
+  repair locally GREEN, final integrated API and independent review pending.
+- verified: resume route RED2→focused34PASS/full4231PASS526environmentSKIP59.07s;
+  web RED4→focused16PASS then full169files1256PASS192.87s, build67/67 incllint/types.
+  Import adapter-based RED3; root review caught2sparse-placement regressions and
+  implicit-parent overwrite, finalfocused9PASS + hierarchyfocused24PASS. Root
+  added explicit helper types after quality gate failed, did not raise baseline;
+  final quality1008/2201PASS, contracts0183/302PASS. Current combined API pending.
+- changed: no migration, roles, RLS, approval bypass, scoring/answer persistence,
+  generic commit precedence, mail, provider settings or production mutation.
+- live: normal API proves old import unitb289fb4c… retains wrong old name, exact
+  employee09218d6c…→position7a160cf7…→sameunit, temporaryadmin8109d1f1… inactive.
+  Actual unit position tab1employee; no additional import replay performed.
+- next: final combined API/review then exactDEV013; resume current request from
+  savedlesson2 and validate next checkpoint. Fresh changed-hash CSV with same
+  owned personnel/unit/position must first prove no new/foreign identity before
+  applying corrected name. Old committed session stays immutable as evidence.
+
+## CABINET-ACTIONS-20261017-013-GATES — integrated candidate ready
+
+- executor: root final integration; no Test Runner owns this append destination.
+- result: combined reviewer-resume/import-correction candidate ready for exact
+  DEV013; both bounded independent source reviews ACCEPT. No live013 claim.
+- verified: final API4238PASS/526environmentSKIP56.80s; web169files1256PASS192.87s;
+  build67/67 incllint/types; quality1008/2201 unchanged baseline; contracts0183/
+  302entries/diff-check PASS. Import focused24PASS, resume focused34PASS.
+- repaired gates: initial import patch caused new typing/import-order violations;
+  root added proper helper annotations and formatting, not baseline exclusions.
+  Sparse-field/implicit-parent review corrections retain real RED proof.
+- scope: existing DEV Hobby/Free/Free only; no migration/config/newrights/newkeys/
+  public ports/billing/model/ASUS/reserve/voice/production changes. Temporary
+  approved admin already inactive; original users/learning protected.
+- next: exact013 release then actual reviewer reload/next/decision and fresh
+  distinct import same owned IDs; old committed import is not blindly replayed.

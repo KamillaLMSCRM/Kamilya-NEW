@@ -30,6 +30,7 @@ from .models import (
     CourseApprovalReviewer,
     CourseApprovalRevision,
     CourseReviewAttempt,
+    CourseReviewAttemptEvent,
     WorkflowAccessCredential,
     WorkflowDelivery,
     WorkflowIdempotencyKey,
@@ -527,9 +528,13 @@ async def start_attempt(request_id: UUID, db: AsyncSession = Depends(get_db), us
     if assignment is None:
         raise HTTPException(status_code=404, detail="Approval request not found")
     attempt, revision = await get_or_create_attempt(db, revision_id=request_row.revision_id, reviewer_user_id=user.id, reviewer_email=getattr(user, "reviewer_email", None), tenant_id=user.tenant_id)
+    last_sequence = await db.scalar(select(func.max(CourseReviewAttemptEvent.sequence)).where(
+        CourseReviewAttemptEvent.attempt_id == attempt.id,
+        CourseReviewAttemptEvent.tenant_id == user.tenant_id,
+    ))
     await log_action(db, user.tenant_id, "course_approval.attempt_started", "course_review_attempt", attempt.id, user.id, {"revision_id": str(revision.id), "snapshot_sha256": attempt.snapshot_sha256, "active_role": getattr(user, "role", None)})
     await db.commit()
-    return {"attempt_id": attempt.id, "revision_id": revision.id, "snapshot_sha256": attempt.snapshot_sha256, "activity_state": attempt.activity_state, "snapshot": learner_safe_review_snapshot(revision.snapshot)}
+    return {"attempt_id": attempt.id, "revision_id": revision.id, "snapshot_sha256": attempt.snapshot_sha256, "activity_state": attempt.activity_state, "lesson_position": attempt.lesson_position, "next_sequence": int(last_sequence or 0) + 1, "snapshot": learner_safe_review_snapshot(revision.snapshot)}
 
 
 @router.put("/course-review-attempts/{attempt_id}/progress", dependencies=review_workflow_write)

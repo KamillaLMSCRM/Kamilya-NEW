@@ -2,6 +2,40 @@
 
 Current as of: 2026-10-17.
 
+## COURSE-REVIEW-RESUME-001 - Reviewer reload lost lesson position and checkpoint sequence
+
+- Date: 2026-10-17; actual DEV012 personal-link/PIN reviewer, owned QA course.
+- Symptom: first answer and next lesson succeeded; reload returned to lesson1
+  instead of persisted lesson2. Lesson Markdown also rendered as raw source.
+- Cause: start response omitted position/next event sequence; player always
+  initialized0/1 and incorrectly advanced checkpoint sequence after quiz submit.
+  Review content used a preformatted paragraph instead of the shared renderer.
+- Fix: return authorized attempt position and tenant/attempt-scoped MAX event
+  sequence+1; validate safe integer metadata, plumb/reset player identity, remove
+  quiz-only sequence advancement, and reuse escaped LessonContent rendering.
+- Verification: route RED2 then focused34/full4231PASS526environmentSKIP; frontend
+  RED4 then focused16PASS/typecheck; quality1008/2201PASS; independent ACCEPT.
+  Fresh DEV013 reload/next checkpoint and complete reviewer cycle remain open.
+- Prevention: prove actual reload with an in-progress multi-lesson snapshot;
+  checkpoint sequencing is not quiz submission count. Preserve scope/answer keys.
+
+## STAFF-IMPORT-MIRROR-001 - Approved legacy corrections were ignored by generic commit
+
+- Date: 2026-10-17; actual DEV012 one-row synthetic staff import.
+- Symptom: approved proposal displayed corrected department name; commit created
+  the department with its old name. Normal API exact ID/name/placement confirmed.
+- Cause: legacy adapter emits departments/branches and generic organization_units;
+  correction updated only legacy representation, generic commit takes precedence.
+  Explicit position/staff placement corrections could likewise leave stale keys.
+- Fix: synchronize only an existing same-external-key generic mirror and effective
+  explicit placement metadata; preserve IDs/types/source references and legacy-
+  only proposals. Do not bypass commit identity or reconcile existing rows silently.
+- Verification: real-adapter regressions RED before repair; root detected raw-
+  correction-vs-merged-placement edge cases in review. Final focused/full/review
+  and fresh distinct DEV import acceptance required; old receipt not overwritten.
+- Prevention: test actual adapter→correction→commit representations; preview
+  success is not proof of persisted result. Never blindly replay committed import.
+
 ## COURSE-REVIEW-LINK-001 - Review access URL pointed to the API instead of the client
 
 - Date: 2026-10-17; ordinary DEV methodologist, owned synthetic template course.
