@@ -8124,7 +8124,7 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   viewport width does not imply adequate container width. Local error handling
   recognized legacy `detail`, not the canonical `{error,message}` response from
   app.core.errors. This repeats the envelope class documented in ENROLLMENT-011.
-- Fix scope: stack compact roster sections independently of viewport breakpoints,
+- Fix: stack compact roster sections independently of viewport breakpoints,
   wrap long values, remove duplicate workspace title/employee CTA, and recognize
   only allowlisted machine codes from canonical message or legacy detail. Never
   render arbitrary response text, inherited object properties, credentials or
@@ -8135,6 +8135,10 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   tests across164files PASS, including canonical/legacy allowlist and unknown/
   prototype-key privacy cases. Corrected DEV/browser readback remains required
   before accepting the follow-up; no production result claimed.
+  First follow-upCI39008666487 also caught Root's journal label `Fix scope`
+  instead of required `Fix`; both failed jobs share this metadata cause, not an
+  API behavior regression. Correct the journal, rerun its canonical gate and
+  reliability regression before another push; do not relax the contract parser.
 - Prevention: test errors using the real public envelope and independently test
   compact containers, not just viewport breakpoints. Keep one canonical page h1
   and one primary add-employee action on the feature-on structure view.
