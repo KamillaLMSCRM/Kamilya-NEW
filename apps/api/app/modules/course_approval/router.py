@@ -445,8 +445,14 @@ async def list_approval_courses(
 
 
 @router.get("/course-approval-requests", dependencies=tenant)
-async def list_requests(db: AsyncSession = Depends(get_db), user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.AUDIT_READ))):
-    rows = await db.scalars(select(CourseApprovalRequest).where(CourseApprovalRequest.tenant_id == user.tenant_id).order_by(CourseApprovalRequest.created_at.desc()))
+async def list_requests(course_id: UUID | None = Query(default=None), db: AsyncSession = Depends(get_db), user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.AUDIT_READ))):
+    statement = select(CourseApprovalRequest).where(CourseApprovalRequest.tenant_id == user.tenant_id)
+    if course_id is not None:
+        statement = statement.join(CourseApprovalRevision, and_(
+            CourseApprovalRevision.id == CourseApprovalRequest.revision_id,
+            CourseApprovalRevision.tenant_id == CourseApprovalRequest.tenant_id,
+        )).where(CourseApprovalRevision.course_id == course_id, CourseApprovalRevision.tenant_id == user.tenant_id)
+    rows = await db.scalars(statement.order_by(CourseApprovalRequest.created_at.desc()))
     return [await _request_projection(db, row, user.tenant_id) for row in rows.all()]
 
 

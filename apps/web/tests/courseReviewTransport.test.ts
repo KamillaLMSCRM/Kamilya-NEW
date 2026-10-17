@@ -68,4 +68,9 @@ describe('scoped review transport', () => {
     expect(missing.lesson_position).toBeNull();
     expect(missing.next_sequence).toBe(1);
   });
+
+  it('encodes the optional approval course filter while preserving the legacy token slot', async () => {
+    await listApprovalRequests(undefined, 'course/with spaces');
+    expect(calls[0].url).toBe('/v1/course-approval-requests?course_id=course%2Fwith%20spaces');
+  });
 });

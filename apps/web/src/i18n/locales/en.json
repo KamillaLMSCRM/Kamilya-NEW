@@ -64,6 +64,7 @@
     "disabled": "Disabled",
     "loadFailed": "Failed to load",
     "saveFailed": "Failed to save",
+    "deleteFailed": "Failed to delete",
     "saved": "Saved",
     "minLength": "Minimum length: {min}",
     "or": "or",

@@ -243,12 +243,20 @@ export default function CourseEditPage() {
       confirmLabel: t('dialogs.delete'),
     });
     if (!ok) return;
-    await fetch(`${API_URL}/v1/modules/${moduleId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setModules((prev) => prev.filter((m) => m.id !== moduleId));
-    if (removesActiveLesson) setEditingLessonId(null);
+    try {
+      const res = await fetch(`${API_URL}/v1/modules/${moduleId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        toast.error(t('common.deleteFailed'));
+        return;
+      }
+      setModules((prev) => prev.filter((m) => m.id !== moduleId));
+      if (removesActiveLesson) setEditingLessonId(null);
+    } catch {
+      toast.error(t('common.deleteFailed'));
+    }
   };
 
   const handleAddLesson = async (moduleId: string) => {
@@ -279,14 +287,22 @@ export default function CourseEditPage() {
       confirmLabel: t('dialogs.delete'),
     });
     if (!ok) return;
-    await fetch(`${API_URL}/v1/lessons/${lessonId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setModules((prev) => prev.map((m) =>
-      m.id === moduleId ? { ...m, lessons: m.lessons.filter((l) => l.id !== lessonId) } : m
-    ));
-    if (editingLessonId === lessonId) setEditingLessonId(null);
+    try {
+      const res = await fetch(`${API_URL}/v1/lessons/${lessonId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        toast.error(t('common.deleteFailed'));
+        return;
+      }
+      setModules((prev) => prev.map((m) =>
+        m.id === moduleId ? { ...m, lessons: m.lessons.filter((l) => l.id !== lessonId) } : m
+      ));
+      if (editingLessonId === lessonId) setEditingLessonId(null);
+    } catch {
+      toast.error(t('common.deleteFailed'));
+    }
   };
 
   const handleMoveModule = async (moduleId: string, direction: 'up' | 'down') => {

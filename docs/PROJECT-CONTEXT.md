@@ -5,7 +5,41 @@
 
 ## Источники правды
 
-### DEV018 candidate — remaining cabinet actions and reset diagnosis — 2026-10-17
+### DEV018 live; follow-up019 in progress — 2026-10-17
+
+Exactf29b62277e913ffecd2938ca3fe5940d8bc6b9b4, CI39034758056 SUCCESS.
+New module HTTP/ORM integration executed (not skipped); backend4776PASS2SKIP,
+coverage76.28%. Canonical execute RELEASE_OK/root reconcile RECONCILED:
+Verceldpl_3Ermq7KkpvQ2HyJKuVnU4Rb4fFdt READY/Hobby;
+APIdep-db9n4tajnfac73ctt1kg/workerdep-db9n5tuq1p3s738sesk0 LIVE/Free.
+Actual DEVDB1/oneworkerpong/ai-documents-maintenance queues PASS, no tasks/models.
+Live Restore baseline version1→currentversion6 retains linked current unit label;
+module A2 persists after reload. Temporary module/lesson create/cancel/save/reload
+PASS; delete previews cancelled pending exact owner decision. Protected original
+attemptID sets1+2, owned completed learning/exact2attempts, source policyNULL,
+inactive temporary admin, submitted survey and published/approved snapshots retained.
+
+Further live finding: selected-course approval screen still shows all-tenant
+request rows.019 adds optional tenant-bound course filter and stale-read/callback
+guards; failed DELETE must not hide an unchanged object. Source independent review
+ACCEPT; final API4253PASS528SKIP/quality1008-2201, web1280PASS169files/typecheck/
+build67of67PASS. Exact019 CI/new filter integration/provider/live pending. Owner
+approved only temporary lesson0968c795 then emptymodule7c55beed cleanup after019.
+No course/request decision or access was changed.
+
+Network018: startupf6b06a58cb8c first reset13:07:55.499Z, second ready/connected
+13:07:58.246Z.420s passive header capture sees only second SYN/SYNACK for accepted
+peer12b5ab098a2e, flow866bde4be641 matches proxy auth13:07:58.182Z. No first-flow
+RST observed at that peer. Official metadata says shared outbound with2ranges;
+one-peer capture does not rule out another egress address. Narrow all-SSH journal
+window confirms other preauth close is outside those DEV ranges; no matching
+denial. Kernel window117rows has no OOM/conntrack-full/SYN-flood/segfault/link-down
+class; ssh active/NRestarts0. No host writes/pcap/payload/config changes. Next
+authorized product DEV launch will observe both declared ranges; exact network
+node remains NOT_LOCALIZED. Render documents outbound-routing TCP resets, but
+that is a hypothesis, not proof of this event. No production/ASUS/billing changes.
+
+### DEV018 preparation gates (historical, superseded above)
 
 Accepted runtime remains017 below until exact018 provider and live readback.
 Candidate preserves linked position department labels on qualification Restore,

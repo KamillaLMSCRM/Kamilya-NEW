@@ -1,9 +1,51 @@
 # Cabinet actions and source ownership acceptance
 
-Status: BOUNDED DEV017 ACCEPTED; full cabinet matrix remains PARTIAL.
+Status: BOUNDED DEV018 ACCEPTED; follow-up019 IN PROGRESS; cabinet remains PARTIAL.
 Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
 ## Follow-up018 IN PROGRESS — 2026-10-17
+
+- Superseded by successful exact018 deployment and live bounded readback below;
+  next019 repairs additional findings, not a retry of018.
+-018 exactf29b6227, CI39034758056 SUCCESS (backend4776PASS2SKIP/76.28%; actual
+  module integration '.'), execute RELEASE_OK/reconcile RECONCILED. Vercel
+  dpl_3Ermq7KkpvQ2HyJKuVnU4Rb4fFdt; APIdep-db9n4tajnfac73ctt1kg and
+  workerdep-db9n5tuq1p3s738sesk0 live, sameSHA, Free/Free/Hobby unchanged.
+  Actual brokerDB1/1workerpong/ai-documents-maintenance queues PASS, zero tasks.
+- Live old position version1 Restore→version6/reload keeps current linked label
+  and empty level. Module rename A→A2/reload persists. New temporary module
+  7c55beed/one lesson: cancelled create draft clears, actual create/save/reload
+  persists text. Delete lesson/module previews cancelled; exact two-object owner
+  decision requested, no irreversible delete yet. Pending019 error-state fix.
+- Localized reviewer table PASS, but main-course selector shows short-course
+  request0780b7b2 too. Root confirmed list endpoint ignores course_id;23unitcases
+  include actual RED2→PASS. New2course/foreigncourse/legacy DB integration locally
+  SKIP; CI must execute it.019 UI adds selected-course reads and guards; review
+  found stale callback could start a newer wrong-course read. Correction pending.
+-018 passive420s SYN/RST/FIN capture matched successful worker secondflow
+  866bde4be641 to auth timestamp, first reset not seen for acceptedpeer.2declared
+  shared Render ranges mean other-IP path not excluded. Kernel window shows no
+  listed resource/link errors; other preauth-close peer is outside DEV ranges.
+  Next authorized product deploy will use bounded capture across both declared
+  ranges, no blind restart or policy change. Exact reset node remains unlocalized.
+- Additional ordinary readback PASS: imported exactIDs/current label, admininactive,
+  protected original1+2attemptIDs, own2attempts/completion08:34:13Z/survey, ownerNULL,
+  rulesdraft/reminderfalse/announcement0sent, mainpublished and shortdraft retained.
+-019 source now independently ACCEPT after late-callback/ref guard, explicit empty
+  selector and accurate deletion copy. New neighbor fullweb1275PASS4FAIL exposed
+  old all-history mocks and sequential timing; exact mock query/waits corrected,
+  then actual pending/unavailable-history creation RED2/7PASS fixed. Last-success
+  course marker fail-closes Create, but does not unmount the open credential modal
+  during same-course refresh. Final4focusedfiles47PASS/standalone typecheckPASS.
+  Backend frozen4253PASS528environmentSKIP70.22s, quality1008/2201PASS. Final
+  frozen fullweb/build and new exact019 CI (non-skipped filter integration) pending.
+- Owner now explicitly approves only lesson0968c795 and then emptymodule7c55beed
+  deletion in owned draftaf5a2cdb. Execute after019 DEV, verify absence and original
+  2modules/2lessons remain. No broader cleanup, purge or protected-record authority.
+- Final frozen019 web1280PASS169files171.85s; standalone typecheckPASS, build
+  67of67PASS. Backend4253PASS528SKIP70.22s/quality1008-2201 and310ID contract
+  PASS already bound unchanged API source. No further product exploration until
+  exact019 targeted live acceptance; new unrelated findings remain separate.
 
 - Owner renewed DEV-only remaining-button scenarios and separate reset diagnosis.
   Root owns browser/network/integration/docs; cheap bounded UI writer and separate
@@ -390,14 +432,14 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 | Methodologist /dashboard | Refresh, filters, action cards, destination context, help | PARTIAL: exhausted1row/reset/return; other destination combinations pending |
 | /documents | Upload/open/cancel/validation; YouTube; search/status/purpose filters; download; new version; reindex; delete preview; actuality ownership/dates/review decisions; help | OWNER FLOW PASS: other/self/save/clear/reload/date refusal; other actions PARTIAL, named delete cancelled |
 | /ai/generate | Source selection/compatibility; options; generation/resume/cancel; preview; edit/review/publish; help | PARTIAL: source preflight/options/default restore; actual generation NOT RUN |
-| /courses and /courses/[id]/edit | Create/edit/preview; lessons/reorder/media; quizzes; review/publish/archive/delete; help | PARTIAL: own save/reload/preview/discard; empty refusal/nonempty publish/archive PASS; template author approval/fresh reviewer/resume/revision2 publication and short limited-review decision/Close PASS; media/delete variants NOT_RUN |
+| /courses and /courses/[id]/edit | Create/edit/preview; lessons/reorder/media; quizzes; review/publish/archive/delete; help | PARTIAL: own save/reload/preview/discard; empty refusal/nonempty publish/archive PASS; template approval/fresh reviewer/resume/revision2 publish/limited decision Close PASS;018 module and lesson reorder/reload, module rename/reload, temporary module/lesson create/cancel/save/reload PASS; delete preview/cancel only, exact cleanup pending; image Markdown literal, file-media NOT_RUN |
 | /quizzes | Select/create quiz; question/answer types/edit/delete/reorder; learner preview; save/reload; help | PARTIAL: own3types/options/settings/edit/reload, failed/retry/success learner attempts PASS; fresh008 legacy preview/no-save scoring, single selection and exhausted radios PASS |
 | /learning-paths | Create/edit/version/publish; sequence; assignments/cancel; learner view; help | PARTIAL: create/reorder/required/save/reload/publish0audience/v2draft; active audience PASS; actual assignment NOT RUN |
 | /assignments | Course/audience selection; due date/access; preview/confirm; link/PIN; copy; revoke/repeat; rules/reminders; help | PARTIAL: own individual PIN assignment/copy/wrong+correct PIN/learner completion PASS; recurring draft and reminder save/reload/disable PASS; no mail/revoke/reset |
 | /methodologist-workbench | Document dialog/history/source download; assignment preview/confirm; correction/apply/reload; help | PARTIAL: preview/reload/new-command/history/citation/download and localized audience_empty refusal PASS; no model call/confirm/apply |
 | /learning-cycles | Create/edit/version/schedule/activate/deactivate; filters/pagination; help | PARTIAL: empty guards/target switch, own recurring draft only; no rule activation or periods |
 | /staff | Import stages/file validation/mapping/preview/confirm; schema/roster/filters; create/edit/move/terminate; unit preview/confirm; help | PARTIAL: real one-row import;017 same-identity UNCHANGED→RENAME→approve→commit→reload/schema/API exact-ID PASS; forms/help checked, termination NOT_RUN; separate earlier workspace transfer gates not repeated here |
-| /positions and /positions/[id] | Create/edit; JD attach/analyze; qualification/instruction/tests; versions/restore; help | PARTIAL: forms/chooser/refresh/tabs; actual profile save/reload/restore empty level and version history PASS; version Restore button/rule/JD-model mutations NOT_RUN |
+| /positions and /positions/[id] | Create/edit; JD attach/analyze; qualification/instruction/tests; versions/restore; help | PARTIAL: forms/chooser/refresh/tabs; profile save/reload/restore empty level PASS;018 actual version1 Restore/reload/version6 keeps current linked unit label; rule/JD-model mutations NOT_RUN |
 | /cohorts | Create/edit; search/select/save members; reload; help | PARTIAL: owned group create/member/save/reload/remove/reset, final0members |
 | /candidate-assessments | Create/edit campaign; preview/activate/close; invite/copy link; CSV; help | PARTIAL: course guard/create/start/close/CSV; no candidate/link/mail |
 | /mandatory-training | Search/filters/scope/status/paging; learner/course destination; help | PARTIAL: search/apply/empty/restore7, single-page guards; no retained writes |

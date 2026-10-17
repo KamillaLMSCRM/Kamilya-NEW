@@ -63,6 +63,7 @@ vi.mock('@/i18n/useT', () => ({
       'authenticatedUi.editor.discard': 'Отменить изменения',
       'common.edit': 'Редактировать',
       'common.saveFailed': 'Не удалось сохранить',
+      'common.deleteFailed': 'Не удалось удалить',
     }[key] ?? key),
     tp: (key: string, count: number) => `${count} ${key}`,
   }),
@@ -138,9 +139,13 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function setupFetch(patchStatus = 200, courseStructure = structure, lessonOverride = lesson, courseOverride = course, modulePatch: 'ok' | 'error' | 'network' = 'ok') {
+function setupFetch(patchStatus = 200, courseStructure = structure, lessonOverride = lesson, courseOverride = course, modulePatch: 'ok' | 'error' | 'network' = 'ok', deletePatch: 'ok' | 'error' | 'network' = 'ok') {
   fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+    if (init?.method === 'DELETE' && (url.includes('/v1/modules/module-1') || url.includes('/v1/lessons/lesson-1'))) {
+      if (deletePatch === 'network') throw new Error('network down');
+      return jsonResponse(deletePatch === 'ok' ? {} : { detail: 'Delete failed' }, deletePatch === 'ok' ? 200 : 500);
+    }
     if (url.includes('/v1/modules/module-1') && init?.method === 'PATCH') {
       if (modulePatch === 'network') throw new Error('network down');
       return jsonResponse(modulePatch === 'ok' ? { ...structure.modules[0], title: 'Server module title' } : { detail: 'Save failed' }, modulePatch === 'ok' ? 200 : 500);
@@ -511,6 +516,35 @@ describe('course lesson editor', () => {
     ));
     expect(screen.queryByRole('textbox', { name: 'Содержание урока' })).not.toBeInTheDocument();
     expect(screen.getByText('Выберите урок')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['HTTP 500', 'error'],
+    ['network rejection', 'network'],
+  ] as const)('retains the active lesson and draft when lesson DELETE fails with %s', async (_label, failure) => {
+    setupFetch(200, structure, lesson, course, 'ok', failure);
+    confirmMock.mockResolvedValueOnce(true);
+    render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' });
+    openLessonEditor();
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: '# Несохранённый текст' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить урок {title}' }));
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('Не удалось удалить'));
+    expect(screen.getByDisplayValue('# Несохранённый текст')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Введение' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['HTTP 500', 'error'],
+    ['network rejection', 'network'],
+  ] as const)('retains the module when module DELETE fails with %s', async (_label, failure) => {
+    setupFetch(200, structure, lesson, course, 'ok', failure);
+    confirmMock.mockResolvedValueOnce(true);
+    render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' });
+    fireEvent.click(screen.getAllByRole('button', { name: 'common.delete' })[0]);
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('Не удалось удалить'));
+    expect(screen.getByText('Модуль 1')).toBeInTheDocument();
   });
 
   it('persists a lesson move through the published lessons reorder route', async () => {

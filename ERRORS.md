@@ -2,6 +2,48 @@
 
 Current as of: 2026-10-17.
 
+## APPROVAL-003 - Selected-course workspace displayed other courses' request actions
+
+- Date:2026-10-17, live DEV018 synthetic QA.
+- Symptom: selector maincourse9b5a1ed4 displayed shortcourse request0780b7b2 along
+  with the main course's two requests. Cancel/rotate/revoke targets were therefore
+  visually unrelated to the selected course, although tenant RBAC still applied.
+- Cause: request list had no course filter and the page loaded all tenant rows.
+- Fix: candidate019 optional UUID course_id, tenant-matched revision join; missing
+  filter preserves reviewer/audit compatibility. Selected-course UI reads clear
+  old actions and reject stale reads/callbacks; empty selection is not an empty
+  result claim. Independent review found late A callback could initiate a new
+  winning A read after B; current-selection guard must cover callback start and
+  response, not generation alone. No new permission, migration or action mutation.
+- Verification: real HTTP/query RED2/21PASS→23PASS; actual two-course/foreign-course/
+  legacy PostgreSQL integration added, locallySKIP. Focused final4webfiles47PASS/
+  typecheckPASS and independent corrected-source review ACCEPT. Full web initially
+  1275PASS4FAIL exposed old unfiltered API mocks; after adapting exact query URLs/
+  sequential waits, real readiness regression RED2/7PASS was fixed with an exact
+  successful-history course marker. Creation waits for current history success;
+  the already-open one-time-credential modal survives same-course background
+  refresh. Final frozen fullweb/CI/live switching remain required.
+- Prevention: selection-scoped request/action evidence and late-callback tests,
+  not only request-start ordering. Never equate tenant isolation with correct UI scope.
+
+## COURSE-EDITOR-002 - Failed DELETE optimistically hid a server-retained object
+
+- Date:2026-10-17, bounded DEV editor follow-up.
+- Symptom: HTTP500 removed the lesson/module from the UI despite failed deletion;
+  rejected fetch had no controlled error outcome and could abandon the user draft.
+- Cause: module/lesson DELETE awaited fetch without checking response.ok, then
+  removed local objects and active editing state even for HTTP500; network rejection
+  had no safe localized outcome. Source/behavioral regression confirms both risks.
+- Fix: candidate019 checks status/catch; preserve object/editor/draft on failure, remove
+  only the requested target on success; existing confirmation/dirty guards retained.
+  Use action-accurate localized delete-failed copy, not failed-to-save.
+- Verification:2behavioral REDs; additional invalid JSON204 mock failure was test
+  setup only and corrected separately. Final editor28PASS covers both handlers/
+  both failure modes and accurate3language copy; combined47PASS/typecheckPASS,
+  independent review ACCEPT. FinalCI/live destructive acceptance remain pending.
+- Prevention: pair destructive controls with HTTP/network negatives and authoritative
+  persisted readback; failed UI deletion must never be treated as completed deletion.
+
 ## POSITION-RESTORE-001 - Qualification restore reverted the label of a linked renamed unit
 
 - Date: 2026-10-17, actual DEV017 owned synthetic position Restore version1.
@@ -353,6 +395,23 @@ Current as of: 2026-10-17.
   hide archives globally or treat an empty-recipient result as a successful target.
 
 ## DEV-SSH-001 - A startup TCP reset aborted the optional DEV transport
+
+-018 observation2026-10-17: exactf29b6227/workerdep-db9n5tuq1p3s738sesk0 LIVE;
+  startupf6b06a58cb8c/instancebf4ebb66476c firstforward reset13:07:55.499Z,
+  immediatecleanup/stopped; retry2ready/consumer/connected13:07:58.246Z. Real
+  DEVDB1/1workerpong/3queues PASS, no business/model tasks. Passive420s header
+  capture for acceptedpeer12b5ab098a2e sees secondSYN/SYNACK13:07:56.557Z only,
+  flow866bde4be641 matches proxy acceptedauth13:07:58.182Z; firstflow not seen.
+  Official DEV outbound metadata is shared/2ranges, so a single-peer capture
+  cannot rule out another egress address. Narrow5s all-SSH journal otherpreauth
+  close is outside both declared ranges; no DEVauth/MaxStartups refusal observed.
+  Bounded kernel117rows has no OOM/conntrack-full/SYNflood/segfault/linkdown class,
+  sshactive/NRestarts0. No payload/pcap/files/config writes. Next authorized
+  product deploy will passively observe both declared ranges, not blind restart.
+  [Render's documented routing resets](https://render.com/docs/outbound-connection-resets)
+  are a plausible mechanism, not proof of this event. Exact node NOT_LOCALIZED;
+  do not change ports, keys, allowlists, retries, provider tiers or model routing
+  based on this hypothesis. ASUS/production were not probed or mutated.
 
 - Accepted017 follow-up2026-10-17: exactf3dc54cd workerdep-db9mdbuq1p3s738pvimg
   LIVE12:15:44Z, independent terminal reconcile PASS. Same startup984b9ee17d44

@@ -14,9 +14,10 @@ function principal(role: string, tenant = 'tenant-a'): AuthUser {
 }
 
 const request = { request_id: 'request-1', revision_id: 'revision-1', outcome: 'pending', delivery_mode: 'personal_link', reviewer_ids: [] };
+const historyPath = '/v1/course-approval-requests?course_id=course-a';
 function responseFor(url: string) {
   if (url.startsWith('/v1/course-approval-courses?') || url.startsWith('/v1/courses?')) return { data: [{ id: 'course-a', title: 'Synthetic course', requires_approval: false }] };
-  if (url === '/v1/course-approval-requests') return { data: [request] };
+  if (url === historyPath || url === '/v1/course-approval-requests?course_id=course-b') return { data: [request] };
   if (url.endsWith('/approval-policy')) return { data: { course_id: 'course-a', requires_approval: false, review_enabled: true } };
   throw new Error(`Unexpected API request: ${url}`);
 }
@@ -42,7 +43,8 @@ describe('approval page through the actual API client', () => {
     for (const name of ['Создать снимок и запрос', 'Отменить запрос', 'Повторить доставку', 'Сменить доступ', 'Отозвать доступ']) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
     }
-    expect(screen.getByRole('heading', { name: 'Запрос request-' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Запрос request-' })).toBeInTheDocument();
+    expect(get).toHaveBeenCalledWith(historyPath);
   });
 
   it('preserves authoring and requester controls for the methodologist', async () => {
@@ -50,7 +52,7 @@ describe('approval page through the actual API client', () => {
     render(<CourseApprovalsPage />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Создать снимок и запрос' })).toBeInTheDocument());
     expect(get).toHaveBeenCalledWith('/v1/courses?page=1&per_page=100');
-    expect(screen.getByRole('button', { name: 'Отменить запрос' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Отменить запрос' })).toBeInTheDocument();
   });
 
   it.each(['admin', 'methodologist'])('does not present unavailable history as an empty success for %s', async (role) => {
@@ -59,7 +61,7 @@ describe('approval page through the actual API client', () => {
     let resolveHistory!: (value: unknown) => void;
     get.mockImplementation(async (url: string) => {
       if (failed) throw new Error('Synthetic unavailable read');
-      if (url === '/v1/course-approval-requests') return new Promise((resolve) => { resolveHistory = resolve; });
+      if (url === historyPath) return new Promise((resolve) => { resolveHistory = resolve; });
       return responseFor(url);
     });
     render(<CourseApprovalsPage />);
@@ -70,10 +72,31 @@ describe('approval page through the actual API client', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Обновить$/ }));
     expect(screen.queryByText('Активных запросов на согласование нет.')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Создать снимок и запрос' })).not.toBeInTheDocument();
-    await act(async () => resolveHistory(responseFor('/v1/course-approval-requests')));
+    await waitFor(() => expect(resolveHistory).toBeTypeOf('function'));
+    expect(screen.queryByRole('button', { name: 'Создать снимок и запрос' })).not.toBeInTheDocument();
+    await act(async () => resolveHistory(responseFor(historyPath)));
     await waitFor(() => expect(screen.getByRole('combobox')).toHaveValue('course-a'));
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Запрос request-' })).toBeInTheDocument();
+  });
+
+  it('keeps request creation closed while selected-course history is pending or unavailable', async () => {
+    useAuthStore.setState({ user: principal('methodologist') });
+    let rejectHistory!: (reason: Error) => void;
+    get.mockImplementation(async (url: string) => url === historyPath
+      ? new Promise((_resolve, reject) => { rejectHistory = reject; })
+      : responseFor(url));
+    render(<CourseApprovalsPage />);
+    await waitFor(() => expect(rejectHistory).toBeTypeOf('function'));
+    expect(screen.queryByRole('button', { name: 'Создать снимок и запрос' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Активных запросов на согласование нет.')).not.toBeInTheDocument();
+    await act(async () => rejectHistory(new Error('Synthetic unavailable history')));
+    expect(screen.getByText('Статусы запросов не загружены. Повторите обновление.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Создать снимок и запрос' })).not.toBeInTheDocument();
+    get.mockImplementation(async (url: string) => responseFor(url));
+    fireEvent.click(screen.getByRole('button', { name: /^Обновить$/ }));
+    expect(await screen.findByRole('button', { name: 'Создать снимок и запрос' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Запрос request-' })).toBeInTheDocument();
   });
 
   it('discards a pending response from the previous tenant', async () => {

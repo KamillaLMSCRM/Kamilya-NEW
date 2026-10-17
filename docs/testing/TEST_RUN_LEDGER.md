@@ -5746,3 +5746,72 @@ Rules:
   added after review gap, then accepted. Exposed token counters NOT_AVAILABLE;
   no measured tool savings claim. CodeGraph checkout runtime NOT_READY, bounded
   exact-source fallback; no install or graph-based verification claimed.
+
+### 2026-10-17 — exact018 live acceptance and additional019 findings
+
+- Exactf29b62277e913ffecd2938ca3fe5940d8bc6b9b4 source push todev independently
+  matched remote13:00:07Z/accountKamillaLMSCRM/canonicalproject process-local credential;
+  secret-free task receipt and authorized memory receipt saved. Production unchanged.
+- CI39034758056 SUCCESS. Exact backendjob117402242823 new module integration '.'
+  and serializationunit '.' independently checked:4776PASS2SKIP184.86s,76.28%coverage.
+  Execute RELEASE_OK +root reconcile RECONCILED; Verceldpl_3Ermq7KkpvQ2HyJKuVnU4Rb4fFdt,
+  APIdep-db9n4tajnfac73ctt1kg/workerdep-db9n5tuq1p3s738sesk0 exactLIVE/READY,
+  Free/Free/Hobby unchanged; exacthealthPASS. Real DEVDB1/1workerpong/required3queues
+  PASS, zero business/model tasks. Migrationnone/schema0183 retained.
+- Live oldpositionversion1Restore→version6/currentunitlabel/empty level/reloadPASS;
+  own moduleA→A2/reloadPASS. Proof screenshots dev-restore-linked-unit-018.png and
+  dev-module-rename-persisted-018.png. Newmodule7c55beed/one temporary lesson create,
+  cancelled draft reset, savedtext/reloadPASS. Wrapped editor title/content labels
+  and mode button names work after async load; transient incomplete AX was not a
+  product label defect. Delete lesson/module warnings opened/cancelled; exact
+  two-object irreversible cleanup awaits owner decision, no deletion claimed.
+- Final ordinary readback preserves imported exactIDs/current unit name, inactive
+  temporary admin, owner/datesNULL, original protected attempts1+2, own2attempts,
+  own completed enrollment42fcca76 timestamp08:34:13.194326Z/notification0, submitted
+  survey, draftrecurring/reminderfalse/announcement0sent, approved snapshots/states.
+- Worker018 same startupf6b06a58cb8c/instancebf4ebb66476c firstreset13:07:55.499Z,
+  cleanup/stopped immediate, retry2ready/consumer/connected13:07:58.246Z. Passive
+  capture actually420s (extended from prepared185s to cover scheduling) records
+  only13:07:56.557245InSYN/OutSYNACK acceptedpeer12b5ab098a2e flow866bde4be641,
+  matching proxy auth13:07:58.182678Z. No first SYN/RST at that peer; cannot exclude
+  another shared egress IP. Canonical Render outbound GET reports shared/2ranges.
+  Narrow5s journal shows other preauth-close peer outside those declared ranges.
+  Kernel117rows/0matched OOM/conntrack/SYNflood/segfault/linkdown; sshNRestarts0.
+  No payload/pcap/files or host configuration changed. Exact node not localized.
+- Reference verified2026-10-17: render.com/docs/outbound-connection-resets explicitly
+  documents provider-routing TCP resets; not evidence that this specific event
+  was that mechanism. Next actual product DEV deploy will capture both declared
+  ranges, not restart the worker just to reproduce. No dedicated IP/paid resources.
+- Additional live019 finding: maincourse selected but shortcourse0780b7b2 included
+  in actionable status list. Root HTTP/query RED2/21PASS→23PASS, new real2course/
+  foreigncourse/legacy integration locallySKIP. API optionalUUIDcourse_id joins
+  revision with both tenant predicates; absent filter preserves old API behavior.
+- Cheap writer fixes unchecked DELETE;2behavioralREDs plus unrelated invalid204JSON
+  fixture failure, corrected separately; initial26PASS/typecheckPASS. Course-scope
+  UI initial8PASS/typecheckPASS but writer captured no pre-codeRED; actual live bug
+  and root backendRED exist, no retroactive unitRED claim. Independent review found
+  P1 late callback starting newer wrong-course query, empty-selection false-empty
+  copy, and inaccurate delete error text. All returned to same writer; final pending.
+- First new error-journal gate failed required Fix/Symptom field naming; corrected
+  exact two new entries, gatePASS310IDs. This was documentation validation only.
+-019 correction review ACCEPT after ref/mount/target checks, empty prompt and
+  deletion-specific3language message; combined3files38PASS. Root tightened empty
+  target check unconditionally, same38PASS/typecheckPASS. Fullweb1275PASS4FAIL/
+  169files171.97s exposed skipped neighbor inventory: AdminBoundary mocks still
+  accepted only unfiltered URL and assumed parallel resolution. Root adapted exact
+  scoped URLs/awaits without relaxing role assertions; actual fail-closed creation
+  regression then RED2/7PASS. requestsCourseId last-success marker now blocks
+  Create and successful-empty claims until current selected history succeeded;
+  modal stays mounted across onCreated refresh to retain one-time credentials.
+  One pageflow click needed awaitFind because Create correctly waits for the
+  history now. Final focused4files47PASS/typecheckPASS, independent re-review
+  ACCEPT. Finalfullweb/build running on frozen source; prior fullweb not GO.
+- Frozen backend4253PASS528environmentSKIP70.22s; Ruff1008/Mypy2201PASS. New
+  two-course/foreign-course/legacy integration remains locallySKIP; exact CI must
+  execute it. Ordinary018 metadata read confirms linked label, A2 and original
+  module/lesson orders persisted plus exact temporary module7c55beed/one lesson
+  0968c795 retained while owner deletion decision pending; courseDRAFT/0audience.
+- Owner subsequently approved deletion ONLY lesson0968c795 then emptymodule7c55beed;
+  root defers until corrected019 DEV path, no other data cleanup authorized.
+- Final frozen019 fullweb1280PASS169files171.85s, standalone typecheckPASS;
+  build67of67PASS. Earlier1275PASS4FAIL remains preserved, not a green gate.

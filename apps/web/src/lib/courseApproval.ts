@@ -197,8 +197,9 @@ export async function createApprovalRequest(revisionId: string, reviewerUserIds:
   return response.data;
 }
 
-export async function listApprovalRequests(_token?: string): Promise<ApprovalRequestSummary[]> {
-  const response = await api.get<ApprovalRequestSummary[]>('/v1/course-approval-requests');
+export async function listApprovalRequests(_token?: string, courseId?: string): Promise<ApprovalRequestSummary[]> {
+  const path = courseId ? `/v1/course-approval-requests?course_id=${encodeURIComponent(courseId)}` : '/v1/course-approval-requests';
+  const response = await api.get<ApprovalRequestSummary[]>(path);
   return response.data;
 }
 

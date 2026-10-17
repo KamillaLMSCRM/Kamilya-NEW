@@ -1,5 +1,13 @@
 # Changelog
 
+## DEV019 candidate — 2026-10-17
+
+- Scope approval status/actions to the selected course; preserve unfiltered audit
+  compatibility and tenant isolation. Reject stale request reads and callbacks.
+- Preserve module/lesson and editing drafts when DELETE fails; show action-specific
+  error text. Existing confirmations and successful deletion semantics remain.
+- DEV018 is live on existing free tiers; no production, schema or provider change.
+
 ## DEV018 candidate — 2026-10-17
 
 - Restore qualification history without rolling back a linked unit's current
