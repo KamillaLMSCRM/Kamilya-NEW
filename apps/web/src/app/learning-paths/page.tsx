@@ -186,8 +186,10 @@ export default function LearningPathsPage() {
   const [recurrenceDueDays, setRecurrenceDueDays] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pathLoading, setPathLoading] = useState(false);
   const [contextualProgramId, setContextualProgramId] = useState<string | null>(null);
   const contextualProgramApplied = useRef<string | null>(null);
+  const pathLoadGeneration = useRef(0);
 
   useEffect(() => {
     if (selected) setScenario(normalizeScenario(selected.scenario));
@@ -235,7 +237,13 @@ export default function LearningPathsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const invalidatePathRead = () => {
+    pathLoadGeneration.current += 1;
+    setPathLoading(false);
+  };
+
   const resetEditor = () => {
+    invalidatePathRead();
     setSelected(null);
     setEditing(true);
     setScenario(null);
@@ -273,22 +281,30 @@ export default function LearningPathsPage() {
   };
 
   const selectPath = useCallback(async (summary: PathSummary) => {
-    setSaving(true);
+    const requestGeneration = ++pathLoadGeneration.current;
+    if (selected?.id !== summary.id) {
+      setSelectedAudience({ learners: [], cohorts: [], departments: [], positions: [] });
+      setStartsAt('');
+      setDueAt('');
+    }
+    setPathLoading(true);
     try {
       const [detailResponse, assignmentResponse] = await Promise.all([
         api.get<PathDetail>(`/v1/learning-paths/${summary.id}`),
         api.get<Assignment[]>(`/v1/learning-paths/${summary.id}/assignments`),
       ]);
+      if (requestGeneration !== pathLoadGeneration.current) return;
       applyDetail(detailResponse.data);
       setAssignments(asList<Assignment>(assignmentResponse.data));
       setEditing(true);
       setStage('basic');
     } catch (error) {
+      if (requestGeneration !== pathLoadGeneration.current) return;
       toast.error(t('learningPaths.loadFailed'), { description: errorDescription(error) });
     } finally {
-      setSaving(false);
+      if (requestGeneration === pathLoadGeneration.current) setPathLoading(false);
     }
-  }, [t]);
+  }, [selected?.id, t]);
 
   useEffect(() => {
     if (!canManage || loading || !contextualProgramId || contextualProgramApplied.current === contextualProgramId) return;
@@ -549,6 +565,7 @@ export default function LearningPathsPage() {
   const filteredCourses = courses.filter((course) => course.title.toLowerCase().includes(courseSearch.toLowerCase()));
   const currentAudience = audience[audienceTab].filter((item) => optionLabel(item).toLowerCase().includes(audienceSearch.toLowerCase()));
   const totalSelectedAudience = Object.values(selectedAudience).reduce((total, ids) => total + ids.length, 0);
+  const uiBusy = saving || pathLoading;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
@@ -608,7 +625,7 @@ export default function LearningPathsPage() {
                 </div>
                 {selected && <p className="mt-1 text-sm text-muted-foreground">v{selected.version || 1} · {tp('common.counts.course', selected.course_count)} · {selected.assignment_count == null ? '—' : tp('common.counts.learner', selected.assignment_count)}</p>}
               </div>
-              {selected?.status === 'published' && <Button variant="outline" onClick={createVersion} disabled={saving}>{t('learningPaths.newVersion')}</Button>}
+              {selected?.status === 'published' && <Button variant="outline" onClick={createVersion} disabled={uiBusy}>{t('learningPaths.newVersion')}</Button>}
             </div>
 
             <nav className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label={t('learningPaths.stages')}>
@@ -622,13 +639,13 @@ export default function LearningPathsPage() {
             {stage === 'basic' && <><BasicStage scenario={scenario} setScenario={setScenario} title={title} description={description} sequencingMode={sequencingMode} responsibleUserId={responsibleUserId} setResponsibleUserId={setResponsibleUserId} defaultDueDays={defaultDueDays} setDefaultDueDays={setDefaultDueDays} methodologists={methodologists} disabled={!isDraft} setTitle={setTitle} setDescription={setDescription} setSequencingMode={setSequencingMode} t={t} /><BasicSettings responsibleUserId={responsibleUserId} setResponsibleUserId={setResponsibleUserId} defaultDueDays={defaultDueDays} setDefaultDueDays={setDefaultDueDays} certificateMode={certificateMode} setCertificateMode={setCertificateMode} certificateValidityMonths={certificateValidityMonths} setCertificateValidityMonths={setCertificateValidityMonths} recurrenceMode={recurrenceMode} setRecurrenceMode={setRecurrenceMode} recurrenceCadenceDays={recurrenceCadenceDays} setRecurrenceCadenceDays={setRecurrenceCadenceDays} recurrenceDueDays={recurrenceDueDays} setRecurrenceDueDays={setRecurrenceDueDays} methodologists={methodologists} disabled={!isDraft} t={t} /></>}
             {stage === 'content' && selected?.status === 'draft' && <div className="mb-5 flex flex-col gap-3 rounded-md border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{t('learningPaths.createCourseFromMaterials' as never)}</p><p className="mt-1 text-sm text-muted-foreground">{t('learningPaths.createCourseFromMaterialsHint' as never)}</p></div><Link href={`/ai/generate?program_id=${encodeURIComponent(selected.id)}`} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"><Plus className="h-4 w-4" aria-hidden="true" />{t('learningPaths.createCourseFromMaterialsAction' as never)}</Link></div>}
             {stage === 'content' && <ContentStage courses={filteredCourses} steps={steps} search={courseSearch} setSearch={setCourseSearch} onToggle={toggleStep} onRemove={(id) => setSteps((current) => current.filter((step) => step.course_id !== id))} onMove={moveStep} onRequired={(id, required) => setSteps((current) => current.map((step) => step.course_id === id ? { ...step, required } : step))} disabled={!isDraft} t={t} tp={tp} />}
-            {stage === 'audience' && <AudienceStage selected={selected} audienceTab={audienceTab} setAudienceTab={setAudienceTab} options={currentAudience} selectedIds={selectedAudience[audienceTab]} search={audienceSearch} setSearch={setAudienceSearch} onToggle={toggleAudience} startsAt={startsAt} dueAt={dueAt} setStartsAt={setStartsAt} setDueAt={setDueAt} invalidDates={invalidAssignmentDates} assignments={assignments} onCancel={cancelAssignment} onAssign={assign} saving={saving} totalSelected={totalSelectedAudience} t={t} />}
-            {stage === 'review' && <ReviewStage selected={selected} title={title} description={description} sequencingMode={sequencingMode} steps={steps} totalSelectedAudience={totalSelectedAudience} canPublish={canPublish} onPublish={publish} saving={saving} t={t} />}
+            {stage === 'audience' && <AudienceStage selected={selected} audienceTab={audienceTab} setAudienceTab={setAudienceTab} options={currentAudience} selectedIds={selectedAudience[audienceTab]} search={audienceSearch} setSearch={setAudienceSearch} onToggle={toggleAudience} startsAt={startsAt} dueAt={dueAt} setStartsAt={setStartsAt} setDueAt={setDueAt} invalidDates={invalidAssignmentDates} assignments={assignments} onCancel={cancelAssignment} onAssign={assign} saving={uiBusy} totalSelected={totalSelectedAudience} t={t} />}
+            {stage === 'review' && <ReviewStage selected={selected} title={title} description={description} sequencingMode={sequencingMode} steps={steps} totalSelectedAudience={totalSelectedAudience} canPublish={canPublish} onPublish={publish} saving={uiBusy} t={t} />}
 
             <div className="mt-8 flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <Button variant="ghost" onClick={() => setEditing(false)}>{t('learningPaths.closeEditor')}</Button>
+              <Button variant="ghost" onClick={() => { invalidatePathRead(); setEditing(false); }}>{t('learningPaths.closeEditor')}</Button>
               <div className="flex flex-col gap-3 sm:flex-row">
-                {isDraft && <Button variant="outline" onClick={() => void persistDraft()} disabled={saving || !title.trim()} className="gap-2"><Save className="h-4 w-4" aria-hidden="true" />{t('learningPaths.saveDraft')}</Button>}
+                {isDraft && <Button variant="outline" onClick={() => void persistDraft()} disabled={uiBusy || !title.trim()} className="gap-2"><Save className="h-4 w-4" aria-hidden="true" />{t('learningPaths.saveDraft')}</Button>}
                 {stage !== 'basic' && <Button variant="ghost" onClick={() => setStage(STAGES[STAGES.indexOf(stage) - 1])}>{t('learningPaths.back')}</Button>}
                 {stage !== 'review' && <Button onClick={() => setStage(STAGES[STAGES.indexOf(stage) + 1])}>{t('learningPaths.next')}</Button>}
               </div>
@@ -692,7 +709,7 @@ function AudienceStage({ selected, audienceTab, setAudienceTab, options, selecte
                   setAudienceTab(tab);
                   setSearch('');
                 }}
-                className={`rounded-md border px-3 py-2 text-sm ${
+                className={`min-w-0 whitespace-normal break-words rounded-md border px-3 py-2 text-sm leading-tight ${
                   audienceTab === tab
                     ? 'border-primary bg-primary/5 text-primary'
                     : 'border-border text-muted-foreground'

@@ -5,6 +5,28 @@
 
 ## Источники правды
 
+### DEV021 accepted; DEV022 program-state repair being verified — 2026-10-17
+
+Exact7425daea181bdee67c92478196a843cfe3ae2a69/CI39040047110 SUCCESS;
+backend4779PASS2SKIP216.64s, unit-noDB3150PASS34.99s. Runner RELEASE_OK/root
+RECONCILED: Verceldpl_CFpyeFZtV6bAhA8taXRjcQNvjX6H READY/Hobby;
+APIdep-db9o8ucs728c73cdukig and workerdep-db9o9qijnfac73d1k6ig LIVE/Free.
+Schema0183/no migration. Actual brokerDB1/onepong/ai-documents-maintenance PASS.
+Live inverted-date guard PASS. Full cabinet matrix stays PARTIAL.
+
+022 source-only correction isolates audience/dates between different programs,
+retains same-program drafts, invalidates pending reads on New/Close, and wraps
+audience tabs. Final26focused/typecheck and independent source ACCEPT; full
+web/build/exactDEV/live pending. No production mutation authorized.
+
+021 native phase + all-peer destination header capture localizes first API reset
+to banner_read and worker to connect, both before SSH authentication.71captured/
+71received/0kernel-drops; first attempts have no new destination SYN/RST, successful
+second flows correlate with sshd auth. Diagnostic destination equals runtime host.
+No matching destination SSH denial. Exact upstream reset node NOT_LOCALIZED;
+bounded retry recovers but does not repair/prove provider cause. No transport
+policy/config/key/port/tier, ASUS/model/reserve/voice or production changes.
+
 ### DEV021 corrected candidate; halted020 is not accepted — 2026-10-17
 
 020 sourcec59a8b06/CI39039631484 succeeded, but root stopped the local controller

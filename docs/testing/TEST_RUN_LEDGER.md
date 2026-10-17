@@ -5927,3 +5927,44 @@ Rules:
   4318PASS528environmentSKIP55warnings68.50s. Gitdiff againstc59 forapps/web is
   empty, preserving frozen1283web/typecheck/build67of67 evidence.311IDcontract/
   diffcheckPASS. No new provider/model/production action; exact021 gates pending.
+
+### DEV021 live evidence and frozen022 correction — 2026-10-17
+
+-021 source7425daea181bdee67c92478196a843cfe3ae2a69 pushed/readback14:16:32.1513256Z,
+  dev/KamillaLMSCRM/canonicalprocesslocalcredential, sanitized task and authorized
+  memory receipts. CI39040047110 SUCCESS: backend4779PASS2SKIP216.64s, unit-noDB
+  3150PASS34.99s; seven jobs succeed. Exact execute RELEASE_OK and independent
+  root reconcile RECONCILED. Verceldpl_CFpyeFZtV6bAhA8taXRjcQNvjX6H READY,
+  APIdep-db9o8ucs728c73cdukig and workerdep-db9o9qijnfac73d1k6ig LIVE. Actual
+  brokerDB1/onepong/ai-documents-maintenance queues PASS, zero business/model tasks.
+  Free/Free/Hobby/schema0183/no migration unchanged. Genericapp_environmentproduction
+  is a hardening label; deployment_environment is render-development, not KZprod.
+- Live021 date guard screenshotdev-program-date-guard-021.png: inverted dates
+  show RU inline error/disabled Assign. Earlier identicalfrontendbytes checked
+  RU/KK/EN, retained input, same-day valid, shared draft publish refused before
+  persistence. Ordinary readback exacttwoQAprograms/draft+published/zeroassignments.
+-021 passive all-peer SSH SYN/RST/FIN capture14:19:15.826–14:29:15.842Z has71
+  captured/71received/0kerneldrops/notruncation. API firstreset14:22:38.018Z
+  tcp_established/banner_read; worker14:24:42.701Z unknown/connect. Neither first
+  attempt has a new destination SYN/RST. APIsecond3bf01061408e and workersecond
+  3043637de5cb match actual accepted SSH auth14:22:40.554673/14:24:45.611679Z.
+  Canonicalproxy equals fixedruntimeIPv4/port22. Narrow journals no matching first
+  auth/MaxStartups refusal. Other forward_connect_failed entries are destination
+  forwarding failures, not transport auth failure. No payload/pcap/remote file or
+  config mutation. Summaryproxy-capture021-summary.json; exact reset node remains
+  NOT_LOCALIZED upstream of destination. No provider coordination/trace authorized.
+- Live new UX-003: A's selected learner/dates leak into B after Close/switch. No
+  assignment/publication occurred.022 resets only on identitychange, retains same
+  program draft; generation invalidates stale reads/New/Close. Independent review
+  exposed pendingNew/Close and insufficient await; two real failing regressions
+  corrected with separate pathLoading/mutation saving and settled act continuations.
+  Final26focused/typecheck PASS; independent final sourceACCEPT. Tabs additionally
+  wrap in narrow card; browser visual gate pending. Only two websource/test files.
+- Frozen022 fullweb1287PASS169files194.52s; standalone tsc PASS/optimizedbuild67of67
+  PASS; releasecontracts0183/312uniqueIDs/diffcheckPASS. First pnpm invocation from
+  non-package checkoutroot failed with no manifest (harness only); corrected apps/web
+  invocation produced the actual full result. API/runtime sources unchanged from
+  accepted021, retaining its fullAPI4318PASS528environmentSKIP68.50s and CI evidence.
+- Ordinary methodologist /training-retention empty policy/read-only notice/help
+  open-close consistent: no controls to change policy or delete evidence. No writes.
+  Exact022 source/CI/provider/browser gates pending; full matrix remains PARTIAL.

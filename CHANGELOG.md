@@ -1,5 +1,15 @@
 # Changelog
 
+## DEV022 program-state correction candidate — 2026-10-17
+
+- Clear audience and assignment dates when switching to a different program;
+  preserve the same program's in-progress selection. Invalidate delayed reads
+  after New/Close without clearing unrelated mutation busy state.
+- Wrap audience tabs inside narrow cards instead of overlapping their labels.
+- DEV021 is now independently reconciled with live date validation/worker control.
+  First reset attempts fail upstream before destination SSH auth; exact sender
+  remains unlocalized. No production or transport policy changes.
+
 ## DEV021 diagnostic-format correction — 2026-10-17
 
 - Match native OpenSSH CRLF diagnostics without treating bare carriage returns

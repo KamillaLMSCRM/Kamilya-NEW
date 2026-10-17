@@ -1,7 +1,42 @@
 # Cabinet actions and source ownership acceptance
 
-Status: BOUNDED DEV019 ACCEPTED; full cabinet remains PARTIAL; reset node NOT_LOCALIZED.
+Status: BOUNDED DEV021 ACCEPTED; DEV022 UI correction under verification; full cabinet remains PARTIAL; reset node NOT_LOCALIZED.
 Owner request2026-10-17. Production publication NOT AUTHORIZED.
+
+## Current021 evidence and follow-up022 — 2026-10-17
+
+- Exact7425daea/CI39040047110 SUCCESS; backend4779PASS2SKIP216.64s,
+  unit-noDB3150PASS34.99s. Verceldpl_CFpyeFZtV6bAhA8taXRjcQNvjX6H READY,
+  APIdep-db9o8ucs728c73cdukig and workerdep-db9o9qijnfac73d1k6ig LIVE.
+  Runner RELEASE_OK/root RECONCILED; actualDEVDB1/onepong/threequeues PASS.
+  Existing Free/Free/Hobby and schema0183/no migration retained.
+- Live021 inverted dates show inline error/disabled Assign; earlier same frontend
+  bytes checked RU/KK/EN, retained input, same-day validity and shared publish
+  refusal before persistence. No positive assignment/email. Question-review
+  metadata save/reload/restore/reload and future-date empty/reset were verified.
+- New live finding: selecting publishedA/audience+dates, Close, selecting draftB
+  carries A's selection/dates. No assignment/publication occurred.022 clears all
+  four audience buckets/two dates on different program identity, retains same
+  program draft, rejects stale reads. Review found New/Close invalidation gap;
+  actual two failing regressions corrected with separate pathLoading state and
+  awaited deferred responses. Final26focused/typecheck PASS, independent ACCEPT.
+  Audience labels also wrap instead of overlapping in the narrow left card.
+  Frozen fullweb1287PASS169files194.52s/standalone tsc/build67of67 PASS;
+  contracts0183/312IDs/diffcheck PASS. API/runtime source unchanged from021.
+  Exact022 DEV/live are still gates.
+-021 passive all-peer SSH header capture14:19:15.826–14:29:15.842Z observed71/
+  received71/kernel-drop0/no truncation. First API attempt failed banner_read
+  after TCP establishment14:22:38.018Z, first worker attempt connect14:24:42.701Z;
+  neither has a new SYN/RST at the destination. API second flow3bf01061408e and
+  worker second3043637de5cb match their successful SSH auth exactly. Canonical
+  diagnostic host equals fixed runtime destination/port22; no DNS ambiguity.
+  Narrow SSH journals contain no matching first-attempt auth/MaxStartups refusal.
+  Separate forward-target failures do not explain this transport reset. No payload,
+  remote files/config writes, packet drops, blind restart or policy changes.
+- Established failure domain: before destination SSH/auth, on the outbound path;
+  exact reset-sending network node remains NOT_LOCALIZED. Render-side trace or
+  provider investigation is required to name the upstream node; no external
+  support communication is authorized/sent. Recovery is not cause repair.
 
 ## Follow-up020 in progress — 2026-10-17
 
@@ -519,6 +554,7 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 | /mandatory-training | Search/filters/scope/status/paging; learner/course destination; help | PARTIAL: search/apply/empty/restore7, single-page guards; no retained writes |
 | /training-log | Filters/history; current occurrence; CSV/PDF/ZIP; signed-copy review; restricted share/revoke; help | PARTIAL: filter/reset/history/answer details/disclosure/CSV; no retained-record edits |
 | /training-procedures | Draft/edit/validation; activate/version; delete preview; help | PARTIAL: owned draft/edit/cancel/activation422; no irreversible delete |
+| /training-retention | View policies; empty state; help | READ-ONLY PASS: methodologist notice/empty policy/help agree; no policy editing or evidence deletion controls |
 | /training-retention | Policy form/save; dry-run; purge/legal-hold; help | READ-ONLY methodologist state PASS; admin mutations NOT RUN, purge forbidden |
 | Contextual /competencies,/training-rules,/invitations,/surveys,/announcements,/course-review | Context links; forms/validation/preview/submit/readback; help | PARTIAL: competency create/select/save/reload/clear PASS; training-rule preview/cancel/tabs, survey create/learner response/reload/no duplicate PASS, announcement draft/reload/RU-KK-EN help, review choose/refresh/help; no external communication |
 | Shared /profile + shell | Profile form; help/support; notifications/read; language; palette; sidebar; guide; logout | PARTIAL: profile save/reload/restore,17help, support validate/cancel, notifications/palette/sidebar/languages/guide and ordinary logout/login PASS; no support send |

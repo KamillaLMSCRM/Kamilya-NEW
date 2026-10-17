@@ -2,6 +2,25 @@
 
 Current as of: 2026-10-17.
 
+## LEARNING-UX-003 - Program switching retained another program's assignment draft
+
+- Date:2026-10-17, ordinary synthetic DEV021 learning-path workspace.
+- Symptom: selected learner/dates on publishedA survived Close and appeared on
+  draftB. No assignment/publication occurred; the date guard blocked execution.
+- Cause: audience/date state belonged to the page rather than selected identity;
+  unguarded delayed reads could overwrite a newer selection or closed/new editor.
+- Fix:022 resets four audience buckets/two dates only on identity change; bounded
+  generation checks reject stale reads, New/Close invalidate them. Separate
+  pathLoading prevents a stale read from clearing mutation saving state. Audience
+  tabs additionally wrap long localized labels within the narrow card.
+- Verification: real cross-program browser reproduction. Initial isolated case
+  1RED22PASS then24PASS; independent review found pending New/Close gaps and an
+  insufficiently settled late-response test. Two actual failing regressions fixed,
+  deferred responses awaited with act; final26PASS/typecheck, independent ACCEPT.
+  Frozen full web/build/exact022 DEV/browser gates remain pending.
+- Prevention: test identity changes, same-identity draft retention and completed
+  stale continuations, including Close/New. Async read loading is not mutation state.
+
 ## LEARNING-UX-002 - Inverted assignment dates reached a preventable API refusal
 
 - Date:2026-10-17, ordinary DEV019 synthetic published learning path0audience.
@@ -419,6 +438,19 @@ Current as of: 2026-10-17.
   hide archives globally or treat an empty-recipient result as a successful target.
 
 ## DEV-SSH-001 - A startup TCP reset aborted the optional DEV transport
+
+-021 actual observation2026-10-17: exact7425/CI39040047110/exactDEV reconciled.
+  API first failure14:22:38.018Z stage=tcp_established/operation=banner_read;
+  worker14:24:42.701Z stage=unknown/operation=connect, both before authentication.
+  Passive all-peer SSH headers14:19:15.826–14:29:15.842Z:71captured/71received/
+  0kernel-dropped/no truncation. Neither first attempt has a new destination SYN
+  or RST; secondAPIflow3bf01061408e and worker3043637de5cb match accepted auth.
+  Canonical diagnostic host exactly equals runtime fixed IPv4/port22. Narrow
+  journal has no matching first-attempt auth/MaxStartups refusal. Forward-target
+  failures are distinct. Actual workerDB1/onepong/threequeues PASS. Established
+  failure domain is pre-destination outbound transport; exact upstream node
+  NOT_LOCALIZED. Do not assert a named Render mechanism without provider-side
+  trace. No payload/pcap/remote file/config writes or network-policy change.
 
 -021 correction2026-10-17: root cross-check of upstream OpenSSH log.c/do_log
   revealed CRLF diagnostics;020 LF-only stage regexes would silently returnunknown.
