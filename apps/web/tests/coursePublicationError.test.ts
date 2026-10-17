@@ -12,7 +12,7 @@ describe('publication approval failure messages', () => {
         return (locale as unknown as Record<string, Record<string, string>>)[section]?.[name];
       });
       expect(typeof result).toBe('string');
-      expect(result).toBe((locale.courses as Record<string, string>).contentRequired);
+      expect(result).toBe(locale.courses.contentRequired);
       expect(result).not.toContain('course_content_required');
     }
   });

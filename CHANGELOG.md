@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Assignment workbench explains empty-department previews in RU/KK/EN instead of
+  raw HTTP errors. Recognize canonical and FastAPI definitive conflicts without
+  unlocking unknown confirmation outcomes; retain same-plan recovery guidance.
+  Fix a test-only localization cast caught by the blocking CI typecheck.
+  DEV candidate only; no production authorization.
+
 - Reject publication of an empty native course before creating a release or
   activating assignments, including frozen approval snapshots. Legacy snapshot
   backfill and SCORM retain their existing behavior. Show an actionable RU/KK/EN

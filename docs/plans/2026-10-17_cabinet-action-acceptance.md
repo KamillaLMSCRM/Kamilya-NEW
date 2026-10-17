@@ -91,6 +91,32 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 
 ### Live follow-up9557 and publication candidate
 
+Publication packet003/1e5c798f stopped at CI39015879637: frontend test TS2352
+in coursePublicationError.test.ts:15, reproduced locally. No bypass/retry; use
+direct typed property instead of invalid Record cast. Runtime API still9557.
+Keep failed ignored receipt release-publish-003-blocked.json; missing controller
+success receipt is not evidence of release. A new exact packet is required.
+
+Later action results: dashboard exhausted-attempt link opens exact filtered1row,
+reset filter/return to overview works. Profile permits optional blank first name
+per current API contract; save/reload and restoration to original QA both verified.
+Workbench exact preview for empty QA DIALOGUE54 rejected409/audience_empty but
+showed raw HTTP text (WORKBENCH-ERROR-001). Nonempty department preview plan
+36304fdb-3985-4816-85ac-1b19ba040e76 retained same release/course/department/date
+after reload, New command removes URL context; never confirmed, no notification.
+Recent document task5413a35c-c271-4581-92bf-47c19e36c16a opens existing RU/KK
+history, citation and fragment; actual source download H57-RU-V9-01 (1).txt,
+5602bytes SHA2560baa5a420c956a99d4774d6f620600fd00f8d522c6f21315ef9adf1b708da199.
+No new model request. Browser download byte-oracle match NOT VERIFIED.
+New workbench local patch maps canonical/detail errors, retains command and
+unknown-confirmation lock; truthful postimplementation tests, no RED claim.
+Final source: full web167files/1223PASS, standalone typecheck and build67/67 PASS,
+release contracts0183/292PASS. Root reviewed bounded UI delta independently of
+writer. API unchanged from4223PASS/526SKIP. Video guide opens, step disclosure and
+step3 seek sets currentTime15.667 without media error; audio/content fidelity not
+re-listened. SCORM no-file import refuses with choose-ZIP message/cancel; no ZIP
+uploaded. Own-course catalog search/status/menu open/close work. No archive yet.
+
 REL-DEV-CABINET-ACTIONS-20261017-002 RELEASE_OK: exact9557d137 all three services,
 CI39014500919, Verceldpl_GTcCQ97NPaPX78dTYmcaoWRhGuB1,
 APIdep-db9ieh61egvs73fd86vg/workerdep-db9ifgdg1s2s738rbi3g; unchanged tiers/schema.

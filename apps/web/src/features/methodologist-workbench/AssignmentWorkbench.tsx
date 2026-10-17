@@ -21,14 +21,31 @@ const LONG_DIALOGUE_MESSAGE = {
   en: 'The instruction longer than 2000 characters was accepted in full, but is not retained for follow-up context. Create a preview and refine that plan, or start a new complete command.',
 };
 const DEFINITIVE_CONFLICTS = new Set(['expired', 'deadline_passed', 'stale', 'confirmation_mismatch', 'context_mismatch', 'plan_mismatch', 'revision_mismatch', 'fingerprint_mismatch', 'audience_changed_during_execution', 'operation_unsupported']);
+const AUDIENCE_EMPTY = {
+  ru: 'В выбранном отделе нет подходящих активных сотрудников. Проверьте список отдела и сотрудников, затем повторите предварительный просмотр.',
+  kk: 'Таңдалған бөлімде сәйкес белсенді қызметкерлер жоқ. Бөлім мен қызметкерлер тізімін тексеріп, алдын ала қарауды қайталаңыз.',
+  en: 'The selected department has no eligible active learners. Check the department and employee list, then try the preview again.',
+} as const;
+function conflictCode(cause: unknown): string | undefined {
+  const data = (cause as { response?: { data?: unknown } } | null)?.response?.data;
+  if (!data || typeof data !== 'object') return undefined;
+  const body = data as Record<string, unknown>;
+  return body.error === 'conflict' && typeof body.message === 'string'
+    ? body.message
+    : typeof body.detail === 'string' ? body.detail : undefined;
+}
+function previewErrorMessage(cause: unknown, lang: keyof typeof MESSAGES, fallback: string): string {
+  const code = conflictCode(cause);
+  return code === 'audience_empty' ? AUDIENCE_EMPTY[lang] : fallback;
+}
 function isDefinitiveConflict(cause: unknown): boolean {
-  const response = (cause as { response?: { status?: unknown; data?: { detail?: unknown } } } | null)?.response;
-  return response?.status === 409 && typeof response.data?.detail === 'string' && DEFINITIVE_CONFLICTS.has(response.data.detail);
+  const response = (cause as { response?: { status?: unknown } } | null)?.response;
+  return response?.status === 409 && DEFINITIVE_CONFLICTS.has(conflictCode(cause) ?? '');
 }
 const DIALOGUE_MESSAGES = {
-  ru: { title: 'Диалог назначения', note: 'Дополняйте поручение следующими сообщениями. До создания плана переписка временная; после перезагрузки восстанавливается план или результат, не эта переписка.', limit: 'Достигнут предел диалога: до 4 сообщений по 2000 символов, всего 6000. Начните новую команду и укажите полное поручение.', review: 'Проверьте предложенные поля, затем запросите предварительный просмотр. Назначение ещё не выполнено.', unknown: 'Результат подтверждения пока неизвестен. Не создавайте новое назначение: проверьте результат этого плана или повторите подтверждение того же плана.', read: 'Проверить результат', open: 'Открыть назначения курса' },
-  kk: { title: 'Тағайындау диалогы', note: 'Тапсырманы келесі хабарламалармен толықтырыңыз. Диалог уақытша; қайта жүктегенде диалог емес, жоспар немесе нәтиже қалпына келеді.', limit: 'Диалог шегі: әрқайсысы 2000 таңбадан 4 хабарлама, барлығы 6000. Толық тапсырмамен жаңа пәрмен бастаңыз.', review: 'Ұсынылған өрістерді тексеріп, алдын ала қарауды сұраңыз. Тағайындау әлі орындалмады.', unknown: 'Растау нәтижесі белгісіз. Жаңа тағайындау жасамаңыз: осы жоспар нәтижесін тексеріңіз немесе сол жоспарды қайта растаңыз.', read: 'Нәтижені тексеру', open: 'Курс тағайындауларын ашу' },
-  en: { title: 'Assignment dialogue', note: 'Add details in follow-up messages. This conversation is temporary; reload restores the plan or receipt, not this conversation.', limit: 'Dialogue limit: 4 messages of up to 2000 characters, 6000 total. Start a new command with the full instruction.', review: 'Check the proposed fields, then request a preview. No assignment has been made.', unknown: 'The confirmation outcome is unknown. Do not create a new assignment: read this plan’s result or explicitly confirm the same plan again.', read: 'Check result', open: 'Open course assignments' },
+  ru: { title: 'Диалог назначения', note: 'Дополняйте поручение следующими сообщениями. До создания плана переписка временная; после перезагрузки восстанавливается план или результат, не эта переписка.', limit: 'Достигнут предел диалога: до 4 сообщений по 2000 символов, всего 6000. Начните новую команду и укажите полное поручение.', review: 'Проверьте предложенные поля, затем запросите предварительный просмотр. Назначение ещё не выполнено.', rejected: 'Срок плана истёк или он изменился. Подготовьте новый предварительный просмотр; новое назначение по этому отклонённому запросу не выполнено.', unknown: 'Результат подтверждения пока неизвестен. Не создавайте новое назначение: проверьте результат этого плана или повторите подтверждение того же плана.', read: 'Проверить результат', open: 'Открыть назначения курса' },
+  kk: { title: 'Тағайындау диалогы', note: 'Тапсырманы келесі хабарламалармен толықтырыңыз. Диалог уақытша; қайта жүктегенде диалог емес, жоспар немесе нәтиже қалпына келеді.', limit: 'Диалог шегі: әрқайсысы 2000 таңбадан 4 хабарлама, барлығы 6000. Толық тапсырмамен жаңа пәрмен бастаңыз.', review: 'Ұсынылған өрістерді тексеріп, алдын ала қарауды сұраңыз. Тағайындау әлі орындалмады.', rejected: 'Жоспардың мерзімі өтіп кетті немесе өзгерді. Жаңа алдын ала қарау жасаңыз; қабылданбаған сұрау бойынша жаңа тағайындау орындалмады.', unknown: 'Растау нәтижесі белгісіз. Жаңа тағайындау жасамаңыз: осы жоспар нәтижесін тексеріңіз немесе сол жоспарды қайта растаңыз.', read: 'Нәтижені тексеру', open: 'Курс тағайындауларын ашу' },
+  en: { title: 'Assignment dialogue', note: 'Add details in follow-up messages. This conversation is temporary; reload restores the plan or receipt, not this conversation.', limit: 'Dialogue limit: 4 messages of up to 2000 characters, 6000 total. Start a new command with the full instruction.', review: 'Check the proposed fields, then request a preview. No assignment has been made.', rejected: 'The plan expired or changed. Prepare a new preview; no new assignment was performed by this rejected request.', unknown: 'The confirmation outcome is unknown. Do not create a new assignment: read this plan’s result or explicitly confirm the same plan again.', read: 'Check result', open: 'Open course assignments' },
 };
 const NATURAL_MESSAGES = {
   ru: { mode: 'Свободное описание', exact: 'Точная команда', description: 'Можно описать одно назначение свободным текстом. Проверьте предложенные поля; интерпретация ничего не назначает.', correction: 'Уточните поручение в новом описании; предыдущий план используется только как контекст.', interpret: 'Разобрать поручение', course: 'Курс', department: 'Отдел', date: 'Дата', time: 'Время', warning: 'Не вводите секреты и персональные данные. Свободный текст не даёт разрешения на назначение.', clarify: 'Уточнить поручение', relative: 'Укажите точную дату и время.', provider: 'Интерпретация временно недоступна. Повторите действие явно.', invalid: 'Не удалось проверить ответ интерпретации. Уточните поручение.', ambiguous: 'Уточните курс, отдел, дату и время.', previous: 'Предыдущий план нельзя уточнить: он истёк или ещё не готов.' },
@@ -153,7 +170,7 @@ function AssignmentWorkbenchInner() {
     try {
       const result = await requestAssignmentPreview({ instruction, timezone_name: timezone, notify: candidate?.notify ?? notify, include_descendants: candidate?.include_descendants ?? includeDescendants, ...(courseId ? { course_id: courseId } : {}), ...(departmentId ? { department_id: departmentId } : {}), ...(candidate ? { candidate } : {}) });
       if (current === epoch.current) { previewContext.current = contextKey; setPreview(result); setRestoredPlan(false); if (result.state === 'preview_ready') replacePlanUrl(result.plan_id); else replacePlanUrl(); }
-    } catch (cause) { if (current === epoch.current) setError(cause instanceof Error ? cause.message : ui.newPlan); }
+    } catch (cause) { if (current === epoch.current) setError(previewErrorMessage(cause, lang, ui.newPlan)); }
     finally { if (current === epoch.current) { requestOwner.current = false; setPending(false); } }
   };
   const interpret = async (requestedPreviousPlanId?: string) => {
@@ -190,7 +207,7 @@ function AssignmentWorkbenchInner() {
     replacePlanUrl(target.plan_id, true);
     const current = ++epoch.current; setPending(true); setError(null);
     try { const result = await confirmAssignmentPlan(target); if (current === epoch.current) { confirmationOwner.current = null; setConfirmationPlan(null); setReceipt(result); previewContext.current = null; setPreview(null); replacePlanUrl(result.plan_id); } }
-    catch (cause) { if (current === epoch.current) { setError(cause instanceof Error ? cause.message : ui.confirm); if (isDefinitiveConflict(cause)) { confirmationOwner.current = null; setConfirmationPlan(null); setPreview(null); setRestoredPlan(true); previewContext.current = null; replacePlanUrl(); } } }
+    catch (cause) { if (current === epoch.current) { const definitive = isDefinitiveConflict(cause); setError(definitive ? dialogueUi.rejected : dialogueUi.unknown); if (definitive) { confirmationOwner.current = null; setConfirmationPlan(null); setPreview(null); setRestoredPlan(true); previewContext.current = null; replacePlanUrl(); } } }
     finally { if (current === epoch.current) { requestOwner.current = false; setPending(false); } }
   };
   const recoverConfirmation = async () => {

@@ -2,6 +2,26 @@
 
 Current as of: 2026-10-17.
 
+## WORKBENCH-ERROR-001 - Canonical conflicts leaked raw HTTP errors
+
+- Date: 2026-10-17; ordinary synthetic DEV cabinet action audit.
+- Symptom: preview for an empty department displayed Request failed with status
+  code409 instead of a reason or recovery action.
+- Cause: UI displayed Axios Error.message, and definitive confirmation conflict
+  detection recognized FastAPI detail but not the canonical error/message envelope.
+- Fix: safely extract known codes from both envelopes. Localize audience_empty;
+  use safe generic preview fallback. Known definitive409 invalidates the preview,
+  while unknown409/network failures retain same-plan locked recovery and display
+  recovery guidance rather than arbitrary server/provider text.
+- Verification: live canonical409/message audience_empty reproduced with no plan
+  or assignment. Component regressions cover input retention, canonical/detail
+  envelopes, known unlock versus unknown lock and raw-text absence; focused
+  dialogue15PASS and root integration4files/73PASS before last copy correction;
+  final full web167files/1223PASS, standalone typecheck and build67/67 PASS.
+  No pre-implementation RED run claimed; deployed acceptance remains pending.
+- Prevention: test the application's real error envelope, not only raw FastAPI
+  fixtures. Keep unknown write outcomes locked and recover the same plan.
+
 ## COURSE-CONTENT-001 - Empty native course could be published
 
 - Date: 2026-10-17; ordinary synthetic DEV cabinet action audit.

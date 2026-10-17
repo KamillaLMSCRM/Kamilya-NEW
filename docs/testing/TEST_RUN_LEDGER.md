@@ -5142,3 +5142,30 @@ Rules:
   metadata and persisted-type bypass, regression4RED/then51focusedPASS; final full
   API4223PASS. Root owns UI/integration/browser/docs. Luna/medium independent review;
   measured elapsed/usage counters unavailable, no invented token/cost savings.
+
+## CABINET-ACTIONS-20261017-003 — CI refusal and workbench correction
+
+- result: publication release003 BLOCKED at exact CI39015879637/frontend TS2352;
+  no successful rollout receipt. Failed packet not retried. Root API health remains
+  9557d137. Production unchanged; publication guard runtime proof still open.
+- changed: test-only cast narrowed to typed property; workbench canonical conflict
+  mapper/localized safe error and preserved unknown-confirmation recovery added.
+- verified: CI failing job117347766515 and local typecheck reproduced TS2352;
+  correction typecheck PASS. Focused root4files73PASS before last copy correction;
+  full candidate API4223/526 retained unchanged. Live profile save/reload/restoredQA;
+  dashboard exhausted1row/reset/return; exact workbench preview/reload/new command;
+  history/citation/fragment/source download5602bytes, hash in acceptance plan. No
+  plan confirmation, model call, invitation/email or protected learning changes.
+- blockers: final updated-source frontend regression/build and exact new DEV packet
+  required. Whole-cabinet matrix remains PARTIAL; no irreversible deletes performed.
+- next: exact successful DEV rollout then fresh empty/nonempty publish and known
+  workbench refusal live regression, continue remaining synthetic action coverage.
+- delegation: Luna/medium bounded UI writer2files, root review corrected canonical
+  definitive-conflict and safe confirmation messages; tests executed after edits,
+  no RED evidence claimed. Token/elapsed counters unavailable, not zero.
+
+- final-source gates: web167files/1223PASS (187.11s), standalone typecheck PASS,
+  build67/67 including lint/types PASS, release contracts0183/292PASS. API source
+  unchanged from4223PASS/526SKIP. Root independently reviewed final owned UI/test
+  diff and preserves unknown-outcome lock. Guide step-seek and SCORM empty/cancel
+  plus own-course search/status/action menu checked; no media upload/archive.
