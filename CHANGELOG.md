@@ -1,5 +1,14 @@
 # Changelog
 
+## DEV course-reviewer selection candidate — 2026-10-17
+
+- Load eligible active methodologists from the canonical paginated user response
+  instead of falsely showing an empty list. Keep ID selection tenant-scoped and
+  discard stale responses/selections on close or course changes. Show retryable
+  failures distinctly from a genuinely empty inventory; preserve guest/PIN flow.
+- DEV startup010 already accepted with exact worker parity and queue-control pong.
+  This reviewer repair still requires its own live DEV acceptance; no production.
+
 ## DEV private startup repair candidate — 2026-10-17
 
 - Drain short SSH diagnostics immediately with read1 while retaining bounded

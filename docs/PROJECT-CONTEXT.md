@@ -5,6 +5,26 @@
 
 ## Источники правды
 
+### DEV current2026-10-17: startup010 accepted; browser matrix continues
+
+Exact62f4db7552ee8a8d3c6f30d171c6e7fbf1494f20 LIVE on existing DEV web/API/worker.
+CI39022657828 SUCCESS; Verceldpl_H1WrKCvWWNXD7JqNUWyAXWp9dzSr READY/Hobby;
+APIdep-db9kcajncjis739lpsig and workerdep-db9kd8favr4c73edl20g LIVE/Free.
+REL-DEV-WORKER-STARTUP-20261017-010 RELEASE_OK; root independently read exact
+receipt/APIhealth and accepted correlated worker log reset→one retry→connected
+same startup_id9f8e44ded994/instance_hash7372b5be48e0. This repairs missing short
+diagnostic capture; external reset source remains unlocalized, no retry expansion.
+Existing DEVDB1 API/worker broker equality verified process-locally; one worker
+responded pong with ai/documents/maintenance queues. No business task/model call
+in control probe. No schema/config/tier/keys/rights/ASUS/production changes.
+Fresh normal browser preview no-course caption and actual/dashboard return PASS.
+
+New synthetic QA template course9b5a1ed4-b8c5-4016-96cc-1b9a78c6129d was created
+without AI/assignments/mail;5lessons/local adaptation persists after reload.
+Approval request modal incorrectly treats paginated users object as array,
+silently reports no reviewers. Local fix under development; no request sent,
+own requires_approval toggled on/off and restored false. Whole cabinet PARTIAL.
+
 ### DEV current2026-10-17: packet008 partial; worker deployment blocked
 
 Exact4695373e80a57be361ad322e5b21db3035439c43 is READY on Vercel and LIVE on API,

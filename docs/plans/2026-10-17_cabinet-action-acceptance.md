@@ -89,6 +89,42 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 
 ## Gates and next
 
+### DEV010 accepted; reviewer repair011 and real import stages
+
+Root independently accepted010 exact62f4db7552ee8a8d3c6f30d171c6e7fbf1494f20
+all3 services, CI39022657828, correlated same-startup reset→retry→connected,
+and DEVDB1 one worker pong/ai,documents,maintenance control queues. No actual
+business task was sent by that control check. Full IDs in PROJECT-CONTEXT/ledger.
+Fresh preview fallback caption and actual/dashboard navigation PASS.
+
+New synthetic course9b5a1ed4-b8c5-4016-96cc-1b9a78c6129d, QA BUTTONS20261017
+template IB, has5deterministically instantiated lessons/noAI/noaudience. Local
+rules QA-INCIDENT/15minutes appear in corresponding lesson and survive reload.
+Own approval policy toggled on/off, finalfalse; request dialog opened/cancelled.
+Confirmed false empty reviewer list; COURSE-REVIEWERS-001 local repair root-
+reviewed after one correction round and independent acceptance. Canonical API
+envelope, active primary methodologist eligibility, bounded pagination/error,
+name projection, stale scope and selection guards; no role expansion. Focused
+9PASS, full169files1247PASS183.95s before final test-only selected-ID submit
+assertion, separately focused9PASS2.72s. Standalone typecheck PASS; build gate.
+
+Actual CSV import stages (no employees/users/positions/departments applied):
+- staff-analysis-010.csv correctly needs_mapping for absent personnel number;
+  mapping continue/approve/apply disabled, actionable required field.
+- staff-analysis-valid-010.csv has personnel number but empty department;
+  needs_correction/one clear department conflict, approve/apply disabled.
+- staff-analysis-complete-010.csv:1department/1position/1fictional employee,
+ 0conflicts; ready_for_approval. Edit proposed department name/Save changes
+  changes rev7723df64…→reve3ab0fed…; approve proposal succeeds, Apply enabled.
+  Apply NOT clicked: no new login identity, mail or learning rule created.
+  Confirmed proposal and raw synthetic sources retained by normal session policy.
+- UX observations, not runtime failure or fixed claim: import reasons include
+  English technical text in RU UI; template preview duplicates the lesson title.
+  These require a separate focused presentation delta; do not call them fixed.
+
+Remaining role/action matrix stays PARTIAL. Exact reviewer011 release/readback
+and safe personal-link agreement flow are next; no production release authority.
+
 ### Owner-authorized DEV startup repair010 — local diagnostic seam
 
 Owner explicitly authorized bounded DEV-worker startup repair and continuation

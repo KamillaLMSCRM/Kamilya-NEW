@@ -2,6 +2,24 @@
 
 Current as of: 2026-10-17.
 
+## COURSE-REVIEWERS-001 - Approval request hid eligible methodologists
+
+- Date:2026-10-17; normal DEV methodologist, new synthetic template course.
+- Symptom: request dialog reported no reviewers although the same tenant had
+  eligible active methodologists. No request was submitted during reproduction.
+- Cause: users GET returns {users,total,page,per_page}; the modal called filter
+  on the object and swallowed TypeError as empty. It also offered primary admins
+  although the authoritative reviewer service accepts only active methodologists.
+- Fix: parse canonical paginated users, request active methodologists, fail on
+  malformed/incomplete or capped inventory, dedupe IDs, show canonical names,
+  distinguish loading/error/retry/empty, discard stale scopes and old selections.
+  No backend role, guest/PIN, credential or delivery contract change.
+- Verification: real object-shaped fixture RED, focused9PASS, full169files1247PASS
+  before the final test-only ID submission assertion; that assertion separately
+  PASS in focused9. Typecheck/build67 PASS; fresh DEV live reviewer flow gate.
+- Prevention: model API response envelopes faithfully in tests and check actual
+  eligible identity submission; never turn list-load errors into factual empty.
+
 ## QUIZ-PREVIEW-NAV-001 - Course caption pointed to the dashboard without context
 
 - Date:2026-10-17; ordinary DEV methodologist nonpersistent quiz preview.

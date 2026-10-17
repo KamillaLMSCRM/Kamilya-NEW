@@ -5366,3 +5366,66 @@ Rules:
   runtime30PASS0.99s, no code blocker. Root accepted review, no network-origin claim.
 - blockers: exact fresh DEV runtime/queue acceptance.
 - next: one exact reviewed DEV-only packet, then remaining human browser matrix.
+
+## CABINET-ACTIONS-20261017-010-RUNTIME — exact DEV startup recovered
+
+- executor: canonical Release Runner exact one execute; root independently read
+  execute receipt/APIhealth and accepted sanitized official runtime correlation.
+- result: RELEASE_OK exact62f4db7552ee8a8d3c6f30d171c6e7fbf1494f20, no production.
+- verified: CI39022657828 SUCCESS; Verceldpl_H1WrKCvWWNXD7JqNUWyAXWp9dzSr READY;
+  APIdep-db9kcajncjis739lpsig/workerdep-db9kd8favr4c73edl20g LIVE sameSHA. Existing
+  Hobby/Free/Free/schema0183 unchanged. Worker09:58:54.299Zreset→09:58:57.303Z
+  connected shares startup_id9f8e44ded994/instance_hash7372b5be48e0. Root control
+  probe canonicalDEVDB1 API/worker samebroker:1pong, ai/documents/maintenance,
+  no business task/model. Public workerok alone is not this queue evidence.
+- changed: exact ordinary DEV release only. No config/keys/trust/rights/routes,
+  ASUS/reserve/voice/production/billing mutation. Fresh root remoteSHA/account
+  readback09:51:03Z saved taskreceipt and owner-required persistent note.
+- browser: fresh no-course methodologist preview now truthfully labels/dashboard;
+  actual click PASS. New9b5a1ed4… synthetic template course5lessons/local context
+  creates withoutAI; actual lesson and reload verify QA-INCIDENT/15minutes.
+  Approval-policy on/off persisted; initial state restoredfalse, no request/mail.
+- found: ApprovalRequestModal treats users object as array, catch shows falseempty
+  reviewer inventory. Backend supports500 but objectshape is decisive; do not
+  misdiagnose this as per_page422. Fix/reviewer eligibility tests pending.
+- residual: external network-reset origin unknown. Full cabinet stillPARTIAL;
+  safe local repair is not a universal network-stability or all-button PASS.
+- next: fix reviewer selection, complete safe personal-link QA approval scenario,
+  continue exact remaining matrix and preserve old attempts/roles/PINs.
+
+## CABINET-ACTIONS-20261017-011-LOCAL — reviewer inventory and real CSV stages
+
+- executor: root browser/integration/docs, bounded Luna writer, Sol independent
+  read-only review. No Test Runner owns this append destination.
+- result: COURSE-REVIEWERS-001 real false-empty reproduced, locally repaired;
+  no live011 claim. Deterministic template and CSV stages passed within scope.
+- verified: root source/API oracle review, one writer correction round, independent
+  acceptance; focused2files9PASS2.72s/typecheck PASS. Full169files1247PASS183.95s
+  before last test-only canonical reviewer identity/personal_link submit case;
+  last case separately GREEN in focused9. Final build pending. API unchanged.
+- browser: new template course9b5a1ed4…5lessons/local instruction/reload; own
+  requires_approval toggledon/off→false, no request sent. CSV missing personnel
+  number blocks mapping; empty department blocks approval; full fictional row
+  yields1department/1position/1employee/0conflicts. Proposal department rename/
+  revision/approval succeeds; Apply NOT clicked. Existing company data unchanged
+  by proposal stages; no employee account/position/department/assignment created.
+- observations: RU import shows some English technical reason strings; template
+  preview duplicate heading. Not represented as repaired or full-blocker proof.
+- blockers: build gate and exact DEV011 reviewer selection/request readback;
+  actual import application/external branches remain NOT_RUN.
+- next: one bounded exact reviewer DEV release, normal-role personal-link QA flow
+  without email, preserve all protected old learning and production state.
+
+## CABINET-ACTIONS-20261017-011-GATES — reviewer candidate ready
+
+- executor: root final review/gates. No Test Runner owns this append destination.
+- result: reviewed candidate ready for one exact DEV release; no live011 claim.
+- verified: full web169files1247PASS183.95s; later test-only selected-ID assertion
+  separately focused2files9PASS2.72s. Final build67/67 including lint/types PASS,
+  standalone typecheck PASS; release contracts0183/298PASS, diff-check PASS.
+  Independent review accepted actual backend eligibility and no guest/PIN change.
+  API source unchanged from4228PASS/526SKIP/quality1008/2201; startup59/6 unchanged.
+- runtime scope: existing Free/Free/Hobby only, no migration/config/rights/keys/
+  public ports/ASUS/model selection/reserve/voice/production/billing changes.
+- next: exact DEV011 canonical release, ordinary reviewer selection + personal-
+  link snapshot flow, saved-state readback and protected fixture invariants.
