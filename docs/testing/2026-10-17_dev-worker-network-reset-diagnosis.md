@@ -37,6 +37,10 @@ Status: worker recovers and responds; exact reset sender NOT_LOCALIZED.
 9. DEV022 worker reproduced a banner-read reset14:44:52.936212Z, then the existing
    single retry connected14:44:55.698409Z. The DEV021 destination capture had
    already ended; do not claim packet correlation for this later sample.
+10. DEV023 sourceb6cd67b7/CI39042607528/exactruntime root-reconciled. Worker
+    firstbannerreset15:01:26.420822Z, retry2connected15:01:29.712575Z; actualDB1/
+    onepong/hashb6ded638c1b7/threequeues PASS. This sample likewise has no concurrent
+    destination capture and is phase/recovery evidence only.
 
 ## Interpretation and limits
 

@@ -6007,3 +6007,44 @@ Rules:
   PASS; contracts0183/312uniqueIDs/diffcheck PASS. Independent oneclass source review
   ACCEPT, no logic/RBAC/API changes; allAPI/runtime bytes retained from accepted021/022.
   Exact023 source/CI/provider/live visual gates next. Production unchanged.
+
+### DEV023 final exact release and bounded live acceptance — 2026-10-17
+
+- Sourceb6cd67b7e42266b701ede09a819409c01f88bf0f/dev pushed+independentreadback
+ 14:52:34.691Z/KamillaLMSCRM/canonicalprocesslocalcredential; task+authorizedmemory
+  sanitizedreceipts. Packet e987dc97…ce2c88f, CI39042607528/all7jobsSUCCESS:
+  backend4779PASS2SKIP220.44s/76%rounded, unit-noDB3150PASS26.12s. Controller
+  execute RELEASE_OK/rootindependentRECONCILED. Verceldpl_91R2EQcq43vDcxSjbWFGy4o64rwM
+  READY/Hobby/APIdep-db9opsrbc2fs73cmhb6g/workerdep-db9oquks728c73cg0esg LIVE/Free,
+  sameSHA/schema0183/migrationnone. ActualbrokerDB1 sharedAPI/worker exactly1pong/
+  hashb6ded638c1b7/ai-documents-maintenance PASS; zero business/modeltasks.
+- ExactfrontendGET READY before browser; final root allcomponent parity afterward.
+  Visual1270x714 RU/KK/EN two-column tabs PASS. LiveA learner/group/unit/position
+  selections4+dates27/28Oct retained afterClose/reopenA; switchB all4checked0 and
+  bothdatesblank. Inverted27/26alert+Assign disabled; same-day27/27enabled without
+  clicking. NewemptytitleSave disabled, namedtitleenabled; Close withoutSave.
+  Final ordinary metadata confirms unsaveddraftabsent/exact2versions/zeroassignments.
+- Ordinary final combinedGET readback under one normallypaced methodologist/student
+  pair PASS: threeapprovedrequestIDs/outcomes, scopedmain2/short1/draft0, unknown[]/
+  badUUID422; originaleditor2modules/2lessons/order/A2; linkedunit/currentlabel/
+  qualificationlevelEmpty. ProtectedoriginalattemptIDs1+2 and own2attempts,
+  completed42fcca76 at08:34:13.194326Z/submittedsurvey retained; sourceowner/dates
+  NULL, tempadmininactive, importedIDs/currentplacement unchanged, ruledraft/
+  reminderfalse/announcement0sent. Initial wrong Python toolenv lackedhttpx before
+  anylogin (harnessonly); corrected canonicalproject.venv passed. Timestampcompare
+  normalizes ISOtimezone, not stringformat. No data reset/repair/cleanup performed.
+- Fresh post-parity browserreload/selectdraft/audience0/blankdates PASS. Screenshots
+  dev-audience-readable-023-ru/kk/en.png, dev-date-guard-023.png and final
+  dev-program-final-parity-023.png retained; PNGs1270x714. Browser handedoffDEVonly.
+  Derived sanitizedacceptance023-summary.json, exactexecute/reconcile receipts and
+  worker-023-phase-result.json retained separately from rawtoolhistory.
+- Workerstartupdee77bfd36e9 first15:01:26.420822Z tcp_established/banner_read,
+  retry2connected15:01:29.712575Z. No concurrentproxycapturefor023; exactsender still
+  NOT_LOCALIZED. Detailedreport separates establishedprehostfailure from unproven
+  Rendermechanism; independent71-event/widenedwindow reviewacceptsboundedinference.
+  Client/providerflowtrace required for exactnode, no supportmessage sent.
+- Bounded023 acceptance PASS; fullcabinetmatrix PARTIAL with explicit unrun model,
+  externalmail/OTP/support, signedconfirmation, adminrole/security and protected
+  reset variants. Production/ASUS/models/reserve/voice/keys/trust/ports/config/
+  billing/resources unchanged. Final documentation is localdocs-only successor,
+  not an extra deployment. Existing unrelated authoring files remain untouched.

@@ -5,6 +5,34 @@
 
 ## Источники правды
 
+### Current DEV023 bounded acceptance — 2026-10-17
+
+Exactb6cd67b7e42266b701ede09a819409c01f88bf0f/CI39042607528 SUCCESS;
+backend4779PASS2SKIP220.44s/unit-noDB3150PASS26.12s/all7jobsPASS. Exact execute
+RELEASE_OK plus independent root RECONCILED: Verceldpl_91R2EQcq43vDcxSjbWFGy4o64rwM
+READY/Hobby, APIdep-db9opsrbc2fs73cmhb6g/workerdep-db9oquks728c73cg0esg LIVE/Free.
+Schema0183/migrationnone. Actual brokerDB1 sharedAPI/worker, exactly1pong/hash
+b6ded638c1b7 and ai-documents-maintenance queues PASS. Localweb1287PASS169files/
+191.26s/tsc/build67of67/contracts312IDs PASS. No production changes authorized.
+
+Browser1270x714: RU/KK/EN audience tabs readable in two columns. All four audience
+types retain their selections/dates in sameA and clear in differentB; invalid
+range disables Assign, same-day enables it without submit. Newemptyname refuses
+Save; typed draft cancelled without persistence. Fresh post-parity reload/read PASS.
+Ordinary final QA readback: exact2programs/zeroassignments, unsavednewdraftabsent,
+threeapprovedrequestIDs, original2modules/2lessons, protectedattemptIDs1+2 and
+own2attempts/completion08:34:13.194326Z/submittedsurvey retained. Sourceowner/dates
+NULL, tempadmininactive, importedIDs/currentunit/qualificationlevel retained,
+ruledraft/reminderfalse/announcementsent0. Normal auth audit only.
+
+Worker023 firstbannerreset15:01:26.420822Z, existingretry2connected15:01:29.712575Z.
+Exact upstream sender still NOT_LOCALIZED; no proxycapture for thislater sample.
+Detailed diagnostic report preserves021all-peer evidence and independent challenge.
+Further localization requires client/provider flow trace; no external message sent.
+Full cabinet matrix remains PARTIAL: fresh model/external communications/signed
+confirmation/role-security mutations/protected resets and other unrun variants
+are NOT_RUN, not inferred PASS. ASUS/model/reserve/voice/billing/security unchanged.
+
 ### DEV022 live logic accepted; visual023 correction pending — 2026-10-17
 
 Exacte950feebf8a54b689389cd090c5812631b7430b3/CI39041448784 SUCCESS;

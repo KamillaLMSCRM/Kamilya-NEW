@@ -1,7 +1,35 @@
 # Cabinet actions and source ownership acceptance
 
-Status: DEV022 logic accepted, visual gate rejected; DEV023 correction under verification; full cabinet remains PARTIAL; reset node NOT_LOCALIZED.
+Status: BOUNDED DEV023 ACCEPTED; full cabinet remains PARTIAL; reset node NOT_LOCALIZED.
 Owner request2026-10-17. Production publication NOT AUTHORIZED.
+
+## Final bounded023 live acceptance — 2026-10-17
+
+- Sourceb6cd67b7e42266b701ede09a819409c01f88bf0f, CI39042607528 SUCCESS:
+  backend4779PASS2SKIP220.44s/unit-noDB3150PASS26.12s. Execute RELEASE_OK/root
+  RECONCILED, Verceldpl_91R2EQcq43vDcxSjbWFGy4o64rwM/APIdep-db9opsrbc2fs73cmhb6g/
+  workerdep-db9oquks728c73cg0esg sameSHA READY/LIVE. Existingtiers/schema0183 retained.
+  ActualDB1/onepong/hashb6ded638c1b7/threequeues PASS; no business/model task.
+- Visual1270x714 RU/KK/EN PASS, two readable columns; screenshots023-ru/kk/en.
+  A selects learner+group+unit+position/dates27–28Oct; Close/reopenA retains all4;
+  switchB all4tabschecked0 and bothdatesblank. Invalid27/26Oct alert+disabledAssign;
+  sameday27/27enabledwithoutsubmit. NewemptytitleSave disabled, validtitleenabled,
+  Close withoutSave; ordinaryAPI asserts unsaveddraftabsent. No assignment/publication.
+- Independent final ordinary readback PASS: two program versions/draft+published/
+  zeroassignments; exactthreeapprovedrequests; originaleditor2modules/2lessons;
+  protectedattemptIDs1+2 and own2attempts unchanged; completion08:34:13.194326Z
+  and submittedsurvey retained; sourceowner/datesNULL, tempadmininactive, imported
+  identity/currentunit/level retained, ruledraft/reminderfalse/announcement0sent.
+  One normally paced methodologist/student pair, auth audit only. Post-parity
+  browserreload/currentdraft/audience0/blankdates confirmed again. Final screenshot
+  dev-program-final-parity-023.png; ignored acceptance023-summary.json/receipts.
+- Worker023 firstbannerreset15:01:26.420822Z→retry2connected15:01:29.712575Z;
+  real control PASS. Exact upstream reset sender NOT_LOCALIZED;021capture is not
+  reused as packet evidence for023. External trace/provider coordination is the
+  remaining diagnostic boundary, not a reason to change keys/firewall/tiers.
+- Full matrix PARTIAL: unrun model/external communication/signed confirmation,
+  admin-role/security changes and protected resets remain explicitly NOT_RUN.
+  No production, ASUS/model/reserve/voice/billing/config/security changes.
 
 ## Follow-up023 after actual022 visual gate — 2026-10-17
 
@@ -569,7 +597,7 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 | /ai/generate | Source selection/compatibility; options; generation/resume/cancel; preview; edit/review/publish; help | PARTIAL: source preflight/options/default restore; actual generation NOT RUN |
 | /courses and /courses/[id]/edit | Create/edit/preview; lessons/reorder/media; quizzes; review/publish/archive/delete; help | PARTIAL: own save/reload/preview/discard; empty refusal/nonempty publish/archive PASS; template approval/fresh reviewer/resume/revision2 publish/limited decision Close PASS;018 module and lesson reorder/reload, module rename/reload, temporary module/lesson create/cancel/save/reload PASS;019 exact approved temporary lesson then empty module delete/reload/API preservation PASS; selected-course approval2/1/0/empty/refresh/reload PASS; image Markdown literal, file-media NOT_RUN |
 | /quizzes | Select/create quiz; question/answer types/edit/delete/reorder; learner preview; save/reload; help | PARTIAL: own3types/options/settings/edit/reload, failed/retry/success learner attempts PASS; fresh008 legacy preview/no-save scoring, single selection and exhausted radios PASS |
-| /learning-paths | Create/edit/version/publish; sequence; assignments/cancel; learner view; help | PARTIAL: create/reorder/required/save/reload/publish0audience/v2draft; active audience PASS; actual assignment NOT RUN |
+| /learning-paths | Create/edit/version/publish; sequence; assignments/cancel; learner view; help | PARTIAL: create/reorder/required/save/reload/publish0audience/v2draft;023 sameA four-kind retention/differentB four-kind+date reset, invalid-date guard/same-day/New-Close and RU-KK-EN readable tabs PASS; actual assignment NOT RUN |
 | /assignments | Course/audience selection; due date/access; preview/confirm; link/PIN; copy; revoke/repeat; rules/reminders; help | PARTIAL: own individual PIN assignment/copy/wrong+correct PIN/learner completion PASS; recurring draft and reminder save/reload/disable PASS; no mail/revoke/reset |
 | /methodologist-workbench | Document dialog/history/source download; assignment preview/confirm; correction/apply/reload; help | PARTIAL: preview/reload/new-command/history/citation/download and localized audience_empty refusal PASS; no model call/confirm/apply |
 | /learning-cycles | Create/edit/version/schedule/activate/deactivate; filters/pagination; help | PARTIAL: empty guards/target switch, own recurring draft only; no rule activation or periods |

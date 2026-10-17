@@ -21,7 +21,11 @@ Current as of: 2026-10-17.
   Actual A→sameA retains selections/dates; A→B clears them PASS. No assignment.
   Root screenshot1270 visually rejected four narrow tabs splitting words despite
   no overlap.023 removes sm:grid-cols-4 only; genuine1FAIL25PASS→26PASS; final
-  fullweb/build/exactDEV visual gate remains pending. Structural PASS is not visual GO.
+  fullweb1287/typecheck/build67of67/CI39042607528/exactDEV-rootreconcile PASS.
+  Actual0231270px RU/KK/EN visual PASS, four audience types sameA retained/differentB
+  empty+blankdates, negative date guard/same-day/New-Close PASS. Ordinary final
+  readback zeroassignments/unsaveddraftabsent/protectedfixtures retained. Structural
+  PASS alone was not visual GO;022 failed screenshot retained as history.
 - Prevention: test identity changes, same-identity draft retention and completed
   stale continuations, including Close/New. Async read loading is not mutation state.
 
@@ -444,6 +448,15 @@ Current as of: 2026-10-17.
   hide archives globally or treat an empty-recipient result as a successful target.
 
 ## DEV-SSH-001 - A startup TCP reset aborted the optional DEV transport
+
+-023 actual2026-10-17: exactb6cd67b7/CI39042607528/rootRECONCILED; workerfirst
+ 15:01:26.420822Z tcp_established/banner_read, retry2connected15:01:29.712575Z.
+  ActualDB1/onepong/threequeues PASS. No packet observation covers thissample;
+  exact upstream sender remains NOT_LOCALIZED. Independent reviewer recomputed
+  retained02171-event sanitizedtranscription/fixedstats/exact and±0.5s windows0
+  events/positive retryflow-auth matches. Report docs/testing/2026-10-17_dev-worker-network-reset-diagnosis.md
+  states limits and required client/provider-side trace. No external message,
+  extra retry/restart/network-policy/tier or production change.
 
 -021 actual observation2026-10-17: exact7425/CI39040047110/exactDEV reconciled.
   API first failure14:22:38.018Z stage=tcp_established/operation=banner_read;

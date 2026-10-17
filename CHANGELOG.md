@@ -1,5 +1,16 @@
 # Changelog
 
+## DEV023 bounded live acceptance — 2026-10-17
+
+- Exact DEV frontend/API/worker reconciled; readable audience tabs visually
+  verified in Russian, Kazakh and English. Four audience types retain same-program
+  drafts and clear on identity change; date guard and New/Close live checks pass.
+- Ordinary final readback preserves QA identities, approvals, completed learning
+  and attempts; no program assignment or unsaved draft was created.
+- Worker control passes after bounded startup recovery. Exact upstream reset
+  sender remains unlocalized and needs provider-side trace, not another blind fix.
+- Full cabinet matrix stays partial. Production and infrastructure policy unchanged.
+
 ## DEV023 visual follow-up candidate — 2026-10-17
 
 - Keep audience tabs in two columns inside the narrow card; root's actual022
