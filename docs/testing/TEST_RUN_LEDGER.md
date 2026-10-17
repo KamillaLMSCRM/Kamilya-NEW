@@ -5646,3 +5646,56 @@ Rules:
 - next: separately bound017 exact CI and canonical release; actual persisted
   name-only import, publication revision2, limited review success/Close and final
   protected fixture/worker readback. No model/voice/reserve/ASUS/billing changes.
+
+## CABINET-ACTIONS-20261017-POSITION-PROFILE-LIVE
+
+- executor: root ordinary QA methodologist in DEV; while017 release pending,
+  this unrelated profile behavior is not an017 parity claim.
+- owned position7a160cf7-6590-4a44-9d1c-f1141524cd56: initial level empty,
+  courses0, competencies0, employee1. Set level QA BUTTONS017 test marker,
+  Save profile, await save completion, reload and exact value PASS.
+- set level back empty with explicit restore reason; Save/reload exact empty
+  PASS. Version history shows baseline1, synthetic update2, restore3. Identity,
+  department/name/course associations unchanged; no assignment/model/email.
+- independent gap reviewer found no additional safe high-confidence student
+  mutation; workbench empty-confirm conditional, cycle activation excluded until
+  notification isolation proven. Form/navigation remains distinct from mutation.
+
+## CABINET-ACTIONS-20261017-017-RELEASE-AND-LIVE-ACCEPTED
+
+- executor: canonical Release Runner017, root independent provider/ordinary API/
+  browser/worker readback; cheap independent matrix gap review. No Test Runner
+  owns this append destination. Root owns acceptance, not runner handoff alone.
+- exactf3dc54cd CI39031276960 SUCCESS; execute RELEASE_OK and separate root
+  reconcile RECONCILED. Verceldpl_6HDRPFk5Fi8owsiw1bYHbW8bmL1F READY/Hobby,
+  APIdep-db9mccom7kps73du6sig/workerdep-db9mdbuq1p3s738pvimg LIVE/Free.
+  Root terminal provider metadata confirms worker finished12:15:44Z; earlier
+  in-progress observation predates that terminal, not subsequent drift.
+- same startup984b9ee17d44: first forward reset→cleanup/stopped, attempt2 ready→
+  consumer→connected12:15:36Z. Real DB1 broker equality/1workerpong/queuesai,
+  documents,maintenance PASS. Zero business/model tasks; network node unlocalized.
+- freshCSV015 all3UNCHANGED; corrected department RENAME, approvedrev-8868c6a7d42d5b37,
+  committed; reload/schemacorrectname/1employee +normal APIexact IDs PASS.
+  Initial chooser race hit prior restored approvedsession/no upload; fresh Another
+  file flow succeeded. Completed-session reload resets wizard, data stillpersisted.
+- maincourse9b5a1ed4 revision2 publishUI/reload/API publishedapproved/currentrelease
+  9067ab30-486f-4fb6-9d21-1e7907edd4a7/0audience PASS. Exact originalrevision
+  0e58cc7e now statepublished, same snapshotsha7adb304c…4926.
+- shortcourseaf2e47d1 freshrequest0780b7b2/revision8b273fa5: ordinarylogout, private
+  link/PIN,1lesson,Finish/noearlyack,approve→saved→Close/login PASS. Normal API
+  shortrevisionapproved/courseDRAFT/one lesson/0audience. No mail/guest/model.
+- final ordinary readback PASS: importexact unit/position/employee IDs, inactive
+  tempadmin, cleared owner/dates, protectedattemptID sets1+2, ownexact2quizattempts,
+  owncompleted enrollment42fcca76/08:34:13Z/notificationattempt0, submittedsurvey,
+  recurringdraft/reminderfalse, announcementdraft/0sent, ownarchivedzeroaudience.
+  Additional metadata helper initially incorrectly expected approved revision
+  after publishing; safelycaptured failure, source router line590 proves published
+  transition. Corrected exactpublished expectation thenPASS; no product repair.
+- ignored `.release-evidence/cabinet-actions-20261017/final-017-readback.json`
+  SHA256ea1d2786…b7b8a8 +4screenshots supplement canonical receipts.
+  Local gates bound016runtime +017test-only correction; standalonetypecheck15PASS,
+  exact017 fullCI PASS. Root final docs-only successor will not be pushed/deployed
+  merely to publish evidence. Failed015/016 retained. No blanketcabinetPASS:
+  external sends/models/newkioskcredentials/retainedresets/purge/integration/settings
+  writes NOT_RUN. Cyclesloaded showsnoperiods; deadlinehistorynotavailable,
+  activation excluded to avoid creating learning onlyforcoverage. No production.

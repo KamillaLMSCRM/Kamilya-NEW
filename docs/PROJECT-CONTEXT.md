@@ -5,6 +5,26 @@
 
 ## Источники правды
 
+### Current DEV017 accepted; bounded live cabinet repair complete — 2026-10-17
+
+Exactf3dc54cd1ff4c97b44a02e34f7478b98f657d9ba, CI39031276960 SUCCESS.
+Canonical execute RELEASE_OK plus independent root reconcile RECONCILED:
+Verceldpl_6HDRPFk5Fi8owsiw1bYHbW8bmL1F READY/Hobby, APIdep-db9mccom7kps73du6sig
+and workerdep-db9mdbuq1p3s738pvimg LIVE/Free; exact health PASS. Worker actual
+DB1pong/oneworker/ai-documents-maintenance queues PASS, no business/model tasks.
+Failed015/016 retained; previous source2aa59 is not a runtime rollback assertion.
+
+Live same-identity import RENAME→approve→commit→reload/schema/API exact IDs PASS.
+Main template9b5a1ed4 approvedrevision2 published/currentrelease9067ab30…/0audience.
+Shortaf2e47d1 fresh limited request0780b7b2 after ordinarylogout: PIN/one lesson/
+Finish/approve/success/Close→login PASS; normal API revisionapproved/DRAFT/0audience.
+Profile synthetic level save/reload/restore +versions PASS. Temporary admininactive,
+owner/datesNULL, original attemptID sets unchanged and ownedcompleted training/
+submitted survey preserved by ordinary role readback. Full cabinet remains PARTIAL;
+see plan action matrix for external/model/destructive/protected variants NOT_RUN.
+No production, schema, providerconfig, billing, model/reserve/voice/ASUS changes.
+Older lead sections below are historical failed/intermediate states, not current.
+
 ### DEV016 CI blocked; bounded017 successor pending — 2026-10-17
 
 Exact2aa59dec2858533e4dd6de2bb53c1bb5f0114637 CI39030674253 failed frontend

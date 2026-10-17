@@ -18,6 +18,9 @@ Current as of: 2026-10-17.
   and changed content; RED2 then20PASS. Changed content still409 before release
   creation or commit. Quality1008/2201 PASS after removing now-unused ignore.
   Full gates and exact DEV acceptance remain required.
+- Live verification017: unchanged approvedrevision2 publishes once through UI,
+  reload and ordinary API published/currentrelease9067ab30…/zeroaudience PASS;
+  revision0e58cc7e becomes published with the exact previous approved snapshot hash.
 - Prevention: exercise second/later revision publication and changed-content
   refusal; approval revision count is not a course publication version.
 
@@ -34,6 +37,9 @@ Current as of: 2026-10-17.
   correction focused14PASS; independent page-close finding RED1/14PASS then
   GREEN15PASS with real page/component seam. Full final web1262PASS169files,
   build67/67 incllint/types; independent ACCEPT. Exact DEV live gate remains.
+- Live verification017: isolated link/PIN after ordinary logout, one lesson,
+  Finish/no early acknowledgement, explicit decision, success status and
+  Close→ordinary login PASS. Normal API same short revision approved/DRAFT/0audience.
 - Prevention: verify complete click outcome including Close and token cleanup,
   not only decision POST or component-only success state.
 
@@ -70,6 +76,9 @@ Current as of: 2026-10-17.
   to commit-preflight regression RED2 then focused19PASS/full4242PASS526SKIP;
   quality1008/2201 and independent ACCEPT. Per-row HR/actual-placement guards
   are not modified. Fresh015 committed-name readback remains mandatory.
+- Live verification017: distinct same-identity CSV all3UNCHANGED→department
+  RENAME→approval→committed, reload/schema corrected name with1employee and normal
+  API exact unit/position/employee IDs unchanged PASS. Old failed sessions retained.
 
 ## COURSE-REVIEW-RESUME-001 - Reviewer reload lost lesson position and checkpoint sequence
 
@@ -313,6 +322,14 @@ Current as of: 2026-10-17.
   hide archives globally or treat an empty-recipient result as a successful target.
 
 ## DEV-SSH-001 - A startup TCP reset aborted the optional DEV transport
+
+- Accepted017 follow-up2026-10-17: exactf3dc54cd workerdep-db9mdbuq1p3s738pvimg
+  LIVE12:15:44Z, independent terminal reconcile PASS. Same startup984b9ee17d44
+  first reset/cleanup/stopped, attempt2ready→consumer→connected12:15:36Z; no
+  cleanup stall on this invocation. Actual canonicalDEV DB1 broker equality,
+  one workerpong and queuesai/documents/maintenance PASS, zero business/model
+  tasks. Preserve015failure; external reset origin remains unlocalized. No
+  retry-count, timeout, key/trust/port/network/config/billing change was needed.
 
 - Recurrence2026-10-17 packet015: API02d3 live, targetworkerdep-db9lr73rjlhs73fa9np0
   update_failed11:54:29Z after no-open-ports/healthtimeout. Failed startup

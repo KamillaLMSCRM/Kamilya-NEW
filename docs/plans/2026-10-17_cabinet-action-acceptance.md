@@ -1,6 +1,64 @@
 # Cabinet actions and source ownership acceptance
 
-Status: IN PROGRESS. Owner request2026-10-17. Production publication NOT AUTHORIZED.
+Status: BOUNDED DEV017 ACCEPTED; full cabinet matrix remains PARTIAL.
+Owner request2026-10-17. Production publication NOT AUTHORIZED.
+
+## Current accepted DEV017 and final live readback — 2026-10-17
+
+- Exact source f3dc54cd1ff4c97b44a02e34f7478b98f657d9ba; CI39031276960
+  SUCCESS; canonical execute RELEASE_OK and separate root reconcile RECONCILED.
+  Verceldpl_6HDRPFk5Fi8owsiw1bYHbW8bmL1F READY/Hobby; API
+  dep-db9mccom7kps73du6sig and workerdep-db9mdbuq1p3s738pvimg LIVE/Free.
+  Exact public API health, frontend200 and workerok confirmed. No migration,
+  provider configuration, production, billing, models/reserve/voice/ASUS changes.
+- Root independently read provider terminal metadata after the receipt. Earlier
+  update_in_progress observation was BEFORE terminal12:15:44Z, not a subsequent
+  state reversal; runner handoff caveat about post-terminal drift was temporal
+  misclassification. Same worker startup984b9ee17d44 reset then retry→ready→
+  consumer→connected; cleanup finished promptly. No network-node cause inferred.
+- Actual DEV brokerDB1 API/worker equality, one workerpong and queues
+  ai/documents/maintenance PASS; zero business/model tasks. Failed015 and CI016
+  preserved. Packet previous_release_sha2aa59 is previous SOURCE, not rollback.
+- Fresh same-identity CSV015 analysis all3UNCHANGED; correction only department
+  name becomes RENAME. Approved revisionrev-8868c6a7d42d5b37, committed, success
+  visible. Reload clears completed wizard (expected new-file state); schema
+  shows QA BUTTONS010 department corrected to `QA BUTTONS 010 отдел — проверка`
+  and exactly1employee. Normal API exact unit/position/employee IDs unchanged.
+  First filechooser attempted a transient new-file render before prior approved
+  session restored; tooling timeout/reset, no upload/write. Fresh state selected
+  Another file then actual chooser succeeded. No blind committed-session replay.
+- Existing approved maincourse9b5a1ed4 published once via UI; reload published,
+  ordinary API current_release9067ab30-486f-4fb6-9d21-1e7907edd4a7, reviewapproved,
+  zeroaudience. Revision0e58cc7e number2 is now published, same hash7adb304c…4926.
+  A metadata helper initially expected approved after publication and failed;
+  canonical router intentionally transitions published. Corrected expected
+  state to published (not a permissive alternative); exact metadata PASS.
+- Shortcourseaf2e47d1: new request0780b7b2-0ce8-43b9-9304-1a81108de429,
+  revision8b273fa5-2bf8-48fd-a7d6-2abd77eb9799/hash60e8efd5…47ae. Ordinary
+  logout before private link/PIN proved isolated limited session. One lesson→
+  Finish→earlyack disappears→explicit approve→`Решение сохранено`→Close→ordinary
+  login PASS. Normal API shortrevisionapproved/courseDRAFT/one lesson/zeroaudience.
+  No email, guest, model, main-course content change, or access reset.
+- Final ordinary readback: owner/datesNULL; temporary admin8109d1f1 inactive;
+  protected original attemptID sets1+2 unchanged; own quiz exact2 attempts;
+  own enrollment42fcca76 completed08:34:13Z/notificationattempt0; recurring rule
+  draft/no next run/reminderfalse; announcementdraft/0recipients/0sent; submitted
+  survey persists; own archived0audiencecourse retained. Position level restored
+  empty, versions1baseline/2syntheticchange/3restore. No original learning reset.
+- Proof screenshots in ignored task evidence: dev-import-persisted-017.png,
+  dev-template-published-017.png, dev-review-decision-saved-017.png and
+  dev-position-save-restore-017.png. Sanitized final metadata and worker receipt
+  supplement canonical execute/reconcile; screenshots are not provider identity.
+  Final metadata: `.release-evidence/cabinet-actions-20261017/final-017-readback.json`,
+  SHA256ea1d278637ed350a1ca1076939a07405c97d1299dd552e89f16b53a0c5b7b8a8.
+- Remaining rows are explicitly PARTIAL/NOT_RUN: external email/OTP/support,
+  model-backed generation/dialogue, kiosk/public credential creation, activation
+  of cycles/notifications, protected resets, destructive purge, integration and
+  tenant configuration writes. These were not silently executed to cover buttons.
+  Known nonblocking review UX backlog: raw status enums/reviewer work-item UUID,
+  per-lesson diagnostic scoring/persisted selections, additional backtracking.
+  No blanket all-buttons PASS or production-readiness claim. Earlier sections
+  below are retained chronological observations, superseded by this current lead.
 
 ## CI016 blocked; bounded test-type correction017 — 2026-10-17
 
@@ -270,14 +328,14 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 | Methodologist /dashboard | Refresh, filters, action cards, destination context, help | PARTIAL: exhausted1row/reset/return; other destination combinations pending |
 | /documents | Upload/open/cancel/validation; YouTube; search/status/purpose filters; download; new version; reindex; delete preview; actuality ownership/dates/review decisions; help | OWNER FLOW PASS: other/self/save/clear/reload/date refusal; other actions PARTIAL, named delete cancelled |
 | /ai/generate | Source selection/compatibility; options; generation/resume/cancel; preview; edit/review/publish; help | PARTIAL: source preflight/options/default restore; actual generation NOT RUN |
-| /courses and /courses/[id]/edit | Create/edit/preview; lessons/reorder/media; quizzes; review/publish/archive/delete; help | PARTIAL: own course/module/lesson/save/reload/preview/discard; empty refusal and nonempty publish PASS; archive/media/approval completions pending |
+| /courses and /courses/[id]/edit | Create/edit/preview; lessons/reorder/media; quizzes; review/publish/archive/delete; help | PARTIAL: own save/reload/preview/discard; empty refusal/nonempty publish/archive PASS; template author approval/fresh reviewer/resume/revision2 publication and short limited-review decision/Close PASS; media/delete variants NOT_RUN |
 | /quizzes | Select/create quiz; question/answer types/edit/delete/reorder; learner preview; save/reload; help | PARTIAL: own3types/options/settings/edit/reload, failed/retry/success learner attempts PASS; fresh008 legacy preview/no-save scoring, single selection and exhausted radios PASS |
 | /learning-paths | Create/edit/version/publish; sequence; assignments/cancel; learner view; help | PARTIAL: create/reorder/required/save/reload/publish0audience/v2draft; active audience PASS; actual assignment NOT RUN |
 | /assignments | Course/audience selection; due date/access; preview/confirm; link/PIN; copy; revoke/repeat; rules/reminders; help | PARTIAL: own individual PIN assignment/copy/wrong+correct PIN/learner completion PASS; recurring draft and reminder save/reload/disable PASS; no mail/revoke/reset |
 | /methodologist-workbench | Document dialog/history/source download; assignment preview/confirm; correction/apply/reload; help | PARTIAL: preview/reload/new-command/history/citation/download and localized audience_empty refusal PASS; no model call/confirm/apply |
 | /learning-cycles | Create/edit/version/schedule/activate/deactivate; filters/pagination; help | PARTIAL: empty guards/target switch, own recurring draft only; no rule activation or periods |
-| /staff | Import stages/file validation/mapping/preview/confirm; schema/roster/filters; create/edit/move/terminate; unit preview/confirm; help | PARTIAL: real one-row import/identity linkage; corrected-name failure then013 preview stopped;014 retest required; schema/roster/forms/help checked, moves/termination NOT RUN |
-| /positions and /positions/[id] | Create/edit; JD attach/analyze; qualification/instruction/tests; versions/restore; help | PARTIAL: form validation/cancel, actual multi-file chooser, refresh and card tabs; no profile/rule/version writes |
+| /staff | Import stages/file validation/mapping/preview/confirm; schema/roster/filters; create/edit/move/terminate; unit preview/confirm; help | PARTIAL: real one-row import;017 same-identity UNCHANGED→RENAME→approve→commit→reload/schema/API exact-ID PASS; forms/help checked, termination NOT_RUN; separate earlier workspace transfer gates not repeated here |
+| /positions and /positions/[id] | Create/edit; JD attach/analyze; qualification/instruction/tests; versions/restore; help | PARTIAL: forms/chooser/refresh/tabs; actual profile save/reload/restore empty level and version history PASS; version Restore button/rule/JD-model mutations NOT_RUN |
 | /cohorts | Create/edit; search/select/save members; reload; help | PARTIAL: owned group create/member/save/reload/remove/reset, final0members |
 | /candidate-assessments | Create/edit campaign; preview/activate/close; invite/copy link; CSV; help | PARTIAL: course guard/create/start/close/CSV; no candidate/link/mail |
 | /mandatory-training | Search/filters/scope/status/paging; learner/course destination; help | PARTIAL: search/apply/empty/restore7, single-page guards; no retained writes |

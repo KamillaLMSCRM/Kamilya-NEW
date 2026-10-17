@@ -1,5 +1,15 @@
 # Changelog
 
+## DEV017 live acceptance — 2026-10-17
+
+- Exact017 synchronized existing DEV frontend/API/worker; independent reconcile
+  and actual worker queue pong PASS, free tiers/configuration unchanged.
+- Verified same-identity corrected import persists; approved revision2 publishes;
+  isolated limited reviewer sees saved decision and closes to ordinary login.
+- Tested synthetic position profile save/reload/restore; prior QA attempt IDs,
+  completed learning, submitted survey, cleared owner policy and inactive temporary
+  administrator retained. Full cabinet matrix remains partial; no production.
+
 ## DEV017 standalone test-type correction — 2026-10-17
 
 - Remove an unsupported Playwright-only option from a Testing Library regression;
