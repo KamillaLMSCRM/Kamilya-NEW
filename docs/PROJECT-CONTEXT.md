@@ -5,7 +5,40 @@
 
 ## Источники правды
 
-### DEV018 live; follow-up019 in progress — 2026-10-17
+### Current DEV019 accepted; full cabinet matrix remains partial — 2026-10-17
+
+Exact source c0aac0075970336ee83fcea90e36e4ca944aa3ae, CI39037198699 SUCCESS.
+Backend4779PASS2SKIP/76.29%; the new selected-course PostgreSQL integration and
+module-rename HTTP/ORM integration executed, not skipped. Canonical execute
+RELEASE_OK plus independent root reconcile RECONCILED: Vercel
+dpl_D21vhFzoxydrG7K8pxuegbwfzPBh READY/Hobby, APIdep-db9nlqgm7kps73e2i5k0 and
+workerdep-db9nmqu1egvs73fuukrg LIVE/Free. Schema0183/no migration. Actual broker
+DB1 matches API/worker, exactly one worker pong and ai/documents/maintenance queues
+PASS; no business/model tasks. Local frozen web1280PASS169files/typecheck/build67/67.
+
+Live selected-course history now shows main2/short1/draft0, clears actions when
+selection is empty, and remains scoped after Refresh/reload. Ordinary API confirms
+the exact three previously approved requests/decisions retained; unknown course[]
+and invalid UUID422. Owner-authorized deletion completed ONLY lesson0968c795 and
+then its empty module7c55beed in draftaf5a2cdb. Active lesson editor clears after
+success; reload/API retain original modules e0bd50d2/80e84a02, original2lessons,
+A2 title and order, DRAFT/zero audience. Deletion has no normal undo; no other
+cleanup. HTTP500/network failure preservation is regression-tested, not injected
+into the deployed browser. Source policy, protected attempt IDs and completion,
+review decisions, imported identities and inactive temporary admin remain intact.
+
+Worker019 reset remains NOT_LOCALIZED: startup635ef10cb856 first attempt reset
+13:44:12.307Z; retry2 ready/connected13:44:15.044Z. Passive300s capture covers BOTH
+official shared DEV outbound ranges,13:41:22.622–13:46:22.639Z. The worker's second
+SYN/SYNACK13:44:13.371Z flowdd84e6db8566 matches accepted restricted-principal auth
+13:44:14.987742Z. No first-attempt SYN/RST reached this observation within those
+ranges; no matching SSH denial in the7s journal. Forward-target refusal entries
+are a different event class, not evidence of a transport/auth reset; no ASUS probe.
+This bounds the failure to an unobserved pre-auth transport path, not a proven
+provider or physical node. No host writes/payload/pcap, retry/trust/port/policy,
+provider tier/resource, production, model/reserve/voice or ASUS changes.
+
+### DEV018 and019 preparation (historical; superseded above)
 
 Exactf29b62277e913ffecd2938ca3fe5940d8bc6b9b4, CI39034758056 SUCCESS.
 New module HTTP/ORM integration executed (not skipped); backend4776PASS2SKIP,

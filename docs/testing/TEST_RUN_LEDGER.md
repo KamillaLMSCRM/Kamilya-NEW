@@ -5815,3 +5815,56 @@ Rules:
   root defers until corrected019 DEV path, no other data cleanup authorized.
 - Final frozen019 fullweb1280PASS169files171.85s, standalone typecheckPASS;
   build67of67PASS. Earlier1275PASS4FAIL remains preserved, not a green gate.
+
+### DEV019 exact deployment, live acceptance and approved cleanup — 2026-10-17
+
+- Source c0aac0075970336ee83fcea90e36e4ca944aa3ae pushed only todev via canonical
+  process-local project credential/accountKamillaLMSCRM. Independent remoteSHA
+  matched13:35:36.4939639Z; task source-push-019.json and owner-authorized sanitized
+  memory receipt retained, no token values. Production/master untouched.
+- Packet REL-DEV-CABINET-SCOPE-20261017-019 SHA256
+  89b4aec8d380f2f7e340055a58d532a5a08098c785579dd29cc1bd7d832eae36.
+  CI39037198699 SUCCESS; root independently read exact backendjob117409320881:
+  selected-course filter integration and module rename integration both executed,
+  4779PASS2SKIP220.33s/76.29%coverage. Canonical runnerexecute RELEASE_OK plus
+  rootindependent reconcile RECONCILED. Verceldpl_D21vhFzoxydrG7K8pxuegbwfzPBh
+  READY/Hobby; APIdep-db9nlqgm7kps73e2i5k0 LIVE13:43:02.962773Z;
+  workerdep-db9nmqu1egvs73fuukrg LIVE13:44:19.392303Z, bothFree/exactSHA.
+  APIhealthdeployment_environmentrender-development/frontend200/workerok;
+  schema0183/no migration, no provider setting/resource/tier change.
+- Ordinary methodologist browser maincourse2requests→shortcourse1→draft0→empty
+  prompt/no actions→main/Refresh/reloadexact2 PASS. Read-only API confirms exact
+  three approved request identities/decisions retained, legacyunionexact3,
+  unknowncourse[] and malformedUUID422. No cancel/rotate/revoke/create performed.
+  Screenshot dev-approval-scoped-019.png retained in ignored task evidence.
+- Fresh owner action-time confirmation authorizes ONLY temporary lesson
+  0968c795-8c84-4052-81b6-8e64e22429c4 and then empty module
+  7c55beed-9637-4f34-9fb2-73f43cf13917 in owned draftaf5a2cdb. Root selected
+  exact lesson, confirmed browser deletion, verified editor cleared/moduleempty,
+  then deleted only that empty module. Reload and ordinary API assert exact
+  originalmodules e0bd50d2/80e84a02, A2/B order and original2lessons retained,
+  DRAFT/0audience. Screenshot dev-exact-cleanup-019.png. Normal UI has no undo;
+  only those two disposable records removed. No course or protected learning
+  deletion. HTTP500/network failure preservation remains automated regression
+  evidence, distinct from successful live deletion.
+- Final ordinary readback PASS: originalattemptIDsets1+2 unchanged; own2attempts,
+  completed42fcca76 timestamp08:34:13.194326Z and submittedsurvey retained;
+  mainpublished/approved/currentrelease retained; shortdraft0audience; imported
+  exactIDs/currentlabel retained; sourceowner/datesNULL; temporaryadmininactive;
+  rulesdraft/reminderfalse/announcement0sent. Linkedqualification label/id and
+  restoredlevelempty retained. Logins produce only normal auth/session audit.
+- Actual DEV brokerDB1 equal acrossAPI/worker, oneworkerpong/queuesai,documents,
+  maintenance PASS. No business/model task submitted. Startup635ef10cb856 first
+  reset13:44:12.307Z, retry2ready/connected13:44:15.044Z. Passive300s metadata
+  across both official sharedDEV outboundranges13:41:22.622–13:46:22.639Z:
+  worker secondSYN/SYNACK13:44:13.371Z flowdd84e6db8566 matches restrictedprincipal
+  auth13:44:14.987742Z. No first-attempt SYN/RST at proxy in those ranges.
+  Seven-second journal10rows has no matchingDEV auth/MaxStartups/penalty denial;
+  targetforward refusal entries are a separate event class. Capture timeout124
+  is the planned bounded observation end, not a failed worker health result.
+  No payload/pcap/remote files/config writes. Exact reset-sending node remains
+  NOT_LOCALIZED; recovery by bounded retry does not mean external cause repaired.
+- Bounded019 acceptance PASS; full cabinet matrix remains PARTIAL with explicit
+  NOT_RUN external/model/protected/destructive variants. Production/ASUS/models/
+  reserve/voice/keys/trust/ports/security settings/billing unchanged. Final evidence
+  documentation is a local docs-only successor; no extra deploy triggered.

@@ -1,12 +1,16 @@
 # Changelog
 
-## DEV019 candidate — 2026-10-17
+## DEV019 bounded live acceptance — 2026-10-17
 
 - Scope approval status/actions to the selected course; preserve unfiltered audit
   compatibility and tenant isolation. Reject stale request reads and callbacks.
 - Preserve module/lesson and editing drafts when DELETE fails; show action-specific
   error text. Existing confirmations and successful deletion semantics remain.
-- DEV018 is live on existing free tiers; no production, schema or provider change.
+- Exact019 DEV frontend/API/worker reconciled; live course-specific requests and
+  the two explicitly approved temporary-record deletions/reload/readback PASS.
+- Original QA learning and approval decisions retained. Full cabinet acceptance
+  remains partial; worker retry recovers, exact external reset node not localized.
+- Existing free tiers and schema retained; production unchanged.
 
 ## DEV018 candidate — 2026-10-17
 

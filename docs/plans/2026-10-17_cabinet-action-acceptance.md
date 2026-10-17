@@ -1,9 +1,37 @@
 # Cabinet actions and source ownership acceptance
 
-Status: BOUNDED DEV018 ACCEPTED; follow-up019 IN PROGRESS; cabinet remains PARTIAL.
+Status: BOUNDED DEV019 ACCEPTED; full cabinet remains PARTIAL; reset node NOT_LOCALIZED.
 Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
-## Follow-up018 IN PROGRESS — 2026-10-17
+## Current019 live acceptance — 2026-10-17
+
+- Sourcec0aac0075970336ee83fcea90e36e4ca944aa3ae, CI39037198699 SUCCESS;
+  backend4779PASS2SKIP/76.29%, both new database integrations executed. Exact
+  execute RELEASE_OK/root reconcile RECONCILED, Verceldpl_D21vhFzoxydrG7K8pxuegbwfzPBh,
+  APIdep-db9nlqgm7kps73e2i5k0/workerdep-db9nmqu1egvs73fuukrg LIVE/READY on
+  unchanged Free/Free/Hobby. Migrationnone/schema0183 retained. Local web1280PASS,
+  typecheck/build67of67PASS; API4253PASS528environmentSKIP/quality1008-2201PASS.
+- Browser selected main2requests→short1→draft0→empty selector prompt/no actions,
+  return to main/Refresh/reload exact2 PASS. Ordinary API exact3approved request
+  inventory/decisions retained, unknown course[]/invalidUUID422 PASS. No access
+  rotation/revoke/cancel/new request. Proof dev-approval-scoped-019.png.
+- Owner-approved exact deletion executed via browser: lesson0968c795 then empty
+  module7c55beed. Active editor clears on success. Reload and ordinary API retain
+  exact original2modules/2lessons/order/A2, DRAFT/0audience; no broader cleanup.
+  Deletion is irreversible in the normal UI. Proof dev-exact-cleanup-019.png.
+  HTTP500/network failure retention is automated regression evidence, not live
+  fault injection. These two forms of evidence must not be conflated.
+- Worker control: actualDEV DB1/onepong/ai-documents-maintenance queues PASS, zero
+  business/model tasks. Passive300s SSH header capture across both official DEV
+  ranges sees successful retry SYN/SYNACK13:44:13.371Z, flowdd84e6db8566; journal
+  acceptedauth13:44:14.987742Z. Firstreset13:44:12.307Z has no matching first SYN/RST
+  at proxy in those ranges. No matching auth/MaxStartups denial. Exact reset node
+  remains NOT_LOCALIZED; successful bounded retry is recovery, not cause repair.
+- Full matrix below remains PARTIAL. Excluded model/external communications,
+  protected learning resets, permission/provider changes and other unexecuted
+  variants remain NOT_RUN, not inferred PASS. Production/ASUS untouched.
+
+## Follow-up018/019 preparation history — 2026-10-17 (superseded above)
 
 - Superseded by successful exact018 deployment and live bounded readback below;
   next019 repairs additional findings, not a retry of018.
@@ -432,7 +460,7 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 | Methodologist /dashboard | Refresh, filters, action cards, destination context, help | PARTIAL: exhausted1row/reset/return; other destination combinations pending |
 | /documents | Upload/open/cancel/validation; YouTube; search/status/purpose filters; download; new version; reindex; delete preview; actuality ownership/dates/review decisions; help | OWNER FLOW PASS: other/self/save/clear/reload/date refusal; other actions PARTIAL, named delete cancelled |
 | /ai/generate | Source selection/compatibility; options; generation/resume/cancel; preview; edit/review/publish; help | PARTIAL: source preflight/options/default restore; actual generation NOT RUN |
-| /courses and /courses/[id]/edit | Create/edit/preview; lessons/reorder/media; quizzes; review/publish/archive/delete; help | PARTIAL: own save/reload/preview/discard; empty refusal/nonempty publish/archive PASS; template approval/fresh reviewer/resume/revision2 publish/limited decision Close PASS;018 module and lesson reorder/reload, module rename/reload, temporary module/lesson create/cancel/save/reload PASS; delete preview/cancel only, exact cleanup pending; image Markdown literal, file-media NOT_RUN |
+| /courses and /courses/[id]/edit | Create/edit/preview; lessons/reorder/media; quizzes; review/publish/archive/delete; help | PARTIAL: own save/reload/preview/discard; empty refusal/nonempty publish/archive PASS; template approval/fresh reviewer/resume/revision2 publish/limited decision Close PASS;018 module and lesson reorder/reload, module rename/reload, temporary module/lesson create/cancel/save/reload PASS;019 exact approved temporary lesson then empty module delete/reload/API preservation PASS; selected-course approval2/1/0/empty/refresh/reload PASS; image Markdown literal, file-media NOT_RUN |
 | /quizzes | Select/create quiz; question/answer types/edit/delete/reorder; learner preview; save/reload; help | PARTIAL: own3types/options/settings/edit/reload, failed/retry/success learner attempts PASS; fresh008 legacy preview/no-save scoring, single selection and exhausted radios PASS |
 | /learning-paths | Create/edit/version/publish; sequence; assignments/cancel; learner view; help | PARTIAL: create/reorder/required/save/reload/publish0audience/v2draft; active audience PASS; actual assignment NOT RUN |
 | /assignments | Course/audience selection; due date/access; preview/confirm; link/PIN; copy; revoke/repeat; rules/reminders; help | PARTIAL: own individual PIN assignment/copy/wrong+correct PIN/learner completion PASS; recurring draft and reminder save/reload/disable PASS; no mail/revoke/reset |

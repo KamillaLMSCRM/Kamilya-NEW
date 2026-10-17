@@ -22,7 +22,10 @@ Current as of: 2026-10-17.
   sequential waits, real readiness regression RED2/7PASS was fixed with an exact
   successful-history course marker. Creation waits for current history success;
   the already-open one-time-credential modal survives same-course background
-  refresh. Final frozen fullweb/CI/live switching remain required.
+  refresh. Final frozen web1280PASS169files/typecheck/build67of67PASS; CI39037198699
+  backend4779PASS2SKIP executed the new integration. Exact019 DEV live switching
+  main2/short1/draft0/empty prompt/Refresh/reload PASS; ordinary API preserves all
+  three approved request identities/decisions, unknown[]/invalidUUID422.
 - Prevention: selection-scoped request/action evidence and late-callback tests,
   not only request-start ordering. Never equate tenant isolation with correct UI scope.
 
@@ -40,7 +43,11 @@ Current as of: 2026-10-17.
 - Verification:2behavioral REDs; additional invalid JSON204 mock failure was test
   setup only and corrected separately. Final editor28PASS covers both handlers/
   both failure modes and accurate3language copy; combined47PASS/typecheckPASS,
-  independent review ACCEPT. FinalCI/live destructive acceptance remain pending.
+  independent review ACCEPT. CI39037198699 SUCCESS/exact019 DEV reconciled. Owner
+  approved only lesson0968c795 then empty module7c55beed; browser deletion, active
+  editor reset, reload and ordinary API exact original2modules/2lessons/DRAFT/
+  zeroaudience PASS. HTTP/network failure evidence remains automated, not live
+  fault injection. No other deletion or protected learning mutation.
 - Prevention: pair destructive controls with HTTP/network negatives and authoritative
   persisted readback; failed UI deletion must never be treated as completed deletion.
 
@@ -395,6 +402,19 @@ Current as of: 2026-10-17.
   hide archives globally or treat an empty-recipient result as a successful target.
 
 ## DEV-SSH-001 - A startup TCP reset aborted the optional DEV transport
+
+-019 observation2026-10-17: exactc0aac007/workerdep-db9nmqu1egvs73fuukrg LIVE;
+  startup635ef10cb856 first reset13:44:12.307Z; retry2connected13:44:15.044Z. Real
+  DEV brokerDB1/oneworkerpong/threequeues PASS, zero business/model tasks. Passive
+  300s header capture covers BOTH official shared outbound ranges13:41:22.622–
+  13:46:22.639Z; worker second SYN/SYNACK13:44:13.371Z flowdd84e6db8566 matches
+  acceptedauth13:44:14.987742Z. First-attempt SYN/RST absent in those ranges;
+  seven-second SSH journal has no matching auth/MaxStartups/penalty denial.
+  Forward-destination connect failures are separate from this transport reset.
+  Exact sending node remains NOT_LOCALIZED; absence at this observation is not
+  proof of a particular Render mechanism or physical router. Retain evidence;
+  do not change trust/keys/ports/retries/firewall/tiers based on this hypothesis.
+  No remote files/payload/pcap/config writes, production or ASUS probes/mutations.
 
 -018 observation2026-10-17: exactf29b6227/workerdep-db9n5tuq1p3s738sesk0 LIVE;
   startupf6b06a58cb8c/instancebf4ebb66476c firstforward reset13:07:55.499Z,
