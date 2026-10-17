@@ -413,8 +413,15 @@ export default function LearningPathsPage() {
     setSelectedAudience({ learners: [], cohorts: [], departments: [], positions: [] });
   };
 
+  const invalidAssignmentDates = Boolean(startsAt && dueAt && dueAt < startsAt);
+
   const publish = async () => {
     if (!title.trim() || steps.length === 0 || !steps.some((step) => step.required)) return;
+    if (totalSelectedAudience > 0 && invalidAssignmentDates) {
+      setStage('audience');
+      toast.error(t('learningPaths.invalidAssignmentDates' as never));
+      return;
+    }
     const id = await persistDraft({ notify: false });
     if (!id) return;
     setSaving(true);
@@ -494,7 +501,7 @@ export default function LearningPathsPage() {
   };
 
   const assign = async () => {
-    if (!selected || selected.status !== 'published') return;
+    if (!selected || selected.status !== 'published' || invalidAssignmentDates) return;
     setSaving(true);
     try {
       await assignAudience(selected.id);
@@ -615,7 +622,7 @@ export default function LearningPathsPage() {
             {stage === 'basic' && <><BasicStage scenario={scenario} setScenario={setScenario} title={title} description={description} sequencingMode={sequencingMode} responsibleUserId={responsibleUserId} setResponsibleUserId={setResponsibleUserId} defaultDueDays={defaultDueDays} setDefaultDueDays={setDefaultDueDays} methodologists={methodologists} disabled={!isDraft} setTitle={setTitle} setDescription={setDescription} setSequencingMode={setSequencingMode} t={t} /><BasicSettings responsibleUserId={responsibleUserId} setResponsibleUserId={setResponsibleUserId} defaultDueDays={defaultDueDays} setDefaultDueDays={setDefaultDueDays} certificateMode={certificateMode} setCertificateMode={setCertificateMode} certificateValidityMonths={certificateValidityMonths} setCertificateValidityMonths={setCertificateValidityMonths} recurrenceMode={recurrenceMode} setRecurrenceMode={setRecurrenceMode} recurrenceCadenceDays={recurrenceCadenceDays} setRecurrenceCadenceDays={setRecurrenceCadenceDays} recurrenceDueDays={recurrenceDueDays} setRecurrenceDueDays={setRecurrenceDueDays} methodologists={methodologists} disabled={!isDraft} t={t} /></>}
             {stage === 'content' && selected?.status === 'draft' && <div className="mb-5 flex flex-col gap-3 rounded-md border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{t('learningPaths.createCourseFromMaterials' as never)}</p><p className="mt-1 text-sm text-muted-foreground">{t('learningPaths.createCourseFromMaterialsHint' as never)}</p></div><Link href={`/ai/generate?program_id=${encodeURIComponent(selected.id)}`} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"><Plus className="h-4 w-4" aria-hidden="true" />{t('learningPaths.createCourseFromMaterialsAction' as never)}</Link></div>}
             {stage === 'content' && <ContentStage courses={filteredCourses} steps={steps} search={courseSearch} setSearch={setCourseSearch} onToggle={toggleStep} onRemove={(id) => setSteps((current) => current.filter((step) => step.course_id !== id))} onMove={moveStep} onRequired={(id, required) => setSteps((current) => current.map((step) => step.course_id === id ? { ...step, required } : step))} disabled={!isDraft} t={t} tp={tp} />}
-            {stage === 'audience' && <AudienceStage selected={selected} audienceTab={audienceTab} setAudienceTab={setAudienceTab} options={currentAudience} selectedIds={selectedAudience[audienceTab]} search={audienceSearch} setSearch={setAudienceSearch} onToggle={toggleAudience} startsAt={startsAt} dueAt={dueAt} setStartsAt={setStartsAt} setDueAt={setDueAt} assignments={assignments} onCancel={cancelAssignment} onAssign={assign} saving={saving} totalSelected={totalSelectedAudience} t={t} />}
+            {stage === 'audience' && <AudienceStage selected={selected} audienceTab={audienceTab} setAudienceTab={setAudienceTab} options={currentAudience} selectedIds={selectedAudience[audienceTab]} search={audienceSearch} setSearch={setAudienceSearch} onToggle={toggleAudience} startsAt={startsAt} dueAt={dueAt} setStartsAt={setStartsAt} setDueAt={setDueAt} invalidDates={invalidAssignmentDates} assignments={assignments} onCancel={cancelAssignment} onAssign={assign} saving={saving} totalSelected={totalSelectedAudience} t={t} />}
             {stage === 'review' && <ReviewStage selected={selected} title={title} description={description} sequencingMode={sequencingMode} steps={steps} totalSelectedAudience={totalSelectedAudience} canPublish={canPublish} onPublish={publish} saving={saving} t={t} />}
 
             <div className="mt-8 flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
@@ -656,7 +663,7 @@ function ContentStage({ courses, steps, search, setSearch, onToggle, onRemove, o
   return <div className="space-y-5"><div><h3 className="text-lg font-semibold">{t('learningPaths.stage.content' as never)}</h3><p className="mt-1 text-sm text-muted-foreground">{t('learningPaths.contentHint' as never)}</p></div><div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]"><div className="min-w-0 rounded-md border p-4"><div className="mb-3 flex items-center justify-between gap-3"><h4 className="font-medium">{t('learningPaths.availableCourses' as never)}</h4><span className="text-xs text-muted-foreground">{tp('common.counts.course' as never, courses.length)}</span></div><div className="relative mb-3"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" /><Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('learningPaths.searchCourses' as never)} aria-label={t('learningPaths.searchCourses' as never)} /></div><div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">{courses.map((course) => <div key={course.id} className="flex min-w-0 items-center justify-between gap-3 rounded-md border p-3"><span className="min-w-0 truncate text-sm" title={course.title}>{course.title}</span><Button type="button" size="sm" variant={selectedIds.has(course.id) ? 'secondary' : 'outline'} onClick={() => onToggle(course)} disabled={disabled} className="shrink-0 gap-1">{selectedIds.has(course.id) ? <Check className="h-4 w-4" aria-hidden="true" /> : <Plus className="h-4 w-4" aria-hidden="true" />} {selectedIds.has(course.id) ? t('learningPaths.added' as never) : t('learningPaths.add' as never)}</Button></div>)}{!courses.length && <p className="py-6 text-sm text-muted-foreground">{t('learningPaths.noCourses' as never)}</p>}</div></div><div className="min-w-0 rounded-md border p-4"><div className="mb-3 flex items-center justify-between gap-3"><h4 className="font-medium">{t('learningPaths.sequence' as never)}</h4><span className="text-xs text-muted-foreground">{tp('common.counts.course' as never, steps.length)}</span></div>{steps.length ? <ol className="space-y-2">{steps.map((step, index) => <li key={step.course_id} className="flex min-w-0 items-center gap-3 rounded-md border p-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">{index + 1}</span><div className="min-w-0 flex-1"><div className="truncate font-medium" title={step.title}>{step.title}</div><label className="mt-1 inline-flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={step.required} onChange={(event) => onRequired(step.course_id, event.target.checked)} disabled={disabled} />{t('learningPaths.required' as never)}</label></div><div className="flex shrink-0 items-center gap-1"><Button type="button" variant="ghost" size="icon" onClick={() => onMove(index, -1)} disabled={disabled || index === 0} title={t('learningPaths.moveUp' as never)} aria-label={t('learningPaths.moveUp' as never)}><ArrowUp className="h-4 w-4" aria-hidden="true" /></Button><Button type="button" variant="ghost" size="icon" onClick={() => onMove(index, 1)} disabled={disabled || index === steps.length - 1} title={t('learningPaths.moveDown' as never)} aria-label={t('learningPaths.moveDown' as never)}><ArrowDown className="h-4 w-4" aria-hidden="true" /></Button><Button type="button" variant="ghost" size="icon" onClick={() => onRemove(step.course_id)} disabled={disabled} title={t('learningPaths.remove' as never)} aria-label={t('learningPaths.remove' as never)}><X className="h-4 w-4" aria-hidden="true" /></Button></div></li>)}</ol> : <div className="flex min-h-[180px] items-center justify-center rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">{t('learningPaths.sequenceEmpty' as never)}</div>}</div></div></div>;
 }
 
-function AudienceStage({ selected, audienceTab, setAudienceTab, options, selectedIds, search, setSearch, onToggle, startsAt, dueAt, setStartsAt, setDueAt, assignments, onCancel, onAssign, saving, totalSelected, t }: { selected: PathDetail | null; audienceTab: AudienceTab; setAudienceTab: (value: AudienceTab) => void; options: AudienceOption[]; selectedIds: string[]; search: string; setSearch: (value: string) => void; onToggle: (id: string) => void; startsAt: string; dueAt: string; setStartsAt: (value: string) => void; setDueAt: (value: string) => void; assignments: Assignment[]; onCancel: (id: string) => void; onAssign: () => void; saving: boolean; totalSelected: number; t: (key: never, params?: Record<string, string | number>) => string }) {
+function AudienceStage({ selected, audienceTab, setAudienceTab, options, selectedIds, search, setSearch, onToggle, startsAt, dueAt, setStartsAt, setDueAt, invalidDates, assignments, onCancel, onAssign, saving, totalSelected, t }: { selected: PathDetail | null; audienceTab: AudienceTab; setAudienceTab: (value: AudienceTab) => void; options: AudienceOption[]; selectedIds: string[]; search: string; setSearch: (value: string) => void; onToggle: (id: string) => void; startsAt: string; dueAt: string; setStartsAt: (value: string) => void; setDueAt: (value: string) => void; invalidDates: boolean; assignments: Assignment[]; onCancel: (id: string) => void; onAssign: () => void; saving: boolean; totalSelected: number; t: (key: never, params?: Record<string, string | number>) => string }) {
   const published = selected?.status === 'published';
   const canSelectAudience = !selected || selected.status !== 'archived';
 
@@ -748,6 +755,7 @@ function AudienceStage({ selected, audienceTab, setAudienceTab, options, selecte
                 onChange={setDueAt}
                 disabled={!canSelectAudience}
               />
+              {invalidDates && <p role="alert" className="text-xs text-destructive">{t('learningPaths.invalidAssignmentDates' as never)}</p>}
             </label>
           </div>
           <p className="mt-4 text-sm text-muted-foreground">
@@ -757,7 +765,7 @@ function AudienceStage({ selected, audienceTab, setAudienceTab, options, selecte
             <Button
               className="mt-4 w-full gap-2"
               onClick={onAssign}
-              disabled={saving || totalSelected === 0}
+              disabled={saving || totalSelected === 0 || invalidDates}
             >
               <Send className="h-4 w-4" aria-hidden="true" />
               {t('learningPaths.assign' as never)}

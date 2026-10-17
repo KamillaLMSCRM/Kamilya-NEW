@@ -74,6 +74,48 @@ def test_dead_ssh_is_not_ready():
         runtime.await_forward(Dead(), seconds=0.1)
 
 
+@pytest.mark.parametrize("diagnostic,stage,operation", [
+    (b"ssh: connect to host private port 22: Connection reset by peer\n", "unknown", "connect"),
+    (b"debug1: Connection established.\nkex_exchange_identification: read: Connection reset by peer\n", "tcp_established", "banner_read"),
+    (b"debug1: Connection established.\ndebug1: Remote protocol version 2.0, remote software version OpenSSH_test\n", "peer_banner", "unknown"),
+    (b"debug1: SSH2_MSG_KEXINIT sent\n", "key_exchange", "unknown"),
+    (b"Authenticated to private ([private]:22) using publickey.\n", "authenticated", "unknown"),
+    (b"remote banner says debug1: Connection established.\n", "unknown", "unknown"),
+])
+def test_private_ssh_progress_is_fixed_code_only(diagnostic, stage, operation):
+    assert runtime.ssh_progress(diagnostic) == (stage, operation)
+
+
+def test_private_ssh_diagnostics_are_enabled_but_not_forwarded():
+    assert "LogLevel=DEBUG1" in runtime.ssh_command(Path("identity"), Path("hosts"))
+    assert "LogLevel=ERROR" not in runtime.ssh_command(Path("identity"), Path("hosts"))
+
+
+def test_failed_real_wait_emits_only_private_stage_codes_and_retains_one_retry(monkeypatch, capsys):
+    from types import SimpleNamespace
+
+    raw = (b"debug1: Connection established.\n"
+           b"debug1: identity file /private/never-publish-this-path type 3\n"
+           b"kex_exchange_identification: read: Connection reset by peer\n")
+    failed = SimpleNamespace(pid=123, stderr=io.BytesIO(raw), poll=lambda: 255,
+                             _kamilya_diagnostic_tail=bytearray(raw))
+    live = SimpleNamespace(pid=124, poll=lambda: None)
+    processes = iter((failed, live))
+    stopped = []
+    monkeypatch.setattr(runtime, "spawn", lambda *_args, **_kwargs: next(processes))
+    monkeypatch.setattr(runtime, "drain_diagnostics", lambda _process: None)
+    monkeypatch.setattr(runtime, "owns_listeners", lambda pid: pid == 124)
+    monkeypatch.setattr(runtime, "stop", stopped.append)
+    monkeypatch.setattr(runtime.time, "sleep", lambda _seconds: None)
+    assert runtime.start_forward(Path("identity"), Path("hosts"), {}) is live
+    output = capsys.readouterr().out
+    assert stopped == [failed]
+    assert "forward_failure|attempt=1|stage=tcp_established|operation=banner_read|" in output
+    assert output.count("dev_private_models=startup_retry_once|") == 1
+    assert "never-publish-this-path" not in output
+    assert "Connection established" not in output and "kex_exchange_identification" not in output
+
+
 @pytest.mark.parametrize("error,expected", [
     (b"Load key '/private/sensitive': error in libcrypto", "identity_crypto_error"),
     (b"kamilya-dev-models@host: Permission denied (publickey).", "authentication_denied"),
@@ -183,14 +225,15 @@ def test_only_one_pre_auth_transport_recovery_preserves_strict_failures(monkeypa
         output = capsys.readouterr().out
         assert "|startup_id=" + "a" * 12 in output
         phases = [line.split('|')[1] for line in output.splitlines()]
-        assert phases == ['dev_private_models=forward_starting', 'dev_private_models=forward_cleanup', 'dev_private_models=forward_stopped', 'dev_private_models=startup_retry_once', 'dev_private_models=forward_starting', 'dev_private_models=forward_ready']
+        assert phases == ['dev_private_models=forward_starting', 'dev_private_models=forward_cleanup', 'dev_private_models=forward_stopped', 'dev_private_models=forward_failure', 'dev_private_models=startup_retry_once', 'dev_private_models=forward_starting', 'dev_private_models=forward_ready']
     else:
         with pytest.raises(runtime.RuntimeBlocked, match=failure):
             runtime.start_forward(Path("identity"), Path("hosts"), source)
         assert len(processes) == 1 and stopped == processes
         output = capsys.readouterr().out
         assert 'startup_retry_once' not in output
-        assert [line.split('|')[1] for line in output.splitlines()] == ['dev_private_models=forward_starting', 'dev_private_models=forward_cleanup', 'dev_private_models=forward_stopped']
+        assert [line.split('|')[1] for line in output.splitlines()] == ['dev_private_models=forward_starting', 'dev_private_models=forward_cleanup', 'dev_private_models=forward_stopped', 'dev_private_models=forward_failure']
+    assert '|stage=unknown|operation=unknown|' in output
     assert 'synthetic-instance' not in output
 
 

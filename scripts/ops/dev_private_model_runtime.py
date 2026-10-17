@@ -62,7 +62,7 @@ def ssh_command(key_path: Path, known_path: Path) -> list[str]:
         "-o", "KbdInteractiveAuthentication=no", "-o", "ExitOnForwardFailure=yes",
         "-o", "ConnectTimeout=8", "-o", "ConnectionAttempts=1",
         "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=2",
-        "-o", "LogLevel=ERROR", "-o", "ForwardAgent=no"]
+        "-o", "LogLevel=DEBUG1", "-o", "ForwardAgent=no"]
     for local, destination, port in FORWARDS:
         command += ["-L", f"127.0.0.1:{local}:{destination}:{port}"]
     return command + [f"{USER}@{HOST}"]
@@ -138,6 +138,27 @@ def ssh_failure(process: subprocess.Popen) -> str:
         if fragment in raw:
             return "ssh_start_failed_" + code
     return "ssh_start_failed_exit_" + str(process.poll()) + "_diagnostic_bytes_" + str(len(raw))
+
+
+def ssh_progress(raw: bytes) -> tuple[str, str]:
+    """Map private OpenSSH diagnostics to fixed stages, never raw text or addresses."""
+    stage = "unknown"
+    for pattern, candidate in (
+        (rb"^debug1: Connection established\.$", "tcp_established"),
+        (rb"^debug1: Remote protocol version 2\.0, remote software version [^\r\n]+$", "peer_banner"),
+        (rb"^debug1: SSH2_MSG_KEXINIT (?:sent|received)$", "key_exchange"),
+        (rb"^Authenticated to [^\r\n]+ using [^\r\n]+\.$", "authenticated"),
+    ):
+        if re.search(pattern, raw, re.MULTILINE):
+            stage = candidate
+    operation = "unknown"
+    if re.search(rb"^ssh: connect to host [^\r\n]+: Connection reset by peer$", raw, re.MULTILINE):
+        operation = "connect"
+    elif re.search(rb"^kex_exchange_identification: read: Connection reset by peer$", raw, re.MULTILINE):
+        operation = "banner_read"
+    elif re.search(rb"^kex_exchange_identification: write: Connection reset by peer$", raw, re.MULTILINE):
+        operation = "banner_write"
+    return stage, operation
 
 
 def drain_diagnostics(process: subprocess.Popen) -> None:
@@ -228,6 +249,11 @@ def start_forward(identity: Path, hosts: Path, source: dict[str, str]) -> subpro
             stop(process)
             print("EVIDENCE|dev_private_models=forward_stopped|attempt=" + str(attempt + 1)
                 + diagnostic_context(source), flush=True)
+            if isinstance(exc, RuntimeBlocked):
+                stage, operation = ssh_progress(bytes(getattr(process, "_kamilya_diagnostic_tail", b"")))
+                print("EVIDENCE|dev_private_models=forward_failure|attempt=" + str(attempt + 1)
+                    + "|stage=" + stage + "|operation=" + operation
+                    + diagnostic_context(source), flush=True)
             if isinstance(exc, RuntimeBlocked) and str(exc) in transient and attempt == 0:
                 print("EVIDENCE|dev_private_models=startup_retry_once|reason=" + str(exc)
                     + diagnostic_context(source), flush=True)

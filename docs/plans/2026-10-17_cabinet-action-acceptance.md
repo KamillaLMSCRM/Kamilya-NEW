@@ -3,6 +3,36 @@
 Status: BOUNDED DEV019 ACCEPTED; full cabinet remains PARTIAL; reset node NOT_LOCALIZED.
 Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
+## Follow-up020 in progress — 2026-10-17
+
+- Owner renewed remaining DEV scenarios/fixes and concrete reset diagnosis.
+  Existing runtime019 independently read LIVE again; API/worker official outbound
+  metadata has identical2shared range hashes1103c1180f9f/4c094ec9238f. No provider
+  or production mutation. Primaryguard LINKED_WORKTREE_OK; unrelated work retained.
+- Root owns network/remote/browser/integration/docs. Existing cheap bounded writer
+  owns only learning-path UI/test/locales; independent reviewer owns no edits.
+  CodeGraph NOT_READY/runtime missing; bounded exact-source fallback, no install.
+- Live published QA program audience searchnoresult/clear/selectlearner PASS.
+  Start27Oct/end26Oct leaves Assign enabled; actual normal POST rejects422 before
+  business writes/notification. Need inline localized validation and no publication
+  side effect for invalid selected-audience dates. No positive assignment/mail.
+- Reset feedback loop is native startup reset→retry on exact019 (previous receipt).
+  Hypotheses: upstream egress reset; mismatch with observed egress range; early
+  SSH refusal. Matching API/worker ranges exclude wrong-service metadata. Added
+  private fixed-stage diagnostics only: genuine7RED/30PASS→38PASS focused after
+  parser/marker/pipeline checks; initial unsupported--no-cov was harness-only.
+  Marker-sequence tests explicitly adapted, retry/trust/timeout/port behavior
+  unchanged. Source review and exact DEV launch/capture still required; not cause GO.
+- Final independent source reviews ACCEPT for SSH and date guard. Date case
+  genuine1RED→20PASS, review-requested two post-fix combined/bypass tests→22PASS,
+  no fabricatedRED. Frozen API4310PASS528environmentSKIP60.17s includes explicit
+  runtime/acceptance/relay scripts; quality1008/2201PASS. Web1283PASS169files178.79s,
+  typecheck/build67of67PASS; releasecontract311IDsPASS. Exact020 CI/DEV pending.
+- Live own-course learning insights firstwrong1/latestwrong0/improved1, smallsample
+  warning correct; reviewquestion save/reload then unreviewed restore/reloadPASS.
+  Futureperiod0questions/0records/no stale decisions, Reset clearscourse/date.
+  Evidence ZIP correctly unavailable pending signed confirmation, not downloadPASS.
+
 ## Current019 live acceptance — 2026-10-17
 
 - Sourcec0aac0075970336ee83fcea90e36e4ca944aa3ae, CI39037198699 SUCCESS;

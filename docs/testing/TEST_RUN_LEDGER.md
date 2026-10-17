@@ -5868,3 +5868,41 @@ Rules:
   NOT_RUN external/model/protected/destructive variants. Production/ASUS/models/
   reserve/voice/keys/trust/ports/security settings/billing unchanged. Final evidence
   documentation is a local docs-only successor; no extra deploy triggered.
+
+### DEV020 resumed scenarios and reset-stage preparation — 2026-10-17
+
+- Current owner renews DEV-only testing/repair and concrete workerreset diagnosis.
+  Root read exact019 API/worker deployments LIVE again, no restart/config change;
+  canonical official outbound metadata confirms same2sharedrange hashes for both.
+- Existing source fallback: CodeGraph NOT_READY/missing checkout-local runtime;
+  no global install/graph savings claim. Primaryguard LINKED_WORKTREE_OK/3ba2c77d,
+  existing unrelated untracked authoring paths preserved. Root owns browser/network/
+  integration/docs; existing bounded writer owns learningpath/UI/test/locales only.
+- Actual ordinary published QA path0audience: emptysearch/clear/selectlearner,
+  start27Oct/end26Oct still enables Assign; one normal invalid-date submit rejects
+  422 before business writes/notification by canonical API date guard. UI correction
+  assigned; no positive assignment or email, modal closed with audience deselected.
+- Root SSH stage diagnostics: first wrapper invocation unsupported--no-cov is
+  harness-only, not productRED. Correct invocation genuine7RED/30PASS. Fixed-code
+  stage parser and DEBUG1 private bounded drain initially passed31/failed6 expected
+  marker-order assertions; adapted exact added failure marker, preserving strict
+  retry counts and original ordering. Parser+actual wait/classify/recovery output
+  canary final38PASS1.03s. Source review/pipeline privacy and actual DEV acceptance
+  still pending. No raw diagnostic/keys/addresses emitted; no retry/trust/port or
+  timeout change. Reset cause remains unlocalized until new evidence exists.
+- Independent review accepted final SSH instrumentation after root pipeline test.
+  Date guard firstreviewP2 required real sharedpublish/bypass tests; writer added
+  them post-fix (no newRED claimed),22focusedPASS/typecheckPASS; finalreviewACCEPT.
+  Root final API invocation through canonical wrapper: tests/unit plus exact
+  runtime/acceptance/relay scripts and API '.', JUnitapi-full020.xml,4310PASS/
+  528environmentSKIP55warnings60.17s; qualityRuff1008/Mypy2201PASS. This command's
+  broader explicit script scope differs from019's4253 count, not a claim of57
+  new backend regressions. Webfull020.json1283PASS169files178.79s; standalone
+  typecheckPASS/build67of67PASS; releasecontract311uniqueIDsPASS/diffcheckPASS.
+- Ordinary019 live learning-insights: selected owncourse97cad6b2, firstwrong1/1,
+  latestwrong0/1/improved1/smallsamplewarning; firstquestion review_question save,
+  reloadreadbackPASS, restoreunreviewed/reloadPASS. Separate review metadata only;
+  no attempt/completion/score changes. Proofdev-question-review-persisted-020.png.
+  Future01Nov filter0questions/0records/no stale decisions; Reset clears filters.
+  ZIP controls unavailable pending signedconfirmation, not falsely countedPASS.
+  Full020 CI/exactDEV/live and resetphase capture remain pending.

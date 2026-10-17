@@ -1,5 +1,14 @@
 # Changelog
 
+## DEV020 candidate — 2026-10-17
+
+- Explain inverted learning-program assignment dates inline before sending a
+  request; block publish-and-assign before publication/persistence, retain the
+  user's inputs, and preserve same-day and zero-audience publication behavior.
+- Add private fixed-code SSH failure-phase evidence to distinguish connect,
+  banner and key exchange. No raw logs, retries, trust, ports or timeout changes.
+- DEV-only candidate; production unchanged, exact network cause not yet proven.
+
 ## DEV019 bounded live acceptance — 2026-10-17
 
 - Scope approval status/actions to the selected course; preserve unfiltered audit

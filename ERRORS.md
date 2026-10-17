@@ -2,6 +2,23 @@
 
 Current as of: 2026-10-17.
 
+## LEARNING-UX-002 - Inverted assignment dates reached a preventable API refusal
+
+- Date:2026-10-17, ordinary DEV019 synthetic published learning path0audience.
+- Symptom: selected learner, start27Oct/end26Oct still enabled Assign; normal
+  POST422 refused before business writes or notification, but no inline guidance.
+- Cause: backend date validation existed; frontend had neither an inline range
+  message nor an early guard in direct assignment/shared publish-and-assign.
+- Fix: candidate020 localized RU/KK/EN alert, disable invalid direct assignment
+  and guard handlers. Selected-audience publish guard precedes every persistence
+  call; zero-audience publication ignores unused assignment dates. Same-day valid.
+- Verification: real direct-case1RED19PASS→20PASS. Independent review requested
+  actual draft-handler/no-write and zero-audience bypass coverage; added post-fix
+  (not claimedRED), focused22PASS/typecheckPASS; independent final ACCEPT. Full
+  frozen web/build, exact CI/DEV and browser date acceptance remain pending.
+- Prevention: validate compound UI operations before their first durable write;
+  test both guarded combined operation and irrelevant-input bypass separately.
+
 ## APPROVAL-003 - Selected-course workspace displayed other courses' request actions
 
 - Date:2026-10-17, live DEV018 synthetic QA.
@@ -402,6 +419,14 @@ Current as of: 2026-10-17.
   hide archives globally or treat an empty-recipient result as a successful target.
 
 ## DEV-SSH-001 - A startup TCP reset aborted the optional DEV transport
+
+-020 preparation2026-10-17: official API/worker outbound metadata identical,
+  excluding wrong-service ranges as a reason for019's missing firstflow. Root
+  adds privateDEBUG1 fixed-stage/operation diagnostics only; genuine7RED/30PASS,
+  parser/recovery/privacy pipeline38PASS and independent sourceACCEPT. No raw
+  diagnostics or changed retries/trust/ports/timeouts. Actual next DEV launch
+  with all-peer hashed header observation still required; source readiness does
+  not identify the resetting node. No network-cause repair claimed.
 
 -019 observation2026-10-17: exactc0aac007/workerdep-db9nmqu1egvs73fuukrg LIVE;
   startup635ef10cb856 first reset13:44:12.307Z; retry2connected13:44:15.044Z. Real

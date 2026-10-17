@@ -47,6 +47,15 @@ the same generated startup identity/hash; no destination, raw stderr, key or
 application input is logged. A later rollback/restart's connected marker does
 not accept an earlier failed deployment.
 
+Reset-phase follow-up020: OpenSSH DEBUG1 stays inside the same bounded private
+stderr drain. On a failed attempt, `forward_failure` emits only fixed `stage`
+(unknown/tcp_established/peer_banner/key_exchange/authenticated) and `operation`
+(unknown/connect/banner_read/banner_write) codes, with the existing correlation.
+No raw diagnostic, server banner, address or key path is published. Unknown or
+truncated diagnostics stay unknown. This is phase evidence, not proof of the
+resetting physical node; combine it with the corresponding proxy header/journal
+window before attributing cause. Retry count, timeouts, trust and policy remain.
+
 The loopback URL is `http://127.0.0.1:18999/v1`. Pin the existing approved model and
 CLI auth mode; do not export subscription authentication. The application bearer
 does not replace managed CLI login or establish commercial hosted-use entitlement.

@@ -5,6 +5,28 @@
 
 ## Источники правды
 
+### DEV020 candidate prepared; runtime remains019 — 2026-10-17
+
+Owner renews DEV-only remaining cabinet scenarios/repair and concrete workerreset
+diagnosis. Candidate prevents inverted program assignment dates before direct
+assignment or shared publication writes, preserving same-day and zero-audience
+publication. Independent review requested/accepted actual shared-handler and bypass
+regressions:22focusedPASS, originaldirectcase1RED; added2cases are post-fixGREEN.
+Root fixed SSH phase telemetry only:38focusedPASS, private DEBUG1/64KiB tail,
+fixedstage/operation marker, no raw logs or retry/trust/timeout/port changes.
+Independent source reviews ACCEPT. Frozen local full API4310PASS528environmentSKIP
+60.17s (explicit runtime/acceptance/relay scripts included), quality1008/2201PASS;
+web1283PASS169files178.79s, standalonetypecheckPASS/build67of67PASS;311ID gatePASS.
+Exact020 CI/provider/live and actual phase/capture still pending, no cause GO.
+
+Additional live019 ordinary QA: learning-program search empty/reset/audience and
+inverted-date422 refusal before writes; positive assignment not run (queues email).
+Learning insights shows firstincorrect1/latestincorrect0/improved1/small sample,
+own question review→reload persists→restoreunreviewed→reloadPASS. Futuredate filter
+returns0questions/0records/no stale decisions; clear filters restores baseline.
+Evidence ZIP remains unavailable pending signed-document confirmation; no protected
+completed-record changes or signed scan upload. Production/ASUS/models unchanged.
+
 ### Current DEV019 accepted; full cabinet matrix remains partial — 2026-10-17
 
 Exact source c0aac0075970336ee83fcea90e36e4ca944aa3ae, CI39037198699 SUCCESS.
