@@ -5,6 +5,22 @@
 
 ## Источники правды
 
+### DEV018 candidate — remaining cabinet actions and reset diagnosis — 2026-10-17
+
+Accepted runtime remains017 below until exact018 provider and live readback.
+Candidate preserves linked position department labels on qualification Restore,
+localizes reviewer status without calling failed delivery complete, labels inline
+editor inputs, and fixes module rename timestamp serialization plus false UI
+success. Owned draft af5a2cdb has2modules/2lessons/zeroaudience; reorders persist.
+Module rename500 reproduced in UI/API and correlated to MissingGreenlet/updated_at.
+Focused regressions/source review ACCEPT. Final API4251PASS527environmentSKIP,
+Ruff1008/Mypy2201PASS; web1270PASS169files/typecheckPASS/build67of67PASS.
+Actual new ORM integration case must run in CI; local Docker PostgreSQL not used.
+Proxy read-only SSH windows rule out observed auth/MaxStartups refusal and SSH22
+rate-limit counter activity, but reset origin remains NOT_LOCALIZED. Bounded
+packet-metadata observation at next DEV launch is prepared; no host/security change.
+No production, schema, provider tier/config, models/reserve/voice/ASUS mutations.
+
 ### Current DEV017 accepted; bounded live cabinet repair complete — 2026-10-17
 
 Exactf3dc54cd1ff4c97b44a02e34f7478b98f657d9ba, CI39031276960 SUCCESS.

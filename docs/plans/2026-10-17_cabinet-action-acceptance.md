@@ -3,6 +3,68 @@
 Status: BOUNDED DEV017 ACCEPTED; full cabinet matrix remains PARTIAL.
 Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
+## Follow-up018 IN PROGRESS — 2026-10-17
+
+- Owner renewed DEV-only remaining-button scenarios and separate reset diagnosis.
+  Root owns browser/network/integration/docs; cheap bounded UI writer and separate
+  independent reviewer own no external systems. No production/ASUS/model/reserve,
+  billing, ports, keys or security-policy mutation. Temporary admin stays inactive.
+- Fresh root provider read confirms017 exact web/API/worker baseline retained.
+  CodeGraph preflight NOT_READY (checkout-local runtime missing); bounded named
+  source fallback used. No graph efficiency claim or global install.
+- Actual Restore version1 on owned position7a160cf7/0courses/1synthetic employee
+  regressed its text department to the old snapshot label after unit rename.
+  Root restored current label using ordinary profile Save/reload (version5).
+  Canonical department_id never changed. Real service RED1/2PASS→3PASS including
+  unlinked legacy restoration;9DB tests locallySKIP. Source preserves current
+  linked mirror (not general resynchronization) and all other restore behavior.
+- Reviewer raw statuses localized RU/KK/EN; own-property fallback fixed after root
+  prototype-key finding. Independent reviewer caught terminal delivery falsely
+  labeled Complete; permanent-failure label now tested. Focused final6PASS.
+- Actual new-lesson and module-rename fields lacked accessible names. Two
+  existing translation labels added; actual missing-name REDs→editor21PASS,
+  combined27PASS/typecheck PASS; initial test setup error excluded from RED.
+  Independent review ACCEPT. This was an intermediate freeze, superseded by the
+  additional live module-rename defect below; its suites are not final018 gates.
+- API4250PASS526environmentSKIP71.37s, quality1008/2201PASS. Early webfull crossed
+  terminal label/test correction:1264PASS1FAIL, retained as intermediate, not GO.
+  Another pre-freeze web run is intermediate after module-label delta. Final
+  frozen web/build/exact release/live restore and status checks still required.
+- Owned editor fixture af5a2cdb-a1b0-4809-a701-51a926f78deb, QA BUTTONS018,
+  2modules/2lessons/zeroaudience/DRAFT, no model/mail. Module up/reload/down and
+  lesson up/reload/down observed. Markdown headings/list/table render; Markdown
+  image syntax stays literal, not image-media PASS or file upload proof.
+- Same owned module rename A→A2 showed success but reverted on reload twice.
+  One ordinary exact PATCH diagnostic returned500/internal_error and GET stayedA;
+  bounded official DEV API logs confirm MissingGreenlet/updated_at at the same
+  request times. Service now refreshes after flush before sync serialization.
+  UI handles500/network rejection without discarding the draft and renders the
+  returned server title on success. Unit expired-field RED1→PASS1; new actual
+  HTTP/ORM test locallySKIP (DB not started), CI/live still required. Editor
+  failure RED2→PASS plus canonical-server-title regression:24PASS/typecheckPASS.
+  Independent review ACCEPT. No schema/role/tenant/commit-owner changes.
+- Intermediate full web1267PASS169files203.27s/build67/67 preceded the final
+  module error-handling source delta; retain it but do not bind it as final018.
+  Fresh frozen full API/web/typecheck/build run after final review is required.
+- Final source freeze after module review: API4251PASS527environmentSKIP63.01s,
+  Ruff1008/Mypy2201PASS; web1270PASS169files178.30s, standalone typecheck and
+  build67of67PASS. Contract schema0183/308error IDs/version59 PASS. Exact DEV018
+  CI (including non-skipped ORM integration), provider and live gates pending.
+- Reset investigation: bounded proxy SSH windows failed015/recovery015/accepted017
+  read without host writes. Same accepted-peer hash12b5ab098a2e. No observed
+  auth/MaxStartups/penalty refusal; effective restricted user allows only existing
+  local forwards, MaxSessions0/no session/TTY. Host SSH22 rule unconditional
+  accept; UFW limit-chain counters0, not an observed rate-limit explanation.
+  Forward-connect errors are separate from TCP-reset cause. Initial firewall
+  token regex used nonraw backslash-b and produced invalid zero counts; corrected
+  structured nft rules supersede it. Initial primary venv lacked paramiko; canonical
+  isolated agent-tool runtime succeeded without installing or changing auth.
+- Prepared bounded185s metadata-only capture of SYN/RST/FIN for the already
+  observed DEV peer, no payload/pcap/remote file/config. Run only around next
+  authorized DEV deployment, correlate startup ID and packet flow/direction.
+  Until that evidence, resetting network node remains NOT_LOCALIZED; no blind
+  worker restarts, new auth paths or infrastructure fixes inferred.
+
 ## Current accepted DEV017 and final live readback — 2026-10-17
 
 - Exact source f3dc54cd1ff4c97b44a02e34f7478b98f657d9ba; CI39031276960

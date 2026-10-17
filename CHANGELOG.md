@@ -1,5 +1,16 @@
 # Changelog
 
+## DEV018 candidate — 2026-10-17
+
+- Restore qualification history without rolling back a linked unit's current
+  department label; unlinked legacy profiles retain historical text restoration.
+- Localize reviewer states and accurately distinguish permanent delivery failure
+  from completion. Preserve unknown-status fallback and all access/action contracts.
+- Label inline lesson creation/module rename fields for keyboard/screen readers.
+- Persist module renames by refreshing database-updated timestamps before response
+  serialization; do not display a successful rename when its request fails.
+- DEV-only checks and reset diagnosis continue; no production or infrastructure change.
+
 ## DEV017 live acceptance — 2026-10-17
 
 - Exact017 synchronized existing DEV frontend/API/worker; independent reconcile

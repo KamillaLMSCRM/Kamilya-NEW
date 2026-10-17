@@ -5699,3 +5699,50 @@ Rules:
   external sends/models/newkioskcredentials/retainedresets/purge/integration/settings
   writes NOT_RUN. Cyclesloaded showsnoperiods; deadlinehistorynotavailable,
   activation excluded to avoid creating learning onlyforcoverage. No production.
+
+### 2026-10-17 — cabinet follow-up018, pre-release gates
+
+- Scope: renewed remaining-button testing in persistent DEV QA; no production,
+  billing, schema, models/reserve/voice/ASUS, ports, keys, trust or policy changes.
+  Primary guard LINKED_WORKTREE_OK; unrelated primary/untracked work preserved.
+- Live owned position7a160cf7/version1 Restore after unit rename reproduced old
+  department text with unchanged linked ID. Root restored current label by normal
+  profile Save (version5). Real restore-service regression RED1/2PASS→3PASS,
+  9DB cases environmentSKIP. Linked mirror preserved; unlinked historical behavior
+  unchanged. Independent source review ACCEPT; post-release repeat still pending.
+- Reviewer table raw enums localized in3languages. Root prototype-key test caught
+  inherited-key fallback, then independent reviewer caught misleading terminal
+  delivery Complete label; explicit permanent-failure translation fixed. Final6PASS.
+  Lesson/module accessible-label tests went actual missing-name RED→21PASS. Initial
+  absent setupFetch fixture error is not counted as behavioral reproduction.
+- New synthetic draft af5a2cdb/2modules/2lessons/0audience: actual module and lesson
+  up/reload/down PASS. Heading/list/table render; image Markdown remains literal,
+  so image upload/media rendering NOT_VERIFIED, not PASS. No model/email calls.
+- Module rename UI displayed success then reverted on reload twice; one ordinary
+  exact PATCH500/internal_error diagnostic and same-time official API logs confirm
+  MissingGreenlet/updated_at. Explicit async refresh added before response;
+  UI now checks HTTP/network failures and retains draft/editor, uses server title
+  on success. Unit actual expired-attribute RED1→PASS1; new ORM/HTTP integration
+  locallySKIP (explicit approved DB absent), must execute in CI. UI failureRED2→
+  PASS and divergent-server-title regression: editor24PASS/typecheckPASS.
+  Independent final review ACCEPT; no transaction/RBAC/tenant change.
+- Intermediate full API4250PASS526SKIP and web1267PASS169files/build67 preceded
+  final module delta. Earlier mixed terminal-label edit run1264PASS1FAIL preserved;
+  another web1266PASS preceded final label regression. These are not final018 GO.
+- Frozen final API4251PASS527SKIP63.01s; quality Ruff1008/Mypy2201 PASS. Frozen
+  full web1270PASS169files178.30s; standalone typecheckPASS/build67of67PASS.
+  Release contract PASS: schema0183/181revisions,308unique error IDs, version59.
+- Worker investigation uses bounded canonical proxy SSH read only. Failed015,
+  recovery015 and accepted017 share accepted-peer hash12b5ab098a2e; no observed
+  auth/MaxStartups/penalty refusal. Effective restricted user policy and firewall
+  SSH22 unconditional accept/zero limit-chain counters do not support a rate-limit
+  explanation. Forward-connect errors are not proof of reset origin. Canonical
+  isolated tool Python supplied Paramiko after primary venv lacked it; no install.
+  Initial nonraw regex zero rule counts invalid; structured nft read supersedes.
+  Prepared short SYN/RST/FIN-only capture around next authorized DEV launch;
+  no payload/pcap/remote files/configuration. Network node still NOT_LOCALIZED.
+- Root owns browser, diagnosis, docs, integration and release. Cheap bounded UI
+  writer and independent reviewer kept disjoint ownership; module success test
+  added after review gap, then accepted. Exposed token counters NOT_AVAILABLE;
+  no measured tool savings claim. CodeGraph checkout runtime NOT_READY, bounded
+  exact-source fallback; no install or graph-based verification claimed.

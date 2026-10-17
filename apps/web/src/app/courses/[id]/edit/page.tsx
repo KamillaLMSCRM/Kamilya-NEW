@@ -208,13 +208,25 @@ export default function CourseEditPage() {
 
   const handleUpdateModule = async (moduleId: string) => {
     if (!editModuleTitle.trim() || !token) return;
-    await fetch(`${API_URL}/v1/modules/${moduleId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ title: editModuleTitle }),
-    });
-    setModules((prev) => prev.map((m) => m.id === moduleId ? { ...m, title: editModuleTitle } : m));
-    setEditingModuleId(null);
+    try {
+      const res = await fetch(`${API_URL}/v1/modules/${moduleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: editModuleTitle }),
+      });
+      if (!res.ok) {
+        toast.error(t('common.saveFailed'));
+        return;
+      }
+      const savedModule = await res.json() as { title?: unknown };
+      const savedTitle = typeof savedModule.title === 'string' && savedModule.title.trim()
+        ? savedModule.title
+        : editModuleTitle;
+      setModules((prev) => prev.map((m) => m.id === moduleId ? { ...m, title: savedTitle } : m));
+      setEditingModuleId(null);
+    } catch {
+      toast.error(t('common.saveFailed'));
+    }
   };
 
   const handleDeleteModule = async (moduleId: string) => {
@@ -633,7 +645,7 @@ export default function CourseEditPage() {
                 <section key={mod.id} aria-labelledby={`module-${mod.id}`} className="space-y-2 rounded-lg border border-border/70 p-2">
                   {editingModuleId === mod.id ? (
                     <div className="space-y-2">
-                      <Input value={editModuleTitle} onChange={(event) => setEditModuleTitle(event.target.value)} autoFocus onKeyDown={(event) => event.key === 'Enter' && handleUpdateModule(mod.id)} />
+                      <Input aria-label={t('courses.moduleTitle')} value={editModuleTitle} onChange={(event) => setEditModuleTitle(event.target.value)} autoFocus onKeyDown={(event) => event.key === 'Enter' && handleUpdateModule(mod.id)} />
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => handleUpdateModule(mod.id)}>{t('common.save')}</Button>
                         <Button variant="outline" size="sm" onClick={() => setEditingModuleId(null)}>{t('common.cancel')}</Button>
@@ -673,7 +685,7 @@ export default function CourseEditPage() {
                   </div>
                   {addingLessonToModule === mod.id ? (
                     <div className="space-y-2 pt-1">
-                      <Input placeholder={t('courses.addLesson') + '...'} value={newLessonTitle} onChange={(event) => setNewLessonTitle(event.target.value)} autoFocus onKeyDown={(event) => event.key === 'Enter' && handleAddLesson(mod.id)} />
+                      <Input aria-label={t('courses.addLesson')} placeholder={t('courses.addLesson') + '...'} value={newLessonTitle} onChange={(event) => setNewLessonTitle(event.target.value)} autoFocus onKeyDown={(event) => event.key === 'Enter' && handleAddLesson(mod.id)} />
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => handleAddLesson(mod.id)}>{t('common.create')}</Button>
                         <Button variant="outline" size="sm" onClick={() => { setAddingLessonToModule(null); setNewLessonTitle(''); }}>{t('common.cancel')}</Button>

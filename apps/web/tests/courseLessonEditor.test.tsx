@@ -62,6 +62,7 @@ vi.mock('@/i18n/useT', () => ({
       'authenticatedUi.editor.leaveWithoutSaving': 'Продолжить без сохранения',
       'authenticatedUi.editor.discard': 'Отменить изменения',
       'common.edit': 'Редактировать',
+      'common.saveFailed': 'Не удалось сохранить',
     }[key] ?? key),
     tp: (key: string, count: number) => `${count} ${key}`,
   }),
@@ -137,9 +138,13 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function setupFetch(patchStatus = 200, courseStructure = structure, lessonOverride = lesson, courseOverride = course) {
+function setupFetch(patchStatus = 200, courseStructure = structure, lessonOverride = lesson, courseOverride = course, modulePatch: 'ok' | 'error' | 'network' = 'ok') {
   fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+    if (url.includes('/v1/modules/module-1') && init?.method === 'PATCH') {
+      if (modulePatch === 'network') throw new Error('network down');
+      return jsonResponse(modulePatch === 'ok' ? { ...structure.modules[0], title: 'Server module title' } : { detail: 'Save failed' }, modulePatch === 'ok' ? 200 : 500);
+    }
     if (url.includes('/v1/courses/course-1/structure')) return jsonResponse(courseStructure);
     if (url.endsWith('/v1/courses/course-1/review')) return jsonResponse({ ...courseOverride, review_status: 'approved' });
     if (url.endsWith('/v1/courses/course-1/publish')) return jsonResponse({ ...courseOverride, status: 'published', review_status: 'approved' });
@@ -166,6 +171,57 @@ function openLessonEditor() {
 }
 
 describe('course lesson editor', () => {
+  it('names the module rename field for keyboard and screen-reader users', async () => {
+    setupFetch();
+    render(<CourseEditPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Редактировать' }));
+    expect(screen.getByRole('textbox', { name: 'courses.moduleTitle' })).toHaveFocus();
+  });
+
+  it('keeps the module rename draft and reports a safe error when the PATCH returns HTTP 500', async () => {
+    setupFetch(200, structure, lesson, course, 'error');
+    render(<CourseEditPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Редактировать' }));
+    const input = screen.getByRole('textbox', { name: 'courses.moduleTitle' });
+    fireEvent.change(input, { target: { value: 'Новое имя модуля' } });
+    fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
+
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('Не удалось сохранить'));
+    expect(screen.getByRole('textbox', { name: 'courses.moduleTitle' })).toHaveValue('Новое имя модуля');
+    expect(screen.queryByText('Server module title')).not.toBeInTheDocument();
+  });
+
+  it('renders the authoritative module title returned by a successful PATCH', async () => {
+    setupFetch();
+    render(<CourseEditPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Редактировать' }));
+    const input = screen.getByRole('textbox', { name: 'courses.moduleTitle' });
+    fireEvent.change(input, { target: { value: 'Черновое имя модуля' } });
+    fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
+
+    await waitFor(() => expect(screen.getByText('Server module title')).toBeInTheDocument());
+    expect(screen.queryByRole('textbox', { name: 'courses.moduleTitle' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the module rename draft and reports a safe error when the PATCH rejects', async () => {
+    setupFetch(200, structure, lesson, course, 'network');
+    render(<CourseEditPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Редактировать' }));
+    const input = screen.getByRole('textbox', { name: 'courses.moduleTitle' });
+    fireEvent.change(input, { target: { value: 'Новое имя модуля' } });
+    fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
+
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('Не удалось сохранить'));
+    expect(screen.getByRole('textbox', { name: 'courses.moduleTitle' })).toHaveValue('Новое имя модуля');
+  });
+
+  it('names the new-lesson title field for keyboard and screen-reader users', async () => {
+    setupFetch();
+    render(<CourseEditPage />);
+    fireEvent.click(await screen.findByRole('button', { name: '+ courses.addLesson' }));
+    expect(screen.getByRole('textbox', { name: 'courses.addLesson' })).toHaveFocus();
+  });
+
   it('describes an empty module outline without claiming the course itself is missing', async () => {
     setupFetch(200, { modules: [] });
     render(<CourseEditPage />);

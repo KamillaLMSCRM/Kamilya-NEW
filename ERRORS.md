@@ -2,6 +2,37 @@
 
 Current as of: 2026-10-17.
 
+## POSITION-RESTORE-001 - Qualification restore reverted the label of a linked renamed unit
+
+- Date: 2026-10-17, actual DEV017 owned synthetic position Restore version1.
+- Symptom: current department_id remained valid, but restoring a historical
+  qualification changed its department text to the old unit label.
+- Cause: legacy qualification profile restores every department string without
+  distinguishing an unlinked free-text position from current canonical placement.
+- Fix: preserve the current department mirror when department_id is non-null;
+  keep historical department restoration for unlinked legacy positions. Other
+  profile fields, snapshot entities, tenant/version locks and recomputation intact.
+- Verification: actual UI reproduction; fixture current label restored through
+  ordinary Save/reload. Real-service linked/unlinked RED1/2PASS→3PASS, fullAPI
+  4250PASS526environmentSKIP, quality1008/2201PASS, independent ACCEPT. Exact
+  corrected DEV release/old-version restore/readback still required.
+- Prevention: qualification history is not HR placement history; cover a unit
+  rename between snapshot creation and restore. This is not general mirror sync.
+
+## COURSE-EDITOR-A11Y-001 - Inline lesson creation and module rename inputs had no name
+
+- Date: 2026-10-17, ordinary methodologist live DEV editor on owned draft.
+- Symptom: both inline inputs exposed an empty accessible name; new lesson had
+  only placeholder, module rename only value. Other form fields were labeled.
+- Cause: these Input instances omitted label/aria-label unlike Add module.
+- Fix: reuse existing localized Add lesson and Module title keys as aria-labels,
+  retaining autofocus, value binding, Enter and Save/Cancel/request contracts.
+- Verification: real-page missing-name REDs then21editorPASS; combined27PASS
+  with status tests, standalone typecheck PASS; independent two-hunk ACCEPT.
+  Initial test setup error was not the behavioral RED. Final DEV live gate open.
+- Prevention: test actual reveal/Edit button and textbox role/name, not placeholder
+  selectors alone; a visible value is not an input's accessible name.
+
 ## COURSE-APPROVAL-HASH-001 - Later approved revisions could never publish
 
 - Date: 2026-10-17; real DEV014 second approved template revision.
@@ -1258,6 +1289,19 @@ cause is retroactively promoted to fact.
   object is interchangeable with its identifier across a loader/session seam.
 
 ## API-004 - Draft quiz state and trigger-refreshed timestamps broke decision response
+
+- Recurrence2026-10-17, DEV018 candidate: ordinary module rename returned500;
+  Render DEV API logs correlate MissingGreenlet on expired updated_at to three
+  exact failed requests. The UI optimistically showed the draft title despite
+  HTTP500; reload returned the unchanged server title. Module update now explicitly
+  refreshes after flush before ModuleResponse validation, matching lesson update.
+  UI checks HTTP status, catches network failures, preserves the editor/draft on
+  failure, and uses the authoritative returned title on success. Deterministic
+  expired-attribute unit RED1→PASS1; actual HTTP/ORM integration test added (local
+  SKIP: DB unavailable; CI/live remain required). UI HTTP/network RED2→PASS plus
+  divergent-server-title success regression; editor24PASS/typecheckPASS. Independent
+  review ACCEPT. Prevention: paired response/persisted-readback assertions and
+  error-state tests, never equate optimistic UI state with a committed mutation.
 
 - Date: 2026-09-28. Confirmed in two consecutive transactional Supabase DEV
   reruns after the ID-only loader fix.
