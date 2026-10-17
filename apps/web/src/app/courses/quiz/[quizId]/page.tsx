@@ -109,12 +109,7 @@ export default function QuizPlayerPage() {
   const attemptsUsed = attempts.length;
   const canAttempt = quiz !== null && attemptsLoaded && attemptsUsed < quiz.attempt_limit;
 
-  const getChoiceLabel = (question: Question, choice: QuizChoice, index: number) => {
-    if (question.type === 'true_false') {
-      return t(index === 0 ? 'quiz.true' : 'quiz.false');
-    }
-    return choice.text;
-  };
+  const getChoiceLabel = (choice: QuizChoice) => choice.text;
 
   const fetchQuiz = useCallback(async () => {
     if (!quizId || !token) return;
@@ -459,7 +454,7 @@ export default function QuizPlayerPage() {
                 {t('quiz.points')}: {currentQ.points} · {currentQ.type}
               </p>
               <div className="space-y-2">
-                {displayedChoices.map((choice, choiceIndex) => {
+                {displayedChoices.map((choice) => {
                   const isSelected = (answers[currentQ.id] || []).includes(choice.id);
                   return (
                     <label
@@ -469,14 +464,14 @@ export default function QuizPlayerPage() {
                       }`}
                     >
                       <input
-                        type={currentQ.type === 'MCQ' ? 'radio' : 'checkbox'}
+                        type={currentQ.type === 'MCQ' || currentQ.type === 'true_false' ? 'radio' : 'checkbox'}
                         name={`q-${currentQ.id}`}
                         checked={isSelected}
                         onChange={() => handleSelect(currentQ.id, choice.id, currentQ.type)}
                         disabled={attemptBlocked}
                         className="shrink-0"
                       />
-                      <span>{getChoiceLabel(currentQ, choice, choiceIndex)}</span>
+                      <span>{getChoiceLabel(choice)}</span>
                     </label>
                   );
                 })}

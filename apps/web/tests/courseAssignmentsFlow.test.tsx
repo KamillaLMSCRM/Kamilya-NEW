@@ -106,6 +106,13 @@ describe('contextual course assignment flow', () => {
     });
   });
 
+  it('distinguishes an unassigned published course from an empty course catalogue', async () => {
+    render(<CourseAssignmentsPage />);
+    await screen.findByRole('heading', { name: 'Назначения обучения: 0' });
+    expect(screen.getByText('У этого курса пока нет назначений. Выберите сотрудников, чтобы назначить обучение.')).toBeInTheDocument();
+    expect(screen.queryByText('Курсов пока нет')).not.toBeInTheDocument();
+  });
+
   it('preselects the course and employee from contextual query parameters', async () => {
     render(<CourseAssignmentsPage />);
 

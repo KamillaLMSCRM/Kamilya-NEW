@@ -1000,7 +1000,7 @@ export default function EnrollmentsPage() {
                 {filteredEnrollments.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     {enrollments.length === 0
-                      ? t('courses.noCourses')
+                      ? t('courseAssignments.emptyEnrollments')
                       : t('courseAssignments.ui.noFilteredEnrollments')}
                   </p>
                 ) : (

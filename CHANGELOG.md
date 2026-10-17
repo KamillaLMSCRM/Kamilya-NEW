@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Native true/false questions use single-answer radios and retain the stored
+  answer text instead of assigning meaning by option index. Assignment empty
+  states distinguish a course without learners from an empty course catalogue
+  in RU/KK/EN. DEV candidate only; production remains excluded.
+
 - Competency update/link replacement materializes tenant-bound responses before
   commit, avoiding false404 after a successful write. Keep courses selected during
   creation and retain the created identity when a separate link write fails.

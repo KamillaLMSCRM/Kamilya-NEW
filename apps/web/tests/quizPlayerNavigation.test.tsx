@@ -261,6 +261,55 @@ describe('learner quiz result navigation', () => {
     ));
   });
 
+  it('renders true/false as one-answer radios and submits only the selected choice', async () => {
+    quizPayload = {
+      ...quiz,
+      questions: [{
+        ...quiz.questions[0],
+        type: 'true_false',
+        choices: [
+          { id: 'choice-true', text: 'true', order_index: 0 },
+          { id: 'choice-false', text: 'false', order_index: 1 },
+        ],
+      }],
+    };
+    render(<QuizPlayerPage />);
+
+    await screen.findByText('Верный ответ?');
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+    fireEvent.click(screen.getAllByRole('radio')[0]);
+    fireEvent.click(screen.getAllByRole('radio')[1]);
+    expect(screen.getAllByRole('radio')[0]).not.toBeChecked();
+    expect(screen.getAllByRole('radio')[1]).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
+
+    await screen.findByText('Тест пройден');
+    const submitCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/submit'));
+    expect(submitCall).toBeDefined();
+    expect(JSON.parse(String((submitCall?.[1] as RequestInit).body)).answers[0].selected_choice_ids).toEqual(['choice-false']);
+  });
+
+  it('preserves persisted true/false choice text and identity when choices are reversed', async () => {
+    quizPayload = {
+      ...quiz,
+      questions: [{
+        ...quiz.questions[0],
+        type: 'true_false',
+        choices: [
+          { id: 'choice-false', text: 'No', order_index: 0 },
+          { id: 'choice-true', text: 'Yes', order_index: 1 },
+        ],
+      }],
+    };
+    render(<QuizPlayerPage />);
+    await screen.findByText('Верный ответ?');
+    expect(screen.getByText('No')).toBeInTheDocument();
+    expect(screen.getByText('Yes')).toBeInTheDocument();
+    expect(screen.queryByText('quiz.true')).not.toBeInTheDocument();
+    expect(screen.queryByText('quiz.false')).not.toBeInTheDocument();
+  });
+
   it('blocks answer selection and submission when all attempts were already used', async () => {
     previousAttempts = Array.from({ length: quiz.attempt_limit }, (_, index) => ({
       id: `attempt-${index}`,

@@ -5192,3 +5192,34 @@ Rules:
 - delegation: Luna/medium API writer; root independent API review, disjoint root
   UI writer and leaf independent UI review; focused correction added missing
   no-selection test. Actual usage/elapsed unavailable; no invented cost metrics.
+
+## CABINET-ACTIONS-20261017-005 — competency and owned learner cycle PASS
+
+- result: DEV005 RELEASE_OK; competency normal API/browser mutations and new
+  owned native course/quiz/PIN/learner/certificate cycle PASS. Whole cabinet PARTIAL.
+- changed: exact6961e5ee existing DEVweb/API/worker, no migration/settings/tier;
+  created only marked create-with-course QA competency, final0positions/0courses.
+  New course97cad6b2… v2 assigned only to QA learner, one new enrollment42fcca76…;
+  two attempts67/100 and final completion; protected retained learning not reset.
+- verified: CI39017177515/Verceldpl_A85fPmSgnafzrVWrsYc7ETewhFr6,
+  APIdep-db9j312jnfac73cfri7g/workerdep-db9j3s2jnfac73cfv1n0 exact6961/live.
+  API PATCH200/PUT+GET/add+clear and invalid422 preserves prior binding. Browser
+  existing save/reload/clear and create-with-selection/reload/clear PASS. Publication
+  nonempty v2PASS;3manualquestiontypes/settings/edit/reload; wrong-PIN refusal,
+  copied access, exact own-course scope; fail67/retry/pass100/finalcomplete/reload;
+  real confirmationPDF2pages and certificatePDF1page downloaded/rendered/visually
+  inspected; public certificate exact QA identity/course valid. No OTP/mail/signed
+  upload. Source metadata/IDs/hashes/screenshots in acceptance plan. Learner logout
+  completed; normal QA methodologist browser login restored without bypass.
+  Final next UI delta QUIZ-BOOLEAN001/source-label plus empty-enrollment copy:
+  focused14player/17assignment GREEN, label reversal1RED and copy1RED retained;
+  full168files1229PASS180.50s, typecheck/build67/67/contracts0183/294 PASS.
+  API unchanged from4228PASS/526SKIP/quality1008/2201. Independent disjoint reviews.
+- blockers: next exact DEV UI release/fresh radio and copy check pending. Whole
+  matrix contains actual NOT RUN/PARTIAL states, not all-buttons/production GO.
+- next: final UI DEV rollout and bounded saved-state regression; remaining broad
+  process/role/provider actions stay explicitly unverified until safely executed.
+- delegation: Luna/medium native-player writer, root reviewed source; same leaf
+  independently reviewed root copy/locale/test delta. No fabricated RED for first
+  radio test (post-fix GREEN only); reversal test did run RED/GREEN. Root browser/
+  PDF/integration/docs; exposed token counters unavailable, no cost claims.

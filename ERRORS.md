@@ -2,6 +2,24 @@
 
 Current as of: 2026-10-17.
 
+## QUIZ-BOOLEAN-001 - True-false player used misleading controls and positional labels
+
+- Date: 2026-10-17; ordinary synthetic DEV learner action audit.
+- Symptom: true_false choices appeared as checkboxes despite single-answer
+  selection. Independent regression also proved reversed persisted No/Yes labels
+  were overwritten by index-based True/False text.
+- Cause: renderer selected radio only for MCQ, while handleSelect already treated
+  true_false as single-answer. Label helper ignored persisted choice text/identity.
+- Fix: render true_false as radio alongside MCQ and retain persisted answer text.
+  Do not infer boolean meaning from an option's position or change scoring/schema.
+  Also distinguish no enrollments from an empty catalogue on assignment screens.
+- Verification: live checkbox affordance observed; radio/one-ID submission GREEN,
+  reversed-label regression1RED/13PASS then14GREEN. Assignment-copy regression
+  1RED/16PASS then17GREEN; standalone typecheck/build67/67 PASS. Fresh DEV UI gate
+  pending; existing completed QA learning is not reset for this check.
+- Prevention: test input roles and submitted choice IDs separately from scoring;
+  preserve source answer labels, including unknown/custom translated text.
+
 ## COMPETENCY-COMMIT-001 - Successful update returned a false not-found response
 
 - Date: 2026-10-17; ordinary synthetic DEV cabinet action audit.

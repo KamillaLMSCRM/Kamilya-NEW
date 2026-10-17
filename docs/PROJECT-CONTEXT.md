@@ -5,7 +5,22 @@
 
 ## Источники правды
 
-### DEV current2026-10-17: native publication and workbench errors
+### DEV current2026-10-17: competency transaction responses
+
+Exact6961e5ee97b5504776c98acdb9120065664e7f76 live on DEV web/API/worker.
+CI39017177515 SUCCESS; Verceldpl_A85fPmSgnafzrVWrsYc7ETewhFr6 READY;
+APIdep-db9j312jnfac73cfri7g/workerdep-db9j3s2jnfac73cfv1n0 LIVE.
+REL-DEV-CABINET-COMPETENCY-20261017-005 RELEASE_OK; unchanged0183/Free/Free/Hobby.
+Normal QA API PATCH200/link add-readback/invalid422 preserves links/clear-readback
+PASS. Ordinary browser existing link save/reload and create-with-selected-course/
+reload/clear PASS, no positions linked. New own course97cad6b2… publicationv2,
+individual PIN/no-email, wrong-PIN rejection, learner67% then100%, completion/
+reload, confirmationPDF/certificate download/public verification PASS. Only this
+new learning changed; retained fixtures not reset. OTP/signed upload NOT RUN.
+True-false radio/answer-label and empty-assignment copy candidate remains local;
+whole-cabinet PARTIAL, production unchanged. Earlier checkpoints historical.
+
+### Previous DEV2026-10-17: native publication and workbench errors
 
 Exactbd0cac8e5f36dbc0997959bb1f2294d2288cad0e is live on DEV web/API/worker.
 CI39016503856 SUCCESS; Verceldpl_ASx8LnkbYhwkvZQvhsTSaMnHGrWJ READY;

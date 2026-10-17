@@ -89,6 +89,54 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 
 ## Gates and next
 
+### Latest actual synthetic acceptance005
+
+Controller005 RELEASE_OK exact6961e5ee: CI39017177515,
+Verceldpl_A85fPmSgnafzrVWrsYc7ETewhFr6,
+APIdep-db9j312jnfac73cfri7g/workerdep-db9j3s2jnfac73cfv1n0 sameSHA/live.
+Root receipt/health accepted, existing free/hobby tiers and0183 unchanged.
+Competency normal API exactactor/tenant: PATCH200, PUT own course200 with correct
+DTO/count, GET persistent, unknown/foreign-or-absent UUID422 preserves prior links,
+clear200/GETempty. This negative does NOT prove an actual second-tenant row test.
+Browser save/add/reload/clear on42b6ccb9… PASS; create QA BUTTONS20261017 — создание
+со связью with course preselected survives reload, then clear to0courses/0positions.
+Both marked QA competencies retained for safe continuation, no delete endpoint used.
+
+Owned native course97cad6b2-3e70-474f-b1b6-ba38c869d234:
+
+- Module4e083ac1-ae6e-47ed-8123-2affe47a3d9b, lessonfa37754c-e3ac-48ac-8f06-2ef9418572e9.
+  Save/preview/manual-change discard/cancel PASS, actual text survives navigation.
+- Quizd376c91d-fdc6-4006-af3e-f4c9dbb62fe0,3manual questions (MCQ/true_false/multiple_choice).
+  Add/remove unsaved options, create, edit explanation, settings100%/5min/3attempts,
+  reload same types/content/settings PASS. No AI generation or other quizzes edited.
+- Nonempty publication PASS: new immutable release8d18f41b-1688-48cf-8398-4a80ef7f3979,
+  v2. Earlier empty409 kept draft/old binding unchanged before real content added.
+- Personal-link enrollment42fcca76-cc16-4704-b488-c974ff2f5875 only for existing QA
+  studentcbebc705-caef-45f8-bcc0-45912ce73917. No email, no existing access reset.
+  Copy URL/PIN validated process-locally without recording values, wrong PIN once
+  rejected, correct PIN opened precisely this course. New token values discarded.
+- Attempt920e66bb-3f83-46c1-ac3f-740bb5cc1b4c intentionally67%/failed, retry enabled;
+  attempt0fe49f63-7859-4648-b538-2e549a0adcda100%/passed, final complete/reload PASS.
+  My courses PIN scope shows only own course; in-progress empty/completed filters work.
+- Completion evidenceeccb01a7-025a-45b1-ad30-3092b47c59c5 PDF49382bytes/2pages,
+  SHA25625433cfe46c913584ef7e6549abcc0809223fffedfb441568c116e0defefcf5a;
+  downloaded via actual browser, both pages Poppler rendered and visually readable.
+- CertificateKML-2026-5C2BA8425896 PDF45109bytes/1page,
+  SHA2566f75767c8f766b472cb6648d46cdb501f0b09a059275c62436c8a94983acb213;
+  actual download, visual render PASS, public verification exact QA learner/course/
+  valid state PASS. OTP and signed-copy upload NOT RUN, no fabricated signature.
+- Learner logout visibly returned login, extra QA/verification tabs closed. Ordinary
+  methodologist login through existing canonical credentials restored; no auth storage
+  injection/password reset. Screenshots under ignored task evidence; no secrets.
+
+QUIZ-BOOLEAN-001: true_false is single-answer in state logic, but checkboxes and
+index-based label replacement were wrong. Local one-line radio + source-label fix,
+reversed-label RED/GREEN and no-write copy change independently reviewed; no API
+or scoring migration. Fresh final DEV rendering check pending. Whole cabinet stays
+PARTIAL: OTP/external sends/signed uploads/purge, admin/superadmin role actions,
+real model operations, media/import processing and several version/automation
+completions remain NOT RUN. Never conflate 17menu/help checks with all buttons PASS.
+
 ### Live follow-up9557 and publication candidate
 
 Publication004 exactbd0cac8e RELEASE_OK: CI39016503856 SUCCESS,
