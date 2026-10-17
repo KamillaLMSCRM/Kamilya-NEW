@@ -1,5 +1,16 @@
 # Changelog
 
+## DEV review-link and presentation candidate — 2026-10-17
+
+- Build new/rotated review access links from the configured learning-client URL,
+  not the incoming API host. Existing tenant, permissions, PIN, idempotency and
+  delivery rules remain unchanged. Live011 confirmed the wrong API origin.
+- Localize recognized import action/confidence labels in RU/KK/EN; keep unchanged
+  technical evidence in an accessible closed disclosure. Preserve conflicts and
+  apply guards. Suppress only an exact initial H1 duplicate in lesson preview.
+- Reviewer011 is accepted in DEV; these follow-ups still require exact DEV012
+  runtime acceptance. Production publication is not authorized.
+
 ## DEV course-reviewer selection candidate — 2026-10-17
 
 - Load eligible active methodologists from the canonical paginated user response

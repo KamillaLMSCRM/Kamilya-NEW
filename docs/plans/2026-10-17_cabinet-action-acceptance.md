@@ -2,6 +2,35 @@
 
 Status: IN PROGRESS. Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
+## Current continuation012 — 2026-10-17
+
+- DEV011 exact96b8489e accepted on all three existing services, CI39023880266;
+  root independently read deployment receipt and public API exact SHA.
+- Live reviewer selection PASS: two active methodologists; selected QA methodist,
+  personal_link, no deadline/guest/email; one request prefixceb31ce3 and revision
+  7973410d-af3b-4820-8b42-6276fd5ddbbe retained on owned9b5a1ed4 template.
+  Approval policy now true; request pending, no publication or assignment.
+- Fresh credential origin privately checked: API, not client. No token/PIN logged.
+  COURSE-REVIEW-LINK-001 create/rotation tests both RED then GREEN32;3137 unit
+  tests PASS, quality1008/2201 PASS, independent source review ACCEPT. Configured
+  DEV PUBLIC_URL already correct; only two call-site origin arguments change.
+- CABINET-PRESENTATION-001 bounded UX fixes: recognized action/confidence labels
+  localized; unchanged evidence closed by default; exact first-H1 duplication
+  suppressed using existing renderer support. Focused31PASS/typecheck/independent
+  review ACCEPT. No import apply, conflict suppression or course-body change.
+- First unbounded frontend full run1249PASS/1FAIL: existing journal async button
+  lookup under contention. Receipt retained. Bounded maxWorkers2 rerun pending;
+  no assertion/timeout/fixture weakened. Bounded169files1250PASS201.49s; full API
+  4229PASS/526environmentSKIP69.46s; build67/67 including lint/types PASS,
+  quality1008/2201 and release contracts0183/300 PASS. DEV012 runtime gate open.
+- Actual editor publication while request pending refused with localized
+  instruction to check reviewer decisions in Approval; course remained draft.
+- Observed follow-up: reviewer status table displays raw machine enums/UUID.
+  This presentation issue is NOT repaired by012 and stays open, not a click PASS.
+- Temporary normal DEV administrator authorization remains unanswered; no new
+  account created and no production administrator login attempted. Whole cabinet
+  remains PARTIAL, including real generation/external sends/protected branches.
+
 ## Scope and boundaries
 
 - Fix source-policy owner selection, reported422 and repeated profile403.

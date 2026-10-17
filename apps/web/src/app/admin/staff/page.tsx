@@ -824,10 +824,26 @@ function rowEvidence(row: ImportProposalRow, sourceFallback: string, noDetailsFa
   return typeof row.evidence === "string" ? row.evidence : noDetailsFallback;
 }
 
-function rowConfidence(row: ImportProposalRow) {
-  if (row.confidence_label) return row.confidence_label;
+function rowAction(row: ImportProposalRow, translate: (key: string) => string) {
+  const labels: Record<string, string> = {
+    create: "actionCreate",
+    update: "actionUpdate",
+    move: "actionMove",
+    skip: "actionSkip",
+    conflict: "actionConflict",
+  };
+  return row.action && labels[row.action] ? translate(`authenticatedUi.adminStaff.import.${labels[row.action]}`) : row.action || "—";
+}
+
+function rowConfidence(row: ImportProposalRow, translate: (key: string) => string) {
   if (typeof row.confidence === "number") return `${Math.round(row.confidence * 100)}%`;
-  return row.confidence || "—";
+  const labels: Record<string, string> = {
+    high: "confidenceHigh",
+    medium: "confidenceMedium",
+    low: "confidenceLow",
+  };
+  if (typeof row.confidence === "string" && labels[row.confidence]) return translate(`authenticatedUi.adminStaff.import.${labels[row.confidence]}`);
+  return row.confidence_label || row.confidence || "—";
 }
 
 function AdaptiveImportFlow({
@@ -1086,8 +1102,8 @@ function AdaptiveImportFlow({
                   <div key={row.id || `${row._kind}-${index}`} className="grid gap-1 border-b border-border px-3 py-2 text-xs sm:grid-cols-[100px_1fr_100px_1.5fr]">
                     <span className="font-semibold">{row._kind}</span>
                     <span>{row.full_name || row.branch_name || row.department_name || row.position_name || row.name || row.personnel_number || "—"}</span>
-                    <span className="text-muted-foreground">{row.action || "—"} · {rowConfidence(row)}</span>
-                    <span className="text-muted-foreground">{rowEvidence(row, ui("authenticatedUi.adminStaff.import.sourceEvidence"), ui("authenticatedUi.adminStaff.import.noAdditionalDetails"))}</span>
+                    <span className="text-muted-foreground">{rowAction(row, ui)} · {rowConfidence(row, ui)}</span>
+                    <details className="text-muted-foreground"><summary className="cursor-pointer">{ui("authenticatedUi.adminStaff.import.whyProposed")}</summary><div className="mt-1 break-words">{rowEvidence(row, ui("authenticatedUi.adminStaff.import.sourceEvidence"), ui("authenticatedUi.adminStaff.import.noAdditionalDetails"))}</div></details>
                   </div>
                 ))}
               </div>

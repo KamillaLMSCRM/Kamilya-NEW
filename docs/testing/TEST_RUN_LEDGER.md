@@ -5429,3 +5429,44 @@ Rules:
   public ports/ASUS/model selection/reserve/voice/production/billing changes.
 - next: exact DEV011 canonical release, ordinary reviewer selection + personal-
   link snapshot flow, saved-state readback and protected fixture invariants.
+
+## CABINET-ACTIONS-20261017-011-LIVE-012-LOCAL — reviewer request and link origin
+
+- executor: root browser/integration/docs, bounded UX writer and independent
+  read-only reviewer; no Test Runner owns this append destination.
+- result: exact011 RELEASE_OK accepted; reviewer selection/request PASS. Fresh
+  one-time link uses wrong API origin, now reproduced and locally repaired.
+- verified: CI39023880266, Verceldpl_H8EDDiurKHRHaJXSfvM8s7HjUFT6 READY;
+  APIdep-db9kl0brjlhs73f6d8ug/workerdep-db9km4om7kps73dolpq0 LIVE, exact96b8489e.
+  Root independent receipt/public API SHA readback. Two eligible methodologists;
+  selected canonical QA actor, one personal_link/no-deadline request on owned
+  9b5a1ed4; revision7973410d-af3b-4820-8b42-6276fd5ddbbe, request prefixceb31ce3.
+  No guest/email. Credentials privately checked/acknowledged, never recorded.
+- changed: candidate012 uses existing configured PUBLIC_URL for create/rotation,
+  recognized import labels localized, unchanged evidence closed by default and
+  exact duplicate initial H1 suppressed. API RED/GREEN32, unit3137PASS83.40s;
+  UX focused31PASS/typecheck; quality1008/2201PASS; independent review ACCEPT.
+- failed: initial API selector named a nonexistent service test; collected zero,
+  not a PASS. Correct unit suite3137PASS. Unbounded web1249PASS/1journal async
+  lookup FAIL; preserved receipt, bounded rerun pending with no assertion change.
+- blockers: final build/full bounded/current DEV012 runtime gates remain open;
+  raw reviewer status enums/UUID presentation observed, not repaired by012.
+- next: bounded gates then exact DEV012 new/rotated link continuation, no prod,
+  config, rights, billing, model, voice, reserve or existing learning mutation.
+
+## CABINET-ACTIONS-20261017-012-GATES — exact candidate ready
+
+- executor: root final integration/gates; no Test Runner owns this destination.
+- result: candidate ready for one bounded DEV release, no live012 claim yet.
+- verified: full web169files1250PASS201.49s at maxWorkers2; first unbounded
+  journal lookup failure retained without modifying test/timeout. Full API
+  4229PASS/526environmentSKIP69.46s; unit3137PASS83.40s; quality1008/2201PASS;
+  build67/67 including lint/types PASS, release contracts0183/300PASS.
+  Independent scoped review ACCEPT; root reviewed all nine source/test diffs.
+- browser: actual publication while owned review pending is refused with clear
+  localized reviewer-decision instruction; course remains draft. No mail or
+  enrollment. Existing approved import proposal remains NOT_APPLIED.
+- scope: existing Free/Free/Hobby, no migration/config/rights/keys/billing/model/
+  voice/reserve/ASUS/production changes. Full cabinet acceptance stays PARTIAL.
+- next: exact DEV012, privately verify rotated/new client-origin access and
+  normal reviewer continuation; preview/import presentation live checks.

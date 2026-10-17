@@ -721,6 +721,7 @@ export default function CourseEditPage() {
                     <h1 className="mb-8 text-3xl font-bold tracking-tight">{editLessonTitle || t('authenticatedUi.editor.lessonTitle')}</h1>
                     <LessonContent
                       text={editLessonContent}
+                      omitFirstHeading={editLessonTitle}
                       className="space-y-5 text-base leading-7 text-foreground [&_blockquote]:border-l-4 [&_blockquote]:border-primary/40 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_h1]:text-3xl [&_h1]:font-bold [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-2 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-2 [&_th]:text-left [&_ul]:list-disc"
                     />
                   </article>

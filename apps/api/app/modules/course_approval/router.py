@@ -393,7 +393,7 @@ async def request_review(revision_id: UUID, req: ApprovalRequestCreate, request:
             if idem.response.get("credentials_issued"):
                 raise HTTPException(status_code=409, detail="credentials_already_issued")
             return idem.response
-    approval_request, _work_item, access_url, pin, access_credentials = await create_request(db, revision=revision, tenant_id=user.tenant_id, actor_id=user.id, reviewer_ids=req.reviewer_user_ids, guest_reviewers=[item.model_dump() for item in req.guest_reviewers], delivery_mode=req.delivery_mode, due_at=req.due_at, base_url=str(request.base_url).rstrip("/"))
+    approval_request, _work_item, access_url, pin, access_credentials = await create_request(db, revision=revision, tenant_id=user.tenant_id, actor_id=user.id, reviewer_ids=req.reviewer_user_ids, guest_reviewers=[item.model_dump() for item in req.guest_reviewers], delivery_mode=req.delivery_mode, due_at=req.due_at, base_url=get_settings().PUBLIC_URL.rstrip("/"))
     await db.commit()
     response = ApprovalRequestResponse(request_id=approval_request.id, revision_id=revision.id, reviewer_ids=req.reviewer_user_ids, outcome=revision.state, delivery_mode=req.delivery_mode, access_url=access_url, temporary_pin=pin, access_credentials=access_credentials)
     if idempotency_key:
@@ -502,7 +502,7 @@ async def resend(request_id: UUID, request: Request, req: ResendAccessRequest | 
         if replay.get("rotated"):
             raise HTTPException(status_code=409, detail="credentials_already_rotated")
         return replay
-    result = await resend_request_access(db, request_id=request_id, tenant_id=user.tenant_id, actor_id=user.id, base_url=str(request.base_url).rstrip("/"), rotate_credentials=req.rotate_credentials)
+    result = await resend_request_access(db, request_id=request_id, tenant_id=user.tenant_id, actor_id=user.id, base_url=get_settings().PUBLIC_URL.rstrip("/"), rotate_credentials=req.rotate_credentials)
     await db.commit()
     response = {"request_id": request_id, **result}
     persisted = {"request_id": str(request_id), "rotated": result["rotated"], "retried": result["retried"], "access_credentials": []}

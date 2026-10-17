@@ -5,6 +5,23 @@
 
 ## Источники правды
 
+### DEV current2026-10-17: reviewer011 accepted; link-origin012 candidate
+
+Exact96b8489e4cb15ca1929a2dff14985517014f3278 LIVE on existing DEV web/API/worker.
+CI39023880266 SUCCESS; Verceldpl_H8EDDiurKHRHaJXSfvM8s7HjUFT6 READY/Hobby;
+APIdep-db9kl0brjlhs73f6d8ug and workerdep-db9km4om7kps73dolpq0 LIVE/Free.
+Canonical011 RELEASE_OK and root independent public API exact-SHA readback PASS.
+Normal methodologist now sees two eligible reviewers and submitted exactly one
+personal-link/no-deadline request on owned template9b5a1ed4; no guest/email.
+Revision7973410d-af3b-4820-8b42-6276fd5ddbbe, request prefixceb31ce3, pending.
+Its initial one-time link incorrectly used the DEV API origin. Credentials were
+inspected privately and acknowledged, not recorded. Both create/rotation routes
+need configured PUBLIC_URL; existing DEV API/worker PUBLIC_URL already equals
+the frontend, so no provider configuration change is needed. Candidate012 also
+localizes import metadata and removes an exact duplicate preview heading.
+Approval is now required on this owned course; no publication/assignment yet.
+Full cabinet remains PARTIAL; production/config/billing/voice/reserve unchanged.
+
 ### DEV current2026-10-17: startup010 accepted; browser matrix continues
 
 Exact62f4db7552ee8a8d3c6f30d171c6e7fbf1494f20 LIVE on existing DEV web/API/worker.

@@ -2,6 +2,36 @@
 
 Current as of: 2026-10-17.
 
+## COURSE-REVIEW-LINK-001 - Review access URL pointed to the API instead of the client
+
+- Date: 2026-10-17; ordinary DEV methodologist, owned synthetic template course.
+- Symptom: fresh personal-link request issued an API-origin access URL instead
+  of the configured DEV learning-client URL. No email or guest was created.
+- Cause: create and credential-rotation router paths used request.base_url;
+  web/API are separate services. Canonical PUBLIC_URL was already correct.
+- Fix: use get_settings().PUBLIC_URL for both paths, matching existing invitation
+  flows. Do not change trust, tenant scope, credential issuance or provider env.
+- Verification: both route regressions RED before source fix; focused32PASS and
+  unit3137PASS after; independent scoped review ACCEPT. Exact DEV012 new/rotated
+  link and real reviewer continuation remain required before runtime acceptance.
+- Prevention: test configured client origin independently of hostile Host/Origin
+  and verify one-time access links privately without logging tokens or PINs.
+
+## CABINET-PRESENTATION-001 - Import metadata and lesson preview exposed technical duplication
+
+- Date: 2026-10-17; ordinary DEV methodologist import proposal/template preview.
+- Symptom: Russian proposal showed raw create/high and technical evidence;
+  a template lesson preview repeated its title as two first-level headings.
+- Cause: known metadata enums rendered directly; preview ignored existing
+  LessonContent exact-first-H1 suppression support.
+- Fix: localize known action/confidence values in RU/KK/EN, preserve unknown and
+  numeric values and unchanged evidence under closed accessible details. Pass
+  lesson title to existing exact-first-heading suppression, preserving content.
+- Verification: both focused regressions initially RED, final31PASS/typecheck;
+  independent source review ACCEPT. Full/current DEV012 gates remain required.
+- Prevention: distinguish actionable summaries from optional technical evidence,
+  preserve blocking conflicts and verify actual template content, not only mocks.
+
 ## COURSE-REVIEWERS-001 - Approval request hid eligible methodologists
 
 - Date:2026-10-17; normal DEV methodologist, new synthetic template course.
@@ -16,7 +46,8 @@ Current as of: 2026-10-17.
   No backend role, guest/PIN, credential or delivery contract change.
 - Verification: real object-shaped fixture RED, focused9PASS, full169files1247PASS
   before the final test-only ID submission assertion; that assertion separately
-  PASS in focused9. Typecheck/build67 PASS; fresh DEV live reviewer flow gate.
+  PASS in focused9. Typecheck/build67 PASS; exact DEV011 normal browser now lists
+  two eligible methodologists and creates the selected QA reviewer request.
 - Prevention: model API response envelopes faithfully in tests and check actual
   eligible identity submission; never turn list-load errors into factual empty.
 

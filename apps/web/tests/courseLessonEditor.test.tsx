@@ -131,13 +131,13 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function setupFetch(patchStatus = 200, courseStructure = structure) {
+function setupFetch(patchStatus = 200, courseStructure = structure, lessonOverride = lesson) {
   fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.includes('/v1/courses/course-1/structure')) return jsonResponse(courseStructure);
     if (url.endsWith('/v1/courses/course-1')) return jsonResponse(course);
     if (url.includes('/v1/lessons/lesson-1') && init?.method !== 'PATCH') {
-      return jsonResponse(lesson);
+      return jsonResponse(lessonOverride);
     }
     if (url.includes('/v1/lessons/lesson-2') && init?.method !== 'PATCH') {
       return jsonResponse({ ...lesson, id: 'lesson-2', title: 'Практика', content: '## Практика' });
@@ -210,6 +210,15 @@ describe('course lesson editor', () => {
     await screen.findByRole('textbox', { name: 'Содержание урока' });
     expect(screen.getByRole('group', { name: 'courses.editCourse' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Apply synthetic correction' })).not.toBeInTheDocument();
+  });
+
+  it('suppresses only an exact duplicate first-level title in the editor preview', async () => {
+    setupFetch(200, structure, { ...lesson, content: '# Введение\r\n\r\nТекст урока' }); render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('textbox', { name: 'Содержание урока' });
+    fireEvent.click(screen.getByRole('button', { name: 'Предпросмотр' }));
+    expect(screen.getAllByRole('heading', { level: 1, name: 'Введение' })).toHaveLength(1);
+    expect(screen.getByText('Текст урока')).toBeInTheDocument();
   });
 
   it('preserves later manual changes even if a correction callback arrives', async () => {

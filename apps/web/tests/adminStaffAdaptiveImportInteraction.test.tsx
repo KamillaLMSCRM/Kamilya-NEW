@@ -32,6 +32,9 @@ vi.mock('@/i18n/useT', () => {
     'authenticatedUi.adminStaff.import.positionUnitAria': 'Подразделение должности {index}',
     'authenticatedUi.adminStaff.import.employeePositionAria': 'Должность сотрудника {index}',
     'authenticatedUi.adminStaff.import.saveCorrections': 'Сохранить исправления',
+    'authenticatedUi.adminStaff.import.actionCreate': 'Создать',
+    'authenticatedUi.adminStaff.import.confidenceHigh': 'Высокая',
+    'authenticatedUi.adminStaff.import.whyProposed': 'Почему предложено / технические сведения',
     'authenticatedUi.adminStaff.structure.branches': 'Филиалы',
     'authenticatedUi.adminStaff.structure.departments': 'Отделы',
     'authenticatedUi.adminStaff.structure.addBranch': '+ Добавить филиал',
@@ -251,6 +254,28 @@ describe('adaptive staff import interactions', () => {
     // The resume path is a GET against the same id and never exposes workbook JSON.
     fireEvent.click(screen.getByRole('button', { name: /Обновить анализ/i }));
     await waitFor(() => expect(getMock).toHaveBeenCalledWith('/v1/admin/staff/import/sessions/session-1'));
+  });
+
+  it('shows localized proposal metadata and keeps raw evidence behind a closed details disclosure', async () => {
+    postMock.mockResolvedValueOnce({ data: needsMapping } as any).mockResolvedValueOnce({ data: ready } as any);
+    renderImportPage();
+    fireEvent.change(await screen.findByLabelText(/штатного расписания для анализа/i), { target: { files: [new File(['x'], 'proposal.xlsx')] } });
+    fireEvent.click(screen.getByRole('button', { name: /Запустить анализ файла/i }));
+
+    await screen.findByText(/Нужно сопоставить колонки/i);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Табельный номер' }), { target: { value: 'Код' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Имя' }), { target: { value: 'Имя' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Фамилия' }), { target: { value: 'Фамилия' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Отдел' }), { target: { value: 'Отдел' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Должность' }), { target: { value: 'Должность' } });
+    fireEvent.click(screen.getByRole('button', { name: /Сохранить сопоставление и продолжить/i }));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith('/v1/admin/staff/import/sessions/session-1/mapping', expect.anything()));
+    expect((await screen.findAllByText(/Создать/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Высокая/).length).toBeGreaterThan(0);
+    const details = screen.getAllByText('Почему предложено / технические сведения')[0].closest('details');
+    expect(details).toBeInTheDocument();
+    expect(details).not.toHaveAttribute('open');
+    expect(within(details as HTMLElement).getByText('Строка филиала')).toBeInTheDocument();
   });
 
   it('accepts branch-only mapping and submits methodologist hierarchy corrections', async () => {
