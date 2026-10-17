@@ -69,6 +69,15 @@ export default function CompetenciesPage() {
     setSaving(true);
     try {
       const response = await api.post<Detail>("/v1/competencies", { name: name.trim(), description });
+      // The identity already exists even if the separate link write fails.
+      // Keep it selected so retry saves this competency instead of duplicating it.
+      setSelected(response.data);
+      if (courseIds.length) {
+        await api.put(`/v1/competencies/${response.data.id}/links`, {
+          position_ids: [],
+          course_ids: courseIds,
+        });
+      }
       await load();
       await open(response.data);
       toast.success(t("competencies.created"));

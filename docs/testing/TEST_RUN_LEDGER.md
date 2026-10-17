@@ -5169,3 +5169,26 @@ Rules:
   unchanged from4223PASS/526SKIP. Root independently reviewed final owned UI/test
   diff and preserves unknown-outcome lock. Guide step-seek and SCORM empty/cancel
   plus own-course search/status/action menu checked; no media upload/archive.
+
+## CABINET-ACTIONS-20261017-004 — publication live and competency candidate
+
+- result: DEVbd0cac8e RELEASE_OK, empty native publication refusal live PASS;
+  whole cabinet PARTIAL. Competency correction prepared, live acceptance pending.
+- changed: exact existing DEV web/API/worker only, no migration/settings/tier.
+  Own course has one new synthetic module/lesson for nonempty positive follow-up;
+  no assignments or mail. Own competency42b6ccb9… retained0positions/0courses.
+- verified: CI39016503856, Verceldpl_ASx8LnkbYhwkvZQvhsTSaMnHGrWJ,
+  APIdep-db9itsdg1s2s738sr5f0/workerdep-db9iutrncjis739grr90 exactbd0, healthPASS.
+  Root normal API empty409/course_content_required, draft/release unchanged;
+  browser localized refusal captured. Competency false404 reproduced with changed
+  description persisted; local API5PASS/full4228PASS/526SKIP/quality1008/2201.
+  UI dropped-selection2RED/2GREEN plus no-course case3PASS; full168files1226PASS
+  183.21s; typecheck/build67/67/contracts0183/293PASS. Independent source reviews.
+- blockers: fresh competency update/link/create-selection/readback and nonempty
+  course publish/learner cycle remain open. Existing role-sensitive/irreversible/
+  external-message paths not counted as PASS. No production release approval.
+- next: exact competency DEV release; complete normal browser saved-state proof,
+  own-course nonempty publication and continue remaining action matrix.
+- delegation: Luna/medium API writer; root independent API review, disjoint root
+  UI writer and leaf independent UI review; focused correction added missing
+  no-selection test. Actual usage/elapsed unavailable; no invented cost metrics.

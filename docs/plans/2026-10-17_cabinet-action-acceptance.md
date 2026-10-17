@@ -26,7 +26,7 @@ Status: IN PROGRESS. Owner request2026-10-17. Production publication NOT AUTHORI
 | OWNER-04 | Existing policy clear/update500 in live DEV | onupdate timestamp serialized without async refresh; add refresh before response | Unit RED/GREEN; real isolated Supabase MissingGreenlet RED then clear/reassign GREEN |
 | STAFF-01 | Optional department demanded by empty-form error | Validation already allows no department, stale RU/KK/EN copy | RED/GREEN copy regression |
 
-## Current environment evidence
+## Initial environment evidence (historical; latest DEV evidence below)
 
 - Read-only production normal methodologist login: exact retained QA tenant
   83552ce6-8058-4561-abe3-cfbda14e030a, ordinary role, users/me200,
@@ -61,25 +61,25 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 
 | Role / route | Actions / acceptance | Current live status |
 |---|---|---|
-| Methodologist /dashboard | Refresh, filters, action cards, destination context, help | NOT RUN |
-| /documents | Upload/open/cancel/validation; YouTube; search/status/purpose filters; download; new version; reindex; delete preview; actuality ownership/dates/review decisions; help | PARTIAL: upload form/cancel/empty disable; owner self success/clear500 |
-| /ai/generate | Source selection/compatibility; options; generation/resume/cancel; preview; edit/review/publish; help | NOT RUN; paid generation separate gate |
-| /courses and /courses/[id]/edit | Create/edit/preview; lessons/reorder/media; quizzes; review/publish/archive/delete; help | NOT RUN |
+| Methodologist /dashboard | Refresh, filters, action cards, destination context, help | PARTIAL: exhausted1row/reset/return; other destination combinations pending |
+| /documents | Upload/open/cancel/validation; YouTube; search/status/purpose filters; download; new version; reindex; delete preview; actuality ownership/dates/review decisions; help | OWNER FLOW PASS: other/self/save/clear/reload/date refusal; other actions PARTIAL, named delete cancelled |
+| /ai/generate | Source selection/compatibility; options; generation/resume/cancel; preview; edit/review/publish; help | PARTIAL: source preflight/options/default restore; actual generation NOT RUN |
+| /courses and /courses/[id]/edit | Create/edit/preview; lessons/reorder/media; quizzes; review/publish/archive/delete; help | PARTIAL: create; empty publication defect/unpublish; guard live pending; search/status/menu/import-empty/cancel; assistant open/close |
 | /quizzes | Select/create quiz; question/answer types/edit/delete/reorder; learner preview; save/reload; help | NOT RUN |
-| /learning-paths | Create/edit/version/publish; sequence; assignments/cancel; learner view; help | NOT RUN |
-| /assignments | Course/audience selection; due date/access; preview/confirm; link/PIN; copy; revoke/repeat; rules/reminders; help | NOT RUN; no outbound messages |
-| /methodologist-workbench | Document dialog/history/source download; assignment preview/confirm; correction/apply/reload; help | NOT RUN; model/resource state untouched |
-| /learning-cycles | Create/edit/version/schedule/activate/deactivate; filters/pagination; help | NOT RUN |
+| /learning-paths | Create/edit/version/publish; sequence; assignments/cancel; learner view; help | PARTIAL: create/reorder/required/save/reload/publish0audience/v2draft; active audience PASS; actual assignment NOT RUN |
+| /assignments | Course/audience selection; due date/access; preview/confirm; link/PIN; copy; revoke/repeat; rules/reminders; help | PARTIAL: course/email/PIN form/empty guards; no new assignments or outbound messages |
+| /methodologist-workbench | Document dialog/history/source download; assignment preview/confirm; correction/apply/reload; help | PARTIAL: preview/reload/new-command/history/citation/download; error fix candidate; no model call/confirm/apply |
+| /learning-cycles | Create/edit/version/schedule/activate/deactivate; filters/pagination; help | PARTIAL: empty create/repeat disabled, target course/program switch; no rule activation |
 | /staff | Import stages/file validation/mapping/preview/confirm; schema/roster/filters; create/edit/move/terminate; unit preview/confirm; help | PARTIAL: help; unit form/cancel/empty create disabled; employee form/empty validation/cancel; import tab/no-file analysis disabled |
-| /positions and /positions/[id] | Create/edit; JD attach/analyze; qualification/instruction/tests; versions/restore; help | NOT RUN |
-| /cohorts | Create/edit; search/select/save members; reload; help | NOT RUN |
-| /candidate-assessments | Create/edit campaign; preview/activate/close; invite/copy link; CSV; help | NOT RUN; no candidate mail |
-| /mandatory-training | Search/filters/scope/status/paging; learner/course destination; help | NOT RUN |
-| /training-log | Filters/history; current occurrence; CSV/PDF/ZIP; signed-copy review; restricted share/revoke; help | NOT RUN; no retained-record edits |
-| /training-procedures | Draft/edit/validation; activate/version; delete preview; help | NOT RUN; no irreversible delete |
-| /training-retention | Policy form/save; dry-run; purge/legal-hold; help | NOT RUN; purge forbidden in this pass |
+| /positions and /positions/[id] | Create/edit; JD attach/analyze; qualification/instruction/tests; versions/restore; help | PARTIAL: form validation/cancel, actual multi-file chooser, refresh and card tabs; no profile/rule/version writes |
+| /cohorts | Create/edit; search/select/save members; reload; help | PARTIAL: owned group create/member/save/reload/remove/reset, final0members |
+| /candidate-assessments | Create/edit campaign; preview/activate/close; invite/copy link; CSV; help | PARTIAL: course guard/create/start/close/CSV; no candidate/link/mail |
+| /mandatory-training | Search/filters/scope/status/paging; learner/course destination; help | PARTIAL: search/apply/empty/restore7, single-page guards; no retained writes |
+| /training-log | Filters/history; current occurrence; CSV/PDF/ZIP; signed-copy review; restricted share/revoke; help | PARTIAL: filter/reset/history/answer details/disclosure/CSV; no retained-record edits |
+| /training-procedures | Draft/edit/validation; activate/version; delete preview; help | PARTIAL: owned draft/edit/cancel/activation422; no irreversible delete |
+| /training-retention | Policy form/save; dry-run; purge/legal-hold; help | READ-ONLY methodologist state PASS; admin mutations NOT RUN, purge forbidden |
 | Contextual /competencies,/training-rules,/invitations,/surveys,/announcements,/course-review | Context links; forms/validation/preview/submit/readback; help | NOT RUN; no external communication |
-| Shared /profile + shell | Profile form; help/support; notifications/read; language; palette; sidebar; guide; logout | PARTIAL: staff help only; support submission NOT RUN |
+| Shared /profile + shell | Profile form; help/support; notifications/read; language; palette; sidebar; guide; logout | PARTIAL: profile save/reload/restore,17help, support validate/cancel, notifications/palette/sidebar/languages/guide; no support send, logout pending |
 | Admin /admin,/admin/team | Navigation/onboarding; create/role/activate/deactivate; validation; help | NOT RUN; security-sensitive grants separate approval |
 | Admin /admin/kiosks,/settings | Kiosk/create/print/link/PIN/delete; tenant settings/save; help | NOT RUN |
 | Admin /admin/settings/integrations,/admin/settings/ai | Forms/status/test/save; provider/model routing | NOT RUN; external settings unchanged |
@@ -90,6 +90,32 @@ Filename/output observed; independent original-byte equality NOT VERIFIED.
 ## Gates and next
 
 ### Live follow-up9557 and publication candidate
+
+Publication004 exactbd0cac8e RELEASE_OK: CI39016503856 SUCCESS,
+Verceldpl_ASx8LnkbYhwkvZQvhsTSaMnHGrWJ,
+APIdep-db9itsdg1s2s738sr5f0/workerdep-db9iutrncjis739grr90 all exact/live.
+Root independently read controller receipt/API health. Branch previous1e5c798f is
+failed-CI ancestry, not an accepted runtime rollback; previous accepted9557 retained.
+Root browser empty publish now shows localized actionable refusal; normal API409
+course_content_required leaves draft/current release9c03f50d… unchanged. Screenshot
+dev-empty-publish-refused-bd0.png. Then created module4e083ac1-ae6e-47ed-8123-2affe47a3d9b
+and one own synthetic lesson for positive publication continuation; no assignments.
+
+Later competency finding COMPETENCY-COMMIT-001: owned synthetic competency
+42b6ccb9-a3cc-4a00-b565-b364ba02b2d3 created201/detail200. Save's PATCH404;
+root independent normal API PATCH of only its marked synthetic description again
+returned404, subsequent GET200 proved description persisted. All position/course
+links remain empty; no assignment effects. UI unsaved course selection cancelled
+and page reloaded. Local transaction response fix and create-selection preservation
+prepared. UI2RED/2GREEN; no successful deployed fix claimed yet. No blind recreate.
+Position card tabs/profile/instruction/competencies/training/history/refresh and
+competency destination opened; existing position rules and versions unchanged.
+Own empty-course approval page selection/refresh/help checked, no request created.
+Competency candidate gates: focused API5PASS, full4228PASS/526SKIP, quality1008/2201;
+full web168files/1226PASS183.21s, focused3PASS, standalonetypecheck/build67/67,
+release contracts0183/293PASS. Root accepted API diff independently; API writer
+independently reviewed root UI diff; final no-course/no-PUT regression added/passed.
+No direct DB DML, force-RLS changes or Docker DB. Fresh DEV readback remains required.
 
 Publication packet003/1e5c798f stopped at CI39015879637: frontend test TS2352
 in coursePublicationError.test.ts:15, reproduced locally. No bypass/retry; use

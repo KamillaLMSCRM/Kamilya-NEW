@@ -2,6 +2,29 @@
 
 Current as of: 2026-10-17.
 
+## COMPETENCY-COMMIT-001 - Successful update returned a false not-found response
+
+- Date: 2026-10-17; ordinary synthetic DEV cabinet action audit.
+- Symptom: competency creation201/detail200 worked, but Save returned404. An
+  independent GET proved the changed description had persisted despite the error;
+  the subsequent course-link PUT was never sent by the browser.
+- Cause: update and link replacement committed, then re-read through transaction-
+  local tenant/RLS context that no longer existed after commit. UI also discarded
+  courses selected before Create because creation never persisted their links.
+- Fix: materialize mutation response DTOs before commit; return validated link IDs
+  without stale relationship collections. Keep tenant guards and all validation.
+  After create, retain its identity, persist selected course links before reload,
+  and let a link failure retry Save on the same identity rather than create again.
+- Verification: root live normal API exact QA actor/tenant PATCH404 then GET200/
+  description changed, position/course links empty. UI regression2RED then2PASS;
+  final full web168files/1226PASS, focused3PASS, standalone typecheck/build67/67
+  PASS. API focused5PASS (duplicate/outside-tenant/no-write/commit failure), full
+  4228PASS/526SKIP and quality1008/2201 PASS. Deployed positive proof remains a
+  separate gate, not inferred from response mocks.
+- Prevention: no tenant-scoped query after commit without a fresh binding. Test
+  committed-write/error-response separately from failed writes; never blindly
+  recreate a resource when a second link operation fails.
+
 ## WORKBENCH-ERROR-001 - Canonical conflicts leaked raw HTTP errors
 
 - Date: 2026-10-17; ordinary synthetic DEV cabinet action audit.

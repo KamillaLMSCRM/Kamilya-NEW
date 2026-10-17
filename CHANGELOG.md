@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Competency update/link replacement materializes tenant-bound responses before
+  commit, avoiding false404 after a successful write. Keep courses selected during
+  creation and retain the created identity when a separate link write fails.
+  DEV candidate; live acceptance pending, production excluded.
+
 - Assignment workbench explains empty-department previews in RU/KK/EN instead of
   raw HTTP errors. Recognize canonical and FastAPI definitive conflicts without
   unlocking unknown confirmation outcomes; retain same-plan recovery guidance.

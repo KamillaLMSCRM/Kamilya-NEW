@@ -35,6 +35,22 @@ def _detail(item: Competency) -> CompetencyDetail:
     return CompetencyDetail(**_summary(item).model_dump(), position_ids=[link.position_id for link in item.position_links], course_ids=[link.course_id for link in item.course_links])
 
 
+def _detail_with_links(item: Competency, *, position_ids: list[UUID], course_ids: list[UUID]) -> CompetencyDetail:
+    """Materialize the response before commit expires the ORM identity map."""
+    return CompetencyDetail(
+        **CompetencySummary(
+            id=item.id,
+            name=item.name,
+            description=item.description,
+            created_at=item.created_at,
+            position_count=len(position_ids),
+            course_count=len(course_ids),
+        ).model_dump(),
+        position_ids=position_ids,
+        course_ids=course_ids,
+    )
+
+
 @router.get("", response_model=list[CompetencySummary])
 async def list_competencies(db: AsyncSession = Depends(get_db), user=Depends(require_role(*MANAGER_ROLES))):
     result = await db.execute(select(Competency).options(selectinload(Competency.position_links), selectinload(Competency.course_links)).where(Competency.tenant_id == user.tenant_id).order_by(Competency.name))
@@ -61,8 +77,9 @@ async def update_competency(competency_id: UUID, payload: CompetencyUpdate, db: 
     item = await _get(db, competency_id, user.tenant_id)
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(item, key, value.strip() if isinstance(value, str) else value)
+    detail = _detail(item)
     await db.commit()
-    return _detail(await _get(db, competency_id, user.tenant_id))
+    return detail
 
 
 @router.put("/{competency_id}/links", response_model=CompetencyDetail)
@@ -80,5 +97,6 @@ async def replace_links(competency_id: UUID, payload: CompetencyLinks, db: Async
         db.add(PositionCompetency(tenant_id=user.tenant_id, position_id=position_id, competency_id=item.id))
     for course_id in payload.course_ids:
         db.add(CompetencyCourse(tenant_id=user.tenant_id, competency_id=item.id, course_id=course_id))
+    detail = _detail_with_links(item, position_ids=payload.position_ids, course_ids=payload.course_ids)
     await db.commit()
-    return _detail(await _get(db, competency_id, user.tenant_id))
+    return detail

@@ -5,7 +5,21 @@
 
 ## Источники правды
 
-### DEV current2026-10-17: cabinet actions follow-up
+### DEV current2026-10-17: native publication and workbench errors
+
+Exactbd0cac8e5f36dbc0997959bb1f2294d2288cad0e is live on DEV web/API/worker.
+CI39016503856 SUCCESS; Verceldpl_ASx8LnkbYhwkvZQvhsTSaMnHGrWJ READY;
+APIdep-db9itsdg1s2s738sr5f0/workerdep-db9iutrncjis739grr90 LIVE, health PASS.
+REL-DEV-CABINET-PUBLISH-20261017-004 RELEASE_OK; no schema/tier/config change.
+Previous branch SHA1e5c798f was a failed-CI candidate, NOT an accepted rollback;
+previous accepted runtime9557d137 retained. Root normal API empty publication409/
+course_content_required leaves draft/current release unchanged; browser actionable
+copy PASS. Nonempty publication and workbench live follow-up still underway.
+Competency committed-write/false404 plus dropped-create-course-selection found
+in synthetic DEV; local correction/tested candidate, no deployed claim yet.
+Production unchanged, whole cabinet PARTIAL. Earlier snapshots below historical.
+
+### Previous DEV2026-10-17: cabinet actions follow-up
 
 DEV frontend/API/worker are exact9557d137364bd456be0550a59e04ebc789c72d2c.
 CI39014500919 SUCCESS; Verceldpl_GTcCQ97NPaPX78dTYmcaoWRhGuB1 READY;
