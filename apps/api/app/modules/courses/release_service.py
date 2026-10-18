@@ -23,6 +23,10 @@ from app.modules.quizzes.models import Question, Quiz, QuizChoice
 from app.modules.scorm.models import ScormPackage
 
 
+class CourseContentRequiredError(ValueError):
+    """A native course snapshot has no learner-usable lesson content."""
+
+
 def canonical_json_sha256(payload: dict[str, Any]) -> str:
     encoded = json.dumps(
         payload,
@@ -31,6 +35,50 @@ def canonical_json_sha256(payload: dict[str, Any]) -> str:
         separators=(",", ":"),
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _has_visible_text(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    return bool(value.replace("\u200b", "").replace("\ufeff", "").strip())
+
+
+def _native_snapshot_has_usable_content(snapshot: dict[str, Any]) -> bool:
+    modules = snapshot.get("modules")
+    if not isinstance(modules, list):
+        return False
+    for module in modules:
+        if not isinstance(module, dict):
+            continue
+        lessons = module.get("lessons")
+        if not isinstance(lessons, list):
+            continue
+        for lesson in lessons:
+            if not isinstance(lesson, dict):
+                continue
+            if _has_visible_text(lesson.get("content")):
+                return True
+            # Current review and learner clients render lesson.content and
+            # quizzes, not the separate content_blocks collection. Do not let
+            # an invisible block make an otherwise blank course publishable.
+            quizzes = lesson.get("quizzes")
+            if isinstance(quizzes, list):
+                for quiz in quizzes:
+                    if not isinstance(quiz, dict):
+                        continue
+                    questions = quiz.get("questions")
+                    if isinstance(questions, list) and any(
+                        isinstance(question, dict) and _has_visible_text(question.get("text"))
+                        for question in questions
+                    ):
+                        return True
+    return False
+
+
+def _require_native_snapshot_content(snapshot: dict[str, Any], course: Course) -> None:
+    delivery_type = course.delivery_type
+    if isinstance(delivery_type, str) and delivery_type.strip().lower() == "native" and not _native_snapshot_has_usable_content(snapshot):
+        raise CourseContentRequiredError("Native course requires at least one usable lesson")
 
 
 def _uuid_strings(values: object) -> list[str]:
@@ -332,6 +380,7 @@ async def create_course_release(
     course: Course,
     *,
     published_by: UUID | None,
+    require_usable_content: bool = False,
 ) -> ContentRelease:
     # Serialize version allocation per tenant/course.  Without this lock two
     # concurrent publishes can both compute the same max+1 version.
@@ -348,6 +397,8 @@ async def create_course_release(
     )
     version = int(latest_version or 0) + 1
     snapshot = await build_course_release_snapshot(db, course, version=version)
+    if require_usable_content:
+        _require_native_snapshot_content(snapshot, course)
     release = ContentRelease(
         tenant_id=course.tenant_id,
         course_id=course.id,
@@ -369,6 +420,7 @@ async def create_course_release_from_snapshot(
     snapshot: dict[str, Any],
     *,
     published_by: UUID | None,
+    require_usable_content: bool = False,
 ) -> ContentRelease:
     """Persist a release from an already-frozen approval snapshot."""
     locked = await db.scalar(
@@ -387,6 +439,8 @@ async def create_course_release_from_snapshot(
     # Preserve the approved content while recording the actual release version.
     release_snapshot = copy.deepcopy(snapshot)
     release_snapshot["release_version"] = version
+    if require_usable_content:
+        _require_native_snapshot_content(release_snapshot, course)
     release = ContentRelease(
         tenant_id=course.tenant_id,
         course_id=course.id,

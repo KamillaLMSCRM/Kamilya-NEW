@@ -496,7 +496,10 @@ async def publish_course(
             code = "approval_pending" if approved_revision.state == "pending" else "approval_changes_requested" if approved_revision.state == "changes_requested" else "approval_superseded"
             raise HTTPException(status_code=409, detail={"code": code})
         from app.modules.courses.release_service import build_course_release_snapshot
-        current_snapshot = await build_course_release_snapshot(db, course, version=approved_revision.revision_number)  # type: ignore[arg-type]
+        # freeze_revision canonicalizes content with release_version=1. Approval
+        # counters are independent of publication versions and cannot enter this
+        # hash comparison; the release factory allocates its version separately.
+        current_snapshot = await build_course_release_snapshot(db, course, version=1)
         if canonical_json_sha256(current_snapshot) != approved_revision.snapshot_sha256:
             raise HTTPException(status_code=409, detail={"code": "approval_revision_mismatch"})
     blueprint_marker = (course.source_analysis or {}).get("blueprint") or {}
@@ -556,13 +559,31 @@ async def publish_course(
                 "message": ("Генерация курса по должностной инструкции ещё не завершена"),
             },
         )
-    from app.modules.courses.release_service import create_course_release, create_course_release_from_snapshot
-
-    release = (
-        await create_course_release_from_snapshot(db, course, approved_revision.snapshot, published_by=user.id)
-        if approved_revision is not None
-        else await create_course_release(db, course, published_by=user.id)
+    from app.modules.courses.release_service import (
+        CourseContentRequiredError,
+        create_course_release,
+        create_course_release_from_snapshot,
     )
+
+    try:
+        release = (
+            await create_course_release_from_snapshot(
+                db,
+                course,
+                approved_revision.snapshot,
+                published_by=user.id,
+                require_usable_content=True,
+            )
+            if approved_revision is not None
+            else await create_course_release(
+                db,
+                course,
+                published_by=user.id,
+                require_usable_content=True,
+            )
+        )
+    except CourseContentRequiredError as error:
+        raise HTTPException(status_code=409, detail={"code": "course_content_required"}) from error
     course.status = "published"  # type: ignore[assignment]
     course.published_at = release.published_at or datetime.now(UTC)
     if approved_revision is not None:

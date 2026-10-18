@@ -1,9 +1,7 @@
 """WhatsApp gateway client — talks to wa-gateway microservice over HTTPS.
 
-Architecture:
-  Kamilya backend (Render) ──HTTPS+JWT──► wa-gateway (VPS 173.249.51.164)
-                                            │
-                                            └──► WhatsApp servers (Meta)
+The optional gateway endpoint is configured by the platform. No gateway is
+activated or provisioned by checking a tenant's channel status.
 
 Kamilya is a middleware, NOT a provider. The tenant owns:
   - Their WhatsApp number
@@ -40,6 +38,8 @@ def _mint_service_jwt() -> str:
     in the gateway.
     """
     import time
+    if not settings.KAMILYA_BACKEND_SECRET:
+        raise WAGatewayError(503, "WhatsApp integration is not configured on the platform.")
     now = int(time.time())
     return jwt.encode(
         {
@@ -59,8 +59,7 @@ def _gateway_url(path: str) -> str:
     if not base:
         raise WAGatewayError(
             503,
-            "WA_GATEWAY_URL not configured on backend. "
-            "Add it to Render env to enable WhatsApp integration."
+            "WhatsApp integration is not configured on the platform."
         )
     return f"{base.rstrip('/')}{path}"
 
@@ -73,16 +72,14 @@ async def _call(method: str, path: str, **kwargs) -> dict[str, Any]:
     the gateway's status code — caller decides whether to retry, surface
     to user, etc.
     """
+    url = _gateway_url(path)
     headers = {**(kwargs.pop("headers", {}) or {}), "Authorization": f"Bearer {_mint_service_jwt()}"}
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
-            r = await client.request(method, _gateway_url(path), headers=headers, **kwargs)
+            r = await client.request(method, url, headers=headers, **kwargs)
     except httpx.RequestError as e:
         # Connection refused, DNS failure, timeout — gateway is down
-        logger.error(
-            {"error_type": type(e).__name__, "path": path},
-            "wa-gateway unreachable",
-        )
+        logger.error("wa-gateway unreachable (%s)", type(e).__name__)
         raise WAGatewayError(503, f"wa-gateway unreachable: {e.__class__.__name__}")
 
     if not r.is_success:
@@ -90,15 +87,20 @@ async def _call(method: str, path: str, **kwargs) -> dict[str, Any]:
             detail = r.json().get("detail", r.text[:200])
         except Exception:
             detail = r.text[:200]
-        logger.warning({"status": r.status_code, "path": path},
-                       "wa-gateway returned error")
+        logger.warning("wa-gateway returned error (HTTP %s)", r.status_code)
         raise WAGatewayError(r.status_code, detail)
 
     # 204 No Content — return empty dict
     if r.status_code == 204 or not r.content:
         return {}
 
-    return r.json()
+    try:
+        payload = r.json()
+    except ValueError as error:
+        raise WAGatewayError(502, "WhatsApp gateway returned an invalid response.") from error
+    if not isinstance(payload, dict):
+        raise WAGatewayError(502, "WhatsApp gateway returned an invalid response.")
+    return payload
 
 
 # ── Public API ─────────────────────────────────────────────────────────────

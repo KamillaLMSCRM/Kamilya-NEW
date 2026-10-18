@@ -118,6 +118,9 @@ async def put_source_policy(
         reviewed_at=payload.reviewed_at,
         next_review_at=payload.next_review_at,
     )
+    # UPDATE expires the server-owned onupdate timestamp. Materialize it inside
+    # the async session before synchronous response serialization (including clear).
+    await db.refresh(policy)
     record = SourcePolicyRecord.model_validate(
         {
             "id": policy.id,

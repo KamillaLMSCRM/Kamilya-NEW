@@ -56,6 +56,7 @@ interface Course {
   review_status: 'pending' | 'approved' | 'needs_changes';
   requires_approval?: boolean;
   source_instruction_id?: string | null;
+  source_analysis?: { blueprint?: Record<string, unknown> | null } | null;
 }
 
 export default function CourseEditPage() {
@@ -207,13 +208,25 @@ export default function CourseEditPage() {
 
   const handleUpdateModule = async (moduleId: string) => {
     if (!editModuleTitle.trim() || !token) return;
-    await fetch(`${API_URL}/v1/modules/${moduleId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ title: editModuleTitle }),
-    });
-    setModules((prev) => prev.map((m) => m.id === moduleId ? { ...m, title: editModuleTitle } : m));
-    setEditingModuleId(null);
+    try {
+      const res = await fetch(`${API_URL}/v1/modules/${moduleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: editModuleTitle }),
+      });
+      if (!res.ok) {
+        toast.error(t('common.saveFailed'));
+        return;
+      }
+      const savedModule = await res.json() as { title?: unknown };
+      const savedTitle = typeof savedModule.title === 'string' && savedModule.title.trim()
+        ? savedModule.title
+        : editModuleTitle;
+      setModules((prev) => prev.map((m) => m.id === moduleId ? { ...m, title: savedTitle } : m));
+      setEditingModuleId(null);
+    } catch {
+      toast.error(t('common.saveFailed'));
+    }
   };
 
   const handleDeleteModule = async (moduleId: string) => {
@@ -230,12 +243,20 @@ export default function CourseEditPage() {
       confirmLabel: t('dialogs.delete'),
     });
     if (!ok) return;
-    await fetch(`${API_URL}/v1/modules/${moduleId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setModules((prev) => prev.filter((m) => m.id !== moduleId));
-    if (removesActiveLesson) setEditingLessonId(null);
+    try {
+      const res = await fetch(`${API_URL}/v1/modules/${moduleId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        toast.error(t('common.deleteFailed'));
+        return;
+      }
+      setModules((prev) => prev.filter((m) => m.id !== moduleId));
+      if (removesActiveLesson) setEditingLessonId(null);
+    } catch {
+      toast.error(t('common.deleteFailed'));
+    }
   };
 
   const handleAddLesson = async (moduleId: string) => {
@@ -266,14 +287,22 @@ export default function CourseEditPage() {
       confirmLabel: t('dialogs.delete'),
     });
     if (!ok) return;
-    await fetch(`${API_URL}/v1/lessons/${lessonId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setModules((prev) => prev.map((m) =>
-      m.id === moduleId ? { ...m, lessons: m.lessons.filter((l) => l.id !== lessonId) } : m
-    ));
-    if (editingLessonId === lessonId) setEditingLessonId(null);
+    try {
+      const res = await fetch(`${API_URL}/v1/lessons/${lessonId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        toast.error(t('common.deleteFailed'));
+        return;
+      }
+      setModules((prev) => prev.map((m) =>
+        m.id === moduleId ? { ...m, lessons: m.lessons.filter((l) => l.id !== lessonId) } : m
+      ));
+      if (editingLessonId === lessonId) setEditingLessonId(null);
+    } catch {
+      toast.error(t('common.deleteFailed'));
+    }
   };
 
   const handleMoveModule = async (moduleId: string, direction: 'up' | 'down') => {
@@ -520,6 +549,9 @@ export default function CourseEditPage() {
   if (loading) return <div className="p-6">{t('common.loading')}</div>;
   if (!course) return <div className="p-6">{t('common.error')}</div>;
 
+  const hasBlueprintMarker = Boolean(course.source_analysis?.blueprint && Object.keys(course.source_analysis.blueprint).length > 0);
+  const requiresCourseReview = course.ai_generated || hasBlueprintMarker;
+
   return (
     <div className="mx-auto max-w-[1800px] space-y-6 px-4 py-5 sm:p-6">
       <fieldset
@@ -550,13 +582,13 @@ export default function CourseEditPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2 sm:justify-end">
-          {course.status !== 'published' && course.ai_generated && course.review_status !== 'approved' && (
+          {course.status !== 'published' && requiresCourseReview && course.review_status !== 'approved' && (
             <Button size="sm" variant="outline" onClick={handleApprove} disabled={releaseAction !== null || lessonDirty}>
               <CheckCircle2 className="mr-1.5 h-4 w-4" />
               {releaseAction === 'approve' ? t('authenticatedUi.editor.approving') : t('authenticatedUi.editor.approveCourse')}
             </Button>
           )}
-          {course.status !== 'published' && (!course.ai_generated || course.review_status === 'approved') && (
+          {course.status !== 'published' && (!requiresCourseReview || course.review_status === 'approved') && (
             <Button size="sm" onClick={handlePublish} disabled={releaseAction !== null || lessonDirty}>
               <Rocket className="mr-1.5 h-4 w-4" />
               {releaseAction === 'publish'
@@ -624,12 +656,12 @@ export default function CourseEditPage() {
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               {modules.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">{t('courses.noCourses')}</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">{t('courses.noModules')}</p>
               ) : modules.map((mod, modIdx) => (
                 <section key={mod.id} aria-labelledby={`module-${mod.id}`} className="space-y-2 rounded-lg border border-border/70 p-2">
                   {editingModuleId === mod.id ? (
                     <div className="space-y-2">
-                      <Input value={editModuleTitle} onChange={(event) => setEditModuleTitle(event.target.value)} autoFocus onKeyDown={(event) => event.key === 'Enter' && handleUpdateModule(mod.id)} />
+                      <Input aria-label={t('courses.moduleTitle')} value={editModuleTitle} onChange={(event) => setEditModuleTitle(event.target.value)} autoFocus onKeyDown={(event) => event.key === 'Enter' && handleUpdateModule(mod.id)} />
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => handleUpdateModule(mod.id)}>{t('common.save')}</Button>
                         <Button variant="outline" size="sm" onClick={() => setEditingModuleId(null)}>{t('common.cancel')}</Button>
@@ -669,7 +701,7 @@ export default function CourseEditPage() {
                   </div>
                   {addingLessonToModule === mod.id ? (
                     <div className="space-y-2 pt-1">
-                      <Input placeholder={t('courses.addLesson') + '...'} value={newLessonTitle} onChange={(event) => setNewLessonTitle(event.target.value)} autoFocus onKeyDown={(event) => event.key === 'Enter' && handleAddLesson(mod.id)} />
+                      <Input aria-label={t('courses.addLesson')} placeholder={t('courses.addLesson') + '...'} value={newLessonTitle} onChange={(event) => setNewLessonTitle(event.target.value)} autoFocus onKeyDown={(event) => event.key === 'Enter' && handleAddLesson(mod.id)} />
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => handleAddLesson(mod.id)}>{t('common.create')}</Button>
                         <Button variant="outline" size="sm" onClick={() => { setAddingLessonToModule(null); setNewLessonTitle(''); }}>{t('common.cancel')}</Button>
@@ -721,6 +753,7 @@ export default function CourseEditPage() {
                     <h1 className="mb-8 text-3xl font-bold tracking-tight">{editLessonTitle || t('authenticatedUi.editor.lessonTitle')}</h1>
                     <LessonContent
                       text={editLessonContent}
+                      omitFirstHeading={editLessonTitle}
                       className="space-y-5 text-base leading-7 text-foreground [&_blockquote]:border-l-4 [&_blockquote]:border-primary/40 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_h1]:text-3xl [&_h1]:font-bold [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-2 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-2 [&_th]:text-left [&_ul]:list-disc"
                     />
                   </article>

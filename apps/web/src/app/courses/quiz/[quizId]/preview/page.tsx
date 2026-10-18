@@ -7,6 +7,7 @@ import { CheckCircle2, XCircle } from 'lucide-react';
 import { Badge, Button, Card, CardContent } from '@/components/ui';
 import { toast } from '@/components/ui/Toast';
 import { useT } from '@/i18n/useT';
+import { isSingleAnswerQuestionType } from '@/lib/quizChoice';
 import { getRoleHome } from '@/lib/rolePolicy';
 import { useAuthStore } from '@/store/authStore';
 
@@ -120,7 +121,7 @@ export default function QuizMethodologistPreviewPage() {
 
   const handleSelect = (question: QuizQuestion, choiceId: string) => {
     setAnswers((current) => {
-      if (question.type === 'MCQ' || question.type === 'true_false') {
+      if (isSingleAnswerQuestionType(question.type)) {
         return { ...current, [question.id]: [choiceId] };
       }
       const selected = current[question.id] || [];
@@ -202,7 +203,7 @@ export default function QuizMethodologistPreviewPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-bold">{quiz.title}</h2>
-          <Link href={courseHref}><Button variant="outline">{t('courses.backToCourse')}</Button></Link>
+          <Link href={courseHref}><Button variant="outline">{t(courseId ? 'courses.backToCourse' : 'nav.dashboard')}</Button></Link>
         </div>
 
         {result && (
@@ -249,7 +250,7 @@ export default function QuizMethodologistPreviewPage() {
                   </div>
 
                   <div className="space-y-2">
-                    {question.choices.map((choice, choiceIndex) => {
+                    {question.choices.map((choice) => {
                       const selected = (answers[question.id] || []).includes(choice.id);
                       const correct = graded?.correct_choice_ids.includes(choice.id) || false;
                       return (
@@ -262,7 +263,7 @@ export default function QuizMethodologistPreviewPage() {
                           )} ${result ? 'cursor-default' : 'cursor-pointer hover:bg-muted'}`}
                         >
                           <input
-                            type={question.type === 'MCQ' || question.type === 'true_false' ? 'radio' : 'checkbox'}
+                            type={isSingleAnswerQuestionType(question.type) ? 'radio' : 'checkbox'}
                             name={`preview-${question.id}`}
                             checked={selected}
                             disabled={Boolean(result)}
@@ -270,9 +271,7 @@ export default function QuizMethodologistPreviewPage() {
                             className="mt-1 shrink-0"
                           />
                           <span className="flex-1">
-                            {question.type === 'true_false'
-                              ? t(choiceIndex === 0 ? 'quiz.true' : 'quiz.false')
-                              : choice.text}
+                            {choice.text}
                           </span>
                           {graded && selected && <Badge variant="outline">{t('quiz.selectedAnswer')}</Badge>}
                           {graded && correct && <Badge variant="outline">{t('quiz.correctAnswer')}</Badge>}

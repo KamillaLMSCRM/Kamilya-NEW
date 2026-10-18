@@ -166,7 +166,7 @@ def test_descriptive_fact_does_not_invent_action_instruction() -> None:
     assert fact.value in question.explanation
 
 
-def test_selected_claim_does_not_inherit_an_unrelated_paragraph_deadline_label() -> None:
+def test_selected_prohibition_does_not_inherit_an_unrelated_paragraph_deadline_label() -> None:
     fact = SourceFact(
         "fact-needs-clarification",
         "Уточнение потребности",
@@ -191,24 +191,26 @@ def test_selected_claim_does_not_inherit_an_unrelated_paragraph_deadline_label()
 
     axis = derive_assessment_axes(lesson, [fact], block_id="block-needs")[0]
 
-    assert axis.correct_value == "Если фактов недостаточно, задаются уточняющие вопросы."
-    assert axis.attribute == "положение"
-    assert axis.axis_kind == "attribute"
+    # Explicit prohibition now outranks a routine conditional clarification;
+    # its own type, not the parent paragraph's deadline label, owns the axis.
+    assert axis.correct_value == "Запрещено придумывать отсутствующие сведения."
+    assert axis.attribute == "запрет"
+    assert axis.axis_kind == "rule_value"
 
     question = materialize_assessment(
         axis,
         AuthoredAssessment(
             axis_id=axis.axis_id,
-            prompt="Что делать сотруднику, если фактов недостаточно?",
+            prompt="Что запрещено делать сотруднику при уточнении потребности?",
             distractors=(
-                "Придумать недостающие сведения.",
-                "Подменить запрос похожим случаем.",
+                "Задавать уточняющие вопросы при недостатке фактов.",
+                "Выяснять ожидаемый результат и желаемый срок.",
             ),
         ),
     )
 
     assert question is not None
-    assert question.explanation.startswith("Запомните: ")
+    assert "Запрещено придумывать отсутствующие сведения." in question.explanation
     assert "положение из источника" not in question.explanation.casefold()
     assert "источн" not in question.explanation.casefold()
 

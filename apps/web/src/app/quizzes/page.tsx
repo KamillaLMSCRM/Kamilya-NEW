@@ -672,10 +672,10 @@ export default function QuizzesAdminPage() {
                 </select>
               </div>
             </div>
-            <label htmlFor="new-quiz-title" className="sr-only">{t('courses.courseTitle')}</label>
+            <label htmlFor="new-quiz-title" className="sr-only">{t('quiz.title')}</label>
             <Input
               id="new-quiz-title"
-              placeholder={t('courses.courseTitle')}
+              placeholder={t('quiz.title')}
               value={newQuiz.title}
               onChange={(e) => setNewQuiz((p) => ({ ...p, title: e.target.value }))}
             />

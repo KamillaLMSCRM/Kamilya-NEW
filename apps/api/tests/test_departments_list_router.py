@@ -89,6 +89,8 @@ async def test_list_departments_returns_departments_with_course_ids():
     assert set(str(x) for x in by_id[d1.id].course_ids) == {str(c1), str(c2)}
     # d2 had c1 + c3
     assert set(str(x) for x in by_id[d2.id].course_ids) == {str(c1), str(c3)}
+    statement = db.execute.await_args_list[0].args[0]
+    assert "departments.is_active IS true" not in str(statement.whereclause)
 
 
 # ── 2. empty list when no departments ───────────────────────
@@ -174,3 +176,16 @@ async def test_list_departments_department_with_no_bindings_has_empty_list():
     resp = await list_departments(db=db, user=user)
     assert resp.departments[0].course_ids == []
     assert resp.departments[0].course_ids is not None
+
+
+@pytest.mark.asyncio
+async def test_list_departments_active_only_adds_active_filter():
+    """The optional audience view must constrain the SQL to active units."""
+    from app.modules.departments.router import list_departments
+
+    tenant = uuid4()
+    db = _build_db(departments=[], bindings=[])
+    await list_departments(db=db, user=_user(tenant_id=tenant), active_only=True)
+
+    statement = db.execute.await_args_list[0].args[0]
+    assert "departments.is_active IS true" in str(statement.whereclause)

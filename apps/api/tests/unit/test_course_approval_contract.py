@@ -289,6 +289,8 @@ def test_route_fresh_two_guest_create_returns_credentials_and_replay_is_secret_f
     from app.core.db import get_db
     from app.main import app
 
+    monkeypatch.setattr(get_settings(), "PUBLIC_URL", "https://trusted-learning.example.test")
+    requested_base_urls = []
     tenant_id = uuid4()
     actor = SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist")
     revision_id = uuid4()
@@ -348,6 +350,7 @@ def test_route_fresh_two_guest_create_returns_credentials_and_replay_is_secret_f
         return actor
 
     async def fake_create_request(_db, **_kwargs):
+        requested_base_urls.append(_kwargs["base_url"])
         return approval_request, SimpleNamespace(), credentials[0]["access_url"], credentials[0]["temporary_pin"], credentials
 
     app.dependency_overrides[get_db] = override_db
@@ -359,6 +362,7 @@ def test_route_fresh_two_guest_create_returns_credentials_and_replay_is_secret_f
         with TestClient(app) as client:
             first = client.post(path, json=payload, headers={"Idempotency-Key": "guest-create-contract"})
             assert first.status_code == 200
+            assert requested_base_urls == ["https://trusted-learning.example.test"]
             body = first.json()
             assert body["access_url"].endswith("token-a")
             assert body["temporary_pin"] == "123456"
@@ -370,6 +374,58 @@ def test_route_fresh_two_guest_create_returns_credentials_and_replay_is_secret_f
             assert "token-a" not in replay.text and "123456" not in replay.text
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("last_sequence,next_sequence", [(None, 1), (3, 4)])
+async def test_resume_review_returns_persisted_position_and_tenant_scoped_next_sequence(monkeypatch, last_sequence, next_sequence):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    import app.modules.course_approval.router as approval_router
+
+    tenant_id, actor_id, revision_id, attempt_id = uuid4(), uuid4(), uuid4(), uuid4()
+    actor = SimpleNamespace(id=actor_id, tenant_id=tenant_id, role="methodologist")
+    attempt = SimpleNamespace(id=attempt_id, activity_state="in_progress", lesson_position=2, snapshot_sha256="a" * 64)
+    revision = SimpleNamespace(id=revision_id, snapshot={"course": {"id": str(uuid4())}, "modules": []})
+    db = SimpleNamespace(scalar=AsyncMock(side_effect=[SimpleNamespace(revision_id=revision_id), SimpleNamespace(), last_sequence]), commit=AsyncMock())
+    monkeypatch.setattr(approval_router, "get_or_create_attempt", AsyncMock(return_value=(attempt, revision)))
+    monkeypatch.setattr(approval_router, "log_action", AsyncMock())
+
+    result = await approval_router.start_attempt(uuid4(), db, actor)
+    assert result["lesson_position"] == 2
+    assert result["next_sequence"] == next_sequence
+    statement = db.scalar.await_args_list[-1].args[0]
+    compiled = statement.compile()
+    assert "course_review_attempt_events" in str(compiled)
+    assert tenant_id in compiled.params.values()
+    assert attempt_id in compiled.params.values()
+
+
+@pytest.mark.asyncio
+async def test_credential_rotation_uses_configured_learning_url_not_api_host(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from starlette.requests import Request
+
+    import app.modules.course_approval.router as approval_router
+    from app.core.config import get_settings
+    from app.modules.course_approval.schemas import ResendAccessRequest
+
+    monkeypatch.setattr(get_settings(), "PUBLIC_URL", "https://trusted-learning.example.test")
+    rotate = AsyncMock(return_value={"rotated": True, "retried": False, "access_credentials": []})
+    monkeypatch.setattr(approval_router, "resend_request_access", rotate)
+    monkeypatch.setattr(approval_router, "_read_idempotency", AsyncMock(return_value=None))
+    monkeypatch.setattr(approval_router, "_write_idempotency", AsyncMock())
+    actor = SimpleNamespace(id=uuid4(), tenant_id=uuid4())
+    db = SimpleNamespace(commit=AsyncMock())
+    request = Request({"type": "http", "scheme": "https", "server": ("api.example.test", 443),
+                       "path": "/", "headers": [(b"host", b"api.example.test"),
+                                                   (b"origin", b"https://untrusted.example.test")]})
+    await approval_router.resend(uuid4(), request, ResendAccessRequest(rotate_credentials=True),
+                                 db, actor, idempotency_key=None)
+    assert rotate.await_args.kwargs["base_url"] == "https://trusted-learning.example.test"
 
 
 def test_guest_pin_verify_token_scopes_request_routes_and_rejects_learner_jwt(monkeypatch):
@@ -438,7 +494,7 @@ def test_guest_pin_verify_token_scopes_request_routes_and_rejects_learner_jwt(mo
             if self.calls == 5:
                 return policy
             if self.mode == "start":
-                return request_row if self.calls == 6 else assignment
+                return request_row if self.calls == 6 else assignment if self.calls == 7 else None
             if self.calls == 6:
                 return work_item
             if self.calls == 7:
@@ -472,7 +528,7 @@ def test_guest_pin_verify_token_scopes_request_routes_and_rejects_learner_jwt(mo
         return {"work_item_id": work_item_id, "reviewer_user_id": guest_identity, "access_state": "active", "review_token": scoped_token}
 
     async def fake_start_attempt(_db, **_kwargs):
-        return SimpleNamespace(id=uuid4(), activity_state="not_started", snapshot_sha256="a" * 64), SimpleNamespace(
+        return SimpleNamespace(id=uuid4(), activity_state="not_started", lesson_position=None, snapshot_sha256="a" * 64), SimpleNamespace(
             id=revision_id, snapshot_sha256="a" * 64, snapshot={"course": {"tenant_id": "internal"}, "modules": []}
         )
 

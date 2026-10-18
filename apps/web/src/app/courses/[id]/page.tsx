@@ -105,6 +105,11 @@ export default function CoursePlayerPage() {
   const [scormLaunchError, setScormLaunchError] = useState('');
   const [scormLaunchLoading, setScormLaunchLoading] = useState(false);
   const scormFrameRef = useRef<HTMLIFrameElement>(null);
+  const previewProgressScopeRef = useRef<{ key: string; preview: boolean } | null>(null);
+  const dataLoadGenerationRef = useRef(0);
+  const quizLoadGenerationRef = useRef(0);
+  const mountedRef = useRef(true);
+  const assistantScopeRef = useRef('');
   const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([]);
   const [assistantInput, setAssistantInput] = useState('');
   const [assistantLoading, setAssistantLoading] = useState(false);
@@ -115,12 +120,59 @@ export default function CoursePlayerPage() {
   const [assignmentRemainingSeconds, setAssignmentRemainingSeconds] = useState<number | null>(null);
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
+  const courseListHref = user?.role === 'student' ? '/my-courses' : '/courses';
   const isPrivilegedPreview = user?.role === 'admin'
     || user?.role === 'superadmin'
     || user?.role === 'methodologist';
   const canPreviewQuiz = user?.role === 'superadmin' || user?.role === 'methodologist';
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const selectedLessonId = selectedLesson?.id;
+  const previewProgressScope = `${courseId}:${user?.user_id || ''}:${user?.role || ''}:${token || ''}`;
+  const assistantScope = `${previewProgressScope}:${selectedLessonId || ''}`;
+  const isCurrentScope = (scope: string) => mountedRef.current && previewProgressScopeRef.current?.key === scope;
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  useEffect(() => {
+    const previous = previewProgressScopeRef.current;
+    if (previous && (previous.key !== previewProgressScope || previous.preview !== isPrivilegedPreview)) {
+      setLoading(true);
+      setCourse(null);
+      setModules([]);
+      setSelectedLesson(null);
+      setCompletedLessons(new Set());
+      setEnrolled(null);
+      setCourseCompleted(false);
+      setCompletionEvidenceEventId(null);
+      setEnrolling(false);
+      setLessonQuiz(null);
+      setQuizAttempts([]);
+      setQuizPassed(false);
+      setScormLaunchSession(null);
+      setScormRuntimeStatus(null);
+      setScormLaunchError('');
+      setScormLaunchLoading(false);
+      setAssistantMessages([]);
+      setAssistantInput('');
+      setAssistantLoading(false);
+      setAssignmentAccessPolicy(null);
+      setAssignmentDeadlineMs(null);
+      setAssignmentRemainingSeconds(null);
+      dataLoadGenerationRef.current += 1;
+      quizLoadGenerationRef.current += 1;
+    }
+    previewProgressScopeRef.current = { key: previewProgressScope, preview: isPrivilegedPreview };
+  }, [isPrivilegedPreview, previewProgressScope]);
+
+  useEffect(() => {
+    assistantScopeRef.current = assistantScope;
+    setAssistantMessages([]);
+    setAssistantInput('');
+    setAssistantLoading(false);
+  }, [assistantScope]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -164,20 +216,28 @@ export default function CoursePlayerPage() {
 
   const fetchQuizForLesson = useCallback(async (lessonId: string) => {
     if (!token) return;
+    const generation = ++quizLoadGenerationRef.current;
+    const scope = previewProgressScope;
+    const isCurrentRequest = () => quizLoadGenerationRef.current === generation
+      && previewProgressScopeRef.current?.key === scope;
     try {
       const res = await fetch(`${API_URL}/v1/quizzes/by-lesson/${lessonId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!isCurrentRequest()) return;
       if (res.ok) {
         const quiz: QuizInfo = await res.json();
+        if (!isCurrentRequest()) return;
         setLessonQuiz(quiz);
 
         // Fetch attempts for this quiz
         const attemptsRes = await fetch(`${API_URL}/v1/quizzes/${quiz.id}/attempts`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (!isCurrentRequest()) return;
         if (attemptsRes.ok) {
           const attempts: QuizAttempt[] = await attemptsRes.json();
+          if (!isCurrentRequest()) return;
           setQuizAttempts(attempts);
           setQuizPassed(attempts.some((a) => a.passed));
         }
@@ -187,11 +247,12 @@ export default function CoursePlayerPage() {
         setQuizPassed(false);
       }
     } catch {
+      if (!isCurrentRequest()) return;
       setLessonQuiz(null);
       setQuizAttempts([]);
       setQuizPassed(false);
     }
-  }, [token, API_URL]);
+  }, [token, API_URL, previewProgressScope]);
 
   useEffect(() => {
     if (selectedLesson) {
@@ -287,6 +348,14 @@ export default function CoursePlayerPage() {
   }, [scormLaunchSession]);
 
   const fetchData = useCallback(async () => {
+    const requestGeneration = ++dataLoadGenerationRef.current;
+    const requestScope = previewProgressScope;
+    const requestPreview = isPrivilegedPreview;
+    const isCurrentRequest = () => (
+      dataLoadGenerationRef.current === requestGeneration
+      && previewProgressScopeRef.current?.key === requestScope
+      && previewProgressScopeRef.current?.preview === requestPreview
+    );
     try {
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
@@ -297,9 +366,11 @@ export default function CoursePlayerPage() {
         fetch(`${API_URL}/v1/progress/courses/${courseId}/completed-ids`, { headers }),
         fetch(`${API_URL}/v1/courses/${courseId}/access-window`, { headers }),
       ]);
+      if (!isCurrentRequest()) return;
 
       if (accessWindowRes.ok) {
         const accessWindow: AssignmentAccessWindow | null = await accessWindowRes.json();
+        if (!isCurrentRequest()) return;
         if (accessWindow) {
           const policy = accessWindow.access_policy;
           setAssignmentAccessPolicy(policy);
@@ -320,7 +391,11 @@ export default function CoursePlayerPage() {
         }
       }
 
-      if (courseRes.ok) setCourse(await courseRes.json());
+      if (courseRes.ok) {
+        const courseData = await courseRes.json();
+        if (!isCurrentRequest()) return;
+        setCourse(courseData);
+      }
 
       const userRole = user?.role;
       const bypass = userRole === 'admin' || userRole === 'superadmin' || userRole === 'methodologist';
@@ -328,8 +403,10 @@ export default function CoursePlayerPage() {
         setEnrolled(true);
       } else if (userRole === 'student') {
         const dashboardRes = await fetch(`${API_URL}/v1/student/dashboard`, { headers });
+        if (!isCurrentRequest()) return;
         if (dashboardRes.ok) {
           const dashboard = await dashboardRes.json();
+          if (!isCurrentRequest()) return;
           const enrolledCourse = (dashboard.enrolled_courses || []).find(
             (item: { course_id: string; enrollment_id?: string; enrollment_status?: string }) => item.course_id === courseId
           );
@@ -346,8 +423,10 @@ export default function CoursePlayerPage() {
               `${API_URL}/v1/training-evidence/events/mine?${evidenceParams.toString()}`,
               { headers },
             );
+            if (!isCurrentRequest()) return;
             if (evidenceRes.ok) {
               const evidenceEvents: Array<{ id: string }> = await evidenceRes.json();
+              if (!isCurrentRequest()) return;
               setCompletionEvidenceEventId(evidenceEvents[0]?.id || null);
             }
           }
@@ -361,6 +440,7 @@ export default function CoursePlayerPage() {
       let allLessons: Lesson[] = [];
       if (structRes.ok) {
         const data = await structRes.json();
+        if (!isCurrentRequest()) return;
         setModules(data.modules || []);
         allLessons = (data.modules || []).flatMap((m: Module) => m.lessons || []);
       }
@@ -368,11 +448,13 @@ export default function CoursePlayerPage() {
       let completedIds: Set<string> = new Set();
       if (progressRes.ok) {
         const d = await progressRes.json();
+        if (!isCurrentRequest()) return;
         completedIds = new Set(d.completed_lesson_ids || []);
-        setCompletedLessons(completedIds);
+        if (!isPrivilegedPreview) setCompletedLessons(completedIds);
       }
 
       if (allLessons.length > 0) {
+        if (!isCurrentRequest()) return;
         const requestedLesson = requestedLessonId
           ? allLessons.find((lesson) => lesson.id === requestedLessonId)
           : undefined;
@@ -382,9 +464,9 @@ export default function CoursePlayerPage() {
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      if (isCurrentRequest()) setLoading(false);
     }
-  }, [API_URL, courseId, requestedLessonId, token, user]);
+  }, [API_URL, courseId, isPrivilegedPreview, previewProgressScope, requestedLessonId, token, user]);
 
   useEffect(() => {
     if (courseId) fetchData();
@@ -392,25 +474,31 @@ export default function CoursePlayerPage() {
 
   const handleEnroll = async () => {
     if (!token || !courseId) return;
+    const scope = previewProgressScope;
     setEnrolling(true);
     try {
       const res = await fetch(`${API_URL}/v1/courses/${courseId}/enroll`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       });
+      if (!isCurrentScope(scope)) return;
       if (res.ok) {
         setEnrolled(true);
         toast.success(t('toast.enrollSuccess'));
       } else {
         const err = await res.json();
+        if (!isCurrentScope(scope)) return;
         toast.error(t('toast.enrollError'), { description: err.detail });
       }
+    } catch {
+      if (isCurrentScope(scope)) toast.error(t('toast.enrollError'));
     } finally {
-      setEnrolling(false);
+      if (isCurrentScope(scope)) setEnrolling(false);
     }
   };
 
   const persistLessonProgress = async (lessonId: string): Promise<boolean> => {
+    const scope = previewProgressScope;
     if (assignmentAccessBlocked) return false;
     if (isPrivilegedPreview) {
       setCompletedLessons((previous) => new Set(previous).add(lessonId));
@@ -423,10 +511,12 @@ export default function CoursePlayerPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ completed: true }),
       });
+      if (!isCurrentScope(scope)) return false;
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setCompletedLessons((previous) => new Set(previous).add(lessonId));
       return true;
     } catch (e) {
+      if (!isCurrentScope(scope)) return false;
       console.error('Failed to persist progress', e);
       toast.error(t('common.saveFailed'), { description: e instanceof Error ? e.message : undefined });
       return false;
@@ -445,19 +535,26 @@ export default function CoursePlayerPage() {
   };
 
   const handleNextLesson = async () => {
+    const scope = previewProgressScope;
     if (assignmentAccessBlocked) return;
     if (!selectedLesson) return;
     if (!await persistLessonProgress(selectedLesson.id)) return;
+    if (!isCurrentScope(scope)) return;
     const next = findNextLesson(selectedLesson.id);
     if (next) {
-      router.push(`/courses/${courseId}?lessonId=${encodeURIComponent(next.id)}`);
+      const nextPath = `/courses/${courseId}?lessonId=${encodeURIComponent(next.id)}`;
+      if (requestedLessonId === next.id) {
+        setSelectedLesson(next);
+      } else {
+        router.push(nextPath);
+      }
     } else {
       const total = modules.reduce((acc, m) => acc + m.lessons.length, 0);
       const completedCountAfterSave = new Set(completedLessons).add(selectedLesson.id).size;
       if (completedCountAfterSave >= total && total > 0 && token && courseId) {
         await finalizeCourseCompletion();
       } else {
-        router.push('/courses');
+        router.push(courseListHref);
       }
     }
   };
@@ -465,13 +562,14 @@ export default function CoursePlayerPage() {
   // Finalizes course: calls /complete, auto-issue cert happens server-side.
   // Shows a toast with a "View certificate" action if a cert was issued.
   const finalizeCourseCompletion = async () => {
+    const scope = previewProgressScope;
     if (isPrivilegedPreview) {
       toast.success(t('toast.coursePreviewCompleted'));
-      router.push('/courses');
+      router.push(courseListHref);
       return;
     }
     if (!token || !courseId) {
-      router.push('/courses');
+      router.push(courseListHref);
       return;
     }
     try {
@@ -479,8 +577,10 @@ export default function CoursePlayerPage() {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!isCurrentScope(scope)) return;
       if (!res.ok) {
         const payload = await res.json().catch(() => null);
+        if (!isCurrentScope(scope)) return;
         // The API normalizes structured FastAPI errors to
         // { error, message, details }. Keep accepting the legacy `detail`
         // shape as well so this flow remains compatible during rollouts.
@@ -508,13 +608,14 @@ export default function CoursePlayerPage() {
         throw new Error(message);
       }
       const data: { certificate_id?: string; status?: string; training_evidence_event_id?: string } = await res.json().catch(() => ({}));
+      if (!isCurrentScope(scope)) return;
       toast.success(t('toast.courseCompleted'));
       if (data.certificate_id) {
         toast.success(t('toast.certificateIssued'), {
           description: data.certificate_id,
           action: {
             label: t('toast.viewCertificate'),
-            onClick: () => router.push('/certificates'),
+            onClick: () => { if (isCurrentScope(scope)) router.push('/certificates'); },
           },
         });
       }
@@ -522,9 +623,10 @@ export default function CoursePlayerPage() {
         setCompletionEvidenceEventId(data.training_evidence_event_id);
         setCourseCompleted(true);
       } else {
-        router.push('/courses');
+        router.push(courseListHref);
       }
     } catch (e) {
+      if (!isCurrentScope(scope)) return;
       console.error('Course completion failed', e);
       toast.error(t('common.saveFailed'), {
         description: e instanceof Error ? e.message : undefined,
@@ -534,7 +636,10 @@ export default function CoursePlayerPage() {
 
   const handleAssistantSend = async () => {
     const message = assistantInput.trim();
-    if (!message || !token || !selectedLesson || assignmentAccessBlocked) return;
+    if (!message || !token || !selectedLesson || assignmentAccessBlocked || assistantLoading) return;
+    const scope = previewProgressScope;
+    const context = assistantScope;
+    const isCurrentAction = () => isCurrentScope(scope) && assistantScopeRef.current === context;
     setAssistantInput('');
     setAssistantMessages((prev) => [...prev, { role: 'user', content: message }]);
     setAssistantLoading(true);
@@ -544,19 +649,23 @@ export default function CoursePlayerPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ course_id: courseId, lesson_id: selectedLesson.id, message }),
       });
+      if (!isCurrentAction()) return;
       if (!res.ok) {
         const detail = await res.json().catch(() => null);
+        if (!isCurrentAction()) return;
         throw new Error(typeof detail?.detail === 'string' ? detail.detail : `HTTP ${res.status}`);
       }
       const data = await res.json();
+      if (!isCurrentAction()) return;
       setAssistantMessages((prev) => [...prev, { role: 'assistant', content: data.reply || '' }]);
     } catch (e) {
+      if (!isCurrentAction()) return;
       setAssistantMessages((prev) => [...prev, {
         role: 'assistant',
         content: e instanceof Error ? `${t('authenticatedUi.player.assistantReplyFailed')}: ${e.message}` : t('authenticatedUi.player.assistantReplyFailed'),
       }]);
     } finally {
-      setAssistantLoading(false);
+      if (isCurrentAction()) setAssistantLoading(false);
     }
   };
 
@@ -589,7 +698,7 @@ export default function CoursePlayerPage() {
           <button onClick={handleEnroll} disabled={enrolling} className="bg-primary text-white px-6 py-2 rounded hover:bg-primary disabled:opacity-50">
             {enrolling ? t('common.saving' as any) : t('courses.enrollButton')}
           </button>
-          <Link href="/courses" className="block mt-4 flex items-center gap-1 text-sm text-primary hover:underline justify-center">
+          <Link href={courseListHref} className="block mt-4 flex items-center gap-1 text-sm text-primary hover:underline justify-center">
             <ChevronLeft className="w-4 h-4" /> {t('courses.backToCourses')}
           </Link>
         </div>
@@ -611,14 +720,14 @@ export default function CoursePlayerPage() {
               eventId={completionEvidenceEventId}
               activityTitle={course.title}
               activityKind="course"
-              continueHref="/courses"
+              continueHref={courseListHref}
               continueLabel={t('courses.backToCourses')}
               resultHref="/certificates"
               resultLabel={t('courses.viewCertificate')}
             />
           ) : (
             <div className="text-center">
-              <Link href="/courses" className="bg-primary text-white px-6 py-2 rounded hover:bg-primary inline-block">
+              <Link href={courseListHref} className="bg-primary text-white px-6 py-2 rounded hover:bg-primary inline-block">
                 {t('courses.backToCourses')}
               </Link>
             </div>
@@ -633,7 +742,7 @@ export default function CoursePlayerPage() {
       <div className="min-h-screen bg-muted flex flex-col">
         <div className="flex h-14 items-center justify-between border-b bg-card px-4">
           <div className="min-w-0">
-            <Link href="/courses" className="flex items-center gap-1 text-sm text-primary hover:underline">
+            <Link href={courseListHref} className="flex items-center gap-1 text-sm text-primary hover:underline">
               <ChevronLeft className="w-4 h-4" /> {t('courses.title')}
             </Link>
             <h1 className="truncate text-sm font-semibold">{course.title}</h1>
@@ -683,7 +792,7 @@ export default function CoursePlayerPage() {
       {/* Left sidebar — TOC */}
       <div className="w-full md:w-80 bg-card border-b md:border-b-0 md:border-r flex flex-col">
         <div className="p-4 border-b">
-          <Link href="/courses" className="flex items-center gap-1 text-sm text-primary hover:underline">
+          <Link href={courseListHref} className="flex items-center gap-1 text-sm text-primary hover:underline">
             <ChevronLeft className="w-4 h-4" /> {t('courses.title')}
           </Link>
           <h2 className="font-bold mt-2">{course.title}</h2>

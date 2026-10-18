@@ -1,6 +1,565 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-16.
+Current as of: 2026-10-18.
+
+## POSITION-UNIT-001 - Free-text position creation duplicated a nested organization unit
+
+- Date:2026-10-18; ordinary production synthetic QA cabinet acceptance.
+- Symptom: a nested department existed, but creating its position made another
+  root with the same display name. Employee placement and position compatibility
+  department then had different IDs; shared position placement is intentional.
+- Cause: interactive creation sent only a name, while the legacy bridge searched
+  only a simple slug. Canonical nested-unit slugs include scope and cannot match.
+- Fix: typed tenant-owned active unit UUID in create/update and the canonical
+  breadcrumb picker. UUID presence is authoritative: null clears, omission can
+  preserve/resolve legacy text. Ambiguous names create nothing. Lock candidate
+  unit rows in ID order before validating archive/activity. Tree failure is a
+  retryable state, not an empty hierarchy; unassigned override must be explicit.
+- Verification: actual two IDs/readback; independent review found null precedence,
+  archive race and swallowed tree error. Corrected route/UI tests use real UUIDs,
+  SQL lock/order assertions and projection exclusions; focused25API/7web PASS.
+  DEV/database concurrency/live production correction remains a release gate.
+- Prevention: names are labels, not identities. Test nested and same-named units,
+  null/omitted/conflicting request fields and failed tree loads. Do not delete
+  the duplicate root or move employees implicitly; no cleanup was performed.
+
+## COURSE-PLAYER-SCOPE-001 - Delayed actions restored the previous actor's completion or assistant reply
+
+- Date:2026-10-18; independent source review during combined cabinet integration.
+- Symptom: completed learner to methodologist/admin preview retained the old
+  completion/evidence screen. After the initial reset repair, delayed completion
+  and assistant success/error could repopulate the new actor's visible state.
+- Cause: scope reset cleared only progress, and async user actions had no actor/
+  course/token guard across awaited network/body reads. Passive-read guards alone
+  did not cover completion, enrollment, progress, toasts or navigation callbacks.
+- Fix: clear all displayed scope-derived state; guard passive quiz reads and
+  every user-action continuation, toast and navigation against captured scope/
+  mount. Bind assistant writes to the lesson too; pending Enter cannot send again.
+- Verification: role-transition3RED, delayed completion/assistant3RED, then all
+  28player tests PASS. Old evidence/reply/error/toast/navigation remain absent.
+  Independent corrected-source review GO; actual DEV/browser gate still required.
+- Prevention: test delayed successful and failed action responses as well as
+  passive reads, including role/identity changes and unmount. Backend RLS does not
+  by itself clear data already retained by a browser component.
+
+## INTEGRATIONS-WA-001 - Gateway error handling raised its own logging exception
+
+- Date:2026-10-18; production status500 observed, local failure seam reproduced.
+- Symptom: optional WhatsApp status failed; injected ConnectError caused a
+  logging TypeError instead of the intended WAGatewayError. Malformed successful
+  gateway responses also escaped structured error translation.
+- Cause: standard logging received a dictionary message plus an extra string
+  argument with no formatting placeholder. UI refresh also ran immediately on
+  every newly returned status object, rather than only on its polling interval.
+- Fix: safe formatted category-only logging; validate configuration before token/
+  network use, translate invalid payloads, and preserve service-unavailable status.
+  Show a retryable failure state and separate initial refresh from interval polls.
+- Verification:6API RED then6PASS; focused integration UI/API tests PASS. The
+  production transport/configuration cause and actual channel delivery remain
+  unverified; no gateway was provisioned, activated, reconfigured or tested by send.
+- Prevention: inject transport and malformed-response failures through real logging
+  handlers; never turn an unknown channel state into a ready-to-connect screen.
+
+## LEARNING-UX-004 - Mandatory-training deep-link action remained hidden after clean-route navigation
+
+- Date:2026-10-17, ordinary synthetic DEV024 cabinet navigation.
+- Symptom: dashboard Missing assignment card correctly shows an empty filtered
+  matrix. Clicking Mandatory training in the main menu removes the URL action
+  parameter, but still shows0 rows/All states. Only Apply restores8 actual rows.
+- Cause: action_required was copied from search parameters only into the initial
+  filters state. Client navigation reused the page without synchronizing that
+  state, and there was no visible action-filter disclosure or clear control.
+- Fix: candidate synchronizes normalized URL action changes/reset pagination while
+  preserving applied fields; disclose and clear the filter independently of data
+  loading/errors. Clear removes only action_required and keeps other query/hash.
+  Existing AbortController cleanup prevents obsolete responses replacing results.
+- Verification: actual clean-route sticky-filter reproduction and post-Apply8
+  observed. Narrow route-sync RED3of9→9PASS; correction RED4of12 included2real
+  loading/error Clear defects and2test-oracle errors, separately identified.
+  Final focused12PASS/tsc, independent ACCEPT, fullweb1300PASS169files179.64s/
+  Next67of67/contracts314IDs/diffcheck PASS. Exact025506de277/CI39047517113/all7
+  SUCCESS/controller RELEASE_OK/root RECONCILED and actual DB1/onepong/3queues PASS.
+  Live materialize0/banner→clean8withoutApply, Back/Forward, review-stale0/Clear8,
+  retained applied fields/query/hash, restore8/reload and RU-KK-EN visual PASS.
+  Loading banner observed live; error/stale faults are automated, not claimed as
+  browser fault injection. No production change.
+- Prevention: test client transitions between both action links and the clean
+  route, clear with retained form fields, browser history and delayed responses.
+  A filter must remain visible and clearable even if its request fails.
+
+
+## COURSE-PLAYER-NAV-001 - Next lesson targeted the already-current URL and left the old lesson visible
+
+- Date:2026-10-17, ordinary synthetic DEV023 course-reader preview.
+- Symptom: open lesson2 from the editor, select lesson1 in the reader sidebar,
+  then click Next. Local progress becomes1/2 but lesson1 remains visible. Reproduced
+  twice without learner progress or completion writes.
+- Cause: sidebar selection is local state; Next only pushed the lesson2 URL,
+  which was already current. A query-triggered data reload also replaced local
+  preview completion with persisted learner progress.
+- Fix: select the next lesson locally when its URL is already current. Keep
+  privileged preview completion local for the same course/actor/role/token;
+  clear it on scope or mode transitions and reject stale asynchronous read
+  commits, including after response-body parsing. Student progress/completion,
+  required quizzes and deadline checks remain server-backed and unchanged.
+- Verification: original same-URL test1FAIL16PASS; independent review found scope
+  and stale-read gaps. The first correction had one genuine course-scope failure
+  and one overly-specific toast oracle failure, not two product failures. Later
+  preview-to-student pending-read regression failed before correction. Root fixed
+  a deferred-progress resolver that accidentally targeted the third/new request,
+  then proved a delayed evidence-body leak with20PASS1FAIL (expected evidence-new,
+  received evidence-old); the post-body guard produces21PASS and standalone tsc
+  PASS. Full web1293PASS/169files183.59s/tsc/build67of67/contracts313IDs PASS;
+  exact DEV024 bf537fb9/CI39046210768/controller RELEASE_OK/root RECONCILED PASS.
+  Actual deep-link2→sidebar1→Next renders2; normal lesson1→query2 retains1/2,
+  Finish returns to courses with preview-completed toast. ActualDEVDB1/onepong/
+  threequeues and ordinary protected fixture readback PASS. No production change.
+- Prevention: assert the rendered next lesson, not merely router.push. Resolve
+  the exact obsolete request in race tests; assert the new scope is loaded before
+  releasing the old response. Preview must never issue progress PUT/completion POST.
+
+
+## LEARNING-UX-003 - Program switching retained another program's assignment draft
+
+- Date:2026-10-17, ordinary synthetic DEV021 learning-path workspace.
+- Symptom: selected learner/dates on publishedA survived Close and appeared on
+  draftB. No assignment/publication occurred; the date guard blocked execution.
+- Cause: audience/date state belonged to the page rather than selected identity;
+  unguarded delayed reads could overwrite a newer selection or closed/new editor.
+- Fix:022 resets four audience buckets/two dates only on identity change; bounded
+  generation checks reject stale reads, New/Close invalidate them. Separate
+  pathLoading prevents a stale read from clearing mutation saving state. Audience
+  tabs additionally wrap long localized labels within the narrow card.
+- Verification: real cross-program browser reproduction. Initial isolated case
+  1RED22PASS then24PASS; independent review found pending New/Close gaps and an
+  insufficiently settled late-response test. Two actual failing regressions fixed,
+  deferred responses awaited with act; final26PASS/typecheck, independent ACCEPT.
+  Frozen022 fullweb1287/typecheck/build67of67 and exactDEV/root reconciliation PASS.
+  Actual A→sameA retains selections/dates; A→B clears them PASS. No assignment.
+  Root screenshot1270 visually rejected four narrow tabs splitting words despite
+  no overlap.023 removes sm:grid-cols-4 only; genuine1FAIL25PASS→26PASS; final
+  fullweb1287/typecheck/build67of67/CI39042607528/exactDEV-rootreconcile PASS.
+  Actual0231270px RU/KK/EN visual PASS, four audience types sameA retained/differentB
+  empty+blankdates, negative date guard/same-day/New-Close PASS. Ordinary final
+  readback zeroassignments/unsaveddraftabsent/protectedfixtures retained. Structural
+  PASS alone was not visual GO;022 failed screenshot retained as history.
+- Prevention: test identity changes, same-identity draft retention and completed
+  stale continuations, including Close/New. Async read loading is not mutation state.
+
+
+## LEARNING-UX-002 - Inverted assignment dates reached a preventable API refusal
+
+- Date:2026-10-17, ordinary DEV019 synthetic published learning path0audience.
+- Symptom: selected learner, start27Oct/end26Oct still enabled Assign; normal
+  POST422 refused before business writes or notification, but no inline guidance.
+- Cause: backend date validation existed; frontend had neither an inline range
+  message nor an early guard in direct assignment/shared publish-and-assign.
+- Fix: candidate020 localized RU/KK/EN alert, disable invalid direct assignment
+  and guard handlers. Selected-audience publish guard precedes every persistence
+  call; zero-audience publication ignores unused assignment dates. Same-day valid.
+- Verification: real direct-case1RED19PASS→20PASS. Independent review requested
+  actual draft-handler/no-write and zero-audience bypass coverage; added post-fix
+  (not claimedRED), focused22PASS/typecheckPASS; independent final ACCEPT. Full
+  frozen web/build and exact021/022 CI/DEV PASS. Actual021 screenshot shows inline
+  error/disabled Assign. Identical frontendbytes checked RU/KK/EN, same-day valid,
+  input retained and shared draft guard before persistence; no positive assignment.
+- Prevention: validate compound UI operations before their first durable write;
+  test both guarded combined operation and irrelevant-input bypass separately.
+
+
+## APPROVAL-003 - Selected-course workspace displayed other courses' request actions
+
+- Date:2026-10-17, live DEV018 synthetic QA.
+- Symptom: selector maincourse9b5a1ed4 displayed shortcourse request0780b7b2 along
+  with the main course's two requests. Cancel/rotate/revoke targets were therefore
+  visually unrelated to the selected course, although tenant RBAC still applied.
+- Cause: request list had no course filter and the page loaded all tenant rows.
+- Fix: candidate019 optional UUID course_id, tenant-matched revision join; missing
+  filter preserves reviewer/audit compatibility. Selected-course UI reads clear
+  old actions and reject stale reads/callbacks; empty selection is not an empty
+  result claim. Independent review found late A callback could initiate a new
+  winning A read after B; current-selection guard must cover callback start and
+  response, not generation alone. No new permission, migration or action mutation.
+- Verification: real HTTP/query RED2/21PASS→23PASS; actual two-course/foreign-course/
+  legacy PostgreSQL integration added, locallySKIP. Focused final4webfiles47PASS/
+  typecheckPASS and independent corrected-source review ACCEPT. Full web initially
+  1275PASS4FAIL exposed old unfiltered API mocks; after adapting exact query URLs/
+  sequential waits, real readiness regression RED2/7PASS was fixed with an exact
+  successful-history course marker. Creation waits for current history success;
+  the already-open one-time-credential modal survives same-course background
+  refresh. Final frozen web1280PASS169files/typecheck/build67of67PASS; CI39037198699
+  backend4779PASS2SKIP executed the new integration. Exact019 DEV live switching
+  main2/short1/draft0/empty prompt/Refresh/reload PASS; ordinary API preserves all
+  three approved request identities/decisions, unknown[]/invalidUUID422.
+- Prevention: selection-scoped request/action evidence and late-callback tests,
+  not only request-start ordering. Never equate tenant isolation with correct UI scope.
+
+
+## COURSE-EDITOR-002 - Failed DELETE optimistically hid a server-retained object
+
+- Date:2026-10-17, bounded DEV editor follow-up.
+- Symptom: HTTP500 removed the lesson/module from the UI despite failed deletion;
+  rejected fetch had no controlled error outcome and could abandon the user draft.
+- Cause: module/lesson DELETE awaited fetch without checking response.ok, then
+  removed local objects and active editing state even for HTTP500; network rejection
+  had no safe localized outcome. Source/behavioral regression confirms both risks.
+- Fix: candidate019 checks status/catch; preserve object/editor/draft on failure, remove
+  only the requested target on success; existing confirmation/dirty guards retained.
+  Use action-accurate localized delete-failed copy, not failed-to-save.
+- Verification:2behavioral REDs; additional invalid JSON204 mock failure was test
+  setup only and corrected separately. Final editor28PASS covers both handlers/
+  both failure modes and accurate3language copy; combined47PASS/typecheckPASS,
+  independent review ACCEPT. CI39037198699 SUCCESS/exact019 DEV reconciled. Owner
+  approved only lesson0968c795 then empty module7c55beed; browser deletion, active
+  editor reset, reload and ordinary API exact original2modules/2lessons/DRAFT/
+  zeroaudience PASS. HTTP/network failure evidence remains automated, not live
+  fault injection. No other deletion or protected learning mutation.
+- Prevention: pair destructive controls with HTTP/network negatives and authoritative
+  persisted readback; failed UI deletion must never be treated as completed deletion.
+
+
+## COURSE-EDITOR-A11Y-001 - Inline lesson creation and module rename inputs had no name
+
+- Date: 2026-10-17, ordinary methodologist live DEV editor on owned draft.
+- Symptom: both inline inputs exposed an empty accessible name; new lesson had
+  only placeholder, module rename only value. Other form fields were labeled.
+- Cause: these Input instances omitted label/aria-label unlike Add module.
+- Fix: reuse existing localized Add lesson and Module title keys as aria-labels,
+  retaining autofocus, value binding, Enter and Save/Cancel/request contracts.
+- Verification: real-page missing-name REDs then21editorPASS; combined27PASS
+  with status tests, standalone typecheck PASS; independent two-hunk ACCEPT.
+  Initial test setup error was not the behavioral RED. Final DEV live gate open.
+- Prevention: test actual reveal/Edit button and textbox role/name, not placeholder
+  selectors alone; a visible value is not an input's accessible name.
+
+
+## COURSE-APPROVAL-HASH-001 - Later approved revisions could never publish
+
+- Date: 2026-10-17; real DEV014 second approved template revision.
+- Symptom: explicit author approval and fresh reviewer completion persisted,
+  publication refused409; course remains draft/current_release_idNULL. Normal
+  API confirms latest revision2 approved, previous revision1 superseded.
+- Cause: freeze_revision canonicalizes snapshot release_version=1; publication
+  rebuilt hash using the independent revision_number. Revision2+ always differs
+  even when the course content is unchanged. Actual release version is already
+  independently allocated in create_course_release_from_snapshot.
+- Fix: compare current content using the same canonical version1 as freeze;
+  preserve complete hash/state/tenant locks and publish the approved snapshot.
+- Verification: real publication handler regression revisions1/2/7, unchanged
+  and changed content; RED2 then20PASS. Changed content still409 before release
+  creation or commit. Quality1008/2201 PASS after removing now-unused ignore.
+  Full gates and exact DEV acceptance remain required.
+- Live verification017: unchanged approvedrevision2 publishes once through UI,
+  reload and ordinary API published/currentrelease9067ab30…/zeroaudience PASS;
+  revision0e58cc7e becomes published with the exact previous approved snapshot hash.
+- Prevention: exercise second/later revision publication and changed-content
+  refusal; approval revision count is not a course publication version.
+
+
+## COURSE-REVIEW-CLOSE-001 - Successful scoped decision ended in invalid-link screen
+
+- Date: 2026-10-17; real DEV014 completed scoped reviewer decision.
+- Symptom: author confirms approved, but reviewer redirects to invalid-link inbox.
+- Cause: limited token was correctly cleared, then the inbox required it again.
+- Fix: request-keyed localized success acknowledgement after successful submit;
+  no re-fetch of that completed identity after token removal. Different request
+  must load independently. Limited-session Exit/Close clears token and opens
+  ordinary login, not the token-required inbox. No session/approval relaxation.
+- Verification: completion RED then focused13PASS; root token-change review
+  correction focused14PASS; independent page-close finding RED1/14PASS then
+  GREEN15PASS with real page/component seam. Full final web1262PASS169files,
+  build67/67 incllint/types; independent ACCEPT. Exact DEV live gate remains.
+- Live verification017: isolated link/PIN after ordinary logout, one lesson,
+  Finish/no early acknowledgement, explicit decision, success status and
+  Close→ordinary login PASS. Normal API same short revision approved/DRAFT/0audience.
+- Prevention: verify complete click outcome including Close and token cleanup,
+  not only decision POST or component-only success state.
+
+
+## COURSE-TEMPLATE-REVIEW-001 - Blueprint template hid required author approval
+
+- Date: 2026-10-17; actual DEV013 synthetic template publication.
+- Symptom: all required reviewer decisions approved, publish refused author
+  review pending, but editor exposed no explicit author Approve button.
+- Cause: server requires review for AI or nonempty blueprint; editor only AI.
+- Fix: same bounded blueprint marker enables explicit author action in editor;
+  manual courses unchanged. No autoapproval or server/snapshot relaxation.
+- Verification: focused editor RED1 then19PASS/typecheck; independent and exact
+  DEV014 full author approval/new snapshot/reviewer/publication gates pending.
+- Prevention: cover non-AI blueprint drafts; author metadata changes invalidate
+  prior frozen snapshots and require ordinary renewed reviewer approval.
+
+
+## COURSE-REVIEW-RESUME-001 - Reviewer reload lost lesson position and checkpoint sequence
+
+- Date: 2026-10-17; actual DEV012 personal-link/PIN reviewer, owned QA course.
+- Symptom: first answer and next lesson succeeded; reload returned to lesson1
+  instead of persisted lesson2. Lesson Markdown also rendered as raw source.
+- Cause: start response omitted position/next event sequence; player always
+  initialized0/1 and incorrectly advanced checkpoint sequence after quiz submit.
+  Review content used a preformatted paragraph instead of the shared renderer.
+- Fix: return authorized attempt position and tenant/attempt-scoped MAX event
+  sequence+1; validate safe integer metadata, plumb/reset player identity, remove
+  quiz-only sequence advancement, and reuse escaped LessonContent rendering.
+- Verification: route RED2 then focused34/full4231PASS526environmentSKIP; frontend
+  RED4 then focused16PASS/typecheck; quality1008/2201PASS; independent ACCEPT.
+  Fresh DEV013 reload/next checkpoint and complete reviewer cycle remain open.
+- Prevention: prove actual reload with an in-progress multi-lesson snapshot;
+  checkpoint sequencing is not quiz submission count. Preserve scope/answer keys.
+
+
+## COURSE-REVIEW-LINK-001 - Review access URL pointed to the API instead of the client
+
+- Date: 2026-10-17; ordinary DEV methodologist, owned synthetic template course.
+- Symptom: fresh personal-link request issued an API-origin access URL instead
+  of the configured DEV learning-client URL. No email or guest was created.
+- Cause: create and credential-rotation router paths used request.base_url;
+  web/API are separate services. Canonical PUBLIC_URL was already correct.
+- Fix: use get_settings().PUBLIC_URL for both paths, matching existing invitation
+  flows. Do not change trust, tenant scope, credential issuance or provider env.
+- Verification: both route regressions RED before source fix; focused32PASS and
+  unit3137PASS after; independent scoped review ACCEPT. Exact DEV012 new/rotated
+  link and real reviewer continuation remain required before runtime acceptance.
+- Prevention: test configured client origin independently of hostile Host/Origin
+  and verify one-time access links privately without logging tokens or PINs.
+
+
+## COURSE-REVIEWERS-001 - Approval request hid eligible methodologists
+
+- Date:2026-10-17; normal DEV methodologist, new synthetic template course.
+- Symptom: request dialog reported no reviewers although the same tenant had
+  eligible active methodologists. No request was submitted during reproduction.
+- Cause: users GET returns {users,total,page,per_page}; the modal called filter
+  on the object and swallowed TypeError as empty. It also offered primary admins
+  although the authoritative reviewer service accepts only active methodologists.
+- Fix: parse canonical paginated users, request active methodologists, fail on
+  malformed/incomplete or capped inventory, dedupe IDs, show canonical names,
+  distinguish loading/error/retry/empty, discard stale scopes and old selections.
+  No backend role, guest/PIN, credential or delivery contract change.
+- Verification: real object-shaped fixture RED, focused9PASS, full169files1247PASS
+  before the final test-only ID submission assertion; that assertion separately
+  PASS in focused9. Typecheck/build67 PASS; exact DEV011 normal browser now lists
+  two eligible methodologists and creates the selected QA reviewer request.
+- Prevention: model API response envelopes faithfully in tests and check actual
+  eligible identity submission; never turn list-load errors into factual empty.
+
+
+## QUIZ-PREVIEW-NAV-001 - Course caption pointed to the dashboard without context
+
+- Date:2026-10-17; ordinary DEV methodologist nonpersistent quiz preview.
+- Symptom: preview without courseId labeled /dashboard as Back to course.
+- Cause: course-context caption reused for the existing role-home fallback.
+- Fix: retain the destination; choose nav.dashboard when no courseId exists,
+  courses.backToCourse otherwise. No access, API, grading or progress change.
+- Verification: new no-context label assertion RED before source edit; focused
+  preview6PASS/typecheck PASS. Browser observation belongs to deployed008; this
+  caption repair is local only and must not be claimed as already visible there.
+- Prevention: test captions together with actual destination in both contexts;
+  preserve preview no-attempt/no-progress contracts and learner access denial.
+
+
+## COURSE-RETURN-001 - Learner course-list links redirected to the dashboard
+
+- Date: 2026-10-17; ordinary synthetic DEV completed-course browser check.
+- Symptom: Back to courses linked to the manager-only /courses; student role
+  guard redirected to /student instead of the student's assigned-course list.
+- Cause: course reader reused the manager catalogue URL in all role states.
+- Fix: compute student /my-courses, retain /courses for other roles; reuse for
+  enrolled-empty/completion/evidence continuation and native/SCORM header links.
+  No role guard, API, progress, evidence or certificate behavior changes.
+- Verification: three new state regressions failed expected href assertions;
+  initial RED also had one existing completion-async failure, not attributed to
+  this fix. First full run1FAIL/1238PASS captured a detached intermediate Finish
+  control before quiz results loaded. Test now awaits actual passed-quiz state,
+  not a longer timeout; original completion POST assertion retained. Completion
+  with/without evidence covered. Final focused3files/37PASS; full168files/1240PASS,
+  standalone typecheck/build67/67 PASS. Independent review accepted; fresh live
+  destination remains a DEV gate.
+- Prevention: verify the actual terminal destination after a button click, not
+  just its caption or an intermediate route that the role guard will reject.
+
+
+## ANNOUNCEMENT-HELP-001 - Help reversed audience selection and overstated delivery
+
+- Date: 2026-10-17; ordinary synthetic DEV cabinet action audit.
+- Symptom: help told the user to save a draft before selecting its course, but
+  the single create action persists that selection and clears the form. It also
+  called the send counter inbox delivery, which the API does not establish.
+- Cause: help described an imagined editable draft flow and inferred external
+  delivery from the provider-send counter instead of the current form/API seam.
+- Fix: RU/KK/EN help now follows select audience/content, Save draft, Send from
+  the saved card. Result explicitly separates sending from inbox delivery; the
+  all-recipient option says All employees rather than technical tenant jargon.
+- Verification: existing source/API independently reviewed; new help regression
+  1RED/21PASS, then22PASS; full web168files/1230PASS, standalone typecheck and
+  build67/67 PASS. Fresh live wording remains a separate DEV gate. No mail sent.
+- Prevention: verify instruction sequence against actual persistence controls;
+  successful provider send is not an independently verified mailbox delivery.
+
+
+## QUIZ-BOOLEAN-001 - True-false player used misleading controls and positional labels
+
+- Follow-up2026-10-17: existing persisted single_choice also used checkboxes and
+  accumulated multiple IDs; methodologist preview still overwrote true/false
+  labels by position. Shared exact predicate MCQ/true_false/single_choice now
+  controls both input role and state replacement in both surfaces. Preview keeps
+  source choice text/IDs. multiple_choice and unknown types retain prior behavior,
+  MCQ attempt rotation unchanged. No-course router.back now says generic Back,
+  not a course destination it cannot guarantee. New semantic and label tests ran
+  RED/GREEN; final focused3files/36PASS includes two post-fix multi/unknown
+  preservation tests. No additional learner submission or scoring migration.
+
+- Date: 2026-10-17; ordinary synthetic DEV learner action audit.
+- Symptom: true_false choices appeared as checkboxes despite single-answer
+  selection. Independent regression also proved reversed persisted No/Yes labels
+  were overwritten by index-based True/False text.
+- Cause: renderer selected radio only for MCQ, while handleSelect already treated
+  true_false as single-answer. Label helper ignored persisted choice text/identity.
+- Fix: render true_false as radio alongside MCQ and retain persisted answer text.
+  Do not infer boolean meaning from an option's position or change scoring/schema.
+  Also distinguish no enrollments from an empty catalogue on assignment screens.
+- Verification: live checkbox affordance observed; radio/one-ID submission GREEN,
+  reversed-label regression1RED/13PASS then14GREEN. Assignment-copy regression
+  1RED/16PASS then17GREEN; standalone typecheck/build67/67 PASS. Fresh DEV UI gate
+  pending; existing completed QA learning is not reset for this check.
+- Prevention: test input roles and submitted choice IDs separately from scoring;
+  preserve source answer labels, including unknown/custom translated text.
+
+
+## COMPETENCY-COMMIT-001 - Successful update returned a false not-found response
+
+- Date: 2026-10-17; ordinary synthetic DEV cabinet action audit.
+- Symptom: competency creation201/detail200 worked, but Save returned404. An
+  independent GET proved the changed description had persisted despite the error;
+  the subsequent course-link PUT was never sent by the browser.
+- Cause: update and link replacement committed, then re-read through transaction-
+  local tenant/RLS context that no longer existed after commit. UI also discarded
+  courses selected before Create because creation never persisted their links.
+- Fix: materialize mutation response DTOs before commit; return validated link IDs
+  without stale relationship collections. Keep tenant guards and all validation.
+  After create, retain its identity, persist selected course links before reload,
+  and let a link failure retry Save on the same identity rather than create again.
+- Verification: root live normal API exact QA actor/tenant PATCH404 then GET200/
+  description changed, position/course links empty. UI regression2RED then2PASS;
+  final full web168files/1226PASS, focused3PASS, standalone typecheck/build67/67
+  PASS. API focused5PASS (duplicate/outside-tenant/no-write/commit failure), full
+  4228PASS/526SKIP and quality1008/2201 PASS. Deployed positive proof remains a
+  separate gate, not inferred from response mocks.
+- Prevention: no tenant-scoped query after commit without a fresh binding. Test
+  committed-write/error-response separately from failed writes; never blindly
+  recreate a resource when a second link operation fails.
+
+
+## COURSE-CONTENT-001 - Empty native course could be published
+
+- Date: 2026-10-17; ordinary synthetic DEV cabinet action audit.
+- Symptom: a manual course with no modules or lessons became published.
+- Cause: the publication route checked review and quiz policy, but snapshot
+  creation did not require any learner-usable lesson content.
+- Fix: opt in to a content guard only on publication, for live and frozen
+  approval snapshots, before release/status/assignment/audit writes. Determine
+  delivery type from the persisted course, not mutable snapshot metadata.
+  Preserve legacy backfill and SCORM. Map refusal to actionable localized copy.
+- Verification: regression RED/GREEN; API4223PASS/526SKIP, web167files/1219PASS,
+  build67/67 including lint/types, quality ruff1008/mypy2201 PASS. Owned empty
+  course97cad6b2-3e70-474f-b1b6-ba38c869d234 returned to draft through normal UI;
+  zero modules independently read back. Deployed negative/positive proof pending.
+- Combined-release review2026-10-18: current clients ignore content_blocks; three
+  hidden video/audio/text-block negatives were RED then GREEN after the guard
+  stopped counting these fields. Rendered body/quiz and legacy/SCORM controls stay.
+- Prevention: test empty and usable snapshot publication, both approval paths,
+  no-write rejection, metadata-only negatives and legacy compatibility separately.
+
+
+## PROGRAM-AUDIENCE-001 - Archived units were offered as assignment targets
+
+- Date: 2026-10-17; ordinary synthetic DEV cabinet action audit.
+- Symptom: the program wizard offered archived QA units as department audience,
+  although effective hierarchy resolution excludes archived units.
+- Cause: the shared department-list endpoint intentionally includes all rows;
+  the wizard did not request active-only options, and assignment validation
+  checked tenant ownership but not active state.
+- Fix: add optional active_only query defaulting false, opt in only from the
+  program wizard, and reject inactive IDs before audience resolution with the
+  existing safe422 contract. Preserve aggregate consumers, tenant/RLS and archives.
+- Verification: focused API54PASS and web19PASS; full API4206PASS/526SKIP,
+  web167files/1214PASS before final test-proof strengthening. Exact SQL predicates,
+  no-write rejection and all-row versus active-option fixture covered; real
+  DEV9557d137 ordinary API verified default5 rows versus active3, with both archived
+  IDs excluded. Archived target returned422 and program assignments stayed empty;
+  ordinary browser offered only3 active units. Production unchanged.
+- Prevention: test selector inventory and execution eligibility together. Do not
+  hide archives globally or treat an empty-recipient result as a successful target.
+
+
+## AI-QUALITY-048 - Introductory prose displaced workplace assessment actions
+
+- Date: 2026-10-18. Confirmed against saved synthetic DEV job b850179c and
+  reproduced through the real source adapter, lesson planner and pre-provider
+  assessment selection, without paid model calls.
+- Symptom: a question tested synthetic-material boilerplate, while the critical
+  stop/escalation rule was untested. Topic-level coverage did not expose that gap.
+- Cause: explicit cover metadata was admitted; narrative selection gave weak
+  conditional prose the same priority as operational actions. Atomic span
+  selection could also choose background before a later stop rule in one fact.
+- Fix: conservatively separate explicit RU/KK/EN synthetic cover metadata from
+  adjacent actions; prioritize source-owned stop/escalation and action spans at
+  both selection seams. Keep the three-question ceiling and source presentation
+  order. Record eligible/selected/actually assessed facts per lesson; recognized
+  critical omissions require review even when general topic coverage is complete.
+- Verification: related228 PASS, then multilingual correction regressions14/8 PASS;
+  frozen API unit3164 PASS36.80s; critical journey27 PASS;
+  canonical Python baseline1008/2201 PASS. Exact DEV runtime and fresh semantic
+  acceptance remain pending at source preparation; no production mutation.
+- Prevention: exercise the actual adapter/planner, preserve operational privacy
+  language, test multilingual mixed paragraphs and four-critical/three-slot
+  overflow. Heuristic critical recognition is not exhaustive risk assessment;
+  do not claim that a three-question quiz covers every step of a longer source.
+- DEV026 follow-up: one actual job c5b36b9f selected three action axes, retained
+  two, and omitted the critical rule as unsupported_replacement_advice. The
+  critical guard correctly preserved a non-publishable review-required draft.
+  Source1042 bytes/SHA256c7091e2c...c9957 unchanged; saved output is not overwritten.
+  Root localized a catalog-padding veto applied globally after both reviewers;
+  raw rejected option wording was not persisted and is not reconstructed.
+  A constructed counterfactual regression was RED12/13 before correction.
+  Narrow exception requires reviewed narrative provenance, operational key and
+  exact source binding of key plus quote; catalog/unreviewed/unsupported controls
+  remain vetoed. Both independent review stages stay mandatory in the caller.
+  Affected148PASS; frozen and real DEV027 acceptance remain separate gates.
+- Additional regression check2026-10-18: action-first ranking displaced an
+  explicit prohibition/negative permission with no recognized action verb.
+  Real adapter probes were RED4 (RU/EN/KK), plus RED1 for two clauses in one fact.
+  Shared priority now recognizes narrow explicit ban/negative-right forms as
+  critical actions; positive must/shall and uncertain availability stay
+  noncritical. Immutable truth, source ordering and cap unchanged. An existing
+  parent-deadline-label oracle now intentionally checks the selected prohibition's
+  own type/explanation. Final unit3179PASS37.05s, related217PASS, critical27PASS,
+  quality1008/2201PASS; independent review ACCEPT. Exact DEV029 remains pending.
+
+
+## AI-QUALITY-049 - A different timing anchor made a possibly correct distractor
+
+- Date: 2026-10-18. Actual synthetic DEV029 job5854343f.
+- Symptom: it completed with three operational questions and retained the critical stop/contact rule, but Q1
+  treated checking after a journal entry as incompatible with checking before
+  issuance. Both can hold; numbered source facts did not explicitly bind them.
+- Cause: author and reviewers inferred workflow ordering not established by the
+  actual question/source. Local parser success and engine acceptance did not
+  prove that every distractor was unambiguously wrong.
+- Fix: share a question-context timing policy without changing source keys or
+  density. Author excludes possibly correct alternatives; option review uses its
+  boolean schema; only constraint audit emits relation=undetermined. Explicit
+  source dependencies still make genuine reversed-order alternatives incorrect.
+- Verification: exact saved candidate replay with existing DEV DeepSeek settings:
+  old prompt accepted; new constraint prompt rejected the identical single item
+  and accepted corrected checklist/critical controls. Explicit check-before-log
+  source control accepted genuine reversed-order distractors. Four actual calls,
+  no retry/fallback/routing/DB/application writes. These prove bounded model
+  behavior, not universal reliability or author/reviewer schema execution.
+  Fresh exact DEV030 generation remains the final gate.
+- Prevention: independently inspect all options in the actual question context,
+  distinguish an unmentioned order from an expressly required dependency, keep
+  stage-specific output schemas, and preserve both successful and failed runs.
 
 ## SQL-NAME-001 - C locale disagreed with Python Unicode lowercase during assignment lookup
 

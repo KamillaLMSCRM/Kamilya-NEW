@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 class PositionCreate(BaseModel):
     name: str
+    department_id: UUID | None = None
     department: str = ""
     level: str = ""
     responsibilities: str = ""
@@ -15,6 +16,7 @@ class PositionCreate(BaseModel):
 
 class PositionUpdate(BaseModel):
     name: str | None = None
+    department_id: UUID | None = None
     department: str | None = None
     level: str | None = None
     responsibilities: str | None = None

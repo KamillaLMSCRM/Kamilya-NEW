@@ -30,6 +30,7 @@ from .models import (
     CourseApprovalReviewer,
     CourseApprovalRevision,
     CourseReviewAttempt,
+    CourseReviewAttemptEvent,
     WorkflowAccessCredential,
     WorkflowDelivery,
     WorkflowIdempotencyKey,
@@ -393,7 +394,7 @@ async def request_review(revision_id: UUID, req: ApprovalRequestCreate, request:
             if idem.response.get("credentials_issued"):
                 raise HTTPException(status_code=409, detail="credentials_already_issued")
             return idem.response
-    approval_request, _work_item, access_url, pin, access_credentials = await create_request(db, revision=revision, tenant_id=user.tenant_id, actor_id=user.id, reviewer_ids=req.reviewer_user_ids, guest_reviewers=[item.model_dump() for item in req.guest_reviewers], delivery_mode=req.delivery_mode, due_at=req.due_at, base_url=str(request.base_url).rstrip("/"))
+    approval_request, _work_item, access_url, pin, access_credentials = await create_request(db, revision=revision, tenant_id=user.tenant_id, actor_id=user.id, reviewer_ids=req.reviewer_user_ids, guest_reviewers=[item.model_dump() for item in req.guest_reviewers], delivery_mode=req.delivery_mode, due_at=req.due_at, base_url=get_settings().PUBLIC_URL.rstrip("/"))
     await db.commit()
     response = ApprovalRequestResponse(request_id=approval_request.id, revision_id=revision.id, reviewer_ids=req.reviewer_user_ids, outcome=revision.state, delivery_mode=req.delivery_mode, access_url=access_url, temporary_pin=pin, access_credentials=access_credentials)
     if idempotency_key:
@@ -444,8 +445,14 @@ async def list_approval_courses(
 
 
 @router.get("/course-approval-requests", dependencies=tenant)
-async def list_requests(db: AsyncSession = Depends(get_db), user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.AUDIT_READ))):
-    rows = await db.scalars(select(CourseApprovalRequest).where(CourseApprovalRequest.tenant_id == user.tenant_id).order_by(CourseApprovalRequest.created_at.desc()))
+async def list_requests(course_id: UUID | None = Query(default=None), db: AsyncSession = Depends(get_db), user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.AUDIT_READ))):
+    statement = select(CourseApprovalRequest).where(CourseApprovalRequest.tenant_id == user.tenant_id)
+    if course_id is not None:
+        statement = statement.join(CourseApprovalRevision, and_(
+            CourseApprovalRevision.id == CourseApprovalRequest.revision_id,
+            CourseApprovalRevision.tenant_id == CourseApprovalRequest.tenant_id,
+        )).where(CourseApprovalRevision.course_id == course_id, CourseApprovalRevision.tenant_id == user.tenant_id)
+    rows = await db.scalars(statement.order_by(CourseApprovalRequest.created_at.desc()))
     return [await _request_projection(db, row, user.tenant_id) for row in rows.all()]
 
 
@@ -502,7 +509,7 @@ async def resend(request_id: UUID, request: Request, req: ResendAccessRequest | 
         if replay.get("rotated"):
             raise HTTPException(status_code=409, detail="credentials_already_rotated")
         return replay
-    result = await resend_request_access(db, request_id=request_id, tenant_id=user.tenant_id, actor_id=user.id, base_url=str(request.base_url).rstrip("/"), rotate_credentials=req.rotate_credentials)
+    result = await resend_request_access(db, request_id=request_id, tenant_id=user.tenant_id, actor_id=user.id, base_url=get_settings().PUBLIC_URL.rstrip("/"), rotate_credentials=req.rotate_credentials)
     await db.commit()
     response = {"request_id": request_id, **result}
     persisted = {"request_id": str(request_id), "rotated": result["rotated"], "retried": result["retried"], "access_credentials": []}
@@ -527,9 +534,13 @@ async def start_attempt(request_id: UUID, db: AsyncSession = Depends(get_db), us
     if assignment is None:
         raise HTTPException(status_code=404, detail="Approval request not found")
     attempt, revision = await get_or_create_attempt(db, revision_id=request_row.revision_id, reviewer_user_id=user.id, reviewer_email=getattr(user, "reviewer_email", None), tenant_id=user.tenant_id)
+    last_sequence = await db.scalar(select(func.max(CourseReviewAttemptEvent.sequence)).where(
+        CourseReviewAttemptEvent.attempt_id == attempt.id,
+        CourseReviewAttemptEvent.tenant_id == user.tenant_id,
+    ))
     await log_action(db, user.tenant_id, "course_approval.attempt_started", "course_review_attempt", attempt.id, user.id, {"revision_id": str(revision.id), "snapshot_sha256": attempt.snapshot_sha256, "active_role": getattr(user, "role", None)})
     await db.commit()
-    return {"attempt_id": attempt.id, "revision_id": revision.id, "snapshot_sha256": attempt.snapshot_sha256, "activity_state": attempt.activity_state, "snapshot": learner_safe_review_snapshot(revision.snapshot)}
+    return {"attempt_id": attempt.id, "revision_id": revision.id, "snapshot_sha256": attempt.snapshot_sha256, "activity_state": attempt.activity_state, "lesson_position": attempt.lesson_position, "next_sequence": int(last_sequence or 0) + 1, "snapshot": learner_safe_review_snapshot(revision.snapshot)}
 
 
 @router.put("/course-review-attempts/{attempt_id}/progress", dependencies=review_workflow_write)

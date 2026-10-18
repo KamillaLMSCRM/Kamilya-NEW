@@ -141,6 +141,7 @@ export interface ReviewAttempt {
   snapshot_sha256: string;
   activity_state: ReviewActivityState;
   lesson_position?: number | null;
+  next_sequence?: number;
   snapshot: ReviewSnapshot;
 }
 
@@ -196,8 +197,9 @@ export async function createApprovalRequest(revisionId: string, reviewerUserIds:
   return response.data;
 }
 
-export async function listApprovalRequests(_token?: string): Promise<ApprovalRequestSummary[]> {
-  const response = await api.get<ApprovalRequestSummary[]>('/v1/course-approval-requests');
+export async function listApprovalRequests(_token?: string, courseId?: string): Promise<ApprovalRequestSummary[]> {
+  const path = courseId ? `/v1/course-approval-requests?course_id=${encodeURIComponent(courseId)}` : '/v1/course-approval-requests';
+  const response = await api.get<ApprovalRequestSummary[]>(path);
   return response.data;
 }
 
@@ -318,7 +320,8 @@ export async function startReviewAttempt(requestId: string, token?: string): Pro
     revision_id: body.revision_id,
     snapshot_sha256: body.snapshot_sha256,
     activity_state: activity,
-    lesson_position: typeof body.lesson_position === 'number' ? body.lesson_position : null,
+    lesson_position: typeof body.lesson_position === 'number' && Number.isSafeInteger(body.lesson_position) && body.lesson_position >= 0 ? body.lesson_position : null,
+    next_sequence: typeof body.next_sequence === 'number' && Number.isSafeInteger(body.next_sequence) && body.next_sequence > 0 ? body.next_sequence : 1,
     snapshot: projectReviewSnapshot(body.snapshot),
   };
 }

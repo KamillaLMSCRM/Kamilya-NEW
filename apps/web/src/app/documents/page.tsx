@@ -487,6 +487,7 @@ export default function DocumentsPage() {
   const handleDelete = async (document: DocumentCatalogItem) => {
     const ok = await confirm({
       title: t('dialogs.confirmDeleteDocument'),
+      message: document.title,
       variant: 'danger',
       confirmLabel: t('dialogs.delete'),
     });
@@ -543,7 +544,7 @@ export default function DocumentsPage() {
         </div>
       </header>
 
-      {user?.role === 'methodologist' && <SourceActualityPanel userId={user.user_id} catalogDocuments={documents} />}
+      {user?.role === 'methodologist' && <SourceActualityPanel userId={user.user_id} isImpersonating={Boolean(user.impersonated_by)} catalogDocuments={documents} />}
 
       {uploading && uploadStartedAt && (
         <AsyncOperationStatus

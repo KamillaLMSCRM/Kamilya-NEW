@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AxiosRequestConfig } from 'axios';
 
@@ -10,9 +10,19 @@ import { useLanguageStore } from '@/store/languageStore';
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn() } }));
 
 const apiMock = vi.mocked(api);
+const searchParamsState = vi.hoisted(() => ({ current: new URLSearchParams() }));
+const routerReplace = vi.hoisted(() => vi.fn());
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => searchParamsState.current,
+  useRouter: () => ({ replace: routerReplace }),
+}));
 
 beforeEach(() => {
   vi.resetAllMocks();
+  searchParamsState.current = new URLSearchParams();
+  routerReplace.mockReset();
+  window.location.hash = '';
   useLanguageStore.setState({ lang: 'ru' });
   useAuthStore.setState({
     accessToken: 'synthetic-token',
@@ -91,6 +101,134 @@ describe('mandatory training matrix', () => {
     expect(screen.getAllByText('Нужно создать назначение')).toHaveLength(2);
     expect(screen.getByText('1', { selector: '[data-testid="missing-enrollment-count"]' })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Показаны только сотрудники из подразделений и групп');
+  });
+
+  it.each(['materialize', 'review_stale'] as const)('syncs the %s action filter when the route changes', async (action) => {
+    searchParamsState.current = new URLSearchParams(`action_required=${action}`);
+    const view = render(<MandatoryTrainingPage />);
+
+    expect(await screen.findByTestId('mandatory-training-active-filter')).toHaveTextContent(action === 'materialize' ? 'Нужно создать назначение' : 'Нужно проверить назначение');
+    expect(apiMock.get).toHaveBeenCalledWith('/v1/admin/mandatory-training', expect.objectContaining({ params: expect.objectContaining({ action_required: action }) }));
+
+    searchParamsState.current = new URLSearchParams('source=dashboard');
+    await act(async () => view.rerender(<MandatoryTrainingPage />));
+
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/admin/mandatory-training', expect.objectContaining({ params: expect.not.objectContaining({ action_required: expect.anything() }) })));
+    expect(screen.queryByTestId('mandatory-training-active-filter')).not.toBeInTheDocument();
+  });
+
+  it('switches between action routes and replaces the visible result', async () => {
+    apiMock.get.mockImplementation((path: string, config?: AxiosRequestConfig) => {
+      const action = config?.params && typeof config.params === 'object' ? (config.params as Record<string, unknown>).action_required : undefined;
+      if (path.endsWith('/summary')) return Promise.resolve({ data: {
+        total: 1, materialized: 0, missing_enrollment: 1, protected_assignment: 0, stale_managed_enrollment: 0,
+        action_materialize: action === 'materialize' ? 1 : 0, action_review_stale: action === 'review_stale' ? 1 : 0,
+      } });
+      const review = action === 'review_stale';
+      return Promise.resolve({ data: {
+        items: [{ user_id: review ? 'review-user' : 'materialize-user', full_name: review ? 'Review learner' : 'Materialize learner', personnel_number: 'PN-ROUTE', is_active: true, organization_unit_id: 'unit-1', organization_unit_path: ['Office'], position_id: null, position_name: null, course_id: 'course-1', course_title: review ? 'Review course' : 'Materialize course', delivery_type: 'native', requirement_state: 'missing_enrollment', assignment_reason: { kind: 'department', scope_path_names: ['Office'] }, action_required: review ? 'review_stale' : 'materialize', enrollment_id: null, enrollment_source: null, enrollment_status: null }],
+        total: 1, limit: 100, offset: 0, reporting_scope: 'restricted',
+      } });
+    });
+    searchParamsState.current = new URLSearchParams('action_required=materialize');
+    const view = render(<MandatoryTrainingPage />);
+    expect((await screen.findAllByText('Materialize learner')).length).toBeGreaterThan(0);
+
+    searchParamsState.current = new URLSearchParams('action_required=review_stale');
+    await act(async () => view.rerender(<MandatoryTrainingPage />));
+    expect((await screen.findAllByText('Review learner')).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText('Materialize learner')).toHaveLength(0);
+    expect(screen.getByTestId('mandatory-training-active-filter')).toHaveTextContent('Нужно проверить назначение');
+  });
+
+  it('clears only the action filter while preserving unrelated URL query and hash', async () => {
+    searchParamsState.current = new URLSearchParams('action_required=materialize&source=dashboard');
+    window.location.hash = '#matrix';
+    const view = render(<MandatoryTrainingPage />);
+
+    await screen.findByTestId('mandatory-training-active-filter');
+    routerReplace.mockImplementation((href: string) => {
+      searchParamsState.current = new URLSearchParams(href.split('?')[1]?.split('#')[0] ?? '');
+    });
+    fireEvent.change(screen.getByPlaceholderText('Сотрудник, email или табельный номер'), { target: { value: 'Аида' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Состояние' }), { target: { value: 'missing_enrollment' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Применить' }));
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/admin/mandatory-training', expect.objectContaining({ params: expect.objectContaining({ action_required: 'materialize', search: 'Аида', requirement_state: 'missing_enrollment' }) })));
+    fireEvent.click(screen.getByRole('button', { name: 'Сбросить фильтр' }));
+
+    expect(routerReplace).toHaveBeenCalledWith('/mandatory-training?source=dashboard#matrix', { scroll: false });
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/admin/mandatory-training', expect.objectContaining({ params: expect.objectContaining({ search: 'Аида', requirement_state: 'missing_enrollment' }) })));
+    expect(apiMock.get).toHaveBeenCalledWith('/v1/admin/mandatory-training', expect.objectContaining({ params: expect.not.objectContaining({ action_required: expect.anything() }) }));
+    expect(screen.queryByTestId('mandatory-training-active-filter')).not.toBeInTheDocument();
+    expect(view.container).toBeInTheDocument();
+  });
+
+  it('keeps the clear action available while the filtered result is loading', async () => {
+    let resolvePage!: (value: { data: unknown }) => void;
+    let resolveSummary!: (value: { data: unknown }) => void;
+    apiMock.get.mockImplementation((path: string, config?: AxiosRequestConfig) => {
+      const action = config?.params && typeof config.params === 'object' ? (config.params as Record<string, unknown>).action_required : undefined;
+      if (action === 'materialize') return new Promise((resolve) => {
+        if (path.endsWith('/summary')) resolveSummary = resolve;
+        else resolvePage = resolve;
+      });
+      if (path.endsWith('/summary')) return Promise.resolve({ data: { total: 0, materialized: 0, missing_enrollment: 0, protected_assignment: 0, stale_managed_enrollment: 0, action_materialize: 0, action_review_stale: 0 } });
+      return Promise.resolve({ data: { items: [], total: 0, limit: 100, offset: 0, reporting_scope: 'restricted' } });
+    });
+    searchParamsState.current = new URLSearchParams('action_required=materialize');
+    render(<MandatoryTrainingPage />);
+    expect(await screen.findByTestId('mandatory-training-active-filter')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Сбросить фильтр' }));
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/admin/mandatory-training', expect.objectContaining({ params: expect.not.objectContaining({ action_required: expect.anything() }) })));
+    resolvePage({ data: { items: [], total: 0, limit: 100, offset: 0, reporting_scope: 'restricted' } });
+    resolveSummary({ data: { total: 0, materialized: 0, missing_enrollment: 0, protected_assignment: 0, stale_managed_enrollment: 0, action_materialize: 0, action_review_stale: 0 } });
+  });
+
+  it('keeps the clear action available after a filtered load error and reloads cleanly', async () => {
+    let clean = false;
+    apiMock.get.mockImplementation((path: string, config?: AxiosRequestConfig) => {
+      const action = config?.params && typeof config.params === 'object' ? (config.params as Record<string, unknown>).action_required : undefined;
+      if (action === 'materialize' && !clean) return Promise.reject(new Error('offline'));
+      if (path.endsWith('/summary')) return Promise.resolve({ data: { total: 0, materialized: 0, missing_enrollment: 0, protected_assignment: 0, stale_managed_enrollment: 0, action_materialize: 0, action_review_stale: 0 } });
+      return Promise.resolve({ data: { items: [], total: 0, limit: 100, offset: 0, reporting_scope: 'restricted' } });
+    });
+    searchParamsState.current = new URLSearchParams('action_required=materialize');
+    render(<MandatoryTrainingPage />);
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByTestId('mandatory-training-active-filter')).toBeInTheDocument();
+    clean = true;
+    fireEvent.click(screen.getByRole('button', { name: 'Сбросить фильтр' }));
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/admin/mandatory-training', expect.objectContaining({ params: expect.not.objectContaining({ action_required: expect.anything() }) })));
+    expect(screen.queryByTestId('mandatory-training-active-filter')).not.toBeInTheDocument();
+  });
+
+  it('does not let an obsolete filtered response replace the clean route result', async () => {
+    let resolveOldPage!: (value: { data: unknown }) => void;
+    let resolveOldSummary!: (value: { data: unknown }) => void;
+    const cleanPage = { items: [], total: 0, limit: 100, offset: 0, reporting_scope: 'restricted' };
+    apiMock.get.mockImplementation((path: string, config?: AxiosRequestConfig) => {
+      const action = config?.params && typeof config.params === 'object' ? (config.params as Record<string, unknown>).action_required : undefined;
+      if (action === 'materialize') {
+        return path.endsWith('/summary')
+          ? new Promise((resolve) => { resolveOldSummary = resolve; })
+          : new Promise((resolve) => { resolveOldPage = resolve; });
+      }
+      if (path.endsWith('/summary')) return Promise.resolve({ data: { total: 0, materialized: 0, missing_enrollment: 0, protected_assignment: 0, stale_managed_enrollment: 0, action_materialize: 0, action_review_stale: 0 } });
+      return Promise.resolve({ data: cleanPage });
+    });
+    searchParamsState.current = new URLSearchParams('action_required=materialize');
+    const view = render(<MandatoryTrainingPage />);
+    searchParamsState.current = new URLSearchParams();
+    await act(async () => view.rerender(<MandatoryTrainingPage />));
+    await waitFor(() => expect(screen.getByText('По выбранным условиям строк нет.')).toBeInTheDocument());
+
+    await act(async () => {
+      resolveOldPage({ data: { items: [{ user_id: 'old', full_name: 'Obsolete row', course_title: 'Obsolete result', requirement_state: 'missing_enrollment', action_required: 'materialize', assignment_reason: { kind: 'unknown', scope_path_names: [] } }], total: 1, limit: 100, offset: 0, reporting_scope: 'restricted' } });
+      resolveOldSummary({ data: { total: 1, materialized: 0, missing_enrollment: 1, protected_assignment: 0, stale_managed_enrollment: 0, action_materialize: 1, action_review_stale: 0 } });
+      await Promise.resolve();
+    });
+    expect(screen.queryByText('Obsolete row')).not.toBeInTheDocument();
+    expect(screen.getByText('По выбранным условиям строк нет.')).toBeInTheDocument();
   });
 
   it('shows a truthful error instead of replacing unavailable data with zeros', async () => {

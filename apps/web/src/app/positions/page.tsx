@@ -19,10 +19,13 @@ import { api } from "@/lib/api";
 import { useT, type TranslationKey } from "@/i18n/useT";
 import { toast } from "@/components/ui/Toast";
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from "@/components/ui";
+import { OrganizationUnitPicker } from "@/features/staff-structure/OrganizationUnitPicker";
+import type { OrganizationUnitNode } from "@/features/staff-structure/organizationStructure";
 
 interface Position {
   id: string;
   name: string;
+  department_id: string | null;
   department: string | null;
   level: string;
   instruction_document_id: string | null;
@@ -33,6 +36,8 @@ interface Position {
   current_employee_count?: number;
   created_at: string | null;
 }
+
+type OrganizationTreeState = "loading" | "ready" | "error";
 
 interface AuditIssue {
   severity: "warning" | "suggestion" | "ok";
@@ -92,7 +97,11 @@ export default function PositionsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
-  const [department, setDepartment] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [organizationRoots, setOrganizationRoots] = useState<OrganizationUnitNode[]>([]);
+  const [organizationTreeState, setOrganizationTreeState] = useState<OrganizationTreeState>("loading");
+  const [explicitUnassignedChoice, setExplicitUnassignedChoice] = useState(false);
+  const organizationTreeGeneration = useRef(0);
   const [level, setLevel] = useState("");
   const [bulkItems, setBulkItems] = useState<BulkItem[]>([]);
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -116,6 +125,28 @@ export default function PositionsPage() {
     void fetchPositions();
   }, [fetchPositions]);
 
+  const fetchOrganizationRoots = useCallback(async () => {
+    const generation = ++organizationTreeGeneration.current;
+    setOrganizationTreeState("loading");
+    try {
+      const response = await api.get<{ roots?: OrganizationUnitNode[] }>("/v1/organization-units/tree");
+      if (generation !== organizationTreeGeneration.current) return;
+      setOrganizationRoots(Array.isArray(response.data.roots) ? response.data.roots : []);
+      setOrganizationTreeState("ready");
+    } catch {
+      if (generation !== organizationTreeGeneration.current) return;
+      setOrganizationRoots([]);
+      setOrganizationTreeState("error");
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchOrganizationRoots();
+    return () => {
+      organizationTreeGeneration.current += 1;
+    };
+  }, [fetchOrganizationRoots]);
+
   const filteredPositions = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     if (!normalized) return positions;
@@ -128,19 +159,21 @@ export default function PositionsPage() {
 
   const resetCreate = () => {
     setName("");
-    setDepartment("");
+    setDepartmentId("");
+    setExplicitUnassignedChoice(false);
     setLevel("");
     setShowCreate(false);
   };
 
   const handleCreate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!name.trim()) return;
+    const organizationChoiceReady = organizationTreeState === "ready" || explicitUnassignedChoice;
+    if (!name.trim() || !organizationChoiceReady) return;
     setCreating(true);
     try {
       await api.post("/v1/positions", {
         name: name.trim(),
-        department: department.trim(),
+        department_id: departmentId || null,
         level: level.trim(),
         responsibilities: "",
         requirements: "",
@@ -442,15 +475,45 @@ export default function PositionsPage() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label htmlFor="position-department" className="mb-1.5 block text-sm font-medium">
+                    <span className="mb-1.5 block text-sm font-medium">
                       {ui("authenticatedUi.positions.department")}
-                    </label>
-                    <Input
-                      id="position-department"
-                      value={department}
-                      onChange={(event) => setDepartment(event.target.value)}
-                      placeholder={ui("authenticatedUi.positions.departmentPlaceholder")}
+                    </span>
+                    <OrganizationUnitPicker
+                      roots={organizationRoots}
+                      value={departmentId}
+                      onChange={(option) => {
+                        setDepartmentId(option?.id ?? "");
+                        setExplicitUnassignedChoice(option === null);
+                      }}
+                      disabled={organizationTreeState !== "ready"}
+                      selectAriaLabel={ui("authenticatedUi.positions.department")}
                     />
+                    {organizationTreeState === "loading" && (
+                      <p role="status" className="mt-2 text-sm text-muted-foreground">
+                        {ui("authenticatedUi.staff.structure.loading")}
+                      </p>
+                    )}
+                    {organizationTreeState === "error" && (
+                      <div role="alert" className="mt-2 space-y-2 text-sm text-destructive">
+                        <p>{ui("authenticatedUi.positions.loadError")}</p>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <Button type="button" size="sm" variant="outline" onClick={() => void fetchOrganizationRoots()}>
+                            {ui("authenticatedUi.positions.retry")}
+                          </Button>
+                          <label className="flex items-center gap-2 text-foreground">
+                            <input
+                              type="checkbox"
+                              checked={explicitUnassignedChoice}
+                              onChange={(event) => {
+                                setExplicitUnassignedChoice(event.target.checked);
+                                if (event.target.checked) setDepartmentId("");
+                              }}
+                            />
+                            {ui("authenticatedUi.positions.noDepartment")}
+                          </label>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label htmlFor="position-level" className="mb-1.5 block text-sm font-medium">
@@ -468,7 +531,11 @@ export default function PositionsPage() {
                   <Button type="button" variant="outline" onClick={resetCreate}>
                     {ui("authenticatedUi.positions.cancel")}
                   </Button>
-                  <Button type="submit" disabled={creating || !name.trim()} className="gap-2">
+                  <Button
+                    type="submit"
+                    disabled={creating || !name.trim() || (organizationTreeState !== "ready" && !explicitUnassignedChoice)}
+                    className="gap-2"
+                  >
                     {creating && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}{ui("authenticatedUi.positions.create")}
                   </Button>
                 </div>

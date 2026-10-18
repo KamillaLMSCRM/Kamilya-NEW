@@ -58,6 +58,7 @@ async def update_module(db: AsyncSession, module_id: UUID, tenant_id: UUID, data
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(module, field, value)
     await db.flush()
+    await db.refresh(module)
     return module
 
 

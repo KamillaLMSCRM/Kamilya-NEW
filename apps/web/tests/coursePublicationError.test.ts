@@ -5,6 +5,18 @@ import kk from '@/i18n/locales/kk.json';
 import en from '@/i18n/locales/en.json';
 
 describe('publication approval failure messages', () => {
+  it.each([ru, kk, en])('explains an empty-content refusal in each locale and both error envelopes', locale => {
+    for (const envelope of ['detail', 'details']) {
+      const result = coursePublicationError({ [envelope]: { code: 'course_content_required' } }, key => {
+        const [section, name] = key.split('.');
+        return (locale as unknown as Record<string, Record<string, string>>)[section]?.[name];
+      });
+      expect(typeof result).toBe('string');
+      expect(result).toBe(locale.courses.contentRequired);
+      expect(result).not.toContain('course_content_required');
+    }
+  });
+
   it.each([ru, kk, en])('renders a localized instruction from the production conflict envelope', (locale) => {
     const payload = { error: 'conflict', message: "{'code': 'approval_required'}", details: { code: 'approval_required' } };
     const result = coursePublicationError(payload, key => locale.courseApproval[key.split('.')[1] as keyof typeof locale.courseApproval]);

@@ -332,6 +332,20 @@ describe('contextual help registry', () => {
     }
   });
 
+  it('selects announcement recipients before saving and distinguishes sending from inbox delivery', () => {
+    for (const locale of ['ru', 'kk', 'en'] as const) {
+      const help = getContextualHelp('/announcements', 'methodologist', locale);
+      const labels = { ru, kk, en }[locale].announcements;
+      expect(help?.steps[0]).toContain(labels.allCourses);
+      expect(help?.steps[0]).toMatch(/тему|тақырыбын|subject/i);
+      expect(help?.steps[1]).toContain(labels.create);
+      expect(help?.steps[2]).toContain(labels.send);
+      expect(help?.result).toMatch(/не подтверждает|растамайды|does not confirm/);
+      expect(help?.steps[2]).not.toMatch(/доставленных|жеткізілген|delivery count/i);
+      expect(labels.allCourses).toBe({ ru: 'Все сотрудники', kk: 'Барлық қызметкерлер', en: 'All employees' }[locale]);
+    }
+  });
+
   it('describes preview controls and immediate survey submission without invented buttons', () => {
     for (const locale of ['ru', 'kk', 'en'] as const) {
       const preview = getContextualHelp('/courses/quiz/quiz-1/preview', 'methodologist', locale);

@@ -30,7 +30,7 @@ describe('scoped review transport', () => {
         return { data: { request_id: 'request-1', revision_id: 'revision-1', outcome: 'pending', delivery_mode: 'personal_link', due_at: null, reviewer: { reviewer_id: 'reviewer-1', reviewer_name: 'Reviewer', reviewer_email: 'reviewer@example.test', decision: 'pending', decision_at: null, required: true, delivery_state: 'accepted', access_state: 'active', activity_state: 'not_started', deadline_state: 'unset', outcome: 'pending', progress: {} }, all_required_approved: false }, status: 200, statusText: 'OK', headers: {}, config: config as InternalAxiosRequestConfig };
       }
       if (config.url?.includes('/course-approval-requests/') && config.url.includes('/attempts')) {
-        return { data: { attempt_id: 'attempt-1', revision_id: 'revision-1', snapshot_sha256: 'sha256', activity_state: 'not_started', snapshot: { schema_version: 1, release_version: 1, course: { id: 'course-1', title: 'Course' }, modules: [] } }, status: 200, statusText: 'OK', headers: {}, config: config as InternalAxiosRequestConfig };
+        return { data: { attempt_id: 'attempt-1', revision_id: 'revision-1', snapshot_sha256: 'sha256', activity_state: 'in_progress', lesson_position: 2, next_sequence: 9, snapshot: { schema_version: 1, release_version: 1, course: { id: 'course-1', title: 'Course' }, modules: [] } }, status: 200, statusText: 'OK', headers: {}, config: config as InternalAxiosRequestConfig };
       }
       return { data: [], status: 200, statusText: 'OK', headers: {}, config: config as InternalAxiosRequestConfig };
     };
@@ -53,5 +53,24 @@ describe('scoped review transport', () => {
     expect(calls[2]).toMatchObject({ url: '/v1/course-approval-requests/request-1/attempts', authorization: 'Bearer scoped-review-token' });
     expect(calls[3]).toMatchObject({ url: '/v1/course-approval-requests', authorization: 'Bearer learner-token' });
     expect(authMocks.forceRefreshAndStoreSession).not.toHaveBeenCalled();
+  });
+
+  it('accepts valid resume metadata while safely defaulting invalid or missing values', async () => {
+    const valid = await startReviewAttempt('request-1', 'scoped-review-token');
+    expect(valid.lesson_position).toBe(2);
+    expect(valid.next_sequence).toBe(9);
+    api.defaults.adapter = async (config) => ({ data: { attempt_id: 'attempt-2', revision_id: 'revision-1', snapshot_sha256: 'sha256-2', activity_state: 'not_started', lesson_position: -1, next_sequence: 0, snapshot: { schema_version: 1, release_version: 1, course: { id: 'course-1', title: 'Course' }, modules: [] } }, status: 200, statusText: 'OK', headers: {}, config: config as InternalAxiosRequestConfig });
+    const legacy = await startReviewAttempt('request-1', 'scoped-review-token');
+    expect(legacy.lesson_position).toBeNull();
+    expect(legacy.next_sequence).toBe(1);
+    api.defaults.adapter = async (config) => ({ data: { attempt_id: 'attempt-3', revision_id: 'revision-1', snapshot_sha256: 'sha256-3', activity_state: 'not_started', snapshot: { schema_version: 1, release_version: 1, course: { id: 'course-1', title: 'Course' }, modules: [] } }, status: 200, statusText: 'OK', headers: {}, config: config as InternalAxiosRequestConfig });
+    const missing = await startReviewAttempt('request-1', 'scoped-review-token');
+    expect(missing.lesson_position).toBeNull();
+    expect(missing.next_sequence).toBe(1);
+  });
+
+  it('encodes the optional approval course filter while preserving the legacy token slot', async () => {
+    await listApprovalRequests(undefined, 'course/with spaces');
+    expect(calls[0].url).toBe('/v1/course-approval-requests?course_id=course%2Fwith%20spaces');
   });
 });

@@ -57,6 +57,31 @@ async def test_admin_can_read_approval_history_without_receiving_request_permiss
 
 
 @pytest.mark.asyncio
+async def test_selected_course_request_filter_joins_tenant_bound_revisions():
+    app, db, user = audit_app("methodologist")
+    course_id = uuid4()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get(f"/v1/course-approval-requests?course_id={course_id}")
+    assert response.status_code == 200
+    query = str(db.statements[0].compile(compile_kwargs={"literal_binds": True}))
+    assert "JOIN course_approval_revisions" in query
+    assert "course_approval_revisions.course_id" in query
+    assert str(course_id).replace("-", "") in query.replace("-", "")
+    assert "course_approval_requests.tenant_id" in query
+    assert "course_approval_revisions.tenant_id" in query
+    assert str(user.tenant_id).replace("-", "") in query.replace("-", "")
+
+
+@pytest.mark.asyncio
+async def test_invalid_course_request_filter_is_rejected_before_query():
+    app, db, _ = audit_app("methodologist")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/v1/course-approval-requests?course_id=not-a-uuid")
+    assert response.status_code == 422
+    assert db.statements == []
+
+
+@pytest.mark.asyncio
 async def test_admin_catalog_returns_only_approval_configuration_metadata():
     app, db, user = audit_app()
     course_id = uuid4()

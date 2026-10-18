@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchMock = vi.hoisted(() => vi.fn());
 const replaceMock = vi.hoisted(() => vi.fn());
+const routeState = vi.hoisted(() => ({ search: 'courseId=course-1&lessonId=lesson-1' }));
 const translateMock = vi.hoisted(() => (key: string, params?: Record<string, string | number>) => {
   if (key === 'quiz.questionNumber') return `Вопрос ${params?.current} из ${params?.total}`;
   if (key === 'quiz.previewScore') return `${params?.score}% · ${params?.earned} из ${params?.total} баллов`;
@@ -26,7 +27,7 @@ const translateMock = vi.hoisted(() => (key: string, params?: Record<string, str
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ quizId: 'quiz-1' }),
-  useSearchParams: () => new URLSearchParams('courseId=course-1&lessonId=lesson-1'),
+  useSearchParams: () => new URLSearchParams(routeState.search),
   useRouter: () => ({ replace: replaceMock }),
 }));
 
@@ -70,6 +71,7 @@ const quiz = {
 describe('methodologist quiz preview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    routeState.search = 'courseId=course-1&lessonId=lesson-1';
     useAuthStore.setState({
       accessToken: 'methodologist-token',
       user: { id: 'methodologist-1', email: 'methodologist@example.com', role: 'methodologist' } as never,
@@ -128,6 +130,55 @@ describe('methodologist quiz preview', () => {
     expect(screen.queryByText('Правильный ответ')).not.toBeInTheDocument();
   });
 
+  it('keeps persisted true/false labels and single-choice semantics in preview', async () => {
+    const previewQuiz = {
+      ...quiz,
+      questions: [{
+        ...quiz.questions[0],
+        type: 'true_false',
+        choices: [
+          { id: 'choice-false', text: 'No', order_index: 0 },
+          { id: 'choice-true', text: 'Yes', order_index: 1 },
+        ],
+      }],
+    };
+    fetchMock.mockImplementationOnce(async () => jsonResponse(previewQuiz));
+    render(<QuizMethodologistPreviewPage />);
+
+    await screen.findByText('Как следует поступить?');
+    expect(screen.getByText('No')).toBeInTheDocument();
+    expect(screen.getByText('Yes')).toBeInTheDocument();
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+  });
+
+  it('submits one choice for single-choice preview questions', async () => {
+    const previewQuiz = {
+      ...quiz,
+      questions: [{
+        ...quiz.questions[0],
+        type: 'single_choice',
+        choices: [
+          { id: 'choice-one', text: 'Первый', order_index: 0 },
+          { id: 'choice-two', text: 'Второй', order_index: 1 },
+        ],
+      }],
+    };
+    fetchMock.mockImplementationOnce(async () => jsonResponse(previewQuiz));
+    render(<QuizMethodologistPreviewPage />);
+
+    await screen.findByText('Как следует поступить?');
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole('radio')[0]);
+    fireEvent.click(screen.getAllByRole('radio')[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить ответы без сохранения' }));
+
+    await screen.findByText('Предпросмотр не пройден');
+    const submitCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/preview-submit'));
+    expect(submitCall).toBeDefined();
+    expect(JSON.parse(String((submitCall?.[1] as RequestInit).body)).answers[0].selected_choice_ids).toEqual(['choice-two']);
+  });
+
   it('blocks the separate route for learner roles before any quiz request', async () => {
     useAuthStore.setState({
       accessToken: 'student-token',
@@ -141,5 +192,21 @@ describe('methodologist quiz preview', () => {
     expect(fetchMock).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Главная' }));
     await waitFor(() => expect(replaceMock).toHaveBeenCalled());
+  });
+
+  it('labels the course-context link as course navigation', async () => {
+    render(<QuizMethodologistPreviewPage />);
+
+    const link = await screen.findByRole('link', { name: 'Вернуться к курсу' });
+    expect(link).toHaveAttribute('href', '/courses/course-1?lessonId=lesson-1');
+  });
+
+  it('labels the no-context role-home fallback as dashboard navigation', async () => {
+    routeState.search = '';
+    render(<QuizMethodologistPreviewPage />);
+
+    const link = await screen.findByRole('link', { name: 'Главная' });
+    expect(link).toHaveAttribute('href', '/dashboard');
+    expect(screen.queryByRole('link', { name: 'Вернуться к курсу' })).not.toBeInTheDocument();
   });
 });

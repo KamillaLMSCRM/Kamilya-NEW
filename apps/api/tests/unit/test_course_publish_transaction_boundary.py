@@ -135,6 +135,42 @@ def _patch_publication(release: object):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("revision_number", [1, 2, 7])
+@pytest.mark.parametrize("content_changed", [False, True])
+async def test_approval_content_hash_is_independent_of_revision_counter(revision_number: int, content_changed: bool) -> None:
+    tenant_id = uid(2)
+    course = _course(tenant_id=tenant_id)
+    frozen = {"schema_version": 1, "release_version": 1, "course": {"title": course.title}}
+    revision = SimpleNamespace(id=uid(30), revision_number=revision_number, snapshot=frozen, snapshot_sha256=canonical_json_sha256(frozen), state="approved")
+    db = _TransactionLocalDB(course, [SimpleNamespace(requires_approval=True), revision, None])
+    user = SimpleNamespace(id=uid(3), tenant_id=tenant_id, role="methodologist")
+
+    async def current_snapshot(_db, _course, *, version):
+        return {"schema_version": 1, "release_version": version, "course": {"title": "Changed" if content_changed else course.title}}
+
+    factory = AsyncMock(return_value=_release())
+    with (
+        patch("app.modules.courses.release_service.build_course_release_snapshot", new=current_snapshot),
+        patch("app.modules.courses.release_service.create_course_release_from_snapshot", new=factory),
+        patch("app.modules.courses.router._hydrate_reviewer", new=AsyncMock(return_value=None)),
+        patch("app.modules.courses.router.activate_course_assignments", new=AsyncMock()),
+        patch("app.modules.courses.router.log_action", new=AsyncMock()),
+    ):
+        if content_changed:
+            with pytest.raises(HTTPException) as exc:
+                await publish_course(course.id, request=_request(), db=db, user=user)
+            assert exc.value.status_code == 409
+            assert exc.value.detail == {"code": "approval_revision_mismatch"}
+            assert db.commit_count == 0
+            factory.assert_not_awaited()
+        else:
+            result = await publish_course(course.id, request=_request(), db=db, user=user)
+            assert result.status == "published"
+            assert db.commit_count == 1
+            assert factory.await_args.args[2] == frozen
+
+
+@pytest.mark.asyncio
 async def test_keyed_success_keeps_idempotency_and_publication_in_one_commit() -> None:
     tenant_id, user_id = uid(2), uid(3)
     course = _course(tenant_id=tenant_id)

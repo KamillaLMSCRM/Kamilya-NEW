@@ -59,6 +59,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       void logout();
     };
     const revalidate = async () => {
+      // A preview actor is not a persisted tenant user. Its profile is
+      // intentionally forbidden; absolute expiry and API 401 checks still apply.
+      if (user?.impersonated_by) return;
       try {
         await api.get('/v1/users/me');
       } catch {
@@ -84,7 +87,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       window.removeEventListener('focus', checkOnReturn);
       document.removeEventListener('visibilitychange', checkOnReturn);
     };
-  }, [accessToken, initialized, logout]);
+  }, [accessToken, initialized, logout, user?.impersonated_by]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {

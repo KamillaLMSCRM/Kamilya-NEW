@@ -37,10 +37,13 @@ async def test_position_write_reuses_canonical_department() -> None:
         tenant_id=tenant_id,
         name="Creative",
         slug="creative",
+        normalized_name="creative",
+        is_active=True,
+        archived_at=None,
         description="",
     )
     db = AsyncMock()
-    db.scalar.return_value = department
+    db.scalars.return_value = SimpleNamespace(all=lambda: [department])
 
     resolved = await _resolve_or_create_department(
         db,

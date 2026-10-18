@@ -8,6 +8,7 @@ vi.mock('@/lib/courseApproval', () => ({ cancelApprovalRequest: cancelMock, rese
 vi.mock('@/components/ui/Toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { ApprovalStatusPanel } from '@/components/course-approval/ApprovalStatusPanel';
+import type { ReviewerApprovalStatus } from '@/lib/courseApproval';
 
 const request = {
   request_id: 'request-1',
@@ -57,5 +58,52 @@ describe('approval request actions', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Отменить запрос' })[1]);
     expect(await screen.findByRole('alert')).toHaveTextContent('network down');
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('localizes known reviewer status enums without exposing their wire values', () => {
+    render(<ApprovalStatusPanel requests={[{
+      ...request,
+      work_items: [{
+        reviewer_id: 'reviewer-1',
+        delivery_state: 'queued',
+        access_state: 'pin_verified',
+        activity_state: 'not_started',
+        deadline_state: 'overdue',
+        outcome: 'changes_requested',
+      }],
+    }]} readOnly />);
+
+    expect(screen.getByText('В очереди')).toBeInTheDocument();
+    expect(screen.getByText('PIN подтверждён')).toBeInTheDocument();
+    expect(screen.getByText('Не начато')).toBeInTheDocument();
+    expect(screen.getByText(/Просрочено/)).toBeInTheDocument();
+    expect(screen.getByText('Нужны изменения')).toBeInTheDocument();
+    expect(screen.queryByText('queued')).not.toBeInTheDocument();
+    expect(screen.queryByText('pin_verified')).not.toBeInTheDocument();
+    expect(screen.queryByText('not_started')).not.toBeInTheDocument();
+    expect(screen.queryByText('overdue')).not.toBeInTheDocument();
+    expect(screen.queryByText('changes_requested')).not.toBeInTheDocument();
+  });
+
+  it('keeps unknown and prototype-looking status values as raw fallback text', () => {
+    render(<ApprovalStatusPanel requests={[{
+      ...request,
+      work_items: [
+        { reviewer_id: 'reviewer-1', delivery_state: 'toString' } as unknown as ReviewerApprovalStatus,
+        { reviewer_id: 'reviewer-2', delivery_state: 'future_status' } as unknown as ReviewerApprovalStatus,
+      ],
+    }]} readOnly />);
+
+    expect(screen.getByText('toString')).toBeInTheDocument();
+    expect(screen.getByText('future_status')).toBeInTheDocument();
+  });
+
+  it('labels terminal delivery as a permanent failure rather than completion', () => {
+    render(<ApprovalStatusPanel requests={[{
+      ...request,
+      work_items: [{ reviewer_id: 'reviewer-1', delivery_state: 'terminal' }],
+    }]} readOnly />);
+
+    expect(screen.getByText('Постоянная ошибка доставки')).toBeInTheDocument();
   });
 });

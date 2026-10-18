@@ -530,6 +530,59 @@ async def test_in_flight_same_document_set_in_reversed_order_returns_conflict(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "status,course_state,engine,mode,outcome,expected_blocking",
+    [
+        ("pending", "saved", "evidence_v2", "direct_source", "assessment_coverage_incomplete", True),
+        ("running", "saved", "evidence_v2", "direct_source", "assessment_no_valid_questions", True),
+        ("interrupted", "saved", "evidence_v2", "direct_source", "generation_interrupted", True),
+        ("interrupted", "missing", "evidence_v2", "direct_source", "assessment_coverage_incomplete", True),
+        ("interrupted", "saved", "evidence_v2", "direct_source", None, True),
+        ("interrupted", "saved", "evidence_v2", "direct_source", "unknown_outcome", True),
+        ("interrupted", "saved", "retired_engine", "direct_source", "assessment_no_valid_questions", True),
+        ("interrupted", "saved", None, "direct_source", "assessment_no_valid_questions", True),
+        ("interrupted", "saved", "evidence_v2", None, "assessment_coverage_incomplete", True),
+        ("interrupted", "saved", "evidence_v2", "semantic", "assessment_coverage_incomplete", True),
+        ("interrupted", "saved", "evidence_v2", "direct_source", "assessment_no_valid_questions", False),
+        ("interrupted", "saved", "evidence_v2", "direct_source", "assessment_coverage_incomplete", False),
+    ],
+)
+async def test_in_flight_generation_only_excludes_valid_saved_assessment_review_jobs(
+    db_session, make_tenant, make_user, make_document, make_course,
+    status, course_state, engine, mode, outcome, expected_blocking,
+):
+    """Exercise the real helper qualification without queue/provider dispatch."""
+    from app.models.ai_job import AIJob
+    from app.modules.ai.router import _in_flight_generation_for_documents
+
+    tenant = await make_tenant(name="AdmissionContract", slug=f"admission-{uuid4().hex[:8]}")
+    methodologist = await make_user(tenant, role="methodologist")
+    document = await make_document(tenant, methodologist)
+    course = (
+        await make_course(tenant, methodologist, title="Saved assessment draft")
+        if course_state == "saved" else None
+    )
+    params = {"documents": [str(document.id)]}
+    if engine is not None:
+        params["source_analysis"] = {"generation_engine": "evidence_v2" if engine == "evidence_v2" else engine}
+    if mode is not None:
+        params.setdefault("source_analysis", {})["analysis_mode"] = mode
+    if outcome is not None:
+        params["completion"] = {"outcome": outcome}
+    job = AIJob(
+        id=str(uuid4()), tenant_id=tenant.id, user_id=methodologist.id,
+        course_id=course.id if course is not None else None,
+        status=status, stage="assessment", params=params,
+    )
+    db_session.add(job)
+    await db_session.flush()
+
+    found = await _in_flight_generation_for_documents(db_session, tenant.id, [document.id])
+
+    assert ((found is not None) and str(found) == str(job.id)) is expected_blocking
+
+
+@pytest.mark.asyncio
 async def test_concurrent_identical_submissions_create_exactly_one_job(monkeypatch):
     """Two near-simultaneous identical HTTP submissions must admit at most
     one generation job: the admission check + insert is serialized by a

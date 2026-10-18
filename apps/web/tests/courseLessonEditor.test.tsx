@@ -62,6 +62,8 @@ vi.mock('@/i18n/useT', () => ({
       'authenticatedUi.editor.leaveWithoutSaving': 'Продолжить без сохранения',
       'authenticatedUi.editor.discard': 'Отменить изменения',
       'common.edit': 'Редактировать',
+      'common.saveFailed': 'Не удалось сохранить',
+      'common.deleteFailed': 'Не удалось удалить',
     }[key] ?? key),
     tp: (key: string, count: number) => `${count} ${key}`,
   }),
@@ -83,7 +85,13 @@ const course = {
   description: '',
   status: 'draft',
   ai_generated: false,
-  review_status: 'approved' as const,
+  review_status: 'approved' as 'approved' | 'pending' | 'needs_changes',
+  source_analysis: {},
+};
+const blueprintPendingCourse = {
+  ...course,
+  review_status: 'pending' as const,
+  source_analysis: { blueprint: { id: 'blueprint-1' } },
 };
 
 const structure = {
@@ -131,13 +139,23 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function setupFetch(patchStatus = 200, courseStructure = structure) {
+function setupFetch(patchStatus = 200, courseStructure = structure, lessonOverride = lesson, courseOverride = course, modulePatch: 'ok' | 'error' | 'network' = 'ok', deletePatch: 'ok' | 'error' | 'network' = 'ok') {
   fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+    if (init?.method === 'DELETE' && (url.includes('/v1/modules/module-1') || url.includes('/v1/lessons/lesson-1'))) {
+      if (deletePatch === 'network') throw new Error('network down');
+      return jsonResponse(deletePatch === 'ok' ? {} : { detail: 'Delete failed' }, deletePatch === 'ok' ? 200 : 500);
+    }
+    if (url.includes('/v1/modules/module-1') && init?.method === 'PATCH') {
+      if (modulePatch === 'network') throw new Error('network down');
+      return jsonResponse(modulePatch === 'ok' ? { ...structure.modules[0], title: 'Server module title' } : { detail: 'Save failed' }, modulePatch === 'ok' ? 200 : 500);
+    }
     if (url.includes('/v1/courses/course-1/structure')) return jsonResponse(courseStructure);
-    if (url.endsWith('/v1/courses/course-1')) return jsonResponse(course);
+    if (url.endsWith('/v1/courses/course-1/review')) return jsonResponse({ ...courseOverride, review_status: 'approved' });
+    if (url.endsWith('/v1/courses/course-1/publish')) return jsonResponse({ ...courseOverride, status: 'published', review_status: 'approved' });
+    if (url.endsWith('/v1/courses/course-1')) return jsonResponse(courseOverride);
     if (url.includes('/v1/lessons/lesson-1') && init?.method !== 'PATCH') {
-      return jsonResponse(lesson);
+      return jsonResponse(lessonOverride);
     }
     if (url.includes('/v1/lessons/lesson-2') && init?.method !== 'PATCH') {
       return jsonResponse({ ...lesson, id: 'lesson-2', title: 'Практика', content: '## Практика' });
@@ -158,6 +176,64 @@ function openLessonEditor() {
 }
 
 describe('course lesson editor', () => {
+  it('names the module rename field for keyboard and screen-reader users', async () => {
+    setupFetch();
+    render(<CourseEditPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Редактировать' }));
+    expect(screen.getByRole('textbox', { name: 'courses.moduleTitle' })).toHaveFocus();
+  });
+
+  it('keeps the module rename draft and reports a safe error when the PATCH returns HTTP 500', async () => {
+    setupFetch(200, structure, lesson, course, 'error');
+    render(<CourseEditPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Редактировать' }));
+    const input = screen.getByRole('textbox', { name: 'courses.moduleTitle' });
+    fireEvent.change(input, { target: { value: 'Новое имя модуля' } });
+    fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
+
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('Не удалось сохранить'));
+    expect(screen.getByRole('textbox', { name: 'courses.moduleTitle' })).toHaveValue('Новое имя модуля');
+    expect(screen.queryByText('Server module title')).not.toBeInTheDocument();
+  });
+
+  it('renders the authoritative module title returned by a successful PATCH', async () => {
+    setupFetch();
+    render(<CourseEditPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Редактировать' }));
+    const input = screen.getByRole('textbox', { name: 'courses.moduleTitle' });
+    fireEvent.change(input, { target: { value: 'Черновое имя модуля' } });
+    fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
+
+    await waitFor(() => expect(screen.getByText('Server module title')).toBeInTheDocument());
+    expect(screen.queryByRole('textbox', { name: 'courses.moduleTitle' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the module rename draft and reports a safe error when the PATCH rejects', async () => {
+    setupFetch(200, structure, lesson, course, 'network');
+    render(<CourseEditPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Редактировать' }));
+    const input = screen.getByRole('textbox', { name: 'courses.moduleTitle' });
+    fireEvent.change(input, { target: { value: 'Новое имя модуля' } });
+    fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
+
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('Не удалось сохранить'));
+    expect(screen.getByRole('textbox', { name: 'courses.moduleTitle' })).toHaveValue('Новое имя модуля');
+  });
+
+  it('names the new-lesson title field for keyboard and screen-reader users', async () => {
+    setupFetch();
+    render(<CourseEditPage />);
+    fireEvent.click(await screen.findByRole('button', { name: '+ courses.addLesson' }));
+    expect(screen.getByRole('textbox', { name: 'courses.addLesson' })).toHaveFocus();
+  });
+
+  it('describes an empty module outline without claiming the course itself is missing', async () => {
+    setupFetch(200, { modules: [] });
+    render(<CourseEditPage />);
+    expect(await screen.findByText('courses.noModules')).toBeInTheDocument();
+    expect(screen.queryByText('courses.noCourses')).not.toBeInTheDocument();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     correctionHarness.enabled = false; correctionHarness.props = null;
@@ -188,6 +264,35 @@ describe('course lesson editor', () => {
     expect(screen.getByRole('heading', { name: /^Урок$/ }).closest('aside')).toHaveClass('xl:col-span-2', '2xl:col-span-1');
   });
 
+  it('offers explicit approval before publishing a blueprint-backed non-AI course', async () => {
+    setupFetch(200, structure, lesson, blueprintPendingCourse); render(<CourseEditPage />);
+    expect(await screen.findByRole('button', { name: 'authenticatedUi.editor.approveCourse' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Опубликовать' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'authenticatedUi.editor.approveCourse' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/courses/course-1/review'),
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ review_status: 'approved' }) }),
+    ));
+    expect(await screen.findByRole('button', { name: 'Опубликовать' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Опубликовать' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/courses/course-1/publish'),
+      expect.objectContaining({ method: 'POST' }),
+    ));
+  });
+
+  it('keeps ordinary manual drafts publishable without a blueprint marker', async () => {
+    setupFetch(200, structure, lesson, { ...course, review_status: 'pending', source_analysis: {} }); render(<CourseEditPage />);
+    expect(await screen.findByRole('button', { name: 'Опубликовать' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'authenticatedUi.editor.approveCourse' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the existing approval gate for AI-generated drafts', async () => {
+    setupFetch(200, structure, lesson, { ...course, ai_generated: true, review_status: 'pending' }); render(<CourseEditPage />);
+    expect(await screen.findByRole('button', { name: 'authenticatedUi.editor.approveCourse' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Опубликовать' })).not.toBeInTheDocument();
+  });
+
   it('integrates a verified fresh correction without issuing a manual PATCH', async () => {
     correctionHarness.enabled = true; setupFetch(); render(<CourseEditPage />);
     await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
@@ -203,6 +308,15 @@ describe('course lesson editor', () => {
     await screen.findByRole('textbox', { name: 'Содержание урока' });
     expect(screen.getByRole('group', { name: 'courses.editCourse' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Apply synthetic correction' })).not.toBeInTheDocument();
+  });
+
+  it('suppresses only an exact duplicate first-level title in the editor preview', async () => {
+    setupFetch(200, structure, { ...lesson, content: '# Введение\r\n\r\nТекст урока' }); render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('textbox', { name: 'Содержание урока' });
+    fireEvent.click(screen.getByRole('button', { name: 'Предпросмотр' }));
+    expect(screen.getAllByRole('heading', { level: 1, name: 'Введение' })).toHaveLength(1);
+    expect(screen.getByText('Текст урока')).toBeInTheDocument();
   });
 
   it('preserves later manual changes even if a correction callback arrives', async () => {
@@ -402,6 +516,35 @@ describe('course lesson editor', () => {
     ));
     expect(screen.queryByRole('textbox', { name: 'Содержание урока' })).not.toBeInTheDocument();
     expect(screen.getByText('Выберите урок')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['HTTP 500', 'error'],
+    ['network rejection', 'network'],
+  ] as const)('retains the active lesson and draft when lesson DELETE fails with %s', async (_label, failure) => {
+    setupFetch(200, structure, lesson, course, 'ok', failure);
+    confirmMock.mockResolvedValueOnce(true);
+    render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' });
+    openLessonEditor();
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: '# Несохранённый текст' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить урок {title}' }));
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('Не удалось удалить'));
+    expect(screen.getByDisplayValue('# Несохранённый текст')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Введение' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['HTTP 500', 'error'],
+    ['network rejection', 'network'],
+  ] as const)('retains the module when module DELETE fails with %s', async (_label, failure) => {
+    setupFetch(200, structure, lesson, course, 'ok', failure);
+    confirmMock.mockResolvedValueOnce(true);
+    render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' });
+    fireEvent.click(screen.getAllByRole('button', { name: 'common.delete' })[0]);
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('Не удалось удалить'));
+    expect(screen.getByText('Модуль 1')).toBeInTheDocument();
   });
 
   it('persists a lesson move through the published lessons reorder route', async () => {

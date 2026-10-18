@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import LearningPathsPage from '@/app/learning-paths/page';
 
@@ -50,6 +50,116 @@ describe('learning programs UI', () => {
     expect(apiMock.get).not.toHaveBeenCalled();
   });
 
+  it('retains same-program audience draft but clears it when switching program identity', async () => {
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/v1/learning-paths') return Promise.resolve({ data: [
+        { id: 'program-a', title: 'Program A', status: 'published', course_count: 1, assignment_count: 0 },
+        { id: 'program-b', title: 'Program B', status: 'draft', course_count: 1, assignment_count: 0 },
+      ] });
+      if (url === '/v1/learning-paths/program-a') return Promise.resolve({ data: { id: 'program-a', title: 'Program A', status: 'published', course_count: 1, courses: [courseA] } });
+      if (url === '/v1/learning-paths/program-b') return Promise.resolve({ data: { id: 'program-b', title: 'Program B', status: 'draft', course_count: 1, courses: [courseA] } });
+      if (url.endsWith('/assignments')) return Promise.resolve({ data: [] });
+      if (url.startsWith('/v1/users')) return Promise.resolve({ data: { users: [{ id: 'learner-1', first_name: 'Learner', last_name: 'One' }] } });
+      return Promise.resolve({ data: [] });
+    });
+
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /Program A/ }));
+    fireEvent.click(await screen.findByRole('tab', { name: /learningPaths\.stage\.audience/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Learner One/ }));
+    fireEvent.change(screen.getByLabelText('learningPaths.startsAt'), { target: { value: '27/10/2026' } });
+    fireEvent.change(screen.getByLabelText('learningPaths.dueAt'), { target: { value: '28/10/2026' } });
+    fireEvent.click(screen.getByRole('button', { name: 'learningPaths.closeEditor' }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Program A/ }));
+    fireEvent.click(await screen.findByRole('tab', { name: /learningPaths\.stage\.audience/ }));
+    expect(screen.getByRole('checkbox', { name: /Learner One/ })).toBeChecked();
+    expect(screen.getByLabelText('learningPaths.startsAt')).toHaveValue('27/10/2026');
+    expect(screen.getByLabelText('learningPaths.dueAt')).toHaveValue('28/10/2026');
+
+    fireEvent.click(screen.getByRole('button', { name: /Program B/ }));
+    fireEvent.click(await screen.findByRole('tab', { name: /learningPaths\.stage\.audience/ }));
+    expect(screen.getByRole('checkbox', { name: /Learner One/ })).not.toBeChecked();
+    expect(screen.getByLabelText('learningPaths.startsAt')).toHaveValue('');
+    expect(screen.getByLabelText('learningPaths.dueAt')).toHaveValue('');
+  });
+
+  it('does not let a late prior-program response overwrite the latest selection', async () => {
+    let resolveProgramA!: (value: { data: unknown }) => void;
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/v1/learning-paths') return Promise.resolve({ data: [
+        { id: 'program-a', title: 'Program A', status: 'published', course_count: 1 },
+        { id: 'program-b', title: 'Program B', status: 'draft', course_count: 1 },
+      ] });
+      if (url === '/v1/learning-paths/program-a') return new Promise((resolve) => { resolveProgramA = resolve; });
+      if (url === '/v1/learning-paths/program-b') return Promise.resolve({ data: { id: 'program-b', title: 'Program B', status: 'draft', course_count: 1, courses: [courseA] } });
+      if (url.endsWith('/assignments')) return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: [] });
+    });
+
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /Program A/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Program B/ }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Program B' })).toBeInTheDocument());
+
+    await act(async () => {
+      resolveProgramA({ data: { id: 'program-a', title: 'Program A', status: 'published', course_count: 1, courses: [courseA] } });
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Program B' })).toBeInTheDocument());
+  });
+
+  it('does not let a pending read reopen the editor after New resets it', async () => {
+    let resolveProgramA!: (value: { data: unknown }) => void;
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/v1/learning-paths') return Promise.resolve({ data: [{ id: 'program-a', title: 'Program A', status: 'published', course_count: 1 }] });
+      if (url === '/v1/learning-paths/program-a') return new Promise((resolve) => { resolveProgramA = resolve; });
+      if (url.endsWith('/assignments')) return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: [] });
+    });
+
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /Program A/ }));
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/learning-paths/program-a'));
+    fireEvent.click(screen.getAllByRole('button', { name: /learningPaths\.new/ })[0]);
+    expect(screen.getByRole('heading', { name: 'learningPaths.new' })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('textbox', { name: 'learningPaths.name' }), { target: { value: 'New draft' } });
+
+    await act(async () => {
+      resolveProgramA({ data: { id: 'program-a', title: 'Program A', status: 'published', course_count: 1, courses: [courseA] } });
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('heading', { name: 'New draft' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'learningPaths.saveDraft' })).not.toBeDisabled();
+  });
+
+  it('does not reopen a closed editor after a pending program switch resolves', async () => {
+    let resolveProgramB!: (value: { data: unknown }) => void;
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/v1/learning-paths') return Promise.resolve({ data: [
+        { id: 'program-a', title: 'Program A', status: 'published', course_count: 1 },
+        { id: 'program-b', title: 'Program B', status: 'draft', course_count: 1 },
+      ] });
+      if (url === '/v1/learning-paths/program-a') return Promise.resolve({ data: { id: 'program-a', title: 'Program A', status: 'published', course_count: 1, courses: [courseA] } });
+      if (url === '/v1/learning-paths/program-b') return new Promise((resolve) => { resolveProgramB = resolve; });
+      if (url.endsWith('/assignments')) return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: [] });
+    });
+
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /Program A/ }));
+    await screen.findByRole('heading', { name: 'Program A' });
+    fireEvent.click(screen.getByRole('button', { name: /Program B/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'learningPaths.closeEditor' }));
+    expect(screen.queryByRole('region', { name: 'learningPaths.editor' })).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveProgramB({ data: { id: 'program-b', title: 'Program B', status: 'draft', course_count: 1, courses: [courseA] } });
+      await Promise.resolve();
+    });
+    expect(screen.queryByRole('region', { name: 'learningPaths.editor' })).not.toBeInTheDocument();
+  });
+
   it('adds courses into a numbered sequence and moves them with keyboard-accessible controls', async () => {
     setupManager();
     render(<LearningPathsPage />);
@@ -79,6 +189,9 @@ describe('learning programs UI', () => {
       if (url === '/v1/learning-paths') return Promise.resolve({ data: [] });
       if (url.startsWith('/v1/courses')) return Promise.resolve({ data: [courseA] });
       if (url === '/v1/departments') {
+        return Promise.resolve({ data: { departments: [{ id: 'department-1', name: 'HR' }, { id: 'archived-department-1', name: 'Archived HR' }], total: 2 } });
+      }
+      if (url === '/v1/departments?active_only=true') {
         return Promise.resolve({ data: { departments: [{ id: 'department-1', name: 'HR' }], total: 1 } });
       }
       return Promise.resolve({ data: [] });
@@ -88,9 +201,17 @@ describe('learning programs UI', () => {
     await waitFor(() => expect(screen.getAllByRole('button', { name: /learningPaths\.new/ }).length).toBeGreaterThan(0));
     fireEvent.click(screen.getAllByRole('button', { name: /learningPaths\.new/ })[0]);
     fireEvent.click(screen.getByRole('tab', { name: /learningPaths\.stage\.audience/ }));
+    const audienceTabs = within(screen.getByRole('tablist')).getAllByRole('tab');
+    expect(audienceTabs).toHaveLength(4);
+    expect(audienceTabs.every((tab) => tab.className.includes('whitespace-normal'))).toBe(true);
+    expect(screen.getByRole('tablist')).toHaveClass('grid-cols-2');
+    expect(screen.getByRole('tablist')).not.toHaveClass('sm:grid-cols-4');
     fireEvent.click(screen.getByRole('tab', { name: 'learningPaths.audience.departments' }));
 
+    expect(apiMock.get).toHaveBeenCalledWith('/v1/departments?active_only=true');
+    expect(apiMock.get).not.toHaveBeenCalledWith('/v1/departments');
     expect(screen.getByText('HR')).toBeInTheDocument();
+    expect(screen.queryByText('Archived HR')).not.toBeInTheDocument();
     const departmentCheckbox = screen.getByRole('checkbox', { name: 'HR' });
     expect(departmentCheckbox).toBeEnabled();
     fireEvent.click(departmentCheckbox);
@@ -221,6 +342,95 @@ describe('learning programs UI', () => {
       expect(screen.getByText(/v1 · 1 common\.counts\.course · 2 common\.counts\.learner/)).toBeInTheDocument();
     });
     expect(screen.queryAllByText('0 common.counts.learner')).toHaveLength(0);
+  });
+
+  it('blocks assignment when the due date is before the start date without posting', async () => {
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/v1/learning-paths') return Promise.resolve({ data: [{ id: 'program-1', title: 'Onboarding', status: 'published', course_count: 1, assignment_count: 0 }] });
+      if (url === '/v1/learning-paths/program-1') return Promise.resolve({ data: { id: 'program-1', title: 'Onboarding', status: 'published', course_count: 1, courses: [courseA] } });
+      if (url === '/v1/learning-paths/program-1/assignments') return Promise.resolve({ data: [] });
+      if (url.startsWith('/v1/users')) return Promise.resolve({ data: { users: [{ id: 'learner-1', first_name: 'Learner', last_name: 'One', email: 'learner@example.kz' }] } });
+      return Promise.resolve({ data: [] });
+    });
+
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /Onboarding/ }));
+    fireEvent.click(await screen.findByRole('tab', { name: /learningPaths\.stage\.audience/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Learner One/ }));
+    const startsAtInput = screen.getByLabelText('learningPaths.startsAt');
+    const dueAtInput = screen.getByLabelText('learningPaths.dueAt');
+    fireEvent.change(startsAtInput, { target: { value: '27/10/2026' } });
+    fireEvent.change(dueAtInput, { target: { value: '26/10/2026' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'learningPaths.assign' }));
+
+    expect(await screen.findByText('learningPaths.invalidAssignmentDates')).toBeInTheDocument();
+    expect(apiMock.post).not.toHaveBeenCalledWith('/v1/learning-paths/program-1/assignments', expect.anything());
+    expect(screen.getByRole('checkbox', { name: /Learner One/ })).toBeChecked();
+    expect(startsAtInput).toHaveValue('27/10/2026');
+    expect(dueAtInput).toHaveValue('26/10/2026');
+
+    fireEvent.change(dueAtInput, { target: { value: '27/10/2026' } });
+    expect(screen.queryByText('learningPaths.invalidAssignmentDates')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'learningPaths.assign' }));
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/v1/learning-paths/program-1/assignments', expect.anything()));
+  });
+
+  it('blocks draft publish-and-assign before persistence when selected dates are inverted', async () => {
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/v1/learning-paths') return Promise.resolve({ data: [] });
+      if (url.startsWith('/v1/courses')) return Promise.resolve({ data: [courseA] });
+      if (url.startsWith('/v1/users')) return Promise.resolve({ data: { users: [{ id: 'learner-1', first_name: 'Learner', last_name: 'One' }] } });
+      return Promise.resolve({ data: [] });
+    });
+
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /learningPaths\.new/ }));
+    fireEvent.change(screen.getByLabelText('learningPaths.name'), { target: { value: 'Onboarding' } });
+    fireEvent.click(screen.getByRole('tab', { name: /learningPaths\.stage\.content/ }));
+    fireEvent.click((await screen.findAllByRole('button', { name: /learningPaths\.add/ }))[0]);
+    fireEvent.click(screen.getByRole('tab', { name: /learningPaths\.stage\.audience/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Learner One/ }));
+    fireEvent.change(screen.getByLabelText('learningPaths.startsAt'), { target: { value: '27/10/2026' } });
+    fireEvent.change(screen.getByLabelText('learningPaths.dueAt'), { target: { value: '26/10/2026' } });
+    fireEvent.click(screen.getByRole('tab', { name: /learningPaths\.stage\.review/ }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'learningPaths.publishAndAssign' }));
+
+    await waitFor(() => expect(screen.getByRole('tab', { name: /learningPaths\.stage\.audience/ })).toHaveAttribute('aria-selected', 'true'));
+    expect(screen.getByRole('checkbox', { name: /Learner One/ })).toBeChecked();
+    expect(apiMock.post).not.toHaveBeenCalled();
+    expect(apiMock.put).not.toHaveBeenCalled();
+    expect(apiMock.patch).not.toHaveBeenCalled();
+  });
+
+  it('allows zero-audience publication even when optional dates are inverted', async () => {
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/v1/learning-paths') return Promise.resolve({ data: [] });
+      if (url.startsWith('/v1/courses')) return Promise.resolve({ data: [courseA] });
+      return Promise.resolve({ data: [] });
+    });
+    apiMock.post.mockImplementation((url: string) => {
+      if (url === '/v1/learning-paths') return Promise.resolve({ data: { id: 'program-1', title: 'Onboarding', status: 'draft', course_count: 0, courses: [] } });
+      if (url === '/v1/learning-paths/program-1/publish') return Promise.resolve({ data: { id: 'program-1', title: 'Onboarding', status: 'published', course_count: 1, courses: [{ course_id: 'course-a', title: 'Course A', required: true, order_index: 0 }] } });
+      return Promise.reject(new Error(`Unexpected POST ${url}`));
+    });
+    apiMock.put.mockResolvedValue({ data: { id: 'program-1', title: 'Onboarding', status: 'draft', course_count: 1, courses: [{ course_id: 'course-a', title: 'Course A', required: true, order_index: 0 }] } });
+
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /learningPaths\.new/ }));
+    fireEvent.change(screen.getByLabelText('learningPaths.name'), { target: { value: 'Onboarding' } });
+    fireEvent.click(screen.getByRole('tab', { name: /learningPaths\.stage\.content/ }));
+    fireEvent.click((await screen.findAllByRole('button', { name: /learningPaths\.add/ }))[0]);
+    fireEvent.click(screen.getByRole('tab', { name: /learningPaths\.stage\.audience/ }));
+    fireEvent.change(screen.getByLabelText('learningPaths.startsAt'), { target: { value: '27/10/2026' } });
+    fireEvent.change(screen.getByLabelText('learningPaths.dueAt'), { target: { value: '26/10/2026' } });
+    fireEvent.click(screen.getByRole('tab', { name: /learningPaths\.stage\.review/ }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'learningPaths.publish' }));
+
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/v1/learning-paths/program-1/publish'));
+    expect(apiMock.post).not.toHaveBeenCalledWith('/v1/learning-paths/program-1/assignments', expect.anything());
   });
 
   it('keeps publish disabled until the draft has a name and a required course', async () => {

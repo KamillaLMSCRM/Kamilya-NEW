@@ -1,6 +1,7 @@
 import type { TranslationKey } from '@/i18n/useT';
 
 const approvalMessages: Record<string, TranslationKey> = {
+  course_content_required: 'courses.contentRequired',
   approval_required: 'courseApproval.publishRequiresApproval',
   approval_pending: 'courseApproval.publishApprovalPending',
   approval_changes_requested: 'courseApproval.publishChangesRequested',

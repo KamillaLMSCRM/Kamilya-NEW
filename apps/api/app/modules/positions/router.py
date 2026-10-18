@@ -2,11 +2,12 @@
 import logging
 import os
 import uuid
+from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user, require_role, require_tenant_user
@@ -16,15 +17,13 @@ from app.models.department import Department
 from app.models.document import Document
 from app.models.users import User
 from app.modules.courses.models import Course
+from app.modules.organization_units.service import normalize_unit_name
 from app.modules.positions import qualification_service
 from app.modules.positions.assignment_service import recompute_enrollments
 from app.modules.positions.batch_service import (
     recompute_position_holders,
 )
-from app.modules.positions.models import Position, PositionCourse
-
-logger = logging.getLogger(__name__)
-from app.modules.positions.models import PositionJDVersion
+from app.modules.positions.models import Position, PositionCourse, PositionJDVersion
 from app.modules.positions.schemas import (
     BulkPositionCreated,
     BulkPositionFailed,
@@ -34,6 +33,8 @@ from app.modules.positions.schemas import (
     PositionResponse,
     PositionUpdate,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/positions",
@@ -48,28 +49,75 @@ router = APIRouter(
 async def _resolve_or_create_department(
     db: AsyncSession,
     tenant_id: UUID,
-    name: str,
+    name: str = "",
+    *,
+    department_id: UUID | None = None,
 ) -> Department | None:
+    if department_id is not None:
+        department = await db.scalar(
+            select(Department).where(
+                Department.id == department_id,
+                Department.tenant_id == tenant_id,
+            ).with_for_update(of=Department)
+        )
+        if department is None:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "organization_unit_not_found"},
+            )
+        if not department.is_active or department.archived_at is not None:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "organization_unit_inactive"},
+            )
+        return department
+
     display_name = " ".join(name.split())
     if not display_name:
         return None
 
     slug = display_name.casefold()
-    department = await db.scalar(
-        select(Department).where(
-            Department.tenant_id == tenant_id,
-            Department.slug == slug,
-        )
+    normalized_name = normalize_unit_name(display_name)
+    matches = list(
+        (
+            await db.scalars(
+                select(Department).where(
+                    Department.tenant_id == tenant_id,
+                    or_(
+                        Department.slug == slug,
+                        Department.normalized_name == normalized_name,
+                    ),
+                ).order_by(Department.id).with_for_update(of=Department)
+            )
+        ).all()
     )
-    if department is None:
-        department = Department(
-            tenant_id=tenant_id,
-            name=display_name,
-            slug=slug,
-            description="",
+    active_matches = [
+        department
+        for department in matches
+        if department.is_active and department.archived_at is None
+    ]
+    if len(active_matches) == 1:
+        return active_matches[0]
+    if len(active_matches) > 1:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "department_selection_required"},
         )
-        db.add(department)
-        await db.flush()
+    if matches:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "organization_unit_inactive"},
+        )
+
+    department = Department(
+        tenant_id=tenant_id,
+        name=display_name,
+        slug=slug,
+        normalized_name=normalized_name,
+        description="",
+    )
+    db.add(department)
+    await db.flush()
     return department
 
 
@@ -315,13 +363,22 @@ async def create_position(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    department = await _resolve_or_create_department(
-        db,
-        user.tenant_id,
-        req.department,
-    )
+    tenant_id = cast(UUID, user.tenant_id)
+    department_id_supplied = "department_id" in req.model_fields_set
+    if department_id_supplied:
+        department = (
+            await _resolve_or_create_department(
+                db,
+                tenant_id,
+                department_id=req.department_id,
+            )
+            if req.department_id is not None
+            else None
+        )
+    else:
+        department = await _resolve_or_create_department(db, tenant_id, req.department)
     pos = Position(
-        tenant_id=user.tenant_id,
+        tenant_id=tenant_id,
         name=req.name,
         department=department.name if department else "",
         department_id=department.id if department else None,
@@ -333,7 +390,7 @@ async def create_position(
     await db.flush()
 
     if req.course_ids:
-        await _sync_courses(db, pos.id, req.course_ids, tenant_id=user.tenant_id)
+        await _sync_courses(db, pos.id, req.course_ids, tenant_id=tenant_id)
         await db.flush()
 
     return await _position_response(db, pos)
@@ -353,20 +410,38 @@ async def update_position(
     enrollments, removing a course removes in-progress enrollments
     (completed are kept). P1-4 (asymmetric add-only) is resolved.
     """
+    tenant_id = cast(UUID, user.tenant_id)
     pos = await qualification_service.prepare_external_change(
         db,
         position_id,
-        user.tenant_id,
+        tenant_id,
         user.id,
     )
 
-    updates = req.model_dump(exclude_unset=True, exclude={"course_ids"})
-    if "department" in updates:
-        department = await _resolve_or_create_department(
-            db,
-            user.tenant_id,
-            updates["department"] or "",
-        )
+    updates = req.model_dump(
+        exclude_unset=True,
+        exclude={"course_ids", "department_id"},
+    )
+    department_name_supplied = "department" in updates
+    department_id_supplied = "department_id" in req.model_fields_set
+    if department_name_supplied or department_id_supplied:
+        legacy_department_name = updates.pop("department", "") or ""
+        if department_id_supplied:
+            department = (
+                await _resolve_or_create_department(
+                    db,
+                    tenant_id,
+                    department_id=req.department_id,
+                )
+                if req.department_id is not None
+                else None
+            )
+        else:
+            department = await _resolve_or_create_department(
+                db,
+                tenant_id,
+                legacy_department_name,
+            )
         updates["department"] = department.name if department else ""
         pos.department_id = department.id if department else None
 
@@ -390,11 +465,11 @@ async def update_position(
             db,
             pos.id,
             req.course_ids,
-            tenant_id=user.tenant_id,
+            tenant_id=tenant_id,
         )
         # Symmetric add+remove: run recompute on every holder. The
         # kernel handles both directions in one pass.
-        batch = await recompute_position_holders(db, pos.id, user.tenant_id)
+        batch = await recompute_position_holders(db, pos.id, tenant_id)
         re_enrolled = batch.added
 
     await db.flush()

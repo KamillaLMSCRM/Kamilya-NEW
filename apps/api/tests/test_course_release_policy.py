@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -175,8 +176,131 @@ async def test_publish_approved_ai_course_activates_assignments():
     assert result.id == course.id
     assert result.status == "published"
     assert course.status == "published"
-    create_release.assert_awaited_once_with(db, course, published_by=user.id)
+    create_release.assert_awaited_once_with(
+        db,
+        course,
+        published_by=user.id,
+        require_usable_content=True,
+    )
     activate.assert_awaited_once_with(db, course)
+
+
+@pytest.mark.asyncio
+async def test_publish_maps_empty_native_release_to_409_before_publication_writes():
+    from app.modules.courses.models import Course
+    from app.modules.courses.release_service import CourseContentRequiredError
+    from app.modules.courses.router import publish_course
+
+    tenant_id = uuid4()
+    user = _user(role="methodologist", tenant_id=tenant_id)
+    course = Course(
+        id=uuid4(), tenant_id=tenant_id, title="Empty course", description="",
+        status="draft", delivery_type="native", ai_generated=False, source_document_ids=[],
+        source_strategy="single_topic", source_analysis={}, review_status="pending",
+        created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
+    )
+    db = AsyncMock()
+    db.execute.return_value = _scalar_result(course)
+    db.scalar.return_value = None
+    request = MagicMock()
+    request.client.host = "127.0.0.1"
+    request.headers.get.return_value = "pytest"
+    create_release = AsyncMock(side_effect=CourseContentRequiredError())
+    activate = AsyncMock()
+    audit = AsyncMock()
+
+    with (
+        patch("app.modules.courses.release_service.create_course_release", new=create_release),
+        patch("app.modules.courses.router.activate_course_assignments", new=activate),
+        patch("app.modules.courses.router.log_action", new=audit),
+    ):
+        with pytest.raises(HTTPException) as exc:
+            await publish_course(course.id, request=request, db=db, user=user)
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail == {"code": "course_content_required"}
+    create_release.assert_awaited_once_with(
+        db,
+        course,
+        published_by=user.id,
+        require_usable_content=True,
+    )
+    assert course.status == "draft"
+    db.flush.assert_not_awaited()
+    activate.assert_not_awaited()
+    audit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_approved_snapshot_publish_applies_same_content_gate_without_mutating_revision():
+    from app.modules.courses.models import Course
+    from app.modules.courses.release_service import CourseContentRequiredError, canonical_json_sha256
+    from app.modules.courses.router import publish_course
+
+    tenant_id = uuid4()
+    user = _user(role="methodologist", tenant_id=tenant_id)
+    course = Course(
+        id=uuid4(), tenant_id=tenant_id, title="Approved empty course", description="",
+        status="draft", delivery_type="native", ai_generated=False, source_document_ids=[],
+        source_strategy="single_topic", source_analysis={}, review_status="approved",
+        created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
+    )
+    snapshot = {
+        "schema_version": 1,
+        "release_version": 4,
+        "course": {"id": str(course.id), "delivery_type": "native"},
+        "modules": [],
+        "scorm_packages": [],
+    }
+    policy = SimpleNamespace(requires_approval=True)
+    revision = SimpleNamespace(
+        id=uuid4(),
+        revision_number=4,
+        state="approved",
+        snapshot=snapshot,
+        snapshot_sha256=canonical_json_sha256(snapshot),
+        published_release_id=None,
+    )
+    db = AsyncMock()
+    db.execute.return_value = _scalar_result(course)
+    db.scalar.side_effect = [policy, revision, None]
+    request = MagicMock()
+    request.client.host = "127.0.0.1"
+    request.headers.get.return_value = "pytest"
+    create_release = AsyncMock(side_effect=CourseContentRequiredError())
+    activate = AsyncMock()
+    audit = AsyncMock()
+
+    with (
+        patch(
+            "app.modules.courses.release_service.build_course_release_snapshot",
+            new=AsyncMock(return_value=snapshot),
+        ),
+        patch(
+            "app.modules.courses.release_service.create_course_release_from_snapshot",
+            new=create_release,
+        ),
+        patch("app.modules.courses.router.activate_course_assignments", new=activate),
+        patch("app.modules.courses.router.log_action", new=audit),
+    ):
+        with pytest.raises(HTTPException) as exc:
+            await publish_course(course.id, request=request, db=db, user=user)
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail == {"code": "course_content_required"}
+    create_release.assert_awaited_once_with(
+        db,
+        course,
+        snapshot,
+        published_by=user.id,
+        require_usable_content=True,
+    )
+    assert course.status == "draft"
+    assert revision.state == "approved"
+    assert revision.published_release_id is None
+    db.flush.assert_not_awaited()
+    activate.assert_not_awaited()
+    audit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
