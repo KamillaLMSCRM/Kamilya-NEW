@@ -43,25 +43,6 @@ def _has_visible_text(value: object) -> bool:
     return bool(value.replace("\u200b", "").replace("\ufeff", "").strip())
 
 
-_MEDIA_BLOCK_TYPES = frozenset({"image", "video", "audio", "file", "pdf"})
-_MEDIA_REFERENCE_FIELDS = ("url", "src", "asset_url", "file_url")
-
-
-def _has_media_reference(block: dict[str, Any]) -> bool:
-    block_type = block.get("block_type")
-    if not isinstance(block_type, str) or block_type.strip().lower() not in _MEDIA_BLOCK_TYPES:
-        return False
-    metadata = block.get("metadata")
-    if isinstance(metadata, str):
-        try:
-            metadata = json.loads(metadata)
-        except json.JSONDecodeError:
-            return False
-    if not isinstance(metadata, dict):
-        return False
-    return any(_has_visible_text(metadata.get(field)) for field in _MEDIA_REFERENCE_FIELDS)
-
-
 def _native_snapshot_has_usable_content(snapshot: dict[str, Any]) -> bool:
     modules = snapshot.get("modules")
     if not isinstance(modules, list):
@@ -77,14 +58,9 @@ def _native_snapshot_has_usable_content(snapshot: dict[str, Any]) -> bool:
                 continue
             if _has_visible_text(lesson.get("content")):
                 return True
-            blocks = lesson.get("content_blocks")
-            if isinstance(blocks, list):
-                for block in blocks:
-                    if isinstance(block, dict) and (
-                        _has_visible_text(block.get("content"))
-                        or _has_media_reference(block)
-                    ):
-                        return True
+            # Current review and learner clients render lesson.content and
+            # quizzes, not the separate content_blocks collection. Do not let
+            # an invisible block make an otherwise blank course publishable.
             quizzes = lesson.get("quizzes")
             if isinstance(quizzes, list):
                 for quiz in quizzes:

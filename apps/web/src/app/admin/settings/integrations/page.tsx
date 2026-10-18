@@ -203,35 +203,41 @@ function WhatsAppPanel({
   const { t } = useT();
   const token = useAuthStore((s) => s.accessToken);
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
+  const [statusError, setStatusError] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [testing, setTesting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const connectionState = status?.status;
 
   const refresh = useCallback(async () => {
     if (!token) return;
     try {
       const s = await getWhatsAppStatus(token);
       setStatus(s);
+      setStatusError('');
       setLoading(false);
     } catch (e) {
-      toast.error(t('integrations.whatsapp.loadError', { error: (e as Error).message }));
+      setStatus(null);
+      setStatusError(t('integrations.whatsapp.loadError', { error: (e as Error).message }));
       setLoading(false);
     }
   }, [token, t]);
 
   useEffect(() => {
     refresh();
+  }, [refresh]);
+
+  useEffect(() => {
     // Poll every 3s while we're waiting for QR / connection
+    if (!connectionState || !['initializing', 'qr_pending', 'disconnected'].includes(connectionState)) return;
     pollRef.current = setInterval(() => {
-      if (status && ['initializing', 'qr_pending', 'disconnected'].includes(status.status)) {
-        refresh();
-      }
+      void refresh();
     }, 3000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [refresh, status]);
+  }, [refresh, connectionState]);
 
   // Stop polling when connected
   useEffect(() => {
@@ -326,6 +332,11 @@ function WhatsAppPanel({
         {/* Status info */}
         {loading ? (
           <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+        ) : statusError ? (
+          <div className="space-y-3">
+            <p role="alert" className="text-sm text-destructive">{statusError}</p>
+            <Button variant="outline" onClick={() => void refresh()}>{t('common.retry')}</Button>
+          </div>
         ) : isConnected ? (
           <ConnectedView
             status={status!}

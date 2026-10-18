@@ -162,28 +162,12 @@ async def test_required_native_release_rejects_empty_snapshot_before_any_write(s
     [
         {"content": "Learner text", "content_blocks": [], "quizzes": []},
         {
-            "content": None,
-            "content_blocks": [{"block_type": "video", "content": None, "metadata": {"url": "/media/lesson.mp4"}}],
-            "quizzes": [],
-        },
-        {
-            "content": None,
-            "content_blocks": [
-                {
-                    "block_type": "audio",
-                    "content": None,
-                    "metadata": '{"asset_url":"/media/lesson.mp3","language":"ru"}',
-                }
-            ],
-            "quizzes": [],
-        },
-        {
             "content": "",
             "content_blocks": [],
             "quizzes": [{"questions": [{"text": "What is the safe action?"}]}],
         },
     ],
-    ids=["text", "media-dict", "media-json-string", "quiz-only"],
+    ids=["rendered-lesson-body", "quiz-only"],
 )
 async def test_required_native_release_accepts_a_usable_lesson_without_mutating_approved_snapshot(lesson: dict) -> None:
     course = _course()
@@ -204,6 +188,24 @@ async def test_required_native_release_accepts_a_usable_lesson_without_mutating_
     assert release.snapshot["release_version"] == 1
     db.add.assert_called_once_with(release)
     assert db.flush.await_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("block", [
+    {"block_type": "video", "metadata": {"url": "/media/lesson.mp4"}},
+    {"block_type": "audio", "metadata": '{"asset_url":"/media/lesson.mp3"}'},
+    {"block_type": "text", "content": "Text not exposed by the current player"},
+])
+async def test_unrendered_blocks_alone_cannot_pass_native_publication(block: dict) -> None:
+    course = _course()
+    db = _ReleaseDB(course)
+    with pytest.raises(CourseContentRequiredError):
+        await create_course_release_from_snapshot(
+            db, course, _snapshot(lessons=[{"content": None, "content_blocks": [block], "quizzes": []}]),
+            published_by=PUBLISHER, require_usable_content=True,
+        )
+    db.add.assert_not_called()
+    db.flush.assert_not_awaited()
 
 
 @pytest.mark.asyncio

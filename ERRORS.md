@@ -2,6 +2,63 @@
 
 Current as of: 2026-10-18.
 
+## POSITION-UNIT-001 - Free-text position creation duplicated a nested organization unit
+
+- Date:2026-10-18; ordinary production synthetic QA cabinet acceptance.
+- Symptom: a nested department existed, but creating its position made another
+  root with the same display name. Employee placement and position compatibility
+  department then had different IDs; shared position placement is intentional.
+- Cause: interactive creation sent only a name, while the legacy bridge searched
+  only a simple slug. Canonical nested-unit slugs include scope and cannot match.
+- Fix: typed tenant-owned active unit UUID in create/update and the canonical
+  breadcrumb picker. UUID presence is authoritative: null clears, omission can
+  preserve/resolve legacy text. Ambiguous names create nothing. Lock candidate
+  unit rows in ID order before validating archive/activity. Tree failure is a
+  retryable state, not an empty hierarchy; unassigned override must be explicit.
+- Verification: actual two IDs/readback; independent review found null precedence,
+  archive race and swallowed tree error. Corrected route/UI tests use real UUIDs,
+  SQL lock/order assertions and projection exclusions; focused25API/7web PASS.
+  DEV/database concurrency/live production correction remains a release gate.
+- Prevention: names are labels, not identities. Test nested and same-named units,
+  null/omitted/conflicting request fields and failed tree loads. Do not delete
+  the duplicate root or move employees implicitly; no cleanup was performed.
+
+## COURSE-PLAYER-SCOPE-001 - Delayed actions restored the previous actor's completion or assistant reply
+
+- Date:2026-10-18; independent source review during combined cabinet integration.
+- Symptom: completed learner to methodologist/admin preview retained the old
+  completion/evidence screen. After the initial reset repair, delayed completion
+  and assistant success/error could repopulate the new actor's visible state.
+- Cause: scope reset cleared only progress, and async user actions had no actor/
+  course/token guard across awaited network/body reads. Passive-read guards alone
+  did not cover completion, enrollment, progress, toasts or navigation callbacks.
+- Fix: clear all displayed scope-derived state; guard passive quiz reads and
+  every user-action continuation, toast and navigation against captured scope/
+  mount. Bind assistant writes to the lesson too; pending Enter cannot send again.
+- Verification: role-transition3RED, delayed completion/assistant3RED, then all
+  28player tests PASS. Old evidence/reply/error/toast/navigation remain absent.
+  Independent corrected-source review GO; actual DEV/browser gate still required.
+- Prevention: test delayed successful and failed action responses as well as
+  passive reads, including role/identity changes and unmount. Backend RLS does not
+  by itself clear data already retained by a browser component.
+
+## INTEGRATIONS-WA-001 - Gateway error handling raised its own logging exception
+
+- Date:2026-10-18; production status500 observed, local failure seam reproduced.
+- Symptom: optional WhatsApp status failed; injected ConnectError caused a
+  logging TypeError instead of the intended WAGatewayError. Malformed successful
+  gateway responses also escaped structured error translation.
+- Cause: standard logging received a dictionary message plus an extra string
+  argument with no formatting placeholder. UI refresh also ran immediately on
+  every newly returned status object, rather than only on its polling interval.
+- Fix: safe formatted category-only logging; validate configuration before token/
+  network use, translate invalid payloads, and preserve service-unavailable status.
+  Show a retryable failure state and separate initial refresh from interval polls.
+- Verification:6API RED then6PASS; focused integration UI/API tests PASS. The
+  production transport/configuration cause and actual channel delivery remain
+  unverified; no gateway was provisioned, activated, reconfigured or tested by send.
+- Prevention: inject transport and malformed-response failures through real logging
+  handlers; never turn an unknown channel state into a ready-to-connect screen.
 ## LEARNING-UX-004 - Mandatory-training deep-link action remained hidden after clean-route navigation
 
 - Date:2026-10-17, ordinary synthetic DEV024 cabinet navigation.
@@ -484,6 +541,11 @@ Current as of: 2026-10-18.
 - Prevention: test empty and usable snapshot publication, both approval paths,
   no-write rejection, metadata-only negatives and legacy compatibility separately.
 
+- Combined-release review2026-10-18: current clients ignore content_blocks; three
+  hidden video/audio/text-block negatives were RED then GREEN after the guard
+  stopped counting these fields. Rendered body/quiz and legacy/SCORM controls stay.
+- Prevention: test empty and usable snapshot publication, both approval paths,
+  no-write rejection, metadata-only negatives and legacy compatibility separately.
 ## PROGRAM-AUDIENCE-001 - Archived units were offered as assignment targets
 
 - Date: 2026-10-17; ordinary synthetic DEV cabinet action audit.
@@ -676,6 +738,9 @@ Current as of: 2026-10-18.
   TEST_RUN_LEDGER, not inferred from this focused result.
 - Prevention: distinguish emitted content from traceback paths in logging tests;
   assert actual sensitive fixture identifiers across the full log as well.
+
+
+
 
 ## SQL-NAME-001 - C locale disagreed with Python Unicode lowercase during assignment lookup
 

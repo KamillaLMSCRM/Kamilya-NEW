@@ -61,7 +61,10 @@ export async function getWhatsAppStatus(token: string): Promise<WhatsAppStatus> 
   const res = await fetch(`${BASE}/v1/integrations/whatsapp/status`, {
     headers: auth(token),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const body: unknown = await res.json().catch(() => null);
+    throw new Error(apiErrorMessage(body, res.status));
+  }
   return res.json();
 }
 

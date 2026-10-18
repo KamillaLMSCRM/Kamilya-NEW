@@ -29,6 +29,20 @@ EQUIPMENT = """Учебная инструкция: выдача рабочег�
 Конец учебного материала.
 """
 
+QA_BUTTONS_20261018 = """QA BUTTONS 20261018 — Приём учебного оборудования
+
+Это полностью вымышленная инструкция для тестирования Kamilya LMS.
+Маркер набора: KAMILYA_CABINET_ACTIONS_20261018.
+
+Цель: принять учебный прибор в демонстрационный кабинет.
+
+1. До включения сравните номер прибора с карточкой поставки. При несовпадении номера остановите приём и обратитесь к руководителю учебного кабинета. Не включайте прибор до разрешения расхождения.
+2. Осмотрите корпус и кабель. При трещине корпуса ИЛИ повреждении кабеля остановите приём и сообщите руководителю учебного кабинета. Подключать такой прибор запрещено.
+3. Если номер совпадает и повреждений нет, запишите в журнале номер прибора и дату приёма. Только после записи передайте прибор на учебный стол.
+4. После занятия отключите прибор от сети и верните его в подписанный шкаф. Отметьте возврат в том же журнале.
+
+Названия людей, компаний и оборудования не относятся к реальным клиентам. Документ не устанавливает юридических обязанностей и используется только для проверки программного обеспечения.
+"""
 
 def equipment_plan(text: str = EQUIPMENT):
     chunk = DirectSourceChunk(
@@ -71,6 +85,35 @@ async def test_equipment_selection_excludes_preamble_and_prioritizes_stop_rule()
     assert any("остановите выдачу" in claim and "руководител" in claim for claim in claims)
     first_attempt = {axis["axis_id"] for request in probe.requests for axis in request["axes"]}
     assert len(first_attempt) <= 3, "Selection must preserve the existing density cap, not pad a quota"
+
+
+@pytest.mark.asyncio
+async def test_qa_buttons_exact_source_prioritizes_work_steps_over_metadata():
+    lessons, facts = equipment_plan(QA_BUTTONS_20261018)
+    probe = SelectionProbe()
+
+    result = await generate_block_assessment(list(lessons), facts, probe)
+
+    claims = list(dict.fromkeys(
+        axis["source_claim"] for request in probe.requests for axis in request["axes"]
+    ))
+    assert len(claims) == 3, "The existing per-lesson density ceiling remains three"
+    assert any("несовпадении номера остановите приём" in claim for claim in claims)
+    assert any("повреждении кабеля остановите приём" in claim for claim in claims)
+    assert any("запишите в журнале номер прибора" in claim for claim in claims)
+    assert all("Цель:" not in claim for claim in claims)
+    assert all("юридических обязанностей" not in claim for claim in claims)
+    assert all("KAMILYA_CABINET_ACTIONS_20261018" not in claim for claim in claims)
+
+    return_fact_ids = {
+        fact.fact_id for fact in facts.values()
+        if "верните его в подписанный шкаф" in fact.value
+    }
+    assert return_fact_ids, "The fourth working step must remain an eligible source fact"
+    selection = result.audit["narrative_selection_coverage"][0]
+    assert return_fact_ids <= set(selection["eligible_fact_ids"])
+    assert return_fact_ids <= set(selection["unassessed_fact_ids"])
+    assert not return_fact_ids & set(selection["selected_fact_ids"])
 
 
 @pytest.mark.asyncio

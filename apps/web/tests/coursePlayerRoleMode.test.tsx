@@ -149,6 +149,75 @@ describe('course player role modes', () => {
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST' || init?.method === 'PUT')).toHaveLength(0);
   });
 
+  it.each(['methodologist', 'admin', 'superadmin', 'student'])('clears a completed learner screen before loading the next %s identity', async (role) => {
+    const baseFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const oldActor = (init?.headers as Record<string, string>)?.Authorization === 'Bearer student-old-token';
+      if (url.endsWith('/v1/student/dashboard')) return Promise.resolve(jsonResponse({ enrolled_courses: [{ course_id: 'course-1', enrollment_id: oldActor ? 'enrollment-old' : 'enrollment-new', enrollment_status: oldActor ? 'completed' : 'in_progress' }] }));
+      if (url.includes('/v1/training-evidence/events/mine?')) return Promise.resolve(jsonResponse([{ id: 'evidence-old' }]));
+      return baseFetch(input, init);
+    });
+    useAuthStore.setState({ accessToken: 'student-old-token', user: { user_id: 'student-old', role: 'student' } as never, initialized: true });
+    const view = render(<CoursePlayerPage />);
+    expect(await screen.findByTestId('completion-evidence-event')).toHaveTextContent('evidence-old');
+
+    await act(async () => {
+      useAuthStore.setState({ accessToken: 'new-token', user: { user_id: 'new-identity', role } as never, initialized: true });
+      view.rerender(<CoursePlayerPage />);
+    });
+    await screen.findByRole('heading', { name: 'Шестой урок' });
+    expect(screen.queryByTestId('completion-evidence-event')).not.toBeInTheDocument();
+    expect(screen.queryByText('evidence-old')).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST' || init?.method === 'PUT')).toHaveLength(0);
+  });
+
+  it('ignores a delayed completion response after the learner identity changes', async () => {
+    let resolveCompletion!: (response: Response) => void;
+    const baseFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/v1/quizzes/quiz-1/attempts')) return Promise.resolve(jsonResponse([{ score_percent: 100, passed: true }]));
+      if (url.endsWith('/v1/courses/course-1/complete') && init?.method === 'POST') return new Promise(resolve => { resolveCompletion = resolve; });
+      return baseFetch(input, init);
+    });
+    useAuthStore.setState({ accessToken: 'student-old-token', user: { user_id: 'student-old', role: 'student' } as never, initialized: true });
+    const view = render(<CoursePlayerPage />);
+    await screen.findByText('quiz.passed (100%)');
+    fireEvent.click(screen.getByRole('button', { name: 'Завершить курс' }));
+    await waitFor(() => expect(resolveCompletion).toBeTypeOf('function'));
+    await act(async () => {
+      useAuthStore.setState({ accessToken: 'student-new-token', user: { user_id: 'student-new', role: 'student' } as never, initialized: true });
+      view.rerender(<CoursePlayerPage />);
+    });
+    await screen.findByRole('heading', { name: 'Шестой урок' });
+    await act(async () => resolveCompletion(jsonResponse({ status: 'completed', certificate_id: 'old-certificate', training_evidence_event_id: 'old-evidence' })));
+    expect(screen.queryByTestId('completion-evidence-event')).not.toBeInTheDocument();
+    expect(toastSuccess).not.toHaveBeenCalledWith('toast.courseCompleted');
+    expect(routerPush).not.toHaveBeenCalled();
+  });
+
+  it.each([200, 503])('ignores a delayed assistant HTTP%s result after the learner identity changes', async (status) => {
+    let resolveReply!: (response: Response) => void;
+    const baseFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/v1/learner/assistant/chat')
+      ? new Promise(resolve => { resolveReply = resolve; }) : baseFetch(input, init));
+    useAuthStore.setState({ accessToken: 'student-old-token', user: { user_id: 'student-old', role: 'student' } as never, initialized: true });
+    const view = render(<CoursePlayerPage />);
+    await screen.findByRole('heading', { name: 'Шестой урок' });
+    fireEvent.change(screen.getByPlaceholderText('authenticatedUi.player.assistantPlaceholder'), { target: { value: 'Old learner question' } });
+    fireEvent.click(screen.getByRole('button', { name: 'authenticatedUi.player.ask' }));
+    await waitFor(() => expect(resolveReply).toBeTypeOf('function'));
+    await act(async () => {
+      useAuthStore.setState({ accessToken: 'student-new-token', user: { user_id: 'student-new', role: 'student' } as never, initialized: true });
+      view.rerender(<CoursePlayerPage />);
+    });
+    await screen.findByRole('heading', { name: 'Шестой урок' });
+    await act(async () => resolveReply(jsonResponse(status === 200 ? { reply: 'Old learner private reply' } : { detail: 'Old learner request error' }, status)));
+    expect(screen.queryByText('Old learner private reply')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Old learner request error/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Old learner question')).not.toBeInTheDocument();
+  });
   it.each([true, false])('shows a terminal completion action with evidence=%s instead of a no-op next lesson button', async (hasEvidence) => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -480,11 +549,13 @@ describe('course player role modes', () => {
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Следующий урок' })));
     expect(screen.getAllByText('Шестой урок')[0].parentElement?.querySelector('.bg-success')).toBeInTheDocument();
 
-    useAuthStore.setState({ accessToken: 'student-token', user: { user_id: 'student-1', role: 'student' } as never, initialized: true });
-    await act(async () => view.rerender(<CoursePlayerPage />));
-    expect(screen.getAllByText('Шестой урок')[0].parentElement?.querySelector('.bg-success')).not.toBeInTheDocument();
+    await act(async () => {
+      useAuthStore.setState({ accessToken: 'student-token', user: { user_id: 'student-1', role: 'student' } as never, initialized: true });
+      view.rerender(<CoursePlayerPage />);
+    });
+    expect(screen.queryByRole('heading', { name: 'Шестой урок' })).not.toBeInTheDocument();
     await act(async () => rejectStudentProgress(new Error('progress unavailable')));
-    expect(screen.getAllByText('Шестой урок')[0].parentElement?.querySelector('.bg-success')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Шестой урок' })).not.toBeInTheDocument();
   });
 
   it('does not let a learner skip an unpassed required quiz', async () => {

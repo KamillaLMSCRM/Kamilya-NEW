@@ -430,6 +430,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.60] - 2026-10-18
+
+### Fixed
+
+- Restore source-owner choice/clear, stable reader navigation and role-scoped
+  progress/evidence, route-filter synchronization, program date/audience state,
+  competency-course linking and typed canonical organization-unit selection.
+- Harden approval/resume and ordinary module actions; refuse native publication
+  when the current reviewer/learner clients have no renderable lesson or test.
+- Prefer workplace actions and critical stop conditions over source-authoring
+  metadata in generated tests; preserve legitimate operational/legal rules and
+  existing question-density limits. Retain multipart document-answer completeness.
+- Surface unavailable WhatsApp status with retry, translate gateway failures and
+  prevent status-object-driven immediate polling. No channel is activated.
+
+No schema migration, model-route/reserve/voice change, optional advanced editor,
+staff-workspace rollout, provider tier/resource or customer-data mutation.
+
 ## [0.11.59] - 2026-10-16
 
 ### Added

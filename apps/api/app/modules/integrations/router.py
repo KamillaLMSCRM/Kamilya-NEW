@@ -179,7 +179,7 @@ async def whatsapp_status(
     try:
         result = await wa_gateway_client.get_status(str(user.tenant_id))
     except wa_gateway_client.WAGatewayError as e:
-        raise HTTPException(502, detail=e.detail)
+        raise HTTPException(503 if e.status_code == 503 else 502, detail=e.detail)
     return WhatsAppStatus(
         status=result.get("status", "unknown"),
         phone_number=result.get("phone_number"),
