@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-10-18: API/three workers/native60 deployed at4bcc64c0; bounded cabinet/course/dialogue live acceptance PASS; extended structure/Excel acceptance IN_PROGRESS with a proven source-cell provenance defect, not applied. Schema0181 and current owner-enabled reserve unchanged.
+**Проверено:** 2026-10-18: API/three workers61 at0fe7985b, native60 retained; bounded staff/structure/Excel DEV and production API+browser acceptance PASS. Prior cabinet/course/dialogue60 acceptance retained. Schema0181 and current owner-enabled reserve unchanged.
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,52 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current60 — deployed; extended structure acceptance open
+## Current61 — deployed; bounded structure/Excel acceptance complete
+
+Exact source/tag/published release0fe7985bccb8f2464898f4e1fb7904a734f92a3d,
+v0.11.61. Final docs-only child of tested3b77aead; application tree7a020fdb6dc8fb6b4bed5604c83865499916b2ce
+unchanged. CI39147399472 SUCCESS, protected release39147841351 SUCCESS,
+REL-STRUCTURE61-20261018. API+three GREEN workers run immutable
+c6120580b23678ed4df2ca70c7d4cbc804a3a0dabf9a537deccfa2a48739ffd5, restarts0.
+Independent public/private/container readback PASS. Previous60 BLUE API healthy,
+workers stopped; exact rollback image8bf69416316fa74f540fbbbac9b6d0b64dbdededa41310f3cdb29a23d9e48c7d
+retained. Actual rollback switch NOT_RUN. Native60/4bcc64c0 unchanged, no CT137
+deployment or host cleanup. Schema0181/controller/RLS/runtime role/routingc016/
+owner-enabled reserveON preserved; voice/ASUS/rights/DNS/billing/resources unchanged.
+Watchdog only two identity keys61, thresholds unchanged, backup retained;
+oneshotSUCCESS and both timers active. Signed restore181 reverified postartifact,
+no new restore DB. Final readback free5247016960bytes.
+
+Source frozen local3360API PASS/0skips; final exact CI includes full integration,
+RLS/security/dependency/version checks. DEV preservingb70dd4eb3... exact controller
+execute/reconcile, unchanged Free/Free/Hobby. Actual ordinary DEV/browser initial/
+repeat/additive/new-only/omission/duplicate/inactive/stale-approval matrix PASS;
+original8 identities and9 full journal rows preserved, expected new QA60 rename
+recorded separately. No legacy VPS/Proxmox/access requirement. Initial long browser
+analysis recovered its ready proposal after reload; cause NOT_VERIFIED, not a
+claimed network/application fix.
+
+Production ordinary QA83552ce6... browser initial creates2staff; additive renames
+001/stable ID and creates003/department/position; new-only creates004/newbranch/
+department/position. All three review/approve/apply committed. Reload/business
+persistence PASS. Ordinary API initial/additive repeats unchanged/0duplicates;
+physical refsD/E correct; duplicate PN approval409; stale approved004 commit409
+after normal offboarding; fresh inactive preview blocks approval409. Actual browser
+inactive warning and disabled approve/apply PASS. All17 prior user business
+identities, prior unit identities and30 FULL journal rows unchanged except exact
+owned empty44c861bd... soft archive. All4new QA61 staff soft-deactivated after test;
+no emails/phone/invitations/training changes/hard purge. Marked import sessions,
+units and positions retained as QA fixtures, not falsely reported deleted.
+
+Bounded release GO; not a universal all-buttons/legal OTP/signature/outbound/
+human-benchmark claim. ADD_OR_UPDATE preserves omitted rows, FULL_RECONCILIATION
+disabled; no automatic hierarchy transfer/reactivation. Pre-existing frontend60
+technical English preview explanations remain a nonblocking presentation follow-up,
+not part of backend61 and not confused with DEV polished presentation. iSpring
+and experimental staff-v3 work remain separate/unpublished. Proof: release61,
+append-only TEST_RUN_LEDGER and cabinet-20261018 receipts/screenshots.
+
+## Historical60 — cabinet released; structure follow-up then open
 
 Browser continuation: owner Cancel recovered control. Ordinary DEV actual repeat,
 additive001rename/003create/newdepartment and new-only004/newbranch review/approve/

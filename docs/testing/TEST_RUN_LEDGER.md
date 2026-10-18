@@ -5047,3 +5047,37 @@ Rules:
 - Actual inactive QA61-004 browser preview needs_correction, explicit Russian
   warning and disabled approve/apply PASS; screenshot dev61-ui-inactive-blocked.png.
   Bounded DEV API+browser accepted, production61 release/live matrix still pending.
+
+### 2026-10-18 — STRUCTURE61 production release and live acceptance PASS
+
+- Release0fe7985bccb8f2464898f4e1fb7904a734f92a3d/v0.11.61. Application tree equals
+  tested3b77; mandatory documentation identity fixed, finalCI39147399472 SUCCESS.
+  Protected39147841351 SUCCESS, imagec6120580...39ffd5/API+threeGREEN workers same,
+  restarts0/private/public/container readback PASS. BLUE60 rollback API healthy/
+  workers stopped; native60 unchanged. Schema0181/routingc016/reserveON/RLS/runtime/
+  controller unchanged. Watchdog two keys/backup/thresholds/checksuccess/timers PASS.
+- Actual ordinary methodologist production QA83552ce6... UI initial file review/
+  approve/apply creates2; additive001rename+003/newdept/position committed; new-only
+  004/newbranch/dept/position committed. Reload/data persistence PASS. Screenshot
+  prod61-ui-initial-committed.png and prod61-ui-new-structure-committed.png.
+- Ordinary API identical initial repeat unchanged5/0created; additive repeat
+  unchanged8/0created. Physical D/E refs correct. Initial001/002 IDs stable; new
+  structure omitted001–003 preserved active. Duplicate PN approval409/no partial
+  apply. Unchanged004 approved while active, normalterminate then stalecommit409
+  inactive_staff_requires_explicit_reactivation. Fresh inactivepreview/approve409;
+  actual browser clear Russian warning/bothactionsdisabled PASS, screenshot
+  prod61-ui-inactive-blocked.png. No model calls or notification sends in61 test.
+- Newemployee IDs ac5d86aa.../a5ecd664.../b8b62845.../5a46a61b... all soft inactive
+  at end. Newempty unit44c861bd... normally softarchived; responseinactive/GET404/
+  absentactiveTree. Initial harness expected inactiveDTO afterGET, corrected to
+  canonical archivedGET404; no duplicate archive. All17old user business identities,
+  old unit identities and30FULL journal rows unchanged except ownedempty cleanup.
+  Marked new import/unit/position records retained QA fixtures, not hard-purged.
+- Postartifact signed restore181 report signature/hash/pass126tables/122FORCE-RLS/
+  RPO43/RTO19 reverified, no new DB. Final readback free5247016960bytes. Exact
+  metadata/scripts/receipts under cabinet-20261018/structure61-production-final,
+  production61-readback.json and prod61-browser-acceptance.json.
+- Bounded functional acceptance PASS. Actual rollback switch/legal OTP/signature/
+  outbound sends/realcustomer/scaling NOT_RUN; no universal all-buttons claim.
+  Production frontend60 technical English preview labels remain nonblocking UI
+  follow-up; DEV polished/experimental/iSpring features not promoted wholesale.

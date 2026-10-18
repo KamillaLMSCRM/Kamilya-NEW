@@ -431,3 +431,42 @@ Actual inactive QA61-004 UI needs_correction/Russian reactivation warning and bo
 approve/apply disabled PASS, screenshot dev61-ui-inactive-blocked.png. DEV bounded
 API+browser gate accepted. Next exact docs-only release revision/CI/tag/artifact,
 protected backend61 and production QA matrix. Native60 remains compatible.
+
+## Final61 production closeout — bounded functional acceptance complete
+
+Published tag/source0fe7985bccb8f2464898f4e1fb7904a734f92a3d; only five documentation
+paths differ from tested3b77, apps/scripts/workflow/VERSION trees equal. Final
+CI39147399472 SUCCESS. Protected REL-STRUCTURE61-20261018/workflow39147841351
+SUCCESS after immutable artifact verification, postartifact signed restore181/
+preflight and Root-verified pure gateGO (6evidence/2approvals, actionablefalse).
+API+three GREEN workers c6120580...39ffd5 running/restarts0; independent public/
+private/container readback PASS. BLUE60/8bf69416... rollback API healthy/workers
+stopped; native60 unchanged. Watchdog two identity keys only/backup retained/
+thresholds unchanged/checksuccess and timers active. Controller/schema0181/RLS/
+runtime non-BYPASS/routingc016/reserveON unchanged. No voice/ASUS/Proxmox/legacy
+VPS/rights/DNS/provider plan/resource change or host/image cleanup.
+
+Production QA83552ce6... ordinary browser three actual files: initial2newstudents,
+additive001rename/stable ID+003/newdepartment/position, new-only004/newbranch/
+department/position. Review/approve/apply committed; reload and independent data
+persistence PASS. API initial and additive repeats unchanged/0created; D/E physical
+refs correct; duplicatePNapprove409; approve unchanged004, normally terminate only
+new004, stale commit409. Fresh inactive preview/approve409; actual browser Russian
+message and disabled approve/apply PASS. Four new identities soft-deactivated at
+end, old17user identities/old unit identities/30full journal rows unchanged except
+owned empty44c861bd... archived normally. Marked import/unit/position fixtures
+retained for reproducibility; no hard deletion, notifications or old-data cleanup.
+
+Exact receipts: production61-readback.json, prod61-browser-acceptance.json,
+structure61-production-final/final-preservation.json; screenshots prod61-ui-initial-
+committed.png, prod61-ui-new-structure-committed.png, prod61-ui-inactive-blocked.png.
+Readback script205d48e4.../watchdog018263d8.../independent ops7d14b612...; final free
+5247016960bytes. Full hashes/artifact identities in release61/readiness receipts.
+
+Explicit limits: actual rollback switch NOT_RUN; no universal all-button, legal
+OTP/signature/outbound or scalability claim. ADD_OR_UPDATE never removes omitted
+rows; full reconciliation disabled. Existing frontend60 raw English technical
+preview explanations are a nonblocking presentation backlog item, not silently
+included from experimental DEV UI. iSpring remains separate/unpublished. Required
+functional61 release/live/preservation steps are complete; final deterministic
+envelope and canonical documentation bind these facts without inventing a result.

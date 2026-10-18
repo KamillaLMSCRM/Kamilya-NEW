@@ -7805,7 +7805,9 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   fabricated refs; split first/last names cite their own columns.
 - Verification: exact-layout RED before implementation,48focused PASS and Root
   3287unit/contract PASS. Behavioral reordered CSV/custom mapping and XLSX cases
-  included. Repaired DEV/production acceptance remains pending at this entry.
+  included. Final3360API PASS; actual repaired DEV and production61 repeated/
+  additive/new-only workbooks cite physicalD/E correctly; exact0fe7985b deployed
+  through protected39147841351 with independent readback and browser acceptance.
 - Prevention: real-file review must verify referenced cells, not just parsed
   values/counts. Original merged/forward-filled row-cell provenance remains a
   separate limitation; this column fix does not claim that broader correction.
@@ -7824,8 +7826,9 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   fallback; canonical branch/department actions reuse the same diff; staff actions
   bind their actual stable keys. Real transfer checks are not disabled.
 - Verification: two exact parent RED cases to44matching/corpus PASS; generic-unit
-  action RED to behavioral PASS, independent narrow parent review accepted. Fresh
-  repaired DEV repeat/additive/new-only matrix remains required.
+  action RED to behavioral PASS, independent review accepted. Actual repaired DEV
+  and production61 repeat/additive/new-only/omission matrix PASS; unchanged repeats
+  commit0created/stable IDs, full old-user/journal preservation independently read.
 - Prevention: repeat-file acceptance must prove unchanged previews, stable IDs,
   zero duplicate records and successful commit; first-import201 is not sufficient.
 
@@ -7843,8 +7846,11 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   and role/RLS policies are not changed.
 - Verification: behavioral inactive personnel/email preview cases, retained refs,
   active unchanged case and stale approved commit/no-write rejection PASS. Review
-  additionally requires normalized-identity multiplicity rejection before writes;
-  final expanded suite and actual repaired DEV acceptance remain required.
+  found normalized-identity multiplicity risk, then accepted the correction before
+  final3360API PASS. Actual DEV and production61 inactive-preview approval409 and
+  stale-approved commit409 after ordinary termination PASS, before writes. Actual
+  browser warning/disabled actions and old identities/full journal preservation
+  PASS. Locks are tenant snapshot based; no universal phantom-insert guarantee.
 - Prevention: offboarding survives partial file updates; test approval-to-commit
   races and ambiguous normalized identities, not only active happy-path records.
 
