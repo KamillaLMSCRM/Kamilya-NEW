@@ -2270,6 +2270,22 @@ repair. Do not introduce blanket punctuation/heading bans from this harness.
   Focused existing reminder tests17PASS; final exact CI/release tracked in the
   manager-attention plan. Do not substitute one-loop mocked tests for this check.
 
+- 2026-10-18 cabinet60 DEV recurrence: exact generation51c23803 was received,
+  then raised Event loop is closed before its claim commit; public job remained
+  pending/started_at null despite one live DB1 consumer/all three queues/zero
+  backlog. Bounded official73-row window confirms asyncpg/SQLAlchemy connection
+  close on a closed loop, not a model call or lost enqueue. Only this own DEV
+  job was cancelled through UI; independent cancelled/no-course readback passed.
+- Worker-only correction: worker_init binds the existing shared session factory
+  to a NullPool engine, so solo and prefork task wrappers cannot borrow an idle
+  connection from a previous task loop. API imports/pool and model Base stay
+  unchanged; prefork discards inherited connections without cross-loop closing.
+  No task/model retry, queue route, schema, provider setting or resource change.
+- Actual canonical Supabase DEV SELECT1 reproducer: previous pooled loop then
+  AI runner is baseline cross_loop/0success; worker-only correction passes three
+  distinct runner loops, zero database writes/provider calls. Deployed fresh
+  document→generation and elapsed-time acceptance remain mandatory.
+
 ## TEST-001 - Mutation smoke tested only SELECT
 
 - Date: 2026-08-13 (original incident: 2026-06-30).

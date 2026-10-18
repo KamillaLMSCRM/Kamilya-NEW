@@ -128,3 +128,43 @@ model schema changed but its public answer envelope did not. Independent source
 review accepted structural fail-closed coverage/conflict binding; this is not
 semantic model proof. Real DEV multipart/retention/requested-conflict answers are
 explicit additional gates for this package. Model configuration stays unchanged.
+
+## Actual combined DEV acceptance and corrective pass
+
+Preserving DEV merge ed6614950b0769a95d30aa75af97ac6190e0d0cf passed exact
+CI39128832001 and deterministic execute/reconcile. API dep-dbac3afbtjjs73ejdohg,
+worker dep-dbac4dfbtjjs73ejhkqg and Vercel dpl_Dji13B9Rgu5HrSpN3P5BkcDzDtz1
+all exact; existing Free/Free/Hobby, schema0183/flags unchanged. An earlier
+merge-only import-sort error was corrected before acceptance; its interrupted
+push is preserved separately and is not a successful release.
+
+Actual browser downloaded both C58 atlas originals. Existing synthetic dialogue
+183c61c2... reused without deleting its history or raising100-task cap. A fresh
+multipart answer retained conditional written same-shift deputy rules, both
+retention categories18/42days/from approval and audio-not-specified. Requested
+appointing authorities legitimately differ across the sources. The next retention-
+only question correctly returned supported18/42/from approval without carrying
+that conflict into the new scope. A third deadline-only question failed with
+invalid_response. No raw provider answer was retained or reconstructed.
+
+Exact third question's explicit retention exclusion independently reproduced a
+false mandatory dimension (5RED). First review found five negative-fact/positive-
+continuation regressions (5RED); corrected96focusedPASS and independentGO. New
+source49fe3caf includes this repair and test history; exact CI39130281758 SUCCESS.
+This is deterministic proof of a real defect, not proof of the third provider's
+unknown rejection detail. Fresh corrected live replay remains required.
+
+New DEV sourcef73aff12... uses the exact production1840byte source. Document
+index/download pipeline succeeded, but generation51c23803... was received by
+worker then raised Event loop is closed before claim; no provider/course output.
+Root canonical DB1 control: onepong/ai-documents-maintenance/no active-reserved-
+scheduled/backlog. Official73-row exact window localizes asyncpg/SQLAlchemy stale
+connection lifecycle. Only this own job was UI-cancelled and API verified cancelled.
+Actual Supabase DEV SELECT1 baseline reproduces cross_loop; worker-only NullPool
+correction passes three distinct AI loops with no DB writes or provider calls.
+Independent review/frozen full checks and new DEV generation remain gates.
+
+Prepared native build39128722119 is NOT accepted provenance: its workflow head
+was old master50d3 although its archive names af97. After final accepted source
+promotion, run a correctly bound native build rather than weaken the SHA gate.
+No production switch, source tag/release or host cleanup has occurred yet.
