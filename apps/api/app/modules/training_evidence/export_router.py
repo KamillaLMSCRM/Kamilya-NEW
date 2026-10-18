@@ -35,7 +35,7 @@ from app.modules.training_evidence.export_service import (
     build_individual_evidence_package_input,
     build_learner_individual_evidence_input,
 )
-from app.modules.training_evidence.models import TrainingEvidenceShare
+from app.modules.training_evidence.models import TrainingEvidenceEvent, TrainingEvidenceShare
 from app.modules.training_evidence.share_schemas import (
     EvidenceShareCreateRequest,
     EvidenceShareResponse,
@@ -55,6 +55,7 @@ router = APIRouter(
     prefix="/training-evidence",
     tags=["training-evidence-export"],
 )
+_learner_tenant_guard = require_tenant_user()
 
 
 def _safe_filename(*parts: object, extension: str) -> str:
@@ -90,9 +91,9 @@ def _share_url(request: Request, tenant_id: UUID, token: str) -> str:
 async def export_my_training_evidence(
     event_id: UUID,
     db: AsyncSession = Depends(get_db),
-    tenant_user: User = Depends(require_tenant_user()),
+    tenant_user: User = Depends(_learner_tenant_guard),
     user: User = Depends(require_role("student")),
-):
+) -> StreamingResponse:
     """Download only the authenticated learner's own individual result PDF."""
 
     from app.modules.training_evidence.service import get_learner_event
@@ -112,11 +113,35 @@ async def export_my_training_evidence(
         render_completion_form_pdf(evidence)
         if evidence.print_form
         and evidence.print_form.selected_fields is not None
-        and evidence.procedure.type == "training"
+        and evidence.procedure.type in {"training", "knowledge_check"}
         else render_individual_act_pdf(evidence),
         media_type="application/pdf",
         filename=_safe_filename("my-training-result", event_id, extension="pdf"),
     )
+
+
+@router.get("/quiz-attempts/mine/{attempt_id}/export")
+async def export_my_quiz_attempt(
+    attempt_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    tenant_user: User = Depends(_learner_tenant_guard),
+    user: User = Depends(require_role("student")),
+) -> StreamingResponse:
+    event = await db.scalar(
+        select(TrainingEvidenceEvent).where(
+            TrainingEvidenceEvent.tenant_id == tenant_user.tenant_id,
+            TrainingEvidenceEvent.user_id == user.id,
+            TrainingEvidenceEvent.source_event_key == f"quiz-attempt:{attempt_id}",
+            TrainingEvidenceEvent.procedure_type == "knowledge_check",
+            TrainingEvidenceEvent.record_type == "original",
+        )
+    )
+    if event is None:
+        raise HTTPException(status_code=404, detail="Evidence event not found")
+    form = event.payload_snapshot.get("print_form") if isinstance(event.payload_snapshot, dict) else None
+    if not isinstance(form, dict) or not isinstance(form.get("selected_fields"), list):
+        raise HTTPException(status_code=409, detail="This historical attempt has no configured result form")
+    return await export_my_training_evidence(event.id, db=db, tenant_user=tenant_user, user=user)
 
 
 @router.get("/events/{event_id}/export")

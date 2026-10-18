@@ -8,8 +8,9 @@ import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { isSingleAnswerQuestionType } from '@/lib/quizChoice';
 import { toast } from '@/components/ui/Toast';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, Download, Loader2, XCircle } from 'lucide-react';
 import { getRoleHome } from '@/lib/rolePolicy';
+import { isPdfPreview } from '@/lib/pdfPreview';
 
 interface QuizChoice {
   id: string;
@@ -104,6 +105,8 @@ export default function QuizPlayerPage() {
   const [courseModules, setCourseModules] = useState<CourseModule[]>([]);
   const [assignmentDeadlineMs, setAssignmentDeadlineMs] = useState<number | null>(null);
   const [assignmentRemainingSeconds, setAssignmentRemainingSeconds] = useState<number | null>(null);
+  const [downloadingAttemptId, setDownloadingAttemptId] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const handleSubmitRef = useRef<() => void>(() => undefined);
   const attemptStartedAtRef = useRef(Date.now());
@@ -111,6 +114,33 @@ export default function QuizPlayerPage() {
   const canAttempt = quiz !== null && attemptsLoaded && attemptsUsed < quiz.attempt_limit;
 
   const getChoiceLabel = (choice: QuizChoice) => choice.text;
+
+  const downloadAttempt = useCallback(async (attemptId: string) => {
+    if (!token || downloadingAttemptId) return;
+    setDownloadingAttemptId(attemptId);
+    setDownloadError(null);
+    try {
+      const response = await fetch(`${API_URL}/v1/training-evidence/quiz-attempts/mine/${encodeURIComponent(attemptId)}/export`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      if (!await isPdfPreview(blob)) throw new Error('Invalid PDF');
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `quiz-result-${attemptId}.pdf`;
+      link.hidden = true;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setDownloadError('Не удалось скачать результат теста. Повторите попытку.');
+    } finally {
+      setDownloadingAttemptId(null);
+    }
+  }, [API_URL, downloadingAttemptId, token]);
 
   const fetchQuiz = useCallback(async () => {
     if (!quizId || !token) return;
@@ -374,6 +404,15 @@ export default function QuizPlayerPage() {
               <p className="text-sm text-muted-foreground">
                 {resultScore}%
               </p>
+              <Button
+                variant="outline"
+                onClick={() => void downloadAttempt(result.attempt.id)}
+                disabled={downloadingAttemptId !== null}
+              >
+                {downloadingAttemptId === result.attempt.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                {downloadingAttemptId === result.attempt.id ? 'Подготовка PDF…' : 'Скачать результат теста'}
+              </Button>
+              {downloadError && <p role="alert" className="text-sm text-destructive">{downloadError}</p>}
               <div className="flex gap-3 justify-center mt-4">
                 {canAttempt && !assignmentBlocked && !result.passed && (
                   <Button onClick={handleRetry}>{t('quiz.tryAgain')}</Button>
@@ -520,7 +559,7 @@ export default function QuizPlayerPage() {
               <h3 className="font-medium mb-2">{t('quiz.attempts')} ({attemptsUsed}/{quiz.attempt_limit})</h3>
               <div className="space-y-1">
                 {attempts.map((a) => (
-                  <div key={a.id} className="flex items-center gap-3 text-sm">
+                  <div key={a.id} className="flex flex-wrap items-center gap-3 text-sm">
                     <Badge variant={a.passed ? 'default' : 'outline'}>
                       {a.score_percent}%
                     </Badge>
@@ -530,9 +569,20 @@ export default function QuizPlayerPage() {
                     <span className="text-muted-foreground">
                       {new Date(a.started_at).toLocaleDateString('ru-RU')}
                     </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-8 px-2"
+                      onClick={() => void downloadAttempt(a.id)}
+                      disabled={downloadingAttemptId !== null}
+                    >
+                      {downloadingAttemptId === a.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />}
+                      {downloadingAttemptId === a.id ? 'Подготовка…' : 'Скачать PDF'}
+                    </Button>
                   </div>
                 ))}
               </div>
+              {downloadError && <p role="alert" className="mt-3 text-sm text-destructive">{downloadError}</p>}
             </CardContent>
           </Card>
         )}
