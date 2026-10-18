@@ -418,8 +418,10 @@ async def update_position(
         user.id,
     )
 
-    from app.modules.organization_units.workspace_config import reject_hr_record_write
-    from app.modules.organization_units.workspace_config import staff_workspace_enabled
+    from app.modules.organization_units.workspace_config import (
+        reject_hr_record_write,
+        staff_workspace_enabled,
+    )
 
     try:
         reject_hr_record_write(pos)
