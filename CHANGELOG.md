@@ -7,6 +7,10 @@
   background prose. Preserve answer truth and the existing three-question cap.
   Expose fact-level selection omissions and require review for recognized
   critical rules missing from final questions. DEV semantic acceptance pending.
+- DEV027 correction: avoid applying the catalog replacement-padding veto to
+  source-bound workplace action questions already accepted by independent option
+  and constraint reviews. Keep source keys, catalog guards and missing-critical
+  review requirements unchanged. Actual DEV026 failure retained as evidence.
 - DEV024 accepted: fix Next lesson after sidebar selection when the next lesson
   is already named in the URL. Preserve local preview completion across lesson
   navigation without writing learner progress, and isolate delayed reads between

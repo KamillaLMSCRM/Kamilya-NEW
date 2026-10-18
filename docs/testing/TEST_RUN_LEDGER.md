@@ -6194,3 +6194,31 @@ Rules:
   then14focusedPASS; EN/KK escalation competition RED2 then8PASS. Frozen unit
   3164PASS36.80s, critical27PASS4.89s, quality1008/2201PASS, contracts315IDs0183PASS.
   Source readiness ACCEPT, not runtime acceptance; one real DEV run still pending.
+
+## DEV026 actual acceptance and DEV027 correction — 2026-10-18
+
+- Exact6caa029328554db05c882f9294b74fa44c5441b3 pushed/readback00:04:39.7568794Z,
+  KamillaLMSCRM/canonical projecttoken, task+authorizedmemoryreceipt. Packet
+  750d16d8...fdb8fab; CI39081422316 all7SUCCESS; rootreconcile accepted sameSHA
+  Verceldpl_Dk6YUgD31PdhUKfWLmrc7SrSsVNi READY/Hobby, APIdep-dba0slom7kps73f1tmmg
+  and workerdep-dba0tnnbtjjs73dc387g LIVE/Free, schema0183/no migration/config.
+- BrokerDB1/API-worker equality; firstping0 with queues3, post-start bounded
+  repeat1pong hasha9cb1b8c8975/ai-documents-maintenance. No network diagnosis.
+- UI source-reuse warning handled once with Other reason; only one job created,
+  c5b36b9f-5c28-4d39-b795-6d4d33f85e41. Created00:16:32.927207Z, started35.515812Z,
+  terminal56.603086Z: total23.676s/queue2.589s. Source download SHA256c7091e2c...c9957
+  exact1042bytes. New draft019c3638-08dd-4c6f-beef-3d9595b8a5920audience/no release.
+- NOT_ACCEPTED semantic result: quiz2 businessquestions/no preamble; selected
+  critical fact omitted as unsupported_replacement_advice. Missingcritical guard
+  accurately sets review_required/nonpublishable and visible Tests need review.
+  Raw dropped option unavailable; never fabricate its wording. Saved raw ordinary
+  API artifact and UI screenshot retained. No blind paid retry.
+- Existing reviewed combined ordinaryGET checker after026 preserves exact old
+  QA roles/placement/approvedrequests/moduleorder/sourcepolicy/protectedattempts/
+  owncompleted timestamp08:34:13.194326Z/twoattempts/survey and0programassignments.
+- Root localized global catalog-padding veto. Writer pure-predicate diagnostic
+  RED1/13 -> source correction+unsupportedquote control refinement -> affected
+  148PASS2.12s. Re-review ACCEPT; frozen unit/critical/quality and DEV027 pending.
+  No production, voice, model/reserve/config/ASUS/resources/billing mutation.
+- Final corrected027 source:3169unitPASS37.02s, criticaljourney27PASS5.00s,
+  quality1008/2201PASS; no baseline allowance increased. Independent ACCEPT.

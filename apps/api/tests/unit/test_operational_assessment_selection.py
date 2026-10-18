@@ -9,7 +9,11 @@ from app.modules.ai.direct_source import DirectSourceChunk, DirectSourceCorpus, 
 from app.modules.ai.evidence_engine import semantic_assessment
 from app.modules.ai.evidence_engine.application import build_evidence_source
 from app.modules.ai.evidence_engine.engine import EvidenceCourseEngine
-from app.modules.ai.evidence_engine.semantic_assessment import generate_block_assessment
+from app.modules.ai.evidence_engine.models import QuestionDraft, SourceFact
+from app.modules.ai.evidence_engine.semantic_assessment import (
+    _unsupported_replacement_advice,
+    generate_block_assessment,
+)
 from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFailureReason
 
 EQUIPMENT = """Учебная инструкция: выдача рабочего оборудования
@@ -153,3 +157,105 @@ async def test_density_limit_keeps_omitted_critical_rule_visible():
     assert set(selection["critical_fact_ids"]) - set(selection["selected_fact_ids"])
     assert len(result.audit["coverage"]["critical_missing_fact_ids"]) == 4
     assert result.audit["coverage"]["requires_review"] is True
+
+
+CRITICAL_EQUIPMENT_RULE = (
+    "Если комплект неполный или оборудование повреждено, остановите выдачу "
+    "и обратитесь к ответственному руководителю."
+)
+REPLACEMENT_COUNTERFACTUAL = (
+    "Самостоятельно заменить повреждённую деталь и продолжить выдачу "
+    "без обращения к руководителю."
+)
+
+
+def _replacement_question(
+    fact: SourceFact,
+    *,
+    reviewed: bool = True,
+    source_quote: str | None = None,
+) -> QuestionDraft:
+    return QuestionDraft(
+        question_id=f"question-{fact.fact_id}",
+        lesson_id="lesson-equipment",
+        kind="single_choice",
+        prompt="Как поступить при проблеме с комплектом?",
+        options=(fact.value, REPLACEMENT_COUNTERFACTUAL),
+        correct_answer=fact.value,
+        explanation=fact.value,
+        fact_id=fact.fact_id,
+        evidence_fact_ids=(fact.fact_id,),
+        source_quote=source_quote or fact.value,
+        semantic_block_id="block-equipment",
+        semantic_reviewed=reviewed,
+    )
+
+
+def test_reviewed_narrative_stop_rule_allows_meaningful_replacement_counterfactual():
+    fact = SourceFact(
+        fact_id="equipment-critical",
+        subject="Выдача оборудования",
+        attribute="положение",
+        value=CRITICAL_EQUIPMENT_RULE,
+        source_locator="doc_id=equipment;section=rules;part=3",
+    )
+
+    assert _unsupported_replacement_advice(_replacement_question(fact), [fact]) is False
+
+
+@pytest.mark.parametrize(
+    "fact,question",
+    [
+        (
+            SourceFact(
+                fact_id="catalog-attribute",
+                subject="Деталь",
+                attribute="материал",
+                value="Сталь",
+                source_locator="doc_id=equipment;sheet=Каталог;row=2;column=3",
+            ),
+            None,
+        ),
+        (
+            SourceFact(
+                fact_id="unreviewed-action",
+                subject="Выдача оборудования",
+                attribute="положение",
+                value=CRITICAL_EQUIPMENT_RULE,
+                source_locator="doc_id=equipment;section=rules;part=3",
+            ),
+            "unreviewed",
+        ),
+        (
+            SourceFact(
+                fact_id="unsupported-key",
+                subject="Выдача оборудования",
+                attribute="положение",
+                value="Остановите выдачу при повреждении оборудования.",
+                source_locator="doc_id=equipment;section=rules;part=3",
+            ),
+            "wrong-source-quote",
+        ),
+        (
+            SourceFact(
+                fact_id="nonnarrative-action",
+                subject="Выдача оборудования",
+                attribute="положение",
+                value=CRITICAL_EQUIPMENT_RULE,
+                source_locator="doc_id=equipment;section=rules",
+            ),
+            "nonnarrative",
+        ),
+    ],
+)
+def test_replacement_counterfactual_guard_remains_for_unsupported_cases(fact, question):
+    if question is None:
+        draft = _replacement_question(fact)
+    elif question == "unreviewed":
+        draft = _replacement_question(fact, reviewed=False)
+    elif question == "wrong-source-quote":
+        draft = _replacement_question(fact, source_quote="Другой источник без этого правила.")
+    else:
+        draft = _replacement_question(fact)
+
+    assert _unsupported_replacement_advice(draft, [fact]) is True

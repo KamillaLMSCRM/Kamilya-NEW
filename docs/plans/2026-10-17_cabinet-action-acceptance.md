@@ -5,6 +5,26 @@ Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
 ## DEV026 question-selection candidate — 2026-10-18
 
+Runtime follow-up: exact6caa029328554db05c882f9294b74fa44c5441b3, CI39081422316
+all7SUCCESS, controllerRELEASE_OK/rootRECONCILED; webdpl_Dk6YUgD31PdhUKfWLmrc7SrSsVNi,
+APIdep-dba0slom7kps73f1tmmg/workerdep-dba0tnnbtjjs73dc387g LIVE/Free+Hobby,
+no migration0183. Firstcontrolping0/queues3, bounded post-start repeat onepong
+hasha9cb1b8c8975/DB1/equality/threequeues PASS. No infrastructure repair.
+Jobc5b36b9f-5c28-4d39-b795-6d4d33f85e41,23.676s total/2.589s queue, source exact
+1042bytes/c7091e2c...c9957. Saved019c3638-08dd-4c6f-beef-3d9595b8a592 draft0audience,
+notpublishable/assessment_needs_review. Quiz2 businessquestions, no cover question,
+critical target selected but omitted unsupported_replacement_advice. New critical
+guard works; semantic quality NOT_ACCEPTED. UI honestly shows Tests need review.
+Root preserved artifact/screenshot and original025 fixture unchanged. Ordinary
+protectedQA combined readback again PASS. No model-routing/production change.
+
+DEV027 correction: catalog-specific substitution-padding veto was global. Narrow
+exception for independently reviewed, exact source-bound narrative operational
+questions; both semantic/constraint reviews remain mandatory. Pure predicate
+diagnostic RED1/13 -> affected148PASS, not exact provider-output replay because
+rejected options are not persisted. Independent review ACCEPT/source-only;
+frozen gates and one new exact DEV generation pending. Do not regenerate026.
+
 - Owner scope: fix operational/critical assessment selection, verify in DEV,
   then return to iSpring adapter work. Production explicitly excluded.
 - Real source adapter/planner probe reproduced cover selection. RU/KK/EN

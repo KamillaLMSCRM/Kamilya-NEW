@@ -341,6 +341,21 @@ def _unsupported_replacement_advice(question: QuestionDraft, facts: list[SourceF
     If substitution itself is a documented operation, the semantic reviewers
     decide whether its proposed counterfactual is a meaningful error.
     """
+    primary = next((fact for fact in facts if fact.fact_id == question.fact_id), None)
+    if (
+        question.semantic_reviewed
+        and primary is not None
+        and not is_tabular_locator(primary.source_locator)
+        and "part" in dict(parse_qsl(primary.source_locator.replace(";", "&")))
+        and _value_quote(question.correct_answer, primary) is not None
+        and _value_quote(question.source_quote, primary) is not None
+        and operational_claim_priority(question.correct_answer)[1]
+    ):
+        # Replacing damaged equipment instead of stopping/escalating may be a
+        # meaningful WRONG action. This catalog-padding heuristic must not veto
+        # it solely for using "replace". The caller still requires independent
+        # option and constraint reviews; the exact source key never changes.
+        return False
     return (any(_REPLACEMENT_ADVICE_RE.search(option) for option in question.options
                 if option != question.correct_answer)
             and not any(_REPLACEMENT_ADVICE_RE.search(fact.value) for fact in facts))

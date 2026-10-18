@@ -1616,6 +1616,17 @@ repair. Do not introduce blanket punctuation/heading bans from this harness.
   language, test multilingual mixed paragraphs and four-critical/three-slot
   overflow. Heuristic critical recognition is not exhaustive risk assessment;
   do not claim that a three-question quiz covers every step of a longer source.
+- DEV026 follow-up: one actual job c5b36b9f selected three action axes, retained
+  two, and omitted the critical rule as unsupported_replacement_advice. The
+  critical guard correctly preserved a non-publishable review-required draft.
+  Source1042 bytes/SHA256c7091e2c...c9957 unchanged; saved output is not overwritten.
+  Root localized a catalog-padding veto applied globally after both reviewers;
+  raw rejected option wording was not persisted and is not reconstructed.
+  A constructed counterfactual regression was RED12/13 before correction.
+  Narrow exception requires reviewed narrative provenance, operational key and
+  exact source binding of key plus quote; catalog/unreviewed/unsupported controls
+  remain vetoed. Both independent review stages stay mandatory in the caller.
+  Affected148PASS; frozen and real DEV027 acceptance remain separate gates.
 
 ## AI-QUALITY-027 - True source sentences became unrelated answer options
 
