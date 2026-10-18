@@ -123,6 +123,10 @@ export default function QuizPlayerPage() {
       const response = await fetch(`${API_URL}/v1/training-evidence/quiz-attempts/mine/${encodeURIComponent(attemptId)}/export`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (response.status === 409) {
+        setDownloadError('Бланк для этой попытки недоступен. Обратитесь к методисту: он проверит результат в журнале обучения.');
+        return;
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const blob = await response.blob();
       if (!await isPdfPreview(blob)) throw new Error('Invalid PDF');
