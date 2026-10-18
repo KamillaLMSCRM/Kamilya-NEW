@@ -1132,6 +1132,22 @@ Current as of: 2026-10-18.
   build PASS. Regressions assert no cancellation/resume write for the new action.
 - Prevention: terminal draft exit must be separate from job cancellation; verify
   retained job and draft identity across reentry and New course in ordinary UI.
+- Recurrence2026-10-18: the UI reset worked, but creating a new course from the
+  same source still returned409 generation_already_in_progress. Exact blocker
+  c5b36b9f was a saved assessment-review draft with activejobs0, not a running
+  worker. The API same-source query counted every interrupted job, contradicting
+  pipeline._restore_saved_v2_outcome and the terminal local-reset contract.
+- API correction excludes only interrupted evidence_v2 jobs with a saved course
+  and one of the two durable assessment-review completion outcomes; the full
+  engine contract also requires analysis_mode=direct_source. COALESCE
+  preserves blocking for absent/malformed markers; pending/running and real
+  interrupted checkpoints remain protected. Tenant/docset binding, advisory lock,
+  quota and normal explicit source-reuse acknowledgement remain unchanged.
+- Verification: ordinary refusal probe creates0jobs/modelcalls0 and identifies
+  exact blocker; unit querycontract genuinely RED beforefix, focused25PASS.
+  Twelve PostgreSQL qualification cases collected; actual CI/runtime proof pending.
+  Regex allowance for null-safe COALESCE and a missing test import were harness
+  corrections, not additional product defects. No cancellation or old draft edit.
 
 ## STUDENT-DASHBOARD-001 - Resume loop overwrote certificate-count scope
 

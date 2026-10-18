@@ -6222,3 +6222,31 @@ Rules:
   No production, voice, model/reserve/config/ASUS/resources/billing mutation.
 - Final corrected027 source:3169unitPASS37.02s, criticaljourney27PASS5.00s,
   quality1008/2201PASS; no baseline allowance increased. Independent ACCEPT.
+
+## DEV027 deployed; terminal review admission correction — 2026-10-18
+
+- Exact65a4a76fff072576be356c76a34a0c067c6c468a pushed/readback00:21:03.0494815Z,
+  canonicalKamillaLMSCRM/projecttoken/task+authorizedmemoryreceipt. CI39082435477
+  all7SUCCESS; packet63a7a1bc...84e50ef, controllerRELEASE_OK/rootRECONCILED;
+  Verceldpl_8CoKgthThcFnwWZ2frWYBkd3cDK3 READY/Hobby, APIdep-dba140favr4c73foimag
+  and workerdep-dba14svavr4c73folm8g LIVE/Free, schema0183/no migration/config.
+- ActualDB1/equalbrokers/firstping0withqueues3; boundedpost-start onepong
+  hash8e2ea46ebcc9/ai-documents-maintenance PASS. No infrastructure diagnosis.
+- Same source/defaultform, normal generation click returns409generictoast.
+  GETjobs confirms0fresh jobs. Read-only refusal probe (no reuse acknowledgement)
+  proves codegeneration_already_in_progress/exactblockerc5b36b9f; before/after
+  IDs equal/model0. Original025 readback again unchanged. No quota/reset bypass.
+- Existing UX-AI-NEW-COURSE-001 had fixed UI-only exit. API counted terminal
+  assessment-review interruption as in-flight; canonical restore deliberately
+  avoids regenerating a saved review draft. Preserve it; fix classification only.
+- Bounded testwriter: unit1genuineRED; tenDB cases collected only. Root null-safe
+  SQL exclusion and queryoracle COALESCE/import corrections -> focused25PASS1.47s.
+  Negative markers, pending/running, actual interruption stay guarded. CI owns
+  actual SQL execution; final source/CI/DEV028/real semantic acceptance pending.
+  No production/voice/models/reserve/ASUS/security/resources/billing change.
+- Independent028 review required full canonical engine marker (analysis_mode
+  direct_source as well as evidence_v2); newmissingmode test RED then clause
+  corrected. Final matrix12SQLcases includes missing/retiredmode; re-review ACCEPT.
+  Source readiness does not substitute CI PostgreSQL execution or live admission.
+- Final028 frozen unit3170PASS37.06s, journey27PASS5.03s, quality1008/2201PASS,
+  contracts315IDs0183PASS; independent source review ACCEPT. CI SQL gate pending.

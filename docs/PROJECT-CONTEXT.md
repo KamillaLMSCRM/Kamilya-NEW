@@ -1,9 +1,27 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-10-17.
+> Обновлено: 2026-10-18.
 
 ## Источники правды
+
+### DEV027 deployed; question-selection acceptance pending — 2026-10-18
+
+Exact65a4a76fff072576be356c76a34a0c067c6c468a/CI39082435477 all7SUCCESS,
+controllerRELEASE_OK/rootRECONCILED. Webdpl_8CoKgthThcFnwWZ2frWYBkd3cDK3 READY/Hobby;
+APIdep-dba140favr4c73foimag/workerdep-dba14svavr4c73folm8g LIVE/Free. Schema0183,
+no migration/config/tiers/resources/production change. DB1/API-worker equality,
+post-start onepong hash8e2ea46ebcc9/threequeues PASS; firstcontrolping0 retained.
+Source gates3169unitPASS37.02s, critical27PASS, quality1008/2201/contracts315IDs.
+
+Real026 jobc5b36b9f selected correct business targets and excluded cover, but
+critical question was falsely vetoed by catalog replacement-padding heuristic.
+Saved019c3638 draft0audience/nonpublishable/review-required; original025 and
+protected learning unchanged. Narrow027 correction accepted in source, but live
+new submission409 points to that terminal review job. Existing UX-AI-NEW-COURSE-001
+API half is being corrected in028; no new model job was created for027. Do not
+cancel/resume/edit the failed example or call semantic acceptance complete.
+After exact DEV acceptance, resume existing local iSpring adapter work only.
 
 ### Current accepted DEV025 — 2026-10-17
 

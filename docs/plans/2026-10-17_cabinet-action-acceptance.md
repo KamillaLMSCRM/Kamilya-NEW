@@ -5,6 +5,18 @@ Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
 ## DEV026 question-selection candidate — 2026-10-18
 
+DEV027 runtime65a4a76fff072576be356c76a34a0c067c6c468a/CI39082435477 all7SUCCESS;
+controllerRELEASE_OK/rootRECONCILED, webdpl_8CoKgthThcFnwWZ2frWYBkd3cDK3 READY/Hobby,
+APIdep-dba140favr4c73foimag/workerdep-dba14svavr4c73folm8g LIVE/Free/schema0183.
+Post-start brokerDB1/equality/onepong8e2ea46ebcc9/3queuesPASS (firstping0 preserved).
+Newcourse reset/defaultform/source selection works; submission409 generic toast.
+Ordinary no-reuse request conclusively returns generation_already_in_progress,
+blockingc5b36b9f, identical before/afterjobIDs/model0. API guard wrongly treats
+saved review outcome as active; cancelling/resuming would contradict canonical
+New course contract and saved-fixture preservation. Minimal028 exclusion under
+existing UX-AI-NEW-COURSE-001, genuine querycontractRED -> focused25PASS, ten
+PostgreSQL behavioral cases for CI. No new027modeljob or newcourse was created.
+
 Runtime follow-up: exact6caa029328554db05c882f9294b74fa44c5441b3, CI39081422316
 all7SUCCESS, controllerRELEASE_OK/rootRECONCILED; webdpl_Dk6YUgD31PdhUKfWLmrc7SrSsVNi,
 APIdep-dba0slom7kps73f1tmmg/workerdep-dba0tnnbtjjs73dc387g LIVE/Free+Hobby,

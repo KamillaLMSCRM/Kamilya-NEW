@@ -291,6 +291,14 @@ async def _in_flight_generation_for_documents(
         "SELECT id FROM ai_jobs "
         "WHERE tenant_id = :tenant_id "
         "AND status IN ('pending', 'running', 'interrupted') "
+        # A durable assessment-review draft is a terminal review outcome, not
+        # an unfinished worker checkpoint. Keep it intact and allow the normal
+        # source-reuse confirmation flow to create an independent draft.
+        "AND NOT (status = 'interrupted' AND course_id IS NOT NULL "
+        "AND COALESCE(params->'source_analysis'->>'generation_engine', '') = 'evidence_v2' "
+        "AND COALESCE(params->'source_analysis'->>'analysis_mode', '') = 'direct_source' "
+        "AND COALESCE(params->'completion'->>'outcome', '') IN "
+        "('assessment_no_valid_questions', 'assessment_coverage_incomplete')) "
         "AND jsonb_typeof(params->'documents') = 'array' "
         "AND params->'documents' @> CAST(:documents AS jsonb) "
         "AND params->'documents' <@ CAST(:documents AS jsonb) "

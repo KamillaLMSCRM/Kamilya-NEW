@@ -1,5 +1,7 @@
 """HTTP admission regressions for AI course generation."""
 
+import json
+import re
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -77,6 +79,45 @@ async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch):
     assert error.value.headers == {"Retry-After": "510"}
     check_quota.assert_awaited_once()
     release_quota.assert_awaited_once_with(db, user.id, tenant_id)
+
+
+@pytest.mark.asyncio
+async def test_in_flight_query_excludes_only_saved_v2_assessment_review_interruptions():
+    document_id = uuid4()
+    tenant_id = uuid4()
+    db = SimpleNamespace(
+        execute=AsyncMock(return_value=SimpleNamespace(first=lambda: None)),
+    )
+
+    await router._in_flight_generation_for_documents(db, tenant_id, [document_id])
+
+    statement = db.execute.await_args.args[0]
+    sql = statement.text
+    assert re.search(
+        r"status\s+IN\s*\(\s*'pending'\s*,\s*'running'(?:\s*,\s*'interrupted')?\s*\)",
+        sql,
+    )
+    assert re.search(
+        r"status\s*=\s*'interrupted'|status\s+IN\s*\(\s*'interrupted'\s*\)",
+        sql,
+    )
+    assert "course_id IS NOT NULL" in sql
+    assert "COALESCE(params->'source_analysis'->>'analysis_mode', '') = 'direct_source'" in sql
+    assert re.search(
+        r"(?:params->'source_analysis'->>'generation_engine'|params\s*#>>\s*'\{source_analysis,generation_engine\}')(?:\s*,\s*''\))?\s*=\s*'evidence_v2'",
+        sql,
+    )
+    assert re.search(
+        r"(?:params->'completion'->>'outcome'|params\s*#>>\s*'\{completion,outcome\}')(?:\s*,\s*''\))?\s+IN\s*\('assessment_no_valid_questions',\s*'assessment_coverage_incomplete'\)",
+        sql,
+    )
+    assert "jsonb_typeof(params->'documents') = 'array'" in sql
+    assert "tenant_id = :tenant_id" in sql
+    assert "params->'documents' @> CAST(:documents AS jsonb)" in sql
+    assert "params->'documents' <@ CAST(:documents AS jsonb)" in sql
+    assert db.execute.await_args.args[1] == {
+        "tenant_id": str(tenant_id), "documents": json.dumps([str(document_id)]),
+    }
 
 
 @pytest.mark.asyncio

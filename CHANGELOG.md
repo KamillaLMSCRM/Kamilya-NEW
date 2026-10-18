@@ -11,6 +11,9 @@
   source-bound workplace action questions already accepted by independent option
   and constraint reviews. Keep source keys, catalog guards and missing-critical
   review requirements unchanged. Actual DEV026 failure retained as evidence.
+- DEV028 candidate: a saved assessment-review draft no longer masquerades as an
+  in-flight same-source generation. New course still requires explicit source
+  reuse acknowledgement; active and truly interrupted jobs remain protected.
 - DEV024 accepted: fix Next lesson after sidebar selection when the next lesson
   is already named in the URL. Preserve local preview completion across lesson
   navigation without writing learner progress, and isolate delayed reads between
