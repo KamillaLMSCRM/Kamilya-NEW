@@ -9066,6 +9066,20 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   phases; only disjoint local work or another explicitly separate environment may
   run in parallel. A successful subtest count alone never overrides failed neutrality.
 
+## EVIDENCE-008 - Single-attempt PDF used a local list index as the learner attempt ordinal
+
+- Date: 2026-10-18, DEV separate-test browser acceptance.
+- Symptom: PDFs for both failed first and successful second attempts displayed
+  `попытка 1`, despite correctly bound distinct attempt IDs and scores.
+- Cause: the shared selected-field renderer enumerated its filtered single-item
+  list. That position is not the learner's chronological attempt number.
+- Fix: quiz-only field labels omit the artificial ordinal; mandatory exact test
+  and attempt ID remain. Course/history rendering is unchanged.
+- Verification: focused29API tests PASS; new positive/negative PDF assertions
+  prohibit the false ordinal. Exact CI/DEV and corrected live PDF readback pending.
+- Prevention: visually inspect separate failed and successful retry PDFs, not
+  only one successful sample. Never present a filtered list position as chronology.
+
 ## EVIDENCE-007 - Quiz replay rebuilt immutable settings and scoped download disclosed form state
 
 - Date: 2026-10-18, separate-test completion form DEV candidate.

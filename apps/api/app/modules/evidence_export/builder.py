@@ -376,7 +376,10 @@ def _render_selected_completion_form(pdf: FPDF, input_data: IndividualEvidenceIn
                     ),
                 }
                 label, value = values[key]
-                _field(pdf, f"{label} (попытка {index})", value if value is not None else "Нет данных")
+                # A quiz form contains one exactly identified attempt, not the
+                # learner's attempt history. Its local list index is not an ordinal.
+                result_label = label if is_quiz else f"{label} (попытка {index})"
+                _field(pdf, result_label, value if value is not None else "Нет данных")
         elif key == "employee_confirmation":
             _heading(pdf, "Подтверждение сотрудника", level=2)
             _paragraph(pdf, form.confirmation_text)

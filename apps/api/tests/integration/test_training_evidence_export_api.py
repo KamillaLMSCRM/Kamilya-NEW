@@ -216,6 +216,7 @@ async def test_separate_quiz_pdf_before_course_completion_is_snapshot_bound_and_
     pdf_text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(first.content)).pages)
     assert "Результат отдельного теста" in pdf_text and attempt_id in pdf_text
     assert "Internal microcredit rules" in pdf_text
+    assert "Итог: Пройдено" in pdf_text and "(попытка 1)" not in pdf_text
     assert "Завершение всего курса этим документом не подтверждается" in " ".join(pdf_text.split())
     before_snapshot = deepcopy(event.payload_snapshot)
     await update_training_evidence_form_settings(
