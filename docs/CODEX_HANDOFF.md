@@ -1,11 +1,42 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-10-16
+**Обновлено:** 2026-10-18
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
-**Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learner-presentation-release-20261010`
-**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, local branch `feature/document-completeness58-20261016`; candidate b73 published to `master`/`dev`
+**Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\cabinet-release-20261018`
+**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `codex/cabinet-release-20261018`; released source/tag/master4bcc64c0c686c6de0f3ffcf98268382fed42295c; DEV preserving integrationb54115e6...
 
-## Current guide59 — complete; AI58 acceptance remains open
+## Current60 — released; bounded live acceptance passed; structure extension open
+
+Do not redeploy60 or return to legacy DEV VPS/Proxmox. Native bridge
+REL-CABINET60-WEB-20261018 RELEASE_OK; protected backend39137346796 SUCCESS.
+API+three BLUE workers/native0.11.60 exact4bcc64c0..., image8bf69416...e48c7d;
+GREEN57 API rollback healthy/workers stopped, native previous59/additional56/
+protected359+299 retained. Watchdog60/timers/restore181/readiness independently
+verified. Schema0181/current routingc016939b.../owner-enabled reserve ON unchanged.
+No voice/ASUS/provider/billing/resource/rights/DNS change. DEV05b54115e6... reconciled
+and accepted on existing free contour. Old transient broker failure is resolved.
+
+Production synthetic QA83552ce6... browser new course469f316e... generation15.107s,
+content review/edit/approval/publication/PIN assignment/fail+pass/completion/reload/
+actual PDF+certificate downloads/public verification PASS. Source-owner, reader,
+filter, competency, nested position and document dialogue changed paths PASS.
+All29 baseline full journal projections unchanged; total30. No legal OTP/signing,
+real notifications, universal AI accuracy or all-buttons claim. Exact proof and
+scope limits are in readiness/ledger/.release-evidence/cabinet-20261018.
+
+Current user-added work: structure/manual staff/Excel initial, repeat, additive,
+new structure with omitted rows preserved, conflicts and safe cleanup. Only new
+QA60 fixtures: manual user23e48d9b... created/edited/deactivated; new child83db5cb5...
+and parent59534ffb... archived via ordinary API after parent409 guard PASS. Browser
+native confirm on old tab2 blocked controls; user asked to cancel it, UI execution
+not claimed. New Excel sessione20cfdec... ready_for_approval but NOT applied: values
+correct, provenance branchG/departmentD wrong vs actualD/E. Root assigned narrow
+adapter/router regression fix; source60 does NOT contain it. Do not approve this
+old preview or report Excel end-to-end PASS before repaired DEV/live verification.
+All writes remain synthetic only; no full-reconciliation deletion or real data.
+iSpring remains separate and out of this production package.
+
+## Historical guide59 — complete; AI58 acceptance then remained open
 
 Frontend59 b0c612bfe4bfaf22346ef8763825512ce0de642e deployed/accepted in production;
 API/workers57 unchanged. Prominent methodologist video link,8approved male Qwen

@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** API/three workers57, native59 guide accepted; DEV59 guide accepted (AI58 semantic acceptance remains open); production57 AI PARTIAL (41/42 API answers, H57-03 provider timeout); schema0181 unchanged; model configuration untouched by guide release; existing ops last verified2026-10-16
+**Проверено:** 2026-10-18: API/three workers/native60 deployed at4bcc64c0; bounded cabinet/course/dialogue live acceptance PASS; extended structure/Excel acceptance IN_PROGRESS with a proven source-cell provenance defect, not applied. Schema0181 and current owner-enabled reserve unchanged.
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,59 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current frontend59 — methodologist video guide accepted,2026-10-16
+## Current60 — deployed; extended structure acceptance open
+
+Exact source/tag/published release4bcc64c0c686c6de0f3ffcf98268382fed42295c,
+v0.11.60. MasterCI39135552069/native39135590688/protected backend39137346796
+SUCCESS. Native REL-CABINET60-WEB-20261018 RELEASE_OK; API and three BLUE workers
+same image8bf69416316fa74f540fbbbac9b6d0b64dbdededa41310f3cdb29a23d9e48c7d,
+running/restarts0, independent private/public exact identity. GREEN57 API healthy
+rollback/workers stopped; native previous59 and additional56/protected359+299
+retained. Actual rollback switch NOT_RUN. Only obsolete55 plus exact staging pair
+removed after verified offhost recovery under standing cleanup authority.
+
+DEV05 b54115e6ec07c1029f2d16f26c21d9b107f3469a RELEASE_OK/RECONCILED on unchanged
+Free/Free/Hobby; fresh final PDF download/render and eight baseline full journal
+projections unchanged PASS. Earlier DEV broker failure recovered on existing
+infrastructure: legacy VPS access is NOT a current release prerequisite.
+Local frozen API3267PASS, web1277PASS/167files, Pythonquality1006/2192PASS and
+contract/version/head0181 PASS. Earlier failed runs remain in evidence.
+
+Production ordinary synthetic QA83552ce6... browser: fresh generation e1c483d8...
+15.107s total, course469f316e..., all lesson/options source reviewed, manual edit,
+test/course approval, publication, PIN assignment to one existing pupil with no
+email, wrong PIN rejection, failed0%/successful100% attempts, explicit course
+completion and reload PASS. Actual two-page act and certificate downloaded and
+visually accepted; public certificate verification PASS. All29 prior FULL journal
+projections (including original26) unchanged; total30. Three operational questions
+are not exhaustive assessment or a human-speedup/availability benchmark.
+
+Changed paths passed live: source owner other/self/clear and reload, mandatory
+filter reset, reader same-URL/sidebar lesson+quiz synchronization, competency
+course-link persistence, exact nested-unit position selection without duplicate
+department, WhatsApp unavailable/retry presentation. Fresh RU/KK deadline-only
+document answer2vs5 working days, exact trigger/conflict/no precedence/two sources
+and reload/original download PASS. This bounded acceptance does not relabel all
+historical AI57 cases, all buttons, legal OTP/signing or real notification sends.
+
+Schema0181/two dialogue FORCE-RLS/non-BYPASS runtime/controller unchanged;
+routing rowc016939b977c62f1562c32b78566c9076158601bdd13c27545d45ee71c32a736 and
+owner-enabled reserve ON preserved. Watchdog identity60 only/thresholds unchanged,
+checksuccess0/two timers active; signed restore181 reverified. No migration,
+voice/ASUS/rights/DNS/billing/resource change. Post-native free1076288KiB;
+post-backend VM126 free5692674048bytes at recorded readback.
+
+Owner-added structure extension is NOT closed: ordinary API manual staff
+create/update/terminate and parent-with-active-child409/archive-order checks PASS
+only on new QA60 fixtures. Native confirm blocked browser control, so UI execution
+is not inferred from API proof. Initial Excel sessione20cfdec... values are correct
+but refs wrongly use branchG/departmentD instead of actualD/E; NOT approved or
+committed. Repair and initial/repeat/additive/new-structure/omission/conflict matrix
+remain required. Source60 does not contain that later-discovered repair.
+Detailed receipts: docs/testing/TEST_RUN_LEDGER.md and ignored
+.release-evidence/cabinet-20261018; current execution plan records pending work.
+
+## Historical frontend59 — methodologist video guide accepted,2026-10-16
 
 Exact b0c612bfe4bfaf22346ef8763825512ce0de642e; protected frontend-only release
 REL-METHODGUIDE59-WEB-20261016 RELEASE_OK, public release header/body exact.
