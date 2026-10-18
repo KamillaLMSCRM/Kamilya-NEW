@@ -3,6 +3,26 @@
 Status: DEV024 reader + DEV025 filter ACCEPTED; full cabinet PARTIAL; reset diagnosis DEFERRED.
 Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
+## DEV030 temporal answer-context correction — 2026-10-18
+
+DEV029 exactf82759267a72082c178e9154d2acf25b00efbce4/CI39084279755 SUCCESS,
+rootRECONCILED; three services sameSHA/Free+Hobby/schema0183; actualworker
+DB1/equalbrokers/onepong44b4ba966bdb/threequeues PASS. Job5854343f completed18.606s
+and savedbc153d18 draft/no release/0audience. Four source steps retained, three
+business questions/no cover, critical incompleteORdamaged/STOPANDcontact intact.
+Selection regression is corrected, but independent all-option review BLOCKED Q1:
+checking after journalentry may still occur beforeissuance. Preserve failed raw
+artifact; engine flags are not semantic acceptance. Original026 stays exact.
+
+030 adds one shared, stage-schema-specific temporal policy. Four real synthetic
+constraint requests: oldprompt exactsingle ACCEPT, newprompt exactsingle REJECT;
+checklistcorrection/critical controls ACCEPT; explicitly ordered-source control
+ACCEPT. No key/cap/admission/routing change, no new parser heuristic. Newparser
+tests are GREENcontrols/promptcontract, not inventedproductRED. Independent
+source+boundedreplay ACCEPT after schema mapping and explicit-order correction.
+Frozen gates/DEV030 fullauthor-review-audit and UI/reload acceptance pending.
+After acceptance resume local optional iSpring editor seam; no production.
+
 ## DEV026 question-selection candidate — 2026-10-18
 
 Additional029 regression: explicit prohibition without a check/stop verb could

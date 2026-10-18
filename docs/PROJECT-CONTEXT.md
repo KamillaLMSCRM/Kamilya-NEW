@@ -5,6 +5,26 @@
 
 ## Источники правды
 
+### DEV029 selection verified; DEV030 temporal correction preparing — 2026-10-18
+
+Exactf82759267a72082c178e9154d2acf25b00efbce4/CI39084279755 SUCCESS,
+controllerRELEASE_OK/rootRECONCILED. Verceldpl_HGfq9n6cYDoGGez86yK9GPPfH8Ln
+READY/Hobby; APIdep-dba1hsdg1s2s73adrl6g/workerdep-dba1irdg1s2s73adulbg LIVE/Free;
+schema0183/no migration. Actualworker DB1/equalbrokers/onepong44b4ba966bdb/3queues.
+Realjob5854343f completed18.606s; bc153d18 draft/0audience/no publication. Lesson
+4/4steps, quiz3operational questions/no cover, critical retained. Explicit audit
+shows3/4quizcoverage (returnstep densityomitted), not100%. Root and independent
+review found one possibly correct Q1 journal-order distractor; semantic BLOCK.
+Original026 and protectedQA readbacks unchanged. No production action.
+
+030 fixes timing interpretation with the same source-owned key and existing
+schemas. Four synthetic actualDEV-config model review calls demonstrate old
+exactquestion accepted/new exactquestion rejected, validchecklist/critical and
+explicit-order controls accepted. Source/independentreview ACCEPT; frozen tests,
+DEV030 and fresh fullgeneration/browser acceptance remain required. Resume local
+iSpring optional editor work afterward. Do not restart Render/ASUS/voice/model
+routing/reserve/security/billing work from historical context.
+
 ### DEV027 deployed; question-selection acceptance pending — 2026-10-18
 
 Exact65a4a76fff072576be356c76a34a0c067c6c468a/CI39082435477 all7SUCCESS,

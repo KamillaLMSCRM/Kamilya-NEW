@@ -1653,6 +1653,30 @@ repair. Do not introduce blanket punctuation/heading bans from this harness.
   own type/explanation. Final unit3179PASS37.05s, related217PASS, critical27PASS,
   quality1008/2201PASS; independent review ACCEPT. Exact DEV029 remains pending.
 
+## AI-QUALITY-049 - A different timing anchor made a possibly correct distractor
+
+- Date: 2026-10-18. Actual synthetic DEV029 job5854343f.
+- Symptom: it completed with three operational questions and retained the critical stop/contact rule, but Q1
+  treated checking after a journal entry as incompatible with checking before
+  issuance. Both can hold; numbered source facts did not explicitly bind them.
+- Cause: author and reviewers inferred workflow ordering not established by the
+  actual question/source. Local parser success and engine acceptance did not
+  prove that every distractor was unambiguously wrong.
+- Fix: share a question-context timing policy without changing source keys or
+  density. Author excludes possibly correct alternatives; option review uses its
+  boolean schema; only constraint audit emits relation=undetermined. Explicit
+  source dependencies still make genuine reversed-order alternatives incorrect.
+- Verification: exact saved candidate replay with existing DEV DeepSeek settings:
+  old prompt accepted; new constraint prompt rejected the identical single item
+  and accepted corrected checklist/critical controls. Explicit check-before-log
+  source control accepted genuine reversed-order distractors. Four actual calls,
+  no retry/fallback/routing/DB/application writes. These prove bounded model
+  behavior, not universal reliability or author/reviewer schema execution.
+  Fresh exact DEV030 generation remains the final gate.
+- Prevention: independently inspect all options in the actual question context,
+  distinguish an unmentioned order from an expressly required dependency, keep
+  stage-specific output schemas, and preserve both successful and failed runs.
+
 ## AI-QUALITY-027 - True source sentences became unrelated answer options
 
 - Date: 2026-09-18. Confirmed against the owner's privacy-question screenshot

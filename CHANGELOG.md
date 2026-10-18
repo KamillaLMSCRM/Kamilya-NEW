@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- DEV030 candidate: do not treat a different timing anchor as proof that an
+  answer is wrong. Preserve explicit source ordering and use each author/review
+  stage's existing output schema. Actual029 counterexample and bounded real
+  model replays retained; fresh DEV semantic acceptance remains required.
+
 - DEV026 candidate: exclude explicit synthetic cover metadata from assessment;
   select source-owned workplace actions and stop/escalation rules ahead of
   background prose. Preserve answer truth and the existing three-question cap.

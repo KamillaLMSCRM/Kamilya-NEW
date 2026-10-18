@@ -6278,3 +6278,57 @@ Rules:
   source_documents_already_used, no blocking job, before/after job IDs equal,
   zero model calls. The old saved assessment-review draft remains intact.
   Admission regression is verified; final029 real semantic acceptance pending.
+
+## DEV029 immutable release and root runtime readback — 2026-10-18
+
+- Root pushed/read back f82759267a72082c178e9154d2acf25b00efbce4 to dev at
+  00:50:57.3002747Z with project KamillaLMSCRM/canonical process-local credential;
+  sanitized task receipt and owner-authorized memory receipt retained.
+- Packet c1fb691f4a7d8fc51513fc415cd9398a7f830b04f2260eab74784ee8e26daec2;
+  CI39084279755 SUCCESS; controller RELEASE_OK/root RECONCILED.
+  Webdpl_HGfq9n6cYDoGGez86yK9GPPfH8Ln READY/Hobby; APIdep-dba1hsdg1s2s73adrl6g
+  and workerdep-dba1irdg1s2s73adulbg LIVE/Free, exactSHA. Schema0183/no migration.
+- Actual worker read: DB1/API-worker broker equality, onepong/hash44b4ba966bdb,
+  queues ai/documents/maintenance, zero business/model tasks. Passed first probe.
+- Browser reloaded exactDEV, restored old review-required result, then used New
+  course (preserving it), selected original1042byte source/defaultRU settings.
+  Fresh029 acceptance window starts00:59:11Z. No production/config/tiers/resources,
+  model routing/reserve, voice or ASUS changes. Real model acceptance pending.
+
+## DEV029 real generation and temporal counterexample — 2026-10-18
+
+- Ordinary UI reuse gate now works, Other reason/independent course confirmed.
+  Exactly one job5854343f-8e48-4528-90f9-8a991e677b1a completed00:59:55.824551Z;
+  created00:59:37.218520Z/started00:59:39.614554Z:18.606s total/2.396s queue.
+  Coursebc153d18-9391-42d3-a4a2-36293ba36a78 draft/no release/0audience, same
+  1042byte source hash. Lesson preserves4/4steps; quiz3business questions/no cover,
+  critical ORconditions+ANDactions retained, no missingcritical. Metadata4chat
+  attempts/0fallback/0repairs is recorded metadata, not provider attestation.
+- Independent semantic review BLOCK: Q1 'check after journal entry' can still
+  satisfy 'check before issuance'; do not infer binding order from numbering.
+  Q2/Q3 independently accepted. Quiz coverage3/4, complete=false, returnstep
+  intentionally density-omitted; never call fact_coverage_ratio1.0 quiz coverage.
+- Root opened lesson/edit/preview then reloaded samecourse, persisted source
+  readback confirmed. Ordinary protected-QA combined readback PASS; failed026
+  source_analysis/structure/questions remained exact. No publication/assignments.
+  Returning to generation route restored an older saved review-job state; this
+  separate UI resume observation is not proof of029 content loss and is retained.
+-030 shared temporal policy, not a new heuristic parser. Exact actualQ1/provider
+  replay oldprompt single ACCEPT2.672s -> newprompt same single REJECT2.562s.
+  Newpolicy batch3.578s rejectsbad/acceptschecklistcorrection+critical. Reviewer
+  caught shared schema wording; corrected explicit per-stage mapping and added
+  genuine ordered-source control. Actual orderedcontrol2.671s ACCEPT. Fourcalls
+  total/no retry/fallback, synthetic only, DEV provider settings, no business/DB
+  writes or routing/production change. Provider/model identity is configured
+  endpoint/request metadata, not independently attested response identity.
+- New unit tests exercise parser undetermined rejection/corrected acceptance,
+  source key preservation/prompt contract/explicit ordering. Parser controls are
+  GREEN, not a fabricated old RED. Focused47PASS1.12s. First quality run found
+  import-only I001 in newtest, Ruff formatting corrected; quality1008/2201PASS.
+  Earlier3182unitPASS37.19s/critical27PASS4.79s preceded the final ordered-control
+  addition and schema wording; final frozen gates and DEV030 remain pending.
+- Final030 source independent re-review ACCEPT. Frozen3183unitPASS37.05s,
+  critical27PASS5.18s, Pythonquality1008/2201PASS, contracts316IDs/schema0183PASS,
+  diffcheck clean. First final run3182PASS1FAIL was the ERRORS entry missing its
+  mandatory Symptom field, not an algorithm failure; explicit field restored,
+  full suite rerun above. Source/test candidate frozen before DEV030 push.
