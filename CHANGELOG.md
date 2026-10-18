@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- DEV026 candidate: exclude explicit synthetic cover metadata from assessment;
+  select source-owned workplace actions and stop/escalation rules ahead of
+  background prose. Preserve answer truth and the existing three-question cap.
+  Expose fact-level selection omissions and require review for recognized
+  critical rules missing from final questions. DEV semantic acceptance pending.
 - DEV024 accepted: fix Next lesson after sidebar selection when the next lesson
   is already named in the URL. Preserve local preview completion across lesson
   navigation without writing learner progress, and isolate delayed reads between

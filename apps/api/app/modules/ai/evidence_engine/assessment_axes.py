@@ -28,6 +28,25 @@ def _norm(text: str) -> str:
     return " ".join(text.casefold().replace("ё", "е").split())
 
 
+def operational_claim_priority(claim: str) -> tuple[int, int]:
+    """Rank explicit source actions; this is a heuristic, not a safety proof."""
+    value = _norm(claim)
+    conditional = bool(re.search(r"\b(?:если|когда|при|if|when|unless|егер)\b", value))
+    stop = bool(re.search(
+        r"\b(?:останов(?:ите|ить)|приостанов(?:ите|ить)|прекрат(?:ите|ить)|"
+        r"не\s+продолж(?:айте|ать)|не\s+выдава(?:йте|ть)|"
+        r"stop|halt|suspend|тоқтат\w*|бермеңіз)\b", value,
+    ))
+    escalation = bool(re.search(
+        r"\b(?:обратитесь|сообщите|уведомите|notify|escalate|report|contact|хабарла\w*|жүгін\w*)\b", value,
+    ))
+    operational = stop or escalation or bool(re.search(
+        r"\b(?:проверь\w*|запиш\w*|отмет\w*|сверь\w*|переда\w*|"
+        r"check|verify|record|log|тексер\w*|жазы\w*|белгіле\w*)\b", value,
+    ))
+    return int(stop or (conditional and escalation)), int(operational)
+
+
 _ANCHOR_TOKEN = re.compile(r"[^\W_]+", flags=re.UNICODE)
 _BARE_NUMBER = re.compile(r"[+-]?\d+(?:[.,]\d+)?")
 _NUMBER_WITH_OPTIONAL_UNIT = re.compile(
@@ -277,7 +296,7 @@ def _source_owned_correct_value(fact: SourceFact) -> str:
         _norm(fact.value),
     ))
 
-    def score(sentence: str, index: int) -> tuple[int, int, int]:
+    def score(sentence: str, index: int) -> tuple[int, int, int, int, int]:
         normalized = _norm(sentence)
         points = 0
         if has_scope_context and _norm(fact.attribute) in _AUTO_NARRATIVE_ATTRIBUTES and re.search(
@@ -304,7 +323,14 @@ def _source_owned_correct_value(fact: SourceFact) -> str:
         # Spreadsheet cells normally lead with the direct value for the row
         # attribute and follow with compatibility/context.  Preserve that
         # source order when no later sentence has a stronger normative signal.
-        return points, -index, -len(sentence)
+        # Narrative background must not outrank an explicit stop/action later
+        # in the same evidence unit. Table attributes retain their value order.
+        action_priority = (
+            operational_claim_priority(sentence)
+            if _norm(fact.attribute) in _AUTO_NARRATIVE_ATTRIBUTES
+            and not is_tabular_locator(fact.source_locator) else (0, 0)
+        )
+        return *action_priority, points, -index, -len(sentence)
 
     return _concise_source_span(max(
         enumerate(sentences),

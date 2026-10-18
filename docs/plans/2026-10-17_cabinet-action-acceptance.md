@@ -3,6 +3,33 @@
 Status: DEV024 reader + DEV025 filter ACCEPTED; full cabinet PARTIAL; reset diagnosis DEFERRED.
 Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
+## DEV026 question-selection candidate — 2026-10-18
+
+- Owner scope: fix operational/critical assessment selection, verify in DEV,
+  then return to iSpring adapter work. Production explicitly excluded.
+- Real source adapter/planner probe reproduced cover selection. RU/KK/EN
+  competition uncovered a second seam: a mixed English paragraph selected its
+  background sentence rather than the later stop/escalation rule.
+- Separate explicit cover metadata without filtering ordinary privacy rules;
+  share action priority across atomic span and narrative target selection.
+  Three-question cap, source order, immutable keys and blind review unchanged.
+  Fact-level omissions are explicit; recognized missing critical rules fail the
+  existing publishability coverage gate, including four rules/three slots.
+- Initial related228 PASS, allunit3161 PASS42.97s, journey27 PASS (13 selectors
+  expanded by parametrization), quality1008/2201 PASS. Independent review found
+  Kazakh sentence-boundary and EN/KK escalation gaps; correction tests RED before
+  repair. Re-review ACCEPT; frozen3164unitPASS36.80s, critical27PASS4.89s,
+  quality1008/2201PASS, contracts315IDs/schema0183PASS. Real DEV acceptance pending.
+- Broad wrapper run without selectors was interrupted; environment DB suites
+  skipped before interruption, not PASS. No local database/container started.
+  New lint/type issues corrected before the quality gate; no allowance increased.
+- Graph navigation unavailable (local CodeGraph runtime/Graphify index absent);
+  bounded source ownership confirmed at adapter -> planner -> axes -> semantic
+  review -> publishability. No install/rebuild/hooks; token/cost savings unknown.
+- Root owns axes/selection/tests; bounded writer owns adapter metadata/tests;
+  independent reviewer read-only. Saved025 draft/needs_changes and protected
+  learning remain untouched. Full cabinet acceptance remains PARTIAL.
+
 ## Final bounded DEV025 acceptance — 2026-10-17
 
 - Exact506de2778ee9f00cdd6925fa2cb92b02d60e1659/dev pushed/readback16:00:25Z,

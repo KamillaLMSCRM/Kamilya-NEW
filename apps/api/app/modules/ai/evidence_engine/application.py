@@ -229,7 +229,45 @@ _SOURCE_AUTHORING_METADATA_RE = re.compile(
     r"\brather\s+than\s+(?:retelling|copying)\s+headings\b"
     r"|все\s+названия\s+и\s+ситуации\s+синтетические\b"
     r"|(?:этот\s+)?документ\s+нужен\s+только\s+для\s+проверки\s+LMS\b"
+    r"|синтетический\s+материал\s+для\s+видеоинструкции\b"
+    r"|все\s+правила\s+и\s+названия\s+вымышлены\b"
+    r"|конец\s+(?:учебного\s+)?материала\b"
+    r"|(?:бейненұсқаулыққа|бейненұсқаулық\s+үшін)\s+арналған\s+синтетикалық\s+материал\b"
+    r"|синтетикалық\s+материал\s+(?:бейненұсқаулыққа|бейненұсқаулық\s+үшін)\b"
+    r"|(?:сабақ|курс)\s+ережелерді\s+үйретуі\s+керек\b[^.!?]{0,160}"
+    r"(?:тақырыптарды\s+қайталау\s+емес|тақырыптарды\s+қайта\s+айтудың\s+орнына)\b"
+    r"|(?:synthetic\s+material\s+for\s+(?:a\s+)?video\s+instruction)\b"
+    r"|all\s+rules\s+and\s+names\s+are\s+fictional\b"
+    r"|end\s+of\s+(?:the\s+)?(?:training\s+)?material\b"
     r")", re.IGNORECASE,
+)
+
+
+_SYNTHETIC_COVER_START_RE = re.compile(
+    r"^(?:"
+    r"синтетический\s+материал\s+для\s+видеоинструкции\b"
+    r"|(?:synthetic\s+material\s+for\s+(?:a\s+)?video\s+instruction)\b"
+    r"|(?:бейненұсқаулыққа|бейненұсқаулық\s+үшін)\s+арналған\s+синтетикалық\s+материал\b"
+    r"|синтетикалық\s+материал\s+(?:бейненұсқаулыққа|бейненұсқаулық\s+үшін)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+
+_SYNTHETIC_COVER_CONTINUATION_RE = re.compile(
+    r"^(?:"
+    r"все\s+правила\s+и\s+названия\s+вымышлены\b"
+    r"|персональных\s+данных\s+и\s+сведений\s+клиентов\s+нет\b"
+    r"|all\s+rules\s+and\s+names\s+are\s+fictional\b"
+    r"|there\s+is\s+no\s+personal\s+data\s+or\s+client\s+information\b"
+    r"|барлық\s+ережелер\s+мен\s+атаулар\s+ойдан\s+шығарылған\b"
+    r"|жеке\s+деректер\s+және\s+клиенттер\s+туралы\s+мәліметтер\s+жоқ\b"
+    r"|конец\s+(?:учебного\s+)?материала\b"
+    r"|end\s+of\s+(?:the\s+)?(?:training\s+)?material\b"
+    r"|оқу\s+материалының\s+соңы\b"
+    r"|материалдың\s+соңы\b"
+    r")",
+    re.IGNORECASE,
 )
 
 
@@ -239,7 +277,7 @@ def _separate_source_authoring_metadata(value: str) -> list[str]:
     This is not a general sentence splitter: consecutive operational sentences,
     including their exceptions, remain one evidence unit.
     """
-    sentences = re.split(r"(?<=[.!?])\s+(?=[A-ZА-ЯЁ])", value)
+    sentences = re.split(r"(?<=[.!?])\s+(?=[A-ZА-ЯЁӘҒҚҢӨҰҮҺІ])", value)
     # An explicit synthetic QA cover is retained intact, not taught as a rule.
     if (
         len(sentences) <= 3
@@ -250,14 +288,31 @@ def _separate_source_authoring_metadata(value: str) -> list[str]:
         return [value]
     parts: list[str] = []
     operational: list[str] = []
+    cover: list[str] = []
+    in_cover = False
     for sentence in sentences:
-        if _SOURCE_AUTHORING_METADATA_RE.match(sentence):
+        if in_cover:
+            if _SYNTHETIC_COVER_CONTINUATION_RE.match(sentence):
+                cover.append(sentence)
+                continue
+            parts.append(" ".join(cover))
+            cover = []
+            in_cover = False
+        if _SYNTHETIC_COVER_START_RE.match(sentence):
+            if operational:
+                parts.append(" ".join(operational))
+                operational = []
+            cover.append(sentence)
+            in_cover = True
+        elif _SOURCE_AUTHORING_METADATA_RE.match(sentence):
             if operational:
                 parts.append(" ".join(operational))
                 operational = []
             parts.append(sentence)
         else:
             operational.append(sentence)
+    if cover:
+        parts.append(" ".join(cover))
     if operational:
         parts.append(" ".join(operational))
     return parts

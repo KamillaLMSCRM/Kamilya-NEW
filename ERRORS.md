@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-17.
+Current as of: 2026-10-18.
 
 ## LEARNING-UX-004 - Mandatory-training deep-link action remained hidden after clean-route navigation
 
@@ -1592,6 +1592,30 @@ This is not proof that current generation reproduces legacy content. Preserve
 the red diagnostic separately; verify adapter-to-axis reachability, actual
 independent-review behavior and legitimate quoted-question/name controls before
 repair. Do not introduce blanket punctuation/heading bans from this harness.
+
+## AI-QUALITY-048 - Introductory prose displaced workplace assessment actions
+
+- Date: 2026-10-18. Confirmed against saved synthetic DEV job b850179c and
+  reproduced through the real source adapter, lesson planner and pre-provider
+  assessment selection, without paid model calls.
+- Symptom: a question tested synthetic-material boilerplate, while the critical
+  stop/escalation rule was untested. Topic-level coverage did not expose that gap.
+- Cause: explicit cover metadata was admitted; narrative selection gave weak
+  conditional prose the same priority as operational actions. Atomic span
+  selection could also choose background before a later stop rule in one fact.
+- Fix: conservatively separate explicit RU/KK/EN synthetic cover metadata from
+  adjacent actions; prioritize source-owned stop/escalation and action spans at
+  both selection seams. Keep the three-question ceiling and source presentation
+  order. Record eligible/selected/actually assessed facts per lesson; recognized
+  critical omissions require review even when general topic coverage is complete.
+- Verification: related228 PASS, then multilingual correction regressions14/8 PASS;
+  frozen API unit3164 PASS36.80s; critical journey27 PASS;
+  canonical Python baseline1008/2201 PASS. Exact DEV runtime and fresh semantic
+  acceptance remain pending at source preparation; no production mutation.
+- Prevention: exercise the actual adapter/planner, preserve operational privacy
+  language, test multilingual mixed paragraphs and four-critical/three-slot
+  overflow. Heuristic critical recognition is not exhaustive risk assessment;
+  do not claim that a three-question quiz covers every step of a longer source.
 
 ## AI-QUALITY-027 - True source sentences became unrelated answer options
 

@@ -6171,3 +6171,26 @@ Rules:
   billing unchanged; network diagnosis deferred, not localized by this release.
   Derivedacceptance025-summary.json and screenshots/receipts retained. Final docs
   local-only commit is separate from deployed source; no extra release triggered.
+
+## DEV026 source preparation — 2026-10-18
+
+- Scope: source-owned operational question selection; DEV only, then existing
+  iSpring adapter. HEAD baseline a12965b689590bf5e2fcd1620c808631e88289e7;
+  runtime baseline506de2778ee9f00cdd6925fa2cb92b02d60e1659/schema0183.
+- Exact saved025 source -> real adapter/planner/pre-provider probe reproduced
+  preamble selection. First metadata test RED, mixed EN/KK action competition RED;
+  related228PASS, allunit3161PASS42.97s, journey27PASS and quality1008/2201PASS.
+  Independent review BLOCKED two genuine multilingual gaps: Kazakh uppercase
+  sentence boundary and EN/KK escalation synonyms; corrections in progress.
+- Root owns axes/selection and audit; bounded writer owns adapter metadata;
+  reviewer read-only. Requested/observed model and token counters unavailable;
+  no invented cost/savings. Two review corrections, final acceptance pending.
+- Navigation preflight NOT_READY: local CodeGraph runtime/Graphify index absent.
+  Bounded source fallback confirms real active path; no installs/hooks/rebuild.
+- Broad selectorless wrapper run interrupted, not full-suite PASS; DB tests had
+  skipped under environment guard. No local PostgreSQL/container or DB mutation.
+  No production, provider/billing/config/reserve/voice changes in preparation.
+- Corrections accepted independently: exact Kazakh mixed-cover regression RED
+  then14focusedPASS; EN/KK escalation competition RED2 then8PASS. Frozen unit
+  3164PASS36.80s, critical27PASS4.89s, quality1008/2201PASS, contracts315IDs0183PASS.
+  Source readiness ACCEPT, not runtime acceptance; one real DEV run still pending.

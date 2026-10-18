@@ -1,0 +1,155 @@
+"""Real source adapter -> lesson planner -> pre-provider selection regressions."""
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from app.modules.ai.direct_source import DirectSourceChunk, DirectSourceCorpus, DirectSourceDocument
+from app.modules.ai.evidence_engine import semantic_assessment
+from app.modules.ai.evidence_engine.application import build_evidence_source
+from app.modules.ai.evidence_engine.engine import EvidenceCourseEngine
+from app.modules.ai.evidence_engine.semantic_assessment import generate_block_assessment
+from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFailureReason
+
+EQUIPMENT = """Учебная инструкция: выдача рабочего оборудования
+
+Синтетический материал для видеоинструкции Камили. Все правила и названия вымышлены. Персональных данных и сведений клиентов нет.
+
+1. До выдачи оборудования проверьте его комплектность по учебному перечню.
+2. Запишите условный инвентарный номер и дату выдачи в журнал учебного подразделения.
+3. Если комплект неполный или оборудование повреждено, остановите выдачу и обратитесь к ответственному руководителю.
+4. После возврата проверьте комплектность повторно и отметьте возврат в журнале.
+
+Конец учебного материала.
+"""
+
+
+def equipment_plan(text: str = EQUIPMENT):
+    chunk = DirectSourceChunk(
+        chunk_id="equipment-chunk", doc_id="equipment", doc_name="equipment.txt",
+        title="Выдача оборудования", headings=(), text=text,
+        source_revision="document:equipment-fixture", chunk_index=0,
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="synthetic-tenant", documents=(DirectSourceDocument(
+            doc_id="equipment", title="Выдача оборудования", filename="equipment.txt",
+            category="training_material", source_revision="document:equipment-fixture",
+            chunks=(chunk,),
+        ),), total_chars=len(text), total_chunks=1,
+    )
+    bundle = build_evidence_source(corpus)
+    result = EvidenceCourseEngine().generate_from_document(bundle.document)
+    return result.course.lessons, {fact.fact_id: fact for fact in result.admitted_facts}
+
+
+class SelectionProbe:
+    """Observe real pre-provider targets; never pretend an author/reviewer passed."""
+    def __init__(self):
+        self.requests = []
+
+    async def ainvoke_validated(self, messages, parser, **kwargs):
+        request = json.loads(messages[-1]["content"])
+        if request.get("task") == "assessment_generate":
+            self.requests.append(request)
+        raise AllProvidersFailedError("offline-selection-probe", [ValidatedCallFailureReason.PROVIDER_UNAVAILABLE])
+
+
+@pytest.mark.asyncio
+async def test_equipment_selection_excludes_preamble_and_prioritizes_stop_rule():
+    lessons, facts = equipment_plan()
+    probe = SelectionProbe()
+    await generate_block_assessment(list(lessons), facts, probe)
+    claims = [axis["source_claim"] for request in probe.requests for axis in request["axes"]]
+    assert claims, "The real adapter and planner must produce business assessment targets"
+    assert all("Синтетический материал" not in claim and "Конец учебного" not in claim for claim in claims)
+    assert any("остановите выдачу" in claim and "руководител" in claim for claim in claims)
+    first_attempt = {axis["axis_id"] for request in probe.requests for axis in request["axes"]}
+    assert len(first_attempt) <= 3, "Selection must preserve the existing density cap, not pad a quota"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text,critical", [
+    (
+        "При ознакомлении раздел описывает общую схему работы.\n\n"
+        "Когда описывается склад, раздел содержит общие сведения.\n\n"
+        "Если речь об оборудовании, раздел перечисляет его категории.\n\n"
+        "При повреждении оборудования остановите выдачу и сообщите руководителю.",
+        "остановите выдачу",
+    ),
+    (
+        "When reading the introduction, this section describes the workflow.\n\n"
+        "If discussing the warehouse, this section describes its categories.\n\n"
+        "When describing equipment, this section contains general background.\n\n"
+        "If equipment is damaged, stop issuing it and notify the supervisor.",
+        "stop issuing",
+    ),
+    (
+        "Бұл бөлімде жұмыс тәртібі туралы жалпы ақпарат берілген.\n\n"
+        "Бұл бөлімде қойманың санаттары туралы ақпарат берілген.\n\n"
+        "Бұл бөлімде жабдықтың түрлері туралы жалпы мәлімет берілген.\n\n"
+        "Егер жабдық зақымдалса, беруді тоқтатыңыз және басшыға хабарлаңыз.",
+        "тоқтатыңыз",
+    ),
+    (
+        "When reading the introduction, this section describes the workflow.\n\n"
+        "If discussing the warehouse, this section describes its categories.\n\n"
+        "When describing equipment, this section contains general background.\n\n"
+        "If equipment is damaged, contact the supervisor.",
+        "contact the supervisor",
+    ),
+    (
+        "Бұл бөлімде жұмыс тәртібі туралы жалпы ақпарат берілген.\n\n"
+        "Бұл бөлімде қойманың санаттары туралы ақпарат берілген.\n\n"
+        "Бұл бөлімде жабдықтың түрлері туралы жалпы мәлімет берілген.\n\n"
+        "Егер жабдық зақымдалса, басшыға жүгініңіз.",
+        "жүгініңіз",
+    ),
+])
+async def test_critical_stop_rule_outranks_conditional_background(text, critical):
+    lessons, facts = equipment_plan(text)
+    probe = SelectionProbe()
+    result = await generate_block_assessment(list(lessons), facts, probe)
+    claims = [axis["source_claim"] for request in probe.requests for axis in request["axes"]]
+    assert any(critical in claim for claim in claims)
+    critical_ids = {
+        fact.fact_id for fact in facts.values() if critical in fact.value
+    }
+    assert critical_ids <= set(result.audit["coverage"]["critical_missing_fact_ids"])
+
+
+@pytest.mark.asyncio
+async def test_missing_critical_question_cannot_be_hidden_by_complete_topic_coverage(monkeypatch):
+    lessons, facts = equipment_plan()
+    monkeypatch.setattr(semantic_assessment, "assess_topic_coverage", lambda *args, **kwargs: {
+        "missing_fact_ids": [], "requires_review": False, "audit_incomplete": False,
+    })
+    result = await generate_block_assessment(list(lessons), facts, SelectionProbe())
+    critical = [fact.fact_id for fact in facts.values() if "остановите выдачу" in fact.value]
+    assert critical
+    assert result.audit["coverage"]["critical_missing_fact_ids"] == critical
+    assert result.audit["coverage"]["requires_review"] is True
+    assert result.audit["terminal_status"] == "review_required"
+    selection = result.audit["narrative_selection_coverage"][0]
+    assert len(selection["eligible_fact_ids"]) == 4
+    assert len(selection["selected_fact_ids"]) == 3
+    assert selection["assessed_fact_ids"] == []
+    assert selection["complete"] is False
+
+
+@pytest.mark.asyncio
+async def test_density_limit_keeps_omitted_critical_rule_visible():
+    text = "\n\n".join([
+        "1. Если комплект неполный, остановите выдачу и сообщите руководителю.",
+        "2. Если журнал недоступен, остановите выдачу и сообщите руководителю.",
+        "3. Если номер отсутствует, остановите выдачу и сообщите руководителю.",
+        "4. Если пломба повреждена, остановите выдачу и сообщите руководителю.",
+    ])
+    lessons, facts = equipment_plan(text)
+    result = await generate_block_assessment(list(lessons), facts, SelectionProbe())
+    selection = result.audit["narrative_selection_coverage"][0]
+    assert len(selection["critical_fact_ids"]) == 4
+    assert len(selection["selected_fact_ids"]) == 3
+    assert set(selection["critical_fact_ids"]) - set(selection["selected_fact_ids"])
+    assert len(result.audit["coverage"]["critical_missing_fact_ids"]) == 4
+    assert result.audit["coverage"]["requires_review"] is True
