@@ -229,6 +229,11 @@ async def test_separate_quiz_pdf_before_course_completion_is_snapshot_bound_and_
     repeated = await client.get(path, headers=auth_headers(learner))
     assert repeated.status_code == 200 and repeated.content == first.content
     assert event.payload_snapshot == before_snapshot
+    from app.modules.training_evidence.workflow import record_quiz_submission
+
+    original_attempt = await db_session.scalar(select(QuizAttempt).where(QuizAttempt.id == UUID(attempt_id)))
+    replayed = await record_quiz_submission(db_session, user=learner, attempt=original_attempt)
+    assert replayed.id == event.id and replayed.payload_snapshot == before_snapshot
     foreign_tenant = await make_tenant(name="Other form tenant")
     foreign = await make_user(foreign_tenant, role="student", email=f"other-{uuid4().hex}@example.com")
     same_tenant_other = await make_user(tenant, role="student", email=f"other-{uuid4().hex}@example.com")
@@ -246,6 +251,7 @@ async def test_separate_quiz_pdf_before_course_completion_is_snapshot_bound_and_
     later_id = uuid4()
     later_snapshot = deepcopy(original.evidence_snapshot)
     later_snapshot["attempt"]["id"] = str(later_id)
+    later_snapshot["attempt"].update(score_percent=0, earned_points=0, passed=False)
     later = QuizAttempt(
         id=later_id,
         tenant_id=tenant.id,
@@ -268,6 +274,34 @@ async def test_separate_quiz_pdf_before_course_completion_is_snapshot_bound_and_
     await db_session.flush()
     last = await client.get(path, headers=auth_headers(learner))
     assert last.status_code == 200 and last.content == first.content
+    # A real assignment-scoped bearer must not classify another enrollment's
+    # configured OR historical attempt belonging to the very same learner.
+    await update_training_evidence_form_settings(db_session, tenant.id, TrainingEvidenceFormSettings())
+    await record_quiz_submission(db_session, user=learner, attempt=later)
+    other_course = await make_course(tenant, methodologist, title="Other scoped course", status="published")
+    enrolled = await client.post(
+        f"/api/v1/courses/{other_course.id}/enrollments",
+        json={"user_ids": [str(learner.id)], "delivery_mode": "personal_link"},
+        headers=auth_headers(methodologist),
+    )
+    assert enrolled.status_code == 201, enrolled.text
+    issued = await client.post(
+        f"/api/v1/courses/enrollments/{enrolled.json()[0]['id']}/access-link",
+        json={"delivery_mode": "personal_link"},
+        headers=auth_headers(methodologist),
+    )
+    assert issued.status_code == 200, issued.text
+    exchanged = await client.post(
+        f"/api/v1/assignment-access/{issued.json()['access_url'].rsplit('/',1)[1]}/exchange",
+        json={"pin": issued.json()["temporary_pin"]},
+    )
+    assert exchanged.status_code == 200, exchanged.text
+    scoped_headers = {"Authorization": "Bearer " + exchanged.json()["access_token"]}
+    for target_id in (attempt_id, str(later_id), str(uuid4())):
+        denied = await client.get(
+            f"/api/v1/training-evidence/quiz-attempts/mine/{target_id}/export", headers=scoped_headers
+        )
+        assert denied.status_code == 404
 
 
 async def test_individual_export_builds_server_owned_zip_and_state(

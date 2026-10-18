@@ -95,7 +95,7 @@ async def test_submission_snapshots_quiz_template_only_when_configured(monkeypat
     class Database:
         def __init__(self):
             self.rows = iter(
-                [SimpleNamespace(snapshot_sha256="a" * 64, version=3), SimpleNamespace(title="Exact quiz")]
+                [SimpleNamespace(snapshot_sha256="a" * 64, version=3), SimpleNamespace(title="Exact quiz"), None]
             )
 
         async def scalar(self, _query):
@@ -123,6 +123,29 @@ async def test_submission_snapshots_quiz_template_only_when_configured(monkeypat
         ) == (attempt_id, quiz_id, attempt.evidence_sha256)
         settings.selected_fields.append("department")
         assert "department" not in payload["print_form"]["selected_fields"]
+        existing = SimpleNamespace(
+            id=uuid4(),
+            user_id=learner_id,
+            enrollment_id=enrollment_id,
+            content_release_id=release_id,
+            procedure_type="knowledge_check",
+            record_type="original",
+            payload_snapshot=payload,
+            payload_sha256=workflow.evidence_payload_sha256(payload),
+        )
+        retry_db = Database()
+        retry_db.rows = iter(
+            [SimpleNamespace(snapshot_sha256="a" * 64, version=3), SimpleNamespace(title="Renamed quiz"), existing]
+        )
+
+        async def settings_must_not_be_loaded(*_args):
+            raise AssertionError("retry must use original snapshot, not current template")
+
+        monkeypatch.setattr(workflow, "get_training_evidence_form_settings", settings_must_not_be_loaded)
+        repeated = await workflow.record_quiz_submission(
+            retry_db, user=SimpleNamespace(id=learner_id, tenant_id=tenant_id), attempt=attempt
+        )
+        assert repeated is existing
 
 
 @pytest.mark.parametrize("bad_key", ["attempt_id", "quiz_id", "evidence_sha256"])
@@ -156,3 +179,25 @@ async def test_attempt_route_refuses_missing_or_historical_template(missing):
             uuid4(), db=Database(), tenant_user=SimpleNamespace(tenant_id=uuid4()), user=SimpleNamespace(id=uuid4())
         )
     assert exc.value.status_code == (404 if missing else 409)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("configured", [False, True])
+async def test_scoped_assignment_denial_precedes_template_availability(configured):
+    class Database:
+        async def scalar(self, _query):
+            return SimpleNamespace(
+                enrollment_id=uuid4(),
+                payload_snapshot={"print_form": _settings().to_print_form(for_quiz=True).model_dump()}
+                if configured
+                else {},
+            )
+
+    with pytest.raises(HTTPException) as exc:
+        await export_router.export_my_quiz_attempt(
+            uuid4(),
+            db=Database(),
+            tenant_user=SimpleNamespace(tenant_id=uuid4()),
+            user=SimpleNamespace(id=uuid4(), assignment_access_enrollment_id=uuid4()),
+        )
+    assert exc.value.status_code == 404

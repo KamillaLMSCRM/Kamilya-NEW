@@ -138,6 +138,9 @@ async def export_my_quiz_attempt(
     )
     if event is None:
         raise HTTPException(status_code=404, detail="Evidence event not found")
+    scoped_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
+    if scoped_enrollment_id is not None and event.enrollment_id != scoped_enrollment_id:
+        raise HTTPException(status_code=404, detail="Evidence event not found")
     form = event.payload_snapshot.get("print_form") if isinstance(event.payload_snapshot, dict) else None
     if not isinstance(form, dict) or not isinstance(form.get("selected_fields"), list):
         raise HTTPException(status_code=409, detail="This historical attempt has no configured result form")
