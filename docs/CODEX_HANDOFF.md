@@ -7,6 +7,32 @@
 
 ## Current60 — released; bounded live acceptance passed; structure extension open
 
+Browser continuation after latest owner Cancel: repeat and actual additive/new-only
+DEV Excel review/approve/apply committed PASS. QA60 four active/stable identities,
+omitted rows retained; only expected001name update, other users and9full journal
+rows unchanged. Earlier native-confirm hold below is historical, not current.
+Do not reopen native archive confirm. Final release-note identity markers fixed;
+freeze a documentation-only child of3b77 for release, preserve exact code equality,
+new CI/tag/artifact/protected production gates. Production remains60 until then.
+
+Latest continuation: source/master3b77aead2e5bf34c14878ce43d094c7e28fa5162 is
+backend61 candidate, NOT production deployed/tagged. Preserving DEVb70dd4eb3...
+CI39143947829 SUCCESS, REL-STRUCTURE61-DEV-R3-20261018 RELEASE_OK/RECONCILED on
+same Free/Free/Hobby. Full frozen3360API PASS; fresh ordinary DEV QA61-XLS API
+initial/repeat/additive/new-only/omission/duplicate/offboarding/stale-approval matrix
+PASS, all10 old user identities/existing units/9 full journal rows unchanged.
+Receipts cabinet-20261018/structure61-dev-final. Do not repeat old approved sessions.
+UI production employee3cc30d06... create/edit/reopen/terminate/Уволен PASS; latest
+29old full journal rows unchanged/total30. Browser is held again by native archive
+confirm of NEW empty branch44c861bd-6596-4487-b70c-73e246e84197 in temporary tab5;
+getJsDialog no active handle, Escape/close timeout. Owner asked Cancel. Last API
+read branch active, so archive NOT claimed. Do not retry native archive/filechooser
+while held. Browser Excel execution remains incomplete; API evidence is separate.
+Fresh protected read-only production preflight60 PASS, free5690073088bytes; no
+legacy VPS/Proxmox/paid resource/access blocker. Continue browser DEV proof, then
+protected backend61 only and production fresh matrix; keep native60 unchanged.
+Current detailed next steps are in the existing combined-release plan/release61.
+
 Do not redeploy60 or return to legacy DEV VPS/Proxmox. Native bridge
 REL-CABINET60-WEB-20261018 RELEASE_OK; protected backend39137346796 SUCCESS.
 API+three BLUE workers/native0.11.60 exact4bcc64c0..., image8bf69416...e48c7d;

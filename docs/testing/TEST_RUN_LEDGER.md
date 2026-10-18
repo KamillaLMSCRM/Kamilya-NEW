@@ -5001,3 +5001,49 @@ Rules:
   structure-manual-update-terminate.json, structure-import-01-initial-analyze.json
   under cabinet-20261018. A failed Node FormData attempt occurred before network;
   actual analyze used canonical Python/httpx and exact ordinary QA identity.
+
+### 2026-10-18 — STRUCTURE61 fresh DEV matrix (API PASS; browser incomplete)
+
+- Source3b77aead2e5bf34c14878ce43d094c7e28fa5162 CI39143445565 SUCCESS;
+  preserving DEVb70dd4eb3a9d66f7ed4d7ffc3b7c1c30ab6d36ac CI39143947829 SUCCESS.
+  Execute RELEASE_OK/reconcile RECONCILED, same Free/Free/Hobby, no migration.
+- Root inspected all4 new QA61-XLS workbook images; no formulas/contacts/real PII.
+  Ordinary QA methodologist: initial2staff/2units/1position; identical repeat0created
+  and all unchanged; additive001rename/003create/newdepartment; new-only004 and
+  newbranch preserve001–003 active/stable IDs. Duplicate PN approval409/no apply.
+- Approved repeat004 while active, then normal terminate only new004. Stale
+  approved commit409 inactive_staff_requires_explicit_reactivation, before writes.
+  Fresh inactive preview has blocking human message/approval409; no reactivation.
+- Exact pre-run10user business identities, existing units and9 full journal rows
+  unchanged. Rules recomputeSUCCESS or not_required, no training additions/removals,
+  deleted0. Receipts cabinet-20261018/structure61-dev-final. API is not UI proof.
+- Owner Cancel restored first browser interruption. Actual production UI employee
+  3cc30d06... create/edit/save/reopen/short-reason-disabled/terminate/visibleУволен
+  PASS. Independent29old full journal rows unchanged/total30. Screenshot
+  prod60-structure-ui-terminated.png. New empty branch44c861bd... UI create PASS;
+  Archive native confirm interrupted browser again. No archive executed per exact
+  API read. Dialog handle unavailable; keyboard/tab-close timeout. DEV file chooser
+  cannot complete. Owner asked Cancel; no blind replay or API-as-UI claim.
+- Fresh protected read-only production preflight PASS: exact60/all4/restarts0,
+  rollback57healthy, schema0181/current routingc016/reserveON/watchdog/timers;
+  free5690073088bytes. No production61 tag/dispatch/switch. Actual browser Excel
+  acceptance and production61 release/live matrix remain NOT_RUN.
+
+### 2026-10-18 — STRUCTURE61 browser continuation
+
+- Owner Cancel recovered browser control; no further native archive attempted.
+  QA61 additive repeated workbook review/approve/apply shows committed; screenshot
+  dev61-ui-repeat-committed.png. Long initial analysis recovered ready proposal
+  after reload, no duplicate request or premature commit.
+- Actual QA60 additive file: preview001rename/002unchanged/003create/newdepartment/
+  position; approve/apply committed. Actual new-only004/newbranch/dept/position:
+  preview/approve/apply committed. Reload returns clean file entry after completed
+  session. Ordinary API independently confirms four active staff/stable initial
+  IDs, omitted rows retained, expected001name update only, other users/9full journal
+  unchanged. Receipt structure61-dev-final/browser-four-staff-preservation.json.
+- Final product-version release check caught missing two release-note markers;
+  documentation-only correction. New exact source/CI/tag artifact required;
+  no runtime code change or waived gate. Production remains60 at this checkpoint.
+- Actual inactive QA61-004 browser preview needs_correction, explicit Russian
+  warning and disabled approve/apply PASS; screenshot dev61-ui-inactive-blocked.png.
+  Bounded DEV API+browser accepted, production61 release/live matrix still pending.

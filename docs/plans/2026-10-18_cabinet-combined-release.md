@@ -372,3 +372,62 @@ snapshot; explicit concurrency tradeoff, no phantom-insert/scalability guarantee
 Root final3360API PASS/0skips, quality1006/2191, version61/contract315IDs/head0181
 PASS. Source code frozen for fresh preserving DEV candidate; earlier96a candidate
 was NOT accepted because repeat failed. No production61 release yet.
+
+## Final DEV61 API acceptance; browser handoff remains explicit
+
+Exact source3b77aead2e5bf34c14878ce43d094c7e28fa5162/master CI39143445565 SUCCESS.
+Preserving DEVb70dd4eb3a9d66f7ed4d7ffc3b7c1c30ab6d36ac CI39143947829 SUCCESS,
+REL-STRUCTURE61-DEV-R3-20261018 execute RELEASE_OK/reconcile RECONCILED;
+APIdep-dbaf2a67bikc73ecs4d0/workerdep-dbaf39e7bikc73ed08ng,
+Verceldpl_D49oHrPrLafZkNMHxsNqpa4JJdXD exact, Free/Free/Hobby unchanged.
+The preceding CI failure was a DEV-only empty DB fake lacking execute for the new
+identity guard; focused38PASS after correcting that fake, not weakening runtime.
+
+Root visually inspected all four fresh QA61-XLS XLSX preview images. Ordinary
+methodologist tenanta7a2...: initial session2e372da5... creates2users/2units/1position;
+repeat all unchanged/0created; additive rename001 +create003/newdepartment;
+new-only004/newbranch preserves omitted001–003 and stable IDs. Duplicate PN
+approval409. Approve repeat004 while active, normally terminate only new004,
+commit stale approval409 before writes. Fresh inactive preview/approval409 with
+explicit reactivation message. All10 baseline user business identities, existing
+units and9 full journal rows unchanged; rulesSUCCESS/no additions-removals/deleted0.
+Receipts .release-evidence/cabinet-20261018/structure61-dev-final. These are API
+executions, not substituted for browser clicks.
+
+Owner's first Cancel recovered control. Production UI manual employee3cc30d06.../
+QA60-MANUAL-UI-002 create/edit/reopen/short-reason-disabled/terminate and visible
+Уволен PASS; all29 old full journal rows unchanged, total30. New empty UI branch
+44c861bd-6596-4487-b70c-73e246e84197 was created. Its later Archive reopened native
+confirm; getJsDialog returned no active dialog, Escape and closing the temporary
+tab timed out. Last exact API read shows branch active; no archive is claimed.
+File chooser on DEV cannot receive selection while browser is held. Root asked
+only Cancel of this second confirmation and continued independent API work.
+HARNESS_FAILURE, not an app/API outage or reason to use legacy VPS/Proxmox.
+
+Fresh read-only production preflight PASS: exact API+three workers60/restarts0,
+rollback57healthy, schema0181, FORCE-RLS/runtime role/routingc016/reserveON,
+watchdog/timers unchanged; free5690073088bytes. Production61 remains unpublished.
+Next: restore browser control, actual DEV Excel review/confirm/readback, exact
+protected backend61 promotion/readback, production fresh synthetic matrix and
+final preservation; retain native60 and existing rollback material.
+
+### Browser continuation after owner Cancel
+
+Control recovered without another archive attempt. DEV ordinary methodologist
+uploaded QA61 additive workbook, reviewed unchanged proposal, approved/applied
+and saw committed. An initial long analysis wait recovered its ready proposal
+after reload; no duplicate launch or business mutation was inferred from waiting.
+Then actual QA60 additive file reviewed001rename/003create/newdepartment/position,
+approved/applied to committed. Actual new-only QA60 file reviewed004/newbranch/
+department/position, approved/applied to committed. Independent readback confirms
+four active QA60 identities, original001/002 IDs retained, omitted rows preserved,
+expected001name change only, other users and9full journal rows unchanged. Reload
+returns clean file entry after committed session; persisted business data remains.
+Screenshot dev61-ui-repeat-committed.png and browser-four-staff-preservation.json.
+Release validation additionally found two missing release-note identity markers;
+documentation-only correction, no application/runtime change. Do not waive release
+identity validation or reuse the older source SHA for the final release artifact.
+Actual inactive QA61-004 UI needs_correction/Russian reactivation warning and both
+approve/apply disabled PASS, screenshot dev61-ui-inactive-blocked.png. DEV bounded
+API+browser gate accepted. Next exact docs-only release revision/CI/tag/artifact,
+protected backend61 and production QA matrix. Native60 remains compatible.

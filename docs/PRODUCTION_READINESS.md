@@ -11,6 +11,26 @@ DB/storage gate и приёмкой клиента
 
 ## Current60 — deployed; extended structure acceptance open
 
+Browser continuation: owner Cancel recovered control. Ordinary DEV actual repeat,
+additive001rename/003create/newdepartment and new-only004/newbranch review/approve/
+apply show committed; independent four active/stable QA60 identities/omitted rows
+and other users/9full journal preservation PASS. Earlier browser interruption is
+historical; no legacy VPS/Proxmox required. Release-note marker correction is
+documentation-only; final exact CI/tag/artifact/protected61 gates remain required.
+
+Latest61 follow-up, not production released: source/master3b77aead2e5bf34c14878ce43d094c7e28fa5162
+and preserving DEVb70dd4eb3... CI39143445565/39143947829 SUCCESS; DEV execute/reconcile
+PASS on same tiers. Fresh QA61-XLS ordinary API initial/repeat/additive/new-only,
+omitted-row preservation, duplicate conflict, inactive-preview and stale-approved
+commit matrix PASS. All10 prior user business identities/existing units/9 full
+DEV journal rows unchanged. Full frozen API3360PASS. Actual browser Excel remains
+incomplete due native-confirm harness interruption; do not infer UI from API.
+Production UI new manual employee create/edit/reopen/terminate/Уволен PASS, all29
+old full journal rows unchanged/total30. Fresh protected read-only production60
+preflight/rollback57/schema0181/routingc016/reserveON/watchdog/timers PASS, free
+5690073088bytes. No production61 tag/dispatch/switch or new frontend/migration.
+Detailed evidence/scope limits are in release61 and the combined-release plan.
+
 Exact source/tag/published release4bcc64c0c686c6de0f3ffcf98268382fed42295c,
 v0.11.60. MasterCI39135552069/native39135590688/protected backend39137346796
 SUCCESS. Native REL-CABINET60-WEB-20261018 RELEASE_OK; API and three BLUE workers
