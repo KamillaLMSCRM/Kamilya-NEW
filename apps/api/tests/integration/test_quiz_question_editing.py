@@ -4,6 +4,58 @@ import pytest
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("days", [0, 3, 7])
+async def test_quiz_deferral_roundtrips_create_update_and_omission(
+    client, db_session, auth_headers, make_tenant, make_user, make_course, make_module, make_lesson, days
+):
+    from app.modules.quizzes.models import Quiz, QuizAttempt
+
+    tenant = await make_tenant()
+    methodologist = await make_user(tenant, role="methodologist")
+    learner = await make_user(tenant, role="student")
+    course = await make_course(tenant, methodologist)
+    module = await make_module(course)
+    lesson = await make_lesson(module)
+    headers = auth_headers(methodologist)
+    created = await client.post(
+        "/api/v1/quizzes",
+        headers=headers,
+        json={"lesson_id": str(lesson.id), "title": "QA deferral", "deferral_days": days},
+    )
+    assert created.status_code == 201, created.text
+    quiz_id = created.json()["id"]
+    assert created.json()["deferral_days"] == days
+    from uuid import UUID
+
+    stored = await db_session.get(Quiz, UUID(quiz_id))
+    await db_session.refresh(stored)
+    assert stored.deferral_days == days
+    updated = await client.put(f"/api/v1/quizzes/{quiz_id}", headers=headers, json={"deferral_days": 0})
+    assert updated.status_code == 200 and updated.json()["deferral_days"] == 0
+    omitted = await client.put(f"/api/v1/quizzes/{quiz_id}", headers=headers, json={"title": "QA unchanged window"})
+    assert omitted.status_code == 200 and omitted.json()["deferral_days"] == 0
+    invalid = await client.put(f"/api/v1/quizzes/{quiz_id}", headers=headers, json={"deferral_days": -1})
+    assert invalid.status_code == 422
+    db_session.add(
+        QuizAttempt(
+            quiz_id=stored.id,
+            user_id=learner.id,
+            tenant_id=tenant.id,
+            score_percent=100,
+            total_points=1,
+            earned_points=1,
+            passed=True,
+            answers=[],
+        )
+    )
+    await db_session.flush()
+    protected = await client.put(f"/api/v1/quizzes/{quiz_id}", headers=headers, json={"deferral_days": 3})
+    assert protected.status_code == 409
+    await db_session.refresh(stored)
+    assert stored.deferral_days == 0
+
+
+@pytest.mark.asyncio
 async def test_methodologist_updates_question_and_choices_atomically(
     client,
     db_session,

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- DEV-only separate-test acceptance corrections: preserve exact result snapshots
+  on replay/template changes, enforce assignment scope before form classification,
+  avoid a false attempt ordinal in single-result PDFs, and persist accepted quiz
+  deferral days (including zero) without weakening historical-attempt edit guards.
+  No production rollout in this package.
+
 - DEV030 candidate: do not treat a different timing anchor as proof that an
   answer is wrong. Preserve explicit source ordering and use each author/review
   stage's existing output schema. Actual029 counterexample and bounded real
