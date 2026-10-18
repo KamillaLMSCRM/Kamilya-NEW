@@ -31,6 +31,11 @@ def _norm(text: str) -> str:
 def operational_claim_priority(claim: str) -> tuple[int, int]:
     """Rank explicit source actions; this is a heuristic, not a safety proof."""
     value = _norm(claim)
+    prohibition = bool(re.search(
+        r"\b(?:нельзя|запрещ\w*|не\s+допуска\w*|не\s+вправе|"
+        r"(?:must|shall)\s+not|do\s+not|prohibit\w*|forbidden|"
+        r"тыйым\s+сал\w*|құқылы\s+емес|құқығы\s+жоқ)\b", value,
+    ))
     conditional = bool(re.search(r"\b(?:если|когда|при|if|when|unless|егер)\b", value))
     stop = bool(re.search(
         r"\b(?:останов(?:ите|ить)|приостанов(?:ите|ить)|прекрат(?:ите|ить)|"
@@ -40,11 +45,11 @@ def operational_claim_priority(claim: str) -> tuple[int, int]:
     escalation = bool(re.search(
         r"\b(?:обратитесь|сообщите|уведомите|notify|escalate|report|contact|хабарла\w*|жүгін\w*)\b", value,
     ))
-    operational = stop or escalation or bool(re.search(
+    operational = prohibition or stop or escalation or bool(re.search(
         r"\b(?:проверь\w*|запиш\w*|отмет\w*|сверь\w*|переда\w*|"
         r"check|verify|record|log|тексер\w*|жазы\w*|белгіле\w*)\b", value,
     ))
-    return int(stop or (conditional and escalation)), int(operational)
+    return int(prohibition or stop or (conditional and escalation)), int(operational)
 
 
 _ANCHOR_TOKEN = re.compile(r"[^\W_]+", flags=re.UNICODE)

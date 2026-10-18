@@ -6250,3 +6250,31 @@ Rules:
   Source readiness does not substitute CI PostgreSQL execution or live admission.
 - Final028 frozen unit3170PASS37.06s, journey27PASS5.03s, quality1008/2201PASS,
   contracts315IDs0183PASS; independent source review ACCEPT. CI SQL gate pending.
+
+## Explicit prohibition priority regression — 2026-10-18
+
+- Independent synthetic realadapter/planner/probe confirmed a late explicit ban
+  loses to three early routine actions; critical IDs empty. Root reproduced
+  RU2/EN/KK4RED plus1RED for later prohibition inside the same evidence fact.
+- Narrow shared ban/negative-right classification restores risk priority; generic
+  positive obligations and ambiguous availability stay noncritical. Exact source
+  key, cap3 and source presentation order unchanged. Parent-deadline-label test
+  intentionally checks the newly selected prohibition's own rule type/explanation.
+- Affected217PASS2.42s, focused83PASS1.07s, frozen3179unitPASS37.05s, critical27PASS
+  4.98s, quality1008/2201PASS after import-only formatting. Independent ACCEPT;
+  vocabulary remains heuristic, not exhaustive multilingual risk assessment.
+-028 CI39083528652/PGjob117545237342 successful: backend4811PASS2SKIP230.41s,
+  changed integrationfile29PASS (wrapped16+13dots), includes12qualificationcases.
+  Attempt to extract individual names returned0because default output is file
+  progress, not verbose. Corrected proof is sourcebound file29PASS, not fabricated
+  per-case log lines. Local integration was collection-only/no database.
+-028 controller still immutable e1f95; owned029 source/test delta remains local,
+  no successorpush until028terminal to avoid moving-target provider mismatch.
+  No actual027/028modeljobs or fixture mutations; failed026 snapshot preserved.
+-028 terminal root reconcile RECONCILED: Verceldpl_3RXT1QVwTR8MA348TmQDYb4JMre2
+  READY/Hobby; APIdep-dba1cqfavr4c73fpfqcg and workerdep-dba1dpijnfac73e02qh0
+  LIVE/Free at e1f95b386ad74ce9fe790bd75417f5e198fb47a4, schema0183 unchanged.
+  Ordinary unacknowledged source-reuse request now returns409
+  source_documents_already_used, no blocking job, before/after job IDs equal,
+  zero model calls. The old saved assessment-review draft remains intact.
+  Admission regression is verified; final029 real semantic acceptance pending.

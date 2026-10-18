@@ -1643,6 +1643,15 @@ repair. Do not introduce blanket punctuation/heading bans from this harness.
   exact source binding of key plus quote; catalog/unreviewed/unsupported controls
   remain vetoed. Both independent review stages stay mandatory in the caller.
   Affected148PASS; frozen and real DEV027 acceptance remain separate gates.
+- Additional regression check2026-10-18: action-first ranking displaced an
+  explicit prohibition/negative permission with no recognized action verb.
+  Real adapter probes were RED4 (RU/EN/KK), plus RED1 for two clauses in one fact.
+  Shared priority now recognizes narrow explicit ban/negative-right forms as
+  critical actions; positive must/shall and uncertain availability stay
+  noncritical. Immutable truth, source ordering and cap unchanged. An existing
+  parent-deadline-label oracle now intentionally checks the selected prohibition's
+  own type/explanation. Final unit3179PASS37.05s, related217PASS, critical27PASS,
+  quality1008/2201PASS; independent review ACCEPT. Exact DEV029 remains pending.
 
 ## AI-QUALITY-027 - True source sentences became unrelated answer options
 

@@ -5,6 +5,21 @@ Owner request2026-10-17. Production publication NOT AUTHORIZED.
 
 ## DEV026 question-selection candidate — 2026-10-18
 
+Additional029 regression: explicit prohibition without a check/stop verb could
+lose to three routine actions; original action tuple dominated normative score.
+Real adapter RU2/EN/KK4RED + sameparagraph1RED; narrow shared prohibition signal
+now retains it and audits critical omission. Positive must/shall and uncertain
+availability remain noncritical. Related217PASS/finalfocused83PASS; existing
+deadline-label test updated for intentional new source-owned ban selection.
+Frozen3179unitPASS37.05s/critical27PASS4.98s/quality1008+2201PASS/re-reviewACCEPT.
+No029push until immutable028controller completes. No027or028actualmodeljob yet.
+
+028 CI39083528652 all gatesSUCCESS; PostgreSQL backend4811PASS2SKIP230.41s.
+Exact integration file29dotsPASS (16+13 wrapped lines), including all12 new
+qualification cases; no per-case verbose names in default progress output.
+Initial name-based log extraction returned0lines (observability mismatch, not
+test failure), corrected file-level proof retained. No workstation database used.
+
 DEV027 runtime65a4a76fff072576be356c76a34a0c067c6c468a/CI39082435477 all7SUCCESS;
 controllerRELEASE_OK/rootRECONCILED, webdpl_8CoKgthThcFnwWZ2frWYBkd3cDK3 READY/Hobby,
 APIdep-dba140favr4c73foimag/workerdep-dba14svavr4c73folm8g LIVE/Free/schema0183.

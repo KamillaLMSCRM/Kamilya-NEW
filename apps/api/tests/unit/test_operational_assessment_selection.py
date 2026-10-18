@@ -8,6 +8,7 @@ import pytest
 from app.modules.ai.direct_source import DirectSourceChunk, DirectSourceCorpus, DirectSourceDocument
 from app.modules.ai.evidence_engine import semantic_assessment
 from app.modules.ai.evidence_engine.application import build_evidence_source
+from app.modules.ai.evidence_engine.assessment_axes import operational_claim_priority
 from app.modules.ai.evidence_engine.engine import EvidenceCourseEngine
 from app.modules.ai.evidence_engine.models import QuestionDraft, SourceFact
 from app.modules.ai.evidence_engine.semantic_assessment import (
@@ -157,6 +158,56 @@ async def test_density_limit_keeps_omitted_critical_rule_visible():
     assert set(selection["critical_fact_ids"]) - set(selection["selected_fact_ids"])
     assert len(result.audit["coverage"]["critical_missing_fact_ids"]) == 4
     assert result.audit["coverage"]["requires_review"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("actions,prohibition", [
+    (
+        "Проверьте наличие документа.\n\nЗапишите номер в журнал.\n\nОтметьте дату в карточке.",
+        "Ломбард не вправе принимать недействительный документ.",
+    ),
+    (
+        "Проверьте наличие документа.\n\nЗапишите номер в журнал.\n\nОтметьте дату в карточке.",
+        "Если документ недействителен, выдача запрещена.",
+    ),
+    (
+        "Check that the document is present.\n\nRecord its number in the log.\n\nVerify its date on the card.",
+        "The employee must not accept an invalid document.",
+    ),
+    (
+        "Құжаттың бар екенін тексеріңіз.\n\nНөмірді журналға жазыңыз.\n\nКүнін карточкада белгілеңіз.",
+        "Жарамсыз құжатты қабылдауға тыйым салынады.",
+    ),
+])
+async def test_explicit_prohibition_outranks_routine_actions(actions, prohibition):
+    lessons, facts = equipment_plan(actions + "\n\n" + prohibition)
+    probe = SelectionProbe()
+    result = await generate_block_assessment(list(lessons), facts, probe)
+    claims = [axis["source_claim"] for request in probe.requests for axis in request["axes"]]
+    assert any(prohibition in claim for claim in claims)
+    prohibited_ids = {fact.fact_id for fact in facts.values() if prohibition in fact.value}
+    assert prohibited_ids
+    assert prohibited_ids <= set(result.audit["coverage"]["critical_missing_fact_ids"])
+
+
+@pytest.mark.parametrize("claim", [
+    "Инструкция должна содержать номер версии.",
+    "The document must contain a revision number.",
+    "Equipment may not be available.",
+    "Құжатта нұсқа нөмірі болуы керек.",
+])
+def test_positive_obligation_is_not_automatically_critical(claim):
+    assert operational_claim_priority(claim)[0] == 0
+
+
+@pytest.mark.asyncio
+async def test_prohibition_span_wins_over_routine_action_in_same_fact():
+    prohibition = "Если документ недействителен, выдача запрещена."
+    lessons, facts = equipment_plan("Проверьте наличие документа. " + prohibition)
+    probe = SelectionProbe()
+    await generate_block_assessment(list(lessons), facts, probe)
+    claims = [axis["source_claim"] for request in probe.requests for axis in request["axes"]]
+    assert prohibition in claims
 
 
 CRITICAL_EQUIPMENT_RULE = (

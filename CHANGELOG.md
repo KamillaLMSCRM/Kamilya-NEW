@@ -14,6 +14,10 @@
 - DEV028 candidate: a saved assessment-review draft no longer masquerades as an
   in-flight same-source generation. New course still requires explicit source
   reuse acknowledgement; active and truly interrupted jobs remain protected.
+- DEV029 candidate: keep explicit prohibitions and negative permissions ahead
+  of routine actions, including within one evidence paragraph. Recognized RU,
+  EN and KK bans enter critical-coverage checks; generic positive obligations
+  and ambiguous availability statements do not become critical automatically.
 - DEV024 accepted: fix Next lesson after sidebar selection when the next lesson
   is already named in the URL. Preserve local preview completion across lesson
   navigation without writing learner progress, and isolate delayed reads between
