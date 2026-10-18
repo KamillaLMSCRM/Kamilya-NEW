@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add an opt-in tenant completion-form field builder with a closed 20-field
+  catalog, mandatory learner/course/outcome fields, PDF sample and snapshot-bound
+  learner download. Preserve legacy templates and complete audit/public exports.
+  Local verification only; not deployed by this change.
+
 - Implement an optional manual ChatGPT reserve using the official pinned Codex CLI
   and managed ChatGPT login, with superadmin readiness/confirmation/revision-checked
   activation and emergency disable. Add an authenticated bounded private connector,

@@ -22,6 +22,7 @@ from app.models.users import User
 from app.modules.evidence_export import (
     build_group_evidence_package,
     build_individual_evidence_package,
+    render_completion_form_pdf,
     render_group_protocol_pdf,
     render_individual_act_pdf,
 )
@@ -108,7 +109,11 @@ async def export_my_training_evidence(
         event_id,
     )
     return _download(
-        render_individual_act_pdf(evidence),
+        render_completion_form_pdf(evidence)
+        if evidence.print_form
+        and evidence.print_form.selected_fields is not None
+        and evidence.procedure.type == "training"
+        else render_individual_act_pdf(evidence),
         media_type="application/pdf",
         filename=_safe_filename("my-training-result", event_id, extension="pdf"),
     )

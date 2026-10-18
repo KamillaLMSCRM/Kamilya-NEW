@@ -22,6 +22,19 @@ interface FormSettings {
   representative_name: string;
   representative_title: string;
   footer_note: string;
+  selected_fields: string[] | null;
+}
+
+interface FormField {
+  id: string;
+  label: string;
+  group: string;
+  required: boolean;
+}
+
+interface FormFieldCatalog {
+  fields: FormField[];
+  default_selected_fields: string[];
 }
 
 const defaults: FormSettings = {
@@ -37,6 +50,7 @@ const defaults: FormSettings = {
   representative_name: '',
   representative_title: '',
   footer_note: '',
+  selected_fields: null,
 };
 
 export default function TrainingEvidenceFormSettingsPage() {
@@ -46,7 +60,14 @@ export default function TrainingEvidenceFormSettingsPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [catalog, setCatalog] = useState<FormFieldCatalog | null>(null);
+  const [settingsError, setSettingsError] = useState(false);
+  const [catalogError, setCatalogError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [previewFingerprint, setPreviewFingerprint] = useState<string | null>(null);
+  const previewGenerationRef = useRef(0);
   const previewUrlRef = useRef<string | null>(null);
+  const draftFingerprintRef = useRef('');
 
   const replacePreview = useCallback((url: string | null, blob: Blob | null = null) => {
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
@@ -55,46 +76,73 @@ export default function TrainingEvidenceFormSettingsPage() {
     setPreviewBlob(blob);
   }, []);
 
-  const renderPreview = useCallback(async (value: FormSettings, signal?: AbortSignal) => {
+  const draftFingerprint = JSON.stringify(settings);
+  draftFingerprintRef.current = draftFingerprint;
+  const dataReady = !loading && !settingsError && !catalogError && catalog !== null;
+  const editingDisabled = loading || saving || settingsError || catalogError || !catalog;
+
+  const renderPreview = useCallback(async (value: FormSettings, fingerprint: string, signal?: AbortSignal) => {
+    const generation = ++previewGenerationRef.current;
     setPreviewLoading(true);
+    setPreviewFingerprint(null);
     try {
       const response = await api.post<Blob>('/v1/training-evidence/form-settings/preview', value, { responseType: 'blob', signal });
       if (!await isPdfPreview(response.data)) throw new Error('Invalid PDF preview');
-      if (signal?.aborted) return null;
+      if (signal?.aborted || generation !== previewGenerationRef.current) return null;
       const url = URL.createObjectURL(response.data);
       replacePreview(url, response.data);
+      setPreviewFingerprint(fingerprint);
       return url;
     } catch {
-      if (signal?.aborted) return null;
+      if (signal?.aborted || generation !== previewGenerationRef.current) return null;
       replacePreview(null);
+      setPreviewFingerprint(null);
       toast.error('Не удалось сформировать предпросмотр бланка.');
       return null;
     } finally {
-      if (!signal?.aborted) setPreviewLoading(false);
+      if (!signal?.aborted && generation === previewGenerationRef.current) setPreviewLoading(false);
     }
   }, [replacePreview]);
 
   useEffect(() => {
     let cancelled = false;
-    void api.get<FormSettings>('/v1/training-evidence/form-settings')
-      .then((response) => {
-        if (!cancelled) setSettings({ ...defaults, ...response.data });
+    setLoading(true);
+    setSettingsError(false);
+    setCatalogError(false);
+    Promise.all([
+      api.get<FormSettings>('/v1/training-evidence/form-settings'),
+      api.get<FormFieldCatalog>('/v1/training-evidence/form-fields'),
+    ])
+      .then(([settingsResponse, catalogResponse]) => {
+        if (cancelled) return;
+        setSettings({ ...defaults, ...settingsResponse.data });
+        setCatalog(catalogResponse.data);
       })
-      .catch(() => toast.error('Не удалось загрузить настройки бланка.'))
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .catch((error: { config?: { url?: string } }) => {
+        if (cancelled) return;
+        const endpoint = error?.config?.url ?? '';
+        if (endpoint.includes('/form-fields')) setCatalogError(true);
+        else setSettingsError(true);
+        toast.error('Не удалось загрузить настройки или список полей бланка.');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [loadAttempt]);
 
   useEffect(() => {
-    if (loading) return;
+    if (!dataReady) return;
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => { void renderPreview(settings, controller.signal); }, 500);
-    return () => { window.clearTimeout(timeout); controller.abort(); };
-  }, [loading, renderPreview, settings]);
+    const timeout = window.setTimeout(() => { void renderPreview(settings, draftFingerprint, controller.signal); }, 500);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+      previewGenerationRef.current += 1;
+      setPreviewLoading(false);
+    };
+  }, [dataReady, draftFingerprint, renderPreview, settings]);
 
   useEffect(() => () => {
+    previewGenerationRef.current += 1;
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
   }, []);
 
@@ -102,11 +150,25 @@ export default function TrainingEvidenceFormSettingsPage() {
     setSettings((current) => ({ ...current, [key]: value }));
   };
 
+  const configureFields = () => {
+    if (!catalog || editingDisabled) return;
+    update('selected_fields', [...catalog.default_selected_fields]);
+  };
+
+  const toggleField = (field: FormField, checked: boolean) => {
+    if (editingDisabled || field.required) return;
+    const selected = settings.selected_fields ?? [];
+    update('selected_fields', checked ? [...selected, field.id] : selected.filter((id) => id !== field.id));
+  };
+
   const save = async () => {
     setSaving(true);
+    const requestFingerprint = draftFingerprint;
     try {
       const response = await api.put<FormSettings>('/v1/training-evidence/form-settings', settings);
-      setSettings(response.data);
+      if (draftFingerprintRef.current === requestFingerprint) {
+        setSettings({ ...defaults, ...response.data });
+      }
       toast.success('Бланк подтверждения сохранён. Новые завершения курса получат эту версию.');
     } catch {
       toast.error('Не удалось сохранить бланк подтверждения.');
@@ -116,7 +178,8 @@ export default function TrainingEvidenceFormSettingsPage() {
   };
 
   const downloadPreview = async () => {
-    const url = previewUrl || await renderPreview(settings);
+    if (previewLoading || previewFingerprint !== draftFingerprint) return;
+    const url = previewUrl;
     if (!url) return;
     const link = document.createElement('a');
     link.href = url;
@@ -147,7 +210,7 @@ export default function TrainingEvidenceFormSettingsPage() {
             Настройте печатную форму для новых завершений курса. Версия бланка фиксируется вместе с событием завершения и не меняется задним числом.
           </p>
         </div>
-        <Button onClick={() => void save()} disabled={loading || saving}>
+        <Button onClick={() => void save()} disabled={!dataReady || saving}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           Сохранить
         </Button>
@@ -157,7 +220,10 @@ export default function TrainingEvidenceFormSettingsPage() {
         <Card>
           <CardHeader><CardTitle>Содержание бланка</CardTitle></CardHeader>
           <CardContent className="space-y-5">
-            {loading ? <div className="py-16 text-center text-muted-foreground">Загрузка…</div> : <>
+            {loading ? <div className="py-16 text-center text-muted-foreground">Загрузка…</div> : settingsError || catalogError ? <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm" role="alert">
+              <p>Не удалось загрузить настройки бланка или доступные поля. Редактирование и сохранение отключены, чтобы не перезаписать текущую конфигурацию.</p>
+              <Button type="button" variant="outline" onClick={() => setLoadAttempt((value) => value + 1)}>Повторить загрузку</Button>
+            </div> : <fieldset disabled={editingDisabled} className="space-y-5">
               {textField('organization_name', 'Название организации', 160)}
               {textField('title', 'Заголовок документа', 160)}
               <div>
@@ -180,18 +246,41 @@ export default function TrainingEvidenceFormSettingsPage() {
                 <label htmlFor="evidence-form-footer" className="mb-2 block text-sm font-medium">Примечание внизу</label>
                 <textarea id="evidence-form-footer" className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" maxLength={500} value={settings.footer_note} onChange={(event) => update('footer_note', event.target.value)} />
               </div>
-            </>}
+              <fieldset className="space-y-3 rounded-md border p-4">
+                <legend className="px-1 text-sm font-semibold">Поля печатной формы</legend>
+                <p className="text-xs text-muted-foreground">Выбор полей меняет только печатный бланк. Полный акт доказательств обучения по-прежнему сохраняет все факты. Номер сотрудника, подразделение и должность берутся из текущего профиля на момент экспорта и не являются историческими данными.</p>
+                {settings.selected_fields === null ? <div className="space-y-3 text-sm">
+                  <p>Сейчас используется исторический формат бланка без явного выбора полей.</p>
+                  <Button type="button" variant="outline" onClick={configureFields} disabled={editingDisabled}>Настроить поля</Button>
+                </div> : <div className="space-y-4">
+                  {Array.from(new Set(catalog?.fields.map((field) => field.group) ?? [])).map((group) => {
+                    const fields = catalog?.fields.filter((field) => field.group === group) ?? [];
+                    if (!fields.length) return null;
+                    return <div key={group}>
+                      <h3 className="mb-2 text-sm font-medium">{group}</h3>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {fields.map((field) => <label key={field.id} className="flex min-h-10 items-center gap-3 rounded border px-3 text-sm">
+                          <input type="checkbox" className="h-4 w-4" checked={field.required || (settings.selected_fields?.includes(field.id) ?? false)} disabled={editingDisabled || field.required} onChange={(event) => toggleField(field, event.target.checked)} aria-label={field.label} />
+                          <span>{field.label}{field.required ? <span className="ml-1 text-xs text-muted-foreground">(обязательно)</span> : null}</span>
+                        </label>)}
+                      </div>
+                    </div>;
+                  })}
+                </div>}
+              </fieldset>
+            </fieldset>}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <div><CardTitle>Предпросмотр PDF</CardTitle><p className="mt-1 text-sm text-muted-foreground">Данные сотрудника и курса здесь демонстрационные.</p></div>
-            <Button variant="outline" onClick={() => void downloadPreview()} disabled={previewLoading}>
+            <Button variant="outline" onClick={() => void downloadPreview()} disabled={previewLoading || previewFingerprint !== draftFingerprint || !previewUrl}>
               <Download className="mr-2 h-4 w-4" /> Скачать
             </Button>
           </CardHeader>
           <CardContent>
+            {dataReady && previewFingerprint !== draftFingerprint && <p role="status" className="mb-3 text-sm text-muted-foreground">Образец обновляется. Скачивание станет доступно после обновления.</p>}
             {previewLoading && !previewBlob ? <div className="flex min-h-[620px] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div> : previewBlob ? (
               <PdfPreview blob={previewBlob} title="Предпросмотр бланка подтверждения"
                 loadingLabel="Загрузка предпросмотра…" errorLabel="Не удалось показать PDF. Попробуйте скачать образец." />
