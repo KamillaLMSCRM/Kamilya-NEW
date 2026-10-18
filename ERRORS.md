@@ -7810,6 +7810,44 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   values/counts. Original merged/forward-filled row-cell provenance remains a
   separate limitation; this column fix does not claim that broader correction.
 
+## STAFF-IMPORT-003 - Repeat file falsely classified an unchanged parent as a move
+
+- Date: 2026-10-18; synthetic DEV QA, exact96a77190 candidate61.
+- Symptom: initial two-staff import committed, but identical new upload marked its
+  nested department MOVE and commit returned409 placement_requires_reviewed_transfer.
+  The rejected repeat did not change staff or structure.
+- Cause: parent comparison preferred the existing human name while the incoming
+  file supplied only the same canonical external key. Generic unit preview actions
+  also stayed CREATE while compatibility rows were reconciled; the source branch
+  had a staff diff lookup using personnel number instead of its actual external key.
+- Fix: equal nonempty parent keys establish identity before optional display-name
+  fallback; canonical branch/department actions reuse the same diff; staff actions
+  bind their actual stable keys. Real transfer checks are not disabled.
+- Verification: two exact parent RED cases to44matching/corpus PASS; generic-unit
+  action RED to behavioral PASS, independent narrow parent review accepted. Fresh
+  repaired DEV repeat/additive/new-only matrix remains required.
+- Prevention: repeat-file acceptance must prove unchanged previews, stable IDs,
+  zero duplicate records and successful commit; first-import201 is not sufficient.
+
+## STAFF-IMPORT-004 - Import could silently reactivate an offboarded employee
+
+- Date: 2026-10-18; source investigation during synthetic structure acceptance.
+- Symptom: static trace and deterministic reproduction show existing inactive
+  user processed as unchanged could be set active without an update counter or
+  explicit reactivation intent. No production inactive account was reactivated.
+- Cause: preview snapshot omitted active state and commit unconditionally set
+  is_active=True for existing users. File import has no explicit reactivate action.
+- Fix: import reconciliation emits a blocking inactive identity conflict; locked
+  personnel/email matches are rechecked before any session/structure/user write.
+  Existing users are never automatically activated. General StaffSync contract
+  and role/RLS policies are not changed.
+- Verification: behavioral inactive personnel/email preview cases, retained refs,
+  active unchanged case and stale approved commit/no-write rejection PASS. Review
+  additionally requires normalized-identity multiplicity rejection before writes;
+  final expanded suite and actual repaired DEV acceptance remain required.
+- Prevention: offboarding survives partial file updates; test approval-to-commit
+  races and ambiguous normalized identities, not only active happy-path records.
+
 ## TENANT-PURGE-005 - Ordinary tenant purge omitted imported positions
 
 - Date: 2026-10-07; exact temporary capacity-qa-20261007 tenant.

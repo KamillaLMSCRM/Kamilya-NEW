@@ -36,6 +36,58 @@ def _org(
 TENANT_ID = uuid4()
 
 
+def test_same_parent_external_key_is_not_a_move_when_only_database_has_parent_display_name():
+    existing = ExistingOrganizationUnit(
+        tenant_id=TENANT_ID,
+        record_id="dep-1",
+        name="Отдел А",
+        unit_type=OrganizationUnitType.DEPARTMENT,
+        external_key="dep-a",
+        parent_external_key="branch-a",
+        parent_name="Филиал А",
+    )
+    result = build_import_diff(
+        tenant_id=TENANT_ID,
+        existing_units=[existing],
+        incoming_units=[
+            _org(
+                "Отдел А",
+                unit_type=OrganizationUnitType.DEPARTMENT,
+                external_key="dep-a",
+                parent_external_key="branch-a",
+            )
+        ],
+    )
+    assert result.entries[0].action is ImportDiffAction.UNCHANGED
+    assert result.entries[0].changed_fields == ()
+
+
+def test_parent_display_rename_does_not_move_child_with_the_same_parent_external_key():
+    existing = ExistingOrganizationUnit(
+        tenant_id=TENANT_ID,
+        record_id="dep-1",
+        name="Отдел А",
+        unit_type=OrganizationUnitType.DEPARTMENT,
+        external_key="dep-a",
+        parent_external_key="branch-a",
+        parent_name="Прежнее название филиала",
+    )
+    result = build_import_diff(
+        tenant_id=TENANT_ID,
+        existing_units=[existing],
+        incoming_units=[
+            _org(
+                "Отдел А",
+                unit_type=OrganizationUnitType.DEPARTMENT,
+                external_key="dep-a",
+                parent_external_key="branch-a",
+                parent_name="Новое название филиала",
+            )
+        ],
+    )
+    assert result.entries[0].action is ImportDiffAction.UNCHANGED
+
+
 def test_units_match_by_external_key_before_normalized_identity_and_report_rename_and_move():
     branch = ExistingOrganizationUnit(
         tenant_id=TENANT_ID,

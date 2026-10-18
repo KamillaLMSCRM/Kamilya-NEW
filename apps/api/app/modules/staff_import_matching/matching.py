@@ -321,6 +321,11 @@ def _parent_same(
     incoming: IncomingOrganizationUnit,
     existing: ExistingOrganizationUnit,
 ) -> bool:
+    # A known parent identity is authoritative even when only the database has
+    # its optional display name (or the parent's display name was renamed).
+    incoming_key = _nonempty(incoming.parent_external_key)
+    if incoming_key and incoming_key == _nonempty(existing.parent_external_key):
+        return True
     incoming_parent = _parent_key(incoming)
     existing_parent = _parent_key(existing)
     if incoming_parent or existing_parent:

@@ -24,7 +24,7 @@ from app.modules.staff_import_matching import (
     normalize_import_key,
 )
 
-from .schemas import ImportSessionConflict, ImportSessionProposal
+from .schemas import ImportSessionConflict, ImportSessionProposal, MatchAction
 
 
 def _unit_candidate_key(
@@ -212,6 +212,29 @@ async def reconcile_proposal_with_database(
     action_by_key = {
         (entry.entity_type.value, normalize_import_key(entry.incoming_key)): entry for entry in diff.entries
     }
+    existing_staff_by_id = {str(user.id): user for user in staff_rows}
+    inactive_staff_keys: set[str] = set()
+    inactive_staff_conflicts: list[ImportSessionConflict] = []
+    for entry in diff.entries:
+        if entry.entity_type is not ImportEntityType.STAFF or entry.existing_id is None:
+            continue
+        user = existing_staff_by_id.get(entry.existing_id)
+        if user is None or user.is_active:
+            continue
+        inactive_staff_keys.add(normalize_import_key(entry.incoming_key))
+        inactive_staff_conflicts.append(
+            ImportSessionConflict(
+                conflict_code="inactive_staff_requires_explicit_reactivation",
+                scope="staff",
+                message=(
+                    "Сотрудник деактивирован. Повторный импорт не восстанавливает доступ. "
+                    "Пропустите эту строку или уберите её из файла."
+                ),
+                blocking=True,
+                proposal_ids=[entry.incoming_key],
+                source_refs=list(entry.source_refs),
+            )
+        )
 
     def apply_action(item, entity_type: ImportEntityType, incoming_key: str | None = None):
         key = incoming_key if incoming_key is not None else item.external_key
@@ -220,7 +243,11 @@ async def reconcile_proposal_with_database(
             return item
         return item.model_copy(
             update={
-                "action": entry.action,
+                "action": (
+                    MatchAction.CONFLICT
+                    if entity_type is ImportEntityType.STAFF and normalize_import_key(key) in inactive_staff_keys
+                    else entry.action
+                ),
                 "evidence": [*item.evidence, *entry.evidence],
             }
         )
@@ -238,10 +265,19 @@ async def reconcile_proposal_with_database(
     ]
     return proposal.model_copy(
         update={
+            "organization_units": [
+                apply_action(item, ImportEntityType(item.unit_type.value))
+                if item.unit_type in {OrganizationUnitType.BRANCH, OrganizationUnitType.DEPARTMENT}
+                else item
+                for item in proposal.organization_units
+            ],
             "branches": [apply_action(item, ImportEntityType.BRANCH) for item in proposal.branches],
             "departments": [apply_action(item, ImportEntityType.DEPARTMENT) for item in proposal.departments],
             "positions": [apply_action(item, ImportEntityType.POSITION) for item in proposal.positions],
-            "staff": [apply_action(item, ImportEntityType.STAFF, item.personnel_number) for item in proposal.staff],
-            "conflicts": [*proposal.conflicts, *conflicts],
+            "staff": [
+                apply_action(item, ImportEntityType.STAFF, item.external_key or item.personnel_number)
+                for item in proposal.staff
+            ],
+            "conflicts": [*proposal.conflicts, *conflicts, *inactive_staff_conflicts],
         }
     )

@@ -152,6 +152,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of assuming a historical fixed column layout. Missing fields no longer
   invent coordinates. Matching, identities, import modes and writes are unchanged.
   Original-cell row provenance for merged/forward-filled values is not changed.
+- Recognize the same parent by its stable key when a repeat file omits the optional
+  parent display name, instead of falsely requiring a reviewed transfer. Keep
+  canonical and compatibility preview actions synchronized, and apply staff match
+  actions using the actual stable key.
+- Block Excel import matches to deactivated staff in preview and recheck locked
+  identities before any commit writes. A file cannot silently undo offboarding,
+  including when an account was deactivated after preview approval.
 
 ## [0.11.60] - 2026-10-18
 
