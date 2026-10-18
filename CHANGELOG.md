@@ -301,6 +301,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pinned host trust and no public model gateway. ASUS/GLM acceptance is deferred
   while the owner reports the ASUS nodes down; this tooling is not a production
   release or proof of full-chain acceptance.
+- Add an opt-in tenant completion-form field builder with a closed 20-field
+  catalog, mandatory learner/course/outcome fields, PDF sample and snapshot-bound
+  learner download. Preserve legacy templates and complete audit/public exports.
+  Local verification only; not deployed by this change.
+
+- Extend configured result forms to individual quiz attempts before course
+  completion, with separate editable quiz texts, exact immutable attempt binding,
+  learner result/history PDF downloads and legacy/cross-tenant protections.
+  DEV acceptance in progress; production is not authorized for this package.
 
 - Implement an optional manual ChatGPT reserve using the official pinned Codex CLI
   and managed ChatGPT login, with superadmin readiness/confirmation/revision-checked

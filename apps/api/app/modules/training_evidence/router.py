@@ -19,6 +19,7 @@ from app.core.db import get_db
 from app.core.storage import get_storage
 from app.models.users import User
 from app.modules.audit.service import log_action
+from app.modules.evidence_export.form_fields import DEFAULT_FORM_FIELDS, FORM_FIELD_CATALOG, REQUIRED_FORM_FIELDS
 from app.modules.training_evidence.form_settings import (
     TrainingEvidenceFormSettings,
     get_training_evidence_form_settings,
@@ -71,6 +72,19 @@ router = APIRouter(
 _EVIDENCE_WRITERS = ("methodologist",)
 
 
+@router.get("/form-fields")
+async def get_printable_form_fields(
+    _user: User = Depends(require_role("admin")),
+) -> dict[str, Any]:
+    return {
+        "fields": [
+            {"id": key, "label": label, "group": group, "required": key in REQUIRED_FORM_FIELDS}
+            for key, label, group in FORM_FIELD_CATALOG
+        ],
+        "default_selected_fields": DEFAULT_FORM_FIELDS,
+    }
+
+
 @router.get("/form-settings", response_model=TrainingEvidenceFormSettings)
 async def get_printable_form_settings(
     db: AsyncSession = Depends(get_db),
@@ -103,10 +117,11 @@ async def save_printable_form_settings(
 @router.post("/form-settings/preview")
 async def preview_printable_form_settings(
     payload: TrainingEvidenceFormSettings,
+    activity: Literal["course", "quiz"] = Query(default="course"),
     _user: User = Depends(require_role("admin")),
 ) -> Response:
     return Response(
-        content=render_training_evidence_form_preview(payload),
+        content=render_training_evidence_form_preview(payload, for_quiz=activity == "quiz"),
         media_type="application/pdf",
         headers={
             "Content-Disposition": 'inline; filename="training-completion-form-preview.pdf"',

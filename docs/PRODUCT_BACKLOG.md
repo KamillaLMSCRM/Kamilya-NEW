@@ -339,6 +339,14 @@ interface.
 
 ## P2: локальность staff import
 
+Presentation follow-up verified2026-10-18 after backend61 live acceptance:
+production native60 adaptive preview still exposes English create/unchanged/high
+and technical evidence inline. DEV has a more readable presentation, but its mixed
+staff-v3/iSpring branch is not an approved production package. Extract only action/
+confidence localization and collapsible technical details with UI regression,
+preserving the simple methodologist review/approve/apply path. Backend61 correctness
+and bounded acceptance are complete; this presentation work is not claimed shipped.
+
 Отделить CSV/XLSX parsing adapters и их общий parser contract от
 tenant-scoped preview/commit. Сохранить `commit_import` как application
 interface и существующее переиспользование из `create_manual_staff_member`;

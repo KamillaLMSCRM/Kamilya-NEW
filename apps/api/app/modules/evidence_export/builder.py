@@ -280,6 +280,130 @@ def _attempt_lines(attempt: AttemptEvidence) -> list[tuple[str, Any]]:
     ]
 
 
+def _form_signature(pdf: FPDF, signature_label: str, date_label: str) -> None:
+    # Reserve both label columns together so a signature is not split across pages.
+    if pdf.will_page_break(38):
+        pdf.add_page()
+    pdf.ln(9)
+    y = pdf.get_y()
+    width = (pdf.w - pdf.l_margin - pdf.r_margin - 10) / 2
+    bottom = y
+    pdf.set_font("Ubuntu", "", 9)
+    pdf.set_draw_color(80, 80, 80)
+    for x, label in ((pdf.l_margin, signature_label), (pdf.l_margin + width + 10, date_label)):
+        pdf.line(x, y, x + width, y)
+        pdf.set_xy(x, y + 2)
+        pdf.multi_cell(width, 5, _safe_text(label), align="C", new_x="LMARGIN", new_y="NEXT")
+        bottom = max(bottom, pdf.get_y())
+    pdf.set_xy(pdf.l_margin, bottom + 5)
+
+
+def _render_selected_completion_form(pdf: FPDF, input_data: IndividualEvidenceInput) -> None:
+    form = input_data.print_form
+    is_quiz = input_data.procedure.type == "knowledge_check"
+    if form is None or form.selected_fields is None or input_data.procedure.type not in {"training", "knowledge_check"}:
+        raise ValueError("A configured training completion form is required")
+    if input_data.course is None:
+        raise ValueError("A course is required for a completion form")
+    if is_quiz and (len(input_data.attempts) != 1 or not input_data.attempts[0].id):
+        raise ValueError("A separate-test form requires one identified attempt")
+    pdf.set_font("Ubuntu", "B", 18)
+    pdf.set_text_color(30, 58, 138)
+    pdf.multi_cell(0, 9, _safe_text(form.title), align="C", new_x="LMARGIN", new_y="NEXT")
+    if form.intro_text:
+        _paragraph(pdf, form.intro_text)
+    _paragraph(
+        pdf,
+        "Бланк результата обучения. Не является электронной подписью или специальной формой аттестации.",
+        italic=True,
+    )
+    if is_quiz:
+        _paragraph(
+            pdf,
+            "Результат относится только к указанному тесту и попытке. Завершение всего курса этим документом не подтверждается.",
+            italic=True,
+        )
+        _field(pdf, "Тест", input_data.procedure.title)
+        _field(pdf, "Идентификатор попытки", input_data.attempts[0].id)
+    employee = input_data.employee
+    assignment = input_data.assignment
+    fields = {
+        "organization": ("Организация", form.organization_name or input_data.tenant.name),
+        "employee_name": ("Сотрудник", employee.full_name),
+        "personnel_number": ("Табельный номер", employee.personnel_number),
+        "department": ("Подразделение", employee.department),
+        "position": ("Должность", employee.position),
+        "course_title": ("Курс", input_data.course.title),
+        "course_version": ("Версия публикации", input_data.course.release_version),
+        "assigned_at": ("Назначено", _human_datetime(assignment.assigned_at) if assignment else None),
+        "due_at": ("Срок прохождения", _human_datetime(assignment.due_at) if assignment else None),
+        "generated_at": ("Дата формирования", _human_datetime(input_data.generated_at)),
+    }
+    for key in form.selected_fields:
+        if key in fields:
+            label, value = fields[key]
+            _field(pdf, label, value if value is not None and value != "" else "Нет данных")
+        elif key.startswith("test_"):
+            if not input_data.attempts:
+                if key == "test_results":
+                    _field(
+                        pdf, "Тестирование", "Результаты попыток не зафиксированы; прохождение теста не подтверждено."
+                    )
+                continue
+            for index, attempt in enumerate(input_data.attempts, 1):
+                values = {
+                    "test_title": ("Тест", attempt.quiz_title),
+                    "test_results": (
+                        "Итог",
+                        "Пройдено"
+                        if attempt.passed is True
+                        else "Не пройдено"
+                        if attempt.passed is False
+                        else "Не подтверждено",
+                    ),
+                    "test_score": (
+                        "Результат",
+                        f"{attempt.score_percent}%" if attempt.score_percent is not None else None,
+                    ),
+                    "test_threshold": (
+                        "Проходной порог",
+                        f"{attempt.threshold_percent}%" if attempt.threshold_percent is not None else None,
+                    ),
+                    "test_completed_at": ("Дата сдачи", _human_datetime(attempt.completed_at)),
+                    "test_duration": (
+                        "Время тестирования",
+                        f"{attempt.time_spent_seconds} сек." if attempt.time_spent_seconds is not None else None,
+                    ),
+                }
+                label, value = values[key]
+                _field(pdf, f"{label} (попытка {index})", value if value is not None else "Нет данных")
+        elif key == "employee_confirmation":
+            _heading(pdf, "Подтверждение сотрудника", level=2)
+            _paragraph(pdf, form.confirmation_text)
+        elif key == "employee_signature":
+            _form_signature(pdf, form.employee_signature_label, form.employee_date_label)
+        elif key == "representative_signature":
+            _heading(pdf, "Отметка представителя организации", level=2)
+            _field(pdf, "ФИО", form.representative_name)
+            _field(pdf, "Должность", form.representative_title)
+            _form_signature(pdf, form.representative_signature_label, form.representative_date_label)
+        elif key == "footer_note" and form.footer_note:
+            _paragraph(pdf, form.footer_note, italic=True)
+    if {"personnel_number", "department", "position"}.intersection(form.selected_fields):
+        _paragraph(
+            pdf,
+            "Табельный номер, подразделение и должность указаны по профилю сотрудника на момент выгрузки.",
+            italic=True,
+        )
+
+
+def render_completion_form_pdf(input_data: IndividualEvidenceInput) -> bytes:
+    """Render only the selected printable form, never the unfiltered audit act."""
+    pdf = _new_pdf(input_data.generated_at)
+    _render_selected_completion_form(pdf, input_data)
+    return bytes(pdf.output())
+
+
 def render_individual_act_pdf(input_data: IndividualEvidenceInput, *, public: bool = False) -> bytes:
     """Render a readable individual result act; it is not an NPA special form."""
     pdf = _new_pdf(input_data.generated_at)
@@ -414,7 +538,15 @@ def render_individual_act_pdf(input_data: IndividualEvidenceInput, *, public: bo
         _field(pdf, "Принял", decision.get("decided_by"))
         _field(pdf, "Обоснование", decision.get("rationale"))
 
-    if not public and data.get("print_form") and procedure.get("type") == "training":
+    if (
+        not public
+        and input_data.print_form
+        and input_data.print_form.selected_fields is not None
+        and procedure.get("type") in {"training", "knowledge_check"}
+    ):
+        pdf.add_page()
+        _render_selected_completion_form(pdf, input_data)
+    elif not public and data.get("print_form") and procedure.get("type") == "training":
         form = data["print_form"]
         pdf.add_page()
         pdf.set_font("Ubuntu", "B", 18)

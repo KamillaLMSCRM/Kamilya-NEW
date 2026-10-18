@@ -3,9 +3,63 @@
 **Обновлено:** 2026-10-18
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\cabinet-release-20261018`
-**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `codex/cabinet-release-20261018`; released source/tag/master4bcc64c0c686c6de0f3ffcf98268382fed42295c; DEV preserving integrationb54115e6...
+**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `codex/cabinet-release-20261018`; released source/tag/master0fe7985bccb8f2464898f4e1fb7904a734f92a3d; DEV preserving integrationb70dd4eb3...
 
-## Current60 — released; bounded live acceptance passed; structure extension open
+## Current61 — production released; bounded staff/Excel acceptance complete
+
+Do not redeploy61 or return to native archive/legacy VPS/Proxmox. Exact source/tag
+0fe7985bccb8f2464898f4e1fb7904a734f92a3d v0.11.61; CI39147399472/protected39147841351
+SUCCESS. API+three GREEN workers c6120580...39ffd5 running/restarts0; independent
+public/private/container readback, schema0181/RLS/runtime/routingc016/reserveON
+unchanged. BLUE60 API healthy rollback/workers stopped. Native60/4bcc remains
+compatible and unchanged; no frontend rebuild/cleanup. Watchdog61 two keys only,
+backup retained/thresholds unchanged/oneshot success/both timers active. Signed
+restore181 verified; final free5247016960bytes. No voice/ASUS/DNS/rights/plan change.
+
+DEVb70dd4eb3 controller execute/reconcile and actual QA API/browser matrix PASS;
+production browser initial2, additive001rename+003/dept/position, new-only004/new
+branch/dept/position all committed/reload persistence. API repeated files0duplicates,
+duplicatePN409, stale approved004commit409 after normal termination, fresh inactive
+approval409. Browser human warning/disabled actions PASS. Prior17 users/30full
+journal rows unchanged; only owned empty44c861bd... soft archived. All4new QA61
+student identities inactive; marked units/positions/import receipts retained for
+reproducibility, no purge/emails or old history mutation. Receipts cabinet-20261018,
+current release61/readiness/ledger. Earlier interrupted/failed gates remain history.
+
+No required step remains for bounded61. Do not label all legally protected/outbound
+operations verified. ADD_OR_UPDATE preserves omissions, full reconciliation stays
+disabled. Nonblocking UI follow-up: production60 preview still exposes technical
+English action/evidence labels; DEV polished presentation is not backend61 content.
+iSpring remains separate/unpublished; preserve simple methodologist path and
+existing experimental DEV work, do not promote the whole mixed DEV branch.
+
+## Historical60 — released; structure extension then open
+
+Browser continuation after latest owner Cancel: repeat and actual additive/new-only
+DEV Excel review/approve/apply committed PASS. QA60 four active/stable identities,
+omitted rows retained; only expected001name update, other users and9full journal
+rows unchanged. Earlier native-confirm hold below is historical, not current.
+Do not reopen native archive confirm. Final release-note identity markers fixed;
+freeze a documentation-only child of3b77 for release, preserve exact code equality,
+new CI/tag/artifact/protected production gates. Production remains60 until then.
+
+Latest continuation: source/master3b77aead2e5bf34c14878ce43d094c7e28fa5162 is
+backend61 candidate, NOT production deployed/tagged. Preserving DEVb70dd4eb3...
+CI39143947829 SUCCESS, REL-STRUCTURE61-DEV-R3-20261018 RELEASE_OK/RECONCILED on
+same Free/Free/Hobby. Full frozen3360API PASS; fresh ordinary DEV QA61-XLS API
+initial/repeat/additive/new-only/omission/duplicate/offboarding/stale-approval matrix
+PASS, all10 old user identities/existing units/9 full journal rows unchanged.
+Receipts cabinet-20261018/structure61-dev-final. Do not repeat old approved sessions.
+UI production employee3cc30d06... create/edit/reopen/terminate/Уволен PASS; latest
+29old full journal rows unchanged/total30. Browser is held again by native archive
+confirm of NEW empty branch44c861bd-6596-4487-b70c-73e246e84197 in temporary tab5;
+getJsDialog no active handle, Escape/close timeout. Owner asked Cancel. Last API
+read branch active, so archive NOT claimed. Do not retry native archive/filechooser
+while held. Browser Excel execution remains incomplete; API evidence is separate.
+Fresh protected read-only production preflight60 PASS, free5690073088bytes; no
+legacy VPS/Proxmox/paid resource/access blocker. Continue browser DEV proof, then
+protected backend61 only and production fresh matrix; keep native60 unchanged.
+Current detailed next steps are in the existing combined-release plan/release61.
 
 Do not redeploy60 or return to legacy DEV VPS/Proxmox. Native bridge
 REL-CABINET60-WEB-20261018 RELEASE_OK; protected backend39137346796 SUCCESS.

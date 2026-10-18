@@ -585,7 +585,32 @@ hot edit still NOT VERIFIED at this checkpoint; no production approval.
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current runtime60 snapshot,2026-10-18
+## Current runtime61 snapshot,2026-10-18
+
+Production API/three GREEN workers61 exact0fe7985bccb8f2464898f4e1fb7904a734f92a3d,
+immutable imagec6120580b23678ed4df2ca70c7d4cbc804a3a0dabf9a537deccfa2a48739ffd5;
+CI39147399472/protected39147841351 SUCCESS and independent public/private/container
+readback PASS/restarts0. BLUE60 API healthy rollback/workers stopped. Native60/
+4bcc64c0 remains unchanged; no frontend build/cleanup. Schema0181, FORCE-RLS,
+runtime non-BYPASS, controller, routingc016939b... and owner-enabled reserveON
+unchanged. Watchdog61 two keys only, backup retained/thresholds unchanged/check
+success/timers active; signed restore181 verified. Final free5247016960bytes.
+No voice/ASUS/rights/DNS/provider resources or billing changes.
+
+DEV preservingb70dd4eb3 CI39143947829 and execute/reconcile PASS on Free/Free/Hobby.
+Exact final release is docs-only child of tested3b77, application trees equal.
+Actual DEV and production staff-import review/approval/commit/reload PASS on
+synthetic records; repeated/additive/new-only/omission/duplicate/inactive/stale
+approval verified. Production old17user identities/30full journal rows unchanged;
+four new students soft inactive, only owned empty44c861bd... soft archived. Marked
+QA units/positions/import sessions retained, no hard purge or notifications.
+ADD_OR_UPDATE is not full replacement; omitted rows preserved, automatic hierarchy
+transfer/reactivation not enabled. Bounded acceptance complete, not all-button/
+legal/outbound claim. See readiness/current release61/ledger for exact proof.
+Pre-existing production preview English technical labels are a UI follow-up;
+experimental DEV staff-v3/iSpring/polished UI are not promoted wholesale.
+
+## Historical runtime60 snapshot,2026-10-18
 
 Production API/three workers/native frontend0.11.60 exact
 4bcc64c0c686c6de0f3ffcf98268382fed42295c; protected39137346796/native bridge

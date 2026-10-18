@@ -60,6 +60,7 @@ const quiz = {
 let quizPayload = quiz;
 let previousAttempts: QuizAttemptFixture[] = [];
 let attemptsStatus = 200;
+let quizExportResponse: Response | null = null;
 let accessWindowPayload: unknown = null;
 let structureLessons = [
   { id: 'lesson-1', title: 'Первый урок', order_index: 0 },
@@ -81,6 +82,7 @@ describe('learner quiz result navigation', () => {
     quizPayload = quiz;
     previousAttempts = [];
     attemptsStatus = 200;
+    quizExportResponse = null;
     accessWindowPayload = null;
     structureLessons = [
       { id: 'lesson-1', title: 'Первый урок', order_index: 0 },
@@ -109,6 +111,9 @@ describe('learner quiz result navigation', () => {
           correct_answers: 1, total_questions: 1, passed: true, message: 'Тест пройден',
         });
       }
+      if (url.includes('/v1/training-evidence/quiz-attempts/mine/')) {
+        return quizExportResponse ?? jsonResponse({ detail: 'Unexpected export request' }, 404);
+      }
       return jsonResponse({ detail: 'Unexpected request' }, 404);
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -128,6 +133,56 @@ describe('learner quiz result navigation', () => {
     );
     expect(screen.getByRole('link', { name: 'Следующий урок' })).toHaveAttribute(
       'href', '/courses/course-1?lessonId=lesson-2',
+    );
+  });
+
+  it('downloads the immediate result as a validated PDF and revokes its object URL', async () => {
+    const blob = new Blob(['%PDF-1.7\nresult'], { type: 'application/pdf' });
+    quizExportResponse = { ok: true, blob: async () => blob } as unknown as Response;
+    const createObjectURL = vi.fn(() => 'blob:quiz-result');
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL });
+    render(<QuizPlayerPage />);
+
+    await screen.findByText('Верный ответ?');
+    fireEvent.click(screen.getByRole('radio'));
+    fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
+    await screen.findByText('Тест пройден');
+    fireEvent.click(screen.getByRole('button', { name: 'Скачать результат теста' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      'undefined/v1/training-evidence/quiz-attempts/mine/attempt-1/export',
+      expect.objectContaining({ headers: { Authorization: 'Bearer student-token' } }),
+    ));
+    await waitFor(() => expect(createObjectURL).toHaveBeenCalledWith(blob));
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:quiz-result');
+  });
+
+  it('downloads an attempt from reloaded history and reports invalid PDF bytes', async () => {
+    previousAttempts = [{ id: 'attempt-history', score_percent: 40, passed: false, started_at: '2026-10-18T00:00:00Z', completed_at: '2026-10-18T00:01:00Z' }];
+    quizExportResponse = new Response('<html>not a pdf</html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+    render(<QuizPlayerPage />);
+
+    await screen.findByText('40%');
+    fireEvent.click(screen.getByRole('button', { name: 'Скачать PDF' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Не удалось скачать результат теста'));
+    expect(fetchMock).toHaveBeenCalledWith(
+      'undefined/v1/training-evidence/quiz-attempts/mine/attempt-history/export',
+      expect.anything(),
+    );
+  });
+
+  it('reports the backend 409 for a historical attempt without a snapshot', async () => {
+    previousAttempts = [{ id: 'attempt-legacy', score_percent: 100, passed: true, started_at: '2026-10-18T00:00:00Z', completed_at: '2026-10-18T00:01:00Z' }];
+    quizExportResponse = jsonResponse({ detail: 'Historical attempt has no configured snapshot' }, 409);
+    render(<QuizPlayerPage />);
+
+    await screen.findByText('100%');
+    fireEvent.click(screen.getByRole('button', { name: 'Скачать PDF' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Не удалось скачать результат теста'));
+    expect(fetchMock).toHaveBeenCalledWith(
+      'undefined/v1/training-evidence/quiz-attempts/mine/attempt-legacy/export',
+      expect.anything(),
     );
   });
 

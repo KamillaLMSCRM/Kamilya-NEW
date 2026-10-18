@@ -39,6 +39,7 @@ async def test_training_evidence_form_settings_are_saved_inside_tenant_settings(
     db = _Database(tenant)
     monkeypatch.setattr("app.modules.training_evidence.form_settings.flag_modified", lambda *_args: None)
     payload = TrainingEvidenceFormSettings(
+        selected_fields=["employee_name", "course_title", "test_results", "department"],
         organization_name="  ТОО Ломбард Сандык  ",
         representative_name="  Айжан Ахметова  ",
         representative_title="  Методист  ",
@@ -51,3 +52,7 @@ async def test_training_evidence_form_settings_are_saved_inside_tenant_settings(
     assert tenant.settings["unrelated"] == {"preserved": True}
     assert tenant.settings["training_evidence_form_settings"]["organization_name"] == "ТОО Ломбард Сандык"
     assert result.representative_name == "Айжан Ахметова"
+    assert (await get_training_evidence_form_settings(db, uuid4())).selected_fields == payload.selected_fields
+    snapshot = result.to_print_form()
+    payload.selected_fields.append("position")
+    assert snapshot.selected_fields == ["employee_name", "course_title", "test_results", "department"]

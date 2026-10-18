@@ -141,6 +141,8 @@ async def record_quiz_submission(
     if quiz is None:
         raise ValueError("Quiz attempt quiz is inconsistent")
 
+    form_settings = await get_training_evidence_form_settings(db, cast(UUID, user.tenant_id))
+
     payload = {
         "schema_version": 1,
         "source": "quiz_attempt",
@@ -170,6 +172,8 @@ async def record_quiz_submission(
             "object_version": f"release:{release.version}",
         },
     }
+    if form_settings.selected_fields is not None:
+        payload["print_form"] = form_settings.to_print_form(for_quiz=True).model_dump()
     return await record_event(
         db,
         tenant_id=user.tenant_id,

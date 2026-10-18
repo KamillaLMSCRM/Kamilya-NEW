@@ -13,12 +13,14 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.models.tenants import Tenant
 from app.modules.evidence_export import (
     AssignmentEvidence,
+    AttemptEvidence,
     CourseEvidence,
     EmployeeEvidence,
     IndividualEvidenceInput,
     PrintFormEvidence,
     ProcedureEvidence,
     TenantEvidence,
+    render_completion_form_pdf,
     render_individual_act_pdf,
 )
 
@@ -48,6 +50,15 @@ class TrainingEvidenceFormSettings(PrintFormEvidence):
         default="Подпись представителя работодателя", min_length=1, max_length=120
     )
     representative_date_label: str = Field(default="Дата проверки", min_length=1, max_length=120)
+    quiz_title: str = Field(default="Результат отдельного теста", min_length=1, max_length=160)
+    quiz_intro_text: str = Field(
+        default="Документ фиксирует результат отдельного теста и не подтверждает завершение курса.", max_length=1000
+    )
+    quiz_confirmation_text: str = Field(
+        default="Подтверждаю самостоятельное выполнение указанного теста. Результат приведён в документе.",
+        min_length=1,
+        max_length=1500,
+    )
 
     @field_validator(
         "organization_name",
@@ -61,13 +72,22 @@ class TrainingEvidenceFormSettings(PrintFormEvidence):
         "representative_name",
         "representative_title",
         "footer_note",
+        "quiz_title",
+        "quiz_intro_text",
+        "quiz_confirmation_text",
+        mode="before",
     )
     @classmethod
-    def strip_text(cls, value: str) -> str:
-        return value.strip()
+    def strip_text(cls, value: Any) -> Any:
+        return value.strip() if isinstance(value, str) else value
 
-    def to_print_form(self) -> PrintFormEvidence:
-        return PrintFormEvidence.model_validate(self.model_dump())
+    def to_print_form(self, *, for_quiz: bool = False) -> PrintFormEvidence:
+        data = self.model_dump(exclude={"quiz_title", "quiz_intro_text", "quiz_confirmation_text"})
+        if for_quiz:
+            data.update(
+                title=self.quiz_title, intro_text=self.quiz_intro_text, confirmation_text=self.quiz_confirmation_text
+            )
+        return PrintFormEvidence.model_validate(data)
 
 
 async def get_training_evidence_form_settings(
@@ -100,15 +120,20 @@ async def update_training_evidence_form_settings(
     return normalized
 
 
-def render_training_evidence_form_preview(settings: TrainingEvidenceFormSettings) -> bytes:
+def render_training_evidence_form_preview(settings: TrainingEvidenceFormSettings, *, for_quiz: bool = False) -> bytes:
     """Render the editable template with safe sample data using the production renderer."""
 
     sample = IndividualEvidenceInput(
         tenant=TenantEvidence(name=settings.organization_name),
-        employee=EmployeeEvidence(full_name="Александр Сотрудников"),
+        employee=EmployeeEvidence(
+            full_name="Александр Сотрудников",
+            personnel_number="QA-001",
+            department="Учебный отдел",
+            position="Специалист",
+        ),
         procedure=ProcedureEvidence(
-            type="training",
-            title="Прохождение курса",
+            type="knowledge_check" if for_quiz else "training",
+            title="Итоговый тест по внутренним процедурам" if for_quiz else "Прохождение курса",
             version="3",
             purpose="course_completion",
         ),
@@ -116,11 +141,43 @@ def render_training_evidence_form_preview(settings: TrainingEvidenceFormSettings
             title="Безопасная работа и внутренние процедуры",
             release_version=3,
         ),
-        assignment=AssignmentEvidence(source="manual", assigned_at=datetime.now(UTC)),
-        print_form=settings.to_print_form(),
+        assignment=AssignmentEvidence(source="manual", assigned_at=datetime.now(UTC), due_at=datetime.now(UTC)),
+        attempts=[
+            AttemptEvidence(
+                quiz_title="Итоговый тест по внутренним процедурам",
+                score_percent=60,
+                threshold_percent=80,
+                passed=False,
+                completed_at=datetime.now(UTC),
+                time_spent_seconds=180,
+            ),
+            AttemptEvidence(
+                quiz_title="Итоговый тест по внутренним процедурам",
+                score_percent=90,
+                threshold_percent=80,
+                passed=True,
+                completed_at=datetime.now(UTC),
+                time_spent_seconds=240,
+            ),
+        ]
+        if settings.selected_fields is not None
+        else [],
+        print_form=settings.to_print_form(for_quiz=for_quiz),
         generated_at=datetime.now(UTC),
     )
-    return render_individual_act_pdf(sample)
+    if for_quiz:
+        sample = sample.model_copy(
+            update={
+                "attempts": [sample.attempts[-1].model_copy(update={"id": "QA-preview-attempt"})]
+                if sample.attempts
+                else []
+            }
+        )
+    return (
+        render_completion_form_pdf(sample)
+        if settings.selected_fields is not None
+        else render_individual_act_pdf(sample)
+    )
 
 
 __all__ = [
