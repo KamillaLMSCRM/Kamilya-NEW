@@ -55,6 +55,15 @@ interface QuizAttempt {
   completed_at: string;
 }
 
+interface QuizLoadState {
+  scope: string;
+  lessonId: string;
+  status: 'loading' | 'ready' | 'none' | 'error';
+  quiz: QuizInfo | null;
+  attempts: QuizAttempt[];
+  passed: boolean;
+}
+
 interface AssistantMessage {
   id?: string;
   role: 'user' | 'assistant';
@@ -97,9 +106,7 @@ export default function CoursePlayerPage() {
   const [courseCompleted, setCourseCompleted] = useState(false);
   const [completionEvidenceEventId, setCompletionEvidenceEventId] = useState<string | null>(null);
   const [enrolling, setEnrolling] = useState(false);
-  const [lessonQuiz, setLessonQuiz] = useState<QuizInfo | null>(null);
-  const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
-  const [quizPassed, setQuizPassed] = useState(false);
+  const [quizLoadState, setQuizLoadState] = useState<QuizLoadState | null>(null);
   const [scormLaunchSession, setScormLaunchSession] = useState<ScormLaunchSession | null>(null);
   const [scormRuntimeStatus, setScormRuntimeStatus] = useState<ScormBridgeStatus | null>(null);
   const [scormLaunchError, setScormLaunchError] = useState('');
@@ -148,9 +155,7 @@ export default function CoursePlayerPage() {
       setCourseCompleted(false);
       setCompletionEvidenceEventId(null);
       setEnrolling(false);
-      setLessonQuiz(null);
-      setQuizAttempts([]);
-      setQuizPassed(false);
+      setQuizLoadState(null);
       setScormLaunchSession(null);
       setScormRuntimeStatus(null);
       setScormLaunchError('');
@@ -220,38 +225,67 @@ export default function CoursePlayerPage() {
     const scope = previewProgressScope;
     const isCurrentRequest = () => quizLoadGenerationRef.current === generation
       && previewProgressScopeRef.current?.key === scope;
+    const commit = (state: Omit<QuizLoadState, 'scope' | 'lessonId'>) => {
+      if (isCurrentRequest()) setQuizLoadState({ scope, lessonId, ...state });
+    };
+    setQuizLoadState({
+      scope,
+      lessonId,
+      status: 'loading',
+      quiz: null,
+      attempts: [],
+      passed: false,
+    });
+
+    let res: Response;
     try {
-      const res = await fetch(`${API_URL}/v1/quizzes/by-lesson/${lessonId}`, {
+      res = await fetch(`${API_URL}/v1/quizzes/by-lesson/${lessonId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      commit({ status: 'error', quiz: null, attempts: [], passed: false });
+      return;
+    }
+    if (!isCurrentRequest()) return;
+    if (res.status === 404) {
+      commit({ status: 'none', quiz: null, attempts: [], passed: false });
+      return;
+    }
+    if (!res.ok) {
+      commit({ status: 'error', quiz: null, attempts: [], passed: false });
+      return;
+    }
+
+    let quiz: QuizInfo;
+    try {
+      quiz = await res.json();
+      if (!quiz || typeof quiz.id !== 'string') throw new Error('Invalid quiz response');
+    } catch {
+      commit({ status: 'error', quiz: null, attempts: [], passed: false });
+      return;
+    }
+    if (!isCurrentRequest()) return;
+
+    let attempts: QuizAttempt[] = [];
+    try {
+      const attemptsRes = await fetch(`${API_URL}/v1/quizzes/${quiz.id}/attempts`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!isCurrentRequest()) return;
-      if (res.ok) {
-        const quiz: QuizInfo = await res.json();
-        if (!isCurrentRequest()) return;
-        setLessonQuiz(quiz);
-
-        // Fetch attempts for this quiz
-        const attemptsRes = await fetch(`${API_URL}/v1/quizzes/${quiz.id}/attempts`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!isCurrentRequest()) return;
-        if (attemptsRes.ok) {
-          const attempts: QuizAttempt[] = await attemptsRes.json();
-          if (!isCurrentRequest()) return;
-          setQuizAttempts(attempts);
-          setQuizPassed(attempts.some((a) => a.passed));
-        }
-      } else {
-        setLessonQuiz(null);
-        setQuizAttempts([]);
-        setQuizPassed(false);
+      if (attemptsRes.ok) {
+        const attemptsData: unknown = await attemptsRes.json();
+        attempts = Array.isArray(attemptsData) ? attemptsData as QuizAttempt[] : [];
       }
     } catch {
-      if (!isCurrentRequest()) return;
-      setLessonQuiz(null);
-      setQuizAttempts([]);
-      setQuizPassed(false);
+      attempts = [];
     }
+    if (!isCurrentRequest()) return;
+    commit({
+      status: 'ready',
+      quiz,
+      attempts,
+      passed: attempts.some((attempt) => attempt.passed),
+    });
   }, [token, API_URL, previewProgressScope]);
 
   useEffect(() => {
@@ -784,6 +818,15 @@ export default function CoursePlayerPage() {
   }
 
   const lessonCompleted = selectedLesson ? completedLessons.has(selectedLesson.id) : false;
+  const currentQuizState = selectedLessonId
+    && quizLoadState?.scope === previewProgressScope
+    && quizLoadState.lessonId === selectedLessonId
+    ? quizLoadState
+    : null;
+  const quizStatus = currentQuizState?.status || 'loading';
+  const lessonQuiz = currentQuizState?.status === 'ready' ? currentQuizState.quiz : null;
+  const quizAttempts = currentQuizState?.status === 'ready' ? currentQuizState.attempts : [];
+  const quizPassed = currentQuizState?.status === 'ready' ? currentQuizState.passed : false;
   const hasQuiz = lessonQuiz !== null;
 
   return (
@@ -852,7 +895,21 @@ export default function CoursePlayerPage() {
             </div>
 
             <div className="mt-8 space-y-4">
-              {hasQuiz && (
+              {quizStatus === 'error' && (
+                <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+                  <p className="text-sm text-destructive">{t('common.loadFailed')}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-3"
+                    onClick={() => void fetchQuizForLesson(selectedLesson.id)}
+                  >
+                    {t('common.retry')}
+                  </Button>
+                </div>
+              )}
+
+              {quizStatus === 'ready' && hasQuiz && (
                 <div className="border rounded-lg p-6 bg-card shadow-sm">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center">
@@ -915,7 +972,7 @@ export default function CoursePlayerPage() {
                 </div>
               )}
 
-              {!hasQuiz ? (
+              {quizStatus === 'none' ? (
                 <div className="flex items-center gap-3">
                   <Button
                     onClick={() => void handleNextLesson()}
@@ -927,7 +984,7 @@ export default function CoursePlayerPage() {
                       : <CheckCircle2 className="w-4 h-4 ml-1" />}
                   </Button>
                 </div>
-              ) : lessonCompleted && quizPassed ? (
+              ) : quizStatus === 'ready' && lessonCompleted && quizPassed ? (
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-2 text-success font-medium">
                     <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> {t('quiz.passed')}

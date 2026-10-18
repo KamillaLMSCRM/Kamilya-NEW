@@ -168,3 +168,74 @@ Prepared native build39128722119 is NOT accepted provenance: its workflow head
 was old master50d3 although its archive names af97. After final accepted source
 promotion, run a correctly bound native build rather than weaken the SHA gate.
 No production switch, source tag/release or host cleanup has occurred yet.
+
+## DEV03 live continuation and final reader correction
+
+DEV46cecca6811a5c6340b38fad409135e8a55fc2d4 execute RELEASE_OK/reconcile
+RECONCILED; CI39131131209 SUCCESS. API/worker/Vercel exact. Sourceab9cb5d4 CI
+39131065088 SUCCESS; final API3266PASS/0failed/0skipped, contract0181/311IDs PASS.
+No production deployment or migration. Existing provider tiers/config unchanged.
+
+Actual corrected English deadline replay completed and survived reload: RU2vsKK5
+working days from registered complete-set receipt/acceptance; no invented priority.
+Citation panel and original download PASS. KK multipart18/42calendar days from
+approval plus audio-not-established PASS/reload. Owner-other saved/reloaded,
+assign-self and clear/reload PASS. Dates preserved. New canonical position retains
+explicit unit UUID; departments4→4, positions3→4, employees5→5. No nested unit exists
+in this DEV baseline: live nested selection is not claimed; deterministic cases
+and later production synthetic nested-unit reproduction remain the proof boundaries.
+New competency98b18420... saves selected new course; reload/reopen retains1course.
+
+Fresh generationf82de01d... completed24.012s incl2.815squeue, DeepSeek-v4-flash,
+no fallback. Course36c24920...,lesson5eb6bdb0...,quizb22d8d36... has3operational
+questions, no metadata question; source4work steps preserved. All answer options
+reviewed. Three-question ceiling is not total fact assessment; explanation style
+remains terse recall. Manual edit/save/preview, explicit test approval, course
+approval/publication, PIN assignment to one existing QA pupil(no email), failed0%
+then successful100%attempt, course completion and certificate/download PASS.
+Completion8580e248.../certificate35b08778... survives reload. Legal OTP/signature
+not executed. All8pre-existing full journal projections unchanged; total9.
+
+Reader same-URL Next content synchronization passed, but a faster sidebar switch
+exposed a different real defect: new lesson content briefly shared the prior quiz
+link/pass state. First patch49adjacentPASS was independently rejected: passive
+effect clearing still allows one committed stale frame; metadata503/network errors
+also wrongly equate to valid404/no quiz. Exact keyed-result/error-retry correction
+and new DEV browser reproduction are mandatory before production; no waiver.
+
+After learner logout/methodologist role checks, DEV access token expired normally.
+Two ordinary password logins then returned authentication-service-unavailable;
+APIhealth remains exact46/200. Canonical DEV DB1 singlePING timed out; public-auth
+limiter fails closed, not bad credentials. No limiter bypass, config/plan change,
+new account or production transport substitution. First local probe used agent-
+tools Python withoutredis and stopped before network; canonical API runtime used
+for the actual bounded PING. DEV remaining rechecks await normal connectivity.
+
+Fresh production administrative read-only preflight: all4green57services/restarts0,
+all3flagsON; blue56healthyrollback/workersstopped; schema0181/two dialogueFORCE-RLS,
+non-BYPASS lms_app, watchdog/timers PASS,6144417792bytes free. Current routing row
+c016939b... has reserve in order=true. Preserve current owner-enabled setting;
+olderOFF snapshots are historical, not authority to turn it off. No DB writes.
+
+Final reader correction is now independently boundedGO: keyed lesson+session
+result excludes stale actions before passive effects; only404meansnoquiz,
+503/network/JSON show retry without progression. Expanded4RED→33playerPASS,
+52adjacentPASS/type/lint. First unrestricted fullweb1276PASS/1failed: journal
+signed-copy button timed out at its default1s lookup. Exact journal file then
+7PASS standalone, no source/test weakening. Bounded-two-worker full rerun remains
+required and this failed run is retained, not relabeled as a product PASS.
+
+DEV broker identity is canonical serviceenv rediss173.249.51.164:6380/database1.
+Legacy SSH preflight stopped locally because current canonicalVPS_URL does not
+match that historical host; no SSH/key/password attempt or alternate route used.
+Owner asked asynchronously for the existing canonical legacy access source.
+Do not change any service plan, use production broker, or waive live acceptance.
+
+Bounded2worker fullweb now1277PASS/167files/171.12s; standalone lintPASS and
+Next build67/67/typePASS. No test timeout increase or source weakening. Contract
+312uniqueERRORS/head0181 PASS. API tree unchanged from final3266PASSab9; exact CI
+will repeat the complete frozen source gate. Canonical historical-host key SSH
+read-only status was subsequently attempted using the documented173.249.51.164
+target, without Proxmox/VPS_URL credentials; connection timed out(exit255), no
+authentication or remote execution. Both RedisTLS and SSH on legacy host are
+unreachable from this workstation; precise host/network cause NOT_VERIFIED.
