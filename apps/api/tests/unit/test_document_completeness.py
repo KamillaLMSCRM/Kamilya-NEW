@@ -93,6 +93,53 @@ def test_record_category_before_elliptical_storage_quantity():
     assert answers.required_dimensions(question) == ["record_retention"]
 
 
+@pytest.mark.parametrize("question", [
+    "Compare only the deadline for approving the complete checked atlas set. Give the deadline in each source and the exact event that starts it. Do the two sources agree? Do not confuse this with either record-retention period.",
+    "Who approves? Do not discuss the retention period.",
+    "Кто утверждает? Не обсуждай сроки хранения записей.",
+    "Кто утверждает, а не сроки хранения записей?",
+    "Кім бекітеді? Жазбалардың сақтау мерзімін талқыламаңыз.",
+    "Who approves, not the retention period?",
+])
+def test_excluded_retention_is_not_a_mandatory_answer_part(question):
+    assert "record_retention" not in answers.required_dimensions(question)
+
+
+@pytest.mark.parametrize("question", [
+    "Do not discuss approval deadlines, but state the record retention period.",
+    "Who must not approve, and how long are records retained?",
+    "Do not forget to state the retention period. Who approves?",
+    "Не обсуждай срок утверждения, но укажи сроки хранения записей.",
+    "Какие сроки хранения записей не установлены?",
+    "Кім бекітеді? Бірақ жазбалардың сақтау мерзімін көрсетіңіз.",
+    "Who approves? Ignore approval timing, but state the retention period.",
+    "State the retention period; do not discuss who appoints the deputy.",
+    "Who may ignore the record-retention period?",
+    "Which records should we exclude from the retention period?",
+    "Кто не обсуждает сроки хранения записей?",
+    "Ignore approval timing and state the record retention period.",
+    "Не обсуждай срок утверждения и укажи сроки хранения записей.",
+])
+def test_exclusions_do_not_erase_positive_or_negative_fact_questions(question):
+    assert "record_retention" in answers.required_dimensions(question)
+
+
+def test_deadline_conflict_not_rejected_for_explicitly_excluded_retention():
+    question = "Compare approval deadlines. Do not confuse this with either record-retention period."
+    windows = [{**EXCERPTS[0], "text": "Approval takes two working days after receipt registration."},
+               {**EXCERPTS[1], "text": "Approval takes five working days after receipt registration."}]
+    item = part("duration", "RU says two working days, KK five; no precedence is established.", (1, 2), "conflict")
+    item["conflict_evidence"] = {"question_quote": "approval deadlines", "left": {"handle": 1, "quote": windows[0]["text"]},
+                                "right": {"handle": 2, "quote": windows[1]["text"]}}
+    result = answers.parse_answer(json.dumps({"requested_dimensions": ["duration"], "parts": [item]}), windows, question=question)
+    assert result.status == "conflict"
+
+
+def test_excluded_actor_is_not_forced_into_a_retention_answer():
+    question = "How long are records retained? Do not discuss who appoints a deputy."
+    assert answers.required_dimensions(question) == ["record_retention"]
+
+
 def test_actual_conflict_stays_one_cross_source_dimension():
     windows = [{**EXCERPTS[0], "text": "Approval takes three working days after complete receipt."},
                {**EXCERPTS[1], "text": "Approval takes five working days after complete receipt."}]

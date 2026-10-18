@@ -2,6 +2,26 @@
 
 Current as of: 2026-10-18.
 
+## WB-ANSWER-001 - Explicitly excluded retention became a mandatory answer part
+
+- Date:2026-10-18; combined cabinet60 live DEV acceptance.
+- Symptom: a deadline-only question explicitly excluding record retention ended
+  invalid_response. Raw model output was not retained; its exact rejection reason
+  is unknown. Separately the identical question deterministically requested a
+  mandatory record_retention part from its exclusion phrase, rejecting a valid
+  constructed deadline-conflict answer with answer_required_dimension_missing.
+- Cause: positive keyword hints scanned explicit exclusions as requested facts.
+- Fix: narrow anchored EN/RU exclusion directives and KK negative imperatives
+  affect only hints, with explicit positive contrast/continuation boundaries.
+  The model receives the original question; citation/conflict/coverage checks stay.
+- Verification: exact-question and parser5RED; first independent review exposed
+  factual ignore/exclude/negative questions and positive continuations, another
+  5RED. Corrected focused96PASS and independent bounded GO. Raw original provider
+  output is not reconstructed; final frozen/full DEV acceptance remains required.
+- Prevention: distinguish excluded topics from negative fact questions; retain
+  positive requests after exclusions. This is not general negation understanding
+  or proof that every model output will pass semantic/structural validation.
+
 ## POSITION-UNIT-001 - Free-text position creation duplicated a nested organization unit
 
 - Date:2026-10-18; ordinary production synthetic QA cabinet acceptance.

@@ -130,9 +130,39 @@ class ModelAnswer(Contract):
         return self
 
 
+def _explicit_question_scope(question: str) -> str:
+    """Remove narrow explicit exclusions from hints, never from the model input.
+
+    This is not general negation understanding: negative fact questions such as
+    'who must not approve' and 'which periods are not specified' remain intact.
+    Contrast boundaries preserve a positive request following an exclusion.
+    """
+    normalized = " ".join(question.casefold().split())
+    clauses = re.split(
+        r"[.!?;]|\b(?:but|instead|но|бірақ|алайда)\b|"
+        r"\b(?:and|и|және)\s+(?=(?:state|give|include|explain|укажи\w*|көрсет\w*)\b)",
+        normalized,
+    )
+    included = []
+    for clause in clauses:
+        exclusion = re.match(
+            r"\s*(?:(?:do\s+not|don't)\s+(?:confuse|discuss|include|compare|mention|address)|"
+            r"ignore|exclude|не\s+(?:обсуждай|обсуждайте|сравнивай|сравнивайте|путай|путайте|"
+            r"включай|включайте|упоминай|упоминайте))\b",
+            clause,
+        )
+        if exclusion:
+            clause = clause[:exclusion.start()]
+        clause = re.split(r",\s*(?:not\b|а\s+не\b)", clause, maxsplit=1)[0]
+        if re.search(r"\b(?:талқылама|қоспа|салыстырма)(?:ңыз)?\s*$", clause):
+            continue
+        included.append(clause)
+    return " ".join(included)
+
+
 def required_dimensions(question: str) -> list[AnswerDimension]:
     """Conservative explicit-question hints, not a general intent classifier."""
-    normalized = " ".join(question.casefold().split())
+    normalized = _explicit_question_scope(question)
     result: list[AnswerDimension] = []
     if re.search(r"\b(?:кто|кім|who)\b", normalized):
         result.append("actor")
