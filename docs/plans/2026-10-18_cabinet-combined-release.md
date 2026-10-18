@@ -329,3 +329,14 @@ is delegated; source60 lacks this later-discovered repair. Complete initial/repe
 additive/new-only/omitted rows/duplicate conflict matrix after repaired DEV proof.
 No current infrastructure/access/billing blocker; browser native confirm is a
 separate harness interruption, not permission to bypass import review.
+
+Root accepted bounded provenance patch after independent reviewer found no must-fix
+regression. Historical defaults remain for callers without metadata; actual parser
+headers now flow through router analysis/reanalysis. Behavioral reordered CSV/custom
+mapping/split names and XLSX included.48focused/3287full unit+contract/34golden corpus
+PASS, quality1006/2192/version61/contract313IDs/head0181 PASS. Initial broad unbounded
+pytest invocation included integration/skipped tests and was interrupted; NOT a full
+pass. The exact database-free frozen matrix above is the accepted local evidence.
+Merged/forward-filled original-row provenance and generic invalid-row A anchors
+remain explicit pre-existing limitations, not fixed. Candidate61 is backend-only;
+native60 remains compatible, no new native artifact or cleanup is needed.

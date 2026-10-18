@@ -75,15 +75,46 @@ class LegacyRowLike(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class LegacyColumnMap:
-    """Default spreadsheet columns of the historical six-column export."""
+    """Source coordinates, defaulting to the historical six-column export."""
 
-    personnel_number: str = "A"
-    full_name: str = "B"
-    position: str = "C"
-    department: str = "D"
-    email: str = "E"
-    phone: str = "F"
-    branch: str = "G"
+    personnel_number: str | None = "A"
+    full_name: str | None = "B"
+    position: str | None = "C"
+    department: str | None = "D"
+    email: str | None = "E"
+    phone: str | None = "F"
+    branch: str | None = "G"
+    first_name: str | None = None
+    last_name: str | None = None
+
+    @classmethod
+    def from_headers(cls, raw_columns: list[str], detected_columns: dict[str, str]) -> LegacyColumnMap:
+        """Build canonical field coordinates using parser column precedence."""
+
+        coordinates: dict[str, str] = {}
+        for index, header in enumerate(raw_columns):
+            canonical = detected_columns.get(header)
+            if canonical:
+                coordinates[canonical] = _excel_column(index + 1)
+        return cls(
+            personnel_number=coordinates.get("personnel_number"),
+            full_name=coordinates.get("full_name"),
+            position=coordinates.get("position"),
+            department=coordinates.get("department"),
+            email=coordinates.get("email"),
+            phone=coordinates.get("phone"),
+            branch=coordinates.get("branch"),
+            first_name=coordinates.get("first_name"),
+            last_name=coordinates.get("last_name"),
+        )
+
+
+def _excel_column(number: int) -> str:
+    letters = ""
+    while number:
+        number, remainder = divmod(number - 1, 26)
+        letters = chr(65 + remainder) + letters
+    return letters
 
 
 def _slug(value: str) -> str:
@@ -101,24 +132,46 @@ def _branch_label(value: str) -> bool:
     return bool(_BRANCH_LABEL_RE.match(_text(value)))
 
 
-def _ref(sheet: str, row: LegacyRowLike, column: str, value: object | None) -> SourceCellRef:
+def _ref(sheet: str, row: LegacyRowLike, column: str | None, value: object | None) -> SourceCellRef | None:
     # Coordinates provide traceability without duplicating staff PII in the
     # long-lived proposal and append-only event history.
     del value
+    if column is None:
+        return None
     return SourceCellRef(sheet=sheet, row=row.row_number, column=column)
+
+
+def _append_ref(
+    refs: list[SourceCellRef], sheet: str, row: LegacyRowLike, column: str | None, value: object | None
+) -> None:
+    ref = _ref(sheet, row, column, value)
+    if ref is not None:
+        refs.append(ref)
 
 
 def _row_refs(sheet: str, row: LegacyRowLike, columns: LegacyColumnMap) -> tuple[SourceCellRef, ...]:
     refs = [
-        _ref(sheet, row, columns.personnel_number, row.personnel_number),
-        _ref(sheet, row, columns.full_name, f"{row.first_name} {row.last_name}"),
+        ref
+        for ref in (
+            _ref(sheet, row, columns.personnel_number, row.personnel_number),
+            _ref(sheet, row, columns.full_name, f"{row.first_name} {row.last_name}"),
+            _ref(sheet, row, columns.first_name, row.first_name),
+            _ref(sheet, row, columns.last_name, row.last_name),
+        )
+        if ref is not None
     ]
     if _text(row.email):
-        refs.append(_ref(sheet, row, columns.email, row.email))
+        ref = _ref(sheet, row, columns.email, row.email)
+        if ref is not None:
+            refs.append(ref)
     if _text(row.phone):
-        refs.append(_ref(sheet, row, columns.phone, row.phone))
+        ref = _ref(sheet, row, columns.phone, row.phone)
+        if ref is not None:
+            refs.append(ref)
     if _text(getattr(row, "branch", "")):
-        refs.append(_ref(sheet, row, columns.branch, row.branch))
+        ref = _ref(sheet, row, columns.branch, row.branch)
+        if ref is not None:
+            refs.append(ref)
     return tuple(refs)
 
 
@@ -242,7 +295,7 @@ def adapt_legacy_rows(
 
         if branch_name:
             branch_key = _branch_key(branch_name)
-            branch_refs.setdefault(branch_key, []).append(_ref(sheet_name, row, column_map.branch, branch_name))
+            _append_ref(branch_refs.setdefault(branch_key, []), sheet_name, row, column_map.branch, branch_name)
             if branch_key not in branch_by_key:
                 branch_by_key[branch_key] = BranchProposal(
                     branch_id=branch_key,
@@ -260,8 +313,12 @@ def adapt_legacy_rows(
                 )
             if department_name:
                 department_key = _nested_department_key(branch_key, department_name)
-                department_refs.setdefault(department_key, []).append(
-                    _ref(sheet_name, row, column_map.department, department_name)
+                _append_ref(
+                    department_refs.setdefault(department_key, []),
+                    sheet_name,
+                    row,
+                    column_map.department,
+                    department_name,
                 )
                 if department_key not in department_by_key:
                     department_by_key[department_key] = CanonicalDepartmentProposal(
@@ -283,7 +340,7 @@ def adapt_legacy_rows(
                 department_key = None
         elif _branch_label(department_name):
             parent_key = _branch_key(department_name)
-            branch_refs.setdefault(parent_key, []).append(_ref(sheet_name, row, column_map.department, department_name))
+            _append_ref(branch_refs.setdefault(parent_key, []), sheet_name, row, column_map.department, department_name)
             if parent_key not in branch_by_key:
                 branch_by_key[parent_key] = BranchProposal(
                     branch_id=parent_key,
@@ -304,8 +361,12 @@ def adapt_legacy_rows(
         else:
             department_key = _department_key(department_name)
             branch_key = LEGACY_ROOT_EXTERNAL_KEY
-            department_refs.setdefault(department_key, []).append(
-                _ref(sheet_name, row, column_map.department, department_name)
+            _append_ref(
+                department_refs.setdefault(department_key, []),
+                sheet_name,
+                row,
+                column_map.department,
+                department_name,
             )
             if department_key not in department_by_key:
                 department_by_key[department_key] = CanonicalDepartmentProposal(
@@ -327,7 +388,7 @@ def adapt_legacy_rows(
                 )
 
         position_key = _position_key(department_key or branch_key, position_name)
-        position_refs.setdefault(position_key, []).append(_ref(sheet_name, row, column_map.position, position_name))
+        _append_ref(position_refs.setdefault(position_key, []), sheet_name, row, column_map.position, position_name)
         if position_key not in position_by_key:
             position_by_key[position_key] = CanonicalPositionProposal(
                 position_id=position_key,
@@ -349,15 +410,15 @@ def adapt_legacy_rows(
         personnel_key = normalize_import_key(personnel_number)
         if personnel_key in seen_personnel:
             first_row = seen_personnel[personnel_key]
+            duplicate_refs: list[SourceCellRef] = []
+            _append_ref(duplicate_refs, sheet_name, first_row, column_map.personnel_number, first_row.personnel_number)
+            _append_ref(duplicate_refs, sheet_name, row, column_map.personnel_number, row.personnel_number)
             conflicts.append(
                 _conflict(
                     code="duplicate_personnel_number",
                     scope="staff",
                     message="Multiple legacy rows share one personnel number.",
-                    refs=[
-                        _ref(sheet_name, first_row, column_map.personnel_number, first_row.personnel_number),
-                        _ref(sheet_name, row, column_map.personnel_number, row.personnel_number),
-                    ],
+                    refs=duplicate_refs,
                     proposal_ids=[_staff_key(personnel_number)],
                 )
             )

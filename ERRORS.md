@@ -7790,6 +7790,26 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Prevention: created counts do not prove rule-task success; require explicit
   terminal SUCCESS/counters and a real post-commit RLS proof before load.
 
+## STAFF-IMPORT-002 - Preview source columns assumed the historical layout
+
+- Date: 2026-10-18; ordinary production synthetic QA acceptance of60.
+- Symptom: six-column Excel values were correct, but review cited branchG and
+  departmentD although the file physically placed them inD andE. The session was
+  not approved or committed; no staff mutation was inferred from analyze201.
+- Cause: parse_upload applied detected/custom headers, but the session router
+  omitted their metadata when calling the pure legacy adapter. Its historical
+  defaults therefore supplied false coordinates.
+- Fix: derive physical column letters from raw header order and actual detected
+  canonical mapping, pass that map through analysis/reanalysis, retain historical
+  defaults only for callers without parser metadata. Missing columns produce no
+  fabricated refs; split first/last names cite their own columns.
+- Verification: exact-layout RED before implementation,48focused PASS and Root
+  3287unit/contract PASS. Behavioral reordered CSV/custom mapping and XLSX cases
+  included. Repaired DEV/production acceptance remains pending at this entry.
+- Prevention: real-file review must verify referenced cells, not just parsed
+  values/counts. Original merged/forward-filled row-cell provenance remains a
+  separate limitation; this column fix does not claim that broader correction.
+
 ## TENANT-PURGE-005 - Ordinary tenant purge omitted imported positions
 
 - Date: 2026-10-07; exact temporary capacity-qa-20261007 tenant.

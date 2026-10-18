@@ -19,7 +19,7 @@ from app.core.storage import get_storage
 from app.models.staff_import_mapping import StaffImportMapping
 from app.models.staff_import_session import StaffImportSession
 from app.models.users import User
-from app.modules.staff_import_legacy_adapter import adapt_legacy_rows
+from app.modules.staff_import_legacy_adapter import LegacyColumnMap, adapt_legacy_rows
 from app.modules.staff_workbook_analysis import (
     analyze_staff_workbook,
     compute_workbook_signature,
@@ -198,6 +198,7 @@ async def _analyze_and_save(
         source_file_sha256=record.source_file_sha256,
         rows=parsed.rows,
         sheet_name=parsed.sheet_name or "Лист1",
+        columns=LegacyColumnMap.from_headers(parsed.raw_columns, parsed.detected_columns),
         mode=ImportMode(record.mode),
     )
     proposal = await reconcile_proposal_with_database(
