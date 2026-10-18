@@ -276,6 +276,7 @@ def test_pure_rename_reaches_commit_planning_but_placement_still_requires_transf
 
     tenant_units = AsyncMock(side_effect=ReachedPlanningError)
     monkeypatch.setattr(commit_service, "_tenant_units", tenant_units)
+    db = SimpleNamespace(execute=AsyncMock(return_value=SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))))
     for is_move in (False, True):
         correction = ProposalCorrection(kind=ProposalItemKind.DEPARTMENT, external_key=department.external_key, name="Renamed", **({"branch_external_key": original.branches[1].external_key} if is_move else {}))
         corrected = apply_proposal_corrections(proposal, [correction])
@@ -283,7 +284,9 @@ def test_pure_rename_reaches_commit_planning_but_placement_still_requires_transf
         domain = SimpleNamespace(state=ImportSessionState.APPROVED, proposal=corrected, approved_revision="rev-qa")
         monkeypatch.setattr(commit_service, "record_to_domain", lambda _, current=domain: current)
         tenant_units.reset_mock()
+        db.execute.reset_mock()
         expected = commit_service.ImportCommitConflictError if is_move else ReachedPlanningError
         with pytest.raises(expected, match="placement_requires_reviewed_transfer" if is_move else None):
-            asyncio.run(commit_service.commit_approved_import_session(SimpleNamespace(), tenant_id=uuid4(), session_id=uuid4(), actor_id=uuid4(), revision="rev-qa"))
+            asyncio.run(commit_service.commit_approved_import_session(db, tenant_id=uuid4(), session_id=uuid4(), actor_id=uuid4(), revision="rev-qa"))
         assert tenant_units.await_count == (0 if is_move else 1)
+        assert db.execute.await_count == (0 if is_move else 1)
