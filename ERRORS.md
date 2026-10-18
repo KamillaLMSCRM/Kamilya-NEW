@@ -9066,6 +9066,24 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   phases; only disjoint local work or another explicitly separate environment may
   run in parallel. A successful subtest count alone never overrides failed neutrality.
 
+## EVIDENCE-007 - Quiz replay rebuilt immutable settings and scoped download disclosed form state
+
+- Date: 2026-10-18, separate-test completion form DEV candidate.
+- Symptom: replaying an already recorded attempt after a template change could
+  return409; an assignment-scoped learner could distinguish another enrollment's
+  historical attempt409 from an unknown attempt404.
+- Cause: current form settings were loaded before source-key idempotency;
+  form availability was classified before the assignment enrollment restriction.
+- Fix: after canonical attempt/release validation, verify and return the existing
+  immutable event without reading current settings. Check assignment scope before
+  form inspection and return404 for every out-of-scope attempt.
+- Verification: focused13API tests,27UI tests and typecheck PASS; independent
+  bounded source re-review ACCEPTED. Real assignment-token integration is added;
+  frozen-SHA CI and final DEV browser acceptance remain required.
+- Prevention: exercise replay after configuration changes and use real scoped
+  credentials against configured, historical and unknown attempt IDs. Preserve
+  exact attempt binding and stored payload hashes; never rebuild old snapshots.
+
 ## STAFF-UI-004 - Live workspace exposed narrow-card overlap and hidden rejection reasons
 
 - Date:2026-10-17, DEV-only staff structure integration; production unchanged.

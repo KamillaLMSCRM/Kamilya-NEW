@@ -17,6 +17,7 @@ from app.modules.courses.release_service import canonical_json_sha256
 from app.modules.quizzes.models import Quiz, QuizAttempt
 from app.modules.training_evidence.form_settings import get_training_evidence_form_settings
 from app.modules.training_evidence.models import TrainingEvidenceEvent
+from app.modules.training_evidence.service import canonical_json_sha256 as evidence_payload_sha256
 from app.modules.training_evidence.service import record_event
 
 
@@ -141,6 +142,31 @@ async def record_quiz_submission(
     if quiz is None:
         raise ValueError("Quiz attempt quiz is inconsistent")
 
+    source_key = f"quiz-attempt:{attempt.id}"
+    existing = await db.scalar(
+        select(TrainingEvidenceEvent).where(
+            TrainingEvidenceEvent.tenant_id == user.tenant_id,
+            TrainingEvidenceEvent.source_event_key == source_key,
+        )
+    )
+    if existing is not None:
+        snapshot = existing.payload_snapshot
+        binding = snapshot.get("attempt_evidence") if isinstance(snapshot, dict) else None
+        if (
+            existing.user_id != user.id
+            or existing.enrollment_id != attempt.enrollment_id
+            or existing.content_release_id != attempt.content_release_id
+            or existing.procedure_type != "knowledge_check"
+            or existing.record_type != "original"
+            or not isinstance(binding, dict)
+            or binding.get("attempt_id") != str(attempt.id)
+            or binding.get("evidence_sha256") != attempt.evidence_sha256
+            or snapshot.get("quiz_id") != str(attempt.quiz_id)
+            or evidence_payload_sha256(snapshot) != existing.payload_sha256
+        ):
+            raise ValueError("Existing quiz attempt event is inconsistent")
+        return existing
+
     form_settings = await get_training_evidence_form_settings(db, cast(UUID, user.tenant_id))
 
     payload = {
@@ -182,6 +208,6 @@ async def record_quiz_submission(
         enrollment_id=attempt.enrollment_id,
         content_release_id=attempt.content_release_id,
         procedure_type="knowledge_check",
-        source_event_key=f"quiz-attempt:{attempt.id}",
+        source_event_key=source_key,
         payload_snapshot=payload,
     )

@@ -179,7 +179,7 @@ export default function TrainingEvidenceFormSettingsPage() {
       if (draftFingerprintRef.current === requestFingerprint) {
         setSettings({ ...defaults, ...response.data });
       }
-      toast.success('Бланк подтверждения сохранён. Новые завершения курса получат эту версию.');
+      toast.success('Шаблон сохранён. Он применяется к новым завершениям курса и новым попыткам тестов с включённым выбором полей.');
     } catch {
       toast.error('Не удалось сохранить бланк подтверждения.');
     } finally {
@@ -217,7 +217,7 @@ export default function TrainingEvidenceFormSettingsPage() {
         <div>
           <h1 className="text-2xl font-bold">Бланк подтверждения прохождения</h1>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Настройте печатную форму для новых завершений курса. Версия бланка фиксируется вместе с событием завершения и не меняется задним числом.
+            Настройте печатные формы завершения курса и отдельного теста. Выбранные поля и тексты сохраняются вместе с новым результатом и не меняются задним числом при настройке шаблона.
           </p>
         </div>
         <Button onClick={() => void save()} disabled={!dataReady || saving}>
