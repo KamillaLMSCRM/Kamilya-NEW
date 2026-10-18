@@ -85,6 +85,41 @@ describe('training evidence form field builder', () => {
     expect(mocks.put.mock.calls[0][1]).toMatchObject({ selected_fields: ['employee_name', 'course_title', 'test_results', 'department'] });
   });
 
+  it('renders and saves distinct quiz result texts alongside the course form', async () => {
+    render(<TrainingEvidenceFormSettingsPage />);
+
+    const title = await screen.findByLabelText('Заголовок результата теста');
+    const intro = screen.getByLabelText('Вводный текст результата теста');
+    const confirmation = screen.getByLabelText('Текст подтверждения результата теста');
+    expect(title).toHaveValue('Результат отдельного теста');
+    expect(intro).toHaveValue('Документ фиксирует результат отдельного теста и не подтверждает завершение курса.');
+    expect(confirmation).toHaveValue('Подтверждаю самостоятельное выполнение указанного теста. Результат приведён в документе.');
+
+    fireEvent.change(title, { target: { value: 'Мой результат теста' } });
+    fireEvent.change(intro, { target: { value: 'Только отдельный тест.' } });
+    fireEvent.change(confirmation, { target: { value: 'Подтверждаю тест.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    await waitFor(() => expect(mocks.put).toHaveBeenCalled());
+    expect(mocks.put.mock.calls[0][1]).toMatchObject({
+      quiz_title: 'Мой результат теста',
+      quiz_intro_text: 'Только отдельный тест.',
+      quiz_confirmation_text: 'Подтверждаю тест.',
+    });
+  });
+
+  it('requests a separate-test preview when that preview mode is selected', async () => {
+    render(<TrainingEvidenceFormSettingsPage />);
+    await screen.findByLabelText('Заголовок результата теста');
+    fireEvent.click(screen.getByRole('button', { name: 'Отдельный тест' }));
+
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(
+      '/v1/training-evidence/form-settings/preview?activity=quiz',
+      expect.anything(),
+      expect.objectContaining({ responseType: 'blob' }),
+    ));
+  });
+
   it('shows a retry state and keeps save disabled when catalog loading fails', async () => {
     let failed = true;
     mocks.get.mockImplementation((url: string) => {

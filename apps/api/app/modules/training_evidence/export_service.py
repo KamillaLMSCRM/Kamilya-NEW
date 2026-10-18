@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from hashlib import sha256
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -60,7 +60,7 @@ from app.modules.training_evidence.models import (
 _ATTEMPT_PROCEDURES = {"knowledge_check", "internal_attestation", "admission_decision"}
 
 
-def _incomplete(event_id: UUID, missing: list[str], *, message: str | None = None) -> None:
+def _incomplete(event_id: UUID, missing: list[str], *, message: str | None = None) -> NoReturn:
     missing = sorted(set(missing))
     raise HTTPException(
         status_code=status.HTTP_409_CONFLICT,
@@ -294,6 +294,28 @@ async def _load_tenant_context(
     )
 
 
+def _configured_quiz_binding(root: TrainingEvidenceEvent) -> tuple[UUID, UUID, str] | None:
+    payload = _as_mapping(root.payload_snapshot)
+    if root.procedure_type != "knowledge_check" or not isinstance(
+        _as_mapping(payload.get("print_form")).get("selected_fields"), list
+    ):
+        return None
+    evidence = _as_mapping(payload.get("attempt_evidence"))
+    digest = evidence.get("evidence_sha256")
+    try:
+        attempt_id, quiz_id = UUID(str(evidence.get("attempt_id"))), UUID(str(payload.get("quiz_id")))
+    except ValueError:
+        _incomplete(cast(UUID, root.id), ["quiz_attempt_binding"])
+    if (
+        payload.get("source") != "quiz_attempt"
+        or not isinstance(digest, str)
+        or len(digest) != 64
+        or any(char not in "0123456789abcdef" for char in digest)
+    ):
+        _incomplete(cast(UUID, root.id), ["quiz_attempt_binding"])
+    return attempt_id, quiz_id, digest
+
+
 async def _load_attempts(
     db: AsyncSession,
     *,
@@ -304,21 +326,17 @@ async def _load_attempts(
     event_id: UUID,
     required: bool,
     include_quiz_titles: bool = False,
+    quiz_binding: tuple[UUID, UUID, str] | None = None,
 ) -> list[AttemptEvidence]:
-    rows = list(
-        (
-            await db.scalars(
-                select(QuizAttempt)
-                .where(
-                    QuizAttempt.tenant_id == tenant_id,
-                    QuizAttempt.user_id == user_id,
-                    QuizAttempt.enrollment_id == enrollment.id,
-                    QuizAttempt.content_release_id == release.id,
-                )
-                .order_by(QuizAttempt.started_at, QuizAttempt.id)
-            )
-        ).all()
+    query = select(QuizAttempt).where(
+        QuizAttempt.tenant_id == tenant_id,
+        QuizAttempt.user_id == user_id,
+        QuizAttempt.enrollment_id == enrollment.id,
+        QuizAttempt.content_release_id == release.id,
     )
+    if quiz_binding is not None:
+        query = query.where(QuizAttempt.id == quiz_binding[0], QuizAttempt.quiz_id == quiz_binding[1])
+    rows = list((await db.scalars(query.order_by(QuizAttempt.started_at, QuizAttempt.id))).all())
     if required and not rows:
         _incomplete(event_id, ["completed_quiz_attempt"])
 
@@ -334,6 +352,10 @@ async def _load_attempts(
     attempts: list[AttemptEvidence] = []
     invalid: list[str] = []
     for row in rows:
+        if quiz_binding is not None and (
+            row.id != quiz_binding[0] or row.quiz_id != quiz_binding[1] or row.evidence_sha256 != quiz_binding[2]
+        ):
+            _incomplete(event_id, ["quiz_attempt_binding"])
         snapshot = row.evidence_snapshot
         if not isinstance(snapshot, Mapping) or not row.evidence_sha256:
             invalid.append(f"attempt:{row.id}:evidence_snapshot")
@@ -463,6 +485,7 @@ async def _build_server_parts(
         include_quiz_titles=isinstance(
             _as_mapping(_as_mapping(root.payload_snapshot).get("print_form")).get("selected_fields"), list
         ),
+        quiz_binding=_configured_quiz_binding(root),
     )
 
     event_ids = [item.id for item in chain]
@@ -575,7 +598,7 @@ async def _build_server_parts(
         )
     raw_print_form = _as_mapping(root.payload_snapshot).get("print_form")
     print_form = None
-    if root.procedure_type == "training" and isinstance(raw_print_form, Mapping):
+    if root.procedure_type in {"training", "knowledge_check"} and isinstance(raw_print_form, Mapping):
         try:
             print_form = PrintFormEvidence.model_validate(raw_print_form)
         except ValidationError:

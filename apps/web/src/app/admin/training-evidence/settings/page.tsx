@@ -15,6 +15,9 @@ interface FormSettings {
   title: string;
   intro_text: string;
   confirmation_text: string;
+  quiz_title: string;
+  quiz_intro_text: string;
+  quiz_confirmation_text: string;
   employee_signature_label: string;
   employee_date_label: string;
   representative_signature_label: string;
@@ -43,6 +46,9 @@ const defaults: FormSettings = {
   title: 'Подтверждение прохождения курса',
   intro_text: 'Документ подтверждает завершение сотрудником опубликованной версии курса.',
   confirmation_text: 'Я подтверждаю, что завершил(а) указанный курс, ознакомился(лась) с его материалами и самостоятельно прошел(ла) обязательное тестирование.',
+  quiz_title: 'Результат отдельного теста',
+  quiz_intro_text: 'Документ фиксирует результат отдельного теста и не подтверждает завершение курса.',
+  quiz_confirmation_text: 'Подтверждаю самостоятельное выполнение указанного теста. Результат приведён в документе.',
   employee_signature_label: 'Подпись сотрудника',
   employee_date_label: 'Дата',
   representative_signature_label: 'Подпись представителя работодателя',
@@ -60,6 +66,7 @@ export default function TrainingEvidenceFormSettingsPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewActivity, setPreviewActivity] = useState<'course' | 'quiz'>('course');
   const [catalog, setCatalog] = useState<FormFieldCatalog | null>(null);
   const [settingsError, setSettingsError] = useState(false);
   const [catalogError, setCatalogError] = useState(false);
@@ -76,7 +83,7 @@ export default function TrainingEvidenceFormSettingsPage() {
     setPreviewBlob(blob);
   }, []);
 
-  const draftFingerprint = JSON.stringify(settings);
+  const draftFingerprint = JSON.stringify({ settings, previewActivity });
   draftFingerprintRef.current = draftFingerprint;
   const dataReady = !loading && !settingsError && !catalogError && catalog !== null;
   const editingDisabled = loading || saving || settingsError || catalogError || !catalog;
@@ -86,7 +93,10 @@ export default function TrainingEvidenceFormSettingsPage() {
     setPreviewLoading(true);
     setPreviewFingerprint(null);
     try {
-      const response = await api.post<Blob>('/v1/training-evidence/form-settings/preview', value, { responseType: 'blob', signal });
+      const previewUrl = previewActivity === 'quiz'
+        ? '/v1/training-evidence/form-settings/preview?activity=quiz'
+        : '/v1/training-evidence/form-settings/preview';
+      const response = await api.post<Blob>(previewUrl, value, { responseType: 'blob', signal });
       if (!await isPdfPreview(response.data)) throw new Error('Invalid PDF preview');
       if (signal?.aborted || generation !== previewGenerationRef.current) return null;
       const url = URL.createObjectURL(response.data);
@@ -102,7 +112,7 @@ export default function TrainingEvidenceFormSettingsPage() {
     } finally {
       if (!signal?.aborted && generation === previewGenerationRef.current) setPreviewLoading(false);
     }
-  }, [replacePreview]);
+  }, [previewActivity, replacePreview]);
 
   useEffect(() => {
     let cancelled = false;
@@ -234,6 +244,21 @@ export default function TrainingEvidenceFormSettingsPage() {
                 <label htmlFor="evidence-form-confirmation" className="mb-2 block text-sm font-medium">Текст подтверждения сотрудника</label>
                 <textarea id="evidence-form-confirmation" className="min-h-32 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" maxLength={1500} value={settings.confirmation_text} onChange={(event) => update('confirmation_text', event.target.value)} />
               </div>
+              <div className="space-y-4 rounded-md border border-primary/30 bg-primary/5 p-4">
+                <div>
+                  <h3 className="text-sm font-semibold">Отдельный тест</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">Эти тексты используются только в результате отдельной попытки теста. Выбор полей ниже применяется и к такому результату.</p>
+                </div>
+                {textField('quiz_title', 'Заголовок результата теста', 160)}
+                <div>
+                  <label htmlFor="evidence-form-quiz-intro" className="mb-2 block text-sm font-medium">Вводный текст результата теста</label>
+                  <textarea id="evidence-form-quiz-intro" className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" maxLength={1000} value={settings.quiz_intro_text} onChange={(event) => update('quiz_intro_text', event.target.value)} />
+                </div>
+                <div>
+                  <label htmlFor="evidence-form-quiz-confirmation" className="mb-2 block text-sm font-medium">Текст подтверждения результата теста</label>
+                  <textarea id="evidence-form-quiz-confirmation" className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" maxLength={1500} value={settings.quiz_confirmation_text} onChange={(event) => update('quiz_confirmation_text', event.target.value)} />
+                </div>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 {textField('employee_signature_label', 'Подпись сотрудника', 120)}
                 {textField('employee_date_label', 'Дата сотрудника', 120)}
@@ -273,13 +298,18 @@ export default function TrainingEvidenceFormSettingsPage() {
         </Card>
 
         <Card>
-          <CardHeader className="flex-row items-center justify-between">
+          <CardHeader className="flex-row items-center justify-between gap-4">
             <div><CardTitle>Предпросмотр PDF</CardTitle><p className="mt-1 text-sm text-muted-foreground">Данные сотрудника и курса здесь демонстрационные.</p></div>
             <Button variant="outline" onClick={() => void downloadPreview()} disabled={previewLoading || previewFingerprint !== draftFingerprint || !previewUrl}>
               <Download className="mr-2 h-4 w-4" /> Скачать
             </Button>
           </CardHeader>
           <CardContent>
+            <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Тип предпросмотра">
+              <Button type="button" variant={previewActivity === 'course' ? 'default' : 'outline'} onClick={() => setPreviewActivity('course')} disabled={editingDisabled}>Завершение курса</Button>
+              <Button type="button" variant={previewActivity === 'quiz' ? 'default' : 'outline'} onClick={() => setPreviewActivity('quiz')} disabled={editingDisabled}>Отдельный тест</Button>
+            </div>
+            {previewActivity === 'quiz' && <p className="mb-3 text-sm text-muted-foreground">Предпросмотр использует тексты отдельного теста. Выбранные поля применятся к новым результатам тестов; значение null сохраняет исторический формат.</p>}
             {dataReady && previewFingerprint !== draftFingerprint && <p role="status" className="mb-3 text-sm text-muted-foreground">Образец обновляется. Скачивание станет доступно после обновления.</p>}
             {previewLoading && !previewBlob ? <div className="flex min-h-[620px] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div> : previewBlob ? (
               <PdfPreview blob={previewBlob} title="Предпросмотр бланка подтверждения"

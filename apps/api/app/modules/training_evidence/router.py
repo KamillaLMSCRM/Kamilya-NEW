@@ -117,10 +117,11 @@ async def save_printable_form_settings(
 @router.post("/form-settings/preview")
 async def preview_printable_form_settings(
     payload: TrainingEvidenceFormSettings,
+    activity: Literal["course", "quiz"] = Query(default="course"),
     _user: User = Depends(require_role("admin")),
 ) -> Response:
     return Response(
-        content=render_training_evidence_form_preview(payload),
+        content=render_training_evidence_form_preview(payload, for_quiz=activity == "quiz"),
         media_type="application/pdf",
         headers={
             "Content-Disposition": 'inline; filename="training-completion-form-preview.pdf"',

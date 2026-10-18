@@ -300,10 +300,13 @@ def _form_signature(pdf: FPDF, signature_label: str, date_label: str) -> None:
 
 def _render_selected_completion_form(pdf: FPDF, input_data: IndividualEvidenceInput) -> None:
     form = input_data.print_form
-    if form is None or form.selected_fields is None or input_data.procedure.type != "training":
+    is_quiz = input_data.procedure.type == "knowledge_check"
+    if form is None or form.selected_fields is None or input_data.procedure.type not in {"training", "knowledge_check"}:
         raise ValueError("A configured training completion form is required")
     if input_data.course is None:
         raise ValueError("A course is required for a completion form")
+    if is_quiz and (len(input_data.attempts) != 1 or not input_data.attempts[0].id):
+        raise ValueError("A separate-test form requires one identified attempt")
     pdf.set_font("Ubuntu", "B", 18)
     pdf.set_text_color(30, 58, 138)
     pdf.multi_cell(0, 9, _safe_text(form.title), align="C", new_x="LMARGIN", new_y="NEXT")
@@ -314,6 +317,14 @@ def _render_selected_completion_form(pdf: FPDF, input_data: IndividualEvidenceIn
         "Бланк результата обучения. Не является электронной подписью или специальной формой аттестации.",
         italic=True,
     )
+    if is_quiz:
+        _paragraph(
+            pdf,
+            "Результат относится только к указанному тесту и попытке. Завершение всего курса этим документом не подтверждается.",
+            italic=True,
+        )
+        _field(pdf, "Тест", input_data.procedure.title)
+        _field(pdf, "Идентификатор попытки", input_data.attempts[0].id)
     employee = input_data.employee
     assignment = input_data.assignment
     fields = {
@@ -531,7 +542,7 @@ def render_individual_act_pdf(input_data: IndividualEvidenceInput, *, public: bo
         not public
         and input_data.print_form
         and input_data.print_form.selected_fields is not None
-        and procedure.get("type") == "training"
+        and procedure.get("type") in {"training", "knowledge_check"}
     ):
         pdf.add_page()
         _render_selected_completion_form(pdf, input_data)

@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   learner download. Preserve legacy templates and complete audit/public exports.
   Local verification only; not deployed by this change.
 
+- Extend configured result forms to individual quiz attempts before course
+  completion, with separate editable quiz texts, exact immutable attempt binding,
+  learner result/history PDF downloads and legacy/cross-tenant protections.
+  DEV acceptance in progress; production is not authorized for this package.
+
 - Implement an optional manual ChatGPT reserve using the official pinned Codex CLI
   and managed ChatGPT login, with superadmin readiness/confirmation/revision-checked
   activation and emergency disable. Add an authenticated bounded private connector,
