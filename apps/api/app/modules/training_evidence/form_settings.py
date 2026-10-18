@@ -13,12 +13,14 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.models.tenants import Tenant
 from app.modules.evidence_export import (
     AssignmentEvidence,
+    AttemptEvidence,
     CourseEvidence,
     EmployeeEvidence,
     IndividualEvidenceInput,
     PrintFormEvidence,
     ProcedureEvidence,
     TenantEvidence,
+    render_completion_form_pdf,
     render_individual_act_pdf,
 )
 
@@ -61,10 +63,11 @@ class TrainingEvidenceFormSettings(PrintFormEvidence):
         "representative_name",
         "representative_title",
         "footer_note",
+        mode="before",
     )
     @classmethod
-    def strip_text(cls, value: str) -> str:
-        return value.strip()
+    def strip_text(cls, value: Any) -> Any:
+        return value.strip() if isinstance(value, str) else value
 
     def to_print_form(self) -> PrintFormEvidence:
         return PrintFormEvidence.model_validate(self.model_dump())
@@ -105,7 +108,12 @@ def render_training_evidence_form_preview(settings: TrainingEvidenceFormSettings
 
     sample = IndividualEvidenceInput(
         tenant=TenantEvidence(name=settings.organization_name),
-        employee=EmployeeEvidence(full_name="Александр Сотрудников"),
+        employee=EmployeeEvidence(
+            full_name="Александр Сотрудников",
+            personnel_number="QA-001",
+            department="Учебный отдел",
+            position="Специалист",
+        ),
         procedure=ProcedureEvidence(
             type="training",
             title="Прохождение курса",
@@ -116,11 +124,35 @@ def render_training_evidence_form_preview(settings: TrainingEvidenceFormSettings
             title="Безопасная работа и внутренние процедуры",
             release_version=3,
         ),
-        assignment=AssignmentEvidence(source="manual", assigned_at=datetime.now(UTC)),
+        assignment=AssignmentEvidence(source="manual", assigned_at=datetime.now(UTC), due_at=datetime.now(UTC)),
+        attempts=[
+            AttemptEvidence(
+                quiz_title="Итоговый тест по внутренним процедурам",
+                score_percent=60,
+                threshold_percent=80,
+                passed=False,
+                completed_at=datetime.now(UTC),
+                time_spent_seconds=180,
+            ),
+            AttemptEvidence(
+                quiz_title="Итоговый тест по внутренним процедурам",
+                score_percent=90,
+                threshold_percent=80,
+                passed=True,
+                completed_at=datetime.now(UTC),
+                time_spent_seconds=240,
+            ),
+        ]
+        if settings.selected_fields is not None
+        else [],
         print_form=settings.to_print_form(),
         generated_at=datetime.now(UTC),
     )
-    return render_individual_act_pdf(sample)
+    return (
+        render_completion_form_pdf(sample)
+        if settings.selected_fields is not None
+        else render_individual_act_pdf(sample)
+    )
 
 
 __all__ = [

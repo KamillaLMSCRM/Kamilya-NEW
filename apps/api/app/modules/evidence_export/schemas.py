@@ -11,7 +11,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.modules.evidence_export.form_fields import REQUIRED_FORM_FIELDS, CompletionFormField
 
 
 class _EvidenceModel(BaseModel):
@@ -62,6 +64,7 @@ class AssignmentEvidence(_EvidenceModel):
 class AttemptEvidence(_EvidenceModel):
     id: str | None = None
     quiz_id: str | None = None
+    quiz_title: str | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
     time_spent_seconds: int | None = Field(default=None, ge=0)
@@ -86,6 +89,7 @@ class PrintFormEvidence(_EvidenceModel):
     """Issue-time snapshot of the tenant's printable completion form."""
 
     template_version: int = Field(default=1, ge=1, le=100)
+    selected_fields: list[CompletionFormField] | None = Field(default=None, min_length=3, max_length=20)
     organization_name: str = Field(default="", max_length=160)
     title: str = Field(min_length=1, max_length=160)
     intro_text: str = Field(default="", max_length=1000)
@@ -97,6 +101,16 @@ class PrintFormEvidence(_EvidenceModel):
     representative_name: str = Field(default="", max_length=160)
     representative_title: str = Field(default="", max_length=160)
     footer_note: str = Field(default="", max_length=500)
+
+    @field_validator("selected_fields")
+    @classmethod
+    def validate_selected_fields(cls, value: list[CompletionFormField] | None) -> list[CompletionFormField] | None:
+        if value is not None:
+            if len(value) != len(set(value)):
+                raise ValueError("Printable form fields must be unique")
+            if not REQUIRED_FORM_FIELDS.issubset(value):
+                raise ValueError("Employee, course and test results are required")
+        return value
 
 
 class SignedCopyEvidence(_EvidenceModel):

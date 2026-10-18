@@ -303,6 +303,7 @@ async def _load_attempts(
     release: ContentRelease,
     event_id: UUID,
     required: bool,
+    include_quiz_titles: bool = False,
 ) -> list[AttemptEvidence]:
     rows = list(
         (
@@ -366,6 +367,9 @@ async def _load_attempts(
             AttemptEvidence(
                 id=str(row.id),
                 quiz_id=str(row.quiz_id),
+                quiz_title=quiz_snapshot.get("title")
+                if include_quiz_titles and isinstance(quiz_snapshot.get("title"), str)
+                else None,
                 started_at=row.started_at,
                 completed_at=row.completed_at,
                 time_spent_seconds=row.time_spent_seconds,
@@ -456,6 +460,9 @@ async def _build_server_parts(
         release=release,
         event_id=event_id,
         required=root.procedure_type in _ATTEMPT_PROCEDURES,
+        include_quiz_titles=isinstance(
+            _as_mapping(_as_mapping(root.payload_snapshot).get("print_form")).get("selected_fields"), list
+        ),
     )
 
     event_ids = [item.id for item in chain]
@@ -774,12 +781,19 @@ async def build_learner_individual_evidence_input(
         # immutable evidence event remains untouched; only this learner-owned
         # presentation falls back to the tenant's current template.
         settings = await get_training_evidence_form_settings(db, tenant_id)
-        print_form = settings.to_print_form()
+        print_form = settings.to_print_form().model_copy(update={"selected_fields": None})
     # Construct a base schema rather than returning the server-only subclass:
     # this omits hashes, legal holds, corrections and every attempt answer.
     return IndividualEvidenceInput(
         tenant=complete.tenant,
-        employee=EmployeeEvidence(full_name=complete.employee.full_name),
+        employee=EmployeeEvidence(
+            full_name=complete.employee.full_name,
+            personnel_number=complete.employee.personnel_number
+            if print_form and print_form.selected_fields is not None
+            else None,
+            department=complete.employee.department if print_form and print_form.selected_fields is not None else None,
+            position=complete.employee.position if print_form and print_form.selected_fields is not None else None,
+        ),
         procedure=complete.procedure,
         course=(complete.course.model_copy(update={"release_sha256": None}) if complete.course is not None else None),
         assignment=complete.assignment,

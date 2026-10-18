@@ -104,7 +104,8 @@ async def test_accepted_signed_copy_becomes_manual_confirmation_and_package_atta
 
 
 @pytest.mark.asyncio
-async def test_learner_export_uses_current_tenant_form_for_legacy_training_event(monkeypatch):
+@pytest.mark.parametrize("configured", [False, True])
+async def test_learner_export_uses_current_tenant_form_for_legacy_training_event(monkeypatch, configured):
     tenant_id = uuid4()
     learner_id = uuid4()
     event_id = uuid4()
@@ -129,6 +130,7 @@ async def test_learner_export_uses_current_tenant_form_for_legacy_training_event
         generated_at=now,
     )
     fallback = PrintFormEvidence(
+        selected_fields=["employee_name", "course_title", "test_results"] if configured else None,
         organization_name="Legacy tenant",
         title="Подтверждение прохождения курса",
         confirmation_text="Подтверждаю завершение курса.",
@@ -165,17 +167,19 @@ async def test_learner_export_uses_current_tenant_form_for_legacy_training_event
         event_id,
     )
 
-    assert result.print_form == fallback
+    assert result.print_form == fallback.model_copy(update={"selected_fields": None})
     assert event.payload_snapshot == original_payload
 
 
 @pytest.mark.asyncio
-async def test_learner_export_keeps_completion_time_form_snapshot(monkeypatch):
+@pytest.mark.parametrize("configured", [False, True])
+async def test_learner_export_keeps_completion_time_form_snapshot(monkeypatch, configured):
     tenant_id = uuid4()
     learner_id = uuid4()
     event_id = uuid4()
     enrollment_id = uuid4()
     snapshot = PrintFormEvidence(
+        selected_fields=["employee_name", "course_title", "test_results", "department"] if configured else None,
         organization_name="Snapshot tenant",
         title="Snapshot form",
         confirmation_text="Snapshot confirmation",
@@ -194,7 +198,15 @@ async def test_learner_export_keeps_completion_time_form_snapshot(monkeypatch):
     )
     evidence = IndividualEvidenceInput(
         tenant=TenantEvidence(id=str(tenant_id), name="Snapshot tenant"),
-        employee=EmployeeEvidence(id=str(learner_id), full_name="Snapshot Learner"),
+        employee=EmployeeEvidence(
+            id=str(learner_id),
+            full_name="Snapshot Learner",
+            department="QA Department",
+            personnel_number="QA001",
+            position="QA",
+            email="private@example.com",
+            phone="private",
+        ),
         procedure=ProcedureEvidence(type="training", title="Snapshot completion"),
         course=CourseEvidence(title="Safety", release_version=1),
         assignment=AssignmentEvidence(enrollment_id=str(enrollment_id), source="manual"),
@@ -227,3 +239,54 @@ async def test_learner_export_keeps_completion_time_form_snapshot(monkeypatch):
     )
 
     assert result.print_form == snapshot
+    assert result.employee.department == ("QA Department" if configured else None)
+    assert result.employee.email is None and result.employee.phone is None and result.employee.id is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("include_titles", [False, True])
+async def test_attempt_titles_use_verified_snapshot_only_for_configured_forms(include_titles):
+    from app.modules.courses.release_service import canonical_json_sha256
+
+    tenant_id, learner_id, enrollment_id, release_id, quiz_id, attempt_id = [uuid4() for _ in range(6)]
+    snapshot = {
+        "attempt": {
+            "id": str(attempt_id),
+            "tenant_id": str(tenant_id),
+            "user_id": str(learner_id),
+            "enrollment_id": str(enrollment_id),
+            "content_release_id": str(release_id),
+            "quiz_id": str(quiz_id),
+        },
+        "quiz": {"title": "Snapshot test title", "pass_score": 80},
+        "graded_answers": [],
+    }
+    row = SimpleNamespace(
+        id=attempt_id,
+        quiz_id=quiz_id,
+        evidence_snapshot=snapshot,
+        evidence_sha256=canonical_json_sha256(snapshot),
+        started_at=None,
+        completed_at=datetime.now(UTC),
+        time_spent_seconds=0,
+        score_percent=0,
+        total_points=1,
+        earned_points=0,
+        passed=False,
+    )
+    quiz = SimpleNamespace(id=quiz_id, title="Renamed current test", pass_score=99)
+    attempts = await export_service._load_attempts(
+        _Database([[row], [quiz]]),
+        tenant_id=tenant_id,
+        user_id=learner_id,
+        enrollment=SimpleNamespace(id=enrollment_id),
+        release=SimpleNamespace(id=release_id),
+        event_id=uuid4(),
+        required=True,
+        include_quiz_titles=include_titles,
+    )
+    assert attempts[0].quiz_title == ("Snapshot test title" if include_titles else None)
+    assert attempts[0].threshold_percent == 80
+    assert attempts[0].score_percent == 0 and attempts[0].passed is False
+    if not include_titles:
+        assert "quiz_title" not in attempts[0].model_dump(exclude_none=True)
