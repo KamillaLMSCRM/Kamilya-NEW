@@ -179,7 +179,7 @@ describe('learner quiz result navigation', () => {
 
     await screen.findByText('100%');
     fireEvent.click(screen.getByRole('button', { name: 'Скачать PDF' }));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Не удалось скачать результат теста'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Бланк для этой попытки недоступен'));
     expect(fetchMock).toHaveBeenCalledWith(
       'undefined/v1/training-evidence/quiz-attempts/mine/attempt-legacy/export',
       expect.anything(),
