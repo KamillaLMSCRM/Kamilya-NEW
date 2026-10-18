@@ -6399,3 +6399,79 @@ Rules:
   diffcheck clean. First final run3182PASS1FAIL was the ERRORS entry missing its
   mandatory Symptom field, not an algorithm failure; explicit field restored,
   full suite rerun above. Source/test candidate frozen before DEV030 push.
+### CABINET60-DEV-PROD-20261018 — combined package and bounded live acceptance
+
+- Exact source/tag/published release4bcc64c0c686c6de0f3ffcf98268382fed42295c,
+  v0.11.60. API3267PASS/web1277PASS/167files/quality1006+2192PASS; historical failed
+  runs retained, no timeout weakening. DEV05b54115e6... RELEASE_OK/RECONCILED;
+  fresh two-page PDF visually accepted, all8 baseline full journal rows unchanged.
+  Prior broker/login outage recovered on existing free contour; no legacy VPS
+  repair, billing/resource change or production transport substitution required.
+- Native build39135590688 exact archive6aae44a2...aece9/manifest3edf1bcc...67ec,
+  REL-CABINET60-WEB-20261018 RELEASE_OK; protected backend39137346796 SUCCESS.
+  All4BLUE services image8bf69416...e48c7d/running/restarts0; independent public/
+  private/current/native identity exact. GREEN57 API healthy rollback/workers
+  stopped. Native previous59/additional56/protected359+299 retained. Only obsolete55
+  plus exact staging pair removed after SHA-verified offhost recovery under standing
+  authority; free1098292→1746364KiB before deployment,1076288KiB after native60.
+- Schema0181/two dialogue FORCE-RLS/non-BYPASS/controller unchanged. Actual routing
+  c016939b.../owner-enabled reserve ON preserved; old OFF notes not current truth.
+  Signed restore181 independently reverified, watchdog60 identity-only update,
+  unchanged thresholds/timers2active/checksuccess0, VM126free5692674048bytes.
+  No migration/voice/ASUS/rights/DNS/provider/billing/resource change.
+- Root production ordinary QA83552ce6... browser generatione1c483d8... completed
+  15.106548s including0.135166s queue. Course469f316e... lesson/test reviewed against
+  exact1840byte synthetic source:4work rules/all3operational MCQs source-faithful,
+  no boilerplate question. Three questions are not total coverage, novel-corpus
+  accuracy or human-efficiency evidence. Job has no recorded model/fallback field;
+  do not infer production provider from elapsed time or DEV results.
+- Manual edit/save/reload, explicit quiz/course approval/publication, PIN assignment
+  only existing pupil7181849f... with no mail, wrongPIN rejection, failed0% then
+  successful100% attempt with preserved timer, explicit completion/reload PASS.
+  Enrollmentfa9fae6a..., completion517fdba2..., certificatea487e3a7.../
+  KML-2026-566CF90F5A23. Actual2page act+1page certificate downloaded/rendered/visually
+  accepted, footer clear; public certificate verificationvalid PASS. Prior29 FULL
+  journal projections and original26 unchanged; total30. No PIN/token in receipts.
+- Source owner other/self/clear/reopen, mandatory action-filter reset, reader
+  same-URL/sidebar lesson-and-quiz pairing, competency46986883... course linkage,
+  exact nested-unit position38b7e33b... without department duplication PASS.
+  Ordinary admin WhatsApp notconfigured/error-retry state PASS; no QR initialization
+  or notification send. Document task2eede7ac... fresh deadline-only RU/KK answer
+  2vs5workingdays/exact common trigger/conflict/no precedence/two citations/reload
+  and actual source download PASS. Prior historical matrix not universally relabeled.
+- Evidence: ignored .release-evidence/cabinet-20261018/{production60-technical,
+  prod60-generation,prod60-generated-content,prod60-preservation,prod60-position,
+  prod60-document-answer}.json; prod60-completion.png/prod60-document-answer.png/
+  prod60-wa.png and rendered act/certificate pages. Controllers alone are not
+  business-flow proof. Legal OTP/signing/real notifications and rollback switch
+  NOT_RUN, no all-buttons/all-AI-availability claim.
+
+### CABINET60-STRUCTURE-20261018 — extension open, Excel provenance defect
+
+- Only newly created synthetic QA60 records in permanent production QA. UI branch
+  59534ffb... and child83db5cb5... created, child renamed; parent retained. Archive
+  click opened native confirm and browser controller then could not dismiss/read
+  the tab. Owner asked to cancel; this is HARNESS_FAILURE, not proof that archive
+  or all staff buttons failed. No confirmation inferred. New-tab controls also
+  unresponsive while that modal is open; stop repeated clicks.
+- Ordinary tenant API parent archive409 while child active; child200 then parent200,
+  both is_activefalse, no unrelated units touched. Manual employee23e48d9b.../
+  QA60-MANUAL-001 create201/edit200/short reason422/terminate200/readbackinactive
+  PASS. No email/phone/invitation or linked training. UI confirmation/employee
+  execution NOT_RUN; API proof is not substituted for human browser acceptance.
+- Four actual XLSX fixtures rendered/reimported and visually checked, synthetic
+  only, no formulas/email. Initial/additive/new-only/duplicate-personnel cases in
+  outputs/cabinet60-structure-20261018; manifest includes exact hashes. Initial API
+  analyze201 sessione20cfdec-7d38-45f1-acda-43f7bbe7b3ea/rev-36b926dfadff0b42,
+  ready_for_approval/ADD_OR_UPDATE. Correct values/create proposals but WRONG refs:
+  physical branchD reportedG, physical departmentE reportedD. NOT approved/committed.
+- Root+independent review locate cause: parser applies actual header mapping but
+  router does not pass it to pure legacy adapter, which uses historical defaults.
+  Narrow physical-column regression fix in progress; no matching/identity/RLS/mode
+  change. Initial/repeat/additive/new structure with omissions preserved and duplicate
+  conflict end-to-end remain NOT_RUN. Do not report Excel acceptance or apply the
+  stale preview until repaired DEV/live validation. No full-reconciliation deletion.
+- Receipts structure-archive-{guard,result}.json, structure-manual-create.json,
+  structure-manual-update-terminate.json, structure-import-01-initial-analyze.json
+  under cabinet-20261018. A failed Node FormData attempt occurred before network;
+  actual analyze used canonical Python/httpx and exact ordinary QA identity.

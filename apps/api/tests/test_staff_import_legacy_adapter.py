@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from app.modules.staff_import_legacy_adapter import (
     LEGACY_ROOT_EXTERNAL_KEY,
+    LegacyColumnMap,
     LegacyStaffRow,
     adapt_legacy_rows,
 )
@@ -190,6 +191,17 @@ def test_explicit_branch_column_nests_departments_and_uses_branch_cell_reference
         source_file_name="new-layout.xlsx",
         source_file_sha256=SOURCE_SHA,
         rows=[row],
+        columns=LegacyColumnMap.from_headers(
+            ["Табельный номер", "ФИО", "Должность", "Филиал", "Отдел", "Email"],
+            {
+                "Табельный номер": "personnel_number",
+                "ФИО": "full_name",
+                "Должность": "position",
+                "Филиал": "branch",
+                "Отдел": "department",
+                "Email": "email",
+            },
+        ),
     )
 
     assert len(proposal.branches) == 1
@@ -198,9 +210,30 @@ def test_explicit_branch_column_nests_departments_and_uses_branch_cell_reference
     department = proposal.departments[0]
     assert department.branch_external_key == branch.external_key
     assert proposal.positions[0].department_external_key == department.external_key
-    assert branch.source_refs[0].column == "G"
-    assert department.source_refs[0].column == "D"
+    assert branch.source_refs[0].column == "D"
+    assert department.source_refs[0].column == "E"
     assert any(item.evidence_code == "explicit_branch_column" for item in branch.evidence)
+
+
+def test_column_map_uses_physical_order_last_duplicate_mapping_and_omits_missing_fields():
+    columns = LegacyColumnMap.from_headers(
+        ["Ignored", "ФИО", "Табельный номер", "Должность", "Филиал", "Отдел", "ФИО"],
+        {
+            "ФИО": "full_name",
+            "Табельный номер": "personnel_number",
+            "Должность": "position",
+            "Филиал": "branch",
+            "Отдел": "department",
+        },
+    )
+
+    assert columns.personnel_number == "C"
+    assert columns.full_name == "G"
+    assert columns.position == "D"
+    assert columns.branch == "E"
+    assert columns.department == "F"
+    assert columns.email is None
+    assert LegacyColumnMap.from_headers([f"col{i}" for i in range(30)], {"col27": "branch"}).branch == "AB"
 
 
 def test_requested_reconciliation_mode_is_preserved():

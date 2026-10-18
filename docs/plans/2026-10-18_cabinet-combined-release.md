@@ -250,3 +250,93 @@ body text readable. This is local visual proof, not a fresh deployed PDF claim.
 Final API3267PASS/0failed/0skipped/27.68s/5existingwarnings; final unchanged web
 1277PASS retained. Pythonquality1006/2192PASS, contract312IDs/head0181/version60
 PASS. Additional source commit remains in the same unreleased package.
+
+## Current continuation — DEV recovered; legacy access is not a release dependency
+
+The earlier DEV broker/login outage above is historical, not a current blocker.
+Ordinary login and the full synthetic generation/assignment/completion cycle
+subsequently passed on the existing DEV infrastructure without legacy VPS repair.
+Final DEV05 b54115e6ec07c1029f2d16f26c21d9b107f3469a execute RELEASE_OK and
+reconcile RECONCILED: API dep-dbadbojbc2fs73av5u30, worker dep-dbadcmdg1s2s73bm9lfg,
+Vercel dpl_2rGrDYe8GWdQSVwyjqerD4MByhq6; CI39135206851 SUCCESS. Root independently
+read the receipts on continuation. No further legacy-host access is required.
+Final source4bcc64c0c686c6de0f3ffcf98268382fed42295c masterCI39135552069 SUCCESS;
+native build39135590688 SUCCESS and artifact downloaded for exact inspection.
+Fresh deployed PDF and production gates remain to be completed, not waived.
+
+## Final DEV acceptance and actual production switch
+
+Final DEV05 fresh ordinary learner PDF download48707bytes, two rendered pages
+visually accepted: footer rule no longer crosses text. SHA256
+a0d7a6fe3b088bc6d162148db05281c0957f488858f5de19f04b8749a2ce9cc8.
+All8 original full journal projections unchanged; total9. Exact production
+source/tag/published release4bcc64c0c686c6de0f3ffcf98268382fed42295c/0.11.60.
+MasterCI39135552069 SUCCESS, nativebuild39135590688 SUCCESS. Protected backend
+run39137346796 SUCCESS: API+three BLUE workers image8bf69416...e48c7d, restarts0;
+independent private/public0.11.60/exactSHA. GREEN57 healthy API rollback, workers
+stopped. Schema0181, two dialogue FORCE-RLS, non-BYPASS runtime, flags and actual
+owner-enabled reserve/routingc016939b... unchanged. Existing restore181 signed
+report independently reverified after image build; no new DB or migration.
+Watchdog two identity keys updated only, old configuration backup retained,
+thresholds unchanged, oneshot success, both timers active, no retention cleanup.
+
+Standing native capacity cleanup removed only successful obsolete55/381692f9...
+and its exact staging archive/manifest. Original recovery pair verified off-host;
+actual rollback56/current59/protected359+299 retained. Free1098292→1746364KiB;
+exact final bundle budget1320625711bytes restored; further cleanup stopped.
+Prior guide59 packet55 additional-retention disposition explicitly superseded only
+for this maintenance, historical packet unchanged. Native controller RELEASE_OK
+now current60/4bcc, former59 retained plus56/protected recovery. Technical public
+SHA/readback passed. Product/browser acceptance is in progress, not closed by
+controller status. Production before final live writes:29full QA journal rows.
+
+Next owner-added acceptance: after this packet's live flow, test ordinary structure
+and staff create/edit/archive/terminate, then synthetic Excel initial/additive/
+idempotent/new-structure/omitted-row/conflict previews and commits. Preserve prior
+learning/history and unrelated structure. No real customer fixtures. iSpring
+remains a separate documented workstream and is not in this production package.
+
+Harness observations retained: canonical DEV_QA_METHODOLOGIST_EMAIL in env names
+an older separate synthetic tenant; exact access-map email plus the existing
+password matches permanent QA a7a2... and user5187fa5f. Wrong-tenant login was
+read-only and logged out before any write. A local combined host-config validation
+under Windows rejects Linux absolute compose paths; manifest-only strict parser
+passes and exact Linux build step 'Create strict release manifest' SUCCESS proves
+host-compatible validation. No alternate config or production gate was weakened.
+
+## Production60 bounded live acceptance; structure follow-up in progress
+
+Core production60 flow accepted with fresh generatione1c483d8.../course469f316e...,
+15.106548s incl0.135166squeue. Source/lesson/3MCQ options reviewed; manual edit,
+quiz/course approval/publication, PIN-only one-pupil assignment, wrong PIN/fail0%/
+retry100%/completion/reload/actual act+certificate downloads/public verification
+PASS. All29 previous full journal projections and original26 unchanged; total30.
+Reader/filter/ownerother-self-clear/competency/exactnestedposition/documentanswer
+and unavailableWhatsApp/retry changed-path checks PASS. Readiness/ledger now own
+durable proof; no universal all-buttons, legal signing or historical AI matrix claim.
+
+Added structure testing created/renamed only QA60 branch59534ffb.../child83db5cb5....
+Native confirm blocks browser control; owner asked to cancel. Ordinary API proves
+parent409 with active child, then child+parent soft archive200/readbackinactive.
+New manual employee23e48d9b... create/edit/terminate PASS, short reason422, no mail.
+Do not claim these API executions as UI acceptance. No hard deletion or old data.
+
+Four real synthetic Excel fixtures created/rendered/reimported. Initial analyze
+sessione20cfdec.../rev-36b926dfadff0b42 correctly proposes values but wrong source refs
+branchG/departmentD vs actualD/E. NOT approved/committed. Agent independently traced
+parser-header mapping dropped at router→legacy adapter seam. Narrow regression fix
+is delegated; source60 lacks this later-discovered repair. Complete initial/repeat/
+additive/new-only/omitted rows/duplicate conflict matrix after repaired DEV proof.
+No current infrastructure/access/billing blocker; browser native confirm is a
+separate harness interruption, not permission to bypass import review.
+
+Root accepted bounded provenance patch after independent reviewer found no must-fix
+regression. Historical defaults remain for callers without metadata; actual parser
+headers now flow through router analysis/reanalysis. Behavioral reordered CSV/custom
+mapping/split names and XLSX included.48focused/3287full unit+contract/34golden corpus
+PASS, quality1006/2192/version61/contract313IDs/head0181 PASS. Initial broad unbounded
+pytest invocation included integration/skipped tests and was interrupted; NOT a full
+pass. The exact database-free frozen matrix above is the accepted local evidence.
+Merged/forward-filled original-row provenance and generic invalid-row A anchors
+remain explicit pre-existing limitations, not fixed. Candidate61 is backend-only;
+native60 remains compatible, no new native artifact or cleanup is needed.

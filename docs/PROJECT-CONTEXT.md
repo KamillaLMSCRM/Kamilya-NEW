@@ -585,7 +585,34 @@ hot edit still NOT VERIFIED at this checkpoint; no production approval.
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current guide59 snapshot,2026-10-16
+## Current runtime60 snapshot,2026-10-18
+
+Production API/three workers/native frontend0.11.60 exact
+4bcc64c0c686c6de0f3ffcf98268382fed42295c; protected39137346796/native bridge
+REL-CABINET60-WEB-20261018 successful, independent exact public/private identity.
+BLUE image8bf69416...e48c7d, GREEN57 API rollback healthy/workers stopped.
+Native previous59 b0c612bf..., additional56/protected359+299 retained; obsolete55
+and exact staging pair removed only after verified offhost recovery. No migration:
+schema0181, runtime/RLS/controller unchanged. Current routing c016939b.../owner-
+enabled reserve ON is authoritative; older OFF snapshots below are historical.
+Voice/ASUS/DNS/rights/provider plans/resources unchanged. Watchdog identity60 only,
+unchanged thresholds/two timers active/checksuccess0; signed restore181 reverified.
+
+DEV preserving integration b54115e6ec07c1029f2d16f26c21d9b107f3469a accepted:
+APIdep-dbadbojbc2fs73av5u30/workerdep-dbadcmdg1s2s73bm9lfg,
+Verceldpl_2rGrDYe8GWdQSVwyjqerD4MByhq6, Free/Free/Hobby unchanged. Prior transient
+broker/login outage recovered; old VPS is not a current prerequisite. For permanent
+DEV QA use exact access-map methodologist identity and validate tenant a7a2c055...
+before writes; current env email may name an older synthetic tenant. Never infer
+tenant from password success alone.
+
+Production bounded course generation-to-certificate and changed cabinet paths
+passed with all29 prior journal projections unchanged/total30. Extended structure
+acceptance remains open: manual new QA API CRUD/soft archive PASS, Excel preview
+has wrong physical-cell refs and is not applied. Readiness/ledger own proof and
+remaining gates; this snapshot does not claim all buttons or all historical cases.
+
+## Historical guide59 snapshot,2026-10-16
 
 Production frontend59 b0c612bfe4bfaf22346ef8763825512ce0de642e is deployed and live
 guide/menu acceptance PASS; API/three workers remain57/schema0181 unchanged.

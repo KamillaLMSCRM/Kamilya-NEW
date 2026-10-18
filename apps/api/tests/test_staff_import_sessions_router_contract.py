@@ -50,6 +50,16 @@ def test_approved_mapping_becomes_a_hint_not_an_approval_bypass() -> None:
     assert "save_proposal" in source
 
 
+def test_analysis_and_mapping_reanalysis_pass_parser_physical_columns_to_legacy_adapter() -> None:
+    source = ROUTER.read_text(encoding="utf-8")
+    analyze_start = source.index("async def _analyze_and_save(")
+    analyze_end = source.index("async def ", analyze_start + 1)
+    analyze = source[analyze_start:analyze_end]
+
+    assert "columns=LegacyColumnMap.from_headers(parsed.raw_columns, parsed.detected_columns)" in analyze
+    assert "adapt_legacy_rows(" in analyze
+
+
 def test_cleanup_commit_restores_transaction_local_tenant_context() -> None:
     source = ROUTER.read_text(encoding="utf-8")
     cleanup_call = source.index("await cleanup_expired_import_sources(")

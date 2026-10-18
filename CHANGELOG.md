@@ -430,6 +430,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.61] - 2026-10-18
+
+### Fixed
+
+- Staff-import review source-cell columns follow the actual workbook/CSV header
+  mapping, including reordered/custom headers and separate first/last names,
+  instead of assuming a historical fixed column layout. Missing fields no longer
+  invent coordinates. Matching, identities, import modes and writes are unchanged.
+  Original-cell row provenance for merged/forward-filled values is not changed.
+
 ## [0.11.60] - 2026-10-18
 
 ### Fixed
