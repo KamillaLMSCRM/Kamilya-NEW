@@ -8714,6 +8714,23 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   phases; only disjoint local work or another explicitly separate environment may
   run in parallel. A successful subtest count alone never overrides failed neutrality.
 
+## QUIZ-DEFERRAL-001 - Accepted deferral days were silently ignored by quiz CRUD
+
+- Date: 2026-10-18, separate-test DEV fixture inspection (UTC).
+- Symptom: create requested0days but returned/defaulted7; update also ignored
+  the accepted field. This was not a PDF or worker failure.
+- Cause: QuizCreate/QuizUpdate declared deferral_days, while router mutations
+  did not assign it to the ORM model.
+- Fix: persist create value and explicit non-null update, preserving zero and
+  omitted defaults. Bound new inputs0..3650days to prevent negative/overflow
+  date windows; existing tenant/history edit guards and expiry semantics remain.
+- Verification: four failing regression cases before fix; focused31API tests
+  and unchanged Python baseline PASS. Real CRUD/readback/history integration
+  added. Exact R5 CI and ordinary DEV readback remain required.
+- Prevention: compare accepted mutation values with independent persisted reads,
+  including zero, omitted and invalid values. Never rewrite historical attempts
+  or published releases to compensate for a dropped settings field.
+
 ## EVIDENCE-008 - Single-attempt PDF used a local list index as the learner attempt ordinal
 
 - Date: 2026-10-18, DEV separate-test browser acceptance.

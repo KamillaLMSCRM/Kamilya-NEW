@@ -1,7 +1,7 @@
 """Quiz API router"""
 
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -611,6 +611,7 @@ async def create_quiz(
         pass_score=req.pass_score,
         time_limit=req.time_limit,
         attempt_limit=req.attempt_limit,
+        deferral_days=req.deferral_days,
     )
     db.add(quiz)
     await db.flush()
@@ -725,6 +726,8 @@ async def update_quiz(
         quiz.time_limit = req.time_limit
     if req.attempt_limit is not None:
         quiz.attempt_limit = req.attempt_limit
+    if req.deferral_days is not None:
+        cast(Any, quiz).deferral_days = req.deferral_days
     await db.flush()
     return await get_quiz_with_questions(db, quiz.id, user.tenant_id)
 
