@@ -58,7 +58,8 @@ def test_quiz_document_identifies_attempt_even_with_minimal_fields(passed):
     )
     text = _text(render_completion_form_pdf(data))
     assert "Exact test" in text and "exact-attempt" in text
-    assert ("Итог (попытка 1): Пройдено" if passed else "Итог (попытка 1): Не пройдено") in text
+    assert ("Итог: Пройдено" if passed else "Итог: Не пройдено") in text
+    assert "(попытка 1)" not in text
     with pytest.raises(ValueError):
         render_completion_form_pdf(data.model_copy(update={"attempts": data.attempts * 2}))
 
