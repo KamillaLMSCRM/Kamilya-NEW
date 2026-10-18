@@ -4,7 +4,9 @@ import os
 import ssl
 
 from celery import Celery
-from celery.signals import worker_process_init
+from celery.signals import worker_init, worker_process_init
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
 
@@ -146,6 +148,36 @@ celery_app.conf.update(
 )
 
 
+@worker_init.connect  # type: ignore[untyped-decorator]
+def _configure_worker_database(**_kwargs: object) -> AsyncEngine:
+    """Bind worker sessions to a loop-safe engine without replacing the factory.
+
+    Celery's synchronous task wrappers create short-lived event loops.  A pooled
+    asyncpg connection can therefore outlive the loop that owns it and poison a
+    later task.  Workers do not need connection reuse across those loops, while
+    the API still benefits from its configured pool.
+    """
+    from app.core import db as _db
+
+    current_engine = _db.engine
+    if isinstance(current_engine.sync_engine.pool, NullPool):
+        _db.async_session_factory.configure(bind=current_engine)
+        return current_engine
+
+    worker_engine = create_async_engine(
+        current_engine.url,
+        echo=_db.settings.DEBUG,
+        pool_pre_ping=True,
+        poolclass=NullPool,
+    )
+    # Drop the worker process's reference to the API-style pool without trying
+    # to close connections through an event loop that may no longer exist.
+    current_engine.sync_engine.dispose(close=False)
+    _db.async_session_factory.configure(bind=worker_engine)
+    _db.engine = worker_engine
+    return worker_engine
+
+
 @worker_process_init.connect
 def _reset_db_engine_after_fork(**kwargs) -> None:
     """Discard the module-level async SQLAlchemy engine after fork().
@@ -167,10 +199,11 @@ def _reset_db_engine_after_fork(**kwargs) -> None:
     try:
         from app.core import db as _db
 
-        # dispose() closes any open connections from the parent; the
-        # pool will be rebuilt lazily on first acquire.
+        # Abandon the inherited pool without closing async connections through
+        # a parent-process event loop. NullPool workers normally have no idle
+        # connections, and a fresh pool is created lazily in the child.
         if getattr(_db, "engine", None) is not None:
-            _db.engine.sync_engine.pool.dispose()  # type: ignore[attr-defined]
+            _db.engine.sync_engine.dispose(close=False)
 
         # Keep the existing db module and model registry intact. Reloading
         # app.core.db creates a second declarative Base, which splits model
@@ -183,14 +216,3 @@ def _reset_db_engine_after_fork(**kwargs) -> None:
         import logging
 
         logging.getLogger(__name__).warning("worker_process_init: engine reset failed; continuing", exc_info=True)
-
-
-# When run as `celery ... -P solo` (single-threaded, no fork), the
-# engine from app.core.db is reused as-is and the signal above is
-# unnecessary. We expose an env flag so `kamilya-worker.service` and
-# the same proc with -P prefork both behave correctly.
-if os.getenv("CELERY_WORKER_POOL", "solo") == "solo":
-    # Solo pool: no fork, no signal work needed. But we still want
-    # the engine to be rebuilt on first await because the engine was
-    # imported at parent-process startup, before the loop ran.
-    pass
