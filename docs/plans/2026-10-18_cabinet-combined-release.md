@@ -340,3 +340,35 @@ pass. The exact database-free frozen matrix above is the accepted local evidence
 Merged/forward-filled original-row provenance and generic invalid-row A anchors
 remain explicit pre-existing limitations, not fixed. Candidate61 is backend-only;
 native60 remains compatible, no new native artifact or cleanup is needed.
+
+DEV61 candidate96a77190f9257ccb054145111da6aae83acbd651 RELEASE_OK/RECONCILED:
+CI39141647325, APIdep-dbaek0mq1p3s73bcl0h0/workerdep-dbaekvgm7kps738i52vg,
+Verceldpl_BFdKKpc4WSkGg7jXTE9wKpkyAbjc, same Free/Free/Hobby. Physical refs D/E
+correct in actual uploaded initial workbook. Session00d2c543... committed2students,
+oneposition/twounits, rule recomputeSUCCESS/0assignments/deleted0. Existing baseline
+8users/4units/9fulljournalrows saved before writes.
+
+Repeat sessionb497ba8f... approved but commit409 placement_requires_reviewed_transfer:
+same nested department falselyMOVE because only existing parent has displayname.
+No repeat mutation. Parent identity RED2→GREEN44matching/corpus and independent
+review accepted. Separate generic-unit action projection RED→GREEN; compatibility
+and canonical actions must agree. Source staff-key action mismatch is also fixed
+as preserved DEV behavior rather than a competing algorithm. No transfer guard
+disabled. Stateless phase script hit normal login429 after multiple short phases;
+stop those logins and retain one process-local ordinary client for further steps.
+
+Source-only inactive reimport risk is proven by deterministic tests, not a claimed
+production activation. Preview/locked pre-write guard added; independent review
+found normalized PN multiplicity risk in new bulk lookup, correction required
+before final suite. Candidate61 not released/tagged/deployed in production; actual
+production remains60. Subsequent accepted source needs preserving DEV update and
+fresh repeat/additive/new-only/omission/conflict/inactive validation. Original failed
+receipts remain immutable; do not retry old approved session blindly.
+
+Final safety correction independently accepted: canonical NFKC/whitespace/casefold
+identity checks, normalized-PN/email ambiguity and disagreeing target rejection,
+inactive email-only/stale approval guard before writes. Locks only current tenant
+snapshot; explicit concurrency tradeoff, no phantom-insert/scalability guarantee.
+Root final3360API PASS/0skips, quality1006/2191, version61/contract315IDs/head0181
+PASS. Source code frozen for fresh preserving DEV candidate; earlier96a candidate
+was NOT accepted because repeat failed. No production61 release yet.

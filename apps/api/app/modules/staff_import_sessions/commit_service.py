@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.department import Department
@@ -171,6 +171,38 @@ async def _tenant_units(db: AsyncSession, tenant_id: UUID) -> list[Department]:
     return list(result.scalars().all())
 
 
+async def _lock_and_reject_inactive_staff_matches(
+    db: AsyncSession,
+    *,
+    tenant_id: UUID,
+    staff: Sequence[Any],
+) -> list[User]:
+    if not staff:
+        return []
+    # SQL lower/trim cannot reproduce the import's NFKC + whitespace-collapse
+    # normalizer. Lock only this tenant's snapshot, then compare canonically.
+    result = await db.execute(select(User).where(User.tenant_id == tenant_id).with_for_update())
+    matched_users = list(result.scalars().all())
+    for proposal in staff:
+        personnel_key = normalize_import_key(proposal.personnel_number)
+        email_key = normalize_import_key(proposal.email)
+        personnel_matches = [
+            user
+            for user in matched_users
+            if personnel_key and normalize_import_key(user.personnel_number) == personnel_key
+        ]
+        email_matches = [user for user in matched_users if email_key and normalize_import_key(user.email) == email_key]
+        if len(personnel_matches) > 1:
+            raise ImportCommitConflictError("ambiguous normalized staff personnel number")
+        if len(email_matches) > 1:
+            raise ImportCommitConflictError("ambiguous normalized staff email")
+        if personnel_matches and email_matches and personnel_matches[0].id != email_matches[0].id:
+            raise ImportCommitConflictError("staff personnel number and email identify different users")
+        if any(not user.is_active for user in (*personnel_matches, *email_matches)):
+            raise ImportCommitConflictError("inactive_staff_requires_explicit_reactivation")
+    return matched_users
+
+
 def _one_or_none(values: list[Any], *, conflict: str) -> Any:
     if len(values) > 1:
         raise ImportCommitConflictError(conflict)
@@ -209,6 +241,15 @@ async def commit_approved_import_session(
         for rows in (domain.proposal.organization_units, domain.proposal.branches, domain.proposal.departments, domain.proposal.positions):
             if any(str(row.action) in {"update", "move"} for row in rows):
                 raise ImportCommitConflictError("placement_requires_reviewed_transfer")
+
+    # Lock identity matches and reject offboarded accounts before the session
+    # or any organization/position rows are changed. Staff imports have no
+    # explicit reactivation action.
+    locked_staff_users = await _lock_and_reject_inactive_staff_matches(
+        db,
+        tenant_id=tenant_id,
+        staff=[item for item in domain.proposal.staff if _active_action(item.action)],
+    )
 
     # Validate and resolve the complete generic graph while the proposal is
     # still approved. Invalid parent references and cycles therefore cannot
@@ -525,22 +566,13 @@ async def commit_approved_import_session(
         resolved_positions[position_proposal.external_key] = position
         await db.flush()
 
-    personnel_numbers = [
-        proposal.personnel_number for proposal in domain.proposal.staff if _active_action(proposal.action)
-    ]
-    users_result = await db.execute(
-        select(User)
-        .where(
-            User.tenant_id == tenant_id,
-            User.personnel_number.in_(personnel_numbers) if personnel_numbers else User.id.is_(None),
-        )
-        .with_for_update()
-    )
     users_by_personnel = {
-        normalize_unit_name(user.personnel_number): user
-        for user in users_result.scalars().all()
-        if user.personnel_number
+        normalize_import_key(user.personnel_number): user for user in locked_staff_users if user.personnel_number
     }
+    users_by_email: dict[str, list[User]] = {}
+    for user in locked_staff_users:
+        if user.email:
+            users_by_email.setdefault(normalize_import_key(user.email), []).append(user)
     for staff_proposal in domain.proposal.staff:
         if not _active_action(staff_proposal.action):
             counts["skipped"] += 1
@@ -570,15 +602,12 @@ async def commit_approved_import_session(
         )
         if organization_unit_key and organization_unit is None:
             raise ImportCommitConflictError(f"approved staff organization unit is missing: {organization_unit_key}")
-        user = users_by_personnel.get(normalize_unit_name(staff_proposal.personnel_number))
+        user = users_by_personnel.get(normalize_import_key(staff_proposal.personnel_number))
         if user is None and staff_proposal.email:
-            email_result = await db.execute(
-                select(User).where(
-                    User.tenant_id == tenant_id,
-                    func.lower(func.btrim(User.email)) == staff_proposal.email.strip().casefold(),
-                )
+            user = _one_or_none(
+                users_by_email.get(normalize_import_key(staff_proposal.email), []),
+                conflict="ambiguous staff email",
             )
-            user = email_result.scalar_one_or_none()
         if user is None:
             user = User(
                 id=uuid4(),
@@ -596,7 +625,7 @@ async def commit_approved_import_session(
                 status="active",
             )
             db.add(user)
-            users_by_personnel[normalize_unit_name(staff_proposal.personnel_number)] = user
+            users_by_personnel[normalize_import_key(staff_proposal.personnel_number)] = user
             counts["staff_created"] += 1
             affected_user_ids.add(user.id)
         else:
@@ -620,7 +649,6 @@ async def commit_approved_import_session(
             writable_user.last_name = staff_proposal.last_name
             writable_user.position_id = position.id
             writable_user.organization_unit_id = desired_organization_unit_id
-            writable_user.is_active = True
             if staff_proposal.email is not None:
                 writable_user.email = staff_proposal.email
             if staff_proposal.phone is not None:
