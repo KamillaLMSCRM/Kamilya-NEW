@@ -221,7 +221,7 @@ class _EvidencePDF(FPDF):
     def footer(self) -> None:
         self.set_y(-14)
         self.set_draw_color(30, 58, 138)
-        self.line(15, self.h - 12, self.w - 15, self.h - 12)
+        self.line(15, self.h - 17, self.w - 15, self.h - 17)
         self.set_font("Ubuntu", "I", 7)
         self.set_text_color(100, 100, 100)
         self.cell(0, 5, "Kamilya LMS · доказательственный пакет · не специальная форма НПА", align="C")

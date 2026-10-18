@@ -239,3 +239,14 @@ read-only status was subsequently attempted using the documented173.249.51.164
 target, without Proxmox/VPS_URL credentials; connection timed out(exit255), no
 authentication or remote execution. Both RedisTLS and SSH on legacy host are
 unreachable from this workstation; precise host/network cause NOT_VERIFIED.
+
+PDF visual check: actual DEV completion48707bytes/2pages and certificate45023bytes/
+1page render/readable. Completion page1 separator crosses its italic footer.
+Tiny backend correction moves that separator5mm upward, leaving all wording,
+body margins/pagination/signatures/status/timestamps unchanged. Geometry RED→PASS,
+focused15PASS/scopedRuff; Root independently reviewed the one-line production
+delta and rendered an offline2page synthetic stress fixture: separator clear,
+body text readable. This is local visual proof, not a fresh deployed PDF claim.
+Final API3267PASS/0failed/0skipped/27.68s/5existingwarnings; final unchanged web
+1277PASS retained. Pythonquality1006/2192PASS, contract312IDs/head0181/version60
+PASS. Additional source commit remains in the same unreleased package.

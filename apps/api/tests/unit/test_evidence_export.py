@@ -26,6 +26,7 @@ from app.modules.evidence_export import (
     render_group_protocol_pdf,
     render_individual_act_pdf,
 )
+from app.modules.evidence_export import builder as evidence_builder
 
 MOJIBAKE_MARKERS = ("\u0420\u0402", "\u0420\u0405", "\u0421\u0453")
 
@@ -153,6 +154,35 @@ def test_long_text_and_cyrillic_render_as_pdf():
     assert len(pdf) > 1_000
     reader = PdfReader(io.BytesIO(pdf))
     assert "Акт результата обучения" in "\n".join(page.extract_text() or "" for page in reader.pages)
+
+
+def test_footer_separator_stays_above_the_text_band(monkeypatch):
+    pdf = evidence_builder._new_pdf()
+    pdf.set_auto_page_break(auto=False)
+    separator_y: list[float] = []
+    text_bands: list[tuple[float, float]] = []
+    original_line = pdf.line
+    original_cell = pdf.cell
+
+    def record_line(x1, y1, x2, y2):
+        separator_y.append(y1)
+        return original_line(x1, y1, x2, y2)
+
+    def record_cell(width, height, text, *args, **kwargs):
+        text_top = pdf.get_y()
+        text_bands.append((text_top, text_top + height))
+        return original_cell(width, height, text, *args, **kwargs)
+
+    monkeypatch.setattr(pdf, "line", record_line)
+    monkeypatch.setattr(pdf, "cell", record_cell)
+
+    pdf.footer()
+
+    assert len(separator_y) == 1
+    assert len(text_bands) == 1
+    text_top, text_bottom = text_bands[0]
+    assert text_bottom > text_top
+    assert separator_y[0] <= text_top - 2
 
 
 def test_individual_pdf_uses_human_labels_and_kazakhstan_dates():

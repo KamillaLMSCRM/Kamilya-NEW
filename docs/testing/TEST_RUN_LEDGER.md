@@ -2233,6 +2233,20 @@ Rules:
   Documented historical broker SSH-key status attempt timed out(exit255) before
   authentication/remote execution; no Proxmox or alternate credentials used.
 
+### CABINET60-PDF-FOOTER-20261018 — final local package check
+
+- Root Poppler visual review of actual downloaded DEV completion2pages and
+  certificate1page found footer line crossing its caption on completionpage1.
+  Bounded writer gpt-5.6-sol/high moved one separator fromh-12toh-17only; geometry
+  test RED→PASS,15focusedPASS/scopedRuff. Root independent source review and
+  offline synthetic2page stress render accepted readable gap, no body/layout
+  contract change. This is not deployed PDF proof. No signature/OTP/API call.
+- Root exact API matrix (same selectors as CABINET60-FINAL-WORKER) with JUnit
+  .release-evidence/cabinet-20261018/api-final-footer.xml:3267PASS/0failed/
+  0skipped/27.68s/5existingwarnings. Web runtime blob unchanged from1277PASS;
+  Pythonbaseline1006/2192PASS, contract312unique/head0181/version60/diffPASS.
+  Root elapsed/token counters NOT AVAILABLE. Production untouched.
+
 ### TEST-WB-DOCUMENT-DRAFT-20261004-A — 2026-10-04 — interrupted local acceptance
 
 - Preflight passed at clean branch `feature/methodologist-workbench-20261001`, HEAD `b7478d3b4320cafe09f0bce4e28fce7cf06b701c`; Root isolated-DEV receipt was reviewed as attribution-only and all 4 supplied source hashes matched current files.
