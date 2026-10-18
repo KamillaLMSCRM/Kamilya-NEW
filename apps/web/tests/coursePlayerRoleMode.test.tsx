@@ -14,6 +14,8 @@ const translateMock = vi.hoisted(() => (key: string) => ({
   'quiz.passScore': 'Проходной балл',
   'quiz.attempts': 'Попытки',
   'quiz.deferralDays': 'Повтор через дней',
+  'common.loadFailed': 'Не удалось загрузить',
+  'common.retry': 'Повторить',
   'toast.coursePreviewCompleted': 'Предпросмотр курса завершён',
   'authenticatedUi.player.timeExpiredTitle': 'Время, отведённое на прохождение, истекло',
   'authenticatedUi.player.timeExpiredDescription': 'Материалы и тестирование закрыты. Обратитесь к методисту, чтобы получить новое окно доступа.',
@@ -382,6 +384,164 @@ describe('course player role modes', () => {
 
     expect(routerPush).not.toHaveBeenCalledWith('/courses/course-1?lessonId=lesson-2');
     expect(screen.getByRole('heading', { name: 'Следующий урок' })).toBeInTheDocument();
+  });
+
+  it('clears the previous lesson quiz while the next quiz loads and ignores late attempts', async () => {
+    const lessons = [
+      lesson,
+      { ...lesson, id: 'lesson-2', title: 'Следующий урок', order_index: 1 },
+      { ...lesson, id: 'lesson-3', title: 'Последний урок', order_index: 2 },
+    ];
+    let resolveSecondQuiz!: (response: Response) => void;
+    let resolveSecondAttempts!: (response: Response) => void;
+    let secondRequestSnapshot: { oldQuiz: boolean; oldPass: boolean; oldLink: boolean } | null = null;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/v1/courses/course-1')) return jsonResponse({ ...course, status: 'published' });
+      if (url.endsWith('/v1/courses/course-1/structure')) return jsonResponse({ modules: [{ id: 'module-1', title: 'Модуль', description: '', order_index: 0, lessons }] });
+      if (url.endsWith('/v1/progress/courses/course-1/completed-ids')) return jsonResponse({ completed_lesson_ids: lessons.map(({ id }) => id) });
+      if (url.endsWith('/v1/courses/course-1/access-window')) return jsonResponse(null);
+      if (url.endsWith('/v1/student/dashboard')) return jsonResponse({ enrolled_courses: [{ course_id: 'course-1', enrollment_status: 'in_progress' }] });
+      if (url.endsWith('/v1/quizzes/by-lesson/lesson-1')) return jsonResponse({ id: 'quiz-1', title: 'Старый тест', pass_score: 80, time_limit: null, attempt_limit: 3, deferral_days: 0 });
+      if (url.endsWith('/v1/quizzes/quiz-1/attempts')) return jsonResponse([{ id: 'attempt-1', score_percent: 100, passed: true }]);
+      if (url.endsWith('/v1/quizzes/by-lesson/lesson-2')) {
+        secondRequestSnapshot = {
+          oldQuiz: screen.queryByText('Старый тест') !== null,
+          oldPass: screen.queryByText('quiz.passed (100%)') !== null,
+          oldLink: screen.queryByRole('link', { name: 'Начать тест' }) !== null,
+        };
+        return new Promise(resolve => { resolveSecondQuiz = resolve; });
+      }
+      if (url.endsWith('/v1/quizzes/quiz-2/attempts')) return new Promise(resolve => { resolveSecondAttempts = resolve; });
+      if (url.endsWith('/v1/quizzes/by-lesson/lesson-3')) return jsonResponse({ detail: 'No quiz' }, 404);
+      if (url.includes('/v1/learner/assistant/messages')) return jsonResponse([]);
+      return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
+    });
+    useAuthStore.setState({ accessToken: 'student-token', user: { user_id: 'student-1', role: 'student' } as never, initialized: true });
+
+    render(<CoursePlayerPage />);
+    expect(await screen.findByText('Старый тест')).toBeInTheDocument();
+    expect(await screen.findByText('quiz.passed (100%)')).toBeInTheDocument();
+
+    await act(async () => fireEvent.click(screen.getAllByText('Следующий урок')[0]));
+    await waitFor(() => expect(resolveSecondQuiz).toBeTypeOf('function'));
+    expect(secondRequestSnapshot).toEqual({ oldQuiz: false, oldPass: false, oldLink: false });
+    expect(screen.queryByText('Старый тест')).not.toBeInTheDocument();
+    expect(screen.queryByText('quiz.passed (100%)')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Начать тест' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Следующий урок' })).not.toBeInTheDocument();
+
+    await act(async () => resolveSecondQuiz(jsonResponse({ id: 'quiz-2', title: 'Новый тест', pass_score: 80, time_limit: null, attempt_limit: 3, deferral_days: 0 })));
+    await waitFor(() => expect(resolveSecondAttempts).toBeTypeOf('function'));
+    expect(screen.queryByText('Новый тест')).not.toBeInTheDocument();
+    expect(screen.queryByText('quiz.passed (100%)')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Начать тест' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Следующий урок' })).not.toBeInTheDocument();
+
+    await act(async () => fireEvent.click(screen.getByText('Последний урок')));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/quizzes/by-lesson/lesson-3'),
+      expect.any(Object),
+    ));
+    await act(async () => resolveSecondAttempts(jsonResponse([{ id: 'attempt-2', score_percent: 100, passed: true }])));
+    expect(screen.queryByText('Новый тест')).not.toBeInTheDocument();
+    expect(screen.queryByText('quiz.passed (100%)')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Начать тест' })).not.toBeInTheDocument();
+  });
+
+  it('does not inherit a passed attempt when the current lesson attempt read fails', async () => {
+    const lessons = [lesson, { ...lesson, id: 'lesson-2', title: 'Следующий урок', order_index: 1 }];
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/v1/courses/course-1')) return jsonResponse({ ...course, status: 'published' });
+      if (url.endsWith('/v1/courses/course-1/structure')) return jsonResponse({ modules: [{ id: 'module-1', title: 'Модуль', description: '', order_index: 0, lessons }] });
+      if (url.endsWith('/v1/progress/courses/course-1/completed-ids')) return jsonResponse({ completed_lesson_ids: lessons.map(({ id }) => id) });
+      if (url.endsWith('/v1/courses/course-1/access-window')) return jsonResponse(null);
+      if (url.endsWith('/v1/student/dashboard')) return jsonResponse({ enrolled_courses: [{ course_id: 'course-1', enrollment_status: 'in_progress' }] });
+      if (url.endsWith('/v1/quizzes/by-lesson/lesson-1')) return jsonResponse({ id: 'quiz-1', title: 'Старый тест', pass_score: 80, time_limit: null, attempt_limit: 3, deferral_days: 0 });
+      if (url.endsWith('/v1/quizzes/quiz-1/attempts')) return jsonResponse([{ id: 'attempt-1', score_percent: 100, passed: true }]);
+      if (url.endsWith('/v1/quizzes/by-lesson/lesson-2')) return jsonResponse({ id: 'quiz-2', title: 'Новый тест', pass_score: 80, time_limit: null, attempt_limit: 3, deferral_days: 0 });
+      if (url.endsWith('/v1/quizzes/quiz-2/attempts')) return jsonResponse({ detail: 'Attempts unavailable' }, 503);
+      if (url.includes('/v1/learner/assistant/messages')) return jsonResponse([]);
+      return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
+    });
+    useAuthStore.setState({ accessToken: 'student-token', user: { user_id: 'student-1', role: 'student' } as never, initialized: true });
+
+    render(<CoursePlayerPage />);
+    expect(await screen.findByText('quiz.passed (100%)')).toBeInTheDocument();
+    await act(async () => fireEvent.click(screen.getAllByText('Следующий урок')[0]));
+
+    expect(await screen.findByText('Новый тест')).toBeInTheDocument();
+    expect(screen.queryByText('quiz.passed (100%)')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Начать тест' })).toHaveAttribute(
+      'href',
+      '/courses/quiz/quiz-2?courseId=course-1&lessonId=lesson-2',
+    );
+    expect(screen.queryByRole('button', { name: 'Завершить курс' })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      failure: 'HTTP 503',
+      firstResponse: () => Promise.resolve(jsonResponse({ detail: 'Quiz unavailable' }, 503)),
+      retryResponse: () => Promise.resolve(jsonResponse({ id: 'quiz-2', title: 'Новый тест', pass_score: 80, time_limit: null, attempt_limit: 3, deferral_days: 0 })),
+      retryResult: 'quiz',
+    },
+    {
+      failure: 'invalid JSON',
+      firstResponse: () => Promise.resolve(new Response('{', { status: 200, headers: { 'Content-Type': 'application/json' } })),
+      retryResponse: () => Promise.resolve(jsonResponse({ detail: 'No quiz' }, 404)),
+      retryResult: 'none',
+    },
+    {
+      failure: 'network error',
+      firstResponse: () => Promise.reject(new Error('network unavailable')),
+      retryResponse: () => Promise.resolve(jsonResponse({ id: 'quiz-2', title: 'Новый тест', pass_score: 80, time_limit: null, attempt_limit: 3, deferral_days: 0 })),
+      retryResult: 'quiz',
+    },
+  ])('fails closed on quiz metadata $failure and retries to a confirmed result', async ({ firstResponse, retryResponse, retryResult }) => {
+    const lessons = [lesson, { ...lesson, id: 'lesson-2', title: 'Следующий урок', order_index: 1 }];
+    let secondLessonRequests = 0;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/v1/courses/course-1')) return jsonResponse({ ...course, status: 'published' });
+      if (url.endsWith('/v1/courses/course-1/structure')) return jsonResponse({ modules: [{ id: 'module-1', title: 'Модуль', description: '', order_index: 0, lessons }] });
+      if (url.endsWith('/v1/progress/courses/course-1/completed-ids')) return jsonResponse({ completed_lesson_ids: lessons.map(({ id }) => id) });
+      if (url.endsWith('/v1/courses/course-1/access-window')) return jsonResponse(null);
+      if (url.endsWith('/v1/student/dashboard')) return jsonResponse({ enrolled_courses: [{ course_id: 'course-1', enrollment_status: 'in_progress' }] });
+      if (url.endsWith('/v1/quizzes/by-lesson/lesson-1')) return jsonResponse({ detail: 'No quiz' }, 404);
+      if (url.endsWith('/v1/quizzes/by-lesson/lesson-2')) {
+        secondLessonRequests += 1;
+        return secondLessonRequests === 1 ? firstResponse() : retryResponse();
+      }
+      if (url.endsWith('/v1/quizzes/quiz-2/attempts')) return jsonResponse([]);
+      if (url.includes('/v1/learner/assistant/messages')) return jsonResponse([]);
+      return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
+    });
+    useAuthStore.setState({ accessToken: 'student-token', user: { user_id: 'student-1', role: 'student' } as never, initialized: true });
+
+    render(<CoursePlayerPage />);
+    await screen.findByRole('button', { name: 'Следующий урок' });
+    await act(async () => fireEvent.click(screen.getAllByText('Следующий урок')[0]));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось загрузить');
+    expect(screen.queryByRole('link', { name: 'Начать тест' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Следующий урок' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Завершить курс' })).not.toBeInTheDocument();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Повторить' })));
+
+    if (retryResult === 'quiz') {
+      expect(await screen.findByText('Новый тест')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Начать тест' })).toHaveAttribute(
+        'href',
+        '/courses/quiz/quiz-2?courseId=course-1&lessonId=lesson-2',
+      );
+      expect(screen.queryByRole('button', { name: 'Завершить курс' })).not.toBeInTheDocument();
+    } else {
+      expect(await screen.findByRole('button', { name: 'Завершить курс' })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Начать тест' })).not.toBeInTheDocument();
+    }
+    expect(secondLessonRequests).toBe(2);
   });
 
   it('keeps privileged preview progress local while following URL lesson changes and finishing', async () => {

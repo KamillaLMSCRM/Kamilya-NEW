@@ -2197,6 +2197,42 @@ Rules:
 - Exact packet matrix via `pwsh -NoProfile -File scripts/dev/run_api_pytest.ps1 ...` and JUnit `--junitxml=../../.release-evidence/cabinet-20261018/api-exclusion.xml`: PASS, `3258 passed`, `0 failed`, `0 skipped`, `5` existing deprecation warnings. JUnit: `.release-evidence/cabinet-20261018/api-exclusion.xml`.
 - `py -3 scripts/ci/release-contract-gate.py` PASS: 179 Alembic revisions/head0181, Celery contract, migration ownership, Render runtime dependencies and Errors journal (310 unique entries). `py -3 scripts/validate_version.py --release --expected-version 0.11.60` PASS across VERSION and API/web metadata. `git diff --check` PASS.
 - No source/test edits by Runner, Git history changes, external reads, DB/API/provider/production actions or fixtures. Existing dirty files remain owned by Root; no cleanup required.
+### CABINET60-FINAL-WORKER-20261018 — 2026-10-18 — frozen worker regressions
+
+- Exact worktree root `C:\Kamilya New\Kamilya-NEW\.worktrees\cabinet-release-20261018`, branch `codex/cabinet-release-20261018`, HEAD `ab9cb5d403b9ee723fd28d4df371479634b9f204`; source clean at preflight. This run followed Root's reviewed worker-only NullPool lifecycle and corrected negation-hint regressions. Earlier failed and dirty-delta runs remain unchanged in the ledger.
+- Exact API matrix: `pwsh -NoProfile -File scripts/dev/run_api_pytest.ps1 tests/unit tests/test_competencies_router.py tests/test_learning_path_programs.py tests/test_source_actuality_impersonation_actor.py tests/test_manual_staff_hierarchy.py tests/test_position_canonical_unit_selection.py tests/test_course_release_policy.py tests/test_ai_pipeline_existing_course.py -q --junitxml=../../.release-evidence/cabinet-20261018/api-final-worker.xml`; PASS, `3266 passed`, `0 failed`, `0 skipped`, `5` existing deprecation warnings. JUnit: `.release-evidence/cabinet-20261018/api-final-worker.xml`.
+- `py -3 scripts/ci/release-contract-gate.py` PASS: 179 Alembic revisions/head0181, Celery contract, migration ownership, Render runtime dependencies, and Errors journal (311 unique entries). `py -3 scripts/validate_version.py --release --expected-version 0.11.60` PASS across VERSION and API/web metadata. `git diff --check` PASS.
+- No source/test edits by Runner, Git history changes, network/API/DB/provider/production actions, or fixtures. No cleanup required.
+### CABINET60-READER-20261018 — live finding and independent correction
+
+- Root real DEV03 reader switch retained old quiz ID with new lesson ID briefly;
+  no incorrect submission or certificate bypass executed. Writer gpt-5.6-sol/high
+  reported original RED then49adjacentPASS; independent reviewer gpt-5.6-sol/high
+  rejected effect-only clearing and non404-failure-as-noquiz. Correction4RED→
+  33playerPASS/52adjacentPASS/type/lint; second reviewer boundedGO, Root source
+  review accepted keyed-result and explicit error/retry contracts. Two-file writer
+  scope preserved; no model/routing/DB/schema changes. Root owns final gates.
+- Root first default full web run:167files,1276PASS/1failed,75.55s. Failure was
+  learningInsightsJournal first test's default1s accept-button lookup. Standalone
+  exact journal7PASS/3.07s, no code/test change. Bounded2worker full rerun in progress;
+  failed run retained. Token/total Root review-time counters NOT AVAILABLE.
+- Actual DEV03 source/API/worker/frontend parity accepted; owned source owner-
+  other/self/clear/reload, corrected EN deadline/KKmultipart/citation download,
+  canonical position and competency course-link reload passed. New real generation
+  f82de01d...24.012s/2.815squeue; all3operational questions reviewed. Publish/PIN/
+  pupil0%→100%/completion/certificate downloads/reload passed; all8old journal
+  projections unchanged,total9. OTP/legal signature not executed.
+- Remaining live recheck blocked by DEV broker6380timeout/public-auth503 after
+  ordinary access-token expiry. Canonical old-host SSH preflight inapplicable:
+  currentVPS_URLdifferent; no alternate credentials, limiter bypass or prod broker.
+  Root production read-only preflight passes current57/rollback56/schema0181/
+  flags/watchdog; current reserveON preserved. No production mutation.
+- Later Root final fullweb with2workers:1277PASS/167files/171.12s, JUnit
+  .release-evidence/cabinet-20261018/web-final-reader.xml; lint/type/build67of67
+  PASS, release-contract312IDs/head0181PASS. Prior failed full run unchanged.
+  Documented historical broker SSH-key status attempt timed out(exit255) before
+  authentication/remote execution; no Proxmox or alternate credentials used.
+
 ### TEST-WB-DOCUMENT-DRAFT-20261004-A — 2026-10-04 — interrupted local acceptance
 
 - Preflight passed at clean branch `feature/methodologist-workbench-20261001`, HEAD `b7478d3b4320cafe09f0bce4e28fce7cf06b701c`; Root isolated-DEV receipt was reviewed as attribution-only and all 4 supplied source hashes matched current files.

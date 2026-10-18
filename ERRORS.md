@@ -2,6 +2,25 @@
 
 Current as of: 2026-10-18.
 
+## COURSE-PLAYER-QUIZ-001 - New lesson retained the previous lesson quiz and pass state
+
+- Date:2026-10-18; combined cabinet60 live DEV reader acceptance.
+- Symptom: sidebar changed lesson content while its old quiz link temporarily
+  combined the previous quiz ID and new lesson ID. Old pass state also survived
+  pending reads. Actual incorrect submission/certificate bypass was not executed.
+- Cause: independent quiz/attempt/pass state was not bound to selected lesson;
+  effect-time clearing leaves a committed stale render. All failed metadata reads
+  were additionally treated as a valid404/no quiz, allowing incorrect progression.
+- Fix: keyed scope+lesson result with loading/ready/none/error. Render only a
+  matching result immediately; only404 means no quiz. Other metadata failures
+  show retry without Start/Next/Finish; failed attempt reads cannot inherit pass.
+- Verification: original delayed-link RED; independent first review rejected
+  effect-only repair. Expanded4RED→33playerPASS, adjacent52PASS/type/lint, second
+  independent boundedGO. Final full/web/DEV browser acceptance remains required.
+- Prevention: inspect state at the render/effect boundary, not just after act
+  flushes effects. Test metadata503/network/JSON, attempt failure, retry-to-quiz/
+  confirmed404, delayed obsolete reads, route/sidebar/session transitions.
+
 ## WB-ANSWER-001 - Explicitly excluded retention became a mandatory answer part
 
 - Date:2026-10-18; combined cabinet60 live DEV acceptance.
