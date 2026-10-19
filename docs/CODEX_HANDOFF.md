@@ -10,8 +10,8 @@ production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 Owner-authorized one production package remains the objective; immediate stale
 DEV converter correction did not revoke that release authority. Existing DEV
-API/worker/frontend66/aa911606 live (CI39244745196 all7SUCCESS,
-REL-LOMBARD66-DEV-R6-20261019 RELEASE_OK). Only obsolete DOCLING_URL was removed
+API/worker/frontend66/597ce720 live (CI39248049829 all7SUCCESS,
+REL-LOMBARD66-DEV-R8-20261019 RELEASE_OK). Only obsolete DOCLING_URL was removed
 earlier; all other configuration/tier/model routes remain unchanged.
 Local follow-up parses actual deployed-converter Markdown, restores category
 tables/amounts, hierarchical safety clauses and evacuation heading; readable
@@ -92,6 +92,14 @@ controller stopped before deploy, currentDEV stillaa911606. Root replaces only
 that brittle count with explicit retained templates, absence of legacy quiz
 prompts and AST delegation from both jobs. Focused40PASS/2.03s,qualityPASS.
 Do not relabel the failed run or infer a provider/access blocker.
+R8 exact597ce720 now RELEASE_OK/CI39248049829 all7SUCCESS: API
+dep-dbb0cgrbc2fs73d2idfg,worker dep-dbb0dh67bikc73b8qql0,Vercel
+dpl_273dhunLmKYgxCKAf6nVhq5WMEtX. Independent review accepts all9retained
+DEV questions but not critical coverage; first-cohort I-range/4partial parents
+remain. Local follow-up normalizes existing quiz IDs to UUID at both attempt
+guards, removing2introduced SQLAlchemy typing diagnostics rather than relying on
+legacy allowance; focused40PASS/1.97s and canonical baseline back2170mypy.
+Live isolated lesson-regeneration acceptance and final follow-up exact DEV remain.
 
 ## Current checkpoint — four blocks65 released and live accepted
 

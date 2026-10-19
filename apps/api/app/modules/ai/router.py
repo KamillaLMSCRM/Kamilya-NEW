@@ -1444,7 +1444,7 @@ async def _regenerate_module_job(
                     )
                 )).scalars().all()
                 for old_quiz in old_quizzes:
-                    await _ensure_quiz_has_no_attempts(session, old_quiz.id, tenant_id)
+                    await _ensure_quiz_has_no_attempts(session, UUID(str(old_quiz.id)), tenant_id)
                     await session.delete(old_quiz)
                 await session.flush()
 
@@ -1590,7 +1590,7 @@ async def _regenerate_lesson_job(
                     )
                 )).scalars().all()
                 for old_quiz in old_qs:
-                    await _ensure_quiz_has_no_attempts(session, old_quiz.id, tenant_id)
+                    await _ensure_quiz_has_no_attempts(session, UUID(str(old_quiz.id)), tenant_id)
                     await session.delete(old_quiz)
                 await session.flush()
 

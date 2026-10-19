@@ -5577,3 +5577,15 @@ Rules:
   prompt and AST delegation from both jobs. Focused renderer/helper/dispatch
   40PASS/2.03s plus canonical Python qualityPASS. Runtime code unchanged by this
   test-contract correction; a fresh exact-SHA CI is still required.
+- R8 exact597ce720 CI39248049829 all7SUCCESS/controller RELEASE_OK. API
+  dep-dbb0cgrbc2fs73d2idfg,worker dep-dbb0dh67bikc73b8qql0,Vercel
+  dpl_273dhunLmKYgxCKAf6nVhq5WMEtX; existing tiers unchanged. Independent fresh
+  9-question review accepts all keys/20distractors, no retained P1, but first-
+  cohort range and4partial parents remain. Snapshot-only offline adapter probe
+  on saved monetary prose finds no safe axes; it fails closed and is not evidence
+  of successful monetary-lesson regeneration. No model/DB calls in that probe.
+- Bounded mypy diagnostic isolated2introduced Column[UUID]→UUID argument warnings
+  at reused attempt guards despite the legacy budget passing. Normalize exact
+  existing IDs before guard call; focused40PASS/1.97s, canonical ruff1004/mypy2170
+  PASS restores the prior debt count without changing the baseline. Fresh exact
+  follow-up and isolated live lesson-regeneration acceptance remain required.

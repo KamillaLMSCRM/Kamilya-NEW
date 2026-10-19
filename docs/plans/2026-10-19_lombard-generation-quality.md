@@ -253,3 +253,11 @@ R7/2c1228c9 CI39247240116 stopped on the old renderer call-count contract (2vs4)
 not an application/provider outage. Controller did not deploy. Correct test to
 name retained templates and verify both adaptive delegates; renderer/helper/
 dispatch40PASS/2.03s,qualityPASS. Preserve failed evidence, require fresh exact CI.
+R8/597ce720 is DEV-live after CI39248049829 all7SUCCESS/controller RELEASE_OK.
+Final9retained questions/20distractors pass independent source review; critical
+coverage still open. Saved-lesson adapter diagnostics expose a narrower supported
+scope: flattened monetary prose does not yield safe assessment axes and must
+preserve the old test rather than claim successful regeneration. Next source-map
+work must address that representation explicitly, not weaken scope/key guards.
+Normalize exact existing quiz IDs for the reused attempt policy to remove2new
+typing diagnostics; focused40PASS/1.97s and canonical baseline2170mypy/1004ruff.
