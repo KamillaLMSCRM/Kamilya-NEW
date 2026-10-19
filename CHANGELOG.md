@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one90s request; routing activation/order is unchanged.
 - Add31 allowlisted non-secret runtime settings with bounded typed validation,
   revision checks, superadmin history/revert and operation-consistent snapshots.
+  Revert uses a controlled explicit confirmation dialog rather than native confirm.
 - Add optional DEV staff schema/roster and explicit preview/confirm transfers,
   preserving existing learning, audit and authorization policy. Archived units
   remain discoverable; archive uses a controlled confirmation dialog.

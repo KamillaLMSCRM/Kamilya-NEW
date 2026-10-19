@@ -8848,3 +8848,23 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Verification: real DEV preview passes with25,001 unrelated historical rows;
   overview regressions cover50/1,000/5,000 wide and deep units with linear path calls.
 - Prevention: separate irrelevant-history scale tests from relevant-overflow denial.
+
+## RUNTIME-CONFIG-001 - Native revert confirmation interrupted live browser acceptance
+
+- Date: 2026-10-19, four-block DEV candidate live acceptance.
+- Symptom: opening runtime-settings revert blocked the controlled IAB tab before
+  a revert request could be verified. Do not mark the UI flow passed or retry it.
+- Cause: native JavaScript confirm pauses the renderer outside the application
+  confirmation surface; the browser adapter could not inspect/dismiss it reliably.
+- Fix: use shared controlled Modal with explicit target/reason, cancel/no write,
+  pending dismissal/duplicate guards and auth-session cleanup. Reconcile the
+  original operation read-only before any recovery; restore exact old values
+  through the existing revision-checked API, keeping the audit and model routing.
+- Verification: focused UI12 PASS after independent review; fresh exact DEV live
+  confirmation remain required. Initial revision6 save persisted; canonical API
+  restored baseline at revision7, with original catalog values/routing unchanged.
+  Auth A-to-B-to-A save failure was RED then GREEN with token+generation guards;
+  save/revert409 refresh explicitly releases pending state before generation bump
+  and permits only a new explicit retry against the refreshed revision.
+- Prevention: keep native confirm absent from this flow and test cancellation,
+  explicit action, pending request and session changes as separate assertions.

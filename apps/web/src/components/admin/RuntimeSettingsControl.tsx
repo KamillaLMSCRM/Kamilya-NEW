@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Modal } from '@/components/ui';
 import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/store/authStore';
 import {
@@ -18,6 +18,12 @@ import {
 
 type Language = 'ru' | 'kk' | 'en';
 
+interface RevertEnvelope {
+  currentRevision: number;
+  targetRevision: number;
+  reason: string;
+}
+
 const copy: Record<Language, Record<string, string>> = {
   en: {
     title: 'Runtime settings', subtitle: 'Allowlisted operational parameters for the next operation.',
@@ -27,7 +33,7 @@ const copy: Record<Language, Record<string, string>> = {
     reasonTooShort: 'Enter at least 3 characters.', reasonTooLong: 'Use no more than 240 characters.', invalidNumber: 'Enter a valid number within the allowed range.',
     next: 'Takes effect on the next operation. In-flight operations keep their original values.',
     history: 'History', noHistory: 'No changes recorded yet.', revert: 'Revert', revertPrompt: 'Reason for reverting (required)',
-    revertConfirm: 'Revert this snapshot?', conflict: 'The settings changed in another session. The latest values were loaded; your draft was preserved.',
+    revertConfirm: 'Revert this snapshot?', revertCancel: 'Cancel', revertConfirmAction: 'Confirm revert', conflict: 'The settings changed in another session. The latest values were loaded; your draft was preserved.',
     saved: 'Runtime settings saved.', reverted: 'Runtime settings reverted.', loadError: 'Could not load runtime settings.',
     saveError: 'Could not save runtime settings.', historyError: 'Could not load runtime settings history.', revertError: 'Could not revert runtime settings.',
     forbidden: 'Only an authorised superadmin can change runtime settings.', overridden: 'Overridden', modelNote: 'Saving does not test model availability and cannot change endpoints, order, or reserve activation.', validationHelp: 'Check the value and any related settings, then save again.',
@@ -40,7 +46,7 @@ const copy: Record<Language, Record<string, string>> = {
     reasonTooShort: 'Введите не менее 3 символов.', reasonTooLong: 'Используйте не более 240 символов.', invalidNumber: 'Введите корректное число в допустимом диапазоне.',
     next: 'Вступает в силу со следующей операции. Текущие операции сохраняют исходные значения.',
     history: 'История', noHistory: 'Изменений пока нет.', revert: 'Вернуть', revertPrompt: 'Причина возврата (обязательно)',
-    revertConfirm: 'Вернуть этот снимок?', conflict: 'Параметры изменены в другой сессии. Загружены последние значения, черновик сохранён.',
+    revertConfirm: 'Вернуть этот снимок?', revertCancel: 'Отмена', revertConfirmAction: 'Подтвердить возврат', conflict: 'Параметры изменены в другой сессии. Загружены последние значения, черновик сохранён.',
     saved: 'Параметры выполнения сохранены.', reverted: 'Параметры выполнения возвращены.', loadError: 'Не удалось загрузить параметры.',
     saveError: 'Не удалось сохранить параметры.', historyError: 'Не удалось загрузить историю.', revertError: 'Не удалось вернуть параметры.',
     forbidden: 'Изменять параметры может только авторизованный супер-администратор.', overridden: 'Переопределено', modelNote: 'Сохранение не проверяет доступность модели и не меняет endpoint, порядок или активацию резерва.', validationHelp: 'Проверьте значение и связанные параметры, затем сохраните снова.',
@@ -53,7 +59,7 @@ const copy: Record<Language, Record<string, string>> = {
     reasonTooShort: 'Кемінде 3 таңба енгізіңіз.', reasonTooLong: '240 таңбадан артық енгізбеңіз.', invalidNumber: 'Рұқсат етілген ауқымдағы дұрыс санды енгізіңіз.',
     next: 'Келесі операцияда күшіне енеді. Ағымдағы операциялар бастапқы мәндерін сақтайды.',
     history: 'Тарих', noHistory: 'Әзірге өзгеріс жоқ.', revert: 'Қайтару', revertPrompt: 'Қайтару себебі (міндетті)',
-    revertConfirm: 'Осы нұсқаны қайтару керек пе?', conflict: 'Параметрлер басқа сессияда өзгерді. Соңғы мәндер жүктелді, жоба сақталды.',
+    revertConfirm: 'Осы нұсқаны қайтару керек пе?', revertCancel: 'Бас тарту', revertConfirmAction: 'Қайтаруды растау', conflict: 'Параметрлер басқа сессияда өзгерді. Соңғы мәндер жүктелді, жоба сақталды.',
     saved: 'Орындау параметрлері сақталды.', reverted: 'Орындау параметрлері қайтарылды.', loadError: 'Параметрлерді жүктеу мүмкін болмады.',
     saveError: 'Параметрлерді сақтау мүмкін болмады.', historyError: 'Тарихты жүктеу мүмкін болмады.', revertError: 'Параметрлерді қайтару мүмкін болмады.',
     forbidden: 'Орындау параметрлерін тек рұқсаты бар супер-әкімші өзгерте алады.', overridden: 'Қайта анықталған', modelNote: 'Сақтау модельдің қолжетімділігін тексермейді және endpoint, реттілік немесе резервті іске қосуды өзгертпейді.', validationHelp: 'Мәнді және байланысты параметрлерді тексеріп, қайта сақтаңыз.',
@@ -97,6 +103,7 @@ export function RuntimeSettingsControl() {
   const [filter, setFilter] = useState('');
   const [reason, setReason] = useState('');
   const [revertReason, setRevertReason] = useState('');
+  const [revertTarget, setRevertTarget] = useState<RevertEnvelope | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -127,7 +134,7 @@ export function RuntimeSettingsControl() {
 
   useEffect(() => {
     generation.current += 1;
-    setSnapshot(null); setHistory([]); setDraft({}); setReason(''); setRevertReason(''); setConflict(false); setSaving(false); setHistoryLoading(false);
+    setSnapshot(null); setHistory([]); setDraft({}); setReason(''); setRevertReason(''); setRevertTarget(null); setConflict(false); setSaving(false); setHistoryLoading(false);
     if (token) void load(false); else setLoading(false);
   }, [load, token]);
 
@@ -181,32 +188,40 @@ export function RuntimeSettingsControl() {
       if (!isCurrentRequest()) return;
       setSnapshot(next); setDraft({}); setReason(''); setStatus(text.saved); await loadHistory();
     } catch (cause) {
-      if (tokenRef.current !== requestToken) return;
+      if (!isCurrentRequest()) return;
       if (cause instanceof RuntimeSettingsRequestError && cause.status === 409) {
-        setConflict(true); await load(true);
+        setConflict(true); setSaving(false); await load(true);
       } else if (cause instanceof RuntimeSettingsRequestError && cause.code) setError(`${text.saveError} (${cause.code}). ${text.validationHelp}`);
       else setError(text.saveError);
-    } finally { if (tokenRef.current === requestToken) setSaving(false); }
+    } finally { if (isCurrentRequest()) setSaving(false); }
   };
 
-  const revert = async (entry: RuntimeSettingsHistoryEntry) => {
+  const requestRevert = (entry: RuntimeSettingsHistoryEntry) => {
     if (!snapshot || saving || revertReason.trim().length < 3) { setError(text.reasonTooShort); return; }
     if (revertReason.trim().length > 240) { setError(text.reasonTooLong); return; }
-    if (!confirm(text.revertConfirm)) return;
+    setConflict(false);
+    setError(null);
+    setRevertTarget({ currentRevision: snapshot.revision, targetRevision: entry.revision, reason: revertReason.trim() });
+  };
+
+  const revert = async () => {
+    if (!snapshot || !revertTarget || saving) return;
     const requestToken = token;
     const requestGeneration = generation.current;
     const isCurrentRequest = () => tokenRef.current === requestToken && generation.current === requestGeneration;
     setSaving(true); setError(null);
     try {
-      const next = await revertRuntimeSettings(snapshot.revision, entry.revision, revertReason.trim());
+      const next = await revertRuntimeSettings(revertTarget.currentRevision, revertTarget.targetRevision, revertTarget.reason);
       if (!isCurrentRequest()) return;
-      setSnapshot(next); setDraft({}); setRevertReason(''); setStatus(text.reverted); await loadHistory();
+      setSnapshot(next); setDraft({}); setRevertReason(''); setRevertTarget(null); setConflict(false); setStatus(text.reverted); await loadHistory();
     } catch (cause) {
-      if (tokenRef.current !== requestToken) return;
-      if (cause instanceof RuntimeSettingsRequestError && cause.status === 409) { setConflict(true); await load(true); }
+      if (!isCurrentRequest()) return;
+      if (cause instanceof RuntimeSettingsRequestError && cause.status === 409) {
+        setConflict(true); setRevertTarget(null); setSaving(false); await load(true);
+      }
       else if (cause instanceof RuntimeSettingsRequestError && cause.code) setError(`${text.revertError} (${cause.code}). ${text.validationHelp}`);
       else setError(text.revertError);
-    } finally { if (tokenRef.current === requestToken) setSaving(false); }
+    } finally { if (isCurrentRequest()) setSaving(false); }
   };
 
   return (
@@ -253,9 +268,22 @@ export function RuntimeSettingsControl() {
           {historyLoading ? <p role="status">{text.loading}</p> : <div className="space-y-3">{[
             ...(history.some((entry) => entry.revision === 1) ? [] : [{ revision: 1, before: {}, after: {}, reason: text.defaults, created_at: '', actor_id: null } as RuntimeSettingsHistoryEntry]),
             ...history,
-          ].map((entry) => <div key={entry.revision} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"><div><p className="font-medium">#{entry.revision}</p><p className="text-sm text-text-secondary">{entry.reason}</p>{changedHistoryValues(entry).map((change) => <p key={change} className="text-xs text-text-tertiary">{change}</p>)}{entry.created_at && <p className="text-xs text-text-tertiary">{entry.created_at}</p>}</div><Button type="button" variant="secondary" onClick={() => void revert(entry)} disabled={saving || loading || revertReason.trim().length < 3 || revertReason.trim().length > 240}>{text.revert}</Button></div>)}</div>}
+          ].map((entry) => <div key={entry.revision} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"><div><p className="font-medium">#{entry.revision}</p><p className="text-sm text-text-secondary">{entry.reason}</p>{changedHistoryValues(entry).map((change) => <p key={change} className="text-xs text-text-tertiary">{change}</p>)}{entry.created_at && <p className="text-xs text-text-tertiary">{entry.created_at}</p>}</div><Button type="button" variant="secondary" onClick={() => requestRevert(entry)} disabled={saving || loading || revertReason.trim().length < 3 || revertReason.trim().length > 240}>{text.revert}</Button></div>)}</div>}
         </CardContent>
       </Card>
+      <Modal open={Boolean(revertTarget)} title={text.revert} dismissable={!saving} closeOnBackdrop={!saving}
+        onClose={() => { if (!saving) setRevertTarget(null); }}>
+        <p>{text.revertConfirm}</p>
+        {revertTarget && <div className="mt-2 space-y-1 text-sm text-text-secondary">
+          <p>Current revision: {revertTarget.currentRevision}</p>
+          <p>Target revision: {revertTarget.targetRevision}</p>
+          <p>Reason: {revertTarget.reason}</p>
+        </div>}
+        <div className="mt-5 flex justify-end gap-2">
+          <Button type="button" variant="outline" disabled={saving} onClick={() => setRevertTarget(null)}>{text.revertCancel}</Button>
+          <Button type="button" disabled={saving} onClick={() => { void revert(); }}>{saving ? text.loading : text.revertConfirmAction}</Button>
+        </div>
+      </Modal>
     </section>
   );
 }
