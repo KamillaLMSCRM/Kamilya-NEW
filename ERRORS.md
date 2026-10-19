@@ -9085,3 +9085,20 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   exercise conversion/normalization/admission before axis derivation, inspect
   every retained question/key/distractor and all critical omitted topics. Retain
   explicit review-required results instead of manufacturing completed status.
+- v11 follow-up: mixed operational families require sentence-local precedence
+  and actual-target exact-span accounting, not a recognized-family boolean.
+  Parenthetical context cannot erase finite/modal/past/passive actions. Use
+  bounded modal inflections; должность is not должен. Exact original9/28parents
+  now yield43/56targets, but target counts are not an option-quality oracle.
+  An actually source-true later deadline cannot be a wrong option for a broad
+  action-only stem. Severe answer-shape cues apply in both length directions;
+  preserve the immutable key and repair misconceptions, never pad the key.
+  The source writer must separate system instructions from retrieved evidence,
+  obey existing runtime generation.temperature, preserve rule strength and avoid
+  repeated paraphrases. Actual v5 one-rule seam passes; shared-DEV still required.
+  A standalone list prohibition may need a permission judgment with exact source
+  predicate and a neutral action/actor prompt, not invented MCQ alternatives.
+  Keep prompt-scoped identity when many actions share the same predicate;
+  joint/qualified/exception leaves remain on the reviewed operational path.
+  Failed simple doing/not-doing experiment and PDF quality probes are retained;
+  OCR garbage requires original-page/source-pipeline verification, not a waiver.

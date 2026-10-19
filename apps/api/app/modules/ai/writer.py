@@ -477,9 +477,7 @@ Length: 1500-2500 words."""
             "boundaries. Use only material belonging to these headings."
         )
 
-    prompt = f"""{GENERATION_PROMPT}
-
-Lesson: {lesson_title}
+    prompt = f"""Lesson: {lesson_title}
 Module: {module_title}
 Course: {course_title}
 Target Language: {language} ({lang_name})
@@ -491,10 +489,13 @@ Source material:
 
 IMPORTANT: Write the ENTIRE lesson content in {language} ({lang_name})."""
 
-    if len(prompt) > MAX_WRITER_PROMPT_CHARS:
+    if len(GENERATION_PROMPT) + len(prompt) > MAX_WRITER_PROMPT_CHARS:
         raise ValueError("writer_prompt_budget_exceeded")
 
-    response = await llm.ainvoke([{"role": "user", "content": prompt}])
+    response = await llm.ainvoke([
+        {"role": "system", "content": GENERATION_PROMPT},
+        {"role": "user", "content": prompt},
+    ])
 
     return LessonContent(
         title=lesson_title,

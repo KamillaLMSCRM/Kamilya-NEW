@@ -47,3 +47,26 @@ def test_current_batch_targets_do_not_reject_previously_accepted_question() -> N
 def test_invalid_answer_key_is_not_a_length_signal() -> None:
     invalid = replace(question("bad"), correct_answer="absent")
     assert answer_length_repair_targets([question("q1"), invalid]) == ()
+
+
+def test_single_long_checklist_with_only_short_choices_is_a_repair_target() -> None:
+    key = ("Проверить описание, вес, категорию, стоимость, подлинность и соответствие "
+           "объекта утвержденным требованиям до оформления операции.")
+    item = replace(question("checklist", correct=key),
+                   options=(key, "Сверить только описание.", "Проверить только стоимость."))
+    assert answer_length_repair_targets([item]) == ("checklist",)
+    balanced = replace(item, options=(key, key.replace("до оформления операции", "только после завершения операции"),
+                                     "Проверить только стоимость."))
+    assert answer_length_repair_targets([balanced]) == ()
+    assert item.correct_answer == key
+    assert answer_length_repair_targets([item], repairable_ids=set()) == ()
+
+
+def test_short_action_key_with_only_verbose_alternatives_needs_repair() -> None:
+    key = "принимать меры по предотвращению ущерба"
+    item = replace(question("short-action", correct=key), options=(key,
+        "Ограничиваться возмещением ущерба после его возникновения без действий по его предотвращению.",
+        "Сообщать об уже причиненном ущербе после его выявления, не принимая предупредительных мер."))
+    assert answer_length_repair_targets([item]) == ("short-action",)
+    balanced = replace(item, options=(key, "Только возмещать уже возникший ущерб.", item.options[-1]))
+    assert answer_length_repair_targets([balanced]) == ()

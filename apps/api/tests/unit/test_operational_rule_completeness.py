@@ -349,6 +349,21 @@ def test_overlong_modal_rule_keeps_exception_and_all_applicable_times() -> None:
     assert "выходные и праздничные дни" in axes[0].required_prompt
 
 
+def test_last_person_leaving_rule_is_not_lost_after_general_end_of_day_duties() -> None:
+    value = (
+        "6.3. По окончании рабочего дня каждый сотрудник обязан проверить и привести в порядок рабочее место. "
+        "Необходимо обесточить оборудование и осмотреть на наличие признаков возгорания. "
+        "Уходящий последним из помещения должен проверить, закрыты ли форточки и окна, выключить свет."
+    )
+    lesson, fact = _fixture(value, subject="Окончание работы")
+    axes = derive_assessment_axes(lesson, [fact], block_id="closing")
+    assert len(axes) == 3
+    last = next(axis for axis in axes if "закрыты ли форточки и окна" in axis.correct_value)
+    assert "выключить свет" in last.correct_value
+    assert "Уходящий последним из помещения" in last.required_prompt
+    assert not has_partial_unatomized_source_contract(fact)
+
+
 def test_conditional_coordinated_actions_get_distinct_source_scoped_axes() -> None:
     condition = "Если контролер согласовывает операцию"
     value = (

@@ -1259,6 +1259,17 @@ async def _chat_once(req: AIChatRequest, db: AsyncSession, user: User, release_r
 # ── Regenerate module / lesson ──────────────────────────────────────────
 
 
+async def _regeneration_llm(*, tenant_id: UUID, max_tokens: int) -> ResilientLLMClient:
+    """Share new-course factual generation policy without changing model routes."""
+    from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings, runtime_settings_scope
+
+    policy = await resolve_runtime_settings()
+    with runtime_settings_scope(policy):
+        return await ResilientLLMClient.from_settings_async(
+            tenant_id=tenant_id, temperature=policy.number("generation.temperature"), max_tokens=max_tokens,
+        )
+
+
 async def _rewrite_grounded_lesson(
     *,
     lesson,
@@ -1352,7 +1363,7 @@ async def _regenerate_module_job(
             old_lessons = old_lessons_q.scalars().all()
 
             # Generate new module title + lesson plan with architect-style prompt.
-            llm = await ResilientLLMClient.from_settings_async(tenant_id=tenant_id, temperature=0.7, max_tokens=1500)
+            llm = await _regeneration_llm(tenant_id=tenant_id, max_tokens=1500)
             plan_prompt = (
                 f"Курс: «{course.title}». Текущий модуль: «{module.title}» "
                 f"(описание: {module.description or '(пусто)'}). "
@@ -1559,7 +1570,7 @@ async def _regenerate_lesson_job(
                 )
             )).scalar_one()
 
-            llm = await ResilientLLMClient.from_settings_async(tenant_id=tenant_id, temperature=0.7, max_tokens=2000)
+            llm = await _regeneration_llm(tenant_id=tenant_id, max_tokens=2000)
             await _rewrite_grounded_lesson(
                 lesson=lesson,
                 module=module,

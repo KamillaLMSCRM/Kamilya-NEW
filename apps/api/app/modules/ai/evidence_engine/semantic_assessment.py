@@ -95,6 +95,11 @@ dependency such as 'complete the check before making the journal entry' makes
 Instead choose a distinct violation of an expressly required action or condition,
 for example omitting comparison with the required checklist. Preserve the source
 answer key, question scope, and genuinely different already-valid misconceptions.
+For an action-only question, do not use an actual source-defined later deadline
+as a wrong alternative. A first-working-day completion rule may apply under a
+special after-hours branch even if the broad action stem does not name it.
+Use a genuinely incorrect action, missing mandatory record or wrong decision,
+not a separately true source workflow with an added time phrase.
 """
 
 ACTION_SCENARIO_POLICY = """
@@ -118,6 +123,13 @@ equally short alternative roles/names/values, not full explanatory sentences.
 For a short action, propose another concise action of the same type. Keep the
 complete scenario and conditions in the required question; never remove them
 or change the source claim to fit an option. Null means no such token limit.
+For a substantial source_claim of at least 80 characters, include at least one
+genuinely distinct plausible wrong decision with informative detail comparable
+to the complete key (at least two thirds of its character length). Do not achieve
+this with repeated justifications, filler or copied-key padding. For a full
+checklist, use a comparably complete but wrong checklist/decision, not only tiny
+one-item omissions. A later separately true workflow step is not a wrong answer
+to a broad question; preserve the required prompt's exact preliminary/final stage.
 """
 
 AUTHOR_PROMPT = """Create meaningful Russian workplace assessment questions from
@@ -157,7 +169,9 @@ qualifier as the sole misconception. authorization_scope_ambiguous requires
 replacing that distractor, never changing the source-owned answer key.
 When rejection_reasons contains assessment_answer_length_signal, repair the
 plausible misconceptions so their informative detail is comparable to the
-immutable source_claim. At least one wrong option should be naturally longer
+immutable source_claim. If the key is a short action and every wrong option is
+verbose, make at least one wrong action comparably concise. If the key is a long
+rule/checklist, at least one wrong option should be naturally comparable or longer
 than the source_claim without filler, cosmetic padding, irrelevant details,
 invented policy or repeated justifications. Never shorten or change the key.
 Each wrong option must represent a DISTINCT misconception, not the same wrong
@@ -392,6 +406,8 @@ def _course_question_identity(
     """Collapse one repeated source-owned rule without hiding short collisions."""
     answer = _norm(question.correct_answer)
     fact = facts.get(question.fact_id)
+    if question.kind == "true_false" and answer in {"запрещается", "запрещено", "нельзя"}:
+        return "source-prohibition", question.fact_id, _norm(question.prompt), answer
     if fact is not None and is_tabular_locator(fact.source_locator):
         locator = dict(parse_qsl(fact.source_locator.replace(";", "&")))
         return (

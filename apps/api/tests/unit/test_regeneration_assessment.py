@@ -187,6 +187,9 @@ async def test_legacy_job_replaces_only_reviewed_unused_quiz(monkeypatch, kind, 
     finish = AsyncMock(return_value=True)
     monkeypatch.setattr(router, "_finish_regeneration_job", finish)
     client = SimpleNamespace(ainvoke=AsyncMock(return_value=SimpleNamespace(content="{}")))
+    from app.modules.admin.runtime_configuration.catalog import default_snapshot
+    monkeypatch.setattr("app.modules.admin.runtime_configuration.runtime.resolve_runtime_settings",
+                        AsyncMock(return_value=default_snapshot()))
     monkeypatch.setattr(router.ResilientLLMClient, "from_settings_async", AsyncMock(return_value=client))
     questions = [{"text": f"Ситуация {i}?", "choices": [f"Верно {i}", "Ошибка 1", "Ошибка 2"],
                   "correct_index": 0, "explanation": "Правило источника."} for i in range(5)]

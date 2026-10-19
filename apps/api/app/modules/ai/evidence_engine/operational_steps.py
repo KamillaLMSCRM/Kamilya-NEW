@@ -52,6 +52,24 @@ class OperationalStep:
     governing_condition: str
 
 
+@dataclass(frozen=True, slots=True)
+class ExactSentenceSpan:
+    """One exact sentence-relative source span claimed by a projection."""
+
+    sentence_index: int
+    start: int
+    end: int
+    text: str
+
+
+@dataclass(frozen=True, slots=True)
+class OperationalProjection:
+    """Assessment step with only its explicitly consumed source spans."""
+
+    step: OperationalStep
+    consumed_spans: tuple[ExactSentenceSpan, ...]
+
+
 def _are_exact_ordered_spans(fact: SourceFact, sentences: Sequence[str]) -> bool:
     cursor = 0
     for sentence in sentences:

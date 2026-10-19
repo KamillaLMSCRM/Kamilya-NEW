@@ -5651,3 +5651,61 @@ Rules:
   No Graphify duplicate query or invented token/cost saving. No66production
   release/deletion/upload occurred; final owner-authorized original reload remains
   after release, exact usage/hash/learning guards unchanged.
+- R11 exactcdb7a6cba2db081b50e4294953d8db047134f44b shared DEV RELEASE_OK:
+  CI39265464548 all7SUCCESS; APIdep-dbb28hijnfac739k8klg,
+  workerdep-dbb29rfbtjjs7393fslg,Verceldpl_GFcBRFj6WZdkQfNxcXf5BXt4z85m.
+  ExistingFree/Free/Hobby, no migrations/configuration/billing change. Independent
+  project Git readback exactcdb, sanitized receipt push-dev-r11.json.
+- R11 ordinary QA browser: login, restored partial course7b8fa897, saved-draft
+  open, return, create-new reset, reload PASS. Existing partial result not falsely
+  complete. Fresh legacy jobecba3c34 fails20.938s; closed diagnostic2retained/
+  1omitted/local_quality_filter_rejected, zero uncovered/unassessable. Original4
+  hashes/quiz IDs unchanged; only owned lesson014101cd removed204/404, original4
+  restored. FAIL semantic regeneration, not model outage or product acceptance.
+- Next local source correction: standalone signing9PASS; root integrationRED2
+  then5PASS incl terminal-reference splitting (inline lowercase/city unchanged).
+  Inspection8PASS; root integrationRED1→9PASS, independent general prefix still
+  partial. Combined typed integration38PASS/1.23s. Zero-provider DOCX map36targets,
+  I17/II7 stillpartial; no paid generation or deployed claim for this delta.
+- Local v11 continuation (basecdb7a6c), not production: exact source accounting
+  yields DOCX43targets/5lessons and PDF56targets/6lessons with all9/28parents,
+  no static partials. Independent source matrix209PASS; modal/past/passive/
+  parenthetical adversarial omissions now fail closed, должность is not a modal.
+- Actual legacy seam v5 source-bound writer/assessment PASS4calls/15.735s,
+  one concise source rule/one question. Prior v3/v4 failed captures preserved.
+  No cloud regeneration success inferred. Writer system/source messages split,
+  existing configured generation temperature reused; routes unchanged.
+- Actual DOCX43keys source-confirmed; independent initial review1P1/12P2.
+  Selected rechecks13then5 preserve keys and resolve preliminary/later-stage
+  ambiguity and the source-true deadline distractor. Last5review3clean/2P2.
+  The13capture's source-mutated flag remains false for unchanged proof, not
+  waived; it is artifact review only. Last5source bytes unchanged.
+- Six fresh PDF assessment-only probes retained19/11/3/8/5/1, overallFAIL:
+  critical omissions and answer-shape defects remain. First probe's one omitted
+  bibliography question is noncritical; never infer complete original acceptance.
+  Raw OCR parent joins a damaged abbreviation and adjacent prohibition. Original
+  scan page3 visually inspected; immutable converter/source captures preserved.
+- First simple-list doing/not-doing contrast was rejected by actual review, not
+  accepted from unit tests alone. Replacement exact-source predicate/neutral
+  question retains2/2 distinct permission questions,3calls/6.751s. Harness-only
+  pseudo-ID error reconciled without inference; original FAIL preserved in
+  operational-pdf-v11polarity.json, correction digest-bound to that capture.
+- Final API unit+renderer3530PASS/47.11s; canonical Python quality1004ruff/
+  2170mypyPASS before final polarity-source edits, final rerun still required.
+  No66production release/tag/deletion/upload; no model/provider/resource change.
+- Binary source seam final bounded independent acceptance:114PASS/2.60s;
+  both immediate/scoped and comma-interrupted negated predicates fail closed.
+  A recognized paired negative actor qualifier remains unchanged in prompts.
+  Inverse provenance revalidates the complete source projection pair; a bare
+  non-list predicate and an edited prompt cannot grant a server-owned opposite.
+  Whole clauses/conditions/conjunctions/exceptions retained; per-action IDs and
+  course dedup distinct. All semantic/constraint reviews remain mandatory.
+  This bounded acceptance is not whole-course/model/OCR/DEV/production GO.
+- Frozen local v11 gate after final negation correction: API unit+renderer
+  3533PASS/45.04s, canonical Python quality1004ruff/2170mypyPASS, release version
+  validation and diff-checkPASS. assessment_axes SHA256
+  5a0a8603d788de39f52a097dac797709237ab2a2c2d7bc1b4b298cea161f2071.
+  CodeGraph1.6.1 sync8.297s including startup; bounded callers25ms/12of113edges,
+  source-confirmed consumers: selection/budget, semantic generation and source
+  completeness audits. No savings/token claim; Graphify not needed for this seam.
+  Ready for exact-SHA DEV integration, NOT production/original-quality GO.

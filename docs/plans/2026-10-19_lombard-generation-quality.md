@@ -5,6 +5,30 @@ cleanup/reload completed; no other production data changed.
 Owner: root; product authority: owner request 2026-10-19, original documents,
 synthetic QA only, DEV acceptance before one production package.
 
+## Latest v11 quality checkpoint
+
+- NEXT local, not deployed: DOCX43targets/5lessons and PDF56targets/6lessons,
+  all original9/28fact parents retained and no static partial parent. This proves
+  derivation completeness only, not generated-option quality.
+- Independent source review accepted modal/parenthetical closure:10 adversarial
+  predicate cases fail closed; real category I/II nominal lists retain18/13axes.
+- Actual legacy writer seam v5:4calls/15.735s/PASS, concise single-rule teaching
+  and1reviewed question. System instructions separated from retrieved data;
+  temperature uses the existing runtime policy. Shared-DEV replay still required.
+- Actual DOCX43 retained across two bounded captures; all43keys source-verified.
+  Initial independent review1P1/12P2. Selected rechecks remove the P1 confusion
+  between preliminary and later approval and an actually true deadline offered
+  as a wrong option. Final5artifact review3clean/2P2; source hashes unchanged.
+- Full3528unit+rendererPASS/45.68s and canonical qualityPASS precede the final
+  simple-list binary materialization delta; final exact-byte gates remain due.
+- Fresh PDF assessment probes cover all6captured lessons but fail overall:
+  critical omissions remain. An old admitted OCR parent merges separate items
+  through a damaged abbreviation. Original page3 visually checked; do not use
+  the inherited captured parent as proof of fresh source/application acceptance.
+- Production65 untouched; no production tag/release/delete/reupload in this phase.
+  Final release authority remains valid. Neither focused selected-axis success
+  nor a healthy DEV deployment closes whole-original quality acceptance.
+
 ## Outcome and scope
 
 Re-upload the two owner-provided originals, generate fresh drafts, independently
@@ -429,3 +453,19 @@ remains NO_GO because rich original coverage is open. The fresh original-file
 reload is a separate mandatory post-release acceptance gate, not a prerequisite
 that could run before deployment. Owner authority for the final package remains
 in force.
+
+R11 shared-DEV checkpoint,2026-10-19: exactcdb7a6cba2db081b50e4294953d8db047134f44b,
+CI39265464548 all7SUCCESS, controllerRELEASE_OK. APIdep-dbb28hijnfac739k8klg,
+workerdep-dbb29rfbtjjs7393fslg, Verceldpl_GFcBRFj6WZdkQfNxcXf5BXt4z85m;
+Free/Free/Hobby unchanged, no migration. Ordinary QA browser restored saved
+partial course, opened draft, returned, reset to new-course form and reloaded
+without resurrecting old terminal state. This confirms navigation, not content.
+Fresh legacy jobecba3c34 failed after20.938s: closed source-safe worker diagnostic
+2retained/1omitted/local_quality_filter_rejected, zero unassessable/uncovered;
+original4lesson DTO hashes and quiz IDs unchanged, only new lesson014101cd
+deleted204/fresh404, original4restored. No successful regeneration/productionGO.
+Next local candidate corrects terminal numbered-reference splitting and projects
+joint-signing responsibility plus complete inspection/checklist targets. These
+changes are not deployedR11. Zero-provider original map36targets (I17/II7), both
+rich parents still partial. Keep consumed-span accounting and actual all-target
+quality checks; do not clear the parent merely because more questions exist.

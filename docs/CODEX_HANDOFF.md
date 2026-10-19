@@ -8,6 +8,56 @@ production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 ## Active original-document quality correction66 — not production
 
+### Latest local v11 checkpoint (supersedes older counts below)
+
+Shared DEV remains R11/cdb7a6cba2db081b50e4294953d8db047134f44b; production65
+unchanged. NEXT dirty v11 is not deployed. Exact whole-source zero-call map:
+DOCX9facts/43targets in5lessons(2,6,4,18,13), PDF28facts/56targets in6lessons
+(20,13,5,10,5,3), no partial parents. Independent source review accepted the
+bounded modal/parenthesis correction at assessment_axes SHAa474775b; later
+materialization-only temporal/binary changes require their own review.
+Guard regression covers finite/modal/past/passive parenthetical actions and
+the noun должность; unsupported predicates cannot be erased as nominal scope.
+
+Local actual writer seam v5 now PASS:4calls/15.735s, one concise prohibition,
+one source-correct question, complete audit, source bytes unchanged. Writer
+rules are a system message separate from retrieved source; configured existing
+generation.temperature is used, routes/activation unchanged. This is not a
+successful cloud regeneration until the same candidate is deployed and tested.
+
+Fresh DOCX43-question artifacts reviewed: all keys source-correct; initial1P1
+and12P2 prompted fixes. Selected13 recheck retained13 but source changed during
+that run; do not use it as frozen-source proof. Subsequent5-question actual
+recheck10calls/26.721s/source unchanged resolved P1 stage/true-later-deadline
+distractor. Independent review:3clean/2remainingP2, no factual-safety finding.
+Short-key imbalance/low-difficulty general-duty questions remain documented.
+
+Full unit+renderer3528PASS/45.68s, canonical quality1004ruff/2170mypyPASS before
+the final simple-list binary delta. Do not relabel as final frozen validation.
+Actual PDF assessment-only probes use previously captured admitted parents,
+NOT fresh converter/application/cloud acceptance. At least three critical
+omissions remain; one source parent includes OCR noise joining two list items.
+Root viewed original scan page3 and confirmed the corrupted text is OCR, not an
+original rule. Do not weaken coverage or invent unreadable source text. Existing
+private converter capture remains immutable; no new OCR or provider change yet.
+Continue with actual DEV integration after final local gates; production remains
+NO_GO until original-quality acceptance, then the already-authorized exact
+postrelease cleanup/reupload of both originals. Preserve unrelated output/.
+
+Binary follow-up supersedes the initial unqualified-only experiment: the full
+source proposition (joint/conditional/exception clause unchanged) may be asked
+as a permission judgment. Exact source predicate and source-projection proof,
+neutral actor+whole-clause prompt, scoped identities, and both independent model
+reviews are mandatory. Bare non-list predicate denied. V2 invariant recorded in
+course-quality-backward/ASSESSMENT_COMPLETENESS_ADDENDUM_V2.md. The old simple
+doing/not-doing experiment failed and is not release behavior.112focusedPASS;
+whole-course difficulty/repetitive-answer checks remain open.
+Final frozen local gate3533PASS/45.04s, Python quality1004ruff/2170mypyPASS,
+version/diff checksPASS. assessment_axes SHA5a0a8603...1f2071; independent bounded
+source/provenance/dedup re-review114PASS/ACCEPT. Next: one R12 DEV deployment of
+these exact bytes, actual legacy job and fresh full original DOCX generation;
+continue the PDF OCR/critical-omission quality correction, not production yet.
+
 Owner follow-up2026-10-19 requires a clean production re-upload AFTER release:
 delete only the two old matching QA document records after normal usage checks,
 upload hash-verified original DOCX/PDF again, generate fresh separate courses and
@@ -17,8 +67,10 @@ Exact tenant/hash/previous-ID and acceptance checklist live in the existing plan
 
 Owner-authorized one production package remains the objective; immediate stale
 DEV converter correction did not revoke that release authority. Existing DEV
-API/worker/frontend66/7b536d07 live (CI39252355251 all7SUCCESS,
-REL-LOMBARD66-DEV-R10-20261019 RELEASE_OK). Only obsolete DOCLING_URL was removed
+API/worker/frontend66/cdb7a6cba2db081b50e4294953d8db047134f44b live
+(CI39265464548 all7SUCCESS, REL-LOMBARD66-DEV-R11-20261019 RELEASE_OK;
+APIdep-dbb28hijnfac739k8klg/workerdep-dbb29rfbtjjs7393fslg,
+Verceldpl_GFcBRFj6WZdkQfNxcXf5BXt4z85m; existing Free/Free/Hobby). Only obsolete DOCLING_URL was removed
 earlier; all other configuration/tier/model routes remain unchanged.
 Live legacy jobb48e24f2 received then false-cancelled because fresh worker
 transactions lacked tenant context. Cancelled through ordinary API; only its
@@ -57,7 +109,20 @@ new conditional families; RED2→253focusedPASS and independent re-review ACCEPT
 Frozen final full APIunit3445PASS/42.54s, quality1004ruff/2170mypyPASS,
 web30PASS/7.31s; critical-journey remaining dispatch/schema selectors4PASS/4.31s,
 other local selectors hash-linked to full unit run. DEV integration is locally
-ready, not production/whole-original semantic GO. No R11 push/controller,
+ready, not production/whole-original semantic GO. R11 exact source was pushed
+through canonical project credentials and independently read back; sanitized receipt
+is push-dev-r11.json, owner-authorized memory push note saved without credentials.
+R11 ordinary QA jobecba3c34 progresses to assessment and fails in20.938s;
+closed worker diagnostic now proves2retained/1omitted/local_quality_filter_rejected,
+zero unassessable/uncovered, snapshotd722d8c1. It does not retain the rolled-back
+writer body or identify the exact omitted option; do not infer either. Only its
+new lesson014101cd cleaned204/fresh404; original4fullDTO hashes/quiz IDs unchanged,
+original4restored. No successful regeneration claim.
+Browser R11 ordinary QA login, restored partial state, open saved draft, return,
+create-new reset and reload pass; no old terminal state returns. PNG/receipt kept
+privately. Local NEXT candidate adds exact signing/checklist targets and terminal
+numbered-reference splitting; these changes are NOT in R11. Original zero-call
+map36targets (I17/II7), both parents still partial. No
 production release/deletion/upload, voice/model
 route/resource/billing change has occurred. Continue from the existing plan and
 private ignored probe outputs, not by repeating old paid writer/OCR invocations.

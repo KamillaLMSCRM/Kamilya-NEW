@@ -134,6 +134,14 @@ def test_writer_uses_renderer():
     assert "ANY other lesson in the course" in GENERATION_PROMPT
 
 
+def test_writer_keeps_each_rule_once_and_does_not_expand_adjacent_unrequested_topics():
+    output = get_renderer().render("writer/system.md")
+    assert "State each rule and its complete condition/exception ONCE" in output
+    assert "not as a second rule under a separate heading" in output
+    assert "Do not add a separate adjacent rule" in output
+    assert "unless it is necessary to preserve an exception to that exact rule" in output
+
+
 # ── reviewer.py ───────────────────────────────────────────────────────────
 
 

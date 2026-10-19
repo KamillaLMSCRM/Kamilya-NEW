@@ -11,7 +11,7 @@ from app.modules.ai.lesson_quality import has_unprofessional_learner_language
 from .models import AssessmentDraft, CourseDraft, EvidenceCourseResult, QuestionDraft
 from .provider_models import GroundedBlock, PublishabilityReport
 
-EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v10"
+EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v11"
 
 _GENERIC_QUESTION_RE = re.compile(
     r"(?:о\s+ч[её]м\s+(?:этот\s+)?(?:урок|курс|раздел|модуль)|"
@@ -263,9 +263,10 @@ def filter_acceptable_questions(questions: list[QuestionDraft]) -> list[Question
 def answer_length_repair_targets(
     questions: list[QuestionDraft], *, repairable_ids: set[str] | None = None,
 ) -> tuple[str, ...]:
-    """Find minimal repairs when uniquely-longest choices pass a lesson quiz.
+    """Find quiz-level and severe individual answer-shape giveaways.
 
-    This is a quiz-level signal, not a prohibition on natural long answers.
+    Natural long answers are allowed. A substantial key must have at least one
+    comparably informative alternative; never shorten the key or add filler.
     Ties, including equal-length numeric choices, do not establish the signal. Never
     change the source-owned key or manufacture words to defeat the diagnostic.
     The default quiz pass threshold is 80 percent, including exact 80 percent.
@@ -276,6 +277,18 @@ def answer_length_repair_targets(
                 and question.options.count(question.correct_answer) == 1):
             by_lesson[question.lesson_id].append(question)
     targets: list[str] = []
+    for quiz in by_lesson.values():
+        for question in quiz:
+            key_length = len(question.correct_answer.strip())
+            longest_other = max(len(option.strip()) for option in question.options
+                                if option != question.correct_answer)
+            shortest_other = min(len(option.strip()) for option in question.options
+                                 if option != question.correct_answer)
+            severe = (key_length >= 80 and longest_other * 3 < key_length * 2
+                      or key_length >= 24 and shortest_other * 2 > key_length * 3)
+            if (severe
+                    and (repairable_ids is None or question.question_id in repairable_ids)):
+                targets.append(question.question_id)
     for lesson_id in sorted(by_lesson):
         quiz = by_lesson[lesson_id]
         if len(quiz) < 2:
@@ -297,7 +310,7 @@ def answer_length_repair_targets(
             key=lambda item: (-item[0], item[1]),
         )
         targets.extend(identity for _, identity in eligible[:needed])
-    return tuple(targets)
+    return tuple(dict.fromkeys(targets))
 
 
 def evaluate_plan_preflight(result: EvidenceCourseResult) -> tuple[str, ...]:

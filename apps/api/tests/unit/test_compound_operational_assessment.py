@@ -118,7 +118,7 @@ def test_overlong_conditional_rule_keeps_full_condition_and_exact_action_span() 
     assert tuple(axis.correct_value for axis in axes) == (action,)
     assert axes[0].correct_value in value
     assert condition in axes[0].required_prompt
-    assert "Совокупный лимит заявок" in axes[0].required_prompt
+    assert "характеристике" not in axes[0].required_prompt
     assert "пункт" not in axes[0].required_prompt.casefold()
 
 
@@ -258,9 +258,13 @@ def test_compound_safety_paragraph_prefers_complete_deenergize_and_inspect_actio
 
     axes = derive_assessment_axes(lesson, [fact], block_id="synthetic-end-of-day")
 
-    assert tuple(axis.correct_value for axis in axes) == (expected,)
-    assert axes[0].correct_value in value
-    assert "Окончание рабочего дня" in axes[0].required_prompt
+    assert {axis.correct_value for axis in axes} == {
+        expected,
+        "должен проверить, закрыты ли окна, и выключить освещение в служебной зоне",
+    }
+    assert all(axis.correct_value in value for axis in axes)
+    closing = next(axis for axis in axes if axis.correct_value != expected)
+    assert "уходящий последним" in closing.required_prompt
 
 
 def test_compound_safety_paragraph_prefers_explicit_network_disconnect_rule() -> None:

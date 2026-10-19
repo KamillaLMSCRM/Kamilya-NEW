@@ -22,6 +22,16 @@ OPTIONS = [GOOD, "Передать персональные данные чер�
            "Передать персональные данные в личный мессенджер, затем удалить сообщение."]
 BAD = [GOOD, "Первый ответ подтверждает приём обращения и сообщает следующий шаг.",
        "Эскалация не снимает обязанности следить за результатом."]
+LENGTH_SIGNAL_DISTRACTORS = [
+    (
+        "Зарегистрировать приемку полностью, сохранив сведения о возвращенной "
+        "единице исключительно во внутриоперационном комментарии."
+    ),
+    (
+        "Передать следующей смене устное уведомление, исключив документирование "
+        "результата приемки и возвращенных единиц."
+    ),
+]
 
 
 @pytest.mark.parametrize(("value", "expected"), [
@@ -503,7 +513,7 @@ async def test_lesson_length_signal_gets_only_existing_single_repair_and_cannot_
             repairing = request["task"] == "assessment_repair"
             rows = []
             for index, axis in enumerate(request["axes"]):
-                distractors = ["Принять всё сразу.", "Передать устно."]
+                distractors = LENGTH_SIGNAL_DISTRACTORS
                 if repairing and repair_succeeds:
                     distractors = [
                         "Отметить всю накладную как принятую и передать непринятую единицу следующей смене без отдельного отражения возврата.",
@@ -615,7 +625,7 @@ async def test_final_deduplication_cannot_expose_an_unreported_length_signal(mon
             self.requests.append(request)
             rows = [{"axis_id": axis["axis_id"],
                      "prompt": f"Как выполнить действие {index + 1} при приемке?",
-                     "distractors": (["Принять всё сразу.", "Передать устно."] if index < 2 else
+                     "distractors": (LENGTH_SIGNAL_DISTRACTORS if index < 2 else
                                      ["Ответственный сотрудник отмечает всю накладную как принятую и передает непринятую единицу следующей смене без записи в журнал.",
                                       "Сообщить о непринятом товаре только устно."])}
                     for index, axis in enumerate(request["axes"])]
@@ -842,7 +852,11 @@ async def test_failed_multi_question_review_falls_back_to_isolated_reviews():
                 rows = [{
                     "axis_id": axis["axis_id"],
                     "prompt": f"Как применяется {axis['attribute']}?",
-                    "distractors": OPTIONS[1:],
+                    "distractors": (
+                        ["Заявление рассматривается в течение 30 дней.",
+                         "Заявление рассматривается в течение 45 дней."]
+                        if "15 дней" in axis["source_claim"] else OPTIONS[1:]
+                    ),
                 } for axis in request["axes"]]
                 return SimpleNamespace(
                     value=parser(json.dumps({"questions": rows}, ensure_ascii=False)),
@@ -941,7 +955,11 @@ async def test_failed_multi_question_constraints_keep_isolated_successes():
                 rows = [{
                     "axis_id": axis["axis_id"],
                     "prompt": f"Как применяется {axis['attribute']}?",
-                    "distractors": OPTIONS[1:],
+                    "distractors": (
+                        ["Заявление рассматривается в течение 30 дней.",
+                         "Заявление рассматривается в течение 45 дней."]
+                        if "15 дней" in axis["source_claim"] else OPTIONS[1:]
+                    ),
                 } for axis in request["axes"]]
                 return SimpleNamespace(
                     value=parser(json.dumps({"questions": rows}, ensure_ascii=False)),

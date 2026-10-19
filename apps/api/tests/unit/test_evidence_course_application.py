@@ -382,8 +382,12 @@ class _GenerationClient:
                 payload = {"questions": [
                     {"prompt": f"Как применять правило для «{axis['subject']}»?",
                      "axis_id": axis["axis_id"],
-                     "distractors": ["Применять обратный порядок действий.",
-                                     "Не учитывать установленные условия применения."]}
+                     "distractors": ([
+                         "Передать выполнение установленной процедуры другому сотруднику без проверки исходных условий и продолжить работу до получения его подтверждения.",
+                         "Сначала завершить оформление операции, а проверку обязательных условий и документирование результата выполнить только после обращения клиента.",
+                     ] if len(axis["source_claim"]) >= 80 else [
+                         "Применять обратный порядок действий.",
+                         "Не учитывать установленные условия применения."])}
                     for axis in request["axes"]]}
             return ValidatedLLMResult(provider="test-generation", model_id="test-model",
                 value=parser(json.dumps(payload, ensure_ascii=False)), attempt_count=1, failure_reasons=())
