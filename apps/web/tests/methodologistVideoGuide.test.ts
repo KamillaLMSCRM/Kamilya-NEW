@@ -75,6 +75,16 @@ describe('published male Qwen methodologist video guide', () => {
     expect(legacy.match(/class="flow"/g)).toHaveLength(8);
   });
 
+  it('keeps quiz-result guidance static before the closing html tag', () => {
+    expect(html).toContain('Настройку бланка выполняет администратор');
+    expect(html).toContain('Скачать результат теста');
+    expect(html).toContain('Скачать PDF');
+    const closingHtml = html.toLowerCase().lastIndexOf('</html>');
+    expect(closingHtml).toBeGreaterThan(-1);
+    expect(html.slice(closingHtml + '</html>'.length).trim()).toBe('');
+    expect(html.slice(0, closingHtml).lastIndexOf('Настройку бланка выполняет администратор')).toBeGreaterThan(-1);
+  });
+
   it('seeks every chapter while paused and prevents simultaneous narration', () => {
     const dom = new JSDOM(html, { runScripts: 'dangerously' });
     const doc = dom.window.document;

@@ -81,4 +81,15 @@ describe('standalone methodologist instruction', () => {
     expect(document.querySelector<HTMLButtonElement>('#download-guide')!.textContent).toContain('Скачать HTML');
     dom.window.close();
   });
+
+  it('keeps quiz-result guidance static inside the document body', () => {
+    expect(html).toContain('Бланк результата отдельного теста');
+    expect(html).toContain('Скачать результат теста');
+    expect(html).toContain('Скачать PDF');
+    expect(html).toContain('три отдельных текста');
+    const closingHtml = html.toLowerCase().lastIndexOf('</html>');
+    expect(closingHtml).toBeGreaterThan(-1);
+    expect(html.slice(closingHtml + '</html>'.length).trim()).toBe('');
+    expect(html.slice(0, closingHtml).lastIndexOf('Бланк результата отдельного теста')).toBeGreaterThan(-1);
+  });
 });

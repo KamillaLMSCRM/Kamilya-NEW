@@ -394,7 +394,7 @@ async def list_enrolled_quizzes(
             )
         )
         prog_completed_at = prog_result.scalar_one_or_none()
-        if prog_completed_at and quiz.deferral_days > 0:
+        if prog_completed_at:
             is_expired = now > prog_completed_at + timedelta(days=quiz.deferral_days)
 
         out.append(

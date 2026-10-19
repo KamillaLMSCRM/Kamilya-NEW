@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-18.
+Current as of: 2026-10-19.
 
 ## COURSE-PLAYER-QUIZ-001 - New lesson retained the previous lesson quiz and pass state
 
@@ -8763,3 +8763,17 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   credentials against configured, historical and unknown attempt IDs. Preserve
   exact attempt binding and stored payload hashes; never rebuild old snapshots.
 
+## QUIZ-DEFERRAL-002 - Enrolled test availability disagreed with the zero-day submit guard
+
+- Date: 2026-10-19, independent bounded forms62 release review.
+- Symptom: a completed lesson with zero deferral could display an available test
+  even though submission correctly refused the expired deadline.
+- Cause: the enrolled-test projection skipped expiry for zero, while the submit
+  guard used the canonical completion timestamp plus the configured day count.
+- Fix: remove only the projection's zero bypass; preserve existing immediate
+  expiry semantics and all attempt/history guards.
+- Verification: new regression failed for zero before the fix; focused17tests
+  pass for zero and positive windows. Exact frozen CI and live acceptance remain
+  separate release gates.
+- Prevention: compare displayed availability with the submit guard for zero,
+  in-window and expired windows; do not silently reinterpret a persisted setting.

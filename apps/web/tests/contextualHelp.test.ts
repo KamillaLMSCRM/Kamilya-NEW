@@ -25,6 +25,17 @@ const METHODOLOGIST_PATHS = [
 ];
 
 describe('contextual help registry', () => {
+  it('explains configurable result forms and learner history in every locale', () => {
+    for (const locale of ['ru', 'kk', 'en']) {
+      const settings = getContextualHelp('/admin/training-evidence/settings', 'admin', locale);
+      const learner = getContextualHelp('/courses/quiz/quiz-1', 'student', locale);
+      expect(settings?.steps[0]).toMatch(/обязательны|міндетті|required/);
+      expect(settings?.steps[2]).toMatch(/новым результатам|жаңа нәтижелерге|new results/);
+      expect(settings?.result).toMatch(/Старые попытки|ескі әрекеттер|Legacy attempts/);
+      expect(learner?.result).toMatch(/истории|тарихында|history/);
+      expect(learner?.result).toContain('PDF');
+    }
+  });
   it('covers every canonical registered role page in every locale', () => {
     for (const role of APP_ROLES) for (const route of ROUTES) {
       if (!hasCapability(role, route.capability) || route.id === 'users-legacy-surface') continue;

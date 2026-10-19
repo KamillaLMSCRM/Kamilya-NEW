@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
 ### Security
 
 - Refresh exact security pins after blocking release-time audits: source-map-js
@@ -14,16 +15,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   application/framework versions; no advisory exemptions or provider changes.
 
 ### Added
-
-- Add an opt-in tenant completion-form field builder with a closed 20-field
-  catalog, mandatory learner/course/outcome fields, PDF sample and snapshot-bound
-  learner download. Preserve legacy templates and complete audit/public exports.
-  Local verification only; not deployed by this change.
-
-- Extend configured result forms to individual quiz attempts before course
-  completion, with separate editable quiz texts, exact immutable attempt binding,
-  learner result/history PDF downloads and legacy/cross-tenant protections.
-  DEV acceptance in progress; production is not authorized for this package.
 
 - Implement an optional manual ChatGPT reserve using the official pinned Codex CLI
   and managed ChatGPT login, with superadmin readiness/confirmation/revision-checked
@@ -152,6 +143,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Share the scoped lookup across public view and activation; clear it before
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
+
+## [0.11.62] - 2026-10-19
+
+### Added
+
+- Configure a tenant's course-completion and individual-test PDF forms using a
+  closed field catalog, required identity/course/outcome fields and a real preview.
+- Download a configured test result immediately after submission and again from
+  attempt history after reload, before completing the entire course. Bind each
+  document to the exact attempt and its snapshotted template; preserve legacy,
+  complete audit, public export and tenant/assignment boundaries.
+
+### Fixed
+
+- Align enrolled-test availability with the existing zero-day deadline guard;
+  a completed lesson with zero deferral expires immediately in both views.
+
+- Replay an existing result without rebuilding it from current template settings;
+  check assignment scope before classifying form availability; avoid a false local
+  list ordinal on a single-attempt PDF. Persist validated quiz deferral settings,
+  including zero, without changing attempts or bypassing historical edit guards.
+
+### Scope
+
+- Selected package from production master only. No unrelated DEV iSpring, staff
+  workspace, assistant/model/reserve, schema, infrastructure or billing changes.
+  User instructions updated; production execution and live acceptance are gated
+  separately and are not established by this release-note entry.
 
 ## [0.11.61] - 2026-10-18
 
