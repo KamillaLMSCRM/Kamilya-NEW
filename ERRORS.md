@@ -9044,6 +9044,12 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   Cancelled only the failed owned job and removed its new empty lesson; original
   four lesson DTO hashes/quiz IDs unchanged. Require real worker replay after
   exact-SHA deployment; mocked DB tests alone had missed this transaction bug.
+  R10/7b536d07 actual worker now reaches assessment and terminal failed in26.782s;
+  incomplete coverage rolls back rather than hanging. New owned lesson removed,
+  original4unchanged/activejobs0. Exact assessment reason cannot be reconstructed
+  from the generic error: failed rewrite and audit were not retained. Require
+  sanitized target/coverage diagnostics for the next source-scope correction;
+  do not infer success from healthy worker or from a separate one-rule probe.
 - Verification: deterministic baseline RED and original DOCX limit-loss RED;
   corrected admission preserves independently read original limit/procedure
   phrases. Source-roundtrip inline/OCR-list RED/GREEN and independent review

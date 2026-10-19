@@ -5607,3 +5607,22 @@ Rules:
 - Frozen local RLS correction full APIunit+dispatch+renderer3426PASS/48.91s,
   five pre-existing deprecations, no baseline change. Full fixture proof remains
   separate from mocked tests. Production source/content release is not yet GO.
+- R10/7b536d07859e8f7745604945d66dfb9e5d1fd255 DEV RELEASE_OK,
+  CI39252355251 all7SUCCESS. APIdep-dbb0s9m1egvs73ceuo8g,
+  workerdep-dbb0tb7btjjs738umfdg,Verceldpl_HCA9iakXopUYx3xqa9mNoaDJrxSN
+  exactSHA/Free/Free/Hobby. Independent rule-axes RLS review ACCEPT/no findings;
+  static review, no independent rerun claimed. Model/elapsed/token telemetry for
+  that review unavailable; root full3426PASS and actual RLS10PASS remain distinct.
+- Real ordinary DEV jobed3052a9 pending→running/content_generation→assessment→failed,
+  26.782s, explicit incomplete-coverage message, activejobs0. Status/RLS defect fixed,
+  semantic end-to-end gate FAIL. Original4DTO hashes/quiz IDs unchanged; only new
+  lessonae21b62f fromR9 and newlesson5c3e589c fromR10 each cleaned204/fresh404 in
+  their separate owned runs. No original quiz deleted, no assignment/invitation.
+  Failed rewritten content/assessment audit not captured; exact rejection reason
+  remains UNVERIFIED, do not infer it from the generic terminal message.
+- Separate single-rule source diagnostic PASS, not a replay of that DEV writer:
+  original explicit prohibition+condition→1fact/1axis/1question,3real providercalls,
+  6.187s, terminalcompleted/allcoveragecomplete/no padding. Root checked exact
+  condition in prompt/key and both wrong options permit the prohibited action.
+  Source-only diagnostic has0DBwrites/no deployment. Trace retained for reuse;
+  no repeated generation is needed to inspect it. Production remains65.

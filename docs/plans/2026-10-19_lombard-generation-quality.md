@@ -56,6 +56,31 @@ No voice, reserve activation/model-route change, ASUS, iSpring, landing, billing
 resource expansion, blanket purge, real-tenant mutation or relaxed safety gate.
 Failed or incomplete semantic runs remain failed; test counts are not quality proof.
 
+### Assessment acceptance without a per-lesson quota
+
+Implemented budget rule: independent source-owned assessment targets, never a
+fixed minimum or an arbitrary three-question maximum. Distinguish work actions,
+conditions, prohibitions, operationally significant values/deadlines and explicit
+exceptions. Do not promote cover text, clause numbering or paraphrase variants
+into extra targets. A question on one step must not claim to test the entire
+procedure. The immutable answer and every distractor remain independently checked
+against the same scoped source evidence; a second formulation is not a second
+covered rule. Lesson/module regeneration uses a verified saved-lesson snapshot,
+not a claim that the original file has been re-extracted.
+
+Acceptance must report retained questions, omitted derived targets and unresolved
+source parents separately. A ratio such as9/10 does NOT mean90% of this source
+is covered when four operational parents remain partially unassessable. Existing
+20-target technical bound is not a new product quota or an excuse to hide excess
+rules; the current engine explicitly requires review when coverage is incomplete.
+
+Follow-up design, not yet shipped: a human-readable source-to-target coverage
+matrix and controlled lesson partitioning for oversized operational topics.
+Question-bank variants, employee sampling, separate attempt-size settings and
+risk-weighted exam assembly require their own contract and are not implemented
+by this quota removal. Do not silently change learner attempt settings or turn
+the20-target bound into an employee question count.
+
 ## Checkpoint
 
 Stored bytes match both recoverable original files. Three exact unpublished
@@ -273,3 +298,25 @@ transactions. RED6/GREEN46, quality1004ruff/2170mypyPASS. Owned Supabase FORCE-R
 proof10PASS/cleanup/public-catalog-neutral includes the old zero-row behavior,
 foreign-job negatives, cancellation and cleared post-commit context. No model calls
 in that DB proof; exact new DEV deployment and actual worker success still required.
+
+R10/7b536d07 CI39252355251 all7SUCCESS/controller RELEASE_OK: API
+dep-dbb0s9m1egvs73ceuo8g,worker dep-dbb0tb7btjjs738umfdg,Vercel
+dpl_HCA9iakXopUYx3xqa9mNoaDJrxSN exactSHA. Independent RLS-delta review ACCEPT,
+no actionable finding. Real ordinary DEV jobed3052a9 traverses pending→running
+content_generation→assessment→failed,26.782s. Safe incomplete-coverage rejection,
+not successful regeneration. Only new lesson5c3e589c cleaned204/fresh404, original4
+DTO hashes/quiz IDs unchanged/activejobs0. No old quiz was replaced or deleted.
+Exact failed writer/audit body unavailable after rollback; do not assert whether
+extra source content, atomization or author/reviewer rejection caused this failure.
+
+Separate bounded exact original prohibition+condition diagnostic PASS:
+1admitted fact/1retained axis/1question,3real calls/6.187s, terminalcompleted,
+no missing/unatomizable/critical/density-limited target. Exact condition appears in
+prompt/key, both distractors violate the stated no-approval prohibition. This
+supports variable count without padding, not cloud end-to-end acceptance or a
+marketing latency claim. Full3426PASS does not supersede that failed DEV gate.
+Fix remaining source/lesson target completeness from captured sanitized diagnostics
+before another real full acceptance/release. Documentation sweep corrected an
+additional obsolete max-three claim at the template-course section; public app
+source/locales have no remaining fixed-three promise. Production65 remains
+unchanged; owner release authority remains valid.

@@ -10,15 +10,25 @@ production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 Owner-authorized one production package remains the objective; immediate stale
 DEV converter correction did not revoke that release authority. Existing DEV
-API/worker/frontend66/40298622 live (CI39249274637 all7SUCCESS,
-REL-LOMBARD66-DEV-R9-20261019 RELEASE_OK). Only obsolete DOCLING_URL was removed
+API/worker/frontend66/7b536d07 live (CI39252355251 all7SUCCESS,
+REL-LOMBARD66-DEV-R10-20261019 RELEASE_OK). Only obsolete DOCLING_URL was removed
 earlier; all other configuration/tier/model routes remain unchanged.
 Live legacy jobb48e24f2 received then false-cancelled because fresh worker
 transactions lacked tenant context. Cancelled through ordinary API; only its
 new temporary lessonae21b62f was removed, original4lesson hashes/quiz IDs unchanged.
 Local fix reuses canonical tenant binding in both jobs and progress/final writes.
-RED6/GREEN46, quality1004ruff/2170mypyPASS, isolated Supabase FORCE-RLS10PASS with
-cleanup and unchanged public catalog; fresh exact-SHA worker acceptance pending.
+RED6/GREEN46, full3426PASS, quality1004ruff/2170mypyPASS, isolated Supabase
+FORCE-RLS10PASS/cleanup. Exact R10 real jobed3052a9 now reaches content_generation,
+assessment and failed terminal state in26.782s, not stuckpending. Coverage rejected
+the rewritten snapshot; transaction rollback preserved original4DTO hashes/quizzes.
+Only new lesson5c3e589c DELETE204/fresh404, original4restored, activejobs0. This
+proves the RLS/status fix and fail-closed rollback, NOT successful regeneration.
+Independent rule-axes reviewer accepted the bounded RLS delta with no finding.
+Bounded original single-rule diagnostic (not that DEV writer replay) passes:
+1target/1question,3real calls/6.187s, fully completed coverage. Full-course
+4lessons/9questions still partial. Next: capture sanitized failed coverage reasons
+and trace rewritten-lesson evidence/target scope; do not guess its exact failure
+from the generic error or weaken gates. No new production GO.
 Local follow-up parses actual deployed-converter Markdown, restores category
 tables/amounts, hierarchical safety clauses and evacuation heading; readable
 safe fallback and neutral guide/list/terminal workflow are included. Explicit
