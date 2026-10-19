@@ -23,14 +23,23 @@ is deployed in R2 DEV, CI39196262631 SUCCESS, exact three-service parity/health 
 API source identical to R1. Final focused12/typecheck/lint, independent review and
 exact-source full web1339/1339 PASS. R3 import branch-counter reporting repair
 independently reviewed; full API4423/60skip and unchanged quality baseline PASS.
-R3 DEV transport/deployment and fresh created/updated receipts pending.
-Live browser UI acceptance NOT CLOSED: old native confirm on agent-created DEV
+R3 ce95010ac4a24c9815bd57856a9c4908581cb720 deployed: CI39197219609 SUCCESS,
+REL-FOUR-BLOCKS-DEV-R3-20261019 RELEASE_OK, exact API/worker/frontend parity/health.
+Fresh counts sessions459f2b1f/39232c2a PASS: create branch1/department1/staff1,
+then update only existing branch1, no duplicate employee/position/unit IDs.
+Old receipt and prior16users/16units/10journal rows unchanged. All31 original
+runtime values/routing unchanged at revision7. Free/Free/Hobby retained.
+Live browser UI acceptance (settings, dialogue, staff and import) NOT CLOSED:
+old native confirm on agent-created DEV
 IAB11 awaits owner Cancel; one asynchronous request already sent. Do not trigger
 or retry it. Other input is also blocked while that window is open. Only browser
 tab APIs were attempted; no desktop/Proxmox/access workaround.
 Evidence/current QA owner: docs/qa/2026-10-19_four-dev-blocks.md and local
 .release-evidence/four-dev-blocks/. New QA4 fixtures remain for completion; do not
-delete old data. Voice/iSpring/ASUS/model activation and production remain excluded.
+delete old data. Three new synthetic loginless employees remain active solely for
+that browser follow-up, exact IDs in owned manifests. Voice/iSpring/ASUS/model
+activation and production remain excluded. Read-only production health/master
+confirmed unchanged62/1df26939 and1bce48e9 at04:03UTC.
 
 ## Current62 — isolated forms released and live acceptance closed
 

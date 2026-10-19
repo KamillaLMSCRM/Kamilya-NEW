@@ -25,6 +25,20 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
+## Current DEV four-block candidate,2026-10-19
+
+DEV ce95010ac4a24c9815bd57856a9c4908581cb720, CI39197219609 SUCCESS,
+REL-FOUR-BLOCKS-DEV-R3-20261019 RELEASE_OK with exact API/worker/frontend parity.
+Assignment date-only dialogue,31 audited runtime parameters, optional staff
+schema/roster/safe transfers, import corrections and linked qualification restore
+implemented. API/owned-Supabase/live synthetic API checks PASS; browser journeys
+still NOT ACCEPTED because an old native confirmation awaits owner Cancel.
+Do not infer production readiness from source/deployment/API proof. No public DEV
+migration (already0183), tiers Free/Free/Hobby and existing flags retained.
+Production62/master unchanged. Current evidence/remaining gate:
+docs/qa/2026-10-19_four-dev-blocks.md; owned fixture IDs only in sanitized local
+manifests. No voice/iSpring/ASUS/1C/model-route activation change in this package.
+
 ## Current runtime62 snapshot,2026-10-19
 
 Production API/three BLUE workers/native frontend62 exact

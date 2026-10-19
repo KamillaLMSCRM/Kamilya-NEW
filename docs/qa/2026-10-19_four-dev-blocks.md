@@ -14,7 +14,7 @@ shared DEV acceptance. Baseline production62 fixes/instructions are preserved.
   and independent reviewer are different. Final changed test oracles independently
   reviewed; native-confirm and overly broad UPDATE expectations were obsolete,
   not product regressions or waived security checks.
-- Full API final:4421 passed,60 skipped,55 warnings; integration directory excluded.
+- Full API R3 final:4423 passed,60 skipped,55 warnings; integration directory excluded.
   Do not present skipped database tests as passed. Changed schema/RLS/races were
   checked separately against real Supabase DEV isolated owned schemas.
 - Runtime isolated gate:17 PASS, owned schema removed, public catalog neutral.
@@ -22,9 +22,10 @@ shared DEV acceptance. Baseline production62 fixes/instructions are preserved.
   Includes SERIALIZABLE competing confirms, no partial writes, old learning
   preservation, cancelled/superseded/completed cases and25,001 unrelated history.
 - Operational/controller tests:79 PASS. Python quality baseline PASS Ruff1005 /
-  Mypy2170, unchanged debt baseline. Release contract PASS324 error entries,
+  Mypy2170, unchanged debt baseline. Release contract PASS326 error entries,
   single migration head0183. Web build with all four existing DEV flags ON passed.
-- Frontend full final:1333/1333 PASS, no skipped tests. Typecheck/lint passed
+- Frontend full final:1339/1339 PASS, no skipped tests (exact R2 source, unchanged
+  in R3). R1 predecessor1333/1333. Typecheck/lint passed
   separately; optimized build PASS67 routes with all four existing DEV flags ON.
 - Navigation: CodeGraph runtime unavailable in this checkout; Graphify output
   absent. Bounded source fallback used; no graph-backed verification claim.
@@ -53,7 +54,8 @@ Live R1: qualification profile restore PASS through ordinary API, current linked
 department and current label preserved, normal synthetic fixture label restored.
 Real model missing-date clarification1.171s then date-only follow-up1.282s retained
 course/department and resolved one exact synthetic recipient in owned preview.
-No assignment executed yet. Interpretation candidate intentionally carries queries,
+At this interpretation checkpoint no assignment had been executed; the later
+explicit-confirm acceptance is recorded below. The candidate carries queries,
 not authority IDs; only preview resolves exact tenant-owned objects.
 
 Settings save30->31 and reload PASS(revision6). Native revert confirm interrupted
@@ -102,8 +104,8 @@ defect: generic branch created correctly but branch counter0 (aggregate2).
 IMPORT_COUNTS_ADDENDUM_V1 accepted; narrow source fix preserves old receipts and
 all domain/placement behavior. Created/updated async-loop tests RED2 then focused
 GREEN12, independent review approved. Final full API4423 PASS/60 SKIP/55 warnings,
-unchanged Ruff1005/Mypy2170 baseline PASS. New DEV counter receipts pending; do
-not describe the old inaccurate import summary as repaired retroactively.
+unchanged Ruff1005/Mypy2170 baseline PASS. Fresh DEV counter receipts are recorded
+below; the old inaccurate import summary was not repaired retroactively.
 
 R2 controller RELEASE_OK: API dep-dbap7nmi0phs73a2cp60, worker
 dep-dbap8qmq1p3s73ciein0, frontend dpl_76c6XLk9gNazK1F1mq9HsrbToNQB,
@@ -111,6 +113,36 @@ all exact fa6cd4ea. Public frontend bundle independently includes the controlled
 confirmation and frozen envelope; static artifact proof only, not UI acceptance.
 New counts XLSX inspected/rendered/re-imported with Artifact Tool; root visual
 review PASS, SHA256637d186551d38ee8a37c99910ea3df7f49d7321310173c9da8b5cf0a62dcf534.
+
+Independent final source/artifact audit approved ce95010ac4a24c9815bd57856a9c4908581cb720
+against production baseline1bce48e9, no unresolved P1/P2 in the bounded scope.
+All15 staff gate source hashes still match. Final settings readback revision7:
+all31 original values and routing hash unchanged. Read-only production health
+04:03UTC remains0.11.62/1df26939, remote master1bce48e9 unchanged.
+R3 CI39197219609 SUCCESS; controller REL-FOUR-BLOCKS-DEV-R3-20261019 RELEASE_OK.
+API dep-dbapdg61egvs73bk41o0, worker dep-dbapeirbc2fs73c9kh20, frontend
+dpl_86ppFMEc1qLxgYrmsufwpBAaRvxr all exact ce95010a with health PASS.
+Provider readback retains Free/Free/Hobby and all12 preexisting flags; no resource
+or model-route activation changed. No public schema migration was run.
+
+Fresh real DEV counts acceptance PASS: sessionA459f2b1f-8035-4522-90f8-79664fad4736
+created branch1/department1/aggregate2/position1/staff1, rules recompute success;
+sessionB39232c2a-d3e9-4276-9d8c-5a2effe341e8 updated only branch1/aggregate1,
+created0/staff_updated0/departments_updated0/deleted0. Stable exact unit/position/
+employee IDs, employee placement and department fields independently read back;
+A receipt unchanged. Existing inaccurate R1 receipt also independently unchanged.
+Final old QA16users/16units/10journal rows unchanged. No unresolved pending write.
+The stateful harness itself received root repair and independent review before
+execution: no nonexistent workspace external-key lookup or hardcoded proposal IDs.
+
+Remaining acceptance is browser-only, not a failed API or deployment gate: old
+native confirm in agent-created DEV IAB11 still blocks input. Owner Cancel request
+is outstanding; attempted documented dialog/close recovery did not resolve it.
+Fresh controlled-Modal save/reload/cancel/revert/reload and browser assignment,
+staff schema/transfer and corrected-import journeys are NOT ACCEPTED yet.
+New owned fixtures (three synthetic loginless employees and their units/positions,
+plans/import sessions/legitimate learning) remain for that follow-up; one owned
+empty unit was soft-archived. No test account privilege or old history was changed.
 
 ## Explicit limits
 

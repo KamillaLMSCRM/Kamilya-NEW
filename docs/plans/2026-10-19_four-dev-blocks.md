@@ -41,14 +41,14 @@ Existing approved DEV free contour only; no workstation Docker PostgreSQL.
 | Node | Writer / reviewer | State | Exit gate |
 |---|---|---|---|
 | F1 isolate candidate from production | root / independent leaves | DONE | exact bounded delta, no reversal of62 fixes |
-| F2 settings+assignment | root / four_blocks_runtime_review | SOURCE_REVIEWED | focused API/UI, budgets/context/audit/snapshot/negative tests |
-| F3 staff+import+qualification | root / four_blocks_staff_review | SOURCE_REVIEWED | archive UX, safe moves, old enrollment retention, corrected import persistence |
-| F4 assemble/check | root | PASS | final API4423/web1339, quality/type/lint/build, isolated runtime17/staff29; R2 CI success |
-| F5 existing DEV deployment | root | R2_PASS_R3_PENDING | fa6cd4ea parity PASS; reviewed branch-counter reporting repair awaiting R3, unchanged tiers |
+| F2 settings+assignment | root / four_blocks_runtime_review | SOURCE_AND_API_PASS | live model date-only context/explicit confirm/receipt, audited settings restore; browser pending |
+| F3 staff+import+qualification | root / four_blocks_staff_review | SOURCE_AND_API_PASS | live moves/retention/import corrections/create+update counters/qualification restore; browser pending |
+| F4 assemble/check | root | PASS | final API4423/web1339, quality/type/lint/build, isolated runtime17/staff29; R3 CI39197219609 success |
+| F5 existing DEV deployment | root | PASS | ce95010a exact three-service parity/health RELEASE_OK, unchanged tiers/flags |
 | F6 live DEV acceptance | root / independent packet review | API_PASS_UI_PENDING | real assignment/staff/import/restore API PASS; old native dialog blocks browser input, owner Cancel requested |
 
-Dependencies: F1->(F2,F3)->F4->F5->F6. Leaves are read-only/no external access;
-root owns all files, shared contracts, secrets and external mutations. Handoffs
+Dependencies: F1->(F2,F3)->F4->F5->F6. Leaves have bounded local writer/reviewer
+assignments and no external access; root owns shared contracts, Git, secrets and external mutations. Handoffs
 English result/changed/verified/blockers/next. Requested reviewer models: Luna/
 medium and Sol/high; telemetry unknown until independently exposed.
 

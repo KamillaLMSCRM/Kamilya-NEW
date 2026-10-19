@@ -5141,3 +5141,42 @@ Rules:
   tiers/resources excluded. Proof forms62/ and native-R4 receipts; canonical
   release62/readiness/context/handoff own durable results. Temporary production
   execution plan removed after transfer; history remains recoverable in Git.
+
+### 2026-10-19 — first four DEV blocks, API PASS / browser acceptance incomplete
+
+- Bounded ce95010ac4a24c9815bd57856a9c4908581cb720 selectively based on production62;
+  assignment context/budgets,31audited parameters, staff workspace/safe transfers,
+  import correction/qualification placement only. No mixed DEV promotion.
+- Full API4423PASS/60SKIP/55warnings (integration excluded), exact unchanged web
+  fa6cd4ea1339/1339PASS; quality/type/lint/build/release contract PASS. Real owned
+  Supabase runtime17/staff29PASS, cleanup/public-catalog neutrality confirmed.
+  Staff gate includes SERIALIZABLE races, tenant/actor negatives, all historical
+  statuses, additive training and25,001 unrelated historical rows.
+- R3 CI39197219609 SUCCESS; REL-FOUR-BLOCKS-DEV-R3-20261019 RELEASE_OK. API
+  dep-dbapdg61egvs73bk41o0/worker dep-dbapeirbc2fs73c9kh20/frontend
+  dpl_86ppFMEc1qLxgYrmsufwpBAaRvxr all exact SHA/health. Existing Free/Free/Hobby,
+  flags and public0183 retained; no public migration/new paid resources.
+- Ordinary synthetic DEV QA real model missing-date clarification then date-only
+  follow-up1.171/1.282s, exact preview/explicit-confirm/receipt reload PASS. Safe
+  employee transfer adds1/preserves1, unit move adds0/preserves2, receipt replay
+  and role retention PASS. Exact byte-preservation for employee move belongs to
+  owned SQL, not an absent live pre-write capture. Qualification restore retains
+  current linked department/label. Prior16users/16units/10journal rows unchanged.
+- Corrected XLSX preview persisted both generic/legacy names and linked placement.
+  Found branchs_created/updated reporting defect; narrow reviewed repair, RED2
+  then async-loop tests GREEN. Fresh sessions459f2b1f/39232c2a: create one branch,
+  department, position and employee; subsequent branch-only update1, no new IDs,
+  unchanged department/employee/position/placement, both historical receipts intact.
+  Artifact Tool fixture SHA637d1865...dcf534, root visual review PASS.
+- Runtime UI save/reload30->31 succeeded at revision6, but native revert confirm
+  interrupted IAB before POST. Read-only reconciliation then canonical audited
+  API restore returned all31values/routing to baseline at revision7. New controlled
+  Modal/session/409 retry repair reviewed/focused12/fullweb1339/static DEV artifact
+  PASS; fresh browser journey NOT ACCEPTED. Owner Cancel request outstanding; no
+  desktop/browser-policy/access workaround. Browser settings/dialogue/staff/import
+  journeys remain pending; do not turn API proof into browser proof.
+- Three new owned loginless student fixtures/units/positions/receipts retained for
+  follow-up; one empty owned unit soft-archived. No old history purge/accounts/
+  permissions/ASUS/1C/voice/iSpring/model-route activation or production mutation.
+  Read-only production62/1df26939 and master1bce48e9 unchanged04:03UTC. Detailed
+  owner docs/qa/2026-10-19_four-dev-blocks.md; temporary graph retained while UI pending.
