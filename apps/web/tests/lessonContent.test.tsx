@@ -99,4 +99,36 @@ describe('LessonContent', () => {
     expect(screen.getByText('<img src=x onerror=alert(1)>')).toBeInTheDocument();
     expect(screen.getByText('**unfinished markup')).toBeInTheDocument();
   });
+
+  it('renders backend-escaped fallback punctuation literally without creating Markdown structure', () => {
+    const { container } = render(
+      <LessonContent
+        text={'Руководитель обязан:\n\n\\- организовать проверку;\n\\- назначить ответственного.\n\nСрок: \\(в течение 2 дней\\).'}
+      />,
+    );
+
+    expect(screen.getByText((_, element) => element?.tagName === 'P' && element.textContent?.includes('- организовать проверку;') === true)).toBeInTheDocument();
+    expect(screen.getByText((_, element) => element?.tagName === 'P' && element.textContent?.includes('- назначить ответственного.') === true)).toBeInTheDocument();
+    expect(screen.getByText('Срок: (в течение 2 дней).')).toBeInTheDocument();
+    expect(container.querySelectorAll('ul, ol, h1, h2, h3, h4, h5, h6')).toHaveLength(0);
+  });
+
+  it('keeps escaped emphasis, code, headings, links, HTML, and source backslashes inert', () => {
+    const { container } = render(
+      <LessonContent
+        text={'\\*\\*Не форматировать\\*\\* \\`not code\\` \\# heading \\[bad\\](https://evil.example/?x=1)\n\n<img src=x onerror=alert(1)>\n\nPath: C:\\\\tmp\\\\file'}
+      />,
+    );
+
+    expect(screen.getByText('**Не форматировать** `not code` # heading [bad](https://evil.example/?x=1)')).toBeInTheDocument();
+    expect(screen.getByText('<img src=x onerror=alert(1)>')).toBeInTheDocument();
+    expect(screen.getByText('Path: C:\\tmp\\file')).toBeInTheDocument();
+    expect(container.querySelectorAll('strong, em, code, a, img, h1, h2, h3, h4, h5, h6')).toHaveLength(0);
+  });
+
+  it('preserves literal escapes and a trailing backslash inside real inline code', () => {
+    render(<LessonContent text={'`\\*literal\\*` and `C:\\tmp\\`'} />);
+    const code = screen.getAllByText((_, element) => element?.tagName === 'CODE');
+    expect(code.map((element) => element.textContent)).toEqual(['\\*literal\\*', 'C:\\tmp\\']);
+  });
 });

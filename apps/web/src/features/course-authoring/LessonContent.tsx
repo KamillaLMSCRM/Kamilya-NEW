@@ -19,6 +19,11 @@ type Block =
 const headingPattern = /^(#{1,6})\s+(.+?)\s*$/;
 const unorderedPattern = /^\s*[-+*]\s+(.+)$/;
 const orderedPattern = /^\s*(\d+)[.)]\s+(.+)$/;
+const escapedMarkdownPattern = /\\([\\`*_[\]{}()#+\-.!|>~])/g;
+
+function literalInlineText(text: string): string {
+  return text.replace(escapedMarkdownPattern, '$1');
+}
 
 function splitTableRow(line: string): string[] | null {
   const trimmed = line.trim();
@@ -133,18 +138,20 @@ function parseBlocks(text: string): Block[] {
 }
 
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
-  const tokenPattern = /(`[^`\n]+`|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_)/g;
+  const tokenPattern = /(?<!\\)(`[^`\n]+`|\*\*[^*\n]+(?<!\\)\*\*|__[^_\n]+(?<!\\)__|\*[^*\n]+(?<!\\)\*|_[^_\n]+(?<!\\)_)/g;
   const output: ReactNode[] = [];
   let cursor = 0;
   let tokenIndex = 0;
   let match: RegExpExecArray | null;
 
   while ((match = tokenPattern.exec(text))) {
-    if (match.index > cursor) output.push(text.slice(cursor, match.index));
+    if (match.index > cursor) output.push(literalInlineText(text.slice(cursor, match.index)));
 
     const token = match[0];
     const strong = token.startsWith('**') || token.startsWith('__');
-    const content = token.slice(strong ? 2 : 1, strong ? -2 : -1);
+    const content = token.startsWith('`')
+      ? token.slice(1, -1)
+      : literalInlineText(token.slice(strong ? 2 : 1, strong ? -2 : -1));
     const key = `${keyPrefix}-${tokenIndex}`;
     tokenIndex += 1;
 
@@ -155,7 +162,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
     cursor = match.index + token.length;
   }
 
-  if (cursor < text.length || output.length === 0) output.push(text.slice(cursor));
+  if (cursor < text.length || output.length === 0) output.push(literalInlineText(text.slice(cursor)));
   return output;
 }
 

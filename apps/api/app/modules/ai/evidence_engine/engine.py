@@ -976,10 +976,7 @@ class EvidenceCourseEngine:
                     _norm(fact.attribute),
                 )
             )
-            target_questions = min(3, max(1, math.ceil(len(candidates) / 3)))
             for fact in candidates:
-                if len([q for q in questions if q.lesson_id == lesson.lesson_id]) >= target_questions:
-                    break
                 key = _fact_key(fact)
                 if key in tested:
                     continue
@@ -1038,8 +1035,6 @@ class EvidenceCourseEngine:
         tested_answer_keys: set[tuple[str, str]] = set()
         for lesson in evidence:
             for fact_id in lesson.fact_ids:
-                if len([q for q in questions if q.lesson_id == lesson.lesson_id]) >= 3:
-                    break
                 fact = by_id[fact_id]
                 answer = answer_by_fact.get(fact_id)
                 if not answer:

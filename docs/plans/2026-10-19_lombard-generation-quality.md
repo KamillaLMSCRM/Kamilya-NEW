@@ -121,7 +121,7 @@ calls; it is diagnostics, not fresh cloud DEV acceptance.
 Backend unit R4:3316PASS/43.71s and canonical quality ruff1004/mypy2170PASS,
 before final density/fallback delta. Fresh final suite/DEV/production remain gates.
 
-Latest DEV: exact23dece3f, CI39231108347 all7SUCCESS, release controller
+Earlier DEV: exact23dece3f, CI39231108347 all7SUCCESS, release controller
 REL-LOMBARD66-DEV-R3-20261019 RELEASE_OK. API dep-dbaub2vbtjjs738l54ug,
 worker dep-dbaucas9v7es73a09eo0, Vercel dpl_4atg2r1VJDdUbwTme7mjpJBUkgEJ.
 Provider HTTP failure was reconciled before the state-aware retry; same API
@@ -148,3 +148,64 @@ artifact count0 after the numeric fix; all6topics represented. Replayed existing
 raw model responses,0new generation calls;3.265s is replay timing, NOT a fresh
 generation speed claim. Critical omitted/unsupported rules still require review;
 no semantic GO, no fresh cloud DEV acceptance and no production release claimed.
+
+## Adaptive assessment decision and fresh scope correction
+
+There is no minimum or target of three questions per lesson. Derive a coverage
+map from independent source-backed actions, conditions, prohibitions, exceptions,
+deadlines and role/location distinctions. A paraphrase of the same fact does not
+increase coverage. More words or pages do not themselves justify more questions.
+The20-axis live safety ceiling is a technical bound, not a coverage quota; any
+omission remains explicit. Remove the residual fixed-three caps in the separate
+deterministic source-diagnostic builder as well. It is not the final reviewed
+assessment and its counts never establish release readiness.
+
+DEV R4 exact1552d614 deployed after CI39235485902 all7SUCCESS: API
+dep-dbauquk9v7es73a20jlg,worker dep-dbaus2uq1p3s73d6uetg,Vercel
+dpl_E1oi3pJKryFMqUvSPbW86RMPU1H9. Existing Free/Free/Hobby unchanged.
+Fresh ordinary-browser DOCX job6c014a8e-c9aa-40b5-b3e1-ff05d0ddae03 persisted
+draftb7af0999-9de8-43d1-a96a-8ac9162b36be,4lessons/13questions(4,3,4,2),98.649s
+worker. It is interrupted/review-required, with6provider fallbacks/1deterministic
+fallback and4partially unassessable parents. No semantic acceptance or publication.
+
+Independent full-question review found two P1s: a next-sentence deadline lost its
+after-hours/weekend/holiday trigger and local numbered branch; a marking-only key
+answered a prompt implying the whole refusal procedure. A P2 notification option
+also performed another action without contradicting required immediate notice.
+Root v8 fixes scope and asks the exact recording/notification step. Adjacent
+condition and branch spans must be exact, bounded and linked; unresolved scope
+is quarantined. Native DOCX conversion/chunk/admission RED2 plus notification
+RED1 reproduce the real seam. Exact-original native/production-shaped oracles
+pass with565character deadline stems and unchanged exact keys,0model/DB calls.
+These deterministic checks do not replace fresh DEV/production acceptance.
+Independent adversarial review exposed dotted sibling markers, same actor/object
+but incompatible predicate binding and plural/active step grammar. Root RED6 then
+GREEN15converter/audit tests: temporal continuation requires the deadline's
+source-stated origin event, not two generic words; unsupported step grammar is
+quarantined. Complete prompt bounded900chars, separate quoted source spans,
+equal deadline values retain distinct scope identities. Full3375PASS/41.11s,
+5pre-existing warnings; persistence/schema20PASS/7.02s and Python qualityPASS.
+Native8facts/10axes and production-shaped9facts/11axes are source diagnostics,
+not final retained-question counts. Fewer unsafe axes is not a coverage success;
+partial/unatomized source topics must remain visible for methodologist review.
+Final independent scope review found/closed the rich-table salience bypass,
+embedded branch condition loss and infinitive-inside-condition truncation.
+Exact converter regressions RED3+RED1/GREEN107focused/2.86s; full3378PASS/41.65s
+preceded only the final full-condition guard. Final exact-SHA CI remains required.
+Independent bounded source review accepts integration with no remaining P0/P1.
+Browser DOM exposed literal punctuation escapes in the separate LessonContent
+consumer. Backend source escaping is intentional and unchanged; frontend literal
+decoding must preserve inert escaped structure, links/HTML and code contents.
+Final frozen candidate:3379API unit PASS/87.41s,27critical-journey checks PASS/
+5.76s,1348web PASS(maxWorkers2), web typecheck/targeted lint and canonical Python
+quality/version/diff PASS. Initial broad web run failed the new inline-code
+trailing-slash regression plus a journal timeout under concurrent CPU load;
+the real code issue is corrected, no test timeout/assertion was weakened. Final
+quiet full report is all green. Independent UI review12PASS and root4-consumer
+matrix78PASS support the final bounded fix. Exact DEV/CI/fresh source acceptance
+still follows; production is unchanged65.
+
+Larger employee-specific banks are a separate future contract: approved question
+families and balanced coverage, with server-frozen attempt selection and immutable
+answer keys. Do not merely rephrase a few facts or generate answers during an
+attempt. This candidate changes generation coverage only, not learner sampling.

@@ -8968,7 +8968,7 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Fix: candidate uses narrow operational-table admission with metadata/catalog
   negatives, navigation/signature exclusion, whitespace-only post-grounding
   layout, distinct explicit-list axes with exact-axis repair/recovery and honest
-  missing-coverage audit. Current quality policy v7; no changed parent evidence IDs,
+  missing-coverage audit. Current quality policy v8; no changed parent evidence IDs,
   provider route, grounding guard or migration. Conditions/exceptions must remain
   part of exact source-owned claims, not be dropped to increase question counts.
   Actual deployed MarkItDown output may have
@@ -8994,6 +8994,20 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   A distractor that repeats all exception classes but merely omits their
   authorization qualifier is ambiguous, not proven wrong; bound repair to its
   original option index and immutable answer key.
+- Fresh DEV scope follow-up: the native DOCX representation exposed an adjacent
+  conditional/deadline pair where the deadline sentence had no anaphoric prefix.
+  The old axis lost the after-hours/weekend/holiday trigger and local numbered
+  branch. Carry only bounded exact adjacent condition and explicit branch spans;
+  do not inherit across sibling markers, unrelated operations or explicit
+  universal scope. Quarantine unresolved/overlong context instead of producing a
+  scope-free deadline. Recording/notification questions name their exact step
+  type, not the entire multi-step refusal procedure. Preserve partial-parent
+  review coverage. Quality policy v8 invalidates prior stage checkpoints.
+  Rich-table salience fallback cannot re-add a quarantined step. A generic
+  actor/action parser must preserve the complete leading condition, not stop at
+  an infinitive inside it. Separately, author/learner/approval LessonContent must
+  decode source Markdown escapes as literal React text; backend escaping stays
+  intact and escaped source structure/HTML/links cannot become active content.
 - Verification: deterministic baseline RED and original DOCX limit-loss RED;
   corrected admission preserves independently read original limit/procedure
   phrases. Source-roundtrip inline/OCR-list RED/GREEN and independent review

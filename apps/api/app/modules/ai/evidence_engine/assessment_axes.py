@@ -472,6 +472,128 @@ def _without_source_marker(sentence: str) -> str:
     ).strip()
 
 
+def _focused_step_prompt(clause: str) -> str:
+    """Name the source action type, never imply it is the entire workflow."""
+    conditional = _EXPLICIT_THEN_CONDITION.fullmatch(clause)
+    if conditional is None:
+        return ""
+    notification = re.fullmatch(
+        r"(?P<actor>.+?)\s+(?P<modal>обязан[аы]?|должен|должна|должны)\s+"
+        r"(?:сразу|незамедлительно|немедленно)\s+"
+        r"(?P<verb>поставить\s+в\s+известность|уведомить|сообщить)\s+[^.!?]+[.!?]?",
+        conditional.group("action"), flags=re.IGNORECASE,
+    )
+    if notification is not None:
+        return (
+            f"Кого и когда {notification.group('actor')} {notification.group('modal')} "
+            f"{notification.group('verb')} при условии «{conditional.group('condition')}»?"
+        )
+    action = re.fullmatch(
+        r"(?P<location>в\s+.+?)\s+(?P<verb>проставляется|делается|вносится)\s+"
+        r"(?P<record>отметка|запись),?\s+(?:что\s+)?[^.!?]+[.!?]?",
+        conditional.group("action"), flags=re.IGNORECASE,
+    )
+    if action is None:
+        return ""
+    record = "отметку" if action.group("record").casefold() == "отметка" else "запись"
+    verb = {"проставляется": "проставить", "делается": "сделать", "вносится": "внести"}[
+        action.group("verb").casefold()
+    ]
+    return (
+        f"Какую {record} следует {verb} {action.group('location')} "
+        f"при условии «{conditional.group('condition')}»?"
+    )
+
+
+_STEP_ACTION = re.compile(
+    r"\b(?:простав\w*|внос\w*|уведом\w*|сообщ\w*|подпис\w*|"
+    r"поставить\s+в\s+известность|(?:сдела\w*|дела\w*)\s+запис\w*)\b",
+    flags=re.IGNORECASE,
+)
+_NUMBERED_BRANCH = re.compile(r"(?<!\S)\d+(?:\.\d+)*[.)]\s+")
+_BRANCH_CONDITION = re.compile(
+    r"(?:при|если|когда)\b[^.!?]+?\s+[-—–]\s+", flags=re.IGNORECASE,
+)
+_UNIVERSAL_SCOPE = re.compile(
+    r"\b(?:во\s+всех\s+случаях|независимо\s+от|при\s+любых)\b", flags=re.IGNORECASE,
+)
+_TEMPORAL_CONDITION = re.compile(
+    r"\b(?:после|до|выходн\w*|праздничн\w*)\b", flags=re.IGNORECASE,
+)
+
+
+def _deadline_source_rule(fact: SourceFact, sentences: list[str], index: int,
+                          match: re.Match[str]) -> tuple[tuple[str, ...], str] | None:
+    """Retain explicit adjacent/numbered scope, or quarantine an ambiguous target.
+
+    Do not infer a relationship from a large thematic paragraph. All added text
+    is an exact source span; a sibling numbered item is a hard scope boundary.
+    """
+    sentence = sentences[index]
+    positions: list[int] = []
+    cursor = 0
+    for row in sentences[:index + 1]:
+        start = fact.value.index(row, cursor)
+        positions.append(start)
+        cursor = start + len(row)
+    sentence_start = positions[index]
+    branch_start = 0
+    branch_content_start = 0
+    contexts: list[str] = []
+    if is_tabular_locator(fact.source_locator):
+        prefix = fact.value[:sentence_start + match.start()]
+        branches = list(_NUMBERED_BRANCH.finditer(prefix))
+        if branches:
+            branch = branches[-1]
+            branch_start = branch.start()
+            header = _BRANCH_CONDITION.match(prefix, branch.end())
+            if header is None:
+                return None
+            branch_content_start = header.end()
+            context = header.group(0).rstrip().rstrip("-—–").rstrip()
+            if context not in sentence:
+                contexts.append(context)
+    if index and not _UNIVERSAL_SCOPE.search(sentence):
+        previous_start = positions[index - 1]
+        previous_end = previous_start + len(sentences[index - 1])
+        if previous_start <= branch_content_start < previous_end:
+            previous_start = branch_content_start
+        previous = _without_source_marker(fact.value[previous_start:previous_end])
+        previous_header = _BRANCH_CONDITION.match(previous)
+        if previous_header is not None:
+            previous = previous[previous_header.end():].strip()
+        conditional = (_EXPLICIT_THEN_CONDITION.fullmatch(previous)
+                       or _MODAL_CONDITION.fullmatch(previous))
+        if conditional and previous_start >= branch_start:
+            condition = conditional.group("condition")
+            origin = re.search(r"\bс\s+момента\s+(.+)", match.group(0), flags=re.IGNORECASE)
+            origin_anchors = _lexical_anchors(origin.group(1)) if origin else frozenset()
+            # Actor/object overlap is not a causal link. Only a stated temporal
+            # exception tied to the deadline's exact origin event can continue
+            # into a non-anaphoric next sentence; otherwise retain it for review.
+            if (not _TEMPORAL_CONDITION.search(condition) or len(origin_anchors) < 2
+                    or not origin_anchors.issubset(_lexical_anchors(condition))):
+                return None
+            contexts.append(condition)
+        elif (_TEMPORAL_CONDITION.search(previous)
+              and re.search(r"\b(?:если|когда|при\s+условии)\b", previous, flags=re.IGNORECASE)
+              and previous_start >= branch_start):
+            # An embedded or malformed temporal condition is not permission to
+            # emit the next deadline without it. Never guess a clause boundary.
+            return None
+        elif _DEPENDENT_TABLE_CLAUSE.match(_without_source_marker(sentence)):
+            if previous_start < branch_start:
+                return None
+            contexts.append(sentences[index - 1])
+    elif not index and _DEPENDENT_TABLE_CLAUSE.match(_without_source_marker(sentence)):
+        return None
+    source_rule = f"{sentence[:match.start()]}_____{sentence[match.end():]}"
+    # Readable source scope, not an invitation to quote an entire compound cell.
+    if sum(map(len, contexts)) + len(source_rule) > 700:
+        return None
+    return tuple(contexts), source_rule.strip()
+
+
 def _conditional_rule_axes(fact: SourceFact) -> list[tuple[str, str]]:
     """Project a complete long conditional into source-owned condition/action roles."""
     if len(fact.value.strip()) <= MAX_ASSESSMENT_ANSWER_CHARS:
@@ -494,10 +616,13 @@ def _conditional_rule_axes(fact: SourceFact) -> list[tuple[str, str]]:
             or _is_dependent_source_fragment(action)
         ):
             continue
+        step_prompt = _focused_step_prompt(clause)
+        if not step_prompt and _STEP_ACTION.search(action):
+            continue
         prompt = (
             f"Для «{fact.subject.strip()}» в характеристике "
-            f"«{fact.attribute.strip()}»: какое действие предусмотрено при условии "
-            f"«{condition}»?"
+            f"«{fact.attribute.strip()}»: "
+            + (step_prompt or f"какое действие предусмотрено при условии «{condition}»?")
         )
         axes.append((action, prompt))
     return axes
@@ -521,7 +646,7 @@ def _deadline_axes(fact: SourceFact) -> list[tuple[str, str]]:
         return []
     sentences = _source_sentences(fact.value)
     axes: list[tuple[str, str]] = []
-    seen: set[str] = set()
+    seen: set[tuple[str, str]] = set()
     for index, sentence in enumerate(sentences):
         matches = sorted(
             (
@@ -534,23 +659,24 @@ def _deadline_axes(fact: SourceFact) -> list[tuple[str, str]]:
         for match in matches:
             answer = match.group(0).strip()
             if (
-                answer in seen
-                or len(answer) > MAX_ASSESSMENT_ANSWER_CHARS
+                len(answer) > MAX_ASSESSMENT_ANSWER_CHARS
                 or not has_temporal_unit(answer)
             ):
                 continue
-            source_rule = f"{sentence[:match.start()]}_____{sentence[match.end():]}"
-            if _DEPENDENT_TABLE_CLAUSE.match(_without_source_marker(sentence)):
-                if index == 0:
-                    continue
-                source_rule = f"{sentences[index - 1]} {source_rule}"
+            scoped = _deadline_source_rule(fact, sentences, index, match)
+            if scoped is None:
+                continue
+            contexts, source_rule = scoped
+            scope = " ".join(f"Контекст: «{context}»." for context in contexts)
             prompt = (
                 f"Для «{fact.subject.strip()}» в характеристике "
-                f"«{fact.attribute.strip()}»: какой точный срок пропущен в исходном "
+                f"«{fact.attribute.strip()}». {scope} Какой точный срок пропущен в исходном "
                 f"правиле «{source_rule.strip()}»?"
             )
+            if len(prompt) > 900 or (answer, prompt) in seen:
+                continue
             axes.append((answer, prompt))
-            seen.add(answer)
+            seen.add((answer, prompt))
     return axes
 
 
@@ -577,12 +703,26 @@ def _regulatory_table_range_axes(fact: SourceFact) -> list[tuple[str, str]]:
 
 def _table_clause_prompt(fact: SourceFact, clause: str) -> str:
     """Build a mandatory row-owned prompt only for a standalone action clause."""
-    prompt = _required_prompt(clause)
+    prompt = _focused_step_prompt(clause)
+    generic_prompt = _required_prompt(clause) if not prompt else ""
+    if generic_prompt and _STEP_ACTION.search(clause):
+        return ""
+    prompt = prompt or generic_prompt
     if not prompt:
         parts = _operational_clause_parts(clause.rstrip(".;"))
         if parts is None:
             return ""
         target, qualifier, prohibited = parts
+        conditional_prefix = re.match(
+            r"^(?:если|когда|в\s+случае\s+если|при\s+условии)\b", clause,
+            flags=re.IGNORECASE,
+        )
+        if conditional_prefix and ("," not in clause
+                                   or not qualifier.startswith(clause.split(",", 1)[0])):
+            # The generic actor/action parser must not discard a leading
+            # condition (or shorten it to 'if the actor must') when it finds
+            # an infinitive inside that condition rather than in the action.
+            return ""
         condition = f" с учетом условия «{qualifier}»" if qualifier else ""
         if prohibited:
             prompt = f"Какое действие в отношении «{target}» запрещено{condition}?"
@@ -1265,7 +1405,7 @@ def derive_assessment_axes(
         and not _has_ambiguous_formula_symbol(fact)
     ]
     result: list[AssessmentAxis] = []
-    seen: set[tuple[str, str, str]] = set()
+    seen: set[tuple[str, str, str, str]] = set()
     source_order = {fact_id: index for index, fact_id in enumerate(lesson.fact_ids)}
     eligible.sort(key=lambda item: (source_order.get(item.fact_id, len(source_order)), item.fact_id))
     for fact in eligible:
@@ -1305,7 +1445,10 @@ def derive_assessment_axes(
             (value, prompt) for value, prompt in compound_table_axes
             if not _has_same_conditional_target(value, conditional_axes)
         ]
-        if projected_axes:
+        if projected_axes and not is_tabular_locator(fact.source_locator):
+            # Table projections are the only admitted independently scoped
+            # targets. Salience fallback would reintroduce a clause deliberately
+            # quarantined above, without its condition/step contract.
             fallback = _source_owned_correct_value(fact)
             if (
                 fallback
@@ -1369,7 +1512,9 @@ def derive_assessment_axes(
                     f"для «{fact.subject.strip()}»?"
                 )
             normalized_value = _norm(correct_value)
-            identity = (_norm(fact.subject), _norm(axis_attribute), normalized_value)
+            deadline_scope = (_norm(required_prompt)
+                              if (source_value, structured_prompt) in deadline_axes else "")
+            identity = (_norm(fact.subject), _norm(axis_attribute), normalized_value, deadline_scope)
             if identity in seen:
                 continue
             seen.add(identity)
@@ -1381,7 +1526,7 @@ def derive_assessment_axes(
                     fact.fact_id,
                     _norm(axis_attribute),
                     normalized_value,
-                )).encode("utf-8")
+                ) + ((deadline_scope,) if deadline_scope else ())).encode("utf-8")
             ).hexdigest()[:20]
             peers = tuple(
                 peer.fact_id

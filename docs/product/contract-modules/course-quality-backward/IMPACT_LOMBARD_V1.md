@@ -16,7 +16,7 @@ source locators remain immutable evidence; assessment axes may now represent
 distinct explicit clauses of the same parent fact. Exact axis IDs, not merely the
 parent fact ID, bind replacement/repair and critical-coverage audit. Existing
 grounding/answer-key/exception/retry guards and no-padding policy remain required.
-Follow-up quality policy v7 prevents mixing old and corrected resumable generation
+Follow-up quality policy v8 prevents mixing old and corrected resumable generation
 rules after the captured original-run corrections.
 
 ### Original-run diagnostic correction,2026-10-19

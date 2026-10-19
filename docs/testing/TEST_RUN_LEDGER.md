@@ -5467,3 +5467,50 @@ Rules:
   Independent semantic reviewer96PASS/2.03s and one-axis/multi-axis provider-
   failure sibling replays approve the correction with no remaining P0/P1/P2
   in the reviewed scope. Root code/quality review and runtime gates stay separate.
+
+## TEST-LOMBARD66-ADAPTIVE-SCOPE-20261019
+
+- Exact1552d614 DEV R4 RELEASE_OK after CI39235485902 all7SUCCESS. API
+  dep-dbauquk9v7es73a20jlg,worker dep-dbaus2uq1p3s73d6uetg,Vercel
+  dpl_E1oi3pJKryFMqUvSPbW86RMPU1H9; Free/Free/Hobby unchanged.
+- Ordinary browser DOCX job6c014a8e/draftb7af0999:4lessons,13questions(4,3,4,2),
+  98.649s worker, interrupted/review-required.6provider fallbacks/1deterministic
+  fallback. Independent review found P1 lost deadline trigger/local scope and P1
+  marking-only answer to a whole-procedure question; P2 notification distractor
+  performed another action without contradicting immediate notice. NOT accepted.
+- Actual synthetic DOCX conversion/chunk/admission RED2,notification RED1. Local
+  v8 retains bounded exact adjacent condition/numbered context and asks marking/
+  notification-specific steps. Original native/production converter shapes both
+  pass targeted scope oracle,565char deadline stems, unchanged keys,0model/DBcalls.
+- Independent adversarial RED6 covered dotted branches, generic actor/object
+  false binding, plural/feminine notification, active marking and identical
+  deadline values across branches. GREEN15 includes admitted-source full audit:
+  partial mandatory siblings stay review-required. Unsupported grammar/scope is
+  quarantined, not broadened. Prompt limit applies to the complete final stem.
+- Residual deterministic builder quotas RED3/2 vs five independent facts,
+  GREEN5/5. That builder remains source diagnostics, not a reviewed learner test.
+- Full3375PASS/41.11s,5pre-existing deprecation warnings; persistence/schema
+  contracts20PASS/7.02s, Python quality ruff1004/mypy2170PASS. Earlier3368 suite
+  preceded adversarial corrections and is not final proof. Failed JUnit absolute
+  argument run had0tests; verified own241byte artifact removed, relative output
+  corrected. Unrelated output/ preserved. Fresh corrected DEV/live and production
+  acceptance remain open; no voice/reserve/routing/ASUS/billing/resource change.
+- Final scope follow-up RED3+RED1 covers rich-table salience re-entry, temporal
+  condition embedded after branch headers and an infinitive inside a leading
+  `в случае если` condition. GREEN107focused/2.86s and qualityPASS; full3378PASS/
+  41.65s preceded only the last full-condition guard. Independent source reviewer
+  accepts bounded integration, no remaining P0/P1. Final exact-SHA CI still needed.
+- Source-scope CodeGraph search/callers verified derive_assessment_axes boundary;
+  frontend search/callers identified3LessonContent consumers, confirmed exact
+  imports in editor, learner and approval views. Manual snapshot refreshed after
+  backend edits(5.215s inclstartup,exclusionPASS); later UI delta needs final sync.
+  No runtime/RLS proof or token/cost saving is inferred from graph counts/edges.
+- Final frozen candidate3379API unit PASS/87.41s (CPU shared with web),
+  critical-journey selectors27PASS/5.76s. Full frontend first attempt failed
+  a new inline-code trailing-backslash regression and a learningInsightsJournal
+  timeout under load. Root exact code RED/GREEN fixes closing-backtick handling;
+  no code-content escape decoding. Final quiet1348/1348webPASS(maxWorkers2),
+  typecheck/targeted ESLint/Python quality/version/diffPASS. Independent UI
+  reviewer12PASS and root78consumer-focusedPASS; source-parser review accepted.
+  Backend escaping unchanged. Final CodeGraph sync6.122s/exclusionPASS, no claim
+  of token/cost savings. No production mutation or autonomous semantic GO.

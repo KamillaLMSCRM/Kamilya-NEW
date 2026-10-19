@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Course quality correction candidate (2026-10-19)
+## [0.11.66] - 2026-10-19
+
+### Course quality correction candidate
 
 - Preserve operational limit tables before the first document heading while
   keeping administrative cover metadata and reference catalogs non-teachable.
@@ -16,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Derive distinct operational-list assessment axes and repair/recover each exact
   axis instead of confusing sibling claims from the same source fragment.
   Critical assessment omissions remain explicit; no quota padding or relaxed
-  answer/grounding checks. Quality policy v7 invalidates old resume assumptions.
+  answer/grounding checks. Quality policy v8 invalidates old resume assumptions.
 - Preserve explicit converter table labels, emphasis-wrapped amounts and
   hierarchical safety clauses; retain evacuation-route headings and operational
   footnotes without teaching document-purpose prose. Exact conditional and
@@ -36,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hierarchical clause numbers during sentence grounding/deduplication. Reject
   ambiguous permission-scope distractors and broken visible list structure
   without silently dropping the parent source rule.
+- Keep adjacent deadline conditions and explicit local/remote branch context in
+  bounded source-owned questions. Quarantine unresolved scope; ask specifically
+  about recording/notification steps instead of presenting one step as a whole
+  procedure. Remove residual fixed-three caps from source diagnostics too.
+- Display safely escaped source punctuation literally in methodologist preview,
+  learner and approval views; keep source-controlled HTML/links/formatting inert.
 
 ### Historical DEV candidate: four bounded improvements (2026-10-19)
 

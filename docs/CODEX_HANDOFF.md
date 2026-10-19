@@ -10,8 +10,8 @@ production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 Owner-authorized one production package remains the objective; immediate stale
 DEV converter correction did not revoke that release authority. Existing DEV
-API/worker/frontend66/23dece3f live (CI39231108347 all7SUCCESS,
-REL-LOMBARD66-DEV-R3-20261019 RELEASE_OK). Only obsolete DOCLING_URL was removed
+API/worker/frontend66/1552d614 live (CI39235485902 all7SUCCESS,
+REL-LOMBARD66-DEV-R4-20261019 RELEASE_OK). Only obsolete DOCLING_URL was removed
 earlier; all other configuration/tier/model routes remain unchanged.
 Local follow-up parses actual deployed-converter Markdown, restores category
 tables/amounts, hierarchical safety clauses and evacuation heading; readable
@@ -37,6 +37,28 @@ Independent semantic review96PASS/2.03s approves the bounded delta after two
 P1failure-accounting findings were corrected; this is not business-quality GO.
 No new production release/tag or activation beyond current65. Voice/reserve/
 routing/ASUS/landing/billing/resources unchanged. Preserve unrelated output/.
+
+Fresh actual browser DOCX job6c014a8e/draftb7af0999:4lessons/13questions(4,3,4,2),
+98.649s worker, interrupted/review-required;6provider fallbacks/1deterministic
+fallback. Independent review found P1 lost adjacent deadline condition and P1
+marking-only answer to a whole-procedure question. Root v8 adds exact bounded
+adjacent/numbered scope with ambiguity quarantine and step-specific recording/
+notification stems, preserving partial-parent review. Actual native DOCX and
+captured production MarkItDown oracles pass with exact keys and565char deadline
+stems,0model/DB calls. Residual deterministic diagnostic fixed-three caps removed
+too. Fresh DEV proof of this correction and production remain required; do not
+use the previous13-question draft as semantic GO. Independent adversarial scope
+review found dotted markers, generic-overlap false binding and unsupported step
+grammar; all are RED/GREEN regressions now. Full3375PASS/41.11s, exact persistence/
+schema20PASS/7.02s, qualityPASS. Equal deadlines in distinct scopes retain distinct
+identities, unresolved grammar is quarantined, final full prompt bounded900chars.
+Final candidate: full3379API unit PASS/87.41s (concurrent workstation load),
+27critical-journey checks PASS/5.76s,1348web PASS at maxWorkers2, typecheck/targeted
+lint/quality/version/diff PASS. Earlier broad web run was pre-final inline-code
+fix and had1real slash regression plus1journal timeout; retained as failed, not
+relabeled. Final web quiet report is all green. Independent reviews accept the
+scope-parser and literal escape-display seams. No source-controlled markup/links
+activated. DEV R5 and fresh-model acceptance are the next gates, not production GO.
 
 ## Current checkpoint — four blocks65 released and live accepted
 
