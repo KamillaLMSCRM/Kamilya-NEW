@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   qualification restore. Permit harmless UPDATE through locked validation while
   retaining HR, placement and reactivation guards. Cancelled/superseded history
   no longer suppresses a new required enrollment; completed history still does.
+  Generic branch import now reports accurate created/updated branch counters;
+  historical committed receipts are not rewritten.
 - Bound impact history to affected employees and aggregate workspace counts
   linearly in the bounded hierarchy. The25,000 relevant-row safety ceiling still
   fails closed. Production deployment is not part of this candidate approval.

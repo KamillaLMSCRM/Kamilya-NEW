@@ -8,6 +8,8 @@ HR_COMPATIBILITY, DEV_DELIVERY and SCHEMA_COORDINATION V1 addenda.
 The accepted ACCEPTANCE_REPAIR_ADDENDUM_V1.md additionally governs history
 eligibility, locked import validation, bounded/scoped snapshots, linear overview
 aggregation and archive discoverability/controlled confirmation.
+IMPORT_COUNTS_ADDENDUM_V1.md additionally repairs generic branch result counters,
+without changing the result schema or rewriting historical receipts.
 
 Preserve accepted predecessor contracts. Acceptance status and exact deployed
 identity belong in the current DEV evidence, not inferred from contract acceptance.

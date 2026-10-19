@@ -8868,3 +8868,18 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   and permits only a new explicit retry against the refreshed revision.
 - Prevention: keep native confirm absent from this flow and test cancellation,
   explicit action, pending request and session changes as separate assertions.
+
+## STAFF-IMPORT-006 - Generic branch creation/update omitted the typed result count
+
+- Date: 2026-10-19, four-block DEV live XLSX acceptance.
+- Symptom: one branch and one department were persisted with correct placement,
+  but branches_created was0 while organization_units_created was2.
+- Cause: generic singular type branch was pluralized as branchs_created/updated,
+  which is not part of the legacy result-summary schema; the key was ignored.
+- Fix: map only branch to branches for create/update counters. Keep aggregate
+  and department counts, business writes and historical receipts unchanged.
+- Verification: two real async commit-loop cases RED with branch count0, then
+  focused12 PASS with aggregate2/branch1/department1 for creation and update;
+  independent review approved. Fresh DEV receipt/readback remains a release gate.
+- Prevention: reconcile persisted unit changes and typed/aggregate result counts
+  together for both generic creation and update, not only import HTTP success.

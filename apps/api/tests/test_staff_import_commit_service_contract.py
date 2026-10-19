@@ -41,6 +41,78 @@ def test_position_lock_excludes_nullable_eager_join() -> None:
     assert "select(Position).where(Position.tenant_id == tenant_id).with_for_update()" not in source
 
 
+@pytest.mark.parametrize("existing", [False, True], ids=["created", "updated"])
+async def test_generic_commit_reports_branch_and_department_counters(monkeypatch, existing):
+    from unittest.mock import Mock
+
+    from app.modules.organization_units import workspace_config
+    from app.modules.staff_import_sessions import commit_service as service
+    from app.modules.staff_import_sessions.schemas import ImportSessionState
+
+    tenant_id, session_id = uuid4(), uuid4()
+    branch_id, department_id = uuid4(), uuid4()
+    branch = SimpleNamespace(
+        id=branch_id, slug="branch", name="Existing branch", normalized_name="existing branch",
+        unit_type="branch", external_key="branch-1", parent_id=None, is_active=True,
+        is_head_office=False, legacy_root=False, source_metadata={},
+    )
+    department = SimpleNamespace(
+        id=department_id, slug="department", name="Existing department", normalized_name="existing department",
+        unit_type="department", external_key="department-1", parent_id=branch_id, is_active=True,
+        is_head_office=False, legacy_root=False, source_metadata={},
+    )
+    branch_proposal = SimpleNamespace(
+        name="Created branch" if not existing else "Renamed branch", unit_type=SimpleNamespace(value="branch"),
+        external_key="branch-1", parent_external_key=None, is_head_office=False, action="update",
+    )
+    department_proposal = SimpleNamespace(
+        name="Created department" if not existing else "Renamed department", unit_type=SimpleNamespace(value="department"),
+        external_key="department-1", parent_external_key="branch-1", is_head_office=False, action="update",
+    )
+    proposal = SimpleNamespace(
+        organization_units=[branch_proposal, department_proposal], branches=[], departments=[], positions=[], staff=[],
+        revision="r", revision_hash="hash",
+    )
+    record = SimpleNamespace(id=session_id, state="approved", approved_revision="r")
+    domain = SimpleNamespace(state=ImportSessionState.APPROVED, proposal=proposal, approved_revision="r")
+    plan = (
+        service.GenericUnitCommitPlanItem(branch_proposal, branch if existing else None),
+        service.GenericUnitCommitPlanItem(department_proposal, department if existing else None),
+    )
+
+    class Result:
+        def scalars(self):
+            return self
+
+        def all(self):
+            return []
+
+        def scalar_one_or_none(self):
+            return None
+
+    db = SimpleNamespace(add=Mock(), flush=AsyncMock(), execute=AsyncMock(return_value=Result()))
+    monkeypatch.setattr(service, "get_import_session", AsyncMock(return_value=record))
+    monkeypatch.setattr(service, "record_to_domain", lambda _: domain)
+    monkeypatch.setattr(service, "compute_proposal_hash", lambda _: "hash")
+    monkeypatch.setattr(service, "_lock_and_reject_inactive_staff_matches", AsyncMock(return_value=[]))
+    monkeypatch.setattr(service, "_tenant_units", AsyncMock(return_value=[branch, department] if existing else []))
+    monkeypatch.setattr(service, "build_generic_unit_commit_plan", lambda *args, **kwargs: plan)
+    monkeypatch.setattr(workspace_config, "staff_workspace_enabled", lambda: True)
+    monkeypatch.setattr(
+        service,
+        "apply_transition",
+        lambda current, target, **kwargs: SimpleNamespace(state=target),
+    )
+
+    result = await service.commit_approved_import_session(
+        db, tenant_id=tenant_id, session_id=session_id, actor_id=uuid4(), revision="r"
+    )
+
+    assert result.result_summary["organization_units_created" if not existing else "organization_units_updated"] == 2
+    assert result.result_summary["branches_created" if not existing else "branches_updated"] == 1
+    assert result.result_summary["departments_created" if not existing else "departments_updated"] == 1
+
+
 @pytest.mark.parametrize("action", ["update", "move"])
 async def test_workspace_import_preflight_allows_safe_update_to_locked_validation(monkeypatch, action):
     from app.modules.organization_units import workspace_config

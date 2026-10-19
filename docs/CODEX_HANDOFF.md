@@ -3,7 +3,34 @@
 **Обновлено:** 2026-10-19
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\cabinet-release-20261018`
-**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `codex/quiz-result-forms-release-20261019`; released source/tag1df269394ae6d0a2c7e6924e770c974ce0994651; final closeout is documentation-only; accepted DEVd334e331 remains unchanged.
+**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, active branch `codex/dev-four-blocks-20261019`;
+production source/tag1df269394ae6d0a2c7e6924e770c974ce0994651 remains unchanged.
+
+## Active DEV — first four remaining improvements, production excluded
+
+Owner request2026-10-19: assignment date-only context/budgets,31audited hot
+settings, optional staff schema/roster/reviewed transfers, import corrections and
+qualification restore. Baseline production62 preserved; no mixed DEV promotion.
+Source0dad851d R1 deployed to existing Free/Free/Hobby, exact CI/API/worker/frontend
+parity PASS, schema0183 already present/no public migration. Real QA API assignment,
+employee/unit moves, import corrected names/placement, qualification restore PASS.
+Prior16users/16units/10journal rows unchanged. Synthetic new fixtures only.
+
+Runtime native revert confirm interrupted IAB; original settings restored at
+revision7 via canonical API after read-only reconciliation, model routing unchanged.
+Controlled Modal/session+revision recovery repair fa6cd4ea02fdce82a4c20258acf3bc31f0324fae
+is deployed in R2 DEV, CI39196262631 SUCCESS, exact three-service parity/health PASS.
+API source identical to R1. Final focused12/typecheck/lint, independent review and
+exact-source full web1339/1339 PASS. R3 import branch-counter reporting repair
+independently reviewed; full API4423/60skip and unchanged quality baseline PASS.
+R3 DEV transport/deployment and fresh created/updated receipts pending.
+Live browser UI acceptance NOT CLOSED: old native confirm on agent-created DEV
+IAB11 awaits owner Cancel; one asynchronous request already sent. Do not trigger
+or retry it. Other input is also blocked while that window is open. Only browser
+tab APIs were attempted; no desktop/Proxmox/access workaround.
+Evidence/current QA owner: docs/qa/2026-10-19_four-dev-blocks.md and local
+.release-evidence/four-dev-blocks/. New QA4 fixtures remain for completion; do not
+delete old data. Voice/iSpring/ASUS/model activation and production remain excluded.
 
 ## Current62 — isolated forms released and live acceptance closed
 

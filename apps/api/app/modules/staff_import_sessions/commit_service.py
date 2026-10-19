@@ -327,7 +327,9 @@ async def commit_approved_import_session(
                 db.add(unit)
                 units.append(unit)
                 counts["organization_units_created"] = counts.get("organization_units_created", 0) + 1
-                count_key = f"{unit_proposal.unit_type.value}s_created"
+                unit_type = unit_proposal.unit_type.value
+                count_prefix = "branches" if unit_type == "branch" else f"{unit_type}s"
+                count_key = f"{count_prefix}_created"
                 if count_key in counts:
                     counts[count_key] += 1
             else:
@@ -353,7 +355,9 @@ async def commit_approved_import_session(
                 writable_unit.legacy_root = _is_legacy_compatibility_root(unit_proposal.external_key)
                 if changed:
                     counts["organization_units_updated"] = counts.get("organization_units_updated", 0) + 1
-                    count_key = f"{unit_proposal.unit_type.value}s_updated"
+                    unit_type = unit_proposal.unit_type.value
+                    count_prefix = "branches" if unit_type == "branch" else f"{unit_type}s"
+                    count_key = f"{count_prefix}_updated"
                     if count_key in counts:
                         counts[count_key] += 1
                 else:

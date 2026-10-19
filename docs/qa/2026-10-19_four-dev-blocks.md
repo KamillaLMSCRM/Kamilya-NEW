@@ -88,12 +88,29 @@ display; repaired. Root strengthened the asynchronous negative assertion and fou
 the same stale save-failure bug RED, then extended the existing generation guard.
 Focused12 PASS, typecheck/scoped lint PASS. Earlier broad R2 web1335 PASS loaded
 the8-case intermediate runtime test; do not present it as final12-case verification.
-Frozen final broad web run and exact R2 DEV deployment/live UI remain pending.
+Frozen final broad web run and exact R2 deployment are recorded below; live UI
+remains pending and is not inferred from API/static artifact checks.
 Final independent review approved the captured revert envelope and auth-generation
 guards. Review additionally caught save409 pending-state lock after the guard
 extension; fixed and proved explicit retry with refreshed revision3/no auto replay.
 Final focused12/typecheck/lint PASS, no source-review blocker. API source and DB
 contracts remain byte-identical to accepted R1; only two web files and docs changed.
+
+R2 exact web source fa6cd4ea broad final1339/1339 PASS; CI39196262631 SUCCESS.
+Source inspection of the live import summary uncovered a separate reporting
+defect: generic branch created correctly but branch counter0 (aggregate2).
+IMPORT_COUNTS_ADDENDUM_V1 accepted; narrow source fix preserves old receipts and
+all domain/placement behavior. Created/updated async-loop tests RED2 then focused
+GREEN12, independent review approved. Final full API4423 PASS/60 SKIP/55 warnings,
+unchanged Ruff1005/Mypy2170 baseline PASS. New DEV counter receipts pending; do
+not describe the old inaccurate import summary as repaired retroactively.
+
+R2 controller RELEASE_OK: API dep-dbap7nmi0phs73a2cp60, worker
+dep-dbap8qmq1p3s73ciein0, frontend dpl_76c6XLk9gNazK1F1mq9HsrbToNQB,
+all exact fa6cd4ea. Public frontend bundle independently includes the controlled
+confirmation and frozen envelope; static artifact proof only, not UI acceptance.
+New counts XLSX inspected/rendered/re-imported with Artifact Tool; root visual
+review PASS, SHA256637d186551d38ee8a37c99910ea3df7f49d7321310173c9da8b5cf0a62dcf534.
 
 ## Explicit limits
 

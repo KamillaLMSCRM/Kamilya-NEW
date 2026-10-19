@@ -43,9 +43,9 @@ Existing approved DEV free contour only; no workstation Docker PostgreSQL.
 | F1 isolate candidate from production | root / independent leaves | DONE | exact bounded delta, no reversal of62 fixes |
 | F2 settings+assignment | root / four_blocks_runtime_review | SOURCE_REVIEWED | focused API/UI, budgets/context/audit/snapshot/negative tests |
 | F3 staff+import+qualification | root / four_blocks_staff_review | SOURCE_REVIEWED | archive UX, safe moves, old enrollment retention, corrected import persistence |
-| F4 assemble/check | root | LOCAL_PASS_CI_PENDING | full API4421/web1333, quality/type/lint/build, isolated runtime17/staff29; CI pending |
-| F5 existing DEV deployment | root | NOT_STARTED | exact public schema/API/worker/frontend parity, unchanged tiers |
-| F6 live DEV acceptance | root / independent packet review | NOT_STARTED | settings change/readback/revert, real assignment dialogue, staff moves/import/restore |
+| F4 assemble/check | root | PASS | final API4423/web1339, quality/type/lint/build, isolated runtime17/staff29; R2 CI success |
+| F5 existing DEV deployment | root | R2_PASS_R3_PENDING | fa6cd4ea parity PASS; reviewed branch-counter reporting repair awaiting R3, unchanged tiers |
+| F6 live DEV acceptance | root / independent packet review | API_PASS_UI_PENDING | real assignment/staff/import/restore API PASS; old native dialog blocks browser input, owner Cancel requested |
 
 Dependencies: F1->(F2,F3)->F4->F5->F6. Leaves are read-only/no external access;
 root owns all files, shared contracts, secrets and external mutations. Handoffs
