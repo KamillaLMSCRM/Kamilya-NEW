@@ -4,9 +4,38 @@
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\cabinet-release-20261018`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, active branch `codex/four-blocks-production-20261019`;
-production backend foundation64 c0d5e95810ab14757416447449ace4ae052c88eb; native62 retained.
+production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
-## Current checkpoint —64 foundation accepted;65 activation candidate
+## Current checkpoint — four blocks65 released and live accepted
+
+Bounded owner request complete: production65 CI39209823772/native39209870918/
+protected39210442155 SUCCESS; exact API+3workers/image479f2235...8de06/restarts0,
+native current00e41ca7/all4flagsON.07:07UTC independent readback PASS, schema183/
+FORCE7/non-BYPASS/legacy policies/model routing/current reserve unchanged.
+Exact DEV65 and real synthetic production first4journeys accepted: date-only
+assignment actual model/preview/confirm/receipt-reload;31runtime settings audit/
+controlled Cancel/no-write/revert/reload restored originals; schema/roster/guarded
+employee and unit transfers/controlled empty archive; Excel corrections persisted
+and correct counters/stable identities/qualification placement restored. Original
+QA21users/13units/31full journal rows unchanged; final24/20/33 includes legitimate
+new synthetic fixtures/history, not purged. No owner Cancel request outstanding.
+
+Owner-approved exact failed63 local image5e2cbc8d...ce3a2 removed once, GHCR parent/
+amd64/13blobs/all12container refs checked. Protected65/64/62 and all containers/
+release state/config preserved, lease released. Disk90→88%, free~3.91GB; warning
+remains, critical cleared. No permission for another image/prune/threshold waiver.
+Watchdog expected65 reconciled via existing byte-identical backup, success0 and
+both timers active. Original failed attempt retained. Operational closeout PASS.
+
+Backend rollback64/c0d5e958/imagec78a29bed...fcca2 contains marker-aware kernel and
+staffOFF; native previous62 retained as UI rollback. Actual rollback NOT_RUN.
+Never backend-rollback to pre-kernel62 after retained markers. Fresh signed183
+restore130tables/126FORCE/RPO43s/RTO19s/owned cleanup PASS. Runtime/tag65 stays
+00e41ca7; closeout is docs-only/master-only, no retag/redeploy or DEV auto-rollout.
+No voice/iSpring/ASUS/1C/model route/reserve activation/landing/DNS/rights/billing
+or resource change. Next work requires its own scope; no repeated release needed.
+
+## Historical checkpoint —64 foundation before65 activation
 
 Backend39208080553 SUCCESS: imagec78a29bed522a282b0f209c3237503b3f175feafda0aaa4a7356343e6cbfcca2,
 all4services staffOFF, schema183, seven legacy/new FORCE tables, marker count0,
@@ -24,7 +53,7 @@ and worker rollout. Do not run reconcile first expecting it to trigger a worker
 whose auto_deploy=no. Reconcile is for an existing/unknown operation; its wait for
 exact workerSHA before execute is a sequencing error, not an access blocker.
 
-## Current release checkpoint —63 stopped safely,64 repair in progress
+## Historical release checkpoint —63 stopped safely,64 repair followed
 
 Exact63 source1df25458192d26841261cf87c2687401048389d8 passed CI39203109976
 and final DEV REL-FOUR63-DEV-FINAL-20261019 (Free/Free/Hobby). Protected production

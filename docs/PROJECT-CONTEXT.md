@@ -25,7 +25,40 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current delivery checkpoint,2026-10-19
+## Current delivery checkpoint — production65 accepted,2026-10-19
+
+Backend/native frozen00e41ca7001564574fb89d2de97f9636d7e5020f/v0.11.65;
+image479f2235...8de06, CI39209823772/native39209870918/protected39210442155 SUCCESS.
+Independent final07:07UTC actual API+3workers/restarts0/all4flagsON/public-private
+health PASS. Foundation64 already applied0183;65 adds no migration. FORCE7,
+legacy role/policy/ACL hash3882b298...61b3, runtime non-super/non-BYPASS and model
+routingc016939b...a736/current owner-enabled reserveON unchanged. Previous64/c0d5e958
+imagec78a29bed...fcca2 is marker-aware backend rollback/staffOFF; native previous62
+is UI rollback only. Actual rollback NOT_RUN; do not use pre-kernel62 backend
+after retained markers. Fresh signed183restore130tables/126FORCE/RPO43s/RTO19s,
+owned DB/temp absent. Exact DEV65 API/worker/frontend and persistence PASS on
+unchanged Free/Free/Hobby. New DEV packet execute owns worker rollout; reconcile
+is only for existing/unknown operation and does not trigger auto_deploy=no.
+
+First4 live synthetic production QA blocks PASS: actual-model date-only assignment
+preview/confirm/receipt-reload;31runtime settings save/reload/controlled Cancel and
+revert with all original values restored/revision3/audit retained; schema/roster/
+employee+unit transfers preserve training and roles; corrected XLSX reload/commit,
+accurate create/update counters/stable IDs and qualification-placement restore.
+Prior21users/13units/31full journal rows unchanged, final24/20/33 includes retained
+legitimate QA fixtures/history. Global retained markers0; live cross-tenant and
+managed-retained-loss tests not claimed beyond isolated/CI evidence.
+
+Only explicitly approved unused local failed63 image5e2cbc8d...ce3a2 removed after
+GHCR index/amd64/13blobs and all12container reference proof. Protected65/64/62,
+all containers/state/config preserved; lease released, no force/prune. Disk90→88%,
+free3912663040bytes immediately after cleanup; warning85 remains/critical90 cleared.
+Watchdog expected65 two keys only, byte-identical old backup retained, unchanged
+thresholds, oneshot success0/timers2active. No voice/iSpring/ASUS/1C/model/reserve/
+landing/DNS/rights/tier/resource changes. Full bounded scope/readiness: release65,
+PRODUCTION_READINESS and TEST_RUN_LEDGER. Docs-only closeout is not a new runtime.
+
+## Historical delivery checkpoint — foundation64,2026-10-19
 
 Production backend foundation64/c0d5e95810ab14757416447449ace4ae052c88eb deployed
 by39208080553; independently verified06:20UTC, imagec78a29bed...fcca2, API+3workers
@@ -59,7 +92,7 @@ preflightREADY was not executed. Superseding64 repair/gates pending; production
 remains62/schema0181. No voice/iSpring/ASUS/1C/
 model-route activation change is in this package.
 
-## Current runtime62 snapshot,2026-10-19
+## Historical runtime62 snapshot,2026-10-19
 
 Production API/three BLUE workers/native frontend62 exact
 1df269394ae6d0a2c7e6924e770c974ce0994651, tagv0.11.62; backend image

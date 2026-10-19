@@ -6938,6 +6938,21 @@ Do not treat missing final reconciliation as failed deployment or blindly redepl
   Sigstore init and mistyped digests are not registry recovery evidence. New
   executed script enforces index/body/child/blob bindings before scoped deletion.
 
+- 2026-10-19 successor65: actual `df -P /`90% was critical although absolute
+  free3.46GB passed rollout headroom. A used/total calculation omitting reserved
+  blocks reported85 and was not canonical threshold evidence. Preserve the first
+  failed guarded watchdog closeout; its old64 config was restored automatically.
+  Exact owner-approved failed63 local digest5e2cbc8d...ce3a2 only removed after
+  GHCR index/body/amd64/13blobs and ALL12containers/no refs, protected65/64/62,
+  exclusive lease and state-byte guards. Actual Docker image `.Id` was explicitly
+  observed, not inferred from manifest/config conventions. No force/prune.
+  Cleanup PASS: all containers/state/config unchanged, target absent/protected3
+  present/lease released; free3458838528→3912663040bytes/df90→88%. Warning remains,
+  no extra removal authority or threshold waiver. Existing byte-identical exact
+  monitor backup reused without overwrite; only expected SHA/image64→65 changed.
+  Fresh oneshot success/exit0, both timers active and independent final readback
+  PASS. Other files/DB/volumes not targeted; do not claim their byte comparison.
+
 ## TEST-INFRA-008 - Catalog classifier silently missed PostgreSQL internal-char values
 
 - Date: 2026-10-01; catalog-only canonical Supabase DEV check, no business rows.

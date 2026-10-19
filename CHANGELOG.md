@@ -173,6 +173,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   foundation: no-migration0183 and staff workspaceON after exact CI/DEV/artifact
   gates. Marker-aware64 is the backend rollback; old62 remains native UI rollback
   only after markers exist. No application/migration logic or model-route change.
+- Production backend/native65 and ordinary synthetic live acceptance completed:
+  date-only real-model assignment,31 audited runtime settings with controlled
+  Cancel/revert, staff schema/guarded transfers and persistent import corrections/
+  accurate counters/qualification placement. Existing QA history preserved.
+  Narrow approved failed63 local image cleanup clears critical disk90→88%;
+  warning remains, watchdog success/timers active and thresholds unchanged.
 
 ## [0.11.64] - 2026-10-19
 

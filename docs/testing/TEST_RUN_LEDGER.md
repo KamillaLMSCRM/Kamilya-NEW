@@ -5224,3 +5224,86 @@ Rules:
   remain pending; local/isolated PASS is not production GO. No voice/iSpring/
   ASUS/1C/model-route/reserve activation, real customer data, history purge,
   DNS/landing/rights/tiers/resources change in this package.
+
+### 2026-10-19 — foundation64 and four-block65 production acceptance closed
+
+- Supersedes pending64/65 checkpoints, never erases failed63 receipts. Exact64
+  c0d5e95810ab14757416447449ace4ae052c88eb/CI39207160344/protected39208080553
+  passed: locked-owner migration181→183, legacy FORCE/policy/ACL/roles unchanged,
+  staffOFF, actual API+3workers/restarts0, marker-aware rollback kernel. Native64
+  build-only, never installed. Independent foundation64 readback06:20UTC PASS.
+- 65 version/docs-only child00e41ca7001564574fb89d2de97f9636d7e5020f/tagv0.11.65,
+  fresh focused12/version/release-contract PASS, CI39209823772 SUCCESS.
+  Inherited4431API/60skip/55warnings,44focused/5owner/29staff/1339web are explicitly
+  prior runtime-code evidence, not rerun65 suites. Final exact CI includes its
+  own mandatory jobs. Independent reviewed two-phase delivery contract accepted.
+- Exact DEV65 REL-FOUR65-DEV-20261019 RELEASE_OK/API dep-dbari6cs728c739de830,
+  worker dep-dbarj961egvs73bs70e0/frontend dpl_7bP44ZK9T34Lt84AoDH9RjRYe5Ew;
+  persistence and fresh controlled Archive Cancel/no-write PASS. Existing
+  Free/Free/Hobby, flags and schema183 preserved. New packet execute owns worker
+  rollout; initial reconcile wait cannot trigger auto_deploy=no, not an access
+  blocker. Prior16users/16units/10journal and historical import receipt unchanged.
+- Fresh encrypted signed183 restore report kz_restore_drill_20261019T062800Z.json
+  SHA029b16ffe8f8f2b7dd1db8f6a981d1021855edefeec01ad6724a4d7a21d5302f,
+  130tables/126FORCE/RPO43s/RTO19s. Owned restore DB/temp absent; fresh signature/
+  cleanup verification after artifact. First pure predeploy TIME_ORDER NO_GO
+  retained; R2 GO after new observation, no backdating. Root independently bound
+  actual references; pure verdict non-actionable, root phaseB GO explicit.
+- Protected backend39210442155 SUCCESS/REL-FOUR65-ACTIVATE-20261019, image
+  479f2235f3a4c8ded2b0e60e19c76334a9ce1843e3394ed6bdf4e0352088de06.
+  Native39209870918/REL-FOUR65-WEB-20261019 RELEASE_OK, archive
+  694689f45d98abbf51becd8dc0788d16bfefa21883166222129ae031f46339d3. Actual
+  API+3workers/native/public header/body exact65/all4flagsON/restarts0 PASS.
+- Ordinary production QA83552ce6-8058-4561-abe3-cfbda14e030a actual-model dialogue:
+  initial course+department/no date, then ONLY date retains both; preview no DML,
+  explicit confirmation plan c9942952-73bb-43a4-b680-518d452b0cf4 creates1/no
+  notifications, receipt/reload/repeated readback stable. Unsaved conversation
+  persistence is not asserted. Screenshots prod-assignment-preview/reloaded.png.
+- Superadmin31runtime settings30→31/save/reload revision2; actual controlled
+  in-page Cancel makes no write; explicit target1 revert/reload restores every
+  original value at revision3, prior history retained. Invalid key/type/stale/
+  unknown snapshot/ordinary-role422/422/409/404/403 refused without state drift.
+  Model-routing response hash unchanged. prod-controlled-revert.png and
+  prod-runtime-restored.png; no native dialog or owner Cancel needed.
+- Staff employee transfer plan ad74b3e0-4f69-461b-bf1e-a623cb33ec5d adds1/
+  preserves1; unit move b4524f3f-4442-4e14-83bf-752b1aa4adfd adds0/preserves2.
+  Role/access/current placement and reload verified, manual and new managed
+  enrollment retained. Empty owned unit controlled Cancel then explicit soft
+  archive verified via access=all workspace; ordinary GET404 is archived contract,
+  not a defect. prod-transfer-preview/prod-structure-reloaded/prod-controlled-
+  archive/prod-final-structure.png. No hard delete/PIN/role/history purge.
+- Actual browser XLSX fixture SHA unchanged; corrections persisted after reload,
+  approval/commit created1employee at corrected branch/department. Completed
+  wizard reset on reload is intentional. prod-import-corrections-reloaded.png.
+  Separate bounded actual PRODUCTION sessions f6f494b1-fd7d-4cbc-92ad-d3cd59ecaf97
+  and5c28d4d2-359b-4e38-96e0-42c7b5d1aefc: create branch/department/employee1 each,
+  then branch-only update1, zero duplicate IDs, immutable first receipt and
+  unchanged placement; root independently reread both sessions. Runner's initial
+  DEV label corrected against actual URL/tenant/IDs; no DEV proof substitution.
+  Qualification restore preserves current linked department/label; audit retained.
+- Root final business06:53:58 and full preservation06:56:50 PASS: original21users/
+  13units/31FULL journal rows exactly unchanged, final24/20/33 includes legitimate
+  new QA fixtures/learning/audit. Global retained markers0. Live cross-tenant and
+  managed-retained-loss production negatives NOT_RUN; isolated/CI evidence stays
+  separately labeled. Bounded browser error/warn log0 after main journeys.
+- Final capacity `df`90% triggered critical watchdog despite absolute headroom;
+  guarded closeout restored old64 config and retained exact backup. Fresh exact
+  owner call_8a0167c793b14fe1b89a05ed50cf0dc9 approved ONLY unused local failed63
+  digest5e2cbc8d79642804b6cc9dedc2c16063a982f7fa7ffddf7d217c26e46eace3a2.
+  Current GHCR index/body/amd64/13blob recovery and all12container refs0 verified.
+  Reviewed cleanup script da2787c7...37784 executed once07:05:55UTC: target absent,
+  protected65/64/62 present, all containers/state/config unchanged/lease released,
+  no force/prune/registry deletion; free3458838528→3912663040bytes/df90→88%.
+- Watchdog R2 exact byte-identical backup reused, two expected identity keys65
+  only, thresholds unchanged; success/exit0/timers2active. Independent07:07UTC
+  final ops and runtime readbacks PASS. Warning85 remains/critical90 cleared,
+  nativefree1053824KiB. Previous64 API healthy/workers stopped, kernelc501082d...
+  matches both actual images; nativeprevious62 retained. Actual rollback NOT_RUN.
+  FORCE7/non-BYPASS/no history DELETE/legacy hash3882b298...61b3/routingc016...a736
+  and backup timer preserved. No additional cleanup authority inferred.
+- Root accepts bounded four-block GO, not universal all-buttons/customer/legal/
+  outbound/scaling acceptance. No voice/iSpring/ASUS/1C/model/reserve activation,
+  landing/DNS/rights/provider tier/resource changes. Canonical readiness/context/
+  handoff/release65 updated; owned temporary plan removed. Runtime/tag65 frozen;
+  closeout documentation only, no new deployment or retag. Unrelated output/ and
+  primary checkout residue preserved.

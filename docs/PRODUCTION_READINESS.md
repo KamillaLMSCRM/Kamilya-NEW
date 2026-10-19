@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-10-19 06:20UTC: backend foundation64 c0d5e95/API+3workers staffOFF, schema0183/FORCE7; native62 unchanged. Activation65 and first-four-block production live acceptance pending; model routing/current reserve unchanged.
+**Проверено:** 2026-10-19 07:07UTC: backend/native65 exact00e41ca7, API+3workers running/restarts0, schema0183/FORCE7. First-four-block synthetic production live acceptance PASS. Watchdog success/exit0, timers active; disk88% warning remains. Model routing/current reserve unchanged.
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,64 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current64 foundation — deployed;65 activation pending
+## Current65 — four blocks deployed and bounded live acceptance complete
+
+Frozen runtime/tag `00e41ca7001564574fb89d2de97f9636d7e5020f`, version0.11.65,
+image `479f2235f3a4c8ded2b0e60e19c76334a9ce1843e3394ed6bdf4e0352088de06`.
+CI39209823772, native build39209870918 and protected backend39210442155 SUCCESS;
+REL-FOUR65-ACTIVATE-20261019 and REL-FOUR65-WEB-20261019 completed. Native archive
+SHA256694689f45d98abbf51becd8dc0788d16bfefa21883166222129ae031f46339d3,
+public header/body exact65. Exact DEV API/worker/frontend rollout and persistence
+passed on unchanged Free/Free/Hobby.65 is a version/docs-only child of accepted64;
+all4 feature flags ON, no new migration beyond foundation0183.
+
+Ordinary production QA83552ce6-8058-4561-abe3-cfbda14e030a browser/API journeys:
+
+- Real-model assignment clarification followed by ONLY a date retains course and
+  department; read-only preview, explicit confirm, one enrollment/no notification,
+  receipt and reload PASS. Plan c9942952-73bb-43a4-b680-518d452b0cf4.
+- 31 runtime settings save/reload, controlled in-page Cancel/no-write and explicit
+  snapshot revert/reload PASS. All original31 values restored at revision3;
+  new audit retained. Unknown/type/stale/snapshot/RBAC negatives422/422/409/404/403.
+- Staff schema/roster, employee transfer adds1/preserves1, unit move adds0/
+  preserves2, role/access and reload PASS. Empty QA unit controlled Cancel then
+  explicit soft archive PASS. No native confirmation or owner intervention needed.
+- XLSX corrections persist after reload and commit to the corrected structure.
+  Separate fresh import create/update counters and stable identities/immutable
+  receipts PASS; qualification restore retains the current linked department.
+
+All original21 QA users/13units/31FULL journal rows unchanged; final24/20/33
+includes only legitimate new synthetic fixtures/learning/audit, retained without
+purge. Source/isolated CI tenant/race/history negatives are not claimed as live
+cross-tenant or managed-retained-loss production tests. Global retained markers0.
+
+Independent final readback07:07UTC: actual API+3workers65/restarts0 and public/
+private health exact; previous64/c0d5e958 API healthy/workers stopped, image
+c78a29bed522a282b0f209c3237503b3f175feafda0aaa4a7356343e6cbfcca2 retained.
+Both actual images contain marker-aware kernel c501082d...0ad5e. Never roll backend
+to pre-kernel62 after markers; native previous62 remains UI rollback. Actual
+rollback switch NOT_RUN. FORCE7/non-super/non-BYPASS/no DELETE history grants,
+legacy ACL/policies/roles3882b298...61b3 and routingc016939b...a736 unchanged.
+Fresh encrypted signed head183 restore130tables/126FORCE, RPO43s/RTO19s; owned
+restore DB/temp absent, postartifact signature/cleanup reverified.
+
+Finalization: exact owner-approved unused failed63 local image5e2cbc8d...ce3a2
+removed only after current GHCR index/amd64/13blob recovery proof and all12
+container reference checks. All12 containers/state/config and protected65/64/62
+images preserved, exclusive lease released; no force/prune/registry deletion.
+Actual free bytes3458838528→3912663040; `df`90→88%. Warning85 remains, critical90
+cleared; no threshold waiver. Watchdog two identity keys65 reconciled using its
+existing byte-identical backup, success/exit0 and both timers active. Initial
+critical-disk failed closeout receipt retained, not relabeled. No extra cleanup.
+
+Bounded GO for these four blocks, not universal all-buttons/customer/legal/
+outbound/scaling acceptance. No voice/iSpring/ASUS/1C/model-route/reserve/landing/
+DNS/rights/tiers/resources changes. Docs-only closeout does not retag/redeploy65.
+Durable details: release65 and append-only TEST_RUN_LEDGER; local evidence
+four-blocks65/{business-final,runtime-after}.json and four-blocks63/
+{prod-preservation-final,cleanup-failed63,final-ops65,activation65-final-readback}.json.
+
+## Historical64 foundation — deployed before65 activation
 
 Exact backend c0d5e95810ab14757416447449ace4ae052c88eb/image
 c78a29bed522a282b0f209c3237503b3f175feafda0aaa4a7356343e6cbfcca2; protected
