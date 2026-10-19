@@ -9027,6 +9027,11 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   Independent review caught/closed incomplete-nonempty acceptance and an invalid
   pending_review value before deployment. Tests cover both jobs, failures,
   attempts, checkbox opt-out and a final rule beyond3000chars; no quota padding.
+  CI follow-up: test_router_uses_renderer still required four legacy template
+  calls after quiz generation moved out of router. Replace the implementation-
+  count assertion with explicit remaining chat/planning templates, exclusion of
+  legacy quiz prompts and actual AST delegation from both jobs. Focused40PASS;
+  keep the failed CI record, never waive or relabel the exact-SHA gate.
 - Verification: deterministic baseline RED and original DOCX limit-loss RED;
   corrected admission preserves independently read original limit/procedure
   phrases. Source-roundtrip inline/OCR-list RED/GREEN and independent review

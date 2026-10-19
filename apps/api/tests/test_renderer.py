@@ -7,6 +7,7 @@ These tests cover the spike's three goals:
 """
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 from app.ml_prompts import PromptRenderer, get_renderer
@@ -217,18 +218,24 @@ def test_router_quiz_regen_module_template():
 
 
 def test_router_uses_renderer():
-    """router.py keeps templates for chat, planning, and quiz generation.
-
-    Integration check: a regression in any of the 5 prompt calls (or missing
-    import) would break router.py imports — exactly what we want to catch.
-    """
+    """Chat/planning keep templates; quiz regeneration delegates to reviewed axes."""
     import app.modules.ai.router as router_module  # noqa: F401
 
     src = Path(router_module.__file__).read_text(encoding="utf-8")
     assert "from app.ml_prompts import get_renderer" in src
-    # Lesson rewriting moved to the grounded Writer pipeline; four router
-    # templates remain for chat, module planning, and quiz generation.
-    assert src.count('get_renderer().render("router/') >= 4
+    tree = ast.parse(src)
+    templates = {
+        node.args[0].value for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "render" and node.args
+        and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)
+    }
+    assert {"router/system_methodology_review.md", "router/system_architect_module_regen.md"} <= templates
+    assert not {"router/system_quiz_regen.md", "router/system_quiz_regen_module.md"} & templates
+    for name in ("_regenerate_module_job", "_regenerate_lesson_job"):
+        job = next(node for node in tree.body if isinstance(node, ast.AsyncFunctionDef) and node.name == name)
+        assert any(isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                   and node.func.id == "prepare_lesson_assessment" for node in ast.walk(job)), name
 
 
 # ── cross-cutting ─────────────────────────────────────────────────────────

@@ -5568,3 +5568,12 @@ Rules:
   aiGenerationReusePage1PASS, no other locale copy changed. CodeGraph sync5.240s
   including startup/exclusionPASS, no graph-derived runtime or savings claim.
   Fresh exact follow-up CI/DEV/regeneration and production acceptance remain open.
+- Exact2c1228c9 CI39247240116 failed only test_renderer::test_router_uses_renderer
+  after1276PASS/2SKIP in coverage job; other6jobsSUCCESS. It counted at least4
+  old router template calls after2quiz calls intentionally moved to the shared
+  reviewed engine. Controller stopped github_ci_not_successful before deployment;
+  API/worker remain aa911606. No provider/auth/old-VPS blocker was inferred.
+  Test now asserts explicit retained chat/planning templates, no legacy quiz
+  prompt and AST delegation from both jobs. Focused renderer/helper/dispatch
+  40PASS/2.03s plus canonical Python qualityPASS. Runtime code unchanged by this
+  test-contract correction; a fresh exact-SHA CI is still required.

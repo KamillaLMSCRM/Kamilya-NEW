@@ -87,6 +87,11 @@ Independent review P1s on incomplete nonempty acceptance/invalid status correcte
 15regressions include >3000tail and both jobs. Full APIunit+dispatch3403PASS/
 40.36s, qualityPASS, locale-focused1PASS. Exact follow-up CI/DEV and live
 regeneration remain required. No production tag/release or other-scope mutation.
+R7 exact2c1228c9 CI39247240116 failed stale renderer-template call-count assertion;
+controller stopped before deploy, currentDEV stillaa911606. Root replaces only
+that brittle count with explicit retained templates, absence of legacy quiz
+prompts and AST delegation from both jobs. Focused40PASS/2.03s,qualityPASS.
+Do not relabel the failed run or infer a provider/access blocker.
 
 ## Current checkpoint — four blocks65 released and live accepted
 

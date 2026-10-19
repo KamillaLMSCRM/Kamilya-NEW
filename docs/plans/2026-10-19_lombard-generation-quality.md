@@ -249,3 +249,7 @@ Final15helper/job cases include final rule beyond3000chars, both job types,
 critical missing/omitted/uncovered/unsupported/missing audit states, attempts and
 checkbox opt-out. Full APIunit+dispatch3403PASS/40.36s,5pre-existing warnings.
 DEV follow-up/runtime regeneration acceptance remains a gate, production65 intact.
+R7/2c1228c9 CI39247240116 stopped on the old renderer call-count contract (2vs4),
+not an application/provider outage. Controller did not deploy. Correct test to
+name retained templates and verify both adaptive delegates; renderer/helper/
+dispatch40PASS/2.03s,qualityPASS. Preserve failed evidence, require fresh exact CI.
