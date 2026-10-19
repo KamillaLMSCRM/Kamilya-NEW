@@ -10,8 +10,8 @@ for the exact selected forms62 payload. Other DEV work remains excluded.
 Base: production master3f0dd3f823f786df2699695e8e92bd4163ea2400.
 Selected predecessor commits: be5dea09, fd31e8c4, f045b98d, 19a8e34,
 72ba4356, 522fb0bb, d334e331. No whole-DEV merge. Runtime features match
-accepted DEVd334e331, apart from the independently reviewed one-line zero-day
-availability projection fix. Targeted instructions, help, version and tests follow.
+accepted DEVd334e331, apart from the independently reviewed zero-day availability
+projection and duplicate PDF-title fixes. Targeted instructions, help, version and tests follow.
 CodeGraph preparation reports missing local runtime: bounded SOURCE_FALLBACK,
 using exact source diff and executable tests, not a release blocker or graph proof.
 

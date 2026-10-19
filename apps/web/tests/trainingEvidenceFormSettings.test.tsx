@@ -113,6 +113,8 @@ describe('training evidence form field builder', () => {
     await screen.findByLabelText('Заголовок результата теста');
     fireEvent.click(screen.getByRole('button', { name: 'Отдельный тест' }));
 
+    expect(screen.getByText(/Название теста и ID попытки отображаются всегда/)).toBeInTheDocument();
+
     await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(
       '/v1/training-evidence/form-settings/preview?activity=quiz',
       expect.anything(),

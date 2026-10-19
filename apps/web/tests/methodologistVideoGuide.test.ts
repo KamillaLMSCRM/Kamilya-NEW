@@ -82,6 +82,10 @@ describe('published male Qwen methodologist video guide', () => {
     const closingHtml = html.toLowerCase().lastIndexOf('</html>');
     expect(closingHtml).toBeGreaterThan(-1);
     expect(html.slice(closingHtml + '</html>'.length).trim()).toBe('');
+    const resultsStart = html.indexOf('<section id="08-results">');
+    const resultsEnd = html.indexOf('</section><footer>', resultsStart);
+    const results = html.slice(resultsStart, resultsEnd);
+    expect((results.match(/Настройку бланка выполняет администратор/g) ?? [])).toHaveLength(1);
     expect(html.slice(0, closingHtml).lastIndexOf('Настройку бланка выполняет администратор')).toBeGreaterThan(-1);
   });
 

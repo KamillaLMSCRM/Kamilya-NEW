@@ -159,6 +159,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Align enrolled-test availability with the existing zero-day deadline guard;
   a completed lesson with zero deferral expires immediately in both views.
+- Print separate-test identity once with default-selected fields; preserve
+  mandatory exact test/attempt identification when optional title is deselected.
 
 - Replay an existing result without rebuilding it from current template settings;
   check assignment scope before classifying form availability; avoid a false local

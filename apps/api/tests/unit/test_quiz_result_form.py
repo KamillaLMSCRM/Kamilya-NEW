@@ -18,6 +18,7 @@ from app.modules.evidence_export import (
     TenantEvidence,
     render_completion_form_pdf,
 )
+from app.modules.evidence_export.form_fields import DEFAULT_FORM_FIELDS
 from app.modules.training_evidence import export_router, export_service, workflow
 from app.modules.training_evidence.form_settings import (
     TrainingEvidenceFormSettings,
@@ -47,21 +48,41 @@ def test_quiz_text_is_separate_from_course_and_preview_is_honest():
 
 
 @pytest.mark.parametrize("passed", [False, True])
-def test_quiz_document_identifies_attempt_even_with_minimal_fields(passed):
+def test_quiz_document_identifies_attempt_even_when_test_title_is_deselected(passed):
+    settings = _settings()
+    assert "test_title" not in settings.selected_fields
     data = IndividualEvidenceInput(
         tenant=TenantEvidence(name="QA"),
         employee=EmployeeEvidence(full_name="QA Learner"),
         course=CourseEvidence(title="QA Course"),
         procedure=ProcedureEvidence(type="knowledge_check", title="Exact test"),
         attempts=[AttemptEvidence(id="exact-attempt", passed=passed, score_percent=100 if passed else 0)],
-        print_form=_settings().to_print_form(for_quiz=True),
+        print_form=settings.to_print_form(for_quiz=True),
     )
     text = _text(render_completion_form_pdf(data))
-    assert "Exact test" in text and "exact-attempt" in text
+    assert text.count("Тест: Exact test") == 1
+    assert text.count("Идентификатор попытки: exact-attempt") == 1
     assert ("Итог: Пройдено" if passed else "Итог: Не пройдено") in text
     assert "(попытка 1)" not in text
     with pytest.raises(ValueError):
         render_completion_form_pdf(data.model_copy(update={"attempts": data.attempts * 2}))
+
+
+def test_default_quiz_document_renders_test_identity_once():
+    settings = TrainingEvidenceFormSettings(selected_fields=list(DEFAULT_FORM_FIELDS))
+    data = IndividualEvidenceInput(
+        tenant=TenantEvidence(name="QA"),
+        employee=EmployeeEvidence(full_name="QA Learner"),
+        course=CourseEvidence(title="QA Course"),
+        procedure=ProcedureEvidence(type="knowledge_check", title="Exact test"),
+        attempts=[AttemptEvidence(id="exact-attempt", quiz_title="Exact test", passed=True, score_percent=100)],
+        print_form=settings.to_print_form(for_quiz=True),
+    )
+
+    text = _text(render_completion_form_pdf(data))
+
+    assert text.count("Тест: Exact test") == 1
+    assert text.count("Идентификатор попытки: exact-attempt") == 1
 
 
 @pytest.mark.asyncio

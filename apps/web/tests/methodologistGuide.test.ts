@@ -91,5 +91,12 @@ describe('standalone methodologist instruction', () => {
     expect(closingHtml).toBeGreaterThan(-1);
     expect(html.slice(closingHtml + '</html>'.length).trim()).toBe('');
     expect(html.slice(0, closingHtml).lastIndexOf('Бланк результата отдельного теста')).toBeGreaterThan(-1);
+    const dom = new JSDOM(html);
+    const guidance = dom.window.document.querySelector('#quiz-result-form-guidance')?.parentElement;
+    expect(guidance?.tagName).toBe('SECTION');
+    expect(guidance?.parentElement?.id).toBe('results');
+    expect(guidance?.parentElement?.classList.contains('flow')).toBe(true);
+    expect(dom.window.document.querySelectorAll('#quiz-result-form-guidance')).toHaveLength(1);
+    dom.window.close();
   });
 });

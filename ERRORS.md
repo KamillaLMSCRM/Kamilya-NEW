@@ -8777,3 +8777,18 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   separate release gates.
 - Prevention: compare displayed availability with the submit guard for zero,
   in-window and expired windows; do not silently reinterpret a persisted setting.
+
+## EVIDENCE-009 - Default separate-test form printed the test identity twice
+
+- Date: 2026-10-19, independent forms62 release review.
+- Symptom: the default field selection printed the same test title twice.
+- Cause: separate-test identity was unconditional while optional test_title
+  repeated it through the selected-field loop.
+- Fix: keep the unconditional exact test/attempt identification and skip only
+  the redundant optional title rendering for a separate-test form. Course
+  multi-attempt field rendering remains unchanged.
+- Verification: default-selected PDF rendered two labels before the fix;
+  regression requires exactly one title and attempt ID, including deselected
+  title and failed/passed results. Frozen CI and live PDF inspection remain gates.
+- Prevention: check field occurrence counts as well as presence for both default
+  and minimum selections, then visually inspect actual downloaded PDFs.

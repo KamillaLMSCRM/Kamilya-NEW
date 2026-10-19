@@ -344,6 +344,10 @@ def _render_selected_completion_form(pdf: FPDF, input_data: IndividualEvidenceIn
             label, value = fields[key]
             _field(pdf, label, value if value is not None and value != "" else "Нет данных")
         elif key.startswith("test_"):
+            # A separate-test form already identifies its exact quiz above;
+            # selecting test_title must not render that identity a second time.
+            if is_quiz and key == "test_title":
+                continue
             if not input_data.attempts:
                 if key == "test_results":
                     _field(

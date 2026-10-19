@@ -309,7 +309,7 @@ export default function TrainingEvidenceFormSettingsPage() {
               <Button type="button" variant={previewActivity === 'course' ? 'default' : 'outline'} onClick={() => setPreviewActivity('course')} disabled={editingDisabled}>Завершение курса</Button>
               <Button type="button" variant={previewActivity === 'quiz' ? 'default' : 'outline'} onClick={() => setPreviewActivity('quiz')} disabled={editingDisabled}>Отдельный тест</Button>
             </div>
-            {previewActivity === 'quiz' && <p className="mb-3 text-sm text-muted-foreground">Предпросмотр использует тексты отдельного теста. Выбранные поля применятся к новым результатам тестов; значение null сохраняет исторический формат.</p>}
+            {previewActivity === 'quiz' && <p className="mb-3 text-sm text-muted-foreground">Предпросмотр использует тексты отдельного теста. Выбранные поля применятся к новым результатам тестов. Название теста и ID попытки отображаются всегда, чтобы однозначно определить результат. Для включения нового бланка нажмите «Настроить поля» и сохраните шаблон; старые попытки не переоформляются.</p>}
             {dataReady && previewFingerprint !== draftFingerprint && <p role="status" className="mb-3 text-sm text-muted-foreground">Образец обновляется. Скачивание станет доступно после обновления.</p>}
             {previewLoading && !previewBlob ? <div className="flex min-h-[620px] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div> : previewBlob ? (
               <PdfPreview blob={previewBlob} title="Предпросмотр бланка подтверждения"
