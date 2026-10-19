@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-10-18: API/three workers61 at0fe7985b, native60 retained; bounded staff/structure/Excel DEV and production API+browser acceptance PASS. Prior cabinet/course/dialogue60 acceptance retained. Schema0181 and current owner-enabled reserve unchanged.
+**Проверено:** 2026-10-19: API/three workers/native frontend62 at1df26939; isolated test-result forms and updated instructions, production synthetic API/browser/PDF acceptance PASS. Other DEV changes excluded. Schema0181 and current owner-enabled reserve unchanged.
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,50 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current61 — deployed; bounded structure/Excel acceptance complete
+## Current62 — deployed; separate-test forms live acceptance complete
+
+Exact source/tag/published release1df269394ae6d0a2c7e6924e770c974ce0994651,
+v0.11.62. CI39187154582/native39187174163/protected backend39187598456 SUCCESS.
+Backend REL-FORMS62-R3-20261019; native REL-FORMS62-WEB-R4-20261019 RELEASE_OK.
+API+three BLUE workers use immutable image7fbbd472b5c01ac71e9135d25d9849b497beb697964fcd15d305870cadb7077c,
+running/restarts0. Independent final runtime/public readback PASS at02:27UTC.
+GREEN61 API healthy/workers stopped; native previous60/4bcc64c0 retained, packet
+additional rollback59/b0c612bf and protected359/299 retained. Actual rollback
+switch NOT_RUN. Schema0181, runtime non-super/non-BYPASS/FORCE-RLS, controller,
+routingc016939b... and owner-enabled reserveON unchanged. Watchdog two identity
+keys only, backup retained/thresholds unchanged/checksuccess/both timers active.
+Existing signed restore181 report freshly reverified; no new restore DB/drill.
+Final VM126 free4773834752bytes; native1054296KiB after installation.
+
+Frozen local3220API/1289web PASS; exact CI includes integration/RLS/security and
+dependency checks. Separate ordinary production QA roles in83552ce6... verified
+20-field constructor/three required locks, save/reload and real preview PDF.
+Synthetic coursece9c04ab.../quiz8c039eba...: browser failed0%, passed100%, then
+minimum-template passed100%; immediate/history downloads, reload and fresh-tab
+restoration PASS. Fourth attempt disabled at3/3. All three PDF hashes remain
+identical after template changes and full normalized settings restoration.
+Course remains unfinished: an individual-test result does not assert completion
+of the whole course. Prior30full journal rows and2legacy attempts unchanged;
+legitimate new course/enrollment/three attempts retained as QA history.
+
+Live negatives403/unknown404/legacy-no-snapshot409/student-admin403 PASS. Foreign-
+tenant and assignment-token negatives are CI evidence, not claimed as production
+foreign-tenant execution. Public HTML/text guides and contextual help updated;
+actual HTML download/visual layout PASS,24embedded screenshots/eight Qwen videos
+preserved, not freshly recorded. HR fields are current-at-export, not historical
+personnel snapshots; forms are internal records, not electronic signatures.
+
+Only obsolete native56/8a612c19 and exact staging pair removed under standing
+digest-bound capacity rule after verified offhost recovery. Independent inventory,
+protected-release/public readbacks and capacity reconciliation PASS. Local capture
+failed after successful helper exit because its stream contained a staging banner;
+mutation NOT retried, original full helper stdout unavailable and not claimed.
+No broad prune. Other DEV staff-v3/iSpring/AI/model/voice/ASUS work, landing, DNS,
+rights, paid resources and provider plans were not included. Bounded release GO;
+not universal all-buttons/legal/outbound/customer/scaling acceptance. Detailed
+proof: release62, TEST_RUN_LEDGER and forms62/native-R4 receipts.
+
+## Historical61 — deployed; bounded structure/Excel acceptance complete
 
 Exact source/tag/published release0fe7985bccb8f2464898f4e1fb7904a734f92a3d,
 v0.11.61. Final docs-only child of tested3b77aead; application tree7a020fdb6dc8fb6b4bed5604c83865499916b2ce

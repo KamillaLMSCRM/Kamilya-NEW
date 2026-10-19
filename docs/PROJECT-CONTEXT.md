@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-10-18.
+> Обновлено: 2026-10-19.
 
 ## Источники правды
 
@@ -25,7 +25,32 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current runtime61 snapshot,2026-10-18
+## Current runtime62 snapshot,2026-10-19
+
+Production API/three BLUE workers/native frontend62 exact
+1df269394ae6d0a2c7e6924e770c974ce0994651, tagv0.11.62; backend image
+7fbbd472b5c01ac71e9135d25d9849b497beb697964fcd15d305870cadb7077c.
+CI39187154582/native39187174163/protected39187598456 SUCCESS; nativeR4
+REL-FORMS62-WEB-R4-20261019 RELEASE_OK. Final02:27UTC independent exact public/
+private/container readback PASS/restarts0. GREEN61 API healthy/workers stopped;
+native previous60/4bcc and additional59/protected359+299 retained. Actual rollback
+switch NOT_RUN. Schema0181, FORCE-RLS/non-BYPASS role/controller/routingc016...
+and current owner-enabled reserveON unchanged. Watchdog identity62 only, backup/
+thresholds/checksuccess/timers preserved; existing signed restore181 reverified.
+VM126 free4773834752bytes, native1054296KiB after install. Only obsolete native56
+and exact staging pair cleaned under standing rule with verified offhost recovery;
+no broad prune. Local capture-parser error reconciled independently, not retried.
+
+Forms62 selectively integrated from accepted DEVd334e331, with narrow reviewed
+projection/PDF-title/guide fixes. DEV contour untouched in this release. Ordinary
+production QA admin/methodologist/student full forms scenario PASS; three actual
+browser attempts and immediate/history/reload/template-change/restoration PDFs,
+all prior30full journal rows/two legacy attempts preserved. Settings restored,
+new legitimate QA history retained. Public instructions/help updated, existing
+media preserved. Other DEV/iSpring/staff-v3/AI/model changes, voice/ASUS, landing,
+DNS/rights/resources/tiers excluded. See readiness/release62/ledger for exact scope.
+
+## Historical runtime61 snapshot,2026-10-18
 
 Production API/three GREEN workers61 exact0fe7985bccb8f2464898f4e1fb7904a734f92a3d,
 immutable imagec6120580b23678ed4df2ca70c7d4cbc804a3a0dabf9a537deccfa2a48739ffd5;

@@ -5081,3 +5081,63 @@ Rules:
   outbound sends/realcustomer/scaling NOT_RUN; no universal all-buttons claim.
   Production frontend60 technical English preview labels remain nonblocking UI
   follow-up; DEV polished/experimental/iSpring features not promoted wholesale.
+
+### 2026-10-19 — FORMS62 isolated production release and live acceptance PASS
+
+- Frozen1df269394ae6d0a2c7e6924e770c974ce0994651/v0.11.62 selectively integrates
+  forms from DEVd334e331 plus reviewed zero-day projection/PDF-title/guide fixes.
+  Other DEV work excluded; DEV untouched. Final API3220/web1289 PASS, no failures/
+  skips; baseline Ruff1005/Mypy2169/type/lint/version/release contracts PASS.
+  R1 CI failed and R2 cancelled/superseded, not release proof. Accepted exact
+  CI39187154582/native39187174163/protected39187598456 SUCCESS. API immutable
+  image7fbbd472...b7077c, BLUE API+three workers running/restarts0. Native
+  REL-FORMS62-WEB-R4-20261019 RELEASE_OK; separate root browser acceptance PASS.
+- Final02:27UTC independent public/private/container/watchdog readbacks PASS;
+  GREEN61 API healthy/workers stopped, native previous60/4bcc and additional59/
+  b0c/protected359+299 retained. Actual rollback switch NOT_RUN. No migration:
+ 0181/non-super/non-BYPASS/FORCE-RLS/controller/routingc016/reserveON unchanged.
+  Watchdog two identity keys/backup/thresholds/checksuccess/timers verified;
+  existing signed restore181 report reverified, not a fresh restore drill.
+- Ordinary permanent production QA83552ce6... admin browser20fields/mandatory3
+  locked/save/reload/real preview PDF PASS. Manual two-lesson QA-RESULT-FORM62-
+  20261019 coursece9c04ab..., quiz8c039eba..., enrollment037802ca... prepared,
+  reviewed, published and assigned through ordinary methodologist APIs. No new
+  accounts, emails or paid model calls. Student actual browser failed0% attempt
+  d892dbe3..., passed100% dc04cd69..., new minimum-template passed100%9aeb008c....
+  Immediate/history real PDFs downloaded; reload/fresh-tab3/3history and fourth-
+  attempt disabled PASS. Course remains unfinished; test form is not course
+  completion. All three one-page PDFs visually inspected: exact identity/outcome,
+  no duplicate title. API/browser/immediate/history bytes match; old templates
+  stay immutable after new attempt, template change and full settings restore.
+- Original normalized settings restored inclselected_fields:null; old course
+  settings unchanged. Prior30FULL journal rows and2legacy attempts unchanged;
+  total31rows, own course/enrollment/results retained as legitimate QA history,
+  not reported deleted. Live role403/unknown404/legacy409/student-admin403 PASS.
+  Foreign-tenant/scoped-token negatives belong to exact CI, not live production.
+  Fresh desktop browser logs0errors/warnings; captured student-fresh-history.png.
+- Public HTML/text guides/help updated and visually verified; actual HTML download
+  contains guidance and24embedded screenshots; eight existing Qwen videos kept.
+  Existing footage is not a fresh screen recording. Local file protocol preview
+  was blocked by browser policy, no workaround; authorized public HTTPS checked.
+- Only obsolete native56/8a612c19 and exact staging pair removed under standing
+  rule after original offhost SHA256/accepted-receipt proof. Current60/rollback59/
+  protected359+299 remained intact; free1076284->1724396KiB, enough for frozen
+  bundle1320651763bytes. Postinstall1054296KiB, VM126final4773834752bytes.
+  Canonical wrapper exited0; local mixed banner/JSON parser failed before saving
+  exact stdout. Mutation NOT retried; independent inventory/status/public/recovery
+  readbacks reconciled every boundary. Original full helper stdout unavailable;
+  derived envelope hash labelled derived. ERRORS EVIDENCE-010 records prevention.
+- Independent leaf review found projection/PDF/guide defects, fixed before R3.
+  Test & Evidence Runner read-only artifact review PASS; it did not independently
+  perform root's browser actions. Its api-final.xml count3219 is predecessor data;
+  root's exact api-r3.xml3220/web-r3.json1289 and CI are accepted frozen results.
+  Agent models: bounded guide writer/reviewer gpt-5.6-luna/medium, scope reviewer
+  gpt-5.6-sol/high; requested/observed model recorded by agent configuration,
+  token counters/cost unavailable, not zero. Graph navigation SOURCE_FALLBACK
+  (checkout runtime missing); no graph efficiency or token-saving claim.
+- Bounded GO: no remaining forms release/acceptance step. Universal all-buttons,
+  legal OTP/signatures, actual outbound delivery, real-customer/load acceptance
+  NOT_RUN. Other staff-v3/iSpring/AI/model/voice/ASUS changes, landing/DNS/rights/
+  tiers/resources excluded. Proof forms62/ and native-R4 receipts; canonical
+  release62/readiness/context/handoff own durable results. Temporary production
+  execution plan removed after transfer; history remains recoverable in Git.

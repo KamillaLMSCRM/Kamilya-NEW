@@ -1,11 +1,44 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-10-18
+**Обновлено:** 2026-10-19
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\cabinet-release-20261018`
-**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `codex/cabinet-release-20261018`; released source/tag/master0fe7985bccb8f2464898f4e1fb7904a734f92a3d; DEV preserving integrationb70dd4eb3...
+**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `codex/quiz-result-forms-release-20261019`; released source/tag1df269394ae6d0a2c7e6924e770c974ce0994651; final closeout is documentation-only; accepted DEVd334e331 remains unchanged.
 
-## Current61 — production released; bounded staff/Excel acceptance complete
+## Current62 — isolated forms released and live acceptance closed
+
+Do not redeploy62 or merge the whole mixed DEV branch. Exact source/tag1df26939...
+v0.11.62, CI39187154582/native39187174163/protected39187598456 SUCCESS; native
+REL-FORMS62-WEB-R4-20261019 RELEASE_OK and separate browser acceptance PASS.
+API+three BLUE workers image7fbbd472...b7077c running/restarts0; final independent
+runtime/public/watchdog readback at02:27UTC PASS. GREEN61 API healthy/workers
+stopped; native previous60/4bcc and additional59/b0c/protected359+299 retained.
+Rollback readiness verified, actual switch NOT_RUN. Schema0181, controller,
+runtime role/RLS/routingc016/current owner-enabled reserveON unchanged. Watchdog
+only two identity keys updated, thresholds/backup/timers/checksuccess preserved.
+Existing signed restore181 reverified, no new restore DB. No billing/resource,
+voice/ASUS/rights/DNS/landing change. Final VM126 free4773834752bytes.
+
+Ordinary synthetic QA83552ce6... admin20fields/required3/save/reload/preview;
+methodologist manual coursece9c04ab... and student browser three attempts
+fail/pass/pass PASS. Immediate/history PDFs, reload/fresh-tab persistence,
+templateA->B->original restoration and all three immutable PDF hashes PASS.
+History3/3/fourthattempt disabled; course unfinished. Prior30full journal rows and
+two legacy attempts unchanged. New course/enrollment/results retained, no purge,
+new accounts, emails or paid AI calls. Old settings restored including null
+legacy field selection. Relevant live403/404/409 verified; cross-tenant/scoped-
+token checks belong to CI, not falsely described as live foreign-tenant tests.
+
+Public guides/help updated and actual HTML download inspected; preserved24screens/
+eight Qwen videos are not newly recorded. Only obsolete native56/exact staging
+pair cleaned with offhost recovery under standing rule; independent reconciliation
+PASS after local banner/JSON capture error, no repeated mutation. Preserve original
+failed/superseded R1/R2 and capacity-blocked R3 receipts; accepted release is R3
+source plus R4 native packet. Detailed canonical owner: release62/readiness/ledger.
+No required work remains for this bounded request. Other DEV/iSpring/staff-v3/AI
+work remains separate and needs its own owner scope and release evidence.
+
+## Historical61 — production released; bounded staff/Excel acceptance complete
 
 Do not redeploy61 or return to native archive/legacy VPS/Proxmox. Exact source/tag
 0fe7985bccb8f2464898f4e1fb7904a734f92a3d v0.11.61; CI39147399472/protected39147841351

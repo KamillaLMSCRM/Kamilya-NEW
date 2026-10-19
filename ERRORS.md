@@ -8792,3 +8792,22 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   title and failed/passed results. Frozen CI and live PDF inspection remain gates.
 - Prevention: check field occurrence counts as well as presence for both default
   and minimum selections, then visually inspect actual downloaded PDFs.
+
+## EVIDENCE-010 - Successful maintenance stream was lost by a JSON-only local capture
+
+- Date: 2026-10-19, bounded native56 capacity cleanup for forms62.
+- Symptom: canonical wrapper exited0, then the local capture failed at json.loads
+  before preserving the exact stdout receipt. The operation had already finished.
+- Cause: the documented staging wrapper emits a STAGE_OK banner before its final
+  JSON; the local harness incorrectly assumed the entire stream was one JSON value.
+- Fix: do not replay the mutation. Independently reconcile exact host inventory,
+  current/rollback/protected releases, public identity, recovered artifact hashes
+  and capacity. Record the missing original stdout explicitly; mark a locally
+  reconstructed envelope digest as derived, never as runtime-read evidence.
+- Verification: obsolete8a612c19 and only its exact staging pair absent; protected
+  current60/rollback59/359+299 unchanged, offhost recovery intact, capacity restored.
+  Subsequent reviewed capture helper writes raw stdout before parsing; backend62
+  and watchdog readbacks captured successfully. No mutation retry or new access.
+- Prevention: persist sanitized raw stdout before parsing a maintenance result,
+  handle the documented mixed framing, and reconcile uncertain outcomes read-only
+  before deciding whether any operation remains necessary.
