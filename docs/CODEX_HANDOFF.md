@@ -6,7 +6,27 @@
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, active branch `codex/four-blocks-production-20261019`;
 production source/tag1df269394ae6d0a2c7e6924e770c974ce0994651 remains unchanged.
 
-## Active DEV — first four improvements, production still pending
+## Current release checkpoint —63 stopped safely,64 repair in progress
+
+Exact63 source1df25458192d26841261cf87c2687401048389d8 passed CI39203109976
+and final DEV REL-FOUR63-DEV-FINAL-20261019 (Free/Free/Hobby). Protected production
+run39204193182 failed before migration commit or service switch; production62
+remains healthy/schema0181. Native63 preflightREADY was NOT executed.
+Installed protected controller40142331...02632a is independently verified;
+no further controller/permission/Proxmox change is required for the same protocol.
+Migration role owns users/positions/departments, is non-super/non-BYPASS, and
+FORCE RLS hides positions/departments while exposing202 users. The old anti-join
+reported38 false missing links; privileged actual-reference checks found0.
+Root is preparing superseding64: exclusively locked transactional owner validation
+following0112, FORCE restored before feature DDL, same permanent schema0183 and
+named refusal, no external unforced window or policy/privilege changes. Initial
+FK validation alternative failed the actual owner gate; retain its RED receipt.
+New populated-owner valid+four-corrupt-reference gate, exact CI/DEV and protected
+production release/readback remain required. Preserve all63 failed receipts/tag.
+Only obsolete native59 and exact staging pair were removed after verified offhost
+recovery; current62/actualrollback60/protected359+299 retained, capacity restored.
+
+## Accepted DEV feature journeys — first four improvements
 
 Owner request2026-10-19: assignment date-only context/budgets,31audited hot
 settings, optional staff schema/roster/reviewed transfers, import corrections and
@@ -47,8 +67,8 @@ manifests. Voice/iSpring/ASUS/model
 activation remains excluded. Independent API readback in dev-browser-readback.json
 preserves prior16users/16units/10journal rows, the old import receipt and the
 manual enrollment. Production remains62/schema0181 and was not changed; remote
-master remains unchanged. New63 source delivery protocols were reviewed by both
-agents, but exact63 CI/DEV/prod release evidence is still pending.
+master is1df25458. New63 source delivery protocols and exact CI/DEV are accepted;
+production63 failed at the migration checkpoint above. Do not execute native63.
 
 ## Current62 — isolated forms released and live acceptance closed
 

@@ -5,12 +5,22 @@ repair browser acceptance, then release these four improvements to production.
 Extends the previously DEV-only delivery boundary; all business/tenant/HR/history
 contracts remain unchanged. No voice/iSpring/ASUS/1C/model-route activation.
 
-Production version0.11.63 applies additive0182 runtime settings and0183 staff
+Production version0.11.64 supersedes failed immutable63 and applies0182 runtime settings and0183 staff
 plans/retention markers from the independently verified0181 production baseline.
 Require fresh signed backup/restore verification, exact schema/FORCE-RLS/runtime
 role readback, source/CI/immutable artifact parity and synthetic live acceptance.
 Never downgrade public0182 audit tables; binary rollback retains additive schema.
 Keep the marker-aware enrollment preservation kernel while markers exist.
+
+The fresh0183 precondition must be valid for the actual FORCE-RLS non-BYPASS
+table owner, including populated legacy data with hidden parent tables. Version64
+uses the existing0112 owner-maintenance pattern: exclusive locks on all three
+participants, exact FORCE baseline assertion, transactional owner visibility for
+physical-reference validation, then FORCE restored before feature DDL. No external
+unforced window or changed policies/privileges; invalid references retain the
+named23514 refusal. No retained validation objects, schema semantics, row, policy
+or role changes beyond original0183. DEV0183 is not
+replayed; require isolated valid+four-invalid owner-role proof and owned cleanup.
 
 Staff workspace remains opt-in/default false. The flag may activate only exact
 render-development, local dev/test, or explicitly approved kz-production contour;

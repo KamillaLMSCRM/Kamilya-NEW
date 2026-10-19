@@ -40,7 +40,11 @@ one employee with added0/preserved1; empty-unit plan67bd2a8c affected0. Correcte
 XLSX names/reload/approval/commit passed, and completed-wizard reload clears the
 wizard by design. Do not infer production readiness from DEV proof: production
 remains62/schema0181 and unchanged. New63 source delivery protocols were reviewed,
-but exact63 CI/DEV/prod release evidence remains pending. No voice/iSpring/ASUS/1C/
+and exact1df25458 CI/DEV passed. Protected39204193182 failed0183 precondition
+before commit/switch: non-BYPASS owner sees202users/0positions/0departments,
+causing38false anti-join matches; privileged actual bad references0. Native63
+preflightREADY was not executed. Superseding64 repair/gates pending; production
+remains62/schema0181. No voice/iSpring/ASUS/1C/
 model-route activation change is in this package.
 
 ## Current runtime62 snapshot,2026-10-19

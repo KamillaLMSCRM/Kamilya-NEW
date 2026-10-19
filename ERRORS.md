@@ -8893,3 +8893,37 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   reconcile branch1/department1 created and branch1 updated with persisted rows.
   Old erroneous receipt remains unchanged. Browser proposal correction and reload
   are additionally exercised before production63.
+
+## MIGRATION-007 - FORCE RLS made the migration owner misclassify valid staff references
+
+- Date: 2026-10-19, protected four-block production63 attempt.
+- Symptom:0183 raised existing_staff_tenant_reference_mismatch before commit or
+  service switching. Production62 stayed healthy at0181; no rollback was needed.
+- Cause: the non-super/non-BYPASS owner saw202 users but0 positions/departments
+  under FORCE RLS. Its anti-join produced38 false missing-parent matches;
+  independent privileged physical-reference checks found0 actual mismatches.
+  The earlier isolated gate upgraded empty tables as a privileged principal,
+  then seeded data, and therefore did not reproduce this populated-owner seam.
+- Fix: superseding64 follows the existing0112 transactional owner-maintenance
+  pattern: exclusively lock all3legacy participants, require exact ENABLE+FORCE
+  baseline, temporarily relax owner FORCE visibility only for the original
+  anti-join integrity check, then restore FORCE before feature DDL. Locks and
+  catalog atomicity prevent an external unforced window; failure rolls back.
+  Preserve named23514, schema0183 semantics and all data/policies/privileges.
+  No BYPASS grant or retained validation object. Bounded5s lock/60s statement
+  waits fail closed. Do not replay or rewrite immutable failed63.
+- Verification: production failure, role visibility/ownership and zero actual
+  mismatches independently established; offline contract initially4RED/3PASS.
+  Actual populated-owner RED reproduced valid rejection with exact cleanup;
+  an initial composite-FK alternative also failed this gate because initial FK
+  validation's owner fast path still used filtered joins. Both RED receipts are
+  preserved. Final locked-owner GREEN5/5 passed: physical oracles0/0 versus
+  four isolated bad-reference cases, actual AccessExclusive locks3, unchanged
+  FORCE/rows/policies/catalog/roles/public state and fresh owned schema/role absence.
+  Focused44 and full4431 API/60skipped passed on the final repair. Exact64 CI/DEV
+  and production gates remain separate; no production64 deployment is claimed.
+- Prevention: run scripts/ops/staff_migration_visibility_dev_gate.py in owned
+  canonical Supabase DEV schemas before migration delivery, with actual owner
+  privileges/hidden parents, valid and four corrupt-reference cases, exact roles,
+  policies, rows/catalog preservation and fresh schema/role absence. An empty
+  privileged upgrade and HTTP health cannot substitute for this role-bound gate.

@@ -165,6 +165,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.64] - 2026-10-19
+
+### Fixed
+
+- Repair the fresh0183 staff migration precondition for its actual non-BYPASS,
+  FORCE-RLS table owner: exclusively lock the three participants, use the existing
+  transactional owner-maintenance visibility pattern for the integrity check,
+  and restore FORCE before feature DDL. Preserve the named failure contract,
+  legacy data, policies and permanent schema; no external unforced window or
+  privilege expansion. A populated-owner DEV regression covers valid
+  links and four corrupt-link cases, with owned schema/role cleanup.
+- Carry forward the same four bounded product improvements from63. The immutable
+  version63 release failed before migration commit or service switch and was
+  never production-deployed. Version64 supersedes it; production acceptance is
+  separately required. DEV already at0183 does not replay the precondition;
+  isolated populated-owner migration evidence proves the fresh upgrade seam.
+
 ## [0.11.63] - 2026-10-19
 
 ### Added

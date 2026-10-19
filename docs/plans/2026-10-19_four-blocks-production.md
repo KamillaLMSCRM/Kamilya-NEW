@@ -1,4 +1,4 @@
-# First four blocks — production63 execution graph
+# First four blocks — production64 execution graph (supersedes failed63)
 
 Owner root. Current human request2026-10-19: independently recover browser,
 finish testing and release the four selected improvements. Exact module scope:
@@ -17,9 +17,9 @@ cabinet-release-20261018 checkout; preserve unrelated output/ and primary residu
 | P3 contour + slot flag | bounded runtime writer/root reviewer | implementation focused20PASS; independent review accepted |
 | P4 native strict flag attestation | bounded native writer/root reviewer | packetV5/build-configV4 + legacy regressions; privileged manifest unchanged; independent review accepted |
 | P5 backend strict protocol + version63 | root/independent reviewer | schemaV3/four flags/0181->0183; initial RED8 then focused125PASS; independent review accepted |
-| P6 freeze/local/isolated/CI/DEV | root/Test Runner | local4424 API/60 skipped,1339 web,211 deployment checks/one existing Windows skip, quality PASS; isolated29 PASS; exact63 CI/DEV evidence pending |
-| P7 protected upgrade/artifact/backup + migration/release | root/Release Runner | blocked on P6; exact current digest/backup/rollback and source identity required |
-| P8 independent production live/readback/cleanup | root/Test Runner | pending P7; synthetic QA only, baseline history preserved |
+| P6 freeze/local/isolated/CI/DEV | root/Test Runner | local4424 API/60 skipped,1339 web,211 deployment checks/one existing Windows skip, quality PASS; isolated29 PASS; exact63 CI39203051395 and DEV final RELEASE_OK passed |
+| P7 protected upgrade/artifact/backup + migration/release | root/Release Runner | BLOCKED: backend run39204193182 failed before migration commit/switch; production remains62/schema0181/current1df26939 safe; repair requires a superseding64 candidate and valid+4invalid populated-role gate |
+| P8 independent production live/readback/cleanup | root/Test Runner | pending P7; synthetic QA only, baseline history preserved; native63 preflight READY but not executed and has no execution authority |
 
 P1..P5 -> P6 -> P7 -> P8. Root owns shared contracts, backend protocol/workflow,
 versions, Git, DB/providers and release decisions. Runtime writer owns exactly
@@ -37,3 +37,32 @@ and CT137 bridge only; no Proxmox/old VPS/permission workaround.
 Stop/reconcile unknown writes; no blind repeat. Preserve failed/superseded receipts.
 Binary rollback retains additive schema/audit/markers. Transfer final durable facts
 to readiness/context/release notes/handoff/ledger, then remove this temporary graph.
+
+## Current execution checkpoint — production63 gate failure
+
+Final DEV evidence is complete and immutable: exact CI39203051395 and
+`REL-FOUR63-DEV-FINAL-20261019` are recorded in
+`.release-evidence/dev/REL-FOUR63-DEV-FINAL-20261019/execute.json`, with API,
+worker and frontend parity at `1df25458192d26841261cf87c2687401048389d8`.
+Independent DEV readback remains PASS in
+`.release-evidence/four-blocks63/dev-final-readback.json`.
+
+The protected backend attempt `39204193182` failed before migration commit or
+switch. Reconciliation shows the current production release remains
+`1df269394ae6d0a2c7e6924e770c974ce0994651`, API and all three workers healthy,
+schema0181, and rollback not required (`.release-evidence/four-blocks63/reconcile-release63.json`).
+The non-BYPASS migration principal can see users202 but positions0 and
+departments0, producing38 false anti-join mismatches; the independent privileged
+precheck reports true bad references0. Visibility and ownership evidence are in
+`migration-visibility63.json` and `migration-ownership63.json`.
+
+Root is preparing a superseding64 secure migration-guard repair with a new valid
+plus four invalid populated-role gate. Final locked-owner gate5/5 and full4431API/
+60skip/focused44/quality passed. Initial FK alternative failed actual DEV and is
+preserved as RED; final repair follows0112 transactional exclusive-lock/owner-
+validation/FORCE-restoration pattern. Independent review noP1/P2 and final29check
+staff gate/cleanup/public-neutrality PASS. Freeze/CI/exactDEV and production64
+remain pending. No64 deployment or production
+acceptance is claimed here. Native63 preflight is READY only and
+was not executed; the preflight receipt is retained at
+`.release-evidence/REL-FOUR63-WEB-R2-20261019/preflight.json`.

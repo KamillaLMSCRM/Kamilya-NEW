@@ -201,6 +201,13 @@ jobs:
       - name: Fail-closed KZ remote executor contract tests
         run: poetry run pytest -q ../../scripts/ops/test_kz_remote_exec.py
 
+      - name: Populated non-BYPASS staff migration owner contracts
+        env:
+          PYTHONPATH: "${{ github.workspace }}/apps/api:${{ github.workspace }}"
+        run: |
+          poetry run python -m py_compile ../../scripts/ops/staff_migration_visibility_dev_gate.py
+          poetry run pytest -q tests/test_staff_migration_owner_contract.py ../../scripts/ops/tests/test_staff_migration_visibility_gate.py
+
       - name: Native CT137 frontend helper safety and rollback state
         run: poetry run python ../../scripts/ops/test_kamilya_web_deploy.py
 

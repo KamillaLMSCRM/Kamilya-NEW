@@ -22,6 +22,22 @@ def _schema():
 
 def upgrade():
     s = _schema()
+    # Follow the existing0112 owner-maintenance pattern, in one Alembic
+    # transaction. Lock every participant before changing owner visibility:
+    # other sessions cannot access these tables or observe an unforced state.
+    # Policies and runtime-role capabilities never change; any failure rolls
+    # back the original FORCE flags together with the rest of the migration.
+    op.execute("SET LOCAL lock_timeout='5s'")
+    op.execute("SET LOCAL statement_timeout='60s'")
+    op.execute(f"LOCK TABLE {s}.users,{s}.positions,{s}.departments IN ACCESS EXCLUSIVE MODE")
+    op.execute(f"""DO $$ BEGIN
+      IF (SELECT count(*) FROM pg_catalog.pg_class c WHERE c.oid IN
+        ('{s}.users'::regclass,'{s}.positions'::regclass,'{s}.departments'::regclass)
+        AND c.relrowsecurity AND c.relforcerowsecurity)<>3 THEN
+        RAISE EXCEPTION 'staff_reference_rls_baseline_mismatch' USING ERRCODE='23514'; END IF;
+      END $$""")
+    for table in ("users", "positions", "departments"):
+        op.execute(f"ALTER TABLE {s}.{table} NO FORCE ROW LEVEL SECURITY")
     op.execute(f"""DO $$ BEGIN
       IF EXISTS(SELECT 1 FROM {s}.users u LEFT JOIN {s}.positions p ON p.id=u.position_id
         WHERE u.position_id IS NOT NULL AND (p.id IS NULL OR u.tenant_id IS DISTINCT FROM p.tenant_id))
@@ -29,6 +45,8 @@ def upgrade():
         WHERE p.department_id IS NOT NULL AND (d.id IS NULL OR p.tenant_id IS DISTINCT FROM d.tenant_id)) THEN
         RAISE EXCEPTION 'existing_staff_tenant_reference_mismatch' USING ERRCODE='23514'; END IF;
       END $$""")
+    for table in ("users", "positions", "departments"):
+        op.execute(f"ALTER TABLE {s}.{table} FORCE ROW LEVEL SECURITY")
     p, r = f"{s}.organization_change_plans", f"{s}.organization_transfer_retained_enrollments"
     op.execute(f"""CREATE TABLE {p} (
       id uuid PRIMARY KEY, tenant_id uuid NOT NULL REFERENCES {s}.tenants(id) ON DELETE CASCADE,

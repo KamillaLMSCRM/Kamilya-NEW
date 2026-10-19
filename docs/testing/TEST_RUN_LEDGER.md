@@ -5180,3 +5180,47 @@ Rules:
   permissions/ASUS/1C/voice/iSpring/model-route activation or production mutation.
   Read-only production62/1df26939 and master1bce48e9 unchanged04:03UTC. Detailed
   owner docs/qa/2026-10-19_four-dev-blocks.md; temporary graph retained while UI pending.
+
+### 2026-10-19 — first-four DEV live closed; failed63 safely superseded by64 repair
+
+- Supersedes only the pending state above: old tabs were absent and no native
+  dialog was open. Adapter timeout did not prove a dialog; no further owner
+  Cancel is needed. Fresh tab12 controlled runtime save/reload revision8,
+  Cancel/no-write, explicit revert7/reload9 PASS; all31values/history/routing
+  restored. Actual-model assignment date-only/explicit-confirm/reload, employee
+  transfer, unit move and corrected Excel save/reload/approve/commit PASS. Prior
+ 16users/16units/10full journal rows and old import receipt unchanged.
+- Exact63 source1df25458192d26841261cf87c2687401048389d8, masterCI39203109976,
+  DEV CI39203051395, native39203071797 SUCCESS. Final DEV release API
+  dep-dbaqe47btjjs7386lkl0, worker dep-dbaqf36q1p3s73cmpaqg, frontend
+  dpl_EL8gS2gxjJVjM6X6inJkqfPsZdJN exact/healthy; Free/Free/Hobby unchanged.
+- Protected controller upgrade39203883110 accepted exact40142331...02632a with
+  old backup. Signed restore181 report f638e698...9bed signature verified,
+ 126tables/122FORCE/RPO128s/RTO19s; owned restored DB/temp absent. Only obsolete
+  native59 and exact staging pair removed under existing digest-bound rule after
+  offhost recovery verification; current62/actualrollback60/protected359+299
+  retained; free1,724,232KiB. No Proxmox or broad prune.
+- Protected backend63 run39204193182 failed before transaction commit/switch;
+  production62 remains healthy/schema0181. Non-BYPASS table owner saw202users/
+ 0positions/0departments and false38missing links; privileged actual mismatches0.
+  Native63 preflightREADY, NOTexecuted. Immutable63 tag/artifacts/failed receipt
+  retained, not rewritten/retried blindly.
+- Superseding64 repair: existing0112 transactional owner-maintenance pattern,
+  ACCESS EXCLUSIVE3before owner-visibility change, exact FORCE baseline required,
+  original integrity check/named23514, FORCE restored before feature DDL. No
+  external unforced window, role/policy/data/retained-schema expansion. Initial
+  composite-FK alternative failed the actual owner gate and is preserved as RED.
+- Actual canonical isolated Supabase final owner gate5/5PASS: physical0/0 valid,
+  four independently isolated corrupt cases rejected; owner NOSUPER/NOBYPASS,
+  visibility1/0/0, actual AccessExclusive3, FORCE/rows/policies/catalog preserved,
+  public/roles/memberships neutral and fresh all5schema/role absence. Final staff
+ 29checks PASS/cleanup/public-neutral, migration bd6fc908...b5f2. Local API4431PASS/
+ 60SKIP/55warnings, focused44PASS, quality1005/2170unchanged. No local DockerPG.
+- Root reviewed both gate files; separate bounded reviewer noP1/P2. Gate writer
+  requested gpt-5.6-sol/high, reviewer gpt-5.6-luna/medium; actual token/cost/time
+  counters not exposed, unavailable rather than zero. Root repaired the critical
+  migration and rejected the first implementation on actual DEV evidence.
+- Exact frozen64 CI/DEV/artifacts/protected production/native/product acceptance
+  remain pending; local/isolated PASS is not production GO. No voice/iSpring/
+  ASUS/1C/model-route/reserve activation, real customer data, history purge,
+  DNS/landing/rights/tiers/resources change in this package.
