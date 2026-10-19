@@ -9032,6 +9032,18 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   count assertion with explicit remaining chat/planning templates, exclusion of
   legacy quiz prompts and actual AST delegation from both jobs. Focused40PASS;
   keep the failed CI record, never waive or relabel the exact-SHA gate.
+- Live legacy regeneration follow-up: DEV40298622 received the Celery task but
+  returned cancelled in2.56s while its DB job stayed pending. Fresh progress and
+  content sessions omitted transaction-local tenant context; FORCE RLS correctly
+  hid the row, and zero UPDATE rows were mistaken for cancellation. Bind the
+  canonical fail-closed tenant helper in progress, content and final transactions,
+  not a new broker, role, bypass or infrastructure path. RED6/GREEN46; owned
+  Supabase DEV non-bypass FORCE-RLS proof10PASS includes the old zero-row repro,
+  successful progress/finalization, foreign-row negatives, cancellation and
+  post-commit context clearing. Owned schema removed, public catalog unchanged.
+  Cancelled only the failed owned job and removed its new empty lesson; original
+  four lesson DTO hashes/quiz IDs unchanged. Require real worker replay after
+  exact-SHA deployment; mocked DB tests alone had missed this transaction bug.
 - Verification: deterministic baseline RED and original DOCX limit-loss RED;
   corrected admission preserves independently read original limit/procedure
   phrases. Source-roundtrip inline/OCR-list RED/GREEN and independent review

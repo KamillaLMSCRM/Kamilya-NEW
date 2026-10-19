@@ -261,3 +261,15 @@ preserve the old test rather than claim successful regeneration. Next source-map
 work must address that representation explicitly, not weaken scope/key guards.
 Normalize exact existing quiz IDs for the reused attempt policy to remove2new
 typing diagnostics; focused40PASS/1.97s and canonical baseline2170mypy/1004ruff.
+
+R9/40298622 exactCI39249274637 all7SUCCESS/controller RELEASE_OK. Ordinary DEV
+legacy acceptance created one new empty lesson on the owned unpublished draft,
+never replaced an existing quiz. Worker received jobb48e24f2 but returned cancelled
+in2.56s; DB remained pending. Root-cause: missing tenant binding in fresh worker
+transactions, not queue delivery or the retired VPS. Cancel API200/readbackcancelled;
+new lessonae21b62f DELETE204/fresh404, exact original4DTO hashes/quiz IDs unchanged.
+Canonical fail-closed tenant binding added to both content jobs and progress/final
+transactions. RED6/GREEN46, quality1004ruff/2170mypyPASS. Owned Supabase FORCE-RLS
+proof10PASS/cleanup/public-catalog-neutral includes the old zero-row behavior,
+foreign-job negatives, cancellation and cleared post-commit context. No model calls
+in that DB proof; exact new DEV deployment and actual worker success still required.

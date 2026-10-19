@@ -122,12 +122,30 @@ async def test_legacy_job_replaces_only_reviewed_unused_quiz(monkeypatch, kind, 
     old_quiz = SimpleNamespace(id=uuid4())
     db = MagicMock()
     module.tenant_id = lesson.tenant_id
-    db.get = AsyncMock(side_effect=[lesson, module] if kind == "lesson" else [module])
+    bound = False
+    objects = iter([lesson, module] if kind == "lesson" else [module])
+
+    async def get(*args):
+        assert bound, "regeneration content reads require a tenant-bound transaction"
+        return next(objects)
+
+    db.get = AsyncMock(side_effect=get)
     rows = [SimpleNamespace(scalar_one=lambda: SimpleNamespace(id=module.course_id, title="Курс"))]
     if kind == "module":
         rows.append(SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [lesson])))
     rows.append(SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [old_quiz])))
-    db.execute = AsyncMock(side_effect=rows)
+    results = iter(rows)
+
+    async def execute(statement, parameters=None):
+        nonlocal bound
+        if str(statement).startswith("SELECT set_current_tenant"):
+            assert parameters == {"tid": str(lesson.tenant_id)}
+            bound = True
+            return None
+        assert bound
+        return next(results)
+
+    db.execute = AsyncMock(side_effect=execute)
     db.flush = AsyncMock()
     db.delete = AsyncMock()
     db.rollback = AsyncMock()

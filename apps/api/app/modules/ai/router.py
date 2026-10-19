@@ -16,6 +16,7 @@ from sqlalchemy import or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import (
+    _set_tenant_security_context,
     get_current_active_user,
     get_current_user,
     require_role,
@@ -89,6 +90,7 @@ async def _set_regeneration_job_state(
 
     values["updated_at"] = datetime.now(timezone.utc)
     async with async_session_factory() as job_session:
+        await _set_tenant_security_context(job_session, str(tenant_id))
         result = await job_session.execute(
             update(AIJob)
             .where(
@@ -110,6 +112,7 @@ async def _finish_regeneration_job(
 ) -> bool:
     """Commit regenerated content only while the job remains active."""
     values["updated_at"] = datetime.now(timezone.utc)
+    await _set_tenant_security_context(session, str(tenant_id))
     result = await session.execute(
         update(AIJob)
         .where(
@@ -1318,6 +1321,7 @@ async def _regenerate_module_job(
     from app.modules.quizzes.models import Question, Quiz, QuizChoice
     async with async_session_factory() as session:
         try:
+            await _set_tenant_security_context(session, str(tenant_id))
             if not await _set_regeneration_job_state(
                 job_id,
                 tenant_id,
@@ -1533,6 +1537,7 @@ async def _regenerate_lesson_job(
 
     async with async_session_factory() as session:
         try:
+            await _set_tenant_security_context(session, str(tenant_id))
             if not await _set_regeneration_job_state(
                 job_id,
                 tenant_id,

@@ -5589,3 +5589,21 @@ Rules:
   existing IDs before guard call; focused40PASS/1.97s, canonical ruff1004/mypy2170
   PASS restores the prior debt count without changing the baseline. Fresh exact
   follow-up and isolated live lesson-regeneration acceptance remain required.
+- R9/40298622 CI39249274637 all7SUCCESS; REL-LOMBARD66-DEV-R9-20261019 RELEASE_OK.
+  APIdep-dbb0hc3bc2fs73d33aa0,workerdep-dbb0igks728c739veudg,Vercel
+  dpl_Ab5xxUt4yc9arphwak76JQXisjxp exactSHA. Ordinarymethodologist regeneration
+  on new lessonae21b62f/jobb48e24f2 received12:14:38Z then returned cancelled2.56s
+  later while DB stayedpending. No inference occurred. Exact job cancelled200;
+  only new fixture deleted204/fresh404, original4DTO hashes/quiz IDs unchanged.
+- Worker RLS correction RED6fail/1.74s then focused46PASS/2.34s. Canonical helper
+  binds exact tenant in both content workers and progress/final sessions. Owned
+  Supabase DEV non-super/non-bypass lms_app, FORCE RLS10PASS, including old zero-row
+  repro, progress/final success, foreign-job negatives, cancellation and post-commit
+  clearing; owned schema cleanuptrue/public-catalog-unchangedtrue. No modelcalls,
+  production untouched. Canonical qualityruff1004/mypy2170PASS. CodeGraph sync
+  10.159s includingstartup, query23ms identifies4new realhelpercallers confirmed
+  in source; one unsupported --limit invocation rejected, rerun canonicalsyntax.
+  No claimed token or runtime savings. Fresh exact-SHA DEV worker replay open.
+- Frozen local RLS correction full APIunit+dispatch+renderer3426PASS/48.91s,
+  five pre-existing deprecations, no baseline change. Full fixture proof remains
+  separate from mocked tests. Production source/content release is not yet GO.

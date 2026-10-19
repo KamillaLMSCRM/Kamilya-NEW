@@ -10,9 +10,15 @@ production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 Owner-authorized one production package remains the objective; immediate stale
 DEV converter correction did not revoke that release authority. Existing DEV
-API/worker/frontend66/597ce720 live (CI39248049829 all7SUCCESS,
-REL-LOMBARD66-DEV-R8-20261019 RELEASE_OK). Only obsolete DOCLING_URL was removed
+API/worker/frontend66/40298622 live (CI39249274637 all7SUCCESS,
+REL-LOMBARD66-DEV-R9-20261019 RELEASE_OK). Only obsolete DOCLING_URL was removed
 earlier; all other configuration/tier/model routes remain unchanged.
+Live legacy jobb48e24f2 received then false-cancelled because fresh worker
+transactions lacked tenant context. Cancelled through ordinary API; only its
+new temporary lessonae21b62f was removed, original4lesson hashes/quiz IDs unchanged.
+Local fix reuses canonical tenant binding in both jobs and progress/final writes.
+RED6/GREEN46, quality1004ruff/2170mypyPASS, isolated Supabase FORCE-RLS10PASS with
+cleanup and unchanged public catalog; fresh exact-SHA worker acceptance pending.
 Local follow-up parses actual deployed-converter Markdown, restores category
 tables/amounts, hierarchical safety clauses and evacuation heading; readable
 safe fallback and neutral guide/list/terminal workflow are included. Explicit
