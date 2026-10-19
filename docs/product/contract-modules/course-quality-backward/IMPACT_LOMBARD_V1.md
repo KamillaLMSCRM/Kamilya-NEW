@@ -16,7 +16,7 @@ source locators remain immutable evidence; assessment axes may now represent
 distinct explicit clauses of the same parent fact. Exact axis IDs, not merely the
 parent fact ID, bind replacement/repair and critical-coverage audit. Existing
 grounding/answer-key/exception/retry guards and no-padding policy remain required.
-Follow-up quality policy v6 prevents mixing old and corrected resumable generation
+Follow-up quality policy v7 prevents mixing old and corrected resumable generation
 rules after the captured original-run corrections.
 
 ### Original-run diagnostic correction,2026-10-19
@@ -41,6 +41,15 @@ rules are not discarded as duplicate attributes. Existing worksheet entity/
 attribute diversity remains; ordinary prose cannot manufacture new axes.
 Question-bank selection, learner randomization and new billing routes are not
 included: the separate bank request remains analysis/proposal only.
+
+Large assessment author contexts may be split only by exact axis identity and
+full cited fact references. Never slice source text to fit or widen a child's
+accepted axis set to its siblings. Irreducible failures remain uncovered even
+when another child returns a valid empty response. Reviewer batches that recover
+individually are not final failures. The stronger visible-structure detector is
+an output guard, not permission to discard source rules at admission. Numeric
+date/clause boundaries and composite list markers survive both grounding and
+deduplication; permission-qualifier omissions alone are ambiguous distractors.
 
 Long document-table realization must preserve row identity beside the limits or
 procedure; otherwise use labelled source fallback. Existing worksheet/product

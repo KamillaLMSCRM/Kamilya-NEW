@@ -33,11 +33,18 @@ from .provider_models import GroundedBlock, ProviderBackedResult, RetrievalMeasu
 from .providers import QWEN_QUERY_PREFIX, ChatJsonProvider, EmbeddingProvider, ProviderCallError
 from .quality import (
     contains_internal_generation_instruction,
-    contains_ocr_artifact,
+    contains_visible_artifact,
     evaluate_publishability,
     filter_acceptable_questions,
     is_acceptable_title,
     is_generic_question,
+)
+
+# A period inside a date, decimal or hierarchical clause is not a sentence end.
+# Splitting it can silently remove a numeric-only component during grounding or
+# turn source clause 2.1 into two learner-visible list markers.
+_TEACHING_SENTENCE_RE = re.compile(
+    r"(?:\d\.\s*(?=\d|[-–—]\s*\S)|[^.!?])+(?:[.!?]+|$)"
 )
 
 
@@ -221,8 +228,15 @@ def _readable_source_text(value: str) -> str:
     Only whitespace changes are allowed after the existing grounding gates.
     """
     letters = "A-Za-zА-Яа-яЁёӘәҒғҚқҢңӨөҰұҮүҺһІі"
-    text = re.sub(rf"\s+(?=-\s*[{letters}])", "\n", value.strip())
-    text = re.sub(rf"(?m)^-(?=[{letters}])", "- ", text)
+    text = re.sub(rf"\s+(?=\d+[.)]\s*[-—]\s*[{letters}])", "\n", value.strip())
+
+    def separate_bullet(match: re.Match[str]) -> str:
+        # A composite OCR marker '6. -action' is one visual list marker. Do not
+        # move its dash away from its number and create stray numeric prose.
+        return " " if re.search(r"\d+[.)]\s*$", match.string[:match.start()]) else "\n"
+
+    text = re.sub(rf"[ \t]+(?=-\s*(?:\d+[.)]\s*)?[{letters}])", separate_bullet, text)
+    text = re.sub(rf"(?m)^(\d+[.)]\s*)?([-—])(?=[{letters}])", r"\1\2 ", text)
     lines: list[str] = []
     for line in text.splitlines():
         if len(line) <= 480:
@@ -308,7 +322,7 @@ def _grounded_teaching_text(text: str, facts: list[SourceFact]) -> str:
     normalized_sources = [" ".join(source.casefold().replace("ё", "е").split())
                           for source in sources]
     source_tokens = [_grounding_tokens(source) for source in sources]
-    sentences = [match.group(0).strip() for match in re.finditer(r"[^.!?]+(?:[.!?]+|$)", text)
+    sentences = [match.group(0).strip() for match in _TEACHING_SENTENCE_RE.finditer(text)
                  if match.group(0).strip()]
     grounded: list[str] = []
     for sentence in sentences:
@@ -337,7 +351,7 @@ def _grounded_teaching_text(text: str, facts: list[SourceFact]) -> str:
         # sentence of a multi-sentence rule. Preserve supported paraphrases,
         # then append only source sentences whose meaning is still absent.
         # OCR-tainted facts remain excluded from this restoration path.
-        if not any(contains_ocr_artifact(_clean_output_text(fact.value)) for fact in facts):
+        if not any(contains_visible_artifact(_clean_output_text(fact.value)) for fact in facts):
             restored_any = False
             grounded_normalized = [
                 " ".join(sentence.casefold().replace("ё", "е").split())
@@ -351,9 +365,7 @@ def _grounded_teaching_text(text: str, facts: list[SourceFact]) -> str:
             for fact in facts:
                 source_sentences = [
                     match.group(0).strip()
-                    for match in re.finditer(
-                        r"[^.!?]+(?:[.!?]+|$)", _clean_output_text(fact.value)
-                    )
+                    for match in _TEACHING_SENTENCE_RE.finditer(_clean_output_text(fact.value))
                     if match.group(0).strip()
                     and any(character.isalpha() for character in match.group(0))
                 ]
@@ -409,7 +421,7 @@ def _grounded_teaching_text(text: str, facts: list[SourceFact]) -> str:
                     for fact in facts
                 )
         return " ".join(grounded)
-    if any(contains_ocr_artifact(_clean_output_text(fact.value)) for fact in facts):
+    if any(contains_visible_artifact(_clean_output_text(fact.value)) for fact in facts):
         # A validated clean omission notice is safer than re-exposing unreadable
         # source glyphs or guessing the missing value.
         return text
@@ -767,7 +779,7 @@ class ProviderBackedEvidenceEngine:
                 # their row and column labels. Retain the valid homogeneous
                 # blocks; render these uncovered facts with attribution below.
                 continue
-            if contains_ocr_artifact(heading) or contains_ocr_artifact(text):
+            if contains_visible_artifact(heading) or contains_visible_artifact(text):
                 raise ValueError("block exposes unresolved OCR artifacts")
             if has_unprofessional_learner_language(heading) or has_unprofessional_learner_language(text):
                 raise ValueError("block contains blocked learner-visible language")
@@ -817,7 +829,7 @@ class ProviderBackedEvidenceEngine:
                 # absent after all blocks are rendered below with attribution.
                 continue
             fresh_sentences: list[str] = []
-            for match in re.finditer(r"[^.!?]+(?:[.!?]+|$)", text):
+            for match in _TEACHING_SENTENCE_RE.finditer(text):
                 sentence = match.group(0).strip()
                 if not sentence:
                     continue
@@ -899,7 +911,7 @@ class ProviderBackedEvidenceEngine:
             text = _clean_output_text(
                 neutralize_unprofessional_source_language(fact.value.strip())
             )
-            if contains_ocr_artifact(text):
+            if contains_visible_artifact(text):
                 raise ValueError("fallback fact exposes unresolved OCR artifacts")
             if is_tabular_locator(fact.source_locator) and (
                 not re.search(r"[.!?]$", text)
@@ -996,7 +1008,7 @@ class ProviderBackedEvidenceEngine:
                 continue
             if is_generic_question(prompt):
                 continue
-            if contains_ocr_artifact(prompt) or contains_ocr_artifact(explanation):
+            if contains_visible_artifact(prompt) or contains_visible_artifact(explanation):
                 continue
             if has_unprofessional_learner_language(prompt) or has_unprofessional_learner_language(explanation):
                 continue

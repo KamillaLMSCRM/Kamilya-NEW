@@ -275,3 +275,27 @@ def test_whole_lesson_fallback_keeps_row_identity_and_readable_paragraphs() -> N
     assert len(rendered.content.split("\n\n")) >= 4
     assert re.sub(r"\s+", "", value) in re.sub(r"\s+", "", blocks[0].text)
     assert blocks[0].fact_ids == (fact.fact_id,)
+
+
+def test_numbered_ocr_bullet_does_not_leave_an_orphan_number_on_its_own_line() -> None:
+    value = (
+        "Руководитель обязан: 6. -организовать проверку; "
+        "7. -назначить ответственного; 10. —обеспечить свободный выход."
+    )
+    formatted = _readable_source_text(value)
+    assert not re.search(r"(?m)^\d+[.)]\s*$", formatted)
+    assert "\n6. - организовать" in formatted
+    assert "\n7. - назначить" in formatted
+    assert "\n10. — обеспечить" in formatted
+    assert re.sub(r"\s+", "", formatted) == re.sub(r"\s+", "", value)
+
+
+def test_numbered_sub_bullets_remain_distinct_readable_source_actions() -> None:
+    from app.modules.ai.evidence_engine.provider_engine import _readable_source_text
+
+    value = "Работникам следует: - 1) проверить выход; - 2) закрыть окно; - 3) сообщить о проблеме."
+    text = _readable_source_text(value)
+    assert "\n- 1) проверить выход" in text
+    assert "\n- 2) закрыть окно" in text
+    assert "\n- 3) сообщить о проблеме" in text
+    assert "".join(text.split()) == "".join(value.split())

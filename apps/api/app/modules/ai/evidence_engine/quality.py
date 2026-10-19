@@ -11,7 +11,7 @@ from app.modules.ai.lesson_quality import has_unprofessional_learner_language
 from .models import AssessmentDraft, CourseDraft, EvidenceCourseResult, QuestionDraft
 from .provider_models import GroundedBlock, PublishabilityReport
 
-EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v6"
+EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v7"
 
 _GENERIC_QUESTION_RE = re.compile(
     r"(?:о\s+ч[её]м\s+(?:этот\s+)?(?:урок|курс|раздел|модуль)|"
@@ -40,6 +40,14 @@ _OCR_ARTIFACT_RE = re.compile(
 )
 _TRUNCATED_ABBREVIATION_RE = re.compile(
     r"(?:^|[.!?]\s+)др\.\s*\)\s+[А-ЯЁ]",
+    re.IGNORECASE,
+)
+_BROKEN_SOURCE_STRUCTURE_RE = re.compile(
+    r"\b\d{1,2}\.\s*[‚,]\s*[A-Za-z]{2,5}\s+\d{1,2}\.\s*[—-]|"
+    r"[,‚]\s*[A-Za-z]{2,5}\s+\d{1,2}\.\s*(?=\n\s*#{1,6}\s|$)|"
+    r"\bот\s+\d{2}\.\s+(?:1[3-9]|[2-9]\d)\s+г\.|"
+    r"[:;][ \t]*\d{1,2}\.[ \t]*(?=\n(?:[-*+]\s|\s*#{1,6}\s)|$)|"
+    r"(?:^|\n)[ \t]*\d{1,2}\.[ \t]+\d{1,2}\.[ \t]+(?=[А-ЯЁA-Z])",
     re.IGNORECASE,
 )
 _INCOMPLETE_ANSWER_TAIL_RE = re.compile(
@@ -120,6 +128,16 @@ def contains_ocr_artifact(value: str) -> bool:
     return False
 
 
+def contains_visible_artifact(value: str) -> bool:
+    """Reject broken presentation without silently changing source admission.
+
+    Admission also consumes contains_ocr_artifact. Extending that predicate for
+    a display defect would discard a whole critical source rule before its
+    coverage audit. Keep this stricter output gate at realization/assessment.
+    """
+    return contains_ocr_artifact(value) or bool(_BROKEN_SOURCE_STRUCTURE_RE.search(value))
+
+
 def is_generic_question(value: str) -> bool:
     return bool(_GENERIC_QUESTION_RE.search(value))
 
@@ -135,7 +153,7 @@ def is_acceptable_title(value: str) -> bool:
     words = re.findall(r"[^\W\d_]+", title, flags=re.UNICODE)
     if len(words) < 1 or len(words) > 10 or len(title) > 96:
         return False
-    if contains_ocr_artifact(title) or _TITLE_START_RE.search(title):
+    if contains_visible_artifact(title) or _TITLE_START_RE.search(title):
         return False
     first = words[0].casefold().replace("ё", "е")
     if first.endswith(("ать", "ять", "ить")):
@@ -225,6 +243,8 @@ def filter_acceptable_questions(questions: list[QuestionDraft]) -> list[Question
         and not question_has_incomplete_correct_answer(question)
         and not question_has_ambiguous_options(question)
         and not question_has_blocked_learner_language(question)
+        and not any(contains_visible_artifact(value)
+                    for value in (question.prompt, question.explanation, *question.options))
     ]
 
 
@@ -316,7 +336,7 @@ def evaluate_publishability(
     generic_count = sum(is_generic_question(question.prompt) for question in assessment.questions)
     duplicate_count = len(prompts) - len(set(prompts))
     ocr_count = sum(
-        contains_ocr_artifact(value)
+        contains_visible_artifact(value)
         for value in (
             *(lesson.title for lesson in course.lessons),
             *(lesson.content for lesson in course.lessons),

@@ -124,6 +124,12 @@ include conditions/exceptions relevant to the question, never invent policy.
 Explain the content of each misconception; never refer to an answer by its
 option/variant number or position because the server may reorder options.
 Avoid answer-length giveaways and nearly identical alternatives.
+If an exception applies only to approved/authorized equipment, merely omitting
+the word 'approved' while keeping the same action and all exception classes is
+ambiguous, not a clearly wrong option. Express a different decision, remove an
+exception, or explicitly permit unapproved equipment; do not rely on an omitted
+qualifier as the sole misconception. authorization_scope_ambiguous requires
+replacing that distractor, never changing the source-owned answer key.
 When rejection_reasons contains assessment_answer_length_signal, repair the
 plausible misconceptions so their informative detail is comparable to the
 immutable source_claim. At least one wrong option should be naturally longer
@@ -325,6 +331,29 @@ def _restates_conditional_prohibition(key: str, option: str) -> bool:
         + r", если (?:он|она|оно|они) " + condition
         + r"(?:, (?:но|даже если) .+)?", candidate,
     ))
+
+
+def _has_ambiguous_authorization_omission(key: str, option: str) -> bool:
+    """Conservatively reject an under-specified near-key, never infer its truth.
+
+    Only the same leading action and all source exception classes qualify.
+    Explicitly changed/denied permission still requires the normal reviewers.
+    """
+    source, candidate = _norm(key), _norm(option)
+    permission = r"\b(?:разреш\w*|одобрен\w*|согласован\w*|approved|authorized|permission)\b"
+    exception = r"\b(?:за\s+исключением|кроме|исключая|except|excluding)\b"
+    source_exception = re.search(exception, source)
+    if (source_exception is None or not re.search(permission, source[source_exception.end():])
+            or not re.search(exception, candidate) or re.search(permission, candidate)
+            or re.search(r"\b(?:люб\w*|неразреш\w*|без\s+разреш\w*|any|unapproved|unauthorized)\b", candidate)):
+        return False
+    if re.findall(r"[^\W\d_]+", source)[:1] != re.findall(r"[^\W\d_]+", candidate)[:1]:
+        return False
+    exception_text = re.sub(permission, "", source[source_exception.end():])
+    anchors = {word[:6] for word in re.findall(r"[^\W\d_]{4,}", exception_text)
+               if word not in {"также", "лишь", "только", "also", "only", "with"}}
+    option_tokens = {word[:6] for word in re.findall(r"[^\W\d_]{4,}", candidate)}
+    return len(anchors) >= 3 and anchors <= option_tokens
 
 
 def _course_question_identity(
@@ -1170,9 +1199,50 @@ async def generate_block_assessment(
         if checkpoint:
             await checkpoint()
         if len(json.dumps(request, ensure_ascii=False)) > 24000:
-            audit["failures"].append({"block_id": request["block_id"],
-                                      "reason": "assessment_context_too_large",
-                                      "stage": request["task"]})
+            # A rich lesson is not a single indivisible provider request. Keep
+            # complete immutable facts, but do not resend unrelated sibling
+            # facts when authoring/repairing only a subset of its axes.
+            if request["task"] in {"assessment_generate", "assessment_repair"}:
+                request_axis_rows = request["axes"]
+                required_ids = {
+                    fid for row in request_axis_rows
+                    for fid in axes_by_id[row["axis_id"]].evidence_fact_ids
+                }
+                scoped_facts = [f for f in request["facts"] if f["fact_id"] in required_ids]
+                if len(scoped_facts) < len(request["facts"]):
+                    return await invoke(prompt, {**request, "facts": scoped_facts}, parser,
+                                        record_failure=record_failure,
+                                        failure_axis_ids=failure_axis_ids)
+                if request["task"] == "assessment_generate" and len(request_axis_rows) > 1:
+                    midpoint = len(request_axis_rows) // 2
+                    combined: list[QuestionDraft] = []
+                    available = False
+                    for rows in (request_axis_rows[:midpoint], request_axis_rows[midpoint:]):
+                        subset_ids = {row["axis_id"] for row in rows}
+                        subset = {**request, "axes": rows, "max_questions": len(rows)}
+                        subset_parser = partial(
+                            _parse_axis_questions,
+                            axes=tuple(axes_by_id[row["axis_id"]] for row in rows),
+                            maximum=len(rows),
+                        )
+                        result = await invoke(prompt, subset, subset_parser,
+                                              record_failure=True,
+                                              failure_axis_ids=tuple(
+                                                  aid for aid in failure_axis_ids if aid in subset_ids))
+                        if result is not None:
+                            available = True
+                            combined.extend(result)
+                    return combined if available else None
+            # A batched review may be retried as independently bounded
+            # questions by the caller. Only the irreducible failure is a real
+            # uncovered axis; otherwise a successful fallback is misreported.
+            if record_failure or (
+                request["task"] == "assessment_generate" and len(request["axes"]) == 1
+            ):
+                audit["failures"].append({"block_id": request["block_id"],
+                                          "reason": "assessment_context_too_large",
+                                          "stage": request["task"],
+                                          "axis_ids": list(failure_axis_ids)})
             return None
         for retry_index in range(2):
             try:
@@ -1312,19 +1382,11 @@ async def generate_block_assessment(
                 "axis_kind": axis.axis_kind,
             } for axis in request_axes],
         }
-        if len(json.dumps(request, ensure_ascii=False)) > 24000:
-            audit["failures"].append({"block_id": block_id, "reason": "assessment_context_too_large"})
-            if on_progress:
-                await on_progress(index, len(prepared_groups))
-            audit["block_outcomes"].append({"block_id": block_id, "lesson_id": lesson.lesson_id,
-                                            "fact_ids": [f.fact_id for f in facts], "candidates": 0,
-                                            "accepted": 0, "outcome": "unavailable"})
-            continue
-
         parser = partial(_parse_axis_questions, axes=request_axes,
                          maximum=request["max_questions"])
         peer_candidates = [_source_peer_table_candidate(axis, lesson, facts_by_id)
                            for axis in request_axes]
+        block_failures_at_start = len(audit["failures"])
         if all(question is not None for question in peer_candidates):
             generated = [question for question in peer_candidates if question is not None]
             audit["source_peer_candidates"] += len(generated)
@@ -1423,7 +1485,6 @@ async def generate_block_assessment(
         audit["authored_axes"] += len(candidates)
         candidate_count = len(candidates)
         audit["candidates"] += candidate_count
-        block_failures_at_start = len(audit["failures"])
         for round_index in range(2):
             if not candidates:
                 break
@@ -1580,6 +1641,17 @@ async def generate_block_assessment(
                     reviewed_candidates = []
             good: list[QuestionDraft] = []
             for question in reviewed_candidates:
+                ambiguous_options = [
+                    option for option in question.options if option != question.correct_answer
+                    and _has_ambiguous_authorization_omission(question.correct_answer, option)
+                ]
+                if ambiguous_options:
+                    original = original_candidates[question.question_id]
+                    rejection_reasons[question.question_id].extend(
+                        f"option_{original.options.index(option)}:authorization_scope_ambiguous"
+                        for option in ambiguous_options
+                    )
+                    continue
                 if any(_restates_conditional_prohibition(question.correct_answer, option)
                        for option in question.options if option != question.correct_answer):
                     rejection_reasons[question.question_id].append("assessment_key_restatement")

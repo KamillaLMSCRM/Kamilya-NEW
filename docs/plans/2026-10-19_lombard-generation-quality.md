@@ -120,3 +120,31 @@ calls; it is diagnostics, not fresh cloud DEV acceptance.
 
 Backend unit R4:3316PASS/43.71s and canonical quality ruff1004/mypy2170PASS,
 before final density/fallback delta. Fresh final suite/DEV/production remain gates.
+
+Latest DEV: exact23dece3f, CI39231108347 all7SUCCESS, release controller
+REL-LOMBARD66-DEV-R3-20261019 RELEASE_OK. API dep-dbaub2vbtjjs738l54ug,
+worker dep-dbaucas9v7es73a09eo0, Vercel dpl_4atg2r1VJDdUbwTme7mjpJBUkgEJ.
+Provider HTTP failure was reconciled before the state-aware retry; same API
+operation reused, no duplicate blind deployment or paid-resource workaround.
+
+Local follow-up quality-v7: oversized author requests partition exact axes and
+full source facts; irreducible size/provider failures remain uncovered, including
+one failed child beside a valid empty sibling. Distinguish recovered reviewer
+batches from real failures. Dates were corrupted by root sentence restoration,
+not proven model output: three numeric-boundary sites now preserve complete
+dates/decimals/clause numbers. Composite/sub-list display is whitespace-only.
+Visible-structure checking remains output-only so it cannot silently discard a
+whole source rule at admission. Ambiguous authorization-only omissions are not
+accepted distractors. Focused135PASS after RED3 failure-accounting regressions;
+full3355PASS preceded the last partial-provider edge correction.
+Final frozen follow-up full3356PASS/47.27s includes the corrected edge; canonical
+quality PASS. Independent semantic reviewer reran96tests/2.03s and both failed-
+child variants, approving code scope with no remaining P0/P1/P2. Fresh release/
+runtime/source-quality gates remain distinct.
+
+Actual converter-shaped PDF R10 retains28facts/6lessons/40questions, all49derived
+axes requested,40retained/9omitted/0uncovered plus3unsupported parents. Structural
+artifact count0 after the numeric fix; all6topics represented. Replayed existing
+raw model responses,0new generation calls;3.265s is replay timing, NOT a fresh
+generation speed claim. Critical omitted/unsupported rules still require review;
+no semantic GO, no fresh cloud DEV acceptance and no production release claimed.

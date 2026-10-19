@@ -5430,3 +5430,40 @@ Rules:
   CodeGraph one final sync1855files/exclusionPASS/8.337s total, static navigation
   only. No combined Graphify refresh was needed for unchanged used relationships.
   Fresh cloud DEV exact candidate and production release/live gates remain open.
+
+## TEST-LOMBARD66-DENSITY-FAILURE-BOUNDARIES-20261019
+
+- CI39231108347 all7SUCCESS/exact23dece3f. Existing Free/Free/Hobby DEV release
+  REL-LOMBARD66-DEV-R3-20261019 RELEASE_OK: API dep-dbaub2vbtjjs738l54ug,
+  worker dep-dbaucas9v7es73a09eo0, Vercel dpl_4atg2r1VJDdUbwTme7mjpJBUkgEJ.
+  Initial provider_http_failed preserved; read-only reconciliation then same
+  state-aware controller retry reused API rollout, triggered absent worker only.
+  No production/configuration/billing/resource/model-route change.
+- Root/independent review found rich author requests could exceed24k characters.
+  RED1/GREEN request partition by exact axes, complete cited facts, child-scoped
+  parsers. A source fact is never truncated to manufacture a question.
+- Independent reviewer found author failures outside the failure-audit window
+  and suppression under bisection. Root RED2(size) +RED1(provider child beside
+  successful empty child), then GREEN135focused/2.42s. Failing axes remain
+  uncovered/contract-audit-incomplete/review-required; recovering review batches
+  are not mislabeled final failures. Reviewer rerun remains separately tracked.
+- Root found date corruption in its own naive sentence restoration (not proven
+  model corruption): >100-word source RED3 reproduced numeric-middle loss.
+  Decimal/date/clause-aware splitting at all3sites; composite/sub-list formatting
+  preserves nonwhitespace content. Strict visible-artifact detection is separate
+  from source admission; a whole prohibition must not disappear from coverage.
+- Bound authorization-omission guard has6tests including full author/review/
+  constraint/repair/omission callsite and exact option-index feedback.
+- PDF R6b/7/8 correctly failed visible-artifact quality. R9 exposed an unwanted
+  source-admission effect, corrected before release. R10 retains28source facts,
+  6lessons/40questions;49derived/requested,40retained/9omitted/0uncovered,
+  3unsupported parents. Structural artifact count0, critical omissions remain
+  explicit review-required.0new generation calls, replay timing3.265s must not
+  be advertised as generation latency. Failed traces retained privately.
+- Full3355PASS/44.88s preceded the last partial-provider correction; focused135
+  and canonical quality ruff1004/mypy2170PASS include it. Final frozen suite,
+  fresh exact candidate DEV generation/browser and production/live gates open.
+- Final frozen follow-up3356PASS/47.27s;5pre-existing deprecation warnings.
+  Independent semantic reviewer96PASS/2.03s and one-axis/multi-axis provider-
+  failure sibling replays approve the correction with no remaining P0/P1/P2
+  in the reviewed scope. Root code/quality review and runtime gates stay separate.

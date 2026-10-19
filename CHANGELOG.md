@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Derive distinct operational-list assessment axes and repair/recover each exact
   axis instead of confusing sibling claims from the same source fragment.
   Critical assessment omissions remain explicit; no quota padding or relaxed
-  answer/grounding checks. Quality policy v6 invalidates old resume assumptions.
+  answer/grounding checks. Quality policy v7 invalidates old resume assumptions.
 - Preserve explicit converter table labels, emphasis-wrapped amounts and
   hierarchical safety clauses; retain evacuation-route headings and operational
   footnotes without teaching document-purpose prose. Exact conditional and
@@ -31,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace the fixed three-question lesson quota with source-owned target density.
   Preserve distinct conditional/region axes and expose technical-ceiling or
   quality omissions; do not pad counts or create learner-specific variants.
+- Split oversized assessment authoring by exact source axes; keep irreducible
+  failures uncovered instead of claiming a complete test. Preserve dates and
+  hierarchical clause numbers during sentence grounding/deduplication. Reject
+  ambiguous permission-scope distractors and broken visible list structure
+  without silently dropping the parent source rule.
 
 ### Historical DEV candidate: four bounded improvements (2026-10-19)
 

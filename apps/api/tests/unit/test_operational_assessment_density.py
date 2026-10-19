@@ -7,6 +7,7 @@ import pytest
 from app.modules.ai.evidence_engine.assessment_axes import derive_assessment_axes
 from app.modules.ai.evidence_engine.models import LessonDraft, SourceFact
 from app.modules.ai.evidence_engine.semantic_assessment import generate_block_assessment
+from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFailureReason
 
 
 class _EmptyAuthor:
@@ -99,4 +100,83 @@ async def test_one_compound_fact_exposes_siblings_beyond_the_technical_ceiling()
     assert len(coverage["derived_axis_ids"]) == 21
     assert len(coverage["critical_missing_axis_ids"]) == 21  # Empty author accepted none.
     assert coverage["complete"] is False
+    assert result.audit["terminal_status"] == "review_required"
+
+
+@pytest.mark.asyncio
+async def test_large_author_context_is_batched_without_losing_source_targets() -> None:
+    # Long source-owned labels make the combined request too large although
+    # each complete fact and its assessment axis fit. Never truncate either.
+    facts = {str(i): SourceFact(
+        str(i), "Подразделение " + (f"объект{i} " * 330), "обязанность",
+        f"Сотрудник обязан проверить аварийный выход номер {i}.",
+        f"doc_id=synthetic;source_revision=v1;section=safety;part={i}",
+    ) for i in range(1, 7)}
+    lesson = LessonDraft("safety", "Безопасность", "Выходы", "Проверять выходы", "", tuple(facts), (), 2)
+    client = _EmptyAuthor()
+
+    result = await generate_block_assessment([lesson], facts, client)
+
+    assert len(client.requests) > 1
+    assert all(len(json.dumps(request, ensure_ascii=False)) <= 24000
+               for request in client.requests)
+    requested = [axis for request in client.requests for axis in request["axes"]]
+    assert len(requested) == len({axis["axis_id"] for axis in requested}) == 6
+    assert result.audit["requested_axes"] == 6
+    assert not any(row["reason"] == "assessment_context_too_large"
+                   for row in result.audit["failures"])
+    for request in client.requests:
+        for fact in request["facts"]:
+            assert fact["value"] == facts[fact["fact_id"]].value
+            assert fact["subject"] == facts[fact["fact_id"]].subject
+    assert result.questions == ()  # Empty author still creates no questions.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("include_small", [False, True])
+async def test_irreducible_author_context_failure_remains_uncovered(include_small: bool) -> None:
+    facts = {"large": SourceFact(
+        "large", "Объект " * 5000, "обязанность", "Проверить аварийный выход.",
+        "doc_id=synthetic;source_revision=v1;section=safety;part=1",
+    )}
+    if include_small:
+        facts["small"] = SourceFact(
+            "small", "Помещение", "обязанность", "Закрыть окно.",
+            "doc_id=synthetic;source_revision=v1;section=safety;part=2",
+        )
+    lesson = LessonDraft("safety", "Безопасность", "Выходы", "Проверять выходы", "", tuple(facts), (), 2)
+    result = await generate_block_assessment([lesson], facts, _EmptyAuthor())
+    assert result.audit["failures"]
+    uncovered = [row for row in result.audit["axis_outcomes"] if row["state"] == "uncovered"]
+    assert [row["primary_fact_id"] for row in uncovered] == ["large"]
+    assert uncovered[0]["reason"] == "assessment_context_too_large"
+    assert result.audit["coverage"]["requires_review"] is True
+    assert result.audit["contract_coverage"]["audit_incomplete"] is True
+    assert result.audit["terminal_status"] == "review_required"
+
+
+@pytest.mark.asyncio
+async def test_failed_author_batch_is_not_hidden_by_an_empty_successful_sibling() -> None:
+    class PartialOutage(_EmptyAuthor):
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            if any(fact["fact_id"] == "1" for fact in request["facts"]):
+                self.requests.append(request)
+                raise AllProvidersFailedError("fixture", [ValidatedCallFailureReason.PROVIDER_UNAVAILABLE])
+            return await super().ainvoke_validated(messages, parser, **kwargs)
+
+    facts = {str(i): SourceFact(
+        str(i), "Подразделение " + (f"объект{i} " * 330), "обязанность",
+        f"Сотрудник обязан проверить аварийный выход номер {i}.",
+        f"doc_id=synthetic;source_revision=v1;section=safety;part={i}",
+    ) for i in range(1, 7)}
+    lesson = LessonDraft("safety", "Безопасность", "Выходы", "Проверять выходы", "", tuple(facts), (), 2)
+
+    result = await generate_block_assessment([lesson], facts, PartialOutage())
+
+    assert result.audit["failures"]
+    assert {row["primary_fact_id"] for row in result.audit["axis_outcomes"]
+            if row["state"] == "uncovered"} == {"1", "2", "3"}
+    assert result.audit["coverage"]["requires_review"] is True
+    assert result.audit["contract_coverage"]["audit_incomplete"] is True
     assert result.audit["terminal_status"] == "review_required"

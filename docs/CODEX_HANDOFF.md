@@ -10,8 +10,9 @@ production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 Owner-authorized one production package remains the objective; immediate stale
 DEV converter correction did not revoke that release authority. Existing DEV
-API/worker/frontend initial66/8099de66 live; only obsolete DOCLING_URL removed
-and same-SHA reapplied, all other configuration/tier/model routes unchanged.
+API/worker/frontend66/23dece3f live (CI39231108347 all7SUCCESS,
+REL-LOMBARD66-DEV-R3-20261019 RELEASE_OK). Only obsolete DOCLING_URL was removed
+earlier; all other configuration/tier/model routes remain unchanged.
 Local follow-up parses actual deployed-converter Markdown, restores category
 tables/amounts, hierarchical safety clauses and evacuation heading; readable
 safe fallback and neutral guide/list/terminal workflow are included. Explicit
@@ -24,8 +25,16 @@ on disk and fresh records exist only in permanent synthetic QA. Current source
 and captures: docs/plans/2026-10-19_lombard-generation-quality.md, existing impact
 addendum and TEST_RUN_LEDGER. Private ignored .release-evidence/lombard-quality19
 contains production-shaped DOCX R6 (14distinct retained questions,4partial/
-unsupported parents, no critical missing axes) and PDF R4 (41questions,7omissions,
-3unsupported parents). Source review is not fresh cloud DEV/production proof.
+unsupported parents, no critical missing axes) and PDF R10 (40questions,
+9omitted axes/3unsupported parents, no uncovered provider contracts). PDF R10
+reuses recorded model outputs (0new generation calls), keeps all28source facts,
+and corrects numeric date/clause/list corruption. It is not autonomous quality
+GO or fresh cloud DEV/production proof. Root local quality-v7 also adds exact-axis
+request batching, irreducible/partial-provider failure auditing and ambiguous
+authorization-distractor rejection. Final frozen full suite3356PASS/47.27s,
+focused135PASS and canonical qualityPASS include the partial-provider correction.
+Independent semantic review96PASS/2.03s approves the bounded delta after two
+P1failure-accounting findings were corrected; this is not business-quality GO.
 No new production release/tag or activation beyond current65. Voice/reserve/
 routing/ASUS/landing/billing/resources unchanged. Preserve unrelated output/.
 

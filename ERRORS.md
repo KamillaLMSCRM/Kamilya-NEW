@@ -8968,16 +8968,32 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Fix: candidate uses narrow operational-table admission with metadata/catalog
   negatives, navigation/signature exclusion, whitespace-only post-grounding
   layout, distinct explicit-list axes with exact-axis repair/recovery and honest
-  missing-coverage audit. Quality policy v5; no changed parent evidence IDs,
+  missing-coverage audit. Current quality policy v7; no changed parent evidence IDs,
   provider route, grounding guard or migration. Conditions/exceptions must remain
   part of exact source-owned claims, not be dropped to increase question counts.
-  Follow-up uses quality policy v6. Actual deployed MarkItDown output may have
+  Actual deployed MarkItDown output may have
   empty table headers followed by bold labels and emphasis inside numeric cells;
   recover only that explicit header, retain raw row provenance, and remove paired
   display emphasis without altering values. Docling bullets before hierarchical
   clause numbers must start independent rules, not absorb whole sections. Cover
   footnotes may contain real obligations/actors, but purpose statements remain
   supporting even when they contain modal verbs.
+- Follow-up cause/fix: fixed-three selection discarded independent targets;
+  source-target density replaces that product quota. Oversized author envelopes
+  are split by exact axes, with complete cited facts and child-scoped parsers.
+  Irreducible size failures must be recorded even below a recoverable parent
+  batch and included in the author-stage failure window; otherwise a missing
+  test falsely becomes a completed omission. Review-only batch failures that
+  recover individually are not classified as final failures.
+- Display follow-up: naive sentence splitting at every period deleted a
+  numeric-only middle date component during source restoration and separated
+  hierarchical numbers/composite list markers. Protect numeric boundaries in
+  all three grounding/dedup sites, not merely the final formatter. The stricter
+  visible-artifact gate is separate from source admission: reusing it there
+  silently discards a complete operational rule. Never infer a missing value.
+  A distractor that repeats all exception classes but merely omits their
+  authorization qualifier is ambiguous, not proven wrong; bound repair to its
+  original option index and immutable answer key.
 - Verification: deterministic baseline RED and original DOCX limit-loss RED;
   corrected admission preserves independently read original limit/procedure
   phrases. Source-roundtrip inline/OCR-list RED/GREEN and independent review
