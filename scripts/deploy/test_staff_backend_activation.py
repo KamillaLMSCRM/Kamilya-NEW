@@ -13,6 +13,14 @@ PREVIOUS = {**correction.CANDIDATE, "staff_structure": False}
 CANDIDATE = {**PREVIOUS, "staff_structure": True}
 
 
+def test_ci_runs_staff_delivery_contracts():
+    root = Path(__file__).resolve().parents[2]
+    workflow = (root / ".github/workflows/ci.yml").read_text()
+    block = workflow.split("      - name: Render-like release-plane contract tests\n", 1)[1]
+    run = block.split("        run:", 1)[1].split("\n\n", 1)[0]
+    assert "../../scripts/deploy/test_staff_backend_activation.py" in run
+
+
 def payload(*, migration=True):
     data = correction.payload(migration=migration)
     data.update(schema_version=3, product_version="0.11.63",
