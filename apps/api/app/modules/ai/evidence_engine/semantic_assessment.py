@@ -1013,6 +1013,11 @@ async def generate_block_assessment(
         axes = tuple(derive_assessment_axes(lesson, facts, block_id=block_id))
         lesson_group_indexes[lesson.lesson_id].append(len(prepared_groups))
         prepared_groups.append((lesson, facts, block_id, axes))
+    axes_by_id = {
+        axis.axis_id: axis
+        for _lesson, _facts, _block_id, axes in prepared_groups
+        for axis in axes
+    }
 
     # A lesson is the learner-visible assessment seam. Select its source-owned
     # axes fairly across semantic blocks before any provider call, so a wide
@@ -1316,9 +1321,13 @@ async def generate_block_assessment(
         # otherwise assessable rich block. Every recovered candidate still goes
         # through the same independent review and constraint audit below.
         if candidates:
-            authored_fact_ids = {question.fact_id for question in candidates}
+            authored_axis_ids = {
+                axis_id
+                for question in candidates
+                if (axis_id := axis_by_question_id.get(question.question_id)) is not None
+            }
             for missing_axis in request_axes:
-                if missing_axis.primary_fact_id in authored_fact_ids:
+                if missing_axis.axis_id in authored_axis_ids:
                     continue
                 axis_record = axis_records[missing_axis.axis_id]
                 if axis_record["attempt_counts"]["replacement"] >= 1:
@@ -1345,10 +1354,10 @@ async def generate_block_assessment(
                 )
                 if recovered:
                     candidates.extend(recovered)
-                    authored_fact_ids.add(missing_axis.primary_fact_id)
                     for question in recovered:
                         axis_id = axis_by_question_id.get(question.question_id)
                         if axis_id is not None:
+                            authored_axis_ids.add(axis_id)
                             axis_records[axis_id]["attempt_counts"]["authored"] += 1
                             audit["attempt_counts"]["authored"] += 1
                 else:
@@ -1594,20 +1603,23 @@ async def generate_block_assessment(
                 if axis_id is not None:
                     axis_records[axis_id]["attempt_counts"]["model_repair"] += 1
                     audit["attempt_counts"]["model_repair"] += 1
-                repair_axes = tuple(
-                    axis for axis in request_axes
-                    if axis.primary_fact_id == rejected_question.fact_id
+                repair_axis = next(
+                    (
+                        axis for axis in request_axes
+                        if axis.axis_id == axis_id
+                    ),
+                    None,
                 )
-                if not repair_axes:
+                if repair_axis is None:
                     continue
                 repair_request = {**request, "task": "assessment_repair", "max_questions": 1,
                                   "axes": [{
-                                      "axis_id": repair_axes[0].axis_id,
-                                      "subject": repair_axes[0].subject,
-                                      "attribute": repair_axes[0].attribute,
-                                      "required_prompt": repair_axes[0].required_prompt,
-                                      "source_claim": repair_axes[0].correct_value,
-                                      "axis_kind": repair_axes[0].axis_kind,
+                                      "axis_id": repair_axis.axis_id,
+                                      "subject": repair_axis.subject,
+                                      "attribute": repair_axis.attribute,
+                                      "required_prompt": repair_axis.required_prompt,
+                                      "source_claim": repair_axis.correct_value,
+                                      "axis_kind": repair_axis.axis_kind,
                                   }],
                                   "rejected": [{"question_id": rejected_question.question_id,
                                                 "prompt": rejected_question.prompt,
@@ -1620,9 +1632,9 @@ async def generate_block_assessment(
                                                     rejected_question, rejection_reasons[
                                                         rejected_question.question_id])}]}
                 repair_results = await invoke(AUTHOR_PROMPT, repair_request,
-                    partial(_parse_axis_questions, axes=repair_axes[:1], maximum=1,
+                    partial(_parse_axis_questions, axes=(repair_axis,), maximum=1,
                             repair_targets={rejected_question.question_id: rejected_question}),
-                    failure_axis_ids=(repair_axes[0].axis_id,)) or []
+                    failure_axis_ids=(repair_axis.axis_id,)) or []
                 for repaired_question in repair_results:
                     unchanged = (
                         _norm(repaired_question.prompt) == _norm(rejected_question.prompt)
@@ -1635,7 +1647,7 @@ async def generate_block_assessment(
                         # The same failed candidate (even reordered) cannot
                         # improve by paying for a second semantic/constraint
                         # judgment. Keep the omission and its original reasons.
-                        record = axis_records[repair_axes[0].axis_id]
+                        record = axis_records[repair_axis.axis_id]
                         record["state"] = "omitted"
                         record["reason"] += ";assessment_repair_no_progress"
                         continue
@@ -1749,10 +1761,13 @@ async def generate_block_assessment(
             record["state"] = "omitted"
             if record["reason"] == "assessment_not_completed":
                 record["reason"] = "semantic_rejection"
+    records_by_fact: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for record in axis_records.values():
+        records_by_fact[record["primary_fact_id"]].append(record)
     audited_omitted_fact_ids = {
-        record["primary_fact_id"]
-        for record in axis_records.values()
-        if record["state"] == "omitted"
+        fact_id
+        for fact_id, records in records_by_fact.items()
+        if records and all(record["state"] == "omitted" for record in records)
     }
     audit["coverage"] = assess_topic_coverage(
         planned_facts,
@@ -1760,6 +1775,48 @@ async def generate_block_assessment(
         audit["block_outcomes"],
         audited_omitted_fact_ids=audited_omitted_fact_ids,
     )
+    structured_list_axis_coverage: list[dict[str, Any]] = []
+    critical_missing_axis_ids: set[str] = set()
+    axes_by_parent: dict[tuple[str, str], list[AssessmentAxis]] = defaultdict(list)
+    for axis in axes_by_id.values():
+        axes_by_parent[(axis.lesson_id, axis.primary_fact_id)].append(axis)
+    for (lesson_id, fact_id), parent_axes in axes_by_parent.items():
+        if len(parent_axes) < 2:
+            continue
+        derived_axis_ids = [axis.axis_id for axis in parent_axes]
+        retained_axis_ids = [
+            axis_id for axis_id in derived_axis_ids
+            if axis_records[axis_id]["state"] == "retained"
+        ]
+        omitted_axis_ids = [
+            axis_id for axis_id in derived_axis_ids
+            if axis_records[axis_id]["state"] == "omitted"
+        ]
+        uncovered_axis_ids = [
+            axis_id for axis_id in derived_axis_ids
+            if axis_records[axis_id]["state"] == "uncovered"
+        ]
+        missing_axis_ids = [
+            axis_id for axis_id in derived_axis_ids
+            if axis_id not in retained_axis_ids
+        ]
+        critical_missing_axis_ids.update(missing_axis_ids)
+        structured_list_axis_coverage.append({
+            "lesson_id": lesson_id,
+            "primary_fact_id": fact_id,
+            "derived_axis_ids": derived_axis_ids,
+            "retained_axis_ids": retained_axis_ids,
+            "omitted_axis_ids": omitted_axis_ids,
+            "uncovered_axis_ids": uncovered_axis_ids,
+            "critical_missing_axis_ids": missing_axis_ids,
+            "complete": not missing_axis_ids,
+        })
+    audit["structured_list_axis_coverage"] = structured_list_axis_coverage
+    audit["coverage"]["critical_missing_axis_ids"] = sorted(
+        critical_missing_axis_ids
+    )
+    if critical_missing_axis_ids:
+        audit["coverage"]["requires_review"] = True
     selection_coverage = []
     critical_missing_fact_ids: set[str] = set()
     for selection in narrative_selections:
@@ -1791,6 +1848,7 @@ async def generate_block_assessment(
             and audit["questions_per_lesson"].get(record["lesson_id"], 0) > 0
             and record["primary_fact_id"] not in missing_fact_ids
             and record["primary_fact_id"] not in critical_missing_fact_ids
+            and record["axis_id"] not in critical_missing_axis_ids
         ):
             # The exact provider failure remains visible, but a rejected extra
             # candidate must not block an otherwise covered lesson forever.
@@ -1816,10 +1874,17 @@ async def generate_block_assessment(
         "omitted_contract_count": audit["omitted_count"],
         "unassessable_source_count": audit["unassessable_count"],
         "uncovered_contract_count": audit["uncovered_count"],
-        "audit_incomplete": bool(audit["uncovered_count"]),
+        "audit_incomplete": bool(
+            audit["uncovered_count"] or critical_missing_axis_ids
+        ),
     }
+    if critical_missing_axis_ids:
+        audit["contract_coverage"]["critical_missing_contract_count"] = len(
+            critical_missing_axis_ids
+        )
     if (audit["unresolved_quality_signals"] or audit["uncovered_count"]
-            or audit["coverage"]["audit_incomplete"] or critical_missing_fact_ids):
+            or audit["coverage"]["audit_incomplete"] or critical_missing_fact_ids
+            or critical_missing_axis_ids):
         audit["terminal_status"] = "review_required"
     elif audit["omitted_count"] or audit["unassessable_count"]:
         audit["terminal_status"] = "completed_with_warnings"

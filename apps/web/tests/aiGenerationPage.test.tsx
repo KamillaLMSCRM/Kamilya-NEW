@@ -87,17 +87,25 @@ describe('/ai/generate job workflow parity', () => {
   ])('offers a new course without cancelling the saved assessment-review draft: %j', async (...errors) => {
     const savedDraftJob = {
       ...activeJob, status: 'interrupted', stage: 'interrupted', progress: 100,
+      progress_current: 6, progress_total: 6,
       errors, message: 'Lessons saved; assessment requires review.',
     };
     apiMock.get.mockImplementation(async (url: string) => {
       if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
       if (url === `/v1/ai/jobs/${activeJob.id}`) return { data: savedDraftJob } as any;
+      if (url === `/v1/courses/${activeJob.course_id}/preview`) return { data: { lessons_count: 6, quizzes_count: 2 } } as any;
       throw new Error(`Unexpected GET ${url}`);
     });
 
     render(<AIGeneratePage />);
 
     expect(await screen.findByRole('button', { name: 'Открыть сохранённый черновик' })).toBeInTheDocument();
+    expect(screen.getByTestId('partial-generation-result')).toHaveTextContent('Готов частично');
+    expect(screen.getByTestId('partial-generation-result')).toHaveTextContent('Сохранено уроков: 6 / 6');
+    expect(await screen.findByText('6 уроков')).toBeInTheDocument();
+    expect(screen.getByText('2 теста')).toBeInTheDocument();
+    expect(document.querySelector('[data-generation-stage="assessment"]')).toHaveAttribute('data-stage-state', 'terminal');
+    expect(document.querySelector('[data-generation-stage="content_generation"]')).toHaveAttribute('data-stage-state', 'done');
     expect(screen.getByRole('button', { name: 'Создать новый курс' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Создать новый курс' }));
     expect(await screen.findByText(/Перетащите документы/)).toBeInTheDocument();
@@ -407,6 +415,39 @@ function mockCatalogWith(items: any[]) {
 }
 
 describe('/ai/generate multi-document selection contract', () => {
+  it('shows a bounded recent page, loads more sources, and preserves selections across pages', async () => {
+    localStorage.clear();
+    const manyDocuments = Array.from({ length: 25 }, (_, index) => ({
+      ...readyDocuments[0],
+      id: `paged-doc-${index + 1}`,
+      title: `Документ ${index + 1}`,
+      filename: `source-${index + 1}.pdf`,
+    }));
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url === '/v1/documents/catalog?lifecycle_status=active&limit=20') {
+        return { data: { items: manyDocuments.slice(0, 20), page: { has_more: true, next_cursor: 'page-2', limit: 20 } } } as any;
+      }
+      if (url === '/v1/documents/catalog?lifecycle_status=active&limit=20&cursor=page-2') {
+        return { data: { items: manyDocuments.slice(20), page: { has_more: false, next_cursor: null, limit: 20 } } } as any;
+      }
+      if (url === '/v1/ai/jobs?scope=mine') return { data: [] } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+
+    render(<AIGeneratePage />);
+
+    const firstDocument = await screen.findByRole('checkbox', { name: 'Выбрать документ Документ 1' });
+    expect(screen.queryByRole('checkbox', { name: 'Выбрать документ Документ 21' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('generation-document-list')).toHaveClass('overflow-y-auto');
+    fireEvent.click(firstDocument);
+    fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }));
+
+    expect(await screen.findByRole('checkbox', { name: 'Выбрать документ Документ 25' })).toBeInTheDocument();
+    expect(screen.getByText('source-25.pdf')).toBeInTheDocument();
+    expect(firstDocument).toBeChecked();
+    expect(apiMock.get).toHaveBeenCalledWith('/v1/documents/catalog?lifecycle_status=active&limit=20&cursor=page-2');
+  });
+
   it('uses an automatic course format and keeps module count as an advanced override', async () => {
     mockCatalogWith(readyDocuments);
     render(<AIGeneratePage />);

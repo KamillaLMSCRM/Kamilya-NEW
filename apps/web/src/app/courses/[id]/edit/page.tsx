@@ -81,7 +81,7 @@ export default function CourseEditPage() {
   const [editLessonContent, setEditLessonContent] = useState('');
   const [savedLessonTitle, setSavedLessonTitle] = useState('');
   const [savedLessonContent, setSavedLessonContent] = useState('');
-  const [lessonView, setLessonView] = useState<'edit' | 'preview'>('edit');
+  const [lessonView, setLessonView] = useState<'edit' | 'preview'>('preview');
   const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
   const [savingLesson, setSavingLesson] = useState(false);
   const [releaseAction, setReleaseAction] = useState<'approve' | 'publish' | null>(null);
@@ -375,7 +375,7 @@ export default function CourseEditPage() {
       setEditLessonContent(data.content || '');
       setSavedLessonTitle(data.title || '');
       setSavedLessonContent(data.content || '');
-      setLessonView('edit');
+      setLessonView('preview');
     } catch (error) {
       toast.error(t('authenticatedUi.editor.openLessonFailed'), { description: (error as Error).message });
     } finally {

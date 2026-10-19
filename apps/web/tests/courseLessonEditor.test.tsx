@@ -171,11 +171,36 @@ function setupFetch(patchStatus = 200, courseStructure = structure, lessonOverri
   vi.stubGlobal('fetch', fetchMock);
 }
 
-function openLessonEditor() {
+async function openLessonEditor() {
   fireEvent.click(screen.getByRole('button', { name: 'Введение' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Редактор' }));
 }
 
 describe('course lesson editor', () => {
+  it('opens selected lessons as rendered content and returns to preview for another lesson', async () => {
+    setupFetch(200, structureWithTwoLessons);
+    render(<CourseEditPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Введение' }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Старое содержание' })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Содержание урока' })).not.toBeInTheDocument();
+    expect(screen.queryByText('# Старое содержание', { exact: true })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Редактор' }));
+    const contentEditor = screen.getByRole('textbox', { name: 'Содержание урока' });
+    expect(contentEditor).toHaveValue(lesson.content);
+    fireEvent.change(contentEditor, { target: { value: '# Несохранённый текст' } });
+    confirmMock.mockResolvedValueOnce(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Отменить изменения' }));
+    await waitFor(() => expect(contentEditor).toHaveValue(lesson.content));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Практика' }));
+    expect(await screen.findByRole('heading', { level: 2, name: 'Практика' })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Содержание урока' })).not.toBeInTheDocument();
+    expect(screen.queryByText('## Практика', { exact: true })).not.toBeInTheDocument();
+  });
+
   it('names the module rename field for keyboard and screen-reader users', async () => {
     setupFetch();
     render(<CourseEditPage />);
@@ -251,7 +276,7 @@ describe('course lesson editor', () => {
 
   it('keeps lesson actions wrapped and reserves a wide editor before placing properties beside it', async () => {
     setupFetch(); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     await screen.findByRole('textbox', { name: 'Содержание урока' });
     const save = screen.getByRole('button', { name: 'common.save' });
     expect(save.parentElement).toHaveClass('flex-wrap', 'max-w-full');
@@ -295,7 +320,7 @@ describe('course lesson editor', () => {
 
   it('integrates a verified fresh correction without issuing a manual PATCH', async () => {
     correctionHarness.enabled = true; setupFetch(); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     fireEvent.click(await screen.findByRole('button', { name: 'Apply synthetic correction' }));
     expect(screen.getByRole('textbox', { name: 'Содержание урока' })).toHaveValue('# AI-правка');
     expect(screen.queryByText('Есть несохранённые изменения')).not.toBeInTheDocument();
@@ -304,7 +329,7 @@ describe('course lesson editor', () => {
 
   it('keeps the feature-OFF editor controls in a labeled accessible group', async () => {
     setupFetch(); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     await screen.findByRole('textbox', { name: 'Содержание урока' });
     expect(screen.getByRole('group', { name: 'courses.editCourse' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Apply synthetic correction' })).not.toBeInTheDocument();
@@ -312,7 +337,7 @@ describe('course lesson editor', () => {
 
   it('suppresses only an exact duplicate first-level title in the editor preview', async () => {
     setupFetch(200, structure, { ...lesson, content: '# Введение\r\n\r\nТекст урока' }); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     await screen.findByRole('textbox', { name: 'Содержание урока' });
     fireEvent.click(screen.getByRole('button', { name: 'Предпросмотр' }));
     expect(screen.getAllByRole('heading', { level: 1, name: 'Введение' })).toHaveLength(1);
@@ -321,7 +346,7 @@ describe('course lesson editor', () => {
 
   it('preserves later manual changes even if a correction callback arrives', async () => {
     correctionHarness.enabled = true; setupFetch(); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: '# Поздняя ручная правка' } });
     fireEvent.click(screen.getByRole('button', { name: 'Apply synthetic correction' }));
     expect(screen.getByRole('textbox', { name: 'Содержание урока' })).toHaveValue('# Поздняя ручная правка');
@@ -330,7 +355,7 @@ describe('course lesson editor', () => {
 
   it('disables editor and lesson navigation during a correction write', async () => {
     correctionHarness.enabled = true; setupFetch(200, structureWithTwoLessons); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     fireEvent.click(await screen.findByRole('button', { name: 'Begin correction' }));
     expect(screen.getByRole('textbox', { name: 'Содержание урока' })).toBeDisabled();
     expect(screen.getByRole('textbox', { name: 'Название урока' })).toBeDisabled();
@@ -339,11 +364,12 @@ describe('course lesson editor', () => {
 
   it('clears only the previous correction pointer on accepted lesson selection', async () => {
     correctionHarness.enabled = true; setupFetch(200, structureWithTwoLessons); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     await screen.findByRole('button', { name: 'Apply synthetic correction' });
     window.history.replaceState({}, '', '/courses/course-1/edit?correction_plan=opaque-old-plan&other=keep#editor');
     fireEvent.click(screen.getByRole('button', { name: 'Практика' }));
-    await screen.findByDisplayValue('## Практика');
+    await screen.findByRole('heading', { level: 2, name: 'Практика' });
+    expect(screen.queryByRole('textbox', { name: 'Содержание урока' })).not.toBeInTheDocument();
     expect(new URL(window.location.href).searchParams.get('correction_plan')).toBeNull();
     expect(new URL(window.location.href).searchParams.get('other')).toBe('keep'); expect(window.location.hash).toBe('#editor');
   });
@@ -353,7 +379,7 @@ describe('course lesson editor', () => {
     render(<CourseEditPage />);
 
     await screen.findByText('Введение');
-    openLessonEditor();
+    await openLessonEditor();
 
     await screen.findByText('Рабочая область урока');
     expect(fetchMock).toHaveBeenCalledWith(
@@ -389,7 +415,7 @@ describe('course lesson editor', () => {
     render(<CourseEditPage />);
 
     await screen.findByText('Введение');
-    openLessonEditor();
+    await openLessonEditor();
     await screen.findByText('Рабочая область урока');
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Содержание урока' }), {
@@ -406,7 +432,7 @@ describe('course lesson editor', () => {
     render(<CourseEditPage />);
 
     await screen.findByRole('button', { name: 'Введение' });
-    openLessonEditor();
+    await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), {
       target: { value: '# Несохранённый текст' },
     });
@@ -427,7 +453,7 @@ describe('course lesson editor', () => {
     render(<CourseEditPage />);
 
     await screen.findByRole('button', { name: 'Введение' });
-    openLessonEditor();
+    await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), {
       target: { value: '# Несохранённый текст' },
     });
@@ -455,7 +481,7 @@ describe('course lesson editor', () => {
     render(<CourseEditPage />);
 
     await screen.findByRole('button', { name: 'Введение' });
-    openLessonEditor();
+    await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), {
       target: { value: '# Несохранённый текст' },
     });
@@ -480,7 +506,7 @@ describe('course lesson editor', () => {
     render(<CourseEditPage />);
 
     await screen.findByRole('button', { name: 'Введение' });
-    openLessonEditor();
+    await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), {
       target: { value: '# Несохранённый текст' },
     });
@@ -506,7 +532,7 @@ describe('course lesson editor', () => {
     render(<CourseEditPage />);
 
     await screen.findByRole('button', { name: 'Введение' });
-    openLessonEditor();
+    await openLessonEditor();
     await screen.findByRole('textbox', { name: 'Содержание урока' });
     fireEvent.click(screen.getByRole('button', { name: 'Удалить урок {title}' }));
 
@@ -526,7 +552,7 @@ describe('course lesson editor', () => {
     confirmMock.mockResolvedValueOnce(true);
     render(<CourseEditPage />);
     await screen.findByRole('button', { name: 'Введение' });
-    openLessonEditor();
+    await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: '# Несохранённый текст' } });
     fireEvent.click(screen.getByRole('button', { name: 'Удалить урок {title}' }));
     await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('Не удалось удалить'));

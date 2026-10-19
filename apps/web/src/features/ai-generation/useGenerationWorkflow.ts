@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useReducer } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { api } from '@/lib/api';
 import {
   selectOldestActiveCourseJob,
@@ -15,8 +15,50 @@ import {
 
 const activeJobStorageKey = 'ai_active_job_id';
 const workflowContextStorageKey = 'ai_generation_workflow_context';
+const terminalResetBoundaryStorageKey = 'ai_generation_terminal_reset_boundary';
 const isActive = (job: AIGenerationJob) => job.status === 'pending' || job.status === 'running';
 const isRestorable = (job: AIGenerationJob) => isActive(job) || job.status === 'interrupted';
+const isTerminal = (job: AIGenerationJob) => ['completed', 'failed', 'cancelled', 'interrupted'].includes(job.status);
+
+interface TerminalResetBoundary {
+  reset_at: number;
+  job_id: string;
+}
+
+function readTerminalResetBoundary(): TerminalResetBoundary | null {
+  const raw = localStorage.getItem(terminalResetBoundaryStorageKey);
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as Partial<TerminalResetBoundary>;
+    if (!Number.isFinite(value.reset_at) || typeof value.job_id !== 'string' || !value.job_id) return null;
+    return { reset_at: value.reset_at!, job_id: value.job_id };
+  } catch {
+    return null;
+  }
+}
+
+function recordTerminalResetBoundary(job: AIGenerationJob | null) {
+  if (!job || !isTerminal(job)) return;
+  const existing = readTerminalResetBoundary();
+  const jobTimestamp = Math.max(
+    Number.isFinite(Date.parse(job.created_at)) ? Date.parse(job.created_at) : 0,
+    Number.isFinite(Date.parse(job.updated_at)) ? Date.parse(job.updated_at) : 0,
+  );
+  const boundary = {
+    reset_at: Math.max(existing?.reset_at ?? 0, Date.now(), jobTimestamp),
+    job_id: job.id,
+  };
+  localStorage.setItem(terminalResetBoundaryStorageKey, JSON.stringify(boundary));
+}
+
+function wasInterruptedBeforeReset(job: AIGenerationJob): boolean {
+  if (job.status !== 'interrupted') return false;
+  const boundary = readTerminalResetBoundary();
+  if (!boundary) return false;
+  if (job.id === boundary.job_id) return true;
+  const createdAt = Date.parse(job.created_at);
+  return !Number.isFinite(createdAt) || createdAt <= boundary.reset_at;
+}
 
 function readWorkflowContext(): AIGenerationWorkflowContext | null {
   const raw = localStorage.getItem(workflowContextStorageKey);
@@ -49,10 +91,15 @@ function actionForPolledJob(job: AIGenerationJob): GenerationWorkflowAction {
 
 export function useGenerationWorkflow(requestedProgramId: string | null = null) {
   const [state, dispatch] = useReducer(generationWorkflowReducer, initialGenerationWorkflowState);
+  const restoreEpochRef = useRef(0);
 
   const restoreFromJobList = useCallback(async () => {
+    const restoreEpoch = restoreEpochRef.current;
     const response = await api.get<AIGenerationJob[]>('/v1/ai/jobs?scope=mine');
-    const activeJob = selectOldestActiveCourseJob(response.data);
+    if (restoreEpoch !== restoreEpochRef.current) return;
+    const activeJob = selectOldestActiveCourseJob(
+      response.data.filter((job) => !wasInterruptedBeforeReset(job)),
+    );
     if (activeJob) {
       const savedContext = readWorkflowContext();
       const programId = savedContext?.job_id === activeJob.id ? savedContext.program_id : null;
@@ -67,6 +114,7 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
   }, []);
 
   const restoreActiveJob = useCallback(async () => {
+    const restoreEpoch = restoreEpochRef.current;
     const savedContext = readWorkflowContext();
     const savedJobId = localStorage.getItem(activeJobStorageKey) || savedContext?.job_id;
     if (!savedJobId) {
@@ -80,9 +128,10 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
 
     try {
       const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${savedJobId}`);
+      if (restoreEpoch !== restoreEpochRef.current) return;
       const job = response.data;
       const programId = savedContext?.job_id === job.id ? savedContext.program_id : null;
-      if (isRestorable(job)) dispatch({ type: 'job_restored', job, programId });
+      if (isRestorable(job) && !wasInterruptedBeforeReset(job)) dispatch({ type: 'job_restored', job, programId });
       else {
         localStorage.removeItem(activeJobStorageKey);
         clearWorkflowContext();
@@ -104,6 +153,7 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
   }, [restoreFromJobList]);
 
   const startJob = useCallback((job: AIGenerationJob) => {
+    restoreEpochRef.current += 1;
     const programId = requestedProgramId || state.programId;
     localStorage.setItem(activeJobStorageKey, job.id);
     persistWorkflowContext(job.id, programId);
@@ -112,7 +162,9 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
 
   const refreshJob = useCallback(async () => {
     if (!state.currentJob) return;
+    const refreshEpoch = restoreEpochRef.current;
     const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${state.currentJob.id}`);
+    if (refreshEpoch !== restoreEpochRef.current) return;
     const job = response.data;
     dispatch(actionForPolledJob(job));
     if (!isRestorable(job)) {
@@ -124,6 +176,7 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
   const cancelJob = useCallback(async () => {
     if (!state.currentJob) return;
     await api.post(`/v1/ai/jobs/${state.currentJob.id}/cancel`);
+    restoreEpochRef.current += 1;
     localStorage.removeItem(activeJobStorageKey);
     clearWorkflowContext();
     dispatch({ type: 'job_cleared' });
@@ -138,16 +191,20 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
   }, [state.currentJob, state.programId]);
 
   const prepareRetry = useCallback(() => {
+    restoreEpochRef.current += 1;
+    recordTerminalResetBoundary(state.currentJob);
     localStorage.removeItem(activeJobStorageKey);
     clearWorkflowContext();
     dispatch({ type: 'job_cleared' });
-  }, []);
+  }, [state.currentJob]);
 
   const resetWorkflow = useCallback(() => {
+    restoreEpochRef.current += 1;
+    recordTerminalResetBoundary(state.currentJob);
     localStorage.removeItem(activeJobStorageKey);
     clearWorkflowContext();
     dispatch({ type: 'job_cleared' });
-  }, []);
+  }, [state.currentJob]);
 
   useEffect(() => {
     const job = state.currentJob;

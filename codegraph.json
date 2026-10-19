@@ -8,6 +8,7 @@
     "graphify-out/**",
     "outputs/**",
     "docs/**",
+    "**/docs/**",
     "**/node_modules/**",
     "**/.venv/**",
     "**/.next/**",

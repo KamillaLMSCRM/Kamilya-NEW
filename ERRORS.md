@@ -8942,3 +8942,32 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   privileges/hidden parents, valid and four corrupt-reference cases, exact roles,
   policies, rows/catalog preservation and fresh schema/role absence. An empty
   privileged upgrade and HTTP health cannot substitute for this role-bound gate.
+
+## AI-QUALITY-050 - Operational tables and flattened lists lost teaching scope
+
+- Date: 2026-10-19. Original-document synthetic-QA baseline was preserved before
+  the separately approved exact three-draft/two-source cleanup.
+- Symptom: meaningful limit tables absent from a generated course, administrative
+  cover text taught as content, dense multi-thousand-character paragraphs and
+  only two or three fire-safety questions with critical missing coverage.
+- Cause: unheaded operational tables inherited cover/supporting classification;
+  normalized source text lost display boundaries; a source-owned paragraph/list
+  selected one answer axis and later repair matched only its parent fact. Tests
+  passing handwritten newline-bearing SourceFacts missed the actual flattened
+  DocumentChunker/admission seam.
+- Fix candidate: narrow operational-table admission with metadata/catalog
+  negatives, navigation/signature exclusion, whitespace-only post-grounding
+  layout, distinct explicit-list axes with exact-axis repair/recovery and honest
+  missing-coverage audit. Quality policy v5; no changed parent evidence IDs,
+  provider route, grounding guard or migration. Conditions/exceptions must remain
+  part of exact source-owned claims, not be dropped to increase question counts.
+- Verification: deterministic baseline RED and original DOCX limit-loss RED;
+  corrected admission preserves independently read original limit/procedure
+  phrases. Source-roundtrip inline/OCR-list RED/GREEN and independent review
+  found additional conditional/prohibition/exception/mixed-marker cases. Fresh
+  real-model DEV and production acceptance remain separate mandatory gates;
+  local test counts do not establish semantic quality.
+- Prevention: review complete original-source outputs, not aggregate counts;
+  exercise conversion/normalization/admission before axis derivation, inspect
+  every retained question/key/distractor and all critical omitted topics. Retain
+  explicit review-required results instead of manufacturing completed status.

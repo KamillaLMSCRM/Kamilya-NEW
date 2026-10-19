@@ -37,9 +37,10 @@ for (const video of qa.videos) {
 }
 let html = fs.readFileSync(path.join(source, 'index.html'), 'utf8');
 assert.equal((html.match(/<video /g) || []).length, 8);
-assert.ok(html.includes('Мужской синтетический голос Qwen3-TTS.'));
+assert.ok(html.includes('8 процессов'));
 html = html.replace('<title>', '<meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src \'self\'; media-src \'self\'; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'; connect-src \'none\'; base-uri \'none\'; form-action \'none\'"><title>');
-html = html.replace('</h1>', '</h1><p><strong>Мужская озвучка Qwen · 8 процессов · 69 шагов · около 8 минут</strong></p><p><a href="/">Вернуться в кабинет</a> · <a href="methodologist-text.html">Текстовая инструкция со скриншотами</a></p>');
+html = html.replace('</h1>', '</h1><p><strong>8 процессов · 69 шагов · около 8 минут</strong></p><p><a href="/">Вернуться в кабинет</a> · <a href="methodologist-text.html">Текстовая инструкция со скриншотами</a></p>');
+html = html.replace(' Мужской синтетический голос Qwen3-TTS.', '');
 for (const asset of assets) {
   html = html.replaceAll(`src="${asset.name}"`, `src="methodologist-qwen-male/${asset.name}"`)
     .replaceAll(`poster="${asset.name}"`, `poster="methodologist-qwen-male/${asset.name}"`)

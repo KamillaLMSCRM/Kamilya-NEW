@@ -22,7 +22,8 @@ describe('published male Qwen methodologist video guide', () => {
     expect(document.querySelectorAll('video')).toHaveLength(8);
     expect(document.querySelectorAll('button[data-seek]')).toHaveLength(69);
     expect(document.querySelectorAll('track[kind="captions"][srclang="ru"]')).toHaveLength(8);
-    expect(html).toContain('Мужской синтетический голос Qwen3-TTS');
+    expect(html).not.toMatch(/Мужск|Qwen3-TTS|Qwen\s*·/i);
+    expect(html).toContain('8 процессов · 69 шагов · около 8 минут');
     expect(manifest.videos.map((v: { steps: number }) => v.steps)).toEqual(expectedSteps);
     for (const [index, video] of [...document.querySelectorAll('video')].entries()) {
       const buttons = document.querySelectorAll(`button[data-video="${manifest.videos[index].id}"]`);

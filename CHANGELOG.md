@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Course quality correction candidate (2026-10-19)
+
+- Preserve operational limit tables before the first document heading while
+  keeping administrative cover metadata and reference catalogs non-teachable.
+- Restore readable lesson paragraphs and explicit rule lists without changing
+  grounded text, numeric conditions, exceptions or source evidence.
+- Derive distinct operational-list assessment axes and repair/recover each exact
+  axis instead of confusing sibling claims from the same source fragment.
+  Critical assessment omissions remain explicit; no quota padding or relaxed
+  answer/grounding checks. Quality policy v5 invalidates old resume assumptions.
+- Show partial generation as a saved result requiring review, bound the source
+  chooser, and keep a fresh-course reset stable across reloads.
+- Separate own courses from templates using a readable list. Remove technical
+  voice/model labels from customer-facing video instructions; media unchanged.
+- Candidate only: fresh original-document DEV semantic acceptance and production
+  delivery remain required. No schema, routing, billing or resource change.
+
 ### Historical DEV candidate: four bounded improvements (2026-10-19)
 
 - Preserve an unsaved assignment dialogue when the next request supplies only

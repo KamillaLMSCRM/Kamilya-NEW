@@ -5307,3 +5307,31 @@ Rules:
   handoff/release65 updated; owned temporary plan removed. Runtime/tag65 frozen;
   closeout documentation only, no new deployment or retag. Unrelated output/ and
   primary checkout residue preserved.
+
+## TEST-LOMBARD66-LOCAL-20261019 — candidate, not semantic/release acceptance
+
+- Root-owned original-document baseline captured privately, deterministic RED:
+  missing assessment coverage, cover fragment lesson, unstructured4398-char block.
+  Original DOCX replay RED lost limit-table amounts; corrected source admission
+  preserves seven independently read limit/procedure anchors, local-only1PASS.
+- Test Runner R1 absolute spaced JUnit argument was HARNESS_FAILURE/zero collected;
+  its exact zero-test `apps/api/C` output was inspected and removed by root.
+  Corrected R2 canonical wrapper:3277unit PASS/0skip/49.42s, report SHA256
+  5a1c65fd5e352d1f183f6060e7c2e483562d1174b06ad5488e2cd2a879326b0d.
+  That matrix precedes final review-driven parser corrections, not final-SHA proof.
+- Root web173files/1343PASS/88.38s; targeted40PASS, editor76PASS and stale-poll
+  RED/GREEN7PASS; shared-source/assessment179PASS, critical journey27PASS.
+  Canonical Python quality ruff1005/mypy2170 PASS. Focused source6PASS includes
+  metadata-table negative and whitespace/amount/abbreviation preservation.
+- Actual isolated Supabase DEV application gate HBR-DEV-APP-20261019T075755Z:
+  READY/all21checks,0183/public metadata unchanged, exact owned schema absent.
+  No Docker DB, provider/model or production schema change.
+- Independent source review found metadata-table false promotion, now covered;
+  axis review found conditional/prohibition/exception/mixed-marker omissions,
+  correction in progress. Parent IDs and exact-axis repair are separate invariants.
+- Exact separately approved production QA three drafts/two source records removed
+  only after zero-learning and stored-file/local-original SHA256 equality; ordinary
+  APIs, absence verified,33journal entries preserved. Originals reuploaded in
+  production QA and existing DEV QA. No assignments, notifications or completions.
+- Real-model candidate DEV, browser acceptance, immutable CI and production
+  delivery are NOT VERIFIED here. No universal quality/human-speedup claim.

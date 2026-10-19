@@ -170,13 +170,17 @@ export default function AIGeneratePage() {
     resetWorkflow,
   } = useGenerationWorkflow(requestedProgramId);
   const step = currentJob ? workflowStep : pageStep;
+  const assessmentErrorCodes = currentJob && 'errors' in currentJob && Array.isArray(currentJob.errors)
+    ? currentJob.errors.flatMap((error) => {
+      if (typeof error === 'string') return [error];
+      if (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') return [error.code];
+      return [];
+    }).filter((code) => code === 'assessment_no_valid_questions' || code === 'assessment_coverage_incomplete')
+    : [];
   const savedAssessmentDraftId = (
     currentJob?.status === 'interrupted'
     && currentJob.course_id
-    && 'errors' in currentJob
-    && Array.isArray(currentJob.errors)
-    && currentJob.errors.some((code) =>
-      code === 'assessment_no_valid_questions' || code === 'assessment_coverage_incomplete')
+    && assessmentErrorCodes.length > 0
   ) ? currentJob.course_id : null;
   const [dragOver, setDragOver] = useState(false);
   const [uploadingCount, setUploadingCount] = useState(0);
@@ -191,6 +195,8 @@ export default function AIGeneratePage() {
   } | null>(null);
   const [documentLoadError, setDocumentLoadError] = useState('');
   const [catalogHasMore, setCatalogHasMore] = useState(false);
+  const [catalogNextCursor, setCatalogNextCursor] = useState<string | null>(null);
+  const [catalogLoadingMore, setCatalogLoadingMore] = useState(false);
   const [compatibility, setCompatibility] = useState<DocumentCompatibility | null>(null);
   const [compatibilityLoading, setCompatibilityLoading] = useState(false);
   const [compatibilityError, setCompatibilityError] = useState('');
@@ -219,6 +225,7 @@ export default function AIGeneratePage() {
 
   // Result-step state: preview of the generated course + approval.
   const [preview, setPreview] = useState<any | null>(null);
+  const [partialDraftCounts, setPartialDraftCounts] = useState<{ lessons: number; quizzes: number } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [courseMeta, setCourseMeta] = useState<any | null>(null); // includes review_status, reviewer
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
@@ -352,13 +359,14 @@ export default function AIGeneratePage() {
     };
   }, [selectedDocIds, selectedNotReadyCount, courseFormat, manualModules, numModules, t]);
 
-  const fetchDocuments = useCallback(async () => {
+  const fetchDocuments = useCallback(async (append = false, cursor?: string | null, preserveLoaded = false) => {
+    if (append) setCatalogLoadingMore(true);
     setDocumentLoadError('');
     try {
-      const res = await api.get<DocumentCatalogResponse>(
-        '/v1/documents/catalog?lifecycle_status=active&limit=100'
-      );
-      setDocuments(res.data.items.map((document) => ({
+      const params = new URLSearchParams({ lifecycle_status: 'active', limit: '20' });
+      if (cursor) params.set('cursor', cursor);
+      const res = await api.get<DocumentCatalogResponse>(`/v1/documents/catalog?${params.toString()}`);
+      const nextDocuments: Document[] = res.data.items.map((document) => ({
         id: document.id,
         title: document.title,
         filename: document.filename,
@@ -372,11 +380,21 @@ export default function AIGeneratePage() {
         short_summary: document.description || null,
         summary_ready: false,
         index_status: document.index.status,
-      })));
+      }));
+      setDocuments((current) => {
+        if (!append && !preserveLoaded) return nextDocuments;
+        const nextById = new Map(nextDocuments.map((document) => [document.id, document]));
+        const preserved = current.map((document) => nextById.get(document.id) ?? document);
+        const preservedIds = new Set(preserved.map((document) => document.id));
+        return [...preserved, ...nextDocuments.filter((document) => !preservedIds.has(document.id))];
+      });
       setCatalogHasMore(res.data.page.has_more);
+      setCatalogNextCursor(res.data.page.next_cursor);
     } catch (error) {
       console.error('Document catalog load failed', error);
       setDocumentLoadError(t('aiGeneration.errors.documentLoad'));
+    } finally {
+      if (append) setCatalogLoadingMore(false);
     }
   }, [t]);
 
@@ -408,7 +426,7 @@ export default function AIGeneratePage() {
 
   useEffect(() => {
     if (!hasProcessingDocuments) return;
-    const timer = window.setInterval(() => void fetchDocuments(), 3000);
+    const timer = window.setInterval(() => void fetchDocuments(false, null, true), 3000);
     return () => window.clearInterval(timer);
   }, [fetchDocuments, hasProcessingDocuments]);
 
@@ -448,7 +466,7 @@ export default function AIGeneratePage() {
           },
         }));
       }
-      await fetchDocuments();
+      await fetchDocuments(false, null, true);
     } catch (e) {
       const duplicate = getDuplicateDocumentConflict(e);
       if (duplicate) {
@@ -517,7 +535,7 @@ export default function AIGeneratePage() {
         return changed ? next : current;
       });
       if (!cancelled && updates.some((update) => update && ['completed', 'failed', 'cancelled', 'interrupted'].includes(update[1].status))) {
-        void fetchDocuments();
+        void fetchDocuments(false, null, true);
       }
     };
 
@@ -629,6 +647,26 @@ export default function AIGeneratePage() {
       setPreviewLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!savedAssessmentDraftId) {
+      setPartialDraftCounts(null);
+      return;
+    }
+    let cancelled = false;
+    api.get(`/v1/courses/${savedAssessmentDraftId}/preview`)
+      .then((response) => {
+        const lessons = response.data?.lessons_count;
+        const quizzes = response.data?.quizzes_count;
+        if (!cancelled && Number.isInteger(lessons) && lessons >= 0 && Number.isInteger(quizzes) && quizzes >= 0) {
+          setPartialDraftCounts({ lessons, quizzes });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPartialDraftCounts(null);
+      });
+    return () => { cancelled = true; };
+  }, [savedAssessmentDraftId]);
 
   // Reload preview when we land on the review step with a course_id.
   useEffect(() => {
@@ -1032,6 +1070,7 @@ export default function AIGeneratePage() {
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
                 {t('aiGeneration.documents.selected', { count: tp('common.counts.document', selectedDocIds.length) })}
               </div>
+              <div className="max-h-[32rem] space-y-2 overflow-y-auto pr-1" data-testid="generation-document-list">
               {documents.map(doc => {
                 // Catalog is filtered to active sources. Original-file validation,
                 // not embedding availability, determines admission on the server.
@@ -1120,6 +1159,7 @@ export default function AIGeneratePage() {
                   </div>
                 );
               })}
+              </div>
               {failedDocumentsCount > 0 && (
                 <div className="flex items-start justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   <span>
@@ -1135,8 +1175,16 @@ export default function AIGeneratePage() {
                 </div>
               )}
               {catalogHasMore && (
-                <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                  {t('aiGeneration.documents.catalogMore')}
+                <div className="flex justify-center pt-1">
+                  <button
+                    type="button"
+                    disabled={catalogLoadingMore || !catalogNextCursor}
+                    onClick={() => void fetchDocuments(true, catalogNextCursor)}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+                  >
+                    {catalogLoadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {t('documents.loadMore')}
+                  </button>
                 </div>
               )}
             </div>
@@ -1379,6 +1427,15 @@ export default function AIGeneratePage() {
             estimatedWait={t('ai.estimatedWait', { minutes: Math.max(1, Math.ceil((currentJob.estimated_wait_seconds ?? 0) / 60)) })}
             queueEstimateHint={t('ai.queueEstimateHint')}
             completedUnitsLabel={t('ai.savedLessonsProgress')}
+            terminalResult={savedAssessmentDraftId ? {
+              stageKey: 'assessment',
+              title: t('aiGeneration.status.partial'),
+              detail: t('ai.assessmentNeedsReview'),
+              summaryItems: partialDraftCounts ? [
+                tp('common.counts.lesson', partialDraftCounts.lessons),
+                tp('common.counts.test', partialDraftCounts.quizzes),
+              ] : [],
+            } : undefined}
             onRetry={savedAssessmentDraftId ? () => router.push(`/courses/${savedAssessmentDraftId}/edit`) : currentJob.status === 'interrupted' ? () => void resumeJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : resolveAsyncOperationState(currentJob) === 'stalled' ? () => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : retryGeneration}
             onCancel={savedAssessmentDraftId ? createNewCourse : () => void cancelJob().catch((error) => console.error('Cancel failed', error))}
           />

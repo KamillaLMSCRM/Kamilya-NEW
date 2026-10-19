@@ -78,6 +78,79 @@ describe('AI generation workflow recovery', () => {
     expect(result.current.currentJob?.status).toBe('pending');
   });
 
+  it('does not restore an interrupted draft again after the user starts a new course', async () => {
+    const resetAt = Date.now();
+    const interruptedJobA = {
+      ...activeJob,
+      id: 'interrupted-a',
+      status: 'interrupted',
+      stage: 'interrupted',
+      progress: 100,
+      progress_current: 6,
+      progress_total: 6,
+      errors: ['assessment_coverage_incomplete'],
+      job_type: 'course_generation',
+      created_at: new Date(resetAt - 10_000).toISOString(),
+      updated_at: new Date(resetAt - 8_000).toISOString(),
+    };
+    const interruptedJobB = {
+      ...interruptedJobA,
+      id: 'interrupted-b',
+      created_at: new Date(resetAt - 7_000).toISOString(),
+      updated_at: new Date(resetAt - 5_000).toISOString(),
+    };
+    const completedJobC = {
+      ...interruptedJobA,
+      id: 'completed-c',
+      status: 'completed',
+      stage: 'completed',
+      created_at: new Date(resetAt - 4_000).toISOString(),
+      updated_at: new Date(resetAt - 2_000).toISOString(),
+    };
+    apiMock.get.mockResolvedValue({ data: [interruptedJobA, interruptedJobB, completedJobC] });
+    const firstVisit = renderHook(() => useGenerationWorkflow());
+
+    await act(async () => { await firstVisit.result.current.restoreActiveJob(); });
+    expect(firstVisit.result.current.currentJob?.id).toBe(interruptedJobA.id);
+
+    act(() => { firstVisit.result.current.resetWorkflow(); });
+    expect(firstVisit.result.current.currentJob).toBeNull();
+    firstVisit.unmount();
+
+    const reloadedVisit = renderHook(() => useGenerationWorkflow());
+    await act(async () => { await reloadedVisit.result.current.restoreActiveJob(); });
+
+    expect(reloadedVisit.result.current.currentJob).toBeNull();
+    expect(reloadedVisit.result.current.step).toBe('documents');
+    expect(apiMock.post).not.toHaveBeenCalled();
+
+    const pendingBeforeReset = {
+      ...activeJob,
+      id: 'pending-before-reset',
+      status: 'pending',
+      stage: 'queued',
+      job_type: 'course_generation',
+      created_at: new Date(resetAt - 6_000).toISOString(),
+    };
+    apiMock.get.mockResolvedValue({ data: [interruptedJobA, interruptedJobB, pendingBeforeReset] });
+    await act(async () => { await reloadedVisit.result.current.restoreActiveJob(); });
+    expect(reloadedVisit.result.current.currentJob?.id).toBe(pendingBeforeReset.id);
+
+    reloadedVisit.unmount();
+    localStorage.removeItem('ai_active_job_id');
+    localStorage.removeItem('ai_generation_workflow_context');
+    const interruptedAfterReset = {
+      ...interruptedJobA,
+      id: 'interrupted-after-reset',
+      created_at: new Date(Date.now() + 5_000).toISOString(),
+      updated_at: new Date(Date.now() + 6_000).toISOString(),
+    };
+    apiMock.get.mockResolvedValue({ data: [interruptedJobA, interruptedJobB, interruptedAfterReset] });
+    const laterVisit = renderHook(() => useGenerationWorkflow());
+    await act(async () => { await laterVisit.result.current.restoreActiveJob(); });
+    expect(laterVisit.result.current.currentJob?.id).toBe(interruptedAfterReset.id);
+  });
+
   it('does not restore a completed workflow from a previous visit', async () => {
     const completedJob = { ...activeJob, status: 'completed', stage: 'completed', progress: 100 };
     localStorage.setItem('ai_active_job_id', completedJob.id);
@@ -112,5 +185,27 @@ describe('AI generation workflow recovery', () => {
     expect(result.current.step).toBe('review');
     expect(localStorage.getItem('ai_active_job_id')).toBeNull();
     expect(localStorage.getItem('ai_generation_workflow_context')).toBeNull();
+  });
+
+  it('does not let an in-flight old poll resurrect a reset form or replace a new job', async () => {
+    for (const startAnother of [false, true]) {
+      let finishPoll!: (value: { data: typeof activeJob }) => void;
+      apiMock.get.mockImplementationOnce(() => new Promise((resolve) => { finishPoll = resolve; }));
+      const view = renderHook(() => useGenerationWorkflow());
+      act(() => { view.result.current.startJob(activeJob); });
+      let pending!: Promise<void>;
+      act(() => { pending = view.result.current.refreshJob(); });
+      act(() => {
+        view.result.current.resetWorkflow();
+        if (startAnother) view.result.current.startJob({ ...activeJob, id: 'new-course-job' });
+      });
+      await act(async () => {
+        finishPoll({ data: { ...activeJob, status: 'interrupted', stage: 'interrupted' } });
+        await pending;
+      });
+      expect(view.result.current.currentJob?.id ?? null).toBe(startAnother ? 'new-course-job' : null);
+      expect(view.result.current.step).toBe(startAnother ? 'generate' : 'documents');
+      view.unmount();
+    }
   });
 });

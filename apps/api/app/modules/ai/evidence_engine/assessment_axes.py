@@ -179,6 +179,9 @@ def _concise_source_span(sentence: str) -> str:
 
 def _structured_list_clauses(value: str) -> list[str]:
     """Extract complete list clauses from one OCR-preserved paragraph."""
+    explicit = _explicit_structured_list(value)
+    if explicit is not None:
+        return [clause for _position, clause in explicit[1]]
     sublist_markers = list(re.finditer(r"(?:^|[.;:]\s*)-\s*\d+[.)]\s+", value))
     if len(sublist_markers) >= 2:
         sublist_clauses: list[str] = []
@@ -209,6 +212,153 @@ def _structured_list_clauses(value: str) -> list[str]:
         and len(clause) >= 20
         and any(character.isalpha() for character in clause)
     ]
+
+
+def _explicit_structured_list(
+    value: str,
+) -> tuple[str, list[tuple[int, str]]] | None:
+    """Return an explicit numbered/bulleted list and its source preamble.
+
+    Semicolon-separated prose remains eligible for the existing single-axis
+    selector, but it is intentionally not expanded here. Expansion requires at
+    least two visible source markers so ordinary long prose cannot multiply the
+    lesson's assessment contracts.
+    """
+    markers = list(re.finditer(
+        r"(?m)(?:^[ \t]*|[;:][ \t]+)(?P<marker>"
+        r"(?:[-*•▪‣–—][ \t]+(?:\d{1,2}[.)][ \t]+)?)|"
+        r"(?:\d{1,2}[.)][ \t]+))",
+        value,
+    ))
+    if len(markers) < 2:
+        return None
+    preamble = value[:markers[0].start()].strip(" \t\r\n-–—;:.")
+    clauses: list[tuple[int, str]] = []
+    for position, marker in enumerate(markers, start=1):
+        end = markers[position].start() if position < len(markers) else len(value)
+        clause = value[marker.end():end].strip(" \t\r\n-–—;:.")
+        if len(clause) >= 12 and any(character.isalpha() for character in clause):
+            clauses.append((position, clause))
+    if len(clauses) < 2:
+        return None
+    return preamble, clauses
+
+
+_PURE_LIST_EXCEPTION = re.compile(
+    r"^(?:кроме\b|за\s+исключением\b|исключени\w*\s*:|except\b)",
+    flags=re.IGNORECASE,
+)
+
+def _split_action_qualifier(action_object: str) -> tuple[str, str]:
+    """Keep a source exception visible without making it the action object."""
+    qualified = re.fullmatch(
+        r"(?P<target>.+?),\s*(?P<qualifier>"
+        r"(?:кроме|за\s+исключением|except)\b.+)",
+        action_object.strip(),
+        flags=re.IGNORECASE,
+    )
+    if qualified is None:
+        return action_object.strip(), ""
+    return qualified.group("target").strip(), qualified.group("qualifier").strip()
+
+
+def _operational_clause_parts(clause: str) -> tuple[str, str, bool] | None:
+    """Return exact object, condition/exception, and prohibition semantics."""
+    stripped = clause.strip()
+    if _PURE_LIST_EXCEPTION.match(stripped):
+        return None
+    prohibited = bool(re.search(
+        r"\b(?:нельзя|запрещ\w*|не\s+допуска\w*|must\s+not|forbidden)\b",
+        _norm(stripped),
+    ))
+    conditional = re.match(
+        r"^(?P<condition>(?:если|когда|при|в\s+случае)\b.+?),\s*"
+        r"(?:не\s+)?[А-Яа-яЁё]+(?:ть|ти|чь)(?:ся|сь)?\s+"
+        r"(?P<target>.+)$",
+        stripped,
+        flags=re.IGNORECASE,
+    )
+    if conditional is not None:
+        target, qualifier = _split_action_qualifier(conditional.group("target"))
+        condition = conditional.group("condition").strip()
+        context = "; ".join(item for item in (condition, qualifier) if item)
+        return (target, context, prohibited) if target else None
+    prohibition = re.match(
+        r"^(?:запрещено|не\s+допускается)\s+(?:не\s+)?"
+        r"[А-Яа-яЁё]+(?:ть|ти|чь)(?:ся|сь)?\s+(?P<target>.+)$",
+        stripped,
+        flags=re.IGNORECASE,
+    )
+    if prohibition is not None:
+        target, qualifier = _split_action_qualifier(prohibition.group("target"))
+        return (target, qualifier, True) if target else None
+    leading = re.match(
+        r"^(?:не\s+)?[А-Яа-яЁё]+(?:ть|ти|чь)(?:ся|сь)?\s+(?P<target>.+)$",
+        stripped,
+        flags=re.IGNORECASE,
+    )
+    if leading is not None:
+        target, qualifier = _split_action_qualifier(leading.group("target"))
+        return (target, qualifier, prohibited) if target else None
+    actor_action = re.match(
+        r"^.+?\b(?:долж\w*|обязан\w*|запрещ\w*|не\s+допуска\w*)\s+(?:не\s+)?"
+        r"[А-Яа-яЁё]+(?:ть|ти|чь)(?:ся|сь)?\s+(?P<target>.+)$",
+        stripped,
+        flags=re.IGNORECASE,
+    )
+    if actor_action is None:
+        return None
+    target, qualifier = _split_action_qualifier(actor_action.group("target"))
+    return (target, qualifier, prohibited) if target else None
+
+
+def _structured_operational_axes(fact: SourceFact) -> list[tuple[str, str]]:
+    """Bind safe source list actions to distinct, context-preserving prompts."""
+    structured = _explicit_structured_list(fact.value)
+    if structured is None:
+        return []
+    preamble, clauses = structured
+    if not preamble or len(preamble) > 240:
+        return []
+    operational = [
+        (position, clause, parts)
+        for position, clause in clauses
+        if (parts := _operational_clause_parts(clause)) is not None
+    ]
+    if len(operational) < 2:
+        return []
+    preamble_prohibited = bool(re.search(
+        r"\b(?:нельзя|запрещ\w*|не\s+допуска\w*|must\s+not|forbidden)\b",
+        _norm(preamble),
+    ))
+    axes: list[tuple[str, str]] = []
+    for _position, clause, (target, qualifier, clause_prohibited) in operational:
+        condition = f" с учетом условия «{qualifier}»" if qualifier else ""
+        if preamble_prohibited or clause_prohibited:
+            prompt = (
+                f"Какое действие в отношении «{target}» запрещено{condition} "
+                f"требованием «{preamble}»?"
+            )
+        else:
+            prompt = (
+                f"Какое действие в отношении «{target}» предусмотрено{condition} "
+                f"требованием «{preamble}»?"
+            )
+        axes.append((clause, prompt))
+    return axes
+
+
+def _unsupported_operational_list(fact: SourceFact) -> bool:
+    """Fail closed when independent actions have no safe shared context."""
+    structured = _explicit_structured_list(fact.value)
+    if structured is None:
+        return False
+    preamble, clauses = structured
+    operational_count = sum(
+        _operational_clause_parts(clause) is not None
+        for _position, clause in clauses
+    )
+    return operational_count >= 2 and (not preamble or len(preamble) > 240)
 
 
 _AUTO_NARRATIVE_ATTRIBUTES = {
@@ -846,60 +996,73 @@ def derive_assessment_axes(
             # A bare FAQ question carries no answer. Explicit source attributes
             # such as "вопрос для знакомства" may legitimately quote a question.
             continue
-        source_value = _source_owned_correct_value(fact)
-        if not source_value or _is_dependent_source_fragment(source_value):
+        structured_axes = _structured_operational_axes(fact)
+        if not structured_axes and _unsupported_operational_list(fact):
+            # Multiple source actions without a bounded shared context cannot
+            # safely become either separate prompts or one apparently covered
+            # parent axis. The assessment audit will retain the fact as
+            # unassessed evidence and require review.
             continue
-        correct_value, required_prompt = _contextualized_list_axis(fact, source_value)
-        axis_attribute = _axis_attribute(fact, correct_value)
-        faq_pair = _source_owned_faq_pair(fact.value)
-        required_prompt = (faq_pair[0] if faq_pair else
-                           required_prompt or _required_prompt(correct_value))
-        if not required_prompt and is_tabular_locator(fact.source_locator):
-            # Keep the source-owned table subject and attribute in the stem;
-            # a provider may propose alternatives, not recast a collection as
-            # one product inferred from an attribute value or catalog row.
-            required_prompt = (
-                f"Что указано в характеристике «{fact.attribute.strip()}» "
-                f"для «{fact.subject.strip()}»?"
+        source_axes = structured_axes or [(_source_owned_correct_value(fact), "")]
+        for source_value, structured_prompt in source_axes:
+            if not source_value or _is_dependent_source_fragment(source_value):
+                continue
+            if structured_prompt:
+                correct_value, required_prompt = source_value, structured_prompt
+            else:
+                correct_value, required_prompt = _contextualized_list_axis(
+                    fact, source_value
+                )
+            axis_attribute = _axis_attribute(fact, correct_value)
+            faq_pair = _source_owned_faq_pair(fact.value)
+            required_prompt = (faq_pair[0] if faq_pair else
+                               required_prompt or _required_prompt(correct_value))
+            if not required_prompt and is_tabular_locator(fact.source_locator):
+                # Keep the source-owned table subject and attribute in the stem;
+                # a provider may propose alternatives, not recast a collection as
+                # one product inferred from an attribute value or catalog row.
+                required_prompt = (
+                    f"Что указано в характеристике «{fact.attribute.strip()}» "
+                    f"для «{fact.subject.strip()}»?"
+                )
+            normalized_value = _norm(correct_value)
+            identity = (_norm(fact.subject), _norm(axis_attribute), normalized_value)
+            if identity in seen:
+                continue
+            seen.add(identity)
+            digest = hashlib.sha256(
+                "|".join((
+                    "assessment-axis",
+                    lesson.lesson_id,
+                    block_id,
+                    fact.fact_id,
+                    _norm(axis_attribute),
+                    normalized_value,
+                )).encode("utf-8")
+            ).hexdigest()[:20]
+            peers = tuple(
+                peer.fact_id
+                for peer in eligible
+                if peer.fact_id != fact.fact_id
+                and _norm(peer.attribute) == _norm(fact.attribute)
+                and _norm(peer.subject) != _norm(fact.subject)
+                and _norm(peer.value) != normalized_value
             )
-        normalized_value = _norm(correct_value)
-        identity = (_norm(fact.subject), _norm(axis_attribute), normalized_value)
-        if identity in seen:
-            continue
-        seen.add(identity)
-        digest = hashlib.sha256(
-            "|".join((
-                "assessment-axis",
-                lesson.lesson_id,
-                block_id,
-                fact.fact_id,
-                _norm(axis_attribute),
-                normalized_value,
-            )).encode("utf-8")
-        ).hexdigest()[:20]
-        peers = tuple(
-            peer.fact_id
-            for peer in eligible
-            if peer.fact_id != fact.fact_id
-            and _norm(peer.attribute) == _norm(fact.attribute)
-            and _norm(peer.subject) != _norm(fact.subject)
-            and _norm(peer.value) != normalized_value
-        )
-        result.append(AssessmentAxis(
-            axis_id=f"axis-{digest}",
-            lesson_id=lesson.lesson_id,
-            semantic_block_id=block_id,
-            primary_fact_id=fact.fact_id,
-            evidence_fact_ids=(fact.fact_id,),
-            subject=fact.subject.strip(),
-            attribute=axis_attribute,
-            required_prompt=required_prompt,
-            correct_value=correct_value,
-            normalized_correct_value=normalized_value,
-            eligible_distractor_fact_ids=peers,
-            axis_kind=_axis_kind(axis_attribute, correct_value),
-            distractor_constraints=_distractor_constraints(fact, eligible),
-        ))
+            result.append(AssessmentAxis(
+                axis_id=f"axis-{digest}",
+                lesson_id=lesson.lesson_id,
+                semantic_block_id=block_id,
+                primary_fact_id=fact.fact_id,
+                evidence_fact_ids=(fact.fact_id,),
+                subject=fact.subject.strip(),
+                attribute=axis_attribute,
+                required_prompt=required_prompt,
+                correct_value=correct_value,
+                normalized_correct_value=normalized_value,
+                eligible_distractor_fact_ids=peers,
+                axis_kind=_axis_kind(axis_attribute, correct_value),
+                distractor_constraints=_distractor_constraints(fact, eligible),
+            ))
     return tuple(result)
 
 

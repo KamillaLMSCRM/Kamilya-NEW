@@ -321,6 +321,17 @@ def _separate_source_authoring_metadata(value: str) -> list[str]:
 def _narrative_fact_metadata(value: str) -> dict[str, float | str]:
     """Mark source-boundary and formula OCR risk without guessing repairs."""
     stripped = value.strip()
+    if re.fullmatch(
+        r"(?:\d+[.)]\s*)?(?:общие\s+положения|содержание|оглавление|"
+        r"table\s+of\s+contents|contents)\.?",
+        stripped, flags=re.IGNORECASE,
+    ):
+        return {"confidence": 0.0, "uncertainty": "source_navigation_metadata"}
+    if re.fullmatch(
+        r"(?:ТОО|ООО|АО|LLP|LLC)\s+[^.!?\n]{1,100}\s+"
+        r"[А-ЯЁA-Z]\.\s*[А-ЯЁA-Z]\.", stripped,
+    ):
+        return {"confidence": 0.0, "uncertainty": "source_cover_signature"}
     if _SOURCE_AUTHORING_METADATA_RE.match(stripped) or (
         stripped.casefold().startswith("учебный регламент вымышленного")
         and "документ нужен только для проверки LMS".casefold() in stripped.casefold()
@@ -977,6 +988,28 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
         role = _narrative_section_role(
             document_id=doc_id, section_name=title, role_by_section=role_by_section,
         )
+        if (
+            role is not SectionRole.PRIMARY
+            and title == document.title
+            and not re.search(r"\b(?:приложени\w*|справоч\w*|каталог\w*|appendix|catalog)\b", title, re.I)
+            and not re.search(r"\b(?:артикул|sku|штрихкод|barcode)\b", " ".join(headers), re.I)
+            and not re.search(
+                r"\b(?:срок действия|владелец|версия|редакция|дата утверждения|"
+                r"дата создания)\s+документ\w*\b",
+                " ".join(headers), re.I,
+            )
+            and re.search(
+                r"\b(?:лимит\w*|порог\w*|срок\w*|порядок|требован\w*|"
+                r"согласован\w*|запрет\w*|deadline|limit|requirement)\b",
+                " ".join(headers[1:]), re.I,
+            )
+        ):
+            # Unheaded cover prose and a decision table can share the document
+            # title in the passport. Its heuristic cover role must not hide
+            # an explicit operational limit/condition table. Exact labelled
+            # cells remain source-owned; reference appendices/catalogs do not
+            # gain teaching scope through this bounded ordinary-table path.
+            role = SectionRole.PRIMARY
         table_facts: list[SourceFact] = []
         for row_index, (cells, _raw) in enumerate(rows, start=2):
             subject = cells[0].strip() if cells else ""

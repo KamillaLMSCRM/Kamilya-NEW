@@ -271,6 +271,8 @@ export default function CoursesPage() {
         </section>
       )}
 
+      <section aria-labelledby="my-courses-title" className="space-y-4 border-t border-border pt-6">
+        <h2 id="my-courses-title" className="text-xl font-bold text-foreground font-display">{t('dashboard.myCourses')}</h2>
       {/* Filters */}
       <div className="flex gap-3">
         <div className="relative flex-1 max-w-xs">
@@ -440,16 +442,17 @@ export default function CoursesPage() {
           )}
         </div>
       ) : (
-        <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))]">
+        <div role="list" className="space-y-3">
           {courses.map((course, i) => (
             <article
               key={course.id}
-              className="group relative rounded-2xl border border-border bg-card overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 animate-fade-up"
+              role="listitem"
+              className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-all duration-300 hover:shadow-card-hover sm:flex-row animate-fade-up"
               style={{ opacity: 0, animationFillMode: 'forwards', animationDelay: `${i * 0.05}s` }}
             >
               {/* Gradient header */}
               <div
-                className={`h-28 p-4 flex items-end relative overflow-hidden ${
+                className={`flex min-h-24 items-end p-4 relative overflow-hidden sm:w-56 sm:shrink-0 ${
                   course.status === 'published'
                     ? 'bg-gradient-to-br from-primary/20 via-primary/10 to-gold-500/10'
                     : 'bg-gradient-to-br from-muted via-muted to-muted'
@@ -494,7 +497,7 @@ export default function CoursesPage() {
                 </div>
               </div>
 
-              <div className="p-4">
+              <div className="min-w-0 flex-1 p-4">
                 {/* Title is a link (uses Link, not nested anchor) */}
                 <Link
                   href={`/courses/${course.id}`}
@@ -595,6 +598,7 @@ export default function CoursesPage() {
           ))}
         </div>
       )}
+      </section>
 
       {dialog}
     </div>

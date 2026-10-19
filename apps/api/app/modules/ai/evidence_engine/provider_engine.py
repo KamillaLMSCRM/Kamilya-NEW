@@ -213,6 +213,45 @@ def _clean_output_text(value: str) -> str:
     return cleaned
 
 
+def _readable_source_text(value: str) -> str:
+    """Restore presentation boundaries only, never rewrite admitted evidence.
+
+    Grounding uses normalized text. That normalization is not a display format:
+    an entire source list must not become a single learner-visible paragraph.
+    Only whitespace changes are allowed after the existing grounding gates.
+    """
+    letters = "A-Za-zА-Яа-яЁёӘәҒғҚқҢңӨөҰұҮүҺһІі"
+    text = re.sub(rf"\s+(?=-\s*[{letters}])", "\n", value.strip())
+    text = re.sub(rf"(?m)^-(?=[{letters}])", "- ", text)
+    lines: list[str] = []
+    for line in text.splitlines():
+        if len(line) <= 480:
+            lines.append(line)
+            continue
+        start = 0
+        paragraph_start = 0
+        for match in re.finditer(r"[.!?]\s+(?=[A-ZА-ЯЁӘҒҚҢӨҰҮҺІ])", line):
+            # City/initial abbreviations and numeric notation are not a new
+            # paragraph. Never split the content of a sentence by a quota.
+            previous_word = re.search(r"([^\W\d_]+)[.!?]$", line[:match.start()+1])
+            if previous_word and (
+                len(previous_word.group(1)) <= 2
+                or previous_word.group(1).casefold() in {"стр", "руб", "рис", "тел", "проф", "ред"}
+            ):
+                continue
+            end = match.start() + 1
+            if end - paragraph_start >= 300:
+                lines.append(line[start:end].strip())
+                lines.append("")
+                start = match.end()
+                paragraph_start = start
+        lines.append(line[start:].strip())
+    result = "\n".join(lines).strip()
+    if re.sub(r"\s+", "", result) != re.sub(r"\s+", "", value):
+        raise ValueError("display formatting changed source content")
+    return result
+
+
 _GROUNDING_STOPWORDS = {
     "без", "более", "бы", "был", "была", "быть", "в", "во", "для", "до",
     "его", "если", "и", "из", "или", "к", "как", "на", "не", "но", "о",
@@ -917,7 +956,7 @@ class ProviderBackedEvidenceEngine:
         rendered = [
             part
             for block in grounded_blocks
-            for part in (f"### {block.heading}", "", block.text, "")
+            for part in (f"### {block.heading}", "", _readable_source_text(block.text), "")
         ]
 
         seed_by_fact = {seed.fact_id: seed for seed in seeds}
