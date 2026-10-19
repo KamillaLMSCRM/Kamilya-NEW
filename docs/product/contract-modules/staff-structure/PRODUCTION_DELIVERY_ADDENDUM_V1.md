@@ -5,12 +5,37 @@ repair browser acceptance, then release these four improvements to production.
 Extends the previously DEV-only delivery boundary; all business/tenant/HR/history
 contracts remain unchanged. No voice/iSpring/ASUS/1C/model-route activation.
 
-Production version0.11.64 supersedes failed immutable63 and applies0182 runtime settings and0183 staff
+Foundation version0.11.64 supersedes failed immutable63 and applies0182 runtime settings and0183 staff
 plans/retention markers from the independently verified0181 production baseline.
 Require fresh signed backup/restore verification, exact schema/FORCE-RLS/runtime
 role readback, source/CI/immutable artifact parity and synthetic live acceptance.
 Never downgrade public0182 audit tables; binary rollback retains additive schema.
 Keep the marker-aware enrollment preservation kernel while markers exist.
+
+## Accepted two-phase delivery refinement —2026-10-19
+
+Root accepts this safer sequencing of the same owner-approved four blocks.
+PhaseA64 is backend foundation only: existing three flagsON, staff_structure=false
+for candidate and previous, exact0181->0183. Native remains62; no production
+transfers/marker creation. Workflow39208080553 succeeded at c0d5e95810ab14757416447449ace4ae052c88eb,
+image c78a29bed522a282b0f209c3237503b3f175feafda0aaa4a7356343e6cbfcca2.
+Independent06:20UTC readback proves API+3workers/staffOFF, schema183, seven legacy/new
+FORCE tables, global retained markers0, unchanged legacy policies/roles/model
+route, actual marker-aware kernel and healthy old62. Ordinary QA21/13/31 preserved.
+
+PhaseB65 must be a version/docs-only child of64: no-migration head0183, all four
+candidate flagsON, previous64 flagsstaffOFF and exact imagec78a29bed...fcca2.
+Previous64 contains the preservation kernel independently attested as
+SHA256c501082ddc25611211757ff2f46297ea81f34cf7e1a8f5b4ec2e88de25c0ad5e.
+Native65 follows independently healthy backend65; native62 remains its UI rollback.
+Do not deploy the build-only native64. Do not downgrade backend to pre-kernel62
+after marker creation, even when staff UI is disabled; never purge markers to
+make an old binary appear safe. A binary rollback65->64 retains schema/audit/data.
+
+If migration commits but candidate startup fails, independently reconcile actual
+activeSHA/image/health, schema, all staff flags and privileged global marker count
+before any retry. Never infer migration rollback from candidate_started=false.
+No controller/helper/rights/resource/billing or business-interface expansion.
 
 The fresh0183 precondition must be valid for the actual FORCE-RLS non-BYPASS
 table owner, including populated legacy data with hidden parent tables. Version64

@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-10-19: API/three workers/native frontend62 at1df26939; isolated test-result forms and updated instructions, production synthetic API/browser/PDF acceptance PASS. Other DEV changes excluded. Schema0181 and current owner-enabled reserve unchanged.
+**Проверено:** 2026-10-19 06:20UTC: backend foundation64 c0d5e95/API+3workers staffOFF, schema0183/FORCE7; native62 unchanged. Activation65 and first-four-block production live acceptance pending; model routing/current reserve unchanged.
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,21 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current62 — deployed; separate-test forms live acceptance complete
+## Current64 foundation — deployed;65 activation pending
+
+Exact backend c0d5e95810ab14757416447449ace4ae052c88eb/image
+c78a29bed522a282b0f209c3237503b3f175feafda0aaa4a7356343e6cbfcca2; protected
+39208080553 SUCCESS, exact64 CI39207160344 and DEV RELEASE_OK. Independent
+06:20UTC readback: all4services/restarts0, staffOFF, public/privatehealth64,
+0183/seven FORCE tables, runtime NOSUPER/NOBYPASS, unchanged legacy roles/policies
+and routingc016939b..., global retained markers0, backup receipt/timer valid,
+old62 API healthy/workers stopped. Ordinary QA21/13/31 unchanged. Native62 remains.
+Accepted two-phase contract requires version/docs-only65 no-migration183 with
+previous marker-aware64/staffOFF, then native65. Old62 is not backend rollback
+after marker creation. No64 native installation or full feature acceptance claim.
+Earlier62 section below is a historical accepted baseline, not current backend.
+
+## Earlier62 — separate-test forms live acceptance complete
 
 Exact source/tag/published release1df269394ae6d0a2c7e6924e770c974ce0994651,
 v0.11.62. CI39187154582/native39187174163/protected backend39187598456 SUCCESS.

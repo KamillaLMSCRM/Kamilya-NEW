@@ -4,7 +4,25 @@
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\cabinet-release-20261018`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, active branch `codex/four-blocks-production-20261019`;
-production source/tag1df269394ae6d0a2c7e6924e770c974ce0994651 remains unchanged.
+production backend foundation64 c0d5e95810ab14757416447449ace4ae052c88eb; native62 retained.
+
+## Current checkpoint —64 foundation accepted;65 activation candidate
+
+Backend39208080553 SUCCESS: imagec78a29bed522a282b0f209c3237503b3f175feafda0aaa4a7356343e6cbfcca2,
+all4services staffOFF, schema183, seven legacy/new FORCE tables, marker count0,
+unchanged legacy roles/policies/model route, old62 healthy, prior QA21/13/31
+unchanged. Fresh independent readback06:20UTC, exact64 CI/DEV PASS.
+65 is version/docs-only activation child, no-migration183, all4candidate flagsON,
+previous64staffOFF. Native65 follows backend; native62 remains UI rollback only.
+Do not install build-only native64 or roll backend to pre-kernel62 after markers.
+Accepted delivery addendum documents this sequence and partial-migration failure
+reconciliation. No new controller upgrade/rights/resources. All previous sections
+below are historical checkpoints, not current production truth.
+
+For an explicitly new DEV packet use canonical execute directly: it owns preflight
+and worker rollout. Do not run reconcile first expecting it to trigger a worker
+whose auto_deploy=no. Reconcile is for an existing/unknown operation; its wait for
+exact workerSHA before execute is a sequencing error, not an access blocker.
 
 ## Current release checkpoint —63 stopped safely,64 repair in progress
 

@@ -25,7 +25,19 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Current DEV four-block candidate,2026-10-19
+## Current delivery checkpoint,2026-10-19
+
+Production backend foundation64/c0d5e95810ab14757416447449ace4ae052c88eb deployed
+by39208080553; independently verified06:20UTC, imagec78a29bed...fcca2, API+3workers
+staffOFF, schema183, FORCE7, global marker0, unchanged legacy roles/policies/model
+route and prior QA21/13/31. Native remains62. DEV64 exact CI/rollout/persistence and
+controlled Cancel/no-write PASS on existing Free/Free/Hobby. Activation65 is a
+version/docs-only no-migration child, previous64 marker-aware backend rollback,
+native62 UI rollback. Independent65 gates/live acceptance remain pending.
+The following candidate/runtime62 sections are historical baselines, superseded
+by this checkpoint; no voice/iSpring/ASUS/1C/routing/reserve change is authorized.
+
+## Earlier DEV four-block candidate,2026-10-19
 
 DEV ce95010ac4a24c9815bd57856a9c4908581cb720, CI39197219609 SUCCESS,
 REL-FOUR-BLOCKS-DEV-R3-20261019 RELEASE_OK with exact API/worker/frontend parity.

@@ -1,4 +1,11 @@
-# First four blocks — production64 execution graph (supersedes failed63)
+# First four blocks — foundation64 then activation65
+
+Current06:20UTC: phaseA64 deployed/independently accepted, allstaffOFF, schema183,
+marker0, legacy roles/policies/routing and QA21/13/31 preserved; native remains62.
+PhaseB65 is version/docs-only/no-migration child, exactCI/DEV/artifacts pending.
+Rollback is marker-aware64, not pre-kernel62 after markers; native62 stays UI
+rollback. Superseding accepted production delivery addendum is authoritative.
+Historical graph/checkpoints below are retained until final durable handoff.
 
 Owner root. Current human request2026-10-19: independently recover browser,
 finish testing and release the four selected improvements. Exact module scope:

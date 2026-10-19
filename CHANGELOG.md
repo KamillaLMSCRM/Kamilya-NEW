@@ -165,6 +165,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.65] - 2026-10-19
+
+### Changed
+
+- Version/docs-only activation successor to the independently deployed64
+  foundation: no-migration0183 and staff workspaceON after exact CI/DEV/artifact
+  gates. Marker-aware64 is the backend rollback; old62 remains native UI rollback
+  only after markers exist. No application/migration logic or model-route change.
+
 ## [0.11.64] - 2026-10-19
 
 ### Fixed
