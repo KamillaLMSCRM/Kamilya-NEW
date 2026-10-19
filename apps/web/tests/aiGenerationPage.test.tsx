@@ -106,6 +106,8 @@ describe('/ai/generate job workflow parity', () => {
     expect(screen.getByText('2 теста')).toBeInTheDocument();
     expect(document.querySelector('[data-generation-stage="assessment"]')).toHaveAttribute('data-stage-state', 'terminal');
     expect(document.querySelector('[data-generation-stage="content_generation"]')).toHaveAttribute('data-stage-state', 'done');
+    expect(document.querySelector('[data-generation-stage="saving"]')).toHaveAttribute('data-stage-state', 'done');
+    expect(document.querySelector('[data-generation-stage="saving"] .animate-spin')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Создать новый курс' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Создать новый курс' }));
     expect(await screen.findByText(/Перетащите документы/)).toBeInTheDocument();
@@ -174,10 +176,49 @@ describe('/ai/generate job workflow parity', () => {
     expect(screen.getByText(/Перетащите документы/)).toBeInTheDocument();
   });
 
+  it('keeps a failed job without a course visibly failed and without a partial-result claim', async () => {
+    const failedJob = { ...activeJob, status: 'failed', stage: 'failed', course_id: null, message: 'Generation failed.' };
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${activeJob.id}`) return { data: failedJob } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+
+    render(<AIGeneratePage />);
+
+    expect(screen.queryByTestId('partial-generation-result')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Открыть сохранённый черновик' })).not.toBeInTheDocument();
+    expect(document.querySelector('[data-generation-stage] .animate-spin')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { status: 'failed', stage: 'failed', progress: 100 },
+    { status: 'interrupted', stage: 'interrupted', progress: 99 },
+  ])('does not call a course a saved partial draft without the terminal contract: %j', async (shape) => {
+    const unverifiedDraftJob = {
+      ...activeJob,
+      ...shape,
+      errors: ['assessment_coverage_incomplete'],
+      message: 'Assessment requires review.',
+    };
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${activeJob.id}`) return { data: unverifiedDraftJob } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+
+    render(<AIGeneratePage />);
+
+    expect(screen.queryByTestId('partial-generation-result')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Открыть сохранённый черновик' })).not.toBeInTheDocument();
+  });
+
   it('restores an active job and returns to the documents view after cancellation', async () => {
     render(<AIGeneratePage />);
 
     expect(await screen.findByText('Прогресс генерации')).toBeInTheDocument();
+    expect(document.querySelector('[data-generation-stage="content_generation"]')).toHaveAttribute('data-stage-state', 'active');
+    expect(document.querySelector('[data-generation-stage="content_generation"] .animate-spin')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Отменить' }));
 
     await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/v1/ai/jobs/job-1/cancel'));

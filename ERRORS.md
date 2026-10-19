@@ -8968,7 +8968,7 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Fix: candidate uses narrow operational-table admission with metadata/catalog
   negatives, navigation/signature exclusion, whitespace-only post-grounding
   layout, distinct explicit-list axes with exact-axis repair/recovery and honest
-  missing-coverage audit. Current quality policy v9; no changed parent evidence IDs,
+  missing-coverage audit. DEV policy v9; local candidate v10; no changed parent evidence IDs,
   provider route, grounding guard or migration. Conditions/exceptions must remain
   part of exact source-owned claims, not be dropped to increase question counts.
   Actual deployed MarkItDown output may have
@@ -9050,6 +9050,27 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   from the generic error: failed rewrite and audit were not retained. Require
   sanitized target/coverage diagnostics for the next source-scope correction;
   do not infer success from healthy worker or from a separate one-rule probe.
+- Captured writer/assessment follow-up: source-owned conditional keys were
+  forced into weak inverse tasks, long shared/passive duties lacked safe answer
+  targets, and a numbered first rule could hide a distinct marking exception.
+  Candidate v10 keeps exact actor/condition/source targets and preserves AND/OR.
+  Independent review reproduced branch actor loss, non-adjacent actor inheritance,
+  action/deadline overlap, order-dependent context identity and false narrative
+  completeness. Correct those seams with focused source regressions, never by
+  erasing critical flags or relaxing answer/option/reviewer guards.
+  Typed rejection follow-ups require contiguous full source spans, exact trigger
+  indices, matching act titles and both required documents. A safe prefix is not
+  complete parent coverage. Specialized narrative projections must account for
+  every material sentence against the targets actually derived after precedence.
+  All context-owned identities include their source prompt scope from first use.
+- Option-domain follow-up: real owner/action questions failed before semantic
+  review because short categorical keys caused long statement distractors to be
+  rejected by the existing shape contract. Expose that exact token limit through
+  one initial/recovery/repair payload factory, not a weaker guard. Handover actions
+  are rule targets, not short category names; genuine deadlines remain numeric.
+  Independent local source/model probes are not shared-DEV or production proof.
+  Closed failure metadata must tolerate malformed audit shapes and never log
+  source/model prose, answer keys, credentials or provider bodies.
 - Verification: deterministic baseline RED and original DOCX limit-loss RED;
   corrected admission preserves independently read original limit/procedure
   phrases. Source-roundtrip inline/OCR-list RED/GREEN and independent review

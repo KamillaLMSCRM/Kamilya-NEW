@@ -97,6 +97,35 @@ async def test_refusal_marking_step_does_not_claim_complete_procedure(tmp_path: 
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("suffix", ["", " Дополнительное правило регулируется отдельным закрытым документом."])
+async def test_complete_rejection_chain_is_projected_through_real_conversion(
+    tmp_path: Path, suffix: str,
+) -> None:
+    condition = "Если контролер не согласовывает операцию"
+    value = (
+        f"3. {condition}, то в карточке проставляется отметка об отказе. "
+        "В этом случае составляется Акт несоответствия с расчетом допустимого значения. "
+        "С специалиста, выдавшего документ, берется объяснительная и обязательство. "
+        "Акты несоответствия предоставляются в отдел контроля, на основании которых "
+        "несогласованные документы вносятся в Стоп-лист."
+    ) + suffix
+    facts, axes = await _converted_axes(tmp_path, value)
+    by_key = {axis.correct_value.rstrip("."): axis for axis in axes}
+    expected = (
+        "составляется Акт несоответствия с расчетом допустимого значения",
+        "С специалиста, выдавшего документ, берется объяснительная и обязательство",
+        "Акты несоответствия предоставляются в отдел контроля",
+        "несогласованные документы вносятся в Стоп-лист",
+    )
+    assert all(key in by_key for key in expected)
+    assert all(condition in by_key[key].required_prompt for key in expected)
+    parent = next(fact for fact in facts if fact.fact_id == by_key[expected[0]].primary_fact_id)
+    assert all(key in parent.value for key in expected)
+    assert has_partial_unatomized_source_contract(parent) is bool(suffix)
+    assert len(axes) == 5
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("suffix, forbidden, expected", [
     (
         "2) при расположении пункта вне города - согласование операции специалист "

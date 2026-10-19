@@ -5626,3 +5626,28 @@ Rules:
   condition in prompt/key and both wrong options permit the prohibited action.
   Source-only diagnostic has0DBwrites/no deployment. Trace retained for reuse;
   no repeated generation is needed to inspect it. Production remains65.
+- 2026-10-19 v10 local source/assessment checkpoint (not DEV deployed): source
+  projectors129PASS before integration; typed rejection-chain module14PASS,
+  conversion/axis/source-regeneration combined253PASS after root integration.
+  Independent bounded Luna review found3P2s (actor loss/inheritance/deadline
+  overlap), all reproduced/closed. Independent Sol review found false narrative
+  completeness and order-dependent scope loss; both closed, including trailing
+  conditional family RED2/GREEN; final independent78PASS/ACCEPT. Root full API
+  units3445PASS/42.54s,5existing deprecations; quality1004ruff/2170mypyPASS;
+  exact generation-page30webPASS/7.31s, typecheck/lint linked to unchanged leaf
+  source. Critical journey local profile13selectors: unit selectors included in
+  full run, remaining existing-course dispatch/schema4PASS/4.31s; DBgate separate.
+- Original-source local real-model evidence retained privately for replay:
+  captured legacy snapshot formal3questions/4calls/11.194s PASS but duplicate
+  teaching target manually flagged; PDFownership3/3/3calls/8.277s after domain
+  disclosure; rich-I12/14/18calls/44.175s FAIL overall. Selected two omitted keys
+  then2/2/3calls/9.495s PASS with full source, not whole-course acceptance.
+  Final zero-call DOCX oracle30targets, two rich parentspartial. Source
+  normalization/original bytes, runtime routes/reserve/voice/tiers unchanged.
+- Delegation telemetry: requested bounded UI Luna-medium; requested difficult
+  independent Sol-high. Observed runtime model/token counters unavailable.
+  Root final navigation: CodeGraph sync7418ms includingstartup, search9ms and
+  callers20ms; one runtime/nine test consumers source-confirmed, exclusionsPASS.
+  No Graphify duplicate query or invented token/cost saving. No66production
+  release/deletion/upload occurred; final owner-authorized original reload remains
+  after release, exact usage/hash/learning guards unchanged.

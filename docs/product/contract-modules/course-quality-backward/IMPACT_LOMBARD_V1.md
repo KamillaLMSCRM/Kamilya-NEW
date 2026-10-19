@@ -16,7 +16,7 @@ source locators remain immutable evidence; assessment axes may now represent
 distinct explicit clauses of the same parent fact. Exact axis IDs, not merely the
 parent fact ID, bind replacement/repair and critical-coverage audit. Existing
 grounding/answer-key/exception/retry guards and no-padding policy remain required.
-Follow-up quality policy v8 prevents mixing old and corrected resumable generation
+Follow-up quality policy v10 prevents mixing old and corrected resumable generation
 rules after the captured original-run corrections.
 
 ### Original-run diagnostic correction,2026-10-19
@@ -54,8 +54,8 @@ deduplication; permission-qualifier omissions alone are ambiguous distractors.
 Long document-table realization must preserve row identity beside the limits or
 procedure; otherwise use labelled source fallback. Existing worksheet/product
 deduplication and successful teaching blocks remain regression scope. Root owns
-provider_engine and source tests; the existing assessment leaf owns only axes,
-semantic assessment and its new synthetic test file. Root integrates and
+provider_engine, semantic assessment and source tests; the existing assessment
+leaf owns only assessment_axes and its new synthetic test file. Root integrates and
 independently verifies actual-original captures plus fresh DEV before release.
 
 Captured deployed-converter output is a required oracle, not interchangeable
@@ -77,7 +77,8 @@ consumer regressions because they share the admission seam.
 | Assessment axes/semantic review | Invariant | Expand explicit operational list clauses, exact-axis recovery/repair and explicit missing coverage | Ordinary prose not multiplied; keys/evidence unchanged, no quota padding |
 | Generation UI | Interface-compatible | Terminal/partial result with counts, bounded catalog and durable start-another reset | Do not hide real active/new jobs or cross-tenant source boundaries |
 | Course catalog/guide | Presentation | Explicit own-course heading and list; neutral guide caption | Existing actions/roles/assets/captions/chapters retained |
-| Auth, RBAC/RLS, schema, billing, provider route, learning evidence | None | No implementation change | Existing roles, tenant and completed learning preserved |
+| Regeneration worker transactions | Invariant restoration | Reuse canonical tenant-context binding in fresh progress/content/final sessions | No policy/grant/role changes; FORCE-RLS owned success and cross-tenant denial required |
+| Auth, schema, billing, provider route, learning evidence | None | No implementation change | Existing roles, tenant and completed learning preserved |
 
 ## Verification, errors and rollback
 
@@ -106,7 +107,7 @@ Adaptive source coverage does not permit ambiguous answer-value containment.
 If a wrong option repeats a correct range with a different region/caveat, retain
 the rejection and source key. The one bounded repair receives exact original-
 option closed reasons rather than a generic quality failure. Repair must change
-the wrong value, not the source-owned truth or prompt. Current quality-v9 keeps
+the wrong value, not the source-owned truth or prompt. Current candidate quality-v10 keeps
 omitted/unsupported source coverage explicit; a repaired pair is not a full-course
 or production acceptance claim.
 
@@ -117,3 +118,28 @@ original documents. Require completed topic and contract coverage before any
 quiz replacement; preserve the old transaction on failure, reuse attempt guards,
 and keep canonical needs_review until explicit approval. Question-bank sampling
 and published-result rewriting remain outside this correction.
+
+### Frozen-output diagnosis and source completeness follow-up
+
+The captured real legacy writer snapshot is a separate oracle from the exact
+rolled-back cloud job. Fresh DEV read-only retrieval plus writer/assessment
+reproduced incomplete coverage: two source-admitted repetitions of the same
+conditional prohibition were rejected educationally while an adjacent exception
+survived. Do not fuzzy-deduplicate evidence or change critical classification to
+force acceptance. Mandatory scenario prompts and any extracted action must retain
+the complete condition; independent answer/option/constraint review still applies.
+
+Long shared obligations, explicit consequences, passive ownership/functions and
+time-qualified duties need source-owned targets rather than a clipped paragraph.
+New bounded projections must not claim complete parent coverage when other
+operational clauses remain unprojected. An exact sibling condition is not an
+incidental citation and cannot be hidden by the first-rule priority. Same action
+under different conditions is not duplicate knowledge. Branch actors, immediate
+anaphoric association and deadline/action overlap are explicit regression scope.
+Remaining source clauses in rich original tables keep acceptance open, regardless
+of unit-test count or the greater number of derived questions.
+
+Regeneration failure diagnostics contain only closed codes/counts, a snapshot
+digest and known/unknown state. They never log source/model prose, options, keys,
+credentials or provider error bodies, and malformed audit shapes must not replace
+the original fail-closed error with a logging exception.

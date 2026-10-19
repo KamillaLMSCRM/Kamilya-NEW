@@ -179,9 +179,17 @@ export default function AIGeneratePage() {
     : [];
   const savedAssessmentDraftId = (
     currentJob?.status === 'interrupted'
+    && currentJob.progress === 100
     && currentJob.course_id
     && assessmentErrorCodes.length > 0
   ) ? currentJob.course_id : null;
+  const progressStages = savedAssessmentDraftId
+    ? [
+      ...stages.filter((stage) => stage.key !== 'assessment' && stage.key !== 'saving'),
+      ...stages.filter((stage) => stage.key === 'saving'),
+      ...stages.filter((stage) => stage.key === 'assessment'),
+    ]
+    : stages;
   const [dragOver, setDragOver] = useState(false);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
@@ -1414,7 +1422,7 @@ export default function AIGeneratePage() {
         <div className="space-y-6">
           <GenerationProgressPanel
             job={currentJob}
-            stages={stages}
+            stages={progressStages}
             title={t('ai.progress')}
             labels={{ queued: t('asyncOperation.queued'), running: t('asyncOperation.running'), completed: t('asyncOperation.completed'), failed: t('asyncOperation.failed'), cancelled: t('asyncOperation.cancelled'), interrupted: savedAssessmentDraftId ? t('ai.assessmentNeedsReview') : t('asyncOperation.interrupted'), stalled: t('asyncOperation.stalled') }}
             retryLabel={savedAssessmentDraftId ? t('ai.openSavedDraft') : currentJob.status === 'interrupted' ? t('asyncOperation.continue') : resolveAsyncOperationState(currentJob) === 'failed' ? t('ai.newCourse') : t('asyncOperation.retry')}

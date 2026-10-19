@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from typing import Any
 
 from app.modules.ai.direct_source import DirectSourceChunk, DirectSourceCorpus, DirectSourceDocument
@@ -16,6 +17,41 @@ from app.modules.ai.evidence_engine.application import build_evidence_source
 from app.modules.ai.evidence_engine.engine import EvidenceCourseEngine
 from app.modules.ai.evidence_engine.models import LessonDraft
 from app.modules.ai.ingestion import DocumentChunker
+
+logger = logging.getLogger(__name__)
+
+
+def _coverage_diagnostic(audit: dict[str, Any], digest: str) -> dict[str, Any]:
+    """Closed, bounded operational metadata: never source/model prose or keys."""
+    allowed_states = {"retained", "omitted", "uncovered", "unassessable"}
+    allowed_reasons = {
+        "educational", "question_supported", "explanation_supported", "options_distinct",
+        "local_quality_filter_rejected", "partial_unatomized_source_contract",
+        "unatomizable_source_contract", "assessment_density_limit",
+        "semantic_rejection", "assessment_not_completed",
+    }
+    counts = {state: 0 for state in sorted(allowed_states)}
+    reasons: dict[str, int] = {}
+    raw_outcomes = audit.get("axis_outcomes")
+    outcomes = raw_outcomes if isinstance(raw_outcomes, list) else []
+    for row in outcomes[:200]:
+        if not isinstance(row, dict):
+            continue
+        state = row.get("state")
+        if isinstance(state, str) and state in counts:
+            counts[state] += 1
+        if state != "retained":
+            reason = str(row.get("reason", "")).split(";", 1)[0]
+            code = reason if reason in allowed_reasons else "other"
+            reasons[code] = reasons.get(code, 0) + 1
+    terminal = audit.get("terminal_status")
+    if not isinstance(terminal, str) or terminal not in {
+        "completed", "completed_with_warnings", "review_required",
+    }:
+        terminal = "unknown"
+    return {"policy": "regeneration-coverage-diagnostic-v1", "snapshot_sha256": digest,
+            "terminal": terminal,
+            "outcomes_known": isinstance(raw_outcomes, list), "states": counts, "reasons": reasons}
 
 
 async def prepare_lesson_assessment(*, lesson: Any, client: Any) -> list[dict[str, Any]]:
@@ -58,6 +94,8 @@ async def prepare_lesson_assessment(*, lesson: Any, client: Any) -> list[dict[st
             "omitted_contract_count", "uncovered_contract_count", "unassessable_source_count",
         ))
     ):
+        logger.warning("Regeneration assessment rejected audit=%s",
+                       json.dumps(_coverage_diagnostic(result.audit, digest), sort_keys=True))
         raise ValueError("Тест не покрывает важные правила урока; прежний тест сохранён. "
                          "Проверьте или разделите материал перед повторной генерацией.")
     if any(len(option) > 500 for question in result.questions for option in question.options):

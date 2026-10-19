@@ -360,3 +360,72 @@ before another real full acceptance/release. Documentation sweep corrected an
 additional obsolete max-three claim at the template-course section; public app
 source/locales have no remaining fixed-three promise. Production65 remains
 unchanged; owner release authority remains valid.
+
+Captured seam follow-up (local, DEV retrieval read-only; no persistence): the
+actual rewritten snapshot repeats the no-approval prohibition in two headings
+and adds a separate marking exception. Seven recorded requests/22.281s produce
+safe coverage rejection: two educational omissions, one retained exception. This
+is a concrete source/axis/prompt failure, not proof of a model outage or of the
+exact rolled-back job body. Reuse that snapshot; do not pay for another writer
+invocation merely to inspect the assessment.
+
+Candidate-v10 bounded projector first matrix:13new/125combinedPASS,23source-exact
+axes over nine anonymized DOCX facts; max key190chars/max mandatory prompt565chars.
+Former empty collective-liability/consequence parents now have3/1targets. Both
+rich category parents remain partial,8/4targets, and an independently identified
+conditional-sibling gap must be corrected before claiming full coverage. The
+independent read-only review found3P2s: branch actor omitted, handover actor carried
+across intervening actor, and time-action/deadline overlap. All are release gates,
+not waivers; the same writer owns narrow corrections before a runtime freeze.
+
+UI candidate independently root-reviewed: saved partial requires interrupted+
+100percent+recognized assessment code, never merely a preallocated course ID.
+Saving precedes the terminal warning assessment stage; active/failed/incomplete
+jobs must not acquire a saved-draft claim. Leaf RED→30webPASS,typecheck/lintPASS;
+actual DEV/browser verification is NOT_RUN. No deployed UI claim is inferred.
+
+Root regeneration diagnostic guard RED3/16PASS→19PASS after rejecting malformed
+state/terminal shapes safely. Logs use only bounded closed metadata and snapshot
+hash, never captured source/provider text. Full integrated/API/quality gates and
+fresh real-model candidate probes remain NOT_RUN at this checkpoint. No66release,
+production source deletion, upload or production generation has been performed.
+
+Final local v10 checkpoint: typed rejection-chain source boundary RED3/GREEN13,
+explicit governing-index interface RED3/GREEN14; real conversion integration
+RED2/GREEN35. Complete known chain maps all current+trigger sentence indices;
+an unknown suffix keeps parentpartial. Never infer a referenced procedure.
+Original anonymized DOCX now30exact targets (1,1,2,3,1,2,2,14,4); rich I/II still
+partial. The explicit `об этом` coordinated step no longer suppresses signing
+and software marking. All source/model results below are local diagnostics,
+not cloud DEV or whole-course acceptance:
+
+| Probe | Actual result | Calls/time | Remaining limitation |
+|---|---|---|---|
+| Captured real rewritten snapshot | Formal3/3retained | 4/11.194s | Same prohibition taught twice; manual pedagogical review still open |
+| PDF three former unassessable parents | 3/5retained | 11/22.215s | Two short categorical targets failed unchanged domain shape |
+| Focused PDF ownership after exact domain disclosure and role prompt | 3/3retained | 3/8.277s | Scope limited to this source fact; subsequent source IDs/prompts must be rechecked in DEV |
+| Original rich I-category parent | 12/14retained; overallFAIL | 18/44.175s | Partial source parent and2omitted targets |
+| Two omitted I targets, full source retained | 2/2retained | 3/9.495s | Selected-axis diagnostic only; parent still partial |
+
+Root source review rejected trivial appointment verb tasks; appointment now asks
+the responsible source role, functions ask the complete stated alternatives.
+Handover actions retain rule type; deadlines retain numeric type. Existing
+short-category guard is unchanged and disclosed through one author payload
+factory shared by initial, recovery and repair stages.
+
+Independent Sol review found/closed false non-tabular sibling completeness and
+order-dependent contextual dedup. Final re-review ACCEPT/78focusedPASS;
+root253focusedPASS. Frozen full3445unitPASS/42.54s, quality1004ruff/2170mypyPASS,
+web30PASS/7.31s, dispatch/schema critical selectors4PASS/4.31s. Existing local
+journey's other selectors are included in the exact full unit run; its DB gate
+remains separate Supabase DEV evidence, never a local Docker substitute.
+Root CodeGraph sync7.418s/startup included, search9ms/callers20ms: one actual
+runtime consumer plus nine tests, confirmed in source. Graphify unnecessary for
+the answered relation; token/cost savings not measured. Leaf model requests:
+Luna-medium for bounded UI/review, Sol-high for difficult independent review;
+observed-model/token counters unavailable, not zero.
+The next action is one exact-SHA DEV integration checkpoint. Production66 deploy
+remains NO_GO because rich original coverage is open. The fresh original-file
+reload is a separate mandatory post-release acceptance gate, not a prerequisite
+that could run before deployment. Owner authority for the final package remains
+in force.

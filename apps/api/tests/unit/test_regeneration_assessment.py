@@ -10,6 +10,35 @@ from app.modules.ai.evidence_engine.models import QuestionDraft
 from app.modules.ai.regeneration_assessment import prepare_lesson_assessment
 
 
+def test_failed_coverage_diagnostics_never_include_untrusted_model_or_source_text():
+    import json
+
+    from app.modules.ai.regeneration_assessment import _coverage_diagnostic
+
+    secret = "private_source_and_provider_error"
+    audit = {"terminal_status": secret, "source": secret, "questions": [secret],
+             "axis_outcomes": [{"state": "omitted", "reason": secret},
+                               {"state": "omitted", "reason": "educational;" + secret},
+                               {"state": "retained", "reason": secret}]}
+    diagnostic = _coverage_diagnostic(audit, "a" * 64)
+    assert secret not in json.dumps(diagnostic)
+    assert diagnostic["terminal"] == "unknown"
+    assert diagnostic["states"]["omitted"] == 2
+    assert diagnostic["reasons"] == {"other": 1, "educational": 1}
+
+
+@pytest.mark.parametrize("outcomes", [None, {}, [{"state": [], "reason": {}}]])
+def test_failed_coverage_diagnostics_tolerate_malformed_audit_shapes(outcomes):
+    from app.modules.ai.regeneration_assessment import _coverage_diagnostic
+
+    diagnostic = _coverage_diagnostic(
+        {"terminal_status": [], "axis_outcomes": outcomes}, "a" * 64,
+    )
+    assert diagnostic["terminal"] == "unknown"
+    assert diagnostic["outcomes_known"] is isinstance(outcomes, list)
+    assert all(count == 0 for count in diagnostic["states"].values())
+
+
 def lesson_snapshot(content):
     return SimpleNamespace(id=uuid4(), tenant_id=uuid4(), title="Выдача оборудования",
                            content=content, source_validation_status="verified",

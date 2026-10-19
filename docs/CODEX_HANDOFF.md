@@ -36,6 +36,31 @@ Bounded original single-rule diagnostic (not that DEV writer replay) passes:
 4lessons/9questions still partial. Next: capture sanitized failed coverage reasons
 and trace rewritten-lesson evidence/target scope; do not guess its exact failure
 from the generic error or weaken gates. No new production GO.
+
+Local v10 follow-up now has a captured real writer/assessment seam: the rewritten
+snapshot repeats the same prohibition under two headings; new scenario projections
+pass formal coverage3questions/4calls/11.194s, but root still flags the duplicate
+teaching target. PDF3formerly-unassessable facts now have5source-owned targets;
+owner/appointment initially failed the unchanged short-domain guard. One shared
+author payload exposes that exact limit; focused actual ownership recheck3/3
+retained/3calls/8.277s, not cloud acceptance. Root clarified appointment prompts
+to ask the responsible role rather than the trivial action `назначает лиц`.
+
+Original DOCX zero-provider map now30targets, with rich I/II parents still partial.
+Typed rejection chain retains exact source indices/condition/actor/AND pair/act
+family; actual rich-I assessment12/14retained/18calls/44.175s still FAIL overall.
+Selected two omitted axes subsequently pass with full parent source,3calls/9.495s;
+this is not a whole-course pass. Root fixed categorical mistyping of the immediate
+handover action. Independent Sol review then found two HIGHs: non-tabular sibling
+false completeness and order-dependent scope identity. Final fixes include both
+new conditional families; RED2→253focusedPASS and independent re-review ACCEPT.
+Frozen final full APIunit3445PASS/42.54s, quality1004ruff/2170mypyPASS,
+web30PASS/7.31s; critical-journey remaining dispatch/schema selectors4PASS/4.31s,
+other local selectors hash-linked to full unit run. DEV integration is locally
+ready, not production/whole-original semantic GO. No R11 push/controller,
+production release/deletion/upload, voice/model
+route/resource/billing change has occurred. Continue from the existing plan and
+private ignored probe outputs, not by repeating old paid writer/OCR invocations.
 Local follow-up parses actual deployed-converter Markdown, restores category
 tables/amounts, hierarchical safety clauses and evacuation heading; readable
 safe fallback and neutral guide/list/terminal workflow are included. Explicit
