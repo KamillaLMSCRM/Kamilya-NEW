@@ -56,6 +56,46 @@ No voice, reserve activation/model-route change, ASUS, iSpring, landing, billing
 resource expansion, blanket purge, real-tenant mutation or relaxed safety gate.
 Failed or incomplete semantic runs remain failed; test counts are not quality proof.
 
+### Owner-required clean production acceptance after release
+
+Owner instruction2026-10-19: after deploying the accepted package, delete the old
+copies of these two originals in the permanent production synthetic QA tenant,
+upload both originals again, then evaluate newly generated course/test quality.
+This is required fresh production evidence, not reuse of DEV, replay or old drafts.
+
+- Bind production API/worker/frontend to the released exact SHA first. Ordinary
+  methodologist must resolve tenant83552ce6-8058-4561-abe3-cfbda14e030a; never a
+  customer tenant or DEV. At this pre-release checkpoint production is unchanged65.
+- Inventory the two matching records by tenant, original file SHA256 and usages,
+  not filename alone. Previous fresh production IDs are PDF2ea2ac14-d8d3-43a5-bb0b-
+  3e3bf9092d05 and DOCXef01c2e1-5d68-4d1f-bed0-4b382dd8030c; re-read current
+  identity at execution, do not assume either is still present or unused. Delete
+  only matching old document records via ordinary lifecycle API, with recoverable
+  originals and before/after evidence. This approval does not authorize deleting
+  dependent courses, assignments, attempts, completed learning or other documents;
+  no force/purge/DB bypass if normal cleanup refuses a dependency.
+- Preserve disk originals under C:/Users/user/Documents/ломбард. DOCX
+  стандарты26.docx SHA2568411104b697edc0dbc44a1f438b118fde0c76b349c245a59bf94683aceb0ca20;
+  PDF Правила пожарной безопасности от14.11.2023 SHA256
+  34601aea9e16b1087d5fcd1cb33ff912c2bc82d652be5f3cc0e599e14f6f41e5.
+  Re-read hashes before normal browser upload; require fresh document IDs and
+  successful conversion/indexing. Never substitute extracted Markdown for a scan.
+- Generate a separate fresh course per original so fire safety and loan standards
+  can be reviewed independently. Capture exact source/job/course identities,
+  original-to-lessons coverage, worker timings/fallbacks and terminal state.
+  Existing paid provider capacity only; no billing/resource/model-route changes.
+- Read every lesson and every retained question/choice/key against the original.
+  Check readable headings/paragraphs/lists in the learner-facing renderer, no raw
+  Markdown artifacts, preserved operational actions/conditions/limits/deadlines/
+  exceptions, no invented facts, unambiguous distractors and no count padding.
+  Distinguish retained questions, omitted targets and unassessable source parents.
+- Verify browser completion/partial/error state, reopen/reload, document chooser
+  and reset to create another course. A saved draft, HTTP200, greater question
+  count or partial terminal result does not by itself pass quality acceptance.
+- Append each stage to TEST_RUN_LEDGER and existing release evidence. Keep the
+  new reviewed drafts in QA for owner inspection; do not publish/assign/send mail
+  as part of this source-quality-only check. Never remove pre-existing learning.
+
 ### Assessment acceptance without a per-lesson quota
 
 Implemented budget rule: independent source-owned assessment targets, never a

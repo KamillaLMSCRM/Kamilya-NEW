@@ -8,6 +8,13 @@ production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 ## Active original-document quality correction66 — not production
 
+Owner follow-up2026-10-19 requires a clean production re-upload AFTER release:
+delete only the two old matching QA document records after normal usage checks,
+upload hash-verified original DOCX/PDF again, generate fresh separate courses and
+review all lessons/questions against originals. Preserve original files, any
+dependent learning and unrelated records; no implicit dependent-course deletion.
+Exact tenant/hash/previous-ID and acceptance checklist live in the existing plan.
+
 Owner-authorized one production package remains the objective; immediate stale
 DEV converter correction did not revoke that release authority. Existing DEV
 API/worker/frontend66/7b536d07 live (CI39252355251 all7SUCCESS,
