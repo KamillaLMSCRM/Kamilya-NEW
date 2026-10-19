@@ -122,8 +122,9 @@ all31 original values and routing hash unchanged. Read-only production health
 R3 CI39197219609 SUCCESS; controller REL-FOUR-BLOCKS-DEV-R3-20261019 RELEASE_OK.
 API dep-dbapdg61egvs73bk41o0, worker dep-dbapeirbc2fs73c9kh20, frontend
 dpl_86ppFMEc1qLxgYrmsufwpBAaRvxr all exact ce95010a with health PASS.
-Provider readback retains Free/Free/Hobby and all12 preexisting flags; no resource
-or model-route activation changed. No public schema migration was run.
+Separate final provider inventory `provider-final.json` at04:06UTC confirms
+Free/Free/Hobby and all12 preexisting flags (not inferred from execute.json);
+no resource or model-route activation changed. No public schema migration was run.
 
 Fresh real DEV counts acceptance PASS: sessionA459f2b1f-8035-4522-90f8-79664fad4736
 created branch1/department1/aggregate2/position1/staff1, rules recompute success;
@@ -131,7 +132,8 @@ sessionB39232c2a-d3e9-4276-9d8c-5a2effe341e8 updated only branch1/aggregate1,
 created0/staff_updated0/departments_updated0/deleted0. Stable exact unit/position/
 employee IDs, employee placement and department fields independently read back;
 A receipt unchanged. Existing inaccurate R1 receipt also independently unchanged.
-Final old QA16users/16units/10journal rows unchanged. No unresolved pending write.
+Final old QA16users/16units/10journal rows unchanged. No unresolved pending write
+in either counts session or the saved counts harness state.
 The stateful harness itself received root repair and independent review before
 execution: no nonexistent workspace external-key lookup or hardcoded proposal IDs.
 
