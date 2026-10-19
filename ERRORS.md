@@ -8955,7 +8955,7 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   selected one answer axis and later repair matched only its parent fact. Tests
   passing handwritten newline-bearing SourceFacts missed the actual flattened
   DocumentChunker/admission seam.
-- Fix candidate: narrow operational-table admission with metadata/catalog
+- Fix: candidate uses narrow operational-table admission with metadata/catalog
   negatives, navigation/signature exclusion, whitespace-only post-grounding
   layout, distinct explicit-list axes with exact-axis repair/recovery and honest
   missing-coverage audit. Quality policy v5; no changed parent evidence IDs,

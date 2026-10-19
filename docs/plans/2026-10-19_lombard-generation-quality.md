@@ -68,6 +68,8 @@ review fixes; web1343 PASS before final preview/poll-race corrections; focused
 journey27 PASS; canonical Python quality PASS. Final candidate CI and real-model
 semantic/browser checks remain required. Supabase isolated application gate
 HBR-DEV-APP-02 PASS at0183, owned schema absent, public metadata unchanged.
-CodeGraph used for exact source/caller impact; combined navigation preflight has
-no local Graphify/receipt, so cross-language/runtime links are source/gate-verified,
-not claimed graph-derived. No graph setup detour blocks product verification.
+CodeGraph used for exact source/caller impact. Combined navigation preparation
+subsequently PASS:1852CodeGraph files, Graphify20493nodes/58169edges/1883files,
+exclusion audit PASS, AST-only/local and no provider calls. Preparation181.432s
+Graphify/9.591sCodeGraph; counts are not a savings/quality claim. Cross-language
+runtime links remain source/gate-verified, not claimed graph-derived.
