@@ -16,13 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Derive distinct operational-list assessment axes and repair/recover each exact
   axis instead of confusing sibling claims from the same source fragment.
   Critical assessment omissions remain explicit; no quota padding or relaxed
-  answer/grounding checks. Quality policy v5 invalidates old resume assumptions.
+  answer/grounding checks. Quality policy v6 invalidates old resume assumptions.
+- Preserve explicit converter table labels, emphasis-wrapped amounts and
+  hierarchical safety clauses; retain evacuation-route headings and operational
+  footnotes without teaching document-purpose prose. Exact conditional and
+  deadline keys must not be truncated at city abbreviations or repaired by
+  changing their meaning. No implicit external conversion endpoint is selected.
 - Show partial generation as a saved result requiring review, bound the source
   chooser, and keep a fresh-course reset stable across reloads.
 - Separate own courses from templates using a readable list. Remove technical
   voice/model labels from customer-facing video instructions; media unchanged.
 - Candidate only: fresh original-document DEV semantic acceptance and production
   delivery remain required. No schema, routing, billing or resource change.
+- Replace the fixed three-question lesson quota with source-owned target density.
+  Preserve distinct conditional/region axes and expose technical-ceiling or
+  quality omissions; do not pad counts or create learner-specific variants.
 
 ### Historical DEV candidate: four bounded improvements (2026-10-19)
 

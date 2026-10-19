@@ -374,7 +374,9 @@ def is_sentence_like_ordinal_heading(value: str) -> bool:
         return True
     if len(words) < 2:
         return False
-    if words[0].endswith(_RUSSIAN_INFINITIVE_SUFFIXES):
+    # These common plural nouns have an infinitive-looking suffix but do not
+    # make a nominal heading (e.g. evacuation routes) an instruction sentence.
+    if words[0] not in {"пути", "сети"} and words[0].endswith(_RUSSIAN_INFINITIVE_SUFFIXES):
         return True
     if (
         words[0] in _RUSSIAN_ACTION_PREFIXES or body.endswith((".", "!", "?", ";"))

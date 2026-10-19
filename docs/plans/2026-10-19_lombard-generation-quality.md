@@ -28,8 +28,10 @@ reviewer checks root source corrections; UI leaf changes await root acceptance.
   conditions, exceptions and evidence unchanged.
 - Assessment: distinct explicit operational-list clauses get distinct axes with
   the same immutable parent evidence. Exact axis repair/partial recovery; critical
-  omissions remain review-required. Existing three-question-per-lesson cap and
-  grounding/retry/provider limits unchanged.
+  omissions remain review-required. Owner's2026-10-19 follow-up explicitly removes
+  the fixed three-question quota: independent source-owned targets determine the
+  budget, with a20-target technical ceiling and visible incomplete coverage.
+  Grounding/retry/provider limits remain unchanged.
 - Workflow: truthful terminal/partial state; bounded document chooser; durable
   reset excludes historical interrupted jobs, not genuine active/new jobs.
 - Catalog/guide: clear own-course section/list and no model/voice customer label.
@@ -65,11 +67,56 @@ Private baseline/source/cleanup captures remain under the ignored task evidence.
 Executed: original DOCX source oracle PASS; API3277unit PASS before final parser
 review fixes; web1343 PASS before final preview/poll-race corrections; focused
 179API and40web PASS; additional poll-race RED/GREEN7; editor76 PASS; critical
-journey27 PASS; canonical Python quality PASS. Final candidate CI and real-model
-semantic/browser checks remain required. Supabase isolated application gate
+journey27 PASS; canonical Python quality PASS. Candidate CI39221099549 for8099de66
+passed all seven jobs; existing DEV API/worker/frontend deployed exact8099de66.
+Real-model semantic/browser checks remain required. Supabase isolated application gate
 HBR-DEV-APP-02 PASS at0183, owned schema absent, public metadata unchanged.
 CodeGraph used for exact source/caller impact. Combined navigation preparation
 subsequently PASS:1852CodeGraph files, Graphify20493nodes/58169edges/1883files,
 exclusion audit PASS, AST-only/local and no provider calls. Preparation181.432s
 Graphify/9.591sCodeGraph; counts are not a savings/quality claim. Cross-language
 runtime links remain source/gate-verified, not claimed graph-derived.
+
+Fresh cloud DEV DOCX job c2669b92 completed in101.265s and persisted draft
+c967cb9b with3lessons/1question. Full GET-only capture recovered after correcting
+the harness preview max_chars10000→2000 (no repeated generation/payment).
+Five of six assessment axes were omitted by quality checks; two lessons have no
+quiz. This is NOT semantic acceptance and must not be released as quality-ready.
+
+Owner's immediate request: remove the obsolete DEV OCR reference. Both existing
+API/worker provider configurations now lack DOCLING_URL (204/readback; all other
+values unchanged). Same-SHA configuration application completed08:30:53UTC after
+the owned generation finished: API dep-dbat9dbbc2fs73cnee0g and worker
+dep-dbat9dmq1p3s73d19d20 live, API exact8099de66/worker health PASS.
+No production, DNS, billing/resource or model-route
+change. Removed the additional implicit old-VPS default from the legacy adapter
+in the local candidate; RED1/GREEN3 plus converter/service regressions23PASS,
+Python quality ruff1004/mypy2170PASS. The primary ingestion path already had an
+empty default and its DOCX local/no-HTTP behavior is now regression-tested.
+CodeGraph search resolved two adapters; class-callers query found no definition,
+so exact import inspection confirmed direct_source and indexing use ingestion.
+Legacy adapter source correction is not yet deployed; current DEV8099 uses the
+already-empty default on its active path. Private VM126 Docling converted the
+exact7-page original PDF to15069chars in28.968s/no fallback through the existing
+local-only tunnel; this is not proof of cloud DEV OCR connectivity.
+
+Production-shaped converter diagnostics found additional concrete losses:
+MarkItDown empty headers/bold labels and inline numeric emphasis; Docling
+hierarchical rule bullets; evacuation-route heading incorrectly classified as
+an infinitive. Root source corrections retain DOCX9facts/4planned lessons and
+PDF28facts/6planned lessons, no provider/DB calls. Purpose false-promotion and
+colon-before-bold-heading negatives are covered. Source-focused151PASS and
+chunk/operational36PASS precede the later fallback/density corrections.
+
+Actual production-shaped DOCX core R4:74.240s,5rendered lessons/8retained questions,
+26model calls; coverage incomplete, so NOT quality GO. Captures prove four
+category/region limit targets were reduced to two by attribute diversity, and
+fixed-three density also discarded independent deadlines/actions. User explicitly
+requested replacement of that rule. Root implements source-target sizing,
+technical-ceiling visibility and safe readable labelled fallback; no learner
+question bank/attempt randomization is silently included. R5 reuses captured
+realization responses where exact requests match and records new author/reviewer
+calls; it is diagnostics, not fresh cloud DEV acceptance.
+
+Backend unit R4:3316PASS/43.71s and canonical quality ruff1004/mypy2170PASS,
+before final density/fallback delta. Fresh final suite/DEV/production remain gates.

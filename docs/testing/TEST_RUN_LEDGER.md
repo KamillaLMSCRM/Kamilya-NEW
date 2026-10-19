@@ -5335,3 +5335,98 @@ Rules:
   production QA and existing DEV QA. No assignments, notifications or completions.
 - Real-model candidate DEV, browser acceptance, immutable CI and production
   delivery are NOT VERIFIED here. No universal quality/human-speedup claim.
+
+## TEST-LOMBARD66-DEV-OCR-REFERENCE-20261019 — bounded configuration correction
+
+- CI39221099549 exact8099de6606578db158ae8c25d3e6c612d8765397 all7jobs PASS;
+  existing Free/Free/Hobby DEV rollout RELEASE_OK. Fresh cloud DOCX generation
+  c2669b92 completed101.265s; GET-only capture:3lessons/1question/5omitted axes.
+  NOT semantic GO. Preview capture422 was a harness max_chars error, corrected
+  without a second model generation. Production runtime still65.
+- Owner requested immediate removal of stale DEV converter address. Both exact
+  existing services DELETE DOCLING_URL204; independent inventories confirm
+  absence and every other value unchanged. Same-SHA reapply was started only
+  after owned generation completed; terminal rollout result is recorded below
+  when observed, not inferred from the configuration API response.
+- Additional dormant adapter implicit external host reproduced RED1/1PASS;
+  blank default plus no-HTTP fallback fixes it. Focused23PASS/1.63s, canonical
+  Python quality ruff1004/mypy2170PASS; explicit endpoint compatibility and
+  active-ingestion local DOCX covered. Local source fix is not deployed here.
+  README/private checks and opt-in legacy template no longer select the obsolete
+  public endpoint. Production/DNS/keys/model route/resources/billing unchanged.
+- Terminal08:30:53UTC same-SHA apply PASS: API dep-dbat9dbbc2fs73cnee0g and worker
+  dep-dbat9dmq1p3s73d19d20 live/exact8099de66; independent inventories still lack
+  DOCLING_URL with all other values unchanged, API health0.11.66/8099 and worker
+  ok. No generation interrupted. Evidence dev-converter-reference-removal.json
+  and dev-converter-removal-apply.json in the ignored task folder.
+
+## TEST-LOMBARD66-CORE-R3-20261019 — failed quality retained, corrective replay
+
+- Original DOCX candidate core with existing explicit DeepSeek diagnostic policy,
+  no queue/DB/course writes:71.034s,4lessons/1question,23actual calls,
+  publishable=false/degraded_needs_review. Raw responses saved privately under
+  docx-trace-r3/lombard-docx/run-1; NOT cloud DEV or production acceptance.
+- Independent assessment read-only review proves two malformed keys split at
+  city abbreviation and three overlength immutable keys246/543/1200 vs240.
+  Distractor repair cannot fix those server-owned keys. Leaf correction assigned
+  pre-author safe atomization; no cap/gate/provider/retry weakening.
+- Long document-table category loss independently RED1. Initial broad subject
+  guard caused5existing worksheet regressions; narrowed to document-table row
+  provenance, preserving worksheet deduplication. GREEN94PASS/1.42s, canonical
+  quality ruff1004/mypy2170PASS. Exact captured first real model response replay
+  PASS: I/II category names, limit values and fact IDs retained,0provider calls,
+  0DBwrites. This is only one corrected presentation invariant, not full GO.
+
+## TEST-LOMBARD66-CONVERTER-SOURCE-20261019 — production-shaped parsing
+
+- Existing private converter, original hashes unchanged: DOCX MarkItDown0.1.6,
+  8755chars/1.0s; scanned PDF Docling2.106.0,7pages/15069chars/28.968s. No public
+  gateway, old VPS revival, TLS bypass, provider/DB/settings mutation or repeated
+  OCR. Captures remain private in the ignored task evidence folder.
+- Root found empty physical Markdown table headers before explicit bold labels,
+  inline emphasis within numeric strings, and Docling bullets before hierarchical
+  clauses. Normal production-shaped admission now retains DOCX9facts/4lessons and
+  PDF28facts/5lessons; former PDF representation merged clauses into9giant facts.
+  This zero-model/source inspection is not fresh semantic acceptance.
+- Independent reviewer found generic purpose prose falsely promoted by a modal
+  verb in the cover-prefix correction. Valid matching-title RED4; narrow
+  RU/EN/KK purpose exclusions preserve actor/footnote positives. GREEN141PASS
+  in2.13s across operational-source/application/backward/V2/source-block tests.
+- DEV browser8099: partial job OpenDraft works; start-another reset remains after
+  reload;20-row chooser/load-more preserves selection; MyCourses header/list is
+  distinct from templates; lesson defaults to rendered preview with explicit
+  editor; guide caption has no model/voice label. PNGs saved privately. New
+  source/axis corrections still require a new exact candidate rollout.
+
+## TEST-LOMBARD66-TARGET-DENSITY-20261019 — no fixed-three quota
+
+- Owner explicitly requested removing/rethinking three questions per lesson.
+  Source-owned independent targets now size the budget, bounded technically at20;
+  all ceiling loss remains review-required, including ordinary noncritical prose.
+  No learner-bank sampling, runtime LLM during attempts or model-route change.
+- RED2: explicit five-action rule was truncated to3; four category/region axes
+  reduced to2 by attribute diversity. Corrected document-table contextual keys
+  and target sizing. Independent reviewer223PASS, no confirmed P1/P2 in budget/
+  escaping/audit; recommended compound-ceiling regression added and GREEN5.
+- Root caught QA-purpose/marker prose previously hidden only by ranking under3;
+  classify that source-authoring metadata as non-teachable instead. All four
+  real working steps remain eligible. Existing ceiling tests now explicitly
+  lower the technical test ceiling, not assert a product quota.
+- Production-converter-shaped DOCX R4:5lessons/8questions/74.240s/26model calls,
+  incomplete. R5 diagnostic replay+new calls:15questions/67.705s; found one
+  duplicated conditional target and a language-detection error from a quoted
+  company name. RED2/GREEN87; R6:5lessons/14distinct questions/19.749s,
+  45captured replays +4new model calls. All14 derived/requested/authored/retained,
+  no critical missing axes; all4source topics represented. Four partial/
+  unsupported parents remain review-required; not autonomous-publication proof.
+- Independent R6 source review found no P1 wrong key/multiple-correct/missing
+  condition among14. One646-character context-preserving deadline stem remains
+  a methodologist-review readability concern. No claim of perfect assessment.
+- First actual PDF trace:6lessons/41accepted questions/185.656s/57model calls,
+  no realizer fallback/validation errors. All6topics represented;7axes omitted
+  and3unsupported parents explicitly require review. Detailed semantic review
+  pending; this is not cloud DEV or production acceptance.
+- Full root unit R7:3327PASS/41.30s; canonical quality ruff1004/mypy2170PASS.
+  CodeGraph one final sync1855files/exclusionPASS/8.337s total, static navigation
+  only. No combined Graphify refresh was needed for unchanged used relationships.
+  Fresh cloud DEV exact candidate and production release/live gates remain open.

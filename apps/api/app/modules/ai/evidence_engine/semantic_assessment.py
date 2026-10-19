@@ -19,7 +19,12 @@ from urllib.parse import parse_qsl
 
 from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFailureReason
 
-from .assessment_axes import derive_assessment_axes, materialize_assessment, operational_claim_priority
+from .assessment_axes import (
+    derive_assessment_axes,
+    has_partial_unatomized_source_contract,
+    materialize_assessment,
+    operational_claim_priority,
+)
 from .assessment_coverage import assess_topic_coverage
 from .models import (
     AssessmentAxis,
@@ -30,20 +35,32 @@ from .models import (
     is_tabular_locator,
 )
 from .quality import (
+    MAX_ASSESSMENT_ANSWER_CHARS,
     answer_length_repair_targets,
     contains_internal_generation_instruction,
     filter_acceptable_questions,
     question_has_incomplete_correct_answer,
 )
 
-_MAX_QUESTIONS_PER_LESSON = 3
+_MAX_ASSESSMENT_TARGETS_PER_LESSON = 20
+
+
+def _lesson_question_budget(lesson: LessonDraft, facts_by_id: dict[str, SourceFact]) -> int:
+    """Size assessment from source-owned targets, never a fixed question quota.
+
+    Twenty is a technical safety ceiling, not a promised count or permission to
+    omit silently. Existing coverage audits expose everything not assessed.
+    """
+    counts = [len(derive_assessment_axes(lesson, [facts_by_id[fid]], block_id="density"))
+              for fid in lesson.fact_ids]
+    return min(_MAX_ASSESSMENT_TARGETS_PER_LESSON, sum(counts))
 
 
 def _narrative_assessment_priority(fact: SourceFact, claim: str) -> tuple[int, int, int]:
     """Prefer source-owned safety decisions and actions, not descriptive prose.
 
     This only ranks already eligible exact answer spans. It grants no evidence,
-    answer-key or reviewer exemption, and never changes the question ceiling.
+    answer-key or reviewer exemption, and never manufactures assessment targets.
     """
     value = claim.casefold()
     conditional = bool(re.search(r"\b(?:если|когда|при|if|when|unless|егер)\b", value))
@@ -839,6 +856,23 @@ def _rejected_option_feedback(question: QuestionDraft, reasons: list[str]) -> li
                            if reason.startswith((f"option_{index}:", f"constraint_option_{index}:"))])]
 
 
+def _has_server_immutable_rejection(
+    question: QuestionDraft,
+    reasons: list[str],
+) -> bool:
+    """Return true only when every rejection is outside authoring authority."""
+    correct_index = question.options.index(question.correct_answer)
+    immutable_constraint_prefixes = (
+        f"constraint_option_{correct_index}:expected_entailed_got_",
+        f"constraint_option_{correct_index}:invented_constraint",
+    )
+    return bool(reasons) and all(
+        reason == "explanation_supported"
+        or reason.startswith(immutable_constraint_prefixes)
+        for reason in reasons
+    )
+
+
 def _constraint_request(request: dict[str, Any], questions: list[QuestionDraft]) -> dict[str, Any]:
     return {"task": "assessment_constraints", "block_id": request["block_id"],
             "facts": request["facts"], "questions": [
@@ -868,7 +902,8 @@ def _table_attribute_key(axis: AssessmentAxis, facts_by_id: dict[str, SourceFact
         locator.get("doc_id", ""),
         locator.get("source_revision", ""),
         locator.get("section", locator.get("sheet", "")),
-        _norm(axis.attribute),
+        (_norm(axis.attribute) + "|" + axis.axis_id)
+        if "table" in locator else _norm(axis.attribute),
     )
 
 
@@ -949,6 +984,8 @@ async def generate_block_assessment(
     groups: list[tuple[LessonDraft, list[SourceFact]]] = []
     density_omitted: list[tuple[LessonDraft, list[SourceFact]]] = []
     narrative_selections: list[dict[str, Any]] = []
+    lesson_budgets = {lesson.lesson_id: _lesson_question_budget(lesson, facts_by_id)
+                      for lesson in lessons}
     for lesson in lessons:
         by_scope: dict[tuple[str, str, str, str], list[SourceFact]] = defaultdict(list)
         for fid in lesson.fact_ids:
@@ -968,20 +1005,23 @@ async def generate_block_assessment(
             # A legal/policy lesson can contain dozens of paragraphs.  Sending
             # every paragraph through author + reviewer + constraint calls
             # creates latency and quota pressure without improving learning.
-            # Select at most three independently source-owned facts and author
+            # Select a bounded source-density-aware set of facts and author
             # them in one bounded batch.  Each axis still owns one exact fact,
             # answer key and evidence quote; the model cannot merge their truth.
             eligible: list[tuple[tuple[int, int, int], int, SourceFact]] = []
+            unassessable_facts: list[SourceFact] = []
             for source_index, facts in enumerate(narrative_scopes):
                 for fact in facts:
                     probe = derive_assessment_axes(lesson, [fact], block_id="selection")
                     if not probe:
+                        if len(fact.value.strip()) > MAX_ASSESSMENT_ANSWER_CHARS:
+                            unassessable_facts.append(fact)
                         continue
                     priority = _narrative_assessment_priority(fact, probe[0].correct_value)
                     eligible.append((priority, source_index, fact))
             selected = sorted(eligible, key=lambda row: (
                 -row[0][0], -row[0][1], -row[0][2], row[1],
-            ))[:_MAX_QUESTIONS_PER_LESSON]
+            ))[:lesson_budgets[lesson.lesson_id]]
             narrative_selections.append({
                 "lesson_id": lesson.lesson_id,
                 "eligible_fact_ids": [row[2].fact_id for row in eligible],
@@ -992,14 +1032,16 @@ async def generate_block_assessment(
                 selected_facts = [row[2] for row in sorted(selected, key=lambda row: row[1])]
                 groups.append((lesson, selected_facts))
                 selected_ids = {fact.fact_id for fact in selected_facts}
+                eligible_ids = {row[2].fact_id for row in eligible}
                 omitted = [
                     fact
                     for facts in narrative_scopes
                     for fact in facts
-                    if fact.fact_id not in selected_ids
+                    if fact.fact_id in eligible_ids and fact.fact_id not in selected_ids
                 ]
                 if omitted:
                     density_omitted.append((lesson, omitted))
+            groups.extend((lesson, [fact]) for fact in unassessable_facts)
             continue
         groups.extend((lesson, facts) for facts in scoped_facts)
     prepared_groups: list[
@@ -1027,6 +1069,7 @@ async def generate_block_assessment(
     axis_omission_reasons: dict[str, str] = {}
     for lesson in lessons:
         group_indexes = lesson_group_indexes.get(lesson.lesson_id, [])
+        question_budget = lesson_budgets[lesson.lesson_id]
         lesson_selected = 0
         selected_subjects: set[str] = set()
         selected_attributes: set[tuple[str, str, str, str]] = set()
@@ -1034,7 +1077,7 @@ async def generate_block_assessment(
         # First give each source entity one assessment slot.  A catalog lesson
         # commonly contains the same attributes for several products; choosing
         # attributes globally before subjects made the first product consume the
-        # whole three-question budget while later products disappeared.
+        # whole selection budget while later products disappeared.
         # Within each entity prefer an as-yet untested table attribute. Stable
         # ordering keeps source order as the tie-breaker, and permits repeated
         # attributes when no new one exists instead of inventing diversity.
@@ -1044,7 +1087,7 @@ async def generate_block_assessment(
                 and _table_attribute_key(axis, facts_by_id) in selected_attributes
             ))
             for axis in group_axes:
-                if lesson_selected >= _MAX_QUESTIONS_PER_LESSON:
+                if lesson_selected >= question_budget:
                     break
                 subject_key = _norm(axis.subject)
                 if subject_key in selected_subjects:
@@ -1056,7 +1099,7 @@ async def generate_block_assessment(
                     selected_attributes.add(_table_attribute_key(axis, facts_by_id))
                 lesson_selected += 1
                 break
-            if lesson_selected >= _MAX_QUESTIONS_PER_LESSON:
+            if lesson_selected >= question_budget:
                 break
 
         max_depth = max(
@@ -1064,7 +1107,7 @@ async def generate_block_assessment(
             default=0,
         )
         for depth in range(max_depth):
-            if lesson_selected >= _MAX_QUESTIONS_PER_LESSON:
+            if lesson_selected >= question_budget:
                 break
             for group_index in group_indexes:
                 axes = prepared_groups[group_index][3]
@@ -1087,7 +1130,7 @@ async def generate_block_assessment(
                 if is_tabular_axis:
                     selected_attributes.add(attribute_key)
                 lesson_selected += 1
-                if lesson_selected >= _MAX_QUESTIONS_PER_LESSON:
+                if lesson_selected >= question_budget:
                     break
 
     accepted: list[QuestionDraft] = []
@@ -1168,18 +1211,33 @@ async def generate_block_assessment(
             await checkpoint()
         assessable_fact_ids = {axis.primary_fact_id for axis in axes}
         for fact in facts:
-            if fact.fact_id not in lesson.fact_ids or fact.fact_id in assessable_fact_ids:
+            if fact.fact_id not in lesson.fact_ids:
+                continue
+            partial_unatomized = (
+                fact.fact_id in assessable_fact_ids
+                and has_partial_unatomized_source_contract(fact)
+            )
+            if fact.fact_id in assessable_fact_ids and not partial_unatomized:
                 continue
             unassessable_id = "unassessable-" + hashlib.sha256(
                 f"{block_id}:{fact.fact_id}".encode()
             ).hexdigest()[:20]
+            unatomizable_source = (
+                len(fact.value.strip()) > MAX_ASSESSMENT_ANSWER_CHARS
+            )
             axis_records[unassessable_id] = {
                 "axis_id": unassessable_id,
                 "lesson_id": lesson.lesson_id,
                 "primary_fact_id": fact.fact_id,
                 "evidence_fact_ids": [fact.fact_id],
                 "state": "unassessable",
-                "reason": "no_stable_assessment_axis",
+                "reason": (
+                    "partial_unatomized_source_contract"
+                    if partial_unatomized
+                    else "unatomizable_source_contract"
+                    if unatomizable_source
+                    else "no_stable_assessment_axis"
+                ),
                 "attempt_counts": {
                     "authored": 0,
                     "deterministic_repair": 0,
@@ -1600,9 +1658,6 @@ async def generate_block_assessment(
                     # deterministic defect.  Omit it without paying for a
                     # provider rewrite merely to satisfy question density.
                     continue
-                if axis_id is not None:
-                    axis_records[axis_id]["attempt_counts"]["model_repair"] += 1
-                    audit["attempt_counts"]["model_repair"] += 1
                 repair_axis = next(
                     (
                         axis for axis in request_axes
@@ -1610,8 +1665,18 @@ async def generate_block_assessment(
                     ),
                     None,
                 )
+                if _has_server_immutable_rejection(
+                    rejected_question,
+                    rejection_reasons[rejected_question.question_id],
+                ):
+                    if axis_id is not None:
+                        axis_records[axis_id]["reason"] += ";server_immutable_defect"
+                    continue
                 if repair_axis is None:
                     continue
+                if axis_id is not None:
+                    axis_records[axis_id]["attempt_counts"]["model_repair"] += 1
+                    audit["attempt_counts"]["model_repair"] += 1
                 repair_request = {**request, "task": "assessment_repair", "max_questions": 1,
                                   "axes": [{
                                       "axis_id": repair_axis.axis_id,
@@ -1775,6 +1840,18 @@ async def generate_block_assessment(
         audit["block_outcomes"],
         audited_omitted_fact_ids=audited_omitted_fact_ids,
     )
+    unatomizable_fact_ids = sorted({
+        record["primary_fact_id"]
+        for record in axis_records.values()
+        if record["reason"] in {
+            "unatomizable_source_contract",
+            "partial_unatomized_source_contract",
+        }
+    })
+    audit["coverage"]["unatomizable_fact_ids"] = unatomizable_fact_ids
+    if unatomizable_fact_ids:
+        audit["coverage"]["requires_review"] = True
+        audit["coverage"]["audit_incomplete"] = True
     structured_list_axis_coverage: list[dict[str, Any]] = []
     critical_missing_axis_ids: set[str] = set()
     axes_by_parent: dict[tuple[str, str], list[AssessmentAxis]] = defaultdict(list)
@@ -1837,6 +1914,23 @@ async def generate_block_assessment(
             "complete": all(fact_id in assessed for fact_id in eligible_ids),
         })
     audit["narrative_selection_coverage"] = selection_coverage
+    density_limited_lesson_ids = sorted({
+        row["lesson_id"] for row in narrative_selections
+        if len(row["eligible_fact_ids"]) > len(row["selected_fact_ids"])
+    } | {
+        record["lesson_id"] for record in axis_records.values()
+        if record["reason"] == "assessment_density_limit"
+    })
+    audit["selection_policy"] = {
+        "policy": "source-target-density-v1",
+        "technical_ceiling": _MAX_ASSESSMENT_TARGETS_PER_LESSON,
+        "lesson_budgets": lesson_budgets,
+        "density_limited_lesson_ids": density_limited_lesson_ids,
+    }
+    audit["coverage"]["density_limited_lesson_ids"] = density_limited_lesson_ids
+    if density_limited_lesson_ids:
+        audit["coverage"]["requires_review"] = True
+        audit["coverage"]["audit_incomplete"] = True
     audit["coverage"]["critical_missing_fact_ids"] = sorted(critical_missing_fact_ids)
     if critical_missing_fact_ids:
         audit["coverage"]["requires_review"] = True

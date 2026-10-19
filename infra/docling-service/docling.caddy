@@ -1,4 +1,6 @@
-docling.kml.kz {
+# Historical opt-in template only; current production uses private docling:8600.
+# No legacy hostname is provided as a default.
+{$DOCLING_LEGACY_HOST} {
 	encode zstd gzip
 
 	request_body {

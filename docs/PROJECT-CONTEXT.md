@@ -25,6 +25,21 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
+## DEV-only OCR configuration correction — 2026-10-19 08:30UTC
+
+Owner selected removal of the obsolete DEV converter reference, not recovery of
+the former server. Existing API srv-d8rp8ej7uimc73fglid0 and worker
+srv-dar2dvbncjis73bsda3g no longer have DOCLING_URL; all other environment values
+are unchanged. Applied at the already-approved DEV source
+8099de6606578db158ae8c25d3e6c612d8765397 (0.11.66), API
+dep-dbat9dbbc2fs73cnee0g and worker dep-dbat9dmq1p3s73d19d20 both live; exact API
+identity/worker health PASS. Existing Free/Free/Hobby retained; no production,
+DNS, key, model-route, billing or resource change. Without configured OCR,
+cloud DEV uses local conversion for supported sources; scans require OCR.
+The existing local-only VM126 converter tunnel is available for bounded local
+verification but is not a cloud DEV service connection. DEV66 quality acceptance
+remains open; this configuration correction does not approve a production release.
+
 ## Current delivery checkpoint — production65 accepted,2026-10-19
 
 Backend/native frozen00e41ca7001564574fb89d2de97f9636d7e5020f/v0.11.65;

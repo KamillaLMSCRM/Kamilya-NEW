@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 _LIST_OR_NUMBERED_PARAGRAPH_BOUNDARY_RE = re.compile(
-    r"(?=^\s*(?:\d+(?:\.\d+)*|[а-яёa-z])[.)]\s+\S)", re.MULTILINE | re.IGNORECASE
+    r"(?=^\s*(?:[-*•‣]\s+)?(?:\d+(?:\.\d+)*|[а-яёa-z])[.)]\s+\S)", re.MULTILINE | re.IGNORECASE
 )
 _BULLET_RE = re.compile(r"^(?:[-*•‣])\s+")
 _NUMBERED_BULLET_RE = re.compile(r"^\d+[.)]\s+")
@@ -24,6 +24,7 @@ _NAVIGATION_HEADING_RE = re.compile(
     re.IGNORECASE,
 )
 _NUMBERED_ITEM_RE = re.compile(r"^(?P<number>\d+)[.)]\s+")
+_HIERARCHICAL_ITEM_RE = re.compile(r"^(?:[-*•‣]\s+)?\d+(?:\.\d+)+[.)]\s+")
 
 
 def _normalize_block(value: str) -> str:
@@ -53,6 +54,12 @@ def split_narrative_blocks(text: str) -> list[str]:
             paragraph = _normalize_block(numbered_part)
             if not paragraph or _DOCLING_IMAGE_MARKER_RE.fullmatch(paragraph):
                 continue
+            hierarchical_item = bool(_HIERARCHICAL_ITEM_RE.match(paragraph))
+            if hierarchical_item:
+                # Docling often prepends a visual bullet to a real clause
+                # number such as 1.4. That is a new source rule, not another
+                # child of the preceding list introduction.
+                paragraph = _BULLET_RE.sub("", paragraph, count=1)
             is_marker = bool(
                 _NUMBERED_BULLET_RE.match(paragraph) or _LETTERED_BULLET_RE.match(paragraph)
             )
@@ -65,7 +72,7 @@ def split_narrative_blocks(text: str) -> list[str]:
                     and next_numbered_list_item == int(numbered_item.group("number"))
                 )
             )
-            is_bullet = bool(_BULLET_RE.match(paragraph)) or is_list_item
+            is_bullet = not hierarchical_item and (bool(_BULLET_RE.match(paragraph)) or is_list_item)
             is_continuation = bool(_CONTINUATION_RE.match(paragraph))
             if blocks and (is_bullet or is_continuation):
                 blocks[-1] = f"{blocks[-1]} {paragraph}"

@@ -432,6 +432,14 @@ def _tabular_block_covers_labelled_facts(text: str, facts: list[SourceFact]) -> 
         # long/sentential cells keep the normal grounding and dedup path.
         clean_value = _clean_output_text(fact.value)
         if len(re.findall(r"\w+", clean_value)) > 12 or re.search(r"[.!?;]", clean_value):
+            # A document table row carries its own rule scope (e.g. category).
+            # Unlike a worksheet lesson's shared product subject, that scope
+            # cannot be inferred from the lesson title or a neighbouring row.
+            if any(field.startswith("table=") for field in fact.source_locator.split(";")):
+                subject = " ".join(_clean_output_text(fact.subject).casefold().split())
+                normalized_text = " ".join(text.casefold().split())
+                if subject and not re.search(rf"(?<!\w){re.escape(subject)}(?!\w)", normalized_text):
+                    return False
             continue
         value = " ".join(_clean_output_text(fact.value).casefold().split())
         attribute_tokens = _grounding_tokens(fact.attribute)
@@ -893,13 +901,17 @@ class ProviderBackedEvidenceEngine:
             )
             if contains_ocr_artifact(text):
                 raise ValueError("fallback fact exposes unresolved OCR artifacts")
-            if is_tabular_locator(fact.source_locator) and not re.search(r"[.!?]$", text):
+            if is_tabular_locator(fact.source_locator) and (
+                not re.search(r"[.!?]$", text)
+                or any(field.startswith("table=") for field in fact.source_locator.split(";"))
+            ):
                 # A workbook cell alone is not a teachable statement. Preserve
                 # its exact subject, column label and value without inventing
                 # a grammatical relationship absent from the source.
                 subject = _clean_output_text(fact.subject)
                 attribute = _clean_output_text(fact.attribute)
-                text = f"{subject} — {attribute}: {text}."
+                terminal = "" if re.search(r"[.!?]$", text) else "."
+                text = f"{subject} — {attribute}: {text}{terminal}"
             label = fact.attribute
             if not is_tabular_locator(fact.source_locator) and is_acceptable_title(fact.subject):
                 label = fact.subject

@@ -4661,6 +4661,16 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ## DOCLING-001 - Scanned PDF failed before OCR in the production container
 
+- 2026-10-19 recurrence: both cloud DEV services still explicitly selected an
+  obsolete public converter whose TLS chain failed validation. Removed only
+  `DOCLING_URL` from the existing API/worker environment (204 each; independent
+  absence and unchanged-other-values readback). Production/DNS/keys unchanged.
+  A separate legacy adapter also had an implicit old-VPS IP: remove that default,
+  use the local fallback without HTTP when unconfigured, and test this exact
+  behavior with environment absent plus explicit-address compatibility. Updating
+  provider configuration is not runtime proof: apply through an existing DEV
+  rollout and verify exact deployment/health. Scans still require actual OCR;
+  the existing local-only VM126 tunnel is not cloud-worker connectivity.
 - Date: 2026-09-13. Observed on production `0.5.26`; repaired for `0.5.27`.
 - Symptom: a real 21-page scanned PDF repeatedly finished document reindexing as
   `ocr_required` at 30%. `/health` stayed green, so service availability alone
@@ -8961,12 +8971,23 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   missing-coverage audit. Quality policy v5; no changed parent evidence IDs,
   provider route, grounding guard or migration. Conditions/exceptions must remain
   part of exact source-owned claims, not be dropped to increase question counts.
+  Follow-up uses quality policy v6. Actual deployed MarkItDown output may have
+  empty table headers followed by bold labels and emphasis inside numeric cells;
+  recover only that explicit header, retain raw row provenance, and remove paired
+  display emphasis without altering values. Docling bullets before hierarchical
+  clause numbers must start independent rules, not absorb whole sections. Cover
+  footnotes may contain real obligations/actors, but purpose statements remain
+  supporting even when they contain modal verbs.
 - Verification: deterministic baseline RED and original DOCX limit-loss RED;
   corrected admission preserves independently read original limit/procedure
   phrases. Source-roundtrip inline/OCR-list RED/GREEN and independent review
   found additional conditional/prohibition/exception/mixed-marker cases. Fresh
   real-model DEV and production acceptance remain separate mandatory gates;
-  local test counts do not establish semantic quality.
+  local test counts do not establish semantic quality. Captured production-shaped
+  converter inputs are now included: DOCX9admitted facts/4lessons and
+  PDF28facts/5lessons with zero provider/database calls; these counts are source
+  diagnostics, not proof of question quality. Purpose false-promotion RED4,
+  corrected source matrix141PASS; original semantic acceptance still required.
 - Prevention: review complete original-source outputs, not aggregate counts;
   exercise conversion/normalization/admission before axis derivation, inspect
   every retained question/key/distractor and all critical omitted topics. Retain

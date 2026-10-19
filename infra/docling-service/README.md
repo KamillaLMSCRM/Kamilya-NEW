@@ -1,8 +1,18 @@
 # Document converter service
 
-Docling and the local MarkItDown adapter run on the VPS selected by `VPS_URL`.
-The public endpoint is `https://docling.kml.kz`; Caddy terminates TLS and
-proxies to the local service on port 8600.
+Production Docling and the MarkItDown adapter run as the private VM126
+`docling:8600` service. The current environment/access map is
+[`docs/PROJECT-CONTEXT.md`](../../docs/PROJECT-CONTEXT.md). Do not configure
+DEV with an obsolete public converter hostname or a historical VPS IP.
+
+`DOCLING_URL` must be explicitly configured for a reachable, authenticated
+converter. When absent, the application uses supported local conversion;
+an image-only PDF requires OCR and must not be reported as successfully parsed.
+On 2026-10-19 the obsolete address was removed from both existing DEV services.
+This removal does not give the cloud DEV worker access to the private converter.
+For bounded local acceptance use the existing local-only wrapper
+`scripts/dev/run_with_vm126_docling_tunnel.py`; do not publish a new gateway.
+The adjacent Caddy file is a legacy, opt-in template, not the current topology.
 
 ## Conversion routing
 
@@ -86,16 +96,20 @@ quota, bounded task count, private temporary directory, strict umask and an
 empty capability set. Validate these limits against measured document sizes
 before changing them; do not increase concurrency to compensate for a queue.
 
-Keep the VPS environment file outside the repository with mode `0600`, and
+Keep the converter environment file outside the repository with mode `0600`, and
 load it from the systemd unit using `EnvironmentFile=`.
 
-## Production checks
+## Private converter checks
+
+Run these inside the existing container network. Do not expose port 8600 or
+change DNS for acceptance. The local wrapper instead supplies a loopback address
+to its child process and closes that tunnel when the command finishes.
 
 ```sh
-curl --fail https://docling.kml.kz/health
+curl --fail http://docling:8600/health
 curl --fail -H "X-Docling-Key: $DOCLING_API_KEY" \
   -F "file=@image-only.pdf" \
-  https://docling.kml.kz/convert
+  http://docling:8600/convert
 ```
 
 The OCR smoke document must include Kazakh, Russian, and English image-only

@@ -21,6 +21,7 @@ from .models import (
     SourceFact,
     is_tabular_locator,
 )
+from .quality import MAX_ASSESSMENT_ANSWER_CHARS
 from .temporal_units import has_temporal_unit
 
 
@@ -47,6 +48,7 @@ def operational_claim_priority(claim: str) -> tuple[int, int]:
     ))
     operational = prohibition or stop or escalation or bool(re.search(
         r"\b(?:проверь\w*|запиш\w*|отмет\w*|сверь\w*|переда\w*|"
+        r"обесточ\w*|отключ\w*|осмотр\w*|"
         r"check|verify|record|log|тексер\w*|жазы\w*|белгіле\w*)\b", value,
     ))
     return int(prohibition or stop or (conditional and escalation)), int(operational)
@@ -283,6 +285,20 @@ def _operational_clause_parts(clause: str) -> tuple[str, str, bool] | None:
         condition = conditional.group("condition").strip()
         context = "; ".join(item for item in (condition, qualifier) if item)
         return (target, context, prohibited) if target else None
+    conditional_without_comma = re.match(
+        r"^(?P<condition>(?:в\s+случае|при)\b.+?)\s+"
+        r"(?:не\s+)?[А-Яа-яЁё]+(?:ть|ти|чь)(?:ся|сь)?\s+"
+        r"(?P<target>.+)$",
+        stripped,
+        flags=re.IGNORECASE,
+    )
+    if conditional_without_comma is not None:
+        target, qualifier = _split_action_qualifier(
+            conditional_without_comma.group("target")
+        )
+        condition = conditional_without_comma.group("condition").strip()
+        context = "; ".join(item for item in (condition, qualifier) if item)
+        return (target, context, prohibited) if target else None
     prohibition = re.match(
         r"^(?:запрещено|не\s+допускается)\s+(?:не\s+)?"
         r"[А-Яа-яЁё]+(?:ть|ти|чь)(?:ся|сь)?\s+(?P<target>.+)$",
@@ -346,6 +362,272 @@ def _structured_operational_axes(fact: SourceFact) -> list[tuple[str, str]]:
             )
         axes.append((clause, prompt))
     return axes
+
+
+_SINGLE_NUMBERED_ACTION = re.compile(
+    r"^\s*(?:\d+(?:\.\d+)+\.?\s*)?"
+    r"(?P<preamble>[^:]{12,200}?\b(?:долж\w*|обязан\w*|следует))\s*:\s*"
+    r"(?:\d{1,2}[.)]\s*)?[-–—]\s*"
+    r"(?P<action>(?:не\s+)?[А-Яа-яЁё]+(?:ть|ти|чь)(?:ся|сь)?\s+.+?)"
+    r"\s*[;.]?\s*$",
+    flags=re.IGNORECASE,
+)
+
+
+def _single_numbered_action_axes(fact: SourceFact) -> list[tuple[str, str]]:
+    """Bind one explicit numbered action to its actor preamble and exceptions."""
+    if _explicit_structured_list(fact.value) is not None:
+        return []
+    match = _SINGLE_NUMBERED_ACTION.fullmatch(fact.value)
+    if match is None:
+        return []
+    preamble = match.group("preamble").strip()
+    action = match.group("action").strip()
+    if (
+        not 12 <= len(action) <= MAX_ASSESSMENT_ANSWER_CHARS
+        or _PURE_LIST_EXCEPTION.match(action)
+        or _is_dependent_source_fragment(action)
+        or _operational_clause_parts(action) is None
+    ):
+        return []
+    prompt = (
+        f"Для «{fact.subject.strip()}» в характеристике "
+        f"«{fact.attribute.strip()}»: какое действие предусмотрено требованием "
+        f"«{preamble}»?"
+    )
+    return [(action, prompt)]
+
+
+_REGULATORY_RANGE_RE = re.compile(
+    r"(?P<answer>\bот\s+\d[\d \u00a0]*\s+(?:"
+    r"до\s+\d[\d \u00a0]*\s+тенге|тенге\s+и\s+выше))\s+"
+    r"(?:для\s+)?РД\s+(?P<region>г\.\s*[А-ЯЁ][А-Яа-яЁё-]+)",
+    flags=re.IGNORECASE,
+)
+_SOURCE_ABBREVIATION_TAIL = re.compile(
+    r"(?:\b(?:г|ул|д|стр|рис|им|др)\.|\bп\.\s*\d+\.|"
+    r"\b(?:т\.\s*п|т\.\s*д|и\s+др)\.)$",
+    flags=re.IGNORECASE,
+)
+_DEPENDENT_TABLE_CLAUSE = re.compile(
+    r"^(?:в\s+этом|в\s+таком|при\s+этом|в\s+случае\s+сво|"
+    r"после\s+получения\s+(?:такой|этой)|подписанием|на\s+основании|"
+    r"аналогич|указанн|вышеуказанн|он\b|она\b|они\b|это\b)",
+    flags=re.IGNORECASE,
+)
+
+
+def _source_sentences(value: str) -> list[str]:
+    """Split source sentences without treating common abbreviations as stops."""
+    result: list[str] = []
+    start = 0
+    for boundary in re.finditer(r"[.!?]+(?=\s+(?:[*]?[А-ЯЁA-Z0-9]))", value):
+        prefix = value[start:boundary.end()].rstrip()
+        if _SOURCE_ABBREVIATION_TAIL.search(prefix):
+            continue
+        if prefix:
+            result.append(prefix.strip())
+        start = boundary.end()
+    tail = value[start:].strip()
+    if tail:
+        result.append(tail)
+    return result
+
+
+_EXPLICIT_THEN_CONDITION = re.compile(
+    r"^(?P<condition>(?:если|в\s+случае\s+если|когда|при\s+условии)\b.+),\s*"
+    r"то\s+(?P<action>.+)$",
+    flags=re.IGNORECASE,
+)
+_MODAL_CONDITION = re.compile(
+    r"^(?P<condition>(?:если|в\s+случае\s+если|когда|при\s+условии)\b.+),\s*"
+    r"(?P<action>(?:необходимо|следует|нужно|требуется)\b.+)$",
+    flags=re.IGNORECASE,
+)
+_NORMATIVE_CONSEQUENCE = re.compile(
+    r"\b(?:долж\w*|обязан\w*|необходим\w*|следует|нужно|требуется|"
+    r"запрещ\w*|не\s+[А-Яа-яЁё]+(?:ется|ются|ит|ют))\b",
+    flags=re.IGNORECASE,
+)
+_DEADLINE_VALUES = (
+    re.compile(
+        r"\bв\s+(?:первый|следующий)\s+рабочий\s+день"
+        r"(?:\s+с\s+момента\s+[^,.;!?]+)?",
+        flags=re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bв\s+течени[еи]\s+\d+(?:-[^\s,.;!?]+)?\s+[^\s,.;!?]+"
+        r"(?:\s+с\s+момента\s+[^,.;!?]+)?",
+        flags=re.IGNORECASE,
+    ),
+)
+
+
+def _without_source_marker(sentence: str) -> str:
+    return re.sub(
+        r"^\s*[*]?\s*(?:\d+(?:\.\d+)*[.)]?\s+)?",
+        "",
+        sentence,
+        count=1,
+    ).strip()
+
+
+def _conditional_rule_axes(fact: SourceFact) -> list[tuple[str, str]]:
+    """Project a complete long conditional into source-owned condition/action roles."""
+    if len(fact.value.strip()) <= MAX_ASSESSMENT_ANSWER_CHARS:
+        return []
+    axes: list[tuple[str, str]] = []
+    for sentence in _source_sentences(fact.value):
+        clause = _without_source_marker(sentence)
+        match = _EXPLICIT_THEN_CONDITION.fullmatch(clause)
+        if match is None:
+            match = _MODAL_CONDITION.fullmatch(clause)
+        if match is None:
+            continue
+        condition = match.group("condition").strip()
+        action = match.group("action").strip()
+        if (
+            not 12 <= len(condition)
+            or not 12 <= len(action) <= MAX_ASSESSMENT_ANSWER_CHARS
+            or not _NORMATIVE_CONSEQUENCE.search(action)
+            or _PURE_LIST_EXCEPTION.match(action)
+            or _is_dependent_source_fragment(action)
+        ):
+            continue
+        prompt = (
+            f"Для «{fact.subject.strip()}» в характеристике "
+            f"«{fact.attribute.strip()}»: какое действие предусмотрено при условии "
+            f"«{condition}»?"
+        )
+        axes.append((action, prompt))
+    return axes
+
+
+def _has_same_conditional_target(value: str, projections: list[tuple[str, str]]) -> bool:
+    """A complete conditional and its exact condition/action projection are one target."""
+    clause = _without_source_marker(value)
+    match = _EXPLICIT_THEN_CONDITION.fullmatch(clause) or _MODAL_CONDITION.fullmatch(clause)
+    if match is None:
+        return False
+    condition = _norm(match.group("condition"))
+    action = _norm(match.group("action"))
+    return any(_norm(answer) == action and condition in _norm(prompt)
+               for answer, prompt in projections)
+
+
+def _deadline_axes(fact: SourceFact) -> list[tuple[str, str]]:
+    """Extract exact bounded deadlines while retaining their whole source rule."""
+    if len(fact.value.strip()) <= MAX_ASSESSMENT_ANSWER_CHARS:
+        return []
+    sentences = _source_sentences(fact.value)
+    axes: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for index, sentence in enumerate(sentences):
+        matches = sorted(
+            (
+                match
+                for pattern in _DEADLINE_VALUES
+                for match in pattern.finditer(sentence)
+            ),
+            key=lambda item: item.start(),
+        )
+        for match in matches:
+            answer = match.group(0).strip()
+            if (
+                answer in seen
+                or len(answer) > MAX_ASSESSMENT_ANSWER_CHARS
+                or not has_temporal_unit(answer)
+            ):
+                continue
+            source_rule = f"{sentence[:match.start()]}_____{sentence[match.end():]}"
+            if _DEPENDENT_TABLE_CLAUSE.match(_without_source_marker(sentence)):
+                if index == 0:
+                    continue
+                source_rule = f"{sentences[index - 1]} {source_rule}"
+            prompt = (
+                f"Для «{fact.subject.strip()}» в характеристике "
+                f"«{fact.attribute.strip()}»: какой точный срок пропущен в исходном "
+                f"правиле «{source_rule.strip()}»?"
+            )
+            axes.append((answer, prompt))
+            seen.add(answer)
+    return axes
+
+
+def _regulatory_table_range_axes(fact: SourceFact) -> list[tuple[str, str]]:
+    """Bind each repeated monetary range to its contiguous region cohort."""
+    if not is_tabular_locator(fact.source_locator):
+        return []
+    matches = list(_REGULATORY_RANGE_RE.finditer(fact.value))
+    if len(matches) < 2:
+        return []
+    axes: list[tuple[str, str]] = []
+    for match in matches:
+        answer = match.group("answer").strip()
+        region = match.group("region").strip()
+        if len(answer) > MAX_ASSESSMENT_ANSWER_CHARS:
+            return []
+        prompt = (
+            f"Какое значение характеристики «{fact.attribute.strip()}» указано "
+            f"для «{fact.subject.strip()}» в РД {region}?"
+        )
+        axes.append((answer, prompt))
+    return axes
+
+
+def _table_clause_prompt(fact: SourceFact, clause: str) -> str:
+    """Build a mandatory row-owned prompt only for a standalone action clause."""
+    prompt = _required_prompt(clause)
+    if not prompt:
+        parts = _operational_clause_parts(clause.rstrip(".;"))
+        if parts is None:
+            return ""
+        target, qualifier, prohibited = parts
+        condition = f" с учетом условия «{qualifier}»" if qualifier else ""
+        if prohibited:
+            prompt = f"Какое действие в отношении «{target}» запрещено{condition}?"
+        else:
+            prompt = f"Какое действие в отношении «{target}» предусмотрено{condition}?"
+    return (
+        f"Для «{fact.subject.strip()}» в характеристике "
+        f"«{fact.attribute.strip()}»: {prompt}"
+    )
+
+
+def _compound_table_operational_axes(fact: SourceFact) -> list[tuple[str, str]]:
+    """Atomize only long table cells with complete, independently promptable rules."""
+    if (
+        not is_tabular_locator(fact.source_locator)
+        or len(fact.value.strip()) <= MAX_ASSESSMENT_ANSWER_CHARS
+    ):
+        return []
+    axes: list[tuple[str, str]] = []
+    for sentence in _source_sentences(fact.value):
+        clause = re.sub(r"^\s*\d+[.)]\s*", "", sentence).strip()
+        if (
+            not 20 <= len(clause) <= MAX_ASSESSMENT_ANSWER_CHARS
+            or clause.endswith((":", ";"))
+            or any(pattern.search(clause) for pattern in _DEADLINE_VALUES)
+            or _DEPENDENT_TABLE_CLAUSE.match(clause)
+            or _is_dependent_source_fragment(clause)
+        ):
+            continue
+        prompt = _table_clause_prompt(fact, clause)
+        if prompt:
+            axes.append((clause, prompt))
+    return axes
+
+
+def has_partial_unatomized_source_contract(fact: SourceFact) -> bool:
+    """Flag rich table cells whose safe axes do not claim complete cell coverage."""
+    if (
+        not is_tabular_locator(fact.source_locator)
+        or len(fact.value.strip()) <= MAX_ASSESSMENT_ANSWER_CHARS
+        or _structured_operational_axes(fact)
+        or _regulatory_table_range_axes(fact)
+    ):
+        return False
+    return bool(_compound_table_operational_axes(fact))
 
 
 def _unsupported_operational_list(fact: SourceFact) -> bool:
@@ -438,11 +720,7 @@ def _source_owned_correct_value(fact: SourceFact) -> str:
     if faq_pair is not None:
         return faq_pair[1]
     structured_clauses = _structured_list_clauses(fact.value)
-    sentences = structured_clauses or [
-        match.group(0).strip()
-        for match in re.finditer(r"[^.!?]+(?:[.!?]+|$)", fact.value)
-        if match.group(0).strip()
-    ]
+    sentences = structured_clauses or _source_sentences(fact.value)
     if len(sentences) <= 1:
         return _concise_source_span(fact.value.strip())
 
@@ -466,7 +744,8 @@ def _source_owned_correct_value(fact: SourceFact) -> str:
             points += 8
         points += 3 * len(re.findall(
             r"\b(?:долж\w*|нельзя|запрещ\w*|отказ\w*|предлаг\w*|"
-            r"переда\w*|использ\w*|требу\w*|must|shall|refus\w*|offer\w*)\b",
+            r"переда\w*|использ\w*|требу\w*|необходим\w*|следу\w*|"
+            r"must|shall|refus\w*|offer\w*)\b",
             normalized,
         ))
         if re.search(r"\b(?:сотрудник|клиент|оператор|employee|customer|operator)\b", normalized):
@@ -996,16 +1275,71 @@ def derive_assessment_axes(
             # A bare FAQ question carries no answer. Explicit source attributes
             # such as "вопрос для знакомства" may legitimately quote a question.
             continue
-        structured_axes = _structured_operational_axes(fact)
-        if not structured_axes and _unsupported_operational_list(fact):
+        single_action_axes = _single_numbered_action_axes(fact)
+        structured_axes = (
+            [] if single_action_axes else _structured_operational_axes(fact)
+        )
+        if not single_action_axes and not structured_axes and _unsupported_operational_list(fact):
             # Multiple source actions without a bounded shared context cannot
             # safely become either separate prompts or one apparently covered
             # parent axis. The assessment audit will retain the fact as
             # unassessed evidence and require review.
             continue
-        source_axes = structured_axes or [(_source_owned_correct_value(fact), "")]
+        regulatory_axes = (
+            [] if single_action_axes or structured_axes
+            else _regulatory_table_range_axes(fact)
+        )
+        conditional_axes = (
+            [] if single_action_axes or structured_axes or regulatory_axes
+            else _conditional_rule_axes(fact)
+        )
+        deadline_axes = (
+            [] if single_action_axes or structured_axes or regulatory_axes
+            else _deadline_axes(fact)
+        )
+        compound_table_axes = (
+            [] if single_action_axes or structured_axes or regulatory_axes
+            else _compound_table_operational_axes(fact)
+        )
+        projected_axes = conditional_axes + deadline_axes + [
+            (value, prompt) for value, prompt in compound_table_axes
+            if not _has_same_conditional_target(value, conditional_axes)
+        ]
+        if projected_axes:
+            fallback = _source_owned_correct_value(fact)
+            if (
+                fallback
+                and len(fallback.strip()) <= MAX_ASSESSMENT_ANSWER_CHARS
+                and not _is_dependent_source_fragment(fallback)
+                and not _has_same_conditional_target(fallback, conditional_axes)
+                and all(_norm(fallback) != _norm(value) for value, _prompt in projected_axes)
+            ):
+                projected_axes.append((fallback, ""))
+        if (
+            not single_action_axes
+            and not structured_axes
+            and not regulatory_axes
+            and not projected_axes
+            and is_tabular_locator(fact.source_locator)
+            and len(fact.value.strip()) > MAX_ASSESSMENT_ANSWER_CHARS
+        ):
+            # A full-cell key is guaranteed to fail the local quality contract.
+            # Without a complete independently promptable source span, preserve
+            # the parent fact as explicit unassessable evidence before authoring.
+            continue
+        source_axes = (
+            single_action_axes
+            or structured_axes
+            or regulatory_axes
+            or projected_axes
+            or [(_source_owned_correct_value(fact), "")]
+        )
         for source_value, structured_prompt in source_axes:
-            if not source_value or _is_dependent_source_fragment(source_value):
+            if (
+                not source_value
+                or len(source_value.strip()) > MAX_ASSESSMENT_ANSWER_CHARS
+                or _is_dependent_source_fragment(source_value)
+            ):
                 continue
             if structured_prompt:
                 correct_value, required_prompt = source_value, structured_prompt
@@ -1017,6 +1351,15 @@ def derive_assessment_axes(
             faq_pair = _source_owned_faq_pair(fact.value)
             required_prompt = (faq_pair[0] if faq_pair else
                                required_prompt or _required_prompt(correct_value))
+            if not required_prompt and re.search(
+                r"^(?:необходимо\b|.+?\bследует\s+(?:обесточить|отключить)\b)",
+                correct_value.strip(),
+                flags=re.IGNORECASE,
+            ):
+                required_prompt = (
+                    f"Для «{fact.subject.strip()}» в характеристике "
+                    f"«{fact.attribute.strip()}»: какое действие предусмотрено?"
+                )
             if not required_prompt and is_tabular_locator(fact.source_locator):
                 # Keep the source-owned table subject and attribute in the stem;
                 # a provider may propose alternatives, not recast a collection as
@@ -1123,6 +1466,9 @@ def materialize_assessment(
 def _teaching_explanation(axis: AssessmentAxis) -> str:
     """Give learners the selected claim without exposing authoring metadata."""
     sample = f"{axis.attribute} {axis.correct_value}".casefold()
+    # A legal entity's proper name is not the language of the instruction.
+    # Preserve the quoted name in the answer; exclude it only from detection.
+    sample = re.sub(r'\b(?:тоо|ао|ооо|ип|жшс|llp|llc)\s*[«"“][^»"”]*[»"”]', "", sample)
     neutral_claim = (
         _norm(axis.attribute) == "положение"
         or axis.correct_value.casefold().startswith(("если ", "if ", "егер "))

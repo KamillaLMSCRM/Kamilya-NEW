@@ -16,7 +16,48 @@ source locators remain immutable evidence; assessment axes may now represent
 distinct explicit clauses of the same parent fact. Exact axis IDs, not merely the
 parent fact ID, bind replacement/repair and critical-coverage audit. Existing
 grounding/answer-key/exception/retry guards and no-padding policy remain required.
-Quality policy v5 prevents mixing old and corrected resumable generation rules.
+Follow-up quality policy v6 prevents mixing old and corrected resumable generation
+rules after the captured original-run corrections.
+
+### Original-run diagnostic correction,2026-10-19
+
+Cloud DEV DOCX generation completed but retained1/6assessment axes. An independent
+bounded original-DOCX core run reproduced1question/23DeepSeek calls/71.034s and
+saved raw responses privately for replay. Two immutable keys were truncated at
+the city abbreviation `г.`; three others had246/543/1200characters against the
+unchanged240-character answer gate. Those are pre-author contract defects,
+not evidence that the reviewer or answer-length gate should be relaxed.
+
+Extend the allowed assessment-axis delta to abbreviation-aware complete source
+spans and safe atomic operational targets, retaining exact parent facts,
+category/row scope, conditions and exceptions. Unatomizable dependent context
+must be unassessable/review-required before paid author/repair calls. Do not
+perform distractor-only repair for an immutable malformed key. The owner's later
+explicit instruction removes the three-question-per-lesson quota. Independent
+source-owned targets now determine the request budget, with20 as a technical
+safety ceiling, not a minimum, recommended test length or claim of coverage.
+Ceiling/quality omissions remain explicit. Distinct contextual document-table
+rules are not discarded as duplicate attributes. Existing worksheet entity/
+attribute diversity remains; ordinary prose cannot manufacture new axes.
+Question-bank selection, learner randomization and new billing routes are not
+included: the separate bank request remains analysis/proposal only.
+
+Long document-table realization must preserve row identity beside the limits or
+procedure; otherwise use labelled source fallback. Existing worksheet/product
+deduplication and successful teaching blocks remain regression scope. Root owns
+provider_engine and source tests; the existing assessment leaf owns only axes,
+semantic assessment and its new synthetic test file. Root integrates and
+independently verifies actual-original captures plus fresh DEV before release.
+
+Captured deployed-converter output is a required oracle, not interchangeable
+with workstation Office conversion. MarkItDown empty Markdown headers may be
+promoted only from an explicitly formatted label row, with actual data following;
+ambiguous tables fail closed. Balanced inline emphasis preserves embedded amounts.
+Docling hierarchical clauses remain separate from their ordinary child lists.
+Complete actor/conditional footnotes before a body heading remain source-owned;
+approval signatures and generic purpose prose cannot become teachable rules merely
+because they contain a modal verb. These changes also require correction/actuality
+consumer regressions because they share the admission seam.
 
 ## Impact matrix
 

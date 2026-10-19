@@ -513,7 +513,7 @@ async def test_partial_author_response_recovers_each_missing_clause_axis() -> No
     author_requests = [
         request for request in client.requests if request["task"] == "assessment_generate"
     ]
-    assert [len(request["axes"]) for request in author_requests] == [3, 1, 1]
+    assert [len(request["axes"]) for request in author_requests] == [8, *([1] * 7)]
     requested_axis_ids = [
         axis["axis_id"] for axis in author_requests[0]["axes"]
     ]
@@ -522,12 +522,17 @@ async def test_partial_author_response_recovers_each_missing_clause_axis() -> No
     ]
     assert recovered_axis_ids == requested_axis_ids[1:]
     assert {question.correct_answer for question in result.questions} == set(
-        WAREHOUSE_CLAUSES[:3]
+        WAREHOUSE_CLAUSES
     )
 
 
 @pytest.mark.asyncio
-async def test_unselected_operational_siblings_remain_explicit_critical_omissions() -> None:
+async def test_unselected_operational_siblings_remain_explicit_critical_omissions(monkeypatch) -> None:
+    # Exercise ceiling exhaustion with a small fixture, not a three-question
+    # product policy. The production budget follows independent source targets.
+    monkeypatch.setattr(
+        "app.modules.ai.evidence_engine.semantic_assessment._MAX_ASSESSMENT_TARGETS_PER_LESSON", 3,
+    )
     lesson, fact = _fixture()
     client = _StructuredRuleClient()
     client.repair_seen = True

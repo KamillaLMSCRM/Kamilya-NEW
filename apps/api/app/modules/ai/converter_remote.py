@@ -1,27 +1,28 @@
-"""Docling remote converter — calls VPS-hosted Docling service."""
+"""Docling adapter with an explicitly configured endpoint and local fallback."""
 from __future__ import annotations
 
 import logging
 import os
-from typing import Any
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-DOCLING_URL = os.getenv("DOCLING_URL", "http://173.249.51.164:8600")
+DOCLING_URL = os.getenv("DOCLING_URL", "")
 DOCLING_API_KEY = os.getenv("DOCLING_API_KEY", "")
 DOCLING_TIMEOUT_SECONDS = float(os.getenv("DOCLING_TIMEOUT_SECONDS", "900"))
 
 
 class DocumentConverter:
-    """Convert documents to markdown via remote Docling service on VPS."""
+    """Convert documents via an operator-configured Docling service."""
 
     def __init__(self, base_url: str | None = None):
         self.base_url = (base_url or DOCLING_URL).rstrip("/")
 
     async def convert(self, file_path: str) -> dict:
-        """Send file to VPS Docling for conversion."""
+        """Use HTTP only when an endpoint was explicitly configured."""
+        if not self.base_url:
+            return await _fallback_convert(file_path)
         filename = os.path.basename(file_path)
 
         with open(file_path, "rb") as f:

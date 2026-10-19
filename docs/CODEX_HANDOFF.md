@@ -3,8 +3,31 @@
 **Обновлено:** 2026-10-19
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\cabinet-release-20261018`
-**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, active branch `codex/four-blocks-production-20261019`;
+**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, active branch `codex/lombard-course-quality-20261019`;
 production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
+
+## Active original-document quality correction66 — not production
+
+Owner-authorized one production package remains the objective; immediate stale
+DEV converter correction did not revoke that release authority. Existing DEV
+API/worker/frontend initial66/8099de66 live; only obsolete DOCLING_URL removed
+and same-SHA reapplied, all other configuration/tier/model routes unchanged.
+Local follow-up parses actual deployed-converter Markdown, restores category
+tables/amounts, hierarchical safety clauses and evacuation heading; readable
+safe fallback and neutral guide/list/terminal workflow are included. Explicit
+owner follow-up removes fixed-three question quota: independent source targets,
+technical ceiling20 and honest missing coverage. No employee bank sampling yet.
+
+Exact approved3drafts/2unused source rows removed via normal API after zero
+learning/source-hash proof;33production journal rows preserved. Originals remain
+on disk and fresh records exist only in permanent synthetic QA. Current source
+and captures: docs/plans/2026-10-19_lombard-generation-quality.md, existing impact
+addendum and TEST_RUN_LEDGER. Private ignored .release-evidence/lombard-quality19
+contains production-shaped DOCX R6 (14distinct retained questions,4partial/
+unsupported parents, no critical missing axes) and PDF R4 (41questions,7omissions,
+3unsupported parents). Source review is not fresh cloud DEV/production proof.
+No new production release/tag or activation beyond current65. Voice/reserve/
+routing/ASUS/landing/billing/resources unchanged. Preserve unrelated output/.
 
 ## Current checkpoint — four blocks65 released and live accepted
 

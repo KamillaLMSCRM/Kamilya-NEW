@@ -6,6 +6,7 @@ import pytest
 
 from app.modules.ai.evidence_engine.assessment_axes import (
     _direct_binary_prohibition,
+    _teaching_explanation,
     derive_assessment_axes,
     materialize_assessment,
 )
@@ -32,6 +33,30 @@ def _fixture() -> tuple[LessonDraft, SourceFact]:
         2,
     )
     return lesson, fact
+
+
+def test_kazakh_company_name_does_not_change_russian_explanation_language() -> None:
+    lesson, fact = _fixture()
+    fact = SourceFact(fact.fact_id, fact.subject, "положение",
+                      "В ТОО «Қазына» согласование проводят руководители отделов.", fact.source_locator)
+    axis = derive_assessment_axes(lesson, [fact], block_id="language")[0]
+    assert _teaching_explanation(axis).startswith("Запомните:")
+
+
+def test_conditional_projection_and_full_sentence_are_not_two_knowledge_targets() -> None:
+    value = (
+        "Условия согласования устанавливаются для операций соответствующей категории. "
+        "Если выдача производится после 18:00 часов, в выходные или праздничные дни, "
+        "то решение должно быть предварительно согласовано по телефону. "
+        "Проверку проводят в первый рабочий день с момента выдачи."
+    )
+    fact = SourceFact("compound", "II категория", "Порядок согласования", value,
+                      "doc_id=synthetic;source_revision=v1;section=rules;table=1;row=2;column=2")
+    lesson = LessonDraft("compound", "Правила", "Согласование", "Согласовывать выдачу", "", (fact.fact_id,), (), 2)
+    axes = derive_assessment_axes(lesson, [fact], block_id="compound")
+    same_decision = [axis for axis in axes if "по телефону" in axis.correct_value]
+    assert len(same_decision) == 1
+    assert "выходные или праздничные дни" in same_decision[0].required_prompt
 
 
 def test_server_owned_axis_materializes_the_same_key_regardless_of_model_key_fields() -> None:

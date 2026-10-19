@@ -48,7 +48,7 @@ from .models import (
     StageTiming,
     is_tabular_locator,
 )
-from .provider_engine import ProviderBackedEvidenceEngine, _normalize, coalesce_grounded_blocks
+from .provider_engine import ProviderBackedEvidenceEngine, _normalize, _readable_source_text, coalesce_grounded_blocks
 from .provider_models import (
     GroundedBlock,
     ProviderBackedResult,
@@ -237,6 +237,12 @@ _SOURCE_AUTHORING_METADATA_RE = re.compile(
     r"|(?:сабақ|курс)\s+ережелерді\s+үйретуі\s+керек\b[^.!?]{0,160}"
     r"(?:тақырыптарды\s+қайталау\s+емес|тақырыптарды\s+қайта\s+айтудың\s+орнына)\b"
     r"|(?:synthetic\s+material\s+for\s+(?:a\s+)?video\s+instruction)\b"
+    r"|(?:маркер\s+(?:набора|пакета)|код\s+пакета)\s*:"
+    r"|(?:цель|назначение\s+документа)\s*[:—]"
+    r"|это\s+полностью\s+вымышленная\s+инструкция\s+для\s+тестирования\b"
+    r"|названия\s+людей,\s*компаний\s+и\s+оборудования\s+не\s+относятся\s+к\s+реальным\b"
+    r"|документ\s+не\s+устанавливает\s+юридических\s+обязанностей\b[^.!?]*"
+    r"\bтолько\s+для\s+проверки\s+программного\s+обеспечения\b"
     r"|all\s+rules\s+and\s+names\s+are\s+fictional\b"
     r"|end\s+of\s+(?:the\s+)?(?:training\s+)?material\b"
     r")", re.IGNORECASE,
@@ -365,8 +371,25 @@ def _narrative_fact_metadata(value: str) -> dict[str, float | str]:
     return {"confidence": 1.0, "uncertainty": ""}
 
 
+def _source_inline_text(text: str) -> str:
+    """Remove balanced strong-emphasis markup, including inside a source number."""
+    text = re.sub(r"(?<!\\)\*\*(.+?)(?<!\\)\*\*", r"\1", text)
+    return re.sub(r"(?m)^\*(?!\*)(.+?)(?<!\*)\*$", r"\1", text)
+
+
 def _split_narrative_chunk(text: str) -> list[str]:
-    cleaned = re.sub(r"(?m)^#{1,6}\s+.*$", "", text)
+    def keep_action_heading(match: re.Match[str]) -> str:
+        return match.group(0) if is_sentence_like_ordinal_heading(match.group(1)) else ""
+
+    # A converter's bold nominal section is structure, not a numbered child of
+    # a preceding colon-ended rule. Remove it before emphasis loses that signal;
+    # explicit action items remain source content with their list introduction.
+    text = re.sub(
+        r"(?m)^\s*\*\*(\d{1,3}[.)]\s+[^\n]{3,120})\*\*\s*$",
+        keep_action_heading,
+        text,
+    )
+    cleaned = re.sub(r"(?m)^#{1,6}\s+.*$", "", _source_inline_text(text))
     # MarkItDown can insert a blank paragraph break inside one printed line.
     # Rejoin only an unpunctuated fragment followed by a lowercase continuation;
     # true paragraph endings and uncertain uppercase starts remain separate.
@@ -403,6 +426,12 @@ def _split_narrative_chunk(text: str) -> list[str]:
             and not _APPENDIX_MARKER_RE.search(cleaned)
         )
         if cleaned and letter_count >= 8 and not page_footer:
+            if cleaned.endswith(":"):
+                complete = re.fullmatch(r"(?s)(.+[.!?])\s+([^.!?]+:)", cleaned)
+                if complete and not re.search(r"\b(?:г|п|стр|т|им|ул)\.$", complete.group(1), re.I):
+                    cleaned_parts.extend(_separate_source_authoring_metadata(complete.group(1)))
+                    cleaned_parts.append(complete.group(2))
+                    continue
             cleaned_parts.extend(_separate_source_authoring_metadata(cleaned))
     return cleaned_parts
 
@@ -580,7 +609,20 @@ def _ordinary_markdown_tables(
         if malformed:
             search_from = cursor + 1
             continue
-        accepted.append((headers, rows))
+        if not any(headers):
+            # MarkItDown can serialize a visually headerless first Word row as
+            # an empty Markdown header, followed by the explicitly bold labels.
+            # Promote only that unambiguous formatted label row; never guess a
+            # schema from the first ordinary data record or silently drop it.
+            labels = rows[0][0] if rows else []
+            if (len(rows) < 2 or not labels
+                    or not all(re.fullmatch(r"\*\*\S(?:.*\S)?\*\*", cell) for cell in labels)):
+                raise ValueError("evidence_source_table_header_unavailable")
+            headers, rows = labels, rows[1:]
+        accepted.append((
+            [_source_inline_text(header) for header in headers],
+            [([_source_inline_text(cell) for cell in cells], raw) for cells, raw in rows],
+        ))
         table_lines.update(current_lines)
         search_from = cursor
     return accepted, table_lines
@@ -700,12 +742,17 @@ def _reassemble_section_chunks(chunks: tuple[DirectSourceChunk, ...]) -> tuple[D
 def _plain_numbered_sections(text: str, fallback_title: str) -> list[tuple[str, str]]:
     """Recover major ``1. Heading`` sections from plain text without Markdown metadata."""
 
+    # One explicitly formatted nominal section is stronger evidence than one
+    # bare numbered line, which may merely be an action item. Preserve that
+    # converter-supplied structure without inventing a heading.
+    formatted_heading = bool(re.search(r"(?m)^\s*\*\*\d{1,3}[.)]\s+[^\n]{3,120}\*\*\s*$", text))
+    text = _source_inline_text(text)
     matches = [
         match
         for match in _PLAIN_NUMBERED_SECTION_RE.finditer(text)
         if _is_plain_numbered_section_heading(match)
     ]
-    if len(matches) < 2:
+    if not matches or (len(matches) < 2 and not formatted_heading):
         return []
     sections: list[tuple[str, str]] = []
     prefix = text[: matches[0].start()].strip()
@@ -1091,6 +1138,36 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
                         section_index=section_index,
                     )
                     if section is not None:
+                        if (section_name == document.title and len(plain_sections) > 1
+                                and not re.search(r"\b(?:приложени\w*|справоч\w*|каталог\w*|appendix|catalog)\b",
+                                                  section_name, re.I)):
+                            # A cover prefix can also contain a real operational
+                            # footnote before the first formatted body heading.
+                            # Preserve only explicit complete obligations here;
+                            # purpose prose/signatures remain supporting.
+                            operational = tuple(fact for fact in section.facts if (
+                                fact.confidence >= 0.8
+                                and fact.uncertainty in {"", "local_ocr"}
+                                and not re.match(
+                                    r"^(?:\d+[.)]\s*)?(?:цель\b|цели\b|назначение\s+документа\b|"
+                                    r"purpose\b|objective\b|мақсаты\b|құжаттың\s+мақсаты\b)",
+                                    fact.value, re.I,
+                                )
+                                and re.search(
+                                    r"\b(?:обязан(?:а|ы)?|долж(?:ен|на|ны)|необходимо|"
+                                    r"нельзя|запрещено|запрещается|не\s+допускается|"
+                                    r"проводят|осуществляют|выполняют|"
+                                    r"must|shall|тиіс|міндетті)\b", fact.value, re.I,
+                                )
+                            ))
+                            if operational:
+                                sections.append(replace(section, section_id=section.section_id + ":operational",
+                                                        role="primary", facts=operational))
+                                operational_ids = {fact.fact_id for fact in operational}
+                                section = replace(section, facts=tuple(
+                                    fact for fact in section.facts if fact.fact_id not in operational_ids))
+                                if not section.facts:
+                                    continue
                         sections.append(section)
                 continue
 
@@ -1286,6 +1363,8 @@ def _grounded_fallback(
             " ".join(label.strip().rstrip(".:").split())
         ) or "Подтверждённые сведения"
         text = neutralize_unprofessional_source_language(fact.value.strip())
+        if any(field.startswith("table=") for field in fact.source_locator.split(";")):
+            text = f"{fact.subject.strip()} — {fact.attribute.strip()}: {text}"
         blocks.append(
             GroundedBlock(
                 lesson_id=base_lesson.lesson_id,
@@ -1302,7 +1381,9 @@ def _grounded_fallback(
         for part in (
             f"### {_escape_markdown_text(block.heading)}",
             "",
-            _escape_markdown_text(block.text),
+            # All untrusted source markup stays escaped. Controlled blank lines
+            # make normalized paragraphs/lists readable even in safe fallback.
+            _escape_markdown_text(_readable_source_text(block.text)).replace("\n", "\n\n"),
             "",
         )
     ]

@@ -1171,7 +1171,7 @@ async def test_oversized_block_is_reported_not_silently_truncated():
 
 
 @pytest.mark.asyncio
-async def test_narrative_paragraph_assessment_is_bounded_to_three_atomic_facts():
+async def test_narrative_assessment_budget_follows_independent_source_targets():
     lesson, facts = fixture()
     facts["f1"] = replace(facts["f1"], source_locator="doc_id=d1;section=rules;part=1")
     for index in range(2, 6):
@@ -1186,12 +1186,11 @@ async def test_narrative_paragraph_assessment_is_bounded_to_three_atomic_facts()
     result = await generate_block_assessment([lesson], facts, client)
     assert result.audit["blocks"] == 1
     assert len(client.requests) == 1
-    assert len(client.requests[0]["facts"]) == 3
-    assert len(client.requests[0]["axes"]) == 3
+    assert len(client.requests[0]["facts"]) == 5
+    assert len(client.requests[0]["axes"]) == 5
     omitted = [row for row in result.audit["block_outcomes"]
                if row["outcome"] == "density_omitted"]
-    assert len(omitted) == 1
-    assert len(omitted[0]["fact_ids"]) == 2
+    assert omitted == []
     assert result.audit["coverage"]["audit_incomplete"] is False
 
 

@@ -85,7 +85,7 @@ async def test_equipment_selection_excludes_preamble_and_prioritizes_stop_rule()
     assert all("Синтетический материал" not in claim and "Конец учебного" not in claim for claim in claims)
     assert any("остановите выдачу" in claim and "руководител" in claim for claim in claims)
     first_attempt = {axis["axis_id"] for request in probe.requests for axis in request["axes"]}
-    assert len(first_attempt) <= 3, "Selection must preserve the existing density cap, not pad a quota"
+    assert len(first_attempt) == 4, "Four independent working steps must not be truncated to three"
 
 
 @pytest.mark.asyncio
@@ -98,7 +98,7 @@ async def test_qa_buttons_exact_source_prioritizes_work_steps_over_metadata():
     claims = list(dict.fromkeys(
         axis["source_claim"] for request in probe.requests for axis in request["axes"]
     ))
-    assert len(claims) == 3, "The existing per-lesson density ceiling remains three"
+    assert len(claims) == 4, "Select all four working steps, not metadata or a three-question quota"
     assert any("несовпадении номера остановите приём" in claim for claim in claims)
     assert any("повреждении кабеля остановите приём" in claim for claim in claims)
     assert any("запишите в журнале номер прибора" in claim for claim in claims)
@@ -114,7 +114,7 @@ async def test_qa_buttons_exact_source_prioritizes_work_steps_over_metadata():
     selection = result.audit["narrative_selection_coverage"][0]
     assert return_fact_ids <= set(selection["eligible_fact_ids"])
     assert return_fact_ids <= set(selection["unassessed_fact_ids"])
-    assert not return_fact_ids & set(selection["selected_fact_ids"])
+    assert return_fact_ids <= set(selection["selected_fact_ids"])
 
 
 @pytest.mark.asyncio
@@ -181,13 +181,14 @@ async def test_missing_critical_question_cannot_be_hidden_by_complete_topic_cove
     assert result.audit["terminal_status"] == "review_required"
     selection = result.audit["narrative_selection_coverage"][0]
     assert len(selection["eligible_fact_ids"]) == 4
-    assert len(selection["selected_fact_ids"]) == 3
+    assert len(selection["selected_fact_ids"]) == 4
     assert selection["assessed_fact_ids"] == []
     assert selection["complete"] is False
 
 
 @pytest.mark.asyncio
-async def test_density_limit_keeps_omitted_critical_rule_visible():
+async def test_density_limit_keeps_omitted_critical_rule_visible(monkeypatch):
+    monkeypatch.setattr(semantic_assessment, "_MAX_ASSESSMENT_TARGETS_PER_LESSON", 3)
     text = "\n\n".join([
         "1. Если комплект неполный, остановите выдачу и сообщите руководителю.",
         "2. Если журнал недоступен, остановите выдачу и сообщите руководителю.",
