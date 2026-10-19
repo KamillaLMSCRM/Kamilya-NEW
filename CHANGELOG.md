@@ -47,6 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Give bounded assessment repair exact server-derived option feedback when a
   distractor repeats the answer value with another region/caveat. Keep the
   ambiguity rejection and source-owned key, not generic retry/no-progress loops.
+- Route lesson/module quiz regeneration through the same adaptive reviewed
+  assessment engine, without a three-question request or 3,000-character clip.
+  Incomplete output preserves the old quiz; attempts prevent replacement;
+  regenerated quizzes require explicit methodologist review.
 
 ### Historical DEV candidate: four bounded improvements (2026-10-19)
 

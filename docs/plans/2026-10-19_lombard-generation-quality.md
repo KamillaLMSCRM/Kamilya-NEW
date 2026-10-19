@@ -226,3 +226,26 @@ Earlier replay9 incorrectly reused old repair; kept failed, not relabeled.
 Fresh DEV full-course and original scan-path checks remain separate from this
 bounded diagnostic. Current production remains65; no voice/reserve/routing or
 billing/resource changes.
+
+R6 exactaa911606 is DEV-live (CI39244745196 all7SUCCESS, RELEASE_OK): API
+dep-dbavvm6q1p3s73dasm4g,worker dep-dbb00mc9v7es73a699dg,Vercel
+dpl_A2im8xaY21vK5zUprxshMthKAJfy. Fresh ordinary UI jobbec0dc2d/draft7b8fa897,
+4lessons/9questions(3,2,2,2),120.416s start-to-terminal update, exactDOCX/qualityv9.
+One first-cohort I-category range still omits with specific containment feedback
+and no-progress; four partial parents remain. This real result supersedes any
+inference that the isolated repaired pair guarantees whole-course acceptance.
+
+Source search found two more fixed-three requests in the legacy lesson/module
+regeneration jobs, plus the matching RU/KK/EN checkbox label. Remove those paths,
+not only the main generation quota. A bounded adapter derives evidence from the
+source-verified rewritten lesson snapshot (explicitly not original-file
+revalidation) and calls the same adaptive semantic engine. Preserve full content
+up to120k, never clip the first3000chars. Only a fully completed coverage contract
+may replace an old quiz; existing tenant-scoped attempt guard remains, and new
+quizzes use canonical needs_review. Failed coverage rolls back the rewrite and
+preserves all quizzes. Independent review caught two P1s (incomplete nonempty
+result acceptance and invalid pending_review enum); both corrected before deploy.
+Final15helper/job cases include final rule beyond3000chars, both job types,
+critical missing/omitted/uncovered/unsupported/missing audit states, attempts and
+checkbox opt-out. Full APIunit+dispatch3403PASS/40.36s,5pre-existing warnings.
+DEV follow-up/runtime regeneration acceptance remains a gate, production65 intact.

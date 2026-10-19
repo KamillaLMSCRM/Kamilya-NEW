@@ -109,3 +109,11 @@ option closed reasons rather than a generic quality failure. Repair must change
 the wrong value, not the source-owned truth or prompt. Current quality-v9 keeps
 omitted/unsupported source coverage explicit; a repaired pair is not a full-course
 or production acceptance claim.
+
+The legacy lesson/module regeneration jobs must not reintroduce a fixed count or
+tail clipping. Prepare from the full verified rewritten lesson snapshot using
+the same adaptive engine; label snapshot provenance truthfully, not as reopened
+original documents. Require completed topic and contract coverage before any
+quiz replacement; preserve the old transaction on failure, reuse attempt guards,
+and keep canonical needs_review until explicit approval. Question-bank sampling
+and published-result rewriting remain outside this correction.

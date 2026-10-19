@@ -9017,6 +9017,16 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   bounded captured-initial/real-repair probe retains both exact keys after four
   real provider calls. Replay-only9 reused obsolete repair and remains failed;
   corrected9b excludes old repair responses. Neither is cloud DEV acceptance.
+- Legacy regeneration follow-up: both lesson/module jobs still requested three
+  model-keyed questions from the first3000chars and could delete the old quiz
+  before malformed/empty generation, then use the approved default. Adapt a
+  clearly labelled verified lesson snapshot to the same evidence/semantic engine,
+  preserve the full content under an explicit size bound, and fail before delete
+  unless the complete coverage/terminal contract passes. Reuse existing tenant-
+  scoped attempt protection, persist canonical needs_review, never a new status.
+  Independent review caught/closed incomplete-nonempty acceptance and an invalid
+  pending_review value before deployment. Tests cover both jobs, failures,
+  attempts, checkbox opt-out and a final rule beyond3000chars; no quota padding.
 - Verification: deterministic baseline RED and original DOCX limit-loss RED;
   corrected admission preserves independently read original limit/procedure
   phrases. Source-roundtrip inline/OCR-list RED/GREEN and independent review

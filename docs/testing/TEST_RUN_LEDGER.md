@@ -5544,3 +5544,27 @@ Rules:
   repaired range questions; no remaining P0/P1 in the bounded seam. Existing
   post-pruning feedback regression independently covers original option identity.
   Fresh exact-SHA CI/DEV and production remain separate gates.
+
+## TEST-LOMBARD66-LEGACY-ADAPTIVE-20261019
+
+- R6 exactaa911606/CI39244745196 all7SUCCESS/controller RELEASE_OK. API
+  dep-dbavvm6q1p3s73dasm4g,worker dep-dbb00mc9v7es73a699dg,Vercel
+  dpl_A2im8xaY21vK5zUprxshMthKAJfy. Fresh ordinary UI DOCX jobbec0dc2d/
+  draft7b8fa897:4lessons/9questions(3,2,2,2),120.416s start-to-terminal update,
+  interrupted/review-required,10derived/authored,9retained/1omitted/0uncovered,
+  4partial parents. One I-category range still fails ambiguity/no-progress.
+  Isolated repair success does not establish whole-course quality GO.
+- Exact source search found two legacy fixed3prompts and3000char clips plus
+  locale wording. New verified-lesson-snapshot adapter uses shared evidence/
+  semantic assessment, preserves full content under explicit120k bound,
+  rejects incomplete contracts before delete and oversized persisted choices.
+  Both jobs reuse attempt guard and persist canonical needs_review.
+- First3new helper tests RED ModuleNotFound then GREEN. Independent review
+  reproduced P1 incomplete nonempty acceptance and invalid pending_review status;
+  corrected before deployment. Final15cases include >3000tail, complete/nonempty
+  partial/missing audit, both jobs, attempt conflict and checkbox opt-out.
+- Full APIunit+dispatch3403PASS/40.36s,5pre-existing deprecations; focused15PASS,
+  canonical Python baselinePASS. RU/KK/EN label-only writer: JSON parsePASS,
+  aiGenerationReusePage1PASS, no other locale copy changed. CodeGraph sync5.240s
+  including startup/exclusionPASS, no graph-derived runtime or savings claim.
+  Fresh exact follow-up CI/DEV/regeneration and production acceptance remain open.

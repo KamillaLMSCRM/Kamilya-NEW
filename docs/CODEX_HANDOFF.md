@@ -10,8 +10,8 @@ production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 Owner-authorized one production package remains the objective; immediate stale
 DEV converter correction did not revoke that release authority. Existing DEV
-API/worker/frontend66/7081c955 live (CI39241885444 all7SUCCESS,
-REL-LOMBARD66-DEV-R5-20261019 RELEASE_OK). Only obsolete DOCLING_URL was removed
+API/worker/frontend66/aa911606 live (CI39244745196 all7SUCCESS,
+REL-LOMBARD66-DEV-R6-20261019 RELEASE_OK). Only obsolete DOCLING_URL was removed
 earlier; all other configuration/tier/model routes remain unchanged.
 Local follow-up parses actual deployed-converter Markdown, restores category
 tables/amounts, hierarchical safety clauses and evacuation heading; readable
@@ -71,6 +71,22 @@ adds exact mapped option reasons, preserves the gate/key, RED1/GREEN146focused.
 Captured initial responses plus four real repair/review calls retain both keys
 in8.829s; NOT full-course timing or cloud DEV acceptance. Failed zero-call replay
 that reused stale repair is retained. Full v9/DEV/production gates follow.
+
+R6 exactaa911606 DEV-live after CI39244745196 all7SUCCESS/RELEASE_OK:
+API dep-dbavvm6q1p3s73dasm4g,worker dep-dbb00mc9v7es73a699dg,Vercel
+dpl_A2im8xaY21vK5zUprxshMthKAJfy. New UI jobbec0dc2d-e93d-43bf-9d54-4b7053baaf1a
+saved draft7b8fa897-6082-48ab-89ca-567793eea306:4lessons/9questions(3,2,2,2),
+120.416s worker start-to-terminal update, qualityv9 and exactDOCX source. One
+I-category first-cohort range remains omitted with specific containment feedback
+and no-progress;4partial parents remain. Do not call this semantic acceptance.
+Root then found separate legacy module/lesson hardcoded3requests/3000char clips
+and corresponding locale claim. Working follow-up routes verified lesson
+snapshots through the same adaptive evidence engine, never silently truncates,
+requires complete coverage before deletion, protects attempts and uses needs_review.
+Independent review P1s on incomplete nonempty acceptance/invalid status corrected;
+15regressions include >3000tail and both jobs. Full APIunit+dispatch3403PASS/
+40.36s, qualityPASS, locale-focused1PASS. Exact follow-up CI/DEV and live
+regeneration remain required. No production tag/release or other-scope mutation.
 
 ## Current checkpoint — four blocks65 released and live accepted
 

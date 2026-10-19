@@ -1431,45 +1431,29 @@ async def _regenerate_module_job(
                     await session.rollback()
                     return {"job_id": job_id, "status": "cancelled"}
 
-                # Regenerate quiz for this lesson (delete old, create new).
+                # Prepare/review all source-owned targets before deleting any old quiz.
+                from app.modules.ai.regeneration_assessment import prepare_lesson_assessment
+
+                questions = await prepare_lesson_assessment(lesson=old_l, client=llm)
+                from app.modules.quizzes.router import _ensure_quiz_has_no_attempts
+
                 old_quizzes = (await session.execute(
                     select(Quiz).where(
                         Quiz.lesson_id == old_l.id,
                         Quiz.tenant_id == tenant_id,
                     )
                 )).scalars().all()
-                for q in old_quizzes:
-                    await session.delete(q)
+                for old_quiz in old_quizzes:
+                    await _ensure_quiz_has_no_attempts(session, old_quiz.id, tenant_id)
+                    await session.delete(old_quiz)
                 await session.flush()
-
-                assess_prompt = (
-                    f"Сгенерируй 3 тестовых вопроса по уроку:\n\n{(old_l.content or '')[:3000]}\n\n"
-                    "Верни JSON: [{\"text\": \"...\", \"choices\": [\"...\",\"...\",\"...\",\"...\"], "
-                    "\"correct_index\": 0, \"explanation\": \"...\"}, ...]"
-                )
-                assess_resp = await llm.ainvoke(
-                    [
-                        {"role": "system", "content": get_renderer().render("router/system_quiz_regen_module.md")},
-                        {"role": "user", "content": assess_prompt},
-                    ]
-                )
-                assess_text = (assess_resp.content or "").strip()
-                if assess_text.startswith("```"):
-                    assess_text = assess_text.strip("`")
-                    if assess_text.startswith("json"):
-                        assess_text = assess_text[4:]
-                    assess_text = assess_text.strip("`\n ")
-                try:
-                    questions = json.loads(assess_text)
-                except Exception:
-                    logger.warning("Lesson regen — invalid quiz JSON; skipping quiz regeneration")
-                    questions = []
 
                 if isinstance(questions, list) and questions:
                     new_quiz = Quiz(
                         id=uuid4(), lesson_id=old_l.id, tenant_id=tenant_id,
                         title=f"Тест: {old_l.title}",
                         pass_score=80, attempt_limit=3, deferral_days=7,
+                        review_status="needs_review",
                     )
                     session.add(new_quiz)
                     await session.flush()
@@ -1543,8 +1527,6 @@ async def _regenerate_lesson_job(
     tenant_id: UUID,
     user_id: UUID,
 ):
-    import json as _json
-
     from app.core.db import async_session_factory
     from app.modules.lessons.models import Lesson, Module
     from app.modules.quizzes.models import Question, Quiz, QuizChoice
@@ -1595,45 +1577,29 @@ async def _regenerate_lesson_job(
             await session.flush()
 
             if regenerate_quiz:
-                # delete old quizzes (cascade clears questions/choices)
+                from app.modules.ai.regeneration_assessment import prepare_lesson_assessment
+
+                questions = await prepare_lesson_assessment(lesson=lesson, client=llm)
+                from app.modules.quizzes.router import _ensure_quiz_has_no_attempts
+
+                # Replace only after a fully reviewed adaptive assessment exists.
                 old_qs = (await session.execute(
                     select(Quiz).where(
                         Quiz.lesson_id == lesson.id,
                         Quiz.tenant_id == tenant_id,
                     )
                 )).scalars().all()
-                for q in old_qs:
-                    await session.delete(q)
+                for old_quiz in old_qs:
+                    await _ensure_quiz_has_no_attempts(session, old_quiz.id, tenant_id)
+                    await session.delete(old_quiz)
                 await session.flush()
-
-                assess_prompt = (
-                    f"Сгенерируй 3 тестовых вопроса по уроку:\n\n{(lesson.content or '')[:3000]}\n\n"
-                    "Верни JSON: [{\"text\": \"...\", \"choices\": [\"...\",\"...\",\"...\",\"...\"], "
-                    "\"correct_index\": 0, \"explanation\": \"...\"}, ...]"
-                )
-                assess_resp = await llm.ainvoke(
-                    [
-                        {"role": "system", "content": get_renderer().render("router/system_quiz_regen_module.md")},
-                        {"role": "user", "content": assess_prompt},
-                    ]
-                )
-                assess_text = (assess_resp.content or "").strip()
-                if assess_text.startswith("```"):
-                    assess_text = assess_text.strip("`")
-                    if assess_text.startswith("json"):
-                        assess_text = assess_text[4:]
-                    assess_text = assess_text.strip("`\n ")
-                try:
-                    questions = _json.loads(assess_text)
-                except Exception:
-                    logger.warning("Lesson regen — bad JSON for quiz, skipping")
-                    questions = []
 
                 if isinstance(questions, list) and questions:
                     new_quiz = Quiz(
                         id=uuid4(), lesson_id=lesson.id, tenant_id=tenant_id,
                         title=f"Тест: {lesson.title}",
                         pass_score=80, attempt_limit=3, deferral_days=7,
+                        review_status="needs_review",
                     )
                     session.add(new_quiz)
                     await session.flush()
