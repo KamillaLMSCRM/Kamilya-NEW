@@ -8868,6 +8868,12 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   and permits only a new explicit retry against the refreshed revision.
 - Prevention: keep native confirm absent from this flow and test cancellation,
   explicit action, pending request and session changes as separate assertions.
+- Live continuation2026-10-19: old tabs were absent; no current JavaScript dialog
+  was present. An adapter timeout did not prove a surviving dialog and must not
+  be presented as an owner action blocker. Fresh DEV tab completed save/reload
+  revision8, controlled cancel/no write, explicit target7 revert/reload revision9.
+  Independent API verifies all31 baseline values and original history suffix and
+  model-routing hash preserved. Initial blocked attempt remains historical.
 
 ## STAFF-IMPORT-006 - Generic branch creation/update omitted the typed result count
 
@@ -8883,3 +8889,7 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   independent review approved. Fresh DEV receipt/readback remains a release gate.
 - Prevention: reconcile persisted unit changes and typed/aggregate result counts
   together for both generic creation and update, not only import HTTP success.
+- Live continuation2026-10-19 on ce95010a: real DEV receipts459f2b1f and39232c2a
+  reconcile branch1/department1 created and branch1 updated with persisted rows.
+  Old erroneous receipt remains unchanged. Browser proposal correction and reload
+  are additionally exercised before production63.

@@ -57,6 +57,7 @@ class NativeArtifact:
     workbench_enabled: bool | None = None
     document_draft_enabled: bool | None = None
     lesson_correction_enabled: bool | None = None
+    staff_structure_enabled: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -77,6 +78,7 @@ class ReleasePacket:
     workbench_enabled: bool = False
     document_draft_enabled: bool = False
     lesson_correction_enabled: bool = False
+    staff_structure_enabled: bool = False
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> "ReleasePacket":
@@ -95,12 +97,14 @@ class ReleasePacket:
             "owner_approval",
             "smoke_scope",
         }
-        if type(raw.get("schema_version")) is int and raw["schema_version"] in (2, 3, 4):
+        if type(raw.get("schema_version")) is int and raw["schema_version"] in (2, 3, 4, 5):
             expected.add("workbench_enabled")
-        if type(raw.get("schema_version")) is int and raw["schema_version"] in (3, 4):
+        if type(raw.get("schema_version")) is int and raw["schema_version"] in (3, 4, 5):
             expected.add("document_draft_enabled")
-        if type(raw.get("schema_version")) is int and raw["schema_version"] == 4:
+        if type(raw.get("schema_version")) is int and raw["schema_version"] in (4, 5):
             expected.add("lesson_correction_enabled")
+        if type(raw.get("schema_version")) is int and raw["schema_version"] == 5:
+            expected.add("staff_structure_enabled")
         if set(raw) != expected:
             raise ReleaseBlocked("release_packet_fields_invalid")
         try:
@@ -121,6 +125,7 @@ class ReleasePacket:
                 workbench_enabled=raw.get("workbench_enabled", False),
                 document_draft_enabled=raw.get("document_draft_enabled", False),
                 lesson_correction_enabled=raw.get("lesson_correction_enabled", False),
+                staff_structure_enabled=raw.get("staff_structure_enabled", False),
             )
         except (KeyError, TypeError) as exc:
             raise ReleaseBlocked("release_packet_types_invalid") from exc
@@ -128,7 +133,7 @@ class ReleasePacket:
         return packet
 
     def validate(self) -> None:
-        if type(self.schema_version) is not int or self.schema_version not in (1, 2, 3, 4):
+        if type(self.schema_version) is not int or self.schema_version not in (1, 2, 3, 4, 5):
             raise ReleaseBlocked("release_packet_schema_invalid")
         if type(self.workbench_enabled) is not bool:
             raise ReleaseBlocked("release_packet_workbench_flag_invalid")
@@ -136,12 +141,16 @@ class ReleasePacket:
             raise ReleaseBlocked("release_packet_document_draft_flag_invalid")
         if type(self.lesson_correction_enabled) is not bool:
             raise ReleaseBlocked("release_packet_lesson_correction_flag_invalid")
+        if type(self.staff_structure_enabled) is not bool:
+            raise ReleaseBlocked("release_packet_staff_structure_flag_invalid")
         if self.schema_version == 1 and self.workbench_enabled:
             raise ReleaseBlocked("legacy_release_packet_must_be_disabled")
         if self.schema_version in (1, 2) and self.document_draft_enabled:
             raise ReleaseBlocked("legacy_release_packet_document_draft_must_be_disabled")
         if self.schema_version in (1, 2, 3) and self.lesson_correction_enabled:
             raise ReleaseBlocked("legacy_release_packet_lesson_correction_must_be_disabled")
+        if self.schema_version in (1, 2, 3, 4) and self.staff_structure_enabled:
+            raise ReleaseBlocked("legacy_release_packet_staff_structure_must_be_disabled")
         if self.document_draft_enabled and not self.workbench_enabled:
             raise ReleaseBlocked("document_draft_requires_workbench")
         if self.lesson_correction_enabled and not self.workbench_enabled:
@@ -189,6 +198,8 @@ class ReleasePacket:
             del result["document_draft_enabled"]
         if self.schema_version < 4:
             del result["lesson_correction_enabled"]
+        if self.schema_version < 5:
+            del result["staff_structure_enabled"]
         return result
 
 
@@ -406,6 +417,7 @@ def inspect_native_artifact(directory: Path, release_sha: str) -> NativeArtifact
     workbench_enabled = None
     document_draft_enabled = None
     lesson_correction_enabled = None
+    staff_structure_enabled = None
     if tuple(map(int, product_version.split("."))) >= (0, 11, 27):
         config = directory / "build-config.json"
         try:
@@ -425,11 +437,14 @@ def inspect_native_artifact(directory: Path, release_sha: str) -> NativeArtifact
             enabled = attestation.get("workbench_enabled") if isinstance(attestation, dict) else None
             document_enabled = attestation.get("document_draft_enabled") if isinstance(attestation, dict) else None
             correction_enabled = attestation.get("lesson_correction_enabled") if isinstance(attestation, dict) else None
+            staff_enabled = attestation.get("staff_structure_enabled") if isinstance(attestation, dict) else None
             config_schema = attestation.get("schema_version") if isinstance(attestation, dict) else None
-            requires_document_flag = tuple(map(int, product_version.split("."))) >= (0, 11, 38)
-            requires_correction_flag = tuple(map(int, product_version.split("."))) >= (0, 11, 39)
+            product_version_tuple = tuple(map(int, product_version.split(".")))
+            requires_document_flag = product_version_tuple >= (0, 11, 38)
+            requires_correction_flag = product_version_tuple >= (0, 11, 39)
+            requires_staff_flag = product_version_tuple >= (0, 11, 63)
             expected = {
-                "schema_version": 3 if requires_correction_flag else (2 if requires_document_flag else 1), "release_sha": release_sha,
+                "schema_version": 4 if requires_staff_flag else (3 if requires_correction_flag else (2 if requires_document_flag else 1)), "release_sha": release_sha,
                 "product_version": product_version, "sha256": archive_digest,
                 "manifest_sha256": _digest(manifest), "workbench_enabled": enabled,
             }
@@ -437,6 +452,8 @@ def inspect_native_artifact(directory: Path, release_sha: str) -> NativeArtifact
                 expected["document_draft_enabled"] = document_enabled
             if requires_correction_flag:
                 expected["lesson_correction_enabled"] = correction_enabled
+            if requires_staff_flag:
+                expected["staff_structure_enabled"] = staff_enabled
             if (not isinstance(attestation, dict) or attestation != expected
                     or type(config_schema) is not int
                     or config_schema != expected["schema_version"]
@@ -445,12 +462,14 @@ def inspect_native_artifact(directory: Path, release_sha: str) -> NativeArtifact
                     or (requires_document_flag and document_enabled and not enabled)
                     or (requires_correction_flag and type(correction_enabled) is not bool)
                     or (requires_correction_flag and correction_enabled and not enabled)
+                    or (requires_staff_flag and type(staff_enabled) is not bool)
                     or (enabled and tuple(map(int, product_version.split("."))) < (0, 11, 28))):
                 raise ValueError("config_binding")
             config_digest = hashlib.sha256(config_bytes).hexdigest()
             workbench_enabled = enabled
             document_draft_enabled = document_enabled if requires_document_flag else False
             lesson_correction_enabled = correction_enabled if requires_correction_flag else False
+            staff_structure_enabled = staff_enabled if requires_staff_flag else False
         except (OSError, UnicodeError, ValueError) as exc:
             raise ReleaseBlocked("artifact_build_config_invalid") from exc
     try:
@@ -480,26 +499,37 @@ def inspect_native_artifact(directory: Path, release_sha: str) -> NativeArtifact
         workbench_enabled=workbench_enabled,
         document_draft_enabled=document_draft_enabled,
         lesson_correction_enabled=lesson_correction_enabled,
+        staff_structure_enabled=staff_structure_enabled,
     )
 
 
 def _require_artifact_configuration(packet: ReleasePacket, artifact: NativeArtifact) -> None:
     """Bind the build-time flag before any host action, including reinspection."""
+    product_version = tuple(map(int, artifact.product_version.split(".")))
+    if packet.schema_version == 5 and product_version < (0, 11, 63):
+        raise ReleaseBlocked("release_packet_staff_structure_requires_63")
+    if product_version >= (0, 11, 63) and packet.schema_version != 5:
+        raise ReleaseBlocked("release_packet_staff_structure_schema_required")
     if artifact.workbench_enabled is None:
         if packet.schema_version != 1:
             raise ReleaseBlocked("artifact_workbench_configuration_unknown")
     elif artifact.workbench_enabled is not packet.workbench_enabled:
         raise ReleaseBlocked("artifact_workbench_configuration_mismatch")
     if artifact.document_draft_enabled is None:
-        if packet.schema_version in (3, 4):
+        if packet.schema_version in (3, 4, 5):
             raise ReleaseBlocked("artifact_document_draft_configuration_unknown")
     elif artifact.document_draft_enabled is not packet.document_draft_enabled:
         raise ReleaseBlocked("artifact_document_draft_configuration_mismatch")
     if artifact.lesson_correction_enabled is None:
-        if packet.schema_version == 4:
+        if packet.schema_version in (4, 5):
             raise ReleaseBlocked("artifact_lesson_correction_configuration_unknown")
     elif artifact.lesson_correction_enabled is not packet.lesson_correction_enabled:
         raise ReleaseBlocked("artifact_lesson_correction_configuration_mismatch")
+    if artifact.staff_structure_enabled is None:
+        if packet.schema_version == 5:
+            raise ReleaseBlocked("artifact_staff_structure_configuration_unknown")
+    elif artifact.staff_structure_enabled is not packet.staff_structure_enabled:
+        raise ReleaseBlocked("artifact_staff_structure_configuration_mismatch")
 
 
 def required_capacity_bytes(artifact: NativeArtifact) -> int:
@@ -578,6 +608,7 @@ class NativeReleaseOrchestrator:
             "workbench_enabled": packet.workbench_enabled,
             "document_draft_enabled": packet.document_draft_enabled,
             "lesson_correction_enabled": packet.lesson_correction_enabled,
+            "staff_structure_enabled": packet.staff_structure_enabled,
             "artifact": {
                 "archive_sha256": artifact.archive_sha256,
                 "manifest_sha256": artifact.manifest_sha256,
@@ -585,6 +616,7 @@ class NativeReleaseOrchestrator:
                 "workbench_enabled": artifact.workbench_enabled,
                 "document_draft_enabled": artifact.document_draft_enabled,
                 "lesson_correction_enabled": artifact.lesson_correction_enabled,
+                "staff_structure_enabled": artifact.staff_structure_enabled,
                 "archive_bytes": artifact.archive_bytes,
                 "expanded_bytes": artifact.expanded_bytes,
                 "required_capacity_bytes": required_capacity_bytes(artifact),
@@ -650,9 +682,11 @@ class NativeReleaseOrchestrator:
             "workbench_enabled": artifact.workbench_enabled if artifact.workbench_enabled is not None else False,
             "document_draft_enabled": artifact.document_draft_enabled if artifact.document_draft_enabled is not None else False,
             "lesson_correction_enabled": artifact.lesson_correction_enabled if artifact.lesson_correction_enabled is not None else False,
+            "staff_structure_enabled": artifact.staff_structure_enabled if artifact.staff_structure_enabled is not None else False,
             "workbench_flag_evidence": "immutable_build_config" if artifact.workbench_enabled is not None else "legacy_disabled_packet",
             "document_draft_flag_evidence": "immutable_build_config" if artifact.document_draft_enabled is not None else "legacy_disabled_packet",
             "lesson_correction_flag_evidence": "immutable_build_config" if artifact.lesson_correction_enabled is not None else "legacy_disabled_packet",
+            "staff_structure_flag_evidence": "immutable_build_config" if artifact.staff_structure_enabled is not None else "legacy_disabled_packet",
             "runtime_feature_acceptance": "SEPARATE_TEST_RUNNER_REQUIRED",
         }
         return {
@@ -664,6 +698,7 @@ class NativeReleaseOrchestrator:
             "workbench_enabled": packet.workbench_enabled,
             "document_draft_enabled": packet.document_draft_enabled,
             "lesson_correction_enabled": packet.lesson_correction_enabled,
+            "staff_structure_enabled": packet.staff_structure_enabled,
             "preflight": preflight,
             "host_readback": after,
             "host_inventory_readback": after_inventory,
@@ -973,6 +1008,7 @@ def main(argv: list[str] | None = None) -> int:
                 "workbench_enabled": packet.workbench_enabled,
                 "document_draft_enabled": packet.document_draft_enabled,
                 "lesson_correction_enabled": packet.lesson_correction_enabled,
+                "staff_structure_enabled": packet.staff_structure_enabled,
                 "reason": str(exc),
                 "state_reconciliation_required": args.mode == "execute",
             },

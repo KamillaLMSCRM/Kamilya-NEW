@@ -55,7 +55,7 @@ on:
         default: false
         type: boolean
       feature_flags:
-        description: 'Explicit JSON booleans: workbench, document_draft, lesson_correction; blank retains schema1'
+        description: 'Explicit JSON booleans: workbench, document_draft, lesson_correction; add staff_structure for schema3/version63+, blank retains schema1'
         required: false
         type: string
       previous_feature_flags:

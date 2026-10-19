@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### DEV candidate: four bounded improvements (2026-10-19)
+### Historical DEV candidate: four bounded improvements (2026-10-19)
 
 - Preserve an unsaved assignment dialogue when the next request supplies only
   the date. Default model budgets are DeepSeek30s, ChatGPT40s, fallback8s within
@@ -164,6 +164,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Share the scoped lookup across public view and activation; clear it before
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
+
+## [0.11.63] - 2026-10-19
+
+### Added
+
+- Optional staff schema/roster and reviewed employee/subtree transfers, with
+  preserved previous learning, immutable receipts and explicit impact preview.
+- 31 typed, audited non-secret operational settings in the superadmin UI; next
+  operations use new values without a release, existing operations keep a snapshot.
+
+### Fixed
+
+- Date-only assignment follow-ups preserve the previously supplied course and
+  department. Default budgets30/40/8s fit the90s total without route activation.
+- Runtime revert uses a controlled dialog with cancel/no write, frozen revision,
+  pending guards and stale-session/revision recovery instead of native confirm.
+- Corrected generic/legacy import names persist, linked qualification placement
+  survives restore, and branch create/update counters match persisted changes.
+
+### Delivery and preservation
+
+- Explicit coordinated staff flags require version63 and additive schema0183;
+  protected backend/native packets retain legacy shapes and current model routes.
+  Apply0182+0183 only after backup/restore and isolation gates; retain additive
+  schema/audit on binary rollback. No voice/iSpring/ASUS/1C or paid-resource change.
 
 ## [0.11.62] - 2026-10-19
 

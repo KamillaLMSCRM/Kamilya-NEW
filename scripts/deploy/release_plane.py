@@ -38,6 +38,7 @@ FEATURE_ENV = {
     "document_draft": "METHODOLOGIST_DOCUMENT_DRAFT_ENABLED",
     "lesson_correction": "METHODOLOGIST_LESSON_CORRECTION_ENABLED",
 }
+STAFF_FEATURE_ENV = {**FEATURE_ENV, "staff_structure": "STAFF_STRUCTURE_V3_ENABLED"}
 # Effective settings, including old image defaults; no raw environment is emitted.
 FEATURE_READBACK = (
     "import json; from app.core.config import get_settings; s=get_settings(); "
@@ -45,12 +46,18 @@ FEATURE_READBACK = (
     "print(json.dumps({k:{'supported':hasattr(s,n),'enabled':getattr(s,n,False)} "
     "for k,n in names.items()}))"
 )
+STAFF_FEATURE_READBACK = (
+    "import json; from app.core.config import get_settings; s=get_settings(); "
+    f"names={STAFF_FEATURE_ENV!r}; "
+    "print(json.dumps({k:{'supported':hasattr(s,n),'enabled':getattr(s,n,False)} "
+    "for k,n in names.items()}))"
+)
 
 
-def _feature_flags(data: Any, label: str) -> dict[str, bool]:
+def _feature_flags(data: Any, label: str, *, include_staff: bool = False) -> dict[str, bool]:
     if not isinstance(data, dict):
         raise ReleasePlaneError(f"{label}_must_be_object")
-    _exact_keys(data, set(FEATURE_ENV), label)
+    _exact_keys(data, set(STAFF_FEATURE_ENV if include_staff else FEATURE_ENV), label)
     if any(type(value) is not bool for value in data.values()):
         raise ReleasePlaneError(f"{label}_must_be_literal_booleans")
     if (data["document_draft"] or data["lesson_correction"]) and not data["workbench"]:
@@ -75,9 +82,12 @@ def feature_manifest_fields(candidate: str, previous: str, version: str) -> dict
     if not candidate or not previous:
         raise ReleasePlaneError("feature_flags_require_both_objects")
     try:
-        return {"schema_version": 2, "product_version": version,
-                "feature_flags": _feature_flags(json.loads(candidate, object_pairs_hook=_unique_json_pairs), "feature_flags"),
-                "previous_feature_flags": _feature_flags(json.loads(previous, object_pairs_hook=_unique_json_pairs), "previous_feature_flags")}
+        current_flags = json.loads(candidate, object_pairs_hook=_unique_json_pairs)
+        old_flags = json.loads(previous, object_pairs_hook=_unique_json_pairs)
+        staff = any(isinstance(item, dict) and "staff_structure" in item for item in (current_flags, old_flags))
+        return {"schema_version": 3 if staff else 2, "product_version": version,
+                "feature_flags": _feature_flags(current_flags, "feature_flags", include_staff=staff),
+                "previous_feature_flags": _feature_flags(old_flags, "previous_feature_flags", include_staff=staff)}
     except json.JSONDecodeError as error:
         raise ReleasePlaneError("feature_flags_json_invalid") from error
 
@@ -172,7 +182,7 @@ class ReleaseManifest:
         if not isinstance(data, dict):
             raise ReleasePlaneError("manifest_must_be_object")
         schema = data.get("schema_version")
-        if type(schema) is not int or schema not in (1, 2):
+        if type(schema) is not int or schema not in (1, 2, 3):
             raise ReleasePlaneError("manifest_schema_version_invalid")
         _exact_keys(
             data,
@@ -185,7 +195,7 @@ class ReleaseManifest:
                 "previous_image",
                 "expected_environment",
                 "migration",
-            } | ({"product_version", "feature_flags", "previous_feature_flags"} if schema == 2 else set()),
+            } | ({"product_version", "feature_flags", "previous_feature_flags"} if schema >= 2 else set()),
             "manifest",
         )
         manifest = cls(
@@ -198,13 +208,15 @@ class ReleaseManifest:
             expected_environment=data["expected_environment"],
             migration=Migration.parse(data["migration"]),
             product_version=data.get("product_version"),
-            feature_flags=_feature_flags(data["feature_flags"], "feature_flags") if schema == 2 else None,
-            previous_feature_flags=_feature_flags(data["previous_feature_flags"], "previous_feature_flags") if schema == 2 else None,
+            feature_flags=_feature_flags(data["feature_flags"], "feature_flags", include_staff=schema == 3) if schema >= 2 else None,
+            previous_feature_flags=_feature_flags(data["previous_feature_flags"], "previous_feature_flags", include_staff=schema == 3) if schema >= 2 else None,
         )
-        if schema == 2:
+        if schema >= 2:
             if not isinstance(manifest.product_version, str) or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", manifest.product_version):
                 raise ReleasePlaneError("product_version_invalid")
             version = tuple(int(part) for part in manifest.product_version.split("."))
+            if schema == 3 and version < (0, 11, 63):
+                raise ReleasePlaneError("staff_protocol_requires_version63")
             if manifest.feature_flags and manifest.feature_flags["lesson_correction"]:
                 if version < (0, 11, 39):
                     raise ReleasePlaneError("correction_requires_version39")
@@ -213,6 +225,11 @@ class ReleaseManifest:
                     manifest.migration.from_revision != expected_from or manifest.migration.to_revision != expected_to
                 ):
                     raise ReleasePlaneError("correction_migration_revision_invalid")
+            if manifest.feature_flags and manifest.feature_flags.get("staff_structure"):
+                if manifest.migration.mode == "exact" and (
+                    manifest.migration.from_revision != "0181" or manifest.migration.to_revision != "0183"
+                ):
+                    raise ReleasePlaneError("staff_migration_revision_invalid")
         if not isinstance(manifest.release_id, str) or not RELEASE_ID_RE.fullmatch(
             manifest.release_id
         ):
@@ -240,6 +257,8 @@ class ReleaseManifest:
         if self.product_version is None:
             raise ReleasePlaneError("correction_requires_product_version")
         version = tuple(int(part) for part in self.product_version.split("."))
+        if version >= (0, 11, 63):
+            return "0181", "0183"
         if version >= (0, 11, 55):
             return "0180", "0181"
         if version >= (0, 11, 53):
@@ -467,7 +486,7 @@ class ReleasePlane:
             "KAMILYA_SLOT_PORT": str(self.config.slot_ports[slot]),
         }
         if flags is not None:
-            result.update({FEATURE_ENV[key]: str(value).lower() for key, value in flags.items()})
+            result.update({STAFF_FEATURE_ENV[key]: str(value).lower() for key, value in flags.items()})
         return result
 
     def _feature_evidence(self) -> dict[str, Any]:
@@ -514,10 +533,10 @@ class ReleasePlane:
                 raise ReleasePlaneError(f"container_readback_mismatch:{service}")
             if flags is not None:
                 selected = self.runner.run([str(self.config.docker_binary), "exec", container,
-                    "/app/.venv/bin/python", "-c", FEATURE_READBACK])
+                    "/app/.venv/bin/python", "-c", STAFF_FEATURE_READBACK if "staff_structure" in flags else FEATURE_READBACK])
                 try:
                     effective = json.loads(selected, object_pairs_hook=_unique_json_pairs)
-                    if not isinstance(effective, dict) or set(effective) != set(FEATURE_ENV):
+                    if not isinstance(effective, dict) or set(effective) != set(flags):
                         raise ValueError("shape")
                     for key, expected in flags.items():
                         item = effective[key]
@@ -639,7 +658,7 @@ class ReleasePlane:
                 state.release_sha == self.manifest.release_sha
                 and state.image == self.manifest.image
             ):
-                if self.manifest.schema_version == 2:
+                if self.manifest.schema_version >= 2:
                     self._verify_services(state.active_slot, state.image, state.release_sha, self.manifest.feature_flags)
                     self._wait_health(self.config.public_health_url, state.release_sha, self.manifest.product_version)
                 result = {
@@ -661,7 +680,7 @@ class ReleasePlane:
             ):
                 raise ReleasePlaneError("expected_previous_release_mismatch")
 
-            if self.manifest.schema_version == 2:
+            if self.manifest.schema_version >= 2:
                 self._verify_services(state.active_slot, state.image, state.release_sha, self.manifest.previous_feature_flags, allow_unsupported_disabled=True)
 
             self.runner.run([str(self.config.docker_binary), "pull", self.manifest.image])
@@ -724,7 +743,9 @@ class ReleasePlane:
                     self._require_migration_receipt()
                 else:
                     raise ReleasePlaneError("migration_revision_before_mismatch")
-            elif self.manifest.feature_flags and self.manifest.feature_flags["lesson_correction"]:
+            elif self.manifest.feature_flags and (
+                self.manifest.feature_flags["lesson_correction"] or self.manifest.feature_flags.get("staff_structure")
+            ):
                 current = self.runner.run(self._compose(inactive, "run", "--rm", "--no-deps",
                     "--entrypoint", "/app/.venv/bin/alembic", "api", "current"), env=candidate_env)
                 if not self._revision_matches(current, self.manifest.correction_revisions[1]):
@@ -737,7 +758,7 @@ class ReleasePlane:
             )
             private_url = f"http://127.0.0.1:{self.config.slot_ports[inactive]}/health"
             self._wait_health(private_url, self.manifest.release_sha, self.manifest.product_version)
-            if self.manifest.schema_version == 2:
+            if self.manifest.schema_version >= 2:
                 self._verify_services(inactive, self.manifest.image, self.manifest.release_sha, self.manifest.feature_flags, ("api",))
 
             active_env = self._slot_env(state.active_slot, state.image, state.release_sha, self.manifest.previous_feature_flags)
@@ -812,7 +833,7 @@ class ReleasePlane:
                         f"http://127.0.0.1:{self.config.slot_ports[state.active_slot]}/health",
                         state.release_sha,
                     )
-                    if self.manifest.schema_version == 2:
+                    if self.manifest.schema_version >= 2:
                         self._verify_services(state.active_slot, state.image, state.release_sha, self.manifest.previous_feature_flags, allow_unsupported_disabled=True)
                     rollback_status = "completed"
                 except Exception:

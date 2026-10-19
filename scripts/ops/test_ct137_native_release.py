@@ -434,12 +434,179 @@ def _build_config(root: Path) -> Path:
     return path
 
 
+def _staff_packet(*, enabled: bool) -> release.ReleasePacket:
+    payload = _packet().to_mapping()
+    payload.update({
+        "schema_version": 5,
+        "workbench_enabled": True,
+        "document_draft_enabled": True,
+        "lesson_correction_enabled": True,
+        "staff_structure_enabled": enabled,
+    })
+    return release.ReleasePacket.from_mapping(payload)
+
+
+def _staff_build_config(root: Path, *, enabled: object) -> Path:
+    manifest = root / "manifest.json"
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    path = root / "build-config.json"
+    path.write_text(json.dumps({
+        "schema_version": 4,
+        "release_sha": payload["release_sha"],
+        "product_version": payload["product_version"],
+        "sha256": payload["sha256"],
+        "manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        "workbench_enabled": True,
+        "document_draft_enabled": True,
+        "lesson_correction_enabled": True,
+        "staff_structure_enabled": enabled,
+    }), encoding="utf-8")
+    return path
+
+
+def _correction_build_config(root: Path) -> Path:
+    manifest = root / "manifest.json"
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    path = root / "build-config.json"
+    path.write_text(json.dumps({
+        "schema_version": 3,
+        "release_sha": payload["release_sha"],
+        "product_version": payload["product_version"],
+        "sha256": payload["sha256"],
+        "manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        "workbench_enabled": True,
+        "document_draft_enabled": True,
+        "lesson_correction_enabled": True,
+    }), encoding="utf-8")
+    return path
+
+
+def test_packet_v5_requires_explicit_literal_staff_flag_and_preserves_legacy_shapes() -> None:
+    enabled = _staff_packet(enabled=True)
+    assert enabled.staff_structure_enabled is True
+    assert enabled.to_mapping()["staff_structure_enabled"] is True
+
+    missing = enabled.to_mapping()
+    del missing["staff_structure_enabled"]
+    with unittest.TestCase().assertRaisesRegex(release.ReleaseBlocked, "release_packet_fields_invalid"):
+        release.ReleasePacket.from_mapping(missing)
+
+    for invalid in ("true", 1, None):
+        malformed = enabled.to_mapping()
+        malformed["staff_structure_enabled"] = invalid
+        with unittest.TestCase().assertRaisesRegex(
+            release.ReleaseBlocked, "release_packet_staff_structure_flag_invalid"
+        ):
+            release.ReleasePacket.from_mapping(malformed)
+
+    for schema in (1, 2, 3, 4):
+        legacy = enabled.to_mapping()
+        legacy["schema_version"] = schema
+        legacy.pop("staff_structure_enabled")
+        if schema < 4:
+            legacy.pop("lesson_correction_enabled")
+        if schema < 3:
+            legacy.pop("document_draft_enabled")
+        if schema < 2:
+            legacy.pop("workbench_enabled")
+        parsed = release.ReleasePacket.from_mapping(legacy)
+        assert "staff_structure_enabled" not in parsed.to_mapping()
+
+
+def test_v63_build_config_v4_binds_staff_flag_and_mismatch_stops_before_host(tmp_path) -> None:
+    _artifact(tmp_path, product_version="0.11.63")
+    path = _staff_build_config(tmp_path, enabled=True)
+    artifact = release.inspect_native_artifact(tmp_path, SHA)
+    assert artifact.staff_structure_enabled is True
+    assert artifact.build_config_sha256 == hashlib.sha256(path.read_bytes()).hexdigest()
+
+    host = FakeHost()
+    orchestrator = release.NativeReleaseOrchestrator(
+        repository=FakeRepository(), github=FakeGithub(), host=host, public=FakePublic(),
+    )
+    with unittest.TestCase().assertRaisesRegex(
+        release.ReleaseBlocked, "artifact_staff_structure_configuration_mismatch"
+    ):
+        orchestrator.execute(_staff_packet(enabled=False), tmp_path)
+    assert host.calls == []
+
+    matching_host = FakeHost()
+    matching = release.NativeReleaseOrchestrator(
+        repository=FakeRepository(), github=FakeGithub(), host=matching_host, public=FakePublic(),
+    ).execute(_staff_packet(enabled=True), tmp_path)
+    assert matching["staff_structure_enabled"] is True
+    assert matching["preflight"]["staff_structure_enabled"] is True
+    assert matching["preflight"]["artifact"]["staff_structure_enabled"] is True
+    assert matching["technical_readback"]["staff_structure_enabled"] is True
+    assert matching["technical_readback"]["staff_structure_flag_evidence"] == "immutable_build_config"
+
+
+def test_v63_build_config_requires_literal_staff_flag_and_pre63_rejects_v4(tmp_path) -> None:
+    _artifact(tmp_path, product_version="0.11.63")
+    path = _staff_build_config(tmp_path, enabled=True)
+    original = json.loads(path.read_text(encoding="utf-8"))
+    for invalid in ("true", 1, None):
+        path.write_text(json.dumps({**original, "staff_structure_enabled": invalid}), encoding="utf-8")
+        with unittest.TestCase().assertRaisesRegex(release.ReleaseBlocked, "artifact_build_config_invalid"):
+            release.inspect_native_artifact(tmp_path, SHA)
+
+    _artifact(tmp_path, product_version="0.11.62")
+    _staff_build_config(tmp_path, enabled=False)
+    with unittest.TestCase().assertRaisesRegex(release.ReleaseBlocked, "artifact_build_config_invalid"):
+        release.inspect_native_artifact(tmp_path, SHA)
+
+
+def test_packet_v5_requires_v63_even_when_staff_is_disabled(tmp_path) -> None:
+    _artifact(tmp_path, product_version="0.11.62")
+    _correction_build_config(tmp_path)
+    host = FakeHost()
+    orchestrator = release.NativeReleaseOrchestrator(
+        repository=FakeRepository(), github=FakeGithub(), host=host, public=FakePublic(),
+    )
+    with unittest.TestCase().assertRaisesRegex(
+        release.ReleaseBlocked, "release_packet_staff_structure_requires_63"
+    ):
+        orchestrator.execute(_staff_packet(enabled=False), tmp_path)
+    assert host.calls == []
+
+
+def test_v63_artifact_requires_packet_v5_even_when_staff_is_disabled(tmp_path) -> None:
+    _artifact(tmp_path, product_version="0.11.63")
+    _staff_build_config(tmp_path, enabled=False)
+    legacy = _staff_packet(enabled=False).to_mapping()
+    legacy["schema_version"] = 4
+    legacy.pop("staff_structure_enabled")
+    packet = release.ReleasePacket.from_mapping(legacy)
+    host = FakeHost()
+    orchestrator = release.NativeReleaseOrchestrator(
+        repository=FakeRepository(), github=FakeGithub(), host=host, public=FakePublic(),
+    )
+    with unittest.TestCase().assertRaisesRegex(
+        release.ReleaseBlocked, "release_packet_staff_structure_schema_required"
+    ):
+        orchestrator.execute(packet, tmp_path)
+    assert host.calls == []
+
+
 def test_compatibility27_uses_unchanged_host_manifest_and_bound_config(tmp_path) -> None:
     _artifact(tmp_path, product_version="0.11.27")
     path = _build_config(tmp_path)
     artifact = release.inspect_native_artifact(tmp_path, SHA)
     assert artifact.build_config_sha256 == hashlib.sha256(path.read_bytes()).hexdigest()
     assert "workbench_enabled" not in json.loads(artifact.manifest.read_text(encoding="utf-8"))
+
+
+def test_native_workflow_binds_staff_flag_without_expanding_host_manifest() -> None:
+    workflow = Path(__file__).resolve().parents[2] / ".github/workflows/build-native-frontend.yml"
+    source = workflow.read_text(encoding="utf-8")
+    assert "staff_structure_enabled:" in source
+    assert "STAFF_STRUCTURE_ENABLED: ${{ inputs.staff_structure_enabled }}" in source
+    assert '--env NEXT_PUBLIC_STAFF_STRUCTURE_V3_ENABLED="${STAFF_STRUCTURE_ENABLED}"' in source
+    assert "staff_structure_activation_requires_63" in source
+    assert source.index("staff_structure_activation_requires_63") < source.index("pnpm run build")
+    assert "schema_version:staffSchema?4:" in source
+    assert "config.staff_structure_enabled=staff===\"true\"" in source
+    assert "staff_structure_enabled" not in source[source.index("fs.writeFileSync(\"manifest.json\""):source.index("const config=")]
 
 
 def test_compatibility27_config_fails_closed_before_staging(tmp_path) -> None:

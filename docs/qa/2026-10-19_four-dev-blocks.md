@@ -14,14 +14,15 @@ shared DEV acceptance. Baseline production62 fixes/instructions are preserved.
   and independent reviewer are different. Final changed test oracles independently
   reviewed; native-confirm and overly broad UPDATE expectations were obsolete,
   not product regressions or waived security checks.
-- Full API R3 final:4423 passed,60 skipped,55 warnings; integration directory excluded.
+- Full API final:4424 passed,60 skipped,55 warnings; integration directory excluded.
   Do not present skipped database tests as passed. Changed schema/RLS/races were
   checked separately against real Supabase DEV isolated owned schemas.
 - Runtime isolated gate:17 PASS, owned schema removed, public catalog neutral.
 - Staff isolated final gate:29 PASS, owned schema removed, public catalog neutral.
   Includes SERIALIZABLE competing confirms, no partial writes, old learning
   preservation, cancelled/superseded/completed cases and25,001 unrelated history.
-- Operational/controller tests:79 PASS. Python quality baseline PASS Ruff1005 /
+- Operational/deployment-contract tests:211 PASS with one existing Windows skip.
+  Python quality baseline PASS Ruff1005 /
   Mypy2170, unchanged debt baseline. Release contract PASS326 error entries,
   single migration head0183. Web build with all four existing DEV flags ON passed.
 - Frontend full final:1339/1339 PASS, no skipped tests (exact R2 source, unchanged
@@ -58,22 +59,21 @@ At this interpretation checkpoint no assignment had been executed; the later
 explicit-confirm acceptance is recorded below. The candidate carries queries,
 not authority IDs; only preview resolves exact tenant-owned objects.
 
-Settings save30->31 and reload PASS(revision6). Native revert confirm interrupted
-IAB; UI revert NOT ACCEPTED. Read-only reconciliation proved no revert had run;
-canonical API restored original catalog values/routing at revision7. Controlled
-Modal repair/redeploy/fresh live acceptance pending. No old history deleted.
+Settings save31 and reload revision8 PASS. Fresh tab12 controlled Modal Cancel
+performed no write; explicit target7 revert then reloaded at revision9. Independent
+readback confirms all31 original values, history suffix and routing unchanged. No
+old history deleted and no native confirm remains in the current tab set.
 
 Harness corrections (not product defects): team-user search does not include
 personnel number; use workspace roster query to read back the created employee,
 without repeating creation. Preview endpoint is singular assignment-preview.
 Interpretation response was preserved/reused rather than repaying for another call.
 
-Additional live API acceptance: assignment explicitly confirmed, no notification,
-same receipt after GET reload; employee transfer added1 course and replayed the
-same receipt; unit-subtree transfer affected1 employee, added0 and preserved2.
-Both learning rows were compared across the unit move; the employee transfer's
-preservation count was1. Byte-identical employee-transfer history is separately
-proved by the owned SQL gate, not claimed from a missing harness pre-write capture.
+Additional live/browser acceptance: assignment plan ccc5ba46-04df-42fb-8616-7abfb2cc2a1e
+was explicitly confirmed with one created enrollment and no notification; the same
+receipt reloaded. Employee transfer plan6402f3e2 affected one employee, added0 and
+preserved1; empty-unit plan67bd2a8c affected0; roster/path reloads passed. The
+employee transfer's retained learning and placement were re-read independently.
 Existing QA16 users/16 units/10 journal rows independently read back unchanged.
 Methodologist runtime-settings read returns403; no privilege expansion used.
 
@@ -81,8 +81,8 @@ Synthetic XLSX built/inspected/rendered with Artifact Tool, one source sheet/one
 employee/no contacts. Ordinary DEV import analyze -> branch+department correction
 -> GET reloaded proposal -> approve -> commit PASS. Generic and legacy names agree;
 one new employee/position and2 units, corrected linked placement, rules recompute
-success, deleted0. Existing QA state preserved; fixtures still active pending final
-browser acceptance/soft-cleanup, no old tenant-history purge.
+success, deleted0. Existing QA state preserved; fixtures remain active for
+authorized reconciliation/soft-cleanup, with no old tenant-history purge.
 
 R2 controlled confirmation received independent review. Initial review found
 incomplete envelope capture, stale auth-generation handling and stale conflict
@@ -116,7 +116,7 @@ review PASS, SHA256637d186551d38ee8a37c99910ea3df7f49d7321310173c9da8b5cf0a62dcf
 
 Independent final source/artifact audit approved ce95010ac4a24c9815bd57856a9c4908581cb720
 against production baseline1bce48e9, no unresolved P1/P2 in the bounded scope.
-All15 staff gate source hashes still match. Final settings readback revision7:
+All15 staff gate source hashes still match. Fresh-tab settings readback revision9:
 all31 original values and routing hash unchanged. Read-only production health
 04:03UTC remains0.11.62/1df26939, remote master1bce48e9 unchanged.
 R3 CI39197219609 SUCCESS; controller REL-FOUR-BLOCKS-DEV-R3-20261019 RELEASE_OK.
@@ -137,14 +137,16 @@ in either counts session or the saved counts harness state.
 The stateful harness itself received root repair and independent review before
 execution: no nonexistent workspace external-key lookup or hardcoded proposal IDs.
 
-Remaining acceptance is browser-only, not a failed API or deployment gate: old
-native confirm in agent-created DEV IAB11 still blocks input. Owner Cancel request
-is outstanding; attempted documented dialog/close recovery did not resolve it.
-Fresh controlled-Modal save/reload/cancel/revert/reload and browser assignment,
-staff schema/transfer and corrected-import journeys are NOT ACCEPTED yet.
+The selected browser acceptance is closed for DEV; old agent-created IAB11 tabs
+are absent and no current native dialog is open. Fresh controlled-Modal
+save/reload/cancel/revert/reload, browser assignment, staff schema/transfer, and
+corrected-import journeys are accepted for DEV. The
+completed import wizard clears on reload after commit as intended; no claim is made
+that the UI restores a completed receipt view.
 New owned fixtures (three synthetic loginless employees and their units/positions,
-plans/import sessions/legitimate learning) remain for that follow-up; one owned
-empty unit was soft-archived. No test account privilege or old history was changed.
+plans/import sessions/legitimate learning) remain for authorized reconciliation;
+one owned empty unit was soft-archived. No test account privilege or old history
+was changed.
 
 ## Explicit limits
 

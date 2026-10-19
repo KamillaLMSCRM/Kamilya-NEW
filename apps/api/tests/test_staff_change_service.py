@@ -96,8 +96,9 @@ async def test_retention_requires_real_database_owner_not_context_flag():
     ("development", "local", True, True),
     ("test", "local", True, True),
     ("production", "local", True, False),
-    ("production", "kz-production", True, False),
-    ("development", "kz-production", True, False),
+    ("production", "kz-production", False, False),
+    ("production", "kz-production", True, True),
+    ("development", "kz-production", True, True),
     ("development", "unknown", True, False),
 ])
 def test_staff_workspace_uses_deployment_contour_without_weakening_runtime(app_env, contour, flag, expected):

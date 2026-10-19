@@ -1,4 +1,4 @@
-"""DEV opt-in only; never inferred from provider or production state."""
+"""Explicit contour-gated staff workspace opt-in."""
 
 from uuid import UUID
 
@@ -14,6 +14,7 @@ def staff_workspace_enabled() -> bool:
     contour = settings.DEPLOYMENT_ENVIRONMENT.strip().lower()
     return settings.STAFF_STRUCTURE_V3_ENABLED and (
         contour == "render-development"
+        or contour == "kz-production"
         or (contour == "local" and settings.APP_ENV.lower() in {"development", "dev", "test"})
     )
 

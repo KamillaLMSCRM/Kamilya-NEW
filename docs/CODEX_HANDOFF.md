@@ -3,43 +3,52 @@
 **Обновлено:** 2026-10-19
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\cabinet-release-20261018`
-**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, active branch `codex/dev-four-blocks-20261019`;
+**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, active branch `codex/four-blocks-production-20261019`;
 production source/tag1df269394ae6d0a2c7e6924e770c974ce0994651 remains unchanged.
 
-## Active DEV — first four remaining improvements, production excluded
+## Active DEV — first four improvements, production still pending
 
 Owner request2026-10-19: assignment date-only context/budgets,31audited hot
 settings, optional staff schema/roster/reviewed transfers, import corrections and
 qualification restore. Baseline production62 preserved; no mixed DEV promotion.
-Source0dad851d R1 deployed to existing Free/Free/Hobby, exact CI/API/worker/frontend
-parity PASS, schema0183 already present/no public migration. Real QA API assignment,
-employee/unit moves, import corrected names/placement, qualification restore PASS.
-Prior16users/16units/10journal rows unchanged. Synthetic new fixtures only.
+Source ce95010ac R3 is deployed to existing Free/Free/Hobby with exact
+CI/API/worker/frontend parity and health PASS; public DEV schema0183 was already
+present, with no DEV migration. Real QA API and browser acceptance cover the
+selected assignment, staff, import, qualification and runtime journeys. Prior
+16users/16units/10journal rows remain unchanged; synthetic fixtures only.
 
-Runtime native revert confirm interrupted IAB; original settings restored at
-revision7 via canonical API after read-only reconciliation, model routing unchanged.
-Controlled Modal/session+revision recovery repair fa6cd4ea02fdce82a4c20258acf3bc31f0324fae
-is deployed in R2 DEV, CI39196262631 SUCCESS, exact three-service parity/health PASS.
-API source identical to R1. Final focused12/typecheck/lint, independent review and
-exact-source full web1339/1339 PASS. R3 import branch-counter reporting repair
-independently reviewed; full API4423/60skip and unchanged quality baseline PASS.
+The prior native-confirm issue is obsolete: old tabs are absent and no current
+dialog is open. Fresh tab12 acceptance passed runtime save31/reload revision8,
+controlled Cancel/no-write, explicit target7 revert and reload revision9; all31
+original values, history suffix and routing stayed unchanged. The corrected import
+counter repair is independently reviewed. Final local/API/web/deployment checks
+are4424 API with60 skipped,1339 web,211 deployment-contract checks with one
+existing Windows skip, and quality baseline PASS; final isolated staff gate29 PASS
+with cleanup/public-neutral readback.
 R3 ce95010ac4a24c9815bd57856a9c4908581cb720 deployed: CI39197219609 SUCCESS,
 REL-FOUR-BLOCKS-DEV-R3-20261019 RELEASE_OK, exact API/worker/frontend parity/health.
 Fresh counts sessions459f2b1f/39232c2a PASS: create branch1/department1/staff1,
 then update only existing branch1, no duplicate employee/position/unit IDs.
 Old receipt and prior16users/16units/10journal rows unchanged. All31 original
-runtime values/routing unchanged at revision7. Free/Free/Hobby retained.
-Live browser UI acceptance (settings, dialogue, staff and import) NOT CLOSED:
-old native confirm on agent-created DEV
-IAB11 awaits owner Cancel; one asynchronous request already sent. Do not trigger
-or retry it. Other input is also blocked while that window is open. Only browser
-tab APIs were attempted; no desktop/Proxmox/access workaround.
+runtime values/routing unchanged after the fresh-tab revert at revision9.
+Free/Free/Hobby retained.
+Live browser acceptance is closed for the selected DEV journeys: date-only
+assignment plan ccc5ba46-04df-42fb-8616-7abfb2cc2a1e created one enrollment with
+no notification and replayed identically after reload; employee transfer plan
+6402f3e2 affected one employee, added0/preserved1; empty-unit plan67bd2a8c affected
+0; all roster/path reloads passed. Original Excel corrected names, reloaded,
+approved and committed; completed-wizard reload clears the wizard as intended,
+without claiming receipt restoration in the UI.
 Evidence/current QA owner: docs/qa/2026-10-19_four-dev-blocks.md and local
-.release-evidence/four-dev-blocks/. New QA4 fixtures remain for completion; do not
-delete old data. Three new synthetic loginless employees remain active solely for
-that browser follow-up, exact IDs in owned manifests. Voice/iSpring/ASUS/model
-activation and production remain excluded. Read-only production health/master
-confirmed unchanged62/1df26939 and1bce48e9 at04:03UTC.
+.release-evidence/four-dev-blocks/. New QA4 fixtures remain for authorized
+reconciliation/cleanup; do not delete old data. Three new synthetic loginless
+employees remain active solely for that bounded QA evidence, exact IDs in owned
+manifests. Voice/iSpring/ASUS/model
+activation remains excluded. Independent API readback in dev-browser-readback.json
+preserves prior16users/16units/10journal rows, the old import receipt and the
+manual enrollment. Production remains62/schema0181 and was not changed; remote
+master remains unchanged. New63 source delivery protocols were reviewed by both
+agents, but exact63 CI/DEV/prod release evidence is still pending.
 
 ## Current62 — isolated forms released and live acceptance closed
 

@@ -253,21 +253,25 @@ class CorrectionNativeActivationTests(unittest.TestCase):
         guard = next(value for value in scripts if "lesson_correction_activation_requires_39" in value)
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
-            for version, workbench, document, correction, accepted in (
-                ("0.11.39", "true", "false", "true", True),
-                ("0.11.39", "true", "false", "false", True),
-                ("0.11.39", "false", "false", "true", False),
-                ("0.11.39", "true", "true", "true", True),
-                ("0.11.38", "true", "false", "true", False),
-                ("0.11.39", "true", "false", "1", False),
+            for version, workbench, document, correction, staff, accepted in (
+                ("0.11.39", "true", "false", "true", "false", True),
+                ("0.11.39", "true", "false", "false", "false", True),
+                ("0.11.39", "false", "false", "true", "false", False),
+                ("0.11.39", "true", "true", "true", "false", True),
+                ("0.11.38", "true", "false", "true", "false", False),
+                ("0.11.39", "true", "false", "1", "false", False),
+                ("0.11.63", "true", "true", "true", "true", True),
+                ("0.11.62", "true", "true", "true", "true", False),
+                ("0.11.63", "true", "true", "true", "1", False),
             ):
                 (directory / "package.json").write_text(json.dumps({"version": version}), encoding="utf-8")
                 env = {**os.environ,
                        "NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED": workbench,
                        "NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED": document,
-                       "NEXT_PUBLIC_METHODOLOGIST_LESSON_CORRECTION_ENABLED": correction}
+                       "NEXT_PUBLIC_METHODOLOGIST_LESSON_CORRECTION_ENABLED": correction,
+                       "NEXT_PUBLIC_STAFF_STRUCTURE_V3_ENABLED": staff}
                 result = subprocess.run(["node", "-e", guard], cwd=directory, env=env, capture_output=True, check=False)
-                self.assertEqual(result.returncode == 0, accepted, (version, workbench, document, correction))
+                self.assertEqual(result.returncode == 0, accepted, (version, workbench, document, correction, staff))
 
     def test_workflow_metadata_producer_emits_schema3_and_schema2_without_manifest_drift(self) -> None:
         workflow = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "build-native-frontend.yml").read_text(encoding="utf-8")
@@ -277,15 +281,18 @@ class CorrectionNativeActivationTests(unittest.TestCase):
             directory = Path(temporary)
             (directory / "bundle.sha256").write_text("a" * 64 + "  bundle.tar.gz\n", encoding="utf-8")
             env = {**os.environ, "RELEASE_SHA": SHA, "NEXT_PUBLIC_API_URL": "https://api.kml.kz/api"}
-            for version, document, correction, expected_schema in (
-                ("0.11.39", "false", "true", 3),
-                ("0.11.38", "false", "false", 2),
+            for version, document, correction, staff, expected_schema in (
+                ("0.11.63", "true", "true", "true", 4),
+                ("0.11.63", "true", "true", "false", 4),
+                ("0.11.39", "false", "true", "false", 3),
+                ("0.11.38", "false", "false", "false", 2),
             ):
                 (directory / "package.json").write_text(json.dumps({"version": version}), encoding="utf-8")
                 run_env = {**env,
                            "NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED": "true",
                            "NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED": document,
-                           "NEXT_PUBLIC_METHODOLOGIST_LESSON_CORRECTION_ENABLED": correction}
+                           "NEXT_PUBLIC_METHODOLOGIST_LESSON_CORRECTION_ENABLED": correction,
+                           "NEXT_PUBLIC_STAFF_STRUCTURE_V3_ENABLED": staff}
                 mocked_require = "const M=require('module');const L=M._load;M._load=(r,p,m)=>r==='/build/package.json'?require(process.cwd()+'/package.json'):L(r,p,m);"
                 result = subprocess.run(["node", "-e", mocked_require + producer], cwd=directory, env=run_env, capture_output=True, check=False)
                 self.assertEqual(result.returncode, 0, result.stderr.decode(errors="replace"))
@@ -294,8 +301,12 @@ class CorrectionNativeActivationTests(unittest.TestCase):
                 config = json.loads((directory / "build-config.json").read_text(encoding="utf-8"))
                 self.assertEqual(config["schema_version"], expected_schema)
                 self.assertIs(type(config["workbench_enabled"]), bool)
+                if expected_schema == 4:
+                    self.assertIs(config["staff_structure_enabled"], staff == "true")
+                else:
+                    self.assertNotIn("staff_structure_enabled", config)
                 self.assertIs(type(config["document_draft_enabled"]), bool)
-                if expected_schema == 3:
+                if expected_schema >= 3:
                     self.assertIs(type(config["lesson_correction_enabled"]), bool)
                 else:
                     self.assertNotIn("lesson_correction_enabled", config)

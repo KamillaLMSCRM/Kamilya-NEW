@@ -50,6 +50,18 @@ def _packet_payload() -> dict[str, object]:
     }
 
 
+def _staff_packet_payload() -> dict[str, object]:
+    payload = _packet_payload()
+    payload.update({
+        "schema_version": 5,
+        "workbench_enabled": True,
+        "document_draft_enabled": True,
+        "lesson_correction_enabled": True,
+        "staff_structure_enabled": True,
+    })
+    return payload
+
+
 class ReleaseRunnerBridgeTests(unittest.TestCase):
     def _packet(self, directory: Path) -> tuple[Path, str]:
         path = directory / "release-packet.json"
@@ -136,6 +148,36 @@ raise SystemExit({exit_code})
             all(step["argv"][0] == sys.executable for step in result["steps"])
         )
         self.assertLess(len(json.dumps(result, sort_keys=True)), 4096)
+
+    def test_schema5_plan_and_evidence_bind_explicit_staff_flag(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / "release-packet.json"
+            content = (json.dumps(_staff_packet_payload(), sort_keys=True) + "\n").encode()
+            path.write_bytes(content)
+            plan = bridge.plan_release(
+                packet_path=path,
+                packet_sha256=hashlib.sha256(content).hexdigest(),
+                repo_root=ROOT,
+                evidence_root=ROOT / ".release-evidence",
+            )
+
+        self.assertEqual(plan["schema_version"], 5)
+        self.assertIs(plan["staff_structure_enabled"], True)
+        technical = {
+            "release_id": plan["release_id"],
+            "release_sha": plan["release_sha"],
+            "workbench_enabled": True,
+            "document_draft_enabled": True,
+            "lesson_correction_enabled": True,
+            "staff_structure_enabled": True,
+        }
+        bridge._bind_technical_evidence(plan, technical)
+        for invalid in ({}, {"staff_structure_enabled": False}, {"staff_structure_enabled": "true"}):
+            with self.assertRaisesRegex(bridge.BridgeBlocked, "technical_evidence_staff_structure_flag"):
+                bridge._bind_technical_evidence(plan, {**technical, **invalid} if invalid else {
+                    key: value for key, value in technical.items() if key != "staff_structure_enabled"
+                })
 
     def test_digest_mismatch_stops_before_a_plan_exists(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

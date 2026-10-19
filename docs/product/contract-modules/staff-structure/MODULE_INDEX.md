@@ -10,6 +10,8 @@ eligibility, locked import validation, bounded/scoped snapshots, linear overview
 aggregation and archive discoverability/controlled confirmation.
 IMPORT_COUNTS_ADDENDUM_V1.md additionally repairs generic branch result counters,
 without changing the result schema or rewriting historical receipts.
+PRODUCTION_DELIVERY_ADDENDUM_V1.md extends the delivery boundary for the owner's
+2026-10-19 production request; legacy DEV-only boundaries remain historical.
 
 Preserve accepted predecessor contracts. Acceptance status and exact deployed
 identity belong in the current DEV evidence, not inferred from contract acceptance.
