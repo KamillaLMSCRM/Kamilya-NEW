@@ -674,6 +674,10 @@ async def restore(
 
     await _ensure_baseline(db, position, actor_id)
     for field in ("name", "department", "level", "responsibilities", "requirements"):
+        # Linked placement belongs to the current organization, not an old
+        # qualification snapshot. A renamed unit must not regain its old label.
+        if field == "department" and position.department_id is not None:
+            continue
         if field in profile:
             setattr(position, field, profile[field] or "")
     position.instruction_document_id = UUID(str(instruction_id)) if instruction_id else None

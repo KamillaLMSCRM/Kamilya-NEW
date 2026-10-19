@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### DEV candidate: four bounded improvements (2026-10-19)
+
+- Preserve an unsaved assignment dialogue when the next request supplies only
+  the date. Default model budgets are DeepSeek30s, ChatGPT40s, fallback8s within
+  one90s request; routing activation/order is unchanged.
+- Add31 allowlisted non-secret runtime settings with bounded typed validation,
+  revision checks, superadmin history/revert and operation-consistent snapshots.
+- Add optional DEV staff schema/roster and explicit preview/confirm transfers,
+  preserving existing learning, audit and authorization policy. Archived units
+  remain discoverable; archive uses a controlled confirmation dialog.
+- Persist corrected import previews and preserve current linked department on
+  qualification restore. Permit harmless UPDATE through locked validation while
+  retaining HR, placement and reactivation guards. Cancelled/superseded history
+  no longer suppresses a new required enrollment; completed history still does.
+- Bound impact history to affected employees and aggregate workspace counts
+  linearly in the bounded hierarchy. The25,000 relevant-row safety ceiling still
+  fails closed. Production deployment is not part of this candidate approval.
+
 
 ### Security
 

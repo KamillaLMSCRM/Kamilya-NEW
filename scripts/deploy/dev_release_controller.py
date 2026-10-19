@@ -31,11 +31,13 @@ ACTIVATION_SCHEMA = "kamilya-dev-release-v2"
 PURGE_ACTIVATION_SCHEMA = "kamilya-dev-release-v3"
 DOCUMENT_ACTIVATION_SCHEMA = "kamilya-dev-release-v4"
 CORRECTION_ACTIVATION_SCHEMA = "kamilya-dev-release-v5"
+STAFF_ACTIVATION_SCHEMA = "kamilya-dev-release-v6"
 ACTIVATION_REVISIONS = {
     ACTIVATION_SCHEMA: "0172",
     PURGE_ACTIVATION_SCHEMA: "0173",
     DOCUMENT_ACTIVATION_SCHEMA: "0175",
     CORRECTION_ACTIVATION_SCHEMA: "0178",
+    STAFF_ACTIVATION_SCHEMA: "0183",
 }
 API_WORKBENCH_KEY = "METHODOLOGIST_WORKBENCH_ENABLED"
 WEB_WORKBENCH_KEY = "NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED"
@@ -43,6 +45,8 @@ API_DOCUMENT_DRAFT_KEY = "METHODOLOGIST_DOCUMENT_DRAFT_ENABLED"
 WEB_DOCUMENT_DRAFT_KEY = "NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED"
 API_CORRECTION_KEY = "METHODOLOGIST_LESSON_CORRECTION_ENABLED"
 WEB_CORRECTION_KEY = "NEXT_PUBLIC_METHODOLOGIST_LESSON_CORRECTION_ENABLED"
+API_STAFF_KEY = "STAFF_STRUCTURE_V3_ENABLED"
+WEB_STAFF_KEY = "NEXT_PUBLIC_STAFF_STRUCTURE_V3_ENABLED"
 DEV_PROJECT_REF_SHA256 = "5b535773cb7222384bbb54ad3f8c2e741fa6176bec4ce586abcd82d17ee0062e"
 
 
@@ -122,6 +126,10 @@ class ProviderAdapter(Protocol):
     def correction_flags(self, packet: Mapping[str, Any]) -> Mapping[str, bool]: ...
 
     def set_correction_flags(self, packet: Mapping[str, Any], enabled: bool) -> list[str]: ...
+
+    def staff_flags(self, packet: Mapping[str, Any]) -> Mapping[str, bool]: ...
+
+    def set_staff_flags(self, packet: Mapping[str, Any], enabled: bool) -> list[str]: ...
 
 
 class LiveProviderAdapter:
@@ -346,10 +354,17 @@ class LiveProviderAdapter:
         run = self._gh([f"repos/{repository}/actions/runs/{run_id}"])
         if run.get("name") != "CI":
             raise DevReleaseBlocked("configuration_source_ci_workflow_mismatch")
+        prs = run.get("pull_requests") or []
+        pr = prs[0] if len(prs) == 1 and isinstance(prs[0], Mapping) else {}
+        head, base = pr.get("head") or {}, pr.get("base") or {}
+        repo_id = (run.get("repository") or {}).get("id")
         return {
             "status": run.get("status"), "conclusion": run.get("conclusion"),
             "release_sha": run.get("head_sha"), "branch": run.get("head_branch"),
             "event": run.get("event"), "run_id": run.get("id"),
+            "base_branch": base.get("ref"),
+            "same_repository_pr": bool(repo_id and (head.get("repo") or {}).get("id") == repo_id
+                                       and (base.get("repo") or {}).get("id") == repo_id),
         }
 
     def _render_flag_url(self, service: str) -> str:
@@ -557,6 +572,37 @@ class LiveProviderAdapter:
             "auto_deploy": result.get("autoDeploy"),
         }
 
+    def staff_flags(self, packet: Mapping[str, Any]) -> Mapping[str, bool]:
+        cfg = _require_mapping(packet, "render")
+        return {
+            "api": self._render_feature_value(str(cfg["api_service_id"]), API_STAFF_KEY, "staff"),
+            "worker": self._render_feature_value(str(cfg["worker_service_id"]), API_STAFF_KEY, "staff"),
+            "frontend": self._vercel_feature_value(packet, WEB_STAFF_KEY, "staff"),
+        }
+
+    def set_staff_flags(self, packet: Mapping[str, Any], enabled: bool) -> list[str]:
+        if type(enabled) is not bool:
+            raise DevReleaseBlocked("staff_structure_enabled_invalid")
+        before = self.staff_flags(packet)
+        literal = "true" if enabled else "false"
+        cfg = _require_mapping(packet, "render")
+        changed = []
+        for label, field in (("api", "api_service_id"), ("worker", "worker_service_id")):
+            if before[label] is enabled:
+                continue
+            url = self._render_flag_url(str(cfg[field])).replace(API_WORKBENCH_KEY, API_STAFF_KEY)
+            self._http_json(url, self.render_token, method="PUT", body={"value": literal})
+            if self._render_feature_value(str(cfg[field]), API_STAFF_KEY, "staff") is not enabled:
+                raise DevReleaseBlocked(f"{label}_staff_flag_readback_mismatch")
+            changed.append(label)
+        if before["frontend"] is not enabled:
+            self._http_json(self._vercel_flag_url(packet) + "&upsert=true", self.vercel_token,
+                method="POST", body={"key": WEB_STAFF_KEY, "value": literal, "type": "plain", "target": ["production"]})
+            if self._vercel_feature_value(packet, WEB_STAFF_KEY, "staff") is not enabled:
+                raise DevReleaseBlocked("frontend_staff_flag_readback_mismatch")
+            changed.append("frontend")
+        return changed
+
     def trigger_render(self, service_id: str, release_sha: str) -> str:
         result = self._http_json(
             f"https://api.render.com/v1/services/{urllib.parse.quote(service_id)}/deploys",
@@ -706,10 +752,12 @@ def validate_packet(data: Mapping[str, Any]) -> dict[str, Any]:
     expected = {"schema", "release_id", "release_sha", "expected_previous_sha", "repository", "branch", "migration_scope", "github", "vercel", "render"}
     if schema in ACTIVATION_REVISIONS:
         expected.update({"workbench_enabled", "configuration_ci_run_id", "schema_evidence"})
-    if schema in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA}:
+    if schema in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA, STAFF_ACTIVATION_SCHEMA}:
         expected.add("document_draft_enabled")
-    if schema == CORRECTION_ACTIVATION_SCHEMA:
+    if schema in {CORRECTION_ACTIVATION_SCHEMA, STAFF_ACTIVATION_SCHEMA}:
         expected.add("lesson_correction_enabled")
+    if schema == STAFF_ACTIVATION_SCHEMA:
+        expected.update({"staff_structure_enabled", "configuration_source_branch"})
     if set(data) != expected:
         raise DevReleaseBlocked("release_packet_unknown_or_missing_fields")
     if data.get("repository") != "KamillaLMSCRM/Kamilya-NEW":
@@ -717,16 +765,22 @@ def validate_packet(data: Mapping[str, Any]) -> dict[str, Any]:
     if schema in ACTIVATION_REVISIONS:
         if type(data.get("workbench_enabled")) is not bool:
             raise DevReleaseBlocked("packet_workbench_enabled_invalid")
-        if schema in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA}:
+        if schema in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA, STAFF_ACTIVATION_SCHEMA}:
             if type(data.get("document_draft_enabled")) is not bool:
                 raise DevReleaseBlocked("packet_document_draft_enabled_invalid")
             if data["document_draft_enabled"] and not data["workbench_enabled"]:
                 raise DevReleaseBlocked("document_draft_requires_workbench_enabled")
-        if schema == CORRECTION_ACTIVATION_SCHEMA:
+        if schema in {CORRECTION_ACTIVATION_SCHEMA, STAFF_ACTIVATION_SCHEMA}:
             if type(data.get("lesson_correction_enabled")) is not bool:
                 raise DevReleaseBlocked("packet_lesson_correction_enabled_invalid")
             if data["lesson_correction_enabled"] and not data["workbench_enabled"]:
                 raise DevReleaseBlocked("lesson_correction_requires_workbench_enabled")
+        if schema == STAFF_ACTIVATION_SCHEMA:
+            if type(data.get("staff_structure_enabled")) is not bool:
+                raise DevReleaseBlocked("staff_structure_enabled_invalid")
+            source = _require_string(data, "configuration_source_branch")
+            if not re.fullmatch(r"codex/[a-z0-9][a-z0-9/_-]{1,100}", source) or ".." in source:
+                raise DevReleaseBlocked("configuration_source_feature_branch_required")
         if type(data.get("configuration_ci_run_id")) is not int or data["configuration_ci_run_id"] <= 0:
             raise DevReleaseBlocked("configuration_ci_run_id_invalid")
         evidence = _require_mapping(data, "schema_evidence")
@@ -855,6 +909,12 @@ class DevReleaseController:
             raise DevReleaseBlocked("provider_correction_flag_shape_invalid")
         return flags
 
+    def _staff_flags(self) -> dict[str, bool]:
+        flags = dict(self.providers.staff_flags(self.packet))
+        if set(flags) != {"api", "worker", "frontend"} or any(type(value) is not bool for value in flags.values()):
+            raise DevReleaseBlocked("provider_staff_flag_shape_invalid")
+        return flags
+
     def _configuration(self) -> dict[str, Any]:
         if self.packet["schema"] not in ACTIVATION_REVISIONS:
             return {}
@@ -865,7 +925,7 @@ class DevReleaseController:
             "requested_workbench_enabled": self.packet["workbench_enabled"],
             "observed_flags": flags, "evidence_source": "provider_configuration_not_runtime",
         }
-        if self.packet["schema"] in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA}:
+        if self.packet["schema"] in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA, STAFF_ACTIVATION_SCHEMA}:
             document_flags = self._document_flags()
             if any(value is not self.packet["document_draft_enabled"] for value in document_flags.values()):
                 raise DevReleaseBlocked("provider_document_flag_mismatch_prepare_required")
@@ -873,7 +933,7 @@ class DevReleaseController:
                 "requested_document_draft_enabled": self.packet["document_draft_enabled"],
                 "observed_document_flags": document_flags,
             })
-        if self.packet["schema"] == CORRECTION_ACTIVATION_SCHEMA:
+        if self.packet["schema"] in {CORRECTION_ACTIVATION_SCHEMA, STAFF_ACTIVATION_SCHEMA}:
             correction_flags = self._correction_flags()
             if any(value is not self.packet["lesson_correction_enabled"] for value in correction_flags.values()):
                 raise DevReleaseBlocked("provider_correction_flag_mismatch_prepare_required")
@@ -881,7 +941,29 @@ class DevReleaseController:
                 "requested_lesson_correction_enabled": self.packet["lesson_correction_enabled"],
                 "observed_correction_flags": correction_flags,
             })
+        if self.packet["schema"] == STAFF_ACTIVATION_SCHEMA:
+            staff_flags = self._staff_flags()
+            if any(value is not self.packet["staff_structure_enabled"] for value in staff_flags.values()):
+                raise DevReleaseBlocked("provider_staff_flag_mismatch_prepare_required")
+            result.update(requested_staff_structure_enabled=self.packet["staff_structure_enabled"], observed_staff_flags=staff_flags)
         return result
+
+    def _configuration_source_gate(self) -> None:
+        repository, sha = self.packet["repository"], self.packet["release_sha"]
+        ci = self.providers.verify_source_ci(self.packet["configuration_ci_run_id"], sha, repository)
+        staff_packet = self.packet["schema"] == STAFF_ACTIVATION_SCHEMA
+        source_branch = self.packet["configuration_source_branch"] if staff_packet else "master"
+        if staff_packet:
+            if (ci.get("branch") != source_branch or ci.get("event") != "pull_request"
+                    or ci.get("base_branch") != "dev" or ci.get("same_repository_pr") is not True):
+                raise DevReleaseBlocked("configuration_source_same_repository_dev_pr_required")
+        elif ci.get("branch") != "master" or ci.get("event") != "push":
+            raise DevReleaseBlocked("configuration_source_master_branch_required")
+        if (ci.get("status") != "completed" or ci.get("conclusion") != "success"
+                or ci.get("release_sha") != sha or ci.get("run_id") != self.packet["configuration_ci_run_id"]):
+            raise DevReleaseBlocked("configuration_source_ci_not_successful")
+        if self.providers.remote_branch_sha(repository, source_branch) != sha:
+            raise DevReleaseBlocked("configuration_source_branch_sha_mismatch" if staff_packet else "configuration_source_master_sha_mismatch")
 
     def prepare(self, confirm_release_id: str) -> dict[str, Any]:
         if self.packet["schema"] not in ACTIVATION_REVISIONS:
@@ -889,39 +971,41 @@ class DevReleaseController:
         if confirm_release_id != self.packet["release_id"]:
             raise DevReleaseBlocked("execute_confirmation_mismatch")
         self._schema_gate()
+        self._configuration_source_gate()
         repository, sha = self.packet["repository"], self.packet["release_sha"]
-        ci = self.providers.verify_source_ci(self.packet["configuration_ci_run_id"], sha, repository)
-        if ci.get("branch") != "master" or ci.get("event") != "push":
-            raise DevReleaseBlocked("configuration_source_master_branch_required")
-        if (ci.get("status") != "completed" or ci.get("conclusion") != "success"
-                or ci.get("release_sha") != sha or ci.get("run_id") != self.packet["configuration_ci_run_id"]):
-            raise DevReleaseBlocked("configuration_source_ci_not_successful")
-        if self.providers.remote_branch_sha(repository, "master") != sha:
-            raise DevReleaseBlocked("configuration_source_master_sha_mismatch")
+        staff_packet = self.packet["schema"] == STAFF_ACTIVATION_SCHEMA
         if self.providers.remote_branch_sha(repository, "dev") != self.packet["expected_previous_sha"]:
             raise DevReleaseBlocked("configuration_dev_previous_sha_mismatch")
         self._verify_provider_contract()
-        document_before = self._document_flags() if self.packet["schema"] in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA} else {}
-        correction_before = self._correction_flags() if self.packet["schema"] == CORRECTION_ACTIVATION_SCHEMA else {}
+        document_before = self._document_flags() if self.packet["schema"] in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA, STAFF_ACTIVATION_SCHEMA} else {}
+        correction_before = self._correction_flags() if self.packet["schema"] in {CORRECTION_ACTIVATION_SCHEMA, STAFF_ACTIVATION_SCHEMA} else {}
         before = self._flags()
+        staff_before = self._staff_flags() if staff_packet else {}
+        if staff_packet and (any(value is not self.packet["workbench_enabled"] for value in before.values())
+                or any(value is not self.packet["document_draft_enabled"] for value in document_before.values())
+                or any(value is not self.packet["lesson_correction_enabled"] for value in correction_before.values())):
+            raise DevReleaseBlocked("staff_packet_must_preserve_existing_feature_flags")
         enabled = self.packet["workbench_enabled"]
         changed = self.providers.set_workbench_flags(self.packet, enabled) if any(value is not enabled for value in before.values()) else []
         document_changed: list[str] = []
-        if self.packet["schema"] in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA}:
+        if self.packet["schema"] in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA, STAFF_ACTIVATION_SCHEMA}:
             document_enabled = self.packet["document_draft_enabled"]
             if any(value is not document_enabled for value in document_before.values()):
                 document_changed = self.providers.set_document_draft_flags(self.packet, document_enabled)
         correction_changed: list[str] = []
-        if self.packet["schema"] == CORRECTION_ACTIVATION_SCHEMA:
+        if self.packet["schema"] in {CORRECTION_ACTIVATION_SCHEMA, STAFF_ACTIVATION_SCHEMA}:
             correction_enabled = self.packet["lesson_correction_enabled"]
             if any(value is not correction_enabled for value in correction_before.values()):
                 correction_changed = self.providers.set_correction_flags(self.packet, correction_enabled)
+        staff_changed = self.providers.set_staff_flags(self.packet, self.packet["staff_structure_enabled"]) if staff_packet and any(
+            value is not self.packet["staff_structure_enabled"] for value in staff_before.values()) else []
         configuration = self._configuration()
         return self._bounded({
             "status": "CONFIGURATION_READY", "release_id": self.packet["release_id"],
             "release_sha": sha, "before_flags": before, "changed_labels": changed,
             **({"before_document_flags": document_before, "document_changed_labels": document_changed} if document_before else {}),
             **({"before_correction_flags": correction_before, "correction_changed_labels": correction_changed} if correction_before else {}),
+            **({"before_staff_flags": staff_before, "staff_changed_labels": staff_changed} if staff_packet else {}),
             "configuration": configuration, "schema_evidence_sha256": self.packet["schema_evidence"]["sha256"],
             "product_go": "NOT_VERIFIED_UNTIL_EXACT_DEPLOY_AND_LIVE_TEST", "billing_changed": False,
         })
@@ -939,6 +1023,10 @@ class DevReleaseController:
         current = self.providers.remote_branch_sha(repository, branch)
         if current not in {expected_previous, release_sha}:
             raise DevReleaseBlocked("expected_previous_sha_mismatch")
+        if self.packet["schema"] == STAFF_ACTIVATION_SCHEMA:
+            # prepare is not an authorization receipt. Re-prove source CI and
+            # feature-branch identity before a direct execute or idempotent rerun.
+            self._configuration_source_gate()
 
         self._verify_provider_contract()
         self._configuration()

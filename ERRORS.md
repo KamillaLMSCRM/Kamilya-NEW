@@ -8811,3 +8811,40 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Prevention: persist sanitized raw stdout before parsing a maintenance result,
   handle the documented mixed framing, and reconcile uncertain outcomes read-only
   before deciding whether any operation remains necessary.
+
+## STAFF-TRANSFER-001 - Historical cancellation suppressed required current training
+
+- Date: 2026-10-19, four-block DEV candidate.
+- Symptom: transfer preview omitted required current training after cancellation.
+- Cause: transfer policy treated every historical course occurrence as satisfied,
+  including cancelled/superseded records.
+- Fix: only enrolled/in_progress/completed satisfy the current rule; never rewrite
+  or delete the old occurrence. Repeated confirmation returns the same receipt.
+- Verification: RED policy cases before fix; real owned Supabase DEV cases for
+  cancelled/superseded/completed pass with byte-identical history and cleanup.
+- Prevention: test eligibility separately from preservation and idempotence.
+
+## STAFF-IMPORT-005 - Broad UPDATE preflight rejected harmless corrections
+
+- Date: 2026-10-19, four-block DEV candidate.
+- Symptom: a harmless corrected name could not be committed with the workspace on.
+- Cause: UPDATE includes safe name corrections as well as possible placement;
+  rejecting it before locked reads blocked legitimate additive import updates.
+- Fix: block explicit MOVE early; UPDATE reaches existing locked HR/parent/head/
+  activity/department guards. Router rollback remains authoritative on rejection.
+- Verification: rename/UPDATE reach locked validation; actual locked-unit changes
+  to parent, head office, activation or HR-owned fields reject before field writes.
+- Prevention: assert protected field effects, not only broad action labels.
+
+## STAFF-SCALE-001 - Unrelated history exhausted the impact snapshot ceiling
+
+- Date: 2026-10-19, four-block DEV candidate.
+- Symptom: a small employee transfer failed in tenants with large unrelated history.
+- Cause: transfer preview loaded all tenant enrollment history; overview also
+  recomputed subtree paths for every unit pair.
+- Fix: scope history/markers/course references to the persisted command's affected
+  employees, retain complete bounded placement/reporting metadata, compute each
+  hierarchy path once. More than25,000 relevant rows still fails closed.
+- Verification: real DEV preview passes with25,001 unrelated historical rows;
+  overview regressions cover50/1,000/5,000 wide and deep units with linear path calls.
+- Prevention: separate irrelevant-history scale tests from relevant-overflow denial.

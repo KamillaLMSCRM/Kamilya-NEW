@@ -60,7 +60,14 @@ connector, manual superadmin control and default OFF. Local synthetic container
 failover accepted separately from production release/auth and hosted-use eligibility;
 the latter remain NOT VERIFIED. No voice, paid API or automatic activation.
 
-Current assignment dialogue slice, accepted for implementation2026-10-15:
+Current DEV assignment dialogue slice, accepted for implementation2026-10-19:
+[date-only context V1.6](contracts/ASSIGNMENT_DIALOGUE_V1_6.md) retains unsaved
+course/department context without executing an operation. [30-second primary
+budget V1.7](contracts/ASSIGNMENT_DIALOGUE_V1_7.md) supersedes the older8-second
+primary attempt: defaults30/40/8 inside90 seconds, independent of activation/order.
+These changes remain a DEV candidate until exact deployment and live acceptance.
+
+Previously released assignment dialogue slice, accepted2026-10-15:
 [Unicode comparison V1.5](contracts/ASSIGNMENT_DIALOGUE_V1_5.md) repairs the live
 production C-collation/Python-lower mismatch for exact RU/KK resource lookup;
 no global locale/schema/provider change. Root accepted real DEV54 and production54

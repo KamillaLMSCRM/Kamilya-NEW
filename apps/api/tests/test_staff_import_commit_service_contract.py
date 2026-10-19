@@ -1,4 +1,9 @@
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+from uuid import uuid4
+
+import pytest
 
 SERVICE = Path(__file__).parents[1] / "app" / "modules" / "staff_import_sessions" / "commit_service.py"
 
@@ -34,3 +39,71 @@ def test_position_lock_excludes_nullable_eager_join() -> None:
     source = SERVICE.read_text(encoding="utf-8")
     assert ".with_for_update(of=Position)" in source
     assert "select(Position).where(Position.tenant_id == tenant_id).with_for_update()" not in source
+
+
+@pytest.mark.parametrize("action", ["update", "move"])
+async def test_workspace_import_preflight_allows_safe_update_to_locked_validation(monkeypatch, action):
+    from app.modules.organization_units import workspace_config
+    from app.modules.staff_import_sessions import commit_service as service
+    from app.modules.staff_import_sessions.schemas import ImportSessionState
+    class ReachedLockedValidationError(Exception):
+        pass
+    proposal = SimpleNamespace(revision="r", revision_hash="hash", organization_units=[],
+        branches=[SimpleNamespace(action=action)], departments=[], positions=[], staff=[])
+    record = SimpleNamespace(state="approved", approved_revision="r")
+    monkeypatch.setattr(service, "get_import_session", AsyncMock(return_value=record))
+    monkeypatch.setattr(service, "record_to_domain", lambda _: SimpleNamespace(
+        state=ImportSessionState.APPROVED, proposal=proposal, approved_revision="r"))
+    monkeypatch.setattr(service, "compute_proposal_hash", lambda _: "hash")
+    monkeypatch.setattr(workspace_config, "staff_workspace_enabled", lambda: True)
+    locked = AsyncMock(return_value={})
+    monkeypatch.setattr(service, "_lock_and_reject_inactive_staff_matches", locked)
+    units = AsyncMock(side_effect=ReachedLockedValidationError())
+    monkeypatch.setattr(service, "_tenant_units", units)
+    expected = service.ImportCommitConflictError if action == "move" else ReachedLockedValidationError
+    with pytest.raises(expected):
+        await service.commit_approved_import_session(SimpleNamespace(), tenant_id=uuid4(),
+            session_id=uuid4(), actor_id=uuid4(), revision="r")
+    assert locked.await_count == units.await_count == (0 if action == "move" else 1)
+
+
+@pytest.mark.parametrize("change", ["parent", "head_office", "reactivation", "hr"])
+async def test_update_locked_unit_guards_reject_placement_and_hr_before_field_writes(monkeypatch, change):
+    from copy import deepcopy
+
+    from app.modules.organization_units import workspace_config
+    from app.modules.staff_import_sessions import commit_service as service
+    from app.modules.staff_import_sessions.schemas import ImportSessionState
+
+    parent = SimpleNamespace(id=uuid4(), slug="parent", external_key="parent")
+    unit = SimpleNamespace(id=uuid4(), name="Existing", parent_id=None, unit_type="department",
+        external_key="unit", is_head_office=False, legacy_root=False, is_active=change != "reactivation",
+        source_metadata={"origin": "1c"} if change == "hr" else {})
+    before = deepcopy(vars(unit))
+    incoming = SimpleNamespace(action="update", parent_external_key="parent" if change == "parent" else None,
+        name="Renamed", unit_type=SimpleNamespace(value="department"), external_key="unit",
+        is_head_office=change == "head_office")
+    proposal = SimpleNamespace(revision="r", revision_hash="hash", organization_units=[incoming],
+        branches=[], departments=[], positions=[], staff=[])
+    record = SimpleNamespace(id=uuid4(), state="approved", approved_revision="r")
+    monkeypatch.setattr(service, "get_import_session", AsyncMock(return_value=record))
+    monkeypatch.setattr(service, "record_to_domain", lambda _: SimpleNamespace(
+        state=ImportSessionState.APPROVED, proposal=proposal, approved_revision="r"))
+    monkeypatch.setattr(service, "compute_proposal_hash", lambda _: "hash")
+    monkeypatch.setattr(workspace_config, "staff_workspace_enabled", lambda: True)
+    monkeypatch.setattr(service, "_lock_and_reject_inactive_staff_matches", AsyncMock(return_value={}))
+    monkeypatch.setattr(service, "_tenant_units", AsyncMock(return_value=[parent, unit]))
+    monkeypatch.setattr(service, "build_generic_unit_commit_plan", lambda *args, **kwargs: (
+        service.GenericUnitCommitPlanItem(proposal=incoming, existing=unit),))
+    monkeypatch.setattr(service, "apply_transition", lambda *args, **kwargs: SimpleNamespace(state=ImportSessionState.COMMITTING))
+    from unittest.mock import Mock
+
+    db = SimpleNamespace(add=Mock(), flush=AsyncMock())
+    with pytest.raises(ValueError, match="hr_managed" if change == "hr" else "placement_requires_reviewed_transfer"):
+        await service.commit_approved_import_session(db, tenant_id=uuid4(), session_id=record.id,
+            actor_id=uuid4(), revision="r")
+    assert vars(unit) == before
+    # No organization write or training recompute occurred. The surrounding
+    # router owns rollback of the pending COMMITTING event/session transition.
+    assert db.add.call_count == 1
+    assert db.flush.await_count == 1

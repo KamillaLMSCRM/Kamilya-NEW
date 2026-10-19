@@ -32,8 +32,11 @@ from .service import (
     preview_organization_unit_move,
     update_organization_unit,
 )
+from .workspace_router import router as workspace_router
 
 router = APIRouter(prefix="/organization-units", tags=["organization-units"])
+
+router.include_router(workspace_router)
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 Methodologist = Annotated[User, Depends(require_role("methodologist"))]
 

@@ -2240,6 +2240,17 @@
       "import": {
         "ambiguousRow": "Бірмәнді емес жол",
         "analyzed": "Файл талданды. Әзірге ештеңе өзгертілген жоқ.",
+        "actionCreate": "Жасау",
+        "actionUpdate": "Жаңарту",
+        "actionUnchanged": "Өзгеріссіз",
+        "actionRename": "Атын өзгерту",
+        "actionMove": "Жылжыту",
+        "actionSkip": "Өткізіп жіберу",
+        "actionConflict": "Тексеруді қажет етеді",
+        "confidenceHigh": "Жоғары",
+        "confidenceMedium": "Орташа",
+        "confidenceLow": "Төмен",
+        "whyProposed": "Неліктен ұсынылды / техникалық мәліметтер",
         "analyzeError": "Файлды талдау мүмкін болмады",
         "analyzing": "Талдануда…",
         "applyApproved": "Расталған өзгерістерді қолдану",
@@ -2330,7 +2341,7 @@
         "intro": "Қызметкерлерді файлмен жүктеуге немесе қолмен қосуға болады.",
         "newEmployee": "Жаңа қызметкер",
         "personnelNumberPlaceholder": "Мысалы, 0001",
-        "required": "Табель нөмірін, атын, тегін, бөлімін және лауазымын толтырыңыз"
+        "required": "Табель нөмірін, атын, тегін және лауазымын толтырыңыз"
       },
       "structure": {
         "addBranch": "+ Филиал қосу",

@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import TypeVar
 
 from app.modules.staff_import_legacy_adapter import LEGACY_ROOT_EXTERNAL_KEY
 from app.modules.staff_import_matching import topologically_order_organization_units
 
 from .schemas import (
+    BranchProposal,
+    CanonicalDepartmentProposal,
+    CanonicalPositionProposal,
+    CanonicalStaffProposal,
     EvidenceItem,
     ImportSessionProposal,
     MatchAction,
+    OrganizationUnitProposal,
     ProposalConfidence,
     ProposalCorrection,
     ProposalItemKind,
@@ -34,6 +40,13 @@ def _replace(items: Iterable, correction: ProposalCorrection, updates: dict):
             raise ValueError(f"duplicate proposal external key: {correction.external_key}")
         found = True
         action = correction.action or item.action
+        changed_fields = {field for field, value in updates.items() if getattr(item, field) != value}
+        if correction.action is None and action is MatchAction.UNCHANGED and changed_fields:
+            action = (
+                MatchAction.RENAME
+                if changed_fields <= {"name", "branch_name", "department_name", "position_name"}
+                else MatchAction.UPDATE
+            )
         if action is MatchAction.CONFLICT:
             action = MatchAction.CREATE
         evidence = [
@@ -59,6 +72,57 @@ def _replace(items: Iterable, correction: ProposalCorrection, updates: dict):
     if not found:
         raise ValueError(f"proposal item not found: {correction.external_key}")
     return result
+
+
+_UNSET = object()
+_PlacementItem = TypeVar("_PlacementItem", CanonicalPositionProposal, CanonicalStaffProposal)
+
+
+def _sync_generic_mirror(
+    items: list[OrganizationUnitProposal],
+    corrected_item: BranchProposal | CanonicalDepartmentProposal,
+    *,
+    name: str,
+    parent_external_key: str | None | object = _UNSET,
+) -> None:
+    """Keep an existing legacy adapter mirror aligned by stable external key."""
+
+    for index, item in enumerate(items):
+        if item.external_key != corrected_item.external_key:
+            continue
+        updates: dict[str, object] = {
+            "name": name,
+            "action": corrected_item.action,
+            "confidence": corrected_item.confidence,
+            "evidence": corrected_item.evidence,
+        }
+        if parent_external_key is not _UNSET:
+            updates["parent_external_key"] = parent_external_key
+        items[index] = _validated_copy(item, updates)
+        return
+
+
+def _placement_unit_key(*, branch_external_key: str | None, department_external_key: str | None) -> str | None:
+    if department_external_key and department_external_key != LEGACY_ROOT_EXTERNAL_KEY:
+        return department_external_key
+    if branch_external_key and branch_external_key != LEGACY_ROOT_EXTERNAL_KEY:
+        return branch_external_key
+    return None
+
+
+def _sync_effective_placement(items: list[_PlacementItem], external_key: str) -> None:
+    for index, item in enumerate(items):
+        if item.external_key == external_key:
+            items[index] = _validated_copy(
+                item,
+                {
+                    "organization_unit_external_key": _placement_unit_key(
+                        branch_external_key=item.branch_external_key,
+                        department_external_key=item.department_external_key,
+                    )
+                },
+            )
+            return
 
 
 def apply_proposal_corrections(
@@ -93,6 +157,8 @@ def apply_proposal_corrections(
         elif correction.kind is ProposalItemKind.BRANCH:
             updates = {"branch_name": correction.name} if correction.name is not None else {}
             branches = _replace(branches, correction, updates)
+            corrected_branch = next(item for item in branches if item.external_key == correction.external_key)
+            _sync_generic_mirror(organization_units, corrected_branch, name=corrected_branch.branch_name)
         elif correction.kind is ProposalItemKind.DEPARTMENT:
             updates = {}
             if correction.name is not None:
@@ -100,6 +166,21 @@ def apply_proposal_corrections(
             if correction.branch_external_key is not None:
                 updates["branch_external_key"] = correction.branch_external_key
             departments = _replace(departments, correction, updates)
+            corrected_department = next(item for item in departments if item.external_key == correction.external_key)
+            _sync_generic_mirror(
+                organization_units,
+                corrected_department,
+                name=corrected_department.department_name,
+                parent_external_key=(
+                    (
+                        None
+                        if corrected_department.branch_external_key == LEGACY_ROOT_EXTERNAL_KEY
+                        else corrected_department.branch_external_key
+                    )
+                    if correction.branch_external_key is not None
+                    else _UNSET
+                ),
+            )
         elif correction.kind is ProposalItemKind.POSITION:
             updates = {}
             if correction.name is not None:
@@ -113,6 +194,8 @@ def apply_proposal_corrections(
                     else correction.department_external_key
                 )
             positions = _replace(positions, correction, updates)
+            if correction.branch_external_key is not None or correction.department_external_key is not None:
+                _sync_effective_placement(positions, correction.external_key)
         else:
             updates = {}
             if correction.position_external_key is not None:
@@ -126,6 +209,8 @@ def apply_proposal_corrections(
                     else correction.department_external_key
                 )
             staff = _replace(staff, correction, updates)
+            if correction.branch_external_key is not None or correction.department_external_key is not None:
+                _sync_effective_placement(staff, correction.external_key)
 
     branch_keys = {item.external_key for item in branches}
     department_keys = {item.external_key for item in departments}

@@ -117,6 +117,9 @@ async def create_organization_unit(
     head_user_id: UUID | None = None,
 ) -> Department:
     unit_id = uuid4()
+    from .workspace_config import reject_unreviewed_placement
+
+    reject_unreviewed_placement(head_user_id is not None)
     parent = None
     if parent_id is not None:
         try:
@@ -203,6 +206,13 @@ async def update_organization_unit(
     patch: dict[str, Any],
 ) -> Department:
     unit = await get_organization_unit(db, tenant_id, unit_id, for_update=True)
+    from .workspace_config import reject_hr_record_write, reject_unreviewed_placement
+
+    reject_hr_record_write(unit)
+    reject_unreviewed_placement(
+        patch.get("parent_id", unit.parent_id) != unit.parent_id
+        or patch.get("head_user_id", getattr(unit, "head_user_id", None)) != getattr(unit, "head_user_id", None)
+    )
     parent_id = patch.get("parent_id", unit.parent_id)
     await validate_move(db, tenant_id, cast(UUID, unit.id), parent_id)
     requested_head_office = bool(patch.get("is_head_office", getattr(unit, "is_head_office", False)))
@@ -316,6 +326,10 @@ async def archive_organization_unit(
     from app.modules.positions.models import Position
 
     unit = await get_organization_unit(db, tenant_id, unit_id, for_update=True)
+    from .workspace_config import reject_hr_record_write, reject_unreviewed_placement
+
+    reject_hr_record_write(unit)
+    reject_unreviewed_placement(getattr(unit, "head_user_id", None) is not None)
     child_result = await db.execute(
         select(Department.id)
         .where(

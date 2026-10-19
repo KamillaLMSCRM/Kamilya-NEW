@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import cast
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import and_, delete, or_, select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.courses import Course
@@ -214,8 +215,10 @@ async def recompute_enrollments(db: AsyncSession, user_id: UUID) -> RecomputeRes
         )
     result.added = len(to_add)
 
+    from app.modules.organization_units.change_models import TransferRetainedEnrollment
+
     for course_id, current_source, desired_source in to_update:
-        await db.execute(
+        updated_rows = await db.execute(
             update(Enrollment)
             .where(
                 Enrollment.user_id == user_id,
@@ -223,13 +226,19 @@ async def recompute_enrollments(db: AsyncSession, user_id: UUID) -> RecomputeRes
                 Enrollment.tenant_id == tenant_id,
                 Enrollment.source == current_source,
                 Enrollment.status != "completed",
+                ~select(TransferRetainedEnrollment.enrollment_id).where(
+                    TransferRetainedEnrollment.enrollment_id == Enrollment.id,
+                    TransferRetainedEnrollment.tenant_id == tenant_id,
+                ).exists(),
             )
             .values(source=desired_source)
         )
-    result.updated = len(to_update)
+        updated_count = cast(CursorResult[Any], updated_rows).rowcount
+        result.updated += updated_count
+        result.skipped_protected += 1 - updated_count
 
     if to_remove:
-        await db.execute(
+        deletion = await db.execute(
             delete(Enrollment).where(
                 and_(
                     Enrollment.user_id == user_id,
@@ -237,10 +246,15 @@ async def recompute_enrollments(db: AsyncSession, user_id: UUID) -> RecomputeRes
                     Enrollment.tenant_id == tenant_id,
                     Enrollment.source.in_(MANAGED_RULE_SOURCES),
                     Enrollment.status != "completed",
+                    ~select(TransferRetainedEnrollment.enrollment_id).where(
+                        TransferRetainedEnrollment.enrollment_id == Enrollment.id,
+                        TransferRetainedEnrollment.tenant_id == tenant_id,
+                    ).exists(),
                 )
             )
         )
-    result.removed = len(to_remove)
+        result.removed = cast(CursorResult[Any], deletion).rowcount
+        result.skipped_protected += len(to_remove) - result.removed
 
     await db.flush()
     return result

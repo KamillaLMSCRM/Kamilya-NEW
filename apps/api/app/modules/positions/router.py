@@ -418,6 +418,16 @@ async def update_position(
         user.id,
     )
 
+    from app.modules.organization_units.workspace_config import (
+        reject_hr_record_write,
+        staff_workspace_enabled,
+    )
+
+    try:
+        reject_hr_record_write(pos)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
     updates = req.model_dump(
         exclude_unset=True,
         exclude={"course_ids", "department_id"},
@@ -426,6 +436,12 @@ async def update_position(
     department_id_supplied = "department_id" in req.model_fields_set
     if department_name_supplied or department_id_supplied:
         legacy_department_name = updates.pop("department", "") or ""
+        if (
+            staff_workspace_enabled()
+            and not department_id_supplied
+            and legacy_department_name != (pos.department or "")
+        ):
+            raise HTTPException(409, "placement_requires_reviewed_transfer")
         if department_id_supplied:
             department = (
                 await _resolve_or_create_department(
@@ -443,6 +459,8 @@ async def update_position(
                 legacy_department_name,
             )
         updates["department"] = department.name if department else ""
+        if staff_workspace_enabled() and pos.department_id != (department.id if department else None):
+            raise HTTPException(409, "placement_requires_reviewed_transfer")
         pos.department_id = department.id if department else None
 
     for field, value in updates.items():
@@ -505,6 +523,13 @@ async def delete_position(
     if not pos:
         raise HTTPException(status_code=404, detail="Position not found")
 
+    from app.modules.organization_units.workspace_config import reject_hr_record_write
+
+    try:
+        reject_hr_record_write(pos)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
     # Recompute every holder first. recompute_enrollments reads the
     # user's position_id; once the row is gone we'd see the user's
     # old position as "no position" and not know to unenroll.
@@ -515,6 +540,10 @@ async def delete_position(
         )
     )
     holder_ids = [r[0] for r in holder_result.all()]
+    from app.modules.organization_units.workspace_config import staff_workspace_enabled
+
+    if staff_workspace_enabled() and holder_ids:
+        raise HTTPException(409, "placement_requires_reviewed_transfer")
     for user_id in holder_ids:
         await recompute_enrollments(db, user_id)
     # Set position_id NULL so the user no longer claims this position.
@@ -719,6 +748,10 @@ async def assign_user_to_position(
         raise HTTPException(status_code=404, detail="User not found")
 
     old_position_id = target.position_id
+    from app.modules.organization_units.workspace_config import staff_workspace_enabled
+
+    if staff_workspace_enabled() and old_position_id != position_id:
+        raise HTTPException(409, "placement_requires_reviewed_transfer")
     target.position_id = position_id
     await _update_employee_count(db, position_id, user.tenant_id)
     if old_position_id and old_position_id != position_id:
@@ -756,6 +789,10 @@ async def unassign_user_from_position(
         raise HTTPException(status_code=404, detail="User not found")
 
     old_position_id = target.position_id
+    from app.modules.organization_units.workspace_config import staff_workspace_enabled
+
+    if staff_workspace_enabled() and old_position_id is not None:
+        raise HTTPException(409, "placement_requires_reviewed_transfer")
     target.position_id = None
     if old_position_id:
         await _update_employee_count(db, old_position_id, user.tenant_id)

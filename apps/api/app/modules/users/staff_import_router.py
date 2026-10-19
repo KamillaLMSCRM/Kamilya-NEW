@@ -376,6 +376,8 @@ async def create_manual_staff(
         )
     except StaffEmailConflictError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except Exception as e:
         msg = str(e)
         if "uq_users_tenant_personnel" in msg or "duplicate key" in msg.lower():

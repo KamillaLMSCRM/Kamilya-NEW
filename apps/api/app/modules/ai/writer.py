@@ -160,13 +160,19 @@ async def _retrieve_and_rerank(
     tenant_id: str | None = None,
     embeddings_provider=None,
     preferred_headings: list[str] | None = None,
-    n_results: int = 15,
-    top_n: int = 10,
-    similarity_threshold: float = 0.45,
+    n_results: int | None = None,
+    top_n: int | None = None,
+    similarity_threshold: float | None = None,
 ) -> list[RetrievedChunk]:
     """Multi-query retrieval + deduplication + ranking."""
     if not tenant_id:
         raise ValueError("tenant_id_required")
+    from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
+
+    policy = await resolve_runtime_settings()
+    n_results = policy.integer("writer.retrieval_count") if n_results is None else n_results
+    top_n = policy.integer("writer.result_count") if top_n is None else top_n
+    similarity_threshold = policy.number("writer.similarity_threshold") if similarity_threshold is None else similarity_threshold
     where: dict[str, Any] | None = None
     if doc_ids:
         if len(doc_ids) == 1:

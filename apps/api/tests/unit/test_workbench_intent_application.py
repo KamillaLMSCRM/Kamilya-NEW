@@ -179,6 +179,32 @@ async def test_provider_factory_preserves_tenant_route_without_transport_retries
     factory.assert_awaited_once_with(tenant_id=ACTOR.tenant_id, temperature=0, max_tokens=1200, max_retries_per_provider=0)
 
 
+async def test_date_only_followup_uses_unsaved_history_and_replaces_relative_deadline(monkeypatch):
+    db, charge, refund, provider, resolver = setup(monkeypatch)
+    lookup = AsyncMock(side_effect=AssertionError("No saved plan exists"))
+    monkeypatch.setattr(application, "get_assignment_plan", lookup)
+    body = AssignmentInterpretRequest(
+        instruction="20 октября 2026 года в 18:00",
+        timezone_name="Asia/Qyzylorda",
+        instruction_history=["Назначь курс Курс отделу Отдел завтра"],
+    )
+    result = await application.interpret_assignment(db, ACTOR, body,
+        provider_resolver=resolver, now=NOW)
+    assert result.state == "interpreted"
+    assert result.candidate.course_query == "Курс"
+    assert result.candidate.department_query == "Отдел"
+    assert result.candidate.due_date == "2026-10-20"
+    assert result.candidate.due_time == "18:00:00"
+    data = json.loads(provider.ainvoke.await_args.args[0][1]["content"])
+    assert data["previous_candidate"] is None
+    assert data["context_source"] == "user_instruction_history"
+    assert data["instruction_history"] == ["Назначь курс Курс отделу Отдел завтра"]
+    assert data["latest_instruction_has_absolute_date"] is True
+    lookup.assert_not_awaited()
+    charge.assert_awaited_once()
+    refund.assert_not_awaited()
+
+
 def client(monkeypatch, role="methodologist", enabled=True, impersonating=False):
     app = FastAPI()
     app.include_router(routes.router)

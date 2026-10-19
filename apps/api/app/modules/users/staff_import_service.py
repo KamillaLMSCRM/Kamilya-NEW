@@ -1333,6 +1333,13 @@ async def commit_import(
             positions_by_key.setdefault((department_key, position_key), pos)
             positions_created += 1
         elif department is not None and not independent_manual_placement:
+            from app.modules.organization_units.workspace_config import (
+                reject_hr_record_write,
+                reject_unreviewed_placement,
+            )
+
+            reject_hr_record_write(pos)
+            reject_unreviewed_placement(bool(pos.department_id != department.id))
             # Legacy positions retain their text column for compatibility,
             # but all rows touched by a new write get the canonical FK.
             pos.department_id = department.id
@@ -1341,6 +1348,17 @@ async def commit_import(
             positions_by_key.setdefault((department_key, position_key), pos)
 
         if existing:
+            from app.modules.organization_units.workspace_config import (
+                reject_hr_employee_write,
+                staff_workspace_enabled,
+            )
+
+            await reject_hr_employee_write(db, tenant_id, cast(UUID, existing.id))
+            if staff_workspace_enabled() and (
+                existing.role != "student" or existing.position_id != pos.id
+                or (manual_mode and existing.organization_unit_id != organization_unit_id)
+            ):
+                raise StaffEmailConflictError("placement_requires_reviewed_transfer")
             # Keep previously stored optional values when the import omits
             # their columns or leaves the cells blank.
             if values["email"] is None:

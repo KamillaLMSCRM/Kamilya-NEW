@@ -26,6 +26,7 @@ from app.modules.admin.model_routing.schemas import (
     GenerationModelRoutingUpdate,
 )
 from app.modules.admin.provider_keys.repository import get_active_global_key
+from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,7 @@ class GenerationModelRoutingService:
         row: GenerationModelRouting,
     ) -> GenerationModelRoutingResponse:
         settings = get_settings()
+        policy = await resolve_runtime_settings(self.db)
         order = validate_generation_model_order(row.ordered_model_ids)
         positions = {route_id: index + 1 for index, route_id in enumerate(order)}
         reserve_blocker = configuration_blocker(settings)
@@ -112,10 +114,10 @@ class GenerationModelRoutingService:
             GLM53_ROUTE_ID: bool(settings.GLM53_FLASH_URL and settings.GLM53_FLASH_MODEL),
         }
         model_names = {
-            CHATGPT_RESERVE_ROUTE_ID: settings.CHATGPT_RESERVE_MODEL,
-            DEEPSEEK_ROUTE_ID: settings.DEEPSEEK_MODEL,
-            QWEN38_ROUTE_ID: settings.QWEN38_FLASH_MODEL,
-            GLM53_ROUTE_ID: settings.GLM53_FLASH_MODEL,
+            CHATGPT_RESERVE_ROUTE_ID: policy.text("provider.chatgpt.model"),
+            DEEPSEEK_ROUTE_ID: policy.text("provider.deepseek.model"),
+            QWEN38_ROUTE_ID: policy.text("provider.qwen.model"),
+            GLM53_ROUTE_ID: policy.text("provider.glm.model"),
         }
         models = [
             GenerationModelRouteItem(

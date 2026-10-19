@@ -32,6 +32,11 @@ vi.mock('@/i18n/useT', () => {
     'authenticatedUi.adminStaff.import.positionUnitAria': 'Подразделение должности {index}',
     'authenticatedUi.adminStaff.import.employeePositionAria': 'Должность сотрудника {index}',
     'authenticatedUi.adminStaff.import.saveCorrections': 'Сохранить исправления',
+    'authenticatedUi.adminStaff.import.actionCreate': 'Создать',
+    'authenticatedUi.adminStaff.import.actionUnchanged': 'Без изменений',
+    'authenticatedUi.adminStaff.import.actionRename': 'Переименовать',
+    'authenticatedUi.adminStaff.import.confidenceHigh': 'Высокая',
+    'authenticatedUi.adminStaff.import.whyProposed': 'Почему предложено / технические сведения',
     'authenticatedUi.adminStaff.structure.branches': 'Филиалы',
     'authenticatedUi.adminStaff.structure.departments': 'Отделы',
     'authenticatedUi.adminStaff.structure.addBranch': '+ Добавить филиал',
@@ -105,8 +110,14 @@ const user = {
 };
 
 const proposal = {
-  branches: [{ branch_id: 'branch-1', branch_name: 'Филиал Павлодар', external_key: 'branch-1', action: 'create', confidence: 'high', evidence: [{ claim: 'Строка филиала' }] }],
-  departments: [{ department_id: 'dept-1', department_name: 'Бухгалтерия', external_key: 'dept-1', branch_external_key: 'branch-1', action: 'create', confidence: 'high', evidence: [] }],
+  branches: [
+    { branch_id: 'branch-1', branch_name: 'Филиал Павлодар', external_key: 'branch-1', action: 'create', confidence: 'high', evidence: [{ claim: 'Строка филиала' }] },
+    { branch_id: 'branch-2', branch_name: 'Филиал Алматы', external_key: 'branch-2', action: 'unchanged', confidence: 'high', evidence: [] },
+  ],
+  departments: [
+    { department_id: 'dept-1', department_name: 'Бухгалтерия', external_key: 'dept-1', branch_external_key: 'branch-1', action: 'create', confidence: 'high', evidence: [] },
+    { department_id: 'dept-2', department_name: 'Продажи', external_key: 'dept-2', branch_external_key: 'branch-2', action: 'rename', confidence: 'high', evidence: [] },
+  ],
   positions: [{ position_id: 'position-1', position_name: 'Кассир', external_key: 'position-1', branch_external_key: 'branch-1', department_external_key: 'dept-1', action: 'create', confidence: 'high', evidence: [] }],
   staff: [{ external_key: 'staff-101', personnel_number: '101', first_name: 'Айдана', last_name: 'Сейтова', position_external_key: 'position-1', branch_external_key: 'branch-1', department_external_key: 'dept-1', action: 'create', confidence: 'high', evidence: [] }],
   conflicts: [],
@@ -251,6 +262,30 @@ describe('adaptive staff import interactions', () => {
     // The resume path is a GET against the same id and never exposes workbook JSON.
     fireEvent.click(screen.getByRole('button', { name: /Обновить анализ/i }));
     await waitFor(() => expect(getMock).toHaveBeenCalledWith('/v1/admin/staff/import/sessions/session-1'));
+  });
+
+  it('shows localized proposal metadata and keeps raw evidence behind a closed details disclosure', async () => {
+    postMock.mockResolvedValueOnce({ data: needsMapping } as any).mockResolvedValueOnce({ data: ready } as any);
+    renderImportPage();
+    fireEvent.change(await screen.findByLabelText(/штатного расписания для анализа/i), { target: { files: [new File(['x'], 'proposal.xlsx')] } });
+    fireEvent.click(screen.getByRole('button', { name: /Запустить анализ файла/i }));
+
+    await screen.findByText(/Нужно сопоставить колонки/i);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Табельный номер' }), { target: { value: 'Код' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Имя' }), { target: { value: 'Имя' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Фамилия' }), { target: { value: 'Фамилия' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Отдел' }), { target: { value: 'Отдел' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Должность' }), { target: { value: 'Должность' } });
+    fireEvent.click(screen.getByRole('button', { name: /Сохранить сопоставление и продолжить/i }));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith('/v1/admin/staff/import/sessions/session-1/mapping', expect.anything()));
+    expect((await screen.findAllByText(/Создать/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Без изменений/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Переименовать/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Высокая/).length).toBeGreaterThan(0);
+    const details = screen.getAllByText('Почему предложено / технические сведения')[0].closest('details');
+    expect(details).toBeInTheDocument();
+    expect(details).not.toHaveAttribute('open');
+    expect(within(details as HTMLElement).getByText('Строка филиала')).toBeInTheDocument();
   });
 
   it('accepts branch-only mapping and submits methodologist hierarchy corrections', async () => {
@@ -576,11 +611,16 @@ describe('organization structure interactions', () => {
     fireEvent.click(within(renameDialog).getByRole('button', { name: 'Сохранить' }));
     await waitFor(() => expect(patchMock).toHaveBeenCalledWith('/v1/organization-units/branch-1', { name: 'Филиал Север' }));
 
-    vi.stubGlobal('confirm', vi.fn(() => true));
+    const nativeConfirm = vi.fn(() => true);
+    vi.stubGlobal('confirm', nativeConfirm);
     fireEvent.click(screen.getAllByRole('button', { name: 'Архивировать' })[0]);
+    const archiveDialog = await screen.findByRole('dialog');
+    expect(postMock).not.toHaveBeenCalledWith('/v1/organization-units/branch-1/archive', expect.anything());
+    fireEvent.click(within(archiveDialog).getByRole('button', { name: 'Подтвердить архивирование' }));
     await waitFor(() => expect(postMock).toHaveBeenCalledWith(
       '/v1/organization-units/branch-1/archive',
       { reason: 'Архивировано методистом через раздел структуры' },
     ));
+    expect(nativeConfirm).not.toHaveBeenCalled();
   });
 });

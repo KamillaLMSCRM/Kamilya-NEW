@@ -26,6 +26,30 @@ describe('assignment dialogue integration', () => {
     expect(post.mock.calls[1][1].instruction_history).toEqual(['Подготовь назначение курса Safety']);
     expect(post.mock.calls.every(([url]) => !url.endsWith('/confirm'))).toBe(true);
   });
+  it('maps a rejected preview safely and keeps the command for correction', async () => {
+    post.mockRejectedValueOnce(Object.assign(new Error('Request failed with status code 409'), {
+      response: { status: 409, data: { error: 'conflict', message: 'audience_empty' } },
+    }));
+    render(<AssignmentWorkbench />);
+    const instruction = 'Назначь курс "Safety" отделу "Operations" до 31.12.2030';
+    type(instruction);
+    fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('В выбранном отделе нет подходящих активных сотрудников'));
+    expect(screen.getByLabelText('Команда назначения')).toHaveValue(instruction);
+    expect(screen.queryByText('Request failed with status code 409')).not.toBeInTheDocument();
+    expect(screen.queryByText('audience_empty')).not.toBeInTheDocument();
+  });
+  it('uses a safe generic message for an unknown preview rejection', async () => {
+    post.mockRejectedValueOnce(Object.assign(new Error('provider secret'), {
+      response: { status: 409, data: { error: 'conflict', message: 'unknown_provider_code' } },
+    }));
+    render(<AssignmentWorkbench />);
+    type('Назначь курс "Safety" отделу "Operations" до 31.12.2030');
+    fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Не удалось однозначно подготовить назначение'));
+    expect(screen.queryByText('provider secret')).not.toBeInTheDocument();
+    expect(screen.queryByText('unknown_provider_code')).not.toBeInTheDocument();
+  });
   it('keeps unknown confirmation locked and restores the same receipt by GET', async () => {
     post.mockResolvedValueOnce({ data: ready }).mockRejectedValueOnce(new Error('Network lost'));
     get.mockResolvedValueOnce({ data: receipt });
@@ -54,10 +78,39 @@ describe('assignment dialogue integration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Подтвердить назначение' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Подтвердить назначение' }));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('expired'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Срок плана истёк или он изменился'));
+    expect(screen.queryByText('expired')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Команда назначения')).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Проверить результат' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Новая команда' })).toBeEnabled();
+  });
+  it('accepts the canonical conflict envelope for a known definitive 409', async () => {
+    post.mockResolvedValueOnce({ data: ready }).mockRejectedValueOnce(Object.assign(new Error('Request failed with status code 409'), {
+      response: { status: 409, data: { error: 'conflict', message: 'expired' } },
+    }));
+    render(<AssignmentWorkbench />); type('Назначь курс "Safety" отделу "Operations" до 31.12.2030');
+    fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Подтвердить назначение' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить назначение' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Срок плана истёк или он изменился'));
+    expect(screen.queryByText('Request failed with status code 409')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Команда назначения')).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Проверить результат' })).not.toBeInTheDocument();
+  });
+  it('keeps an unknown canonical 409 locked for same-plan recovery', async () => {
+    post.mockResolvedValueOnce({ data: ready }).mockRejectedValueOnce(Object.assign(new Error('provider conflict'), {
+      response: { status: 409, data: { error: 'conflict', message: 'unknown_provider_code' } },
+    }));
+    get.mockResolvedValueOnce({ data: ready });
+    render(<AssignmentWorkbench />); type('Назначь курс "Safety" отделу "Operations" до 31.12.2030');
+    fireEvent.click(screen.getByRole('button', { name: 'Показать предварительный просмотр' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Подтвердить назначение' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить назначение' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Проверить результат' })).toBeEnabled());
+    expect(screen.getByLabelText('Команда назначения')).toBeDisabled();
+    expect(window.location.search).toContain('confirming=1');
+    expect(screen.queryByText('provider conflict')).not.toBeInTheDocument();
+    expect(screen.queryByText('unknown_provider_code')).not.toBeInTheDocument();
   });
   it('ready GET after a lost-confirm reload must not unlock replacement', async () => {
     window.history.replaceState(null, '', `/methodologist-workbench?plan=${ready.plan_id}&confirming=1`);
