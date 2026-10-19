@@ -142,6 +142,7 @@ class AssessmentAxis:
     eligible_distractor_fact_ids: tuple[str, ...]
     axis_kind: AssessmentAxisKind
     distractor_constraints: tuple[DistractorConstraint, ...] = ()
+    source_context: str = ""
 
 
 @dataclass(frozen=True, slots=True)

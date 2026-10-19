@@ -8,6 +8,52 @@ production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 ## Active original-document quality correction66 — not production
 
+### Latest v12 follow-up, 2026-10-19 15:53UTC
+
+Final local follow-up now3547API unit+rendererPASS/50.46s, canonical Python
+quality1004ruff/2170mypyPASS, diff-checkPASS. Six selected DOCX operational targets
+PASS6calls/23.410s/source unchanged (v12missing3); includes both source categories,
+all four former omitted targets, source-exact keys and normal blind/constraint
+reviews. Earlier missing2 diagnostic failed and is preserved, not reconciled to
+success. Source-owned context uses a default-empty typed field, not axis_kind
+heuristics (1C actions contain digits). Independent source-context review ACCEPT;
+last per-option/filter and six-question artifact review ACCEPT (no HIGH/MEDIUM;
+P2 formal wording retained as open). Zero-call maps
+remain43DOCX/56PDF, no static partial; these are not OCR/course acceptance.
+Next exact DEV candidate must include this follow-up, not fb9 alone. Source
+readability/PDF OCR and whole-course live acceptance remain open, productionNO_GO.
+
+DEV push independently confirmed fb9a8343fc04d6ebc4e79c954ebc95c5aac7232a,
+project account KamillaLMSCRM, canonical repository GITHUB_TOKEN helper. CI39278697318
+has not finished: four jobs success, backend jobs in progress with no steps
+reported, secrets job queued at last readback. Controller R12 stopped at
+github_ci_timeout before explicit provider deployment; no retry was launched.
+Do not infer runtime parity from the Git push or automatic provider behavior.
+Production65 and the postrelease delete/reupload gate remain unchanged.
+
+Independent review of47 older PDF retained questions found one P1 mixed-duty
+polarity inversion and multiple readability/answer-shape problems. Local v12
+fixes positive duties containing or beginning with preventive verbs, distinguishing
+finite prohibitive modals and the governing terminal preamble. Exact source keys
+and conjunctions remain unchanged. Review also requires neutral embedded-duty
+preambles, not broad substring matching. New evidence quality policy v12 avoids
+reusing v11 stage checkpoints. Numeric answer-shape bounds are now disclosed to
+all existing author/repair calls, with unchanged verdict thresholds and budgets.
+
+Actual selected rechecks: PDF mixed rule1/1,3calls/6.698s; former DOCX shape cases
+2/2,3calls/8.494s, immutable source during both probes. These do not establish
+whole-course acceptance. Full DOCX diagnostic retained39/43,59calls/160.362s:
+two semantic/shape omissions and two false context/dedup omissions remain.
+Its source_unchanged=false because root changed a separate PDF preamble guard
+during the run; retain as artifact diagnosis only, never frozen acceptance.
+Next resolve source-owned I/II table context and remaining omission causes;
+do not repeat the whole paid probe without a corrected contract.
+
+Full local3540PASS/52.57s before the final preamble regression, then51focusedPASS
+and canonical quality1004ruff/2170mypyPASS. Final frozen gates must be rerun after
+the remaining context correction. Original PDF OCR list corruption remains open;
+no client-specific text replacement, converter/service change or source edit.
+
 ### Latest local v11 checkpoint (supersedes older counts below)
 
 Shared DEV remains R11/cdb7a6cba2db081b50e4294953d8db047134f44b; production65

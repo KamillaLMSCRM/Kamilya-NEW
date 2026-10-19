@@ -5709,3 +5709,30 @@ Rules:
   source-confirmed consumers: selection/budget, semantic generation and source
   completeness audits. No savings/token claim; Graphify not needed for this seam.
   Ready for exact-SHA DEV integration, NOT production/original-quality GO.
+- v12 follow-up2026-10-19: R12 pushfb9a8343fc04d6ebc4e79c954ebc95c5aac7232a
+  independently read back; CI39278697318 pending. Controller stopped on its
+  bounded github_ci_timeout before explicit provider deployment; do not infer
+  mixed-provider parity or rerun blindly. Production65 unchanged.
+  PDF47artifact review found1P1 mixed-duty polarity and P2 readability/shape.
+  Targeted actual-model replacements: PDF1/1retained,3calls/6.698s; DOCX2/2retained,
+  3calls/8.494s, source bytes unchanged. Full DOCX diagnostic39/43retained,
+  59calls/160.362s fails2semantic/shape and2context/dedup targets; source changed
+  during run, artifact diagnosis only. No repeat full inference without a fix.
+  Numeric author contract preserves exact existing severe length thresholds.
+  Full3540PASS/52.57s precedes final preamble regression; subsequent51focusedPASS
+  and Python quality1004ruff/2170mypyPASS, final frozen gates still pending.
+- v12 final scoped-context correction: internal default-empty source_context
+  derives only from explicit operational table projections; author/learner share
+  one prompt helper. Exact axis/fact/subject/prompt proof keeps I/II applicability
+  distinct, while same-context/catalog/numeric dedup remains. Overlong context
+  rejects without truncation and retains partial audit. Independent review ACCEPT.
+  RED1/GREEN171 focused per-option regression retains two admissible wrong choices
+  when one third option repeats a real source deadline; generic attribute admission
+  and normal blind/constraint reviews preserved. No new loops or key changes.
+  Actual selected6/6retained,6calls/23.410s/source unchanged, immutable v12missing3
+  capture; earlier missing2 failure retained. Frozen3547PASS/50.46s,5existing
+  deprecations; canonical Python quality1004ruff/2170mypyPASS, diff-checkPASS.
+  No whole-course/cloud/production acceptance inferred. Luna-medium bounded
+  shape writer and independent Sol reviewer used; observed model/token counters
+  and aggregate time savings unavailable, not zero. Root owned integration and
+  correction of polarity/context defects; no agent external mutation.

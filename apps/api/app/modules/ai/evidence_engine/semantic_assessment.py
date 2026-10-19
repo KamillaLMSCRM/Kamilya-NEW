@@ -21,6 +21,7 @@ from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFail
 
 from .assessment_axes import (
     assessment_option_token_limit,
+    assessment_required_prompt,
     derive_assessment_axes,
     has_partial_unatomized_source_contract,
     materialize_assessment,
@@ -38,6 +39,7 @@ from .models import (
 from .quality import (
     MAX_ASSESSMENT_ANSWER_CHARS,
     answer_containment_option_indices,
+    answer_length_contract,
     answer_length_repair_targets,
     contains_internal_generation_instruction,
     filter_acceptable_questions,
@@ -123,13 +125,18 @@ equally short alternative roles/names/values, not full explanatory sentences.
 For a short action, propose another concise action of the same type. Keep the
 complete scenario and conditions in the required question; never remove them
 or change the source claim to fit an option. Null means no such token limit.
-For a substantial source_claim of at least 80 characters, include at least one
-genuinely distinct plausible wrong decision with informative detail comparable
-to the complete key (at least two thirds of its character length). Do not achieve
-this with repeated justifications, filler or copied-key padding. For a full
-checklist, use a comparably complete but wrong checklist/decision, not only tiny
-one-item omissions. A later separately true workflow step is not a wrong answer
-to a broad question; preserve the required prompt's exact preliminary/final stage.
+If answer_length_contract supplies numeric bounds, make at least one genuinely
+informative wrong choice satisfy each applicable bound: minimum means at least
+the supplied character count and maximum means no more than it. Do not achieve
+this with repeated justifications, filler or copied-key padding, and never alter
+the key. For a full checklist, use a comparably complete but wrong
+checklist/decision, not only tiny one-item omissions. A later separately true
+workflow step is not a wrong answer to a broad question; preserve the required
+prompt's exact preliminary/final stage.
+Do not make a wrong choice merely by appending an unregulated extra attachment
+or permission to an otherwise correct action. Change or omit a source-mandatory
+decision, value or step. If the question already names the object and condition,
+avoid repeating them in every option; use concise, unambiguous action choices.
 """
 
 AUTHOR_PROMPT = """Create meaningful Russian workplace assessment questions from
@@ -402,6 +409,7 @@ def _has_ambiguous_authorization_omission(key: str, option: str) -> bool:
 def _course_question_identity(
     question: QuestionDraft,
     facts: dict[str, SourceFact],
+    axis: AssessmentAxis | None = None,
 ) -> tuple[str, ...]:
     """Collapse one repeated source-owned rule without hiding short collisions."""
     answer = _norm(question.correct_answer)
@@ -410,6 +418,18 @@ def _course_question_identity(
         return "source-prohibition", question.fact_id, _norm(question.prompt), answer
     if fact is not None and is_tabular_locator(fact.source_locator):
         locator = dict(parse_qsl(fact.source_locator.replace(";", "&")))
+        if (axis is not None and axis.source_context
+                and question.fact_id == axis.primary_fact_id == fact.fact_id
+                and axis.source_context == axis.subject == fact.subject.strip()
+                and axis.required_prompt
+                and question.prompt == assessment_required_prompt(axis)):
+            return (
+                "tabular-operational-context", locator.get("doc_id", ""),
+                locator.get("source_revision", ""),
+                locator.get("section", locator.get("sheet", "")),
+                _norm(fact.attribute), answer, _norm(axis.source_context),
+                _norm(axis.required_prompt),
+            )
         return (
             "tabular-attribute-answer",
             locator.get("doc_id", ""),
@@ -592,13 +612,14 @@ def _parse_questions(raw: str, *, lesson_id: str, facts: list[SourceFact],
     return result
 
 
-def _author_axis(axis: AssessmentAxis) -> dict[str, Any]:
+def _axis_author_payload(axis: AssessmentAxis) -> dict[str, Any]:
     """One immutable answer-domain contract for initial, recovery and repair calls."""
     return {
         "axis_id": axis.axis_id, "subject": axis.subject, "attribute": axis.attribute,
-        "required_prompt": axis.required_prompt, "source_claim": axis.correct_value,
+        "required_prompt": assessment_required_prompt(axis), "source_claim": axis.correct_value,
         "axis_kind": axis.axis_kind,
         "distractor_token_limit": assessment_option_token_limit(axis),
+        "answer_length_contract": answer_length_contract(axis.correct_value),
     }
 
 
@@ -1428,7 +1449,7 @@ async def generate_block_assessment(
             "max_questions": len(request_axes),
             "facts": [{"fact_id": f.fact_id, "subject": f.subject,
                        "attribute": f.attribute, "value": f.value} for f in facts],
-            "axes": [_author_axis(axis) for axis in request_axes],
+            "axes": [_axis_author_payload(axis) for axis in request_axes],
         }
         parser = partial(_parse_axis_questions, axes=request_axes,
                          maximum=request["max_questions"])
@@ -1457,7 +1478,7 @@ async def generate_block_assessment(
                 axis_request = {
                     **request,
                     "max_questions": 1,
-                    "axes": [_author_axis(axis)],
+                    "axes": [_axis_author_payload(axis)],
                 }
                 recovered = await invoke(
                     AUTHOR_PROMPT,
@@ -1498,7 +1519,7 @@ async def generate_block_assessment(
                 axis_request = {
                     **request,
                     "max_questions": 1,
-                    "axes": [_author_axis(missing_axis)],
+                    "axes": [_axis_author_payload(missing_axis)],
                 }
                 recovered = await invoke(
                     AUTHOR_PROMPT,
@@ -1790,7 +1811,7 @@ async def generate_block_assessment(
                     axis_records[axis_id]["attempt_counts"]["model_repair"] += 1
                     audit["attempt_counts"]["model_repair"] += 1
                 repair_request = {**request, "task": "assessment_repair", "max_questions": 1,
-                                  "axes": [_author_axis(repair_axis)],
+                                  "axes": [_axis_author_payload(repair_axis)],
                                   "rejected": [{"question_id": rejected_question.question_id,
                                                 "prompt": rejected_question.prompt,
                                                 "options": rejected_question.options,
@@ -1878,7 +1899,7 @@ async def generate_block_assessment(
         # placing the correct answer first. The string key and truth remain intact.
         shuffled = tuple(sorted(q.options, key=lambda option: hashlib.sha256(
             f"{q.question_id}:{option}".encode()).digest()))
-        identity = _course_question_identity(q, facts_by_id)
+        identity = _course_question_identity(q, facts_by_id, axes_by_id.get(axis_id or ""))
         if identity in unique:
             if axis_id is not None:
                 axis_records[axis_id].update(

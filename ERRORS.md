@@ -9102,3 +9102,16 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   joint/qualified/exception leaves remain on the reviewed operational path.
   Failed simple doing/not-doing experiment and PDF quality probes are retained;
   OCR garbage requires original-page/source-pipeline verification, not a waiver.
+- v12 semantic follow-up: a preventive duty embedded in a source clause or
+  preamble is not a governing prohibition. Match finite clause modals and the
+  verified terminal prohibition preamble, not an arbitrary forbidden-word stem.
+  A mixed duty/ban remains one complete source key under a neutral rule question.
+  Table operational projections also require their exact source applicability:
+  source_context is deterministic/default-empty, shared author/learner wording
+  preserves the category, and dedup requires exact axis/fact/context/prompt proof.
+  Generic catalog identity is unchanged. One inadmissible operational alternative
+  may be filtered only if two independently admissible wrong choices remain;
+  both model reviews remain mandatory and no option/key is manufactured.
+  Disclose existing numerical answer-shape limits rather than weakening them.
+  RED/GREEN171focused, frozen3547PASS, canonical qualityPASS, independent six-key
+  real-output reviewACCEPT. Whole-course/OCR/DEV/production acceptance still open.

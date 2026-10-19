@@ -373,21 +373,22 @@ def _structured_operational_axes(fact: SourceFact) -> list[tuple[str, str]]:
     ]
     if len(operational) < 2:
         return []
-    preamble_prohibited = bool(re.search(
-        r"\b(?:нельзя|запрещ\w*|не\s+допуска\w*|must\s+not|forbidden)\b",
-        _norm(preamble),
-    ))
+    preamble_prohibited = _affirmative_prohibition_modal(preamble) is not None
     axes: list[tuple[str, str]] = []
-    for _position, clause, (target, qualifier, clause_prohibited) in operational:
+    for _position, clause, (target, qualifier, _clause_prohibited) in operational:
         condition = f" с учетом условия «{qualifier}»" if qualifier else ""
-        if preamble_prohibited or clause_prohibited:
+        leading_prohibition = re.match(
+            r"^(?:нельзя|запрещено|запрещается|не\s+допускается|must\s+not|forbidden)\b",
+            clause.strip(), flags=re.IGNORECASE,
+        )
+        if preamble_prohibited or leading_prohibition:
             prompt = (
                 f"Какое действие в отношении «{target}» запрещено{condition} "
                 f"требованием «{preamble}»?"
             )
         else:
             prompt = (
-                f"Какое действие в отношении «{target}» предусмотрено{condition} "
+                f"Какое полное правило в отношении «{target}» предусмотрено{condition} "
                 f"требованием «{preamble}»?"
             )
         axes.append((clause, prompt))
@@ -2464,6 +2465,13 @@ def derive_assessment_axes(
                 and _norm(peer.subject) != _norm(fact.subject)
                 and _norm(peer.value) != normalized_value
             )
+            source_context = (
+                fact.subject.strip()
+                if is_tabular_locator(fact.source_locator)
+                and (source_value, structured_prompt) in context_owned_axes else ""
+            )
+            if source_context and len(f"Для «{source_context}»: {required_prompt}") > 900:
+                continue
             result.append(AssessmentAxis(
                 axis_id=f"axis-{digest}",
                 lesson_id=lesson.lesson_id,
@@ -2483,8 +2491,16 @@ def derive_assessment_axes(
                     else _axis_kind(axis_attribute, correct_value)
                 ),
                 distractor_constraints=_distractor_constraints(fact, eligible),
+                source_context=source_context,
             ))
     return tuple(result)
+
+
+def assessment_required_prompt(axis: AssessmentAxis) -> str:
+    """Keep explicit operational table applicability in the learner's question."""
+    if axis.source_context and axis.required_prompt:
+        return f"Для «{axis.source_context}»: {axis.required_prompt}"
+    return axis.required_prompt
 
 
 def _source_owned_list_inverse(axis: AssessmentAxis) -> str | None:
@@ -2530,18 +2546,26 @@ def materialize_assessment(
     if axis.normalized_correct_value in normalized:
         return None
     authored_prompt = authored.prompt.strip()
-    if inverse is None and not _admissible_source_distractors(
-        axis, distractors, authored_prompt
-    ):
-        return None
     if axis.required_prompt:
-        prompt = axis.required_prompt
+        prompt = assessment_required_prompt(axis)
     elif _prompt_is_bound_to_axis(authored_prompt, axis):
         prompt = authored_prompt
     else:
         prompt = _server_owned_axis_prompt(axis)
-    if inverse is None and not _admissible_source_distractors(axis, distractors, prompt):
-        return None
+    if inverse is None:
+        if not axis.source_context and (
+            not _admissible_source_distractors(axis, distractors, authored_prompt)
+            or not _admissible_source_distractors(axis, distractors, prompt)
+        ):
+            return None
+        # Reject each unsafe alternative without discarding two independently
+        # admissible operational alternatives. Generic attribute admission,
+        # the minimum and both later model reviews remain unchanged.
+        distractors = tuple(item for item in distractors
+                            if _admissible_source_distractors(axis, (item,), authored_prompt)
+                            and _admissible_source_distractors(axis, (item,), prompt))
+        if len(distractors) < 2:
+            return None
     explanation = _teaching_explanation(axis)
     return QuestionDraft(
         question_id=f"semantic-{axis.axis_id.removeprefix('axis-')}",

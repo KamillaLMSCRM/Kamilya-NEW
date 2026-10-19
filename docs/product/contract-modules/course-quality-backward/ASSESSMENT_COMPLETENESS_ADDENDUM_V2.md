@@ -37,8 +37,18 @@ answer cues, meaningful decisions and source coverage before production GO.
 Existing QuestionDraft true_false/single_choice, course persistence, RBAC/RLS,
 learner attempts/results and citation identities remain compatible. No schema,
 public API, model routing, reserve activation, voice, OCR service configuration,
-resource/tier or billing change. New policy marker evidence-v2-quality-v11
+resource/tier or billing change. New policy marker evidence-v2-quality-v12
 prevents reuse of old generation-stage outputs as corrected output.
+
+Internal AssessmentAxis.source_context defaults empty. Only deterministic
+operational projections of a table cell may set it to the exact source subject.
+One shared prompt helper adds this applicability to author and learner wording;
+raw required_prompt remains unchanged for exact-span completeness accounting.
+Course identity recognizes this context only with matching trusted axis/fact IDs,
+subject and exact emitted prompt. Ordinary catalog/numeric dedup is unchanged.
+Overlong scoped prompts are rejected, never truncated. One unsafe operational
+alternative may be removed only when at least two admissible wrong choices remain;
+the immutable key, generic attribute admission and both model reviews are preserved.
 
 Legacy regeneration uses the existing runtime generation temperature, with
 system instructions separated from retrieved source data. It still prepares

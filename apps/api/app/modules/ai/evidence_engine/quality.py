@@ -11,7 +11,7 @@ from app.modules.ai.lesson_quality import has_unprofessional_learner_language
 from .models import AssessmentDraft, CourseDraft, EvidenceCourseResult, QuestionDraft
 from .provider_models import GroundedBlock, PublishabilityReport
 
-EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v11"
+EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v12"
 
 _GENERIC_QUESTION_RE = re.compile(
     r"(?:о\s+ч[её]м\s+(?:этот\s+)?(?:урок|курс|раздел|модуль)|"
@@ -260,6 +260,20 @@ def filter_acceptable_questions(questions: list[QuestionDraft]) -> list[Question
     ]
 
 
+def answer_length_contract(answer: str) -> dict[str, int | None]:
+    """Return the existing severe answer-shape bounds for one answer key."""
+
+    key_length = len(answer.strip())
+    return {
+        "at_least_one_distractor_min_chars": (
+            (2 * key_length + 2) // 3 if key_length >= 80 else None
+        ),
+        "distractor_max_chars": (
+            3 * key_length // 2 if key_length >= 24 else None
+        ),
+    }
+
+
 def answer_length_repair_targets(
     questions: list[QuestionDraft], *, repairable_ids: set[str] | None = None,
 ) -> tuple[str, ...]:
@@ -279,13 +293,17 @@ def answer_length_repair_targets(
     targets: list[str] = []
     for quiz in by_lesson.values():
         for question in quiz:
-            key_length = len(question.correct_answer.strip())
             longest_other = max(len(option.strip()) for option in question.options
                                 if option != question.correct_answer)
             shortest_other = min(len(option.strip()) for option in question.options
                                  if option != question.correct_answer)
-            severe = (key_length >= 80 and longest_other * 3 < key_length * 2
-                      or key_length >= 24 and shortest_other * 2 > key_length * 3)
+            length_contract = answer_length_contract(question.correct_answer)
+            minimum_distractor = length_contract["at_least_one_distractor_min_chars"]
+            maximum_distractor = length_contract["distractor_max_chars"]
+            severe = ((minimum_distractor is not None
+                       and longest_other < minimum_distractor)
+                      or (maximum_distractor is not None
+                          and shortest_other > maximum_distractor))
             if (severe
                     and (repairable_ids is None or question.question_id in repairable_ids)):
                 targets.append(question.question_id)

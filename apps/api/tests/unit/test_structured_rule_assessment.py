@@ -139,6 +139,63 @@ def test_explicit_operational_list_derives_one_source_owned_axis_per_clause() ->
     assert len(ordinary_axes) == 1
 
 
+def test_duty_with_embedded_prohibition_keeps_neutral_whole_rule_question() -> None:
+    value = (
+        "Работникам склада следует: "
+        "1) содержать в исправном состоянии системы пожаротушения, "
+        "не допускать их использования не по назначению; "
+        "2) сообщать руководителю о неисправностях."
+    )
+    lesson, fact = _fixture(value)
+    axes = derive_assessment_axes(lesson, [fact], block_id="mixed-duty-ban")
+    mixed = next(axis for axis in axes if "содержать" in axis.correct_value)
+    assert mixed.correct_value == (
+        "содержать в исправном состоянии системы пожаротушения, "
+        "не допускать их использования не по назначению"
+    )
+    assert "запрещено" not in mixed.required_prompt
+    assert "Какое полное правило" in mixed.required_prompt
+    assert "Работникам склада следует" in mixed.required_prompt
+
+
+def test_explicit_prohibition_list_keeps_prohibition_question() -> None:
+    lesson, fact = _fixture(
+        "Работникам склада запрещается: "
+        "1) использовать поврежденные кабели; "
+        "2) закрывать проходы к выходам."
+    )
+    axes = derive_assessment_axes(lesson, [fact], block_id="explicit-ban")
+    assert len(axes) == 2
+    assert all(axis.correct_value == "запрещается" for axis in axes)
+    assert all("Допустимо ли" in axis.required_prompt for axis in axes)
+
+
+@pytest.mark.parametrize("duty", [
+    "не допускать использования оборудования не по назначению",
+    "запрещать доступ посторонних к опасному оборудованию",
+])
+def test_active_preventive_duty_is_not_a_prohibitive_modal(duty: str) -> None:
+    lesson, fact = _fixture(
+        f"Работник склада обязан: 1) {duty}; "
+        "2) сообщать руководителю о неисправностях."
+    )
+    axes = derive_assessment_axes(lesson, [fact], block_id="active-preventive-duty")
+    item = next(axis for axis in axes if axis.correct_value == duty)
+    assert "Какое полное правило" in item.required_prompt
+    assert "запрещено требованием" not in item.required_prompt
+
+
+def test_embedded_preventive_preamble_does_not_invert_positive_list_actions() -> None:
+    lesson, fact = _fixture(
+        "Работник, обязанный не допускать посторонних, выполняет действия: "
+        "1) проверить ограждение; 2) сообщить руководителю."
+    )
+    axes = derive_assessment_axes(lesson, [fact], block_id="preventive-preamble")
+    assert len(axes) == 2
+    assert all("Какое полное правило" in axis.required_prompt for axis in axes)
+    assert all("запрещено требованием" not in axis.required_prompt for axis in axes)
+
+
 def test_bullet_list_skips_heading_and_exception_without_relaxing_source_truth() -> None:
     value = """При тревоге оператор обязан выполнить действия:
 - Порядок эвакуации:
