@@ -443,6 +443,44 @@ class Client:
 
 
 @pytest.mark.asyncio
+async def test_numeric_range_repair_receives_exact_ambiguous_option_feedback():
+    key = "От 700\u00a0100 до 1 100\u00a0000 тенге"
+    fact = SourceFact("f-range", "I категория", "Лимит на выдачу микрокредитов, тенге",
+                      key, "doc_id=d1;sheet=Лимиты;row=2;column=Сумма")
+    lesson = LessonDraft("l-range", "Лимиты", "Категории", "Применять лимиты", "",
+                         (fact.fact_id,), (), 1)
+    bad_option = "От 700 100 до 1 100 000 тенге для другого региона"
+
+    class RangeClient(Client):
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            if request["task"] not in {"assessment_generate", "assessment_repair"}:
+                return await super().ainvoke_validated(messages, parser, **kwargs)
+            self.requests.append(request)
+            if request["task"] == "assessment_repair":
+                assert request["rejected"][0]["rejected_options"] == [{
+                    "index": 2, "text": bad_option,
+                    "reasons": ["option_2:answer_value_contains_or_is_contained_in_key"],
+                }]
+                replacement = "От 800 100 до 1 100 000 тенге"
+            else:
+                replacement = bad_option
+            axis = request["axes"][0]
+            payload = {"questions": [{"axis_id": axis["axis_id"],
+                       "prompt": axis["required_prompt"] or "Какой лимит для I категории?",
+                       "distractors": ["От 700 100 до 1 400 000 тенге", replacement]}]}
+            return SimpleNamespace(value=parser(json.dumps(payload, ensure_ascii=False)), attempt_count=1)
+
+    client = RangeClient()
+    result = await generate_block_assessment([lesson], {fact.fact_id: fact}, client)
+    assert len(result.questions) == 1
+    assert result.questions[0].correct_answer == key
+    assert bad_option not in result.questions[0].options
+    assert result.audit["repaired"] == 1
+    assert sum(r["task"] == "assessment_repair" for r in client.requests) == 1
+
+
+@pytest.mark.asyncio
 async def test_single_nonnumeric_paragraph_produces_one_question_without_peer_facts():
     lesson, facts = fixture()
     result = await generate_block_assessment([lesson], facts, Client())

@@ -10,8 +10,8 @@ production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 Owner-authorized one production package remains the objective; immediate stale
 DEV converter correction did not revoke that release authority. Existing DEV
-API/worker/frontend66/1552d614 live (CI39235485902 all7SUCCESS,
-REL-LOMBARD66-DEV-R4-20261019 RELEASE_OK). Only obsolete DOCLING_URL was removed
+API/worker/frontend66/7081c955 live (CI39241885444 all7SUCCESS,
+REL-LOMBARD66-DEV-R5-20261019 RELEASE_OK). Only obsolete DOCLING_URL was removed
 earlier; all other configuration/tier/model routes remain unchanged.
 Local follow-up parses actual deployed-converter Markdown, restores category
 tables/amounts, hierarchical safety clauses and evacuation heading; readable
@@ -58,7 +58,19 @@ lint/quality/version/diff PASS. Earlier broad web run was pre-final inline-code
 fix and had1real slash regression plus1journal timeout; retained as failed, not
 relabeled. Final web quiet report is all green. Independent reviews accept the
 scope-parser and literal escape-display seams. No source-controlled markup/links
-activated. DEV R5 and fresh-model acceptance are the next gates, not production GO.
+activated. DEV R5 exact7081 completed: API dep-dbavkmbncjis73ajsn4g,
+worker dep-dbavlpdg1s2s73dnbjgg,Vercel dpl_2ReKx7Ph8bj5mdLXmTY8uzFqHMxo.
+Fresh ordinary-browser jobf2c8e8fa-a34b-4ca7-97bf-e62229eb01f4 persisted
+draft40fb9f9f-4668-484e-9683-33f9773dc444:4lessons/8questions(2,2,2,2),
+103.664s worker, interrupted/review-required; source ID matches original DEV DOCX.
+Independent review confirms all8keys/options, no retained P1. Both I-category
+range axes are omitted and four partial source parents remain. A bounded actual-
+model probe reproduced same-key-range/other-region distractors; containment
+rejection is correct, but generic repair feedback caused no-progress. Local v9
+adds exact mapped option reasons, preserves the gate/key, RED1/GREEN146focused.
+Captured initial responses plus four real repair/review calls retain both keys
+in8.829s; NOT full-course timing or cloud DEV acceptance. Failed zero-call replay
+that reused stale repair is retained. Full v9/DEV/production gates follow.
 
 ## Current checkpoint — four blocks65 released and live accepted
 

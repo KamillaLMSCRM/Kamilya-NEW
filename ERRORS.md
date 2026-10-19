@@ -8968,7 +8968,7 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Fix: candidate uses narrow operational-table admission with metadata/catalog
   negatives, navigation/signature exclusion, whitespace-only post-grounding
   layout, distinct explicit-list axes with exact-axis repair/recovery and honest
-  missing-coverage audit. Current quality policy v8; no changed parent evidence IDs,
+  missing-coverage audit. Current quality policy v9; no changed parent evidence IDs,
   provider route, grounding guard or migration. Conditions/exceptions must remain
   part of exact source-owned claims, not be dropped to increase question counts.
   Actual deployed MarkItDown output may have
@@ -9008,6 +9008,15 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   an infinitive inside it. Separately, author/learner/approval LessonContent must
   decode source Markdown escapes as literal React text; backend escaping stays
   intact and escaped source structure/HTML/links cannot become active content.
+- Range-repair follow-up: actual native-source I-category candidates repeated the
+  correct range with another-region suffix. The containment gate correctly
+  rejected both, but generic local_quality_filter_rejected gave the author no
+  failed-option feedback; unchanged retries ended omitted. Preserve that gate,
+  expose its exact original option indices as trusted closed reasons and require
+  a genuinely different wrong value, never a changed key. RED1/GREEN146 focused;
+  bounded captured-initial/real-repair probe retains both exact keys after four
+  real provider calls. Replay-only9 reused obsolete repair and remains failed;
+  corrected9b excludes old repair responses. Neither is cloud DEV acceptance.
 - Verification: deterministic baseline RED and original DOCX limit-loss RED;
   corrected admission preserves independently read original limit/procedure
   phrases. Source-roundtrip inline/OCR-list RED/GREEN and independent review

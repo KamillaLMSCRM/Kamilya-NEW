@@ -209,3 +209,20 @@ Larger employee-specific banks are a separate future contract: approved question
 families and balanced coverage, with server-frozen attempt selection and immutable
 answer keys. Do not merely rephrase a few facts or generate answers during an
 attempt. This candidate changes generation coverage only, not learner sampling.
+
+DEV R5 exact7081c955, CI39241885444 all7SUCCESS and controller RELEASE_OK:
+API dep-dbavkmbncjis73ajsn4g,worker dep-dbavlpdg1s2s73dnbjgg,Vercel
+dpl_2ReKx7Ph8bj5mdLXmTY8uzFqHMxo. Fresh UI jobf2c8e8fa/draft40fb9f9f is
+103.664s worker,4lessons/8questions(2,2,2,2), interrupted/review-required. Exact
+DOCX source ID verified. Independent review accepts all8retained keys/options;
+two I-category ranges and four partially unsupported parents keep coverage open.
+This is not a fixed-two quota. Actual-source isolated probe reproduces ambiguous
+same-range/other-region distractors rejected by existing containment policy;
+generic repair feedback gives no exact option and produces no-progress. v9
+retains the policy and key, maps closed feedback to original option indices and
+requires a genuinely wrong range. RED1/GREEN146 focused. Captured initial model
+responses plus4real repair/review calls retain both keys in8.829s, no DB writes.
+Earlier replay9 incorrectly reused old repair; kept failed, not relabeled.
+Fresh DEV full-course and original scan-path checks remain separate from this
+bounded diagnostic. Current production remains65; no voice/reserve/routing or
+billing/resource changes.

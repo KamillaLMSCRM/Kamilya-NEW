@@ -36,6 +36,7 @@ from .models import (
 )
 from .quality import (
     MAX_ASSESSMENT_ANSWER_CHARS,
+    answer_containment_option_indices,
     answer_length_repair_targets,
     contains_internal_generation_instruction,
     filter_acceptable_questions,
@@ -158,6 +159,10 @@ remove the invented clause and replace it with a contradiction of an explicit
 source condition. Paraphrasing the rejected clause does not repair it.
 In assessment_repair, rejected_options binds server-generated reasons to the
 exact failed option text. Use those reasons, not the option's position alone.
+If answer_value_contains_or_is_contained_in_key is reported, replace that
+alternative with a DIFFERENT wrong value for the requested attribute. Appending
+another region, actor or caveat to the same correct range/value is not a repair.
+Do not change the immutable source_claim or required_prompt.
 Replace invented requirements rather than adding a different unmentioned
 requirement. Preserve an unflagged misconception unless a question-level reason
 requires changing it; all revised options still undergo independent review.
@@ -1663,6 +1668,12 @@ async def generate_block_assessment(
                     continue
                 if not filter_acceptable_questions([question]):
                     rejection_reasons[question.question_id].append("local_quality_filter_rejected")
+                    rejection_reasons[question.question_id].extend(_original_option_reasons(
+                        question, original_candidates[question.question_id], [
+                            f"option_{index}:answer_value_contains_or_is_contained_in_key"
+                            for index in answer_containment_option_indices(question)
+                        ],
+                    ))
                     continue
                 if any(contains_internal_generation_instruction(text)
                        for text in (question.prompt, question.explanation, *question.options)):

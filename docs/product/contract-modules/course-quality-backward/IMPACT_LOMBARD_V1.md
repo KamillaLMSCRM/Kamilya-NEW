@@ -101,3 +101,11 @@ rollback is current marker-aware65, not historical pre-kernel binaries. Root
 alone accepts semantic quality and production readback. Stop on failed grounding,
 data identity, isolation, learning preservation or release hard gate; record exact
 failure and correct within scope, never relax the gate.
+
+Adaptive source coverage does not permit ambiguous answer-value containment.
+If a wrong option repeats a correct range with a different region/caveat, retain
+the rejection and source key. The one bounded repair receives exact original-
+option closed reasons rather than a generic quality failure. Repair must change
+the wrong value, not the source-owned truth or prompt. Current quality-v9 keeps
+omitted/unsupported source coverage explicit; a repaired pair is not a full-course
+or production acceptance claim.

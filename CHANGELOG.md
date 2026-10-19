@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Derive distinct operational-list assessment axes and repair/recover each exact
   axis instead of confusing sibling claims from the same source fragment.
   Critical assessment omissions remain explicit; no quota padding or relaxed
-  answer/grounding checks. Quality policy v8 invalidates old resume assumptions.
+  answer/grounding checks. Quality policy v9 invalidates old resume assumptions.
 - Preserve explicit converter table labels, emphasis-wrapped amounts and
   hierarchical safety clauses; retain evacuation-route headings and operational
   footnotes without teaching document-purpose prose. Exact conditional and
@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   procedure. Remove residual fixed-three caps from source diagnostics too.
 - Display safely escaped source punctuation literally in methodologist preview,
   learner and approval views; keep source-controlled HTML/links/formatting inert.
+- Give bounded assessment repair exact server-derived option feedback when a
+  distractor repeats the answer value with another region/caveat. Keep the
+  ambiguity rejection and source-owned key, not generic retry/no-progress loops.
 
 ### Historical DEV candidate: four bounded improvements (2026-10-19)
 

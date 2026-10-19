@@ -5514,3 +5514,33 @@ Rules:
   reviewer12PASS and root78consumer-focusedPASS; source-parser review accepted.
   Backend escaping unchanged. Final CodeGraph sync6.122s/exclusionPASS, no claim
   of token/cost savings. No production mutation or autonomous semantic GO.
+
+## TEST-LOMBARD66-RANGE-REPAIR-20261019
+
+- DEV R5 exact7081c955, CI39241885444 all7SUCCESS, controller RELEASE_OK.
+  API dep-dbavkmbncjis73ajsn4g,worker dep-dbavlpdg1s2s73dnbjgg,Vercel
+  dpl_2ReKx7Ph8bj5mdLXmTY8uzFqHMxo; Free/Free/Hobby unchanged.
+- Fresh browser jobf2c8e8fa/draft40fb9f9f, exact DOCX source ID,
+  4lessons/8questions(2,2,2,2),103.664s worker. Interrupted/review-required,
+  10derived/authored,8retained/2omitted/0uncovered,4partial parents,
+  6provider fallbacks/1deterministic fallback. Independent8-question source
+  review finds no retained P1; critical omitted topics remain, no semantic GO.
+- Browser terminal visibly says partial; saved draft opens normally. Editor
+  punctuation/paragraph DOM and screenshots are private task evidence.
+- Bounded native original-source probe:5calls/10.649s, both I-category axes
+  rejected by correct containment policy because wrong options repeat the exact
+  range with another-region suffix. Generic feedback yields unchanged repair.
+  Harness display-only AttributeError occurred after full capture; no rerun.
+- RED1 proves missing exact option feedback. v9 keeps containment predicate and
+  immutable keys, maps indices after pruning, adds closed repair guidance;
+  GREEN146 focused. Probe9 replayed stale repairs and retained0; no calls,
+  recorded failed. Probe9b excludes stale repairs:4real calls/8.829s,
+  both exact range keys retained, independently reviewed output still required.
+  No DB/settings writes; not cloud acceptance or generation-latency marketing.
+- Full final v9 API unit3380PASS/41.29s,5pre-existing deprecations; canonical
+  Python quality ruff1004/mypy2170PASS,version/diffPASS. CodeGraph sync5.187s
+  including startup, exclusionPASS; two affected helper callers source-verified.
+  Independent read-only review accepts the three-file correction and both real
+  repaired range questions; no remaining P0/P1 in the bounded seam. Existing
+  post-pruning feedback regression independently covers original option identity.
+  Fresh exact-SHA CI/DEV and production remain separate gates.

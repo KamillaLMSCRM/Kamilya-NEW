@@ -11,7 +11,7 @@ from app.modules.ai.lesson_quality import has_unprofessional_learner_language
 from .models import AssessmentDraft, CourseDraft, EvidenceCourseResult, QuestionDraft
 from .provider_models import GroundedBlock, PublishabilityReport
 
-EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v8"
+EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v9"
 
 _GENERIC_QUESTION_RE = re.compile(
     r"(?:о\s+ч[её]м\s+(?:этот\s+)?(?:урок|курс|раздел|модуль)|"
@@ -161,10 +161,19 @@ def is_acceptable_title(value: str) -> bool:
     return not any(word.casefold().endswith(("ется", "ются")) for word in words)
 
 
-def question_has_ambiguous_options(question: QuestionDraft) -> bool:
+def answer_containment_option_indices(question: QuestionDraft) -> tuple[int, ...]:
+    """Identify exact key-containing alternatives for bounded author feedback.
+
+    Retain the existing whole-word/whitespace-normalized rejection, including
+    after semantic review. Adding a region or caveat to the same answer value
+    does not turn that value into an unambiguously wrong alternative.
+    """
     correct = " ".join(question.correct_answer.casefold().replace("ё", "е").split())
-    if len(correct) >= 3 and any(
-        option != question.correct_answer
+    if len(correct) < 3:
+        return ()
+    return tuple(
+        index for index, option in enumerate(question.options)
+        if option != question.correct_answer
         and (
             bool(
                 re.search(
@@ -179,8 +188,11 @@ def question_has_ambiguous_options(question: QuestionDraft) -> bool:
                 )
             )
         )
-        for option in question.options
-    ):
+    )
+
+
+def question_has_ambiguous_options(question: QuestionDraft) -> bool:
+    if answer_containment_option_indices(question):
         return True
     if _MATERIAL_QUESTION_RE.search(question.prompt):
         correct_materials = {
