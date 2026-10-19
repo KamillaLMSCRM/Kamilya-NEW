@@ -1,5 +1,5 @@
 """Tests for quiz deferral logic."""
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -111,7 +111,7 @@ async def test_enrolled_projection_matches_submission_deferral_semantics(
     expected_expired,
 ):
     tenant_id, user_id, course_id, lesson_id, quiz_id, enrollment_id = [uuid4() for _ in range(6)]
-    completed_at = datetime.now(timezone.utc) - completed_delta
+    completed_at = datetime.now(UTC) - completed_delta
     user = SimpleNamespace(id=user_id, tenant_id=tenant_id)
     enrollment = SimpleNamespace(id=enrollment_id)
     quiz = SimpleNamespace(
