@@ -283,6 +283,14 @@ def _operational_clause_parts(clause: str) -> tuple[str, str, bool] | None:
     stripped = clause.strip()
     if _PURE_LIST_EXCEPTION.match(stripped):
         return None
+    readiness = re.fullmatch(
+        r"содержать в исправном состоянии (?P<object>[^,.!?;:]+),\s*"
+        r"не допускать их использования не по назначению[.]?", stripped, re.IGNORECASE,
+    )
+    if readiness is not None:
+        # Name only the object. Quoting both source duties here would reveal
+        # the whole answer before the learner examines any choices.
+        return readiness['object'], "", False
     qualified_action = re.fullmatch(
         r"(?P<qualifier>незамедлительно|немедленно|своевременно|визуально|четко|систематически|"
         r"одновременно\s+с\s+[^.!?;:]{3,100}?)\s+"

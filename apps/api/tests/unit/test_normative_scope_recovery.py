@@ -65,6 +65,13 @@ def test_compound_duty_authoring_names_two_independent_violation_targets():
     assert domain is not None and domain["kind"] == "readiness_and_intended_use"
     assert len(domain["misconception_targets"]) == 2
     assert domain["required_components"] == ["working_condition", "intended_use"]
+    assert "«системы и средства пожаротушения»" in axis.required_prompt
+    assert "исправном состоянии" not in axis.required_prompt
+    assert "не допускать" not in axis.required_prompt
+    assert axis.correct_value == claim
+    assert axis.required_prompt == (
+        "Какое полное правило в отношении «системы и средства пожаротушения» предусмотрено требованием «1.6. Работникам Ломбарда следует»?"
+    )
 
 
 def test_lesson_cannot_drop_the_legal_basis_of_an_appointment():
@@ -76,9 +83,12 @@ def test_lesson_cannot_drop_the_legal_basis_of_an_appointment():
                   "либо обеспечивают их соблюдение на определённых участках.")
     payload = dict(title=lesson.title, objective=lesson.objective, questions=[], blocks=[
         dict(heading="Ответственность руководителя", text=paraphrase, fact_ids=["f"])])
-    rendered, _, _ = ProviderBackedEvidenceEngine._validate_and_render(
+    rendered, _, blocks = ProviderBackedEvidenceEngine._validate_and_render(
         payload, base_lesson=lesson, plan_fact_ids={"f"}, facts_by_id={"f": fact}, seeds=[])
     assert basis in rendered.content
+    assert rendered.content.count(value) == 1
+    assert paraphrase not in rendered.content
+    assert len(blocks) == 1 and blocks[0].text == value
 
 
 def test_a_faithful_appointment_paraphrase_remains_usable():

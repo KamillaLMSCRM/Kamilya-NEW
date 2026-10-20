@@ -1021,3 +1021,20 @@ Final frozen local suite3799PASS/63.58s/5knownwarnings; canonical quality
 ruff1004/mypy2170PASS. CodeGraph sync1901files3385ms (wrapper14350ms), exclusion
 auditPASS; exact callers confirmed the existing renderer/assessment seams.
 No unresolved multi-hop dependency required a second Graphify traversal.
+
+## Current checkpoint — R30 neutral compound stem, 2026-10-20
+
+Independent selected-content review of R29 found the inherited compound stem
+quoted both duties, giving away the answer despite correct key/options. Exact
+RED1 reproduced it. One complete readiness/intended-use grammar now names only
+the object in the stem; the full key and both reviews remain unchanged. Policyv25.
+Focused199PASS; fresh selected real low-reasoning1/1/3calls15.02s, noDB/deploy.
+Whole local3799PASS/53.16s/5knownwarnings, quality1004ruff/2170mypyPASS. Final
+test-only stronger exact stem/key/full source block/no broadened paraphrase
+assertions16PASS. Fresh full DEV acceptance still required; production65 unchanged.
+Independent semantic re-review closed both exact stem and legal-restoration test
+gaps; no P1/P2 for this delta. R29 exactc8ca2f8277362e41eeaddb17de8f8f4e2bd59d45
+CI39416424903/controller RELEASE_OK, APIdep-dbbl8coae00c7396ore0,
+workerdep-dbbl9eou01pc73e5segg/frontenddpl_6KShLa87SZuVxgVb2mm2zVoxnUKW.
+R29 was not used for another costly full generation after the stem finding;
+the next immutable candidate must include the neutral stem.

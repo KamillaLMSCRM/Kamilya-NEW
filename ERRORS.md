@@ -9300,6 +9300,13 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   broadened block into the existing source renderer. RED4/8 then focused197PASS;
   selected real low-reasoning diagnostic3/3,9calls53.152s is not whole acceptance.
   Exception/qualification negatives and faithful-prose regression remain required.
+- R30 independent selected-content review found an answer-disclosing compound
+  stem: the generic action-object parser quoted both readiness and intended-use
+  duties. A closed complete grammar now exposes only the object in the question;
+  the full source key and both component-specific misconceptions remain unchanged.
+  Exact stem/key and full-source legal-restoration assertions prevent a cosmetic
+  phrase injection from passing. RED1 then focused199PASS; actual selected
+  low-reasoning1/1/3calls15.02s is not full-course acceptance.
 - v11 follow-up: mixed operational families require sentence-local precedence
   and actual-target exact-span accounting, not a recognized-family boolean.
   Parenthetical context cannot erase finite/modal/past/passive actions. Use
