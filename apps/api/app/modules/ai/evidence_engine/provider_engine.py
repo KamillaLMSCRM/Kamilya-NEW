@@ -137,6 +137,53 @@ def coalesce_grounded_blocks(
     return result
 
 
+def _split_nonadjacent_grounded_blocks(
+    blocks: list[GroundedBlock],
+    *,
+    source_fact_ids: tuple[str, ...],
+    plan_fact_ids: set[str],
+    facts_by_id: dict[str, SourceFact],
+) -> list[GroundedBlock]:
+    """Keep a writer block only when its cited facts are adjacent in the lesson.
+
+    A provider can combine source facts 1 and 3 in one paragraph and place the
+    paragraph before fact 2. Sorting that indivisible block by its first fact
+    cannot restore source order, while guessing which authored sentence belongs
+    to which fact can detach a condition. For that narrow crossing shape, keep
+    the authored heading but render each cited prose fact exactly and let the
+    existing source-position sort interleave the intervening rule. Adjacent and
+    tabular groups retain the provider's authored content.
+    """
+
+    planned_order = [fact_id for fact_id in source_fact_ids if fact_id in plan_fact_ids]
+    positions = {fact_id: index for index, fact_id in enumerate(planned_order)}
+    restored: list[GroundedBlock] = []
+    for block in blocks:
+        block_positions = sorted(positions[fact_id] for fact_id in block.fact_ids)
+        adjacent = block_positions == list(
+            range(block_positions[0], block_positions[0] + len(block_positions))
+        )
+        cited_facts = [facts_by_id[fact_id] for fact_id in block.fact_ids]
+        if (
+            len(block_positions) < 2
+            or adjacent
+            or any(is_tabular_locator(fact.source_locator) for fact in cited_facts)
+        ):
+            restored.append(block)
+            continue
+        for fact_id in sorted(block.fact_ids, key=positions.__getitem__):
+            fact = facts_by_id[fact_id]
+            restored.append(GroundedBlock(
+                lesson_id=block.lesson_id,
+                heading=block.heading,
+                text=_display_source_value(
+                    neutralize_unprofessional_source_language(fact.value.strip())
+                ),
+                fact_ids=(fact_id,),
+            ))
+    return restored
+
+
 def _source_ordered_procedure_blocks(
     lesson: LessonDraft,
     facts: list[SourceFact],
@@ -1047,6 +1094,12 @@ class ProviderBackedEvidenceEngine:
         if covered != plan_fact_ids:
             raise ValueError("realizer did not cover every planned fact")
 
+        grounded_blocks = _split_nonadjacent_grounded_blocks(
+            grounded_blocks,
+            source_fact_ids=base_lesson.fact_ids,
+            plan_fact_ids=plan_fact_ids,
+            facts_by_id=facts_by_id,
+        )
         source_positions = {fact_id: index for index, fact_id in enumerate(base_lesson.fact_ids)}
         grounded_blocks.sort(key=lambda block: min(source_positions[fact_id] for fact_id in block.fact_ids))
 

@@ -180,8 +180,13 @@ def test_active_preventive_duty_is_not_a_prohibitive_modal(duty: str) -> None:
         "2) сообщать руководителю о неисправностях."
     )
     axes = derive_assessment_axes(lesson, [fact], block_id="active-preventive-duty")
-    item = next(axis for axis in axes if axis.correct_value == duty)
-    assert "Какое полное правило" in item.required_prompt
+    item = next(axis for axis in axes if axis.correct_value == duty or duty in axis.required_prompt)
+    assert item.correct_value in {duty, "обязан"}
+    if item.correct_value == "обязан":
+        assert "Работник склада" in item.required_prompt
+        assert duty in item.required_prompt
+    else:
+        assert "Какое полное правило" in item.required_prompt
     assert "запрещено требованием" not in item.required_prompt
 
 

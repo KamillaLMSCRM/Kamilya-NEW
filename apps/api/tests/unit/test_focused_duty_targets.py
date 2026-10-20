@@ -25,10 +25,14 @@ def test_responsible_duties_focus_scope_equipment_and_readiness_without_echoing_
     )
     assert len(axes) == 3
     assert {axis.correct_value for axis in axes} == {
-        "на вверенных им участках работы",
+        "обязаны",
         "системы отопления и вентиляции, электроустановок",
         "имеющихся средств пожаротушения, связи и сигнализации",
     }
+    scoped = next(axis for axis in axes if axis.correct_value == "обязаны")
+    assert "обеспечить соблюдение на вверенных им участках работы установленных правил безопасности" in scoped.required_prompt
+    question = materialize_assessment(scoped, AuthoredAssessment(scoped.axis_id, scoped.required_prompt, ()))
+    assert question is not None and question.kind == "true_false"
     assert all(axis.correct_value.casefold() not in axis.required_prompt.casefold() for axis in axes)
     assert any("принимать меры к устранению обнаруженных неисправностей" in a.required_prompt for a in axes)
     assert any("постоянную готовность к действию" in a.required_prompt for a in axes)

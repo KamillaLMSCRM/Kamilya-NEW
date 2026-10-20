@@ -185,11 +185,10 @@ def test_projects_remote_complex_review_with_actor_and_locality() -> None:
     projections = project_operational_approvals(_fact(sentences), sentences)
 
     assert len(projections) == 1
-    assert projections[0].step.answer == (
-        "проводят согласование операции во время проведения комплексной проверки "
-        "пунктов находящихся вне границ города"
-    )
+    assert projections[0].step.answer == "комплексной проверки"
+    assert "Во время какой проверки" in projections[0].step.required_prompt
     assert "Региональные контролеры" in projections[0].step.required_prompt
+    assert "согласование операции" in projections[0].step.required_prompt
     assert "вне границ города" in projections[0].step.required_prompt
     _assert_exact_spans(sentence, projections[0])
 

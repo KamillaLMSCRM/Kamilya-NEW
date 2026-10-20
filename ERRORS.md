@@ -8986,6 +8986,20 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 
 ## AI-QUALITY-050 - Operational tables and flattened lists lost teaching scope
 
+- 2026-10-20 R19 actual-model follow-up: a complete source-axis inventory still
+  needs reviewed questions, not count-only acceptance. Preserve entire scoped
+  list propositions for legitimate binary decisions; do not demand multiple
+  cosmetic wrong choices. Short modal keys need action+prompt identity, and only
+  an exact complete two-option predicate opposite can bypass key containment;
+  qualifiers and ordinary MCQ remain rejected. Conditional/temporal text cannot
+  become an actor in a modal projection. Known source-true timing alternatives
+  must be disclosed before authoring and remain rejected at admission. Shorten
+  answer domains rather than remove source scope, locality, actors or exceptions.
+  A provider block citing nonadjacent prose rules must be safely source-split
+  before ordering, not sorted as an indivisible block across an intervening rule.
+  Review source substance, not only section numbers: absence of an ordinal label
+  is not proof of missing content. Actual DEV whole generation remains the gate.
+
 - 2026-10-20 R18 actual-model follow-up: full source-child target inventory is
   not pedagogical or single-answer proof. Preserve exact branch locality when
   shortening signing targets; keep the signing day in mandatory context. Focus

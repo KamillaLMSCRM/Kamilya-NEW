@@ -58,7 +58,7 @@ def test_projects_each_exact_dependent_step_with_one_governing_condition() -> No
             governing_condition="Если контролер не согласовывает операцию",
         ),
         OperationalStep(
-            answer="Акты несоответствия предоставляются в отдел контроля",
+            answer="в отдел контроля",
             required_prompt=(
                 "Куда предоставляются «Акты несоответствия» при условии "
                 "«Если контролер не согласовывает операцию»?"
@@ -68,7 +68,7 @@ def test_projects_each_exact_dependent_step_with_one_governing_condition() -> No
             governing_condition="Если контролер не согласовывает операцию",
         ),
         OperationalStep(
-            answer="несогласованные документы вносятся в Стоп-лист",
+            answer="вносятся в Стоп-лист",
             required_prompt=(
                 "Какое действие выполняется с «несогласованные документы» на "
                 "основании «Акты несоответствия» при условии "

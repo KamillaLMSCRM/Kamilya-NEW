@@ -150,6 +150,76 @@ def test_nonadjacent_source_owned_blocks_with_same_heading_keep_source_order():
     )
 
 
+def test_provider_block_cannot_move_nonadjacent_plain_rules_before_intervening_rule():
+    locator = "doc_id=d;source_revision=r;section=electrical;part={}"
+    facts = [
+        SourceFact("z-install", "Electrical rules", "rule",
+                   "Install each unit under the verified standard.", locator.format(1)),
+        SourceFact("m-inspect", "Electrical rules", "rule",
+                   "Responsible workers inspect each unit on schedule.", locator.format(2)),
+        SourceFact("a-protect", "Electrical rules", "rule",
+                   "Every unit has circuit protection.", locator.format(3)),
+        SourceFact("x-shutdown", "Electrical rules", "rule",
+                   "De-energize each unit after work.", locator.format(4)),
+        SourceFact("b-prohibit", "Electrical rules", "rule",
+                   "Do not use a damaged unit.", locator.format(5)),
+    ]
+    payload = {
+        "title": "Electrical rules",
+        "objective": "Apply electrical rules",
+        "blocks": [
+            {
+                "heading": "Installation and protection",
+                "text": (
+                    "Install each unit according to the verified standard. "
+                    "Every unit must have circuit protection."
+                ),
+                "fact_ids": ["z-install", "a-protect"],
+            },
+            {"heading": "Inspection", "text": facts[1].value, "fact_ids": ["m-inspect"]},
+            {"heading": "Shutdown", "text": facts[3].value, "fact_ids": ["x-shutdown"]},
+            {"heading": "Prohibition", "text": facts[4].value, "fact_ids": ["b-prohibit"]},
+        ],
+        "questions": [],
+    }
+
+    lesson, _, blocks = render(facts, payload)
+
+    assert [lesson.content.index(fact.value) for fact in facts] == sorted(
+        lesson.content.index(fact.value) for fact in facts
+    )
+    assert [block.fact_ids for block in blocks[:3]] == [
+        ("z-install",), ("m-inspect",), ("a-protect",),
+    ]
+    assert [blocks[0].text, blocks[2].text] == [facts[0].value, facts[2].value]
+
+
+def test_provider_block_keeps_adjacent_plain_rules_and_authored_heading():
+    facts = [
+        SourceFact("first", "Checks", "rule", "First verify the alarm.",
+                   "doc_id=d;source_revision=r;section=checks;part=1"),
+        SourceFact("second", "Checks", "rule", "Then verify the exit.",
+                   "doc_id=d;source_revision=r;section=checks;part=2"),
+    ]
+    payload = {
+        "title": "Checks",
+        "objective": "Perform checks",
+        "blocks": [{
+            "heading": "Daily sequence",
+            "text": f"{facts[0].value} {facts[1].value}",
+            "fact_ids": ["first", "second"],
+        }],
+        "questions": [],
+    }
+
+    lesson, _, blocks = render(facts, payload)
+
+    assert len(blocks) == 1
+    assert blocks[0].heading == "Daily sequence"
+    assert blocks[0].text == payload["blocks"][0]["text"]
+    assert "### Daily sequence" in lesson.content
+
+
 def test_adjacent_prose_blocks_with_same_heading_still_coalesce():
     facts = [
         SourceFact("f1", "Checks", "rule", "First verify the alarm.",

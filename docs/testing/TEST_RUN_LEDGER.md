@@ -5866,3 +5866,23 @@ Rules:
   Root accepted bounded corrections after two review rounds; whole DEV acceptance
   and production remain separate OPEN gates, no counterexample or failed record
   was erased. Existing scoped agents only; no external mutation by leaf workers.
+
+- 2026-10-20 R20 final application freeze after actual R19 partial courses:
+  closed-modal/conditional/source-alternative regressions RED→GREEN; first full
+  suite3657PASS/8FAIL captured old action-key expectations and was preserved.
+  Conditional/temporal governors now retain old whole-clause behavior; long
+  obligations retain responsible-actor targets. Updated remaining assertions
+  verify whole child/action/actor/exception coverage, never only a modal count.
+  Final canonical API3666PASS48.86s,5known framework deprecations;
+  quality1004ruff/2170mypyPASS; journey extra4PASS4.48s; diff-checkPASS.
+  One final CodeGraph sync3777ms update/10995ms including startup,1892files,
+  exclusionsPASS. No duplicate Graphify traversal; no claimed token/cost saving.
+  Root integrated bounded two-file provider-order fix, independently reviewed
+  assessment delta and corrected the review's conditional-actor finding. Leaf
+  ambient-dependency errors are NOT environment blockers: canonical tests pass.
+  Configured-model DOCX inspection diagnostic1of1PASS6calls16.157s; PDF scoped
+  obligation2of2PASS3calls8.095s. Earlier PDF modal12of13 capture remains FAIL,
+  not relabelled. Whole source/DEV/browser acceptance still required.
+  Server-only synthetic scanned RU/KK/EN3pages/6checks PASS11.568s; production
+  converter identity/restarts unchanged. Root owns all external operations;
+  observed leaf model/effort/tokens unavailable. No production66 release yet.

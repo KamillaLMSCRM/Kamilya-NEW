@@ -5,7 +5,51 @@ cleanup/reload completed; no other production data changed.
 Owner: root; product authority: owner request 2026-10-19, original documents,
 synthetic QA only, DEV acceptance before one production package.
 
-## R18 real acceptance and R19 correction, 2026-10-20
+## R19 real acceptance and R20 correction, 2026-10-20
+
+Shared DEV R19 is5784e285dab24a72600c0db0e6f85fd95dc81593:
+CI39371380694 all7SUCCESS; controllerRELEASE_OK; APIdep-dbbf6vgm7kps73epb7s0,
+workerdep-dbbf7ubrjlhs73e2ie1g, frontenddpl_3yi6DaKNXVuNk9j1YC2k9cCCQeKe.
+Production remains65. No second converter installation is needed: sourceacb9...,
+image5d875... and original hashes are unchanged. Authenticated server-only scanned
+RU/KK/EN smoke PASS3pages/6contentchecks/11.568s; the KK code is recognized with
+Cyrillic glyphs, recorded separately from exact Latin-code spelling.
+
+Actual R19 DOCX224.125s/5lessons/40of44questions and PDF689.797s elapsed including
+queue/8lessons/87of95questions were both interrupted, not accepted courses.
+Independent retained-content reviews inspected all40+87items. The initial PDF
+4.3/4.4-omission finding was withdrawn after literal-content review: both rules
+and their questions exist, but4.3 was grouped before4.2. The DOCX broad liability
+question could admit material liability from a different conditional provision.
+
+R20 preserves full governing context while shortening recipient, Stop-list and
+remote inspection-type answer spans. The liability question names the exact
+source provision. Closed source list decisions retain the entire actor/action/
+exception in the mandatory question and use a verified complete modal opposite,
+not several cosmetic misconceptions. Leading conditional/temporal actor grammar
+fails closed; overlong children keep the previous responsible-actor path. Exact
+binary opposites are not answer-containment restatements, but added qualifiers,
+ordinary MCQ and both independent reviews retain their guards. Same-modal list
+items have separate action/context identities. Nonadjacent provider prose facts
+are source-split before sorting; adjacent and table groups remain unchanged.
+Policyv16 invalidates old stage checkpoints; no route/model/voice/reserve change.
+
+Recorded configured-model diagnostics preserve all failed outputs. R20initial
+DOCX3of4: remote question still ambiguous; revised inspection-type target PASS
+1of1/6calls16.157s. PDF modal diagnostic retained12of13; the remaining scope-only
+MCQ was replaced by its whole scoped obligation, PASS2of2/3calls8.095s. These are
+selected-target diagnostics with intentionally incomplete parent audits, NOT
+whole-course/shared-DEV/production acceptance. Root must now deploy one frozen
+candidate, generate both originals afresh, review all content, and then complete
+the authorized production release plus exact postrelease original reload.
+
+Final local freeze: API3666PASS48.86s/5known warnings, quality1004ruff/2170mypy
+PASS, extra journey4PASS4.48s, diff-checkPASS. CodeGraph update3777ms/total10995ms,
+exclusionsPASS. Independent source review closed conditional-actor P1 with exact
+negative fixtures; source-order fix RED→GREEN15/71neighbors. No application
+source edits after the final suite began. These gates permit DEV transport only.
+
+## Historical R18 real acceptance and R19 correction, 2026-10-20
 
 Shared DEV R18 d616ff9ee336b18ecb8ba717f7d3dcffa0eeba8d passed exact rollout,
 private authenticated original conversion and ordinary browser worker PDF reindex.

@@ -77,11 +77,13 @@ def test_compact_ocr_list_without_semicolons_retains_every_action_axis() -> None
     lesson = LessonDraft("closing", "Безопасность", "Закрытие", "Закрыть помещение", "", (fact.fact_id,), (), 2)
     axes = derive_assessment_axes(lesson, [fact], block_id="probe")
     assert len(axes) == 4
-    assert all("Последний сотрудник должен" in axis.required_prompt for axis in axes)
-    assert {axis.correct_value for axis in axes} == {
+    assert all("Последний сотрудник" in axis.required_prompt for axis in axes)
+    assert all(axis.correct_value == "должен" for axis in axes)
+    actions = {
         "отключить приборы, кроме аварийного освещения", "проверить свободный выход",
         "закрыть окна помещения", "выключить свет в помещении",
     }
+    assert all(any(action in axis.required_prompt for axis in axes) for action in actions)
 
 
 def test_emergency_list_keeps_urgency_and_concurrent_action_qualifiers() -> None:

@@ -46,8 +46,8 @@ _REMOTE_PHONE_APPROVAL = re.compile(
 )
 _REMOTE_COMPLEX_REVIEW = re.compile(
     r"^(?P<actor>[^,.!?]{3,120}?)\s+"
-    r"(?P<answer>проводят\s+согласование\s+[^.!?]{3,160}?\s+"
-    r"во\s+время\s+проведения\s+комплексной\s+проверки\s+"
+    r"(?P<answer>(?P<action>проводят\s+согласование\s+[^.!?]{3,160}?)\s+"
+    r"(?P<method>во\s+время\s+проведения\s+(?P<inspection>комплексной\s+проверки))\s+"
     r"(?P<locality>[^.!?]{3,220}?\bвне\b[^.!?]{3,140}?))[.!?]?$",
     flags=re.IGNORECASE,
 )
@@ -263,13 +263,14 @@ def _remote_complex_review(
     if match is None:
         return ()
     actor = match.group("actor").strip()
+    action = match.group("action").strip()
     locality = match.group("locality").strip()
     projection = _projection(
         sentence=sentence,
         sentence_index=sentence_index,
         match=match,
-        answer_group="answer",
-        prompt=f"Какое согласование проводят «{actor}» для «{locality}»?",
+        answer_group="inspection",
+        prompt=f"Во время какой проверки «{actor}» {action} для «{locality}»?",
         condition=locality,
         consumed_groups=("actor", "answer"),
     )

@@ -22,6 +22,7 @@ from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFail
 from .assessment_axes import (
     assessment_option_token_limit,
     assessment_required_prompt,
+    assessment_source_timing_exclusions,
     derive_assessment_axes,
     derive_reference_only_dependencies,
     derive_reference_selections,
@@ -110,6 +111,9 @@ as a wrong alternative. A first-working-day completion rule may apply under a
 special after-hours branch even if the broad action stem does not name it.
 Use a genuinely incorrect action, missing mandatory record or wrong decision,
 not a separately true source workflow with an added time phrase.
+When an axis supplies excluded_source_timings, do not use those source-true
+timings in a wrong option. They may apply to a sibling branch; inventing a
+contradiction from their presence would be an ambiguous test, not a useful error.
 """
 
 ACTION_SCENARIO_POLICY = """
@@ -446,7 +450,10 @@ def _course_question_identity(
     """Collapse one repeated source-owned rule without hiding short collisions."""
     answer = _norm(question.correct_answer)
     fact = facts.get(question.fact_id)
-    if question.kind == "true_false" and answer in {"запрещается", "запрещено", "нельзя"}:
+    if question.kind == "true_false" and answer in {
+        "запрещается", "запрещено", "нельзя", "не допускается",
+        "должен", "должна", "должно", "должны", "обязан", "обязана", "обязано", "обязаны",
+    }:
         return "source-prohibition", question.fact_id, _norm(question.prompt), answer
     if fact is not None and is_tabular_locator(fact.source_locator):
         locator = dict(parse_qsl(fact.source_locator.replace(";", "&")))
@@ -652,6 +659,7 @@ def _axis_author_payload(axis: AssessmentAxis) -> dict[str, Any]:
         "axis_kind": axis.axis_kind,
         "distractor_token_limit": assessment_option_token_limit(axis),
         "answer_length_contract": answer_length_contract(axis.correct_value),
+        "excluded_source_timings": assessment_source_timing_exclusions(axis),
     }
 
 

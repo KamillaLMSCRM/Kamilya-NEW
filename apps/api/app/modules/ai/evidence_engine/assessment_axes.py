@@ -367,7 +367,7 @@ def _operational_clause_parts(clause: str) -> tuple[str, str, bool] | None:
 
 
 def _affirmative_prohibition_modal(preamble: str) -> re.Match[str] | None:
-    modal = re.search(r"\b(?:запрещается|запрещено|нельзя)\s*$", preamble,
+    modal = re.search(r"\b(?:запрещается|запрещено|нельзя|не\s+допускается)\s*$", preamble,
                       flags=re.IGNORECASE)
     if modal is None:
         return None
@@ -390,11 +390,11 @@ def _structured_operational_axes(fact: SourceFact) -> list[tuple[str, str]]:
     preamble, clauses = structured
     if not preamble or len(preamble) > 240:
         return []
-    if (re.search(r"\b(?:запрещается|запрещено|нельзя)\s*$", preamble, flags=re.IGNORECASE)
+    if (re.search(r"\b(?:запрещается|запрещено|нельзя|не\s+допускается)\s*$", preamble, flags=re.IGNORECASE)
             and _affirmative_prohibition_modal(preamble) is None):
         return []
     normative_parent = re.search(
-        r"\b(?:долж(?:ен|на|но|ны)|обязан\w*|следует|запрещается|запрещено|нельзя)\s*$",
+        r"\b(?:долж(?:ен|на|но|ны)|обязан\w*|следует|запрещается|запрещено|нельзя|не\s+допускается)\s*$",
         preamble, flags=re.IGNORECASE,
     )
     operational: list[tuple[int, str, tuple[str, str, bool]]] = []
@@ -463,14 +463,6 @@ def _focused_list_duty(fact: SourceFact, clause: str) -> tuple[str, str] | None:
     if parent is None or re.search(r"\b(?:не|если|при|когда)\b", parent.group("actor"), re.IGNORECASE):
         return None
     actor = parent.group("actor").rstrip(" ,")
-    scope = re.fullmatch(
-        r"обеспечить\s+соблюдение\s+(?P<key>на\s+[^,.!?;:]+?)\s+"
-        r"(?P<rules>установленных\s+правил\s+[^.!?;:]+)", value, flags=re.IGNORECASE,
-    )
-    if scope is not None:
-        return scope.group("key"), (
-            f"На каких участках «{actor}» должны обеспечить соблюдение «{scope.group('rules')}»?"
-        )
     monitoring = re.fullmatch(
         r"следить\s+за\s+(?P<state>исправностью\s+работы)\s+(?P<key>[^.!?;:]+?)\s+"
         r"и\s+(?P<remedy>принимать\s+меры\s+к\s+устранению\s+[^.!?;:]+)",
@@ -532,6 +524,35 @@ def _simple_list_prohibition_axis(fact: SourceFact, clause: str) -> tuple[str, s
         return None
     return (modal.group().strip(),
             f"Допустимо ли {actor[:1].lower()}{actor[1:]} {value[:1].lower()}{value[1:]}?")
+
+
+def _simple_list_obligation_axis(fact: SourceFact, clause: str) -> tuple[str, str] | None:
+    """Keep the WHOLE scoped action in a closed obligation decision.
+
+    A source list obligation does not have several distinct correct ways of
+    being optional. Preserve actor, joint actions and exceptions verbatim;
+    only the source's modal predicate is contrasted, never an individual step.
+    Unknown/negated modal governors remain on the ordinary evidence path.
+    """
+    structured = _explicit_structured_list(fact.value)
+    value = clause.strip().rstrip(".")
+    if (structured is None
+            or len(value) > MAX_ASSESSMENT_ANSWER_CHARS
+            or not re.fullmatch(r"[А-Яа-яЁё]+(?:ть|ти|чь)(?:ся|сь)?\s+[^.!?;:]+", value)):
+        return None
+    parent = re.fullmatch(
+        r"(?P<actor>[^:;!?]{5,220}?)\s+(?P<modal>обязан(?:а|о|ы)?|долж(?:ен|на|но|ны))",
+        _without_source_marker(structured[0]), flags=re.IGNORECASE,
+    )
+    if (parent is None or re.search(r"\b(?:не|если|при|когда)\b", parent.group("actor"), flags=re.IGNORECASE)
+            or re.match(r"^(?:при|если|когда|после|до|перед|во\s+время|по\s+окончании)\b",
+                        parent.group("actor"), flags=re.IGNORECASE)):
+        return None
+    if not any(_norm(item.rstrip('.')) == _norm(value)
+               for _position, child in structured[1] for item in _structured_child_statements(child)):
+        return None
+    actor = parent.group("actor").rstrip(" ,")
+    return (parent.group("modal"), f"Обязательно ли для «{actor}» {value[:1].lower()}{value[1:]}?")
 
 
 _SINGLE_NUMBERED_ACTION = re.compile(
@@ -1018,12 +1039,12 @@ def _explicit_consequence_axes(fact: SourceFact) -> list[tuple[str, str]]:
         if match is None:
             continue
         answer = match.group("answer").strip()
-        scope = match.group("scope").strip()
+        scope = match.group("scope").strip().rstrip(" ,")
         if not 12 <= len(answer) <= MAX_ASSESSMENT_ANSWER_CHARS:
             continue
-        prompt = (
-            f"Какое последствие предусмотрено при условии «{scope}»?"
-        )
+        marker = re.match(r"^\s*(\d+(?:\.\d+)*)(?:[.)])\s+", sentence)
+        provision = f" пунктом «{marker.group(1)}»" if marker else " этим правилом"
+        prompt = f"Какое последствие прямо предусмотрено{provision} при условии «{scope}»?"
         if len(prompt) <= 900:
             axes.append((answer, prompt))
     return axes
@@ -1830,7 +1851,7 @@ def _unsupported_operational_list(fact: SourceFact) -> bool:
     if structured is None:
         return False
     preamble, clauses = structured
-    if (re.search(r"\b(?:запрещается|запрещено|нельзя)\s*$", preamble, flags=re.IGNORECASE)
+    if (re.search(r"\b(?:запрещается|запрещено|нельзя|не\s+допускается)\s*$", preamble, flags=re.IGNORECASE)
             and _affirmative_prohibition_modal(preamble) is None):
         return True
     operational_count = sum(
@@ -2199,7 +2220,7 @@ def _server_owned_inverse(correct_value: str) -> str | None:
     if direct is not None:
         return direct[1]
     obligation = re.fullmatch(
-        r"(?P<modal>должен|должна|должно|должны)\s+(?P<action>[^.!?;:]+)\.?",
+        r"(?P<modal>должен|должна|должно|должны|обязан|обязана|обязано|обязаны)\s+(?P<action>[^.!?;:]+)\.?",
         correct_value.strip(), flags=re.IGNORECASE,
     )
     if obligation is not None:
@@ -2207,7 +2228,8 @@ def _server_owned_inverse(correct_value: str) -> str | None:
         # or conditions. Several cosmetic versions of 'not required' are one
         # mistake and must not be padded into a multiple-choice item.
         form = {"должен": "обязан", "должна": "обязана", "должно": "обязано", "должны": "обязаны"}
-        return f"не {form[obligation.group('modal').casefold()]} {obligation.group('action')}"
+        modal = obligation.group('modal').casefold()
+        return f"не {form.get(modal, modal)} {obligation.group('action')}"
     postfix_prohibition = _POSTFIX_ACTION_PROHIBITION.fullmatch(correct_value.strip())
     if postfix_prohibition is not None:
         return f"{postfix_prohibition.group('action').strip()} разрешено."
@@ -2406,6 +2428,27 @@ def assessment_option_token_limit(axis: AssessmentAxis) -> int | None:
     return len(correct_tokens) + 3
 
 
+def assessment_source_timing_exclusions(axis: AssessmentAxis) -> list[str]:
+    """Expose known source-true timing alternatives before paid authoring.
+
+    These values are not proved false under an action-only stem. The same
+    guard still rejects them at admission; the author can avoid wasting its
+    bounded attempt on an alternative that the server must remove.
+    """
+    return list(dict.fromkeys(
+        _norm(match.group()) for constraint in axis.distractor_constraints
+        for match in re.finditer(r"\bв\s+(?:первый|следующий)\s+рабочий\s+день\b",
+                                 constraint.value, flags=re.IGNORECASE)
+    ))
+
+
+def _uses_source_true_timing(axis: AssessmentAxis, candidate: str) -> bool:
+    excluded = set(assessment_source_timing_exclusions(axis))
+    return any(_norm(match.group()) in excluded for match in re.finditer(
+        r"\bв\s+(?:первый|следующий)\s+рабочий\s+день\b", candidate, flags=re.IGNORECASE,
+    ))
+
+
 def _has_comparable_option_shape(axis: AssessmentAxis, candidate: str) -> bool:
     """Reject a long statement offered instead of a comparable short category."""
     limit = assessment_option_token_limit(axis)
@@ -2458,13 +2501,8 @@ def _admissible_source_distractors(
         # An action-only question cannot mark the same source-defined later
         # deadline as false. It may apply under a sibling exception not named
         # by this stem. Prefer an actual action error; do not guess chronology.
-        for timing in re.finditer(
-            r"\bв\s+(?:первый|следующий)\s+рабочий\s+день\b", distractor,
-            flags=re.IGNORECASE,
-        ):
-            if any(_norm(timing.group()) in _norm(constraint.value)
-                   for constraint in axis.distractor_constraints):
-                return False
+        if _uses_source_true_timing(axis, distractor):
+            return False
         normalized_distractor = _norm(distractor)
         candidate_anchors = _lexical_anchors(distractor)
         exact_matches = [
@@ -2740,6 +2778,7 @@ def derive_assessment_axes(
             list_pair = ((source_value, structured_prompt) in structured_axes)
             focused_duty = _focused_list_duty(fact, source_value) if list_pair else None
             binary_prohibition = (_simple_list_prohibition_axis(fact, source_value) if list_pair else None)
+            binary_obligation = (_simple_list_obligation_axis(fact, source_value) if list_pair else None)
             responsibility = (_long_list_responsibility_axis(fact, source_value) if list_pair else None)
             if (
                 not source_value
@@ -2748,7 +2787,7 @@ def derive_assessment_axes(
                                                   for sentence in _source_sentences(fact.value)))
                 or (not structured_prompt and reference_axes)
                 or (len(source_value.strip()) > MAX_ASSESSMENT_ANSWER_CHARS
-                    and not binary_prohibition and not responsibility)
+                    and not binary_prohibition and not binary_obligation and not responsibility)
                 or _is_dependent_source_fragment(source_value)
             ):
                 continue
@@ -2756,6 +2795,8 @@ def derive_assessment_axes(
                 correct_value, required_prompt = focused_duty
             elif binary_prohibition:
                 correct_value, required_prompt = binary_prohibition
+            elif binary_obligation:
+                correct_value, required_prompt = binary_obligation
             elif responsibility:
                 correct_value, required_prompt = responsibility
             elif structured_prompt:
@@ -2873,9 +2914,13 @@ def assessment_required_prompt(axis: AssessmentAxis) -> str:
     return axis.required_prompt
 
 
-def _source_owned_list_inverse(axis: AssessmentAxis) -> str | None:
+def _source_owned_list_decision(axis: AssessmentAxis) -> tuple[str, str] | None:
     """Only a verified complete list proposition grants the predicate opposite."""
-    if _norm(axis.correct_value) not in {"запрещается", "запрещено", "нельзя"}:
+    opposites = {"запрещается": "Разрешается", "запрещено": "Разрешается", "нельзя": "Разрешается",
+                 "не допускается": "допускается",
+                 "должен": "не обязан", "должна": "не обязана", "должно": "не обязано", "должны": "не обязаны",
+                 "обязан": "не обязан", "обязана": "не обязана", "обязано": "не обязано", "обязаны": "не обязаны"}
+    if _norm(axis.correct_value) not in opposites:
         return None
     for constraint in axis.distractor_constraints:
         if constraint.relation != "same_axis":
@@ -2883,11 +2928,14 @@ def _source_owned_list_inverse(axis: AssessmentAxis) -> str | None:
         fact = SourceFact(constraint.fact_id, constraint.subject, constraint.attribute,
                           constraint.value, "doc_id=source-owned-list")
         structured = _explicit_structured_list(fact.value)
-        if structured and any(
-            _simple_list_prohibition_axis(fact, clause) == (axis.correct_value, axis.required_prompt)
-            for _position, clause in structured[1]
-        ):
-            return "Разрешается"
+        if structured:
+            for _position, child in structured[1]:
+                for clause in _structured_child_statements(child):
+                    if (axis.correct_value, axis.required_prompt) in (
+                        _simple_list_prohibition_axis(fact, clause), _simple_list_obligation_axis(fact, clause),
+                    ):
+                        statement = f"{structured[0]}: {clause.rstrip(';')}"
+                        return opposites[_norm(axis.correct_value)], statement
     return None
 
 
@@ -2905,7 +2953,8 @@ def materialize_assessment(
     if normalized_numeric is None:
         return None
     distractors = normalized_numeric
-    inverse = _server_owned_inverse(axis.correct_value) or _source_owned_list_inverse(axis)
+    list_decision = _source_owned_list_decision(axis)
+    inverse = _server_owned_inverse(axis.correct_value) or (list_decision[0] if list_decision else None)
     if inverse is not None:
         distractors = (inverse,)
     elif not 2 <= len(distractors) <= 3:
@@ -2923,6 +2972,12 @@ def materialize_assessment(
     else:
         prompt = _server_owned_axis_prompt(axis)
     if inverse is None:
+        # A source-true timing is individually identifiable. Remove only this
+        # known unsafe extra before the unchanged cross-attribute admission;
+        # do not turn arbitrary mixed-source distractors into a passing item.
+        distractors = tuple(item for item in distractors if not _uses_source_true_timing(axis, item))
+        if len(distractors) < 2:
+            return None
         if not axis.source_context and (
             not _admissible_source_distractors(axis, distractors, authored_prompt)
             or not _admissible_source_distractors(axis, distractors, prompt)
@@ -2936,7 +2991,7 @@ def materialize_assessment(
                             and _admissible_source_distractors(axis, (item,), prompt))
         if len(distractors) < 2:
             return None
-    explanation = _teaching_explanation(axis)
+    explanation = list_decision[1] if list_decision else _teaching_explanation(axis)
     return QuestionDraft(
         question_id=f"semantic-{axis.axis_id.removeprefix('axis-')}",
         lesson_id=axis.lesson_id,

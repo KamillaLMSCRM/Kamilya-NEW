@@ -11,7 +11,7 @@ from app.modules.ai.lesson_quality import has_unprofessional_learner_language
 from .models import AssessmentDraft, CourseDraft, EvidenceCourseResult, QuestionDraft
 from .provider_models import GroundedBlock, PublishabilityReport
 
-EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v15"
+EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v16"
 
 _GENERIC_QUESTION_RE = re.compile(
     r"(?:о\s+ч[её]м\s+(?:этот\s+)?(?:урок|курс|раздел|модуль)|"
@@ -162,6 +162,24 @@ def is_acceptable_title(value: str) -> bool:
     return not any(word.casefold().endswith(("ется", "ются")) for word in words)
 
 
+def _is_complete_binary_modal_opposite(question: QuestionDraft, option: str) -> bool:
+    """A complete obligation and its exact negation are not a key restatement.
+
+    This does not grant semantic acceptance: the server-owned pair still needs
+    both independent source reviews. Unknown kinds, added qualifiers, changed
+    actions and ordinary answer-containing distractors retain the same guard.
+    """
+    if question.kind != "true_false" or len(question.options) != 2:
+        return False
+    def normalize(text: str) -> str:
+        return " ".join(text.casefold().replace("ё", "е").split()).rstrip(".")
+    key, wrong = normalize(question.correct_answer), normalize(option)
+    if key == "не допускается":
+        return wrong == "допускается"
+    obligation = re.fullmatch(r"(?P<modal>обязан|обязана|обязано|обязаны)(?P<action>\s+.+)?", key)
+    return obligation is not None and wrong == "не " + key
+
+
 def answer_containment_option_indices(question: QuestionDraft) -> tuple[int, ...]:
     """Identify exact key-containing alternatives for bounded author feedback.
 
@@ -175,6 +193,7 @@ def answer_containment_option_indices(question: QuestionDraft) -> tuple[int, ...
     return tuple(
         index for index, option in enumerate(question.options)
         if option != question.correct_answer
+        and not _is_complete_binary_modal_opposite(question, option)
         and (
             bool(
                 re.search(

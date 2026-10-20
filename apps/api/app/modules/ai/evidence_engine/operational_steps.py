@@ -36,7 +36,8 @@ _RECIPIENT_AND_BASIS = re.compile(
     r"предоставля(?:ется|ются)\s+(?P<recipient>[^,.!?]{3,140}?)),\s+"
     r"на\s+основании\s+которых\s+"
     r"(?P<second>(?P<affected>[^,.!?]{3,140}?)\s+"
-    r"внос(?:ится|ятся)\s+(?P<destination>[^,.!?]{3,120}?))[.!?]?$",
+    r"(?P<predicate>внос(?:ится|ятся)\s+"
+    r"(?P<destination>[^,.!?]{3,120}?)))[.!?]?$",
     flags=re.IGNORECASE,
 )
 
@@ -193,8 +194,8 @@ def project_rejection_followups(
         ):
             result.extend(chain)
             continue
-        first_answer = basis.group("first").strip()
-        second_answer = basis.group("second").strip()
+        first_answer = basis.group("recipient").strip()
+        second_answer = basis.group("predicate").strip()
         first_step = _step(
             answer=first_answer,
             prompt=(

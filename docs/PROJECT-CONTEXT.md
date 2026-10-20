@@ -27,7 +27,7 @@
 
 ## DEV server OCR — 2026-10-20
 
-Cloud DEV API/worker atd616ff9ee336b18ecb8ba717f7d3dcffa0eeba8d use the
+Cloud DEV API/worker at5784e285dab24a72600c0db0e6f85fd95dc81593 use the
 existing SSH launcher with DEV_OCR_SSH_ENABLED=true. Fixed local18600 forwards
 through the existing restricted private transport to VM12610.77.77.2:18601.
 VM126 ingress permits only wg0/proxy10.77.77.1; no public converter gateway.
@@ -40,12 +40,14 @@ UID10001/read-only cache+root/4GiB/2CPU. Existing DEV API key is root0600 in
 /etc/kamilya-dev-ocr.env; never use the production key. Source and credentials
 are not supplied by the workstation at runtime. Authenticated conversion of both
 original binaries (DOCX0.765s/PDF59.36s) and production-preservation checksPASS.
-R18 CI39366851084SUCCESS; APIdep-dbbeehjrjlhs73dvqkag,
-workerdep-dbbefh7avr4c73djatcg, frontenddpl_EBui2v2cKpJ5QsKh3RCuF8XKv3it,
+R19 CI39371380694SUCCESS; APIdep-dbbf6vgm7kps73epb7s0,
+workerdep-dbbf7ubrjlhs73e2ie1g, frontenddpl_3yi6DaKNXVuNk9j1YC2k9cCCQeKe,
 controllerRELEASE_OK. Ordinary QA browser PDF reindex reached completed through
-the cloud worker and private server OCR. R18 whole-course quality FAILED:
-DOCX43/44 and PDF86/95 questions, both saved partial; independent review found
-scope, ordering and ambiguous-answer issues. Runtime availability is not quality GO.
+the cloud worker and private server OCR. Server-only scanned RU/KK/EN smoke
+PASS3pages/6checks/11.568s. R19 whole-course quality remains incomplete:
+DOCX40/44 and PDF87/95 questions, both saved partial. Retained content independently
+reviewed; follow-up answer-domain/source-order corrections remain local R20.
+Runtime availability is not quality GO.
 Existing Free/Free/Hobby tiers unchanged. Production converter was
 not updated. Source/course acceptance remains separate and OPEN.
 

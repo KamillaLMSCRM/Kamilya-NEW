@@ -23,7 +23,9 @@ def test_normative_list_keeps_nominal_passive_adverb_and_comma_children():
         "проверить, удалены ли из помещения горючие материалы",
     )
     fact, axes = _fixture("Руководитель обязан:\n" + ";\n".join("- " + c for c in children))
-    assert {axis.correct_value for axis in axes} == set(children)
+    assert len(axes) == len(children)
+    assert all(any(child == axis.correct_value or child in axis.required_prompt for axis in axes)
+               for child in children)
     assert all(axis.correct_value.casefold() not in axis.required_prompt.casefold() for axis in axes)
     assert not has_partial_unatomized_source_contract(fact)
 

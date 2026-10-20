@@ -114,8 +114,8 @@ async def test_complete_rejection_chain_is_projected_through_real_conversion(
     expected = (
         "составляется Акт несоответствия с расчетом допустимого значения",
         "С специалиста, выдавшего документ, берется объяснительная и обязательство",
-        "Акты несоответствия предоставляются в отдел контроля",
-        "несогласованные документы вносятся в Стоп-лист",
+        "в отдел контроля",
+        "вносятся в Стоп-лист",
     )
     assert all(key in by_key for key in expected)
     assert all(condition in by_key[key].required_prompt for key in expected)

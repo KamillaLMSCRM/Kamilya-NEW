@@ -232,6 +232,17 @@ def test_long_consequence_rule_keeps_complete_trigger_and_actors_in_prompt() -> 
     assert "внутренним положением" not in axes[0].correct_value
 
 
+def test_numbered_consequence_does_not_claim_to_be_the_only_other_liability() -> None:
+    value = ("5. За неисполнение стандарта специалистом предусмотрена дисциплинарная "
+             "ответственность в соответствии с трудовым законодательством и внутренними правилами.")
+    lesson, fact = _fixture(value, subject="Ответственность")
+    item = next(axis for axis in derive_assessment_axes(lesson, [fact], block_id="consequence")
+                if axis.correct_value == "дисциплинарная ответственность")
+    assert "пунктом «5»" in item.required_prompt
+    assert "прямо" in item.required_prompt
+    assert "За неисполнение стандарта специалистом" in item.required_prompt
+
+
 def test_passive_responsibility_and_appointed_functions_remain_distinct() -> None:
     qualification = (
         "по занимаемой должности или по характеру выполняемых работ в силу "
