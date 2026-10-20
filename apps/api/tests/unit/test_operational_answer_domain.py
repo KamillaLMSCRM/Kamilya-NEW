@@ -7,6 +7,7 @@ from app.modules.ai.evidence_engine.models import AssessmentAxis, AuthoredAssess
 from app.modules.ai.evidence_engine.semantic_assessment import (
     AUTHOR_PROMPT,
     CAPABILITY_OPTION_POLICY,
+    COHERENT_ERROR_POLICY,
     CONSTRAINT_PROMPT,
     PROHIBITION_QUESTION_POLICY,
     REVIEW_PROMPT,
@@ -29,6 +30,20 @@ def test_prohibition_does_not_establish_a_permitted_location_in_any_stage():
         assert PROHIBITION_QUESTION_POLICY in prompt
     assert "question_supported=false or answers_question=false" in PROHIBITION_QUESTION_POLICY
     assert "full source key" in PROHIBITION_QUESTION_POLICY
+
+
+def test_author_containment_feedback_covers_action_negation_without_granting_truth():
+    assert "literal key-containing option in an ordinary MCQ" in AUTHOR_PROMPT
+    assert "Never shorten, negate or otherwise edit the immutable source_claim" in AUTHOR_PROMPT
+    assert "the author cannot invent such a pair" in AUTHOR_PROMPT
+
+
+def test_outcome_constraints_and_coherent_misconceptions_reach_both_blind_reviews():
+    for prompt in (AUTHOR_PROMPT, REVIEW_PROMPT, CONSTRAINT_PROMPT):
+        assert COHERENT_ERROR_POLICY in prompt
+    assert "A non-obstructing" in CAPABILITY_OPTION_POLICY
+    assert "plausible_error=false" in COHERENT_ERROR_POLICY
+    assert "realistic_error=false" in COHERENT_ERROR_POLICY
 
 
 def _axis(kind: str) -> AssessmentAxis:
@@ -141,3 +156,23 @@ def test_object_core_is_a_literal_phrase_not_an_arbitrary_substring():
     assert materialize_assessment(axis, AuthoredAssessment(axis.axis_id, axis.required_prompt, (
         "Подписывает контракт", "Отказывается подписывать акт",
     ))) is None
+
+
+def test_preliminary_executor_domain_discloses_two_counterfactual_types_not_invented_roles():
+    axis = replace(_axis("signing"),
+        required_prompt="Кем выполняется именно предварительное согласование по телефону для «Удалённый пункт»?",
+        correct_value="эксперт-оценщиком", normalized_correct_value="эксперт-оценщиком", axis_kind="attribute")
+    author = _axis_author_payload(axis)
+    domain = author["answer_domain"]
+    assert domain["kind"] == "preliminary_phone_executor"
+    assert len(domain["misconception_targets"]) == 2
+    assert "source-named final approval authority" in domain["misconception_targets"][0]
+    assert "deny that anyone must perform" in domain["misconception_targets"][1]
+    assert "both source reviews remain binding" in domain["scope"]
+    assert author["distractor_token_limit"] == 5
+    question = materialize_assessment(axis, AuthoredAssessment(axis.axis_id, axis.required_prompt,
+        ("региональным руководителем", "никем: согласование не требуется")))
+    assert question is not None
+    fact = SourceFact("fact", "Удалённый пункт", "Порядок", axis.correct_value, "doc_id=synthetic")
+    assert _review_request("block", [question], [fact], answer_domains={question.question_id: domain})["questions"][0]["answer_domain"] == domain
+    assert _constraint_request({"block_id": "block", "facts": [], "axes": [author]}, [question])["questions"][0]["answer_domain"] == domain

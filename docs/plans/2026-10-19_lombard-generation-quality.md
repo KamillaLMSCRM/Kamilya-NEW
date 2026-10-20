@@ -918,3 +918,53 @@ zero-test XML file; root identified and removed only that owned artifact, then
 used the passing canonical relative-path capture. Fresh DEV acceptance
 is required before production. Production remains65 and original replacement
 is still NOT RUN at this checkpoint.
+
+## Current checkpoint — R27, 2026-10-20
+
+Shared DEV R26 fe4f6cf8220bd8bd8726052df0fac1ad910bd803 passed CI39405096931,
+native build39405121541 and controllerRELEASE_OK. PDF b27e11c8-662b-4558-b91e-fa6515329d79
+produced8lessons94/95 in403.252s; DOCX80a561e9-fc49-45f4-93df-a62e368d584d
+produced5lessons43/44 in494.531s including queue. Both are interrupted,
+assessment_coverage_incomplete, not accepted. An initial second POST received
+the ordinary2/minute limiter429; its distinct receipt remains, no quota reset.
+The accepted retry was paced after60seconds and has a different capture label.
+PDF began through ordinary DEV UI, active-job reload restored the same job.
+
+Whole retained reviews inspected all8+5bodies and94+43questions/options/keys.
+Prior permitted-location, door and heading defects were closed. Missing targets:
+firefighting-participant safety duty and preliminary-phone executor. Retained
+PDF has an unproven cable-routing distractor and generic end-of-work stem with
+a simultaneous switch-off/leave-on choice. DOCX retained content had no P1/P2.
+
+R27 keeps keys, coverage and bounded recovery unchanged. Author guidance explains
+action-key containment; preliminary executor typed domain gives two distinct
+source-bounded misconception classes rather than an invented job title.
+The narrow complete appliance source projection asks the object/two actions,
+not inherited 'срок'. Shared capability/coherence policy preserves required
+outcomes without inferring exclusivity or accepting contradictory choices.
+Policyv23 invalidates old checkpoints. Voice/reserve/route/model/resources and
+billing configuration unchanged. The final constraint audit alone opts into
+the existing managed DeepSeek request-local low-reasoning profile; BYOK and
+fallback remain unchanged. Independent source review and focused profile tests
+cover default behavior, syntax correction, timeout, fallback and immutability.
+
+Exact phone diagnostic failed before typed guidance, then retained1/1 with both
+blind reviews in3calls7.29s. Safety-duty selected diagnostic retained1/1 in
+3calls7.66s; intentionally unselected parent outcomes are not course acceptance.
+Both nonreasoning blind audits missed an observed cable ambiguity. Low reasoning
+on the same observed cable/power-off cases rejected defects in4calls100.199s.
+A mixed-profile capture distinguished the clearly compatible overhead route,
+but its floor/evacuation-only qualifier received a disputed relation; preserve
+the failed stronger assertion and obtain independent adjudication, not silent
+relabelling. These small diagnostics are not a general accuracy or speed claim.
+Frozen DEV and production originals acceptance, release66 and fresh production
+replacement remain NOT RUN for R27 at this checkpoint.
+
+R27 frozen code canonical suite3783PASS/48.83s/5knownwarnings; quality
+ruff1004/mypy2170PASS. The additional test-only assertion confirms only the
+constraint stage opts in, focused17PASS. Real mixed-profile power-off diagnostic
+rejects the exact incoherent choice,2calls13.9s. Independent source reviews
+closed the appliance stem P2 and confirmed typed role guidance; separate LLM
+review found no P1/P2 in managed-only profile, timeout, syntax and fallback paths.
+CodeGraph1.6.1 sync1900files7101ms; zero-LLM Graphify39426ms/exclusionauditPASS.
+These are local/source observations; full DEV is the next gate, not a claimed pass.

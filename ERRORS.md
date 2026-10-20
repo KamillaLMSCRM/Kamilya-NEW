@@ -9271,6 +9271,19 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   The normal per-fact renderer must not relabel an atomic responsibility rule
   with its numbered source-section locator. Whole-source review, not totals,
   remains the release gate. Failed local diagnostic captures are retained.
+- R27 actual R26 follow-up:43/44 DOCX and94/95 PDF were not accepted. Preliminary
+  executor authors kept inventing third roles despite a valid source-named
+  final authority; put both source-bounded misconception types in the typed
+  domain and keep the explicit nobody/skip-step wording within the existing
+  token limit. An inherited time attribute leaked into an appliance-action stem;
+  a narrow exact source projection now names the object and both actions.
+  Extra routing details do not automatically violate safety outcomes, and
+  simultaneous switch-off/leave-on is not a realistic distractor. Preserve both
+  blind audits. Real observed candidates showed that prompt-only/nonreasoning
+  audits can still misclassify the compatible route; the existing request-local
+  managed DeepSeek low profile is separately tested for final constraint audits.
+  No shared config, model route, BYOK, fallback or billing changes. Selected
+  diagnostics and whole-course final acceptance remain distinct evidence.
 - v11 follow-up: mixed operational families require sentence-local precedence
   and actual-target exact-span accounting, not a recognized-family boolean.
   Parenthetical context cannot erase finite/modal/past/passive actions. Use

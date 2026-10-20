@@ -999,6 +999,7 @@ class ResilientLLMClient:
         response_format: dict | None = None,
         *,
         repair_json_syntax: bool = False,
+        request_profile: Literal["evidence_low"] | None = None,
     ) -> ValidatedLLMResult[T]:
         """Invoke providers until one response passes a pure parser/validator.
 
@@ -1010,18 +1011,38 @@ class ResilientLLMClient:
         limited to one parser-originated JSONDecodeError per invocation.
         """
 
+        if request_profile not in (None, "evidence_low"):
+            raise ValueError("request_profile_invalid")
+        evidence_policy = await resolve_runtime_settings() if request_profile == "evidence_low" and any(
+            client.name == "deepseek" and client.config.managed_evidence_profile for client in self._clients
+        ) else None
+
+        async def invoke_provider(client: LLMClient, request_messages: str | list[dict[str, Any]]) -> _LLMResponse:
+            if (evidence_policy is None or client.name != "deepseek"
+                    or not client.config.managed_evidence_profile):
+                return await client.ainvoke(request_messages, config=config,
+                    response_format=_response_format_for_provider(client.name, response_format))
+            # An opt-in audit changes only this managed provider attempt. Keep
+            # route, BYOK, fallbacks and shared clients untouched, including on
+            # the one existing syntax-only correction.
+            attempt = LLMClient(replace(client.config, max_retries=0, extra_body={
+                **client.config.extra_body, "thinking": {"type": "enabled"}, "reasoning_effort": "low"}),
+                temperature=self.temperature, max_tokens=evidence_policy.integer("evidence_low.max_tokens"),
+                max_retries=0)
+            try:
+                async with asyncio.timeout(evidence_policy.number("evidence_low.deepseek_seconds")):
+                    return await attempt.ainvoke(request_messages, config=config,
+                        response_format=_response_format_for_provider(client.name, response_format))
+            except TimeoutError as exc:
+                raise ProviderFailedError(client.name, exc) from exc
+
         failure_reasons: list[ValidatedCallFailureReason] = []
         validated_attempts = 0
         syntax_correction_used = False
         for index, client in enumerate(self._clients):
             validated_attempts += 1
             try:
-                provider_response_format = _response_format_for_provider(client.name, response_format)
-                response = await client.ainvoke(
-                    messages,
-                    config=config,
-                    response_format=provider_response_format,
-                )
+                response = await invoke_provider(client, messages)
             except ProviderFailedError as exc:
                 failure_reasons.append(_provider_validated_failure_reason(exc))
                 logger.warning(
@@ -1060,11 +1081,8 @@ class ResilientLLMClient:
                 failure_reasons.append(ValidatedCallFailureReason.PROVIDER_OUTPUT_UNPARSEABLE)
                 validated_attempts += 1
                 try:
-                    correction = await client.ainvoke(
-                        _json_syntax_correction_messages(messages, response.content),
-                        config=config,
-                        response_format=provider_response_format,
-                    )
+                    correction = await invoke_provider(client,
+                        _json_syntax_correction_messages(messages, response.content))
                 except ProviderFailedError as exc:
                     failure_reasons.append(_provider_validated_failure_reason(exc))
                     logger.warning(

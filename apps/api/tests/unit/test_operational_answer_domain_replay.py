@@ -160,11 +160,13 @@ class ReplayClient:
         self.mode = mode
         self.requests: list[dict] = []
         self.offered: list[tuple[str, str, tuple[str, ...]]] = []
+        self.profiles: list[tuple[str, object]] = []
 
     async def ainvoke_validated(self, messages, parser, **_kwargs):
         request = json.loads(messages[-1]["content"])
         self.requests.append(request)
         task = request["task"]
+        self.profiles.append((task, _kwargs.get("request_profile")))
 
         if task in {"assessment_generate", "assessment_repair"}:
             questions = []
@@ -272,6 +274,9 @@ async def test_r22_off_domain_drift_gets_one_existing_axis_recovery(
         SIGNING_KEY,
     }
     assert result.audit["accepted"] == 2
+    assert any(task == "assessment_constraints" for task, _ in client.profiles)
+    assert all(profile == ("evidence_low" if task == "assessment_constraints" else None)
+               for task, profile in client.profiles)
     assert result.audit["repaired"] == 0
     assert result.audit["attempt_counts"]["replacement"] == 1
     assert result.audit["attempt_counts"]["model_repair"] == 0

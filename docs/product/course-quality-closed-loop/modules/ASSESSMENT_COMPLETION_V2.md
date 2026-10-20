@@ -23,6 +23,12 @@ It does not select providers, persist courses, publish content, change source
 facts, use generated lesson prose as evidence, call TypeSafe at runtime or fill
 a desired question quota.
 
+Final constraint audits opt into the existing request-local `evidence_low`
+profile: managed DeepSeek may reason within configured token/time limits. This
+does not change the provider route/model, tenant BYOK, fallback configuration or
+shared clients. Authoring and initial option review retain the default profile;
+syntax-only recovery uses the same selected profile and existing one-call budget.
+
 ## External interface
 
 ```python

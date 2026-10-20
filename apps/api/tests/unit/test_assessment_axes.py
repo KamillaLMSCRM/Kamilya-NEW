@@ -950,6 +950,21 @@ def test_nominal_prohibition_never_grants_a_new_binary_opposite(value):
     assert _direct_binary_prohibition(value) is None
 
 
+@pytest.mark.parametrize("attribute", ["срок", "положение", "обязанность"])
+def test_necessary_action_stem_does_not_expose_an_inherited_time_attribute(attribute):
+    value = "Необходимо обесточить все электроприборы и осмотреть на наличие признаков возгорания."
+    fact = SourceFact("f", "6. Требования безопасности по окончании работы", attribute, value,
+                      "doc_id=synthetic;section=closing;part=1")
+    lesson = LessonDraft("l", "Правила", "Завершение работы", "Выполнить проверку", "", ("f",), (), 1)
+    axis = derive_assessment_axes(lesson, [fact], block_id="b")[0]
+    assert axis.correct_value == value and axis.attribute == "обязанность"
+    assert axis.required_prompt == (
+        "Какие два действия необходимо выполнить в отношении «все электроприборы» согласно разделу "
+        "«Требования безопасности по окончании работы»?"
+    )
+    assert "срок" not in axis.required_prompt and "характеристик" not in axis.required_prompt
+
+
 def test_prohibition_gets_a_neutral_server_owned_question_without_invented_scenario() -> None:
     fact = SourceFact(
         "fact-prohibition",

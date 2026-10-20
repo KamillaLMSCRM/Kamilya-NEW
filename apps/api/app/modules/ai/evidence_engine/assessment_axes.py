@@ -2840,10 +2840,22 @@ def derive_assessment_axes(
                 correct_value.strip(),
                 flags=re.IGNORECASE,
             ):
-                required_prompt = (
-                    f"Для «{fact.subject.strip()}» в характеристике "
-                    f"«{fact.attribute.strip()}»: какое действие предусмотрено?"
+                appliance_check = re.fullmatch(
+                    r"Необходимо\s+обесточить\s+(?P<objects>все\s+электроприборы)\s+и\s+"
+                    r"осмотреть\s+на\s+наличие\s+признаков\s+возгорания[.]?",
+                    correct_value.strip(), re.IGNORECASE,
                 )
+                if appliance_check:
+                    required_prompt = (
+                        f"Какие два действия необходимо выполнить в отношении "
+                        f"«{appliance_check['objects']}» согласно разделу "
+                        f"«{_without_source_marker(fact.subject).strip()}»?"
+                    )
+                else:
+                    required_prompt = (
+                        f"Для «{fact.subject}» в характеристике «{axis_attribute}»: "
+                        f"какое действие предусмотрено?"
+                    )
             if not required_prompt and is_tabular_locator(fact.source_locator):
                 # Keep the source-owned table subject and attribute in the stem;
                 # a provider may propose alternatives, not recast a collection as

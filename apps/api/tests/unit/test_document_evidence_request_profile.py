@@ -1,5 +1,6 @@
 """One opt-in request profile; no managed route, credentials, or shared mutation."""
 import asyncio
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import UUID
@@ -7,6 +8,76 @@ from uuid import UUID
 import pytest
 
 from app.modules.ai import llm_client as llm
+
+
+async def test_validated_evidence_profile_is_local_and_applies_to_syntax_correction(monkeypatch):
+    provider = chain()
+    configs = [client.config for client in provider._clients]
+    seen = []
+
+    async def invoke(client, messages, **kwargs):
+        seen.append((client.config, client.max_tokens, client.max_retries))
+        return SimpleNamespace(content='{"ok":true}' if len(seen) == 2 else '{"ok":true')
+
+    monkeypatch.setattr(llm.LLMClient, "ainvoke", invoke)
+    result = await provider.ainvoke_validated("synthetic", json.loads,
+        request_profile="evidence_low", repair_json_syntax=True)
+    assert result.value == {"ok": True} and result.attempt_count == 2
+    assert len(seen) == 2
+    assert all(cfg.extra_body == {"thinking": {"type": "enabled"}, "reasoning_effort": "low"}
+               and tokens == 8192 and retries == 0 for cfg, tokens, retries in seen)
+    assert [client.config for client in provider._clients] == configs
+    assert provider.max_tokens == 2000
+
+
+async def test_validated_evidence_profile_preserves_existing_fallback_and_byok(monkeypatch):
+    provider = chain()
+    seen = []
+
+    async def invoke(client, messages, **kwargs):
+        seen.append((client.name, client.config.extra_body, client.max_tokens))
+        if client.name == "deepseek":
+            raise llm.ProviderFailedError(client.name, RuntimeError("synthetic unavailable"))
+        return SimpleNamespace(content='{"ok":true}')
+
+    monkeypatch.setattr(llm.LLMClient, "ainvoke", invoke)
+    result = await provider.ainvoke_validated("synthetic", json.loads, request_profile="evidence_low")
+    assert result.provider == "fallback" and result.attempt_count == 2
+    assert seen == [("deepseek", {"thinking": {"type": "enabled"}, "reasoning_effort": "low"}, 8192),
+                    ("fallback", {}, 2000)]
+    provider = llm.ResilientLLMClient([llm.LLMProviderConfig("deepseek", "https://byok.invalid",
+        "synthetic", "same-model", extra_body={"thinking": {"type": "disabled"}})], max_tokens=2000)
+    with pytest.raises(llm.AllProvidersFailedError):
+        await provider.ainvoke_validated("synthetic", json.loads, request_profile="evidence_low")
+    assert seen[-1] == ("deepseek", {"thinking": {"type": "disabled"}}, 2000)
+
+
+async def test_validated_profile_timeout_falls_back_without_mutating_shared_clients(monkeypatch):
+    provider = chain()
+    configs = [client.config for client in provider._clients]
+    from app.modules.admin.runtime_configuration.catalog import default_snapshot
+    snapshot = default_snapshot()
+    policy = SimpleNamespace(integer=snapshot.integer, number=lambda name: 0.001)
+    monkeypatch.setattr(llm, "resolve_runtime_settings", AsyncMock(return_value=policy))
+
+    async def invoke(client, *args, **kwargs):
+        if client.name == "deepseek":
+            await asyncio.Event().wait()
+        return SimpleNamespace(content='{"ok":true}')
+
+    monkeypatch.setattr(llm.LLMClient, "ainvoke", invoke)
+    result = await provider.ainvoke_validated("synthetic", json.loads, request_profile="evidence_low")
+    assert result.provider == "fallback" and result.attempt_count == 2
+    assert [client.config for client in provider._clients] == configs
+
+
+@pytest.mark.parametrize("profile", [True, "high", "evidence_low ", ""])
+async def test_invalid_validated_profile_rejected_before_any_call(monkeypatch, profile):
+    invoke = AsyncMock(side_effect=AssertionError("no provider call allowed"))
+    monkeypatch.setattr(llm.LLMClient, "ainvoke", invoke)
+    with pytest.raises(ValueError, match="request_profile_invalid"):
+        await chain().ainvoke_validated("synthetic", json.loads, request_profile=profile)
+    invoke.assert_not_called()
 
 
 def chain():
