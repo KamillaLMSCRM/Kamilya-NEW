@@ -66,6 +66,90 @@ def test_ssh_argv_is_pinned_no_secret_no_shell_or_public_listener():
     assert "synthetic" not in " ".join(command)
 
 
+def test_ocr_forward_is_opt_in_and_uses_fixed_loopback_destination():
+    command = runtime.ssh_command(Path("identity"), Path("hosts"),
+        runtime.selected_forwards({"DEV_OCR_SSH_ENABLED": "true"}))
+    forwards = [command[index + 1] for index, value in enumerate(command[:-1]) if value == "-L"]
+    assert forwards == [
+        "127.0.0.1:18999:10.77.77.2:18999",
+        "127.0.0.1:18889:10.77.77.4:18005",
+        "127.0.0.1:18600:10.77.77.2:18601",
+    ]
+
+    disabled = runtime.ssh_command(Path("identity"), Path("hosts"))
+    assert [disabled[index + 1] for index, value in enumerate(disabled[:-1]) if value == "-L"] == forwards[:2]
+
+
+def test_child_gets_only_fixed_docling_url_when_ocr_forward_enabled():
+    env = {**environment(), "DEV_OCR_SSH_ENABLED": "true", "DOCLING_URL": "https://untrusted.example"}
+    child = runtime.child_environment(env)
+    assert child["DOCLING_URL"] == "http://127.0.0.1:18600"
+    assert not any(key.startswith("DEV_MODEL_SSH_") for key in child)
+    assert "DEV_OCR_SSH_ENABLED" not in child
+
+
+def test_ocr_flag_requires_validated_model_supervisor():
+    with pytest.raises(runtime.RuntimeBlocked, match="ocr_requires_model_supervisor"):
+        runtime.run(["synthetic-child"], {"DEV_OCR_SSH_ENABLED": "true"})
+    with pytest.raises(runtime.RuntimeBlocked, match="wrong_environment"):
+        runtime.run(["synthetic-child"], {
+            **environment(), "DEV_OCR_SSH_ENABLED": "true",
+            "DEPLOYMENT_ENVIRONMENT": "kz-production",
+        })
+
+
+def test_ocr_readiness_requires_owned_ocr_listener(monkeypatch):
+    class Live:
+        pid = 123
+
+        def poll(self):
+            return None
+
+    process = Live()
+    seen = []
+    monkeypatch.setattr(runtime, "owns_listeners", lambda _pid, forwards: seen.append(forwards) or True)
+    selected = runtime.selected_forwards({"DEV_OCR_SSH_ENABLED": "true"})
+    runtime.await_forward(process, seconds=0.1, forwards=selected)
+    assert seen == [selected]
+
+
+def test_ocr_readiness_rejects_foreign_or_missing_listener(monkeypatch):
+    class FakeFd:
+        def __init__(self, inode):
+            self.inode = inode
+
+    class FakePath:
+        def __init__(self, value):
+            self.value = value
+
+        def iterdir(self):
+            return [FakeFd(inode) for inode in ("1", "2")]
+
+        def read_text(self):
+            rows = []
+            for port, inode in ((18999, 1), (18889, 2)):
+                rows.append(f"x 0100007F:{port:04X} x 0A x x x x x {inode}")
+            return "header\n" + "\n".join(rows)
+
+    monkeypatch.setattr(runtime, "Path", FakePath)
+    monkeypatch.setattr(runtime.os, "readlink", lambda path: f"socket:[{path.inode}]")
+    selected = runtime.selected_forwards({"DEV_OCR_SSH_ENABLED": "true"})
+    assert runtime.owns_listeners(123, selected) is False
+
+    class CompletePath(FakePath):
+        def iterdir(self):
+            return [FakeFd("1"), FakeFd("2"), FakeFd("3")]
+
+        def read_text(self):
+            rows = []
+            for port, inode in ((18999, 1), (18889, 2), (18600, 3)):
+                rows.append(f"x 0100007F:{port:04X} x 0A x x x x x {inode}")
+            return "header\n" + "\n".join(rows)
+
+    monkeypatch.setattr(runtime, "Path", CompletePath)
+    assert runtime.owns_listeners(123, selected) is True
+
+
 def test_dead_ssh_is_not_ready():
     class Dead:
         def poll(self):
@@ -106,7 +190,7 @@ def test_failed_real_wait_emits_only_private_stage_codes_and_retains_one_retry(m
     stopped = []
     monkeypatch.setattr(runtime, "spawn", lambda *_args, **_kwargs: next(processes))
     monkeypatch.setattr(runtime, "drain_diagnostics", lambda _process: None)
-    monkeypatch.setattr(runtime, "owns_listeners", lambda pid: pid == 124)
+    monkeypatch.setattr(runtime, "owns_listeners", lambda pid, _forwards: pid == 124)
     monkeypatch.setattr(runtime, "stop", stopped.append)
     monkeypatch.setattr(runtime.time, "sleep", lambda _seconds: None)
     assert runtime.start_forward(Path("identity"), Path("hosts"), {}) is live
@@ -216,7 +300,7 @@ def test_only_one_pre_auth_transport_recovery_preserves_strict_failures(monkeypa
         process = object()
         processes.append(process)
         return process
-    def ready(_process):
+    def ready(_process, **_kwargs):
         if len(processes) == 1:
             raise runtime.RuntimeBlocked(failure)
     monkeypatch.setattr(runtime, "spawn", spawn)
@@ -250,7 +334,7 @@ def test_second_transport_reset_stops_without_unbounded_reconnect(monkeypatch):
         process = object()
         processes.append(process)
         return process
-    def failed(_process):
+    def failed(_process, **_kwargs):
         raise runtime.RuntimeBlocked("ssh_start_failed_network_connection_reset")
     monkeypatch.setattr(runtime, "spawn", spawn)
     monkeypatch.setattr(runtime, "stop", stopped.append)
@@ -267,7 +351,7 @@ def test_unrelated_listener_never_establishes_ssh_ownership(monkeypatch):
         pid = 123
         def poll(self):
             return None
-    monkeypatch.setattr(runtime, "owns_listeners", lambda _pid: False)
+    monkeypatch.setattr(runtime, "owns_listeners", lambda _pid, _forwards: False)
     monkeypatch.setattr(runtime, "_available", lambda _port: True)
     with pytest.raises(runtime.RuntimeBlocked, match="ssh_start_timeout"):
         runtime.await_forward(Live(), seconds=0.01)

@@ -10,8 +10,14 @@ converter. When absent, the application uses supported local conversion;
 an image-only PDF requires OCR and must not be reported as successfully parsed.
 On 2026-10-19 the obsolete address was removed from both existing DEV services.
 This removal does not give the cloud DEV worker access to the private converter.
-For bounded local acceptance use the existing local-only wrapper
-`scripts/dev/run_with_vm126_docling_tunnel.py`; do not publish a new gateway.
+The DEV supervisor supports the opt-in `DEV_OCR_SSH_ENABLED=true` path:
+API/worker loopback `127.0.0.1:18600` forwards through the existing restricted
+server SSH account to VM126 `10.77.77.2:18601`. This requires a separately
+verified private DEV converter and its matching existing DEV API key. It does
+not use the workstation, an old VPS, a public converter gateway or a production
+credential. With the flag absent, the existing model forwards are unchanged.
+The local-only `scripts/dev/run_with_vm126_docling_tunnel.py` wrapper remains
+an optional developer diagnostic, never a cloud runtime dependency.
 The adjacent Caddy file is a legacy, opt-in template, not the current topology.
 
 ## Conversion routing
@@ -70,6 +76,22 @@ python -m pip install -r requirements.txt
 
 PDF conversion explicitly enables Tesseract CLI OCR with `kaz,rus,eng`.
 Override the comma-separated language list with `DOCLING_OCR_LANGUAGES`.
+For a read-only, offline model catalog, set `DOCLING_ARTIFACTS_PATH` to the
+explicit catalog directory containing the expected Docling model snapshots.
+Without that variable, upstream model resolution remains unchanged.
+
+Scanned PDFs receive a bounded list-boundary crosscheck only when the layout
+output splits a short orphan from an item ending in a conjunction. Exact unique
+same-page provenance and two independent full-page Tesseract readings (PSM3/6)
+must agree on one short continuation immediately before the next list item.
+The existing body, numbers and unrelated Markdown are not rewritten. Checks
+are limited to two pages and 40 seconds, sharing the existing per-pass timeout
+and pixel ceilings. Unresolved candidates produce an explicit warning rather
+than a guessed correction. Digital PDFs and Office conversion are unaffected.
+
+The original-document comparison on 2026-10-20 retained pinned Docling2.106.0:
+2.140.0 reduced time/RSS in the sample but introduced additional word errors.
+Version recency alone is not an extraction-fidelity acceptance criterion.
 Legacy `.doc` files are converted to `.docx` with headless LibreOffice before
 Docling processes them.
 

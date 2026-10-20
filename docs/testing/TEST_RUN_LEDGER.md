@@ -5736,3 +5736,32 @@ Rules:
   shape writer and independent Sol reviewer used; observed model/token counters
   and aggregate time savings unavailable, not zero. Root owned integration and
   correction of polarity/context defects; no agent external mutation.
+- Delivery hold2026-10-19 16:14UTC: c0fd90aa901e95e5cce2d19577cfc52e1c865349
+  pushed/readbackdev; CI39282563923 queued during official GitHub Actions/Webhooks
+  incident8tzbpcnl75jp. Only exact local waiting controllerPID22468 stopped before
+  explicit provider stages; no RELEASE_OK/live acceptance. Immutable packetR13
+  and sanitized push/hold receipts retained, no blind duplicate dispatch.
+  Final independent6DOCX output/filter reviewACCEPT; PDF electrical9retained
+  reviewACCEPT,4calls/20.179s/source unchanged, omitted1general reference action
+  means terminalreview_required, not fullcourseGO. Existing private OCR converter
+  diagnostic on derived source page3 region restores three list boundaries,
+  3.953s/original SHA unchanged; no converter config/source replacement.
+  Pending: generic OCR fidelity, full DEV/provider/browser acceptance, protected
+  production package and agreed exact postrelease originals reload. Prod65 intact.
+- OCR comparison2026-10-20: exact original DOCX/PDF, server-only offline temporary
+  containers, Docling2.106.0 vs2.140.0 plus full-page/PSM6/scale2/Pdfium2 variants.
+  Updated44.196s/1940400KiB vs current49.728s/2442528KiB, but new source word
+  errors; updated rejected. Six DOCX rows/twelve cells equivalent across versions.
+  Retained2.106 narrow source-corroborated boundary correction: real service
+  d1d1af9e...54d3, PDF54.183s/2421360KiB; exactly two changed lines, rest unchanged;
+  original three2.5 prohibitions preserved; DOCX0.772s/byte-identical. Private
+  service-originals-r15.json and original-page oraclePASS. Generic provenance/
+  continuation risks independently identified and corrected; synthetic tests
+  lock duplicate/wrong-page/substring/multiline/numeric/no-OCR/time/page bounds.
+  Root converter51PASS, API unit3549PASS/55.65s, launcher51PASS/1.00s, canonical
+  quality1004ruff/2170mypyPASS. No whole-course or production acceptance inferred.
+  Luna-medium bounded writer/reviewer; root owns runtime/integration/external
+  operations. Observed token/cost counters unavailable, not zero. Proxy permits
+  one added private OCR destination; auth/keys/other policy unchanged. Dedicated
+  DEV install remains under diagnosis; failed attempts remove only owned new
+  containers/network/secret, production OCR never switched. No paid resources.

@@ -4661,6 +4661,26 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ## DOCLING-001 - Scanned PDF failed before OCR in the production container
 
+- 2026-10-20 source-fidelity follow-up: a layout-generated list item ending in a
+  conjunction was split from a short wrapped continuation. Updating2.106.0 to
+  2.140.0 did not resolve this original PDF and added word errors; speed/RSS
+  improvement is not source acceptance. Retain2.106 and require exact unique
+  same-page item provenance plus agreeing full-page PSM3/6 readings before one
+  short continuation is rejoined. Never replace body words/numbers, join
+  paragraphs or infer missing clauses. Two-page/40-second/pixel ceilings and
+  an explicit unresolved warning apply only to scanned PDFs. Real server probe
+  changed exactly two list lines, all other Markdown unchanged; DOCX unchanged.
+  Synthetic tests cover ambiguous/duplicate provenance, wrong pages, genuine
+  numbering, disagreement, expiry and no-crosscheck routes.
+- Private DEV service connectivity requires both the restricted SSH destination
+  and narrow VM126 ingress from WireGuard proxy10.77.77.1 to10.77.77.2:18601.
+  An internal Docker bridge deliberately has no usable published host port:
+  inside health200 does not prove remote reachability. Keep the parser internal;
+  use the private-only bounded socket relay to its verified owned container IP,
+  never a public gateway or workstation tunnel. Preserve all existing firewall
+  rules/authentication and test the real restricted DEV account with an original.
+  Distinguish host health, authenticated conversion and ordinary worker indexing.
+
 - 2026-10-19 recurrence: both cloud DEV services still explicitly selected an
   obsolete public converter whose TLS chain failed validation. Removed only
   `DOCLING_URL` from the existing API/worker environment (204 each; independent

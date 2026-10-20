@@ -19,6 +19,7 @@ from pathlib import Path
 HOST = "92.38.49.167"
 USER = "kamilya-dev-models"
 FORWARDS = ((18999, "10.77.77.2", 18999), (18889, "10.77.77.4", 18005))
+OCR_FORWARD = (18600, "10.77.77.2", 18601)
 
 
 class RuntimeBlocked(Exception):
@@ -54,7 +55,11 @@ def credentials(env: dict[str, str]) -> tuple[bytes, str]:
     return key, known
 
 
-def ssh_command(key_path: Path, known_path: Path) -> list[str]:
+def ssh_command(
+    key_path: Path,
+    known_path: Path,
+    forwards: tuple[tuple[int, str, int], ...] = FORWARDS,
+) -> list[str]:
     command = ["ssh", "-F", "none", "-N", "-T", "-p", "22", "-i", str(key_path),
         "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
         "-o", f"UserKnownHostsFile={known_path}", "-o", "GlobalKnownHostsFile=/dev/null",
@@ -63,20 +68,33 @@ def ssh_command(key_path: Path, known_path: Path) -> list[str]:
         "-o", "ConnectTimeout=8", "-o", "ConnectionAttempts=1",
         "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=2",
         "-o", "LogLevel=DEBUG1", "-o", "ForwardAgent=no"]
-    for local, destination, port in FORWARDS:
+    for local, destination, port in forwards:
         command += ["-L", f"127.0.0.1:{local}:{destination}:{port}"]
     return command + [f"{USER}@{HOST}"]
 
 
 def child_environment(env: dict[str, str]) -> dict[str, str]:
-    return {key: value for key, value in env.items() if not key.startswith("DEV_MODEL_SSH_")}
+    child = {
+        key: value for key, value in env.items()
+        if not key.startswith("DEV_MODEL_SSH_") and key != "DEV_OCR_SSH_ENABLED"
+    }
+    if env.get("DEV_OCR_SSH_ENABLED") == "true":
+        child["DOCLING_URL"] = "http://127.0.0.1:18600"
+    return child
 
 
 def ssh_environment(env: dict[str, str]) -> dict[str, str]:
     return {key: value for key, value in env.items() if key in {"PATH", "LANG", "LC_ALL", "SYSTEMROOT"}}
 
 
-def owns_listeners(pid: int) -> bool:
+def selected_forwards(env: dict[str, str]) -> tuple[tuple[int, str, int], ...]:
+    """Return the fixed model forwards plus the opt-in OCR forward."""
+    if env.get("DEV_OCR_SSH_ENABLED") == "true":
+        return FORWARDS + (OCR_FORWARD,)
+    return FORWARDS
+
+
+def owns_listeners(pid: int, forwards: tuple[tuple[int, str, int], ...] = FORWARDS) -> bool:
     """Match loopback listening socket inodes to the spawned SSH process, not TCP reachability."""
     try:
         inodes = {os.readlink(path) for path in Path(f"/proc/{pid}/fd").iterdir()}
@@ -84,7 +102,7 @@ def owns_listeners(pid: int) -> bool:
         owned = {int(parts[1].split(":")[1], 16) for row in rows
             if len(parts := row.split()) >= 10 and parts[3] == "0A"
             and parts[1].startswith("0100007F:") and f"socket:[{parts[9]}]" in inodes}
-        return {port for port, _, _ in FORWARDS} <= owned
+        return {port for port, _, _ in forwards} <= owned
     except OSError:
         return False
 
@@ -97,12 +115,16 @@ def _available(port: int) -> bool:
         return False
 
 
-def await_forward(process: subprocess.Popen, seconds: float = 12) -> None:
+def await_forward(
+    process: subprocess.Popen,
+    seconds: float = 12,
+    forwards: tuple[tuple[int, str, int], ...] = FORWARDS,
+) -> None:
     until = time.monotonic() + seconds
     while time.monotonic() < until:
         if process.poll() is not None:
             raise RuntimeBlocked(ssh_failure(process))
-        if owns_listeners(process.pid) and process.poll() is None:
+        if owns_listeners(process.pid, forwards) and process.poll() is None:
             return
         time.sleep(0.1)
     raise RuntimeBlocked("ssh_start_timeout")
@@ -238,11 +260,11 @@ def start_forward(identity: Path, hosts: Path, source: dict[str, str]) -> subpro
     for attempt in range(2):
         print("EVIDENCE|dev_private_models=forward_starting|attempt=" + str(attempt + 1)
             + diagnostic_context(source), flush=True)
-        process = spawn(ssh_command(identity, hosts), stdin=subprocess.DEVNULL,
+        process = spawn(ssh_command(identity, hosts, selected_forwards(source)), stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, env=ssh_environment(source))
         try:
             drain_diagnostics(process)
-            await_forward(process)
+            await_forward(process, forwards=selected_forwards(source))
             print("EVIDENCE|dev_private_models=forward_ready|attempt=" + str(attempt + 1)
                 + diagnostic_context(source), flush=True)
             return process
@@ -270,6 +292,8 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
     source = dict(os.environ if env is None else env)
     if not argv:
         raise RuntimeBlocked("child_command_missing")
+    if source.get("DEV_OCR_SSH_ENABLED") == "true" and source.get("DEV_MODEL_SSH_ENABLED") != "true":
+        raise RuntimeBlocked("ocr_requires_model_supervisor")
     if source.get("DEV_MODEL_SSH_ENABLED") != "true":
         # Existing disabled behavior, including its normal process/signal ownership.
         if os.name == "nt":
@@ -282,7 +306,7 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
         raise RuntimeBlocked("enabled_runtime_requires_linux")
     if shutil.which("ssh") is None:
         raise RuntimeBlocked("ssh_binary_unavailable")
-    if any(_available(port) for port, _, _ in FORWARDS):
+    if any(_available(port) for port, _, _ in selected_forwards(source)):
         raise RuntimeBlocked("local_port_owned_elsewhere")
     ssh = child = probe = None
     terminating = False

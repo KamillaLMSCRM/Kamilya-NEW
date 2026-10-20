@@ -41,6 +41,7 @@ def _load_service(monkeypatch: pytest.MonkeyPatch):
         "CONVERTER_PDF_SAMPLE_PAGES",
         "CONVERTER_PDF_MIN_EMBEDDED_TEXT_CHARS",
         "CONVERTER_PDF_MIN_TEXT_PAGE_RATIO",
+        "DOCLING_ARTIFACTS_PATH",
     ):
         monkeypatch.delenv(name, raising=False)
     spec = importlib.util.spec_from_file_location("docling_service_main_test", SERVICE_PATH)
@@ -50,8 +51,11 @@ def _load_service(monkeypatch: pytest.MonkeyPatch):
     return module
 
 
-def test_pdf_converter_enables_multilingual_ocr(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("artifacts_path", [None, "/models/offline-artifacts"])
+def test_pdf_converter_enables_multilingual_ocr(monkeypatch: pytest.MonkeyPatch, artifacts_path: str | None) -> None:
     service = _load_service(monkeypatch)
+    if artifacts_path is not None:
+        monkeypatch.setenv("DOCLING_ARTIFACTS_PATH", artifacts_path)
 
     base_models = ModuleType("docling.datamodel.base_models")
     pipeline_options = ModuleType("docling.datamodel.pipeline_options")
@@ -91,6 +95,7 @@ def test_pdf_converter_enables_multilingual_ocr(monkeypatch: pytest.MonkeyPatch)
 
     assert pdf_options.kwargs["do_ocr"] is True
     assert pdf_options.kwargs["do_table_structure"] is True
+    assert pdf_options.kwargs["artifacts_path"] == (Path(artifacts_path) if artifacts_path else None)
     assert pdf_options.kwargs["ocr_options"].kwargs == {
         "lang": ["kaz", "rus", "eng"],
     }

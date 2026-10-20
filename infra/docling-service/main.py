@@ -118,6 +118,8 @@ def get_converter():
             do_ocr=True,
             do_table_structure=True,
             ocr_options=TesseractCliOcrOptions(lang=OCR_LANGUAGES),
+            artifacts_path=Path(os.environ["DOCLING_ARTIFACTS_PATH"])
+            if os.environ.get("DOCLING_ARTIFACTS_PATH") else None,
         )
         _converter = DoclingConverter(
             format_options={
@@ -301,8 +303,9 @@ def _close_resource(resource: object | None) -> None:
         close()
 
 
-def _independent_page_percentage_ocr(
+def _independent_page_ocr(
     path: str, page_no: int, budget: dict[str, float],
+    *, psms: tuple[str, str] = ("6", "11"), languages: tuple[str, ...] = ("rus",),
 ) -> tuple[str, str] | None:
     """Run two bounded full-page OCR passes; absence means uncertainty, not falsity."""
     pdf = page = bitmap = image = None
@@ -333,12 +336,12 @@ def _independent_page_percentage_ocr(
             image_path = temporary.name
         image.save(image_path)
         outputs: list[str] = []
-        for psm in ("6", "11"):
+        for psm in psms:
             remaining = budget["deadline"] - time.monotonic()
             if remaining <= 0:
                 return None
             completed = subprocess.run(
-                ["tesseract", image_path, "stdout", "-l", "rus", "--psm", psm],
+                ["tesseract", image_path, "stdout", "-l", "+".join(languages), "--psm", psm],
                 capture_output=True,
                 text=True,
                 timeout=min(PERCENTAGE_CROSSCHECK_TIMEOUT_SECONDS, remaining),
@@ -349,7 +352,7 @@ def _independent_page_percentage_ocr(
             outputs.append(completed.stdout or "")
         return outputs[0], outputs[1]
     except Exception as exc:  # noqa: BLE001 - an unavailable independent check is explicit uncertainty
-        logger.warning("Independent percentage OCR unavailable for page %s: %s", page_no, exc)
+        logger.warning("Independent page OCR unavailable page=%s error_type=%s", page_no, type(exc).__name__)
         return None
     finally:
         if image_path:
@@ -358,6 +361,129 @@ def _independent_page_percentage_ocr(
         _close_resource(bitmap)
         _close_resource(page)
         _close_resource(pdf)
+
+
+def _independent_page_percentage_ocr(
+    path: str, page_no: int, budget: dict[str, float],
+) -> tuple[str, str] | None:
+    return _independent_page_ocr(path, page_no, budget)
+
+
+def _independent_page_list_ocr(
+    path: str, page_no: int, budget: dict[str, float],
+) -> tuple[str, str] | None:
+    return _independent_page_ocr(path, page_no, budget, psms=("3", "6"), languages=tuple(OCR_LANGUAGES))
+
+
+_LIST_MARKER = re.compile(r"^\s*(?:\d+[.)]\s*[-—–*]?\s*|[-—–*]\s*)")
+_CONTINUATION_END = re.compile(r"\b(?:и|или|and|or|және|немесе)\s*$", re.IGNORECASE)
+
+
+def _normalized_line(value: str) -> str:
+    return " ".join(value.split()).casefold()
+
+
+def _list_body(value: str) -> str:
+    return _LIST_MARKER.sub("", value, count=1).strip()
+
+
+def _broken_list_continuations(markdown: str) -> list[tuple[int, str, str]]:
+    """Locate only a short orphan between a dangling conjunction and a new item."""
+    lines = markdown.splitlines(keepends=True)
+    candidates: list[tuple[int, str, str]] = []
+    for index in range(1, len(lines) - 1):
+        previous = _list_body(lines[index - 1])
+        fragment = _list_body(lines[index])
+        words = re.findall(r"[^\W\d_]+", fragment)
+        if (
+            _LIST_MARKER.match(lines[index - 1])
+            and len(previous) >= 24 and _CONTINUATION_END.search(previous)
+            and _LIST_MARKER.match(lines[index]) and len(fragment) <= 16
+            and len(words) == 1 and len(words[0]) <= 8 and not re.search(r"\d", fragment)
+            and words[0].casefold() not in {"не", "нет", "not", "no"}
+            and _LIST_MARKER.match(lines[index + 1]) and len(_list_body(lines[index + 1])) >= 12
+        ):
+            candidates.append((index, previous, fragment))
+    return candidates
+
+
+def _list_fragment_page(document: object, previous: str, fragment: str) -> int | None:
+    previous_items: list[object] = []
+    fragment_items: list[object] = []
+    for item in getattr(document, "texts", ()) or ():
+        text = getattr(item, "text", "")
+        if not isinstance(text, str):
+            continue
+        normalized = _normalized_line(_list_body(text))
+        if _normalized_line(previous) == normalized:
+            previous_items.append(item)
+        if re.findall(r"[^\W\d_]+", fragment.casefold()) == re.findall(r"[^\W\d_]+", _list_body(text).casefold()):
+            fragment_items.append(item)
+    if len(previous_items) != 1 or len(fragment_items) != 1:
+        return None
+    previous_pages = _page_nos(previous_items[0])
+    fragment_pages = _page_nos(fragment_items[0])
+    if len(previous_pages) != 1 or fragment_pages != previous_pages:
+        return None
+    page_no = next(iter(previous_pages))
+    return page_no if page_no in (getattr(document, "pages", {}) or {}) else None
+
+
+def _confirmed_list_continuation(ocr: str, previous: str) -> str | None:
+    lines = [line for line in ocr.splitlines() if line.strip()]
+    candidates: list[str] = []
+    for index, line in enumerate(lines):
+        if not _LIST_MARKER.match(line) or _normalized_line(_list_body(line)) != _normalized_line(previous):
+            continue
+        # Accept only the shape that triggered this check: one short orphan
+        # between two list items. Never append arbitrary following paragraphs.
+        if index + 2 >= len(lines) or not _LIST_MARKER.match(lines[index + 2]):
+            continue
+        text = lines[index + 1].strip()
+        words = re.findall(r"[^\W\d_]+", text)
+        if (
+            not _LIST_MARKER.match(text) and len(text) <= 16
+            and len(words) == 1 and len(words[0]) <= 8
+            and words[0].casefold() not in {"не", "нет", "not", "no"}
+            and not re.search(r"\d", text) and text.endswith((";", ".", ":"))
+        ):
+            candidates.append(text)
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def _repair_scanned_pdf_list_boundaries(path: str, document: object, markdown: str) -> str:
+    """Corroborate an orphan with two pixel readings, never guess a replacement."""
+    candidates = _broken_list_continuations(markdown)
+    if not candidates:
+        return markdown
+    lines = markdown.splitlines(keepends=True)
+    readings: dict[int, tuple[str, str] | None] = {}
+    budget = {"pixels": 0.0, "deadline": time.monotonic() + 40}
+    for index, previous, fragment in candidates:
+        if time.monotonic() >= budget["deadline"]:
+            break
+        page_no = _list_fragment_page(document, previous, fragment)
+        if page_no is None:
+            continue
+        if page_no not in readings:
+            if len(readings) >= 2:
+                continue
+            readings[page_no] = _independent_page_list_ocr(path, page_no, budget)
+        ocr = readings[page_no]
+        if ocr is None:
+            continue
+        first, second = (_confirmed_list_continuation(text, previous) for text in ocr)
+        if first is None or second is None or _normalized_line(first) != _normalized_line(second):
+            continue
+        word = "".join(re.findall(r"[^\W\d_]+", fragment))
+        if re.search(r"[А-Яа-яЁёӘәҒғҚқҢңӨөҰұҮүҺһІі]", word) and len(word) > 3 and word.casefold() not in first.casefold():
+            continue
+        # Only this source-corroborated boundary changes. All unrelated bytes and
+        # the complete existing body/conditions/numbers remain untouched.
+        newline = "\r\n" if lines[index].endswith("\r\n") else "\n"
+        lines[index - 1] = "- " + previous + " " + first + newline
+        lines[index] = ""
+    return "".join(lines)
 
 
 def _crosscheck_docling_percentages(path: str, document: object) -> None:
@@ -391,6 +517,8 @@ def _docling_convert(path: str) -> tuple[str, int, int]:
     # Docling's Markdown serializer escapes brackets/underscores in text items.
     # Keep the machine-readable uncertainty token stable across that boundary.
     markdown = re.sub(r"\\?\[UNREADABLE\\?_PERCENTAGE\\?_VALUE\\?\]", UNREADABLE_PERCENTAGE_VALUE, markdown)
+    if document is not None and _SCANNED_PDF_PERCENTAGE_CROSSCHECK.get():
+        markdown = _repair_scanned_pdf_list_boundaries(path, document, markdown)
     if not _usable_markdown(markdown):
         raise ValueError("Docling returned unusable output")
     tables = len(getattr(document, "tables", [])) if document is not None else 0
@@ -652,7 +780,11 @@ def _convert_sync(*, tmp_path: str, filename: str, suffix: str) -> dict:
                 engine_version=_package_version("docling"),
                 pages=pages or profile.get("pages", 0),
                 tables=tables,
-                warnings=warnings + _percentage_crosscheck_warnings(markdown),
+                warnings=warnings + _percentage_crosscheck_warnings(markdown) + (
+                    ["Some OCR list boundaries could not be corroborated by independent page readings."]
+                    if suffix == ".pdf" and not profile.get("is_digital", False)
+                    and _broken_list_continuations(markdown) else []
+                ),
                 profile=profile.get("profile"),
                 routing_reason="scanned-pdf-docling-ocr"
                 if suffix == ".pdf"

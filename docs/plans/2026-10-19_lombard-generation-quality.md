@@ -5,6 +5,40 @@ cleanup/reload completed; no other production data changed.
 Owner: root; product authority: owner request 2026-10-19, original documents,
 synthetic QA only, DEV acceptance before one production package.
 
+## Current checkpoint, 2026-10-19 16:14UTC
+
+Superseding OCR evidence2026-10-20: current2.106 and updated2.140 compared on both
+originals on VM126, offline isolation. Updated full-page44.196s vs current49.728s
+and lower peak process RSS, but additional source word errors: rejected.
+Retained2.106 plus narrowly corroborated list guard passes the real original PDF
+54.183s/2421360KiB, exactly two changed lines/all other Markdown unchanged; DOCX
+0.772s/byte-identical. Original three source2.5 prohibitions retained. Combined
+converter51PASS/API unit3549PASS/launcher51PASS/canonical qualityPASS. Server DEV
+transport policy applied narrowly; dedicated DEV service installed with private
+socket relay/internal bridge, authenticated DOCX conversion/negative401 and live
+production identity preservationPASS. Not connected to Render yet. Whole-course DEV and
+postrelease production acceptance remain open; prior counts are not completion.
+
+- Frozen candidate c0fd90aa901e95e5cce2d19577cfc52e1c865349 pushed/read back todev
+  using project account and canonical helper. Policyv12,3547API unit+rendererPASS,
+  canonical quality1004ruff/2170mypyPASS; independent scoped-source/filter review
+  and six actual DOCX question reviewACCEPT. Six targeted questions6calls/23.410s,
+  source unchanged; full DOCX live acceptance is still NOT_RUN.
+- DEV CI39282563923 queued during confirmed GitHub Actions/Webhooks incident
+  https://www.githubstatus.com/incidents/8tzbpcnl75jp. Root stopped exact local
+  R13 controller before provider stages; no RELEASE_OK/live parity claim.
+  Resume exact packet after CI/provider reconciliation, not another blind push.
+- Actual PDF electrical subset9retained/1omitted,4calls/20.179s, exact source;
+  independent9retained reviewACCEPT/no factual error, critical missing0, but
+  terminalreview_required and low-difficulty binary/wording issues remain.
+- Existing private converter OCR region diagnostic restores three list boundaries
+  on source page3,3.953s. Original bytes unchanged; diagnostic crop is not an
+  uploaded replacement and does not close general OCR fidelity. Pinned upstream
+ 2.106.0 supports force_full_page_ocr constructor option/psm; an actual generic
+  correction must be tested before changing converter runtime configuration.
+- No production release, source deletion/reupload, new production generation,
+  provider tier/resource/route/voice/reserve or client learning change.
+
 ## Latest v11 quality checkpoint
 
 - NEXT local, not deployed: DOCX43targets/5lessons and PDF56targets/6lessons,

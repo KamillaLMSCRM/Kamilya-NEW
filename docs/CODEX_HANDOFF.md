@@ -8,6 +8,139 @@ production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 ## Active original-document quality correction66 — not production
 
+### Original-version comparison and bounded correction, 2026-10-20
+
+Current2.106.0 and updated2.140.0 were compared on both exact original binaries
+in isolated server containers, existing VM126 image/cache, offline conversion.
+Default2.106 PDF49.728s/2442528KiB peak process RSS; updated full-page44.196s/
+1940400KiB. Updated default/PSM6/scale2/Pdfium2 still damaged the source2.5 list
+and added word errors (including clause3.3); not accepted despite speed/RSS gain.
+DOCX normalized six rows/twelve cells match across all compared Docling variants;
+the application Office route remains MarkItDown0.1.6.
+
+Root retains2.106.0 with a generic, source-corroborated short-list-boundary guard.
+Independent review found ambiguous substring provenance and arbitrary multiline
+continuation risks; corrected to exact unique item/page identity and one short
+punctuated continuation between list items. Real service source SHA256
+d1d1af9e2ac95a0a76d6d983240919386f2dd599db172d1bdc44511e71eb54d3
+ran on both originals in an isolated server container: PDF54.183s/2421360KiB,
+exactly two changed lines, all other Markdown unchanged; original three2.5
+prohibitions and abbreviation restored. DOCX0.772s, Markdown byte-identical.
+Private service-originals-r15.json and verify_pdf_list_capture.py PASS. Root
+combined converter tests51PASS, full API unit3549PASS/55.65s, launcher51PASS,
+canonical quality1004ruff/2170mypyPASS (one test import order corrected).
+
+Restricted proxy transport now permits exactly one additional private destination
+10.77.77.2:18601; auth/keys/model targets/other SSH policy unchanged, backup
+preserved. Config SHA256a112075402b3bfcda3c6f9e9723c29a3423630f2b7e526df3efe9319ad195c20.
+Dedicated DEV converter installed after bounded recovery: immutable local image
+e1b7b6c84cad1cd79f0f391e651a5bab2cac55c0b513149bdeb34127ff4359df,
+same source hash, non-root10001:10001, read-only root/cache,4GiB/2CPU/256PIDs,
+separate internal Docker network. Published Docker port on an internal network
+was unreachable despite inside health200; replaced with VM126-only socket relay
+10.77.77.2:18601 to install-time verified owned container IP. Root-owned units
+kamilya-dev-ocr.socket/service; relay unprivileged,8connections/64MiB/16tasks/
+25%CPU, no Docker socket or public bind. Host private health, unauthenticated401,
+authenticated original DOCX conversion and production unchanged ID/image/start
+allPASS. Exact DEV key independently matched existing API/worker, no values
+printed; temporary staged secret removed. Permanent secret is0600 outside Git.
+Failures retained non-secret/source diagnostics and removed only owned new
+container/network/secret/units. No Render OCR flag/provider deployment yet;
+restricted DEV account original-PDF ingress check is in progress. Do not rerun
+the install: it is fresh-install/state-bound, not a general updater. Container
+recreation requires verified IP/unit synchronization; no implicit dynamic DNS.
+Original course quality, ordinary shared-DEV upload and final production release/
+cleanup/reupload remain OPEN. Earlier following checkpoints are historical.
+
+### Server OCR / DEV transport follow-up, 2026-10-19
+
+Owner explicitly requested server-side OCR and DEV connectivity without the
+workstation, then asked whether Docling can be updated/replaced. No production
+runtime/config/provider deployment has been changed during this follow-up.
+CI39282563923 now independently reports completed/success for exact c0fd90aa;
+R13 is not sufficient for the new OCR/transport delta and has no RELEASE_OK.
+
+Canonical VM126 inspection passed: existing converter kamilya-runtime-docling-1,
+image bdb9b97696dcbb13ddd7c73fe2f5a03dd510023153873ee3a99e5cc8997555fd,
+6GiB limit; available RAM9461980KiB/free disk3889045504bytes at this observation.
+Root ran a DB-free/network-none/read-only temporary container from that exact
+existing image, bounded2GiB/oneCPU, against original PDF page3. Tesseract whole-
+page PSM3/6 both preserve all three2.5 list entries and the wrapped abbreviation;
+PSM11 damages other reading order. Capture ocr-server-page3-modes.json,13.524s,
+original SHA unchanged. Initial wrapper result was evidence-contract-invalid
+because of comma-separated diagnostic modes, NOT converter failure; the result
+was independently downloaded and reconciled, not rerun. Temporary probe removed.
+The original converter capture still fails verify_pdf_list_capture.py.
+
+Full Docling force_full_page_ocr experiment is NOT accepted. First diagnostic
+script name profile.py shadowed stdlib profile during torch import; renamed only
+that owned server artifact. Corrected probe then stopped at unavailable offline
+HF snapshot lookup before OCR. Failure logs/captures preserved, temporary
+containers removed. Do not rerun without fixing model-artifact resolution.
+Existing server cache holds docling-layout-heron snapshot8f39ad3c... and
+docling-models snapshotfc0f2d45...; no new model downloads performed. Owned private
+directory /home/kamilya-admin/incoming/ocr-list-20261019 still holds source,
+probe scripts, result and failure logs: cleanup remains REQUIRED after diagnosis.
+No production images, volumes, source files or converter configuration deleted.
+
+Existing restricted server-side DEV SSH account permits only two model targets,
+not OCR. Exact config /etc/ssh/sshd_config.d/90-kamilya-dev-models-20261016.conf;
+PermitOpen10.77.77.2:18999/10.77.77.4:18005, local-only forwarding. Root has NOT
+changed its permissions, server listeners or provider settings. Agent owns only
+scripts/ops/dev_private_model_runtime.py and its named script tests for an opt-in
+fixed OCR forward127.0.0.1:18600->10.77.77.2:18601. First50testsPASS; root
+requested removal of mutable-global readiness and a real ownership negative
+test. Revised implementation passes selected forwards explicitly, checks the OCR
+port, strips the control flag and preserves the model paths. Independent root
+verification51PASS/1.01s, diff-checkPASS. These dirty files are task-owned, not
+deployed or proof of server OCR reachability. No workstation Docker is required.
+
+Official upstream checked2026-10-19: project pins Docling2.106.0; latest release
+v2.140.0 dated2026-10-16 includes reading-order and repeated-region OCR fixes.
+Neither new version nor alternative has been benchmarked on both originals.
+Do not assert the changelog fixes this PDF. Compare corrected existing profile,
+isolated version update and an OCR challenger before choosing, without changing
+the current production service or provider tier. Original course quality,
+shared DEV upload/generation and postrelease cleanup/reupload remain OPEN.
+
+### Current delivery hold, 2026-10-19 16:14UTC
+
+HEAD and independently read-back remote dev are now
+c0fd90aa901e95e5cce2d19577cfc52e1c865349; accountKamillaLMSCRM, canonical helper;
+push receipt push-dev-r13.json and owner-required sanitized memory note preserved.
+R13 packet SHA256e90216290dd468fc7de4028f0f3d94b361d15aee4d5f63e4decc05a3f98f68ca,
+CI39282563923 stillqueued at last readback. GitHub itself confirms Actions/Webhooks
+incident https://www.githubstatus.com/incidents/8tzbpcnl75jp (investigating; delays
+in workflows/builds/webhooks). Root stopped ONLY exact local controllerPID22468
+while it waited for CI, before explicit provider deploy; session31485 exited1.
+No running deployment remains, no RELEASE_OK receipt, no R13 live acceptance.
+API independent health stillcdb7a6cb at16:11UTC; worker health has no SHA and is
+not accepted as exact identity proof. Do not infer automatic deployments absent.
+After provider recovery, read CI/remoteSHA/current providers, reuse the exact R13
+packet idempotently through canonical controller; no new push or duplicated job.
+Then actual legacy --revision13 and fresh ordinary DEV DOCX --labelr13, browser
+review/reload/reset, original-file fidelity and full semantic review.
+
+Final independent six-question/filter review ACCEPT: no factual/multiple-correct
+or source-context defect; P2 formal wording remains. Frozen3547tests/50.46s,
+canonical quality1004/2170, diffcheckPASS. Latest exact PDF electrical subset
+retains9/10,4calls/20.179s/source unchanged; independent9question reviewACCEPT,
+critical missing0 but omitted general reference action still has length signal,
+terminalreview_required. Never relabel as full acceptance or high difficulty.
+
+Bounded OCR diagnostic used existing private converter, no service configuration
+change: original page3 list region crop[40,55,560,155] produced three separate
+bullets in3.953s instead of merged garbage. Original SHA unchanged; derived work
+PDF/capture retained. It is diagnosis, not replacement source or an OCR fix.
+Generic converter correction remains open. Upstream pinned Docling2.106.0 code
+confirms constructor force_full_page_ocr and optionalpsm; newer main-branch
+OcrMode examples are not proof of this installed API. Do not guess a client text
+replacement, bypass execution policy, install unrelated tools, start local DBs,
+upgrade a provider, or mutate converter/service while resuming the R13 packet.
+Production65, exact postrelease cleanup/reupload and original-course acceptance
+remain unchanged and NOT_RUN. Working tree contains only this task's handoff/
+plan/ledger documentation updates plus unrelated output/; runtime source is frozen.
+
 ### Latest v12 follow-up, 2026-10-19 15:53UTC
 
 Final local follow-up now3547API unit+rendererPASS/50.46s, canonical Python
