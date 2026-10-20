@@ -27,7 +27,7 @@
 
 ## DEV server OCR — 2026-10-20
 
-Cloud DEV API/worker atfe4f6cf8220bd8bd8726052df0fac1ad910bd803 use the
+Cloud DEV API/worker at57c7822dac3e68755bde784f9a8a9f4b45ea5785 use the
 existing SSH launcher with DEV_OCR_SSH_ENABLED=true. Fixed local18600 forwards
 through the existing restricted private transport to VM12610.77.77.2:18601.
 VM126 ingress permits only wg0/proxy10.77.77.1; no public converter gateway.

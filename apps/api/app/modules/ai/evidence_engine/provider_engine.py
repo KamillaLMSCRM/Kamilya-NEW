@@ -452,7 +452,16 @@ def _loses_normative_qualification(text: str, facts: list[SourceFact]) -> bool:
         return re.findall(r"[а-я]+(?:-[а-я]+)*", value.casefold().replace("ё", "е"))
 
     candidates = [words(match.group(0)) for match in _TEACHING_SENTENCE_RE.finditer(text)]
+    legal_basis = re.compile(r"\bв силу действующих нормативных правовых и иных актов\b", re.IGNORECASE)
+    teaching_sentences = [match.group(0) for match in _TEACHING_SENTENCE_RE.finditer(text)]
     for fact in facts:
+        for source_sentence in _TEACHING_SENTENCE_RE.finditer(fact.value):
+            if legal_basis.search(source_sentence.group(0)):
+                anchors = _grounding_tokens(legal_basis.sub("", source_sentence.group(0)))
+                if not any(legal_basis.search(candidate) and anchors
+                           and len(anchors & _grounding_tokens(candidate)) / len(anchors) >= 0.65
+                           for candidate in teaching_sentences):
+                    return True
         tokens = words(fact.value)
         for index, token in enumerate(tokens):
             first = qualifier.fullmatch(token)

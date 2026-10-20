@@ -2097,7 +2097,27 @@ def _direct_binary_prohibition(correct_value: str) -> tuple[str, str] | None:
     return None
 
 
+def _room_installation_prohibition(value: str) -> tuple[str, str] | None:
+    """Contrast one complete room/object prohibition, never qualified clauses."""
+    match = re.fullmatch(
+        r"(?P<scope>В\s+помещениях\s+[А-Яа-яЁё]+(?:\s*,\s*[А-Яа-яЁё]+)*)\s+"
+        r"не\s+должно\s+допускаться\s+(?P<object>устройство\s+[^,.!?;:—\n]+)\.?",
+        value.strip(), flags=re.IGNORECASE,
+    )
+    if match is None or re.search(
+        r"\b(?:кроме|исключени\w*|если|когда|при|после|до|пока|но|однако|не|только|лишь)\b",
+        match['object'], flags=re.IGNORECASE,
+    ):
+        return None
+    scope, object_value = match['scope'], match['object']
+    return (f"Допускается ли {scope[:1].lower()}{scope[1:]} {object_value}?",
+            f"{scope} допускается {object_value}.")
+
+
 def _required_prompt(correct_value: str) -> str:
+    room_prohibition = _room_installation_prohibition(correct_value)
+    if room_prohibition is not None:
+        return room_prohibition[0]
     direct = _direct_binary_prohibition(correct_value)
     if direct is not None:
         return direct[0]
@@ -2231,6 +2251,9 @@ def _server_owned_inverse(correct_value: str) -> str | None:
     and negation are unambiguous, the server owns both choices and emits a
     true/false assessment instead.
     """
+    room_prohibition = _room_installation_prohibition(correct_value)
+    if room_prohibition is not None:
+        return room_prohibition[1]
     direct = _direct_binary_prohibition(correct_value)
     if direct is not None:
         return direct[1]
@@ -3001,13 +3024,27 @@ def _source_owned_appointment_decision(axis: AssessmentAxis) -> tuple[str, str] 
         r"(?:организации|компании|предприятия|подразделения))",
         axis.correct_value, flags=re.IGNORECASE,
     )
-    if match is None:
+    listed_actor = re.fullmatch(
+        r"(?P<actor>Ответственные за [^,;:!?]{5,120} сотрудники),\s+"
+        r"назначенные приказом (?P<authority>руководителя|директора|начальника) "
+        r"(?P<organization>ломбарда|организации|компании|предприятия|подразделения),?",
+        axis.correct_value, flags=re.IGNORECASE,
+    )
+    if match is None and listed_actor is None:
         return None
     for constraint in axis.distractor_constraints:
         if constraint.relation != "same_axis":
             continue
         fact = SourceFact(constraint.fact_id, constraint.subject, constraint.attribute,
                           constraint.value, "doc_id=source-owned-appointment")
+        if listed_actor is not None and (structured := _explicit_structured_list(fact.value)):
+            for _position, clause in structured[1]:
+                if (axis.correct_value, axis.required_prompt) == _long_list_responsibility_axis(fact, clause):
+                    inverse = axis.correct_value.replace(", назначенные приказом", ", не назначенные приказом", 1)
+                    if inverse != axis.correct_value:
+                        return inverse, f"{structured[0]}: {clause}"
+        if match is None:
+            continue
         for sentence in _source_sentences(fact.value):
             if (axis.correct_value, axis.required_prompt) in _delegated_responsibility_axes(
                 replace(fact, value=sentence),

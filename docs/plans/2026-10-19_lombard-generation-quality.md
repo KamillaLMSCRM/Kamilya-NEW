@@ -994,3 +994,30 @@ the real captured constraint response to the application parser: it removes
 option3 and only then retains the complete key with two valid alternatives.
 Zero new provider/DB calls; the original overstrong-assertion FAIL is preserved.
 This source-reviewed oracle is not fresh full DEV or production acceptance.
+
+## Current checkpoint — R29 scope recovery, 2026-10-20
+
+R28 exact57c7822dac3e68755bde784f9a8a9f4b45ea5785 passed CI39411731460,
+native39411770089 and DEV controller RELEASE_OK. Fresh PDF job
+a98a22d0-f142-4871-9079-ac97dc99ff5e saved8lessons/92questions in1159.125s;
+assessment1040.398s/117chat attempts/no provider fallback. Terminal interrupted
+assessment_coverage_incomplete, not Celery timeout. Independent full source review
+checked92keys/235choices/92explanations: prior cable/end-of-work defects closed.
+One lesson dropped the legal-act appointment basis; three axes omitted.
+Actual R28 browser showed Result/partial, opened the saved draft normally.
+
+R29 policyv24 keeps all targets/keys and both blind source gates. A narrowly
+anchored complete room-installation prohibition and a source-verified appointed
+long-list actor use binary contrasts instead of cosmetic MCQ padding. Compound
+readiness/intended-use guidance names two independent source violations. Missing
+legal-act basis rejects the broadened lesson block into the existing renderer.
+RED4/8 before source repair, focused197PASS afterward; additional boundary16PASS.
+Nonthinking baseline selected3/3 in9calls21.533s is explicitly diagnostic only.
+Cloud-equivalent constraint low-reasoning selected3/3 in9calls53.152s, full parent
+context/zeroDB/deploy. Intentionally unselected source outcomes remain open;
+this is not whole-course acceptance. Independent source review found no P1/P2.
+Production65 and approved old-source replacement remain unchanged/NOT_RUN.
+Final frozen local suite3799PASS/63.58s/5knownwarnings; canonical quality
+ruff1004/mypy2170PASS. CodeGraph sync1901files3385ms (wrapper14350ms), exclusion
+auditPASS; exact callers confirmed the existing renderer/assessment seams.
+No unresolved multi-hop dependency required a second Graphify traversal.

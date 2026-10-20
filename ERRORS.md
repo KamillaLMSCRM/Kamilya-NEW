@@ -9290,6 +9290,16 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   do not mutate job status or route partial drafts through complete-course review.
   Expose aria-current and regress both partial error classes and reset to
   Documents. Real running/interrupted-other jobs retain their prior behavior.
+- R29 whole R28 PDF retained92/95 in1159.125s, not a task timeout. A simple
+  archive-room prohibition produced cosmetic MCQ misconceptions; one long-list
+  executor invited an overlapping role. Source-verified room-installation and
+  list-appointment pairs now contrast only the complete prohibition or appointment
+  qualification, preserving the exact key, scope and both blind reviews. Compound
+  readiness/intended-use authoring names two independent violations, never two
+  excuses for misuse. An omitted legal-act basis in lesson prose now rejects the
+  broadened block into the existing source renderer. RED4/8 then focused197PASS;
+  selected real low-reasoning diagnostic3/3,9calls53.152s is not whole acceptance.
+  Exception/qualification negatives and faithful-prose regression remain required.
 - v11 follow-up: mixed operational families require sentence-local precedence
   and actual-target exact-span accounting, not a recognized-family boolean.
   Parenthetical context cannot erase finite/modal/past/passive actions. Use

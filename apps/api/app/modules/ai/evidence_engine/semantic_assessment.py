@@ -784,6 +784,15 @@ def _axis_answer_domain(axis: AssessmentAxis) -> dict[str, Any] | None:
     prefix = f"Для «{axis.source_context}»: "
     if axis.source_context and prompt.startswith(prefix):
         prompt = prompt[len(prefix):]
+    readiness = re.fullmatch(
+        r"содержать в исправном состоянии (?P<object>[^,.!?;:]+),\s*"
+        r"не допускать их использования не по назначению[.]?", axis.correct_value, re.IGNORECASE,
+    )
+    if readiness and prompt.startswith("Какое полное правило в отношении «"):
+        return {"kind": "readiness_and_intended_use", "required_components": ["working_condition", "intended_use"],
+                "bound_object": readiness['object'],
+                "misconception_targets": ["waive working condition while preserving intended use", "permit unintended use while preserving working condition"],
+                "scope": "Each option answers the complete joint duty. Use these two independent violations: one explicitly waives readiness but keeps intended use, the other permits misuse but keeps readiness. Do not let both wrong options permit misuse with different excuses, even if one additionally omits readiness. These directions grant no truth or realism exemption; both blind reviews and all local guards remain binding."}
     notice = re.fullmatch(
         r"Кого и когда (?P<actor>[^«»!?]+?) (?P<modal>обязан[аы]?|должен|должна|должны) "
         r"(?P<verb>поставить в известность|уведомить|сообщить) при условии «[^«»!?]+»\?", prompt,
