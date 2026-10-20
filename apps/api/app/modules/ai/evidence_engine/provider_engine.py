@@ -436,6 +436,57 @@ def _restore_unresolved_source_referents(text: str, facts: list[SourceFact]) -> 
     return text
 
 
+def _loses_normative_qualification(text: str, facts: list[SourceFact]) -> bool:
+    """Conservative RU qualification-loss detector, never semantic acceptance.
+
+    Bind a closed adjective family to its following source object. A qualifier
+    on a different object/sentence cannot justify dropping it here. Unsupported
+    paraphrases may fall back to complete source wording, not invented prose.
+    """
+    qualifier = re.compile(
+        r"(?P<kind>действующ|утвержденн|разрешенн|согласованн|уполномоченн)"
+        r"(?:ый|ий|ых|их|ого|его|ым|им|ыми|ими|ую|юю|ой|ей|ые|ие|ая|яя|ое|ее)"
+    )
+
+    def words(value: str) -> list[str]:
+        return re.findall(r"[а-я]+(?:-[а-я]+)*", value.casefold().replace("ё", "е"))
+
+    candidates = [words(match.group(0)) for match in _TEACHING_SENTENCE_RE.finditer(text)]
+    for fact in facts:
+        tokens = words(fact.value)
+        for index, token in enumerate(tokens):
+            first = qualifier.fullmatch(token)
+            if first is None:
+                continue
+            required = {first["kind"]}
+            end = index + 1
+            while end + 1 < len(tokens) and tokens[end] == "и":
+                following = qualifier.fullmatch(tokens[end + 1])
+                if following is None:
+                    break
+                required.add(following["kind"])
+                end += 2
+            if end >= len(tokens) or len(tokens[end]) < 4:
+                continue
+            object_stem = tokens[end][:6]
+            for sentence in candidates:
+                for position, word in enumerate(sentence):
+                    if not word.startswith(object_stem):
+                        continue
+                    present: set[str] = set()
+                    preceding = position - 1
+                    while preceding >= 0:
+                        match = qualifier.fullmatch(sentence[preceding])
+                        if match is not None:
+                            present.add(match["kind"])
+                        elif sentence[preceding] != "и":
+                            break
+                        preceding -= 1
+                    if not required <= present:
+                        return True
+    return False
+
+
 def _grounded_teaching_text(text: str, facts: list[SourceFact]) -> str:
     """Keep supported prose and restore every omitted sentence of cited facts."""
     text = _restore_unresolved_source_referents(text, facts)
@@ -913,12 +964,21 @@ class ProviderBackedEvidenceEngine:
             if not fact_ids <= plan_fact_ids:
                 raise ValueError("block cites a fact outside the lesson plan")
             cited_facts = [facts_by_id[fact_id] for fact_id in fact_ids]
+            qualification_lost = _loses_normative_qualification(text, cited_facts)
+            if qualification_lost and any(
+                contains_visible_artifact(_clean_output_text(fact.value))
+                or contains_internal_generation_instruction(fact.value) for fact in cited_facts
+            ):
+                # Neither a broadened paraphrase nor copying a tainted source
+                # is safe evidence for this qualification. Keep the gate closed.
+                raise ValueError("source qualification requires clean evidence")
             if (
                 any(_structured_source_value(fact.value) for fact in cited_facts)
                 or _changes_source_word_negation(text, cited_facts)
+                or qualification_lost
             ):
-                # These source-owned values are rendered below without losing
-                # a cell paragraph/list condition or reversing a source word.
+                # Render uncovered facts below with their normal labels/order,
+                # rather than keep a broadened qualification or invert a word.
                 continue
             if (any(is_tabular_locator(fact.source_locator) for fact in cited_facts)
                     and not all(is_tabular_locator(fact.source_locator) for fact in cited_facts)):

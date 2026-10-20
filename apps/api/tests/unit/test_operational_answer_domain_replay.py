@@ -600,3 +600,95 @@ async def test_unsupported_immutable_executor_shape_is_terminal_without_paid_rep
     assert record["attempt_counts"]["replacement"] == record["attempt_counts"]["model_repair"] == 0
     assert result.audit["attempt_counts"]["replacement"] == result.audit["attempt_counts"]["model_repair"] == 0
 
+
+class ResidualShapeClient(ReplayClient):
+    def __init__(self, outcome="accepted"):
+        super().__init__("semantic_repair")
+        self.outcome = outcome
+        self.notice_generations = 0
+
+    async def ainvoke_validated(self, messages, parser, **kwargs):
+        request = json.loads(messages[-1]["content"])
+        task = request["task"]
+        if task in {"assessment_generate", "assessment_repair"}:
+            self.requests.append(request)
+            rows = []
+            for axis in request["axes"]:
+                if axis["source_claim"] == NOTICE_KEY:
+                    if task == "assessment_generate":
+                        self.notice_generations += 1
+                        if self.notice_generations > 1 and self.outcome == "empty":
+                            continue
+                        variant = ("Передать" if self.notice_generations == 1 or self.outcome == "identical"
+                                   else "Отложить")
+                        choices = (variant + " уведомление службе контроля после повторной плановой проверки " * 4,
+                                   variant + " уведомление руководителю после завершения следующей рабочей смены " * 4)
+                    else:
+                        assert request["rejected"][0]["primary_fact_id"] == "fact-notice"
+                        assert request["rejected"][0]["fact_ids"] == ["fact-notice"]
+                        choices = ("Ожидать " * 30, "Передавать " * 30) if self.outcome == "bad_repair" else NOTICE_DISTRACTORS
+                else:
+                    choices = SIGNING_REPAIR if task == "assessment_repair" else SIGNING_AMBIGUOUS
+                rows.append({"axis_id": axis["axis_id"], "prompt": axis["required_prompt"],
+                             "distractors": list(choices)})
+            return SimpleNamespace(value=parser(json.dumps({"questions": rows}, ensure_ascii=False)),
+                                   attempt_count=1, failure_reasons=(), model_id="synthetic-replay")
+        if task == "assessment_review" and self.outcome in {"semantic_reject", "mixed"}:
+            def reject_notice(raw):
+                payload = json.loads(raw)
+                for row in payload["reviews"]:
+                    if row["question_id"] == "semantic-notice":
+                        row["educational"] = False
+                return parser(json.dumps(payload))
+            return await super().ainvoke_validated(messages, reject_notice, **kwargs)
+        return await super().ainvoke_validated(messages, parser, **kwargs)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome,expected_repairs", [
+    ("accepted", 1), ("bad_repair", 1), ("semantic_reject", 1),
+    ("identical", 0), ("empty", 0),
+])
+async def test_residual_shape_uses_only_unspent_model_repair_before_both_reviews(monkeypatch, outcome, expected_repairs):
+    lessons, facts = _fixture()
+    lessons = [lesson for lesson in lessons if lesson.lesson_id == "lesson-notice"]
+    monkeypatch.setattr(semantic_assessment, "derive_assessment_axes", lambda lesson, selected_facts, *, block_id:
+                        (_axis("notice", block_id=block_id),))
+    client = ResidualShapeClient(outcome)
+    result = await generate_block_assessment(lessons, facts, client)
+    tasks = [request["task"] for request in client.requests]
+    record = next(row for row in result.audit["axis_outcomes"] if row["axis_id"] == "axis-notice")
+    assert record["attempt_counts"]["replacement"] == 1
+    assert record["attempt_counts"]["model_repair"] == expected_repairs
+    assert tasks.count("assessment_repair") == expected_repairs
+    if outcome == "accepted":
+        assert tasks == ["assessment_generate", "assessment_generate", "assessment_repair",
+                         "assessment_review", "assessment_constraints"]
+        assert len(result.questions) == result.audit["repaired"] == 1
+        assert record["candidate_origin"] == "provider_model_repair_after_replacement"
+        assert record["attempt_counts"]["authored"] == 2
+        assert not result.audit["unresolved_quality_signals"]
+    else:
+        assert not result.questions and result.audit["repaired"] == 0
+        assert tasks.count("assessment_review") == (1 if outcome == "semantic_reject" else 0)
+        assert "assessment_constraints" not in tasks
+        if outcome == "identical":
+            assert "assessment_replacement_no_progress" in record["reason"]
+
+
+@pytest.mark.asyncio
+async def test_exhausted_pre_review_axis_does_not_consume_another_axes_semantic_repair(monkeypatch):
+    lessons, facts = _fixture(combined=True)
+    monkeypatch.setattr(semantic_assessment, "derive_assessment_axes", lambda lesson, selected_facts, *, block_id:
+        tuple(_axis(kind, block_id=block_id, lesson_id=lesson.lesson_id) for kind in ("notice", "signing")))
+    client = ResidualShapeClient("mixed")
+    result = await generate_block_assessment(lessons, facts, client)
+    records = {row["axis_id"]: row for row in result.audit["axis_outcomes"]}
+    assert [question.correct_answer for question in result.questions] == [SIGNING_KEY]
+    assert records["axis-notice"]["state"] == "omitted"
+    assert records["axis-signing"]["state"] == "retained"
+    assert all(records[key]["attempt_counts"]["model_repair"] == 1 for key in ("axis-notice", "axis-signing"))
+    assert result.audit["repaired"] == 1
+    assert [request["axes"][0]["axis_id"] for request in client.requests if request["task"] == "assessment_repair"] == [
+        "axis-notice", "axis-signing"]
+

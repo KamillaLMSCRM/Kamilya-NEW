@@ -828,3 +828,44 @@ re-review READY/noP1/P2. Policyv20 prevents stale reuse. Frozen full3735unitPASS
 49.45s/5knownwarnings; canonical quality
 1004ruff/2170mypyPASS. CodeGraph1.6.1 sync1900files/exclusionauditPASS,
 finalupdate1325ms/total8309ms. Full fresh DEV and production remain NOT RUN forR24.
+
+## Current checkpoint — R25, 2026-10-20
+
+Shared DEV R24 exact0a9d8aa824c78422839017f7969389878cda0038 completed CI39395120330
+(all7SUCCESS), native build39395164498 and controllerRELEASE_OK. API
+dep-dbbiknfavr4c73e0obm0, workerdep-dbbiloo473hc73cgi9u0, frontend
+dpl_3yrePyi7Bhs7PNhmik5sVKu6CVPy; existing Free/Free/Hobby unchanged.
+PDF job07aa8a6f-c5da-4499-9a28-9af7a5fca8cb/course534f96ce-ed95-483e-b02a-b3a81761c9da
+completed8lessons94/95/416.266s. DOCX jobf746fd48-d2a0-4b8c-90af-d89f97efd632/
+course248fa769-ef79-49cd-b2b9-320a02879364 completed5lessons44/44/605.313s
+including PDF queue. Both original hashes and existing server OCR preserved.
+These are NOT whole-source acceptance: a door-rule question remained omitted;
+independent source review found a lost current-rate qualifier in one DOCX lesson.
+
+Independent retained-content review: PDF8lessons94questions254choices, noP1/P2
+among retained options/keys; DOCX5lessons44questions, no question-key P1/P2 but
+one lesson P2. P3 source-preserved OCR typos, dense nested wording and opaque
+generic attribute prompts remain; no polished-language/zero-error claim.
+Ordinary DEV browser new-course reset and bounded document chooser PASS onR24;
+the restored partial result was an older job, not claimed as R24 generation.
+
+R25 uses the existing one model-repair allowance for a changed, nonempty,
+still-structurally-invalid replacement, then re-admits shape and requires both
+blind reviews. Common helper caps model_repair at1 across both phases; empty,
+unchanged, immutable cases terminate. Mixed-axis and origin/repaired accounting
+regressions keep other axes independent. RED5of6 before implementation; corrected
+semantic replay17PASS. No length/coverage/publishability guard was weakened.
+Normative approved/current qualifier loss rejects a provider block into the
+existing per-fact source renderer, preserving order and table labels. Qualifiers
+cannot be borrowed from another object/sentence. Lost qualification with tainted
+source fails closed rather than accepting broad prose or copying tainted text.
+Observed original DOCX prose replay through the full renderer PASS/0provider/
+0DBwrites, hash-bound qualifier-observed-r25c.json. Source facts/keys unchanged.
+
+Independent final source reviews READY/noP1/P2; root sole source author. Frozen
+canonical3750unitPASS/51.43s/5knownwarnings, quality1004ruff/2170mypyPASS.
+CodeGraph1.6.1 sync1900files/exclusionauditPASS/update1279ms/total8066ms;
+grounding helper navigation confirmed one runtime consumer plus tests in source.
+Observed agent token/cost/model-runtime counters remain unavailable, not zero.
+Policyv21 invalidates stale reuse. R25 DEV and production are NOT RUN at this
+checkpoint. No production66, old-source deletion or fresh production upload yet.

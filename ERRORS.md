@@ -9249,6 +9249,17 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   qualified same-role distractor. Bind the exact source performer, reject role
   overlap, and never invent an absent third job title to fill options. Real whole
   DEV R23 remained40/44 DOCX and93/95 PDF; selected probes do not close acceptance.
+- R25 actual shared DEV R24 completed44/44 DOCX and94/95 PDF, but was not accepted:
+  one source-backed door target exhausted structural replacement without reaching
+  the otherwise unspent model-repair allowance. Route only changed, nonempty,
+  author-fixable residuals through the existing singleton repair and shape gate;
+  a shared per-axis counter forbids a later second semantic repair. Preserve
+  explicit empty/unchanged/immutable termination and accurate repaired/origin
+  audit. Full option reviews remain mandatory. Independent review also caught
+  a missing current-rate qualifier in a lesson despite complete quiz coverage.
+  Reject that broadened provider block into the existing per-fact source renderer,
+  preserving source order and table labels. Qualifiers from another object or
+  sentence cannot establish preservation; token overlap alone is insufficient.
 - v11 follow-up: mixed operational families require sentence-local precedence
   and actual-target exact-span accounting, not a recognized-family boolean.
   Parenthetical context cannot erase finite/modal/past/passive actions. Use

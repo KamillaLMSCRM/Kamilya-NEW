@@ -62,6 +62,11 @@ diagnostics and provider-attempt count. Callers and tests use this same seam.
   semantic rejection has at most one existing model repair. Rejected text,
   ordered evidence identity, observed answer shape and reasons are passed back
   without changing the key. Explicit empty output is not retried for padding.
+- If that replacement is nonempty, materially changed, and still has exclusively
+  author-fixable structural defects, it may consume the same existing one model
+  repair BEFORE blind reviews. Re-admit its exact shape first, then require both
+  reviews. There is no second model repair after that budget is spent, including
+  when a reviewer rejects the result. Empty/unchanged/immutable cases terminate.
 - Final grounding, containment, post-pruning shape and quiz-level distribution
   guards still apply. Local admission or model approval alone is not quality GO.
 - Every derived axis is classified as retained, omitted, unassessable or

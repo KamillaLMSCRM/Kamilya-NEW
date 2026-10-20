@@ -908,6 +908,13 @@ def _answer_shape_feedback(question: QuestionDraft) -> dict[str, Any]:
                               for index, option in enumerate(question.options)]}
 
 
+def _same_authored_candidate(left: QuestionDraft, right: QuestionDraft) -> bool:
+    return (_norm(left.prompt) == _norm(right.prompt)
+            and _norm(left.correct_answer) == _norm(right.correct_answer)
+            and sorted(_norm(option) for option in left.options) == sorted(_norm(option) for option in right.options)
+            and _norm(left.explanation) == _norm(right.explanation))
+
+
 def _parse_reviews(raw: str, questions: list[QuestionDraft]) -> ReviewResult:
     rows = _object(raw).get("reviews")
     by_id = {q.question_id: q for q in questions}
@@ -1674,6 +1681,34 @@ async def generate_block_assessment(
                 "stage": stage, "reasons": list(reasons)})
         return admitted, rejected
 
+    async def repair_candidate(
+        question: QuestionDraft, axis: AssessmentAxis, reasons: list[str], request: dict[str, Any],
+    ) -> list[QuestionDraft]:
+        record = axis_records[axis.axis_id]
+        if record["attempt_counts"]["model_repair"] >= 1:
+            return []
+        record["attempt_counts"]["model_repair"] += 1
+        audit["attempt_counts"]["model_repair"] += 1
+        repair_request = {**request, "task": "assessment_repair", "max_questions": 1,
+                          "axes": [_axis_author_payload(axis)],
+                          "rejected": [{"question_id": question.question_id, "prompt": question.prompt,
+                                        "options": question.options, "primary_fact_id": question.fact_id,
+                                        "fact_ids": question.evidence_fact_ids,
+                                        "answer_shape": _answer_shape_feedback(question),
+                                        "rejection_reasons": reasons,
+                                        "rejected_options": _rejected_option_feedback(question, reasons)}]}
+        results = await invoke(AUTHOR_PROMPT, repair_request,
+            partial(_parse_axis_questions, axes=(axis,), maximum=1,
+                    repair_targets={question.question_id: question}), failure_axis_ids=(axis.axis_id,)) or []
+        changed = []
+        for candidate in results:
+            if _same_authored_candidate(candidate, question):
+                record["state"] = "omitted"
+                record["reason"] += ";assessment_repair_no_progress"
+            else:
+                changed.append(candidate)
+        return changed
+
     for index, (lesson, facts, block_id, axes) in enumerate(prepared_groups, start=1):
         if checkpoint:
             await checkpoint()
@@ -1828,6 +1863,7 @@ async def generate_block_assessment(
                 axis_records[axis_id]["attempt_counts"]["authored"] += 1
                 audit["attempt_counts"]["authored"] += 1
         candidates, pre_rejected = admit_author_shapes(candidates, "initial")
+        pre_review_repaired_ids: set[str] = set()
         # Zero is the explicit no-padding answer. A partial non-zero answer is
         # recovered axis by axis so one truncated JSON response cannot erase an
         # otherwise assessable rich block. Every recovered candidate still goes
@@ -1877,7 +1913,25 @@ async def generate_block_assessment(
                 for _question in recovered or []:
                     axis_record["attempt_counts"]["authored"] += 1
                     audit["attempt_counts"]["authored"] += 1
-                recovered_admitted, _ = admit_author_shapes(list(recovered or []), "replacement")
+                recovered_admitted, replacement_rejected = admit_author_shapes(list(recovered or []), "replacement")
+                for rejected_axis_id, (rejected_question, reasons) in replacement_rejected.items():
+                    initial = pre_rejected.get(rejected_axis_id)
+                    if initial is None or "preliminary_executor_role_shape_unsupported" in reasons:
+                        continue
+                    if _same_authored_candidate(rejected_question, initial[0]):
+                        axis_record["reason"] += ";assessment_replacement_no_progress"
+                        continue
+                    fixable = all(reason == "assessment_answer_length_signal" or
+                                  (reason.startswith("option_") and reason.split(":", 1)[-1] in {
+                                      "answer_value_contains_or_is_contained_in_key",
+                                      "outside_recorded_decision_scope", "role_scope_overlaps_key"})
+                                  for reason in reasons)
+                    if not fixable:
+                        continue
+                    repaired_shapes = await repair_candidate(rejected_question, missing_axis, list(reasons), request)
+                    shape_admitted, _ = admit_author_shapes(repaired_shapes, "model_repair")
+                    recovered_admitted.extend(shape_admitted)
+                    pre_review_repaired_ids.update(question.question_id for question in shape_admitted)
                 if recovered_admitted:
                     recovered = recovered_admitted
                     candidates.extend(recovered)
@@ -1888,7 +1942,8 @@ async def generate_block_assessment(
                             record = axis_records[axis_id]
                             if "candidate_origin" in record:
                                 record["initial_candidate_origin"] = record["candidate_origin"]
-                            record["candidate_origin"] = "provider_replacement"
+                            record["candidate_origin"] = ("provider_model_repair_after_replacement"
+                                if question.question_id in pre_review_repaired_ids else "provider_replacement")
                 elif not recovered:
                     axis_record.update(state="omitted", reason="no_admissible_candidate")
         audit["authored_axes"] += len(candidates)
@@ -2132,8 +2187,8 @@ async def generate_block_assessment(
                     length_signal_targets[question.question_id] = question.lesson_id
             good = [q for q in good if q.question_id not in length_targets]
             accepted.extend(good)
-            if round_index:
-                audit["repaired"] += len(good)
+            audit["repaired"] += (len(good) if round_index else
+                                  sum(question.question_id in pre_review_repaired_ids for question in good))
             good_ids = {q.question_id for q in good}
             rejected = [q for q in candidates if q.question_id not in good_ids]
             if round_index:
@@ -2175,43 +2230,8 @@ async def generate_block_assessment(
                     continue
                 if repair_axis is None:
                     continue
-                if axis_id is not None:
-                    axis_records[axis_id]["attempt_counts"]["model_repair"] += 1
-                    audit["attempt_counts"]["model_repair"] += 1
-                repair_request = {**request, "task": "assessment_repair", "max_questions": 1,
-                                  "axes": [_axis_author_payload(repair_axis)],
-                                  "rejected": [{"question_id": rejected_question.question_id,
-                                                "prompt": rejected_question.prompt,
-                                                "options": rejected_question.options,
-                                                "primary_fact_id": rejected_question.fact_id,
-                                                "fact_ids": rejected_question.evidence_fact_ids,
-                                                "answer_shape": _answer_shape_feedback(rejected_question),
-                                                "rejection_reasons": rejection_reasons[
-                                                    rejected_question.question_id],
-                                                "rejected_options": _rejected_option_feedback(
-                                                    rejected_question, rejection_reasons[
-                                                        rejected_question.question_id])}]}
-                repair_results = await invoke(AUTHOR_PROMPT, repair_request,
-                    partial(_parse_axis_questions, axes=(repair_axis,), maximum=1,
-                            repair_targets={rejected_question.question_id: rejected_question}),
-                    failure_axis_ids=(repair_axis.axis_id,)) or []
-                for repaired_question in repair_results:
-                    unchanged = (
-                        _norm(repaired_question.prompt) == _norm(rejected_question.prompt)
-                        and _norm(repaired_question.correct_answer) == _norm(rejected_question.correct_answer)
-                        and sorted(_norm(option) for option in repaired_question.options)
-                        == sorted(_norm(option) for option in rejected_question.options)
-                        and _norm(repaired_question.explanation) == _norm(rejected_question.explanation)
-                    )
-                    if unchanged:
-                        # The same failed candidate (even reordered) cannot
-                        # improve by paying for a second semantic/constraint
-                        # judgment. Keep the omission and its original reasons.
-                        record = axis_records[repair_axis.axis_id]
-                        record["state"] = "omitted"
-                        record["reason"] += ";assessment_repair_no_progress"
-                        continue
-                    repaired.append(repaired_question)
+                repaired.extend(await repair_candidate(rejected_question, repair_axis,
+                    rejection_reasons[rejected_question.question_id], request))
             candidates = repaired
         block_failures = [
             failure for failure in audit["failures"][block_failures_at_start:]
