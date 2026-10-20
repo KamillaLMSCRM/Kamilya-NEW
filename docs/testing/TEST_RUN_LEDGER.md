@@ -5886,3 +5886,45 @@ Rules:
   Server-only synthetic scanned RU/KK/EN3pages/6checks PASS11.568s; production
   converter identity/restarts unchanged. Root owns all external operations;
   observed leaf model/effort/tokens unavailable. No production66 release yet.
+
+- 2026-10-20 R20 DEV39375199287/all7PASS, exact959624 API/worker/frontend
+  RELEASE_OK, existing Free/Free/Hobby unchanged. DOCX job722d68c2 completed199.0s,
+  5lessons/44questions/all44retained reviewed. Browser missing-answer guard and
+  preview18/18/100%PASS, player/render/reloadPASS, no learner attempt. Legacy
+  job44827e16 completed1question/needs_review; own lesson9f49fb4c deleted204,
+  absent404, original4lessons/quizzes unchanged. Exact receipts under existing
+  lombard-quality19 evidence root; no production business writes.
+- 2026-10-20 R20 PDF jobe46151b9 warm shutdown05:53:40UTC at assessment4/8.
+  Verified unchanged deployment959624/Free; readiness GET woke same service.
+  Fenced original-row/tenant/user/source/update-time/non-bypass DEV reconciliation
+  found no V2 durable partial output, marked only that orphan interrupted,
+  ordinary API resume202 kept same logical job/quota. Resumed444.062s,8lessons/
+  92of95, interrupted/assessment_coverage_incomplete; full wall includes prior
+  attempt/queue/sleep. Never relabel as completed, checkpoint reuse or low cost.
+  Retained92items independently reviewed; review's DOCX-specific Stop-list
+  assertion WITHDRAWN from PDF evidence. Electrical4.1→4.4 repaired; three real
+  omissions remain1.5equipment/7.2+7.3actors.
+- 2026-10-20 R21 local diagnostics: equipment object-choice projection FAILED
+  both reviews correctly rejected unrelated equipment as undetermined, not false.
+  Closed complete modal duty5/5PASS7calls16.576s. Complete control actors2/2PASS
+  3calls9.527s; tightened whole-set prompt2/2PASS3calls10.831s. Selected diagnostic
+  parent audits intentionally incomplete, NOT whole-course acceptance.
+  Helper unit/actor/control source-negative matrices and root integration passed.
+  First full3688PASS52.34s,5knownwarnings; then source audit caught exact nominal
+  source-coverage correspondence. RED1/6PASS→GREEN8, preserving original words
+  and rejecting coverage by a sibling modal. Final full rerun remains required.
+  Initial quality I001 import-order rejection corrected; canonical quality
+  ruff1004/mypy2170PASS before the last negative test. No production66 change.
+- 2026-10-20 release66 readiness: current65/all4APIworkers/restarts0 and private/
+  public health independently confirmed,0183/FORCE7/non-bypass unchanged. Fresh
+  encrypted backup and signed disposable restore PASS44sRPO/20sRTO,130public/
+  126FORCEtables; owned DB/plaintext/temp absent. Existing root-owned signed
+  report digestee9fc8c9a4b9dcee86789db4d60544a32370c0a25c32ed80b545d4b2ccd219aa.
+  Production DB writes0; prepared converter switch/smoke/rollback NOT_EXECUTED.
+- 2026-10-20 R21 final source freeze:3690unitPASS/50.19s (5known framework
+  warnings), canonical quality1004ruff/2170mypyPASS; no baseline change.
+  CodeGraph syncPASS/7.886s total/2.536s update/1896files; no duplicate Graphify.
+  Frozen original admission44DOCX/95PDF targets,0operational partial parents;
+  one PDF legal-bibliography reference remains non-assessable context by design.
+  Final full receipt unit-r21-final.xml; source-admission-r21b.json. These local
+  gates do not establish fresh full DEV or production quality acceptance.

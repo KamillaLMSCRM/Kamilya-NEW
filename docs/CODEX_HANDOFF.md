@@ -8,18 +8,22 @@ production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 ## Active original-document quality correction66 — not production
 
-Current shared DEV is R19 5784e285dab24a72600c0db0e6f85fd95dc81593,
-CI39371380694/controllerRELEASE_OK, server OCR acb9.../image5d875... . Ordinary
-cloud-worker PDF reindex, original hashes and server-only3language scan PASS.
-Actual R19 course quality remains incomplete: DOCX40/44, PDF87/95. All retained
-items independently reviewed; no PDF4.3/4.4omission (earlier reviewer finding
-withdrawn), but source-order and one DOCX liability-stem ambiguity need correction.
-R20 scoped modal/list identity, answer-domain and nonadjacent-prose repairs plus
-bounded configured-model diagnostics are recorded at the top of the active plan.
-Do not run another OCR install: converter is frozen and already proven. Next
-freeze/review application delta, exact-SHA shared DEV R20, whole generation/browser
-acceptance, then owner-authorized production66 and exact postrelease cleanup.
-Production65 and its converter remain unchanged. No postrelease deletion yet.
+Current shared DEV R20 is959624145592e643e3a10069e0ec7753217c7f5b,
+CI39375199287/all7PASS, controllerRELEASE_OK. Server OCR acb9.../image5d875...
+is already connected and proven; no reinstall or workstation runtime is needed.
+Real DOCX199.0s/5lessons/44questions completed; all44 retained questions reviewed.
+Browser player/reload and preview quiz18/18PASS, missing-answer guardPASS,
+no learner attempt. Legacy one-rule regeneration completed1question, fixture
+removed204/readback404, original4lessons/quizzes unchanged.
+Real PDF resumed after DEV-worker idle shutdown, preserving the same job/quota;
+no durable partial V2 payload existed. Resume444.062s,8lessons/92of95questions,
+interrupted/coverage_incomplete. Three omissions remain:1.5equipment duty and
+7.2/7.3control actors. Source order4.1→4.4 is repaired. Never call92/95 accepted.
+R21 local policyv17 adds closed nominal-duty and complete source-named control-set
+projections. Focused unit/provider diagnostics precede final freeze/new exact DEV.
+Current production65/converter unchanged; fresh backup/restore0183 passed,
+RPO44s/RTO20s, owned temporary DB/files absent. Production converter promotion,
+protected backend/native66 and exact postrelease source reload remain OPEN.
 
 Historical pre-R18 checkpoint:
 

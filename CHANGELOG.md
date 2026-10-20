@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.11.66] - 2026-10-19
+## [0.11.66] - 2026-10-20
 
 ### Course quality correction candidate
 
@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Derive distinct operational-list assessment axes and repair/recover each exact
   axis instead of confusing sibling claims from the same source fragment.
   Critical assessment omissions remain explicit; no quota padding or relaxed
-  answer/grounding checks. Quality policy v9 invalidates old resume assumptions.
+  answer/grounding checks. Quality policy v17 invalidates old resume assumptions.
 - Preserve explicit converter table labels, emphasis-wrapped amounts and
   hierarchical safety clauses; retain evacuation-route headings and operational
   footnotes without teaching document-purpose prose. Exact conditional and

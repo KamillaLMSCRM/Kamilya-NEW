@@ -23,6 +23,7 @@ from .models import (
     is_tabular_locator,
 )
 from .operational_approval import is_unresolved_procedure_reference, project_operational_approvals
+from .operational_control import project_control_responsibility
 from .operational_coverage import audit_operational_coverage
 from .operational_inspection import project_operational_inspections
 from .operational_signing import project_signing_responsibilities
@@ -536,9 +537,13 @@ def _simple_list_obligation_axis(fact: SourceFact, clause: str) -> tuple[str, st
     """
     structured = _explicit_structured_list(fact.value)
     value = clause.strip().rstrip(".")
+    nominal_state = re.fullmatch(
+        r"обеспечение\s+исправное\s+состояние\s+[^.!?;:]+", value, flags=re.IGNORECASE,
+    )
     if (structured is None
             or len(value) > MAX_ASSESSMENT_ANSWER_CHARS
-            or not re.fullmatch(r"[А-Яа-яЁё]+(?:ть|ти|чь)(?:ся|сь)?\s+[^.!?;:]+", value)):
+            or (nominal_state is None and not re.fullmatch(
+                r"[А-Яа-яЁё]+(?:ть|ти|чь)(?:ся|сь)?\s+[^.!?;:]+", value))):
         return None
     parent = re.fullmatch(
         r"(?P<actor>[^:;!?]{5,220}?)\s+(?P<modal>обязан(?:а|о|ы)?|долж(?:ен|на|но|ны))",
@@ -552,7 +557,14 @@ def _simple_list_obligation_axis(fact: SourceFact, clause: str) -> tuple[str, st
                for _position, child in structured[1] for item in _structured_child_statements(child)):
         return None
     actor = parent.group("actor").rstrip(" ,")
-    return (parent.group("modal"), f"Обязательно ли для «{actor}» {value[:1].lower()}{value[1:]}?")
+    # Nominal wording in an explicit source list still states the exact duty.
+    # Normalize only its closed grammatical governor for the question, never
+    # change the required state, object, joint actions or source evidence.
+    action = (
+        re.sub(r"^обеспечение\s+", "обеспечить ", value, count=1, flags=re.IGNORECASE)
+        if nominal_state else value
+    )
+    return (parent.group("modal"), f"Обязательно ли для «{actor}» {action[:1].lower()}{action[1:]}?")
 
 
 _SINGLE_NUMBERED_ACTION = re.compile(
@@ -1790,6 +1802,9 @@ def has_partial_unatomized_source_contract(fact: SourceFact) -> bool:
         return any(not any(normalized(statement) in normalized(
             axis.correct_value + " " + axis.required_prompt,
         ) or _focused_list_duty(fact, statement) == (axis.correct_value, axis.required_prompt)
+                          or _simple_list_obligation_axis(fact, statement) == (
+                              axis.correct_value, axis.required_prompt,
+                          )
                           for axis in derived_axes) for _position, clause in structured[1]
                    for statement in _structured_child_statements(clause))
     specialized_partial = _has_incomplete_specialized_sentences(fact, sentences)
@@ -2545,11 +2560,17 @@ def _admissible_source_distractors(
     return True
 
 
+def _control_responsibility_axes(fact: SourceFact) -> list[tuple[str, str]]:
+    projected = project_control_responsibility(_without_source_marker(fact.value))
+    return [projected] if projected is not None else []
+
+
 def _sentence_projection_groups(
     fact: SourceFact, handover_axes: list[tuple[str, str]],
 ) -> dict[str, list[tuple[str, str]]]:
     """Apply grammar precedence to a sentence, never to unrelated siblings."""
     projectors = (
+        ("control", _control_responsibility_axes),
         ("scoped", _scoped_modal_axes),
         ("delegated", _delegated_responsibility_axes),
         ("consequence", _explicit_consequence_axes),
@@ -2659,6 +2680,7 @@ def derive_assessment_axes(
             else _sentence_projection_groups(fact, handover_response_axes)
         )
         scoped_modal_axes = sentence_groups.get("scoped", [])
+        control_responsibility_axes = sentence_groups.get("control", [])
         delegated_responsibility_axes = sentence_groups.get("delegated", [])
         consequence_axes = sentence_groups.get("consequence", [])
         instruction_axes = sentence_groups.get("training", [])
@@ -2694,6 +2716,7 @@ def derive_assessment_axes(
         )
         context_owned_axes = (
             reference_axes
+            + control_responsibility_axes
             + rejection_followup_axes
             + signing_responsibility_axes
             + inspection_axes
@@ -2712,7 +2735,8 @@ def derive_assessment_axes(
             + conditional_axes
         )
         projected_axes = (
-            rejection_followup_axes
+            control_responsibility_axes
+            + rejection_followup_axes
             + signing_responsibility_axes
             + inspection_axes
             + approval_axes

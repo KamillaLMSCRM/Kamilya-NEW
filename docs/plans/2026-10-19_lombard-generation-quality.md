@@ -5,7 +5,33 @@ cleanup/reload completed; no other production data changed.
 Owner: root; product authority: owner request 2026-10-19, original documents,
 synthetic QA only, DEV acceptance before one production package.
 
-## R19 real acceptance and R20 correction, 2026-10-20
+## R20 real acceptance and R21 correction, 2026-10-20
+
+Shared DEV R20 exact959624145592e643e3a10069e0ec7753217c7f5b passed CI39375199287
+and exact API/worker/frontend rollout. DOCX completed199.0s/5lessons/44questions;
+all44 questions reviewed, player/reload and methodologist preview18/18PASS.
+One-rule regeneration completed1question and cleaned its owned lesson, original4
+unchanged. PDF worker slept mid-assessment; ordinary wake completed the queued
+legacy job, but the original generation remained orphaned. Fenced DEV recovery
+preserved the SAME job/quota; V2 had no durable partial payload. The resumed
+attempt444.062s produced8lessons/92of95questions, incomplete, NOT accepted.
+Preserve both attempt clocks and failure receipts; no marketing speed claim.
+
+Omissions:1.5nominal equipment-state duty and7.2/7.3finite control actors. R21
+uses one complete source-owned modal decision for the nominal duty, not unrelated
+equipment distractors. Complete actor/control projection preserves all names,
+appointed qualification, full action and population; prompt asks the complete
+source-named set. Conservative grammar guards and both model reviews remain.
+Policyv17; nominal diagnostic5/5in7calls16.576s, final complete-set2/2in3calls10.831s.
+Source-coverage regression caught a nominal/infinitive correspondence omission;
+RED→GREEN now admits only the exact projected pair, never a sibling bare modal.
+Full local/current-source DEV acceptance remains required before production.
+
+Server converter sourceacb9/image5d875 unchanged and already proven. Production65
+and converter remain unchanged. Fresh encrypted backup/restore0183 PASS,
+RPO44s/RTO20s, owned disposable DB/plaintext/temp absent. No postrelease delete.
+
+## Historical R19 real acceptance and R20 correction, 2026-10-20
 
 Shared DEV R19 is5784e285dab24a72600c0db0e6f85fd95dc81593:
 CI39371380694 all7SUCCESS; controllerRELEASE_OK; APIdep-dbbf6vgm7kps73epb7s0,

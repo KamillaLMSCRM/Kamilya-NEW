@@ -896,6 +896,19 @@ Current as of: 2026-10-19.
 
 ## DEV-WORKER-SLEEP-001 - Free web-hosted worker stopped while QA reviewed content
 
+- 2026-10-20 follow-up: sleep can terminate an in-flight generation, not only
+  leave queued work asleep. R20 PDF stopped at assessment4/8 after a warm shutdown;
+  the same exact Free service woke on its ordinary health GET and completed the
+  queued one-rule regeneration. The PDF row remained running. A fenced DEV-only
+  reconciliation verified the exact old update time, original source/user/tenant,
+  absent active checkpoint leases and replaced worker instance before marking
+  that SAME job interrupted; ordinary resume retained its logical job/quota.
+  Evidence V2 had no durable partial lesson payload, so continuation repeated
+  unfinished work; do not claim legacy checkpoint reuse or duplicate-free model
+  spend. Completed partial92/95 was preserved, not accepted. Verify readiness
+  immediately before the long journey; never infer business completion from a
+  live provider deployment or install a paid/keepalive workaround.
+
 - Date:2026-10-12; existing Render DEV Free service, not KZ production.
 - Symptom: after a successful PDF generation, new indexing/generation remained
   queued. Service metadata was live/not_suspended and its HTTP health had passed,
@@ -8985,6 +8998,16 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   privileged upgrade and HTTP health cannot substitute for this role-bound gate.
 
 ## AI-QUALITY-050 - Operational tables and flattened lists lost teaching scope
+
+- 2026-10-20 R20 original PDF retained92/95, with three real omissions: a nominal
+  equipment-state list duty and two finite control-responsibility sentences.
+  Named unrelated equipment is not a source-contradicted alternative. Preserve
+  the complete explicit duty as one exact modal decision instead. Actor/control
+  projection must keep every named actor, appointed qualification, complete
+  action and controlled population; ask for the complete source-named set, not
+  exclusive real-world responsibility. Unknown/negative/conditional/multi-clause
+  grammar stays on the ordinary evidence path. Focused provider diagnostics do
+  not replace a fresh whole-course DEV acceptance.
 
 - 2026-10-20 R19 actual-model follow-up: a complete source-axis inventory still
   needs reviewed questions, not count-only acceptance. Preserve entire scoped
