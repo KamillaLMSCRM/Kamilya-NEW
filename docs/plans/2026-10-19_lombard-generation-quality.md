@@ -5,7 +5,34 @@ cleanup/reload completed; no other production data changed.
 Owner: root; product authority: owner request 2026-10-19, original documents,
 synthetic QA only, DEV acceptance before one production package.
 
-## Candidate source-fidelity checkpoint, 2026-10-20
+## Source-child completeness correction after R17, 2026-10-20
+
+R17 is installed only in DEV atfa363d6092274c7ab6946f8e3e0b939fd4d64376:
+CI39364798740SUCCESS, controllerRELEASE_OK and exact API/worker/frontend identity
+readback. Private R17 OCR authenticated both originals,0.797s/54.5s, production
+converter unchanged. Runtime installation is not course-quality acceptance.
+
+The earlier partial0/44+84target replay below was insufficient: structured-list
+presence bypassed source-child completeness and grammar/length filters silently
+lost normative children. Independent review confirmed genuine PDF omissions;
+compound DOCX/schedule substring probe findings were split-axis false positives.
+Root adds source-child checks, exact nominal/passive/comma/adverb list targets,
+bounded long-rule responsibility/prohibition questions and source-preserving
+sentence splits only under explicit normative parents. Never raise a lesson quota
+or source-key limit to hide omissions. New eight synthetic inventory tests PASS;
+whole real generation remains required after final source freeze/DEV deployment.
+Both remaining OCR-prefix defects now have bounded dual-reading/unique-provenance
+repairs; ordinary lexical prefixes, negation, balanced quotes and insufficient
+corroboration remain unchanged. Frozen sourceacb9b2267314bcaaa0428b6e223075b137f4bd43ca91811b66bb40556dddaa6f
+passed real offline native VM126 conversion: DOCX0.757s/PDF60.703s, peak2542000KiB,
+physical path active, production converter unchanged. Local application replay
+9/32admitted,0uncertain/partial/unassessed,5/8lessons,44/95targets. Policyv14
+invalidates previous stage checkpoints. Final canonical API3630PASS/45.58s,
+quality1004ruff/2170mypyPASS, independent focused assessment/converter reviews
+accepted for root integration. These are not whole model/course/browser acceptance.
+No production66 GO yet.
+
+## Historical candidate source-fidelity checkpoint, 2026-10-20
 
 Comparison on unchanged originals selects Docling2.106 with bounded physical-order
 projection, not a blind2.140 upgrade. Current default/full-page PDF49.728/45.410s,

@@ -549,3 +549,146 @@ def test_physical_policy_order_keeps_source_corroborated_orphan_repair_compatibl
     assert "- keep volatile materials and mixes;" in markdown
     assert "xQ;" not in markdown
     assert "— keep exits clear;" in markdown
+
+
+def test_scanned_physical_conversion_repairs_only_pixel_corroborated_margin_prefixes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _load_service(monkeypatch)
+    heading = _TextItem("POLICY", page_no=1, top=760, label="section_header")
+    clause = _TextItem(
+        "Staff must:",
+        page_no=1,
+        top=680,
+        label="list_item",
+        marker="4.2.",
+    )
+    lexical_noise = _TextItem(
+        "о `-organize safety instruction for each team;",
+        page_no=1,
+        top=620,
+        label="list_item",
+    )
+    punctuation_noise = _TextItem(
+        "„apply flame restrictions;",
+        page_no=1,
+        top=580,
+        label="list_item",
+    )
+    following = _TextItem(
+        "— inspect emergency exits;",
+        page_no=1,
+        top=540,
+        label="list_item",
+    )
+    document = _Document([following, punctuation_noise, lexical_noise, clause, heading], pages=1)
+    _install_converter(service, document, monkeypatch)
+    psm3 = (
+        "Staff must:\n"
+        "— organize safety instruction for each team;\n"
+        "„apply flame restrictions;\n"
+        "— inspect emergency exits;"
+    )
+    psm6 = (
+        "Staff must:\n"
+        "— organize safety instruction for each team;\n"
+        "— apply flame restrictions;\n"
+        "— inspect emergency exits;"
+    )
+    calls: list[int] = []
+
+    def page_ocr(path: str, page_no: int, budget):
+        calls.append(page_no)
+        return psm3, psm6
+
+    monkeypatch.setattr(service, "_independent_page_list_ocr", page_ocr)
+
+    with service._scanned_pdf_percentage_crosscheck():
+        markdown, _, _ = service._docling_convert("scanned.pdf")
+
+    assert calls == [1]
+    assert "- organize safety instruction for each team;" in markdown
+    assert "- apply flame restrictions;" in markdown
+    assert "о `-organize" not in markdown
+    assert "„apply" not in markdown
+
+
+def test_scanned_physical_conversion_preserves_lexical_prefixes_negation_and_quoted_prose(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _load_service(monkeypatch)
+    heading = _TextItem("POLICY", page_no=1, top=760, label="section_header")
+    clause = _TextItem(
+        "Staff must:",
+        page_no=1,
+        top=680,
+        label="list_item",
+        marker="8.4.",
+    )
+    lexical_prefix = _TextItem(
+        "note - preserve the source qualifier exactly;",
+        page_no=1,
+        top=620,
+        label="list_item",
+    )
+    negation = _TextItem(
+        "not - disable the required alarm during testing;",
+        page_no=1,
+        top=580,
+        label="list_item",
+    )
+    quoted_prose = _TextItem(
+        "„Exact quoted rule“",
+        page_no=1,
+        top=540,
+        label="list_item",
+    )
+    document = _Document([quoted_prose, negation, lexical_prefix, clause, heading], pages=1)
+    _install_converter(service, document, monkeypatch)
+
+    def unexpected_ocr(*args, **kwargs):
+        raise AssertionError("non-candidates must not trigger pixel OCR")
+
+    monkeypatch.setattr(service, "_independent_page_list_ocr", unexpected_ocr)
+
+    with service._scanned_pdf_percentage_crosscheck():
+        markdown, _, _ = service._docling_convert("scanned.pdf")
+
+    assert "- note - preserve the source qualifier exactly;" in markdown
+    assert "- not - disable the required alarm during testing;" in markdown
+    assert "- „Exact quoted rule“" in markdown
+
+
+def test_scanned_physical_conversion_keeps_suspicious_prefix_without_required_ocr_agreement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _load_service(monkeypatch)
+    heading = _TextItem("POLICY", page_no=1, top=760, label="section_header")
+    clause = _TextItem(
+        "Staff must:",
+        page_no=1,
+        top=680,
+        label="list_item",
+        marker="9.2.",
+    )
+    suspicious = _TextItem(
+        "x `-retain every limiting condition in the policy;",
+        page_no=1,
+        top=620,
+        label="list_item",
+    )
+    document = _Document([suspicious, clause, heading], pages=1)
+    _install_converter(service, document, monkeypatch)
+    monkeypatch.setattr(
+        service,
+        "_independent_page_list_ocr",
+        lambda path, page_no, budget: (
+            "— retain every limiting condition in the policy;",
+            "„retain every limiting condition in the policy;",
+        ),
+    )
+
+    with service._scanned_pdf_percentage_crosscheck():
+        markdown, _, _ = service._docling_convert("scanned.pdf")
+
+    assert "- x `-retain every limiting condition in the policy;" in markdown

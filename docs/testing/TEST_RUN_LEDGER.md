@@ -5822,3 +5822,17 @@ Rules:
   release, fresh real generation/browser acceptance, production66 and agreed
   postrelease source cleanup/reupload remain OPEN. No migration, production
   switch, voice/reserve/model-route/billing change in this checkpoint.
+
+- 2026-10-20, original-source R18 freeze: source-child inventory RED4/GREEN8;
+  neighboring60PASS, final canonical API3630PASS45.58s with5known framework
+  deprecations; quality1004ruff/2170mypyPASS. No source changes after final suite
+  started. Independent read-only assessment review found no concrete P1/P2;
+  bounded converter writer/replay accepted by root with focused81PASS.
+  Real offline VM126 native serviceacb9b226...dddaa6f converted immutable originals
+  DOCX0.757s/PDF60.703s/peak2542000KiB; physical path active, production identity
+  unchanged, owned temporary probe absent after normal finally cleanup. Local
+  real-output application replay44/95targets,9/32admitted,zero uncertainty,
+  partial or unassessed targets. This does not prove provider semantic quality.
+  No new paid generation in source diagnosis; DEV real generation and production
+  release/reupload OPEN. Root owned integration/remote runs; two bounded existing
+  reviewers, observed model/effort/tokens unavailable, no invented cost savings.

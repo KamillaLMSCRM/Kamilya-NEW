@@ -283,7 +283,7 @@ def _operational_clause_parts(clause: str) -> tuple[str, str, bool] | None:
     if _PURE_LIST_EXCEPTION.match(stripped):
         return None
     qualified_action = re.fullmatch(
-        r"(?P<qualifier>незамедлительно|немедленно|своевременно|визуально|"
+        r"(?P<qualifier>незамедлительно|немедленно|своевременно|визуально|четко|систематически|"
         r"одновременно\s+с\s+[^.!?;:]{3,100}?)\s+"
         r"(?P<action>(?:не\s+)?[А-Яа-яЁё]+(?:ть|ти|чь)(?:ся|сь)?\s+.+)",
         stripped, flags=re.IGNORECASE,
@@ -334,13 +334,26 @@ def _operational_clause_parts(clause: str) -> tuple[str, str, bool] | None:
         target, qualifier = _split_action_qualifier(prohibition.group("target"))
         return (target, qualifier, True) if target else None
     leading = re.match(
-        r"^(?:не\s+)?[А-Яа-яЁё]+(?:ть|ти|чь)(?:ся|сь)?\s+(?P<target>.+)$",
+        r"^(?:не\s+)?[А-Яа-яЁё]+(?:ть|ти|чь)(?:ся|сь)?\s*,?\s+(?P<target>.+)$",
         stripped,
         flags=re.IGNORECASE,
     )
     if leading is not None:
         target, qualifier = _split_action_qualifier(leading.group("target"))
         return (target, qualifier, prohibited) if target else None
+    nominal = re.fullmatch(r"(?:обеспечение|поддержание|соблюдение)\s+(?P<target>.+)",
+                           stripped, flags=re.IGNORECASE)
+    if nominal is not None:
+        return nominal.group("target"), "", prohibited
+    admission = re.fullmatch(
+        r"(?P<actor>[^.!?;:]{5,120}?)\s+допускаются\s+к\s+работе\s+только\s+после\s+.+",
+        stripped, flags=re.IGNORECASE,
+    )
+    if admission is not None:
+        return admission.group("actor"), "", False
+    passive_prohibition = re.fullmatch(r"(?P<target>.+?)\s+не\s+допускается", stripped, flags=re.IGNORECASE)
+    if passive_prohibition is not None:
+        return passive_prohibition.group("target"), "", True
     actor_action = re.match(
         r"^.+?\b(?:долж(?:ен|на|но|ны)|обязан\w*|запрещ\w*|не\s+допуска\w*)\s+(?:не\s+)?"
         r"[А-Яа-яЁё]+(?:ть|ти|чь)(?:ся|сь)?\s+(?P<target>.+)$",
@@ -380,11 +393,17 @@ def _structured_operational_axes(fact: SourceFact) -> list[tuple[str, str]]:
     if (re.search(r"\b(?:запрещается|запрещено|нельзя)\s*$", preamble, flags=re.IGNORECASE)
             and _affirmative_prohibition_modal(preamble) is None):
         return []
-    operational = [
-        (position, clause, parts)
-        for position, clause in clauses
-        if (parts := _operational_clause_parts(clause)) is not None
-    ]
+    normative_parent = re.search(
+        r"\b(?:долж(?:ен|на|но|ны)|обязан\w*|следует|запрещается|запрещено|нельзя)\s*$",
+        preamble, flags=re.IGNORECASE,
+    )
+    operational: list[tuple[int, str, tuple[str, str, bool]]] = []
+    for position, clause in [(position, statement) for position, child in clauses
+                            for statement in (_structured_child_statements(child)
+                                              if normative_parent else [child])]:
+        parts = _operational_clause_parts(clause)
+        if parts is not None:
+            operational.append((position, clause, parts))
     if len(operational) < 2:
         return []
     preamble_prohibited = _affirmative_prohibition_modal(preamble) is not None
@@ -409,6 +428,36 @@ def _structured_operational_axes(fact: SourceFact) -> list[tuple[str, str]]:
     return axes
 
 
+def _structured_child_statements(clause: str) -> list[str]:
+    """Split only an overlong source child at preserved sentence boundaries."""
+    if len(clause) <= MAX_ASSESSMENT_ANSWER_CHARS:
+        return [clause]
+    sentences = _source_sentences(clause)
+    if len(sentences) < 2:
+        return [clause]
+    original_words = _ANCHOR_TOKEN.findall(_norm(clause))
+    split_words = _ANCHOR_TOKEN.findall(_norm(" ".join(sentences)))
+    return sentences if original_words == split_words else [clause]
+
+
+def _long_list_responsibility_axis(fact: SourceFact, clause: str) -> tuple[str, str] | None:
+    """Ask the exact responsible actor when an indivisible duty is a long key."""
+    structured = _explicit_structured_list(fact.value)
+    if structured is None or len(clause) <= MAX_ASSESSMENT_ANSWER_CHARS:
+        return None
+    preamble, _clauses = structured
+    match = re.fullmatch(
+        r"(?P<actor>[^:;!?]{5,220}?)\s+(?P<modal>обязан(?:а|о|ы)?|долж(?:ен|на|но|ны))",
+        _without_source_marker(preamble), flags=re.IGNORECASE,
+    )
+    if match is None or re.search(r"\b(?:не|если|при|когда)\b", match.group("actor"), re.IGNORECASE):
+        return None
+    prompt = f"Кто согласно исходному правилу {match.group('modal')} выполнить следующее: «{clause}»?"
+    if len(prompt) > 900:
+        return None
+    return match.group("actor"), prompt
+
+
 def _simple_list_prohibition_axis(fact: SourceFact, clause: str) -> tuple[str, str] | None:
     """Ask about the WHOLE source list proposition, including its qualifiers.
 
@@ -423,7 +472,8 @@ def _simple_list_prohibition_axis(fact: SourceFact, clause: str) -> tuple[str, s
         return None
     preamble, clauses = structured
     modal = _affirmative_prohibition_modal(preamble)
-    if modal is None or not any(_norm(item) == _norm(value) for _position, item in clauses):
+    if modal is None or not any(_norm(item.rstrip('.')) == _norm(value)
+                               for _position, child in clauses for item in _structured_child_statements(child)):
         return None
     actor = _without_source_marker(preamble[:modal.start()]).strip()
     if not actor:
@@ -1587,6 +1637,20 @@ def has_partial_unatomized_source_contract(fact: SourceFact) -> bool:
         if (clause := _without_source_marker(item))
         and not re.fullmatch(r"\d+(?:\.\d+)*[.)]?", clause)
     ]
+    structured = _explicit_structured_list(fact.value)
+    if structured is not None and _structured_operational_axes(fact):
+        lesson = LessonDraft("source-coverage", "", "", "", "", (fact.fact_id,), (), 1)
+        derived_axes = derive_assessment_axes(lesson, [fact], block_id="source-coverage")
+        # Audit source children, not just the subset of targets already derived.
+        # Complete source children may be in the key OR the mandatory stem (a
+        # prohibition/responsibility question); punctuation is not lexical scope.
+        def normalized(text: str) -> str:
+            return " ".join(_ANCHOR_TOKEN.findall(_norm(text)))
+
+        return any(not any(normalized(statement) in normalized(
+            axis.correct_value + " " + axis.required_prompt,
+        ) for axis in derived_axes) for _position, clause in structured[1]
+                   for statement in _structured_child_statements(clause))
     specialized_partial = _has_incomplete_specialized_sentences(fact, sentences)
     if specialized_partial is not None:
         return specialized_partial
@@ -2490,20 +2554,24 @@ def derive_assessment_axes(
         )
         source_axes = [*source_axes, *reference_axes]
         for source_value, structured_prompt in source_axes:
+            list_pair = ((source_value, structured_prompt) in structured_axes)
+            binary_prohibition = (_simple_list_prohibition_axis(fact, source_value) if list_pair else None)
+            responsibility = (_long_list_responsibility_axis(fact, source_value) if list_pair else None)
             if (
                 not source_value
                 or is_unresolved_procedure_reference(source_value)
                 or (not structured_prompt and any(is_unresolved_procedure_reference(sentence)
                                                   for sentence in _source_sentences(fact.value)))
                 or (not structured_prompt and reference_axes)
-                or len(source_value.strip()) > MAX_ASSESSMENT_ANSWER_CHARS
+                or (len(source_value.strip()) > MAX_ASSESSMENT_ANSWER_CHARS
+                    and not binary_prohibition and not responsibility)
                 or _is_dependent_source_fragment(source_value)
             ):
                 continue
-            binary_prohibition = (_simple_list_prohibition_axis(fact, source_value)
-                                  if (source_value, structured_prompt) in structured_axes else None)
             if binary_prohibition:
                 correct_value, required_prompt = binary_prohibition
+            elif responsibility:
+                correct_value, required_prompt = responsibility
             elif structured_prompt:
                 correct_value, required_prompt = source_value, structured_prompt
             else:
@@ -2514,6 +2582,8 @@ def derive_assessment_axes(
             faq_pair = _source_owned_faq_pair(fact.value)
             required_prompt = (faq_pair[0] if faq_pair else
                                required_prompt or _required_prompt(correct_value))
+            if len(required_prompt) > 900:
+                continue
             if not required_prompt and re.search(
                 r"^(?:необходимо\b|.+?\bследует\s+(?:обесточить|отключить)\b)",
                 correct_value.strip(),
@@ -2538,7 +2608,7 @@ def derive_assessment_axes(
             )
             context_scope = (
                 _norm(required_prompt)
-                if binary_prohibition or (source_value, structured_prompt) in context_owned_axes else ""
+                if list_pair or (source_value, structured_prompt) in context_owned_axes else ""
             )
             base_identity = (
                 _norm(fact.subject),

@@ -8,6 +8,20 @@ production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 ## Active original-document quality correction66 — not production
 
+R17 installed only in DEV atfa363d6092274c7ab6946f8e3e0b939fd4d64376;
+CI39364798740SUCCESS/controllerRELEASE_OK, exact API/worker/frontend. Server OCR
+source4c71.../image746f... authenticated original DOCX0.797s/PDF54.5s, no workstation
+runtime dependency. Subsequent local inventory found real PDF child omissions:
+old partial0/44+84 targets was not full source completeness. New exact-child
+audit/grammar/long-rule fixes and eight focused tests PASS. Converter sourceacb9...
+native original conversions0.757/60.703s, peak2542000KiB/physical/prod-preservation
+PASS; local application replay44/95targets/zero uncertain,partial,unassessed.
+Final API3630PASS45.58s/quality1004,2170PASS; policyv14. New final-source DEV
+generation/whole review remain OPEN. See current
+plan checkpoint; production65 and agreed postrelease cleanup remain untouched.
+
+Historical pre-R17 candidate checks:
+
 Local follow-up ready for exact-SHA DEV transport, NOT production GO: API3619PASS/
 45.88s, quality1004ruff/2170mypyPASS, UI7PASS/typecheckPASS. Native VM126 source
 4c71ea740ccfd5b3197d9f9dc58e4394b8e34003bb74d025d0b397aa4fd74666 converted

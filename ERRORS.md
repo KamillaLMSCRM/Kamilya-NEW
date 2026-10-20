@@ -8986,6 +8986,16 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 
 ## AI-QUALITY-050 - Operational tables and flattened lists lost teaching scope
 
+- 2026-10-20 source-child follow-up: a nonempty structured target list is not
+  completeness proof. Inventory every original child before claiming complete;
+  nominal/passive/comma/adverb grammar and overlong keys must not disappear.
+  Preserve bounded full statements in mandatory question context when the exact
+  source key can instead test prohibition/responsible actor. Split long children
+  only at word-preserving source sentence boundaries under an explicit normative
+  parent; do not activate that fallback for compound approval-table branches.
+  Stem bounds and actual derived targets govern the audit. Specialized split-axis
+  source projections remain distinct from one-axis substring diagnostics.
+
 - 2026-10-20 follow-up: do not promote colon-ended hierarchical introductions
   to headings; preserve nominal nested headings. Keep list newlines through
   admission and recognize compact OCR dashes without treating numeric negatives

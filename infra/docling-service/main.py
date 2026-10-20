@@ -763,6 +763,12 @@ def _physical_scanned_policy_markdown(document: object) -> str | None:
 
 _LIST_MARKER = re.compile(r"^\s*(?:\d+[.)]\s*[-—–*]?\s*|[-—–*]\s*)")
 _CONTINUATION_END = re.compile(r"\b(?:и|или|and|or|және|немесе)\s*$", re.IGNORECASE)
+_OCR_BULLET_PREFIX = re.compile(r"^\s*[-—–*•‣]\s*")
+_LETTER_TICK_DASH_PREFIX = re.compile(
+    r"^(?P<noise>[^\W\d_])\s+[`´]\s*[-—–]\s*(?P<body>\S.*)$",
+)
+_LOW_QUOTE_PREFIX = re.compile(r"^(?P<noise>[„‚`´])\s*(?P<body>\S.*)$")
+_QUOTE_CHARACTERS = frozenset("\"'«»“”„‟‚‘’‹›`´")
 
 
 def _normalized_line(value: str) -> str:
@@ -771,6 +777,91 @@ def _normalized_line(value: str) -> str:
 
 def _list_body(value: str) -> str:
     return _LIST_MARKER.sub("", value, count=1).strip()
+
+
+def _margin_prefix_body(value: str) -> tuple[str, bool] | None:
+    """Return the unchanged body and whether both OCR readings must show a bullet."""
+    match = _LETTER_TICK_DASH_PREFIX.fullmatch(value)
+    if match is not None:
+        body = match.group("body").strip()
+        return (body, True) if body else None
+    match = _LOW_QUOTE_PREFIX.fullmatch(value)
+    if match is None:
+        return None
+    body = match.group("body").strip()
+    # A closing quote is evidence of quoted source prose, not margin noise.
+    if not body or any(character in _QUOTE_CHARACTERS for character in body):
+        return None
+    return body, False
+
+
+def _margin_anchor(value: str) -> tuple[str, ...]:
+    words = tuple(re.findall(r"[^\W_]+", value.casefold()))
+    if len(words) == 3:
+        # A short candidate must match its complete lexical span in each OCR
+        # reading; it is never reduced to a collision-prone prefix.
+        return words
+    return words[:6] if len(words) >= 4 else ()
+
+
+def _list_margin_prefix_candidates(
+    document: object, markdown: str,
+) -> list[tuple[int, int, str, bool]]:
+    """Map a suspicious list margin prefix to one exact, single-page source item."""
+    pages = getattr(document, "pages", {}) or {}
+    candidates: list[tuple[int, int, str, bool]] = []
+    for line_index, line in enumerate(markdown.splitlines(keepends=True)):
+        if not _LIST_MARKER.match(line):
+            continue
+        source_text = _list_body(line)
+        repair = _margin_prefix_body(source_text)
+        if repair is None:
+            continue
+        body, require_two_bullets = repair
+        if not _margin_anchor(body):
+            continue
+        matches: list[tuple[object, tuple[int, float, float, float, float, float, float]]] = []
+        for item in getattr(document, "texts", ()) or ():
+            raw_label = getattr(item, "label", "")
+            label = str(getattr(raw_label, "value", raw_label))
+            if (
+                label != "list_item"
+                or getattr(item, "marker", "")
+                or getattr(item, "text", None) != source_text
+                or getattr(item, "orig", None) != source_text
+            ):
+                continue
+            position = _physical_item_position(item, pages)
+            if position is not None:
+                matches.append((item, position))
+        if len(matches) != 1:
+            continue
+        page_no = matches[0][1][0]
+        candidates.append((line_index, page_no, body, require_two_bullets))
+    return candidates
+
+
+def _confirmed_margin_prefix(ocr: str, body: str) -> bool | None:
+    """Return whether one uniquely matching OCR line has a real bullet."""
+    anchor = _margin_anchor(body)
+    if not anchor:
+        return None
+    matches: list[bool] = []
+    for line in ocr.splitlines():
+        stripped = line.strip()
+        bullet = _OCR_BULLET_PREFIX.match(stripped)
+        if bullet is not None:
+            ocr_body = stripped[bullet.end():].strip()
+            has_bullet = True
+        else:
+            quote = _LOW_QUOTE_PREFIX.fullmatch(stripped)
+            if quote is None:
+                continue
+            ocr_body = quote.group("body").strip()
+            has_bullet = False
+        if _margin_anchor(ocr_body) == anchor:
+            matches.append(has_bullet)
+    return matches[0] if len(matches) == 1 else None
 
 
 def _broken_list_continuations(markdown: str) -> list[tuple[int, str, str]]:
@@ -842,24 +933,44 @@ def _confirmed_list_continuation(ocr: str, previous: str) -> str | None:
 
 
 def _repair_scanned_pdf_list_boundaries(path: str, document: object, markdown: str) -> str:
-    """Corroborate an orphan with two pixel readings, never guess a replacement."""
-    candidates = _broken_list_continuations(markdown)
-    if not candidates:
+    """Corroborate narrow list defects with two pixel readings; never guess."""
+    orphan_candidates = _broken_list_continuations(markdown)
+    margin_candidates = _list_margin_prefix_candidates(document, markdown)
+    if not orphan_candidates and not margin_candidates:
         return markdown
     lines = markdown.splitlines(keepends=True)
     readings: dict[int, tuple[str, str] | None] = {}
     budget = {"pixels": 0.0, "deadline": time.monotonic() + 40}
-    for index, previous, fragment in candidates:
+
+    def page_readings(page_no: int) -> tuple[str, str] | None:
+        if time.monotonic() >= budget["deadline"]:
+            return None
+        if page_no not in readings:
+            if len(readings) >= 2:
+                return None
+            readings[page_no] = _independent_page_list_ocr(path, page_no, budget)
+        return readings[page_no]
+
+    for index, page_no, body, require_two_bullets in margin_candidates:
+        ocr = page_readings(page_no)
+        if ocr is None:
+            continue
+        first = _confirmed_margin_prefix(ocr[0], body)
+        second = _confirmed_margin_prefix(ocr[1], body)
+        if first is None or second is None or not (first or second):
+            continue
+        if require_two_bullets and not (first and second):
+            continue
+        newline = "\r\n" if lines[index].endswith("\r\n") else "\n"
+        lines[index] = "- " + body + newline
+
+    for index, previous, fragment in orphan_candidates:
         if time.monotonic() >= budget["deadline"]:
             break
         page_no = _list_fragment_page(document, previous, fragment)
         if page_no is None:
             continue
-        if page_no not in readings:
-            if len(readings) >= 2:
-                continue
-            readings[page_no] = _independent_page_list_ocr(path, page_no, budget)
-        ocr = readings[page_no]
+        ocr = page_readings(page_no)
         if ocr is None:
             continue
         first, second = (_confirmed_list_continuation(text, previous) for text in ocr)
