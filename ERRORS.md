@@ -2,6 +2,36 @@
 
 Current as of: 2026-10-20.
 
+## AI-ASSESSMENT-CONTRACT-001 - Generic requirement and schedule questions lost source distinctions
+
+- Date: 2026-10-20; fresh R36 DEV PDF, original source unchanged.
+- Symptom: job completed in1135.705s with8lessons/93of95questions. Cable-layout
+  outcomes and all-premises evacuation plans were omitted. Independent full
+  review found two retained timing defects: an enclosing first-month interval
+  and a stricter quarterly schedule were marked wrong despite source overlap.
+- Cause: unnumbered compound requirements had no server-owned response contract;
+  event timing and minimum recurring frequency shared a broad When stem. Topic
+  coverage did not expose the omitted positive requirements as incomplete.
+- Fix: policyv30 adds conservative source-bound compound requirement and
+  instruction-schedule projections. Preserve source keys, actors and complete
+  conditions. Reject provably compatible timing options before paid review;
+  unknown grammar still requires both blind reviews. Recognized response
+  contracts have explicit mandatory coverage. No truth shortcut, invented
+  inverse, retry/resource increase or global temporal-classifier expansion.
+- Verification: captured selected cable diagnostic FAIL1of2/9calls51.395s;
+  source requirement integration RED3/2PASS, then focused71PASS. Schedule
+  integration RED6, combined focused80PASS. Full suite, selected real-model
+  corrections and fresh whole DEV originals remain separate pending gates.
+  Final local3969PASS/56.97s; canonical Ruff1004/Mypy2170PASS. Actual selected
+  four-case diagnostic4/4PASS/12calls88.679s, independently reviewed4keys/
+  13choices with no P1/P2. Import-only whitespace repair is exact-AST-linked,
+  not a repeated paid generation. Overlength/healthy-neighbor regressionPASS:
+  existing unassessable-source accounting already rejects that boundary;
+  the speculative P2 was withdrawn without an unnecessary production-code fix.
+- Prevention: distinguish a source requirement from its many compliant
+  implementations, and a required event/minimum from compatible schedules.
+  Lesson prose or neighboring questions do not replace exact target coverage.
+
 ## AI-ASSESSMENT-PRUNING-001 - A weak extra distractor erased an otherwise assessable source rule
 
 - Date: 2026-10-20; fresh DEV66/R35 PDF, immutable original.

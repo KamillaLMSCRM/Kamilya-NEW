@@ -27,6 +27,8 @@ from .operational_approval import is_unresolved_procedure_reference, project_ope
 from .operational_control import project_control_responsibility
 from .operational_coverage import audit_operational_coverage
 from .operational_inspection import project_operational_inspections
+from .operational_requirements import SourceRequirementContract, project_source_requirement
+from .operational_schedule import InstructionScheduleContract, project_instruction_schedule
 from .operational_signing import project_signing_responsibilities
 from .operational_steps import (
     ExactSentenceSpan,
@@ -750,6 +752,11 @@ _INSTRUCTION_SCHEDULE_RULE = re.compile(
     r"(?P<answer>проходят\s+(?:противопожарный\s+)?инструктаж\s+[^.!?;:]{5,200})[.;]?$",
     flags=re.IGNORECASE,
 )
+_INSTRUCTION_TIMING_RULE = re.compile(
+    r"(?P<action>проходят\s+(?:противопожарный\s+)?инструктаж(?:\s+по\s+[^.!?;:]+?)?)\s+"
+    r"(?P<time>при\s+приеме\s+на\s+работу|не\s+реже\s+\d+\s+раз[а]?\s+в\s+год)",
+    flags=re.IGNORECASE,
+)
 _PASSIVE_RESPONSIBILITY_RULE = re.compile(
     r"^(?P<duty>[^.!?]{5,220}?)\s+возлагается\s+на\s+"
     r"(?P<actor>[^.!?]{3,180})[.!?]?$",
@@ -1127,14 +1134,13 @@ def _instruction_schedule_axes(fact: SourceFact) -> list[tuple[str, str]]:
                 and match.group("actor").casefold().strip() not in {"он", "она", "они", "это", "лицо"}
                 and not re.match(r"^(?:если|при|когда)\b", match.group("actor"), flags=re.IGNORECASE)):
             answer = match.group("answer").strip()
-            timing = re.fullmatch(
-                r"(?P<action>проходят\s+(?:противопожарный\s+)?инструктаж(?:\s+по\s+[^.!?;:]+?)?)\s+"
-                r"(?P<time>при\s+приеме\s+на\s+работу|не\s+реже\s+\d+\s+раз[а]?\s+в\s+год)",
-                answer, flags=re.IGNORECASE,
-            )
+            timing = _INSTRUCTION_TIMING_RULE.fullmatch(answer)
+            contract = (project_instruction_schedule(match.group("actor").strip(), timing["action"], timing["time"])
+                        if timing is not None else None)
             axes.append((
                 timing.group("time") if timing else answer,
-                (f"Когда «{match.group('actor').strip()}» {timing.group('action')}?" if timing else
+                (contract.required_prompt if contract is not None else
+                 f"Когда «{match.group('actor').strip()}» {timing.group('action')}?" if timing else
                  f"Какое правило проведения инструктажа установлено для «{match.group('actor').strip()}»?"),
             ))
         if not re.match(r"^\s*[-—–]", sentence) and sentence.endswith((".", "!", "?")):
@@ -2193,6 +2199,9 @@ def _categorical_conditional_prohibition(value: str) -> tuple[str, str] | None:
 
 
 def _required_prompt(correct_value: str) -> str:
+    requirement = project_source_requirement(correct_value)
+    if requirement is not None:
+        return requirement.required_prompt
     categorical = _categorical_conditional_prohibition(correct_value)
     if categorical is not None:
         return categorical[0]
@@ -3197,6 +3206,38 @@ def assessment_appliance_closing_duties(axis: AssessmentAxis) -> bool:
         for constraint in axis.distractor_constraints if constraint.relation == 'same_axis'
         for sentence in _source_sentences(constraint.value)
     )
+
+
+def assessment_instruction_schedule_contract(axis: AssessmentAxis) -> InstructionScheduleContract | None:
+    """Re-prove event/minimum timing from the same producer and exact source pair."""
+    for constraint in axis.distractor_constraints:
+        if constraint.relation != "same_axis":
+            continue
+        fact = SourceFact(constraint.fact_id, constraint.subject, constraint.attribute,
+                          constraint.value, "doc_id=source-owned-instruction-schedule")
+        if (axis.correct_value, axis.required_prompt) not in _instruction_schedule_axes(fact):
+            continue
+        for sentence in _source_sentences(fact.value):
+            source = _INSTRUCTION_SCHEDULE_RULE.fullmatch(_without_source_marker(sentence))
+            timing = _INSTRUCTION_TIMING_RULE.fullmatch(source["answer"].strip()) if source is not None else None
+            if source is None or timing is None:
+                continue
+            contract = project_instruction_schedule(source["actor"].strip(), timing["action"], timing["time"])
+            if contract is not None and (contract.correct_value, contract.required_prompt) == (axis.correct_value, axis.required_prompt):
+                return contract
+    return None
+
+
+def assessment_source_requirement(axis: AssessmentAxis) -> SourceRequirementContract | None:
+    """Bind a response contract to the exact same-axis source, never a model claim."""
+    contract = project_source_requirement(axis.correct_value)
+    if contract is None or axis.required_prompt != contract.required_prompt:
+        return None
+    return contract if any(
+        project_source_requirement(_without_source_marker(sentence)) == contract
+        for constraint in axis.distractor_constraints if constraint.relation == "same_axis"
+        for sentence in _source_sentences(constraint.value)
+    ) else None
 
 
 def assessment_named_value_kind(axis: AssessmentAxis) -> str | None:

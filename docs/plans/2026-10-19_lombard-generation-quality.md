@@ -1260,3 +1260,37 @@ ordinary3choice question. Independent2key/5choice/full-scope review noP1/P2.
 Final source review closes stale-positive-proof P1; closed no-progress reason
 is now retained in pruning audit while original no-repeat-call assertions stay.
 No provider route/token/retry/resource change. Fresh whole DEV remains required.
+
+## R36 full DEV and R37 source-contract correction
+
+Frozenf20aac91461ec315ecb2096f9432ee57ec85ad93/CI39452407551 all7SUCCESS,
+DEV controller RELEASE_OK. PDFjob538919a7-37c5-44fa-9c4b-e8f53fe92452,
+coursef559e97d-4d7e-463c-9303-eb068a9bddfa completed in1135.705s:
+8lessons/93of95questions, omitted cable-layout outcomes and evacuation plans.
+All8bodies/93questions/236choices/93explanations independently reviewed:
+P2 overlapping first-month/hiring timing and stricter-compliant quarterly
+minimum-frequency distractors. Both omissions not assessed elsewhere, NOT GO.
+Selected unchanged-source cable/plan diagnostic9calls51.395s retained1of2,
+capturing exact author/repair/reviewer payloads, no DB/deploy/source changes.
+
+R37 pure source projections preserve complete keys and scope for recognized
+compound outcomes and universal provisioning; event/minimum recurrence become
+different typed tasks. Reject-only deterministic guards catch proven timing
+compatibility before review. Mandatory recognized-contract coverage prevents
+neighboring-topic completion from hiding the omitted requirements. Existing
+both blind audits, source ownership and retry/resource/routing limits remain.
+Requirement integration RED3/2PASS; schedule integration RED6. Combined local
+focused80PASS; final local, real selected and full DEV gates remain pending.
+
+R37 selected4/4PASS12calls88.679s with unchanged source during paid run;
+independent4question/13choice/3source-fact review no P1/P2. Only subsequent
+source formatting removes one blank line: original bytes reconstructed and
+matched by SHA, entire AST unchanged, other source hashes equal. Preserve
+initial formatter path-separator assertion failure and exact reconciliation;
+no additional paid call. Full unit3969PASS/56.97s/5knownwarnings,
+canonical Ruff1004/Mypy2170PASS. Independent temporal source review noP1/P2.
+Proposed overlength P2 was disproved with a recognized>240char requirement
+beside a retained neighboring question: explicit unassessable_source outcome,
+unatomizable_fact_ids/audit_incomplete/review_required all present. Regression
+8PASS; reviewer withdrew P2. No widening of240char limit or unnecessary fix.
+Fresh whole R37 DEV originals and all production gates still pending.

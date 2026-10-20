@@ -23,10 +23,12 @@ from .assessment_axes import (
     assessment_appliance_closing_duties,
     assessment_appointed_control_role,
     assessment_conditioned_signing_source,
+    assessment_instruction_schedule_contract,
     assessment_named_value_kind,
     assessment_option_token_limit,
     assessment_required_prompt,
     assessment_signing_object,
+    assessment_source_requirement,
     assessment_source_timing_exclusions,
     derive_assessment_axes,
     derive_reference_only_dependencies,
@@ -46,6 +48,8 @@ from .models import (
     is_tabular_locator,
 )
 from .operational_control import project_control_responsibility
+from .operational_requirements import project_source_requirement
+from .operational_schedule import instruction_schedule_option_rejection
 from .quality import (
     MAX_ASSESSMENT_ANSWER_CHARS,
     MAX_ASSESSMENT_TARGETS_PER_LESSON,
@@ -120,6 +124,14 @@ not a separately true source workflow with an added time phrase.
 When an axis supplies excluded_source_timings, do not use those source-true
 timings in a wrong option. They may apply to a sibling branch; inventing a
 contradiction from their presence would be an ambiguous test, not a useful error.
+An event required at hiring is not mutually exclusive with an interval such as
+'within the first month' or 'the first working day'. A recurring yearly schedule
+does not deny the hiring-time instruction either. Wrong event-time options must
+explicitly defer or waive that required event, not merely name an enclosing window.
+An 'at least once yearly' requirement is satisfied by quarterly/monthly instruction.
+Do not mark an equal or stricter compliant schedule wrong. A literal-minimum
+question must retain the source threshold; use a genuinely weaker or explicitly
+omitted recurrence as a possible error, never a stronger permitted schedule.
 """
 
 CAPABILITY_OPTION_POLICY = """
@@ -658,7 +670,9 @@ def _unsupported_replacement_advice(question: QuestionDraft, facts: list[SourceF
         and "part" in dict(parse_qsl(primary.source_locator.replace(";", "&")))
         and _value_quote(question.correct_answer, primary) is not None
         and _value_quote(question.source_quote, primary) is not None
-        and operational_claim_priority(question.correct_answer)[1]
+        and (operational_claim_priority(question.correct_answer)[1]
+             or ((contract := project_source_requirement(question.correct_answer)) is not None
+                 and question.prompt == contract.required_prompt))
     ):
         # Replacing damaged equipment instead of stopping/escalating may be a
         # meaningful WRONG action. This catalog-padding heuristic must not veto
@@ -805,6 +819,41 @@ def _axis_author_payload(axis: AssessmentAxis) -> dict[str, Any]:
 
 def _axis_answer_domain(axis: AssessmentAxis) -> dict[str, Any] | None:
     """Disclose a strict server projection's response type, never provider wording."""
+    schedule = assessment_instruction_schedule_contract(axis)
+    if schedule is not None:
+        return {
+            "kind": schedule.kind, "source_actor": schedule.actor,
+            "source_activity": schedule.activity,
+            "minimum_yearly_count": schedule.minimum_yearly_count,
+            "required_components": ["source_actor", "source_activity", schedule.kind],
+            "scope": (
+                "The stem identifies the exact source event or minimum-frequency threshold, "
+                "not any compatible schedule. Wrong event choices must explicitly defer or "
+                "waive the required hiring-time instruction; an enclosing first-month window "
+                "or annual recurrence does not exclude it. For a minimum recurrence, stronger "
+                "or equal schedules still comply and must not be called wrong. Propose weaker "
+                "or explicitly omitted required recurrence instead. Keep the source actor and "
+                "activity separate from sibling clauses. These are possible misconceptions, "
+                "not truth/realism approvals: both blind reviews and all local guards apply."
+            ),
+        }
+    requirement = assessment_source_requirement(axis)
+    if requirement is not None:
+        return {
+            "kind": requirement.kind,
+            "source_scope": requirement.source_scope,
+            "required_components": list(requirement.required_components),
+            "scope": (
+                "Answer the COMPLETE source requirement, including its exact scope and every "
+                "condition or purpose. For independent wrong choices, explicitly waive different "
+                "required outcomes/components while retaining the others. Merely proposing a "
+                "physical arrangement, a different location, an extra capability or a narrower "
+                "implementation may still comply and is NOT a proven violation. Do not invent "
+                "installation methods, exceptions, prerequisites or new obligations. An explicit "
+                "waiver is a possible misconception, not pre-approved truth or realism: both "
+                "blind source reviews and every local guard still apply."
+            ),
+        }
     if assessment_appointed_control_role(axis):
         return {"kind": "appointed_control_role", "required_components": ["source_appointment_qualification"],
                 "scope": "This source names one appointed responsible official, not a multi-person set. The complete appointment qualification and its negation form one binary knowledge decision. Do not invent several omitted roles or cosmetic alternate job titles. Neither qualification nor negation gets a truth exemption; both blind reviews still decide source support, relevance and plausibility."}
@@ -999,6 +1048,13 @@ def _author_shape_rejection_reasons(
     if answer_length_repair_targets([question]):
         reasons.append("assessment_answer_length_signal")
     domain = _axis_answer_domain(axis)
+    schedule = assessment_instruction_schedule_contract(axis)
+    if schedule is not None:
+        reasons.extend(
+            f"option_{index}:{reason}"
+            for index, option in enumerate(question.options) if option != question.correct_answer
+            if (reason := instruction_schedule_option_rejection(schedule, option)) is not None
+        )
     if domain is not None and domain['kind'] == 'recorded_decision':
         reasons.extend(f"option_{index}:outside_recorded_decision_scope"
                        for index, option in enumerate(question.options)
@@ -2652,6 +2708,22 @@ async def generate_block_assessment(
             "complete": not missing_axis_ids,
         })
     audit["structured_list_axis_coverage"] = structured_list_axis_coverage
+    requirement_coverage: list[dict[str, Any]] = []
+    for axis in axes_by_id.values():
+        response_contract = (assessment_source_requirement(axis)
+                             or assessment_instruction_schedule_contract(axis))
+        if response_contract is None:
+            continue
+        retained = axis_records[axis.axis_id]["state"] == "retained"
+        requirement_coverage.append({
+            "axis_id": axis.axis_id, "primary_fact_id": axis.primary_fact_id,
+            "kind": response_contract.kind, "complete": retained,
+        })
+        if not retained:
+            # A recognized joint requirement is not covered merely because a
+            # neighboring topic or related duty has another retained question.
+            critical_missing_axis_ids.add(axis.axis_id)
+    audit["required_response_contract_coverage"] = requirement_coverage
     # Selecting a named procedure is not proof of knowing its missing steps.
     # Retain that distinction even when the source's explicit relation is tested.
     audit["reference_selection_coverage"] = [

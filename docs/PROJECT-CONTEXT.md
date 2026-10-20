@@ -94,6 +94,16 @@ two-option pruning after the existing repair, with positive evidence from both
 roles and no key/realism/local guard exemption. Stale-key-proof rejection is a
 hard regression. Policyv29 needs fresh whole DEV originals; production remains65.
 
+R36 exactf20aac91 CI39452407551 all7SUCCESS/DEV RELEASE_OK:
+APIdep-dbbouv3ncjis739f8jk0/workerdep-dbbovvgm7kps73dictm0/
+frontenddpl_9WoWi8MnhyuNGBuFFExJ3EhBPr9P. Browser-created PDFjob538919a7
+completed8lessons/93of95questions in1135.705s. Retained93questions/236choices
+were independently reviewed: two P2 compatible timing alternatives and two
+real omitted source requirements, NOT GO. R37 policyv30 introduces bounded
+source requirement/event/minimum-frequency contracts and mandatory coverage;
+fresh selected real-model and whole DEV acceptance remain required. Production65
+and model routing/resources/tiers remain unchanged.
+
 ## Historical DEV-only OCR correction — 2026-10-19 08:30UTC
 
 Owner selected removal of the obsolete DEV converter reference, not recovery of
