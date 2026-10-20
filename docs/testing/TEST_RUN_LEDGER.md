@@ -5928,3 +5928,31 @@ Rules:
   one PDF legal-bibliography reference remains non-assessable context by design.
   Final full receipt unit-r21-final.xml; source-admission-r21b.json. These local
   gates do not establish fresh full DEV or production quality acceptance.
+- 2026-10-20 exact0338 R21 CI39381198360/controllerRELEASE_OK, unchanged tiers.
+  Fresh original DOCX216.422s/5lessons/42of44, PDF661.125s including queue/
+  8lessons/93of95; both interrupted/coverage_incomplete. No worker sleep this
+  time. Independent retained42+93/all135items reviewed: no P1/P2 factual/key
+  finding, P3 source typos/dense extraction/duplicate category prefix remain.
+  Completeness NO_GO. Selected DOCX3/3 diagnostic10calls28.336s proved stochastic
+  option-domain drift; typed3/3formal6calls17.774s ROOT2/3 because one telephone
+  prerequisite could come from a different source branch. Exact conditional
+  rejection RED2/GREEN7; binary/prefix RED5/GREEN9 then negative controlsPASS.
+  PDF selected4/4in9calls21.959s, final selected diagnostics and full freeze open.
+  Correct native39381774604 exact0338/all4flags bundle verified; earlier
+  master-ref39381383662 not eligible (wrong workflow HEAD), NOT deployed.
+- R22 final selected DOCX3/3in7calls19.293s ROOT_ACCEPTED for this diagnostic:
+  compact wrong recipient/delay, refusal-infinitive signing and missing mark,
+  no invented prerequisite or unrelated Act. Earlier bounded3/3formal6calls
+  17.693s still had an unrelated Act and was ROOT_REJECTED, preserved.
+  Reject-only signing object/verb/conditional matrix RED3/GREEN; exact object
+  uses whole phrase boundaries (акт cannot match контракт). Synthetic replay
+  3PASS proves one existing per-axis replacement and one separate model repair,
+  equal domains, both blind reviewers, unchanged containment/length limits.
+  Independent final source review no P1/P2. Root closed/domain24PASS; assessment/
+  operational597PASS plus one in-flight replay fixture failure, now corrected.
+  Canonical quality1004ruff/2170mypyPASS after removing one extra import blank
+  in the new replay file; no baseline change. Final application source frozen.
+  Final graph sync11.584s/1.345supdate/1899files/exclusionsPASS; no duplicate
+  Graphify. Full unit-r22-final.xml3717PASS/61.71s/5known frameworkwarnings.
+  No application source changes after freeze; import-whitespace formatting only.
+  Next exact DEV22 real originals acceptance, not production GO.

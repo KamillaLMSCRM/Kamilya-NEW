@@ -1,0 +1,387 @@
+"""Deterministic replay for bounded operational answer-domain repair."""
+
+from __future__ import annotations
+
+import json
+from types import SimpleNamespace
+
+import pytest
+
+from app.modules.ai.evidence_engine import semantic_assessment
+from app.modules.ai.evidence_engine.assessment_axes import materialize_assessment
+from app.modules.ai.evidence_engine.models import (
+    AssessmentAxis,
+    AuthoredAssessment,
+    LessonDraft,
+    SourceFact,
+)
+from app.modules.ai.evidence_engine.quality import (
+    answer_containment_option_indices,
+    answer_length_repair_targets,
+)
+from app.modules.ai.evidence_engine.semantic_assessment import (
+    _axis_author_payload,
+    generate_block_assessment,
+)
+
+NOTICE_KEY = "сменный эксперт-оценщик обязан сразу поставить в известность АУП РД."
+SIGNING_KEY = "подписывает залоговый билет с отметкой о согласовании"
+SIGNING_DRIFT = (
+    "Составляет акт несоответствия стандартам по выдаче микрокредитов.",
+    "Берет с эксперта-оценщика объяснительную и обязательство.",
+)
+SIGNING_AMBIGUOUS = (
+    "Подписывает залоговый билет с отметкой.",
+    "Подписывает залоговый билет без уточнения отметки.",
+)
+SIGNING_REPAIR = (
+    "Отказывается подписывать залоговый билет с отметкой о согласовании",
+    "подписывает залоговый билет без отметки о согласовании",
+)
+NOTICE_DISTRACTORS = (
+    "Отдел аудита — после составления акта.",
+    "Регионального руководителя — на следующий день.",
+)
+
+
+def _axis(
+    kind: str,
+    *,
+    block_id: str = "block",
+    lesson_id: str | None = None,
+) -> AssessmentAxis:
+    if kind == "notice":
+        axis_id = "axis-notice"
+        default_lesson_id = "lesson-notice"
+        fact_id = "fact-notice"
+        subject = "Уведомление о сомнениях"
+        prompt = (
+            "Кого и когда сменный эксперт-оценщик обязан поставить в известность "
+            "при условии «Если имущество вызывает сомнения»?"
+        )
+        key = NOTICE_KEY
+    else:
+        axis_id = "axis-signing"
+        default_lesson_id = "lesson-signing"
+        fact_id = "fact-signing"
+        subject = "Подписание согласования"
+        prompt = (
+            "Какое действие в отношении «залоговый билет с отметкой о согласовании» "
+            "выполняет «согласовавшее лицо» при условии "
+            "«Если уполномоченное лицо согласовывает операцию»?"
+        )
+        key = SIGNING_KEY
+    return AssessmentAxis(
+        axis_id=axis_id,
+        lesson_id=lesson_id or default_lesson_id,
+        semantic_block_id=block_id,
+        primary_fact_id=fact_id,
+        evidence_fact_ids=(fact_id,),
+        subject=subject,
+        attribute="порядок действия",
+        required_prompt=prompt,
+        correct_value=key,
+        normalized_correct_value=key.casefold(),
+        eligible_distractor_fact_ids=(),
+        axis_kind="rule_value",
+        source_context="Синтетическая категория",
+    )
+
+
+def _fixture(*, combined: bool = False) -> tuple[list[LessonDraft], dict[str, SourceFact]]:
+    facts = {
+        "fact-notice": SourceFact(
+            "fact-notice",
+            "Операционные правила",
+            "порядок действия",
+            NOTICE_KEY,
+            "doc_id=synthetic;section=operational",
+        ),
+        "fact-signing": SourceFact(
+            "fact-signing",
+            "Операционные правила",
+            "порядок действия",
+            SIGNING_KEY,
+            "doc_id=synthetic;section=operational",
+        ),
+    }
+    separate_lessons = [
+        LessonDraft(
+            "lesson-notice",
+            "Синтетические правила",
+            "Уведомление",
+            "Выбрать адресата и срок",
+            NOTICE_KEY,
+            ("fact-notice",),
+            (),
+            1,
+        ),
+        LessonDraft(
+            "lesson-signing",
+            "Синтетические правила",
+            "Подписание",
+            "Выбрать действие с документом",
+            SIGNING_KEY,
+            ("fact-signing",),
+            (),
+            1,
+        ),
+    ]
+    if not combined:
+        return separate_lessons, facts
+    return [
+        LessonDraft(
+            "lesson-operational",
+            "Синтетические правила",
+            "Операционные действия",
+            "Выбрать адресата, срок и действие с документом",
+            f"{NOTICE_KEY}\n{SIGNING_KEY}",
+            ("fact-notice", "fact-signing"),
+            (),
+            1,
+        ),
+    ], facts
+
+
+def _request_key(request: dict) -> str:
+    if request["task"] in {"assessment_generate", "assessment_repair"}:
+        return request["axes"][0]["source_claim"]
+    return request["questions"][0]["options"][0]
+
+
+def _request_domain(request: dict) -> dict | None:
+    if request["task"] in {"assessment_generate", "assessment_repair"}:
+        return request["axes"][0]["answer_domain"]
+    return request["questions"][0]["answer_domain"]
+
+
+class ReplayClient:
+    def __init__(self, mode: str) -> None:
+        self.mode = mode
+        self.requests: list[dict] = []
+        self.offered: list[tuple[str, str, tuple[str, ...]]] = []
+
+    async def ainvoke_validated(self, messages, parser, **_kwargs):
+        request = json.loads(messages[-1]["content"])
+        self.requests.append(request)
+        task = request["task"]
+
+        if task in {"assessment_generate", "assessment_repair"}:
+            questions = []
+            for axis in request["axes"]:
+                if axis["source_claim"] == NOTICE_KEY:
+                    assert task == "assessment_generate"
+                    distractors = NOTICE_DISTRACTORS
+                elif task == "assessment_repair":
+                    distractors = SIGNING_REPAIR
+                elif self.mode == "local_recovery" and len(request["axes"]) > 1:
+                    distractors = SIGNING_DRIFT
+                elif self.mode == "local_recovery":
+                    distractors = SIGNING_REPAIR
+                else:
+                    distractors = SIGNING_AMBIGUOUS
+                self.offered.append((task, axis["axis_id"], tuple(distractors)))
+                questions.append({
+                    "axis_id": axis["axis_id"],
+                    "prompt": axis["required_prompt"],
+                    "distractors": list(distractors),
+                })
+            payload = {
+                "questions": questions,
+            }
+        elif task == "assessment_review":
+            rows = []
+            for question in request["questions"]:
+                ambiguous = any(option in SIGNING_AMBIGUOUS for option in question["options"])
+                rows.append({
+                    "question_id": question["question_id"],
+                    "question_supported": True,
+                    "educational": True,
+                    "explanation_supported": True,
+                    "options_distinct": True,
+                    "options": [{
+                        "index": index,
+                        "answers_question": True,
+                        "correct": index == 0,
+                        "plausible_error": index > 0 and not ambiguous,
+                        "contradicted_by_source": index > 0 and not ambiguous,
+                        "same_practical_task": True,
+                    } for index in range(len(question["options"]))],
+                })
+            payload = {"reviews": rows}
+        else:
+            facts_by_id = {fact["fact_id"]: fact for fact in request["facts"]}
+            fact_ids = tuple(dict.fromkeys(
+                fact_id
+                for question in request["questions"]
+                for fact_id in question["evidence_fact_ids"]
+            ))
+            payload = {
+                "rules": [{
+                    "fact_id": fact_id,
+                    "quote": facts_by_id[fact_id]["value"],
+                    "kind": "required",
+                } for fact_id in fact_ids],
+                "reviews": [{
+                    "question_id": question["question_id"],
+                    "reason": "Synthetic source-bound truth check.",
+                    "distinct_errors": True,
+                    "options": [{
+                        "index": index,
+                        "relation": "entailed" if index == 0 else "contradicted",
+                        "invented_constraint": False,
+                        "realistic_error": index > 0,
+                    } for index in range(len(question["options"]))],
+                } for question in request["questions"]],
+            }
+
+        value = parser(json.dumps(payload, ensure_ascii=False))
+        return SimpleNamespace(
+            value=value,
+            attempt_count=1,
+            failure_reasons=(),
+            model_id="synthetic-replay",
+        )
+
+
+@pytest.mark.asyncio
+async def test_r22_off_domain_drift_gets_one_existing_axis_recovery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lessons, facts = _fixture(combined=True)
+
+    def derive(lesson, selected_facts, *, block_id):
+        selected_ids = {fact.fact_id for fact in selected_facts}
+        candidates = (
+            _axis("notice", block_id=block_id, lesson_id=lesson.lesson_id),
+            _axis("signing", block_id=block_id, lesson_id=lesson.lesson_id),
+        )
+        return tuple(
+            axis
+            for axis in candidates
+            if axis.primary_fact_id in selected_ids
+        )
+
+    monkeypatch.setattr(semantic_assessment, "derive_assessment_axes", derive)
+    client = ReplayClient("local_recovery")
+
+    result = await generate_block_assessment(lessons, facts, client)
+
+    assert {question.correct_answer for question in result.questions} == {
+        NOTICE_KEY,
+        SIGNING_KEY,
+    }
+    assert result.audit["accepted"] == 2
+    assert result.audit["repaired"] == 0
+    assert result.audit["attempt_counts"]["replacement"] == 1
+    assert result.audit["attempt_counts"]["model_repair"] == 0
+    assert result.audit["unresolved_quality_signals"] == []
+    assert [request["task"] for request in client.requests] == [
+        "assessment_generate",
+        "assessment_generate",
+        "assessment_review",
+        "assessment_constraints",
+    ]
+    assert client.offered == [
+        ("assessment_generate", "axis-notice", NOTICE_DISTRACTORS),
+        ("assessment_generate", "axis-signing", SIGNING_DRIFT),
+        ("assessment_generate", "axis-signing", SIGNING_REPAIR),
+    ]
+
+    initial, recovery, review, constraint = client.requests
+    initial_domains = {
+        axis["source_claim"]: axis["answer_domain"] for axis in initial["axes"]
+    }
+    signing_domain = initial_domains[SIGNING_KEY]
+    notice_domain = initial_domains[NOTICE_KEY]
+    assert signing_domain is not None and signing_domain["kind"] == "action_on_object"
+    assert notice_domain is not None and notice_domain["kind"] == "recipient_and_timing"
+    assert recovery["axes"][0]["source_claim"] == SIGNING_KEY
+    assert recovery["axes"][0]["answer_domain"] == signing_domain
+    for request in (review, constraint):
+        domains = {
+            question["options"][0]: question["answer_domain"]
+            for question in request["questions"]
+        }
+        assert domains == {NOTICE_KEY: notice_domain, SIGNING_KEY: signing_domain}
+        assert all(option not in SIGNING_DRIFT for question in request["questions"]
+                   for option in question["options"])
+    assert NOTICE_KEY not in json.dumps(notice_domain, ensure_ascii=False)
+    assert SIGNING_KEY not in json.dumps(signing_domain, ensure_ascii=False)
+    for request in (review, constraint):
+        for question in request["questions"]:
+            assert "correct_index" not in question
+            assert "correct_answer" not in question
+
+
+@pytest.mark.asyncio
+async def test_in_domain_signing_ambiguity_gets_one_model_repair(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lessons, facts = _fixture()
+    signing_lesson = [lesson for lesson in lessons if lesson.lesson_id == "lesson-signing"]
+
+    def derive(lesson, selected_facts, *, block_id):
+        assert {fact.fact_id for fact in selected_facts} == {"fact-signing"}
+        return (_axis("signing", block_id=block_id),)
+
+    monkeypatch.setattr(semantic_assessment, "derive_assessment_axes", derive)
+    client = ReplayClient("semantic_repair")
+
+    result = await generate_block_assessment(signing_lesson, facts, client)
+
+    assert [question.correct_answer for question in result.questions] == [SIGNING_KEY]
+    assert result.audit["accepted"] == 1
+    assert result.audit["repaired"] == 1
+    assert result.audit["attempt_counts"]["replacement"] == 0
+    assert result.audit["attempt_counts"]["model_repair"] == 1
+    assert [request["task"] for request in client.requests] == [
+        "assessment_generate",
+        "assessment_review",
+        "assessment_repair",
+        "assessment_review",
+        "assessment_constraints",
+    ]
+
+    initial, initial_review, repair, repaired_review, constraint = client.requests
+    assert tuple(initial_review["questions"][0]["options"][1:]) == SIGNING_AMBIGUOUS
+    reasons = set(repair["rejected"][0]["rejection_reasons"])
+    assert {
+        "option_1:not_plausible_error",
+        "option_2:not_plausible_error",
+    } <= reasons
+    assert "assessment_answer_length_signal" not in reasons
+    assert tuple(repaired_review["questions"][0]["options"][1:]) == SIGNING_REPAIR
+    domain = initial["axes"][0]["answer_domain"]
+    assert initial["axes"][0]["source_claim"] == SIGNING_KEY
+    assert repair["axes"][0]["source_claim"] == SIGNING_KEY
+    assert domain["kind"] == "action_on_object"
+    assert all(_request_domain(request) == domain for request in client.requests)
+    for request in (initial_review, repaired_review, constraint):
+        for question in request["questions"]:
+            assert "correct_index" not in question
+            assert "correct_answer" not in question
+
+
+def test_answer_domain_does_not_bypass_existing_answer_length_guard() -> None:
+    axis = _axis("signing")
+    domain = _axis_author_payload(axis)["answer_domain"]
+    question = materialize_assessment(
+        axis,
+        AuthoredAssessment(
+            axis.axis_id,
+            axis.required_prompt,
+            (
+                "не подписывает залоговый билет с отметкой о согласовании, "
+                "а затем передает его другому сотруднику для повторной необязательной проверки",
+                "подписывает залоговый билет без отметки о согласовании, "
+                "а затем откладывает его ради дополнительной необязательной процедуры",
+            ),
+        ),
+    )
+
+    assert domain is not None and domain["kind"] == "action_on_object"
+    assert question is not None
+    assert answer_containment_option_indices(question) == (1,)
+    assert answer_length_repair_targets([question]) == (question.question_id,)
+

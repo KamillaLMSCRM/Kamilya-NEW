@@ -2934,8 +2934,25 @@ def derive_assessment_axes(
 def assessment_required_prompt(axis: AssessmentAxis) -> str:
     """Keep explicit operational table applicability in the learner's question."""
     if axis.source_context and axis.required_prompt:
-        return f"Для «{axis.source_context}»: {axis.required_prompt}"
+        prefix = f"Для «{axis.source_context}»: "
+        return (axis.required_prompt if axis.required_prompt.startswith(prefix)
+                else prefix + axis.required_prompt)
     return axis.required_prompt
+
+
+def assessment_signing_object(axis: AssessmentAxis) -> str | None:
+    """Recognize only the complete server-owned signing/action projection."""
+    prompt = axis.required_prompt
+    prefix = f"Для «{axis.source_context}»: "
+    if axis.source_context and prompt.startswith(prefix):
+        prompt = prompt[len(prefix):]
+    match = re.fullmatch(
+        r"Какое действие в отношении «(?P<object>[^«»!?]+)» выполняет «[^«»!?]+» "
+        r"при условии «[^«»!?]+»(?: в срок «[^«»!?]+»)?\?", prompt,
+    )
+    if match and axis.correct_value == "подписывает " + match['object']:
+        return match['object']
+    return None
 
 
 def _source_owned_list_decision(axis: AssessmentAxis) -> tuple[str, str] | None:
@@ -2957,9 +2974,33 @@ def _source_owned_list_decision(axis: AssessmentAxis) -> tuple[str, str] | None:
                 for clause in _structured_child_statements(child):
                     if (axis.correct_value, axis.required_prompt) in (
                         _simple_list_prohibition_axis(fact, clause), _simple_list_obligation_axis(fact, clause),
+                        _focused_list_duty(fact, clause),
                     ):
                         statement = f"{structured[0]}: {clause.rstrip(';')}"
                         return opposites[_norm(axis.correct_value)], statement
+    return None
+
+
+def _source_owned_appointment_decision(axis: AssessmentAxis) -> tuple[str, str] | None:
+    """Negate only the source-verified appointment qualification, not a role guess."""
+    match = re.fullmatch(
+        r"лицо,\s+назначенное\s+(?P<authority>"
+        r"(?:руководителем|директором|начальником)\s+"
+        r"(?:организации|компании|предприятия|подразделения))",
+        axis.correct_value, flags=re.IGNORECASE,
+    )
+    if match is None:
+        return None
+    for constraint in axis.distractor_constraints:
+        if constraint.relation != "same_axis":
+            continue
+        fact = SourceFact(constraint.fact_id, constraint.subject, constraint.attribute,
+                          constraint.value, "doc_id=source-owned-appointment")
+        for sentence in _source_sentences(fact.value):
+            if (axis.correct_value, axis.required_prompt) in _delegated_responsibility_axes(
+                replace(fact, value=sentence),
+            ):
+                return f"лицо, не назначенное {match.group('authority')}", sentence
     return None
 
 
@@ -2977,8 +3018,21 @@ def materialize_assessment(
     if normalized_numeric is None:
         return None
     distractors = normalized_numeric
-    list_decision = _source_owned_list_decision(axis)
-    inverse = _server_owned_inverse(axis.correct_value) or (list_decision[0] if list_decision else None)
+    signing_object = assessment_signing_object(axis)
+    if signing_object is not None:
+        # This projection asks for the signing/mark action; the source actor,
+        # applicability and timing already live in its immutable stem. A new
+        # prerequisite can be true in another branch, not a false action here.
+        object_core = re.split(r"\s+с\s+", signing_object, maxsplit=1)[0]
+        distractors = tuple(option for option in distractors
+                            if re.search(r"(?<!\w)" + re.escape(_norm(object_core)) + r"(?!\w)", _norm(option))
+                            and re.search(r"\bподпис[а-яё]*\b", option, flags=re.IGNORECASE)
+                            and not re.search(
+                                r"\b(?:если|когда|до|после|пока|только)\b|\bпри\s+условии\b", option,
+                                flags=re.IGNORECASE,
+                            ))
+    source_decision = _source_owned_list_decision(axis) or _source_owned_appointment_decision(axis)
+    inverse = _server_owned_inverse(axis.correct_value) or (source_decision[0] if source_decision else None)
     if inverse is not None:
         distractors = (inverse,)
     elif not 2 <= len(distractors) <= 3:
@@ -3015,7 +3069,7 @@ def materialize_assessment(
                             and _admissible_source_distractors(axis, (item,), prompt))
         if len(distractors) < 2:
             return None
-    explanation = list_decision[1] if list_decision else _teaching_explanation(axis)
+    explanation = source_decision[1] if source_decision else _teaching_explanation(axis)
     return QuestionDraft(
         question_id=f"semantic-{axis.axis_id.removeprefix('axis-')}",
         lesson_id=axis.lesson_id,

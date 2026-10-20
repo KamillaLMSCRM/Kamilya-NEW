@@ -8,7 +8,15 @@ production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 ## Active original-document quality correction66 — not production
 
-Current shared DEV R20 is959624145592e643e3a10069e0ec7753217c7f5b,
+Current shared DEV R21 is0338f3b907288b1ed098921489c56a07a5577d1e,
+CI39381198360/all7PASS, controllerRELEASE_OK. Fresh originals42/44DOCX and93/95PDF
+incomplete; retained135questions independently source-reviewed without P1/P2.
+R22 local policyv18 repairs response-domain handoff and exact source-owned binary
+forms, category prefix and a cross-branch signing-prerequisite distractor; root
+owns final freeze, DEV acceptance and protected production66. See active plan.
+No production66 mutation or postrelease source delete has occurred.
+
+Historical shared DEV R20 was959624145592e643e3a10069e0ec7753217c7f5b,
 CI39375199287/all7PASS, controllerRELEASE_OK. Server OCR acb9.../image5d875...
 is already connected and proven; no reinstall or workstation runtime is needed.
 Real DOCX199.0s/5lessons/44questions completed; all44 retained questions reviewed.

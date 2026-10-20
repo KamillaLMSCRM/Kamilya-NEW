@@ -8999,6 +8999,22 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 
 ## AI-QUALITY-050 - Operational tables and flattened lists lost teaching scope
 
+- 2026-10-20 R21 actual whole generation retained42/44DOCX and93/95PDF. The
+  remaining stochastic omissions were wrong response-domain alternatives, a
+  closed passive prohibition and overlapping appointed-person roles. Preserve
+  the strict server projection's recipient+timing or signing+object contract in
+  initial/recovery/repair AND both blind reviewers. It is a response-shape hint,
+  never a truth verdict or correct-index leak. A signing alternative must not
+  introduce a telephone prerequisite/time branch from another clause. Only the
+  exact closed signing projection filters these added conditions; generic
+  conditional questions retain their current path. Use exact producer tuple
+  correspondence before supplying a binary list/appointment opposite; never
+  negate a bare modal/actor by lexical similarity. Keep unknown/compound/negative
+  qualification fail-closed and both reviews mandatory. Matching category scope
+  prefix must be idempotent; a different context is never silently stripped.
+  Captured formal model acceptance can still fail root semantic review: preserve
+  the rejected output and add its red-capable local regression before a rerun.
+
 - 2026-10-20 R20 original PDF retained92/95, with three real omissions: a nominal
   equipment-state list duty and two finite control-responsibility sentences.
   Named unrelated equipment is not a source-contradicted alternative. Preserve

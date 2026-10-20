@@ -5,7 +5,40 @@ cleanup/reload completed; no other production data changed.
 Owner: root; product authority: owner request 2026-10-19, original documents,
 synthetic QA only, DEV acceptance before one production package.
 
-## R20 real acceptance and R21 correction, 2026-10-20
+## R21 real acceptance and R22 correction, 2026-10-20
+
+DEV0338f3b907288b1ed098921489c56a07a5577d1e/CI39381198360 all7PASS,
+controllerRELEASE_OK; APIdep-dbbgpqjncjis738n2hs0, workerdep-dbbgqqou01pc73bap8r0,
+frontenddpl_78ZA1bCTEGfygjE9ttLrBLuFASyD. Fresh worker readiness immediately
+before both ordinary original-file jobs, unchanged Free/Free/Hobby.
+DOCX216.422s/42of44, PDF661.125s including queue/93of95, both incomplete.
+Independent whole retained review42+93/all5+8lessons: no P1/P2 factual/key
+finding; dense extractive presentation/source typos remain P3, not polished
+pedagogy. Root did not accept missing targets or infer completeness from counts.
+
+R22 discloses the existing strict server response type to author AND both blind
+reviewers: recipient+timing or action+exact signing object. Recovery/repair share
+that same contract; no extra retry, correct-index leak or model-route change.
+Root rejected one formally accepted diagnostic signing alternative introducing
+a telephone prerequisite from a different source branch. Only this closed
+signing projection now filters newly introduced timing/condition prerequisites;
+generic questions and independent truth/realism/length gates remain unchanged.
+Exact producer correspondence also supplies the genuine binary opposite for a
+passive prohibited list child and a bounded appointed-responsible-person rule,
+instead of demanding several cosmetic or role-overlapping wrong answers.
+Source scope/conditions/keys are unchanged. Matching category prefix is now
+idempotent, different contexts are never silently removed. Policyv18 invalidates
+old result reuse. Fresh full DEV/production originals acceptance remains OPEN.
+
+R22 selected diagnostic before contract:3retained/10calls28.336s. Typed variant
+formal3/3in6calls17.774s but ROOT2/3 due telephone prerequisite; preserved, not
+relabeled. PDF4/4in9calls21.959s (includes two other matching prohibition axes).
+Final bounded diagnostic and final regressions remain required.
+An early native build39381383662 had master93ccbf workflow identity, not candidate
+HEAD; never deployed/accepted. Correct dev-ref39381774604 built exact0338 with
+all4flagsON; immutable bundle verified, delivery remains pending. No tier change.
+
+## Historical R20 real acceptance and R21 correction, 2026-10-20
 
 Shared DEV R20 exact959624145592e643e3a10069e0ec7753217c7f5b passed CI39375199287
 and exact API/worker/frontend rollout. DOCX completed199.0s/5lessons/44questions;
