@@ -229,10 +229,12 @@ def _evidence_v2_completion_detail(state: GenerationState) -> dict[str, object]:
     coverage_requires_review = not (
         isinstance(coverage, dict) and coverage.get("requires_review") is False
     )
+    source_count = diagnostics.get("uncertain_source_fact_count", 0)
+    source_requires_review = not (type(source_count) is int and source_count == 0)
     return {
         "outcome": (
             ASSESSMENT_NO_VALID_QUESTIONS_CODE if questions == 0 else
-            ASSESSMENT_COVERAGE_INCOMPLETE_CODE if coverage_requires_review else "completed"
+            ASSESSMENT_COVERAGE_INCOMPLETE_CODE if coverage_requires_review or source_requires_review else "completed"
         ),
         "counts": {
             "modules": modules,
@@ -249,6 +251,7 @@ def _evidence_v2_completion_detail(state: GenerationState) -> dict[str, object]:
             if not (lesson.mcq or lesson.true_false or any(item.pairs for item in lesson.matching))
         ],
         "source_warnings": list(content.source_warnings) if content is not None else [],
+        "source_admission_requires_review": source_requires_review,
         "assessment_review": assessment_review,
     }
 
@@ -267,6 +270,12 @@ def _apply_evidence_v2_completion_outcome(state: GenerationState) -> None:
     state.progress = 100
     code = str(completion["outcome"])
     state.message = ASSESSMENT_REVIEW_MESSAGES[code]
+    if completion.get("source_admission_requires_review"):
+        state.message = (
+            "Черновик курса и готовые вопросы сохранены. Некоторые фрагменты исходных "
+            "материалов не удалось надёжно разобрать; проверьте полноту уроков и тестов "
+            "по оригиналу перед публикацией."
+        )
     state.errors = [code]
 
 

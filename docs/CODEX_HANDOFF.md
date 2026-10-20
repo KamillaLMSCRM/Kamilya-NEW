@@ -1,12 +1,50 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-10-19
+**Обновлено:** 2026-10-20
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\cabinet-release-20261018`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, active branch `codex/lombard-course-quality-20261019`;
 production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 ## Active original-document quality correction66 — not production
+
+Local follow-up ready for exact-SHA DEV transport, NOT production GO: API3619PASS/
+45.88s, quality1004ruff/2170mypyPASS, UI7PASS/typecheckPASS. Native VM126 source
+4c71ea740ccfd5b3197d9f9dc58e4394b8e34003bb74d025d0b397aa4fd74666 converted
+originals DOCX0.686s/PDF54.595s, physical activationPASS/26DOCX cell breaks; hashes
+and production identity unchanged. Chosen2.106 bounded physical projection;
+2.140 rejected on source fidelity, not speed. Local replay: DOCX9/PDF32 admitted,
+uncertainty0/partial0,5/8lessons,44/84derived targets, NOT accepted cloud questions.
+Policyv13. Typed reference selection never expands missing steps; naked section
+locators are separate dependencies. Dense sections split before20-target ceiling;
+lists keep newlines and compact dashes. Known polarity reversals force fallback.
+Actual DEV converter remains source73b.../imageba5..., API7ea... until next rollout.
+Keep unrelated output/ and primary untracked reserve files intact.
+
+### Superseding R14 live acceptance, 2026-10-20
+
+Shared DEV7ea58c268b8ac5d8303f635788f1c5af006d842f, CI39355224991SUCCESS and
+controllerRELEASE_OK. APIdep-dbbci9dg1s2s738erl00, workerdep-dbbcj8rbc2fs73amria0,
+Verceldpl_CrpGFHSB885yNnEqWgxxMoxyhgtF. Private server OCR is CONNECTED to both
+cloud DEV processes with the existing restricted SSH credential, not a workstation
+tunnel. Converter source73b4866b...452b0 / imageba5ea2b2...6a38; original DOCX0.765s
+and PDF53.438s exact-byte/hash conversionPASS; ordinary browser PDF reindexsuccess.
+Production65 and production converter ID/image/restarts remain unchanged.
+
+Whole-course quality is NO_GO: actual DOCX job60d165a4... interrupted5lessons/
+38questions with5missing targets; PDF991f33d5... completed6lessons/43questions but
+independent whole-source review found critical omissions and two ambiguous items.
+Detailed canonical continuation and private artifacts are in the current
+docs/plans/2026-10-19_lombard-generation-quality.md checkpoint. Never label the
+completed PDF a content pass. Selected5/5 DOCX diagnostic is not whole acceptance.
+
+Earlier current-best converter decision below is not final: all-seven-page review
+found physical-order defects in current serialization and meaningful word errors
+in updated2.140; neither raw variant passes. New source-structure, assessment-scope,
+primary-admission-uncertainty and stale-reindex-message fixes are LOCAL, not R14.
+Physical single-column provenance rendering is being verified before another
+exact DEV freeze. Original QA sources have NOT been deleted/reuploaded after a
+production66 release; that release and fresh production acceptance are NOT RUN.
 
 ### Original-version comparison and bounded correction, 2026-10-20
 

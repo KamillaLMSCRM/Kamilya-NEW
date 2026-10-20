@@ -20,7 +20,7 @@ def is_tabular_locator(locator: str) -> bool:
 
 
 QuestionKind = Literal["single_choice", "true_false"]
-AssessmentAxisKind = Literal["attribute", "numeric_value", "rule_value"]
+AssessmentAxisKind = Literal["attribute", "numeric_value", "rule_value", "selection"]
 DistractorSourceRelation = Literal[
     "same_axis",
     "same_attribute_other_subject",

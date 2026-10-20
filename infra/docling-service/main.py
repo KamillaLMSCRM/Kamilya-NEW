@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 import time
 import zipfile
+import xml.etree.ElementTree as ET
 from contextlib import contextmanager
 from contextvars import ContextVar
 from decimal import Decimal, InvalidOperation
@@ -240,7 +241,223 @@ def _markitdown_convert(path: str) -> str:
     markdown = getattr(result, "markdown", None)
     if not _usable_markdown(markdown):
         raise ValueError("MarkItDown returned unusable output")
+    if Path(path).suffix.lower() == ".docx":
+        return _docx_insert_cell_breaks(path, markdown)
     return markdown
+
+
+_DOCX_W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+_DOCX_TAG = f"{{{_DOCX_W_NS}}}"
+
+
+def _docx_paragraph_text(paragraph: ET.Element) -> str:
+    parts: list[str] = []
+    for node in paragraph.iter():
+        if node.tag == _DOCX_TAG + "t":
+            parts.append(node.text or "")
+        elif node.tag in {_DOCX_TAG + "br", _DOCX_TAG + "cr"}:
+            parts.append("<br>")
+        elif node.tag == _DOCX_TAG + "tab":
+            parts.append("\t")
+    return "".join(parts).strip()
+
+
+def _docx_table_paragraphs(path: str) -> list[list[list[list[str]]]] | None:
+    """Read only direct DOCX table cells; return None for ambiguous structure."""
+    try:
+        with zipfile.ZipFile(path) as archive:
+            xml = archive.read("word/document.xml")
+            if (
+                b"\x00" in xml
+                or b"<!DOCTYPE" in xml.upper()
+                or b"<!ENTITY" in xml.upper()
+                or re.search(rb"encoding\s*=\s*['\"]utf-(?:16|32)", xml[:256], re.IGNORECASE)
+            ):
+                return None
+            root = ET.fromstring(xml)
+    except (KeyError, ET.ParseError, zipfile.BadZipFile):
+        return None
+
+    body = root.find("./" + _DOCX_TAG + "body")
+    if body is None:
+        return None
+    tables: list[list[list[list[str]]]] = []
+    for table in body.findall("./" + _DOCX_TAG + "tbl"):
+        rows: list[list[list[str]]] = []
+        for row in table.findall("./" + _DOCX_TAG + "tr"):
+            cells: list[list[str]] = []
+            for cell in row.findall("./" + _DOCX_TAG + "tc"):
+                properties = cell.find("./" + _DOCX_TAG + "tcPr")
+                if (
+                    cell.find("./" + _DOCX_TAG + "tbl") is not None
+                    or properties is not None
+                    and (
+                        properties.find("./" + _DOCX_TAG + "gridSpan") is not None
+                        or properties.find("./" + _DOCX_TAG + "vMerge") is not None
+                    )
+                    or any(
+                        child.tag not in {_DOCX_TAG + "tcPr", _DOCX_TAG + "p"}
+                        for child in cell
+                    )
+                ):
+                    return None
+                paragraphs = [
+                    _docx_paragraph_text(paragraph)
+                    for paragraph in cell.findall("./" + _DOCX_TAG + "p")
+                ]
+                cells.append(paragraphs)
+            if cells:
+                rows.append(cells)
+        if not rows:
+            return None
+        tables.append(rows)
+    return tables or None
+
+
+def _markdown_row_cells(line: str) -> list[str] | None:
+    content = line.rstrip("\r\n").strip()
+    if not content.startswith("|") or not content.endswith("|"):
+        return None
+    cells: list[str] = []
+    current: list[str] = []
+    escaped = False
+    for character in content[1:-1]:
+        if character == "|" and not escaped:
+            cells.append("".join(current).strip())
+            current = []
+            continue
+        current.append(character)
+        escaped = character == "\\" and not escaped
+        if character != "\\":
+            escaped = False
+    cells.append("".join(current).strip())
+    return cells
+
+
+def _markdown_visible_alnum(value: str) -> tuple[list[str], list[int]]:
+    breaks = [match.span() for match in re.finditer(r"<br\s*/?>", value, flags=re.IGNORECASE)]
+    characters: list[str] = []
+    offsets: list[int] = []
+    for match in re.finditer(r"[^\W_]", value, re.UNICODE):
+        if any(start <= match.start() < end for start, end in breaks):
+            continue
+        normalized = match.group(0).casefold().replace("ё", "е")
+        for character in normalized:
+            characters.append(character)
+            offsets.append(match.start())
+    return characters, offsets
+
+
+def _markdown_visible_punctuation(value: str) -> str:
+    value = re.sub(r"<br\s*/?>", " ", value, flags=re.IGNORECASE)
+    return "".join(character for character in value if not character.isspace())
+
+
+def _allowed_converter_gap(value: str) -> bool:
+    """Permit whitespace/markup and one generated list marker, never words."""
+    value = re.sub(r"<br\s*/?>", "", value, flags=re.IGNORECASE)
+    value = value.replace("**", "").replace("__", "").replace("`", "")
+    value = re.sub(r"^\s*(?:\d+[.)]|[-—–*•])\s*", "", value, count=1)
+    return not re.search(r"[^\W_]", value, re.UNICODE)
+
+
+def _insert_cell_breaks(markdown_cell: str, paragraphs: list[str]) -> str | None:
+    segments = [segment for paragraph in paragraphs for segment in paragraph.split("<br>") if segment.strip()]
+    if not segments:
+        return markdown_cell
+    actual, actual_offsets = _markdown_visible_alnum(markdown_cell)
+    offsets: list[int] = []
+    cursor = 0
+    raw_cursor = 0
+    # MarkItDown may add list markers that are not literal DOCX text.  Match
+    # each source segment's visible characters in order, retaining converter
+    # markup and labels. Character mapping also handles markup inside numbers.
+    for segment_index, segment in enumerate(segments):
+        wanted, _ = _markdown_visible_alnum(segment)
+        found = None
+        if wanted:
+            for start in range(cursor, len(actual) - len(wanted) + 1):
+                if actual[start:start + len(wanted)] != wanted:
+                    continue
+                candidate_offset = actual_offsets[start]
+                if _allowed_converter_gap(markdown_cell[raw_cursor:candidate_offset]):
+                    found = start
+                    break
+            if found is None:
+                return None
+            offset = actual_offsets[found]
+            raw_cursor = actual_offsets[found + len(wanted) - 1] + 1
+        else:
+            punctuation = _markdown_visible_punctuation(segment)
+            if not punctuation:
+                continue
+            raw_offset = markdown_cell.find(punctuation, raw_cursor)
+            if raw_offset < 0 or not _allowed_converter_gap(markdown_cell[raw_cursor:raw_offset]):
+                return None
+            offset = raw_offset
+            raw_cursor = raw_offset + len(punctuation)
+        if segment_index:
+            marker = re.search(r"(?:^|\s)((?:\d+[.)])|[-—–*•])\s*$", markdown_cell[:offset])
+            if marker:
+                offset = marker.start(1)
+            offsets.append(offset)
+        if found is not None:
+            cursor = found + len(wanted)
+    if not _allowed_converter_gap(markdown_cell[raw_cursor:]):
+        return None
+    for offset in reversed(offsets):
+        markdown_cell = markdown_cell[:offset].rstrip() + "<br>" + markdown_cell[offset:]
+    return markdown_cell
+
+
+def _docx_insert_cell_breaks(path: str, markdown: str) -> str:
+    tables = _docx_table_paragraphs(path)
+    if not tables:
+        return markdown
+    lines = markdown.splitlines(keepends=True)
+    parsed_tables: list[tuple[list[int], list[list[str]]]] = []
+    index = 0
+    while index < len(lines) - 1:
+        header = _markdown_row_cells(lines[index])
+        separator = _markdown_row_cells(lines[index + 1])
+        if header is None or separator is None or not all(re.fullmatch(r":?-{3,}:?", cell) for cell in separator):
+            index += 1
+            continue
+        row_indexes = [index]
+        rows = [header]
+        index += 2
+        while index < len(lines):
+            row = _markdown_row_cells(lines[index])
+            if row is None:
+                break
+            row_indexes.append(index)
+            rows.append(row)
+            index += 1
+        if rows and all(not cell for cell in rows[0]):
+            row_indexes = row_indexes[1:]
+            rows = rows[1:]
+        parsed_tables.append((row_indexes, rows))
+    if len(parsed_tables) != len(tables):
+        return markdown
+    replacements: dict[int, str] = {}
+    for (row_indexes, markdown_rows), source_rows in zip(parsed_tables, tables):
+        if len(markdown_rows) != len(source_rows) or any(
+            len(markdown_row) != len(source_row)
+            for markdown_row, source_row in zip(markdown_rows, source_rows)
+        ):
+            return markdown
+        for line_index, markdown_row, source_row in zip(row_indexes, markdown_rows, source_rows):
+            updated: list[str] = []
+            for markdown_cell, source_paragraphs in zip(markdown_row, source_row):
+                cell = _insert_cell_breaks(markdown_cell, source_paragraphs)
+                if cell is None:
+                    return markdown
+                updated.append(cell)
+            newline = "\r\n" if lines[line_index].endswith("\r\n") else "\n"
+            replacements[line_index] = "| " + " | ".join(updated) + " |" + newline
+    for line_index, replacement in replacements.items():
+        lines[line_index] = replacement
+    return "".join(lines)
 
 
 def _normalized_percentages(value: str) -> set[str]:
@@ -375,6 +592,175 @@ def _independent_page_list_ocr(
     return _independent_page_ocr(path, page_no, budget, psms=("3", "6"), languages=tuple(OCR_LANGUAGES))
 
 
+_PHYSICAL_POLICY_TEXT_LABELS = {"text", "list_item", "section_header"}
+_HIERARCHICAL_MARKER = re.compile(r"^\d+(?:\.\d+)+[.)]?$")
+_PROTECTED_MATH_SIGNS = frozenset("+-−–—=*/%<>≤≥×÷")
+
+
+def _physical_page_size(pages: object, page_no: int) -> tuple[float, float] | None:
+    page = pages.get(page_no) if hasattr(pages, "get") else None
+    size = getattr(page, "size", None)
+    width = getattr(size, "width", None)
+    height = getattr(size, "height", None)
+    if not all(
+        isinstance(value, (int, float)) and math.isfinite(value) and value > 0
+        for value in (width, height)
+    ):
+        return None
+    return float(width), float(height)
+
+
+def _physical_item_position(
+    item: object, pages: object, *, picture: bool = False,
+) -> tuple[int, float, float, float, float, float, float] | None:
+    provenance = list(getattr(item, "prov", ()) or ())
+    if len(provenance) != 1:
+        return None
+    source = provenance[0]
+    page_no = getattr(source, "page_no", None)
+    if not isinstance(page_no, int) or page_no <= 0:
+        return None
+    page_size = _physical_page_size(pages, page_no)
+    if page_size is None:
+        return None
+    page_width, page_height = page_size
+    bbox = getattr(source, "bbox", None)
+    values = tuple(getattr(bbox, name, None) for name in ("l", "t", "r", "b"))
+    if not all(isinstance(value, (int, float)) and math.isfinite(value) for value in values):
+        return None
+    left, top, right, bottom = (float(value) for value in values)
+    if not 0 <= left < right <= page_width:
+        return None
+    origin = getattr(getattr(bbox, "coord_origin", None), "value", getattr(bbox, "coord_origin", None))
+    origin = str(origin).upper().rsplit(".", 1)[-1]
+    if origin == "BOTTOMLEFT":
+        if not 0 <= bottom < top <= page_height:
+            return None
+        physical_top = page_height - top
+        physical_bottom = page_height - bottom
+    elif origin == "TOPLEFT":
+        if not 0 <= top < bottom <= page_height:
+            return None
+        physical_top = top
+        physical_bottom = bottom
+    else:
+        return None
+    span = list(getattr(source, "charspan", ()) or ())
+    if len(span) != 2 or not all(isinstance(value, int) for value in span):
+        return None
+    expected_end = 0 if picture else len(getattr(item, "orig", ""))
+    if span != [0, expected_end]:
+        return None
+    return page_no, physical_top, left, right, physical_bottom, page_width, page_height
+
+
+def _physical_scanned_policy_markdown(document: object) -> str | None:
+    """Serialize a provenance-complete, single-column scanned policy in physical order."""
+    pages = getattr(document, "pages", None)
+    texts = list(getattr(document, "texts", ()) or ())
+    pictures = list(getattr(document, "pictures", ()) or ())
+    if not pages or not texts:
+        return None
+    if any(
+        getattr(document, collection, ())
+        for collection in ("tables", "key_value_items", "form_items", "formulas", "codes")
+    ):
+        return None
+
+    picture_child_refs: set[str] = set()
+    positioned: list[tuple[int, float, float, float, float, float, float, str, bool, str, str]] = []
+    for picture in pictures:
+        position = _physical_item_position(picture, pages, picture=True)
+        if position is None:
+            return None
+        for child in getattr(picture, "children", ()) or ():
+            reference = (
+                getattr(child, "cref", None)
+                or getattr(child, "ref", None)
+                or getattr(child, "$ref", None)
+            )
+            if not isinstance(reference, str) or not reference:
+                return None
+            picture_child_refs.add(reference)
+        positioned.append((*position, "<!-- image -->", False, "picture", ""))
+
+    section_headers = 0
+    hierarchical_markers = 0
+    for item in texts:
+        if getattr(item, "self_ref", None) in picture_child_refs:
+            continue
+        if getattr(item, "children", ()):
+            return None
+        raw_label = getattr(item, "label", "")
+        label = str(getattr(raw_label, "value", raw_label))
+        if label not in _PHYSICAL_POLICY_TEXT_LABELS:
+            return None
+        text = getattr(item, "text", None)
+        original = getattr(item, "orig", None)
+        marker = getattr(item, "marker", "") or ""
+        if not isinstance(text, str) or not text.strip() or not isinstance(original, str):
+            return None
+        if not isinstance(marker, str):
+            return None
+        if marker:
+            if not original.startswith(marker) or original[len(marker):].lstrip() != text:
+                return None
+            rendered = text if text.lstrip().startswith(marker) else f"{marker} {text}"
+            hierarchical_markers += bool(_HIERARCHICAL_MARKER.fullmatch(marker))
+        else:
+            if original != text:
+                return None
+            rendered = text
+        if label == "section_header":
+            section_headers += 1
+            rendered = f"## {rendered}"
+        position = _physical_item_position(item, pages)
+        if position is None:
+            return None
+        _, physical_top, left, right, physical_bottom, _, _ = position
+        stripped = text.strip()
+        tiny_nonlexical = (
+            len(stripped) <= 3
+            and right - left <= 6
+            and physical_bottom - physical_top <= 4
+            and not any(char.isalnum() or char in _PROTECTED_MATH_SIGNS for char in stripped)
+        )
+        if tiny_nonlexical:
+            codepoints = " ".join(f"U+{ord(char):04X}" for char in stripped)
+            rendered = f"<!-- source-speck {codepoints} -->"
+        positioned.append((*position, rendered, not tiny_nonlexical, label, marker))
+
+    if section_headers == 0 or hierarchical_markers == 0:
+        return None
+    for index, first in enumerate(positioned):
+        if not first[8]:
+            continue
+        for second in positioned[index + 1:]:
+            if second[0] != first[0] or not second[8]:
+                continue
+            vertical_overlap = min(first[4], second[4]) - max(first[1], second[1])
+            side_by_side = first[3] <= second[2] or second[3] <= first[2]
+            if vertical_overlap > 0 and side_by_side:
+                return None
+    positioned.sort(key=lambda entry: (entry[0], entry[1], entry[2]))
+    rendered_items: list[str] = []
+    list_intro_active = False
+    for entry in positioned:
+        rendered, lexical, label, marker = entry[7:]
+        if label == "section_header" or _HIERARCHICAL_MARKER.fullmatch(marker):
+            list_intro_active = rendered.rstrip().endswith(":")
+        elif lexical and label != "list_item":
+            list_intro_active = False
+        elif label == "list_item" and list_intro_active and not marker:
+            # A native list child may have lost its visual dash during OCR.
+            # Restore only Markdown structure under a source-explicit colon
+            # introduction, never a fabricated ordinal or a new lexical word.
+            if not re.match(r"^\s*[-—–*•‣]", rendered):
+                rendered = f"- {rendered}"
+        rendered_items.append(rendered)
+    return "\n\n".join(rendered_items)
+
+
 _LIST_MARKER = re.compile(r"^\s*(?:\d+[.)]\s*[-—–*]?\s*|[-—–*]\s*)")
 _CONTINUATION_END = re.compile(r"\b(?:и|или|and|or|және|немесе)\s*$", re.IGNORECASE)
 
@@ -391,17 +777,21 @@ def _broken_list_continuations(markdown: str) -> list[tuple[int, str, str]]:
     """Locate only a short orphan between a dangling conjunction and a new item."""
     lines = markdown.splitlines(keepends=True)
     candidates: list[tuple[int, str, str]] = []
-    for index in range(1, len(lines) - 1):
-        previous = _list_body(lines[index - 1])
+    nonempty_indexes = [index for index, line in enumerate(lines) if line.strip()]
+    for position in range(1, len(nonempty_indexes) - 1):
+        previous_index = nonempty_indexes[position - 1]
+        index = nonempty_indexes[position]
+        next_index = nonempty_indexes[position + 1]
+        previous = _list_body(lines[previous_index])
         fragment = _list_body(lines[index])
         words = re.findall(r"[^\W\d_]+", fragment)
         if (
-            _LIST_MARKER.match(lines[index - 1])
+            _LIST_MARKER.match(lines[previous_index])
             and len(previous) >= 24 and _CONTINUATION_END.search(previous)
-            and _LIST_MARKER.match(lines[index]) and len(fragment) <= 16
+            and len(fragment) <= 16
             and len(words) == 1 and len(words[0]) <= 8 and not re.search(r"\d", fragment)
             and words[0].casefold() not in {"не", "нет", "not", "no"}
-            and _LIST_MARKER.match(lines[index + 1]) and len(_list_body(lines[index + 1])) >= 12
+            and _LIST_MARKER.match(lines[next_index]) and len(_list_body(lines[next_index])) >= 12
         ):
             candidates.append((index, previous, fragment))
     return candidates
@@ -481,7 +871,13 @@ def _repair_scanned_pdf_list_boundaries(path: str, document: object, markdown: s
         # Only this source-corroborated boundary changes. All unrelated bytes and
         # the complete existing body/conditions/numbers remain untouched.
         newline = "\r\n" if lines[index].endswith("\r\n") else "\n"
-        lines[index - 1] = "- " + previous + " " + first + newline
+        previous_index = next(
+            (line_index for line_index in range(index - 1, -1, -1) if lines[line_index].strip()),
+            None,
+        )
+        if previous_index is None:
+            continue
+        lines[previous_index] = "- " + previous + " " + first + newline
         lines[index] = ""
     return "".join(lines)
 
@@ -514,6 +910,10 @@ def _docling_convert(path: str) -> tuple[str, int, int]:
     if document is not None and _SCANNED_PDF_PERCENTAGE_CROSSCHECK.get():
         _crosscheck_docling_percentages(path, document)
     markdown = document.export_to_markdown() if document is not None else str(result)
+    if document is not None and _SCANNED_PDF_PERCENTAGE_CROSSCHECK.get():
+        physical_markdown = _physical_scanned_policy_markdown(document)
+        if physical_markdown is not None:
+            markdown = physical_markdown
     # Docling's Markdown serializer escapes brackets/underscores in text items.
     # Keep the machine-readable uncertainty token stable across that boundary.
     markdown = re.sub(r"\\?\[UNREADABLE\\?_PERCENTAGE\\?_VALUE\\?\]", UNREADABLE_PERCENTAGE_VALUE, markdown)

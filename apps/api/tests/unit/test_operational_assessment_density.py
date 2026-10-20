@@ -59,9 +59,95 @@ async def test_explicit_operational_list_preserves_all_five_independent_targets(
     assert len(derive_assessment_axes(lesson, [fact], block_id="probe")) == 5
     client = _EmptyAuthor()
     result = await generate_block_assessment([lesson], {fact.fact_id: fact}, client)
-    assert len(client.requests[0]["axes"]) == 5
+    assert sum(len(r["axes"]) for r in client.requests) == 5
+    assert max(len(r["axes"]) for r in client.requests) <= 4
     assert result.audit["requested_axes"] == 5
     assert result.questions == ()  # More source targets never invent accepted questions.
+
+
+def test_compact_ocr_list_without_semicolons_retains_every_action_axis() -> None:
+    value = (
+        "6.2. Последний сотрудник должен:\n"
+        "— отключить приборы, кроме аварийного освещения;\n"
+        "-проверить свободный выход\n"
+        "— закрыть окна помещения\n"
+        "-выключить свет в помещении"
+    )
+    fact = SourceFact("closing", "Закрытие", "обязанность", value, "section=closing;part=1")
+    lesson = LessonDraft("closing", "Безопасность", "Закрытие", "Закрыть помещение", "", (fact.fact_id,), (), 2)
+    axes = derive_assessment_axes(lesson, [fact], block_id="probe")
+    assert len(axes) == 4
+    assert all("Последний сотрудник должен" in axis.required_prompt for axis in axes)
+    assert {axis.correct_value for axis in axes} == {
+        "отключить приборы, кроме аварийного освещения", "проверить свободный выход",
+        "закрыть окна помещения", "выключить свет в помещении",
+    }
+
+
+def test_emergency_list_keeps_urgency_and_concurrent_action_qualifiers() -> None:
+    value = (
+        "5.1. При обнаружении пожара сотруднику следует:\n"
+        "— незамедлительно сообщить пожарной службе адрес объекта;\n"
+        "-одновременно с тушением пожара организовать эвакуацию документов;\n"
+        "-при необходимости отключить электроэнергию."
+    )
+    fact = SourceFact("fire", "Действия при пожаре", "обязанность", value, "section=fire;part=1")
+    lesson = LessonDraft("fire", "Безопасность", "Пожар", "Действовать", "", (fact.fact_id,), (), 2)
+    axes = derive_assessment_axes(lesson, [fact], block_id="probe")
+    assert len(axes) == 3
+    assert any(axis.correct_value.startswith("незамедлительно сообщить") for axis in axes)
+    assert any("одновременно с тушением пожара" in axis.required_prompt for axis in axes)
+    assert any("при необходимости" in axis.required_prompt for axis in axes)
+    assert all("При обнаружении пожара сотруднику следует" in axis.required_prompt for axis in axes)
+
+
+def test_narrative_plan_splits_dense_rules_before_the_assessment_safety_ceiling() -> None:
+    from app.modules.ai.evidence_engine.engine import EvidenceCourseEngine
+    from app.modules.ai.evidence_engine.models import SourceDocument, SourceSection
+    facts = tuple(SourceFact(
+        f"f{index}", "Правила безопасности", "обязанность",
+        f"Сотрудник участка {index} обязан:\n" + ";\n".join(
+            f"{item}) проверить аварийный выход участка {index} номер {item}" for item in range(1, 9)
+        ) + ".", f"section=safety;part={index}",
+    ) for index in range(1, 4))
+    result = EvidenceCourseEngine().generate_from_document(SourceDocument(
+        "dense", "Безопасность", "narrative", (SourceSection("s", "Правила безопасности", "primary", facts),),
+    ))
+    assert len(result.course.lessons) == 2
+    admitted = {fact.fact_id: fact for fact in result.admitted_facts}
+    counts = [len(derive_assessment_axes(lesson, [admitted[fid] for fid in lesson.fact_ids], block_id="probe"))
+              for lesson in result.course.lessons]
+    assert counts == [16, 8]
+    assert [fid for lesson in result.course.lessons for fid in lesson.fact_ids] == list(admitted)
+
+
+def test_instruction_schedules_and_liability_are_not_hidden_in_one_mixed_paragraph() -> None:
+    from app.modules.ai.evidence_engine.assessment_axes import has_partial_unatomized_source_contract
+    value = (
+        "Ответственность за безопасность возлагается на руководителя подразделения. "
+        "Все сотрудники должны проходить инструктаж в соответствии с регламентом.\n"
+        "-вновь принимаемые сотрудники проходят инструктаж при приеме на работу;\n"
+        "— сотрудники организации проходят инструктаж не реже 1 раза в год. "
+        "Нарушение требований безопасности влечет за собой дисциплинарную ответственность, "
+        "предусмотренную законодательством Республики Казахстан."
+    )
+    fact = SourceFact("instruction", "Обучение", "обязанность", value, "section=instruction;part=1")
+    lesson = LessonDraft("instruction", "", "", "", "", (fact.fact_id,), (), 1)
+    axes = derive_assessment_axes(lesson, [fact], block_id="probe")
+    assert any("при приеме на работу" in axis.correct_value for axis in axes)
+    assert any("не реже 1 раза в год" in axis.correct_value for axis in axes)
+    assert any("дисциплинарную ответственность" in axis.correct_value for axis in axes)
+    assert not has_partial_unatomized_source_contract(fact)
+
+
+def test_schedule_under_an_unfinished_condition_is_not_an_unconditional_obligation() -> None:
+    from app.modules.ai.evidence_engine.assessment_axes import _instruction_schedule_axes
+    value = "Если вводится новая технология:\n-сотрудники проходят инструктаж перед работой;\n— сотрудники проходят инструктаж каждый год."
+    fact = SourceFact("s", "Инструктаж", "обязанность", value, "section=s;part=1")
+    assert _instruction_schedule_axes(fact) == []
+    for actor in ("он", "она", "они", "лицо", "это"):
+        assert _instruction_schedule_axes(SourceFact("s", "Инструктаж", "обязанность",
+            f"{actor} проходят инструктаж каждый год.", "section=s;part=1")) == []
 
 
 @pytest.mark.asyncio
@@ -172,11 +258,19 @@ async def test_failed_author_batch_is_not_hidden_by_an_empty_successful_sibling(
     ) for i in range(1, 7)}
     lesson = LessonDraft("safety", "Безопасность", "Выходы", "Проверять выходы", "", tuple(facts), (), 2)
 
-    result = await generate_block_assessment([lesson], facts, PartialOutage())
+    client = PartialOutage()
+    result = await generate_block_assessment([lesson], facts, client)
 
     assert result.audit["failures"]
-    assert {row["primary_fact_id"] for row in result.audit["axis_outcomes"]
-            if row["state"] == "uncovered"} == {"1", "2", "3"}
+    uncovered = {row["primary_fact_id"] for row in result.audit["axis_outcomes"]
+                 if row["state"] == "uncovered"}
+    failed_axes = {axis["axis_id"] for request in client.requests
+                   if any(f["fact_id"] == "1" for f in request["facts"])
+                   for axis in request["axes"]}
+    assert uncovered
+    assert uncovered < set(facts)  # A failed child must not erase unrelated siblings.
+    assert {row["axis_id"] for row in result.audit["axis_outcomes"]
+            if row["state"] == "uncovered"} == failed_axes
     assert result.audit["coverage"]["requires_review"] is True
     assert result.audit["contract_coverage"]["audit_incomplete"] is True
     assert result.audit["terminal_status"] == "review_required"

@@ -41,7 +41,7 @@ _REMOTE_PHONE_APPROVAL = re.compile(
     r"^(?P<scope>(?P<subject>[^.!?]{3,140}?\b(?:категори[ия]|класса)\b)\s+"
     r"(?P<locality>при\s+[^.!?]{3,240}?\bвне\b[^.!?]{3,160}?))\s+"
     r"(?P<answer>предварительно\s+согласовываются\s+"
-    r"(?P<actor>[^,.!?]{3,100}?)\s+по\s+телефону)[.!?]?$",
+    r"(?P<actor>[^,.!?]{3,100}?)\s+(?P<method>по\s+телефону))[.!?]?$",
     flags=re.IGNORECASE,
 )
 _REMOTE_COMPLEX_REVIEW = re.compile(
@@ -108,10 +108,11 @@ def _projection(
     prompt: str,
     condition: str,
     consumed_groups: tuple[str, ...],
+    minimum_answer_chars: int = 12,
 ) -> OperationalProjection | None:
     answer = match.group(answer_group).strip()
     if (
-        not 12 <= len(answer) <= MAX_ASSESSMENT_ANSWER_CHARS
+        not minimum_answer_chars <= len(answer) <= MAX_ASSESSMENT_ANSWER_CHARS
         or len(prompt) > _MAX_REQUIRED_PROMPT_CHARS
     ):
         return None
@@ -147,10 +148,10 @@ def _phone_preapproval(
         sentence=sentence,
         sentence_index=sentence_index,
         match=match,
-        answer_group="answer",
-        prompt=f"Какой полный порядок предварительного и последующего согласования требуется для «{subject}»?",
+        answer_group="phone",
+        prompt=f"Какое предварительное согласование требуется для «{subject}»?",
         condition=subject,
-        consumed_groups=("answer",),
+        consumed_groups=("phone",),
     )
     if projection is None:
         return ()
@@ -232,20 +233,26 @@ def _remote_phone_approval(
     if match is None:
         return ()
     scope = match.group("scope").strip()
-    locality = match.group("locality").strip()
     actor = match.group("actor").strip()
     projection = _projection(
         sentence=sentence,
         sentence_index=sentence_index,
         match=match,
-        answer_group="answer",
-        prompt=f"Как согласовываются «{scope}» и кем выполняется согласование?",
-        condition=locality,
-        consumed_groups=("scope", "answer"),
+        answer_group="method",
+        prompt=f"Каким способом предварительно согласовываются «{scope}»?",
+        condition=scope,
+        consumed_groups=("scope", "method"),
+        minimum_answer_chars=5,
     )
     if projection is None or actor.casefold() in {"оно", "это", "лицо"}:
         return ()
-    return (projection,)
+    participant = _projection(
+        sentence=sentence, sentence_index=sentence_index, match=match,
+        answer_group="actor",
+        prompt=f"Кто указан как участник предварительного согласования по телефону для «{scope}»?",
+        condition=scope, consumed_groups=("scope", "answer"), minimum_answer_chars=5,
+    )
+    return (projection, participant) if participant is not None else (projection,)
 
 
 def _remote_complex_review(
@@ -316,6 +323,11 @@ def _handover_analogy(
     return (projection,) if projection is not None else ()
 
 
+def is_unresolved_procedure_reference(sentence: str) -> bool:
+    """A named analogy supplies no executable steps or independent answer key."""
+    return bool(_REMOTE_ANALOGY.fullmatch(sentence) or _HANDOVER_ANALOGY.fullmatch(sentence))
+
+
 def project_operational_approvals(
     fact: SourceFact,
     source_sentences: Sequence[str],
@@ -330,8 +342,6 @@ def project_operational_approvals(
         _general_approval,
         _remote_phone_approval,
         _remote_complex_review,
-        _remote_analogy,
-        _handover_analogy,
     )
     result: list[OperationalProjection] = []
     active_branch: tuple[str, ExactSentenceSpan, int] | None = None

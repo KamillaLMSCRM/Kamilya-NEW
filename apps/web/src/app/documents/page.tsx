@@ -436,7 +436,7 @@ export default function DocumentsPage() {
   const firstBackgroundError = backgroundOperation?.job.errors?.[0];
   const backgroundErrorCode = (
     typeof firstBackgroundError === 'string' ? null : firstBackgroundError?.code
-  ) || backgroundOperation?.document.index.error_code;
+  );
   const sourceBlobMissing = backgroundErrorCode === 'source_blob_missing';
   const ocrRequired = backgroundErrorCode === 'ocr_required';
   const displayedBackgroundJob = backgroundOperation && ocrRequired

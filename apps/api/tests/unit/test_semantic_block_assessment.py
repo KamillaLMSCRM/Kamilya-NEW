@@ -1241,9 +1241,9 @@ async def test_narrative_assessment_budget_follows_independent_source_targets():
     client = Client(empty=True)
     result = await generate_block_assessment([lesson], facts, client)
     assert result.audit["blocks"] == 1
-    assert len(client.requests) == 1
-    assert len(client.requests[0]["facts"]) == 5
-    assert len(client.requests[0]["axes"]) == 5
+    assert len(client.requests) == 2
+    assert sum(len(r["axes"]) for r in client.requests) == 5
+    assert all(len(r["axes"]) <= 4 for r in client.requests)
     omitted = [row for row in result.audit["block_outcomes"]
                if row["outcome"] == "density_omitted"]
     assert omitted == []

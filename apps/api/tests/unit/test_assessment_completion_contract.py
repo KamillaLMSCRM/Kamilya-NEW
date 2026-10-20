@@ -109,6 +109,23 @@ class _CompletionClient:
 
 
 @pytest.mark.asyncio
+async def test_provider_item_batches_are_bounded_without_reducing_lesson_coverage():
+    facts = {str(i): SourceFact(str(i), "Коллекция", f"Материал {i}", value,
+                                "doc_id=d;source_revision=r1;section=s")
+             for i, value in enumerate(("Дуб", "Сосна", "Берёза", "Бук", "Ясень", "Липа", "Кедр"))}
+    lesson = LessonDraft("l", "Материалы", "Материалы", "Выбирать материал", "", tuple(facts), (), 2)
+    client = _CompletionClient(truncate_batches=False)
+    result = await generate_block_assessment([lesson], facts, client)
+    assert len(result.questions) == 7
+    assert result.audit["requested_axes"] == 7
+    assert all(len(r.get("axes", r.get("questions", []))) <= 4 for r in client.requests)
+    for r in client.requests:
+        if r["task"] == "assessment_review":
+            assert {f["fact_id"] for f in r["governing_facts"]} == set(facts)
+            assert all("correct_answer" not in q for q in r["questions"])
+
+
+@pytest.mark.asyncio
 async def test_completion_audits_each_requested_axis_and_supplements_only_missing_ids():
     lesson, facts = _lesson_and_facts()
     client = _CompletionClient()

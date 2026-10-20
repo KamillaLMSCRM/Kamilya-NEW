@@ -99,6 +99,22 @@ def test_suppressed_target_does_not_contribute_its_spans() -> None:
     assert audit.uncovered_sentence_indices == (0,)
 
 
+@pytest.mark.parametrize("tail,reference_only", [
+    (", а в дальнейшем в соответствии с п.2.", True),
+    (", а в дальнейшем проверить имущество в соответствии с п.2.", False),
+])
+def test_naked_section_reference_is_recorded_separately_not_claimed_as_an_action(tail, reference_only):
+    prefix = "Решение требует предварительного согласования по телефону"
+    sentence = prefix + tail
+    projection = _projection(sentence, answer=prefix, prompt="Как согласуют предварительно?",
+                             spans=((0, len(prefix)),))
+    audit = audit_operational_coverage((sentence,), ((prefix, projection.step.required_prompt),), (projection,))
+    assert bool(audit.reference_only_spans) is reference_only
+    assert bool(audit.uncovered_spans) is not reference_only
+    if reference_only:
+        assert audit.reference_only_spans[0].text == "а в дальнейшем в соответствии с п.2"
+
+
 def test_changed_prompt_is_not_treated_as_the_same_actual_target() -> None:
     sentence = "Контролер проверяет объект."
     projection = _projection(

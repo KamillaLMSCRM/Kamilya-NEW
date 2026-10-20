@@ -223,16 +223,16 @@ def test_bullet_list_skips_heading_and_exception_without_relaxing_source_truth()
             "- отключить электроприборы;\n"
             "- проверить сигнализацию;\n"
             "- закрыть окна.",
-            "После работы сотрудник обязан: - отключить электроприборы; "
-            "- проверить сигнализацию; - закрыть окна.",
+            "После работы сотрудник обязан:\n- отключить электроприборы;\n"
+            "- проверить сигнализацию;\n- закрыть окна.",
         ),
         (
             "После работы сотрудник обязан:\n"
             "- 1) отключить электроприборы;\n"
             "- 2) проверить сигнализацию;\n"
             "- 3) закрыть окна.",
-            "После работы сотрудник обязан: - 1) отключить электроприборы; "
-            "- 2) проверить сигнализацию; - 3) закрыть окна.",
+            "После работы сотрудник обязан:\n- 1) отключить электроприборы;\n"
+            "- 2) проверить сигнализацию;\n- 3) закрыть окна.",
         ),
     ],
 )
@@ -276,8 +276,8 @@ def test_admitted_conditional_list_keeps_each_condition_and_action_target() -> N
     )
     fact = _roundtrip_fact(source_text, needle="остановить насос")
     assert fact.value == (
-        "При аварии оператор обязан: - Если обнаружен дым, остановить насос; "
-        "- Если слышен сигнал, отключить питание; "
+        "При аварии оператор обязан:\n- Если обнаружен дым, остановить насос;\n"
+        "- Если слышен сигнал, отключить питание;\n"
         "- Если перекрыт выход, сообщить руководителю."
     )
     lesson = _lesson_for_fact(fact)
@@ -570,14 +570,14 @@ async def test_partial_author_response_recovers_each_missing_clause_axis() -> No
     author_requests = [
         request for request in client.requests if request["task"] == "assessment_generate"
     ]
-    assert [len(request["axes"]) for request in author_requests] == [8, *([1] * 7)]
+    assert [len(request["axes"]) for request in author_requests] == [4, 4, *([1] * 6)]
     requested_axis_ids = [
-        axis["axis_id"] for axis in author_requests[0]["axes"]
+        axis["axis_id"] for request in author_requests[:2] for axis in request["axes"]
     ]
     recovered_axis_ids = [
-        request["axes"][0]["axis_id"] for request in author_requests[1:]
+        request["axes"][0]["axis_id"] for request in author_requests[2:]
     ]
-    assert recovered_axis_ids == requested_axis_ids[1:]
+    assert recovered_axis_ids == requested_axis_ids[1:4] + requested_axis_ids[5:]
     assert {question.correct_answer for question in result.questions} == set(
         WAREHOUSE_CLAUSES
     )

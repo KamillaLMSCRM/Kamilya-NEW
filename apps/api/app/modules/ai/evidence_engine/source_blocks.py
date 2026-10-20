@@ -5,9 +5,10 @@ from __future__ import annotations
 import re
 
 _LIST_OR_NUMBERED_PARAGRAPH_BOUNDARY_RE = re.compile(
-    r"(?=^\s*(?:[-*•‣]\s+)?(?:\d+(?:\.\d+)*|[а-яёa-z])[.)]\s+\S)", re.MULTILINE | re.IGNORECASE
+    r"(?=^[ \t]*(?:(?:[-*•‣—–][ \t]+)?(?:\d+(?:\.\d+)*|[а-яёa-z])[.)][ \t]+\S"
+    r"|[-—–](?:[ \t]+|(?=[^\W\d_]))\S|[*•‣][ \t]+\S))", re.MULTILINE | re.IGNORECASE
 )
-_BULLET_RE = re.compile(r"^(?:[-*•‣])\s+")
+_BULLET_RE = re.compile(r"^(?:[-—–](?:\s+|(?=[^\W\d_]))|[*•‣]\s+)")
 _NUMBERED_BULLET_RE = re.compile(r"^\d+[.)]\s+")
 _LETTERED_BULLET_RE = re.compile(r"^[а-яёa-z][.)]\s+", re.IGNORECASE)
 _CONTINUATION_RE = re.compile(
@@ -19,12 +20,13 @@ _CONTINUATION_RE = re.compile(
     re.IGNORECASE,
 )
 _DOCLING_IMAGE_MARKER_RE = re.compile(r"^\s*<!--\s*image\s*-->\s*$", re.IGNORECASE)
+_DOCLING_SPECK_METADATA_RE = re.compile(r"^\s*<!-- source-speck U\+[0-9A-F]{4,6}(?: U\+[0-9A-F]{4,6}){0,2} -->\s*$")
 _NAVIGATION_HEADING_RE = re.compile(
     r"^\s*(?:contents|table\s+of\s+contents|содержание)\s*:?\s*$",
     re.IGNORECASE,
 )
 _NUMBERED_ITEM_RE = re.compile(r"^(?P<number>\d+)[.)]\s+")
-_HIERARCHICAL_ITEM_RE = re.compile(r"^(?:[-*•‣]\s+)?\d+(?:\.\d+)+[.)]\s+")
+_HIERARCHICAL_ITEM_RE = re.compile(r"^(?:[-*•‣—–]\s+)?\d+(?:\.\d+)+[.)]\s+")
 
 
 def _normalize_block(value: str) -> str:
@@ -52,7 +54,7 @@ def split_narrative_blocks(text: str) -> list[str]:
         list_active = False
         for numbered_part in _LIST_OR_NUMBERED_PARAGRAPH_BOUNDARY_RE.split(source_paragraph):
             paragraph = _normalize_block(numbered_part)
-            if not paragraph or _DOCLING_IMAGE_MARKER_RE.fullmatch(paragraph):
+            if not paragraph or _DOCLING_IMAGE_MARKER_RE.fullmatch(paragraph) or _DOCLING_SPECK_METADATA_RE.fullmatch(paragraph):
                 continue
             hierarchical_item = bool(_HIERARCHICAL_ITEM_RE.match(paragraph))
             if hierarchical_item:
@@ -63,9 +65,18 @@ def split_narrative_blocks(text: str) -> list[str]:
             is_marker = bool(
                 _NUMBERED_BULLET_RE.match(paragraph) or _LETTERED_BULLET_RE.match(paragraph)
             )
+            # OCR may enumerate a visual dash list starting at an arbitrary
+            # number after a page/paragraph boundary. Keep the existing explicit
+            # list introduction; never treat a bare new numbered rule this way.
+            ocr_list_continuation = bool(
+                blocks and re.match(r"^\d+[.)]\s+[—–-]\s*\S", paragraph)
+                and blocks[-1].endswith((";", ","))
+                and re.search(r":\s+(?:[-*•‣]\s+|\d+[.)]\s+)", blocks[-1])
+            )
             numbered_item = _NUMBERED_ITEM_RE.match(paragraph)
             is_list_item = is_marker and (
                 list_active
+                or ocr_list_continuation
                 or (blocks and blocks[-1].endswith(":"))
                 or (
                     numbered_item is not None
@@ -75,7 +86,8 @@ def split_narrative_blocks(text: str) -> list[str]:
             is_bullet = not hierarchical_item and (bool(_BULLET_RE.match(paragraph)) or is_list_item)
             is_continuation = bool(_CONTINUATION_RE.match(paragraph))
             if blocks and (is_bullet or is_continuation):
-                blocks[-1] = f"{blocks[-1]} {paragraph}"
+                separator = "\n" if is_bullet else " "
+                blocks[-1] = f"{blocks[-1]}{separator}{paragraph}"
             else:
                 blocks.append(paragraph)
             list_active = is_list_item

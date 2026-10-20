@@ -23,6 +23,8 @@ def _corpus(text: str) -> DirectSourceCorpus:
     rows = DocumentChunker(chunk_size=240, chunk_overlap=40).chunk_markdown(
         text, "synthetic-rules", "rules.docx",
     )
+
+
     chunks = tuple(DirectSourceChunk(
         chunk_id=f"synthetic-rules:{index}", doc_id="synthetic-rules", doc_name="rules.docx",
         title="материалы26", headings=tuple(json.loads(row["metadata"]["headings"])),
@@ -34,6 +36,42 @@ def _corpus(text: str) -> DirectSourceCorpus:
             category="training_material", source_revision="document:synthetic-rules-v1", chunks=chunks,
         ),), total_chars=len(text), total_chunks=len(chunks),
     )
+
+
+def test_hierarchical_clause_introductions_are_not_promoted_to_new_headings() -> None:
+    text = (
+        "## 6. Требования безопасности\n\n"
+        "6.2. Сотрудник должен:\n\n-проверить выход;\n\n"
+        "—закрыть все окна\n\n-выключить свет\n\n"
+        "6.3. Руководитель проверяет журнал."
+    )
+    bundle = build_evidence_source(_corpus(text))
+    primary, _supporting, _duplicates = admit_document_facts(bundle.document)
+    checklist = [fact for fact in primary if "закрыть все окна" in fact.value]
+    assert len(checklist) == 1
+    assert "6.2. Сотрудник должен:" in checklist[0].value
+    assert "-выключить свет" in checklist[0].value
+    assert "6.3." not in checklist[0].value
+    assert all("6.2." not in section.title for section in bundle.document.sections)
+
+
+def test_city_year_cover_imprint_is_not_a_truncated_operational_rule() -> None:
+    assert _narrative_fact_metadata("г. Костанай 2024 г.")["uncertainty"] == "source_cover_imprint"
+    assert _narrative_fact_metadata("В г. Костанай с 2024 г. действует запрет.")["uncertainty"] == ""
+
+
+def test_table_emphasis_across_restored_paragraph_break_does_not_hide_step_numbers() -> None:
+    text = (
+        "# 2. Согласование\n\n| Категория | Порядок |\n| --- | --- |\n"
+        "| I категория | **Во время проверки ответственный** **сотрудник** **<br>1.** "
+        "должен осмотреть имущество.<br>**2.** Если он согласует операцию, то подписывает карточку. |"
+    )
+    bundle = build_evidence_source(_corpus(text))
+    primary, _, _ = admit_document_facts(bundle.document)
+    value = next(f.value for f in primary if "осмотреть" in f.value)
+    assert "**" not in value
+    assert "сотрудник\n1. должен осмотреть" in re.sub(r"[ \t]+\n", "\n", value)
+    assert "\n2. Если он" in value
 
 
 def test_operational_limit_table_before_first_body_heading_is_not_supporting_cover() -> None:
@@ -62,6 +100,18 @@ def test_explicit_reference_appendix_is_not_promoted_by_a_limit_column() -> None
     assert any("700 единиц" in fact.value for fact in supporting)
 
 
+def test_post_table_prose_does_not_move_before_the_source_limits_table() -> None:
+    text = (
+        "# 2. Согласование\n\n| Категория | Лимит выдачи |\n| --- | --- |\n"
+        "| А | От 400 100 до 800 000 тенге. |\n\n"
+        "Эксперт не вправе продлевать договор без согласования."
+    )
+    bundle = build_evidence_source(_corpus(text))
+    sections = [s for s in bundle.document.sections if s.role == "primary"]
+    assert "800 000" in sections[0].facts[0].value
+    assert "продлевать" in sections[1].facts[0].value
+
+
 def test_document_metadata_table_is_not_an_operational_deadline() -> None:
     text = (
         "УТВЕРЖДАЮ\n\nГенеральный директор\n\nматериалы26\n\n"
@@ -78,6 +128,78 @@ def test_toc_label_and_signature_are_traceable_but_not_teachable_facts() -> None
     for value in ("1. Общие положения.", "УТВЕРЖДАЮ", "Генеральный директор"):
         assert _narrative_fact_metadata(value)["confidence"] == 0.0
     assert _narrative_fact_metadata("Генеральный директор обязан назначить ответственного.")["confidence"] == 1.0
+
+
+def test_complete_source_list_without_final_period_is_admitted_whole() -> None:
+    text = (
+        "# 5. Действия при аварии\n\n"
+        "5.1. При обнаружении аварии сотруднику следует:\n"
+        "2. — сообщить диспетчеру место аварии;\n"
+        "3. — вывести людей из опасной зоны;\n"
+        "4. — встретить аварийную бригаду"
+    )
+    primary, _, _ = admit_document_facts(build_evidence_source(_corpus(text)).document)
+    assert len(primary) == 1
+    assert "место аварии" in primary[0].value
+    assert "вывести людей" in primary[0].value
+    assert "встретить аварийную бригаду" in primary[0].value
+
+
+@pytest.mark.parametrize("tail", ["4. —", "4. — передать документы в", "4. — проверить оборудование и"])
+def test_explicit_list_does_not_legalize_a_truncated_final_action(tail: str) -> None:
+    text = "Сотрудник обязан: 2. — сообщить диспетчеру; 3. — вывести людей; " + tail
+    assert _narrative_fact_metadata(text)["confidence"] == 0.0
+
+
+def test_table_cell_paragraph_boundaries_survive_admission_and_safe_rendering() -> None:
+    text = (
+        "# 2. Лимиты\n\n| Категория | Лимит выдачи |\n| --- | --- |\n"
+        "| А | От 400 100 до 800 000 для северного отдела<br>От 400 100 до 900 000 для южного отдела |"
+    )
+    primary, _, _ = admit_document_facts(build_evidence_source(_corpus(text)).document)
+    fact = next(f for f in primary if "800 000" in f.value)
+    assert "отдела\nОт 400 100" in fact.value
+    lesson = LessonDraft("limits", "Лимиты", "Лимиты", "Применять лимиты", "", (fact.fact_id,), (), 2)
+    result, _, _ = _grounded_fallback(base_lesson=lesson, plan_fact_ids=(fact.fact_id,),
+                                     facts_by_id={fact.fact_id: fact}, seeds=[])
+    assert "отдела\n\nОт 400 100" in result.content
+    assert "<br>" not in result.content
+
+
+def test_realizer_cannot_flatten_a_structured_cell_or_omit_its_second_condition() -> None:
+    value = "Для северного отдела лимит 800 000.\nДля южного отдела лимит 900 000."
+    fact = SourceFact("f", "Категория А", "Лимит", value,
+                      "doc_id=d;source_revision=v1;section=s;table=1;row=2;column=2")
+    lesson = LessonDraft("l", "Лимиты", "Лимиты", "Применять лимиты", "", ("f",), (), 2)
+    result, _, _ = ProviderBackedEvidenceEngine._validate_and_render(
+        {"blocks": [{"heading": "Лимит", "text": "Категория А — Лимит: " + value.replace("\n", " "), "fact_ids": ["f"]}]},
+        base_lesson=lesson, plan_fact_ids={"f"}, facts_by_id={"f": fact}, seeds=[])
+    assert "800 000.\nДля южного" in result.content
+
+
+def test_realizer_must_not_silently_remove_a_source_word_negation() -> None:
+    source = "Защита должна учитывать отклонения от ненормальных режимов работы оборудования."
+    fact = SourceFact("f", "Защита", "требование", source, "doc_id=d;section=s;part=1")
+    lesson = LessonDraft("l", "Защита", "Защита", "Проверять оборудование", "", ("f",), (), 2)
+    result, _, _ = ProviderBackedEvidenceEngine._validate_and_render(
+        {"blocks": [{"heading": "Защита", "text": source.replace("ненормальных", "нормальных"), "fact_ids": ["f"]}]},
+        base_lesson=lesson, plan_fact_ids={"f"}, facts_by_id={"f": fact}, seeds=[])
+    assert "ненормальных" in result.content
+    assert "от нормальных" not in result.content
+
+
+@pytest.mark.parametrize("source", [
+    "Сотрудник не должен отключать аварийное освещение.",
+    "Использование неисправного прибора не допускается.",
+    "При штатном запуске дополнительное согласование не требуется.",
+])
+def test_realizer_cannot_remove_standalone_negation(source: str) -> None:
+    fact = SourceFact("f", "Безопасность", "требование", source, "doc_id=d;section=s;part=1")
+    lesson = LessonDraft("l", "Безопасность", "Безопасность", "Соблюдать правило", "", ("f",), (), 2)
+    result, _, _ = ProviderBackedEvidenceEngine._validate_and_render(
+        {"blocks": [{"heading": "Правило", "text": source.replace("не ", "", 1), "fact_ids": ["f"]}]},
+        base_lesson=lesson, plan_fact_ids={"f"}, facts_by_id={"f": fact}, seeds=[])
+    assert source in result.content
 
 
 def test_realization_formats_source_bound_inline_rules_as_readable_blocks() -> None:

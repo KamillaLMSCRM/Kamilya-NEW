@@ -23,6 +23,8 @@ from .assessment_axes import (
     assessment_option_token_limit,
     assessment_required_prompt,
     derive_assessment_axes,
+    derive_reference_only_dependencies,
+    derive_reference_selections,
     has_partial_unatomized_source_contract,
     materialize_assessment,
     operational_claim_priority,
@@ -38,6 +40,7 @@ from .models import (
 )
 from .quality import (
     MAX_ASSESSMENT_ANSWER_CHARS,
+    MAX_ASSESSMENT_TARGETS_PER_LESSON,
     answer_containment_option_indices,
     answer_length_contract,
     answer_length_repair_targets,
@@ -46,7 +49,10 @@ from .quality import (
     question_has_incomplete_correct_answer,
 )
 
-_MAX_ASSESSMENT_TARGETS_PER_LESSON = 20
+_MAX_ASSESSMENT_TARGETS_PER_LESSON = MAX_ASSESSMENT_TARGETS_PER_LESSON
+# Bound response size per call, not the number of questions in a lesson.
+# Large option-by-option reviews otherwise compete with the provider deadline.
+_MAX_ASSESSMENT_ITEMS_PER_CALL = 4
 
 
 def _lesson_question_budget(lesson: LessonDraft, facts_by_id: dict[str, SourceFact]) -> int:
@@ -254,7 +260,9 @@ answers_question is about relevance, NOT correctness. A wrong size, material,
 range, mechanism or procedure still answers the question when it addresses the
 same requested attribute/action; mark answers_question=true, correct=false.
 Do not borrow support from another question. The later constraint audit checks
-the complete block for omitted exceptions.
+the complete block for omitted exceptions. governing_facts exposes that complete
+block now: use its conditions/exceptions to reject an overbroad stem or a source-
+true distractor. It does NOT grant uncited support to the key or explanation.
 If original_prompt is present, the repaired question must test the SAME knowledge
 as that original question, not switch to an easier unrelated fact in the block.
 Return JSON {"reviews":[{"question_id":str,"question_supported":bool,
@@ -990,7 +998,9 @@ def _review_request(block_id: str, questions: list[QuestionDraft],
                     facts: list[SourceFact]) -> dict[str, Any]:
     """Explanation support cannot leak from uncited neighboring facts."""
     by_id = {fact.fact_id: fact for fact in facts}
-    return {"task": "assessment_review", "block_id": block_id, "questions": [
+    return {"task": "assessment_review", "block_id": block_id,
+        "governing_facts": [{"fact_id": f.fact_id, "subject": f.subject,
+                              "attribute": f.attribute, "value": f.value} for f in facts], "questions": [
         {"question_id": q.question_id, "prompt": q.prompt, "options": q.options,
          "explanation": q.explanation, "evidence_fact_ids": q.evidence_fact_ids,
          "source_quote": q.source_quote, "original_prompt": q.repaired_prompt,
@@ -1274,6 +1284,44 @@ async def generate_block_assessment(
         nonlocal attempts
         if checkpoint:
             await checkpoint()
+        if request["task"] == "assessment_generate" and len(request["axes"]) > _MAX_ASSESSMENT_ITEMS_PER_CALL:
+            combined_questions: list[QuestionDraft] = []
+            author_available = False
+            for offset in range(0, len(request["axes"]), _MAX_ASSESSMENT_ITEMS_PER_CALL):
+                rows = request["axes"][offset:offset + _MAX_ASSESSMENT_ITEMS_PER_CALL]
+                subset_ids = {row["axis_id"] for row in rows}
+                required_ids = {fid for row in rows for fid in axes_by_id[row["axis_id"]].evidence_fact_ids}
+                author_facts = [f for f in request["facts"] if f["fact_id"] in required_ids]
+                authored = await invoke(prompt, {**request, "axes": rows, "max_questions": len(rows),
+                                               "facts": author_facts},
+                    partial(_parse_axis_questions, axes=tuple(axes_by_id[row["axis_id"]] for row in rows),
+                            maximum=len(rows)), record_failure=True,
+                    failure_axis_ids=tuple(aid for aid in failure_axis_ids if aid in subset_ids))
+                if authored is not None:
+                    author_available = True
+                    combined_questions.extend(authored)
+            return combined_questions if author_available else None
+        if (request["task"] in {"assessment_review", "assessment_constraints"}
+                and len(request["questions"]) > _MAX_ASSESSMENT_ITEMS_PER_CALL):
+            # All callers bind these private parsers to the exact current
+            # QuestionDraft objects (including any safely pruned options).
+            if not isinstance(parser, partial) or "questions" not in parser.keywords:
+                raise ValueError("assessment_review_parser_binding")
+            by_question = {q.question_id: q for q in parser.keywords["questions"]}
+            combined_reviews = ReviewResult()
+            for offset in range(0, len(request["questions"]), _MAX_ASSESSMENT_ITEMS_PER_CALL):
+                rows = request["questions"][offset:offset + _MAX_ASSESSMENT_ITEMS_PER_CALL]
+                subset_questions = [by_question[row["question_id"]] for row in rows]
+                subset_parser = partial(parser.func, **{**parser.keywords, "questions": subset_questions})
+                subset_axes = {axis_by_question_id[q.question_id] for q in subset_questions}
+                reviewed = await invoke(prompt, {**request, "questions": rows}, subset_parser,
+                    record_failure=True,
+                    failure_axis_ids=tuple(aid for aid in failure_axis_ids if aid in subset_axes))
+                if reviewed is not None:
+                    combined_reviews.update(reviewed)
+                    combined_reviews.reasons.update(reviewed.reasons)
+                    combined_reviews.option_removals.update(reviewed.option_removals)
+            return combined_reviews or None
         if len(json.dumps(request, ensure_ascii=False)) > 24000:
             # A rich lesson is not a single indivisible provider request. Keep
             # complete immutable facts, but do not resend unrelated sibling
@@ -2015,6 +2063,32 @@ async def generate_block_assessment(
             "complete": not missing_axis_ids,
         })
     audit["structured_list_axis_coverage"] = structured_list_axis_coverage
+    # Selecting a named procedure is not proof of knowing its missing steps.
+    # Retain that distinction even when the source's explicit relation is tested.
+    audit["reference_selection_coverage"] = [
+        {
+            "primary_fact_id": fact.fact_id,
+            "reference_kind": selection.reference_kind,
+            "sentence_index": selection.sentence_index,
+            "referenced_procedure_content_unresolved": selection.unresolved_procedure_content,
+            "referenced_steps_expanded": False,
+            "selection_retained": any(
+                axis.primary_fact_id == fact.fact_id and axis.axis_kind == "selection"
+                and axis.correct_value == selection.answer
+                and axis.required_prompt == selection.required_prompt
+                and axis_records[axis.axis_id]["state"] == "retained"
+                for axis in axes_by_id.values()
+            ),
+        }
+        for fact in facts_by_id.values()
+        for selection in derive_reference_selections(fact)
+    ]
+    audit["reference_only_dependencies"] = [
+        {"primary_fact_id": fact.fact_id, "sentence_index": span.sentence_index,
+         "source_reference": span.text, "referenced_steps_assessed": False}
+        for fact in facts_by_id.values()
+        for span in derive_reference_only_dependencies(fact)
+    ]
     audit["coverage"]["critical_missing_axis_ids"] = sorted(
         critical_missing_axis_ids
     )

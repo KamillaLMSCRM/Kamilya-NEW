@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 from collections import defaultdict
+from dataclasses import replace
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -264,6 +265,46 @@ def _readable_source_text(value: str) -> str:
     if re.sub(r"\s+", "", result) != re.sub(r"\s+", "", value):
         raise ValueError("display formatting changed source content")
     return result
+
+
+def _structured_source_value(value: str) -> bool:
+    """A writer's plain paragraph is not authority to flatten source structure."""
+    return "\n" in value or bool(re.search(
+        r":\s+(?:\d+[.)]\s*)?[-—•]\s*\S", value,
+    ))
+
+
+def _display_source_value(value: str) -> str:
+    """Keep verified paragraph boundaries while applying existing text cleanup."""
+    return "\n".join(_clean_output_text(line) for line in value.splitlines()).strip()
+
+
+def _changes_source_word_negation(text: str, facts: list[SourceFact]) -> bool:
+    """Lexical similarity must not license a literal negation reversal."""
+    tokens = re.findall(r"[^\W\d_]+", text.casefold(), re.UNICODE)
+    source_tokens = re.findall(
+        r"[^\W\d_]+", " ".join(fact.value for fact in facts).casefold(), re.UNICODE,
+    )
+    words, source_words = set(tokens), set(source_tokens)
+    def polarities(sequence: list[str]) -> tuple[set[str], set[str]]:
+        negative = {word for index, word in enumerate(sequence) if index and sequence[index - 1] == "не"}
+        positive = {word for index, word in enumerate(sequence) if not index or sequence[index - 1] != "не"}
+        return negative, positive
+    negative, positive = polarities(tokens)
+    source_negative, source_positive = polarities(source_tokens)
+    if ((source_negative - source_positive) & positive
+            or (negative - source_negative) & source_positive
+            or source_negative & source_positive):
+        return True
+    return any(
+        len(word) >= 6 and word.startswith("не") and word[2:] in words
+        and word[2:] not in source_words
+        for word in source_words
+    ) or any(
+        len(word) >= 6 and word.startswith("не") and word[2:] in source_words
+        and word not in source_words
+        for word in words
+    )
 
 
 _GROUNDING_STOPWORDS = {
@@ -646,6 +687,11 @@ class ProviderBackedEvidenceEngine:
             planned_fact_ids={fact.fact_id for fact in evidence_result.admitted_facts},
             provider_fallback_count=fallback_count,
         )
+        if evidence_result.evaluation.uncertain_fact_count:
+            publishability = replace(
+                publishability, publishable=False,
+                reasons=tuple(dict.fromkeys((*publishability.reasons, "incomplete_source_admission"))),
+            )
 
         return ProviderBackedResult(
             evidence_result=evidence_result,
@@ -773,6 +819,13 @@ class ProviderBackedEvidenceEngine:
             if not fact_ids <= plan_fact_ids:
                 raise ValueError("block cites a fact outside the lesson plan")
             cited_facts = [facts_by_id[fact_id] for fact_id in fact_ids]
+            if (
+                any(_structured_source_value(fact.value) for fact in cited_facts)
+                or _changes_source_word_negation(text, cited_facts)
+            ):
+                # These source-owned values are rendered below without losing
+                # a cell paragraph/list condition or reversing a source word.
+                continue
             if (any(is_tabular_locator(fact.source_locator) for fact in cited_facts)
                     and not all(is_tabular_locator(fact.source_locator) for fact in cited_facts)):
                 # A prose/table mixture can restore bare cell values without
@@ -908,7 +961,7 @@ class ProviderBackedEvidenceEngine:
             if fact_id not in plan_fact_ids or fact_id in covered:
                 continue
             fact = facts_by_id[fact_id]
-            text = _clean_output_text(
+            text = _display_source_value(
                 neutralize_unprofessional_source_language(fact.value.strip())
             )
             if contains_visible_artifact(text):

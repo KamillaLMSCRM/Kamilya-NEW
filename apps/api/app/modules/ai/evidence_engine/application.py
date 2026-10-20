@@ -327,6 +327,10 @@ def _separate_source_authoring_metadata(value: str) -> list[str]:
 def _narrative_fact_metadata(value: str) -> dict[str, float | str]:
     """Mark source-boundary and formula OCR risk without guessing repairs."""
     stripped = value.strip()
+    if re.fullmatch(r"г\.\s*[А-ЯЁ][А-Яа-яЁё -]{1,60}\s+(?:19|20)\d{2}\s*г\.?", stripped):
+        return {"confidence": 0.0, "uncertainty": "source_cover_imprint"}
+    if re.fullmatch(r"Генеральный\s+директор", stripped, flags=re.IGNORECASE):
+        return {"confidence": 0.0, "uncertainty": "source_cover_signature"}
     if re.fullmatch(
         r"(?:\d+[.)]\s*)?(?:общие\s+положения|содержание|оглавление|"
         r"table\s+of\s+contents|contents)\.?",
@@ -357,7 +361,16 @@ def _narrative_fact_metadata(value: str) -> dict[str, float | str]:
         flags=re.IGNORECASE,
     ):
         return {"confidence": 0.0, "uncertainty": "table_header_fragment"}
-    if stripped.endswith(":"):
+    list_parts = re.split(r"(?:^|\s)(?:\d+[.)]\s*)?[-—•]\s*", stripped)
+    explicit_list = len(list_parts) >= 3 and ":" in list_parts[0]
+    final_words = re.findall(r"[^\W\d_]+", list_parts[-1], re.UNICODE)
+    incomplete_list = explicit_list and (
+        len(final_words) < 2
+        or final_words[-1].casefold() in {
+            "в", "во", "на", "с", "со", "к", "по", "до", "для", "из", "и", "или", "а", "при",
+        }
+    )
+    if stripped.endswith(":") or incomplete_list:
         return {"confidence": 0.0, "uncertainty": "incomplete_source_clause"}
     first_letter = next((character for character in stripped if character.isalpha()), "")
     if first_letter and first_letter.islower():
@@ -366,14 +379,14 @@ def _narrative_fact_metadata(value: str) -> dict[str, float | str]:
     # column boundary. Complete prose emitted by Docling retains sentence/list
     # punctuation; an alphanumeric tail is unsafe evidence for autonomous
     # question keys because the missing continuation can change the rule.
-    if stripped and stripped[-1].isalnum():
+    if stripped and stripped[-1].isalnum() and not explicit_list:
         return {"confidence": 0.0, "uncertainty": "incomplete_source_clause"}
     return {"confidence": 1.0, "uncertainty": ""}
 
 
 def _source_inline_text(text: str) -> str:
     """Remove balanced strong-emphasis markup, including inside a source number."""
-    text = re.sub(r"(?<!\\)\*\*(.+?)(?<!\\)\*\*", r"\1", text)
+    text = re.sub(r"(?<!\\)\*\*(.+?)(?<!\\)\*\*", r"\1", text, flags=re.DOTALL)
     return re.sub(r"(?m)^\*(?!\*)(.+?)(?<!\*)\*$", r"\1", text)
 
 
@@ -418,7 +431,7 @@ def _split_narrative_chunk(text: str) -> list[str]:
         cleaned = part.translate(str.maketrans("®©°™„‚", '    ",'))
         cleaned = re.sub(r"\s+[тТ]\s+(?=строке\b)", " ", cleaned)
         cleaned = re.sub(r"\s*\(ст\.\s*$", "", cleaned, flags=re.IGNORECASE)
-        cleaned = " ".join(cleaned.split()).strip(" =\\|#")
+        cleaned = "\n".join(" ".join(line.split()) for line in cleaned.splitlines()).strip(" =\\|#")
         letter_count = sum(character.isalpha() for character in cleaned)
         page_footer = (
             len(cleaned.split()) <= 20
@@ -621,7 +634,8 @@ def _ordinary_markdown_tables(
             headers, rows = labels, rows[1:]
         accepted.append((
             [_source_inline_text(header) for header in headers],
-            [([_source_inline_text(cell) for cell in cells], raw) for cells, raw in rows],
+            [([_source_inline_text(re.sub(r"<br\s*/?>", "\n", cell, flags=re.I))
+               for cell in cells], raw) for cells, raw in rows],
         ))
         table_lines.update(current_lines)
         search_from = cursor
@@ -1266,6 +1280,45 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
                     int(":table:" in section.section_id))
 
         sections.sort(key=source_position)
+        # A storage chunk may contain prose both before AND after a table.
+        # Chunk order cannot place that table between the two prose facts.
+        # Refine only when every primary fact has one exact source occurrence;
+        # ambiguous/repeated or transformed values retain the old bounded path.
+        for document in corpus.documents:
+            doc_sections = [s for s in sections if s.role == "primary" and s.facts
+                            and _locator_values(s.facts[0].source_locator).get("doc_id") == document.doc_id]
+            if not any(":table:" in s.section_id for s in doc_sections):
+                continue
+            def order_text(value: str) -> str:
+                value = re.sub(r"<br\s*/?>", "\n", _source_inline_text(value), flags=re.I)
+                return " ".join(value.casefold().replace("ё", "е").split())
+            source_text = order_text(_merge_overlapping_chunks(sorted(document.chunks, key=lambda c: c.chunk_index)))
+            positioned: list[tuple[int, SourceSection, SourceFact]] = []
+            for section in doc_sections:
+                for fact in section.facts:
+                    value = order_text(fact.value)
+                    occurrences = list(re.finditer(r"(?<!\w)" + re.escape(value) + r"(?!\w)", source_text)) if value else []
+                    if len(occurrences) != 1:
+                        break
+                    offset = occurrences[0].start()
+                    positioned.append((offset, section, fact))
+            if len(positioned) != sum(len(s.facts) for s in doc_sections):
+                continue
+            positioned.sort(key=lambda item: item[0])
+            ordered_sections: list[SourceSection] = []
+            origins: list[str] = []
+            for _offset, section, fact in positioned:
+                if origins and origins[-1] == section.section_id:
+                    previous = ordered_sections[-1]
+                    ordered_sections[-1] = replace(previous, facts=(*previous.facts, fact))
+                else:
+                    origins.append(section.section_id)
+                    ordered_sections.append(replace(section, section_id=section.section_id + f":source-run:{len(origins)}",
+                                                    facts=(fact,)))
+            original_ids = {s.section_id for s in doc_sections}
+            insert_at = next(i for i, s in enumerate(sections) if s.section_id in original_ids)
+            sections = [s for s in sections if s.section_id not in original_ids]
+            sections[insert_at:insert_at] = ordered_sections
 
     revisions = sorted(document.source_revision for document in corpus.documents)
     digest = hashlib.sha256("\x1f".join(revisions).encode("utf-8")).hexdigest()
@@ -1719,6 +1772,9 @@ async def generate_evidence_course(
     publishability = _finalize_assessment_publishability(
         publishability, question_count=len(realized_questions), audit=reviewed.audit,
     )
+    if evidence_result.evaluation.uncertain_fact_count:
+        publishability = replace(publishability, publishable=False,
+            reasons=tuple(dict.fromkeys((*publishability.reasons, "incomplete_source_admission"))))
     await _checkpoint(cancellation_callback)
     await _progress(progress_callback, "quality", 1, 1)
     result = ProviderBackedResult(
@@ -1866,6 +1922,7 @@ def to_generation_artifacts(output: EvidenceGenerationOutput) -> GenerationArtif
         "fact_coverage_ratio": result.publishability.fact_coverage_ratio,
         "admitted_fact_count": result.evidence_result.document_plan.admitted_fact_count,
         "supporting_fact_count": result.evidence_result.document_plan.supporting_fact_count,
+        "uncertain_source_fact_count": result.evidence_result.evaluation.uncertain_fact_count,
         "lesson_count": len(result.realized_course.lessons),
         "question_count": len(result.realized_assessment.questions),
         "assessment_review": result.assessment_review,
@@ -1883,6 +1940,7 @@ def to_generation_artifacts(output: EvidenceGenerationOutput) -> GenerationArtif
         "embedding_degraded": result.embedding_degraded,
         "chat_model": result.chat_model,
         "quality_status": (
+            "source_needs_review" if result.evidence_result.evaluation.uncertain_fact_count else
             "degraded_needs_review" if degraded else
             "assessment_needs_review" if not result.realized_assessment.questions
             or result.assessment_review.get("terminal_status") == "review_required"
@@ -1904,7 +1962,10 @@ def to_generation_artifacts(output: EvidenceGenerationOutput) -> GenerationArtif
             title=result.realized_course.title,
             description=course_description,
             modules=content_modules,
-            source_warnings=[degraded_notice] if degraded else [],
+            source_warnings=([degraded_notice] if degraded else []) + ([
+                "Некоторые фрагменты исходных материалов не удалось надёжно разобрать. "
+                "Проверьте полноту уроков и тестов по оригиналу перед публикацией."
+            ] if result.evidence_result.evaluation.uncertain_fact_count else []),
         ),
         assessment=CourseAssessment(assessments=assessments),
         diagnostics=diagnostics,

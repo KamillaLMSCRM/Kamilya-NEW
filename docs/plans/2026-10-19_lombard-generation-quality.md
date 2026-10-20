@@ -5,7 +5,97 @@ cleanup/reload completed; no other production data changed.
 Owner: root; product authority: owner request 2026-10-19, original documents,
 synthetic QA only, DEV acceptance before one production package.
 
-## Current checkpoint, 2026-10-19 16:14UTC
+## Candidate source-fidelity checkpoint, 2026-10-20
+
+Comparison on unchanged originals selects Docling2.106 with bounded physical-order
+projection, not a blind2.140 upgrade. Current default/full-page PDF49.728/45.410s,
+updated44.196s; process RSS2442528/2348868/1940400KiB. Both raw exports misorder
+paragraphs;2.140 also changes a meaningful word. DOCX direct Docling0.086/0.074/
+0.089s and two tables are not structural acceptance: both flatten cell paragraphs.
+Keep MarkItDown0.1.6 Office routing with exact OOXML-cell correspondence.
+
+Actual offline/no-egress native VM126 conversion of source
+4c71ea740ccfd5b3197d9f9dc58e4394b8e34003bb74d025d0b397aa4fd74666 passed:
+DOCX0.686s/26restored cell boundaries; PDF54.595s/7pages; peak2410888KiB.
+Physical path activated on DoclingDocument; source hashes and production converter
+ID/start/restarts unchanged. Evidence service-originals-r17.json. Initial transport
+result timed out; independent reconciliation recovered the completed exclusive
+record, absent probe and unchanged production. No duplicate conversion ran.
+
+Local application replay of these real outputs: DOCX9/PDF32 admitted facts,
+operational uncertainty0/partial source gaps0,5/8lessons,44/84derived targets.
+These are NOT accepted provider questions or whole-cloud-course acceptance.
+Dense source sections split before the shared20-target safety ceiling; four-item
+calls do not remove targets. Lists keep newlines, compact dashes and context;
+balanced emphasis across DOCX breaks no longer hides step numbers. Known Russian
+embedded/separate-token polarity reversals fall back to source-owned rendering,
+not universal semantic-equivalence proof. Source uncertainty blocks publishability
+on async and synchronous seams. Typed reference selection owns only exact spans,
+never expands missing steps; bare section locators remain separately audited
+dependencies, not number-recall content or proof their target was assessed.
+Extra predicates remain uncovered. Phone participation/method do not imply final
+approval authority; instruction schedules/liability retain independent targets.
+
+Frozen local gates: canonical API3619PASS/45.88s; quality1004ruff/2170mypyPASS;
+documents UI7PASS/typecheckPASS. No migration. CodeGraph sync1886files/exclusions
+PASS,5959ms; caller query24ms plus startup confirmed planning/audit/assessment
+consumers in source. Token/cost savings unavailable. R14 is still the installed
+DEV application/converter until next exact-SHA rollout. Fresh model/browser DEV
+acceptance, production66 and agreed postrelease source cleanup/reload are OPEN.
+Production65 is unchanged.
+
+## Shared DEV R14 checkpoint, 2026-10-20
+
+R14 shared DEV is live at7ea58c268b8ac5d8303f635788f1c5af006d842f:
+CI39355224991 all7SUCCESS; APIdep-dbbci9dg1s2s738erl00,
+workerdep-dbbcj8rbc2fs73amria0, frontenddpl_CrpGFHSB885yNnEqWgxxMoxyhgtF.
+Existing Free/Free/Hobby unchanged. DEV_OCR_SSH_ENABLED=true is independently
+read back on API/worker; ordinary UI reindex of the original PDF reached success.
+Restricted DEV credentials converted both immutable originals through VM126,
+without the workstation as a tunnel/compute dependency. Frozen converter source
+73b4866b515e6b9049ec1b0c48b5a3b6c6294c3e415e3c679ff3132112b452b0,
+imageba5ea2b28d4146bb0143b87015fc9d4fc537d25f0a09b698b1ea8e6608cc6a38:
+authenticated DOCX0.765s/PDF53.438s and independent private-bind/internal-network/
+UID10001/read-only/4GiB/socket-lifecycle checksPASS. Production OCR image and
+restart count unchanged. The stopped owned previous DEV container is retained
+for rollback; temporary experiment directory cleanup is still OPEN.
+
+Whole actual R14 generations **FAILED content acceptance**: DOCX241.141s,
+5lessons/38questions/interrupted,5missing targets; PDF256.390s,
+6lessons/43questions/completed but missing critical source sections. Independent
+review checked all5+6lessons and38+43question/option/key/explanation sets.
+No fresh full generation is credited from selected-axis diagnostics. DOCX
+selected5/5PASS in6calls/21.981s did not close its parent acceptance.
+
+The earlier current-best Docling conclusion below is provisional and superseded
+by all-page review. Two current profiles are byte-identical; updated2.140 improves
+physical order and reduces invented numeric prefixes49->14, but still corrupts
+a meaningful word and the list continuation, reverses training bullets and merges
+a liability paragraph. Neither uncorrected Markdown candidate is accepted.
+Seven physical source pages and14direct OCR readings were checked. PSM agreement
+is not a truth oracle: both repeat one wrong glyph. A private123-text-element
+Docling layout capture confirms the actual source marker and bounding boxes are
+available even when Markdown serialization changes their order/numbering.
+
+Local follow-up (NOT deployed): strict DOCX cell correspondence preserves26
+paragraph boundaries/four changed table lines, zero changed outside-table lines;
+API admission decodes these breaks and realization retains them. Source list
+continuations are no longer discarded merely for lacking a final period;
+truncated final actions remain rejected. Source-word negation reversal is blocked.
+Blind assessment review sees the complete governing block but cannot borrow key
+support from uncited facts. Four-item provider response batches do not reduce
+lesson target count. Source-true exception timing is not a false distractor;
+passive phone participants are not promoted to approvers. Unresolved procedure
+references remain explicit unassessed coverage, not category-name recall tasks.
+Excluded primary-source uncertainty is now counted and produces a saved partial
+warning instead of a misleading completed/readiness claim. Development unit
+checkpoint3573PASS/42.11s precedes the latest source-order/physical-render changes;
+it is not the final frozen gate. Next: finish source-fidelity projection, replay
+both original captures, independently review, then one exact-SHA DEV acceptance.
+Production66 and agreed postrelease old-source cleanup/new-original upload remain
+mandatory and NOT RUN. Production65 is unchanged; release authority remains valid.
+
+## Historical checkpoint, 2026-10-19 16:14UTC
 
 Superseding OCR evidence2026-10-20: current2.106 and updated2.140 compared on both
 originals on VM126, offline isolation. Updated full-page44.196s vs current49.728s

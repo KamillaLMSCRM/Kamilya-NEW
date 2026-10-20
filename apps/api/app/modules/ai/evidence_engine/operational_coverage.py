@@ -11,6 +11,10 @@ from dataclasses import dataclass
 from .operational_steps import ExactSentenceSpan, OperationalProjection
 
 _ORDINAL_ONLY = re.compile(r"\s*\d+(?:\.\d+)*[.)]?\s*")
+_REFERENCE_ONLY_TAIL = re.compile(
+    r"а\s+в\s+дальнейшем\s+в\s+соответствии\s+с\s+п\.\s*\d+(?:\.\d+)*\.?",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +23,7 @@ class OperationalCoverageAudit:
 
     uncovered_spans: tuple[ExactSentenceSpan, ...]
     uncovered_sentence_indices: tuple[int, ...]
+    reference_only_spans: tuple[ExactSentenceSpan, ...] = ()
 
 
 def _normalized_pair(answer: str, prompt: str) -> tuple[str, str]:
@@ -133,14 +138,20 @@ def audit_operational_coverage(
                 span.end - span.start
             )
 
-    uncovered = tuple(
+    gaps = tuple(
         span
         for sentence_index, sentence in enumerate(sentences)
         for span in _uncovered_segments(sentence, sentence_index, covered[sentence_index])
     )
+    # A naked locator contains no executable action. Do not invent a question
+    # about its number, and do not pretend its referenced content was assessed.
+    references = tuple(span for span in gaps if any(covered[span.sentence_index])
+                       and _REFERENCE_ONLY_TAIL.fullmatch(span.text))
+    uncovered = tuple(span for span in gaps if span not in references)
     return OperationalCoverageAudit(
         uncovered_spans=uncovered,
         uncovered_sentence_indices=tuple(dict.fromkeys(
             span.sentence_index for span in uncovered
         )),
+        reference_only_spans=references,
     )

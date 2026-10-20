@@ -5765,3 +5765,60 @@ Rules:
   one added private OCR destination; auth/keys/other policy unchanged. Dedicated
   DEV install remains under diagnosis; failed attempts remove only owned new
   containers/network/secret, production OCR never switched. No paid resources.
+
+- 2026-10-20 R14 original-file acceptance, superseding the preceding installation
+  checkpoint: DEV7ea58c268b8ac5d8303f635788f1c5af006d842f, CI39355224991SUCCESS,
+  controllerRELEASE_OK; APIdep-dbbci9dg1s2s738erl00,
+  workerdep-dbbcj8rbc2fs73amria0, frontenddpl_CrpGFHSB885yNnEqWgxxMoxyhgtF.
+  Existing Free/Free/Hobby and production65 unchanged. Restricted DEV private OCR
+  original DOCX0.765s/PDF53.438s; exact-byte/hash output and runtime hardeningPASS.
+  Ordinary UI-triggered PDF reindexsuccess proves cloud-worker connectivity,
+  not only workstation/host health. DEV converter source73b4866b...452b0 /
+  imageba5ea2b2...6a38; production OCR restart count0 unchanged.
+  Actual DOCX5lessons/38questions/241.141s interrupted5missing; PDF6lessons/
+  43questions/256.390s completed but contentNO_GO. Independent Sol-high review
+  checked11/11lessons and81/81questions/options/keys/explanations; critical source
+  omissions, ambiguous approval/time scope and one source-word negation reversal
+  block acceptance. Selected DOCX5/5retained/6calls/21.981s is not whole acceptance.
+  Full-page source review:7physical pages/14direct OCR readings; current2.106
+  default/full-page identical, updated2.140 fewer artificial ordinals49->14 but
+  still wrong word/list order. Earlier current-best preference remains provisional.
+  Source admission/layout/assessment-scope warnings and stale-reindex UX fixes
+  are local follow-ups, NOT deployed. Development unit3573PASS/42.11s precedes
+  latest source-order/physical projection; not the frozen release gate.
+  New tight RED/GREEN seams cover explicit-list admission, preserved DOCX cell
+  paragraphs, negation reversal, governing-vs-cited evidence, bounded provider
+  batches with unchanged target count, exception timing and excluded-source
+  uncertainty. Canonical quality1004ruff/2170mypyPASS at that development checkpoint.
+  Root owns integration/remote operations; leaf corrections included root review
+  and rejection of a broad DOCX rewrite before strict-cell acceptance. Requested
+  Sol-high for difficult review and Luna-medium for bounded implementation;
+  observed-model/token counters and cost savings unavailable, not zero. Root
+  CodeGraph exact search/callers9/19ms plus startup confirmed one runtime consumer
+  and two direct tests; graph edge claims verified in source. No repeated Graphify
+  traversal for the answered edge. Temporary server artifacts/rollback cleanup,
+  final exact DEV/browser acceptance, production66 and fresh production original
+  reload/generation remain OPEN. No voice/reserve/model-route/billing change.
+
+- 2026-10-20 candidate R17 source-fidelity follow-up (not cloud/course acceptance):
+  immutable server original replay selected2.106 physical-order projection over
+  raw2.140. Actual native DoclingDocument activationPASS; DOCX0.686s/PDF54.595s,
+  process peak2410888KiB,26strict OOXML-corresponding cell breaks, exact original
+  hashes preserved. Source4c71ea740ccfd5b3197d9f9dc58e4394b8e34003bb74d025d0b397aa4fd74666.
+  Initial transport timed out; independent reconciliation found completed exclusive
+  evidence/absent owned probe/unchanged production; no duplicate conversion.
+  Local application replay9DOCX/32PDF admitted facts, operational uncertainty0,
+  partial gaps0,5/8lessons,44/84derived targets; not accepted model questions.
+  Canonical API wrapper3619PASS/45.88s, quality1004ruff/2170mypyPASS, changed UI7PASS/
+  TypeScriptPASS. Bounded independent reviewers found separate-token polarity,
+  substring ordering and reference full-span/type/mixed-predicate risks; root
+  repaired them with actual behavioral regressions. Source predicates/negative
+  paths retain manual semantic acceptance, not universal equivalence claims.
+  Root froze source after review; CodeGraph1886files/exclusionPASS, latest sync
+  5959ms, caller query24ms plus startup, relevant edges source-confirmed; graph
+  tokens/financial savings unavailable. No paid LLM call in this source-only pass.
+  Reviewer model/effort inherited existing scoped workers; exact observed token
+  counters unavailable. R14 shared DEV remains expected-old; next exact-SHA DEV
+  release, fresh real generation/browser acceptance, production66 and agreed
+  postrelease source cleanup/reupload remain OPEN. No migration, production
+  switch, voice/reserve/model-route/billing change in this checkpoint.

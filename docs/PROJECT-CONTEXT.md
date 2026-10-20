@@ -25,7 +25,25 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## DEV-only OCR configuration correction — 2026-10-19 08:30UTC
+## DEV server OCR — 2026-10-20
+
+Cloud DEV API/worker at7ea58c268b8ac5d8303f635788f1c5af006d842f now use the
+existing SSH launcher with DEV_OCR_SSH_ENABLED=true. Fixed local18600 forwards
+through the existing restricted private transport to VM12610.77.77.2:18601.
+VM126 ingress permits only wg0/proxy10.77.77.1; no public converter gateway.
+kamilya-dev-ocr.socket/service relays to the independently verified owned
+kamilya-dev-ocr container IP on the separate internal kamilya-dev-ocr-private
+network. Container recreation requires IP/unit synchronization. Runtime source
+73b4866b515e6b9049ec1b0c48b5a3b6c6294c3e415e3c679ff3132112b452b0,
+imageba5ea2b28d4146bb0143b87015fc9d4fc537d25f0a09b698b1ea8e6608cc6a38;
+UID10001/read-only cache+root/4GiB/2CPU. Existing DEV API key is root0600 in
+/etc/kamilya-dev-ocr.env; never use the production key. Source and credentials
+are not supplied by the workstation at runtime. Authenticated conversion of both
+original binaries, ordinary DEV worker PDF indexing and production-preservation
+checksPASS. Existing Free/Free/Hobby tiers unchanged. Production converter was
+not updated. Source/course acceptance remains separate and OPEN.
+
+## Historical DEV-only OCR correction — 2026-10-19 08:30UTC
 
 Owner selected removal of the obsolete DEV converter reference, not recovery of
 the former server. Existing API srv-d8rp8ej7uimc73fglid0 and worker

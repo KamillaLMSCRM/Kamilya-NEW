@@ -11,7 +11,7 @@ from app.modules.ai.lesson_quality import has_unprofessional_learner_language
 from .models import AssessmentDraft, CourseDraft, EvidenceCourseResult, QuestionDraft
 from .provider_models import GroundedBlock, PublishabilityReport
 
-EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v12"
+EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v13"
 
 _GENERIC_QUESTION_RE = re.compile(
     r"(?:о\s+ч[её]м\s+(?:этот\s+)?(?:урок|курс|раздел|модуль)|"
@@ -57,6 +57,7 @@ _INCOMPLETE_ANSWER_TAIL_RE = re.compile(
     re.IGNORECASE,
 )
 MAX_ASSESSMENT_ANSWER_CHARS = 240
+MAX_ASSESSMENT_TARGETS_PER_LESSON = 20
 _TITLE_START_RE = re.compile(r"^(?:после|в\s+случае|к\s+|при\s+|из\s+)", re.IGNORECASE)
 _MATERIAL_QUESTION_RE = re.compile(
     r"(?:из\s+как(?:ого\s+материала|их\s+материалов)|"

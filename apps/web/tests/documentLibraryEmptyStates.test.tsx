@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import DocumentsPage from '@/app/documents/page';
 import { api } from '@/lib/api';
@@ -18,7 +18,79 @@ beforeEach(() => {
     : { enabled: false } }) as never);
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+const staleOcrDocument = {
+  id: 'qa-stale-ocr', source_family_id: 'qa-stale-ocr-family', title: 'Synthetic scanned policy',
+  filename: 'synthetic-policy.pdf', content_type: 'application/pdf', size: 1024,
+  description: '', category: 'general', version: 1, is_latest: true,
+  lifecycle_status: 'active', created_at: '2026-10-17T07:00:00Z', updated_at: '2026-10-17T07:00:00Z',
+  index: { status: 'failed', error_code: 'ocr_required', message: 'old OCR error', chunks_total: 0, chunks_indexed: 0, indexed_at: null, revision: 1 },
+  usages_summary: { total: 0, courses: 0, positions: 0, lessons: 0, active_jobs: 0 },
+};
+
+const catalogWith = (document = staleOcrDocument) => ({
+  items: [document], page: { next_cursor: null, has_more: false },
+});
+
 describe('document library empty-state intent', () => {
+  it('does not project a previous OCR error onto queued, running, or completed reindex jobs', async () => {
+    vi.useFakeTimers();
+    const jobs = [
+      { status: 'running', stage: 'indexing', progress: 25, message: 'Индексация', errors: [], timestamps: {} },
+      { status: 'completed', stage: 'completed', progress: 100, message: 'Готово', errors: [], timestamps: {} },
+    ];
+    vi.mocked(api.get).mockImplementation(async (url) => {
+      const text = String(url);
+      if (text.startsWith('/v1/documents/catalog')) return { data: catalogWith() } as never;
+      if (text.includes('/v1/ai/jobs/qa-stale-job')) return { data: jobs.shift() ?? { status: 'completed', stage: 'completed', progress: 100, message: 'Готово', errors: [], timestamps: {} } } as never;
+      return { data: { enabled: false } } as never;
+    });
+    vi.mocked(api.post).mockResolvedValue({ data: { job_id: 'qa-stale-job', revision: 2 } } as never);
+
+    render(<DocumentsPage />);
+    await vi.runAllTicks();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.runAllTicks();
+    fireEvent.click(screen.getByRole('button', { name: 'Переиндексировать: Synthetic scanned policy' }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(screen.getByText('0%')).toBeInTheDocument();
+    expect(screen.queryByText(/Документ состоит из сканированных страниц/)).not.toBeInTheDocument();
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(screen.getByText('Выполняется')).toBeInTheDocument();
+    expect(screen.queryByText(/Документ состоит из сканированных страниц/)).not.toBeInTheDocument();
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(screen.getByText('Завершено')).toBeInTheDocument();
+    expect(screen.queryByText(/Документ состоит из сканированных страниц/)).not.toBeInTheDocument();
+  });
+
+  it('still shows the OCR hint when the current failed job reports OCR required', async () => {
+    vi.useFakeTimers();
+    vi.mocked(api.get).mockImplementation(async (url) => {
+      const text = String(url);
+      if (text.startsWith('/v1/documents/catalog')) return { data: catalogWith() } as never;
+      if (text.includes('/v1/ai/jobs/qa-failed-job')) return { data: {
+        status: 'failed', stage: 'failed', progress: 12, message: 'OCR unavailable now',
+        errors: [{ code: 'ocr_required', message: 'OCR required' }], timestamps: {},
+      } } as never;
+      return { data: { enabled: false } } as never;
+    });
+    vi.mocked(api.post).mockResolvedValue({ data: { job_id: 'qa-failed-job', revision: 2 } } as never);
+
+    render(<DocumentsPage />);
+    await vi.runAllTicks();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.runAllTicks();
+    fireEvent.click(screen.getByRole('button', { name: 'Переиндексировать: Synthetic scanned policy' }));
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(screen.getByText(/Документ состоит из сканированных страниц/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeInTheDocument();
+  });
+
   it('names the selected source in the real delete confirmation and cancels without a write', async () => {
     const title = 'QA BUTTONS — selected synthetic source';
     vi.mocked(api.get).mockImplementation(async (url) => ({ data: String(url).startsWith('/v1/documents/catalog')

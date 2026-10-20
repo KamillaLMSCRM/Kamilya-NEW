@@ -32,8 +32,9 @@ def test_projects_phone_preapproval_and_only_the_named_followup_reference() -> N
     projections = project_operational_approvals(_fact(sentences), sentences)
 
     assert len(projections) == 1
-    assert projections[0].step.answer == sentence
-    assert "согласования по телефону, а в дальнейшем в соответствии с п.2." in projections[0].step.answer
+    assert projections[0].step.answer == sentence.partition(", а в дальнейшем")[0]
+    assert "согласования по телефону" in projections[0].step.answer
+    assert "п.2" not in projections[0].step.answer
     assert "по данной категории" in projections[0].step.required_prompt
     assert "п.2." not in projections[0].step.required_prompt
     assert "содержание п.2" not in projections[0].step.required_prompt.casefold()
@@ -166,13 +167,11 @@ def test_projects_remote_phone_approval_with_locality_actor_and_category() -> No
 
     projections = project_operational_approvals(_fact(sentences), sentences)
 
-    assert len(projections) == 1
-    assert projections[0].step.answer == (
-        "предварительно согласовываются экспертом по телефону"
-    )
+    assert len(projections) == 2
+    assert projections[0].step.answer == "по телефону"
     assert "II категории" in projections[0].step.required_prompt
     assert "вне границ города" in projections[0].step.required_prompt
-    assert "экспертом" in projections[0].step.answer
+    assert "Кем" not in projections[0].step.required_prompt
     _assert_exact_spans(sentence, projections[0])
 
 
@@ -204,14 +203,7 @@ def test_projects_remote_analogy_as_named_reference_without_expansion() -> None:
 
     projections = project_operational_approvals(_fact(sentences), sentences)
 
-    assert len(projections) == 1
-    assert projections[0].step.answer == (
-        "процедуре согласования операций I категории"
-    )
-    assert "вне границ города" in projections[0].step.required_prompt
-    assert "алгоритм действий аналогичен" in projections[0].step.required_prompt
-    assert "этапы процедуры" not in projections[0].step.required_prompt.casefold()
-    _assert_exact_spans(sentence, projections[0])
+    assert projections == ()  # A reference is not an executable procedure.
 
 
 def test_projects_handover_analogy_with_complete_suspicion_trigger() -> None:
@@ -225,20 +217,7 @@ def test_projects_handover_analogy_with_complete_suspicion_trigger() -> None:
 
     projections = project_operational_approvals(_fact(sentences), sentences)
 
-    assert len(projections) == 1
-    assert projections[0].step.answer == (
-        "при приеме-передаче операций I категории"
-    )
-    prompt = projections[0].step.required_prompt
-    assert "Сменный специалист" in prompt
-    assert "II категории" in prompt
-    assert "качественных и/или количественных" in prompt
-    assert projections[0].step.governing_condition == (
-        "в случае наличия операций по II категории, во время приема-передачи "
-        "подразделения и наличия подозрений в отношении качественных и/или "
-        "количественных характеристик объекта"
-    )
-    _assert_exact_spans(sentence, projections[0])
+    assert projections == ()  # Do not replace action knowledge with a category label.
 
 
 def test_rejects_changed_or_disjoint_caller_sentence_sequence() -> None:

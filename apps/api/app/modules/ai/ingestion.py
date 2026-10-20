@@ -470,10 +470,12 @@ class DocumentChunker:
                 and "\n" not in para
                 and len(para) <= 120
                 and ordinal_match
-                and (
-                    not re.search(r"\d\.\d", ordinal_match.group("number"))
-                    or ordinal_match.group("body")[:1].isupper()
-                )
+                # A colon-ended clause introduction belongs to its checklist,
+                # not to the nominal nested headings recovered below.
+                and not para.endswith(":")
+                and (not re.search(r"\d\.\d", ordinal_match.group("number"))
+                     or (not ordinal_match.group("number").endswith(".")
+                         and ordinal_match.group("body")[:1].isupper()))
             )
             if promoted_ordinal:
                 para = "# " + para

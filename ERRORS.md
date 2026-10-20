@@ -4661,6 +4661,17 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ## DOCLING-001 - Scanned PDF failed before OCR in the production container
 
+- Whole-seven-page comparison supersedes a short list-only preference: current
+  profiles are identical and misorder some physical paragraphs; updated2.140
+  reduces layout ordinal leakage but still changes a meaningful word and list
+  order. Neither raw Markdown export is accepted. Compare exact original-page
+  order and source element provenance, not only runtime/RSS, normalized cell
+  counts or agreeing OCR passes (two passes can repeat the same wrong glyph).
+  Preserve raw hierarchical markers rather than serializer-generated counters;
+  a one-column physical projection must explicitly reject ambiguous/multi-column
+  layouts and keep tables on their existing structural path. Whole-course
+  content review remains separate from converter/network liveness.
+
 - 2026-10-20 source-fidelity follow-up: a layout-generated list item ending in a
   conjunction was split from a short wrapped continuation. Updating2.106.0 to
   2.140.0 did not resolve this original PDF and added word errors; speed/RSS
@@ -8974,6 +8985,38 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   privileged upgrade and HTTP health cannot substitute for this role-bound gate.
 
 ## AI-QUALITY-050 - Operational tables and flattened lists lost teaching scope
+
+- 2026-10-20 follow-up: do not promote colon-ended hierarchical introductions
+  to headings; preserve nominal nested headings. Keep list newlines through
+  admission and recognize compact OCR dashes without treating numeric negatives
+  as bullets. Restore native list children only under explicit source intro.
+  Strip balanced DOCX emphasis across restored cell breaks. Split dense lessons
+  before the shared target ceiling; do not raise it to hide omitted targets.
+  Separate phone participation/method from final approval authority. Reference
+  selection owns exact consumed spans and typed axes, not uncaptured predicates.
+  Audit bare section locators separately without guessing missing procedures or
+  testing number recall. Preserve urgency, conditions, schedules and liability.
+  Known Russian separate-word/embedded negation reversals require source fallback;
+  this does not establish universal semantic equivalence.
+
+- 2026-10-20 whole-source follow-up: R14 ordinary DEV original generations
+  produced5lessons/38questions and6lessons/43questions, but independent complete
+  review rejected both. A completed job and100% coverage of admitted facts did
+  not reveal critical source fragments excluded earlier. Count excluded primary
+  uncertainty before admission filtering, exclude genuine cover/navigation
+  metadata from that count, serialize the warning and retain saved partial state.
+  Do not hide source omissions behind an assessment-only completion claim.
+  OCR-numbered dash continuations after blank lines must retain their explicit
+  list parent; complete multi-item lists need not end in a period, while dangling
+  actions/prepositions remain uncertain. Preserve DOCX table-cell paragraphs via
+  exact source correspondence, never reconstruct regional ownership from flattened
+  prose. Provider lexical similarity cannot reverse a literal source-word negation.
+  Source-true exception deadlines remain unsafe distractors even when the general
+  key itself names a day. A passive phone participant does not establish approving
+  authority; an unresolved section/category analogy is not an executable procedure.
+  Blind review gets governing exceptions separately from cited key support; bounded
+  provider batches preserve all source targets and their failure ownership.
+  These corrections remain candidate-only until exact-SHA shared DEV acceptance.
 
 - Date: 2026-10-19. Original-document synthetic-QA baseline was preserved before
   the separately approved exact three-draft/two-source cleanup.

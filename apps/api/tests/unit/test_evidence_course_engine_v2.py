@@ -972,6 +972,20 @@ def test_provider_v2_indexes_documents_as_is_and_prefixes_only_queries() -> None
     assert len(result.realized_course.lessons) == 1
 
 
+def test_provider_v2_cannot_publish_a_course_with_excluded_uncertain_primary_source() -> None:
+    from dataclasses import replace
+    source = _narrative_source("Сотрудник обязан проверить документы.")
+    section = source.sections[0]
+    source = replace(source, sections=(replace(section, facts=(*section.facts,
+        SourceFact("uncertain", "Проверка", "обязанность", "Сотрудник обязан отключить питание в",
+                   "section=1;part=2", confidence=0.0, uncertainty="incomplete_source_clause"),
+    )),))
+    result = ProviderBackedEvidenceEngine(embeddings=_RecordingEmbeddings(), chat=_GroundedChat()).generate_from_document(source)
+    assert result.evidence_result.evaluation.uncertain_fact_count == 1
+    assert not result.publishability.publishable
+    assert "incomplete_source_admission" in result.publishability.reasons
+
+
 def test_provider_v2_rejects_fact_ids_outside_lesson_and_keeps_draft_fallback() -> None:
     source = _narrative_source(
         "Заявление рассматривается в течение 15 рабочих дней.",
@@ -1182,7 +1196,7 @@ def test_provider_v2_returns_publishable_grounded_blocks_for_clean_result() -> N
     }
 
 
-def test_provider_v2_repairs_ocr_noise_without_methodologist_preflight() -> None:
+def test_provider_v2_repairs_visible_ocr_noise_but_retains_source_review_requirement() -> None:
     source = _narrative_source(
         "Микрокредит не предоставляется выше ()()() месячного расчётного показателя.",
         "Заявление рассматривается сотрудником ломбарда.",
@@ -1197,7 +1211,8 @@ def test_provider_v2_repairs_ocr_noise_without_methodologist_preflight() -> None
 
     assert chat.attempts == 2
     assert result.provider_fallback_count == 0
-    assert result.publishability.publishable is True
+    assert result.publishability.publishable is False
+    assert "incomplete_source_admission" in result.publishability.reasons
     assert result.publishability.ocr_artifact_count == 0
     assert "()()()" not in result.realized_course.lessons[0].content
     assert result.realized_course.lessons[0].title == "Условия рассмотрения заявления"

@@ -114,3 +114,19 @@ def test_one_source_true_distractor_does_not_erase_two_admissible_alternatives()
     assert materialize_assessment(axis, AuthoredAssessment(
         axis.axis_id, assessment_required_prompt(axis), (valid[0], source_true),
     )) is None
+
+
+def test_source_exception_is_not_false_just_because_the_general_key_also_contains_a_day():
+    fact = SourceFact("f", "Проверка", "Порядок", (
+        "Если контролер согласовывает операцию, то контролер подписывает карточку в день оформления, "
+        "а также проставляет отметку в системе учета. "
+        "Если операция оформляется в выходные, решение согласовывается по телефону. "
+        "Карточку подписывают в первый рабочий день."
+    ), "doc_id=d;source_revision=v1;section=s;table=1;row=1;column=2")
+    lesson = LessonDraft("l", "", "", "", "", ("f",), (), 1)
+    axis = next(a for a in derive_assessment_axes(lesson, [fact], block_id="b")
+                if "подписывает карточку в день" in a.correct_value)
+    question = materialize_assessment(axis, AuthoredAssessment(axis.axis_id,
+        assessment_required_prompt(axis), ("Подписывает карточку в первый рабочий день.",
+                                           "Оставляет карточку без подписи.")))
+    assert question is None
