@@ -41,6 +41,7 @@ from .models import (
     SourceFact,
     is_tabular_locator,
 )
+from .operational_control import project_control_responsibility
 from .quality import (
     MAX_ASSESSMENT_ANSWER_CHARS,
     MAX_ASSESSMENT_TARGETS_PER_LESSON,
@@ -160,6 +161,24 @@ the correct actor/verb is not mandatory. A different downstream act or explanati
 does not answer a signing-on-this-object question. Independently check every
 condition, contradiction, plausibility and length rule as before. Null/unknown
 domains grant no exception or acceptance shortcut.
+For complete_actor_scope, each option proposes the complete set, not one true
+member of it. To express an incomplete set as a misconception, explicitly say
+that control belongs only to that subset and exclude a source-required role.
+Do not return a bare substring of the immutable source_claim; the containment
+guard still rejects it. Different wrong choices must omit different required
+roles, not repeat one omission with cosmetic wording. Both blind reviews still
+decide contradiction, ambiguity and plausibility; the domain accepts nothing.
+For document_and_contents, distinguish the required document identity and its
+mandatory calculation/content, not an unrelated downstream act. Wrong answers
+may explicitly omit the mandatory calculation or replace its stated basis;
+do not invent other approvals, documents or prerequisites. For prior_approval_channel,
+every option states a prior/later decision and the approval channel. For
+recorded_decision, every option states what decision is recorded (or explicitly
+not recorded) in the bound software, not another workflow step. Do not add a
+deadline, delay, actor, location or prerequisite absent from this exact target.
+Changing the recorded decision or explicitly omitting its mark are distinct
+in-domain misconceptions; unknown software timings are not. Keep each
+alternative informative enough to satisfy the supplied character bounds.
 """
 
 AUTHOR_PROMPT = """Create meaningful Russian workplace assessment questions from
@@ -699,6 +718,46 @@ def _axis_answer_domain(axis: AssessmentAxis) -> dict[str, Any] | None:
                 "bound_object": signing_object,
                 "literal_object_core": re.split(r"\s+с\s+", signing_object, maxsplit=1)[0],
                 "scope": "Every option must explicitly concern signing, include the literal_object_core unchanged, and vary only signing or approval mark, not actor, timing, prerequisites, another act or explanation. Use a refusal phrased with an infinitive, not the entire finite key with only 'не' prepended. Both source reviews still decide truth and realism."}
+    control = re.fullmatch(
+        r"Какой полный перечень лиц прямо указан в источнике для действия «(?P<action>[^«»!?]+)»\?",
+        prompt,
+    )
+    if control and project_control_responsibility(
+        f"{axis.correct_value} {control['action']}."
+    ) == (axis.correct_value, prompt):
+        return {"kind": "complete_actor_scope", "required_components": ["complete_actor_set"],
+                "bound_operation": control['action'],
+                "scope": "Every option proposes the complete responsible actor set. Express a mistaken partial set as an exclusive assignment with an explicit omitted required role, never as a bare substring of source_claim. Different options must omit different required roles. The containment guard and both source reviews remain unchanged."}
+    if re.fullmatch(
+        r"Какой документ оформляется и что он должен содержать при условии «[^«»!?]+»\?", prompt,
+    ):
+        document = re.fullmatch(
+            r"(?:составляется|оформляется)\s+(?P<document>Акт\s+[^.!?]{3,140}?)\s+"
+            r"с\s+расчетом\s+[^.!?]{3,180}[.]?", axis.correct_value, re.IGNORECASE,
+        )
+        if document:
+            return {"kind": "document_and_contents", "required_components": ["document", "mandatory_contents"],
+                    "bound_document": document['document'],
+                    "scope": "Every option states the document and its calculation/content. Explicitly omit a required calculation or substitute its stated basis; do not introduce an unrelated workflow or extra prerequisite. Both blind source reviews and all local guards remain binding."}
+    if re.fullmatch(
+        r"Как необходимо предварительно согласовать решение при условии «[^«»!?]+»\?", prompt,
+    ) and re.fullmatch(
+        r"решение\b[^.!?]+\bдолжно\s+быть\s+предварительно\s+согласовано\s+по\s+телефону[.]?",
+        axis.correct_value, re.IGNORECASE,
+    ):
+        return {"kind": "prior_approval_channel", "required_components": ["approval_timing", "approval_channel"],
+                "scope": "Every option states when and by which channel the decision is approved. Vary the explicit timing or channel, not another downstream step or invented prerequisite. Both source reviews and length/containment guards remain binding."}
+    software = re.fullmatch(
+        r"Как «[^«»!?]+» фиксирует решение (?P<location>в\s+[^«»!?]+) при условии «[^«»!?]+»\?",
+        prompt,
+    )
+    if software and re.fullmatch(
+        r"проставляет\s+(?:об\s+этом\s+)?отметку\s+" + re.escape(software['location']),
+        axis.correct_value, re.IGNORECASE,
+    ):
+        return {"kind": "recorded_decision", "required_components": ["decision_record", "software_location"],
+                "bound_location": software['location'],
+                "scope": "Every option explicitly records a decision or refuses to record it in this software. Change or omit the mandatory decision mark, not signing or another downstream step. Do not introduce timing, actor, location or prerequisite changes. Both source reviews and local guards remain binding."}
     return None
 
 
@@ -765,6 +824,28 @@ def _parse_axis_questions(
     if require_all and seen and accepted_axis_ids != set(by_id):
         raise ValueError("assessment_axes_missing")
     return result
+
+
+def _author_shape_rejection_reasons(
+    question: QuestionDraft, axis: AssessmentAxis,
+) -> tuple[str, ...]:
+    """Reject known deterministic defects, never grant semantic acceptance.
+
+    Evaluate character bounds on one candidate only. The quiz-level distribution
+    remains a separate final gate after both source reviews and option pruning.
+    """
+    reasons = [f"option_{index}:answer_value_contains_or_is_contained_in_key"
+               for index in answer_containment_option_indices(question)]
+    if answer_length_repair_targets([question]):
+        reasons.append("assessment_answer_length_signal")
+    domain = _axis_answer_domain(axis)
+    if domain is not None and domain['kind'] == 'recorded_decision':
+        reasons.extend(f"option_{index}:outside_recorded_decision_scope"
+                       for index, option in enumerate(question.options)
+                       if option != question.correct_answer and re.search(
+                           r"\b(?:до|после|через|если|когда|сначала|затем)\b|\b(?:в\s+течение|при\s+условии)\b",
+                           option, re.IGNORECASE))
+    return tuple(reasons)
 
 
 def _parse_reviews(raw: str, questions: list[QuestionDraft]) -> ReviewResult:
@@ -1345,6 +1426,7 @@ async def generate_block_assessment(
                            "dropped": 0, "removed_distractors": 0, "source_peer_candidates": 0,
                            "failures": [], "block_outcomes": [], "axis_outcomes": [],
                            "derived_axes": 0, "requested_axes": 0, "authored_axes": 0,
+                           "pre_review_rejections": [],
                            "attempt_counts": {"authored": 0, "deterministic_repair": 0,
                                               "model_repair": 0, "replacement": 0}}
     audit["reference_context_fact_ids"] = sorted({
@@ -1496,6 +1578,31 @@ async def generate_block_assessment(
                     })
                 return None
         return None
+
+    def admit_author_shapes(
+        proposed: list[QuestionDraft], stage: str,
+    ) -> tuple[list[QuestionDraft], dict[str, tuple[QuestionDraft, tuple[str, ...]]]]:
+        admitted: list[QuestionDraft] = []
+        rejected: dict[str, tuple[QuestionDraft, tuple[str, ...]]] = {}
+        for question in proposed:
+            axis_id = axis_by_question_id.get(question.question_id)
+            if axis_id is None or axis_id not in axes_by_id:
+                raise RuntimeError("assessment_candidate_axis_mapping")
+            # Generic and tabular consumers keep their established review/repair
+            # route. Only exact server-owned operational response contracts use
+            # the new early shape admission; a provider cannot invent a domain.
+            reasons = (_author_shape_rejection_reasons(question, axes_by_id[axis_id])
+                       if _axis_answer_domain(axes_by_id[axis_id]) is not None else ())
+            if not reasons:
+                admitted.append(question)
+                continue
+            rejected[axis_id] = (question, reasons)
+            axis_records[axis_id].update(state="omitted", reason=";".join(reasons))
+            if "assessment_answer_length_signal" in reasons:
+                length_signal_targets[question.question_id] = question.lesson_id
+            audit["pre_review_rejections"].append({"axis_id": axis_id,
+                "stage": stage, "reasons": list(reasons)})
+        return admitted, rejected
 
     for index, (lesson, facts, block_id, axes) in enumerate(prepared_groups, start=1):
         if checkpoint:
@@ -1650,11 +1757,12 @@ async def generate_block_assessment(
             if axis_id is not None:
                 axis_records[axis_id]["attempt_counts"]["authored"] += 1
                 audit["attempt_counts"]["authored"] += 1
+        candidates, pre_rejected = admit_author_shapes(candidates, "initial")
         # Zero is the explicit no-padding answer. A partial non-zero answer is
         # recovered axis by axis so one truncated JSON response cannot erase an
         # otherwise assessable rich block. Every recovered candidate still goes
         # through the same independent review and constraint audit below.
-        if candidates:
+        if candidates or pre_rejected:
             authored_axis_ids = {
                 axis_id
                 for question in candidates
@@ -1673,26 +1781,44 @@ async def generate_block_assessment(
                     "max_questions": 1,
                     "axes": [_axis_author_payload(missing_axis)],
                 }
+                if missing_axis.axis_id in pre_rejected:
+                    rejected_question, reasons = pre_rejected[missing_axis.axis_id]
+                    axis_request["rejected"] = [{
+                        "question_id": rejected_question.question_id,
+                        "prompt": rejected_question.prompt,
+                        "options": rejected_question.options,
+                        "rejection_reasons": list(reasons),
+                        "rejected_options": _rejected_option_feedback(rejected_question, list(reasons)),
+                    }]
                 recovered = await invoke(
                     AUTHOR_PROMPT,
                     axis_request,
                     partial(_parse_axis_questions, axes=(missing_axis,), maximum=1),
                     failure_axis_ids=(missing_axis.axis_id,),
                 )
-                if recovered:
+                for _question in recovered or []:
+                    axis_record["attempt_counts"]["authored"] += 1
+                    audit["attempt_counts"]["authored"] += 1
+                recovered_admitted, _ = admit_author_shapes(list(recovered or []), "replacement")
+                if recovered_admitted:
+                    recovered = recovered_admitted
                     candidates.extend(recovered)
                     for question in recovered:
                         axis_id = axis_by_question_id.get(question.question_id)
                         if axis_id is not None:
                             authored_axis_ids.add(axis_id)
-                            axis_records[axis_id]["attempt_counts"]["authored"] += 1
-                            audit["attempt_counts"]["authored"] += 1
-                else:
+                            record = axis_records[axis_id]
+                            if "candidate_origin" in record:
+                                record["initial_candidate_origin"] = record["candidate_origin"]
+                            record["candidate_origin"] = "provider_replacement"
+                elif not recovered:
                     axis_record.update(state="omitted", reason="no_admissible_candidate")
         audit["authored_axes"] += len(candidates)
         candidate_count = len(candidates)
         audit["candidates"] += candidate_count
         for round_index in range(2):
+            if round_index:
+                candidates, _ = admit_author_shapes(candidates, "model_repair")
             if not candidates:
                 break
             review_request = _review_request(
@@ -2031,10 +2157,11 @@ async def generate_block_assessment(
                 # explicit omission, not evidence that the source had no
                 # assessable fact.
                 record["state"] = "omitted"
-                record["reason"] = "no_admissible_candidate"
+                if record["reason"] == "assessment_not_completed":
+                    record["reason"] = "no_admissible_candidate"
         if not author_available or block_failures:
             outcome = "unavailable"
-        elif candidate_count == 0:
+        elif candidate_count == 0 and not pre_rejected:
             outcome = "no_assessable_questions"
         else:
             # The source axis was assessable and authoring succeeded, but the

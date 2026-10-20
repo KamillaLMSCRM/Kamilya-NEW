@@ -27,7 +27,7 @@
 
 ## DEV server OCR — 2026-10-20
 
-Cloud DEV API/worker at0338f3b907288b1ed098921489c56a07a5577d1e use the
+Cloud DEV API/worker ateeb740af176445eca8728a8c6446360844355494 use the
 existing SSH launcher with DEV_OCR_SSH_ENABLED=true. Fixed local18600 forwards
 through the existing restricted private transport to VM12610.77.77.2:18601.
 VM126 ingress permits only wg0/proxy10.77.77.1; no public converter gateway.
@@ -40,13 +40,14 @@ UID10001/read-only cache+root/4GiB/2CPU. Existing DEV API key is root0600 in
 /etc/kamilya-dev-ocr.env; never use the production key. Source and credentials
 are not supplied by the workstation at runtime. Authenticated conversion of both
 original binaries (DOCX0.765s/PDF59.36s) and production-preservation checksPASS.
-R21 CI39381198360SUCCESS; APIdep-dbbgpqjncjis738n2hs0,
-workerdep-dbbgqqou01pc73bap8r0, frontenddpl_78ZA1bCTEGfygjE9ttLrBLuFASyD,
+R22 CI39385501237SUCCESS; APIdep-dbbhdi49v7es73f8q1l0,
+workerdep-dbbhejou01pc73dqppcg, frontenddpl_AirKErXPYiSAPhn8GPk2qqjSzDCD,
 controllerRELEASE_OK. Ordinary QA browser PDF reindex reached completed through
 the cloud worker and private server OCR. Server-only scanned RU/KK/EN smoke
-PASS3pages/6checks/11.568s. R21 whole-course quality remains incomplete:
-DOCX42/44 and PDF93/95 questions, both saved partial. Retained content independently
-reviewed; follow-up typed-response/binary corrections remain local R22.
+PASS3pages/6checks/11.568s. R22 whole-course quality remains incomplete:
+DOCX41/44 and PDF94/95 questions. PDF completed-with-warnings is not zero-omission
+acceptance. All135retained questions independently reviewed without P1/P2;
+follow-up operational response domains/early deterministic admission remain localR23.
 Runtime availability is not quality GO.
 Existing Free/Free/Hobby tiers unchanged. Production converter was
 not updated. Source/course acceptance remains separate and OPEN.

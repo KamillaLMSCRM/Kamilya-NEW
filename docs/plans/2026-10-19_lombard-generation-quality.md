@@ -770,3 +770,35 @@ joint-signing responsibility plus complete inspection/checklist targets. These
 changes are not deployedR11. Zero-provider original map36targets (I17/II7), both
 rich parents still partial. Keep consumed-span accounting and actual all-target
 quality checks; do not clear the parent merely because more questions exist.
+
+## Current checkpoint — R23, 2026-10-20
+
+R22 shared DEV eeb740af176445eca8728a8c6446360844355494 passed exact rollout/
+CI39385501237. Fresh PDF job0b5dd695-58bd-4d0d-a40d-cc9e3e38f3dc completed
+with warnings,8lessons/94of95/479.016s. DOCX joba90b3451-f9df-4da3-acc1-e8c3850314fd
+saved partial,5lessons/41of44/700.578s including queue delay. Both whole-course
+results remain NOT ACCEPTED for completeness; a completed job is not zero omissions.
+Independent source review of all135retained questions found no P1/P2; P3 dense/
+nested wording and source-preserved OCR typos remain separately identified.
+
+R23 local response contracts cover the missing complete actor set, required act
+and calculation, prior phone approval, and software decision mark. Early shape
+admission applies only to exact server-recognized operational domains and uses
+the existing bounded singleton recovery, never parser retry or answer-key rewrite.
+Generic/tabular routes, both independent reviews and final post-pruning/quiz
+guards remain unchanged. Unknown axis mapping fails closed outside the parser.
+All-invalid versus explicit-empty audit, replacement authored counts and initial/
+retained provenance have separate regressions. Full3729unitPASS/54.82s,
+quality1004ruff/2170mypyPASS. CodeGraphsyncPASS1900files/exclusionauditPASS;
+update2837ms/total13483ms, no measured token/cost savings. Scoped actual model
+diagnostics PDFactor1/1/3calls/8.047s and DOCX3/3/9calls/27.098s are not full-cloud
+acceptance. Policyv19 invalidates stale reuse. R23 DEV/release/prod are NOT RUN
+at this checkpoint; no production source replacement or production66 occurred.
+
+Delegation ledger, this checkpoint: Sol-high independent PDF review8lessons/
+94questions/255choices, first pass retained-content READY; Sol-high source review
+found3audit/provenance P2s, one root correction, final READY/noP1/P2. Supported
+Luna-medium equivalent reviewed DOCX5lessons/41questions, retained-content READY.
+Root owns source changes, integration, source/option review and all external work.
+Observed agent model/effort, tokens, agent elapsed/root-rework time and subscription
+cost counters were not exposed; unknown is not zero. No nested/external leaf work.

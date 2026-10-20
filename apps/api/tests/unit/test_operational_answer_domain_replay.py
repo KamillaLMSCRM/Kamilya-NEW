@@ -385,3 +385,135 @@ def test_answer_domain_does_not_bypass_existing_answer_length_guard() -> None:
     assert answer_containment_option_indices(question) == (1,)
     assert answer_length_repair_targets([question]) == (question.question_id,)
 
+
+class ShapeRecoveryClient(ReplayClient):
+    def __init__(self, defect: str, *, recovery_fails: bool = False) -> None:
+        super().__init__("shape_recovery")
+        self.defect = defect
+        self.recovery_fails = recovery_fails
+        self.generate_count = 0
+
+    async def ainvoke_validated(self, messages, parser, **kwargs):
+        request = json.loads(messages[-1]["content"])
+        if request["task"] != "assessment_generate":
+            return await super().ainvoke_validated(messages, parser, **kwargs)
+        self.requests.append(request)
+        self.generate_count += 1
+        axis = request["axes"][0]
+        bad = self.generate_count == 1 or self.recovery_fails
+        if self.defect == "empty":
+            rows = []
+        else:
+            distractors = NOTICE_DISTRACTORS
+            if bad and self.defect == "containment":
+                distractors = ("АУП РД.", NOTICE_DISTRACTORS[1])
+            elif bad:
+                distractors = (
+                    "Отдел планирования — через два рабочих дня, после завершения внутренней сверки документов и подготовки дополнительного письменного сообщения.",
+                    "Дежурный руководитель — через неделю, после получения итогового отчёта, рассмотрения приложенных материалов и очередного общего совещания.",
+                )
+            rows = [{"axis_id": axis["axis_id"], "prompt": axis["required_prompt"],
+                     "distractors": list(distractors)}]
+        return SimpleNamespace(value=parser(json.dumps({"questions": rows}, ensure_ascii=False)),
+                               attempt_count=1, failure_reasons=(), model_id="synthetic-replay")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("defect", ["containment", "length"])
+async def test_deterministic_author_shape_is_recovered_before_paying_for_blind_reviews(monkeypatch, defect):
+    lessons, facts = _fixture()
+    lessons = [lesson for lesson in lessons if lesson.lesson_id == "lesson-notice"]
+    monkeypatch.setattr(semantic_assessment, "derive_assessment_axes", lambda lesson, selected_facts, *, block_id:
+                        (_axis("notice", block_id=block_id),))
+    client = ShapeRecoveryClient(defect)
+    result = await generate_block_assessment(lessons, facts, client)
+    assert [question.correct_answer for question in result.questions] == [NOTICE_KEY]
+    assert [request["task"] for request in client.requests] == [
+        "assessment_generate", "assessment_generate", "assessment_review", "assessment_constraints",
+    ]
+    assert result.audit["attempt_counts"]["replacement"] == 1
+    assert result.audit["attempt_counts"]["model_repair"] == 0
+    feedback = client.requests[1]["rejected"][0]
+    expected = "answer_value_contains_or_is_contained_in_key" if defect == "containment" else "assessment_answer_length_signal"
+    assert any(expected in reason for reason in feedback["rejection_reasons"])
+    assert client.requests[1]["axes"][0]["source_claim"] == NOTICE_KEY
+    assert all(tuple(request["questions"][0]["options"][1:]) == NOTICE_DISTRACTORS
+               for request in client.requests if request["task"] in {"assessment_review", "assessment_constraints"})
+
+
+@pytest.mark.asyncio
+async def test_pre_review_recovery_is_once_and_explicit_empty_author_response_still_has_no_padding(monkeypatch):
+    lessons, facts = _fixture()
+    lessons = [lesson for lesson in lessons if lesson.lesson_id == "lesson-notice"]
+    monkeypatch.setattr(semantic_assessment, "derive_assessment_axes", lambda lesson, selected_facts, *, block_id:
+                        (_axis("notice", block_id=block_id),))
+    client = ShapeRecoveryClient("containment", recovery_fails=True)
+    result = await generate_block_assessment(lessons, facts, client)
+    assert not result.questions
+    assert [request["task"] for request in client.requests] == ["assessment_generate", "assessment_generate"]
+    assert result.audit["attempt_counts"]["replacement"] == 1
+    assert result.audit["attempt_counts"]["model_repair"] == 0
+    assert result.audit["attempt_counts"]["authored"] == 2
+    outcome = next(row for row in result.audit["axis_outcomes"] if row["axis_id"] == "axis-notice")
+    assert "answer_value_contains_or_is_contained_in_key" in outcome["reason"]
+    assert result.audit["block_outcomes"][0]["outcome"] == "quality_omitted"
+    empty = ShapeRecoveryClient("empty")
+    empty_result = await generate_block_assessment(lessons, facts, empty)
+    assert not empty_result.questions
+    assert [request["task"] for request in empty.requests] == ["assessment_generate"]
+    assert empty_result.audit["block_outcomes"][0]["outcome"] == "no_assessable_questions"
+    empty_outcome = next(row for row in empty_result.audit["axis_outcomes"] if row["axis_id"] == "axis-notice")
+    assert empty_outcome["reason"] == "no_admissible_candidate"
+
+
+@pytest.mark.asyncio
+async def test_replaced_source_peer_provenance_records_both_initial_and_retained_origin(monkeypatch):
+    lessons, facts = _fixture()
+    lessons = [lesson for lesson in lessons if lesson.lesson_id == "lesson-notice"]
+    monkeypatch.setattr(semantic_assessment, "derive_assessment_axes", lambda lesson, selected_facts, *, block_id:
+                        (_axis("notice", block_id=block_id),))
+
+    def source_peer(axis, lesson, source):
+        return materialize_assessment(axis, AuthoredAssessment(axis.axis_id, axis.required_prompt,
+            ("АУП РД.", NOTICE_DISTRACTORS[1])))
+
+    monkeypatch.setattr(semantic_assessment, "_source_peer_table_candidate", source_peer)
+    client = ReplayClient("shape_recovery")
+    result = await generate_block_assessment(lessons, facts, client)
+    assert [question.correct_answer for question in result.questions] == [NOTICE_KEY]
+    outcome = next(row for row in result.audit["axis_outcomes"] if row["axis_id"] == "axis-notice")
+    assert outcome["initial_candidate_origin"] == "source_peer_table"
+    assert outcome["candidate_origin"] == "provider_replacement"
+    assert outcome["attempt_counts"]["authored"] == 2
+
+
+@pytest.mark.asyncio
+async def test_shape_defective_model_repair_never_reaches_another_blind_review(monkeypatch):
+    lessons, facts = _fixture()
+    lessons = [lesson for lesson in lessons if lesson.lesson_id == "lesson-signing"]
+    monkeypatch.setattr(semantic_assessment, "derive_assessment_axes", lambda lesson, selected_facts, *, block_id:
+                        (_axis("signing", block_id=block_id),))
+
+    class DefectiveRepair(ReplayClient):
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            if request["task"] != "assessment_repair":
+                return await super().ainvoke_validated(messages, parser, **kwargs)
+            self.requests.append(request)
+            axis = request["axes"][0]
+            row = {"axis_id": axis["axis_id"], "prompt": axis["required_prompt"], "distractors": [
+                "не подписывает залоговый билет с отметкой о согласовании", SIGNING_REPAIR[1],
+            ]}
+            return SimpleNamespace(value=parser(json.dumps({"questions": [row]}, ensure_ascii=False)),
+                                   attempt_count=1, failure_reasons=(), model_id="synthetic-replay")
+
+    client = DefectiveRepair("semantic_repair")
+    result = await generate_block_assessment(lessons, facts, client)
+    assert not result.questions
+    assert [request["task"] for request in client.requests] == [
+        "assessment_generate", "assessment_review", "assessment_repair",
+    ]
+    assert result.audit["attempt_counts"]["model_repair"] == 1
+    assert result.audit["attempt_counts"]["replacement"] == 0
+    assert any(row["stage"] == "model_repair" for row in result.audit["pre_review_rejections"])
+

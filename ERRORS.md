@@ -8999,6 +8999,20 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 
 ## AI-QUALITY-050 - Operational tables and flattened lists lost teaching scope
 
+- 2026-10-20 R22 whole-source follow-up: completed-with-warnings plus errors[] is
+  not full assessment coverage (PDF94/95, DOCX41/44). Read the axis outcomes, not
+  only job status or question totals. For strict server-owned operational response
+  domains, reject key-containing alternatives and severe individual character
+  giveaways before spending blind reviews. Use only the existing singleton
+  recovery once with exact closed reasons; never turn a valid rejected response
+  into malformed-output paid retries. Keep actual empty author responses distinct
+  from all-invalid candidates in audit, count returned replacement candidates,
+  preserve initial/retained provenance, and fail closed on missing axis mapping.
+  Generic/tabular/unknown-domain consumers keep their prior repair route. Both
+  independent reviews, post-pruning guards and final quiz-distribution audit remain
+  mandatory. A software-mark question may not invent an unstated delay as a wrong
+  answer. Typed domains are not source-truth or correct-index exemptions.
+
 - 2026-10-20 R21 actual whole generation retained42/44DOCX and93/95PDF. The
   remaining stochastic omissions were wrong response-domain alternatives, a
   closed passive prohibition and overlapping appointed-person roles. Preserve
