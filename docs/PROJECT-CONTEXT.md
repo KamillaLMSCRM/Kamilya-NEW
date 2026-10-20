@@ -104,6 +104,20 @@ source requirement/event/minimum-frequency contracts and mandatory coverage;
 fresh selected real-model and whole DEV acceptance remain required. Production65
 and model routing/resources/tiers remain unchanged.
 
+R37 exact9165794b207099c50f83c3c71f7a57e6e6bd7ecd passed CI39460495589/all7jobs
+and DEV RELEASE_OK: APIdep-dbbpotbrjlhs73ept8f0/workerdep-dbbppu7avr4c73dqgf90/
+frontenddpl_Hbukxa22teqFj1noFe8VjZX4xNhL. Browser-created DOCXjob3c11e9ef
+completed607.860s/5lessons/44of44questions. Independent full5body/44key/131choice
+review found no P1/P2 source defect. Root did not accept weak teaching order:
+excluded repeated signatures prevented exact table/prose positioning; table-only
+titles used filenames and inline condition/action dashes became separate bullets.
+R38 policyv31 corrects those presentation boundaries while keeping all source
+facts and44/95prompt/key contracts unchanged. Corrected DOCX6lessons/PDF8;
+fresh exact-candidate full DEV acceptance remains required. No full R37 PDF was
+started. Production65, OCR identities and model/resource/billing scope unchanged.
+The observed temporary no-update badge was the120s heuristic, not established
+worker failure: progress advanced4to5of6 and updated_at advanced16:59:36to17:03:30Z.
+
 ## Historical DEV-only OCR correction — 2026-10-19 08:30UTC
 
 Owner selected removal of the obsolete DEV converter reference, not recovery of

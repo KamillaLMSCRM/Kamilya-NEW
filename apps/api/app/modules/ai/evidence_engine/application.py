@@ -1298,15 +1298,33 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
                 return " ".join(value.casefold().replace("ё", "е").split())
             source_text = order_text(_merge_overlapping_chunks(sorted(document.chunks, key=lambda c: c.chunk_index)))
             positioned: list[tuple[int, SourceSection, SourceFact]] = []
+            # These already-excluded authoring fragments are retained for the
+            # source audit, but duplicate signatures cannot veto the ordering
+            # of uniquely positioned teaching facts. Unknown/operational
+            # uncertainty is deliberately not included in this exception.
+            metadata_labels = {
+                "source_authoring_metadata", "source_navigation_metadata",
+                "source_cover_signature", "source_cover_imprint", "table_header_fragment",
+            }
+            metadata_sections: list[SourceSection] = []
             for section in doc_sections:
+                excluded_metadata = tuple(f for f in section.facts if f.uncertainty in metadata_labels)
+                if excluded_metadata:
+                    metadata_sections.append(replace(
+                        section, section_id=section.section_id + ":source-metadata", facts=excluded_metadata,
+                    ))
                 for fact in section.facts:
+                    if fact.uncertainty in metadata_labels:
+                        continue
                     value = order_text(fact.value)
                     occurrences = list(re.finditer(r"(?<!\w)" + re.escape(value) + r"(?!\w)", source_text)) if value else []
                     if len(occurrences) != 1:
                         break
                     offset = occurrences[0].start()
                     positioned.append((offset, section, fact))
-            if len(positioned) != sum(len(s.facts) for s in doc_sections):
+            if len(positioned) != sum(
+                sum(f.uncertainty not in metadata_labels for f in s.facts) for s in doc_sections
+            ):
                 continue
             positioned.sort(key=lambda item: item[0])
             ordered_sections: list[SourceSection] = []
@@ -1322,7 +1340,7 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
             original_ids = {s.section_id for s in doc_sections}
             insert_at = next(i for i, s in enumerate(sections) if s.section_id in original_ids)
             sections = [s for s in sections if s.section_id not in original_ids]
-            sections[insert_at:insert_at] = ordered_sections
+            sections[insert_at:insert_at] = [*ordered_sections, *metadata_sections]
 
     revisions = sorted(document.source_revision for document in corpus.documents)
     digest = hashlib.sha256("\x1f".join(revisions).encode("utf-8")).hexdigest()

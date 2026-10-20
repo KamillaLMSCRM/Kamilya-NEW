@@ -8233,6 +8233,34 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   Evidence/report: `docs/testing/2026-10-12-course-quality-benchmark.md` and
   `.release-evidence/COURSE-BENCH-20261012/`.
 
+### AI-QUALITY-043 recurrence — 2026-10-20
+
+- Symptom: exact R37 DEV DOCX completed5lessons/44of44questions in607.860s;
+  full independent5body/44key/131choice review found no P1/P2 factual defect,
+  but responsibility preceded the threshold/procedure tables and table-only
+  lessons retained filename/part titles. Inline condition/action dashes became
+  separate bullets. Complete assessment coverage did not prove good teaching.
+- Cause: a repeated excluded signature fact vetoed the all-facts exact-position
+  refinement; fallback section order put prose before ordinary tables. Table
+  metadata was forced from an uninformative plan title. The display formatter
+  treated every spaced dash as a list marker, even inside a conditional branch.
+- Fix: only the five already-excluded authoring metadata labels cease to be
+  ordering authority; retain those facts unchanged for audit. Unknown or repeated
+  operational facts still abort the refinement. Source-owned ordinary-table
+  labels/subjects produce concise titles, with compact labels for large tables.
+  Conditional branches keep their inline action separator, including stacked
+  dash/number markers; whitespace-only content preservation remains mandatory.
+- Verification: source-order/title RED2FAIL/1PASS; layout RED4FAIL/1PASS;
+  review-boundary RED3FAIL/9PASS. Combined170PASS; frozen full3983PASS/47.89s,
+  canonical Ruff1004/Mypy2170PASS; independent source re-review noP1/P2.
+  Both exact converted originals
+  retain identical fact values and all44/95 source prompt/key contracts; only
+  DOCX grouping/order changes,5to6lessons. Fresh whole-runtime acceptance remains
+  separate; no paid diagnostic, provider/model/retry or resource increase.
+- Prevention: cover repeated nonteaching signatures, truly ambiguous operative
+  text, ordinary versus worksheet tables, large labels and stacked list markers.
+  Do not report an old R37 generation as acceptance of the corrected candidate.
+
 ## AI-QUALITY-044 - FAQ questions became keys and unchanged repairs bought repeated judgments
 
 - Date:2026-10-12; synthetic algorithm continuation, no DB/deployment changes.

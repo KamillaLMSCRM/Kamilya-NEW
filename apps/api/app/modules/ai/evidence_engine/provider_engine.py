@@ -306,7 +306,19 @@ def _readable_source_text(value: str) -> str:
     def separate_bullet(match: re.Match[str]) -> str:
         # A composite OCR marker '6. -action' is one visual list marker. Do not
         # move its dash away from its number and create stray numeric prose.
-        return " " if re.search(r"\d+[.)]\s*$", match.string[:match.start()]) else "\n"
+        prefix = match.string[:match.start()]
+        if re.search(r"\d+[.)]\s*$", prefix):
+            return " "
+        # In a source branch, 'при условии - действие' is one requirement,
+        # not two independent list items. Keep the separator inside that
+        # branch; a following explicit condition still starts its own item.
+        condition = r"(?:при|если|в\s+случае)\b"
+        if (re.search(rf"(?:^|\n|;\s+)(?:[-—]\s*)?(?:\d+[.)]\s*)?(?:[-—]\s*)?{condition}[^.!?\n;]*$",
+                      prefix, re.IGNORECASE)
+                and not re.match(rf"-\s*(?:\d+[.)]\s*)?{condition}",
+                                 match.string[match.end():], re.IGNORECASE)):
+            return " "
+        return "\n"
 
     text = re.sub(rf"[ \t]+(?=-\s*(?:\d+[.)]\s*)?[{letters}])", separate_bullet, text)
     text = re.sub(rf"(?m)^(\d+[.)]\s*)?([-—])(?=[{letters}])", r"\1\2 ", text)

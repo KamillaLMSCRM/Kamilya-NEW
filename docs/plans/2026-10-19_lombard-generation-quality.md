@@ -6,6 +6,30 @@ No other production data changed.
 Owner: root; product authority: owner request 2026-10-19, original documents,
 synthetic QA only, DEV acceptance before one production package.
 
+## Latest R37 acceptance and R38 structural correction
+
+R37 exact9165794b207099c50f83c3c71f7a57e6e6bd7ecd/CI39460495589 passed all7jobs
+and exact DEV rollout. Browser DOCXjob3c11e9ef-e364-48b8-b9a8-a9eee8803e45,
+course3bef2cb7-92bc-4941-a332-ad9a2cdd7247 completed607.860s/5lessons/44of44.
+All5bodies/44questions/131choices/44keys independently reviewed, noP1/P2 factual
+defect. Root retained presentation corrections rather than accepting counts:
+duplicate excluded cover signatures vetoed physical table/prose ordering;
+table-only titles were filename/part and conditional action separators became
+standalone bullets. Full R37 PDF was deliberately not started.
+
+R38 policyv31 retains all metadata/source facts, excludes only established
+nonteaching metadata from ordering authority, keeps ambiguous operative facts
+conservative, derives table titles from original labels/subjects and preserves
+condition/action bullets. Exact original offline9/32facts and44/95prompt/key
+contracts unchanged, DOCX5to6lessons/PDF8unchanged. Source-order/title RED2/1PASS,
+layout RED4/1PASS; review boundary RED3/9PASS then combined170PASS. No paid
+diagnostic or provider/model/retry/resource changes. Fresh final local/CI/DEV
+whole originals, protected production and fresh production originals remain open.
+Final source-bound local3983PASS/47.89s/5knownwarnings, baselineRuff1004/Mypy2170,
+version66/releasecontract333IDs/head0183/diffPASS. Independent source re-review
+resolved both reachable review boundaries, no remainingP1/P2. Final offline
+original equivalence rerun preserves all9/32facts and44/95prompt/key contracts.
+
 ## R21 real acceptance and R22 correction, 2026-10-20
 
 DEV0338f3b907288b1ed098921489c56a07a5577d1e/CI39381198360 all7PASS,

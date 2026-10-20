@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Derive distinct operational-list assessment axes and repair/recover each exact
   axis instead of confusing sibling claims from the same source fragment.
   Critical assessment omissions remain explicit; no quota padding or relaxed
-  answer/grounding checks. Quality policy v30 invalidates old resume assumptions.
+  answer/grounding checks. Quality policy v31 invalidates old resume assumptions.
   Keep operational response domains consistent across authoring and both blind
   reviews; reject unrelated signing prerequisites. Closed source prohibitions
   and appointed-role qualifications use exact binary opposites, not padding.
@@ -47,6 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   contracts. Distinguish a required event from an enclosing time window and a
   minimum recurrence from a stricter compliant schedule. Reject known overlap
   before review; omitted recognized requirements remain explicitly incomplete.
+- Keep prose and ordinary tables in physical source order even when cover
+  signatures repeat. Use table labels instead of filename/part titles, and keep
+  conditional branches paired with their actions rather than separate bullets.
 - Separate own courses from templates using a readable list. Remove technical
   voice/model labels from customer-facing video instructions; media unchanged.
 - Candidate only: fresh original-document DEV semantic acceptance and production

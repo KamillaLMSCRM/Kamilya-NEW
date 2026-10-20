@@ -883,6 +883,23 @@ class EvidenceCourseEngine:
         for group in groups:
             section_titles = list(dict.fromkeys(title for title, _, _ in group))
             cleaned_titles = [_concise_narrative_title(title) for title in section_titles]
+            selected = [fact for _, facts, _ in group for fact in facts]
+            if selected and all(
+                re.search(r"(?:^|;)table=\d+(?:;|$)", fact.source_locator) for fact in selected
+            ):
+                # An ordinary decision table can have no heading other than
+                # the filename. Its explicit labels and row subjects provide
+                # a useful source-owned topic; worksheets use a separate path.
+                labels = list(dict.fromkeys(" ".join(f.attribute.split()) for f in selected))
+                subjects = list(dict.fromkeys(" ".join(f.subject.split()) for f in selected))
+                candidate = f"{', '.join(labels)}: {', '.join(subjects)}"
+                if not is_acceptable_title(candidate):
+                    # Large tables need a compact label, not a regression to
+                    # filename/part. Row details stay complete in the body.
+                    candidate = _trim_narrative_title(", ".join(labels), max_words=8)
+                    while len(candidate) > 96 and " " in candidate:
+                        candidate = candidate.rsplit(" ", 1)[0].rstrip(" ,:;—–")
+                cleaned_titles = [candidate if is_acceptable_title(candidate) else "Сведения из таблицы"]
             cleaned_group_titles.append(cleaned_titles)
             if len(cleaned_titles) == 1:
                 base_title = cleaned_titles[0]
