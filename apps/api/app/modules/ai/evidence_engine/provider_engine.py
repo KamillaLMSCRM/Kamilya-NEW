@@ -1132,7 +1132,12 @@ class ProviderBackedEvidenceEngine:
                 terminal = "" if re.search(r"[.!?]$", text) else "."
                 text = f"{subject} — {attribute}: {text}{terminal}"
             label = fact.attribute
-            if not is_tabular_locator(fact.source_locator) and is_acceptable_title(fact.subject):
+            if (not is_tabular_locator(fact.source_locator)
+                    and is_acceptable_title(fact.subject)
+                    and not re.match(r"^\s*(?:\d+[.)]|\d+(?:\.\d+)+[.)]?)\s+", fact.subject)):
+                # A numbered source-section name is a locator, not necessarily
+                # the topic of this atomic fallback (e.g. liability within an
+                # approval section). Do not label unrelated duties with it.
                 label = fact.subject
             heading = neutralize_unprofessional_source_language(
                 " ".join(label.strip().rstrip(".:").split())

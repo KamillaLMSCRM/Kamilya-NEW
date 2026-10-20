@@ -27,7 +27,7 @@
 
 ## DEV server OCR — 2026-10-20
 
-Cloud DEV API/worker at0a9d8aa824c78422839017f7969389878cda0038 use the
+Cloud DEV API/worker at8ff668196b8b97507b671e0eb0a9ee49ce35c496 use the
 existing SSH launcher with DEV_OCR_SSH_ENABLED=true. Fixed local18600 forwards
 through the existing restricted private transport to VM12610.77.77.2:18601.
 VM126 ingress permits only wg0/proxy10.77.77.1; no public converter gateway.
@@ -40,15 +40,17 @@ UID10001/read-only cache+root/4GiB/2CPU. Existing DEV API key is root0600 in
 /etc/kamilya-dev-ocr.env; never use the production key. Source and credentials
 are not supplied by the workstation at runtime. Authenticated conversion of both
 original binaries (DOCX0.765s/PDF59.36s) and production-preservation checksPASS.
-R24 CI39395120330SUCCESS; APIdep-dbbiknfavr4c73e0obm0,
-workerdep-dbbiloo473hc73cgi9u0, frontenddpl_3yrePyi7Bhs7PNhmik5sVKu6CVPy,
+R25 CI39399636520SUCCESS; APIdep-dbbj5io473hc73chuj00,
+workerdep-dbbj6gmq1p3s73cq0u40, frontenddpl_8PjiSrG6iLSabh8oybRhtpf4PoyP,
 controllerRELEASE_OK. Ordinary QA browser PDF reindex reached completed through
 the cloud worker and private server OCR. Server-only scanned RU/KK/EN smoke
-PASS3pages/6checks/11.568s. R24 whole-course quality remains incomplete:
-DOCX44/44 and PDF94/95 questions. Independent review verified all138retained
-question keys/options; it found one DOCX lesson qualifier loss (approved AND
-current rates) and confirmed the PDF door-rule omission. R25 bounded pre-review
-model-repair routing and source-qualification preservation remain local.
+PASS3pages/6checks/11.568s. R25 whole-course quality remains incomplete:
+DOCX44/44 and PDF95/95 questions. Independent review verified all139retained
+question keys/options; R24 qualifier loss and omission were closed, but R25 has
+a DOCX fallback heading mismatch, a prohibition-only question asking where an
+action is permitted, and an ambiguous added-capability distractor. R26 local
+source-owned nominal decisions, shared capability policy and fallback-heading
+corrections are not yet deployed.
 Runtime success and all-topic coverage do not close these quality defects.
 Runtime availability is not quality GO.
 Existing Free/Free/Hobby tiers unchanged. Production converter was

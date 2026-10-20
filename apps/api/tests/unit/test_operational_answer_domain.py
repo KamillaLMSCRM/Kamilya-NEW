@@ -5,10 +5,30 @@ import pytest
 from app.modules.ai.evidence_engine.assessment_axes import materialize_assessment
 from app.modules.ai.evidence_engine.models import AssessmentAxis, AuthoredAssessment, SourceFact
 from app.modules.ai.evidence_engine.semantic_assessment import (
+    AUTHOR_PROMPT,
+    CAPABILITY_OPTION_POLICY,
+    CONSTRAINT_PROMPT,
+    PROHIBITION_QUESTION_POLICY,
+    REVIEW_PROMPT,
     _axis_author_payload,
     _constraint_request,
     _review_request,
 )
+
+
+def test_nonexclusive_capability_policy_is_identical_in_author_and_both_blind_reviewers():
+    for prompt in (AUTHOR_PROMPT, REVIEW_PROMPT, CONSTRAINT_PROMPT):
+        assert CAPABILITY_OPTION_POLICY in prompt
+    assert "contradicted_by_source=false" in CAPABILITY_OPTION_POLICY
+    assert "relation=undetermined" in CAPABILITY_OPTION_POLICY
+    assert "where the source says ONLY X" in CAPABILITY_OPTION_POLICY
+
+
+def test_prohibition_does_not_establish_a_permitted_location_in_any_stage():
+    for prompt in (AUTHOR_PROMPT, REVIEW_PROMPT, CONSTRAINT_PROMPT):
+        assert PROHIBITION_QUESTION_POLICY in prompt
+    assert "question_supported=false or answers_question=false" in PROHIBITION_QUESTION_POLICY
+    assert "full source key" in PROHIBITION_QUESTION_POLICY
 
 
 def _axis(kind: str) -> AssessmentAxis:

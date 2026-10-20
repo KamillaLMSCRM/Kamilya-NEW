@@ -9260,6 +9260,17 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   Reject that broadened provider block into the existing per-fact source renderer,
   preserving source order and table labels. Qualifiers from another object or
   sentence cannot establish preservation; token overlap alone is insufficient.
+- R26 retained-content follow-up: real R25 reached44/44 and95/95, yet a model
+  asked where placement is allowed when only a prohibition is evidenced, and
+  accepted an extra capability as a wrong answer without source exclusivity.
+  Bind authorship and both blind reviewers to the restriction's scope while preserving the
+  full source key, ordinary MCQ and both blind reviews. The experimental binary
+  and later immutable-prompt projection were rejected after mixed-grammar counterexamples; do not expand
+  suffix heuristics into a claimed Russian parser or grant an inverse. Author and both
+  review prompts must distinguish required capability from exclusive capability.
+  The normal per-fact renderer must not relabel an atomic responsibility rule
+  with its numbered source-section locator. Whole-source review, not totals,
+  remains the release gate. Failed local diagnostic captures are retained.
 - v11 follow-up: mixed operational families require sentence-local precedence
   and actual-target exact-span accounting, not a recognized-family boolean.
   Parenthetical context cannot erase finite/modal/past/passive actions. Use

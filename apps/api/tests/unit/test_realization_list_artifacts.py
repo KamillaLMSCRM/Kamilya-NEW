@@ -163,3 +163,16 @@ def test_lost_qualification_with_tainted_source_never_accepts_the_clean_broadene
     broad = "Отступление от утвержденных расценок является нарушением правил оценки."
     with pytest.raises(ValueError, match="source qualification"):
         _render_qualified_block(broad, [fact])
+
+
+@pytest.mark.parametrize("subject", ["2. Порядок согласования и контроль", "2) Порядок согласования и контроль",
+    "2.1. Порядок согласования и контроль", "2.1 Порядок согласования и контроль"])
+def test_rejected_paraphrase_fallback_does_not_reuse_a_numbered_section_as_a_topic_heading(subject):
+    fact = SourceFact("f", subject, "обязанность",
+        "4. Работники несут солидарную ответственность за отступление от утвержденных и действующих расценок.",
+        "doc_id=synthetic;section=approval;part=4")
+    broad = "Работники несут солидарную ответственность за отступление от утвержденных расценок."
+    rendered, blocks = _render_qualified_block(broad, [fact])
+    assert fact.value in rendered
+    assert "### " + subject not in rendered
+    assert blocks[0].heading == "обязанность"

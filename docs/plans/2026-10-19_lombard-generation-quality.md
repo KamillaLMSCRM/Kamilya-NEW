@@ -869,3 +869,52 @@ grounding helper navigation confirmed one runtime consumer plus tests in source.
 Observed agent token/cost/model-runtime counters remain unavailable, not zero.
 Policyv21 invalidates stale reuse. R25 DEV and production are NOT RUN at this
 checkpoint. No production66, old-source deletion or fresh production upload yet.
+
+## Current checkpoint — R26, 2026-10-20
+
+Shared DEV R25 exact8ff668196b8b97507b671e0eb0a9ee49ce35c496 completed
+CI39399636520, native build39399685499 and controllerRELEASE_OK. PDF job
+9e1d8f23-15a8-4161-b668-f66d3f6497ba/course4362b686-a386-4a37-976c-81dbe6612dd1
+completed8lessons95/95/463.078s. DOCX job9f938396-657c-4c9b-aca2-d5c6cd2bb771/
+course2d8ec196-1cfb-4eac-bb57-f4b37b4fdaaa completed5lessons44/44/650.937s,
+including PDF queue. OCR/inputs remain immutable and server-only.
+
+Independent complete retained-content reviews found three P2 defects despite
+all139questions being present: PDF permitted-location question unsupported by a
+prohibition; one added bidirectional-door capability not unambiguously false;
+DOCX responsibility fallback under a numbered approval-section heading. The
+approved/current qualifier loss was closed. R25 is NOT whole-source acceptance.
+
+R26 binds author and both blind reviewers to the scope of a prohibition-only
+question, preserving its complete source key and ordinary MCQ. Experimental
+binary and immutable-prompt projections were rejected after independent grammar
+counterexamples; neither is shipped and assessment_axes.py is unchanged.
+Do not keep expanding suffix heuristics into a claimed full Russian parser.
+Shared author/both-blind-review capability policy distinguishes a source-required
+capability from source-exclusive capability. Per-fact fallback headings no longer
+reuse numbered source-section locators as teaching topics. Policyv22 invalidates
+stale generation reuse. No changes to containment, source truth, permissions,
+models, provider routing, data schema, resources or billing.
+
+Actual selected placement diagnostic operational-pdf-r26nominald.json retained
+1/1 through author and both blind reviews,3calls/8.112s, zeroDB/deploy writes;
+its incomplete diagnostic parent is not whole-course acceptance. Both actual
+blind reviews reject the exact observed ambiguous door option in
+capability-observed-r26b.json,2calls/4.799s. An initial capture serializer failed
+after two calls; its partial artifact is retained, not counted as a pass. Source
+renderer replay qualifier-observed-r26.json preserves both qualifications and
+removes the mismatched numbered heading with0model/0DBcalls. Intermediate
+experimental captures/suites remain historical, not final-source proof.
+The final policy rejects both exact observed defects in scope-observed-r26c.json,
+4actualcalls/8.609s/zeroDB/deploy, rather than granting regex-derived truth.
+Final selected author+both-review diagnostic operational-pdf-r26nominale.json
+retained1/1/3calls/8.401s with final policies, no immutable-prompt projection.
+Focused canonical122PASS; final frozen full3770PASS/51.53s/5knownwarnings and
+canonical quality1004ruff/2170mypyPASS supersede intermediate suites.
+CodeGraph1.6.1 sync1900files/7128ms and zero-LLM
+Graphify extraction41485ms/exclusionauditPASS; graph size is navigation, not a
+quality or efficiency verdict. A misquoted JUnit invocation generated an empty
+zero-test XML file; root identified and removed only that owned artifact, then
+used the passing canonical relative-path capture. Fresh DEV acceptance
+is required before production. Production remains65 and original replacement
+is still NOT RUN at this checkpoint.

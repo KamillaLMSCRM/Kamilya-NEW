@@ -77,6 +77,14 @@ diagnostics and provider-attempt count. Callers and tests use this same seam.
 
 ## Data and side effects
 
+Prohibition-only evidence supports questions about the stated restriction, not where
+the action is otherwise permitted. The complete source key and ordinary MCQ
+remain unchanged; the shared author/reviewer policy grants no binary inverse or semantic truth.
+Author and both blind reviewers must not infer exclusivity from a required
+capability: unproven optional extras are undetermined, not wrong alternatives.
+These are no semantic-acceptance shortcuts; source, containment and review gates
+remain unchanged.
+
 The module is stateless. It reads immutable lesson/fact values and invokes only
 the injected generation-client interface. It owns no database row, tenant state,
 provider routing, credentials or billing. The application seam owns persistence.
