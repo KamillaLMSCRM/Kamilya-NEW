@@ -8986,6 +8986,20 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 
 ## AI-QUALITY-050 - Operational tables and flattened lists lost teaching scope
 
+- 2026-10-20 R18 actual-model follow-up: full source-child target inventory is
+  not pedagogical or single-answer proof. Preserve exact branch locality when
+  shortening signing targets; keep the signing day in mandatory context. Focus
+  closed duty grammars and independently assess complete state/schedule clauses,
+  without retaining a duplicated salience fallback. Bibliography-only context
+  must fail closed on a working sibling (including lowercase actions), remain in
+  teaching evidence and be explicitly audited, not become ordinal recall. Review
+  and constraints need full lesson governing facts separately from cited key
+  evidence: universal duties also apply to special-role employees. Closed binary
+  normative pairs need one valid opposite, not three cosmetic misconceptions.
+  Repeated non-adjacent prose headings cannot reorder source-owned rules.
+  Preserve source-ambiguous inspection objects instead of inventing pronouns.
+  Regression checks and bounded real provider traces precede whole DEV acceptance.
+
 - 2026-10-20 source-child follow-up: a nonempty structured target list is not
   completeness proof. Inventory every original child before claiming complete;
   nominal/passive/comma/adverb grammar and overlong keys must not disappear.

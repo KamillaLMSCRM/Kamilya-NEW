@@ -105,3 +105,164 @@ def test_two_tables_with_overlapping_rows_keep_source_table_order(same_section):
     assert [fact_id for block in blocks for fact_id in block.fact_ids] == ["a2", "a3", "b2", "b3"]
     assert len(blocks) == 2
     assert lesson.content.index("Системный — Срок:") < lesson.content.index("Согласование —")
+
+
+def test_nonadjacent_source_owned_blocks_with_same_heading_keep_source_order():
+    locator = "doc_id=d;source_revision=r;section=electrical;part={}"
+    facts = [
+        SourceFact("f1", "Electrical rules", "rule", "4.1. Follow the installation standard.",
+                   locator.format(1)),
+        SourceFact("f2", "Electrical rules", "rule", "4.2. Responsible workers must:\n- inspect equipment;",
+                   locator.format(2)),
+        SourceFact("f3", "Electrical rules", "rule", "4.3. Equipment must have circuit protection.",
+                   locator.format(3)),
+        SourceFact("f4", "Electrical rules", "rule", "4.4. Equipment must be de-energized after work.",
+                   locator.format(4)),
+        SourceFact("f5", "Electrical rules", "rule", "4.5. During operation it is prohibited:\n- use damaged equipment;",
+                   locator.format(5)),
+        SourceFact("f6", "Electrical rules", "rule", "4.6. Repair dangerous defects immediately.",
+                   locator.format(6)),
+    ]
+    payload = {
+        "title": "Electrical rules",
+        "objective": "Apply electrical rules",
+        "blocks": [
+            {"heading": "Installation", "text": facts[0].value, "fact_ids": ["f1"]},
+            {
+                "heading": "Electrical rules",
+                "text": f"{facts[1].value}\n{facts[4].value}",
+                "fact_ids": ["f2", "f5"],
+            },
+            {
+                "heading": "Protection and shutdown",
+                "text": f"{facts[2].value} {facts[3].value}",
+                "fact_ids": ["f3", "f4"],
+            },
+            {"heading": "Repair", "text": facts[5].value, "fact_ids": ["f6"]},
+        ],
+        "questions": [],
+    }
+
+    lesson, _, _ = render(facts, payload)
+
+    assert [lesson.content.index(f"4.{part}.") for part in range(1, 7)] == sorted(
+        lesson.content.index(f"4.{part}.") for part in range(1, 7)
+    )
+
+
+def test_adjacent_prose_blocks_with_same_heading_still_coalesce():
+    facts = [
+        SourceFact("f1", "Checks", "rule", "First verify the alarm.",
+                   "doc_id=d;source_revision=r;section=checks;part=1"),
+        SourceFact("f2", "Checks", "rule", "Then verify the exit.",
+                   "doc_id=d;source_revision=r;section=checks;part=2"),
+    ]
+    payload = {
+        "title": "Checks",
+        "objective": "Perform checks",
+        "blocks": [
+            {"heading": "Daily checks", "text": facts[0].value, "fact_ids": ["f1"]},
+            {"heading": "Daily checks", "text": facts[1].value, "fact_ids": ["f2"]},
+        ],
+        "questions": [],
+    }
+
+    lesson, _, blocks = render(facts, payload)
+
+    assert len(blocks) == 1
+    assert blocks[0].fact_ids == ("f1", "f2")
+    assert lesson.content.count("### Daily checks") == 1
+
+
+def test_provider_paraphrase_cannot_invent_object_for_unresolved_source_inspection():
+    fact = SourceFact(
+        "f1",
+        "End-of-shift rules",
+        "rule",
+        (
+            "7.3. At the end of a shift, each worker must put the workplace in order. "
+            "The worker must de-energize all devices and inspect for signs of overheating. "
+            "The last worker must close the windows and switch off the light."
+        ),
+        "doc_id=d;source_revision=r;section=closing;part=3",
+    )
+    payload = {
+        "title": "End-of-shift rules",
+        "objective": "Close the workplace safely",
+        "blocks": [{
+            "heading": "Workplace checks",
+            "text": (
+                "At the end of a shift, each worker must put the workplace in order, "
+                "de-energize all devices and inspect them for signs of overheating. "
+                "The last worker must close the windows and switch off the light."
+            ),
+            "fact_ids": ["f1"],
+        }],
+        "questions": [],
+    }
+
+    lesson, _, _ = render([fact], payload)
+
+    assert "inspect them for signs" not in lesson.content
+    assert "inspect for signs of overheating" in lesson.content
+    assert "7.3." not in lesson.content
+
+
+def test_captured_russian_inspection_shape_keeps_the_source_referent_unresolved():
+    fact = SourceFact(
+        "f1",
+        "Требования по окончании работы",
+        "положение",
+        (
+            "6.3. По окончании рабочего дня каждый сотрудник обязан проверить и привести "
+            "в порядок своё рабочее место. Необходимо обесточить все электроприборы и "
+            "осмотреть на наличие признаков возгорания. Уходящий последним из помещения "
+            "должен проверить, закрыты ли форточки и окна, выключить свет."
+        ),
+        "doc_id=d;source_revision=r;section=closing;part=3",
+    )
+    payload = {
+        "title": "Безопасность по окончании работы",
+        "objective": "Безопасно завершать рабочий день",
+        "blocks": [{
+            "heading": "Порядок на рабочем месте",
+            "text": (
+                "По окончании рабочего дня каждый сотрудник обязан проверить и привести "
+                "в порядок своё рабочее место, обесточить все электроприборы и осмотреть "
+                "их на наличие признаков возгорания. Сотрудник, уходящий последним, "
+                "проверяет, закрыты ли форточки и окна, и выключает свет."
+            ),
+            "fact_ids": ["f1"],
+        }],
+        "questions": [],
+    }
+
+    lesson, _, _ = render([fact], payload)
+
+    assert "осмотреть их на наличие" not in lesson.content
+    assert "осмотреть на наличие признаков возгорания" in lesson.content
+    assert "6.3." not in lesson.content
+
+
+def test_provider_keeps_object_referent_when_the_source_states_it_explicitly():
+    fact = SourceFact(
+        "f1",
+        "Проверка оборудования",
+        "положение",
+        "Сотрудник должен отключить приборы и осмотреть их на наличие повреждений.",
+        "doc_id=d;source_revision=r;section=inspection;part=1",
+    )
+    payload = {
+        "title": "Проверка оборудования",
+        "objective": "Проверять оборудование",
+        "blocks": [{
+            "heading": "Осмотр",
+            "text": fact.value,
+            "fact_ids": ["f1"],
+        }],
+        "questions": [],
+    }
+
+    lesson, _, _ = render([fact], payload)
+
+    assert "осмотреть их на наличие повреждений" in lesson.content

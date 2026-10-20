@@ -8,6 +8,19 @@ production backend/native65 frozen00e41ca7001564574fb89d2de97f9636d7e5020f.
 
 ## Active original-document quality correction66 — not production
 
+Current shared DEV is R18 d616ff9ee336b18ecb8ba717f7d3dcffa0eeba8d,
+CI39366851084/controllerRELEASE_OK, server OCR acb9.../image5d875... . Ordinary
+cloud-worker PDF reindex and exact original hashes confirmed. Real course quality
+FAILED: DOCX43/44, PDF86/95; independent whole review found one two-true-options
+item, unscoped local signing, and electrical-rule reordering. R19 local repairs
+and focused source/model probes are recorded at the top of the active plan.
+Do not run another OCR install: converter is frozen and already proven. Next
+freeze/review application delta, exact-SHA shared DEV, whole generation/browser
+acceptance, then owner-authorized production66 and exact postrelease cleanup.
+Production65 and its converter remain unchanged. No postrelease deletion yet.
+
+Historical pre-R18 checkpoint:
+
 R17 installed only in DEV atfa363d6092274c7ab6946f8e3e0b939fd4d64376;
 CI39364798740SUCCESS/controllerRELEASE_OK, exact API/worker/frontend. Server OCR
 source4c71.../image746f... authenticated original DOCX0.797s/PDF54.5s, no workstation

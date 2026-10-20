@@ -100,6 +100,11 @@ def coalesce_grounded_blocks(
             )
             heading = block.heading
         position = grouped.get(key)
+        if position is not None and key[0] == "heading" and position != len(result) - 1:
+            # A repeated prose heading is not sequencing authority. Coalescing
+            # non-adjacent source-owned blocks moves the later rule ahead of
+            # intervening facts; only adjacent prose blocks may share a heading.
+            position = None
         if position is None:
             grouped[key] = len(result)
             result.append(
@@ -343,8 +348,50 @@ def _is_covered_sentence(value: str, previous: list[set[str]]) -> bool:
     )
 
 
+_ADDED_OBJECT_REFERENT_PATTERNS = (
+    re.compile(
+        r"\b(?P<verb>[A-Za-z]{3,})\s+"
+        r"(?P<pronoun>it|them|him|her)\s+"
+        r"(?P<preposition>for|from|on|to|of|by|with)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?P<verb>[^\W\d_]{3,}(?:ть|ти|чь))\s+"
+        r"(?P<pronoun>его|ее|её|их|это|этих)\s+"
+        r"(?P<preposition>на|для|по|при|с|со|в|во|к|из)\b",
+        re.IGNORECASE,
+    ),
+)
+
+
+def _restore_unresolved_source_referents(text: str, facts: list[SourceFact]) -> str:
+    """Remove only an object pronoun absent from an exact source verb/preposition pair."""
+    source = " ".join(_clean_output_text(fact.value) for fact in facts)
+
+    def restore(match: re.Match[str]) -> str:
+        verb = match.group("verb")
+        pronoun = match.group("pronoun")
+        preposition = match.group("preposition")
+        direct = re.compile(
+            rf"\b{re.escape(verb)}\s+{re.escape(preposition)}\b",
+            re.IGNORECASE,
+        )
+        explicit = re.compile(
+            rf"\b{re.escape(verb)}\s+{re.escape(pronoun)}\s+{re.escape(preposition)}\b",
+            re.IGNORECASE,
+        )
+        if direct.search(source) and not explicit.search(source):
+            return f"{verb} {preposition}"
+        return match.group(0)
+
+    for pattern in _ADDED_OBJECT_REFERENT_PATTERNS:
+        text = pattern.sub(restore, text)
+    return text
+
+
 def _grounded_teaching_text(text: str, facts: list[SourceFact]) -> str:
     """Keep supported prose and restore every omitted sentence of cited facts."""
+    text = _restore_unresolved_source_referents(text, facts)
     # A writer can reintroduce a plain heading ahead of the actual source rule.
     # Remove only an exact repeated subject followed by the verified first
     # source clause; never trim an arbitrary short/action-bearing prefix.

@@ -5836,3 +5836,33 @@ Rules:
   No new paid generation in source diagnosis; DEV real generation and production
   release/reupload OPEN. Root owned integration/remote runs; two bounded existing
   reviewers, observed model/effort/tokens unavailable, no invented cost savings.
+
+- 2026-10-20 R19 application correction after actual R18 quality failure:
+  DOCX247.875s/43of44 and PDF429.406s/86of95 retained questions, both partial.
+  Complete independent retained-item review found a source-true wrong option,
+  missing local signing scope and reordered electrical rules. New focused
+  source/key/context regressions RED→GREEN; canonical final API3651PASS49.45s,
+  five known framework deprecations; quality1004ruff/2170mypyPASS, diff-checkPASS.
+  CodeGraph exact search/callers confirmed derivation/coverage/constraint consumers;
+  final sync8426ms including startup,1890files/exclusionPASS. Graphify duplication
+  unnecessary; token/financial savings unavailable.
+  Bounded recorded model probes A/B retained failures and budget exhaustion;
+  C selected3of3formerly missing source-state/installation targets,6calls14.134s.
+  The captured two-true-options item passed reviewer1 but was rejected by the
+  independent constraint stage: combined pipeline rejects it. This is neither
+  whole-course acceptance nor cloud-model/production identity proof. Root owns
+  source integration; two existing bounded reviewers/writers, observed model/token
+  counters unavailable. Next exact-SHA DEV acceptance; production remains65 and
+  agreed postrelease source reload OPEN. No voice/reserve/model-route/billing change.
+
+- 2026-10-20 R19 final source freeze supersedes the earlier3651local count:
+  independent review caught global-vs-nested numbered scope and lowercase
+  bibliography-sibling omissions; root fixed them with RED3/GREEN regressions,
+  nominal citation heads and complete demonstrative negatives. New 4.4 exit-sign
+  sibling RED1/GREEN, final15focusedPASS. Native source replay44DOCX/95PDFtargets,
+  zero partial, one reference-only legal basis; final canonical API3653PASS56.22s,
+  quality1004ruff/2170mypyPASS; final graphsync5786ms/exclusionPASS. No source edits
+  after that final suite began. Existing extra journey4PASS remains applicable.
+  Root accepted bounded corrections after two review rounds; whole DEV acceptance
+  and production remain separate OPEN gates, no counterexample or failed record
+  was erased. Existing scoped agents only; no external mutation by leaf workers.

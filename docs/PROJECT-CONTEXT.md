@@ -27,23 +27,25 @@
 
 ## DEV server OCR — 2026-10-20
 
-Cloud DEV API/worker atfa363d6092274c7ab6946f8e3e0b939fd4d64376 now use the
+Cloud DEV API/worker atd616ff9ee336b18ecb8ba717f7d3dcffa0eeba8d use the
 existing SSH launcher with DEV_OCR_SSH_ENABLED=true. Fixed local18600 forwards
 through the existing restricted private transport to VM12610.77.77.2:18601.
 VM126 ingress permits only wg0/proxy10.77.77.1; no public converter gateway.
 kamilya-dev-ocr.socket/service relays to the independently verified owned
 kamilya-dev-ocr container IP on the separate internal kamilya-dev-ocr-private
 network. Container recreation requires IP/unit synchronization. Runtime source
-4c71ea740ccfd5b3197d9f9dc58e4394b8e34003bb74d025d0b397aa4fd74666,
-image746f269054c9628cb207d36ad93b0bd87212759073a201fd719a3b80c5a7cd41;
+acb9b2267314bcaaa0428b6e223075b137f4bd43ca91811b66bb40556dddaa6f,
+image5d875f436820e028c4ea4d4ae65dd54addbc2765b57b6ea61970e73935b99e84;
 UID10001/read-only cache+root/4GiB/2CPU. Existing DEV API key is root0600 in
 /etc/kamilya-dev-ocr.env; never use the production key. Source and credentials
 are not supplied by the workstation at runtime. Authenticated conversion of both
-original binaries (DOCX0.797s/PDF54.5s) and production-preservation checksPASS.
-R17 CI39364798740SUCCESS; APIdep-dbbe4fe7bikc7387vfu0,
-workerdep-dbbe5em7bikc73882p2g, frontenddpl_7U2hUBnAkw9Wg8gNQ9TrtHsXfZLz,
-controllerRELEASE_OK. Earlier ordinary worker PDF indexing passed on R14;
-new R17 whole-course/browser quality acceptance remains OPEN.
+original binaries (DOCX0.765s/PDF59.36s) and production-preservation checksPASS.
+R18 CI39366851084SUCCESS; APIdep-dbbeehjrjlhs73dvqkag,
+workerdep-dbbefh7avr4c73djatcg, frontenddpl_EBui2v2cKpJ5QsKh3RCuF8XKv3it,
+controllerRELEASE_OK. Ordinary QA browser PDF reindex reached completed through
+the cloud worker and private server OCR. R18 whole-course quality FAILED:
+DOCX43/44 and PDF86/95 questions, both saved partial; independent review found
+scope, ordering and ambiguous-answer issues. Runtime availability is not quality GO.
 Existing Free/Free/Hobby tiers unchanged. Production converter was
 not updated. Source/course acceptance remains separate and OPEN.
 

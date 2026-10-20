@@ -116,7 +116,7 @@ def test_one_source_true_distractor_does_not_erase_two_admissible_alternatives()
     )) is None
 
 
-def test_source_exception_is_not_false_just_because_the_general_key_also_contains_a_day():
+def test_source_exception_is_not_false_when_the_general_question_has_a_day_scope():
     fact = SourceFact("f", "Проверка", "Порядок", (
         "Если контролер согласовывает операцию, то контролер подписывает карточку в день оформления, "
         "а также проставляет отметку в системе учета. "
@@ -125,7 +125,8 @@ def test_source_exception_is_not_false_just_because_the_general_key_also_contain
     ), "doc_id=d;source_revision=v1;section=s;table=1;row=1;column=2")
     lesson = LessonDraft("l", "", "", "", "", ("f",), (), 1)
     axis = next(a for a in derive_assessment_axes(lesson, [fact], block_id="b")
-                if "подписывает карточку в день" in a.correct_value)
+                if a.correct_value == "подписывает карточку")
+    assert "в день оформления" in assessment_required_prompt(axis)
     question = materialize_assessment(axis, AuthoredAssessment(axis.axis_id,
         assessment_required_prompt(axis), ("Подписывает карточку в первый рабочий день.",
                                            "Оставляет карточку без подписи.")))

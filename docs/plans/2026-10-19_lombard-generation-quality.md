@@ -5,6 +5,53 @@ cleanup/reload completed; no other production data changed.
 Owner: root; product authority: owner request 2026-10-19, original documents,
 synthetic QA only, DEV acceptance before one production package.
 
+## R18 real acceptance and R19 correction, 2026-10-20
+
+Shared DEV R18 d616ff9ee336b18ecb8ba717f7d3dcffa0eeba8d passed exact rollout,
+private authenticated original conversion and ordinary browser worker PDF reindex.
+The final converter remains acb9b226...dddaa6f/image5d875f43...99e84. Neither
+production converter nor production65 has changed. No workstation OCR dependency.
+
+Real original generations failed quality: DOCX247.875s/5lessons/43of44questions,
+PDF429.406s/8lessons/86of95questions, both saved partial. Complete independent
+review of all43+86 retained items found a source-true wrong alternative, missing
+local signing scope, copy-completion-heavy questions and electrical-rule order
+4.5 before4.3/4.4. Do not credit source-axis inventory as accepted question quality.
+
+R19 local repairs preserve numbered locality and signing day, focus closed list
+duties without repeating the whole key, account for both2.1 state duties, separate
+new-hire/annual timing without fallback duplication, and explicitly retain legal
+bibliography as reference context rather than ordinal recall. A complete modal
+obligation can use one exact opposite instead of padding cosmetic mistakes.
+Full lesson governing facts are supplied to independent review/constraints, while
+cited evidence alone must establish the key/explanation. Prose blocks coalesce
+only adjacently; source-absent inspection pronouns cannot invent a referent.
+
+Bounded live source diagnostics are not cloud acceptance: probeA retained5of8;
+probeB retained23 but reached its30-call diagnostic budget, so it is unfinished;
+probeC retained3of3 formerly missing state/installation targets in6calls14.134s.
+Captured old two-true-options question: first reviewer approved, independent
+constraint reviewer rejected (undetermined source-true wrong option), so combined
+gate rejects it. The diagnostic originally asserted both reviewers must reject;
+its failed assertion is retained, not renamed as a full pass. A zero-call harness
+construction error was corrected without repeat billing. These probes used the
+explicit local DEV diagnostic DeepSeek route, not proof of cloud-model identity.
+Fresh immutable-SHA shared DEV generation, complete review and production gates
+remain required. Preserve all failed captures; do not raise quotas or waive
+source/key/condition guards. Voice/reserve/routes/billing unchanged.
+
+Final bounded review found real global numbered signing steps suppressed by the
+first nested-marker guard and comma-attached lowercase working actions hidden as
+bibliography. Root corrected both: quarantine a headerless nested marker only
+after an earlier conditional branch; nominal citation-head allowlist rejects an
+unknown continuation rather than trying to recognize every Russian verb. All
+demonstrative state subjects fail closed. The new state audit exposed a separate
+4.4 exit-sign duty; it now retains both power-isolation exceptions and the exact
+sign condition. RED→GREEN15focused; native replay DOCX44/PDF95targets,zero partial,
+one explicitly audited reference-only bibliography. Final frozen API3653PASS/
+56.22s, quality1004/2170PASS, extra journey4PASS; final graphsync5786ms/exclusions
+PASS. These corrections are ready for exact-SHA DEV transport, not production GO.
+
 ## Source-child completeness correction after R17, 2026-10-20
 
 R17 is installed only in DEV atfa363d6092274c7ab6946f8e3e0b939fd4d64376:

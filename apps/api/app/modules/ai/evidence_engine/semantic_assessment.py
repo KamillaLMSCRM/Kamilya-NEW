@@ -26,6 +26,7 @@ from .assessment_axes import (
     derive_reference_only_dependencies,
     derive_reference_selections,
     has_partial_unatomized_source_contract,
+    is_assessment_reference_metadata,
     materialize_assessment,
     operational_claim_priority,
 )
@@ -62,7 +63,8 @@ def _lesson_question_budget(lesson: LessonDraft, facts_by_id: dict[str, SourceFa
     omit silently. Existing coverage audits expose everything not assessed.
     """
     counts = [len(derive_assessment_axes(lesson, [facts_by_id[fid]], block_id="density"))
-              for fid in lesson.fact_ids]
+              for fid in lesson.fact_ids
+              if not is_assessment_reference_metadata(facts_by_id[fid])]
     return min(_MAX_ASSESSMENT_TARGETS_PER_LESSON, sum(counts))
 
 
@@ -263,6 +265,12 @@ Do not borrow support from another question. The later constraint audit checks
 the complete block for omitted exceptions. governing_facts exposes that complete
 block now: use its conditions/exceptions to reject an overbroad stem or a source-
 true distractor. It does NOT grant uncited support to the key or explanation.
+A universal obligation for every employee also applies to an employee who has a
+special role unless the source expressly excludes that role. Do not mark such an
+option contradicted merely because it comes from a different universal clause.
+If the stem is too broad to distinguish a special-role checklist from a
+universal employee duty, reject or narrow the question; do not manufacture a
+false distractor from a partial compound duty.
 If original_prompt is present, the repaired question must test the SAME knowledge
 as that original question, not switch to an easier unrelated fact in the block.
 Return JSON {"reviews":[{"question_id":str,"question_supported":bool,
@@ -279,6 +287,13 @@ alternative for that same entity/attribute: a different facade material is not
 merely "unmentioned". This does not turn open-ended recommendations into bans.
 Reject educational=false if wrong options repeat the same mistake with only
 cosmetic qualifiers, or if wording/length makes the key trivially obvious.
+kind=true_false means one complete normative proposition and its opposite, not
+a multiple-choice exercise needing several distinct misconceptions. A mutually
+exclusive required/not-required or prohibited/permitted pair is distinct; do
+not reject it merely because only two alternatives exist. An opposite is not
+professionally absurd merely because acting on it would violate the taught
+safety requirement. Still reject a wrong scope, unsupported premise, unclear
+stem, two true answers or a logically invalid opposite.
 For each wrong option first identify the practical misconception that could make
 a trained-domain novice choose it. Sharing topic words is NOT plausibility.
 Substituting an object with a fundamentally different function (storage vs sleep,
@@ -341,11 +356,20 @@ business actions. Do not use outside knowledge to infer new legal restrictions.
 An entailed option must have every substantive assertion supported by that
 question's evidence_fact_ids, not merely by a different neighboring fact in the
 block. Incomplete cited support means undetermined, even if another fact could
-have supported the answer. Check contradictions against the complete block so
+have supported the answer. For any other option, truth in governing_facts is
+enough to prevent classifying it contradicted: use undetermined when citation
+support is incomplete, never pretend a true governing duty is false. Check
+contradictions against the complete lesson governing_facts, not only facts, so
 omitting a cited exception cannot manufacture a valid general rule. An invented
 constraint invalidates an option claimed to be entailed. A contradicted wrong
 option may deliberately express an invented but realistic exception; reject it
 only when it is undetermined, unrealistic, or does not answer the same task.
+A universal duty for every employee also covers an employee with a special role
+unless the source excludes that role. A partial or paraphrased compound
+universal duty is not contradicted merely because the key quotes a different
+special-role item. If the question does not narrow those scopes, classify the
+candidate as ambiguous/undetermined rather than accepting the universal duty as
+a false distractor.
 Independently check realistic_error for EVERY contradicted option: is this a
 credible domain misunderstanding, rather than physically or professionally
 absurd advice? Use ordinary functional knowledge for plausibility, never to
@@ -986,22 +1010,29 @@ def _has_server_immutable_rejection(
     )
 
 
-def _constraint_request(request: dict[str, Any], questions: list[QuestionDraft]) -> dict[str, Any]:
+def _constraint_request(
+    request: dict[str, Any], questions: list[QuestionDraft],
+    *, governing_facts: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     return {"task": "assessment_constraints", "block_id": request["block_id"],
-            "facts": request["facts"], "questions": [
-                {"question_id": q.question_id, "prompt": q.prompt, "options": q.options,
+            "facts": request["facts"],
+            "governing_facts": governing_facts if governing_facts is not None
+            else request.get("governing_facts", request["facts"]), "questions": [
+                {"question_id": q.question_id, "kind": q.kind, "prompt": q.prompt, "options": q.options,
                  "evidence_fact_ids": q.evidence_fact_ids}
                 for q in questions]}
 
 
 def _review_request(block_id: str, questions: list[QuestionDraft],
-                    facts: list[SourceFact]) -> dict[str, Any]:
+                    facts: list[SourceFact],
+                    governing_facts: list[SourceFact] | None = None) -> dict[str, Any]:
     """Explanation support cannot leak from uncited neighboring facts."""
     by_id = {fact.fact_id: fact for fact in facts}
+    governing = governing_facts if governing_facts is not None else facts
     return {"task": "assessment_review", "block_id": block_id,
         "governing_facts": [{"fact_id": f.fact_id, "subject": f.subject,
-                              "attribute": f.attribute, "value": f.value} for f in facts], "questions": [
-        {"question_id": q.question_id, "prompt": q.prompt, "options": q.options,
+                              "attribute": f.attribute, "value": f.value} for f in governing], "questions": [
+        {"question_id": q.question_id, "kind": q.kind, "prompt": q.prompt, "options": q.options,
          "explanation": q.explanation, "evidence_fact_ids": q.evidence_fact_ids,
          "source_quote": q.source_quote, "original_prompt": q.repaired_prompt,
          "cited_facts": [{"fact_id": fid, "subject": by_id[fid].subject,
@@ -1127,6 +1158,8 @@ async def generate_block_assessment(
             unassessable_facts: list[SourceFact] = []
             for source_index, facts in enumerate(narrative_scopes):
                 for fact in facts:
+                    if is_assessment_reference_metadata(fact):
+                        continue
                     probe = derive_assessment_axes(lesson, [fact], block_id="selection")
                     if not probe:
                         if len(fact.value.strip()) > MAX_ASSESSMENT_ANSWER_CHARS:
@@ -1156,9 +1189,14 @@ async def generate_block_assessment(
                 ]
                 if omitted:
                     density_omitted.append((lesson, omitted))
-            groups.extend((lesson, [fact]) for fact in unassessable_facts)
+            groups.extend((lesson, [fact]) for fact in unassessable_facts
+                          if not is_assessment_reference_metadata(fact))
             continue
-        groups.extend((lesson, facts) for facts in scoped_facts)
+        groups.extend(
+            (lesson, [fact for fact in facts if not is_assessment_reference_metadata(fact)])
+            for facts in scoped_facts
+            if any(not is_assessment_reference_metadata(fact) for fact in facts)
+        )
     prepared_groups: list[
         tuple[LessonDraft, list[SourceFact], str, tuple[AssessmentAxis, ...]]
     ] = []
@@ -1257,6 +1295,13 @@ async def generate_block_assessment(
                            "derived_axes": 0, "requested_axes": 0, "authored_axes": 0,
                            "attempt_counts": {"authored": 0, "deterministic_repair": 0,
                                               "model_repair": 0, "replacement": 0}}
+    audit["reference_context_fact_ids"] = sorted({
+        fact.fact_id
+        for lesson in lessons
+        for fact_id in lesson.fact_ids
+        for fact in (facts_by_id[fact_id],)
+        if is_assessment_reference_metadata(fact)
+    })
     axis_records: dict[str, dict[str, Any]] = {}
     axis_by_question_id: dict[str, str] = {}
     audit["block_outcomes"].extend({
@@ -1403,6 +1448,11 @@ async def generate_block_assessment(
     for index, (lesson, facts, block_id, axes) in enumerate(prepared_groups, start=1):
         if checkpoint:
             await checkpoint()
+        governing_facts = [facts_by_id[fid] for fid in lesson.fact_ids]
+        governing_fact_payload = [{
+            "fact_id": fact.fact_id, "subject": fact.subject,
+            "attribute": fact.attribute, "value": fact.value,
+        } for fact in governing_facts]
         assessable_fact_ids = {axis.primary_fact_id for axis in axes}
         for fact in facts:
             if fact.fact_id not in lesson.fact_ids:
@@ -1591,7 +1641,9 @@ async def generate_block_assessment(
         for round_index in range(2):
             if not candidates:
                 break
-            review_request = _review_request(block_id, candidates, facts)
+            review_request = _review_request(
+                block_id, candidates, facts, governing_facts=governing_facts,
+            )
             reviews = await invoke(
                 REVIEW_PROMPT,
                 review_request,
@@ -1610,7 +1662,9 @@ async def generate_block_assessment(
                 # source ownership remain batched and unchanged.
                 combined_reviews = ReviewResult()
                 for candidate in candidates:
-                    single_request = _review_request(block_id, [candidate], facts)
+                    single_request = _review_request(
+                        block_id, [candidate], facts, governing_facts=governing_facts,
+                    )
                     single = await invoke(
                         REVIEW_PROMPT,
                         single_request,
@@ -1673,7 +1727,10 @@ async def generate_block_assessment(
             if reviewed_candidates:
                 constraints = await invoke(
                     CONSTRAINT_PROMPT,
-                    _constraint_request(request, reviewed_candidates),
+                    _constraint_request(
+                        request, reviewed_candidates,
+                        governing_facts=governing_fact_payload,
+                    ),
                     partial(
                         _parse_constraint_reviews,
                         questions=reviewed_candidates,
@@ -1691,7 +1748,10 @@ async def generate_block_assessment(
                     for question in reviewed_candidates:
                         single = await invoke(
                             CONSTRAINT_PROMPT,
-                            _constraint_request(request, [question]),
+                            _constraint_request(
+                                request, [question],
+                                governing_facts=governing_fact_payload,
+                            ),
                             partial(
                                 _parse_constraint_reviews,
                                 questions=[question],
@@ -1992,6 +2052,7 @@ async def generate_block_assessment(
         fact_id: facts_by_id[fact_id]
         for lesson in lessons
         for fact_id in lesson.fact_ids
+        if not is_assessment_reference_metadata(facts_by_id[fact_id])
     }
     for record in axis_records.values():
         if (record["state"] == "uncovered"

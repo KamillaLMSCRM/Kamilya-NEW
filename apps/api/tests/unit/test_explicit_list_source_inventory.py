@@ -89,5 +89,7 @@ def test_overlong_child_with_two_rules_keeps_both_source_statements():
                           + second + ";\n- применять открытый огонь")
     assert len(axes) == 3
     assert any(first.lower() in axis.required_prompt.lower() for axis in axes)
-    assert any(second in axis.correct_value for axis in axes)
+    passive = next(axis for axis in axes if "терморегуляторов" in axis.required_prompt)
+    assert passive.correct_value == "не допускается"
+    assert "Эксплуатация приборов при неисправности предусмотренных конструкцией терморегуляторов" in passive.required_prompt
     assert not has_partial_unatomized_source_contract(fact)
