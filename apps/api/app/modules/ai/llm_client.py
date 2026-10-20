@@ -1062,6 +1062,18 @@ class ResilientLLMClient:
                 )
                 continue
 
+            if isinstance(response.content, str) and not response.content.strip():
+                # There is no JSON payload to correct after output-budget
+                # exhaustion. Keep the sole syntax correction available for a
+                # later nonempty response, and use the existing fallback order.
+                failure_reasons.append(ValidatedCallFailureReason.PROVIDER_OUTPUT_UNPARSEABLE)
+                logger.warning(
+                    "[LLM_VALIDATED_REJECT] provider=%s failure=EmptyContent remaining=%s",
+                    client.name,
+                    len(self._clients) - index - 1,
+                )
+                continue
+
             try:
                 value = parser(response.content)
             except json.JSONDecodeError:
@@ -1098,6 +1110,15 @@ class ResilientLLMClient:
                         "[LLM_VALIDATED_SYNTAX_CORRECTION_FAIL] provider=%s failure=%s remaining=%s",
                         client.name,
                         type(exc).__name__,
+                        len(self._clients) - index - 1,
+                    )
+                    continue
+
+                if isinstance(correction.content, str) and not correction.content.strip():
+                    failure_reasons.append(ValidatedCallFailureReason.PROVIDER_OUTPUT_UNPARSEABLE)
+                    logger.warning(
+                        "[LLM_VALIDATED_SYNTAX_CORRECTION_REJECT] provider=%s failure=EmptyContent remaining=%s",
+                        client.name,
                         len(self._clients) - index - 1,
                     )
                     continue

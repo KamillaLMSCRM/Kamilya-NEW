@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
@@ -14,12 +14,82 @@ from app.modules.ai.llm_client import (
     LLMProviderConfig,
     ProviderFailedError,
     ResilientLLMClient,
+    ValidatedCallFailureReason,
     _LLMResponse,
 )
 
 
 def _client(name: str) -> LLMClient:
     return LLMClient(LLMProviderConfig(name=name, base_url="http://test", api_key="test", model="test"))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("blank", ["", " \n\t"])
+async def test_blank_output_fails_over_without_a_futile_syntax_correction(blank: str) -> None:
+    primary, fallback = _client("primary"), _client("fallback")
+    primary.ainvoke = AsyncMock(return_value=_LLMResponse(blank))  # type: ignore[assignment]
+    fallback.ainvoke = AsyncMock(return_value=_LLMResponse('{"ok":true}'))  # type: ignore[assignment]
+    chain = ResilientLLMClient([primary.config, fallback.config])
+    chain._clients = [primary, fallback]
+
+    result = await chain.ainvoke_validated("Return JSON.", json.loads, repair_json_syntax=True)
+
+    assert result.provider == "fallback" and result.value == {"ok": True}
+    assert result.attempt_count == 2
+    assert primary.ainvoke.await_count == fallback.ainvoke.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_blank_output_preserves_the_one_correction_for_a_nonempty_fallback() -> None:
+    primary, fallback = _client("primary"), _client("fallback")
+    primary.ainvoke = AsyncMock(return_value=_LLMResponse(""))  # type: ignore[assignment]
+    fallback.ainvoke = AsyncMock(side_effect=[
+        _LLMResponse('{"items":[1 2]}'), _LLMResponse('{"items":[1,2]}'),
+    ])  # type: ignore[assignment]
+    chain = ResilientLLMClient([primary.config, fallback.config])
+    chain._clients = [primary, fallback]
+
+    result = await chain.ainvoke_validated("Return JSON.", json.loads, repair_json_syntax=True)
+
+    assert result.value == {"items": [1, 2]} and result.attempt_count == 3
+    assert primary.ainvoke.await_count == 1 and fallback.ainvoke.await_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('blank', ['', ' \n\t'])
+async def test_blank_syntax_correction_is_not_accepted_by_a_permissive_parser(blank: str) -> None:
+    primary, fallback = _client('primary'), _client('fallback')
+    primary.ainvoke = AsyncMock(side_effect=[_LLMResponse('{"ok":'), _LLMResponse(blank)])  # type: ignore[assignment]
+    fallback.ainvoke = AsyncMock(return_value=_LLMResponse('{"ok":true}'))  # type: ignore[assignment]
+    chain = ResilientLLMClient([primary.config, fallback.config])
+    chain._clients = [primary, fallback]
+    seen = []
+
+    def parse(raw: str):
+        seen.append(raw)
+        return {'empty_sentinel': True} if not raw.strip() else json.loads(raw)
+
+    result = await chain.ainvoke_validated('Return JSON.', parse, repair_json_syntax=True)
+    assert result.provider == 'fallback' and result.value == {'ok': True}
+    assert blank not in seen
+    assert result.attempt_count == 3
+    assert primary.ainvoke.await_count == 2 and fallback.ainvoke.await_count == 1
+    assert result.failure_reasons == (ValidatedCallFailureReason.PROVIDER_OUTPUT_UNPARSEABLE,) * 2
+
+
+@pytest.mark.asyncio
+async def test_all_blank_chain_fails_closed_without_parsing_or_syntax_recovery() -> None:
+    primary, fallback = _client('primary'), _client('fallback')
+    primary.ainvoke = AsyncMock(return_value=_LLMResponse(''))  # type: ignore[assignment]
+    fallback.ainvoke = AsyncMock(return_value=_LLMResponse(' \n'))  # type: ignore[assignment]
+    chain = ResilientLLMClient([primary.config, fallback.config])
+    chain._clients = [primary, fallback]
+    parser = Mock(return_value={'empty_sentinel': True})
+    with pytest.raises(AllProvidersFailedError) as caught:
+        await chain.ainvoke_validated('Return JSON.', parser, repair_json_syntax=True)
+    parser.assert_not_called()
+    assert primary.ainvoke.await_count == fallback.ainvoke.await_count == 1
+    assert caught.value.reasons == (ValidatedCallFailureReason.PROVIDER_OUTPUT_UNPARSEABLE,) * 2
 
 
 @pytest.mark.asyncio

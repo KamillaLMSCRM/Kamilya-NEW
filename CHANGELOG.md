@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Derive distinct operational-list assessment axes and repair/recover each exact
   axis instead of confusing sibling claims from the same source fragment.
   Critical assessment omissions remain explicit; no quota padding or relaxed
-  answer/grounding checks. Quality policy v27 invalidates old resume assumptions.
+  answer/grounding checks. Quality policy v28 invalidates old resume assumptions.
   Keep operational response domains consistent across authoring and both blind
   reviews; reject unrelated signing prerequisites. Closed source prohibitions
   and appointed-role qualifications use exact binary opposites, not padding.
@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Allow up to30minutes for a whole source-owned course audit, with a finite
  35minute hard stop and unchanged individual request/retry limits. Do not promise
   reuse of partial V2 work in an interruption message or RU/KK/EN Continue action.
+- Keep an adjacent conditional signing action inside its exact actor, handover
+  and agreement context; use its full source-owned binary decision instead of
+  unrelated acts or invented prerequisites. Reject empty LLM replies without a
+  futile syntax-only correction; malformed nonempty JSON retains bounded repair.
 - Separate own courses from templates using a readable list. Remove technical
   voice/model labels from customer-facing video instructions; media unchanged.
 - Candidate only: fresh original-document DEV semantic acceptance and production

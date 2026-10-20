@@ -77,6 +77,11 @@ R33 CI39437144863 all7SUCCESS and exact API/worker/frontend RELEASE_OK. R34
 neutralizes the shared RU/KK/EN Continue label without changing API/OCR source;
 explicit Git-object equivalence is required before reusing R33 generation proof.
 No DEV redeploy while original jobs run. Production remains65.
+R33 DOCX then ended review_required5lessons/43of44questions in769.625s; all retained
+content independently reviewed with no P1/P2, but conditional signing is missing.
+R35 source-bound signature and blank-response recovery changes invalidate R34's
+generation-source equivalence for the new candidate. Fresh full DEV originals
+remain mandatory. No production, model-route, resource or tier change applied.
 
 ## Historical DEV-only OCR correction — 2026-10-19 08:30UTC
 

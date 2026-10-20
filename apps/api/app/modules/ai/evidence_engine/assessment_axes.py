@@ -1380,6 +1380,16 @@ def _flattened_location_branch_axes(fact: SourceFact) -> list[tuple[str, str]]:
     return axes if len(axes) == len(matches) else []
 
 
+def _dependent_signature_prompt(handover: re.Match[str], signature: re.Match[str]) -> str:
+    """One canonical stem preserves the adjacent source actor and both conditions."""
+    return (
+        f"Какое действие выполняет «{handover.group('actor').strip()}» "
+        f"{handover.group('timing').strip()} при условии "
+        f"«{handover.group('condition').strip()}» и при условии "
+        f"«{signature.group('condition').strip()}»?"
+    )
+
+
 def _handover_response_axes(fact: SourceFact) -> list[tuple[str, str]]:
     """Bind one handover check and its explicit escalation branches end to end."""
     if (
@@ -1408,13 +1418,9 @@ def _handover_response_axes(fact: SourceFact) -> list[tuple[str, str]]:
             if index else None
         )
         if signature is not None and previous_handover is not None:
-            handover_actor = previous_handover.group("actor").strip()
             axes.append((
                 signature.group("answer").strip(),
-                f"Какое действие выполняет «{handover_actor}» "
-                f"{previous_handover.group('timing').strip()} при условии "
-                f"«{previous_handover.group('condition').strip()}» и при условии "
-                f"«{signature.group('condition').strip()}»?",
+                _dependent_signature_prompt(previous_handover, signature),
             ))
             continue
         notification = _EXPLICIT_THEN_CONDITION.fullmatch(clause)
@@ -3221,8 +3227,33 @@ def assessment_named_value_kind(axis: AssessmentAxis) -> str | None:
     return None
 
 
+def assessment_conditioned_signing_source(axis: AssessmentAxis) -> str | None:
+    """Prove one adjacent conditional signature action, never arbitrary negation."""
+    if re.fullmatch(r"поставить свою подпись (?:в|на) [^.!?;:]{2,160}", axis.correct_value) is None:
+        return None
+    if re.search(r"\b(?:и|или|либо|кроме|если|когда|затем|до|после|при|только)\b", axis.correct_value):
+        return None
+    for constraint in axis.distractor_constraints:
+        if constraint.relation != "same_axis":
+            continue
+        sentences = _source_sentences(constraint.value)
+        for index, sentence in enumerate(sentences):
+            if not index:
+                continue
+            signature = _DEPENDENT_SIGNATURE_RULE.fullmatch(_without_source_marker(sentence))
+            handover = _PARENTHETICAL_MODAL_RULE.fullmatch(_without_source_marker(sentences[index - 1]))
+            if (signature is not None and handover is not None
+                    and signature.group('answer').strip() == axis.correct_value
+                    and _dependent_signature_prompt(handover, signature) == axis.required_prompt):
+                return ' '.join(sentences[index - 1:index + 1])
+    return None
+
+
 def _source_owned_conditional_decision(axis: AssessmentAxis) -> tuple[str, str] | None:
     """Oppose a projected record state or one shared duty, never arbitrary text."""
+    signature_source = assessment_conditioned_signing_source(axis)
+    if signature_source is not None:
+        return "не требуется " + axis.correct_value, signature_source
     pair = (axis.correct_value, axis.required_prompt)
     for constraint in axis.distractor_constraints:
         if constraint.relation != "same_axis":

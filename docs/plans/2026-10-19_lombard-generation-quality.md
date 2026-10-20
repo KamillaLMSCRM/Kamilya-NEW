@@ -1195,3 +1195,34 @@ R33-to-R34 before hash-linking any R33 generation; preserve actual execution SHA
 Do not duplicate paid generation solely for a verified translation-only delta.
 R34 DEV rollout/browser acceptance follows terminal original jobs; production
 remains65 and no full original quality verdict exists yet.
+
+R33 DOCXjobbf2795f6 terminal review_required at769.625s,5lessons/43of44questions;
+capture9078f9edfc39558ee4ba2fda46f501104e36bf7ee93a8c3c43e50e1b33c7d932.
+Independent review all5bodies/43stems/keys/options/explanations found no P1/P2,
+but the signature remains omitted. Root's suspicion of imported non-approval
+was disproved by the original: keep it alongside handover and own agreement.
+Before any new generation, exact selected full-parent baseline failed3calls/
+6.628s: unrelated acts, stoplist and extra agreement. R35 rederives the adjacent
+source signing projection, permits only its complete obligation/waiver binary,
+and passes the same domain to both blind audits. Source key and conditions stay.
+One-axis real probe3calls/15.402sPASS, unselected axes correctly review_required.
+
+Independent log/source diagnostic proves the empty-content pairs belong to the
+opt-in constraint profile, each original plus its one JSON correction; no raw
+request/token/upstream reasoning cause is exposed. Reject initial blanks before
+parsing, preserve one syntax correction for a later nonempty provider. Reviewer
+found a blank-correction permissive-parser bypass:2RED then closed with the same
+boundary. Root also removed non-approval wording from generic domain guidance:
+positive-condition RED then corrected. Initial4RED/9PASS, focused107PASS before
+review follow-ups; corrected111PASS/2.04s and canonical Ruff1004/Mypy2170PASS.
+No provider order/model/token/deadline/quality audit bypass. Policyv28 requires
+fresh full R35 DEV original acceptance. Earlier unit3851PASS/51.38s is provisional
+before the review corrections; keep it, then run final frozen suite separately.
+R34 only existed locally, remote DEV remains3667e29f. Its source-equivalence
+receipt remains true for R34 but cannot justify reusing generations for R35.
+Final frozen R35 unit3855PASS/50.28s/5knownwarnings; canonical qualityPASS.
+Final CodeGraphsync1907files1469ms(wrapper8626ms)/exclusionsPASS, decisive
+source callers checked. Final independent client review no remaining P1/P2;
+signature source review no P1/P2. Version/release-contract/diff checksPASS.
+Web tree unchanged from locally tested R34 (1358PASS/197.51s/174files plus final
+focused33/type/lint/build); hash-link only those web results. Production still65.

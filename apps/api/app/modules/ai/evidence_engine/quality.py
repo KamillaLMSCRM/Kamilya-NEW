@@ -11,7 +11,7 @@ from app.modules.ai.lesson_quality import has_unprofessional_learner_language
 from .models import AssessmentDraft, CourseDraft, EvidenceCourseResult, QuestionDraft
 from .provider_models import GroundedBlock, PublishabilityReport
 
-EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v27"
+EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v28"
 
 _GENERIC_QUESTION_RE = re.compile(
     r"(?:о\s+ч[её]м\s+(?:этот\s+)?(?:урок|курс|раздел|модуль)|"

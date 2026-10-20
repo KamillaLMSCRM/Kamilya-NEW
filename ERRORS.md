@@ -2,6 +2,49 @@
 
 Current as of: 2026-10-19.
 
+## LLM-VALIDATED-EMPTY-001 - Empty length-terminated output consumed a useless JSON correction
+
+- Date:2026-10-20; bounded DEV course-generation logs, candidate66/R32-R33.
+- Symptom: an assessment-constraint audit made another36-42second DeepSeek
+  request after an HTTP200 reply with no content and finish_reason=length.
+- Cause: opt-in JSON syntax repair treated an empty payload like malformed JSON.
+  Exact request/axis/token usage and upstream reasoning cause are not exposed;
+  do not claim a provider root cause beyond length termination without content.
+- Fix: blank/whitespace initial or correction responses fail over as unparseable
+  before parsing. An empty first response preserves the one correction allowance
+  for a later nonempty response. Existing route/profile/deadline/token/transport
+  bounds and both source audits remain; logs contain only closed failure labels.
+- Verification: initial regressions3RED; independent review then reproduced a
+  permissive-parser bypass for blank correction2RED, now closed. All-blank chains
+  reject without calling the parser. Focused111PASS and canonical qualityPASS;
+  frozen full suite and real DEV originals remain required.
+- Prevention: distinguish transport, empty response, syntax and semantic failures.
+  Apply the same content boundary to recovery responses as to initial responses;
+  never accept an empty sentinel as validated provider success or skip an audit.
+
+## AI-ASSESSMENT-SIGNATURE-001 - A dependent signing action had no safe alternative domain
+
+- Date:2026-10-20; fresh DEV DOCX candidate66/R33, original source unchanged.
+- Symptom:5lessons/43of44questions in769.625s; one shift-appraiser signature
+  omitted after unrelated-act/extra-prerequisite alternatives failed review.
+- Cause: the finite signing/mark response domain did not match the distinct
+  adjacent conditional infinitive signature projection. This is not a reason
+  to drop the original non-approval condition, independently confirmed in source.
+- Fix: rederive exact adjacent handover+agreement clauses, preserving actor,
+  timing and both conditions. One complete signature obligation and its waiver
+  form a source-owned binary, with both blind reviews and containment unchanged.
+  Reject broadened stems, missing source proof and added action/condition tails.
+  Domain guidance refers to explicit source conditions, not assumed non-approval.
+  Quality policyv28 prevents stale partial-result reuse.
+- Verification: selected full-parent baseline3calls/6.628s failed; repaired
+  one-axis diagnostic3calls/15.402s passed both audits. Unselected axes intentionally
+  remain review_required. Positive-condition guidance regressionRED then111focused
+  PASS. Independent retained review found no P1/P2 among all5bodies/43questions;
+  that partial course is not whole acceptance, nor is a one-axis probe.
+- Prevention: never invent several workflow alternatives for one binary source
+  action. Prove adjacency and full source scope, test unchanged keys/conditions,
+  and verify the whole document after the bounded deterministic/live diagnostic.
+
 ## AI-COURSE-TIMEOUT-001 - Complete assessment audit exceeded the old whole-task ceiling
 
 - Date:2026-10-20; shared DEV original-document acceptance, candidate66/R32.

@@ -22,6 +22,7 @@ from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFail
 from .assessment_axes import (
     assessment_appliance_closing_duties,
     assessment_appointed_control_role,
+    assessment_conditioned_signing_source,
     assessment_named_value_kind,
     assessment_option_token_limit,
     assessment_required_prompt,
@@ -830,6 +831,9 @@ def _axis_answer_domain(axis: AssessmentAxis) -> dict[str, Any] | None:
         return {"kind": "recipient_and_timing", "required_components": ["recipient", "timing"],
                 "bound_operation": notice['verb'],
                 "scope": "Every option answers whom to notify and when. A wrong recipient or delay is an in-domain misconception; an act, explanation or other downstream procedure is not an answer."}
+    if assessment_conditioned_signing_source(axis) is not None:
+        return {"kind": "conditioned_signing_action", "required_components": ["signing_action"],
+                "scope": "The exact source makes one signature action conditional on the stated handover and both explicit source conditions. Keep every condition in the server stem. The complete signature action and explicit waiver of that same obligation form one binary decision, not invented acts, stoplists, extra approval or timing. Both blind source reviews still decide truth and plausibility; no acceptance exemption."}
     signing_object = assessment_signing_object(axis)
     if signing_object is not None:
         return {"kind": "action_on_object", "required_components": ["action", "object"],
