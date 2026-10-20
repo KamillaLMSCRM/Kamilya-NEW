@@ -115,7 +115,7 @@
     "interrupted": "Ready to continue",
     "stalled": "No recent updates",
     "retry": "Retry",
-    "continue": "Continue from saved progress",
+    "continue": "Continue",
     "checkAgain": "Check again",
     "cancel": "Cancel",
     "cancelQueued": "Cancel queued job"

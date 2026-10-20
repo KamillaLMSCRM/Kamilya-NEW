@@ -73,6 +73,10 @@ This is an evidenced whole-task timeout, not OCR/worker shutdown. R33 narrowly
 raises whole-course soft/hard limits to1800/2100s and removes false partial-reuse
 wording; individual calls/retries/quality/routing/tiers remain unchanged. Local
 3843unitPASS and independent source review do not replace fresh DEV acceptance.
+R33 CI39437144863 all7SUCCESS and exact API/worker/frontend RELEASE_OK. R34
+neutralizes the shared RU/KK/EN Continue label without changing API/OCR source;
+explicit Git-object equivalence is required before reusing R33 generation proof.
+No DEV redeploy while original jobs run. Production remains65.
 
 ## Historical DEV-only OCR correction — 2026-10-19 08:30UTC
 

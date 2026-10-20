@@ -13,10 +13,15 @@ Current as of: 2026-10-19.
 - Fix: only ai.generate_course receives soft1800/hard2100s, still below broker
   visibility3600. Converter/default/provider-call, retry, model, quality and
   admission bounds remain unchanged. The interruption message no longer promises
-  checkpoint reuse: current V2 has no durable partial course payload.
+  checkpoint reuse: current V2 has no durable partial course payload. Follow-up:
+  the shared RU/KK/EN Continue action is neutral too; it no longer promises a
+  saved position. Its click still resumes the same logical job, not a new POST.
 - Verification: execution contracts3RED/22PASS, then42PASS including tenant-scoped
   atomic interruption, no automatic replay and same-lineage admission. Full frozen
   local/DEV and both original-course acceptance remain required before production.
+  UI follow-up6RED/27PASS then33PASS, full1358PASS; type/lint/buildPASS and
+  independent copy review no P1/P2. One unsupported test-only exact option was
+  removed; default exact string matching and the assertion remain unchanged.
 - Prevention: measure whole-course audit time separately from OCR and individual
   model timeouts. A terminal interrupted job is not acceptance; do not hide a lost
   result, silently retry provider work or replace finite limits with unlimited work.

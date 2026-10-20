@@ -155,7 +155,7 @@ describe('/ai/generate job workflow parity', () => {
 
     expect(await screen.findByRole('button', { name: 'Отменить' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Создать новый курс' })).not.toBeInTheDocument();
-    fireEvent.click(await screen.findByRole('button', { name: /^Продолжить/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Продолжить' }));
     await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/v1/ai/jobs/job-1/resume'));
     expect(routerPushMock).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Открыть сохранённый черновик' })).not.toBeInTheDocument();
