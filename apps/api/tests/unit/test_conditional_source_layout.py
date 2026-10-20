@@ -39,3 +39,11 @@ def test_next_numbered_conditional_branch_remains_separate() -> None:
     assert _readable_source_text(value) == (
         "- 1) при первом условии - действие первое;\n- 2) при втором условии - действие второе."
     )
+
+
+def test_embedded_alternative_condition_does_not_detach_its_deadline() -> None:
+    value = (
+        "После получения информации инспектор обязан при нахождении пункта в городе "
+        "выехать незамедлительно, а при нахождении пункта за городом - в течение двух дней."
+    )
+    assert _readable_source_text(value) == value

@@ -313,7 +313,7 @@ def _readable_source_text(value: str) -> str:
         # not two independent list items. Keep the separator inside that
         # branch; a following explicit condition still starts its own item.
         condition = r"(?:при|если|в\s+случае)\b"
-        if (re.search(rf"(?:^|\n|;\s+)(?:[-—]\s*)?(?:\d+[.)]\s*)?(?:[-—]\s*)?{condition}[^.!?\n;]*$",
+        if (re.search(rf"(?:^|\n|;\s+|,\s+(?:а\s+)?)(?:[-—]\s*)?(?:\d+[.)]\s*)?(?:[-—]\s*)?{condition}[^.!?\n;]*$",
                       prefix, re.IGNORECASE)
                 and not re.match(rf"-\s*(?:\d+[.)]\s*)?{condition}",
                                  match.string[match.end():], re.IGNORECASE)):

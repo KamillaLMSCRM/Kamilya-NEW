@@ -8249,9 +8249,11 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   operational facts still abort the refinement. Source-owned ordinary-table
   labels/subjects produce concise titles, with compact labels for large tables.
   Conditional branches keep their inline action separator, including stacked
-  dash/number markers; whitespace-only content preservation remains mandatory.
+  dash/number markers and embedded comma-delimited alternatives; whitespace-only
+  content preservation remains mandatory. The live embedded-alternative shape
+  is locked by a separate RED1FAIL/9PASS regression.
 - Verification: source-order/title RED2FAIL/1PASS; layout RED4FAIL/1PASS;
-  review-boundary RED3FAIL/9PASS. Combined170PASS; frozen full3983PASS/47.89s,
+  review-boundary RED3FAIL/9PASS. Combined171PASS; final full3984PASS/50.25s,
   canonical Ruff1004/Mypy2170PASS; independent source re-review noP1/P2.
   Both exact converted originals
   retain identical fact values and all44/95 source prompt/key contracts; only

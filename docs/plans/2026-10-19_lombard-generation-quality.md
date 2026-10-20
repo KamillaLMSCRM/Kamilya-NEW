@@ -29,6 +29,10 @@ Final source-bound local3983PASS/47.89s/5knownwarnings, baselineRuff1004/Mypy217
 version66/releasecontract333IDs/head0183/diffPASS. Independent source re-review
 resolved both reachable review boundaries, no remainingP1/P2. Final offline
 original equivalence rerun preserves all9/32facts and44/95prompt/key contracts.
+The final live embedded-alternative layout regression RED1FAIL/9PASS now keeps
+the comma-delimited condition with its deadline; focused171PASS and independent
+narrow re-review noP1/P2. No further generation logic or source contract changes.
+Final full3984PASS/50.25s/5knownwarnings; baselineRuff1004/Mypy2170PASS.
 
 ## R21 real acceptance and R22 correction, 2026-10-20
 
