@@ -100,6 +100,8 @@ describe('/ai/generate job workflow parity', () => {
     render(<AIGeneratePage />);
 
     expect(await screen.findByRole('button', { name: 'Открыть сохранённый черновик' })).toBeInTheDocument();
+    expect(screen.getByText('Результат', { exact: true }).parentElement).toHaveAttribute('aria-current', 'step');
+    expect(screen.queryByText('Прогресс генерации')).not.toBeInTheDocument();
     expect(screen.getByTestId('partial-generation-result')).toHaveTextContent('Готов частично');
     expect(screen.getByTestId('partial-generation-result')).toHaveTextContent('Сохранено уроков: 6 / 6');
     expect(await screen.findByText('6 уроков')).toBeInTheDocument();
@@ -111,6 +113,7 @@ describe('/ai/generate job workflow parity', () => {
     expect(screen.getByRole('button', { name: 'Создать новый курс' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Создать новый курс' }));
     expect(await screen.findByText(/Перетащите документы/)).toBeInTheDocument();
+    expect(screen.getByText('Документы', { exact: true }).parentElement).toHaveAttribute('aria-current', 'step');
     expect(localStorage.getItem('ai_active_job_id')).toBeNull();
     expect(localStorage.getItem('ai_generation_workflow_context')).toBeNull();
     expect(apiMock.post).not.toHaveBeenCalled();

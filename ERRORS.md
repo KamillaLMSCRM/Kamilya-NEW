@@ -9284,6 +9284,12 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   managed DeepSeek low profile is separately tested for final constraint audits.
   No shared config, model route, BYOK, fallback or billing changes. Selected
   diagnostics and whole-course final acceptance remain distinct evidence.
+- R28 live UI follow-up: a terminal saved assessment-review draft showed the
+  partial body but still highlighted Generation and labelled the panel progress.
+  Derive the indicated step/title from the same existing saved-draft condition;
+  do not mutate job status or route partial drafts through complete-course review.
+  Expose aria-current and regress both partial error classes and reset to
+  Documents. Real running/interrupted-other jobs retain their prior behavior.
 - v11 follow-up: mixed operational families require sentence-local precedence
   and actual-target exact-span accounting, not a recognized-family boolean.
   Parenthetical context cannot erase finite/modal/past/passive actions. Use

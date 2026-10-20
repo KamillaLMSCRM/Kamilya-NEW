@@ -948,6 +948,7 @@ export default function AIGeneratePage() {
     { key: 'generate', label: t('aiGeneration.steps.generate'), num: 2 },
     { key: 'review', label: t('aiGeneration.steps.review'), num: 3 },
   ];
+  const indicatedStep = savedAssessmentDraftId ? 'review' : step;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -958,15 +959,16 @@ export default function AIGeneratePage() {
         {stepConfig.map((s, i) => (
           <div
             key={s.key}
+            aria-current={indicatedStep === s.key ? 'step' : undefined}
             className="flex min-w-0 flex-col items-center gap-1 text-center sm:flex-row sm:gap-2 sm:text-left"
           >
             <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
-              step === s.key ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+              indicatedStep === s.key ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
             }`}>
               {s.num}
             </div>
             <span className={`text-xs font-medium leading-tight sm:text-sm ${
-              step === s.key ? 'text-foreground' : 'text-muted-foreground'
+              indicatedStep === s.key ? 'text-foreground' : 'text-muted-foreground'
             }`}>
               {s.label}
             </span>
@@ -1423,7 +1425,7 @@ export default function AIGeneratePage() {
           <GenerationProgressPanel
             job={currentJob}
             stages={progressStages}
-            title={t('ai.progress')}
+            title={savedAssessmentDraftId ? t('aiGeneration.status.partial') : t('ai.progress')}
             labels={{ queued: t('asyncOperation.queued'), running: t('asyncOperation.running'), completed: t('asyncOperation.completed'), failed: t('asyncOperation.failed'), cancelled: t('asyncOperation.cancelled'), interrupted: savedAssessmentDraftId ? t('ai.assessmentNeedsReview') : t('asyncOperation.interrupted'), stalled: t('asyncOperation.stalled') }}
             retryLabel={savedAssessmentDraftId ? t('ai.openSavedDraft') : currentJob.status === 'interrupted' ? t('asyncOperation.continue') : resolveAsyncOperationState(currentJob) === 'failed' ? t('ai.newCourse') : t('asyncOperation.retry')}
             checkAgainLabel={t('asyncOperation.checkAgain')}

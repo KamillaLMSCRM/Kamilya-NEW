@@ -968,3 +968,29 @@ closed the appliance stem P2 and confirmed typed role guidance; separate LLM
 review found no P1/P2 in managed-only profile, timeout, syntax and fallback paths.
 CodeGraph1.6.1 sync1900files7101ms; zero-LLM Graphify39426ms/exclusionauditPASS.
 These are local/source observations; full DEV is the next gate, not a claimed pass.
+
+## Current checkpoint — R28 UI follow-up, 2026-10-20
+
+R27 b49c11be8aee32f3fbb8a9c3c55185574919a0ea completed CI39410727643,
+native39410777085 and DEV controllerRELEASE_OK: APIdep-dbbkgvou01pc73e3n2p0,
+workerdep-dbbkhtmq1p3s73ctv8ag, frontenddpl_56Z3vNtw1TRNf8ji39dLKCbsE3hr.
+No fresh whole-course acceptance was claimed. R28 only corrects the observed
+partial-result step indicator and heading: saved assessment-review draft shows
+Result/partial, not Generation/progress. Actual job state and saved-draft/open/
+new-course behavior remain unchanged. Ordinary running jobs retain progress.
+The real browser reset returned to Documents,0selected; the bounded20-row chooser
+and Show More remain. Screenshot dev-partial-result-r26.png records the old
+visual inconsistency, not final R28 acceptance.
+The new indicator test reproduced RED2; focused final30PASS and TypeScriptPASS.
+The initial pnpm test invocation also ran all173web files: other1351tests passed;
+the2expectedREDs are preserved, not a final whole-suite pass. Independent exact
+frontend review found no P1/P2. Python runtime code remains exactly R27/policyv23.
+
+Independent adjudication resolved the mixed-profile oracle: option0 affirmatively
+permits routing under weaker evacuation-only conditions and may be contradicted;
+option3 expressly preserves all source outcomes and is undetermined. No source
+or model output was rewritten. observed-adjudication-replay-r27.json applies
+the real captured constraint response to the application parser: it removes
+option3 and only then retains the complete key with two valid alternatives.
+Zero new provider/DB calls; the original overstrong-assertion FAIL is preserved.
+This source-reviewed oracle is not fresh full DEV or production acceptance.
