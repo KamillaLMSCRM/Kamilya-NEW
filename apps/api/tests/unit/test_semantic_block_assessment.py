@@ -453,7 +453,7 @@ class Client:
 
 
 @pytest.mark.asyncio
-async def test_numeric_range_repair_receives_exact_ambiguous_option_feedback():
+async def test_numeric_range_recovery_receives_exact_ambiguous_option_feedback():
     key = "От 700\u00a0100 до 1 100\u00a0000 тенге"
     fact = SourceFact("f-range", "I категория", "Лимит на выдачу микрокредитов, тенге",
                       key, "doc_id=d1;sheet=Лимиты;row=2;column=Сумма")
@@ -467,7 +467,7 @@ async def test_numeric_range_repair_receives_exact_ambiguous_option_feedback():
             if request["task"] not in {"assessment_generate", "assessment_repair"}:
                 return await super().ainvoke_validated(messages, parser, **kwargs)
             self.requests.append(request)
-            if request["task"] == "assessment_repair":
+            if request.get("rejected"):
                 assert request["rejected"][0]["rejected_options"] == [{
                     "index": 2, "text": bad_option,
                     "reasons": ["option_2:answer_value_contains_or_is_contained_in_key"],
@@ -486,8 +486,12 @@ async def test_numeric_range_repair_receives_exact_ambiguous_option_feedback():
     assert len(result.questions) == 1
     assert result.questions[0].correct_answer == key
     assert bad_option not in result.questions[0].options
-    assert result.audit["repaired"] == 1
-    assert sum(r["task"] == "assessment_repair" for r in client.requests) == 1
+    assert result.audit["repaired"] == 0
+    assert result.audit["attempt_counts"]["replacement"] == 1
+    assert result.audit["attempt_counts"]["model_repair"] == 0
+    assert [r["task"] for r in client.requests] == [
+        "assessment_generate", "assessment_generate", "assessment_review", "assessment_constraints",
+    ]
 
 
 @pytest.mark.asyncio
@@ -553,24 +557,32 @@ async def test_lesson_length_signal_gets_only_existing_single_repair_and_cannot_
 
 
 @pytest.mark.asyncio
-async def test_semantic_repair_receives_length_feedback_before_its_only_retry():
+async def test_shape_recovery_precedes_the_separate_singleton_semantic_repair():
     class CombinedFeedbackClient(Client):
         async def ainvoke_validated(self, messages, parser, **kwargs):
             request = json.loads(messages[-1]["content"])
             if request["task"] in {"assessment_generate", "assessment_repair"}:
                 self.requests.append(request)
                 repairing = request["task"] == "assessment_repair"
-                if repairing:
+                recovering = bool(request.get("rejected"))
+                if recovering:
                     reasons = request["rejected"][0]["rejection_reasons"]
-                    assert "assessment_answer_length_signal" in reasons
-                    assert any(reason != "assessment_answer_length_signal" for reason in reasons)
+                    if not repairing:
+                        assert "assessment_answer_length_signal" in reasons
+                        assert request["rejected"][0]["answer_shape"]["source_claim_chars"] >= 80
+                    else:
+                        assert "assessment_answer_length_signal" not in reasons
+                        assert reasons  # independent semantic rejection, not another shape retry
                 rows = [{"axis_id": axis["axis_id"],
-                         "prompt": (request["rejected"][0]["prompt"] if repairing else
+                         "prompt": (request["rejected"][0]["prompt"] if recovering else
                                     f"Как выполнить обязательное действие {index + 1} при приемке?"),
                          "distractors": ([
+                             "При передаче смены сотрудник оставляет сведения о непринятых единицах только у себя и не делает записи в журнале.",
+                             "При частичном возврате всю накладную отмечают принятой, а информацию о возвращённом товаре не передают следующей смене.",
+                         ] if repairing else [
                              "При передаче смены сотрудник сообщает о результате приемки только устно, оставляя журнал без записи и не передавая сведения о непринятых единицах товара.",
                              "Отметить всю накладную как принятую и передать непринятую единицу следующей смене без отдельного отражения возврата.",
-                         ] if repairing else ["Принять всё сразу.", "Передать устно."])}
+                         ] if recovering else ["Принять всё сразу.", "Передать устно."])}
                         for index, axis in enumerate(request["axes"])]
                 return SimpleNamespace(value=parser(json.dumps({"questions": rows}, ensure_ascii=False)),
                                        attempt_count=1)
@@ -597,6 +609,8 @@ async def test_semantic_repair_receives_length_feedback_before_its_only_retry():
     assert result.audit["unresolved_quality_signals"] == []
     repairs = [request for request in client.requests if request["task"] == "assessment_repair"]
     assert len(repairs) == 2  # exactly one repair per rejected question, never a second round
+    assert result.audit["attempt_counts"]["replacement"] == 2
+    assert result.audit["attempt_counts"]["model_repair"] == 2
     assert all(question.correct_answer in claims for question in result.questions)
 
 
@@ -1287,7 +1301,7 @@ async def test_review_envelope_is_bounded_even_when_source_fits():
     result = await generate_block_assessment([lesson], facts, client)
     assert result.questions == ()
     assert len(client.requests) == 1
-    assert any(x.get("stage") == "assessment_review" and x["reason"] == "assessment_context_too_large"
+    assert any(x.get("stage") == "assessment_generate" and x["reason"] == "assessment_context_too_large"
                for x in result.audit["failures"])
     assert len(result.audit["failures"]) == 1
 
@@ -1326,11 +1340,11 @@ def test_repair_parser_rejects_multiple_server_targets():
 
 
 @pytest.mark.asyncio
-async def test_multiple_rejections_create_only_singleton_repair_requests():
+async def test_multiple_rejections_create_only_singleton_bounded_correction_requests():
     class TwoRejectedClient(Client):
         async def ainvoke_validated(self, messages, parser, **kwargs):
             request = json.loads(messages[-1]["content"])
-            if request["task"] == "assessment_repair":
+            if request["task"] == "assessment_repair" or request.get("rejected"):
                 self.requests.append(request)
                 axis = request["axes"][0]
                 distractors = OPTIONS[1:]
@@ -1364,10 +1378,15 @@ async def test_multiple_rejections_create_only_singleton_repair_requests():
     lesson = replace(lesson, fact_ids=("f1", "f2"))
     client = TwoRejectedClient(bad=True)
     result = await generate_block_assessment([lesson], facts, client)
-    repairs = [request for request in client.requests if request["task"] == "assessment_repair"]
+    repairs = [request for request in client.requests if request.get("rejected")]
     assert result.questions
-    assert len(repairs) == 2
+    assert len(repairs) == 3
+    assert sum(request["task"] == "assessment_repair" for request in repairs) == 2
+    assert sum(request["task"] == "assessment_generate" for request in repairs) == 1
     assert all(request["max_questions"] == 1 and len(request["rejected"]) == 1 for request in repairs)
+    for task in ("assessment_generate", "assessment_repair"):
+        axis_ids = [request["axes"][0]["axis_id"] for request in repairs if request["task"] == task]
+        assert len(axis_ids) == len(set(axis_ids))  # no second recovery or repair for the same axis
 
 
 def test_repair_restores_primary_fact_and_evidence_order():

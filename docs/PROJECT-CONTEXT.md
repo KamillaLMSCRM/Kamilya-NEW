@@ -27,7 +27,7 @@
 
 ## DEV server OCR — 2026-10-20
 
-Cloud DEV API/worker ateeb740af176445eca8728a8c6446360844355494 use the
+Cloud DEV API/worker at6ca1e16feb54c7a6d88bd6c0f9660d2b379b9dee use the
 existing SSH launcher with DEV_OCR_SSH_ENABLED=true. Fixed local18600 forwards
 through the existing restricted private transport to VM12610.77.77.2:18601.
 VM126 ingress permits only wg0/proxy10.77.77.1; no public converter gateway.
@@ -40,14 +40,15 @@ UID10001/read-only cache+root/4GiB/2CPU. Existing DEV API key is root0600 in
 /etc/kamilya-dev-ocr.env; never use the production key. Source and credentials
 are not supplied by the workstation at runtime. Authenticated conversion of both
 original binaries (DOCX0.765s/PDF59.36s) and production-preservation checksPASS.
-R22 CI39385501237SUCCESS; APIdep-dbbhdi49v7es73f8q1l0,
-workerdep-dbbhejou01pc73dqppcg, frontenddpl_AirKErXPYiSAPhn8GPk2qqjSzDCD,
+R23 CI39389930891SUCCESS; APIdep-dbbi0djrjlhs73eb6490,
+workerdep-dbbi1ggn74is73cp9bug, frontenddpl_FsAi6khSWgM4u1RkV6L53gD7jLcV,
 controllerRELEASE_OK. Ordinary QA browser PDF reindex reached completed through
 the cloud worker and private server OCR. Server-only scanned RU/KK/EN smoke
-PASS3pages/6checks/11.568s. R22 whole-course quality remains incomplete:
-DOCX41/44 and PDF94/95 questions. PDF completed-with-warnings is not zero-omission
-acceptance. All135retained questions independently reviewed without P1/P2;
-follow-up operational response domains/early deterministic admission remain localR23.
+PASS3pages/6checks/11.568s. R23 whole-course quality remains incomplete:
+DOCX40/44 and PDF93/95 questions. R22's135retained questions were independently
+reviewed without P1/P2; that older review does not establish R23 acceptance.
+R24 universal early structural admission and exact preliminary-phone executor
+scope remain local. Runtime success is not zero-omission acceptance.
 Runtime availability is not quality GO.
 Existing Free/Free/Hobby tiers unchanged. Production converter was
 not updated. Source/course acceptance remains separate and OPEN.

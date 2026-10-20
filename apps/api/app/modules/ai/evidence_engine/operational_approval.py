@@ -249,7 +249,7 @@ def _remote_phone_approval(
     participant = _projection(
         sentence=sentence, sentence_index=sentence_index, match=match,
         answer_group="actor",
-        prompt=f"Кто указан как участник предварительного согласования по телефону для «{scope}»?",
+        prompt=f"Кем выполняется именно предварительное согласование по телефону для «{scope}»?",
         condition=scope, consumed_groups=("scope", "answer"), minimum_answer_chars=5,
     )
     return (projection, participant) if participant is not None else (projection,)

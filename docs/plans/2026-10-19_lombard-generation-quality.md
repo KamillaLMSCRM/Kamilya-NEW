@@ -802,3 +802,29 @@ Luna-medium equivalent reviewed DOCX5lessons/41questions, retained-content READY
 Root owns source changes, integration, source/option review and all external work.
 Observed agent model/effort, tokens, agent elapsed/root-rework time and subscription
 cost counters were not exposed; unknown is not zero. No nested/external leaf work.
+
+## Current checkpoint — R24, 2026-10-20
+
+R23 shared DEV6ca1e16feb54c7a6d88bd6c0f9660d2b379b9dee passed CI39389930891
+and exact controller rollout. Fresh original DOCX5lessons/40of44/661.781s
+(including queue), PDF8lessons/93of95/456.000s are NOT whole-source acceptance.
+Structural length rejection also affected unknown/table domains, while one
+wrong option repeated the key inside a larger phrase. R24 universally applies
+reject-only admission, safely prunes only surplus invalid alternatives, exposes
+exact rejected identity/answer shape and keeps the existing bounded recovery.
+Both independent reviews and all final guards remain; no minimum-count waiver.
+
+A separate root semantic review rejected a formally approved phone-actor case:
+the participant stem mixed preliminary execution with final approval, and a
+qualified same-role wrong option was ambiguous. The source now binds precisely
+the preliminary performer; same-role overlap is rejected conservatively. Actual
+selected phone2 probe1/1/3calls/8.883s and PDF shape2/2/7calls/19.338s pass only
+their selected scope. Their partial diagnostic parents are not full-course GO.
+The failed phone probe is preserved rather than overwritten. Independent review
+also found/closed multiword-role matching and futile immutable-morphology retry:
+the full source phrase is required, unsupported shapes omit explicitly with zero
+replacement calls, and no head-noun-only equivalence is inferred. Final source
+re-review READY/noP1/P2. Policyv20 prevents stale reuse. Frozen full3735unitPASS/
+49.45s/5knownwarnings; canonical quality
+1004ruff/2170mypyPASS. CodeGraph1.6.1 sync1900files/exclusionauditPASS,
+finalupdate1325ms/total8309ms. Full fresh DEV and production remain NOT RUN forR24.

@@ -517,3 +517,86 @@ async def test_shape_defective_model_repair_never_reaches_another_blind_review(m
     assert result.audit["attempt_counts"]["replacement"] == 0
     assert any(row["stage"] == "model_repair" for row in result.audit["pre_review_rejections"])
 
+
+@pytest.mark.asyncio
+async def test_unknown_domain_still_rejects_deterministic_shape_before_both_truth_reviews(monkeypatch):
+    lessons, facts = _fixture()
+    lessons = [lesson for lesson in lessons if lesson.lesson_id == "lesson-notice"]
+    axis = semantic_assessment.replace(_axis("notice"), required_prompt="Кого и когда уведомляют о сомнении?")
+    assert _axis_author_payload(axis)["answer_domain"] is None
+    monkeypatch.setattr(semantic_assessment, "derive_assessment_axes", lambda lesson, selected_facts, *, block_id:
+                        (semantic_assessment.replace(axis, semantic_block_id=block_id),))
+    client = ShapeRecoveryClient("length")
+    result = await generate_block_assessment(lessons, facts, client)
+    assert len(result.questions) == 1 and result.questions[0].correct_answer == NOTICE_KEY
+    assert [request["task"] for request in client.requests] == [
+        "assessment_generate", "assessment_generate", "assessment_review", "assessment_constraints",
+    ]
+    assert all(question["answer_domain"] is None for request in client.requests
+               for question in request.get("questions", []))
+
+
+@pytest.mark.asyncio
+async def test_bad_extra_distractor_is_pruned_only_with_two_remaining_wrong_choices_before_reviews(monkeypatch):
+    lessons, facts = _fixture()
+    lessons = [lesson for lesson in lessons if lesson.lesson_id == "lesson-notice"]
+    monkeypatch.setattr(semantic_assessment, "derive_assessment_axes", lambda lesson, selected_facts, *, block_id:
+                        (_axis("notice", block_id=block_id),))
+
+    class ExtraBadOption(ReplayClient):
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            if request["task"] != "assessment_generate":
+                return await super().ainvoke_validated(messages, parser, **kwargs)
+            self.requests.append(request)
+            axis = request["axes"][0]
+            row = {"axis_id": axis["axis_id"], "prompt": axis["required_prompt"],
+                   "distractors": ["АУП РД.", *NOTICE_DISTRACTORS]}
+            return SimpleNamespace(value=parser(json.dumps({"questions": [row]}, ensure_ascii=False)),
+                                   attempt_count=1, failure_reasons=(), model_id="synthetic-replay")
+
+    client = ExtraBadOption("local_prune")
+    result = await generate_block_assessment(lessons, facts, client)
+    assert len(result.questions) == 1 and len(result.questions[0].options) == 3
+    assert result.questions[0].correct_answer == NOTICE_KEY
+    assert "АУП РД." not in result.questions[0].options
+    assert [request["task"] for request in client.requests] == [
+        "assessment_generate", "assessment_review", "assessment_constraints",
+    ]
+    assert result.audit["removed_distractors"] == 1
+    assert result.audit["attempt_counts"]["deterministic_repair"] == 1
+    assert result.audit["attempt_counts"]["replacement"] == 0
+    assert result.audit["attempt_counts"]["model_repair"] == 0
+
+
+@pytest.mark.asyncio
+async def test_unsupported_immutable_executor_shape_is_terminal_without_paid_replacement(monkeypatch):
+    lessons, facts = _fixture()
+    lessons = [lesson for lesson in lessons if lesson.lesson_id == "lesson-notice"]
+    prompt = "Кем выполняется именно предварительное согласование по телефону для «Операции категории»?"
+    axis = semantic_assessment.replace(_axis("notice"), correct_value="комиссией",
+        normalized_correct_value="комиссией", required_prompt=prompt)
+    monkeypatch.setattr(semantic_assessment, "derive_assessment_axes", lambda lesson, selected_facts, *, block_id:
+                        (semantic_assessment.replace(axis, semantic_block_id=block_id),))
+
+    class UnsupportedRole:
+        def __init__(self):
+            self.tasks = []
+
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            self.tasks.append(request["task"])
+            assert self.tasks == ["assessment_generate"], "immutable defect cannot reach a recovery or review"
+            row = {"axis_id": axis.axis_id, "prompt": prompt,
+                   "distractors": ["руководителем", "никем: согласование не требуется"]}
+            return SimpleNamespace(value=parser(json.dumps({"questions": [row]}, ensure_ascii=False)),
+                                   attempt_count=1, failure_reasons=(), model_id="synthetic-replay")
+
+    client = UnsupportedRole()
+    result = await generate_block_assessment(lessons, facts, client)
+    assert not result.questions and client.tasks == ["assessment_generate"]
+    record = next(row for row in result.audit["axis_outcomes"] if row["axis_id"] == axis.axis_id)
+    assert record["state"] == "omitted" and record["reason"] == "preliminary_executor_role_shape_unsupported"
+    assert record["attempt_counts"]["replacement"] == record["attempt_counts"]["model_repair"] == 0
+    assert result.audit["attempt_counts"]["replacement"] == result.audit["attempt_counts"]["model_repair"] == 0
+

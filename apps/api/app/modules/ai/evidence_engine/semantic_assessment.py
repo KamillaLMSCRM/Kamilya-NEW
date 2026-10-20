@@ -179,6 +179,17 @@ deadline, delay, actor, location or prerequisite absent from this exact target.
 Changing the recorded decision or explicitly omitting its mark are distinct
 in-domain misconceptions; unknown software timings are not. Keep each
 alternative informative enough to satisfy the supplied character bounds.
+For preliminary_phone_executor, answer who performs this exact preliminary phone
+step, not every participant and not the final approval authority. Do not treat
+a differently qualified or inflected version of the same source role as a wrong
+role; the source may not exclude it. Both reviews must still check role overlap.
+Do not invent an absent job title as another wrong executor. Distinct mistakes
+can confuse the preliminary executor with the expressly named final authority,
+or explicitly omit the mandatory preliminary step ('никем: предварительное
+согласование не требуется'). The latter answers the executor question by
+denying its source-required action; it does not introduce an imaginary role.
+These are possible counterfactuals, not pre-approved answers: both reviews must
+still establish contradiction, task relevance and realistic distinct errors.
 """
 
 AUTHOR_PROMPT = """Create meaningful Russian workplace assessment questions from
@@ -244,11 +255,16 @@ a wrong answer. 'Publish a rejected draft if the notice is ready' contradicts it
 If a rejected option has invented_constraint or expected_contradicted_got_undetermined,
 remove the invented clause and replace it with a contradiction of an explicit
 source condition. Paraphrasing the rejected clause does not repair it.
-In assessment_repair, rejected_options binds server-generated reasons to the
+In any request containing rejected, rejected_options binds server-generated reasons to the
 exact failed option text. Use those reasons, not the option's position alone.
 If answer_value_contains_or_is_contained_in_key is reported, replace that
 alternative with a DIFFERENT wrong value for the requested attribute. Appending
 another region, actor or caveat to the same correct range/value is not a repair.
+When rejected.answer_shape supplies observed character/word counts, compare them
+with answer_length_contract before returning revised choices. Repeating choices
+outside those bounds cannot repair the question. Keep wrong choices informative
+and comparable without filler: change a source-required action, value or sequence,
+and do not repeat context already present in required_prompt.
 Do not change the immutable source_claim or required_prompt.
 Replace invented requirements rather than adding a different unmentioned
 requirement. Preserve an unflagged misconception unless a question-level reason
@@ -758,6 +774,11 @@ def _axis_answer_domain(axis: AssessmentAxis) -> dict[str, Any] | None:
         return {"kind": "recorded_decision", "required_components": ["decision_record", "software_location"],
                 "bound_location": software['location'],
                 "scope": "Every option explicitly records a decision or refuses to record it in this software. Change or omit the mandatory decision mark, not signing or another downstream step. Do not introduce timing, actor, location or prerequisite changes. Both source reviews and local guards remain binding."}
+    if re.fullmatch(
+        r"Кем выполняется именно предварительное согласование по телефону для «[^«»!?]+»\?", prompt,
+    ) and re.fullmatch(r"[А-Яа-яЁё-]+(?:\s+[А-Яа-яЁё-]+){0,8}", axis.correct_value):
+        return {"kind": "preliminary_phone_executor", "required_components": ["preliminary_step_executor"],
+                "scope": "Answer who performs the exact preliminary telephone step, not every party or final approval authority. A qualified or inflected version of the same source role is not a safe wrong role without explicit exclusion. Both source reviews remain binding."}
     return None
 
 
@@ -826,6 +847,28 @@ def _parse_axis_questions(
     return result
 
 
+def _preliminary_executor_role_pattern(value: str) -> re.Pattern[str] | None:
+    """Conservative case variants of the entire role phrase, never a head noun.
+
+    Unknown morphology fails closed at admission. This is an overlap detector,
+    not a role ontology or a proof that two different phrases are distinct.
+    """
+    tokens = _norm(value).split()
+    if not tokens:
+        return None
+    patterns: list[str] = []
+    for token in tokens[:-1]:
+        adjective = re.fullmatch(r"(?P<base>[а-яё]+(?:-[а-яё]+)*)(?:ым|им)", token)
+        if adjective is None:
+            return None
+        patterns.append(re.escape(adjective["base"]) + r"(?:ый|ий|ой|ым|им|ого|его|ому|ему|ом|ем|ые|ие|ых|их|ыми|ими)")
+    noun = re.fullmatch(r"(?P<base>[а-яё]+(?:-[а-яё]+)*)ом", tokens[-1])
+    if noun is None:
+        return None
+    patterns.append(re.escape(noun["base"]) + r"(?:а|у|ом|е|и|ов|ами|ах)?")
+    return re.compile(r"(?<!\w)" + r"\s+".join(patterns) + r"(?!\w)")
+
+
 def _author_shape_rejection_reasons(
     question: QuestionDraft, axis: AssessmentAxis,
 ) -> tuple[str, ...]:
@@ -845,7 +888,24 @@ def _author_shape_rejection_reasons(
                        if option != question.correct_answer and re.search(
                            r"\b(?:до|после|через|если|когда|сначала|затем)\b|\b(?:в\s+течение|при\s+условии)\b",
                            option, re.IGNORECASE))
+    if domain is not None and domain['kind'] == 'preliminary_phone_executor':
+        same_role = _preliminary_executor_role_pattern(axis.correct_value)
+        if same_role is not None:
+            reasons.extend(f"option_{index}:role_scope_overlaps_key"
+                           for index, option in enumerate(question.options)
+                           if option != question.correct_answer and same_role.search(_norm(option)))
+        else:
+            reasons.append("preliminary_executor_role_shape_unsupported")
     return tuple(reasons)
+
+
+def _answer_shape_feedback(question: QuestionDraft) -> dict[str, Any]:
+    return {"source_claim_chars": len(question.correct_answer.strip()),
+            "source_claim_words": len(question.correct_answer.split()),
+            "contract": answer_length_contract(question.correct_answer),
+            "option_shapes": [{"index": index, "chars": len(option.strip()),
+                               "words": len(option.split())}
+                              for index, option in enumerate(question.options)]}
 
 
 def _parse_reviews(raw: str, questions: list[QuestionDraft]) -> ReviewResult:
@@ -1588,11 +1648,21 @@ async def generate_block_assessment(
             axis_id = axis_by_question_id.get(question.question_id)
             if axis_id is None or axis_id not in axes_by_id:
                 raise RuntimeError("assessment_candidate_axis_mapping")
-            # Generic and tabular consumers keep their established review/repair
-            # route. Only exact server-owned operational response contracts use
-            # the new early shape admission; a provider cannot invent a domain.
-            reasons = (_author_shape_rejection_reasons(question, axes_by_id[axis_id])
-                       if _axis_answer_domain(axes_by_id[axis_id]) is not None else ())
+            # These universal structural checks reject only; unknown response
+            # domains gain no truth exemption. Keep at least two wrong choices
+            # if a locally invalid extra can be pruned before both reviews.
+            reasons = _author_shape_rejection_reasons(question, axes_by_id[axis_id])
+            invalid_indices = {int(reason.split(":", 1)[0].removeprefix("option_"))
+                               for reason in reasons if reason.startswith("option_")}
+            remaining = tuple(option for i, option in enumerate(question.options) if i not in invalid_indices)
+            if invalid_indices and len(remaining) >= 3:
+                audit["pre_review_rejections"].append({"axis_id": axis_id,
+                    "stage": stage + "_pruned", "reasons": list(reasons)})
+                audit["removed_distractors"] += len(invalid_indices)
+                axis_records[axis_id]["attempt_counts"]["deterministic_repair"] += 1
+                audit["attempt_counts"]["deterministic_repair"] += 1
+                question = replace(question, options=remaining)
+                reasons = _author_shape_rejection_reasons(question, axes_by_id[axis_id])
             if not reasons:
                 admitted.append(question)
                 continue
@@ -1772,6 +1842,11 @@ async def generate_block_assessment(
                 if missing_axis.axis_id in authored_axis_ids:
                     continue
                 axis_record = axis_records[missing_axis.axis_id]
+                if (missing_axis.axis_id in pre_rejected and
+                        "preliminary_executor_role_shape_unsupported" in pre_rejected[missing_axis.axis_id][1]):
+                    # The author cannot repair immutable source morphology.
+                    # Preserve the diagnostic rather than spend a futile call.
+                    continue
                 if axis_record["attempt_counts"]["replacement"] >= 1:
                     continue
                 axis_record["attempt_counts"]["replacement"] += 1
@@ -1787,7 +1862,10 @@ async def generate_block_assessment(
                         "question_id": rejected_question.question_id,
                         "prompt": rejected_question.prompt,
                         "options": rejected_question.options,
+                        "primary_fact_id": rejected_question.fact_id,
+                        "fact_ids": rejected_question.evidence_fact_ids,
                         "rejection_reasons": list(reasons),
+                        "answer_shape": _answer_shape_feedback(rejected_question),
                         "rejected_options": _rejected_option_feedback(rejected_question, list(reasons)),
                     }]
                 recovered = await invoke(
@@ -2107,6 +2185,7 @@ async def generate_block_assessment(
                                                 "options": rejected_question.options,
                                                 "primary_fact_id": rejected_question.fact_id,
                                                 "fact_ids": rejected_question.evidence_fact_ids,
+                                                "answer_shape": _answer_shape_feedback(rejected_question),
                                                 "rejection_reasons": rejection_reasons[
                                                     rejected_question.question_id],
                                                 "rejected_options": _rejected_option_feedback(

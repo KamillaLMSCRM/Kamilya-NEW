@@ -46,8 +46,24 @@ diagnostics and provider-attempt count. Callers and tests use this same seam.
 - Generated lesson prose is not evidence.
 - Deterministic repair precedes a bounded model repair where possible.
 - Irreparable candidates are omitted without quota padding.
-- At most three assessable axes are selected per lesson; this is a ceiling, not
-  a target.
+- Axis selection follows source-owned knowledge density, not a three-question
+  quota. The technical ceiling is `MAX_ASSESSMENT_TARGETS_PER_LESSON` (currently
+  20); every source obligation beyond selected targets remains visible in the
+  coverage audit rather than silently disappearing.
+- Before blind review, all authored candidates, including unknown/generic/table
+  response domains, pass reject-only containment and individual character-shape
+  admission. Typed domains may add conservative scope/role-overlap rejection;
+  they never confer truth or semantic acceptance.
+- An invalid extra option may be pruned only while the immutable key and at
+  least two wrong choices survive. Both blind reviews examine the resulting
+  exact options. General multiple-choice questions are not silently converted
+  into two-choice questions; source-owned binary axes retain their own contract.
+- A structurally rejected axis has at most one existing singleton replacement;
+  semantic rejection has at most one existing model repair. Rejected text,
+  ordered evidence identity, observed answer shape and reasons are passed back
+  without changing the key. Explicit empty output is not retried for padding.
+- Final grounding, containment, post-pruning shape and quiz-level distribution
+  guards still apply. Local admission or model approval alone is not quality GO.
 - Every derived axis is classified as retained, omitted, unassessable or
   uncovered with a reason when applicable.
 - `review_required` is emitted for incomplete contract/source-topic coverage;

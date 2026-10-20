@@ -99,3 +99,50 @@ def test_software_mark_target_does_not_invent_an_unstated_delay_as_a_wrong_answe
     admitted_shape = materialize_assessment(axis, AuthoredAssessment(axis.axis_id, prompt, safe))
     assert admitted_shape is not None
     assert not _author_shape_rejection_reasons(admitted_shape, axis)
+
+
+def test_preliminary_phone_executor_does_not_use_a_qualified_same_role_as_wrong_option():
+    axis, _ = _fixture()
+    key = "эксперт-оценщиком"
+    prompt = "Кем выполняется именно предварительное согласование по телефону для «Операции по II категории вне населённого пункта»?"
+    axis = replace(axis, correct_value=key, normalized_correct_value=key.casefold(), required_prompt=prompt)
+    domain = _axis_author_payload(axis)["answer_domain"]
+    assert domain is not None and domain["kind"] == "preliminary_phone_executor"
+    question = materialize_assessment(axis, AuthoredAssessment(axis.axis_id, prompt, (
+        "сменный эксперт-оценщик", "АУП РД", "руководитель подразделения",
+    )))
+    assert question is not None
+    assert "option_1:role_scope_overlaps_key" in _author_shape_rejection_reasons(question, axis)
+    assert "окончательное" not in prompt
+
+
+def test_derived_multiword_executor_rejects_only_complete_role_overlap():
+    from app.modules.ai.evidence_engine.assessment_axes import derive_assessment_axes
+    from app.modules.ai.evidence_engine.models import LessonDraft
+
+    value = ("Операции по VII категории при расположении пункта вне границ округа "
+             "предварительно согласовываются выездным оценщиком по телефону.")
+    fact = SourceFact("remote", "Категория операции", "согласование", value,
+                      "doc_id=synthetic;source_revision=v2;section=approval;part=7")
+    lesson = LessonDraft("lesson", "", "", "", "", (fact.fact_id,), (), 1)
+    axis = next(axis for axis in derive_assessment_axes(lesson, [fact], block_id="block")
+                if axis.correct_value == "выездным оценщиком")
+    assert _axis_author_payload(axis)["answer_domain"]["kind"] == "preliminary_phone_executor"
+    question = materialize_assessment(axis, AuthoredAssessment(axis.axis_id, axis.required_prompt, (
+        "старший выездной оценщик", "сменный оценщик",
+        "никем: предварительное согласование не требуется",
+    )))
+    assert question is not None
+    assert _author_shape_rejection_reasons(question, axis) == ("option_1:role_scope_overlaps_key",)
+
+
+def test_unsupported_preliminary_executor_role_morphology_fails_closed():
+    axis, _ = _fixture()
+    key = "комиссией"
+    prompt = "Кем выполняется именно предварительное согласование по телефону для «Операции категории»?"
+    axis = replace(axis, correct_value=key, normalized_correct_value=key, required_prompt=prompt)
+    question = materialize_assessment(axis, AuthoredAssessment(axis.axis_id, prompt, (
+        "руководителем", "никем: согласование не требуется",
+    )))
+    assert question is not None
+    assert "preliminary_executor_role_shape_unsupported" in _author_shape_rejection_reasons(question, axis)

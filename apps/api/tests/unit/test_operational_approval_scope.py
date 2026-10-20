@@ -63,7 +63,10 @@ def test_remote_phone_precoordination_projects_method_without_approval_authority
     projection, participant = projections
     assert projection.step.answer == "по телефону"
     assert participant.step.answer == "выездным оценщиком"
-    assert "как участник предварительного согласования" in participant.step.required_prompt
+    assert participant.step.required_prompt == (
+        "Кем выполняется именно предварительное согласование по телефону для "
+        "«Операции по VII категории при расположении пункта вне границ округа»?"
+    )
     assert "утвержд" not in participant.step.required_prompt
     assert projection.step.governing_condition == (
         "Операции по VII категории при расположении пункта вне границ округа"

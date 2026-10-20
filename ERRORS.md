@@ -9239,6 +9239,16 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   exercise conversion/normalization/admission before axis derivation, inspect
   every retained question/key/distractor and all critical omitted topics. Retain
   explicit review-required results instead of manufacturing completed status.
+- R24 structural admission follow-up: gating only recognized operational domains
+  left generic/table candidates exposed to the same severe answer-shape failures.
+  Apply reject-only containment/individual character admission universally;
+  prune only an invalid extra while two wrong choices remain and run both blind
+  reviews on exact surviving options. Preserve bounded replacement/repair,
+  explicit empty no-padding and final quiz-level guards. A preliminary-phone
+  participant prompt also confused executor/final authority and admitted a
+  qualified same-role distractor. Bind the exact source performer, reject role
+  overlap, and never invent an absent third job title to fill options. Real whole
+  DEV R23 remained40/44 DOCX and93/95 PDF; selected probes do not close acceptance.
 - v11 follow-up: mixed operational families require sentence-local precedence
   and actual-target exact-span accounting, not a recognized-family boolean.
   Parenthetical context cannot erase finite/modal/past/passive actions. Use
