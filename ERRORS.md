@@ -9319,6 +9319,23 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   answer actions; project neutral objects, disambiguate collisions with other
   source objects or fail closed. Target/key/evidence counts do not change.
   Full source/browser acceptance remains required, not implied by local tests.
+- R32 live-reader follow-up: at1280px the global navigation/course contents and
+  xl assistant column left roughly240px for the lesson. Correct Markdown alone
+  did not make the course readable. Stack the assistant below the lesson until
+  1536px; preserve existing wide-screen layout and all handlers. Two role-mode
+  regressions RED before repair, focused35PASS afterward; require real laptop
+  screenshot after DEV rollout, not a class assertion alone.
+- R32 full R31 PDF retained92/95: a nominal placement ban lacked a specific
+  permission stem, a two-duty question needed independent omission targets, and
+  a single appointed controller inherited multi-actor-set guidance. Add only
+  exact source-rederived response contracts; keep keys, both blind audits and
+  coverage guards. The complete placement permission opposite is not a key
+  restatement; its narrow binary containment contract must match the producer.
+  Independent review also found generic converter category право mislabelling
+  assigned responsibility. Shared source fallback/coalescing now emits a neutral
+  exact rule locator, never an inferred right or cut sentence prefix. Update
+  old heading assertions while preserving body/source-order invariants. Passing
+  selected model probes still do not establish full-course acceptance.
 - v11 follow-up: mixed operational families require sentence-local precedence
   and actual-target exact-span accounting, not a recognized-family boolean.
   Parenthetical context cannot erase finite/modal/past/passive actions. Use

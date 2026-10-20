@@ -11,7 +11,7 @@ from app.modules.ai.lesson_quality import has_unprofessional_learner_language
 from .models import AssessmentDraft, CourseDraft, EvidenceCourseResult, QuestionDraft
 from .provider_models import GroundedBlock, PublishabilityReport
 
-EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v26"
+EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v27"
 
 _GENERIC_QUESTION_RE = re.compile(
     r"(?:о\s+ч[её]м\s+(?:этот\s+)?(?:урок|курс|раздел|модуль)|"
@@ -176,6 +176,10 @@ def _is_complete_binary_modal_opposite(question: QuestionDraft, option: str) -> 
     key, wrong = normalize(question.correct_answer), normalize(option)
     if key == "не допускается":
         return wrong == "допускается"
+    if re.fullmatch(r"не допускается размещение [^.!?;:]+ вплотную к [^.!?;:]+", key):
+        # Exact whole-proposition permission/prohibition; not a shorter key
+        # restatement. Source admission and both blind audits remain binding.
+        return wrong == key.removeprefix('не ')
     obligation = re.fullmatch(r"(?P<modal>обязан|обязана|обязано|обязаны)(?P<action>\s+.+)?", key)
     if obligation is not None:
         # In particular, обязано is a modal, not an adverb ending in -о.

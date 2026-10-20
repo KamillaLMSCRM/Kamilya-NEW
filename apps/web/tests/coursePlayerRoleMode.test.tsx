@@ -134,6 +134,21 @@ describe('course player role modes', () => {
     setupFetch();
   });
 
+  it.each(['methodologist', 'student'])('keeps lesson reading space before showing a side-by-side assistant for %s', async (role) => {
+    useAuthStore.setState({ accessToken: 'reader-token', user: { id: 'reader-1', role } as never, initialized: true });
+    render(<CoursePlayerPage />);
+    await screen.findByRole('heading', { name: 'Шестой урок' });
+    const assistant = screen.getByRole('heading', { name: 'authenticatedUi.player.assistantTitle' }).closest('aside')!;
+    const readingLayout = assistant.parentElement!;
+    // At a 1280px laptop, global and course navigation already take 560px.
+    // The assistant must stack below, not consume another 340px of that row.
+    expect(readingLayout).toHaveClass('grid-cols-1', '2xl:grid-cols-[minmax(0,1fr)_340px]');
+    expect(readingLayout).not.toHaveClass('xl:grid-cols-[minmax(0,1fr)_340px]');
+    expect(assistant).toBeVisible();
+    expect(screen.getByText('Материал урока')).toBeVisible();
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST' || init?.method === 'PUT')).toHaveLength(0);
+  });
+
   it.each(['completed', 'in_progress', 'unassigned'])('returns the %s learner to their assigned-course list', async (state) => {
     setupFetch(null, lesson.content, { ...course, status: 'published' });
     const baseFetch = fetchMock.getMockImplementation()!;

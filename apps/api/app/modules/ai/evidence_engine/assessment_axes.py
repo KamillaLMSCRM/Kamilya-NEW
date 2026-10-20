@@ -2318,6 +2318,22 @@ def _contextualized_list_axis(fact: SourceFact, source_value: str) -> tuple[str,
     return source_value, ""
 
 
+def _nominal_placement_prohibition(value: str) -> tuple[str, str] | None:
+    """A complete nominal placement ban, not an inferred permitted location."""
+    match = re.fullmatch(
+        r"Не допускается (?P<placement>размещение [^.!?;:\r\n—–]{3,240} вплотную к [^,.!?;:\r\n—–]{3,160})[.]?",
+        value.strip(), re.IGNORECASE,
+    )
+    if match is None or re.search(
+        r"\b(?:кроме|исключени\w*|если|когда|но|однако|только|лишь|не|при|после|до|"
+        r"следует|необходимо|разрешен[аоы]?|допустим[аоы]?|запрещен[аоы]?|обязательн[аоы]?|"
+        r"возможн[аоы]?|можно|нельзя|нужно|надо|[А-Яа-яЁё]+(?:ется|ются|ит|ят|ет|ют|ат)(?:ся)?)\b",
+        match['placement'], re.IGNORECASE,
+    ):
+        return None
+    return f"Допустимо ли {match['placement']}?", f"Допускается {match['placement']}."
+
+
 def _server_owned_inverse(correct_value: str) -> str | None:
     """Build an exact binary opposite for server-owned yes/no statements.
 
@@ -2329,6 +2345,9 @@ def _server_owned_inverse(correct_value: str) -> str | None:
     categorical = _categorical_conditional_prohibition(correct_value)
     if categorical is not None:
         return categorical[1]
+    placement = _nominal_placement_prohibition(correct_value)
+    if placement is not None:
+        return placement[1]
     inspection_timing = re.fullmatch(
         r"(?P<subject>согласование\s+[^,.!?;:]{3,100})\s+осуществляется\s+"
         r"(?P<timing>во\s+время\s+проведения\s+(?:[А-Яа-яЁё]+(?:ых|их)\s+)+проверок)[.]?",
@@ -2943,6 +2962,8 @@ def derive_assessment_axes(
             faq_pair = _source_owned_faq_pair(fact.value)
             required_prompt = (faq_pair[0] if faq_pair else
                                required_prompt or _required_prompt(correct_value))
+            if not required_prompt and (placement := _nominal_placement_prohibition(correct_value)):
+                required_prompt = placement[0]
             if len(required_prompt) > 900:
                 continue
             if not required_prompt and re.search(
@@ -3105,6 +3126,8 @@ def _source_owned_list_decision(axis: AssessmentAxis) -> tuple[str, str] | None:
 
 def _source_owned_appointment_decision(axis: AssessmentAxis) -> tuple[str, str] | None:
     """Negate only the source-verified appointment qualification, not a role guess."""
+    if assessment_appointed_control_role(axis):
+        return axis.correct_value.replace('назначенное', 'не назначенное', 1), axis.correct_value
     match = re.fullmatch(
         r"лицо,\s+назначенное\s+(?P<authority>"
         r"(?:руководителем|директором|начальником)\s+"
@@ -3138,6 +3161,36 @@ def _source_owned_appointment_decision(axis: AssessmentAxis) -> tuple[str, str] 
             ):
                 return f"лицо, не назначенное {match.group('authority')}", sentence
     return None
+
+
+def assessment_appointed_control_role(axis: AssessmentAxis) -> bool:
+    """Verify a single source-appointed controller, not an arbitrary actor set."""
+    if re.fullmatch(
+        r"Должностное лицо, назначенное ответственным за [^.!?;:]{5,190}",
+        axis.correct_value,
+    ) is None or re.search(r"\b(?:и|или|либо|не|кроме|если|когда)\b", axis.correct_value):
+        return False
+    pair = axis.correct_value, axis.required_prompt
+    return any(
+        project_control_responsibility(_without_source_marker(sentence)) == pair
+        for constraint in axis.distractor_constraints if constraint.relation == 'same_axis'
+        for sentence in _source_sentences(constraint.value)
+    )
+
+
+def assessment_appliance_closing_duties(axis: AssessmentAxis) -> bool:
+    """Expose the two existing components only for the exact source projection."""
+    if axis.correct_value != 'Необходимо обесточить все электроприборы и осмотреть на наличие признаков возгорания.':
+        return False
+    expected = (
+        'Какие два действия необходимо выполнить в отношении «все электроприборы» согласно разделу '
+        f'«{_without_source_marker(axis.subject).strip()}»?'
+    )
+    return axis.required_prompt == expected and any(
+        axis.correct_value == _without_source_marker(sentence)
+        for constraint in axis.distractor_constraints if constraint.relation == 'same_axis'
+        for sentence in _source_sentences(constraint.value)
+    )
 
 
 def assessment_named_value_kind(axis: AssessmentAxis) -> str | None:

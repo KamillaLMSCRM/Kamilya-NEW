@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Derive distinct operational-list assessment axes and repair/recover each exact
   axis instead of confusing sibling claims from the same source fragment.
   Critical assessment omissions remain explicit; no quota padding or relaxed
-  answer/grounding checks. Quality policy v26 invalidates old resume assumptions.
+  answer/grounding checks. Quality policy v27 invalidates old resume assumptions.
   Keep operational response domains consistent across authoring and both blind
   reviews; reject unrelated signing prerequisites. Closed source prohibitions
   and appointed-role qualifications use exact binary opposites, not padding.
@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   changing their meaning. No implicit external conversion endpoint is selected.
 - Show partial generation as a saved result requiring review, bound the source
   chooser, and keep a fresh-course reset stable across reloads.
+- Keep laptop lesson text readable by stacking its assistant below1536px.
+  Do not show converter categories as unproved normative headings; preserve the
+  complete placement-ban, appointed-controller and two-action closing scopes.
 - Separate own courses from templates using a readable list. Remove technical
   voice/model labels from customer-facing video instructions; media unchanged.
 - Candidate only: fresh original-document DEV semantic acceptance and production

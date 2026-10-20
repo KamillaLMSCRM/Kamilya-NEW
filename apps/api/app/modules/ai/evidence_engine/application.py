@@ -46,9 +46,14 @@ from .models import (
     SourceFact,
     SourceSection,
     StageTiming,
-    is_tabular_locator,
 )
-from .provider_engine import ProviderBackedEvidenceEngine, _normalize, _readable_source_text, coalesce_grounded_blocks
+from .provider_engine import (
+    ProviderBackedEvidenceEngine,
+    _normalize,
+    _readable_source_text,
+    _source_fallback_heading,
+    coalesce_grounded_blocks,
+)
 from .provider_models import (
     GroundedBlock,
     ProviderBackedResult,
@@ -60,7 +65,6 @@ from .quality import (
     EVIDENCE_QUALITY_POLICY_VERSION,
     evaluate_plan_preflight,
     evaluate_publishability,
-    is_acceptable_title,
 )
 from .semantic_assessment import generate_block_assessment
 from .source_blocks import is_navigation_heading, split_narrative_blocks
@@ -1409,12 +1413,7 @@ def _grounded_fallback(
     rendered: list[str] = []
     for fact_id in plan_fact_ids:
         fact = facts_by_id[fact_id]
-        label = fact.attribute
-        if not is_tabular_locator(fact.source_locator) and is_acceptable_title(fact.subject):
-            label = fact.subject
-        heading = neutralize_unprofessional_source_language(
-            " ".join(label.strip().rstrip(".:").split())
-        ) or "Подтверждённые сведения"
+        heading = _source_fallback_heading(fact)
         text = neutralize_unprofessional_source_language(fact.value.strip())
         if any(field.startswith("table=") for field in fact.source_locator.split(";")):
             text = f"{fact.subject.strip()} — {fact.attribute.strip()}: {text}"

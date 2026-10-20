@@ -59,6 +59,23 @@ def _normalize(vector: tuple[float, ...]) -> tuple[float, ...]:
     return normalized
 
 
+_GENERIC_NORMATIVE_LABELS = {'право', 'обязанность', 'запрет', 'срок', 'положение'}
+
+
+def _source_fallback_heading(fact: SourceFact) -> str:
+    """Do not promote a converter category or a cut sentence into a heading."""
+    label = fact.attribute
+    if (not is_tabular_locator(fact.source_locator)
+            and is_acceptable_title(fact.subject)
+            and not re.match(r'^\s*\d+(?:\.\d+)*[.)]?\s+', fact.subject)):
+        label = fact.subject
+    heading = neutralize_unprofessional_source_language(' '.join(label.strip().rstrip('.:').split()))
+    if not is_tabular_locator(fact.source_locator) and heading.casefold() in _GENERIC_NORMATIVE_LABELS:
+        marker = re.match(r'^\s*(\d+(?:\.\d+)*)[.)]?\s+', fact.value)
+        return f'Правило {marker[1]}' if marker else 'Подтверждённые сведения'
+    return heading or 'Подтверждённые сведения'
+
+
 def coalesce_grounded_blocks(
     blocks: list[GroundedBlock],
     facts_by_id: dict[str, SourceFact],
@@ -94,11 +111,14 @@ def coalesce_grounded_blocks(
             key = ("tabular-attribute", "|".join(next(iter(tabular_scopes))))
             heading = " ".join(cited[0].attribute.strip().rstrip(".:").split()) or block.heading
         else:
+            heading = block.heading
+            if heading.strip().casefold() in _GENERIC_NORMATIVE_LABELS:
+                heading = (_source_fallback_heading(cited[0]) if len(cited) == 1
+                           else 'Подтверждённые сведения')
             key = (
                 "heading",
-                " ".join(block.heading.casefold().replace("ё", "е").split()),
+                " ".join(heading.casefold().replace("ё", "е").split()),
             )
-            heading = block.heading
         position = grouped.get(key)
         if position is not None and key[0] == "heading" and position != len(result) - 1:
             # A repeated prose heading is not sequencing authority. Coalescing
@@ -1140,21 +1160,7 @@ class ProviderBackedEvidenceEngine:
                 attribute = _clean_output_text(fact.attribute)
                 terminal = "" if re.search(r"[.!?]$", text) else "."
                 text = f"{subject} — {attribute}: {text}{terminal}"
-            label = fact.attribute
-            if (not is_tabular_locator(fact.source_locator)
-                    and is_acceptable_title(fact.subject)
-                    and not re.match(r"^\s*(?:\d+[.)]|\d+(?:\.\d+)+[.)]?)\s+", fact.subject)):
-                # A numbered source-section name is a locator, not necessarily
-                # the topic of this atomic fallback (e.g. liability within an
-                # approval section). Do not label unrelated duties with it.
-                label = fact.subject
-            heading = neutralize_unprofessional_source_language(
-                " ".join(label.strip().rstrip(".:").split())
-            ) or "Подтверждённые сведения"
-            if heading.casefold() == "положение":
-                # Conversion labels like "положение" are not useful headings.
-                # A short exact source prefix distinguishes adjacent rules.
-                heading = " ".join(text.split()[:5]).rstrip(".,;:") or fact.subject
+            heading = _source_fallback_heading(fact)
             rendered.extend([f"### {heading}", "", text, ""])
             grounded_blocks.append(
                 GroundedBlock(

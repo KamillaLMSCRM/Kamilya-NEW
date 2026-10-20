@@ -175,4 +175,6 @@ def test_rejected_paraphrase_fallback_does_not_reuse_a_numbered_section_as_a_top
     rendered, blocks = _render_qualified_block(broad, [fact])
     assert fact.value in rendered
     assert "### " + subject not in rendered
-    assert blocks[0].heading == "обязанность"
+    # Converter attributes are not a proof of a normative category. Keep the
+    # exact source-rule locator, not either the broad section or that label.
+    assert blocks[0].heading == "Правило 4"

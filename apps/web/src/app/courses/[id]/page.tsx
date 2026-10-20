@@ -878,7 +878,7 @@ export default function CoursePlayerPage() {
           <AssignmentAccessTimer remainingSeconds={assignmentRemainingSeconds} blocked={assignmentAccessBlocked} />
         )}
         {selectedLesson ? (
-          <div className="mx-auto grid max-w-6xl gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_340px]">
             <div className="min-w-0">
             <h1 className="text-2xl font-bold mb-6">{selectedLesson.title}</h1>
 

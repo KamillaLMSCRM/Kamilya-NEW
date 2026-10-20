@@ -20,6 +20,8 @@ from urllib.parse import parse_qsl
 from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFailureReason
 
 from .assessment_axes import (
+    assessment_appliance_closing_duties,
+    assessment_appointed_control_role,
     assessment_named_value_kind,
     assessment_option_token_limit,
     assessment_required_prompt,
@@ -792,6 +794,13 @@ def _axis_author_payload(axis: AssessmentAxis) -> dict[str, Any]:
 
 def _axis_answer_domain(axis: AssessmentAxis) -> dict[str, Any] | None:
     """Disclose a strict server projection's response type, never provider wording."""
+    if assessment_appointed_control_role(axis):
+        return {"kind": "appointed_control_role", "required_components": ["source_appointment_qualification"],
+                "scope": "This source names one appointed responsible official, not a multi-person set. The complete appointment qualification and its negation form one binary knowledge decision. Do not invent several omitted roles or cosmetic alternate job titles. Neither qualification nor negation gets a truth exemption; both blind reviews still decide source support, relevance and plausibility."}
+    if assessment_appliance_closing_duties(axis):
+        return {"kind": "appliance_closing_duties", "required_components": ["deenergize_all_appliances", "inspect_for_fire_signs"],
+                "misconception_targets": ["keep inspection but explicitly waive deenergizing", "keep deenergizing but explicitly waive inspection for fire signs"],
+                "scope": "Every option addresses the two complete end-of-work duties. Use two independent violations: explicitly waive deenergizing while retaining inspection, or retain deenergizing while explicitly waive inspection. Do not repeat only one omission with cosmetic excuses; do not introduce unplugging individual devices or unrelated fire response. Keep comparable option shape without filler. Both blind reviews independently check truth, complete scope and educational value."}
     named_kind = assessment_named_value_kind(axis)
     if named_kind is not None:
         return {"kind": "expressly_named_value", "required_components": [named_kind],

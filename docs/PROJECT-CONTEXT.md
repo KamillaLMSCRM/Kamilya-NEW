@@ -27,7 +27,7 @@
 
 ## DEV server OCR — 2026-10-20
 
-Cloud DEV API/worker at237a9521ca9699c66b707dcd6c717bc438403088 use the
+Cloud DEV API/worker atb1541a55b63f73502e9f7c4d577689dfbb3c66d5 use the
 existing SSH launcher with DEV_OCR_SSH_ENABLED=true. Fixed local18600 forwards
 through the existing restricted private transport to VM12610.77.77.2:18601.
 VM126 ingress permits only wg0/proxy10.77.77.1; no public converter gateway.
@@ -40,15 +40,25 @@ UID10001/read-only cache+root/4GiB/2CPU. Existing DEV API key is root0600 in
 /etc/kamilya-dev-ocr.env; never use the production key. Source and credentials
 are not supplied by the workstation at runtime. Authenticated conversion of both
 original binaries (DOCX0.765s/PDF59.36s) and production-preservation checksPASS.
-R30 CI39417633946SUCCESS; APIdep-dbblccgae00c73975ui0,
-workerdep-dbbldcon74is73d35cd0, frontenddpl_4nFHizJmD9WYujoP7Cyuv5umVram,
+R31 CI39423827139SUCCESS; APIdep-dbbm49bncjis7396mahg,
+workerdep-dbbm58navr4c7382njhg, frontenddpl_287mzXXgKi9FBFa5Hz3w4RDnnkch,
 controllerRELEASE_OK. Ordinary QA browser PDF reindex reached completed through
 the cloud worker and private server OCR. Server-only scanned RU/KK/EN smoke
-PASS3pages/6checks/11.568s. Whole-course quality remains incomplete:
-R28 PDF92/95 and R30 DOCX37/44. Independent full retained-content review found
-overbroad shared care/liability stems and source-backed missing questions; R31
-policyv26 locally repairs source-bound response contracts and neutral compound
-stems. Selected diagnostics and local tests are not final DEV acceptance. The
+PASS3pages/6checks/11.568s. R31 real DOCX completed5lessons/44of44questions
+in680.822s, zero omitted targets; independent full retained-content review found
+no P1/P2. Browser preview scored6of6 without a recorded learning attempt.
+Earlier R28 PDF92/95 and R30 DOCX37/44 were not accepted. R31 policyv26 repairs
+source-bound response contracts and neutral compound stems. Full PDF acceptance
+failed:8lessons/92of95questions in1100.282s. The three omitted questions concern
+placement prohibition, two closing duties and one appointed controller. Full
+retained-content review found one misleading generic heading (assigned
+responsibility labelled as a right), no P1/P2 among all92questions. R32 policyv27
+repairs these response contracts and neutralizes unproved converter category
+headings. A live1280px reader also exposed a squeezed lesson column; R32 moves
+its assistant below the lesson until1536px. The earlier frontend-only evidence
+reuse proposal is SUPERSEDED: generation code changed, so R31 is not exact R32
+acceptance. Fresh full R32 generations, CI, rollout and browser checks remain
+required. The
 existing request-local managed DeepSeek low reasoning applies only to final
 constraint audits. The
 existing route, models, BYOK, fallback, keys and billing configuration do not change.

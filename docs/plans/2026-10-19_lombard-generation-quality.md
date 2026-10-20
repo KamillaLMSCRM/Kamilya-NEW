@@ -1088,3 +1088,69 @@ DOCX44targets/5stems changed, PDF95targets/8stems changed, no key/evidence/count
 changes; input/source hashes recorded, zero provider/DB calls. It is not a whole
 generation. Final DEV whole-source quality, browser acceptance, protected release
 and fresh production originals remain OPEN. No production mutation was made.
+
+## Current checkpoint — R31 whole DOCX and R32 reader, 2026-10-20
+
+R31 exactb1541a55b63f73502e9f7c4d577689dfbb3c66d5 passed CI39423827139 and
+DEV RELEASE_OK. Real browser-created DOCX job9ddfcc7a-2baf-4936-9e8d-50211d6b6860
+completed in680.822s:5lessons/44questions,44of44source targets, zero omissions,
+no fallback/route change. Independent review read every lesson/key/choice/
+explanation against the anonymized original: no P1/P2; long legal prose and
+generic part titles remain minor pedagogic limitations. Preview6of6PASS, no
+recorded learner attempt. Its result page showed completed/Result and a usable
+saved draft. Reload during generation restored the same job. A later completed
+page reload correctly attached the newly started PDF job; this ordering does NOT
+prove completed-result persistence, which remains a separate browser gate.
+
+Live1280px reader squeezed the text beside global navigation, course contents
+and assistant. R32 changes only its grid breakpoint: one column until1536px,
+then the existing assistant column. Two role-contract tests RED2/33PASS before,
+35PASS afterward; typecheck/lint/buildPASS. First unconstrained full web run
+1354PASS/1timing failure in the unrelated signed-review test; that file then
+7PASS alone. Same-source full suite with2workers1355PASS/173files/201.13s. The
+failed report is preserved, not rewritten or treated as product acceptance.
+CodeGraph sync1903files2768ms(wrapper20757ms), exclusionsPASS; known local
+rendering seam needs no second Graphify traversal. Independent responsive-diff
+review found no P1/P2; actual R32 DEV laptop/browser acceptance is still required.
+
+The initial frontend-only equivalence proposal below is SUPERSEDED by actual
+PDF findings; no equivalence receipt was executed. R31 generation evidence is
+not R32 acceptance because the generation code now changes too.
+
+R31 PDF job7cb3401f-2f29-4b84-9957-5e38a7f2e184 ended interrupted in1100.282s,
+8lessons/92of95questions. No redeploy interrupted it. Exact omissions: complete
+placement ban, two appliance closing actions, and one appointed controller.
+An unchanged-source selected probe passed3/3 in12calls111.154s, demonstrating
+model variability, not closing whole-source coverage. R32 now gives the exact
+nominal placement ban a clear permission stem and full binary opposite, checks
+that exact opposite through the existing containment guard, rederives the one
+appointed controller from its source rather than inventing missing roles, and
+exposes two independent appliance-duty error targets to author and blind audits.
+Both audits and immutable source keys remain; no model/routing/resource change.
+
+Independent full PDF review read8bodies/92keys/241choices/92explanations: no P1/P2
+in retained questions, but a body P2 mislabelled assigned responsibility as a
+right. Shared fallback/coalescing now uses neutral exact rule locators instead
+of generic converter categories or truncated sentence prefixes. Meaningful
+authored headings and table attributes stay. RED3/1PASS for the three response
+contracts, then29PASS; containment/heading RED2/4PASS, then124focusedPASS.
+The first selected R32 probe2/3 exposed the containment mismatch and remains
+FAIL. The corrected selected3/3 passed9calls51.439s, full source parents,
+zeroDB/deploy; intentionally unselected targets still mean review_required.
+Policyv27. Full local suite3826PASS/4old-heading-assertion FAIL retained; those
+tests now require neutralRule4 while preserving exact body and the original
+no-unrelated-section invariant. Imports cleaned after baseline diagnosed two
+unused names and sorting, not a runtime dependency failure. Final frozen suite
+3830PASS/50.20s/5knownwarnings; canonical Ruff1004/Mypy2170PASS. CodeGraph final
+sync1905files1460ms(wrapper8221ms), exclusionsPASS. Fresh DEV original generations
+and production remain OPEN. Counts remain44DOCX/95PDF; no source-key/evidence
+change. Independent boundary review then reproduced joined OCR clauses and a
+multi-fact generic heading: RED7/6PASS, then13PASS. Short secondary predicates
+exposed another boundary (RED6/10PASS); reject comma-delimited placement tails,
+line/dash boundaries, timing, secondary finite/modal/passive predicates before
+granting the pair; exact original remains positive. Final focused19PASS and
+canonical qualityPASS. Multi-fact generic headings now always neutralize without
+changing text/citations. Final frozen full suite3843PASS/50.72s/5knownwarnings;
+canonical Ruff1004/Mypy2170PASS. Contract gate and final diff/version checksPASS.
+The two additional source labels and typed response domains are not a
+claim that every future LLM output is accepted.
