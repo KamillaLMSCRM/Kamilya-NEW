@@ -1,6 +1,34 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-19.
+Current as of: 2026-10-20.
+
+## AI-ASSESSMENT-PRUNING-001 - A weak extra distractor erased an otherwise assessable source rule
+
+- Date: 2026-10-20; fresh DEV66/R35 PDF, immutable original.
+- Symptom:8lessons/93of95questions in1134.233s; two alternative-function/
+  compound-duty targets omitted after duplicate or invented wrong alternatives.
+- Cause: ordinary MCQ review requires two distinct wrong answers. One approved
+  wrong alternative was discarded with a weak extra after the one repair failed.
+  Unchanged-source selected2/2PASS in6calls/37.166s proves stochastic distractor
+  quality, not a missing source rule; it is not a replay of the uncaptured bad text.
+- Fix: preserve structured positive evidence from both blind option reviews.
+  Only after the existing repair budget is exhausted may an exact option subset
+  retain one wrong answer that is relevant/plausible AND contradicted/realistic.
+  Keep single_choice and all immutable fields; never use a true_false realism
+  exemption. Ordinary parser minimum, authoring, retries, local and quiz-level
+  guards remain unchanged. Record original indices and closed rejection codes.
+  A later adverse key/question/explanation or unavailable audit invalidates old
+  proof; never cherry-pick an older positive review. Policyv29 invalidates reuse.
+- Verification: provisional first-pass pruning tests2RED/12PASS were superseded
+  by the last-resort contract12RED/13PASS. Stale-proof regression3RED/31PASS then
+  focused37PASS; final focused119PASS includes the unchanged-call/no-progress
+  case. Full frozen suite, real DEV originals and production remain separate gates.
+  Final local3892PASS/51.15s, canonical Ruff1004/Mypy2170PASS. A real selected
+  diagnostic2/2PASS/9calls81.075s exercised actual two-option recovery; independent
+  review of both questions/five choices found no P1/P2. This is not whole DEV proof.
+- Prevention: measure exact rule coverage and retained option quality separately.
+  Prefer a successful ordinary repair. Do not invent options, drop a source rule,
+  or relax source truth to meet an arbitrary option cardinality.
 
 ## LLM-VALIDATED-EMPTY-001 - Empty length-terminated output consumed a useless JSON correction
 

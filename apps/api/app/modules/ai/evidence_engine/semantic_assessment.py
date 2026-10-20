@@ -453,6 +453,15 @@ class BlockAssessmentResult:
     attempt_count: int
 
 
+@dataclass(frozen=True, slots=True)
+class _OptionEvidence:
+    """Positive option evidence bound to the exact independently reviewed draft."""
+
+    question: QuestionDraft
+    question_valid: bool
+    valid_wrong_indices: tuple[int, ...]
+
+
 class ReviewResult(dict[str, bool]):
     """Boolean review decisions with actionable, server-derived repair reasons."""
 
@@ -460,6 +469,7 @@ class ReviewResult(dict[str, bool]):
         super().__init__()
         self.reasons: dict[str, list[str]] = {}
         self.option_removals: dict[str, tuple[int, ...]] = {}
+        self.option_evidence: dict[str, _OptionEvidence] = {}
 
 
 CONSTRAINT_PROMPT = """Audit logical entailment and practical feasibility. Source is
@@ -1105,6 +1115,9 @@ def _parse_reviews(raw: str, questions: list[QuestionDraft]) -> ReviewResult:
             else ()
         )
         result.reasons[qid] = reason
+        result.option_evidence[qid] = _OptionEvidence(
+            q, core_valid and correct_valid, tuple(sorted(plausible_wrong)),
+        )
     return result
 
 
@@ -1259,7 +1272,8 @@ def _parse_constraint_reviews(raw: str, questions: list[QuestionDraft],
             reasons.append("constraint_duplicate_misconceptions")
         minimum_wrong = 1 if q.kind == "true_false" else 2
         accepted = correct_valid and distinct_valid and len(valid_wrong) >= minimum_wrong
-        if _adds_optional_exclusion(q, facts):
+        optional_exclusion = _adds_optional_exclusion(q, facts)
+        if optional_exclusion:
             reasons.append("optional_exclusion_guard")
             accepted = False
         result[qid] = accepted
@@ -1269,7 +1283,94 @@ def _parse_constraint_reviews(raw: str, questions: list[QuestionDraft],
             else ()
         )
         result.reasons[qid] = reasons
+        result.option_evidence[qid] = _OptionEvidence(
+            q, correct_valid and not optional_exclusion, tuple(sorted(valid_wrong)),
+        )
     return result
+
+
+def _local_question_rejection_reasons(question: QuestionDraft, facts: list[SourceFact]) -> list[str]:
+    """The same unchanged local gates for ordinary and post-review candidates."""
+    ambiguous = [
+        f"option_{index}:authorization_scope_ambiguous"
+        for index, option in enumerate(question.options)
+        if option != question.correct_answer
+        and _has_ambiguous_authorization_omission(question.correct_answer, option)
+    ]
+    if ambiguous:
+        return ambiguous
+    if any(_restates_conditional_prohibition(question.correct_answer, option)
+           for option in question.options if option != question.correct_answer):
+        return ["assessment_key_restatement"]
+    if question_has_incomplete_correct_answer(question):
+        return ["incomplete_correct_answer"]
+    if not filter_acceptable_questions([question]):
+        return ["local_quality_filter_rejected", *(
+            f"option_{index}:answer_value_contains_or_is_contained_in_key"
+            for index in answer_containment_option_indices(question)
+        )]
+    if any(contains_internal_generation_instruction(text)
+           for text in (question.prompt, question.explanation, *question.options)):
+        return ["internal_generation_instruction"]
+    if _has_position_dependent_explanation(question.explanation):
+        return ["assessment_position_dependent_explanation"]
+    if _unsupported_replacement_advice(question, facts):
+        return ["unsupported_replacement_advice"]
+    return []
+
+
+def _post_review_pruned_candidate(
+    semantic: _OptionEvidence | None,
+    constraints: _OptionEvidence | None,
+    *,
+    facts: list[SourceFact],
+    accepted: list[QuestionDraft],
+) -> QuestionDraft | None:
+    """Keep a proved alternative, never manufacture truth or bypass a review.
+
+    The caller alone enforces exhausted repair budget. Ordinary acceptance keeps
+    its two-wrong minimum; this subset-only fallback is a final repair, not a
+    new authoring format or a true/false realism exemption.
+    """
+    if semantic is None or constraints is None or not (
+        semantic.question_valid and constraints.question_valid
+    ):
+        return None
+    original, constrained = semantic.question, constraints.question
+    if (original.kind != "single_choice" or not 3 <= len(original.options) <= 4
+            or any(q.question_id == original.question_id for q in accepted)
+            or len(set(original.options)) != len(original.options)
+            or original.options.count(original.correct_answer) != 1
+            or any(option not in original.options for option in constrained.options)
+            or replace(constrained, options=original.options,
+                       semantic_reviewed=original.semantic_reviewed) != original):
+        return None
+    known_ids = {fact.fact_id for fact in facts}
+    if (not original.evidence_fact_ids or original.fact_id not in known_ids
+            or not set(original.evidence_fact_ids) <= known_ids):
+        return None
+    for evidence in (semantic, constraints):
+        if any(type(index) is not int or not 0 <= index < len(evidence.question.options)
+               or evidence.question.options[index] == original.correct_answer
+               for index in evidence.valid_wrong_indices):
+            return None
+    semantic_wrong = {original.options[index] for index in semantic.valid_wrong_indices}
+    constraint_wrong = {constrained.options[index] for index in constraints.valid_wrong_indices}
+    common = semantic_wrong & constraint_wrong
+    # Try only the at-most-three existing alternatives in original order. All
+    # individual and quiz-level shape checks remain authoritative; no filler.
+    for wrong in original.options:
+        if wrong not in common:
+            continue
+        reduced = replace(original, semantic_reviewed=True, options=tuple(
+            option for option in original.options if option in {original.correct_answer, wrong}
+        ))
+        if (_local_question_rejection_reasons(reduced, facts)
+                or answer_length_repair_targets([*accepted, reduced],
+                                                repairable_ids={reduced.question_id})):
+            continue
+        return reduced
+    return None
 
 
 def _original_option_reasons(
@@ -1600,7 +1701,7 @@ async def generate_block_assessment(
                            "dropped": 0, "removed_distractors": 0, "source_peer_candidates": 0,
                            "failures": [], "block_outcomes": [], "axis_outcomes": [],
                            "derived_axes": 0, "requested_axes": 0, "authored_axes": 0,
-                           "pre_review_rejections": [],
+                           "pre_review_rejections": [], "post_review_pruned": [],
                            "attempt_counts": {"authored": 0, "deterministic_repair": 0,
                                               "model_repair": 0, "replacement": 0}}
     audit["reference_context_fact_ids"] = sorted({
@@ -1674,6 +1775,7 @@ async def generate_block_assessment(
                     combined_reviews.update(reviewed)
                     combined_reviews.reasons.update(reviewed.reasons)
                     combined_reviews.option_removals.update(reviewed.option_removals)
+                    combined_reviews.option_evidence.update(reviewed.option_evidence)
             return combined_reviews or None
         if len(json.dumps(request, ensure_ascii=False)) > 24000:
             # A rich lesson is not a single indivisible provider request. Keep
@@ -2058,6 +2160,7 @@ async def generate_block_assessment(
         audit["authored_axes"] += len(candidates)
         candidate_count = len(candidates)
         audit["candidates"] += candidate_count
+        reviewed_option_pairs: dict[str, list[tuple[_OptionEvidence, _OptionEvidence, tuple[str, ...]]]] = {}
         for round_index in range(2):
             if round_index:
                 candidates, _ = admit_author_shapes(candidates, "model_repair")
@@ -2104,9 +2207,11 @@ async def generate_block_assessment(
                     combined_reviews.update(single)
                     combined_reviews.reasons.update(single.reasons)
                     combined_reviews.option_removals.update(single.option_removals)
+                    combined_reviews.option_evidence.update(single.option_evidence)
                 if combined_reviews:
                     reviews = combined_reviews
             if reviews is None:
+                reviewed_option_pairs.clear()
                 if len(candidates) > 1 and not any(
                     failure.get("block_id") == block_id
                     and failure.get("stage") == "assessment_review"
@@ -2133,7 +2238,20 @@ async def generate_block_assessment(
             original_candidates = {question.question_id: question for question in candidates}
             reviewed_candidates: list[QuestionDraft] = []
             for question in candidates:
+                evidence = reviews.option_evidence.get(question.question_id)
+                if evidence is None or not evidence.question_valid:
+                    # A later adverse key/question/explanation audit is not an
+                    # invitation to cherry-pick an older positive review.
+                    reviewed_option_pairs.pop(question.question_id, None)
                 if question.question_id not in reviews or not reviews[question.question_id]:
+                    axis_id = axis_by_question_id.get(question.question_id)
+                    if (axis_id is not None and evidence is not None
+                            and evidence.question_valid and evidence.valid_wrong_indices
+                            and axis_records[axis_id]["attempt_counts"]["model_repair"] >= 1):
+                        # A final count-only semantic rejection still needs the
+                        # second blind role. Review the unchanged original; it
+                        # cannot enter ordinary acceptance through this path.
+                        reviewed_candidates.append(question)
                     continue
                 removals = set(reviews.option_removals[question.question_id])
                 audit["removed_distractors"] += len(removals)
@@ -2192,6 +2310,7 @@ async def generate_block_assessment(
                         isolated_constraints.update(single)
                         isolated_constraints.reasons.update(single.reasons)
                         isolated_constraints.option_removals.update(single.option_removals)
+                        isolated_constraints.option_evidence.update(single.option_evidence)
                     if isolated_constraints:
                         constraints = isolated_constraints
                 if constraints is None:
@@ -2201,9 +2320,27 @@ async def generate_block_assessment(
                     constrained_candidates: list[QuestionDraft] = []
                     for question in reviewed_candidates:
                         if question.question_id not in constraints:
+                            reviewed_option_pairs.pop(question.question_id, None)
                             rejection_reasons[question.question_id].append(
                                 "constraint_review_unavailable"
                             )
+                            continue
+                        sem_evidence = reviews.option_evidence.get(question.question_id)
+                        con_evidence = constraints.option_evidence.get(question.question_id)
+                        if con_evidence is None or not con_evidence.question_valid:
+                            reviewed_option_pairs.pop(question.question_id, None)
+                        if (sem_evidence is not None and con_evidence is not None
+                                and sem_evidence.question_valid and con_evidence.question_valid
+                                and (not reviews.get(question.question_id, False)
+                                     or not constraints[question.question_id])):
+                            reasons = (*rejection_reasons[question.question_id], *_original_option_reasons(
+                                question, original_candidates[question.question_id],
+                                constraints.reasons[question.question_id],
+                            ))
+                            reviewed_option_pairs.setdefault(question.question_id, []).append(
+                                (sem_evidence, con_evidence, reasons),
+                            )
+                        if not reviews.get(question.question_id, False):
                             continue
                         if not constraints[question.question_id]:
                             rejection_reasons[question.question_id].extend(
@@ -2225,48 +2362,16 @@ async def generate_block_assessment(
                         ))
                     reviewed_candidates = constrained_candidates
                 if constraints is None:
+                    for question in reviewed_candidates:
+                        reviewed_option_pairs.pop(question.question_id, None)
                     reviewed_candidates = []
             good: list[QuestionDraft] = []
             for question in reviewed_candidates:
-                ambiguous_options = [
-                    option for option in question.options if option != question.correct_answer
-                    and _has_ambiguous_authorization_omission(question.correct_answer, option)
-                ]
-                if ambiguous_options:
-                    original = original_candidates[question.question_id]
-                    rejection_reasons[question.question_id].extend(
-                        f"option_{original.options.index(option)}:authorization_scope_ambiguous"
-                        for option in ambiguous_options
-                    )
-                    continue
-                if any(_restates_conditional_prohibition(question.correct_answer, option)
-                       for option in question.options if option != question.correct_answer):
-                    rejection_reasons[question.question_id].append("assessment_key_restatement")
-                    continue
-                if question_has_incomplete_correct_answer(question):
-                    rejection_reasons[question.question_id].append(
-                        "incomplete_correct_answer"
-                    )
-                    continue
-                if not filter_acceptable_questions([question]):
-                    rejection_reasons[question.question_id].append("local_quality_filter_rejected")
+                local_reasons = _local_question_rejection_reasons(question, facts)
+                if local_reasons:
                     rejection_reasons[question.question_id].extend(_original_option_reasons(
-                        question, original_candidates[question.question_id], [
-                            f"option_{index}:answer_value_contains_or_is_contained_in_key"
-                            for index in answer_containment_option_indices(question)
-                        ],
+                        question, original_candidates[question.question_id], local_reasons,
                     ))
-                    continue
-                if any(contains_internal_generation_instruction(text)
-                       for text in (question.prompt, question.explanation, *question.options)):
-                    rejection_reasons[question.question_id].append("internal_generation_instruction")
-                    continue
-                if _has_position_dependent_explanation(question.explanation):
-                    rejection_reasons[question.question_id].append(
-                        "assessment_position_dependent_explanation")
-                    continue
-                if _unsupported_replacement_advice(question, facts):
-                    rejection_reasons[question.question_id].append("unsupported_replacement_advice")
                     continue
                 good.append(question)
             # A semantically rejected candidate still owns its immutable source
@@ -2346,6 +2451,38 @@ async def generate_block_assessment(
             failure for failure in audit["failures"][block_failures_at_start:]
             if failure.get("block_id") == block_id
         ]
+        if not block_failures:
+            for question_id, pairs in reviewed_option_pairs.items():
+                axis_id = axis_by_question_id.get(question_id)
+                if (axis_id is None
+                        or axis_records[axis_id]["attempt_counts"]["model_repair"] < 1):
+                    continue
+                for semantic, constraint, reasons in reversed(pairs):
+                    pruned = _post_review_pruned_candidate(
+                        semantic, constraint, facts=facts, accepted=accepted,
+                    )
+                    if pruned is None:
+                        continue
+                    original_indices = [i for i, option in enumerate(semantic.question.options)
+                                        if option in pruned.options]
+                    audit["post_review_pruned"].append({
+                        "question_id": question_id, "axis_id": axis_id,
+                        "original_option_indices": original_indices,
+                        "removed_original_indices": [i for i in range(len(semantic.question.options))
+                                                     if i not in original_indices],
+                        "candidate_options_sha256": hashlib.sha256(json.dumps(
+                            semantic.question.options, ensure_ascii=False,
+                        ).encode()).hexdigest(),
+                        "reasons": list(dict.fromkeys((
+                            *reasons, *axis_records[axis_id]["reason"].split(";"),
+                        ))),
+                    })
+                    audit["removed_distractors"] += len(constraint.question.options) - len(pruned.options)
+                    audit["repaired"] += 1
+                    audit["attempt_counts"]["deterministic_repair"] += 1
+                    axis_records[axis_id]["attempt_counts"]["deterministic_repair"] += 1
+                    accepted.append(pruned)
+                    break
         if block_failures:
             by_axis = {axis.axis_id: axis for axis in request_axes}
             for failure in block_failures:

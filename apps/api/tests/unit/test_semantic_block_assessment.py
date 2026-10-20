@@ -780,12 +780,18 @@ async def test_unchanged_rejected_repair_is_not_reviewed_and_audited_again(reord
     lesson, facts = fixture()
     client = NoProgressClient()
     result = await generate_block_assessment([lesson], facts, client)
-    assert result.questions == ()
+    # An exhausted no-progress repair cannot trigger new provider calls. Its
+    # existing two positive audits may now retain one exact wrong alternative.
+    assert len(result.questions) == 1
+    question = result.questions[0]
+    assert question.kind == "single_choice" and len(question.options) == 2
+    assert question.correct_answer == ATOMIC_RULE
+    assert set(question.options) <= {ATOMIC_RULE, *OPTIONS[1:]}
     assert [request["task"] for request in client.requests] == [
         "assessment_generate", "assessment_review", "assessment_constraints", "assessment_repair",
     ]
-    assert any("assessment_repair_no_progress" in row["reason"]
-               for row in result.audit["axis_outcomes"])
+    assert any("assessment_repair_no_progress" in row["reasons"]
+               for row in result.audit["post_review_pruned"])
 
 @pytest.mark.asyncio
 async def test_failed_repair_drops_question_without_quota_padding():

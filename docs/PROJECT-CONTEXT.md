@@ -83,6 +83,17 @@ R35 source-bound signature and blank-response recovery changes invalidate R34's
 generation-source equivalence for the new candidate. Fresh full DEV originals
 remain mandatory. No production, model-route, resource or tier change applied.
 
+R35 exact01f56336 CI39442857501 all7SUCCESS and DEV RELEASE_OK:
+APIdep-dbbo1hbncjis739cb69g/workerdep-dbbo2m3bc2fs73br3rs0/
+frontenddpl_HYDYLpdc24ZximeThisyfZp8GspZ. Fresh ordinary-browser PDFjob6cebb920
+saved8lessons/93of95questions in1134.233s, assessment_coverage_incomplete, NOT GO.
+Independent full8body/93question/271choice review found no P1/P2 retained defect.
+Two distractor-quality omissions persist; a selected unchanged-source diagnostic
+passes2/2 in6calls37.166s, not whole-course proof. R36 adds bounded final
+two-option pruning after the existing repair, with positive evidence from both
+roles and no key/realism/local guard exemption. Stale-key-proof rejection is a
+hard regression. Policyv29 needs fresh whole DEV originals; production remains65.
+
 ## Historical DEV-only OCR correction — 2026-10-19 08:30UTC
 
 Owner selected removal of the obsolete DEV converter reference, not recovery of

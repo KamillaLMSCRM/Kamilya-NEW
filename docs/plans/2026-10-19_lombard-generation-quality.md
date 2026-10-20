@@ -1226,3 +1226,37 @@ source callers checked. Final independent client review no remaining P1/P2;
 signature source review no P1/P2. Version/release-contract/diff checksPASS.
 Web tree unchanged from locally tested R34 (1358PASS/197.51s/174files plus final
 focused33/type/lint/build); hash-link only those web results. Production still65.
+
+R35 CI39442857501 and exact DEV API/worker/frontend RELEASE_OK. Ordinary browser
+PDFjob6cebb920 ended interrupted assessment_coverage_incomplete:8lessons/93of95Q,
+1134.233s. Independent all8bodies/93keys/271choices review noP1/P2; two omitted
+alternative-function/joint fire-access rules are distractor defects, not OCR.
+Unchanged-source selected diagnostic2/2PASS/6calls37.166s demonstrates variation,
+not a replay of the uncaptured whole-job rejection payload. R36 replaces further
+case-specific hints with post-review exact-option pruning after one model repair.
+Both positive audits, realism, local/source and quiz-length gates remain binding;
+ordinary author/parser minima and provider attempts remain unchanged. Retain a
+successful three-option repair; do not cherry-pick an older positive key audit
+after a later adverse/missing proof. Initial last-resort tests12RED/13PASS;
+stale-proof3RED/31PASS then37PASS.119focusedPASS after no-progress expectation
+update preserves original call count and closed no-progress reason in the audit.
+First full3890PASS/2old-expectationFAIL/52.32s is provisional, not frozen acceptance.
+Quality baseline caught only a new-file import blank-line style issue; corrected.
+Fresh final full/baseline/graph and independent source review precede commit/DEV.
+No production change yet. Canonical OCR promotion/rollback scripts separately
+gain owned exclusive release leases and pre-reserved atomic durable receipts;
+nonquiet snapshot fails closed. Static review+six local guard tests pass, runtime
+NOT VERIFIED; quiet snapshot is not admission exclusion or zero downtime.
+
+R36 final local3892PASS/51.15s/5knownwarnings; Ruff1004/Mypy2170PASS;
+version66/releasecontract332uniqueIDs/head0183/diffPASS. A provisional full run
+had3891PASS/1journal-date-formatFAIL; corrected only the new Date colon spacing,
+then reran the failed contracts and the final full suite, preserving both XMLs.
+Final CodeGraph1908files/5787ms and Graphify21540nodes/59804edges/39580ms,
+exclusionsPASS; the helper's caller and local/length-check callees confirmed in
+source. No unresolved multi-hop question. Real selected v29 probe2/2PASS,
+9calls81.075s actually retained one SC2 by positive-audit intersection and one
+ordinary3choice question. Independent2key/5choice/full-scope review noP1/P2.
+Final source review closes stale-positive-proof P1; closed no-progress reason
+is now retained in pruning audit while original no-repeat-call assertions stay.
+No provider route/token/retry/resource change. Fresh whole DEV remains required.
