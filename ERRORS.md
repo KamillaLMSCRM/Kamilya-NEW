@@ -2,6 +2,25 @@
 
 Current as of: 2026-10-19.
 
+## AI-COURSE-TIMEOUT-001 - Complete assessment audit exceeded the old whole-task ceiling
+
+- Date:2026-10-20; shared DEV original-document acceptance, candidate66/R32.
+- Symptom: PDF95-target generation reached assessment7/8, then interrupted with
+  no saved course after1207.918s including queue. This was not worker sleep.
+- Cause: exact Celery job94050373 reached soft1200s at14:07:01UTC; two preceding
+  empty model replies consumed bounded correction time. Provider logs identify
+  SoftTimeLimitExceeded and orderly task exit, not a crash or deploy interruption.
+- Fix: only ai.generate_course receives soft1800/hard2100s, still below broker
+  visibility3600. Converter/default/provider-call, retry, model, quality and
+  admission bounds remain unchanged. The interruption message no longer promises
+  checkpoint reuse: current V2 has no durable partial course payload.
+- Verification: execution contracts3RED/22PASS, then42PASS including tenant-scoped
+  atomic interruption, no automatic replay and same-lineage admission. Full frozen
+  local/DEV and both original-course acceptance remain required before production.
+- Prevention: measure whole-course audit time separately from OCR and individual
+  model timeouts. A terminal interrupted job is not acceptance; do not hide a lost
+  result, silently retry provider work or replace finite limits with unlimited work.
+
 ## COURSE-PLAYER-QUIZ-001 - New lesson retained the previous lesson quiz and pass state
 
 - Date:2026-10-18; combined cabinet60 live DEV reader acceptance.

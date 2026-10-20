@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep laptop lesson text readable by stacking its assistant below1536px.
   Do not show converter categories as unproved normative headings; preserve the
   complete placement-ban, appointed-controller and two-action closing scopes.
+- Allow up to30minutes for a whole source-owned course audit, with a finite
+ 35minute hard stop and unchanged individual request/retry limits. Do not promise
+  reuse of partial V2 work when reporting a time-limited interruption.
 - Separate own courses from templates using a readable list. Remove technical
   voice/model labels from customer-facing video instructions; media unchanged.
 - Candidate only: fresh original-document DEV semantic acceptance and production

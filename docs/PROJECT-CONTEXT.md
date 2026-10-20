@@ -67,6 +67,13 @@ Runtime availability is not quality GO.
 Existing Free/Free/Hobby tiers unchanged. Production converter was
 not updated. Source/course acceptance remains separate and OPEN.
 
+R32 exactdea939c0 CI39431960420/DEV rollout passed, but its fresh PDF job94050373
+hit Celery soft1200s after7/8assessment blocks, elapsed1207.918s, course_id=null.
+This is an evidenced whole-task timeout, not OCR/worker shutdown. R33 narrowly
+raises whole-course soft/hard limits to1800/2100s and removes false partial-reuse
+wording; individual calls/retries/quality/routing/tiers remain unchanged. Local
+3843unitPASS and independent source review do not replace fresh DEV acceptance.
+
 ## Historical DEV-only OCR correction — 2026-10-19 08:30UTC
 
 Owner selected removal of the obsolete DEV converter reference, not recovery of

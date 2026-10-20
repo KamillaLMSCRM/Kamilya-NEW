@@ -28,7 +28,8 @@ DEFAULT_AI_WORKER_CONCURRENCY = 2
 DEFAULT_HISTORICAL_JOB_SECONDS = 510
 ACTIVE_AI_JOB_STATUSES = frozenset({"pending", "running"})
 GENERATION_INTERRUPTED_MESSAGE = (
-    "Генерация приостановлена и может быть продолжена без повторной обработки готовых частей"
+    "Генерация приостановлена по лимиту времени. Можно продолжить эту задачу; "
+    "создание незавершённого курса может повториться."
 )
 AIJobTaskName = Literal["generate_course", "regenerate_module", "regenerate_lesson"]
 logger = logging.getLogger(__name__)

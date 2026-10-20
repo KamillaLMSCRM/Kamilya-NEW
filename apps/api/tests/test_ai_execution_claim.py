@@ -74,6 +74,10 @@ async def test_interrupt_generation_execution_is_atomic_resumable_and_commits():
     assert "running" in values.values()
     assert "interrupted" in values.values()
     assert "generation_interrupted" in str(values)
+    assert values["message"] == (
+        "Генерация приостановлена по лимиту времени. Можно продолжить эту задачу; "
+        "создание незавершённого курса может повториться."
+    )
 
 
 def test_failed_pipeline_result_is_terminal_and_not_retried(monkeypatch):
@@ -308,7 +312,10 @@ def test_soft_time_limit_is_persisted_as_resumable_interruption(monkeypatch):
     assert result == {
         "job_id": "job-timeout",
         "status": "interrupted",
-        "message": "Генерация приостановлена и может быть продолжена без повторной обработки готовых частей",
+        "message": (
+            "Генерация приостановлена по лимиту времени. Можно продолжить эту задачу; "
+            "создание незавершённого курса может повториться."
+        ),
     }
     interrupted.assert_awaited_once_with(
         interrupted.await_args.args[0],

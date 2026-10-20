@@ -37,10 +37,12 @@ def test_long_tasks_have_limits_above_remote_converter_timeout() -> None:
         "time_limit": 1200,
     }
     assert annotations["ai.generate_course"] == {
-        "soft_time_limit": 1200,
-        "time_limit": 1500,
+        "soft_time_limit": 1800,
+        "time_limit": 2100,
     }
-    assert celery_app.conf.broker_transport_options["visibility_timeout"] > 1500
+    assert celery_app.conf.broker_transport_options["visibility_timeout"] > 2100
+    assert celery_app.conf.task_soft_time_limit == 300
+    assert celery_app.conf.task_time_limit == 600
 
 
 def test_recovery_tasks_run_every_minute() -> None:

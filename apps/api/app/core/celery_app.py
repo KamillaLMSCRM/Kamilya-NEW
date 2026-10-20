@@ -113,8 +113,12 @@ celery_app.conf.update(
     beat_max_loop_interval=30.0,
     task_annotations={
         "ai.generate_course": {
-            "soft_time_limit": 1200,
-            "time_limit": 1500,
+            # Source-owned assessments audit every rule, not a fixed quiz quota.
+            # Measured 95-target originals can exceed twenty minutes. Keep the
+            # whole task finite and leave five minutes for orderly interruption;
+            # individual provider deadlines/retries remain independently bounded.
+            "soft_time_limit": 1800,
+            "time_limit": 2100,
         },
         "documents.reindex": {
             "soft_time_limit": 900,

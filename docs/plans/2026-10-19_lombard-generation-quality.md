@@ -1154,3 +1154,27 @@ changing text/citations. Final frozen full suite3843PASS/50.72s/5knownwarnings;
 canonical Ruff1004/Mypy2170PASS. Contract gate and final diff/version checksPASS.
 The two additional source labels and typed response domains are not a
 claim that every future LLM output is accepted.
+
+R32 exactdea939c0 CI39431960420 all7SUCCESS and DEV controllerRELEASE_OK;
+APIdep-dbbmvec9v7es73fovj2g, workerdep-dbbn0evavr4c73858seg,
+frontenddpl_87fLFehjPQvx2mtdscpMZQ4sNTXJ. Real browser-created PDFjob94050373
+reached7/8assessment blocks then interrupted after1207.918s including queue,
+course_id=null. Exact bounded worker logs prove soft1200s at14:07:01UTC;
+two preceding model empty-content/length replies consumed bounded correction
+time. No worker shutdown/redeploy caused it. No duplicate generation submitted.
+The interruption is not question completeness evidence. Ordinary worker readiness
+at13:46/13:55/14:05passed on the same existing Free tier.
+
+R33 changes only whole-course execution budget to soft1800/hard2100, below
+broker3600; document900/1200/default300/600 and all individual LLM retry/deadline,
+source targets, both audits, quality policyv27 and routing remain. Task/status
+message no longer promises nonexistent durable V2 partial reuse. Explicit timeout
+and persisted/returned message3RED/22PASS, then42PASS including no automatic
+replay and same-lineage resume admission. No frontend source delta; R32 full
+1355web/type/lint/build results may be hash-linked, not relabelled as fresh R33.
+New frozen local/source review, DEV rollout and both original generations required.
+Final R33 unit3843PASS/51.52s/5knownwarnings; canonical Ruff1004/Mypy2170PASS,
+version/release-contract/diff checksPASS. Independent bounded source review no
+P1/P2, explicitly not full-generation acceptance. CodeGraphsync1905files2188ms,
+wrapper9567ms/exclusionsPASS; caller confirmed actual Celery wrapper and atomic
+tenant-scoped interruption. No remaining multi-hop ambiguity requires Graphify.
