@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Derive distinct operational-list assessment axes and repair/recover each exact
   axis instead of confusing sibling claims from the same source fragment.
   Critical assessment omissions remain explicit; no quota padding or relaxed
-  answer/grounding checks. Quality policy v18 invalidates old resume assumptions.
+  answer/grounding checks. Quality policy v26 invalidates old resume assumptions.
   Keep operational response domains consistent across authoring and both blind
   reviews; reject unrelated signing prerequisites. Closed source prohibitions
   and appointed-role qualifications use exact binary opposites, not padding.

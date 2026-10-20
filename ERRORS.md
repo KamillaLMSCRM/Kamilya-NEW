@@ -9307,6 +9307,18 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   Exact stem/key and full-source legal-restoration assertions prevent a cosmetic
   phrase injection from passing. RED1 then focused199PASS; actual selected
   low-reasoning1/1/3calls15.02s is not full-course acceptance.
+- R31 actual R30 DOCX retained37/44; independent reading found broad liability/
+  care stems. Explicitly named consequences/procedures ask a clause-local value,
+  not all possible legal liabilities. Complete categorical, mark-state, shared
+  duty and inspection-timing pairs retain the full source condition and both
+  blind reviews. Source-rederive shared duty before binary materialization;
+  otherwise a bare infinitive is not a source-owned obligation. Its exact
+  two-option not-required opposite must also satisfy the local containment
+  contract; ordinary MCQs or added qualifiers get no exemption. Initial selected
+  real7/9FAIL is preserved. Seven other PDF compound stems exposed secondary
+  answer actions; project neutral objects, disambiguate collisions with other
+  source objects or fail closed. Target/key/evidence counts do not change.
+  Full source/browser acceptance remains required, not implied by local tests.
 - v11 follow-up: mixed operational families require sentence-local precedence
   and actual-target exact-span accounting, not a recognized-family boolean.
   Parenthetical context cannot erase finite/modal/past/passive actions. Use

@@ -11,7 +11,7 @@ from app.modules.ai.lesson_quality import has_unprofessional_learner_language
 from .models import AssessmentDraft, CourseDraft, EvidenceCourseResult, QuestionDraft
 from .provider_models import GroundedBlock, PublishabilityReport
 
-EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v25"
+EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v26"
 
 _GENERIC_QUESTION_RE = re.compile(
     r"(?:о\s+ч[её]м\s+(?:этот\s+)?(?:урок|курс|раздел|модуль)|"
@@ -177,7 +177,15 @@ def _is_complete_binary_modal_opposite(question: QuestionDraft, option: str) -> 
     if key == "не допускается":
         return wrong == "допускается"
     obligation = re.fullmatch(r"(?P<modal>обязан|обязана|обязано|обязаны)(?P<action>\s+.+)?", key)
-    return obligation is not None and wrong == "не " + key
+    if obligation is not None:
+        # In particular, обязано is a modal, not an adverb ending in -о.
+        return wrong == "не " + key
+    if re.match(r"^(?:[а-яё]+о\s+)?[а-яё]+(?:ть|ти|чь)(?:ся|сь)?\s+", key):
+        # Materialization may bind an infinitive to its source-owned shared
+        # obligation. Only the complete exact modal opposite is allowed here;
+        # no added condition or ordinary MCQ gains this containment exception.
+        return wrong == "не требуется " + key
+    return False
 
 
 def answer_containment_option_indices(question: QuestionDraft) -> tuple[int, ...]:

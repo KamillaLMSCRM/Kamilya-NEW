@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections import defaultdict
 from dataclasses import replace
 
 from .models import (
@@ -283,6 +284,13 @@ def _operational_clause_parts(clause: str) -> tuple[str, str, bool] | None:
     stripped = clause.strip()
     if _PURE_LIST_EXCEPTION.match(stripped):
         return None
+    response = re.fullmatch(
+        r"в случае обнаружения пожара сообщить о нем в подразделение противопожарной службы "
+        r"и принять возможные меры к спасению людей, имущества и ликвидации пожара[.]?",
+        stripped, flags=re.IGNORECASE,
+    )
+    if response is not None:
+        return "оповещение и меры реагирования", "в случае обнаружения пожара", False
     readiness = re.fullmatch(
         r"содержать в исправном состоянии (?P<object>[^,.!?;:]+),\s*"
         r"не допускать их использования не по назначению[.]?", stripped, re.IGNORECASE,
@@ -293,7 +301,7 @@ def _operational_clause_parts(clause: str) -> tuple[str, str, bool] | None:
         return readiness['object'], "", False
     qualified_action = re.fullmatch(
         r"(?P<qualifier>незамедлительно|немедленно|своевременно|визуально|четко|систематически|"
-        r"одновременно\s+с\s+[^.!?;:]{3,100}?)\s+"
+        r"при\s+необходимости|одновременно\s+с\s+[^.!?;:]{3,100}?)\s+"
         r"(?P<action>(?:не\s+)?[А-Яа-яЁё]+(?:ть|ти|чь)(?:ся|сь)?\s+.+)",
         stripped, flags=re.IGNORECASE,
     )
@@ -391,6 +399,25 @@ def _affirmative_prohibition_modal(preamble: str) -> re.Match[str] | None:
     return None if re.search(r"\bне\b", governor, flags=re.IGNORECASE) else modal
 
 
+def _neutral_compound_object(value: str, *, include_secondary: bool = False) -> str:
+    """Project a neutral stem object without claiming general Russian parsing.
+
+    Only recognized coordinated action predicates are removed from the topic;
+    noun conjunctions and unknown verbs retain the existing object. The complete
+    source clause remains the immutable answer and both reviews remain binding.
+    """
+    verb = r"(?:выполнять|осуществлять|обучать|обеспечить|принять|выполнить|оказать)"
+    shared = re.fullmatch(r"(?:и|а\s+также)\s+" + verb + r"\s+(?P<object>.+)",
+                          value, flags=re.IGNORECASE)
+    if shared is not None:
+        value = shared['object']
+    separator = r"(?:,\s*(?:а\s+также\s+)?|\s+и\s+)" + verb + r"\b"
+    if include_secondary:
+        return " / ".join(part.strip() for part in re.split(separator, value, flags=re.IGNORECASE) if part.strip())
+    boundary = re.search(separator, value, flags=re.IGNORECASE)
+    return value[:boundary.start()].strip() if boundary and value[:boundary.start()].strip() else value
+
+
 def _structured_operational_axes(fact: SourceFact) -> list[tuple[str, str]]:
     """Bind safe source list actions to distinct, context-preserving prompts."""
     structured = _explicit_structured_list(fact.value)
@@ -416,8 +443,20 @@ def _structured_operational_axes(fact: SourceFact) -> list[tuple[str, str]]:
     if len(operational) < 2:
         return []
     preamble_prohibited = _affirmative_prohibition_modal(preamble) is not None
+    topic_keys: dict[tuple[str, str, bool], set[str]] = defaultdict(set)
+    for _position, clause, (target, qualifier, prohibited) in operational:
+        topic_keys[(_norm(_neutral_compound_object(target)), _norm(qualifier), prohibited)].add(_norm(clause))
     axes: list[tuple[str, str]] = []
+    projected_prompts: dict[str, tuple[str, bool]] = {}
     for _position, clause, (target, qualifier, _clause_prohibited) in operational:
+        original_target = target
+        target = _neutral_compound_object(original_target)
+        disambiguated = (
+            target != original_target
+            and len(topic_keys[(_norm(target), _norm(qualifier), _clause_prohibited)]) > 1
+        )
+        if disambiguated:
+            target = _neutral_compound_object(original_target, include_secondary=True)
         condition = f" с учетом условия «{qualifier}»" if qualifier else ""
         leading_prohibition = re.match(
             r"^(?:нельзя|запрещено|запрещается|не\s+допускается|must\s+not|forbidden)\b",
@@ -433,6 +472,12 @@ def _structured_operational_axes(fact: SourceFact) -> list[tuple[str, str]]:
                 f"Какое полное правило в отношении «{target}» предусмотрено{condition} "
                 f"требованием «{preamble}»?"
             )
+        normalized_prompt = _norm(prompt)
+        prior_projection = projected_prompts.get(normalized_prompt)
+        changed_topic = target != original_target
+        if prior_projection and prior_projection[0] != _norm(clause) and (changed_topic or prior_projection[1]):
+            raise ValueError("assessment_compound_topic_collision")
+        projected_prompts[normalized_prompt] = (_norm(clause), changed_topic)
         axes.append((clause, prompt))
     return axes
 
@@ -1007,7 +1052,7 @@ def _shared_responsibility_axes(fact: SourceFact) -> list[tuple[str, str]]:
         if len(responsibility) <= MAX_ASSESSMENT_ANSWER_CHARS:
             axes.append((
                 responsibility,
-                f"Какую ответственность несут «{actor}» {scope}?",
+                f"Какую форму ответственности прямо называет это правило для «{actor}» {scope}?",
             ))
         actions = [
             item.strip().rstrip(".;")
@@ -1035,7 +1080,7 @@ def _shared_responsibility_axes(fact: SourceFact) -> list[tuple[str, str]]:
             condition = f" с учетом условия «{qualifier}»" if qualifier else ""
             if re.match(r"^бережно\s+относиться\s+к\s+.+\bимуществ", action, flags=re.IGNORECASE):
                 prompt = (f"Как «{actor}» {match.group('modal').strip()} обращаться "
-                          f"с вверенным имуществом{condition}?")
+                          f"с вверенным имуществом отдельно от мер по предотвращению ущерба{condition}?")
             elif re.fullmatch(r"принимать\s+меры\s+по\s+предотвращению\s+ущерба", action,
                               flags=re.IGNORECASE):
                 prompt = (f"Как «{actor}» {match.group('modal').strip()} действовать "
@@ -1064,7 +1109,7 @@ def _explicit_consequence_axes(fact: SourceFact) -> list[tuple[str, str]]:
             continue
         marker = re.match(r"^\s*(\d+(?:\.\d+)*)(?:[.)])\s+", sentence)
         provision = f" пунктом «{marker.group(1)}»" if marker else " этим правилом"
-        prompt = f"Какое последствие прямо предусмотрено{provision} при условии «{scope}»?"
+        prompt = f"Какое последствие прямо названо{provision} при условии «{scope}»?"
         if len(prompt) <= 900:
             axes.append((answer, prompt))
     return axes
@@ -2122,7 +2167,29 @@ def _room_installation_prohibition(value: str) -> tuple[str, str] | None:
             f"{scope} допускается {object_value}.")
 
 
+def _categorical_conditional_prohibition(value: str) -> tuple[str, str] | None:
+    """Negate permission, not a condition inside one complete prohibition."""
+    match = re.fullmatch(
+        r"(?P<actor>[^,.!?;:]{3,100})\s+категорически\s+запрещается\s+"
+        r"(?P<action>[А-Яа-яЁё]+(?:ть|ти|чь)\s+[^,.!?;:]{5,140}),\s*"
+        r"(?P<condition>в\s+случае\s+если\s+[^,.!?;:]{5,180})[.]?",
+        value.strip(), re.IGNORECASE,
+    )
+    if match is None or re.search(
+        r"\b(?:кроме|исключени\w*|но|однако|только|лишь)\b",
+        match['action'] + ' ' + match['condition'], re.IGNORECASE,
+    ):
+        return None
+    return (
+        f"Разрешается ли «{match['actor']}» {match['action']} {match['condition']}?",
+        re.sub(r"категорически\s+запрещается", "разрешается", value.strip(), count=1, flags=re.IGNORECASE),
+    )
+
+
 def _required_prompt(correct_value: str) -> str:
+    categorical = _categorical_conditional_prohibition(correct_value)
+    if categorical is not None:
+        return categorical[0]
     room_prohibition = _room_installation_prohibition(correct_value)
     if room_prohibition is not None:
         return room_prohibition[0]
@@ -2259,6 +2326,18 @@ def _server_owned_inverse(correct_value: str) -> str | None:
     and negation are unambiguous, the server owns both choices and emits a
     true/false assessment instead.
     """
+    categorical = _categorical_conditional_prohibition(correct_value)
+    if categorical is not None:
+        return categorical[1]
+    inspection_timing = re.fullmatch(
+        r"(?P<subject>согласование\s+[^,.!?;:]{3,100})\s+осуществляется\s+"
+        r"(?P<timing>во\s+время\s+проведения\s+(?:[А-Яа-яЁё]+(?:ых|их)\s+)+проверок)[.]?",
+        correct_value.strip(), re.IGNORECASE,
+    )
+    if inspection_timing is not None:
+        # Deny the complete stated event. This does not add 'only', an
+        # exclusive schedule, or a ban on any other inspection.
+        return f"{inspection_timing['subject']} не осуществляется {inspection_timing['timing']}."
     room_prohibition = _room_installation_prohibition(correct_value)
     if room_prohibition is not None:
         return room_prohibition[1]
@@ -3061,6 +3140,52 @@ def _source_owned_appointment_decision(axis: AssessmentAxis) -> tuple[str, str] 
     return None
 
 
+def assessment_named_value_kind(axis: AssessmentAxis) -> str | None:
+    """Verify the server's exact projection before disclosing a name-only task.
+
+    An unmentioned alternative can be a different answer to 'which name does
+    this clause specify?', not proof that it is universally illegal/impossible.
+    Neither this response type nor the source match decides reviewer truth.
+    """
+    pair = (axis.correct_value, axis.required_prompt)
+    for constraint in axis.distractor_constraints:
+        if constraint.relation != "same_axis":
+            continue
+        fact = SourceFact(constraint.fact_id, constraint.subject, constraint.attribute,
+                          constraint.value, "doc_id=source-owned-named-value")
+        if pair in _explicit_consequence_axes(fact):
+            return "prescribed_consequence"
+        if ("форму ответственности прямо" in axis.required_prompt
+                and pair in _shared_responsibility_axes(fact)):
+            return "stated_liability_form"
+        if any(pair == (item.answer, item.required_prompt)
+               for item in project_reference_selections(fact, _source_sentences(fact.value))):
+            return "referenced_procedure"
+        if ("прямо названной проверки" in axis.required_prompt
+                and any(pair == (item.step.answer, item.step.required_prompt)
+                        for item in project_operational_approvals(fact, _source_sentences(fact.value)))):
+            return "inspection_name"
+    return None
+
+
+def _source_owned_conditional_decision(axis: AssessmentAxis) -> tuple[str, str] | None:
+    """Oppose a projected record state or one shared duty, never arbitrary text."""
+    pair = (axis.correct_value, axis.required_prompt)
+    for constraint in axis.distractor_constraints:
+        if constraint.relation != "same_axis":
+            continue
+        fact = SourceFact(constraint.fact_id, constraint.subject, constraint.attribute,
+                          constraint.value, "doc_id=source-owned-conditional-decision")
+        if (re.fullmatch(r"отметка о согласовании не проставляется[.]?", axis.correct_value, re.IGNORECASE)
+                and pair in _conditional_rule_axes(fact, allow_short=True)):
+            return axis.correct_value.replace("не проставляется", "проставляется"), fact.value
+        # Each shared-modal infinitive inherits the explicit obligation. The
+        # liability value is the first projection, never a duty to negate.
+        if pair in _shared_responsibility_axes(fact)[1:]:
+            return "не требуется " + axis.correct_value, fact.value
+    return None
+
+
 def materialize_assessment(
     axis: AssessmentAxis,
     authored: AuthoredAssessment,
@@ -3088,7 +3213,8 @@ def materialize_assessment(
                                 r"\b(?:если|когда|до|после|пока|только)\b|\bпри\s+условии\b", option,
                                 flags=re.IGNORECASE,
                             ))
-    source_decision = _source_owned_list_decision(axis) or _source_owned_appointment_decision(axis)
+    source_decision = (_source_owned_list_decision(axis) or _source_owned_appointment_decision(axis)
+                       or _source_owned_conditional_decision(axis))
     inverse = _server_owned_inverse(axis.correct_value) or (source_decision[0] if source_decision else None)
     if inverse is not None:
         distractors = (inverse,)

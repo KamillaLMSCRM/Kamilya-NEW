@@ -186,7 +186,7 @@ def test_projects_remote_complex_review_with_actor_and_locality() -> None:
 
     assert len(projections) == 1
     assert projections[0].step.answer == "комплексной проверки"
-    assert "Во время какой проверки" in projections[0].step.required_prompt
+    assert "Во время какой прямо названной проверки" in projections[0].step.required_prompt
     assert "Региональные контролеры" in projections[0].step.required_prompt
     assert "согласование операции" in projections[0].step.required_prompt
     assert "вне границ города" in projections[0].step.required_prompt

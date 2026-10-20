@@ -1,7 +1,8 @@
 # Lombard source-to-course quality correction
 
-Status: in progress; production runtime remains65. Exact owner-approved QA fixture
-cleanup/reload completed; no other production data changed.
+Status: in progress; production runtime remains65. Earlier scoped QA preparation
+is complete; the final postrelease replacement/reload of both originals is NOT_RUN.
+No other production data changed.
 Owner: root; product authority: owner request 2026-10-19, original documents,
 synthetic QA only, DEV acceptance before one production package.
 
@@ -1038,3 +1039,52 @@ CI39416424903/controller RELEASE_OK, APIdep-dbbl8coae00c7396ore0,
 workerdep-dbbl9eou01pc73e5segg/frontenddpl_6KShLa87SZuVxgVb2mm2zVoxnUKW.
 R29 was not used for another costly full generation after the stem finding;
 the next immutable candidate must include the neutral stem.
+
+## Current checkpoint — R31 source-owned response contracts, 2026-10-20
+
+R30 exact237a9521ca9699c66b707dcd6c717bc438403088 passed CI39417633946,
+DEV controller RELEASE_OK: APIdep-dbblccgae00c73975ui0,
+workerdep-dbbldcon74is73d35cd0/frontenddpl_4nFHizJmD9WYujoP7Cyuv5umVram.
+Fresh DOCX jobb6f3afb2-0863-41c9-9b2e-016a0a4af39e retained37of44 in947.875s,
+assessment910.483s/76chat attempts/no fallback. It is interrupted/incomplete, not
+accepted. Independent review read all5bodies/37keys/options/explanations and
+found two overbroad shared-duty/liability stems, besides the7missing targets.
+
+R31 keeps44DOCX/95PDF targets and exact source keys/evidence. Seven PDF compound
+stems now name neutral source topics rather than quoting their answer actions;
+colliding topics use secondary objects, or fail closed if still ambiguous.
+DOCX liability/consequence/inspection/reference domains ask only the expressly
+named value, never infer that other liabilities or procedures are impossible.
+Conditional approval mark, complete categorical prohibition, shared-modal duties
+and complete stated inspection timing use verified binary opposites, not two
+cosmetic or unmentioned wrong answers. Both blind source audits remain required.
+Policyv26 invalidates prior resumed quality decisions.
+
+Initial real selected low-thinking diagnostic retained7of9/16calls/134.645s;
+it exposed a containment-contract mismatch for a source-owned shared duty and
+an unmentioned care alternative. These are preserved as FAIL, not acceptance.
+The shared duty is now source-rederived before its complete required/not-required
+pair is emitted; the local containment exception is exact, two-option true_false
+only, with no MCQ or added-qualifier exemption. Focused REDs include both actual
+shared duty and inspection-timing qualification. The second nine-item run stopped
+on a45s/empty-length provider response in the last block; preserve FAIL, no source
+or routing change. Targeted shared-duty run retained2/2 through both real reviews
+in3calls/15.791s with unchanged source hashes. Intentionally unselected axes mean
+review_required; selected diagnostic PASS is not whole-course acceptance.
+Whole local3819PASS/53.48s/5knownwarnings was before that last delta and is NOT
+the final frozen suite. A subsequent3823PASS/1FAIL revealed that the infinitive
+matcher mistook modal обязано for an adverb ending in-о. Explicit modal handling
+now precedes the infinitive branch; the existing modal regression stays binding.
+An initial absolute-path JUnit invocation failed before
+collection due argument splitting; the corrected relative-path run executed.
+Final frozen suite3824PASS/50.96s/5knownwarnings; canonical Ruff1004/Mypy2170PASS.
+The failed zero-test JUnit artifact is retained as harness-junit-path-r31.xml;
+actual final output is unit-r31-accepted.xml. CodeGraph sync1903files1409ms
+(wrapper8439ms), exclusionsPASS; exact source-owned decision caller confirmed.
+Independent final source review found no P1/P2 after modal precedence repair.
+
+Deterministic comparison includes immutable R30 axis AND approval projectors:
+DOCX44targets/5stems changed, PDF95targets/8stems changed, no key/evidence/count
+changes; input/source hashes recorded, zero provider/DB calls. It is not a whole
+generation. Final DEV whole-source quality, browser acceptance, protected release
+and fresh production originals remain OPEN. No production mutation was made.

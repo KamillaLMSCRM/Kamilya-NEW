@@ -20,6 +20,7 @@ from urllib.parse import parse_qsl
 from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFailureReason
 
 from .assessment_axes import (
+    assessment_named_value_kind,
     assessment_option_token_limit,
     assessment_required_prompt,
     assessment_signing_object,
@@ -217,6 +218,17 @@ the correct actor/verb is not mandatory. A different downstream act or explanati
 does not answer a signing-on-this-object question. Independently check every
 condition, contradiction, plausibility and length rule as before. Null/unknown
 domains grant no exception or acceptance shortcut.
+For expressly_named_value, the question asks which value/name this specific
+clause explicitly states, NOT which liabilities/procedures are universally
+possible. A mutually exclusive different name is a contradicted answer to that
+name-identification question even if that other procedure might exist elsewhere.
+Do not infer a universal ban or exclusive business schedule. The key must still
+be supported by this question's citations; governing facts may supply additional
+named values or an exception, in which case reject an ambiguous question.
+All options must name the same attribute in the same condition, with distinct,
+plausible mistakes. A correct name plus another possibly applicable procedure is
+not automatically false. Wrong names cannot be unrelated actions or invented
+legal obligations. Both blind reviews still check every option independently.
 For complete_actor_scope, each option proposes the complete set, not one true
 member of it. To express an incomplete set as a misconception, explicitly say
 that control belongs only to that subset and exclude a source-required role.
@@ -780,6 +792,10 @@ def _axis_author_payload(axis: AssessmentAxis) -> dict[str, Any]:
 
 def _axis_answer_domain(axis: AssessmentAxis) -> dict[str, Any] | None:
     """Disclose a strict server projection's response type, never provider wording."""
+    named_kind = assessment_named_value_kind(axis)
+    if named_kind is not None:
+        return {"kind": "expressly_named_value", "required_components": [named_kind],
+                "scope": "Identify the value expressly named by this clause for this exact condition, not all legally possible consequences or procedures. Different names answer this attribute, but neither their truth nor plausibility is pre-approved. Do not add exclusive timing, new duties or a universal ban; both blind source reviews and all local guards remain binding."}
     prompt = axis.required_prompt
     prefix = f"Для «{axis.source_context}»: "
     if axis.source_context and prompt.startswith(prefix):

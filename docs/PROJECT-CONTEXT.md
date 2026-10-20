@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-10-19.
+> Обновлено: 2026-10-20.
 
 ## Источники правды
 
@@ -27,7 +27,7 @@
 
 ## DEV server OCR — 2026-10-20
 
-Cloud DEV API/worker atc8ca2f8277362e41eeaddb17de8f8f4e2bd59d45 use the
+Cloud DEV API/worker at237a9521ca9699c66b707dcd6c717bc438403088 use the
 existing SSH launcher with DEV_OCR_SSH_ENABLED=true. Fixed local18600 forwards
 through the existing restricted private transport to VM12610.77.77.2:18601.
 VM126 ingress permits only wg0/proxy10.77.77.1; no public converter gateway.
@@ -40,18 +40,17 @@ UID10001/read-only cache+root/4GiB/2CPU. Existing DEV API key is root0600 in
 /etc/kamilya-dev-ocr.env; never use the production key. Source and credentials
 are not supplied by the workstation at runtime. Authenticated conversion of both
 original binaries (DOCX0.765s/PDF59.36s) and production-preservation checksPASS.
-R26 CI39405096931SUCCESS; APIdep-dbbjqm8m7kps73f7m6q0,
-workerdep-dbbjrtdg1s2s7397q2lg, frontenddpl_4xUipbLXC6mmKB9MF8GH3vTfRapA,
+R30 CI39417633946SUCCESS; APIdep-dbblccgae00c73975ui0,
+workerdep-dbbldcon74is73d35cd0, frontenddpl_4nFHizJmD9WYujoP7Cyuv5umVram,
 controllerRELEASE_OK. Ordinary QA browser PDF reindex reached completed through
 the cloud worker and private server OCR. Server-only scanned RU/KK/EN smoke
-PASS3pages/6checks/11.568s. R26 whole-course quality remains incomplete:
-DOCX43/44 and PDF94/95 questions. Independent review verified all137retained
-keys/options. Prior heading, permitted-location and door defects were closed;
-remaining issues are preliminary-phone executor and firefighting safety-duty
-omissions, cable routing ambiguity, and one generic end-of-work stem with an
-incoherent distractor. R27 policyv23 is local, not deployed: typed misconception
-directions, source-scoped appliance stem, shared outcome/coherence policy, and
-request-local managed DeepSeek low reasoning only for constraint audits. The
+PASS3pages/6checks/11.568s. Whole-course quality remains incomplete:
+R28 PDF92/95 and R30 DOCX37/44. Independent full retained-content review found
+overbroad shared care/liability stems and source-backed missing questions; R31
+policyv26 locally repairs source-bound response contracts and neutral compound
+stems. Selected diagnostics and local tests are not final DEV acceptance. The
+existing request-local managed DeepSeek low reasoning applies only to final
+constraint audits. The
 existing route, models, BYOK, fallback, keys and billing configuration do not change.
 Runtime success and all-topic coverage do not close these quality defects.
 Runtime availability is not quality GO.

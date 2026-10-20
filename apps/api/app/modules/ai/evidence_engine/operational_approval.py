@@ -270,7 +270,7 @@ def _remote_complex_review(
         sentence_index=sentence_index,
         match=match,
         answer_group="inspection",
-        prompt=f"Во время какой проверки «{actor}» {action} для «{locality}»?",
+        prompt=f"Во время какой прямо названной проверки «{actor}» {action} для «{locality}»?",
         condition=locality,
         consumed_groups=("actor", "answer"),
     )
