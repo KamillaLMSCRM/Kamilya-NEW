@@ -35,6 +35,23 @@ from app.modules.ai.llm_client import (
 )
 
 
+@pytest.mark.asyncio
+async def test_optional_lesson_assessor_failure_stops_before_next_lesson():
+    seen = []
+
+    async def assessor(lesson, facts):
+        seen.append(lesson.lesson_id)
+        raise OSError("checkpoint unavailable")
+
+    with pytest.raises(OSError, match="checkpoint unavailable"):
+        await generate_evidence_course(
+            _spreadsheet_corpus(), intent=CourseIntent(),
+            generation_client=_GenerationClient(), embedding_client=_EmbeddingClient(),
+            lesson_assessor=assessor,
+        )
+    assert len(seen) == 1
+
+
 def _spreadsheet_corpus() -> DirectSourceCorpus:
     primary = DirectSourceChunk(
         chunk_id="chunk-primary",

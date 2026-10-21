@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Experimental DEV lesson-cycle comparison
+
+- Add automatic source-grounded learning-target/applicability/answer-component
+  planning with an independently audited source-unit inventory and bounded repair.
+  Connect serial lesson assessment to the existing course worker behind an OFF
+  switch, exact DEV runtime identities and an explicit synthetic-tenant allowlist.
+  Existing checkpoint tables and draft/needs_review persistence remain owners;
+  no production activation, migration or provider-route change. Acceptance OPEN.
+- Reject observed equivalent all-except/only-non-fire answer partitions even
+  when both model reviews agree incorrectly. Retain rejected plans and reuse
+  terminal checkpoints without automatic paid regeneration.
+
+- Add an opt-in lesson -> assessment -> blind review -> counterexample audit ->
+  save module with bounded repair, tenant/source/policy checkpoint identity and
+  conservative percentage-overlap rejection. Default generation is unchanged.
+- Add a measured existing-DEV API comparison and separate-process read-only
+  resume proof. Add typed numeric boundaries, required applicability, full-set
+  and correct-answer component contracts, and exact passage-reference evidence.
+  V11 accepts the bounded three-lesson pilot; default rollout remains NO_GO;
+  see `docs/testing/2026-10-21-lesson-cycle-dev-comparison.md`.
+
 ## [0.11.66] - 2026-10-20
 
 ### Course quality correction candidate

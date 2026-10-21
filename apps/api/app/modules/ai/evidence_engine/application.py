@@ -66,7 +66,7 @@ from .quality import (
     evaluate_plan_preflight,
     evaluate_publishability,
 )
-from .semantic_assessment import generate_block_assessment
+from .semantic_assessment import BlockAssessmentResult, generate_block_assessment
 from .source_blocks import is_navigation_heading, split_narrative_blocks
 from .temporal_units import has_temporal_unit
 
@@ -1548,6 +1548,7 @@ async def generate_evidence_course(
     max_lessons: int | None = None,
     progress_callback: ProgressCallback | None = None,
     cancellation_callback: CancellationCallback | None = None,
+    lesson_assessor: Callable[[LessonDraft, dict[str, SourceFact]], Awaitable[BlockAssessmentResult]] | None = None,
 ) -> EvidenceGenerationOutput:
     """Generate a complete validated draft or raise before database persistence."""
 
@@ -1673,7 +1674,10 @@ async def generate_evidence_course(
     chat_attempt_count = 0
     chat_model = ""
     total = len(evidence_result.evidence_plan)
+    lesson_assessments: list[BlockAssessmentResult] = []
+    lesson_cycle_seconds = 0.0
     for index, plan in enumerate(evidence_result.evidence_plan, start=1):
+        previous_lesson_count = len(realized_lessons)
         await _checkpoint(cancellation_callback)
         base_lesson = lesson_by_id[plan.lesson_id]
         seeds = seeds_by_lesson.get(plan.lesson_id, [])
@@ -1757,18 +1761,37 @@ async def generate_evidence_course(
             realized_lessons.append(lesson)
             realized_questions.extend(questions)
             grounded_blocks.extend(blocks)
-        await _progress(progress_callback, "realization", index, total)
+        if lesson_assessor is not None:
+            for realized in realized_lessons[previous_lesson_count:]:
+                await _checkpoint(cancellation_callback)
+                cycle_started = perf_counter()
+                lesson_assessments.append(await lesson_assessor(realized, facts_by_id))
+                lesson_cycle_seconds += perf_counter() - cycle_started
+            await _progress(progress_callback, "lesson_cycle", index, total)
+        else:
+            await _progress(progress_callback, "realization", index, total)
 
     assessment_started = perf_counter()
 
     async def assessment_progress(done: int, count: int) -> None:
         await _progress(progress_callback, "assessment", done, count)
 
-    reviewed = await generate_block_assessment(
-        realized_lessons, facts_by_id, generation_client,
-        checkpoint=lambda: _checkpoint(cancellation_callback),
-        on_progress=assessment_progress,
-    )
+    if lesson_assessor is not None:
+        reviewed = BlockAssessmentResult(
+            tuple(q for item in lesson_assessments for q in item.questions),
+            {"engine": "lesson_cycle", "lessons": [item.audit for item in lesson_assessments],
+             "coverage": {"requires_review": any(item.audit.get("coverage", {}).get("requires_review", True)
+                                                   for item in lesson_assessments)},
+             "block_outcomes": [{"lesson_id": item.audit.get("lesson_id"), "candidates": len(item.questions),
+                                 "accepted": len(item.questions)} for item in lesson_assessments]},
+            sum(item.attempt_count for item in lesson_assessments),
+        )
+    else:
+        reviewed = await generate_block_assessment(
+            realized_lessons, facts_by_id, generation_client,
+            checkpoint=lambda: _checkpoint(cancellation_callback),
+            on_progress=assessment_progress,
+        )
     realized_questions = list(reviewed.questions)
     chat_attempt_count += reviewed.attempt_count
     realized_course = CourseDraft(
@@ -1817,8 +1840,8 @@ async def generate_evidence_course(
         timings=(
             StageTiming(stage="evidence_plan", seconds=evidence_seconds),
             StageTiming(stage="embeddings", seconds=embedding_seconds),
-            StageTiming(stage="realization", seconds=assessment_started - realization_started),
-            StageTiming(stage="assessment", seconds=perf_counter() - assessment_started),
+            StageTiming(stage="realization", seconds=assessment_started - realization_started - lesson_cycle_seconds),
+            StageTiming(stage="assessment", seconds=perf_counter() - assessment_started + lesson_cycle_seconds),
         ),
     )
     return EvidenceGenerationOutput(result=result, corpus=corpus)

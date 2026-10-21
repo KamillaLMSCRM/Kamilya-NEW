@@ -9521,3 +9521,62 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   Disclose existing numerical answer-shape limits rather than weakening them.
   RED/GREEN171focused, frozen3547PASS, canonical qualityPASS, independent six-key
   real-output reviewACCEPT. Whole-course/OCR/DEV/production acceptance still open.
+- 2026-10-21 four-original shared-DEV follow-up, frozen386478de/policyv31:
+  actual legacy DOC generation failed before the model because blank change-log/
+  acknowledgment tables in the administrative tail became malformed Markdown.
+  Both source categories reproduce the same failure; an offline tail-only removal
+  admits the core. OPEN: distinguish administrative empty tables before strict
+  operational-table admission; do not waive malformed working numeric tables.
+  A fresh21-page scan saved20lessons/69questions but lost original clauses and
+  a GESV equation; admitted-fact coverage1.0 did not establish original completeness.
+  One source-true sibling eligibility category was accepted as a false option;
+  ordinary teacher preview reproduced wrong grading without learner persistence.
+  Administrative signature/form trivia also reached assessments. These are fresh
+  negative acceptance evidence, NOT repaired by this readback. Source-wide sibling
+  alternatives, source-role classification, abbreviation boundaries and original
+  completeness remain OPEN. Fresh DOCX43of44 and fire95of95 are separate results;
+  the fire derived-coverage pass does not erase pedagogy/exception-context limits.
+  See RUN-20261021-FOUR-ORIGINALS-FRESH-DEV-QA; private sources/PII stay only in
+  ignored evidence. No production course or position changes were made.
+- 2026-10-21 lesson-cycle follow-up: an exact supporting quote plus a blind LLM
+  verdict does not prove entailment. V1 serial processing admitted consent/right
+  substitution, overlapping >30/>50percentage conditions and compound-target
+  overclaim. Counterexample review and deterministic percentage rejection now
+  veto the exact frozen defects, but fresh samples still invent temporal context:
+  Saturday is not inherently a nonworking day; immediate is not necessarily first;
+  a source duty does not imply simultaneous execution of another duty. Root
+  acceptance must remain separate from formal ready status. The conservative
+  overlap guard also rejects exact-boundary formulations; do not waive it or
+  rewrite numeric operators to force completion. Introduce explicit question
+  intent and prove the source applicability. New drafts/checkpoints are local
+  candidate plus DEV CRUD, not shared-worker integration. See
+  RUN-20261021-LESSON-CYCLE-DEV-COMPARISON; production untouched.
+- 2026-10-21 V11 resolution for the bounded lesson-cycle pilot: numeric intent
+  now binds source operator/boundary and renders point units; AND/OR objectives
+  have an explicit full-set contract. Source-verified applicability is rendered
+  before both reviews instead of relying on the author to recall geographic
+  scope. Required correct-answer components prevent a data-only answer from
+  claiming an immediate-fire-call objective. Multiple exact proof fragments may
+  support one target without counting it twice. Server-owned passage refs avoid
+  false rejection caused by model-rewritten quotes; an explicit semantic veto
+  still fails. Temporal/quantity-owner gates and source-bound blind keys remain.
+  Do not treat redundant model flags as independent proofs or waive ambiguity
+  just to complete a set. Final34questions/34planned targets manually checked,
+  fresh-process DEV readback0modelcalls,104focusedtests+canonicalqualityPASS.
+  Test adapter must respect the quiz10-per10s burst; reconcile nonrepeatable POST
+  outcomes by exact readback before completing only absent rows. Explicitly stop
+  shell workflows after failed static gates. These are accepted MANUAL-oracle
+  pilot results, not automatic whole-document extraction/default-worker rollout.
+  See RUN-20261021-LESSON-CYCLE-V11-FINAL-DEV; production unchanged.
+
+- 2026-10-21 automatic-plan follow-up: model-agreed source grounding still admitted
+  equivalent answer alternatives: stop all work except fire response vs stop only
+  non-fire work. Preserve exact real output; public cycle replay RED then GREEN.
+  V12 adds a bounded exception-partition veto, not a universal RU equivalence
+  engine. Extractor repair must receive its previous plan and concrete bounded
+  validation feedback. Derive duplicate coverage mappings server-side rather than
+  spending model retries reconciling repeated claims. Plan schema rejection is
+  not provider outage; validate it outside provider fallback. Completeness review
+  must distinguish applicability in the question from required answer parts, and
+  AND-required component groups from OR synonyms within a group. Failed automatic
+  plans remain explicit review states, never accepted on question counts alone.

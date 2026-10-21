@@ -351,6 +351,15 @@ async def _run_evidence_v2_generation(
     assessment_started: float | None = None
 
     embedding_started = time.monotonic()
+    from app.core.config import get_settings
+    from app.modules.ai.worker_lesson_cycle import create_dev_lesson_assessor
+
+    settings = get_settings()
+    lesson_assessor = create_dev_lesson_assessor(
+        settings=settings, tenant_id=str(tenant_id), job_id=state.job_id, client=generation_client,
+        session_factory=async_session_factory,
+        checkpoint=lambda: _check_cancelled_async(state.job_id, tenant_id=tenant_id),
+    )
 
     async def report_progress(
         stage: str,
@@ -380,6 +389,10 @@ async def _run_evidence_v2_generation(
             progress = 90 + math.floor(4 * current / max(1, total))
             message = f"Создание и проверка тестов: {current} из {total} смысловых блоков"
             detail = _timed_progress_detail(current, total, assessment_started)
+        elif stage == "lesson_cycle":
+            progress = 25 + math.floor(69 * current / max(1, total))
+            message = f"Обработано уроков с проверкой тестов: {current} из {total}"
+            detail = _timed_progress_detail(current, total, realization_started)
         elif stage == "quality":
             progress, message, detail = 95, "Проверка уроков и тестов завершена", None
         else:
@@ -406,6 +419,7 @@ async def _run_evidence_v2_generation(
         generation_client=generation_client,
         embedding_client=embedding_client,
         max_lessons=max_total_lessons,
+        lesson_assessor=lesson_assessor,
         progress_callback=report_progress,
         cancellation_callback=lambda: _check_cancelled_async(
             state.job_id,

@@ -5956,3 +5956,136 @@ Rules:
   Graphify. Full unit-r22-final.xml3717PASS/61.71s/5known frameworkwarnings.
   No application source changes after freeze; import-whitespace formatting only.
   Next exact DEV22 real originals acceptance, not production GO.
+
+## RUN-20261021-FOUR-ORIGINALS-FRESH-DEV-QA
+
+- Executor: root; ordinary methodologist submissions and scoped non-bypass
+  Supabase DEV READ ONLY readback. No production writes, deployments, role,
+  model-route, billing, resource, voice or reserve changes.
+- Frozen runtime SHA: `386478de30ffed5ca2d2c81d062f91e0055807cf`,
+  `evidence-v2-quality-v31`; public DEV health independently matched at03:31UTC.
+- Two existing-course originals uploaded to permanent DEV QA. Two previously
+  tested originals returned normal duplicate-document409; existing DEV binaries
+  were downloaded and full SHA256 matched before reuse. No deletion/dedup bypass.
+  Four new generation jobs; no publication or assignment.
+- Legacy DOC: indexed, then actual generation failed before model execution.
+  Same-SHA captured server conversion reproduced malformed administrative tail
+  tables in both general/job_instruction source categories. Removing only that
+  tail in an offline diagnostic admitted the core; trimmed data was not uploaded.
+  Actual dedicated position-to-instruction UI flow not separately tested.
+- Scanned21-page PDF: same owned job recovered twice after proven Free worker
+  hibernation via existing fenced procedure. Final partial20lessons/69questions/
+  208choices;69of91derived targets,22omitted,4critical,29unassessable source facts.
+  Original-page review and persisted content show source losses and a source-true
+  sibling eligibility category marked false. Teacher preview reproduced wrong
+  grading67percent/2of3 without a learner attempt. Administrative form/signature
+  trivia also entered tests. Admitted-fact coverage1.0 is not original coverage.
+- DOCX: partial6lessons/43questions/136choices,43of44derived targets. All retained
+  content/keys/options reviewed against original paragraphs/tables. No confirmed
+  wrong retained key; missing conditional signature target and weak pedagogy
+  remain. Same-SHA prior44of44 is not repeatability proof. Browser headings/lists
+  render, but one paragraph2449chars and max question565chars remain too dense.
+- Scanned7-page PDF: completed8lessons/95questions/242choices,95of95derived targets,
+  7of7topics, no omitted/unassessable targets. All lesson bodies and95stems/keys/
+  choices reviewed against original pages; explanations sampled, not exhaustive.
+  No confirmed wrong key;51binary items,7stems>300chars, max428; generic/special
+  closing-power exceptions need explicit teaching context. Workbench completion
+  and exact course link observed; new player rendering NOT VERIFIED after session
+  expiry. A completed generation is not full pedagogic or repeatability acceptance.
+- Last worker-execution times: DOCX665.435s, long PDF1397.717s, fire950.028s.
+  Queue/recovery/harness time is separate. No verified money or human-speedup
+  claim. Stateless helper logins hit429; limiter unchanged, existing browser
+  session used. Temporary readiness observation ended when all four jobs terminal.
+- Final preservation03:36UTC:20old course identities/status/source mappings,
+  13journal enrollment identities/status/completed timestamps,14positions and
+  19staff-position links unchanged;3new drafts have0enrollments/learner attempts.
+  Not a byte-level snapshot of all history. Unrelated output/ preserved.
+- Evidence: ignored local `.release-evidence/sandyk-audit21/`,
+  `FRESH-GENERATION-REPORT-RU.txt`, three fresh captures/reviews, DOC conversion/
+  category replay, teacher-preview screenshot, scoped preservation receipt.
+- Result: fresh four-source check completed; overall generation quality NO_GO.
+  Application fixes, repeat acceptance and any production release remain open.
+
+## RUN-20261021-LESSON-CYCLE-DEV-COMPARISON
+
+- Scope: owner-authorized serial lesson/test/review/save experiment; 3 exact owned
+  DEV QA lesson snapshots, frozen current 386478de baseline, local opt-in candidate
+  connected to normal DEV APIs. NOT a shared-worker deployment; production 0 writes.
+- V1 false green: right-to-apply versus lender-consent substitution, overlapping
+  >30/>50 percentage alternatives, and 4 duties overclaimed by 1 question. Serial
+  processing also reproduces the failures; no parallelism diagnosis is required.
+- Added source/policy-bound save/resume, blind key derivation, separate
+  counterexample audit, per-target verbatim proofs, deterministic conservative
+  percentage-overlap guard and concrete bounded repair feedback. No quota padding.
+- Current seconds/actual HTTP calls: eligibility 85.335/13 coverage-rejected;
+  approval 15.790/3 coverage-rejected; fire 127.878/10 completed 10 questions.
+- Latest V3 seconds/HTTP: eligibility 36.918/5, 9 of 11 targets, review_required;
+  approval 41.953/6, 9 of 9 formal; fire 24.407/3, 10 of 10 formal. Root still rejects the
+  latter two samples: unstated Saturday schedule and invented priority/timing.
+  Formal model readiness is NOT final acceptance. No marketing speedup claim.
+- Frozen bad author/reviewer replay: 1 real model call rejects the exact modal
+  substitution; code rejects the numeric overlap. Both remain unaccepted.
+- Separate-process read-only DEV resume: 3 results, all keys/options/explanations
+  read back, 0 model calls / 0 data writes; original 3 lesson bodies unchanged. Latest owned
+  course bbd04ebe-d843-4c38-a883-2d8db82de63b remains draft.
+- 26 public-seam tests; 78 focused + neighbors PASS; canonical quality PASS; owned Ruff PASS.
+  CodeGraph post-change sync/exclusions PASS; source confirms decisive relations.
+- Result: NO_GO for default rollout. Typed threshold-versus-scenario intent,
+  explicit temporal applicability, repeated semantic acceptance, native review
+  state and shared-worker checkpoint integration remain open. No production,
+  provider/model route, billing, voice, reserve, role, assignment or learner-result changes.
+- Report: `docs/testing/2026-10-21-lesson-cycle-dev-comparison.md`.
+
+## RUN-20261021-LESSON-CYCLE-V11-FINAL-DEV
+
+- Owner scope: fix semantic/condition/coverage failures; repeat3 problematic
+  frozen lessons via existing DEV QA; compare time and actual provider calls;
+  no production or default-generator changes.
+- Final module `lesson-cycle-v11`, SHA256
+  `1ed5b68bf7f73e6730ab2148b8cb3b38cefa75b8a59b752b4ea04c80c17c49a3`.
+  Local opt-in candidate + normal shared DEV APIs; NOT shared-worker deployment.
+- Code contracts: source-owned passage refs, typed numeric boundary/operator,
+  temporal and quantity-owner guards, target-owned applicability/full-set
+  rendering, required correct-answer components, several proofs/one target,
+  bounded6logicalcalls, exact checkpoint validation. No question quota padding.
+- Final real generation: eligibility39.091s/3HTTP/15questions/15targets;
+  approval27.653s/3HTTP/9questions/9targets;fire28.718s/3HTTP/10questions/10targets.
+  Wall includes paced normal CRUD writes and readback. Model-only times22.19s,
+  17.58s,17.43s. Same provider/model/temp and lesson bodies; frozen baseline reused
+  explicitly, not a new randomized paired repeat. Earlier baseline times85.335s,
+  15.790s,127.878s and calls13,3,10; first2sets were coverage-rejected.
+- Root read all34questions/options/explanations against frozen original-checked
+  context:0confirmed P1/P2 key/condition defects in this final sample. Source
+  targets/context/component rubrics are MANUAL pilot inputs, not whole-source
+  automatic extraction or a future-generation correctness guarantee.
+- Final QA draft f40c7ae5-082b-479f-97ca-ddc5ddd0acdd. Separate-process API resume:
+  3results/34keys+options+explanations exact,3source lesson bodies unchanged,
+  course still draft,0modelcalls/0datawrites. No publication/assignment/attempt.
+-52public-seam tests/104focused+neighborsPASS;RuffPASS;canonicalqualityPASS.
+  Exact captured temporal replay3badrejected/1goodretained,0providercalls.
+  Frozen modal/numeric replay0badadmitted,1real final-policy auditcall; separate
+  from9generationcalls. No secrets/PII in tracked evidence.
+- Found adapter429burst: F/Gsavedprefix10matched,onlyabsent5/3questions completed
+  after reconciliation,0regeneration; server limiter unchanged. Final writes
+  paced to existing10-per10s bucket; all final outcomes known. Earlier preflight
+  failures and static checks retained; final launch used explicit failed-gate exits.
+- Result: bounded pilot ACCEPTED; default/full-OCR/server checkpoint/review-state/
+  learner-option-order rollout gates remain OPEN. No push/deploy, production,
+  provider route/tier/limit, voice, reserve, role or learner-history changes.
+- Canonical report: `docs/testing/2026-10-21-lesson-cycle-dev-comparison.md`.
+
+### RUN-20261021-LESSON-CYCLE-AUTOMATIC-DEV
+
+- Scope: automatic source plan + optional native shared DEV worker, permanent
+  synthetic tenant a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0; production forbidden.
+- Local:4083unit/neighbor/schema tests PASS; canonical quality PASS. Later local
+  guard deltas have focused regressions; exact-SHA CI remains required.
+- Isolated Supabase checkpoint gate:15checks PASS, lms_app restricted/FORCE RLS,
+  tenant isolation/lease/cancel semantics PASS, owned schema absent, public0183
+  unchanged. No local PostgreSQL/Docker used.
+- Preflight: normal QA role/tenant confirmed;3original retained DEV documents
+  indexed success, no active own jobs; live API386478de/worker reachable.
+- Probe K10of11targets is NOT ACCEPTED: root found equivalent exception options
+  despite model agreement. V12 exact-defect replay RED/GREEN recorded. Earlier
+  source-plan failures retained, no manual oracle supplied to extraction prompts.
+- Native deployment / fresh full-source quality: OPEN; append actual evidence.
