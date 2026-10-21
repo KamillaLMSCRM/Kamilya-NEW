@@ -9154,6 +9154,21 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 
 ## AI-QUALITY-050 - Operational tables and flattened lists lost teaching scope
 
+- 2026-10-21 native lesson-cycle follow-up: exact DEV3f89306f job8ec31785
+  realized8lessons but rejected8whole source plans and saved0questions. This
+  was a confirmed planning failure, not a network/worker timeout. Redundant
+  model-owned inventory, source-heading applicability, long literal components
+  and a global verdict allowed one disputed objective to suppress trusted peers.
+  V13 derives primary inventory server-side, collects bound failures in one
+  repair, gives each goal an explicit independent verdict and retains ALL vetoed
+  goals/source gaps. Only positive goals reach the unchanged question/key/
+  counterexample gates; any omission still requires review. An invalid repair
+  cannot drop an admitted goal; a new valid veto revokes prior admission. Resume
+  revalidates partial proof. Job-scoped keys avoid immutable ownership collision
+  between fresh runs; full source-plan inputs are checkpointed for exact replay.
+  Existing bounded bibliography classifier supplies context, never trivia. Native
+  all-three-source DEV rerun remains a separate acceptance gate.
+
 - 2026-10-20 R22 whole-source follow-up: completed-with-warnings plus errors[] is
   not full assessment coverage (PDF94/95, DOCX41/44). Read the axis outcomes, not
   only job status or question totals. For strict server-owned operational response

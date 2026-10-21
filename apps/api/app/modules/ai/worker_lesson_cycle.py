@@ -66,6 +66,7 @@ class WorkerCycleJournal:
         self.repository = AIGenerationCheckpointRepository()
 
     async def prepare(self, key: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+        key = self._owned_key(key)
         async with self.sessions() as session:
             await self.repository.create_plan(session, tenant_id=self.tenant_id,
                 generation_key=key, plan_revision=f"{PLAN_POLICY}/{POLICY_VERSION}",
@@ -76,12 +77,18 @@ class WorkerCycleJournal:
             return dict(rows[0].assessment_payload) if rows[0].assessment_payload is not None else None
 
     async def save_value(self, key: str, value: dict[str, Any]) -> None:
+        key = self._owned_key(key)
         async with self.sessions() as session:
             args = dict(tenant_id=self.tenant_id, generation_key=key, module_key="cycle", lesson_key="lesson")
             await self.repository.checkpoint_content(session, **args, content_payload={"owned": True})
             await self.repository.checkpoint_review(session, **args, review_payload={"policy": PLAN_POLICY})
             await self.repository.checkpoint_assessment(session, **args, assessment_payload=value)
             await session.commit()
+
+    def _owned_key(self, key: str) -> str:
+        # Source job ownership is immutable in the repository. A fresh generation
+        # must not collide with another job's identical source/lesson checkpoint.
+        return "worker-cycle:" + _digest([self.job_id, key])
 
 
 class _CycleStore:
@@ -122,7 +129,7 @@ class WorkerLessonAssessor:
         identity = {"tenant": self.tenant_id, "lesson": asdict(lesson),
                     "facts": [asdict(f) for f in context], "policy": f"{PLAN_POLICY}/{POLICY_VERSION}"}
         plan_key = "source-plan:" + _digest(identity)
-        saved = await self.journal.prepare(plan_key, {"input_sha256": _digest(identity)})
+        saved = await self.journal.prepare(plan_key, {"input_sha256": _digest(identity), "input": identity})
         def rejected(evidence: Any) -> BlockAssessmentResult:
             return BlockAssessmentResult((), {
                 "engine": "lesson_cycle", "terminal_status": "review_required",
@@ -141,15 +148,16 @@ class WorkerLessonAssessor:
         if saved is None:
             await self.journal.save_value(plan_key, plan.evidence)
         await self.checkpoint()
-        source_text = "\n".join(f.value for f in context)
+        source_text = "\n".join("\n".join(dict.fromkeys((f.subject, f.attribute, f.value))) for f in context)
         sources = (SourceExcerpt(_digest([asdict(f) for f in context]), source_text),)
         questions = []
         results = []
         # Bounds are per model response, not a license to omit targets.
-        for start in range(0, len(plan.targets), 24):
+        admitted = tuple(t for t in plan.targets if t.target_id in plan.admitted_target_ids)
+        for start in range(0, len(admitted), 24):
             await self.checkpoint()
             packet = LessonPacket(self.tenant_id, lesson.lesson_id, lesson.title, lesson.content,
-                                  sources, plan.targets[start:start + 24], PLAN_POLICY)
+                                  sources, admitted[start:start + 24], PLAN_POLICY)
             key = "lesson-cycle:" + packet.identity()
             value = await self.journal.prepare(key, {"packet": asdict(packet)})
             store = _CycleStore(self.journal, packet, value, key)
@@ -168,12 +176,15 @@ class WorkerLessonAssessor:
                     source_quote="\n".join(str(e["quote"]) for e in q.option_evidence if e["index"] == q.correct_index),
                     semantic_reviewed=True,
                 ))
-        missing = [tid for result in results for tid in result.missing_target_ids]
+        missing = [t.target_id for t in plan.targets if t.target_id not in plan.admitted_target_ids]
+        missing.extend(tid for result in results for tid in result.missing_target_ids)
+        requires_review = bool(missing) or plan.requires_review
         return BlockAssessmentResult(tuple(questions), {
             "engine": "lesson_cycle", "policy": f"{PLAN_POLICY}/{POLICY_VERSION}",
-            "terminal_status": "review_required" if missing else "ready_for_methodologist",
-            "coverage": {"requires_review": bool(missing), "required_target_count": len(plan.targets),
-                         "retained_target_count": len(plan.targets) - len(missing), "missing_target_ids": missing},
+            "terminal_status": "review_required" if requires_review else "ready_for_methodologist",
+            "coverage": {"requires_review": requires_review, "required_target_count": len(plan.targets),
+                         "retained_target_count": len(plan.targets) - len(missing), "missing_target_ids": missing,
+                         "unresolved_source_refs": list(plan.unresolved_source_refs)},
             "source_plan": plan.evidence, "lesson_id": lesson.lesson_id,
             "logical_model_calls": client.calls, "provider_attempt_count": client.attempts,
             "results": [asdict(result) for result in results],

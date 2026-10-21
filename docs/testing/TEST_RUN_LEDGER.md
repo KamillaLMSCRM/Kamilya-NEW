@@ -6098,3 +6098,10 @@ Rules:
   addendum pins fixes; lock comparison confirms ONLY certifi/Pillow versions and
   one frontend transitive changed. Fresh pnpm production audit PASS/no known
   vulnerabilities; replacement exact-SHA CI and Python audit remain required.
+
+- 2026-10-21 V13: exact3f89306f DEV rollout and all7CI checks PASS. Native fire
+  job8ec31785 ended interrupted,8lessons/0questions,8rejected plans; FAILED
+  quality, no network failure. Checkpoint evidence preserved. Per-target planner
+  correction tested with partial goals/source gaps, restart0calls, immutable
+  admitted targets and job namespace. Local probe M4/12goals saved,8visible
+  gaps, not complete acceptance. Shared all-three-source rerun remains OPEN.

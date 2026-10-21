@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Experimental DEV lesson-cycle comparison
 
+- Admit source-plan targets independently: preserve reviewed questions when a
+  sibling objective is vetoed, retain every missing objective/source gap and keep
+  incomplete drafts in review. Derive inventory on the server; validate exact
+  source headings, report simultaneous bounds and isolate checkpoints by job.
+  This opt-in QA experiment remains DEV-only, not a production change.
+
 - Add automatic source-grounded learning-target/applicability/answer-component
   planning with an independently audited source-unit inventory and bounded repair.
   Connect serial lesson assessment to the existing course worker behind an OFF

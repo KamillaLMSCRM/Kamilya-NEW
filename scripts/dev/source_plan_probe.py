@@ -46,7 +46,7 @@ async def run(args):
     class Journal:
         async def prepare(self, key, payload):
             path = args.output / (key.replace(":", "-") + ".json")
-            return json.loads(path.read_text()) if path.exists() else None
+            return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
 
         async def save_value(self, key, value):
             save(args.output / (key.replace(":", "-") + ".json"), value)

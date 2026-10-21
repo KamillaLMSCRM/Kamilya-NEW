@@ -303,3 +303,35 @@ exact runtime and actual job evidence are appended. Source completeness, semanti
 quality and successful task execution remain separate gates. Restart reuses a
 cycle only for an identical finished lesson/source/policy; caching realization
 before the existing course pipeline reruns is not claimed implemented here.
+
+## V13 partial target admission: native failure and repair
+
+DEV3f89306f exact release passed CI39555514778 (all7checks). Existing API
+dep-dbc5pcei0phs73ag8et0, worker dep-dbc5qbeq1p3s73cdctt0 and frontend
+dpl_D3BAHwG1Vec7Z6PGVZHyhdg9qejv were read back. Only the two opt-in flags on
+API/worker changed; all other environment values and Free/Hobby plans unchanged.
+The retained three source binaries were downloaded through ordinary QA API and
+matched their original SHA256. No original/course/history cleanup was performed.
+
+First native fire job8ec31785-cd89-4d7f-96eb-ff1dffa26d1a ended interrupted,
+saved draft ecec4df7-433f-4fdf-b868-93296c8a7d31:8lessons,0questions. Worker
+elapsed207.01s (started-to-terminal). All8plans were rejected; exact plan/audit
+checkpoints retained. Therefore V12 native quality FAILED, despite healthy
+infrastructure. No production change. Contract IMPACT_ADDENDUM_V13.md records
+the corrective interface and its DEV-only boundary.
+
+V13 independent per-target review keeps trusted goals while preserving vetoes
+and actual source gaps. Canonical primary inventory is derived from target refs,
+not echoed model coverage. Headings can ground applicability only when source-
+owned; simultaneous component/context bound failures are fed back together.
+The bounded drafting-bibliography classifier keeps legal citations in context.
+Only explicitly admitted targets enter the existing author/blind-key review/
+counterexample loop; there is no positive admission from silence. Restart
+revalidates partial proof without calls. Fresh jobs get separate checkpoint keys.
+Full owned lesson/fact inputs are retained for later exact replay.
+
+Local real-model probe M (not shared-worker acceptance): fire-response saved4
+reviewed questions/12automatic objectives;8missing targets remain explicit,
+review_required.7logical calls and the transport trace are retained separately.
+This demonstrates non-blocking partial progress, NOT satisfactory full coverage.
+Whole-source shared DEV results must follow below; no human-baseline speed claim.

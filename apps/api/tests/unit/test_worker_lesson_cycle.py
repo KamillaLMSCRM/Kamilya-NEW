@@ -126,3 +126,38 @@ async def test_worker_propagates_cancellation_before_any_provider_or_storage_wor
     with pytest.raises(asyncio.CancelledError):
         await WorkerLessonAssessor(tenant_id="qa", client=model, journal=journal, checkpoint=cancelled)(LESSON, {"f1": FACT})
     assert model.calls == 0 and not journal.rows and not journal.inputs
+
+
+@pytest.mark.asyncio
+async def test_partial_plan_saves_verified_questions_but_keeps_vetoed_goal_visible_after_restart():
+    values = responses()
+    value = values[0]
+    value["targets"].append({"id": "actor", "description": "Ответственный за рассмотрение",
+                              "source_refs": ["F1"], "context": [], "answer_components": []})
+    verdict = {"source_refs": ["F1"], "source_gaps": [], "target_verdicts": [
+        {"target_id": "term", "admit": True, "errors": []},
+        {"target_id": "actor", "admit": False, "errors": ["Исполнитель не назван в источнике"]}]}
+    journal = Journal()
+    result = await WorkerLessonAssessor(tenant_id="qa", client=Model(
+        [value, verdict, deepcopy(value), deepcopy(verdict), *values[2:]]),
+        journal=journal, checkpoint=checkpoint)(LESSON, {"f1": FACT})
+    assert len(result.questions) == 1
+    assert result.audit["terminal_status"] == "review_required"
+    assert result.audit["coverage"] == {"requires_review": True, "required_target_count": 2,
+        "retained_target_count": 1, "missing_target_ids": ["actor"], "unresolved_source_refs": []}
+    assert next(iter(journal.inputs.values()))["input"]["lesson"]["content"] == RULE
+    restored_model = Model([])
+    restored = await WorkerLessonAssessor(tenant_id="qa", client=restored_model, journal=journal,
+                                          checkpoint=checkpoint)(LESSON, {"f1": FACT})
+    assert restored.questions == result.questions and restored.audit["coverage"] == result.audit["coverage"]
+    assert restored_model.calls == 0
+
+
+def test_checkpoint_namespace_separates_fresh_jobs_but_is_stable_for_restart():
+    from app.modules.ai.worker_lesson_cycle import WorkerCycleJournal
+
+    first = WorkerCycleJournal("qa", "job-a", None)
+    second = WorkerCycleJournal("qa", "job-b", None)
+    assert first._owned_key("source-plan:packet") != second._owned_key("source-plan:packet")
+    assert first._owned_key("source-plan:packet") == WorkerCycleJournal("qa", "job-a", None)._owned_key("source-plan:packet")
+    assert len(first._owned_key("x" * 1000)) < 160
