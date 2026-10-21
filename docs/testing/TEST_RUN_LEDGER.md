@@ -6089,3 +6089,12 @@ Rules:
   despite model agreement. V12 exact-defect replay RED/GREEN recorded. Earlier
   source-plan failures retained, no manual oracle supplied to extraction prompts.
 - Native deployment / fresh full-source quality: OPEN; append actual evidence.
+
+- Candidate dc363386 pushed only to dev; independent GitHub ref readback PASS,
+  project account KamillaLMSCRM, sanitized receipt retained. DEV controller stopped
+  before explicit worker deploy at github_ci_not_successful, CI39554741439.
+  Existing dependency gates found certifi2026.7.22/Pillow12.3.0 and frontend
+  follow-redirects1.16.0 advisories. No gate bypass. Root-approved bounded impact
+  addendum pins fixes; lock comparison confirms ONLY certifi/Pillow versions and
+  one frontend transitive changed. Fresh pnpm production audit PASS/no known
+  vulnerabilities; replacement exact-SHA CI and Python audit remain required.

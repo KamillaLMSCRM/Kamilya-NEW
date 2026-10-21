@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Unblock the DEV candidate's fresh dependency security gates: pin Pillow13.0.0
+  and certifi2026.10.19 consistently for Poetry/Render; constrain transitive
+  follow-redirects1.16.1. No audit exclusions or provider tier changes.
+
 ### Experimental DEV lesson-cycle comparison
 
 - Add automatic source-grounded learning-target/applicability/answer-component
