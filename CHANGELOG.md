@@ -7,18 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Staff search and list usability (2026-10-27, release candidate)
-
-- Make employee name/personnel-number search case-insensitive for Russian and
-  Kazakh text under the existing production database collation. Keep tenant,
-  access, placement, literal-wildcard and server-pagination boundaries unchanged.
-- Search surname fragments automatically, retain query/position in the URL,
-  expose the current search scope and removable filters, and offer one action
-  to search the whole company. Hide stale rows/counts while searching, normalize
-  stale position links, and keep readable employee/position/unit/action columns.
-- This candidate is isolated from unfinished course-generation work. No release
-  or production acceptance is implied by this entry.
-
 ### Historical DEV candidate: four bounded improvements (2026-10-19)
 
 - Preserve an unsaved assignment dialogue when the next request supplies only
@@ -176,6 +164,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Share the scoped lookup across public view and activation; clear it before
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
+
+## [0.11.66] - 2026-10-27
+
+### Fixed
+
+- Make employee name/personnel-number search case-insensitive for Russian and
+  Kazakh text under the existing database collation. Preserve tenant/access/
+  placement filters, literal wildcard escaping and server pagination.
+- Search surname fragments automatically, retain query/position after reload,
+  expose scope/removable filters, normalize stale position links and suppress
+  stale rows/counts. Offer whole-company search and readable responsive columns.
+- Isolate this staff-only release from the unfinished generation-engine candidate.
+  No migration, employee-data change, new feature flag or model-routing change.
 
 ## [0.11.65] - 2026-10-19
 
