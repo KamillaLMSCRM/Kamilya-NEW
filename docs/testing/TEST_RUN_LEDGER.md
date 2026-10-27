@@ -5329,3 +5329,21 @@ Rules:
 - No public DEV/prod deployment or runtime acceptance claimed, no tag/version
   bump. No schema/employee/history/roles/model/voice/reserve/billing changes.
   Temporary local fixture tab/server closed; unfinished generation engine excluded.
+
+## 2026-10-27 — Staff66 exact release/live acceptance PASS
+
+Exact runtime/tag7c35c798d9ff4e44183a1e499f1b1c1a7cc2fe16/0.11.66:
+CI40469278685/40467889903, native40468000163, protected40469647733 SUCCESS.
+DEV exact API/worker/frontend accepted on unchanged Free/Free/Hobby. Production
+API+3workers/image6af62edb…f3223/restarts0, native exact66, public/private health,
+CT1250183/FORCE7/non-BYPASS and unchanged model routing independently verified.
+Live Lombard lower/title/upper search1/1/1, branch-empty/widen/reload PASS;
+273-student roster and workspace hashes unchanged, no employee/business writes.
+Local post-maintenance3296 API/PDF and1345 web tests PASS. Native65/backend65
+retained for rollback; extra62/recovery/protected native359+299 retained.
+Fresh signed restore/cleanup PASS. Seven verified unused local API copies removed
+under standing capacity authority, all16containers unchanged; df82%, free5.94GB.
+Watchdog exact66success0/both timers active, thresholds unchanged. First warning-
+failed finalizer and reader failures retained. Actual rollback NOT_RUN.
+Full evidence/identities/limitations: [staff report](2026-10-27-staff-search.md).
+Engine LOCAL129 remains separate and unreleased; no new model calls.

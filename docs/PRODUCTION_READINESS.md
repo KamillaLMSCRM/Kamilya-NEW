@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-10-19 07:07UTC: backend/native65 exact00e41ca7, API+3workers running/restarts0, schema0183/FORCE7. First-four-block synthetic production live acceptance PASS. Watchdog success/exit0, timers active; disk88% warning remains. Model routing/current reserve unchanged.
+**Проверено:** 2026-10-27: backend/native66 exact7c35c798, API+3workers running/restarts0, schema0183/FORCE7. Staff search/list DEV and live read-only Lombard acceptance PASS; hashes unchanged. Watchdog success/exit0, timers active; VM126 df82%, free5.94GB. Model routing/current reserve unchanged.
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,26 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current65 — four blocks deployed and bounded live acceptance complete
+
+## Current66 — 2026-10-27, PASS
+
+Exact runtime/tag7c35c798d9ff4e44183a1e499f1b1c1a7cc2fe16/0.11.66:
+CI40469278685/40467889903, native40468000163, protected40469647733 SUCCESS.
+DEV exact API/worker/frontend accepted on unchanged Free/Free/Hobby. Production
+API+3workers/image6af62edb…f3223/restarts0, native exact66, public/private health,
+CT1250183/FORCE7/non-BYPASS and unchanged model routing independently verified.
+Live Lombard lower/title/upper search1/1/1, branch-empty/widen/reload PASS;
+273-student roster and workspace hashes unchanged, no employee/business writes.
+Local post-maintenance3296 API/PDF and1345 web tests PASS. Native65/backend65
+retained for rollback; extra62/recovery/protected native359+299 retained.
+Fresh signed restore/cleanup PASS. Seven verified unused local API copies removed
+under standing capacity authority, all16containers unchanged; df82%, free5.94GB.
+Watchdog exact66success0/both timers active, thresholds unchanged. First warning-
+failed finalizer and reader failures retained. Actual rollback NOT_RUN.
+Full evidence/identities/limitations: [staff report](testing/2026-10-27-staff-search.md).
+Engine LOCAL129 remains separate and unreleased; no new model calls.
+
+## Historical65 — four blocks deployed and bounded live acceptance complete
 
 Frozen runtime/tag `00e41ca7001564574fb89d2de97f9636d7e5020f`, version0.11.65,
 image `479f2235f3a4c8ded2b0e60e19c76334a9ce1843e3394ed6bdf4e0352088de06`.

@@ -1,7 +1,14 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-10-19.
+> Обновлено: 2026-10-27.
+
+## Current production66
+
+Exact7c35c798/API+3workers/native66 and DEV/live read-only staff search accepted.
+No migration0183, roles/routing/reserve unchanged. Rollback65 retained; VM126df82%,
+free5.94GB; watchdog exact66success0/timers active. Canonical evidence and limits:
+[readiness](PRODUCTION_READINESS.md), [staff report](testing/2026-10-27-staff-search.md).
 
 ## Источники правды
 

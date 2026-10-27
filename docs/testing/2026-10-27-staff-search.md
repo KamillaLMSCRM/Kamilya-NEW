@@ -105,3 +105,62 @@ confirm exact release authority and current DEV identity, then use the canonical
 protected procedures. Post-release: verify all three case variants return the
 same single client employee via read-only search, and repeat the synthetic
 browser search/filter/reload scenario. No employee-data migration is required.
+
+
+## Production66 closeout — 2026-10-27, PASS
+
+Frozen tag/runtime `v0.11.66` / `7c35c798d9ff4e44183a1e499f1b1c1a7cc2fe16`.
+CI master40469278685 / DEV40467889903, native40468000163 and protected backend
+40469647733 all SUCCESS. Exact API and three workers green/image
+`6af62edb34c85324d05d4412d91f36da832303e530df1c928ae09f95dd6f3223`, running/restarts0;
+public/private health66. Native CT137 exact66/marker/nginx/routes PASS, archive
+SHA256 `0a69c4b5514e027115eaa6626377bc763fae475360fa2c5a59fcee0b7b27088d`.
+DEV API dep-dbg5aicipgvc73eijl8g, worker dep-dbg5bip42hec73dl5vmg and frontend
+dpl_AgCVYsu2hevoftKttsB8a7uq2MUr exact66 live/READY on unchanged Free/Free/Hobby.
+
+Real DEV ordinary methodologist: case parity, unit-empty/widen, query/position
+reload and clear16→search1 PASS. Production Lombard ordinary methodologist view:
+lower/title/upper fragment each returns1 for active/all; actual browser uppercase,
+lowercase, other-branch empty, widen and reload PASS. Employee273 hash
+`beae5545ccd5f42f66aec11bb3dada764f8aa09c97d3dc0a93e55658c977e126`
+and workspace hash
+`32216dbb7b7df280f3435f09c59ac2e8d081d2fc7dccfb57dbc65d3953f7778e`
+unchanged.273 is the student roster, not all280tenant users. No staff/customer
+data writes, assignments, history changes or new model calls. No fresh broad CRUD
+or assignment acceptance claimed for this search-only package.
+
+Post-maintenance local3296 API/PDF and1345web/173files PASS; build67, quality
+1005/2170 unchanged, runtime SCA passed in exact CI/build. Existing initial CI/native
+failures and intermittent unrelated journal timeout remain documented.
+
+Fresh signed0183 restore PASS:130public tables126FORCE/RPO44s/RTO19s, disposable
+DB/plaintext/temp absent. Independent CT125 revision0183/FORCE7/runtime non-BYPASS,
+model routing unchanged. Backend65 retained healthy API/stopped workers as rollback;
+native65 retained as immediate rollback,62 and protected359/299 retained. Actual
+rollback switch NOT_RUN. Native artifact required1321046199bytes; capacity passed,
+no CT137 cleanup or Proxmox used. Postrelease native free668108KiB is bounded
+headroom, not readiness for another release without a fresh capacity check.
+
+Standing owner capacity authority used only for seven unused local API copies:
+obsolete64 c78a29bed…fcca2;0f741d440…6f555;5335396f…e2440;96a1bc2c…292e2;
+a395295d…26d0f;a6c99741…8507e;fcb47c54…879b. Each exact GHCR index/amd64/body digest
+and13blobs verified; all16container references checked before/after, current66,
+rollback65 and extra62 protected; registry/containers/volumes/DB/config unchanged.
+No force/prune. VM126 free1350→5939MB, df96→82%; cleanup stopped below existing
+85% warning threshold. First finalizer failed on disk warning and restored its old
+config; R2 after cleanup passed, only EXPECTED_RELEASE/EXPECTED_API_IMAGE changed,
+byte-identical root backup retained, watchdog success/exit0 and both timers active.
+Earlier capacity-reader12-container assumption and invalid output format were
+read-only failures; corrected inventory16, no deletion ran on those failures.
+
+Autonomous existing credential login works via direct process-local ordinary form
+fill. Owner must not be asked again to log in because diagnostic getters mask
+values. Old textarea helper exposed a synthetic DEV password in a tool snapshot;
+its value is not repeated or persisted here. This was not a customer credential.
+Do not use that helper or claim zero prior output exposure.
+
+Evidence: `.release-evidence/staff-search-20261027/`; safe UI screenshot
+`dev-live-search-result.png` uses synthetic DEV data. Provider-after inspection
+overwrote its hardcoded before filename; truthfully retained as providers-after.json.
+The original first provider observation is only in tool history; controller and
+after receipts establish unchanged approved tiers. No fabricated durable baseline.

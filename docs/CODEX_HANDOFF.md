@@ -1,5 +1,28 @@
 # Kamilya LMS: handoff для следующего Codex
 
+## Current staff66 — released and live accepted; resume engine separately
+
+Staff search/list package exact7c35c798d9ff4e44183a1e499f1b1c1a7cc2fe16 / v0.11.66
+completed DEV and protected production/live Lombard read-only acceptance. Details
+docs/testing/2026-10-27-staff-search.md and docs/releases/v0.11.66.md. API+3workers,
+native exact66; customer employee/workspace hashes unchanged; no engine/model
+calls/data/voice/reserve/rights/resource/tier changes. VM126 safe exact-image
+cleanup completed, df82%, watchdog success0/timers active. Current/rollback retained.
+
+Next: preserved old cabinet-release checkout LOCAL129/V215 citation and partial-
+repair negative-custody causes, saved regressions first, reasoningON/token economy,
+three FULL Luna courses/67families16ambiguities then DEV DeepSeek and separate
+release/live. Never interpret morning manual courses as new engine acceptance.
+Do not normally merge/rebase old4af engine branch: ancestry-only943 merge excluded
+its tree. Reconstruct owned engine delta from preserved base93/source4af plus
+reviewed LOCAL129 edits in its own package. Root .venv security dependencies
+certifi2026.10.19/Pillow13/pypdf6.21.2 now updated; reverify old engine gates.
+Existing credentials: secure process-local canonical .env ordinary UI fill WORKS;
+do not ask owner to log in. Never use deprecated secret textarea helpers.
+
+Historical checkpoints below are superseded by this current release.
+
+
 ## Active staff hotfix — 2026-10-27, local ready / release pending
 
 Owner subsequently explicitly approved DEV→production/live Lombard read-only,

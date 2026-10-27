@@ -9010,3 +9010,17 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   privileges/hidden parents, valid and four corrupt-reference cases, exact roles,
   policies, rows/catalog preservation and fresh schema/role absence. An empty
   privileged upgrade and HTTP health cannot substitute for this role-bound gate.
+
+### OPS-011 recurrence2026-10-27 — staff66 disk-warning finalizer
+
+Protected66 and live search were healthy. First watchdog reconciliation restored
+the old two-key config because installed check saw disk96%, then warning89% (limit85).
+Cause was insufficient operational headroom after the image pull, not a model,
+authentication or staff error. Standing authorized exact local-image cleanup with
+GHCR recovery and all16-container checks restored df82%/5.94GB; seven copies removed,
+current66/rollback65/extra62 retained. R2 quiesced watchdog timer, waited prior
+oneshot, updated only two keys with exact backup and retained active retention;
+oneshot success0/both timers active independently verified. No threshold waiver,
+prune, resource increase or second rollout. Capacity readers must derive and guard
+actual inventory16; old twelve-count assumptions and JSON/percent evidence values
+were read-only rejected attempts. Evidence lines require bounded safe scalar fields.
