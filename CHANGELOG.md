@@ -169,6 +169,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Apply the minimum security updates required by current production audits:
+  Next/eslint-config15.5.28, follow-redirects1.16.1, certifi2026.10.19,
+  Pillow13.0.0 and pypdf6.21.2; retain blocking audit thresholds.
+
 - Make employee name/personnel-number search case-insensitive for Russian and
   Kazakh text under the existing database collation. Preserve tenant/access/
   placement filters, literal wildcard escaping and server pagination.

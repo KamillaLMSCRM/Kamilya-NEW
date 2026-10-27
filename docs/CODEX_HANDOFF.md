@@ -2,6 +2,28 @@
 
 ## Active staff hotfix — 2026-10-27, local ready / release pending
 
+Owner subsequently explicitly approved DEV→production/live Lombard read-only,
+then generation-engine continuation, separate packages. Initial e687 candidate
+DEV CI40464939606 failed due stale error-header date and newly disclosed runtime
+dependency advisories; native40465034552 failed the same blocking audit. These
+failed receipts are retained; no production change. Required security pins and
+header/contract correction passed3296 API/PDF and1345 web tests, final build and
+quality1005/2170. Release source is being frozen again; do not rerun e687.
+
+DEV auth503 was a real expired TLS certificate on existing legacy broker DB1,
+not a staff-search bug. Existing supported Certbot5.4/webroot recovered TLS/auth
+and empty queues with no validation weakening or production changes. See new
+DEV-BROKER-TLS-001/access-map correction. Ordinary browser DEV methodologist login
+now succeeds via process-local canonical .env read + supported form fill, without
+returning values. Diagnostic getters mask inputs even when actual login succeeds;
+do not again ask the owner to log in or infer literal input from those getters.
+Unsafe snapshot-producing secret textarea helper is deprecated; its test-password
+exposure was disclosed without repeating/saving the value. Prefer direct closed
+form input. Owner explicitly instructed autonomous existing-password use again.
+
+Historical local checkpoint and initial approval boundary follow; they are not
+the current authority or deployment state.
+
 Owner requests methodologist staff-search repair and list UX. Work only in
 `C:\Kamilya New\Kamilya-NEW\.worktrees\staff-search-20261027`, branch
 `fix/staff-search-20261027`, base93ccbfabc8fcc0429140db35876c232e1f4ea0fc.
