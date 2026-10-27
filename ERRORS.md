@@ -1,6 +1,48 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-19.
+Current as of: 2026-10-27.
+
+## DEV-BROKER-TLS-001 - Supported IP certificate client was not used by renewal timer
+
+- Date:2026-10-27; staff hotfix DEV admission, production unchanged.
+- Symptom: DEV health200 but ordinary auth503; direct verified TLS Redis failed
+  with certificate-expired. Actual Render API/worker still shared the documented
+  legacy DEV broker, isolated DB1; previous prose saying it was unnecessary was
+  not current runtime evidence.
+- Cause: IP certificate expired2026-10-23. Timer ran system Certbot2.9, which
+  could not parse the IP renewal, despite installed supported5.4. Legacy standalone
+  hooks targeted failed Caddy while existing Nginx owned port80.
+- Fix: renewed only DEV broker certificate using installed5.4 and the existing
+  Nginx IP-vhost webroot, without stopping Nginx or starting Caddy. Persisted webroot
+  and no-op pre/post hooks; existing Valkey deploy hook retained. Repointed the
+  existing certbot service to installed5.4; timer interval unchanged. No TLS bypass,
+  public ports, new service/resource/tier, production Valkey or data mutation.
+- Verification: exact script6ec55dc2...d2ab56d exit0; cert valid to2026-11-02;
+  external TLS RedisPING PASS, API/worker broker equality and DB1, all three queue
+  depths0; ordinary DEV QA auth and staff GETs PASS. Current ordinary browser login
+  also passed with direct process-local input. No new model call.
+- Prevention: check actual API/worker environment and auth, not health alone;
+  keep timer binary aligned with renewal format and validate active HTTP listener.
+  Do not disable certificate validation/limiter or substitute production broker.
+
+## AUTH-UI-INPUT-001 - Masked diagnostics were mistaken for literal submitted credentials
+
+- Date:2026-10-27; ordinary DEV QA browser login, not an application auth defect.
+- Symptom: clipboard helpers failed login; diagnostic input getters reported a
+  redaction marker. An old loopback textarea also exposed a test DEV password in
+  its automatic accessibility snapshot; do not repeat or persist that value.
+- Cause: the helper requested a snapshot of secret-bearing text; masked diagnostic
+  getters were then incorrectly treated as proof of the actual submitted value.
+- Fix: load only the needed canonical setting inside the browser-control process,
+  fill the ordinary login form without returning values, submit and verify the
+  authenticated destination. Do not inspect secret fields or ask the owner to
+  perform a routine login merely because a clipboard helper failed.
+- Verification: direct process-local ordinary DEV form login reached the correct
+  methodologist dashboard. No token/session injection, password change, role
+  change, guard bypass or secret value in the durable report.
+- Prevention: never open a secret-bearing helper URL through a snapshot-producing
+  entrypoint. Prefer direct process-local supported form input; success is actual
+  login, not a masked field readback. Owner explicitly reaffirmed autonomous use.
 
 ## COURSE-PLAYER-QUIZ-001 - New lesson retained the previous lesson quiz and pass state
 

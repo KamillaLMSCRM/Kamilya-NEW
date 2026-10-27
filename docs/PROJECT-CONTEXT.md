@@ -27,6 +27,18 @@
 
 ## Current delivery checkpoint — production65 accepted,2026-10-19
 
+### DEV broker operational correction — 2026-10-27
+
+Current provider inspection, not the historical prose below, confirms DEV API and
+worker still use the existing legacy Kamilya TLS Redis at173.249.51.164:6380,
+isolated database1. Production Valkey is separate. Its expired IP certificate
+caused auth503 despite health200. The existing supported Certbot5.4 renewed it via
+the existing Nginx IP-vhost webroot; the existing renewal service now invokes that
+installed client. No new service/ports/resources/billing or TLS weakening. External
+TLS/auth/empty queues verified; certificate currently valid to2026-11-02.
+See DEV-BROKER-TLS-001. Do not again claim this actual DEV runtime has no legacy
+broker dependency; removing that dependency is separate architecture work.
+
 Backend/native frozen00e41ca7001564574fb89d2de97f9636d7e5020f/v0.11.65;
 image479f2235...8de06, CI39209823772/native39209870918/protected39210442155 SUCCESS.
 Independent final07:07UTC actual API+3workers/restarts0/all4flagsON/public-private
