@@ -3,7 +3,7 @@
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
 
@@ -163,11 +163,17 @@ async def employee_roster(
         query = query.where(User.position_id.is_(None))
     if q.strip():
         # SQL wildcards are literal search characters, not an accidental full scan.
+        # Production C collation does not fold Cyrillic with ILIKE (SQL-NAME-001).
+        # Keep the existing ICU collation local to both comparison operands.
         needle = "%" + q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         query = query.where(
             or_(
-                func.concat(User.first_name, " ", User.last_name).ilike(needle, escape="\\"),
-                User.personnel_number.ilike(needle, escape="\\"),
+                func.lower(func.concat(User.first_name, " ", User.last_name).collate("und-x-icu")).like(
+                    func.lower(literal(needle).collate("und-x-icu")), escape="\\"
+                ),
+                func.lower(User.personnel_number.collate("und-x-icu")).like(
+                    func.lower(literal(needle).collate("und-x-icu")), escape="\\"
+                ),
             )
         )
     total = int(await db.scalar(select(func.count()).select_from(query.subquery())) or 0)

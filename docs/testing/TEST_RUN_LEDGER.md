@@ -5307,3 +5307,25 @@ Rules:
   handoff/release65 updated; owned temporary plan removed. Runtime/tag65 frozen;
   closeout documentation only, no new deployment or retag. Unrelated output/ and
   primary checkout residue preserved.
+
+## RUN-20261027-STAFF-SEARCH-LOCAL-01
+
+- Base93ccbfabc8fcc0429140db35876c232e1f4ea0fc; isolated branch
+  `fix/staff-search-20261027`. Final runtime-source hashes and proof boundaries:
+  `docs/testing/2026-10-27-staff-search.md`.
+- Actual client production GET06:17UTC: lower/title/upper fragment0/1/0 with
+  unchanged all-company filters; matching employee active. No staff writes or
+  client payload persistence. Ordinary login/tenant-view audit only.
+- Backend RED2/green52 in2.17s; UI initial RED4, follow-up RED2, final focused38
+  in4.73s. Real READ ONLY Supabase DEV C-collation11 checks PASS; actual changed
+  employee_roster with permanent QA/RLS case-ID/total parity and foreign-empty PASS.
+- Complete web173files/1345tests PASS194.77s with maxWorkers2. Initial unrestricted
+  run1344PASS/1unrelated learningInsightsJournal timeout failure retained; no test
+  or runtime edit/timeout increase. Exact file+search13PASS; cause remains unknown.
+- Ruff1005/Mypy2170 baseline PASS, lint/type/final Next build67static PASS.
+  Independent local review no remainingP1/P2. Browser real component/client with
+  synthetic1000records: late-page fragment, narrow/widen, URL/reload/history,
+  clear/focus, RU/KK/EN new copy,390/768/1440 no horizontal overflow PASS.
+- No public DEV/prod deployment or runtime acceptance claimed, no tag/version
+  bump. No schema/employee/history/roles/model/voice/reserve/billing changes.
+  Temporary local fixture tab/server closed; unfinished generation engine excluded.

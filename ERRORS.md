@@ -600,7 +600,33 @@ Current as of: 2026-10-19.
   distinguish an unmentioned order from an expressly required dependency, keep
   stage-specific output schemas, and preserve both successful and failed runs.
 
+## STAFF-SEARCH-001 - Roster query and scope were not recoverable or explicit
+
+- Date: 2026-10-27, local staff hotfix; not deployed.
+- Symptom: search required Find, selected unit/access silently narrowed results,
+  reload/Back lost query/position, and an old count remained while fetching.
+- Cause: query and position were independent local state rather than workspace
+  URL state; unit changes reset them in an effect; no scope/reset/loading contract.
+- Fix: URL-backed query/position, 300ms debounce with immediate submit, explicit
+  scope and widen action, removable filters, pending rows/count suppression,
+  normalize stale positions before fetching, one empty reset and search refocus.
+- Verification: initial behavioral RED4, additional stale-position/reset RED2,
+  final focused38 and full web1345 PASS; real component1000-row browser fixture,
+  390/768/1440px/reload/history/RU-KK-EN search PASS. No employee writes.
+- Prevention: keep six public-interaction search regressions alongside existing
+  transfer/persistence tests; do not mistake mock matching for database Unicode
+  proof. Separate real DB casefold gate is documented in SQL-NAME-001 below.
+
 ## SQL-NAME-001 - C locale disagreed with Python Unicode lowercase during assignment lookup
+
+- Recurrence 2026-10-27, staff roster: actual client production GET returned
+  `танаб=0`, `Танаб=1`, `ТАНАБ=0` with identical all-company access filters;
+  one active matching employee exists. Same local ICU-on-both-operands repair
+  applied to roster name/personnel search. Backend RED2/green52; real READ ONLY
+  Supabase DEV C-collation11 checks and changed-function QA/RLS case-parity PASS.
+  This new staff repair is a local candidate, NOT deployed. See
+  `docs/testing/2026-10-27-staff-search.md`; preserve the older released assignment
+  proof below as a separate path, not evidence that the staff endpoint was fixed.
 
 - Date: 2026-10-15; full live assignment-dialogue DEV53/production53 acceptance.
 - Symptom: model clarification/follow-up returned the exact course/department,

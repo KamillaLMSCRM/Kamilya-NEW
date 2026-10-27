@@ -1,5 +1,30 @@
 # Kamilya LMS: handoff для следующего Codex
 
+## Active staff hotfix — 2026-10-27, local ready / release pending
+
+Owner requests methodologist staff-search repair and list UX. Work only in
+`C:\Kamilya New\Kamilya-NEW\.worktrees\staff-search-20261027`, branch
+`fix/staff-search-20261027`, base93ccbfabc8fcc0429140db35876c232e1f4ea0fc.
+Actual client read-only production search confirms lowercase0/titlecase1/uppercase0;
+one active matching employee exists. SQL-NAME-001 fix and bounded list UX are
+implemented separately from unfinished generation-engine LOCAL129/V215.
+
+Local gate PASS: API52; focused web38; complete web1345/173files with two workers;
+Ruff1005/Mypy2170 unchanged; lint/type/final build67 PASS. Real READ ONLY Supabase
+DEV11 synthetic SQL checks plus changed employee_roster with real QA/RLS PASS.
+Real component browser fixture1000employees passed390/768/1440, RU/KK/EN search,
+later-page fragment, scope widening, reload/Back/Forward, clear/focus. Full initial
+web run had one unrelated intermittent learningInsightsJournal failure; exact
+selector and full bounded rerun passed without edits/timeout changes. Cause unknown.
+
+No deployed DEV/prod replacement, employee/business writes, release tag or version
+bump. Current65 remains. Obtain exact current release authority before protected
+publication, preserve current DEV work, then validate live case parity and browser
+flow. No model/voice/reserve/rights/resources/billing changes. Temporary local UI
+server/tab closed. Detailed proof/limits: docs/testing/2026-10-27-staff-search.md.
+Old engine checkout remains frozen for later continuation; do not release it with
+this patch. The older checkpoints below describe the base and are historical.
+
 **Обновлено:** 2026-10-19
 **Primary anchor:** `C:\Kamilya New\Kamilya-NEW`, только sync/coordination
 **Активный checkout:** `C:\Kamilya New\Kamilya-NEW\.worktrees\cabinet-release-20261018`

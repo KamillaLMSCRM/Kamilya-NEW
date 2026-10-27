@@ -11,6 +11,7 @@ import {
   Plus,
   RefreshCw,
   Users,
+  X,
 } from 'lucide-react';
 import {
   type KeyboardEvent as ReactKeyboardEvent,
@@ -23,6 +24,7 @@ import {
 } from 'react';
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Modal } from '@/components/ui';
+import { useT, type TranslationKey } from '@/i18n/useT';
 import { apiErrorMessage } from '@/lib/apiErrorMessage';
 import { useAuthStore } from '@/store/authStore';
 
@@ -57,6 +59,8 @@ interface WorkspaceLocation {
   scope: StaffWorkspaceScope;
   access: StaffWorkspaceAccess;
   page: number;
+  query: string;
+  position: string;
 }
 
 interface EditableEmployee {
@@ -129,7 +133,7 @@ function validAccess(value: string | null): StaffWorkspaceAccess {
 
 function readLocation(): WorkspaceLocation {
   if (typeof window === 'undefined') {
-    return { view: 'schema', unit: 'all', scope: 'subtree', access: 'active', page: 1 };
+    return { view: 'schema', unit: 'all', scope: 'subtree', access: 'active', page: 1, query: '', position: 'all' };
   }
   const params = new URLSearchParams(window.location.search);
   const unit = params.get('staff_unit') || 'all';
@@ -140,6 +144,8 @@ function readLocation(): WorkspaceLocation {
     scope: validScope(params.get('staff_scope')),
     access: validAccess(params.get('staff_access')),
     page: Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1,
+    query: (params.get('staff_q') || '').trim().slice(0, 100),
+    position: params.get('staff_position') || 'all',
   });
 }
 
@@ -157,6 +163,10 @@ function writeLocation(location: WorkspaceLocation, replace: boolean): void {
   url.searchParams.set('staff_scope', location.scope);
   url.searchParams.set('staff_access', location.access);
   url.searchParams.set('staff_page', String(location.page));
+  if (location.query) url.searchParams.set('staff_q', location.query);
+  else url.searchParams.delete('staff_q');
+  if (location.position !== 'all') url.searchParams.set('staff_position', location.position);
+  else url.searchParams.delete('staff_position');
   window.history[replace ? 'replaceState' : 'pushState']({}, '', `${url.pathname}${url.search}${url.hash}`);
 }
 
@@ -171,13 +181,6 @@ function formatDateTime(value: string): string {
 
 function accountLabel(active: boolean): string {
   return active ? 'Доступ активен' : 'Доступ закрыт';
-}
-
-function placementSourceLabel(source: string): string {
-  if (source === 'explicit') return 'явно указанное подразделение';
-  if (source === 'position_fallback') return 'подразделение должности';
-  if (source === 'none') return 'подразделение не определено';
-  return 'серверное правило размещения';
 }
 
 function employeeIdentity(employee: StaffWorkspaceEmployee): string {
@@ -336,6 +339,9 @@ export function StaffWorkspace({
   onArchiveUnit,
   refreshKey,
 }: StaffWorkspaceProps) {
+  const { t } = useT();
+  const copy = (key: string, params?: Record<string, string | number>) =>
+    t(`authenticatedUi.staffWorkspaceSearch.${key}` as TranslationKey, params);
   const authUser = useAuthStore((state) => state.user);
   const confirmationStorageKey = authUser?.tenant_id && authUser.user_id
     ? pendingConfirmationKey(authUser.tenant_id, authUser.user_id)
@@ -352,9 +358,10 @@ export function StaffWorkspace({
   const [shownChildren, setShownChildren] = useState(CHILD_BATCH_SIZE);
   const [unitVisibility, setUnitVisibility] = useState<UnitVisibility>('active');
   const [detailView, setDetailView] = useState<DetailView>('people');
-  const [queryDraft, setQueryDraft] = useState('');
-  const [query, setQuery] = useState('');
-  const [positionFilter, setPositionFilter] = useState('all');
+  const [queryDraft, setQueryDraft] = useState(location.query);
+  const query = location.query;
+  const positionFilter = location.position;
+  const searchPending = location.view === 'people' && queryDraft.trim() !== query;
   const [changeDraft, setChangeDraft] = useState<ChangeDraft | null>(null);
   const [preview, setPreview] = useState<StaffChangePreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -377,6 +384,8 @@ export function StaffWorkspace({
   const confirmationStorageKeyRef = useRef(confirmationStorageKey);
   const previousConfirmationStorageKey = useRef(confirmationStorageKey);
   const focusHeading = useRef<HTMLHeadingElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const returnSearchFocus = useRef(false);
   const narrowLayout = useNarrowLayout();
   const pendingConfirmationId = pendingConfirmation?.storageKey === confirmationStorageKey
     ? pendingConfirmation.planId
@@ -392,12 +401,22 @@ export function StaffWorkspace({
 
   useEffect(() => {
     writeLocation(location, true);
-    const onPopState = () => setLocation(readLocation());
+    const onPopState = () => {
+      const next = readLocation();
+      setQueryDraft(next.query);
+      setLocation(next);
+    };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
     // The initial URL is normalized once; later writes are performed by navigate.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (location.view !== 'people' || queryDraft.trim() === query) return;
+    const timer = window.setTimeout(() => navigate({ query: queryDraft.trim(), page: 1 }, true), 300);
+    return () => window.clearTimeout(timer);
+  }, [location.view, navigate, query, queryDraft]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -431,6 +450,21 @@ export function StaffWorkspace({
     ? null
     : unitsById.get(location.unit) || null;
   const selectionValid = location.unit === 'all' || location.unit === 'unplaced' || unitsById.has(location.unit);
+  const positionValid = positionFilter === 'all' || positionFilter === 'missing'
+    || Boolean(overview?.positions.some((position) => position.id === positionFilter));
+
+  useEffect(() => {
+    if (overview && location.view === 'people' && !positionValid) {
+      navigate({ position: 'all', page: 1 }, true);
+    }
+  }, [location.view, navigate, overview, positionValid]);
+
+  useEffect(() => {
+    if (returnSearchFocus.current && searchInput.current) {
+      returnSearchFocus.current = false;
+      searchInput.current.focus();
+    }
+  });
 
   useEffect(() => {
     if (!overview || location.unit === 'all' || location.unit === 'unplaced' || unitsById.has(location.unit)) return;
@@ -438,7 +472,7 @@ export function StaffWorkspace({
   }, [location.unit, navigate, overview, unitsById]);
 
   useEffect(() => {
-    if (!overview || !selectionValid) return;
+    if (!overview || !selectionValid || (location.view === 'people' && !positionValid)) return;
     const controller = new AbortController();
     const requestId = ++rosterRequest.current;
     setRosterLoading(true);
@@ -468,15 +502,12 @@ export function StaffWorkspace({
         setRosterError(humanizeError(error, 'Не удалось загрузить сотрудников.'));
       });
     return () => controller.abort();
-  }, [location.access, location.page, location.scope, location.unit, location.view, navigate, overview, positionFilter, query, refreshKey, reloadNonce, selectedUnit?.id, selectionValid]);
+  }, [location.access, location.page, location.scope, location.unit, location.view, navigate, overview, positionFilter, positionValid, query, refreshKey, reloadNonce, selectedUnit?.id, selectionValid]);
 
   useEffect(() => {
     setShownChildren(CHILD_BATCH_SIZE);
     setUnitVisibility('active');
     setDetailView('people');
-    setQuery('');
-    setQueryDraft('');
-    setPositionFilter('all');
   }, [location.unit]);
 
   useEffect(() => {
@@ -784,8 +815,29 @@ export function StaffWorkspace({
     }
   };
 
+  const searchScope = location.unit === 'all'
+    ? copy('company')
+    : location.unit === 'unplaced'
+      ? copy('unplaced')
+      : `${selectedUnit ? unitLabel(selectedUnit) : location.unit}${location.scope === 'subtree' ? ` · ${copy('subtree')}` : ''}`;
+  const narrowedScope = location.unit !== 'all' || location.access !== 'all' || positionFilter !== 'all';
+  const resetFilters = () => {
+    returnSearchFocus.current = true;
+    setQueryDraft('');
+    navigate({ query: '', position: 'all', unit: 'all', scope: 'subtree', access: 'all', page: 1 });
+  };
+  const clearQuery = () => {
+    returnSearchFocus.current = true;
+    setQueryDraft('');
+    navigate({ query: '', page: 1 });
+  };
+  const changeSearchScope = (patch: Partial<WorkspaceLocation>) => {
+    returnSearchFocus.current = true;
+    navigate({ ...patch, page: 1 });
+  };
+
   const renderRoster = (compact = false) => {
-    if (rosterLoading) {
+    if (rosterLoading || searchPending) {
       return <div className="p-5 text-sm text-muted-foreground" role="status">Загрузка сотрудников…</div>;
     }
     if (rosterError) {
@@ -802,16 +854,17 @@ export function StaffWorkspace({
     if (!roster || roster.items.length === 0) {
       return (
         <div className="p-6 text-center text-sm text-muted-foreground">
-          По выбранным условиям сотрудников нет.
-          {!compact && (query || positionFilter !== 'all') && (
-            <div><Button type="button" variant="link" onClick={() => { setQuery(''); setQueryDraft(''); setPositionFilter('all'); navigate({ page: 1 }); }}>Сбросить фильтры</Button></div>
-          )}
+          {compact ? copy('empty') : `${query ? copy('noResults', { query }) : copy('empty')} ${copy('scope', { scope: searchScope })}`}
+          {!compact && <Button type="button" variant="link" className="mt-2" onClick={resetFilters}>{copy('reset')}</Button>}
         </div>
       );
     }
     const items = compact ? roster.items.slice(0, 4) : roster.items;
     return (
       <div className={compact ? 'divide-y divide-border' : 'divide-y divide-border px-4'}>
+        {!compact && <div className="hidden gap-3 py-3 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_12rem]" aria-hidden="true">
+          <span>{copy('employeeColumn')}</span><span>{copy('placementColumn')}</span><span className="text-right">{copy('actionsColumn')}</span>
+        </div>}
         {items.map((employee) => {
           const effectiveUnit = employee.effective_unit_id ? unitsById.get(employee.effective_unit_id) : undefined;
           return (
@@ -820,7 +873,7 @@ export function StaffWorkspace({
               data-roster-layout={compact ? 'compact' : 'full'}
               className={compact
                 ? 'grid min-w-0 gap-3 py-4'
-                : 'grid min-w-0 gap-3 py-4 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] sm:items-start'}
+                : 'grid min-w-0 gap-3 py-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_12rem] md:items-start'}
             >
               <div className="min-w-0">
                 <p className="break-words font-semibold text-foreground [overflow-wrap:anywhere]">{employee.full_name}</p>
@@ -833,9 +886,8 @@ export function StaffWorkspace({
               <div className="min-w-0 break-words text-sm [overflow-wrap:anywhere]">
                 <p>{employee.position_name || 'Должность не указана'}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{effectiveUnit ? unitLabel(effectiveUnit) : 'Без подразделения'}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Источник размещения: {placementSourceLabel(employee.placement_source)}</p>
               </div>
-              <div className={`flex min-w-0 flex-wrap gap-2 ${compact ? '' : 'sm:justify-end'}`}>
+              <div className={`flex min-w-0 flex-wrap gap-2 ${compact ? '' : 'md:justify-end'}`}>
                 <Button type="button" variant="ghost" size="sm" onClick={() => onEditEmployee({
                   id: employee.id,
                   full_name: employee.full_name,
@@ -1111,24 +1163,44 @@ export function StaffWorkspace({
         ) : (
           <Card className="min-w-0 overflow-hidden">
             <CardHeader>
-              <div className="flex flex-wrap items-center gap-2"><CardTitle>Сотрудники</CardTitle><span className="rounded-full bg-muted px-2 py-0.5 text-xs">{roster?.total ?? 0} в выборке</span></div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2"><CardTitle>{copy('title')}</CardTitle><span className="rounded-full bg-muted px-2 py-0.5 text-xs" aria-live="polite">{rosterLoading || searchPending ? copy('searching') : !rosterError && roster ? copy('found', { count: roster.total }) : ''}</span></div>
+                {(query || narrowedScope) && (rosterLoading || searchPending || !roster || roster.items.length > 0) && <Button type="button" variant="ghost" size="sm" onClick={resetFilters}>{copy('reset')}</Button>}
+              </div>
               <p className="text-sm text-muted-foreground">Фильтр «Доступ к кабинету» показывает, может ли сотрудник войти в систему. Это не кадровый статус и не признак трудоустройства.</p>
-              <form className="mt-3 grid gap-3 sm:grid-cols-2" onSubmit={(event) => { event.preventDefault(); setQuery(queryDraft); navigate({ page: 1 }); }}>
-                <label className="grid gap-1.5 text-sm">Поиск
-                  <div className="flex gap-2"><input className={inputClassName} type="search" value={queryDraft} onChange={(event) => setQueryDraft(event.target.value)} placeholder="Имя или табельный номер" /><Button type="submit" variant="outline">Найти</Button></div>
-                </label>
-                <label className="grid gap-1.5 text-sm">Должность
-                  <select className={inputClassName} value={positionFilter} onChange={(event) => { setPositionFilter(event.target.value); navigate({ page: 1 }); }}>
-                    <option value="all">Все должности</option>
-                    <option value="missing">Должность не указана</option>
+              <form className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" onSubmit={(event) => { event.preventDefault(); navigate({ query: queryDraft.trim(), page: 1 }); }}>
+                <div className="min-w-0 space-y-1.5">
+                  <label className="text-sm" htmlFor="staff-employee-search">{copy('searchLabel')}</label>
+                  <div className="flex gap-2">
+                    <div className="relative min-w-0 flex-1"><input ref={searchInput} id="staff-employee-search" aria-describedby="staff-search-hint" className={`${inputClassName} pr-10 [&::-webkit-search-cancel-button]:appearance-none`} type="search" maxLength={100} value={queryDraft} onChange={(event) => setQueryDraft(event.target.value)} placeholder={copy('placeholder')} />
+                      {queryDraft && <button type="button" aria-label={copy('clear')} onClick={clearQuery} className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><X className="h-4 w-4" aria-hidden="true" /></button>}
+                    </div>
+                    <Button type="submit" variant="outline">{copy('find')}</Button>
+                  </div>
+                  <p id="staff-search-hint" className="text-xs text-muted-foreground">{copy('hint')}</p>
+                </div>
+                <label className="grid content-start gap-1.5 text-sm">{copy('position')}
+                  <select className={inputClassName} value={positionFilter} onChange={(event) => navigate({ position: event.target.value, page: 1 })}>
+                    <option value="all">{copy('allPositions')}</option>
+                    <option value="missing">{copy('missingPosition')}</option>
                     {overview.positions.map((position) => <option key={position.id} value={position.id}>{positionLabel(position, unitsById)}</option>)}
                   </select>
                 </label>
               </form>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2">
+                <p className="min-w-0 break-words text-sm">{copy('scope', { scope: searchScope })}</p>
+                {narrowedScope && <Button type="button" variant="link" size="sm" className="h-auto whitespace-normal px-0 text-left" onClick={() => changeSearchScope({ unit: 'all', scope: 'subtree', access: 'all', position: 'all' })}>{copy('everywhere')}</Button>}
+              </div>
+              {(query || narrowedScope) && <div className="mt-2 flex flex-wrap gap-2">
+                {query && <Button type="button" variant="outline" size="sm" className="h-auto max-w-full whitespace-normal py-1 text-left" aria-label={copy('removeQuery')} onClick={clearQuery}>{copy('queryChip', { query })}<X className="ml-2 h-3 w-3 shrink-0" aria-hidden="true" /></Button>}
+                {location.unit !== 'all' && <Button type="button" variant="outline" size="sm" className="h-auto max-w-full whitespace-normal py-1 text-left" aria-label={copy('removeUnit')} onClick={() => changeSearchScope({ unit: 'all', scope: 'subtree' })}>{searchScope}<X className="ml-2 h-3 w-3 shrink-0" aria-hidden="true" /></Button>}
+                {location.access !== 'all' && <Button type="button" variant="outline" size="sm" aria-label={copy('removeAccess')} onClick={() => changeSearchScope({ access: 'all' })}>{copy(location.access === 'active' ? 'accessActive' : 'accessInactive')}<X className="ml-2 h-3 w-3" aria-hidden="true" /></Button>}
+                {positionFilter !== 'all' && <Button type="button" variant="outline" size="sm" className="h-auto max-w-full whitespace-normal py-1 text-left" aria-label={copy('removePosition')} onClick={() => changeSearchScope({ position: 'all' })}>{positionFilter === 'missing' ? copy('missingPosition') : overview.positions.find((position) => position.id === positionFilter)?.name || copy('position')}<X className="ml-2 h-3 w-3 shrink-0" aria-hidden="true" /></Button>}
+              </div>}
             </CardHeader>
             <CardContent className="p-0">
               {renderRoster()}
-              {roster && !rosterLoading && !rosterError && (
+              {roster && roster.total > 0 && !rosterLoading && !searchPending && !rosterError && (
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-4">
                   <span className="text-sm text-muted-foreground">{rosterStart}–{rosterEnd} из {roster.total} · Страница {roster.page} из {totalPages}</span>
                   <div className="flex gap-2">
