@@ -27,6 +27,22 @@ class Journal:
         assert key in self.inputs
         self.rows[key] = json.loads(json.dumps(value))
 
+    def _owned_key(self, key):
+        return key
+
+    async def inventory_versions(self, base_key):
+        from app.modules.ai.worker_lesson_cycle import PLAN_POLICY, POLICY_VERSION
+        return [dict(generation_key=key, plan_revision=f"{PLAN_POLICY}/{POLICY_VERSION}",
+                     plan_payload=deepcopy(plan), module_key="cycle", lesson_key="lesson",
+                     assessment_status="completed" if key in self.rows else "pending",
+                     assessment_payload=deepcopy(self.rows.get(key)))
+                for key, plan in self.inputs.items() if plan.get("inventory_base_key") == base_key]
+
+    async def append_inventory_version(self, key, plan, value):
+        existing = await self.prepare(key, plan)
+        assert existing is None or existing == value
+        await self.save_value(key, value)
+
 
 class Model:
     def __init__(self, values, *, auto_language=False, canonical=None):
@@ -722,8 +738,9 @@ async def test_worker_repairs_a_repeated_prior_lesson_question_and_restores_both
 
     # A completed cycle can exist when the separate inventory transaction did
     # not commit. Rebuild it from restored terminal results without inference.
-    inventory_key = next(key for key in journal.rows if key.startswith("question-prompt-inventory:"))
+    inventory_key = next(key for key in journal.rows if key.endswith(":version:1"))
     del journal.rows[inventory_key]
+    del journal.inputs[inventory_key]
     restored_model = Model([])
     restored = WorkerLessonAssessor(
         tenant_id="qa", client=restored_model, journal=journal, checkpoint=checkpoint)

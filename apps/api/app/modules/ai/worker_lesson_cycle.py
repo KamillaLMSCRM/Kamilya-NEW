@@ -15,6 +15,8 @@ from dataclasses import asdict, dataclass, replace
 from functools import wraps
 from typing import Any, TypeVar, cast
 
+from sqlalchemy import text
+
 from app.modules.ai.assessment_counter_context import full_counter_scope
 from app.modules.ai.assessment_source_context import (
     ContextProjectionError,
@@ -356,6 +358,34 @@ class WorkerCycleJournal:
         key = self._owned_key(key)
         async with self.sessions() as session:
             args = dict(tenant_id=self.tenant_id, generation_key=key, module_key="cycle", lesson_key="lesson")
+            await self.repository.checkpoint_content(session, **args, content_payload={"owned": True})
+            await self.repository.checkpoint_review(session, **args, review_payload={"policy": PLAN_POLICY})
+            await self.repository.checkpoint_assessment(session, **args, assessment_payload=value)
+            await session.commit()
+
+    async def inventory_versions(self, base_key: str) -> list[dict[str, Any]]:
+        async with self.sessions() as session:
+            await self.repository._set_tenant(session, self.tenant_id)
+            result = await session.execute(text("""
+                SELECT r.generation_key, r.plan_revision, r.plan_payload,
+                       c.module_key, c.lesson_key, c.assessment_status, c.assessment_payload
+                FROM ai_generation_runs r
+                LEFT JOIN ai_generation_lesson_checkpoints c
+                  ON c.generation_run_id = r.id AND c.tenant_id = r.tenant_id
+                WHERE r.tenant_id = CAST(:tenant_id AS uuid)
+                  AND r.source_job_id = :job_id
+                  AND r.plan_payload->>'inventory_base_key' = :base_key
+            """), {"tenant_id": self.tenant_id, "job_id": self.job_id, "base_key": base_key})
+            return [dict(row._mapping) for row in result.fetchall()]
+
+    async def append_inventory_version(self, key: str, plan: dict[str, Any], value: dict[str, Any]) -> None:
+        owned_key = self._owned_key(key)
+        async with self.sessions() as session:
+            await self.repository.create_plan(session, tenant_id=self.tenant_id,
+                generation_key=owned_key, plan_revision=f"{PLAN_POLICY}/{POLICY_VERSION}",
+                source_job_id=self.job_id, plan_payload=plan,
+                lessons=(PlannedLesson("cycle", "lesson", 0, 0),))
+            args = dict(tenant_id=self.tenant_id, generation_key=owned_key, module_key="cycle", lesson_key="lesson")
             await self.repository.checkpoint_content(session, **args, content_payload={"owned": True})
             await self.repository.checkpoint_review(session, **args, review_payload={"policy": PLAN_POLICY})
             await self.repository.checkpoint_assessment(session, **args, assessment_payload=value)
@@ -1258,7 +1288,7 @@ class WorkerLessonAssessor:
         key = "question-prompt-inventory:" + _digest(payload)
         saved = await self.journal.prepare(key, payload)
         if saved is None:
-            return key, {**payload, "packets": []}
+            saved = {**payload, "packets": []}
         if (saved.get("tenant_id") != self.tenant_id
                 or saved.get("policy") != _PROMPT_INVENTORY_POLICY
                 or saved.get("plan_policy") != self.source_plan_policy
@@ -1276,7 +1306,45 @@ class WorkerLessonAssessor:
         owners = [row["owner"] for row in saved["packets"]]
         if len(owners) != len(set(owners)):
             raise ValueError("worker_prompt_inventory_duplicate_owner")
-        return key, saved
+        # Each version is immutable. A single sequence slot is shared by all
+        # writers, so a stale concurrent result conflicts rather than bypassing
+        # the prompt history it should have reviewed.
+        versions = await self.journal.inventory_versions(key)
+        if len(versions) > 10000:
+            raise ValueError("worker_prompt_inventory_version_limit")
+        try:
+            versions.sort(key=lambda version: version["plan_payload"]["index"])
+        except (KeyError, TypeError):
+            raise ValueError("worker_prompt_inventory_version_invalid") from None
+        for index, record in enumerate(versions):
+            version_key = f"{key}:version:{index}"
+            plan = record["plan_payload"]
+            version = record["assessment_payload"]
+            if (record["generation_key"] != self.journal._owned_key(version_key)
+                    or record["plan_revision"] != f"{PLAN_POLICY}/{POLICY_VERSION}"
+                    or record["module_key"] != "cycle" or record["lesson_key"] != "lesson"
+                    or record["assessment_status"] != "completed"
+                    or not isinstance(plan, dict) or plan.get("index") != index
+                    or plan.get("policy") != _PROMPT_INVENTORY_POLICY
+                    or plan.get("inventory_base_key") != key
+                    or plan.get("previous_sha256") != _digest(saved)
+                    or not isinstance(version, dict)
+                    or version.get("previous_sha256") != plan["previous_sha256"]
+                    or not isinstance(version.get("row"), dict)):
+                raise ValueError("worker_prompt_inventory_version_invalid")
+            row = version["row"]
+            if (plan.get("owner") != row.get("owner") or plan.get("row_sha256") != _digest(row)
+                    or not isinstance(row.get("owner"), str) or not row["owner"]
+                    or row["owner"] in {item["owner"] for item in saved["packets"]}
+                    or not isinstance(row.get("previous_question_prompts"), list)
+                    or not isinstance(row.get("accepted_question_prompts"), list)
+                    or any(not isinstance(value, str) or not value.strip()
+                           for name in ("previous_question_prompts", "accepted_question_prompts")
+                           for value in row[name])
+                    or tuple(row["previous_question_prompts"]) != self._prior_prompts(saved, row["owner"])):
+                raise ValueError("worker_prompt_inventory_version_invalid")
+            saved = {**saved, "packets": [*saved["packets"], row]}
+        return f"{key}:version:{len(versions)}", saved
 
     @staticmethod
     def _prior_prompts(inventory: dict[str, Any], owner: str) -> tuple[str, ...]:
@@ -1298,12 +1366,26 @@ class WorkerLessonAssessor:
                     or tuple(existing["accepted_question_prompts"]) != accepted):
                 raise ValueError("worker_prompt_inventory_result_conflict")
             return
-        inventory["packets"].append({
+        row = {
             "owner": owner,
             "previous_question_prompts": list(previous),
             "accepted_question_prompts": list(accepted),
-        })
-        await self.journal.save_value(key, inventory)
+        }
+        if previous != self._prior_prompts(inventory, owner):
+            raise ValueError("worker_prompt_inventory_stale")
+        # Find the slot by replaying the current durable prefix. Do not infer
+        # the version from the number of legacy rows in the baseline.
+        current_key, current = await self._load_prompt_inventory()
+        if current_key != key or current != inventory:
+            raise ValueError("worker_prompt_inventory_stale")
+        base_key, index_text = key.rsplit(":version:", 1)
+        index = int(index_text)
+        plan = {"policy": _PROMPT_INVENTORY_POLICY, "inventory_base_key": base_key,
+                "index": index, "previous_sha256": _digest(inventory),
+                "owner": owner, "row_sha256": _digest(row)}
+        value = {"previous_sha256": plan["previous_sha256"], "row": row}
+        await self.journal.append_inventory_version(key, plan, value)
+        inventory["packets"].append(row)
 
     async def assess_with_teaching(self, lesson: LessonDraft, facts_by_id: dict[str, SourceFact],
                                    *, catalogs: tuple[FinalTeachingCatalog, ...]) -> BlockAssessmentResult:
@@ -1612,6 +1694,7 @@ class WorkerLessonAssessor:
             result = (await run_lesson_cycles([packet], client=client, store=store, **flags))[0]
             await self._record_prompts(key=inventory_key, inventory=inventory, owner=owner,
                                        previous=previous, result=result, packet=packet)
+            inventory_key, inventory = await self._load_prompt_inventory()
             results.append(result)
             pending_questions.extend((packet, q) for q in result.questions)
             batch_start += len(batch)
