@@ -880,7 +880,7 @@ async def test_mixed_language_requires_explicit_confirmation_before_queueing(
 
 @pytest.mark.asyncio
 async def test_multi_document_provenance_persisted_for_course_and_lessons(
-    db_session, make_tenant, make_user, monkeypatch
+    db_session, make_tenant, make_user, make_document, monkeypatch
 ):
     """Pipeline save path maps writer source_references to per-lesson
     provenance and course-level source ids for a multi-document set."""
@@ -891,7 +891,9 @@ async def test_multi_document_provenance_persisted_for_course_and_lessons(
 
     tenant = await make_tenant(name="Provenance", slug=f"prov-{uuid4().hex[:8]}")
     user = await make_user(tenant, role="methodologist")
-    doc_a, doc_b = str(uuid4()), str(uuid4())
+    first = await make_document(tenant, user, name="a.pdf")
+    second = await make_document(tenant, user, name="b.pdf")
+    doc_a, doc_b = str(first.id), str(second.id)
 
     lesson_content = LessonContent(title="Урок", objectives=["Цель"], content="# Урок")
     lesson_content.source_references = [
@@ -907,6 +909,7 @@ async def test_multi_document_provenance_persisted_for_course_and_lessons(
             user_id=user.id,
             status="running",
             stage="writer",
+            params={"documents": [doc_a, doc_b]},
         )
     )
     await db_session.flush()
