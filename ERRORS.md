@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-27.
+Current as of: 2026-10-29.
 
 ## DEV-BROKER-TLS-001 - Supported IP certificate client was not used by renewal timer
 
@@ -1386,6 +1386,21 @@ cause is retroactively promoted to fact.
 - Prevention: retain isolated subprocess regression proving one Alembic head and
   exact169/172 predecessor metadata without importing app. Do not weaken schema
   assertions or rely on caller-specific PYTHONPATH for revision discovery.
+
+## SECURITY-020 - dnspython 2.8.0 failed a refreshed dependency audit
+
+- Date: 2026-10-29; DEV candidate CI 40853187446, no production mutation.
+- Symptom: the blocking production-graph audit reported CVE-2026-114605 for
+  dnspython 2.8.0, with 2.9.0 as its fixed release.
+- Cause: the transitive dependency remained at the previously resolved version;
+  an earlier clean audit did not cover the newly disclosed advisory.
+- Fix: pin dnspython 2.9.0 in the API project and Render requirements and
+  regenerate the Poetry lock without upgrading unrelated package versions.
+- Verification: three-representation pin test and Poetry lock validation pass;
+  isolated Python 3.12 imports and parses a DNS name with 2.9.0. Fresh complete
+  dependency audit and exact-SHA CI remain required.
+- Prevention: re-audit the exact exported production graph for each release;
+  retain blocking advisories and keep all three dependency surfaces aligned.
 
 ## SECURITY-019 - multidict6.7.1 failed refreshed image dependency audit
 
