@@ -13,13 +13,17 @@ from billiard.exceptions import SoftTimeLimitExceeded
 from app.modules.ai import job_service
 
 
+def _run_task(tasks, **kwargs):
+    return tasks.generate_course_task.apply(kwargs=kwargs, task_id=kwargs["job_id"], throw=True).get()
+
+
 @pytest.mark.asyncio
 async def test_claim_generation_execution_is_atomic_and_commits():
     db = AsyncMock()
     db.execute.return_value = Mock(rowcount=1)
 
     tenant_id = uuid4()
-    claimed = await job_service.claim_generation_execution(db, "job-1", tenant_id)
+    claimed = await job_service.claim_generation_execution(db, "job-1", tenant_id, "job-1")
 
     assert claimed is True
     db.commit.assert_awaited_once()
@@ -40,13 +44,13 @@ async def test_claim_generation_execution_rejects_duplicate_or_terminal_delivery
     db = AsyncMock()
     db.execute.return_value = Mock(rowcount=rowcount)
 
-    assert await job_service.claim_generation_execution(db, "job-1", uuid4()) is False
+    assert await job_service.claim_generation_execution(db, "job-1", uuid4(), "job-1") is False
     db.commit.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_claim_generation_execution_fails_closed_without_tenant_context():
-    with pytest.raises(ValueError, match="tenant_id is required"):
+    with pytest.raises(ValueError, match="tenant_id and delivery_id are required"):
         await job_service.claim_generation_execution(AsyncMock(), "job-1")
 
 
@@ -60,6 +64,7 @@ async def test_interrupt_generation_execution_is_atomic_resumable_and_commits():
         db,
         "job-timeout",
         tenant_id,
+        "job-timeout",
     )
 
     assert interrupted is True
@@ -105,7 +110,8 @@ def test_failed_pipeline_result_is_terminal_and_not_retried(monkeypatch):
     monkeypatch.setattr(tasks, "run_generation_pipeline", failed_pipeline)
     monkeypatch.setattr(tasks, "_run_async", lambda awaitable: asyncio.run(awaitable))
 
-    result = tasks.generate_course_task.run(
+    result = _run_task(
+        tasks,
         job_id="job-1",
         documents=[],
         num_modules=1,
@@ -148,7 +154,8 @@ def test_worker_retires_old_generation_without_claiming_or_calling_providers(mon
     monkeypatch.setattr(tasks, "_run_async", lambda awaitable: asyncio.run(awaitable))
 
     tenant_id = str(uuid4())
-    result = tasks.generate_course_task.run(
+    result = _run_task(
+        tasks,
         job_id="job-retired",
         documents=[str(uuid4())],
         tenant_id=tenant_id,
@@ -162,7 +169,7 @@ def test_worker_retires_old_generation_without_claiming_or_calling_providers(mon
         "message": job_service.RETIRED_GENERATION_ENGINE_MESSAGE,
         "error_code": "generation_engine_retired",
     }
-    retired.assert_awaited_once_with(retired.await_args.args[0], "job-retired", tenant_id)
+    retired.assert_awaited_once_with(retired.await_args.args[0], "job-retired", tenant_id, "job-retired")
     claimed.assert_not_awaited()
     pipeline.assert_not_awaited()
 
@@ -192,7 +199,8 @@ def test_worker_retires_persisted_legacy_job_even_if_delivery_claims_v2(monkeypa
     monkeypatch.setattr(tasks, "_run_async", lambda awaitable: asyncio.run(awaitable))
 
     tenant_id = str(uuid4())
-    result = tasks.generate_course_task.run(
+    result = _run_task(
+        tasks,
         job_id="persisted-legacy-job",
         documents=[str(uuid4())],
         tenant_id=tenant_id,
@@ -239,7 +247,8 @@ def test_pipeline_exception_is_persisted_as_terminal_failure(monkeypatch):
     monkeypatch.setattr(tasks, "_run_async", lambda awaitable: asyncio.run(awaitable))
 
     tenant_id = str(uuid4())
-    result = tasks.generate_course_task.run(
+    result = _run_task(
+        tasks,
         job_id="job-2",
         documents=[],
         tenant_id=tenant_id,
@@ -260,6 +269,7 @@ def test_pipeline_exception_is_persisted_as_terminal_failure(monkeypatch):
         "job-2",
         "RuntimeError: generation failed",
         tenant_id,
+        "job-2",
     )
 
 
@@ -294,7 +304,8 @@ def test_soft_time_limit_is_persisted_as_resumable_interruption(monkeypatch):
     monkeypatch.setattr(tasks, "_run_async", lambda awaitable: asyncio.run(awaitable))
 
     tenant_id = str(uuid4())
-    result = tasks.generate_course_task.run(
+    result = _run_task(
+        tasks,
         job_id="job-timeout",
         documents=[],
         tenant_id=tenant_id,
@@ -314,5 +325,6 @@ def test_soft_time_limit_is_persisted_as_resumable_interruption(monkeypatch):
         interrupted.await_args.args[0],
         "job-timeout",
         tenant_id,
+        "job-timeout",
     )
     terminal_failure.assert_not_awaited()

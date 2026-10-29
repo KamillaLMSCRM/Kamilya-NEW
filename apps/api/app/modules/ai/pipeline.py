@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
 import math
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timezone
@@ -13,6 +15,8 @@ from uuid import UUID, uuid4
 from billiard.exceptions import SoftTimeLimitExceeded  # type: ignore[import-untyped]
 
 from app.core.db import async_session_factory
+from app.modules.ai import timeout_context
+from app.modules.ai.delivery_ownership import DeliveryOwnershipLostError, delivery_id, lock_owned_delivery
 from app.modules.ai.architect_schema import CourseStructure
 from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
 from app.modules.ai.direct_source import (
@@ -109,8 +113,12 @@ async def _update_job_db(
     from app.modules.ai.job_service import update_ai_job
     async with async_session_factory() as session:
         tenant_value = str(tenant_id) if tenant_id else None
+        if not tenant_value and delivery_id.get() is not None:
+            raise DeliveryOwnershipLostError("generation_delivery_ownership_lost")
         if tenant_value:
             await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_value})
+        if tenant_value:
+            await lock_owned_delivery(session, job_id, tenant_value, require_running=True)
         progress_detail_supplied = "progress_detail" in kwargs
         progress_detail = kwargs.pop("progress_detail", None)
         completion_result = kwargs.pop("completion_result", None)
@@ -147,11 +155,13 @@ async def _release_generation_reservation(
 
     from sqlalchemy import text
 
-    from app.modules.ai.job_service import release_generation_reservation_once
+    from app.modules.ai.job_service import _lock_tenant_row, release_generation_reservation_once
 
     tenant_value = str(tenant_id)
     async with async_session_factory() as session:
         await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_value})
+        await _lock_tenant_row(session, tenant_value)
+        await lock_owned_delivery(session, job_id, tenant_value, allowed_statuses=frozenset({"failed", "cancelled"}))
         released = await release_generation_reservation_once(
             session,
             job_id=job_id,
@@ -350,9 +360,9 @@ async def _run_evidence_v2_generation(
     # Evidence V2 asks the model to faithfully reorganize supplied facts. A
     # low temperature makes the strict evidence contract reproducible and
     # avoids needless failover caused by creative paraphrases.
+    from app.core.config import get_settings
     from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings, runtime_settings_scope
     from app.modules.ai.qa_luna_dev_route import qa_luna_dev_client
-    from app.core.config import get_settings
 
     policy = await resolve_runtime_settings()
     with runtime_settings_scope(policy):
@@ -496,6 +506,7 @@ async def _save_generation_to_db(
     _apply_assessment_omission_notices(state)
     async with async_session_factory() as session:
         await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
+        await lock_owned_delivery(session, state.job_id, str(tenant_id), require_running=True)
         job = await session.scalar(
             select(AIJob)
             .where(AIJob.id == state.job_id, AIJob.tenant_id == tenant_id)
@@ -861,7 +872,7 @@ async def _check_generation_source_job(job_id: str, tenant_id: UUID, documents: 
         _validate_generation_source_selection(job.params, documents)
 
 
-async def run_generation_pipeline(
+async def _run_generation_pipeline_inner(
     job_id: str,
     documents: list[str],
     target_audience: str = "",
@@ -892,6 +903,7 @@ async def run_generation_pipeline(
     )
     reservation_required = course_id is None
     initial_identity_checked = False
+    timeout_boundary = "initial_owner_check"
 
     try:
         # Before identity and selection are checked, this caller has no authority
@@ -903,11 +915,15 @@ async def run_generation_pipeline(
                 raise DirectSourceError("tenant_id_required")
             await _check_generation_source_job(job_id, tenant_id, documents, user_id)
             initial_identity_checked = True
+            if re.fullmatch(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}", str(job_id)):
+                timeout_context.job_id.set(str(job_id))
         except asyncio.CancelledError:
             raise
         except SoftTimeLimitExceeded:
             raise
         except Exception as error:
+            if isinstance(error, TimeoutError):
+                timeout_context.emit(logger, timeout_boundary)
             state.status = "failed"
             state.stage = "failed"
             state.message = GENERATION_FAILURE_MESSAGE
@@ -916,6 +932,7 @@ async def run_generation_pipeline(
         state.stage = "ingestion"
         state.progress = 5
         state.message = "Проверка исходных документов..."
+        timeout_boundary = "job_state_db"
         restored = await _update_job_db(
             job_id,
             tenant_id=tenant_id,
@@ -928,13 +945,17 @@ async def run_generation_pipeline(
         if restored is True:
             return state
 
+        timeout_boundary = "source_owner_db"
         await _check_generation_source_job(job_id, tenant_id, documents, user_id)
+        timeout_boundary = "direct_source"
         corpus = await load_direct_source_corpus(
             documents,
             tenant_id=tenant_id,
             check_cancelled=lambda: _check_cancelled_async(job_id, tenant_id=tenant_id),
         )
+        timeout_boundary = "source_owner_db"
         await _check_generation_source_job(job_id, tenant_id, documents, user_id)
+        timeout_boundary = "evidence_generation"
         await _run_evidence_v2_generation(
             state,
             corpus,
@@ -944,10 +965,12 @@ async def run_generation_pipeline(
             goals=goals,
             max_total_lessons=max_total_lessons,
         )
+        timeout_boundary = "post_generation_cancellation_check"
         await _check_cancelled_async(job_id, tenant_id=tenant_id)
         state.stage = "saving"
         state.progress = 98
         state.message = "Сохранение результатов..."
+        timeout_boundary = "saving_progress_db"
         await _update_job_db(
             job_id,
             tenant_id=tenant_id,
@@ -956,8 +979,10 @@ async def run_generation_pipeline(
             message=state.message,
             progress_detail=None,
         )
+        timeout_boundary = "assessment_export_validation"
         _require_supported_question_export_ready(state.assessment)
         if user_id:
+            timeout_boundary = "save_generation_db"
             await _save_generation_to_db(state, tenant_id, user_id)
         else:
             assert state.content is not None
@@ -967,6 +992,7 @@ async def run_generation_pipeline(
             state.progress = 100
             state.message = _generation_completion_message(state.content)
             _apply_evidence_v2_completion_outcome(state)
+            timeout_boundary = "completion_update_db"
             await _update_job_db(
                 job_id,
                 tenant_id=tenant_id,
@@ -1047,7 +1073,11 @@ async def run_generation_pipeline(
                     job_id,
                 )
         logger.info("Evidence V2 cancelled for job %s", job_id)
+    except DeliveryOwnershipLostError:
+        raise
     except Exception as error:
+        if isinstance(error, TimeoutError):
+            timeout_context.emit(logger, timeout_boundary)
         state.status = "failed"
         state.stage = "failed"
         state.message = GENERATION_FAILURE_MESSAGE
@@ -1081,3 +1111,12 @@ async def run_generation_pipeline(
             type(error).__name__,
         )
     return state
+
+
+@functools.wraps(_run_generation_pipeline_inner)
+async def run_generation_pipeline(*args: Any, **kwargs: Any) -> GenerationState:
+    token = timeout_context.job_id.set(None)
+    try:
+        return await _run_generation_pipeline_inner(*args, **kwargs)
+    finally:
+        timeout_context.job_id.reset(token)

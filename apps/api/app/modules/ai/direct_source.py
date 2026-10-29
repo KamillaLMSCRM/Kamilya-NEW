@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import inspect
 import json
+import logging
 import math
 import os
 import re
@@ -13,11 +14,12 @@ import tempfile
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, Protocol, TypeVar, cast
 from uuid import UUID
 
 import httpx
 
+from app.modules.ai import timeout_context
 from app.modules.ai.architect_schema import (
     CourseStructure,
     LearningObjective,
@@ -54,6 +56,17 @@ from app.modules.ai.source_topic_map import (
 )
 from app.modules.ai.structure_quality import course_structure_quality_issues
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
+
+_timeout_log = logging.getLogger(__name__)
+_TimeoutResult = TypeVar("_TimeoutResult")
+
+async def _observe_timeout(awaitable: Awaitable[_TimeoutResult], stage: str) -> _TimeoutResult:
+    try:
+        return await awaitable
+    except TimeoutError:
+        timeout_context.emit(_timeout_log, stage)
+        raise
+
 
 MAX_DIRECT_SOURCE_BYTES = 50 * 1024 * 1024
 MAX_DIRECT_SOURCE_DOCUMENT_CHARS = 1_000_000
@@ -846,7 +859,7 @@ async def build_direct_source_corpus(
         if int(document.size or 0) > max_source_bytes:
             raise DirectSourceError("direct_source_too_large", (document_id,))
 
-        blob = await asyncio.to_thread(storage.get_bytes, storage_key)
+        blob = await _observe_timeout(asyncio.to_thread(storage.get_bytes, storage_key), "storage_read")
         if blob is None:
             raise DirectSourceError("direct_source_blob_missing", (document_id,))
         if len(blob) > max_source_bytes:
@@ -866,9 +879,9 @@ async def build_direct_source_corpus(
                 source_file.write(blob)
                 temp_path = source_file.name
             if review_document:
-                converted = await source_converter.convert(temp_path, source_review_enabled=True)
+                converted = await _observe_timeout(source_converter.convert(temp_path, source_review_enabled=True), "source_converter")
             else:
-                converted = await source_converter.convert(temp_path)
+                converted = await _observe_timeout(source_converter.convert(temp_path), "source_converter")
         except DirectSourceError:
             raise
         except Exception as exc:
@@ -973,19 +986,19 @@ async def load_direct_source_corpus(
         raise DirectSourceError("documents_required")
     await _checkpoint(check_cancelled)
     async with async_session_factory() as session:
-        await session.execute(
+        await _observe_timeout(session.execute(
             text("SELECT set_current_tenant(:tenant_id)"),
             {"tenant_id": tenant_value},
-        )
+        ), "source_db_tenant")
         documents = (
             (
-                await session.execute(
+                await _observe_timeout(session.execute(
                     select(Document).where(
                         Document.tenant_id == parsed_tenant,
                         Document.id.in_(parsed_ids),
                         Document.lifecycle_status == "active",
                     )
-                )
+                ), "source_db_document_select")
             )
             .scalars()
             .all()

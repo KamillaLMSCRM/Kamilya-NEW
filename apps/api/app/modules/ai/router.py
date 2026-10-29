@@ -40,6 +40,7 @@ from app.modules.ai.generation_engine import (
 from app.modules.ai.job_service import (
     AIJobAdmissionLimitReachedError,
     AIJobSubmissionUnavailableError,
+    _lock_tenant_row,
     build_ai_job_queue_metadata,
     get_ai_job,
     is_resumable_generation_job,
@@ -702,6 +703,31 @@ async def get_job(
     return await _job_response(db, job)
 
 
+async def _cleanup_cancelled_generation_reservation(
+    db: AsyncSession, job_id: str, user: User, tenant_id: UUID
+) -> None:
+    """Rebind the caller and prove cancellation/refund in the current transaction."""
+    from app.core.auth import _set_tenant_security_context, _set_user_security_context
+
+    if user.id is None:
+        raise ValueError("cancellation_security_context_missing")
+    tenant = str(tenant_id)
+    await _set_tenant_security_context(db, tenant)
+    await _set_user_security_context(db, user.id)
+    await _lock_tenant_row(db, tenant_id)
+    job = await get_ai_job(db, job_id, tenant_id=tenant, for_update=True)
+    if job is None or job.status != "cancelled":
+        raise ValueError("cancelled_job_unverified")
+    await release_generation_reservation_once(db, job_id=job_id, tenant_id=tenant)
+    params: dict[str, Any] = job.params if isinstance(job.params, dict) else {}
+    required = params.get("generation_reservation_required") is True or (
+        "documents" in params and not params.get("action")
+    )
+    if job.course_id is None and required and params.get("generation_reservation_released") is not True:
+        raise ValueError("reservation_cleanup_unverified")
+    await db.commit()
+
+
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_generation(
     job_id: str,
@@ -709,23 +735,31 @@ async def cancel_generation(
     user: User = Depends(require_ai_job_access),
 ):
     """Cancel a running generation job."""
+    from app.core.auth import _set_tenant_security_context, _set_user_security_context
+
+    if getattr(user, "id", None) is None:
+        raise HTTPException(status_code=403, detail="Cancellation scope unavailable")
+    tenant_id = user.tenant_id
+    if tenant_id is None:
+        if user.role != "superadmin":
+            raise HTTPException(status_code=403, detail="Cancellation scope unavailable")
+        # Global read takes no row lock; then bind and recheck under ordered locks.
+        visible = await get_ai_job(db, job_id, tenant_id=None)
+        if visible is None or visible.tenant_id is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+        tenant_id = visible.tenant_id
+        await _set_tenant_security_context(db, str(tenant_id))
+        await _set_user_security_context(db, user.id)
+    await _lock_tenant_row(db, tenant_id)
     job = await get_ai_job(
-        db,
-        job_id,
-        tenant_id=str(user.tenant_id) if user.tenant_id else None,
-        for_update=True,
+        db, job_id, tenant_id=str(tenant_id), for_update=True,
     )
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
     if job.status == "cancelled":
         try:
-            await release_generation_reservation_once(
-                db,
-                job_id=job_id,
-                tenant_id=str(user.tenant_id) if user.tenant_id else None,
-            )
-            await db.commit()
+            await _cleanup_cancelled_generation_reservation(db, job_id, user, tenant_id)
         except Exception as exc:
             await db.rollback()
             raise HTTPException(
@@ -741,7 +775,7 @@ async def cancel_generation(
     await update_ai_job(
         db,
         job_id,
-        tenant_id=str(user.tenant_id) if user.tenant_id else None,
+        tenant_id=str(tenant_id),
         status="cancelled",
         stage="cancelled",
         message="Cancelled by user",
@@ -749,12 +783,7 @@ async def cancel_generation(
     )
     await db.commit()
     try:
-        await release_generation_reservation_once(
-            db,
-            job_id=job_id,
-            tenant_id=str(user.tenant_id) if user.tenant_id else None,
-        )
-        await db.commit()
+        await _cleanup_cancelled_generation_reservation(db, job_id, user, tenant_id)
     except Exception as exc:
         await db.rollback()
         logger.exception(

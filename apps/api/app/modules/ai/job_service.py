@@ -9,13 +9,14 @@ from datetime import UTC, datetime
 from typing import Any, Literal, Protocol, cast
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select, text, update
+from sqlalchemy import and_, false, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ai_job import AIJob
 from app.models.tenants import Tenant
 from app.modules.ai.generation_engine import (
     CURRENT_GENERATION_ENGINE,
+    CURRENT_SOURCE_ANALYSIS_MODE,
     RETIRED_GENERATION_ENGINE_CODE,
     RETIRED_GENERATION_ENGINE_MESSAGE,
     job_uses_current_generation_engine,
@@ -374,23 +375,34 @@ async def release_generation_reservation_once(
     return True
 
 
+def _generation_delivery_predicate(job_id: str, delivery_id: str) -> Any:
+    """Match the active delivery; old initial jobs used the job ID as task ID."""
+    stored = AIJob.result["delivery_task_id"].as_string()
+    resume_count = AIJob.result["resume_count"].as_integer()
+    legacy_initial = and_(stored.is_(None), or_(resume_count.is_(None), resume_count == 0)) if delivery_id == job_id else false()
+    return or_(stored == delivery_id, legacy_initial)
+
+
 async def claim_generation_execution(
-    db: AsyncSession, job_id: str, tenant_id: str | None = None
+    db: AsyncSession, job_id: str, tenant_id: str | None = None, delivery_id: str | None = None
 ) -> bool:
     """Atomically claim one pending generation delivery.
 
     Celery is at-least-once. The durable job row is the execution seam: only
     the delivery that changes ``pending`` to ``running`` may call providers.
     """
-    if tenant_id is None:
-        raise ValueError("tenant_id is required for worker generation execution")
+    if tenant_id is None or not isinstance(delivery_id, str) or not delivery_id:
+        raise ValueError("tenant_id and delivery_id are required for worker generation execution")
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
     predicates = [
         AIJob.id == job_id,
         AIJob.status == "pending",
         AIJob.tenant_id == tenant_id,
+        _generation_delivery_predicate(job_id, delivery_id),
         AIJob.params["source_analysis"]["generation_engine"].as_string()
         == CURRENT_GENERATION_ENGINE,
+        AIJob.params["source_analysis"]["analysis_mode"].as_string()
+        == CURRENT_SOURCE_ANALYSIS_MODE,
     ]
     result = await db.execute(
         update(AIJob).where(*predicates).values(
@@ -404,13 +416,38 @@ async def claim_generation_execution(
     return bool(result.rowcount)
 
 
+async def interrupt_pending_generation_execution(
+    db: AsyncSession, job_id: str, tenant_id: str | None, delivery_id: str | None
+) -> bool:
+    """Hold only an unclaimed, current delivery for explicit manual resume."""
+    if tenant_id is None or not isinstance(delivery_id, str) or not delivery_id:
+        raise ValueError("tenant_id and delivery_id are required for worker generation execution")
+    await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
+    result = await db.execute(
+        update(AIJob).where(
+            AIJob.id == job_id,
+            AIJob.tenant_id == tenant_id,
+            AIJob.status == "pending",
+            _generation_delivery_predicate(job_id, delivery_id),
+            AIJob.params["source_analysis"]["generation_engine"].as_string() == CURRENT_GENERATION_ENGINE,
+            AIJob.params["source_analysis"]["analysis_mode"].as_string() == CURRENT_SOURCE_ANALYSIS_MODE,
+        ).values(
+            status="interrupted", stage="interrupted", message=GENERATION_INTERRUPTED_MESSAGE,
+            errors=["generation_interrupted"], completed_at=None, updated_at=datetime.now(UTC),
+        )
+    )
+    await db.commit()
+    return bool(getattr(result, "rowcount", 0))
+
+
 async def retire_legacy_generation_execution(
-    db: AsyncSession, job_id: str, tenant_id: str | None = None
+    db: AsyncSession, job_id: str, tenant_id: str | None = None, delivery_id: str | None = None
 ) -> bool:
     """Fail an old queued job before providers run and refund its reservation once."""
-    if tenant_id is None:
-        raise ValueError("tenant_id is required for worker generation execution")
+    if tenant_id is None or not isinstance(delivery_id, str) or not delivery_id:
+        raise ValueError("tenant_id and delivery_id are required for worker generation execution")
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
+    await _lock_tenant_row(db, tenant_id)
     now = datetime.now(UTC)
     result = await db.execute(
         update(AIJob)
@@ -418,6 +455,13 @@ async def retire_legacy_generation_execution(
             AIJob.id == job_id,
             AIJob.status == "pending",
             AIJob.tenant_id == tenant_id,
+            _generation_delivery_predicate(job_id, delivery_id),
+            or_(
+                AIJob.params["source_analysis"]["generation_engine"].as_string().is_(None),
+                AIJob.params["source_analysis"]["generation_engine"].as_string() != CURRENT_GENERATION_ENGINE,
+                AIJob.params["source_analysis"]["analysis_mode"].as_string().is_(None),
+                AIJob.params["source_analysis"]["analysis_mode"].as_string() != CURRENT_SOURCE_ANALYSIS_MODE,
+            ),
         )
         .values(
             status="failed",
@@ -440,13 +484,14 @@ async def retire_legacy_generation_execution(
 
 
 async def fail_claimed_generation_execution(
-    db: AsyncSession, job_id: str, message: str, tenant_id: str | None = None
+    db: AsyncSession, job_id: str, message: str, tenant_id: str | None = None, delivery_id: str | None = None
 ) -> bool:
     """Terminally fail only the execution this worker previously claimed."""
-    if tenant_id is None:
-        raise ValueError("tenant_id is required for worker generation execution")
+    if tenant_id is None or not isinstance(delivery_id, str) or not delivery_id:
+        raise ValueError("tenant_id and delivery_id are required for worker generation execution")
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
-    predicates = [AIJob.id == job_id, AIJob.status == "running", AIJob.tenant_id == tenant_id]
+    predicates = [AIJob.id == job_id, AIJob.status == "running", AIJob.tenant_id == tenant_id,
+                  _generation_delivery_predicate(job_id, delivery_id)]
     result = await db.execute(
         update(AIJob).where(*predicates).values(
             status="failed", stage="failed", message=message,
@@ -458,13 +503,14 @@ async def fail_claimed_generation_execution(
 
 
 async def interrupt_claimed_generation_execution(
-    db: AsyncSession, job_id: str, tenant_id: str | None = None
+    db: AsyncSession, job_id: str, tenant_id: str | None = None, delivery_id: str | None = None
 ) -> bool:
     """Make a claimed generation resumable after a worker soft time limit."""
-    if tenant_id is None:
-        raise ValueError("tenant_id is required for worker generation execution")
+    if tenant_id is None or not isinstance(delivery_id, str) or not delivery_id:
+        raise ValueError("tenant_id and delivery_id are required for worker generation execution")
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
-    predicates = [AIJob.id == job_id, AIJob.status == "running", AIJob.tenant_id == tenant_id]
+    predicates = [AIJob.id == job_id, AIJob.status == "running", AIJob.tenant_id == tenant_id,
+                  _generation_delivery_predicate(job_id, delivery_id)]
     result = await db.execute(
         update(AIJob).where(*predicates).values(
             status="interrupted",

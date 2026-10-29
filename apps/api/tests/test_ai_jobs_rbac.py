@@ -137,7 +137,7 @@ async def test_cross_tenant_job_id_is_not_found(handler_name: str):
     from app.modules.ai import router as ai_router
 
     tenant_id = uuid4()
-    user = SimpleNamespace(tenant_id=tenant_id, role="methodologist")
+    user = SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist")
     db = AsyncMock()
     lookup = AsyncMock(return_value=None)
 
@@ -157,10 +157,15 @@ async def test_cancel_generation_persists_terminal_state_and_revokes_worker_task
     from app.modules.ai import router as ai_router
 
     tenant_id = uuid4()
-    user = SimpleNamespace(tenant_id=tenant_id, role="methodologist")
+    user = SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist")
     db = AsyncMock()
-    job = SimpleNamespace(id="job-1", status="running")
-    update_job = AsyncMock(return_value=job)
+    job = SimpleNamespace(id="job-1", status="running", course_id=None, params={})
+
+    async def cancel_job(*args, **kwargs):
+        job.status = "cancelled"
+        return job
+
+    update_job = AsyncMock(side_effect=cancel_job)
     release = AsyncMock(return_value=True)
 
     with (
@@ -185,9 +190,9 @@ async def test_cancel_generation_is_idempotent_for_cancelled_job():
     from app.modules.ai import router as ai_router
 
     tenant_id = uuid4()
-    user = SimpleNamespace(tenant_id=tenant_id, role="methodologist")
+    user = SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist")
     db = AsyncMock()
-    job = SimpleNamespace(id="job-1", status="cancelled")
+    job = SimpleNamespace(id="job-1", status="cancelled", course_id=None, params={})
     update_job = AsyncMock()
     release = AsyncMock(return_value=False)
 
@@ -211,9 +216,9 @@ async def test_cancelled_job_retries_failed_reservation_cleanup():
     from app.modules.ai import router as ai_router
 
     tenant_id = uuid4()
-    user = SimpleNamespace(tenant_id=tenant_id, role="methodologist")
+    user = SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist")
     db = AsyncMock()
-    job = SimpleNamespace(id="job-retry", status="cancelled")
+    job = SimpleNamespace(id="job-retry", status="cancelled", course_id=None, params={})
     release = AsyncMock(side_effect=[RuntimeError("temporary"), True])
 
     with (

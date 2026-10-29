@@ -63,8 +63,27 @@ try:
         reuse_reason: str | None = None,
     ):
         """Celery task to run the full generation pipeline."""
+        delivery_id = getattr(self.request, "id", None)
+        if not isinstance(delivery_id, str) or not delivery_id:
+            logger.warning("Generation claim outcome unknown: missing delivery identity")
+            return {"job_id": job_id, "status": "claim_outcome_unknown"}
         logger.info(f"Starting generation task for job {job_id}")
 
+        def hold_unclaimed() -> bool:
+            try:
+                from app.core.db import async_session_factory
+                from app.modules.ai.job_service import interrupt_pending_generation_execution
+
+                async def hold() -> bool:
+                    async with async_session_factory() as session:
+                        return await interrupt_pending_generation_execution(session, job_id, tenant_id, delivery_id)
+
+                return _run_async(hold())
+            except Exception:
+                logger.warning("Generation claim outcome unknown: pending hold unavailable")
+                return False
+
+        claimed_execution = False
         try:
             from app.core.db import async_session_factory
             from app.modules.ai.generation_engine import (
@@ -83,10 +102,12 @@ try:
                         session,
                         job_id,
                         tenant_id,
+                        delivery_id,
                     )
 
             if not uses_current_generation_engine(source_analysis):
-                _run_async(retire())
+                if not _run_async(retire()):
+                    return {"job_id": job_id, "status": "skipped"}
                 return {
                     "job_id": job_id,
                     "status": "failed",
@@ -96,7 +117,7 @@ try:
 
             async def claim() -> bool:
                 async with async_session_factory() as session:
-                    return await claim_generation_execution(session, job_id, tenant_id)
+                    return await claim_generation_execution(session, job_id, tenant_id, delivery_id)
 
             if not _run_async(claim()):
                 if _run_async(retire()):
@@ -109,27 +130,34 @@ try:
                 logger.info("Skipping duplicate or terminal generation delivery for job %s", job_id)
                 return {"job_id": job_id, "status": "skipped"}
 
-            result = _run_async(
-                run_generation_pipeline(
-                    job_id=job_id,
-                    documents=documents,
-                    target_audience=target_audience,
-                    num_modules=num_modules,
-                    lessons_per_module=lessons_per_module,
-                    max_total_lessons=max_total_lessons,
-                    language=language,
-                    goals=goals,
-                    course_hours=course_hours,
-                    guidance=guidance,
-                    course_id=course_id,
-                    tenant_id=UUID(tenant_id) if tenant_id else None,
-                    user_id=UUID(user_id) if user_id else None,
-                    source_strategy=source_strategy,
-                    combination_goal=combination_goal,
-                    source_analysis=source_analysis,
-                    reuse_reason=reuse_reason,
+            claimed_execution = True
+            from app.modules.ai import delivery_ownership
+
+            ownership_token = delivery_ownership.delivery_id.set(delivery_id)
+            try:
+                result = _run_async(
+                    run_generation_pipeline(
+                        job_id=job_id,
+                        documents=documents,
+                        target_audience=target_audience,
+                        num_modules=num_modules,
+                        lessons_per_module=lessons_per_module,
+                        max_total_lessons=max_total_lessons,
+                        language=language,
+                        goals=goals,
+                        course_hours=course_hours,
+                        guidance=guidance,
+                        course_id=course_id,
+                        tenant_id=UUID(tenant_id) if tenant_id else None,
+                        user_id=UUID(user_id) if user_id else None,
+                        source_strategy=source_strategy,
+                        combination_goal=combination_goal,
+                        source_analysis=source_analysis,
+                        reuse_reason=reuse_reason,
+                    )
                 )
-            )
+            finally:
+                delivery_ownership.delivery_id.reset(ownership_token)
 
             if result.status == "failed":
                 # ``run_generation_pipeline`` owns durable diagnostics and
@@ -150,6 +178,11 @@ try:
             }
 
         except SoftTimeLimitExceeded:
+            if not claimed_execution:
+                if hold_unclaimed():
+                    return {"job_id": job_id, "status": "interrupted"}
+                logger.warning("Generation claim outcome unknown: preclaim soft timeout")
+                return {"job_id": job_id, "status": "claim_outcome_unknown"}
             from app.core.db import async_session_factory
             from app.modules.ai.job_service import (
                 GENERATION_INTERRUPTED_MESSAGE,
@@ -162,9 +195,11 @@ try:
                         session,
                         job_id,
                         tenant_id,
+                        delivery_id,
                     )
 
-            _run_async(interrupt_claimed())
+            if not _run_async(interrupt_claimed()):
+                return {"job_id": job_id, "status": "claim_outcome_unknown"}
             logger.warning("Generation task reached its soft time limit for job %s", job_id)
             return {
                 "job_id": job_id,
@@ -173,6 +208,11 @@ try:
             }
 
         except Exception as e:
+            if not claimed_execution:
+                if hold_unclaimed():
+                    return {"job_id": job_id, "status": "interrupted"}
+                logger.warning("Generation claim outcome unknown: preclaim error")
+                return {"job_id": job_id, "status": "claim_outcome_unknown"}
             error_message = f"{type(e).__name__}: generation failed"
             logger.error(
                 "Generation task failed for job %s error_type=%s",
@@ -187,9 +227,10 @@ try:
 
             async def fail_claimed() -> bool:
                 async with async_session_factory() as session:
-                    return await fail_claimed_generation_execution(session, job_id, error_message, tenant_id)
+                    return await fail_claimed_generation_execution(session, job_id, error_message, tenant_id, delivery_id)
 
-            _run_async(fail_claimed())
+            if not _run_async(fail_claimed()):
+                return {"job_id": job_id, "status": "claim_outcome_unknown"}
             return {"job_id": job_id, "status": "failed", "message": error_message}
 
     @celery_app.task(bind=True, name="ai.regenerate_module", max_retries=2)

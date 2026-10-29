@@ -343,9 +343,18 @@ class WorkerCycleJournal:
         self.tenant_id, self.job_id, self.sessions = tenant_id, job_id, session_factory
         self.repository = AIGenerationCheckpointRepository()
 
+    async def _lock_delivery(self, session: Any) -> None:
+        from app.modules.ai.delivery_ownership import DeliveryOwnershipLostError, delivery_id, lock_owned_delivery
+
+        if delivery_id.get() is None:
+            raise DeliveryOwnershipLostError("generation_delivery_identity_missing")
+        await self.repository._set_tenant(session, self.tenant_id)
+        await lock_owned_delivery(session, self.job_id, self.tenant_id, require_running=True)
+
     async def prepare(self, key: str, payload: dict[str, Any]) -> dict[str, Any] | None:
         key = self._owned_key(key)
         async with self.sessions() as session:
+            await self._lock_delivery(session)
             await self.repository.create_plan(session, tenant_id=self.tenant_id,
                 generation_key=key, plan_revision=f"{PLAN_POLICY}/{POLICY_VERSION}",
                 source_job_id=self.job_id, plan_payload=payload,
@@ -357,6 +366,7 @@ class WorkerCycleJournal:
     async def save_value(self, key: str, value: dict[str, Any]) -> None:
         key = self._owned_key(key)
         async with self.sessions() as session:
+            await self._lock_delivery(session)
             args = dict(tenant_id=self.tenant_id, generation_key=key, module_key="cycle", lesson_key="lesson")
             await self.repository.checkpoint_content(session, **args, content_payload={"owned": True})
             await self.repository.checkpoint_review(session, **args, review_payload={"policy": PLAN_POLICY})
@@ -381,6 +391,7 @@ class WorkerCycleJournal:
     async def append_inventory_version(self, key: str, plan: dict[str, Any], value: dict[str, Any]) -> None:
         owned_key = self._owned_key(key)
         async with self.sessions() as session:
+            await self._lock_delivery(session)
             await self.repository.create_plan(session, tenant_id=self.tenant_id,
                 generation_key=owned_key, plan_revision=f"{PLAN_POLICY}/{POLICY_VERSION}",
                 source_job_id=self.job_id, plan_payload=plan,

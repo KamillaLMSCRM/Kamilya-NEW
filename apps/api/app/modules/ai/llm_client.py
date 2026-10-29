@@ -56,6 +56,7 @@ from app.modules.admin.model_routing.catalog import (
 from app.modules.admin.model_routing.chatgpt_reserve import configuration_blocker
 from app.modules.admin.model_routing.runtime import resolve_runtime_generation_model_order
 from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
+from app.modules.ai import timeout_context
 from app.modules.ai.embedding_space import EmbeddingSpace
 
 RequestProfile = Literal["evidence_low", "course_generation"]
@@ -655,11 +656,15 @@ class _BaseProviderClient:
                     observation = _transport_observation.get()
                     if observation is not None and not observation._closed:
                         observation.observed_post_invocations += 1
-                    resp = await client.post(
-                        f"{self.config.base_url}{self.config.endpoint}",
-                        json=payload,
-                        headers={"Authorization": f"Bearer {self.config.api_key}"},
-                    )
+                    try:
+                        resp = await client.post(
+                            f"{self.config.base_url}{self.config.endpoint}",
+                            json=payload,
+                            headers={"Authorization": f"Bearer {self.config.api_key}"},
+                        )
+                    except (TimeoutError, httpx.TimeoutException):
+                        timeout_context.emit(logger, "provider_http_post")
+                        raise
             except httpx.TimeoutException as e:
                 last_exc = e
                 wait = min(2**attempt, 8)
