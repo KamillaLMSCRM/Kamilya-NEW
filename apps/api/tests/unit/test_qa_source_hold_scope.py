@@ -14,6 +14,9 @@ def test_hold_scope_is_explicit_dev_qa_only(monkeypatch):
         AI_LESSON_CYCLE_DEV_ENABLED=True, AI_LESSON_CYCLE_DEV_TENANTS=[str(QA_TENANT)])
     monkeypatch.setattr("app.core.config.get_settings", lambda: settings)
     assert qa_source_holds_enabled(QA_TENANT)
+    settings.DEPLOYMENT_ENVIRONMENT = "render-development-worker"
+    assert qa_source_holds_enabled(QA_TENANT)
+    settings.DEPLOYMENT_ENVIRONMENT = "render-development"
     assert not qa_source_holds_enabled(uuid4())
     settings.AI_QA_LUNA_DEV_ENABLED = False
     assert not qa_source_holds_enabled(QA_TENANT)

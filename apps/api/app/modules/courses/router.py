@@ -312,11 +312,11 @@ async def review_course(
     and review_comment. Designed for the AI-generation review step where
     the methodologist validates the AI's output before it goes to staff.
     """
-    from app.modules.courses.source_uncertainty import qa_source_holds_enabled
+    from app.modules.courses.source_uncertainty import is_qa_source_tenant, qa_source_holds_enabled
 
     qa_source_guard = req.review_status == "approved" and qa_source_holds_enabled(user.tenant_id)
     query = select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
-    if qa_source_guard:
+    if req.review_status == "approved" and is_qa_source_tenant(user.tenant_id):
         query = query.with_for_update().execution_options(populate_existing=True)
     result = await db.execute(query)
     course = result.scalar_one_or_none()
@@ -324,8 +324,13 @@ async def review_course(
         raise HTTPException(status_code=404, detail="Course not found")
 
     if req.review_status == "approved":
-        from app.modules.courses.source_uncertainty import require_source_uncertainty_clear
+        from app.modules.courses.source_uncertainty import (
+            require_persisted_source_hold_clear,
+            require_source_uncertainty_clear,
+        )
 
+        if is_qa_source_tenant(user.tenant_id):
+            require_persisted_source_hold_clear(course.source_analysis)
         if qa_source_guard:
             require_source_uncertainty_clear(course.source_analysis)
         from app.modules.courses.blueprint_service import (
@@ -463,8 +468,15 @@ async def publish_course(
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    from app.modules.courses.source_uncertainty import qa_source_holds_enabled, require_source_uncertainty_clear
+    from app.modules.courses.source_uncertainty import (
+        is_qa_source_tenant,
+        qa_source_holds_enabled,
+        require_persisted_source_hold_clear,
+        require_source_uncertainty_clear,
+    )
 
+    if is_qa_source_tenant(user.tenant_id):
+        require_persisted_source_hold_clear(course.source_analysis)
     qa_source_guard = qa_source_holds_enabled(user.tenant_id)
     if qa_source_guard:
         require_source_uncertainty_clear(course.source_analysis)

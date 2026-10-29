@@ -715,7 +715,7 @@ class _Storage(Protocol):
 
 
 class _Converter(Protocol):
-    async def convert(self, file_path: str) -> dict[str, Any]: ...
+    async def convert(self, file_path: str, *, source_review_enabled: bool = False) -> dict[str, Any]: ...
 
 
 @dataclass(frozen=True)
@@ -741,6 +741,8 @@ class DirectSourceDocument:
     chunks: tuple[DirectSourceChunk, ...]
     conversion_fidelity: ConversionFidelity = field(default_factory=ConversionFidelity.unverified)
     editorial_document: SourceEditorialDocument | None = None
+    review_only_source_context: tuple[dict[str, str], ...] = ()
+    review_only_source_unresolved: bool = False
 
 
 @dataclass(frozen=True)
@@ -824,6 +826,8 @@ async def build_direct_source_corpus(
         storage = get_storage()
     source_converter = converter or DocumentConverter()
     tenant_value = str(tenant_id)
+    from app.modules.courses.source_uncertainty import qa_source_holds_enabled
+    review_experiment_enabled = qa_source_holds_enabled(tenant_id)
     converted_documents: list[DirectSourceDocument] = []
     total_chars = 0
     total_chunks = 0
@@ -851,6 +855,7 @@ async def build_direct_source_corpus(
             raise DirectSourceError("direct_source_hash_mismatch", (document_id,))
 
         suffix = Path(str(document.filename or "")).suffix.lower()
+        review_document = review_experiment_enabled and suffix == ".pdf"
         temp_path: str | None = None
         try:
             with tempfile.NamedTemporaryFile(
@@ -860,7 +865,10 @@ async def build_direct_source_corpus(
             ) as source_file:
                 source_file.write(blob)
                 temp_path = source_file.name
-            converted = await source_converter.convert(temp_path)
+            if review_document:
+                converted = await source_converter.convert(temp_path, source_review_enabled=True)
+            else:
+                converted = await source_converter.convert(temp_path)
         except DirectSourceError:
             raise
         except Exception as exc:
@@ -875,6 +883,14 @@ async def build_direct_source_corpus(
         markdown = converted.get("markdown") if isinstance(converted, dict) else None
         metadata = converted.get("metadata") if isinstance(converted, dict) else None
         fidelity = ConversionFidelity.from_metadata(metadata)
+        from app.modules.ai.source_review_context import extract_review_only_candidates, has_review_only_unresolved
+        try:
+            review_only_context = (extract_review_only_candidates(metadata, expected_sha)
+                                   if review_document else ())
+            review_only_unresolved = (has_review_only_unresolved(metadata, expected_sha)
+                                      if review_document else False)
+        except ValueError as exc:
+            raise DirectSourceError("direct_source_review_context_invalid", (document_id,)) from exc
         if fidelity.admission_blocked:
             raise DirectSourceError("direct_source_fidelity_degraded", (document_id,))
         if not isinstance(markdown, str) or not markdown.strip():
@@ -917,6 +933,8 @@ async def build_direct_source_corpus(
                 source_revision=source_revision,
                 chunks=chunks,
                 conversion_fidelity=fidelity,
+                review_only_source_context=review_only_context,
+                review_only_source_unresolved=review_only_unresolved,
                 editorial_document=editorial_document,
             )
         )

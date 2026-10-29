@@ -64,7 +64,7 @@ class DocumentConverter:
     def __init__(self, base_url: str | None = None):
         self.base_url = (base_url or DOCLING_URL).rstrip("/")
 
-    async def convert(self, file_path: str) -> dict[str, Any]:
+    async def convert(self, file_path: str, *, source_review_enabled: bool = False) -> dict[str, Any]:
         """Convert document to markdown + metadata."""
         filename = os.path.basename(file_path)
         ext = Path(file_path).suffix.lower()
@@ -88,12 +88,18 @@ class DocumentConverter:
         # a dead external service before the local fallback could run.
         try:
             if not self.base_url:
+                if source_review_enabled:
+                    raise RuntimeError("qa_source_review_converter_unavailable")
                 return await _local_convert(file_path)
             import httpx
 
             with open(file_path, "rb") as f:
+                expected_sha = hashlib.file_digest(f, "sha256").hexdigest() if source_review_enabled else None
+                f.seek(0)
                 files = {"file": (filename, f, "application/octet-stream")}
-                headers = {"X-Docling-Key": DOCLING_API_KEY} if DOCLING_API_KEY else None
+                headers = {"X-Docling-Key": DOCLING_API_KEY} if DOCLING_API_KEY else {}
+                if source_review_enabled:
+                    headers["X-Source-Review-Candidate"] = "qa"
                 async with httpx.AsyncClient(timeout=DOCLING_TIMEOUT_SECONDS) as client:
                     resp = await client.post(
                         f"{self.base_url}/convert",
@@ -102,6 +108,17 @@ class DocumentConverter:
                     )
                     resp.raise_for_status()
                     data = resp.json()
+                    if source_review_enabled:
+                        metadata = data.get("conversion_metadata")
+                        capability = metadata.get("source_review_capability") if isinstance(metadata, dict) else None
+                        if (not isinstance(capability, dict)
+                                or capability.get("policy") != "qa-source-review-v1"
+                                or capability.get("outcome") not in ("applied", "not_applicable_digital")
+                                or capability.get("source_sha256") != expected_sha):
+                            raise ValueError("qa_source_review_capability_mismatch")
+                        f.seek(0)
+                        if hashlib.file_digest(f, "sha256").hexdigest() != expected_sha:
+                            raise ValueError("qa_source_review_input_changed")
                     recovered_tables = 0
                     if ext == ".pdf" and data.get("engine") == "markitdown":
                         data["markdown"], recovered_tables = await asyncio.to_thread(
@@ -123,6 +140,9 @@ class DocumentConverter:
                             ),
                             "profile": data.get("profile"),
                             "routing_reason": data.get("routing_reason"),
+                            **({key: metadata[key] for key in (
+                                "review_only_source_composites", "review_only_source_unresolved"
+                            ) if key in metadata} if source_review_enabled and isinstance(metadata, dict) else {}),
                         },
                     }
         except PDFTableLayoutError as exc:
@@ -135,6 +155,8 @@ class DocumentConverter:
                 "PDF table relationships could not be verified from the source."
             ) from exc
         except Exception as e:
+            if source_review_enabled:
+                raise RuntimeError("qa_source_review_converter_unavailable") from e
             response = getattr(e, "response", None)
             status_code = getattr(response, "status_code", "unknown")
             logger.warning(

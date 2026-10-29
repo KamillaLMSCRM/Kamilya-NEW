@@ -36,7 +36,7 @@ from app.modules.ai.llm_client import (
     ResilientLLMClient,
 )
 from app.modules.ai.writer_schema import CourseContent
-from app.modules.courses.source_uncertainty import preserve_source_uncertainty
+from app.modules.courses.source_uncertainty import preserve_generated_source_uncertainty
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +93,7 @@ class GenerationState:
     source_strategy: str = "single_topic"
     source_combination_goal: str = ""
     source_analysis: dict = field(default_factory=dict)
+    server_source_review_required: bool = False
     reuse_reason: str | None = None
 
 
@@ -445,6 +446,7 @@ async def _run_evidence_v2_generation(
             tenant_id=tenant_id,
         ),
     )
+    state.server_source_review_required = any(document.review_only_source_context or document.review_only_source_unresolved for document in generated.corpus.documents)
     artifacts = to_generation_artifacts(generated)
     state.structure = artifacts.structure
     state.content = artifacts.content
@@ -525,11 +527,11 @@ async def _save_generation_to_db(
                 source_document_ids=state.source_document_ids,
                 source_strategy=state.source_strategy,
                 source_combination_goal=state.source_combination_goal or None,
-                source_analysis=preserve_source_uncertainty({}, (
+                source_analysis=preserve_generated_source_uncertainty({}, (
                     {**state.source_analysis, "reuse_reason": state.reuse_reason}
                     if state.reuse_reason
                     else state.source_analysis
-                )),
+                ), source_review_required=state.server_source_review_required),
             )
             session.add(course)
             await session.flush()
@@ -551,11 +553,11 @@ async def _save_generation_to_db(
             course.source_document_ids = state.source_document_ids
             course.source_strategy = state.source_strategy
             course.source_combination_goal = state.source_combination_goal or None
-            cast(Any, course).source_analysis = preserve_source_uncertainty(course.source_analysis, (
+            cast(Any, course).source_analysis = preserve_generated_source_uncertainty(course.source_analysis, (
                 {**state.source_analysis, "reuse_reason": state.reuse_reason}
                 if state.reuse_reason
                 else state.source_analysis
-            ))
+            ), source_review_required=state.server_source_review_required)
             # Regeneration replaces the draft's previous learning structure.
             # Database cascades remove lessons/quizzes below each module.
             await session.execute(
@@ -783,10 +785,10 @@ async def _save_generation_to_db(
             job.result = {**(job.result or {}), **completion_result}  # type: ignore[assignment]
             job.errors = state.errors  # type: ignore[assignment]
             # SQLAlchemy's legacy JSON Column annotation lacks instance typing.
-            cast(Any, course).source_analysis = preserve_source_uncertainty(course.source_analysis, {
+            cast(Any, course).source_analysis = preserve_generated_source_uncertainty(course.source_analysis, {
                 **state.source_analysis,
                 **({"reuse_reason": state.reuse_reason} if state.reuse_reason else {}),
-            })
+            }, source_review_required=state.server_source_review_required)
         job.params = params  # type: ignore[assignment]
         await session.commit()
         state.course_id = str(course.id)

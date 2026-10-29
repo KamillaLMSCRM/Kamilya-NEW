@@ -66,6 +66,7 @@ def test_actual_generation_source_hold_blocks_but_other_quality_states_do_not():
 @pytest.fixture(autouse=True)
 def enable_qa_guard(monkeypatch):
     monkeypatch.setattr("app.modules.courses.source_uncertainty.qa_source_holds_enabled", lambda tenant: True)
+    monkeypatch.setattr("app.modules.courses.source_uncertainty.is_qa_source_tenant", lambda tenant: True)
 
 
 @pytest.mark.asyncio

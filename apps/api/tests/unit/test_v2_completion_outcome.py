@@ -105,7 +105,7 @@ def harness(monkeypatch):
     monkeypatch.setattr(job_service, "get_ai_job", AsyncMock(return_value=job))
     corpus = DirectSourceCorpus(str(tenant_id), (), 10, 1)
     monkeypatch.setattr(pipeline, "load_direct_source_corpus", AsyncMock(return_value=corpus))
-    generate = AsyncMock(return_value=SimpleNamespace())
+    generate = AsyncMock(return_value=SimpleNamespace(corpus=corpus))
     monkeypatch.setattr(pipeline, "generate_evidence_course", generate)
     artifacts = _artifacts()
     convert = Mock(return_value=artifacts)

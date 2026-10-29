@@ -20,7 +20,7 @@ def qa_source_holds_enabled(tenant_id: object) -> bool:
     if (str(tenant_id) != str(QA_TENANT)
             or settings.AI_QA_LUNA_DEV_ENABLED is not True):
         return False
-    if (settings.DEPLOYMENT_ENVIRONMENT != "render-development"
+    if (settings.DEPLOYMENT_ENVIRONMENT not in {"render-development", "render-development-worker"}
             or settings.AI_LESSON_CYCLE_DEV_ENABLED is not True
             or str(QA_TENANT) not in settings.AI_LESSON_CYCLE_DEV_TENANTS):
         raise HTTPException(status_code=503, detail={"code": "dev_qa_source_hold_misconfigured"})
@@ -52,3 +52,36 @@ def require_source_uncertainty_clear(source_analysis: object) -> None:
                 or (isinstance(evidence, dict) and evidence.get("quality_status") in {
                     "source_needs_review", "lesson_surface_needs_review"})):
             raise HTTPException(status_code=409, detail={"code": "source_uncertainty_review_required"})
+
+
+def preserve_generated_source_uncertainty(
+    old: object, new: dict[str, Any] | None, *, source_review_required: bool
+) -> dict[str, Any]:
+    """Persist an internal generation hold; never clear an existing hold.
+
+    Only the server-owned generation save may call this helper. User-provided
+    source-analysis values must continue to use preserve_source_uncertainty.
+    """
+    if type(source_review_required) is not bool:
+        raise TypeError("source_review_required must be a bool")
+    result = preserve_source_uncertainty(old, new)
+    if source_review_required and SOURCE_UNCERTAINTY_KEY not in result:
+        result[SOURCE_UNCERTAINTY_KEY] = {"status": "review_required", "origin": "generation"}
+    return result
+
+
+def require_persisted_source_hold_clear(source_analysis: object) -> None:
+    """Block only an existing server-owned marker, including malformed values.
+
+    This narrow guard can run for every tenant while keeping marker-free legacy
+    courses usable. The separate QA guard continues to inspect other statuses.
+    """
+    if isinstance(source_analysis, dict) and SOURCE_UNCERTAINTY_KEY in source_analysis:
+        raise HTTPException(status_code=409, detail={"code": "source_uncertainty_review_required"})
+
+
+def is_qa_source_tenant(tenant_id: object) -> bool:
+    from app.core.config import get_settings
+    from app.modules.ai.qa_luna_dev_route import QA_TENANT
+    return (get_settings().DEPLOYMENT_ENVIRONMENT == "render-development"
+            and str(tenant_id) == str(QA_TENANT))
