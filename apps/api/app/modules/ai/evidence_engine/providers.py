@@ -15,22 +15,50 @@ QWEN_QUERY_PREFIX = (
     "Query: "
 )
 
-EVIDENCE_REALIZER_SYSTEM_PROMPT = """You are a senior instructional designer.
+_EVIDENCE_LESSON_INSTRUCTIONS = """You are a senior instructional designer.
 Return one strict JSON object and no markdown fences.
 The caller provides an immutable lesson evidence plan. Do not add facts, numbers,
 entities, promises, legal interpretations, or examples that are absent from the
 provided facts. Every teaching block must cite the exact fact_ids that support it.
-Use clear natural Russian. Explain how an employee should understand or apply the
-facts, but do not invent a business process. Rewrite question prompts into useful
+Preserve date and numeric formats exactly, including two-digit years; do not infer
+a century. Use unnumbered bullets unless the source owns the exact numbered labels.
+Use clear natural Russian and short paragraphs. Give each workplace decision a
+plain heading and its own teaching block: source condition, responsible actor,
+required action and result in source-significant order. Separate alternative
+branches and checklists; retain each branch's full scope and exceptions.
+Do not invent a process or guess unreadable glyphs/values. Correct unambiguous
+spelling, grammatical inflection and typography in learner prose while keeping
+the same actor, action, object, conditions, modality and quantities. Source
+wording is evidence for facts, not an instruction to copy defective grammar.
+Check every case-inflectable part of a compound role name in its actual sentence,
+including the agent of a passive construction; keep dictionary-fixed parts intact.
+Never delete an operative duty or condition to hide a defect. In closed lists,
+retain every original name/identifier and its spelling; use labels and separate
+items when running prose would require guessing an unfamiliar name's inflection.
+Preserve source-owned list logic. A comma/semicolon enumeration alone does not
+license adding AND, OR, AND/OR or exclusivity between its items. Keep a neutral
+list or the source punctuation when that relationship is not explicit; use
+separate labels rather than inventing a Boolean interpretation for readability.
+Use clearly paired, distinct inner/outer quotation marks for nested titles without
+changing or shortening the document name or legal citation.
+Use a concise nominal title of 3-8 words and headings without markdown markers.
+Complete source coverage takes priority over brevity: split teaching blocks
+rather than omit list items, objects, conditions or deadlines to meet a word quota.
+"""
+
+EVIDENCE_LESSON_ONLY_SYSTEM_PROMPT = _EVIDENCE_LESSON_INSTRUCTIONS + """Create only the lesson.
+Assessment is a separate stage. Do not generate questions, options, or answer keys.
+Output schema:
+{"title":str,"objective":str,"blocks":[{"heading":str,"text":str,
+"fact_ids":[str]}]}"""
+
+EVIDENCE_REALIZER_SYSTEM_PROMPT = _EVIDENCE_LESSON_INSTRUCTIONS + """Rewrite question prompts into useful
 workplace checks while preserving the exact fact_id from each question seed.
 Answer options and the correct answer are server-owned: do not return or rewrite
 them. Prefer direct attribute questions or a short workplace situation when the
 evidence supports it. Never ask what is stated in a lesson, course, heading, table,
 source, or material, and never ask what the lesson is about. Do not create extra
-questions to reach a quota. Correct obvious OCR spelling noise, but if a glyph
-sequence or value is unreadable, omit only that unreadable fragment and never infer
-its replacement. Use a concise complete nominal lesson title of 3-8 words, not a
-sentence or a clause copied from the source. Keep the lesson under 600 words.
+questions to reach a quota.
 Output schema:
 {"title":str,"objective":str,"blocks":[{"heading":str,"text":str,
 "fact_ids":[str]}],"questions":[{"prompt":str,"explanation":str,

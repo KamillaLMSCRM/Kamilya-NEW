@@ -385,7 +385,7 @@ async def test_skipped_source_fact_is_reported_as_unassessable() -> None:
 
 
 @pytest.mark.asyncio
-async def test_density_cap_classifies_every_assessable_axis_without_padding() -> None:
+async def test_source_density_classifies_every_assessable_axis_without_padding() -> None:
     fact_names = ("material", "opening", "rooms", "warranty")
     facts = {
         name: SourceFact(
@@ -411,26 +411,25 @@ async def test_density_cap_classifies_every_assessable_axis_without_padding() ->
     outcomes = result.audit["axis_outcomes"]
     assert len(outcomes) == 4
     assert result.audit["derived_axes"] == 4
-    assert result.audit["requested_axes"] == 3
-    assert sum(outcome["state"] == "retained" for outcome in outcomes) == 3
+    assert result.audit["requested_axes"] == 4
+    assert sum(outcome["state"] == "retained" for outcome in outcomes) == 4
     omitted = [outcome for outcome in outcomes if outcome["state"] == "omitted"]
-    assert len(omitted) == 1
-    assert omitted[0]["reason"] == "assessment_density_limit"
+    assert omitted == []
     assert result.audit["contract_coverage"] == {
         "policy": "assessment-contract-v1",
         "assessable_contract_count": 4,
         "classified_contract_count": 4,
-        "retained_contract_count": 3,
-        "omitted_contract_count": 1,
+        "retained_contract_count": 4,
+        "omitted_contract_count": 0,
         "unassessable_source_count": 0,
         "uncovered_contract_count": 0,
         "audit_incomplete": False,
     }
-    assert result.audit["terminal_status"] == "completed_with_warnings"
+    assert result.audit["terminal_status"] == "completed"
 
 
 @pytest.mark.asyncio
-async def test_multi_scope_spreadsheet_lesson_round_robins_three_axes_without_padding() -> None:
+async def test_multi_scope_spreadsheet_lesson_preserves_all_distinct_targets_without_padding() -> None:
     fact_specs = (
         ("alpha_material", "Коллекция Альфа", "материал", "Дуб", "alpha"),
         ("alpha_opening", "Коллекция Альфа", "открывание", "Push-to-open", "alpha"),
@@ -467,19 +466,19 @@ async def test_multi_scope_spreadsheet_lesson_round_robins_three_axes_without_pa
     assert [
         [axis["source_claim"] for axis in request["axes"]]
         for request in author_requests
-    ] == [["Дуб", "Push-to-open"], ["Гостиная"]]
+    ] == [["Дуб", "Push-to-open"], ["Гостиная", "24 месяца"]]
     assert {question.fact_id for question in result.questions} == {
-        "alpha_material", "alpha_opening", "beta_rooms",
+        "alpha_material", "alpha_opening", "beta_rooms", "beta_warranty",
     }
-    assert len(result.questions) == 3
+    assert len(result.questions) == 4
     omitted = {
         outcome["primary_fact_id"]: outcome
         for outcome in result.audit["axis_outcomes"]
         if outcome["state"] == "omitted"
     }
-    assert omitted["beta_warranty"]["reason"] == "assessment_density_limit"
+    assert omitted == {}
     assert result.audit["coverage"]["requires_review"] is False
-    assert result.audit["terminal_status"] == "completed_with_warnings"
+    assert result.audit["terminal_status"] == "completed"
 
 
 @pytest.mark.asyncio

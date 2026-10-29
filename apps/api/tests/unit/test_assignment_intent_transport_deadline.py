@@ -274,7 +274,9 @@ async def test_bounded_request_preserves_provider_payload_and_format_adaptation(
     monkeypatch.setattr(llm.LLMClient, "_request", request)
     await original.ainvoke("synthetic", config={"max_tokens": 1000},
         response_format={"type": "json_schema", "json_schema": {"name": "example"}}, provider_deadline_seconds=0.1)
-    assert seen == [{"model": "first", "messages": [{"role": "user", "content": "synthetic"}],
+    assert seen == [{"model": "first", "messages": [
+                     {"role": "system", "content": "Return the required response as JSON."},
+                     {"role": "user", "content": "synthetic"}],
                      "temperature": 0.25, "max_tokens": 1000, "thinking": {"type": "disabled"},
                      "response_format": {"type": "json_object"}}]
     assert original._clients[0].config is cfg and original._clients[0].max_retries == 2

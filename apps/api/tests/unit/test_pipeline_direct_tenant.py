@@ -81,6 +81,7 @@ async def test_evidence_v2_job_uses_single_generation_and_save(monkeypatch):
     save.side_effect = save_success
     monkeypatch.setattr(pipeline, "_update_job_db", AsyncMock())
     monkeypatch.setattr(pipeline, "_check_cancelled_async", AsyncMock())
+    monkeypatch.setattr(pipeline, "_check_generation_source_job", AsyncMock())
     monkeypatch.setattr(pipeline, "load_direct_source_corpus", AsyncMock(return_value=corpus))
     monkeypatch.setattr(pipeline, "generate_evidence_course", generate)
     monkeypatch.setattr(pipeline, "to_generation_artifacts", convert)
@@ -141,6 +142,7 @@ async def test_new_evidence_v2_save_failure_refunds_reserved_generation(monkeypa
     release = AsyncMock(return_value=True)
     monkeypatch.setattr(pipeline, "_update_job_db", AsyncMock())
     monkeypatch.setattr(pipeline, "_check_cancelled_async", AsyncMock())
+    monkeypatch.setattr(pipeline, "_check_generation_source_job", AsyncMock())
     monkeypatch.setattr(pipeline, "load_direct_source_corpus", AsyncMock(return_value=corpus))
     monkeypatch.setattr(
         pipeline,
@@ -177,6 +179,7 @@ async def test_new_evidence_v2_save_failure_refunds_reserved_generation(monkeypa
 @pytest.mark.asyncio
 async def test_failure_status_write_cannot_skip_reserved_generation_cleanup(monkeypatch):
     tenant_id = uuid4()
+    monkeypatch.setattr(pipeline, "_check_generation_source_job", AsyncMock())
     update = AsyncMock(side_effect=RuntimeError("synthetic status write failure"))
     release = AsyncMock(return_value=True)
     monkeypatch.setattr(pipeline, "_update_job_db", update)
@@ -203,6 +206,7 @@ async def test_new_course_cancellation_releases_reservation_once(monkeypatch):
     tenant_id, doc_id = uuid4(), str(uuid4())
     release = AsyncMock(return_value=True)
     monkeypatch.setattr(pipeline, "_update_job_db", AsyncMock())
+    monkeypatch.setattr(pipeline, "_check_generation_source_job", AsyncMock())
     monkeypatch.setattr(
         pipeline,
         "load_direct_source_corpus",

@@ -9,6 +9,7 @@ import logging
 import os
 import re
 from datetime import UTC, date, datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -16,7 +17,7 @@ from app.modules.ai.embedding_provenance import (
     VerifiedEmbeddingProvenance,
     serialize_embedding_provenance,
 )
-from app.modules.ai.pdf_table_layout import PDFTableLayoutError, preserve_pdf_tables
+from app.modules.ai.pdf_table_layout import PDF_LAYOUT_CAPACITY_ERRORS, PDFTableLayoutError, preserve_pdf_tables
 from app.modules.documents.archive_preflight import preflight_ooxml
 
 if TYPE_CHECKING:
@@ -126,6 +127,10 @@ class DocumentConverter:
                     }
         except PDFTableLayoutError as exc:
             # A text-only fallback would silently discard the same table again.
+            if str(exc) in PDF_LAYOUT_CAPACITY_ERRORS:
+                raise DocumentIndexingTerminalError(
+                    "PDF table verification exceeded the document processing capacity."
+                ) from exc
             raise DocumentIndexingTerminalError(
                 "PDF table relationships could not be verified from the source."
             ) from exc
@@ -348,6 +353,42 @@ _ENGLISH_SUBJECT_STARTS = frozenset(
 _RUSSIAN_ACTION_PREFIXES = frozenset(
     {"в", "если", "когда", "не", "перед", "после", "при"}
 )
+_ORDINAL_CLAUSE_MAX_WORDS = 24
+_ORDINAL_CLAUSE_MAX_CHARS = 240
+
+
+@lru_cache(maxsize=1)
+def _russian_morph_analyzer() -> Any:
+    import pymorphy3  # type: ignore[import-untyped]
+
+    return pymorphy3.MorphAnalyzer()
+
+
+@lru_cache(maxsize=4_096)
+def _is_unambiguous_finite_verb(word: str) -> bool:
+    try:
+        parses = _russian_morph_analyzer().parse(word)
+    except (ImportError, OSError, RuntimeError, ValueError):
+        return False
+    return bool(parses) and all(
+        parse.tag.POS == "VERB" and parse.tag.mood == "indc" for parse in parses
+    )
+
+
+def _starts_with_oblique_nominal_fragment(value: str) -> bool:
+    match = re.match(r"[^\W\d_]+", value, re.UNICODE)
+    if match is None:
+        return False
+    try:
+        parses = _russian_morph_analyzer().parse(match.group().casefold())
+    except (ImportError, OSError, RuntimeError, ValueError):
+        return False
+    return bool(parses) and all(
+        parse.tag.POS in {"NOUN", "ADJF", "PRTF"}
+        and parse.tag.case is not None
+        and parse.tag.case != "nomn"
+        for parse in parses
+    )
 
 
 def is_sentence_like_ordinal_heading(value: str) -> bool:
@@ -363,6 +404,12 @@ def is_sentence_like_ordinal_heading(value: str) -> bool:
     if match is None:
         return False
     body = " ".join(match.group("body").split())
+    # Numbered nominal members of a source checklist are body evidence too.
+    # Promoting "2) движимое имущество;" to a section detaches its governing
+    # "Заявитель предоставляет:" and can turn the next complete rule into an
+    # apparently truncated source. Explicit uppercase nominal headings remain.
+    if body.endswith(";") or (match.group("number").endswith(")") and (body[:1].islower() or re.search(r"[—–]", body))):
+        return True
     normalized = body.casefold().replace("ё", "е")
     words = re.findall(r"[^\W\d_]+", normalized, re.UNICODE)
     if not words:
@@ -374,7 +421,9 @@ def is_sentence_like_ordinal_heading(value: str) -> bool:
         return True
     if len(words) < 2:
         return False
-    if words[0].endswith(_RUSSIAN_INFINITIVE_SUFFIXES):
+    # These common plural nouns have an infinitive-looking suffix but do not
+    # make a nominal heading (e.g. evacuation routes) an instruction sentence.
+    if words[0] not in {"пути", "сети"} and words[0].endswith(_RUSSIAN_INFINITIVE_SUFFIXES):
         return True
     if (
         words[0] in _RUSSIAN_ACTION_PREFIXES or body.endswith((".", "!", "?", ";"))
@@ -384,10 +433,19 @@ def is_sentence_like_ordinal_heading(value: str) -> bool:
         return True
     if any(word.endswith(_RUSSIAN_FINITE_SUFFIXES) for word in words[:8]):
         return True
+    if (
+        8 < len(words) <= _ORDINAL_CLAUSE_MAX_WORDS
+        and len(body) <= _ORDINAL_CLAUSE_MAX_CHARS
+        and body.endswith((".", "!", "?", ";"))
+        and not {"не", "ни", "нет"}.intersection(words)
+        and any(word.endswith(_RUSSIAN_FINITE_SUFFIXES) for word in words[8:])
+    ):
+        return True
     if any(
         index > 0
         and index + 1 < len(words)
         and word.endswith(_RUSSIAN_CONTEXTUAL_FINITE_SUFFIXES)
+        and _is_unambiguous_finite_verb(word)
         for index, word in enumerate(words[:8])
     ):
         return True
@@ -421,6 +479,7 @@ class DocumentChunker:
 
         current_chunk = ""
         current_headings: list[str] = []
+        explicit_body_heading = bool(re.search(r"(?m)^#{1,6}\s+\d+[.)]\s+", markdown))
 
         def emit_current() -> str:
             if current_chunk.strip():
@@ -448,14 +507,31 @@ class DocumentChunker:
                 return value[: newline + 1]
             return value[:available]
 
-        for para in paragraphs:
+        for paragraph_index, para in enumerate(paragraphs):
             para = para.strip()
             if not para:
                 continue
 
             # Converted PDFs can render ordinal instruction sentences as Markdown
             # headings. Keep sentence-like items in their enclosing section.
-            sentence_like_ordinal_heading = is_sentence_like_ordinal_heading(para)
+            ordinal_evidence = para
+            if (
+                _ORDINAL_HEADING_RE.match(para)
+                and not para.endswith((".", "!", "?", ";", ":"))
+                and paragraph_index + 2 < len(paragraphs)
+                and paragraphs[paragraph_index + 1].strip() == "-"
+            ):
+                continuation = paragraphs[paragraph_index + 2].strip()
+                if (
+                    continuation[:1].islower()
+                    and not continuation.startswith(("#", "-"))
+                    and _ORDINAL_HEADING_RE.match(continuation) is None
+                    and _starts_with_oblique_nominal_fragment(continuation)
+                ):
+                    ordinal_evidence = f"{para} - {continuation}"
+            sentence_like_ordinal_heading = is_sentence_like_ordinal_heading(
+                ordinal_evidence
+            )
             if sentence_like_ordinal_heading:
                 para = para.lstrip("#").lstrip()
             # The production PDF converter can return plain text with nominal
@@ -464,14 +540,17 @@ class DocumentChunker:
             ordinal_match = _ORDINAL_HEADING_RE.match(para)
             promoted_ordinal = bool(
                 not sentence_like_ordinal_heading
+                and not explicit_body_heading
                 and not para.startswith("#")
                 and "\n" not in para
                 and len(para) <= 120
                 and ordinal_match
-                and (
-                    not re.search(r"\d\.\d", ordinal_match.group("number"))
-                    or ordinal_match.group("body")[:1].isupper()
-                )
+                # A colon-ended clause introduction belongs to its checklist,
+                # not to the nominal nested headings recovered below.
+                and not para.endswith(":")
+                and (not re.search(r"\d\.\d", ordinal_match.group("number"))
+                     or (not ordinal_match.group("number").endswith(".")
+                         and ordinal_match.group("body")[:1].isupper()))
             )
             if promoted_ordinal:
                 para = "# " + para

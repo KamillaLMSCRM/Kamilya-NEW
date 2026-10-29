@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -18,14 +19,25 @@ class MCQQuestion:
     explanation: str = ""
     source_quote: str = ""
     quality_score: float = 3.0
+    supporting_source_evidence: list[dict[str, Any]] | None = None
 
     def to_dict(self):
-        return asdict(self)
+        result = asdict(self)
+        if self.supporting_source_evidence is None:
+            del result["supporting_source_evidence"]
+        return result
 
     @classmethod
     def from_dict(cls, data):
         if not isinstance(data, dict):
             return None
+        support = data.get("supporting_source_evidence")
+        if support is not None:
+            from app.modules.quizzes.question_source_evidence import SupportSourceEvidence
+
+            if not isinstance(support, list) or not support:
+                raise ValueError("question_support_evidence_invalid")
+            support = [SupportSourceEvidence.model_validate(row).model_dump(mode="json") for row in support]
         try:
             return cls(
                 question=data["question"],
@@ -33,6 +45,7 @@ class MCQQuestion:
                 explanation=data.get("explanation", ""),
                 source_quote=data.get("source_quote", ""),
                 quality_score=data.get("quality_score", 3.0),
+                supporting_source_evidence=support,
             )
         except (KeyError, TypeError):
             return None

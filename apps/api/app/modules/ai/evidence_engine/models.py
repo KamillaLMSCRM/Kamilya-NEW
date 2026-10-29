@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Literal
 
+from app.modules.ai.source_response_projection import SourceResponseBudgetProof
+
 SectionRole = Literal["primary", "supporting"]
 SourceKind = Literal["spreadsheet", "narrative"]
 
@@ -20,7 +22,7 @@ def is_tabular_locator(locator: str) -> bool:
 
 
 QuestionKind = Literal["single_choice", "true_false"]
-AssessmentAxisKind = Literal["attribute", "numeric_value", "rule_value"]
+AssessmentAxisKind = Literal["attribute", "numeric_value", "rule_value", "selection"]
 DistractorSourceRelation = Literal[
     "same_axis",
     "same_attribute_other_subject",
@@ -123,6 +125,11 @@ class QuestionDraft:
     semantic_block_id: str = ""
     semantic_reviewed: bool = False
     repaired_prompt: str = ""
+    source_rule_identity: str = ""
+    source_rule_focus: str = ""
+    assessment_inventory_identity: str = ""
+    assessment_inventory_binding: str = ""
+    source_response_budget: SourceResponseBudgetProof | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,6 +149,7 @@ class AssessmentAxis:
     eligible_distractor_fact_ids: tuple[str, ...]
     axis_kind: AssessmentAxisKind
     distractor_constraints: tuple[DistractorConstraint, ...] = ()
+    source_context: str = ""
 
 
 @dataclass(frozen=True, slots=True)

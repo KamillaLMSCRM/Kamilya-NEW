@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Literal, Protocol
 
+from app.modules.ai.source_layout import verified_docling_semantic_view
+
 _WORKSHEET_PREFIX = "[Worksheet] "
 _NUMBERED_SECTION_HEADING_RE = re.compile(
     r"^(?:\d{1,3}(?:\.\d+)+(?:[.)])?|\d{1,3}[.)])\s+\S+"
@@ -217,6 +219,12 @@ def build_document_passport(corpus: _Corpus) -> DocumentPassport:
     aggregates: dict[tuple[str, str], _SectionAggregate] = {}
     order: list[tuple[str, str]] = []
     for document in corpus.documents:
+        fidelity = getattr(document, "conversion_fidelity", None)
+        docling_metadata = bool(
+            getattr(fidelity, "metadata_verified", False)
+            and getattr(fidelity, "engine", None) == "docling"
+            and getattr(fidelity, "fallback_used", None) is False
+        )
         for chunk in document.chunks:
             name = _section_name(document, chunk)
             key = (document.doc_id, name)
@@ -226,7 +234,8 @@ def build_document_passport(corpus: _Corpus) -> DocumentPassport:
             aggregate = aggregates[key]
             aggregate.chunks += 1
             aggregate.chars += len(chunk.text)
-            aggregate.rows.extend(_meaningful_rows(chunk.text))
+            semantic_text = verified_docling_semantic_view(chunk.text) if docling_metadata else chunk.text
+            aggregate.rows.extend(_meaningful_rows(semantic_text))
 
     if not order:
         raise ValueError("document_passport_requires_source_sections")

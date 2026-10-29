@@ -11,7 +11,7 @@ import os
 import re
 import tempfile
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Protocol, cast
 from uuid import UUID
@@ -41,6 +41,9 @@ from app.modules.ai.lesson_quality import (
     remove_unsupported_relationship_fragments,
 )
 from app.modules.ai.llm_client import AllProvidersFailedError, ProviderFailedError
+from app.modules.ai.source_editorial_document import SourceEditorialDocument, bind_source_editorial_document
+from app.modules.ai.source_editorial_model import SourceEditorialResult
+from app.modules.ai.source_fidelity import ConversionFidelity
 from app.modules.ai.source_tables import markdown_tables
 from app.modules.ai.source_topic_map import (
     SMALL_SOURCE_CONTEXT_CHARS,
@@ -736,6 +739,8 @@ class DirectSourceDocument:
     category: str
     source_revision: str
     chunks: tuple[DirectSourceChunk, ...]
+    conversion_fidelity: ConversionFidelity = field(default_factory=ConversionFidelity.unverified)
+    editorial_document: SourceEditorialDocument | None = None
 
 
 @dataclass(frozen=True)
@@ -772,12 +777,30 @@ def _headings(value: object) -> tuple[str, ...]:
     return tuple(str(item)[:240] for item in parsed if str(item).strip())
 
 
+def direct_source_chunks(
+    text: str, *, document_id: str, filename: str, title: str, source_revision: str,
+) -> tuple[DirectSourceChunk, ...]:
+    """Deterministically chunk one source view; no truth or fidelity is granted."""
+    raw_chunks = DocumentChunker().chunk_markdown(text, document_id, filename)
+    return tuple(
+        DirectSourceChunk(
+            chunk_id=f"direct:{document_id}:{index}", doc_id=document_id, doc_name=filename,
+            title=title, headings=_headings(chunk.get("metadata", {}).get("headings")),
+            text=str(chunk.get("text") or ""), source_revision=source_revision, chunk_index=index,
+            table_fragment=(chunk.get("metadata", {}).get("worksheet_table_fragment")
+                if isinstance(chunk.get("metadata", {}).get("worksheet_table_fragment"), dict) else None),
+        )
+        for index, chunk in enumerate(raw_chunks) if str(chunk.get("text") or "").strip()
+    )
+
+
 async def build_direct_source_corpus(
     documents: Sequence[Any],
     *,
     tenant_id: UUID | str,
     storage: _Storage | None = None,
     converter: _Converter | None = None,
+    editorial_results: Mapping[str, SourceEditorialResult] | None = None,
     check_cancelled: Callable[[], Awaitable[None] | None] | None = None,
     max_source_bytes: int = MAX_DIRECT_SOURCE_BYTES,
     max_document_chars: int = MAX_DIRECT_SOURCE_DOCUMENT_CHARS,
@@ -791,6 +814,10 @@ async def build_direct_source_corpus(
     or semantic-score data.
     """
 
+    if editorial_results is not None and (
+            not isinstance(editorial_results, Mapping)
+            or not set(editorial_results) <= {str(document.id) for document in documents}):
+        raise DirectSourceError("direct_source_editorial_selection_invalid")
     if storage is None:
         from app.core.storage import get_storage
 
@@ -846,41 +873,34 @@ async def build_direct_source_corpus(
                     pass
 
         markdown = converted.get("markdown") if isinstance(converted, dict) else None
+        metadata = converted.get("metadata") if isinstance(converted, dict) else None
+        fidelity = ConversionFidelity.from_metadata(metadata)
+        if fidelity.admission_blocked:
+            raise DirectSourceError("direct_source_fidelity_degraded", (document_id,))
         if not isinstance(markdown, str) or not markdown.strip():
-            metadata = converted.get("metadata") if isinstance(converted, dict) else {}
-            engine = str((metadata or {}).get("engine") or "")
+            engine = fidelity.engine or ""
             code = "direct_source_ocr_required" if suffix == ".pdf" and engine == "pypdf" else "direct_source_empty"
             raise DirectSourceError(code, (document_id,))
         if len(markdown) > max_document_chars:
             raise DirectSourceError("direct_source_budget_exceeded", (document_id,))
 
-        raw_chunks = DocumentChunker().chunk_markdown(
-            markdown,
-            document_id,
-            str(document.filename),
-        )
-        if not raw_chunks:
-            raise DirectSourceError("direct_source_empty", (document_id,))
         source_revision = f"document:{expected_sha}"
-        chunks = tuple(
-            DirectSourceChunk(
-                chunk_id=f"direct:{document_id}:{index}",
-                doc_id=document_id,
-                doc_name=str(document.filename),
-                title=str(document.title),
-                headings=_headings(chunk.get("metadata", {}).get("headings")),
-                text=str(chunk.get("text") or ""),
-                source_revision=source_revision,
-                chunk_index=index,
-                table_fragment=(
-                    chunk.get("metadata", {}).get("worksheet_table_fragment")
-                    if isinstance(chunk.get("metadata", {}).get("worksheet_table_fragment"), dict)
-                    else None
-                ),
-            )
-            for index, chunk in enumerate(raw_chunks)
-            if str(chunk.get("text") or "").strip()
-        )
+        editorial_document = None
+        if editorial_results is not None and document_id in editorial_results:
+            try:
+                # Canonical recognition trims only outer whitespace, as the
+                # existing chunk reconstruction does. The original blob is
+                # unchanged; the map never claims PDF/DOCX-byte coordinates.
+                editorial_document = bind_source_editorial_document(document_id=document_id,
+                    source_revision=source_revision, recognized_text=markdown.strip(),
+                    result=editorial_results[document_id])
+            except (TypeError, ValueError) as exc:
+                raise DirectSourceError("direct_source_editorial_unproved", (document_id,)) from exc
+            markdown = editorial_document.working_text
+            if len(markdown) > max_document_chars:
+                raise DirectSourceError("direct_source_budget_exceeded", (document_id,))
+        chunks = direct_source_chunks(markdown, document_id=document_id,
+            filename=str(document.filename), title=str(document.title), source_revision=source_revision)
         if not chunks:
             raise DirectSourceError("direct_source_empty", (document_id,))
 
@@ -896,6 +916,8 @@ async def build_direct_source_corpus(
                 category=str(document.category or "general"),
                 source_revision=source_revision,
                 chunks=chunks,
+                conversion_fidelity=fidelity,
+                editorial_document=editorial_document,
             )
         )
 
@@ -914,6 +936,7 @@ async def load_direct_source_corpus(
     *,
     tenant_id: UUID | str,
     check_cancelled: Callable[[], Awaitable[None] | None] | None = None,
+    editorial_results: Mapping[str, SourceEditorialResult] | None = None,
 ) -> DirectSourceCorpus:
     """Load active documents through tenant context, then verify originals."""
 
@@ -957,6 +980,7 @@ async def load_direct_source_corpus(
         [by_id[document_id] for document_id in parsed_ids],
         tenant_id=parsed_tenant,
         check_cancelled=check_cancelled,
+        editorial_results=editorial_results,
     )
 
 

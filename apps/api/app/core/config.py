@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     METHODOLOGIST_WORKBENCH_ENABLED: bool = False
     METHODOLOGIST_DOCUMENT_DRAFT_ENABLED: bool = False
     METHODOLOGIST_LESSON_CORRECTION_ENABLED: bool = False
+    AI_LESSON_CYCLE_DEV_ENABLED: bool = False
+    AI_LESSON_CYCLE_DEV_TENANTS: list[str] = Field(default_factory=list)
+    AI_QA_LUNA_DEV_ENABLED: bool = False
 
     # Demo-login flags removed in favor of the simpler rule:
     #   - non-production env: admin and superadmin demo-login always work.

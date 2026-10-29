@@ -312,12 +312,22 @@ async def review_course(
     and review_comment. Designed for the AI-generation review step where
     the methodologist validates the AI's output before it goes to staff.
     """
-    result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
+    from app.modules.courses.source_uncertainty import qa_source_holds_enabled
+
+    qa_source_guard = req.review_status == "approved" and qa_source_holds_enabled(user.tenant_id)
+    query = select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
+    if qa_source_guard:
+        query = query.with_for_update().execution_options(populate_existing=True)
+    result = await db.execute(query)
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
     if req.review_status == "approved":
+        from app.modules.courses.source_uncertainty import require_source_uncertainty_clear
+
+        if qa_source_guard:
+            require_source_uncertainty_clear(course.source_analysis)
         from app.modules.courses.blueprint_service import (
             BlueprintContentConflictError,
             assert_blueprint_ready_for_approval,
@@ -453,6 +463,11 @@ async def publish_course(
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+    from app.modules.courses.source_uncertainty import qa_source_holds_enabled, require_source_uncertainty_clear
+
+    qa_source_guard = qa_source_holds_enabled(user.tenant_id)
+    if qa_source_guard:
+        require_source_uncertainty_clear(course.source_analysis)
     if course.status == "published":
         if idempotency_key:
             # Another request may have committed while this request waited for

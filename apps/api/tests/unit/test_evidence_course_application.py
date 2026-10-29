@@ -33,6 +33,478 @@ from app.modules.ai.llm_client import (
     ValidatedCallFailureReason,
     ValidatedLLMResult,
 )
+from app.modules.ai.source_fidelity import ConversionFidelity
+
+CLEAN_FIDELITY = ConversionFidelity.from_metadata({"engine": "test-original", "fallback_used": False, "warnings": []})
+
+
+def _positive_prose_language_call(request, parser):
+    from app.modules.ai.lesson_prose_language import LESSON_PROSE_LANGUAGE_AXES
+    response = {"language_reviews": [{"review_id": target["review_id"],
+        **{axis: True for axis in LESSON_PROSE_LANGUAGE_AXES},
+        "requires_unseen_context": False, "reason": ""} for target in request["review_targets"]]}
+    return ValidatedLLMResult(provider="fixture", model_id="fixture",
+        value=parser(json.dumps(response)), attempt_count=1, failure_reasons=())
+
+
+def _surface_review_response(
+    request,
+    *,
+    parent_false_axes=(),
+    first_block_false_axes=(),
+):
+    """Return explicit test-only v4 parent and exact per-block findings."""
+    from app.modules.ai.lesson_surface_review import (
+        LESSON_SURFACE_BLOCK_AXES,
+        LESSON_SURFACE_REVIEW_AXES,
+    )
+
+    parent_false = set(parent_false_axes)
+    first_false = set(first_block_false_axes)
+    return {"surface_reviews": [{
+        "group_id": group["group_id"],
+        **{axis: axis not in parent_false for axis in LESSON_SURFACE_REVIEW_AXES},
+        "reason": "Synthetic explicit parent finding.",
+        "block_reviews": [{
+            "block_id": block["block_id"],
+            **{
+                axis: not (block_index == 0 and axis in first_false)
+                for axis in LESSON_SURFACE_BLOCK_AXES
+            },
+            "depends_on_block_ids": [],
+            "reason": "Synthetic explicit block finding.",
+        } for block_index, block in enumerate(group["candidate_blocks"])],
+    } for group in request["groups"]]}
+
+
+def _surface_repair_response(request, *, heading_suffix):
+    """Echo only server-authorized repair IDs; healthy IDs stay absent."""
+    groups = []
+    for group in request["groups"]:
+        candidates = {block["block_id"]: block for block in group["candidate_blocks"]}
+        repair_ids = group["repair_block_ids"]
+        assert repair_ids
+        assert not set(repair_ids) & set(group["preserve_block_ids"])
+        groups.append({"group_id": group["group_id"], "blocks": [{
+            "block_id": block_id,
+            "heading": candidates[block_id]["heading"] + heading_suffix,
+            "text": candidates[block_id]["text"],
+            "fact_ids": candidates[block_id]["fact_ids"],
+        } for block_id in repair_ids]})
+    return {"groups": groups}
+
+
+@pytest.mark.asyncio
+async def test_optional_lesson_assessor_failure_stops_before_next_lesson():
+    seen = []
+
+    async def assessor(lesson, facts):
+        seen.append(lesson.lesson_id)
+        raise OSError("checkpoint unavailable")
+
+    with pytest.raises(OSError, match="checkpoint unavailable"):
+        await generate_evidence_course(
+            _spreadsheet_corpus(), intent=CourseIntent(),
+            generation_client=_GenerationClient(), embedding_client=_EmbeddingClient(),
+            lesson_assessor=assessor,
+        )
+    assert len(seen) == 1
+
+
+@pytest.mark.asyncio
+async def test_lesson_assessor_path_does_not_author_and_discard_seed_questions():
+    from app.modules.ai.evidence_engine.semantic_assessment import BlockAssessmentResult
+
+    class LessonOnlyClient(_GenerationClient):
+        calls = 0
+
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            assert request["question_seeds"] == []
+            assert "Do not generate questions, options, or answer keys" in messages[0]["content"]
+            assert "Rewrite question prompts" not in messages[0]["content"]
+            assert '"correct_answer"' not in messages[-1]["content"]
+            self.calls += 1
+            return await super().ainvoke_validated(messages, parser, **kwargs)
+
+    seen = []
+
+    async def assessor(lesson, facts):
+        seen.append(lesson.lesson_id)
+        # A failed assessment may not be replaced by unreviewed seed questions.
+        return BlockAssessmentResult((), {"lesson_id": lesson.lesson_id,
+            "coverage": {"requires_review": True}}, 0)
+
+    client = LessonOnlyClient()
+    generated = await generate_evidence_course(
+        _spreadsheet_corpus(), intent=CourseIntent(), generation_client=client,
+        embedding_client=_EmbeddingClient(), lesson_assessor=assessor,
+    )
+    assert client.calls == len(seen) == len(generated.result.realized_course.lessons) > 0
+    assert generated.result.realized_assessment.questions == ()
+    assert not generated.result.publishability.publishable
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("available", "surface_attempts"), [(True, 1), (True, 2), (False, 1)])
+async def test_native_language_path_uses_one_independent_surface_batch_before_each_lesson_assessor(available, surface_attempts):
+    from app.modules.ai.evidence_engine.semantic_assessment import BlockAssessmentResult
+
+    events = []
+
+    class SurfaceClient(_GenerationClient):
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            if request.get("task") == "lesson_prose_language_review":
+                events.append("language")
+                return _positive_prose_language_call(request, parser)
+            if request.get("task") == "lesson_surface_semantic_review":
+                events.append("surface")
+                assert kwargs["request_profile"] == "course_generation"
+                assert "question_seeds" not in request
+                if not available:
+                    raise AllProvidersFailedError("synthetic critic unavailable",
+                        reasons=[ValidatedCallFailureReason.PROVIDER_UNAVAILABLE])
+                response = _surface_review_response(request)
+                return ValidatedLLMResult(provider="fixture", model_id="fixture",
+                    value=parser(json.dumps(response)), attempt_count=surface_attempts,
+                    failure_reasons=(ValidatedCallFailureReason.PROVIDER_TIMEOUT,) if surface_attempts > 1 else ())
+            events.append("author")
+            return await super().ainvoke_validated(messages, parser, **kwargs)
+
+    async def assessor(lesson, facts):
+        events.append("assessor")
+        return BlockAssessmentResult((), {"lesson_id": lesson.lesson_id,
+            "coverage": {"requires_review": True}}, 0)
+
+    assessor.learner_language_gate = True
+    generated = await generate_evidence_course(_narrative_corpus(), intent=CourseIntent(),
+        generation_client=SurfaceClient(), embedding_client=_EmbeddingClient(), lesson_assessor=assessor)
+    count = len(generated.result.realized_course.lessons)
+    assert events == (["author", "surface"] + (["language"] if available else []) + ["assessor"]) * count
+    # Existing author fixture reports two transport attempts; the independent
+    # semantic batch adds exactly one, including its unavailable path.
+    assert generated.result.chat_attempt_count == count * (2 + surface_attempts + int(available))
+    report = generated.result.assessment_review["learner_surface_review"]
+    assert report["enabled"] and len(report["lessons"]) == count
+    assert all(row["positive_groups"] > 0 for row in report["lessons"]) is available
+    if surface_attempts > 1:
+        assert "lesson_surface:provider_timeout" in generated.result.validation_errors
+    assert not generated.result.publishability.publishable  # No synthetic assessment approval.
+
+
+@pytest.mark.asyncio
+async def test_parent_only_surface_receipt_remains_an_explicit_block_inventory_gap():
+    from app.modules.ai.evidence_engine.semantic_assessment import BlockAssessmentResult
+    from app.modules.ai.lesson_surface_review import LESSON_SURFACE_REVIEW_AXES
+
+    class LegacyGroupOnlyClient(_GenerationClient):
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            task = request.get("task")
+            if task == "lesson_prose_language_review":
+                return _positive_prose_language_call(request, parser)
+            if task == "lesson_surface_semantic_review":
+                response = {"surface_reviews": [{
+                    "group_id": group["group_id"],
+                    **dict.fromkeys(LESSON_SURFACE_REVIEW_AXES, True),
+                    "reason": "Synthetic legacy parent-only receipt.",
+                } for group in request["groups"]]}
+                return ValidatedLLMResult(provider="fixture", model_id="fixture",
+                    value=parser(json.dumps(response)), attempt_count=1, failure_reasons=())
+            if task == "lesson_surface_repair":
+                raise AssertionError("A parent-only positive row authorizes no repair block ID.")
+            return await super().ainvoke_validated(messages, parser, **kwargs)
+
+    async def assessor(lesson, facts):
+        return BlockAssessmentResult((), {"lesson_id": lesson.lesson_id,
+            "coverage": {"requires_review": True}}, 0)
+
+    assessor.learner_language_gate = True
+    generated = await generate_evidence_course(_narrative_corpus(), intent=CourseIntent(),
+        generation_client=LegacyGroupOnlyClient(), embedding_client=_EmbeddingClient(),
+        lesson_assessor=assessor)
+
+    rows = generated.result.assessment_review["learner_surface_review"]["lessons"]
+    assert rows and all(not row["surface_ready"] for row in rows)
+    assert all(row["healthy_block_count"] == 0 for row in rows)
+    assert all(row["block_custody"]["healthy_block_ids"] == [] for row in rows)
+    assert all({gap["code"] for gap in row["block_custody"]["gaps"]}
+               == {"lesson_surface_block_proof_missing"} for row in rows)
+    assert "lesson_surface_requires_review" in generated.result.publishability.reasons
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ("success", "still_refused", "fresh_unavailable", "omitted", "invalid_number"))
+async def test_native_surface_repair_is_one_round_and_requires_fresh_critic(mode):
+    from app.modules.ai.evidence_engine.semantic_assessment import BlockAssessmentResult
+
+    events = []
+    rounds = {}
+
+    class RepairClient(_GenerationClient):
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            task = request.get("task")
+            if task == "lesson_prose_language_review":
+                return _positive_prose_language_call(request, parser)
+            if task == "lesson_surface_semantic_review":
+                lesson_id = request["lesson_id"]
+                rounds[lesson_id] = rounds.get(lesson_id, 0) + 1
+                fresh = rounds[lesson_id] == 2
+                events.append("fresh" if fresh else "review")
+                if fresh and mode == "fresh_unavailable":
+                    raise AllProvidersFailedError("fixture critic unavailable",
+                        reasons=[ValidatedCallFailureReason.PROVIDER_UNAVAILABLE])
+                refused = not fresh or mode == "still_refused"
+                response = _surface_review_response(
+                    request,
+                    parent_false_axes=("readable",) if refused else (),
+                    first_block_false_axes=("readable",) if refused else (),
+                )
+                return ValidatedLLMResult(provider="fixture", model_id="fixture",
+                    value=parser(json.dumps(response)), attempt_count=1, failure_reasons=())
+            if task == "lesson_surface_repair":
+                events.append("repair")
+                assert all(group["group_id"].startswith("R-") for group in request["groups"])
+                response = ({"groups": []} if mode == "omitted" else
+                    _surface_repair_response(request, heading_suffix=" — проверка"))
+                if mode == "invalid_number":
+                    response["groups"][0]["blocks"][0]["heading"] += " 987654"
+                    with pytest.raises(ValueError, match="source_absent_number=987654"):
+                        parser(json.dumps(response))
+                    raise AllProvidersFailedError("synthetic invalid repair",
+                        reasons=[ValidatedCallFailureReason.VALIDATION_BLOCKED])
+                return ValidatedLLMResult(provider="fixture", model_id="fixture",
+                    value=parser(json.dumps(response)), attempt_count=1, failure_reasons=())
+            events.append("author")
+            return await super().ainvoke_validated(messages, parser, **kwargs)
+
+    async def assessor(lesson, facts):
+        events.append("assessor")
+        assert ("— проверка" in lesson.content) is (mode == "success")
+        return BlockAssessmentResult((), {"lesson_id": lesson.lesson_id,
+            "coverage": {"requires_review": True}}, 0)
+
+    assessor.learner_language_gate = True
+    generated = await generate_evidence_course(_narrative_corpus(), intent=CourseIntent(),
+        generation_client=RepairClient(), embedding_client=_EmbeddingClient(), lesson_assessor=assessor)
+    count = len(generated.result.realized_course.lessons)
+    no_fresh = mode in {"omitted", "invalid_number"}
+    expected = ["author", "review", "repair"] + ([] if no_fresh else ["fresh"]) + ["assessor"]
+    assert events == expected * count
+    assert generated.result.chat_attempt_count == count * ((4 if no_fresh else 5) + int(mode == "success"))
+    rows = generated.result.assessment_review["learner_surface_review"]["lessons"]
+    assert all(row["repair_attempted"] and row["initial_unproved_groups"] > 0 for row in rows)
+    assert all(row["unproved_groups"] == 0 for row in rows) is (mode == "success")
+    assert ("lesson_surface_requires_review" in generated.result.publishability.reasons) is (mode != "success")
+    assert not generated.result.publishability.publishable
+
+
+@pytest.mark.asyncio
+async def test_author_numeric_rejection_returns_precise_feedback_before_any_paid_critic():
+    from app.modules.ai.evidence_engine.semantic_assessment import BlockAssessmentResult
+
+    events = []
+
+    class RetryClient(_GenerationClient):
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            if request.get("task") == "lesson_prose_language_review":
+                return _positive_prose_language_call(request, parser)
+            if request.get("task") == "lesson_surface_semantic_review":
+                events.append("review")
+                response = _surface_review_response(request)
+                return ValidatedLLMResult(provider="fixture", model_id="fixture",
+                    value=parser(json.dumps(response)), attempt_count=1, failure_reasons=())
+            if not events:
+                events.append("rejected_author")
+
+                def malformed(raw):
+                    payload = json.loads(raw)
+                    payload["blocks"][0]["text"] += " Новая дата 987654."
+                    return parser(json.dumps(payload))
+
+                with pytest.raises(ValueError, match="source_absent_number=987654"):
+                    await super().ainvoke_validated(messages, malformed, **kwargs)
+                raise AllProvidersFailedError("synthetic invalid date",
+                    reasons=[ValidatedCallFailureReason.VALIDATION_BLOCKED])
+            if events[-1] == "rejected_author":
+                assert "source_absent_number=987654" in request["validation_feedback"]
+                assert "do not infer a century" in request["validation_feedback"]
+            events.append("author")
+            return await super().ainvoke_validated(messages, parser, **kwargs)
+
+    async def assessor(lesson, facts):
+        events.append("assessor")
+        assert "987654" not in lesson.content
+        return BlockAssessmentResult((), {"lesson_id": lesson.lesson_id,
+            "coverage": {"requires_review": True}}, 0)
+
+    assessor.learner_language_gate = True
+    generated = await generate_evidence_course(_narrative_corpus(), intent=CourseIntent(),
+        generation_client=RetryClient(), embedding_client=_EmbeddingClient(), lesson_assessor=assessor)
+    count = len(generated.result.realized_course.lessons)
+    assert events == ["rejected_author"] + ["author", "review", "assessor"] * count
+    assert generated.result.chat_attempt_count == 1 + 4 * count
+
+
+@pytest.mark.asyncio
+async def test_late_renderer_content_rejection_keeps_source_and_continues_other_lessons(monkeypatch):
+    from app.modules.ai.evidence_engine.provider_engine import ProviderBackedEvidenceEngine
+    from app.modules.ai.evidence_engine.semantic_assessment import BlockAssessmentResult
+
+    seen = []
+    render = ProviderBackedEvidenceEngine._validate_and_render
+    attempted = []
+
+    def rejecting(payload, **kwargs):
+        attempted.append(kwargs["base_lesson"].lesson_id)
+        if len(attempted) == 1:
+            raise ValueError("Synthetic late content rejection")
+        return render(payload, **kwargs)
+
+    monkeypatch.setattr(ProviderBackedEvidenceEngine, "_validate_and_render", staticmethod(rejecting))
+
+    class SurfaceClient(_GenerationClient):
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            if request.get("task") == "lesson_prose_language_review":
+                return _positive_prose_language_call(request, parser)
+            if request.get("task") == "lesson_surface_semantic_review":
+                response = _surface_review_response(request)
+                return ValidatedLLMResult(provider="fixture", model_id="fixture",
+                    value=parser(json.dumps(response)), attempt_count=1, failure_reasons=())
+            return await super().ainvoke_validated(messages, parser, **kwargs)
+
+    async def assessor(lesson, facts):
+        seen.append(lesson.lesson_id)
+        for fid in lesson.fact_ids:
+            assert facts[fid].value in lesson.content.replace("\\", "")
+        return BlockAssessmentResult((), {"lesson_id": lesson.lesson_id,
+            "coverage": {"requires_review": True}}, 0)
+
+    assessor.learner_language_gate = True
+    corpus = _narrative_corpus()
+    doc = corpus.documents[0]
+    extra = replace(doc.chunks[0], chunk_id="chunk-transfer", chunk_index=1,
+        headings=("3. ПЕРЕДАЧА ДОКУМЕНТОВ",),
+        text="3.1. Перед передачей документов сотрудник обязан проверить подпись в журнале.")
+    corpus = replace(corpus, documents=(replace(doc, chunks=(*doc.chunks, extra)),),
+        total_chunks=2, total_chars=corpus.total_chars + len(extra.text))
+    generated = await generate_evidence_course(corpus, intent=CourseIntent(),
+        generation_client=SurfaceClient(), embedding_client=_EmbeddingClient(), lesson_assessor=assessor)
+    assert len(seen) == len(attempted) >= 2
+    assert generated.result.deterministic_fallback_count == 1
+    assert "lesson_surface_final_render_rejected" in generated.result.validation_errors
+    assert "lesson_surface_requires_review" in generated.result.publishability.reasons
+    assert generated.result.assessment_review["learner_surface_review"]["lessons"][0]["positive_groups"] == 0
+
+
+@pytest.mark.asyncio
+async def test_uncited_lesson_fact_is_rendered_but_stays_an_explicit_surface_gap():
+    from app.modules.ai.evidence_engine.semantic_assessment import BlockAssessmentResult
+
+    omitted = []
+
+    class PartialSurfaceClient(_GenerationClient):
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            if request.get("task") == "lesson_prose_language_review":
+                return _positive_prose_language_call(request, parser)
+            if request.get("task") == "lesson_surface_semantic_review":
+                response = _surface_review_response(request)
+                return ValidatedLLMResult(provider="fixture", model_id="fixture",
+                    value=parser(json.dumps(response)), attempt_count=1, failure_reasons=())
+
+            def partial(raw):
+                payload = json.loads(raw)
+                assert len(payload["blocks"]) == 2
+                omitted.extend(payload["blocks"].pop()["fact_ids"])
+                return parser(json.dumps(payload))
+
+            return await super().ainvoke_validated(messages, partial, **kwargs)
+
+    async def assessor(lesson, facts):
+        for fid in lesson.fact_ids:
+            assert facts[fid].value in lesson.content.replace("\\", "")
+        return BlockAssessmentResult((), {"lesson_id": lesson.lesson_id,
+            "coverage": {"requires_review": True}}, 0)
+
+    assessor.learner_language_gate = True
+    generated = await generate_evidence_course(_narrative_corpus(), intent=CourseIntent(),
+        generation_client=PartialSurfaceClient(), embedding_client=_EmbeddingClient(), lesson_assessor=assessor)
+    rows = generated.result.assessment_review["learner_surface_review"]["lessons"]
+    assert len(rows) == 1 and rows[0]["positive_groups"] == 1 and rows[0]["unproved_groups"] == 0
+    assert rows[0]["uncited_source_fact_ids"] == omitted
+    assert "lesson_surface_requires_review" in generated.result.publishability.reasons
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["success", "missing_row", "still_refused", "unavailable_first", "unavailable_fresh"])
+async def test_candidate_only_prose_gate_repairs_once_and_never_uses_partial_or_stale_approval(mode):
+    from app.modules.ai.evidence_engine.semantic_assessment import BlockAssessmentResult
+    from app.modules.ai.lesson_prose_language import LESSON_PROSE_LANGUAGE_AXES
+
+    events = []
+    class ProseClient(_GenerationClient):
+        language_calls = 0
+
+        async def ainvoke_validated(self, messages, parser, **kwargs):
+            request = json.loads(messages[-1]["content"])
+            task = request.get("task")
+            if task == "lesson_surface_semantic_review":
+                events.append("semantic")
+                response = _surface_review_response(request)
+            elif task == "lesson_prose_language_review":
+                events.append("language")
+                self.language_calls += 1
+                assert not any(key in request for key in ("source_facts", "sources", "fact_ids"))
+                if mode == "unavailable_first" or (mode == "unavailable_fresh" and self.language_calls > 1):
+                    raise AllProvidersFailedError("synthetic unavailable language audit",
+                        reasons=[ValidatedCallFailureReason.PROVIDER_UNAVAILABLE])
+                fail = mode != "missing_row" and (self.language_calls == 1 or mode == "still_refused")
+                first_block = request["blocks"][0]["block_id"]
+                response = {"language_reviews": [{"review_id": target["review_id"],
+                    **{axis: not (fail and target["block_id"] == first_block and axis == "relation_coherent")
+                       for axis in LESSON_PROSE_LANGUAGE_AXES}, "requires_unseen_context": False,
+                    "reason": "Synthetic incoherent relation." if fail and target["block_id"] == first_block else ""}
+                    for target in request["review_targets"]]}
+                if mode == "missing_row" and self.language_calls == 1:
+                    missing = next(target["review_id"] for target in reversed(request["review_targets"])
+                        if target["block_id"] == first_block)
+                    response["language_reviews"] = [row for row in response["language_reviews"]
+                        if row["review_id"] != missing]
+            elif task == "lesson_surface_repair":
+                events.append("repair")
+                assert len(request["groups"]) == 1
+                assert request["groups"][0]["language_feedback"]["reason"]
+                response = _surface_repair_response(request, heading_suffix=" — правка")
+            else:
+                events.append("author")
+                return await super().ainvoke_validated(messages, parser, **kwargs)
+            return ValidatedLLMResult(provider="fixture", model_id="fixture",
+                value=parser(json.dumps(response)), attempt_count=1, failure_reasons=())
+
+    async def assessor(lesson, facts):
+        events.append("assessor")
+        assert ("— правка" in lesson.content) is (mode in {"success", "missing_row"})
+        assert all(fid in facts for fid in lesson.fact_ids)
+        return BlockAssessmentResult((), {"lesson_id": lesson.lesson_id,
+            "coverage": {"requires_review": True}}, 0)
+
+    assessor.learner_language_gate = True
+    generated = await generate_evidence_course(_narrative_corpus(), intent=CourseIntent(),
+        generation_client=ProseClient(), embedding_client=_EmbeddingClient(), lesson_assessor=assessor)
+    assert events == (["author", "semantic", "language"] +
+        ([] if mode == "unavailable_first" else ["repair", "semantic", "language"]) + ["assessor"])
+    row = generated.result.assessment_review["learner_surface_review"]["lessons"][0]
+    assert (row["unproved_groups"] == 0) is (mode in {"success", "missing_row"})
+    assert ("lesson_surface_requires_review" in generated.result.publishability.reasons) is (mode not in {"success", "missing_row"})
+    if mode == "unavailable_fresh":
+        assert row["positive_groups"] > 0  # The unchanged healthy source group survives.
+        assert row["language_audit"]["repair_language_unavailable"] is True
+    assert not generated.result.publishability.publishable  # No assessment receipt in this fixture.
 
 
 def _spreadsheet_corpus() -> DirectSourceCorpus:
@@ -82,6 +554,7 @@ def _spreadsheet_corpus() -> DirectSourceCorpus:
                 category="training_material",
                 source_revision="document:plus-sha",
                 chunks=(primary, supporting),
+                conversion_fidelity=CLEAN_FIDELITY,
             ),
         ),
         total_chars=len(primary.text) + len(supporting.text),
@@ -112,10 +585,47 @@ def _narrative_corpus() -> DirectSourceCorpus:
             category="training_material",
             source_revision="document:rules-sha",
             chunks=(chunk,),
+            conversion_fidelity=CLEAN_FIDELITY,
         ),),
         total_chars=len(chunk.text),
         total_chunks=1,
     )
+
+
+@pytest.mark.asyncio
+async def test_conversion_warning_survives_application_and_prevents_ready_claim() -> None:
+    from app.modules.ai.source_fidelity import ConversionFidelity
+
+    corpus = _narrative_corpus()
+    fidelity = ConversionFidelity.from_metadata({"engine": "docling", "fallback_used": False,
+        "warnings": ["One percentage could not be independently confirmed."], "profile": "scanned_or_low_text"})
+    corpus = replace(corpus, documents=(replace(corpus.documents[0], conversion_fidelity=fidelity),))
+    generated = await generate_evidence_course(corpus, intent=CourseIntent(),
+        generation_client=_GenerationClient(), embedding_client=_EmbeddingClient())
+    assert not generated.result.publishability.publishable
+    assert "source_conversion_needs_review" in generated.result.publishability.reasons
+    artifacts = to_generation_artifacts(generated)
+    assert artifacts.diagnostics["source_conversion_fidelity"][0]["status"] == "degraded"
+    assert artifacts.diagnostics["quality_status"] == "source_needs_review"
+    assert any("распознавании" in warning for warning in artifacts.content.source_warnings)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("verified_recovery", [False, True])
+async def test_fidelity_readiness_separates_unknown_from_verified_recovery_notice(verified_recovery) -> None:
+    from app.modules.ai.source_fidelity import ConversionFidelity
+
+    corpus = _spreadsheet_corpus()
+    corpus = replace(corpus, documents=(replace(corpus.documents[0], conversion_fidelity=ConversionFidelity.unverified()),))
+    if verified_recovery:
+        fidelity = ConversionFidelity.from_metadata({"engine": "docling", "fallback_used": False,
+            "warnings": ["Ruled PDF tables restored from verified source geometry."]})
+        corpus = replace(corpus, documents=(replace(corpus.documents[0], conversion_fidelity=fidelity),))
+    generated = await generate_evidence_course(corpus, intent=CourseIntent(),
+        generation_client=_GenerationClient(), embedding_client=_EmbeddingClient())
+    assert generated.result.publishability.publishable is verified_recovery
+    artifacts = to_generation_artifacts(generated)
+    assert (artifacts.diagnostics["quality_status"] == "source_needs_review") is not verified_recovery
 
 
 def _sentence_heading_narrative_corpus() -> DirectSourceCorpus:
@@ -285,6 +795,7 @@ def _source_style_phrase_corpus() -> DirectSourceCorpus:
             category="training_material",
             source_revision="document:style-sha",
             chunks=(chunk,),
+            conversion_fidelity=CLEAN_FIDELITY,
         ),),
         total_chars=len(chunk.text),
         total_chunks=1,
@@ -323,6 +834,7 @@ def _overlong_fallback_spreadsheet_corpus() -> DirectSourceCorpus:
             category="training_material",
             source_revision="document:overlong-fallback-sha",
             chunks=(chunk,),
+            conversion_fidelity=CLEAN_FIDELITY,
         ),),
         total_chars=len(text),
         total_chunks=1,
@@ -382,8 +894,12 @@ class _GenerationClient:
                 payload = {"questions": [
                     {"prompt": f"Как применять правило для «{axis['subject']}»?",
                      "axis_id": axis["axis_id"],
-                     "distractors": ["Применять обратный порядок действий.",
-                                     "Не учитывать установленные условия применения."]}
+                     "distractors": ([
+                         "Передать выполнение установленной процедуры другому сотруднику без проверки исходных условий и продолжить работу до получения его подтверждения.",
+                         "Сначала завершить оформление операции, а проверку обязательных условий и документирование результата выполнить только после обращения клиента.",
+                     ] if len(axis["source_claim"]) >= 80 else [
+                         "Применять обратный порядок действий.",
+                         "Не учитывать установленные условия применения."])}
                     for axis in request["axes"]]}
             return ValidatedLLMResult(provider="test-generation", model_id="test-model",
                 value=parser(json.dumps(payload, ensure_ascii=False)), attempt_count=1, failure_reasons=())
@@ -688,6 +1204,69 @@ def test_narrative_adapter_keeps_complete_numbered_rule() -> None:
     )
 
     assert metadata == {"confidence": 1.0, "uncertainty": ""}
+
+
+def test_recovered_owned_child_keeps_actor_modality_and_exact_threshold_without_numeric_exemption():
+    governor = "2. Ломбард имеет право:"
+    child = (
+        "5) требовать досрочного возврата суммы микрокредита и вознаграждения по нему при нарушении "
+        "Клиентом срока, установленного для возврата очередной части микрокредита и (или) выплаты "
+        "вознаграждения, более чем на сорок календарных дней;"
+    )
+    parts = _split_narrative_chunk(
+        governor + "\n\n4) изменять условия в сторону их улучшения для\n\n`\n\nКлиента;\n\n" + child)
+    recovered = next(part for part in parts if child in part)
+    assert governor in recovered
+    assert _narrative_fact_metadata(recovered) == {"confidence": 1.0, "uncertainty": ""}
+    assert any("для Клиента;" in part for part in parts)
+    assert _narrative_fact_metadata(child) == {"confidence": 0.0, "uncertainty": "truncated_source_boundary"}
+    assert "более чем на сорок календарных дней" in recovered
+
+
+@pytest.mark.parametrize("heading", ["# 7. Другой порядок", "**7. Другой порядок**"])
+def test_structural_heading_prevents_recovered_child_borrowing_previous_owner(heading):
+    child = "5) требовать досрочного возврата при нарушении срока;"
+    parts = _split_narrative_chunk(
+        "2. Ломбард имеет право:\n\n1) проверить документ;\n\n" + heading + "\n\n" + child)
+    unowned = next(part for part in parts if child in part)
+    assert "Ломбард имеет право" not in unowned
+    assert _narrative_fact_metadata(unowned) == {"confidence": 0.0, "uncertainty": "truncated_source_boundary"}
+
+
+@pytest.mark.parametrize("clause,expected", [
+    ("14: При получении заявления Ломбард вправе оставить его без ответа.", "ocr_numbering_prefix"),
+    (") Ломбарда, с учетом условий и ограничений.", "truncated_source_boundary"),
+])
+def test_literal_owner_does_not_hide_unsafe_child_source_boundary(clause, expected):
+    assert _narrative_fact_metadata("3. Ломбард обязан:\n" + clause) == {
+        "confidence": 0.0, "uncertainty": expected}
+
+
+def test_literal_owner_does_not_hide_ambiguous_formula_symbol():
+    assert _narrative_fact_metadata("Ломбард обязан:\nn — порядковый номер платежа.") == {
+        "confidence": 0.6, "uncertainty": "ambiguous_formula_symbol"}
+
+
+@pytest.mark.parametrize("glyph", ["|", "¦", "I", "l", "І"])
+@pytest.mark.parametrize("quantity", ["одного", "двух", "трёх", "пяти", "двадцати пяти"])
+def test_narrative_adapter_keeps_damaged_numeric_glyph_visible_without_guessing(glyph, quantity):
+    clause = f"Предоставить сведения не чаще {glyph} ({quantity}) раза в месяц."
+    assert _split_narrative_chunk(clause) == [clause]
+    assert _narrative_fact_metadata(clause) == {
+        "confidence": 0.0, "uncertainty": "ambiguous_numeric_glyph"}
+    assert _narrative_fact_metadata("3. Организация обязана:\n" + clause) == {
+        "confidence": 0.0, "uncertainty": "ambiguous_numeric_glyph"}
+
+
+@pytest.mark.parametrize("clause", [
+    "Предоставить сведения не чаще 1 (одного) раза в месяц.",
+    "Открыть раздел I (первый) инструкции.",
+    "Выполнить команду cat | grep (по образцу).",
+    "Параметр l (длина) измеряют в метрах.",
+    "Условие | Описание",
+])
+def test_numeric_glyph_guard_does_not_guess_roman_ordinals_commands_or_named_symbols(clause):
+    assert _narrative_fact_metadata(clause)["uncertainty"] != "ambiguous_numeric_glyph"
 
 
 def test_narrative_adapter_marks_truncated_lowercase_boundary_unusable() -> None:

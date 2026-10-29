@@ -422,7 +422,11 @@ async def test_write_lesson_exposes_heading_and_course_wide_scope_to_writer() ->
             self.prompt = ""
 
         async def ainvoke(self, messages):
-            self.prompt = messages[0]["content"]
+            assert messages[0]["role"] == "system"
+            assert "based EXCLUSIVELY" in messages[0]["content"]
+            assert "Source material:" not in messages[0]["content"]
+            assert messages[-1]["role"] == "user"
+            self.prompt = messages[-1]["content"]
             return type("Response", (), {"content": "# Заключительные положения"})()
 
     llm = _CapturingLLM()
@@ -497,7 +501,7 @@ async def test_write_lesson_expands_traceable_context_and_preserves_provenance(
             self.prompt = ""
 
         async def ainvoke(self, messages):
-            self.prompt = messages[0]["content"]
+            self.prompt = messages[-1]["content"]
             return type("Response", (), {"content": "# Урок"})()
 
     tenant_id = str(uuid4())

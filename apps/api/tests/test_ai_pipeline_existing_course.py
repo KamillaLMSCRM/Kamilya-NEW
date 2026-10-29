@@ -23,6 +23,7 @@ from app.modules.lessons.models import Lesson
 from app.modules.lessons.models import Module as CourseModule
 from app.modules.quizzes.models import Question, Quiz, QuizChoice
 
+TEST_DOCUMENT = "ed885964-20e1-4d99-bd23-446c6c7b1583"
 
 def test_course_model_registers_instruction_source_table() -> None:
     assert "documents" in Course.metadata.tables
@@ -34,16 +35,20 @@ class FakeSession:
         self.job = job or SimpleNamespace(
             id="active-job",
             tenant_id=course.tenant_id,
+            user_id=course.created_by,
             status="running",
+            params={"documents": [TEST_DOCUMENT]},
         )
         self.added = []
         self.executed = []
         self.committed = False
+        self.exit_exception = None
 
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
+        self.exit_exception = exc_type
         return False
 
     async def scalar(self, statement):
@@ -66,6 +71,44 @@ class FakeSession:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("owner", [None, "different"])
+async def test_locked_save_rejects_missing_or_different_job_owner_before_mutation(monkeypatch, owner):
+    from app.modules.ai import pipeline
+    from app.modules.ai.direct_source import DirectSourceError
+
+    tenant_id, actor = uuid4(), uuid4()
+    course = Course(id=uuid4(), tenant_id=tenant_id, title="Original", status="draft", created_by=actor)
+    session = FakeSession(course)
+    session.job.user_id = None if owner is None else uuid4()
+    monkeypatch.setattr(pipeline, "async_session_factory", lambda: session)
+    state = GenerationState(job_id="job", course_id=str(course.id), source_document_ids=[TEST_DOCUMENT],
+                            structure=CourseStructure(title="Changed"), content=CourseContent(title="Changed"))
+    with pytest.raises(DirectSourceError, match="generation_source_job_mismatch"):
+        await _save_generation_to_db(state, tenant_id, actor)
+    assert not session.added and not session.committed and course.title == "Original"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stored", [[], ["bad"], [TEST_DOCUMENT, TEST_DOCUMENT], [str(uuid4())]])
+async def test_locked_save_selection_mismatch_precedes_course_mutation(monkeypatch, stored):
+    from app.modules.ai import pipeline
+    from app.modules.ai.direct_source import DirectSourceError
+
+    tenant_id = uuid4()
+    course = Course(id=uuid4(), tenant_id=tenant_id, title="Original", status="draft", created_by=uuid4())
+    session = FakeSession(course)
+    session.job.params = {"documents": stored}
+    monkeypatch.setattr(pipeline, "async_session_factory", lambda: session)
+    state = GenerationState(job_id="job", course_id=str(course.id), source_document_ids=[TEST_DOCUMENT],
+        structure=CourseStructure(title="Changed"), content=CourseContent(title="Changed"))
+    with pytest.raises(DirectSourceError, match="generation_source_job_mismatch"):
+        await _save_generation_to_db(state, tenant_id, course.created_by)
+    assert course.title == "Original" and session.added == [] and not session.committed
+    assert session.exit_exception is DirectSourceError
+    assert len(session.executed) == 1  # Tenant context only, no course DELETE.
+
+
+@pytest.mark.asyncio
 async def test_quality_filtered_empty_quiz_preserves_lesson_and_named_warning(monkeypatch):
     from app.modules.ai import pipeline
 
@@ -75,6 +118,7 @@ async def test_quality_filtered_empty_quiz_preserves_lesson_and_named_warning(mo
     monkeypatch.setattr(pipeline, "async_session_factory", lambda: session)
     title = "Synthetic safety procedure"
     state = GenerationState(
+        source_document_ids=[TEST_DOCUMENT],
         job_id="synthetic-empty-quiz", course_id=str(course.id),
         structure=CourseStructure(title="Course", modules=[StructureModule(
             title="Module", lessons=[StructureLesson(title=title)])]),
@@ -111,6 +155,7 @@ async def test_generation_updates_existing_course_without_duplicate_insert(monke
     monkeypatch.setattr(pipeline, "async_session_factory", lambda: session)
 
     state = GenerationState(
+        source_document_ids=[TEST_DOCUMENT],
         job_id="job-1",
         course_id=str(course.id),
         structure=CourseStructure(title="Generated title", description="Generated description"),
@@ -150,6 +195,7 @@ async def test_new_course_persists_reuse_reason_in_source_provenance(monkeypatch
     monkeypatch.setattr(pipeline, "async_session_factory", lambda: session)
 
     state = GenerationState(
+        source_document_ids=[TEST_DOCUMENT],
         job_id="job-reuse",
         structure=CourseStructure(title="Different audience course"),
         content=CourseContent(title="Different audience course"),
@@ -187,6 +233,7 @@ async def test_new_course_id_is_not_exposed_before_transaction_commit(monkeypatc
     session.commit = fail_commit
     monkeypatch.setattr(pipeline, "async_session_factory", lambda: session)
     state = GenerationState(
+        source_document_ids=[TEST_DOCUMENT],
         job_id="commit-failure",
         structure=CourseStructure(title="Candidate"),
         content=CourseContent(title="Candidate"),
@@ -224,6 +271,7 @@ async def test_generated_single_answer_questions_are_saved_as_mcq(
 
     lesson_title = "Single-answer lesson"
     state = GenerationState(
+        source_document_ids=[TEST_DOCUMENT],
         job_id="job-2",
         course_id=str(course.id),
         structure=CourseStructure(
@@ -309,6 +357,7 @@ async def test_generated_mcq_correct_answers_are_balanced_across_persisted_posit
         for index in range(4)
     ]
     state = GenerationState(
+        source_document_ids=[TEST_DOCUMENT],
         job_id="job-balanced",
         course_id=str(course.id),
         structure=CourseStructure(
@@ -373,6 +422,7 @@ async def test_cancelled_generation_does_not_persist_a_new_course(monkeypatch):
 async def test_pipeline_persists_only_bounded_failure_diagnostics(monkeypatch):
     from app.modules.ai import pipeline
 
+    monkeypatch.setattr(pipeline, "_check_generation_source_job", AsyncMock())
     updates = []
 
     async def fail_then_capture(job_id, tenant_id=None, **kwargs):

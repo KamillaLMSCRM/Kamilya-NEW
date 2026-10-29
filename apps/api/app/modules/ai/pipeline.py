@@ -7,7 +7,7 @@ import math
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timezone
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID, uuid4
 
 from billiard.exceptions import SoftTimeLimitExceeded  # type: ignore[import-untyped]
@@ -36,6 +36,7 @@ from app.modules.ai.llm_client import (
     ResilientLLMClient,
 )
 from app.modules.ai.writer_schema import CourseContent
+from app.modules.courses.source_uncertainty import preserve_source_uncertainty
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +211,16 @@ def _assessment_question_count(assessment: CourseAssessment | None) -> int:
     )
 
 
+def _require_supported_question_export_ready(assessment: CourseAssessment | None) -> None:
+    """Do not silently discard support evidence while verified export is unavailable."""
+    if assessment is not None and any(
+        question.supporting_source_evidence is not None
+        for lesson in assessment.assessments
+        for question in lesson.mcq
+    ):
+        raise ValueError("support_source_export_unavailable")
+
+
 def _evidence_v2_completion_detail(state: GenerationState) -> dict[str, object]:
     """Return bounded V2 completion facts suitable for job params and result."""
     content = state.content
@@ -229,10 +240,14 @@ def _evidence_v2_completion_detail(state: GenerationState) -> dict[str, object]:
     coverage_requires_review = not (
         isinstance(coverage, dict) and coverage.get("requires_review") is False
     )
+    source_count = diagnostics.get("uncertain_source_fact_count", 0)
+    editorial_count = diagnostics.get("source_editorial_review_document_count")
+    source_requires_review = (not (type(source_count) is int and source_count == 0)
+                              or not (type(editorial_count) is int and editorial_count == 0))
     return {
         "outcome": (
             ASSESSMENT_NO_VALID_QUESTIONS_CODE if questions == 0 else
-            ASSESSMENT_COVERAGE_INCOMPLETE_CODE if coverage_requires_review else "completed"
+            ASSESSMENT_COVERAGE_INCOMPLETE_CODE if coverage_requires_review or source_requires_review else "completed"
         ),
         "counts": {
             "modules": modules,
@@ -249,6 +264,7 @@ def _evidence_v2_completion_detail(state: GenerationState) -> dict[str, object]:
             if not (lesson.mcq or lesson.true_false or any(item.pairs for item in lesson.matching))
         ],
         "source_warnings": list(content.source_warnings) if content is not None else [],
+        "source_admission_requires_review": source_requires_review,
         "assessment_review": assessment_review,
     }
 
@@ -267,6 +283,12 @@ def _apply_evidence_v2_completion_outcome(state: GenerationState) -> None:
     state.progress = 100
     code = str(completion["outcome"])
     state.message = ASSESSMENT_REVIEW_MESSAGES[code]
+    if completion.get("source_admission_requires_review"):
+        state.message = (
+            "Черновик курса и готовые вопросы сохранены. Некоторые фрагменты исходных "
+            "материалов не удалось надёжно разобрать; проверьте полноту уроков и тестов "
+            "по оригиналу перед публикацией."
+        )
     state.errors = [code]
 
 
@@ -328,13 +350,20 @@ async def _run_evidence_v2_generation(
     # low temperature makes the strict evidence contract reproducible and
     # avoids needless failover caused by creative paraphrases.
     from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings, runtime_settings_scope
+    from app.modules.ai.qa_luna_dev_route import qa_luna_dev_client
+    from app.core.config import get_settings
 
     policy = await resolve_runtime_settings()
     with runtime_settings_scope(policy):
-        generation_client = await ResilientLLMClient.from_settings_async(
-            tenant_id=tenant_id,
+        generation_client = await qa_luna_dev_client(
+            settings=get_settings(), tenant_id=tenant_id,
             temperature=policy.number("generation.temperature"),
         )
+        if generation_client is None:
+            generation_client = await ResilientLLMClient.from_settings_async(
+                tenant_id=tenant_id,
+                temperature=policy.number("generation.temperature"),
+            )
     embedding_client = await ResilientEmbeddingsClient.from_settings_async(
         tenant_id=tenant_id
     )
@@ -342,6 +371,14 @@ async def _run_evidence_v2_generation(
     assessment_started: float | None = None
 
     embedding_started = time.monotonic()
+    from app.modules.ai.worker_lesson_cycle import create_dev_lesson_assessor
+
+    settings = get_settings()
+    lesson_assessor = create_dev_lesson_assessor(
+        settings=settings, tenant_id=str(tenant_id), job_id=state.job_id, client=generation_client,
+        session_factory=async_session_factory,
+        checkpoint=lambda: _check_cancelled_async(state.job_id, tenant_id=tenant_id),
+    )
 
     async def report_progress(
         stage: str,
@@ -371,6 +408,10 @@ async def _run_evidence_v2_generation(
             progress = 90 + math.floor(4 * current / max(1, total))
             message = f"Создание и проверка тестов: {current} из {total} смысловых блоков"
             detail = _timed_progress_detail(current, total, assessment_started)
+        elif stage == "lesson_cycle":
+            progress = 25 + math.floor(69 * current / max(1, total))
+            message = f"Обработано уроков с проверкой тестов: {current} из {total}"
+            detail = _timed_progress_detail(current, total, realization_started)
         elif stage == "quality":
             progress, message, detail = 95, "Проверка уроков и тестов завершена", None
         else:
@@ -397,6 +438,7 @@ async def _run_evidence_v2_generation(
         generation_client=generation_client,
         embedding_client=embedding_client,
         max_lessons=max_total_lessons,
+        lesson_assessor=lesson_assessor,
         progress_callback=report_progress,
         cancellation_callback=lambda: _check_cancelled_async(
             state.job_id,
@@ -441,6 +483,7 @@ async def _save_generation_to_db(
     user_id: UUID,
 ) -> None:
     """Save generated course structure, content, and assessments to DB."""
+    _require_supported_question_export_ready(state.assessment)
     from sqlalchemy import delete, select, text
 
     from app.models.ai_job import AIJob
@@ -460,6 +503,8 @@ async def _save_generation_to_db(
             raise RuntimeError("Generation job does not exist in this tenant")
         if job.status == "cancelled":
             raise asyncio.CancelledError(f"Job {state.job_id} cancelled")
+        if job.user_id is None or job.user_id != user_id:
+            raise DirectSourceError("generation_source_job_mismatch")
         # A late concurrent delivery may have generated against the original
         # null course_id while another delivery saved the review-required draft.
         if _restore_saved_v2_outcome(state, job):
@@ -467,6 +512,7 @@ async def _save_generation_to_db(
             return
         if job.status != "running":
             raise RuntimeError(f"Generation job is not active: {job.status}")
+        _validate_generation_source_selection(job.params, state.source_document_ids)
         if not state.course_id:
             course = Course(
                 id=uuid4(),
@@ -479,11 +525,11 @@ async def _save_generation_to_db(
                 source_document_ids=state.source_document_ids,
                 source_strategy=state.source_strategy,
                 source_combination_goal=state.source_combination_goal or None,
-                source_analysis=(
+                source_analysis=preserve_source_uncertainty({}, (
                     {**state.source_analysis, "reuse_reason": state.reuse_reason}
                     if state.reuse_reason
                     else state.source_analysis
-                ),
+                )),
             )
             session.add(course)
             await session.flush()
@@ -492,7 +538,7 @@ async def _save_generation_to_db(
                 select(Course).where(
                     Course.id == UUID(state.course_id),
                     Course.tenant_id == tenant_id,
-                )
+                ).with_for_update().execution_options(populate_existing=True)
             )
             if not course:
                 raise ValueError("Target course does not exist in this tenant")
@@ -505,11 +551,11 @@ async def _save_generation_to_db(
             course.source_document_ids = state.source_document_ids
             course.source_strategy = state.source_strategy
             course.source_combination_goal = state.source_combination_goal or None
-            course.source_analysis = (
+            cast(Any, course).source_analysis = preserve_source_uncertainty(course.source_analysis, (
                 {**state.source_analysis, "reuse_reason": state.reuse_reason}
                 if state.reuse_reason
                 else state.source_analysis
-            )
+            ))
             # Regeneration replaces the draft's previous learning structure.
             # Database cascades remove lessons/quizzes below each module.
             await session.execute(
@@ -737,10 +783,10 @@ async def _save_generation_to_db(
             job.result = {**(job.result or {}), **completion_result}  # type: ignore[assignment]
             job.errors = state.errors  # type: ignore[assignment]
             # SQLAlchemy's legacy JSON Column annotation lacks instance typing.
-            course.source_analysis = {  # type: ignore[assignment]
+            cast(Any, course).source_analysis = preserve_source_uncertainty(course.source_analysis, {
                 **state.source_analysis,
                 **({"reuse_reason": state.reuse_reason} if state.reuse_reason else {}),
-            }
+            })
         job.params = params  # type: ignore[assignment]
         await session.commit()
         state.course_id = str(course.id)
@@ -762,6 +808,55 @@ async def _check_cancelled_async(
         job = await get_ai_job(session, job_id, tenant_id=tenant_value)
         if job and job.status == "cancelled":
             raise asyncio.CancelledError(f"Job {job_id} cancelled")
+
+
+def _validate_generation_source_selection(params: Any, documents: list[str]) -> None:
+    """Require the exact ordered job selection, preserving duplicate multiplicity."""
+    try:
+        requested = [str(UUID(value)) for value in documents]
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise DirectSourceError("generation_source_job_mismatch") from exc
+    if not requested:
+        raise DirectSourceError("generation_source_job_mismatch")
+    stored = params.get("documents") if isinstance(params, dict) else None
+    if not isinstance(stored, list):
+        raise DirectSourceError("generation_source_job_mismatch")
+    try:
+        selected = [str(UUID(value)) for value in stored]
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise DirectSourceError("generation_source_job_mismatch") from exc
+    if selected != requested:
+        raise DirectSourceError("generation_source_job_mismatch")
+
+
+class GenerationJobOwnerMismatchError(DirectSourceError):
+    """A delivery cannot mutate or refund a job owned by another user."""
+
+
+class OwnedGenerationCancelledError(asyncio.CancelledError):
+    """The tenant-scoped job was observed cancelled after owner validation."""
+
+
+async def _check_generation_source_job(job_id: str, tenant_id: UUID, documents: list[str],
+                                       user_id: UUID | None) -> None:
+    """Check the live job selection; this is not an atomic source snapshot."""
+    from sqlalchemy import text
+
+    from app.core.db import async_session_factory
+    from app.modules.ai.job_service import get_ai_job
+
+    async with async_session_factory() as session:
+        await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
+        job = await get_ai_job(session, job_id, tenant_id=str(tenant_id))
+        if job is None:
+            raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
+        if user_id is None or job.user_id is None or job.user_id != user_id:
+            raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
+        if job.status == "cancelled":
+            raise OwnedGenerationCancelledError(f"Job {job_id} cancelled")
+        if job.status != "running":
+            raise DirectSourceError("generation_source_job_mismatch")
+        _validate_generation_source_selection(job.params, documents)
 
 
 async def run_generation_pipeline(
@@ -794,13 +889,28 @@ async def run_generation_pipeline(
         reuse_reason=reuse_reason,
     )
     reservation_required = course_id is None
+    initial_identity_checked = False
 
     try:
-        if not uses_current_generation_engine(state.source_analysis):
-            raise DirectSourceError(RETIRED_GENERATION_ENGINE_CODE)
-        if tenant_id is None:
-            raise DirectSourceError("tenant_id_required")
-
+        # Before identity and selection are checked, this caller has no authority
+        # to change a job or its reservation. A successful read is not a lease.
+        try:
+            if not uses_current_generation_engine(state.source_analysis):
+                raise DirectSourceError(RETIRED_GENERATION_ENGINE_CODE)
+            if tenant_id is None:
+                raise DirectSourceError("tenant_id_required")
+            await _check_generation_source_job(job_id, tenant_id, documents, user_id)
+            initial_identity_checked = True
+        except asyncio.CancelledError:
+            raise
+        except SoftTimeLimitExceeded:
+            raise
+        except Exception as error:
+            state.status = "failed"
+            state.stage = "failed"
+            state.message = GENERATION_FAILURE_MESSAGE
+            state.errors = [error.code if isinstance(error, DirectSourceError) else GENERATION_FAILURE_CODE]
+            return state
         state.stage = "ingestion"
         state.progress = 5
         state.message = "Проверка исходных документов..."
@@ -816,11 +926,13 @@ async def run_generation_pipeline(
         if restored is True:
             return state
 
+        await _check_generation_source_job(job_id, tenant_id, documents, user_id)
         corpus = await load_direct_source_corpus(
             documents,
             tenant_id=tenant_id,
             check_cancelled=lambda: _check_cancelled_async(job_id, tenant_id=tenant_id),
         )
+        await _check_generation_source_job(job_id, tenant_id, documents, user_id)
         await _run_evidence_v2_generation(
             state,
             corpus,
@@ -842,6 +954,7 @@ async def run_generation_pipeline(
             message=state.message,
             progress_detail=None,
         )
+        _require_supported_question_export_ready(state.assessment)
         if user_id:
             await _save_generation_to_db(state, tenant_id, user_id)
         else:
@@ -867,6 +980,12 @@ async def run_generation_pipeline(
             )
         logger.info("Evidence V2 generation complete for job %s", job_id)
         return state
+    except GenerationJobOwnerMismatchError as error:
+        # A delivery without owner authority must not update or refund this job.
+        state.status = "failed"
+        state.stage = "failed"
+        state.message = GENERATION_FAILURE_MESSAGE
+        state.errors = [error.code]
     except AllProvidersFailedError:
         state.status = "interrupted"
         state.stage = "interrupted"
@@ -883,6 +1002,8 @@ async def run_generation_pipeline(
         )
         logger.warning("Evidence V2 paused after provider exhaustion for job %s", job_id)
     except SoftTimeLimitExceeded:
+        if not initial_identity_checked:
+            raise
         state.status = "interrupted"
         state.stage = "interrupted"
         state.message = "Генерация приостановлена по лимиту времени. Продолжите задачу позднее."
@@ -897,7 +1018,9 @@ async def run_generation_pipeline(
             completed_at=None,
         )
         logger.warning("Evidence V2 interrupted for job %s", job_id)
-    except asyncio.CancelledError:
+    except asyncio.CancelledError as error:
+        if not initial_identity_checked and not isinstance(error, OwnedGenerationCancelledError):
+            raise
         state.status = "cancelled"
         state.stage = "cancelled"
         state.message = "Cancelled by user"

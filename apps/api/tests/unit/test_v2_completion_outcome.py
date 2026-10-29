@@ -37,6 +37,7 @@ def _artifacts(question_count=0):
         ]),
         diagnostics={
             "engine": "evidence_v2", "question_count": question_count,
+            "source_editorial_review_document_count": 0,
             "assessment_review": {
                 "accepted": question_count, "reasons": ["unsupported_answer"],
                 "coverage": {"requires_review": False},
@@ -86,6 +87,8 @@ class MemorySession:
 def harness(monkeypatch):
     import asyncpg
 
+    from app.modules.ai import job_service
+
     # Any missed database mock fails before attempting a socket connection.
     monkeypatch.setattr(asyncpg, "connect", AsyncMock(side_effect=AssertionError("DB forbidden")))
     tenant_id, user_id = uuid4(), uuid4()
@@ -99,6 +102,7 @@ def harness(monkeypatch):
     session = MemorySession(job)
     monkeypatch.setattr(pipeline, "async_session_factory", lambda: session)
     monkeypatch.setattr(db, "async_session_factory", lambda: session)
+    monkeypatch.setattr(job_service, "get_ai_job", AsyncMock(return_value=job))
     corpus = DirectSourceCorpus(str(tenant_id), (), 10, 1)
     monkeypatch.setattr(pipeline, "load_direct_source_corpus", AsyncMock(return_value=corpus))
     generate = AsyncMock(return_value=SimpleNamespace())
@@ -115,6 +119,8 @@ def harness(monkeypatch):
 
 
 async def _run(harness, *, user=True, course_id=None):
+    if user and course_id is not None and harness.job.status == "interrupted":
+        harness.job.status = "running"  # The worker claims an interrupted job before resume.
     return await pipeline.run_generation_pipeline(
         harness.job.id, harness.job.params["documents"], tenant_id=harness.job.tenant_id,
         user_id=harness.job.user_id if user else None, course_id=course_id,
@@ -224,25 +230,21 @@ async def test_partial_quiz_is_success_without_per_lesson_quota_and_keeps_review
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("question_count, expected_status", [(0, "interrupted"), (1, "completed")])
-async def test_no_user_branch_records_same_outcome_and_preserves_link(harness, question_count, expected_status):
+@pytest.mark.parametrize("question_count", [0, 1])
+async def test_no_user_cannot_write_or_generate(harness, question_count):
     harness.convert.return_value = _artifacts(question_count)
     course_id = uuid4()
     harness.job.course_id = course_id
 
     state = await _run(harness, user=False, course_id=str(course_id))
 
-    assert state.status == harness.job.status == expected_status
-    assert state.stage == harness.job.stage == expected_status
+    assert state.status == "failed"
+    assert state.errors == ["generation_source_job_mismatch"]
+    assert harness.job.status == "running"
     assert state.course_id == str(harness.job.course_id) == str(course_id)
-    assert harness.job.result["counts"] == {
-        "modules": 1, "lessons": 2, "quizzes": question_count, "questions": question_count,
-    }
-    assert harness.job.result["course_id"] == str(course_id)
-    assert harness.job.result["delivery_task_id"] == "delivery-1"
-    assert harness.job.params["progress_detail"]["current"] == 2
-    assert harness.job.errors == (["assessment_no_valid_questions"] if not question_count else [])
-    assert state.progress == 100
+    assert harness.job.result == {"delivery_task_id": "delivery-1", "resume_count": 0}
+    assert harness.session.rows == [] and harness.session.commits == []
+    harness.generate.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -299,6 +301,7 @@ async def test_legacy_zero_question_persistence_is_unchanged(harness):
     state = pipeline.GenerationState(
         job_id=harness.job.id, structure=harness.artifacts.structure,
         content=harness.artifacts.content, assessment=harness.artifacts.assessment,
+        source_document_ids=list(harness.job.params["documents"]),
         source_analysis={"analysis_mode": "direct_source"},
     )
 
@@ -382,17 +385,14 @@ async def test_existing_job_api_exposes_interruption_errors_saved_course_and_les
 async def test_no_user_completion_cannot_override_concurrent_cancellation(harness, monkeypatch):
     from app.modules.ai import job_service
 
-    update = job_service.update_ai_job
-
     async def cancel_before_terminal_update(*args, **kwargs):
-        if kwargs.get("status") == "interrupted":
-            harness.job.status = "cancelled"
-        return await update(*args, **kwargs)
+        raise AssertionError("ownerless execution must not write the job")
 
     monkeypatch.setattr(job_service, "update_ai_job", cancel_before_terminal_update)
 
+    harness.job.status = "cancelled"
     state = await _run(harness, user=False)
 
-    assert state.status == harness.job.status == "cancelled"
+    assert state.status == "failed" and harness.job.status == "cancelled"
     assert "counts" not in harness.job.result
     assert "completion" not in harness.job.params

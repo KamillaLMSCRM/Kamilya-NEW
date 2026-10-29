@@ -35,7 +35,10 @@ import hashlib
 import json
 import logging
 import math
-from collections.abc import Awaitable, Callable, Iterable, Mapping
+import re
+from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field, replace
 from enum import StrEnum
 from typing import Any, Generic, Literal, TypeVar, cast
@@ -54,6 +57,9 @@ from app.modules.admin.model_routing.chatgpt_reserve import configuration_blocke
 from app.modules.admin.model_routing.runtime import resolve_runtime_generation_model_order
 from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
 from app.modules.ai.embedding_space import EmbeddingSpace
+
+RequestProfile = Literal["evidence_low", "course_generation"]
+_REQUEST_PROFILES = (None, "evidence_low", "course_generation")
 
 EmbeddingProviderProgressCallback = Callable[[int, int, str], Awaitable[None]]
 EmbeddingProgressCallback = Callable[[int, int, str, int], Awaitable[None]]
@@ -197,9 +203,35 @@ class LLMProviderConfig:
     embedding_space_model: str | None = None
     embedding_query_prefix: str | None = None
     embedding_l2_normalize: bool = False
-    # Capability set only by the global managed DeepSeek builders. Tenant
-    # overrides with the same display name retain their own inference policy.
+    # Capability set only by the global managed DeepSeek builders. It gates all
+    # server-owned request profiles; tenant overrides with the same display name
+    # retain their own inference policy. The field name is retained for API
+    # compatibility with the original evidence_low profile.
     managed_evidence_profile: bool = False
+
+
+def _managed_profile_attempt(
+    config: LLMProviderConfig,
+    policy: Any,
+    request_profile: RequestProfile,
+) -> tuple[LLMProviderConfig, int, float]:
+    """Return one request-local managed DeepSeek attempt configuration."""
+    deadline = policy.number(f"{request_profile}.deepseek_seconds")
+    transport_timeout = max(config.timeout, deadline) if request_profile == "course_generation" else config.timeout
+    return (
+        replace(
+            config,
+            timeout=transport_timeout,
+            max_retries=0,
+            extra_body={
+                **config.extra_body,
+                "thinking": {"type": "enabled"},
+                "reasoning_effort": "low",
+            },
+        ),
+        policy.integer(f"{request_profile}.max_tokens"),
+        deadline,
+    )
 
 
 def _openai_base_url(value: str) -> str:
@@ -525,6 +557,74 @@ def _pack_embedding_batches(
 # ---------------------------------------------------------------------------
 
 
+@dataclass
+class TransportObservation:
+    """Native post invocations observed in this scope, not confirmed wire sends.
+
+    Coverage remains partial: other client implementations, process loss and
+    provider-side billing cannot be observed by this in-memory instrument.
+    Escaped child tasks are omitted after scope exit. Nested scopes observe
+    exclusively: their POST entries do not accumulate in the enclosing scope.
+    """
+
+    observed_post_invocations: int = 0
+    coverage: Literal["partial"] = "partial"
+    _closed: bool = field(default=False, init=False, repr=False)
+
+
+_transport_observation: ContextVar[TransportObservation | None] = ContextVar(
+    "llm_transport_observation", default=None,
+)
+
+
+class NativePostReservationError(RuntimeError):
+    """Opt-in reservation denied; never convert to provider fallback."""
+
+
+class _NativeReservationScope:
+    def __init__(self, reserve: Callable[[], Awaitable[object]]) -> None:
+        self.reserve = reserve
+        self.closed = False
+
+    async def before_post(self) -> None:
+        if self.closed:
+            raise NativePostReservationError("native_post_reservation_scope_closed")
+        await self.reserve()
+        if self.closed:
+            raise NativePostReservationError("native_post_reservation_scope_closed")
+
+
+_native_post_reservation: ContextVar[_NativeReservationScope | None] = ContextVar(
+    "native_post_reservation", default=None,
+)
+
+
+@contextmanager
+def native_post_reservation_scope(reserve: Callable[[], Awaitable[object]]) -> Iterator[None]:
+    """Opt-in current-task reservation; inherited tasks fail closed after exit."""
+    if _native_post_reservation.get() is not None:
+        raise RuntimeError("native_post_reservation_scope_nested")
+    scope = _NativeReservationScope(reserve)
+    token = _native_post_reservation.set(scope)
+    try:
+        yield
+    finally:
+        scope.closed = True
+        _native_post_reservation.reset(token)
+
+
+@contextmanager
+def observe_native_transport() -> Iterator[TransportObservation]:
+    """Observe native POST entries within the current async context only."""
+    observation = TransportObservation()
+    token = _transport_observation.set(observation)
+    try:
+        yield observation
+    finally:
+        observation._closed = True
+        _transport_observation.reset(token)
+
+
 class _BaseProviderClient:
     """Single-provider client with internal retry loop. No failover logic."""
 
@@ -549,6 +649,12 @@ class _BaseProviderClient:
                 if not self.config.trust_env:
                     client_options["trust_env"] = False
                 async with httpx.AsyncClient(**client_options) as client:
+                    reservation = _native_post_reservation.get()
+                    if reservation is not None:
+                        await reservation.before_post()
+                    observation = _transport_observation.get()
+                    if observation is not None and not observation._closed:
+                        observation.observed_post_invocations += 1
                     resp = await client.post(
                         f"{self.config.base_url}{self.config.endpoint}",
                         json=payload,
@@ -617,6 +723,28 @@ class _BaseProviderClient:
         raise ProviderFailedError(self.config.name, last_exc or RuntimeError("retries exhausted with no error"))
 
 
+def _structured_output_messages(
+    messages: list[dict[str, Any]], response_format: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """Express a declared JSON-object format in trusted transport instructions.
+
+    Source/user content is never consulted for format authority or rewritten.
+    This supplies a provider precondition, not schema or semantic approval.
+    """
+    if not response_format or response_format.get("type") != "json_object":
+        return messages
+    if any(row.get("role") == "system" and isinstance(row.get("content"), str)
+           and re.search(r"\bjson\b", row["content"], re.IGNORECASE) for row in messages):
+        return messages
+    result = [dict(row) for row in messages]
+    instruction = "Return the required response as JSON."
+    for row in result:
+        if row.get("role") == "system" and isinstance(row.get("content"), str):
+            row["content"] += "\n" + instruction
+            return result
+    return [{"role": "system", "content": instruction}, *result]
+
+
 class LLMClient(_BaseProviderClient):
     """Single-provider LLM client (chat completions).
 
@@ -664,7 +792,7 @@ class LLMClient(_BaseProviderClient):
 
         payload: dict[str, Any] = {
             "model": self.config.model,
-            "messages": messages,
+            "messages": _structured_output_messages(messages, response_format),
             "temperature": self.temperature,
             "max_tokens": request_max_tokens,
         }
@@ -919,12 +1047,12 @@ class ResilientLLMClient:
         *,
         provider_deadline_seconds: float | None = None,
         provider_deadline_overrides: Mapping[str, float] | None = None,
-        request_profile: Literal["evidence_low"] | None = None,
+        request_profile: RequestProfile | None = None,
     ) -> _LLMResponse:
         # Opt-in only: short interactive operations must leave time for the
         # already configured fallback even when a primary streams keepalives.
         # Other callers retain their provider-specific retry/timeout settings.
-        if request_profile not in (None, "evidence_low"):
+        if request_profile not in _REQUEST_PROFILES:
             raise ValueError("request_profile_invalid")
         if provider_deadline_seconds is not None and (
             isinstance(provider_deadline_seconds, bool)
@@ -945,7 +1073,7 @@ class ResilientLLMClient:
         # Snapshot request-local caps before awaiting; never modify shared clients
         # or widen providers absent from the tenant's resolved route (e.g. BYOK).
         deadline_overrides = dict(provider_deadline_overrides or {})
-        evidence_policy = await resolve_runtime_settings() if request_profile == "evidence_low" and any(
+        profile_policy = await resolve_runtime_settings() if request_profile is not None and any(
             client.name == "deepseek" and client.config.managed_evidence_profile for client in self._clients
         ) else None
         last_exc: BaseException | None = None
@@ -955,22 +1083,24 @@ class ResilientLLMClient:
                 attempt_config = client.config
                 attempt_max_tokens = self.max_tokens
                 attempt_deadline = deadline_overrides.get(client.name, provider_deadline_seconds)
-                if (request_profile == "evidence_low" and client.name == "deepseek"
+                if (request_profile is not None and client.name == "deepseek"
                         and client.config.managed_evidence_profile):
                     # Request-local opt-in; no saved model/order/key change and
                     # no mutation of shared clients. Existing fallbacks retain
                     # their original output and caller-supplied deadline caps.
-                    attempt_config = replace(attempt_config, extra_body={
-                        **attempt_config.extra_body, "thinking": {"type": "enabled"}, "reasoning_effort": "low"})
-                    assert evidence_policy is not None
-                    attempt_max_tokens = evidence_policy.integer("evidence_low.max_tokens")
-                    attempt_deadline = evidence_policy.number("evidence_low.deepseek_seconds")
+                    assert profile_policy is not None
+                    attempt_config, attempt_max_tokens, profile_deadline = _managed_profile_attempt(
+                        attempt_config, profile_policy, request_profile,
+                    )
+                    attempt_deadline = profile_deadline
+                    if request_profile == "course_generation" and client.name in deadline_overrides:
+                        attempt_deadline = min(attempt_deadline, deadline_overrides[client.name])
                 if attempt_deadline is None:
                     return await client.ainvoke(messages, config=config, response_format=provider_response_format)
                 # Never mutate shared provider objects or inherit a configured
                 # retry override into this one-attempt wall-clock budget.
                 attempt = LLMClient(
-                    replace(attempt_config, max_retries=0),
+                    attempt_config if attempt_config.max_retries == 0 else replace(attempt_config, max_retries=0),
                     temperature=self.temperature,
                     max_tokens=attempt_max_tokens,
                     max_retries=0,
@@ -999,6 +1129,7 @@ class ResilientLLMClient:
         response_format: dict | None = None,
         *,
         repair_json_syntax: bool = False,
+        request_profile: RequestProfile | None = None,
     ) -> ValidatedLLMResult[T]:
         """Invoke providers until one response passes a pure parser/validator.
 
@@ -1010,18 +1141,39 @@ class ResilientLLMClient:
         limited to one parser-originated JSONDecodeError per invocation.
         """
 
+        if request_profile not in _REQUEST_PROFILES:
+            raise ValueError("request_profile_invalid")
+        profile_policy = await resolve_runtime_settings() if request_profile is not None and any(
+            client.name == "deepseek" and client.config.managed_evidence_profile for client in self._clients
+        ) else None
+
+        async def invoke_provider(client: LLMClient, request_messages: str | list[dict[str, Any]]) -> _LLMResponse:
+            if (profile_policy is None or request_profile is None or client.name != "deepseek"
+                    or not client.config.managed_evidence_profile):
+                return await client.ainvoke(request_messages, config=config,
+                    response_format=_response_format_for_provider(client.name, response_format))
+            # An opt-in audit changes only this managed provider attempt. Keep
+            # route, BYOK, fallbacks and shared clients untouched, including on
+            # the one existing syntax-only correction.
+            attempt_config, attempt_max_tokens, attempt_deadline = _managed_profile_attempt(
+                client.config, profile_policy, request_profile,
+            )
+            attempt = LLMClient(attempt_config, temperature=self.temperature,
+                max_tokens=attempt_max_tokens, max_retries=0)
+            try:
+                async with asyncio.timeout(attempt_deadline):
+                    return await attempt.ainvoke(request_messages, config=config,
+                        response_format=_response_format_for_provider(client.name, response_format))
+            except TimeoutError as exc:
+                raise ProviderFailedError(client.name, exc) from exc
+
         failure_reasons: list[ValidatedCallFailureReason] = []
         validated_attempts = 0
         syntax_correction_used = False
         for index, client in enumerate(self._clients):
             validated_attempts += 1
             try:
-                provider_response_format = _response_format_for_provider(client.name, response_format)
-                response = await client.ainvoke(
-                    messages,
-                    config=config,
-                    response_format=provider_response_format,
-                )
+                response = await invoke_provider(client, messages)
             except ProviderFailedError as exc:
                 failure_reasons.append(_provider_validated_failure_reason(exc))
                 logger.warning(
@@ -1031,12 +1183,26 @@ class ResilientLLMClient:
                     len(self._clients) - index - 1,
                 )
                 continue
+            except NativePostReservationError:
+                raise
             except Exception as exc:
                 failure_reasons.append(_validated_parser_failure_reason(exc))
                 logger.warning(
                     "[LLM_VALIDATED_REJECT] provider=%s failure=%s remaining=%s",
                     client.name,
                     type(exc).__name__,
+                    len(self._clients) - index - 1,
+                )
+                continue
+
+            if isinstance(response.content, str) and not response.content.strip():
+                # There is no JSON payload to correct after output-budget
+                # exhaustion. Keep the sole syntax correction available for a
+                # later nonempty response, and use the existing fallback order.
+                failure_reasons.append(ValidatedCallFailureReason.PROVIDER_OUTPUT_UNPARSEABLE)
+                logger.warning(
+                    "[LLM_VALIDATED_REJECT] provider=%s failure=EmptyContent remaining=%s",
+                    client.name,
                     len(self._clients) - index - 1,
                 )
                 continue
@@ -1060,11 +1226,8 @@ class ResilientLLMClient:
                 failure_reasons.append(ValidatedCallFailureReason.PROVIDER_OUTPUT_UNPARSEABLE)
                 validated_attempts += 1
                 try:
-                    correction = await client.ainvoke(
-                        _json_syntax_correction_messages(messages, response.content),
-                        config=config,
-                        response_format=provider_response_format,
-                    )
+                    correction = await invoke_provider(client,
+                        _json_syntax_correction_messages(messages, response.content))
                 except ProviderFailedError as exc:
                     failure_reasons.append(_provider_validated_failure_reason(exc))
                     logger.warning(
@@ -1074,12 +1237,23 @@ class ResilientLLMClient:
                         len(self._clients) - index - 1,
                     )
                     continue
+                except NativePostReservationError:
+                    raise
                 except Exception as exc:
                     failure_reasons.append(_validated_parser_failure_reason(exc))
                     logger.warning(
                         "[LLM_VALIDATED_SYNTAX_CORRECTION_FAIL] provider=%s failure=%s remaining=%s",
                         client.name,
                         type(exc).__name__,
+                        len(self._clients) - index - 1,
+                    )
+                    continue
+
+                if isinstance(correction.content, str) and not correction.content.strip():
+                    failure_reasons.append(ValidatedCallFailureReason.PROVIDER_OUTPUT_UNPARSEABLE)
+                    logger.warning(
+                        "[LLM_VALIDATED_SYNTAX_CORRECTION_REJECT] provider=%s failure=EmptyContent remaining=%s",
+                        client.name,
                         len(self._clients) - index - 1,
                     )
                     continue

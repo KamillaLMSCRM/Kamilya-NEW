@@ -7,7 +7,7 @@
 import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
-from typing import cast
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 from argon2 import PasswordHasher
@@ -367,6 +367,17 @@ async def record_progress(db: AsyncSession, *, attempt: CourseReviewAttempt, rev
 
 
 async def decide(db: AsyncSession, *, attempt: CourseReviewAttempt, revision: CourseApprovalRevision, reviewer: CourseApprovalReviewer, tenant_id: UUID, actor_id: UUID, decision: str, reason: str | None, warning_acknowledged: bool):
+    from app.modules.courses.source_uncertainty import qa_source_holds_enabled, require_source_uncertainty_clear
+
+    qa_source_guard = decision == "approve" and qa_source_holds_enabled(tenant_id)
+    if qa_source_guard:
+
+        course = await db.scalar(select(Course).where(
+            Course.id == revision.course_id, Course.tenant_id == tenant_id,
+        ).with_for_update().execution_options(populate_existing=True))
+        if course is None:
+            raise HTTPException(status_code=404, detail="Course not found")
+        require_source_uncertainty_clear(course.source_analysis)
     locked_revision = await db.scalar(select(CourseApprovalRevision).where(
         CourseApprovalRevision.id == revision.id,
         CourseApprovalRevision.tenant_id == tenant_id,
@@ -380,6 +391,9 @@ async def decide(db: AsyncSession, *, attempt: CourseReviewAttempt, revision: Co
         raise HTTPException(status_code=404, detail="Reviewer assignment not found")
     revision = locked_revision
     reviewer = locked_reviewer
+    if qa_source_guard:
+        snapshot_course: Any = revision.snapshot.get("course", {}) if isinstance(revision.snapshot, dict) else {}
+        require_source_uncertainty_clear(snapshot_course.get("source_analysis") if isinstance(snapshot_course, dict) else None)
     policy = await db.scalar(select(CourseApprovalPolicy).where(CourseApprovalPolicy.course_id == revision.course_id, CourseApprovalPolicy.tenant_id == tenant_id, CourseApprovalPolicy.review_enabled.is_(True)))
     if policy is None:
         raise HTTPException(status_code=403, detail="Course review access disabled")

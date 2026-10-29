@@ -6,12 +6,17 @@ import re
 import unicodedata
 from collections import defaultdict
 
+from app.modules.ai.assessment_preservation import source_predicate_supports_literal_negation
+from app.modules.ai.atomic_polarity import has_bounded_literal_occurrence, is_literal_polarity_opposite
 from app.modules.ai.lesson_quality import has_unprofessional_learner_language
+from app.modules.ai.source_layout import SOURCE_HORIZONTAL_SPACE
+from app.modules.ai.source_question_identity import assessment_inventory_binding, source_rule_identity
+from app.modules.ai.source_response_projection import verified_response_option_limit
 
 from .models import AssessmentDraft, CourseDraft, EvidenceCourseResult, QuestionDraft
 from .provider_models import GroundedBlock, PublishabilityReport
 
-EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v4"
+EVIDENCE_QUALITY_POLICY_VERSION = "evidence-v2-quality-v45"
 
 _GENERIC_QUESTION_RE = re.compile(
     r"(?:о\s+ч[её]м\s+(?:этот\s+)?(?:урок|курс|раздел|модуль)|"
@@ -42,6 +47,14 @@ _TRUNCATED_ABBREVIATION_RE = re.compile(
     r"(?:^|[.!?]\s+)др\.\s*\)\s+[А-ЯЁ]",
     re.IGNORECASE,
 )
+_BROKEN_SOURCE_STRUCTURE_RE = re.compile(
+    r"\b\d{1,2}\.\s*[‚,]\s*[A-Za-z]{2,5}\s+\d{1,2}\.\s*[—-]|"
+    r"[,‚]\s*[A-Za-z]{2,5}\s+\d{1,2}\.\s*(?=\n\s*#{1,6}\s|$)|"
+    r"\bот\s+\d{2}\.\s+(?:1[3-9]|[2-9]\d)\s+г\.|"
+    r"[:;][ \t]*\d{1,2}\.[ \t]*(?=\n(?:[-*+]\s|\s*#{1,6}\s)|$)|"
+    r"(?:^|\n)[ \t]*\d{1,2}\.[ \t]+\d{1,2}\.[ \t]+(?=[А-ЯЁA-Z])",
+    re.IGNORECASE,
+)
 _INCOMPLETE_ANSWER_TAIL_RE = re.compile(
     r"(?:\b(?:следующим|таким)\s+образом|"
     r"\b(?:включает|содержит)\s+(?:следующее|следующие)|"
@@ -49,6 +62,7 @@ _INCOMPLETE_ANSWER_TAIL_RE = re.compile(
     re.IGNORECASE,
 )
 MAX_ASSESSMENT_ANSWER_CHARS = 240
+MAX_ASSESSMENT_TARGETS_PER_LESSON = 20
 _TITLE_START_RE = re.compile(r"^(?:после|в\s+случае|к\s+|при\s+|из\s+)", re.IGNORECASE)
 _MATERIAL_QUESTION_RE = re.compile(
     r"(?:из\s+как(?:ого\s+материала|их\s+материалов)|"
@@ -63,6 +77,8 @@ _MATERIAL_FAMILY_RE = re.compile(
     r"steel|alumin\w*|plastic\w*|glass|plywood|fabric\w*|leather|cotton|polyester)\b",
     re.IGNORECASE,
 )
+_HORIZONTAL_SPACE_CHARS = frozenset(SOURCE_HORIZONTAL_SPACE)
+_RUSSIAN_WORD_RE = re.compile(r"[а-яё]+", re.IGNORECASE)
 
 
 def _plain_question_text(text: str) -> str:
@@ -108,20 +124,73 @@ def distractor_repeats_correct_attribute_answer(
     )
 
 
-def contains_ocr_artifact(value: str) -> bool:
+def ocr_artifact_reason(value: str) -> str:
     if _OCR_ARTIFACT_RE.search(value):
-        return True
+        return "ocr_artifact"
     for match in _TRUNCATED_ABBREVIATION_RE.finditer(value):
         prefix = value[:match.start()]
         # ``и. др. )`` is noisy punctuation inside a complete parenthetical,
         # not the observed detached OCR tail ``. др. ) Ломбарда``.
         if prefix.rfind("(") <= prefix.rfind(")"):
-            return True
-    return False
+            return "ocr_artifact"
+    return ""
+
+
+def contains_ocr_artifact(value: str) -> bool:
+    return bool(ocr_artifact_reason(value))
+
+
+def contains_visible_artifact(value: str) -> bool:
+    """Reject broken presentation without silently changing source admission.
+
+    Admission also consumes contains_ocr_artifact. Extending that predicate for
+    a display defect would discard a whole critical source rule before its
+    coverage audit. Keep this stricter output gate at realization/assessment.
+    """
+    return contains_ocr_artifact(value) or bool(_BROKEN_SOURCE_STRUCTURE_RE.search(value))
 
 
 def is_generic_question(value: str) -> bool:
     return bool(_GENERIC_QUESTION_RE.search(value))
+
+
+def _verified_question_source_rule_identity(question: QuestionDraft) -> str | None:
+    """Return a recomputed constructed identity without invoking prompt fallback."""
+    identity = question.source_rule_identity
+    focus = question.source_rule_focus
+    focus_start = question.correct_answer.find(focus) if isinstance(focus, str) else -1
+    focus_end = focus_start + len(focus) if isinstance(focus, str) else -1
+    focus_valid = isinstance(focus, str) and (not focus or (
+        len(focus) <= 240 and focus == focus.strip() and focus_start >= 0
+        and question.correct_answer.find(focus, focus_start + 1) < 0
+        and not (focus_start > 0 and question.correct_answer[focus_start - 1].isalnum() and focus[0].isalnum())
+        and not (focus_end < len(question.correct_answer)
+                 and question.correct_answer[focus_end].isalnum() and focus[-1].isalnum())))
+    if (question.semantic_reviewed and isinstance(identity, str)
+            and focus_valid
+            and re.fullmatch(r"source-rule:[0-9a-f]{64}", identity)
+            and question.correct_answer and question.correct_answer in question.source_quote
+            and has_bounded_literal_occurrence(question.correct_answer, question.source_quote)
+            and question.correct_answer in question.options
+            and identity == source_rule_identity(question.prompt, question.correct_answer, assessed_focus=focus)):
+        return identity
+    return None
+
+
+def question_duplicate_key(question: QuestionDraft) -> str:
+    """Validate a constructed identity; legacy/unverified values keep prompt dedup."""
+    inventory = question.assessment_inventory_identity
+    if (question.semantic_reviewed and isinstance(inventory, str)
+            and re.fullmatch(
+                r"(?:source-proposition|natural-scenario|complete-clause|ordinary-competency):[0-9a-f]{64}",
+                inventory,
+            )
+            and question.assessment_inventory_binding == assessment_inventory_binding(question, inventory)):
+        return inventory  # Dedup only; no option/source-truth exemption.
+    identity = _verified_question_source_rule_identity(question)
+    if identity is not None:
+        return identity
+    return " ".join(question.prompt.casefold().replace("ё", "е").split())
 
 
 def contains_internal_generation_instruction(value: str) -> bool:
@@ -135,7 +204,7 @@ def is_acceptable_title(value: str) -> bool:
     words = re.findall(r"[^\W\d_]+", title, flags=re.UNICODE)
     if len(words) < 1 or len(words) > 10 or len(title) > 96:
         return False
-    if contains_ocr_artifact(title) or _TITLE_START_RE.search(title):
+    if contains_visible_artifact(title) or _TITLE_START_RE.search(title):
         return False
     first = words[0].casefold().replace("ё", "е")
     if first.endswith(("ать", "ять", "ить")):
@@ -143,10 +212,124 @@ def is_acceptable_title(value: str) -> bool:
     return not any(word.casefold().endswith(("ется", "ются")) for word in words)
 
 
-def question_has_ambiguous_options(question: QuestionDraft) -> bool:
+def _is_complete_binary_modal_opposite(question: QuestionDraft, option: str) -> bool:
+    """A complete obligation and its exact negation are not a key restatement.
+
+    This does not grant semantic acceptance: the server-owned pair still needs
+    both independent source reviews. Unknown kinds, added qualifiers, changed
+    actions and ordinary answer-containing distractors retain the same guard.
+    """
+    if question.kind != "true_false" or len(question.options) != 2:
+        return False
+    def normalize(text: str) -> str:
+        return " ".join(text.casefold().replace("ё", "е").split()).rstrip(".")
+    key, wrong = normalize(question.correct_answer), normalize(option)
+    if key == "не допускается":
+        return wrong == "допускается"
+    if re.fullmatch(r"не допускается размещение [^.!?;:]+ вплотную к [^.!?;:]+", key):
+        # Exact whole-proposition permission/prohibition; not a shorter key
+        # restatement. Source admission and both blind audits remain binding.
+        return wrong == key.removeprefix('не ')
+    obligation = re.fullmatch(r"(?P<modal>обязан|обязана|обязано|обязаны)(?P<action>\s+.+)?", key)
+    if obligation is not None:
+        # In particular, обязано is a modal, not an adverb ending in -о.
+        return wrong == "не " + key
+    if re.match(r"^(?:[а-яё]+о\s+)?[а-яё]+(?:ть|ти|чь)(?:ся|сь)?\s+", key):
+        # Materialization may bind an infinitive to its source-owned shared
+        # obligation. Only the complete exact modal opposite is allowed here;
+        # no added condition or ordinary MCQ gains this containment exception.
+        return wrong == "не требуется " + key
+    return False
+
+
+def _is_exact_binary_polarity_contrast(question: QuestionDraft, option: str) -> bool:
+    """Visible opposite predicates are distinct, not source truth or key proof."""
+    if question.kind != "single_choice" or not 2 <= len(question.options) <= 4:
+        return False
+    # Language repair may capitalize a sentence. Normalize its first character
+    # only: names, identifiers and internal predicate/object bytes stay exact.
+    answer = question.correct_answer[:1].casefold() + question.correct_answer[1:]
+    folded_option = option[:1].casefold() + option[1:]
+    if (not question.semantic_reviewed
+            and (answer != question.correct_answer or folded_option != option)):
+        return False  # New sentence-case realization requires reviewed prose.
+    option = folded_option
+    if answer.startswith("не ") and option == answer[3:]:
+        positive = option
+    elif option == "не " + answer:
+        positive = answer
+    else:
+        return False
+    predicate = _RUSSIAN_WORD_RE.match(positive)
+    return bool(predicate and predicate.end() < len(positive)
+                and positive[predicate.end()] in _HORIZONTAL_SPACE_CHARS
+                and source_predicate_supports_literal_negation(
+                    predicate.group(), allow_short_participle=True))
+
+
+def _is_source_bound_binary_predicate_negation(
+    question: QuestionDraft,
+    option: str,
+) -> bool:
+    """Distinguish one verified byte-exact source predicate from its literal negation."""
+    if question.kind != "single_choice" or len(question.options) != 2:
+        return False
+    if _verified_question_source_rule_identity(question) is None:
+        return False
+
+    focus = question.source_rule_focus
+    answer = question.correct_answer
+    if not focus:
+        return False
+    if is_literal_polarity_opposite(answer, focus, option):
+        return True
+    # Preserve the established leading-focus constructor contract, including
+    # punctuation-delimited and horizontal-space variants. The strict atomic
+    # module above is the only path that may toggle a mid-clause predicate.
+    if not answer.startswith(focus):
+        return False
+    predicate_start = 0
+    removal_end = 0
+    if focus.startswith("не") and len(focus) > 2 and focus[2] in _HORIZONTAL_SPACE_CHARS:
+        predicate_start = 2
+        while predicate_start < len(focus) and focus[predicate_start] in _HORIZONTAL_SPACE_CHARS:
+            predicate_start += 1
+        removal_end = predicate_start
+    predicate_match = _RUSSIAN_WORD_RE.match(focus, predicate_start)
+    if predicate_match is None:
+        return False
+    if (predicate_match.end() < len(focus)
+            and focus[predicate_match.end()] not in _HORIZONTAL_SPACE_CHARS | frozenset(",;:.!?")):
+        return False
+    if not source_predicate_supports_literal_negation(
+            predicate_match.group(), allow_short_participle=True):
+        return False
+    if removal_end:
+        return option == answer[removal_end:]
+    if not option.startswith("не") or len(option) <= 2 or option[2] not in _HORIZONTAL_SPACE_CHARS:
+        return False
+    answer_start = 2
+    while answer_start < len(option) and option[answer_start] in _HORIZONTAL_SPACE_CHARS:
+        answer_start += 1
+    return option[answer_start:] == answer
+
+
+def answer_containment_option_indices(question: QuestionDraft) -> tuple[int, ...]:
+    """Identify exact key-containing alternatives for bounded author feedback.
+
+    Retain the existing whole-word/whitespace-normalized rejection, including
+    after semantic review. Adding a region or caveat to the same answer value
+    does not turn that value into an unambiguously wrong alternative.
+    """
     correct = " ".join(question.correct_answer.casefold().replace("ё", "е").split())
-    if len(correct) >= 3 and any(
-        option != question.correct_answer
+    if len(correct) < 3:
+        return ()
+    return tuple(
+        index for index, option in enumerate(question.options)
+        if option != question.correct_answer
+        and not _is_complete_binary_modal_opposite(question, option)
+        and not _is_exact_binary_polarity_contrast(question, option)
+        and not _is_source_bound_binary_predicate_negation(question, option)
         and (
             bool(
                 re.search(
@@ -161,8 +344,11 @@ def question_has_ambiguous_options(question: QuestionDraft) -> bool:
                 )
             )
         )
-        for option in question.options
-    ):
+    )
+
+
+def question_has_ambiguous_options(question: QuestionDraft) -> bool:
+    if answer_containment_option_indices(question):
         return True
     if _MATERIAL_QUESTION_RE.search(question.prompt):
         correct_materials = {
@@ -221,19 +407,42 @@ def filter_acceptable_questions(questions: list[QuestionDraft]) -> list[Question
         question
         for question in questions
         if not is_generic_question(question.prompt)
-        and len(question.correct_answer.strip()) <= MAX_ASSESSMENT_ANSWER_CHARS
+        and len(question.correct_answer.strip()) <= question_answer_limit(question)
         and not question_has_incomplete_correct_answer(question)
         and not question_has_ambiguous_options(question)
         and not question_has_blocked_learner_language(question)
+        and not any(contains_visible_artifact(value)
+                    for value in (question.prompt, question.explanation, *question.options))
     ]
+
+
+def question_answer_limit(question: QuestionDraft) -> int:
+    if not question.semantic_reviewed:
+        return MAX_ASSESSMENT_ANSWER_CHARS
+    return verified_response_option_limit(question.source_response_budget, answer=question.correct_answer)
+
+
+def answer_length_contract(answer: str) -> dict[str, int | None]:
+    """Return the existing severe answer-shape bounds for one answer key."""
+
+    key_length = len(answer.strip())
+    return {
+        "at_least_one_distractor_min_chars": (
+            (2 * key_length + 2) // 3 if key_length >= 80 else None
+        ),
+        "distractor_max_chars": (
+            3 * key_length // 2 if key_length >= 24 else None
+        ),
+    }
 
 
 def answer_length_repair_targets(
     questions: list[QuestionDraft], *, repairable_ids: set[str] | None = None,
 ) -> tuple[str, ...]:
-    """Find minimal repairs when uniquely-longest choices pass a lesson quiz.
+    """Find quiz-level and severe individual answer-shape giveaways.
 
-    This is a quiz-level signal, not a prohibition on natural long answers.
+    Natural long answers are allowed. A substantial key must have at least one
+    comparably informative alternative; never shorten the key or add filler.
     Ties, including equal-length numeric choices, do not establish the signal. Never
     change the source-owned key or manufacture words to defeat the diagnostic.
     The default quiz pass threshold is 80 percent, including exact 80 percent.
@@ -244,6 +453,22 @@ def answer_length_repair_targets(
                 and question.options.count(question.correct_answer) == 1):
             by_lesson[question.lesson_id].append(question)
     targets: list[str] = []
+    for quiz in by_lesson.values():
+        for question in quiz:
+            longest_other = max(len(option.strip()) for option in question.options
+                                if option != question.correct_answer)
+            shortest_other = min(len(option.strip()) for option in question.options
+                                 if option != question.correct_answer)
+            length_contract = answer_length_contract(question.correct_answer)
+            minimum_distractor = length_contract["at_least_one_distractor_min_chars"]
+            maximum_distractor = length_contract["distractor_max_chars"]
+            severe = ((minimum_distractor is not None
+                       and longest_other < minimum_distractor)
+                      or (maximum_distractor is not None
+                          and shortest_other > maximum_distractor))
+            if (severe
+                    and (repairable_ids is None or question.question_id in repairable_ids)):
+                targets.append(question.question_id)
     for lesson_id in sorted(by_lesson):
         quiz = by_lesson[lesson_id]
         if len(quiz) < 2:
@@ -265,7 +490,7 @@ def answer_length_repair_targets(
             key=lambda item: (-item[0], item[1]),
         )
         targets.extend(identity for _, identity in eligible[:needed])
-    return tuple(targets)
+    return tuple(dict.fromkeys(targets))
 
 
 def evaluate_plan_preflight(result: EvidenceCourseResult) -> tuple[str, ...]:
@@ -309,14 +534,16 @@ def evaluate_publishability(
     planned_fact_ids: set[str],
     provider_fallback_count: int,
     max_lesson_words: int = 650,
+    incomplete_fact_ids: set[str] | None = None,
 ) -> PublishabilityReport:
     covered = {fact_id for block in blocks for fact_id in block.fact_ids}
-    coverage = len(covered & planned_fact_ids) / len(planned_fact_ids) if planned_fact_ids else 1.0
-    prompts = [" ".join(question.prompt.casefold().split()) for question in assessment.questions]
+    verified_covered = covered - (incomplete_fact_ids or set())
+    coverage = len(verified_covered & planned_fact_ids) / len(planned_fact_ids) if planned_fact_ids else 1.0
+    prompts = [question_duplicate_key(question) for question in assessment.questions]
     generic_count = sum(is_generic_question(question.prompt) for question in assessment.questions)
     duplicate_count = len(prompts) - len(set(prompts))
     ocr_count = sum(
-        contains_ocr_artifact(value)
+        contains_visible_artifact(value)
         for value in (
             *(lesson.title for lesson in course.lessons),
             *(lesson.content for lesson in course.lessons),
@@ -326,7 +553,7 @@ def evaluate_publishability(
         )
     )
     overlong_answers = sum(
-        len(question.correct_answer.strip()) > MAX_ASSESSMENT_ANSWER_CHARS
+        len(question.correct_answer.strip()) > question_answer_limit(question)
         for question in assessment.questions
     )
     invalid_titles = sum(not is_acceptable_title(lesson.title) for lesson in course.lessons)
