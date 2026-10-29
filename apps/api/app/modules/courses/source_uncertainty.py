@@ -16,9 +16,10 @@ def qa_source_holds_enabled(tenant_id: object) -> bool:
     from app.core.config import get_settings
     from app.modules.ai.qa_luna_dev_route import QA_TENANT
 
+    if str(tenant_id) != str(QA_TENANT):
+        return False
     settings = get_settings()
-    if (str(tenant_id) != str(QA_TENANT)
-            or settings.AI_QA_LUNA_DEV_ENABLED is not True):
+    if settings.AI_QA_LUNA_DEV_ENABLED is not True:
         return False
     if (settings.DEPLOYMENT_ENVIRONMENT not in {"render-development", "render-development-worker"}
             or settings.AI_LESSON_CYCLE_DEV_ENABLED is not True
