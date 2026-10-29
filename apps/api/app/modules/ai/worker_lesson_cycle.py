@@ -310,7 +310,7 @@ def _assign_complete_clause_surface(target: Any, obligations: Any, sources: tupl
 def create_dev_lesson_assessor(*, settings: Any, tenant_id: str, job_id: str,
                                client: Any, session_factory: Any, checkpoint: Any) -> WorkerLessonAssessor | None:
     """Exact existing DEV identities, never APP_ENV (DEV also uses production)."""
-    if (settings.DEPLOYMENT_ENVIRONMENT not in {"render-development", "render-development-worker"}
+    if (settings.DEPLOYMENT_ENVIRONMENT not in {"render-development", "render-development-worker", "vm-development-worker"}
             or not settings.AI_LESSON_CYCLE_DEV_ENABLED
             or tenant_id not in settings.AI_LESSON_CYCLE_DEV_TENANTS):
         return None

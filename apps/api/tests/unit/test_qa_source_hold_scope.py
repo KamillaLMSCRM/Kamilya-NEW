@@ -48,3 +48,14 @@ def test_malformed_source_analysis_is_held(analysis):
     with pytest.raises(HTTPException) as error:
         require_source_uncertainty_clear(analysis)
     assert error.value.status_code == 409
+
+
+def test_vm_worker_guard_keeps_qa_source_holds(monkeypatch):
+    settings = SimpleNamespace(AI_QA_LUNA_DEV_ENABLED=True, DEPLOYMENT_ENVIRONMENT='vm-development-worker',
+        AI_LESSON_CYCLE_DEV_ENABLED=True, AI_LESSON_CYCLE_DEV_TENANTS=[str(QA_TENANT)])
+    monkeypatch.setattr('app.core.config.get_settings', lambda: settings)
+    assert qa_source_holds_enabled(QA_TENANT)
+    assert not qa_source_holds_enabled(uuid4())
+    settings.AI_LESSON_CYCLE_DEV_TENANTS = []
+    with pytest.raises(HTTPException):
+        qa_source_holds_enabled(QA_TENANT)

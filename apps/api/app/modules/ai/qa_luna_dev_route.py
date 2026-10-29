@@ -17,7 +17,7 @@ async def qa_luna_dev_client(*, settings: Any, tenant_id: UUID, temperature: flo
     if getattr(settings, "AI_QA_LUNA_DEV_ENABLED", False) is not True or tenant_id != QA_TENANT:
         return None
     if not (
-        getattr(settings, "DEPLOYMENT_ENVIRONMENT", None) == "render-development-worker"
+        getattr(settings, "DEPLOYMENT_ENVIRONMENT", None) in {"render-development-worker", "vm-development-worker"}
         and getattr(settings, "AI_LESSON_CYCLE_DEV_ENABLED", False) is True
         and str(QA_TENANT) in getattr(settings, "AI_LESSON_CYCLE_DEV_TENANTS", ())
     ):

@@ -21,7 +21,7 @@ def qa_source_holds_enabled(tenant_id: object) -> bool:
     settings = get_settings()
     if settings.AI_QA_LUNA_DEV_ENABLED is not True:
         return False
-    if (settings.DEPLOYMENT_ENVIRONMENT not in {"render-development", "render-development-worker"}
+    if (settings.DEPLOYMENT_ENVIRONMENT not in {"render-development", "render-development-worker", "vm-development-worker"}
             or settings.AI_LESSON_CYCLE_DEV_ENABLED is not True
             or str(QA_TENANT) not in settings.AI_LESSON_CYCLE_DEV_TENANTS):
         raise HTTPException(status_code=503, detail={"code": "dev_qa_source_hold_misconfigured"})

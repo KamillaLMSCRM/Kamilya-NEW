@@ -1198,3 +1198,18 @@ async def test_worker_remote_unresolved_edge_keeps_question_but_requires_review(
         checkpoint=checkpoint, learner_language_gate=True)(lesson, changed_facts)
     assert len(changed.questions) == 1 and changed.audit["coverage"]["requires_review"]
     assert changed.audit["source_context"]["source_digest_sha256"] != result.audit["source_context"]["source_digest_sha256"]
+
+
+def test_vm_worker_assessor_preserves_allowlisted_dev_tenant_behavior():
+    from app.modules.ai.qa_luna_dev_route import QA_TENANT
+    values = dict(DEPLOYMENT_ENVIRONMENT='vm-development-worker', AI_QA_LUNA_DEV_ENABLED=True,
+                  AI_LESSON_CYCLE_DEV_ENABLED=True, AI_LESSON_CYCLE_DEV_TENANTS=[str(QA_TENANT)])
+    def make(tenant, **overrides):
+        return create_dev_lesson_assessor(settings=SimpleNamespace(**{**values, **overrides}), tenant_id=tenant,
+            job_id='job', client=Model([]), session_factory=None, checkpoint=checkpoint)
+    assert make(str(QA_TENANT)) is not None
+    assert make('another', AI_LESSON_CYCLE_DEV_TENANTS=['another']) is not None
+    assert make('another') is None
+    assert make(str(QA_TENANT), AI_QA_LUNA_DEV_ENABLED=False) is not None
+    assert make(str(QA_TENANT), AI_LESSON_CYCLE_DEV_ENABLED=False) is None
+    assert make(str(QA_TENANT), AI_LESSON_CYCLE_DEV_TENANTS=[]) is None
