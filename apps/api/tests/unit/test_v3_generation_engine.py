@@ -2,6 +2,8 @@
 
 import pytest
 
+from app.modules.ai.direct_source import DirectSourceChunk, DirectSourceCorpus, DirectSourceDocument
+from app.modules.ai.evidence_engine.models import CourseIntent
 from app.modules.ai.v3.adapter import v3_course_to_generation_artifacts
 from app.modules.ai.v3.engine import V3GenerationPipeline
 from app.modules.ai.v3.models import (
@@ -14,6 +16,7 @@ from app.modules.ai.v3.models import (
     V3QuestionVariant,
     V3ScenarioCase,
 )
+from app.modules.ai.v3.service import generate_v3_course_from_corpus
 
 
 @pytest.mark.asyncio
@@ -279,5 +282,112 @@ async def test_v3_adapter_to_generation_artifacts():
     assert mcq.pool_group == "case-limits"
     assert any(o.is_correct for o in mcq.options)
     assert artifacts.diagnostics["generation_engine"] == "v3_cogen"
+
+
+@pytest.mark.asyncio
+async def test_v3_service_generate_from_corpus():
+    """Verify that generate_v3_course_from_corpus executes full pipeline on DirectSourceCorpus."""
+    doc = DirectSourceDocument(
+        doc_id="doc-1",
+        title="Стандарты микрокредитов",
+        filename="standarty.docx",
+        category="regulations",
+        source_revision="rev-1",
+        chunks=(
+            DirectSourceChunk(
+                chunk_id="chunk-1",
+                doc_id="doc-1",
+                doc_name="standarty.docx",
+                title="Таблица 1 Лимиты",
+                headings=("Лимиты",),
+                text="Таблица 1. Лимиты выдачи микрокредитов. От 700 100 до 1 100 000 тенге.",
+                source_revision="rev-1",
+                chunk_index=0,
+            ),
+        ),
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(doc,),
+        total_chars=100,
+        total_chunks=1,
+    )
+
+    async def mock_client(messages, response_format):
+        prompt_text = str(messages)
+        if "Карту регламента" in prompt_text or "Rule Model" in prompt_text:
+            return {
+                "document_title": "Стандарты микрокредитов",
+                "rules": [
+                    {
+                        "rule_id": "rule-1",
+                        "section": "Лимиты",
+                        "title": "Лимиты выдачи",
+                        "statement": "Лимит выдачи от 700 100 тенге",
+                        "conditions": ["Группа 1"],
+                        "exceptions": [],
+                        "actors": ["эксперт-оценщик"],
+                        "timing": "",
+                        "consequences": "",
+                        "source_quote": "От 700 100 тенге",
+                    }
+                ],
+            }
+        else:
+            return {
+                "lesson_id": "lesson-1",
+                "title": "Лимиты выдачи микрокредитов",
+                "module_title": "Стандарты микрокредитов",
+                "content": "### Обобщенный урок по лимитам\nАлгоритм действий...",
+                "cases": [
+                    {
+                        "case_id": "case-1",
+                        "rule_id": "rule-1",
+                        "learning_objective": "Определение лимитов",
+                        "variants": [
+                            {
+                                "variant_id": "case-1-var-a",
+                                "branch_context": "Филиал в Павлодаре",
+                                "scenario_premise": "Клиент пришел в Павлодаре.",
+                                "prompt": "Какое решение принять?",
+                                "correct_option": {
+                                    "text": "Применить I категорию",
+                                    "is_correct": True,
+                                    "distractor_rationale": "Норма",
+                                },
+                                "distractor_pool": [
+                                    {"text": "Ошибка 1", "is_correct": False, "distractor_category": "procedural_confusion"},
+                                    {"text": "Ошибка 2", "is_correct": False, "distractor_category": "role_confusion"},
+                                    {"text": "Ошибка 3", "is_correct": False, "distractor_category": "timing_violation"},
+                                ],
+                                "explanation": "Разбор ситуации",
+                                "source_quote": "От 700 100 тенге",
+                            }
+                        ],
+                    }
+                ],
+            }
+
+    progress_events = []
+
+    async def progress_cb(stage, curr, total, prov, attempt):
+        progress_events.append((stage, curr, total))
+
+    artifacts = await generate_v3_course_from_corpus(
+        corpus,
+        intent=CourseIntent(purpose="Обучение стандартам", audience="Оценщики", emphasis=()),
+        generation_client=mock_client,
+        progress_callback=progress_cb,
+    )
+
+    assert artifacts.structure.title == "Стандарты микрокредитов"
+    assert len(artifacts.content.modules) >= 1
+    assert len(artifacts.assessment.assessments) >= 1
+    # Check that questions have 4 options and pool_group
+    q = artifacts.assessment.assessments[0].mcq[0]
+    assert len(q.options) == 4
+    assert q.pool_group == "case-1"
+    assert len(progress_events) >= 2
+
 
 

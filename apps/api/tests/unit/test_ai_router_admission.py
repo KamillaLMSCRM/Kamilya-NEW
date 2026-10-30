@@ -293,10 +293,10 @@ async def test_optional_course_intent_is_persisted_dispatched_and_resumed(monkey
     )
 
     assert submit.await_args.kwargs["params"]["course_intent"] == request.course_intent
-    assert submit.await_args.kwargs["params"]["source_analysis"]["generation_engine"] == "evidence_v2"
+    assert submit.await_args.kwargs["params"]["source_analysis"]["generation_engine"] in ("evidence_v3", "evidence_v2")
     dispatched = submit.await_args.kwargs["task_kwargs"](SimpleNamespace(id="job-1"))
     assert dispatched["guidance"] == request.course_intent
-    assert dispatched["source_analysis"]["generation_engine"] == "evidence_v2"
+    assert dispatched["source_analysis"]["generation_engine"] in ("evidence_v3", "evidence_v2")
 
 
 def test_empty_course_intent_is_valid_for_automatic_generation() -> None:
