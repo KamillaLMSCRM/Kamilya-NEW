@@ -513,6 +513,34 @@ async def test_measured_client_accumulates_token_usage_and_attempts() -> None:
     assert measured.completion_tokens == 125
 
 
+def test_surface_negation_accepts_fused_nominalization_of_source_particle_negation() -> None:
+    from app.modules.ai.evidence_engine.provider_engine import _changes_source_word_negation
+
+    fact = SourceFact(
+        fact_id="fact-neg", subject="Согласование", attribute="Правило",
+        value=(
+            "Согласование проводит АУП РД. Если АУП РД не согласовывает выданный микрокредит, "
+            "проставляется отметка НЕ СОГЛАСОВАН. В этом случае составляется Акт несоответствия стандартам."
+        ),
+        source_locator="sec:1", confidence=1.0,
+    )
+    restated = (
+        "Согласование проводит АУП РД. В случае несогласования выданного микрокредита "
+        "составляется Акт несоответствия стандартам."
+    )
+    assert _changes_source_word_negation(restated, [fact]) is False
+    # Negative control: fused negation without any negated source form of the stem.
+    positive_only = SourceFact(
+        fact_id="fact-pos", subject="Проверка", attribute="Правило",
+        value="Эксперт проводит проверку залога и согласование суммы.",
+        source_locator="sec:2", confidence=1.0,
+    )
+    assert _changes_source_word_negation(
+        "Эксперт проводит проверку залога; при несогласовании суммы выдача прекращается.",
+        [positive_only],
+    ) is True
+
+
 def test_bind_final_teaching_role_proves_bullet_list_table_component_with_partial_quote() -> None:
     lesson_id = "lesson-8f29851764543c36"
     alt_text = (

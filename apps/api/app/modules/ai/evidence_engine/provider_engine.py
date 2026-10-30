@@ -700,6 +700,20 @@ def _changes_source_word_negation(text: str, facts: list[SourceFact]) -> bool:
     # reversing it. Retain order of polarity transitions, not a word-count quota.
     if any(signed_runs(normalized_source, base) != signed_runs(normalized_tokens, base) for base in mixed_bases):
         return True
+    # A fused negative nominalization ("несогласование") restates a source
+    # particle negation of the same stem ("не согласован", "не согласовывает").
+    # This is not a reversal; a fused negation with no negated source form of
+    # that stem still fails closed below.
+    negated_source_stems = {
+        source_tokens[index + 1]
+        for index, word in enumerate(source_tokens[:-1])
+        if word == "не"
+    }
+
+    def has_negated_source_stem(base: str) -> bool:
+        stem = base[:max(5, len(base) - 4)]
+        return any(word.startswith(stem) for word in negated_source_stems)
+
     return any(
         len(word) >= 6 and word.startswith("не") and word[2:] in words
         and word[2:] not in source_words
@@ -707,6 +721,7 @@ def _changes_source_word_negation(text: str, facts: list[SourceFact]) -> bool:
     ) or any(
         len(word) >= 6 and word.startswith("не") and word[2:] in source_words
         and word not in source_words
+        and not has_negated_source_stem(word[2:])
         for word in words
     )
 
