@@ -105,6 +105,7 @@ from app.modules.ai.evidence_engine.quality import MAX_ASSESSMENT_ANSWER_CHARS, 
 from app.modules.ai.exact_source_component_spans import resolve_exact_source_answer_rows
 from app.modules.ai.final_teaching_eligibility import (
     FinalTeachingCatalog,
+    _source_city_inventory,
     agree_final_teaching_roles,
     catalog_matches_final_content,
 )
@@ -5168,6 +5169,7 @@ def _component_validation(packet: LessonPacket, question: Candidate | ReviewedQu
             candidate_views = tuple(dict.fromkeys((
                 "\n".join((*stem_pieces, *answer_pieces)),
                 "\n".join((*answer_pieces, *stem_pieces)),
+                *(("\n".join(answer_pieces),) if answer_pieces else ()),
             )))
         issues = []
         for alternative in requirement.alternatives:
@@ -5185,8 +5187,16 @@ def _component_validation(packet: LessonPacket, question: Candidate | ReviewedQu
                     target = next(row for row in packet.targets if row.target_id == requirement.target_id)
                     bindings = tuple(binding for binding in target.qualification_bindings
                                      if binding.get("source_id") == owner)
-                    if len(mapping["realizations"]) == 1:
-                        realization = mapping["realizations"][0]
+                    answer_realizations = [row for row in mapping["realizations"] if row["part"] == "answer"]
+                    single_realization = (
+                        mapping["realizations"][0]
+                        if len(mapping["realizations"]) == 1
+                        else answer_realizations[0]
+                        if len(answer_realizations) == 1 and candidate_view == answer_realizations[0]["quote"]
+                        else None
+                    )
+                    if single_realization is not None:
+                        realization = single_realization
                         actual_part = question.text if realization["part"] == "stem" else question.options[key]
                         start = realization.get("candidate_start", actual_part.index(realization["quote"]))
                         end = realization.get("candidate_end", start + len(realization["quote"]))
@@ -5208,6 +5218,26 @@ def _component_validation(packet: LessonPacket, question: Candidate | ReviewedQu
                             source_context=sources[owner], source_id=owner, verified_governing_bindings=bindings)
                         if view is not None:
                             comparison = view.comparison_component
+                if (
+                    allow_grammar_realization
+                    and comparison == alternative.text
+                    and question.intent == "scenario"
+                    and answer_pieces
+                    and candidate_view == "\n".join(answer_pieces)
+                ):
+                    city_inv = _source_city_inventory(alternative.text)
+                    if city_inv is not None and any(
+                        re.search(rf"(?<!\w)г\.\s*{re.escape(city)}(?!\w)", question.text, re.I)
+                        for city, _, _ in city_inv.items
+                    ):
+                        limit_prefix = re.sub(
+                            r"\s+(?:для\s+)?РД\s*$",
+                            "",
+                            city_inv.governing_prefix,
+                            flags=re.I,
+                        ).strip()
+                        if limit_prefix:
+                            comparison = limit_prefix
                 view_issues.append(component_preservation_issue(
                     comparison, candidate_view, source_context=sources[owner],
                     allow_nominal_spelling=reviewed_surface,

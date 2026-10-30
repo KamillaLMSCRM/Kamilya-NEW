@@ -27,6 +27,14 @@ from app.modules.ai.final_teaching_eligibility import (
     _digest,
     bind_final_teaching_role,
 )
+from app.modules.ai.lesson_cycle import (
+    Candidate,
+    LearningTarget,
+    LessonPacket,
+    SourceExcerpt,
+    _component_validation,
+    prepare_component_construction,
+)
 from app.modules.ai.lesson_surface_grammar import (
     normalize_authored_prose,
     normalize_lesson_surface_grammar,
@@ -503,3 +511,257 @@ async def test_measured_client_accumulates_token_usage_and_attempts() -> None:
     assert measured.attempts == 2
     assert measured.prompt_tokens == 350
     assert measured.completion_tokens == 125
+
+
+def test_bind_final_teaching_role_proves_bullet_list_table_component_with_partial_quote() -> None:
+    lesson_id = "lesson-8f29851764543c36"
+    alt_text = (
+        "От 700\xa0100 до 1 100\xa0000 тенге для РД г. Усть-Каменогорск, "
+        "г. Павлодар, г. Петропавловск, г. Актобе, г. Атырау, г. Караганда, г. Уральск"
+    )
+    src_text = (
+        alt_text
+        + "\nот 700\xa0100 до 1 400 000 тенге РД г. Алматы, г. Тараз, г. Шымкент, "
+        "г. Астана, г. Актау, г. Жезказган, г.Кызылорда, г. Экибастуз, г. Семей"
+    )
+    sf = SourceFact(
+        fact_id="fact-dba782fe5d37a895",
+        subject="I категория",
+        attribute="Лимит на выдачу микрокредитов, тенге",
+        value=src_text,
+        source_locator="doc_id=d1;source_revision=r1;table=1;row=1;column=2",
+        confidence=1.0,
+    )
+    src_id = hashlib.sha256(
+        __import__("json").dumps(asdict(sf), ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    body = (
+        "Для I категории лимит на выдачу микрокредитов в следующих РД — от 700 100 до 1 100 000 тенге:\n"
+        "- г. Усть-Каменогорск\n"
+        "- г. Павлодар\n"
+        "- г. Петропавловск\n"
+        "- г. Актобе\n"
+        "- г. Атырау\n"
+        "- г. Караганда\n"
+        "- г. Уральск"
+    )
+    heading = "I категория: первая группа РД"
+    content = f"### {heading}\n\n{body}"
+    body_start = len(f"### {heading}\n\n")
+    entry = TeachingBlockRef(
+        ref_id="Te0e5fed04faf",
+        lesson_id=lesson_id,
+        block_id="B1",
+        block_index=0,
+        fact_ids=(sf.fact_id,),
+        heading=heading,
+        body=body,
+        body_start=body_start,
+        body_end=body_start + len(body),
+        body_sha256=_sha256(body),
+        dependency_refs=(),
+    )
+    cat_body = {
+        "policy": FINAL_TEACHING_ELIGIBILITY_POLICY,
+        "lesson_id": lesson_id,
+        "lesson_sha256": _sha256(lesson_id),
+        "content_sha256": _sha256(content),
+        "custody_sha256": _sha256("custody"),
+        "entries": [asdict(entry)],
+        "gaps": [],
+    }
+    catalog = FinalTeachingCatalog(
+        policy=FINAL_TEACHING_ELIGIBILITY_POLICY,
+        lesson_id=lesson_id,
+        lesson_sha256=_sha256(lesson_id),
+        content_sha256=_sha256(content),
+        custody_sha256=_sha256("custody"),
+        surface_binding_sha256=_digest(cat_body),
+        entries=(entry,),
+        gaps=(),
+    )
+    req = TeachingRequirement(
+        component=ComponentRequirement(
+            target_id="f1-first-region-group",
+            component_id="f1-first-region-group:C1",
+            alternatives=(OwnedComponent(source_id=src_id, text=alt_text),),
+            full_set=False,
+        ),
+        kind="action",
+        eligible_fact_ids=(sf.fact_id,),
+        owner_fact_ids=(sf.fact_id,),
+    )
+    partial_quote = (
+        "Для I категории лимит на выдачу микрокредитов в следующих РД — от 700 100 до 1 100 000 тенге:\n"
+        "- г. Усть-Каменогорск\n"
+        "- г. Павлодар"
+    )
+    res = bind_final_teaching_role(
+        (catalog,),
+        (req,),
+        [
+            {
+                "requirement_id": "f1-first-region-group:C1",
+                "relation": "preserved",
+                "teaching_refs": ["Te0e5fed04faf"],
+                "teaching_quotes": {"Te0e5fed04faf": partial_quote},
+                "reason": "The passage teaches the I-category limit and lists Pavlodar.",
+            }
+        ],
+        role="review",
+        candidate=TeachingCandidateIdentity(
+            lesson_id=lesson_id,
+            question_id="q1",
+            target_ids=("f1-first-region-group",),
+            stem="В рабочей ситуации оформляют микрокредит I категории в отделении г. Павлодар. Какой лимит применить?",
+            options=("От 700 100 до 1 100 000 тенге", "От 700 100 до 1 400 000 тенге"),
+            selected_index=0,
+        ),
+        source_contexts=(
+            TeachingSourceContext(
+                source_id=src_id,
+                source_ref="S1P1",
+                text=src_text,
+                governing_bindings=(),
+                source_fact=sf,
+            ),
+        ),
+    )
+    assert res.failures == ()
+    assert res.evidence[0].native_proof is not None
+    assert res.evidence[0].native_proof.mode == "strict_component_restatement"
+
+
+def test_component_validation_supports_answer_only_view_and_scenario_city_inventory() -> None:
+    # 1. Answer-only candidate view when critic also maps fixed_context stem with "все"
+    src2_text = (
+        "2. Если общая сумма микрокредитов всех залоговых билетов, оформленных на одного клиента "
+        "за один день и на одном филиале (приемном пункте) попадает под 1-ю и 2-ю категорию, "
+        "необходимо проводить согласование в соответствии с действующими стандартами."
+    )
+    alt2 = "необходимо проводить согласование в соответствии с действующими стандартами."
+    pkt2 = prepare_component_construction(
+        LessonPacket(
+            tenant_id="t1",
+            lesson_id="l2",
+            title="Порядок согласования",
+            content="Текст",
+            sources=(SourceExcerpt(source_id="s2", text=src2_text),),
+            targets=(
+                LearningTarget(
+                    target_id="t-approval",
+                    description="Согласование",
+                    source_ids=("s2",),
+                    answer_requirements=((alt2,),),
+                    component_source_ids=(("s2",),),
+                ),
+            ),
+            policy_revision="v1",
+            learner_language_gate=True,
+        )
+    )
+    q2 = Candidate(
+        question_id="q2",
+        target_ids=("t-approval",),
+        text=(
+            "За один день в одном филиале (приемном пункте) на одного клиента оформлены все залоговые билеты; "
+            "общая сумма микрокредитов по ним попадает под I и II категории. Какое решение следует принять?"
+        ),
+        options=(
+            "Необходимо проводить согласование в соответствии с действующими стандартами.",
+            "Согласование проводить не требуется.",
+        ),
+        intent="scenario",
+    )
+    val2 = _component_validation(
+        pkt2,
+        q2,
+        0,
+        ("t-approval",),
+        {"s2"},
+        [
+            {
+                "target_id": "t-approval",
+                "component_id": "t-approval:C1",
+                "source_ref": "S1P1",
+                "realizations": [
+                    {
+                        "part": "stem",
+                        "role": "fixed_context",
+                        "quote": (
+                            "За один день в одном филиале (приемном пункте) на одного клиента оформлены все "
+                            "залоговые билеты; общая сумма микрокредитов по ним попадает под I и II категории."
+                        ),
+                    },
+                    {
+                        "part": "answer",
+                        "role": "discriminating_answer",
+                        "quote": "Необходимо проводить согласование в соответствии с действующими стандартами.",
+                    },
+                ],
+            }
+        ],
+        allow_grammar_realization=True,
+    )
+    assert val2.failures == ()
+
+    # 2. Scenario city-inventory limit prefix when stem names one city from the inventory
+    alt1 = (
+        "От 700\xa0100 до 1 100\xa0000 тенге для РД г. Усть-Каменогорск, "
+        "г. Павлодар, г. Петропавловск, г. Актобе, г. Атырау, г. Караганда, г. Уральск"
+    )
+    pkt1 = prepare_component_construction(
+        LessonPacket(
+            tenant_id="t1",
+            lesson_id="l1",
+            title="Лимиты",
+            content="Текст",
+            sources=(SourceExcerpt(source_id="s1", text=alt1),),
+            targets=(
+                LearningTarget(
+                    target_id="f1-first-region-group",
+                    description="Лимит I категории",
+                    source_ids=("s1",),
+                    answer_requirements=((alt1,),),
+                    component_source_ids=(("s1",),),
+                ),
+            ),
+            policy_revision="v1",
+            learner_language_gate=True,
+        )
+    )
+    q1 = Candidate(
+        question_id="q1",
+        target_ids=("f1-first-region-group",),
+        text="В рабочей ситуации оформляют микрокредит I категории в отделении г. Павлодар. Какой лимит на выдачу применить?",
+        options=("От 700 100 до 1 100 000 тенге", "От 700 100 до 1 400 000 тенге"),
+        intent="scenario",
+    )
+    val1 = _component_validation(
+        pkt1,
+        q1,
+        0,
+        ("f1-first-region-group",),
+        {"s1"},
+        [
+            {
+                "target_id": "f1-first-region-group",
+                "component_id": "f1-first-region-group:C1",
+                "source_ref": "S1P1",
+                "realizations": [
+                    {
+                        "part": "stem",
+                        "role": "fixed_context",
+                        "quote": "В рабочей ситуации оформляют микрокредит I категории в отделении г. Павлодар.",
+                    },
+                    {
+                        "part": "answer",
+                        "role": "discriminating_answer",
+                        "quote": "От 700 100 до 1 100 000 тенге",
+                    },
+                ],
+            }
+        ],
+        allow_grammar_realization=True,
+    )
+    assert val1.failures == ()

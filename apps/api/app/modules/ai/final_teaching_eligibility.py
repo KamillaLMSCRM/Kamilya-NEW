@@ -1342,6 +1342,96 @@ def _unpacked_parenthetical_condition_match(
     return True
 
 
+def _expand_block_bullet_list_quote(
+    quote: BoundTeachingQuote,
+    refs: dict[str, TeachingBlockRef] | None,
+) -> BoundTeachingQuote | None:
+    if refs is None:
+        return None
+    entry = refs.get(quote.ref_id)
+    if entry is None or quote.text == entry.body:
+        return None
+    if "\n- " not in entry.body and "\n• " not in entry.body:
+        return None
+    if (
+        not entry.body_start <= quote.quote_start < quote.quote_end <= entry.body_end
+        or entry.body in entry.heading
+        or not lexical_span_is_complete(entry.body, 0, len(entry.body))
+    ):
+        return None
+    return BoundTeachingQuote(
+        ref_id=quote.ref_id,
+        text=entry.body,
+        quote_start=entry.body_start,
+        quote_end=entry.body_end,
+        quote_sha256=entry.body_sha256,
+    )
+
+
+def _bullet_list_table_component_match(
+    source_text: str,
+    quote_text: str,
+    source: TeachingSourceContext,
+) -> bool:
+    """Prove a table-row component unpacked into a header-plus-bullet-list block."""
+    if source.source_fact is None:
+        return False
+    if "\n- " not in quote_text and "\n• " not in quote_text:
+        return False
+    forward = component_preservation_issue(
+        source_text,
+        quote_text,
+        source_context=source.text,
+        allow_nominal_spelling=True,
+    )
+    if forward is not None and forward.get("code") != "source_word_order_unproved":
+        return False
+    combined_source = (
+        f"{source.source_fact.subject} {source.source_fact.attribute} следующих {source_text}"
+    )
+    reverse = component_preservation_issue(
+        quote_text,
+        combined_source,
+        source_context=quote_text,
+        allow_nominal_spelling=True,
+    )
+    if reverse is not None and reverse.get("code") != "source_word_order_unproved":
+        return False
+    bullet_lines = [
+        line.lstrip()[2:].strip()
+        for line in quote_text.splitlines()
+        if line.lstrip().startswith(("- ", "• "))
+    ]
+    if not bullet_lines:
+        return False
+    try:
+        raw_bullet_tokens = _tokenize(", ".join(bullet_lines))
+        raw_source_tokens = _tokenize(source_text)
+        if raw_bullet_tokens is None or raw_source_tokens is None:
+            return False
+        bullet_tokens = [token for token in raw_bullet_tokens if _kind(token) != "ignored"]
+        source_tokens = [token for token in raw_source_tokens if _kind(token) != "ignored"]
+    except (ImportError, OSError, RuntimeError, ValueError):
+        return False
+    if not bullet_tokens or not source_tokens:
+        return False
+    cursor = 0
+    for token in bullet_tokens:
+        match_index = next(
+            (
+                idx
+                for idx in range(cursor, len(source_tokens))
+                if _morphological_match(token, source_tokens[idx])
+                or token.text.casefold() == source_tokens[idx].text.casefold()
+            ),
+            None,
+        )
+        if match_index is None:
+            return False
+        cursor = match_index + 1
+    return True
+
+
 def _strict_component_restatement_proof(
     requirement: TeachingRequirement,
     bodies: tuple[str, ...],
@@ -1365,8 +1455,13 @@ def _strict_component_restatement_proof(
                    for dependency in requirement.depends_on_requirement_ids)):
         return None
     quote = quotes[0]
-    expanded = _expand_block_conditional_quote(quote, refs) if requirement.kind == "condition" else None
-    candidate_quotes = (quote, *((expanded,) if expanded is not None else ()))
+    expanded_conditional = (
+        _expand_block_conditional_quote(quote, refs) if requirement.kind == "condition" else None
+    )
+    expanded_bullets = _expand_block_bullet_list_quote(quote, refs)
+    candidate_quotes = tuple(
+        q for q in (quote, expanded_conditional, expanded_bullets) if q is not None
+    )
     for alternative in requirement.component.alternatives:
         source = sources[alternative.source_id]
         if source.text.count(alternative.text) != 1:
@@ -1388,7 +1483,12 @@ def _strict_component_restatement_proof(
                 and requirement.kind == "condition"
                 and _unpacked_parenthetical_condition_match(alternative.text, candidate_quote.text)
             )
-            if not strict_ok and not unpacked_ok:
+            bullet_table_ok = (
+                not strict_ok
+                and not unpacked_ok
+                and _bullet_list_table_component_match(alternative.text, candidate_quote.text, source)
+            )
+            if not strict_ok and not unpacked_ok and not bullet_table_ok:
                 continue
             return _native_proof(mode="strict_component_restatement", source=source,
                 source_start=start, source_end=start + len(alternative.text),
@@ -1488,10 +1588,14 @@ def _native_requirement_issue(
     issues: list[tuple[OwnedComponent, PreservationIssue]] = []
     broad_strict_success = False
     candidate_bodies = list(bodies)
-    if requirement.kind == "condition" and len(quotes) == 1:
-        expanded_quote = _expand_block_conditional_quote(quotes[0], refs)
-        if expanded_quote is not None and expanded_quote.text not in candidate_bodies:
-            candidate_bodies.append(expanded_quote.text)
+    if len(quotes) == 1:
+        if requirement.kind == "condition":
+            expanded_quote = _expand_block_conditional_quote(quotes[0], refs)
+            if expanded_quote is not None and expanded_quote.text not in candidate_bodies:
+                candidate_bodies.append(expanded_quote.text)
+        expanded_bullet_quote = _expand_block_bullet_list_quote(quotes[0], refs)
+        if expanded_bullet_quote is not None and expanded_bullet_quote.text not in candidate_bodies:
+            candidate_bodies.append(expanded_bullet_quote.text)
     for alternative in requirement.component.alternatives:
         source = sources[alternative.source_id]
         for body in candidate_bodies:
@@ -1500,9 +1604,13 @@ def _native_requirement_issue(
                 body,
                 source_context=source.text,
             )
-            if issue is None or (
-                requirement.kind == "condition"
-                and _unpacked_parenthetical_condition_match(alternative.text, body)
+            if (
+                issue is None
+                or (
+                    requirement.kind == "condition"
+                    and _unpacked_parenthetical_condition_match(alternative.text, body)
+                )
+                or _bullet_list_table_component_match(alternative.text, body, source)
             ):
                 if not quotes or body == alternative.text:
                     return None, None

@@ -128,7 +128,7 @@ class QualityAPISession:
             self._lock_path.unlink()
             self._key = ""
             raise
-        self._http = httpx.AsyncClient(timeout=120, follow_redirects=False, trust_env=False)
+        self._http = httpx.AsyncClient(timeout=240, follow_redirects=False, trust_env=False)
 
     def _persist(self) -> None:
         temporary = self.path.with_suffix(".pending")
