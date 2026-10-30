@@ -1,5 +1,31 @@
 # Kamilya LMS: handoff для следующего Codex
 
+## Local engine continuation — 2026-10-30
+
+Owner approved implementation after the generation-engine audit. Worktree
+`realization-resume-0f073` at detached base0f073bbe6ae6d8593dae7373ca891db87c8fce9d;
+existing uncommitted realization work preserved and corrected. New v2 reader handles
+native missing-plan cold start, JSON hydration, rederived surface/teaching catalogs,
+read-only native source/cycle revalidation and ordered-course binding. Prepared
+source identity now survives writer title/objective changes. Source ownership and
+review gaps remain enforced; restored historical calls are not counted as new chat.
+
+Final3636unit PASS/98.34s, eight selected neighbor/gate checks PASS/9.80s, canonical
+Python baseline PASS; isolated DEV schema gate PASS with cleanup/public0183/source
+unchanged. Exact seven-file source fingerprint and local receipt in
+`.release-evidence/realization-postgres-gate/result-r3.json`. Combined selection
+previously timed out120s and is not a pass. No model/provider request, commit/push,
+deployment, customer-course or production mutation. Navigation target has no pinned
+SDK; final sync confirms source fallback. Root self-review is not independent
+agent/model quality acceptance. Broader quality work and outstanding gates live in
+`docs/plans/2026-10-30_generation-engine-quality.md`; see readiness and
+AI-REALIZATION-001 / AI-SOURCE-PLAN-IDENTITY-001. No script/test process owned by
+this task is intentionally left running. Other older processes were not touched.
+Owner subsequently approved one separate commit/branch push for CI and a bounded
+Luna control (max four requests, existing subscription, zero extra monetary cost).
+No inference before that cost boundary is verified; full three-course acceptance
+and production remain separate gates.
+
 ## Active staff hotfix — 2026-10-27, local ready / release pending
 
 Owner subsequently explicitly approved DEV→production/live Lombard read-only,

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — local generation candidate, 2026-10-30
+
+- Recover committed lesson bodies, surface/teaching evidence and questions with
+  native source/question revalidation, explicit corrupt/incomplete-state errors
+  and no repeated chat work in the verified ordinary path. Preserve review gaps
+  and distinguish historical assessment attempts from current-run chat attempts.
+- Keep the prepared source plan when lesson writing changes the learner-facing
+  title or objective; reject changed source ownership before further inference.
+  Full-course semantic acceptance and runtime rollout remain open.
+
 ### Historical DEV candidate: four bounded improvements (2026-10-19)
 
 - Preserve an unsaved assignment dialogue when the next request supplies only

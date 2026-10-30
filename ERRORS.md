@@ -1,6 +1,51 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-29.
+Current as of: 2026-10-30.
+
+## AI-REALIZATION-001 - Whole-lesson recovery missed native persistence and validation contracts
+
+- Date: 2026-10-30.
+- Symptom: the unaccepted realization candidate passed its in-memory tests but
+  native cold lookup raised generation_plan_not_found; JSONB roundtrip and a
+  restored teaching catalog were not exercised through the actual validators.
+- Cause: the fake journal returned None where the repository raises; tuple fields
+  were not hydrated after JSON storage, catalog hashes used different serializers,
+  and application restore skipped native source/question readback. The prompt
+  inventory baseline also remained pending after successful assessment.
+- Fix: only the exact missing-plan error is a cache miss; incomplete/mismatched
+  state is explicit. Versioned v2 snapshots bind source/job/tenant/ordered course,
+  ordinal/prefix and policies. Surface receipts are hydrated by their owner and
+  catalogs rederived; canonical source/cycle journals are revalidated through a
+  read-only assessor with a forbidden-provider spy. Persist the inventory baseline
+  and separate original assessment attempts from current-run chat accounting.
+- Verification: RED native cold start before fix; final focused restore module
+  25 cases, complete unit suite 3636 PASS, eight selected neighboring/gate checks
+  PASS, canonical Python baseline PASS. Actual isolated Supabase DEV gate PASS:
+  cold/JSONB restore, incomplete/identity rejection, tenant/job isolation and stale
+  delivery denial, restricted lms_app/FORCE RLS, cleanup and unchanged public0183.
+  Exact source binding is in the realization result-r3 receipt and test ledger.
+- Prevention: test the native empty repository and JSON wire, not only in-memory
+  dictionaries; replay existing semantic validators instead of trusting snapshot
+  assertions. Model-requiring experimental modes remain held at readback. No
+  full-course/model/worker deployment or production quality acceptance follows.
+
+## AI-SOURCE-PLAN-IDENTITY-001 - Learner title changes selected a second source plan
+
+- Date: 2026-10-30.
+- Symptom: native application/assessor regression lost its accepted questions when
+  the lesson writer changed only title/objective; unchanged-title control passed.
+- Cause: prepare_source_plan keyed the source-only base lesson while assessment
+  used the writer's title/objective, changing the key and repeating source planning.
+- Fix: ordinary prepared assessment retains its source-owned base lesson for the
+  same exact fact/support IDs; the question packet still uses final learner prose.
+  Changed ownership fails before additional inference. Unprepared direct callers
+  retain their existing behavior; semantic support keeps its separate custody.
+- Verification: native rewrite RED before fix; title/objective rewrite, JSON
+  restore and changed fact/support negative cases PASS, with exact scripted-call
+  counts; included in final3636 unit PASS and Python baseline. This is synthetic
+  contract evidence, not a measured production-token saving or course-quality GO.
+- Prevention: keep source identity separate from presentation outputs and test the
+  complete source-plan -> writer -> assessor -> durable restore seam.
 
 ## DEV-BROKER-TLS-001 - Supported IP certificate client was not used by renewal timer
 

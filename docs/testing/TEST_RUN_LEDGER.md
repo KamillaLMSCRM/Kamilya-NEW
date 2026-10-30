@@ -5329,3 +5329,24 @@ Rules:
 - No public DEV/prod deployment or runtime acceptance claimed, no tag/version
   bump. No schema/employee/history/roles/model/voice/reserve/billing changes.
   Temporary local fixture tab/server closed; unfinished generation engine excluded.
+
+## RUN-20261030-GENERATION-REALIZATION-LOCAL-01
+
+- Timestamp: `2026-10-30T00:24:11Z`; executor: OpenCode root, self-review only.
+- Exact base SHA: `0f073bbe6ae6d8593dae7373ca891db87c8fce9d`; worktree
+  `realization-resume-0f073` has uncommitted source, not an immutable release SHA.
+- Frozen seven-file gate fingerprint:
+  `444db69b70e04d99298ca912ab6bc6d11f55e22c1df523d60da5ae897558a4b2`.
+- Native cold-start RED reproduced; final API unit3636PASS/98.34s with5warnings;
+  extra pipeline MCQ3/schema-contract1/isolated-gate4 =8PASS/9.80s. Full combined
+  selection exceeded120s and is INTERRUPTED, not a green run; separate final
+  selections passed. Canonical Python baseline PASS (Ruff1006/Mypy2172 findings
+  within unchanged committed debt baseline); standalone gate-script Ruff PASS.
+- Actual canonical Supabase DEV isolated schema gate: native cold/JSONB readback,
+  explicit incomplete and identity rejection, cross-tenant/job and stale delivery
+  negatives PASS; restricted lms_app, FORCE-RLS/ACL and migration exercise PASS;
+  exact cleanup=true, shared public0183 unchanged, bound source unchanged.
+- Receipt: `.release-evidence/realization-postgres-gate/result-r3.json`; custody
+  `.release-evidence/realization-postgres-gate/schema-custody-r3.json`.
+- No model calls, public migrations, customer data, release or deployed-worker
+  acceptance. Full-source/course semantics and actual worker recovery remain OPEN.

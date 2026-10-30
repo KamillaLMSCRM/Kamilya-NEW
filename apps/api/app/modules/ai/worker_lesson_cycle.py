@@ -28,7 +28,11 @@ from app.modules.ai.evidence_engine.models import CourseIntent, LessonDraft, Que
 from app.modules.ai.evidence_engine.semantic_assessment import BlockAssessmentResult
 from app.modules.ai.evidence_engine.semantic_blocks import SemanticBlock
 from app.modules.ai.final_teaching_eligibility import FinalTeachingCatalog, catalog_matches_final_content
-from app.modules.ai.generation_checkpoint import AIGenerationCheckpointRepository, PlannedLesson
+from app.modules.ai.generation_checkpoint import (
+    AIGenerationCheckpointError,
+    AIGenerationCheckpointRepository,
+    PlannedLesson,
+)
 from app.modules.ai.json_evidence_equivalence import equivalent as json_equivalent
 from app.modules.ai.lesson_cycle import (
     MAX_CASE_CITATION_LOGICAL_CALLS,
@@ -70,6 +74,7 @@ from app.modules.ai.source_question_identity import assessment_inventory_binding
 
 _PROMPT_INVENTORY_POLICY = "worker-question-prompt-inventory-v2"
 SOURCE_AUTHOR_CONTRACT_POLICY = "worker-source-author-contract-v2"
+REALIZATION_POLICY = "lesson-realization-v2"
 
 
 def _digest(value: Any) -> str:
@@ -433,6 +438,36 @@ class WorkerCycleJournal:
                 return None
             return dict(row.assessment_payload)
 
+    async def read_owned_realization(self, key: str, expected_plan: dict[str, Any]) -> dict[str, Any] | None:
+        """Read one realization atomically and fail closed on drift/incomplete state."""
+        generation_key = self._owned_key(key)
+        async with self.sessions() as session:
+            try:
+                plan = await self.repository.load_plan(session, tenant_id=self.tenant_id, generation_key=generation_key)
+            except AIGenerationCheckpointError as exc:
+                if str(exc) == "generation_plan_not_found":
+                    return None
+                raise
+            if (plan.source_job_id != self.job_id
+                    or plan.plan_revision != f"{PLAN_POLICY}/{POLICY_VERSION}"
+                    or not json_equivalent(dict(plan.plan_payload), expected_plan)
+                    or plan.lessons != (PlannedLesson("cycle", "lesson", 0, 0),)):
+                raise ValueError("worker_cycle_realization_plan_changed")
+            rows = await self.repository.load_checkpoints(session, tenant_id=self.tenant_id, generation_key=generation_key)
+            if len(rows) != 1:
+                raise ValueError("worker_cycle_realization_checkpoint_shape")
+            row = rows[0]
+            if (row.module_key != "cycle" or row.lesson_key != "lesson"):
+                raise ValueError("worker_cycle_realization_checkpoint_identity")
+            if (row.content_status, row.review_status, row.assessment_status) != ("completed", "completed", "completed"):
+                raise ValueError("worker_cycle_realization_checkpoint_incomplete")
+            if row.assessment_payload is None:
+                raise ValueError("worker_cycle_realization_payload_missing")
+            value = dict(row.assessment_payload)
+            if not json_equivalent(value.get("realization_plan"), expected_plan):
+                raise ValueError("worker_cycle_realization_payload_identity")
+            return value
+
     def _owned_key(self, key: str) -> str:
         # Source job ownership is immutable in the repository. A fresh generation
         # must not collide with another job's identical source/lesson checkpoint.
@@ -527,6 +562,47 @@ class _NoSemanticHandoffProvider:
         raise ContextProjectionError("semantic_block_handoff_provider_forbidden", {})
 
 
+class _RealizationReadbackProvider:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def ainvoke_validated(self, *args: Any, **kwargs: Any) -> Any:
+        self.calls += 1
+        raise ValueError("worker_cycle_realization_provider_forbidden")
+
+
+class _RealizationReadbackJournal:
+    """Read the canonical source/cycle journals without creating missing work."""
+
+    def __init__(self, journal: Any):
+        self.journal = journal
+        self.job_id = journal.job_id
+
+    async def prepare(self, key: str, payload: dict[str, Any]) -> dict[str, Any]:
+        value = await self.journal.read_owned_value(key, payload)
+        if not isinstance(value, dict):
+            raise ValueError("worker_cycle_realization_evidence_missing")
+        return deepcopy(value)
+
+    async def read_value(self, key: str) -> Any:
+        return await self.journal.read_value(key)
+
+    async def read_owned_value(self, key: str, payload: dict[str, Any]) -> Any:
+        return await self.journal.read_owned_value(key, payload)
+
+    async def inventory_versions(self, key: str) -> Any:
+        return await self.journal.inventory_versions(key)
+
+    def _owned_key(self, key: str) -> str:
+        return str(self.journal._owned_key(key))
+
+    async def save_value(self, *args: Any, **kwargs: Any) -> None:
+        raise ValueError("worker_cycle_realization_write_forbidden")
+
+    async def append_inventory_version(self, *args: Any, **kwargs: Any) -> None:
+        raise ValueError("worker_cycle_realization_write_forbidden")
+
+
 @dataclass
 class _LessonMutationLock:
     lock: asyncio.Lock
@@ -607,6 +683,7 @@ class WorkerLessonAssessor:
         self._prepared_costs: dict[str, tuple[int, int]] = {}
         self._prepared_source_keys: dict[str, str] = {}
         self._prepared_source_statuses: dict[str, dict[str, str]] = {}
+        self._prepared_source_lessons: dict[str, LessonDraft] = {}
         self._prepared_semantic_source_lessons: dict[str, LessonDraft] = {}
         self._supported_teaching_custody: dict[str, dict[str, Any]] = {}
         self._verified_semantic_selections: dict[str, VerifiedSemanticSelection] = {}
@@ -619,6 +696,109 @@ class WorkerLessonAssessor:
     @property
     def source_plan_policy(self) -> str:
         return self._source_plan_factory.policy
+
+    def realization_identity(self, lesson: LessonDraft, facts_by_id: dict[str, SourceFact], *, intent: CourseIntent) -> str:
+        """Derive the pre-author source identity without invoking a provider."""
+        source_lesson = source_only_plan_lesson(lesson)
+        selection = self._select_source_context(source_lesson, facts_by_id)
+        identity = self._source_plan_identity(
+            source_lesson, list(selection.local_facts), facts_by_id,
+            counter_sharded=len(selection.counter_shards) > 1 or selection.semantic_block is not None,
+            selection=selection, intent_override=asdict(intent), audit_first_override=True,
+        )
+        return _digest(identity)
+
+    def realization_key(self, *, lesson_id: str, ordinal: int, source_plan_identity: str) -> str:
+        job_id = getattr(self.journal, "job_id", None)
+        if not isinstance(job_id, str) or not job_id:
+            raise ValueError("worker_cycle_realization_job_missing")
+        return "lesson-realization:" + _digest([REALIZATION_POLICY, job_id, lesson_id, ordinal, source_plan_identity])
+
+    def realization_plan(self, lesson: LessonDraft, *, ordinal: int, source_plan_identity: str,
+                         source_inventory_identity: str, prefix_digest: str) -> dict[str, Any]:
+        job_id = getattr(self.journal, "job_id", None)
+        if not isinstance(job_id, str) or not job_id:
+            raise ValueError("worker_cycle_realization_job_missing")
+        from app.modules.ai.evidence_engine.quality import EVIDENCE_QUALITY_POLICY_VERSION
+        from app.modules.ai.final_teaching_eligibility import FINAL_TEACHING_ELIGIBILITY_POLICY
+        from app.modules.ai.lesson_prose_language import LESSON_PROSE_LANGUAGE_POLICY
+        from app.modules.ai.lesson_surface_review import LESSON_SURFACE_REVIEW_POLICY
+
+        return {
+            "kind": REALIZATION_POLICY, "tenant_id": self.tenant_id, "job_id": job_id,
+            "lesson_id": lesson.lesson_id, "ordinal": ordinal,
+            "lesson_input_sha256": _digest(asdict(lesson)),
+            "source_plan_identity": source_plan_identity,
+            "source_inventory_identity": source_inventory_identity,
+            "policy_revision": f"{self.source_plan_policy}/{POLICY_VERSION}",
+            "prefix_digest": prefix_digest,
+            "learner_language_gate": self.learner_language_gate,
+            "surface_policies": [EVIDENCE_QUALITY_POLICY_VERSION, FINAL_TEACHING_ELIGIBILITY_POLICY,
+                                 LESSON_PROSE_LANGUAGE_POLICY, LESSON_SURFACE_REVIEW_POLICY],
+        }
+
+    async def bind_realization_run(self, payload: dict[str, Any]) -> None:
+        """Bind the ordered course before keys can turn input drift into cache misses."""
+        await self.journal.prepare("lesson-realization-run:" + REALIZATION_POLICY, {
+            "kind": REALIZATION_POLICY, "tenant_id": self.tenant_id,
+            "job_id": self.journal.job_id, "input": payload,
+        })
+
+    async def restore_realization(self, lesson: LessonDraft, *, ordinal: int, source_plan_identity: str,
+                                  source_inventory_identity: str, prefix_digest: str) -> dict[str, Any] | None:
+        plan = self.realization_plan(lesson, ordinal=ordinal, source_plan_identity=source_plan_identity,
+                                     source_inventory_identity=source_inventory_identity, prefix_digest=prefix_digest)
+        key = self.realization_key(lesson_id=lesson.lesson_id, ordinal=ordinal,
+                                   source_plan_identity=source_plan_identity)
+        reader = getattr(self.journal, "read_owned_realization", None)
+        if not callable(reader):
+            raise ValueError("worker_cycle_realization_reload_unavailable")
+        value = await reader(key, plan)
+        if value is not None and not isinstance(value, dict):
+            raise ValueError("worker_cycle_realization_payload_invalid")
+        return value
+
+    async def save_realization(self, lesson: LessonDraft, *, ordinal: int, source_plan_identity: str,
+                               source_inventory_identity: str, prefix_digest: str,
+                               payload: dict[str, Any]) -> None:
+        plan = self.realization_plan(lesson, ordinal=ordinal, source_plan_identity=source_plan_identity,
+                                     source_inventory_identity=source_inventory_identity, prefix_digest=prefix_digest)
+        key = self.realization_key(lesson_id=lesson.lesson_id, ordinal=ordinal,
+                                   source_plan_identity=source_plan_identity)
+        if payload.get("realization_plan") != plan:
+            raise ValueError("worker_cycle_realization_payload_identity")
+        await self.journal.prepare(key, plan)
+        await self.journal.save_value(key, payload)
+
+    async def validate_realization(
+        self, lesson: LessonDraft, facts_by_id: dict[str, SourceFact], *,
+        base_lesson: LessonDraft, intent: CourseIntent,
+        catalogs: tuple[FinalTeachingCatalog, ...], assessment: BlockAssessmentResult,
+    ) -> None:
+        """Re-enter native validators using only existing durable evidence."""
+        if (self._source_plan_factory.description_review or self.experimental_case_citation
+                or self._local_joint_reviewer is not None or self._semantic_block_provider is not None):
+            raise ValueError("worker_cycle_realization_live_review_required")
+        provider = _RealizationReadbackProvider()
+        readback = WorkerLessonAssessor(
+            tenant_id=self.tenant_id, client=provider,
+            journal=_RealizationReadbackJournal(self.journal), checkpoint=self.checkpoint,
+            learner_language_gate=self.learner_language_gate,
+            pre_audit_rebuild=self.pre_audit_rebuild, source_plan_mode=self.source_plan_mode,
+        )
+        await readback.prepare_source_plan(base_lesson, facts_by_id, intent=intent)
+        restored = await readback(lesson, facts_by_id,
+            teaching_catalogs=catalogs if self.learner_language_gate else None)
+        # Execution counters describe the original calls, not the semantic verdict.
+        def verdict(value: dict[str, Any]) -> dict[str, Any]:
+            return {key: item for key, item in value.items()
+                    if key not in {"logical_model_calls", "provider_attempt_count", "restore_accounting"}}
+
+        if provider.calls:
+            raise ValueError("worker_cycle_realization_provider_forbidden")
+        if (restored.questions != assessment.questions
+                or not json_equivalent(verdict(restored.audit), verdict(assessment.audit))):
+            raise ValueError("worker_cycle_realization_assessment_changed")
 
     def restore_call_observations(self, lesson_id: str) -> tuple[dict[str, Any], ...]:
         """Read separate restore counts, including interrupted assessments."""
@@ -634,12 +814,16 @@ class WorkerLessonAssessor:
             ordinary_builder=build_source_assessment_plan, **flags)
 
     def _source_plan_identity(self, lesson: LessonDraft, context: list[SourceFact],
-                              facts_by_id: dict[str, SourceFact], *, counter_sharded: bool, selection: Any = None) -> dict[str, Any]:
+                              facts_by_id: dict[str, SourceFact], *, counter_sharded: bool, selection: Any = None,
+                              intent_override: dict[str, Any] | None = None,
+                              audit_first_override: bool | None = None) -> dict[str, Any]:
         identity = {"tenant": self.tenant_id, "lesson": asdict(source_only_plan_lesson(lesson)),
                     "facts": [asdict(fact) for fact in context],
                     "policy": f"{self.source_plan_policy}/{POLICY_VERSION}",
-                    "intent": self._source_intents.get(lesson.lesson_id, {}),
-                    "audit_first": lesson.lesson_id in self._audit_first_lessons}
+                    "intent": (intent_override if intent_override is not None
+                               else self._source_intents.get(lesson.lesson_id, {})),
+                    "audit_first": (audit_first_override if audit_first_override is not None
+                                     else lesson.lesson_id in self._audit_first_lessons)}
         identity.update(self._source_plan_factory.identity())
         if self.pre_audit_rebuild:
             identity["pre_audit_policy"] = "unapproved-full-source-rebuild-v1"
@@ -1172,6 +1356,7 @@ class WorkerLessonAssessor:
         self._source_intents[lesson.lesson_id] = asdict(intent)
         self._audit_first_lessons.add(lesson.lesson_id)
         source_lesson = source_only_plan_lesson(lesson)
+        self._prepared_source_lessons[lesson.lesson_id] = source_lesson
         try:
             selection = self._select_source_context(source_lesson, facts_by_id)
         except ContextProjectionError as exc:
@@ -1300,6 +1485,9 @@ class WorkerLessonAssessor:
         saved = await self.journal.prepare(key, payload)
         if saved is None:
             saved = {**payload, "packets": []}
+            # A committed realization needs a durable baseline, not a pending
+            # plan reconstructed by writing during its supposedly read-only replay.
+            await self.journal.save_value(key, saved)
         if (saved.get("tenant_id") != self.tenant_id
                 or saved.get("policy") != _PROMPT_INVENTORY_POLICY
                 or saved.get("plan_policy") != self.source_plan_policy
@@ -1537,6 +1725,14 @@ class WorkerLessonAssessor:
                 "logical_model_calls": 0, "provider_attempt_count": 0,
             }, 0)
         plan_lesson = lesson
+        prepared_source = self._prepared_source_lessons.get(lesson.lesson_id)
+        if prepared_source is not None and self._semantic_block_provider is None:
+            if (tuple(lesson.fact_ids) != tuple(prepared_source.fact_ids)
+                    or tuple(lesson.supporting_fact_ids) != tuple(prepared_source.supporting_fact_ids)):
+                raise ValueError("worker_cycle_prepared_source_ownership_changed")
+            # Presentation is an output of the lesson writer. It cannot select
+            # another source plan or make us pay for the same extraction twice.
+            plan_lesson = prepared_source
         prepared_lesson = self._prepared_semantic_source_lessons.get(lesson.lesson_id)
         if prepared_lesson is not None and isinstance(selection.semantic_block, SemanticBlock):
             allowed_support = {fact.fact_id for fact in selection.semantic_block.context_facts}

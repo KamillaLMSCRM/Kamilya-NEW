@@ -63,10 +63,21 @@ from app.modules.ai.lesson_surface_review import (
     parse_lesson_surface_review,
     prepare_lesson_surface_repair,
     prepare_lesson_surface_review,
+    restore_lesson_surface_review,
 )
 from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFailureReason
 from app.modules.ai.source_editorial_document import source_editorial_document_valid
 from app.modules.ai.source_layout import SourceMarker, parse_source_marker, verified_docling_semantic_view
+from app.modules.ai.source_response_projection import (
+    LiteralExpansion,
+    LiteralExpansionReceipt,
+    OwnedResponseSpan,
+    OwnedSource,
+    ProjectionLedgerEntry,
+    SourceResponseBudgetProof,
+    SourceResponseProjection,
+    SourceResponseProjectionInput,
+)
 from app.modules.ai.source_tables import markdown_table_cells, markdown_tables
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 
@@ -105,6 +116,7 @@ from .quality import (
     EVIDENCE_QUALITY_POLICY_VERSION,
     evaluate_plan_preflight,
     evaluate_publishability,
+    filter_acceptable_questions,
     ocr_artifact_reason,
     question_duplicate_key,
 )
@@ -208,6 +220,78 @@ def _slug(value: str) -> str:
 def _stable_id(prefix: str, *parts: str) -> str:
     body = "\x1f".join(" ".join(part.casefold().split()) for part in parts)
     return f"{prefix}-{hashlib.sha256(body.encode('utf-8')).hexdigest()[:16]}"
+
+
+def _realization_digest(value: Any) -> str:
+    return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def _restore_realization_question(value: dict[str, Any]) -> QuestionDraft:
+    row = dict(value)
+    for key in ("options", "distractor_fact_ids", "evidence_fact_ids"):
+        if key in row:
+            row[key] = tuple(row[key])
+    budget = row.get("source_response_budget")
+    if isinstance(budget, dict):
+        request = budget.get("request")
+        receipt = budget.get("receipt")
+        if not isinstance(request, dict) or not isinstance(receipt, dict):
+            raise ValueError("evidence_realization_question_budget_invalid")
+        row["source_response_budget"] = SourceResponseBudgetProof(
+            request=SourceResponseProjectionInput(
+                target_id=request["target_id"],
+                sources=tuple(OwnedSource(**item) for item in request["sources"]),
+                component=request["component"],
+                spans=tuple(OwnedResponseSpan(**item) for item in request["spans"]),
+                candidate_text=request["candidate_text"],
+                literal_expansions=tuple(LiteralExpansion(**item) for item in request.get("literal_expansions", [])),
+            ),
+            receipt=SourceResponseProjection(
+                **{
+                    **{key: item for key, item in receipt.items() if key not in {"ledger", "literal_expansions"}},
+                    "ledger": tuple(ProjectionLedgerEntry(**item) for item in receipt.get("ledger", [])),
+                    "literal_expansions": tuple(LiteralExpansionReceipt(**item) for item in receipt.get("literal_expansions", [])),
+                }
+            ),
+        )
+    return QuestionDraft(**row)
+
+
+def _validate_restored_realization(
+    lesson: LessonDraft, *, expected_lesson_id: str, questions: tuple[QuestionDraft, ...],
+    blocks: tuple[GroundedBlock, ...], facts_by_id: dict[str, SourceFact],
+) -> None:
+    known_fact_ids = set(facts_by_id)
+    if lesson.lesson_id != expected_lesson_id:
+        raise ValueError("evidence_realization_lesson_binding")
+    if not set(lesson.fact_ids) <= known_fact_ids or not set(lesson.supporting_fact_ids) <= known_fact_ids:
+        raise ValueError("evidence_realization_lesson_source_binding")
+    if any(block.lesson_id != lesson.lesson_id or not set(block.fact_ids) <= known_fact_ids or not block.text.strip()
+           for block in blocks):
+        raise ValueError("evidence_realization_block_source_binding")
+    if len({question.question_id for question in questions}) != len(questions):
+        raise ValueError("evidence_realization_question_duplicate")
+    if any(
+        question.lesson_id != lesson.lesson_id
+        or question.fact_id not in known_fact_ids
+        or not set(question.evidence_fact_ids) <= known_fact_ids
+        or len(question.options) < 2
+        or question.options.count(question.correct_answer) != 1
+        or any(not option.strip() for option in question.options)
+        or (question.source_quote and any(
+            not fragment.strip()
+            or not any(fragment.strip() in facts_by_id[fact_id].value
+                       for fact_id in question.evidence_fact_ids or (question.fact_id,))
+            for fragment in question.source_quote.splitlines()
+        ))
+        for question in questions
+    ):
+        raise ValueError("evidence_realization_question_source_binding")
+    if tuple(filter_acceptable_questions(list(questions))) != questions:
+        raise ValueError("evidence_realization_question_quality_changed")
+    keys = [question_duplicate_key(question) for question in questions]
+    if len(set(keys)) != len(keys):
+        raise ValueError("evidence_realization_question_duplicate")
 
 
 def _locator(**values: str | int) -> str:
@@ -2317,6 +2401,14 @@ async def generate_evidence_course(
                            or getattr(lesson_assessor, "_semantic_block_provider", None) is not None)
     source_inventory_identity = (source_inventory_digest()
                                  if callable(support_preflight) and provider_configured else None)
+    realization_inventory_identity = (
+        source_inventory_digest() if lesson_assessor is not None else None
+    )
+    bind_realization_run = getattr(lesson_assessor, "bind_realization_run", None)
+    if callable(bind_realization_run):
+        await bind_realization_run({"source_inventory": realization_inventory_identity,
+            "intent": asdict(intent), "lessons": [asdict(lesson) for lesson in evidence_result.course.lessons],
+            "evidence_plan": [asdict(plan) for plan in evidence_result.evidence_plan]})
 
     def assert_source_inventory() -> None:
         if source_inventory_identity is not None and source_inventory_digest() != source_inventory_identity:
@@ -2455,6 +2547,8 @@ async def generate_evidence_course(
     total = len(evidence_result.evidence_plan)
     lesson_assessments: list[BlockAssessmentResult] = []
     lesson_cycle_seconds = 0.0
+    restored_lesson_ids: list[str] = []
+    restored_assessment_attempts = 0
     surface_review_enabled = getattr(lesson_assessor, "learner_language_gate", False) is True
     surface_review_outcomes: list[dict[str, Any]] = []
     language_history: dict[str, tuple[list[dict[str, Any]], LessonProseLanguageReceipt, dict[int, str]]] = {}
@@ -2547,6 +2641,156 @@ async def generate_evidence_course(
         previous_lesson_count = len(realized_lessons)
         await _checkpoint(cancellation_callback)
         base_lesson = lesson_by_id[plan.lesson_id]
+        surface_state = None
+        realization_identity = None
+        realization_prefix = _stable_id(
+            "lesson-prefix",
+            *[f"{lesson.lesson_id}:{_realization_digest(asdict(lesson))}" for lesson in realized_lessons],
+        )
+        restore_realization = getattr(lesson_assessor, "restore_realization", None)
+        if callable(restore_realization) and isinstance(realization_inventory_identity, str):
+            if source_inventory_digest() != realization_inventory_identity:
+                raise DirectSourceError("semantic_support_inventory_changed")
+            realization_identity = getattr(lesson_assessor, "realization_identity", None)
+            if not callable(realization_identity):
+                raise ValueError("evidence_realization_identity_unavailable")
+            source_plan_identity = realization_identity(base_lesson, facts_by_id, intent=intent)
+            saved_realization = await restore_realization(
+                base_lesson, ordinal=index - 1, source_plan_identity=source_plan_identity,
+                source_inventory_identity=realization_inventory_identity, prefix_digest=realization_prefix,
+            )
+            if saved_realization is not None:
+                if saved_realization.get("kind") != "lesson-realization-v2":
+                    raise ValueError("evidence_realization_kind_invalid")
+                lesson_data = saved_realization.get("lesson")
+                assessment_data = saved_realization.get("assessment")
+                if not isinstance(lesson_data, dict) or not isinstance(assessment_data, dict):
+                    raise ValueError("evidence_realization_payload_invalid")
+                restored_lesson = LessonDraft(**{**lesson_data,
+                    "fact_ids": tuple(lesson_data["fact_ids"]),
+                    "supporting_fact_ids": tuple(lesson_data["supporting_fact_ids"])})
+                if saved_realization.get("lesson_sha256") != _realization_digest(asdict(restored_lesson)):
+                    raise ValueError("evidence_realization_lesson_changed")
+                restored_questions = tuple(
+                    _restore_realization_question(row) for row in saved_realization.get("questions", [])
+                )
+                restored_blocks = tuple(
+                    GroundedBlock(**{**row, "fact_ids": tuple(row["fact_ids"])})
+                    for row in saved_realization.get("grounded_blocks", [])
+                )
+                if any(question.lesson_id != restored_lesson.lesson_id for question in restored_questions):
+                    raise ValueError("evidence_realization_question_binding")
+                if any(block.lesson_id != restored_lesson.lesson_id for block in restored_blocks):
+                    raise ValueError("evidence_realization_block_binding")
+                restored_assessment = BlockAssessmentResult(
+                    tuple(_restore_realization_question(row) for row in assessment_data.get("questions", [])),
+                    dict(assessment_data.get("audit", {})),
+                    int(assessment_data.get("attempt_count", 0)),
+                )
+                if (type(assessment_data.get("attempt_count")) is not int
+                        or restored_assessment.attempt_count < 0):
+                    raise ValueError("evidence_realization_attempt_count_invalid")
+                if tuple(restored_assessment.questions) != restored_questions:
+                    raise ValueError("evidence_realization_assessment_mismatch")
+                _validate_restored_realization(
+                    restored_lesson, expected_lesson_id=base_lesson.lesson_id,
+                    questions=restored_questions, blocks=restored_blocks, facts_by_id=facts_by_id,
+                )
+                saved_surface = saved_realization.get("surface_state")
+                restored_surface = None
+                if saved_surface is not None:
+                    if not isinstance(saved_surface, dict) or not isinstance(saved_surface.get("blocks"), list):
+                        raise ValueError("evidence_realization_surface_state_invalid")
+                    saved_prepared = prepare_lesson_surface_review(
+                        lesson_id=base_lesson.lesson_id, lesson_plan_fact_ids=base_lesson.fact_ids,
+                        facts_by_id=facts_by_id, blocks=saved_surface["blocks"])
+                    if saved_prepared.preparation_sha256 != saved_surface.get("preparation_sha256"):
+                        raise ValueError("evidence_realization_surface_state_changed")
+                    saved_result = (restore_lesson_surface_review(saved_prepared, saved_surface["result"])
+                                    if saved_surface.get("result") is not None else None)
+                    restored_surface = (saved_prepared, saved_result)
+                render_payload = (
+                    {"title": restored_lesson.title, "objective": restored_lesson.objective,
+                     "blocks": saved_surface["blocks"]} if saved_surface is not None else
+                    {"title": restored_lesson.title, "objective": restored_lesson.objective,
+                     "blocks": [{"heading": block.heading, "text": block.text, "fact_ids": list(block.fact_ids)}
+                                 for block in restored_blocks]})
+                revalidated_lesson, _, revalidated_blocks = ProviderBackedEvidenceEngine._validate_and_render(
+                    render_payload,
+                    base_lesson=base_lesson, plan_fact_ids=set(base_lesson.fact_ids),
+                    facts_by_id=facts_by_id, seeds=[], surface_review=restored_surface,
+                )
+                if revalidated_lesson != restored_lesson or tuple(revalidated_blocks) != tuple(
+                    GroundedBlock(block.lesson_id, block.heading, block.text, block.fact_ids)
+                    for block in restored_blocks
+                ):
+                    raise ValueError("evidence_realization_grounded_state_changed")
+                raw_catalog = saved_realization.get("teaching_catalog")
+                if raw_catalog is not None:
+                    if not isinstance(raw_catalog, dict):
+                        raise ValueError("evidence_realization_catalog_invalid")
+                    if raw_catalog.get("lesson_id") != restored_lesson.lesson_id:
+                        raise ValueError("evidence_realization_catalog_binding")
+                    if restored_surface is None:
+                        raise ValueError("evidence_realization_catalog_proof_missing")
+                    catalog_scope = lesson_surface_render_scope(
+                        prepared=saved_prepared, result=saved_result, base_lesson=base_lesson,
+                        plan_fact_ids=set(base_lesson.fact_ids), facts_by_id=facts_by_id,
+                        blocks=saved_surface["blocks"])
+                    current_catalog = derive_final_teaching_catalog(
+                        lesson=restored_lesson, prepared=saved_prepared,
+                        surface_scope=catalog_scope, final_blocks=restored_blocks)
+                    if _realization_digest(asdict(current_catalog)) != _realization_digest(raw_catalog):
+                        raise ValueError("evidence_realization_catalog_changed")
+                    teaching_catalogs[restored_lesson.lesson_id] = current_catalog
+                validate_realization = getattr(lesson_assessor, "validate_realization", None)
+                if callable(validate_realization):
+                    catalogs = tuple(teaching_catalogs[row.lesson_id] for row in realized_lessons
+                                     if row.lesson_id in teaching_catalogs)
+                    available_catalog = teaching_catalogs.get(restored_lesson.lesson_id)
+                    if available_catalog is not None:
+                        catalogs = (*catalogs, available_catalog)
+                    await validate_realization(
+                        restored_lesson, facts_by_id, base_lesson=base_lesson, intent=intent,
+                        catalogs=catalogs, assessment=restored_assessment)
+                raw_surface_review = saved_realization.get("surface_review")
+                if surface_review_enabled and raw_surface_review is None:
+                    raise ValueError("evidence_realization_surface_review_missing")
+                if raw_surface_review is not None:
+                    if not isinstance(raw_surface_review, dict):
+                        raise ValueError("evidence_realization_surface_review_invalid")
+                    if raw_surface_review.get("lesson_id") != restored_lesson.lesson_id:
+                        raise ValueError("evidence_realization_surface_review_binding")
+                    if restored_surface is not None:
+                        scope = lesson_surface_render_scope(
+                            prepared=saved_prepared, result=saved_result, base_lesson=base_lesson,
+                            plan_fact_ids=set(base_lesson.fact_ids), facts_by_id=facts_by_id,
+                            blocks=saved_surface["blocks"])
+                        current_surface_status = {
+                            "prepared_groups": len(saved_prepared.groups),
+                            "positive_groups": len(saved_result.receipts) if saved_result is not None else 0,
+                            "unproved_groups": len(saved_result.unproved) if saved_result is not None else len(saved_prepared.groups),
+                            "surface_ready": scope.surface_ready,
+                            "complete_source_fact_ids": sorted(scope.complete_fact_ids),
+                            "incomplete_source_fact_ids": sorted(scope.incomplete_fact_ids),
+                            "healthy_block_count": len(scope.reviewed_sources),
+                            "partial_display_preserved": bool(scope.partial_preserved_fact_ids),
+                        }
+                        if any(raw_surface_review.get(key) != value for key, value in current_surface_status.items()):
+                            raise ValueError("evidence_realization_surface_status_changed")
+                    surface_review_outcomes.append(dict(raw_surface_review))
+                if saved_realization.get("deterministic_fallback") is True:
+                    deterministic_fallback_lesson_ids.append(restored_lesson.lesson_id)
+                    deterministic_fallback_count += 1
+                realized_lessons.append(restored_lesson)
+                realized_questions.extend(restored_questions)
+                grounded_blocks.extend(restored_blocks)
+                lesson_assessments.append(restored_assessment)
+                restored_lesson_ids.append(restored_lesson.lesson_id)
+                restored_assessment_attempts += restored_assessment.attempt_count
+                chat_model = str(saved_realization.get("chat_model") or chat_model)
+                await _progress(progress_callback, "lesson_cycle", index, total)
+                continue
         # The assessor authors its own questions after this lesson is validated.
         # Do not pay to rewrite seed questions that would be discarded below.
         seeds = seeds_by_lesson.get(plan.lesson_id, []) if lesson_assessor is None else []
@@ -3031,6 +3275,9 @@ async def generate_evidence_course(
                 final_scope = lesson_surface_render_scope(prepared=prepared, result=surface_result,
                     base_lesson=base_lesson, plan_fact_ids=set(plan.fact_ids), facts_by_id=facts_by_id,
                     blocks=payload["blocks"])
+                surface_state = {"blocks": payload["blocks"],
+                    "preparation_sha256": prepared.preparation_sha256,
+                    "result": asdict(surface_result) if surface_result is not None else None}
                 uncited = sorted(set(plan.fact_ids) - {fid for group in prepared.groups for fid in group.fact_ids})
                 surface_review_outcomes.append({"lesson_id": base_lesson.lesson_id,
                     "native_surface_grammar": {"initial": initial_surface_grammar,
@@ -3088,9 +3335,43 @@ async def generate_evidence_course(
                     current = teaching_catalogs.get(realized.lesson_id)
                     if current is not None:
                         catalogs = (*catalogs, current)
-                    lesson_assessments.append(await assess_with_teaching(realized, facts_by_id, catalogs=catalogs))
+                    assessment = await assess_with_teaching(realized, facts_by_id, catalogs=catalogs)
                 else:
-                    lesson_assessments.append(await lesson_assessor(realized, facts_by_id))
+                    assessment = await lesson_assessor(realized, facts_by_id)
+                lesson_assessments.append(assessment)
+                if (realization_identity is not None and realized.lesson_id == base_lesson.lesson_id
+                        and callable(getattr(lesson_assessor, "save_realization", None))):
+                    source_plan_identity = realization_identity(base_lesson, facts_by_id, intent=intent)
+                    realization_plan_builder = getattr(lesson_assessor, "realization_plan", None)
+                    if not callable(realization_plan_builder):
+                        raise ValueError("evidence_realization_plan_unavailable")
+                    realization_plan = realization_plan_builder(
+                        base_lesson, ordinal=index - 1, source_plan_identity=source_plan_identity,
+                        source_inventory_identity=realization_inventory_identity, prefix_digest=realization_prefix,
+                    )
+                    payload = {
+                        "kind": "lesson-realization-v2", "realization_plan": realization_plan,
+                        "lesson_sha256": _realization_digest(asdict(realized)), "lesson": asdict(realized),
+                        "questions": [asdict(question) for question in assessment.questions],
+                        "grounded_blocks": [asdict(block) for block in grounded_blocks
+                                            if block.lesson_id == realized.lesson_id],
+                        "assessment": asdict(assessment),
+                        "chat_model": chat_model,
+                        "surface_state": surface_state,
+                        "teaching_catalog": (asdict(teaching_catalogs[realized.lesson_id])
+                                             if realized.lesson_id in teaching_catalogs else None),
+                        "surface_review": next((dict(row) for row in reversed(surface_review_outcomes)
+                                                if row.get("lesson_id") == realized.lesson_id), None),
+                        "deterministic_fallback": realized.lesson_id in deterministic_fallback_lesson_ids,
+                    }
+                    save_realization = getattr(lesson_assessor, "save_realization", None)
+                    if not callable(save_realization):
+                        raise ValueError("evidence_realization_save_unavailable")
+                    await save_realization(
+                        base_lesson, ordinal=index - 1, source_plan_identity=source_plan_identity,
+                        source_inventory_identity=realization_inventory_identity, prefix_digest=realization_prefix,
+                        payload=payload,
+                    )
                 assert_source_inventory()
                 lesson_cycle_seconds += perf_counter() - cycle_started
             await _progress(progress_callback, "lesson_cycle", index, total)
@@ -3119,7 +3400,12 @@ async def generate_evidence_course(
             on_progress=assessment_progress,
         )
     realized_questions = list(reviewed.questions)
-    chat_attempt_count += reviewed.attempt_count
+    chat_attempt_count += reviewed.attempt_count - restored_assessment_attempts
+    if restored_lesson_ids:
+        reviewed.audit["realization_restore"] = {
+            "lesson_ids": restored_lesson_ids, "provider_calls": 0,
+            "original_assessment_attempts": restored_assessment_attempts,
+        }
     surface_incomplete_fact_ids = {fid for row in surface_review_outcomes
                                    for fid in row["incomplete_source_fact_ids"]}
     if surface_review_enabled:

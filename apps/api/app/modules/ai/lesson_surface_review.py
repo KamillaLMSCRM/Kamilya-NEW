@@ -1422,6 +1422,40 @@ def parse_lesson_surface_review(
     )
 
 
+def restore_lesson_surface_review(
+    prepared: PreparedLessonSurfaceReview, payload: Any,
+) -> LessonSurfaceReviewResult:
+    """Hydrate persisted receipts and revalidate against current source/candidate.
+
+    This establishes the same native custody as an in-process receipt; it does
+    not turn a stored positive model opinion into independent semantic proof.
+    """
+    try:
+        if not isinstance(payload, dict):
+            raise ValueError
+
+        def rows(name: str, constructor: Any, tuple_fields: tuple[str, ...]) -> tuple[Any, ...]:
+            values = payload[name]
+            if not isinstance(values, list | tuple):
+                raise ValueError
+            return tuple(constructor(**{**row, **{key: tuple(row[key]) for key in tuple_fields}})
+                         for row in values)
+
+        result = LessonSurfaceReviewResult(
+            policy=payload["policy"], preparation_sha256=payload["preparation_sha256"],
+            raw_review_sha256=payload["raw_review_sha256"],
+            receipts=rows("receipts", LessonSurfaceReviewReceipt, ("block_indices", "fact_ids")),
+            unproved=rows("unproved", LessonSurfaceReviewFailure, ("failed_axes",)),
+            block_receipts=rows("block_receipts", LessonSurfaceBlockReceipt, ("fact_ids", "depends_on_block_ids")),
+            block_gaps=rows("block_gaps", LessonSurfaceBlockGap, ("failed_axes", "depends_on_block_ids")),
+        )
+        if not _review_result_valid(prepared, result):
+            raise ValueError
+    except (TypeError, KeyError, ValueError, AttributeError):
+        raise ValueError("lesson_surface_checkpoint_invalid") from None
+    return result
+
+
 def prepare_lesson_surface_repair(
     prepared: PreparedLessonSurfaceReview,
     result: LessonSurfaceReviewResult,
