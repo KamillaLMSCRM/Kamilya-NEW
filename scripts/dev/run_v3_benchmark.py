@@ -62,16 +62,31 @@ async def main() -> int:
         )
         print(f"  Извлечено правил: {len(rule_model.rules)}")
 
-        # Group rules by curriculum lessons
-        # Lesson 1: Limits Table 1
-        # Lesson 2: Approval Table 2 Category 1
-        # Lesson 3: Approval Table 2 Category 2
-        # Lesson 4: Restrictions & Joint Liability
+        # Save rule model alongside course preview
+        rule_model_path = args.output.parent / "rule_model.json"
+        rule_model_path.write_text(json.dumps(rule_model.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+
+        # Group rules by curriculum lessons with cross-cutting cumulative rules
+        cumulative_rules = [
+            r for r in rule_model.rules
+            if any(k in r.statement.lower() for k in ["одного клиента", "один день", "суммар", "слож"])
+        ]
         groups = {
-            "Лимиты выдачи микрокредитов (Таблица 1)": [r for r in rule_model.rules if "лимит" in r.statement.lower() or "таблица 1" in r.section.lower() or "700" in r.statement],
-            "Порядок согласования: I категория (Таблица 2)": [r for r in rule_model.rules if "i категор" in r.title.lower() or "i категор" in r.statement.lower()],
-            "Порядок согласования: II категория (Таблица 2)": [r for r in rule_model.rules if "ii категор" in r.title.lower() or "ii категор" in r.statement.lower()],
-            "Запреты, пролонгация и материальная ответственность": [r for r in rule_model.rules if any(k in r.statement.lower() for k in ["пролонгац", "ответственност", "стоп-лист", "ущерб", "акт"])],
+            "Лимиты выдачи микрокредитов (Таблица 1)": list(dict.fromkeys([
+                *[r for r in rule_model.rules if "лимит" in r.statement.lower() or "таблица 1" in r.section.lower() or "700" in r.statement],
+                *cumulative_rules,
+            ])),
+            "Порядок согласования: I категория (Таблица 2)": list(dict.fromkeys([
+                *[r for r in rule_model.rules if "i категор" in r.title.lower() or "i категор" in r.statement.lower()],
+                *cumulative_rules,
+            ])),
+            "Порядок согласования: II категория (Таблица 2)": list(dict.fromkeys([
+                *[r for r in rule_model.rules if "ii категор" in r.title.lower() or "ii категор" in r.statement.lower()],
+                *cumulative_rules,
+            ])),
+            "Запреты, пролонгация и материальная ответственность": list(dict.fromkeys([
+                *[r for r in rule_model.rules if any(k in (r.statement + r.title).lower() for k in ["пролонгац", "ответственност", "стоп-лист", "ущерб", "акт", "запрет", "сомнен", "прием-передач"])],
+            ])),
         }
 
         generated_lessons: list[V3Lesson] = []

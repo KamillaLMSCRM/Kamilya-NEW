@@ -105,9 +105,12 @@ class V3QuestionVariant:
             distractors = rng.sample(distractors, 3)
         combined = [self.correct_option, *distractors]
         rng.shuffle(combined)
+        stem_premise = self.scenario_premise
+        if self.branch_context and not stem_premise.startswith(f"[{self.branch_context}]"):
+            stem_premise = f"[{self.branch_context}] {stem_premise}"
         return V3Question(
             question_id=f"{self.variant_id}-assembled",
-            scenario_premise=self.scenario_premise,
+            scenario_premise=stem_premise,
             prompt=self.prompt,
             options=tuple(combined),
             explanation=self.explanation,
