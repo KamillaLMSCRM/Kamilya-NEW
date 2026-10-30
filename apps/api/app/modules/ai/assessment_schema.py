@@ -20,6 +20,7 @@ class MCQQuestion:
     source_quote: str = ""
     quality_score: float = 3.0
     supporting_source_evidence: list[dict[str, Any]] | None = None
+    pool_group: str | None = None
 
     def to_dict(self):
         result = asdict(self)
@@ -46,6 +47,7 @@ class MCQQuestion:
                 source_quote=data.get("source_quote", ""),
                 quality_score=data.get("quality_score", 3.0),
                 supporting_source_evidence=support,
+                pool_group=data.get("pool_group"),
             )
         except (KeyError, TypeError):
             return None

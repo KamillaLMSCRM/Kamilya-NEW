@@ -467,6 +467,92 @@ async def _run_evidence_v2_generation(
     }
 
 
+async def _run_v3_generation(
+    state: GenerationState,
+    corpus: DirectSourceCorpus,
+    *,
+    tenant_id: UUID,
+    target_audience: str,
+    guidance: str | None,
+    goals: list[str] | None,
+    max_total_lessons: int | None,
+) -> None:
+    """Populate the existing persistence state from one complete V3 result."""
+    from app.core.config import get_settings
+    from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings, runtime_settings_scope
+    from app.modules.ai.qa_luna_dev_route import qa_luna_dev_client
+    from app.modules.ai.v3.service import generate_v3_course_from_corpus
+
+    policy = await resolve_runtime_settings()
+    with runtime_settings_scope(policy):
+        generation_client = await qa_luna_dev_client(
+            settings=get_settings(),
+            tenant_id=tenant_id,
+            temperature=policy.number("generation.temperature"),
+        )
+        if generation_client is None:
+            generation_client = await ResilientLLMClient.from_settings_async(
+                tenant_id=tenant_id,
+                temperature=policy.number("generation.temperature"),
+            )
+
+    realization_started = time.monotonic()
+
+    async def report_progress(
+        stage: str,
+        current: int,
+        total: int,
+        provider: str | None,
+        attempt: int | None,
+    ) -> None:
+        if stage == "quality":
+            progress, message, detail = 95, "Проверка уроков и тестов V3 завершена", None
+        else:
+            progress = 20 + math.floor(70 * current / max(1, total))
+            message = f"V3 Создание уроков и банка кейсов: {current} из {total}"
+            detail = _timed_progress_detail(current, total, realization_started)
+            if provider:
+                detail["provider"] = provider
+            if attempt is not None:
+                detail["attempt"] = attempt
+        state.stage = stage
+        state.progress = progress
+        state.message = message
+        await _update_job_db(
+            state.job_id,
+            tenant_id=tenant_id,
+            stage=stage,
+            progress=progress,
+            message=message,
+            progress_detail=detail,
+        )
+
+    artifacts = await generate_v3_course_from_corpus(
+        corpus,
+        intent=CourseIntent(
+            purpose=(guidance or "").strip(),
+            audience=target_audience.strip(),
+            emphasis=tuple(value.strip() for value in (goals or []) if value.strip()),
+        ),
+        generation_client=generation_client,
+        progress_callback=report_progress,
+        cancellation_callback=lambda: _check_cancelled_async(
+            state.job_id,
+            tenant_id=tenant_id,
+        ),
+    )
+
+    state.server_source_review_required = False
+    state.structure = artifacts.structure
+    state.content = artifacts.content
+    state.assessment = artifacts.assessment
+    state.source_analysis = {
+        **state.source_analysis,
+        "generation_engine": "evidence_v3",
+        "evidence_v3": artifacts.diagnostics,
+    }
+
+
 def _apply_assessment_omission_notices(state: GenerationState) -> None:
     """Keep usable lessons while making absent generated quizzes visible."""
     if state.assessment is None or state.content is None:
@@ -688,6 +774,7 @@ async def _save_generation_to_db(
                                         points=1,
                                         explanation=mcq.explanation,
                                         order_index=q_idx,
+                                        pool_group=getattr(mcq, "pool_group", None),
                                     )
                                     session.add(question)
                                     await session.flush()
@@ -955,16 +1042,28 @@ async def _run_generation_pipeline_inner(
         )
         timeout_boundary = "source_owner_db"
         await _check_generation_source_job(job_id, tenant_id, documents, user_id)
-        timeout_boundary = "evidence_generation"
-        await _run_evidence_v2_generation(
-            state,
-            corpus,
-            tenant_id=tenant_id,
-            target_audience=target_audience,
-            guidance=guidance,
-            goals=goals,
-            max_total_lessons=max_total_lessons,
-        )
+        timeout_boundary = "generation_execution"
+        engine_name = str(state.source_analysis.get("generation_engine", ""))
+        if engine_name in ("evidence_v3", "v3_cogen") or not engine_name:
+            await _run_v3_generation(
+                state,
+                corpus,
+                tenant_id=tenant_id,
+                target_audience=target_audience,
+                guidance=guidance,
+                goals=goals,
+                max_total_lessons=max_total_lessons,
+            )
+        else:
+            await _run_evidence_v2_generation(
+                state,
+                corpus,
+                tenant_id=tenant_id,
+                target_audience=target_audience,
+                guidance=guidance,
+                goals=goals,
+                max_total_lessons=max_total_lessons,
+            )
         timeout_boundary = "post_generation_cancellation_check"
         await _check_cancelled_async(job_id, tenant_id=tenant_id)
         state.stage = "saving"

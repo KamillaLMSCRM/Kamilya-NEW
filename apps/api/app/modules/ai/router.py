@@ -33,6 +33,7 @@ from app.modules.ai.assistant_policy import (
     assistant_scope_refusal,
 )
 from app.modules.ai.generation_engine import (
+    CURRENT_GENERATION_ENGINE,
     RETIRED_GENERATION_ENGINE_CODE,
     RETIRED_GENERATION_ENGINE_MESSAGE,
     job_uses_current_generation_engine,
@@ -482,9 +483,9 @@ async def submit_course_generation(
         "course_format": req.course_format,
         "manual_modules": req.num_modules,
     }
-    # Every new job is bound to the sole evidence-first engine. Historical jobs
+    # Every new job is bound to the active engine. Historical jobs
     # without this marker fail closed and must be submitted as a new generation.
-    analysis_payload["generation_engine"] = "evidence_v2"
+    analysis_payload["generation_engine"] = CURRENT_GENERATION_ENGINE
     if analysis.requires_decision and req.source_strategy != "intentional_combination":
         raise HTTPException(
             status_code=409,

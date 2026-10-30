@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-CURRENT_GENERATION_ENGINE = "evidence_v2"
+CURRENT_GENERATION_ENGINE = "evidence_v3"
+SUPPORTED_GENERATION_ENGINES = ("evidence_v3", "evidence_v2", "v3_cogen")
 CURRENT_SOURCE_ANALYSIS_MODE = "direct_source"
 RETIRED_GENERATION_ENGINE_CODE = "generation_engine_retired"
 RETIRED_GENERATION_ENGINE_MESSAGE = (
@@ -14,10 +15,10 @@ RETIRED_GENERATION_ENGINE_MESSAGE = (
 
 
 def uses_current_generation_engine(source_analysis: object) -> bool:
-    """Return true only for the one executable course-generation contract."""
+    """Return true for supported course-generation contracts."""
     return bool(
         isinstance(source_analysis, dict)
-        and source_analysis.get("generation_engine") == CURRENT_GENERATION_ENGINE
+        and source_analysis.get("generation_engine") in SUPPORTED_GENERATION_ENGINES
         and source_analysis.get("analysis_mode") == CURRENT_SOURCE_ANALYSIS_MODE
     )
 

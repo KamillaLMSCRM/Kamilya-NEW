@@ -2,10 +2,12 @@
 
 import pytest
 
+from app.modules.ai.v3.adapter import v3_course_to_generation_artifacts
 from app.modules.ai.v3.engine import V3GenerationPipeline
 from app.modules.ai.v3.models import (
     DistractorCategory,
     RuleEntity,
+    V3Course,
     V3Lesson,
     V3Option,
     V3Question,
@@ -213,4 +215,69 @@ async def test_v3_scenario_case_and_variant_bank():
     distractors_a = {o.text for o in var_a.distractor_pool}
     distractors_b = {o.text for o in var_b.distractor_pool}
     assert distractors_a.isdisjoint(distractors_b)
+
+
+@pytest.mark.asyncio
+async def test_v3_adapter_to_generation_artifacts():
+    """Verify that V3 course seamlessly converts to production GenerationArtifacts for DB persistence."""
+    var_a = V3QuestionVariant(
+        variant_id="case-1-var-a",
+        branch_context="Филиал в Павлодаре",
+        scenario_premise="Клиент запрашивает микрокредит на 1 200 000 тенге.",
+        prompt="Какова категория микрокредита?",
+        correct_option=V3Option(text="II категория", is_correct=True),
+        distractor_pool=(
+            V3Option(text="I категория", is_correct=False, distractor_category=DistractorCategory.PROCEDURAL_CONFUSION),
+            V3Option(text="Льготная категория", is_correct=False, distractor_category=DistractorCategory.ROLE_CONFUSION),
+            V3Option(text="Без категории", is_correct=False, distractor_category=DistractorCategory.UNAUTHORIZED_ACTION),
+        ),
+        explanation="Порог 1 100 100 тенге.",
+        source_quote="Таблица 1",
+    )
+    case = V3ScenarioCase(
+        case_id="case-limits",
+        rule_id="rule-limits",
+        learning_objective="Пороги сумм",
+        variants=(var_a,),
+    )
+    lesson = V3Lesson(
+        lesson_id="lesson-limits",
+        title="Лимиты выдачи микрокредитов",
+        module_title="Стандарты согласования",
+        content="### Текст урока\nПравила лимитов...",
+        covered_rule_ids=("rule-limits",),
+        cases=(case,),
+        questions=(var_a.assemble_question(seed=1),),
+    )
+    course = V3Course(
+        course_id="course-test",
+        title="Стандарты согласования",
+        document_sha256="abcdef1234567890",
+        lessons=(lesson,),
+    )
+
+    artifacts = v3_course_to_generation_artifacts(course, source_document_ids=["doc-uuid-1"])
+    assert artifacts.structure.title == "Стандарты согласования"
+    assert len(artifacts.structure.modules) == 1
+    assert artifacts.structure.modules[0].title == "Стандарты согласования"
+    assert len(artifacts.structure.modules[0].lessons) == 1
+    assert artifacts.structure.modules[0].lessons[0].title == "Лимиты выдачи микрокредитов"
+
+    # Content verification
+    assert len(artifacts.content.modules) == 1
+    assert artifacts.content.modules[0].lessons[0].content == "### Текст урока\nПравила лимитов..."
+    assert artifacts.content.modules[0].lessons[0].source_references == [{"doc_id": "doc-uuid-1"}]
+
+    # Assessment verification
+    assert len(artifacts.assessment.assessments) == 1
+    lesson_assess = artifacts.assessment.assessments[0]
+    assert lesson_assess.lesson_title == "Лимиты выдачи микрокредитов"
+    assert len(lesson_assess.mcq) == 1
+    mcq = lesson_assess.mcq[0]
+    assert "Клиент запрашивает микрокредит" in mcq.question
+    assert len(mcq.options) == 4
+    assert mcq.pool_group == "case-limits"
+    assert any(o.is_correct for o in mcq.options)
+    assert artifacts.diagnostics["generation_engine"] == "v3_cogen"
+
 

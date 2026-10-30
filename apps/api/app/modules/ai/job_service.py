@@ -15,10 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.ai_job import AIJob
 from app.models.tenants import Tenant
 from app.modules.ai.generation_engine import (
-    CURRENT_GENERATION_ENGINE,
     CURRENT_SOURCE_ANALYSIS_MODE,
     RETIRED_GENERATION_ENGINE_CODE,
     RETIRED_GENERATION_ENGINE_MESSAGE,
+    SUPPORTED_GENERATION_ENGINES,
     job_uses_current_generation_engine,
 )
 
@@ -399,8 +399,7 @@ async def claim_generation_execution(
         AIJob.status == "pending",
         AIJob.tenant_id == tenant_id,
         _generation_delivery_predicate(job_id, delivery_id),
-        AIJob.params["source_analysis"]["generation_engine"].as_string()
-        == CURRENT_GENERATION_ENGINE,
+        AIJob.params["source_analysis"]["generation_engine"].as_string().in_(SUPPORTED_GENERATION_ENGINES),
         AIJob.params["source_analysis"]["analysis_mode"].as_string()
         == CURRENT_SOURCE_ANALYSIS_MODE,
     ]
@@ -429,7 +428,7 @@ async def interrupt_pending_generation_execution(
             AIJob.tenant_id == tenant_id,
             AIJob.status == "pending",
             _generation_delivery_predicate(job_id, delivery_id),
-            AIJob.params["source_analysis"]["generation_engine"].as_string() == CURRENT_GENERATION_ENGINE,
+            AIJob.params["source_analysis"]["generation_engine"].as_string().in_(SUPPORTED_GENERATION_ENGINES),
             AIJob.params["source_analysis"]["analysis_mode"].as_string() == CURRENT_SOURCE_ANALYSIS_MODE,
         ).values(
             status="interrupted", stage="interrupted", message=GENERATION_INTERRUPTED_MESSAGE,
@@ -458,7 +457,7 @@ async def retire_legacy_generation_execution(
             _generation_delivery_predicate(job_id, delivery_id),
             or_(
                 AIJob.params["source_analysis"]["generation_engine"].as_string().is_(None),
-                AIJob.params["source_analysis"]["generation_engine"].as_string() != CURRENT_GENERATION_ENGINE,
+                AIJob.params["source_analysis"]["generation_engine"].as_string().notin_(SUPPORTED_GENERATION_ENGINES),
                 AIJob.params["source_analysis"]["analysis_mode"].as_string().is_(None),
                 AIJob.params["source_analysis"]["analysis_mode"].as_string() != CURRENT_SOURCE_ANALYSIS_MODE,
             ),
