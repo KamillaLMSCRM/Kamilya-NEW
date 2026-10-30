@@ -793,3 +793,47 @@ def test_component_validation_supports_answer_only_view_and_scenario_city_invent
         allow_grammar_realization=True,
     )
     assert val1.failures == ()
+
+
+def test_case_qualification_hold_reasons_resolves_when_unique_within_clause() -> None:
+    from app.modules.ai.lesson_cycle import (
+        LearningTarget,
+        LessonPacket,
+        SourceExcerpt,
+        _case_qualification_hold_reasons,
+    )
+
+    source_text = (
+        "Раздел о согласовании: 1) АУП РД проводит осмотр залогового имущества совместно с эксперт-оценщиком. "
+        "2) Микрокредиты по II категории при дислокации приемного пункта вне границ населенного пункта "
+        "предварительно согласовываются эксперт-оценщиком по телефону."
+    )
+    quote = "эксперт-оценщиком"
+    second_idx = source_text.rfind(quote)
+    target = LearningTarget(
+        target_id="t-outside-phone",
+        description="Согласование по телефону",
+        source_ids=("s1",),
+        qualification_bindings=(
+            {
+                "source_id": "s1",
+                "role": "actor",
+                "quote": quote,
+                "quote_start": second_idx,
+                "quote_end": second_idx + len(quote),
+                "facet_id": "F1",
+                "branch_effect": "none",
+            },
+        ),
+    )
+    packet = LessonPacket(
+        tenant_id="t1",
+        lesson_id="l1",
+        title="Тест",
+        content="Текст",
+        sources=(SourceExcerpt(source_id="s1", text=source_text, original_text=source_text),),
+        targets=(target,),
+        policy_revision="v1",
+    )
+    reasons = _case_qualification_hold_reasons(packet, target)
+    assert reasons == frozenset()

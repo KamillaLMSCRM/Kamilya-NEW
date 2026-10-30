@@ -3799,11 +3799,16 @@ def _source_visibility_holds(packet: LessonPacket, *, _reviewed_occurrences: fro
             if source is None:
                 continue
             original = source.original_text or source.text
-            original_start = original.find(source.text)
-            unique_working = (original_start >= 0
-                and original.find(source.text, original_start + 1) < 0)
             start, end = binding["quote_start"], binding["quote_end"]
-            mapped_start, mapped_end = start - original_start, end - original_start
+            if len(original) <= len(source.text):
+                offset = source.text.find(original)
+                unique_working = (offset >= 0 and source.text.find(original, offset + 1) < 0)
+                mapped_start, mapped_end = offset + start, offset + end
+            else:
+                offset = original.find(source.text)
+                unique_working = (offset >= 0 and original.find(source.text, offset + 1) < 0
+                                  and offset <= start < end <= offset + len(source.text))
+                mapped_start, mapped_end = start - offset, end - offset
             inside_passage = any(
                 line.start() + len(line.group()) - len(line.group().lstrip()) <= mapped_start
                 and mapped_end <= line.start() + len(line.group().rstrip())
@@ -3879,7 +3884,17 @@ def _case_qualification_hold_reasons(packet: LessonPacket, target: LearningTarge
                 position = passage.find(quote)
                 found = position >= 0
                 if found and passage.find(quote, position + 1) >= 0:
-                    reasons.add("ambiguous_occurrence")
+                    clause_start = max(
+                        working.rfind(". ", 0, left),
+                        working.rfind("\n", 0, left),
+                        0,
+                    )
+                    clause_end = working.find(". ", right)
+                    if clause_end < 0:
+                        clause_end = len(working)
+                    clause = working[clause_start:clause_end]
+                    if clause.count(quote) > 1:
+                        reasons.add("ambiguous_occurrence")
                 break
         if not found:
             reasons.add("unbound")
