@@ -185,7 +185,11 @@ class QualityAPISession:
                 if (hashlib.sha256(_json(data)).hexdigest() != saved[0]["response_sha256"]
                         or data.get("model") != self.model):
                     raise ValueError("quality_api_replay_identity_changed")
-                value = parser(data["choices"][0]["message"]["content"])
+                try:
+                    value = parser(data["choices"][0]["message"]["content"])
+                except (ValueError, TypeError, KeyError):
+                    raise AllProvidersFailedError("Recorded model output failed native validation",
+                        [ValidatedCallFailureReason.PROVIDER_OUTPUT_UNPARSEABLE]) from None
                 self.replayed += 1
                 usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
                 replay_prompt = usage.get("prompt_tokens", 0)
