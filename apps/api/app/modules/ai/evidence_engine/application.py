@@ -3598,6 +3598,17 @@ def _fact_reference(fact: SourceFact, corpus: DirectSourceCorpus) -> dict[str, A
     }
 
 
+_INTERNAL_PROMPT_PREFIX_RE = re.compile(
+    r"^(?:(?:Основание\s+из\s+источника|Условие|Фрагмент\s+источника\s+об\s+участнике|Участники)\s*:.*(?:\n|$))+",
+    re.IGNORECASE,
+)
+
+
+def _clean_learner_question_prompt(prompt: str) -> str:
+    cleaned = _INTERNAL_PROMPT_PREFIX_RE.sub("", prompt).strip()
+    return cleaned if cleaned else prompt
+
+
 def to_generation_artifacts(output: EvidenceGenerationOutput) -> GenerationArtifacts:
     """Map the validated V2 result onto the existing single persistence contract."""
 
@@ -3661,7 +3672,7 @@ def to_generation_artifacts(output: EvidenceGenerationOutput) -> GenerationArtif
                 lesson_title=lesson.title,
                 mcq=[
                     MCQQuestion(
-                        question=question.prompt,
+                        question=_clean_learner_question_prompt(question.prompt),
                         options=[
                             MCQOption(text=option, is_correct=option == question.correct_answer)
                             for option in question.options

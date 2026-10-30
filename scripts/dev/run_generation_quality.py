@@ -217,14 +217,28 @@ async def run(args):
                 generation_client=client, embedding_client=NoEmbeddings(), lesson_assessor=assessor,
                 progress_callback=progress)
             save(args.evidence / "application.json", asdict(generated))
-            save(args.evidence / "artifacts.json", asdict(to_generation_artifacts(generated)))
+            artifacts = to_generation_artifacts(generated)
+            save(args.evidence / "artifacts.json", asdict(artifacts))
             preview = []
-            for lesson in generated.result.realized_course.lessons:
-                preview.extend(["# " + lesson.title, "", lesson.content, "", "## Questions", ""])
-                for question in generated.result.realized_assessment.questions:
-                    if question.lesson_id == lesson.lesson_id:
-                        preview.extend([question.prompt, *["- " + option for option in question.options],
-                                        "Key: " + question.correct_answer, question.explanation, ""])
+            for module in artifacts.content.modules:
+                for lesson in module.lessons:
+                    matching_assessment = next(
+                        (a for a in artifacts.assessment.assessments if a.lesson_title == lesson.title),
+                        None,
+                    )
+                    preview.extend(["# " + lesson.title, "", lesson.content, "", "## Questions", ""])
+                    if matching_assessment and matching_assessment.mcq:
+                        for mcq in matching_assessment.mcq:
+                            correct_opt = next((o.text for o in mcq.options if o.is_correct), "")
+                            preview.extend([
+                                mcq.question,
+                                *["- " + option.text for option in mcq.options],
+                                "Key: " + correct_opt,
+                                mcq.explanation,
+                                "",
+                            ])
+                    else:
+                        preview.extend(["(Вопросы отсутствуют)", ""])
             (args.evidence / "preview.md").write_text("\n".join(preview), encoding="utf-8")
             summary = {"status": "COMPLETED_NOT_SEMANTIC_ACCEPTANCE", "case": args.case,
                 "lessons": len(generated.result.realized_course.lessons),
