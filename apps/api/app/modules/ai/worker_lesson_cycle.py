@@ -328,6 +328,7 @@ class _MeasuredClient:
     def __init__(self, client: Any, checkpoint: Any):
         self.client, self.checkpoint = client, checkpoint
         self.calls = self.attempts = 0
+        self.prompt_tokens = self.completion_tokens = 0
 
     async def ainvoke_validated(self, *args: Any, **kwargs: Any) -> Any:
         await self.checkpoint()
@@ -338,6 +339,8 @@ class _MeasuredClient:
             self.attempts += len(exc.reasons) or 1
             raise
         self.attempts += response.attempt_count
+        self.prompt_tokens += int(getattr(response, "prompt_tokens", 0) or 0)
+        self.completion_tokens += int(getattr(response, "completion_tokens", 0) or 0)
         return response
 
 
@@ -681,6 +684,7 @@ class WorkerLessonAssessor:
         self._prepared_semantic_keys: dict[str, str] = {}
         self._source_intents: dict[str, dict[str, Any]] = {}
         self._prepared_costs: dict[str, tuple[int, int]] = {}
+        self._prepared_tokens: dict[str, tuple[int, int]] = {}
         self._prepared_source_keys: dict[str, str] = {}
         self._prepared_source_statuses: dict[str, dict[str, str]] = {}
         self._prepared_source_lessons: dict[str, LessonDraft] = {}
@@ -792,7 +796,8 @@ class WorkerLessonAssessor:
         # Execution counters describe the original calls, not the semantic verdict.
         def verdict(value: dict[str, Any]) -> dict[str, Any]:
             return {key: item for key, item in value.items()
-                    if key not in {"logical_model_calls", "provider_attempt_count", "restore_accounting"}}
+                    if key not in {"logical_model_calls", "provider_attempt_count", "restore_accounting",
+                                   "prompt_tokens", "completion_tokens"}}
 
         if provider.calls:
             raise ValueError("worker_cycle_realization_provider_forbidden")
@@ -1404,6 +1409,11 @@ class WorkerLessonAssessor:
         finally:
             previous = self._prepared_costs.get(key, (0, 0))
             self._prepared_costs[key] = (previous[0] + client.calls, previous[1] + client.attempts)
+            previous_tokens = self._prepared_tokens.get(key, (0, 0))
+            self._prepared_tokens[key] = (
+                previous_tokens[0] + client.prompt_tokens,
+                previous_tokens[1] + client.completion_tokens,
+            )
         if self._source_plan_factory.description_review:
             # Cold re-review may not rewrite or silently diverge from the journal.
             selected_now = self._select_source_context(source_lesson, facts_by_id)
@@ -1757,8 +1767,11 @@ class WorkerLessonAssessor:
                 "source_context": {"error": "semantic_block_changed_after_preparation"},
                 "logical_model_calls": 0, "provider_attempt_count": 0}, 0)
         prepared_calls, prepared_attempts = self._prepared_costs.pop(plan_key, (0, 0))
+        prepared_prompt_tokens, prepared_completion_tokens = self._prepared_tokens.pop(plan_key, (0, 0))
         client.calls += prepared_calls
         client.attempts += prepared_attempts
+        client.prompt_tokens += prepared_prompt_tokens
+        client.completion_tokens += prepared_completion_tokens
         saved = await self.journal.prepare(plan_key, {"input_sha256": _digest(identity), "input": identity})
         saved = deepcopy(saved)
         def rejected(evidence: Any) -> BlockAssessmentResult:
@@ -2070,6 +2083,7 @@ class WorkerLessonAssessor:
                and (diagnostic := _historical_feedback_diagnostic(saved)) is not None else {}),
             "source_context": dict(selection.ledger),
             "logical_model_calls": client.calls, "provider_attempt_count": client.attempts,
+            "prompt_tokens": client.prompt_tokens, "completion_tokens": client.completion_tokens,
             **({"restore_accounting": {
                 "logical_model_calls": sum(row["logical_calls"] for row in self._restore_call_observations[lesson.lesson_id]),
                 "physical_attempts": None, "physical_attempts_observation": "unavailable",

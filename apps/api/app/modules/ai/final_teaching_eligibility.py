@@ -18,6 +18,9 @@ from app.modules.ai.assessment_facets import BRANCH_EFFECTS, FACET_ROLES
 from app.modules.ai.assessment_preservation import (
     _PROTECTED_LITERALS,
     PreservationIssue,
+    _kind,
+    _morphological_match,
+    _tokenize,
     _word_info,
     component_preservation_issue,
 )
@@ -1224,12 +1227,128 @@ def _protected_operator_attachment_signature(
     return tuple(signature)
 
 
+_LEADING_BLOCK_CONDITIONAL = re.compile(
+    r"(?<![A-Za-zА-Яа-яЁё])(?P<prefix>(?:\*\s*)?(?:в\s+случае\s*,?\s+если|если)\s+)\Z",
+    re.IGNORECASE,
+)
+_LIGHT_VERBAL_NOUN_LEMMAS = frozenset({"осуществление"})
+
+
+def _expand_block_conditional_quote(
+    quote: BoundTeachingQuote,
+    refs: dict[str, TeachingBlockRef] | None,
+) -> BoundTeachingQuote | None:
+    if refs is None:
+        return None
+    entry = refs.get(quote.ref_id)
+    if entry is None:
+        return None
+    local_start = quote.quote_start - entry.body_start
+    local_end = quote.quote_end - entry.body_start
+    if not 0 < local_start < local_end <= len(entry.body):
+        return None
+    match = _LEADING_BLOCK_CONDITIONAL.search(entry.body[:local_start])
+    if match is None:
+        return None
+    expanded_local_start = match.start("prefix")
+    expanded_text = entry.body[expanded_local_start:local_end]
+    if (
+        entry.body.count(expanded_text) != 1
+        or expanded_text in entry.heading
+        or not lexical_span_is_complete(entry.body, expanded_local_start, local_end)
+    ):
+        return None
+    return BoundTeachingQuote(
+        ref_id=quote.ref_id,
+        text=expanded_text,
+        quote_start=entry.body_start + expanded_local_start,
+        quote_end=quote.quote_end,
+        quote_sha256=hashlib.sha256(expanded_text.encode()).hexdigest(),
+    )
+
+
+def _unpacked_parenthetical_condition_match(
+    source_text: str,
+    quote_text: str,
+) -> bool:
+    """Prove a multi-clause parenthetical condition unpacked into structured sentences."""
+    if "(" not in source_text or ")" not in source_text:
+        return False
+    if "\n" not in quote_text and "•" not in quote_text:
+        return False
+    try:
+        raw_source_tokens = _tokenize(source_text)
+        raw_quote_tokens = _tokenize(quote_text)
+        if raw_source_tokens is None or raw_quote_tokens is None:
+            return False
+        source_tokens = [token for token in raw_source_tokens if _kind(token) != "ignored"]
+        quote_tokens = [token for token in raw_quote_tokens if _kind(token) != "ignored"]
+    except (ImportError, OSError, RuntimeError, ValueError):
+        return False
+    if not source_tokens or not quote_tokens:
+        return False
+    for index, token in enumerate(source_tokens):
+        kind = _kind(token)
+        if any(
+            _morphological_match(token, candidate)
+            if kind in {"material", "protected_operator", "alias"}
+            else token.text.casefold() == candidate.text.casefold()
+            for candidate in quote_tokens
+        ):
+            continue
+        info = _word_info(token.text.casefold())
+        if (
+            kind == "material"
+            and info.known
+            and info.noun_lemmas
+            and info.noun_lemmas <= _LIGHT_VERBAL_NOUN_LEMMAS
+            and index + 1 < len(source_tokens)
+        ):
+            continue
+        return False
+    for candidate in quote_tokens:
+        if _kind(candidate) in {"protected_operator", "numeric_operator", "unit"} and not any(
+            _morphological_match(token, candidate)
+            if _kind(candidate) == "protected_operator"
+            else token.text.casefold() == candidate.text.casefold()
+            for token in source_tokens
+        ):
+            return False
+    open_paren = source_text.find("(")
+    close_paren = source_text.rfind(")")
+    if not 0 < open_paren < close_paren < len(source_text):
+        return False
+    parenthetical = source_text[open_paren + 1 : close_paren]
+    raw_parenthetical_tokens = _tokenize(parenthetical)
+    if raw_parenthetical_tokens is None:
+        return False
+    parenthetical_tokens = [
+        token for token in raw_parenthetical_tokens if _kind(token) != "ignored"
+    ]
+    cursor = 0
+    for token in parenthetical_tokens:
+        match_index = next(
+            (
+                idx
+                for idx in range(cursor, len(quote_tokens))
+                if _morphological_match(token, quote_tokens[idx])
+                or token.text.casefold() == quote_tokens[idx].text.casefold()
+            ),
+            None,
+        )
+        if match_index is None:
+            return False
+        cursor = match_index + 1
+    return True
+
+
 def _strict_component_restatement_proof(
     requirement: TeachingRequirement,
     bodies: tuple[str, ...],
     quotes: tuple[BoundTeachingQuote, ...],
     parsed_rows: dict[str, dict[str, Any]],
     sources: dict[str, TeachingSourceContext],
+    refs: dict[str, TeachingBlockRef] | None = None,
 ) -> TeachingNativeProof | None:
     """Bind one whole, bidirectionally strict current-role restatement.
 
@@ -1246,21 +1365,35 @@ def _strict_component_restatement_proof(
                    for dependency in requirement.depends_on_requirement_ids)):
         return None
     quote = quotes[0]
+    expanded = _expand_block_conditional_quote(quote, refs) if requirement.kind == "condition" else None
+    candidate_quotes = (quote, *((expanded,) if expanded is not None else ()))
     for alternative in requirement.component.alternatives:
         source = sources[alternative.source_id]
+        if source.text.count(alternative.text) != 1:
+            continue
         source_relations = _protected_operator_attachment_signature(alternative.text)
-        quote_relations = _protected_operator_attachment_signature(quote.text)
-        if (source.text.count(alternative.text) != 1
-                or source_relations is None
-                or source_relations != quote_relations
-                or component_preservation_issue(alternative.text, quote.text, source_context=source.text) is not None
-                or component_preservation_issue(quote.text, alternative.text, source_context=quote.text) is not None):
+        if source_relations is None:
             continue
         start = source.text.index(alternative.text)
-        return _native_proof(mode="strict_component_restatement", source=source,
-            source_start=start, source_end=start + len(alternative.text),
-            component_start=start, component_end=start + len(alternative.text), quote=quote,
-            covered_requirement_ids=(requirement.component.component_id,))
+        for candidate_quote in candidate_quotes:
+            quote_relations = _protected_operator_attachment_signature(candidate_quote.text)
+            if source_relations != quote_relations:
+                continue
+            strict_ok = (
+                component_preservation_issue(alternative.text, candidate_quote.text, source_context=source.text) is None
+                and component_preservation_issue(candidate_quote.text, alternative.text, source_context=candidate_quote.text) is None
+            )
+            unpacked_ok = (
+                not strict_ok
+                and requirement.kind == "condition"
+                and _unpacked_parenthetical_condition_match(alternative.text, candidate_quote.text)
+            )
+            if not strict_ok and not unpacked_ok:
+                continue
+            return _native_proof(mode="strict_component_restatement", source=source,
+                source_start=start, source_end=start + len(alternative.text),
+                component_start=start, component_end=start + len(alternative.text), quote=quote,
+                covered_requirement_ids=(requirement.component.component_id,))
     return None
 
 
@@ -1270,6 +1403,7 @@ def _conditional_connective_proof(
     quotes: tuple[BoundTeachingQuote, ...],
     parsed_rows: dict[str, dict[str, Any]],
     sources: dict[str, TeachingSourceContext],
+    refs: dict[str, TeachingBlockRef] | None = None,
 ) -> TeachingNativeProof | None:
     """Preserve the entire source condition while shortening only its connector.
 
@@ -1283,20 +1417,23 @@ def _conditional_connective_proof(
                    for dependency in requirement.depends_on_requirement_ids)):
         return None
     quote = quotes[0]
+    expanded = _expand_block_conditional_quote(quote, refs)
+    candidate_quotes = (quote, *((expanded,) if expanded is not None else ()))
     for alternative in requirement.component.alternatives:
         source = sources[alternative.source_id]
         if source.text.count(alternative.text) != 1:
             continue
-        receipt = conditional_connective_receipt(alternative.text, quote.text)
-        if not conditional_connective_receipt_valid(
-                receipt, source_component=alternative.text, learner_quote=quote.text):
-            continue
         start = source.text.index(alternative.text)
-        return _native_proof(mode="conditional_connective_restatement", source=source,
-            source_start=start, source_end=start + len(alternative.text),
-            component_start=start, component_end=start + len(alternative.text), quote=quote,
-            covered_requirement_ids=(requirement.component.component_id,),
-            conditional_connective=receipt)
+        for candidate_quote in candidate_quotes:
+            receipt = conditional_connective_receipt(alternative.text, candidate_quote.text)
+            if not conditional_connective_receipt_valid(
+                    receipt, source_component=alternative.text, learner_quote=candidate_quote.text):
+                continue
+            return _native_proof(mode="conditional_connective_restatement", source=source,
+                source_start=start, source_end=start + len(alternative.text),
+                component_start=start, component_end=start + len(alternative.text), quote=quote,
+                covered_requirement_ids=(requirement.component.component_id,),
+                conditional_connective=receipt)
     return None
 
 
@@ -1328,7 +1465,7 @@ def _native_requirement_issue(
                     component_start=comparison.source_start, component_end=comparison.source_end,
                     quote=quote, covered_requirement_ids=(requirement.component.component_id,),
                     component_comparison=comparison), None
-    connective_proof = _conditional_connective_proof(requirement, bodies, quotes, parsed_rows, sources)
+    connective_proof = _conditional_connective_proof(requirement, bodies, quotes, parsed_rows, sources, refs)
     if connective_proof is not None:
         return connective_proof, None
     row = parsed_rows.get(requirement.component.component_id)
@@ -1350,15 +1487,23 @@ def _native_requirement_issue(
                 covered_requirement_ids=(requirement.component.component_id,), row_identity=identity), None
     issues: list[tuple[OwnedComponent, PreservationIssue]] = []
     broad_strict_success = False
+    candidate_bodies = list(bodies)
+    if requirement.kind == "condition" and len(quotes) == 1:
+        expanded_quote = _expand_block_conditional_quote(quotes[0], refs)
+        if expanded_quote is not None and expanded_quote.text not in candidate_bodies:
+            candidate_bodies.append(expanded_quote.text)
     for alternative in requirement.component.alternatives:
         source = sources[alternative.source_id]
-        for body in bodies:
+        for body in candidate_bodies:
             issue = component_preservation_issue(
                 alternative.text,
                 body,
                 source_context=source.text,
             )
-            if issue is None:
+            if issue is None or (
+                requirement.kind == "condition"
+                and _unpacked_parenthetical_condition_match(alternative.text, body)
+            ):
                 if not quotes or body == alternative.text:
                     return None, None
                 broad_strict_success = True
@@ -1378,7 +1523,7 @@ def _native_requirement_issue(
         if proof is not None:
             return proof, None
     if broad_strict_success:
-        proof = _strict_component_restatement_proof(requirement, bodies, quotes, parsed_rows, sources)
+        proof = _strict_component_restatement_proof(requirement, bodies, quotes, parsed_rows, sources, refs)
         if proof is not None:
             return proof, None
         return None, "teaching_native_context_partition_unproved"

@@ -79,7 +79,12 @@ Only the server-reserved labels «Основание из источника:»,
 premises in the question, never in options. No other label or claim grants this
 exception. Do not mark grammar or idiom false solely for
 its original spelling, punctuation, inflection, or because the excerpt is not a
-standalone sentence. Never normalize or silently rewrite it. Still reject when
+standalone sentence. Never normalize or silently rewrite it.
+In Russian administrative and regulatory prose, appositional city/toponym names
+in the nominative case after the abbreviation «г.» (for example, «РД г. Усть-Каменогорск,
+г. Павлодар») and exact quoted document titles are grammatical and idiomatic; do not
+mark grammatical:false or idiomatic:false for uninflected toponyms after «г.».
+Still reject when
 the complete visible item is materially hard to understand, quotation boundaries
 or attachment are unclear, the excerpt creates an answer cue, or the authored
 stem/options are defective.

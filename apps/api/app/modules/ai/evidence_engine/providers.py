@@ -39,6 +39,15 @@ Preserve source-owned list logic. A comma/semicolon enumeration alone does not
 license adding AND, OR, AND/OR or exclusivity between its items. Keep a neutral
 list or the source punctuation when that relationship is not explicit; use
 separate labels rather than inventing a Boolean interpretation for readability.
+When a source rule enumerates multiple roles or actors separated by commas without
+an explicit conjunction (for example, «эксперт-оценщиком, АУП РД»), format them as
+neutral bullet items rather than comma-spliced running prose.
+When splitting a single fact_id across multiple teaching blocks, explicitly repeat
+any shared governing contract, document title, actor, or condition in every block
+that cites that fact_id so each block is self-contained and never narrows scope.
+Preserve governing verbal nouns in responsibility/sanction clauses (for example,
+keep «ответственность за осуществление неверной оценки» rather than shortening to
+«ответственность за неверную оценку»).
 Use clearly paired, distinct inner/outer quotation marks for nested titles without
 changing or shortening the document name or legal citation.
 Use a concise nominal title of 3-8 words and headings without markdown markers.

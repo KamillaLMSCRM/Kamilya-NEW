@@ -817,14 +817,26 @@ class LLMClient(_BaseProviderClient):
             logger.warning(
                 f"[{self.config.name}] empty content, finish_reason=" f"{data['choices'][0].get('finish_reason')}"
             )
-        return _LLMResponse(content=content)
+        raw_usage = data.get("usage")
+        usage: dict[str, Any] = raw_usage if isinstance(raw_usage, dict) else {}
+        raw_prompt = usage.get("prompt_tokens", 0)
+        raw_completion = usage.get("completion_tokens", 0)
+        prompt_tokens = raw_prompt if type(raw_prompt) is int and raw_prompt >= 0 else 0
+        completion_tokens = raw_completion if type(raw_completion) is int and raw_completion >= 0 else 0
+        return _LLMResponse(
+            content=content,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+        )
 
 
 class _LLMResponse:
     """Simple response wrapper matching LangChain's .content attribute."""
 
-    def __init__(self, content: str):
+    def __init__(self, content: str, *, prompt_tokens: int = 0, completion_tokens: int = 0):
         self.content = content
+        self.prompt_tokens = prompt_tokens
+        self.completion_tokens = completion_tokens
 
 
 T = TypeVar("T")
@@ -839,6 +851,8 @@ class ValidatedLLMResult(Generic[T]):
     value: T
     attempt_count: int = 1
     failure_reasons: tuple[ValidatedCallFailureReason, ...] = ()
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -1174,6 +1188,8 @@ class ResilientLLMClient:
 
         failure_reasons: list[ValidatedCallFailureReason] = []
         validated_attempts = 0
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
         syntax_correction_used = False
         for index, client in enumerate(self._clients):
             validated_attempts += 1
@@ -1199,6 +1215,9 @@ class ResilientLLMClient:
                     len(self._clients) - index - 1,
                 )
                 continue
+
+            total_prompt_tokens += int(getattr(response, "prompt_tokens", 0) or 0)
+            total_completion_tokens += int(getattr(response, "completion_tokens", 0) or 0)
 
             if isinstance(response.content, str) and not response.content.strip():
                 # There is no JSON payload to correct after output-budget
@@ -1254,6 +1273,9 @@ class ResilientLLMClient:
                     )
                     continue
 
+                total_prompt_tokens += int(getattr(correction, "prompt_tokens", 0) or 0)
+                total_completion_tokens += int(getattr(correction, "completion_tokens", 0) or 0)
+
                 if isinstance(correction.content, str) and not correction.content.strip():
                     failure_reasons.append(ValidatedCallFailureReason.PROVIDER_OUTPUT_UNPARSEABLE)
                     logger.warning(
@@ -1290,6 +1312,8 @@ class ResilientLLMClient:
                 value=value,
                 attempt_count=validated_attempts,
                 failure_reasons=tuple(failure_reasons),
+                prompt_tokens=total_prompt_tokens,
+                completion_tokens=total_completion_tokens,
             )
 
         raise AllProvidersFailedError(

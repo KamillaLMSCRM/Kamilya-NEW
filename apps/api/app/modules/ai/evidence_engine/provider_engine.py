@@ -712,12 +712,23 @@ def _changes_source_word_negation(text: str, facts: list[SourceFact]) -> bool:
 
 
 _GROUNDING_STOPWORDS = {
-    "без", "более", "бы", "был", "была", "быть", "в", "во", "для", "до",
-    "его", "если", "и", "из", "или", "к", "как", "на", "не", "но", "о",
-    "по", "при", "с", "со", "также", "то", "только", "у", "что", "это",
-    "a", "an", "and", "as", "at", "for", "from", "if", "in", "is", "not",
-    "of", "on", "only", "or", "the", "this", "to", "when", "with",
+    "бы", "был", "была", "быть", "в", "во", "для",
+    "его", "если", "и", "из", "к", "как", "на", "но", "о",
+    "по", "при", "с", "со", "также", "то", "у", "что", "это",
+    "a", "an", "and", "as", "at", "for", "from", "if", "in", "is",
+    "of", "on", "the", "this", "to", "when", "with",
 }
+_NORMATIVE_OPERATOR_RE = re.compile(
+    r"\b(?:не|без|до|более|менее|свыше|только|исключительно|или|либо|запрещ\w*|обязан\w*|долж\w*|вправе|допуска\w*|not|never|only|without|unless|must|may)\b",
+    re.IGNORECASE | re.UNICODE,
+)
+
+
+def _normative_operators(value: str) -> set[str]:
+    return {
+        token.casefold().replace("ё", "е")[:6]
+        for token in _NORMATIVE_OPERATOR_RE.findall(value)
+    }
 
 
 def _grounding_tokens(value: str) -> set[str]:
@@ -732,7 +743,11 @@ _REDUNDANCY_GENERIC_TOKENS = {"колл", "лине", "сери", "coll", "rang"
 
 
 def _redundancy_tokens(value: str) -> set[str]:
-    return {token[:4] for token in _grounding_tokens(value)} - _REDUNDANCY_GENERIC_TOKENS
+    return (
+        ({token[:4] for token in _grounding_tokens(value)} - _REDUNDANCY_GENERIC_TOKENS)
+        | {f"op:{op}" for op in _normative_operators(value)}
+        | {f"num:{num}" for num in _numbers(value)}
+    )
 
 
 def _is_covered_sentence(value: str, previous: list[set[str]]) -> bool:
@@ -740,8 +755,10 @@ def _is_covered_sentence(value: str, previous: list[set[str]]) -> bool:
     tokens = _redundancy_tokens(value)
     if len(tokens) < 3:
         return False
+    required_markers = {token for token in tokens if token.startswith(("op:", "num:"))}
     return any(
         len(tokens) <= len(available)
+        and required_markers <= available
         and len(tokens & available) / len(tokens) >= 0.85
         for available in previous
     )

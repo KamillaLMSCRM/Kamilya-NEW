@@ -49,7 +49,12 @@ _FORMAT_RECEIPT_FAMILIES = frozenset(
         "source_horizontal_typography",
     }
 )
-_PROSE_OPERATION_CODES = frozenset({"animate_hyphen_apposition_agreement"})
+_PROSE_OPERATION_CODES = frozenset(
+    {
+        "animate_hyphen_apposition_agreement",
+        "preposition_soglasno_dative_government",
+    }
+)
 _LEXICAL_HYPHENS = frozenset({"-", "‐", "‑"})
 _NUMERIC_ATTACHMENTS = frozenset({"+", "−", "±", "≤", "≥", "<", ">", "="})
 _CYRILLIC_WORD = re.compile(r"[А-Яа-яЁёӘәҒғҚқҢңӨөҰұҮүҺһІі]{2,}(?![\w-])")

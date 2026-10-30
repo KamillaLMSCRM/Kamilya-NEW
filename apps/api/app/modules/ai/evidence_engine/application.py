@@ -1132,6 +1132,42 @@ def _project_ordinary_table_spans(
     return projected
 
 
+def _propagate_ordinary_table_spans(
+    corpus: DirectSourceCorpus,
+    owned: dict[tuple[str, str], list[tuple[int, int]]],
+) -> dict[tuple[str, str], list[tuple[int, int]]]:
+    """Carry existing table ownership through exact adjacent chunk overlap only.
+
+    Headings remain separate. A new heading can own new prose while its chunk
+    still starts with the ingestion overlap of the preceding table's last row.
+    """
+    result = {key: list(spans) for key, spans in owned.items()}
+    for document in corpus.documents:
+        chunks = sorted(document.chunks, key=lambda chunk: chunk.chunk_index)
+        for previous, current in zip(chunks, chunks[1:], strict=False):
+            if (previous.doc_id != document.doc_id or current.doc_id != document.doc_id
+                    or previous.source_revision != current.source_revision
+                    or previous.source_revision != document.source_revision
+                    or previous.chunk_index + 1 != current.chunk_index):
+                continue
+            left, right = previous.text.strip(), current.text.strip()
+            overlap = _chunk_text_overlap(left, right)
+            if not overlap:
+                continue
+            left_start = len(previous.text) - len(previous.text.lstrip())
+            right_start = len(current.text) - len(current.text.lstrip())
+            overlap_start = left_start + len(left) - overlap
+            overlap_end = left_start + len(left)
+            for start, end in tuple(result.get((document.doc_id, previous.chunk_id), ())):
+                if not 0 <= start <= end <= len(previous.text):
+                    raise ValueError("evidence_source_table_provenance_invalid_span")
+                first, last = max(start, overlap_start), min(end, overlap_end)
+                if first < last:
+                    result.setdefault((document.doc_id, current.chunk_id), []).append((
+                        right_start + first - overlap_start, right_start + last - overlap_start))
+    return result
+
+
 def _without_source_spans(text: str, spans: list[tuple[int, int]]) -> str:
     """Remove exact source intervals while retaining every uncovered byte."""
 
@@ -1681,6 +1717,7 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
                 ordinary_tables.append(
                     (document.doc_id, chunk, title, table_number_by_document[document.doc_id], headers, rows)
                 )
+    ordinary_table_spans = _propagate_ordinary_table_spans(corpus, ordinary_table_spans)
     seen_ordinary_facts: set[tuple[str, str, str, str, str]] = set()
     for doc_id, chunk, title, table_number, headers, rows in ordinary_tables:
         document = document_by_id[doc_id]
@@ -2247,11 +2284,23 @@ def _surface_second_repair_actionable(request: dict[str, Any], audit: dict[str, 
     if audit.get("status") != "complete" or not request.get("groups"):
         return False
     carried = set(audit.get("carry_forward", {}).get("carried_block_indices", ()))
+    presentation_axes = {"grammatical", "readable"}
     for group in request["groups"]:
-        if "feedback" in group or "native_rejection" in group:
+        if "native_rejection" in group:
             return False
+        if "feedback" in group:
+            parent_axes = group["feedback"].get("failed_axes", ())
+            if not parent_axes or not set(parent_axes) <= presentation_axes:
+                return False
         failures = group.get("block_failures", [])
-        if any(row.get("code") != "lesson_surface_block_language_unproved" for row in failures):
+        for row in failures:
+            code = row.get("code")
+            if code == "lesson_surface_block_language_unproved":
+                continue
+            if code == "lesson_surface_block_review_rejected":
+                row_axes = row.get("failed_axes", ())
+                if row_axes and set(row_axes) <= presentation_axes:
+                    continue
             return False
         blocks = {row["block_id"]: row for row in group["candidate_blocks"]}
         requested = set(group["repair_block_ids"])
@@ -2543,6 +2592,8 @@ async def generate_evidence_course(
     deterministic_fallback_count = 0
     deterministic_fallback_lesson_ids: list[str] = []
     chat_attempt_count = 0
+    prompt_tokens = 0
+    completion_tokens = 0
     chat_model = ""
     total = len(evidence_result.evidence_plan)
     lesson_assessments: list[BlockAssessmentResult] = []
@@ -2557,7 +2608,7 @@ async def generate_evidence_course(
         payload: dict[str, Any], prepared: PreparedLessonSurfaceReview,
         semantic_result: LessonSurfaceReviewResult | None,
     ) -> tuple[LessonSurfaceReviewResult | None, dict[str, Any]]:
-        nonlocal chat_attempt_count, provider_fallback_count
+        nonlocal chat_attempt_count, provider_fallback_count, prompt_tokens, completion_tokens
         if semantic_result is None:
             return semantic_result, {"status": "skipped_source_unproved"}
         semantic_custody = semantic_result.block_custody(prepared=prepared,
@@ -2598,6 +2649,8 @@ async def generate_evidence_course(
                      {"role": "user", "content": json.dumps(language_request, ensure_ascii=False)}],
                     parser=parse_language_batch, response_format={"type": "json_object"}, request_profile="course_generation")
                 chat_attempt_count += call.attempt_count
+                prompt_tokens += int(getattr(call, "prompt_tokens", 0) or 0)
+                completion_tokens += int(getattr(call, "completion_tokens", 0) or 0)
                 provider_fallback_count += max(0, call.attempt_count - 1)
                 validation_errors.extend("lesson_prose_language:" + reason.value for reason in call.failure_reasons)
                 if language_reuse is not None:
@@ -2932,6 +2985,8 @@ async def generate_evidence_course(
                     request_profile="course_generation",
                 )
                 chat_attempt_count += validated.attempt_count
+                prompt_tokens += int(getattr(validated, "prompt_tokens", 0) or 0)
+                completion_tokens += int(getattr(validated, "completion_tokens", 0) or 0)
                 lesson_failure_reasons.extend(validated.failure_reasons)
                 provider_fallback_count += max(0, validated.attempt_count - 1)
                 break
@@ -2973,6 +3028,8 @@ async def generate_evidence_course(
                 def __init__(self) -> None:
                     self.attempts = 0
                     self.calls = 0
+                    self.prompt_tokens = 0
+                    self.completion_tokens = 0
                     self.failures: list[ValidatedCallFailureReason] = []
 
                 async def ainvoke_validated(self, *args: Any, **kwargs: Any) -> Any:
@@ -2984,6 +3041,8 @@ async def generate_evidence_course(
                         self.failures.extend(exc.reasons)
                         raise
                     self.attempts += result.attempt_count
+                    self.prompt_tokens += int(getattr(result, "prompt_tokens", 0) or 0)
+                    self.completion_tokens += int(getattr(result, "completion_tokens", 0) or 0)
                     self.failures.extend(result.failure_reasons)
                     return result
 
@@ -3048,6 +3107,8 @@ async def generate_evidence_course(
             except (ValueError, AllProvidersFailedError):
                 raise DirectSourceError("semantic_support_review_custody_unavailable") from None
             chat_attempt_count += measured.attempts
+            prompt_tokens += measured.prompt_tokens
+            completion_tokens += measured.completion_tokens
             provider_fallback_count += max(0, measured.attempts - measured.calls)
             validation_errors.extend("semantic_support:" + reason.value for reason in measured.failures)
             realized_lessons.append(supported_render.lesson)
@@ -3112,6 +3173,8 @@ async def generate_evidence_course(
                         parser=parse_surface,
                         response_format={"type": "json_object"}, request_profile="course_generation")
                     chat_attempt_count += surface_call.attempt_count
+                    prompt_tokens += int(getattr(surface_call, "prompt_tokens", 0) or 0)
+                    completion_tokens += int(getattr(surface_call, "completion_tokens", 0) or 0)
                     provider_fallback_count += max(0, surface_call.attempt_count - 1)
                     validation_errors.extend("lesson_surface:" + reason.value for reason in surface_call.failure_reasons)
                     surface_result = surface_call.value
@@ -3214,6 +3277,8 @@ async def generate_evidence_course(
                         try:
                             repair_call = await invoke_surface_repair()
                             chat_attempt_count += repair_call.attempt_count
+                            prompt_tokens += int(getattr(repair_call, "prompt_tokens", 0) or 0)
+                            completion_tokens += int(getattr(repair_call, "completion_tokens", 0) or 0)
                             provider_fallback_count += max(
                                 0, repair_call.attempt_count - 1 - repair_no_change_retry_count
                             )
@@ -3231,6 +3296,8 @@ async def generate_evidence_course(
                                     parser=parse_fresh_surface, response_format={"type": "json_object"},
                                     request_profile="course_generation")
                                 chat_attempt_count += fresh_call.attempt_count
+                                prompt_tokens += int(getattr(fresh_call, "prompt_tokens", 0) or 0)
+                                completion_tokens += int(getattr(fresh_call, "completion_tokens", 0) or 0)
                                 provider_fallback_count += max(0, fresh_call.attempt_count - 1)
                                 validation_errors.extend("lesson_surface_repair:" + reason.value for reason in fresh_call.failure_reasons)
                                 # Commit the replacement only after a fresh critic
@@ -3401,6 +3468,10 @@ async def generate_evidence_course(
         )
     realized_questions = list(reviewed.questions)
     chat_attempt_count += reviewed.attempt_count - restored_assessment_attempts
+    for item in lesson_assessments:
+        if item.audit.get("lesson_id") not in restored_lesson_ids:
+            prompt_tokens += int(item.audit.get("prompt_tokens", 0) or 0)
+            completion_tokens += int(item.audit.get("completion_tokens", 0) or 0)
     if restored_lesson_ids:
         reviewed.audit["realization_restore"] = {
             "lesson_ids": restored_lesson_ids, "provider_calls": 0,
@@ -3482,8 +3553,8 @@ async def generate_evidence_course(
         deterministic_fallback_lesson_ids=tuple(deterministic_fallback_lesson_ids),
         validation_errors=tuple(validation_errors),
         chat_attempt_count=chat_attempt_count,
-        prompt_tokens=0,
-        completion_tokens=0,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
         assessment_review=reviewed.audit,
         timings=(
             StageTiming(stage="evidence_plan", seconds=evidence_seconds),
@@ -3668,6 +3739,8 @@ def to_generation_artifacts(output: EvidenceGenerationOutput) -> GenerationArtif
         "deterministic_fallback_count": result.deterministic_fallback_count,
         "validation_errors": list(dict.fromkeys(result.validation_errors))[:50],
         "chat_attempt_count": result.chat_attempt_count,
+        "prompt_tokens": result.prompt_tokens,
+        "completion_tokens": result.completion_tokens,
         "timings": {timing.stage: round(timing.seconds, 3) for timing in result.timings},
     }
     return GenerationArtifacts(

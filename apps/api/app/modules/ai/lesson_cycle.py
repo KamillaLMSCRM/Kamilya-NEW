@@ -203,6 +203,11 @@ Each target.qualification_bindings contains its exact source-owned governing
 scope, NOT a separately tested answer. Preserve every applicable condition,
 exception, actor and timing in a concrete source-faithful question/choice scope;
 do not drop long bindings or copy their answer cues into only the correct option.
+When target.context or qualification_bindings specifies a governing category,
+tier, or classification (for example, «I категория» or «II категория»), state that
+exact category explicitly in the visible question stem on the first authoring pass;
+keep concrete workplace situation premises clearly separated from source-attributed
+claims so a hypothetical case premise never masquerades as a verbatim source quote.
 Never infer an opposite duty outside a one-sided condition. Material source
 branches still need distinct assessed decisions; stored context earns no credit.
 Labels «Основание из источника:», «Условие:», «Фрагмент источника об участнике:»

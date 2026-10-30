@@ -20,6 +20,10 @@ _MAX_OPERATIONS = 64
 _RUSSIAN_HYPHENATED_NOUN = re.compile(
     r"(?<![\w-])(?P<left>[А-Яа-яЁё]+)-(?P<right>[А-Яа-яЁё]+)(?![\w-])"
 )
+_SOGLASNO_GOVERNED_NOUN = re.compile(
+    r"(?<![\w-])(?P<prep>согласно)(?P<sep>\s+[«\"“„]?)(?P<noun>[А-Яа-яЁё]+)(?![\w-])",
+    re.IGNORECASE,
+)
 _PRECEDING_RUSSIAN_WORD = re.compile(r"(?P<word>[А-Яа-яЁё]+)\s+$")
 _CASES = frozenset({"nomn", "gent", "datv", "accs", "ablt", "loct"})
 _NUMBERS = frozenset({"sing", "plur"})
@@ -398,6 +402,81 @@ def _normalize_nested_guillemets(
     return "".join(characters), operations
 
 
+def _soglasno_dative_correction(
+    match: re.Match[str],
+) -> tuple[str, tuple[str, ...]] | None:
+    analyzer = _morphology()
+    noun = match["noun"]
+    word = noun.casefold()
+    if not analyzer.word_is_known(word):
+        return None
+    parsed = tuple(analyzer.parse(word))
+    if not parsed or any(_PROPER_GRAMMEMES & frozenset(row.tag.grammemes) for row in parsed):
+        return None
+    if any(row.tag.POS != "NOUN" for row in parsed) or len({row.normal_form for row in parsed}) != 1:
+        return None
+    if any("datv" in row.tag.grammemes for row in parsed):
+        return None
+    rows = _case_number_rows(parsed)
+    if not (rows & {("loct", "sing"), ("gent", "sing")}):
+        return None
+    dative_forms = _inflected_forms(parsed, case="datv", number="sing", source=noun)
+    if len(dative_forms) != 1:
+        return None
+    corrected = next(iter(dative_forms))
+    if corrected == noun:
+        return None
+    return corrected, (
+        "dictionary_common_noun",
+        "single_stable_lexeme",
+        "soglasno_dative_government",
+        "single_convergent_singular_dative",
+    )
+
+
+def _normalize_soglasno_dative(
+    text: str,
+    *,
+    block_index: int,
+    part: Literal["heading", "body"],
+) -> tuple[str, list[LessonSurfaceGrammarOperation]]:
+    original = text
+    operations: list[LessonSurfaceGrammarOperation] = []
+    cursor = 0
+    while True:
+        match = _SOGLASNO_GOVERNED_NOUN.search(text, cursor)
+        if match is None:
+            break
+        correction = _soglasno_dative_correction(match)
+        if correction is None:
+            cursor = match.end()
+            continue
+        if len(operations) >= _MAX_OPERATIONS:
+            return original, []
+        after, proof = correction
+        noun_start = match.start("noun")
+        noun_end = match.end("noun")
+        before = match["noun"]
+        text = text[:noun_start] + after + text[noun_end:]
+        end = noun_start + len(after)
+        operations.append(
+            LessonSurfaceGrammarOperation(
+                block_index=block_index,
+                part=part,
+                code="preposition_soglasno_dative_government",
+                start=noun_start,
+                end=end,
+                before=before,
+                after=after,
+                before_sha256=_text_digest(before),
+                after_sha256=_text_digest(after),
+                dictionary_proof=proof,
+            )
+        )
+        cursor = end
+    return text, operations
+
+
 def _normalize_part(
     value: str,
     *,
@@ -410,12 +489,17 @@ def _normalize_part(
         block_index=block_index,
         part=part,
     )
+    value, dative = _normalize_soglasno_dative(
+        value,
+        block_index=block_index,
+        part=part,
+    )
     value, quotes = _normalize_nested_guillemets(
         value,
         block_index=block_index,
         part=part,
     )
-    operations = [*agreement, *quotes]
+    operations = [*agreement, *dative, *quotes]
     return (original, []) if len(operations) > _MAX_OPERATIONS else (value, operations)
 
 

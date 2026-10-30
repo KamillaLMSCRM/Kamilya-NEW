@@ -6813,6 +6813,37 @@ async def _review_description_candidate(
     return resolve_groups_v3(snapshot, requests, replies), calls, attempts
 
 
+_MAX_PLAN_BATCH_FACTS = 4
+_MAX_PLAN_BATCH_CHARS = 2200
+
+
+def _plan_primary_groups(primary_facts: list[SourceFact]) -> list[list[SourceFact]]:
+    if len(primary_facts) <= 1:
+        return [list(primary_facts)]
+    if (
+        len(primary_facts) <= _MAX_PLAN_BATCH_FACTS
+        and sum(len(fact.value) for fact in primary_facts) <= _MAX_PLAN_BATCH_CHARS
+    ):
+        return [list(primary_facts)]
+    groups: list[list[SourceFact]] = []
+    current: list[SourceFact] = []
+    current_chars = 0
+    for fact in primary_facts:
+        fact_chars = len(fact.value)
+        if current and (
+            len(current) >= _MAX_PLAN_BATCH_FACTS
+            or current_chars + fact_chars > _MAX_PLAN_BATCH_CHARS
+        ):
+            groups.append(current)
+            current = []
+            current_chars = 0
+        current.append(fact)
+        current_chars += fact_chars
+    if current:
+        groups.append(current)
+    return groups
+
+
 async def build_source_assessment_plan(
     lesson: LessonDraft, primary_facts: list[SourceFact], context_facts: list[SourceFact], *, client: Any,
     saved_evidence: dict[str, Any] | None = None,
@@ -6825,14 +6856,22 @@ async def build_source_assessment_plan(
         raise SourcePlanError("source_plan_invalid_description_review_mode")
     if type(pre_audit_rebuild) is not bool or type(audit_first) is not bool:
         raise SourcePlanError("source_plan_invalid_rebuild_mode")
-    if len(primary_facts) <= 4:
+    if not primary_facts or len({fact.fact_id for fact in primary_facts}) != len(primary_facts):
+        if len(primary_facts) <= _MAX_PLAN_BATCH_FACTS:
+            return await _build_source_assessment_plan_batch(lesson, primary_facts, context_facts,
+                client=client, saved_evidence=saved_evidence, **({"description_review": True} if description_review else {}), **({"pre_audit_rebuild": True} if pre_audit_rebuild else {}),
+                **({"audit_first": True} if audit_first else {}))
+        raise SourcePlanError("source_plan_invalid_primary")
+    groups = _plan_primary_groups(primary_facts)
+    if len(groups) == 1 or (
+        len(primary_facts) <= _MAX_PLAN_BATCH_FACTS
+        and isinstance(saved_evidence, dict)
+        and "batches" not in saved_evidence
+    ):
         return await _build_source_assessment_plan_batch(lesson, primary_facts, context_facts,
             client=client, saved_evidence=saved_evidence, **({"description_review": True} if description_review else {}), **({"pre_audit_rebuild": True} if pre_audit_rebuild else {}),
             **({"audit_first": True} if audit_first else {}))
-    if len({fact.fact_id for fact in primary_facts}) != len(primary_facts):
-        raise SourcePlanError("source_plan_invalid_primary")
     digest = _input_digest(lesson, primary_facts, context_facts, pre_audit_rebuild=pre_audit_rebuild, audit_first=audit_first, description_review=description_review)
-    groups = [primary_facts[start:start + 4] for start in range(0, len(primary_facts), 4)]
     if saved_evidence is not None:
         if "_description_negative_holds" in saved_evidence:
             raise SourcePlanError("source_plan_checkpoint_description_negative_holds")

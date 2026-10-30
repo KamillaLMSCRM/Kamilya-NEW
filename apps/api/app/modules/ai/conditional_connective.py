@@ -25,15 +25,16 @@ MAX_CONDITIONAL_CONNECTIVE_CHARS = 4_096
 
 _HSPACE = f"[{re.escape(SOURCE_HORIZONTAL_SPACE)}]"
 _SOURCE_SHAPE = re.compile(
-    rf"\A(?P<leading>{_HSPACE}*)"
+    rf"\A(?P<leading>{_HSPACE}*\*?{_HSPACE}*)"
     rf"(?P<connector>в{_HSPACE}+случае{_HSPACE}*,?{_HSPACE}+если)"
-    rf"(?P<separator>{_HSPACE}+)(?P<tail>.*?)(?P<trailing>{_HSPACE}*)\Z",
+    rf"(?P<separator>{_HSPACE}+)(?P<tail>.*?)"
+    rf"(?P<trailing>{_HSPACE}*(?:,{_HSPACE}+то)?[,.;:]?{_HSPACE}*)\Z",
     re.IGNORECASE,
 )
 _LEARNER_SHAPE = re.compile(
-    rf"\A(?P<leading>{_HSPACE}*)"
-    rf"(?P<connector>если)(?P<separator>{_HSPACE}+)"
-    rf"(?P<tail>.*?)(?P<trailing>{_HSPACE}*)\Z",
+    rf"\A(?P<leading>{_HSPACE}*\*?{_HSPACE}*)"
+    rf"(?P<connector>если)(?P<separator>{_HSPACE}+)(?P<tail>.*?)"
+    rf"(?P<trailing>{_HSPACE}*(?:,{_HSPACE}+то)?[,.;:]?{_HSPACE}*)\Z",
     re.IGNORECASE,
 )
 _NESTED_IF = re.compile(
