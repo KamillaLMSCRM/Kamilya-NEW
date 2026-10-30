@@ -3,7 +3,15 @@
 import pytest
 
 from app.modules.ai.v3.engine import V3GenerationPipeline
-from app.modules.ai.v3.models import DistractorCategory, RuleEntity, V3Lesson, V3Option, V3Question
+from app.modules.ai.v3.models import (
+    DistractorCategory,
+    RuleEntity,
+    V3Lesson,
+    V3Option,
+    V3Question,
+    V3QuestionVariant,
+    V3ScenarioCase,
+)
 
 
 @pytest.mark.asyncio
@@ -108,3 +116,101 @@ async def test_v3_pipeline_generation_mock():
     assert len(lesson.questions) == 1
     assert len(lesson.questions[0].options) == 4
     assert lesson.questions[0].options[0].is_correct is True
+
+
+@pytest.mark.asyncio
+async def test_v3_scenario_case_and_variant_bank():
+    """Verify that multi-variant case bank supports dynamic branch context and distractor variation."""
+    var_a = V3QuestionVariant(
+        variant_id="case-1-var-a",
+        branch_context="Филиал в Павлодаре (Группа 1)",
+        scenario_premise="Клиент оформляет микрокредит на сумму 1 200 000 тенге в Павлодаре.",
+        prompt="К какой категории относится микрокредит?",
+        correct_option=V3Option(
+            text="Ко II категории, так как для Павлодара порог составляет от 1 100 100 тенге",
+            is_correct=True,
+        ),
+        distractor_pool=(
+            V3Option(
+                text="К I категории, ориентируясь на лимит Алматы до 1 400 000 тенге",
+                is_correct=False,
+                distractor_category=DistractorCategory.PROCEDURAL_CONFUSION,
+            ),
+            V3Option(
+                text="Передать заявку директору филиала для утверждения льготного лимита",
+                is_correct=False,
+                distractor_category=DistractorCategory.ROLE_CONFUSION,
+            ),
+            V3Option(
+                text="Отложить оформление до планового ежемесячного аудита филиала",
+                is_correct=False,
+                distractor_category=DistractorCategory.TIMING_VIOLATION,
+            ),
+            V3Option(
+                text="Разбить сумму на два договора по 600 000 тенге без согласования",
+                is_correct=False,
+                distractor_category=DistractorCategory.UNAUTHORIZED_ACTION,
+            ),
+        ),
+        explanation="Павлодар входит в группу 1, где II категория начинается от 1 100 100 тенге.",
+        source_quote="II категория от 1 100 100 тенге...",
+    )
+
+    var_b = V3QuestionVariant(
+        variant_id="case-1-var-b",
+        branch_context="Филиал в Шымкенте (Группа 2)",
+        scenario_premise="Клиент запрашивает 1 350 000 тенге в филиале Шымкента.",
+        prompt="Каков установленный порядок определения категории?",
+        correct_option=V3Option(
+            text="Отнести к I категории, так как для Шымкента диапазон составляет от 700 100 до 1 400 000 тенге",
+            is_correct=True,
+        ),
+        distractor_pool=(
+            V3Option(
+                text="Отнести ко II категории, ошибочно применив порог северных регионов 1 100 100 тенге",
+                is_correct=False,
+                distractor_category=DistractorCategory.PROCEDURAL_CONFUSION,
+            ),
+            V3Option(
+                text="Согласовать сумму с городским акиматом вместо внутренних стандартов",
+                is_correct=False,
+                distractor_category=DistractorCategory.ROLE_CONFUSION,
+            ),
+            V3Option(
+                text="Оформить заем без проверки суммы в Таблице 1",
+                is_correct=False,
+                distractor_category=DistractorCategory.UNAUTHORIZED_ACTION,
+            ),
+            V3Option(
+                text="Приостановить выдачу на 5 рабочих дней до запроса в головной офис",
+                is_correct=False,
+                distractor_category=DistractorCategory.TIMING_VIOLATION,
+            ),
+        ),
+        explanation="Шымкент относится ко 2 группе городов с порогом I категории до 1 400 000 тенге.",
+        source_quote="от 700 100 до 1 400 000 тенге г. Шымкент...",
+    )
+
+    case = V3ScenarioCase(
+        case_id="case-limits-1",
+        rule_id="rule-limits-table-1",
+        learning_objective="Применение региональных порогов лимитов",
+        variants=(var_a, var_b),
+    )
+
+    assert len(case.variants) == 2
+    # Verify that assembling question selects 1 correct + 3 distractors
+    assembled_a = var_a.assemble_question(seed=123)
+    assert len(assembled_a.options) == 4
+    assert sum(1 for o in assembled_a.options if o.is_correct) == 1
+    assert sum(1 for o in assembled_a.options if not o.is_correct) == 3
+
+    assembled_b = var_b.assemble_question(seed=456)
+    assert len(assembled_b.options) == 4
+    assert sum(1 for o in assembled_b.options if o.is_correct) == 1
+
+    # Verify that distractors formulations are completely distinct
+    distractors_a = {o.text for o in var_a.distractor_pool}
+    distractors_b = {o.text for o in var_b.distractor_pool}
+    assert distractors_a.isdisjoint(distractors_b)
+

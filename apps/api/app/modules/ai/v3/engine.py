@@ -14,6 +14,8 @@ from app.modules.ai.v3.models import (
     V3Lesson,
     V3Option,
     V3Question,
+    V3QuestionVariant,
+    V3ScenarioCase,
 )
 from app.modules.ai.v3.prompts import (
     LESSON_COGEN_SYSTEM_PROMPT,
@@ -88,31 +90,79 @@ class V3GenerationPipeline:
             },
         ]
         raw = await self._call_llm(messages)
-        questions = []
-        for q in raw.get("questions", []):
-            options = []
-            for opt in q.get("options", []):
-                cat_str = opt.get("distractor_category")
-                cat = DistractorCategory(cat_str) if cat_str in DistractorCategory._value2member_map_ else None
-                options.append(
-                    V3Option(
-                        text=opt["text"],
-                        is_correct=bool(opt.get("is_correct", False)),
-                        distractor_category=cat,
-                        distractor_rationale=opt.get("distractor_rationale", ""),
+        cases: list[V3ScenarioCase] = []
+        assembled_questions: list[V3Question] = []
+
+        for c in raw.get("cases", []):
+            variants: list[V3QuestionVariant] = []
+            for v in c.get("variants", []):
+                corr_raw = v.get("correct_option", {})
+                correct_opt = V3Option(
+                    text=corr_raw.get("text", ""),
+                    is_correct=True,
+                    distractor_category=None,
+                    distractor_rationale=corr_raw.get("distractor_rationale", ""),
+                )
+                distractor_pool: list[V3Option] = []
+                for opt in v.get("distractor_pool", []):
+                    cat_str = opt.get("distractor_category")
+                    cat = DistractorCategory(cat_str) if cat_str in DistractorCategory._value2member_map_ else None
+                    distractor_pool.append(
+                        V3Option(
+                            text=opt.get("text", ""),
+                            is_correct=False,
+                            distractor_category=cat,
+                            distractor_rationale=opt.get("distractor_rationale", ""),
+                        )
+                    )
+                variant = V3QuestionVariant(
+                    variant_id=v.get("variant_id", ""),
+                    branch_context=v.get("branch_context", ""),
+                    scenario_premise=v.get("scenario_premise", ""),
+                    prompt=v.get("prompt", ""),
+                    correct_option=correct_opt,
+                    distractor_pool=tuple(distractor_pool),
+                    explanation=v.get("explanation", ""),
+                    source_quote=v.get("source_quote", ""),
+                )
+                variants.append(variant)
+
+            case_obj = V3ScenarioCase(
+                case_id=c.get("case_id", ""),
+                rule_id=c.get("rule_id", ""),
+                learning_objective=c.get("learning_objective", ""),
+                variants=tuple(variants),
+            )
+            cases.append(case_obj)
+            if variants:
+                assembled_questions.append(variants[0].assemble_question(seed=42))
+
+        # Fallback if flat questions returned
+        if not cases and "questions" in raw:
+            for q in raw.get("questions", []):
+                options = []
+                for opt in q.get("options", []):
+                    cat_str = opt.get("distractor_category")
+                    cat = DistractorCategory(cat_str) if cat_str in DistractorCategory._value2member_map_ else None
+                    options.append(
+                        V3Option(
+                            text=opt["text"],
+                            is_correct=bool(opt.get("is_correct", False)),
+                            distractor_category=cat,
+                            distractor_rationale=opt.get("distractor_rationale", ""),
+                        )
+                    )
+                assembled_questions.append(
+                    V3Question(
+                        question_id=q["question_id"],
+                        scenario_premise=q["scenario_premise"],
+                        prompt=q["prompt"],
+                        options=tuple(options),
+                        explanation=q.get("explanation", ""),
+                        rule_id=q.get("rule_id", ""),
+                        source_quote=q.get("source_quote", ""),
                     )
                 )
-            questions.append(
-                V3Question(
-                    question_id=q["question_id"],
-                    scenario_premise=q["scenario_premise"],
-                    prompt=q["prompt"],
-                    options=tuple(options),
-                    explanation=q.get("explanation", ""),
-                    rule_id=q.get("rule_id", ""),
-                    source_quote=q.get("source_quote", ""),
-                )
-            )
 
         return V3Lesson(
             lesson_id=raw["lesson_id"],
@@ -120,7 +170,8 @@ class V3GenerationPipeline:
             module_title=raw.get("module_title", module_title),
             content=raw["content"],
             covered_rule_ids=tuple(r.rule_id for r in rules),
-            questions=tuple(questions),
+            cases=tuple(cases),
+            questions=tuple(assembled_questions),
         )
 
     async def review_lesson(self, lesson: V3Lesson, source_rules: list[RuleEntity]) -> dict[str, Any]:

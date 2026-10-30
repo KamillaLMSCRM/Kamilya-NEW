@@ -101,7 +101,13 @@ async def main() -> int:
     # Save Markdown preview
     preview_md: list[str] = [
         f"# {course.title}",
-        f"**Документ SHA256:** `{doc_sha}` | **Архитектура:** `V3 Co-Generation (Scenario Assessment)`",
+        f"**Документ SHA256:** `{doc_sha}` | **Архитектура:** `V3 Universal Co-Gen & Multi-Variant Assessment Bank`",
+        "",
+        "> [!TIP]",
+        "> **Преимущества перед конкурентами:**",
+        "> 1. **Обобщенные уроки:** Текст урока обучает системному механизму и алгоритму действий без перегрузки конкретными городами и филиалами.",
+        "> 2. **Мультивариативный банк кейсов:** Для каждого правила генерируются альтернативные сценарии в контексте разных филиалов/регионов.",
+        "> 3. **Разнообразие формулировок дистракторов:** Неверные ответы в разных вариантах сформулированы по-разному (разные типы реальных ошибок), что исключает списывание по шаблонам.",
         "",
     ]
     for lesson in course.lessons:
@@ -110,27 +116,64 @@ async def main() -> int:
             "",
             lesson.content,
             "",
-            "### 🎯 Ситуационный тест к уроку",
-            "",
         ])
-        for i, q in enumerate(lesson.questions, 1):
+        if lesson.cases:
             preview_md.extend([
-                f"#### Кейс {i}",
-                f"**Ситуация:** {q.scenario_premise}",
+                "### 🎯 Банк ситуационных кейсов (Адаптивное тестирование)",
                 "",
-                f"**Вопрос:** {q.prompt}",
+                "> [!NOTE]",
+                "> Каждый кейс содержит независимые варианты контекста (филиалы Группы 1 vs Группы 2) и динамический пул формулировок ошибок. Студенты из разных филиалов видят разные фабулы и разные формулировки дистракторов.",
                 "",
             ])
-            for opt in q.options:
-                marker = "[x] **(Верно)**" if opt.is_correct else "[ ]"
-                cat_info = f" *[{opt.distractor_category.value}]*" if opt.distractor_category else ""
-                preview_md.append(f"- {marker} {opt.text}{cat_info}")
+            for i, case in enumerate(lesson.cases, 1):
+                preview_md.extend([
+                    f"#### Кейс {i}: {case.learning_objective}",
+                    f"**Правило-источник:** `{case.rule_id}`",
+                    "",
+                ])
+                for v_idx, variant in enumerate(case.variants, 1):
+                    assembled = variant.assemble_question(seed=100 + i * 10 + v_idx)
+                    preview_md.extend([
+                        f"##### Вариант {v_idx} [{variant.branch_context}]",
+                        f"**Ситуация:** {variant.scenario_premise}",
+                        "",
+                        f"**Вопрос:** {variant.prompt}",
+                        "",
+                        "**Собранные 4 варианта ответа для сотрудника:**",
+                    ])
+                    for opt in assembled.options:
+                        marker = "[x] **(Верно)**" if opt.is_correct else "[ ]"
+                        cat_info = f" *[{opt.distractor_category.value}]*" if opt.distractor_category else ""
+                        preview_md.append(f"- {marker} {opt.text}{cat_info}")
+                    preview_md.extend([
+                        "",
+                        f"💡 **Обучающий разбор:** {variant.explanation}",
+                        f"📌 *Нормативное основание:* «{variant.source_quote}»",
+                        "",
+                    ])
+        else:
             preview_md.extend([
-                "",
-                f"💡 **Обучающее объяснение:** {q.explanation}",
-                f"📌 *Основание:* «{q.source_quote}»",
+                "### 🎯 Ситуационный тест к уроку",
                 "",
             ])
+            for i, q in enumerate(lesson.questions, 1):
+                preview_md.extend([
+                    f"#### Кейс {i}",
+                    f"**Ситуация:** {q.scenario_premise}",
+                    "",
+                    f"**Вопрос:** {q.prompt}",
+                    "",
+                ])
+                for opt in q.options:
+                    marker = "[x] **(Верно)**" if opt.is_correct else "[ ]"
+                    cat_info = f" *[{opt.distractor_category.value}]*" if opt.distractor_category else ""
+                    preview_md.append(f"- {marker} {opt.text}{cat_info}")
+                preview_md.extend([
+                    "",
+                    f"💡 **Обучающее объяснение:** {q.explanation}",
+                    f"📌 *Основание:* «{q.source_quote}»",
+                    "",
+                ])
 
     args.output.write_text("\n".join(preview_md), encoding="utf-8")
     json_path = args.output.with_suffix(".json")
