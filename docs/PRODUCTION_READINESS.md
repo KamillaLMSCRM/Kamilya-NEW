@@ -9,6 +9,25 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
+## Local generation candidate — 2026-10-30, NOT RELEASED
+
+Worktree `realization-resume-0f073`, base0f073bbe6ae6d8593dae7373ca891db87c8fce9d,
+uncommitted source. Restore/native source-presentation fixes have3636 unit PASS,
+eight additional selected neighbor/gate checks PASS, Ruff/Mypy baseline PASS and
+actual isolated Supabase DEV JSONB/RLS gate PASS. Exact source fingerprint and
+sanitized receipt: `.release-evidence/realization-postgres-gate/result-r3.json`.
+Disposable schema removed; public0183 unchanged; no provider calls or deployment.
+
+Open gates: independent semantic whole-course67-family/16-ambiguity acceptance,
+complete source-rule/dependency coverage, actual worker restart/time-budget smoke,
+physical-attempt budget, independently reviewed release artifact, CI and live API/UI
+journey. Experimental model-requiring restore paths are not accepted. The existing
+1200s interruption and separate historical60s timeout are not claimed fixed here.
+The combined unit+neighbor selection exceeded its120s terminal limit; separate
+final unit and neighbor selections passed. This entry does not refresh historical
+production/runtime statements below. Continuation packet:
+`docs/plans/2026-10-30_generation-engine-quality.md`.
+
 ## Current65 — four blocks deployed and bounded live acceptance complete
 
 Frozen runtime/tag `00e41ca7001564574fb89d2de97f9636d7e5020f`, version0.11.65,
