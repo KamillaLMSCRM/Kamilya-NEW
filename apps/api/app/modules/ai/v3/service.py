@@ -16,7 +16,7 @@ from app.modules.ai.evidence_engine.models import CourseIntent
 from app.modules.ai.v3.adapter import v3_course_to_generation_artifacts
 from app.modules.ai.v3.engine import V3GenerationPipeline
 from app.modules.ai.v3.models import CurriculumGroup, DocumentRuleModel, RuleEntity, V3Course, V3Lesson
-from app.modules.ai.v3.validator import normalize_text_for_search, validate_v3_course
+from app.modules.ai.v3.validator import normalize_text_for_search, normalize_with_char_map, validate_v3_course
 
 logger = logging.getLogger(__name__)
 
@@ -47,36 +47,6 @@ class QuoteOccurrence:
     char_start: int
     char_end: int
     matched_text: str
-
-
-def normalize_with_char_map(text: str) -> tuple[str, list[int]]:
-    """Normalizes text by removing markdown table pipes, newlines, extra whitespace,
-    and converting to lowercase, while returning a map of original character indices.
-
-    Guarantees:
-        len(norm_text) == len(char_map)
-        norm_text[i] originated from text[char_map[i]].
-    """
-    cleaned_chars: list[str] = []
-    char_map: list[int] = []
-    in_whitespace = True
-
-    for idx, char in enumerate(text):
-        if char in " \t\r\n|":
-            if not in_whitespace:
-                cleaned_chars.append(" ")
-                char_map.append(idx)
-                in_whitespace = True
-        else:
-            cleaned_chars.append(char.lower())
-            char_map.append(idx)
-            in_whitespace = False
-
-    if cleaned_chars and cleaned_chars[-1] == " ":
-        cleaned_chars.pop()
-        char_map.pop()
-
-    return "".join(cleaned_chars), char_map
 
 
 def find_quote_occurrences_in_corpus(
@@ -166,6 +136,8 @@ def _verify_rule_quote_grounding(
         ), []
 
     rule_doc_id = (rule.doc_id or "").strip()
+    rule_rev = (rule.source_revision or "").strip()
+
     if rule_doc_id:
         doc_matches = [occ for occ in all_occurrences if occ.doc_id == rule_doc_id]
         if not doc_matches:
@@ -173,7 +145,18 @@ def _verify_rule_quote_grounding(
             return False, (
                 f"Несоответствие источника: цитата правила {rule.rule_id} ('{rule.title}') найдена в документах {other_docs}, но правило привязано к документу '{rule_doc_id}'"
             ), all_occurrences
-        target_matches = doc_matches
+
+        # Revision verification: must match document revision when specified
+        if rule_rev:
+            rev_matches = [occ for occ in doc_matches if occ.source_revision == rule_rev]
+            if not rev_matches:
+                doc_revs = sorted(list({occ.source_revision for occ in doc_matches}))
+                return False, (
+                    f"Несоответствие ревизии документа для правила {rule.rule_id} ('{rule.title}'): документ '{rule_doc_id}' имеет ревизию {doc_revs}, а правило привязано к ревизии '{rule_rev}'"
+                ), doc_matches
+            target_matches = rev_matches
+        else:
+            target_matches = doc_matches
     else:
         # Rule has no explicit doc_id
         distinct_docs = sorted(list({occ.doc_id for occ in all_occurrences}))
@@ -181,12 +164,22 @@ def _verify_rule_quote_grounding(
             return False, (
                 f"Неоднозначная принадлежность цитаты для правила {rule.rule_id} ('{rule.title}'): фраза обнаружена сразу в нескольких документах ({distinct_docs}). Требуется явное указание doc_id правила."
             ), all_occurrences
-        target_matches = all_occurrences
+
+        if rule_rev:
+            rev_matches = [occ for occ in all_occurrences if occ.source_revision == rule_rev]
+            if not rev_matches:
+                doc_revs = sorted(list({occ.source_revision for occ in all_occurrences}))
+                return False, (
+                    f"Несоответствие ревизии документа для правила {rule.rule_id} ('{rule.title}'): документ '{all_occurrences[0].doc_id}' имеет ревизию {doc_revs}, а правило привязано к ревизии '{rule_rev}'"
+                ), all_occurrences
+            target_matches = rev_matches
+        else:
+            target_matches = all_occurrences
 
     primary = target_matches[0]
     multi_note = f" (всего совпадений в документе: {len(target_matches)})" if len(target_matches) > 1 else ""
     fragment_str = (
-        f"[Верифицированная цитата | Документ {primary.doc_id}{multi_note} | "
+        f"[Верифицированная цитата | Документ {primary.doc_id} (rev: {primary.source_revision or 'n/a'}){multi_note} | "
         f"Чанк {primary.chunk_id} ({primary.char_start}:{primary.char_end})]: {primary.matched_text}"
     )
     return True, fragment_str, target_matches
@@ -530,47 +523,62 @@ def _validate_critic_response(
     if len(clean_summary) < 10:
         return False, f"Мотивировочная часть 'summary' слишком коротка или пуста для урока {lesson_id} (минимум 10 символов)"
 
-    # Score validation helper
-    def _validate_score_val(name: str, val: Any) -> tuple[bool, float, str]:
+    # Score validation helpers with unambiguous individual scales:
+    def _validate_scale_1_to_5(name: str, val: Any) -> tuple[bool, float, str]:
         if isinstance(val, bool) or not isinstance(val, int | float):
             return False, 0.0, f"Поле '{name}' должно быть числом (int или float), получено: {type(val).__name__} ({val!r})"
         val_f = float(val)
-        if 1.0 <= val_f <= 5.0:
-            norm = (val_f - 1.0) / 4.0
-        elif 0.0 <= val_f <= 1.0:
-            norm = val_f
-        elif 0.0 <= val_f <= 100.0:
-            norm = val_f / 100.0
-        else:
-            return False, 0.0, f"Оценка '{name}' вне допустимого диапазона (1-5 или 0.0-1.0): {val}"
+        if not (1.0 <= val_f <= 5.0):
+            return False, 0.0, f"Оценка '{name}' вне допустимой шкалы 1-5 (получено: {val})"
+        norm = (val_f - 1.0) / 4.0
         return True, norm, ""
 
-    # Check scores: canonical prompt scores (factual_score, alignment_score, didactic_score)
-    # and alternate/legacy scores (confidence, factual_accuracy_score, evidence_grounding_score)
-    score_names = [
-        "factual_score", "alignment_score", "didactic_score",
-        "confidence", "factual_accuracy_score", "evidence_grounding_score",
-    ]
-    scores_found: dict[str, float] = {}
-    for s_name in score_names:
-        if s_name in review_res and review_res[s_name] is not None:
-            ok, norm_val, err_msg = _validate_score_val(s_name, review_res[s_name])
-            if not ok:
-                return False, f"Ошибка в оценке критика для урока {lesson_id}: {err_msg}"
-            scores_found[s_name] = norm_val
+    def _validate_scale_confidence(name: str, val: Any) -> tuple[bool, float, str]:
+        if isinstance(val, bool) or not isinstance(val, int | float):
+            return False, 0.0, f"Поле '{name}' должно быть числом (int или float), получено: {type(val).__name__} ({val!r})"
+        val_f = float(val)
+        if not (0.0 <= val_f <= 1.0):
+            return False, 0.0, f"Оценка '{name}' вне допустимой шкалы 0.0-1.0 (получено: {val})"
+        return True, val_f, ""
 
-    if not scores_found:
-        return False, (
-            f"Ответ критика для урока {lesson_id} не содержит обязательных числовых оценок качества "
-            f"(ожидались: factual_score/alignment_score/didactic_score из контракта промпта или confidence)"
-        )
+    # Check canonical prompt scores: factual_score, alignment_score, didactic_score
+    canonical_fields = ["factual_score", "alignment_score", "didactic_score"]
+    has_canonical = any(f in review_res for f in canonical_fields)
+    scores_found: dict[str, float] = {}
+
+    if has_canonical:
+        # Strict enforcement: ALL 3 canonical criteria from prompts.py must be present!
+        for f in canonical_fields:
+            if f not in review_res or review_res[f] is None:
+                return False, f"В ответе критика для урока {lesson_id} отсутствует обязательное поле '{f}' (шкала 1-5)"
+            ok, norm_val, err = _validate_scale_1_to_5(f, review_res[f])
+            if not ok:
+                return False, f"Ошибка в оценке критика для урока {lesson_id}: {err}"
+            scores_found[f] = norm_val
+    else:
+        # Fallback for confidence / alternate scores
+        if "confidence" in review_res and review_res["confidence"] is not None:
+            ok, norm_val, err = _validate_scale_confidence("confidence", review_res["confidence"])
+            if not ok:
+                return False, f"Ошибка в оценке критика для урока {lesson_id}: {err}"
+            scores_found["confidence"] = norm_val
+        elif "factual_accuracy_score" in review_res and review_res["factual_accuracy_score"] is not None:
+            ok, norm_val, err = _validate_scale_1_to_5("factual_accuracy_score", review_res["factual_accuracy_score"])
+            if not ok:
+                return False, f"Ошибка в оценке критика для урока {lesson_id}: {err}"
+            scores_found["factual_accuracy_score"] = norm_val
+        else:
+            return False, (
+                f"Ответ критика для урока {lesson_id} не содержит обязательных числовых оценок качества "
+                f"(ожидались: factual_score, alignment_score, didactic_score по шкале 1-5 из контракта промпта)"
+            )
 
     # Consistency checks based on verdict
     if verdict == "PASS":
         if len(defects) > 0:
             return False, f"Противоречивый ответ: вердикт PASS содержит дефекты: {defects}"
 
-        # All present scores must be >= 0.70 (corresponds to >= 3.8/5 on 1-5 scale)
+        # All present scores must be >= 0.70 (corresponds to >= 3.8/5 on 1-5 scale, or >= 0.70 confidence)
         for s_name, norm_val in scores_found.items():
             if norm_val < 0.70:
                 raw_val = review_res[s_name]
@@ -579,19 +587,21 @@ def _validate_critic_response(
                     f"(нормализовано: {norm_val:.2f}, требуется не менее 0.70)"
                 )
 
-        # Check negative sentiment markers in summary
+        # Check for explicit affirmative contradiction phrases without negation
         lower_summary = clean_summary.lower()
-        negative_markers = (
-            "не соответств",
-            "грубые ошибки",
-            "грубая ошибка",
-            "противоречит исходник",
-            "правила не соответств",
-            "искажен",
+        affirmative_failure_phrases = (
+            "урок не соответствует",
+            "правила не соответствуют",
+            "противоречит регламенту",
+            "противоречит исходнику",
+            "содержит грубые ошибки",
+            "содержит грубую ошибку",
+            "выявлены искажения",
+            "обнаружены искажения",
         )
-        for marker in negative_markers:
-            if marker in lower_summary:
-                return False, f"Противоречивый ответ: вердикт PASS, но в summary зафиксировано замечание ('{marker}')"
+        for phrase in affirmative_failure_phrases:
+            if phrase in lower_summary:
+                return False, f"Противоречивый ответ: вердикт PASS, но в summary зафиксировано замечание ('{phrase}')"
 
     elif verdict in ("FAIL", "NEEDS_REVISION"):
         if len(defects) == 0:
@@ -778,16 +788,17 @@ async def generate_v3_course_from_corpus(
         await progress_callback("realization", 1, 5, getattr(generation_client, "name", "llm"), 1)
 
     logger.info("V3 Engine: Step 1 - Extracting rule model for sha=%s", doc_sha[:12])
-    first_doc = corpus.documents[0] if corpus.documents else None
-    first_doc_id = first_doc.doc_id if first_doc else ""
-    first_revision = first_doc.source_revision if first_doc else ""
+    # ONLY assign default doc_id and revision if corpus has exactly 1 document!
+    # In a multi-document corpus, rules must not blindly assume first_doc_id fallback.
+    default_doc_id = corpus.documents[0].doc_id if len(corpus.documents) == 1 else ""
+    default_revision = corpus.documents[0].source_revision if len(corpus.documents) == 1 else ""
 
     rule_model: DocumentRuleModel = await pipeline.extract_rule_model(
         document_title=first_title,
         document_text=full_text,
         document_sha256=doc_sha,
-        doc_id=first_doc_id,
-        source_revision=first_revision,
+        doc_id=default_doc_id,
+        source_revision=default_revision,
     )
     logger.info("V3 Engine: Step 1 complete. Extracted %d rules.", len(rule_model.rules))
 

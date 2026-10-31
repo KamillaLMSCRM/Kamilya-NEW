@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -60,10 +61,50 @@ class ValidationReport:
         }
 
 
+def is_search_separator(c: str) -> bool:
+    """Checks whether character is whitespace, newline, table pipe, or Unicode space separator."""
+    return c in " \t\r\n\f\v|" or unicodedata.category(c) in ("Zs", "Zl", "Zp")
+
+
+def normalize_with_char_map(text: str) -> tuple[str, list[int]]:
+    """Normalizes text with Unicode space/NBSP collapse, lowercasing, and 1:1 original char index mapping.
+
+    Guarantees:
+        len(norm_text) == len(char_map)
+        Every sub-character from case folding (e.g. 'İ' -> 'i\\u0307') maps to the original index.
+        Non-breaking spaces (U+00A0), narrow NBSP (U+202F), and table pipes are handled consistently.
+    """
+    cleaned_chars: list[str] = []
+    char_map: list[int] = []
+    in_whitespace = True
+
+    for idx, char in enumerate(text):
+        if is_search_separator(char):
+            if not in_whitespace:
+                cleaned_chars.append(" ")
+                char_map.append(idx)
+                in_whitespace = True
+        else:
+            lowered = char.lower()
+            for sub_char in lowered:
+                cleaned_chars.append(sub_char)
+                char_map.append(idx)
+            in_whitespace = False
+
+    if cleaned_chars and cleaned_chars[-1] == " ":
+        cleaned_chars.pop()
+        char_map.pop()
+
+    return "".join(cleaned_chars), char_map
+
+
 def normalize_text_for_search(text: str) -> str:
-    """Normalizes text by removing markdown table pipes, extra whitespace, and converting to lowercase."""
-    cleaned = text.replace("|", " ").replace("\n", " ").replace("\r", " ").replace("\t", " ")
-    return " ".join(cleaned.lower().split())
+    """Normalizes text by removing markdown table pipes, extra whitespace/NBSP, and converting to lowercase.
+
+    Uses identical Unicode and separator logic as normalize_with_char_map to ensure zero search divergence.
+    """
+    norm_text, _ = normalize_with_char_map(text)
+    return norm_text
 
 
 def validate_v3_course(

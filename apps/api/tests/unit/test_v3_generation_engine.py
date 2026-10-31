@@ -1625,15 +1625,23 @@ async def test_mock_session_persistence_and_methodologist_review_lock(monkeypatc
     saved_lessons_2 = [v for v in session.added if isinstance(v, Lesson)]
     assert saved_lessons_2[0].source_validation_status == "needs_review"
 
-    # 4. Methodologist explicitly clears uncertainty marker after manual review and edits
-    session.course.source_analysis.pop("unresolved_source_uncertainty", None)
+    # 4. Methodologist performs authorized review action: clears hold via audit resolution helper
+    from app.modules.courses.source_uncertainty import resolve_source_uncertainty
+
+    session.course.source_analysis = resolve_source_uncertainty(
+        session.course.source_analysis,
+        reason="Методист проверил регламент, подтвердил качество и утвердил формулировки",
+        methodologist_user_id=actor_id,
+    )
+    assert session.course.source_analysis["source_uncertainty_resolution"]["status"] == "resolved"
+    assert session.course.source_analysis["source_uncertainty_resolution"]["resolved_by"] == str(actor_id)
     # Guard now passes without raising 409
     require_persisted_source_hold_clear(session.course.source_analysis)
 
 
 @pytest.mark.asyncio
 async def test_critic_schema_matches_prompt_and_enforces_strict_typing():
-    """Verify Points 1 & 2: Critic schema validates canonical prompt contract and rejects malformed/contradictory data."""
+    """Verify Points 1, 4 & 5: Critic schema validates canonical prompt contract, distinct scales, and avoids false negative word matching."""
     from app.modules.ai.v3.service import _validate_critic_response
 
     # 1. Canonical response strictly according to prompts.py MUST PASS
@@ -1663,6 +1671,8 @@ async def test_critic_schema_matches_prompt_and_enforces_strict_typing():
     obj_summary = {
         "verdict": "PASS",
         "factual_score": 5,
+        "alignment_score": 5,
+        "didactic_score": 5,
         "summary": {"issue": "none"},
         "defects": [],
     }
@@ -1681,21 +1691,71 @@ async def test_critic_schema_matches_prompt_and_enforces_strict_typing():
     assert is_valid is False
     assert "низкой оценке" in err
 
-    # 5. Reject contradiction: verdict PASS but summary indicates mismatch
-    contradiction_summary = {
+    # 5. Point 4: Reject factual_score: 99 (outside 1-5 scale)
+    out_of_scale = {
         "verdict": "PASS",
-        "factual_score": 5,
-        "summary": "Правила не соответствуют исходнику в пункте о пролонгации.",
+        "factual_score": 99,
+        "alignment_score": 5,
+        "didactic_score": 5,
+        "summary": "Урок полностью соответствует исходному регламенту.",
         "defects": [],
     }
-    is_valid, err = _validate_critic_response(contradiction_summary, "l-1", "Тестовый урок")
+    is_valid, err = _validate_critic_response(out_of_scale, "l-1", "Тестовый урок")
+    assert is_valid is False
+    assert "вне допустимой шкалы 1-5" in err
+
+    # 6. Point 4: Reject response with factual_score but missing alignment_score/didactic_score
+    missing_alignment = {
+        "verdict": "PASS",
+        "factual_score": 5,
+        "summary": "Урок полностью соответствует исходному регламенту.",
+        "defects": [],
+    }
+    is_valid, err = _validate_critic_response(missing_alignment, "l-1", "Тестовый урок")
+    assert is_valid is False
+    assert "отсутствует обязательное поле 'alignment_score'" in err
+
+    # 7. Point 4: Accept confidence: 1.0 (properly parsed as 100%, not normalized to 0)
+    conf_one_pass = {
+        "verdict": "PASS",
+        "confidence": 1.0,
+        "summary": "Урок полностью проверен и соответствует источникам.",
+        "defects": [],
+    }
+    is_valid, err = _validate_critic_response(conf_one_pass, "l-1", "Тестовый урок")
+    assert is_valid is True, f"confidence: 1.0 failed validation: {err}"
+
+    # 8. Point 5: Do NOT reject reviews with negation like «Искажений не обнаружено в тексте»
+    negation_summary = {
+        "verdict": "PASS",
+        "factual_score": 5,
+        "alignment_score": 5,
+        "didactic_score": 5,
+        "summary": "Искажений не обнаружено в тексте регламента и тестовых вопросах.",
+        "defects": [],
+    }
+    is_valid, err = _validate_critic_response(negation_summary, "l-1", "Тестовый урок")
+    assert is_valid is True, f"Summary with negation was falsely rejected: {err}"
+
+    # 9. Reject true affirmative contradictions
+    affirmative_mismatch = {
+        "verdict": "PASS",
+        "factual_score": 5,
+        "alignment_score": 5,
+        "didactic_score": 5,
+        "summary": "Урок не соответствует регламенту безопасности в части пролонгации.",
+        "defects": [],
+    }
+    is_valid, err = _validate_critic_response(affirmative_mismatch, "l-1", "Тестовый урок")
     assert is_valid is False
     assert "в summary зафиксировано замечание" in err
 
-    # 6. Reject missing defects field
+    # 10. Reject missing defects field
     missing_defects = {
         "verdict": "PASS",
         "factual_score": 5,
+        "alignment_score": 5,
+        "didactic_score": 5,
         "summary": "Урок полностью соответствует исходному регламенту.",
     }
     is_valid, err = _validate_critic_response(missing_defects, "l-1", "Тестовый урок")
@@ -1750,6 +1810,115 @@ async def test_quote_exact_coordinates_preserve_whitespace_and_reverse_slice():
     # The slice must not cut off the last word
     assert sliced_text.strip().endswith("обеденный перерыв.")
     assert sliced_text.strip().startswith("Сотрудник филиала")
+
+
+@pytest.mark.asyncio
+async def test_unicode_nbsp_and_case_folding_quote_grounding():
+    """Verify Point 1: Non-breaking spaces (NBSP, narrow NBSP) and expanding Unicode case folds (e.g. 'İ') are cleanly grounded."""
+    from app.modules.ai.v3.service import find_quote_occurrences_in_corpus, normalize_text_for_search
+
+    # Text containing non-breaking spaces (\xa0) and narrow non-breaking spaces (\u202f), plus 'İ'
+    chunk_text = "Лимит кредитования составляет 700\xa0100\u202fтенге для филиала İSTANBUL при первой выдаче."
+    chunk = DirectSourceChunk(
+        chunk_id="chk-nbsp-1",
+        doc_id="doc-nbsp-1",
+        doc_name="nbsp.txt",
+        title="NBSP тест",
+        headings=(),
+        text=chunk_text,
+        source_revision="rev-1",
+        chunk_index=0,
+    )
+    doc = DirectSourceDocument(
+        doc_id="doc-nbsp-1",
+        title="NBSP тест",
+        filename="nbsp.txt",
+        category="regulations",
+        source_revision="rev-1",
+        chunks=(chunk,),
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-nbsp",
+        documents=(doc,),
+        total_chars=len(chunk_text),
+        total_chunks=1,
+    )
+
+    # 1. Quote with standard ASCII space matches source text with \xa0
+    quote_nbsp = "Лимит кредитования составляет 700 100 тенге"
+    occs = find_quote_occurrences_in_corpus(quote_nbsp, corpus)
+    assert len(occs) == 1, "Failed to ground quote across non-breaking space!"
+    sliced = chunk_text[occs[0].char_start : occs[0].char_end]
+    assert normalize_text_for_search(sliced) == normalize_text_for_search(quote_nbsp)
+    assert "\xa0" in sliced
+
+    # 2. Quote covering Turkish dotted capital 'İ' (lowercases to 'i\u0307') must not cause IndexError
+    quote_istanbul = "для филиала İSTANBUL при первой выдаче."
+    occs_ist = find_quote_occurrences_in_corpus(quote_istanbul, corpus)
+    assert len(occs_ist) == 1
+    sliced_ist = chunk_text[occs_ist[0].char_start : occs_ist[0].char_end]
+    assert "İSTANBUL" in sliced_ist
+
+
+@pytest.mark.asyncio
+async def test_quote_revision_mismatch_and_multi_doc_unbiased_grounding():
+    """Verify Points 2 & 3: Revision check enforces document version, and multi-doc corpus avoids biasing towards doc-1."""
+    from app.modules.ai.v3.service import _verify_rule_quote_grounding
+
+    quote_rev = "Максимальный срок пролонгации не превышает 30 календарных дней."
+    chunk_v2 = DirectSourceChunk(
+        chunk_id="chk-rev-2",
+        doc_id="doc-reg",
+        doc_name="reg.txt",
+        title="Регламент",
+        headings=(),
+        text=f"Положения: {quote_rev}",
+        source_revision="rev-2.0",
+        chunk_index=0,
+    )
+    doc_v2 = DirectSourceDocument(
+        doc_id="doc-reg",
+        title="Регламент",
+        filename="reg.txt",
+        category="regulations",
+        source_revision="rev-2.0",
+        chunks=(chunk_v2,),
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-rev",
+        documents=(doc_v2,),
+        total_chars=100,
+        total_chunks=1,
+    )
+
+    # Point 2: Rule with revision rev-1.0 against document with rev-2.0 must FAIL
+    rule_stale_rev = RuleEntity(
+        rule_id="r-rev-stale",
+        section="Раздел",
+        title="Правило устаревшей ревизии",
+        statement="Срок пролонгации 30 дней.",
+        source_quote=quote_rev,
+        doc_id="doc-reg",
+        source_revision="rev-1.0",
+    )
+    is_grounded, report, _ = _verify_rule_quote_grounding(rule_stale_rev, corpus)
+    assert is_grounded is False
+    assert "Несоответствие ревизии документа" in report
+    assert "rev-1.0" in report
+
+    # Rule matching the exact revision rev-2.0 must PASS
+    rule_current_rev = RuleEntity(
+        rule_id="r-rev-ok",
+        section="Раздел",
+        title="Правило актуальной ревизии",
+        statement="Срок пролонгации 30 дней.",
+        source_quote=quote_rev,
+        doc_id="doc-reg",
+        source_revision="rev-2.0",
+    )
+    is_grounded_ok, report_ok, _ = _verify_rule_quote_grounding(rule_current_rev, corpus)
+    assert is_grounded_ok is True
+    assert "rev: rev-2.0" in report_ok
 
 
 @pytest.mark.asyncio

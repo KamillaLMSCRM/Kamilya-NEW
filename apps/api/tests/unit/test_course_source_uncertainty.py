@@ -85,3 +85,37 @@ async def test_qa_reviewer_checks_live_and_frozen_generation_holds(held_at):
     assert error.value.detail["code"] == "source_uncertainty_review_required"
     db.flush.assert_not_awaited()
     db.commit.assert_not_awaited()
+
+
+def test_resolve_source_uncertainty_clears_hold_and_records_audit():
+    """Verify that authorized resolve_source_uncertainty clears the hold and records audit trail."""
+    from app.modules.courses.source_uncertainty import (
+        SOURCE_UNCERTAINTY_KEY,
+        require_persisted_source_hold_clear,
+        resolve_source_uncertainty,
+    )
+
+    actor_id = uuid4()
+    initial_analysis = {SOURCE_UNCERTAINTY_KEY: {"status": "review_required", "origin": "generation"}}
+
+    # Guard blocks initially
+    with pytest.raises(HTTPException) as error:
+        require_persisted_source_hold_clear(initial_analysis)
+    assert error.value.detail["code"] == "source_uncertainty_review_required"
+
+    # Authorized resolution
+    resolved = resolve_source_uncertainty(
+        initial_analysis,
+        reason="Методист выполнил сверку регламента",
+        methodologist_user_id=actor_id,
+    )
+
+    # Hold is cleared and audit trail is preserved
+    assert SOURCE_UNCERTAINTY_KEY not in resolved
+    assert resolved["source_uncertainty_resolution"]["status"] == "resolved"
+    assert resolved["source_uncertainty_resolution"]["resolved_by"] == str(actor_id)
+    assert resolved["source_uncertainty_resolution"]["reason"] == "Методист выполнил сверку регламента"
+    assert "resolved_at" in resolved["source_uncertainty_resolution"]
+
+    # Guard now passes
+    require_persisted_source_hold_clear(resolved)

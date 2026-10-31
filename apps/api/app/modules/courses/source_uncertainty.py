@@ -4,6 +4,7 @@ No resolution API is provided. Any presence of the reserved marker blocks approv
 and publication, including malformed values; a missing marker retains legacy behavior.
 """
 from copy import deepcopy
+from datetime import UTC
 from typing import Any
 
 from fastapi import HTTPException
@@ -79,6 +80,30 @@ def require_persisted_source_hold_clear(source_analysis: object) -> None:
     """
     if isinstance(source_analysis, dict) and SOURCE_UNCERTAINTY_KEY in source_analysis:
         raise HTTPException(status_code=409, detail={"code": "source_uncertainty_review_required"})
+
+
+def resolve_source_uncertainty(
+    source_analysis: dict[str, Any] | None,
+    *,
+    reason: str,
+    methodologist_user_id: object,
+) -> dict[str, Any]:
+    """Authorized methodologist action: clears unresolved_source_uncertainty hold after manual verification.
+
+    Records an immutable audit trail with resolver identity, timestamp, and verification rationale.
+    """
+    from datetime import datetime
+
+    result = dict(source_analysis or {})
+    if SOURCE_UNCERTAINTY_KEY in result:
+        result.pop(SOURCE_UNCERTAINTY_KEY, None)
+        result["source_uncertainty_resolution"] = {
+            "status": "resolved",
+            "resolved_by": str(methodologist_user_id),
+            "resolved_at": datetime.now(UTC).isoformat(),
+            "reason": reason,
+        }
+    return result
 
 
 def is_qa_source_tenant(tenant_id: object) -> bool:
