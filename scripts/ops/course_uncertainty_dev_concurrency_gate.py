@@ -42,14 +42,17 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
+ROOT = Path(__file__).resolve().parents[2]
+OPS_DIR = Path(__file__).resolve().parent
+API_ROOT = ROOT / "apps" / "api"
+if str(OPS_DIR) not in sys.path:
+    sys.path.insert(0, str(OPS_DIR))
+if str(API_ROOT) not in sys.path:
+    sys.path.insert(0, str(API_ROOT))
+
 from kb_rag_isolated_dev_gate import GateBlocked, normalize_database_url, same_supabase_project
 from source_actuality_dev_gate import public_snapshot, verify_runtime_role
 from workbench_assignment_dev_gate import safe_failure
-
-ROOT = Path(__file__).resolve().parents[2]
-API_ROOT = ROOT / "apps" / "api"
-if str(API_ROOT) not in sys.path:
-    sys.path.insert(0, str(API_ROOT))
 
 SCHEMA_RE = re.compile(r"^uncertainty_[0-9a-f]{12}$")
 TABLES = (
@@ -116,6 +119,70 @@ def get_git_branch() -> str:
         return proc.stdout.strip()
     except Exception:
         return "unknown"
+
+
+def evaluate_gate_outcome(
+    *,
+    main_completed: bool,
+    main_error: Exception | None,
+    cleanup_error: Exception | None,
+    schema_dropped: bool,
+    public_structure_ok: bool,
+    public_counts_and_hashes_ok: bool,
+    checks: list[str],
+    required_checks: frozenset[str] = REQUIRED_CHECKS,
+) -> tuple[bool, str, list[str]]:
+    """Evaluates whether the gate passed completely and returns (overall_pass, status_string, missing_checks)."""
+    checks_set = set(checks)
+    missing_checks = sorted(required_checks - checks_set)
+    all_required_present = len(missing_checks) == 0
+
+    overall_pass = (
+        main_completed
+        and (main_error is None)
+        and (cleanup_error is None)
+        and schema_dropped
+        and public_structure_ok
+        and public_counts_and_hashes_ok
+        and all_required_present
+    )
+    status = "PASS" if overall_pass else "BLOCKED"
+    return overall_pass, status, missing_checks
+
+
+def persist_gate_receipt(
+    receipt_data: dict[str, Any],
+    *,
+    evidence_dir: Path | None = None,
+    run_id: str | None = None,
+) -> tuple[Path, Path]:
+    """Atomically persists gate receipt both to a unique per-run file and updates the latest receipt file.
+
+    Does NOT suppress errors: any filesystem or serialization failure propagates.
+    """
+    target_dir = evidence_dir or (ROOT / ".release-evidence")
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    effective_run_id = (
+        run_id
+        or f"{datetime.now(UTC).strftime('%Y%m%d_%H%M%S_%f')}_{receipt_data.get('schema', 'unknown')}"
+    )
+    run_receipt_path = target_dir / f"course-uncertainty-dev-gate-receipt-{effective_run_id}.json"
+    latest_receipt_path = target_dir / "course-uncertainty-dev-gate-receipt.json"
+
+    serialized = json.dumps(receipt_data, indent=2, sort_keys=True) + "\n"
+
+    # Write per-run receipt atomically via temporary file
+    tmp_run_path = target_dir / f".tmp_{effective_run_id}.json"
+    tmp_run_path.write_text(serialized, encoding="utf-8")
+    tmp_run_path.replace(run_receipt_path)
+
+    # Write latest receipt atomically via temporary file
+    tmp_latest_path = target_dir / f".tmp_latest_{effective_run_id}.json"
+    tmp_latest_path.write_text(serialized, encoding="utf-8")
+    tmp_latest_path.replace(latest_receipt_path)
+
+    return run_receipt_path, latest_receipt_path
 
 
 async def set_context(db: AsyncSession, schema: str, tenant_id: str = "") -> None:
@@ -358,8 +425,32 @@ async def setup_schema(owner_url: str, runtime_url: str, supabase_url: str, sche
         raise
 
 
-async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_url: str) -> dict[str, Any]:
+async def run_uncertainty_dev_gate(
+    owner_url: str,
+    runtime_url: str,
+    supabase_url: str,
+    *,
+    evidence_dir: Path | None = None,
+    run_id: str | None = None,
+) -> dict[str, Any]:
     schema = f"uncertainty_{uuid4().hex[:12]}"
+    target_evidence_dir = evidence_dir or (ROOT / ".release-evidence")
+    effective_run_id = (
+        run_id
+        or f"{datetime.now(UTC).strftime('%Y%m%d_%H%M%S_%f')}_{schema}"
+    )
+
+    # Invalidate old receipt and persist explicit RUNNING marker before execution begins
+    init_marker = {
+        "status": "RUNNING",
+        "run_id": effective_run_id,
+        "schema": schema,
+        "timestamp_utc": datetime.now(UTC).isoformat(),
+        "git_commit": get_git_commit_sha(),
+        "git_branch": get_git_branch(),
+    }
+    persist_gate_receipt(init_marker, evidence_dir=target_evidence_dir, run_id=effective_run_id)
+
     owner, runtime, fixtures, created, public_before_structure, public_before_counts_hashes = await setup_schema(
         owner_url, runtime_url, supabase_url, schema
     )
@@ -926,16 +1017,9 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
 
         # Mark main execution complete only when all in-flight checks have been performed
         main_completed = True
-        failure_stage = "main_success"
-        return {
-            "status": "PASS",
-            "schema": schema,
-            "checks": checks,
-            "verified_tests": len(checks),
-        }
+        failure_stage = None
     except Exception as exc:
         main_error = exc
-        raise
     finally:
         barrier_active_snapshot = False
         barrier_active_pre_commit = False
@@ -947,6 +1031,7 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
             course_router_module.log_action = original_log_action
 
         cleanup_error = None
+        receipt_error: Exception | None = None
         schema_dropped = False
         public_structure_ok = False
         public_counts_and_hashes_ok = False
@@ -1007,57 +1092,75 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
         await owner.dispose()
         await runtime.dispose()
 
-        # Strict integrity evaluation: PASS requires main_completed, no main_error, no cleanup_error,
-        # schema dropped verified, public verified unmutated, and all REQUIRED_CHECKS present.
-        checks_set = set(checks)
-        all_required_present = REQUIRED_CHECKS.issubset(checks_set)
-        overall_pass = (
-            main_completed
-            and (main_error is None)
-            and (cleanup_error is None)
-            and schema_dropped
-            and public_structure_ok
-            and public_counts_and_hashes_ok
-            and all_required_present
+        # Strict integrity evaluation:
+        overall_pass, receipt_status, missing_checks = evaluate_gate_outcome(
+            main_completed=main_completed,
+            main_error=main_error,
+            cleanup_error=cleanup_error,
+            schema_dropped=schema_dropped,
+            public_structure_ok=public_structure_ok,
+            public_counts_and_hashes_ok=public_counts_and_hashes_ok,
+            checks=checks,
+            required_checks=REQUIRED_CHECKS,
         )
-        receipt_status = "PASS" if overall_pass else "BLOCKED"
 
-        # Persist durable sanitized execution receipt bound to Git commit SHA and script SHA
+        script_path = Path(__file__).resolve()
+        script_sha = hashlib.sha256(script_path.read_bytes()).hexdigest()
+
+        receipt_data = {
+            "status": receipt_status,
+            "run_id": effective_run_id,
+            "timestamp_utc": datetime.now(UTC).isoformat(),
+            "schema": schema,
+            "git_commit": get_git_commit_sha(),
+            "git_branch": get_git_branch(),
+            "script_path": str(script_path),
+            "script_sha256": script_sha,
+            "runtime_role": "lms_app",
+            "runtime_role_verified_non_bypass": True,
+            "checks": sorted(checks),
+            "verified_tests": len(checks),
+            "required_checks_complete": (len(missing_checks) == 0),
+            "missing_checks": missing_checks,
+            "failure_stage": failure_stage if not overall_pass else None,
+            "main_error": safe_failure(main_error) if main_error is not None else None,
+            "cleanup_error": safe_failure(cleanup_error) if cleanup_error is not None else None,
+            "schema_teardown_independently_verified": schema_dropped,
+            "public_business_rows_verified_unmutated": public_counts_and_hashes_ok,
+            "public_business_table_counts_and_hashes": public_after_counts_hashes,
+        }
+
+        # Persist receipt without swallowing errors
         try:
-            evidence_dir = ROOT / ".release-evidence"
-            evidence_dir.mkdir(parents=True, exist_ok=True)
-            receipt_path = evidence_dir / "course-uncertainty-dev-gate-receipt.json"
+            run_p, latest_p = persist_gate_receipt(receipt_data, evidence_dir=target_evidence_dir, run_id=effective_run_id)
+            receipt_data["run_receipt_path"] = str(run_p)
+            receipt_data["latest_receipt_path"] = str(latest_p)
+        except Exception as exc:
+            receipt_error = exc
 
-            script_path = Path(__file__).resolve()
-            script_sha = hashlib.sha256(script_path.read_bytes()).hexdigest()
+    # Unified outcome enforcement: propagate receipt write errors and fail closed on any non-pass
+    if receipt_error is not None:
+        raise GateBlocked("receipt_write_failed:" + safe_failure(receipt_error)) from receipt_error
 
-            receipt_data = {
-                "status": receipt_status,
-                "timestamp_utc": datetime.now(UTC).isoformat(),
-                "schema": schema,
-                "git_commit": get_git_commit_sha(),
-                "git_branch": get_git_branch(),
-                "script_path": str(script_path),
-                "script_sha256": script_sha,
-                "runtime_role": "lms_app",
-                "runtime_role_verified_non_bypass": True,
-                "checks": sorted(checks),
-                "verified_tests": len(checks),
-                "required_checks_complete": all_required_present,
-                "missing_checks": sorted(REQUIRED_CHECKS - checks_set),
-                "failure_stage": failure_stage if not overall_pass else None,
-                "main_error": safe_failure(main_error) if main_error is not None else None,
-                "cleanup_error": safe_failure(cleanup_error) if cleanup_error is not None else None,
-                "schema_teardown_independently_verified": schema_dropped,
-                "public_business_rows_verified_unmutated": public_counts_and_hashes_ok,
-                "public_business_table_counts_and_hashes": public_after_counts_hashes,
-            }
-            receipt_path.write_text(json.dumps(receipt_data, indent=2, sort_keys=True), encoding="utf-8")
-        except Exception:
-            pass
-
+    if not overall_pass:
+        failures: list[str] = []
+        if not main_completed:
+            failures.append(f"main_incomplete_at_{failure_stage or 'unknown'}")
+        if main_error is not None:
+            failures.append(f"main_error:{safe_failure(main_error)}")
         if cleanup_error is not None:
-            raise GateBlocked("cleanup_failed:" + safe_failure(cleanup_error)) from cleanup_error
+            failures.append(f"cleanup_error:{safe_failure(cleanup_error)}")
+        if not schema_dropped:
+            failures.append("schema_not_dropped")
+        if not public_structure_ok:
+            failures.append("public_structure_mutated")
+        if not public_counts_and_hashes_ok:
+            failures.append("public_counts_or_hashes_mutated")
+        if missing_checks:
+            failures.append(f"missing_checks:{','.join(missing_checks)}")
+        raise GateBlocked("; ".join(failures))
+
+    return receipt_data
 
 
 def main() -> int:
@@ -1080,6 +1183,8 @@ def main() -> int:
 
         result = asyncio.run(run_uncertainty_dev_gate(owner_url, runtime_url, supabase_url))
         print(json.dumps(result, sort_keys=True, indent=2))
+        if result.get("status") != "PASS":
+            return 1
         return 0
     except Exception as exc:
         print(json.dumps({"status": "BLOCKED", "error": safe_failure(exc)}))
