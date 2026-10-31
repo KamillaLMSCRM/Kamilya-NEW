@@ -10,6 +10,8 @@ from scripts.ops.course_uncertainty_dev_concurrency_gate import (
     evaluate_gate_outcome,
     persist_gate_receipt,
     run_uncertainty_dev_gate,
+    terminate_lingering_test_sessions,
+    write_startup_in_progress_marker,
 )
 
 
@@ -177,7 +179,7 @@ async def test_run_uncertainty_dev_gate_missing_checks_fails_closed(tmp_path: Pa
         "doc_rev_initial": "rev0", "defect_id": "def1", "defect_desc": "defect desc",
     }
 
-    async def fake_setup_schema(o: str, r: str, s: str, schema_name: str):
+    async def fake_setup_schema(*args, **kwargs):
         return fake_owner, fake_runtime, fixtures, True, {}, {}
 
     monkeypatch.setattr("scripts.ops.course_uncertainty_dev_concurrency_gate.setup_schema", fake_setup_schema)
@@ -214,25 +216,106 @@ async def test_run_uncertainty_dev_gate_receipt_write_error_propagates(tmp_path:
         "doc_rev_initial": "rev0", "defect_id": "def1", "defect_desc": "defect desc",
     }
 
-    async def fake_setup_schema(o: str, r: str, s: str, schema_name: str):
+    async def fake_setup_schema(*args, **kwargs):
         return fake_owner, fake_runtime, fixtures, True, {}, {}
 
     monkeypatch.setattr("scripts.ops.course_uncertainty_dev_concurrency_gate.setup_schema", fake_setup_schema)
     monkeypatch.setattr("scripts.ops.course_uncertainty_dev_concurrency_gate.public_snapshot", AsyncMock(return_value={}))
     monkeypatch.setattr("scripts.ops.course_uncertainty_dev_concurrency_gate.public_business_row_snapshot", AsyncMock(return_value={}))
 
-    # Let init_marker succeed, but make final persist_gate_receipt fail
-    real_persist = persist_gate_receipt
-    calls = 0
+    # Make final persist_gate_receipt fail
+    def fail_persist(receipt_data, *, evidence_dir=None, run_id=None):
+        raise OSError("Simulated filesystem write error during final receipt save")
 
-    def fail_second_persist(receipt_data, *, evidence_dir=None, run_id=None):
-        nonlocal calls
-        calls += 1
-        if calls > 1:
-            raise OSError("Simulated filesystem write error during final receipt save")
-        return real_persist(receipt_data, evidence_dir=evidence_dir, run_id=run_id)
-
-    monkeypatch.setattr("scripts.ops.course_uncertainty_dev_concurrency_gate.persist_gate_receipt", fail_second_persist)
+    monkeypatch.setattr("scripts.ops.course_uncertainty_dev_concurrency_gate.persist_gate_receipt", fail_persist)
 
     with pytest.raises(GateBlocked, match="receipt_write_failed:"):
         await run_uncertainty_dev_gate("owner_url", "runtime_url", "supabase_url", evidence_dir=tmp_path, run_id="run_write_err")
+
+
+def test_startup_in_progress_marker_does_not_create_run_receipt(tmp_path: Path) -> None:
+    run_id = "test_run_startup_01"
+    latest_path = write_startup_in_progress_marker(evidence_dir=tmp_path, run_id=run_id, schema="uncertainty_abc123")
+
+    assert latest_path.exists()
+    latest_data = json.loads(latest_path.read_text(encoding="utf-8"))
+    assert latest_data["status"] == "RUNNING"
+    assert latest_data["run_id"] == run_id
+
+    # Crucial: Per-run file MUST NOT exist at startup (ensures immutability upon terminal write)
+    per_run_path = tmp_path / f"course-uncertainty-dev-gate-receipt-{run_id}.json"
+    assert not per_run_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_run_uncertainty_dev_gate_early_setup_failure_persists_terminal_blocked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Pre-seed latest receipt with an initial RUNNING state
+    run_id = "run_early_setup_fail"
+
+    async def broken_setup(owner_url, runtime_url, supabase_url, schema, confirmed_pids=None):
+        raise ConnectionRefusedError("Simulated database connection refused during setup")
+
+    monkeypatch.setattr("scripts.ops.course_uncertainty_dev_concurrency_gate.setup_schema", broken_setup)
+
+    with pytest.raises(GateBlocked, match="main_incomplete_at_setup_schema"):
+        await run_uncertainty_dev_gate("owner_url", "runtime_url", "supabase_url", evidence_dir=tmp_path, run_id=run_id)
+
+    # Verify latest receipt is now BLOCKED (NOT left in RUNNING!)
+    latest_path = tmp_path / "course-uncertainty-dev-gate-receipt.json"
+    assert latest_path.exists()
+    latest_data = json.loads(latest_path.read_text(encoding="utf-8"))
+    assert latest_data["status"] == "BLOCKED"
+    assert latest_data["failure_stage"] == "setup_schema"
+    assert "ConnectionRefusedError" in str(latest_data["main_error"])
+
+    # Verify per-run receipt was created with BLOCKED terminal status
+    per_run_path = tmp_path / f"course-uncertainty-dev-gate-receipt-{run_id}.json"
+    assert per_run_path.exists()
+    per_run_data = json.loads(per_run_path.read_text(encoding="utf-8"))
+    assert per_run_data["status"] == "BLOCKED"
+    assert per_run_data["failure_stage"] == "setup_schema"
+
+
+@pytest.mark.asyncio
+async def test_cleanup_terminates_only_confirmed_test_pids_and_never_untracked_foreign_pids() -> None:
+    executed_statements = []
+    executed_params = []
+
+    mock_conn = AsyncMock()
+    # Owner current backend PID is 999
+    mock_conn.scalar = AsyncMock(return_value=999)
+
+    async def mock_execute(statement, params=None):
+        executed_statements.append(str(statement))
+        executed_params.append(params)
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = [(101,), (102,)]
+        return mock_result
+
+    mock_conn.execute = mock_execute
+
+    mock_owner = MagicMock()
+    mock_owner.connect.return_value.__aenter__.return_value = mock_conn
+
+    # Test sessions recorded PIDs: 101, 102, and owner 999
+    # Foreign untracked PID (e.g. 555 executing a query with the schema name) is NOT in confirmed_pids
+    confirmed_pids = {101, 102, 999}
+    killed_count = await terminate_lingering_test_sessions(mock_owner, confirmed_pids)
+
+    assert killed_count == 2
+    assert len(executed_statements) == 1
+    sql = executed_statements[0]
+    params = executed_params[0]
+
+    # Negative check 1: SQL statement MUST NOT contain query text wildcard or schema matching
+    assert "query LIKE" not in sql
+    assert "LIKE" not in sql
+    assert "pg_terminate_backend" in sql
+
+    # Negative check 2: Target PIDs must contain strictly 101 and 102, NEVER owner (999) or untracked foreign (555)
+    target_pids = set(params["target_pids"])
+    assert target_pids == {101, 102}
+    assert 999 not in target_pids
+    assert 555 not in target_pids

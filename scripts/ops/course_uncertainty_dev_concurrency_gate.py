@@ -185,7 +185,39 @@ def persist_gate_receipt(
     return run_receipt_path, latest_receipt_path
 
 
-async def set_context(db: AsyncSession, schema: str, tenant_id: str = "") -> None:
+def write_startup_in_progress_marker(
+    *,
+    evidence_dir: Path,
+    run_id: str,
+    schema: str,
+) -> Path:
+    """Updates the mutable latest receipt with an in-progress marker on run startup.
+
+    Does NOT write the per-run file so that course-uncertainty-dev-gate-receipt-{run_id}.json
+    is created strictly once upon terminal verdict (PASS or BLOCKED).
+    """
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    latest_receipt_path = evidence_dir / "course-uncertainty-dev-gate-receipt.json"
+    marker = {
+        "status": "RUNNING",
+        "run_id": run_id,
+        "schema": schema,
+        "timestamp_utc": datetime.now(UTC).isoformat(),
+        "git_commit": get_git_commit_sha(),
+        "git_branch": get_git_branch(),
+    }
+    tmp_path = evidence_dir / f".tmp_init_{run_id}.json"
+    tmp_path.write_text(json.dumps(marker, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    tmp_path.replace(latest_receipt_path)
+    return latest_receipt_path
+
+
+async def set_context(
+    db: AsyncSession,
+    schema: str,
+    tenant_id: str = "",
+    confirmed_pids: set[int] | None = None,
+) -> None:
     await db.execute(text(f"SET LOCAL search_path TO {qschema(schema)}, pg_catalog"))
     await db.execute(
         text(
@@ -194,6 +226,41 @@ async def set_context(db: AsyncSession, schema: str, tenant_id: str = "") -> Non
         ),
         {"tenant": tenant_id},
     )
+    if confirmed_pids is not None:
+        try:
+            pid = await db.scalar(text("SELECT pg_backend_pid()"))
+            if pid:
+                confirmed_pids.add(int(pid))
+        except Exception:
+            pass
+
+
+async def terminate_lingering_test_sessions(owner: Any, confirmed_pids: set[int]) -> int:
+    """Terminates ONLY specifically confirmed PostgreSQL backend PIDs belonging to this test.
+
+    Never uses query wildcards or schema name pattern matching, preventing accidental
+    termination of external diagnostic, monitoring, or concurrent sessions.
+    """
+    if not confirmed_pids or owner is None:
+        return 0
+    try:
+        async with owner.connect() as term_conn:
+            current_pid = await term_conn.scalar(text("SELECT pg_backend_pid()"))
+            target_pids = [p for p in confirmed_pids if p != current_pid]
+            if not target_pids:
+                return 0
+            res = await term_conn.execute(
+                text("""
+                    SELECT pg_terminate_backend(pid)
+                    FROM pg_stat_activity
+                    WHERE pid = ANY(:target_pids)
+                      AND pid <> pg_backend_pid()
+                """),
+                {"target_pids": target_pids},
+            )
+            return len(res.fetchall())
+    except Exception:
+        return 0
 
 
 async def public_business_row_snapshot(connection: Any) -> dict[str, dict[str, Any]]:
@@ -220,7 +287,13 @@ async def public_business_row_snapshot(connection: Any) -> dict[str, dict[str, A
     return results
 
 
-async def setup_schema(owner_url: str, runtime_url: str, supabase_url: str, schema: str):
+async def setup_schema(
+    owner_url: str,
+    runtime_url: str,
+    supabase_url: str,
+    schema: str,
+    confirmed_pids: set[int] | None = None,
+):
     if not all(same_supabase_project(url, supabase_url) for url in (owner_url, runtime_url)):
         raise GateBlocked("canonical_dev_identity_mismatch")
     if (make_url(runtime_url).username or "").split(".")[0] != "lms_app":
@@ -233,8 +306,22 @@ async def setup_schema(owner_url: str, runtime_url: str, supabase_url: str, sche
     created = False
     try:
         async with runtime.connect() as db:
+            if confirmed_pids is not None:
+                try:
+                    pid = await db.scalar(text("SELECT pg_backend_pid()"))
+                    if pid:
+                        confirmed_pids.add(int(pid))
+                except Exception:
+                    pass
             await verify_runtime_role(db)
         async with owner.begin() as db:
+            if confirmed_pids is not None:
+                try:
+                    pid = await db.scalar(text("SELECT pg_backend_pid()"))
+                    if pid:
+                        confirmed_pids.add(int(pid))
+                except Exception:
+                    pass
             before_structure = await public_snapshot(db)
             before_counts_hashes = await public_business_row_snapshot(db)
             await db.execute(text(f"CREATE SCHEMA {qschema(schema)}"))
@@ -280,6 +367,13 @@ async def setup_schema(owner_url: str, runtime_url: str, supabase_url: str, sche
 
         # Seed synthetic fixtures under owner transaction
         async with owner.begin() as seed:
+            if confirmed_pids is not None:
+                try:
+                    pid = await seed.scalar(text("SELECT pg_backend_pid()"))
+                    if pid:
+                        confirmed_pids.add(int(pid))
+                except Exception:
+                    pass
             await seed.execute(text(f"SET LOCAL search_path TO {qschema(schema)}, pg_catalog"))
             tenant_a, tenant_b = uuid4(), uuid4()
             actor_a, author_a, actor_b = uuid4(), uuid4(), uuid4()
@@ -418,8 +512,10 @@ async def setup_schema(owner_url: str, runtime_url: str, supabase_url: str, sche
                     await cleanup_db.execute(text(f"DROP SCHEMA IF EXISTS {qschema(schema)} CASCADE"))
             except Exception as exc:
                 cleanup_error = exc
-        await owner.dispose()
-        await runtime.dispose()
+        if owner is not None:
+            await owner.dispose()
+        if runtime is not None:
+            await runtime.dispose()
         if cleanup_error is not None:
             raise GateBlocked("setup_cleanup_failed:" + safe_failure(cleanup_error)) from cleanup_error
         raise
@@ -440,106 +536,127 @@ async def run_uncertainty_dev_gate(
         or f"{datetime.now(UTC).strftime('%Y%m%d_%H%M%S_%f')}_{schema}"
     )
 
-    # Invalidate old receipt and persist explicit RUNNING marker before execution begins
-    init_marker = {
-        "status": "RUNNING",
-        "run_id": effective_run_id,
-        "schema": schema,
-        "timestamp_utc": datetime.now(UTC).isoformat(),
-        "git_commit": get_git_commit_sha(),
-        "git_branch": get_git_branch(),
-    }
-    persist_gate_receipt(init_marker, evidence_dir=target_evidence_dir, run_id=effective_run_id)
-
-    owner, runtime, fixtures, created, public_before_structure, public_before_counts_hashes = await setup_schema(
-        owner_url, runtime_url, supabase_url, schema
+    # Invalidate latest receipt by writing explicit in-progress marker.
+    # Note: The per-run receipt file (course-uncertainty-dev-gate-receipt-{run_id}.json)
+    # is intentionally NOT written here. It is written strictly once upon terminal verdict,
+    # guaranteeing that each per-run file is immutable.
+    write_startup_in_progress_marker(
+        evidence_dir=target_evidence_dir,
+        run_id=effective_run_id,
+        schema=schema,
     )
 
-    from app.core.auth import get_current_active_user, get_current_user
-    from app.core.db import get_db
-    import app.modules.audit.service as audit_service_module
-    from app.modules.courses.router import router as course_router
-    import app.modules.courses.source_uncertainty as source_uncertainty_module
-    from app.modules.lessons.service import create_content_block, update_content_block
-
-    tenant_a = fixtures["tenant_a"]
-    tenant_b = fixtures["tenant_b"]
-    actor_a = fixtures["actor_a"]
-    author_a = fixtures["author_a"]
-    actor_b = fixtures["actor_b"]
-    course_a = fixtures["course_a"]
-    doc_a = fixtures["doc_a"]
-    les_1 = fixtures["les_1"]
-    blk_1 = fixtures["blk_1"]
-    doc_rev_initial = fixtures["doc_rev_initial"]
-    defect_id = fixtures["defect_id"]
-    defect_desc = fixtures["defect_desc"]
+    owner: Any = None
+    runtime: Any = None
+    fixtures: dict[str, Any] = {}
+    created = False
+    public_before_structure: dict[str, Any] = {}
+    public_before_counts_hashes: dict[str, dict[str, Any]] = {}
+    confirmed_test_pids: set[int] = set()
 
     checks: list[str] = []
     main_completed = False
     main_error: Exception | None = None
-    failure_stage = "init"
+    cleanup_error: Exception | None = None
+    receipt_error: Exception | None = None
+    failure_stage = "setup_schema"
+    schema_dropped = False
+    public_structure_ok = False
+    public_counts_and_hashes_ok = False
+    public_after_counts_hashes: dict[str, dict[str, Any]] = {}
+    receipt_data: dict[str, Any] = {}
 
-    current_actor: dict[str, Any] = {
-        "user": SimpleNamespace(
-            id=actor_a,
-            tenant_id=tenant_a,
-            role="methodologist",
-            roles=["methodologist"],
-            is_active=True,
-            email="meth-a@example.invalid",
-        ),
-        "context_tenant": str(tenant_a),
-    }
-
-    app = FastAPI()
-    app.include_router(course_router)
-
-    async def override_principal():
-        return current_actor["user"]
-
-    async def override_db():
-        async with AsyncSession(runtime, expire_on_commit=False) as session:
-            await set_context(session, schema, current_actor["context_tenant"])
-            yield session
-
-    app.dependency_overrides[get_current_active_user] = override_principal
-    app.dependency_overrides[get_current_user] = override_principal
-    app.dependency_overrides[get_db] = override_db
-
-    # Synchronization barriers for race condition proof
+    barrier_active_snapshot = False
+    barrier_active_pre_commit = False
     snapshot_started = asyncio.Event()
     snapshot_resume = asyncio.Event()
-    barrier_active_snapshot = False
-
     pre_commit_reached = asyncio.Event()
     pre_commit_resume = asyncio.Event()
-    barrier_active_pre_commit = False
+    active_tasks: list[asyncio.Task] = []
 
-    original_compute_hash = source_uncertainty_module.compute_course_content_snapshot_hash
-    original_log_action = audit_service_module.log_action
-
-    async def hooked_compute_hash(db: Any, course: Any) -> str:
-        if barrier_active_snapshot:
-            snapshot_started.set()
-            await snapshot_resume.wait()
-        return await original_compute_hash(db, course)
-
-    async def hooked_log_action(*args: Any, **kwargs: Any) -> Any:
-        res = await original_log_action(*args, **kwargs)
-        action_name = args[2] if len(args) > 2 else kwargs.get("action")
-        if barrier_active_pre_commit and action_name == "resolve_source_uncertainty":
-            pre_commit_reached.set()
-            await pre_commit_resume.wait()
-        return res
-
-    source_uncertainty_module.compute_course_content_snapshot_hash = hooked_compute_hash
-    audit_service_module.log_action = hooked_log_action
-    course_router_module = sys.modules.get("app.modules.courses.router")
-    if course_router_module:
-        course_router_module.log_action = hooked_log_action
+    original_compute_hash: Any = None
+    original_log_action: Any = None
+    source_uncertainty_module: Any = None
+    audit_service_module: Any = None
+    course_router_module: Any = None
 
     try:
+        failure_stage = "setup_schema"
+        owner, runtime, fixtures, created, public_before_structure, public_before_counts_hashes = await setup_schema(
+            owner_url, runtime_url, supabase_url, schema, confirmed_pids=confirmed_test_pids
+        )
+
+        failure_stage = "app_initialization"
+        from app.core.auth import get_current_active_user, get_current_user
+        from app.core.db import get_db
+        import app.modules.audit.service as audit_service_module
+        from app.modules.courses.router import router as course_router
+        import app.modules.courses.source_uncertainty as source_uncertainty_module
+        from app.modules.lessons.service import create_content_block, update_content_block
+
+        tenant_a = fixtures["tenant_a"]
+        tenant_b = fixtures["tenant_b"]
+        actor_a = fixtures["actor_a"]
+        author_a = fixtures["author_a"]
+        actor_b = fixtures["actor_b"]
+        course_a = fixtures["course_a"]
+        doc_a = fixtures["doc_a"]
+        les_1 = fixtures["les_1"]
+        blk_1 = fixtures["blk_1"]
+        doc_rev_initial = fixtures["doc_rev_initial"]
+        defect_id = fixtures["defect_id"]
+        defect_desc = fixtures["defect_desc"]
+
+        current_actor: dict[str, Any] = {
+            "user": SimpleNamespace(
+                id=actor_a,
+                tenant_id=tenant_a,
+                role="methodologist",
+                roles=["methodologist"],
+                is_active=True,
+                email="meth-a@example.invalid",
+            ),
+            "context_tenant": str(tenant_a),
+        }
+
+        app = FastAPI()
+        app.include_router(course_router)
+
+        async def override_principal():
+            return current_actor["user"]
+
+        async def override_db():
+            async with AsyncSession(runtime, expire_on_commit=False) as session:
+                await set_context(session, schema, current_actor["context_tenant"], confirmed_pids=confirmed_test_pids)
+                yield session
+
+        app.dependency_overrides[get_current_active_user] = override_principal
+        app.dependency_overrides[get_current_user] = override_principal
+        app.dependency_overrides[get_db] = override_db
+
+        original_compute_hash = source_uncertainty_module.compute_course_content_snapshot_hash
+        original_log_action = audit_service_module.log_action
+
+        async def hooked_compute_hash(db: Any, course: Any) -> str:
+            if barrier_active_snapshot:
+                snapshot_started.set()
+                await snapshot_resume.wait()
+            return await original_compute_hash(db, course)
+
+        async def hooked_log_action(*args: Any, **kwargs: Any) -> Any:
+            res = await original_log_action(*args, **kwargs)
+            action_name = args[2] if len(args) > 2 else kwargs.get("action")
+            if barrier_active_pre_commit and action_name == "resolve_source_uncertainty":
+                pre_commit_reached.set()
+                await pre_commit_resume.wait()
+            return res
+
+        source_uncertainty_module.compute_course_content_snapshot_hash = hooked_compute_hash
+        audit_service_module.log_action = hooked_log_action
+        course_router_module = sys.modules.get("app.modules.courses.router")
+        if course_router_module:
+            course_router_module.log_action = hooked_log_action
+
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             # -------------------------------------------------------------
             # Stage 1: Inspect details & compute H1
@@ -583,12 +700,13 @@ async def run_uncertainty_dev_gate(
                 )
 
             meth_task = asyncio.create_task(methodologist_resolve_during_snapshot())
+            active_tasks.append(meth_task)
             await asyncio.wait_for(snapshot_started.wait(), timeout=10.0)
 
             # Concurrent action 2a: Author attempts official create_content_block under row lock
             author_blocked_during_snapshot = False
             async with AsyncSession(runtime, expire_on_commit=False) as author_session:
-                await set_context(author_session, schema, str(tenant_a))
+                await set_context(author_session, schema, str(tenant_a), confirmed_pids=confirmed_test_pids)
                 await author_session.execute(text("SET LOCAL lock_timeout = '250ms'"))
                 try:
                     await create_content_block(
@@ -613,7 +731,7 @@ async def run_uncertainty_dev_gate(
             # Concurrent action 2b: Document update attempted during snapshot build under document row lock
             doc_blocked_during_snapshot = False
             async with AsyncSession(runtime, expire_on_commit=False) as doc_session_race1:
-                await set_context(doc_session_race1, schema, str(tenant_a))
+                await set_context(doc_session_race1, schema, str(tenant_a), confirmed_pids=confirmed_test_pids)
                 await doc_session_race1.execute(text("SET LOCAL lock_timeout = '250ms'"))
                 try:
                     await doc_session_race1.execute(
@@ -685,12 +803,13 @@ async def run_uncertainty_dev_gate(
                 )
 
             meth_task_2 = asyncio.create_task(methodologist_resolve_pre_commit())
+            active_tasks.append(meth_task_2)
             await asyncio.wait_for(pre_commit_reached.wait(), timeout=10.0)
 
             # Concurrent action 3a: Author attempts official update_content_block right before commit under row lock
             author_blocked_pre_commit = False
             async with AsyncSession(runtime, expire_on_commit=False) as author_session_2:
-                await set_context(author_session_2, schema, str(tenant_a))
+                await set_context(author_session_2, schema, str(tenant_a), confirmed_pids=confirmed_test_pids)
                 await author_session_2.execute(text("SET LOCAL lock_timeout = '250ms'"))
                 try:
                     await update_content_block(
@@ -713,7 +832,7 @@ async def run_uncertainty_dev_gate(
             # Concurrent action 3b: Document update attempted right before commit under document row lock
             doc_blocked_pre_commit = False
             async with AsyncSession(runtime, expire_on_commit=False) as doc_session_race2:
-                await set_context(doc_session_race2, schema, str(tenant_a))
+                await set_context(doc_session_race2, schema, str(tenant_a), confirmed_pids=confirmed_test_pids)
                 await doc_session_race2.execute(text("SET LOCAL lock_timeout = '250ms'"))
                 try:
                     await doc_session_race2.execute(
@@ -1025,9 +1144,20 @@ async def run_uncertainty_dev_gate(
         barrier_active_pre_commit = False
         snapshot_resume.set()
         pre_commit_resume.set()
-        source_uncertainty_module.compute_course_content_snapshot_hash = original_compute_hash
-        audit_service_module.log_action = original_log_action
-        if course_router_module:
+
+        for t in active_tasks:
+            if t and not t.done():
+                t.cancel()
+                try:
+                    await t
+                except (asyncio.CancelledError, Exception):
+                    pass
+
+        if source_uncertainty_module and original_compute_hash:
+            source_uncertainty_module.compute_course_content_snapshot_hash = original_compute_hash
+        if audit_service_module and original_log_action:
+            audit_service_module.log_action = original_log_action
+        if course_router_module and original_log_action:
             course_router_module.log_action = original_log_action
 
         cleanup_error = None
@@ -1037,60 +1167,71 @@ async def run_uncertainty_dev_gate(
         public_counts_and_hashes_ok = False
         public_after_counts_hashes: dict[str, dict[str, Any]] = {}
 
-        try:
-            async with owner.begin() as cleanup_db:
-                # Terminate any backends that might still be touching this schema
-                await cleanup_db.execute(
-                    text("""
-                        SELECT pg_terminate_backend(pid)
-                        FROM pg_stat_activity
-                        WHERE pid <> pg_backend_pid()
-                          AND query LIKE :q
-                    """),
-                    {"q": f"%{schema}%"},
-                )
-                await cleanup_db.execute(text(f"DROP SCHEMA IF EXISTS {qschema(schema)} CASCADE"))
-        except Exception as exc:
-            cleanup_error = exc
+        # 1. Close application/runtime client connections cleanly first
+        if runtime is not None:
+            try:
+                await runtime.dispose()
+            except Exception:
+                pass
 
-        # Independently verify schema disappearance
-        try:
-            async with owner.connect() as check_conn:
-                schema_still_exists = await check_conn.scalar(
-                    text("SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = :schema)"),
-                    {"schema": schema},
-                )
-                if schema_still_exists:
-                    cleanup_error = GateBlocked(f"schema_{schema}_still_exists_after_drop")
-                else:
-                    schema_dropped = True
-                    checks.append("schema_teardown_independently_verified")
-        except Exception as exc:
-            if cleanup_error is None:
+        # 2. Terminate ONLY confirmed test backend PIDs if any linger.
+        # NEVER match by query text or schema wildcard, protecting foreign sessions.
+        if confirmed_test_pids and owner is not None:
+            await terminate_lingering_test_sessions(owner, confirmed_test_pids)
+
+        # 3. Teardown isolated schema if created
+        if created and owner is not None:
+            try:
+                async with owner.begin() as cleanup_db:
+                    await cleanup_db.execute(text(f"DROP SCHEMA IF EXISTS {qschema(schema)} CASCADE"))
+            except Exception as exc:
                 cleanup_error = exc
 
-        # Independently verify public relations and row counts AND content hashes remain unmutated
-        try:
-            async with owner.begin() as db:
-                public_after_structure = await public_snapshot(db)
-                public_structure_ok = (public_before_structure == public_after_structure)
-
-                public_after_counts_hashes = await public_business_row_snapshot(db)
-                public_counts_and_hashes_ok = (public_before_counts_hashes == public_after_counts_hashes)
-
-                if not public_structure_ok:
-                    raise GateBlocked("public_structure_mutated_after_test")
-                if not public_counts_and_hashes_ok:
-                    raise GateBlocked(
-                        f"public_business_rows_mutated_after_test: before={public_before_counts_hashes} after={public_after_counts_hashes}"
+            # Independently verify schema disappearance
+            try:
+                async with owner.connect() as check_conn:
+                    schema_still_exists = await check_conn.scalar(
+                        text("SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = :schema)"),
+                        {"schema": schema},
                     )
-                checks.append("public_business_table_counts_and_hashes_unmutated")
-        except Exception as exc:
-            if cleanup_error is None:
-                cleanup_error = exc
+                    if schema_still_exists:
+                        cleanup_error = GateBlocked(f"schema_{schema}_still_exists_after_drop")
+                    else:
+                        schema_dropped = True
+                        checks.append("schema_teardown_independently_verified")
+            except Exception as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
 
-        await owner.dispose()
-        await runtime.dispose()
+            # Independently verify public relations and row counts AND content hashes remain unmutated
+            try:
+                async with owner.begin() as db:
+                    public_after_structure = await public_snapshot(db)
+                    public_structure_ok = (public_before_structure == public_after_structure)
+
+                    public_after_counts_hashes = await public_business_row_snapshot(db)
+                    public_counts_and_hashes_ok = (public_before_counts_hashes == public_after_counts_hashes)
+
+                    if not public_structure_ok:
+                        raise GateBlocked("public_structure_mutated_after_test")
+                    if not public_counts_and_hashes_ok:
+                        raise GateBlocked(
+                            f"public_business_rows_mutated_after_test: before={public_before_counts_hashes} after={public_after_counts_hashes}"
+                        )
+                    checks.append("public_business_table_counts_and_hashes_unmutated")
+            except Exception as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
+        elif not created:
+            schema_dropped = True
+            public_structure_ok = True
+            public_counts_and_hashes_ok = True
+
+        if owner is not None:
+            try:
+                await owner.dispose()
+            except Exception:
+                pass
 
         # Strict integrity evaluation:
         overall_pass, receipt_status, missing_checks = evaluate_gate_outcome(
