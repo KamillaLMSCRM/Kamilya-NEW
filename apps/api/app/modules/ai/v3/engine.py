@@ -36,7 +36,14 @@ class V3GenerationPipeline:
         """
         self.invoker = llm_invoker
 
-    async def extract_rule_model(self, document_title: str, document_text: str, document_sha256: str) -> DocumentRuleModel:
+    async def extract_rule_model(
+        self,
+        document_title: str,
+        document_text: str,
+        document_sha256: str,
+        doc_id: str = "",
+        source_revision: str = "",
+    ) -> DocumentRuleModel:
         """Step 1: Extract structured Normative Matrix from full document text."""
         messages = [
             {"role": "system", "content": RULE_EXTRACTION_SYSTEM_PROMPT},
@@ -58,6 +65,8 @@ class V3GenerationPipeline:
                 timing=r.get("timing", ""),
                 consequences=r.get("consequences", ""),
                 source_quote=r.get("source_quote", ""),
+                doc_id=r.get("doc_id") or doc_id,
+                source_revision=r.get("source_revision") or source_revision,
             )
             for r in raw.get("rules", [])
         ]
@@ -66,6 +75,7 @@ class V3GenerationPipeline:
             document_sha256=document_sha256,
             rules=tuple(rules),
             overview=raw.get("overview", ""),
+            doc_id=doc_id,
         )
 
     async def generate_lesson_with_scenarios(

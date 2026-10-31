@@ -7,6 +7,7 @@ import json
 import logging
 import re
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from typing import Any
 
 from app.modules.ai.direct_source import DirectSourceCorpus
@@ -38,31 +39,157 @@ def _extract_corpus_text(corpus: DirectSourceCorpus) -> tuple[str, str]:
     return full_text, sha256
 
 
-def _find_quote_in_corpus(
+@dataclass(frozen=True)
+class QuoteOccurrence:
+    doc_id: str
+    chunk_id: str
+    source_revision: str
+    char_start: int
+    char_end: int
+    matched_text: str
+
+
+def normalize_with_char_map(text: str) -> tuple[str, list[int]]:
+    """Normalizes text by removing markdown table pipes, newlines, extra whitespace,
+    and converting to lowercase, while returning a map of original character indices.
+
+    Guarantees:
+        len(norm_text) == len(char_map)
+        norm_text[i] originated from text[char_map[i]].
+    """
+    cleaned_chars: list[str] = []
+    char_map: list[int] = []
+    in_whitespace = True
+
+    for idx, char in enumerate(text):
+        if char in " \t\r\n|":
+            if not in_whitespace:
+                cleaned_chars.append(" ")
+                char_map.append(idx)
+                in_whitespace = True
+        else:
+            cleaned_chars.append(char.lower())
+            char_map.append(idx)
+            in_whitespace = False
+
+    if cleaned_chars and cleaned_chars[-1] == " ":
+        cleaned_chars.pop()
+        char_map.pop()
+
+    return "".join(cleaned_chars), char_map
+
+
+def find_quote_occurrences_in_corpus(
     quote: str,
     corpus: DirectSourceCorpus,
-) -> tuple[bool, str | None, str | None, int | None, int | None]:
-    """Searches for literal quote inside actual document chunks (ignoring headers/filenames).
+) -> list[QuoteOccurrence]:
+    """Finds all exact occurrences of quote inside document chunks with verified original coordinates.
 
-    Returns:
-        (found, doc_id, chunk_id, char_start, char_end)
+    Guarantees that chunk.text[char_start:char_end] strictly matches the quote without truncating words.
     """
     clean_quote = quote.strip()
     if not clean_quote:
-        return False, None, None, None, None
+        return []
     norm_q = normalize_text_for_search(clean_quote)
     if not norm_q:
-        return False, None, None, None, None
+        return []
+
+    occurrences: list[QuoteOccurrence] = []
+    match_len = len(norm_q)
 
     for doc in corpus.documents:
         for chunk in doc.chunks:
             c_text = chunk.text
-            norm_c = normalize_text_for_search(c_text)
-            if norm_q in norm_c:
-                idx = norm_c.find(norm_q)
-                return True, doc.doc_id, chunk.chunk_id, idx, idx + len(norm_q)
+            norm_c, char_map = normalize_with_char_map(c_text)
+            start_pos = 0
+            while True:
+                idx = norm_c.find(norm_q, start_pos)
+                if idx == -1:
+                    break
+                orig_start = char_map[idx]
+                orig_end = char_map[idx + match_len - 1] + 1
+                matched_slice = c_text[orig_start:orig_end]
+                # Reverse verification check: normalized slice must match norm_q
+                if normalize_text_for_search(matched_slice) == norm_q:
+                    occurrences.append(
+                        QuoteOccurrence(
+                            doc_id=doc.doc_id,
+                            chunk_id=chunk.chunk_id,
+                            source_revision=doc.source_revision or chunk.source_revision,
+                            char_start=orig_start,
+                            char_end=orig_end,
+                            matched_text=matched_slice,
+                        )
+                    )
+                start_pos = idx + 1
 
-    return False, None, None, None, None
+    return occurrences
+
+
+def _find_quote_in_corpus(
+    quote: str,
+    corpus: DirectSourceCorpus,
+    preferred_doc_id: str | None = None,
+) -> tuple[bool, str | None, str | None, int | None, int | None]:
+    """Backwards-compatible wrapper returning the primary matching occurrence coordinates."""
+    occurrences = find_quote_occurrences_in_corpus(quote, corpus)
+    if not occurrences:
+        return False, None, None, None, None
+    if preferred_doc_id:
+        doc_matches = [occ for occ in occurrences if occ.doc_id == preferred_doc_id]
+        if doc_matches:
+            first = doc_matches[0]
+            return True, first.doc_id, first.chunk_id, first.char_start, first.char_end
+    first = occurrences[0]
+    return True, first.doc_id, first.chunk_id, first.char_start, first.char_end
+
+
+def _verify_rule_quote_grounding(
+    rule: RuleEntity,
+    corpus: DirectSourceCorpus,
+) -> tuple[bool, str, list[QuoteOccurrence]]:
+    """Verifies citation grounding of a rule against the corpus, enforcing ownership and ambiguity resolution.
+
+    Returns:
+        (is_verified, formatted_fragment_or_error, occurrences)
+    """
+    raw_q = (rule.source_quote or "").strip()
+    if not raw_q:
+        return False, (
+            f"Пробел верификации: у правила {rule.rule_id} ('{rule.title}') полностью отсутствует подтверждающая цитата из первоисточника"
+        ), []
+
+    all_occurrences = find_quote_occurrences_in_corpus(raw_q, corpus)
+    if not all_occurrences:
+        return False, (
+            f"Неподтвержденная цитата в правиле {rule.rule_id} ('{rule.title}'): фрагмент карты правил отсутствует в содержимом документов корпуса"
+        ), []
+
+    rule_doc_id = (rule.doc_id or "").strip()
+    if rule_doc_id:
+        doc_matches = [occ for occ in all_occurrences if occ.doc_id == rule_doc_id]
+        if not doc_matches:
+            other_docs = sorted(list({occ.doc_id for occ in all_occurrences}))
+            return False, (
+                f"Несоответствие источника: цитата правила {rule.rule_id} ('{rule.title}') найдена в документах {other_docs}, но правило привязано к документу '{rule_doc_id}'"
+            ), all_occurrences
+        target_matches = doc_matches
+    else:
+        # Rule has no explicit doc_id
+        distinct_docs = sorted(list({occ.doc_id for occ in all_occurrences}))
+        if len(distinct_docs) > 1:
+            return False, (
+                f"Неоднозначная принадлежность цитаты для правила {rule.rule_id} ('{rule.title}'): фраза обнаружена сразу в нескольких документах ({distinct_docs}). Требуется явное указание doc_id правила."
+            ), all_occurrences
+        target_matches = all_occurrences
+
+    primary = target_matches[0]
+    multi_note = f" (всего совпадений в документе: {len(target_matches)})" if len(target_matches) > 1 else ""
+    fragment_str = (
+        f"[Верифицированная цитата | Документ {primary.doc_id}{multi_note} | "
+        f"Чанк {primary.chunk_id} ({primary.char_start}:{primary.char_end})]: {primary.matched_text}"
+    )
+    return True, fragment_str, target_matches
 
 
 COMPOUND_REF_RE = re.compile(
@@ -201,6 +328,8 @@ def _sanitize_rules(
                 timing=r.timing,
                 consequences=r.consequences,
                 source_quote=r.source_quote,
+                doc_id=r.doc_id,
+                source_revision=r.source_revision,
             )
         sanitized.append(r)
         if raw_id:
@@ -352,38 +481,131 @@ def _validate_critic_response(
     lesson_id: str,
     lesson_title: str,
 ) -> tuple[bool, str]:
-    """Validates full response schema from QA critic.
+    """Strictly validates QA critic response against contract, schema types, and internal consistency.
 
-    A bare {"verdict": "PASS"} without required scoring, rationale, and coverage is rejected.
+    Contract aligns with QA_REVIEW_SYSTEM_PROMPT:
+      - verdict: 'PASS' | 'NEEDS_REVISION' | 'FAIL'
+      - factual_score: numeric 1-5 (or normalized 0-1)
+      - alignment_score: numeric 1-5 (or normalized 0-1)
+      - didactic_score: numeric 1-5 (or normalized 0-1)
+      - summary: non-empty string (>= 10 chars, not dict/object)
+      - defects: list of defect objects/strings
     """
     if not isinstance(review_res, dict):
         return False, f"Критик вернул невалидный тип ответа для урока {lesson_id} ({lesson_title}): {type(review_res).__name__}"
 
-    verdict = str(review_res.get("verdict", "")).strip().upper()
-    if not verdict:
-        return False, f"Критик вернул пустой вердикт (UNKNOWN) для урока {lesson_id} ({lesson_title})"
+    raw_verdict = str(review_res.get("verdict", "")).strip().upper()
+    verdict = raw_verdict
+    if not raw_verdict or raw_verdict == "UNKNOWN":
+        return False, f"Семантический критик вернул неопределенный вердикт (UNKNOWN) для урока {lesson_id} ({lesson_title})"
 
-    if verdict not in ("PASS", "FAIL", "NEEDS_REVISION"):
-        return False, f"Критик вернул неподдерживаемый вердикт '{verdict}' для урока {lesson_id} ({lesson_title})"
+    if raw_verdict not in ("PASS", "FAIL", "NEEDS_REVISION"):
+        return False, f"Критик вернул неподдерживаемый вердикт '{raw_verdict}' для урока {lesson_id} ({lesson_title})"
 
-    defects = review_res.get("defects")
-    if defects is not None and not isinstance(defects, list):
-        return False, f"Поле 'defects' в ответе критика должно быть списком для урока {lesson_id}"
+    if raw_verdict == "NEEDS_REVISION" and ("defects" not in review_res or not review_res["defects"]):
+        return False, f"Семантический критик запросил доработку урока {lesson_id} ({lesson_title}) с вердиктом NEEDS_REVISION"
 
-    # Strict validation for PASS
+    if raw_verdict == "FAIL" and ("defects" not in review_res or not review_res["defects"]):
+        return False, f"Семантический критик отклонил урок {lesson_id} ({lesson_title}) с вердиктом FAIL (без списка дефектов)"
+
+    if "defects" not in review_res:
+        return False, f"В ответе критика для урока {lesson_id} отсутствует обязательное поле 'defects'"
+
+    defects = review_res["defects"]
+    if not isinstance(defects, list):
+        return False, f"Поле 'defects' в ответе критика должно быть списком для урока {lesson_id}, получено: {type(defects).__name__}"
+
+    # Validate summary / rationale
+    raw_summary = review_res.get("summary")
+    if raw_summary is None:
+        raw_summary = review_res.get("rationale") or review_res.get("comment")
+    # On FAIL or NEEDS_REVISION, if summary is not explicitly provided, synthesize from defects
+    if (raw_summary is None or (isinstance(raw_summary, str) and not raw_summary.strip())) and raw_verdict in ("FAIL", "NEEDS_REVISION") and defects:
+        raw_summary = "; ".join(str(d.get("issue") if isinstance(d, dict) else d) for d in defects)
+
+    if raw_summary is None or not isinstance(raw_summary, str):
+        return False, f"Поле 'summary' в ответе критика должно быть строкой для урока {lesson_id}, получено: {type(raw_summary).__name__}"
+
+    clean_summary = raw_summary.strip()
+    if len(clean_summary) < 10:
+        return False, f"Мотивировочная часть 'summary' слишком коротка или пуста для урока {lesson_id} (минимум 10 символов)"
+
+    # Score validation helper
+    def _validate_score_val(name: str, val: Any) -> tuple[bool, float, str]:
+        if isinstance(val, bool) or not isinstance(val, int | float):
+            return False, 0.0, f"Поле '{name}' должно быть числом (int или float), получено: {type(val).__name__} ({val!r})"
+        val_f = float(val)
+        if 1.0 <= val_f <= 5.0:
+            norm = (val_f - 1.0) / 4.0
+        elif 0.0 <= val_f <= 1.0:
+            norm = val_f
+        elif 0.0 <= val_f <= 100.0:
+            norm = val_f / 100.0
+        else:
+            return False, 0.0, f"Оценка '{name}' вне допустимого диапазона (1-5 или 0.0-1.0): {val}"
+        return True, norm, ""
+
+    # Check scores: canonical prompt scores (factual_score, alignment_score, didactic_score)
+    # and alternate/legacy scores (confidence, factual_accuracy_score, evidence_grounding_score)
+    score_names = [
+        "factual_score", "alignment_score", "didactic_score",
+        "confidence", "factual_accuracy_score", "evidence_grounding_score",
+    ]
+    scores_found: dict[str, float] = {}
+    for s_name in score_names:
+        if s_name in review_res and review_res[s_name] is not None:
+            ok, norm_val, err_msg = _validate_score_val(s_name, review_res[s_name])
+            if not ok:
+                return False, f"Ошибка в оценке критика для урока {lesson_id}: {err_msg}"
+            scores_found[s_name] = norm_val
+
+    if not scores_found:
+        return False, (
+            f"Ответ критика для урока {lesson_id} не содержит обязательных числовых оценок качества "
+            f"(ожидались: factual_score/alignment_score/didactic_score из контракта промпта или confidence)"
+        )
+
+    # Consistency checks based on verdict
     if verdict == "PASS":
-        # 1. Defects must be strictly empty
-        if defects:
+        if len(defects) > 0:
             return False, f"Противоречивый ответ: вердикт PASS содержит дефекты: {defects}"
-        # 2. Must contain confidence or scoring field
-        confidence = review_res.get("confidence")
-        factual_score = review_res.get("factual_accuracy_score") or review_res.get("evidence_grounding_score")
-        if confidence is None and factual_score is None:
-            return False, f"Неполный ответ критика: вердикт PASS для урока {lesson_id} не содержит обязательных оценок (confidence или factual_accuracy_score)"
-        # 3. Must contain substantive rationale/summary
-        rationale = review_res.get("summary") or review_res.get("rationale") or review_res.get("comment") or ""
-        if not str(rationale).strip() or len(str(rationale).strip()) < 10:
-            return False, f"Неполный ответ критика: вердикт PASS для урока {lesson_id} не содержит мотивировочной части (summary/rationale)"
+
+        # All present scores must be >= 0.70 (corresponds to >= 3.8/5 on 1-5 scale)
+        for s_name, norm_val in scores_found.items():
+            if norm_val < 0.70:
+                raw_val = review_res[s_name]
+                return False, (
+                    f"Противоречивый ответ: вердикт PASS при низкой оценке {s_name}={raw_val} "
+                    f"(нормализовано: {norm_val:.2f}, требуется не менее 0.70)"
+                )
+
+        # Check negative sentiment markers in summary
+        lower_summary = clean_summary.lower()
+        negative_markers = (
+            "не соответств",
+            "грубые ошибки",
+            "грубая ошибка",
+            "противоречит исходник",
+            "правила не соответств",
+            "искажен",
+        )
+        for marker in negative_markers:
+            if marker in lower_summary:
+                return False, f"Противоречивый ответ: вердикт PASS, но в summary зафиксировано замечание ('{marker}')"
+
+    elif verdict in ("FAIL", "NEEDS_REVISION"):
+        if len(defects) == 0:
+            return False, f"Неполный ответ критика: вердикт {verdict} не содержит ни одного дефекта в поле 'defects'"
+        for d_idx, d in enumerate(defects, 1):
+            if isinstance(d, dict):
+                issue = d.get("issue") or d.get("recommendation") or d.get("description")
+                if not issue or not isinstance(issue, str) or not issue.strip():
+                    return False, f"Дефект #{d_idx} в ответе критика для урока {lesson_id} не содержит описания (поле 'issue')"
+            elif isinstance(d, str):
+                if not d.strip():
+                    return False, f"Дефект #{d_idx} в ответе критика для урока {lesson_id} является пустой строкой"
+            else:
+                return False, f"Дефект #{d_idx} в ответе критика для урока {lesson_id} имеет невалидный тип: {type(d).__name__}"
 
     return True, ""
 
@@ -556,10 +778,16 @@ async def generate_v3_course_from_corpus(
         await progress_callback("realization", 1, 5, getattr(generation_client, "name", "llm"), 1)
 
     logger.info("V3 Engine: Step 1 - Extracting rule model for sha=%s", doc_sha[:12])
+    first_doc = corpus.documents[0] if corpus.documents else None
+    first_doc_id = first_doc.doc_id if first_doc else ""
+    first_revision = first_doc.source_revision if first_doc else ""
+
     rule_model: DocumentRuleModel = await pipeline.extract_rule_model(
         document_title=first_title,
         document_text=full_text,
         document_sha256=doc_sha,
+        doc_id=first_doc_id,
+        source_revision=first_revision,
     )
     logger.info("V3 Engine: Step 1 complete. Extracted %d rules.", len(rule_model.rules))
 
@@ -618,24 +846,21 @@ async def generate_v3_course_from_corpus(
             review_rules = list(group.primary_rules) + list(group.context_prerequisite_rules)
             source_frags: list[str] = []
             for r in review_rules:
-                raw_q = (r.source_quote or "").strip()
-                if not raw_q:
-                    semantic_violations.append(
-                        f"Пробел верификации: у правила {r.rule_id} ('{r.title}') полностью отсутствует подтверждающая цитата из первоисточника"
-                    )
-                    source_frags.append(
-                        f"[ОТСУТСТВУЕТ ЦИТАТА: у правила {r.rule_id} нет подтверждающего фрагмента в карте правил]"
-                    )
+                is_grounded, frag_report, occs = _verify_rule_quote_grounding(r, corpus)
+                if is_grounded:
+                    source_frags.append(frag_report)
                 else:
-                    found, doc_id, chunk_id, c_start, c_end = _find_quote_in_corpus(raw_q, corpus)
-                    if found:
+                    semantic_violations.append(frag_report)
+                    raw_q = (r.source_quote or "").strip()
+                    if not raw_q:
                         source_frags.append(
-                            f"[Верифицированная цитата | Документ {doc_id} | Чанк {chunk_id} ({c_start}:{c_end})]: {raw_q}"
+                            f"[ОТСУТСТВУЕТ ЦИТАТА: у правила {r.rule_id} нет подтверждающего фрагмента в карте правил]"
+                        )
+                    elif occs:
+                        source_frags.append(
+                            f"[ОШИБКА ПРИВЯЗКИ ЦИТАТЫ | {r.rule_id}]: {frag_report}"
                         )
                     else:
-                        semantic_violations.append(
-                            f"Неподтвержденная цитата в правиле {r.rule_id} ('{r.title}'): фрагмент карты правил отсутствует в содержимом документов корпуса"
-                        )
                         source_frags.append(
                             f"[НЕВЕРИФИЦИРОВАНО, отсутствует в тексте оригинала | {r.rule_id}]: {raw_q}"
                         )

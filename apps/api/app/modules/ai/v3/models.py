@@ -28,6 +28,8 @@ class RuleEntity:
     timing: str = ""
     consequences: str = ""
     source_quote: str = ""
+    doc_id: str = ""
+    source_revision: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -39,6 +41,7 @@ class DocumentRuleModel:
     document_sha256: str
     rules: tuple[RuleEntity, ...]
     overview: str = ""
+    doc_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

@@ -1472,18 +1472,21 @@ async def test_critic_response_rejects_bare_pass_without_schema():
     artifacts = await generate_v3_course_from_corpus(corpus=corpus, intent=intent, generation_client=mock_llm_bare_pass)
 
     violations = artifacts.diagnostics["violations"]
-    assert any("Неполный ответ критика: вердикт PASS" in v for v in violations)
+    assert any("отсутствует обязательное поле 'defects'" in v or "не содержит обязательных числовых оценок" in v for v in violations)
     assert artifacts.diagnostics["validation_report"]["verdict"] == "FAIL"
 
 
 @pytest.mark.asyncio
-async def test_real_db_pipeline_persistence_and_methodologist_lifecycle(monkeypatch):
-    """Verify Point 5: Full integration persistence lifecycle verifying review blocking across saves."""
+async def test_mock_session_persistence_and_methodologist_review_lock(monkeypatch):
+    """Verify Point 5: Generation pipeline persistence and methodologist review/publish hold guards with mock session harness."""
     from types import SimpleNamespace
     from uuid import uuid4
 
+    from fastapi import HTTPException
+
     from app.modules.ai import pipeline
     from app.modules.courses.models import Course
+    from app.modules.courses.source_uncertainty import require_persisted_source_hold_clear
     from app.modules.lessons.models import Lesson
 
     tenant_id = uuid4()
@@ -1605,6 +1608,12 @@ async def test_real_db_pipeline_persistence_and_methodologist_lifecycle(monkeypa
     assert len(saved_lessons) == 1
     assert saved_lessons[0].source_validation_status == "needs_review"
 
+    # Verify methodologist review/publish guard BLOCKS approval while hold marker exists
+    with pytest.raises(HTTPException) as hold_err:
+        require_persisted_source_hold_clear(session.course.source_analysis)
+    assert hold_err.value.status_code == 409
+    assert hold_err.value.detail["code"] == "source_uncertainty_review_required"
+
     # 3. Simulate re-save / regeneration job on the existing course
     session.committed = False
     session.added.clear()
@@ -1615,6 +1624,222 @@ async def test_real_db_pipeline_persistence_and_methodologist_lifecycle(monkeypa
     assert session.course.source_analysis.get("unresolved_source_uncertainty", {}).get("status") == "review_required"
     saved_lessons_2 = [v for v in session.added if isinstance(v, Lesson)]
     assert saved_lessons_2[0].source_validation_status == "needs_review"
+
+    # 4. Methodologist explicitly clears uncertainty marker after manual review and edits
+    session.course.source_analysis.pop("unresolved_source_uncertainty", None)
+    # Guard now passes without raising 409
+    require_persisted_source_hold_clear(session.course.source_analysis)
+
+
+@pytest.mark.asyncio
+async def test_critic_schema_matches_prompt_and_enforces_strict_typing():
+    """Verify Points 1 & 2: Critic schema validates canonical prompt contract and rejects malformed/contradictory data."""
+    from app.modules.ai.v3.service import _validate_critic_response
+
+    # 1. Canonical response strictly according to prompts.py MUST PASS
+    canonical_pass = {
+        "verdict": "PASS",
+        "factual_score": 5,
+        "alignment_score": 5,
+        "didactic_score": 5,
+        "summary": "Урок полностью соответствует исходному регламенту.",
+        "defects": [],
+    }
+    is_valid, err = _validate_critic_response(canonical_pass, "l-1", "Тестовый урок")
+    assert is_valid is True, f"Canonical prompt response failed validation: {err}"
+
+    # 2. Reject confidence: "not-a-number"
+    nan_response = {
+        "verdict": "PASS",
+        "confidence": "not-a-number",
+        "summary": "Урок проверен.",
+        "defects": [],
+    }
+    is_valid, err = _validate_critic_response(nan_response, "l-1", "Тестовый урок")
+    assert is_valid is False
+    assert "должно быть числом" in err
+
+    # 3. Reject summary as object/dict
+    obj_summary = {
+        "verdict": "PASS",
+        "factual_score": 5,
+        "summary": {"issue": "none"},
+        "defects": [],
+    }
+    is_valid, err = _validate_critic_response(obj_summary, "l-1", "Тестовый урок")
+    assert is_valid is False
+    assert "должно быть строкой" in err
+
+    # 4. Reject confidence: 0 with verdict PASS (internal contradiction)
+    zero_conf_pass = {
+        "verdict": "PASS",
+        "confidence": 0,
+        "summary": "Урок выглядит хорошо.",
+        "defects": [],
+    }
+    is_valid, err = _validate_critic_response(zero_conf_pass, "l-1", "Тестовый урок")
+    assert is_valid is False
+    assert "низкой оценке" in err
+
+    # 5. Reject contradiction: verdict PASS but summary indicates mismatch
+    contradiction_summary = {
+        "verdict": "PASS",
+        "factual_score": 5,
+        "summary": "Правила не соответствуют исходнику в пункте о пролонгации.",
+        "defects": [],
+    }
+    is_valid, err = _validate_critic_response(contradiction_summary, "l-1", "Тестовый урок")
+    assert is_valid is False
+    assert "в summary зафиксировано замечание" in err
+
+    # 6. Reject missing defects field
+    missing_defects = {
+        "verdict": "PASS",
+        "factual_score": 5,
+        "summary": "Урок полностью соответствует исходному регламенту.",
+    }
+    is_valid, err = _validate_critic_response(missing_defects, "l-1", "Тестовый урок")
+    assert is_valid is False
+    assert "отсутствует обязательное поле 'defects'" in err
+
+
+@pytest.mark.asyncio
+async def test_quote_exact_coordinates_preserve_whitespace_and_reverse_slice():
+    """Verify Point 3: Character coordinates in chunk text accurately reverse slice the quote without truncation."""
+    from app.modules.ai.v3.service import find_quote_occurrences_in_corpus, normalize_text_for_search
+
+    chunk_text = (
+        "Раздел 1. Вводные положения.\n\n"
+        "  Сотрудник филиала      обязан\n\n"
+        "неукоснительно   закрыть   дверь   сейфа   при уходе на обеденный перерыв.\n\n"
+        "Раздел 2. Дополнительные требования."
+    )
+    chunk = DirectSourceChunk(
+        chunk_id="chk-coord-1",
+        doc_id="doc-coord-1",
+        doc_name="coord.txt",
+        title="Координаты",
+        headings=("Раздел 1",),
+        text=chunk_text,
+        source_revision="rev-1",
+        chunk_index=0,
+    )
+    doc = DirectSourceDocument(
+        doc_id="doc-coord-1",
+        title="Координаты",
+        filename="coord.txt",
+        category="regulations",
+        source_revision="rev-1",
+        chunks=(chunk,),
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-coord",
+        documents=(doc,),
+        total_chars=len(chunk_text),
+        total_chunks=1,
+    )
+
+    quote = "Сотрудник филиала обязан неукоснительно закрыть дверь сейфа при уходе на обеденный перерыв."
+    occurrences = find_quote_occurrences_in_corpus(quote, corpus)
+    assert len(occurrences) == 1
+
+    occ = occurrences[0]
+    # Reverse slice on the ORIGINAL chunk text must exactly match the quote after normalization
+    sliced_text = chunk_text[occ.char_start : occ.char_end]
+    assert normalize_text_for_search(sliced_text) == normalize_text_for_search(quote)
+    # The slice must not cut off the last word
+    assert sliced_text.strip().endswith("обеденный перерыв.")
+    assert sliced_text.strip().startswith("Сотрудник филиала")
+
+
+@pytest.mark.asyncio
+async def test_quote_ownership_and_cross_document_ambiguity():
+    """Verify Point 4: Quote ownership resolves candidate documents and prevents ambiguous cross-doc binding."""
+    from app.modules.ai.v3.service import _verify_rule_quote_grounding
+
+    quote_shared = "Сотрудник обязан закрыть дверь сейфа."
+    doc_a_chunk = DirectSourceChunk(
+        chunk_id="chk-a-1",
+        doc_id="doc-A",
+        doc_name="a.txt",
+        title="Документ А",
+        headings=(),
+        text=f"Регламент А. {quote_shared} Конец регламента А.",
+        source_revision="rev-a",
+        chunk_index=0,
+    )
+    doc_b_chunk = DirectSourceChunk(
+        chunk_id="chk-b-1",
+        doc_id="doc-B",
+        doc_name="b.txt",
+        title="Документ Б",
+        headings=(),
+        text=f"Инструкция Б. {quote_shared} Дополнительное пояснение Б.",
+        source_revision="rev-b",
+        chunk_index=0,
+    )
+    doc_a = DirectSourceDocument(
+        doc_id="doc-A",
+        title="Документ А",
+        filename="a.txt",
+        category="regulations",
+        source_revision="rev-a",
+        chunks=(doc_a_chunk,),
+    )
+    doc_b = DirectSourceDocument(
+        doc_id="doc-B",
+        title="Документ Б",
+        filename="b.txt",
+        category="regulations",
+        source_revision="rev-b",
+        chunks=(doc_b_chunk,),
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-multi",
+        documents=(doc_a, doc_b),
+        total_chars=100,
+        total_chunks=2,
+    )
+
+    # Case 1: Rule has NO doc_id set, and quote is in both documents -> must flag ambiguity
+    rule_ambiguous = RuleEntity(
+        rule_id="r-ambig",
+        section="Раздел",
+        title="Правило без владельца",
+        statement="Сотрудник обязан закрыть дверь сейфа.",
+        source_quote=quote_shared,
+        doc_id="",
+    )
+    is_grounded, report, _ = _verify_rule_quote_grounding(rule_ambiguous, corpus)
+    assert is_grounded is False
+    assert "Неоднозначная принадлежность цитаты" in report
+
+    # Case 2: Rule explicitly specifies doc_id="doc-B" -> must bind strictly to doc-B (not doc-A)
+    rule_owner_b = RuleEntity(
+        rule_id="r-b",
+        section="Раздел",
+        title="Правило из Б",
+        statement="Сотрудник обязан закрыть дверь сейфа.",
+        source_quote=quote_shared,
+        doc_id="doc-B",
+    )
+    is_grounded, report, matches = _verify_rule_quote_grounding(rule_owner_b, corpus)
+    assert is_grounded is True
+    assert "Документ doc-B" in report
+    assert all(m.doc_id == "doc-B" for m in matches)
+
+    # Case 3: Rule specifies doc_id="doc-C" (where quote does not exist) -> must flag mismatch
+    rule_mismatch = RuleEntity(
+        rule_id="r-mismatch",
+        section="Раздел",
+        title="Правило из C",
+        statement="Сотрудник обязан закрыть дверь сейфа.",
+        source_quote=quote_shared,
+        doc_id="doc-C",
+    )
+    is_grounded, report, _ = _verify_rule_quote_grounding(rule_mismatch, corpus)
+    assert is_grounded is False
+    assert "Несоответствие источника" in report
 
 
 
