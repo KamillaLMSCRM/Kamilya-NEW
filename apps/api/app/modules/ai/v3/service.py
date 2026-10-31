@@ -81,30 +81,27 @@ async def generate_v3_course_from_corpus(
     if cancellation_callback:
         await cancellation_callback()
 
-    # Stage 2: Group rules into didactic curriculum blocks
-    groups: dict[str, list[RuleEntity]] = {
-        "Лимиты выдачи микрокредитов и тарифные группы": [
-            r for r in rule_model.rules if any(k in r.statement.lower() for k in ["лимит", "таблица 1", "700", "1 100", "1 400"])
-        ],
-        "Порядок согласования: I категория": [
-            r for r in rule_model.rules if "i категор" in r.title.lower() or "i категор" in r.statement.lower()
-        ],
-        "Порядок согласования: II категория": [
-            r for r in rule_model.rules if "ii категор" in r.title.lower() or "ii категор" in r.statement.lower()
-        ],
-        "Запреты, пролонгация и материальная ответственность": [
-            r for r in rule_model.rules if any(k in r.statement.lower() for k in ["пролонгац", "ответственност", "стоп-лист", "ущерб", "акт"])
-        ],
-    }
+    # Stage 2: Dynamically group rules into didactic curriculum blocks by document section
+    section_groups: dict[str, list[RuleEntity]] = {}
+    for r in rule_model.rules:
+        sec = r.section.strip() if r.section.strip() else "Основные правила"
+        section_groups.setdefault(sec, []).append(r)
 
-    # Catch-all if rules didn't match keyword heuristics
-    allocated_rule_ids = {r.rule_id for rules_list in groups.values() for r in rules_list}
-    unallocated = [r for r in rule_model.rules if r.rule_id not in allocated_rule_ids]
-    if unallocated:
-        groups["Общие операционные стандарты и требования"] = unallocated
+    # Balance curriculum blocks: ensure each lesson covers 3 to 6 closely related rules
+    active_groups: dict[str, list[RuleEntity]] = {}
+    for sec, r_list in section_groups.items():
+        if len(r_list) <= 6:
+            active_groups[sec] = r_list
+        else:
+            for chunk_idx in range(0, len(r_list), 5):
+                chunk = r_list[chunk_idx : chunk_idx + 5]
+                part_title = f"{sec} (Часть {chunk_idx // 5 + 1})" if chunk_idx > 0 else sec
+                active_groups[part_title] = chunk
 
-    # Filter empty groups
-    active_groups = {theme: r_list for theme, r_list in groups.items() if r_list}
+    # Fallback to single group if no sections defined
+    if not active_groups:
+        active_groups["Общие операционные стандарты"] = list(rule_model.rules)
+
     total_lessons = len(active_groups)
 
     generated_lessons: list[V3Lesson] = []
@@ -137,15 +134,16 @@ async def generate_v3_course_from_corpus(
     )
 
     report = validate_v3_course(unvalidated_course, full_text)
-    quality_verdict = "verified" if report.verdict == "PASS" else "needs_review"
-    if report.verdict != "PASS":
+    # Automated structural validation never falsely certifies semantic truth; status remains needs_review
+    quality_verdict = report.quality_status
+    if report.structural_verdict != "PASS":
         logger.warning(
-            "V3 Course Quality Gate identified %d violations: %s",
+            "V3 Course Quality Gate identified %d structural violations: %s",
             len(report.violations),
             "; ".join(report.violations[:5]),
         )
     else:
-        logger.info("V3 Course Quality Gate passed all invariants with verdict=%s", report.verdict)
+        logger.info("V3 Course Quality Gate passed all structural invariants (verdict=%s)", report.structural_verdict)
 
     course = V3Course(
         course_id=unvalidated_course.course_id,

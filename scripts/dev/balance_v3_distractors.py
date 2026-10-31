@@ -9,26 +9,23 @@ from pathlib import Path
 def repair_and_balance_preview(preview_path: Path) -> dict:
     data = json.load(preview_path.open(encoding="utf-8"))
 
-    # 1. Substantive fix in Lesson 2 content (solidarity liability applies to both I and II)
     for lesson in data["lessons"]:
-        if lesson["lesson_id"] == "lesson-2":
+        # 1. Substantive fix in Lesson 2 content (solidarity liability applies to both I and II)
+        if "category-i" in lesson["lesson_id"]:
             lesson["content"] = lesson["content"].replace(
-                "Предоставленное правило о солидарной ответственности прямо относится к лицу, согласовавшему **II категорию**: подпись на залоговом билете и отметка в 1С подтверждают принятие солидарной ответственности при несоответствии залога или суммы.",
-                "Положение о солидарной материальной ответственности относится к согласованию микрокредитов: подпись согласующего лица на залоговом билете и отметка в 1С подтверждают принятие солидарной ответственности (как для I, так и для II категории) при несоответствии залога или суммы установленным стандартам.",
+                "### Ответственность: важное различие категорий\nПредоставленное правило о солидарной ответственности прямо относится к лицу, согласовавшему **II категорию**: подпись на залоговом билете и отметка в 1С подтверждают принятие этой ответственности при выявленном несоответствии залога и/или суммы требованиям ломбарда. Не переносите это специальное положение на I категорию без основания в применимом регламенте.",
+                "### Солидарная ответственность при согласовании\nПодписанием залогового билета и проставлением отметки о согласовании микрокредита в программном обеспечении Ломбарда 1С лицо, согласовавшее микрокредит (как по I, так и по II категории), принимает на себя солидарную ответственность в случае несоответствия залогового имущества и/или размера выданного микрокредита требованиям ломбарда.",
             )
 
-        if lesson["lesson_id"] == "lesson-4":
-            # Add explicit repayment exception to Lesson 4 content
+        # 2. Substantive fix in Lesson 4 content (repayment exception)
+        if "liability" in lesson["lesson_id"] or "prohibitions" in lesson["lesson_id"]:
             if "если на момент согласования микрокредит погашен" not in lesson["content"]:
-                lesson["content"] += (
-                    "\n\n### Исключение при погашении микрокредита до согласования\n"
-                    "Важное нормативное исключение: если на момент согласования микрокредит уже погашен клиентом "
-                    "и залоговое имущество возвращено заёмщику, то отметка о согласовании на залоговом билете "
-                    "НЕ проставляется."
+                lesson["content"] = lesson["content"].replace(
+                    "4. **Не проводите запрещенную пролонгацию.** Если микрокредит не согласован АУП РД, эксперт-оценщик не вправе пролонгировать соответствующий залоговый билет.",
+                    "4. **Не проводите запрещенную пролонгацию.** Если микрокредит не согласован АУП РД, эксперт-оценщик не вправе пролонгировать соответствующий залоговый билет. В случае если на момент согласования микрокредит погашен и залоговое имущество возвращено заёмщику, то отметка о согласовании не проставляется.",
                 )
 
-    # 2. Substantive fixes for 48 000 and 52 000 in Lesson 4
-    for lesson in data["lessons"]:
+        # 3. Substantive fixes for 48 000 and 52 000 in cases
         for case in lesson.get("cases", []):
             for variant in case.get("variants", []):
                 # Fix 48 000 -> 850 000 (Category I for Group 1)
@@ -49,8 +46,7 @@ def repair_and_balance_preview(preview_path: Path) -> dict:
                         "52 000 тенге", "920 000 тенге"
                     )
 
-    # 3. Balance distractor lengths across all 32 questions
-    # We want exactly ~20-22% (6-7 questions out of 32) where correct is longest.
+    # 4. Clean natural distractor balancing
     q_index = 0
     for l_idx, lesson in enumerate(data["lessons"], 1):
         for c_idx, case in enumerate(lesson.get("cases", []), 1):
@@ -60,11 +56,14 @@ def repair_and_balance_preview(preview_path: Path) -> dict:
                 corr_len = len(correct_text)
                 distractors = variant.get("distractor_pool", [])
 
-                # Leave correct answer as the longest only for ~20% of questions (e.g. when q_index in [4, 9, 14, 19, 24, 29])
+                # Clean any prior formulaic suffixes
+                for d in distractors:
+                    d["text"] = d["text"].replace(" вопреки прямому требованию регламента безопасности ломбарда.", ".")
+                    d["text"] = d["text"].replace("..", ".")
+
                 target_correct_longest = q_index in {4, 9, 14, 19, 24, 29}
 
                 if not target_correct_longest and distractors:
-                    # Pick distractor index to expand so that it is longer than correct
                     target_d_idx = q_index % min(3, len(distractors))
                     d = distractors[target_d_idx]
                     d_text = d["text"].rstrip(".")
@@ -87,12 +86,6 @@ def repair_and_balance_preview(preview_path: Path) -> dict:
                             expansion = ", рассчитывая устранить выявленное расхождение в ходе плановой квартальной инвентаризации филиала"
 
                         d["text"] = f"{d_text}{expansion}."
-
-                # Also ensure baseline length for other distractors
-                for d in distractors:
-                    if len(d["text"]) < 90:
-                        d_text = d["text"].rstrip(".")
-                        d["text"] = f"{d_text} вопреки прямому требованию регламента безопасности ломбарда."
 
     preview_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     return data

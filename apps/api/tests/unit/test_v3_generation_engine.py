@@ -429,26 +429,26 @@ def test_validate_v3_course_detects_length_shortcut():
     assert any("Shortcut Gate" in v for v in report.violations)
 
 
-def test_validate_v3_course_detects_substantive_48k_error():
-    """Verify that validate_v3_course detects 48 000 / 52 000 KZT wrongly assigned to Category I."""
+def test_validate_v3_course_detects_invented_quote_and_missing_source():
+    """Verify that validate_v3_course strictly fails on invented quotes and missing source text."""
     from app.modules.ai.v3.validator import validate_v3_course
 
     variant = V3QuestionVariant(
-        variant_id="var-48k",
+        variant_id="var-invented-quote",
         branch_context="Филиал",
-        scenario_premise="Эксперт оформил микрокредит I категории на 48 000 тенге.",
-        prompt="Какое решение принять?",
+        scenario_premise="Сотрудник оформил операцию.",
+        prompt="Какое действие предпринять?",
         correct_option=V3Option(
-            text="Согласовать микрокредит I категории на 48 000 тенге с АУП РД по телефону",
+            text="Выполнить согласование с региональным директором",
             is_correct=True,
         ),
         distractor_pool=(
-            V3Option(text="Оформить микрокредит без согласования вопреки требованиям", is_correct=False, distractor_category=DistractorCategory.PROCEDURAL_CONFUSION),
+            V3Option(text="Оформить операцию без согласования вопреки стандарту", is_correct=False, distractor_category=DistractorCategory.PROCEDURAL_CONFUSION),
             V3Option(text="Передать вопрос директору филиала по служебной записке", is_correct=False, distractor_category=DistractorCategory.ROLE_CONFUSION),
-            V3Option(text="Отложить оформление залога до окончания плановой инвентаризации", is_correct=False, distractor_category=DistractorCategory.TIMING_VIOLATION),
+            V3Option(text="Отложить оформление залога до окончания плановой смены", is_correct=False, distractor_category=DistractorCategory.TIMING_VIOLATION),
         ),
         explanation="Пояснение",
-        source_quote="Цитата",
+        source_quote="Полностью выдуманная цитата, которой нет в тексте нормативного регламента",
     )
     case = V3ScenarioCase(case_id="case-1", rule_id="rule-1", learning_objective="Цель", variants=(variant,))
     lesson = V3Lesson(
@@ -462,10 +462,16 @@ def test_validate_v3_course_detects_substantive_48k_error():
     )
     course = V3Course(course_id="c1", title="Курс", document_sha256="abc", lessons=(lesson,))
 
-    report = validate_v3_course(course)
-    assert report.verdict == "FAIL"
-    assert report.substantive_check_passed is False
-    assert any("48 000 / 52 000 KZT cannot be Category I" in v for v in report.violations)
+    # Case A: Missing source text fails citation grounding
+    report_empty = validate_v3_course(course, source_document_text="")
+    assert report_empty.verdict == "FAIL"
+    assert report_empty.quality_status == "needs_review"
+    assert any("Source document text is empty" in v for v in report_empty.violations)
+
+    # Case B: Invented quote fails against real source text
+    report_invented = validate_v3_course(course, source_document_text="Настоящий регламент содержит совершенно другой текст.")
+    assert report_invented.verdict == "FAIL"
+    assert any("Citation grounding failure" in v for v in report_invented.violations)
 
 
 

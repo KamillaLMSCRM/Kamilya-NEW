@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -28,17 +27,20 @@ class QualityMetrics:
 
 @dataclass(frozen=True)
 class ValidationReport:
-    verdict: str  # "PASS" or "FAIL"
-    quality_status: str  # "verified" or "needs_review"
+    structural_verdict: str  # "PASS" or "FAIL"
+    quality_status: str  # Always "needs_review" until independent semantic review proves factual truth
     metrics: QualityMetrics
     violations: list[str]
-    substantive_check_passed: bool
+
+    @property
+    def verdict(self) -> str:
+        return self.structural_verdict
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "verdict": self.verdict,
+            "verdict": self.structural_verdict,
+            "structural_verdict": self.structural_verdict,
             "quality_status": self.quality_status,
-            "substantive_check_passed": self.substantive_check_passed,
             "violations": self.violations,
             "metrics": {
                 "total_cases": self.metrics.total_cases,
@@ -59,8 +61,8 @@ class ValidationReport:
 
 
 def normalize_text_for_search(text: str) -> str:
-    """Normalizes text by removing markdown table pipes, extra whitespace, and lowercase."""
-    cleaned = text.replace("|", " ").replace("\n", " ").replace("\r", " ")
+    """Normalizes text by removing markdown table pipes, extra whitespace, and converting to lowercase."""
+    cleaned = text.replace("|", " ").replace("\n", " ").replace("\r", " ").replace("\t", " ")
     return " ".join(cleaned.lower().split())
 
 
@@ -70,9 +72,19 @@ def validate_v3_course(
     *,
     max_longest_correct_ratio: float = 0.25,
 ) -> ValidationReport:
-    """Rigorous offline validation of V3Course against didactic, structural, and substantive invariants."""
+    """Rigorous offline validation of V3Course against didactic and structural invariants.
+
+    IMPORTANT SAFETY INVARIANT:
+    Automatic structural and text-matching validation checks form, length symmetry, and literal citation presence.
+    It CANNOT prove semantic alignment (e.g. it cannot distinguish whether the generated rule reversed a prohibition).
+    Therefore, quality_status is ALWAYS returned as 'needs_review', never falsely claiming 'verified' without
+    an independent two-factor semantic audit.
+    """
     norm_source = normalize_text_for_search(source_document_text) if source_document_text else ""
     violations: list[str] = []
+
+    if not norm_source:
+        violations.append("Source document text is empty; citation grounding cannot be verified.")
 
     total_cases = 0
     total_variants = 0
@@ -151,18 +163,20 @@ def validate_v3_course(
                     if corr_len > max(wrong_lens):
                         longest_correct_count += 1
 
-                # Invariant 5: Source quote grounding
+                # Invariant 5: Strict Full-Quote Grounding (no 6-word shortcut)
                 quote = variant.source_quote.strip()
                 if quote and norm_source:
                     norm_q = normalize_text_for_search(quote)
-                    # Try full quote or first 5 words
-                    first_words = " ".join(norm_q.split()[:6])
-                    if norm_q in norm_source or (first_words and first_words in norm_source):
+                    if norm_q and norm_q in norm_source:
                         quotes_verified += 1
                     else:
-                        unverified_quotes.append(f"{variant.variant_id}: {quote[:60]}...")
-                elif quote:
-                    quotes_verified += 1  # No source text provided to check against
+                        unverified_quotes.append(f"{variant.variant_id}: '{quote[:70]}...'")
+                        violations.append(
+                            f"Citation grounding failure: Quote for {variant.variant_id} not found in full text"
+                        )
+                elif not quote:
+                    unverified_quotes.append(f"{variant.variant_id}: Empty citation")
+                    violations.append(f"Citation grounding failure: Empty quote in {variant.variant_id}")
 
     # Calculate percentages
     n_var = max(1, total_variants)
@@ -174,32 +188,7 @@ def validate_v3_course(
     overlap_pct = (case_overlap_flags / max(1, total_cases)) * 100.0
     quote_pct = round((quotes_verified / n_var) * 100.0, 1)
 
-    # Substantive checks for known Lombard domain errors
-    substantive_passed = True
-    for lesson in course.lessons:
-        # Check 1: 48 000 / 52 000 incorrectly called Category I without cumulative condition
-        for case in lesson.cases:
-            for variant in case.variants:
-                text_to_check = f"{variant.scenario_premise} {variant.prompt} {variant.correct_option.text}"
-                if re.search(r"\b(48\s*000|52\s*000)\s*тенге\b", text_to_check, re.IGNORECASE):
-                    if "i категор" in text_to_check.lower() and "общая сумма" not in text_to_check.lower():
-                        substantive_passed = False
-                        violations.append(
-                            f"Substantive error in {variant.variant_id}: 48 000 / 52 000 KZT cannot be Category I "
-                            f"without cumulative aggregation above 700 100 KZT."
-                        )
-
-        # Check 2: Solidarity liability restricted only to Category II
-        content_lower = lesson.content.lower()
-        if "солидарной ответственности прямо относится" in content_lower and "только" in content_lower:
-            if "к лицу, согласовавшему ii категорию" in content_lower:
-                substantive_passed = False
-                violations.append(
-                    f"Substantive error in {lesson.title}: solidarity liability applies to BOTH Category I and II, "
-                    f"not only Category II."
-                )
-
-    # Threshold gates
+    # Invariant threshold checks
     if four_opt_pct < 100.0:
         violations.append(f"Invariant 1 failed: 4-option adherence is {four_opt_pct:.1f}% (required 100%)")
     if single_corr_pct < 100.0:
@@ -215,14 +204,15 @@ def validate_v3_course(
         )
     if overlap_pct > 0.0:
         violations.append(f"Invariant 5 failed: distractor overlap across variants is {overlap_pct:.1f}% (required 0%)")
-    if norm_source and quote_pct < 90.0:
-        violations.append(f"Invariant 6 failed: source quote fidelity is {quote_pct:.1f}% (required >= 90%)")
-    if not substantive_passed:
-        violations.append("Substantive domain checks failed")
+    if norm_source and quote_pct < 95.0:
+        violations.append(f"Invariant 6 failed: full source quote fidelity is {quote_pct:.1f}% (required >= 95%)")
 
     passed = len(violations) == 0
-    verdict = "PASS" if passed else "FAIL"
-    quality_status = "verified" if passed else "needs_review"
+    structural_verdict = "PASS" if passed else "FAIL"
+
+    # NOTE: Never set verified on automated structural checks alone!
+    # Status is ALWAYS needs_review until methodologist or independent two-factor semantic review passes.
+    quality_status = "needs_review"
 
     metrics = QualityMetrics(
         total_cases=total_cases,
@@ -241,9 +231,8 @@ def validate_v3_course(
     )
 
     return ValidationReport(
-        verdict=verdict,
+        structural_verdict=structural_verdict,
         quality_status=quality_status,
         metrics=metrics,
         violations=violations,
-        substantive_check_passed=substantive_passed,
     )
