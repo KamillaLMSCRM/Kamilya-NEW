@@ -4,15 +4,18 @@
 Validates:
 1. Strict authoritative document verification (fail closed on missing, foreign, or invalid docs; no unbacked strings).
 2. Live concurrency collision with official editing routes/services:
-   - Concurrent mutation attempted during snapshot build is blocked by PostgreSQL row lock (55P03 timeout).
-   - Concurrent mutation attempted between hash validation and commit is blocked by PostgreSQL row lock (55P03 timeout).
-   - Concurrent mutation committed before resolve invalidates snapshot hash (409 Conflict).
+   - Concurrent block mutation during snapshot build is blocked by PostgreSQL row lock (55P03 timeout).
+   - Concurrent document update during snapshot build is blocked by PostgreSQL row lock (55P03 timeout).
+   - Concurrent block mutation between hash check and commit is blocked by PostgreSQL row lock (55P03 timeout).
+   - Concurrent document update between revision check and commit is blocked by PostgreSQL row lock (55P03 timeout).
+   - Post-commit author retry succeeds and is verified by independent readback.
+   - Concurrent block mutation committed before resolve invalidates snapshot hash (409 Conflict).
 3. Document revision modification collision: stale source revision rejected (409 Conflict).
 4. Methodologist resolution integrity: hold cleared, immutable resolution history preserved, and audit_logs written.
 5. Direct SQL RLS positive and negative matrix under runtime role `lms_app` (reads and writes denied across tenants).
 6. Cross-tenant API isolation returns 404 Not Found.
-7. Data safety proof: business table row counts and relation structure in `public` verified unchanged before and after.
-8. Independent verification of schema teardown and persistent sanitized execution receipt.
+7. Data safety proof: business table row counts AND cryptographic row-level content hashes in `public` verified unmutated.
+8. Independent verification of schema teardown readback and receipt integrity with Git commit binding.
 """
 
 from __future__ import annotations
@@ -24,6 +27,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import subprocess
 import sys
 from types import SimpleNamespace
 from typing import Any
@@ -64,11 +68,54 @@ TABLES = (
     "audit_logs",
 )
 
+REQUIRED_CHECKS = frozenset({
+    "initial_inspection_and_snapshot_hash_h1",
+    "race_mutation_during_snapshot_build_blocked_by_row_lock",
+    "race_document_update_during_snapshot_build_blocked_by_row_lock",
+    "race_mutation_between_hash_check_and_commit_blocked_by_row_lock",
+    "race_document_update_between_revision_check_and_commit_blocked_by_row_lock",
+    "post_commit_author_retry_applied_and_readback_verified",
+    "concurrent_modification_hash_mismatch_rejected_409",
+    "stale_document_revision_rejected_409",
+    "successful_resolution_hold_cleared_and_audit_logged",
+    "direct_sql_rls_positive_control_verified",
+    "direct_sql_rls_negative_read_write_matrix_verified",
+    "cross_tenant_isolation_api_verified_404",
+    "schema_teardown_independently_verified",
+    "public_business_table_counts_and_hashes_unmutated",
+})
+
 
 def qschema(value: str) -> str:
     if not SCHEMA_RE.fullmatch(value):
         raise GateBlocked("unsafe_uncertainty_schema")
     return f'"{value}"'
+
+
+def get_git_commit_sha() -> str:
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return proc.stdout.strip()
+    except Exception:
+        return "unknown"
+
+
+def get_git_branch() -> str:
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return proc.stdout.strip()
+    except Exception:
+        return "unknown"
 
 
 async def set_context(db: AsyncSession, schema: str, tenant_id: str = "") -> None:
@@ -82,8 +129,9 @@ async def set_context(db: AsyncSession, schema: str, tenant_id: str = "") -> Non
     )
 
 
-async def public_business_row_snapshot(connection: Any) -> dict[str, int]:
-    counts: dict[str, int] = {}
+async def public_business_row_snapshot(connection: Any) -> dict[str, dict[str, Any]]:
+    """Computes exact row count and cryptographic row content hash for every business table in public."""
+    results: dict[str, dict[str, Any]] = {}
     for table in TABLES:
         exists = await connection.scalar(
             text(
@@ -93,9 +141,16 @@ async def public_business_row_snapshot(connection: Any) -> dict[str, int]:
             {"name": table},
         )
         if exists:
-            cnt = await connection.scalar(text(f"SELECT count(*) FROM public.{table}"))
-            counts[table] = int(cnt)
-    return counts
+            row = (
+                await connection.execute(
+                    text(
+                        f"SELECT count(*), coalesce(md5(string_agg(md5(row_to_json(t)::text), '' ORDER BY t.id)), 'empty') "
+                        f"FROM public.{table} t"
+                    )
+                )
+            ).one()
+            results[table] = {"count": int(row[0]), "md5_content_hash": str(row[1])}
+    return results
 
 
 async def setup_schema(owner_url: str, runtime_url: str, supabase_url: str, schema: str):
@@ -114,7 +169,7 @@ async def setup_schema(owner_url: str, runtime_url: str, supabase_url: str, sche
             await verify_runtime_role(db)
         async with owner.begin() as db:
             before_structure = await public_snapshot(db)
-            before_counts = await public_business_row_snapshot(db)
+            before_counts_hashes = await public_business_row_snapshot(db)
             await db.execute(text(f"CREATE SCHEMA {qschema(schema)}"))
             created = True
             await db.execute(text(f"REVOKE ALL ON SCHEMA {qschema(schema)} FROM PUBLIC"))
@@ -287,7 +342,7 @@ async def setup_schema(owner_url: str, runtime_url: str, supabase_url: str, sche
             if before_structure != after_structure:
                 raise GateBlocked("public_snapshot_changed_during_setup")
 
-        return owner, runtime, fixtures, created, before_structure, before_counts
+        return owner, runtime, fixtures, created, before_structure, before_counts_hashes
     except Exception:
         cleanup_error = None
         if created:
@@ -305,7 +360,7 @@ async def setup_schema(owner_url: str, runtime_url: str, supabase_url: str, sche
 
 async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_url: str) -> dict[str, Any]:
     schema = f"uncertainty_{uuid4().hex[:12]}"
-    owner, runtime, fixtures, created, public_before_structure, public_before_counts = await setup_schema(
+    owner, runtime, fixtures, created, public_before_structure, public_before_counts_hashes = await setup_schema(
         owner_url, runtime_url, supabase_url, schema
     )
 
@@ -330,6 +385,10 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
     defect_desc = fixtures["defect_desc"]
 
     checks: list[str] = []
+    main_completed = False
+    main_error: Exception | None = None
+    failure_stage = "init"
+
     current_actor: dict[str, Any] = {
         "user": SimpleNamespace(
             id=actor_a,
@@ -394,6 +453,7 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
             # -------------------------------------------------------------
             # Stage 1: Inspect details & compute H1
             # -------------------------------------------------------------
+            failure_stage = "stage_1_initial_inspection"
             inspect_resp = await client.get(f"/courses/{course_a}/source-uncertainty")
             if inspect_resp.status_code != 200:
                 raise GateBlocked(f"initial_inspection_failed_{inspect_resp.status_code}:{inspect_resp.text}")
@@ -408,8 +468,7 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
             # -------------------------------------------------------------
             # Stage 2: RACE 1 - Mutation during snapshot build blocked by row lock
             # -------------------------------------------------------------
-            # Methodologist in Task 1 calls resolve. While snapshot is being assembled under row lock,
-            # concurrent author in Task 2 attempts official create_content_block.
+            failure_stage = "stage_2_race_during_snapshot_build"
             barrier_active_snapshot = True
             snapshot_started.clear()
             snapshot_resume.clear()
@@ -435,7 +494,7 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
             meth_task = asyncio.create_task(methodologist_resolve_during_snapshot())
             await asyncio.wait_for(snapshot_started.wait(), timeout=10.0)
 
-            # Task 2 (Author): Attempt official editing route/service while snapshot is building under row lock
+            # Concurrent action 2a: Author attempts official create_content_block under row lock
             author_blocked_during_snapshot = False
             async with AsyncSession(runtime, expire_on_commit=False) as author_session:
                 await set_context(author_session, schema, str(tenant_a))
@@ -458,6 +517,28 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
 
             if not author_blocked_during_snapshot:
                 raise GateBlocked("author_not_blocked_during_snapshot_build")
+            checks.append("race_mutation_during_snapshot_build_blocked_by_row_lock")
+
+            # Concurrent action 2b: Document update attempted during snapshot build under document row lock
+            doc_blocked_during_snapshot = False
+            async with AsyncSession(runtime, expire_on_commit=False) as doc_session_race1:
+                await set_context(doc_session_race1, schema, str(tenant_a))
+                await doc_session_race1.execute(text("SET LOCAL lock_timeout = '250ms'"))
+                try:
+                    await doc_session_race1.execute(
+                        text(f"UPDATE {qschema(schema)}.documents SET content_sha256 = :h WHERE id = :did"),
+                        {"did": doc_a, "h": "1" * 64},
+                    )
+                except DBAPIError as lock_exc:
+                    doc_blocked_during_snapshot = True
+                    if "canceling statement due to lock timeout" not in str(lock_exc).lower():
+                        raise GateBlocked(f"unexpected_doc_lock_error:{lock_exc}") from lock_exc
+                finally:
+                    await doc_session_race1.rollback()
+
+            if not doc_blocked_during_snapshot:
+                raise GateBlocked("doc_not_blocked_during_snapshot_build")
+            checks.append("race_document_update_during_snapshot_build_blocked_by_row_lock")
 
             # Release snapshot barrier to allow Methodologist Task 1 to complete
             barrier_active_snapshot = False
@@ -465,12 +546,12 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
             res_meth = await meth_task
             if res_meth.status_code != 200:
                 raise GateBlocked(f"meth_resolve_failed_after_barrier:{res_meth.status_code}:{res_meth.text}")
-            checks.append("race_mutation_during_snapshot_build_blocked_by_row_lock")
 
             # -------------------------------------------------------------
             # Stage 3: RACE 2 - Mutation between hash check and commit blocked by row lock
             # -------------------------------------------------------------
-            # Re-enable hold on course to test post-check pre-commit barrier
+            failure_stage = "stage_3_race_pre_commit"
+            # Reseed hold to test pre-commit barrier
             async with AsyncSession(runtime, expire_on_commit=False) as reseed_session:
                 await set_context(reseed_session, schema, str(tenant_a))
                 reseed_sa = {
@@ -487,7 +568,6 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
                 )
                 await reseed_session.commit()
 
-            # Refresh H1 for the reseeded state
             inspect_resp_reseed = await client.get(f"/courses/{course_a}/source-uncertainty")
             h1_reseeded = inspect_resp_reseed.json()["content_snapshot_hash"]
 
@@ -516,7 +596,7 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
             meth_task_2 = asyncio.create_task(methodologist_resolve_pre_commit())
             await asyncio.wait_for(pre_commit_reached.wait(), timeout=10.0)
 
-            # Task 2 (Author): Attempt official editing route/service right before commit under row lock
+            # Concurrent action 3a: Author attempts official update_content_block right before commit under row lock
             author_blocked_pre_commit = False
             async with AsyncSession(runtime, expire_on_commit=False) as author_session_2:
                 await set_context(author_session_2, schema, str(tenant_a))
@@ -537,6 +617,28 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
 
             if not author_blocked_pre_commit:
                 raise GateBlocked("author_not_blocked_between_hash_check_and_commit")
+            checks.append("race_mutation_between_hash_check_and_commit_blocked_by_row_lock")
+
+            # Concurrent action 3b: Document update attempted right before commit under document row lock
+            doc_blocked_pre_commit = False
+            async with AsyncSession(runtime, expire_on_commit=False) as doc_session_race2:
+                await set_context(doc_session_race2, schema, str(tenant_a))
+                await doc_session_race2.execute(text("SET LOCAL lock_timeout = '250ms'"))
+                try:
+                    await doc_session_race2.execute(
+                        text(f"UPDATE {qschema(schema)}.documents SET content_sha256 = :h WHERE id = :did"),
+                        {"did": doc_a, "h": "2" * 64},
+                    )
+                except DBAPIError as lock_exc:
+                    doc_blocked_pre_commit = True
+                    if "canceling statement due to lock timeout" not in str(lock_exc).lower():
+                        raise GateBlocked(f"unexpected_doc_pre_commit_lock_error:{lock_exc}") from lock_exc
+                finally:
+                    await doc_session_race2.rollback()
+
+            if not doc_blocked_pre_commit:
+                raise GateBlocked("doc_not_blocked_between_revision_check_and_commit")
+            checks.append("race_document_update_between_revision_check_and_commit_blocked_by_row_lock")
 
             # Release pre-commit barrier to let methodologist commit
             barrier_active_pre_commit = False
@@ -544,12 +646,34 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
             res_meth_2 = await meth_task_2
             if res_meth_2.status_code != 200:
                 raise GateBlocked(f"meth_resolve_2_failed_after_barrier:{res_meth_2.status_code}:{res_meth_2.text}")
-            checks.append("race_mutation_between_hash_check_and_commit_blocked_by_row_lock")
+
+            # Explicit post-commit retry of author update and independent readback
+            async with AsyncSession(runtime, expire_on_commit=False) as post_commit_author:
+                await set_context(post_commit_author, schema, str(tenant_a))
+                retry_block = await update_content_block(
+                    post_commit_author,
+                    blk_1,
+                    tenant_a,
+                    content="Author update successfully applied and committed after methodologist release",
+                )
+                if not retry_block:
+                    raise GateBlocked("post_commit_author_retry_returned_none")
+                await post_commit_author.commit()
+
+            async with AsyncSession(runtime, expire_on_commit=False) as readback_session:
+                await set_context(readback_session, schema, str(tenant_a))
+                readback_val = await readback_session.scalar(
+                    text(f"SELECT content FROM {qschema(schema)}.content_blocks WHERE id = :bid"),
+                    {"bid": blk_1},
+                )
+                if readback_val != "Author update successfully applied and committed after methodologist release":
+                    raise GateBlocked(f"post_commit_readback_mismatch:{readback_val}")
+            checks.append("post_commit_author_retry_applied_and_readback_verified")
 
             # -------------------------------------------------------------
             # Stage 4: Concurrent author modification committed before resolve -> H mismatch (409)
             # -------------------------------------------------------------
-            # Re-install hold for stale-hash verification
+            failure_stage = "stage_4_stale_hash_rejection"
             async with AsyncSession(runtime, expire_on_commit=False) as reseed_3:
                 await set_context(reseed_3, schema, str(tenant_a))
                 reseed_sa_3 = {
@@ -609,6 +733,7 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
             # -------------------------------------------------------------
             # Stage 5: Document Revision Modification Conflict (409)
             # -------------------------------------------------------------
+            failure_stage = "stage_5_stale_document_revision_rejection"
             new_doc_rev = "e" * 64
             async with AsyncSession(runtime, expire_on_commit=False) as doc_session:
                 await set_context(doc_session, schema, str(tenant_a))
@@ -643,7 +768,7 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
             # -------------------------------------------------------------
             # Stage 6: Methodologist Successful Resolution & Audit Logging
             # -------------------------------------------------------------
-            # Sync course analysis to new document revision 'e'*64
+            failure_stage = "stage_6_successful_resolution_and_audit"
             async with AsyncSession(runtime, expire_on_commit=False) as sync_session:
                 await set_context(sync_session, schema, str(tenant_a))
                 update_sa_sql = f"""
@@ -724,7 +849,7 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
             # -------------------------------------------------------------
             # Stage 7: Direct SQL RLS Positive & Negative Matrix under lms_app
             # -------------------------------------------------------------
-            # Positive control under Tenant A
+            failure_stage = "stage_7_direct_sql_rls"
             async with AsyncSession(runtime, expire_on_commit=False) as direct_a:
                 await set_context(direct_a, schema, str(tenant_a))
                 c_cnt = await direct_a.scalar(text(f"SELECT count(*) FROM {qschema(schema)}.courses WHERE id = :cid"), {"cid": course_a})
@@ -734,7 +859,6 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
                     raise GateBlocked("direct_rls_positive_control_failed")
             checks.append("direct_sql_rls_positive_control_verified")
 
-            # Negative matrix under Tenant B attempting to access Tenant A rows directly
             async with AsyncSession(runtime, expire_on_commit=False) as direct_b:
                 await set_context(direct_b, schema, str(tenant_b))
                 if await direct_b.scalar(text(f"SELECT count(*) FROM {qschema(schema)}.courses WHERE id = :cid"), {"cid": course_a}) != 0:
@@ -772,6 +896,7 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
             # -------------------------------------------------------------
             # Stage 8: Cross-Tenant Isolation via API (404)
             # -------------------------------------------------------------
+            failure_stage = "stage_8_cross_tenant_api"
             current_actor["user"] = SimpleNamespace(
                 id=actor_b,
                 tenant_id=tenant_b,
@@ -799,66 +924,133 @@ async def run_uncertainty_dev_gate(owner_url: str, runtime_url: str, supabase_ur
                 raise GateBlocked(f"foreign_tenant_resolve_not_404:{b_resolve.status_code}")
             checks.append("cross_tenant_isolation_api_verified_404")
 
+        # Mark main execution complete only when all in-flight checks have been performed
+        main_completed = True
+        failure_stage = "main_success"
         return {
             "status": "PASS",
             "schema": schema,
             "checks": checks,
             "verified_tests": len(checks),
         }
+    except Exception as exc:
+        main_error = exc
+        raise
     finally:
+        barrier_active_snapshot = False
+        barrier_active_pre_commit = False
+        snapshot_resume.set()
+        pre_commit_resume.set()
         source_uncertainty_module.compute_course_content_snapshot_hash = original_compute_hash
         audit_service_module.log_action = original_log_action
         if course_router_module:
             course_router_module.log_action = original_log_action
 
         cleanup_error = None
+        schema_dropped = False
+        public_structure_ok = False
+        public_counts_and_hashes_ok = False
+        public_after_counts_hashes: dict[str, dict[str, Any]] = {}
+
         try:
             async with owner.begin() as cleanup_db:
+                # Terminate any backends that might still be touching this schema
+                await cleanup_db.execute(
+                    text("""
+                        SELECT pg_terminate_backend(pid)
+                        FROM pg_stat_activity
+                        WHERE pid <> pg_backend_pid()
+                          AND query LIKE :q
+                    """),
+                    {"q": f"%{schema}%"},
+                )
                 await cleanup_db.execute(text(f"DROP SCHEMA IF EXISTS {qschema(schema)} CASCADE"))
         except Exception as exc:
             cleanup_error = exc
 
         # Independently verify schema disappearance
-        async with owner.connect() as check_conn:
-            schema_still_exists = await check_conn.scalar(
-                text("SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = :schema)"),
-                {"schema": schema},
-            )
-            if schema_still_exists:
-                raise GateBlocked("schema_not_dropped_after_cleanup")
-            checks.append("schema_teardown_independently_verified")
-
-        # Independently verify public relations and business row counts remain unmutated
-        async with owner.begin() as db:
-            public_after_structure = await public_snapshot(db)
-            if public_before_structure != public_after_structure:
-                raise GateBlocked("public_snapshot_mutated_after_test")
-            public_after_counts = await public_business_row_snapshot(db)
-            if public_before_counts != public_after_counts:
-                raise GateBlocked(
-                    f"public_business_rows_mutated_after_test: before={public_before_counts} after={public_after_counts}"
+        try:
+            async with owner.connect() as check_conn:
+                schema_still_exists = await check_conn.scalar(
+                    text("SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = :schema)"),
+                    {"schema": schema},
                 )
-            checks.append("public_business_table_counts_unmutated")
+                if schema_still_exists:
+                    cleanup_error = GateBlocked(f"schema_{schema}_still_exists_after_drop")
+                else:
+                    schema_dropped = True
+                    checks.append("schema_teardown_independently_verified")
+        except Exception as exc:
+            if cleanup_error is None:
+                cleanup_error = exc
+
+        # Independently verify public relations and row counts AND content hashes remain unmutated
+        try:
+            async with owner.begin() as db:
+                public_after_structure = await public_snapshot(db)
+                public_structure_ok = (public_before_structure == public_after_structure)
+
+                public_after_counts_hashes = await public_business_row_snapshot(db)
+                public_counts_and_hashes_ok = (public_before_counts_hashes == public_after_counts_hashes)
+
+                if not public_structure_ok:
+                    raise GateBlocked("public_structure_mutated_after_test")
+                if not public_counts_and_hashes_ok:
+                    raise GateBlocked(
+                        f"public_business_rows_mutated_after_test: before={public_before_counts_hashes} after={public_after_counts_hashes}"
+                    )
+                checks.append("public_business_table_counts_and_hashes_unmutated")
+        except Exception as exc:
+            if cleanup_error is None:
+                cleanup_error = exc
 
         await owner.dispose()
         await runtime.dispose()
 
-        # Persist sanitized durable execution receipt
+        # Strict integrity evaluation: PASS requires main_completed, no main_error, no cleanup_error,
+        # schema dropped verified, public verified unmutated, and all REQUIRED_CHECKS present.
+        checks_set = set(checks)
+        all_required_present = REQUIRED_CHECKS.issubset(checks_set)
+        overall_pass = (
+            main_completed
+            and (main_error is None)
+            and (cleanup_error is None)
+            and schema_dropped
+            and public_structure_ok
+            and public_counts_and_hashes_ok
+            and all_required_present
+        )
+        receipt_status = "PASS" if overall_pass else "BLOCKED"
+
+        # Persist durable sanitized execution receipt bound to Git commit SHA and script SHA
         try:
             evidence_dir = ROOT / ".release-evidence"
             evidence_dir.mkdir(parents=True, exist_ok=True)
             receipt_path = evidence_dir / "course-uncertainty-dev-gate-receipt.json"
+
+            script_path = Path(__file__).resolve()
+            script_sha = hashlib.sha256(script_path.read_bytes()).hexdigest()
+
             receipt_data = {
-                "status": "PASS" if cleanup_error is None else "BLOCKED",
+                "status": receipt_status,
                 "timestamp_utc": datetime.now(UTC).isoformat(),
                 "schema": schema,
+                "git_commit": get_git_commit_sha(),
+                "git_branch": get_git_branch(),
+                "script_path": str(script_path),
+                "script_sha256": script_sha,
                 "runtime_role": "lms_app",
                 "runtime_role_verified_non_bypass": True,
-                "checks": checks,
+                "checks": sorted(checks),
                 "verified_tests": len(checks),
-                "public_business_rows_verified_unmutated": True,
-                "public_business_table_counts": public_after_counts,
-                "schema_teardown_independently_verified": True,
+                "required_checks_complete": all_required_present,
+                "missing_checks": sorted(REQUIRED_CHECKS - checks_set),
+                "failure_stage": failure_stage if not overall_pass else None,
+                "main_error": safe_failure(main_error) if main_error is not None else None,
+                "cleanup_error": safe_failure(cleanup_error) if cleanup_error is not None else None,
+                "schema_teardown_independently_verified": schema_dropped,
+                "public_business_rows_verified_unmutated": public_counts_and_hashes_ok,
+                "public_business_table_counts_and_hashes": public_after_counts_hashes,
             }
             receipt_path.write_text(json.dumps(receipt_data, indent=2, sort_keys=True), encoding="utf-8")
         except Exception:

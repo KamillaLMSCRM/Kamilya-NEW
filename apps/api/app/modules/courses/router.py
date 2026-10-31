@@ -400,7 +400,7 @@ async def review_course(
 
 
 async def _extract_course_source_revisions(
-    db: AsyncSession, course: Course
+    db: AsyncSession, course: Course, *, for_update: bool = False
 ) -> tuple[list[str], dict[str, str], list[SourceDocumentRevisionInfo]]:
     """Gathers authoritative source revisions from DB Document records and enforces strict consistency.
 
@@ -485,12 +485,17 @@ async def _extract_course_source_revisions(
 
     # 5. Authoritative verification against Database Document records of the CURRENT TENANT
     if declared_docs:
-        docs_res = await db.execute(
-            select(Document).where(
+        docs_stmt = (
+            select(Document)
+            .where(
                 Document.id.in_(list(declared_docs.keys())),
                 Document.tenant_id == course.tenant_id,
             )
+            .order_by(Document.id)
         )
+        if for_update:
+            docs_stmt = docs_stmt.with_for_update()
+        docs_res = await db.execute(docs_stmt)
         found_docs: dict[UUID, Document] = {cast(UUID, doc.id): doc for doc in docs_res.scalars().all()}
 
         # Verify EVERY declared document exists in DB and belongs to the current tenant
@@ -678,7 +683,14 @@ async def resolve_course_source_uncertainty(
         raise HTTPException(status_code=404, detail="Course not found")
 
     try:
-        actual_hash = await compute_course_content_snapshot_hash(db, course)
+        available_revisions, authoritative_document_revisions, _ = await _extract_course_source_revisions(
+            db, course, for_update=True
+        )
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "source_uncertainty_resolution_rejected", "message": str(val_err)},
+        ) from val_err
     except Exception as exc:
         raise HTTPException(
             status_code=409,
@@ -689,12 +701,15 @@ async def resolve_course_source_uncertainty(
         ) from exc
 
     try:
-        available_revisions, authoritative_document_revisions, _ = await _extract_course_source_revisions(db, course)
-    except ValueError as val_err:
+        actual_hash = await compute_course_content_snapshot_hash(db, course)
+    except Exception as exc:
         raise HTTPException(
             status_code=409,
-            detail={"code": "source_uncertainty_resolution_rejected", "message": str(val_err)},
-        ) from val_err
+            detail={
+                "code": "course_snapshot_build_failed",
+                "message": "Не удалось сформировать полный снимок курса для проверки целостности. Пожалуйста, проверьте доступность структуры курса.",
+            },
+        ) from exc
 
     defect_payload = [d.model_dump() for d in req.defect_resolutions]
 
