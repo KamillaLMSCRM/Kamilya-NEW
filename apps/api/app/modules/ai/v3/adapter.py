@@ -111,10 +111,15 @@ def v3_course_to_generation_artifacts(
         modules=structure_modules,
     )
 
+    warnings: list[str] = []
+    if course.validation_report and course.validation_report.get("violations"):
+        warnings.extend(course.validation_report["violations"])
+
     content = CourseContent(
         title=course.title,
         description=structure.description,
         modules=content_modules,
+        source_warnings=warnings,
     )
 
     assessment = CourseAssessment(assessments=assessments)
@@ -125,6 +130,9 @@ def v3_course_to_generation_artifacts(
         "lessons_count": len(course.lessons),
         "assessments_count": len(assessments),
         "quality_verdict": course.quality_verdict,
+        "validation_report": course.validation_report,
+        "violations": warnings,
+        "requires_source_review": (course.quality_verdict != "verified"),
     }
 
     return GenerationArtifacts(

@@ -542,7 +542,15 @@ async def _run_v3_generation(
         ),
     )
 
-    state.server_source_review_required = False
+    requires_review = bool(
+        artifacts.diagnostics.get("requires_source_review", True)
+        or any(
+            lesson.requires_source_review()
+            for module in artifacts.content.modules
+            for lesson in module.lessons
+        )
+    )
+    state.server_source_review_required = requires_review
     state.structure = artifacts.structure
     state.content = artifacts.content
     state.assessment = artifacts.assessment

@@ -8,6 +8,7 @@ from app.modules.ai.v3.adapter import v3_course_to_generation_artifacts
 from app.modules.ai.v3.engine import V3GenerationPipeline
 from app.modules.ai.v3.models import (
     DistractorCategory,
+    DocumentRuleModel,
     RuleEntity,
     V3Course,
     V3Lesson,
@@ -472,6 +473,122 @@ def test_validate_v3_course_detects_invented_quote_and_missing_source():
     report_invented = validate_v3_course(course, source_document_text="Настоящий регламент содержит совершенно другой текст.")
     assert report_invented.verdict == "FAIL"
     assert any("Citation grounding failure" in v for v in report_invented.violations)
+
+
+def test_build_curriculum_groups_handles_colliding_titles_without_leak():
+    """Verify that curriculum grouping preserves 100% of rules even when titles and auto-parts collide."""
+    from app.modules.ai.v3.service import _build_curriculum_groups
+
+    # Section A has 7 rules (will split into Part 1 and Part 2)
+    rules_a = [
+        RuleEntity(rule_id=f"rule-a-{i}", section="Техника безопасности", title=f"Правило {i}", statement=f"Действие {i}")
+        for i in range(1, 8)
+    ]
+    # Section B has the EXACT colliding name "Техника безопасности (Часть 2)" with 3 rules
+    rules_b = [
+        RuleEntity(rule_id=f"rule-b-{i}", section="Техника безопасности (Часть 2)", title=f"Коллизия {i}", statement=f"Действие B{i}")
+        for i in range(1, 4)
+    ]
+    all_rules = tuple(rules_a + rules_b)
+    assert len(all_rules) == 10
+
+    rule_model = DocumentRuleModel(
+        document_title="Регламент с коллизиями",
+        document_sha256="fake-sha",
+        rules=all_rules,
+    )
+
+    groups = _build_curriculum_groups(rule_model)
+
+    # 1. Verify zero lost rules
+    allocated_ids = {r.rule_id for g in groups for r in g.primary_rules}
+    assert len(allocated_ids) == 10
+    assert allocated_ids == {r.rule_id for r in all_rules}
+
+    # 2. Verify unique group IDs
+    group_ids = [g.group_id for g in groups]
+    assert len(group_ids) == len(set(group_ids))
+    assert len(groups) == 3  # Section A part 1 (5 rules), Section A part 2 (2 rules), Section B (3 rules)
+
+
+def test_build_curriculum_groups_resolves_cross_rule_dependency_closure():
+    """Verify that prerequisite conditions from other sections are preserved in dependent groups."""
+    from app.modules.ai.v3.service import _build_curriculum_groups
+
+    rule_prereq = RuleEntity(
+        rule_id="rule-auth-required",
+        section="Раздел 1: Базовые принципы",
+        title="Обязательное разрешение руководителя",
+        statement="Любые нестандартные операции проводятся только при личном разрешении руководителя.",
+    )
+    rule_dependent = RuleEntity(
+        rule_id="rule-special-issuance",
+        section="Раздел 2: Специальные операции",
+        title="Выдача микрокредита с особыми условиями",
+        statement="Эксперт оформляет выдачу в соответствии с правилом rule-auth-required при обязательном разрешении руководителя.",
+    )
+
+    rule_model = DocumentRuleModel(
+        document_title="Регламент зависимостей",
+        document_sha256="fake-sha",
+        rules=(rule_prereq, rule_dependent),
+    )
+
+    groups = _build_curriculum_groups(rule_model)
+    assert len(groups) == 2
+
+    # Group 2 (Раздел 2) should include rule_prereq in context_prerequisite_rules
+    group_2 = next(g for g in groups if g.section == "Раздел 2: Специальные операции")
+    prereq_ids = {r.rule_id for r in group_2.context_prerequisite_rules}
+    assert "rule-auth-required" in prereq_ids
+
+
+def test_adapter_propagates_violations_and_review_flags():
+    """Verify that adapter propagates violations and review requirements to GenerationArtifacts."""
+    from app.modules.ai.v3.adapter import v3_course_to_generation_artifacts
+
+    variant = V3QuestionVariant(
+        variant_id="var-1",
+        branch_context="Филиал",
+        scenario_premise="Ситуация",
+        prompt="Вопрос?",
+        correct_option=V3Option(text="Верно", is_correct=True),
+        distractor_pool=(
+            V3Option(text="Ошибка 1", is_correct=False, distractor_category=DistractorCategory.PROCEDURAL_CONFUSION),
+            V3Option(text="Ошибка 2", is_correct=False, distractor_category=DistractorCategory.ROLE_CONFUSION),
+            V3Option(text="Ошибка 3", is_correct=False, distractor_category=DistractorCategory.TIMING_VIOLATION),
+        ),
+        explanation="Пояснение",
+        source_quote="Цитата",
+    )
+    case = V3ScenarioCase(case_id="c1", rule_id="r1", learning_objective="Цель", variants=(variant,))
+    lesson = V3Lesson(
+        lesson_id="l1",
+        title="Урок 1",
+        module_title="Модуль",
+        content="Текст",
+        covered_rule_ids=("r1",),
+        cases=(case,),
+        questions=(),
+    )
+    course = V3Course(
+        course_id="c1",
+        title="Курс",
+        document_sha256="abc",
+        lessons=(lesson,),
+        quality_verdict="needs_review",
+        validation_report={
+            "verdict": "FAIL",
+            "quality_status": "needs_review",
+            "violations": ["Critical semantic gap detected: requires methodologist signoff"],
+        },
+    )
+
+    artifacts = v3_course_to_generation_artifacts(course)
+    assert artifacts.diagnostics["requires_source_review"] is True
+    assert "Critical semantic gap detected: requires methodologist signoff" in artifacts.content.source_warnings
+    assert artifacts.content.modules[0].lessons[0].source_validation_status == "needs_review"
+
 
 
 

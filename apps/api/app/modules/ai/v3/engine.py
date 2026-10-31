@@ -74,20 +74,41 @@ class V3GenerationPipeline:
         lesson_theme: str,
         rules: list[RuleEntity],
         existing_lessons_summary: str = "",
+        prerequisite_rules: list[RuleEntity] | None = None,
+        audience: str = "",
+        purpose: str = "",
+        emphasis: tuple[str, ...] = (),
     ) -> V3Lesson:
         """Step 2 & 3: Co-generate Lesson Narrative paired directly with 4-option Scenario Questions."""
         rules_payload = [r.to_dict() for r in rules]
+        prereq_payload = [r.to_dict() for r in (prerequisite_rules or [])]
+
+        intent_header = []
+        if audience:
+            intent_header.append(f"ЦЕЛЕВАЯ АУДИТОРИЯ: {audience}")
+        if purpose:
+            intent_header.append(f"ЦЕЛЬ ОБУЧЕНИЯ: {purpose}")
+        if emphasis:
+            intent_header.append(f"КЛЮЧЕВЫЕ АКЦЕНТЫ: {', '.join(emphasis)}")
+
+        intent_block = ("\n".join(intent_header) + "\n\n") if intent_header else ""
+
+        user_content = (
+            f"{intent_block}"
+            f"МОДУЛЬ: {module_title}\n"
+            f"ТЕМА УРОКА: {lesson_theme}\n"
+            f"ПРЕДЫДУЩИЕ УРОКИ: {existing_lessons_summary or 'Первый урок курса'}\n\n"
+            f"ОСНОВНЫЕ ИЗУЧАЕМЫЕ ПРАВИЛА УРОКА:\n{json.dumps(rules_payload, ensure_ascii=False, indent=2)}"
+        )
+        if prereq_payload:
+            user_content += (
+                f"\n\nСВЯЗАННЫЕ ПРЕДПОСЫЛКИ И УСЛОВИЯ ИЗ ДРУГИХ РАЗДЕЛОВ (КОНТЕКСТ ДЛЯ ТОЧНОСТИ):\n"
+                f"{json.dumps(prereq_payload, ensure_ascii=False, indent=2)}"
+            )
+
         messages = [
             {"role": "system", "content": LESSON_COGEN_SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": (
-                    f"МОДУЛЬ: {module_title}\n"
-                    f"ТЕМА УРОКА: {lesson_theme}\n"
-                    f"ПРЕДЫДУЩИЕ УРОКИ: {existing_lessons_summary or 'Первый урок курса'}\n\n"
-                    f"НОРМАТИВНЫЕ ПРАВИЛА ДЛЯ УРОКА:\n{json.dumps(rules_payload, ensure_ascii=False, indent=2)}"
-                ),
-            },
+            {"role": "user", "content": user_content},
         ]
         raw = await self._call_llm(messages)
         cases: list[V3ScenarioCase] = []

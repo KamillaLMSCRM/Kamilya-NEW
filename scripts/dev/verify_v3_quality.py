@@ -102,7 +102,7 @@ def main() -> int:
     print(f"  4. Коэффициент симметрии длины ответа:   {m['length_bias_ratio_mean']} (норма: 0.80 - 1.25)")
     print(f"  5. Защита от шортката 'длинный ответ':   {m['longest_correct_percent']:.1f}% ({m['longest_correct_count']}/{m['total_variants']}, макс. 25.0%)")
     print(f"  6. Защита от списывания (overlap тестов): {m['anti_cheating_distractor_overlap_percent']:.1f}% (0 дубликатов между филиалами)")
-    print(f"  7. Подтверждение цитат в документе:      {m['source_quotes_found_percent']:.1f}% фактологическая точность")
+    print(f"  7. Дословное совпадение цитат в источнике: {m['source_quotes_found_percent']:.1f}% (буквальное вхождение)")
     print("-" * 60)
     print("РАСПРЕДЕЛЕНИЕ РЕАЛИСТИЧНЫХ ОШИБОК (ДИСТРАКТОРОВ):")
     for cat, count in m["distractor_category_breakdown"].items():
@@ -116,7 +116,7 @@ def main() -> int:
 
     print("=" * 60)
     if verdict == "PASS":
-        print("ВЕРДИКТ: КАЧЕСТВО ПОДТВЕРЖДЕНО НА 100% ПО ВСЕМ КРИТЕРИЯМ (PASS)")
+        print("ВЕРДИКТ: СТРУКТУРНАЯ ПРОВЕРКА ПРОЙДЕНА (PASS); СМЫСЛОВАЯ ПРОВЕРКА ТРЕБУЕТСЯ (NEEDS_REVIEW)")
     else:
         print(f"ВЕРДИКТ: ТРЕБУЕТСЯ ДОРАБОТКА (FAIL - {len(report['violations'])} нарушений)")
     print("=" * 60)

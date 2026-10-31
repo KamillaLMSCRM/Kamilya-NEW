@@ -45,6 +45,25 @@ class DocumentRuleModel:
 
 
 @dataclass(frozen=True)
+class CurriculumGroup:
+    """A distinct curriculum lesson group with stable ID, primary rules, and dependent context."""
+    group_id: str
+    display_title: str
+    section: str
+    primary_rules: tuple[RuleEntity, ...]
+    context_prerequisite_rules: tuple[RuleEntity, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "group_id": self.group_id,
+            "display_title": self.display_title,
+            "section": self.section,
+            "primary_rules": [r.to_dict() for r in self.primary_rules],
+            "context_prerequisite_rules": [r.to_dict() for r in self.context_prerequisite_rules],
+        }
+
+
+@dataclass(frozen=True)
 class V3Option:
     text: str
     is_correct: bool

@@ -13,7 +13,7 @@ from app.modules.ai.evidence_engine.application import GenerationArtifacts
 from app.modules.ai.evidence_engine.models import CourseIntent
 from app.modules.ai.v3.adapter import v3_course_to_generation_artifacts
 from app.modules.ai.v3.engine import V3GenerationPipeline
-from app.modules.ai.v3.models import DocumentRuleModel, RuleEntity, V3Course, V3Lesson
+from app.modules.ai.v3.models import CurriculumGroup, DocumentRuleModel, RuleEntity, V3Course, V3Lesson
 from app.modules.ai.v3.validator import validate_v3_course
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,105 @@ def _extract_corpus_text(corpus: DirectSourceCorpus) -> tuple[str, str]:
     full_text = "\n\n".join(text_parts)
     sha256 = hashlib.sha256(full_text.encode("utf-8")).hexdigest()
     return full_text, sha256
+
+
+def _build_curriculum_groups(rule_model: DocumentRuleModel) -> list[CurriculumGroup]:
+    """Builds resilient curriculum groups with unique stable IDs and dependency closures.
+
+    Guarantees:
+    1. Zero rule leak: all rules from rule_model are allocated without omission.
+    2. Identical section names or auto-split chunk names never overwrite each other (stores in a list).
+    3. Rules with cross-references receive their dependent prerequisite rules in context.
+    """
+    section_map: dict[str, list[RuleEntity]] = {}
+    for r in rule_model.rules:
+        sec = r.section.strip() if r.section.strip() else "Основные правила"
+        section_map.setdefault(sec, []).append(r)
+
+    groups: list[CurriculumGroup] = []
+    group_counter = 1
+
+    for sec, r_list in section_map.items():
+        if len(r_list) <= 6:
+            groups.append(
+                CurriculumGroup(
+                    group_id=f"cg-{group_counter:03d}",
+                    display_title=sec,
+                    section=sec,
+                    primary_rules=tuple(r_list),
+                )
+            )
+            group_counter += 1
+        else:
+            for chunk_idx in range(0, len(r_list), 5):
+                chunk = r_list[chunk_idx : chunk_idx + 5]
+                part_title = f"{sec} (Часть {chunk_idx // 5 + 1})" if chunk_idx > 0 else sec
+                groups.append(
+                    CurriculumGroup(
+                        group_id=f"cg-{group_counter:03d}",
+                        display_title=part_title,
+                        section=sec,
+                        primary_rules=tuple(chunk),
+                    )
+                )
+                group_counter += 1
+
+    if not groups and rule_model.rules:
+        groups.append(
+            CurriculumGroup(
+                group_id="cg-001",
+                display_title="Основные стандарты",
+                section="Все правила",
+                primary_rules=tuple(rule_model.rules),
+            )
+        )
+
+    # Invariant: Verify zero rule leak
+    allocated_rule_ids = {r.rule_id for g in groups for r in g.primary_rules}
+    all_rule_ids = {r.rule_id for r in rule_model.rules}
+    missing = all_rule_ids - allocated_rule_ids
+    if missing:
+        missing_entities = tuple(r for r in rule_model.rules if r.rule_id in missing)
+        groups.append(
+            CurriculumGroup(
+                group_id=f"cg-{group_counter:03d}",
+                display_title="Дополнительные нормативные требования",
+                section="Прочее",
+                primary_rules=missing_entities,
+            )
+        )
+
+    # Hard invariant: zero lost rules
+    final_allocated = {r.rule_id for g in groups for r in g.primary_rules}
+    assert final_allocated == all_rule_ids, f"Rule leak detected! Missing: {all_rule_ids - final_allocated}"
+
+    # Build Dependency Closure across groups
+    all_rules_by_id = {r.rule_id: r for r in rule_model.rules}
+    groups_with_dependencies: list[CurriculumGroup] = []
+
+    for g in groups:
+        prereqs: list[RuleEntity] = []
+        primary_ids = {r.rule_id for r in g.primary_rules}
+
+        # Check conditions, exceptions, and statement text for cross-references
+        for r in g.primary_rules:
+            combined_text = f"{r.statement} {' '.join(r.conditions)} {' '.join(r.exceptions)}".lower()
+            for other_id, other_rule in all_rules_by_id.items():
+                if other_id not in primary_ids and other_id not in {p.rule_id for p in prereqs}:
+                    if other_id.lower() in combined_text or (other_rule.title.lower() in combined_text and len(other_rule.title) > 6):
+                        prereqs.append(other_rule)
+
+        groups_with_dependencies.append(
+            CurriculumGroup(
+                group_id=g.group_id,
+                display_title=g.display_title,
+                section=g.section,
+                primary_rules=g.primary_rules,
+                context_prerequisite_rules=tuple(prereqs),
+            )
+        )
+
+    return groups_with_dependencies
 
 
 async def generate_v3_course_from_corpus(
@@ -81,49 +180,51 @@ async def generate_v3_course_from_corpus(
     if cancellation_callback:
         await cancellation_callback()
 
-    # Stage 2: Dynamically group rules into didactic curriculum blocks by document section
-    section_groups: dict[str, list[RuleEntity]] = {}
-    for r in rule_model.rules:
-        sec = r.section.strip() if r.section.strip() else "Основные правила"
-        section_groups.setdefault(sec, []).append(r)
-
-    # Balance curriculum blocks: ensure each lesson covers 3 to 6 closely related rules
-    active_groups: dict[str, list[RuleEntity]] = {}
-    for sec, r_list in section_groups.items():
-        if len(r_list) <= 6:
-            active_groups[sec] = r_list
-        else:
-            for chunk_idx in range(0, len(r_list), 5):
-                chunk = r_list[chunk_idx : chunk_idx + 5]
-                part_title = f"{sec} (Часть {chunk_idx // 5 + 1})" if chunk_idx > 0 else sec
-                active_groups[part_title] = chunk
-
-    # Fallback to single group if no sections defined
-    if not active_groups:
-        active_groups["Общие операционные стандарты"] = list(rule_model.rules)
-
-    total_lessons = len(active_groups)
+    # Stage 2: Resilient curriculum grouping with unique group IDs and dependency closures
+    curriculum_groups = _build_curriculum_groups(rule_model)
+    total_lessons = len(curriculum_groups)
 
     generated_lessons: list[V3Lesson] = []
+    semantic_reviews: dict[str, Any] = {}
     lessons_summary = ""
 
     # Stage 3: Co-generate each lesson paired with assessment cases
-    for idx, (theme, rules) in enumerate(active_groups.items(), 1):
+    for idx, group in enumerate(curriculum_groups, 1):
         if cancellation_callback:
             await cancellation_callback()
 
         if progress_callback:
             await progress_callback("realization", idx + 1, total_lessons + 1, getattr(generation_client, "name", "llm"), 1)
 
-        logger.info("V3 Engine: Step 2 - Generating lesson %d/%d: %s (%d rules)", idx, total_lessons, theme, len(rules))
+        logger.info(
+            "V3 Engine: Step 2 - Generating lesson %d/%d (%s): %s (%d primary rules, %d context prereqs)",
+            idx,
+            total_lessons,
+            group.group_id,
+            group.display_title,
+            len(group.primary_rules),
+            len(group.context_prerequisite_rules),
+        )
         lesson = await pipeline.generate_lesson_with_scenarios(
             module_title=first_title,
-            lesson_theme=theme,
-            rules=rules,
+            lesson_theme=group.display_title,
+            rules=list(group.primary_rules),
             existing_lessons_summary=lessons_summary,
+            prerequisite_rules=list(group.context_prerequisite_rules),
+            audience=intent.audience,
+            purpose=intent.purpose,
+            emphasis=intent.emphasis,
         )
         generated_lessons.append(lesson)
         lessons_summary += f"\n- {lesson.title}: {lesson.content[:150]}..."
+
+        # Stage 4: Run Two-Factor semantic review
+        try:
+            review_rules = list(group.primary_rules) + list(group.context_prerequisite_rules)
+            review_res = await pipeline.review_lesson(lesson, review_rules)
+            semantic_reviews[lesson.lesson_id] = review_res
+        except Exception as review_err:
+            logger.warning("V3 Engine: Two-factor semantic review skipped due to error: %s", review_err)
 
     unvalidated_course = V3Course(
         course_id=f"course-v3-{doc_sha[:12]}",
@@ -145,13 +246,16 @@ async def generate_v3_course_from_corpus(
     else:
         logger.info("V3 Course Quality Gate passed all structural invariants (verdict=%s)", report.structural_verdict)
 
+    validation_payload = report.to_dict()
+    validation_payload["semantic_reviews"] = semantic_reviews
+
     course = V3Course(
         course_id=unvalidated_course.course_id,
         title=unvalidated_course.title,
         document_sha256=unvalidated_course.document_sha256,
         lessons=unvalidated_course.lessons,
         quality_verdict=quality_verdict,
-        validation_report=report.to_dict(),
+        validation_report=validation_payload,
     )
 
     if progress_callback:
